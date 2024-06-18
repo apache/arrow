@@ -14,14 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.holders;
 
 import org.apache.arrow.vector.complex.reader.FieldReader;
 
-/**
- * Represents a single value of a complex type (e.g. Union, Struct).
- */
+/** Represents a single value of a complex type (e.g. Union, Struct). */
 public class ComplexHolder implements ValueHolder {
   public FieldReader reader;
   public int isSet;

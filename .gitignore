@@ -102,8 +102,8 @@ __debug_bin
 .envrc
 
 # Develocity
-.mvn/.gradle-enterprise/
-.mvn/.develocity/
+java/.mvn/.gradle-enterprise/
+java/.mvn/.develocity/
 
 # rat
 filtered_rat.txt

@@ -14,9 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight;
 
+import io.grpc.stub.CallStreamObserver;
 import org.apache.arrow.flight.grpc.StatusUtils;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.util.Preconditions;
@@ -25,11 +25,7 @@ import org.apache.arrow.vector.VectorUnloader;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.message.IpcOption;
 
-import io.grpc.stub.CallStreamObserver;
-
-/**
- * A base class for writing Arrow data to a Flight stream.
- */
+/** A base class for writing Arrow data to a Flight stream. */
 abstract class OutboundStreamListenerImpl implements OutboundStreamListener {
   private final FlightDescriptor descriptor; // nullable
   protected final CallStreamObserver<ArrowMessage> responseObserver;
@@ -37,7 +33,8 @@ abstract class OutboundStreamListenerImpl implements OutboundStreamListener {
   protected IpcOption option; // null until stream started
   protected boolean tryZeroCopy = ArrowMessage.ENABLE_ZERO_COPY_WRITE;
 
-  OutboundStreamListenerImpl(FlightDescriptor descriptor, CallStreamObserver<ArrowMessage> responseObserver) {
+  OutboundStreamListenerImpl(
+      FlightDescriptor descriptor, CallStreamObserver<ArrowMessage> responseObserver) {
     Preconditions.checkNotNull(responseObserver, "responseObserver must be provided");
     this.descriptor = descriptor;
     this.responseObserver = responseObserver;
@@ -58,13 +55,15 @@ abstract class OutboundStreamListenerImpl implements OutboundStreamListener {
   public void start(VectorSchemaRoot root, DictionaryProvider dictionaries, IpcOption option) {
     this.option = option;
     try {
-      DictionaryUtils.generateSchemaMessages(root.getSchema(), descriptor, dictionaries, option,
-          responseObserver::onNext);
+      DictionaryUtils.generateSchemaMessages(
+          root.getSchema(), descriptor, dictionaries, option, responseObserver::onNext);
     } catch (RuntimeException e) {
-      // Propagate runtime exceptions, like those raised when trying to write unions with V4 metadata
+      // Propagate runtime exceptions, like those raised when trying to write unions with V4
+      // metadata
       throw e;
     } catch (Exception e) {
-      // Only happens if closing buffers somehow fails - indicates application is an unknown state so propagate
+      // Only happens if closing buffers somehow fails - indicates application is an unknown state
+      // so propagate
       // the exception
       throw new RuntimeException("Could not generate and send all schema messages", e);
     }
@@ -87,19 +86,27 @@ abstract class OutboundStreamListenerImpl implements OutboundStreamListener {
   @Override
   public void putNext(ArrowBuf metadata) {
     if (unloader == null) {
-      throw CallStatus.INTERNAL.withDescription("Stream was not started, call start()").toRuntimeException();
+      throw CallStatus.INTERNAL
+          .withDescription("Stream was not started, call start()")
+          .toRuntimeException();
     }
 
     waitUntilStreamReady();
-    // close is a no-op if the message has been written to gRPC, otherwise frees the associated buffers
-    // in some code paths (e.g. if the call is cancelled), gRPC does not write the message, so we need to clean up
-    // ourselves. Normally, writing the ArrowMessage will transfer ownership of the data to gRPC/Netty.
-    try (final ArrowMessage message = new ArrowMessage(unloader.getRecordBatch(), metadata, tryZeroCopy, option)) {
+    // close is a no-op if the message has been written to gRPC, otherwise frees the associated
+    // buffers
+    // in some code paths (e.g. if the call is cancelled), gRPC does not write the message, so we
+    // need to clean up
+    // ourselves. Normally, writing the ArrowMessage will transfer ownership of the data to
+    // gRPC/Netty.
+    try (final ArrowMessage message =
+        new ArrowMessage(unloader.getRecordBatch(), metadata, tryZeroCopy, option)) {
       responseObserver.onNext(message);
     } catch (Exception e) {
       // This exception comes from ArrowMessage#close, not responseObserver#onNext.
-      // Generally this should not happen - ArrowMessage's implementation only closes non-throwing things.
-      // The user can't reasonably do anything about this, but if something does throw, we shouldn't let
+      // Generally this should not happen - ArrowMessage's implementation only closes non-throwing
+      // things.
+      // The user can't reasonably do anything about this, but if something does throw, we shouldn't
+      // let
       // execution continue since other state (e.g. allocators) may be in an odd state.
       throw new RuntimeException("Could not free ArrowMessage", e);
     }

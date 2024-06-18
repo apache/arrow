@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc.h2;
 
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertVarcharVectorValues;
@@ -28,8 +27,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Arrays;
 import java.util.Calendar;
-import java.util.Collection;
-
+import java.util.stream.Stream;
 import org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowConfig;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowConfigBuilder;
@@ -40,17 +38,14 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameters;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * JUnit Test Class which contains methods to test JDBC to Arrow data conversion functionality with UTF-8 Charset,
- * including the multi-byte CJK characters for H2 database.
+ * JUnit Test Class which contains methods to test JDBC to Arrow data conversion functionality with
+ * UTF-8 Charset, including the multi-byte CJK characters for H2 database.
  */
-@RunWith(Parameterized.class)
 public class JdbcToArrowCharSetTest extends AbstractJdbcToArrowTest {
 
   private static final String[] testFiles = {
@@ -60,29 +55,15 @@ public class JdbcToArrowCharSetTest extends AbstractJdbcToArrowTest {
     "h2/test1_charset_kr_h2.yml"
   };
 
-  /**
-   * Constructor which populates the table object for each test iteration.
-   *
-   * @param table Table oject
-   */
-  public JdbcToArrowCharSetTest(Table table) {
-    this.table = table;
-  }
-
-  /**
-   * This method creates Connection object and DB table and also populate data into table for test.
-   *
-   * @throws SQLException on error
-   * @throws ClassNotFoundException on error
-   */
-  @Before
   @Override
-  public void setUp() throws SQLException, ClassNotFoundException {
+  public void initializeDatabase(Table table) throws SQLException, ClassNotFoundException {
+    this.table = table;
+
     String url = "jdbc:h2:mem:JdbcToArrowTest?characterEncoding=UTF-8";
     String driver = "org.h2.Driver";
     Class.forName(driver);
     conn = DriverManager.getConnection(url);
-    try (Statement stmt = conn.createStatement();) {
+    try (Statement stmt = conn.createStatement(); ) {
       stmt.executeUpdate(table.getCreate());
       for (String insert : table.getData()) {
         stmt.executeUpdate(insert);
@@ -98,40 +79,66 @@ public class JdbcToArrowCharSetTest extends AbstractJdbcToArrowTest {
    * @throws ClassNotFoundException on error
    * @throws IOException on error
    */
-  @Parameters
-  public static Collection<Object[]> getTestData() throws SQLException, ClassNotFoundException, IOException {
-    return Arrays.asList(prepareTestData(testFiles, JdbcToArrowCharSetTest.class));
+  public static Stream<Arguments> getTestData()
+      throws SQLException, ClassNotFoundException, IOException {
+    return Arrays.stream(prepareTestData(testFiles, JdbcToArrowCharSetTest.class))
+        .map(Arguments::of);
   }
 
   /**
-   * Test Method to test JdbcToArrow Functionality for various H2 DB based datatypes with UTF-8 Charset, including
-   * the multi-byte CJK characters.
+   * Test Method to test JdbcToArrow Functionality for various H2 DB based datatypes with UTF-8
+   * Charset, including the multi-byte CJK characters.
    */
-  @Test
-  @Override
-  public void testJdbcToArrowValues() throws SQLException, IOException {
-    testDataSets(sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE),
-        Calendar.getInstance()), false);
+  @ParameterizedTest
+  @MethodSource("getTestData")
+  public void testJdbcToArrowValues(Table table)
+      throws SQLException, IOException, ClassNotFoundException {
+    this.initializeDatabase(table);
+
+    testDataSets(
+        sqlToArrow(
+            conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance()),
+        false);
     testDataSets(sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE)), false);
-    testDataSets(sqlToArrow(conn.createStatement().executeQuery(table.getQuery()),
-        new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance()), false);
+    testDataSets(
+        sqlToArrow(
+            conn.createStatement().executeQuery(table.getQuery()),
+            new RootAllocator(Integer.MAX_VALUE),
+            Calendar.getInstance()),
+        false);
     testDataSets(sqlToArrow(conn.createStatement().executeQuery(table.getQuery())), false);
-    testDataSets(sqlToArrow(conn.createStatement().executeQuery(table.getQuery()),
-        new RootAllocator(Integer.MAX_VALUE)), false);
-    testDataSets(sqlToArrow(conn.createStatement().executeQuery(table.getQuery()),
-        Calendar.getInstance()), false);
-    testDataSets(sqlToArrow(
-        conn.createStatement().executeQuery(table.getQuery()),
-        new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance()).build()), false);
-    testDataSets(sqlToArrow(
-        conn,
-        table.getQuery(),
-        new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance()).build()), false);
+    testDataSets(
+        sqlToArrow(
+            conn.createStatement().executeQuery(table.getQuery()),
+            new RootAllocator(Integer.MAX_VALUE)),
+        false);
+    testDataSets(
+        sqlToArrow(conn.createStatement().executeQuery(table.getQuery()), Calendar.getInstance()),
+        false);
+    testDataSets(
+        sqlToArrow(
+            conn.createStatement().executeQuery(table.getQuery()),
+            new JdbcToArrowConfigBuilder(
+                    new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance())
+                .build()),
+        false);
+    testDataSets(
+        sqlToArrow(
+            conn,
+            table.getQuery(),
+            new JdbcToArrowConfigBuilder(
+                    new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance())
+                .build()),
+        false);
   }
 
-  @Test
-  public void testJdbcSchemaMetadata() throws SQLException {
-    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(new RootAllocator(0), Calendar.getInstance(), true).build();
+  @ParameterizedTest
+  @MethodSource("getTestData")
+  public void testJdbcSchemaMetadata(Table table) throws SQLException, ClassNotFoundException {
+    this.initializeDatabase(table);
+
+    JdbcToArrowConfig config =
+        new JdbcToArrowConfigBuilder(new RootAllocator(0), Calendar.getInstance(), true).build();
     ResultSetMetaData rsmd = conn.createStatement().executeQuery(table.getQuery()).getMetaData();
     Schema schema = JdbcToArrowUtils.jdbcToArrowSchema(rsmd, config);
     JdbcToArrowTestHelper.assertFieldMetadataMatchesResultSetMetadata(rsmd, schema);
@@ -141,20 +148,26 @@ public class JdbcToArrowCharSetTest extends AbstractJdbcToArrowTest {
    * This method calls the assert methods for various DataSets.
    *
    * @param root VectorSchemaRoot for test
-   * @param isIncludeMapVector is this dataset checks includes map column.
-   *          Jdbc type to 'map' mapping declared in configuration only manually
+   * @param isIncludeMapVector is this dataset checks includes map column. Jdbc type to 'map'
+   *     mapping declared in configuration only manually
    */
   @Override
   public void testDataSets(VectorSchemaRoot root, boolean isIncludeMapVector) {
     JdbcToArrowTestHelper.assertFieldMetadataIsEmpty(root);
 
-    assertVarcharVectorValues((VarCharVector) root.getVector(CLOB), table.getRowCount(),
+    assertVarcharVectorValues(
+        (VarCharVector) root.getVector(CLOB),
+        table.getRowCount(),
         getCharArrayWithCharSet(table.getValues(), CLOB, StandardCharsets.UTF_8));
 
-    assertVarcharVectorValues((VarCharVector) root.getVector(VARCHAR), table.getRowCount(),
+    assertVarcharVectorValues(
+        (VarCharVector) root.getVector(VARCHAR),
+        table.getRowCount(),
         getCharArrayWithCharSet(table.getValues(), VARCHAR, StandardCharsets.UTF_8));
 
-    assertVarcharVectorValues((VarCharVector) root.getVector(CHAR), table.getRowCount(),
+    assertVarcharVectorValues(
+        (VarCharVector) root.getVector(CHAR),
+        table.getRowCount(),
         getCharArrayWithCharSet(table.getValues(), CHAR, StandardCharsets.UTF_8));
   }
 }

@@ -14,21 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.gandiva.evaluator;
 
 import org.apache.arrow.vector.types.pojo.ArrowType.Decimal;
 
-/**
- * Utility methods for working with {@link Decimal} values.
- */
+/** Utility methods for working with {@link Decimal} values. */
 public class DecimalTypeUtil {
-  private DecimalTypeUtil() {
-  }
+  private DecimalTypeUtil() {}
 
-  /**
-   * Enum for supported mathematical operations.
-   */
+  /** Enum for supported mathematical operations. */
   public enum OperationType {
     ADD,
     SUBTRACT,
@@ -41,11 +35,9 @@ public class DecimalTypeUtil {
   /// The maximum precision representable by a 16-byte decimal
   private static final int MAX_PRECISION = 38;
 
-  /**
-   * Determines the scale and precision of applying the given operation to the operands.
-   */
-  public static Decimal getResultTypeForOperation(OperationType operation, Decimal operand1, Decimal
-          operand2) {
+  /** Determines the scale and precision of applying the given operation to the operands. */
+  public static Decimal getResultTypeForOperation(
+      OperationType operation, Decimal operand1, Decimal operand2) {
     int s1 = operand1.getScale();
     int s2 = operand2.getScale();
     int p1 = operand1.getPrecision();
@@ -56,8 +48,12 @@ public class DecimalTypeUtil {
       case ADD:
       case SUBTRACT:
         resultScale = Math.max(operand1.getScale(), operand2.getScale());
-        resultPrecision = resultScale + Math.max(operand1.getPrecision() - operand1.getScale(),
-                operand2.getPrecision() - operand2.getScale()) + 1;
+        resultPrecision =
+            resultScale
+                + Math.max(
+                    operand1.getPrecision() - operand1.getScale(),
+                    operand2.getPrecision() - operand2.getScale())
+                + 1;
         break;
       case MULTIPLY:
         resultScale = s1 + s2;
@@ -65,15 +61,17 @@ public class DecimalTypeUtil {
         break;
       case DIVIDE:
         resultScale =
-                Math.max(MIN_ADJUSTED_SCALE, operand1.getScale() + operand2.getPrecision() + 1);
+            Math.max(MIN_ADJUSTED_SCALE, operand1.getScale() + operand2.getPrecision() + 1);
         resultPrecision =
-                operand1.getPrecision() - operand1.getScale() + operand2.getScale() + resultScale;
+            operand1.getPrecision() - operand1.getScale() + operand2.getScale() + resultScale;
         break;
       case MOD:
         resultScale = Math.max(operand1.getScale(), operand2.getScale());
-        resultPrecision = Math.min(operand1.getPrecision() - operand1.getScale(),
-                                    operand2.getPrecision() - operand2.getScale()) +
-                           resultScale;
+        resultPrecision =
+            Math.min(
+                    operand1.getPrecision() - operand1.getScale(),
+                    operand2.getPrecision() - operand2.getScale())
+                + resultScale;
         break;
       default:
         throw new RuntimeException("Needs support");
@@ -90,6 +88,4 @@ public class DecimalTypeUtil {
     }
     return new Decimal(precision, scale, 128);
   }
-
 }
-

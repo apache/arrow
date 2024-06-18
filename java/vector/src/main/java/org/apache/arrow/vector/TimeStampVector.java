@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
@@ -26,16 +25,15 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
 /**
- * TimeStampVector is an abstract interface for fixed width vector (8 bytes)
- * of timestamp values which could be null. A validity buffer (bit vector) is
- * maintained to track which elements in the vector are null.
+ * TimeStampVector is an abstract interface for fixed width vector (8 bytes) of timestamp values
+ * which could be null. A validity buffer (bit vector) is maintained to track which elements in the
+ * vector are null.
  */
 public abstract class TimeStampVector extends BaseFixedWidthVector {
   public static final byte TYPE_WIDTH = 8;
 
   /**
-   * Instantiate a TimeStampVector. This doesn't allocate any memory for
-   * the data in vector.
+   * Instantiate a TimeStampVector. This doesn't allocate any memory for the data in vector.
    *
    * @param name name of the vector
    * @param fieldType type of Field materialized by this vector
@@ -46,8 +44,7 @@ public abstract class TimeStampVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Instantiate a TimeStampVector. This doesn't allocate any memory for
-   * the data in vector.
+   * Instantiate a TimeStampVector. This doesn't allocate any memory for the data in vector.
    *
    * @param field field materialized by this vector
    * @param allocator allocator for memory management.
@@ -56,17 +53,16 @@ public abstract class TimeStampVector extends BaseFixedWidthVector {
     super(field, allocator, TYPE_WIDTH);
   }
 
-
   /*----------------------------------------------------------------*
-   |                                                                |
-   |          vector value retrieval methods                        |
-   |                                                                |
-   *----------------------------------------------------------------*/
+  |                                                                |
+  |          vector value retrieval methods                        |
+  |                                                                |
+  *----------------------------------------------------------------*/
 
   /**
    * Get the element at the given index from the vector.
    *
-   * @param index   position of element
+   * @param index position of element
    * @return element at given index
    */
   public long get(int index) throws IllegalStateException {
@@ -76,13 +72,11 @@ public abstract class TimeStampVector extends BaseFixedWidthVector {
     return valueBuffer.getLong((long) index * TYPE_WIDTH);
   }
 
-
   /*----------------------------------------------------------------*
-   |                                                                |
-   |          vector value setter methods                           |
-   |                                                                |
-   *----------------------------------------------------------------*/
-
+  |                                                                |
+  |          vector value setter methods                           |
+  |                                                                |
+  *----------------------------------------------------------------*/
 
   protected void setValue(int index, long value) {
     valueBuffer.setLong((long) index * TYPE_WIDTH, value);
@@ -91,8 +85,8 @@ public abstract class TimeStampVector extends BaseFixedWidthVector {
   /**
    * Set the element at the given index to the given value.
    *
-   * @param index   position of element
-   * @param value   value of element
+   * @param index position of element
+   * @param value value of element
    */
   public void set(int index, long value) {
     BitVectorHelper.setBit(validityBuffer, index);
@@ -100,12 +94,11 @@ public abstract class TimeStampVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Same as {@link #set(int, long)} except that it handles the
-   * case when index is greater than or equal to existing
-   * value capacity {@link #getValueCapacity()}.
+   * Same as {@link #set(int, long)} except that it handles the case when index is greater than or
+   * equal to existing value capacity {@link #getValueCapacity()}.
    *
-   * @param index   position of element
-   * @param value   value of element
+   * @param index position of element
+   * @param value value of element
    */
   public void setSafe(int index, long value) {
     handleSafe(index);
@@ -113,8 +106,8 @@ public abstract class TimeStampVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Store the given value at a particular position in the vector. isSet indicates
-   * whether the value is NULL or not.
+   * Store the given value at a particular position in the vector. isSet indicates whether the value
+   * is NULL or not.
    *
    * @param index position of the new value
    * @param isSet 0 for NULL value, 1 otherwise
@@ -129,9 +122,8 @@ public abstract class TimeStampVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Same as {@link #set(int, int, long)} except that it handles the case
-   * when index is greater than or equal to current value capacity of the
-   * vector.
+   * Same as {@link #set(int, int, long)} except that it handles the case when index is greater than
+   * or equal to current value capacity of the vector.
    *
    * @param index position of the new value
    * @param isSet 0 for NULL value, 1 otherwise
@@ -143,8 +135,7 @@ public abstract class TimeStampVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Given a data buffer, get the value stored at a particular position
-   * in the vector.
+   * Given a data buffer, get the value stored at a particular position in the vector.
    *
    * <p>This method should not be used externally.
    *
@@ -156,17 +147,13 @@ public abstract class TimeStampVector extends BaseFixedWidthVector {
     return buffer.getLong((long) index * TYPE_WIDTH);
   }
 
-
   /*----------------------------------------------------------------*
-   |                                                                |
-   |                      vector transfer                           |
-   |                                                                |
-   *----------------------------------------------------------------*/
+  |                                                                |
+  |                      vector transfer                           |
+  |                                                                |
+  *----------------------------------------------------------------*/
 
-
-  /**
-   * {@link TransferPair} for {@link TimeStampVector}.
-   */
+  /** {@link TransferPair} for {@link TimeStampVector}. */
   public class TransferImpl implements TransferPair {
     TimeStampVector to;
 

@@ -14,12 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 import java.util.Collections;
 import java.util.Iterator;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.ReferenceManager;
@@ -30,13 +28,13 @@ import org.apache.arrow.vector.util.TransferPair;
 import org.apache.arrow.vector.util.ValueVectorUtility;
 
 /**
- * Base class for other Arrow Vector Types.  Provides basic functionality around
- * memory management.
+ * Base class for other Arrow Vector Types. Provides basic functionality around memory management.
  */
 public abstract class BaseValueVector implements ValueVector {
 
   public static final String MAX_ALLOCATION_SIZE_PROPERTY = "arrow.vector.max_allocation_bytes";
-  public static final long MAX_ALLOCATION_SIZE = Long.getLong(MAX_ALLOCATION_SIZE_PROPERTY, Long.MAX_VALUE);
+  public static final long MAX_ALLOCATION_SIZE =
+      Long.getLong(MAX_ALLOCATION_SIZE_PROPERTY, Long.MAX_VALUE);
   /*
    * For all fixed width vectors, the value and validity buffers are sliced from a single buffer.
    * Similarly, for variable width vectors, the offsets and validity buffers are sliced from a
@@ -57,17 +55,14 @@ public abstract class BaseValueVector implements ValueVector {
   @Override
   public abstract String getName();
 
-  /**
-   * Representation of vector suitable for debugging.
-   */
+  /** Representation of vector suitable for debugging. */
   @Override
   public String toString() {
     return ValueVectorUtility.getToString(this, 0, getValueCount());
   }
 
   @Override
-  public void clear() {
-  }
+  public void clear() {}
 
   @Override
   public void close() {
@@ -85,9 +80,8 @@ public abstract class BaseValueVector implements ValueVector {
   }
 
   /**
-   * Checks to ensure that every buffer <code>vv</code> uses
-   * has a positive reference count, throws if this precondition
-   * isn't met.  Returns true otherwise.
+   * Checks to ensure that every buffer <code>vv</code> uses has a positive reference count, throws
+   * if this precondition isn't met. Returns true otherwise.
    */
   public static boolean checkBufRefs(final ValueVector vv) {
     for (final ArrowBuf buffer : vv.getBuffers(false)) {
@@ -144,8 +138,8 @@ public abstract class BaseValueVector implements ValueVector {
   }
 
   /**
-   * Each vector has a different reader that implements the FieldReader interface. Overridden methods must make
-   * sure to return the correct concrete reader implementation.
+   * Each vector has a different reader that implements the FieldReader interface. Overridden
+   * methods must make sure to return the correct concrete reader implementation.
    *
    * @return Returns a lambda that initializes a reader when called.
    */
@@ -173,9 +167,7 @@ public abstract class BaseValueVector implements ValueVector {
     }
   }
 
-  /**
-   * Container for primitive vectors (1 for the validity bit-mask and one to hold the values).
-   */
+  /** Container for primitive vectors (1 for the validity bit-mask and one to hold the values). */
   static class DataAndValidityBuffers {
     private ArrowBuf dataBuf;
     private ArrowBuf validityBuf;
@@ -213,10 +205,8 @@ public abstract class BaseValueVector implements ValueVector {
           break;
         }
         --actualCount;
-      }
-      while (true);
+      } while (true);
     }
-
 
     /* allocate combined buffer */
     ArrowBuf combinedBuffer = allocator.buffer(bufferSize);
@@ -243,7 +233,8 @@ public abstract class BaseValueVector implements ValueVector {
     return new DataAndValidityBuffers(dataBuf, validityBuf);
   }
 
-  public static ArrowBuf transferBuffer(final ArrowBuf srcBuffer, final BufferAllocator targetAllocator) {
+  public static ArrowBuf transferBuffer(
+      final ArrowBuf srcBuffer, final BufferAllocator targetAllocator) {
     final ReferenceManager referenceManager = srcBuffer.getReferenceManager();
     return referenceManager.transferOwnership(srcBuffer, targetAllocator).getTransferredBuffer();
   }
@@ -258,4 +249,3 @@ public abstract class BaseValueVector implements ValueVector {
     throw new UnsupportedOperationException();
   }
 }
-

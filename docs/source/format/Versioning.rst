@@ -51,7 +51,7 @@ data.
 An increase in the **minor** version of the format version, such as
 1.0.0 to 1.1.0, indicates that 1.1.0 contains new features not
 available in 1.0.0. So long as these features are not used (such as a
-new logical data type), forward compatibility is preserved.
+new data type), forward compatibility is preserved.
 
 Long-Term Stability
 ===================

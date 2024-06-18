@@ -14,11 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 import java.util.concurrent.TimeUnit;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -37,15 +35,11 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
-/**
- * Benchmarks for {@link BitVectorHelper}.
- */
+/** Benchmarks for {@link BitVectorHelper}. */
 public class BitVectorHelperBenchmarks {
   // checkstyle:off: MissingJavadocMethod
 
-  /**
-   * State object for general benchmarks.
-   */
+  /** State object for general benchmarks. */
   @State(Scope.Benchmark)
   public static class BenchmarkState {
 
@@ -59,9 +53,7 @@ public class BitVectorHelperBenchmarks {
 
     private ArrowBuf oneBitValidityBuffer;
 
-    /**
-     * Setup benchmarks.
-     */
+    /** Setup benchmarks. */
     @Setup(Level.Trial)
     public void prepare() {
       allocator = new RootAllocator(ALLOCATOR_CAPACITY);
@@ -81,9 +73,7 @@ public class BitVectorHelperBenchmarks {
       BitVectorHelper.setBit(oneBitValidityBuffer, VALIDITY_BUFFER_CAPACITY / 2);
     }
 
-    /**
-     * Tear down benchmarks.
-     */
+    /** Tear down benchmarks. */
     @TearDown(Level.Trial)
     public void tearDown() {
       validityBuffer.close();
@@ -96,7 +86,8 @@ public class BitVectorHelperBenchmarks {
   @BenchmarkMode(Mode.AverageTime)
   @OutputTimeUnit(TimeUnit.NANOSECONDS)
   public int getNullCountBenchmark(BenchmarkState state) {
-    return BitVectorHelper.getNullCount(state.validityBuffer, BenchmarkState.VALIDITY_BUFFER_CAPACITY);
+    return BitVectorHelper.getNullCount(
+        state.validityBuffer, BenchmarkState.VALIDITY_BUFFER_CAPACITY);
   }
 
   @Benchmark
@@ -104,12 +95,10 @@ public class BitVectorHelperBenchmarks {
   @OutputTimeUnit(TimeUnit.NANOSECONDS)
   public boolean allBitsNullBenchmark(BenchmarkState state) {
     return BitVectorHelper.checkAllBitsEqualTo(
-            state.oneBitValidityBuffer, BenchmarkState.VALIDITY_BUFFER_CAPACITY, true);
+        state.oneBitValidityBuffer, BenchmarkState.VALIDITY_BUFFER_CAPACITY, true);
   }
 
-  /**
-   * State object for {@link #loadValidityBufferAllOne(NonNullableValidityBufferState)}..
-   */
+  /** State object for {@link #loadValidityBufferAllOne(NonNullableValidityBufferState)}.. */
   @State(Scope.Benchmark)
   public static class NonNullableValidityBufferState {
 
@@ -125,9 +114,7 @@ public class BitVectorHelperBenchmarks {
 
     private ArrowFieldNode fieldNode;
 
-    /**
-     * Setup benchmarks.
-     */
+    /** Setup benchmarks. */
     @Setup(Level.Trial)
     public void prepare() {
       allocator = new RootAllocator(ALLOCATOR_CAPACITY);
@@ -145,9 +132,7 @@ public class BitVectorHelperBenchmarks {
       loadResult.close();
     }
 
-    /**
-     * Tear down benchmarks.
-     */
+    /** Tear down benchmarks. */
     @TearDown(Level.Trial)
     public void tearDown() {
       validityBuffer.close();
@@ -156,19 +141,18 @@ public class BitVectorHelperBenchmarks {
   }
 
   /**
-   * Benchmark for {@link BitVectorHelper#loadValidityBuffer(ArrowFieldNode, ArrowBuf, BufferAllocator)}
-   * when all elements are not null.
+   * Benchmark for {@link BitVectorHelper#loadValidityBuffer(ArrowFieldNode, ArrowBuf,
+   * BufferAllocator)} when all elements are not null.
    */
   @Benchmark
   @BenchmarkMode(Mode.AverageTime)
   @OutputTimeUnit(TimeUnit.NANOSECONDS)
   public void loadValidityBufferAllOne(NonNullableValidityBufferState state) {
-    state.loadResult = BitVectorHelper.loadValidityBuffer(state.fieldNode, state.validityBuffer, state.allocator);
+    state.loadResult =
+        BitVectorHelper.loadValidityBuffer(state.fieldNode, state.validityBuffer, state.allocator);
   }
 
-  /**
-   * State object for {@link #setValidityBitBenchmark(ClearBitStateState)}.
-   */
+  /** State object for {@link #setValidityBitBenchmark(ClearBitStateState)}. */
   @State(Scope.Benchmark)
   public static class ClearBitStateState {
 
@@ -182,18 +166,14 @@ public class BitVectorHelperBenchmarks {
 
     private int bitToSet = 0;
 
-    /**
-     * Setup benchmarks.
-     */
+    /** Setup benchmarks. */
     @Setup(Level.Trial)
     public void prepare() {
       allocator = new RootAllocator(ALLOCATOR_CAPACITY);
       validityBuffer = allocator.buffer(VALIDITY_BUFFER_CAPACITY / 8);
     }
 
-    /**
-     * Tear down benchmarks.
-     */
+    /** Tear down benchmarks. */
     @TearDown(Level.Trial)
     public void tearDown() {
       validityBuffer.close();
@@ -219,8 +199,9 @@ public class BitVectorHelperBenchmarks {
     }
   }
 
-  public static void main(String [] args) throws RunnerException {
-    Options opt = new OptionsBuilder()
+  public static void main(String[] args) throws RunnerException {
+    Options opt =
+        new OptionsBuilder()
             .include(BitVectorHelperBenchmarks.class.getSimpleName())
             .forks(1)
             .build();

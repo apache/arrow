@@ -189,8 +189,8 @@ Create the Release Candidate branch from the updated maintenance branch
     # so for the first RC this would be: dev/release/01-prepare.sh 4.0.0 5.0.0 0
     dev/release/01-prepare.sh <version> <next-version> <rc-number>
 
-    # Push the release tag (for RC1 or later the --force flag is required)
-    git push -u apache apache-arrow-<version>
+    # Push the release candidate tag
+    git push -u apache apache-arrow-<version>rc<rc-number>
     # Push the release candidate branch in order to trigger verification jobs later
     git push -u apache release-<version>-rc<rc-number>
 
@@ -200,6 +200,8 @@ Build source and binaries and submit them
 .. code-block::
 
     # Build the source release tarball and create Pull Request with verification tasks
+    #
+    # NOTE: You need to have GitHub CLI installed to run this script.
     dev/release/02-source.sh <version> <rc-number>
 
     # Submit binary tasks using crossbow, the command will output the crossbow build id
@@ -225,8 +227,13 @@ Build source and binaries and submit them
     #   https://repository.apache.org/#stagingRepositories
     dev/release/06-java-upload.sh <version> <rc-number>
 
+    # Sign and upload MATLAB artifacts to the GitHub Releases area.
+    #
+    # Note that you need to have GitHub CLI installed to run this script.
+    dev/release/07-matlab-upload.sh <version> <rc-number>
+
     # Start verifications for binaries and wheels
-    dev/release/07-binary-verify.sh <version> <rc-number>
+    dev/release/08-binary-verify.sh <version> <rc-number>
 
 Verify the Release
 ------------------
@@ -257,9 +264,11 @@ Be sure to go through on the following checklist:
 #. Start the new version on JIRA for the related CPP PARQUET version
 #. Merge changes on release branch to maintenance branch for patch releases
 #. Add the new release to the Apache Reporter System
+#. Push release tag
 #. Upload source
 #. Upload binaries
 #. Update website
+#. Update GitHub Release Notes
 #. Update Homebrew packages
 #. Update MSYS2 package
 #. Upload RubyGems
@@ -325,6 +334,18 @@ Be sure to go through on the following checklist:
 
    Add relevant release data for Arrow to `Apache reporter <https://reporter.apache.org/addrelease.html?arrow>`_.
 
+.. dropdown:: Push release tag and create GitHub Release
+   :animate: fade-in-slide-down
+   :class-title: sd-fs-5
+   :class-container: sd-shadow-md
+
+   A committer must push the release tag to GitHub:
+
+   .. code-block:: Bash
+
+      # dev/release/post-01-tag.sh 0.1.0 0
+      dev/release/post-01-tag.sh <version> <rc>
+
 .. dropdown:: Upload source release artifacts to Subversion
    :animate: fade-in-slide-down
    :class-title: sd-fs-5
@@ -334,20 +355,20 @@ Be sure to go through on the following checklist:
 
    .. code-block:: Bash
 
-      # dev/release/post-01-upload.sh 0.1.0 0
-      dev/release/post-01-upload.sh <version> <rc>
+      # dev/release/post-02-upload.sh 0.1.0 0
+      dev/release/post-02-upload.sh <version> <rc>
 
 .. dropdown:: Upload binary release artifacts to Artifactory
    :animate: fade-in-slide-down
    :class-title: sd-fs-5
    :class-container: sd-shadow-md
 
-   A committer must upload the binary release artifacts to Artifactory:
+   A committer must upload the binary release artifacts to Artifactory and create the GitHub Release:
 
    .. code-block:: Bash
 
-      # dev/release/post-02-binary.sh 0.1.0 0
-      dev/release/post-02-binary.sh <version> <rc number>
+      # dev/release/post-03-binary.sh 0.1.0 0
+      dev/release/post-03-binary.sh <version> <rc number>
 
 .. dropdown:: Update website
    :animate: fade-in-slide-down
@@ -369,10 +390,22 @@ Be sure to go through on the following checklist:
 
       ## Generate a release note for the new version, update the
       ## latest release information automatically.
-      # dev/release/post-03-website.sh 9.0.0 10.0.0
-      dev/release/post-03-website.sh OLD_X.OLD_Y.OLD_Z X.Y.Z
+      # dev/release/post-04-website.sh 9.0.0 10.0.0
+      dev/release/post-04-website.sh OLD_X.OLD_Y.OLD_Z X.Y.Z
 
    This script pushes a ``release-note-X.Y.Z`` branch to your ``apache/arrow-site`` fork. You need to open a pull request from the ``release-note-X.Y.Z`` branch on your Web browser.
+
+.. dropdown:: Update Release Notes in apache/arrow GitHub Release
+   :animate: fade-in-slide-down
+   :class-title: sd-fs-5
+   :class-container: sd-shadow-md
+
+   A committer must run the following script:
+
+   .. code-block:: Bash
+
+      # dev/release/post-05-update-gh-release-notes.sh 17.0.0
+      dev/release/post-05-update-gh-release-notes.sh apache-arrow-X.Y.Z
 
 .. dropdown:: Update Homebrew packages
    :animate: fade-in-slide-down
@@ -395,8 +428,8 @@ Be sure to go through on the following checklist:
       git remote add <YOUR_GITHUB_ID> git@github.com:<YOUR_GITHUB_ID>/homebrew-core.git
       cd -
 
-      # dev/release/post-13-homebrew.sh 10.0.0 kou
-      dev/release/post-13-homebrew.sh X.Y.Z <YOUR_GITHUB_ID>
+      # dev/release/post-15-homebrew.sh 10.0.0 kou
+      dev/release/post-15-homebrew.sh X.Y.Z <YOUR_GITHUB_ID>
 
    This script pushes a ``apache-arrow-X.Y.Z`` branch to your ``Homebrew/homebrew-core`` fork. You need to create a pull request from the ``apache-arrow-X.Y.Z`` branch with ``apache-arrow, apache-arrow-glib: X.Y.Z`` title on your Web browser.
 
@@ -421,8 +454,8 @@ Be sure to go through on the following checklist:
       git remote add upstream https://github.com/msys2/MINGW-packages.git
       cd -
 
-      # dev/release/post-12-msys2.sh 10.0.0 ../MINGW-packages
-      dev/release/post-12-msys2.sh X.Y.Z <YOUR_MINGW_PACKAGES_FORK>
+      # dev/release/post-14-msys2.sh 10.0.0 ../MINGW-packages
+      dev/release/post-14-msys2.sh X.Y.Z <YOUR_MINGW_PACKAGES_FORK>
 
    This script pushes a ``arrow-X.Y.Z`` branch to your ``msys2/MINGW-packages`` fork. You need to create a pull request from the ``arrow-X.Y.Z`` branch with ``arrow: Update to X.Y.Z`` title on your Web browser.
 
@@ -446,8 +479,8 @@ Be sure to go through on the following checklist:
 
    .. code-block:: Bash
 
-      # dev/release/post-04-ruby.sh 10.0.0
-      dev/release/post-04-ruby.sh X.Y.Z
+      # dev/release/post-06-ruby.sh 10.0.0
+      dev/release/post-06-ruby.sh X.Y.Z
 
 .. dropdown:: Update JavaScript packages
    :animate: fade-in-slide-down
@@ -465,8 +498,8 @@ Be sure to go through on the following checklist:
       # Login to npmjs.com (You need to do this only for the first time)
       npm login --registry=https://registry.yarnpkg.com/
 
-      # dev/release/post-05-js.sh 10.0.0
-      dev/release/post-05-js.sh X.Y.Z
+      # dev/release/post-07-js.sh 10.0.0
+      dev/release/post-07-js.sh X.Y.Z
 
 .. dropdown:: Update C# packages
    :animate: fade-in-slide-down
@@ -481,8 +514,8 @@ Be sure to go through on the following checklist:
 
    .. code-block:: Bash
 
-      # NUGET_API_KEY=YOUR_NUGET_API_KEY dev/release/post-06-csharp.sh 10.0.0
-      NUGET_API_KEY=<your NuGet API key> dev/release/post-06-csharp.sh X.Y.Z
+      # NUGET_API_KEY=YOUR_NUGET_API_KEY dev/release/post-08-csharp.sh 10.0.0
+      NUGET_API_KEY=<your NuGet API key> dev/release/post-08-csharp.sh X.Y.Z
 
 .. dropdown:: Upload wheels/sdist to PyPI
    :animate: fade-in-slide-down
@@ -495,8 +528,8 @@ Be sure to go through on the following checklist:
 
    .. code-block:: Bash
 
-      # dev/release/post-09-python.sh 10.0.0
-      dev/release/post-09-python.sh <version>
+      # dev/release/post-11-python.sh 10.0.0
+      dev/release/post-11-python.sh <version>
 
 .. dropdown:: Publish Maven packages
    :animate: fade-in-slide-down
@@ -568,8 +601,8 @@ Be sure to go through on the following checklist:
       git remote add upstream https://github.com/microsoft/vcpkg.git
       cd -
 
-      # dev/release/post-14-vcpkg.sh 10.0.0 ../vcpkg
-      dev/release/post-14-vcpkg.sh X.Y.Z <YOUR_VCPKG_FORK>
+      # dev/release/post-16-vcpkg.sh 10.0.0 ../vcpkg
+      dev/release/post-16-vcpkg.sh X.Y.Z <YOUR_VCPKG_FORK>
 
    This script pushes a ``arrow-X.Y.Z`` branch to your ``microsoft/vcpkg`` fork. You need to create a pull request from the ``arrow-X.Y.Z`` branch with ``[arrow] Update to X.Y.Z`` title on your Web browser.
 
@@ -594,8 +627,8 @@ Be sure to go through on the following checklist:
       git remote add upstream https://github.com/conan-io/conan-center-index.git
       cd -
 
-      # dev/release/post-15-conan.sh 10.0.1 ../conan-center-index
-      dev/release/post-15-conan.sh X.Y.Z <YOUR_CONAN_CENTER_INDEX_FORK>
+      # dev/release/post-17-conan.sh 10.0.1 ../conan-center-index
+      dev/release/post-17-conan.sh X.Y.Z <YOUR_CONAN_CENTER_INDEX_FORK>
 
    This script pushes a ``arrow-X.Y.Z`` branch to your ``conan-io/conan-center-index`` fork. You need to create a pull request from the ``arrow-X.Y.Z`` branch on your Web browser.
 
@@ -609,8 +642,8 @@ Be sure to go through on the following checklist:
       # You can run the script with BUMP_TAG=0 and BUMP_PUSH=0
       # this will avoid default pushing to main and pushing the tag
       # but you will require to push manually after reviewing the commits.
-      # dev/release/post-11-bump-versions.sh 10.0.0 11.0.0
-      dev/release/post-11-bump-versions.sh X.Y.Z NEXT_X.NEXT_Y.NEXT_Z
+      # dev/release/post-12-bump-versions.sh 10.0.0 11.0.0
+      dev/release/post-12-bump-versions.sh X.Y.Z NEXT_X.NEXT_Y.NEXT_Z
 
 .. dropdown:: Update tags for Go modules
    :animate: fade-in-slide-down
@@ -619,8 +652,8 @@ Be sure to go through on the following checklist:
 
    .. code-block:: Bash
 
-      # dev/release/post-10-go.sh 10.0.0
-      dev/release/post-10-go.sh X.Y.Z
+      # dev/release/post-13-go.sh 10.0.0
+      dev/release/post-13-go.sh X.Y.Z
 
 .. dropdown:: Update docs
    :animate: fade-in-slide-down
@@ -640,8 +673,8 @@ Be sure to go through on the following checklist:
       git remote add apache git@github.com:apache/arrow-site.git
       cd -
 
-      # dev/release/post-08-docs.sh 10.0.0 9.0.0
-      dev/release/post-08-docs.sh X.Y.Z PREVIOUS_X.PREVIOUS_Y.PREVIOUS_Z
+      # dev/release/post-10-docs.sh 10.0.0 9.0.0
+      dev/release/post-10-docs.sh X.Y.Z PREVIOUS_X.PREVIOUS_Y.PREVIOUS_Z
 
    This script pushes a ``release-docs-X.Y.Z`` branch to your ``arrow-site`` fork. You need to create a Pull Request and use the ``asf-site`` branch as base for it.
 
@@ -686,4 +719,4 @@ Be sure to go through on the following checklist:
 
    .. code-block:: Bash
 
-      dev/release/post-07-remove-old-artifacts.sh
+      dev/release/post-09-remove-old-artifacts.sh

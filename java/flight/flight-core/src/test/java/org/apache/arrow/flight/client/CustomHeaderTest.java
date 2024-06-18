@@ -14,12 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.client;
 
+import com.google.common.collect.ImmutableMap;
 import java.util.HashMap;
 import java.util.Map;
-
 import org.apache.arrow.flight.Action;
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.CallInfo;
@@ -48,23 +47,18 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import com.google.common.collect.ImmutableMap;
-
-
-/**
- * Tests to ensure custom headers are passed along to the server for each command.
- */
+/** Tests to ensure custom headers are passed along to the server for each command. */
 public class CustomHeaderTest {
   FlightServer server;
   FlightClient client;
   BufferAllocator allocator;
   TestCustomHeaderMiddleware.Factory headersMiddleware;
   HeaderCallOption headers;
-  Map<String, String> testHeaders = ImmutableMap.of(
+  Map<String, String> testHeaders =
+      ImmutableMap.of(
           "foo", "bar",
           "bar", "foo",
-          "answer", "42"
-  );
+          "answer", "42");
 
   @Before
   public void setUp() throws Exception {
@@ -75,11 +69,13 @@ public class CustomHeaderTest {
       callHeaders.insert(entry.getKey(), entry.getValue());
     }
     headers = new HeaderCallOption(callHeaders);
-    server = FlightServer.builder(allocator,
-            Location.forGrpcInsecure(FlightTestUtil.LOCALHOST, /*port*/ 0),
-            new NoOpFlightProducer())
-        .middleware(FlightServerMiddleware.Key.of("customHeader"), headersMiddleware)
-        .build();
+    server =
+        FlightServer.builder(
+                allocator,
+                Location.forGrpcInsecure(FlightTestUtil.LOCALHOST, /*port*/ 0),
+                new NoOpFlightProducer())
+            .middleware(FlightServerMiddleware.Key.of("customHeader"), headersMiddleware)
+            .build();
     server.start();
     client = FlightClient.builder(allocator, server.getLocation()).build();
   }
@@ -94,7 +90,8 @@ public class CustomHeaderTest {
   public void testHandshake() {
     try {
       client.handshake(headers);
-    } catch (Exception ignored) { }
+    } catch (Exception ignored) {
+    }
 
     assertHeadersMatch(FlightMethod.HANDSHAKE);
   }
@@ -103,7 +100,8 @@ public class CustomHeaderTest {
   public void testGetSchema() {
     try {
       client.getSchema(FlightDescriptor.command(new byte[0]), headers);
-    } catch (Exception ignored) { }
+    } catch (Exception ignored) {
+    }
 
     assertHeadersMatch(FlightMethod.GET_SCHEMA);
   }
@@ -112,7 +110,8 @@ public class CustomHeaderTest {
   public void testGetFlightInfo() {
     try {
       client.getInfo(FlightDescriptor.command(new byte[0]), headers);
-    } catch (Exception ignored) { }
+    } catch (Exception ignored) {
+    }
 
     assertHeadersMatch(FlightMethod.GET_FLIGHT_INFO);
   }
@@ -121,7 +120,8 @@ public class CustomHeaderTest {
   public void testListActions() {
     try {
       client.listActions(headers).iterator().next();
-    } catch (Exception ignored) { }
+    } catch (Exception ignored) {
+    }
 
     assertHeadersMatch(FlightMethod.LIST_ACTIONS);
   }
@@ -129,8 +129,9 @@ public class CustomHeaderTest {
   @Test
   public void testListFlights() {
     try {
-      client.listFlights(new Criteria(new byte[]{1}), headers).iterator().next();
-    } catch (Exception ignored) { }
+      client.listFlights(new Criteria(new byte[] {1}), headers).iterator().next();
+    } catch (Exception ignored) {
+    }
 
     assertHeadersMatch(FlightMethod.LIST_FLIGHTS);
   }
@@ -139,7 +140,8 @@ public class CustomHeaderTest {
   public void testDoAction() {
     try {
       client.doAction(new Action("test"), headers).next();
-    } catch (Exception ignored) { }
+    } catch (Exception ignored) {
+    }
 
     assertHeadersMatch(FlightMethod.DO_ACTION);
   }
@@ -147,11 +149,11 @@ public class CustomHeaderTest {
   @Test
   public void testStartPut() {
     try {
-      final ClientStreamListener listener = client.startPut(FlightDescriptor.command(new byte[0]),
-              new SyncPutListener(),
-              headers);
+      final ClientStreamListener listener =
+          client.startPut(FlightDescriptor.command(new byte[0]), new SyncPutListener(), headers);
       listener.getResult();
-    } catch (Exception ignored) { }
+    } catch (Exception ignored) {
+    }
 
     assertHeadersMatch(FlightMethod.DO_PUT);
   }
@@ -160,62 +162,54 @@ public class CustomHeaderTest {
   public void testGetStream() {
     try (final FlightStream stream = client.getStream(new Ticket(new byte[0]), headers)) {
       stream.next();
-    } catch (Exception ignored) { }
+    } catch (Exception ignored) {
+    }
 
     assertHeadersMatch(FlightMethod.DO_GET);
   }
 
   @Test
   public void testDoExchange() {
-    try (final FlightClient.ExchangeReaderWriter stream = client.doExchange(
-            FlightDescriptor.command(new byte[0]),
-            headers)
-    ) {
+    try (final FlightClient.ExchangeReaderWriter stream =
+        client.doExchange(FlightDescriptor.command(new byte[0]), headers)) {
       stream.getReader().next();
-    } catch (Exception ignored) { }
+    } catch (Exception ignored) {
+    }
 
     assertHeadersMatch(FlightMethod.DO_EXCHANGE);
   }
 
   private void assertHeadersMatch(FlightMethod method) {
     for (Map.Entry<String, String> entry : testHeaders.entrySet()) {
-      Assert.assertEquals(entry.getValue(), headersMiddleware.getCustomHeader(method, entry.getKey()));
+      Assert.assertEquals(
+          entry.getValue(), headersMiddleware.getCustomHeader(method, entry.getKey()));
     }
   }
 
-  /**
-   * A middleware used to test if customHeaders are being sent to the server properly.
-   */
+  /** A middleware used to test if customHeaders are being sent to the server properly. */
   static class TestCustomHeaderMiddleware implements FlightServerMiddleware {
 
-    public TestCustomHeaderMiddleware() {
-    }
+    public TestCustomHeaderMiddleware() {}
 
     @Override
-    public void onBeforeSendingHeaders(CallHeaders callHeaders) {
-
-    }
+    public void onBeforeSendingHeaders(CallHeaders callHeaders) {}
 
     @Override
-    public void onCallCompleted(CallStatus callStatus) {
-
-    }
+    public void onCallCompleted(CallStatus callStatus) {}
 
     @Override
-    public void onCallErrored(Throwable throwable) {
-
-    }
+    public void onCallErrored(Throwable throwable) {}
 
     /**
-     * A factory for the middleware that keeps track of the received headers and provides a way
-     * to check those values for a given Flight Method.
+     * A factory for the middleware that keeps track of the received headers and provides a way to
+     * check those values for a given Flight Method.
      */
     static class Factory implements FlightServerMiddleware.Factory<TestCustomHeaderMiddleware> {
       private final Map<FlightMethod, CallHeaders> receivedCallHeaders = new HashMap<>();
 
       @Override
-      public TestCustomHeaderMiddleware onCallStarted(CallInfo callInfo, CallHeaders callHeaders,
-                                                      RequestContext requestContext) {
+      public TestCustomHeaderMiddleware onCallStarted(
+          CallInfo callInfo, CallHeaders callHeaders, RequestContext requestContext) {
 
         receivedCallHeaders.put(callInfo.method(), callHeaders);
         return new TestCustomHeaderMiddleware();
@@ -229,5 +223,5 @@ public class CustomHeaderTest {
         return headers.get(key);
       }
     }
-  }   
+  }
 }

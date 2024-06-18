@@ -14,73 +14,47 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight;
 
-/**
- * A status code describing the result of a Flight call.
- */
+/** A status code describing the result of a Flight call. */
 public enum FlightStatusCode {
-  /**
-   * The call completed successfully. Generally clients will not see this, but middleware may.
-   */
+  /** The call completed successfully. Generally clients will not see this, but middleware may. */
   OK,
   /**
-   * An unknown error occurred. This may also be the result of an implementation error on the server-side; by default,
-   * unhandled server exceptions result in this code.
+   * An unknown error occurred. This may also be the result of an implementation error on the
+   * server-side; by default, unhandled server exceptions result in this code.
    */
   UNKNOWN,
-  /**
-   * An internal/implementation error occurred.
-   */
+  /** An internal/implementation error occurred. */
   INTERNAL,
-  /**
-   * One or more of the given arguments was invalid.
-   */
+  /** One or more of the given arguments was invalid. */
   INVALID_ARGUMENT,
-  /**
-   * The operation timed out.
-   */
+  /** The operation timed out. */
   TIMED_OUT,
-  /**
-   * The operation describes a resource that does not exist.
-   */
+  /** The operation describes a resource that does not exist. */
   NOT_FOUND,
-  /**
-   * The operation creates a resource that already exists.
-   */
+  /** The operation creates a resource that already exists. */
   ALREADY_EXISTS,
-  /**
-   * The operation was cancelled.
-   */
+  /** The operation was cancelled. */
   CANCELLED,
-  /**
-   * The client was not authenticated.
-   */
+  /** The client was not authenticated. */
   UNAUTHENTICATED,
-  /**
-   * The client did not have permission to make the call.
-   */
+  /** The client did not have permission to make the call. */
   UNAUTHORIZED,
-  /**
-   * The requested operation is not implemented.
-   */
+  /** The requested operation is not implemented. */
   UNIMPLEMENTED,
   /**
-   * The server cannot currently handle the request. This should be used for retriable requests, i.e. the server
-   * should send this code only if it has not done any work.
+   * The server cannot currently handle the request. This should be used for retriable requests,
+   * i.e. the server should send this code only if it has not done any work.
    */
   UNAVAILABLE,
   /**
-   * Some resource has been exhausted, perhaps a per-user quota, or perhaps the entire file system is out of space.
-   * (see: https://grpc.github.io/grpc/core/md_doc_statuscodes.html)
+   * Some resource has been exhausted, perhaps a per-user quota, or perhaps the entire file system
+   * is out of space. (see: https://grpc.github.io/grpc/core/md_doc_statuscodes.html)
    */
-  RESOURCE_EXHAUSTED
-  ;
+  RESOURCE_EXHAUSTED;
 
-  /**
-   * Create a blank {@link CallStatus} with this code.
-   */
+  /** Create a blank {@link CallStatus} with this code. */
   public CallStatus toStatus() {
     return new CallStatus(this);
   }

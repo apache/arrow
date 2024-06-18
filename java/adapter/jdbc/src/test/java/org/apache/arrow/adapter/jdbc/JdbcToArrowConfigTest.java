@@ -14,38 +14,46 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.Types;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.TimeZone;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class JdbcToArrowConfigTest {
 
   private static final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
-  private static final Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"), Locale.ROOT);
+  private static final Calendar calendar =
+      Calendar.getInstance(TimeZone.getTimeZone("UTC"), Locale.ROOT);
 
-  @Test(expected = NullPointerException.class)
+  @Test
   public void testConfigNullArguments() {
-    new JdbcToArrowConfig(null, null);
+    assertThrows(
+        NullPointerException.class,
+        () -> {
+          new JdbcToArrowConfig(null, null);
+        });
   }
 
-  @Test(expected = NullPointerException.class)
+  @Test
   public void testBuilderNullArguments() {
-    new JdbcToArrowConfigBuilder(null, null);
+    assertThrows(
+        NullPointerException.class,
+        () -> {
+          new JdbcToArrowConfigBuilder(null, null);
+        });
   }
 
   @Test
@@ -61,20 +69,32 @@ public class JdbcToArrowConfigTest {
     assertNull(config.getCalendar());
   }
 
-  @Test(expected = NullPointerException.class)
+  @Test
   public void testConfigNullAllocator() {
-    new JdbcToArrowConfig(null, calendar);
+    assertThrows(
+        NullPointerException.class,
+        () -> {
+          new JdbcToArrowConfig(null, calendar);
+        });
   }
 
-  @Test(expected = NullPointerException.class)
+  @Test
   public void testBuilderNullAllocator() {
-    new JdbcToArrowConfigBuilder(null, calendar);
+    assertThrows(
+        NullPointerException.class,
+        () -> {
+          new JdbcToArrowConfigBuilder(null, calendar);
+        });
   }
 
-  @Test(expected = NullPointerException.class)
+  @Test
   public void testSetNullAllocator() {
-    JdbcToArrowConfigBuilder builder = new JdbcToArrowConfigBuilder(allocator, calendar);
-    builder.setAllocator(null);
+    assertThrows(
+        NullPointerException.class,
+        () -> {
+          JdbcToArrowConfigBuilder builder = new JdbcToArrowConfigBuilder(allocator, calendar);
+          builder.setAllocator(null);
+        });
   }
 
   @Test
@@ -116,13 +136,29 @@ public class JdbcToArrowConfigTest {
     config = new JdbcToArrowConfigBuilder(allocator, calendar, true).build();
     assertTrue(config.shouldIncludeMetadata());
 
-    config = new JdbcToArrowConfig(allocator, calendar, /* include metadata */ true,
-        /* reuse vector schema root */ true, null, null, JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE, null);
+    config =
+        new JdbcToArrowConfig(
+            allocator,
+            calendar, /* include metadata */
+            true,
+            /* reuse vector schema root */ true,
+            null,
+            null,
+            JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE,
+            null);
     assertTrue(config.shouldIncludeMetadata());
     assertTrue(config.isReuseVectorSchemaRoot());
 
-    config = new JdbcToArrowConfig(allocator, calendar, /* include metadata */ false,
-        /* reuse vector schema root */ false, null, null, JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE, null);
+    config =
+        new JdbcToArrowConfig(
+            allocator,
+            calendar, /* include metadata */
+            false,
+            /* reuse vector schema root */ false,
+            null,
+            null,
+            JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE,
+            null);
     assertFalse(config.shouldIncludeMetadata());
     assertFalse(config.isReuseVectorSchemaRoot());
   }

@@ -1097,6 +1097,7 @@ def test_map_from_arrays():
         items.type),
         mask=pa.array([False, True, False], type=pa.bool_())
     )
+    assert result.null_count == 1
     assert result.equals(expected)
 
     # pass in null bitmap without the type
@@ -1104,6 +1105,19 @@ def test_map_from_arrays():
                                      mask=pa.array([False, True, False],
                                                    type=pa.bool_())
                                      )
+    assert result.equals(expected)
+
+    # pass in null bitmap with two nulls
+    offsets = [0, None, None, 6]
+    pyentries = [None, None, pypairs[2:]]
+
+    result = pa.MapArray.from_arrays([0, 2, 2, 6], keys, items, pa.map_(
+        keys.type,
+        items.type),
+        mask=pa.array([True, True, False], type=pa.bool_())
+    )
+    expected = pa.array(pyentries, type=pa.map_(pa.binary(), pa.int32()))
+    assert result.null_count == 2
     assert result.equals(expected)
 
     # error if null bitmap and offsets with nulls passed
@@ -3398,7 +3412,7 @@ def test_numpy_array_protocol():
     result = np.asarray(arr)
     np.testing.assert_array_equal(result, expected)
 
-    if Version(np.__version__) < Version("2.0"):
+    if Version(np.__version__) < Version("2.0.0.dev0"):
         # copy keyword is not strict and not passed down to __array__
         result = np.array(arr, copy=False)
         np.testing.assert_array_equal(result, expected)

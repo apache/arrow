@@ -698,13 +698,12 @@ void AddHashKernels(VectorFunction* func, VectorKernel base, OutputType out_ty) 
     DCHECK_OK(func->AddKernel(base));
   }
 
-  // Example parametric types that we want to match only on Type::type
-  auto parametric_types = {time32(TimeUnit::SECOND), time64(TimeUnit::MICRO),
-                           timestamp(TimeUnit::SECOND), duration(TimeUnit::SECOND),
-                           fixed_size_binary(0)};
-  for (const auto& ty : parametric_types) {
-    base.init = GetHashInit<Action>(ty->id());
-    base.signature = KernelSignature::Make({ty->id()}, out_ty);
+  // Parametric types that we want matching to be dependent only on type id
+  auto parametric_types = {Type::TIME32, Type::TIME64, Type::TIMESTAMP, Type::DURATION,
+                           Type::FIXED_SIZE_BINARY};
+  for (const auto& type_id : parametric_types) {
+    base.init = GetHashInit<Action>(type_id);
+    base.signature = KernelSignature::Make({type_id}, out_ty);
     DCHECK_OK(func->AddKernel(base));
   }
 

@@ -25,6 +25,7 @@ import { validateRecordBatchIterator } from '../validate.js';
 import type { RecordBatchStreamWriterOptions } from 'apache-arrow/ipc/writer';
 import {
     builderThroughIterable,
+    Data,
     Dictionary,
     Field,
     Int32,
@@ -81,10 +82,46 @@ describe('RecordBatchStreamWriter', () => {
         await validate;
     });
 
+    it('should write replacement dictionary batches', async () => {
+
+        const name = 'dictionary_encoded_uint32';
+        const type = new Dictionary<Uint32, Int32>(new Uint32, new Int32, 0);
+        const sourceChunks: Data<Dictionary<Uint32, Int32>>[] = [];
+        const resultChunks: Data<Dictionary<Uint32, Int32>>[] = [];
+
+        const writer = RecordBatchStreamWriter.writeAll((function* () {
+            for (let i = 0; i < 1000; i += 50) {
+                const { vector: { data: [chunk] } } = generate.dictionary(50, 20, type.dictionary, type.indices);
+                sourceChunks.push(chunk);
+                // Clone the data with the original Dictionary type so the cloned chunk has id 0
+                resultChunks.push(chunk.clone(type));
+                yield new RecordBatch({ [name]: resultChunks.at(-1)! });
+            }
+        })());
+
+        expect(new Vector(resultChunks)).toEqualVector(new Vector(sourceChunks));
+
+        type T = { [name]: Dictionary<Uint32, Int32> };
+        const sourceTable = new Table({ [name]: new Vector(sourceChunks) });
+        const resultTable = new Table(RecordBatchReader.from<T>(await writer.toUint8Array()));
+
+        // 1000 / 50 = 20
+        expect(sourceTable.batches).toHaveLength(20);
+        expect(resultTable.batches).toHaveLength(20);
+        expect(resultTable).toEqualTable(sourceTable);
+
+        for (const batch of resultTable.batches) {
+            for (const [_, dictionary] of batch.dictionaries) {
+                expect(dictionary).toBeInstanceOf(Vector);
+                expect(dictionary.data).toHaveLength(1);
+            }
+        }
+    });
+
     it('should write delta dictionary batches', async () => {
 
         const name = 'dictionary_encoded_uint32';
-        const chunks: Vector<Dictionary<Uint32, Int32>>[] = [];
+        const resultChunks: Vector<Dictionary<Uint32, Int32>>[] = [];
         const {
             vector: sourceVector, values: sourceValues,
         } = generate.dictionary(1000, 20, new Uint32(), new Int32());
@@ -95,12 +132,12 @@ describe('RecordBatchStreamWriter', () => {
                 queueingStrategy: 'count', highWaterMark: 50,
             });
             for (const chunk of transform(sourceValues())) {
-                chunks.push(chunk);
+                resultChunks.push(chunk);
                 yield new RecordBatch({ [name]: chunk.data[0] });
             }
         })());
 
-        expect(new Vector(chunks)).toEqualVector(sourceVector);
+        expect(new Vector(resultChunks)).toEqualVector(sourceVector);
 
         type T = { [name]: Dictionary<Uint32, Int32> };
         const sourceTable = new Table({ [name]: sourceVector });

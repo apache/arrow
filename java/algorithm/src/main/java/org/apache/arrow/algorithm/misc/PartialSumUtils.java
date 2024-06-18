@@ -14,26 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.algorithm.misc;
 
 import org.apache.arrow.vector.BaseIntVector;
 
-/**
- * Partial sum related utilities.
- */
+/** Partial sum related utilities. */
 public class PartialSumUtils {
 
   /**
-   * Converts an input vector to a partial sum vector.
-   * This is an inverse operation of {@link PartialSumUtils#toDeltaVector(BaseIntVector, BaseIntVector)}.
-   * Suppose we have input vector a and output vector b.
-   * Then we have b(0) = sumBase; b(i + 1) = b(i) + a(i) (i = 0, 1, 2, ...).
+   * Converts an input vector to a partial sum vector. This is an inverse operation of {@link
+   * PartialSumUtils#toDeltaVector(BaseIntVector, BaseIntVector)}. Suppose we have input vector a
+   * and output vector b. Then we have b(0) = sumBase; b(i + 1) = b(i) + a(i) (i = 0, 1, 2, ...).
+   *
    * @param deltaVector the input vector.
    * @param partialSumVector the output vector.
    * @param sumBase the base of the partial sums.
    */
-  public static void toPartialSumVector(BaseIntVector deltaVector, BaseIntVector partialSumVector, long sumBase) {
+  public static void toPartialSumVector(
+      BaseIntVector deltaVector, BaseIntVector partialSumVector, long sumBase) {
     long sum = sumBase;
     partialSumVector.setWithPossibleTruncate(0, sumBase);
 
@@ -45,10 +43,10 @@ public class PartialSumUtils {
   }
 
   /**
-   * Converts an input vector to the delta vector.
-   * This is an inverse operation of {@link PartialSumUtils#toPartialSumVector(BaseIntVector, BaseIntVector, long)}.
-   * Suppose we have input vector a and output vector b.
-   * Then we have b(i) = a(i + 1) - a(i)  (i = 0, 1, 2, ...).
+   * Converts an input vector to the delta vector. This is an inverse operation of {@link
+   * PartialSumUtils#toPartialSumVector(BaseIntVector, BaseIntVector, long)}. Suppose we have input
+   * vector a and output vector b. Then we have b(i) = a(i + 1) - a(i) (i = 0, 1, 2, ...).
+   *
    * @param partialSumVector the input vector.
    * @param deltaVector the output vector.
    */
@@ -61,18 +59,18 @@ public class PartialSumUtils {
   }
 
   /**
-   * Given a value and a partial sum vector, finds its position in the partial sum vector.
-   * In particular, given an integer value a and partial sum vector v, we try to find a
-   * position i, so that v(i) <= a < v(i + 1).
-   * The algorithm is based on binary search, so it takes O(log(n)) time, where n is
-   * the length of the partial sum vector.
+   * Given a value and a partial sum vector, finds its position in the partial sum vector. In
+   * particular, given an integer value a and partial sum vector v, we try to find a position i, so
+   * that v(i) <= a < v(i + 1). The algorithm is based on binary search, so it takes O(log(n)) time,
+   * where n is the length of the partial sum vector.
+   *
    * @param partialSumVector the input partial sum vector.
    * @param value the value to search.
    * @return the position in the partial sum vector, if any, or -1, if none is found.
    */
   public static int findPositionInPartialSumVector(BaseIntVector partialSumVector, long value) {
-    if (value < partialSumVector.getValueAsLong(0) ||
-            value >= partialSumVector.getValueAsLong(partialSumVector.getValueCount() - 1)) {
+    if (value < partialSumVector.getValueAsLong(0)
+        || value >= partialSumVector.getValueAsLong(partialSumVector.getValueCount() - 1)) {
       return -1;
     }
 
@@ -114,6 +112,5 @@ public class PartialSumUtils {
     throw new IllegalStateException("Should never get here");
   }
 
-  private PartialSumUtils() {
-  }
+  private PartialSumUtils() {}
 }

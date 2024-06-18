@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.memory.util;
 
 import java.lang.reflect.Constructor;
@@ -24,37 +23,25 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
-
 import org.checkerframework.checker.nullness.qual.Nullable;
-
 import sun.misc.Unsafe;
 
-
-/**
- * Utilities for memory related operations.
- */
+/** Utilities for memory related operations. */
 public class MemoryUtil {
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(MemoryUtil.class);
+  private static final org.slf4j.Logger logger =
+      org.slf4j.LoggerFactory.getLogger(MemoryUtil.class);
 
   private static final @Nullable Constructor<?> DIRECT_BUFFER_CONSTRUCTOR;
-  /**
-   * The unsafe object from which to access the off-heap memory.
-   */
+  /** The unsafe object from which to access the off-heap memory. */
   public static final Unsafe UNSAFE;
 
-  /**
-   * The start offset of array data relative to the start address of the array object.
-   */
+  /** The start offset of array data relative to the start address of the array object. */
   public static final long BYTE_ARRAY_BASE_OFFSET;
 
-  /**
-   * The offset of the address field with the {@link java.nio.ByteBuffer} object.
-   */
+  /** The offset of the address field with the {@link java.nio.ByteBuffer} object. */
   static final long BYTE_BUFFER_ADDRESS_OFFSET;
 
-  /**
-   * If the native byte order is little-endian.
-   */
+  /** If the native byte order is little-endian. */
   public static final boolean LITTLE_ENDIAN = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN;
 
   // Java 1.8, 9, 11, 17, 21 becomes 1, 9, 11, 17, and 21.
@@ -65,21 +52,23 @@ public class MemoryUtil {
   static {
     try {
       // try to get the unsafe object
-      final Object maybeUnsafe = AccessController.doPrivileged(new PrivilegedAction<Object>() {
-        @Override
-        @SuppressWarnings({"nullness:argument", "nullness:return"})
-        // incompatible argument for parameter obj of Field.get
-        // incompatible types in return
-        public Object run() {
-          try {
-            final Field unsafeField = Unsafe.class.getDeclaredField("theUnsafe");
-            unsafeField.setAccessible(true);
-            return unsafeField.get(null);
-          } catch (Throwable e) {
-            return e;
-          }
-        }
-      });
+      final Object maybeUnsafe =
+          AccessController.doPrivileged(
+              new PrivilegedAction<Object>() {
+                @Override
+                @SuppressWarnings({"nullness:argument", "nullness:return"})
+                // incompatible argument for parameter obj of Field.get
+                // incompatible types in return
+                public Object run() {
+                  try {
+                    final Field unsafeField = Unsafe.class.getDeclaredField("theUnsafe");
+                    unsafeField.setAccessible(true);
+                    return unsafeField.get(null);
+                  } catch (Throwable e) {
+                    return e;
+                  }
+                }
+              });
 
       if (maybeUnsafe instanceof Throwable) {
         throw (Throwable) maybeUnsafe;
@@ -101,25 +90,27 @@ public class MemoryUtil {
       try {
 
         final Object maybeDirectBufferConstructor =
-            AccessController.doPrivileged(new PrivilegedAction<Object>() {
-              @Override
-              public Object run() {
-                try {
-                  final Constructor<?> constructor = (majorVersion >= 21) ?
-                      direct.getClass().getDeclaredConstructor(long.class, long.class) :
-                      direct.getClass().getDeclaredConstructor(long.class, int.class);
-                  constructor.setAccessible(true);
-                  logger.debug("Constructor for direct buffer found and made accessible");
-                  return constructor;
-                } catch (NoSuchMethodException e) {
-                  logger.debug("Cannot get constructor for direct buffer allocation", e);
-                  return e;
-                } catch (SecurityException e) {
-                  logger.debug("Cannot get constructor for direct buffer allocation", e);
-                  return e;
-                }
-              }
-            });
+            AccessController.doPrivileged(
+                new PrivilegedAction<Object>() {
+                  @Override
+                  public Object run() {
+                    try {
+                      final Constructor<?> constructor =
+                          (majorVersion >= 21)
+                              ? direct.getClass().getDeclaredConstructor(long.class, long.class)
+                              : direct.getClass().getDeclaredConstructor(long.class, int.class);
+                      constructor.setAccessible(true);
+                      logger.debug("Constructor for direct buffer found and made accessible");
+                      return constructor;
+                    } catch (NoSuchMethodException e) {
+                      logger.debug("Cannot get constructor for direct buffer allocation", e);
+                      return e;
+                    } catch (SecurityException e) {
+                      logger.debug("Cannot get constructor for direct buffer allocation", e);
+                      return e;
+                    }
+                  }
+                });
 
         if (maybeDirectBufferConstructor instanceof Constructor<?>) {
           address = UNSAFE.allocateMemory(1);
@@ -134,8 +125,7 @@ public class MemoryUtil {
           }
         } else {
           logger.debug(
-              "direct buffer constructor: unavailable",
-              (Throwable) maybeDirectBufferConstructor);
+              "direct buffer constructor: unavailable", (Throwable) maybeDirectBufferConstructor);
           directBufferConstructor = null;
         }
       } finally {
@@ -147,10 +137,12 @@ public class MemoryUtil {
     } catch (Throwable e) {
       // This exception will get swallowed, but it's necessary for the static analysis that ensures
       // the static fields above get initialized
-      final RuntimeException failure = new RuntimeException(
-          "Failed to initialize MemoryUtil. You must start Java with " +
-              "`--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED` " +
-              "(See https://arrow.apache.org/docs/java/install.html)", e);
+      final RuntimeException failure =
+          new RuntimeException(
+              "Failed to initialize MemoryUtil. You must start Java with "
+                  + "`--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED` "
+                  + "(See https://arrow.apache.org/docs/java/install.html)",
+              e);
       failure.printStackTrace();
       throw failure;
     }
@@ -166,12 +158,9 @@ public class MemoryUtil {
     return UNSAFE.getLong(buf, BYTE_BUFFER_ADDRESS_OFFSET);
   }
 
-  private MemoryUtil() {
-  }
+  private MemoryUtil() {}
 
-  /**
-   * Create nio byte buffer.
-   */
+  /** Create nio byte buffer. */
   public static ByteBuffer directBuffer(long address, int capacity) {
     if (DIRECT_BUFFER_CONSTRUCTOR != null) {
       if (capacity < 0) {
@@ -187,10 +176,14 @@ public class MemoryUtil {
         "sun.misc.Unsafe or java.nio.DirectByteBuffer.<init>(long, int) not available");
   }
 
-  @SuppressWarnings("nullness:argument") //to handle null assignment on third party dependency: Unsafe
-  public static void copyMemory(@Nullable Object srcBase, long srcOffset,
-                                @Nullable Object destBase, long destOffset,
-                                long bytes) {
+  @SuppressWarnings(
+      "nullness:argument") // to handle null assignment on third party dependency: Unsafe
+  public static void copyMemory(
+      @Nullable Object srcBase,
+      long srcOffset,
+      @Nullable Object destBase,
+      long destOffset,
+      long bytes) {
     UNSAFE.copyMemory(srcBase, srcOffset, destBase, destOffset, bytes);
   }
 }

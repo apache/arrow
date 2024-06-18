@@ -14,38 +14,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.memory.util;
 
-import static junit.framework.TestCase.assertEquals;
-import static junit.framework.TestCase.assertNotSame;
-import static junit.framework.TestCase.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.memory.util.hash.SimpleHasher;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-/**
- * Test cases for {@link ArrowBufPointer}.
- */
+/** Test cases for {@link ArrowBufPointer}. */
 public class TestArrowBufPointer {
 
   private final int BUFFER_LENGTH = 1024;
 
   private BufferAllocator allocator;
 
-  @Before
+  @BeforeEach
   public void prepare() {
     allocator = new RootAllocator(1024 * 1024);
   }
 
-  @After
+  @AfterEach
   public void shutdown() {
     allocator.close();
   }
@@ -61,11 +58,11 @@ public class TestArrowBufPointer {
 
       ArrowBufPointer ptr1 = new ArrowBufPointer(null, 0, 100);
       ArrowBufPointer ptr2 = new ArrowBufPointer(null, 100, 5032);
-      assertTrue(ptr1.equals(ptr2));
+      assertEquals(ptr1, ptr2);
       for (int i = 0; i < BUFFER_LENGTH / 4; i++) {
         ptr1.set(buf1, i * 4L, 4);
         ptr2.set(buf2, i * 4L, 4);
-        assertTrue(ptr1.equals(ptr2));
+        assertEquals(ptr1, ptr2);
       }
     }
   }
@@ -74,7 +71,7 @@ public class TestArrowBufPointer {
   public void testArrowBufPointersHashCode() {
     final int vectorLength = 100;
     try (ArrowBuf buf1 = allocator.buffer(vectorLength * 4);
-         ArrowBuf buf2 = allocator.buffer(vectorLength * 4)) {
+        ArrowBuf buf2 = allocator.buffer(vectorLength * 4)) {
       for (int i = 0; i < vectorLength; i++) {
         buf1.setInt(i * 4L, i);
         buf2.setInt(i * 4L, i);
@@ -147,7 +144,7 @@ public class TestArrowBufPointer {
       ArrowBufPointer pointer2 = new ArrowBufPointer(buf, 0, 10, new CounterHasher());
 
       // the two pointers cannot be equal, since they have different hashers
-      assertFalse(pointer1.equals(pointer2));
+      assertNotEquals(pointer1, pointer2);
     }
   }
 
@@ -155,7 +152,7 @@ public class TestArrowBufPointer {
   public void testArrowBufPointersComparison() {
     final int vectorLength = 100;
     try (ArrowBuf buf1 = allocator.buffer(vectorLength);
-         ArrowBuf buf2 = allocator.buffer(vectorLength)) {
+        ArrowBuf buf2 = allocator.buffer(vectorLength)) {
       for (int i = 0; i < vectorLength; i++) {
         buf1.setByte(i, i);
         buf2.setByte(i, i);
@@ -185,8 +182,8 @@ public class TestArrowBufPointer {
   }
 
   /**
-   * Hasher with a counter that increments each time a hash code is calculated.
-   * This is to validate that the hash code in {@link ArrowBufPointer} is reused.
+   * Hasher with a counter that increments each time a hash code is calculated. This is to validate
+   * that the hash code in {@link ArrowBufPointer} is reused.
    */
   static class CounterHasher implements ArrowBufHasher {
 

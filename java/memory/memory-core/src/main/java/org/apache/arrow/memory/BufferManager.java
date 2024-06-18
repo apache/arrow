@@ -14,21 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.memory;
 
 /**
- * Manages a list of {@link ArrowBuf}s that can be reallocated as needed. Upon
- * re-allocation the old buffer will be freed. Managing a list of these buffers
- * prevents some parts of the system from needing to define a correct location
- * to place the final call to free them.
+ * Manages a list of {@link ArrowBuf}s that can be reallocated as needed. Upon re-allocation the old
+ * buffer will be freed. Managing a list of these buffers prevents some parts of the system from
+ * needing to define a correct location to place the final call to free them.
  */
 public interface BufferManager extends AutoCloseable {
 
   /**
    * Replace an old buffer with a new version at least of the provided size. Does not copy data.
    *
-   * @param old     Old Buffer that the user is no longer going to use.
+   * @param old Old Buffer that the user is no longer going to use.
    * @param newSize Size of new replacement buffer.
    * @return A new version of the buffer.
    */
@@ -49,5 +47,6 @@ public interface BufferManager extends AutoCloseable {
    */
   ArrowBuf getManagedBuffer(long size);
 
-  @Override void close();
+  @Override
+  void close();
 }

@@ -151,7 +151,7 @@ func (w *Writer) Close() error {
 func (w *Writer) Write(rec arrow.Record) (err error) {
 	defer func() {
 		if pErr := recover(); pErr != nil {
-			err = fmt.Errorf("arrow/ipc: unknown error while writing: %v", pErr)
+			err = utils.FormatRecoveredError("arrow/ipc: unknown error while writing", pErr)
 		}
 	}()
 

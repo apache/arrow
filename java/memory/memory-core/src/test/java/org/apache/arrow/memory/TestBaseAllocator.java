@@ -14,33 +14,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.memory;
 
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
-
 import org.apache.arrow.memory.AllocationOutcomeDetails.Entry;
 import org.apache.arrow.memory.rounding.RoundingPolicy;
 import org.apache.arrow.memory.rounding.SegmentRoundingPolicy;
 import org.apache.arrow.memory.util.AssertionUtil;
-import org.junit.Assert;
-import org.junit.Ignore;
-import org.junit.Test;
-import org.junit.jupiter.api.Assertions;
-
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 import sun.misc.Unsafe;
 
 public class TestBaseAllocator {
@@ -69,18 +64,16 @@ public class TestBaseAllocator {
   // ---------------------------------------- DEBUG ------------------------------------
   */
 
-
   @Test
   public void test_privateMax() throws Exception {
-    try (final RootAllocator rootAllocator =
-             new RootAllocator(MAX_ALLOCATION)) {
+    try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
       final ArrowBuf arrowBuf1 = rootAllocator.buffer(MAX_ALLOCATION / 2);
-      assertNotNull("allocation failed", arrowBuf1);
+      assertNotNull(arrowBuf1, "allocation failed");
 
       try (final BufferAllocator childAllocator =
-               rootAllocator.newChildAllocator("noLimits", 0, MAX_ALLOCATION)) {
+          rootAllocator.newChildAllocator("noLimits", 0, MAX_ALLOCATION)) {
         final ArrowBuf arrowBuf2 = childAllocator.buffer(MAX_ALLOCATION / 2);
-        assertNotNull("allocation failed", arrowBuf2);
+        assertNotNull(arrowBuf2, "allocation failed");
         arrowBuf2.getReferenceManager().release();
       }
 
@@ -88,56 +81,60 @@ public class TestBaseAllocator {
     }
   }
 
-  @Test(expected = IllegalStateException.class)
+  @Test
   public void testRootAllocator_closeWithOutstanding() throws Exception {
-    try {
-      try (final RootAllocator rootAllocator =
-               new RootAllocator(MAX_ALLOCATION)) {
-        final ArrowBuf arrowBuf = rootAllocator.buffer(512);
-        assertNotNull("allocation failed", arrowBuf);
-      }
-    } finally {
-      /*
-       * We expect there to be one unreleased underlying buffer because we're closing
-       * without releasing it.
-       */
-      /*
-      // ------------------------------- DEBUG ---------------------------------
-      final int bufferCount = UnsafeDirectLittleEndian.getBufferCount();
-      UnsafeDirectLittleEndian.releaseBuffers();
-      assertEquals(1, bufferCount);
-      // ------------------------------- DEBUG ---------------------------------
-      */
-    }
+    assertThrows(
+        IllegalStateException.class,
+        () -> {
+          try {
+            try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
+              final ArrowBuf arrowBuf = rootAllocator.buffer(512);
+              assertNotNull(arrowBuf, "allocation failed");
+            }
+          } finally {
+            /*
+             * We expect there to be one unreleased underlying buffer because we're closing
+             * without releasing it.
+             */
+            /*
+            // ------------------------------- DEBUG ---------------------------------
+            final int bufferCount = UnsafeDirectLittleEndian.getBufferCount();
+            UnsafeDirectLittleEndian.releaseBuffers();
+            assertEquals(1, bufferCount);
+            // ------------------------------- DEBUG ---------------------------------
+            */
+          }
+        });
   }
 
   @Test
-  @Ignore
+  @Disabled
   public void testRootAllocator_getEmpty() throws Exception {
-    try (final RootAllocator rootAllocator =
-             new RootAllocator(MAX_ALLOCATION)) {
+    try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
       final ArrowBuf arrowBuf = rootAllocator.buffer(0);
-      assertNotNull("allocation failed", arrowBuf);
-      assertEquals("capacity was non-zero", 0, arrowBuf.capacity());
-      assertTrue("address should be valid", arrowBuf.memoryAddress() != 0);
+      assertNotNull(arrowBuf, "allocation failed");
+      assertEquals(0, arrowBuf.capacity(), "capacity was non-zero");
+      assertTrue(arrowBuf.memoryAddress() != 0, "address should be valid");
       arrowBuf.getReferenceManager().release();
     }
   }
 
-  @Ignore // TODO(DRILL-2740)
-  @Test(expected = IllegalStateException.class)
+  @Disabled // TODO(DRILL-2740)
+  @Test
   public void testAllocator_unreleasedEmpty() throws Exception {
-    try (final RootAllocator rootAllocator =
-             new RootAllocator(MAX_ALLOCATION)) {
-      @SuppressWarnings("unused")
-      final ArrowBuf arrowBuf = rootAllocator.buffer(0);
-    }
+    assertThrows(
+        IllegalStateException.class,
+        () -> {
+          try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
+            @SuppressWarnings("unused")
+            final ArrowBuf arrowBuf = rootAllocator.buffer(0);
+          }
+        });
   }
 
   @Test
   public void testAllocator_transferOwnership() throws Exception {
-    try (final RootAllocator rootAllocator =
-             new RootAllocator(MAX_ALLOCATION)) {
+    try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
       final BufferAllocator childAllocator1 =
           rootAllocator.newChildAllocator("changeOwnership1", 0, MAX_ALLOCATION);
       final BufferAllocator childAllocator2 =
@@ -146,7 +143,8 @@ public class TestBaseAllocator {
       final ArrowBuf arrowBuf1 = childAllocator1.buffer(MAX_ALLOCATION / 4);
       rootAllocator.verify();
       final ReferenceManager referenceManager = arrowBuf1.getReferenceManager();
-      OwnershipTransferResult transferOwnership = referenceManager.transferOwnership(arrowBuf1, childAllocator2);
+      OwnershipTransferResult transferOwnership =
+          referenceManager.transferOwnership(arrowBuf1, childAllocator2);
       assertEquiv(arrowBuf1, transferOwnership.getTransferredBuffer());
       final boolean allocationFit = transferOwnership.getAllocationFit();
       rootAllocator.verify();
@@ -168,7 +166,7 @@ public class TestBaseAllocator {
   @Test
   public void testAllocator_getParentAndChild() throws Exception {
     try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
-      assertEquals(rootAllocator.getParentAllocator(), null);
+      assertNull(rootAllocator.getParentAllocator());
 
       try (final BufferAllocator childAllocator1 =
           rootAllocator.newChildAllocator("child1", 0, MAX_ALLOCATION)) {
@@ -179,14 +177,17 @@ public class TestBaseAllocator {
         try (final BufferAllocator childAllocator2 =
             rootAllocator.newChildAllocator("child2", 0, MAX_ALLOCATION)) {
           assertEquals(childAllocator2.getParentAllocator(), rootAllocator);
-          assertTrue(equalsIgnoreOrder(Arrays.asList(childAllocator1, childAllocator2),
-              rootAllocator.getChildAllocators()));
+          assertTrue(
+              equalsIgnoreOrder(
+                  Arrays.asList(childAllocator1, childAllocator2),
+                  rootAllocator.getChildAllocators()));
 
           try (final BufferAllocator grandChildAllocator =
               childAllocator1.newChildAllocator("grand-child", 0, MAX_ALLOCATION)) {
             assertEquals(grandChildAllocator.getParentAllocator(), childAllocator1);
-            assertTrue(equalsIgnoreOrder(Arrays.asList(grandChildAllocator),
-                childAllocator1.getChildAllocators()));
+            assertTrue(
+                equalsIgnoreOrder(
+                    Arrays.asList(grandChildAllocator), childAllocator1.getChildAllocators()));
           }
         }
       }
@@ -202,15 +203,18 @@ public class TestBaseAllocator {
             rootAllocator.newChildAllocator("child2", 0, MAX_ALLOCATION)) {
 
           // root has two child allocators
-          assertTrue(equalsIgnoreOrder(Arrays.asList(childAllocator1, childAllocator2),
-              rootAllocator.getChildAllocators()));
+          assertTrue(
+              equalsIgnoreOrder(
+                  Arrays.asList(childAllocator1, childAllocator2),
+                  rootAllocator.getChildAllocators()));
 
           try (final BufferAllocator grandChildAllocator =
               childAllocator1.newChildAllocator("grand-child", 0, MAX_ALLOCATION)) {
 
             // child1 has one allocator i.e grand-child
-            assertTrue(equalsIgnoreOrder(Arrays.asList(grandChildAllocator),
-                childAllocator1.getChildAllocators()));
+            assertTrue(
+                equalsIgnoreOrder(
+                    Arrays.asList(grandChildAllocator), childAllocator1.getChildAllocators()));
           }
 
           // grand-child closed
@@ -229,10 +233,10 @@ public class TestBaseAllocator {
   @Test
   public void testAllocator_shareOwnership() throws Exception {
     try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
-      final BufferAllocator childAllocator1 = rootAllocator.newChildAllocator("shareOwnership1", 0,
-          MAX_ALLOCATION);
-      final BufferAllocator childAllocator2 = rootAllocator.newChildAllocator("shareOwnership2", 0,
-          MAX_ALLOCATION);
+      final BufferAllocator childAllocator1 =
+          rootAllocator.newChildAllocator("shareOwnership1", 0, MAX_ALLOCATION);
+      final BufferAllocator childAllocator2 =
+          rootAllocator.newChildAllocator("shareOwnership2", 0, MAX_ALLOCATION);
       final ArrowBuf arrowBuf1 = childAllocator1.buffer(MAX_ALLOCATION / 4);
       rootAllocator.verify();
 
@@ -250,8 +254,8 @@ public class TestBaseAllocator {
       childAllocator1.close();
       rootAllocator.verify();
 
-      final BufferAllocator childAllocator3 = rootAllocator.newChildAllocator("shareOwnership3", 0,
-          MAX_ALLOCATION);
+      final BufferAllocator childAllocator3 =
+          rootAllocator.newChildAllocator("shareOwnership3", 0, MAX_ALLOCATION);
       final ArrowBuf arrowBuf3 = arrowBuf1.getReferenceManager().retain(arrowBuf1, childAllocator3);
       assertNotNull(arrowBuf3);
       assertNotEquals(arrowBuf3, arrowBuf1);
@@ -273,43 +277,48 @@ public class TestBaseAllocator {
   @Test
   public void testRootAllocator_createChildAndUse() throws Exception {
     try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
-      try (final BufferAllocator childAllocator = rootAllocator.newChildAllocator(
-          "createChildAndUse", 0, MAX_ALLOCATION)) {
+      try (final BufferAllocator childAllocator =
+          rootAllocator.newChildAllocator("createChildAndUse", 0, MAX_ALLOCATION)) {
         final ArrowBuf arrowBuf = childAllocator.buffer(512);
-        assertNotNull("allocation failed", arrowBuf);
+        assertNotNull(arrowBuf, "allocation failed");
         arrowBuf.getReferenceManager().release();
       }
     }
   }
 
-  @Test(expected = IllegalStateException.class)
+  @Test
   public void testRootAllocator_createChildDontClose() throws Exception {
-    try {
-      try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
-        final BufferAllocator childAllocator = rootAllocator.newChildAllocator(
-            "createChildDontClose", 0, MAX_ALLOCATION);
-        final ArrowBuf arrowBuf = childAllocator.buffer(512);
-        assertNotNull("allocation failed", arrowBuf);
-      }
-    } finally {
-      /*
-       * We expect one underlying buffer because we closed a child allocator without
-       * releasing the buffer allocated from it.
-       */
-      /*
-      // ------------------------------- DEBUG ---------------------------------
-      final int bufferCount = UnsafeDirectLittleEndian.getBufferCount();
-      UnsafeDirectLittleEndian.releaseBuffers();
-      assertEquals(1, bufferCount);
-      // ------------------------------- DEBUG ---------------------------------
-      */
-    }
+    assertThrows(
+        IllegalStateException.class,
+        () -> {
+          try {
+            try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
+              final BufferAllocator childAllocator =
+                  rootAllocator.newChildAllocator("createChildDontClose", 0, MAX_ALLOCATION);
+              final ArrowBuf arrowBuf = childAllocator.buffer(512);
+              assertNotNull(arrowBuf, "allocation failed");
+            }
+          } finally {
+            /*
+             * We expect one underlying buffer because we closed a child allocator without
+             * releasing the buffer allocated from it.
+             */
+            /*
+            // ------------------------------- DEBUG ---------------------------------
+            final int bufferCount = UnsafeDirectLittleEndian.getBufferCount();
+            UnsafeDirectLittleEndian.releaseBuffers();
+            assertEquals(1, bufferCount);
+            // ------------------------------- DEBUG ---------------------------------
+            */
+          }
+        });
   }
 
   @Test
   public void testSegmentAllocator() {
     RoundingPolicy policy = new SegmentRoundingPolicy(1024);
-    try (RootAllocator allocator = new RootAllocator(AllocationListener.NOOP, 1024 * 1024, policy)) {
+    try (RootAllocator allocator =
+        new RootAllocator(AllocationListener.NOOP, 1024 * 1024, policy)) {
       ArrowBuf buf = allocator.buffer(798);
       assertEquals(1024, buf.capacity());
       buf.setInt(333, 959);
@@ -348,19 +357,15 @@ public class TestBaseAllocator {
 
   @Test
   public void testSegmentAllocator_smallSegment() {
-    IllegalArgumentException e = Assertions.assertThrows(
-            IllegalArgumentException.class,
-        () -> new SegmentRoundingPolicy(128)
-    );
+    IllegalArgumentException e =
+        assertThrows(IllegalArgumentException.class, () -> new SegmentRoundingPolicy(128));
     assertEquals("The segment size cannot be smaller than 1024", e.getMessage());
   }
 
   @Test
   public void testSegmentAllocator_segmentSizeNotPowerOf2() {
-    IllegalArgumentException e = Assertions.assertThrows(
-            IllegalArgumentException.class,
-        () -> new SegmentRoundingPolicy(4097)
-    );
+    IllegalArgumentException e =
+        assertThrows(IllegalArgumentException.class, () -> new SegmentRoundingPolicy(4097));
     assertEquals("The segment size must be a power of 2", e.getMessage());
   }
 
@@ -368,7 +373,7 @@ public class TestBaseAllocator {
   public void testCustomizedAllocationManager() {
     try (BaseAllocator allocator = createAllocatorWithCustomizedAllocationManager()) {
       final ArrowBuf arrowBuf1 = allocator.buffer(MAX_ALLOCATION);
-      assertNotNull("allocation failed", arrowBuf1);
+      assertNotNull(arrowBuf1, "allocation failed");
 
       arrowBuf1.setInt(0, 1);
       assertEquals(1, arrowBuf1.getInt(0));
@@ -391,145 +396,150 @@ public class TestBaseAllocator {
   }
 
   private BaseAllocator createAllocatorWithCustomizedAllocationManager() {
-    return new RootAllocator(BaseAllocator.configBuilder()
-        .maxAllocation(MAX_ALLOCATION)
-        .allocationManagerFactory(new AllocationManager.Factory() {
-          @Override
-          public AllocationManager create(BufferAllocator accountingAllocator, long requestedSize) {
-            return new AllocationManager(accountingAllocator) {
-              private final Unsafe unsafe = getUnsafe();
-              private final long address = unsafe.allocateMemory(requestedSize);
+    return new RootAllocator(
+        BaseAllocator.configBuilder()
+            .maxAllocation(MAX_ALLOCATION)
+            .allocationManagerFactory(
+                new AllocationManager.Factory() {
+                  @Override
+                  public AllocationManager create(
+                      BufferAllocator accountingAllocator, long requestedSize) {
+                    return new AllocationManager(accountingAllocator) {
+                      private final Unsafe unsafe = getUnsafe();
+                      private final long address = unsafe.allocateMemory(requestedSize);
 
-              @Override
-              protected long memoryAddress() {
-                return address;
-              }
+                      @Override
+                      protected long memoryAddress() {
+                        return address;
+                      }
 
-              @Override
-              protected void release0() {
-                unsafe.setMemory(address, requestedSize, (byte) 0);
-                unsafe.freeMemory(address);
-              }
+                      @Override
+                      protected void release0() {
+                        unsafe.setMemory(address, requestedSize, (byte) 0);
+                        unsafe.freeMemory(address);
+                      }
 
-              @Override
-              public long getSize() {
-                return requestedSize;
-              }
+                      @Override
+                      public long getSize() {
+                        return requestedSize;
+                      }
 
-              private Unsafe getUnsafe() {
-                Field f = null;
-                try {
-                  f = Unsafe.class.getDeclaredField("theUnsafe");
-                  f.setAccessible(true);
-                  return (Unsafe) f.get(null);
-                } catch (NoSuchFieldException | IllegalAccessException e) {
-                  throw new RuntimeException(e);
-                } finally {
-                  if (f != null) {
-                    f.setAccessible(false);
+                      private Unsafe getUnsafe() {
+                        Field f = null;
+                        try {
+                          f = Unsafe.class.getDeclaredField("theUnsafe");
+                          f.setAccessible(true);
+                          return (Unsafe) f.get(null);
+                        } catch (NoSuchFieldException | IllegalAccessException e) {
+                          throw new RuntimeException(e);
+                        } finally {
+                          if (f != null) {
+                            f.setAccessible(false);
+                          }
+                        }
+                      }
+                    };
                   }
-                }
-              }
-            };
-          }
 
-          @Override
-          public ArrowBuf empty() {
-            return null;
-          }
-        }).build());
+                  @Override
+                  public ArrowBuf empty() {
+                    return null;
+                  }
+                })
+            .build());
   }
 
   @Test
   public void testRootAllocator_listeners() throws Exception {
     CountingAllocationListener listener1 = new CountingAllocationListener();
-    Assert.assertEquals(0, listener1.getNumPreCalls());
-    Assert.assertEquals(0, listener1.getNumCalls());
-    Assert.assertEquals(0, listener1.getNumReleaseCalls());
-    Assert.assertEquals(0, listener1.getNumChildren());
-    Assert.assertEquals(0, listener1.getTotalMem());
+    assertEquals(0, listener1.getNumPreCalls());
+    assertEquals(0, listener1.getNumCalls());
+    assertEquals(0, listener1.getNumReleaseCalls());
+    assertEquals(0, listener1.getNumChildren());
+    assertEquals(0, listener1.getTotalMem());
     CountingAllocationListener listener2 = new CountingAllocationListener();
-    Assert.assertEquals(0, listener2.getNumPreCalls());
-    Assert.assertEquals(0, listener2.getNumCalls());
-    Assert.assertEquals(0, listener2.getNumReleaseCalls());
-    Assert.assertEquals(0, listener2.getNumChildren());
-    Assert.assertEquals(0, listener2.getTotalMem());
+    assertEquals(0, listener2.getNumPreCalls());
+    assertEquals(0, listener2.getNumCalls());
+    assertEquals(0, listener2.getNumReleaseCalls());
+    assertEquals(0, listener2.getNumChildren());
+    assertEquals(0, listener2.getTotalMem());
     // root and first-level child share the first listener
     // second-level and third-level child share the second listener
     try (final RootAllocator rootAllocator = new RootAllocator(listener1, MAX_ALLOCATION)) {
       try (final BufferAllocator c1 = rootAllocator.newChildAllocator("c1", 0, MAX_ALLOCATION)) {
-        Assert.assertEquals(1, listener1.getNumChildren());
+        assertEquals(1, listener1.getNumChildren());
         final ArrowBuf buf1 = c1.buffer(16);
-        assertNotNull("allocation failed", buf1);
-        Assert.assertEquals(1, listener1.getNumPreCalls());
-        Assert.assertEquals(1, listener1.getNumCalls());
-        Assert.assertEquals(0, listener1.getNumReleaseCalls());
-        Assert.assertEquals(16, listener1.getTotalMem());
+        assertNotNull(buf1, "allocation failed");
+        assertEquals(1, listener1.getNumPreCalls());
+        assertEquals(1, listener1.getNumCalls());
+        assertEquals(0, listener1.getNumReleaseCalls());
+        assertEquals(16, listener1.getTotalMem());
         buf1.getReferenceManager().release();
         try (final BufferAllocator c2 = c1.newChildAllocator("c2", listener2, 0, MAX_ALLOCATION)) {
-          Assert.assertEquals(2, listener1.getNumChildren()); // c1 got a new child, so listener1 is notified.
-          Assert.assertEquals(0, listener2.getNumChildren());
+          assertEquals(
+              2, listener1.getNumChildren()); // c1 got a new child, so listener1 is notified.
+          assertEquals(0, listener2.getNumChildren());
           final ArrowBuf buf2 = c2.buffer(32);
-          assertNotNull("allocation failed", buf2);
-          Assert.assertEquals(1, listener1.getNumCalls());
-          Assert.assertEquals(16, listener1.getTotalMem());
-          Assert.assertEquals(1, listener2.getNumPreCalls());
-          Assert.assertEquals(1, listener2.getNumCalls());
-          Assert.assertEquals(0, listener2.getNumReleaseCalls());
-          Assert.assertEquals(32, listener2.getTotalMem());
+          assertNotNull(buf2, "allocation failed");
+          assertEquals(1, listener1.getNumCalls());
+          assertEquals(16, listener1.getTotalMem());
+          assertEquals(1, listener2.getNumPreCalls());
+          assertEquals(1, listener2.getNumCalls());
+          assertEquals(0, listener2.getNumReleaseCalls());
+          assertEquals(32, listener2.getTotalMem());
           buf2.getReferenceManager().release();
           try (final BufferAllocator c3 = c2.newChildAllocator("c3", 0, MAX_ALLOCATION)) {
-            Assert.assertEquals(2, listener1.getNumChildren());
-            Assert.assertEquals(1, listener2.getNumChildren());
+            assertEquals(2, listener1.getNumChildren());
+            assertEquals(1, listener2.getNumChildren());
             final ArrowBuf buf3 = c3.buffer(64);
-            assertNotNull("allocation failed", buf3);
-            Assert.assertEquals(1, listener1.getNumPreCalls());
-            Assert.assertEquals(1, listener1.getNumCalls());
-            Assert.assertEquals(1, listener1.getNumReleaseCalls());
-            Assert.assertEquals(16, listener1.getTotalMem());
-            Assert.assertEquals(2, listener2.getNumPreCalls());
-            Assert.assertEquals(2, listener2.getNumCalls());
-            Assert.assertEquals(1, listener2.getNumReleaseCalls());
-            Assert.assertEquals(32 + 64, listener2.getTotalMem());
+            assertNotNull(buf3, "allocation failed");
+            assertEquals(1, listener1.getNumPreCalls());
+            assertEquals(1, listener1.getNumCalls());
+            assertEquals(1, listener1.getNumReleaseCalls());
+            assertEquals(16, listener1.getTotalMem());
+            assertEquals(2, listener2.getNumPreCalls());
+            assertEquals(2, listener2.getNumCalls());
+            assertEquals(1, listener2.getNumReleaseCalls());
+            assertEquals(32 + 64, listener2.getTotalMem());
             buf3.getReferenceManager().release();
           }
-          Assert.assertEquals(2, listener1.getNumChildren());
-          Assert.assertEquals(0, listener2.getNumChildren()); // third-level child removed
+          assertEquals(2, listener1.getNumChildren());
+          assertEquals(0, listener2.getNumChildren()); // third-level child removed
         }
-        Assert.assertEquals(1, listener1.getNumChildren()); // second-level child removed
-        Assert.assertEquals(0, listener2.getNumChildren());
+        assertEquals(1, listener1.getNumChildren()); // second-level child removed
+        assertEquals(0, listener2.getNumChildren());
       }
-      Assert.assertEquals(0, listener1.getNumChildren()); // first-level child removed
+      assertEquals(0, listener1.getNumChildren()); // first-level child removed
 
-      Assert.assertEquals(2, listener2.getNumReleaseCalls());
+      assertEquals(2, listener2.getNumReleaseCalls());
     }
   }
 
   @Test
   public void testRootAllocator_listenerAllocationFail() throws Exception {
     CountingAllocationListener listener1 = new CountingAllocationListener();
-    Assert.assertEquals(0, listener1.getNumCalls());
-    Assert.assertEquals(0, listener1.getTotalMem());
+    assertEquals(0, listener1.getNumCalls());
+    assertEquals(0, listener1.getTotalMem());
     // Test attempts to allocate too much from a child whose limit is set to half of the max
     // allocation. The listener's callback triggers, expanding the child allocator's limit, so then
     // the allocation succeeds.
     try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
-      try (final BufferAllocator c1 = rootAllocator.newChildAllocator("c1", listener1, 0,
-          MAX_ALLOCATION / 2)) {
+      try (final BufferAllocator c1 =
+          rootAllocator.newChildAllocator("c1", listener1, 0, MAX_ALLOCATION / 2)) {
         try {
           c1.buffer(MAX_ALLOCATION);
           fail("allocated memory beyond max allowed");
         } catch (OutOfMemoryException e) {
           // expected
         }
-        Assert.assertEquals(0, listener1.getNumCalls());
-        Assert.assertEquals(0, listener1.getTotalMem());
+        assertEquals(0, listener1.getNumCalls());
+        assertEquals(0, listener1.getTotalMem());
 
         listener1.setExpandOnFail(c1, MAX_ALLOCATION);
         ArrowBuf arrowBuf = c1.buffer(MAX_ALLOCATION);
-        assertNotNull("allocation failed", arrowBuf);
-        Assert.assertEquals(1, listener1.getNumCalls());
-        Assert.assertEquals(MAX_ALLOCATION, listener1.getTotalMem());
+        assertNotNull(arrowBuf, "allocation failed");
+        assertEquals(1, listener1.getNumCalls());
+        assertEquals(MAX_ALLOCATION, listener1.getTotalMem());
         arrowBuf.getReferenceManager().release();
       }
     }
@@ -537,18 +547,18 @@ public class TestBaseAllocator {
 
   private static void allocateAndFree(final BufferAllocator allocator) {
     final ArrowBuf arrowBuf = allocator.buffer(512);
-    assertNotNull("allocation failed", arrowBuf);
+    assertNotNull(arrowBuf, "allocation failed");
     arrowBuf.getReferenceManager().release();
 
     final ArrowBuf arrowBuf2 = allocator.buffer(MAX_ALLOCATION);
-    assertNotNull("allocation failed", arrowBuf2);
+    assertNotNull(arrowBuf2, "allocation failed");
     arrowBuf2.getReferenceManager().release();
 
     final int nBufs = 8;
     final ArrowBuf[] arrowBufs = new ArrowBuf[nBufs];
     for (int i = 0; i < arrowBufs.length; ++i) {
       ArrowBuf arrowBufi = allocator.buffer(MAX_ALLOCATION / nBufs);
-      assertNotNull("allocation failed", arrowBufi);
+      assertNotNull(arrowBufi, "allocation failed");
       arrowBufs[i] = arrowBufi;
     }
     for (ArrowBuf arrowBufi : arrowBufs) {
@@ -558,10 +568,9 @@ public class TestBaseAllocator {
 
   @Test
   public void testAllocator_manyAllocations() throws Exception {
-    try (final RootAllocator rootAllocator =
-             new RootAllocator(MAX_ALLOCATION)) {
+    try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
       try (final BufferAllocator childAllocator =
-               rootAllocator.newChildAllocator("manyAllocations", 0, MAX_ALLOCATION)) {
+          rootAllocator.newChildAllocator("manyAllocations", 0, MAX_ALLOCATION)) {
         allocateAndFree(childAllocator);
       }
     }
@@ -569,10 +578,9 @@ public class TestBaseAllocator {
 
   @Test
   public void testAllocator_overAllocate() throws Exception {
-    try (final RootAllocator rootAllocator =
-             new RootAllocator(MAX_ALLOCATION)) {
+    try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
       try (final BufferAllocator childAllocator =
-               rootAllocator.newChildAllocator("overAllocate", 0, MAX_ALLOCATION)) {
+          rootAllocator.newChildAllocator("overAllocate", 0, MAX_ALLOCATION)) {
         allocateAndFree(childAllocator);
 
         try {
@@ -587,14 +595,13 @@ public class TestBaseAllocator {
 
   @Test
   public void testAllocator_overAllocateParent() throws Exception {
-    try (final RootAllocator rootAllocator =
-             new RootAllocator(MAX_ALLOCATION)) {
+    try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
       try (final BufferAllocator childAllocator =
-               rootAllocator.newChildAllocator("overAllocateParent", 0, MAX_ALLOCATION)) {
+          rootAllocator.newChildAllocator("overAllocateParent", 0, MAX_ALLOCATION)) {
         final ArrowBuf arrowBuf1 = rootAllocator.buffer(MAX_ALLOCATION / 2);
-        assertNotNull("allocation failed", arrowBuf1);
+        assertNotNull(arrowBuf1, "allocation failed");
         final ArrowBuf arrowBuf2 = childAllocator.buffer(MAX_ALLOCATION / 2);
-        assertNotNull("allocation failed", arrowBuf2);
+        assertNotNull(arrowBuf2, "allocation failed");
 
         try {
           childAllocator.buffer(MAX_ALLOCATION / 4);
@@ -611,18 +618,18 @@ public class TestBaseAllocator {
 
   @Test
   public void testAllocator_failureAtParentLimitOutcomeDetails() throws Exception {
-    try (final RootAllocator rootAllocator =
-        new RootAllocator(MAX_ALLOCATION)) {
+    try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
       try (final BufferAllocator childAllocator =
           rootAllocator.newChildAllocator("child", 0, MAX_ALLOCATION / 2)) {
         try (final BufferAllocator grandChildAllocator =
             childAllocator.newChildAllocator("grandchild", MAX_ALLOCATION / 4, MAX_ALLOCATION)) {
-          OutOfMemoryException e = assertThrows(OutOfMemoryException.class,
-              () -> grandChildAllocator.buffer(MAX_ALLOCATION));
+          OutOfMemoryException e =
+              assertThrows(
+                  OutOfMemoryException.class, () -> grandChildAllocator.buffer(MAX_ALLOCATION));
           // expected
           assertTrue(e.getMessage().contains("Unable to allocate buffer"));
 
-          assertTrue("missing outcome details", e.getOutcomeDetails().isPresent());
+          assertTrue(e.getOutcomeDetails().isPresent(), "missing outcome details");
           AllocationOutcomeDetails outcomeDetails = e.getOutcomeDetails().get();
 
           assertEquals(outcomeDetails.getFailedAllocator(), childAllocator);
@@ -633,12 +640,12 @@ public class TestBaseAllocator {
           AllocationOutcomeDetails.Entry first = iterator.next();
           assertEquals(MAX_ALLOCATION / 4, first.getAllocatedSize());
           assertEquals(MAX_ALLOCATION, first.getRequestedSize());
-          assertEquals(false, first.isAllocationFailed());
+          assertFalse(first.isAllocationFailed());
 
           AllocationOutcomeDetails.Entry second = iterator.next();
           assertEquals(MAX_ALLOCATION - MAX_ALLOCATION / 4, second.getRequestedSize());
           assertEquals(0, second.getAllocatedSize());
-          assertEquals(true, second.isAllocationFailed());
+          assertTrue(second.isAllocationFailed());
 
           assertFalse(iterator.hasNext());
         }
@@ -648,17 +655,17 @@ public class TestBaseAllocator {
 
   @Test
   public void testAllocator_failureAtRootLimitOutcomeDetails() throws Exception {
-    try (final RootAllocator rootAllocator =
-        new RootAllocator(MAX_ALLOCATION)) {
+    try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
       try (final BufferAllocator childAllocator =
           rootAllocator.newChildAllocator("child", MAX_ALLOCATION / 2, Long.MAX_VALUE)) {
         try (final BufferAllocator grandChildAllocator =
             childAllocator.newChildAllocator("grandchild", MAX_ALLOCATION / 4, Long.MAX_VALUE)) {
-          OutOfMemoryException e = assertThrows(OutOfMemoryException.class,
-              () -> grandChildAllocator.buffer(MAX_ALLOCATION * 2));
+          OutOfMemoryException e =
+              assertThrows(
+                  OutOfMemoryException.class, () -> grandChildAllocator.buffer(MAX_ALLOCATION * 2));
 
           assertTrue(e.getMessage().contains("Unable to allocate buffer"));
-          assertTrue("missing outcome details", e.getOutcomeDetails().isPresent());
+          assertTrue(e.getOutcomeDetails().isPresent(), "missing outcome details");
           AllocationOutcomeDetails outcomeDetails = e.getOutcomeDetails().get();
 
           assertEquals(outcomeDetails.getFailedAllocator(), rootAllocator);
@@ -669,16 +676,16 @@ public class TestBaseAllocator {
           AllocationOutcomeDetails.Entry first = iterator.next();
           assertEquals(MAX_ALLOCATION / 4, first.getAllocatedSize());
           assertEquals(2 * MAX_ALLOCATION, first.getRequestedSize());
-          assertEquals(false, first.isAllocationFailed());
+          assertFalse(first.isAllocationFailed());
 
           AllocationOutcomeDetails.Entry second = iterator.next();
           assertEquals(MAX_ALLOCATION / 4, second.getAllocatedSize());
           assertEquals(2 * MAX_ALLOCATION - MAX_ALLOCATION / 4, second.getRequestedSize());
-          assertEquals(false, second.isAllocationFailed());
+          assertFalse(second.isAllocationFailed());
 
           AllocationOutcomeDetails.Entry third = iterator.next();
           assertEquals(0, third.getAllocatedSize());
-          assertEquals(true, third.isAllocationFailed());
+          assertTrue(third.isAllocationFailed());
 
           assertFalse(iterator.hasNext());
         }
@@ -699,7 +706,9 @@ public class TestBaseAllocator {
     final ArrowBuf arrowBuf4 = arrowBuf3.slice(16, arrowBuf3.capacity() - 32);
     rootAllocator.verify();
 
-    arrowBuf3.getReferenceManager().release(); // since they share refcounts, one is enough to release them all
+    arrowBuf3
+        .getReferenceManager()
+        .release(); // since they share refcounts, one is enough to release them all
     rootAllocator.verify();
   }
 
@@ -708,18 +717,18 @@ public class TestBaseAllocator {
     try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
       testAllocator_sliceUpBufferAndRelease(rootAllocator, rootAllocator);
 
-      try (final BufferAllocator childAllocator = rootAllocator.newChildAllocator("createSlices", 0,
-          MAX_ALLOCATION)) {
+      try (final BufferAllocator childAllocator =
+          rootAllocator.newChildAllocator("createSlices", 0, MAX_ALLOCATION)) {
         testAllocator_sliceUpBufferAndRelease(rootAllocator, childAllocator);
       }
       rootAllocator.verify();
 
       testAllocator_sliceUpBufferAndRelease(rootAllocator, rootAllocator);
 
-      try (final BufferAllocator childAllocator = rootAllocator.newChildAllocator("createSlices", 0,
-          MAX_ALLOCATION)) {
+      try (final BufferAllocator childAllocator =
+          rootAllocator.newChildAllocator("createSlices", 0, MAX_ALLOCATION)) {
         try (final BufferAllocator childAllocator2 =
-                 childAllocator.newChildAllocator("createSlices", 0, MAX_ALLOCATION)) {
+            childAllocator.newChildAllocator("createSlices", 0, MAX_ALLOCATION)) {
           final ArrowBuf arrowBuf1 = childAllocator2.buffer(MAX_ALLOCATION / 8);
           @SuppressWarnings("unused")
           final ArrowBuf arrowBuf2 = arrowBuf1.slice(MAX_ALLOCATION / 16, MAX_ALLOCATION / 16);
@@ -738,8 +747,7 @@ public class TestBaseAllocator {
   @Test
   public void testAllocator_sliceRanges() throws Exception {
     // final AllocatorOwner allocatorOwner = new NamedOwner("sliceRanges");
-    try (final RootAllocator rootAllocator =
-             new RootAllocator(MAX_ALLOCATION)) {
+    try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
       // Populate a buffer with byte values corresponding to their indices.
       final ArrowBuf arrowBuf = rootAllocator.buffer(256);
       assertEquals(256, arrowBuf.capacity());
@@ -797,8 +805,7 @@ public class TestBaseAllocator {
   @Test
   public void testAllocator_slicesOfSlices() throws Exception {
     // final AllocatorOwner allocatorOwner = new NamedOwner("slicesOfSlices");
-    try (final RootAllocator rootAllocator =
-             new RootAllocator(MAX_ALLOCATION)) {
+    try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
       // Populate a buffer with byte values corresponding to their indices.
       final ArrowBuf arrowBuf = rootAllocator.buffer(256);
       for (int i = 0; i < 256; ++i) {
@@ -833,8 +840,10 @@ public class TestBaseAllocator {
   @Test
   public void testAllocator_transferSliced() throws Exception {
     try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
-      final BufferAllocator childAllocator1 = rootAllocator.newChildAllocator("transferSliced1", 0, MAX_ALLOCATION);
-      final BufferAllocator childAllocator2 = rootAllocator.newChildAllocator("transferSliced2", 0, MAX_ALLOCATION);
+      final BufferAllocator childAllocator1 =
+          rootAllocator.newChildAllocator("transferSliced1", 0, MAX_ALLOCATION);
+      final BufferAllocator childAllocator2 =
+          rootAllocator.newChildAllocator("transferSliced2", 0, MAX_ALLOCATION);
 
       final ArrowBuf arrowBuf1 = childAllocator1.buffer(MAX_ALLOCATION / 8);
       final ArrowBuf arrowBuf2 = childAllocator2.buffer(MAX_ALLOCATION / 8);
@@ -844,10 +853,12 @@ public class TestBaseAllocator {
 
       rootAllocator.verify();
 
-      OwnershipTransferResult result1 = arrowBuf2s.getReferenceManager().transferOwnership(arrowBuf2s, childAllocator1);
+      OwnershipTransferResult result1 =
+          arrowBuf2s.getReferenceManager().transferOwnership(arrowBuf2s, childAllocator1);
       assertEquiv(arrowBuf2s, result1.getTransferredBuffer());
       rootAllocator.verify();
-      OwnershipTransferResult result2 = arrowBuf1s.getReferenceManager().transferOwnership(arrowBuf1s, childAllocator2);
+      OwnershipTransferResult result2 =
+          arrowBuf1s.getReferenceManager().transferOwnership(arrowBuf1s, childAllocator2);
       assertEquiv(arrowBuf1s, result2.getTransferredBuffer());
       rootAllocator.verify();
 
@@ -865,8 +876,10 @@ public class TestBaseAllocator {
   @Test
   public void testAllocator_shareSliced() throws Exception {
     try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
-      final BufferAllocator childAllocator1 = rootAllocator.newChildAllocator("transferSliced", 0, MAX_ALLOCATION);
-      final BufferAllocator childAllocator2 = rootAllocator.newChildAllocator("transferSliced", 0, MAX_ALLOCATION);
+      final BufferAllocator childAllocator1 =
+          rootAllocator.newChildAllocator("transferSliced", 0, MAX_ALLOCATION);
+      final BufferAllocator childAllocator2 =
+          rootAllocator.newChildAllocator("transferSliced", 0, MAX_ALLOCATION);
 
       final ArrowBuf arrowBuf1 = childAllocator1.buffer(MAX_ALLOCATION / 8);
       final ArrowBuf arrowBuf2 = childAllocator2.buffer(MAX_ALLOCATION / 8);
@@ -876,9 +889,11 @@ public class TestBaseAllocator {
 
       rootAllocator.verify();
 
-      final ArrowBuf arrowBuf2s1 = arrowBuf2s.getReferenceManager().retain(arrowBuf2s, childAllocator1);
+      final ArrowBuf arrowBuf2s1 =
+          arrowBuf2s.getReferenceManager().retain(arrowBuf2s, childAllocator1);
       assertEquiv(arrowBuf2s, arrowBuf2s1);
-      final ArrowBuf arrowBuf1s2 = arrowBuf1s.getReferenceManager().retain(arrowBuf1s, childAllocator2);
+      final ArrowBuf arrowBuf1s2 =
+          arrowBuf1s.getReferenceManager().retain(arrowBuf1s, childAllocator2);
       assertEquiv(arrowBuf1s, arrowBuf1s2);
       rootAllocator.verify();
 
@@ -897,9 +912,12 @@ public class TestBaseAllocator {
   @Test
   public void testAllocator_transferShared() throws Exception {
     try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
-      final BufferAllocator childAllocator1 = rootAllocator.newChildAllocator("transferShared1", 0, MAX_ALLOCATION);
-      final BufferAllocator childAllocator2 = rootAllocator.newChildAllocator("transferShared2", 0, MAX_ALLOCATION);
-      final BufferAllocator childAllocator3 = rootAllocator.newChildAllocator("transferShared3", 0, MAX_ALLOCATION);
+      final BufferAllocator childAllocator1 =
+          rootAllocator.newChildAllocator("transferShared1", 0, MAX_ALLOCATION);
+      final BufferAllocator childAllocator2 =
+          rootAllocator.newChildAllocator("transferShared2", 0, MAX_ALLOCATION);
+      final BufferAllocator childAllocator3 =
+          rootAllocator.newChildAllocator("transferShared3", 0, MAX_ALLOCATION);
 
       final ArrowBuf arrowBuf1 = childAllocator1.buffer(MAX_ALLOCATION / 8);
 
@@ -912,7 +930,8 @@ public class TestBaseAllocator {
       assertEquiv(arrowBuf1, arrowBuf2);
 
       final ReferenceManager refManager1 = arrowBuf1.getReferenceManager();
-      final OwnershipTransferResult result1 = refManager1.transferOwnership(arrowBuf1, childAllocator3);
+      final OwnershipTransferResult result1 =
+          refManager1.transferOwnership(arrowBuf1, childAllocator3);
       allocationFit = result1.getAllocationFit();
       final ArrowBuf arrowBuf3 = result1.getTransferredBuffer();
       assertTrue(allocationFit);
@@ -928,9 +947,11 @@ public class TestBaseAllocator {
       childAllocator2.close();
       rootAllocator.verify();
 
-      final BufferAllocator childAllocator4 = rootAllocator.newChildAllocator("transferShared4", 0, MAX_ALLOCATION);
+      final BufferAllocator childAllocator4 =
+          rootAllocator.newChildAllocator("transferShared4", 0, MAX_ALLOCATION);
       final ReferenceManager refManager3 = arrowBuf3.getReferenceManager();
-      final OwnershipTransferResult result3 = refManager3.transferOwnership(arrowBuf3, childAllocator4);
+      final OwnershipTransferResult result3 =
+          refManager3.transferOwnership(arrowBuf3, childAllocator4);
       allocationFit = result3.getAllocationFit();
       final ArrowBuf arrowBuf4 = result3.getTransferredBuffer();
       assertTrue(allocationFit);
@@ -951,7 +972,7 @@ public class TestBaseAllocator {
   public void testAllocator_unclaimedReservation() throws Exception {
     try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
       try (final BufferAllocator childAllocator1 =
-               rootAllocator.newChildAllocator("unclaimedReservation", 0, MAX_ALLOCATION)) {
+          rootAllocator.newChildAllocator("unclaimedReservation", 0, MAX_ALLOCATION)) {
         try (final AllocationReservation reservation = childAllocator1.newReservation()) {
           assertTrue(reservation.add(64));
         }
@@ -964,8 +985,8 @@ public class TestBaseAllocator {
   public void testAllocator_claimedReservation() throws Exception {
     try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
 
-      try (final BufferAllocator childAllocator1 = rootAllocator.newChildAllocator(
-          "claimedReservation", 0, MAX_ALLOCATION)) {
+      try (final BufferAllocator childAllocator1 =
+          rootAllocator.newChildAllocator("claimedReservation", 0, MAX_ALLOCATION)) {
 
         try (final AllocationReservation reservation = childAllocator1.newReservation()) {
           assertTrue(reservation.add(32));
@@ -986,8 +1007,8 @@ public class TestBaseAllocator {
   @Test
   public void testInitReservationAndLimit() throws Exception {
     try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
-      try (final BufferAllocator childAllocator = rootAllocator.newChildAllocator(
-              "child", 2048, 4096)) {
+      try (final BufferAllocator childAllocator =
+          rootAllocator.newChildAllocator("child", 2048, 4096)) {
         assertEquals(2048, childAllocator.getInitReservation());
         assertEquals(4096, childAllocator.getLimit());
       }
@@ -1055,39 +1076,38 @@ public class TestBaseAllocator {
       frag1.close();
       frag2.close();
       frag3.close();
-
     }
   }
 
-  // This test needs to run in non-debug mode. So disabling the assertion status through class loader for this.
+  // This test needs to run in non-debug mode. So disabling the assertion status through class
+  // loader for this.
   // The test passes if run individually with -Dtest=TestBaseAllocator#testMemoryLeakWithReservation
   // but fails generally since the assertion status cannot be changed once the class is initialized.
   // So setting the test to @ignore
-  @Test(expected = IllegalStateException.class)
-  @Ignore
+  @Test
+  @Disabled
   public void testMemoryLeakWithReservation() throws Exception {
     // disabling assertion status
-    AssertionUtil.class.getClassLoader().setClassAssertionStatus(AssertionUtil.class.getName(), false);
+    AssertionUtil.class
+        .getClassLoader()
+        .setClassAssertionStatus(AssertionUtil.class.getName(), false);
+
     try (RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
-      ChildAllocator childAllocator1 = (ChildAllocator) rootAllocator.newChildAllocator(
-          "child1", 1024, MAX_ALLOCATION);
+      ChildAllocator childAllocator1 =
+          (ChildAllocator) rootAllocator.newChildAllocator("child1", 1024, MAX_ALLOCATION);
       rootAllocator.verify();
 
-      ChildAllocator childAllocator2 = (ChildAllocator) childAllocator1.newChildAllocator(
-          "child2", 1024, MAX_ALLOCATION);
+      ChildAllocator childAllocator2 =
+          (ChildAllocator) childAllocator1.newChildAllocator("child2", 1024, MAX_ALLOCATION);
       rootAllocator.verify();
 
       childAllocator2.buffer(256);
 
-      Exception exception = assertThrows(IllegalStateException.class, () -> {
-        childAllocator2.close();
-      });
+      Exception exception = assertThrows(IllegalStateException.class, childAllocator2::close);
       String exMessage = exception.getMessage();
       assertTrue(exMessage.contains("Memory leaked: (256)"));
 
-      exception = assertThrows(IllegalStateException.class, () -> {
-        childAllocator1.close();
-      });
+      exception = assertThrows(IllegalStateException.class, childAllocator1::close);
       exMessage = exception.getMessage();
       assertTrue(exMessage.contains("Memory leaked: (256)"));
     }
@@ -1097,11 +1117,13 @@ public class TestBaseAllocator {
   public void testOverlimit() {
     try (BufferAllocator allocator = new RootAllocator(1024)) {
       try (BufferAllocator child1 = allocator.newChildAllocator("ChildA", 0, 1024);
-           BufferAllocator child2 = allocator.newChildAllocator("ChildB", 1024, 1024)) {
-        assertThrows(OutOfMemoryException.class, () -> {
-          ArrowBuf buf1 = child1.buffer(8);
-          buf1.close();
-        });
+          BufferAllocator child2 = allocator.newChildAllocator("ChildB", 1024, 1024)) {
+        assertThrows(
+            OutOfMemoryException.class,
+            () -> {
+              ArrowBuf buf1 = child1.buffer(8);
+              buf1.close();
+            });
         assertEquals(0, child1.getAllocatedMemory());
         assertEquals(0, child2.getAllocatedMemory());
         assertEquals(1024, allocator.getAllocatedMemory());
@@ -1114,11 +1136,14 @@ public class TestBaseAllocator {
     // Regression test for https://github.com/apache/arrow/issues/35960
     try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)) {
       try (BufferAllocator child1 = allocator.newChildAllocator("ChildA", 0, Long.MAX_VALUE);
-           BufferAllocator child2 = allocator.newChildAllocator("ChildB", Long.MAX_VALUE, Long.MAX_VALUE)) {
-        assertThrows(OutOfMemoryException.class, () -> {
-          ArrowBuf buf1 = child1.buffer(1024);
-          buf1.close();
-        });
+          BufferAllocator child2 =
+              allocator.newChildAllocator("ChildB", Long.MAX_VALUE, Long.MAX_VALUE)) {
+        assertThrows(
+            OutOfMemoryException.class,
+            () -> {
+              ArrowBuf buf1 = child1.buffer(1024);
+              buf1.close();
+            });
         assertEquals(0, child1.getAllocatedMemory());
         assertEquals(0, child2.getAllocatedMemory());
         assertEquals(Long.MAX_VALUE, allocator.getAllocatedMemory());

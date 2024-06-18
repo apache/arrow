@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.c;
 
 import static org.apache.arrow.c.NativeUtil.NULL;
@@ -22,7 +21,6 @@ import static org.apache.arrow.util.Preconditions.checkNotNull;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-
 import org.apache.arrow.c.jni.JniWrapper;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -31,9 +29,9 @@ import org.apache.arrow.memory.util.MemoryUtil;
 
 /**
  * C Data Interface ArrowSchema.
- * <p>
- * Represents a wrapper for the following C structure:
- * 
+ *
+ * <p>Represents a wrapper for the following C structure:
+ *
  * <pre>
  * struct ArrowSchema {
  *     // Array type description
@@ -44,11 +42,11 @@ import org.apache.arrow.memory.util.MemoryUtil;
  *     int64_t n_children;
  *     struct ArrowSchema** children;
  *     struct ArrowSchema* dictionary;
- *      
+ *
  *     // Release callback
  *     void (*release)(struct ArrowSchema*);
  *     // Opaque producer-specific data
- *     void* private_data; 
+ *     void* private_data;
  * };
  * </pre>
  */
@@ -57,9 +55,7 @@ public class ArrowSchema implements BaseStruct {
 
   private ArrowBuf data;
 
-  /**
-   * Snapshot of the ArrowSchema raw data.
-   */
+  /** Snapshot of the ArrowSchema raw data. */
   public static class Snapshot {
     public long format;
     public long name;
@@ -71,9 +67,7 @@ public class ArrowSchema implements BaseStruct {
     public long release;
     public long private_data;
 
-    /**
-     * Initialize empty ArrowSchema snapshot.
-     */
+    /** Initialize empty ArrowSchema snapshot. */
     public Snapshot() {
       format = NULL;
       name = NULL;
@@ -89,21 +83,22 @@ public class ArrowSchema implements BaseStruct {
 
   /**
    * Create ArrowSchema from an existing memory address.
-   * <p>
-   * The resulting ArrowSchema does not own the memory.
-   * 
+   *
+   * <p>The resulting ArrowSchema does not own the memory.
+   *
    * @param memoryAddress Memory address to wrap
    * @return A new ArrowSchema instance
    */
   public static ArrowSchema wrap(long memoryAddress) {
-    return new ArrowSchema(new ArrowBuf(ReferenceManager.NO_OP, null, ArrowSchema.SIZE_OF, memoryAddress));
+    return new ArrowSchema(
+        new ArrowBuf(ReferenceManager.NO_OP, null, ArrowSchema.SIZE_OF, memoryAddress));
   }
 
   /**
    * Create ArrowSchema by allocating memory.
-   * <p>
-   * The resulting ArrowSchema owns the memory.
-   * 
+   *
+   * <p>The resulting ArrowSchema owns the memory.
+   *
    * @param allocator Allocator for memory allocations
    * @return A new ArrowSchema instance
    */
@@ -137,12 +132,13 @@ public class ArrowSchema implements BaseStruct {
   }
 
   private ByteBuffer directBuffer() {
-    return MemoryUtil.directBuffer(memoryAddress(), ArrowSchema.SIZE_OF).order(ByteOrder.nativeOrder());
+    return MemoryUtil.directBuffer(memoryAddress(), ArrowSchema.SIZE_OF)
+        .order(ByteOrder.nativeOrder());
   }
 
   /**
    * Take a snapshot of the ArrowSchema raw values.
-   * 
+   *
    * @return snapshot
    */
   public Snapshot snapshot() {
@@ -160,12 +156,17 @@ public class ArrowSchema implements BaseStruct {
     return snapshot;
   }
 
-  /**
-   * Write values from Snapshot to the underlying ArrowSchema memory buffer.
-   */
+  /** Write values from Snapshot to the underlying ArrowSchema memory buffer. */
   public void save(Snapshot snapshot) {
-    directBuffer().putLong(snapshot.format).putLong(snapshot.name).putLong(snapshot.metadata).putLong(snapshot.flags)
-        .putLong(snapshot.n_children).putLong(snapshot.children).putLong(snapshot.dictionary).putLong(snapshot.release)
+    directBuffer()
+        .putLong(snapshot.format)
+        .putLong(snapshot.name)
+        .putLong(snapshot.metadata)
+        .putLong(snapshot.flags)
+        .putLong(snapshot.n_children)
+        .putLong(snapshot.children)
+        .putLong(snapshot.dictionary)
+        .putLong(snapshot.release)
         .putLong(snapshot.private_data);
   }
 }

@@ -14,13 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.c;
 
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.stream.Collectors;
-
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
@@ -31,13 +29,11 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.ExtensionType;
 
 /**
- * Conversion between {@link ArrowType} and string formats, as per C data
- * interface specification.
+ * Conversion between {@link ArrowType} and string formats, as per C data interface specification.
  */
 final class Format {
 
-  private Format() {
-  }
+  private Format() {}
 
   static String asString(ArrowType arrowType) {
     if (arrowType instanceof ExtensionType) {
@@ -50,102 +46,112 @@ final class Format {
         return "z";
       case Bool:
         return "b";
-      case Date: {
-        ArrowType.Date type = (ArrowType.Date) arrowType;
-        switch (type.getUnit()) {
-          case DAY:
-            return "tdD";
-          case MILLISECOND:
-            return "tdm";
-          default:
-            throw new UnsupportedOperationException(
-                String.format("Date type with unit %s is unsupported", type.getUnit()));
+      case Date:
+        {
+          ArrowType.Date type = (ArrowType.Date) arrowType;
+          switch (type.getUnit()) {
+            case DAY:
+              return "tdD";
+            case MILLISECOND:
+              return "tdm";
+            default:
+              throw new UnsupportedOperationException(
+                  String.format("Date type with unit %s is unsupported", type.getUnit()));
+          }
         }
-      }
-      case Decimal: {
-        ArrowType.Decimal type = (ArrowType.Decimal) arrowType;
-        if (type.getBitWidth() == 128) {
-          return String.format("d:%d,%d", type.getPrecision(), type.getScale());
+      case Decimal:
+        {
+          ArrowType.Decimal type = (ArrowType.Decimal) arrowType;
+          if (type.getBitWidth() == 128) {
+            return String.format("d:%d,%d", type.getPrecision(), type.getScale());
+          }
+          return String.format(
+              "d:%d,%d,%d", type.getPrecision(), type.getScale(), type.getBitWidth());
         }
-        return String.format("d:%d,%d,%d", type.getPrecision(), type.getScale(), type.getBitWidth());
-      }
-      case Duration: {
-        ArrowType.Duration type = (ArrowType.Duration) arrowType;
-        switch (type.getUnit()) {
-          case SECOND:
-            return "tDs";
-          case MILLISECOND:
-            return "tDm";
-          case MICROSECOND:
-            return "tDu";
-          case NANOSECOND:
-            return "tDn";
-          default:
-            throw new UnsupportedOperationException(
-                String.format("Duration type with unit %s is unsupported", type.getUnit()));
+      case Duration:
+        {
+          ArrowType.Duration type = (ArrowType.Duration) arrowType;
+          switch (type.getUnit()) {
+            case SECOND:
+              return "tDs";
+            case MILLISECOND:
+              return "tDm";
+            case MICROSECOND:
+              return "tDu";
+            case NANOSECOND:
+              return "tDn";
+            default:
+              throw new UnsupportedOperationException(
+                  String.format("Duration type with unit %s is unsupported", type.getUnit()));
+          }
         }
-      }
-      case FixedSizeBinary: {
-        ArrowType.FixedSizeBinary type = (ArrowType.FixedSizeBinary) arrowType;
-        return String.format("w:%d", type.getByteWidth());
-      }
-      case FixedSizeList: {
-        ArrowType.FixedSizeList type = (ArrowType.FixedSizeList) arrowType;
-        return String.format("+w:%d", type.getListSize());
-      }
-      case FloatingPoint: {
-        ArrowType.FloatingPoint type = (ArrowType.FloatingPoint) arrowType;
-        switch (type.getPrecision()) {
-          case HALF:
-            return "e";
-          case SINGLE:
-            return "f";
-          case DOUBLE:
-            return "g";
-          default:
-            throw new UnsupportedOperationException(
-                String.format("FloatingPoint type with precision %s is unsupported", type.getPrecision()));
+      case FixedSizeBinary:
+        {
+          ArrowType.FixedSizeBinary type = (ArrowType.FixedSizeBinary) arrowType;
+          return String.format("w:%d", type.getByteWidth());
         }
-      }
-      case Int: {
-        String format;
-        ArrowType.Int type = (ArrowType.Int) arrowType;
-        switch (type.getBitWidth()) {
-          case Byte.SIZE:
-            format = "C";
-            break;
-          case Short.SIZE:
-            format = "S";
-            break;
-          case Integer.SIZE:
-            format = "I";
-            break;
-          case Long.SIZE:
-            format = "L";
-            break;
-          default:
-            throw new UnsupportedOperationException(
-                String.format("Int type with bitwidth %d is unsupported", type.getBitWidth()));
+      case FixedSizeList:
+        {
+          ArrowType.FixedSizeList type = (ArrowType.FixedSizeList) arrowType;
+          return String.format("+w:%d", type.getListSize());
         }
-        if (type.getIsSigned()) {
-          format = format.toLowerCase(Locale.ROOT);
+      case FloatingPoint:
+        {
+          ArrowType.FloatingPoint type = (ArrowType.FloatingPoint) arrowType;
+          switch (type.getPrecision()) {
+            case HALF:
+              return "e";
+            case SINGLE:
+              return "f";
+            case DOUBLE:
+              return "g";
+            default:
+              throw new UnsupportedOperationException(
+                  String.format(
+                      "FloatingPoint type with precision %s is unsupported", type.getPrecision()));
+          }
         }
-        return format;
-      }
-      case Interval: {
-        ArrowType.Interval type = (ArrowType.Interval) arrowType;
-        switch (type.getUnit()) {
-          case DAY_TIME:
-            return "tiD";
-          case YEAR_MONTH:
-            return "tiM";
-          case MONTH_DAY_NANO:
-            return "tin";
-          default:
-            throw new UnsupportedOperationException(
-                String.format("Interval type with unit %s is unsupported", type.getUnit()));
+      case Int:
+        {
+          String format;
+          ArrowType.Int type = (ArrowType.Int) arrowType;
+          switch (type.getBitWidth()) {
+            case Byte.SIZE:
+              format = "C";
+              break;
+            case Short.SIZE:
+              format = "S";
+              break;
+            case Integer.SIZE:
+              format = "I";
+              break;
+            case Long.SIZE:
+              format = "L";
+              break;
+            default:
+              throw new UnsupportedOperationException(
+                  String.format("Int type with bitwidth %d is unsupported", type.getBitWidth()));
+          }
+          if (type.getIsSigned()) {
+            format = format.toLowerCase(Locale.ROOT);
+          }
+          return format;
         }
-      }
+      case Interval:
+        {
+          ArrowType.Interval type = (ArrowType.Interval) arrowType;
+          switch (type.getUnit()) {
+            case DAY_TIME:
+              return "tiD";
+            case YEAR_MONTH:
+              return "tiM";
+            case MONTH_DAY_NANO:
+              return "tin";
+            default:
+              throw new UnsupportedOperationException(
+                  String.format("Interval type with unit %s is unsupported", type.getUnit()));
+          }
+        }
       case LargeBinary:
         return "Z";
       case LargeList:
@@ -160,47 +166,54 @@ final class Format {
         return "n";
       case Struct:
         return "+s";
-      case Time: {
-        ArrowType.Time type = (ArrowType.Time) arrowType;
-        if (type.getUnit() == TimeUnit.SECOND && type.getBitWidth() == 32) {
-          return "tts";
-        } else if (type.getUnit() == TimeUnit.MILLISECOND && type.getBitWidth() == 32) {
-          return "ttm";
-        } else if (type.getUnit() == TimeUnit.MICROSECOND && type.getBitWidth() == 64) {
-          return "ttu";
-        } else if (type.getUnit() == TimeUnit.NANOSECOND && type.getBitWidth() == 64) {
-          return "ttn";
-        } else {
-          throw new UnsupportedOperationException(String.format("Time type with unit %s and bitwidth %d is unsupported",
-              type.getUnit(), type.getBitWidth()));
-        }
-      }
-      case Timestamp: {
-        String format;
-        ArrowType.Timestamp type = (ArrowType.Timestamp) arrowType;
-        switch (type.getUnit()) {
-          case SECOND:
-            format = "tss";
-            break;
-          case MILLISECOND:
-            format = "tsm";
-            break;
-          case MICROSECOND:
-            format = "tsu";
-            break;
-          case NANOSECOND:
-            format = "tsn";
-            break;
-          default:
+      case Time:
+        {
+          ArrowType.Time type = (ArrowType.Time) arrowType;
+          if (type.getUnit() == TimeUnit.SECOND && type.getBitWidth() == 32) {
+            return "tts";
+          } else if (type.getUnit() == TimeUnit.MILLISECOND && type.getBitWidth() == 32) {
+            return "ttm";
+          } else if (type.getUnit() == TimeUnit.MICROSECOND && type.getBitWidth() == 64) {
+            return "ttu";
+          } else if (type.getUnit() == TimeUnit.NANOSECOND && type.getBitWidth() == 64) {
+            return "ttn";
+          } else {
             throw new UnsupportedOperationException(
-                String.format("Timestamp type with unit %s is unsupported", type.getUnit()));
+                String.format(
+                    "Time type with unit %s and bitwidth %d is unsupported",
+                    type.getUnit(), type.getBitWidth()));
+          }
         }
-        String timezone = type.getTimezone();
-        return String.format("%s:%s", format, timezone == null ? "" : timezone);
-      }
+      case Timestamp:
+        {
+          String format;
+          ArrowType.Timestamp type = (ArrowType.Timestamp) arrowType;
+          switch (type.getUnit()) {
+            case SECOND:
+              format = "tss";
+              break;
+            case MILLISECOND:
+              format = "tsm";
+              break;
+            case MICROSECOND:
+              format = "tsu";
+              break;
+            case NANOSECOND:
+              format = "tsn";
+              break;
+            default:
+              throw new UnsupportedOperationException(
+                  String.format("Timestamp type with unit %s is unsupported", type.getUnit()));
+          }
+          String timezone = type.getTimezone();
+          return String.format("%s:%s", format, timezone == null ? "" : timezone);
+        }
       case Union:
         ArrowType.Union type = (ArrowType.Union) arrowType;
-        String typeIDs = Arrays.stream(type.getTypeIds()).mapToObj(String::valueOf).collect(Collectors.joining(","));
+        String typeIDs =
+            Arrays.stream(type.getTypeIds())
+                .mapToObj(String::valueOf)
+                .collect(Collectors.joining(","));
         switch (type.getMode()) {
           case Dense:
             return String.format("+ud:%s", typeIDs);
@@ -215,7 +228,8 @@ final class Format {
       case NONE:
         throw new IllegalArgumentException("Arrow type ID is NONE");
       default:
-        throw new UnsupportedOperationException(String.format("Unknown type id %s", arrowType.getTypeID()));
+        throw new UnsupportedOperationException(
+            String.format("Unknown type id %s", arrowType.getTypeID()));
     }
   }
 
@@ -296,21 +310,24 @@ final class Format {
         if (parts.length == 2) {
           return parseComplexFormat(parts[0], parts[1]);
         }
-        throw new UnsupportedOperationException(String.format("Format %s is not supported", format));
+        throw new UnsupportedOperationException(
+            String.format("Format %s is not supported", format));
     }
   }
 
   private static ArrowType parseComplexFormat(String format, String payload)
       throws NumberFormatException, UnsupportedOperationException, IllegalStateException {
     switch (format) {
-      case "d": {
-        int[] parts = payloadToIntArray(payload);
-        Preconditions.checkState(parts.length == 2 || parts.length == 3, "Format %s:%s is illegal", format, payload);
-        int precision = parts[0];
-        int scale = parts[1];
-        Integer bitWidth = (parts.length == 3) ? parts[2] : null;
-        return ArrowType.Decimal.createDecimal(precision, scale, bitWidth);
-      }
+      case "d":
+        {
+          int[] parts = payloadToIntArray(payload);
+          Preconditions.checkState(
+              parts.length == 2 || parts.length == 3, "Format %s:%s is illegal", format, payload);
+          int precision = parts[0];
+          int scale = parts[1];
+          Integer bitWidth = (parts.length == 3) ? parts[2] : null;
+          return ArrowType.Decimal.createDecimal(precision, scale, bitWidth);
+        }
       case "w":
         return new ArrowType.FixedSizeBinary(Integer.parseInt(payload));
       case "+w":
@@ -328,7 +345,8 @@ final class Format {
       case "tsn":
         return new ArrowType.Timestamp(TimeUnit.NANOSECOND, payloadToTimezone(payload));
       default:
-        throw new UnsupportedOperationException(String.format("Format %s:%s is not supported", format, payload));
+        throw new UnsupportedOperationException(
+            String.format("Format %s:%s is not supported", format, payload));
     }
   }
 

@@ -756,7 +756,7 @@ test_python() {
   show_header "Build and test Python libraries"
 
   # Build and test Python
-  maybe_setup_virtualenv "cython>=0.29.31" numpy "setuptools_scm<8.0.0" setuptools
+  maybe_setup_virtualenv
   maybe_setup_conda --file ci/conda_env_python.txt
 
   if [ "${USE_CONDA}" -gt 0 ]; then
@@ -788,7 +788,7 @@ test_python() {
   pushd python
 
   # Build pyarrow
-  python setup.py build_ext --inplace
+  python -m pip install -e .
 
   # Check mandatory and optional imports
   python -c "

@@ -14,12 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.integration.tests;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightEndpoint;
@@ -38,12 +36,13 @@ final class ExpirationTimeRenewFlightEndpointScenario implements Scenario {
   }
 
   @Override
-  public void buildServer(FlightServer.Builder builder) {
-  }
+  public void buildServer(FlightServer.Builder builder) {}
 
   @Override
-  public void client(BufferAllocator allocator, Location location, FlightClient client) throws Exception {
-    FlightInfo info = client.getInfo(FlightDescriptor.command("expiration".getBytes(StandardCharsets.UTF_8)));
+  public void client(BufferAllocator allocator, Location location, FlightClient client)
+      throws Exception {
+    FlightInfo info =
+        client.getInfo(FlightDescriptor.command("expiration".getBytes(StandardCharsets.UTF_8)));
 
     // Renew all endpoints with expiration time
     for (FlightEndpoint endpoint : info.getEndpoints()) {
@@ -53,11 +52,12 @@ final class ExpirationTimeRenewFlightEndpointScenario implements Scenario {
       Instant expiration = endpoint.getExpirationTime().get();
       FlightEndpoint renewed = client.renewFlightEndpoint(new RenewFlightEndpointRequest(endpoint));
 
-      IntegrationAssertions.assertTrue("Renewed FlightEndpoint must have expiration time",
+      IntegrationAssertions.assertTrue(
+          "Renewed FlightEndpoint must have expiration time",
           renewed.getExpirationTime().isPresent());
-      IntegrationAssertions.assertTrue("Renewed FlightEndpoint must have newer expiration time",
+      IntegrationAssertions.assertTrue(
+          "Renewed FlightEndpoint must have newer expiration time",
           renewed.getExpirationTime().get().isAfter(expiration));
-
     }
   }
 }

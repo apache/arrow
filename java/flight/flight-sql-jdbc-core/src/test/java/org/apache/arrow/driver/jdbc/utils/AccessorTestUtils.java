@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc.utils;
 
 import static org.hamcrest.CoreMatchers.is;
@@ -26,7 +25,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
 import java.util.function.Supplier;
-
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
 import org.apache.arrow.vector.ValueVector;
 import org.hamcrest.Matcher;
@@ -106,35 +104,43 @@ public class AccessorTestUtils {
       return result;
     }
 
-    public <R> void assertAccessorGetter(ValueVector vector, CheckedFunction<T, R> getter,
-                                         MatcherGetter<T, R> matcherGetter) throws Exception {
-      iterate(vector, (accessor, currentRow) -> {
-        R object = getter.apply(accessor);
-        boolean wasNull = accessor.wasNull();
-
-        collector.checkThat(object, matcherGetter.get(accessor, currentRow));
-        collector.checkThat(wasNull, is(accessor.getObject() == null));
-      });
-    }
-
-    public <R> void assertAccessorGetterThrowingException(ValueVector vector, CheckedFunction<T, R> getter)
+    public <R> void assertAccessorGetter(
+        ValueVector vector, CheckedFunction<T, R> getter, MatcherGetter<T, R> matcherGetter)
         throws Exception {
-      iterate(vector, (accessor, currentRow) ->
-          ThrowableAssertionUtils.simpleAssertThrowableClass(SQLException.class, () -> getter.apply(accessor)));
+      iterate(
+          vector,
+          (accessor, currentRow) -> {
+            R object = getter.apply(accessor);
+            boolean wasNull = accessor.wasNull();
+
+            collector.checkThat(object, matcherGetter.get(accessor, currentRow));
+            collector.checkThat(wasNull, is(accessor.getObject() == null));
+          });
     }
 
-    public <R> void assertAccessorGetter(ValueVector vector, CheckedFunction<T, R> getter,
-                                         Function<T, Matcher<R>> matcherGetter) throws Exception {
+    public <R> void assertAccessorGetterThrowingException(
+        ValueVector vector, CheckedFunction<T, R> getter) throws Exception {
+      iterate(
+          vector,
+          (accessor, currentRow) ->
+              ThrowableAssertionUtils.simpleAssertThrowableClass(
+                  SQLException.class, () -> getter.apply(accessor)));
+    }
+
+    public <R> void assertAccessorGetter(
+        ValueVector vector, CheckedFunction<T, R> getter, Function<T, Matcher<R>> matcherGetter)
+        throws Exception {
       assertAccessorGetter(vector, getter, (accessor, currentRow) -> matcherGetter.apply(accessor));
     }
 
-    public <R> void assertAccessorGetter(ValueVector vector, CheckedFunction<T, R> getter,
-                                         Supplier<Matcher<R>> matcherGetter) throws Exception {
+    public <R> void assertAccessorGetter(
+        ValueVector vector, CheckedFunction<T, R> getter, Supplier<Matcher<R>> matcherGetter)
+        throws Exception {
       assertAccessorGetter(vector, getter, (accessor, currentRow) -> matcherGetter.get());
     }
 
-    public <R> void assertAccessorGetter(ValueVector vector, CheckedFunction<T, R> getter,
-                                         Matcher<R> matcher) throws Exception {
+    public <R> void assertAccessorGetter(
+        ValueVector vector, CheckedFunction<T, R> getter, Matcher<R> matcher) throws Exception {
       assertAccessorGetter(vector, getter, (accessor, currentRow) -> matcher);
     }
   }

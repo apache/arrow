@@ -63,12 +63,12 @@ class PostBumpVersionsTest < Test::Unit::TestCase
         previous_version_components[2].succ!
       end
       sh(env,
-         "dev/release/post-11-bump-versions.sh",
+         "dev/release/post-12-bump-versions.sh",
          previous_version_components.join("."),
          @release_version)
     else
       sh(env,
-         "dev/release/post-11-bump-versions.sh",
+         "dev/release/post-12-bump-versions.sh",
          @release_version,
          @next_version)
     end
