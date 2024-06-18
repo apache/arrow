@@ -54,19 +54,21 @@ which are tabular so they can be organized into a table:
    :scale: 70%
    :alt: Diagram with tabular data of 4 rows and columns.
 
-This kind of data can be represented in memory using a row based format or a
-column based format. The row based format stores data by row meaning the rows
+This kind of data can be represented in memory using a row-based format or a
+column-based format. The row-based format stores data row-by-row, meaning the rows
 are adjacent in the computer memory:
 
 .. figure:: ./images/columnar-diagram_2.svg
-   :alt: Tabular data being structured row by row in computer memory.
+   :alt: Tabular data being structured row-by-row in computer memory.
 
-In a columnar format, on the other hand, the data is organized by column
-instead of by row making analytical operations like filtering, grouping,
+In a columnar format, the data is organized column-by-column instead.
+This organization makes analytical operations like filtering, grouping,
 aggregations and others more efficient because the CPU can maintain memory locality
 and require less memory jumps to process the data. By keeping the data contiguous
 in memory it also enables vectorization of the computations. Most modern
-CPUs have single instructions, multiple data (SIMD) enabling parallel
+CPUs have
+[SIMD instructions](https://en.wikipedia.org/wiki/Single_instruction,_multiple_data)
+(a single instruction that operates on multiple values at once) enabling parallel
 processing and execution of operations on vector data using a single CPU
 instruction.
 
@@ -76,7 +78,7 @@ uses the columnar layout.
 .. figure:: ./images/columnar-diagram_3.svg
    :alt: Tabular data being structured column by column in computer memory.
 
-The column is called an **Array** in Arrow terminology. Arrays can be of
+Each column is called an **Array** in Arrow terminology. Arrays can be of
 different data types and the way their values are stored in memory varies among
 the data types. The specification of how these values are arranged in memory is
 what we call a **physical memory layout**. One contiguous region of memory that
@@ -86,7 +88,7 @@ Next sections give an introduction to Arrow Columnar Format explaining the
 different physical layouts. The full specification of the format can be found
 at :ref:`format_columnar`.
 
-Support for null values
+Support for Null Values
 =======================
 
 Arrow supports missing values or "nulls" for all data types: any value
@@ -104,10 +106,10 @@ column 1 in the diagram below).
 .. note::
 
    We read validity bitmaps right-to-left within a group of 8 bits due to
-   `bit-endianness <https://en.wikipedia.org/wiki/Bit_numbering>`_ being
+   `least-significant bit numbering <https://en.wikipedia.org/wiki/Bit_numbering>`_ being
    used.
 
-Primitive layouts
+Primitive Layouts
 =================
 
 Fixed Size Primitive Layout
@@ -127,7 +129,7 @@ data types.
    Physical layout diagram for primitive data types.
 
 .. note::
-   Boolean data type is represented with a primitive layout where the
+   The boolean data type is represented with a primitive layout where the
    values are encoded in bits instead of bytes. That means the physical
    layout includes a values bitmap buffer and possibly a validity bitmap
    buffer.
@@ -160,7 +162,7 @@ utf-8 encoded strings.
 The difference between binary/string and large binary/string is in the offset
 data type. In the first case that is int32 and in the second it is int64.
 
-The limitation of data types using 32 bit offsets is that they have a max size of
+The limitation of data types using 32 bit offsets is that they have a maximum size of
 2GB per array. One can still use the non-large variants for bigger data, but
 then multiple chunks are needed.
 
@@ -201,14 +203,14 @@ values buffers.
 
    Physical layout diagram for variable length string view data type.
 
-Nested layouts
+Nested Layouts
 ==============
 
 Nested data types introduce the concept of parent and child arrays. They express
 relationships between physical value arrays in a nested data type structure.
 
 Nested data types depend on one or more other child data types. For instance, List
-is a nested data type (parent) that has one child (the data types of the values in
+is a nested data type (parent) that has one child (the data type of the values in
 the list).
 
 List
@@ -230,10 +232,10 @@ are int64.
 
    Physical layout diagram for variable size list data type.
 
-Fixed size list
+Fixed Size List
 ---------------
 
-Fixed size list is a special case of variable-size list where each column slot
+Fixed-size list is a special case of variable-size list where each column slot
 contains a fixed size sequence meaning all lists are the same size and so the
 offset buffer is no longer needed.
 
@@ -244,7 +246,7 @@ offset buffer is no longer needed.
 
    Physical layout diagram for fixed size list data type.
 
-List and large list view
+List View
 ------------------------
 
 List view data type allows arrays to specify out-of-order offsets.
@@ -259,7 +261,7 @@ List view data type allows arrays to specify out-of-order offsets.
 Struct
 ------
 
-A struct is a nested data type parameterized by an ordered sequence of data types.
+A struct is a nested data type parameterized by an ordered sequence of fields (a data types and a name).
 
 * There is one child array for each field
 * Child arrays are independent and need not be adjacent to each other in
@@ -285,7 +287,7 @@ key-value pairs. Its physical representation is the same as a list of ``{key, va
 structs.
 
 The difference between the struct and map data types is that a struct holds the key
-in the schema, requiring keys to be strings, and the values are stored in in the
+in the schema, requiring keys to be strings, and the values are stored in the
 child arrays,
 one for each field. There can be multiple keys and therefore multiple child arrays.
 The map, on the other hand, has one child array holding all the different keys (that
@@ -368,8 +370,8 @@ same value. These sequences are called runs. Run-end encoded array has no buffer
 of its own, but has two child arrays:
 
 *  **Run ends array:** holds the index in the array where each run ends. The run ends
-    array always begins with 0 and contains one more element than the length of
-    its parent array.
+   array always begins with 0 and contains one more element than the length of
+   its parent array.
 *  **Values array:** the actual values without repetitions (together with null values).
 
 Note that nulls of the parent array are strictly represented in the values array.
