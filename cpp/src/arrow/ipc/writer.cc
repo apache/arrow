@@ -449,13 +449,23 @@ class RecordBatchSerializer {
 
   template <typename T>
   enable_if_base_binary<typename T::TypeClass, Status> Visit(const T& array) {
+    using offset_type = typename T::offset_type;
+    
     std::shared_ptr<Buffer> value_offsets;
     RETURN_NOT_OK(GetZeroBasedValueOffsets<T>(array, &value_offsets));
-    auto data = array.value_data();
-
+    auto data = array.value_data();    
+    
     int64_t total_data_bytes = 0;
     if (value_offsets) {
-      total_data_bytes = array.value_offset(array.length()) - array.value_offset(0);
+      offset_type first_offset_value, last_offset_value;
+      RETURN_NOT_OK(MemoryManager::CopyBufferSliceToCPU(
+          value_offsets, 0, sizeof(offset_type),
+          reinterpret_cast<uint8_t*>(&first_offset_value)));
+      RETURN_NOT_OK(MemoryManager::CopyBufferSliceToCPU(
+          value_offsets, array.length() * sizeof(offset_type), sizeof(offset_type),
+          reinterpret_cast<uint8_t*>(&last_offset_value)));
+
+      total_data_bytes = last_offset_value - first_offset_value;
     }
     if (NeedTruncate(array.offset(), data.get(), total_data_bytes)) {
       // Slice the data buffer to include only the range we need now
@@ -494,9 +504,16 @@ class RecordBatchSerializer {
 
     offset_type values_offset = 0;
     offset_type values_length = 0;
-    if (value_offsets) {
-      values_offset = array.value_offset(0);
-      values_length = array.value_offset(array.length()) - values_offset;
+    if (value_offsets) {      
+      RETURN_NOT_OK(MemoryManager::CopyBufferSliceToCPU(
+        value_offsets, 0, sizeof(offset_type),
+        reinterpret_cast<uint8_t*>(&values_offset)));
+      offset_type last_values_offset = 0;
+      RETURN_NOT_OK(MemoryManager::CopyBufferSliceToCPU(
+        value_offsets, array.length() * sizeof(offset_type), sizeof(offset_type),
+        reinterpret_cast<uint8_t*>(&last_values_offset)));
+      
+      values_length = last_values_offset - values_offset;
     }
 
     if (array.offset() != 0 || values_length < values->length()) {
