@@ -19,7 +19,6 @@ package org.apache.arrow.driver.jdbc.utils;
 import static java.util.stream.IntStream.range;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertAll;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -69,24 +68,14 @@ public final class ResultSetTestUtils {
     testData(
         resultSet,
         data -> {
-          List<Throwable> errors = new ArrayList<>();
           final List<T> columns = new ArrayList<>();
           for (final String columnName : columnNames) {
             try {
               columns.add((T) resultSet.getObject(columnName));
             } catch (final SQLException e) {
-              errors.add(e);
+              throw new RuntimeException(e);
             }
           }
-          assertAll(
-              "Errors occurred while fetching data from the ResultSet",
-              errors.stream()
-                  .map(
-                      error ->
-                          () -> {
-                            throw error;
-                          }));
-
           return columns;
         },
         expectedResults);
@@ -109,24 +98,14 @@ public final class ResultSetTestUtils {
     testData(
         resultSet,
         data -> {
-          List<Throwable> errors = new ArrayList<>();
           final List<T> columns = new ArrayList<>();
           for (final int columnIndex : columnIndices) {
             try {
               columns.add((T) resultSet.getObject(columnIndex));
             } catch (final SQLException e) {
-              errors.add(e);
+              throw new RuntimeException(e);
             }
           }
-          assertAll(
-              "Errors occurred while fetching data from the ResultSet",
-              errors.stream()
-                  .map(
-                      error ->
-                          () -> {
-                            throw error;
-                          }));
-
           return columns;
         },
         expectedResults);
