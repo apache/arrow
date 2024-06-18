@@ -16,10 +16,9 @@
  */
 package org.apache.arrow.flight.auth;
 
-import static junit.framework.TestCase.assertEquals;
 import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
 import static org.apache.arrow.flight.Location.forGrpcInsecure;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -62,7 +61,7 @@ public class TestBasicAuth {
   @Test
   public void validAuth() {
     client.authenticateBasic(USERNAME, PASSWORD);
-    assertTrue(ImmutableList.copyOf(client.listFlights(Criteria.ALL)).size() == 0);
+    assertEquals(0, ImmutableList.copyOf(client.listFlights(Criteria.ALL)).size());
   }
 
   @Test
