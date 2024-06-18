@@ -32,5 +32,15 @@ classdef RecordBatchFileWriter < matlab.mixin.Scalar
             proxyName = "arrow.io.ipc.proxy.RecordBatchFileWriter";
             obj.Proxy = arrow.internal.proxy.create(proxyName, args);
         end
+
+        function writeRecordBatch(obj, recordBatch)
+            arguments
+                obj(1, 1) arrow.io.ipc.RecordBatchFileWriter
+                recordBatch(1, 1) arrow.tabular.RecordBatch
+            end
+
+            args = struct(RecordBatchProxyID=recordBatch.Proxy.ID);
+            obj.Proxy.writeRecordBatch(args);
+        end
     end
 end
