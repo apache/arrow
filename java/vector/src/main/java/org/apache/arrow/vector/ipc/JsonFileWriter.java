@@ -246,16 +246,20 @@ public class JsonFileWriter implements AutoCloseable {
               && (vector.getMinorType() == MinorType.VIEWVARCHAR
                   || vector.getMinorType() == MinorType.VIEWVARBINARY)) {
             // writing views
-            ArrowBuf viewBuffer = vectorBuffers.get(v);
+            ArrowBuf viewBuffer = vectorBuffers.get(1);
             List<ArrowBuf> dataBuffers = vectorBuffers.subList(v + 1, vectorBuffers.size());
             writeValueToViewGenerator(bufferType, viewBuffer, dataBuffers, vector, i);
           } else if (bufferType.equals(VARIADIC_DATA_BUFFERS)
               && (vector.getMinorType() == MinorType.VIEWVARCHAR
                   || vector.getMinorType() == MinorType.VIEWVARBINARY)) {
-            ArrowBuf viewBuffer = vectorBuffers.get(1);
+            ArrowBuf viewBuffer = vectorBuffers.get(1); // check if this is v-1
             List<ArrowBuf> dataBuffers = vectorBuffers.subList(v, vectorBuffers.size());
             if (!dataBuffers.isEmpty()) {
-              writeValueToDataBufferGenerator(bufferType, viewBuffer, dataBuffers, vector, i);
+              writeValueToDataBufferGenerator(bufferType, viewBuffer, dataBuffers, vector);
+              // The variadic buffers are written at once and doesn't require iterating for
+              // each index.
+              // So, break the loop.
+              break;
             }
           } else if (bufferType.equals(OFFSET)
               && vector.getValueCount() == 0
@@ -319,7 +323,7 @@ public class JsonFileWriter implements AutoCloseable {
       final int index)
       throws IOException {
     Preconditions.checkNotNull(viewBuffer);
-    byte[] b = (BaseVariableWidthViewVector.get(viewBuffer, dataBuffers, index, true));
+    byte[] b = (BaseVariableWidthViewVector.get(viewBuffer, dataBuffers, index));
     final int elementSize = BaseVariableWidthViewVector.ELEMENT_SIZE;
     final int lengthWidth = BaseVariableWidthViewVector.LENGTH_WIDTH;
     final int prefixWidth = BaseVariableWidthViewVector.PREFIX_WIDTH;
@@ -355,80 +359,19 @@ public class JsonFileWriter implements AutoCloseable {
   }
 
   private void writeValueToDataBufferGenerator(
-      BufferType bufferType,
-      ArrowBuf viewBuffer,
-      List<ArrowBuf> dataBuffers,
-      FieldVector vector,
-      final int index)
+      BufferType bufferType, ArrowBuf viewBuffer, List<ArrowBuf> dataBuffers, FieldVector vector)
       throws IOException {
     if (bufferType.equals(VARIADIC_DATA_BUFFERS)) {
       Preconditions.checkNotNull(viewBuffer);
       Preconditions.checkArgument(!dataBuffers.isEmpty());
-      byte[] b = BaseVariableWidthViewVector.get(viewBuffer, dataBuffers, index, false);
-      if (b.length > BaseVariableWidthViewVector.INLINE_SIZE) {
-        switch (vector.getMinorType()) {
-          case VIEWVARCHAR:
-            {
-              if (b != null) {
-                generator.writeString(new String(b, "UTF-8"));
-              }
-              break;
-            }
-          case VIEWVARBINARY:
-            {
-              if (b != null) {
-                String hexString = Hex.encodeHexString(b);
-                generator.writeObject(hexString);
-              }
-              break;
-            }
-          default:
-            throw new UnsupportedOperationException("minor type: " + vector.getMinorType());
+
+      for (int i = 0; i < dataBuffers.size(); i++) {
+        ArrowBuf dataBuf = dataBuffers.get(i);
+        byte[] result = new byte[(int) dataBuf.writerIndex()];
+        dataBuf.getBytes(0, result);
+        if (result != null) {
+          generator.writeString(Hex.encodeHexString(result));
         }
-      }
-    }
-  }
-
-  private void writeValueToVariadicGenerator(
-      BufferType bufferType,
-      ArrowBuf viewBuffer,
-      List<ArrowBuf> dataBuffers,
-      FieldVector vector,
-      final int index,
-      boolean isView)
-      throws IOException {
-    if (bufferType.equals(DATA)) {
-      switch (vector.getMinorType()) {
-        case VIEWVARCHAR:
-          {
-            Preconditions.checkNotNull(viewBuffer);
-            byte[] b = (BaseVariableWidthViewVector.get(viewBuffer, dataBuffers, index, isView));
-            if (isView) {
-
-              generator.writeBinary(b);
-            } else {
-              if (b != null) {
-                generator.writeString(new String(b, "UTF-8"));
-              }
-            }
-            break;
-          }
-        case VIEWVARBINARY:
-          {
-            Preconditions.checkNotNull(viewBuffer);
-            byte[] b = BaseVariableWidthViewVector.get(viewBuffer, dataBuffers, index, isView);
-            if (isView) {
-              generator.writeBinary(b);
-            } else {
-              if (b != null) {
-                String hexString = Hex.encodeHexString(b);
-                generator.writeObject(hexString);
-              }
-            }
-            break;
-          }
-        default:
-          throw new UnsupportedOperationException("minor type: " + vector.getMinorType());
       }
     }
   }

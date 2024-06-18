@@ -16,6 +16,7 @@
  */
 package org.apache.arrow.tools;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.File;
@@ -153,7 +154,7 @@ public class ArrowFileTestFixtures {
 
   static void writeInput(File testInFile, BufferAllocator allocator) throws IOException {
     try (BufferAllocator vectorAllocator =
-        allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+            allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
         NonNullableStructVector parent = NonNullableStructVector.empty("parent", vectorAllocator)) {
       writeData(COUNT, parent);
       write(parent.getChild("root"), testInFile);
@@ -161,7 +162,7 @@ public class ArrowFileTestFixtures {
   }
 
   static void writeVariableWidthViewInput(File testInFile, BufferAllocator allocator, int count)
-      throws FileNotFoundException, IOException {
+      throws IOException {
     try (BufferAllocator vectorAllocator =
             allocator.newChildAllocator("original view vectors", 0, Integer.MAX_VALUE);
         NonNullableStructVector parent = NonNullableStructVector.empty("parent", vectorAllocator)) {

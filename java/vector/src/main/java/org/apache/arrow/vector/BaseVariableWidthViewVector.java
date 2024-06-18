@@ -1761,8 +1761,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
    * @param index position of the element in the vector
    * @return array of bytes
    */
-  public static byte[] get(
-      final ArrowBuf viewBuffer, final List<ArrowBuf> dataBuffers, int index, boolean isView) {
+  public static byte[] get(final ArrowBuf viewBuffer, final List<ArrowBuf> dataBuffers, int index) {
     final int dataLength = viewBuffer.getInt((long) index * ELEMENT_SIZE);
     byte[] result = new byte[dataLength];
     if (dataLength > INLINE_SIZE) {

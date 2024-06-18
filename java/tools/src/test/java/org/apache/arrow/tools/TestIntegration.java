@@ -45,7 +45,6 @@ import org.apache.arrow.vector.complex.writer.BaseWriter.StructWriter;
 import org.apache.arrow.vector.complex.writer.BigIntWriter;
 import org.apache.arrow.vector.complex.writer.Float8Writer;
 import org.apache.arrow.vector.complex.writer.IntWriter;
-import org.apache.commons.cli.ParseException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -350,9 +349,9 @@ public class TestIntegration {
   }
 
   @Test
-  public void testJSONRoundTripWithVariableWidthView() throws Exception {
+  public void testValidateVariableWidthView() throws Exception {
     final int valueCount = 256;
-    final int multiplier = 1;
+    final int multiplier = 2;
 
     for (int i = 1; i < multiplier; i++) {
       File testInFile = new File(testFolder, "testIn.arrow");
@@ -403,42 +402,5 @@ public class TestIntegration {
       };
       integration.run(args3);
     }
-  }
-
-  @Test
-  public void t2() throws ParseException, IOException {
-    File testInFile =
-        new File(
-            "/home/vibhatha/Documents/Work/Apache_Arrow/json_readers/failures/java_producing.arrow");
-    File testJSONFile = new File(testFolder, "testOut.json");
-    testJSONFile.delete();
-    File testOutFile = new File(testFolder, "testOut.arrow");
-    testOutFile.delete();
-
-    System.out.println(testJSONFile.getAbsolutePath());
-
-    Integration integration = new Integration();
-
-    // convert it to json
-    String[] args1 = {
-      "-arrow",
-      testInFile.getAbsolutePath(),
-      "-json",
-      testJSONFile.getAbsolutePath(),
-      "-command",
-      Command.ARROW_TO_JSON.name()
-    };
-    integration.run(args1);
-
-    // convert back to arrow
-    String[] args2 = {
-      "-arrow",
-      testOutFile.getAbsolutePath(),
-      "-json",
-      testJSONFile.getAbsolutePath(),
-      "-command",
-      Command.JSON_TO_ARROW.name()
-    };
-    integration.run(args2);
   }
 }
