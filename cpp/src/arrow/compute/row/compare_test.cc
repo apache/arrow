@@ -185,11 +185,11 @@ TEST(KeyCompare, CompareColumnsToRowsLarge) {
   // The var length column should be a little smaller than 2GB to WAR the capacity
   // limitation in the var length builder.
   constexpr int32_t var_length = two_gb / num_rows - 1;
-  auto row_size =
-      std::accumulate(fixed_length_types.begin(), fixed_length_types.end(), var_length,
-                      [](int64_t acc, const std::shared_ptr<DataType>& type) {
-                        return acc + type->byte_width();
-                      });
+  auto row_size = std::accumulate(fixed_length_types.begin(), fixed_length_types.end(),
+                                  static_cast<int64_t>(var_length),
+                                  [](int64_t acc, const std::shared_ptr<DataType>& type) {
+                                    return acc + type->byte_width();
+                                  });
   // The overall size should be larger than 2GB.
   ASSERT_GT(row_size * num_rows, two_gb);
 
