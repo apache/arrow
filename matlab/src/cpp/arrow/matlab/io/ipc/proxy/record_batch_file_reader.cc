@@ -43,6 +43,7 @@ RecordBatchFileReader::RecordBatchFileReader(const std::shared_ptr<arrow::ipc::R
   : reader{std::move(reader)} {
     REGISTER_METHOD(RecordBatchFileReader, getNumRecordBatches);
     REGISTER_METHOD(RecordBatchFileReader, getSchema);
+    REGISTER_METHOD(RecordBatchFileReader, readRecordBatchAtIndex);
   }
 
 libmexclass::proxy::MakeResult RecordBatchFileReader::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
