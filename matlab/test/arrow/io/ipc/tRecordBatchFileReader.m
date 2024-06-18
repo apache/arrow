@@ -60,7 +60,7 @@ classdef tRecordBatchFileReader < matlab.unittest.TestCase
             writer.writeRecordBatch(recordBatch1);
             writer.writeRecordBatch(recordBatch2);
             writer.close();
-            testCase.OneBatchFile = fname;
+            testCase.MultipleBatchFile = fname;
         end
     end
 
@@ -78,6 +78,82 @@ classdef tRecordBatchFileReader < matlab.unittest.TestCase
         function FilenameInvalidTypeError(testCase)
             fcn = @() arrow.io.ipc.RecordBatchFileReader(table);
             testCase.verifyError(fcn, "MATLAB:validation:UnableToConvert");
+        end
+
+        function NumRecordBatches(testCase)
+            reader = arrow.io.ipc.RecordBatchFileReader(testCase.ZeroBatchFile);
+            testCase.verifyEqual(reader.NumRecordBatches, int32(0));
+
+            reader = arrow.io.ipc.RecordBatchFileReader(testCase.OneBatchFile);
+            testCase.verifyEqual(reader.NumRecordBatches, int32(1));
+
+             reader = arrow.io.ipc.RecordBatchFileReader(testCase.MultipleBatchFile);
+            testCase.verifyEqual(reader.NumRecordBatches, int32(2));
+        end
+
+        function NumRecordNoSetter(testCase)
+            reader = arrow.io.ipc.RecordBatchFileReader(testCase.ZeroBatchFile);
+            testCase.verifyError(@() setfield(reader, "NumRecordBatches", int32(10)), "MATLAB:class:SetProhibited");
+        end
+
+        function Schema(testCase)
+            fieldA = arrow.field("A", arrow.string());
+            fieldB = arrow.field("B", arrow.float32());
+            expectedSchema = arrow.schema([fieldA fieldB]);
+            
+            reader = arrow.io.ipc.RecordBatchFileReader(testCase.ZeroBatchFile);
+            testCase.verifyEqual(reader.Schema, expectedSchema);
+
+            reader = arrow.io.ipc.RecordBatchFileReader(testCase.OneBatchFile);
+            testCase.verifyEqual(reader.Schema, expectedSchema);
+
+            reader = arrow.io.ipc.RecordBatchFileReader(testCase.MultipleBatchFile);
+            testCase.verifyEqual(reader.Schema, expectedSchema);
+        end
+
+        function SchemaNoSetter(testCase)
+            fieldC = arrow.field("C", arrow.date32());
+            schema = arrow.schema(fieldC);
+            reader = arrow.io.ipc.RecordBatchFileReader(testCase.ZeroBatchFile);
+            testCase.verifyError(@() setfield(reader, "Schema", schema), "MATLAB:class:SetProhibited");
+        end
+
+        function readInvalidIndexType(testCase)
+            reader = arrow.io.ipc.RecordBatchFileReader(testCase.MultipleBatchFile);
+
+            fcn = @() reader.read("index");
+            testCase.verifyError(fcn, "arrow:badsubscript:NonNumeric");
+        end
+
+        function readInvalidNumericIndex(testCase)
+            reader = arrow.io.ipc.RecordBatchFileReader(testCase.MultipleBatchFile);
+            fcn = @() reader.read(-1);
+            testCase.verifyError(fcn, "arrow:badsubscript:NonPositive");
+            fcn = @() reader.read(0);
+            testCase.verifyError(fcn, "arrow:badsubscript:NonPositive");
+            fcn = @() reader.read(1.1);
+            testCase.verifyError(fcn, "arrow:badsubscript:NonInteger");
+        end
+
+        function readInvalidNumericIndexValue(testCase)
+            reader = arrow.io.ipc.RecordBatchFileReader(testCase.MultipleBatchFile);
+            fcn = @() reader.read(3);
+            testCase.verifyError(fcn, "arrow:io:ipc:InvalidIndex");
+        end
+
+        function readAtIndex(testCase)
+            t1 = table(["Row1"; "Row2"], single([1; 2]), VariableNames=["A", "B"]);
+            t2 = table(["Row3"; "Row4"], single([3; 4]), VariableNames=["A", "B"]);
+
+            reader = arrow.io.ipc.RecordBatchFileReader(testCase.MultipleBatchFile);
+            
+            actual1 = reader.read(1);
+            expected1 = arrow.recordBatch(t1);
+            testCase.verifyEqual(actual1, expected1);
+
+            actual2 = reader.read(2);
+            expected2 = arrow.recordBatch(t2);
+            testCase.verifyEqual(actual2, expected2);
         end
     end
 end
