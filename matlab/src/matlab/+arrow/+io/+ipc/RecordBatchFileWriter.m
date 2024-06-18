@@ -71,5 +71,9 @@ classdef RecordBatchFileWriter < matlab.mixin.Scalar
                 error(id, msg);
             end
         end
+
+        function close(obj)
+            obj.Proxy.close();
+        end
     end
 end
