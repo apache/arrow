@@ -80,5 +80,25 @@ classdef tRecordBatchFileWriter < matlab.unittest.TestCase
             fcn = @() writer.write(schema);
             testCase.verifyError(fcn, "arrow:matlab:ipc:write:InvalidType");
         end
+
+        function writeRecordBatchInvalidSchema(testCase)
+            folder = testCase.setupTemporaryFolder();
+            fname = fullfile(folder, "data.arrow");
+            schema = arrow.schema(arrow.field("A", arrow.float64()));
+            arrowRecordBatch = arrow.recordBatch(table([1 2 3 4]', VariableNames="B"));
+            writer = arrow.io.ipc.RecordBatchFileWriter(fname, schema);
+            fcn = @() writer.writeRecordBatch(arrowRecordBatch);
+            testCase.verifyError(fcn, "arrow:io:ipc:FailedToWriteRecordBatch");
+        end
+
+         function writeTableInvalidSchema(testCase)
+            folder = testCase.setupTemporaryFolder();
+            fname = fullfile(folder, "data.arrow");
+            schema = arrow.schema(arrow.field("A", arrow.float64()));
+            arrowTable = arrow.table(table([1 2 3 4]', VariableNames="B"));
+            writer = arrow.io.ipc.RecordBatchFileWriter(fname, schema);
+            fcn = @() writer.writeTable(arrowTable);
+            testCase.verifyError(fcn, "arrow:io:ipc:FailedToWriteRecordBatch");
+        end
     end
 end
