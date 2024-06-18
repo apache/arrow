@@ -24,6 +24,7 @@ classdef RecordBatchFileReader < matlab.mixin.Scalar
 
     properties (Dependent, SetAccess=private, GetAccess=public)
         NumRecordBatches
+        Schema
     end
 
     methods
@@ -38,6 +39,12 @@ classdef RecordBatchFileReader < matlab.mixin.Scalar
 
         function numRecordBatches = get.NumRecordBatches(obj)
             numRecordBatches = obj.Proxy.NumRecordBatches();
+        end
+
+        function schema = get.Schema(obj)
+            proxyID = obj.Proxy.getSchema();
+            proxy = libmexclass.proxy.Proxy(ID=proxyID, Name="arrow.tabular.proxy.Schema");
+            schema = arrow.tabular.Schema(proxy);
         end
     end
 
