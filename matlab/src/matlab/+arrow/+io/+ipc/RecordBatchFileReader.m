@@ -43,10 +43,22 @@ classdef RecordBatchFileReader < matlab.mixin.Scalar
 
         function schema = get.Schema(obj)
             proxyID = obj.Proxy.getSchema();
-            proxy = libmexclass.proxy.Proxy(ID=proxyID, Name="arrow.tabular.proxy.Schema");
+            proxyName = "arrow.tabular.proxy.Schema";
+            proxy = libmexclass.proxy.Proxy(ID=proxyID, Name=proxyName);
             schema = arrow.tabular.Schema(proxy);
         end
+
+        function rb = read(obj, index)
+            arguments
+                obj(1, 1) arrow.io.ipc.RecordBatchFileReader
+                index(1, 1) int32
+            end
+
+            args = struct(Index=index);
+            proxyID = obj.Proxy.readRecordBatchAtIndex(args);
+            proxyName = "arrow.tabular.proxy.RecordBatch";
+            proxy = libmexclass.proxy.Proxy(ID=proxyID, Name=proxyName);
+            rb = arrow.tabular.RecordBatch(proxy);
+        end
     end
-
-
 end
