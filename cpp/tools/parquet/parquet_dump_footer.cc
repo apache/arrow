@@ -15,24 +15,21 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <fcntl.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <unistd.h>
-
 #include <cstdint>
 #include <cstring>
 #include <exception>
 #include <fstream>
 #include <iostream>
+#include <limits>
+#include <optional>
 #include <random>
-#include <utility>
 
 #include <thrift/protocol/TCompactProtocol.h>
 #include <thrift/transport/TBufferTransports.h>
 
-#include "parquet_types.h"
+#include "arrow/filesystem/filesystem.h"
 #include "parquet/thrift_internal.h"
+#include "parquet_types.h"
 
 using apache::thrift::protocol::TCompactProtocol;
 using apache::thrift::transport::TMemoryBuffer;
@@ -65,16 +62,6 @@ void AppendLE32(uint32_t v, std::string* out) {
   out->push_back((v >> 8) & 0xff);
   out->push_back((v >> 16) & 0xff);
   out->push_back((v >> 24) & 0xff);
-}
-
-std::pair<char*, size_t> MmapFile(const std::string& fname) {
-  int fd = open(fname.c_str(), O_RDONLY);
-  if (fd < 0) return {nullptr, 0};
-  struct stat st;
-  if (fstat(fd, &st)) return {nullptr, 0};
-  size_t sz = st.st_size;
-  void* map = mmap(nullptr, sz, PROT_READ, MAP_SHARED, fd, 0);
-  return {map == MAP_FAILED ? nullptr : static_cast<char*>(map), sz};
 }
 
 template <typename T>
@@ -154,6 +141,22 @@ void Scrub(parquet::format::FileMetaData* md) {
   }
   Scrub(&md->footer_signing_key_metadata);
 }
+
+// Returns:
+// - 0 on success
+// - -1 on error
+// - the size of the footer if tail is too small
+int64_t ParseFooter(const std::string& tail, parquet::format::FileMetaData* md) {
+  if (tail.size() > std::numeric_limits<int32_t>::max()) return -1;
+
+  const char* p = tail.data();
+  const int32_t n = static_cast<int32_t>(tail.size());
+  int32_t len = ReadLE32(p + n - 8);
+  if (len > n - 8) return len;
+
+  if (!Deserialize(tail.data() + n - 8 - len, len, md)) return -1;
+  return 0;
+}
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -165,7 +168,7 @@ int main(int argc, char** argv) {
   for (int i = 1; i < argc; i++) {
     char* arg = argv[i];
     help |= !std::strcmp(arg, "-h") || !std::strcmp(arg, "--help");
-    scrub &= std::strcmp(arg, "--no-scrub");
+    scrub &= !!std::strcmp(arg, "--no-scrub");
     json |= !std::strcmp(arg, "--json");
     if (!std::strcmp(arg, "--in")) {
       if (i + 1 >= argc) return PrintHelp();
@@ -177,48 +180,65 @@ int main(int argc, char** argv) {
     }
   }
   if (help || in.empty()) return PrintHelp();
-  auto [data, len] = MmapFile(in);
-
-  if (len == 0) {
-    std::cerr << "Failed to read file: " << in << "\n";
+  std::string path;
+  auto fs = arrow::fs::FileSystemFromUriOrPath(in, &path).ValueOrDie();
+  auto file = fs->OpenInputFile(path).ValueOrDie();
+  int64_t file_len = file->GetSize().ValueOrDie();
+  if (file_len < 8) {
+    std::cerr << "File too short: " << in << "\n";
     return 3;
   }
-  if (len < 8 || ReadLE32(data + len - 4) != ReadLE32("PAR1")) {
+  int64_t tail_len = std::min(file_len, int64_t{1} << 20);
+  std::string tail;
+  tail.resize(tail_len);
+  char* data = tail.data();
+  file->ReadAt(file_len - tail_len, tail_len, data).ValueOrDie();
+  if (ReadLE32(data + tail_len - 4) != ReadLE32("PAR1")) {
     std::cerr << "Not a Parquet file: " << in << "\n";
     return 4;
   }
-  size_t footer_len = ReadLE32(data + len - 8);
-  if (footer_len > len - 8) {
-    std::cerr << "Invalid footer length: " << footer_len << "\n";
-    return 5;
-  }
-  char* footer = data + len - 8 - footer_len;
   parquet::format::FileMetaData md;
-  if (!Deserialize(footer, footer_len, &md)) return 5;
+  int64_t res = ParseFooter(tail, &md);
+  if (res < 0) {
+    std::cerr << "Failed to parse footer: " << in << "\n";
+    return 5;
+  } else if (res > 0) {
+    if (res > file_len) {
+      std::cerr << "File too short: " << in << "\n";
+      return 6;
+    }
+    tail_len = res + 8;
+    tail.resize(tail_len);
+    data = tail.data();
+    file->ReadAt(file_len - tail_len, tail_len, data).ValueOrDie();
+  }
+  if (ParseFooter(tail, &md) != 0) {
+    std::cerr << "Failed to parse footer: " << in << "\n";
+    return 7;
+  }
+
   if (scrub) Scrub(&md);
 
-  std::string ser;
+  std::optional<std::fstream> fout;
   if (json) {
-    if (out.empty()) {
-      md.printTo(std::cout);
-    } else {
-      std::fstream fout(out, std::ios::out);
-      md.printTo(fout);
-    }
+    if (!out.empty()) fout.emplace(out, std::ios::out);
+    std::ostream& os = fout ? *fout : std::cout;
+    md.printTo(os);
   } else {
-    int out_fd = out.empty() ? 1 : open(out.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
-    if (out_fd < 0) {
+    if (!out.empty()) fout.emplace(out, std::ios::out | std::ios::binary);
+    std::ostream& os = fout ? *fout : std::cout;
+    if (!os) {
       std::cerr << "Failed to open output file: " << out << "\n";
-      return 2;
+      return 8;
     }
+    std::string ser;
     if (!Serialize(md, &ser)) return 6;
-    AppendLE32(ser.size(), &ser);
+    AppendLE32(static_cast<uint32_t>(ser.size()), &ser);
     ser.append("PAR1", 4);
-    if (write(out_fd, ser.data(), ser.size()) != static_cast<ssize_t>(ser.size())) {
+    if (!os.write(ser.data(), ser.size())) {
       std::cerr << "Failed to write to output file: " << out << "\n";
-      return 7;
+      return 9;
     }
-    close(out_fd);
   }
 
   return 0;
