@@ -4754,6 +4754,7 @@ def make_df_with_timestamps():
             np.datetime64('2050-05-03 15:42', 'ns'),
         ],
     })
+    df['dateTimeMs'] = df['dateTimeMs'].astype('object')
     # Not part of what we're testing, just ensuring that the inputs are what we
     # expect.
     assert (df.dateTimeMs.dtype, df.dateTimeNs.dtype) == (
