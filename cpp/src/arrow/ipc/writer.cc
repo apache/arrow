@@ -450,11 +450,11 @@ class RecordBatchSerializer {
   template <typename T>
   enable_if_base_binary<typename T::TypeClass, Status> Visit(const T& array) {
     using offset_type = typename T::offset_type;
-    
+
     std::shared_ptr<Buffer> value_offsets;
     RETURN_NOT_OK(GetZeroBasedValueOffsets<T>(array, &value_offsets));
-    auto data = array.value_data();    
-    
+    auto data = array.value_data();
+
     int64_t total_data_bytes = 0;
     if (value_offsets) {
       offset_type first_offset_value, last_offset_value;
@@ -504,15 +504,15 @@ class RecordBatchSerializer {
 
     offset_type values_offset = 0;
     offset_type values_length = 0;
-    if (value_offsets) {      
+    if (value_offsets) {
       RETURN_NOT_OK(MemoryManager::CopyBufferSliceToCPU(
-        value_offsets, 0, sizeof(offset_type),
-        reinterpret_cast<uint8_t*>(&values_offset)));
+          value_offsets, 0, sizeof(offset_type),
+          reinterpret_cast<uint8_t*>(&values_offset)));
       offset_type last_values_offset = 0;
       RETURN_NOT_OK(MemoryManager::CopyBufferSliceToCPU(
-        value_offsets, array.length() * sizeof(offset_type), sizeof(offset_type),
-        reinterpret_cast<uint8_t*>(&last_values_offset)));
-      
+          value_offsets, array.length() * sizeof(offset_type), sizeof(offset_type),
+          reinterpret_cast<uint8_t*>(&last_values_offset)));
+
       values_length = last_values_offset - values_offset;
     }
 

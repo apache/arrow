@@ -708,7 +708,6 @@ TEST_F(TestCudaArrowIpc, WriteIpcList) {
 
   ASSERT_EQ(values_device->data()->buffers[0]->address(),
             payload.body_buffers[0]->address());
-  
 }
 
 TEST_F(TestCudaArrowIpc, DictionaryWriteRead) {
