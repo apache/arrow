@@ -59,11 +59,9 @@ classdef RecordBatchFileWriter < matlab.mixin.Scalar
                 tabularObj(1, 1)
             end
             if isa(tabularObj, "arrow.tabular.RecordBatch")
-                args = struct(RecordBatchProxyID=tabularObj.Proxy.ID);
-                obj.Proxy.writeRecordBatch(args);
+                obj.writeRecordBatch(tabularObj);
             elseif isa(tabularObj, "arrow.tabular.Table")
-                args = struct(TableProxyID=tabularObj.Proxy.ID);
-                obj.Proxy.writeTable(args);
+                obj.writeTable(tabularObj);
             else
                 id = "arrow:matlab:ipc:write:InvalidType";
                 msg = "tabularObj input argument must be an instance of " + ...
