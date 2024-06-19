@@ -28,19 +28,17 @@ class RecordBatchFileReader : public libmexclass::proxy::Proxy {
 
   ~RecordBatchFileReader() = default;
 
-  static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
+  static libmexclass::proxy::MakeResult make(
+      const libmexclass::proxy::FunctionArguments& constructor_arguments);
 
-  protected:
-    std::shared_ptr<arrow::ipc::RecordBatchFileReader> reader;
+ protected:
+  std::shared_ptr<arrow::ipc::RecordBatchFileReader> reader;
 
-    void getNumRecordBatches(libmexclass::proxy::method::Context& context);
+  void getNumRecordBatches(libmexclass::proxy::method::Context& context);
 
-    void getSchema(libmexclass::proxy::method::Context& context);
+  void getSchema(libmexclass::proxy::method::Context& context);
 
-    void readRecordBatchAtIndex(libmexclass::proxy::method::Context& context);
-
-    
-
+  void readRecordBatchAtIndex(libmexclass::proxy::method::Context& context);
 };
 
-} // namespace arrow::matlab::io::ipc::proxy 
+}  // namespace arrow::matlab::io::ipc::proxy
