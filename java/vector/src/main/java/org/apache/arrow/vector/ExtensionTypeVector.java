@@ -231,16 +231,6 @@ public abstract class ExtensionTypeVector<T extends ValueVector & FieldVector>
   }
 
   /**
-   * Retrieves the export buffer count for the C Data Interface.
-   *
-   * @return the number of buffers to be exported
-   */
-  @Override
-  public int getExportedCDataBufferCount() {
-    return underlyingVector.getExportedCDataBufferCount();
-  }
-
-  /**
    * Get the inner vectors.
    *
    * @deprecated This API will be removed as the current implementations no longer support inner

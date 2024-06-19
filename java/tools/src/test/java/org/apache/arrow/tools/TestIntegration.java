@@ -360,8 +360,6 @@ public class TestIntegration {
       File testOutFile = new File(testFolder, "testOut.arrow");
       testOutFile.delete();
 
-      System.out.println(testJSONFile.getAbsolutePath());
-
       writeVariableWidthViewInput(testInFile, allocator, multiplier * valueCount);
 
       Integration integration = new Integration();

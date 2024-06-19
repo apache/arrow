@@ -1670,16 +1670,21 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
   }
 
   /**
-   * Retrieves the export buffer count for the C Data Interface. For Variadic types, an additional
-   * buffer is kept to store the size of each variadic buffer since that information cannot be
-   * retrieved in the C Data import. When there are dataBuffers, the count is set to 3 +
-   * dataBuffers.size(). Three is formed by validity, view, and variadic size buffer. If it is not
-   * the case, i.e., the dataBuffer is not present; four buffers are required. They are view buffer,
-   * validity buffer, empty data buffer, and variadic size buffer. Note that the Java library only
-   * allocates data buffers when long strings are present. In the C Data Interface, the binary view
-   * import expects at least three buffers. The variadic size buffer is merely allocated to
-   * determine the number of elements per each variadic buffer, and it is not part of the imported
-   * data. Thus, an empty data buffer is allocated to meet this requirement.
+   * Retrieves the export buffer count for the C Data Interface.
+   *
+   * <p>For Variadic types, an additional buffer is kept to store the size of each variadic buffer
+   * since that information cannot be retrieved in the C Data import.
+   *
+   * <p>When there are dataBuffers, the count is set to 3 + dataBuffers.size(). Three is formed by
+   * validity, view, and variadic size buffer. If it is not the case, i.e., the dataBuffer is not
+   * present; four buffers are required. They are view buffer, validity buffer, empty data buffer,
+   * and variadic size buffer. Note that the Java library only allocates data buffers when long
+   * strings are present.
+   *
+   * <p>In the C Data Interface, the binary view import expects at least three buffers. The variadic
+   * size buffer is merely allocated to determine the number of elements per each variadic buffer,
+   * and it is not part of the imported data. Thus, an empty data buffer is allocated to meet this
+   * requirement.
    *
    * @return the number of buffers to be exported
    */

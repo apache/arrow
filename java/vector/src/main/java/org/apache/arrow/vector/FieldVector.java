@@ -61,7 +61,9 @@ public interface FieldVector extends ValueVector {
    *
    * @return the number of variadic buffers
    */
-  int getExportedCDataBufferCount();
+  default int getExportedCDataBufferCount() {
+    return getFieldBuffers().size();
+  }
 
   /**
    * Export a given buffer and its memory address into a list of buffers and a pointer to the list

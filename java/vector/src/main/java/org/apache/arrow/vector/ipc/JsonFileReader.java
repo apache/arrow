@@ -72,7 +72,6 @@ import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
-import org.apache.arrow.vector.types.pojo.ArrowType.Null;
 import org.apache.arrow.vector.types.pojo.ArrowType.Union;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -943,7 +942,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
       }
 
       int nullCount = 0;
-      if (type instanceof Null) {
+      if (type instanceof ArrowType.Null) {
         nullCount = valueCount;
       } else if (!(type instanceof Union)) {
         nullCount = BitVectorHelper.getNullCount(vectorBuffers.get(0), valueCount);

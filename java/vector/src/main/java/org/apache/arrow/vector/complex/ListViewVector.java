@@ -239,17 +239,6 @@ public class ListViewVector extends BaseRepeatedValueViewVector
   }
 
   /**
-   * Retrieves the export buffer count for the C Data Interface. The exported buffers are the
-   * validity, offset and size buffers.
-   *
-   * @return the number of buffers to be exported
-   */
-  @Override
-  public int getExportedCDataBufferCount() {
-    return 3;
-  }
-
-  /**
    * Export the buffers of the fields for C Data Interface. This method traverses the buffers and
    * export buffer and buffer's memory address into a list of buffers and a pointer to the list of
    * buffers.
