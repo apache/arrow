@@ -66,21 +66,32 @@ classdef tRecordBatchFileReader < matlab.unittest.TestCase
 
     methods (Test)
         function ZeroLengthFilenameError(testCase)
+            % Verify RecordBatchFileReader throws an exception with the
+            % identifier MATLAB:validators:mustBeNonzeroLengthText if the
+            % filename input argument given is a zero length string.
             fcn = @() arrow.io.ipc.RecordBatchFileReader("");
             testCase.verifyError(fcn, "MATLAB:validators:mustBeNonzeroLengthText");
         end
 
         function MissingStringFilenameError(testCase)
+            % Verify RecordBatchFileReader throws an exception with the
+            % identifier MATLAB:validators:mustBeNonzeroLengthText if the
+            % filename input argument given is a missing string.
             fcn = @() arrow.io.ipc.RecordBatchFileReader(string(missing));
             testCase.verifyError(fcn, "MATLAB:validators:mustBeNonzeroLengthText");
         end
 
         function FilenameInvalidTypeError(testCase)
+            % Verify RecordBatchFileReader throws an exception with the
+            % identifier MATLAB:validators:UnableToConvert if the filename
+            % input argument is neither a scalar string nor a char vector.
             fcn = @() arrow.io.ipc.RecordBatchFileReader(table);
             testCase.verifyError(fcn, "MATLAB:validation:UnableToConvert");
         end
 
         function NumRecordBatches(testCase)
+            % Verify the getter method for NumRecordBatches returns the
+            % expected value.
             reader = arrow.io.ipc.RecordBatchFileReader(testCase.ZeroBatchFile);
             testCase.verifyEqual(reader.NumRecordBatches, int32(0));
 
@@ -92,11 +103,14 @@ classdef tRecordBatchFileReader < matlab.unittest.TestCase
         end
 
         function NumRecordNoSetter(testCase)
+            % Verify the NumRecordBatches property is not settable.
             reader = arrow.io.ipc.RecordBatchFileReader(testCase.ZeroBatchFile);
             testCase.verifyError(@() setfield(reader, "NumRecordBatches", int32(10)), "MATLAB:class:SetProhibited");
         end
 
         function Schema(testCase)
+            % Verify the getter method for Schema returns the
+            % expected value.
             fieldA = arrow.field("A", arrow.string());
             fieldB = arrow.field("B", arrow.float32());
             expectedSchema = arrow.schema([fieldA fieldB]);
@@ -112,6 +126,7 @@ classdef tRecordBatchFileReader < matlab.unittest.TestCase
         end
 
         function SchemaNoSetter(testCase)
+            % Verify the Schema property is not settable.
             fieldC = arrow.field("C", arrow.date32());
             schema = arrow.schema(fieldC);
             reader = arrow.io.ipc.RecordBatchFileReader(testCase.ZeroBatchFile);
@@ -119,6 +134,9 @@ classdef tRecordBatchFileReader < matlab.unittest.TestCase
         end
 
         function readInvalidIndexType(testCase)
+            % Verify read throws an exception with the identifier
+            % arrow:badsubscript:NonNumeric if the index argument given is
+            % not numeric.
             reader = arrow.io.ipc.RecordBatchFileReader(testCase.MultipleBatchFile);
 
             fcn = @() reader.read("index");
@@ -126,6 +144,8 @@ classdef tRecordBatchFileReader < matlab.unittest.TestCase
         end
 
         function readInvalidNumericIndex(testCase)
+            % Verify read throws an exception if the index argument given
+            % is nonpositive or noninteger number.
             reader = arrow.io.ipc.RecordBatchFileReader(testCase.MultipleBatchFile);
             fcn = @() reader.read(-1);
             testCase.verifyError(fcn, "arrow:badsubscript:NonPositive");
@@ -136,12 +156,17 @@ classdef tRecordBatchFileReader < matlab.unittest.TestCase
         end
 
         function readInvalidNumericIndexValue(testCase)
+            % Verify read throws an exception with the identifier 
+            % arrow:io:ipc:InvalidIndex if the index given is greater
+            % than the NumRecordBatches in the file.
             reader = arrow.io.ipc.RecordBatchFileReader(testCase.MultipleBatchFile);
             fcn = @() reader.read(3);
             testCase.verifyError(fcn, "arrow:io:ipc:InvalidIndex");
         end
 
         function readAtIndex(testCase)
+            % Verify read returns the expected RecordBatch for the given
+            % index.
             t1 = table(["Row1"; "Row2"], single([1; 2]), VariableNames=["A", "B"]);
             t2 = table(["Row3"; "Row4"], single([3; 4]), VariableNames=["A", "B"]);
 
