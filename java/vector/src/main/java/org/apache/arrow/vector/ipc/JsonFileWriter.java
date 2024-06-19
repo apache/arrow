@@ -200,11 +200,9 @@ public class JsonFileWriter implements AutoCloseable {
   }
 
   private void writeFromVectorIntoJson(Field field, FieldVector vector) throws IOException {
-    // TODO: https://github.com/apache/arrow/issues/41733
     TypeLayout typeLayout = TypeLayout.getTypeLayout(field.getType());
     List<BufferType> vectorTypes = typeLayout.getBufferTypes();
     List<ArrowBuf> vectorBuffers = vector.getFieldBuffers();
-    int variadicBufferCount = 0;
 
     if (typeLayout.isFixedBufferCount()) {
       if (vectorTypes.size() != vectorBuffers.size()) {
@@ -215,10 +213,7 @@ public class JsonFileWriter implements AutoCloseable {
                 + vectorBuffers.size());
       }
     } else {
-      variadicBufferCount = vectorBuffers.size() - vectorTypes.size();
-      if (variadicBufferCount > 0) {
-        vectorTypes.add(VARIADIC_DATA_BUFFERS);
-      }
+      vectorTypes.add(VARIADIC_DATA_BUFFERS);
     }
 
     generator.writeStartObject();
@@ -286,10 +281,6 @@ public class JsonFileWriter implements AutoCloseable {
             writeValueToGenerator(bufferType, vectorBuffer, null, vector, i);
           }
         }
-        generator.writeEndArray();
-      }
-      if (variadicBufferCount == 0 && vector instanceof BaseVariableWidthViewVector) {
-        generator.writeArrayFieldStart(VARIADIC_DATA_BUFFERS.getName());
         generator.writeEndArray();
       }
 

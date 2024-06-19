@@ -629,13 +629,10 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
   class ViewBufferReader extends BufferReader {
 
     private final List<Integer> variadicBufferIndices;
-    private final List<BufferType> vectorTypes;
     private final MinorType type;
 
-    public ViewBufferReader(
-        List<Integer> variadicBufferIndices, List<BufferType> vectorTypes, MinorType type) {
+    public ViewBufferReader(List<Integer> variadicBufferIndices, MinorType type) {
       this.variadicBufferIndices = variadicBufferIndices;
-      this.vectorTypes = vectorTypes;
       this.type = type;
     }
 
@@ -700,10 +697,6 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         buf.writeBytes(value);
       }
 
-      if (!variadicBufferIndices.isEmpty()) {
-        // we have variadic buffers
-        vectorTypes.add(VARIADIC_DATA_BUFFERS);
-      }
       return buf;
     }
 
@@ -861,7 +854,8 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
           throw new UnsupportedOperationException("Cannot read array of type " + type);
       }
     } else if (bufferType.equals(VIEWS)) {
-      reader = new ViewBufferReader(variadicBufferIndices, vectorTypes, type);
+      vectorTypes.add(VARIADIC_DATA_BUFFERS);
+      reader = new ViewBufferReader(variadicBufferIndices, type);
     } else if (bufferType.equals(VARIADIC_DATA_BUFFERS)) {
       dataBufferhelper = new DataBufferReaderImpl();
     } else {
@@ -966,12 +960,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         readToken(END_ARRAY);
       }
     }
-    if (variadicBufferIndices.isEmpty() && vector instanceof BaseVariableWidthViewVector) {
-      // facilitating the reading of empty databuffer
-      parser.nextToken();
-      readToken(START_ARRAY);
-      readToken(END_ARRAY);
-    }
+
     readToken(END_OBJECT);
 
     for (ArrowBuf buffer : vectorBuffers) {
