@@ -16,8 +16,8 @@
  */
 package org.apache.arrow.adapter.jdbc.h2;
 
-import static junit.framework.TestCase.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.sql.SQLException;

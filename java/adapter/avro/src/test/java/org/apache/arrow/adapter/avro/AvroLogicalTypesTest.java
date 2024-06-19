@@ -16,9 +16,9 @@
  */
 package org.apache.arrow.adapter.avro;
 
-import static junit.framework.TestCase.assertNull;
-import static junit.framework.TestCase.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
