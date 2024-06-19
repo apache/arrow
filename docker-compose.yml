@@ -1284,7 +1284,7 @@ services:
       PARQUET_REQUIRE_ENCRYPTION:  # inherit
       # In the future we are supposed to run all tests.
       # This is only temporary.
-      TEST_COMMAND:  "pytest -r s --pyargs pyarrow.tests.test_array"
+      PYTEST_PYARGS:  "pyarrow.tests.test_array"
       HYPOTHESIS_PROFILE:  # inherit
       PYARROW_TEST_HYPOTHESIS:  # inherit
     volumes: *conda-volumes

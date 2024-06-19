@@ -1031,6 +1031,7 @@ def _is_generated_index_name(name):
     pattern = r'^__index_level_\d+__$'
     return re.match(pattern, name) is not None
 
+
 def get_pandas_logical_type_map():
     global _pandas_logical_type_map
 

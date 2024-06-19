@@ -69,8 +69,4 @@ export PYARROW_TEST_PARQUET_ENCRYPTION
 export PYARROW_TEST_S3
 
 # Testing PyArrow
-if [ -z "${TEST_COMMAND}" ]; then
-  pytest -r s ${PYTEST_ARGS} --pyargs pyarrow
-else
-  ${TEST_COMMAND}
-fi
+pytest -r s ${PYTEST_ARGS} --pyargs ${PYTEST_PYARGS:-'pyarrow'}
