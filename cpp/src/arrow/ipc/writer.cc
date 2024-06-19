@@ -456,7 +456,7 @@ class RecordBatchSerializer {
     auto data = array.value_data();
 
     int64_t total_data_bytes = 0;
-    if (value_offsets) {      
+    if (value_offsets) {
       offset_type last_offset_value;
       RETURN_NOT_OK(MemoryManager::CopyBufferSliceToCPU(
           value_offsets, array.length() * sizeof(offset_type), sizeof(offset_type),
@@ -464,7 +464,7 @@ class RecordBatchSerializer {
 
       total_data_bytes = last_offset_value;
     }
-    
+
     if (NeedTruncate(array.offset(), data.get(), total_data_bytes)) {
       // Slice the data buffer to include only the range we need now
       const int64_t start_offset = array.value_offset(0);
@@ -504,12 +504,12 @@ class RecordBatchSerializer {
     offset_type values_length = 0;
     if (value_offsets) {
       RETURN_NOT_OK(MemoryManager::CopyBufferSliceToCPU(
-          array.value_offsets(), array.offset() * sizeof(offset_type), sizeof(offset_type),
-          reinterpret_cast<uint8_t*>(&values_offset)));
+          array.value_offsets(), array.offset() * sizeof(offset_type),
+          sizeof(offset_type), reinterpret_cast<uint8_t*>(&values_offset)));
       offset_type last_values_offset = 0;
       RETURN_NOT_OK(MemoryManager::CopyBufferSliceToCPU(
-          array.value_offsets(), (array.offset() + array.length()) * sizeof(offset_type), sizeof(offset_type),
-          reinterpret_cast<uint8_t*>(&last_values_offset)));
+          array.value_offsets(), (array.offset() + array.length()) * sizeof(offset_type),
+          sizeof(offset_type), reinterpret_cast<uint8_t*>(&last_values_offset)));
 
       values_length = last_values_offset - values_offset;
     }
