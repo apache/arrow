@@ -1700,20 +1700,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
   @Override
   public void exportCDataBuffers(List<ArrowBuf> buffers, ArrowBuf buffersPtr, long nullValue) {
     exportBuffer(validityBuffer, buffers, buffersPtr, nullValue, true);
-
-    if (viewBuffer.capacity() == 0) {
-      // Empty view buffer is required here.
-      // Since a minimum of 3 buffers is required in C++ interface.
-      // We set `retain = false` to explicitly not increase the ref count for the exported buffer.
-      // The ref count of the newly created buffer (i.e., 1) already represents the usage
-      // of the imported side.
-      ArrowBuf emptyViewBuffer = allocator.buffer(INITIAL_BYTE_COUNT);
-      emptyViewBuffer.readerIndex(0);
-      emptyViewBuffer.setZero(0, emptyViewBuffer.capacity());
-      exportBuffer(emptyViewBuffer, buffers, buffersPtr, nullValue, false);
-    } else {
-      exportBuffer(viewBuffer, buffers, buffersPtr, nullValue, true);
-    }
+    exportBuffer(viewBuffer, buffers, buffersPtr, nullValue, true);
 
     // allocating additional space to keep the number of variadic buffers
     ArrowBuf variadicSizeBuffer = allocator.buffer((long) Long.BYTES * dataBuffers.size());
