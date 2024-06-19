@@ -1494,10 +1494,11 @@ tasks:
 
 {% for python_version, pandas_version, numpy_version, cache_leaf in [("3.8", "1.0", "1.19", True),
                                                                      ("3.9", "latest", "latest", False),
+                                                                     ("3.10", "latest", "1.26", False),
                                                                      ("3.10", "latest", "latest", False),
                                                                      ("3.10", "nightly", "nightly", False),
                                                                      ("3.11", "upstream_devel", "nightly", False)] %}
-  test-conda-python-{{ python_version }}-pandas-{{ pandas_version }}:
+  test-conda-python-{{ python_version }}-pandas-{{ pandas_version }}-numpy-{{ numpy_version }}:
     ci: github
     template: docker-tests/github.linux.yml
     params:
