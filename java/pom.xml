@@ -646,6 +646,9 @@ under the License.
                     <!-- Do not include annotation processors. Use the annotations-only artifacts -->
                     <exclude>org.immutables:value</exclude>
                     <exclude>org.checkerframework:checker</exclude>
+                    <!-- Exclude all JUnit 4 dependencies -->
+                    <exclude>junit:junit:4.*</exclude>
+                    <exclude>org.junit.vintage:junit-vintage-engine</exclude>
                   </excludes>
                 </bannedDependencies>
               </rules>
