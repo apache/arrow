@@ -45,7 +45,7 @@ import java.nio.ByteOrder;
  */
 @SuppressWarnings("unused")
 public final class Date extends Table {
-  public static void ValidateVersion() { Constants.FLATBUFFERS_23_5_26(); }
+  public static void ValidateVersion() { Constants.FLATBUFFERS_24_3_25(); }
   public static Date getRootAsDate(ByteBuffer _bb) { return getRootAsDate(_bb, new Date()); }
   public static Date getRootAsDate(ByteBuffer _bb, Date obj) { _bb.order(ByteOrder.LITTLE_ENDIAN); return (obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb)); }
   public void __init(int _i, ByteBuffer _bb) { __reset(_i, _bb); }
