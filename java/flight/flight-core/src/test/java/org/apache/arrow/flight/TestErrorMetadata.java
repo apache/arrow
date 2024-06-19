@@ -18,6 +18,11 @@ package org.apache.arrow.flight;
 
 import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
 import static org.apache.arrow.flight.Location.forGrpcInsecure;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import com.google.protobuf.Any;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -30,7 +35,6 @@ import java.nio.charset.StandardCharsets;
 import org.apache.arrow.flight.perf.impl.PerfOuterClass;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class TestErrorMetadata {
@@ -63,21 +67,21 @@ public class TestErrorMetadata {
               });
       PerfOuterClass.Perf newPerf = null;
       ErrorFlightMetadata metadata = flightStatus.metadata();
-      Assertions.assertNotNull(metadata);
-      Assertions.assertEquals(2, metadata.keys().size());
-      Assertions.assertTrue(metadata.containsKey("grpc-status-details-bin"));
+      assertNotNull(metadata);
+      assertEquals(2, metadata.keys().size());
+      assertTrue(metadata.containsKey("grpc-status-details-bin"));
       Status status = marshaller.parseBytes(metadata.getByte("grpc-status-details-bin"));
       for (Any details : status.getDetailsList()) {
         if (details.is(PerfOuterClass.Perf.class)) {
           try {
             newPerf = details.unpack(PerfOuterClass.Perf.class);
           } catch (InvalidProtocolBufferException e) {
-            Assertions.fail();
+            fail();
           }
         }
       }
-      Assertions.assertNotNull(newPerf);
-      Assertions.assertEquals(perf, newPerf);
+      assertNotNull(newPerf);
+      assertEquals(perf, newPerf);
     }
   }
 
@@ -98,9 +102,9 @@ public class TestErrorMetadata {
                 stream.next();
               });
       ErrorFlightMetadata metadata = flightStatus.metadata();
-      Assertions.assertNotNull(metadata);
-      Assertions.assertEquals("foo", metadata.get("x-foo"));
-      Assertions.assertArrayEquals(new byte[] {1}, metadata.getByte("x-bar-bin"));
+      assertNotNull(metadata);
+      assertEquals("foo", metadata.get("x-foo"));
+      assertArrayEquals(new byte[] {1}, metadata.getByte("x-bar-bin"));
 
       flightStatus =
           FlightTestUtil.assertCode(
@@ -109,9 +113,9 @@ public class TestErrorMetadata {
                 client.getInfo(FlightDescriptor.command(new byte[0]));
               });
       metadata = flightStatus.metadata();
-      Assertions.assertNotNull(metadata);
-      Assertions.assertEquals("foo", metadata.get("x-foo"));
-      Assertions.assertArrayEquals(new byte[] {1}, metadata.getByte("x-bar-bin"));
+      assertNotNull(metadata);
+      assertEquals("foo", metadata.get("x-foo"));
+      assertArrayEquals(new byte[] {1}, metadata.getByte("x-bar-bin"));
     }
   }
 

@@ -18,34 +18,33 @@ package org.apache.arrow.driver.jdbc.utils;
 
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.nullValue;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.Mockito.mock;
 
 import java.util.concurrent.CompletionService;
 import org.apache.arrow.driver.jdbc.client.CloseableEndpointStreamPair;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ErrorCollector;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 /** Tests for {@link FlightEndpointDataQueue}. */
-@RunWith(MockitoJUnitRunner.class)
+@ExtendWith(MockitoExtension.class)
 public class FlightEndpointDataQueueTest {
 
-  @Rule public final ErrorCollector collector = new ErrorCollector();
   @Mock private CompletionService<CloseableEndpointStreamPair> mockedService;
   private FlightEndpointDataQueue queue;
 
-  @Before
+  @BeforeEach
   public void setUp() {
     queue = new FlightEndpointDataQueue(mockedService);
   }
 
   @Test
   public void testNextShouldRetrieveNullIfEmpty() throws Exception {
-    collector.checkThat(queue.next(), is(nullValue()));
+    assertThat(queue.next(), is(nullValue()));
   }
 
   @Test
@@ -64,7 +63,7 @@ public class FlightEndpointDataQueueTest {
 
   @Test
   public void testCheckOpen() throws Exception {
-    collector.checkSucceeds(
+    assertDoesNotThrow(
         () -> {
           queue.checkOpen();
           return true;
@@ -76,8 +75,8 @@ public class FlightEndpointDataQueueTest {
 
   @Test
   public void testShouldCloseQueue() throws Exception {
-    collector.checkThat(queue.isClosed(), is(false));
+    assertThat(queue.isClosed(), is(false));
     queue.close();
-    collector.checkThat(queue.isClosed(), is(true));
+    assertThat(queue.isClosed(), is(true));
   }
 }

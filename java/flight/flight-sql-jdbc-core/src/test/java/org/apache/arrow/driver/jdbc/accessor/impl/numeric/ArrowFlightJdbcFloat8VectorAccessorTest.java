@@ -18,30 +18,26 @@ package org.apache.arrow.driver.jdbc.accessor.impl.numeric;
 
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.SQLException;
 import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils;
-import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
+import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestExtension;
 import org.apache.arrow.vector.Float8Vector;
 import org.hamcrest.CoreMatchers;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ErrorCollector;
-import org.junit.rules.ExpectedException;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 public class ArrowFlightJdbcFloat8VectorAccessorTest {
 
-  @ClassRule
-  public static RootAllocatorTestRule rootAllocatorTestRule = new RootAllocatorTestRule();
-
-  @Rule public final ErrorCollector collector = new ErrorCollector();
-
-  @Rule public ExpectedException exceptionCollector = ExpectedException.none();
+  @RegisterExtension
+  public static RootAllocatorTestExtension rootAllocatorTestExtension =
+      new RootAllocatorTestExtension();
 
   private Float8Vector vector;
   private Float8Vector vectorWithNull;
@@ -53,15 +49,15 @@ public class ArrowFlightJdbcFloat8VectorAccessorTest {
                   (Float8Vector) vector, getCurrentRow, (boolean wasNull) -> {});
 
   private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcFloat8VectorAccessor>
-      accessorIterator = new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
+      accessorIterator = new AccessorTestUtils.AccessorIterator<>(accessorSupplier);
 
-  @Before
+  @BeforeEach
   public void setup() {
-    this.vector = rootAllocatorTestRule.createFloat8Vector();
-    this.vectorWithNull = rootAllocatorTestRule.createFloat8VectorForNullTests();
+    this.vector = rootAllocatorTestExtension.createFloat8Vector();
+    this.vectorWithNull = rootAllocatorTestExtension.createFloat8VectorForNullTests();
   }
 
-  @After
+  @AfterEach
   public void tearDown() {
     this.vector.close();
     this.vectorWithNull.close();
@@ -146,9 +142,10 @@ public class ArrowFlightJdbcFloat8VectorAccessorTest {
         (accessor, currentRow) -> {
           double value = accessor.getDouble();
           if (Double.isInfinite(value) || Double.isNaN(value)) {
-            exceptionCollector.expect(SQLException.class);
+            assertThrows(SQLException.class, accessor::getBigDecimal);
+          } else {
+            assertThat(accessor.getBigDecimal(), is(BigDecimal.valueOf(value)));
           }
-          collector.checkThat(accessor.getBigDecimal(), is(BigDecimal.valueOf(value)));
         });
   }
 
@@ -185,11 +182,12 @@ public class ArrowFlightJdbcFloat8VectorAccessorTest {
         (accessor, currentRow) -> {
           double value = accessor.getDouble();
           if (Double.isInfinite(value) || Double.isNaN(value)) {
-            exceptionCollector.expect(SQLException.class);
+            assertThrows(SQLException.class, () -> accessor.getBigDecimal(9));
+          } else {
+            assertThat(
+                accessor.getBigDecimal(9),
+                is(BigDecimal.valueOf(value).setScale(9, RoundingMode.HALF_UP)));
           }
-          collector.checkThat(
-              accessor.getBigDecimal(9),
-              is(BigDecimal.valueOf(value).setScale(9, RoundingMode.HALF_UP)));
         });
   }
 

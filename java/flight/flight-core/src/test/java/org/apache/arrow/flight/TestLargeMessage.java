@@ -19,6 +19,7 @@ package org.apache.arrow.flight;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
 import static org.apache.arrow.flight.Location.forGrpcInsecure;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Arrays;
 import java.util.List;
@@ -31,7 +32,6 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class TestLargeMessage {
@@ -51,7 +51,7 @@ public class TestLargeMessage {
               int value = 0;
               final IntVector iv = (IntVector) root.getVector(field.getName());
               for (int i = 0; i < root.getRowCount(); i++) {
-                Assertions.assertEquals(value, iv.get(i));
+                assertEquals(value, iv.get(i));
                 value++;
               }
             }

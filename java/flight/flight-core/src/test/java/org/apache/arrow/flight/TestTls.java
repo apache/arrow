@@ -18,6 +18,8 @@ package org.apache.arrow.flight;
 
 import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
 import static org.apache.arrow.flight.Location.forGrpcInsecure;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -27,7 +29,6 @@ import java.util.Iterator;
 import java.util.function.Consumer;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 /** Tests for TLS in Flight. */
@@ -43,8 +44,8 @@ public class TestTls {
               final FlightClient client = builder.trustedCertificates(roots).build()) {
             final Iterator<Result> responses = client.doAction(new Action("hello-world"));
             final byte[] response = responses.next().getBody();
-            Assertions.assertEquals("Hello, world!", new String(response, StandardCharsets.UTF_8));
-            Assertions.assertFalse(responses.hasNext());
+            assertEquals("Hello, world!", new String(response, StandardCharsets.UTF_8));
+            assertFalse(responses.hasNext());
           } catch (InterruptedException | IOException e) {
             throw new RuntimeException(e);
           }
@@ -92,8 +93,8 @@ public class TestTls {
           try (final FlightClient client = builder.verifyServer(false).build()) {
             final Iterator<Result> responses = client.doAction(new Action("hello-world"));
             final byte[] response = responses.next().getBody();
-            Assertions.assertEquals("Hello, world!", new String(response, StandardCharsets.UTF_8));
-            Assertions.assertFalse(responses.hasNext());
+            assertEquals("Hello, world!", new String(response, StandardCharsets.UTF_8));
+            assertFalse(responses.hasNext());
           } catch (InterruptedException e) {
             throw new RuntimeException(e);
           }

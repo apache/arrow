@@ -16,6 +16,7 @@
  */
 package org.apache.arrow.driver.jdbc.client.utils;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 
 import java.io.IOException;
@@ -30,15 +31,14 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Enumeration;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
-import org.junit.Assert;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-@RunWith(MockitoJUnitRunner.class)
+@ExtendWith(MockitoExtension.class)
 public class ClientAuthenticationUtilsTest {
   @Mock KeyStore keyStoreMock;
 
@@ -68,7 +68,7 @@ public class ClientAuthenticationUtilsTest {
       KeyStore receiveKeyStore = ClientAuthenticationUtils.getKeyStoreInstance("test1");
       Mockito.verify(keyStoreMock).load(null, null);
 
-      Assert.assertEquals(receiveKeyStore, keyStoreMock);
+      assertEquals(receiveKeyStore, keyStoreMock);
     }
   }
 
@@ -81,7 +81,7 @@ public class ClientAuthenticationUtilsTest {
           .when(() -> ClientAuthenticationUtils.getDefaultKeyStoreInstance("changeit"))
           .thenReturn(keyStoreMock);
       KeyStore receiveKeyStore = ClientAuthenticationUtils.getDefaultKeyStoreInstance("changeit");
-      Assert.assertEquals(receiveKeyStore, keyStoreMock);
+      assertEquals(receiveKeyStore, keyStoreMock);
     }
   }
 
@@ -94,7 +94,7 @@ public class ClientAuthenticationUtilsTest {
           .when(() -> ClientAuthenticationUtils.getDefaultKeyStoreInstance(null))
           .thenReturn(keyStoreMock);
       KeyStore receiveKeyStore = ClientAuthenticationUtils.getDefaultKeyStoreInstance(null);
-      Assert.assertEquals(receiveKeyStore, keyStoreMock);
+      assertEquals(receiveKeyStore, keyStoreMock);
     }
   }
 
@@ -124,7 +124,7 @@ public class ClientAuthenticationUtilsTest {
 
       InputStream inputStream =
           ClientAuthenticationUtils.getCertificateInputStreamFromSystem("changeit");
-      Assert.assertEquals(inputStream, mock);
+      assertEquals(inputStream, mock);
     }
   }
 
@@ -150,7 +150,7 @@ public class ClientAuthenticationUtilsTest {
 
       InputStream inputStream =
           ClientAuthenticationUtils.getCertificateInputStreamFromSystem("test");
-      Assert.assertEquals(inputStream, mock);
+      assertEquals(inputStream, mock);
     }
   }
 
@@ -177,9 +177,9 @@ public class ClientAuthenticationUtilsTest {
 
       InputStream inputStream =
           ClientAuthenticationUtils.getCertificateInputStreamFromSystem("changeit");
-      Assert.assertEquals(inputStream, mock);
+      assertEquals(inputStream, mock);
       inputStream = ClientAuthenticationUtils.getCertificateInputStreamFromSystem(null);
-      Assert.assertEquals(inputStream, mock);
+      assertEquals(inputStream, mock);
     }
   }
 
@@ -212,10 +212,10 @@ public class ClientAuthenticationUtilsTest {
       boolean isWindows,
       boolean isMac) {
     clientAuthenticationUtilsMockedStatic.when(ClientAuthenticationUtils::isMac).thenReturn(isMac);
-    Assert.assertEquals(ClientAuthenticationUtils.isMac(), isMac);
+    assertEquals(ClientAuthenticationUtils.isMac(), isMac);
     clientAuthenticationUtilsMockedStatic
         .when(ClientAuthenticationUtils::isWindows)
         .thenReturn(isWindows);
-    Assert.assertEquals(ClientAuthenticationUtils.isWindows(), isWindows);
+    assertEquals(ClientAuthenticationUtils.isWindows(), isWindows);
   }
 }

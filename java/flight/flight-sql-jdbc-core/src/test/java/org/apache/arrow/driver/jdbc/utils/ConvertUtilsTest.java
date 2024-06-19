@@ -17,6 +17,7 @@
 package org.apache.arrow.driver.jdbc.utils;
 
 import static org.hamcrest.CoreMatchers.equalTo;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import java.util.List;
@@ -26,13 +27,9 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.calcite.avatica.ColumnMetaData;
 import org.apache.calcite.avatica.proto.Common;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ErrorCollector;
+import org.junit.jupiter.api.Test;
 
 public class ConvertUtilsTest {
-
-  @Rule public ErrorCollector collector = new ErrorCollector();
 
   @Test
   public void testShouldSetOnColumnMetaDataBuilder() {
@@ -89,27 +86,20 @@ public class ConvertUtilsTest {
 
   private void assertColumnMetaData(
       final List<ColumnMetaData> expected, final List<ColumnMetaData> actual) {
-    collector.checkThat(expected.size(), equalTo(actual.size()));
+    assertThat(expected.size(), equalTo(actual.size()));
     int size = expected.size();
     for (int i = 0; i < size; i++) {
       final ColumnMetaData expectedColumnMetaData = expected.get(i);
       final ColumnMetaData actualColumnMetaData = actual.get(i);
-      collector.checkThat(
-          expectedColumnMetaData.catalogName, equalTo(actualColumnMetaData.catalogName));
-      collector.checkThat(
-          expectedColumnMetaData.schemaName, equalTo(actualColumnMetaData.schemaName));
-      collector.checkThat(
-          expectedColumnMetaData.tableName, equalTo(actualColumnMetaData.tableName));
-      collector.checkThat(expectedColumnMetaData.readOnly, equalTo(actualColumnMetaData.readOnly));
-      collector.checkThat(
-          expectedColumnMetaData.autoIncrement, equalTo(actualColumnMetaData.autoIncrement));
-      collector.checkThat(
-          expectedColumnMetaData.precision, equalTo(actualColumnMetaData.precision));
-      collector.checkThat(expectedColumnMetaData.scale, equalTo(actualColumnMetaData.scale));
-      collector.checkThat(
-          expectedColumnMetaData.caseSensitive, equalTo(actualColumnMetaData.caseSensitive));
-      collector.checkThat(
-          expectedColumnMetaData.searchable, equalTo(actualColumnMetaData.searchable));
+      assertThat(expectedColumnMetaData.catalogName, equalTo(actualColumnMetaData.catalogName));
+      assertThat(expectedColumnMetaData.schemaName, equalTo(actualColumnMetaData.schemaName));
+      assertThat(expectedColumnMetaData.tableName, equalTo(actualColumnMetaData.tableName));
+      assertThat(expectedColumnMetaData.readOnly, equalTo(actualColumnMetaData.readOnly));
+      assertThat(expectedColumnMetaData.autoIncrement, equalTo(actualColumnMetaData.autoIncrement));
+      assertThat(expectedColumnMetaData.precision, equalTo(actualColumnMetaData.precision));
+      assertThat(expectedColumnMetaData.scale, equalTo(actualColumnMetaData.scale));
+      assertThat(expectedColumnMetaData.caseSensitive, equalTo(actualColumnMetaData.caseSensitive));
+      assertThat(expectedColumnMetaData.searchable, equalTo(actualColumnMetaData.searchable));
     }
   }
 
@@ -120,17 +110,14 @@ public class ConvertUtilsTest {
     final Integer precision = flightSqlColumnMetaData.getPrecision();
     final Integer scale = flightSqlColumnMetaData.getScale();
 
-    collector.checkThat(
-        flightSqlColumnMetaData.getCatalogName(), equalTo(builder.getCatalogName()));
-    collector.checkThat(flightSqlColumnMetaData.getSchemaName(), equalTo(builder.getSchemaName()));
-    collector.checkThat(flightSqlColumnMetaData.getTableName(), equalTo(builder.getTableName()));
-    collector.checkThat(
-        flightSqlColumnMetaData.isAutoIncrement(), equalTo(builder.getAutoIncrement()));
-    collector.checkThat(
-        flightSqlColumnMetaData.isCaseSensitive(), equalTo(builder.getCaseSensitive()));
-    collector.checkThat(flightSqlColumnMetaData.isSearchable(), equalTo(builder.getSearchable()));
-    collector.checkThat(flightSqlColumnMetaData.isReadOnly(), equalTo(builder.getReadOnly()));
-    collector.checkThat(precision == null ? 0 : precision, equalTo(builder.getPrecision()));
-    collector.checkThat(scale == null ? 0 : scale, equalTo(builder.getScale()));
+    assertThat(flightSqlColumnMetaData.getCatalogName(), equalTo(builder.getCatalogName()));
+    assertThat(flightSqlColumnMetaData.getSchemaName(), equalTo(builder.getSchemaName()));
+    assertThat(flightSqlColumnMetaData.getTableName(), equalTo(builder.getTableName()));
+    assertThat(flightSqlColumnMetaData.isAutoIncrement(), equalTo(builder.getAutoIncrement()));
+    assertThat(flightSqlColumnMetaData.isCaseSensitive(), equalTo(builder.getCaseSensitive()));
+    assertThat(flightSqlColumnMetaData.isSearchable(), equalTo(builder.getSearchable()));
+    assertThat(flightSqlColumnMetaData.isReadOnly(), equalTo(builder.getReadOnly()));
+    assertThat(precision == null ? 0 : precision, equalTo(builder.getPrecision()));
+    assertThat(scale == null ? 0 : scale, equalTo(builder.getScale()));
   }
 }

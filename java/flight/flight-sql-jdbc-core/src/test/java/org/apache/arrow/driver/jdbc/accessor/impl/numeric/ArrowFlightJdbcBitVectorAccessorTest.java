@@ -23,39 +23,38 @@ import java.math.BigDecimal;
 import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils;
 import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils.AccessorIterator;
 import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils.CheckedFunction;
-import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
+import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestExtension;
 import org.apache.arrow.vector.BitVector;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ErrorCollector;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 public class ArrowFlightJdbcBitVectorAccessorTest {
-  @ClassRule
-  public static RootAllocatorTestRule rootAllocatorTestRule = new RootAllocatorTestRule();
 
-  @Rule public final ErrorCollector collector = new ErrorCollector();
+  @RegisterExtension
+  public static RootAllocatorTestExtension rootAllocatorTestExtension =
+      new RootAllocatorTestExtension();
+
   private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcBitVectorAccessor>
       accessorSupplier =
           (vector, getCurrentRow) ->
               new ArrowFlightJdbcBitVectorAccessor(
                   (BitVector) vector, getCurrentRow, (boolean wasNull) -> {});
   private final AccessorIterator<ArrowFlightJdbcBitVectorAccessor> accessorIterator =
-      new AccessorIterator<>(collector, accessorSupplier);
+      new AccessorIterator<>(accessorSupplier);
   private BitVector vector;
   private BitVector vectorWithNull;
   private boolean[] arrayToAssert;
 
-  @Before
+  @BeforeEach
   public void setup() {
     this.arrayToAssert = new boolean[] {false, true};
-    this.vector = rootAllocatorTestRule.createBitVector();
-    this.vectorWithNull = rootAllocatorTestRule.createBitVectorForNullTests();
+    this.vector = rootAllocatorTestExtension.createBitVector();
+    this.vectorWithNull = rootAllocatorTestExtension.createBitVectorForNullTests();
   }
 
-  @After
+  @AfterEach
   public void tearDown() {
     this.vector.close();
     this.vectorWithNull.close();

@@ -20,40 +20,33 @@ import static org.apache.arrow.driver.jdbc.utils.IntervalStringUtils.formatInter
 import static org.apache.arrow.driver.jdbc.utils.IntervalStringUtils.formatIntervalYear;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.time.Duration;
 import java.time.Period;
 import java.time.format.DateTimeParseException;
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils;
-import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
+import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestExtension;
 import org.apache.arrow.vector.IntervalDayVector;
 import org.apache.arrow.vector.IntervalMonthDayNanoVector;
 import org.apache.arrow.vector.IntervalYearVector;
 import org.apache.arrow.vector.PeriodDuration;
 import org.apache.arrow.vector.ValueVector;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ErrorCollector;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
-@RunWith(Parameterized.class)
 public class ArrowFlightJdbcIntervalVectorAccessorTest {
 
-  @ClassRule
-  public static RootAllocatorTestRule rootAllocatorTestRule = new RootAllocatorTestRule();
+  @RegisterExtension
+  public static RootAllocatorTestExtension rootAllocatorTestExtension =
+      new RootAllocatorTestExtension();
 
-  @Rule public final ErrorCollector collector = new ErrorCollector();
-
-  private final Supplier<ValueVector> vectorSupplier;
   private ValueVector vector;
 
   private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcIntervalVectorAccessor>
@@ -75,17 +68,15 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
           };
 
   final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcIntervalVectorAccessor> accessorIterator =
-      new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
+      new AccessorTestUtils.AccessorIterator<>(accessorSupplier);
 
-  @Parameterized.Parameters(name = "{1}")
-  public static Collection<Object[]> data() {
-    return Arrays.asList(
-        new Object[][] {
-          {
+  public static Stream<Arguments> data() {
+    return Stream.of(
+        Arguments.of(
             (Supplier<ValueVector>)
                 () -> {
                   IntervalDayVector vector =
-                      new IntervalDayVector("", rootAllocatorTestRule.getRootAllocator());
+                      new IntervalDayVector("", rootAllocatorTestExtension.getRootAllocator());
 
                   int valueCount = 10;
                   vector.setValueCount(valueCount);
@@ -94,13 +85,12 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
                   }
                   return vector;
                 },
-            "IntervalDayVector"
-          },
-          {
+            "IntervalDayVector"),
+        Arguments.of(
             (Supplier<ValueVector>)
                 () -> {
                   IntervalYearVector vector =
-                      new IntervalYearVector("", rootAllocatorTestRule.getRootAllocator());
+                      new IntervalYearVector("", rootAllocatorTestExtension.getRootAllocator());
 
                   int valueCount = 10;
                   vector.setValueCount(valueCount);
@@ -109,13 +99,13 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
                   }
                   return vector;
                 },
-            "IntervalYearVector"
-          },
-          {
+            "IntervalYearVector"),
+        Arguments.of(
             (Supplier<ValueVector>)
                 () -> {
                   IntervalMonthDayNanoVector vector =
-                      new IntervalMonthDayNanoVector("", rootAllocatorTestRule.getRootAllocator());
+                      new IntervalMonthDayNanoVector(
+                          "", rootAllocatorTestExtension.getRootAllocator());
 
                   int valueCount = 10;
                   vector.setValueCount(valueCount);
@@ -124,36 +114,36 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
                   }
                   return vector;
                 },
-            "IntervalMonthDayNanoVector"
-          },
-        });
+            "IntervalMonthDayNanoVector"));
   }
 
-  public ArrowFlightJdbcIntervalVectorAccessorTest(
-      Supplier<ValueVector> vectorSupplier, String vectorType) {
-    this.vectorSupplier = vectorSupplier;
-  }
-
-  @Before
-  public void setup() {
+  public void setup(Supplier<ValueVector> vectorSupplier) {
     this.vector = vectorSupplier.get();
   }
 
-  @After
+  @AfterEach
   public void tearDown() {
-    this.vector.close();
+    if (this.vector != null) {
+      this.vector.close();
+    }
   }
 
-  @Test
-  public void testShouldGetObjectReturnValidObject() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testShouldGetObjectReturnValidObject(Supplier<ValueVector> vectorSupplier)
+      throws Exception {
+    setup(vectorSupplier);
     accessorIterator.assertAccessorGetter(
         vector,
         ArrowFlightJdbcIntervalVectorAccessor::getObject,
         (accessor, currentRow) -> is(getExpectedObject(vector, currentRow)));
   }
 
-  @Test
-  public void testShouldGetObjectPassingObjectClassAsParameterReturnValidObject() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testShouldGetObjectPassingObjectClassAsParameterReturnValidObject(
+      Supplier<ValueVector> vectorSupplier) throws Exception {
+    setup(vectorSupplier);
     Class<?> objectClass = getExpectedObjectClassForVector(vector);
     accessorIterator.assertAccessorGetter(
         vector,
@@ -161,8 +151,10 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
         (accessor, currentRow) -> is(getExpectedObject(vector, currentRow)));
   }
 
-  @Test
-  public void testShouldGetObjectReturnNull() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testShouldGetObjectReturnNull(Supplier<ValueVector> vectorSupplier) throws Exception {
+    setup(vectorSupplier);
     setAllNullOnVector(vector);
     accessorIterator.assertAccessorGetter(
         vector,
@@ -204,73 +196,79 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
     return null;
   }
 
-  @Test
-  public void testShouldGetIntervalYear() {
-    Assert.assertEquals("-002-00", formatIntervalYear(Period.parse("P-2Y")));
-    Assert.assertEquals("-001-01", formatIntervalYear(Period.parse("P-1Y-1M")));
-    Assert.assertEquals("-001-02", formatIntervalYear(Period.parse("P-1Y-2M")));
-    Assert.assertEquals("-002-03", formatIntervalYear(Period.parse("P-2Y-3M")));
-    Assert.assertEquals("-002-04", formatIntervalYear(Period.parse("P-2Y-4M")));
-    Assert.assertEquals("-011-01", formatIntervalYear(Period.parse("P-11Y-1M")));
-    Assert.assertEquals("+002-00", formatIntervalYear(Period.parse("P+2Y")));
-    Assert.assertEquals("+001-01", formatIntervalYear(Period.parse("P+1Y1M")));
-    Assert.assertEquals("+001-02", formatIntervalYear(Period.parse("P+1Y2M")));
-    Assert.assertEquals("+002-03", formatIntervalYear(Period.parse("P+2Y3M")));
-    Assert.assertEquals("+002-04", formatIntervalYear(Period.parse("P+2Y4M")));
-    Assert.assertEquals("+011-01", formatIntervalYear(Period.parse("P+11Y1M")));
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testShouldGetIntervalYear(Supplier<ValueVector> vectorSupplier) {
+    setup(vectorSupplier);
+    assertEquals("-002-00", formatIntervalYear(Period.parse("P-2Y")));
+    assertEquals("-001-01", formatIntervalYear(Period.parse("P-1Y-1M")));
+    assertEquals("-001-02", formatIntervalYear(Period.parse("P-1Y-2M")));
+    assertEquals("-002-03", formatIntervalYear(Period.parse("P-2Y-3M")));
+    assertEquals("-002-04", formatIntervalYear(Period.parse("P-2Y-4M")));
+    assertEquals("-011-01", formatIntervalYear(Period.parse("P-11Y-1M")));
+    assertEquals("+002-00", formatIntervalYear(Period.parse("P+2Y")));
+    assertEquals("+001-01", formatIntervalYear(Period.parse("P+1Y1M")));
+    assertEquals("+001-02", formatIntervalYear(Period.parse("P+1Y2M")));
+    assertEquals("+002-03", formatIntervalYear(Period.parse("P+2Y3M")));
+    assertEquals("+002-04", formatIntervalYear(Period.parse("P+2Y4M")));
+    assertEquals("+011-01", formatIntervalYear(Period.parse("P+11Y1M")));
   }
 
-  @Test
-  public void testShouldGetIntervalDay() {
-    Assert.assertEquals("-001 00:00:00.000", formatIntervalDay(Duration.parse("PT-24H")));
-    Assert.assertEquals("+001 00:00:00.000", formatIntervalDay(Duration.parse("PT+24H")));
-    Assert.assertEquals("-000 01:00:00.000", formatIntervalDay(Duration.parse("PT-1H")));
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testShouldGetIntervalDay(Supplier<ValueVector> vectorSupplier) {
+    setup(vectorSupplier);
+    assertEquals("-001 00:00:00.000", formatIntervalDay(Duration.parse("PT-24H")));
+    assertEquals("+001 00:00:00.000", formatIntervalDay(Duration.parse("PT+24H")));
+    assertEquals("-000 01:00:00.000", formatIntervalDay(Duration.parse("PT-1H")));
     // "JDK-8054978: java.time.Duration.parse() fails for negative duration with 0 seconds and
     // nanos" not fixed on JDK8
-    // Assert.assertEquals("-000 01:00:00.001",
-    // formatIntervalDay(Duration.parse("PT-1H-0M-00.001S")));
-    Assert.assertEquals(
-        "-000 01:00:00.001", formatIntervalDay(Duration.ofHours(-1).minusMillis(1)));
-    Assert.assertEquals("-000 01:01:01.000", formatIntervalDay(Duration.parse("PT-1H-1M-1S")));
-    Assert.assertEquals("-000 02:02:02.002", formatIntervalDay(Duration.parse("PT-2H-2M-02.002S")));
-    Assert.assertEquals(
-        "-000 23:59:59.999", formatIntervalDay(Duration.parse("PT-23H-59M-59.999S")));
+    // assertEquals("-000 01:00:00.001", formatIntervalDay(Duration.parse("PT-1H-0M-00.001S")));
+    assertEquals("-000 01:00:00.001", formatIntervalDay(Duration.ofHours(-1).minusMillis(1)));
+    assertEquals("-000 01:01:01.000", formatIntervalDay(Duration.parse("PT-1H-1M-1S")));
+    assertEquals("-000 02:02:02.002", formatIntervalDay(Duration.parse("PT-2H-2M-02.002S")));
+    assertEquals("-000 23:59:59.999", formatIntervalDay(Duration.parse("PT-23H-59M-59.999S")));
     // "JDK-8054978: java.time.Duration.parse() fails for negative duration with 0 seconds and
     // nanos" not fixed on JDK8
-    // Assert.assertEquals("-000 11:59:00.100",
-    // formatIntervalDay(Duration.parse("PT-11H-59M-00.100S")));
-    Assert.assertEquals(
+    // assertEquals("-000 11:59:00.100", formatIntervalDay(Duration.parse("PT-11H-59M-00.100S")));
+    assertEquals(
         "-000 11:59:00.100",
         formatIntervalDay(Duration.ofHours(-11).minusMinutes(59).minusMillis(100)));
-    Assert.assertEquals("-000 05:02:03.000", formatIntervalDay(Duration.parse("PT-5H-2M-3S")));
-    Assert.assertEquals(
-        "-000 22:22:22.222", formatIntervalDay(Duration.parse("PT-22H-22M-22.222S")));
-    Assert.assertEquals("+000 01:00:00.000", formatIntervalDay(Duration.parse("PT+1H")));
-    Assert.assertEquals("+000 01:00:00.001", formatIntervalDay(Duration.parse("PT+1H0M00.001S")));
-    Assert.assertEquals("+000 01:01:01.000", formatIntervalDay(Duration.parse("PT+1H1M1S")));
-    Assert.assertEquals("+000 02:02:02.002", formatIntervalDay(Duration.parse("PT+2H2M02.002S")));
-    Assert.assertEquals("+000 23:59:59.999", formatIntervalDay(Duration.parse("PT+23H59M59.999S")));
-    Assert.assertEquals("+000 11:59:00.100", formatIntervalDay(Duration.parse("PT+11H59M00.100S")));
-    Assert.assertEquals("+000 05:02:03.000", formatIntervalDay(Duration.parse("PT+5H2M3S")));
-    Assert.assertEquals("+000 22:22:22.222", formatIntervalDay(Duration.parse("PT+22H22M22.222S")));
+    assertEquals("-000 05:02:03.000", formatIntervalDay(Duration.parse("PT-5H-2M-3S")));
+    assertEquals("-000 22:22:22.222", formatIntervalDay(Duration.parse("PT-22H-22M-22.222S")));
+    assertEquals("+000 01:00:00.000", formatIntervalDay(Duration.parse("PT+1H")));
+    assertEquals("+000 01:00:00.001", formatIntervalDay(Duration.parse("PT+1H0M00.001S")));
+    assertEquals("+000 01:01:01.000", formatIntervalDay(Duration.parse("PT+1H1M1S")));
+    assertEquals("+000 02:02:02.002", formatIntervalDay(Duration.parse("PT+2H2M02.002S")));
+    assertEquals("+000 23:59:59.999", formatIntervalDay(Duration.parse("PT+23H59M59.999S")));
+    assertEquals("+000 11:59:00.100", formatIntervalDay(Duration.parse("PT+11H59M00.100S")));
+    assertEquals("+000 05:02:03.000", formatIntervalDay(Duration.parse("PT+5H2M3S")));
+    assertEquals("+000 22:22:22.222", formatIntervalDay(Duration.parse("PT+22H22M22.222S")));
   }
 
-  @Test
-  public void testIntervalDayWithJodaPeriodObject() {
-    Assert.assertEquals("+1567 00:00:00.000", formatIntervalDay(Duration.ofDays(1567)));
-    Assert.assertEquals("-1567 00:00:00.000", formatIntervalDay(Duration.ofDays(-1567)));
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testIntervalDayWithJodaPeriodObject(Supplier<ValueVector> vectorSupplier) {
+    setup(vectorSupplier);
+    assertEquals("+1567 00:00:00.000", formatIntervalDay(Duration.ofDays(1567)));
+    assertEquals("-1567 00:00:00.000", formatIntervalDay(Duration.ofDays(-1567)));
   }
 
-  @Test
-  public void testShouldGetStringReturnCorrectString() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testShouldGetStringReturnCorrectString(Supplier<ValueVector> vectorSupplier)
+      throws Exception {
+    setup(vectorSupplier);
     accessorIterator.assertAccessorGetter(
         vector,
         ArrowFlightJdbcIntervalVectorAccessor::getString,
         (accessor, currentRow) -> is(getStringOnVector(vector, currentRow)));
   }
 
-  @Test
-  public void testShouldGetStringReturnNull() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testShouldGetStringReturnNull(Supplier<ValueVector> vectorSupplier) throws Exception {
+    setup(vectorSupplier);
     setAllNullOnVector(vector);
     accessorIterator.assertAccessorGetter(
         vector,
@@ -278,8 +276,11 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
         (accessor, currentRow) -> equalTo(null));
   }
 
-  @Test
-  public void testShouldGetObjectClassReturnCorrectClass() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testShouldGetObjectClassReturnCorrectClass(Supplier<ValueVector> vectorSupplier)
+      throws Exception {
+    setup(vectorSupplier);
     Class<?> expectedObjectClass = getExpectedObjectClassForVector(vector);
     accessorIterator.assertAccessorGetter(
         vector,

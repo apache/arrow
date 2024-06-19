@@ -16,6 +16,9 @@
  */
 package org.apache.arrow.flight;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Files;
@@ -23,7 +26,6 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import org.apache.arrow.vector.test.util.ArrowTestDataUtil;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.function.Executable;
 
 /** Utility methods and constants for testing flight servers. */
@@ -88,8 +90,8 @@ public class FlightTestUtil {
    * @return The thrown status.
    */
   public static CallStatus assertCode(FlightStatusCode code, Executable r) {
-    final FlightRuntimeException ex = Assertions.assertThrows(FlightRuntimeException.class, r);
-    Assertions.assertEquals(code, ex.status().code());
+    final FlightRuntimeException ex = assertThrows(FlightRuntimeException.class, r);
+    assertEquals(code, ex.status().code());
     return ex.status();
   }
 

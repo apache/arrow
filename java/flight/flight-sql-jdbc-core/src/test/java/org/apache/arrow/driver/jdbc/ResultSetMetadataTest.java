@@ -18,6 +18,8 @@ package org.apache.arrow.driver.jdbc;
 
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.notNullValue;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -27,28 +29,24 @@ import java.sql.Statement;
 import java.sql.Types;
 import org.apache.arrow.driver.jdbc.utils.CoreMockedSqlProducers;
 import org.hamcrest.CoreMatchers;
-import org.junit.AfterClass;
-import org.junit.Assert;
-import org.junit.BeforeClass;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ErrorCollector;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 public class ResultSetMetadataTest {
   private static ResultSetMetaData metadata;
 
   private static Connection connection;
 
-  @Rule public ErrorCollector collector = new ErrorCollector();
+  @RegisterExtension
+  public static final FlightServerTestExtension FLIGHT_SERVER_TEST_EXTENSION =
+      FlightServerTestExtension.createStandardTestExtension(
+          CoreMockedSqlProducers.getLegacyProducer());
 
-  @ClassRule
-  public static final FlightServerTestRule SERVER_TEST_RULE =
-      FlightServerTestRule.createStandardTestRule(CoreMockedSqlProducers.getLegacyProducer());
-
-  @BeforeClass
+  @BeforeAll
   public static void setup() throws SQLException {
-    connection = SERVER_TEST_RULE.getConnection(false);
+    connection = FLIGHT_SERVER_TEST_EXTENSION.getConnection(false);
 
     try (Statement statement = connection.createStatement();
         ResultSet resultSet =
@@ -57,7 +55,7 @@ public class ResultSetMetadataTest {
     }
   }
 
-  @AfterClass
+  @AfterAll
   public static void teardown() throws SQLException {
     connection.close();
   }
@@ -65,7 +63,7 @@ public class ResultSetMetadataTest {
   /** Test if {@link ResultSetMetaData} object is not null. */
   @Test
   public void testShouldGetResultSetMetadata() {
-    collector.checkThat(metadata, CoreMatchers.is(notNullValue()));
+    assertThat(metadata, CoreMatchers.is(notNullValue()));
   }
 
   /**
@@ -92,22 +90,22 @@ public class ResultSetMetadataTest {
     final String secondColumn = metadata.getColumnTypeName(2);
     final String thirdColumn = metadata.getColumnTypeName(3);
 
-    collector.checkThat(firstColumn, equalTo("BIGINT"));
-    collector.checkThat(secondColumn, equalTo("VARCHAR"));
-    collector.checkThat(thirdColumn, equalTo("FLOAT"));
+    assertThat(firstColumn, equalTo("BIGINT"));
+    assertThat(secondColumn, equalTo("VARCHAR"));
+    assertThat(thirdColumn, equalTo("FLOAT"));
   }
 
   /**
    * Test if {@link ResultSetMetaData#getColumnTypeName(int)} passing an column index that does not
    * exist.
-   *
-   * @throws SQLException in case of error.
    */
-  @Test(expected = IndexOutOfBoundsException.class)
-  public void testShouldGetColumnTypesNameFromOutOfBoundIndex() throws SQLException {
-    metadata.getColumnTypeName(4);
-
-    Assert.fail();
+  @Test
+  public void testShouldGetColumnTypesNameFromOutOfBoundIndex() {
+    assertThrows(
+        IndexOutOfBoundsException.class,
+        () -> {
+          metadata.getColumnTypeName(4);
+        });
   }
 
   /**
@@ -121,22 +119,18 @@ public class ResultSetMetadataTest {
     final String secondColumn = metadata.getColumnName(2);
     final String thirdColumn = metadata.getColumnName(3);
 
-    collector.checkThat(firstColumn, equalTo("integer0"));
-    collector.checkThat(secondColumn, equalTo("string1"));
-    collector.checkThat(thirdColumn, equalTo("float2"));
+    assertThat(firstColumn, equalTo("integer0"));
+    assertThat(secondColumn, equalTo("string1"));
+    assertThat(thirdColumn, equalTo("float2"));
   }
 
   /**
    * Test {@link ResultSetMetaData#getColumnTypeName(int)} passing an column index that does not
    * exist.
-   *
-   * @throws SQLException in case of error.
    */
-  @Test(expected = IndexOutOfBoundsException.class)
-  public void testShouldGetColumnNameFromOutOfBoundIndex() throws SQLException {
-    metadata.getColumnName(4);
-
-    Assert.fail();
+  @Test
+  public void testShouldGetColumnNameFromOutOfBoundIndex() {
+    assertThrows(IndexOutOfBoundsException.class, () -> metadata.getColumnName(4));
   }
 
   /**
@@ -150,84 +144,80 @@ public class ResultSetMetadataTest {
     final int secondColumn = metadata.getColumnType(2);
     final int thirdColumn = metadata.getColumnType(3);
 
-    collector.checkThat(firstColumn, equalTo(Types.BIGINT));
-    collector.checkThat(secondColumn, equalTo(Types.VARCHAR));
-    collector.checkThat(thirdColumn, equalTo(Types.FLOAT));
+    assertThat(firstColumn, equalTo(Types.BIGINT));
+    assertThat(secondColumn, equalTo(Types.VARCHAR));
+    assertThat(thirdColumn, equalTo(Types.FLOAT));
   }
 
   @Test
   public void testShouldGetPrecision() throws SQLException {
-    collector.checkThat(metadata.getPrecision(1), equalTo(10));
-    collector.checkThat(metadata.getPrecision(2), equalTo(65535));
-    collector.checkThat(metadata.getPrecision(3), equalTo(15));
+    assertThat(metadata.getPrecision(1), equalTo(10));
+    assertThat(metadata.getPrecision(2), equalTo(65535));
+    assertThat(metadata.getPrecision(3), equalTo(15));
   }
 
   @Test
   public void testShouldGetScale() throws SQLException {
-    collector.checkThat(metadata.getScale(1), equalTo(0));
-    collector.checkThat(metadata.getScale(2), equalTo(0));
-    collector.checkThat(metadata.getScale(3), equalTo(20));
+    assertThat(metadata.getScale(1), equalTo(0));
+    assertThat(metadata.getScale(2), equalTo(0));
+    assertThat(metadata.getScale(3), equalTo(20));
   }
 
   @Test
   public void testShouldGetCatalogName() throws SQLException {
-    collector.checkThat(metadata.getCatalogName(1), equalTo("CATALOG_NAME_1"));
-    collector.checkThat(metadata.getCatalogName(2), equalTo("CATALOG_NAME_2"));
-    collector.checkThat(metadata.getCatalogName(3), equalTo("CATALOG_NAME_3"));
+    assertThat(metadata.getCatalogName(1), equalTo("CATALOG_NAME_1"));
+    assertThat(metadata.getCatalogName(2), equalTo("CATALOG_NAME_2"));
+    assertThat(metadata.getCatalogName(3), equalTo("CATALOG_NAME_3"));
   }
 
   @Test
   public void testShouldGetSchemaName() throws SQLException {
-    collector.checkThat(metadata.getSchemaName(1), equalTo("SCHEMA_NAME_1"));
-    collector.checkThat(metadata.getSchemaName(2), equalTo("SCHEMA_NAME_2"));
-    collector.checkThat(metadata.getSchemaName(3), equalTo("SCHEMA_NAME_3"));
+    assertThat(metadata.getSchemaName(1), equalTo("SCHEMA_NAME_1"));
+    assertThat(metadata.getSchemaName(2), equalTo("SCHEMA_NAME_2"));
+    assertThat(metadata.getSchemaName(3), equalTo("SCHEMA_NAME_3"));
   }
 
   @Test
   public void testShouldGetTableName() throws SQLException {
-    collector.checkThat(metadata.getTableName(1), equalTo("TABLE_NAME_1"));
-    collector.checkThat(metadata.getTableName(2), equalTo("TABLE_NAME_2"));
-    collector.checkThat(metadata.getTableName(3), equalTo("TABLE_NAME_3"));
+    assertThat(metadata.getTableName(1), equalTo("TABLE_NAME_1"));
+    assertThat(metadata.getTableName(2), equalTo("TABLE_NAME_2"));
+    assertThat(metadata.getTableName(3), equalTo("TABLE_NAME_3"));
   }
 
   @Test
   public void testShouldIsAutoIncrement() throws SQLException {
-    collector.checkThat(metadata.isAutoIncrement(1), equalTo(true));
-    collector.checkThat(metadata.isAutoIncrement(2), equalTo(false));
-    collector.checkThat(metadata.isAutoIncrement(3), equalTo(false));
+    assertThat(metadata.isAutoIncrement(1), equalTo(true));
+    assertThat(metadata.isAutoIncrement(2), equalTo(false));
+    assertThat(metadata.isAutoIncrement(3), equalTo(false));
   }
 
   @Test
   public void testShouldIsCaseSensitive() throws SQLException {
-    collector.checkThat(metadata.isCaseSensitive(1), equalTo(false));
-    collector.checkThat(metadata.isCaseSensitive(2), equalTo(true));
-    collector.checkThat(metadata.isCaseSensitive(3), equalTo(false));
+    assertThat(metadata.isCaseSensitive(1), equalTo(false));
+    assertThat(metadata.isCaseSensitive(2), equalTo(true));
+    assertThat(metadata.isCaseSensitive(3), equalTo(false));
   }
 
   @Test
   public void testShouldIsReadonly() throws SQLException {
-    collector.checkThat(metadata.isReadOnly(1), equalTo(true));
-    collector.checkThat(metadata.isReadOnly(2), equalTo(false));
-    collector.checkThat(metadata.isReadOnly(3), equalTo(false));
+    assertThat(metadata.isReadOnly(1), equalTo(true));
+    assertThat(metadata.isReadOnly(2), equalTo(false));
+    assertThat(metadata.isReadOnly(3), equalTo(false));
   }
 
   @Test
   public void testShouldIsSearchable() throws SQLException {
-    collector.checkThat(metadata.isSearchable(1), equalTo(true));
-    collector.checkThat(metadata.isSearchable(2), equalTo(true));
-    collector.checkThat(metadata.isSearchable(3), equalTo(true));
+    assertThat(metadata.isSearchable(1), equalTo(true));
+    assertThat(metadata.isSearchable(2), equalTo(true));
+    assertThat(metadata.isSearchable(3), equalTo(true));
   }
 
   /**
    * Test if {@link ResultSetMetaData#getColumnTypeName(int)} passing an column index that does not
    * exist.
-   *
-   * @throws SQLException in case of error.
    */
-  @Test(expected = IndexOutOfBoundsException.class)
-  public void testShouldGetColumnTypesFromOutOfBoundIndex() throws SQLException {
-    metadata.getColumnType(4);
-
-    Assert.fail();
+  @Test
+  public void testShouldGetColumnTypesFromOutOfBoundIndex() {
+    assertThrows(IndexOutOfBoundsException.class, () -> metadata.getColumnType(4));
   }
 }

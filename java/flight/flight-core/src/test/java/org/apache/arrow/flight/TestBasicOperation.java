@@ -18,6 +18,12 @@ package org.apache.arrow.flight;
 
 import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
 import static org.apache.arrow.flight.Location.forGrpcInsecure;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import com.google.common.base.Charsets;
 import com.google.protobuf.ByteString;
@@ -58,7 +64,6 @@ import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
@@ -68,13 +73,13 @@ public class TestBasicOperation {
 
   @Test
   public void fastPathDefaults() {
-    Assertions.assertTrue(ArrowMessage.ENABLE_ZERO_COPY_READ);
-    Assertions.assertFalse(ArrowMessage.ENABLE_ZERO_COPY_WRITE);
+    assertTrue(ArrowMessage.ENABLE_ZERO_COPY_READ);
+    assertFalse(ArrowMessage.ENABLE_ZERO_COPY_WRITE);
   }
 
   @Test
   public void fallbackLocation() {
-    Assertions.assertEquals(
+    assertEquals(
         "arrow-flight-reuse-connection://?", Location.reuseConnection().getUri().toString());
   }
 
@@ -82,7 +87,7 @@ public class TestBasicOperation {
   @Test
   public void unknownScheme() throws URISyntaxException {
     final Location location = new Location("s3://unknown");
-    Assertions.assertEquals("s3", location.getUri().getScheme());
+    assertEquals("s3", location.getUri().getScheme());
   }
 
   @Test
@@ -91,7 +96,7 @@ public class TestBasicOperation {
         c -> {
           try {
             final FlightInfo info = c.getInfo(FlightDescriptor.path("test"));
-            Assertions.assertEquals(
+            assertEquals(
                 new URI("https://example.com"),
                 info.getEndpoints().get(0).getLocations().get(0).getUri());
           } catch (URISyntaxException e) {
@@ -103,7 +108,7 @@ public class TestBasicOperation {
   @Test
   public void roundTripTicket() throws Exception {
     final Ticket ticket = new Ticket(new byte[] {0, 1, 2, 3, 4, 5});
-    Assertions.assertEquals(ticket, Ticket.deserialize(ticket.serialize()));
+    assertEquals(ticket, Ticket.deserialize(ticket.serialize()));
   }
 
   @Test
@@ -160,26 +165,26 @@ public class TestBasicOperation {
             true,
             IpcOption.DEFAULT);
 
-    Assertions.assertEquals(info1, FlightInfo.deserialize(info1.serialize()));
-    Assertions.assertEquals(info2, FlightInfo.deserialize(info2.serialize()));
-    Assertions.assertEquals(info3, FlightInfo.deserialize(info3.serialize()));
-    Assertions.assertEquals(info4, FlightInfo.deserialize(info4.serialize()));
+    assertEquals(info1, FlightInfo.deserialize(info1.serialize()));
+    assertEquals(info2, FlightInfo.deserialize(info2.serialize()));
+    assertEquals(info3, FlightInfo.deserialize(info3.serialize()));
+    assertEquals(info4, FlightInfo.deserialize(info4.serialize()));
 
-    Assertions.assertNotEquals(info3, info4);
+    assertNotEquals(info3, info4);
 
-    Assertions.assertFalse(info1.getOrdered());
-    Assertions.assertFalse(info2.getOrdered());
-    Assertions.assertFalse(info3.getOrdered());
-    Assertions.assertTrue(info4.getOrdered());
+    assertFalse(info1.getOrdered());
+    assertFalse(info2.getOrdered());
+    assertFalse(info3.getOrdered());
+    assertTrue(info4.getOrdered());
   }
 
   @Test
   public void roundTripDescriptor() throws Exception {
     final FlightDescriptor cmd =
         FlightDescriptor.command("test command".getBytes(StandardCharsets.UTF_8));
-    Assertions.assertEquals(cmd, FlightDescriptor.deserialize(cmd.serialize()));
+    assertEquals(cmd, FlightDescriptor.deserialize(cmd.serialize()));
     final FlightDescriptor path = FlightDescriptor.path("foo", "bar", "test.arrow");
-    Assertions.assertEquals(path, FlightDescriptor.deserialize(path.serialize()));
+    assertEquals(path, FlightDescriptor.deserialize(path.serialize()));
   }
 
   @Test
@@ -190,7 +195,7 @@ public class TestBasicOperation {
           for (FlightInfo unused : c.listFlights(Criteria.ALL)) {
             count += 1;
           }
-          Assertions.assertEquals(1, count);
+          assertEquals(1, count);
         });
   }
 
@@ -203,7 +208,7 @@ public class TestBasicOperation {
 
             count += 1;
           }
-          Assertions.assertEquals(0, count);
+          assertEquals(0, count);
         });
   }
 
@@ -239,22 +244,22 @@ public class TestBasicOperation {
         c -> {
           Iterator<Result> stream = c.doAction(new Action("hello"));
 
-          Assertions.assertTrue(stream.hasNext());
+          assertTrue(stream.hasNext());
           Result r = stream.next();
-          Assertions.assertArrayEquals("world".getBytes(Charsets.UTF_8), r.getBody());
+          assertArrayEquals("world".getBytes(Charsets.UTF_8), r.getBody());
         });
     test(
         c -> {
           Iterator<Result> stream = c.doAction(new Action("hellooo"));
 
-          Assertions.assertTrue(stream.hasNext());
+          assertTrue(stream.hasNext());
           Result r = stream.next();
-          Assertions.assertArrayEquals("world".getBytes(Charsets.UTF_8), r.getBody());
+          assertArrayEquals("world".getBytes(Charsets.UTF_8), r.getBody());
 
-          Assertions.assertTrue(stream.hasNext());
+          assertTrue(stream.hasNext());
           r = stream.next();
-          Assertions.assertArrayEquals("!".getBytes(Charsets.UTF_8), r.getBody());
-          Assertions.assertFalse(stream.hasNext());
+          assertArrayEquals("!".getBytes(Charsets.UTF_8), r.getBody());
+          assertFalse(stream.hasNext());
         });
   }
 
@@ -304,9 +309,7 @@ public class TestBasicOperation {
           FlightTestUtil.assertCode(
               FlightStatusCode.UNIMPLEMENTED,
               () -> {
-                client
-                    .doAction(new Action("invalid-action"))
-                    .forEachRemaining(action -> Assertions.fail());
+                client.doAction(new Action("invalid-action")).forEachRemaining(action -> fail());
               });
         });
   }
@@ -321,7 +324,7 @@ public class TestBasicOperation {
             int value = 0;
             while (stream.next()) {
               for (int i = 0; i < root.getRowCount(); i++) {
-                Assertions.assertEquals(value, iv.get(i));
+                assertEquals(value, iv.get(i));
                 value++;
               }
             }
@@ -340,12 +343,12 @@ public class TestBasicOperation {
     test(
         c -> {
           try (final FlightStream stream = c.getStream(new Ticket(Producer.TICKET_LARGE_BATCH))) {
-            Assertions.assertEquals(128, stream.getRoot().getFieldVectors().size());
-            Assertions.assertTrue(stream.next());
-            Assertions.assertEquals(65536, stream.getRoot().getRowCount());
-            Assertions.assertTrue(stream.next());
-            Assertions.assertEquals(65536, stream.getRoot().getRowCount());
-            Assertions.assertFalse(stream.next());
+            assertEquals(128, stream.getRoot().getFieldVectors().size());
+            assertTrue(stream.next());
+            assertEquals(65536, stream.getRoot().getRowCount());
+            assertTrue(stream.next());
+            assertEquals(65536, stream.getRoot().getRowCount());
+            assertFalse(stream.next());
           } catch (Exception e) {
             throw new RuntimeException(e);
           }
@@ -440,29 +443,29 @@ public class TestBasicOperation {
               null, /* tryZeroCopy */
               false,
               IpcOption.DEFAULT)) {
-        Assertions.assertEquals(ArrowMessage.HeaderType.RECORD_BATCH, message.getMessageType());
+        assertEquals(ArrowMessage.HeaderType.RECORD_BATCH, message.getMessageType());
         // Should have at least one empty body buffer (there may be multiple for e.g. data and
         // validity)
         Iterator<ArrowBuf> iterator = message.getBufs().iterator();
-        Assertions.assertTrue(iterator.hasNext());
+        assertTrue(iterator.hasNext());
         while (iterator.hasNext()) {
-          Assertions.assertEquals(0, iterator.next().capacity());
+          assertEquals(0, iterator.next().capacity());
         }
         final Flight.FlightData protobufData =
             arrowMessageToProtobuf(marshaller, message).toBuilder().clearDataBody().build();
-        Assertions.assertEquals(0, protobufData.getDataBody().size());
+        assertEquals(0, protobufData.getDataBody().size());
         ArrowMessage parsedMessage =
             marshaller.parse(new ByteArrayInputStream(protobufData.toByteArray()));
         // Should have an empty body buffer
         Iterator<ArrowBuf> parsedIterator = parsedMessage.getBufs().iterator();
-        Assertions.assertTrue(parsedIterator.hasNext());
-        Assertions.assertEquals(0, parsedIterator.next().capacity());
+        assertTrue(parsedIterator.hasNext());
+        assertEquals(0, parsedIterator.next().capacity());
         // Should have only one (the parser synthesizes exactly one); in the case of empty buffers,
         // this is equivalent
-        Assertions.assertFalse(parsedIterator.hasNext());
+        assertFalse(parsedIterator.hasNext());
         // Should not throw
         final ArrowRecordBatch rb = parsedMessage.asRecordBatch();
-        Assertions.assertEquals(rb.computeBodyLength(), 0);
+        assertEquals(rb.computeBodyLength(), 0);
       }
     }
   }
@@ -479,19 +482,19 @@ public class TestBasicOperation {
           ArrowMessage.createMarshaller(allocator);
       Flight.FlightDescriptor descriptor = FlightDescriptor.command(new byte[0]).toProtocol();
       try (final ArrowMessage message = new ArrowMessage(descriptor, schema, IpcOption.DEFAULT)) {
-        Assertions.assertEquals(ArrowMessage.HeaderType.SCHEMA, message.getMessageType());
+        assertEquals(ArrowMessage.HeaderType.SCHEMA, message.getMessageType());
         // Should have no body buffers
-        Assertions.assertFalse(message.getBufs().iterator().hasNext());
+        assertFalse(message.getBufs().iterator().hasNext());
         final Flight.FlightData protobufData =
             arrowMessageToProtobuf(marshaller, message)
                 .toBuilder()
                 .setDataBody(ByteString.EMPTY)
                 .build();
-        Assertions.assertEquals(0, protobufData.getDataBody().size());
+        assertEquals(0, protobufData.getDataBody().size());
         final ArrowMessage parsedMessage =
             marshaller.parse(new ByteArrayInputStream(protobufData.toByteArray()));
         // Should have no body buffers
-        Assertions.assertFalse(parsedMessage.getBufs().iterator().hasNext());
+        assertFalse(parsedMessage.getBufs().iterator().hasNext());
         // Should not throw
         parsedMessage.asSchema();
       }
@@ -501,19 +504,19 @@ public class TestBasicOperation {
   @Test
   public void testGrpcInsecureLocation() throws Exception {
     Location location = Location.forGrpcInsecure(LOCALHOST, 9000);
-    Assertions.assertEquals(
+    assertEquals(
         new URI(LocationSchemes.GRPC_INSECURE, null, LOCALHOST, 9000, null, null, null),
         location.getUri());
-    Assertions.assertEquals(new InetSocketAddress(LOCALHOST, 9000), location.toSocketAddress());
+    assertEquals(new InetSocketAddress(LOCALHOST, 9000), location.toSocketAddress());
   }
 
   @Test
   public void testGrpcTlsLocation() throws Exception {
     Location location = Location.forGrpcTls(LOCALHOST, 9000);
-    Assertions.assertEquals(
+    assertEquals(
         new URI(LocationSchemes.GRPC_TLS, null, LOCALHOST, 9000, null, null, null),
         location.getUri());
-    Assertions.assertEquals(new InetSocketAddress(LOCALHOST, 9000), location.toSocketAddress());
+    assertEquals(new InetSocketAddress(LOCALHOST, 9000), location.toSocketAddress());
   }
 
   /** An example FlightProducer for test purposes. */

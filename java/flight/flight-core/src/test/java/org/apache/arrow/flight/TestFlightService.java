@@ -18,6 +18,9 @@ package org.apache.arrow.flight;
 
 import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
 import static org.apache.arrow.flight.Location.forGrpcInsecure;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import io.grpc.stub.ServerCallStreamObserver;
@@ -31,7 +34,6 @@ import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.ipc.message.IpcOption;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -140,15 +142,14 @@ public class TestFlightService {
                 .start();
         final FlightClient client = FlightClient.builder(allocator, s.getLocation()).build()) {
       FlightInfo flightInfo = client.getInfo(FlightDescriptor.path("test"));
-      Assertions.assertEquals(Optional.empty(), flightInfo.getSchemaOptional());
-      Assertions.assertEquals(new Schema(Collections.emptyList()), flightInfo.getSchema());
-      Assertions.assertArrayEquals(
-          flightInfo.getAppMetadata(), "foo".getBytes(StandardCharsets.UTF_8));
+      assertEquals(Optional.empty(), flightInfo.getSchemaOptional());
+      assertEquals(new Schema(Collections.emptyList()), flightInfo.getSchema());
+      assertArrayEquals(flightInfo.getAppMetadata(), "foo".getBytes(StandardCharsets.UTF_8));
 
       Exception e =
-          Assertions.assertThrows(
+          assertThrows(
               FlightRuntimeException.class, () -> client.getSchema(FlightDescriptor.path("test")));
-      Assertions.assertEquals("No schema is present in FlightInfo", e.getMessage());
+      assertEquals("No schema is present in FlightInfo", e.getMessage());
     }
   }
 }

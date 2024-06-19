@@ -20,7 +20,7 @@ import static org.hamcrest.CoreMatchers.equalTo;
 
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils;
-import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
+import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestExtension;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.IntVector;
@@ -31,19 +31,20 @@ import org.apache.arrow.vector.UInt2Vector;
 import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.UInt8Vector;
 import org.hamcrest.CoreMatchers;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ErrorCollector;
-import org.junit.runner.RunWith;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-@RunWith(MockitoJUnitRunner.class)
+@ExtendWith(MockitoExtension.class)
 public class ArrowFlightJdbcBaseIntVectorAccessorUnitTest {
 
-  @ClassRule public static RootAllocatorTestRule rule = new RootAllocatorTestRule();
+  @RegisterExtension
+  public static RootAllocatorTestExtension rootAllocatorTestExtension =
+      new RootAllocatorTestExtension();
+
   private static UInt4Vector int4Vector;
   private static UInt8Vector int8Vector;
   private static IntVector intVectorWithNull;
@@ -51,7 +52,6 @@ public class ArrowFlightJdbcBaseIntVectorAccessorUnitTest {
   private static SmallIntVector smallIntVector;
   private static IntVector intVector;
   private static BigIntVector bigIntVector;
-  @Rule public final ErrorCollector collector = new ErrorCollector();
 
   private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcBaseIntVectorAccessor>
       accessorSupplier =
@@ -87,40 +87,40 @@ public class ArrowFlightJdbcBaseIntVectorAccessorUnitTest {
           };
 
   private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcBaseIntVectorAccessor>
-      accessorIterator = new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
+      accessorIterator = new AccessorTestUtils.AccessorIterator<>(accessorSupplier);
 
-  @BeforeClass
+  @BeforeAll
   public static void setup() {
-    int4Vector = new UInt4Vector("ID", rule.getRootAllocator());
+    int4Vector = new UInt4Vector("ID", rootAllocatorTestExtension.getRootAllocator());
     int4Vector.setSafe(0, 0x80000001);
     int4Vector.setValueCount(1);
 
-    int8Vector = new UInt8Vector("ID", rule.getRootAllocator());
+    int8Vector = new UInt8Vector("ID", rootAllocatorTestExtension.getRootAllocator());
     int8Vector.setSafe(0, 0xFFFFFFFFFFFFFFFFL);
     int8Vector.setValueCount(1);
 
-    intVectorWithNull = new IntVector("ID", rule.getRootAllocator());
+    intVectorWithNull = new IntVector("ID", rootAllocatorTestExtension.getRootAllocator());
     intVectorWithNull.setNull(0);
     intVectorWithNull.setValueCount(1);
 
-    tinyIntVector = new TinyIntVector("ID", rule.getRootAllocator());
+    tinyIntVector = new TinyIntVector("ID", rootAllocatorTestExtension.getRootAllocator());
     tinyIntVector.setSafe(0, 0xAA);
     tinyIntVector.setValueCount(1);
 
-    smallIntVector = new SmallIntVector("ID", rule.getRootAllocator());
+    smallIntVector = new SmallIntVector("ID", rootAllocatorTestExtension.getRootAllocator());
     smallIntVector.setSafe(0, 0xAABB);
     smallIntVector.setValueCount(1);
 
-    intVector = new IntVector("ID", rule.getRootAllocator());
+    intVector = new IntVector("ID", rootAllocatorTestExtension.getRootAllocator());
     intVector.setSafe(0, 0xAABBCCDD);
     intVector.setValueCount(1);
 
-    bigIntVector = new BigIntVector("ID", rule.getRootAllocator());
+    bigIntVector = new BigIntVector("ID", rootAllocatorTestExtension.getRootAllocator());
     bigIntVector.setSafe(0, 0xAABBCCDDEEFFAABBL);
     bigIntVector.setValueCount(1);
   }
 
-  @AfterClass
+  @AfterAll
   public static void tearDown() throws Exception {
     AutoCloseables.close(
         bigIntVector,
@@ -130,7 +130,7 @@ public class ArrowFlightJdbcBaseIntVectorAccessorUnitTest {
         int4Vector,
         int8Vector,
         intVectorWithNull,
-        rule);
+        rootAllocatorTestExtension);
   }
 
   @Test

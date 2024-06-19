@@ -18,31 +18,29 @@ package org.apache.arrow.driver.jdbc.accessor.impl.complex;
 
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.sql.Timestamp;
 import java.util.Arrays;
 import java.util.List;
 import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils;
-import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
+import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestExtension;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.holders.NullableBigIntHolder;
 import org.apache.arrow.vector.holders.NullableFloat8Holder;
 import org.apache.arrow.vector.holders.NullableTimeStampMilliHolder;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.Field;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ErrorCollector;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 public class ArrowFlightJdbcDenseUnionVectorAccessorTest {
 
-  @ClassRule
-  public static RootAllocatorTestRule rootAllocatorTestRule = new RootAllocatorTestRule();
-
-  @Rule public final ErrorCollector collector = new ErrorCollector();
+  @RegisterExtension
+  public static RootAllocatorTestExtension rootAllocatorTestExtension =
+      new RootAllocatorTestExtension();
 
   private DenseUnionVector vector;
 
@@ -57,11 +55,11 @@ public class ArrowFlightJdbcDenseUnionVectorAccessorTest {
                   });
 
   private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcDenseUnionVectorAccessor>
-      accessorIterator = new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
+      accessorIterator = new AccessorTestUtils.AccessorIterator<>(accessorSupplier);
 
-  @Before
+  @BeforeEach
   public void setup() throws Exception {
-    this.vector = DenseUnionVector.empty("", rootAllocatorTestRule.getRootAllocator());
+    this.vector = DenseUnionVector.empty("", rootAllocatorTestExtension.getRootAllocator());
     this.vector.allocateNew();
 
     // write some data
@@ -97,7 +95,7 @@ public class ArrowFlightJdbcDenseUnionVectorAccessorTest {
     this.vector.setValueCount(5);
   }
 
-  @After
+  @AfterEach
   public void tearDown() {
     this.vector.close();
   }
@@ -108,7 +106,7 @@ public class ArrowFlightJdbcDenseUnionVectorAccessorTest {
     List<Object> expected =
         Arrays.asList(Long.MAX_VALUE, Math.PI, new Timestamp(1625702400000L), null, null);
 
-    collector.checkThat(result, is(expected));
+    assertThat(result, is(expected));
   }
 
   @Test

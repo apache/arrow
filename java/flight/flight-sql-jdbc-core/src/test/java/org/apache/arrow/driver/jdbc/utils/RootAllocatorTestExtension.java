@@ -60,11 +60,12 @@ import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.impl.UnionFixedSizeListWriter;
 import org.apache.arrow.vector.complex.impl.UnionLargeListWriter;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
-import org.junit.rules.TestRule;
-import org.junit.runner.Description;
-import org.junit.runners.model.Statement;
+import org.junit.jupiter.api.extension.AfterAllCallback;
+import org.junit.jupiter.api.extension.BeforeAllCallback;
+import org.junit.jupiter.api.extension.ExtensionContext;
 
-public class RootAllocatorTestRule implements TestRule, AutoCloseable {
+public class RootAllocatorTestExtension
+    implements BeforeAllCallback, AfterAllCallback, AutoCloseable {
 
   public static final byte MAX_VALUE = Byte.MAX_VALUE;
   private final BufferAllocator rootAllocator = new RootAllocator();
@@ -72,17 +73,17 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
   private final Random random = new Random(10);
 
   @Override
-  public Statement apply(Statement base, Description description) {
-    return new Statement() {
-      @Override
-      public void evaluate() throws Throwable {
-        try {
-          base.evaluate();
-        } finally {
-          close();
-        }
-      }
-    };
+  public void beforeAll(ExtensionContext context) {
+    // no-op
+  }
+
+  @Override
+  public void afterAll(ExtensionContext context) {
+    try {
+      close();
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
   }
 
   public BufferAllocator getRootAllocator() {

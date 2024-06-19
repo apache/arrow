@@ -16,45 +16,46 @@
  */
 package org.apache.arrow.driver.jdbc;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import java.sql.Connection;
 import java.sql.SQLException;
 import org.apache.arrow.driver.jdbc.authentication.TokenAuthentication;
 import org.apache.arrow.driver.jdbc.utils.MockFlightSqlProducer;
 import org.apache.arrow.util.AutoCloseables;
-import org.junit.AfterClass;
-import org.junit.Assert;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 public class TokenAuthenticationTest {
   private static final MockFlightSqlProducer FLIGHT_SQL_PRODUCER = new MockFlightSqlProducer();
 
-  @ClassRule public static FlightServerTestRule FLIGHT_SERVER_TEST_RULE;
+  @RegisterExtension public static FlightServerTestExtension FLIGHT_SERVER_TEST_EXTENSION;
 
   static {
-    FLIGHT_SERVER_TEST_RULE =
-        new FlightServerTestRule.Builder()
+    FLIGHT_SERVER_TEST_EXTENSION =
+        new FlightServerTestExtension.Builder()
             .authentication(new TokenAuthentication.Builder().token("1234").build())
             .producer(FLIGHT_SQL_PRODUCER)
             .build();
   }
 
-  @AfterClass
+  @AfterAll
   public static void tearDownAfterClass() {
     AutoCloseables.closeNoChecked(FLIGHT_SQL_PRODUCER);
   }
 
-  @Test(expected = SQLException.class)
+  @Test
   public void connectUsingTokenAuthenticationShouldFail() throws SQLException {
-    try (Connection ignored = FLIGHT_SERVER_TEST_RULE.getConnection(false, "invalid")) {
-      Assert.fail();
-    }
+    assertThrows(
+        SQLException.class, () -> FLIGHT_SERVER_TEST_EXTENSION.getConnection(false, "invalid"));
   }
 
   @Test
   public void connectUsingTokenAuthenticationShouldSuccess() throws SQLException {
-    try (Connection connection = FLIGHT_SERVER_TEST_RULE.getConnection(false, "1234")) {
-      Assert.assertFalse(connection.isClosed());
+    try (Connection connection = FLIGHT_SERVER_TEST_EXTENSION.getConnection(false, "1234")) {
+      assertFalse(connection.isClosed());
     }
   }
 }
