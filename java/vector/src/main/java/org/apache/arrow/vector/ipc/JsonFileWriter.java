@@ -315,6 +315,42 @@ public class JsonFileWriter implements AutoCloseable {
     generator.writeEndObject();
   }
 
+  /**
+   * Get data of a view by index.
+   *
+   * @param viewBuffer view buffer
+   * @param dataBuffers data buffers
+   * @param index index of the view
+   * @return byte array of the view
+   */
+  private byte[] getView(final ArrowBuf viewBuffer, final List<ArrowBuf> dataBuffers, int index) {
+    final int dataLength =
+        viewBuffer.getInt((long) index * BaseVariableWidthViewVector.ELEMENT_SIZE);
+    byte[] result = new byte[dataLength];
+
+    final int inlineSize = BaseVariableWidthViewVector.INLINE_SIZE;
+    final int elementSize = BaseVariableWidthViewVector.ELEMENT_SIZE;
+    final int lengthWidth = BaseVariableWidthViewVector.LENGTH_WIDTH;
+    final int prefixWidth = BaseVariableWidthViewVector.PREFIX_WIDTH;
+    final int bufIndexWidth = BaseVariableWidthViewVector.BUF_INDEX_WIDTH;
+
+    if (dataLength > inlineSize) {
+      // data is in the data buffer
+      // get buffer index
+      final int bufferIndex =
+          viewBuffer.getInt(((long) index * elementSize) + lengthWidth + prefixWidth);
+      // get data offset
+      final int dataOffset =
+          viewBuffer.getInt(
+              ((long) index * elementSize) + lengthWidth + prefixWidth + bufIndexWidth);
+      dataBuffers.get(bufferIndex).getBytes(dataOffset, result, 0, dataLength);
+    } else {
+      // data is in the view buffer
+      viewBuffer.getBytes((long) index * elementSize + lengthWidth, result, 0, dataLength);
+    }
+    return result;
+  }
+
   private void writeValueToViewGenerator(
       BufferType bufferType,
       ArrowBuf viewBuffer,
@@ -323,7 +359,7 @@ public class JsonFileWriter implements AutoCloseable {
       final int index)
       throws IOException {
     Preconditions.checkNotNull(viewBuffer);
-    byte[] b = (BaseVariableWidthViewVector.get(viewBuffer, dataBuffers, index));
+    byte[] b = getView(viewBuffer, dataBuffers, index);
     final int elementSize = BaseVariableWidthViewVector.ELEMENT_SIZE;
     final int lengthWidth = BaseVariableWidthViewVector.LENGTH_WIDTH;
     final int prefixWidth = BaseVariableWidthViewVector.PREFIX_WIDTH;
@@ -351,7 +387,6 @@ public class JsonFileWriter implements AutoCloseable {
       if (vector.getMinorType() == MinorType.VIEWVARCHAR) {
         generator.writeString(new String(b, "UTF-8"));
       } else {
-        // VIEWVARBINARY
         generator.writeString(Hex.encodeHexString(b));
       }
     }
