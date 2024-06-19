@@ -761,9 +761,9 @@ use_deprecated_int96_timestamps : bool, default None
     by flavor argument. This take priority over the coerce_timestamps option.
 coerce_timestamps : str, default None
     Cast timestamps to a particular resolution. If omitted, defaults are chosen
-    depending on `version`. By default, for ``version='1.0'`` (the default)
-    and ``version='2.4'``, nanoseconds are cast to microseconds ('us'), while
-    for other `version` values, they are written natively without loss
+    depending on `version`. For ``version='1.0'`` and ``version='2.4'``,
+    nanoseconds are cast to microseconds ('us'), while for
+    ``version='2.6'`` (the default), they are written natively without loss
     of resolution.  Seconds are always cast to milliseconds ('ms') by default,
     as Parquet does not have any temporal type with seconds resolution.
     If the casting results in loss of data, it will raise an exception
@@ -1107,6 +1107,19 @@ Examples
                 self._metadata_collector.append(self.writer.metadata)
         if self.file_handle is not None:
             self.file_handle.close()
+
+    def add_key_value_metadata(self, key_value_metadata):
+        """
+        Add key-value metadata to the file.
+        This will overwrite any existing metadata with the same key.
+
+        Parameters
+        ----------
+        key_value_metadata : dict
+            Keys and values must be string-like / coercible to bytes.
+        """
+        assert self.is_open
+        self.writer.add_key_value_metadata(key_value_metadata)
 
 
 def _get_pandas_index_columns(keyvalues):

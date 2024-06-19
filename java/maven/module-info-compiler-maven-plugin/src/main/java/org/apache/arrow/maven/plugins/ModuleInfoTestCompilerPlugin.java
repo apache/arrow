@@ -14,19 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.maven.plugins;
 
 import java.util.List;
-
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
 
-/**
- * A maven plugin for compiler module-info files in unit tests with JDK8.
- */
+/** A maven plugin for compiler module-info files in unit tests with JDK8. */
 @Mojo(name = "testCompile", defaultPhase = LifecyclePhase.TEST_COMPILE)
 public class ModuleInfoTestCompilerPlugin extends BaseModuleInfoCompilerPlugin {
 

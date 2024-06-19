@@ -14,11 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.memory;
 
 /**
  * A lightweight, automatically expanding container for holding byte data.
+ *
  * @param <T> The type of the underlying buffer.
  */
 public interface ReusableBuffer<T> {
@@ -29,19 +29,16 @@ public interface ReusableBuffer<T> {
    */
   long getLength();
 
-  /**
-   * Get the buffer backing this ReusableBuffer.
-   */
+  /** Get the buffer backing this ReusableBuffer. */
   T getBuffer();
 
   /**
-   * Set the buffer to the contents of the given ArrowBuf.
-   * The internal buffer must resize if it cannot fit the contents
-   * of the data.
+   * Set the buffer to the contents of the given ArrowBuf. The internal buffer must resize if it
+   * cannot fit the contents of the data.
    *
-   * @param srcBytes  the data to copy from
-   * @param start     the first position of the new data
-   * @param len       the number of bytes of the new data
+   * @param srcBytes the data to copy from
+   * @param start the first position of the new data
+   * @param len the number of bytes of the new data
    */
   void set(ArrowBuf srcBytes, long start, long len);
 

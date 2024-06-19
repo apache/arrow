@@ -14,20 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.algorithm.sort;
 
 import org.apache.arrow.vector.ValueVector;
 
 /**
- * A composite vector comparator compares a number of vectors
- * by a number of inner comparators.
- * <p>
- *   It works by first using the first comparator, if a non-zero value
- *   is returned, it simply returns it. Otherwise, it uses the second comparator,
- *   and so on, until a non-zero value is produced, or all inner comparators have
- *   been used.
- * </p>
+ * A composite vector comparator compares a number of vectors by a number of inner comparators.
+ *
+ * <p>It works by first using the first comparator, if a non-zero value is returned, it simply
+ * returns it. Otherwise, it uses the second comparator, and so on, until a non-zero value is
+ * produced, or all inner comparators have been used.
  */
 public class CompositeVectorComparator extends VectorValueComparator<ValueVector> {
 
@@ -62,7 +58,8 @@ public class CompositeVectorComparator extends VectorValueComparator<ValueVector
 
   @Override
   public VectorValueComparator<ValueVector> createNew() {
-    VectorValueComparator[] newInnerComparators = new VectorValueComparator[innerComparators.length];
+    VectorValueComparator[] newInnerComparators =
+        new VectorValueComparator[innerComparators.length];
     for (int i = 0; i < innerComparators.length; i++) {
       newInnerComparators[i] = innerComparators[i].createNew();
     }

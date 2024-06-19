@@ -1886,34 +1886,18 @@ test_that("`as.Date()` and `as_date()`", {
   )
 
   # we do not support multiple tryFormats
-  # this is not a simple warning, therefore we cannot use compare_dplyr_binding()
-  # with `warning = TRUE`
-  # arrow_table test
-  expect_warning(
+  # Use a dataset to test the alternative suggestion message
+  expect_snapshot(
     test_df %>%
-      arrow_table() %>%
-      mutate(
+      InMemoryDataset$create() %>%
+      transmute(
         date_char_ymd = as.Date(
           character_ymd_var,
           tryFormats = c("%Y-%m-%d", "%Y/%m/%d")
         )
       ) %>%
       collect(),
-    regexp = "Consider using the lubridate specialised parsing functions"
-  )
-
-  # record batch test
-  expect_warning(
-    test_df %>%
-      record_batch() %>%
-      mutate(
-        date_char_ymd = as.Date(
-          character_ymd_var,
-          tryFormats = c("%Y-%m-%d", "%Y/%m/%d")
-        )
-      ) %>%
-      collect(),
-    regexp = "Consider using the lubridate specialised parsing functions"
+    error = TRUE
   )
 
   # strptime does not support a partial format - Arrow returns NA, while
@@ -3126,11 +3110,9 @@ test_that("timestamp round/floor/ceiling works for a minimal test", {
 })
 
 test_that("timestamp round/floor/ceiling accepts period unit abbreviation", {
-
   # test helper to ensure standard abbreviations of period names
   # are understood by arrow and mirror the lubridate behaviour
   check_period_abbreviation <- function(unit, synonyms) {
-
     # check arrow against lubridate
     compare_dplyr_binding(
       .input %>%
@@ -3255,7 +3237,6 @@ test_that("timestamp round/floor/ceil works for units: month/quarter/year", {
 
 # check helper invoked when we need to avoid the lubridate rounding bug
 check_date_rounding_1051_bypass <- function(data, unit, ignore_attr = TRUE, ...) {
-
   # directly compare arrow to lubridate for floor and ceiling
   compare_dplyr_binding(
     .input %>%
@@ -3288,7 +3269,6 @@ check_date_rounding_1051_bypass <- function(data, unit, ignore_attr = TRUE, ...)
 }
 
 test_that("date round/floor/ceil works for units: month/quarter/year", {
-
   # these test cases are affected by lubridate issue 1051 so we bypass
   # lubridate::round_date() for Date objects with large rounding units
   # https://github.com/tidyverse/lubridate/issues/1051
@@ -3348,7 +3328,6 @@ test_that("timestamp round/floor/ceil works for week units (non-standard week_st
 })
 
 check_date_week_rounding <- function(data, week_start, ignore_attr = TRUE, ...) {
-
   # directly compare arrow to lubridate for floor and ceiling
   compare_dplyr_binding(
     .input %>%
@@ -3395,7 +3374,6 @@ test_that("date round/floor/ceil works for week units (non-standard week_start)"
 # ceiling_date behaves identically to the lubridate version. It takes
 # unit as an argument to run tests separately for different rounding units
 check_boundary_with_unit <- function(unit, ...) {
-
   # timestamps
   compare_dplyr_binding(
     .input %>%
@@ -3464,7 +3442,6 @@ test_that("temporal round/floor/ceil period unit maxima are enforced", {
 # results. this test helper runs that test, skipping cases where lubridate
 # produces incorrect answers
 check_timezone_rounding_vs_lubridate <- function(data, unit) {
-
   # esoteric lubridate bug: on windows and macOS (not linux), lubridate returns
   # incorrect ceiling/floor for timezoned POSIXct times (syd, adl, kat zones,
   # but not mar) but not utc, and not for round, and only for these two
@@ -3702,8 +3679,8 @@ test_that("with_tz() and force_tz() works", {
       mutate(timestamps = force_tz(
         timestamps,
         "Europe/Brussels",
-        roll_dst = "post")
-      ) %>%
+        roll_dst = "post"
+      )) %>%
       collect(),
     "roll_dst` value must be 'error' or 'boundary' for nonexistent times"
   )
@@ -3712,11 +3689,10 @@ test_that("with_tz() and force_tz() works", {
     tibble::tibble(timestamps = nonexistent) %>%
       arrow_table() %>%
       mutate(timestamps = force_tz(
-          timestamps,
-          "Europe/Brussels",
-          roll_dst = c("boundary", "NA")
-        )
-      ) %>%
+        timestamps,
+        "Europe/Brussels",
+        roll_dst = c("boundary", "NA")
+      )) %>%
       collect(),
     "`roll_dst` value must be 'error', 'pre', or 'post' for nonexistent times"
   )

@@ -1305,6 +1305,12 @@ def test_filter(ty, values):
     result.validate()
     assert result.equals(pa.array([values[0], values[3], None], type=ty))
 
+    # same test with different array type
+    mask = np.array([True, False, False, True, None])
+    result = arr.filter(mask, null_selection_behavior='drop')
+    result.validate()
+    assert result.equals(pa.array([values[0], values[3]], type=ty))
+
     # non-boolean dtype
     mask = pa.array([0, 1, 0, 1, 0])
     with pytest.raises(NotImplementedError):
@@ -3564,7 +3570,7 @@ def test_list_slice_output_fixed(start, stop, step, expected, value_type,
     if stop is None and list_type != "fixed":
         msg = ("Unable to produce FixedSizeListArray from "
                "non-FixedSizeListArray without `stop` being set.")
-        with pytest.raises(pa.ArrowNotImplementedError, match=msg):
+        with pytest.raises(pa.ArrowInvalid, match=msg):
             pc.list_slice(*args)
     else:
         result = pc.list_slice(*args)

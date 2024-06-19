@@ -429,7 +429,7 @@ VctrsExtensionType <- R6Class("VctrsExtensionType",
       paste0(capture.output(print(self$ptype())), collapse = "\n")
     },
     deserialize_instance = function() {
-      private$.ptype <- unserialize(self$extension_metadata())
+      private$.ptype <- safe_r_metadata(safe_unserialize(self$extension_metadata()))
     },
     ExtensionEquals = function(other) {
       inherits(other, "VctrsExtensionType") && identical(self$ptype(), other$ptype())

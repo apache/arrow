@@ -18,40 +18,40 @@
 //
 // Examples:
 //
-//  $> arrow-cat ./testdata/primitives.data
-//  version: V4
-//  record 1/3...
-//    col[0] "bools": [true (null) (null) false true]
-//    col[1] "int8s": [-1 (null) (null) -4 -5]
-//    col[2] "int16s": [-1 (null) (null) -4 -5]
-//    col[3] "int32s": [-1 (null) (null) -4 -5]
-//    col[4] "int64s": [-1 (null) (null) -4 -5]
-//    col[5] "uint8s": [1 (null) (null) 4 5]
-//    col[6] "uint16s": [1 (null) (null) 4 5]
-//    col[7] "uint32s": [1 (null) (null) 4 5]
-//    col[8] "uint64s": [1 (null) (null) 4 5]
-//    col[9] "float32s": [1 (null) (null) 4 5]
-//    col[10] "float64s": [1 (null) (null) 4 5]
-//  record 2/3...
-//    col[0] "bools": [true (null) (null) false true]
-//  [...]
+//	$> arrow-cat ./testdata/primitives.data
+//	version: V4
+//	record 1/3...
+//	  col[0] "bools": [true (null) (null) false true]
+//	  col[1] "int8s": [-1 (null) (null) -4 -5]
+//	  col[2] "int16s": [-1 (null) (null) -4 -5]
+//	  col[3] "int32s": [-1 (null) (null) -4 -5]
+//	  col[4] "int64s": [-1 (null) (null) -4 -5]
+//	  col[5] "uint8s": [1 (null) (null) 4 5]
+//	  col[6] "uint16s": [1 (null) (null) 4 5]
+//	  col[7] "uint32s": [1 (null) (null) 4 5]
+//	  col[8] "uint64s": [1 (null) (null) 4 5]
+//	  col[9] "float32s": [1 (null) (null) 4 5]
+//	  col[10] "float64s": [1 (null) (null) 4 5]
+//	record 2/3...
+//	  col[0] "bools": [true (null) (null) false true]
+//	[...]
 //
-//  $> gen-arrow-stream | arrow-cat
-//  record 1...
-//    col[0] "bools": [true (null) (null) false true]
-//    col[1] "int8s": [-1 (null) (null) -4 -5]
-//    col[2] "int16s": [-1 (null) (null) -4 -5]
-//    col[3] "int32s": [-1 (null) (null) -4 -5]
-//    col[4] "int64s": [-1 (null) (null) -4 -5]
-//    col[5] "uint8s": [1 (null) (null) 4 5]
-//    col[6] "uint16s": [1 (null) (null) 4 5]
-//    col[7] "uint32s": [1 (null) (null) 4 5]
-//    col[8] "uint64s": [1 (null) (null) 4 5]
-//    col[9] "float32s": [1 (null) (null) 4 5]
-//    col[10] "float64s": [1 (null) (null) 4 5]
-//  record 2...
-//    col[0] "bools": [true (null) (null) false true]
-//  [...]
+//	$> gen-arrow-stream | arrow-cat
+//	record 1...
+//	  col[0] "bools": [true (null) (null) false true]
+//	  col[1] "int8s": [-1 (null) (null) -4 -5]
+//	  col[2] "int16s": [-1 (null) (null) -4 -5]
+//	  col[3] "int32s": [-1 (null) (null) -4 -5]
+//	  col[4] "int64s": [-1 (null) (null) -4 -5]
+//	  col[5] "uint8s": [1 (null) (null) 4 5]
+//	  col[6] "uint16s": [1 (null) (null) 4 5]
+//	  col[7] "uint32s": [1 (null) (null) 4 5]
+//	  col[8] "uint64s": [1 (null) (null) 4 5]
+//	  col[9] "float32s": [1 (null) (null) 4 5]
+//	  col[10] "float64s": [1 (null) (null) 4 5]
+//	record 2...
+//	  col[0] "bools": [true (null) (null) false true]
+//	[...]
 package main
 
 import (

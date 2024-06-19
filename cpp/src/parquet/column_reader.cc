@@ -642,12 +642,6 @@ namespace {
 // ----------------------------------------------------------------------
 // Impl base class for TypedColumnReader and RecordReader
 
-// PLAIN_DICTIONARY is deprecated but used to be used as a dictionary index
-// encoding.
-static bool IsDictionaryIndexEncoding(const Encoding::type& e) {
-  return e == Encoding::RLE_DICTIONARY || e == Encoding::PLAIN_DICTIONARY;
-}
-
 template <typename DType>
 class ColumnReaderImplBase {
  public:
@@ -876,8 +870,9 @@ class ColumnReaderImplBase {
     }
 
     Encoding::type encoding = page.encoding();
-
     if (IsDictionaryIndexEncoding(encoding)) {
+      // Normalizing the PLAIN_DICTIONARY to RLE_DICTIONARY encoding
+      // in decoder.
       encoding = Encoding::RLE_DICTIONARY;
     }
 
@@ -950,7 +945,7 @@ class ColumnReaderImplBase {
 
   /// Flag to signal when a new dictionary has been set, for the benefit of
   /// DictionaryRecordReader
-  bool new_dictionary_;
+  bool new_dictionary_ = false;
 
   // The exposed encoding
   ExposedEncoding exposed_encoding_ = ExposedEncoding::NO_ENCODING;

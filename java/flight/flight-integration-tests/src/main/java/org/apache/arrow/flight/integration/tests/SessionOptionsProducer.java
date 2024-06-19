@@ -14,12 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.integration.tests;
 
 import java.util.HashMap;
 import java.util.Map;
-
 import org.apache.arrow.flight.CloseSessionRequest;
 import org.apache.arrow.flight.CloseSessionResult;
 import org.apache.arrow.flight.FlightRuntimeException;
@@ -33,10 +31,11 @@ import org.apache.arrow.flight.SetSessionOptionsRequest;
 import org.apache.arrow.flight.SetSessionOptionsResult;
 import org.apache.arrow.flight.sql.NoOpFlightSqlProducer;
 
-/** The server used for testing Sessions.
- * <p>
- * SetSessionOptions(), GetSessionOptions(), and CloseSession() operate on a
- * simple SessionOptionValue store.
+/**
+ * The server used for testing Sessions.
+ *
+ * <p>SetSessionOptions(), GetSessionOptions(), and CloseSession() operate on a simple
+ * SessionOptionValue store.
  */
 final class SessionOptionsProducer extends NoOpFlightSqlProducer {
   private static final SessionOptionValue invalidOptionValue =
@@ -48,8 +47,10 @@ final class SessionOptionsProducer extends NoOpFlightSqlProducer {
   }
 
   @Override
-  public void setSessionOptions(SetSessionOptionsRequest request, CallContext context,
-                         StreamListener<SetSessionOptionsResult> listener) {
+  public void setSessionOptions(
+      SetSessionOptionsRequest request,
+      CallContext context,
+      StreamListener<SetSessionOptionsResult> listener) {
     Map<String, SetSessionOptionsResult.Error> errors = new HashMap();
 
     ServerSessionMiddleware middleware = context.getMiddleware(sessionMiddlewareKey);
@@ -57,14 +58,16 @@ final class SessionOptionsProducer extends NoOpFlightSqlProducer {
     for (Map.Entry<String, SessionOptionValue> entry : request.getSessionOptions().entrySet()) {
       // Blacklisted option name
       if (entry.getKey().equals("lol_invalid")) {
-        errors.put(entry.getKey(),
+        errors.put(
+            entry.getKey(),
             new SetSessionOptionsResult.Error(SetSessionOptionsResult.ErrorValue.INVALID_NAME));
         continue;
       }
       // Blacklisted option value
       // Recommend using a visitor to check polymorphic equality, but this check is easy
       if (entry.getValue().equals(invalidOptionValue)) {
-        errors.put(entry.getKey(),
+        errors.put(
+            entry.getKey(),
             new SetSessionOptionsResult.Error(SetSessionOptionsResult.ErrorValue.INVALID_VALUE));
         continue;
       }
@@ -80,17 +83,22 @@ final class SessionOptionsProducer extends NoOpFlightSqlProducer {
   }
 
   @Override
-  public void getSessionOptions(GetSessionOptionsRequest request, CallContext context,
-                         StreamListener<GetSessionOptionsResult> listener) {
+  public void getSessionOptions(
+      GetSessionOptionsRequest request,
+      CallContext context,
+      StreamListener<GetSessionOptionsResult> listener) {
     ServerSessionMiddleware middleware = context.getMiddleware(sessionMiddlewareKey);
-    final Map<String, SessionOptionValue> sessionOptions = middleware.getSession().getSessionOptions();
+    final Map<String, SessionOptionValue> sessionOptions =
+        middleware.getSession().getSessionOptions();
     listener.onNext(new GetSessionOptionsResult(sessionOptions));
     listener.onCompleted();
   }
 
   @Override
-  public void closeSession(CloseSessionRequest request, CallContext context,
-                    StreamListener<CloseSessionResult> listener) {
+  public void closeSession(
+      CloseSessionRequest request,
+      CallContext context,
+      StreamListener<CloseSessionResult> listener) {
     ServerSessionMiddleware middleware = context.getMiddleware(sessionMiddlewareKey);
     try {
       middleware.closeSession();

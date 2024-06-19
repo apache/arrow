@@ -14,17 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.dataset.scanner;
 
 import java.nio.ByteBuffer;
 import java.util.Optional;
-
 import org.apache.arrow.util.Preconditions;
 
-/**
- * Options used during scanning.
- */
+/** Options used during scanning. */
 public class ScanOptions {
   private final long batchSize;
   private final Optional<String[]> columns;
@@ -33,27 +29,35 @@ public class ScanOptions {
 
   /**
    * Constructor.
-   * @param columns Projected columns. Empty for scanning all columns.
-   * @param batchSize Maximum row number of each returned {@link org.apache.arrow.vector.ipc.message.ArrowRecordBatch}
    *
+   * @param columns Projected columns. Empty for scanning all columns.
+   * @param batchSize Maximum row number of each returned {@link
+   *     org.apache.arrow.vector.ipc.message.ArrowRecordBatch}
    * @deprecated Deprecated. Use {@link #ScanOptions(long, Optional)} instead.
    */
   @Deprecated
   public ScanOptions(String[] columns, long batchSize) {
-    this(batchSize, Optional.of(columns).map(present -> {
-      if (present.length == 0) {
-        // Backwards compatibility: See ARROW-13257, in the new constructor, we now use null to scan for all columns.
-        return null;
-      }
-      return present;
-    }));
+    this(
+        batchSize,
+        Optional.of(columns)
+            .map(
+                present -> {
+                  if (present.length == 0) {
+                    // Backwards compatibility: See ARROW-13257, in the new constructor, we now use
+                    // null to scan for all columns.
+                    return null;
+                  }
+                  return present;
+                }));
   }
 
   /**
    * Constructor.
-   * @param batchSize Maximum row number of each returned {@link org.apache.arrow.vector.ipc.message.ArrowRecordBatch}
-   * @param columns (Optional) Projected columns. {@link Optional#empty()} for scanning all columns. Otherwise,
-   *                Only columns present in the Array will be scanned.
+   *
+   * @param batchSize Maximum row number of each returned {@link
+   *     org.apache.arrow.vector.ipc.message.ArrowRecordBatch}
+   * @param columns (Optional) Projected columns. {@link Optional#empty()} for scanning all columns.
+   *     Otherwise, Only columns present in the Array will be scanned.
    */
   public ScanOptions(long batchSize, Optional<String[]> columns) {
     Preconditions.checkNotNull(columns);
@@ -83,9 +87,7 @@ public class ScanOptions {
     return substraitFilter;
   }
 
-  /**
-   * Builder for Options used during scanning.
-   */
+  /** Builder for Options used during scanning. */
   public static class Builder {
     private final long batchSize;
     private Optional<String[]> columns;
@@ -94,7 +96,9 @@ public class ScanOptions {
 
     /**
      * Constructor.
-     * @param batchSize Maximum row number of each returned {@link org.apache.arrow.vector.ipc.message.ArrowRecordBatch}
+     *
+     * @param batchSize Maximum row number of each returned {@link
+     *     org.apache.arrow.vector.ipc.message.ArrowRecordBatch}
      */
     public Builder(long batchSize) {
       this.batchSize = batchSize;

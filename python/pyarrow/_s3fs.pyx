@@ -185,7 +185,7 @@ cdef class S3FileSystem(FileSystem):
     session_token : str, default None
         AWS Session Token.  An optional session token, required if access_key
         and secret_key are temporary credentials from STS.
-    anonymous : boolean, default False
+    anonymous : bool, default False
         Whether to connect anonymously if access_key and secret_key are None.
         If true, will not attempt to look up credentials using standard AWS
         configuration methods.
@@ -217,7 +217,7 @@ cdef class S3FileSystem(FileSystem):
         S3 connection transport scheme.
     endpoint_override : str, default None
         Override region with a connect string such as "localhost:9000"
-    background_writes : boolean, default True
+    background_writes : bool, default True
         Whether file writes will be issued in the background, without
         blocking.
     default_metadata : mapping or pyarrow.KeyValueMetadata, default None
@@ -237,11 +237,20 @@ cdef class S3FileSystem(FileSystem):
                                         'port': 8020, 'username': 'username',
                                         'password': 'password'})
     allow_bucket_creation : bool, default False
-        Whether to allow CreateDir at the bucket-level. This option may also be
+        Whether to allow directory creation at the bucket-level. This option may also be
         passed in a URI query parameter.
     allow_bucket_deletion : bool, default False
-        Whether to allow DeleteDir at the bucket-level. This option may also be
+        Whether to allow directory deletion at the bucket-level. This option may also be
         passed in a URI query parameter.
+    check_directory_existence_before_creation : bool, default false
+        Whether to check the directory existence before creating it.
+        If false, when creating a directory the code will not check if it already
+        exists or not. It's an optimization to try directory creation and catch the error,
+        rather than issue two dependent I/O calls.
+        If true, when creating a directory the code will only create the directory when necessary
+        at the cost of extra I/O calls. This can be used for key/value cloud storage which has
+        a hard rate limit to number of object mutation operations or scenerios such as
+        the directories already exist and you do not have creation access.
     retry_strategy : S3RetryStrategy, default AwsStandardS3RetryStrategy(max_attempts=3)
         The retry strategy to use with S3; fail after max_attempts. Available
         strategies are AwsStandardS3RetryStrategy, AwsDefaultS3RetryStrategy.
@@ -273,6 +282,7 @@ cdef class S3FileSystem(FileSystem):
                  role_arn=None, session_name=None, external_id=None,
                  load_frequency=900, proxy_options=None,
                  allow_bucket_creation=False, allow_bucket_deletion=False,
+                 check_directory_existence_before_creation=False,
                  retry_strategy: S3RetryStrategy = AwsStandardS3RetryStrategy(
                      max_attempts=3),
                  force_virtual_addressing=False):
@@ -387,6 +397,7 @@ cdef class S3FileSystem(FileSystem):
 
         options.value().allow_bucket_creation = allow_bucket_creation
         options.value().allow_bucket_deletion = allow_bucket_deletion
+        options.value().check_directory_existence_before_creation = check_directory_existence_before_creation
         options.value().force_virtual_addressing = force_virtual_addressing
 
         if isinstance(retry_strategy, AwsStandardS3RetryStrategy):
@@ -447,6 +458,7 @@ cdef class S3FileSystem(FileSystem):
                 background_writes=opts.background_writes,
                 allow_bucket_creation=opts.allow_bucket_creation,
                 allow_bucket_deletion=opts.allow_bucket_deletion,
+                check_directory_existence_before_creation=opts.check_directory_existence_before_creation,
                 default_metadata=pyarrow_wrap_metadata(opts.default_metadata),
                 proxy_options={'scheme': frombytes(opts.proxy_options.scheme),
                                'host': frombytes(opts.proxy_options.host),

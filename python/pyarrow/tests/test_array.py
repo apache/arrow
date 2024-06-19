@@ -1013,6 +1013,18 @@ def test_list_array_types_from_arrays_fail(list_array_type, list_type_factory):
             arr_slice.offsets, arr_slice.values, mask=arr_slice.is_null())
 
 
+def test_map_cast():
+    # GH-38553
+    t = pa.map_(pa.int64(), pa.int64())
+    arr = pa.array([{1: 2}], type=t)
+    result = arr.cast(pa.map_(pa.int32(), pa.int64()))
+
+    t_expected = pa.map_(pa.int32(), pa.int64())
+    expected = pa.array([{1: 2}], type=t_expected)
+
+    assert result.equals(expected)
+
+
 def test_map_labelled():
     #  ARROW-13735
     t = pa.map_(pa.field("name", "string", nullable=False), "int64")
@@ -1078,6 +1090,54 @@ def test_map_from_arrays():
             # Larger than the original i4
             pa.int64()
         ))
+
+    # pass in null bitmap with type
+    result = pa.MapArray.from_arrays([0, 2, 2, 6], keys, items, pa.map_(
+        keys.type,
+        items.type),
+        mask=pa.array([False, True, False], type=pa.bool_())
+    )
+    assert result.null_count == 1
+    assert result.equals(expected)
+
+    # pass in null bitmap without the type
+    result = pa.MapArray.from_arrays([0, 2, 2, 6], keys, items,
+                                     mask=pa.array([False, True, False],
+                                                   type=pa.bool_())
+                                     )
+    assert result.equals(expected)
+
+    # pass in null bitmap with two nulls
+    offsets = [0, None, None, 6]
+    pyentries = [None, None, pypairs[2:]]
+
+    result = pa.MapArray.from_arrays([0, 2, 2, 6], keys, items, pa.map_(
+        keys.type,
+        items.type),
+        mask=pa.array([True, True, False], type=pa.bool_())
+    )
+    expected = pa.array(pyentries, type=pa.map_(pa.binary(), pa.int32()))
+    assert result.null_count == 2
+    assert result.equals(expected)
+
+    # error if null bitmap and offsets with nulls passed
+    msg1 = 'Ambiguous to specify both validity map and offsets with nulls'
+    with pytest.raises(pa.ArrowInvalid, match=msg1):
+        pa.MapArray.from_arrays(offsets, keys, items, pa.map_(
+            keys.type,
+            items.type),
+            mask=pa.array([False, True, False], type=pa.bool_())
+        )
+
+    # error if null bitmap passed to sliced offset
+    msg2 = 'Null bitmap with offsets slice not supported.'
+    offsets = pa.array([0, 2, 2, 6], pa.int32())
+    with pytest.raises(pa.ArrowNotImplementedError, match=msg2):
+        pa.MapArray.from_arrays(offsets.slice(2), keys, items, pa.map_(
+            keys.type,
+            items.type),
+            mask=pa.array([False, True, False], type=pa.bool_())
+        )
 
     # check invalid usage
     offsets = [0, 1, 3, 5]
@@ -3352,7 +3412,7 @@ def test_numpy_array_protocol():
     result = np.asarray(arr)
     np.testing.assert_array_equal(result, expected)
 
-    if Version(np.__version__) < Version("2.0"):
+    if Version(np.__version__) < Version("2.0.0.dev0"):
         # copy keyword is not strict and not passed down to __array__
         result = np.array(arr, copy=False)
         np.testing.assert_array_equal(result, expected)

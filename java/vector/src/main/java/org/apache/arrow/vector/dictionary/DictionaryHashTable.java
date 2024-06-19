@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.dictionary;
 
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
@@ -24,67 +23,52 @@ import org.apache.arrow.vector.compare.Range;
 import org.apache.arrow.vector.compare.RangeEqualsVisitor;
 
 /**
- * HashTable used for Dictionary encoding. It holds two vectors (the vector to encode and dictionary vector)
- * It stores the index in dictionary vector and for a given index in encode vector,
- * it could return dictionary index.
+ * HashTable used for Dictionary encoding. It holds two vectors (the vector to encode and dictionary
+ * vector) It stores the index in dictionary vector and for a given index in encode vector, it could
+ * return dictionary index.
  */
 public class DictionaryHashTable {
 
-  /**
-   * Represents a null value in map.
-   */
+  /** Represents a null value in map. */
   static final int NULL_VALUE = -1;
 
-  /**
-   * The default initial capacity - MUST be a power of two.
-   */
+  /** The default initial capacity - MUST be a power of two. */
   static final int DEFAULT_INITIAL_CAPACITY = 1 << 4;
 
   /**
-   * The maximum capacity, used if a higher value is implicitly specified
-   * by either of the constructors with arguments.
+   * The maximum capacity, used if a higher value is implicitly specified by either of the
+   * constructors with arguments.
    */
   static final int MAXIMUM_CAPACITY = 1 << 30;
 
-  /**
-   * The load factor used when none specified in constructor.
-   */
+  /** The load factor used when none specified in constructor. */
   static final float DEFAULT_LOAD_FACTOR = 0.75f;
 
   static final DictionaryHashTable.Entry[] EMPTY_TABLE = {};
 
   /**
-   * The table, initialized on first use, and resized as
-   * necessary. When allocated, length is always a power of two.
+   * The table, initialized on first use, and resized as necessary. When allocated, length is always
+   * a power of two.
    */
   transient DictionaryHashTable.Entry[] table = EMPTY_TABLE;
 
-  /**
-   * The number of key-value mappings contained in this map.
-   */
+  /** The number of key-value mappings contained in this map. */
   transient int size;
 
-  /**
-   * The next size value at which to resize (capacity * load factor).
-   */
+  /** The next size value at which to resize (capacity * load factor). */
   int threshold;
 
-  /**
-   * The load factor for the hash table.
-   */
+  /** The load factor for the hash table. */
   final float loadFactor;
 
   private final ValueVector dictionary;
 
   private final ArrowBufHasher hasher;
 
-  /**
-   * Constructs an empty map with the specified initial capacity and load factor.
-   */
+  /** Constructs an empty map with the specified initial capacity and load factor. */
   public DictionaryHashTable(int initialCapacity, ValueVector dictionary, ArrowBufHasher hasher) {
     if (initialCapacity < 0) {
-      throw new IllegalArgumentException("Illegal initial capacity: " +
-          initialCapacity);
+      throw new IllegalArgumentException("Illegal initial capacity: " + initialCapacity);
     }
     if (initialCapacity > MAXIMUM_CAPACITY) {
       initialCapacity = MAXIMUM_CAPACITY;
@@ -110,25 +94,19 @@ public class DictionaryHashTable {
     this(dictionary, SimpleHasher.INSTANCE);
   }
 
-  /**
-   * Compute the capacity with given threshold and create init table.
-   */
+  /** Compute the capacity with given threshold and create init table. */
   private void inflateTable(int threshold) {
     int capacity = roundUpToPowerOf2(threshold);
     this.threshold = (int) Math.min(capacity * loadFactor, MAXIMUM_CAPACITY + 1);
     table = new DictionaryHashTable.Entry[capacity];
   }
 
-  /**
-   * Computes the storage location in an array for the given hashCode.
-   */
+  /** Computes the storage location in an array for the given hashCode. */
   static int indexFor(int h, int length) {
     return h & (length - 1);
   }
 
-  /**
-   * Returns a power of two size for the given size.
-   */
+  /** Returns a power of two size for the given size. */
   static final int roundUpToPowerOf2(int size) {
     int n = size - 1;
     n |= n >>> 1;
@@ -141,6 +119,7 @@ public class DictionaryHashTable {
 
   /**
    * get the corresponding dictionary index with the given index in vector which to encode.
+   *
    * @param indexInArray index in vector.
    * @return dictionary vector index or -1 if no value equals.
    */
@@ -151,12 +130,11 @@ public class DictionaryHashTable {
     RangeEqualsVisitor equalVisitor = new RangeEqualsVisitor(dictionary, toEncode, null);
     Range range = new Range(0, 0, 1);
 
-    for (DictionaryHashTable.Entry e = table[index]; e != null ; e = e.next) {
+    for (DictionaryHashTable.Entry e = table[index]; e != null; e = e.next) {
       if (e.hash == hash) {
         int dictIndex = e.index;
 
-        range = range.setRightStart(indexInArray)
-            .setLeftStart(dictIndex);
+        range = range.setRightStart(indexInArray).setLeftStart(dictIndex);
         if (equalVisitor.rangeEquals(range)) {
           return dictIndex;
         }
@@ -165,9 +143,7 @@ public class DictionaryHashTable {
     return NULL_VALUE;
   }
 
-  /**
-   * put the index of dictionary vector to build hash table.
-   */
+  /** put the index of dictionary vector to build hash table. */
   private void put(int indexInDictionary) {
     if (table == EMPTY_TABLE) {
       inflateTable(threshold);
@@ -177,7 +153,7 @@ public class DictionaryHashTable {
     int i = indexFor(hash, table.length);
     for (DictionaryHashTable.Entry e = table[i]; e != null; e = e.next) {
       if (e.hash == hash && e.index == indexInDictionary) {
-        //already has this index, return
+        // already has this index, return
         return;
       }
     }
@@ -185,18 +161,14 @@ public class DictionaryHashTable {
     addEntry(hash, indexInDictionary, i);
   }
 
-  /**
-   * Create a new Entry at the specific position of table.
-   */
+  /** Create a new Entry at the specific position of table. */
   void createEntry(int hash, int index, int bucketIndex) {
     DictionaryHashTable.Entry e = table[bucketIndex];
     table[bucketIndex] = new DictionaryHashTable.Entry(hash, index, e);
     size++;
   }
 
-  /**
-   * Add Entry at the specified location of the table.
-   */
+  /** Add Entry at the specified location of the table. */
   void addEntry(int hash, int index, int bucketIndex) {
     if ((size >= threshold) && (null != table[bucketIndex])) {
       resize(2 * table.length);
@@ -206,9 +178,7 @@ public class DictionaryHashTable {
     createEntry(hash, index, bucketIndex);
   }
 
-  /**
-   * Resize table with given new capacity.
-   */
+  /** Resize table with given new capacity. */
   void resize(int newCapacity) {
     DictionaryHashTable.Entry[] oldTable = table;
     int oldCapacity = oldTable.length;
@@ -225,6 +195,7 @@ public class DictionaryHashTable {
 
   /**
    * Transfer entries into new table from old table.
+   *
    * @param newTable new table
    */
   void transfer(DictionaryHashTable.Entry[] newTable) {
@@ -240,16 +211,12 @@ public class DictionaryHashTable {
     }
   }
 
-  /**
-   * Returns the number of mappings in this Map.
-   */
+  /** Returns the number of mappings in this Map. */
   public int size() {
     return size;
   }
 
-  /**
-   * Removes all elements from this map, leaving it empty.
-   */
+  /** Removes all elements from this map, leaving it empty. */
   public void clear() {
     size = 0;
     for (int i = 0; i < table.length; i++) {
@@ -257,11 +224,9 @@ public class DictionaryHashTable {
     }
   }
 
-  /**
-   * Class to keep dictionary index data within hash table.
-   */
+  /** Class to keep dictionary index data within hash table. */
   static class Entry {
-    //dictionary index
+    // dictionary index
     int index;
     DictionaryHashTable.Entry next;
     int hash;

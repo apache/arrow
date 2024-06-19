@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.complex.impl;
 
 import org.apache.arrow.util.Preconditions;
@@ -26,9 +25,7 @@ import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
 import org.apache.arrow.vector.types.pojo.Field;
 
-/**
- * Concrete implementation of {@link ComplexWriter}.
- */
+/** Concrete implementation of {@link ComplexWriter}. */
 public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWriter {
 
   private NullableStructWriter structRoot;
@@ -41,7 +38,12 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
   private final boolean unionEnabled;
   private final NullableStructWriterFactory nullableStructWriterFactory;
 
-  private enum Mode { INIT, STRUCT, LIST, MAP }
+  private enum Mode {
+    INIT,
+    STRUCT,
+    LIST,
+    MAP
+  }
 
   /**
    * Constructs a new instance.
@@ -49,19 +51,18 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
    * @param name The name of the writer (for tracking).
    * @param container A container for the data field to be written.
    * @param unionEnabled Unused.
-   * @param caseSensitive Whether field names are case-sensitive (if false field names will be lowercase.
+   * @param caseSensitive Whether field names are case-sensitive (if false field names will be
+   *     lowercase.
    */
   public ComplexWriterImpl(
-      String name,
-      NonNullableStructVector container,
-      boolean unionEnabled,
-      boolean caseSensitive) {
+      String name, NonNullableStructVector container, boolean unionEnabled, boolean caseSensitive) {
     this.name = name;
     this.container = container;
     this.unionEnabled = unionEnabled;
-    nullableStructWriterFactory = caseSensitive ?
-      NullableStructWriterFactory.getNullableCaseSensitiveStructWriterFactoryInstance() :
-      NullableStructWriterFactory.getNullableStructWriterFactoryInstance();
+    nullableStructWriterFactory =
+        caseSensitive
+            ? NullableStructWriterFactory.getNullableCaseSensitiveStructWriterFactoryInstance()
+            : NullableStructWriterFactory.getNullableStructWriterFactoryInstance();
   }
 
   public ComplexWriterImpl(String name, NonNullableStructVector container, boolean unionEnabled) {
@@ -153,14 +154,13 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
   }
 
   /**
-   * Returns a StructWriter, initializing it necessary from the constructor this instance
-   * was constructed with.
+   * Returns a StructWriter, initializing it necessary from the constructor this instance was
+   * constructed with.
    */
   public StructWriter directStruct() {
     Preconditions.checkArgument(name == null);
 
     switch (mode) {
-
       case INIT:
         structRoot = nullableStructWriterFactory.build((StructVector) container);
         structRoot.setPosition(idx());
@@ -180,7 +180,6 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
   @Override
   public StructWriter rootAsStruct() {
     switch (mode) {
-
       case INIT:
         // TODO allow dictionaries in complex types
         StructVector struct = container.addOrGetStruct(name);
@@ -211,7 +210,6 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
   @Override
   public ListWriter rootAsList() {
     switch (mode) {
-
       case INIT:
         int vectorCount = container.size();
         // TODO allow dictionaries in complex types
@@ -237,7 +235,6 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
   @Override
   public MapWriter rootAsMap(boolean keysSorted) {
     switch (mode) {
-
       case INIT:
         int vectorCount = container.size();
         // TODO allow dictionaries in complex types

@@ -14,24 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
-/**
- * The interface for vectors with floating point values.
- */
+/** The interface for vectors with floating point values. */
 public interface FloatingPointVector extends ValueVector {
 
   /**
    * Sets the value at the given index, note this value may be truncated internally.
+   *
    * @param index the index to set.
    * @param value the value to set.
    */
   void setWithPossibleTruncate(int index, double value);
 
   /**
-   * Sets the value at the given index, note this value may be truncated internally.
-   * Any expansion/reallocation is handled automatically.
+   * Sets the value at the given index, note this value may be truncated internally. Any
+   * expansion/reallocation is handled automatically.
+   *
    * @param index the index to set.
    * @param value the value to set.
    */
@@ -39,6 +38,7 @@ public interface FloatingPointVector extends ValueVector {
 
   /**
    * Gets the value at the given index.
+   *
    * @param index the index to retrieve the value.
    * @return the value at the index.
    */

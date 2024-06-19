@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.gandiva.evaluator;
 
 import static java.util.UUID.randomUUID;
@@ -27,19 +26,16 @@ import java.nio.file.StandardCopyOption;
 import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-
 import org.apache.arrow.gandiva.exceptions.GandivaException;
 
-/**
- * This class handles loading of the jni library, and acts as a bridge for the native functions.
- */
+/** This class handles loading of the jni library, and acts as a bridge for the native functions. */
 class JniLoader {
   private static final String LIBRARY_NAME = "gandiva_jni";
 
   private static volatile JniLoader INSTANCE;
   private static volatile long defaultConfiguration = 0L;
-  private static final ConcurrentMap<ConfigurationBuilder.ConfigOptions, Long> configurationMap
-          = new ConcurrentHashMap<>();
+  private static final ConcurrentMap<ConfigurationBuilder.ConfigOptions, Long> configurationMap =
+      new ConcurrentHashMap<>();
 
   private final JniWrapper wrapper;
 
@@ -69,7 +65,7 @@ class JniLoader {
   }
 
   private static void loadGandivaLibraryFromJar(final String tmpDir)
-          throws IOException, GandivaException {
+      throws IOException, GandivaException {
     final String libraryToLoad =
         LIBRARY_NAME + "/" + getNormalizedArch() + "/" + System.mapLibraryName(LIBRARY_NAME);
     final File libraryFile = moveFileFromJarToTemp(tmpDir, libraryToLoad, LIBRARY_NAME);
@@ -91,11 +87,12 @@ class JniLoader {
     return arch;
   }
 
-  private static File moveFileFromJarToTemp(final String tmpDir, String libraryToLoad, String libraryName)
-          throws IOException, GandivaException {
+  private static File moveFileFromJarToTemp(
+      final String tmpDir, String libraryToLoad, String libraryName)
+      throws IOException, GandivaException {
     final File temp = setupFile(tmpDir, libraryName);
-    try (final InputStream is = JniLoader.class.getClassLoader()
-            .getResourceAsStream(libraryToLoad)) {
+    try (final InputStream is =
+        JniLoader.class.getClassLoader().getResourceAsStream(libraryToLoad)) {
       if (is == null) {
         throw new GandivaException(libraryToLoad + " was not found inside JAR.");
       } else {
@@ -106,37 +103,34 @@ class JniLoader {
   }
 
   private static File setupFile(String tmpDir, String libraryToLoad)
-          throws IOException, GandivaException {
+      throws IOException, GandivaException {
     // accommodate multiple processes running with gandiva jar.
     // length should be ok since uuid is only 36 characters.
     final String randomizeFileName = libraryToLoad + randomUUID();
     final File temp = new File(tmpDir, randomizeFileName);
     if (temp.exists() && !temp.delete()) {
-      throw new GandivaException("File: " + temp.getAbsolutePath() +
-          " already exists and cannot be removed.");
+      throw new GandivaException(
+          "File: " + temp.getAbsolutePath() + " already exists and cannot be removed.");
     }
     if (!temp.createNewFile()) {
-      throw new GandivaException("File: " + temp.getAbsolutePath() +
-          " could not be created.");
+      throw new GandivaException("File: " + temp.getAbsolutePath() + " could not be created.");
     }
     temp.deleteOnExit();
     return temp;
   }
 
-  /**
-   * Returns the jni wrapper.
-   */
+  /** Returns the jni wrapper. */
   JniWrapper getWrapper() throws GandivaException {
     return wrapper;
   }
 
-  static long getConfiguration(ConfigurationBuilder.ConfigOptions configOptions) throws GandivaException {
+  static long getConfiguration(ConfigurationBuilder.ConfigOptions configOptions)
+      throws GandivaException {
     if (!configurationMap.containsKey(configOptions)) {
       synchronized (ConfigurationBuilder.class) {
         if (!configurationMap.containsKey(configOptions)) {
           JniLoader.getInstance(); // setup
-          long configInstance = new ConfigurationBuilder()
-                  .buildConfigInstance(configOptions);
+          long configInstance = new ConfigurationBuilder().buildConfigInstance(configOptions);
           configurationMap.put(configOptions, configInstance);
           if (ConfigurationBuilder.ConfigOptions.getDefault().equals(configOptions)) {
             defaultConfiguration = configInstance;
@@ -150,6 +144,7 @@ class JniLoader {
 
   /**
    * Get the default configuration to invoke gandiva.
+   *
    * @return default configuration
    * @throws GandivaException if unable to get native builder instance.
    */
@@ -158,9 +153,10 @@ class JniLoader {
       synchronized (ConfigurationBuilder.class) {
         if (defaultConfiguration == 0L) {
           JniLoader.getInstance(); // setup
-          ConfigurationBuilder.ConfigOptions defaultConfigOptions = ConfigurationBuilder.ConfigOptions.getDefault();
-          defaultConfiguration = new ConfigurationBuilder()
-            .buildConfigInstance(defaultConfigOptions);
+          ConfigurationBuilder.ConfigOptions defaultConfigOptions =
+              ConfigurationBuilder.ConfigOptions.getDefault();
+          defaultConfiguration =
+              new ConfigurationBuilder().buildConfigInstance(defaultConfigOptions);
           configurationMap.put(defaultConfigOptions, defaultConfiguration);
         }
       }
@@ -168,14 +164,13 @@ class JniLoader {
     return defaultConfiguration;
   }
 
-  /**
-   * Remove the configuration.
-   */
+  /** Remove the configuration. */
   static void removeConfiguration(ConfigurationBuilder.ConfigOptions configOptions) {
     if (configurationMap.containsKey(configOptions)) {
       synchronized (ConfigurationBuilder.class) {
         if (configurationMap.containsKey(configOptions)) {
-          (new ConfigurationBuilder()).releaseConfigInstance(configurationMap.remove(configOptions));
+          (new ConfigurationBuilder())
+              .releaseConfigInstance(configurationMap.remove(configOptions));
           if (configOptions.equals(ConfigurationBuilder.ConfigOptions.getDefault())) {
             defaultConfiguration = 0;
           }

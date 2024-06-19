@@ -642,6 +642,8 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
 /// \brief Builder class for fixed-length list array value types
 class ARROW_EXPORT FixedSizeListBuilder : public ArrayBuilder {
  public:
+  using TypeClass = FixedSizeListType;
+
   /// Use this constructor to define the built array's type explicitly. If value_builder
   /// has indeterminate type, this builder will also.
   FixedSizeListBuilder(MemoryPool* pool,

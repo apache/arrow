@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.dataset.file;
 
 import org.apache.arrow.c.ArrowArrayStream;
@@ -36,15 +35,27 @@ public class DatasetFileWriter {
    * @param uri target file uri
    * @param maxPartitions maximum partitions to be included in written files
    * @param partitionColumns columns used to partition output files. Empty to disable partitioning
-   * @param baseNameTemplate file name template used to make partitions. E.g. "dat_{i}", i is current partition
-   *                         ID around all written files.
+   * @param baseNameTemplate file name template used to make partitions. E.g. "dat_{i}", i is
+   *     current partition ID around all written files.
    */
-  public static void write(BufferAllocator allocator, ArrowReader reader, FileFormat format, String uri,
-                           String[] partitionColumns, int maxPartitions, String baseNameTemplate) {
+  public static void write(
+      BufferAllocator allocator,
+      ArrowReader reader,
+      FileFormat format,
+      String uri,
+      String[] partitionColumns,
+      int maxPartitions,
+      String baseNameTemplate) {
     try (final ArrowArrayStream stream = ArrowArrayStream.allocateNew(allocator)) {
       Data.exportArrayStream(allocator, reader, stream);
-      JniWrapper.get().writeFromScannerToFile(stream.memoryAddress(),
-          format.id(), uri, partitionColumns, maxPartitions, baseNameTemplate);
+      JniWrapper.get()
+          .writeFromScannerToFile(
+              stream.memoryAddress(),
+              format.id(),
+              uri,
+              partitionColumns,
+              maxPartitions,
+              baseNameTemplate);
     }
   }
 
@@ -55,7 +66,8 @@ public class DatasetFileWriter {
    * @param format target file format
    * @param uri target file uri
    */
-  public static void write(BufferAllocator allocator, ArrowReader reader, FileFormat format, String uri) {
+  public static void write(
+      BufferAllocator allocator, ArrowReader reader, FileFormat format, String uri) {
     write(allocator, reader, format, uri, new String[0], 1024, "data_{i}");
   }
 }

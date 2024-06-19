@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 import static java.time.temporal.ChronoUnit.DAYS;
@@ -33,17 +32,14 @@ import java.time.temporal.UnsupportedTemporalTypeException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-
 import org.apache.arrow.util.Preconditions;
 
-/**
- * Combination of Period and Duration for representing this interval type
- * as a POJO.
- */
+/** Combination of Period and Duration for representing this interval type as a POJO. */
 public class PeriodDuration implements TemporalAmount {
 
   private static final List<TemporalUnit> SUPPORTED_UNITS =
-          Collections.unmodifiableList(Arrays.<TemporalUnit>asList(YEARS, MONTHS, DAYS, SECONDS, NANOS));
+      Collections.unmodifiableList(
+          Arrays.<TemporalUnit>asList(YEARS, MONTHS, DAYS, SECONDS, NANOS));
   private final Period period;
   private final Duration duration;
 

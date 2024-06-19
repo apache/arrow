@@ -14,16 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
-/**
- * Interface vectors that contain variable width members (e.g. Strings, Lists, etc).
- */
+/** Interface vectors that contain variable width members (e.g. Strings, Lists, etc). */
 public interface VariableWidthVector extends ElementAddressableVector, DensityAwareVector {
 
   /**
-   * Allocate a new memory space for this vector.  Must be called prior to using the ValueVector.
+   * Allocate a new memory space for this vector. Must be called prior to using the ValueVector.
    *
    * @param totalBytes Desired size of the underlying data buffer.
    * @param valueCount Number of values in the vector.
@@ -31,8 +28,8 @@ public interface VariableWidthVector extends ElementAddressableVector, DensityAw
   void allocateNew(long totalBytes, int valueCount);
 
   /**
-   * Allocate a new memory space for this vector.  Must be called prior to using the ValueVector.
-   * The initial size in bytes is either default (or) reused from previous allocation
+   * Allocate a new memory space for this vector. Must be called prior to using the ValueVector. The
+   * initial size in bytes is either default (or) reused from previous allocation
    *
    * @param valueCount Number of values in the vector.
    */
@@ -47,6 +44,7 @@ public interface VariableWidthVector extends ElementAddressableVector, DensityAw
 
   /**
    * Provide the number of bytes contained in the valueBuffer.
+   *
    * @return the number of bytes in valueBuffer.
    */
   int sizeOfValueBuffer();

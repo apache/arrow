@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -41,15 +40,16 @@ public class TestUtils {
 
   public static ViewVarBinaryVector newViewVarBinaryVector(String name, BufferAllocator allocator) {
     return (ViewVarBinaryVector)
-            FieldType.nullable(new ArrowType.BinaryView()).createNewSingleVector(name, allocator, null);
+        FieldType.nullable(new ArrowType.BinaryView()).createNewSingleVector(name, allocator, null);
   }
 
-  public static <T> T newVector(Class<T> c, String name, ArrowType type, BufferAllocator allocator) {
+  public static <T> T newVector(
+      Class<T> c, String name, ArrowType type, BufferAllocator allocator) {
     return c.cast(FieldType.nullable(type).createNewSingleVector(name, allocator, null));
   }
 
-  public static <T> T newVector(Class<T> c, String name, MinorType type, BufferAllocator allocator) {
+  public static <T> T newVector(
+      Class<T> c, String name, MinorType type, BufferAllocator allocator) {
     return c.cast(FieldType.nullable(type.getType()).createNewSingleVector(name, allocator, null));
   }
-
 }

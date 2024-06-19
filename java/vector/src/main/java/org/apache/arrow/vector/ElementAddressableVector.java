@@ -14,19 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 import org.apache.arrow.memory.util.ArrowBufPointer;
 
 /**
- * Vector for which each data element resides in a continuous memory region,
- * so it can be pointed to by an {@link org.apache.arrow.memory.util.ArrowBufPointer}.
+ * Vector for which each data element resides in a continuous memory region, so it can be pointed to
+ * by an {@link org.apache.arrow.memory.util.ArrowBufPointer}.
  */
 public interface ElementAddressableVector extends ValueVector {
 
   /**
    * Gets the pointer for the data at the given index.
+   *
    * @param index the index for the data.
    * @return the pointer to the data.
    */
@@ -34,6 +34,7 @@ public interface ElementAddressableVector extends ValueVector {
 
   /**
    * Gets the pointer for the data at the given index.
+   *
    * @param index the index for the data.
    * @param reuse the data pointer to fill, this avoids creating a new pointer object.
    * @return the pointer to the data, it should be the same one as the input parameter
