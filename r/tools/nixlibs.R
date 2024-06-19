@@ -574,8 +574,8 @@ build_libarrow <- function(src_dir, dst_dir) {
         env_var_list <- c(env_var_list, setNames("BUNDLED", env_var))
       }
     }
-    # We also _do_ want to enable S3 by default
-    env_var_list <- c(env_var_list, c(ARROW_S3 = "ON"))
+    # We also _do_ want to enable S3, GCS, and ZSTD by default
+    env_var_list <- c(env_var_list, c(ARROW_S3 = "ON", ARROW_GCS = "ON", ARROW_WITH_ZSTD = "ON"))
   }
 
   env_var_list <- with_cloud_support(env_var_list)
