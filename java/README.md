@@ -72,6 +72,35 @@ find java/format/src -type f | while read file; do
 done
 ```
 
+# add module-info.java to the generated code
+
+Make sure to add the `java/format/src/main/java/module-format.java` as follows.
+
+```java
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+module org.apache.arrow.format {
+  exports org.apache.arrow.flatbuf;
+  requires transitive flatbuffers.java;
+}
+
+```
+
 ## Performance Tuning
 
 There are several system/environmental variables that users can configure.  These trade off safety (they turn off checking) for speed.  Typically they are only used in production settings after the code has been thoroughly tested without using them.
