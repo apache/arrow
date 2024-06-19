@@ -267,13 +267,6 @@ under the License.
       <version>${dep.junit.jupiter.version}</version>
       <scope>test</scope>
     </dependency>
-    <!-- Use to keep older tests running -->
-    <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <version>4.13.2</version>
-      <scope>test</scope>
-    </dependency>
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-junit-jupiter</artifactId>
