@@ -1675,26 +1675,18 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
    * <p>For Variadic types, an additional buffer is kept to store the size of each variadic buffer
    * since that information cannot be retrieved in the C Data import.
    *
-   * <p>When there are dataBuffers, the count is set to 3 + dataBuffers.size(). Three is formed by
-   * validity, view, and variadic size buffer. If it is not the case, i.e., the dataBuffer is not
-   * present; four buffers are required. They are view buffer, validity buffer, empty data buffer,
-   * and variadic size buffer. Note that the Java library only allocates data buffers when long
-   * strings are present.
-   *
    * <p>In the C Data Interface, the binary view import expects at least three buffers. The variadic
    * size buffer is merely allocated to determine the number of elements per each variadic buffer,
-   * and it is not part of the imported data. Thus, an empty data buffer is allocated to meet this
-   * requirement.
+   * and it is not part of the imported data.
+   *
+   * <p>The count is set to 3 + dataBuffers.size(). Three is formed by validity, view, and variadic
+   * size buffer.
    *
    * @return the number of buffers to be exported
    */
   @Override
   public int getExportedCDataBufferCount() {
-    if (dataBuffers.isEmpty()) {
-      return 4;
-    } else {
-      return 3 + dataBuffers.size();
-    }
+    return 3 + dataBuffers.size();
   }
 
   /**
@@ -1723,25 +1715,18 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
       exportBuffer(viewBuffer, buffers, buffersPtr, nullValue, true);
     }
 
-    if (dataBuffers.isEmpty()) {
-      ArrowBuf variadicSizeBuffer = allocator.buffer(Long.BYTES);
-      // since no data buffers are present, the size of variadic size buffer is 0
-      variadicSizeBuffer.setLong(0, 0);
-      exportBuffer(variadicSizeBuffer, buffers, buffersPtr, nullValue, false);
-    } else {
-      // allocating additional space to keep the number of variadic buffers
-      ArrowBuf variadicSizeBuffer = allocator.buffer((long) Long.BYTES * dataBuffers.size());
-      variadicSizeBuffer.setZero(0, variadicSizeBuffer.capacity());
-      // export data buffers
-      for (int i = 0; i < dataBuffers.size(); i++) {
-        ArrowBuf dataBuf = dataBuffers.get(i);
-        // calculate sizes for variadic size buffer
-        variadicSizeBuffer.setLong((long) i * Long.BYTES, dataBuf.writerIndex());
-        exportBuffer(dataBuf, buffers, buffersPtr, nullValue, true);
-      }
-      // export variadic size buffer
-      exportBuffer(variadicSizeBuffer, buffers, buffersPtr, nullValue, false);
+    // allocating additional space to keep the number of variadic buffers
+    ArrowBuf variadicSizeBuffer = allocator.buffer((long) Long.BYTES * dataBuffers.size());
+    // variadicSizeBuffer.setZero(0, variadicSizeBuffer.capacity());
+    // export data buffers
+    for (int i = 0; i < dataBuffers.size(); i++) {
+      ArrowBuf dataBuf = dataBuffers.get(i);
+      // calculate sizes for variadic size buffer
+      variadicSizeBuffer.setLong((long) i * Long.BYTES, dataBuf.capacity());
+      exportBuffer(dataBuf, buffers, buffersPtr, nullValue, true);
     }
+    // export variadic size buffer
+    exportBuffer(variadicSizeBuffer, buffers, buffersPtr, nullValue, false);
   }
 
   /**

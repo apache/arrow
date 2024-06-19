@@ -738,7 +738,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     }
   }
 
-  private Object readIntoBuffer(
+  private List<ArrowBuf> readIntoBuffer(
       BufferAllocator allocator,
       BufferType bufferType,
       MinorType type,
@@ -872,7 +872,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
       // reading vector buffers which are not variadic buffers
       buf = reader.readBuffer(allocator, count);
       Preconditions.checkNotNull(buf);
-      return buf;
+      return Collections.singletonList(buf);
     } else {
       // reading vector buffers which are variadic buffers
       // only available for Utf8View and BinaryView
@@ -925,20 +925,15 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
           /* offset buffer has 1 additional value capacity except for dense unions */
           innerBufferValueCount = valueCount + 1;
         }
-        Object buffer =
+
+        vectorBuffers.addAll(
             readIntoBuffer(
                 allocator,
                 bufferType,
                 vector.getMinorType(),
                 innerBufferValueCount,
                 variadicBufferIndices,
-                vectorTypes);
-        if (buffer instanceof List<?>) {
-          List<ArrowBuf> variadicBuffers = (List<ArrowBuf>) buffer;
-          vectorBuffers.addAll(variadicBuffers);
-        } else {
-          vectorBuffers.add((ArrowBuf) buffer);
-        }
+                vectorTypes));
       }
 
       int nullCount = 0;

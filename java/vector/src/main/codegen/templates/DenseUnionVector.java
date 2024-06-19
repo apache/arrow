@@ -201,16 +201,6 @@ public class DenseUnionVector extends AbstractContainerVector implements FieldVe
     return result;
   }
 
-  /**
-   * Retrieves the export buffer count for the C Data Interface.
-   * The exported buffers are the type and offset buffers.
-   * @return the number of buffers to be exported
-   */
-  @Override
-  public int getExportedCDataBufferCount() {
-    return 2;
-  }
-
   private void setReaderAndWriterIndex() {
     typeBuffer.readerIndex(0);
     typeBuffer.writerIndex(valueCount * TYPE_WIDTH);

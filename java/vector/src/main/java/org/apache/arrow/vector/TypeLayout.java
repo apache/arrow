@@ -476,6 +476,11 @@ public class TypeLayout {
     return types;
   }
 
+  /**
+   * Determines whether the buffer count is fixed for the given type.
+   *
+   * @return true if the buffer count is fixed, false otherwise
+   */
   public boolean isFixedBufferCount() {
     return isFixedBufferCount;
   }
