@@ -366,8 +366,7 @@ jobs:
       - name: Install vcpkg
         shell: bash
         run: |
-          # Install a more recent vcpkg than what's in .env, as we need recent fixes to the gobject-introspection port
-          ci/scripts/install_vcpkg.sh "${VCPKG_ROOT}" 2024.04.26 "$(pwd)/ci/vcpkg/ports-2024.04.26.patch"
+          ci/scripts/install_vcpkg.sh "${VCPKG_ROOT}"
       - name: Install meson
         run: |
           python -m pip install meson
