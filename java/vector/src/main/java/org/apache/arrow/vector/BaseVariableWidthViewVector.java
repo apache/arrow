@@ -1710,7 +1710,8 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
     exportBuffer(validityBuffer, buffers, buffersPtr, nullValue, true);
 
     if (viewBuffer.capacity() == 0) {
-      // Empty view buffer is allowed here.
+      // Empty view buffer is required here.
+      // Since a minimum of 3 buffers is required in C++ interface.
       // We set `retain = false` to explicitly not increase the ref count for the exported buffer.
       // The ref count of the newly created buffer (i.e., 1) already represents the usage
       // of the imported side.
@@ -1723,9 +1724,6 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
     }
 
     if (dataBuffers.isEmpty()) {
-      ArrowBuf emptyViewBuffer = allocator.buffer(INITIAL_BYTE_COUNT);
-      emptyViewBuffer.readerIndex(0);
-      exportBuffer(emptyViewBuffer, buffers, buffersPtr, nullValue, false);
       ArrowBuf variadicSizeBuffer = allocator.buffer(Long.BYTES);
       // since no data buffers are present, the size of variadic size buffer is 0
       variadicSizeBuffer.setLong(0, 0);
@@ -1737,18 +1735,9 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
       // export data buffers
       for (int i = 0; i < dataBuffers.size(); i++) {
         ArrowBuf dataBuf = dataBuffers.get(i);
+        // calculate sizes for variadic size buffer
+        variadicSizeBuffer.setLong((long) i * Long.BYTES, dataBuf.writerIndex());
         exportBuffer(dataBuf, buffers, buffersPtr, nullValue, true);
-      }
-      // calculate sizes for variadic size buffer
-      for (int i = 0; i < valueCount; i++) {
-        int length = getValueLength(i);
-        if (length > 12) {
-          final int bufIndex =
-              viewBuffer.getInt(((long) i * ELEMENT_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH);
-          long variadicSizeBufIndex = (long) bufIndex * Long.BYTES;
-          long currentBufLength = variadicSizeBuffer.getLong(variadicSizeBufIndex);
-          variadicSizeBuffer.setLong(variadicSizeBufIndex, currentBufLength + length);
-        }
       }
       // export variadic size buffer
       exportBuffer(variadicSizeBuffer, buffers, buffersPtr, nullValue, false);

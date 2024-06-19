@@ -85,13 +85,13 @@ public class TypeLayout {
                     throw new UnsupportedOperationException(
                         "Unsupported Union Mode: " + type.getMode());
                 }
-                return new TypeLayout(vectors, true);
+                return new TypeLayout(vectors);
               }
 
               @Override
               public TypeLayout visit(Struct type) {
                 List<BufferLayout> vectors = asList(BufferLayout.validityVector());
-                return new TypeLayout(vectors, true);
+                return new TypeLayout(vectors);
               }
 
               @Override
@@ -103,7 +103,7 @@ public class TypeLayout {
               public TypeLayout visit(ArrowType.List type) {
                 List<BufferLayout> vectors =
                     asList(BufferLayout.validityVector(), BufferLayout.offsetBuffer());
-                return new TypeLayout(vectors, true);
+                return new TypeLayout(vectors);
               }
 
               @Override
@@ -113,27 +113,27 @@ public class TypeLayout {
                         BufferLayout.validityVector(),
                         BufferLayout.offsetBuffer(),
                         BufferLayout.sizeBuffer());
-                return new TypeLayout(vectors, true);
+                return new TypeLayout(vectors);
               }
 
               @Override
               public TypeLayout visit(ArrowType.LargeList type) {
                 List<BufferLayout> vectors =
                     asList(BufferLayout.validityVector(), BufferLayout.largeOffsetBuffer());
-                return new TypeLayout(vectors, true);
+                return new TypeLayout(vectors);
               }
 
               @Override
               public TypeLayout visit(FixedSizeList type) {
                 List<BufferLayout> vectors = asList(BufferLayout.validityVector());
-                return new TypeLayout(vectors, true);
+                return new TypeLayout(vectors);
               }
 
               @Override
               public TypeLayout visit(Map type) {
                 List<BufferLayout> vectors =
                     asList(BufferLayout.validityVector(), BufferLayout.offsetBuffer());
-                return new TypeLayout(vectors, true);
+                return new TypeLayout(vectors);
               }
 
               @Override
@@ -223,7 +223,7 @@ public class TypeLayout {
               }
 
               private TypeLayout newPrimitiveTypeLayout(BufferLayout... vectors) {
-                return new TypeLayout(asList(vectors), true);
+                return new TypeLayout(asList(vectors));
               }
 
               public TypeLayout newFixedWidthTypeLayout(BufferLayout dataVector) {
@@ -232,7 +232,7 @@ public class TypeLayout {
 
               @Override
               public TypeLayout visit(Null type) {
-                return new TypeLayout(Collections.<BufferLayout>emptyList(), true);
+                return new TypeLayout(Collections.emptyList());
               }
 
               @Override
@@ -445,6 +445,14 @@ public class TypeLayout {
     super();
     this.bufferLayouts = Preconditions.checkNotNull(bufferLayouts);
     this.isFixedBufferCount = isFixedBufferCount;
+  }
+
+  public TypeLayout(List<BufferLayout> bufferLayouts) {
+    this(bufferLayouts, true);
+  }
+
+  public TypeLayout(BufferLayout... bufferLayouts) {
+    this(asList(bufferLayouts), true);
   }
 
   public TypeLayout(boolean isFixedBufferCount, BufferLayout... bufferLayouts) {
