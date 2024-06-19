@@ -225,10 +225,10 @@ class HashTable {
     operator bool() const { return h != kSentinel; }
   };
 
-  HashTable(MemoryPool* pool, uint64_t capacity) : entries_builder_(pool) {
+  HashTable(MemoryPool* pool, uint64_t expect_entries_count) : entries_builder_(pool) {
     DCHECK_NE(pool, nullptr);
     // Minimum of 32 elements
-    capacity = std::max<uint64_t>(capacity, 32UL);
+    auto capacity = std::max<uint64_t>(expect_entries_count << 1, 32UL);
     capacity_ = bit_util::NextPower2(capacity);
     capacity_mask_ = capacity_ - 1;
     size_ = 0;
@@ -423,14 +423,26 @@ class SwissHashTable {
   // find operations first probe the controls bytes
   // to filter candidates before matching keys
   struct GroupMeta {
-    uint8_t control_bytes[kGroupSize];
+    uint64_t control_bytes;
+
+    uint64_t MatchH2(H2 h2) const {
+      return GetZeroByteMask(control_bytes ^ (kLoBits * h2));
+    }
+
+    uint64_t MatchEmpty() const {
+      return GetZeroByteMask(control_bytes ^ kHiBits);
+    }
+
   };
   static_assert(sizeof(GroupMeta) == kGroupSize * sizeof(uint8_t));
 
-  SwissHashTable(MemoryPool* pool, uint64_t capacity)
+  SwissHashTable(MemoryPool* pool, uint64_t expect_entries_count)
       : group_builder_(pool), group_meta_builder_(pool) {
     DCHECK_NE(pool, nullptr);
-    groups_count_ = NumGroups(capacity);
+    groups_count_ = NumGroups(expect_entries_count);
+    groups_count_mask_ = groups_count_ - 1;
+    DCHECK(((groups_count_ - 1) & groups_count_) == 0);
+    DCHECK(groups_count_ * kGroupSize > expect_entries_count);
     limit_ = groups_count_ * kMaxAvgGroupLoad;
     size_ = 0;
     DCHECK_OK(UpsizeBuffer(groups_count_));
@@ -474,11 +486,47 @@ class SwissHashTable {
   // NoCompare is for when the value is known not to exist in the table
   enum CompareKind { DoCompare, NoCompare };
 
+  // GroupProbeSeq maintains the state for a probe sequence that iterates through the
+  // groups in a bucket. The sequence is a triangular progression of the form
+  //
+  //	p(i) := (i^2 + i)/2 + hash (mod mask+1)
+  //
+  // The sequence effectively outputs the indexes of *groups*. The group
+  // machinery allows us to check an entire group with minimal branching.
+  //
+  // It turns out that this probe sequence visits every group exactly once if
+  // the number of groups is a power of two, since (i^2+i)/2 is a bijection in
+  // Z/(2^m). See https://en.wikipedia.org/wiki/Quadratic_probing
+  class GroupProbeSeq {
+  public:
+    // Creates a new probe sequence using `hash` as the initial value of the
+    // sequence and `mask` (usually the capacity of the table) as the mask to
+    // apply to each value in the progression.
+    GroupProbeSeq(uint64_t hash, uint64_t group_mask) {
+      DCHECK(((group_mask + 1) & group_mask) == 0);
+      group_mask_ = group_mask;
+      offset_ = hash & group_mask;
+    }
+
+    // The offset within the table, i.e., the value `p(i)` above.
+    uint64_t Offset() const { return offset_; }
+
+    void Next() {
+      ++index_;
+      offset_ += index_;
+      offset_ &= group_mask_;
+    }
+
+  private:
+    uint64_t group_mask_;
+    uint64_t offset_;
+    uint64_t index_ = 0;
+  };
+
   Status DoInsert(Entry* entry, hash_t h, Payload payload) {
     // Ensure entry is empty before inserting
     DCHECK(!*entry);
-    h = FixHash(h);
-    entry->h = h;
+    entry->h = FixHash(h);
     entry->payload = std::move(payload);
     ++size_;
 
@@ -489,7 +537,7 @@ class SwissHashTable {
     auto group_internal_index = p.second;
     DCHECK(group_internal_index < kGroupSize);
     auto hash_pair = SplitHash(h);
-    group_metas_[group_index].control_bytes[group_internal_index] = hash_pair.second;
+    group_metas_[group_index].control_bytes |= hash_pair.second << ((7 - group_internal_index) << 3);
 
     if (ARROW_PREDICT_FALSE(NeedUpsizing())) {
       // Resize less frequently since it is expensive
@@ -506,15 +554,15 @@ class SwissHashTable {
     auto h1 = hash_pair.first;
     auto h2 = hash_pair.second;
 
-    auto group_index = ProbeStart(h1);
+    GroupProbeSeq seq(h1, groups_count_mask_);
     while (true) {
-      DCHECK(group_index < groups_count_);
+      const auto& group_meta = group_metas_[seq.Offset()];
       // probe
-      auto match_value = GroupMetaMatchH2(group_metas_[group_index], h2);
+      auto match_value = group_meta.MatchH2(h2);
       while (ARROW_PREDICT_FALSE(match_value != 0)) {
         auto group_internal_index = NextMatchGroupInternalIndex(&match_value);
         DCHECK(group_internal_index < kGroupSize);
-        auto& group = groups_[group_index];
+        auto& group = groups_[seq.Offset()];
         auto* entry = &group.entries[group_internal_index];
         if (CompareEntry<CKind, CmpFunc>(h, entry, std::forward<CmpFunc>(cmp_func))) {
           // Found
@@ -523,21 +571,16 @@ class SwissHashTable {
       }
 
       // stop probing if we see an empty slot
-      auto match_empty_value = GroupMetaMatchEmpty(group_metas_[group_index]);
+      auto match_empty_value = group_meta.MatchEmpty();
       if (ARROW_PREDICT_FALSE(match_empty_value != 0)) {
         auto group_internal_index = NextMatchGroupInternalIndex(&match_empty_value);
         DCHECK(group_internal_index < kGroupSize);
-        auto& group = groups_[group_index];
+        auto& group = groups_[seq.Offset()];
         auto* entry = &group.entries[group_internal_index];
         // Not Found
         return {entry, false};
       }
-
-      // next group
-      ++group_index;
-      if (ARROW_PREDICT_FALSE(group_index >= groups_count_)) {
-        group_index = 0;
-      }
+      seq.Next();
     }
   }
 
@@ -579,6 +622,8 @@ class SwissHashTable {
                           group_meta_builder_.FinishWithLength(old_groups_count));
 
     groups_count_ = old_groups_count << 1;
+    groups_count_mask_ = groups_count_ - 1;
+    DCHECK(((groups_count_ - 1) & groups_count_) == 0);
     limit_ = groups_count_ * kMaxAvgGroupLoad;
     size_ = 0;
     RETURN_NOT_OK(UpsizeBuffer(groups_count_));
@@ -601,36 +646,23 @@ class SwissHashTable {
     return Status::OK();
   }
 
-  // numGroups returns the minimum number of groups needed to store |n| elems.
-  uint64_t NumGroups(uint64_t n) const {
-    auto groups = (n + kMaxAvgGroupLoad - 1) / kMaxAvgGroupLoad;
-    if (groups == 0) {
-      groups = 1;
-    }
-    return groups;
+  // Converts `entries count` into the next entries count
+  uint64_t NormalizeSlotsCount(uint64_t n) const {
+    return n ? ~uint64_t{} >> arrow::bit_util::CountLeadingZeros(n) : 1;
+  }
+
+  // numGroups returns the minimum number of groups needed to store |expect_entries_count| elems.
+  uint64_t NumGroups(uint64_t expect_entries_count) const {
+    auto slots_count = (expect_entries_count + kMaxAvgGroupLoad - 1) / kMaxAvgGroupLoad * kGroupSize;
+    auto normalized_slot_count = NormalizeSlotsCount(slots_count);
+    DCHECK(((normalized_slot_count + 1) & normalized_slot_count) == 0);
+
+    auto groups_count = (normalized_slot_count >> kGroupSizeShiftWidth) + 1;
+    return groups_count;
   }
 
   std::pair<H1, H2> SplitHash(uint64_t hash_value) const {
     return {(hash_value & kH1Mask) >> 7, hash_value & kH2Mask};
-  }
-
-  uint64_t ProbeStart(H1 h1) const {
-    if (ARROW_PREDICT_TRUE(groups_count_ < std::numeric_limits<uint32_t>::max())) {
-      return FastModN(h1, groups_count_);
-    }
-    return h1 % groups_count_;
-  }
-
-  uint64_t GroupMetaMatchH2(const GroupMeta& meta, H2 h2) const {
-    auto u64_meta =
-        *reinterpret_cast<uint64_t*>(const_cast<uint8_t*>(meta.control_bytes));
-    return GetZeroByteMask(u64_meta ^ (kLoBits * h2));
-  }
-
-  uint64_t GroupMetaMatchEmpty(const GroupMeta& meta) const {
-    auto u64_meta =
-        *reinterpret_cast<uint64_t*>(const_cast<uint8_t*>(meta.control_bytes));
-    return GetZeroByteMask(u64_meta ^ kHiBits);
   }
 
   uint64_t NextMatchGroupInternalIndex(uint64_t* match_value) const {
@@ -647,9 +679,9 @@ class SwissHashTable {
   /// ANDing these two sub-expressions the result is the high bits set where the bytes in
   /// v were zero, since the high bits set due to a value greater than 0x80 in the first
   /// sub-expression are masked off by the second.
-  uint64_t GetZeroByteMask(uint64_t value) const {
+  static uint64_t GetZeroByteMask(uint64_t value) {
     // https://graphics.stanford.edu/~seander/bithacks.html##ValueInWord
-    return ((value - (0x0101010101010101)) & (~value)) & 0x8080808080808080;
+    return (value - 0x0101010101010101) & ~value & 0x8080808080808080;
   }
 
   std::pair<uint64_t, uint64_t> GetGroupIndexAndGroupInternalIndex(
@@ -660,14 +692,9 @@ class SwissHashTable {
     return {group_index, group_internal_index};
   }
 
-  // lemire.me/blog/2016/06/27/a-fast-alternative-to-the-modulo-reduction/
-  uint32_t FastModN(uint32_t x, uint32_t n) const {
-    return static_cast<uint32_t>(static_cast<uint64_t>(x) * static_cast<uint64_t>(n) >>
-                                 32);
-  }
-
   // The number of groups available in the hash table array.
   uint64_t groups_count_;
+  uint64_t groups_count_mask_;
   // The number of used slots in the hash table array.
   uint64_t size_;
   // The number of max used slots in the hash table array.
