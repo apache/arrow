@@ -28,3 +28,14 @@ def test_chunked_array_to_np():
         data.to_numpy()
 
 
+def test_tensor_to_np():
+    tensor_type = pa.fixed_shape_tensor(pa.int32(), [2, 2])
+    arr = [[1, 2, 3, 4], [10, 20, 30, 40], [100, 200, 300, 400]]
+    storage = pa.array(arr, pa.list_(pa.int32(), 4))
+    tensor_array = pa.ExtensionArray.from_storage(tensor_type, storage)
+
+    tensor = tensor_array.to_tensor()
+    msg = "Cannot return a numpy.ndarray if Numpy is not present"
+
+    with pytest.raises(ValueError, match=msg):
+        tensor.to_numpy()
