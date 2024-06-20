@@ -582,9 +582,7 @@ public class TestAceroSubstraitConsumer extends TestDataset {
     // Expression ADD: id + 2
     // Expression CONCAT: name + '-' + name
     String binarySubstraitExpressionProject =
-        "Ch4IARIaL2Z1bmN0aW9uc19hcml0aG1ldGljLnlhbWwSERoPCAEaC2FkZDppM"
-            + "zJfaTMyEhQaEggCEAEaDGNvbmNhdDp2Y2hhchoxChoaGBoEKgIQASIIGgYSBAoCEgAiBhoECgIoAhoTYWRkX3R3b190b19jb2x1"
-            + "bW5fYRpGCi0aKwgBGgRiAhABIgoaCBIGCgQSAggBIgkaBwoFYgMgLSAiChoIEgYKBBICCAEaFWNvbmNhdF9jb2x1bW5fYV9hbmR"
+        "Ch4IARIaL2Z1bmN0aW9uc19hcml0aG1ldGljLnlhbWwSERoPCAEaC2FkZDppMzJfaTMyEhQaEggCEAEaDGNvbmNhdDp2Y2hhchoxChoaGBoEKgIQASIIGgYSBAoCEgAiBhoECgIoAhoTYWRkX3R3b190b19jb2x1bW5fYRpGCi0aKwgBGgRiAhABIgoaCBIGCgQSAggBIgkaBwoFYgMgLSAiChoIEgYKBBICCAEaFWNvbmNhdF9jb2x1bW5fYV9hbmR"
             + "fYiIaCgJJRAoETkFNRRIOCgQqAhABCgRiAhABGAI=";
     ByteBuffer substraitExpressionProject = getByteBuffer(binarySubstraitExpressionProject);
     // Substrait Extended Expression: Filter:
@@ -632,7 +630,7 @@ public class TestAceroSubstraitConsumer extends TestDataset {
         assertThat(sumVector.getValueIterable(), IsIterableContainingInOrder.contains(21, 3, 13));
         final ValueIterableVector<Text> nameVector =
             (ValueIterableVector<Text>)
-                reader.getVectorSchemaRoot().getVector("conccat_column_a_and_b");
+                reader.getVectorSchemaRoot().getVector("concat_column_a_and_b");
         assertThat(
             nameVector.getValueIterable(),
             IsIterableContainingInOrder.contains(
