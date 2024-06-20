@@ -491,6 +491,44 @@ message Location {
  */
 message Ticket {
   bytes ticket = 1;
+  
+  // Data representing some part of the data retrievable by the ticket.
+  //
+  // This is an optional optimization for applications that want to reduce latency,
+  // for previewing results or retrieving small data sets by providing data
+  // without requiring a DoGet call.  Applications built on top of Flight 
+  // are responsible for any negotiation necessary on whether
+  // inlining data is appropriate.
+  //
+  // The size of inlined_data is expected to be small (typically less then 1MB) 
+  // and inlining too much data across tickets can run into underlying transport 
+  // limitations.  Furthermore, since the data is expected to be small, implementations 
+  // are less likely to optimize for zero-copy in these cases. 
+  message InlinedData { 
+    enum DataSubsetType {
+      // Indicates server is using a different version
+      // of the protos.
+      DATA_SUBSET_TYPE_UNDEFINED = 0;
+      // The data present in inlined_data represents all data
+      // present for the ticket.
+      COMPLETE_DATA = 1;
+      // The data present in inlined_data represents only a partial
+      // sample of the data available for the ticket. Applications
+      // may specify more requirements for partial data (e.g. always
+      // represents the leading n-rows of data) but are not required
+      // to do so.
+      PARTIAL_DATA = 2;
+    }
+    DataSubsetType inlined_completeness = 1;
+
+    // Arrow data for consumption.
+    //
+    // The data is not expected to contain the schema message. The schema
+    // should be identical to the schema provided on FlightInfo. 
+    repeated FlightData data = 2;
+  }
+  InlinedData inlined_data = 2;
+  
 }
 
 /*
