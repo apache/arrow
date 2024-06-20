@@ -43,12 +43,14 @@
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/async_generator.h"
+#include "arrow/util/byte_size.h"
 #include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/task_group.h"
 #include "arrow/util/thread_pool.h"
+#include "arrow/util/tracing_internal.h"
 #include "arrow/util/utf8_internal.h"
 #include "arrow/util/vector.h"
 
@@ -867,6 +869,8 @@ class StreamingReaderImpl : public ReaderMixin,
   }
 
   Future<std::shared_ptr<RecordBatch>> ReadNextAsync() override {
+    util::tracing::Span span;
+    START_SPAN(span, "arrow::csv::ReadNextAsync");
     return record_batch_gen_();
   }
 
@@ -877,6 +881,11 @@ class StreamingReaderImpl : public ReaderMixin,
     if (first_buffer == nullptr) {
       return Status::Invalid("Empty CSV file");
     }
+
+    // Create a arrow::csv::ReadNextAsync span so that grouping by that name does not
+    // ignore the work performed for this first block.
+    util::tracing::Span read_span;
+    auto scope = START_SCOPED_SPAN(read_span, "arrow::csv::ReadNextAsync");
 
     std::shared_ptr<Buffer> after_header;
     ARROW_ASSIGN_OR_RAISE(auto header_bytes_consumed,
@@ -894,9 +903,12 @@ class StreamingReaderImpl : public ReaderMixin,
     auto rb_gen = MakeMappedGenerator(std::move(parsed_block_gen), std::move(decoder_op));
 
     auto self = shared_from_this();
-    return rb_gen().Then([self, rb_gen, max_readahead](const DecodedBlock& first_block) {
+    auto init_finished = rb_gen().Then([self, rb_gen, max_readahead,
+                                        read_span = std::move(read_span)
+    ](const DecodedBlock& first_block) {
       return self->InitFromBlock(first_block, std::move(rb_gen), max_readahead, 0);
     });
+    return init_finished;
   }
 
   Future<> InitFromBlock(const DecodedBlock& block,

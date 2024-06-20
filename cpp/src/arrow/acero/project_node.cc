@@ -79,12 +79,14 @@ class ProjectNode : public MapNode {
 
   Result<ExecBatch> ProcessBatch(ExecBatch batch) override {
     std::vector<Datum> values{exprs_.size()};
+    arrow::util::tracing::Span span;
+    START_COMPUTE_SPAN(span, "Project",
+                       {{"project.length", batch.length},
+                        {"input_batch.size_bytes", batch.TotalBufferSize()}});
     for (size_t i = 0; i < exprs_.size(); ++i) {
-      arrow::util::tracing::Span span;
-      START_COMPUTE_SPAN(span, "Project",
-                         {{"project.type", exprs_[i].type()->ToString()},
-                          {"project.length", batch.length},
-                          {"project.expression", exprs_[i].ToString()}});
+      std::string project_name = "project[" + std::to_string(i) + "]";
+      ATTRIBUTE_ON_CURRENT_SPAN(project_name + ".type", exprs_[i].type()->ToString());
+      ATTRIBUTE_ON_CURRENT_SPAN(project_name + ".expression", exprs_[i].ToString());
       ARROW_ASSIGN_OR_RAISE(Expression simplified_expr,
                             SimplifyWithGuarantee(exprs_[i], batch.guarantee));
 
@@ -92,6 +94,7 @@ class ProjectNode : public MapNode {
           values[i], ExecuteScalarExpression(simplified_expr, batch,
                                              plan()->query_context()->exec_context()));
     }
+    ATTRIBUTE_ON_CURRENT_SPAN("output_batch.size_bytes", batch.TotalBufferSize());
     return ExecBatch{std::move(values), batch.length};
   }
 
