@@ -41,3 +41,16 @@ def test_buffer_device():
     assert buf.device.is_cpu
     assert buf.device == pa.default_cpu_memory_manager().device
     assert buf.memory_manager.is_cpu
+
+
+def test_copy_to():
+    mm = pa.default_cpu_memory_manager()
+    arr = pa.array([0, 1, 2])
+    arr_copied = arr.copy_to(mm)
+    assert arr.equals(arr_copied)
+    assert arr.buffers()[1].address != arr_copied.buffers()[1].address
+
+    batch = pa.record_batch({"col": arr})
+    batch_copied = batch.copy_to(mm)
+    assert batch.equals(batch_copied)
+    assert arr.buffers()[1].address != batch_copied["col"].buffers()[1].address
