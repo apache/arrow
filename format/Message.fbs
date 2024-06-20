@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+include "ColumnBag.fbs";
 include "Schema.fbs";
 include "SparseTensor.fbs";
 include "Tensor.fbs";
@@ -24,23 +25,6 @@ namespace org.apache.arrow.flatbuf;
 /// ----------------------------------------------------------------------
 /// Data structures for describing a table row batch (a collection of
 /// equal-length Arrow arrays)
-
-/// Metadata about a field at some level of a nested type tree (but not
-/// its children).
-///
-/// For example, a List<Int16> with values `[[1, 2, 3], null, [4], [5, 6], null]`
-/// would have {length: 5, null_count: 2} for its List node, and {length: 6,
-/// null_count: 0} for its Int16 node, as separate FieldNode structs
-struct FieldNode {
-  /// The number of value slots in the Arrow array at this level of a nested
-  /// tree
-  length: long;
-
-  /// The number of observed nulls. Fields with null_count == 0 may choose not
-  /// to write their physical validity bitmap out as a materialized buffer,
-  /// instead setting the length of the bitmap buffer to 0.
-  null_count: long;
-}
 
 enum CompressionType:byte {
   // LZ4 frame format, for portability, as provided by lz4frame.h or wrappers
@@ -144,7 +128,7 @@ table DictionaryBatch {
 /// which may include experimental metadata types. For maximum compatibility,
 /// it is best to send data using RecordBatch
 union MessageHeader {
-  Schema, DictionaryBatch, RecordBatch, Tensor, SparseTensor
+  Schema, DictionaryBatch, RecordBatch, Tensor, SparseTensor, ColumnBag
 }
 
 table Message {
