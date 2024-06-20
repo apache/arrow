@@ -239,6 +239,10 @@ def test_named_table(use_threads):
     assert res_tb == test_table_1
 
 
+# TODO GH-37235 Properly handle the following warning:
+# "PytestUnraisableExceptionWarning: Exception ignored in:
+# 'pyarrow._substrait._create_named_table_provider'"
+@pytest.mark.filterwarnings("ignore:Exception ignored")
 def test_named_table_invalid_table_name():
     test_table_1 = pa.Table.from_pydict({"x": [1, 2, 3]})
 
