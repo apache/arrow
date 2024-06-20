@@ -29,15 +29,10 @@ disp("Toolbox Folder: " + toolboxFolder);
 disp("Output Folder: " + outputFolder);
 disp("Toolbox Version Raw: " + toolboxVersionRaw);
 
-
-% Note: This string processing heuristic may not be robust to future
-% changes in the Arrow versioning scheme.
-dotIdx = strfind(toolboxVersionRaw, ".");
-numDots = numel(dotIdx);
-if numDots >= 3
-    toolboxVersion = extractBefore(toolboxVersionRaw, dotIdx(3));
-else
-    toolboxVersion = toolboxVersionRaw;
+versionPattern = regexpPattern("^[0-9]+\.[0-9]+\.[0-9]+");
+toolboxVersion = extract(toolboxVersionRaw, versionPattern);
+if isempty(toolboxVersion)
+    error("Unable to extract MAJOR.MINOR.PATCH version string from " + toolboxVersionRaw);
 end
 
 disp("Toolbox Version:" + toolboxVersion);
@@ -55,11 +50,20 @@ opts.SupportedPlatforms.Maci64 = true;
 opts.SupportedPlatforms.Glnxa64 = true;
 opts.SupportedPlatforms.MatlabOnline = true;
 
-% Interface is only qualified against R2023a at the moment
-opts.MinimumMatlabRelease = "R2023a";
-opts.MaximumMatlabRelease = "R2023a";
+% MEX files use run-time libraries shipped with MATLAB (e.g. libmx, libmex,
+% etc.). MEX files linked against earlier versions of MALTAB run-time libraries
+% will most likely work on newer versions of MATLAB. However, this may not
+% always be the case.
+% 
+% For now, set the earliest and latest compatible releases of MATLAB to 
+% the release of MATLAB used to build and package the MATLAB Arrow Interface.
+% 
+% See: https://www.mathworks.com/help/matlab/matlab_external/version-compatibility.html
+currentRelease = matlabRelease.Release;
+opts.MinimumMatlabRelease = currentRelease;
+opts.MaximumMatlabRelease = currentRelease;
 
-opts.OutputFile = fullfile(outputFolder, compose("matlab-arrow-%s.mltbx", toolboxVersionRaw));
+opts.OutputFile = fullfile(outputFolder, compose("matlab-arrow-%s.mltbx", toolboxVersion));
 disp("Output File: " + opts.OutputFile);
 matlab.addons.toolbox.packageToolbox(opts);
 

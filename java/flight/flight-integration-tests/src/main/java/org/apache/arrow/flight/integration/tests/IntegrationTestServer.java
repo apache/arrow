@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.integration.tests;
 
 import org.apache.arrow.flight.FlightServer;
@@ -28,11 +27,10 @@ import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 
-/**
- * Flight server for integration testing.
- */
+/** Flight server for integration testing. */
 class IntegrationTestServer {
-  private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(IntegrationTestServer.class);
+  private static final org.slf4j.Logger LOGGER =
+      org.slf4j.LoggerFactory.getLogger(IntegrationTestServer.class);
   private final Options options;
 
   private IntegrationTestServer() {
@@ -48,7 +46,8 @@ class IntegrationTestServer {
     final Location location = Location.forGrpcInsecure("localhost", port);
 
     final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-    final FlightServer.Builder builder = FlightServer.builder().allocator(allocator).location(location);
+    final FlightServer.Builder builder =
+        FlightServer.builder().allocator(allocator).location(location);
 
     final FlightServer server;
     if (cmd.hasOption("scenario")) {
@@ -64,14 +63,17 @@ class IntegrationTestServer {
     // Print out message for integration test script
     System.out.println("Server listening on localhost:" + server.getPort());
 
-    Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-      try {
-        System.out.println("\nExiting...");
-        AutoCloseables.close(server, allocator);
-      } catch (Exception e) {
-        e.printStackTrace();
-      }
-    }));
+    Runtime.getRuntime()
+        .addShutdownHook(
+            new Thread(
+                () -> {
+                  try {
+                    System.out.println("\nExiting...");
+                    AutoCloseables.close(server, allocator);
+                  } catch (Exception e) {
+                    e.printStackTrace();
+                  }
+                }));
 
     server.awaitTermination();
   }
@@ -92,5 +94,4 @@ class IntegrationTestServer {
     LOGGER.error(message, e);
     System.exit(1);
   }
-
 }

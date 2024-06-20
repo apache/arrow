@@ -392,7 +392,7 @@ class TestGeneric : public ::testing::Test, public GenericFileSystemTest {
   bool allow_move_dir() const override { return false; }
   bool allow_move_file() const override { return true; }
   bool allow_append_to_file() const override { return true; }
-  bool have_directory_mtimes() const override { return false; }
+  bool have_directory_mtimes() const override { return true; }
   bool have_flaky_directory_tree_deletion() const override { return false; }
   bool have_file_metadata() const override { return true; }
   // calloc() used in libxml2's xmlNewGlobalState() is detected as a
@@ -429,6 +429,8 @@ class TestAzuriteGeneric : public TestGeneric {
  protected:
   // Azurite doesn't support moving files over containers.
   bool allow_move_file() const override { return false; }
+  // Azurite doesn't support directory mtime.
+  bool have_directory_mtimes() const override { return false; }
   // DeleteDir() doesn't work with Azurite on macOS
   bool have_flaky_directory_tree_deletion() const override {
     return env_->HasSubmitBatchBug();
@@ -449,6 +451,8 @@ class TestAzureFlatNSGeneric : public TestGeneric {
  protected:
   // Flat namespace account doesn't support moving files over containers.
   bool allow_move_file() const override { return false; }
+  // Flat namespace account doesn't support directory mtime.
+  bool have_directory_mtimes() const override { return false; }
 };
 
 class TestAzureHierarchicalNSGeneric : public TestGeneric {
@@ -517,10 +521,24 @@ TEST(AzureFileSystem, InitializeWithManagedIdentityCredential) {
   EXPECT_OK_AND_ASSIGN(fs, AzureFileSystem::Make(options));
 }
 
+TEST(AzureFileSystem, InitializeWithCLICredential) {
+  AzureOptions options;
+  options.account_name = "dummy-account-name";
+  ARROW_EXPECT_OK(options.ConfigureCLICredential());
+  EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
+}
+
 TEST(AzureFileSystem, InitializeWithWorkloadIdentityCredential) {
   AzureOptions options;
   options.account_name = "dummy-account-name";
   ARROW_EXPECT_OK(options.ConfigureWorkloadIdentityCredential());
+  EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
+}
+
+TEST(AzureFileSystem, InitializeWithEnvironmentCredential) {
+  AzureOptions options;
+  options.account_name = "dummy-account-name";
+  ARROW_EXPECT_OK(options.ConfigureEnvironmentCredential());
   EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
 }
 
@@ -656,6 +674,15 @@ class TestAzureOptions : public ::testing::Test {
     ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kManagedIdentity);
   }
 
+  void TestFromUriCredentialCLI() {
+    ASSERT_OK_AND_ASSIGN(
+        auto options,
+        AzureOptions::FromUri("abfs://account.blob.core.windows.net/container/dir/blob?"
+                              "credential_kind=cli",
+                              nullptr));
+    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kCLI);
+  }
+
   void TestFromUriCredentialWorkloadIdentity() {
     ASSERT_OK_AND_ASSIGN(
         auto options,
@@ -663,6 +690,15 @@ class TestAzureOptions : public ::testing::Test {
                               "credential_kind=workload_identity",
                               nullptr));
     ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kWorkloadIdentity);
+  }
+
+  void TestFromUriCredentialEnvironment() {
+    ASSERT_OK_AND_ASSIGN(
+        auto options,
+        AzureOptions::FromUri("abfs://account.blob.core.windows.net/container/dir/blob?"
+                              "credential_kind=environment",
+                              nullptr));
+    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kEnvironment);
   }
 
   void TestFromUriCredentialInvalid() {
@@ -695,6 +731,38 @@ class TestAzureOptions : public ::testing::Test {
                                "unknown=invalid",
                                nullptr));
   }
+
+  void TestMakeBlobServiceClientInvalidAccountName() {
+    AzureOptions options;
+    ASSERT_RAISES_WITH_MESSAGE(
+        Invalid, "Invalid: AzureOptions doesn't contain a valid account name",
+        options.MakeBlobServiceClient());
+  }
+
+  void TestMakeBlobServiceClientInvalidBlobStorageScheme() {
+    AzureOptions options;
+    options.account_name = "user";
+    options.blob_storage_scheme = "abfs";
+    ASSERT_RAISES_WITH_MESSAGE(
+        Invalid, "Invalid: AzureOptions::blob_storage_scheme must be http or https: abfs",
+        options.MakeBlobServiceClient());
+  }
+
+  void TestMakeDataLakeServiceClientInvalidAccountName() {
+    AzureOptions options;
+    ASSERT_RAISES_WITH_MESSAGE(
+        Invalid, "Invalid: AzureOptions doesn't contain a valid account name",
+        options.MakeDataLakeServiceClient());
+  }
+
+  void TestMakeDataLakeServiceClientInvalidDfsStorageScheme() {
+    AzureOptions options;
+    options.account_name = "user";
+    options.dfs_storage_scheme = "abfs";
+    ASSERT_RAISES_WITH_MESSAGE(
+        Invalid, "Invalid: AzureOptions::dfs_storage_scheme must be http or https: abfs",
+        options.MakeDataLakeServiceClient());
+  }
 };
 
 TEST_F(TestAzureOptions, FromUriBlobStorage) { TestFromUriBlobStorage(); }
@@ -713,8 +781,12 @@ TEST_F(TestAzureOptions, FromUriCredentialClientSecret) {
 TEST_F(TestAzureOptions, FromUriCredentialManagedIdentity) {
   TestFromUriCredentialManagedIdentity();
 }
+TEST_F(TestAzureOptions, FromUriCredentialCLI) { TestFromUriCredentialCLI(); }
 TEST_F(TestAzureOptions, FromUriCredentialWorkloadIdentity) {
   TestFromUriCredentialWorkloadIdentity();
+}
+TEST_F(TestAzureOptions, FromUriCredentialEnvironment) {
+  TestFromUriCredentialEnvironment();
 }
 TEST_F(TestAzureOptions, FromUriCredentialInvalid) { TestFromUriCredentialInvalid(); }
 TEST_F(TestAzureOptions, FromUriBlobStorageAuthority) {
@@ -723,6 +795,18 @@ TEST_F(TestAzureOptions, FromUriBlobStorageAuthority) {
 TEST_F(TestAzureOptions, FromUriDfsStorageAuthority) { TestFromUriDfsStorageAuthority(); }
 TEST_F(TestAzureOptions, FromUriInvalidQueryParameter) {
   TestFromUriInvalidQueryParameter();
+}
+TEST_F(TestAzureOptions, MakeBlobServiceClientInvalidAccountName) {
+  TestMakeBlobServiceClientInvalidAccountName();
+}
+TEST_F(TestAzureOptions, MakeBlobServiceClientInvalidBlobStorageScheme) {
+  TestMakeBlobServiceClientInvalidBlobStorageScheme();
+}
+TEST_F(TestAzureOptions, MakeDataLakeServiceClientInvalidAccountName) {
+  TestMakeDataLakeServiceClientInvalidAccountName();
+}
+TEST_F(TestAzureOptions, MakeDataLakeServiceClientInvalidDfsStorageScheme) {
+  TestMakeDataLakeServiceClientInvalidDfsStorageScheme();
 }
 
 class TestAzureFileSystem : public ::testing::Test {

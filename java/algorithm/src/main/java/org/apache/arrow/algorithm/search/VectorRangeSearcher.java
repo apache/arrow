@@ -14,25 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.algorithm.search;
 
 import org.apache.arrow.algorithm.sort.VectorValueComparator;
 import org.apache.arrow.vector.ValueVector;
 
-/**
- * Search for the range of a particular element in the target vector.
- */
+/** Search for the range of a particular element in the target vector. */
 public class VectorRangeSearcher {
 
-  /**
-   * Result returned when a search fails.
-   */
+  /** Result returned when a search fails. */
   public static final int SEARCH_FAIL_RESULT = -1;
 
   /**
-   * Search for the first occurrence of an element.
-   * The search is based on the binary search algorithm. So the target vector must be sorted.
+   * Search for the first occurrence of an element. The search is based on the binary search
+   * algorithm. So the target vector must be sorted.
+   *
    * @param targetVector the vector from which to perform the search.
    * @param comparator the criterion for the comparison.
    * @param keyVector the vector containing the element to search.
@@ -41,7 +37,7 @@ public class VectorRangeSearcher {
    * @return the index of the first matched element if any, and -1 otherwise.
    */
   public static <V extends ValueVector> int getFirstMatch(
-          V targetVector, VectorValueComparator<V> comparator, V keyVector, int keyIndex) {
+      V targetVector, VectorValueComparator<V> comparator, V keyVector, int keyIndex) {
     comparator.attachVectors(keyVector, targetVector);
 
     int ret = SEARCH_FAIL_RESULT;
@@ -69,8 +65,9 @@ public class VectorRangeSearcher {
   }
 
   /**
-   * Search for the last occurrence of an element.
-   * The search is based on the binary search algorithm. So the target vector must be sorted.
+   * Search for the last occurrence of an element. The search is based on the binary search
+   * algorithm. So the target vector must be sorted.
+   *
    * @param targetVector the vector from which to perform the search.
    * @param comparator the criterion for the comparison.
    * @param keyVector the vector containing the element to search.
@@ -79,7 +76,7 @@ public class VectorRangeSearcher {
    * @return the index of the last matched element if any, and -1 otherwise.
    */
   public static <V extends ValueVector> int getLastMatch(
-          V targetVector, VectorValueComparator<V> comparator, V keyVector, int keyIndex) {
+      V targetVector, VectorValueComparator<V> comparator, V keyVector, int keyIndex) {
     comparator.attachVectors(keyVector, targetVector);
 
     int ret = SEARCH_FAIL_RESULT;

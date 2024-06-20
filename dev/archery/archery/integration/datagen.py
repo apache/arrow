@@ -1928,17 +1928,20 @@ def get_generated_json_files(tempdir=None):
         .skip_tester('C#')
         .skip_tester('Java')
         .skip_tester('JS')
+        .skip_tester('nanoarrow')
         .skip_tester('Rust'),
 
         generate_binary_view_case()
         .skip_tester('Java')
         .skip_tester('JS')
+        .skip_tester('nanoarrow')
         .skip_tester('Rust'),
 
         generate_list_view_case()
         .skip_tester('C#')     # Doesn't support large list views
         .skip_tester('Java')
         .skip_tester('JS')
+        .skip_tester('nanoarrow')
         .skip_tester('Rust'),
 
         generate_extension_case()

@@ -442,12 +442,12 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
   constexpr static int32_t kDataPageBitWidthBytes = 1;
 
   explicit DictEncoderImpl(const ColumnDescriptor* desc, MemoryPool* pool)
-      : EncoderImpl(desc, Encoding::PLAIN_DICTIONARY, pool),
+      : EncoderImpl(desc, Encoding::RLE_DICTIONARY, pool),
         buffered_indices_(::arrow::stl::allocator<int32_t>(pool)),
         dict_encoded_size_(0),
         memo_table_(pool, kInitialHashTableSize) {}
 
-  ~DictEncoderImpl() = default;
+  ~DictEncoderImpl() override = default;
 
   int dict_encoded_size() const override { return dict_encoded_size_; }
 
@@ -551,7 +551,7 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
     int result_size = WriteIndices(buffer->mutable_data(),
                                    static_cast<int>(EstimatedDataEncodedSize()));
     PARQUET_THROW_NOT_OK(buffer->Resize(result_size, false));
-    return std::move(buffer);
+    return buffer;
   }
 
   /// Writes out the encoded dictionary to buffer. buffer must be preallocated to
@@ -2740,13 +2740,12 @@ class DeltaLengthByteArrayEncoder : public EncoderImpl,
       : EncoderImpl(descr, Encoding::DELTA_LENGTH_BYTE_ARRAY,
                     pool = ::arrow::default_memory_pool()),
         sink_(pool),
-        length_encoder_(nullptr, pool),
-        encoded_size_{0} {}
+        length_encoder_(nullptr, pool) {}
 
   std::shared_ptr<Buffer> FlushValues() override;
 
   int64_t EstimatedDataEncodedSize() override {
-    return encoded_size_ + length_encoder_.EstimatedDataEncodedSize();
+    return sink_.length() + length_encoder_.EstimatedDataEncodedSize();
   }
 
   using TypedEncoder<ByteArrayType>::Put;
@@ -2768,6 +2767,11 @@ class DeltaLengthByteArrayEncoder : public EncoderImpl,
             return Status::Invalid(
                 "Parquet cannot store strings with size 2GB or more, got: ", view.size());
           }
+          if (ARROW_PREDICT_FALSE(
+                  view.size() + sink_.length() >
+                  static_cast<size_t>(std::numeric_limits<int32_t>::max()))) {
+            return Status::Invalid("excess expansion in DELTA_LENGTH_BYTE_ARRAY");
+          }
           length_encoder_.Put({static_cast<int32_t>(view.length())}, 1);
           PARQUET_THROW_NOT_OK(sink_.Append(view.data(), view.length()));
           return Status::OK();
@@ -2777,7 +2781,6 @@ class DeltaLengthByteArrayEncoder : public EncoderImpl,
 
   ::arrow::BufferBuilder sink_;
   DeltaBitPackEncoder<Int32Type> length_encoder_;
-  uint32_t encoded_size_;
 };
 
 template <typename DType>
@@ -2803,15 +2806,15 @@ void DeltaLengthByteArrayEncoder<DType>::Put(const T* src, int num_values) {
     const int batch_size = std::min(kBatchSize, num_values - idx);
     for (int j = 0; j < batch_size; ++j) {
       const int32_t len = src[idx + j].len;
-      if (AddWithOverflow(total_increment_size, len, &total_increment_size)) {
+      if (ARROW_PREDICT_FALSE(
+              AddWithOverflow(total_increment_size, len, &total_increment_size))) {
         throw ParquetException("excess expansion in DELTA_LENGTH_BYTE_ARRAY");
       }
       lengths[j] = len;
     }
     length_encoder_.Put(lengths.data(), batch_size);
   }
-
-  if (AddWithOverflow(encoded_size_, total_increment_size, &encoded_size_)) {
+  if (sink_.length() + total_increment_size > std::numeric_limits<int32_t>::max()) {
     throw ParquetException("excess expansion in DELTA_LENGTH_BYTE_ARRAY");
   }
   PARQUET_THROW_NOT_OK(sink_.Reserve(total_increment_size));
@@ -2850,7 +2853,6 @@ std::shared_ptr<Buffer> DeltaLengthByteArrayEncoder<DType>::FlushValues() {
 
   std::shared_ptr<Buffer> buffer;
   PARQUET_THROW_NOT_OK(sink_.Finish(&buffer, true));
-  encoded_size_ = 0;
   return buffer;
 }
 
@@ -3694,12 +3696,24 @@ class ByteStreamSplitDecoderBase : public DecoderImpl,
   ByteStreamSplitDecoderBase(const ColumnDescriptor* descr, int byte_width)
       : DecoderImpl(descr, Encoding::BYTE_STREAM_SPLIT), byte_width_(byte_width) {}
 
-  void SetData(int num_values, const uint8_t* data, int len) override {
-    if (static_cast<int64_t>(num_values) * byte_width_ != len) {
-      throw ParquetException("Data size (" + std::to_string(len) +
-                             ") does not match number of values in BYTE_STREAM_SPLIT (" +
-                             std::to_string(num_values) + ")");
+  void SetData(int num_values, const uint8_t* data, int len) final {
+    // Check that the data size is consistent with the number of values
+    // The spec requires that the data size is a multiple of the number of values,
+    // see: https://github.com/apache/parquet-format/pull/192 .
+    // GH-41562: passed in `num_values` may include nulls, so we need to check and
+    // adjust the number of values.
+    if (static_cast<int64_t>(num_values) * byte_width_ < len) {
+      throw ParquetException(
+          "Data size (" + std::to_string(len) +
+          ") is too small for the number of values in in BYTE_STREAM_SPLIT (" +
+          std::to_string(num_values) + ")");
     }
+    if (len % byte_width_ != 0) {
+      throw ParquetException("ByteStreamSplit data size " + std::to_string(len) +
+                             " not aligned with type " + TypeToString(DType::type_num) +
+                             " and byte_width: " + std::to_string(byte_width_));
+    }
+    num_values = len / byte_width_;
     DecoderImpl::SetData(num_values, data, len);
     stride_ = num_values_;
   }

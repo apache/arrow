@@ -14,12 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.ipc.message;
 
-import org.apache.arrow.flatbuf.Block;
-
 import com.google.flatbuffers.FlatBufferBuilder;
+import org.apache.arrow.flatbuf.Block;
 
 /** Metadata for an arrow message in a channel. */
 public class ArrowBlock implements FBSerializable {
@@ -32,7 +30,7 @@ public class ArrowBlock implements FBSerializable {
    * Constructs a new instance.
    *
    * @param offset The offset into the channel file where the block was written.
-   * @param metadataLength  The length of the flatbuffer metadata in the block.
+   * @param metadataLength The length of the flatbuffer metadata in the block.
    * @param bodyLength The length of data in the block.
    */
   public ArrowBlock(long offset, int metadataLength, long bodyLength) {

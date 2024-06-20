@@ -15,14 +15,40 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { DateDay, DateMillisecond, TimestampMillisecond, RecordBatchReader, Table, vectorFromArray } from 'apache-arrow';
+import {
+    DateDay, TimestampSecond, DateMillisecond, TimestampMillisecond, TimestampMicrosecond, TimestampNanosecond, RecordBatchReader,
+    Table, vectorFromArray
+} from 'apache-arrow';
 
 describe(`TimestampVector`, () => {
     test(`Dates are stored in TimestampMillisecond`, () => {
         const date = new Date('2023-02-01T12:34:56Z');
         const vec = vectorFromArray([date]);
         expect(vec.type).toBeInstanceOf(TimestampMillisecond);
-        expect(vec.get(0)).toBe(date.valueOf());
+        expect(vec.get(0)).toBe(date.getTime());
+    });
+
+    test(`Correctly get back TimestampSecond from Date`, () => {
+        const date = new Date('2023-02-01T12:34:56Z');
+        const vec = vectorFromArray([date], new TimestampSecond);
+        expect(vec.type).toBeInstanceOf(TimestampSecond);
+        expect(vec.get(0)).toBe(date.getTime());
+    });
+
+    test(`Correctly get back TimestampMicrosecond from Date`, () => {
+        const date = new Date('2023-02-01T12:34:56Z');
+        const vec = vectorFromArray([date, 0.5], new TimestampMicrosecond);
+        expect(vec.type).toBeInstanceOf(TimestampMicrosecond);
+        expect(vec.get(0)).toBe(date.getTime());
+        expect(vec.get(1)).toBe(0.5);
+    });
+
+    test(`Correctly get back TimestampNanosecond from Date`, () => {
+        const date = new Date('2023-02-01T12:34:56Z');
+        const vec = vectorFromArray([date, 0.5], new TimestampNanosecond);
+        expect(vec.type).toBeInstanceOf(TimestampNanosecond);
+        expect(vec.get(0)).toBe(date.getTime());
+        expect(vec.get(1)).toBe(0.5);
     });
 });
 
@@ -33,7 +59,7 @@ describe(`DateVector`, () => {
         const date32 = table.getChildAt<DateDay>(0)!;
         for (const date of date32) {
             const millis = expectedMillis.shift();
-            expect(date).toEqual(millis === null ? null : new Date(millis!));
+            expect(date).toEqual(millis);
         }
     });
 
@@ -43,7 +69,7 @@ describe(`DateVector`, () => {
         const date64 = table.getChildAt<DateMillisecond>(1)!;
         for (const date of date64) {
             const millis = expectedMillis.shift();
-            expect(date).toEqual(millis === null ? null : new Date(millis!));
+            expect(date).toEqual(millis);
         }
     });
 
@@ -51,7 +77,7 @@ describe(`DateVector`, () => {
         const dates = [new Date(1950, 1, 0)];
         const vec = vectorFromArray(dates, new DateMillisecond());
         for (const date of vec) {
-            expect(date).toEqual(dates.shift());
+            expect(date).toEqual(dates.shift()?.getTime());
         }
     });
 });

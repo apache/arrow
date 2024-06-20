@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.table;
 
 import static org.apache.arrow.vector.table.TestUtils.INT_VECTOR_NAME_1;
@@ -26,7 +25,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.FieldVector;
@@ -100,7 +98,8 @@ class TableTest {
   }
 
   /**
-   * Tests construction with an iterable that's not a list (there is a specialty constructor for Lists).
+   * Tests construction with an iterable that's not a list (there is a specialty constructor for
+   * Lists).
    */
   @Test
   void constructor2() {
@@ -133,7 +132,7 @@ class TableTest {
     try (Table t = new Table(vectorList)) {
       assertEquals(2, t.getVectorCount());
       try (Table copy = t.copy()) {
-        for (FieldVector v: t.fieldVectors) {
+        for (FieldVector v : t.fieldVectors) {
           FieldVector vCopy = copy.getVector(v.getName());
           assertNotNull(vCopy);
           assertEquals(v.getValueCount(), vCopy.getValueCount());

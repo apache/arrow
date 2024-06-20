@@ -14,13 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.integration.tests;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightEndpoint;
@@ -45,22 +43,26 @@ final class ExpirationTimeDoGetScenario implements Scenario {
   }
 
   @Override
-  public void buildServer(FlightServer.Builder builder) {
-  }
+  public void buildServer(FlightServer.Builder builder) {}
 
   @Override
-  public void client(BufferAllocator allocator, Location location, FlightClient client) throws Exception {
-    FlightInfo info = client.getInfo(FlightDescriptor.command("expiration_time".getBytes(StandardCharsets.UTF_8)));
+  public void client(BufferAllocator allocator, Location location, FlightClient client)
+      throws Exception {
+    FlightInfo info =
+        client.getInfo(
+            FlightDescriptor.command("expiration_time".getBytes(StandardCharsets.UTF_8)));
 
     List<ArrowRecordBatch> batches = new ArrayList<>();
 
     try {
       for (FlightEndpoint endpoint : info.getEndpoints()) {
         if (batches.size() == 0) {
-          IntegrationAssertions.assertFalse("endpoints[0] must not have expiration time",
+          IntegrationAssertions.assertFalse(
+              "endpoints[0] must not have expiration time",
               endpoint.getExpirationTime().isPresent());
         } else {
-          IntegrationAssertions.assertTrue("endpoints[" + batches.size() + "] must have expiration time",
+          IntegrationAssertions.assertTrue(
+              "endpoints[" + batches.size() + "] must have expiration time",
               endpoint.getExpirationTime().isPresent());
         }
         try (FlightStream stream = client.getStream(endpoint.getTicket())) {
@@ -72,7 +74,8 @@ final class ExpirationTimeDoGetScenario implements Scenario {
 
       // Check data
       IntegrationAssertions.assertEquals(3, batches.size());
-      try (final VectorSchemaRoot root = VectorSchemaRoot.create(ExpirationTimeProducer.SCHEMA, allocator)) {
+      try (final VectorSchemaRoot root =
+          VectorSchemaRoot.create(ExpirationTimeProducer.SCHEMA, allocator)) {
         final VectorLoader loader = new VectorLoader(root);
 
         loader.load(batches.get(0));

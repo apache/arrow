@@ -14,20 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc.utils;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.util.HashMap;
 import java.util.Map;
-/**
- * URL Parser for extracting key values from a connection string.
- */
 
+/** URL Parser for extracting key values from a connection string. */
 public final class UrlParser {
-  private UrlParser() {
-  }
+  private UrlParser() {}
 
   /**
    * Parse URL key value parameters.
@@ -45,8 +41,10 @@ public final class UrlParser {
 
       for (String keyValue : keyValues) {
         try {
-          int separatorKey = keyValue.indexOf("="); // Find the first equal sign to split key and value.
-          if (separatorKey != -1) { // Avoid crashes when not finding an equal sign in the property value.
+          int separatorKey =
+              keyValue.indexOf("="); // Find the first equal sign to split key and value.
+          if (separatorKey
+              != -1) { // Avoid crashes when not finding an equal sign in the property value.
             String key = keyValue.substring(0, separatorKey);
             key = URLDecoder.decode(key, "UTF-8");
             String value = "";

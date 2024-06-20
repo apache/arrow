@@ -14,13 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight;
 
 import org.apache.arrow.flight.FlightProducer.StreamListener;
 
 /**
  * A {@link StreamListener} that does nothing for all callbacks.
+ *
  * @param <T> The type of the callback object.
  */
 public class NoOpStreamListener<T> implements StreamListener<T> {
@@ -28,18 +28,15 @@ public class NoOpStreamListener<T> implements StreamListener<T> {
 
   /** Ignores the value received. */
   @Override
-  public void onNext(T val) {
-  }
+  public void onNext(T val) {}
 
   /** Ignores the error received. */
   @Override
-  public void onError(Throwable t) {
-  }
+  public void onError(Throwable t) {}
 
   /** Ignores the stream completion event. */
   @Override
-  public void onCompleted() {
-  }
+  public void onCompleted() {}
 
   @SuppressWarnings("unchecked")
   public static <T> StreamListener<T> getInstance() {

@@ -14,19 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.grpc;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.lang.reflect.Field;
-
-import org.apache.arrow.memory.ArrowBuf;
 
 import com.google.common.base.Throwables;
 import com.google.common.io.ByteStreams;
-
 import io.grpc.internal.ReadableBuffer;
+import java.io.IOException;
+import java.io.InputStream;
+import java.lang.reflect.Field;
+import org.apache.arrow.memory.ArrowBuf;
 
 /**
  * Enable access to ReadableBuffer directly to copy data from a BufferInputStream into a target
@@ -51,7 +47,8 @@ public class GetReadableBuffer {
       tmpField = f;
       tmpClazz = clazz;
     } catch (Exception e) {
-      new RuntimeException("Failed to initialize GetReadableBuffer, falling back to slow path", e).printStackTrace();
+      new RuntimeException("Failed to initialize GetReadableBuffer, falling back to slow path", e)
+          .printStackTrace();
     }
     READABLE_BUFFER = tmpField;
     BUFFER_INPUT_STREAM = tmpClazz;
@@ -60,8 +57,8 @@ public class GetReadableBuffer {
   /**
    * Extracts the ReadableBuffer for the given input stream.
    *
-   * @param is Must be an instance of io.grpc.internal.ReadableBuffers$BufferInputStream or
-   *     null will be returned.
+   * @param is Must be an instance of io.grpc.internal.ReadableBuffers$BufferInputStream or null
+   *     will be returned.
    */
   public static ReadableBuffer getReadableBuffer(InputStream is) {
 
@@ -78,14 +75,17 @@ public class GetReadableBuffer {
 
   /**
    * Helper method to read a gRPC-provided InputStream into an ArrowBuf.
+   *
    * @param stream The stream to read from. Should be an instance of {@link #BUFFER_INPUT_STREAM}.
    * @param buf The buffer to read into.
    * @param size The number of bytes to read.
-   * @param fastPath Whether to enable the fast path (i.e. detect whether the stream is a {@link #BUFFER_INPUT_STREAM}).
+   * @param fastPath Whether to enable the fast path (i.e. detect whether the stream is a {@link
+   *     #BUFFER_INPUT_STREAM}).
    * @throws IOException if there is an error reading form the stream
    */
-  public static void readIntoBuffer(final InputStream stream, final ArrowBuf buf, final int size,
-      final boolean fastPath) throws IOException {
+  public static void readIntoBuffer(
+      final InputStream stream, final ArrowBuf buf, final int size, final boolean fastPath)
+      throws IOException {
     ReadableBuffer readableBuffer = fastPath ? getReadableBuffer(stream) : null;
     if (readableBuffer != null) {
       readableBuffer.readBytes(buf.nioBuffer(0, size));

@@ -23,7 +23,7 @@ import (
 	"math/bits"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v17/arrow"
 )
 
 func (f FieldPath) hash(h *maphash.Hash) {

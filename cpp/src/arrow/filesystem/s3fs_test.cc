@@ -614,9 +614,26 @@ class TestS3FS : public S3TestMixin {
     // after CloseAsync or synchronously after stream.reset() since we're just
     // checking that `closeAsyncFut` keeps the stream alive until completion
     // rather than segfaulting on a dangling stream
-    auto closeAsyncFut = stream->CloseAsync();
+    auto close_fut = stream->CloseAsync();
     stream.reset();
-    ASSERT_OK(closeAsyncFut.MoveResult());
+    ASSERT_OK(close_fut.MoveResult());
+    AssertObjectContents(client_.get(), "bucket", "somefile", "new data");
+  }
+
+  void TestOpenOutputStreamCloseAsyncFutureDeadlock() {
+    // This is inspired by GH-41862, though it fails to reproduce the actual
+    // issue reported there (actual preconditions might be required).
+    // Here we lose our reference to an output stream from its CloseAsync callback.
+    // This should not deadlock.
+    std::shared_ptr<io::OutputStream> stream;
+    ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("bucket/somefile"));
+    ASSERT_OK(stream->Write("new data"));
+    auto close_fut = stream->CloseAsync();
+    close_fut.AddCallback([stream = std::move(stream)](Status st) mutable {
+      // Trigger stream destruction from callback
+      stream.reset();
+    });
+    ASSERT_OK(close_fut.MoveResult());
     AssertObjectContents(client_.get(), "bucket", "somefile", "new data");
   }
 
@@ -922,8 +939,12 @@ TEST_F(TestS3FS, CreateDir) {
 
   // New "directory"
   AssertFileInfo(fs_.get(), "bucket/newdir", FileType::NotFound);
-  ASSERT_OK(fs_->CreateDir("bucket/newdir"));
+  ASSERT_OK(fs_->CreateDir("bucket/newdir", /*recursive=*/false));
   AssertFileInfo(fs_.get(), "bucket/newdir", FileType::Directory);
+
+  // By default CreateDir uses recursvie mode, make it explictly to be false
+  ASSERT_RAISES(IOError,
+                fs_->CreateDir("bucket/newdir/newsub/newsubsub", /*recursive=*/false));
 
   // New "directory", recursive
   ASSERT_OK(fs_->CreateDir("bucket/newdir/newsub/newsubsub", /*recursive=*/true));
@@ -939,6 +960,31 @@ TEST_F(TestS3FS, CreateDir) {
   // Extraneous slashes
   ASSERT_RAISES(Invalid, fs_->CreateDir("bucket//somedir"));
   ASSERT_RAISES(Invalid, fs_->CreateDir("bucket/somedir//newdir"));
+
+  // check existing before creation
+  options_.check_directory_existence_before_creation = true;
+  MakeFileSystem();
+  // New "directory" again
+  AssertFileInfo(fs_.get(), "bucket/checknewdir", FileType::NotFound);
+  ASSERT_OK(fs_->CreateDir("bucket/checknewdir"));
+  AssertFileInfo(fs_.get(), "bucket/checknewdir", FileType::Directory);
+
+  ASSERT_RAISES(IOError, fs_->CreateDir("bucket/checknewdir/newsub/newsubsub/newsubsub/",
+                                        /*recursive=*/false));
+
+  // New "directory" again, recursive
+  ASSERT_OK(fs_->CreateDir("bucket/checknewdir/newsub/newsubsub", /*recursive=*/true));
+  AssertFileInfo(fs_.get(), "bucket/checknewdir/newsub", FileType::Directory);
+  AssertFileInfo(fs_.get(), "bucket/checknewdir/newsub/newsubsub", FileType::Directory);
+  AssertFileInfo(fs_.get(), "bucket/checknewdir/newsub/newsubsub/newsubsub",
+                 FileType::NotFound);
+  // Try creation with the same name
+  ASSERT_OK(fs_->CreateDir("bucket/checknewdir/newsub/newsubsub/newsubsub/",
+                           /*recursive=*/true));
+  AssertFileInfo(fs_.get(), "bucket/checknewdir/newsub", FileType::Directory);
+  AssertFileInfo(fs_.get(), "bucket/checknewdir/newsub/newsubsub", FileType::Directory);
+  AssertFileInfo(fs_.get(), "bucket/checknewdir/newsub/newsubsub/newsubsub",
+                 FileType::Directory);
 }
 
 TEST_F(TestS3FS, DeleteFile) {
@@ -1223,6 +1269,16 @@ TEST_F(TestS3FS, OpenOutputStreamAsyncDestructorSyncWrite) {
   options_.background_writes = false;
   MakeFileSystem();
   TestOpenOutputStreamCloseAsyncDestructor();
+}
+
+TEST_F(TestS3FS, OpenOutputStreamCloseAsyncFutureDeadlockBackgroundWrites) {
+  TestOpenOutputStreamCloseAsyncFutureDeadlock();
+}
+
+TEST_F(TestS3FS, OpenOutputStreamCloseAsyncFutureDeadlockSyncWrite) {
+  options_.background_writes = false;
+  MakeFileSystem();
+  TestOpenOutputStreamCloseAsyncFutureDeadlock();
 }
 
 TEST_F(TestS3FS, OpenOutputStreamMetadata) {

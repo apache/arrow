@@ -29,7 +29,8 @@ namespace arrow {
 namespace csv {
 
 // Functionality for converting Arrow data to Comma separated value text.
-// This library supports all primitive types that can be cast to a StringArrays.
+// This library supports all primitive types that can be cast to a StringArray or
+// a LargeStringArray.
 // It applies to following formatting rules:
 //  - For non-binary types no quotes surround values.  Nulls are represented as the empty
 //  string.

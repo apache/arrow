@@ -21,7 +21,7 @@ import { Vector } from '../vector.js';
 import { Visitor } from '../visitor.js';
 import { MapRow } from '../row/map.js';
 import { StructRow, StructRowProxy } from '../row/struct.js';
-import { bigIntToNumber } from '../util/bigint.js';
+import { bigIntToNumber, divideBigInts } from '../util/bigint.js';
 import { decodeUtf8 } from '../util/utf8.js';
 import { TypeToDataType } from '../interfaces.js';
 import { uint16ToFloat64 } from '../util/math.js';
@@ -106,13 +106,6 @@ function wrapGet<T extends DataType>(fn: (data: Data<T>, _1: any) => any) {
 }
 
 /** @ignore */const epochDaysToMs = (data: Int32Array, index: number) => 86400000 * data[index];
-/** @ignore */const epochMillisecondsLongToMs = (data: Int32Array, index: number) => 4294967296 * (data[index + 1]) + (data[index] >>> 0);
-/** @ignore */const epochMicrosecondsLongToMs = (data: Int32Array, index: number) => 4294967296 * (data[index + 1] / 1000) + ((data[index] >>> 0) / 1000);
-/** @ignore */const epochNanosecondsLongToMs = (data: Int32Array, index: number) => 4294967296 * (data[index + 1] / 1000000) + ((data[index] >>> 0) / 1000000);
-
-/** @ignore */const epochMillisecondsToDate = (epochMs: number) => new Date(epochMs);
-/** @ignore */const epochDaysToDate = (data: Int32Array, index: number) => epochMillisecondsToDate(epochDaysToMs(data, index));
-/** @ignore */const epochMillisecondsLongToDate = (data: Int32Array, index: number) => epochMillisecondsToDate(epochMillisecondsLongToMs(data, index));
 
 /** @ignore */
 const getNull = <T extends Null>(_data: Data<T>, _index: number): T['TValue'] => null;
@@ -139,9 +132,9 @@ type Numeric1X = Int8 | Int16 | Int32 | Uint8 | Uint16 | Uint32 | Float32 | Floa
 type Numeric2X = Int64 | Uint64;
 
 /** @ignore */
-const getDateDay = <T extends DateDay>({ values }: Data<T>, index: number): T['TValue'] => epochDaysToDate(values, index);
+const getDateDay = <T extends DateDay>({ values }: Data<T>, index: number): T['TValue'] => epochDaysToMs(values, index);
 /** @ignore */
-const getDateMillisecond = <T extends DateMillisecond>({ values }: Data<T>, index: number): T['TValue'] => epochMillisecondsLongToDate(values, index * 2);
+const getDateMillisecond = <T extends DateMillisecond>({ values }: Data<T>, index: number): T['TValue'] => bigIntToNumber(values[index]);
 /** @ignore */
 const getNumeric = <T extends Numeric1X>({ stride, values }: Data<T>, index: number): T['TValue'] => values[stride * index];
 /** @ignore */
@@ -178,13 +171,13 @@ const getDate = <T extends Date_>(data: Data<T>, index: number): T['TValue'] => 
 );
 
 /** @ignore */
-const getTimestampSecond = <T extends TimestampSecond>({ values }: Data<T>, index: number): T['TValue'] => 1000 * epochMillisecondsLongToMs(values, index * 2);
+const getTimestampSecond = <T extends TimestampSecond>({ values }: Data<T>, index: number): T['TValue'] => 1000 * bigIntToNumber(values[index]);
 /** @ignore */
-const getTimestampMillisecond = <T extends TimestampMillisecond>({ values }: Data<T>, index: number): T['TValue'] => epochMillisecondsLongToMs(values, index * 2);
+const getTimestampMillisecond = <T extends TimestampMillisecond>({ values }: Data<T>, index: number): T['TValue'] => bigIntToNumber(values[index]);
 /** @ignore */
-const getTimestampMicrosecond = <T extends TimestampMicrosecond>({ values }: Data<T>, index: number): T['TValue'] => epochMicrosecondsLongToMs(values, index * 2);
+const getTimestampMicrosecond = <T extends TimestampMicrosecond>({ values }: Data<T>, index: number): T['TValue'] => divideBigInts(values[index], BigInt(1000));
 /** @ignore */
-const getTimestampNanosecond = <T extends TimestampNanosecond>({ values }: Data<T>, index: number): T['TValue'] => epochNanosecondsLongToMs(values, index * 2);
+const getTimestampNanosecond = <T extends TimestampNanosecond>({ values }: Data<T>, index: number): T['TValue'] => divideBigInts(values[index], BigInt(1000000));
 /* istanbul ignore next */
 /** @ignore */
 const getTimestamp = <T extends Timestamp>(data: Data<T>, index: number): T['TValue'] => {

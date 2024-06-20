@@ -28,7 +28,7 @@ version=$1
 rc=$2
 version_with_rc="${version}-rc${rc}"
 crossbow_job_prefix="release-${version_with_rc}"
-release_tag="apache-arrow-${version}"
+release_tag="apache-arrow-${version}-rc${rc}"
 rc_branch="release-${version_with_rc}"
 
 : ${ARROW_REPOSITORY:="apache/arrow"}

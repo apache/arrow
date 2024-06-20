@@ -14,23 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.ipc.message;
 
 import java.nio.ByteBuffer;
-
 import org.apache.arrow.flatbuf.Message;
 
 /**
- * Class to hold resulting Message metadata and buffer containing the serialized Flatbuffer
- * message when reading messages from a ReadChannel. This handles Message metadata only and
- * does not include the message body data, which should be subsequently read into an ArrowBuf.
+ * Class to hold resulting Message metadata and buffer containing the serialized Flatbuffer message
+ * when reading messages from a ReadChannel. This handles Message metadata only and does not include
+ * the message body data, which should be subsequently read into an ArrowBuf.
  */
 public class MessageMetadataResult {
 
   /**
-   * Construct a container to hold a deserialized Message metadata, and buffer
-   * with the serialized Message as read from a ReadChannel.
+   * Construct a container to hold a deserialized Message metadata, and buffer with the serialized
+   * Message as read from a ReadChannel.
    *
    * @param messageLength the length of the serialized Flatbuffer message in bytes
    * @param messageBuffer contains the serialized Flatbuffer Message metadata
@@ -45,8 +43,8 @@ public class MessageMetadataResult {
   /**
    * Creates a new {@link MessageMetadataResult} by parsing it from the beginning of the buffer.
    *
-   * @param messageLength The length of the serialized flatbuffer message in bytes (might not be equal to the buffer
-   *     size).
+   * @param messageLength The length of the serialized flatbuffer message in bytes (might not be
+   *     equal to the buffer size).
    */
   public static MessageMetadataResult create(ByteBuffer buffer, int messageLength) {
     return new MessageMetadataResult(messageLength, buffer, Message.getRootAsMessage(buffer));
@@ -70,9 +68,7 @@ public class MessageMetadataResult {
     return messageBuffer;
   }
 
-  /**
-   * Returns the bytes remaining in the buffer after parsing the message from it.
-   */
+  /** Returns the bytes remaining in the buffer after parsing the message from it. */
   public int bytesAfterMessage() {
     return message.getByteBuffer().remaining();
   }
@@ -82,8 +78,8 @@ public class MessageMetadataResult {
   }
 
   /**
-   * Check if the message is followed by a body. This will be true if the message has a body
-   * length > 0, which indicates that a message body needs to be read from the input source.
+   * Check if the message is followed by a body. This will be true if the message has a body length
+   * > 0, which indicates that a message body needs to be read from the input source.
    *
    * @return true if message has a defined body
    */

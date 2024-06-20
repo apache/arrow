@@ -28,11 +28,10 @@ jobs:
       matrix:
         # See https://hub.docker.com/r/rhub
         r_image:
-          - debian-gcc-devel
-          - debian-gcc-patched
-          - debian-gcc-release
-          - fedora-gcc-devel
-          - fedora-clang-devel
+          - ubuntu-gcc12    # ~ r-devel-linux-x86_64-debian-gcc
+          - ubuntu-clang    # ~ r-devel-linux-x86_64-debian-clang
+          - ubuntu-next     # ~ r-patched-linux-x86_64
+          - ubuntu-release  # ~ r-release-linux-x86_64
     env:
       R_ORG: "rhub"
       R_IMAGE: {{ MATRIX }}

@@ -53,6 +53,7 @@ typedef enum {
 /* arrow::fs::FileInfo */
 
 #define GARROW_TYPE_FILE_INFO (garrow_file_info_get_type())
+GARROW_AVAILABLE_IN_0_17
 G_DECLARE_DERIVABLE_TYPE(GArrowFileInfo, garrow_file_info, GARROW, FILE_INFO, GObject)
 struct _GArrowFileInfoClass
 {
@@ -80,6 +81,7 @@ garrow_file_info_to_string(GArrowFileInfo *file_info);
 /* arrow::fs::FileSelector */
 
 #define GARROW_TYPE_FILE_SELECTOR (garrow_file_selector_get_type())
+GARROW_AVAILABLE_IN_0_17
 G_DECLARE_DERIVABLE_TYPE(
   GArrowFileSelector, garrow_file_selector, GARROW, FILE_SELECTOR, GObject)
 struct _GArrowFileSelectorClass
@@ -90,6 +92,7 @@ struct _GArrowFileSelectorClass
 /* arrow::fs::FileSystem */
 
 #define GARROW_TYPE_FILE_SYSTEM (garrow_file_system_get_type())
+GARROW_AVAILABLE_IN_0_17
 G_DECLARE_DERIVABLE_TYPE(
   GArrowFileSystem, garrow_file_system, GARROW, FILE_SYSTEM, GObject)
 struct _GArrowFileSystemClass
@@ -197,6 +200,7 @@ garrow_file_system_open_append_stream(GArrowFileSystem *file_system,
 /* arrow::fs::SubTreeFileSystem */
 
 #define GARROW_TYPE_SUB_TREE_FILE_SYSTEM (garrow_sub_tree_file_system_get_type())
+GARROW_AVAILABLE_IN_0_17
 G_DECLARE_DERIVABLE_TYPE(GArrowSubTreeFileSystem,
                          garrow_sub_tree_file_system,
                          GARROW,
@@ -215,6 +219,7 @@ garrow_sub_tree_file_system_new(const gchar *base_path,
 /* arrow::fs::SlowFileSystem */
 
 #define GARROW_TYPE_SLOW_FILE_SYSTEM (garrow_slow_file_system_get_type())
+GARROW_AVAILABLE_IN_0_17
 G_DECLARE_DERIVABLE_TYPE(GArrowSlowFileSystem,
                          garrow_slow_file_system,
                          GARROW,
@@ -244,6 +249,7 @@ garrow_slow_file_system_new_average_latency_and_seed(GArrowFileSystem *base_file
                                                      gint32 seed);
 
 #define GARROW_TYPE_MOCK_FILE_SYSTEM (garrow_mock_file_system_get_type())
+GARROW_AVAILABLE_IN_0_17
 G_DECLARE_DERIVABLE_TYPE(GArrowMockFileSystem,
                          garrow_mock_file_system,
                          GARROW,
@@ -255,6 +261,7 @@ struct _GArrowMockFileSystemClass
 };
 
 #define GARROW_TYPE_HDFS_FILE_SYSTEM (garrow_hdfs_file_system_get_type())
+GARROW_AVAILABLE_IN_0_17
 G_DECLARE_DERIVABLE_TYPE(GArrowHDFSFileSystem,
                          garrow_hdfs_file_system,
                          GARROW,
@@ -290,6 +297,7 @@ typedef enum {
 } GArrowS3LogLevel;
 
 #define GARROW_TYPE_S3_GLOBAL_OPTIONS (garrow_s3_global_options_get_type())
+GARROW_AVAILABLE_IN_7_0
 G_DECLARE_DERIVABLE_TYPE(
   GArrowS3GlobalOptions, garrow_s3_global_options, GARROW, S3_GLOBAL_OPTIONS, GObject)
 struct _GArrowS3GlobalOptionsClass
@@ -312,6 +320,7 @@ gboolean
 garrow_s3_finalize(GError **error);
 
 #define GARROW_TYPE_S3_FILE_SYSTEM (garrow_s3_file_system_get_type())
+GARROW_AVAILABLE_IN_7_0
 G_DECLARE_DERIVABLE_TYPE(
   GArrowS3FileSystem, garrow_s3_file_system, GARROW, S3_FILE_SYSTEM, GArrowFileSystem)
 struct _GArrowS3FileSystemClass
@@ -320,6 +329,7 @@ struct _GArrowS3FileSystemClass
 };
 
 #define GARROW_TYPE_GCS_FILE_SYSTEM (garrow_gcs_file_system_get_type())
+GARROW_AVAILABLE_IN_7_0
 G_DECLARE_DERIVABLE_TYPE(
   GArrowGCSFileSystem, garrow_gcs_file_system, GARROW, GCS_FILE_SYSTEM, GArrowFileSystem)
 struct _GArrowGCSFileSystemClass

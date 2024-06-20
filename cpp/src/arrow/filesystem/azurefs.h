@@ -37,6 +37,10 @@ namespace Azure::Storage::Blobs {
 class BlobServiceClient;
 }
 
+namespace Azure::Storage::Sas {
+struct BlobSasBuilder;
+}
+
 namespace Azure::Storage::Files::DataLake {
 class DataLakeFileSystemClient;
 class DataLakeServiceClient;
@@ -115,7 +119,9 @@ struct ARROW_EXPORT AzureOptions {
     kStorageSharedKey,
     kClientSecret,
     kManagedIdentity,
+    kCLI,
     kWorkloadIdentity,
+    kEnvironment,
   } credential_kind_ = CredentialKind::kDefault;
 
   std::shared_ptr<Azure::Storage::StorageSharedKeyCredential>
@@ -137,18 +143,14 @@ struct ARROW_EXPORT AzureOptions {
   ///
   /// 1. abfs[s]://[:\<password\>@]\<account\>.blob.core.windows.net
   ///    [/\<container\>[/\<path\>]]
-  /// 2. abfs[s]://\<container\>[:\<password\>]@\<account\>.dfs.core.windows.net
-  ///     [/path]
+  /// 2. abfs[s]://\<container\>[:\<password\>]\@\<account\>.dfs.core.windows.net[/path]
   /// 3. abfs[s]://[\<account[:\<password\>]@]\<host[.domain]\>[\<:port\>]
   ///    [/\<container\>[/path]]
   /// 4. abfs[s]://[\<account[:\<password\>]@]\<container\>[/path]
   ///
-  /// 1. and 2. are compatible with the Azure Data Lake Storage Gen2 URIs:
-  /// https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-introduction-abfs-uri
-  ///
-  /// 3. is for Azure Blob Storage compatible service including Azurite.
-  ///
-  /// 4. is a shorter version of 1. and 2.
+  /// (1) and (2) are compatible with the Azure Data Lake Storage Gen2 URIs
+  /// [1], (3) is for Azure Blob Storage compatible service including Azurite,
+  /// and (4) is a shorter version of (1) and (2).
   ///
   /// Note that there is no difference between abfs and abfss. HTTPS is
   /// used with abfs by default. You can force to use HTTP by specifying
@@ -159,12 +161,15 @@ struct ARROW_EXPORT AzureOptions {
   /// * blob_storage_authority: Set AzureOptions::blob_storage_authority
   /// * dfs_storage_authority: Set AzureOptions::dfs_storage_authority
   /// * enable_tls: If it's "false" or "0", HTTP not HTTPS is used.
-  /// * credential_kind: One of "default", "anonymous",
-  ///   "workload_identity". If "default" is specified, it's just
-  ///   ignored.  If "anonymous" is specified,
+  /// * credential_kind: One of "default", "anonymous", "workload_identity",
+  ///   "environment" or "cli". If "default" is specified, it's
+  ///   just ignored.  If "anonymous" is specified,
   ///   AzureOptions::ConfigureAnonymousCredential() is called. If
   ///   "workload_identity" is specified,
-  ///   AzureOptions::ConfigureWorkloadIdentityCredential() is called.
+  ///   AzureOptions::ConfigureWorkloadIdentityCredential() is called. If
+  ///   "environment" is specified,
+  ///   AzureOptions::ConfigureEnvironmentCredential() is called. If "cli" is
+  ///   specified, AzureOptions::ConfigureCLICredential() is called.
   /// * tenant_id: You must specify "client_id" and "client_secret"
   ///   too. AzureOptions::ConfigureClientSecretCredential() is called.
   /// * client_id: If you don't specify "tenant_id" and
@@ -174,6 +179,9 @@ struct ARROW_EXPORT AzureOptions {
   ///   AzureOptions::ConfigureClientSecretCredential() is called.
   /// * client_secret: You must specify "tenant_id" and "client_id"
   ///   too. AzureOptions::ConfigureClientSecretCredential() is called.
+  ///
+  /// [1]:
+  /// https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-introduction-abfs-uri
   static Result<AzureOptions> FromUri(const Uri& uri, std::string* out_path);
   static Result<AzureOptions> FromUri(const std::string& uri, std::string* out_path);
 
@@ -184,7 +192,9 @@ struct ARROW_EXPORT AzureOptions {
                                          const std::string& client_id,
                                          const std::string& client_secret);
   Status ConfigureManagedIdentityCredential(const std::string& client_id = std::string());
+  Status ConfigureCLICredential();
   Status ConfigureWorkloadIdentityCredential();
+  Status ConfigureEnvironmentCredential();
 
   bool Equals(const AzureOptions& other) const;
 
@@ -196,6 +206,10 @@ struct ARROW_EXPORT AzureOptions {
 
   Result<std::unique_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient>>
   MakeDataLakeServiceClient() const;
+
+  Result<std::string> GenerateSASToken(
+      Azure::Storage::Sas::BlobSasBuilder* builder,
+      Azure::Storage::Blobs::BlobServiceClient* client) const;
 };
 
 /// \brief FileSystem implementation backed by Azure Blob Storage (ABS) [1] and
@@ -218,7 +232,7 @@ struct ARROW_EXPORT AzureOptions {
 ///   overwriting.
 /// - When you use the ListBlobs operation without specifying a delimiter, the results
 ///   include both directories and blobs. If you choose to use a delimiter, use only a
-///   forward slash (/) -- the only supported delimiter.
+///   forward slash (/) \--- the only supported delimiter.
 /// - If you use the DeleteBlob API to delete a directory, that directory is deleted only
 ///   if it's empty. This means that you can't use the Blob API delete directories
 ///   recursively.

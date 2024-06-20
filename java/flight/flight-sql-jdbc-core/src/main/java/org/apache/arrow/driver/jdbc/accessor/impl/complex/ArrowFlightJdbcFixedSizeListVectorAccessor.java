@@ -14,27 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc.accessor.impl.complex;
 
 import java.util.List;
 import java.util.function.IntSupplier;
-
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 
-/**
- * Accessor for the Arrow type {@link FixedSizeListVector}.
- */
+/** Accessor for the Arrow type {@link FixedSizeListVector}. */
 public class ArrowFlightJdbcFixedSizeListVectorAccessor
     extends AbstractArrowFlightJdbcListVectorAccessor {
 
   private final FixedSizeListVector vector;
 
-  public ArrowFlightJdbcFixedSizeListVectorAccessor(FixedSizeListVector vector,
-                                                    IntSupplier currentRowSupplier,
-                                                    ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+  public ArrowFlightJdbcFixedSizeListVectorAccessor(
+      FixedSizeListVector vector,
+      IntSupplier currentRowSupplier,
+      ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
     super(currentRowSupplier, setCursorWasNull);
     this.vector = vector;
   }

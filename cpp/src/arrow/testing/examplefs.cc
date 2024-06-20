@@ -24,7 +24,7 @@
 
 namespace arrow::fs {
 
-FileSystemRegistrar kExampleFileSystemModule{
+auto kExampleFileSystemModule = ARROW_REGISTER_FILESYSTEM(
     "example",
     [](const Uri& uri, const io::IOContext& io_context,
        std::string* out_path) -> Result<std::shared_ptr<FileSystem>> {
@@ -33,6 +33,6 @@ FileSystemRegistrar kExampleFileSystemModule{
       auto local_uri = "file" + uri.ToString().substr(kScheme.size());
       return FileSystemFromUri(local_uri, io_context, out_path);
     },
-};
+    {});
 
 }  // namespace arrow::fs

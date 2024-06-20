@@ -25,11 +25,11 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
-	"github.com/apache/arrow/go/v16/arrow/bitutil"
-	"github.com/apache/arrow/go/v16/arrow/memory"
-	"github.com/apache/arrow/go/v16/parquet/internal/utils"
+	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/arrow/go/v17/arrow/array"
+	"github.com/apache/arrow/go/v17/arrow/bitutil"
+	"github.com/apache/arrow/go/v17/arrow/memory"
+	"github.com/apache/arrow/go/v17/parquet/internal/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"golang.org/x/exp/rand"
@@ -59,6 +59,23 @@ func TestBitWriter(t *testing.T) {
 
 	assert.Equal(t, byte(0xAA), buf[0])
 	assert.Equal(t, byte(0xCC), buf[1])
+
+	for i := 0; i < 3; i++ {
+		assert.True(t, bw.WriteVlqInt(uint64(i)))
+	}
+	assert.Equal(t, byte(0xAA), buf[0])
+	assert.Equal(t, byte(0xCC), buf[1])
+	assert.Equal(t, byte(0), buf[2])
+	assert.Equal(t, byte(1), buf[3])
+	assert.Equal(t, byte(2), buf[4])
+}
+
+func BenchmarkBitWriter(b *testing.B) {
+	buf := make([]byte, b.N)
+	bw := utils.NewBitWriter(utils.NewWriterAtBuffer(buf))
+	for i := 0; i < b.N; i++ {
+		assert.True(b, bw.WriteVlqInt(uint64(1)))
+	}
 }
 
 func TestBitReader(t *testing.T) {

@@ -68,7 +68,7 @@ namespace Apache.Arrow.Arrays
             }
 
             int size = ((FixedSizeBinaryType)Data.DataType).ByteWidth;
-            return ValueBuffer.Span.Slice(index * size, size);
+            return ValueBuffer.Span.Slice((Offset + index) * size, size);
         }
 
         int IReadOnlyCollection<byte[]>.Count => Length;

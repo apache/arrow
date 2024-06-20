@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Duplex } from 'stream';
+import { Duplex } from 'node:stream';
 import { DataType } from '../../type.js';
 import { Builder, BuilderOptions } from '../../builder.js';
 import { makeBuilder } from '../../factories.js';

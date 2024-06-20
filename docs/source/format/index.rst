@@ -30,6 +30,7 @@ Specifications
    CDataInterface
    CStreamInterface
    CDeviceDataInterface
+   DissociatedIPC
    Flight
    FlightSql
    ADBC

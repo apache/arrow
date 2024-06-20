@@ -659,6 +659,11 @@ cdef class RecordBatchReader(_Weakrefable):
 
     # cdef block is in lib.pxd
 
+    def __init__(self):
+        raise TypeError("Do not call {}'s constructor directly, "
+                        "use one of the RecordBatchReader.from_* functions instead."
+                        .format(self.__class__.__name__))
+
     def __iter__(self):
         return self
 

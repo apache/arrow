@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Interfaces to use for defining Flight RPC servers. API should be considered
-// experimental for now
+// Interfaces to use for defining Flight RPC servers.
 
 #pragma once
 
@@ -84,6 +83,24 @@ struct ARROW_FLIGHT_SQL_EXPORT PreparedStatementQuery {
 struct ARROW_FLIGHT_SQL_EXPORT PreparedStatementUpdate {
   /// \brief The server-generated opaque identifier for the statement.
   std::string prepared_statement_handle;
+};
+
+/// \brief A bulk ingestion request
+struct ARROW_FLIGHT_SQL_EXPORT StatementIngest {
+  /// \brief The behavior for handling the table definition.
+  TableDefinitionOptions table_definition_options;
+  /// \brief The destination table to load into.
+  std::string table;
+  /// \brief The DB schema of the destination table.
+  std::optional<std::string> schema;
+  /// :\brief The catalog of the destination table.
+  std::optional<std::string> catalog;
+  /// \brief Use a temporary table.
+  bool temporary;
+  /// \brief Ingest as part of this transaction.
+  std::optional<std::string> transaction_id;
+  /// \brief Additional, backend-specific options.
+  std::unordered_map<std::string, std::string> options;
 };
 
 /// \brief A request to fetch server metadata.
@@ -567,6 +584,15 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlServerBase : public FlightServerBase {
   /// \return             The changed record count.
   virtual arrow::Result<int64_t> DoPutPreparedStatementUpdate(
       const ServerCallContext& context, const PreparedStatementUpdate& command,
+      FlightMessageReader* reader);
+
+  /// \brief Execute a bulk ingestion.
+  /// \param[in] context  The call context.
+  /// \param[in] command  The StatementIngest object containing the ingestion request.
+  /// \param[in] reader   a sequence of uploaded record batches.
+  /// \return             The changed record count.
+  virtual arrow::Result<int64_t> DoPutCommandStatementIngest(
+      const ServerCallContext& context, const StatementIngest& command,
       FlightMessageReader* reader);
 
   /// \brief Begin a new transaction.

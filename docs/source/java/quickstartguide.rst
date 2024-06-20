@@ -195,10 +195,10 @@ Example: Create a dataset of names (strings) and ages (32-bit signed integers).
 .. code-block:: shell
 
     VectorSchemaRoot created:
-    age	    name
-    10	    Dave
-    20	    Peter
-    30	    Mary
+    age      name
+    10      Dave
+    20      Peter
+    30      Mary
 
 
 Interprocess Communication (IPC)
@@ -306,10 +306,10 @@ Example: Read the dataset from the previous example from an Arrow IPC file (rand
 
     Record batches in file: 1
     VectorSchemaRoot read:
-    age	    name
-    10	    Dave
-    20	    Peter
-    30	    Mary
+    age      name
+    10       Dave
+    20       Peter
+    30       Mary
 
 More examples available at `Arrow Java Cookbook`_.
 

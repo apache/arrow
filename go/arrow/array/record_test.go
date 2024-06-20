@@ -21,9 +21,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
-	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/arrow/go/v17/arrow/array"
+	"github.com/apache/arrow/go/v17/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -94,7 +94,7 @@ func TestRecord(t *testing.T) {
 	if _, err := rec.SetColumn(0, col2_1); err == nil {
 		t.Fatalf("expected an error")
 	}
-	newRec, err := rec.SetColumn(1, col2_1);
+	newRec, err := rec.SetColumn(1, col2_1)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

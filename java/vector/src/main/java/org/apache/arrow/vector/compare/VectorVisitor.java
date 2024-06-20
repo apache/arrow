@@ -14,12 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.compare;
 
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BaseLargeVariableWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
+import org.apache.arrow.vector.BaseVariableWidthViewVector;
 import org.apache.arrow.vector.ExtensionTypeVector;
 import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.complex.DenseUnionVector;
@@ -31,6 +31,7 @@ import org.apache.arrow.vector.complex.UnionVector;
 
 /**
  * Generic visitor to visit a {@link org.apache.arrow.vector.ValueVector}.
+ *
  * @param <OUT> the output result type.
  * @param <IN> the input data together with visitor.
  */
@@ -41,6 +42,8 @@ public interface VectorVisitor<OUT, IN> {
   OUT visit(BaseVariableWidthVector left, IN value);
 
   OUT visit(BaseLargeVariableWidthVector left, IN value);
+
+  OUT visit(BaseVariableWidthViewVector left, IN value);
 
   OUT visit(ListVector left, IN value);
 
@@ -58,4 +61,3 @@ public interface VectorVisitor<OUT, IN> {
 
   OUT visit(ExtensionTypeVector<?> left, IN value);
 }
-

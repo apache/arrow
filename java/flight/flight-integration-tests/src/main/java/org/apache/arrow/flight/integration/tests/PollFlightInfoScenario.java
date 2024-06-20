@@ -14,12 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.integration.tests;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
-
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightProducer;
@@ -36,27 +34,31 @@ final class PollFlightInfoScenario implements Scenario {
   }
 
   @Override
-  public void buildServer(FlightServer.Builder builder) throws Exception {
-  }
+  public void buildServer(FlightServer.Builder builder) throws Exception {}
 
   @Override
-  public void client(BufferAllocator allocator, Location location, FlightClient client) throws Exception {
-    PollInfo info = client.pollInfo(FlightDescriptor.command("heavy query".getBytes(StandardCharsets.UTF_8)));
+  public void client(BufferAllocator allocator, Location location, FlightClient client)
+      throws Exception {
+    PollInfo info =
+        client.pollInfo(FlightDescriptor.command("heavy query".getBytes(StandardCharsets.UTF_8)));
     IntegrationAssertions.assertNotNull(info.getFlightInfo());
     Optional<Double> progress = info.getProgress();
     IntegrationAssertions.assertTrue("progress is missing", progress.isPresent());
-    IntegrationAssertions.assertTrue("progress is invalid", progress.get() >= 0.0 && progress.get() <= 1.0);
+    IntegrationAssertions.assertTrue(
+        "progress is invalid", progress.get() >= 0.0 && progress.get() <= 1.0);
     IntegrationAssertions.assertTrue("expiration is missing", info.getExpirationTime().isPresent());
-    IntegrationAssertions.assertTrue("descriptor is missing",
-        info.getFlightDescriptor().isPresent());
+    IntegrationAssertions.assertTrue(
+        "descriptor is missing", info.getFlightDescriptor().isPresent());
 
     info = client.pollInfo(info.getFlightDescriptor().get());
     IntegrationAssertions.assertNotNull(info.getFlightInfo());
     progress = info.getProgress();
     IntegrationAssertions.assertTrue("progress is missing in finished query", progress.isPresent());
-    IntegrationAssertions.assertTrue("progress isn't 1.0 in finished query",
-        Math.abs(progress.get() - 1.0) < Math.ulp(1.0));
-    IntegrationAssertions.assertFalse("expiration is set in finished query", info.getExpirationTime().isPresent());
-    IntegrationAssertions.assertFalse("descriptor is set in finished query", info.getFlightDescriptor().isPresent());
+    IntegrationAssertions.assertTrue(
+        "progress isn't 1.0 in finished query", Math.abs(progress.get() - 1.0) < Math.ulp(1.0));
+    IntegrationAssertions.assertFalse(
+        "expiration is set in finished query", info.getExpirationTime().isPresent());
+    IntegrationAssertions.assertFalse(
+        "descriptor is set in finished query", info.getFlightDescriptor().isPresent());
   }
 }

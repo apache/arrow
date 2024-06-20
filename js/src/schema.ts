@@ -33,7 +33,7 @@ export class Schema<T extends TypeMap = any> {
         this.fields = (fields || []) as Field<T[keyof T]>[];
         this.metadata = metadata || new Map();
         if (!dictionaries) {
-            dictionaries = generateDictionaryMap(fields);
+            dictionaries = generateDictionaryMap(this.fields);
         }
         this.dictionaries = dictionaries;
         this.metadataVersion = metadataVersion;

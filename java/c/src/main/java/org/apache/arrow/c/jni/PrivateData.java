@@ -14,15 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.c.jni;
 
 import java.io.Closeable;
 
 /**
  * Interface for Java objects stored in C data interface private data.
- * <p>
- * This interface is used for exported structures.
+ *
+ * <p>This interface is used for exported structures.
  */
 public interface PrivateData extends Closeable {
 
