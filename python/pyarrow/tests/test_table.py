@@ -547,8 +547,8 @@ class BatchDeviceWrapper:
     def __init__(self, batch):
         self.batch = batch
 
-    def __arrow_c_device_array__(self, requested_schema=None):
-        return self.batch.__arrow_c_device_array__(requested_schema)
+    def __arrow_c_device_array__(self, requested_schema=None, **kwargs):
+        return self.batch.__arrow_c_device_array__(requested_schema, **kwargs)
 
 
 @pytest.mark.parametrize("wrapper_class", [BatchWrapper, BatchDeviceWrapper])
@@ -571,6 +571,22 @@ def test_recordbatch_c_array_interface(wrapper_class):
         pa.array([1, 2, 3], type=pa.int32())
     ], names=['a'])
     assert result == expected
+
+
+def test_recordbatch_c_array_interface_device_unsupported_keyword():
+    # For the device-aware version, we raise a specific error for unsupported keywords
+    data = pa.record_batch(
+        [pa.array([1, 2, 3], type=pa.int64())], names=['a']
+    )
+
+    with pytest.raises(
+        NotImplementedError,
+        match=r"Received unsupported keyword argument\(s\): \['other'\]"
+    ):
+        data.__arrow_c_device_array__(other="not-none")
+
+    # but with None value it is ignored
+    _ = data.__arrow_c_device_array__(other=None)
 
 
 @pytest.mark.parametrize("wrapper_class", [BatchWrapper, BatchDeviceWrapper])

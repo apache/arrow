@@ -3770,7 +3770,7 @@ cdef class RecordBatch(_Tabular):
                     c_device_array, c_schema))
         return pyarrow_wrap_batch(c_batch)
 
-    def __arrow_c_device_array__(self, requested_schema=None):
+    def __arrow_c_device_array__(self, requested_schema=None, **kwargs):
         """
         Get a pair of PyCapsules containing a C ArrowDeviceArray representation
         of the object.
@@ -3793,6 +3793,14 @@ cdef class RecordBatch(_Tabular):
             ArrowDeviceArray* c_array
             ArrowSchema* c_schema
             shared_ptr[CRecordBatch] inner_batch
+
+        non_default_kwargs = [
+            name for name, value in kwargs.items() if value is not None
+        ]
+        if non_default_kwargs:
+            raise NotImplementedError(
+                f"Received unsupported keyword argument(s): {non_default_kwargs}"
+            )
 
         if requested_schema is not None:
             target_schema = Schema._import_from_c_capsule(requested_schema)
