@@ -27,11 +27,14 @@
 #include "arrow/compute/cast.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/scalar_cast_internal.h"
+#include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/int_util.h"
 
 namespace arrow {
 
+using internal::BitBlockCount;
+using internal::BitBlockCounter;
 using internal::CopyBitmap;
 
 namespace compute::internal {
@@ -157,19 +160,93 @@ template <typename DestType>
 struct CastFixedToVarList {
   using dest_offset_type = typename DestType::offset_type;
 
-  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  /// \pre values->length == list_size * num_lists
+  /// \pre values->offset >= 0
+  ///
+  /// \param num_lists The number of fixed-size lists in the input and lists in the
+  ///                  output.
+  /// \param list_validity The byte-aligned validity bitmap of the num_lists lists
+  ///                      or NULLPTR.
+  /// \param list_size The size of the fixed-size lists projected onto the
+  ///                  values array.
+  static Result<std::shared_ptr<ArrayData>> CastChildValues(
+      KernelContext* ctx, int64_t num_lists, const uint8_t* list_validity,
+      int32_t list_size, std::shared_ptr<ArrayData>&& values,
+      const std::shared_ptr<DataType>& to_type) {
+    DCHECK_EQ(values->length, list_size * num_lists);
+    // XXX: is it OK to use options recursively without modifying it?
     const CastOptions& options = CastState::Get(ctx);
+    Datum cast_values;
+    if (list_validity && list_size > 0) {
+      const int64_t full_values_length = values->offset + values->length;
+      // If the fixed_size_list array has nulls, the child values aligned with
+      // those null lists are unspecified (could be anything). We don't want the
+      // casting of the child values array to fail because of values in these slots
+      // (e.g. empty strings will fail a cast to numbers).
+      auto original_values_validity = values->buffers[0];
+      // So we need to create a new validity bitmap that is the same size as the
+      // child values array, but with validity bits zeroed out for the null lists.
+      std::shared_ptr<Buffer> combined_values_validity;
+      if (original_values_validity) {
+        ARROW_ASSIGN_OR_RAISE(
+            combined_values_validity,
+            original_values_validity->CopySlice(
+                0, bit_util::BytesForBits(full_values_length), ctx->memory_pool()));
+      } else {
+        ARROW_ASSIGN_OR_RAISE(combined_values_validity,
+                              AllocateBitmap(full_values_length, ctx->memory_pool()));
+        auto* bitmap = combined_values_validity->mutable_data();
+        bitmap[bit_util::BytesForBits(full_values_length) - 1] = 0;
+        bit_util::SetBitsTo(bitmap, 0, values->offset, false);
+        bit_util::SetBitsTo(bitmap, values->offset, values->length, true);
+      }
+      // Expand every 0 in list_validity into list_size 0s in combined_values_validity.
+      auto* combined_values_validity_data = combined_values_validity->mutable_data();
+      BitBlockCounter bit_counter{list_validity, 0, num_lists};
+      for (int64_t list_idx = 0; list_idx < num_lists;) {
+        BitBlockCount block = bit_counter.NextWord();
+        if (block.NoneSet()) {
+          bit_util::SetBitsTo(combined_values_validity_data,
+                              values->offset + list_idx * list_size,
+                              block.length * list_size, false);
+        } else if (!block.AllSet()) {
+          for (int64_t i = 0; i < block.length; i++) {
+            if (!bit_util::GetBit(list_validity, list_idx + i)) {
+              bit_util::SetBitsTo(combined_values_validity_data,
+                                  values->offset + (list_idx + i) * list_size, list_size,
+                                  false);
+            }
+          }
+        }
+        list_idx += block.length;
+      }
 
-    auto child_type = checked_cast<const DestType&>(*out->type()).value_type();
+      // Use the combined validity bitmap before casting the child values so
+      // casting ignores the unspecified values in the null slots.
+      values->null_count.store(kUnknownNullCount);
+      values->buffers[0] = combined_values_validity;
+      ARROW_ASSIGN_OR_RAISE(
+          cast_values, Cast(std::move(values), to_type, options, ctx->exec_context()));
+    } else {
+      ARROW_ASSIGN_OR_RAISE(
+          cast_values, Cast(std::move(values), to_type, options, ctx->exec_context()));
+    }
+    DCHECK(cast_values.is_array());
+    return cast_values.array();
+  }
 
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    // in_array: FixedSizeList<T> -> out_array: List<U>
     const ArraySpan& in_array = batch[0].array;
-
-    ArrayData* out_array = out->array_data().get();
-    ARROW_ASSIGN_OR_RAISE(out_array->buffers[0],
-                          GetNullBitmapBuffer(in_array, ctx->memory_pool()));
-
     const auto& in_type = checked_cast<const FixedSizeListType&>(*in_array.type);
     const int32_t list_size = in_type.list_size();
+    ArrayData* out_array = out->array_data().get();
+    DCHECK_EQ(in_array.length, out_array->length);
+    auto out_child_type = checked_cast<const DestType&>(*out_array->type).value_type();
+
+    // Share or copy the validity bitmap
+    ARROW_ASSIGN_OR_RAISE(out_array->buffers[0],
+                          GetNullBitmapBuffer(in_array, ctx->memory_pool()));
 
     // Allocate a new offsets buffer
     ARROW_ASSIGN_OR_RAISE(out_array->buffers[1],
@@ -181,16 +258,20 @@ struct CastFixedToVarList {
       offset += list_size;
     }
 
-    // Handle values
-    std::shared_ptr<ArrayData> values = in_array.child_data[0].ToArrayData();
-    if (in_array.offset > 0) {
-      values = values->Slice(in_array.offset * list_size, in_array.length * list_size);
+    // Handle child values
+    std::shared_ptr<ArrayData> child_values = in_array.child_data[0].ToArrayData();
+    if (in_array.offset > 0 || child_values->length > in_array.length * list_size) {
+      child_values =
+          child_values->Slice(in_array.offset * list_size, in_array.length * list_size);
     }
-    ARROW_ASSIGN_OR_RAISE(Datum cast_values,
-                          Cast(values, child_type, options, ctx->exec_context()));
-    DCHECK(cast_values.is_array());
-    out_array->child_data.push_back(cast_values.array());
-
+    DCHECK_EQ(out_array->offset, 0);
+    const uint8_t* list_validity =
+        in_array.MayHaveNulls() ? out_array->GetValues<uint8_t>(0, 0) : nullptr;
+    ARROW_ASSIGN_OR_RAISE(
+        auto cast_values,
+        CastChildValues(ctx, /*num_lists=*/in_array.length, list_validity, list_size,
+                        std::move(child_values), out_child_type));
+    out_array->child_data.push_back(std::move(cast_values));
     return Status::OK();
   }
 };
