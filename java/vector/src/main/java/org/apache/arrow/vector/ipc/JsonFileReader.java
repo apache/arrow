@@ -274,18 +274,102 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     }
   }
 
-  private abstract class DataBufferReader {
-    protected abstract List<ArrowBuf> read(BufferAllocator allocator, int variadicBuffersCount)
-        throws IOException;
+  /**
+   * Read all the variadic data buffers from the parser.
+   *
+   * @param allocator BufferAllocator
+   * @param variadicBuffersCount Number of variadic buffers
+   * @return List of ArrowBuf
+   * @throws IOException throws IOException in a failure
+   */
+  List<ArrowBuf> readVariadicBuffers(BufferAllocator allocator, int variadicBuffersCount)
+      throws IOException {
+    readToken(START_ARRAY);
+    ArrayList<ArrowBuf> dataBuffers = new ArrayList<>(variadicBuffersCount);
+    for (int i = 0; i < variadicBuffersCount; i++) {
+      parser.nextToken();
+      final byte[] value;
 
-    List<ArrowBuf> readBuffer(BufferAllocator allocator, int variadicBuffersCount)
-        throws IOException {
-      readToken(START_ARRAY);
-      ArrayList<ArrowBuf> dataBuffers = new ArrayList<>(variadicBuffersCount);
-      dataBuffers.addAll(read(allocator, variadicBuffersCount));
-      readToken(END_ARRAY);
-      return dataBuffers;
+      String variadicStr = parser.readValueAs(String.class);
+      if (variadicStr == null) {
+        value = new byte[0];
+      } else {
+        value = decodeHexSafe(variadicStr);
+      }
+
+      ArrowBuf buf = allocator.buffer(value.length);
+      buf.writeBytes(value);
+      dataBuffers.add(buf);
     }
+    readToken(END_ARRAY);
+    return dataBuffers;
+  }
+
+  private ArrowBuf readViewBuffers(
+      BufferAllocator allocator, int count, List<Integer> variadicBufferIndices, MinorType type)
+      throws IOException {
+    readToken(START_ARRAY);
+    ArrayList<byte[]> values = new ArrayList<>(count);
+    long bufferSize = 0L;
+    for (int i = 0; i < count; i++) {
+      readToken(START_OBJECT);
+      final int length = readNextField("SIZE", Integer.class);
+      byte[] value;
+      if (length > BaseVariableWidthViewVector.INLINE_SIZE) {
+        // PREFIX_HEX
+        final byte[] prefix = decodeHexSafe(readNextField("PREFIX_HEX", String.class));
+        // BUFFER_INDEX
+        final int bufferIndex = readNextField("BUFFER_INDEX", Integer.class);
+        if (variadicBufferIndices.isEmpty()) {
+          variadicBufferIndices.add(bufferIndex);
+        } else {
+          int lastBufferIndex = variadicBufferIndices.get(variadicBufferIndices.size() - 1);
+          if (lastBufferIndex != bufferIndex) {
+            variadicBufferIndices.add(bufferIndex);
+          }
+        }
+
+        // OFFSET
+        final int offset = readNextField("OFFSET", Integer.class);
+        ByteBuffer buffer =
+            ByteBuffer.allocate(BaseVariableWidthViewVector.ELEMENT_SIZE)
+                .order(ByteOrder.LITTLE_ENDIAN); // Allocate a ByteBuffer of size 16 bytes
+        buffer.putInt(length); // Write 'length' to bytes 0-3
+        buffer.put(prefix); // Write 'prefix' to bytes 4-7
+        buffer.putInt(bufferIndex); // Write 'bufferIndex' to bytes 8-11
+        buffer.putInt(offset); // Write 'offset' to bytes 12-15
+        value = buffer.array(); // Convert the ByteBuffer to a byte array
+      } else {
+        // in-line
+        ByteBuffer buffer =
+            ByteBuffer.allocate(BaseVariableWidthViewVector.ELEMENT_SIZE)
+                .order(ByteOrder.LITTLE_ENDIAN); // Allocate a ByteBuffer of size 16 bytes
+        buffer.putInt(length); // Write 'length' to bytes 0-3
+        // INLINE
+        if (type == MinorType.VIEWVARCHAR) {
+          buffer.put(readNextField("INLINED", String.class).getBytes(StandardCharsets.UTF_8));
+        } else {
+          String inlined = readNextField("INLINED", String.class);
+          if (inlined == null) {
+            buffer.put(new byte[length]);
+          } else {
+            buffer.put(decodeHexSafe(inlined));
+          }
+        }
+        value = buffer.array(); // Convert the ByteBuffer to a byte array
+      }
+      values.add(value);
+      bufferSize += value.length;
+      readToken(END_OBJECT);
+    }
+
+    ArrowBuf buf = allocator.buffer(bufferSize);
+
+    for (byte[] value : values) {
+      buf.writeBytes(value);
+    }
+    readToken(END_ARRAY);
+    return buf;
   }
 
   private class BufferHelper {
@@ -626,111 +710,6 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         };
   }
 
-  class ViewBufferReader extends BufferReader {
-
-    private final List<Integer> variadicBufferIndices;
-    private final MinorType type;
-
-    public ViewBufferReader(List<Integer> variadicBufferIndices, MinorType type) {
-      this.variadicBufferIndices = variadicBufferIndices;
-      this.type = type;
-    }
-
-    private ArrowBuf readBinaryValues(BufferAllocator allocator, int count) throws IOException {
-      ArrayList<byte[]> values = new ArrayList<>(count);
-      long bufferSize = 0L;
-      for (int i = 0; i < count; i++) {
-        readToken(START_OBJECT);
-        final int length = readNextField("SIZE", Integer.class);
-        byte[] value;
-        if (length > BaseVariableWidthViewVector.INLINE_SIZE) {
-          // PREFIX_HEX
-          final byte[] prefix = decodeHexSafe(readNextField("PREFIX_HEX", String.class));
-          // BUFFER_INDEX
-          final int bufferIndex = readNextField("BUFFER_INDEX", Integer.class);
-          if (variadicBufferIndices.isEmpty()) {
-            variadicBufferIndices.add(bufferIndex);
-          } else {
-            int lastBufferIndex = variadicBufferIndices.get(variadicBufferIndices.size() - 1);
-            if (lastBufferIndex != bufferIndex) {
-              variadicBufferIndices.add(bufferIndex);
-            }
-          }
-
-          // OFFSET
-          final int offset = readNextField("OFFSET", Integer.class);
-          ByteBuffer buffer =
-              ByteBuffer.allocate(BaseVariableWidthViewVector.ELEMENT_SIZE)
-                  .order(ByteOrder.LITTLE_ENDIAN); // Allocate a ByteBuffer of size 16 bytes
-          buffer.putInt(length); // Write 'length' to bytes 0-3
-          buffer.put(prefix); // Write 'prefix' to bytes 4-7
-          buffer.putInt(bufferIndex); // Write 'bufferIndex' to bytes 8-11
-          buffer.putInt(offset); // Write 'offset' to bytes 12-15
-          value = buffer.array(); // Convert the ByteBuffer to a byte array
-        } else {
-          // in-line
-          ByteBuffer buffer =
-              ByteBuffer.allocate(BaseVariableWidthViewVector.ELEMENT_SIZE)
-                  .order(ByteOrder.LITTLE_ENDIAN); // Allocate a ByteBuffer of size 16 bytes
-          buffer.putInt(length); // Write 'length' to bytes 0-3
-          // INLINE
-          if (type == MinorType.VIEWVARCHAR) {
-            buffer.put(readNextField("INLINED", String.class).getBytes(StandardCharsets.UTF_8));
-          } else {
-            String inlined = readNextField("INLINED", String.class);
-            if (inlined == null) {
-              buffer.put(new byte[length]);
-            } else {
-              buffer.put(decodeHexSafe(inlined));
-            }
-          }
-          value = buffer.array(); // Convert the ByteBuffer to a byte array
-        }
-        values.add(value);
-        bufferSize += value.length;
-        readToken(END_OBJECT);
-      }
-
-      ArrowBuf buf = allocator.buffer(bufferSize);
-
-      for (byte[] value : values) {
-        buf.writeBytes(value);
-      }
-
-      return buf;
-    }
-
-    @Override
-    protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
-      return readBinaryValues(allocator, count);
-    }
-  }
-
-  class DataBufferReaderImpl extends DataBufferReader {
-
-    @Override
-    protected List<ArrowBuf> read(BufferAllocator allocator, int variadicBuffersCount)
-        throws IOException {
-      List<ArrowBuf> dataBuffers = new ArrayList<>(variadicBuffersCount);
-      for (int i = 0; i < variadicBuffersCount; i++) {
-        parser.nextToken();
-        final byte[] value;
-
-        String variadicStr = parser.readValueAs(String.class);
-        if (variadicStr == null) {
-          value = new byte[0];
-        } else {
-          value = decodeHexSafe(variadicStr);
-        }
-
-        ArrowBuf buf = allocator.buffer(value.length);
-        buf.writeBytes(value);
-        dataBuffers.add(buf);
-      }
-      return dataBuffers;
-    }
-  }
-
   private List<ArrowBuf> readIntoBuffer(
       BufferAllocator allocator,
       BufferType bufferType,
@@ -742,9 +721,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     ArrowBuf buf;
 
     BufferHelper helper = new BufferHelper();
-    DataBufferReader dataBufferhelper = null;
-
-    BufferReader reader = null;
+    BufferReader reader;
 
     if (bufferType.equals(VALIDITY)) {
       reader = helper.BIT;
@@ -854,24 +831,17 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
           throw new UnsupportedOperationException("Cannot read array of type " + type);
       }
     } else if (bufferType.equals(VIEWS)) {
-      vectorTypes.add(VARIADIC_DATA_BUFFERS);
-      reader = new ViewBufferReader(variadicBufferIndices, type);
+      return Collections.singletonList(
+          readViewBuffers(allocator, count, variadicBufferIndices, type));
     } else if (bufferType.equals(VARIADIC_DATA_BUFFERS)) {
-      dataBufferhelper = new DataBufferReaderImpl();
+      return readVariadicBuffers(allocator, variadicBufferIndices.size());
     } else {
       throw new InvalidArrowFileException("Unrecognized buffer type " + bufferType);
     }
 
-    if (dataBufferhelper == null) {
-      // reading vector buffers which are not variadic buffers
-      buf = reader.readBuffer(allocator, count);
-      Preconditions.checkNotNull(buf);
-      return Collections.singletonList(buf);
-    } else {
-      // reading vector buffers which are variadic buffers
-      // only available for Utf8View and BinaryView
-      return dataBufferhelper.readBuffer(allocator, variadicBufferIndices.size());
-    }
+    buf = reader.readBuffer(allocator, count);
+    Preconditions.checkNotNull(buf);
+    return Collections.singletonList(buf);
   }
 
   private void readFromJsonIntoVector(Field field, FieldVector vector) throws IOException {
@@ -880,6 +850,10 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     List<BufferType> vectorTypes = typeLayout.getBufferTypes();
     List<ArrowBuf> vectorBuffers = new ArrayList<>(vectorTypes.size());
     List<Integer> variadicBufferIndices = new ArrayList<>();
+
+    if (!typeLayout.isFixedBufferCount()) {
+      vectorTypes.add(VARIADIC_DATA_BUFFERS);
+    }
     /*
      * The order of inner buffers is:
      * Fixed width vector:
