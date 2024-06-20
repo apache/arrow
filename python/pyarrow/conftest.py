@@ -39,6 +39,7 @@ groups = [
     'lz4',
     'memory_leak',
     'nopandas',
+    'nonumpy',
     'numpy',
     'orc',
     'pandas',
@@ -72,6 +73,7 @@ defaults = {
     'lz4': Codec.is_available('lz4'),
     'memory_leak': False,
     'nopandas': False,
+    'nonumpy': False,
     'numpy': False,
     'orc': False,
     'pandas': False,
@@ -131,7 +133,7 @@ try:
     import numpy  # noqa
     defaults['numpy'] = True
 except ImportError:
-    pass
+    defaults['nonumpy'] = True
 
 try:
     import pyarrow.parquet  # noqa
