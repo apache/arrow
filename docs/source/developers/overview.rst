@@ -75,7 +75,7 @@ checklist for using ``git``:
     locally, for example if additional commits have been made by a colleague.  By using
     ``--force-with-lease`` instead of ``--force``, you ensure those commits are not overwritten
     and can fetch those changes if desired.
-    
+
   .. dropdown:: Setting rebase to be default
     :animate: fade-in-slide-down
     :class-container: sd-shadow-none
@@ -202,4 +202,3 @@ Implementations that do not intend to implement cross endian support:
 
 For other libraries, a discussion to gather consensus on the mailing-list
 should be had before submitting PRs.
-

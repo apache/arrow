@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Data structure for Flight RPC. API should be considered experimental for now
+// Data structure for Flight RPC.
 
 #pragma once
 
@@ -1115,8 +1115,6 @@ std::string ToString(TransportStatusCode code);
 ///   instead of trying to translate to Arrow Status.
 ///
 /// Currently, only attached to the Status passed to AsyncListener::OnFinish.
-///
-/// This API is EXPERIMENTAL.
 class ARROW_FLIGHT_EXPORT TransportStatusDetail : public StatusDetail {
  public:
   constexpr static const char* kTypeId = "flight::TransportStatusDetail";

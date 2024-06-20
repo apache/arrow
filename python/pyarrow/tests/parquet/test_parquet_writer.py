@@ -346,3 +346,18 @@ def test_parquet_writer_store_schema(tempdir):
 
     meta = pq.read_metadata(path2)
     assert meta.metadata is None
+
+
+def test_parquet_writer_append_key_value_metadata(tempdir):
+    table = pa.Table.from_arrays([pa.array([], type='int32')], ['f0'])
+    path = tempdir / 'metadata.parquet'
+
+    with pq.ParquetWriter(path, table.schema) as writer:
+        writer.write_table(table)
+        writer.add_key_value_metadata({'key1': '1', 'key2': 'x'})
+        writer.add_key_value_metadata({'key2': '2', 'key3': '3'})
+    reader = pq.ParquetFile(path)
+    metadata = reader.metadata.metadata
+    assert metadata[b'key1'] == b'1'
+    assert metadata[b'key2'] == b'2'
+    assert metadata[b'key3'] == b'3'

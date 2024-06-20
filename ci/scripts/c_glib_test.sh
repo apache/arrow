@@ -24,6 +24,7 @@ build_dir=${2}/c_glib
 
 : ${ARROW_GLIB_VAPI:=true}
 
+export DYLD_LIBRARY_PATH=${ARROW_HOME}/lib:${DYLD_LIBRARY_PATH}
 export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
 export PKG_CONFIG_PATH=${ARROW_HOME}/lib/pkgconfig
 export GI_TYPELIB_PATH=${ARROW_HOME}/lib/girepository-1.0

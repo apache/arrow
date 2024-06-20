@@ -20,11 +20,11 @@ import (
 	"io"
 	"sync"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/bitutil"
-	"github.com/apache/arrow/go/v16/arrow/memory"
-	"github.com/apache/arrow/go/v16/internal/utils"
-	"github.com/apache/arrow/go/v16/parquet"
+	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/arrow/go/v17/arrow/bitutil"
+	"github.com/apache/arrow/go/v17/arrow/memory"
+	"github.com/apache/arrow/go/v17/internal/utils"
+	"github.com/apache/arrow/go/v17/parquet"
 	"golang.org/x/xerrors"
 )
 
@@ -185,7 +185,7 @@ func (b *PooledBufferWriter) Reserve(nbytes int) {
 		b.buf = bufferPool.Get().(*memory.Buffer)
 	}
 
-	newCap := utils.Max(b.buf.Cap()+b.offset, 256)
+	newCap := utils.Max(b.buf.Cap(), 256)
 	for newCap < b.pos+nbytes {
 		newCap = bitutil.NextPowerOf2(newCap)
 	}
@@ -361,11 +361,16 @@ func (b *BufferWriter) Truncate() {
 func (b *BufferWriter) Reset(initial int) {
 	if b.buffer != nil {
 		b.buffer.Release()
+	} else {
+		b.buffer = memory.NewResizableBuffer(b.mem)
 	}
 
 	b.pos = 0
 	b.offset = 0
-	b.Reserve(initial)
+
+	if initial > 0 {
+		b.Reserve(initial)
+	}
 }
 
 // Reserve ensures that there is at least enough capacity to write nbytes

@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.c;
 
 import static org.apache.arrow.c.NativeUtil.NULL;
@@ -23,7 +22,6 @@ import static org.apache.arrow.util.Preconditions.checkNotNull;
 
 import java.util.ArrayList;
 import java.util.List;
-
 import org.apache.arrow.c.jni.JniWrapper;
 import org.apache.arrow.c.jni.PrivateData;
 import org.apache.arrow.memory.ArrowBuf;
@@ -33,9 +31,7 @@ import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 
-/**
- * Exporter for {@link ArrowArray}.
- */
+/** Exporter for {@link ArrowArray}. */
 final class ArrayExporter {
   private final BufferAllocator allocator;
 
@@ -43,9 +39,7 @@ final class ArrayExporter {
     this.allocator = allocator;
   }
 
-  /**
-   * Private data structure for exported arrays.
-   */
+  /** Private data structure for exported arrays. */
   static class ExportedArrayPrivateData implements PrivateData {
     ArrowBuf buffers_ptrs;
     List<ArrowBuf> buffers;
@@ -98,15 +92,7 @@ final class ArrayExporter {
       if (buffers != null) {
         data.buffers = new ArrayList<>(buffers.size());
         data.buffers_ptrs = allocator.buffer((long) buffers.size() * Long.BYTES);
-        for (ArrowBuf arrowBuf : buffers) {
-          if (arrowBuf != null) {
-            arrowBuf.getReferenceManager().retain();
-            data.buffers_ptrs.writeLong(arrowBuf.memoryAddress());
-          } else {
-            data.buffers_ptrs.writeLong(NULL);
-          }
-          data.buffers.add(arrowBuf);
-        }
+        vector.exportCDataBuffers(data.buffers, data.buffers_ptrs, NULL);
       }
 
       if (dictionaryEncoding != null) {

@@ -18,7 +18,7 @@
 import 'web-streams-polyfill';
 
 import '../../jest-extensions.js';
-import { from, fromDOMStream, toArray } from 'ix/asynciterable';
+import { from, fromDOMStream, toArray } from 'ix/Ix.asynciterable';
 import { fromNodeStream } from 'ix/asynciterable/fromnodestream';
 
 import { validateVector } from './utils.js';

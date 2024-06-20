@@ -152,6 +152,7 @@ def test_option_class_equality():
         pc.IndexOptions(pa.scalar(1)),
         pc.JoinOptions(),
         pc.ListSliceOptions(0, -1, 1, True),
+        pc.ListFlattenOptions(recursive=False),
         pc.MakeStructOptions(["field", "names"],
                              field_nullability=[True, True],
                              field_metadata=[pa.KeyValueMetadata({"a": "1"}),
@@ -1304,6 +1305,12 @@ def test_filter(ty, values):
     result.validate()
     assert result.equals(pa.array([values[0], values[3], None], type=ty))
 
+    # same test with different array type
+    mask = np.array([True, False, False, True, None])
+    result = arr.filter(mask, null_selection_behavior='drop')
+    result.validate()
+    assert result.equals(pa.array([values[0], values[3]], type=ty))
+
     # non-boolean dtype
     mask = pa.array([0, 1, 0, 1, 0])
     with pytest.raises(NotImplementedError):
@@ -1342,6 +1349,11 @@ def test_filter_record_batch():
     mask = pa.array([True, False, None, False, True])
     result = batch.filter(mask)
     expected = pa.record_batch([pa.array(["a", "e"])], names=["a'"])
+    assert result.equals(expected)
+
+    # GH-38770: mask is chunked array
+    chunked_mask = pa.chunked_array([[True, False], [None], [False, True]])
+    result = batch.filter(chunked_mask)
     assert result.equals(expected)
 
     result = batch.filter(mask, null_selection_behavior="emit_null")
@@ -3558,7 +3570,7 @@ def test_list_slice_output_fixed(start, stop, step, expected, value_type,
     if stop is None and list_type != "fixed":
         msg = ("Unable to produce FixedSizeListArray from "
                "non-FixedSizeListArray without `stop` being set.")
-        with pytest.raises(pa.ArrowNotImplementedError, match=msg):
+        with pytest.raises(pa.ArrowInvalid, match=msg):
             pc.list_slice(*args)
     else:
         result = pc.list_slice(*args)

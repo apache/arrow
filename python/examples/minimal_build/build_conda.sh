@@ -97,9 +97,8 @@ export CMAKE_PREFIX_PATH=${ARROW_HOME}${CMAKE_PREFIX_PATH:+:${CMAKE_PREFIX_PATH}
 export PYARROW_BUILD_TYPE=Debug
 export PYARROW_CMAKE_GENERATOR=Ninja
 
-# You can run either "develop" or "build_ext --inplace". Your pick
+# Use the same command that we use on python_build.sh
+python -m pip install --no-deps --no-build-isolation -vv .
+popd
 
-# python setup.py build_ext --inplace
-python setup.py develop
-
-py.test pyarrow
+pytest -vv -r s ${PYTEST_ARGS} --pyargs pyarrow

@@ -158,8 +158,6 @@ if(ARROW_DEFINE_OPTIONS)
   define_option_string(ARROW_GIT_DESCRIPTION "The Arrow git commit description (if any)"
                        "")
 
-  define_option(ARROW_NO_DEPRECATED_API "Exclude deprecated APIs from build" OFF)
-
   define_option(ARROW_POSITION_INDEPENDENT_CODE
                 "Whether to create position-independent target" ON)
 
@@ -169,6 +167,8 @@ if(ARROW_DEFINE_OPTIONS)
 takes precedence over ccache if a storage backend is configured" ON)
 
   define_option(ARROW_USE_LD_GOLD "Use ld.gold for linking on Linux (if available)" OFF)
+
+  define_option(ARROW_USE_LLD "Use the LLVM lld for linking (if available)" OFF)
 
   define_option(ARROW_USE_MOLD "Use mold for linking on Linux (if available)" OFF)
 

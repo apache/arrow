@@ -168,6 +168,8 @@ class ARROW_TESTING_EXPORT GenericFileSystemTest {
   virtual bool allow_write_file_over_dir() const { return false; }
   // - Whether the filesystem allows reading a directory
   virtual bool allow_read_dir_as_file() const { return false; }
+  // - Whether the filesystem allows moving a file
+  virtual bool allow_move_file() const { return true; }
   // - Whether the filesystem allows moving a directory
   virtual bool allow_move_dir() const { return true; }
   // - Whether the filesystem allows moving a directory "over" a non-empty destination
@@ -182,6 +184,8 @@ class ARROW_TESTING_EXPORT GenericFileSystemTest {
   virtual bool have_flaky_directory_tree_deletion() const { return false; }
   // - Whether the filesystem stores some metadata alongside files
   virtual bool have_file_metadata() const { return false; }
+  // - Whether the filesystem has a false positive memory leak with generator
+  virtual bool have_false_positive_memory_leak_with_generator() const { return false; }
 
   void TestEmpty(FileSystem* fs);
   void TestNormalizePath(FileSystem* fs);

@@ -1122,11 +1122,11 @@ class ARROW_EXPORT ListType : public BaseListType {
   static constexpr const char* type_name() { return "list"; }
 
   // List can contain any other logical value type
-  explicit ListType(const std::shared_ptr<DataType>& value_type)
-      : ListType(std::make_shared<Field>("item", value_type)) {}
+  explicit ListType(std::shared_ptr<DataType> value_type)
+      : ListType(std::make_shared<Field>("item", std::move(value_type))) {}
 
-  explicit ListType(const std::shared_ptr<Field>& value_field) : BaseListType(type_id) {
-    children_ = {value_field};
+  explicit ListType(std::shared_ptr<Field> value_field) : BaseListType(type_id) {
+    children_ = {std::move(value_field)};
   }
 
   DataTypeLayout layout() const override {
@@ -1153,12 +1153,11 @@ class ARROW_EXPORT LargeListType : public BaseListType {
   static constexpr const char* type_name() { return "large_list"; }
 
   // List can contain any other logical value type
-  explicit LargeListType(const std::shared_ptr<DataType>& value_type)
-      : LargeListType(std::make_shared<Field>("item", value_type)) {}
+  explicit LargeListType(std::shared_ptr<DataType> value_type)
+      : LargeListType(std::make_shared<Field>("item", std::move(value_type))) {}
 
-  explicit LargeListType(const std::shared_ptr<Field>& value_field)
-      : BaseListType(type_id) {
-    children_ = {value_field};
+  explicit LargeListType(std::shared_ptr<Field> value_field) : BaseListType(type_id) {
+    children_ = {std::move(value_field)};
   }
 
   DataTypeLayout layout() const override {
@@ -1296,12 +1295,13 @@ class ARROW_EXPORT FixedSizeListType : public BaseListType {
   static constexpr const char* type_name() { return "fixed_size_list"; }
 
   // List can contain any other logical value type
-  FixedSizeListType(const std::shared_ptr<DataType>& value_type, int32_t list_size)
-      : FixedSizeListType(std::make_shared<Field>("item", value_type), list_size) {}
+  FixedSizeListType(std::shared_ptr<DataType> value_type, int32_t list_size)
+      : FixedSizeListType(std::make_shared<Field>("item", std::move(value_type)),
+                          list_size) {}
 
-  FixedSizeListType(const std::shared_ptr<Field>& value_field, int32_t list_size)
+  FixedSizeListType(std::shared_ptr<Field> value_field, int32_t list_size)
       : BaseListType(type_id), list_size_(list_size) {
-    children_ = {value_field};
+    children_ = {std::move(value_field)};
   }
 
   DataTypeLayout layout() const override {
@@ -1723,7 +1723,9 @@ class ARROW_EXPORT MonthIntervalType : public IntervalType {
 
   MonthIntervalType() : IntervalType(type_id) {}
 
-  std::string ToString(bool show_metadata = false) const override { return name(); }
+  std::string ToString(bool ARROW_ARG_UNUSED(show_metadata) = false) const override {
+    return name();
+  }
   std::string name() const override { return "month_interval"; }
 };
 
@@ -1759,7 +1761,9 @@ class ARROW_EXPORT DayTimeIntervalType : public IntervalType {
 
   int bit_width() const override { return static_cast<int>(sizeof(c_type) * CHAR_BIT); }
 
-  std::string ToString(bool show_metadata = false) const override { return name(); }
+  std::string ToString(bool ARROW_ARG_UNUSED(show_metadata) = false) const override {
+    return name();
+  }
   std::string name() const override { return "day_time_interval"; }
 };
 
@@ -1799,7 +1803,9 @@ class ARROW_EXPORT MonthDayNanoIntervalType : public IntervalType {
 
   int bit_width() const override { return static_cast<int>(sizeof(c_type) * CHAR_BIT); }
 
-  std::string ToString(bool show_metadata = false) const override { return name(); }
+  std::string ToString(bool ARROW_ARG_UNUSED(show_metadata) = false) const override {
+    return name();
+  }
   std::string name() const override { return "month_day_nano_interval"; }
 };
 
@@ -2482,7 +2488,7 @@ Result<std::shared_ptr<Schema>> UnifySchemas(
 
 namespace internal {
 
-constexpr bool HasValidityBitmap(Type::type id) {
+constexpr bool may_have_validity_bitmap(Type::type id) {
   switch (id) {
     case Type::NA:
     case Type::DENSE_UNION:
@@ -2493,6 +2499,9 @@ constexpr bool HasValidityBitmap(Type::type id) {
       return true;
   }
 }
+
+ARROW_DEPRECATED("Deprecated in 17.0.0. Use may_have_validity_bitmap() instead.")
+constexpr bool HasValidityBitmap(Type::type id) { return may_have_validity_bitmap(id); }
 
 ARROW_EXPORT
 std::string ToString(Type::type id);

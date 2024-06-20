@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v17/arrow"
 	hamba "github.com/hamba/avro/v2"
 )
 

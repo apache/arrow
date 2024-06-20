@@ -14,23 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.memory;
 
-import static junit.framework.TestCase.assertNotNull;
-import static junit.framework.TestCase.assertTrue;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-/**
- * To test simplified implementation of IdentityHashMap.
- */
+/** To test simplified implementation of IdentityHashMap. */
 public class TestLowCostIdentityHashMap {
 
   @Test
-  public void testIdentityHashMap() throws Exception {
+  public void testIdentityHashMap() {
     LowCostIdentityHashMap<String, StringWithKey> hashMap = new LowCostIdentityHashMap<>();
 
     StringWithKey obj1 = new StringWithKey("s1key", "s1value");
@@ -55,14 +53,16 @@ public class TestLowCostIdentityHashMap {
 
     assertEquals(3, hashMap.size());
 
-    assertTrue(!hashMap.isEmpty());
+    assertFalse(hashMap.isEmpty());
 
     StringWithKey nextValue = hashMap.getNextValue();
 
     assertNotNull(nextValue);
 
-    assertTrue((hashMap.get("s1key") == nextValue || hashMap.get("s2key") == nextValue ||
-        hashMap.get("s5key") == nextValue));
+    assertTrue(
+        (hashMap.get("s1key") == nextValue
+            || hashMap.get("s2key") == nextValue
+            || hashMap.get("s5key") == nextValue));
 
     assertTrue(hashMap.containsValue(obj4));
     assertTrue(hashMap.containsValue(obj2));
@@ -87,10 +87,10 @@ public class TestLowCostIdentityHashMap {
   }
 
   @Test
-  public void testLargeMap() throws Exception {
+  public void testLargeMap() {
     LowCostIdentityHashMap<String, StringWithKey> hashMap = new LowCostIdentityHashMap<>();
 
-    String [] keys = new String[200];
+    String[] keys = new String[200];
     for (int i = 0; i < 200; i++) {
       keys[i] = "s" + i + "key";
     }
@@ -128,7 +128,7 @@ public class TestLowCostIdentityHashMap {
       if (i % 4 == 0) {
         StringWithKey returnObj = hashMap.remove(keys[i]);
         assertNotNull(returnObj);
-        assertTrue(!hashMap.containsKey(keys[i]));
+        assertFalse(hashMap.containsKey(keys[i]));
       }
       StringWithKey obj = new StringWithKey(keys[100 + i], "s" + (100 + i) + "value");
       StringWithKey retObj = hashMap.put(obj);
@@ -141,16 +141,16 @@ public class TestLowCostIdentityHashMap {
       assertNotNull(retObj);
       hashMap.remove(retObj.getKey());
     }
-    assertTrue(!hashMap.isEmpty());
+    assertFalse(hashMap.isEmpty());
     assertEquals(75, hashMap.size());
     hashMap.clear();
     assertTrue(hashMap.isEmpty());
   }
 
-  private class StringWithKey implements ValueWithKeyIncluded<String> {
+  private static class StringWithKey implements ValueWithKeyIncluded<String> {
 
-    private String myValue;
-    private String myKey;
+    private final String myValue;
+    private final String myKey;
 
     StringWithKey(String myKey, String myValue) {
       this.myKey = myKey;

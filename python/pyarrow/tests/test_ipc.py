@@ -16,6 +16,7 @@
 # under the License.
 
 from collections import UserList
+import datetime
 import io
 import pathlib
 import pytest
@@ -1271,6 +1272,15 @@ def test_record_batch_reader_cast():
     reader = pa.RecordBatchReader.from_batches(schema_src, data)
     with pytest.raises(pa.lib.ArrowTypeError, match='Field 0 cannot be cast'):
         reader.cast(pa.schema([pa.field('a', pa.list_(pa.int32()))]))
+
+    # Cast to same type should always work (also for types without a T->T cast function)
+    # (https://github.com/apache/arrow/issues/41884)
+    schema_src = pa.schema([pa.field('a', pa.date32())])
+    arr = pa.array([datetime.date(2024, 6, 11)], type=pa.date32())
+    data = [pa.record_batch([arr], names=['a']), pa.record_batch([arr], names=['a'])]
+    table_src = pa.Table.from_batches(data)
+    reader = pa.RecordBatchReader.from_batches(schema_src, data)
+    assert reader.cast(schema_src).read_all() == table_src
 
 
 def test_record_batch_reader_cast_nulls():

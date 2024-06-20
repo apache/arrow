@@ -405,7 +405,7 @@ class PyValue {
     RETURN_NOT_OK(PopulateMonthDayNano<MonthDayNanoField::kMonths>::Field(
         obj, &output.months, &found_attrs));
     // on relativeoffset weeks is a property calculated from days.  On
-    // DateOffset is is a field on its own. timedelta doesn't have a weeks
+    // DateOffset is a field on its own. timedelta doesn't have a weeks
     // attribute.
     PyObject* pandas_date_offset_type = internal::BorrowPandasDataOffsetType();
     bool is_date_offset = pandas_date_offset_type == (PyObject*)Py_TYPE(obj);
@@ -873,6 +873,10 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
     PyArrayObject* ndarray = reinterpret_cast<PyArrayObject*>(value);
     if (PyArray_NDIM(ndarray) != 1) {
       return Status::Invalid("Can only convert 1-dimensional array values");
+    }
+    if (PyArray_ISBYTESWAPPED(ndarray)) {
+      // TODO
+      return Status::NotImplemented("Byte-swapped arrays not supported");
     }
     const int64_t size = PyArray_SIZE(ndarray);
     RETURN_NOT_OK(AppendTo(this->list_type_, size));

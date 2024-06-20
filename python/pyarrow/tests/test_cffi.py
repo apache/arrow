@@ -45,7 +45,7 @@ assert_array_released = pytest.raises(
     ValueError, match="Cannot import released ArrowArray")
 
 assert_stream_released = pytest.raises(
-    ValueError, match="Cannot import released ArrowArrayStream")
+    ValueError, match="Cannot import released Arrow Stream")
 
 
 def PyCapsule_IsValid(capsule, name):
@@ -692,8 +692,37 @@ def test_roundtrip_chunked_array_capsule_requested_schema():
     imported_chunked = pa.ChunkedArray._import_from_c_capsule(capsule)
     assert imported_chunked == chunked
 
-    # Casting to something else should error
+    # Casting to something else should error if not possible
     requested_type = pa.binary()
     requested_capsule = requested_type.__arrow_c_schema__()
-    with pytest.raises(NotImplementedError):
+    capsule = chunked.__arrow_c_stream__(requested_capsule)
+    imported_chunked = pa.ChunkedArray._import_from_c_capsule(capsule)
+    assert imported_chunked == chunked.cast(pa.binary())
+
+    requested_type = pa.int64()
+    requested_capsule = requested_type.__arrow_c_schema__()
+    with pytest.raises(
+        ValueError, match="Could not cast string to requested type int64"
+    ):
         chunked.__arrow_c_stream__(requested_capsule)
+
+
+def test_import_device_no_cuda():
+    try:
+        import pyarrow.cuda  # noqa
+    except ImportError:
+        pass
+    else:
+        pytest.skip("pyarrow.cuda is available")
+
+    c_array = ffi.new("struct ArrowDeviceArray*")
+    ptr_array = int(ffi.cast("uintptr_t", c_array))
+    arr = pa.array([1, 2, 3], type=pa.int64())
+    arr._export_to_c_device(ptr_array)
+
+    # patch the device type of the struct, this results in an invalid ArrowDeviceArray
+    # but this is just to test we raise am error before actually importing buffers
+    c_array.device_type = 2  # ARROW_DEVICE_CUDA
+
+    with pytest.raises(ImportError, match="Trying to import data on a CUDA device"):
+        pa.Array._import_from_c_device(ptr_array, arr.type)

@@ -36,28 +36,78 @@
   TypeName& operator=(TypeName&&) = default
 #endif
 
+// With ARROW_PREDICT_FALSE, GCC and clang can be told that a certain branch is
+// not likely to be taken (for instance, a CHECK failure), and use that information in
+// static analysis. Giving the compiler this information can affect the generated code
+// layout in the absence of better information (i.e. -fprofile-arcs). [1] explains how
+// this feature can be used to improve code generation. It was written as a positive
+// comment to a negative article about the use of these annotations.
+//
+// ARROW_COMPILER_ASSUME allows the compiler to assume that a given expression is
+// true, without evaluating it, and to optimise based on this assumption [2]. If this
+// condition is violated at runtime, the behavior is undefined. This can be useful to
+// generate both faster and smaller code in compute kernels.
+//
+// IMPORTANT: Different optimisers are likely to react differently to this annotation!
+// It should be used with care when we can prove by some means that the assumption
+// is (1) guaranteed to always hold and (2) is useful for optimization [3]. If the
+// assumption is pessimistic, it might even block the compiler from decisions that
+// could lead to better code [4]. If you have a good intuition for what the compiler
+// can do with assumptions [5], you can use this macro to guide it and end up with
+// results you would only get with more complex code transformations.
+// `clang -S -emit-llvm` can be used to check how the generated code changes with
+// your specific use of this macro.
+//
+// [1] https://lobste.rs/s/uwgtkt/don_t_use_likely_unlikely_attributes#c_xi3wmc
+// [2] "Portable assumptions"
+//     https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p1774r4.pdf
+// [3] "Assertions Are Pessimistic, Assumptions Are Optimistic"
+//     https://blog.regehr.org/archives/1096
+// [4] https://discourse.llvm.org/t/llvm-assume-blocks-optimization/71609
+// [5] J. Doerfert et al. 2019. "Performance Exploration Through Optimistic Static
+//     Program Annotations". https://github.com/jdoerfert/PETOSPA/blob/master/ISC19.pdf
 #define ARROW_UNUSED(x) (void)(x)
+#ifdef ARROW_WARN_DOCUMENTATION
+#define ARROW_ARG_UNUSED(x) x
+#else
 #define ARROW_ARG_UNUSED(x)
-//
-// GCC can be told that a certain branch is not likely to be taken (for
-// instance, a CHECK failure), and use that information in static analysis.
-// Giving it this information can help it optimize for the common case in
-// the absence of better information (ie. -fprofile-arcs).
-//
-#if defined(__GNUC__)
-#define ARROW_PREDICT_FALSE(x) (__builtin_expect(!!(x), 0))
-#define ARROW_PREDICT_TRUE(x) (__builtin_expect(!!(x), 1))
+#endif
+#if defined(__GNUC__)  // GCC and compatible compilers (clang, Intel ICC)
 #define ARROW_NORETURN __attribute__((noreturn))
 #define ARROW_NOINLINE __attribute__((noinline))
 #define ARROW_FORCE_INLINE __attribute__((always_inline))
+#define ARROW_PREDICT_FALSE(x) (__builtin_expect(!!(x), 0))
+#define ARROW_PREDICT_TRUE(x) (__builtin_expect(!!(x), 1))
 #define ARROW_PREFETCH(addr) __builtin_prefetch(addr)
-#elif defined(_MSC_VER)
+#define ARROW_RESTRICT __restrict
+#if defined(__clang__)  // clang-specific
+#define ARROW_COMPILER_ASSUME(expr) __builtin_assume(expr)
+#else  // GCC-specific
+#if __GNUC__ >= 13
+#define ARROW_COMPILER_ASSUME(expr) __attribute__((assume(expr)))
+#else
+// GCC does not have a built-in assume intrinsic before GCC 13, so we use an
+// if statement and __builtin_unreachable() to achieve the same effect [2].
+// Unlike clang's __builtin_assume and C++23's [[assume(expr)]], using this
+// on GCC won't warn about side-effects in the expression, so make sure expr
+// is side-effect free when working with GCC versions before 13 (Jan-2024),
+// otherwise clang/MSVC builds will fail in CI.
+#define ARROW_COMPILER_ASSUME(expr) \
+  if (expr) {                       \
+  } else {                          \
+    __builtin_unreachable();        \
+  }
+#endif  // __GNUC__ >= 13
+#endif
+#elif defined(_MSC_VER)  // MSVC
 #define ARROW_NORETURN __declspec(noreturn)
 #define ARROW_NOINLINE __declspec(noinline)
-#define ARROW_FORCE_INLINE __declspec(forceinline)
+#define ARROW_FORCE_INLINE __forceinline
 #define ARROW_PREDICT_FALSE(x) (x)
 #define ARROW_PREDICT_TRUE(x) (x)
 #define ARROW_PREFETCH(addr)
+#define ARROW_RESTRICT __restrict
+#define ARROW_COMPILER_ASSUME(expr) __assume(expr)
 #else
 #define ARROW_NORETURN
 #define ARROW_NOINLINE
@@ -65,12 +115,8 @@
 #define ARROW_PREDICT_FALSE(x) (x)
 #define ARROW_PREDICT_TRUE(x) (x)
 #define ARROW_PREFETCH(addr)
-#endif
-
-#if defined(__GNUC__) || defined(__clang__) || defined(_MSC_VER)
-#define ARROW_RESTRICT __restrict
-#else
 #define ARROW_RESTRICT
+#define ARROW_COMPILER_ASSUME(expr)
 #endif
 
 // ----------------------------------------------------------------------

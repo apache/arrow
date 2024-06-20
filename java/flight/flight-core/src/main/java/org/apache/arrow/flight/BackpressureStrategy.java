@@ -14,49 +14,37 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight;
 
+import com.google.common.base.Preconditions;
 import org.apache.arrow.vector.VectorSchemaRoot;
 
-import com.google.common.base.Preconditions;
-
 /**
- * Helper interface to dynamically handle backpressure when implementing FlightProducers.
- * This must only be used in FlightProducer implementations that are non-blocking.
+ * Helper interface to dynamically handle backpressure when implementing FlightProducers. This must
+ * only be used in FlightProducer implementations that are non-blocking.
  */
 public interface BackpressureStrategy {
-  /**
-   * The state of the client after a call to waitForListener.
-   */
+  /** The state of the client after a call to waitForListener. */
   enum WaitResult {
-    /**
-     * Listener is ready.
-     */
+    /** Listener is ready. */
     READY,
 
-    /**
-     * Listener was cancelled by the client.
-     */
+    /** Listener was cancelled by the client. */
     CANCELLED,
 
-    /**
-     * Timed out waiting for the listener to change state.
-     */
+    /** Timed out waiting for the listener to change state. */
     TIMEOUT,
 
-    /**
-     * Indicates that the wait was interrupted for a reason
-     * unrelated to the listener itself.
-     */
+    /** Indicates that the wait was interrupted for a reason unrelated to the listener itself. */
     OTHER
   }
 
   /**
    * Set up operations to work against the given listener.
    *
-   * This must be called exactly once and before any calls to {@link #waitForListener(long)} and
+   * <p>This must be called exactly once and before any calls to {@link #waitForListener(long)} and
    * {@link OutboundStreamListener#start(VectorSchemaRoot)}
+   *
    * @param listener The listener this strategy applies to.
    */
   void register(FlightProducer.ServerStreamListener listener);
@@ -121,9 +109,9 @@ public interface BackpressureStrategy {
     /**
      * Interrupt waiting on the listener to change state.
      *
-     * This method can be used in conjunction with
-     * {@link #shouldContinueWaiting(FlightProducer.ServerStreamListener, long)} to allow FlightProducers to
-     * terminate streams internally and notify clients.
+     * <p>This method can be used in conjunction with {@link
+     * #shouldContinueWaiting(FlightProducer.ServerStreamListener, long)} to allow FlightProducers
+     * to terminate streams internally and notify clients.
      */
     public void interruptWait() {
       synchronized (lock) {
@@ -132,28 +120,23 @@ public interface BackpressureStrategy {
     }
 
     /**
-     * Callback function to run to check if the listener should continue
-     * to be waited on if it leaves the waiting state without being cancelled,
-     * ready, or timed out.
+     * Callback function to run to check if the listener should continue to be waited on if it
+     * leaves the waiting state without being cancelled, ready, or timed out.
      *
-     * This method should be used to determine if the wait on the listener was interrupted explicitly using a
-     * call to {@link #interruptWait()} or if it was woken up due to a spurious wake.
+     * <p>This method should be used to determine if the wait on the listener was interrupted
+     * explicitly using a call to {@link #interruptWait()} or if it was woken up due to a spurious
+     * wake.
      */
-    protected boolean shouldContinueWaiting(FlightProducer.ServerStreamListener listener, long remainingTimeout) {
+    protected boolean shouldContinueWaiting(
+        FlightProducer.ServerStreamListener listener, long remainingTimeout) {
       return true;
     }
 
-    /**
-     * Callback to execute when the listener becomes ready.
-     */
-    protected void readyCallback() {
-    }
+    /** Callback to execute when the listener becomes ready. */
+    protected void readyCallback() {}
 
-    /**
-     * Callback to execute when the listener is cancelled.
-     */
-    protected void cancelCallback() {
-    }
+    /** Callback to execute when the listener is cancelled. */
+    protected void cancelCallback() {}
 
     private void onReady() {
       synchronized (lock) {

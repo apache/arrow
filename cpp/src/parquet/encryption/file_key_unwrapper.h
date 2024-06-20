@@ -57,8 +57,7 @@ class PARQUET_EXPORT FileKeyUnwrapper : public DecryptionKeyRetriever {
 
   /// Constructor overload that takes a raw pointer to the KeyToolkit and
   /// accepts an existing key_material_store rather than using
-  /// the file path and file system to create one when needed. This is useful for key
-  /// rotation to allow accessing the key material store after it is used.
+  /// the file path and file system to create one when needed.
   FileKeyUnwrapper(KeyToolkit* key_toolkit,
                    const KmsConnectionConfig& kms_connection_config,
                    double cache_lifetime_seconds,

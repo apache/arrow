@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc.binder;
 
 import java.sql.PreparedStatement;
@@ -22,7 +21,6 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.Calendar;
-
 import org.apache.arrow.vector.TimeStampVector;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 
@@ -32,15 +30,17 @@ public class TimeStampBinder extends BaseColumnBinder<TimeStampVector> {
   private final long unitsPerSecond;
   private final long nanosPerUnit;
 
-  /**
-   * Create a binder for a timestamp vector using the default JDBC type code.
-   */
+  /** Create a binder for a timestamp vector using the default JDBC type code. */
   public TimeStampBinder(TimeStampVector vector, Calendar calendar) {
-    this(vector, calendar, isZoned(vector.getField().getType()) ? Types.TIMESTAMP_WITH_TIMEZONE : Types.TIMESTAMP);
+    this(
+        vector,
+        calendar,
+        isZoned(vector.getField().getType()) ? Types.TIMESTAMP_WITH_TIMEZONE : Types.TIMESTAMP);
   }
 
   /**
    * Create a binder for a timestamp vector.
+   *
    * @param vector The vector to pull values from.
    * @param calendar Optionally, the calendar to pass to JDBC.
    * @param jdbcType The JDBC type code to use for null values.
@@ -73,19 +73,23 @@ public class TimeStampBinder extends BaseColumnBinder<TimeStampVector> {
   }
 
   @Override
-  public void bind(PreparedStatement statement, int parameterIndex, int rowIndex) throws SQLException {
+  public void bind(PreparedStatement statement, int parameterIndex, int rowIndex)
+      throws SQLException {
     // TODO: option to throw on truncation (vendor Guava IntMath#multiply) or overflow
-    final long rawValue = vector.getDataBuffer().getLong((long) rowIndex * TimeStampVector.TYPE_WIDTH);
+    final long rawValue =
+        vector.getDataBuffer().getLong((long) rowIndex * TimeStampVector.TYPE_WIDTH);
     final long seconds = rawValue / unitsPerSecond;
     final int nanos = (int) ((rawValue - (seconds * unitsPerSecond)) * nanosPerUnit);
     final Timestamp value = new Timestamp(seconds * 1_000);
     value.setNanos(nanos);
     if (calendar != null) {
-      // Timestamp == Date == UTC timestamp (confusingly). Arrow's timestamp with timezone is a UTC value with a
+      // Timestamp == Date == UTC timestamp (confusingly). Arrow's timestamp with timezone is a UTC
+      // value with a
       // zone offset, so we don't need to do any conversion.
       statement.setTimestamp(parameterIndex, value, calendar);
     } else {
-      // Arrow timestamp without timezone isn't strictly convertible to any timezone. So this is technically wrong,
+      // Arrow timestamp without timezone isn't strictly convertible to any timezone. So this is
+      // technically wrong,
       // but there is no 'correct' interpretation here. The application should provide a calendar.
       statement.setTimestamp(parameterIndex, value);
     }

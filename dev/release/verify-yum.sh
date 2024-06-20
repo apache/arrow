@@ -64,6 +64,16 @@ uninstall_command="dnf remove -y"
 clean_command="dnf clean"
 info_command="dnf info --enablerepo=crb"
 
+# GH-42128
+# Switch all repos to point to to vault.centos.org, use for EOL distros
+fix_eol_repositories() {
+  sed -i \
+    -e 's/^mirrorlist/#mirrorlist/' \
+    -e 's/^#baseurl/baseurl/' \
+    -e 's/mirror\.centos\.org/vault.centos.org/' \
+    /etc/yum.repos.d/*.repo
+}
+
 echo "::group::Prepare repository"
 
 case "${distribution}-${distribution_version}" in
@@ -99,6 +109,7 @@ case "${distribution}-${distribution_version}" in
     uninstall_command="yum remove -y"
     clean_command="yum clean"
     info_command="yum info"
+    fix_eol_repositories
     ;;
   centos-8)
     distribution_prefix="centos"
@@ -106,6 +117,7 @@ case "${distribution}-${distribution_version}" in
     ruby_devel_packages+=(redhat-rpm-config)
     install_command="dnf install -y --enablerepo=powertools"
     info_command="dnf info --enablerepo=powertools"
+    fix_eol_repositories
     ;;
   centos-*)
     distribution_prefix="centos"

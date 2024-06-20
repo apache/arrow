@@ -26,8 +26,8 @@ with memory buffers, like the ones explained in the documentation on
 :ref:`Memory and IO <io>`. These data structures are exposed in Python through
 a series of interrelated classes:
 
-* **Type Metadata**: Instances of ``pyarrow.DataType``, which describe a logical
-  array type
+* **Type Metadata**: Instances of ``pyarrow.DataType``, which describe the
+  type of an array and govern how its values are interpreted
 * **Schemas**: Instances of ``pyarrow.Schema``, which describe a named
   collection of types. These can be thought of as the column types in a
   table-like object.
@@ -55,8 +55,8 @@ array data. These include:
 * **Nested types**: list, map, struct, and union
 * **Dictionary type**: An encoded categorical type (more on this later)
 
-Each logical data type in Arrow has a corresponding factory function for
-creating an instance of that type object in Python:
+Each data type in Arrow has a corresponding factory function for creating
+an instance of that type object in Python:
 
 .. ipython:: python
 
@@ -72,11 +72,11 @@ creating an instance of that type object in Python:
    print(t4)
    print(t5)
 
-We use the name **logical type** because the **physical** storage may be the
-same for one or more types. For example, ``int64``, ``float64``, and
-``timestamp[ms]`` all occupy 64 bits per value.
+.. note::
+   Different data types might use a given physical storage. For example,
+   ``int64``, ``float64``, and ``timestamp[ms]`` all occupy 64 bits per value.
 
-These objects are `metadata`; they are used for describing the data in arrays,
+These objects are ``metadata``; they are used for describing the data in arrays,
 schemas, and record batches. In Python, they can be used in functions where the
 input data (e.g. Python objects) may be coerced to more than one Arrow type.
 
@@ -99,7 +99,7 @@ types' children. For example, we can define a list of int32 values with:
    t6 = pa.list_(t1)
    t6
 
-A `struct` is a collection of named fields:
+A ``struct`` is a collection of named fields:
 
 .. ipython:: python
 
@@ -560,3 +560,55 @@ schema without having to get any of the batches.::
    x: int64
 
 It can also be sent between languages using the :ref:`C stream interface <c-stream-interface>`.
+
+Conversion of RecordBatch to Tensor
+-----------------------------------
+
+Each array of the ``RecordBatch`` has it's own contiguous memory that is not necessarily
+adjacent to other arrays. A different memory structure that is used in machine learning
+libraries is a two dimensional array (also called a 2-dim tensor or a matrix) which takes
+only one contiguous block of memory.
+
+For this reason there is a function ``pyarrow.RecordBatch.to_tensor()`` available
+to efficiently convert tabular columnar data into a tensor.
+
+Data types supported in this conversion are unsigned, signed integer and float
+types. Currently only column-major conversion is supported.
+
+   >>>  import pyarrow as pa
+   >>>  arr1 = [1, 2, 3, 4, 5]
+   >>>  arr2 = [10, 20, 30, 40, 50]
+   >>>  batch = pa.RecordBatch.from_arrays(
+   ...      [
+   ...          pa.array(arr1, type=pa.uint16()),
+   ...          pa.array(arr2, type=pa.int16()),
+   ...      ], ["a", "b"]
+   ...  )
+   >>>  batch.to_tensor()
+   <pyarrow.Tensor>
+   type: int32
+   shape: (9, 2)
+   strides: (4, 36)
+   >>>  batch.to_tensor().to_numpy()
+   array([[ 1, 10],
+         [ 2, 20],
+         [ 3, 30],
+         [ 4, 40],
+         [ 5, 50]], dtype=int32)
+
+With ``null_to_nan`` set to ``True`` one can also convert data with
+nulls. They will be converted to ``NaN``:
+
+   >>> import pyarrow as pa
+   >>> batch = pa.record_batch(
+   ...     [
+   ...         pa.array([1, 2, 3, 4, None], type=pa.int32()),
+   ...         pa.array([10, 20, 30, 40, None], type=pa.float32()),
+   ...     ], names = ["a", "b"]
+   ... )
+   >>> batch.to_tensor(null_to_nan=True).to_numpy()
+   array([[ 1., 10.],
+         [ 2., 20.],
+         [ 3., 30.],
+         [ 4., 40.],
+         [nan, nan]])

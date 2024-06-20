@@ -45,7 +45,7 @@ class BackpressureHandler {
     }
     BackpressureHandler backpressure_handler(input, low_threshold, high_threshold,
                                              std::move(backpressure_control));
-    return std::move(backpressure_handler);
+    return backpressure_handler;
   }
 
   void Handle(size_t start_level, size_t end_level) {

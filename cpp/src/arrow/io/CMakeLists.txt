@@ -43,5 +43,7 @@ if(NOT (${ARROW_SIMD_LEVEL} STREQUAL "NONE") AND NOT (${ARROW_SIMD_LEVEL} STREQU
   add_arrow_benchmark(memory_benchmark PREFIX "arrow-io")
 endif()
 
+add_arrow_benchmark(compressed_benchmark PREFIX "arrow-io")
+
 # Headers: top level
 arrow_install_all_headers("arrow/io")

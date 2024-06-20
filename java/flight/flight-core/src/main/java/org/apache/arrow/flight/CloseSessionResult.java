@@ -14,37 +14,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-
 import org.apache.arrow.flight.impl.Flight;
 
 /** The result of attempting to close/invalidate a server session context. */
 public class CloseSessionResult {
-  /**
-   * Close operation result status values.
-   */
+  /** Close operation result status values. */
   public enum Status {
     /**
-     * The session close status is unknown. Servers should avoid using this value
-     * (send a NOT_FOUND error if the requested session is not known). Clients can
-     * retry the request.
+     * The session close status is unknown. Servers should avoid using this value (send a NOT_FOUND
+     * error if the requested session is not known). Clients can retry the request.
      */
     UNSPECIFIED,
-    /**
-     * The session close request is complete.
-     */
+    /** The session close request is complete. */
     CLOSED,
-    /**
-     * The session close request is in progress. The client may retry the request.
-     */
+    /** The session close request is in progress. The client may retry the request. */
     CLOSING,
-    /**
-     * The session is not closeable.
-     */
+    /** The session is not closeable. */
     NOT_CLOSABLE,
     ;
 
@@ -84,7 +73,8 @@ public class CloseSessionResult {
   /**
    * Get the serialized form of this protocol message.
    *
-   * <p>Intended to help interoperability by allowing non-Flight services to still return Flight types.
+   * <p>Intended to help interoperability by allowing non-Flight services to still return Flight
+   * types.
    */
   public ByteBuffer serialize() {
     return ByteBuffer.wrap(toProtocol().toByteArray());
@@ -93,7 +83,8 @@ public class CloseSessionResult {
   /**
    * Parse the serialized form of this protocol message.
    *
-   * <p>Intended to help interoperability by allowing Flight clients to obtain stream info from non-Flight services.
+   * <p>Intended to help interoperability by allowing Flight clients to obtain stream info from
+   * non-Flight services.
    *
    * @param serialized The serialized form of the message, as returned by {@link #serialize()}.
    * @return The deserialized message.
@@ -102,5 +93,4 @@ public class CloseSessionResult {
   public static CloseSessionResult deserialize(ByteBuffer serialized) throws IOException {
     return new CloseSessionResult(Flight.CloseSessionResult.parseFrom(serialized));
   }
-
 }

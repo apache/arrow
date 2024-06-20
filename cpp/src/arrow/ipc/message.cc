@@ -130,7 +130,7 @@ Result<std::unique_ptr<Message>> Message::Open(std::shared_ptr<Buffer> metadata,
                                                std::shared_ptr<Buffer> body) {
   std::unique_ptr<Message> result(new Message(std::move(metadata), std::move(body)));
   RETURN_NOT_OK(result->impl_->Open());
-  return std::move(result);
+  return result;
 }
 
 Message::~Message() {}
@@ -208,7 +208,7 @@ Result<std::unique_ptr<Message>> Message::ReadFrom(std::shared_ptr<Buffer> metad
                            " bytes for message body, got ", body->size());
   }
   RETURN_NOT_OK(decoder.Consume(body));
-  return std::move(result);
+  return result;
 }
 
 Result<std::unique_ptr<Message>> Message::ReadFrom(const int64_t offset,
@@ -225,7 +225,7 @@ Result<std::unique_ptr<Message>> Message::ReadFrom(const int64_t offset,
                            " bytes for message body, got ", body->size());
   }
   RETURN_NOT_OK(decoder.Consume(body));
-  return std::move(result);
+  return result;
 }
 
 Status WritePadding(io::OutputStream* stream, int64_t nbytes) {
@@ -329,7 +329,7 @@ Result<std::unique_ptr<Message>> ReadMessage(std::shared_ptr<Buffer> metadata,
     case MessageDecoder::State::INITIAL:
       // Metadata did not request a body so we better not have provided one
       DCHECK_EQ(body, nullptr);
-      return std::move(result);
+      return result;
     case MessageDecoder::State::METADATA_LENGTH:
       return Status::Invalid("metadata length is missing from the metadata buffer");
     case MessageDecoder::State::METADATA:
@@ -338,7 +338,7 @@ Result<std::unique_ptr<Message>> ReadMessage(std::shared_ptr<Buffer> metadata,
     case MessageDecoder::State::BODY: {
       if (body == nullptr) {
         // Caller didn't give a body so just give them a message without body
-        return std::move(result);
+        return result;
       }
       if (body->size() != decoder.next_required_size()) {
         return Status::IOError("Expected body buffer to be ",
@@ -346,7 +346,7 @@ Result<std::unique_ptr<Message>> ReadMessage(std::shared_ptr<Buffer> metadata,
                                " bytes for message body, got ", body->size());
       }
       RETURN_NOT_OK(decoder.Consume(body));
-      return std::move(result);
+      return result;
     }
     case MessageDecoder::State::EOS:
       return Status::Invalid("Unexpected empty message in IPC file format");
@@ -376,7 +376,7 @@ Result<std::unique_ptr<Message>> ReadMessage(int64_t offset, int32_t metadata_le
 
   switch (decoder.state()) {
     case MessageDecoder::State::INITIAL:
-      return std::move(result);
+      return result;
     case MessageDecoder::State::METADATA_LENGTH:
       return Status::Invalid("metadata length is missing. File offset: ", offset,
                              ", metadata length: ", metadata_length);
@@ -401,7 +401,7 @@ Result<std::unique_ptr<Message>> ReadMessage(int64_t offset, int32_t metadata_le
                                " bytes for message body, got ", body->size());
       }
       RETURN_NOT_OK(decoder.Consume(body));
-      return std::move(result);
+      return result;
     }
     case MessageDecoder::State::EOS:
       return Status::Invalid("Unexpected empty message in IPC file format");
@@ -551,7 +551,7 @@ Result<std::unique_ptr<Message>> ReadMessage(io::InputStream* file, MemoryPool* 
   if (!message) {
     return nullptr;
   } else {
-    return std::move(message);
+    return message;
   }
 }
 

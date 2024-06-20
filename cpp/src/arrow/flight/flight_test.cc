@@ -71,6 +71,7 @@
 #ifdef ARROW_WITH_OPENTELEMETRY
 #include <opentelemetry/context/propagation/global_propagator.h>
 #include <opentelemetry/context/propagation/text_map_propagator.h>
+#include <opentelemetry/sdk/trace/processor.h>
 #include <opentelemetry/sdk/trace/tracer_provider.h>
 #include <opentelemetry/trace/propagation/http_trace_context.h>
 #endif

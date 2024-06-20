@@ -37,6 +37,10 @@ namespace Azure::Storage::Blobs {
 class BlobServiceClient;
 }
 
+namespace Azure::Storage::Sas {
+struct BlobSasBuilder;
+}
+
 namespace Azure::Storage::Files::DataLake {
 class DataLakeFileSystemClient;
 class DataLakeServiceClient;
@@ -115,7 +119,9 @@ struct ARROW_EXPORT AzureOptions {
     kStorageSharedKey,
     kClientSecret,
     kManagedIdentity,
+    kCLI,
     kWorkloadIdentity,
+    kEnvironment,
   } credential_kind_ = CredentialKind::kDefault;
 
   std::shared_ptr<Azure::Storage::StorageSharedKeyCredential>
@@ -137,18 +143,14 @@ struct ARROW_EXPORT AzureOptions {
   ///
   /// 1. abfs[s]://[:\<password\>@]\<account\>.blob.core.windows.net
   ///    [/\<container\>[/\<path\>]]
-  /// 2. abfs[s]://\<container\>[:\<password\>]@\<account\>.dfs.core.windows.net
-  ///     [/path]
+  /// 2. abfs[s]://\<container\>[:\<password\>]\@\<account\>.dfs.core.windows.net[/path]
   /// 3. abfs[s]://[\<account[:\<password\>]@]\<host[.domain]\>[\<:port\>]
   ///    [/\<container\>[/path]]
   /// 4. abfs[s]://[\<account[:\<password\>]@]\<container\>[/path]
   ///
-  /// 1. and 2. are compatible with the Azure Data Lake Storage Gen2 URIs:
-  /// https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-introduction-abfs-uri
-  ///
-  /// 3. is for Azure Blob Storage compatible service including Azurite.
-  ///
-  /// 4. is a shorter version of 1. and 2.
+  /// (1) and (2) are compatible with the Azure Data Lake Storage Gen2 URIs
+  /// [1], (3) is for Azure Blob Storage compatible service including Azurite,
+  /// and (4) is a shorter version of (1) and (2).
   ///
   /// Note that there is no difference between abfs and abfss. HTTPS is
   /// used with abfs by default. You can force to use HTTP by specifying
@@ -159,12 +161,15 @@ struct ARROW_EXPORT AzureOptions {
   /// * blob_storage_authority: Set AzureOptions::blob_storage_authority
   /// * dfs_storage_authority: Set AzureOptions::dfs_storage_authority
   /// * enable_tls: If it's "false" or "0", HTTP not HTTPS is used.
-  /// * credential_kind: One of "default", "anonymous",
-  ///   "workload_identity". If "default" is specified, it's just
-  ///   ignored.  If "anonymous" is specified,
+  /// * credential_kind: One of "default", "anonymous", "workload_identity",
+  ///   "environment" or "cli". If "default" is specified, it's
+  ///   just ignored.  If "anonymous" is specified,
   ///   AzureOptions::ConfigureAnonymousCredential() is called. If
   ///   "workload_identity" is specified,
-  ///   AzureOptions::ConfigureWorkloadIdentityCredential() is called.
+  ///   AzureOptions::ConfigureWorkloadIdentityCredential() is called. If
+  ///   "environment" is specified,
+  ///   AzureOptions::ConfigureEnvironmentCredential() is called. If "cli" is
+  ///   specified, AzureOptions::ConfigureCLICredential() is called.
   /// * tenant_id: You must specify "client_id" and "client_secret"
   ///   too. AzureOptions::ConfigureClientSecretCredential() is called.
   /// * client_id: If you don't specify "tenant_id" and
@@ -174,6 +179,9 @@ struct ARROW_EXPORT AzureOptions {
   ///   AzureOptions::ConfigureClientSecretCredential() is called.
   /// * client_secret: You must specify "tenant_id" and "client_id"
   ///   too. AzureOptions::ConfigureClientSecretCredential() is called.
+  ///
+  /// [1]:
+  /// https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-introduction-abfs-uri
   static Result<AzureOptions> FromUri(const Uri& uri, std::string* out_path);
   static Result<AzureOptions> FromUri(const std::string& uri, std::string* out_path);
 
@@ -184,7 +192,9 @@ struct ARROW_EXPORT AzureOptions {
                                          const std::string& client_id,
                                          const std::string& client_secret);
   Status ConfigureManagedIdentityCredential(const std::string& client_id = std::string());
+  Status ConfigureCLICredential();
   Status ConfigureWorkloadIdentityCredential();
+  Status ConfigureEnvironmentCredential();
 
   bool Equals(const AzureOptions& other) const;
 
@@ -196,6 +206,10 @@ struct ARROW_EXPORT AzureOptions {
 
   Result<std::unique_ptr<Azure::Storage::Files::DataLake::DataLakeServiceClient>>
   MakeDataLakeServiceClient() const;
+
+  Result<std::string> GenerateSASToken(
+      Azure::Storage::Sas::BlobSasBuilder* builder,
+      Azure::Storage::Blobs::BlobServiceClient* client) const;
 };
 
 /// \brief FileSystem implementation backed by Azure Blob Storage (ABS) [1] and
@@ -218,7 +232,7 @@ struct ARROW_EXPORT AzureOptions {
 ///   overwriting.
 /// - When you use the ListBlobs operation without specifying a delimiter, the results
 ///   include both directories and blobs. If you choose to use a delimiter, use only a
-///   forward slash (/) -- the only supported delimiter.
+///   forward slash (/) \--- the only supported delimiter.
 /// - If you use the DeleteBlob API to delete a directory, that directory is deleted only
 ///   if it's empty. This means that you can't use the Blob API delete directories
 ///   recursively.
@@ -264,15 +278,35 @@ class ARROW_EXPORT AzureFileSystem : public FileSystem {
 
   Status CreateDir(const std::string& path, bool recursive) override;
 
+  /// \brief Delete a directory and its contents recursively.
+  ///
+  /// Atomicity is guaranteed only on Hierarchical Namespace Storage accounts.
   Status DeleteDir(const std::string& path) override;
 
+  /// \brief Non-atomically deletes the contents of a directory.
+  ///
+  /// This function can return a bad Status after only partially deleting the
+  /// contents of the directory.
   Status DeleteDirContents(const std::string& path, bool missing_dir_ok) override;
 
+  /// \brief Deletion of all the containers in the storage account (not
+  /// implemented for safety reasons).
+  ///
+  /// \return Status::NotImplemented
   Status DeleteRootDirContents() override;
 
+  /// \brief Deletes a file.
+  ///
+  /// Supported on both flat namespace and Hierarchical Namespace storage
+  /// accounts. A check is made to guarantee the parent directory doesn't
+  /// disappear after the blob is deleted and while this operation is running,
+  /// no other client can delete the parent directory due to the use of leases.
+  ///
+  /// This means applications can safely retry this operation without coordination to
+  /// guarantee only one client/process is trying to delete the same file.
   Status DeleteFile(const std::string& path) override;
 
-  /// \brief Move / rename a file or directory.
+  /// \brief Move/rename a file or directory.
   ///
   /// There are no files immediately at the root directory, so paths like
   /// "/segment" always refer to a container of the storage account and are
@@ -282,6 +316,7 @@ class ARROW_EXPORT AzureFileSystem : public FileSystem {
   /// guarantees `dest` is not lost.
   ///
   /// Conditions for a successful move:
+  ///
   /// 1. `src` must exist.
   /// 2. `dest` can't contain a strict path prefix of `src`. More generally,
   ///    a directory can't be made a subdirectory of itself.
@@ -291,6 +326,25 @@ class ARROW_EXPORT AzureFileSystem : public FileSystem {
   /// 5. If `dest` already exists and it's a directory, `src` must also be a
   ///    directory and `dest` must be empty. `dest` is then replaced by `src`
   ///    and its contents.
+  ///
+  /// Leases are used to guarantee the pre-condition checks and the rename
+  /// operation are atomic: other clients can't invalidate the pre-condition in
+  /// the time between the checks and the actual rename operation.
+  ///
+  /// This is possible because Move() is only support on storage accounts with
+  /// Hierarchical Namespace Support enabled.
+  ///
+  /// ## Limitations
+  ///
+  /// - Moves are not supported on storage accounts without
+  ///   Hierarchical Namespace support enabled
+  /// - Moves across different containers are not supported
+  /// - Moving a path of the form `/container` is not supported as it would
+  ///   require moving all the files in a container to another container.
+  ///   The only exception is a `Move("/container_a", "/container_b")` where
+  ///   both containers are empty or `container_b` doesn't even exist.
+  ///   The atomicity of the emptiness checks followed by the renaming operation
+  ///   is guaranteed by the use of leases.
   Status Move(const std::string& src, const std::string& dest) override;
 
   Status CopyFile(const std::string& src, const std::string& dest) override;

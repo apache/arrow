@@ -581,10 +581,6 @@ test_that("Table supports cbind", {
 })
 
 test_that("cbind.Table handles record batches and tables", {
-  # R 3.6 cbind dispatch rules cause cbind to fall back to default impl if
-  # there are multiple arguments with distinct cbind implementations
-  skip_if(getRversion() < "4.0.0", "R 3.6 cbind dispatch rules prevent this behavior")
-
   expect_equal(
     cbind(arrow_table(a = 1L:2L), record_batch(b = 4:5)),
     arrow_table(a = 1L:2L, b = 4:5)
