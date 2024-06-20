@@ -715,8 +715,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
       BufferType bufferType,
       MinorType type,
       int count,
-      List<Integer> variadicBufferIndices,
-      List<BufferType> vectorTypes)
+      List<Integer> variadicBufferIndices)
       throws IOException {
     ArrowBuf buf;
 
@@ -900,8 +899,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
                 bufferType,
                 vector.getMinorType(),
                 innerBufferValueCount,
-                variadicBufferIndices,
-                vectorTypes));
+                variadicBufferIndices));
       }
 
       int nullCount = 0;
