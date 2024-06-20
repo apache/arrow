@@ -31,7 +31,6 @@
 #include <vector>
 
 #include "arrow/array.h"
-#include "arrow/array/concatenate.h"
 #include "arrow/chunked_array.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
@@ -414,21 +413,6 @@ Status ArrayPrinter::WriteValidityBitmap(const Array& array) {
   }
 }
 
-Result<std::shared_ptr<Array>> CopyStartEndToCPU(const Array& arr, int window) {
-  std::shared_ptr<Array> arr_sliced;
-  if (arr.length() > (2 * window + 1)) {
-    ARROW_ASSIGN_OR_RAISE(auto arr_start,
-                          arr.Slice(0, window + 1)->CopyTo(default_cpu_memory_manager()));
-    ARROW_ASSIGN_OR_RAISE(
-        auto arr_end,
-        arr.Slice(arr.length() - window - 1)->CopyTo(default_cpu_memory_manager()));
-    ARROW_ASSIGN_OR_RAISE(arr_sliced, Concatenate({arr_start, arr_end}));
-  } else {
-    ARROW_ASSIGN_OR_RAISE(arr_sliced, arr.CopyTo(default_cpu_memory_manager()));
-  }
-  return arr_sliced;
-}
-
 }  // namespace
 
 Status PrettyPrint(const Array& arr, int indent, std::ostream* sink) {
@@ -441,8 +425,8 @@ Status PrettyPrint(const Array& arr, const PrettyPrintOptions& options,
                    std::ostream* sink) {
   ArrayPrinter printer(options, sink);
   if (arr.device_type() != DeviceAllocationType::kCPU) {
-    ARROW_ASSIGN_OR_RAISE(auto arr_sliced, CopyStartEndToCPU(arr, options.window));
-    return printer.Print(*arr_sliced);
+    ARROW_ASSIGN_OR_RAISE(auto arr_copied, arr.CopyTo(default_cpu_memory_manager()));
+    return printer.Print(*arr_copied);
   }
   return printer.Print(arr);
 }
