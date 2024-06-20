@@ -534,6 +534,25 @@ def test_copy_from_host(size):
             put(position=position, nbytes=nbytes)
 
 
+def test_buffer_device():
+    buf = cuda.new_host_buffer(10)
+    assert buf.device_type == pa.DeviceAllocationType.CUDA_HOST
+    assert isinstance(buf.device, pa.Device)
+    assert isinstance(buf.memory_manager, pa.MemoryManager)
+    assert buf.is_cpu
+    assert buf.device.is_cpu
+    assert buf.device == pa.default_cpu_memory_manager().device
+    assert buf.memory_manager.is_cpu
+
+    _, buf = make_random_buffer(size=10, target='device')
+    assert buf.device_type == pa.DeviceAllocationType.CUDA
+    assert isinstance(buf.device, pa.Device)
+    assert isinstance(buf.memory_manager, pa.MemoryManager)
+    assert not buf.is_cpu
+    assert not buf.device.is_cpu
+    assert not buf.memory_manager.is_cpu
+
+
 def test_BufferWriter():
     def allocate(size):
         cbuf = global_context.new_buffer(size)
