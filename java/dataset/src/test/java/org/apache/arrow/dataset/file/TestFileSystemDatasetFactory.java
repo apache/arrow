@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.apache.arrow.dataset.jni.NativeMemoryPool;
 import org.apache.arrow.memory.RootAllocator;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class TestFileSystemDatasetFactory {
 

@@ -16,14 +16,14 @@
  */
 package org.apache.arrow.memory.netty;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.NettyArrowBuf;
 import java.nio.ByteOrder;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class TestEndianness {
 

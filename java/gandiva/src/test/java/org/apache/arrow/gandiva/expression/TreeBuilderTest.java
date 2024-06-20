@@ -16,7 +16,9 @@
  */
 package org.apache.arrow.gandiva.expression;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -26,7 +28,7 @@ import org.apache.arrow.gandiva.ipc.GandivaTypes;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class TreeBuilderTest {
 

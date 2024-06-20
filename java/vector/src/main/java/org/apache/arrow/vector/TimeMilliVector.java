@@ -36,7 +36,8 @@ import org.apache.arrow.vector.util.TransferPair;
  * which could be null. A validity buffer (bit vector) is maintained to track which elements in the
  * vector are null.
  */
-public final class TimeMilliVector extends BaseFixedWidthVector {
+public final class TimeMilliVector extends BaseFixedWidthVector
+    implements ValueIterableVector<LocalDateTime> {
   public static final byte TYPE_WIDTH = 4;
 
   /**

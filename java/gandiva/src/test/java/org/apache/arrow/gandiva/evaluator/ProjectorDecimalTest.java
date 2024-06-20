@@ -16,9 +16,10 @@
  */
 package org.apache.arrow.gandiva.evaluator;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.common.collect.Lists;
 import java.math.BigDecimal;
@@ -41,12 +42,9 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.Decimal;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
+import org.junit.jupiter.api.Test;
 
 public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.BaseEvaluatorTest {
-  @Rule public ExpectedException exception = ExpectedException.none();
 
   @Test
   public void test_add() throws GandivaException {
@@ -106,7 +104,7 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
     for (int i = 0; i < 4; i++) {
       assertFalse(outVector.isNull(i));
       assertTrue(
-          "index : " + i + " failed compare", expOutput[i].compareTo(outVector.getObject(i)) == 0);
+          expOutput[i].compareTo(outVector.getObject(i)) == 0, "index : " + i + " failed compare");
     }
 
     // free buffers
@@ -236,7 +234,7 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
     for (int i = 0; i < 4; i++) {
       assertFalse(outVector.isNull(i));
       assertTrue(
-          "index : " + i + " failed compare", expOutput[i].compareTo(outVector.getObject(i)) == 0);
+          expOutput[i].compareTo(outVector.getObject(i)) == 0, "index : " + i + " failed compare");
     }
 
     // free buffers
@@ -322,9 +320,9 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
         for (int i = 0; i < numRows; i++) {
           assertFalse(resultVector.isNull(i));
           assertEquals(
-              "mismatch in result for expr at idx " + idx + " for row " + i,
               expectedArray[i],
-              resultVector.getObject(i).booleanValue());
+              resultVector.getObject(i).booleanValue(),
+              "mismatch in result for expr at idx " + idx + " for row " + i);
         }
       }
     } finally {
@@ -457,6 +455,7 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
         for (int i = 0; i < numRows; i++) {
           assertFalse(resultVector.isNull(i));
           assertTrue(
+              expectedArray[i].compareTo(resultVector.getObject(i)) == 0,
               "mismatch in result for "
                   + "field "
                   + resultVector.getField().getName()
@@ -465,8 +464,7 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
                   + " expected "
                   + expectedArray[i]
                   + ", got "
-                  + resultVector.getObject(i),
-              expectedArray[i].compareTo(resultVector.getObject(i)) == 0);
+                  + resultVector.getObject(i));
         }
       }
     } finally {
@@ -583,6 +581,7 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
         for (int i = 0; i < numRows; i++) {
           assertFalse(resultVector.isNull(i));
           assertTrue(
+              expectedArray[i].compareTo(resultVector.getObject(i)) == 0,
               "mismatch in result for "
                   + "field "
                   + resultVector.getField().getName()
@@ -591,8 +590,7 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
                   + " expected "
                   + expectedArray[i]
                   + ", got "
-                  + resultVector.getObject(i),
-              expectedArray[i].compareTo(resultVector.getObject(i)) == 0);
+                  + resultVector.getObject(i));
         }
       }
     } finally {
@@ -818,6 +816,7 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
       // compare the outputs.
       for (int i = 0; i < numRows; i++) {
         assertTrue(
+            expected[i].compareTo(resultVector.getObject(i)) == 0,
             "mismatch in result for "
                 + "field "
                 + resultVector.getField().getName()
@@ -826,8 +825,7 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
                 + " expected "
                 + expected[i]
                 + ", got "
-                + resultVector.getObject(i),
-            expected[i].compareTo(resultVector.getObject(i)) == 0);
+                + resultVector.getObject(i));
       }
     } finally {
       // free buffers
@@ -843,39 +841,49 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
 
   @Test
   public void testInvalidDecimal() throws GandivaException {
-    exception.expect(IllegalArgumentException.class);
-    exception.expectMessage(
-        "Gandiva only supports decimals of upto 38 precision. Input precision" + " : 0");
     Decimal decimalType = new Decimal(0, 0, 128);
     Field int64f = Field.nullable("int64", int64);
 
     Schema schema = new Schema(Lists.newArrayList(int64f));
-    Projector eval =
-        Projector.make(
-            schema,
-            Lists.newArrayList(
-                TreeBuilder.makeExpression(
-                    "castDECIMAL",
-                    Lists.newArrayList(int64f),
-                    Field.nullable("invalid_dec", decimalType))));
+    IllegalArgumentException exception =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> {
+              Projector eval =
+                  Projector.make(
+                      schema,
+                      Lists.newArrayList(
+                          TreeBuilder.makeExpression(
+                              "castDECIMAL",
+                              Lists.newArrayList(int64f),
+                              Field.nullable("invalid_dec", decimalType))));
+            });
+    assertEquals(
+        "Gandiva only supports decimals of upto 38 precision. Input precision : 0",
+        exception.getMessage());
   }
 
   @Test
   public void testInvalidDecimalGt38() throws GandivaException {
-    exception.expect(IllegalArgumentException.class);
-    exception.expectMessage(
-        "Gandiva only supports decimals of upto 38 precision. Input precision" + " : 42");
     Decimal decimalType = new Decimal(42, 0, 128);
     Field int64f = Field.nullable("int64", int64);
 
     Schema schema = new Schema(Lists.newArrayList(int64f));
-    Projector eval =
-        Projector.make(
-            schema,
-            Lists.newArrayList(
-                TreeBuilder.makeExpression(
-                    "castDECIMAL",
-                    Lists.newArrayList(int64f),
-                    Field.nullable("invalid_dec", decimalType))));
+    IllegalArgumentException exception =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> {
+              Projector eval =
+                  Projector.make(
+                      schema,
+                      Lists.newArrayList(
+                          TreeBuilder.makeExpression(
+                              "castDECIMAL",
+                              Lists.newArrayList(int64f),
+                              Field.nullable("invalid_dec", decimalType))));
+            });
+    assertEquals(
+        "Gandiva only supports decimals of upto 38 precision. Input precision : 42",
+        exception.getMessage());
   }
 }

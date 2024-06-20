@@ -16,11 +16,13 @@
  */
 package org.apache.arrow.flight.grpc;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import io.grpc.Metadata;
 import io.grpc.Status;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightStatusCode;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class TestStatusUtils {
@@ -38,13 +40,13 @@ public class TestStatusUtils {
 
     CallStatus callStatus = StatusUtils.fromGrpcStatusAndTrailers(status, trailers);
 
-    Assertions.assertEquals(FlightStatusCode.CANCELLED, callStatus.code());
-    Assertions.assertTrue(callStatus.metadata().containsKey(":status"));
-    Assertions.assertEquals("502", callStatus.metadata().get(":status"));
-    Assertions.assertTrue(callStatus.metadata().containsKey("date"));
-    Assertions.assertEquals("Fri, 13 Sep 2015 11:23:58 GMT", callStatus.metadata().get("date"));
-    Assertions.assertTrue(callStatus.metadata().containsKey("content-type"));
-    Assertions.assertEquals("text/html", callStatus.metadata().get("content-type"));
+    assertEquals(FlightStatusCode.CANCELLED, callStatus.code());
+    assertTrue(callStatus.metadata().containsKey(":status"));
+    assertEquals("502", callStatus.metadata().get(":status"));
+    assertTrue(callStatus.metadata().containsKey("date"));
+    assertEquals("Fri, 13 Sep 2015 11:23:58 GMT", callStatus.metadata().get("date"));
+    assertTrue(callStatus.metadata().containsKey("content-type"));
+    assertEquals("text/html", callStatus.metadata().get("content-type"));
   }
 
   @Test
@@ -52,10 +54,10 @@ public class TestStatusUtils {
     Status status = Status.RESOURCE_EXHAUSTED;
 
     CallStatus callStatus = StatusUtils.fromGrpcStatus(status);
-    Assertions.assertEquals(FlightStatusCode.RESOURCE_EXHAUSTED, callStatus.code());
+    assertEquals(FlightStatusCode.RESOURCE_EXHAUSTED, callStatus.code());
 
     FlightStatusCode flightStatusCode = StatusUtils.fromGrpcStatusCode(status.getCode());
-    Assertions.assertEquals(FlightStatusCode.RESOURCE_EXHAUSTED, flightStatusCode);
+    assertEquals(FlightStatusCode.RESOURCE_EXHAUSTED, flightStatusCode);
   }
 
   @Test
@@ -63,9 +65,9 @@ public class TestStatusUtils {
     CallStatus callStatus = CallStatus.RESOURCE_EXHAUSTED;
 
     Status.Code grpcStatusCode = StatusUtils.toGrpcStatusCode(callStatus.code());
-    Assertions.assertEquals(Status.RESOURCE_EXHAUSTED.getCode(), grpcStatusCode);
+    assertEquals(Status.RESOURCE_EXHAUSTED.getCode(), grpcStatusCode);
 
     Status grpcStatus = StatusUtils.toGrpcStatus(callStatus);
-    Assertions.assertEquals(Status.RESOURCE_EXHAUSTED.getCode(), grpcStatus.getCode());
+    assertEquals(Status.RESOURCE_EXHAUSTED.getCode(), grpcStatus.getCode());
   }
 }

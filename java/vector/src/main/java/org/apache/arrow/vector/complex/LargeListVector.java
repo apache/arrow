@@ -43,6 +43,7 @@ import org.apache.arrow.vector.DensityAwareVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.UInt4Vector;
+import org.apache.arrow.vector.ValueIterableVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.compare.VectorVisitor;
@@ -79,7 +80,7 @@ import org.apache.arrow.vector.util.TransferPair;
  * aren't needed.
  */
 public class LargeListVector extends BaseValueVector
-    implements RepeatedValueVector, FieldVector, PromotableVector {
+    implements RepeatedValueVector, FieldVector, PromotableVector, ValueIterableVector<List<?>> {
 
   public static LargeListVector empty(String name, BufferAllocator allocator) {
     return new LargeListVector(

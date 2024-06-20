@@ -98,7 +98,7 @@ final class CodableTests: XCTestCase {
         switch result {
         case .success(let rb):
             let decoder = ArrowDecoder(rb)
-            var testClasses = try decoder.decode(TestClass.self)
+            let testClasses = try decoder.decode(TestClass.self)
             for index in 0..<testClasses.count {
                 let testClass = testClasses[index]
                 XCTAssertEqual(testClass.propBool, index % 2 == 0 ? false : true)

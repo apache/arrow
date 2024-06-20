@@ -16,10 +16,10 @@
  */
 package org.apache.arrow.adapter.jdbc;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -29,10 +29,10 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Stream;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
@@ -40,50 +40,45 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /** Test options for dealing with unreliable ResultSetMetaData from JDBC drivers. */
-@RunWith(Parameterized.class)
 public class UnreliableMetaDataTest {
-  private final boolean reuseVectorSchemaRoot;
   private BufferAllocator allocator;
 
-  public UnreliableMetaDataTest(boolean reuseVectorSchemaRoot) {
-    this.reuseVectorSchemaRoot = reuseVectorSchemaRoot;
-  }
-
-  @Before
+  @BeforeEach
   public void beforeEach() {
     allocator = new RootAllocator();
   }
 
-  @After
+  @AfterEach
   public void afterEach() {
     allocator.close();
   }
 
-  @Parameterized.Parameters(name = "reuseVectorSchemaRoot = {0}")
-  public static Collection<Object[]> getTestData() {
-    return Arrays.asList(new Object[][] {{false}, {true}});
+  public static Stream<Arguments> getTestData() {
+    return Arrays.stream(new Object[][] {{false}, {true}}).map(Arguments::of);
   }
 
-  @Test
-  public void testUnreliableMetaDataPrecisionAndScale() throws Exception {
+  @ParameterizedTest
+  @MethodSource("getTestData")
+  public void testUnreliableMetaDataPrecisionAndScale(boolean reuseVectorSchemaRoot)
+      throws Exception {
     ResultSet rs = buildIncorrectPrecisionAndScaleMetaDataResultSet();
     ResultSetMetaData rsmd = rs.getMetaData();
-    assertEquals("Column type should be Types.DECIMAL", Types.DECIMAL, rsmd.getColumnType(1));
-    assertEquals("Column scale should be zero", 0, rsmd.getScale(1));
-    assertEquals("Column precision should be zero", 0, rsmd.getPrecision(1));
+    assertEquals(Types.DECIMAL, rsmd.getColumnType(1), "Column type should be Types.DECIMAL");
+    assertEquals(0, rsmd.getScale(1), "Column scale should be zero");
+    assertEquals(0, rsmd.getPrecision(1), "Column precision should be zero");
     rs.next();
     BigDecimal bd1 = rs.getBigDecimal(1);
-    assertEquals("Value should be 1000000000000000.01", new BigDecimal("1000000000000000.01"), bd1);
-    assertEquals("Value scale should be 2", 2, bd1.scale());
-    assertEquals("Value precision should be 18", 18, bd1.precision());
-    assertFalse("No more rows!", rs.next());
+    assertEquals(new BigDecimal("1000000000000000.01"), bd1, "Value should be 1000000000000000.01");
+    assertEquals(2, bd1.scale(), "Value scale should be 2");
+    assertEquals(18, bd1.precision(), "Value precision should be 18");
+    assertFalse(rs.next(), "No more rows!");
 
     // reset the ResultSet:
     rs.beforeFirst();
@@ -118,24 +113,25 @@ public class UnreliableMetaDataTest {
     }
   }
 
-  @Test
-  public void testInconsistentPrecisionAndScale() throws Exception {
+  @ParameterizedTest
+  @MethodSource("getTestData")
+  public void testInconsistentPrecisionAndScale(boolean reuseVectorSchemaRoot) throws Exception {
     ResultSet rs = buildVaryingPrecisionAndScaleResultSet();
     ResultSetMetaData rsmd = rs.getMetaData();
-    assertEquals("Column type should be Types.DECIMAL", Types.DECIMAL, rsmd.getColumnType(1));
-    assertEquals("Column scale should be zero", 0, rsmd.getScale(1));
-    assertEquals("Column precision should be zero", 0, rsmd.getPrecision(1));
+    assertEquals(Types.DECIMAL, rsmd.getColumnType(1), "Column type should be Types.DECIMAL");
+    assertEquals(0, rsmd.getScale(1), "Column scale should be zero");
+    assertEquals(0, rsmd.getPrecision(1), "Column precision should be zero");
     rs.next();
     BigDecimal bd1 = rs.getBigDecimal(1);
-    assertEquals("Value should be 1000000000000000.01", new BigDecimal("1000000000000000.01"), bd1);
-    assertEquals("Value scale should be 2", 2, bd1.scale());
-    assertEquals("Value precision should be 18", 18, bd1.precision());
+    assertEquals(new BigDecimal("1000000000000000.01"), bd1, "Value should be 1000000000000000.01");
+    assertEquals(2, bd1.scale(), "Value scale should be 2");
+    assertEquals(18, bd1.precision(), "Value precision should be 18");
     rs.next();
     BigDecimal bd2 = rs.getBigDecimal(1);
     assertEquals(
-        "Value should be 1000000000300.0000001", new BigDecimal("1000000000300.0000001"), bd2);
-    assertEquals("Value scale should be 7", 7, bd2.scale());
-    assertEquals("Value precision should be 20", 20, bd2.precision());
+        new BigDecimal("1000000000300.0000001"), bd2, "Value should be 1000000000300.0000001");
+    assertEquals(7, bd2.scale(), "Value scale should be 7");
+    assertEquals(20, bd2.precision(), "Value precision should be 20");
     rs.beforeFirst();
     JdbcFieldInfo explicitMappingField = new JdbcFieldInfo(Types.DECIMAL, 20, 7);
     Map<Integer, JdbcFieldInfo> explicitMapping = new HashMap<>();
@@ -170,8 +166,9 @@ public class UnreliableMetaDataTest {
     }
   }
 
-  @Test
-  public void testIncorrectNullability() throws Exception {
+  @ParameterizedTest
+  @MethodSource("getTestData")
+  public void testIncorrectNullability(boolean reuseVectorSchemaRoot) throws Exception {
     // ARROW-17005: ResultSetMetaData may indicate a field is non-nullable even when there are nulls
     ResultSetUtility.MockResultSetMetaData.MockColumnMetaData columnMetaData =
         ResultSetUtility.MockResultSetMetaData.MockColumnMetaData.builder()

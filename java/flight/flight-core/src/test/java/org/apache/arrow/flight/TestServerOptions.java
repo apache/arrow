@@ -19,7 +19,10 @@ package org.apache.arrow.flight;
 import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
 import static org.apache.arrow.flight.Location.forGrpcInsecure;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.grpc.Channel;
 import io.grpc.MethodDescriptor;
@@ -44,7 +47,6 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
@@ -62,7 +64,7 @@ public class TestServerOptions {
                 .transportHint("grpc.builderConsumer", consumer)
                 .build()
                 .start()) {
-      Assertions.assertTrue(consumerCalled.get());
+      assertTrue(consumerCalled.get());
     }
   }
 
@@ -81,7 +83,7 @@ public class TestServerOptions {
       assertNotNull(server.grpcExecutor);
       executor = server.grpcExecutor;
     }
-    Assertions.assertTrue(executor.isShutdown());
+    assertTrue(executor.isShutdown());
   }
 
   /** Make sure that if the user provides an executor to gRPC, then Flight does not close it. */
@@ -95,9 +97,9 @@ public class TestServerOptions {
                   .executor(executor)
                   .build()
                   .start()) {
-        Assertions.assertNull(server.grpcExecutor);
+        assertNull(server.grpcExecutor);
       }
-      Assertions.assertFalse(executor.isShutdown());
+      assertFalse(executor.isShutdown());
     } finally {
       executor.shutdown();
     }
@@ -108,7 +110,7 @@ public class TestServerOptions {
     Assumptions.assumeTrue(
         FlightTestUtil.isNativeTransportAvailable(), "We have a native transport available");
     final File domainSocket = File.createTempFile("flight-unit-test-", ".sock");
-    Assertions.assertTrue(domainSocket.delete());
+    assertTrue(domainSocket.delete());
     // Domain socket paths have a platform-dependent limit. Set a conservative limit and skip the
     // test if the temporary
     // file name is too long. (We do not assume a particular platform-dependent temporary directory
@@ -126,7 +128,7 @@ public class TestServerOptions {
           int value = 0;
           while (stream.next()) {
             for (int i = 0; i < root.getRowCount(); i++) {
-              Assertions.assertEquals(value, iv.get(i));
+              assertEquals(value, iv.get(i));
               value++;
             }
           }
@@ -168,10 +170,10 @@ public class TestServerOptions {
       for (final MethodDescriptor<?, ?> descriptor :
           FlightServiceGrpc.getServiceDescriptor().getMethods()) {
         final String methodName = descriptor.getFullMethodName();
-        Assertions.assertTrue(
+        assertTrue(
             definedMethods.containsKey(methodName),
             "Method is missing from ServerServiceDefinition: " + methodName);
-        Assertions.assertTrue(
+        assertTrue(
             definedMethods.containsKey(methodName),
             "Method is missing from ServiceDescriptor: " + methodName);
 

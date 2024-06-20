@@ -39,7 +39,8 @@ import org.apache.arrow.vector.validate.ValidateUtil;
  * DecimalVector implements a fixed width vector (16 bytes) of decimal values which could be null. A
  * validity buffer (bit vector) is maintained to track which elements in the vector are null.
  */
-public final class DecimalVector extends BaseFixedWidthVector {
+public final class DecimalVector extends BaseFixedWidthVector
+    implements ValueIterableVector<BigDecimal> {
   public static final int MAX_PRECISION = 38;
   public static final byte TYPE_WIDTH = 16;
   private static final boolean LITTLE_ENDIAN = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN;

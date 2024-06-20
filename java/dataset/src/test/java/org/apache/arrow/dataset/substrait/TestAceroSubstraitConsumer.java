@@ -16,10 +16,12 @@
  */
 package org.apache.arrow.dataset.substrait;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThrows;
-import static org.junit.Assert.assertTrue;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -38,18 +40,21 @@ import org.apache.arrow.dataset.scanner.ScanOptions;
 import org.apache.arrow.dataset.scanner.Scanner;
 import org.apache.arrow.dataset.source.Dataset;
 import org.apache.arrow.dataset.source.DatasetFactory;
+import org.apache.arrow.vector.ValueIterableVector;
 import org.apache.arrow.vector.ipc.ArrowReader;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.ClassRule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
+import org.apache.arrow.vector.util.Text;
+import org.hamcrest.collection.IsIterableContainingInOrder;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 public class TestAceroSubstraitConsumer extends TestDataset {
 
-  @ClassRule public static final TemporaryFolder TMP = new TemporaryFolder();
+  @TempDir public File TMP;
+
   public static final String AVRO_SCHEMA_USER = "user.avsc";
 
   @Test
@@ -72,8 +77,7 @@ public class TestAceroSubstraitConsumer extends TestDataset {
                     "NAME", new FieldType(true, new ArrowType.Utf8(), null, metadataName), null)),
             Collections.emptyMap());
     ParquetWriteSupport writeSupport =
-        ParquetWriteSupport.writeTempFile(
-            AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a", 11, "b", 21, "c");
+        ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP, 1, "a", 11, "b", 21, "c");
     try (ArrowReader arrowReader =
         new AceroSubstraitConsumer(rootAllocator())
             .runQuery(
@@ -108,8 +112,7 @@ public class TestAceroSubstraitConsumer extends TestDataset {
                 Field.nullable("NAME", new ArrowType.Utf8())),
             Collections.emptyMap());
     ParquetWriteSupport writeSupport =
-        ParquetWriteSupport.writeTempFile(
-            AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a", 11, "b", 21, "c");
+        ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP, 1, "a", 11, "b", 21, "c");
     ScanOptions options = new ScanOptions(/*batchSize*/ 32768);
     try (DatasetFactory datasetFactory =
             new FileSystemDatasetFactory(
@@ -144,7 +147,7 @@ public class TestAceroSubstraitConsumer extends TestDataset {
     }
   }
 
-  @Test(expected = RuntimeException.class)
+  @Test
   public void testRunQueryNamedTableWithException() throws Exception {
     // Query:
     // SELECT id, name FROM Users
@@ -158,8 +161,7 @@ public class TestAceroSubstraitConsumer extends TestDataset {
                 Field.nullable("NAME", new ArrowType.Utf8())),
             Collections.emptyMap());
     ParquetWriteSupport writeSupport =
-        ParquetWriteSupport.writeTempFile(
-            AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a", 11, "b", 21, "c");
+        ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP, 1, "a", 11, "b", 21, "c");
     ScanOptions options = new ScanOptions(/*batchSize*/ 32768);
     try (DatasetFactory datasetFactory =
             new FileSystemDatasetFactory(
@@ -172,24 +174,28 @@ public class TestAceroSubstraitConsumer extends TestDataset {
         ArrowReader reader = scanner.scanBatches()) {
       Map<String, ArrowReader> mapTableToArrowReader = new HashMap<>();
       mapTableToArrowReader.put("USERS_INVALID_MAP", reader);
-      try (ArrowReader arrowReader =
-          new AceroSubstraitConsumer(rootAllocator())
-              .runQuery(
-                  new String(
-                      Files.readAllBytes(
-                          Paths.get(
-                              TestAceroSubstraitConsumer.class
-                                  .getClassLoader()
-                                  .getResource("substrait/named_table_users.json")
-                                  .toURI()))),
-                  mapTableToArrowReader)) {
-        assertEquals(schema, arrowReader.getVectorSchemaRoot().getSchema());
-        int rowcount = 0;
-        while (arrowReader.loadNextBatch()) {
-          rowcount += arrowReader.getVectorSchemaRoot().getRowCount();
-        }
-        assertEquals(3, rowcount);
-      }
+      assertThrows(
+          RuntimeException.class,
+          () -> {
+            try (ArrowReader arrowReader =
+                new AceroSubstraitConsumer(rootAllocator())
+                    .runQuery(
+                        new String(
+                            Files.readAllBytes(
+                                Paths.get(
+                                    TestAceroSubstraitConsumer.class
+                                        .getClassLoader()
+                                        .getResource("substrait/named_table_users.json")
+                                        .toURI()))),
+                        mapTableToArrowReader)) {
+              assertEquals(schema, arrowReader.getVectorSchemaRoot().getSchema());
+              int rowcount = 0;
+              while (arrowReader.loadNextBatch()) {
+                rowcount += arrowReader.getVectorSchemaRoot().getRowCount();
+              }
+              assertEquals(3, rowcount);
+            }
+          });
     }
   }
 
@@ -211,8 +217,7 @@ public class TestAceroSubstraitConsumer extends TestDataset {
         "Gl8SXQpROk8KBhIECgICAxIvCi0KAgoAEh4KAklECgROQU1FEhIKBCoCEAEKC"
             + "LIBBQiWARgBGAI6BwoFVVNFUlMaCBIGCgISACIAGgoSCAoEEgIIASIAEgJJRBIETkFNRQ==";
     ParquetWriteSupport writeSupport =
-        ParquetWriteSupport.writeTempFile(
-            AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a", 11, "b", 21, "c");
+        ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP, 1, "a", 11, "b", 21, "c");
     ScanOptions options = new ScanOptions(/*batchSize*/ 32768);
     try (DatasetFactory datasetFactory =
             new FileSystemDatasetFactory(
@@ -260,7 +265,7 @@ public class TestAceroSubstraitConsumer extends TestDataset {
     ParquetWriteSupport writeSupport =
         ParquetWriteSupport.writeTempFile(
             AVRO_SCHEMA_USER,
-            TMP.newFolder(),
+            TMP,
             19,
             "value_19",
             1,
@@ -289,13 +294,15 @@ public class TestAceroSubstraitConsumer extends TestDataset {
       int rowcount = 0;
       while (reader.loadNextBatch()) {
         rowcount += reader.getVectorSchemaRoot().getRowCount();
-        assertTrue(reader.getVectorSchemaRoot().getVector("id").toString().equals("[19, 1, 11]"));
-        assertTrue(
-            reader
-                .getVectorSchemaRoot()
-                .getVector("name")
-                .toString()
-                .equals("[value_19, value_1, value_11]"));
+        final ValueIterableVector<Integer> idVector =
+            (ValueIterableVector<Integer>) reader.getVectorSchemaRoot().getVector("id");
+        assertThat(idVector.getValueIterable(), IsIterableContainingInOrder.contains(19, 1, 11));
+        final ValueIterableVector<Text> nameVector =
+            (ValueIterableVector<Text>) reader.getVectorSchemaRoot().getVector("name");
+        assertThat(
+            nameVector.getValueIterable(),
+            IsIterableContainingInOrder.contains(
+                new Text("value_19"), new Text("value_1"), new Text("value_11")));
       }
       assertEquals(3, rowcount);
     }
@@ -322,7 +329,7 @@ public class TestAceroSubstraitConsumer extends TestDataset {
     ParquetWriteSupport writeSupport =
         ParquetWriteSupport.writeTempFile(
             AVRO_SCHEMA_USER,
-            TMP.newFolder(),
+            TMP,
             19,
             "value_19",
             1,
@@ -364,7 +371,7 @@ public class TestAceroSubstraitConsumer extends TestDataset {
     ParquetWriteSupport writeSupport =
         ParquetWriteSupport.writeTempFile(
             AVRO_SCHEMA_USER,
-            TMP.newFolder(),
+            TMP,
             19,
             "value_19",
             1,
@@ -414,7 +421,7 @@ public class TestAceroSubstraitConsumer extends TestDataset {
     ParquetWriteSupport writeSupport =
         ParquetWriteSupport.writeTempFile(
             AVRO_SCHEMA_USER,
-            TMP.newFolder(),
+            TMP,
             19,
             "value_19",
             1,
@@ -442,20 +449,22 @@ public class TestAceroSubstraitConsumer extends TestDataset {
       assertEquals(schema.getFields(), reader.getVectorSchemaRoot().getSchema().getFields());
       int rowcount = 0;
       while (reader.loadNextBatch()) {
-        assertTrue(
-            reader
-                .getVectorSchemaRoot()
-                .getVector("add_two_to_column_a")
-                .toString()
-                .equals("[21, 3, 13, 23, 47]"));
-        assertTrue(
-            reader
-                .getVectorSchemaRoot()
-                .getVector("concat_column_a_and_b")
-                .toString()
-                .equals(
-                    "[value_19 - value_19, value_1 - value_1, value_11 - value_11, "
-                        + "value_21 - value_21, value_45 - value_45]"));
+        final ValueIterableVector<Integer> sumVector =
+            (ValueIterableVector<Integer>)
+                reader.getVectorSchemaRoot().getVector("add_two_to_column_a");
+        assertThat(
+            sumVector.getValueIterable(), IsIterableContainingInOrder.contains(21, 3, 13, 23, 47));
+        final ValueIterableVector<Text> nameVector =
+            (ValueIterableVector<Text>)
+                reader.getVectorSchemaRoot().getVector("concat_column_a_and_b");
+        assertThat(
+            nameVector.getValueIterable(),
+            IsIterableContainingInOrder.contains(
+                new Text("value_19 - value_19"),
+                new Text("value_1 - value_1"),
+                new Text("value_11 - value_11"),
+                new Text("value_21 - value_21"),
+                new Text("value_45 - value_45")));
         rowcount += reader.getVectorSchemaRoot().getRowCount();
       }
       assertEquals(5, rowcount);
@@ -478,7 +487,7 @@ public class TestAceroSubstraitConsumer extends TestDataset {
     ParquetWriteSupport writeSupport =
         ParquetWriteSupport.writeTempFile(
             AVRO_SCHEMA_USER,
-            TMP.newFolder(),
+            TMP,
             19,
             "value_19",
             1,
@@ -506,12 +515,12 @@ public class TestAceroSubstraitConsumer extends TestDataset {
       assertEquals(schema.getFields(), reader.getVectorSchemaRoot().getSchema().getFields());
       int rowcount = 0;
       while (reader.loadNextBatch()) {
-        assertTrue(
-            reader
-                .getVectorSchemaRoot()
-                .getVector("filter_id_lower_than_20")
-                .toString()
-                .equals("[true, true, true, false, false]"));
+        final ValueIterableVector<Boolean> booleanVector =
+            (ValueIterableVector<Boolean>)
+                reader.getVectorSchemaRoot().getVector("filter_id_lower_than_20");
+        assertThat(
+            booleanVector.getValueIterable(),
+            IsIterableContainingInOrder.contains(true, true, true, false, false));
         rowcount += reader.getVectorSchemaRoot().getRowCount();
       }
       assertEquals(5, rowcount);
@@ -531,7 +540,7 @@ public class TestAceroSubstraitConsumer extends TestDataset {
     ParquetWriteSupport writeSupport =
         ParquetWriteSupport.writeTempFile(
             AVRO_SCHEMA_USER,
-            TMP.newFolder(),
+            TMP,
             19,
             "value_19",
             1,
@@ -588,7 +597,7 @@ public class TestAceroSubstraitConsumer extends TestDataset {
     ParquetWriteSupport writeSupport =
         ParquetWriteSupport.writeTempFile(
             AVRO_SCHEMA_USER,
-            TMP.newFolder(),
+            TMP,
             19,
             "value_19",
             1,
@@ -617,18 +626,19 @@ public class TestAceroSubstraitConsumer extends TestDataset {
       assertEquals(schema.getFields(), reader.getVectorSchemaRoot().getSchema().getFields());
       int rowcount = 0;
       while (reader.loadNextBatch()) {
-        assertTrue(
-            reader
-                .getVectorSchemaRoot()
-                .getVector("add_two_to_column_a")
-                .toString()
-                .equals("[21, 3, 13]"));
-        assertTrue(
-            reader
-                .getVectorSchemaRoot()
-                .getVector("concat_column_a_and_b")
-                .toString()
-                .equals("[value_19 - value_19, value_1 - value_1, value_11 - value_11]"));
+        final ValueIterableVector<Integer> sumVector =
+            (ValueIterableVector<Integer>)
+                reader.getVectorSchemaRoot().getVector("add_two_to_column_a");
+        assertThat(sumVector.getValueIterable(), IsIterableContainingInOrder.contains(21, 3, 13));
+        final ValueIterableVector<Text> nameVector =
+            (ValueIterableVector<Text>)
+                reader.getVectorSchemaRoot().getVector("conccat_column_a_and_b");
+        assertThat(
+            nameVector.getValueIterable(),
+            IsIterableContainingInOrder.contains(
+                new Text("value_19 - value_19"),
+                new Text("value_1 - value_1"),
+                new Text("value_11 - value_11")));
         rowcount += reader.getVectorSchemaRoot().getRowCount();
       }
       assertEquals(3, rowcount);

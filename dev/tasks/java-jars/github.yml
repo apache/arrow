@@ -108,6 +108,18 @@ jobs:
           # llvm@14 because llvm is newer than llvm@14.
           brew uninstall llvm || :
 
+          # Ensure updating python@XXX with the "--overwrite" option.
+          # If python@XXX is updated without "--overwrite", it causes
+          # a conflict error. Because Python 3 installed not by
+          # Homebrew exists in /usr/local on GitHub Actions. If
+          # Homebrew's python@XXX is updated without "--overwrite", it
+          # tries to replace /usr/local/bin/2to3 and so on and causes
+          # a conflict error.
+          brew update
+          for python_package in $(brew list | grep python@); do
+            brew install --overwrite ${python_package}
+          done
+
           brew bundle --file=arrow/cpp/Brewfile
           # We want to link aws-sdk-cpp statically but Homebrew's
           # aws-sdk-cpp provides only shared library. If we have

@@ -49,7 +49,7 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Calendar;
-import java.util.Collection;
+import java.util.stream.Stream;
 import org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowConfig;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowConfigBuilder;
@@ -74,16 +74,14 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameters;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * JUnit Test Class which contains methods to test JDBC to Arrow data conversion functionality with
  * null values for H2 database.
  */
-@RunWith(Parameterized.class)
 public class JdbcToArrowNullTest extends AbstractJdbcToArrowTest {
 
   private static final String NULL = "null";
@@ -97,15 +95,6 @@ public class JdbcToArrowNullTest extends AbstractJdbcToArrowTest {
   };
 
   /**
-   * Constructor which populates the table object for each test iteration.
-   *
-   * @param table Table object
-   */
-  public JdbcToArrowNullTest(Table table) {
-    this.table = table;
-  }
-
-  /**
    * Get the test data as a collection of Table objects for each test iteration.
    *
    * @return Collection of Table objects
@@ -113,19 +102,21 @@ public class JdbcToArrowNullTest extends AbstractJdbcToArrowTest {
    * @throws ClassNotFoundException on error
    * @throws IOException on error
    */
-  @Parameters
-  public static Collection<Object[]> getTestData()
+  public static Stream<Arguments> getTestData()
       throws SQLException, ClassNotFoundException, IOException {
-    return Arrays.asList(prepareTestData(testFiles, JdbcToArrowNullTest.class));
+    return Arrays.stream(prepareTestData(testFiles, JdbcToArrowNullTest.class)).map(Arguments::of);
   }
 
   /**
    * Test Method to test JdbcToArrow Functionality for various H2 DB based datatypes with null
    * values.
    */
-  @Test
-  @Override
-  public void testJdbcToArrowValues() throws SQLException, IOException {
+  @ParameterizedTest
+  @MethodSource("getTestData")
+  public void testJdbcToArrowValues(Table table)
+      throws SQLException, IOException, ClassNotFoundException {
+    this.initializeDatabase(table);
+
     testDataSets(
         sqlToArrow(
             conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance()),
@@ -169,8 +160,11 @@ public class JdbcToArrowNullTest extends AbstractJdbcToArrowTest {
         true);
   }
 
-  @Test
-  public void testJdbcSchemaMetadata() throws SQLException {
+  @ParameterizedTest
+  @MethodSource("getTestData")
+  public void testJdbcSchemaMetadata(Table table) throws SQLException, ClassNotFoundException {
+    this.initializeDatabase(table);
+
     JdbcToArrowConfig config =
         new JdbcToArrowConfigBuilder(new RootAllocator(0), Calendar.getInstance(), true)
             .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)

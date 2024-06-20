@@ -18,6 +18,11 @@ package org.apache.arrow.flight;
 
 import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
 import static org.apache.arrow.flight.Location.forGrpcInsecure;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import io.grpc.Metadata;
 import java.io.IOException;
@@ -29,7 +34,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -46,12 +50,12 @@ public class TestCallOptions {
               client.doAction(new Action("hang"), CallOptions.timeout(1, TimeUnit.SECONDS));
           try {
             results.next();
-            Assertions.fail("Call should have failed");
+            fail("Call should have failed");
           } catch (RuntimeException e) {
-            Assertions.assertTrue(e.getMessage().contains("deadline exceeded"), e.getMessage());
+            assertTrue(e.getMessage().contains("deadline exceeded"), e.getMessage());
           }
           Instant end = Instant.now();
-          Assertions.assertTrue(
+          assertTrue(
               Duration.between(start, end).toMillis() < 1500,
               "Call took over 1500 ms despite timeout");
         });
@@ -67,9 +71,9 @@ public class TestCallOptions {
           // This shouldn't fail and it should complete within the timeout
           Iterator<Result> results =
               client.doAction(new Action("fast"), CallOptions.timeout(2, TimeUnit.SECONDS));
-          Assertions.assertArrayEquals(new byte[] {42, 42}, results.next().getBody());
+          assertArrayEquals(new byte[] {42, 42}, results.next().getBody());
           Instant end = Instant.now();
-          Assertions.assertTrue(
+          assertTrue(
               Duration.between(start, end).toMillis() < 2500,
               "Call took over 2500 ms despite timeout");
         });
@@ -112,14 +116,13 @@ public class TestCallOptions {
         FlightServer s =
             FlightServer.builder(a, forGrpcInsecure(LOCALHOST, 0), producer).build().start();
         FlightClient client = FlightClient.builder(a, s.getLocation()).build()) {
-      Assertions.assertFalse(
-          client.doAction(new Action(""), new HeaderCallOption(headers)).hasNext());
+      assertFalse(client.doAction(new Action(""), new HeaderCallOption(headers)).hasNext());
       final CallHeaders incomingHeaders = producer.headers();
       for (String key : headers.keys()) {
         if (key.endsWith(Metadata.BINARY_HEADER_SUFFIX)) {
-          Assertions.assertArrayEquals(headers.getByte(key), incomingHeaders.getByte(key));
+          assertArrayEquals(headers.getByte(key), incomingHeaders.getByte(key));
         } else {
-          Assertions.assertEquals(headers.get(key), incomingHeaders.get(key));
+          assertEquals(headers.get(key), incomingHeaders.get(key));
         }
       }
     } catch (InterruptedException | IOException e) {

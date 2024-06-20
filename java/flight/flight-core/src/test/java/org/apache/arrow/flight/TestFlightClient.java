@@ -18,6 +18,12 @@ package org.apache.arrow.flight;
 
 import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
 import static org.apache.arrow.flight.Location.forGrpcInsecure;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
@@ -41,7 +47,6 @@ import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -64,9 +69,7 @@ public class TestFlightClient {
             client1.startPut(FlightDescriptor.path("test"), root, new AsyncPutListener());
         try (final FlightClient client2 =
             FlightClient.builder(allocator, server.getLocation()).build()) {
-          client2
-              .listActions()
-              .forEach(actionType -> Assertions.assertNotNull(actionType.getType()));
+          client2.listActions().forEach(actionType -> assertNotNull(actionType.getType()));
         }
         listener.completed();
         listener.getResult();
@@ -101,20 +104,20 @@ public class TestFlightClient {
       try (final FlightClient client =
           FlightClient.builder(allocator, server.getLocation()).build()) {
         try (final FlightStream stream = client.getStream(new Ticket(new byte[0]))) {
-          Assertions.assertTrue(stream.next());
-          Assertions.assertNotNull(stream.getDictionaryProvider().lookup(1));
+          assertTrue(stream.next());
+          assertNotNull(stream.getDictionaryProvider().lookup(1));
           final VectorSchemaRoot root = stream.getRoot();
-          Assertions.assertEquals(expectedSchema, root.getSchema());
-          Assertions.assertEquals(6, root.getVector("encoded").getValueCount());
+          assertEquals(expectedSchema, root.getSchema());
+          assertEquals(6, root.getVector("encoded").getValueCount());
           try (final ValueVector decoded =
               DictionaryEncoder.decode(
                   root.getVector("encoded"), stream.getDictionaryProvider().lookup(1))) {
-            Assertions.assertFalse(decoded.isNull(1));
-            Assertions.assertTrue(decoded instanceof VarCharVector);
-            Assertions.assertArrayEquals(
+            assertFalse(decoded.isNull(1));
+            assertTrue(decoded instanceof VarCharVector);
+            assertArrayEquals(
                 "one".getBytes(StandardCharsets.UTF_8), ((VarCharVector) decoded).get(1));
           }
-          Assertions.assertFalse(stream.next());
+          assertFalse(stream.next());
         }
         // Closing stream fails if it doesn't free dictionaries; closing dictionaries fails
         // (refcount goes negative)
@@ -140,11 +143,11 @@ public class TestFlightClient {
       try (final FlightClient client =
           FlightClient.builder(allocator, server.getLocation()).build()) {
         try (final FlightStream stream = client.getStream(new Ticket(new byte[0]))) {
-          Assertions.assertTrue(stream.next());
-          Assertions.assertFalse(stream.next());
+          assertTrue(stream.next());
+          assertFalse(stream.next());
           final DictionaryProvider provider = stream.takeDictionaryOwnership();
-          Assertions.assertThrows(IllegalStateException.class, stream::takeDictionaryOwnership);
-          Assertions.assertThrows(IllegalStateException.class, stream::getDictionaryProvider);
+          assertThrows(IllegalStateException.class, stream::takeDictionaryOwnership);
+          assertThrows(IllegalStateException.class, stream::getDictionaryProvider);
           DictionaryUtils.closeDictionaries(stream.getSchema(), provider);
         }
       }
@@ -182,9 +185,9 @@ public class TestFlightClient {
         }
         try (final ValueVector decoded =
             DictionaryEncoder.decode(root.getVector("encoded"), provider.lookup(1))) {
-          Assertions.assertFalse(decoded.isNull(1));
-          Assertions.assertTrue(decoded instanceof VarCharVector);
-          Assertions.assertArrayEquals(
+          assertFalse(decoded.isNull(1));
+          assertTrue(decoded instanceof VarCharVector);
+          assertArrayEquals(
               "one".getBytes(StandardCharsets.UTF_8), ((VarCharVector) decoded).get(1));
         }
         root.close();

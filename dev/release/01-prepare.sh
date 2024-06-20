@@ -33,7 +33,7 @@ next_version=$2
 next_version_snapshot="${next_version}-SNAPSHOT"
 rc_number=$3
 
-release_tag="apache-arrow-${version}"
+release_candidate_tag="apache-arrow-${version}-rc${rc_number}"
 release_branch="release-${version}"
 release_candidate_branch="release-${version}-rc${rc_number}"
 
@@ -46,9 +46,9 @@ release_candidate_branch="release-${version}-rc${rc_number}"
 : ${PREPARE_TAG:=${PREPARE_DEFAULT}}
 
 if [ ${PREPARE_TAG} -gt 0 ]; then
-  if [ $(git tag -l "${release_tag}") ]; then
-    echo "Delete existing git tag $release_tag"
-    git tag -d "${release_tag}"
+  if [ $(git tag -l "${release_candidate_tag}") ]; then
+    echo "Delete existing git tag $release_candidate_tag"
+    git tag -d "${release_candidate_tag}"
   fi
 fi
 
@@ -88,7 +88,7 @@ if [ ${PREPARE_LINUX_PACKAGES} -gt 0 ]; then
 fi
 
 if [ ${PREPARE_VERSION_PRE_TAG} -gt 0 ]; then
-  echo "Prepare release ${version} on tag ${release_tag} then reset to version ${next_version_snapshot}"
+  echo "Prepare release ${version} on tag ${release_candidate_tag} then reset to version ${next_version_snapshot}"
 
   update_versions "${version}" "${next_version}" "release"
   git commit -m "MINOR: [Release] Update versions for ${version}"
@@ -97,5 +97,5 @@ fi
 ############################## Tag the Release ##############################
 
 if [ ${PREPARE_TAG} -gt 0 ]; then
-  git tag -a "${release_tag}" -m "[Release] Apache Arrow Release ${version}"
+  git tag -a "${release_candidate_tag}" -m "[Release] Apache Arrow Release ${version} RC${rc_number}"
 fi

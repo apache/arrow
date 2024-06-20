@@ -39,8 +39,8 @@ import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.After;
-import org.junit.Before;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 
 class BaseEvaluatorTest {
 
@@ -185,7 +185,7 @@ class BaseEvaluatorTest {
   protected ArrowType int64;
   protected ArrowType float64;
 
-  @Before
+  @BeforeEach
   public void init() {
     allocator = new RootAllocator(Long.MAX_VALUE);
     boolType = new ArrowType.Bool();
@@ -195,7 +195,7 @@ class BaseEvaluatorTest {
     float64 = new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE);
   }
 
-  @After
+  @AfterEach
   public void tearDown() {
     allocator.close();
   }

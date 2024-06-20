@@ -24,10 +24,13 @@ import static org.hamcrest.CoreMatchers.anyOf;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import com.google.common.collect.ImmutableSet;
 import java.nio.charset.StandardCharsets;
@@ -63,31 +66,27 @@ import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.jupiter.api.Assertions;
-import org.junit.rules.ErrorCollector;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 public class ResultSetTest {
   private static final Random RANDOM = new Random(10);
 
-  @ClassRule
-  public static final FlightServerTestRule SERVER_TEST_RULE =
-      FlightServerTestRule.createStandardTestRule(CoreMockedSqlProducers.getLegacyProducer());
+  @RegisterExtension
+  public static final FlightServerTestExtension FLIGHT_SERVER_TEST_EXTENSION =
+      FlightServerTestExtension.createStandardTestExtension(
+          CoreMockedSqlProducers.getLegacyProducer());
 
   private static Connection connection;
 
-  @Rule public final ErrorCollector collector = new ErrorCollector();
-
-  @BeforeClass
+  @BeforeAll
   public static void setup() throws SQLException {
-    connection = SERVER_TEST_RULE.getConnection(false);
+    connection = FLIGHT_SERVER_TEST_EXTENSION.getConnection(false);
   }
 
-  @AfterClass
+  @AfterAll
   public static void tearDown() throws SQLException {
     connection.close();
   }
@@ -109,7 +108,7 @@ public class ResultSetTest {
     try (Statement statement = connection.createStatement();
         ResultSet resultSet =
             statement.executeQuery(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
-      CoreMockedSqlProducers.assertLegacyRegularSqlResultSet(resultSet, collector);
+      CoreMockedSqlProducers.assertLegacyRegularSqlResultSet(resultSet);
     }
   }
 
@@ -140,7 +139,7 @@ public class ResultSetTest {
       final int maxRowsLimit = 3;
       statement.setMaxRows(maxRowsLimit);
 
-      collector.checkThat(statement.getMaxRows(), is(maxRowsLimit));
+      assertThat(statement.getMaxRows(), is(maxRowsLimit));
 
       int count = 0;
       int columns = 6;
@@ -148,10 +147,10 @@ public class ResultSetTest {
         for (int column = 1; column <= columns; column++) {
           resultSet.getObject(column);
         }
-        collector.checkThat("Test Name #" + count, is(resultSet.getString(2)));
+        assertThat("Test Name #" + count, is(resultSet.getString(2)));
       }
 
-      collector.checkThat(maxRowsLimit, is(count));
+      assertThat(maxRowsLimit, is(count));
     }
   }
 
@@ -160,13 +159,16 @@ public class ResultSetTest {
    *
    * @throws Exception If the connection fails to be established.
    */
-  @Test(expected = SQLException.class)
-  public void testShouldThrowExceptionUponAttemptingToExecuteAnInvalidSelectQuery()
-      throws Exception {
-    try (Statement statement = connection.createStatement();
-        ResultSet result = statement.executeQuery("SELECT * FROM SHOULD-FAIL")) {
-      fail();
-    }
+  @Test
+  public void testShouldThrowExceptionUponAttemptingToExecuteAnInvalidSelectQuery() {
+    assertThrows(
+        SQLException.class,
+        () -> {
+          try (Statement statement = connection.createStatement();
+              ResultSet resultSet = statement.executeQuery("SELECT * FROM SHOULD-FAIL")) {
+            fail();
+          }
+        });
   }
 
   /**
@@ -183,7 +185,7 @@ public class ResultSetTest {
       final long maxRowsLimit = 3;
       statement.setLargeMaxRows(maxRowsLimit);
 
-      collector.checkThat(statement.getLargeMaxRows(), is(maxRowsLimit));
+      assertThat(statement.getLargeMaxRows(), is(maxRowsLimit));
 
       int count = 0;
       int columns = resultSet.getMetaData().getColumnCount();
@@ -209,7 +211,7 @@ public class ResultSetTest {
         counts.add(resultSet.getMetaData().getColumnCount());
       }
     }
-    collector.checkThat(counts, is(ImmutableSet.of(6)));
+    assertThat(counts, is(ImmutableSet.of(6)));
   }
 
   /**
@@ -228,7 +230,7 @@ public class ResultSetTest {
 
       resultSetNextUntilDone(resultSet);
 
-      collector.checkThat(statement.isClosed(), is(true));
+      assertThat(statement.isClosed(), is(true));
     }
   }
 
@@ -251,7 +253,7 @@ public class ResultSetTest {
 
       resultSetNextUntilDone(resultSet);
 
-      collector.checkThat(statement.isClosed(), is(true));
+      assertThat(statement.isClosed(), is(true));
     }
   }
 
@@ -272,10 +274,10 @@ public class ResultSetTest {
       final long maxRowsLimit = 3;
       statement.setLargeMaxRows(maxRowsLimit);
 
-      collector.checkThat(statement.isClosed(), is(false));
+      assertThat(statement.isClosed(), is(false));
       resultSetNextUntilDone(resultSet);
-      collector.checkThat(resultSet.isClosed(), is(false));
-      collector.checkThat(resultSet, is(instanceOf(ArrowFlightJdbcFlightStreamResultSet.class)));
+      assertThat(resultSet.isClosed(), is(false));
+      assertThat(resultSet, is(instanceOf(ArrowFlightJdbcFlightStreamResultSet.class)));
     }
   }
 
@@ -285,14 +287,14 @@ public class ResultSetTest {
         final ResultSet resultSet =
             statement.executeQuery(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
       final int column = RANDOM.nextInt(resultSet.getMetaData().getColumnCount()) + 1;
-      collector.checkThat(resultSet.isClosed(), is(false));
-      collector.checkThat(resultSet.next(), is(true));
-      collector.checkSucceeds(() -> resultSet.getObject(column));
+      assertThat(resultSet.isClosed(), is(false));
+      assertThat(resultSet.next(), is(true));
+      assertDoesNotThrow(() -> resultSet.getObject(column));
       statement.cancel();
       // Should reset `ResultSet`; keep both `ResultSet` and `Connection` open.
-      collector.checkThat(statement.isClosed(), is(false));
-      collector.checkThat(resultSet.isClosed(), is(false));
-      collector.checkThat(resultSet.getMetaData().getColumnCount(), is(0));
+      assertThat(statement.isClosed(), is(false));
+      assertThat(resultSet.isClosed(), is(false));
+      assertThat(resultSet.getMetaData().getColumnCount(), is(0));
     }
   }
 
@@ -322,7 +324,7 @@ public class ResultSetTest {
       thread.start();
       statement.cancel();
       thread.join();
-      collector.checkThat(
+      assertThat(
           exceptions.stream()
               .map(Exception::getMessage)
               .map(StringBuilder::new)
@@ -355,7 +357,7 @@ public class ResultSetTest {
       Thread.sleep(5000); // Let the other thread attempt to retrieve results.
       statement.cancel();
       thread.join();
-      collector.checkThat(
+      assertThat(
           exceptions.stream()
               .map(Exception::getMessage)
               .map(StringBuilder::new)
@@ -385,8 +387,8 @@ public class ResultSetTest {
       }
       final Throwable comparisonCause =
           exceptions.stream().findFirst().orElseThrow(RuntimeException::new).getCause().getCause();
-      collector.checkThat(comparisonCause, is(instanceOf(SQLTimeoutException.class)));
-      collector.checkThat(
+      assertThat(comparisonCause, is(instanceOf(SQLTimeoutException.class)));
+      assertThat(
           comparisonCause.getMessage(),
           is(format("Query timed out after %d %s", timeoutValue, timeoutUnit)));
     }
@@ -399,7 +401,7 @@ public class ResultSetTest {
     try (Statement statement = connection.createStatement()) {
       statement.setQueryTimeout(timeoutValue);
       try (ResultSet resultSet = statement.executeQuery(query)) {
-        CoreMockedSqlProducers.assertLegacyRegularSqlResultSet(resultSet, collector);
+        CoreMockedSqlProducers.assertLegacyRegularSqlResultSet(resultSet);
       }
     }
   }
@@ -501,16 +503,16 @@ public class ResultSetTest {
                       rootServer.getLocation().getUri().getHost(), rootServer.getPort()));
           Statement newStatement = newConnection.createStatement()) {
         final SQLException e =
-            Assertions.assertThrows(
+            assertThrows(
                 SQLException.class,
                 () -> {
                   ResultSet result = newStatement.executeQuery("Select partitioned_data");
                   while (result.next()) {}
                 });
         final Throwable cause = e.getCause();
-        Assertions.assertTrue(cause instanceof FlightRuntimeException);
+        assertTrue(cause instanceof FlightRuntimeException);
         final FlightRuntimeException fre = (FlightRuntimeException) cause;
-        Assertions.assertEquals(FlightStatusCode.UNAVAILABLE, fre.status().code());
+        assertEquals(FlightStatusCode.UNAVAILABLE, fre.status().code());
       }
     }
   }

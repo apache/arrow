@@ -23,11 +23,11 @@ import static org.apache.arrow.flight.sql.util.AdhocTestOption.OPTION_A;
 import static org.apache.arrow.flight.sql.util.AdhocTestOption.OPTION_B;
 import static org.apache.arrow.flight.sql.util.AdhocTestOption.OPTION_C;
 import static org.apache.arrow.flight.sql.util.SqlInfoOptionsUtils.doesBitmaskTranslateToEnum;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -55,6 +55,6 @@ public final class SqlInfoOptionsUtilsBitmaskParsingTest {
         stream(AdhocTestOption.values())
             .filter(enumInstance -> doesBitmaskTranslateToEnum(enumInstance, bitmask))
             .collect(toCollection(() -> EnumSet.noneOf(AdhocTestOption.class)));
-    Assertions.assertEquals(actualOptions, expectedOptions);
+    assertEquals(actualOptions, expectedOptions);
   }
 }

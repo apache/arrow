@@ -16,12 +16,14 @@
  */
 package org.apache.arrow.memory.util;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URLClassLoader;
-import org.junit.Assert;
-import org.junit.Test;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 public class TestLargeMemoryUtil {
 
@@ -56,12 +58,9 @@ public class TestLargeMemoryUtil {
   private void checkExpectedOverflow(ClassLoader classLoader, long value) {
     InvocationTargetException ex =
         Assertions.assertThrows(
-            InvocationTargetException.class,
-            () -> {
-              checkedCastToInt(classLoader, value);
-            });
-    Assert.assertTrue(ex.getCause() instanceof ArithmeticException);
-    Assert.assertEquals("integer overflow", ex.getCause().getMessage());
+            InvocationTargetException.class, () -> checkedCastToInt(classLoader, value));
+    assertInstanceOf(ArithmeticException.class, ex.getCause());
+    assertEquals("integer overflow", ex.getCause().getMessage());
   }
 
   @Test
@@ -71,7 +70,7 @@ public class TestLargeMemoryUtil {
     try {
       ClassLoader classLoader = copyClassLoader();
       if (classLoader != null) {
-        Assert.assertEquals(Integer.MAX_VALUE, checkedCastToInt(classLoader, Integer.MAX_VALUE));
+        assertEquals(Integer.MAX_VALUE, checkedCastToInt(classLoader, Integer.MAX_VALUE));
         checkExpectedOverflow(classLoader, Integer.MAX_VALUE + 1L);
         checkExpectedOverflow(classLoader, Integer.MIN_VALUE - 1L);
       }
@@ -92,11 +91,9 @@ public class TestLargeMemoryUtil {
     try {
       ClassLoader classLoader = copyClassLoader();
       if (classLoader != null) {
-        Assert.assertEquals(Integer.MAX_VALUE, checkedCastToInt(classLoader, Integer.MAX_VALUE));
-        Assert.assertEquals(
-            Integer.MIN_VALUE, checkedCastToInt(classLoader, Integer.MAX_VALUE + 1L));
-        Assert.assertEquals(
-            Integer.MAX_VALUE, checkedCastToInt(classLoader, Integer.MIN_VALUE - 1L));
+        assertEquals(Integer.MAX_VALUE, checkedCastToInt(classLoader, Integer.MAX_VALUE));
+        assertEquals(Integer.MIN_VALUE, checkedCastToInt(classLoader, Integer.MAX_VALUE + 1L));
+        assertEquals(Integer.MAX_VALUE, checkedCastToInt(classLoader, Integer.MIN_VALUE - 1L));
       }
     } finally {
       // restore system property

@@ -22,24 +22,21 @@ import static org.hamcrest.CoreMatchers.is;
 import java.time.Duration;
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
 import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils;
-import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
+import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestExtension;
 import org.apache.arrow.vector.DurationVector;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ErrorCollector;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 public class ArrowFlightJdbcDurationVectorAccessorTest {
 
-  @ClassRule
-  public static RootAllocatorTestRule rootAllocatorTestRule = new RootAllocatorTestRule();
-
-  @Rule public final ErrorCollector collector = new ErrorCollector();
+  @RegisterExtension
+  public static RootAllocatorTestExtension rootAllocatorTestExtension =
+      new RootAllocatorTestExtension();
 
   private DurationVector vector;
 
@@ -50,12 +47,12 @@ public class ArrowFlightJdbcDurationVectorAccessorTest {
                   (DurationVector) vector, getCurrentRow, (boolean wasNull) -> {});
 
   private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcDurationVectorAccessor>
-      accessorIterator = new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
+      accessorIterator = new AccessorTestUtils.AccessorIterator<>(accessorSupplier);
 
-  @Before
+  @BeforeEach
   public void setup() {
     FieldType fieldType = new FieldType(true, new ArrowType.Duration(TimeUnit.MILLISECOND), null);
-    this.vector = new DurationVector("", fieldType, rootAllocatorTestRule.getRootAllocator());
+    this.vector = new DurationVector("", fieldType, rootAllocatorTestExtension.getRootAllocator());
 
     int valueCount = 10;
     this.vector.setValueCount(valueCount);
@@ -64,7 +61,7 @@ public class ArrowFlightJdbcDurationVectorAccessorTest {
     }
   }
 
-  @After
+  @AfterEach
   public void tearDown() {
     this.vector.close();
   }

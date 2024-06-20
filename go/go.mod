@@ -27,8 +27,8 @@ require (
 	github.com/golang/snappy v0.0.4
 	github.com/google/flatbuffers v24.3.25+incompatible
 	github.com/klauspost/asmfmt v1.3.2
-	github.com/klauspost/compress v1.17.8
-	github.com/klauspost/cpuid/v2 v2.2.7
+	github.com/klauspost/compress v1.17.9
+	github.com/klauspost/cpuid/v2 v2.2.8
 	github.com/minio/asm2plan9s v0.0.0-20200509001527-cdd76441f9d8
 	github.com/minio/c2goasm v0.0.0-20190812172519-36a3d3bbc4f3
 	github.com/pierrec/lz4/v4 v4.1.21
@@ -41,7 +41,7 @@ require (
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028
 	gonum.org/v1/gonum v0.15.0
 	google.golang.org/grpc v1.63.2
-	google.golang.org/protobuf v1.34.1
+	google.golang.org/protobuf v1.34.2
 	modernc.org/sqlite v1.29.6
 )
 

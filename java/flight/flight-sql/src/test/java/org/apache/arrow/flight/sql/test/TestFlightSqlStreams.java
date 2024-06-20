@@ -23,6 +23,7 @@ import static org.apache.arrow.flight.sql.util.FlightStreamUtils.getResults;
 import static org.apache.arrow.util.AutoCloseables.close;
 import static org.apache.arrow.vector.types.Types.MinorType.INT;
 import static org.hamcrest.CoreMatchers.is;
+import static org.junit.jupiter.api.Assertions.assertAll;
 
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Any;
@@ -54,7 +55,6 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.Text;
 import org.hamcrest.MatcherAssert;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -243,7 +243,7 @@ public class TestFlightSqlStreams {
     try (final FlightStream stream =
         sqlClient.getStream(
             sqlClient.getTables(null, null, null, null, false).getEndpoints().get(0).getTicket())) {
-      Assertions.assertAll(
+      assertAll(
           () ->
               MatcherAssert.assertThat(
                   stream.getSchema(), is(FlightSqlProducer.Schemas.GET_TABLES_SCHEMA_NO_SCHEMA)),
@@ -262,7 +262,7 @@ public class TestFlightSqlStreams {
   public void testGetTableTypesResult() throws Exception {
     try (final FlightStream stream =
         sqlClient.getStream(sqlClient.getTableTypes().getEndpoints().get(0).getTicket())) {
-      Assertions.assertAll(
+      assertAll(
           () ->
               MatcherAssert.assertThat(
                   stream.getSchema(), is(FlightSqlProducer.Schemas.GET_TABLE_TYPES_SCHEMA)),
@@ -281,7 +281,7 @@ public class TestFlightSqlStreams {
   public void testGetSqlInfoResults() throws Exception {
     final FlightInfo info = sqlClient.getSqlInfo();
     try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
-      Assertions.assertAll(
+      assertAll(
           () ->
               MatcherAssert.assertThat(
                   stream.getSchema(), is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA)),
@@ -316,7 +316,7 @@ public class TestFlightSqlStreams {
                 .getEndpoints()
                 .get(0)
                 .getTicket())) {
-      Assertions.assertAll(
+      assertAll(
           () ->
               MatcherAssert.assertThat(stream.getSchema(), is(FlightSqlTestProducer.FIXED_SCHEMA)),
           () ->

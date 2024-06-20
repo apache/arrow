@@ -33,7 +33,8 @@ import org.apache.arrow.vector.util.TransferPair;
  * VarBinaryVector implements a variable width vector of binary values which could be NULL. A
  * validity buffer (bit vector) is maintained to track which elements in the vector are null.
  */
-public final class VarBinaryVector extends BaseVariableWidthVector {
+public final class VarBinaryVector extends BaseVariableWidthVector
+    implements ValueIterableVector<byte[]> {
 
   /**
    * Instantiate a VarBinaryVector. This doesn't allocate any memory for the data in vector.

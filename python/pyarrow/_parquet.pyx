@@ -1299,6 +1299,7 @@ cdef logical_type_name_from_enum(ParquetLogicalTypeId type_):
         ParquetLogicalType_TIME: 'TIME',
         ParquetLogicalType_TIMESTAMP: 'TIMESTAMP',
         ParquetLogicalType_INT: 'INT',
+        ParquetLogicalType_FLOAT16: 'FLOAT16',
         ParquetLogicalType_JSON: 'JSON',
         ParquetLogicalType_BSON: 'BSON',
         ParquetLogicalType_UUID: 'UUID',

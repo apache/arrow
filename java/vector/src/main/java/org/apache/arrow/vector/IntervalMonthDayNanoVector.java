@@ -39,7 +39,8 @@ import org.apache.arrow.vector.util.TransferPair;
  * <p>Month, day and nanoseconds are independent from one another and there is no specific limits
  * imposed on their values.
  */
-public final class IntervalMonthDayNanoVector extends BaseFixedWidthVector {
+public final class IntervalMonthDayNanoVector extends BaseFixedWidthVector
+    implements ValueIterableVector<PeriodDuration> {
   public static final byte TYPE_WIDTH = 16;
   private static final byte DAY_OFFSET = 4;
   private static final byte NANOSECOND_OFFSET = 8;

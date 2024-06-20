@@ -42,9 +42,9 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
-import org.junit.rules.TestRule;
-import org.junit.runner.Description;
-import org.junit.runners.model.Statement;
+import org.junit.jupiter.api.extension.AfterAllCallback;
+import org.junit.jupiter.api.extension.BeforeAllCallback;
+import org.junit.jupiter.api.extension.ExtensionContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,11 +52,12 @@ import org.slf4j.LoggerFactory;
  * Utility class for unit tests that need to instantiate a {@link FlightServer} and interact with
  * it.
  */
-public class FlightServerTestRule implements TestRule, AutoCloseable {
+public class FlightServerTestExtension
+    implements BeforeAllCallback, AfterAllCallback, AutoCloseable {
   public static final String DEFAULT_USER = "flight-test-user";
   public static final String DEFAULT_PASSWORD = "flight-test-password";
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(FlightServerTestRule.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(FlightServerTestExtension.class);
 
   private final Properties properties;
   private final ArrowFlightConnectionConfigImpl config;
@@ -68,7 +69,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
 
   private final MiddlewareCookie.Factory middlewareCookieFactory = new MiddlewareCookie.Factory();
 
-  private FlightServerTestRule(
+  private FlightServerTestExtension(
       final Properties properties,
       final ArrowFlightConnectionConfigImpl config,
       final BufferAllocator allocator,
@@ -86,12 +87,14 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
   }
 
   /**
-   * Create a {@link FlightServerTestRule} with standard values such as: user, password, localhost.
+   * Create a {@link FlightServerTestExtension} with standard values such as: user, password,
+   * localhost.
    *
-   * @param producer the producer used to create the FlightServerTestRule.
-   * @return the FlightServerTestRule.
+   * @param producer the producer used to create the FlightServerTestExtension.
+   * @return the FlightServerTestExtension.
    */
-  public static FlightServerTestRule createStandardTestRule(final FlightSqlProducer producer) {
+  public static FlightServerTestExtension createStandardTestExtension(
+      final FlightSqlProducer producer) {
     UserPasswordAuthentication authentication =
         new UserPasswordAuthentication.Builder().user(DEFAULT_USER, DEFAULT_PASSWORD).build();
 
@@ -151,19 +154,26 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
   }
 
   @Override
-  public Statement apply(Statement base, Description description) {
-    return new Statement() {
-      @Override
-      public void evaluate() throws Throwable {
-        try (FlightServer flightServer = getStartServer(location -> initiateServer(location), 3)) {
-          properties.put("port", flightServer.getPort());
-          LOGGER.info("Started " + FlightServer.class.getName() + " as " + flightServer);
-          base.evaluate();
-        } finally {
-          close();
-        }
-      }
-    };
+  public void beforeAll(ExtensionContext context) throws Exception {
+    try {
+      FlightServer flightServer = getStartServer(this::initiateServer, 3);
+      properties.put("port", flightServer.getPort());
+      LOGGER.info("Started " + FlightServer.class.getName() + " as " + flightServer);
+      context.getStore(ExtensionContext.Namespace.GLOBAL).put("flightServer", flightServer);
+    } catch (Exception e) {
+      LOGGER.error("Failed to start FlightServer", e);
+      throw e;
+    }
+  }
+
+  @Override
+  public void afterAll(ExtensionContext context) throws Exception {
+    FlightServer flightServer =
+        context.getStore(ExtensionContext.Namespace.GLOBAL).get("flightServer", FlightServer.class);
+    if (flightServer != null) {
+      flightServer.close();
+    }
+    close();
   }
 
   private FlightServer getStartServer(
@@ -210,7 +220,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
     AutoCloseables.close(allocator);
   }
 
-  /** Builder for {@link FlightServerTestRule}. */
+  /** Builder for {@link FlightServerTestExtension}. */
   public static final class Builder {
     private final Properties properties;
     private FlightSqlProducer producer;
@@ -270,13 +280,13 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
     }
 
     /**
-     * Builds the {@link FlightServerTestRule} using the provided values.
+     * Builds the {@link FlightServerTestExtension} using the provided values.
      *
-     * @return a {@link FlightServerTestRule}.
+     * @return a {@link FlightServerTestExtension}.
      */
-    public FlightServerTestRule build() {
+    public FlightServerTestExtension build() {
       authentication.populateProperties(properties);
-      return new FlightServerTestRule(
+      return new FlightServerTestExtension(
           properties,
           new ArrowFlightConnectionConfigImpl(properties),
           new RootAllocator(Long.MAX_VALUE),

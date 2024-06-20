@@ -16,17 +16,18 @@
  */
 package org.apache.arrow.dataset.jni;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
 import org.apache.arrow.dataset.TestDataset;
 import org.apache.arrow.dataset.scanner.ScanOptions;
 import org.apache.arrow.dataset.scanner.Scanner;
 import org.apache.arrow.dataset.source.Dataset;
 import org.apache.arrow.dataset.source.DatasetFactory;
-import org.junit.Assert;
 
 public abstract class TestNativeDataset extends TestDataset {
   protected void assertScanBatchesProduced(DatasetFactory factory, ScanOptions options) {
     final Dataset dataset = factory.finish();
     final Scanner scanner = dataset.newScan(options);
-    Assert.assertNotNull(scanner.scanBatches());
+    assertNotNull(scanner.scanBatches());
   }
 }

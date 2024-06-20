@@ -16,60 +16,62 @@
  */
 package io.netty.buffer;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+
 import java.nio.ByteBuffer;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.memory.patch.ArrowByteBufAllocator;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class TestNettyArrowBuf {
 
   @Test
   public void testSliceWithoutArgs() {
     try (BufferAllocator allocator = new RootAllocator(128);
-        ArrowBuf buf = allocator.buffer(20); ) {
+        ArrowBuf buf = allocator.buffer(20)) {
       NettyArrowBuf nettyBuf = NettyArrowBuf.unwrapBuffer(buf);
       nettyBuf.writerIndex(20);
       nettyBuf.readerIndex(10);
       NettyArrowBuf slicedBuffer = nettyBuf.slice();
       int readableBytes = slicedBuffer.readableBytes();
-      Assert.assertEquals(10, readableBytes);
+      assertEquals(10, readableBytes);
     }
   }
 
   @Test
   public void testNioBuffer() {
     try (BufferAllocator allocator = new RootAllocator(128);
-        ArrowBuf buf = allocator.buffer(20); ) {
+        ArrowBuf buf = allocator.buffer(20)) {
       NettyArrowBuf nettyBuf = NettyArrowBuf.unwrapBuffer(buf);
       ByteBuffer byteBuffer = nettyBuf.nioBuffer(4, 6);
       // Nio Buffers should always be 0 indexed
-      Assert.assertEquals(0, byteBuffer.position());
-      Assert.assertEquals(6, byteBuffer.limit());
+      assertEquals(0, byteBuffer.position());
+      assertEquals(6, byteBuffer.limit());
       // Underlying buffer has size 32 excluding 4 should have capacity of 28.
-      Assert.assertEquals(28, byteBuffer.capacity());
+      assertEquals(28, byteBuffer.capacity());
     }
   }
 
   @Test
   public void testInternalNioBuffer() {
     try (BufferAllocator allocator = new RootAllocator(128);
-        ArrowBuf buf = allocator.buffer(20); ) {
+        ArrowBuf buf = allocator.buffer(20)) {
       NettyArrowBuf nettyBuf = NettyArrowBuf.unwrapBuffer(buf);
       ByteBuffer byteBuffer = nettyBuf.internalNioBuffer(4, 6);
-      Assert.assertEquals(0, byteBuffer.position());
-      Assert.assertEquals(6, byteBuffer.limit());
+      assertEquals(0, byteBuffer.position());
+      assertEquals(6, byteBuffer.limit());
       // Underlying buffer has size 32 excluding 4 should have capacity of 28.
-      Assert.assertEquals(28, byteBuffer.capacity());
+      assertEquals(28, byteBuffer.capacity());
     }
   }
 
   @Test
   public void testSetLEValues() {
     try (BufferAllocator allocator = new RootAllocator(128);
-        ArrowBuf buf = allocator.buffer(20); ) {
+        ArrowBuf buf = allocator.buffer(20)) {
       NettyArrowBuf nettyBuf = NettyArrowBuf.unwrapBuffer(buf);
       int[] intVals =
           new int[] {
@@ -83,19 +85,19 @@ public class TestNettyArrowBuf {
           };
       for (int intValue : intVals) {
         nettyBuf._setInt(0, intValue);
-        Assert.assertEquals(nettyBuf._getIntLE(0), Integer.reverseBytes(intValue));
+        assertEquals(nettyBuf._getIntLE(0), Integer.reverseBytes(intValue));
       }
 
       long[] longVals = new long[] {Long.MIN_VALUE, 0, Long.MAX_VALUE};
       for (long longValue : longVals) {
         nettyBuf._setLong(0, longValue);
-        Assert.assertEquals(nettyBuf._getLongLE(0), Long.reverseBytes(longValue));
+        assertEquals(nettyBuf._getLongLE(0), Long.reverseBytes(longValue));
       }
 
       short[] shortVals = new short[] {Short.MIN_VALUE, 0, Short.MAX_VALUE};
       for (short shortValue : shortVals) {
         nettyBuf._setShort(0, shortValue);
-        Assert.assertEquals(nettyBuf._getShortLE(0), Short.reverseBytes(shortValue));
+        assertEquals(nettyBuf._getShortLE(0), Short.reverseBytes(shortValue));
       }
     }
   }
@@ -104,7 +106,7 @@ public class TestNettyArrowBuf {
   public void testSetCompositeBuffer() {
     try (BufferAllocator allocator = new RootAllocator(128);
         ArrowBuf buf = allocator.buffer(20);
-        NettyArrowBuf buf2 = NettyArrowBuf.unwrapBuffer(allocator.buffer(20)); ) {
+        NettyArrowBuf buf2 = NettyArrowBuf.unwrapBuffer(allocator.buffer(20))) {
       CompositeByteBuf byteBufs =
           new CompositeByteBuf(new ArrowByteBufAllocator(allocator), true, 1);
       int expected = 4;
@@ -113,14 +115,14 @@ public class TestNettyArrowBuf {
       byteBufs.addComponent(true, buf2);
       NettyArrowBuf.unwrapBuffer(buf).setBytes(0, byteBufs, 4);
       int actual = buf.getInt(0);
-      Assert.assertEquals(expected, actual);
+      assertEquals(expected, actual);
     }
   }
 
   @Test
   public void testGetCompositeBuffer() {
     try (BufferAllocator allocator = new RootAllocator(128);
-        ArrowBuf buf = allocator.buffer(20); ) {
+        ArrowBuf buf = allocator.buffer(20)) {
       CompositeByteBuf byteBufs =
           new CompositeByteBuf(new ArrowByteBufAllocator(allocator), true, 1);
       int expected = 4;
@@ -132,7 +134,7 @@ public class TestNettyArrowBuf {
       byteBufs.capacity(20);
       NettyArrowBuf.unwrapBuffer(buf).getBytes(0, byteBufs, 4);
       int actual = byteBufs.getInt(0);
-      Assert.assertEquals(expected, actual);
+      assertEquals(expected, actual);
       byteBufs.component(0).release();
     }
   }
@@ -140,10 +142,10 @@ public class TestNettyArrowBuf {
   @Test
   public void testUnwrapReturnsNull() {
     try (BufferAllocator allocator = new RootAllocator(128);
-        ArrowBuf buf = allocator.buffer(20); ) {
+        ArrowBuf buf = allocator.buffer(20)) {
       NettyArrowBuf nettyBuf = NettyArrowBuf.unwrapBuffer(buf);
       // NettyArrowBuf cannot be unwrapped, so unwrap() should return null per the Netty ByteBuf API
-      Assert.assertNull(nettyBuf.unwrap());
+      assertNull(nettyBuf.unwrap());
     }
   }
 }

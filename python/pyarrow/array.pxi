@@ -1825,9 +1825,12 @@ cdef class Array(_PandasConvertible):
         This is a low-level function intended for expert users.
         """
         cdef:
-            void* c_ptr = _as_c_pointer(in_ptr)
+            ArrowDeviceArray* c_device_array = <ArrowDeviceArray*>_as_c_pointer(in_ptr)
             void* c_type_ptr
             shared_ptr[CArray] c_array
+
+        if c_device_array.device_type == ARROW_DEVICE_CUDA:
+            _ensure_cuda_loaded()
 
         c_type = pyarrow_unwrap_data_type(type)
         if c_type == nullptr:
@@ -1835,13 +1838,12 @@ cdef class Array(_PandasConvertible):
             c_type_ptr = _as_c_pointer(type)
             with nogil:
                 c_array = GetResultValue(
-                    ImportDeviceArray(<ArrowDeviceArray*> c_ptr,
-                                      <ArrowSchema*> c_type_ptr)
+                    ImportDeviceArray(c_device_array, <ArrowSchema*> c_type_ptr)
                 )
         else:
             with nogil:
                 c_array = GetResultValue(
-                    ImportDeviceArray(<ArrowDeviceArray*> c_ptr, c_type)
+                    ImportDeviceArray(c_device_array, c_type)
                 )
         return pyarrow_wrap_array(c_array)
 

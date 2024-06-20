@@ -34,9 +34,15 @@ function(build_arrow)
 
   set(ARROW_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/arrow_ep-prefix")
   set(ARROW_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/arrow_ep-build")
+
+  # Supply -DARROW_CXXFLAGS=-D_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR to fix
+  # a segfault on windows. See https://github.com/apache/arrow/issues/42015.
   set(ARROW_CMAKE_ARGS
-      "-DCMAKE_INSTALL_PREFIX=${ARROW_PREFIX}" "-DCMAKE_INSTALL_LIBDIR=lib"
-      "-DARROW_BUILD_STATIC=OFF" "-DARROW_CSV=ON")
+      "-DCMAKE_INSTALL_PREFIX=${ARROW_PREFIX}"
+      "-DCMAKE_INSTALL_LIBDIR=lib"
+      "-DARROW_BUILD_STATIC=OFF"
+      "-DARROW_CSV=ON"
+      "-DARROW_CXXFLAGS=-D_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR")
 
   add_library(arrow_shared SHARED IMPORTED)
   set(ARROW_LIBRARY_TARGET arrow_shared)

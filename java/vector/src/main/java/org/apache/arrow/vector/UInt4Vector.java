@@ -34,7 +34,8 @@ import org.apache.arrow.vector.util.ValueVectorUtility;
  * UInt4Vector implements a fixed width (4 bytes) vector of integer values which could be null. A
  * validity buffer (bit vector) is maintained to track which elements in the vector are null.
  */
-public final class UInt4Vector extends BaseFixedWidthVector implements BaseIntVector {
+public final class UInt4Vector extends BaseFixedWidthVector
+    implements BaseIntVector, ValueIterableVector<Integer> {
 
   /** The mask to use when promoting the unsigned int value to a long int. */
   public static final long PROMOTION_MASK = 0x00000000FFFFFFFFL;

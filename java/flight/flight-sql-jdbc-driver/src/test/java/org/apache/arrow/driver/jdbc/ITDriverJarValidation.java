@@ -16,8 +16,9 @@
  */
 package org.apache.arrow.driver.jdbc;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import com.google.common.collect.ImmutableSet;
 import java.io.File;
@@ -29,12 +30,8 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ErrorCollector;
-import org.junit.rules.TestRule;
-import org.junit.rules.Timeout;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 /**
  * Check the content of the JDBC driver jar
@@ -79,13 +76,8 @@ public class ITDriverJarValidation {
     return connection.getJarFile();
   }
 
-  @ClassRule
-  public static final TestRule CLASS_TIMEOUT =
-      Timeout.builder().withTimeout(2, TimeUnit.MINUTES).build();
-
-  @Rule public ErrorCollector collector = new ErrorCollector();
-
   @Test
+  @Timeout(value = 2, unit = TimeUnit.MINUTES)
   public void validateShadedJar() throws IOException {
     // Validate the content of the jar to enforce all 3rd party dependencies have
     // been shaded
@@ -100,7 +92,7 @@ public class ITDriverJarValidation {
         try {
           checkEntryAllowed(entry.getName());
         } catch (AssertionError e) {
-          collector.addError(e);
+          fail(e.getMessage());
         }
       }
     }
@@ -113,7 +105,7 @@ public class ITDriverJarValidation {
    * allowed prefixes
    *
    * @param name the jar entry name
-   * @throws AssertionException if the entry is not allowed
+   * @throws AssertionError if the entry is not allowed
    */
   private void checkEntryAllowed(String name) {
     // Check if there's a matching file entry first

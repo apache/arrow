@@ -33,7 +33,8 @@ import org.apache.arrow.vector.util.TransferPair;
  * Float8Vector implements a fixed width vector (8 bytes) of double values which could be null. A
  * validity buffer (bit vector) is maintained to track which elements in the vector are null.
  */
-public final class Float8Vector extends BaseFixedWidthVector implements FloatingPointVector {
+public final class Float8Vector extends BaseFixedWidthVector
+    implements FloatingPointVector, ValueIterableVector<Double> {
   public static final byte TYPE_WIDTH = 8;
 
   /**

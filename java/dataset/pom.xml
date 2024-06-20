@@ -32,7 +32,7 @@ under the License.
 
   <properties>
     <arrow.cpp.build.dir>../../../cpp/release-build/</arrow.cpp.build.dir>
-    <parquet.version>1.13.1</parquet.version>
+    <parquet.version>1.14.1</parquet.version>
     <avro.version>1.11.3</avro.version>
     <checkstyle.config.location>dev/checkstyle/checkstyle-spotless.xml</checkstyle.config.location>
     <spotless.java.excludes>none</spotless.java.excludes>
@@ -159,6 +159,11 @@ under the License.
       <groupId>commons-io</groupId>
       <artifactId>commons-io</artifactId>
       <version>2.15.1</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.hamcrest</groupId>
+      <artifactId>hamcrest</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>

@@ -16,7 +16,7 @@
  */
 package org.apache.arrow.driver.jdbc;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.common.collect.ImmutableList;
 import java.sql.SQLException;
@@ -51,8 +51,8 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.calcite.avatica.util.Cursor;
-import org.junit.After;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 
 /** Tests for {@link ArrowFlightJdbcCursor}. */
 public class ArrowFlightJdbcCursorTest {
@@ -60,7 +60,7 @@ public class ArrowFlightJdbcCursorTest {
   ArrowFlightJdbcCursor cursor;
   BufferAllocator allocator;
 
-  @After
+  @AfterEach
   public void cleanUp() {
     allocator.close();
     cursor.close();

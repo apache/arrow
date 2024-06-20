@@ -41,6 +41,7 @@ import org.apache.arrow.vector.ExtensionTypeVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.Float4Vector;
+import org.apache.arrow.vector.ValueIterableVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.compare.Range;
 import org.apache.arrow.vector.compare.RangeEqualsVisitor;
@@ -331,7 +332,8 @@ public class TestExtensionType {
     }
   }
 
-  static class UuidVector extends ExtensionTypeVector<FixedSizeBinaryVector> {
+  static class UuidVector extends ExtensionTypeVector<FixedSizeBinaryVector>
+      implements ValueIterableVector<UUID> {
 
     public UuidVector(
         String name, BufferAllocator allocator, FixedSizeBinaryVector underlyingVector) {
@@ -399,7 +401,8 @@ public class TestExtensionType {
     }
   }
 
-  public static class LocationVector extends ExtensionTypeVector<StructVector> {
+  public static class LocationVector extends ExtensionTypeVector<StructVector>
+      implements ValueIterableVector<java.util.Map<String, ?>> {
 
     private static StructVector buildUnderlyingVector(String name, BufferAllocator allocator) {
       final StructVector underlyingVector =

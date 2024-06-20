@@ -17,18 +17,16 @@
 package org.apache.arrow.driver.jdbc.utils;
 
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.Calendar;
 import java.util.TimeZone;
-import org.junit.ClassRule;
-import org.junit.Test;
-import org.junit.rules.ErrorCollector;
+import org.junit.jupiter.api.Test;
 
 public class DateTimeUtilsTest {
 
-  @ClassRule public static final ErrorCollector collector = new ErrorCollector();
   private final TimeZone defaultTimezone = TimeZone.getTimeZone("UTC");
   private final TimeZone alternateTimezone = TimeZone.getTimeZone("America/Vancouver");
   private final long positiveEpochMilli = 959817600000L; // 2000-06-01 00:00:00 UTC
@@ -48,7 +46,7 @@ public class DateTimeUtilsTest {
       final long actual =
           DateTimeUtils.applyCalendarOffset(epochMillis, Calendar.getInstance(defaultTimezone));
 
-      collector.checkThat(actual, is(expected));
+      assertThat(actual, is(expected));
     } finally {
       // Reset Timezone
       TimeZone.setDefault(currentTimezone);
@@ -69,7 +67,7 @@ public class DateTimeUtilsTest {
       final long actualEpochMillis =
           DateTimeUtils.applyCalendarOffset(epochMillis, Calendar.getInstance(defaultTimezone));
 
-      collector.checkThat(actualEpochMillis, is(expectedEpochMillis));
+      assertThat(actualEpochMillis, is(expectedEpochMillis));
     } finally {
       // Reset Timezone
       TimeZone.setDefault(currentTimezone);
@@ -84,7 +82,7 @@ public class DateTimeUtilsTest {
     final Timestamp expected = Timestamp.from(instant);
     final Timestamp actual = DateTimeUtils.getTimestampValue(epochMilli);
 
-    collector.checkThat(expected, is(actual));
+    assertThat(expected, is(actual));
   }
 
   @Test
@@ -95,6 +93,6 @@ public class DateTimeUtilsTest {
     final Timestamp expected = Timestamp.from(instant);
     final Timestamp actual = DateTimeUtils.getTimestampValue(epochMilli);
 
-    collector.checkThat(expected, is(actual));
+    assertThat(expected, is(actual));
   }
 }

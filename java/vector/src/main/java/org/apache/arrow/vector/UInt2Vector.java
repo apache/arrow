@@ -34,7 +34,8 @@ import org.apache.arrow.vector.util.ValueVectorUtility;
  * UInt2Vector implements a fixed width (2 bytes) vector of integer values which could be null. A
  * validity buffer (bit vector) is maintained to track which elements in the vector are null.
  */
-public final class UInt2Vector extends BaseFixedWidthVector implements BaseIntVector {
+public final class UInt2Vector extends BaseFixedWidthVector
+    implements BaseIntVector, ValueIterableVector<Character> {
 
   /** The maximum 16-bit unsigned integer. */
   public static final char MAX_UINT2 = (char) 0XFFFF;

@@ -16,6 +16,7 @@
  */
 package org.apache.arrow.driver.jdbc.client;
 
+import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.net.URI;
 import java.security.GeneralSecurityException;
@@ -25,9 +26,14 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import javax.annotation.Nullable;
 import org.apache.arrow.driver.jdbc.client.utils.ClientAuthenticationUtils;
 import org.apache.arrow.flight.CallOption;
+import org.apache.arrow.flight.CallStatus;
+import org.apache.arrow.flight.CloseSessionRequest;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightClientMiddleware;
 import org.apache.arrow.flight.FlightEndpoint;
@@ -36,6 +42,10 @@ import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.flight.FlightStatusCode;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.LocationSchemes;
+import org.apache.arrow.flight.SessionOptionValue;
+import org.apache.arrow.flight.SessionOptionValueFactory;
+import org.apache.arrow.flight.SetSessionOptionsRequest;
+import org.apache.arrow.flight.SetSessionOptionsResult;
 import org.apache.arrow.flight.auth2.BearerCredentialWriter;
 import org.apache.arrow.flight.auth2.ClientBearerHeaderHandler;
 import org.apache.arrow.flight.auth2.ClientIncomingAuthHeaderMiddleware;
@@ -57,19 +67,24 @@ import org.slf4j.LoggerFactory;
 /** A {@link FlightSqlClient} handler. */
 public final class ArrowFlightSqlClientHandler implements AutoCloseable {
   private static final Logger LOGGER = LoggerFactory.getLogger(ArrowFlightSqlClientHandler.class);
+  // JDBC connection string query parameter
+  private static final String CATALOG = "catalog";
 
   private final FlightSqlClient sqlClient;
   private final Set<CallOption> options = new HashSet<>();
   private final Builder builder;
+  private final Optional<String> catalog;
 
   ArrowFlightSqlClientHandler(
       final FlightSqlClient sqlClient,
       final Builder builder,
-      final Collection<CallOption> credentialOptions) {
+      final Collection<CallOption> credentialOptions,
+      final Optional<String> catalog) {
     this.options.addAll(builder.options);
     this.options.addAll(credentialOptions);
     this.sqlClient = Preconditions.checkNotNull(sqlClient);
     this.builder = builder;
+    this.catalog = catalog;
   }
 
   /**
@@ -80,9 +95,15 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
    * @param options the {@link CallOption}s to persist in between subsequent client calls.
    * @return a new {@link ArrowFlightSqlClientHandler}.
    */
-  public static ArrowFlightSqlClientHandler createNewHandler(
-      final FlightClient client, final Builder builder, final Collection<CallOption> options) {
-    return new ArrowFlightSqlClientHandler(new FlightSqlClient(client), builder, options);
+  static ArrowFlightSqlClientHandler createNewHandler(
+      final FlightClient client,
+      final Builder builder,
+      final Collection<CallOption> options,
+      final Optional<String> catalog) {
+    final ArrowFlightSqlClientHandler handler =
+        new ArrowFlightSqlClientHandler(new FlightSqlClient(client), builder, options, catalog);
+    handler.setSetCatalogInSessionIfPresent();
+    return handler;
   }
 
   /**
@@ -199,6 +220,9 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
 
   @Override
   public void close() throws SQLException {
+    if (catalog.isPresent()) {
+      sqlClient.closeSession(new CloseSessionRequest(), getOptions());
+    }
     try {
       AutoCloseables.close(sqlClient);
     } catch (final Exception e) {
@@ -248,6 +272,31 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
 
     @Override
     void close();
+  }
+
+  /** A connection is created with catalog set as a session option. */
+  private void setSetCatalogInSessionIfPresent() {
+    if (catalog.isPresent()) {
+      final SetSessionOptionsRequest setSessionOptionRequest =
+          new SetSessionOptionsRequest(
+              ImmutableMap.<String, SessionOptionValue>builder()
+                  .put(CATALOG, SessionOptionValueFactory.makeSessionOptionValue(catalog.get()))
+                  .build());
+      final SetSessionOptionsResult result =
+          sqlClient.setSessionOptions(setSessionOptionRequest, getOptions());
+
+      if (result.hasErrors()) {
+        Map<String, SetSessionOptionsResult.Error> errors = result.getErrors();
+        for (Map.Entry<String, SetSessionOptionsResult.Error> error : errors.entrySet()) {
+          LOGGER.warn(error.toString());
+        }
+        throw CallStatus.INVALID_ARGUMENT
+            .withDescription(
+                String.format(
+                    "Cannot set session option for catalog = %s. Check log for details.", catalog))
+            .toRuntimeException();
+      }
+    }
   }
 
   /**
@@ -492,6 +541,8 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
 
     @VisibleForTesting boolean retainAuth = true;
 
+    @VisibleForTesting Optional<String> catalog = Optional.empty();
+
     // These two middleware are for internal use within build() and should not be exposed by builder
     // APIs.
     // Note that these middleware may not necessarily be registered.
@@ -527,6 +578,7 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
       this.clientCertificatePath = original.clientCertificatePath;
       this.clientKeyPath = original.clientKeyPath;
       this.allocator = original.allocator;
+      this.catalog = original.catalog;
 
       if (original.retainCookies) {
         this.cookieFactory = original.cookieFactory;
@@ -763,6 +815,17 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
     }
 
     /**
+     * Sets the catalog for this handler if it is not null.
+     *
+     * @param catalog the catalog
+     * @return this instance.
+     */
+    public Builder withCatalog(@Nullable final String catalog) {
+      this.catalog = Optional.ofNullable(catalog);
+      return this;
+    }
+
+    /**
      * Builds a new {@link ArrowFlightSqlClientHandler} from the provided fields.
      *
      * @return a new client handler.
@@ -841,7 +904,8 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
                   new CredentialCallOption(new BearerCredentialWriter(token)),
                   options.toArray(new CallOption[0])));
         }
-        return ArrowFlightSqlClientHandler.createNewHandler(client, this, credentialOptions);
+        return ArrowFlightSqlClientHandler.createNewHandler(
+            client, this, credentialOptions, catalog);
 
       } catch (final IllegalArgumentException
           | GeneralSecurityException

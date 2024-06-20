@@ -30,7 +30,7 @@ Some files central to Arrow CI are:
 
 We use :ref:`Docker<docker-builds>` in order to have portable and reproducible Linux builds, as well as running Windows builds in Windows containers.  We use :ref:`Archery<Archery>` and :ref:`Crossbow<Crossbow>` to help co-ordinate the various CI tasks.
 
-One thing to note is that some of the services defined in ``docker-compose.yml`` are interdependent.  When running services locally, you must either manually build its dependencies first, or build it via the use of ``archery run ...`` which automatically finds and builds dependencies.
+One thing to note is that some of the services defined in ``docker-compose.yml`` are interdependent.  When running services locally, you must either manually build its dependencies first, or build it via the use of ``archery docker run ...`` which automatically finds and builds dependencies.
 
 There are numerous important directories in the Arrow project which relate to CI:
 

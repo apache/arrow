@@ -52,13 +52,23 @@ public class FileRoundtrip {
     System.exit(new FileRoundtrip(System.err).run(args));
   }
 
-  private File validateFile(String type, String fileName) {
+  private File validateFile(String type, String fileName) throws IOException {
     if (fileName == null) {
       throw new IllegalArgumentException("missing " + type + " file parameter");
     }
     File f = new File(fileName);
-    if (!f.exists() || f.isDirectory()) {
-      throw new IllegalArgumentException(type + " file not found: " + f.getAbsolutePath());
+    if (type.equals("input")) {
+      if (!f.exists() || f.isDirectory()) {
+        throw new IllegalArgumentException(type + " file not found: " + f.getAbsolutePath());
+      }
+    } else if (type.equals("output")) {
+      File parentDir = f.getParentFile();
+      if (parentDir != null && !parentDir.exists()) {
+        if (!parentDir.mkdirs()) {
+          throw new IOException(
+              "Failed to create parent directory: " + parentDir.getAbsolutePath());
+        }
+      }
     }
     return f;
   }

@@ -33,7 +33,8 @@ import org.apache.arrow.vector.util.TransferPair;
  * TinyIntVector implements a fixed width (1 bytes) vector of byte values which could be null. A
  * validity buffer (bit vector) is maintained to track which elements in the vector are null.
  */
-public final class TinyIntVector extends BaseFixedWidthVector implements BaseIntVector {
+public final class TinyIntVector extends BaseFixedWidthVector
+    implements BaseIntVector, ValueIterableVector<Byte> {
   public static final byte TYPE_WIDTH = 1;
 
   /**

@@ -40,7 +40,8 @@ import org.apache.arrow.vector.validate.ValidateUtil;
  * null. A validity buffer (bit vector) is maintained to track which elements in the vector are
  * null.
  */
-public final class Decimal256Vector extends BaseFixedWidthVector {
+public final class Decimal256Vector extends BaseFixedWidthVector
+    implements ValueIterableVector<BigDecimal> {
   public static final int MAX_PRECISION = 76;
   public static final byte TYPE_WIDTH = 32;
   private static final boolean LITTLE_ENDIAN = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN;
