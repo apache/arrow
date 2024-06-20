@@ -47,7 +47,9 @@ if [ -n "${VCPKG_ROOT:-}" -a -n "${VCPKG_TRIPLET:-}" ]; then
   meson_pkg_config_path="${vcpkg_install_root}/${VCPKG_TRIPLET}/lib/pkgconfig:${meson_pkg_config_path}"
   # Configure PATH for libraries required by the gobject-introspection generated binary
   cpp_vcpkg_install_root="${build_root}/cpp/vcpkg_installed"
-  export PATH="${vcpkg_install_root}/${VCPKG_TRIPLET}/bin:${cpp_vcpkg_install_root}/${VCPKG_TRIPLET}/bin:${cpp_vcpkg_install_root}/${VCPKG_TRIPLET}/debug/bin:${PATH}"
+  PATH="${cpp_vcpkg_install_root}/${VCPKG_TRIPLET}/debug/bin:${PATH}"
+  PATH="${cpp_vcpkg_install_root}/${VCPKG_TRIPLET}/bin:${PATH}"
+  export PATH="${vcpkg_install_root}/${VCPKG_TRIPLET}/bin:${PATH}"
 fi
 
 if [ -n "${VCToolsInstallDir:-}" -a -n "${MSYSTEM:-}" ]; then
