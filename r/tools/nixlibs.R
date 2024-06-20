@@ -827,7 +827,11 @@ set_thirdparty_urls <- function(env_var_list) {
 # env_var_list
 is_feature_requested <- function(env_varname, env_var_list, default = env_is("LIBARROW_MINIMAL", "false")) {
   # look in the environment first, but then use the env_var_list if nothing is found
-  env_value <- tolower(Sys.getenv(env_varname, env_var_list[[env_varname]]))
+  env_var_list_value <- env_var_list[[env_varname]]
+  if (is.null(env_var_list_value)) {
+    env_var_list_value <- ""
+  }
+  env_value <- tolower(Sys.getenv(env_varname, env_var_list_value))
   if (identical(env_value, "off")) {
     # If e.g. ARROW_MIMALLOC=OFF explicitly, override default
     requested <- FALSE
