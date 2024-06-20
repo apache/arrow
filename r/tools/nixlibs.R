@@ -575,7 +575,13 @@ build_libarrow <- function(src_dir, dst_dir) {
       }
     }
     # We also _do_ want to enable S3, GCS, and ZSTD by default
-    env_var_list <- c(env_var_list, c(ARROW_S3 = "ON", ARROW_GCS = "ON", ARROW_WITH_ZSTD = "ON"))
+    # so that binaries built on CRAN from source are fully featured
+    env_var_list <- c(
+      env_var_list,
+      ARROW_S3 = Sys.getenv("ARROW_S3", "ON"),
+      ARROW_GCS = Sys.getenv("ARROW_GCS", "ON"),
+      ARROW_WITH_ZSTD = Sys.getenv("ARROW_WITH_ZSTD", "ON")
+    )
   }
 
   env_var_list <- with_cloud_support(env_var_list)
