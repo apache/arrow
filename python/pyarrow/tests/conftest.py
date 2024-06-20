@@ -117,6 +117,15 @@ def pytest_configure(config):
 
 
 def pytest_runtest_setup(item):
+    # Apply numpy mark if the test name already contains
+    # numpy or pandas on the name.
+    numpy_test_names = [
+        'ndarray',
+        'numpy',
+        'pandas',
+    ]
+    if any(name in item.name for name in numpy_test_names):
+        item.add_marker(pytest.mark.numpy)
     # Apply test markers to skip tests selectively
     for mark in item.iter_markers():
         item.config.pyarrow.apply_mark(mark)

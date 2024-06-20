@@ -160,7 +160,6 @@ def test_binary_total_values_length():
     assert large_arr.slice(1, 3).total_values_length == 11
 
 
-@pytest.mark.numpy
 def test_to_numpy_zero_copy():
     arr = pa.array(range(10))
 
@@ -180,7 +179,6 @@ def test_to_numpy_zero_copy():
     np.testing.assert_array_equal(np_arr, expected)
 
 
-@pytest.mark.numpy
 def test_chunked_array_to_numpy_zero_copy():
     elements = [[2, 2, 4], [4, 5, 100]]
 
@@ -196,7 +194,6 @@ def test_chunked_array_to_numpy_zero_copy():
     np.testing.assert_array_equal(np_arr, expected)
 
 
-@pytest.mark.numpy
 def test_to_numpy_unsupported_types():
     # ARROW-2871: Some primitive types are not yet supported in to_numpy
     bool_arr = pa.array([True, False, True])
@@ -223,7 +220,6 @@ def test_to_numpy_unsupported_types():
         arr.to_numpy()
 
 
-@pytest.mark.numpy
 def test_to_numpy_writable():
     # TODO: Validate this is not segfaulting
     arr = pa.array(range(10))
@@ -242,7 +238,6 @@ def test_to_numpy_writable():
         arr.to_numpy(zero_copy_only=True, writable=True)
 
 
-@pytest.mark.numpy
 @pytest.mark.parametrize('unit', ['s', 'ms', 'us', 'ns'])
 @pytest.mark.parametrize('tz', [None, "UTC"])
 def test_to_numpy_datetime64(unit, tz):
@@ -252,7 +247,6 @@ def test_to_numpy_datetime64(unit, tz):
     np.testing.assert_array_equal(np_arr, expected)
 
 
-@pytest.mark.numpy
 @pytest.mark.parametrize('unit', ['s', 'ms', 'us', 'ns'])
 def test_to_numpy_timedelta64(unit):
     arr = pa.array([1, 2, 3], pa.duration(unit))
@@ -261,7 +255,6 @@ def test_to_numpy_timedelta64(unit):
     np.testing.assert_array_equal(np_arr, expected)
 
 
-@pytest.mark.numpy
 def test_to_numpy_dictionary():
     # ARROW-7591
     arr = pa.array(["a", "b", "a"]).dictionary_encode()
@@ -270,7 +263,6 @@ def test_to_numpy_dictionary():
     np.testing.assert_array_equal(np_arr, expected)
 
 
-@pytest.mark.numpy
 @pytest.mark.pandas
 def test_to_pandas_zero_copy():
     import gc
@@ -299,7 +291,6 @@ def test_to_pandas_zero_copy():
         series.sum()
 
 
-@pytest.mark.numpy
 @pytest.mark.nopandas
 @pytest.mark.pandas
 def test_asarray():
@@ -441,7 +432,6 @@ def test_array_getitem():
             arr[idx]
 
 
-@pytest.mark.numpy
 def test_array_getitem_numpy_scalars():
     arr = pa.array(range(10, 15))
     lst = arr.to_pylist()
@@ -573,7 +563,6 @@ def test_array_factory_invalid_type():
         pa.array(arr)
 
 
-@pytest.mark.numpy
 def test_array_ref_to_ndarray_base():
     arr = np.array([1, 2, 3])
 
@@ -796,7 +785,6 @@ def test_dictionary_from_buffers(offset):
     assert a[offset:] == b
 
 
-@pytest.mark.numpy
 def test_dictionary_from_numpy():
     indices = np.repeat([0, 1, 2], 2)
     dictionary = np.array(['foo', 'bar', 'baz'], dtype=object)
@@ -819,7 +807,6 @@ def test_dictionary_from_numpy():
             assert d2[i].as_py() == dictionary[indices[i]]
 
 
-@pytest.mark.numpy
 def test_dictionary_to_numpy():
     expected = pa.array(
         ["foo", "bar", None, "foo"]
@@ -2218,7 +2205,6 @@ def test_array_pickle_protocol5(data, typ, pickle_module):
         assert result_addresses == addresses
 
 
-@pytest.mark.numpy
 def test_to_numpy_roundtrip():
     for narr in [
         np.arange(10, dtype=np.int64),
@@ -2290,7 +2276,6 @@ def test_time32_time64_from_integer():
     assert result.equals(expected)
 
 
-@pytest.mark.numpy
 def test_binary_string_pandas_null_sentinels():
     # ARROW-6227
     def _check_case(ty):
@@ -2301,7 +2286,6 @@ def test_binary_string_pandas_null_sentinels():
     _check_case('utf8')
 
 
-@pytest.mark.numpy
 def test_pandas_null_sentinels_raise_error():
     # ARROW-6227
     cases = [
@@ -2342,7 +2326,6 @@ def test_pandas_null_sentinels_index():
     assert result.equals(expected)
 
 
-@pytest.mark.numpy
 def test_array_roundtrip_from_numpy_datetimeD():
     arr = np.array([None, datetime.date(2017, 4, 4)], dtype='datetime64[D]')
 
@@ -2363,7 +2346,6 @@ def test_array_from_naive_datetimes():
     assert arr.type == pa.timestamp('us', tz=None)
 
 
-@pytest.mark.numpy
 @pytest.mark.parametrize(('dtype', 'type'), [
     ('datetime64[s]', pa.timestamp('s')),
     ('datetime64[ms]', pa.timestamp('ms')),
@@ -2387,7 +2369,6 @@ def test_array_from_numpy_datetime(dtype, type):
     assert arr.equals(expected)
 
 
-@pytest.mark.numpy
 def test_array_from_different_numpy_datetime_units_raises():
     data = [
         None,
@@ -2428,7 +2409,6 @@ def test_array_from_timestamp_with_generic_unit():
         pa.array([n, x, y])
 
 
-@pytest.mark.numpy
 @pytest.mark.parametrize(('dtype', 'type'), [
     ('timedelta64[s]', pa.duration('s')),
     ('timedelta64[ms]', pa.duration('ms')),
@@ -2457,7 +2437,6 @@ def test_array_from_numpy_timedelta(dtype, type):
     assert arr.to_pylist() == data
 
 
-@pytest.mark.numpy
 def test_array_from_numpy_timedelta_incorrect_unit():
     # generic (no unit)
     td = np.timedelta64(1)
@@ -2473,7 +2452,6 @@ def test_array_from_numpy_timedelta_incorrect_unit():
             pa.array(data)
 
 
-@pytest.mark.numpy
 def test_array_from_numpy_ascii():
     arr = np.array(['abcde', 'abc', ''], dtype='|S5')
 
@@ -2618,7 +2596,6 @@ def test_interval_array_from_dateoffset():
     assert list(actual_list[0]) == expected_from_pandas
 
 
-@pytest.mark.numpy
 def test_array_from_numpy_unicode():
     dtypes = ['<U5', '>U5']
 
@@ -3214,7 +3191,6 @@ def test_nested_dictionary_array():
     assert dict_arr2.to_pylist() == ['a', 'b', 'a', 'b', 'a']
 
 
-@pytest.mark.numpy
 def test_array_from_numpy_str_utf8():
     # ARROW-3890 -- in Python 3, NPY_UNICODE arrays are produced, but in Python
     # 2 they are NPY_STRING (binary), so we must do UTF-8 validation
@@ -3469,7 +3445,6 @@ def test_array_from_large_pyints():
         pa.array([int(2 ** 63)])
 
 
-@pytest.mark.numpy
 def test_numpy_array_protocol():
     # test the __array__ method on pyarrow.Array
     arr = pa.array([1, 2, 3])
@@ -3880,7 +3855,6 @@ def test_run_end_encoded_from_array_with_type():
     assert result.equals(expected)
 
 
-@pytest.mark.numpy
 def test_run_end_encoded_to_numpy():
     arr = [1, 2, 2, 3, 3, 3]
     ree_array = pa.array(arr, pa.run_end_encoded(pa.int32(), pa.int64()))
