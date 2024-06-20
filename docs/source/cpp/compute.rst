@@ -181,7 +181,8 @@ of general type categories:
 
 * "String-like": String, LargeString.
 
-* "List-like": List, LargeList, sometimes also FixedSizeList.
+* "List-like": List, LargeList, ListView, LargeListView, and sometimes also
+  FixedSizeList.
 
 * "Nested": List-likes (including FixedSizeList), Struct, Union, and
   related types like Map.
