@@ -710,6 +710,18 @@ TEST_F(TestCudaArrowIpc, WriteIpcList) {
             payload.body_buffers[0]->address());
 }
 
+TEST_F(TestCudaArrowIpc, WriteIpcSlicedRecord) {
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(ipc::test::MakeListRecordBatch(&batch));
+
+  ASSERT_OK_AND_ASSIGN(auto batch_device, batch->CopyTo(mm_));
+  auto sliced_batch_device = batch_device->Slice(10);
+
+  ipc::IpcPayload payload;
+  ASSERT_NOT_OK(ipc::GetRecordBatchPayload(*sliced_batch_device,
+                                           ipc::IpcWriteOptions::Defaults(), &payload));
+}
+
 TEST_F(TestCudaArrowIpc, DictionaryWriteRead) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK(ipc::test::MakeDictionary(&batch));

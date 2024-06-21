@@ -154,6 +154,10 @@ class RecordBatchSerializer {
       return Status::CapacityError("Cannot write arrays larger than 2^31 - 1 in length");
     }
 
+    if (arr.offset() != 0 && arr.device_type() != DeviceAllocationType::kCPU) {
+      return Status::NotImplemented("Cannot compute null count for non-cpu sliced array");
+    }
+
     // push back all common elements
     field_nodes_.push_back({arr.length(), arr.null_count(), 0});
 
