@@ -2198,7 +2198,8 @@ TEST(Cast, StringToString) {
 }
 
 TEST(Cast, BinaryOrStringToFixedSizeBinary) {
-  for (auto in_type : {utf8(), large_utf8(), binary(), large_binary()}) {
+  for (auto in_type :
+       {utf8(), large_utf8(), utf8_view(), binary(), binary_view(), large_binary()}) {
     auto valid_input = ArrayFromJSON(in_type, R"(["foo", null, "bar", "baz", "quu"])");
     auto invalid_input = ArrayFromJSON(in_type, R"(["foo", null, "bar", "baz", "quux"])");
 

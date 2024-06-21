@@ -400,9 +400,10 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
   return ZeroCopyCastExec(ctx, batch, out);
 }
 
-// Span -> Fixed
+// Span | View -> Fixed
 template <typename O, typename I>
-enable_if_t<is_base_binary_type<I>::value && std::is_same<O, FixedSizeBinaryType>::value,
+enable_if_t<(is_base_binary_type<I>::value || is_binary_view_like_type<I>::value) &&
+                std::is_same<O, FixedSizeBinaryType>::value,
             Status>
 BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
@@ -511,7 +512,9 @@ void AddBinaryToFixedSizeBinaryCast(CastFunction* func) {
 
 void AddBinaryToFixedSizeBinaryCast(CastFunction* func) {
   AddBinaryToFixedSizeBinaryCast<StringType>(func);
+  AddBinaryToFixedSizeBinaryCast<StringViewType>(func);
   AddBinaryToFixedSizeBinaryCast<BinaryType>(func);
+  AddBinaryToFixedSizeBinaryCast<BinaryViewType>(func);
   AddBinaryToFixedSizeBinaryCast<LargeStringType>(func);
   AddBinaryToFixedSizeBinaryCast<LargeBinaryType>(func);
   AddBinaryToFixedSizeBinaryCast<FixedSizeBinaryType>(func);
