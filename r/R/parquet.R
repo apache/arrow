@@ -431,6 +431,11 @@ ParquetFileWriter <- R6Class("ParquetFileWriter",
       assert_is(table, "Table")
       parquet___arrow___FileWriter__WriteTable(self, table, chunk_size)
     },
+    WriteBatch = function(batch, chunk_size) {
+      assert_is(batch, "RecordBatch")
+      table <- Table$create(batch)
+      parquet___arrow___FileWriter__WriteTable(self, table, chunk_size)
+    },
     Close = function() parquet___arrow___FileWriter__Close(self)
   )
 )
