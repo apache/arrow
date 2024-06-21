@@ -17,6 +17,7 @@
 package array
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/apache/arrow/go/v17/arrow"
@@ -59,6 +60,17 @@ func TestSizeInBytes(t *testing.T) {
 	data := NewData(&arrow.StringType{}, 10, buffers1, nil, 0, 0)
 	var arrayData arrow.ArrayData = data
 	dataWithChild := NewData(&arrow.StringType{}, 10, buffers1, []arrow.ArrayData{arrayData}, 0, 0)
+
+	buffers2 := slices.Clone(buffers1)
+	buffers2[0] = nil
+	dataWithNilBuffer := NewData(&arrow.StringType{}, 10, buffers2, nil, 0, 0)
+
+	t.Run("nil buffers", func(t *testing.T) {
+		expectedSize := uint64(30)
+		if actualSize := dataWithNilBuffer.SizeInBytes(); actualSize != expectedSize {
+			t.Errorf("expected size %d, got %d", expectedSize, actualSize)
+		}
+	})
 
 	t.Run("buffers only", func(t *testing.T) {
 		expectedSize := uint64(45)
