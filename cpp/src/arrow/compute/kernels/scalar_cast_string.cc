@@ -286,17 +286,20 @@ Status CastBinaryToBinaryOffsets<int64_t, int32_t>(KernelContext* ctx,
   }
 }
 
+// Span -> Span
 template <typename O, typename I>
-enable_if_t<is_base_binary_type<I>::value && !is_fixed_size_binary_type<O>::value, Status>
+enable_if_t<is_base_binary_type<I>::value && is_base_binary_type<O>::value, Status>
 BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
   const ArraySpan& input = batch[0].array;
 
-  if (!I::is_utf8 && O::is_utf8 && !options.allow_invalid_utf8) {
-    InitializeUTF8();
-    ArraySpanVisitor<I> visitor;
-    Utf8Validator validator;
-    RETURN_NOT_OK(visitor.Visit(input, &validator));
+  if constexpr (!I::is_utf8 && O::is_utf8) {
+    if (!options.allow_invalid_utf8) {
+      InitializeUTF8();
+      ArraySpanVisitor<I> visitor;
+      Utf8Validator validator;
+      RETURN_NOT_OK(visitor.Visit(input, &validator));
+    }
   }
 
   // Start with a zero-copy cast, but change indices to expected size
@@ -305,19 +308,21 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
       ctx, input, out->array_data().get());
 }
 
+// Fixed -> Span
 template <typename O, typename I>
-enable_if_t<std::is_same<I, FixedSizeBinaryType>::value &&
-                !std::is_same<O, FixedSizeBinaryType>::value,
+enable_if_t<std::is_same<I, FixedSizeBinaryType>::value && is_base_binary_type<O>::value,
             Status>
 BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
   const ArraySpan& input = batch[0].array;
 
-  if (O::is_utf8 && !options.allow_invalid_utf8) {
-    InitializeUTF8();
-    ArraySpanVisitor<I> visitor;
-    Utf8Validator validator;
-    RETURN_NOT_OK(visitor.Visit(input, &validator));
+  if constexpr (O::is_utf8) {
+    if (!options.allow_invalid_utf8) {
+      InitializeUTF8();
+      ArraySpanVisitor<I> visitor;
+      Utf8Validator validator;
+      RETURN_NOT_OK(visitor.Visit(input, &validator));
+    }
   }
 
   // Check for overflow
@@ -352,7 +357,7 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
   }
 
   // This buffer is preallocated
-  output_offset_type* offsets = output->GetMutableValues<output_offset_type>(1);
+  auto* offsets = output->GetMutableValues<output_offset_type>(1);
   offsets[0] = static_cast<output_offset_type>(input.offset * width);
   for (int64_t i = 0; i < input.length; i++) {
     offsets[i + 1] = offsets[i] + width;
@@ -378,6 +383,7 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
   return Status::OK();
 }
 
+// Fixed -> Fixed
 template <typename O, typename I>
 enable_if_t<std::is_same<I, FixedSizeBinaryType>::value &&
                 std::is_same<O, FixedSizeBinaryType>::value,
@@ -394,6 +400,7 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
   return ZeroCopyCastExec(ctx, batch, out);
 }
 
+// Span -> Fixed
 template <typename O, typename I>
 enable_if_t<is_base_binary_type<I>::value && std::is_same<O, FixedSizeBinaryType>::value,
             Status>
