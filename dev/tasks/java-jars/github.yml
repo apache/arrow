@@ -242,6 +242,9 @@ jobs:
           test -f arrow/java-dist/arrow_dataset_jni/x86_64/arrow_dataset_jni.dll
           test -f arrow/java-dist/arrow_orc_jni/x86_64/arrow_orc_jni.dll
       - name: Build bundled jar
+        env:
+          MAVEN_ARGS: >-
+            --no-transfer-progress
         run: |
           set -e
           pushd arrow/java
