@@ -428,6 +428,7 @@ ParquetFileWriter <- R6Class("ParquetFileWriter",
   inherit = ArrowObject,
   public = list(
     WriteTable = function(table, chunk_size) {
+      assert_is(table, "Table")
       parquet___arrow___FileWriter__WriteTable(self, table, chunk_size)
     },
     Close = function() parquet___arrow___FileWriter__Close(self)
