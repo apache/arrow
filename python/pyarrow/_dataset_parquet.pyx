@@ -185,6 +185,9 @@ cdef class ParquetFileFormat(FileFormat):
         # the private property which uses the C Type
         parquet_read_options._coerce_int96_timestamp_unit = \
             options.coerce_int96_timestamp_unit
+        parquet_read_options.convert_unknown_logical_types = \
+            options.convert_unknown_logical_types
+
         return parquet_read_options
 
     def make_write_options(self, **kwargs):
@@ -549,7 +552,9 @@ cdef class ParquetReadOptions(_Weakrefable):
         """
         return (self.dictionary_columns == other.dictionary_columns and
                 self.coerce_int96_timestamp_unit ==
-                other.coerce_int96_timestamp_unit)
+                other.coerce_int96_timestamp_unit and
+                self.convert_unknown_logical_types ==
+                other.convert_unknown_logical_types)
 
     def __eq__(self, other):
         try:
