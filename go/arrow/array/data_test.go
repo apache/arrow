@@ -57,12 +57,13 @@ func TestSizeInBytes(t *testing.T) {
 	for i := 0; i < cap(buffers1); i++ {
 		buffers1 = append(buffers1, memory.NewBufferBytes([]byte("15-bytes-buffer")))
 	}
-	data := NewData(&arrow.StringType{}, 10, slices.Clone(buffers1), nil, 0, 0)
+	data := NewData(&arrow.StringType{}, 10, buffers1, nil, 0, 0)
 	var arrayData arrow.ArrayData = data
 	dataWithChild := NewData(&arrow.StringType{}, 10, buffers1, []arrow.ArrayData{arrayData}, 0, 0)
 
-	buffers1[0] = nil
-	dataWithNilBuffer := NewData(&arrow.StringType{}, 10, buffers1, nil, 0, 0)
+	buffers2 := slices.Clone(buffers1)
+	buffers2[0] = nil
+	dataWithNilBuffer := NewData(&arrow.StringType{}, 10, buffers2, nil, 0, 0)
 
 	t.Run("nil buffers", func(t *testing.T) {
 		expectedSize := uint64(30)
