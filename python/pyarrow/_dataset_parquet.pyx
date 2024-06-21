@@ -516,12 +516,15 @@ cdef class ParquetReadOptions(_Weakrefable):
     cdef public:
         set dictionary_columns
         TimeUnit _coerce_int96_timestamp_unit
+        bint convert_unknown_logical_types
 
     # Also see _PARQUET_READ_OPTIONS
     def __init__(self, dictionary_columns=None,
-                 coerce_int96_timestamp_unit=None):
+                 coerce_int96_timestamp_unit=None,
+                 convert_unknown_logical_types=False):
         self.dictionary_columns = set(dictionary_columns or set())
         self.coerce_int96_timestamp_unit = coerce_int96_timestamp_unit
+        self.convert_unknown_logical_types = convert_unknown_logical_types
 
     @property
     def coerce_int96_timestamp_unit(self):
@@ -676,7 +679,7 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
 
 
 cdef set _PARQUET_READ_OPTIONS = {
-    'dictionary_columns', 'coerce_int96_timestamp_unit'
+    'dictionary_columns', 'coerce_int96_timestamp_unit', 'convert_unknown_logical_types'
 }
 
 
@@ -702,7 +705,7 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
     cache_options : pyarrow.CacheOptions, default None
         Cache options used when pre_buffer is enabled. The default values should
         be good for most use cases. You may want to adjust these for example if
-        you have exceptionally high latency to the file system. 
+        you have exceptionally high latency to the file system.
     thrift_string_size_limit : int, default None
         If not None, override the maximum total string size allocated
         when decoding Thrift structures. The default limit should be
