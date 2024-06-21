@@ -310,7 +310,20 @@ class ARROW_EXPORT RecordBatchReader {
   /// \brief Read the next record batch in the stream. Return null for batch
   /// when reaching end of stream
   ///
-  /// \param[out] batch the next loaded batch, null at end of stream
+  /// example:
+  /// ```
+  /// std::shared_ptr<RecordBatch> batch;
+  /// while (true) {
+  ///   ARROW_RETURN_NOT_OK(reader->ReadNext(&batch));
+  ///   if (batch == nullptr) {
+  ///     break;
+  ///   }
+  ///   // handling the `batch`
+  /// }
+  /// ```
+  ///
+  /// \param[out] batch the next loaded batch, null at end of stream. Return
+  /// a empty batch doesn't means the end of stream, it could be a empty batch.
   /// \return Status
   virtual Status ReadNext(std::shared_ptr<RecordBatch>* batch) = 0;
 
