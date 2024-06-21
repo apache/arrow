@@ -17,6 +17,7 @@
 package array
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/apache/arrow/go/v17/arrow"
@@ -56,7 +57,7 @@ func TestSizeInBytes(t *testing.T) {
 	for i := 0; i < cap(buffers1); i++ {
 		buffers1 = append(buffers1, memory.NewBufferBytes([]byte("15-bytes-buffer")))
 	}
-	data := NewData(&arrow.StringType{}, 10, buffers1, nil, 0, 0)
+	data := NewData(&arrow.StringType{}, 10, slices.Clone(buffers1), nil, 0, 0)
 	var arrayData arrow.ArrayData = data
 	dataWithChild := NewData(&arrow.StringType{}, 10, buffers1, []arrow.ArrayData{arrayData}, 0, 0)
 
