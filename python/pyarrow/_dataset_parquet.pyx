@@ -566,7 +566,8 @@ cdef class ParquetReadOptions(_Weakrefable):
         return (
             f"<ParquetReadOptions"
             f" dictionary_columns={self.dictionary_columns}"
-            f" coerce_int96_timestamp_unit={self.coerce_int96_timestamp_unit}>"
+            f" coerce_int96_timestamp_unit={self.coerce_int96_timestamp_unit}"
+            f" convert_unknown_logical_types={self.convert_unknown_logical_types}>"
         )
 
 
