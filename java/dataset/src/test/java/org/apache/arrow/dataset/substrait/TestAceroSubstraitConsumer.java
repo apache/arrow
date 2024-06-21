@@ -582,7 +582,9 @@ public class TestAceroSubstraitConsumer extends TestDataset {
     // Expression ADD: id + 2
     // Expression CONCAT: name + '-' + name
     String binarySubstraitExpressionProject =
-        "Ch4IARIaL2Z1bmN0aW9uc19hcml0aG1ldGljLnlhbWwSERoPCAEaC2FkZDppMzJfaTMyEhQaEggCEAEaDGNvbmNhdDp2Y2hhchoxChoaGBoEKgIQASIIGgYSBAoCEgAiBhoECgIoAhoTYWRkX3R3b190b19jb2x1bW5fYRpGCi0aKwgBGgRiAhABIgoaCBIGCgQSAggBIgkaBwoFYgMgLSAiChoIEgYKBBICCAEaFWNvbmNhdF9jb2x1bW5fYV9hbmR"
+        "Ch4IARIaL2Z1bmN0aW9uc19hcml0aG1ldGljLnlhbWwSERoPCAEaC2FkZDppM"
+            + "zJfaTMyEhQaEggCEAEaDGNvbmNhdDp2Y2hhchoxChoaGBoEKgIQASIIGgYSBAoCEgAiBhoECgIoAhoTYWRkX3R3b190b19jb2x1"
+            + "bW5fYRpGCi0aKwgBGgRiAhABIgoaCBIGCgQSAggBIgkaBwoFYgMgLSAiChoIEgYKBBICCAEaFWNvbmNhdF9jb2x1bW5fYV9hbmR"
             + "fYiIaCgJJRAoETkFNRRIOCgQqAhABCgRiAhABGAI=";
     ByteBuffer substraitExpressionProject = getByteBuffer(binarySubstraitExpressionProject);
     // Substrait Extended Expression: Filter:
