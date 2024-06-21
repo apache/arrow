@@ -520,14 +520,23 @@ void AddBinaryToFixedSizeBinaryCast(CastFunction* func) {
 }  // namespace
 
 std::vector<std::shared_ptr<CastFunction>> GetBinaryLikeCasts() {
+  // cast_binary / cast_binary_view / cast_large_binary
+
   auto cast_binary = std::make_shared<CastFunction>("cast_binary", Type::BINARY);
   AddCommonCasts(Type::BINARY, binary(), cast_binary.get());
   AddBinaryToBinaryCast<BinaryType>(cast_binary.get());
+
+  // auto cast_binary_view =
+  //     std::make_shared<CastFunction>("cast_binary_view", Type::BINARY_VIEW);
+  // AddCommonCasts(Type::BINARY_VIEW, binary_view(), cast_binary_view.get());
+  // AddBinaryToBinaryCast<BinaryViewType>(cast_binary_view.get());
 
   auto cast_large_binary =
       std::make_shared<CastFunction>("cast_large_binary", Type::LARGE_BINARY);
   AddCommonCasts(Type::LARGE_BINARY, large_binary(), cast_large_binary.get());
   AddBinaryToBinaryCast<LargeBinaryType>(cast_large_binary.get());
+
+  // cast_string / cast_string_view / cast_large_string
 
   auto cast_string = std::make_shared<CastFunction>("cast_string", Type::STRING);
   AddCommonCasts(Type::STRING, utf8(), cast_string.get());
@@ -535,6 +544,14 @@ std::vector<std::shared_ptr<CastFunction>> GetBinaryLikeCasts() {
   AddDecimalToStringCasts<StringType>(cast_string.get());
   AddTemporalToStringCasts<StringType>(cast_string.get());
   AddBinaryToBinaryCast<StringType>(cast_string.get());
+
+  // auto cast_string_view =
+  //     std::make_shared<CastFunction>("cast_string_view", Type::STRING_VIEW);
+  // AddCommonCasts(Type::STRING_VIEW, utf8_view(), cast_string_view.get());
+  // AddNumberToStringCasts<StringViewType>(cast_string_view.get());
+  // AddDecimalToStringCasts<StringViewType>(cast_string_view.get());
+  // AddTemporalToStringCasts<StringViewType>(cast_string_view.get());
+  // AddBinaryToBinaryCast<StringViewType>(cast_string_view.get());
 
   auto cast_large_string =
       std::make_shared<CastFunction>("cast_large_string", Type::LARGE_STRING);
@@ -544,13 +561,23 @@ std::vector<std::shared_ptr<CastFunction>> GetBinaryLikeCasts() {
   AddTemporalToStringCasts<LargeStringType>(cast_large_string.get());
   AddBinaryToBinaryCast<LargeStringType>(cast_large_string.get());
 
+  // cast_fixed_size_binary
+
   auto cast_fsb =
       std::make_shared<CastFunction>("cast_fixed_size_binary", Type::FIXED_SIZE_BINARY);
   AddCommonCasts(Type::FIXED_SIZE_BINARY, OutputType(ResolveOutputFromOptions),
                  cast_fsb.get());
   AddBinaryToFixedSizeBinaryCast(cast_fsb.get());
 
-  return {cast_binary, cast_large_binary, cast_string, cast_large_string, cast_fsb};
+  return {
+      std::move(cast_binary),
+      // std::move(cast_binary_view),
+      std::move(cast_large_binary),
+      std::move(cast_string),
+      // std::move(cast_string_view),
+      std::move(cast_large_string),
+      std::move(cast_fsb),
+  };
 }
 
 }  // namespace internal
