@@ -267,7 +267,7 @@ Producers that have data structures that can live both on CPU or non-CPU devices
 can implement both versions of the protocol, but the CPU-only versions
 (:meth:`__arrow_c_array__` and :meth:`__arrow_c_stream__`) should be guaranteed
 to contain valid pointers for CPU memory (thus, when trying to export non-CPU data,
-either raise an error or make a to CPU memory).
+either raise an error or make a copy to CPU memory).
 
 Producing the ``ArrowDeviceArray`` and ``ArrowDeviceArrayStream`` structures
 is expected to not involve any cross-device copying of data.
