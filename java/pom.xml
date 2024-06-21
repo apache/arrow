@@ -262,22 +262,9 @@ under the License.
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.junit.vintage</groupId>
-      <artifactId>junit-vintage-engine</artifactId>
-      <version>${dep.junit.jupiter.version}</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter-params</artifactId>
       <version>${dep.junit.jupiter.version}</version>
-      <scope>test</scope>
-    </dependency>
-    <!-- Use to keep older tests running -->
-    <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <version>4.13.2</version>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -659,6 +646,9 @@ under the License.
                     <!-- Do not include annotation processors. Use the annotations-only artifacts -->
                     <exclude>org.immutables:value</exclude>
                     <exclude>org.checkerframework:checker</exclude>
+                    <!-- Exclude all JUnit 4 dependencies -->
+                    <exclude>junit:junit:4.*</exclude>
+                    <exclude>org.junit.vintage:junit-vintage-engine</exclude>
                   </excludes>
                 </bannedDependencies>
               </rules>
