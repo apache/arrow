@@ -526,9 +526,9 @@ std::vector<std::shared_ptr<CastFunction>> GetBinaryLikeCasts() {
   AddCommonCasts(Type::BINARY, binary(), cast_binary.get());
   AddBinaryToBinaryCast<BinaryType>(cast_binary.get());
 
-  // auto cast_binary_view =
-  //     std::make_shared<CastFunction>("cast_binary_view", Type::BINARY_VIEW);
-  // AddCommonCasts(Type::BINARY_VIEW, binary_view(), cast_binary_view.get());
+  auto cast_binary_view =
+      std::make_shared<CastFunction>("cast_binary_view", Type::BINARY_VIEW);
+  AddCommonCasts(Type::BINARY_VIEW, binary_view(), cast_binary_view.get());
   // AddBinaryToBinaryCast<BinaryViewType>(cast_binary_view.get());
 
   auto cast_large_binary =
@@ -545,9 +545,9 @@ std::vector<std::shared_ptr<CastFunction>> GetBinaryLikeCasts() {
   AddTemporalToStringCasts<StringType>(cast_string.get());
   AddBinaryToBinaryCast<StringType>(cast_string.get());
 
-  // auto cast_string_view =
-  //     std::make_shared<CastFunction>("cast_string_view", Type::STRING_VIEW);
-  // AddCommonCasts(Type::STRING_VIEW, utf8_view(), cast_string_view.get());
+  auto cast_string_view =
+      std::make_shared<CastFunction>("cast_string_view", Type::STRING_VIEW);
+  AddCommonCasts(Type::STRING_VIEW, utf8_view(), cast_string_view.get());
   // AddNumberToStringCasts<StringViewType>(cast_string_view.get());
   // AddDecimalToStringCasts<StringViewType>(cast_string_view.get());
   // AddTemporalToStringCasts<StringViewType>(cast_string_view.get());
@@ -570,12 +570,8 @@ std::vector<std::shared_ptr<CastFunction>> GetBinaryLikeCasts() {
   AddBinaryToFixedSizeBinaryCast(cast_fsb.get());
 
   return {
-      std::move(cast_binary),
-      // std::move(cast_binary_view),
-      std::move(cast_large_binary),
-      std::move(cast_string),
-      // std::move(cast_string_view),
-      std::move(cast_large_string),
+      std::move(cast_binary), std::move(cast_binary_view), std::move(cast_large_binary),
+      std::move(cast_string), std::move(cast_string_view), std::move(cast_large_string),
       std::move(cast_fsb),
   };
 }

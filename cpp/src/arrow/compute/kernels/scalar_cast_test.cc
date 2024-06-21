@@ -210,6 +210,19 @@ TEST(Cast, CanCast) {
 
     ExpectCannotCast(from_base_binary, {null()});
   }
+  // XXX: include utf8_view() on the list above once all of these pass
+  for (auto view_ty : {utf8_view(), binary_view()}) {
+    // ExpectCanCast(view_ty, {boolean()});
+    // ExpectCanCast(view_ty, kNumericTypes);
+    // ExpectCanCast(view_ty, kBaseBinaryTypes);
+    ExpectCanCast(dictionary(int64(), view_ty), {view_ty});
+
+    // any cast which is valid for the dictionary is valid for the DictionaryArray
+    ExpectCanCast(dictionary(uint32(), view_ty), kBaseBinaryTypes);
+    ExpectCanCast(dictionary(int16(), view_ty), kNumericTypes);
+
+    ExpectCannotCast(view_ty, {null()});
+  }
 
   ExpectCanCast(utf8(), {timestamp(TimeUnit::MILLI), date32(), date64()});
   ExpectCanCast(large_utf8(), {timestamp(TimeUnit::NANO), date32(), date64()});
@@ -2913,9 +2926,12 @@ TEST(Cast, IdentityCasts) {
   for (auto type : kNumericTypes) {
     CheckIdentityCast(type, "[1, 2, null, 4]");
   }
-  CheckIdentityCast(binary(), R"(["foo", "bar"])");
-  CheckIdentityCast(utf8(), R"(["foo", "bar"])");
-  CheckIdentityCast(fixed_size_binary(3), R"(["foo", "bar"])");
+  const std::string json = R"(["foo", "bar"])";
+  CheckIdentityCast(utf8(), json);
+  CheckIdentityCast(binary(), json);
+  CheckIdentityCast(utf8_view(), json);
+  CheckIdentityCast(binary_view(), json);
+  CheckIdentityCast(fixed_size_binary(3), json);
 
   CheckIdentityCast(list(int8()), "[[1, 2], [null], [], [3]]");
 
