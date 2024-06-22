@@ -635,7 +635,7 @@ if(DEFINED ENV{ARROW_CARES_URL})
   set(CARES_SOURCE_URL "$ENV{ARROW_CARES_URL}")
 else()
   string(REPLACE "." "_" ARROW_CARES_BUILD_VERSION_UNDERSCORES
-                  ${ARROW_CARES_BUILD_VERSION})
+                 ${ARROW_CARES_BUILD_VERSION})
   set_urls(CARES_SOURCE_URL
            "https://github.com/c-ares/c-ares/releases/download/cares-${ARROW_CARES_BUILD_VERSION_UNDERSCORES}/c-ares-${ARROW_CARES_BUILD_VERSION}.tar.gz"
            "${THIRDPARTY_MIRROR_URL}/cares-${ARROW_CARES_BUILD_VERSION}.tar.gz")
