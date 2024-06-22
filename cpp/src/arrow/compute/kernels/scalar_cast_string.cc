@@ -408,6 +408,26 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
   return Status::OK();
 }
 
+// View -> View
+template <typename O, typename I>
+enable_if_t<is_binary_view_like_type<I>::value && is_binary_view_like_type<O>::value,
+            Status>
+BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
+  const ArraySpan& input = batch[0].array;
+
+  if constexpr (!I::is_utf8 && O::is_utf8) {
+    if (!options.allow_invalid_utf8) {
+      InitializeUTF8();
+      ArraySpanVisitor<I> visitor;
+      Utf8Validator validator;
+      RETURN_NOT_OK(visitor.Visit(input, &validator));
+    }
+  }
+
+  return ZeroCopyCastExec(ctx, batch, out);
+}
+
 // Fixed -> View
 template <typename O, typename I>
 enable_if_t<std::is_same<I, FixedSizeBinaryType>::value &&
@@ -651,13 +671,9 @@ void AddBinaryToBinaryCast(CastFunction* func) {
 template <typename OutType>
 void AddBinaryToBinaryCast(CastFunction* func) {
   AddBinaryToBinaryCast<OutType, StringType>(func);
-  if constexpr (!is_binary_view_like_type<OutType>::value) {
-    AddBinaryToBinaryCast<OutType, StringViewType>(func);
-  }
+  AddBinaryToBinaryCast<OutType, StringViewType>(func);
   AddBinaryToBinaryCast<OutType, BinaryType>(func);
-  if constexpr (!is_binary_view_like_type<OutType>::value) {
-    AddBinaryToBinaryCast<OutType, BinaryViewType>(func);
-  }
+  AddBinaryToBinaryCast<OutType, BinaryViewType>(func);
   AddBinaryToBinaryCast<OutType, LargeStringType>(func);
   AddBinaryToBinaryCast<OutType, LargeBinaryType>(func);
   AddBinaryToBinaryCast<OutType, FixedSizeBinaryType>(func);
