@@ -2540,6 +2540,9 @@ const std::vector<std::shared_ptr<DataType>>& BinaryTypes();
 /// \brief String and large-string types
 ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& StringTypes();
+/// \brief String-view and Binary-view
+ARROW_EXPORT
+const std::vector<std::shared_ptr<DataType>>& BinaryViewTypes();
 /// \brief Temporal types including date, time and timestamps for each unit
 ARROW_EXPORT
 const std::vector<std::shared_ptr<DataType>>& TemporalTypes();

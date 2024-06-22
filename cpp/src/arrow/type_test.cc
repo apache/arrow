@@ -1307,6 +1307,7 @@ TEST_F(TestUnifySchemas, Binary) {
   options.promote_binary = false;
   CheckUnifyFailsTypeError({utf8(), binary()}, {large_utf8(), large_binary()});
   CheckUnifyFailsTypeError(fixed_size_binary(2), BaseBinaryTypes());
+  CheckUnifyFailsTypeError(fixed_size_binary(2), BinaryViewTypes());
   CheckUnifyFailsTypeError(utf8(), {binary(), large_binary(), fixed_size_binary(2)});
 }
 
