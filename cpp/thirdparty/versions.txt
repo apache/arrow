@@ -62,7 +62,9 @@ ARROW_BROTLI_BUILD_VERSION=v1.0.9
 ARROW_BROTLI_BUILD_SHA256_CHECKSUM=f9e8d81d0405ba66d181529af42a3354f838c939095ff99930da6aa9cdf6fe46
 ARROW_BZIP2_BUILD_VERSION=1.0.8
 ARROW_BZIP2_BUILD_SHA256_CHECKSUM=ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269
+# The URL has the version twice, we could gsub, but copy and paste 5 digits isn't that bad + more obvious
 ARROW_CARES_BUILD_VERSION=1.17.2
+ARROW_CARES_BUILD_VERSION_UNDERSCORES=1_17_2
 ARROW_CARES_BUILD_SHA256_CHECKSUM=4803c844ce20ce510ef0eb83f8ea41fa24ecaae9d280c468c582d2bb25b3913d
 ARROW_CRC32C_BUILD_VERSION=1.1.2
 ARROW_CRC32C_BUILD_SHA256_CHECKSUM=ac07840513072b7fcebda6e821068aa04889018f24e10e46181068fb214d7e56
@@ -144,7 +146,7 @@ DEPENDENCIES=(
   "ARROW_BOOST_URL boost-${ARROW_BOOST_BUILD_VERSION}.tar.gz https://apache.jfrog.io/artifactory/arrow/thirdparty/7.0.0/boost_${ARROW_BOOST_BUILD_VERSION//./_}.tar.gz"
   "ARROW_BROTLI_URL brotli-${ARROW_BROTLI_BUILD_VERSION}.tar.gz https://github.com/google/brotli/archive/${ARROW_BROTLI_BUILD_VERSION}.tar.gz"
   "ARROW_BZIP2_URL bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz https://sourceware.org/pub/bzip2/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz"
-  "ARROW_CARES_URL cares-${ARROW_CARES_BUILD_VERSION}.tar.gz https://c-ares.haxx.se/download/c-ares-${ARROW_CARES_BUILD_VERSION}.tar.gz"
+  "ARROW_CARES_URL cares-${ARROW_CARES_BUILD_VERSION}.tar.gz https://github.com/c-ares/c-ares/releases/download/cares-${ARROW_CARES_BUILD_VERSION_UNDERSCORES}/c-ares-${ARROW_CARES_BUILD_VERSION}.tar.gz"
   "ARROW_CRC32C_URL crc32c-${ARROW_CRC32C_BUILD_VERSION}.tar.gz https://github.com/google/crc32c/archive/refs/tags/${ARROW_CRC32C_BUILD_VERSION}.tar.gz"
   "ARROW_GBENCHMARK_URL gbenchmark-${ARROW_GBENCHMARK_BUILD_VERSION}.tar.gz https://github.com/google/benchmark/archive/${ARROW_GBENCHMARK_BUILD_VERSION}.tar.gz"
   "ARROW_GFLAGS_URL gflags-${ARROW_GFLAGS_BUILD_VERSION}.tar.gz https://github.com/gflags/gflags/archive/${ARROW_GFLAGS_BUILD_VERSION}.tar.gz"
