@@ -313,7 +313,9 @@ struct ParseString {
 
 template <typename O, typename I>
 struct CastFunctor<
-    O, I, enable_if_t<(is_number_type<O>::value && is_base_binary_type<I>::value)>> {
+    O, I,
+    enable_if_t<(is_number_type<O>::value && (is_base_binary_type<I>::value ||
+                                              is_binary_view_like_type<I>::value))>> {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     return applicator::ScalarUnaryNotNull<O, I, ParseString<O>>::Exec(ctx, batch, out);
   }
@@ -658,11 +660,15 @@ struct DecimalCastFunctor {
 };
 
 template <typename I>
-struct CastFunctor<Decimal128Type, I, enable_if_t<is_base_binary_type<I>::value>>
+struct CastFunctor<
+    Decimal128Type, I,
+    enable_if_t<is_base_binary_type<I>::value || is_binary_view_like_type<I>::value>>
     : public DecimalCastFunctor<Decimal128Type, I> {};
 
 template <typename I>
-struct CastFunctor<Decimal256Type, I, enable_if_t<is_base_binary_type<I>::value>>
+struct CastFunctor<
+    Decimal256Type, I,
+    enable_if_t<is_base_binary_type<I>::value || is_binary_view_like_type<I>::value>>
     : public DecimalCastFunctor<Decimal256Type, I> {};
 
 // ----------------------------------------------------------------------
@@ -706,6 +712,10 @@ void AddCommonNumberCasts(const std::shared_ptr<DataType>& out_ty, CastFunction*
   // Cast from other strings
   for (const std::shared_ptr<DataType>& in_ty : BaseBinaryTypes()) {
     auto exec = GenerateVarBinaryBase<CastFunctor, OutType>(*in_ty);
+    DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, out_ty, exec));
+  }
+  for (const std::shared_ptr<DataType>& in_ty : BinaryViewTypes()) {
+    auto exec = GenerateVarBinaryViewBase<CastFunctor, OutType>(*in_ty);
     DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, out_ty, exec));
   }
 }
@@ -793,6 +803,10 @@ std::shared_ptr<CastFunction> GetCastToDecimal128() {
     auto exec = GenerateVarBinaryBase<CastFunctor, Decimal128Type>(in_ty->id());
     DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, sig_out_ty, std::move(exec)));
   }
+  for (const std::shared_ptr<DataType>& in_ty : BinaryViewTypes()) {
+    auto exec = GenerateVarBinaryViewBase<CastFunctor, Decimal128Type>(in_ty->id());
+    DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, sig_out_ty, std::move(exec)));
+  }
 
   // Cast from other decimal
   auto exec = CastFunctor<Decimal128Type, Decimal128Type>::Exec;
@@ -826,6 +840,10 @@ std::shared_ptr<CastFunction> GetCastToDecimal256() {
   // Cast from other strings
   for (const std::shared_ptr<DataType>& in_ty : BaseBinaryTypes()) {
     auto exec = GenerateVarBinaryBase<CastFunctor, Decimal256Type>(in_ty->id());
+    DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, sig_out_ty, std::move(exec)));
+  }
+  for (const std::shared_ptr<DataType>& in_ty : BinaryViewTypes()) {
+    auto exec = GenerateVarBinaryViewBase<CastFunctor, Decimal256Type>(in_ty->id());
     DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, sig_out_ty, std::move(exec)));
   }
 
