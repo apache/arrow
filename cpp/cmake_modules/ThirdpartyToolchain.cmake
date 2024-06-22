@@ -4490,116 +4490,120 @@ target_include_directories(arrow::hadoop INTERFACE "${HADOOP_HOME}/include")
 # ----------------------------------------------------------------------
 # Apache ORC
 
-macro(build_orc)
+function(build_orc)
+  if(CMAKE_VERSION VERSION_LESS 3.22)
+    # We can't disable installing Apache ORC by
+    # "set_property(DIRECTORY ${orc_SOURCE_DIR} PROPERTY
+    # EXCLUDE_FROM_ALL TRUE)" with CMake 3.16.
+    #
+    # At least CMake 3.22 on Ubuntu 22.04 works. So we use 3.22
+    # here. We may be able to use more earlier version here.
+    message(FATAL_ERROR "Building Apache ORC requires at least CMake 3.22. "
+                        "(At least we can't use CMake 3.16)")
+  endif()
   message(STATUS "Building Apache ORC from source")
+  fetchcontent_declare(orc
+                       ${FC_DECLARE_COMMON_OPTIONS}
+                       URL ${ORC_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_ORC_BUILD_SHA256_CHECKSUM}")
+  prepare_fetchcontent()
 
-  set(ORC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/orc_ep-install")
-  set(ORC_HOME "${ORC_PREFIX}")
-  set(ORC_INCLUDE_DIR "${ORC_PREFIX}/include")
-  set(ORC_STATIC_LIB
-      "${ORC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}orc${CMAKE_STATIC_LIBRARY_SUFFIX}")
+  get_target_property(LZ4_INCLUDE_DIR LZ4::lz4 INTERFACE_INCLUDE_DIRECTORIES)
+  get_filename_component(LZ4_ROOT "${LZ4_INCLUDE_DIR}" DIRECTORY)
+  set(LZ4_HOME
+      ${LZ4_ROOT}
+      CACHE BOOL "" FORCE)
+  set(LZ4_LIBRARY $<TARGET_FILE:LZ4::lz4>)
+  set(LZ4_STATIC_LIB $<TARGET_FILE:LZ4::lz4>)
 
-  get_target_property(ORC_PROTOBUF_ROOT ${ARROW_PROTOBUF_LIBPROTOBUF}
+  get_target_property(PROTOBUF_INCLUDE_DIR ${ARROW_PROTOBUF_LIBPROTOBUF}
                       INTERFACE_INCLUDE_DIRECTORIES)
-  get_filename_component(ORC_PROTOBUF_ROOT "${ORC_PROTOBUF_ROOT}" DIRECTORY)
+  get_filename_component(Protobuf_ROOT "${PROTOBUF_INCLUDE_DIR}" DIRECTORY)
+  set(PROTOBUF_HOME
+      ${Protobuf_ROOT}
+      CACHE BOOL "" FORCE)
+  target_include_directories(${ARROW_PROTOBUF_LIBPROTOC}
+                             INTERFACE "${PROTOBUF_INCLUDE_DIR}")
+  set(PROTOBUF_EXECUTABLE $<TARGET_FILE:${ARROW_PROTOBUF_PROTOC}>)
+  set(PROTOBUF_LIBRARY $<TARGET_FILE:${ARROW_PROTOBUF_LIBPROTOBUF}>)
+  set(PROTOC_LIBRARY $<TARGET_FILE:${ARROW_PROTOBUF_LIBPROTOC}>)
 
-  get_target_property(ORC_SNAPPY_INCLUDE_DIR ${Snappy_TARGET}
+  get_target_property(SNAPPY_INCLUDE_DIR ${Snappy_TARGET} INTERFACE_INCLUDE_DIRECTORIES)
+  get_filename_component(Snappy_ROOT "${SNAPPY_INCLUDE_DIR}" DIRECTORY)
+  set(SNAPPY_HOME
+      ${Snappy_ROOT}
+      CACHE BOOL "" FORCE)
+  set(SNAPPY_LIBRARY
+      $<TARGET_FILE:${Snappy_TARGET}>
+      CACHE STRING "" FORCE)
+
+  get_target_property(ZLIB_INCLUDE_DIR ZLIB::ZLIB INTERFACE_INCLUDE_DIRECTORIES)
+  get_filename_component(ZLIB_ROOT "${ZLIB_INCLUDE_DIR}" DIRECTORY)
+  set(ZLIB_HOME
+      ${ZLIB_ROOT}
+      CACHE BOOL "" FORCE)
+
+  get_target_property(ZSTD_INCLUDE_DIR ${ARROW_ZSTD_LIBZSTD}
                       INTERFACE_INCLUDE_DIRECTORIES)
-  get_filename_component(ORC_SNAPPY_ROOT "${ORC_SNAPPY_INCLUDE_DIR}" DIRECTORY)
+  get_filename_component(ZSTD_ROOT "${ZSTD_INCLUDE_DIR}" DIRECTORY)
+  set(ZSTD_HOME
+      ${ZSTD_ROOT}
+      CACHE BOOL "" FORCE)
+  set(ZSTD_LIBRARY $<TARGET_FILE:${ARROW_ZSTD_LIBZSTD}>)
+  set(ZSTD_STATIC_LIBRARY $<TARGET_FILE:${ARROW_ZSTD_LIBZSTD}>)
 
-  get_target_property(ORC_LZ4_ROOT LZ4::lz4 INTERFACE_INCLUDE_DIRECTORIES)
-  get_filename_component(ORC_LZ4_ROOT "${ORC_LZ4_ROOT}" DIRECTORY)
+  set(BUILD_CPP_TESTS
+      OFF
+      CACHE BOOL "" FORCE)
+  set(BUILD_JAVA
+      OFF
+      CACHE BOOL "" FORCE)
+  set(BUILD_LIBHDFSPP
+      OFF
+      CACHE BOOL "" FORCE)
+  set(BUILD_TOOLS
+      OFF
+      CACHE BOOL "" FORCE)
+  set(INSTALL_VENDORED_LIBS
+      OFF
+      CACHE BOOL "" FORCE)
+  set(STOP_BUILD_ON_WARNING
+      OFF
+      CACHE BOOL "" FORCE)
 
-  get_target_property(ORC_ZSTD_ROOT ${ARROW_ZSTD_LIBZSTD} INTERFACE_INCLUDE_DIRECTORIES)
-  get_filename_component(ORC_ZSTD_ROOT "${ORC_ZSTD_ROOT}" DIRECTORY)
+  # TODO: This should be fixed in upstream.
+  list(PREPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_BINARY_DIR}/_deps/orc-src/cmake_modules)
 
-  set(ORC_CMAKE_ARGS
-      ${EP_COMMON_CMAKE_ARGS}
-      "-DCMAKE_INSTALL_PREFIX=${ORC_PREFIX}"
-      -DSTOP_BUILD_ON_WARNING=OFF
-      -DBUILD_LIBHDFSPP=OFF
-      -DBUILD_JAVA=OFF
-      -DBUILD_TOOLS=OFF
-      -DBUILD_CPP_TESTS=OFF
-      -DINSTALL_VENDORED_LIBS=OFF
-      "-DLZ4_HOME=${ORC_LZ4_ROOT}"
-      "-DPROTOBUF_EXECUTABLE=$<TARGET_FILE:${ARROW_PROTOBUF_PROTOC}>"
-      "-DPROTOBUF_HOME=${ORC_PROTOBUF_ROOT}"
-      "-DPROTOBUF_INCLUDE_DIR=$<TARGET_PROPERTY:${ARROW_PROTOBUF_LIBPROTOBUF},INTERFACE_INCLUDE_DIRECTORIES>"
-      "-DPROTOBUF_LIBRARY=$<TARGET_FILE:${ARROW_PROTOBUF_LIBPROTOBUF}>"
-      "-DPROTOC_LIBRARY=$<TARGET_FILE:${ARROW_PROTOBUF_LIBPROTOC}>"
-      "-DSNAPPY_HOME=${ORC_SNAPPY_ROOT}"
-      "-DSNAPPY_LIBRARY=$<TARGET_FILE:${Snappy_TARGET}>"
-      "-DLZ4_LIBRARY=$<TARGET_FILE:LZ4::lz4>"
-      "-DLZ4_STATIC_LIB=$<TARGET_FILE:LZ4::lz4>"
-      "-DLZ4_INCLUDE_DIR=${ORC_LZ4_ROOT}/include"
-      "-DSNAPPY_INCLUDE_DIR=${ORC_SNAPPY_INCLUDE_DIR}"
-      "-DZSTD_HOME=${ORC_ZSTD_ROOT}"
-      "-DZSTD_INCLUDE_DIR=$<TARGET_PROPERTY:${ARROW_ZSTD_LIBZSTD},INTERFACE_INCLUDE_DIRECTORIES>"
-      "-DZSTD_LIBRARY=$<TARGET_FILE:${ARROW_ZSTD_LIBZSTD}>")
-  if(ZLIB_ROOT)
-    set(ORC_CMAKE_ARGS ${ORC_CMAKE_ARGS} "-DZLIB_HOME=${ZLIB_ROOT}")
+  fetchcontent_makeavailable(orc)
+  if(CMAKE_VERSION VERSION_LESS 3.28)
+    set_property(DIRECTORY ${orc_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
   endif()
 
-  # Work around CMake bug
-  file(MAKE_DIRECTORY ${ORC_INCLUDE_DIR})
+  set(ORC_VENDORED
+      TRUE
+      PARENT_SCOPE)
 
-  externalproject_add(orc_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${ORC_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_ORC_BUILD_SHA256_CHECKSUM}"
-                      BUILD_BYPRODUCTS ${ORC_STATIC_LIB}
-                      CMAKE_ARGS ${ORC_CMAKE_ARGS}
-                      DEPENDS ${ARROW_PROTOBUF_LIBPROTOBUF}
-                              ${ARROW_PROTOBUF_PROTOC}
-                              ${ARROW_ZSTD_LIBZSTD}
-                              ${Snappy_TARGET}
-                              LZ4::lz4
-                              ZLIB::ZLIB)
+  target_include_directories(orc INTERFACE "${orc_BINARY_DIR}/c++/include"
+                                           "${orc_SOURCE_DIR}/c++/include")
 
-  set(ORC_VENDORED 1)
+  add_library(orc::orc ALIAS orc)
 
-  add_library(orc::orc STATIC IMPORTED)
-  set_target_properties(orc::orc PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}")
-  target_include_directories(orc::orc BEFORE INTERFACE "${ORC_INCLUDE_DIR}")
-  target_link_libraries(orc::orc INTERFACE LZ4::lz4 ZLIB::ZLIB ${ARROW_ZSTD_LIBZSTD}
-                                           ${Snappy_TARGET})
-  # Protobuf generated files may use ABSL_DCHECK*() and
-  # absl::log_internal_check_op is needed for them.
-  if(TARGET absl::log_internal_check_op)
-    target_link_libraries(orc::orc INTERFACE absl::log_internal_check_op)
-  endif()
-  if(NOT MSVC)
-    if(NOT APPLE AND ARROW_ENABLE_THREADING)
-      target_link_libraries(orc::orc INTERFACE Threads::Threads)
-    endif()
-    target_link_libraries(orc::orc INTERFACE ${CMAKE_DL_LIBS})
-  endif()
-  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "9")
-      target_link_libraries(orc::orc INTERFACE stdc++fs)
-    endif()
-  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "8")
-      target_link_libraries(orc::orc INTERFACE c++fs)
-    endif()
-  endif()
-
-  add_dependencies(orc::orc orc_ep)
-
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS orc::orc)
-endmacro()
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS orc)
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS}
+      PARENT_SCOPE)
+endfunction()
 
 if(ARROW_ORC)
   resolve_dependency(orc HAVE_ALT TRUE)
-  target_link_libraries(orc::orc INTERFACE ${ARROW_PROTOBUF_LIBPROTOBUF})
   if(ORC_VENDORED)
     set(ARROW_ORC_VERSION ${ARROW_ORC_BUILD_VERSION})
   else()
+    target_link_libraries(orc::orc INTERFACE ${ARROW_PROTOBUF_LIBPROTOBUF})
     set(ARROW_ORC_VERSION ${orcAlt_VERSION})
+    message(STATUS "Found ORC static library: ${ORC_STATIC_LIB}")
+    message(STATUS "Found ORC headers: ${ORC_INCLUDE_DIR}")
   endif()
-  message(STATUS "Found ORC static library: ${ORC_STATIC_LIB}")
-  message(STATUS "Found ORC headers: ${ORC_INCLUDE_DIR}")
 endif()
 
 # ----------------------------------------------------------------------
