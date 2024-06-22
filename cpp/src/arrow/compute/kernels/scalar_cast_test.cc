@@ -2083,7 +2083,7 @@ static void AssertBinaryZeroCopy(std::shared_ptr<Array> lhs, std::shared_ptr<Arr
 }
 
 TEST(Cast, BinaryToString) {
-  for (auto bin_type : {binary(), large_binary()}) {
+  for (auto bin_type : {binary(), binary_view(), large_binary()}) {
     for (auto string_type : {utf8(), large_utf8()}) {
       // empty -> empty always works
       CheckCast(ArrayFromJSON(bin_type, "[]"), ArrayFromJSON(string_type, "[]"));
@@ -2102,7 +2102,9 @@ TEST(Cast, BinaryToString) {
       options.allow_invalid_utf8 = true;
       ASSERT_OK_AND_ASSIGN(auto strings, Cast(*invalid_utf8, string_type, options));
       ASSERT_RAISES(Invalid, strings->ValidateFull());
-      AssertBinaryZeroCopy(invalid_utf8, strings);
+      if (!is_binary_view_like(*bin_type)) {
+        AssertBinaryZeroCopy(invalid_utf8, strings);
+      }
     }
   }
 
@@ -2134,7 +2136,8 @@ TEST(Cast, BinaryToString) {
 }
 
 TEST(Cast, BinaryOrStringToBinary) {
-  for (auto from_type : {utf8(), large_utf8(), binary(), large_binary()}) {
+  for (auto from_type :
+       {utf8(), utf8_view(), large_utf8(), binary(), binary_view(), large_binary()}) {
     for (auto to_type : {binary(), large_binary()}) {
       // empty -> empty always works
       CheckCast(ArrayFromJSON(from_type, "[]"), ArrayFromJSON(to_type, "[]"));
@@ -2144,7 +2147,9 @@ TEST(Cast, BinaryOrStringToBinary) {
       // invalid utf-8 is not an error for binary
       ASSERT_OK_AND_ASSIGN(auto strings, Cast(*invalid_utf8, to_type));
       ValidateOutput(*strings);
-      AssertBinaryZeroCopy(invalid_utf8, strings);
+      if (!is_binary_view_like(*from_type)) {
+        AssertBinaryZeroCopy(invalid_utf8, strings);
+      }
 
       // invalid utf-8 masked by a null bit is not an error
       CheckCast(MaskArrayWithNullsAt(InvalidUtf8(from_type), {4}),
@@ -2175,7 +2180,7 @@ TEST(Cast, BinaryOrStringToBinary) {
 }
 
 TEST(Cast, StringToString) {
-  for (auto from_type : {utf8(), large_utf8()}) {
+  for (auto from_type : {utf8(), utf8_view(), large_utf8()}) {
     for (auto to_type : {utf8(), large_utf8()}) {
       // empty -> empty always works
       CheckCast(ArrayFromJSON(from_type, "[]"), ArrayFromJSON(to_type, "[]"));
@@ -2192,7 +2197,9 @@ TEST(Cast, StringToString) {
       // utf-8 is not checked by Cast when the origin guarantees utf-8
       ASSERT_OK_AND_ASSIGN(auto strings, Cast(*invalid_utf8, to_type, options));
       ASSERT_RAISES(Invalid, strings->ValidateFull());
-      AssertBinaryZeroCopy(invalid_utf8, strings);
+      if (!is_binary_view_like(*from_type)) {
+        AssertBinaryZeroCopy(invalid_utf8, strings);
+      }
     }
   }
 }
