@@ -36,6 +36,7 @@
 namespace arrow {
 
 using internal::StringFormatter;
+using internal::VisitSetBitRunsVoid;
 using util::InitializeUTF8;
 using util::ValidateUTF8Inline;
 
@@ -344,6 +345,68 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
   return Status::OK();
 }
 
+// Span -> View
+template <typename O, typename I>
+enable_if_t<is_base_binary_type<I>::value && is_binary_view_like_type<O>::value, Status>
+BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  using offset_type = typename I::offset_type;
+  const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
+  const ArraySpan& input = batch[0].array;
+
+  if constexpr (!I::is_utf8 && O::is_utf8) {
+    if (!options.allow_invalid_utf8) {
+      InitializeUTF8();
+      ArraySpanVisitor<I> visitor;
+      Utf8Validator validator;
+      RETURN_NOT_OK(visitor.Visit(input, &validator));
+    }
+  }
+
+  // Start with a zero-copy cast, then reconfigure the view and data buffers
+  RETURN_NOT_OK(ZeroCopyCastExec(ctx, batch, out));
+  ArrayData* output = out->array_data().get();
+  auto offsets_buffer = std::move(output->buffers[1]);
+  auto data_buffer = std::move(output->buffers[2]);
+
+  const int64_t total_length = input.offset + input.length;
+  const auto* validity = input.GetValues<uint8_t>(0, 0);
+  const auto* input_offsets = input.GetValues<offset_type>(1);
+  const auto* input_data = input.GetValues<uint8_t>(2, 0);
+
+  // Turn buffers[1] into a buffer of empty BinaryViewType::c_type entries.
+  ARROW_ASSIGN_OR_RAISE(output->buffers[1],
+                        ctx->Allocate(total_length * BinaryViewType::kSize));
+  memset(output->buffers[1]->mutable_data(), 0, total_length * BinaryViewType::kSize);
+  auto* out_views = output->GetMutableValues<BinaryViewType::c_type>(1);
+
+  bool all_entries_are_inline = true;
+  VisitSetBitRunsVoid(
+      validity, output->offset, output->length,
+      [&](int64_t start_offset, int64_t run_length) {
+        for (int64_t i = start_offset; i < start_offset + run_length; i++) {
+          const offset_type data_offset = input_offsets[i];
+          const offset_type data_length = input_offsets[i + 1] - data_offset;
+          auto& out_view = out_views[i];
+          if (data_length <= BinaryViewType::kInlineSize) {
+            out_view.inlined.size = static_cast<int32_t>(data_length);
+            memcpy(out_view.inlined.data.data(), input_data + data_offset, data_length);
+          } else {
+            out_view.ref.size = static_cast<int32_t>(data_length);
+            memcpy(out_view.ref.prefix.data(), input_data + data_offset,
+                   BinaryViewType::kPrefixSize);
+            // out_view.ref.buffer_index = 0;
+            out_view.ref.offset = static_cast<int32_t>(data_offset);
+            // TODO(felipecrv): validate data_offsets can't overflow
+            all_entries_are_inline = false;
+          }
+        }
+      });
+  if (all_entries_are_inline) {
+    output->buffers[2] = nullptr;
+  }
+  return Status::OK();
+}
+
 // Fixed -> Span
 template <typename O, typename I>
 enable_if_t<std::is_same<I, FixedSizeBinaryType>::value && is_base_binary_type<O>::value,
@@ -528,12 +591,18 @@ void AddBinaryToBinaryCast(CastFunction* func) {
 template <typename OutType>
 void AddBinaryToBinaryCast(CastFunction* func) {
   AddBinaryToBinaryCast<OutType, StringType>(func);
-  AddBinaryToBinaryCast<OutType, StringViewType>(func);
+  if constexpr (!is_binary_view_like_type<OutType>::value) {
+    AddBinaryToBinaryCast<OutType, StringViewType>(func);
+  }
   AddBinaryToBinaryCast<OutType, BinaryType>(func);
-  AddBinaryToBinaryCast<OutType, BinaryViewType>(func);
+  if constexpr (!is_binary_view_like_type<OutType>::value) {
+    AddBinaryToBinaryCast<OutType, BinaryViewType>(func);
+  }
   AddBinaryToBinaryCast<OutType, LargeStringType>(func);
   AddBinaryToBinaryCast<OutType, LargeBinaryType>(func);
-  AddBinaryToBinaryCast<OutType, FixedSizeBinaryType>(func);
+  if constexpr (!is_binary_view_like_type<OutType>::value) {
+    AddBinaryToBinaryCast<OutType, FixedSizeBinaryType>(func);
+  }
 }
 
 template <typename InType>
@@ -570,7 +639,7 @@ std::vector<std::shared_ptr<CastFunction>> GetBinaryLikeCasts() {
   auto cast_binary_view =
       std::make_shared<CastFunction>("cast_binary_view", Type::BINARY_VIEW);
   AddCommonCasts(Type::BINARY_VIEW, binary_view(), cast_binary_view.get());
-  // AddBinaryToBinaryCast<BinaryViewType>(cast_binary_view.get());
+  AddBinaryToBinaryCast<BinaryViewType>(cast_binary_view.get());
 
   auto cast_large_binary =
       std::make_shared<CastFunction>("cast_large_binary", Type::LARGE_BINARY);
@@ -592,7 +661,7 @@ std::vector<std::shared_ptr<CastFunction>> GetBinaryLikeCasts() {
   // AddNumberToStringCasts<StringViewType>(cast_string_view.get());
   // AddDecimalToStringCasts<StringViewType>(cast_string_view.get());
   // AddTemporalToStringCasts<StringViewType>(cast_string_view.get());
-  // AddBinaryToBinaryCast<StringViewType>(cast_string_view.get());
+  AddBinaryToBinaryCast<StringViewType>(cast_string_view.get());
 
   auto cast_large_string =
       std::make_shared<CastFunction>("cast_large_string", Type::LARGE_STRING);
