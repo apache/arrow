@@ -215,7 +215,7 @@ TEST(Cast, CanCast) {
   }
   // XXX: include utf8_view() on the list above once all of these pass
   for (auto view_ty : {utf8_view(), binary_view()}) {
-    // ExpectCanCast(view_ty, {boolean()});
+    ExpectCanCast(view_ty, {boolean()});
     // ExpectCanCast(view_ty, kNumericTypes);
     ExpectCanCast(view_ty, kBaseBinaryTypes);
     ExpectCanCast(dictionary(int64(), view_ty), {view_ty});
