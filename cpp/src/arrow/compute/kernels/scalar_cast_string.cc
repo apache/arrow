@@ -308,6 +308,42 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
       ctx, input, out->array_data().get());
 }
 
+// View -> Span
+template <typename O, typename I>
+enable_if_t<is_binary_view_like_type<I>::value && is_base_binary_type<O>::value, Status>
+BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  using OutputBuilderType = typename TypeTraits<O>::BuilderType;
+  const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
+  const ArraySpan& input = batch[0].array;
+
+  if constexpr (!I::is_utf8 && O::is_utf8) {
+    if (!options.allow_invalid_utf8) {
+      InitializeUTF8();
+      ArraySpanVisitor<I> visitor;
+      Utf8Validator validator;
+      RETURN_NOT_OK(visitor.Visit(input, &validator));
+    }
+  }
+
+  // XXX: a more efficient implementation that zero-copies the validity bitmap
+  // is possible, but requires a more complex implementation for building the
+  // offsets and data buffers
+  OutputBuilderType builder(options.to_type.GetSharedPtr(), ctx->memory_pool());
+  RETURN_NOT_OK(builder.Resize(input.length));
+  arrow::internal::ArraySpanInlineVisitor<I> visitor;
+  RETURN_NOT_OK(visitor.VisitStatus(
+      input, [&](std::string_view v) { return builder.Append(v); },
+      [&]() {
+        builder.UnsafeAppendNull();
+        return Status::OK();
+      }));
+
+  std::shared_ptr<ArrayData> output_array;
+  RETURN_NOT_OK(builder.FinishInternal(&output_array));
+  out->value = std::move(output_array);
+  return Status::OK();
+}
+
 // Fixed -> Span
 template <typename O, typename I>
 enable_if_t<std::is_same<I, FixedSizeBinaryType>::value && is_base_binary_type<O>::value,
@@ -492,7 +528,9 @@ void AddBinaryToBinaryCast(CastFunction* func) {
 template <typename OutType>
 void AddBinaryToBinaryCast(CastFunction* func) {
   AddBinaryToBinaryCast<OutType, StringType>(func);
+  AddBinaryToBinaryCast<OutType, StringViewType>(func);
   AddBinaryToBinaryCast<OutType, BinaryType>(func);
+  AddBinaryToBinaryCast<OutType, BinaryViewType>(func);
   AddBinaryToBinaryCast<OutType, LargeStringType>(func);
   AddBinaryToBinaryCast<OutType, LargeBinaryType>(func);
   AddBinaryToBinaryCast<OutType, FixedSizeBinaryType>(func);
