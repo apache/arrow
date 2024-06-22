@@ -97,6 +97,9 @@ static std::vector<std::shared_ptr<DataType>> kDictionaryIndexTypes = kIntegerTy
 static std::vector<std::shared_ptr<DataType>> kBaseBinaryTypes = {
     binary(), utf8(), large_binary(), large_utf8()};
 
+static std::vector<std::shared_ptr<DataType>> kBaseBinaryAndViewTypes = {
+    binary(), utf8(), large_binary(), large_utf8(), utf8_view(), binary_view()};
+
 static void AssertBufferSame(const Array& left, const Array& right, size_t buffer_index) {
   ASSERT_EQ(left.data()->buffers[buffer_index].get(),
             right.data()->buffers[buffer_index].get());
@@ -174,14 +177,14 @@ TEST(Cast, CanCast) {
 
   ExpectCanCast(null(), {boolean()});
   ExpectCanCast(null(), kNumericTypes);
-  ExpectCanCast(null(), kBaseBinaryTypes);
+  ExpectCanCast(null(), kBaseBinaryAndViewTypes);
   ExpectCanCast(
       null(), {date32(), date64(), time32(TimeUnit::MILLI), timestamp(TimeUnit::SECOND)});
   ExpectCanCast(dictionary(uint16(), null()), {null()});
 
   ExpectCanCast(boolean(), {boolean()});
   ExpectCanCast(boolean(), kNumericTypes);
-  ExpectCanCast(boolean(), {utf8(), large_utf8()});
+  ExpectCanCast(boolean(), {utf8(), utf8_view(), large_utf8()});
   ExpectCanCast(dictionary(int32(), boolean()), {boolean()});
 
   ExpectCannotCast(boolean(), {null()});
@@ -1059,7 +1062,7 @@ TEST(Cast, DecimalToFloating) {
 }
 
 TEST(Cast, DecimalToString) {
-  for (auto string_type : {utf8(), large_utf8()}) {
+  for (auto string_type : {utf8(), utf8_view(), large_utf8()}) {
     for (auto decimal_type : {decimal128(5, 2), decimal256(5, 2)}) {
       CheckCast(ArrayFromJSON(decimal_type, R"(["0.00", null, "123.45", "999.99"])"),
                 ArrayFromJSON(string_type, R"(["0.00", null, "123.45", "999.99"])"));
@@ -1578,7 +1581,7 @@ TEST(Cast, TimeZeroCopy) {
 }
 
 TEST(Cast, DateToString) {
-  for (auto string_type : {utf8(), large_utf8()}) {
+  for (auto string_type : {utf8(), utf8_view(), large_utf8()}) {
     CheckCast(ArrayFromJSON(date32(), "[0, null]"),
               ArrayFromJSON(string_type, R"(["1970-01-01", null])"));
     CheckCast(ArrayFromJSON(date64(), "[86400000, null]"),
@@ -1587,7 +1590,7 @@ TEST(Cast, DateToString) {
 }
 
 TEST(Cast, TimeToString) {
-  for (auto string_type : {utf8(), large_utf8()}) {
+  for (auto string_type : {utf8(), utf8_view(), large_utf8()}) {
     CheckCast(ArrayFromJSON(time32(TimeUnit::SECOND), "[1, 62]"),
               ArrayFromJSON(string_type, R"(["00:00:01", "00:01:02"])"));
     CheckCast(
@@ -1597,7 +1600,7 @@ TEST(Cast, TimeToString) {
 }
 
 TEST(Cast, TimestampToString) {
-  for (auto string_type : {utf8(), large_utf8()}) {
+  for (auto string_type : {utf8(), utf8_view(), large_utf8()}) {
     CheckCast(
         ArrayFromJSON(timestamp(TimeUnit::SECOND), "[-30610224000, -5364662400]"),
         ArrayFromJSON(string_type, R"(["1000-01-01 00:00:00", "1800-01-01 00:00:00"])"));
@@ -1623,7 +1626,7 @@ TEST(Cast, TimestampToString) {
 }
 
 TEST_F(CastTimezone, TimestampWithZoneToString) {
-  for (auto string_type : {utf8(), large_utf8()}) {
+  for (auto string_type : {utf8(), utf8_view(), large_utf8()}) {
     CheckCast(
         ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"), "[-30610224000, -5364662400]"),
         ArrayFromJSON(string_type,
@@ -1813,7 +1816,7 @@ TEST(Cast, DurationToDurationMultiplyOverflow) {
 }
 
 TEST(Cast, DurationToString) {
-  for (auto string_type : {utf8(), large_utf8()}) {
+  for (auto string_type : {utf8(), utf8_view(), large_utf8()}) {
     for (auto unit : TimeUnit::values()) {
       CheckCast(ArrayFromJSON(duration(unit), "[0, null, 1234567, 2000]"),
                 ArrayFromJSON(string_type, R"(["0", null, "1234567", "2000"])"));
@@ -2272,7 +2275,7 @@ TEST(Cast, FixedSizeBinaryToBinaryOrStringWithSlice) {
 }
 
 TEST(Cast, IntToString) {
-  for (auto string_type : {utf8(), large_utf8()}) {
+  for (auto string_type : {utf8(), utf8_view(), large_utf8()}) {
     CheckCast(ArrayFromJSON(int8(), "[0, 1, 127, -128, null]"),
               ArrayFromJSON(string_type, R"(["0", "1", "127", "-128", null])"));
 
@@ -2305,7 +2308,7 @@ TEST(Cast, IntToString) {
 
 TEST(Cast, FloatingToString) {
   for (auto float_type : {float16(), float32(), float64()}) {
-    for (auto string_type : {utf8(), large_utf8()}) {
+    for (auto string_type : {utf8(), utf8_view(), large_utf8()}) {
       CheckCast(ArrayFromJSON(float_type, "[0.0, -0.0, 1.5, -Inf, Inf, NaN, null]"),
                 ArrayFromJSON(string_type,
                               R"(["0", "-0", "1.5", "-inf", "inf", "nan", null])"));
@@ -2314,7 +2317,7 @@ TEST(Cast, FloatingToString) {
 }
 
 TEST(Cast, BooleanToString) {
-  for (auto string_type : {utf8(), large_utf8()}) {
+  for (auto string_type : {utf8(), utf8_view(), large_utf8()}) {
     CheckCast(ArrayFromJSON(boolean(), "[true, true, false, null]"),
               ArrayFromJSON(string_type, R"(["true", "true", "false", null])"));
   }
