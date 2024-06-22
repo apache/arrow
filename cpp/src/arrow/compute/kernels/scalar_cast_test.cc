@@ -97,7 +97,7 @@ static std::vector<std::shared_ptr<DataType>> kDictionaryIndexTypes = kIntegerTy
 static std::vector<std::shared_ptr<DataType>> kBaseBinaryTypes = {
     binary(), utf8(), large_binary(), large_utf8()};
 
-static void AssertBufferSame(const Array& left, const Array& right, int buffer_index) {
+static void AssertBufferSame(const Array& left, const Array& right, size_t buffer_index) {
   ASSERT_EQ(left.data()->buffers[buffer_index].get(),
             right.data()->buffers[buffer_index].get());
 }
@@ -214,7 +214,7 @@ TEST(Cast, CanCast) {
   for (auto view_ty : {utf8_view(), binary_view()}) {
     // ExpectCanCast(view_ty, {boolean()});
     // ExpectCanCast(view_ty, kNumericTypes);
-    // ExpectCanCast(view_ty, kBaseBinaryTypes);
+    ExpectCanCast(view_ty, kBaseBinaryTypes);
     ExpectCanCast(dictionary(int64(), view_ty), {view_ty});
 
     // any cast which is valid for the dictionary is valid for the DictionaryArray
@@ -2067,35 +2067,41 @@ TEST(Cast, StringToDate) {
 }
 
 static void AssertBinaryZeroCopy(std::shared_ptr<Array> lhs, std::shared_ptr<Array> rhs) {
+  EXPECT_TRUE(is_base_binary_like(lhs->type_id()) || is_binary_view_like(lhs->type_id()));
+  EXPECT_EQ(is_base_binary_like(lhs->type_id()), is_base_binary_like(rhs->type_id()));
   // null bitmap and data buffers are always zero-copied
   AssertBufferSame(*lhs, *rhs, 0);
-  AssertBufferSame(*lhs, *rhs, 2);
-
-  if (offset_bit_width(lhs->type_id()) == offset_bit_width(rhs->type_id())) {
-    // offset buffer is zero copied if possible
-    AssertBufferSame(*lhs, *rhs, 1);
-    return;
+  if (is_base_binary_like(lhs->type_id())) {
+    AssertBufferSame(*lhs, *rhs, 2);
+  } else {
+    for (size_t i = 2; i < lhs->data()->buffers.size(); ++i) {
+      AssertBufferSame(*lhs, *rhs, i);
+    }
   }
 
-  // offset buffers are equivalent
-  ArrayVector offsets;
-  for (auto array : {lhs, rhs}) {
-    auto length = array->length();
-    auto buffer = array->data()->buffers[1];
-    offsets.push_back(offset_bit_width(array->type_id()) == 32
-                          ? *Cast(Int32Array(length, buffer), int64())
-                          : std::make_shared<Int64Array>(length, buffer));
+  if (is_base_binary_like(lhs->type_id())) {
+    if (offset_bit_width(lhs->type_id()) == offset_bit_width(rhs->type_id())) {
+      // offset buffer is zero copied if possible
+      AssertBufferSame(*lhs, *rhs, 1);
+      return;
+    }
+
+    // offset buffers are equivalent
+    ArrayVector offsets;
+    for (auto array : {lhs, rhs}) {
+      auto length = array->length();
+      auto buffer = array->data()->buffers[1];
+      offsets.push_back(offset_bit_width(array->type_id()) == 32
+                            ? *Cast(Int32Array(length, buffer), int64())
+                            : std::make_shared<Int64Array>(length, buffer));
+    }
+    AssertArraysEqual(*offsets[0], *offsets[1]);
   }
-  AssertArraysEqual(*offsets[0], *offsets[1]);
 }
 
 TEST(Cast, BinaryToString) {
   for (auto bin_type : {binary(), binary_view(), large_binary()}) {
     for (auto string_type : {utf8(), utf8_view(), large_utf8()}) {
-      if (is_binary_view_like(*bin_type) && is_binary_view_like(*string_type)) {
-        // XXX: implement BinaryToStringCast<View, View>
-        continue;
-      }
       // empty -> empty always works
       CheckCast(ArrayFromJSON(bin_type, "[]"), ArrayFromJSON(string_type, "[]"));
 
@@ -2113,7 +2119,7 @@ TEST(Cast, BinaryToString) {
       options.allow_invalid_utf8 = true;
       ASSERT_OK_AND_ASSIGN(auto strings, Cast(*invalid_utf8, string_type, options));
       ASSERT_RAISES(Invalid, strings->ValidateFull());
-      if (!is_binary_view_like(*bin_type) && !is_binary_view_like(*string_type)) {
+      if (is_binary_view_like(*bin_type) == is_binary_view_like(*string_type)) {
         AssertBinaryZeroCopy(invalid_utf8, strings);
       }
     }
@@ -2152,10 +2158,6 @@ TEST(Cast, BinaryOrStringToBinary) {
   for (auto from_type :
        {utf8(), utf8_view(), large_utf8(), binary(), binary_view(), large_binary()}) {
     for (auto to_type : {binary(), binary_view(), large_binary()}) {
-      if (is_binary_view_like(*from_type) && is_binary_view_like(*to_type)) {
-        // XXX: implement BinaryToBinaryCast<View, View>
-        continue;
-      }
       // empty -> empty always works
       CheckCast(ArrayFromJSON(from_type, "[]"), ArrayFromJSON(to_type, "[]"));
 
@@ -2164,7 +2166,7 @@ TEST(Cast, BinaryOrStringToBinary) {
       // invalid utf-8 is not an error for binary
       ASSERT_OK_AND_ASSIGN(auto strings, Cast(*invalid_utf8, to_type));
       ValidateOutput(*strings);
-      if (!is_binary_view_like(*from_type) && !is_binary_view_like(*to_type)) {
+      if (is_binary_view_like(*from_type) == is_binary_view_like(*to_type)) {
         AssertBinaryZeroCopy(invalid_utf8, strings);
       }
 
@@ -2201,10 +2203,6 @@ TEST(Cast, BinaryOrStringToBinary) {
 TEST(Cast, StringToString) {
   for (auto from_type : {utf8(), utf8_view(), large_utf8()}) {
     for (auto to_type : {utf8(), utf8_view(), large_utf8()}) {
-      if (is_binary_view_like(*from_type) && is_binary_view_like(*to_type)) {
-        // XXX: implemenet BinarytoBinaryCast<View, View>
-        continue;
-      }
       // empty -> empty always works
       CheckCast(ArrayFromJSON(from_type, "[]"), ArrayFromJSON(to_type, "[]"));
 
@@ -2220,7 +2218,7 @@ TEST(Cast, StringToString) {
       // utf-8 is not checked by Cast when the origin guarantees utf-8
       ASSERT_OK_AND_ASSIGN(auto strings, Cast(*invalid_utf8, to_type, options));
       ASSERT_RAISES(Invalid, strings->ValidateFull());
-      if (!is_binary_view_like(*from_type) && !is_binary_view_like(*to_type)) {
+      if (is_binary_view_like(*from_type) == is_binary_view_like(*to_type)) {
         AssertBinaryZeroCopy(invalid_utf8, strings);
       }
     }
