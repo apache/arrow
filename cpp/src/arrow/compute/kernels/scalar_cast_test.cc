@@ -229,8 +229,15 @@ TEST(Cast, CanCast) {
   ExpectCannotCast(timestamp(TimeUnit::MICRO),
                    {binary(), large_binary()});  // no formatting supported
 
-  ExpectCanCast(fixed_size_binary(3),
-                {binary(), utf8(), large_binary(), large_utf8(), fixed_size_binary(3)});
+  ExpectCanCast(fixed_size_binary(3), {
+                                          utf8(),
+                                          large_utf8(),
+                                          utf8_view(),
+                                          binary(),
+                                          large_binary(),
+                                          binary_view(),
+                                          fixed_size_binary(3),
+                                      });
   // Doesn't fail since a kernel exists (but it will return an error when executed)
   // ExpectCannotCast(fixed_size_binary(3), {fixed_size_binary(5)});
 
@@ -2114,7 +2121,7 @@ TEST(Cast, BinaryToString) {
 
   auto from_type = fixed_size_binary(3);
   auto invalid_utf8 = FixedSizeInvalidUtf8(from_type);
-  for (auto string_type : {utf8(), large_utf8()}) {
+  for (auto string_type : {utf8(), utf8_view(), large_utf8()}) {
     CheckCast(ArrayFromJSON(from_type, "[]"), ArrayFromJSON(string_type, "[]"));
 
     // invalid utf-8 masked by a null bit is not an error
@@ -2135,7 +2142,9 @@ TEST(Cast, BinaryToString) {
 
     // ARROW-16757: we no longer zero copy, but the contents are equal
     ASSERT_NE(invalid_utf8->data()->buffers[1].get(), strings->data()->buffers[2].get());
-    ASSERT_TRUE(invalid_utf8->data()->buffers[1]->Equals(*strings->data()->buffers[2]));
+    if (!is_binary_view_like(*string_type)) {
+      ASSERT_TRUE(invalid_utf8->data()->buffers[1]->Equals(*strings->data()->buffers[2]));
+    }
   }
 }
 
@@ -2169,7 +2178,7 @@ TEST(Cast, BinaryOrStringToBinary) {
   auto invalid_utf8 = FixedSizeInvalidUtf8(from_type);
   CheckCast(invalid_utf8, invalid_utf8);
   CheckCastFails(invalid_utf8, CastOptions::Safe(fixed_size_binary(5)));
-  for (auto to_type : {binary(), large_binary()}) {
+  for (auto to_type : {binary(), binary_view(), large_binary()}) {
     CheckCast(ArrayFromJSON(from_type, "[]"), ArrayFromJSON(to_type, "[]"));
     ASSERT_OK_AND_ASSIGN(auto strings, Cast(*invalid_utf8, to_type));
     ValidateOutput(*strings);
@@ -2179,7 +2188,9 @@ TEST(Cast, BinaryOrStringToBinary) {
 
     // ARROW-16757: we no longer zero copy, but the contents are equal
     ASSERT_NE(invalid_utf8->data()->buffers[1].get(), strings->data()->buffers[2].get());
-    ASSERT_TRUE(invalid_utf8->data()->buffers[1]->Equals(*strings->data()->buffers[2]));
+    if (!is_binary_view_like(*to_type)) {
+      ASSERT_TRUE(invalid_utf8->data()->buffers[1]->Equals(*strings->data()->buffers[2]));
+    }
 
     // invalid utf-8 masked by a null bit is not an error
     CheckCast(MaskArrayWithNullsAt(invalid_utf8, {4}),
@@ -2234,7 +2245,8 @@ TEST(Cast, BinaryOrStringToFixedSizeBinary) {
 }
 
 TEST(Cast, FixedSizeBinaryToBinaryOrString) {
-  for (auto out_type : {utf8(), large_utf8(), binary(), large_binary()}) {
+  for (auto out_type :
+       {utf8(), utf8_view(), large_utf8(), binary(), binary_view(), large_binary()}) {
     auto valid_input = ArrayFromJSON(fixed_size_binary(3), R"(["foo", null, "bar",
           "baz", "quu"])");
 
@@ -2247,7 +2259,8 @@ TEST(Cast, FixedSizeBinaryToBinaryOrString) {
 }
 
 TEST(Cast, FixedSizeBinaryToBinaryOrStringWithSlice) {
-  for (auto out_type : {utf8(), large_utf8(), binary(), large_binary()}) {
+  for (auto out_type :
+       {utf8(), utf8_view(), large_utf8(), binary(), binary_view(), large_binary()}) {
     auto valid_input = ArrayFromJSON(fixed_size_binary(3), R"(["foo", null, "bar",
                 "baz", "quu"])");
     auto sliced = valid_input->Slice(1, 3);
