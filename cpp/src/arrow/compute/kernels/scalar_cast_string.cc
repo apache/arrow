@@ -732,9 +732,9 @@ std::vector<std::shared_ptr<CastFunction>> GetBinaryLikeCasts() {
   auto cast_string_view =
       std::make_shared<CastFunction>("cast_string_view", Type::STRING_VIEW);
   AddCommonCasts(Type::STRING_VIEW, utf8_view(), cast_string_view.get());
-  // AddNumberToStringCasts<StringViewType>(cast_string_view.get());
-  // AddDecimalToStringCasts<StringViewType>(cast_string_view.get());
-  // AddTemporalToStringCasts<StringViewType>(cast_string_view.get());
+  AddNumberToStringCasts<StringViewType>(cast_string_view.get());
+  AddDecimalToStringCasts<StringViewType>(cast_string_view.get());
+  AddTemporalToStringCasts<StringViewType>(cast_string_view.get());
   AddBinaryToBinaryCast<StringViewType>(cast_string_view.get());
 
   auto cast_large_string =
