@@ -216,8 +216,10 @@ TEST(Cast, CanCast) {
   // XXX: include utf8_view() on the list above once all of these pass
   for (auto view_ty : {utf8_view(), binary_view()}) {
     ExpectCanCast(view_ty, {boolean()});
-    // ExpectCanCast(view_ty, kNumericTypes);
+    ExpectCanCast(view_ty, kNumericTypes);
     ExpectCanCast(view_ty, kBaseBinaryTypes);
+    // XXX: add float16 to kNumericTypes
+    ExpectCanCast(view_ty, {float16()});
     ExpectCanCast(dictionary(int64(), view_ty), {view_ty});
 
     // any cast which is valid for the dictionary is valid for the DictionaryArray
