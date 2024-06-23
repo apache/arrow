@@ -915,6 +915,19 @@ struct GetTypeId {
       : id(id) {}
 };
 
+template <template <typename...> class Generator, typename Type0, typename Type1,
+          typename... Args>
+struct is_generator {
+  template <typename T0, typename T1,
+            typename = typename Generator<T0, T1, Args...>::value_type>
+  static std::true_type Test(T0*, T1*);
+
+  template <typename T0, typename T1>
+  static std::false_type Test(...);
+
+  static constexpr bool value = decltype(Test<Type0, Type1>(NULLPTR, NULLPTR))::value;
+};
+
 }  // namespace detail
 
 template <typename KernelType>
@@ -960,9 +973,15 @@ KernelType GenerateNumeric(detail::GetTypeId get_id) {
     case Type::DOUBLE:
       return Generator<Type0, DoubleType, Args...>::Exec;
     case Type::HALF_FLOAT:
-      // NOTE: Type::HALF_FLOAT used to not be part of the list of numeric types,
-      // so users of this template might start failing to compiler after Arrow 17.x.
-      return Generator<Type0, HalfFloatType, Args...>::Exec;
+      // NOTE: `Type::HALF_FLOAT` used to not be part of the list of numeric types.
+      // To avoid compilation errors for users that upgrade to Arrow 17.x,
+      // we only instantiate the kernel for `HalfFloatType` if a matching template
+      // specialization is found.
+      if constexpr (detail::is_generator<Generator, Type0, HalfFloatType,
+                                         Args...>::value) {
+        return Generator<Type0, HalfFloatType, Args...>::Exec;
+      }
+      [[fallthrough]];
     default:
       DCHECK(false);
       return FailFunctor<KernelType>::Exec;
