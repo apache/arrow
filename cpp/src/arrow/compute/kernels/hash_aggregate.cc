@@ -638,10 +638,6 @@ struct GroupedReducingFactory {
     return Status::OK();
   }
 
-  Status Visit(const HalfFloatType& type) {
-    return Status::NotImplemented("Computing ", kFriendlyName, " of type ", type);
-  }
-
   Status Visit(const DataType& type) {
     return Status::NotImplemented("Computing ", kFriendlyName, " of type ", type);
   }
@@ -1717,21 +1713,17 @@ HashAggregateKernel MakeMinOrMaxKernel(HashAggregateFunction* min_max_func) {
 
 struct GroupedMinMaxFactory {
   template <typename T>
-  enable_if_physical_integer<T, Status> Visit(const T&) {
+  enable_if_t<is_physical_integer_type<T>::value && !std::is_same_v<T, HalfFloatType>,
+              Status>
+  Visit(const T&) {
     using PhysicalType = typename T::PhysicalType;
     kernel = MakeKernel(std::move(argument_type), MinMaxInit<PhysicalType>);
     return Status::OK();
   }
 
-  // MSVC2015 apparently doesn't compile this properly if we use
-  // enable_if_floating_point
-  Status Visit(const FloatType&) {
-    kernel = MakeKernel(std::move(argument_type), MinMaxInit<FloatType>);
-    return Status::OK();
-  }
-
-  Status Visit(const DoubleType&) {
-    kernel = MakeKernel(std::move(argument_type), MinMaxInit<DoubleType>);
+  template <typename T>
+  enable_if_floating_point<T, Status> Visit(const T&) {
+    kernel = MakeKernel(std::move(argument_type), MinMaxInit<T>);
     return Status::OK();
   }
 
@@ -1761,10 +1753,6 @@ struct GroupedMinMaxFactory {
     kernel =
         MakeKernel(std::move(argument_type), HashAggregateInit<GroupedNullMinMaxImpl>);
     return Status::OK();
-  }
-
-  Status Visit(const HalfFloatType& type) {
-    return Status::NotImplemented("Computing min/max of data of type ", type);
   }
 
   Status Visit(const DataType& type) {
@@ -2222,22 +2210,18 @@ HashAggregateKernel MakeFirstOrLastKernel(HashAggregateFunction* first_last_func
 
 struct GroupedFirstLastFactory {
   template <typename T>
-  enable_if_physical_integer<T, Status> Visit(const T&) {
+  enable_if_t<is_physical_integer_type<T>::value && !std::is_same_v<T, HalfFloatType>,
+              Status>
+  Visit(const T&) {
     using PhysicalType = typename T::PhysicalType;
     kernel = MakeKernel(std::move(argument_type), FirstLastInit<PhysicalType>,
                         /*ordered*/ true);
     return Status::OK();
   }
 
-  Status Visit(const FloatType&) {
-    kernel =
-        MakeKernel(std::move(argument_type), FirstLastInit<FloatType>, /*ordered*/ true);
-    return Status::OK();
-  }
-
-  Status Visit(const DoubleType&) {
-    kernel =
-        MakeKernel(std::move(argument_type), FirstLastInit<DoubleType>, /*ordered*/ true);
+  template <typename T>
+  enable_if_floating_point<T, Status> Visit(const T&) {
+    kernel = MakeKernel(std::move(argument_type), FirstLastInit<T>, /*ordered*/ true);
     return Status::OK();
   }
 
@@ -2255,10 +2239,6 @@ struct GroupedFirstLastFactory {
   Status Visit(const BooleanType&) {
     kernel = MakeKernel(std::move(argument_type), FirstLastInit<BooleanType>);
     return Status::OK();
-  }
-
-  Status Visit(const HalfFloatType& type) {
-    return Status::NotImplemented("Computing first/last of data of type ", type);
   }
 
   Status Visit(const DataType& type) {
@@ -2846,7 +2826,9 @@ Result<std::unique_ptr<KernelState>> GroupedOneInit(KernelContext* ctx,
 
 struct GroupedOneFactory {
   template <typename T>
-  enable_if_physical_integer<T, Status> Visit(const T&) {
+  enable_if_t<is_physical_integer_type<T>::value && !std::is_same_v<T, HalfFloatType>,
+              Status>
+  Visit(const T&) {
     using PhysicalType = typename T::PhysicalType;
     kernel = MakeKernel(std::move(argument_type), GroupedOneInit<PhysicalType>);
     return Status::OK();
@@ -2883,10 +2865,6 @@ struct GroupedOneFactory {
   Status Visit(const NullType&) {
     kernel = MakeKernel(std::move(argument_type), HashAggregateInit<GroupedNullOneImpl>);
     return Status::OK();
-  }
-
-  Status Visit(const HalfFloatType& type) {
-    return Status::NotImplemented("Outputting one of data of type ", type);
   }
 
   Status Visit(const DataType& type) {
@@ -3244,7 +3222,9 @@ Result<std::unique_ptr<KernelState>> GroupedListInit(KernelContext* ctx,
 
 struct GroupedListFactory {
   template <typename T>
-  enable_if_physical_integer<T, Status> Visit(const T&) {
+  enable_if_t<is_physical_integer_type<T>::value && !std::is_same_v<T, HalfFloatType>,
+              Status>
+  Visit(const T&) {
     using PhysicalType = typename T::PhysicalType;
     kernel = MakeKernel(std::move(argument_type), GroupedListInit<PhysicalType>);
     return Status::OK();
@@ -3281,10 +3261,6 @@ struct GroupedListFactory {
   Status Visit(const NullType&) {
     kernel = MakeKernel(std::move(argument_type), HashAggregateInit<GroupedNullListImpl>);
     return Status::OK();
-  }
-
-  Status Visit(const HalfFloatType& type) {
-    return Status::NotImplemented("Outputting list of data of type ", type);
   }
 
   Status Visit(const DataType& type) {
@@ -3574,6 +3550,8 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
 
     DCHECK_OK(
         AddHashAggKernels(NumericTypes(), GroupedFirstLastFactory::Make, func.get()));
+    // XXX: float16() is not part of NumericTypes() yet
+    DCHECK_OK(AddHashAggKernels({float16()}, GroupedFirstLastFactory::Make, func.get()));
     DCHECK_OK(
         AddHashAggKernels(TemporalTypes(), GroupedFirstLastFactory::Make, func.get()));
     DCHECK_OK(
@@ -3606,6 +3584,8 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
         "hash_min_max", Arity::Binary(), hash_min_max_doc,
         &default_scalar_aggregate_options);
     DCHECK_OK(AddHashAggKernels(NumericTypes(), GroupedMinMaxFactory::Make, func.get()));
+    // XXX: float16() is not part of NumericTypes() yet
+    DCHECK_OK(AddHashAggKernels({float16()}, GroupedMinMaxFactory::Make, func.get()));
     DCHECK_OK(AddHashAggKernels(TemporalTypes(), GroupedMinMaxFactory::Make, func.get()));
     DCHECK_OK(
         AddHashAggKernels(BaseBinaryTypes(), GroupedMinMaxFactory::Make, func.get()));
@@ -3668,6 +3648,8 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
     auto func = std::make_shared<HashAggregateFunction>("hash_one", Arity::Binary(),
                                                         hash_one_doc);
     DCHECK_OK(AddHashAggKernels(NumericTypes(), GroupedOneFactory::Make, func.get()));
+    // XXX: float16() is not part of NumericTypes() yet
+    DCHECK_OK(AddHashAggKernels({float16()}, GroupedOneFactory::Make, func.get()));
     DCHECK_OK(AddHashAggKernels(TemporalTypes(), GroupedOneFactory::Make, func.get()));
     DCHECK_OK(AddHashAggKernels(BaseBinaryTypes(), GroupedOneFactory::Make, func.get()));
     DCHECK_OK(AddHashAggKernels({null(), boolean(), decimal128(1, 1), decimal256(1, 1),
@@ -3680,6 +3662,8 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
     auto func = std::make_shared<HashAggregateFunction>("hash_list", Arity::Binary(),
                                                         hash_list_doc);
     DCHECK_OK(AddHashAggKernels(NumericTypes(), GroupedListFactory::Make, func.get()));
+    // XXX: float16() is not part of NumericTypes() yet
+    DCHECK_OK(AddHashAggKernels({float16()}, GroupedListFactory::Make, func.get()));
     DCHECK_OK(AddHashAggKernels(TemporalTypes(), GroupedListFactory::Make, func.get()));
     DCHECK_OK(AddHashAggKernels(BaseBinaryTypes(), GroupedListFactory::Make, func.get()));
     DCHECK_OK(AddHashAggKernels({null(), boolean(), decimal128(1, 1), decimal256(1, 1),

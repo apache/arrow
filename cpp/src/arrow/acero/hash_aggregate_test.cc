@@ -913,6 +913,16 @@ TEST(RowSegmenter, RowConstantBatch) {
   }
 }
 
+// XXX: float16 is not part of NumericTypes() yet
+auto& AllNumericTypes() {
+  static auto types = []() {
+    auto types = NumericTypes();
+    types.push_back(float16());
+    return types;
+  }();
+  return types;
+}
+
 TEST(Grouper, SupportedKeys) { TestGroupClassSupportedKeys<Grouper>(MakeGrouper); }
 
 struct TestGrouper {
@@ -2403,7 +2413,7 @@ TEST_P(GroupBy, MinMaxOnly) {
 
 TEST_P(GroupBy, MinMaxTypes) {
   std::vector<std::shared_ptr<DataType>> types;
-  types.insert(types.end(), NumericTypes().begin(), NumericTypes().end());
+  types.insert(types.end(), AllNumericTypes().begin(), AllNumericTypes().end());
   types.insert(types.end(), TemporalTypes().begin(), TemporalTypes().end());
   types.push_back(month_interval());
 
@@ -3324,7 +3334,7 @@ TEST_P(GroupBy, OneMiscTypes) {
 
 TEST_P(GroupBy, OneNumericTypes) {
   std::vector<std::shared_ptr<DataType>> types;
-  types.insert(types.end(), NumericTypes().begin(), NumericTypes().end());
+  types.insert(types.end(), AllNumericTypes().begin(), AllNumericTypes().end());
   types.insert(types.end(), TemporalTypes().begin(), TemporalTypes().end());
   types.push_back(month_interval());
 
@@ -3485,7 +3495,7 @@ TEST_P(GroupBy, OneScalar) {
 }
 
 TEST_P(GroupBy, ListNumeric) {
-  for (const auto& type : NumericTypes()) {
+  for (const auto& type : AllNumericTypes()) {
     for (auto use_threads : {true, false}) {
       SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
       {
@@ -4386,7 +4396,7 @@ TEST_P(GroupBy, MinMaxWithNewGroupsInChunkedArray) {
 TEST_P(GroupBy, FirstLastBasicTypes) {
   std::vector<std::shared_ptr<DataType>> types;
   types.insert(types.end(), boolean());
-  types.insert(types.end(), NumericTypes().begin(), NumericTypes().end());
+  types.insert(types.end(), AllNumericTypes().begin(), AllNumericTypes().end());
   types.insert(types.end(), TemporalTypes().begin(), TemporalTypes().end());
 
   const std::vector<std::string> numeric_table = {R"([
