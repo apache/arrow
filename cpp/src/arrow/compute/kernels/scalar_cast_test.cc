@@ -86,8 +86,8 @@ static std::shared_ptr<Array> FixedSizeInvalidUtf8(std::shared_ptr<DataType> typ
 }
 
 static std::vector<std::shared_ptr<DataType>> kNumericTypes = {
-    uint8(), int8(),   uint16(), int16(),   uint32(),
-    int32(), uint64(), int64(),  float32(), float64()};
+    uint8(),  int8(),  uint16(),  int16(),   uint32(), int32(),
+    uint64(), int64(), float16(), float32(), float64()};
 
 static std::vector<std::shared_ptr<DataType>> kIntegerTypes = {
     int8(), uint8(), int16(), uint16(), int32(), uint32(), int64(), uint64()};
@@ -181,8 +181,6 @@ TEST(Cast, CanCast) {
 
   ExpectCanCast(boolean(), {boolean()});
   ExpectCanCast(boolean(), kNumericTypes);
-  // XXX: float16() is not part of kNumericTypes
-  ExpectCanCast(boolean(), {float16()});
   ExpectCanCast(boolean(), {utf8(), large_utf8()});
   ExpectCanCast(dictionary(int32(), boolean()), {boolean()});
 
@@ -193,8 +191,6 @@ TEST(Cast, CanCast) {
 
   for (auto from_numeric : kNumericTypes) {
     ExpectCanCast(from_numeric, {boolean()});
-    // XXX: float16() is not part of kNumericTypes
-    ExpectCanCast(float16(), {boolean()});
     ExpectCanCast(from_numeric, kNumericTypes);
     ExpectCanCast(from_numeric, {utf8(), large_utf8()});
     ExpectCanCast(dictionary(int32(), from_numeric), {from_numeric});
@@ -205,8 +201,6 @@ TEST(Cast, CanCast) {
   for (auto from_base_binary : kBaseBinaryTypes) {
     ExpectCanCast(from_base_binary, {boolean()});
     ExpectCanCast(from_base_binary, kNumericTypes);
-    // XXX: float16() is not part of kNumericTypes
-    ExpectCanCast(from_base_binary, {float16()});
     ExpectCanCast(from_base_binary, kBaseBinaryTypes);
     ExpectCanCast(dictionary(int64(), from_base_binary), {from_base_binary});
 
