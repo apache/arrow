@@ -1603,15 +1603,15 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     }
 
     if (descr_->max_definition_level() > 0) {
-      page_size_stats_builder_->WriteDefinitionLevels(num_levels, def_levels);
+      page_size_stats_builder_->AddDefinitionLevels(num_levels, def_levels);
     } else {
-      page_size_stats_builder_->WriteDefinitionLevel(num_levels, /*def_level=*/0);
+      page_size_stats_builder_->AddDefinitionLevel(num_levels, /*def_level=*/0);
     }
 
     if (descr_->max_repetition_level() > 0) {
-      page_size_stats_builder_->WriteRepetitionLevels(num_levels, rep_levels);
+      page_size_stats_builder_->AddRepetitionLevels(num_levels, rep_levels);
     } else {
-      page_size_stats_builder_->WriteRepetitionLevel(num_levels, /*rep_level=*/0);
+      page_size_stats_builder_->AddRepetitionLevel(num_levels, /*rep_level=*/0);
     }
   }
 
@@ -1668,7 +1668,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     }
     if constexpr (std::is_same_v<T, ByteArray>) {
       if (page_size_stats_builder_ != nullptr) {
-        page_size_stats_builder_->WriteValues(values, num_values);
+        page_size_stats_builder_->AddValues(values, num_values);
       }
     }
   }
@@ -1701,8 +1701,8 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     }
     if constexpr (std::is_same_v<T, ByteArray>) {
       if (page_size_stats_builder_ != nullptr) {
-        page_size_stats_builder_->WriteValuesSpaced(values, valid_bits, valid_bits_offset,
-                                                    num_spaced_values);
+        page_size_stats_builder_->AddValuesSpaced(values, valid_bits, valid_bits_offset,
+                                                  num_spaced_values);
       }
     }
   }
@@ -1791,7 +1791,7 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(
       page_statistics_->Update(*referenced_dictionary, /*update_counts=*/false);
     }
     if (page_size_stats_builder_) {
-      page_size_stats_builder_->WriteValues(*referenced_dictionary);
+      page_size_stats_builder_->AddValues(*referenced_dictionary);
     }
   };
 
@@ -2297,7 +2297,7 @@ Status TypedColumnWriterImpl<ByteArrayType>::WriteArrowDense(
       page_statistics_->IncrementNumValues(non_null);
     }
     if (page_size_stats_builder_ != nullptr) {
-      page_size_stats_builder_->WriteValues(*data_slice);
+      page_size_stats_builder_->AddValues(*data_slice);
     }
     CommitWriteAndCheckPageLimit(batch_size, batch_num_values, batch_size - non_null,
                                  check_page);
