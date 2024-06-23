@@ -62,9 +62,9 @@ TEST(SizeStatistics, WriteBatchLevels) {
       };
 
   write_batch_levels(expected_def_level_histogram,
-                     &SizeStatisticsBuilder::WriteDefinitionLevels);
+                     &SizeStatisticsBuilder::AddDefinitionLevels);
   write_batch_levels(expected_rep_level_histogram,
-                     &SizeStatisticsBuilder::WriteRepetitionLevels);
+                     &SizeStatisticsBuilder::AddRepetitionLevels);
   auto size_statistics = builder->Build();
   EXPECT_EQ(size_statistics->definition_level_histogram(), expected_def_level_histogram);
   EXPECT_EQ(size_statistics->repetition_level_histogram(), expected_rep_level_histogram);
@@ -79,11 +79,11 @@ TEST(SizeStatistics, WriteRepeatedLevels) {
   constexpr int64_t kNumRounds = 10;
   for (int64_t round = 1; round <= kNumRounds; round++) {
     for (int16_t def_level = 0; def_level <= kMaxDefLevel; def_level++) {
-      builder->WriteDefinitionLevel(/*num_levels=*/round + def_level, def_level);
+      builder->AddDefinitionLevel(/*num_levels=*/round + def_level, def_level);
     }
     for (int16_t rep_level = 0; rep_level <= kMaxRepLevel; rep_level++) {
-      builder->WriteRepetitionLevel(/*num_levels=*/round + rep_level * rep_level,
-                                    rep_level);
+      builder->AddRepetitionLevel(/*num_levels=*/round + rep_level * rep_level,
+                                  rep_level);
     }
   }
 
@@ -105,7 +105,7 @@ TEST(SizeStatistics, WriteDenseByteArrayValues) {
   auto builder = SizeStatisticsBuilder::Make(descr.get());
   for (int i = 0; i < kNumValues; i += kBatchSize) {
     auto batch_size = std::min(kBatchSize, kNumValues - i);
-    builder->WriteValues(values.data() + i, batch_size);
+    builder->AddValues(values.data() + i, batch_size);
   }
 
   auto size_statistics = builder->Build();
@@ -134,7 +134,7 @@ TEST(SizeStatistics, WriteSpacedByteArrayValues) {
   auto builder = SizeStatisticsBuilder::Make(descr.get());
   for (int i = 0; i < kNumValues; i += kBatchSize) {
     auto batch_size = std::min(kBatchSize, kNumValues - i);
-    builder->WriteValuesSpaced(values.data() + i, not_null_bitmap->data(), i, batch_size);
+    builder->AddValuesSpaced(values.data() + i, not_null_bitmap->data(), i, batch_size);
   }
 
   auto size_statistics = builder->Build();
@@ -151,7 +151,7 @@ TEST(SizeStatistics, WriteBinaryArray) {
     auto descr = std::make_unique<ColumnDescriptor>(
         schema::ByteArray("a"), /*max_def_level=*/1, /*max_rep_level=*/0);
     auto builder = SizeStatisticsBuilder::Make(descr.get());
-    builder->WriteValues(*array);
+    builder->AddValues(*array);
     auto size_statistics = builder->Build();
     EXPECT_EQ(size_statistics->unencoded_byte_array_data_bytes().value_or(-1), 9);
   }
@@ -174,18 +174,18 @@ TEST(SizeStatistics, MergeStatistics) {
         std::make_unique<ColumnDescriptor>(schema::ByteArray("a"), /*max_def_level=*/3,
                                            /*max_rep_level=*/3)}) {
     auto builder = SizeStatisticsBuilder::Make(descr.get());
-    builder->WriteRepetitionLevels(kNumValues, def_levels.data());
-    builder->WriteDefinitionLevels(kNumValues, rep_levels.data());
+    builder->AddRepetitionLevels(kNumValues, def_levels.data());
+    builder->AddDefinitionLevels(kNumValues, rep_levels.data());
     if (descr->physical_type() == Type::BYTE_ARRAY) {
-      builder->WriteValues(values.data(), kNumValues);
+      builder->AddValues(values.data(), kNumValues);
     }
     auto size_statistics_1 = builder->Build();
 
     builder->Reset();
-    builder->WriteRepetitionLevels(kNumValues, def_levels.data());
-    builder->WriteDefinitionLevels(kNumValues, rep_levels.data());
+    builder->AddRepetitionLevels(kNumValues, def_levels.data());
+    builder->AddDefinitionLevels(kNumValues, rep_levels.data());
     if (descr->physical_type() == Type::BYTE_ARRAY) {
-      builder->WriteValues(values.data(), kNumValues);
+      builder->AddValues(values.data(), kNumValues);
     }
     auto size_statistics_2 = builder->Build();
 
@@ -219,10 +219,10 @@ TEST(SizeStatistics, ThriftSerDe) {
         std::make_unique<ColumnDescriptor>(schema::ByteArray("a"), /*max_def_level=*/3,
                                            /*max_rep_level=*/3)}) {
     auto builder = SizeStatisticsBuilder::Make(descr.get());
-    builder->WriteRepetitionLevels(kNumValues, def_levels.data());
-    builder->WriteDefinitionLevels(kNumValues, rep_levels.data());
+    builder->AddRepetitionLevels(kNumValues, def_levels.data());
+    builder->AddDefinitionLevels(kNumValues, rep_levels.data());
     if (descr->physical_type() == Type::BYTE_ARRAY) {
-      builder->WriteValues(values.data(), kNumValues);
+      builder->AddValues(values.data(), kNumValues);
     }
     auto size_statistics = builder->Build();
     auto thrift_statistics = ToThrift(*size_statistics);
