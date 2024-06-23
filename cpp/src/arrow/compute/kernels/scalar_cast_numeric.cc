@@ -745,18 +745,8 @@ std::shared_ptr<CastFunction> GetCastToFloating(std::string name) {
     DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, out_ty, CastFloatingToFloating));
   }
 
-  if constexpr (OutType::type_id == Type::HALF_FLOAT) {
-    AddCommonCasts(Type::HALF_FLOAT, out_ty, func.get());
-
-    // Cast from other strings to half float.
-    for (const std::shared_ptr<DataType>& in_ty : BaseBinaryTypes()) {
-      auto exec = GenerateVarBinaryBase<CastFunctor, HalfFloatType>(*in_ty);
-      DCHECK_OK(func->AddKernel(in_ty->id(), {in_ty}, out_ty, exec));
-    }
-  } else {
-    // From other numbers to floating point
-    AddCommonNumberCasts<OutType>(out_ty, func.get());
-  }
+  // From other numbers to floating point
+  AddCommonNumberCasts<OutType>(out_ty, func.get());
 
   // From decimal to {float, double}
   if constexpr (OutType::type_id != Type::HALF_FLOAT) {

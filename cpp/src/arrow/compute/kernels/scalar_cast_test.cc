@@ -181,6 +181,8 @@ TEST(Cast, CanCast) {
 
   ExpectCanCast(boolean(), {boolean()});
   ExpectCanCast(boolean(), kNumericTypes);
+  // XXX: float16() is not part of kNumericTypes
+  ExpectCanCast(boolean(), {float16()});
   ExpectCanCast(boolean(), {utf8(), large_utf8()});
   ExpectCanCast(dictionary(int32(), boolean()), {boolean()});
 
@@ -2766,12 +2768,12 @@ static void CheckStructToStructSubsetWithNulls(
   }
 }
 
-TEST(Cast, StructToSameSizedAndNamedStruct) { CheckStructToStruct(NumericTypes()); }
+TEST(Cast, StructToSameSizedAndNamedStruct) { CheckStructToStruct(kNumericTypes); }
 
-TEST(Cast, StructToStructSubset) { CheckStructToStructSubset(NumericTypes()); }
+TEST(Cast, StructToStructSubset) { CheckStructToStructSubset(kNumericTypes); }
 
 TEST(Cast, StructToStructSubsetWithNulls) {
-  CheckStructToStructSubsetWithNulls(NumericTypes());
+  CheckStructToStructSubsetWithNulls(kNumericTypes);
 }
 
 TEST(Cast, StructToSameSizedButDifferentNamedStruct) {
