@@ -319,15 +319,6 @@ struct CastFunctor<
   }
 };
 
-template <>
-struct CastFunctor<HalfFloatType, StringType, enable_if_t<true>> {
-  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    return applicator::ScalarUnaryNotNull<HalfFloatType, StringType,
-                                          ParseString<HalfFloatType>>::Exec(ctx, batch,
-                                                                            out);
-  }
-};
-
 // ----------------------------------------------------------------------
 // Decimal to integer
 
