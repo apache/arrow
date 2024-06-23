@@ -40,6 +40,8 @@ import Cython
 # Check if we're running 64-bit Python
 is_64_bit = sys.maxsize > 2**32
 
+# We can't use sys.platform in a cross-compiling situation
+# as here it may be set to the host not target platform
 is_emscripten = (
     sysconfig.get_config_var("SOABI")
     and sysconfig.get_config_var("SOABI").find("emscripten") != -1
