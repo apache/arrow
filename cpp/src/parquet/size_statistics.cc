@@ -216,36 +216,36 @@ class SizeStatisticsBuilder::SizeStatisticsBuilderImpl {
   std::optional<int64_t> unencoded_byte_array_data_bytes_;
 };
 
-void SizeStatisticsBuilder::WriteRepetitionLevels(int64_t num_levels,
-                                                  const int16_t* rep_levels) {
+void SizeStatisticsBuilder::AddRepetitionLevels(int64_t num_levels,
+                                                const int16_t* rep_levels) {
   impl_->WriteRepetitionLevels(num_levels, rep_levels);
 }
 
-void SizeStatisticsBuilder::WriteDefinitionLevels(int64_t num_levels,
-                                                  const int16_t* def_levels) {
+void SizeStatisticsBuilder::AddDefinitionLevels(int64_t num_levels,
+                                                const int16_t* def_levels) {
   impl_->WriteDefinitionLevels(num_levels, def_levels);
 }
 
-void SizeStatisticsBuilder::WriteRepetitionLevel(int64_t num_levels, int16_t rep_level) {
+void SizeStatisticsBuilder::AddRepetitionLevel(int64_t num_levels, int16_t rep_level) {
   impl_->WriteRepetitionLevel(num_levels, rep_level);
 }
 
-void SizeStatisticsBuilder::WriteDefinitionLevel(int64_t num_levels, int16_t def_level) {
+void SizeStatisticsBuilder::AddDefinitionLevel(int64_t num_levels, int16_t def_level) {
   impl_->WriteDefinitionLevel(num_levels, def_level);
 }
 
-void SizeStatisticsBuilder::WriteValuesSpaced(const ByteArray* values,
-                                              const uint8_t* valid_bits,
-                                              int64_t valid_bits_offset,
-                                              int64_t num_spaced_values) {
+void SizeStatisticsBuilder::AddValuesSpaced(const ByteArray* values,
+                                            const uint8_t* valid_bits,
+                                            int64_t valid_bits_offset,
+                                            int64_t num_spaced_values) {
   impl_->WriteValuesSpaced(values, valid_bits, valid_bits_offset, num_spaced_values);
 }
 
-void SizeStatisticsBuilder::WriteValues(const ByteArray* values, int64_t num_values) {
+void SizeStatisticsBuilder::AddValues(const ByteArray* values, int64_t num_values) {
   impl_->WriteValues(values, num_values);
 }
 
-void SizeStatisticsBuilder::WriteValues(const ::arrow::Array& values) {
+void SizeStatisticsBuilder::AddValues(const ::arrow::Array& values) {
   impl_->WriteValues(values);
 }
 

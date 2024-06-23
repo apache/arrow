@@ -37,6 +37,10 @@ class ColumnDescriptor;
 class PARQUET_EXPORT SizeStatistics {
  public:
   /// \brief API convenience to get a SizeStatistics accessor
+  ///
+  /// \param size_statistics pointer to the thrift SizeStatistics structure.
+  /// \param descr column descriptor for the column.
+  /// \returns SizeStatistics object. Its lifetime is not bound to the input.
   static std::unique_ptr<SizeStatistics> Make(const void* size_statistics,
                                               const ColumnDescriptor* descr);
 
@@ -107,38 +111,38 @@ class PARQUET_EXPORT SizeStatisticsBuilder {
   /// \brief Add repetition levels to the histogram.
   /// \param num_levels number of repetition levels to add.
   /// \param rep_levels repetition levels to add.
-  void WriteRepetitionLevels(int64_t num_levels, const int16_t* rep_levels);
+  void AddRepetitionLevels(int64_t num_levels, const int16_t* rep_levels);
 
   /// \brief Add definition levels to the histogram.
   /// \param num_levels number of definition levels to add.
   /// \param def_levels definition levels to add.
-  void WriteDefinitionLevels(int64_t num_levels, const int16_t* def_levels);
+  void AddDefinitionLevels(int64_t num_levels, const int16_t* def_levels);
 
   /// \brief Add repeated repetition level to the histogram.
   /// \param num_levels number of repetition levels to add.
   /// \param rep_level repeated repetition level value.
-  void WriteRepetitionLevel(int64_t num_levels, int16_t rep_level);
+  void AddRepetitionLevel(int64_t num_levels, int16_t rep_level);
 
   /// \brief Add repeated definition level to the histogram.
   /// \param num_levels number of definition levels to add.
   /// \param def_level repeated definition level value.
-  void WriteDefinitionLevel(int64_t num_levels, int16_t def_level);
+  void AddDefinitionLevel(int64_t num_levels, int16_t def_level);
 
   /// \brief Add spaced BYTE_ARRAY values.
   /// \param[in] values pointer to values of BYTE_ARRAY type.
   /// \param[in] valid_bits pointer to bitmap representing if values are non-null.
   /// \param[in] valid_bits_offset offset into valid_bits where the slice of data begins.
   /// \param[in] num_spaced_values length of values in values/valid_bits to inspect.
-  void WriteValuesSpaced(const ByteArray* values, const uint8_t* valid_bits,
-                         int64_t valid_bits_offset, int64_t num_spaced_values);
+  void AddValuesSpaced(const ByteArray* values, const uint8_t* valid_bits,
+                       int64_t valid_bits_offset, int64_t num_spaced_values);
 
   /// \brief Add dense BYTE_ARRAY values.
   /// \param values pointer to values of BYTE_ARRAY type.
   /// \param num_values  length of values.
-  void WriteValues(const ByteArray* values, int64_t num_values);
+  void AddValues(const ByteArray* values, int64_t num_values);
 
   /// \brief Add BYTE_ARRAY values in the arrow array.
-  void WriteValues(const ::arrow::Array& values);
+  void AddValues(const ::arrow::Array& values);
 
   /// \brief Build a SizeStatistics from collected data.
   std::unique_ptr<SizeStatistics> Build();
@@ -148,7 +152,7 @@ class PARQUET_EXPORT SizeStatisticsBuilder {
 
  private:
   // PIMPL Idiom
-  SizeStatisticsBuilder(const ColumnDescriptor* descr);
+  explicit SizeStatisticsBuilder(const ColumnDescriptor* descr);
   class SizeStatisticsBuilderImpl;
   std::unique_ptr<SizeStatisticsBuilderImpl> impl_;
 };
