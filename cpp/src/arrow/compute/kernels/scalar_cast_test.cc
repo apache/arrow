@@ -191,6 +191,8 @@ TEST(Cast, CanCast) {
 
   for (auto from_numeric : kNumericTypes) {
     ExpectCanCast(from_numeric, {boolean()});
+    // XXX: float16() is not part of kNumericTypes
+    ExpectCanCast(float16(), {boolean()});
     ExpectCanCast(from_numeric, kNumericTypes);
     ExpectCanCast(from_numeric, {utf8(), large_utf8()});
     ExpectCanCast(dictionary(int32(), from_numeric), {from_numeric});
@@ -201,6 +203,8 @@ TEST(Cast, CanCast) {
   for (auto from_base_binary : kBaseBinaryTypes) {
     ExpectCanCast(from_base_binary, {boolean()});
     ExpectCanCast(from_base_binary, kNumericTypes);
+    // XXX: float16() is not part of kNumericTypes
+    ExpectCanCast(from_base_binary, {float16()});
     ExpectCanCast(from_base_binary, kBaseBinaryTypes);
     ExpectCanCast(dictionary(int64(), from_base_binary), {from_base_binary});
 

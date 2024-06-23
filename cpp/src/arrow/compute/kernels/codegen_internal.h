@@ -959,6 +959,10 @@ KernelType GenerateNumeric(detail::GetTypeId get_id) {
       return Generator<Type0, FloatType, Args...>::Exec;
     case Type::DOUBLE:
       return Generator<Type0, DoubleType, Args...>::Exec;
+    case Type::HALF_FLOAT:
+      // NOTE: Type::HALF_FLOAT used to not be part of the list of numeric types,
+      // so users of this template might start failing to compiler after Arrow 17.x.
+      return Generator<Type0, HalfFloatType, Args...>::Exec;
     default:
       DCHECK(false);
       return FailFunctor<KernelType>::Exec;
@@ -975,6 +979,10 @@ ArrayKernelExec GenerateFloatingPoint(detail::GetTypeId get_id) {
       return Generator<Type0, FloatType, Args...>::Exec;
     case Type::DOUBLE:
       return Generator<Type0, DoubleType, Args...>::Exec;
+    case Type::HALF_FLOAT:
+      // NOTE: Type::HALF_FLOAT used to not be part of the list of numeric types,
+      // so users of this template might start failing to compiler after Arrow 17.x.
+      return Generator<Type0, HalfFloatType, Args...>::Exec;
     default:
       DCHECK(false);
       return nullptr;
