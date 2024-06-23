@@ -201,10 +201,12 @@ TEST(Cast, CanCast) {
     ExpectCannotCast(from_numeric, {null()});
   }
 
-  for (auto from_base_binary : kBaseBinaryTypes) {
+  for (auto from_base_binary : kBaseBinaryAndViewTypes) {
     ExpectCanCast(from_base_binary, {boolean()});
     ExpectCanCast(from_base_binary, kNumericTypes);
     ExpectCanCast(from_base_binary, kBaseBinaryTypes);
+    // XXX: add float16 to kNumericTypes
+    ExpectCanCast(from_base_binary, {float16()});
     ExpectCanCast(dictionary(int64(), from_base_binary), {from_base_binary});
 
     // any cast which is valid for the dictionary is valid for the DictionaryArray
@@ -212,21 +214,6 @@ TEST(Cast, CanCast) {
     ExpectCanCast(dictionary(int16(), from_base_binary), kNumericTypes);
 
     ExpectCannotCast(from_base_binary, {null()});
-  }
-  // XXX: include utf8_view() on the list above once all of these pass
-  for (auto view_ty : {utf8_view(), binary_view()}) {
-    ExpectCanCast(view_ty, {boolean()});
-    ExpectCanCast(view_ty, kNumericTypes);
-    ExpectCanCast(view_ty, kBaseBinaryTypes);
-    // XXX: add float16 to kNumericTypes
-    ExpectCanCast(view_ty, {float16()});
-    ExpectCanCast(dictionary(int64(), view_ty), {view_ty});
-
-    // any cast which is valid for the dictionary is valid for the DictionaryArray
-    ExpectCanCast(dictionary(uint32(), view_ty), kBaseBinaryTypes);
-    ExpectCanCast(dictionary(int16(), view_ty), kNumericTypes);
-
-    ExpectCannotCast(view_ty, {null()});
   }
 
   ExpectCanCast(utf8(), {timestamp(TimeUnit::MILLI), date32(), date64()});
