@@ -16,10 +16,13 @@
 # under the License.
 
 import pytest
+
+import os
 import pyarrow as pa
 from pyarrow import Codec
 from pyarrow import fs
 from pyarrow.lib import is_threading_enabled
+from pyarrow.tests.util import windows_has_tzdata
 import sys
 
 import numpy as np
@@ -55,6 +58,7 @@ groups = [
     'sockets',
     'substrait',
     'threading',
+    'timezone_data'
     'zstd',
 ]
 
@@ -89,6 +93,7 @@ defaults = {
     'sockets': True,
     'substrait': False,
     'threading': is_threading_enabled(),
+    'timezone_data': True,
     'zstd': Codec.is_available('zstd'),
 }
 
@@ -99,6 +104,11 @@ if sys.platform == "emscripten":
     defaults['gdb'] = False
     defaults['processes'] = False
     defaults['sockets'] = False
+
+if sys.platform == "win32":
+    defaults['timezone_data'] = windows_has_tzdata()
+elif sys.platform == "emscripten":
+    defaults['timezone_data'] = os.path.exists("/usr/share/zoneinfo")
 
 try:
     import cython  # noqa
