@@ -697,8 +697,11 @@ class OffsetIndexBuilderImpl final : public OffsetIndexBuilder {
             offset_index_.unencoded_byte_array_data_bytes.size()) {
           offset_index_.__isset.unencoded_byte_array_data_bytes = true;
         } else {
-          /// Discard unencoded_byte_array_data_bytes if its size is abnormal.
-          offset_index_.unencoded_byte_array_data_bytes.clear();
+          std::stringstream ss;
+          ss << "Invalid count of unencoded BYTE_ARRAY data bytes: "
+             << offset_index_.unencoded_byte_array_data_bytes.size()
+             << ", expected page count: " << offset_index_.page_locations.size();
+          throw ParquetException(ss.str());
         }
 
         state_ = BuilderState::kFinished;
