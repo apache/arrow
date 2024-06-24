@@ -397,9 +397,9 @@ inline uint64_t Compare8_64bit_avx2(const uint8_t* left_base, const uint8_t* rig
   }
   auto right_base_i64 =
       reinterpret_cast<const arrow::util::int64_for_gather_t*>(right_base);
-  __m256i right_lo = UnsignedOffsetSafeGather64Scale1(
-      right_base_i64, _mm256_castsi256_si128(offset_right));
-  __m256i right_hi = UnsignedOffsetSafeGather64Scale1(
+  __m256i right_lo =
+      UnsignedOffsetSafeGather64<1>(right_base_i64, _mm256_castsi256_si128(offset_right));
+  __m256i right_hi = UnsignedOffsetSafeGather64<1>(
       right_base_i64, _mm256_extracti128_si256(offset_right, 1));
   uint32_t result_lo = _mm256_movemask_epi8(_mm256_cmpeq_epi64(left_lo, right_lo));
   uint32_t result_hi = _mm256_movemask_epi8(_mm256_cmpeq_epi64(left_hi, right_hi));
