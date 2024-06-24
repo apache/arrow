@@ -97,6 +97,7 @@ struct ListParentIndicesArray {
     ARROW_ASSIGN_OR_RAISE(auto indices_validity,
                           AllocateEmptyBitmap(values_length, ctx->memory_pool()));
     auto* out_indices_validity = indices_validity->mutable_data();
+    int64_t total_pop_count = 0;
 
     ARROW_ASSIGN_OR_RAISE(auto indices, ctx->Allocate(values_length * sizeof(int64_t)));
     auto* out_indices = indices->template mutable_data_as<int64_t>();
@@ -105,18 +106,19 @@ struct ListParentIndicesArray {
     const auto* validity = list_view.GetValues<uint8_t>(0, 0);
     RETURN_NOT_OK(arrow::internal::VisitSetBitRuns(
         validity, list_view.offset, list_view.length,
-        [this, offsets, sizes, out_indices, out_indices_validity, values_offset](
-            int64_t run_start, int64_t run_length) {
+        [this, offsets, sizes, out_indices, out_indices_validity, values_offset,
+         &total_pop_count](int64_t run_start, int64_t run_length) {
           for (int64_t i = run_start; i < run_start + run_length; ++i) {
+            auto validity_offset = offsets[i] - values_offset;
             const int64_t pop_count =
-                CountSetBits(out_indices_validity, offsets[i] - values_offset, sizes[i]);
+                CountSetBits(out_indices_validity, validity_offset, sizes[i]);
             if (ARROW_PREDICT_FALSE(pop_count > 0)) {
               return Status::Invalid(
                   "Function 'list_parent_indices' cannot produce parent indices for "
                   "values used by more than one list-view array element.");
             }
-            bit_util::SetBitmap(out_indices_validity, offsets[i] - values_offset,
-                                sizes[i]);
+            bit_util::SetBitmap(out_indices_validity, validity_offset, sizes[i]);
+            total_pop_count += sizes[i];
             for (auto j = static_cast<int64_t>(offsets[i]);
                  j < static_cast<int64_t>(offsets[i]) + sizes[i]; ++j) {
               out_indices[j - values_offset] = i + base_output_offset;
@@ -125,8 +127,8 @@ struct ListParentIndicesArray {
           return Status::OK();
         }));
 
-    const int64_t null_count =
-        values_length - CountSetBits(out_indices_validity, 0, values_length);
+    DCHECK_LE(total_pop_count, values_length);
+    const int64_t null_count = values_length - total_pop_count;
     BufferVector buffers{null_count > 0 ? std::move(indices_validity) : nullptr,
                          std::move(indices)};
     out = std::make_shared<ArrayData>(int64(), values_length, std::move(buffers),
