@@ -519,7 +519,7 @@ class ColumnIndexBuilderImpl final : public ColumnIndexBuilder {
       column_index_.null_counts.clear();
     }
 
-    if (size_stats) {
+    if (size_stats != nullptr) {
       const auto& page_ref_level_hist = size_stats->repetition_level_histogram();
       const auto& page_def_level_hist = size_stats->definition_level_histogram();
       column_index_.repetition_level_histograms.insert(
@@ -696,7 +696,7 @@ class OffsetIndexBuilderImpl final : public OffsetIndexBuilder {
         if (offset_index_.page_locations.size() ==
             offset_index_.unencoded_byte_array_data_bytes.size()) {
           offset_index_.__isset.unencoded_byte_array_data_bytes = true;
-        } else {
+        } else if (!offset_index_.unencoded_byte_array_data_bytes.empty()) {
           std::stringstream ss;
           ss << "Invalid count of unencoded BYTE_ARRAY data bytes: "
              << offset_index_.unencoded_byte_array_data_bytes.size()

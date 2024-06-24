@@ -1239,7 +1239,8 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
         properties->data_page_version() == ParquetDataPageVersion::V2 ||
         properties->page_index_enabled(descr_->path());
 
-    if (properties->size_statistics_level() != SizeStatisticsLevel::NONE) {
+    if (properties->size_statistics_level() == SizeStatisticsLevel::CHUNK ||
+        properties->size_statistics_level() == SizeStatisticsLevel::PAGE) {
       page_size_stats_builder_ = SizeStatisticsBuilder::Make(descr_);
       chunk_size_stats_ = page_size_stats_builder_->Build();
     }
