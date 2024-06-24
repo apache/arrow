@@ -113,7 +113,7 @@ std::unique_ptr<SizeStatistics> SizeStatistics::Make(const void* size_statistics
 
 class SizeStatisticsBuilder::SizeStatisticsBuilderImpl {
  public:
-  SizeStatisticsBuilderImpl(const ColumnDescriptor* descr)
+  explicit SizeStatisticsBuilderImpl(const ColumnDescriptor* descr)
       : rep_level_histogram_(descr->max_repetition_level() + 1, 0),
         def_level_histogram_(descr->max_definition_level() + 1, 0) {
     if (descr->physical_type() == Type::BYTE_ARRAY) {
@@ -178,6 +178,7 @@ class SizeStatisticsBuilder::SizeStatisticsBuilderImpl {
       ::arrow::VisitArraySpanInline<::arrow::LargeBinaryType>(
           *values.data(), std::move(valid_func), std::move(null_func));
     } else {
+      // TODO: support StringViewType and BinaryViewType
       throw ParquetException("Unsupported type: " + values.type()->ToString());
     }
 
