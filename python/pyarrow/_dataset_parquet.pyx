@@ -514,6 +514,10 @@ cdef class ParquetReadOptions(_Weakrefable):
         resolution (e.g. 'ms'). Setting to None is equivalent to 'ns'
         and therefore INT96 timestamps will be inferred as timestamps
         in nanoseconds
+    convert_unknown_logical_types : bool, default false
+        When enabled, the Arrow reader will use the underlying physical type
+        of a logical type that it does not recognize (e.g., one that was added
+        to the spec but not implemented in Parquet C++).
     """
 
     cdef public:
