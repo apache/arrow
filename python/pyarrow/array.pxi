@@ -1233,7 +1233,6 @@ cdef class Array(_PandasConvertible):
             yield self.getitem(i)
 
     def __repr__(self):
-        self._assert_cpu()
         type_format = object.__repr__(self)
         return '{0}\n{1}'.format(type_format, str(self))
 
@@ -1320,7 +1319,7 @@ cdef class Array(_PandasConvertible):
         bool
         """
         self._assert_cpu()
-        self.other._assert_cpu()
+        other._assert_cpu()
         return self.ap.Equals(deref(other.ap))
 
     def __len__(self):
@@ -1424,8 +1423,6 @@ cdef class Array(_PandasConvertible):
         -------
         sliced : RecordBatch
         """
-        self._assert_cpu()
-
         cdef shared_ptr[CArray] result
 
         if offset < 0:
@@ -1937,8 +1934,8 @@ cdef class Array(_PandasConvertible):
         """
         return self.device_type == DeviceAllocationType.CPU
 
-    def _assert_cpu(self):
-        if not self.is_cpu:
+    cdef _assert_cpu(self) except -1:
+        if self.sp_array.get().device_type() != CDeviceAllocationType_kCPU:
             raise NotImplementedError("Implemented only for data on CPU device")
 
 

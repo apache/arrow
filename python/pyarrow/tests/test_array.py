@@ -4034,6 +4034,16 @@ def test_non_cpu_array():
     assert arr.buffers() == [None, cuda_data_buf]
     assert arr.device_type == pa.DeviceAllocationType.CUDA
     assert arr.is_cpu is False
+    assert len(arr) == 4
+    assert arr.slice(2, 2) == pa.RecordBatch.from_arrays([
+        ctx.buffer_from_data(data[2:])
+    ])
+
+    # TODO support DLPack for CUDA
+    with pytest.raises(NotImplementedError):
+        arr.__dlpack__()
+    with pytest.raises(NotImplementedError):
+        arr.__dlpack_device__()
 
     # Not Supported
     with pytest.raises(NotImplementedError):
@@ -4073,11 +4083,7 @@ def test_non_cpu_array():
     with pytest.raises(NotImplementedError):
         arr.fill_null(0)
     with pytest.raises(NotImplementedError):
-        arr.__getitem__(0)
-    with pytest.raises(NotImplementedError):
-        arr.getitem(0)
-    with pytest.raises(NotImplementedError):
-        arr.slice()
+        arr[0]
     with pytest.raises(NotImplementedError):
         arr.take([0])
     with pytest.raises(NotImplementedError):
@@ -4094,7 +4100,3 @@ def test_non_cpu_array():
         arr.to_numpy()
     with pytest.raises(NotImplementedError):
         arr.to_list()
-    with pytest.raises(NotImplementedError):
-        arr.__dlpack__()
-    with pytest.raises(NotImplementedError):
-        arr.__dlpack_device__()
