@@ -4030,7 +4030,7 @@ def test_non_cpu_array():
     # Supported
     arr.validate()
     arr.validate(full=True)
-    assert arr.offset() == 0
+    assert arr.offset == 0
     assert arr.buffers() == [None, cuda_data_buf]
     assert arr.device_type == pa.DeviceAllocationType.CUDA
     assert arr.is_cpu is False
