@@ -1214,7 +1214,7 @@ public class TestMapVector {
     Field keyField = new Field("myKey", keyType, null);
     Field valueField = new Field("myValue", valueType, null);
 
-    List<Field> structFields = new ArrayList<>();
+    List<Field> structFields = new ArrayList<>(2);
     structFields.add(keyField);
     structFields.add(valueField);
 
