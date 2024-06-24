@@ -155,6 +155,7 @@ class RecordBatchSerializer {
     }
 
     if (arr.offset() != 0 && arr.device_type() != DeviceAllocationType::kCPU) {
+      // https://github.com/apache/arrow/issues/43029
       return Status::NotImplemented("Cannot compute null count for non-cpu sliced array");
     }
 
