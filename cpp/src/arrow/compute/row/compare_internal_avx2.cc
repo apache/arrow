@@ -261,7 +261,6 @@ namespace {
 /// `0x80000000` lower. This way, the offset is always in range of [-2G, 2G) and those
 /// intrinsics are safe.
 
-
 constexpr auto two_gb = 0x80000000ull;
 
 inline __m256i UnsignedOffsetSafeGather32Scale1(int const* base, __m256i offset) {
@@ -270,8 +269,8 @@ inline __m256i UnsignedOffsetSafeGather32Scale1(int const* base, __m256i offset)
   return _mm256_i32gather_epi32(normalized_base, normalized_offset, 1);
 }
 
-inline __m256i UnsignedOffsetSafeGather64Scale1(arrow::util::int64_for_gather_t const* base,
-                                          __m128i offset) {
+inline __m256i UnsignedOffsetSafeGather64Scale1(
+    arrow::util::int64_for_gather_t const* base, __m128i offset) {
   auto normalized_base = base + two_gb / sizeof(arrow::util::int64_for_gather_t);
   __m128i normalized_offset = _mm_sub_epi32(offset, _mm_set1_epi32(two_gb));
   return _mm256_i32gather_epi64(normalized_base, normalized_offset, 1);
@@ -394,8 +393,8 @@ inline uint64_t Compare8_64bit_avx2(const uint8_t* left_base, const uint8_t* rig
   }
   auto right_base_i64 =
       reinterpret_cast<const arrow::util::int64_for_gather_t*>(right_base);
-  __m256i right_lo =
-      UnsignedOffsetSafeGather64Scale1(right_base_i64, _mm256_castsi256_si128(offset_right));
+  __m256i right_lo = UnsignedOffsetSafeGather64Scale1(
+      right_base_i64, _mm256_castsi256_si128(offset_right));
   __m256i right_hi = UnsignedOffsetSafeGather64Scale1(
       right_base_i64, _mm256_extracti128_si256(offset_right, 1));
   uint32_t result_lo = _mm256_movemask_epi8(_mm256_cmpeq_epi64(left_lo, right_lo));
