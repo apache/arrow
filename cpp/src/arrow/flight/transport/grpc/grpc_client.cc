@@ -50,7 +50,6 @@
 #include "arrow/flight/client_middleware.h"
 #include "arrow/flight/cookie_internal.h"
 #include "arrow/flight/middleware.h"
-#include "arrow/flight/otel_logging_internal.h"
 #include "arrow/flight/serialization_internal.h"
 #include "arrow/flight/transport.h"
 #include "arrow/flight/transport/grpc/serialization_internal.h"
@@ -929,7 +928,6 @@ class GrpcClientImpl : public internal::ClientTransport {
   Status GetFlightInfo(const FlightCallOptions& options,
                        const FlightDescriptor& descriptor,
                        std::unique_ptr<FlightInfo>* info) override {
-    ARROW_FLIGHT_OTELLOG_CLIENT(INFO, "[Example message] func=", __func__);
     pb::FlightDescriptor pb_descriptor;
     pb::FlightInfo pb_response;
 

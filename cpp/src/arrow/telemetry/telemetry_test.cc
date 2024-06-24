@@ -22,6 +22,7 @@
 #include "arrow/telemetry/util_internal.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/tracing_internal.h"
 
@@ -35,11 +36,20 @@
 namespace arrow {
 namespace telemetry {
 
+static constexpr char kLoggingEnvVar[] = "ARROW_LOGGING_BACKEND";
+
 class OtelEnvironment : public ::testing::Environment {
  public:
   static constexpr std::string_view kLoggerName = "arrow-telemetry-test";
 
   void SetUp() override {
+    auto maybe_env_var = arrow::internal::GetEnvVar(kLoggingEnvVar);
+    // The env variable is required to be set to obtain a valid logger, so if it hasn't
+    // been set in the environment then we do that here.
+    if (maybe_env_var.status().IsKeyError()) {
+      ASSERT_OK(arrow::internal::SetEnvVar(kLoggingEnvVar, "arrow_otlp_stderr"));
+    }
+
     // Implicitly sets up span processors + tracer provider
     auto tracer = arrow::internal::tracing::GetTracer();
     ARROW_UNUSED(tracer);
