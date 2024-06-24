@@ -265,17 +265,19 @@ namespace {
 
 constexpr auto two_gb = 0x80000000ull;
 
-inline __m256i UnsignedOffsetSafeGather32Scale1(int const* base, __m256i offset) {
+template <int scale>
+inline __m256i UnsignedOffsetSafeGather32(int const* base, __m256i offset) {
   auto normalized_base = base + two_gb / sizeof(int);
-  __m256i normalized_offset = _mm256_sub_epi32(offset, _mm256_set1_epi32(two_gb));
-  return _mm256_i32gather_epi32(normalized_base, normalized_offset, 1);
+  __m256i normalized_offset = _mm256_sub_epi32(offset, _mm256_set1_epi32(two_gb / scale));
+  return _mm256_i32gather_epi32(normalized_base, normalized_offset, scale);
 }
 
-inline __m256i UnsignedOffsetSafeGather64Scale1(
-    arrow::util::int64_for_gather_t const* base, __m128i offset) {
+template <int scale>
+inline __m256i UnsignedOffsetSafeGather64(arrow::util::int64_for_gather_t const* base,
+                                          __m128i offset) {
   auto normalized_base = base + two_gb / sizeof(arrow::util::int64_for_gather_t);
-  __m128i normalized_offset = _mm_sub_epi32(offset, _mm_set1_epi32(two_gb));
-  return _mm256_i32gather_epi64(normalized_base, normalized_offset, 1);
+  __m128i normalized_offset = _mm_sub_epi32(offset, _mm_set1_epi32(two_gb / scale));
+  return _mm256_i32gather_epi64(normalized_base, normalized_offset, scale);
 }
 
 }  // namespace
@@ -310,7 +312,7 @@ inline uint64_t CompareSelected8_avx2(const uint8_t* left_base, const uint8_t* r
       ARROW_DCHECK(false);
   }
 
-  __m256i right = UnsignedOffsetSafeGather32Scale1((int const*)right_base, offset_right);
+  __m256i right = UnsignedOffsetSafeGather32<1>((int const*)right_base, offset_right);
   if (column_width != sizeof(uint32_t)) {
     constexpr uint32_t mask = column_width == 0 || column_width == 1 ? 0xff : 0xffff;
     right = _mm256_and_si256(right, _mm256_set1_epi32(mask));
@@ -359,7 +361,7 @@ inline uint64_t Compare8_avx2(const uint8_t* left_base, const uint8_t* right_bas
       ARROW_DCHECK(false);
   }
 
-  __m256i right = UnsignedOffsetSafeGather32Scale1((int const*)right_base, offset_right);
+  __m256i right = UnsignedOffsetSafeGather32<1>((int const*)right_base, offset_right);
   if (column_width != sizeof(uint32_t)) {
     constexpr uint32_t mask = column_width == 0 || column_width == 1 ? 0xff : 0xffff;
     right = _mm256_and_si256(right, _mm256_set1_epi32(mask));
