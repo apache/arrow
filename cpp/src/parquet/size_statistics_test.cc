@@ -23,6 +23,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/buffer.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/bit_util.h"
 #include "parquet/schema.h"
@@ -32,14 +33,13 @@
 
 namespace parquet {
 
-using namespace parquet::schema;
-
 TEST(SizeStatistics, WriteBatchLevels) {
   std::vector<int64_t> expected_def_level_histogram = {256, 128, 64, 32, 16, 8, 4, 2, 2};
   std::vector<int64_t> expected_rep_level_histogram = {256, 128, 64, 32, 32};
   constexpr int16_t kMaxDefLevel = 8;
   constexpr int16_t kMaxRefLevel = 4;
-  auto descr = std::make_unique<ColumnDescriptor>(Int32("a"), kMaxDefLevel, kMaxRefLevel);
+  auto descr =
+      std::make_unique<ColumnDescriptor>(schema::Int32("a"), kMaxDefLevel, kMaxRefLevel);
   auto builder = SizeStatisticsBuilder::Make(descr.get());
 
   auto write_batch_levels =
@@ -73,7 +73,8 @@ TEST(SizeStatistics, WriteBatchLevels) {
 TEST(SizeStatistics, WriteRepeatedLevels) {
   constexpr int16_t kMaxDefLevel = 2;
   constexpr int16_t kMaxRepLevel = 3;
-  auto descr = std::make_unique<ColumnDescriptor>(Int32("a"), kMaxDefLevel, kMaxRepLevel);
+  auto descr =
+      std::make_unique<ColumnDescriptor>(schema::Int32("a"), kMaxDefLevel, kMaxRepLevel);
   auto builder = SizeStatisticsBuilder::Make(descr.get());
 
   constexpr int64_t kNumRounds = 10;
