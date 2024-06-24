@@ -1934,7 +1934,7 @@ cdef class Array(_PandasConvertible):
         """
         return self.device_type == DeviceAllocationType.CPU
 
-    cdef _assert_cpu(self) except -1:
+    cdef void _assert_cpu(self) except *:
         if self.sp_array.get().device_type() != CDeviceAllocationType_kCPU:
             raise NotImplementedError("Implemented only for data on CPU device")
 
