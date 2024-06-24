@@ -201,7 +201,9 @@ func (d *Data) SizeInBytes() uint64 {
 	}
 
 	for _, b := range d.Buffers() {
-		size += uint64(b.Len())
+		if b != nil {
+			size += uint64(b.Len())
+		}
 	}
 	for _, c := range d.Children() {
 		size += c.SizeInBytes()

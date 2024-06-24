@@ -41,7 +41,7 @@ import java.nio.ByteOrder;
  */
 @SuppressWarnings("unused")
 public final class LargeListView extends Table {
-  public static void ValidateVersion() { Constants.FLATBUFFERS_23_5_26(); }
+  public static void ValidateVersion() { Constants.FLATBUFFERS_24_3_25(); }
   public static LargeListView getRootAsLargeListView(ByteBuffer _bb) { return getRootAsLargeListView(_bb, new LargeListView()); }
   public static LargeListView getRootAsLargeListView(ByteBuffer _bb, LargeListView obj) { _bb.order(ByteOrder.LITTLE_ENDIAN); return (obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb)); }
   public void __init(int _i, ByteBuffer _bb) { __reset(_i, _bb); }

@@ -96,7 +96,7 @@ under the License.
     <dep.protobuf-bom.version>3.25.1</dep.protobuf-bom.version>
     <dep.jackson-bom.version>2.17.1</dep.jackson-bom.version>
     <dep.hadoop.version>3.4.0</dep.hadoop.version>
-    <dep.fbs.version>23.5.26</dep.fbs.version>
+    <dep.fbs.version>24.3.25</dep.fbs.version>
     <dep.avro.version>1.11.3</dep.avro.version>
     <arrow.vector.classifier></arrow.vector.classifier>
     <forkCount>2</forkCount>
@@ -262,22 +262,9 @@ under the License.
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.junit.vintage</groupId>
-      <artifactId>junit-vintage-engine</artifactId>
-      <version>${dep.junit.jupiter.version}</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter-params</artifactId>
       <version>${dep.junit.jupiter.version}</version>
-      <scope>test</scope>
-    </dependency>
-    <!-- Use to keep older tests running -->
-    <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <version>4.13.2</version>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -531,7 +518,7 @@ under the License.
         <plugin>
           <groupId>org.cyclonedx</groupId>
           <artifactId>cyclonedx-maven-plugin</artifactId>
-          <version>2.7.11</version>
+          <version>2.8.0</version>
         </plugin>
         <plugin>
           <groupId>org.apache.drill.tools</groupId>
@@ -659,6 +646,9 @@ under the License.
                     <!-- Do not include annotation processors. Use the annotations-only artifacts -->
                     <exclude>org.immutables:value</exclude>
                     <exclude>org.checkerframework:checker</exclude>
+                    <!-- Exclude all JUnit 4 dependencies -->
+                    <exclude>junit:junit:4.*</exclude>
+                    <exclude>org.junit.vintage:junit-vintage-engine</exclude>
                   </excludes>
                 </bannedDependencies>
               </rules>
