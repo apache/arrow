@@ -181,7 +181,7 @@ TEST(KeyCompare, CompareColumnsToRowsLarge) {
   // number of rows.
   constexpr int64_t num_rows = std::numeric_limits<uint16_t>::max() + 1;
   const std::vector<std::shared_ptr<DataType>> fixed_length_types{uint64(), uint32()};
-  // The var length column should be a little smaller than 2GB to WAR the capacity
+  // The var length column should be a little smaller than 2GB to workaround the capacity
   // limitation in the var length builder.
   constexpr int32_t var_length = two_gb / num_rows - 1;
   auto row_size = std::accumulate(fixed_length_types.begin(), fixed_length_types.end(),
@@ -231,7 +231,8 @@ TEST(KeyCompare, CompareColumnsToRowsLarge) {
   ASSERT_OK(row_encoder.EncodeSelected(&row_table, static_cast<uint32_t>(num_rows),
                                        row_ids_right.data()));
 
-  ASSERT_TRUE(row_table.offsets());
+  // The row table must contain an offset buffer.
+  ASSERT_NE(row_table.offsets(), NULLPTR);
   // The whole point of this test.
   ASSERT_GT(row_table.offsets()[num_rows - 1], two_gb);
 

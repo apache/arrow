@@ -255,29 +255,34 @@ uint32_t KeyCompare::CompareBinaryColumnToRowHelper_avx2(
 
 namespace {
 
-/// Intrinsics `_mm256_i32gather_epi32/64` treat the `vindex` as signed integer, and we
-/// are using `uint32_t` to represent the offset, in range of [0, 4G), within the row
-/// table. When the offset is larger than `0x80000000` (2GB), those intrinsics will treat
-/// it as negative offset and gather the data from undesired address. To avoid this issue,
-/// we normalize the addresses by translating `base` `0x80000000` higher, and `offset`
-/// `0x80000000` lower. This way, the offset is always in range of [-2G, 2G) and those
-/// intrinsics are safe.
+// Intrinsics `_mm256_i32gather_epi32/64` treat the `vindex` as signed integer, and we
+// are using `uint32_t` to represent the offset, in range of [0, 4G), within the row
+// table. When the offset is larger than `0x80000000` (2GB), those intrinsics will treat
+// it as negative offset and gather the data from undesired address. To avoid this issue,
+// we normalize the addresses by translating `base` `0x80000000` higher, and `offset`
+// `0x80000000` lower. This way, the offset is always in range of [-2G, 2G) and those
+// intrinsics are safe.
 
-constexpr auto two_gb = 0x80000000ull;
+constexpr uint64_t kTwoGB = 0x80000000ull;
 
-template <int scale>
+template <uint32_t kScale>
 inline __m256i UnsignedOffsetSafeGather32(int const* base, __m256i offset) {
-  auto normalized_base = base + two_gb / sizeof(int);
-  __m256i normalized_offset = _mm256_sub_epi32(offset, _mm256_set1_epi32(two_gb / scale));
-  return _mm256_i32gather_epi32(normalized_base, normalized_offset, scale);
+  int const* normalized_base = base + kTwoGB / sizeof(int);
+  __m256i normalized_offset =
+      _mm256_sub_epi32(offset, _mm256_set1_epi32(static_cast<int>(kTwoGB / kScale)));
+  return _mm256_i32gather_epi32(normalized_base, normalized_offset,
+                                static_cast<int>(kScale));
 }
 
-template <int scale>
+template <uint32_t kScale>
 inline __m256i UnsignedOffsetSafeGather64(arrow::util::int64_for_gather_t const* base,
                                           __m128i offset) {
-  auto normalized_base = base + two_gb / sizeof(arrow::util::int64_for_gather_t);
-  __m128i normalized_offset = _mm_sub_epi32(offset, _mm_set1_epi32(two_gb / scale));
-  return _mm256_i32gather_epi64(normalized_base, normalized_offset, scale);
+  arrow::util::int64_for_gather_t const* normalized_base =
+      base + kTwoGB / sizeof(arrow::util::int64_for_gather_t);
+  __m128i normalized_offset =
+      _mm_sub_epi32(offset, _mm_set1_epi32(static_cast<int>(kTwoGB / kScale)));
+  return _mm256_i32gather_epi64(normalized_base, normalized_offset,
+                                static_cast<int>(kScale));
 }
 
 }  // namespace
