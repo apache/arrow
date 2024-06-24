@@ -58,7 +58,7 @@ groups = [
     'sockets',
     'substrait',
     'threading',
-    'timezone_data'
+    'timezone_data',
     'zstd',
 ]
 
