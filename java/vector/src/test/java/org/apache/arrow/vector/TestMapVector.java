@@ -39,6 +39,7 @@ import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.TransferPair;
 import org.junit.jupiter.api.AfterEach;
@@ -1203,5 +1204,53 @@ public class TestMapVector {
 
     assertEquals(intField, vec.getField().getChildren().get(0));
     assertEquals(intField, res.getField().getChildren().get(0));
+  }
+
+  @Test
+  public void testValidateKeyValueFieldNames() {
+    FieldType keyType = new FieldType(false, MinorType.BIGINT.getType(), null, null);
+    FieldType valueType = FieldType.nullable(MinorType.FLOAT8.getType());
+
+    Field keyField = new Field("myKey", keyType, null);
+    Field valueField = new Field("myValue", valueType, null);
+
+    List<Field> structFields = new ArrayList<>();
+    structFields.add(keyField);
+    structFields.add(valueField);
+
+    Field structField =
+        new Field("entry", FieldType.notNullable(ArrowType.Struct.INSTANCE), structFields);
+    Field mapField =
+        new Field(
+            "mapField",
+            FieldType.notNullable(new ArrowType.Map(false)),
+            Collections.singletonList(structField));
+
+    Schema schema = new Schema(Collections.singletonList(mapField));
+
+    try (VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.create(schema, allocator);
+        MapVector mapVector = (MapVector) vectorSchemaRoot.getVector("mapField")) {
+      UnionMapWriter mapWriter = mapVector.getWriter();
+      mapWriter.setPosition(0);
+      mapWriter.startMap();
+      for (int i = 0; i < 3; i++) {
+        mapWriter.startEntry();
+        mapWriter.key().bigInt().writeBigInt(i);
+        mapWriter.value().bigInt().writeBigInt(i * 7);
+        mapWriter.endEntry();
+      }
+      mapWriter.endMap();
+      mapWriter.setValueCount(1);
+      vectorSchemaRoot.setRowCount(1);
+
+      FieldVector structVector = mapVector.getChildrenFromFields().get(0);
+      FieldVector keyVector = structVector.getChildrenFromFields().get(0);
+      FieldVector valueVector = structVector.getChildrenFromFields().get(1);
+
+      assertEquals(keyField.getName(), keyVector.getField().getName());
+      assertEquals(valueField.getName(), valueVector.getField().getName());
+
+      assertEquals(structVector.getChildrenFromFields().size(), 2);
+    }
   }
 }
