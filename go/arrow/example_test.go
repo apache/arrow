@@ -27,7 +27,6 @@ import (
 )
 
 // This example demonstrates how to build an array of int64 values using a builder and Append.
-// Whilst convenient for small arrays,
 func Example_minimal() {
 	// Create an allocator.
 	pool := memory.NewGoAllocator()
