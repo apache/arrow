@@ -1814,8 +1814,10 @@ Structural transforms
   list array are discarded.
 
 * \(3) For each value in the list child array, the index at which it is found
-  in the list array is appended to the output.  Nulls in the parent list array
-  are discarded.
+  in the list-like array is appended to the output. Indices of null lists in the
+  parent array might still be present in the output if they are non-empty null
+  lists. If the parent is a list-view, child array values that are not used by
+  any non-null list-view are null in the output.
 
 * \(4) For each list element, compute the slice of that list element, then
   return another list-like array of those slices. Can return either a
