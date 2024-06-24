@@ -245,9 +245,10 @@ TEST(KeyCompare, CompareColumnsToRowsLarge) {
     // No selection, output no match row ids.
     uint32_t num_rows_no_match;
     std::vector<uint16_t> row_ids_out(num_rows);
-    KeyCompare::CompareColumnsToRows(
-        num_rows, /*sel_left_maybe_null=*/NULLPTR, row_ids_left.data(), &ctx,
-        &num_rows_no_match, row_ids_out.data(), column_arrays, row_table, true, NULLPTR);
+    KeyCompare::CompareColumnsToRows(num_rows, /*sel_left_maybe_null=*/NULLPTR,
+                                     row_ids_left.data(), &ctx, &num_rows_no_match,
+                                     row_ids_out.data(), column_arrays, row_table,
+                                     /*are_cols_in_encoding_order=*/true, NULLPTR);
     ASSERT_EQ(num_rows_no_match, 0);
   }
 
@@ -259,7 +260,8 @@ TEST(KeyCompare, CompareColumnsToRowsLarge) {
     std::iota(selection_left.begin(), selection_left.end(), 0);
     KeyCompare::CompareColumnsToRows(num_rows, selection_left.data(), row_ids_left.data(),
                                      &ctx, &num_rows_no_match, row_ids_out.data(),
-                                     column_arrays, row_table, true, NULLPTR);
+                                     column_arrays, row_table,
+                                     /*are_cols_in_encoding_order=*/true, NULLPTR);
     ASSERT_EQ(num_rows_no_match, 0);
   }
 
@@ -268,7 +270,8 @@ TEST(KeyCompare, CompareColumnsToRowsLarge) {
     std::vector<uint8_t> match_bitvector(BytesForBits(num_rows));
     KeyCompare::CompareColumnsToRows(
         num_rows, /*sel_left_maybe_null=*/NULLPTR, row_ids_left.data(), &ctx, NULLPTR,
-        NULLPTR, column_arrays, row_table, true, match_bitvector.data());
+        NULLPTR, column_arrays, row_table, /*are_cols_in_encoding_order=*/true,
+        match_bitvector.data());
     ASSERT_EQ(arrow::internal::CountSetBits(match_bitvector.data(), 0, num_rows),
               num_rows);
   }
@@ -278,9 +281,9 @@ TEST(KeyCompare, CompareColumnsToRowsLarge) {
     std::vector<uint8_t> match_bitvector(BytesForBits(num_rows));
     std::vector<uint16_t> selection_left(num_rows);
     std::iota(selection_left.begin(), selection_left.end(), 0);
-    KeyCompare::CompareColumnsToRows(num_rows, NULLPTR, row_ids_left.data(), &ctx,
-                                     NULLPTR, NULLPTR, column_arrays, row_table, true,
-                                     match_bitvector.data());
+    KeyCompare::CompareColumnsToRows(
+        num_rows, NULLPTR, row_ids_left.data(), &ctx, NULLPTR, NULLPTR, column_arrays,
+        row_table, /*are_cols_in_encoding_order=*/true, match_bitvector.data());
     ASSERT_EQ(arrow::internal::CountSetBits(match_bitvector.data(), 0, num_rows),
               num_rows);
   }
