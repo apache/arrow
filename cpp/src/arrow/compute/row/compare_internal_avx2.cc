@@ -236,6 +236,8 @@ uint32_t KeyCompare::CompareBinaryColumnToRowHelper_avx2(
         irow_right =
             _mm256_loadu_si256(reinterpret_cast<const __m256i*>(left_to_right_map) + i);
       }
+      // TODO: Need to test if this gather is OK when irow_right is larger than
+      // 0x80000000u.
       __m256i offset_right =
           _mm256_i32gather_epi32((const int*)offsets_right, irow_right, 4);
       offset_right = _mm256_add_epi32(offset_right, _mm256_set1_epi32(offset_within_row));
