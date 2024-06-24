@@ -266,7 +266,7 @@ TEST(TestVectorNested, ListParentIndices) {
                       "[[2, 3], [4, 5], [0, null, 1], [null, 1, 0, 0], null]"),
         /*verbose=*/true);
     EXPECT_RAISES_WITH_MESSAGE_THAT(
-        ExecutionError, ::testing::HasSubstr("values used by more than one list-view"),
+        Invalid, ::testing::HasSubstr("values used by more than one list-view"),
         CallFunction("list_parent_indices", {input}));
   }
 }

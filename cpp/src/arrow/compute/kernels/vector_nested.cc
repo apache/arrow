@@ -111,7 +111,7 @@ struct ListParentIndicesArray {
             const int64_t pop_count =
                 CountSetBits(out_indices_validity, offsets[i] - values_offset, sizes[i]);
             if (ARROW_PREDICT_FALSE(pop_count > 0)) {
-              return Status::ExecutionError(
+              return Status::Invalid(
                   "Function 'list_parent_indices' cannot produce parent indices for "
                   "values used by more than one list-view array element.");
             }
