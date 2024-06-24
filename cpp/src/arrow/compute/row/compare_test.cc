@@ -180,7 +180,6 @@ TEST(KeyCompare, CompareColumnsToRowsLarge) {
   // The compare function requires the row id of the left column to be uint16_t, hence the
   // number of rows.
   constexpr int64_t num_rows = std::numeric_limits<uint16_t>::max() + 1;
-  // TODO: This test will fail if we switch the order between uint64 and uint32.
   const std::vector<std::shared_ptr<DataType>> fixed_length_types{uint64(), uint32()};
   // The var length column should be a little smaller than 2GB to WAR the capacity
   // limitation in the var length builder.
