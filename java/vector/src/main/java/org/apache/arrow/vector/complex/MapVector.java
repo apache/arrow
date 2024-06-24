@@ -71,11 +71,22 @@ public class MapVector extends ListVector {
    */
   public MapVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
     super(name, allocator, fieldType, callBack);
+    KEY_NAME = "key";
+    VALUE_NAME = "value";
     defaultDataVectorName = DATA_VECTOR_NAME;
   }
 
+  /**
+   * Construct a MapVector instance.
+   *
+   * @param field The name of the field.
+   * @param allocator The allocator used for allocating/reallocating buffers.
+   * @param callBack A schema change callback.
+   */
   public MapVector(Field field, BufferAllocator allocator, CallBack callBack) {
     super(field, allocator, callBack);
+    KEY_NAME = "key";
+    VALUE_NAME = "value";
     defaultDataVectorName = DATA_VECTOR_NAME;
   }
 
