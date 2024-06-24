@@ -79,6 +79,7 @@ func newConfig(opts ...Option) *config {
 		alloc:              memory.NewGoAllocator(),
 		codec:              -1, // uncompressed
 		ensureNativeEndian: true,
+		compressNP:         1,
 	}
 
 	for _, opt := range opts {
@@ -135,6 +136,9 @@ func WithZstd() Option {
 // parallelization. Default is 0.
 func WithCompressConcurrency(n int) Option {
 	return func(cfg *config) {
+		if n <= 0 {
+			n = 1
+		}
 		cfg.compressNP = n
 	}
 }
