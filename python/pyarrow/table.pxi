@@ -2132,6 +2132,78 @@ cdef class _Tabular(_PandasConvertible):
         """
         return _pc().take(self, indices)
 
+    def filter(self, mask, object null_selection_behavior="drop"):
+        """
+        Select rows from the table or record batch based on a boolean mask.
+
+        The Table can be filtered based on a mask, which will be passed to
+        :func:`pyarrow.compute.filter` to perform the filtering, or it can
+        be filtered through a boolean :class:`.Expression`
+
+        Parameters
+        ----------
+        mask : Array or array-like or .Expression
+            The boolean mask or the :class:`.Expression` to filter the table with.
+        null_selection_behavior : str, default "drop"
+            How nulls in the mask should be handled, does nothing if
+            an :class:`.Expression` is used.
+
+        Returns
+        -------
+        filtered : Table or RecordBatch
+            A tabular object of the same schema, with only the rows selected
+            by applied filtering
+
+        Examples
+        --------
+        Using a Table (works similarly for RecordBatch):
+
+        >>> import pyarrow as pa
+        >>> table = pa.table({'year': [2020, 2022, 2019, 2021],
+        ...                   'n_legs': [2, 4, 5, 100],
+        ...                   'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+
+        Define an expression and select rows:
+
+        >>> import pyarrow.compute as pc
+        >>> expr = pc.field("year") <= 2020
+        >>> table.filter(expr)
+        pyarrow.Table
+        year: int64
+        n_legs: int64
+        animals: string
+        ----
+        year: [[2020,2019]]
+        n_legs: [[2,5]]
+        animals: [["Flamingo","Brittle stars"]]
+
+        Define a mask and select rows:
+
+        >>> mask=[True, True, False, None]
+        >>> table.filter(mask)
+        pyarrow.Table
+        year: int64
+        n_legs: int64
+        animals: string
+        ----
+        year: [[2020,2022]]
+        n_legs: [[2,4]]
+        animals: [["Flamingo","Horse"]]
+        >>> table.filter(mask, null_selection_behavior='emit_null')
+        pyarrow.Table
+        year: int64
+        n_legs: int64
+        animals: string
+        ----
+        year: [[2020,2022,null]]
+        n_legs: [[2,4,null]]
+        animals: [["Flamingo","Horse",null]]
+        """
+        if isinstance(mask, _pc().Expression):
+            return _pac()._filter_table(self, mask)
+        else:
+            return _pc().filter(self, mask, null_selection_behavior)
+
     def to_pydict(self):
         """
         Convert the Table or RecordBatch to a dict or OrderedDict.
@@ -3006,58 +3078,6 @@ cdef class RecordBatch(_Tabular):
             result = self.batch.Slice(offset, length)
 
         return pyarrow_wrap_batch(result)
-
-    def filter(self, mask, object null_selection_behavior="drop"):
-        """
-        Select rows from the record batch.
-
-        See :func:`pyarrow.compute.filter` for full usage.
-
-        Parameters
-        ----------
-        mask : Array or array-like
-            The boolean mask to filter the record batch with.
-        null_selection_behavior : str, default "drop"
-            How nulls in the mask should be handled.
-
-        Returns
-        -------
-        filtered : RecordBatch
-            A record batch of the same schema, with only the rows selected
-            by the boolean mask.
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
-        >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
-        >>> batch = pa.RecordBatch.from_arrays([n_legs, animals],
-        ...                                     names=["n_legs", "animals"])
-        >>> batch.to_pandas()
-           n_legs        animals
-        0       2       Flamingo
-        1       2         Parrot
-        2       4            Dog
-        3       4          Horse
-        4       5  Brittle stars
-        5     100      Centipede
-
-        Define a mask and select rows:
-
-        >>> mask=[True, True, False, True, False, None]
-        >>> batch.filter(mask).to_pandas()
-           n_legs   animals
-        0       2  Flamingo
-        1       2    Parrot
-        2       4     Horse
-        >>> batch.filter(mask, null_selection_behavior='emit_null').to_pandas()
-           n_legs   animals
-        0     2.0  Flamingo
-        1     2.0    Parrot
-        2     4.0     Horse
-        3     NaN      None
-        """
-        return _pc().filter(self, mask, null_selection_behavior)
 
     def equals(self, object other, bint check_metadata=False):
         """
@@ -4028,78 +4048,6 @@ cdef class Table(_Tabular):
             result = self.table.Slice(offset, length)
 
         return pyarrow_wrap_table(result)
-
-    def filter(self, mask, object null_selection_behavior="drop"):
-        """
-        Select rows from the table.
-
-        The Table can be filtered based on a mask, which will be passed to
-        :func:`pyarrow.compute.filter` to perform the filtering, or it can
-        be filtered through a boolean :class:`.Expression`
-
-        Parameters
-        ----------
-        mask : Array or array-like or .Expression
-            The boolean mask or the :class:`.Expression` to filter the table with.
-        null_selection_behavior : str, default "drop"
-            How nulls in the mask should be handled, does nothing if
-            an :class:`.Expression` is used.
-
-        Returns
-        -------
-        filtered : Table
-            A table of the same schema, with only the rows selected
-            by applied filtering
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'year': [2020, 2022, 2019, 2021],
-        ...                    'n_legs': [2, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
-
-        Define an expression and select rows:
-
-        >>> import pyarrow.compute as pc
-        >>> expr = pc.field("year") <= 2020
-        >>> table.filter(expr)
-        pyarrow.Table
-        year: int64
-        n_legs: int64
-        animals: string
-        ----
-        year: [[2020,2019]]
-        n_legs: [[2,5]]
-        animals: [["Flamingo","Brittle stars"]]
-
-        Define a mask and select rows:
-
-        >>> mask=[True, True, False, None]
-        >>> table.filter(mask)
-        pyarrow.Table
-        year: int64
-        n_legs: int64
-        animals: string
-        ----
-        year: [[2020,2022]]
-        n_legs: [[2,4]]
-        animals: [["Flamingo","Horse"]]
-        >>> table.filter(mask, null_selection_behavior='emit_null')
-        pyarrow.Table
-        year: int64
-        n_legs: int64
-        animals: string
-        ----
-        year: [[2020,2022,null]]
-        n_legs: [[2,4,null]]
-        animals: [["Flamingo","Horse",null]]
-        """
-        if isinstance(mask, _pc().Expression):
-            return _pac()._filter_table(self, mask)
-        else:
-            return _pc().filter(self, mask, null_selection_behavior)
 
     def select(self, object columns):
         """
