@@ -33,7 +33,7 @@ ${PYTHON} -m pip install pyarrow find-libpython
 export PYTHONNET_PYDLL=$(${PYTHON} -m find_libpython)
 
 pushd ${source_dir}
-dotnet test
+dotnet test Apache.Arrow.sln
 for pdb in artifacts/Apache.Arrow/*/*/Apache.Arrow.pdb; do
   sourcelink test ${pdb}
 done
