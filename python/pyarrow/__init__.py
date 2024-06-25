@@ -430,5 +430,3 @@ def get_library_dirs():
         append_library_dir(_os.path.dirname(_os.path.abspath(__file__)))
 
     return library_dirs
-
-
