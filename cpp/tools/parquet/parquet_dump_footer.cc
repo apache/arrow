@@ -28,6 +28,7 @@
 #include <thrift/transport/TBufferTransports.h>
 
 #include "arrow/filesystem/filesystem.h"
+#include "arrow/util/endian.h"
 #include "parquet/thrift_internal.h"
 #include "generated/parquet_types.h"
 
@@ -52,21 +53,20 @@ Usage: parquet-dump-footer
 }
 
 uint32_t ReadLE32(const void* p) {
-  auto* b = reinterpret_cast<const uint8_t*>(p);
-  return uint32_t{b[3]} << 24 | uint32_t{b[2]} << 16 | uint32_t{b[1]} << 8 |
-         uint32_t{b[0]};
+  uint32_t x;
+  memcpy(&x, p, sizeof(x));
+  return arrow::bit_util::FromLittleEndian(x);
 }
 
 void AppendLE32(uint32_t v, std::string* out) {
-  out->push_back(v & 0xff);
-  out->push_back((v >> 8) & 0xff);
-  out->push_back((v >> 16) & 0xff);
-  out->push_back((v >> 24) & 0xff);
+  v = arrow::bit_util::ToLittleEndian(v);
+  out->append(reinterpret_cast<const char*>(&v), sizeof(v));
 }
 
 template <typename T>
 bool Deserialize(const char* data, uint32_t len, T* obj) {
-  parquet::ThriftDeserializer des(10 << 20, 10 << 20);
+  parquet::ThriftDeserializer des(/*string_size_limit=*/10 << 20,
+                                  /*container_size_limit=*/10 << 20);
   try {
     des.DeserializeMessage(reinterpret_cast<const uint8_t*>(data), &len, obj);
     return true;
@@ -78,7 +78,7 @@ bool Deserialize(const char* data, uint32_t len, T* obj) {
 
 template <typename T>
 bool Serialize(const T& obj, std::string* out) {
-  parquet::ThriftSerializer ser(10 << 20);
+  parquet::ThriftSerializer ser(/*initial_buffer_size=*/10 << 20);
   try {
     ser.SerializeToString(&obj, out);
     return true;
@@ -88,6 +88,7 @@ bool Serialize(const T& obj, std::string* out) {
   }
 }
 
+// Replace the contents of s with random data of the same length.
 void Scrub(std::string* s) {
   static char pool[4096];
   static std::mt19937 rng(std::random_device {}());
