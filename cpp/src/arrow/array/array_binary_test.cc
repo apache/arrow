@@ -245,6 +245,77 @@ class TestStringArray : public ::testing::Test {
         equal_array.Array::Slice(1)->RangeEquals(0, 2, 0, equal_array2.Array::Slice(1)));
   }
 
+  void showOffsetDetails(std::shared_ptr<StringArray>& str_array) {
+    std::cout << std::string(50, '=') << std::endl;
+    int64_t length = str_array->length();
+    auto offset_values = str_array->value_offsets();
+    auto* raw_offset_values = str_array->raw_value_offsets();
+    std::cout << offset_values->ToString() << std::endl;
+    int64_t size = offset_values->size();
+    int64_t capacity = offset_values->capacity();
+    std::cout << "Offset" << std::endl;
+    std::cout << "Size: " << size << std::endl;
+    std::cout << "Capacity: " << capacity << std::endl;
+    std::cout << "Offset Values" << std::endl;
+    std::cout << "Array length : " << length << std::endl;
+    std::cout << "OffSets of this Array" << std::endl;
+    for (int64_t i=0; i < length; i++) {
+      std::cout << raw_offset_values[i] << ", ";
+    }
+    std::cout << std::endl;
+    std::cout << std::string(50, '=') << std::endl;
+  }
+
+  void showDataDetails(std::shared_ptr<StringArray>& str_array) {
+    std::cout << std::string(50, '=') << std::endl;
+    auto value_data = str_array->value_data();
+    auto* raw_data = str_array->raw_data();
+    std::cout << "Value Data: " << value_data->ToString() << std::endl;
+    int64_t size = value_data->size();
+    int64_t capacity = value_data->capacity();
+    std::cout << "Data" << std::endl;
+    std::cout << "Size: " << size << std::endl;
+    std::cout << "Capacity: " << capacity << std::endl;
+    std::cout << "Data length : " << size << std::endl;
+    std::cout << "Data of this Array" << std::endl;
+    for (int64_t i=0; i < size; i++) {
+      std::cout << raw_data[i] << ", ";
+    }
+    std::cout << std::endl;
+    std::cout << std::string(50, '=') << std::endl;
+  }
+
+  void TestBufferDetailsWithSlice() {
+    BuilderType builder;
+
+    ASSERT_OK(builder.Append("foo"));
+    ASSERT_OK(builder.Append("bar"));
+    ASSERT_OK(builder.Append("baz1"));
+    ASSERT_OK(builder.Append("baz223"));
+    ASSERT_OK(builder.Append("baz23445"));
+    ASSERT_OK(builder.Append("baz2121"));
+    ASSERT_OK(builder.Append("12312baz"));
+
+    std::shared_ptr<Array> array;
+    FinishAndCheckPadding(&builder, &array);
+
+    std::shared_ptr<StringArray> str_array = std::static_pointer_cast<StringArray>(array);
+    std::cout << "Original Array" << std::endl;
+    std::cout << array->ToString() << std::endl;
+
+    showOffsetDetails(str_array);
+
+    showDataDetails(str_array);
+
+    std::shared_ptr<StringArray> sliced_array = std::static_pointer_cast<StringArray>(str_array->Slice(2,3));
+    std::cout << "Sliced Array" << std::endl;
+    std::cout << sliced_array->ToString() << std::endl;
+
+    showOffsetDetails(sliced_array);
+
+    showDataDetails(sliced_array);
+  }
+
   void TestSliceGetString() {
     BuilderType builder;
 
@@ -362,6 +433,8 @@ TYPED_TEST(TestStringArray, TestEmptyStringComparison) {
 }
 
 TYPED_TEST(TestStringArray, CompareNullByteSlots) { this->TestCompareNullByteSlots(); }
+
+TYPED_TEST(TestStringArray, BufferDetailsWithSlice) { this->TestBufferDetailsWithSlice(); }
 
 TYPED_TEST(TestStringArray, TestSliceGetString) { this->TestSliceGetString(); }
 
