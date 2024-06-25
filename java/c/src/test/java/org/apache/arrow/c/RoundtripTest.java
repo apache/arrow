@@ -706,6 +706,55 @@ public class RoundtripTest {
   }
 
   @Test
+  public void testMapVectorCustomFieldNames() {
+    Field keyField =
+        new Field(
+            "id", FieldType.notNullable(new ArrowType.Int(64, true)), Collections.emptyList());
+    Field valueField =
+        new Field(
+            "value", FieldType.nullable(new ArrowType.Int(64, true)), Collections.emptyList());
+    List<Field> structFields = new ArrayList<>();
+    structFields.add(keyField);
+    structFields.add(valueField);
+
+    Field structField =
+        new Field("entry", FieldType.notNullable(ArrowType.Struct.INSTANCE), structFields);
+    Field mapIntToIntField =
+        new Field(
+            "mapFieldIntToInt",
+            FieldType.notNullable(new ArrowType.Map(false)),
+            Collections.singletonList(structField));
+
+    Schema schema = new Schema(Collections.singletonList(mapIntToIntField));
+    try (VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.create(schema, allocator);
+        MapVector mapVector = (MapVector) vectorSchemaRoot.getVector("mapFieldIntToInt")) {
+      UnionMapWriter mapWriter = mapVector.getWriter();
+      mapWriter.setPosition(0);
+      mapWriter.startMap();
+      for (int i = 0; i < 18; i++) {
+        mapWriter.startEntry();
+        if (i % 2 == 0) {
+          mapWriter.key().bigInt().writeBigInt(i);
+          if (i % 3 == 0) {
+            mapWriter.value().bigInt().writeBigInt(i * 7);
+          } else {
+            mapWriter.value().bigInt().writeNull();
+          }
+        } else {
+          mapWriter.key().bigInt().writeNull();
+          mapWriter.value().bigInt().writeNull();
+        }
+        mapWriter.endEntry();
+      }
+      mapWriter.endMap();
+
+      mapWriter.setValueCount(1);
+      vectorSchemaRoot.setRowCount(1);
+      roundtrip(mapVector, MapVector.class);
+    }
+  }
+
+  @Test
   public void testUnionVector() {
     final NullableUInt4Holder uInt4Holder = new NullableUInt4Holder();
     uInt4Holder.value = 100;
