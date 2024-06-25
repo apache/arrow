@@ -4097,4 +4097,4 @@ def test_non_cpu_array():
     with pytest.raises(NotImplementedError):
         arr.to_numpy()
     with pytest.raises(NotImplementedError):
-        arr.to_list()
+        arr.tolist()
