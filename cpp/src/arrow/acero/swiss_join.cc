@@ -197,13 +197,17 @@ void RowArrayAccessor::VisitNulls(const RowTableImpl& rows, int column_id, int n
   }
 }
 
-Status RowArray::InitIfNeeded(MemoryPool* pool, const RowTableMetadata& row_metadata) {
+Status RowArray::InitIfNeeded(MemoryPool* pool,
+                              const std::vector<KeyColumnMetadata>& column_metadatas) {
   if (is_initialized_) {
     return Status::OK();
   }
-  encoder_.Init(row_metadata.column_metadatas, sizeof(uint64_t), sizeof(uint64_t));
-  RETURN_NOT_OK(rows_temp_.Init(pool, row_metadata));
-  RETURN_NOT_OK(rows_.Init(pool, row_metadata));
+  row_metadata_.FromColumnMetadataVector(column_metadatas,
+                                         /* row_alignment = */ sizeof(uint64_t),
+                                         /* string_alignment = */ sizeof(uint64_t));
+  encoder_.Init(row_metadata_);
+  RETURN_NOT_OK(rows_temp_.Init(pool, row_metadata_));
+  RETURN_NOT_OK(rows_.Init(pool, row_metadata_));
   is_initialized_ = true;
   return Status::OK();
 }
@@ -214,11 +218,8 @@ Status RowArray::InitIfNeeded(MemoryPool* pool, const ExecBatch& batch) {
   }
   std::vector<KeyColumnMetadata> column_metadatas;
   RETURN_NOT_OK(ColumnMetadatasFromExecBatch(batch, &column_metadatas));
-  RowTableMetadata row_metadata;
-  row_metadata.FromColumnMetadataVector(column_metadatas, sizeof(uint64_t),
-                                        sizeof(uint64_t));
 
-  return InitIfNeeded(pool, row_metadata);
+  return InitIfNeeded(pool, column_metadatas);
 }
 
 Status RowArray::AppendBatchSelection(MemoryPool* pool, const ExecBatch& batch,
@@ -375,7 +376,7 @@ void RowArray::DebugPrintToFile(const char* filename, bool print_sorted) const {
   }
 
   for (int64_t row_id = 0; row_id < rows_.length(); ++row_id) {
-    for (uint32_t column_id = 0; column_id < rows_.metadata().num_cols(); ++column_id) {
+    for (uint32_t column_id = 0; column_id < row_metadata_.num_cols(); ++column_id) {
       bool is_null;
       uint32_t row_id_cast = static_cast<uint32_t>(row_id);
       RowArrayAccessor::VisitNulls(rows_, column_id, 1, &row_id_cast,
@@ -444,9 +445,9 @@ Status RowArrayMerge::PrepareForMerge(RowArray* target,
   ARROW_DCHECK(!sources.empty());
 
   ARROW_DCHECK(sources[0]->is_initialized_);
-  const RowTableMetadata& metadata = sources[0]->rows_.metadata();
+  const RowTableMetadata& metadata = sources[0]->row_metadata_;
   ARROW_DCHECK(!target->is_initialized_);
-  RETURN_NOT_OK(target->InitIfNeeded(pool, metadata));
+  RETURN_NOT_OK(target->InitIfNeeded(pool, metadata.column_metadatas));
 
   // Sum the number of rows from all input sources and calculate their total
   // size.
@@ -460,7 +461,7 @@ Status RowArrayMerge::PrepareForMerge(RowArray* target,
     // All input sources must be initialized and have the same row format.
     //
     ARROW_DCHECK(sources[i]->is_initialized_);
-    ARROW_DCHECK(metadata.is_compatible(sources[i]->rows_.metadata()));
+    ARROW_DCHECK(metadata.is_compatible(sources[i]->row_metadata_));
     if (first_target_row_id) {
       (*first_target_row_id)[i] = num_rows;
     }
@@ -512,10 +513,11 @@ void RowArrayMerge::MergeSingle(RowArray* target, const RowArray& source,
   // - use 64-bit alignment
   //
   ARROW_DCHECK(source.is_initialized_ && target->is_initialized_);
-  ARROW_DCHECK(target->rows_.metadata().is_compatible(source.rows_.metadata()));
-  ARROW_DCHECK(target->rows_.metadata().row_alignment == sizeof(uint64_t));
+  const RowTableMetadata& target_row_metadata = target->row_metadata_;
+  ARROW_DCHECK(target_row_metadata.is_compatible(source.row_metadata_));
+  ARROW_DCHECK(target_row_metadata.row_alignment == sizeof(uint64_t));
 
-  if (target->rows_.metadata().is_fixed_length) {
+  if (target_row_metadata.is_fixed_length) {
     CopyFixedLength(&target->rows_, source.rows_, first_target_row_id,
                     source_rows_permutation);
   } else {
@@ -1169,20 +1171,11 @@ Status SwissTableForJoinBuild::Init(SwissTableForJoin* target, int dop, int64_t 
   thread_states_.resize(dop_);
   prtn_locks_.Init(dop_, num_prtns_);
 
-  RowTableMetadata key_row_metadata;
-  key_row_metadata.FromColumnMetadataVector(key_types,
-                                            /*row_alignment=*/sizeof(uint64_t),
-                                            /*string_alignment=*/sizeof(uint64_t));
-  RowTableMetadata payload_row_metadata;
-  payload_row_metadata.FromColumnMetadataVector(payload_types,
-                                                /*row_alignment=*/sizeof(uint64_t),
-                                                /*string_alignment=*/sizeof(uint64_t));
-
   for (int i = 0; i < num_prtns_; ++i) {
     PartitionState& prtn_state = prtn_states_[i];
     RETURN_NOT_OK(prtn_state.keys.Init(hardware_flags_, pool_));
-    RETURN_NOT_OK(prtn_state.keys.keys()->InitIfNeeded(pool, key_row_metadata));
-    RETURN_NOT_OK(prtn_state.payloads.InitIfNeeded(pool, payload_row_metadata));
+    RETURN_NOT_OK(prtn_state.keys.keys()->InitIfNeeded(pool, key_types));
+    RETURN_NOT_OK(prtn_state.payloads.InitIfNeeded(pool, payload_types));
   }
 
   target_->dop_ = dop_;

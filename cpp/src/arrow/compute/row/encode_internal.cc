@@ -21,11 +21,10 @@
 namespace arrow {
 namespace compute {
 
-void RowTableEncoder::Init(const std::vector<KeyColumnMetadata>& cols, int row_alignment,
-                           int string_alignment) {
-  row_metadata_.FromColumnMetadataVector(cols, row_alignment, string_alignment);
-  uint32_t num_cols = row_metadata_.num_cols();
-  uint32_t num_varbinary_cols = row_metadata_.num_varbinary_cols();
+void RowTableEncoder::Init(const RowTableMetadata& row_metadata) {
+  row_metadata_ = &row_metadata;
+  uint32_t num_cols = row_metadata_->num_cols();
+  uint32_t num_varbinary_cols = row_metadata_->num_varbinary_cols();
   batch_all_cols_.resize(num_cols);
   batch_varbinary_cols_.resize(num_varbinary_cols);
   batch_varbinary_cols_base_offsets_.resize(num_varbinary_cols);
@@ -38,7 +37,7 @@ void RowTableEncoder::PrepareKeyColumnArrays(int64_t start_row, int64_t num_rows
 
   uint32_t num_varbinary_visited = 0;
   for (uint32_t i = 0; i < num_cols; ++i) {
-    const KeyColumnArray& col = cols_in[row_metadata_.column_order[i]];
+    const KeyColumnArray& col = cols_in[row_metadata_->column_order[i]];
     KeyColumnArray col_window = col.Slice(start_row, num_rows);
 
     batch_all_cols_[i] = col_window;
@@ -81,7 +80,7 @@ void RowTableEncoder::DecodeFixedLengthBuffers(int64_t start_row_input,
       KeyColumnMetadata(true, sizeof(uint16_t)), num_rows, nullptr,
       reinterpret_cast<uint8_t*>(temp_buffer_holder_B.mutable_data()), nullptr);
 
-  bool is_row_fixed_length = row_metadata_.is_fixed_length;
+  bool is_row_fixed_length = row_metadata_->is_fixed_length;
   if (!is_row_fixed_length) {
     EncoderOffsets::Decode(static_cast<uint32_t>(start_row_input),
                            static_cast<uint32_t>(num_rows), rows, &batch_varbinary_cols_,
@@ -103,13 +102,13 @@ void RowTableEncoder::DecodeFixedLengthBuffers(int64_t start_row_input,
     if (!can_process_pair) {
       EncoderBinary::Decode(static_cast<uint32_t>(start_row_input),
                             static_cast<uint32_t>(num_rows),
-                            row_metadata_.column_offsets[i], rows, &batch_all_cols_[i],
+                            row_metadata_->column_offsets[i], rows, &batch_all_cols_[i],
                             &ctx, &temp_buffer_A);
       i += 1;
     } else {
       EncoderBinaryPair::Decode(
           static_cast<uint32_t>(start_row_input), static_cast<uint32_t>(num_rows),
-          row_metadata_.column_offsets[i], rows, &batch_all_cols_[i],
+          row_metadata_->column_offsets[i], rows, &batch_all_cols_[i],
           &batch_all_cols_[i + 1], &ctx, &temp_buffer_A, &temp_buffer_B);
       i += 2;
     }
@@ -131,7 +130,7 @@ void RowTableEncoder::DecodeVaryingLengthBuffers(
   ctx.hardware_flags = hardware_flags;
   ctx.stack = temp_stack;
 
-  bool is_row_fixed_length = row_metadata_.is_fixed_length;
+  bool is_row_fixed_length = row_metadata_->is_fixed_length;
   if (!is_row_fixed_length) {
     for (size_t i = 0; i < batch_varbinary_cols_.size(); ++i) {
       // Memcpy varbinary fields into precomputed in the previous step

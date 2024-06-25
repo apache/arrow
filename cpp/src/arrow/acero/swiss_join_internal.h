@@ -111,7 +111,8 @@ struct RowArray {
   RowArray() : is_initialized_(false) {}
 
   Status InitIfNeeded(MemoryPool* pool, const ExecBatch& batch);
-  Status InitIfNeeded(MemoryPool* pool, const RowTableMetadata& row_metadata);
+  Status InitIfNeeded(MemoryPool* pool,
+                      const std::vector<KeyColumnMetadata>& column_metadatas);
 
   Status AppendBatchSelection(MemoryPool* pool, const ExecBatch& batch, int begin_row_id,
                               int end_row_id, int num_row_ids, const uint16_t* row_ids,
@@ -139,6 +140,7 @@ struct RowArray {
   RowTableEncoder encoder_;
   RowTableImpl rows_;
   RowTableImpl rows_temp_;
+  RowTableMetadata row_metadata_;
 };
 
 // Implements concatenating multiple row arrays into a single one, using
