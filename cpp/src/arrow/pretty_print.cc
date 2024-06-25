@@ -391,7 +391,12 @@ class ArrayPrinter : public PrettyPrinter {
   }
 
   Status Print(const Array& array) {
-    RETURN_NOT_OK(VisitArrayInline(array, this));
+    if (array.device_type() != DeviceAllocationType::kCPU) {
+      ARROW_ASSIGN_OR_RAISE(auto array_cpu, array.CopyTo(default_cpu_memory_manager()));
+      RETURN_NOT_OK(VisitArrayInline(*array_cpu, this));
+    } else {
+      RETURN_NOT_OK(VisitArrayInline(array, this));
+    }
     Flush();
     return Status::OK();
   }
@@ -418,16 +423,13 @@ Status ArrayPrinter::WriteValidityBitmap(const Array& array) {
 Status PrettyPrint(const Array& arr, int indent, std::ostream* sink) {
   PrettyPrintOptions options;
   options.indent = indent;
-  return PrettyPrint(arr, options, sink);
+  ArrayPrinter printer(options, sink);
+  return printer.Print(arr);
 }
 
 Status PrettyPrint(const Array& arr, const PrettyPrintOptions& options,
                    std::ostream* sink) {
   ArrayPrinter printer(options, sink);
-  if (arr.device_type() != DeviceAllocationType::kCPU) {
-    ARROW_ASSIGN_OR_RAISE(auto arr_copied, arr.CopyTo(default_cpu_memory_manager()));
-    return printer.Print(*arr_copied);
-  }
   return printer.Print(arr);
 }
 
@@ -479,7 +481,8 @@ Status PrettyPrint(const ChunkedArray& chunked_arr, const PrettyPrintOptions& op
     } else {
       PrettyPrintOptions chunk_options = options;
       chunk_options.indent += options.indent_size;
-      RETURN_NOT_OK(PrettyPrint(*chunked_arr.chunk(i), chunk_options, sink));
+      ArrayPrinter printer(chunk_options, sink);
+      RETURN_NOT_OK(printer.Print(*chunked_arr.chunk(i)));
     }
   }
   if (!options.skip_new_lines) {
