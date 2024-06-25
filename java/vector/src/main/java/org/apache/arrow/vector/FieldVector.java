@@ -57,6 +57,15 @@ public interface FieldVector extends ValueVector {
   List<ArrowBuf> getFieldBuffers();
 
   /**
+   * Retrieves the export buffer count for the C Data Interface.
+   *
+   * @return the number of variadic buffers
+   */
+  default int getExportedCDataBufferCount() {
+    return getFieldBuffers().size();
+  }
+
+  /**
    * Export a given buffer and its memory address into a list of buffers and a pointer to the list
    * of buffers.
    *

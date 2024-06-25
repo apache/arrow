@@ -84,7 +84,7 @@ def write_header(
 
 
 def generate_visibility_macros(library: str) -> str:
-    return f"""#if (defined(_WIN32) || defined(__CYGWIN__)) && defined(_MSVC_LANG) && \
+    return f"""#if (defined(_WIN32) || defined(__CYGWIN__)) && defined(_MSC_VER) && \
   !defined({library}_STATIC_COMPILATION)
 #  define {library}_EXPORT __declspec(dllexport)
 #  define {library}_IMPORT __declspec(dllimport)

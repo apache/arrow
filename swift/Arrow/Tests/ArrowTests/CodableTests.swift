@@ -166,35 +166,45 @@ final class CodableTests: XCTestCase {
         }
     }
 
-    func testArrowUnkeyedDecoderWithoutNull() throws {
+    func testArrowMapDecoderWithoutNull() throws {
         let int8Builder: NumberArrayBuilder<Int8> = try ArrowArrayBuilders.loadNumberArrayBuilder()
         let stringBuilder = try ArrowArrayBuilders.loadStringArrayBuilder()
         int8Builder.append(10, 11, 12, 13)
-        stringBuilder.append("test0", "test1", "test2", "test3")
-        let result = RecordBatch.Builder()
+        stringBuilder.append("test10", "test11", "test12", "test13")
+        switch RecordBatch.Builder()
             .addColumn("propInt8", arrowArray: try int8Builder.toHolder())
             .addColumn("propString", arrowArray: try stringBuilder.toHolder())
-            .finish()
-        switch result {
+            .finish() {
         case .success(let rb):
             let decoder = ArrowDecoder(rb)
             let testData = try decoder.decode([Int8: String].self)
-            var index: Int8 = 0
             for data in testData {
-                let str = data[10 + index]
-                XCTAssertEqual(str, "test\(index)")
-                index += 1
+                XCTAssertEqual("test\(data.key)", data.value)
+            }
+        case .failure(let err):
+            throw err
+        }
+
+        switch RecordBatch.Builder()
+            .addColumn("propString", arrowArray: try stringBuilder.toHolder())
+            .addColumn("propInt8", arrowArray: try int8Builder.toHolder())
+            .finish() {
+        case .success(let rb):
+            let decoder = ArrowDecoder(rb)
+            let testData = try decoder.decode([String: Int8].self)
+            for data in testData {
+                XCTAssertEqual("test\(data.value)", data.key)
             }
         case .failure(let err):
             throw err
         }
     }
 
-    func testArrowUnkeyedDecoderWithNull() throws {
+    func testArrowMapDecoderWithNull() throws {
         let int8Builder: NumberArrayBuilder<Int8> = try ArrowArrayBuilders.loadNumberArrayBuilder()
         let stringWNilBuilder = try ArrowArrayBuilders.loadStringArrayBuilder()
         int8Builder.append(10, 11, 12, 13)
-        stringWNilBuilder.append(nil, "test1", nil, "test3")
+        stringWNilBuilder.append(nil, "test11", nil, "test13")
         let resultWNil = RecordBatch.Builder()
             .addColumn("propInt8", arrowArray: try int8Builder.toHolder())
             .addColumn("propString", arrowArray: try stringWNilBuilder.toHolder())
@@ -203,19 +213,16 @@ final class CodableTests: XCTestCase {
         case .success(let rb):
             let decoder = ArrowDecoder(rb)
             let testData = try decoder.decode([Int8: String?].self)
-            var index: Int8 = 0
             for data in testData {
-                let str = data[10 + index]
-                if index % 2 == 0 {
-                    XCTAssertNil(str!)
+                let str = data.value
+                if data.key % 2 == 0 {
+                    XCTAssertNil(str)
                 } else {
-                    XCTAssertEqual(str, "test\(index)")
+                    XCTAssertEqual(str, "test\(data.key)")
                 }
-                index += 1
             }
         case .failure(let err):
             throw err
         }
-
     }
 }

@@ -27,6 +27,7 @@ import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -35,6 +36,7 @@ import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseLargeVariableWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
+import org.apache.arrow.vector.BaseVariableWidthViewVector;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.BufferLayout.BufferType;
@@ -198,16 +200,22 @@ public class JsonFileWriter implements AutoCloseable {
   }
 
   private void writeFromVectorIntoJson(Field field, FieldVector vector) throws IOException {
-    // TODO: https://github.com/apache/arrow/issues/41733
-    List<BufferType> vectorTypes = TypeLayout.getTypeLayout(field.getType()).getBufferTypes();
+    TypeLayout typeLayout = TypeLayout.getTypeLayout(field.getType());
+    List<BufferType> vectorTypes = typeLayout.getBufferTypes();
     List<ArrowBuf> vectorBuffers = vector.getFieldBuffers();
-    if (vectorTypes.size() != vectorBuffers.size()) {
-      throw new IllegalArgumentException(
-          "vector types and inner vector buffers are not the same size: "
-              + vectorTypes.size()
-              + " != "
-              + vectorBuffers.size());
+
+    if (typeLayout.isFixedBufferCount()) {
+      if (vectorTypes.size() != vectorBuffers.size()) {
+        throw new IllegalArgumentException(
+            "vector types and inner vector buffers are not the same size: "
+                + vectorTypes.size()
+                + " != "
+                + vectorBuffers.size());
+      }
+    } else {
+      vectorTypes.add(VARIADIC_DATA_BUFFERS);
     }
+
     generator.writeStartObject();
     {
       generator.writeObjectField("name", field.getName());
@@ -217,6 +225,8 @@ public class JsonFileWriter implements AutoCloseable {
       for (int v = 0; v < vectorTypes.size(); v++) {
         BufferType bufferType = vectorTypes.get(v);
         ArrowBuf vectorBuffer = vectorBuffers.get(v);
+        // Note that in JSON format we cannot have VARIADIC_DATA_BUFFERS repeated,
+        // thus the values are only written to a single entity.
         generator.writeArrayFieldStart(bufferType.getName());
         final int bufferValueCount =
             (bufferType.equals(OFFSET) && vector.getMinorType() != MinorType.DENSEUNION)
@@ -227,6 +237,25 @@ public class JsonFileWriter implements AutoCloseable {
               && (vector.getMinorType() == MinorType.VARCHAR
                   || vector.getMinorType() == MinorType.VARBINARY)) {
             writeValueToGenerator(bufferType, vectorBuffer, vectorBuffers.get(v - 1), vector, i);
+          } else if (bufferType.equals(VIEWS)
+              && (vector.getMinorType() == MinorType.VIEWVARCHAR
+                  || vector.getMinorType() == MinorType.VIEWVARBINARY)) {
+            // writing views
+            ArrowBuf viewBuffer = vectorBuffers.get(1);
+            List<ArrowBuf> dataBuffers = vectorBuffers.subList(v + 1, vectorBuffers.size());
+            writeValueToViewGenerator(bufferType, viewBuffer, dataBuffers, vector, i);
+          } else if (bufferType.equals(VARIADIC_DATA_BUFFERS)
+              && (vector.getMinorType() == MinorType.VIEWVARCHAR
+                  || vector.getMinorType() == MinorType.VIEWVARBINARY)) {
+            ArrowBuf viewBuffer = vectorBuffers.get(1); // check if this is v-1
+            List<ArrowBuf> dataBuffers = vectorBuffers.subList(v, vectorBuffers.size());
+            if (!dataBuffers.isEmpty()) {
+              writeValueToDataBufferGenerator(bufferType, viewBuffer, dataBuffers, vector);
+              // The variadic buffers are written at once and doesn't require iterating for
+              // each index.
+              // So, break the loop.
+              break;
+            }
           } else if (bufferType.equals(OFFSET)
               && vector.getValueCount() == 0
               && (vector.getMinorType() == MinorType.LIST
@@ -254,6 +283,7 @@ public class JsonFileWriter implements AutoCloseable {
         }
         generator.writeEndArray();
       }
+
       List<Field> fields = field.getChildren();
       List<FieldVector> children = vector.getChildrenFromFields();
       if (fields.size() != children.size()) {
@@ -274,6 +304,102 @@ public class JsonFileWriter implements AutoCloseable {
       }
     }
     generator.writeEndObject();
+  }
+
+  /**
+   * Get data of a view by index.
+   *
+   * @param viewBuffer view buffer
+   * @param dataBuffers data buffers
+   * @param index index of the view
+   * @return byte array of the view
+   */
+  private byte[] getView(final ArrowBuf viewBuffer, final List<ArrowBuf> dataBuffers, int index) {
+    final int dataLength =
+        viewBuffer.getInt((long) index * BaseVariableWidthViewVector.ELEMENT_SIZE);
+    byte[] result = new byte[dataLength];
+
+    final int inlineSize = BaseVariableWidthViewVector.INLINE_SIZE;
+    final int elementSize = BaseVariableWidthViewVector.ELEMENT_SIZE;
+    final int lengthWidth = BaseVariableWidthViewVector.LENGTH_WIDTH;
+    final int prefixWidth = BaseVariableWidthViewVector.PREFIX_WIDTH;
+    final int bufIndexWidth = BaseVariableWidthViewVector.BUF_INDEX_WIDTH;
+
+    if (dataLength > inlineSize) {
+      // data is in the data buffer
+      // get buffer index
+      final int bufferIndex =
+          viewBuffer.getInt(((long) index * elementSize) + lengthWidth + prefixWidth);
+      // get data offset
+      final int dataOffset =
+          viewBuffer.getInt(
+              ((long) index * elementSize) + lengthWidth + prefixWidth + bufIndexWidth);
+      dataBuffers.get(bufferIndex).getBytes(dataOffset, result, 0, dataLength);
+    } else {
+      // data is in the view buffer
+      viewBuffer.getBytes((long) index * elementSize + lengthWidth, result, 0, dataLength);
+    }
+    return result;
+  }
+
+  private void writeValueToViewGenerator(
+      BufferType bufferType,
+      ArrowBuf viewBuffer,
+      List<ArrowBuf> dataBuffers,
+      FieldVector vector,
+      final int index)
+      throws IOException {
+    Preconditions.checkNotNull(viewBuffer);
+    byte[] b = getView(viewBuffer, dataBuffers, index);
+    final int elementSize = BaseVariableWidthViewVector.ELEMENT_SIZE;
+    final int lengthWidth = BaseVariableWidthViewVector.LENGTH_WIDTH;
+    final int prefixWidth = BaseVariableWidthViewVector.PREFIX_WIDTH;
+    final int bufIndexWidth = BaseVariableWidthViewVector.BUF_INDEX_WIDTH;
+    final int length = viewBuffer.getInt((long) index * elementSize);
+    generator.writeStartObject();
+    generator.writeFieldName("SIZE");
+    generator.writeObject(length);
+    if (length > 12) {
+      byte[] prefix = Arrays.copyOfRange(b, 0, prefixWidth);
+      final int bufferIndex =
+          viewBuffer.getInt(((long) index * elementSize) + lengthWidth + prefixWidth);
+      // get data offset
+      final int dataOffset =
+          viewBuffer.getInt(
+              ((long) index * elementSize) + lengthWidth + prefixWidth + bufIndexWidth);
+      generator.writeFieldName("PREFIX_HEX");
+      generator.writeString(Hex.encodeHexString(prefix));
+      generator.writeFieldName("BUFFER_INDEX");
+      generator.writeObject(bufferIndex);
+      generator.writeFieldName("OFFSET");
+      generator.writeObject(dataOffset);
+    } else {
+      generator.writeFieldName("INLINED");
+      if (vector.getMinorType() == MinorType.VIEWVARCHAR) {
+        generator.writeString(new String(b, "UTF-8"));
+      } else {
+        generator.writeString(Hex.encodeHexString(b));
+      }
+    }
+    generator.writeEndObject();
+  }
+
+  private void writeValueToDataBufferGenerator(
+      BufferType bufferType, ArrowBuf viewBuffer, List<ArrowBuf> dataBuffers, FieldVector vector)
+      throws IOException {
+    if (bufferType.equals(VARIADIC_DATA_BUFFERS)) {
+      Preconditions.checkNotNull(viewBuffer);
+      Preconditions.checkArgument(!dataBuffers.isEmpty());
+
+      for (int i = 0; i < dataBuffers.size(); i++) {
+        ArrowBuf dataBuf = dataBuffers.get(i);
+        byte[] result = new byte[(int) dataBuf.writerIndex()];
+        dataBuf.getBytes(0, result);
+        if (result != null) {
+          generator.writeString(Hex.encodeHexString(result));
+        }
+      }
+    }
   }
 
   private void writeValueToGenerator(

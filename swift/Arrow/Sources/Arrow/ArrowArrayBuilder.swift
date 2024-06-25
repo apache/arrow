@@ -152,8 +152,7 @@ public class ArrowArrayBuilders {
         }
     }
 
-    public static func isValidBuilderType<T>(_: T) -> Bool {
-        let type = T.self
+    public static func isValidBuilderType<T>(_ type: T.Type) -> Bool {
         return type == Int8?.self || type == Int16?.self ||
             type == Int32?.self || type == Int64?.self ||
             type == UInt8?.self || type == UInt16?.self ||

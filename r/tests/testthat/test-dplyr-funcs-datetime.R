@@ -1885,21 +1885,6 @@ test_that("`as.Date()` and `as_date()`", {
     test_df
   )
 
-  # we do not support multiple tryFormats
-  # Use a dataset to test the alternative suggestion message
-  expect_snapshot(
-    test_df %>%
-      InMemoryDataset$create() %>%
-      transmute(
-        date_char_ymd = as.Date(
-          character_ymd_var,
-          tryFormats = c("%Y-%m-%d", "%Y/%m/%d")
-        )
-      ) %>%
-      collect(),
-    error = TRUE
-  )
-
   # strptime does not support a partial format - Arrow returns NA, while
   # lubridate parses correctly
   # TODO: revisit after ARROW-15813
@@ -1956,6 +1941,22 @@ test_that("`as.Date()` and `as_date()`", {
       ) %>%
       collect(),
     test_df
+  )
+
+  skip_if_not_available("dataset")
+  # we do not support multiple tryFormats
+  # Use a dataset to test the alternative suggestion message
+  expect_snapshot(
+    test_df %>%
+      InMemoryDataset$create() %>%
+      transmute(
+        date_char_ymd = as.Date(
+          character_ymd_var,
+          tryFormats = c("%Y-%m-%d", "%Y/%m/%d")
+        )
+      ) %>%
+      collect(),
+    error = TRUE
   )
 })
 

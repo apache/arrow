@@ -632,7 +632,7 @@ public class TestAceroSubstraitConsumer extends TestDataset {
         assertThat(sumVector.getValueIterable(), IsIterableContainingInOrder.contains(21, 3, 13));
         final ValueIterableVector<Text> nameVector =
             (ValueIterableVector<Text>)
-                reader.getVectorSchemaRoot().getVector("conccat_column_a_and_b");
+                reader.getVectorSchemaRoot().getVector("concat_column_a_and_b");
         assertThat(
             nameVector.getValueIterable(),
             IsIterableContainingInOrder.contains(
