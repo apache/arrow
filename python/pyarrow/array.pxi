@@ -1610,7 +1610,7 @@ cdef class Array(_PandasConvertible):
         """
         self._assert_cpu()
 
-        if not HAS_NUMPY:
+        if "numpy" not in sys.modules:
             raise ValueError(
                 "Cannot return a numpy.ndarray if Numpy is not present")
         cdef:

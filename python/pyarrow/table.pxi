@@ -495,7 +495,7 @@ cdef class ChunkedArray(_PandasConvertible):
         >>> n_legs.to_numpy()
         array([  2,   2,   4,   4,   5, 100])
         """
-        if not HAS_NUMPY:
+        if "numpy" not in sys.modules:
             raise ValueError(
                 "Cannot return a numpy.ndarray if Numpy is not present")
         if zero_copy_only:

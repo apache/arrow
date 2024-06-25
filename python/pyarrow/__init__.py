@@ -73,10 +73,6 @@ from pyarrow.lib import (BuildInfo, RuntimeInfo, set_timezone_db_path,
                          io_thread_count, set_io_thread_count)
 
 
-# Expose whether NUMPY is available or not
-from pyarrow.lib import HAS_NUMPY
-
-
 def show_versions():
     """
     Print various version information, to help with error reporting.

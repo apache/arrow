@@ -222,7 +222,6 @@ def test_to_numpy_unsupported_types():
 
 
 def test_to_numpy_writable():
-    # TODO: Validate this is not segfaulting
     arr = pa.array(range(10))
     np_arr = arr.to_numpy()
 
@@ -481,7 +480,7 @@ def test_array_slice():
             res.validate()
             expected = arr.to_pylist()[start:stop]
             assert res.to_pylist() == expected
-            if pa.HAS_NUMPY:
+            if np is not None:
                 assert res.to_numpy().tolist() == expected
 
 
