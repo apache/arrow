@@ -26,8 +26,10 @@ namespace arrow {
 namespace util {
 
 template <typename T>
-void CheckAlignment(const void* ptr) {
-  ARROW_DCHECK(reinterpret_cast<uint64_t>(ptr) % sizeof(T) == 0);
+void CheckAlignment(const void* ptr, bool do_check = true) {
+  if (ARROW_PREDICT_TRUE(do_check)) {
+    ARROW_DCHECK(reinterpret_cast<uint64_t>(ptr) % sizeof(T) == 0);
+  }
 }
 
 /// Storage used to allocate temporary vectors of a batch size.

@@ -111,9 +111,16 @@ void RowTableMetadata::FromColumnMetadataVector(
         }
         return left < right;
       });
+  are_cols_sorted = false;
   inverse_column_order.resize(num_cols);
   for (uint32_t i = 0; i < num_cols; ++i) {
     inverse_column_order[column_order[i]] = i;
+    // Check whether the column_order has changed due to sorting,
+    // and the sorted column order will be used first for better
+    // performance in grouper's compare.
+    if (inverse_column_order[i] != column_order[i] && are_cols_sorted == false) {
+      are_cols_sorted = true;
+    }
   }
 
   row_alignment = in_row_alignment;
