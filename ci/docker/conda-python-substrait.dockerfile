@@ -25,15 +25,17 @@ COPY ci/conda_env_python.txt \
      ci/conda_env_sphinx.txt \
      /arrow/ci/
 
-# Note: openjdk is pinned to <22 because Gradle v8.8 does not
-# support Java 22 yet, which is configured by the
-# install_substrait_consumer.sh script below.
+# Note: openjdk is pinned to 17 because the
+# substrait repo currently pins to jdk 17.
+# Newer jdk versions are currently failing
+# due to the recent upgrade to Gradle 8 in
+# install_substrait_consumer.sh.
 RUN mamba install -q -y \
         --file arrow/ci/conda_env_python.txt \
         --file arrow/ci/conda_env_sphinx.txt \
         $([ "$python" == "3.9" ] && echo "pickle5") \
         python=${python} \
-        openjdk"<22" \
+        openjdk=17 \
         nomkl && \
     mamba clean --all
 
