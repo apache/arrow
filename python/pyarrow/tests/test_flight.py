@@ -28,7 +28,10 @@ import time
 import traceback
 import json
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 import pytest
 import pyarrow as pa
 
@@ -54,6 +57,8 @@ except ImportError:
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not flight'
 pytestmark = pytest.mark.flight
+# All tests on this module can be run when numpy is or is not available
+pytestmark = pytest.mark.without_numpy
 
 
 def test_import():
@@ -1588,6 +1593,7 @@ def test_flight_do_put_metadata():
                 assert idx == server_idx
 
 
+@pytest.mark.numpy
 def test_flight_do_put_limit():
     """Try a simple do_put call with a size limit."""
     large_batch = pa.RecordBatch.from_arrays([

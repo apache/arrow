@@ -1286,9 +1286,13 @@ services:
       # when numpy is not installed but those tests will also run
       # if numpy is present.
       PYTEST_ARGS: "-k without_numpy"
-      # In the future we are supposed to run all tests.
-      # Some tests fail to be collected so we just collect tests from some modules.
-      PYTEST_PYARGS: "pyarrow.tests.test_array pyarrow.tests.test_compute pyarrow.tests.test_without_numpy"
+      # Some tests fail to be collected due to numpy fixtures.
+      # That is why we just collect tests from the following modules.
+      PYTEST_PYARGS: "pyarrow.tests.test_array
+                      pyarrow.tests.test_compute
+                      pyarrow.tests.test_dataset
+                      pyarrow.tests.test_flight
+                      pyarrow.tests.test_without_numpy"
       HYPOTHESIS_PROFILE:  # inherit
       PYARROW_TEST_HYPOTHESIS:  # inherit
     volumes: *conda-volumes

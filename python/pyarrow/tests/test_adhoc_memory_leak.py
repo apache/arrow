@@ -31,7 +31,6 @@ except ImportError:
     pass
 
 
-@pytest.mark.numpy
 @pytest.mark.memory_leak
 @pytest.mark.pandas
 def test_deserialize_pandas_arrow_7956():
