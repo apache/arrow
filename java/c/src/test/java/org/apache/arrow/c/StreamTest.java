@@ -42,6 +42,8 @@ import org.apache.arrow.vector.ViewVarBinaryVector;
 import org.apache.arrow.vector.ViewVarCharVector;
 import org.apache.arrow.vector.compare.Range;
 import org.apache.arrow.vector.compare.RangeEqualsVisitor;
+import org.apache.arrow.vector.complex.MapVector;
+import org.apache.arrow.vector.complex.impl.UnionMapWriter;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.ArrowReader;
@@ -260,6 +262,62 @@ final class StreamTest {
       root.setRowCount(4);
       batches.add(unloader.getRecordBatch());
       roundtrip(schema, batches, provider);
+    }
+  }
+
+  @Test
+  public void roundtripMap() throws Exception {
+    Field keyField =
+        new Field(
+            "id", FieldType.notNullable(new ArrowType.Int(64, true)), Collections.emptyList());
+    Field valueField =
+        new Field(
+            "value", FieldType.nullable(new ArrowType.Int(64, true)), Collections.emptyList());
+    List<Field> structFields = new ArrayList<>();
+    structFields.add(keyField);
+    structFields.add(valueField);
+
+    Field structField =
+        new Field("entry", FieldType.notNullable(ArrowType.Struct.INSTANCE), structFields);
+    Field mapIntToIntField =
+        new Field(
+            "mapFieldIntToInt",
+            FieldType.notNullable(new ArrowType.Map(false)),
+            Collections.singletonList(structField));
+
+    Schema schema = new Schema(Collections.singletonList(mapIntToIntField));
+    final List<ArrowRecordBatch> batches = new ArrayList<>();
+
+    try (VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.create(schema, allocator);
+        MapVector mapVector = (MapVector) vectorSchemaRoot.getVector("mapFieldIntToInt")) {
+      UnionMapWriter mapWriter = mapVector.getWriter();
+      mapWriter.setPosition(0);
+      mapWriter.startMap();
+      for (int i = 0; i < 18; i++) {
+        mapWriter.startEntry();
+        if (i % 2 == 0) {
+          mapWriter.key().bigInt().writeBigInt(i);
+          if (i % 3 == 0) {
+            mapWriter.value().bigInt().writeBigInt(i * 7);
+          } else {
+            mapWriter.value().bigInt().writeNull();
+          }
+        } else {
+          mapWriter.key().bigInt().writeNull();
+          mapWriter.value().bigInt().writeNull();
+        }
+        mapWriter.endEntry();
+      }
+      mapWriter.endMap();
+
+      mapWriter.setValueCount(1);
+      vectorSchemaRoot.setRowCount(1);
+
+      System.out.println(vectorSchemaRoot.contentToTSVString());
+
+      VectorUnloader unloader = new VectorUnloader(vectorSchemaRoot);
+      batches.add(unloader.getRecordBatch());
+      roundtrip(schema, batches);
     }
   }
 
