@@ -1202,7 +1202,8 @@ tasks:
     params:
       env:
         UBUNTU: 22.04
-        PYTHON: 3.12        
+        PYTHON: 3.12
+      flags: "-e ARROW_ORC=OFF"
       image: conda-python-emscripten
 
 
