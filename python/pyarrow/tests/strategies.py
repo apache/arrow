@@ -25,7 +25,7 @@ import hypothesis.strategies as st
 try:
     import hypothesis.extra.numpy as npst
 except ImportError:
-    pass
+    npst = None
 try:
     import hypothesis.extra.pytz as tzst
 except ImportError:
