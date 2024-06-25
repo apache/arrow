@@ -3,6 +3,7 @@
   "version-string": "17.0.0-SNAPSHOT",
   "dependencies": [
     "glib",
+    "gobject-introspection",
     "pkgconf"
   ]
 }

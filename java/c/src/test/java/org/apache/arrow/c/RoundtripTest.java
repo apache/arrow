@@ -78,6 +78,8 @@ import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.ViewVarBinaryVector;
+import org.apache.arrow.vector.ViewVarCharVector;
 import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.compare.VectorEqualsVisitor;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
@@ -521,6 +523,79 @@ public class RoundtripTest {
           "def".getBytes(StandardCharsets.UTF_8),
           null);
       assertTrue(roundtrip(vector, VarBinaryVector.class));
+    }
+  }
+
+  private String generateString(String str, int repetition) {
+    StringBuilder aRepeated = new StringBuilder();
+    for (int i = 0; i < repetition; i++) {
+      aRepeated.append(str);
+    }
+    return aRepeated.toString();
+  }
+
+  @Test
+  public void testViewVector() {
+    // ViewVarCharVector with short strings
+    try (final ViewVarCharVector vector = new ViewVarCharVector("v1", allocator)) {
+      setVector(
+          vector,
+          "abc".getBytes(StandardCharsets.UTF_8),
+          "def".getBytes(StandardCharsets.UTF_8),
+          null);
+      assertTrue(roundtrip(vector, ViewVarCharVector.class));
+    }
+
+    // ViewVarCharVector with long strings
+    try (final ViewVarCharVector vector = new ViewVarCharVector("v2", allocator)) {
+      setVector(
+          vector,
+          "01234567890123".getBytes(StandardCharsets.UTF_8),
+          "01234567890123567".getBytes(StandardCharsets.UTF_8),
+          null);
+      assertTrue(roundtrip(vector, ViewVarCharVector.class));
+    }
+
+    // ViewVarBinaryVector with short values
+    try (final ViewVarBinaryVector vector = new ViewVarBinaryVector("v3", allocator)) {
+      setVector(
+          vector,
+          "abc".getBytes(StandardCharsets.UTF_8),
+          "def".getBytes(StandardCharsets.UTF_8),
+          null);
+      assertTrue(roundtrip(vector, ViewVarBinaryVector.class));
+    }
+
+    // ViewVarBinaryVector with long values
+    try (final ViewVarBinaryVector vector = new ViewVarBinaryVector("v4", allocator)) {
+      setVector(
+          vector,
+          "01234567890123".getBytes(StandardCharsets.UTF_8),
+          "01234567890123567".getBytes(StandardCharsets.UTF_8),
+          null);
+      assertTrue(roundtrip(vector, ViewVarBinaryVector.class));
+    }
+
+    List<byte[]> byteArrayList = new ArrayList<>();
+    for (int i = 1; i <= 500; i++) {
+      StringBuilder sb = new StringBuilder(i);
+      for (int j = 0; j < i; j++) {
+        sb.append(j); // or any other character
+      }
+      byte[] bytes = sb.toString().getBytes(StandardCharsets.UTF_8);
+      byteArrayList.add(bytes);
+    }
+
+    // ViewVarCharVector with short long strings with multiple data buffers
+    try (final ViewVarCharVector vector = new ViewVarCharVector("v5", allocator)) {
+      setVector(vector, byteArrayList.toArray(new byte[0][]));
+      assertTrue(roundtrip(vector, ViewVarCharVector.class));
+    }
+
+    // ViewVarBinaryVector with short long strings with multiple data buffers
+    try (final ViewVarBinaryVector vector = new ViewVarBinaryVector("v6", allocator)) {
+      setVector(vector, byteArrayList.toArray(new byte[0][]));
+      assertTrue(roundtrip(vector, ViewVarBinaryVector.class));
     }
   }
 

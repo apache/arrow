@@ -1543,6 +1543,66 @@ public class TestVarCharViewVector {
   }
 
   @Test
+  public void testVectorLoadUnloadInLine() {
+
+    try (final ViewVarCharVector vector1 = new ViewVarCharVector("myvector", allocator)) {
+
+      setVector(vector1, STR0, STR1, STR4, STR5, STR6);
+
+      assertEquals(4, vector1.getLastSet());
+      vector1.setValueCount(15);
+      assertEquals(14, vector1.getLastSet());
+
+      /* Check the vector output */
+      assertArrayEquals(STR0, vector1.get(0));
+      assertArrayEquals(STR1, vector1.get(1));
+      assertArrayEquals(STR4, vector1.get(2));
+      assertArrayEquals(STR5, vector1.get(3));
+      assertArrayEquals(STR6, vector1.get(4));
+
+      Field field = vector1.getField();
+      String fieldName = field.getName();
+
+      List<Field> fields = new ArrayList<>();
+      List<FieldVector> fieldVectors = new ArrayList<>();
+
+      fields.add(field);
+      fieldVectors.add(vector1);
+
+      Schema schema = new Schema(fields);
+
+      VectorSchemaRoot schemaRoot1 =
+          new VectorSchemaRoot(schema, fieldVectors, vector1.getValueCount());
+      VectorUnloader vectorUnloader = new VectorUnloader(schemaRoot1);
+
+      try (ArrowRecordBatch recordBatch = vectorUnloader.getRecordBatch();
+          BufferAllocator finalVectorsAllocator =
+              allocator.newChildAllocator("new vector", 0, Long.MAX_VALUE);
+          VectorSchemaRoot schemaRoot2 = VectorSchemaRoot.create(schema, finalVectorsAllocator); ) {
+
+        VectorLoader vectorLoader = new VectorLoader(schemaRoot2);
+        vectorLoader.load(recordBatch);
+
+        ViewVarCharVector vector2 = (ViewVarCharVector) schemaRoot2.getVector(fieldName);
+        /*
+         * lastSet would have internally been set by VectorLoader.load() when it invokes
+         * loadFieldBuffers.
+         */
+        assertEquals(14, vector2.getLastSet());
+        vector2.setValueCount(25);
+        assertEquals(24, vector2.getLastSet());
+
+        /* Check the vector output */
+        assertArrayEquals(STR0, vector2.get(0));
+        assertArrayEquals(STR1, vector2.get(1));
+        assertArrayEquals(STR4, vector2.get(2));
+        assertArrayEquals(STR5, vector2.get(3));
+        assertArrayEquals(STR6, vector2.get(4));
+      }
+    }
+  }
+
+  @Test
   public void testVectorLoadUnload() {
 
     try (final ViewVarCharVector vector1 = new ViewVarCharVector("myvector", allocator)) {

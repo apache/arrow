@@ -34,15 +34,22 @@ if [ -n "${MSYSTEM:-}" ]; then
   export ARROW_HOME="$(cygpath --unix "${ARROW_HOME}")"
 fi
 
+export PATH="${ARROW_HOME}/bin:${PATH}"
+
 meson_pkg_config_path="${ARROW_HOME}/lib/pkgconfig"
 
 mkdir -p ${build_dir}
 
-if [ -n "${VCPKG_ROOT:-}" ]; then
+if [ -n "${VCPKG_ROOT:-}" -a -n "${VCPKG_TRIPLET:-}" ]; then
   vcpkg_install_root="${build_root}/vcpkg_installed"
   $VCPKG_ROOT/vcpkg install --x-manifest-root=${source_dir} --x-install-root=${vcpkg_install_root}
-  export PKG_CONFIG="${vcpkg_install_root}/x64-windows/tools/pkgconf/pkgconf.exe"
-  meson_pkg_config_path="${vcpkg_install_root}/x64-windows/lib/pkgconfig:${meson_pkg_config_path}"
+  export PKG_CONFIG="${vcpkg_install_root}/${VCPKG_TRIPLET}/tools/pkgconf/pkgconf.exe"
+  meson_pkg_config_path="${vcpkg_install_root}/${VCPKG_TRIPLET}/lib/pkgconfig:${meson_pkg_config_path}"
+  # Configure PATH for libraries required by the gobject-introspection generated binary
+  cpp_vcpkg_install_root="${build_root}/cpp/vcpkg_installed"
+  PATH="${cpp_vcpkg_install_root}/${VCPKG_TRIPLET}/debug/bin:${PATH}"
+  PATH="${cpp_vcpkg_install_root}/${VCPKG_TRIPLET}/bin:${PATH}"
+  export PATH="${vcpkg_install_root}/${VCPKG_TRIPLET}/bin:${PATH}"
 fi
 
 if [ -n "${VCToolsInstallDir:-}" -a -n "${MSYSTEM:-}" ]; then

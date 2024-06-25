@@ -19,6 +19,7 @@ import Foundation
 
 public class ArrowDecoder: Decoder {
     var rbIndex: UInt = 0
+    var singleRBCol: Int = 0
     public var codingPath: [CodingKey] = []
     public var userInfo: [CodingUserInfoKey: Any] = [:]
     public let rb: RecordBatch
@@ -45,6 +46,25 @@ public class ArrowDecoder: Decoder {
 
         self.columns = columns
         self.nameToCol = colMapping
+    }
+
+    public func decode<T: Decodable, U: Decodable>(_ type: [T: U].Type) throws -> [T: U] {
+        var output = [T: U]()
+        if rb.columnCount != 2 {
+            throw ArrowError.invalid("RecordBatch column count of 2 is required to decode to map")
+        }
+
+        for index in 0..<rb.length {
+            self.rbIndex = index
+            self.singleRBCol = 0
+            let key = try T.init(from: self)
+            self.singleRBCol = 1
+            let value = try U.init(from: self)
+            output[key] = value
+        }
+
+        self.singleRBCol = 0
+        return output
     }
 
     public func decode<T: Decodable>(_ type: T.Type) throws -> [T] {
@@ -252,7 +272,7 @@ private struct ArrowKeyedDecoding<Key: CodingKey>: KeyedDecodingContainerProtoco
     }
 
     func decode<T>(_ type: T.Type, forKey key: Key) throws -> T where T: Decodable {
-        if type == Date.self {
+        if ArrowArrayBuilders.isValidBuilderType(type) || type == Date.self {
             return try self.decoder.doDecode(key)!
         } else {
             throw ArrowError.invalid("Type \(type) is currently not supported")
@@ -290,26 +310,26 @@ private struct ArrowSingleValueDecoding: SingleValueDecodingContainer {
 
     func decodeNil() -> Bool {
         do {
-            return try self.decoder.isNull(0)
+            return try self.decoder.isNull(self.decoder.singleRBCol)
         } catch {
             return false
         }
     }
 
     func decode(_ type: Bool.Type) throws -> Bool {
-        return try self.decoder.doDecode(0)!
+        return try self.decoder.doDecode(self.decoder.singleRBCol)!
     }
 
     func decode(_ type: String.Type) throws -> String {
-        return try self.decoder.doDecode(0)!
+        return try self.decoder.doDecode(self.decoder.singleRBCol)!
     }
 
     func decode(_ type: Double.Type) throws -> Double {
-        return try self.decoder.doDecode(0)!
+        return try self.decoder.doDecode(self.decoder.singleRBCol)!
     }
 
     func decode(_ type: Float.Type) throws -> Float {
-        return try self.decoder.doDecode(0)!
+        return try self.decoder.doDecode(self.decoder.singleRBCol)!
     }
 
     func decode(_ type: Int.Type) throws -> Int {
@@ -318,19 +338,19 @@ private struct ArrowSingleValueDecoding: SingleValueDecodingContainer {
     }
 
     func decode(_ type: Int8.Type) throws -> Int8 {
-        return try self.decoder.doDecode(0)!
+        return try self.decoder.doDecode(self.decoder.singleRBCol)!
     }
 
     func decode(_ type: Int16.Type) throws -> Int16 {
-        return try self.decoder.doDecode(0)!
+        return try self.decoder.doDecode(self.decoder.singleRBCol)!
     }
 
     func decode(_ type: Int32.Type) throws -> Int32 {
-        return try self.decoder.doDecode(0)!
+        return try self.decoder.doDecode(self.decoder.singleRBCol)!
     }
 
     func decode(_ type: Int64.Type) throws -> Int64 {
-        return try self.decoder.doDecode(0)!
+        return try self.decoder.doDecode(self.decoder.singleRBCol)!
     }
 
     func decode(_ type: UInt.Type) throws -> UInt {
@@ -339,30 +359,24 @@ private struct ArrowSingleValueDecoding: SingleValueDecodingContainer {
     }
 
     func decode(_ type: UInt8.Type) throws -> UInt8 {
-        return try self.decoder.doDecode(0)!
+        return try self.decoder.doDecode(self.decoder.singleRBCol)!
     }
 
     func decode(_ type: UInt16.Type) throws -> UInt16 {
-        return try self.decoder.doDecode(0)!
+        return try self.decoder.doDecode(self.decoder.singleRBCol)!
     }
 
     func decode(_ type: UInt32.Type) throws -> UInt32 {
-        return try self.decoder.doDecode(0)!
+        return try self.decoder.doDecode(self.decoder.singleRBCol)!
     }
 
     func decode(_ type: UInt64.Type) throws -> UInt64 {
-        return try self.decoder.doDecode(0)!
+        return try self.decoder.doDecode(self.decoder.singleRBCol)!
     }
 
     func decode<T>(_ type: T.Type) throws -> T where T: Decodable {
-        if type == Int8.self || type == Int16.self ||
-            type == Int32.self || type == Int64.self ||
-            type == UInt8.self || type == UInt16.self ||
-            type == UInt32.self || type == UInt64.self ||
-            type == String.self || type == Double.self ||
-            type == Float.self || type == Date.self ||
-            type == Bool.self {
-            return try self.decoder.doDecode(0)!
+        if ArrowArrayBuilders.isValidBuilderType(type) || type == Date.self {
+            return try self.decoder.doDecode(self.decoder.singleRBCol)!
         } else {
             throw ArrowError.invalid("Type \(type) is currently not supported")
         }

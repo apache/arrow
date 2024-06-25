@@ -111,7 +111,7 @@ public class VectorUnloader {
     int expectedBufferCount =
         (int) (TypeLayout.getTypeBufferCount(vector.getField().getType()) + variadicBufferCount);
     // only update variadicBufferCounts for vectors that have variadic buffers
-    if (variadicBufferCount > 0) {
+    if (vector instanceof BaseVariableWidthViewVector) {
       variadicBufferCounts.add(variadicBufferCount);
     }
     if (fieldBuffers.size() != expectedBufferCount) {

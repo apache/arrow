@@ -28,11 +28,6 @@ under the License.
   <name>Arrow Algorithms</name>
   <description>(Experimental/Contrib) A collection of algorithms for working with ValueVectors.</description>
 
-  <properties>
-    <checkstyle.config.location>dev/checkstyle/checkstyle-spotless.xml</checkstyle.config.location>
-    <spotless.java.excludes>none</spotless.java.excludes>
-  </properties>
-
   <dependencies>
     <dependency>
       <groupId>org.apache.arrow</groupId>

@@ -140,7 +140,7 @@ some_features_are_off <- function(features) {
   # `features` is a named logical vector (as in arrow_info()$capabilities)
   # Let's exclude some less relevant ones
   # jemalloc is only included because it is sometimes disabled in our build process
-  blocklist <- c("lzo", "bz2", "brotli", "substrait", "jemalloc")
+  blocklist <- c("lzo", "bz2", "brotli", "substrait", "jemalloc", "gcs")
   # Return TRUE if any of the other features are FALSE
   !all(features[setdiff(names(features), blocklist)])
 }

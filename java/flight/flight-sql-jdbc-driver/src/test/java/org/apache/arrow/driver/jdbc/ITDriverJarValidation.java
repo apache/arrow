@@ -70,7 +70,7 @@ public class ITDriverJarValidation {
 
     assertNotNull(driverClassURL, "Driver jar was not detected in the classpath");
     assertEquals(
-        "Driver jar was not detected in the classpath", "jar", driverClassURL.getProtocol());
+        "jar", driverClassURL.getProtocol(), "Driver jar was not detected in the classpath");
 
     JarURLConnection connection = (JarURLConnection) driverClassURL.openConnection();
     return connection.getJarFile();

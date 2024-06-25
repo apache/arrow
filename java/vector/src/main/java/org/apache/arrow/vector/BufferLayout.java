@@ -35,7 +35,9 @@ public class BufferLayout {
     OFFSET("OFFSET"),
     VALIDITY("VALIDITY"),
     TYPE("TYPE_ID"),
-    SIZE("SIZE");
+    SIZE("SIZE"),
+    VIEWS("VIEWS"),
+    VARIADIC_DATA_BUFFERS("VARIADIC_DATA_BUFFERS");
 
     private final String name;
 
@@ -60,6 +62,7 @@ public class BufferLayout {
   private static final BufferLayout VALUES_16 = new BufferLayout(BufferType.DATA, 16);
   private static final BufferLayout VALUES_8 = new BufferLayout(BufferType.DATA, 8);
   private static final BufferLayout SIZE_BUFFER = new BufferLayout(BufferType.SIZE, 32);
+  private static final BufferLayout VIEW_BUFFER = new BufferLayout(BufferType.VIEWS, 16);
 
   public static BufferLayout typeBuffer() {
     return TYPE_BUFFER;
@@ -110,6 +113,10 @@ public class BufferLayout {
 
   public static BufferLayout byteVector() {
     return dataBuffer(8);
+  }
+
+  public static BufferLayout viewVector() {
+    return VIEW_BUFFER;
   }
 
   private final short typeBitWidth;

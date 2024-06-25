@@ -28,11 +28,6 @@ under the License.
   <name>Arrow Vectors</name>
   <description>An off-heap reference implementation for Arrow columnar data format.</description>
 
-  <properties>
-    <checkstyle.config.location>dev/checkstyle/checkstyle-spotless.xml</checkstyle.config.location>
-    <spotless.java.excludes>none</spotless.java.excludes>
-  </properties>
-
   <dependencies>
     <dependency>
       <groupId>org.apache.arrow</groupId>

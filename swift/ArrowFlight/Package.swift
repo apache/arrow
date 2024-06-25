@@ -47,14 +47,14 @@ let package = Package(
                 .product(name: "SwiftProtobuf", package: "swift-protobuf")
             ],
             swiftSettings: [
-                .unsafeFlags(["-warnings-as-errors"])
+                // build: .unsafeFlags(["-warnings-as-errors"])
             ]
         ),
         .testTarget(
             name: "ArrowFlightTests",
             dependencies: ["ArrowFlight"],
             swiftSettings: [
-                .unsafeFlags(["-warnings-as-errors"])
+                // build: .unsafeFlags(["-warnings-as-errors"])
             ]
         )
     ]

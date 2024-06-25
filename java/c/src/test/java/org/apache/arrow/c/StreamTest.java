@@ -38,6 +38,8 @@ import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
+import org.apache.arrow.vector.ViewVarBinaryVector;
+import org.apache.arrow.vector.ViewVarCharVector;
 import org.apache.arrow.vector.compare.Range;
 import org.apache.arrow.vector.compare.RangeEqualsVisitor;
 import org.apache.arrow.vector.dictionary.Dictionary;
@@ -127,6 +129,90 @@ final class StreamTest {
       strs.setSafe(0, "".getBytes(StandardCharsets.UTF_8));
       strs.setNull(1);
       strs.setSafe(2, "bc".getBytes(StandardCharsets.UTF_8));
+      strs.setNull(3);
+      root.setRowCount(4);
+      batches.add(unloader.getRecordBatch());
+      roundtrip(schema, batches);
+    }
+  }
+
+  @Test
+  public void roundtripStringViews() throws Exception {
+    final Schema schema =
+        new Schema(
+            Arrays.asList(
+                Field.nullable("ints", new ArrowType.Int(32, true)),
+                Field.nullable("string_views", new ArrowType.Utf8View())));
+    final List<ArrowRecordBatch> batches = new ArrayList<>();
+    try (final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
+      final IntVector ints = (IntVector) root.getVector(0);
+      final ViewVarCharVector strs = (ViewVarCharVector) root.getVector(1);
+      VectorUnloader unloader = new VectorUnloader(root);
+
+      root.allocateNew();
+      ints.setSafe(0, 1);
+      ints.setSafe(1, 2);
+      ints.setSafe(2, 4);
+      ints.setSafe(3, 8);
+      strs.setSafe(0, "".getBytes(StandardCharsets.UTF_8));
+      strs.setSafe(1, "a".getBytes(StandardCharsets.UTF_8));
+      strs.setSafe(2, "bc1234567890bc".getBytes(StandardCharsets.UTF_8));
+      strs.setSafe(3, "defg1234567890defg".getBytes(StandardCharsets.UTF_8));
+      root.setRowCount(4);
+      batches.add(unloader.getRecordBatch());
+
+      root.allocateNew();
+      ints.setSafe(0, 1);
+      ints.setNull(1);
+      ints.setSafe(2, 4);
+      ints.setNull(3);
+      strs.setSafe(0, "".getBytes(StandardCharsets.UTF_8));
+      strs.setNull(1);
+      strs.setSafe(2, "bc1234567890bc".getBytes(StandardCharsets.UTF_8));
+      strs.setNull(3);
+      root.setRowCount(4);
+      batches.add(unloader.getRecordBatch());
+      roundtrip(schema, batches);
+    }
+  }
+
+  @Test
+  public void roundtripBinaryViews() throws Exception {
+    final Schema schema =
+        new Schema(
+            Arrays.asList(
+                Field.nullable("ints", new ArrowType.Int(32, true)),
+                Field.nullable("binary_views", new ArrowType.BinaryView())));
+    final List<ArrowRecordBatch> batches = new ArrayList<>();
+    try (final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
+      final IntVector ints = (IntVector) root.getVector(0);
+      final ViewVarBinaryVector strs = (ViewVarBinaryVector) root.getVector(1);
+      VectorUnloader unloader = new VectorUnloader(root);
+
+      root.allocateNew();
+      ints.setSafe(0, 1);
+      ints.setSafe(1, 2);
+      ints.setSafe(2, 4);
+      ints.setSafe(3, 8);
+      strs.setSafe(0, new byte[0]);
+      strs.setSafe(1, new byte[] {97});
+      strs.setSafe(2, new byte[] {98, 99, 49, 50, 51, 52, 53, 54, 55, 56, 57, 48, 98, 99});
+      strs.setSafe(
+          3,
+          new byte[] {
+            100, 101, 102, 103, 49, 50, 51, 52, 53, 54, 55, 56, 57, 48, 100, 101, 102, 103
+          });
+      root.setRowCount(4);
+      batches.add(unloader.getRecordBatch());
+
+      root.allocateNew();
+      ints.setSafe(0, 1);
+      ints.setNull(1);
+      ints.setSafe(2, 4);
+      ints.setNull(3);
+      strs.setSafe(0, new byte[0]);
+      strs.setNull(1);
+      strs.setSafe(2, new byte[] {98, 99, 49, 50, 51, 52, 53, 54, 55, 56, 57, 48, 98, 99});
       strs.setNull(3);
       root.setRowCount(4);
       batches.add(unloader.getRecordBatch());

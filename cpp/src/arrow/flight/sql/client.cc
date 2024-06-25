@@ -24,7 +24,6 @@
 #include <google/protobuf/any.pb.h>
 
 #include "arrow/buffer.h"
-#include "arrow/flight/otel_logging_internal.h"
 #include "arrow/flight/sql/protocol_internal.h"
 #include "arrow/flight/types.h"
 #include "arrow/io/memory.h"
@@ -64,7 +63,6 @@ arrow::Result<FlightDescriptor> GetFlightDescriptorForCommand(
 arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoForCommand(
     FlightSqlClient* client, const FlightCallOptions& options,
     const google::protobuf::Message& command) {
-  ARROW_FLIGHT_OTELLOG_SQL_CLIENT(INFO, "[Example message] func=", __func__);
   ARROW_ASSIGN_OR_RAISE(FlightDescriptor descriptor,
                         GetFlightDescriptorForCommand(command));
   return client->GetFlightInfo(options, descriptor);
