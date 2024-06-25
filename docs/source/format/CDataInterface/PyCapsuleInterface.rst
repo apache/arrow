@@ -275,7 +275,7 @@ is expected to not involve any cross-device copying of data.
 The device-aware methods (:meth:`__arrow_c_device_array__`, and :meth:`__arrow_c_device_stream__`)
 should accept additional keyword arguments (``**kwargs``), if they have a
 default value of ``None``. This allows for future addition of new optional
-keywords, where the default value for such new keyword will always ``None``.
+keywords, where the default value for such a new keyword will always be ``None``.
 The implementor is responsible for raising a ``NotImplementedError`` for any
 additional keyword being passed by the user which is not recognised. For
 example:
