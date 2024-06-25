@@ -313,8 +313,6 @@ final class StreamTest {
       mapWriter.setValueCount(1);
       vectorSchemaRoot.setRowCount(1);
 
-      System.out.println(vectorSchemaRoot.contentToTSVString());
-
       VectorUnloader unloader = new VectorUnloader(vectorSchemaRoot);
       batches.add(unloader.getRecordBatch());
       roundtrip(schema, batches);
