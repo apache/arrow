@@ -140,6 +140,33 @@ public class UnionMapWriter extends UnionListWriter {
     return this;
   }
 
+  private String getWriteFieldName() {
+    Field mapField = this.vector.getField();
+    if (mapField == null) {
+      throw new UnsupportedOperationException("MapVector does not have a field.");
+    }
+    if (mapField.getChildren().size() != 1) {
+      throw new UnsupportedOperationException("MapVector does not have a single struct field.");
+    }
+    Field structField = mapField.getChildren().get(0);
+    switch (mode) {
+      case KEY:
+        if (structField.getChildren().size() == 2) {
+          return structField.getChildren().get(0).getName();
+        } else {
+          return MapVector.KEY_NAME;
+        }
+      case VALUE:
+        if (structField.getChildren().size() == 2) {
+          return structField.getChildren().get(1).getName();
+        } else {
+          return MapVector.VALUE_NAME;
+        }
+      default:
+        throw new UnsupportedOperationException("Cannot get field name in OFF mode");
+    }
+  }
+
   <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
   <#assign fields = minor.fields!type.fields />
   <#assign uncappedName = name?uncap_first/>
@@ -149,9 +176,9 @@ public class UnionMapWriter extends UnionListWriter {
   public ${name}Writer ${uncappedName}() {
     switch (mode) {
       case KEY:
-        return entryWriter.${uncappedName}(MapVector.KEY_NAME);
+        return entryWriter.${uncappedName}(getWriteFieldName());
       case VALUE:
-        return entryWriter.${uncappedName}(MapVector.VALUE_NAME);
+        return entryWriter.${uncappedName}(getWriteFieldName());
       default:
         return this;
     }

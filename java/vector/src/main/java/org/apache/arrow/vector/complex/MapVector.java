@@ -45,8 +45,11 @@ import org.apache.arrow.vector.util.TransferPair;
  */
 public class MapVector extends ListVector {
 
+  /** The default name of the key field in the MapVector. */
   public static String KEY_NAME = "key";
+  /** The default name of the value field in the MapVector. */
   public static String VALUE_NAME = "value";
+
   public static final String DATA_VECTOR_NAME = "entries";
 
   /**
@@ -71,8 +74,6 @@ public class MapVector extends ListVector {
    */
   public MapVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
     super(name, allocator, fieldType, callBack);
-    KEY_NAME = "key";
-    VALUE_NAME = "value";
     defaultDataVectorName = DATA_VECTOR_NAME;
   }
 
@@ -85,8 +86,6 @@ public class MapVector extends ListVector {
    */
   public MapVector(Field field, BufferAllocator allocator, CallBack callBack) {
     super(field, allocator, callBack);
-    KEY_NAME = "key";
-    VALUE_NAME = "value";
     defaultDataVectorName = DATA_VECTOR_NAME;
   }
 
@@ -114,11 +113,6 @@ public class MapVector extends ListVector {
 
     Field keyField = structField.getChildren().get(0);
     checkArgument(!keyField.isNullable(), "Map data key type should be a non-nullable");
-
-    Field valueField = structField.getChildren().get(1);
-    // set the KEY_NAME and VALUE_NAME from the field names
-    KEY_NAME = keyField.getName();
-    VALUE_NAME = valueField.getName();
 
     AddOrGetResult<FieldVector> addOrGetVector = addOrGetVector(structField.getFieldType());
     checkArgument(
