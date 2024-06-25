@@ -24,7 +24,7 @@ FROM ${repo}:${arch}-conda-python-${python}
 COPY ci/conda_env_python.txt \
      ci/conda_env_sphinx.txt \
      /arrow/ci/
-RUN mamba install -q -y \
+RUN mamba install -q -y -v \
         --file arrow/ci/conda_env_python.txt \
         --file arrow/ci/conda_env_sphinx.txt \
         $([ "$python" == "3.9" ] && echo "pickle5") \
