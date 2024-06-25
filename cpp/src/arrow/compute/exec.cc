@@ -1052,7 +1052,16 @@ Status CheckCanExecuteChunked(const VectorKernel* kernel) {
 class VectorExecutor : public KernelExecutorImpl<VectorKernel> {
  public:
   Status Execute(const ExecBatch& batch, ExecListener* listener) override {
-    RETURN_NOT_OK(SetupPreallocation(batch.values));
+    output_num_buffers_ = static_cast<int>(output_type_.type->layout().buffers.size());
+
+    // Decide if we need to preallocate memory for this kernel
+    validity_preallocated_ =
+        (kernel_->null_handling != NullHandling::COMPUTED_NO_PREALLOCATE &&
+         kernel_->null_handling != NullHandling::OUTPUT_NOT_NULL);
+    if (kernel_->mem_allocation == MemAllocation::PREALLOCATE) {
+      data_preallocated_.clear();
+      ComputeDataPreallocate(*output_type_.type, &data_preallocated_);
+    }
 
     if (kernel_->can_execute_chunkwise) {
       RETURN_NOT_OK(span_iterator_.Init(batch, exec_context()->exec_chunksize()));
@@ -1142,36 +1151,6 @@ class VectorExecutor : public KernelExecutorImpl<VectorKernel> {
       DCHECK(out.is_chunked_array());
       return EmitResult(out.chunked_array(), listener);
     }
-  }
-
-  Status SetupPreallocation(const std::vector<Datum>& args) {
-    output_num_buffers_ = static_cast<int>(output_type_.type->layout().buffers.size());
-    const auto& out_type_id = output_type_.type->id();
-
-    // Decide if we need to preallocate memory for this kernel
-    validity_preallocated_ = false;
-    if (out_type_id != Type::NA) {
-      if (kernel_->null_handling == NullHandling::COMPUTED_PREALLOCATE) {
-        // Override the flag if kernel asks for pre-allocation
-        validity_preallocated_ = true;
-      } else if (kernel_->null_handling == NullHandling::INTERSECTION) {
-        bool elide_validity_bitmap = true;
-        for (const auto& arg : args) {
-          auto null_gen = NullGeneralization::Get(arg) == NullGeneralization::ALL_VALID;
-
-          // If not all valid, this becomes false
-          elide_validity_bitmap = elide_validity_bitmap && null_gen;
-        }
-        validity_preallocated_ = !elide_validity_bitmap;
-      }
-    }
-
-    if (kernel_->mem_allocation == MemAllocation::PREALLOCATE) {
-      data_preallocated_.clear();
-      ComputeDataPreallocate(*output_type_.type, &data_preallocated_);
-    }
-
-    return Status::OK();
   }
 
   ExecSpanIterator span_iterator_;
