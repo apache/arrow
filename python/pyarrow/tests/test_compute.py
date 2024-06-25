@@ -31,7 +31,7 @@ import textwrap
 try:
     import numpy as np
 except ImportError:
-    pass
+    np = None
 
 try:
     import pandas as pd
@@ -212,6 +212,7 @@ def test_option_class_equality(request):
         "ArraySortOptions(order=Ascending, null_placement=AtEnd)"
 
 
+@pytest.mark.without_numpy
 def test_list_functions():
     assert len(pc.list_functions()) > 10
     assert "add" in pc.list_functions()
@@ -308,6 +309,7 @@ def test_input_type_conversion():
                     "foo").to_pylist() == [True, False, None]
 
 
+@pytest.mark.without_numpy
 @pytest.mark.parametrize('arrow_type', numerical_arrow_types)
 def test_sum_array(arrow_type):
     arr = pa.array([1, 2, 3, 4], type=arrow_type)
@@ -443,6 +445,7 @@ def test_count_substring_regex():
         assert expected.equals(result)
 
 
+@pytest.mark.without_numpy
 def test_find_substring():
     for ty in [pa.string(), pa.binary(), pa.large_string(), pa.large_binary()]:
         arr = pa.array(["ab", "cab", "ba", None], type=ty)
@@ -475,6 +478,7 @@ def test_match_like():
     assert expected.equals(result)
 
 
+@pytest.mark.without_numpy
 def test_match_substring():
     arr = pa.array(["ab", "abc", "ba", None])
     result = pc.match_substring(arr, "ab")
@@ -566,6 +570,7 @@ def test_binary_slice_compatibility():
             assert actual.as_py() == expected
 
 
+@pytest.mark.without_numpy
 def test_split_pattern():
     arr = pa.array(["-foo---bar--", "---foo---b"])
     result = pc.split_pattern(arr, pattern="---")
@@ -627,6 +632,7 @@ def test_split_pattern_regex():
             arr, pattern="---", max_splits=1, reverse=True)
 
 
+@pytest.mark.without_numpy
 def test_min_max():
     # An example generated function wrapper with possible options
     data = [4, 5, 6, None, 1]
@@ -1092,7 +1098,6 @@ def test_binary_join_element_wise():
         'a', 'b', null, options=replace).as_py() is None
 
 
-@pytest.mark.numpy
 def test_take(all_array_types):
     for ty, values in all_array_types:
         arr = pa.array(values, type=ty)
@@ -1199,7 +1204,7 @@ def test_take_null_type():
     assert len(table.take(indices).column(0)) == 4
 
 
-@pytest.mark.numpy
+
 def test_drop_null(all_array_types):
     for ty, values in all_array_types:
         arr = pa.array(values, type=ty)
@@ -1276,7 +1281,6 @@ def test_drop_null_null_type():
     assert len(table.drop_null().column(0)) == 0
 
 
-@pytest.mark.numpy
 def test_filter(all_array_types):
     for ty, values in all_array_types:
         arr = pa.array(values, type=ty)
