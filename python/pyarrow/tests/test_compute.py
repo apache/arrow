@@ -633,7 +633,6 @@ def test_split_pattern_regex():
             arr, pattern="---", max_splits=1, reverse=True)
 
 
-@pytest.mark.without_numpy
 def test_min_max():
     # An example generated function wrapper with possible options
     data = [4, 5, 6, None, 1]
@@ -668,6 +667,7 @@ def test_min_max():
         s = pc.min_max()
 
 
+@pytest.mark.without_numpy
 def test_any():
     # ARROW-1846
 
@@ -687,6 +687,7 @@ def test_any():
     assert pc.any(a, options=options).as_py() is None
 
 
+@pytest.mark.without_numpy
 def test_all():
     # ARROW-10301
 
@@ -1203,7 +1204,6 @@ def test_take_null_type():
     assert len(chunked_arr.take(indices)) == 4
     assert len(batch.take(indices).column(0)) == 4
     assert len(table.take(indices).column(0)) == 4
-
 
 
 def test_drop_null(all_array_types):

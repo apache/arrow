@@ -28,7 +28,10 @@ import time
 from shutil import copytree
 from urllib.parse import quote
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 import pytest
 
 import pyarrow as pa
@@ -2954,6 +2957,7 @@ def test_dataset_union(multisourcefs):
     assert isinstance(factory.finish(), ds.Dataset)
 
 
+@pytest.mark.without_numpy
 def test_union_dataset_from_other_datasets(tempdir, multisourcefs):
     child1 = ds.dataset('/plain', filesystem=multisourcefs, format='parquet')
     child2 = ds.dataset('/schema', filesystem=multisourcefs, format='parquet',
@@ -3058,6 +3062,7 @@ def test_union_dataset_filesystem_datasets(multisourcefs):
     assert dataset.schema.equals(expected_schema)
 
 
+@pytest.mark.without_numpy
 @pytest.mark.parquet
 def test_specified_schema(tempdir, dataset_reader):
     table = pa.table({'a': [1, 2, 3], 'b': [.1, .2, .3]})
@@ -3156,6 +3161,7 @@ def test_ipc_format(tempdir, dataset_reader):
         assert result.equals(table)
 
 
+@pytest.mark.without_numpy
 @pytest.mark.orc
 def test_orc_format(tempdir, dataset_reader):
     from pyarrow import orc
@@ -3293,6 +3299,7 @@ def test_csv_format_compressed(tempdir, compression, dataset_reader):
     assert result.equals(table)
 
 
+@pytest.mark.without_numpy
 def test_csv_format_options(tempdir, dataset_reader):
     path = str(tempdir / 'test.csv')
     with open(path, 'w') as sink:
@@ -3468,6 +3475,7 @@ def test_column_names_encoding(tempdir, dataset_reader):
     assert dataset_transcoded.to_table().equals(expected_table)
 
 
+@pytest.mark.without_numpy
 def test_feather_format(tempdir, dataset_reader):
     from pyarrow.feather import write_feather
 
