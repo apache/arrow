@@ -244,7 +244,7 @@ under the License.
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-checkstyle-plugin</artifactId>
         <configuration>
-          <configLocation>../dev/checkstyle/checkstyle-spotless.xml</configLocation>
+          <configLocation>../dev/checkstyle/checkstyle.xml</configLocation>
           <headerLocation>../dev/license/asf-java.license</headerLocation>
           <suppressionsLocation>../dev/checkstyle/suppressions.xml</suppressionsLocation>
           <includeTestSourceDirectory>true</includeTestSourceDirectory>

@@ -35,8 +35,6 @@ under the License.
 
   <properties>
     <arrow.cpp.build.dir>../../../cpp/release-build/</arrow.cpp.build.dir>
-    <checkstyle.config.location>dev/checkstyle/checkstyle-spotless.xml</checkstyle.config.location>
-    <spotless.java.excludes>none</spotless.java.excludes>
   </properties>
 
   <dependencies>

@@ -34,8 +34,6 @@ under the License.
     <arrow.cpp.build.dir>../../../cpp/release-build/</arrow.cpp.build.dir>
     <parquet.version>1.14.1</parquet.version>
     <avro.version>1.11.3</avro.version>
-    <checkstyle.config.location>dev/checkstyle/checkstyle-spotless.xml</checkstyle.config.location>
-    <spotless.java.excludes>none</spotless.java.excludes>
   </properties>
 
   <dependencies>

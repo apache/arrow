@@ -66,10 +66,7 @@ rm -rf java/format/src
 flatc --java -o java/format/src/main/java format/*.fbs
 
 # prepend license header
-find java/format/src -type f | while read file; do
-  (cat header | while read line; do echo "// $line"; done; cat $file) > $file.tmp
-  mv $file.tmp $file
-done
+mvn spotless:apply -pl :arrow-format
 ```
 
 ## Performance Tuning
