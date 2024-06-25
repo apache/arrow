@@ -28,7 +28,6 @@ import hypothesis as h
 
 from ..conftest import groups, defaults
 
-import pyarrow as pa
 from pyarrow import set_timezone_db_path
 from pyarrow.util import find_free_port
 
