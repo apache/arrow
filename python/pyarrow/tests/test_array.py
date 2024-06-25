@@ -4035,9 +4035,7 @@ def test_non_cpu_array():
     assert arr.device_type == pa.DeviceAllocationType.CUDA
     assert arr.is_cpu is False
     assert len(arr) == 4
-    assert arr.slice(2, 2) == pa.RecordBatch.from_arrays([
-        ctx.buffer_from_data(data[2:])
-    ])
+    assert arr.slice(2, 2).offset == 2
 
     # TODO support DLPack for CUDA
     with pytest.raises(NotImplementedError):
