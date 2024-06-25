@@ -156,7 +156,7 @@ Arrays and record batches (contiguous tables) can implement the method
 
 Libraries supporting the Device interface can implement a ``__arrow_c_device_array__``
 method on those objects, which works the same as ``__arrow_c_array__`` except
-for returning a ArrowDeviceArray structure instead of a ArrowArray structure:
+for returning an ArrowDeviceArray structure instead of an ArrowArray structure:
 
 .. py:method:: __arrow_c_device_array__(self, requested_schema=None, **kwargs)
 
@@ -193,7 +193,7 @@ Tables / DataFrames and streams can implement the method ``__arrow_c_stream__``.
 
 Libraries supporting the Device interface can implement a ``__arrow_c_device_stream__``
 method on those objects, which works the same as ``__arrow_c_stream__`` except
-for returning a ArrowDeviceArrayStream structure instead of a ArrowArrayStream
+for returning an ArrowDeviceArrayStream structure instead of an ArrowArrayStream
 structure:
 
 .. py:method:: __arrow_c_device_stream__(self, requested_schema=None, **kwargs)
@@ -255,7 +255,7 @@ methods: the standard CPU-only versions (:meth:`__arrow_c_array__` and
 (:meth:`__arrow_c_device_array__`, and :meth:`__arrow_c_device_stream__`).
 
 For CPU-only producers, it is allowed to either implement only the standard
-protocol methods, or either implement both the standard and device-aware
+CPU-only protocol methods, or either implement both the CPU-only and device-aware
 methods. The absence of the device version methods implies CPU-only data. For
 CPU-only consumers, it is encouraged to be able to consume both versions of the
 protocol.
