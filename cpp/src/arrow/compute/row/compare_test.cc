@@ -292,7 +292,7 @@ TEST(KeyCompare, CompareColumnsToRowsLarge) {
     // With selection, output match bit vector.
     std::vector<uint8_t> match_bitvector(BytesForBits(num_rows));
     KeyCompare::CompareColumnsToRows(
-        num_rows, /*sel_left_maybe_null=*/NULLPTR, row_ids_to_compare.data(), &ctx,
+        num_rows, selection_left.data(), row_ids_to_compare.data(), &ctx,
         /*out_num_rows=*/NULLPTR, /*out_sel_left_maybe_same=*/NULLPTR, columns_left,
         row_table_right,
         /*are_cols_in_encoding_order=*/true, match_bitvector.data());
