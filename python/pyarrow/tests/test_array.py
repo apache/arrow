@@ -4029,7 +4029,6 @@ def test_non_cpu_array():
 
     # Supported
     arr.validate()
-    arr.validate(full=True)
     assert arr.offset == 0
     assert arr.buffers() == [None, cuda_data_buf]
     assert arr.device_type == pa.DeviceAllocationType.CUDA
@@ -4098,3 +4097,5 @@ def test_non_cpu_array():
         arr.to_numpy()
     with pytest.raises(NotImplementedError):
         arr.tolist()
+    with pytest.raises(NotImplementedError):
+        arr.validate(full=True)

@@ -1658,6 +1658,7 @@ cdef class Array(_PandasConvertible):
         ArrowInvalid
         """
         if full:
+            self._assert_cpu()
             with nogil:
                 check_status(self.ap.ValidateFull())
         else:
