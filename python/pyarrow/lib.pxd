@@ -543,6 +543,8 @@ cdef class MemoryManager(_Weakrefable):
     @staticmethod
     cdef wrap(const shared_ptr[CMemoryManager]& mm)
 
+    cdef inline shared_ptr[CMemoryManager] unwrap(self) nogil
+
 
 cdef class Buffer(_Weakrefable):
     cdef:

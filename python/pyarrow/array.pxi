@@ -1658,6 +1658,30 @@ cdef class Array(_PandasConvertible):
         _append_array_buffers(self.sp_array.get().data().get(), res)
         return res
 
+    def copy_to(self, MemoryManager memory_manager):
+        """
+        Construct a copy of the array with all buffers on destination
+        Memory Manager
+
+        This method recursively copies the array's buffers and those of its
+        children onto the destination MemoryManager device and returns the
+        new Array.
+
+        Parameters
+        ----------
+        memory_manager : pyarrow.MemoryManager
+
+        Returns
+        ------
+        Array
+        """
+        cdef:
+            shared_ptr[CArray] c_array
+
+        with nogil:
+            c_array = GetResultValue(self.ap.CopyTo(memory_manager.unwrap()))
+        return pyarrow_wrap_array(c_array)
+
     def _export_to_c(self, out_ptr, out_schema_ptr=0):
         """
         Export to a C ArrowArray struct, given its pointer.

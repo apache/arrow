@@ -3549,6 +3549,29 @@ cdef class RecordBatch(_Tabular):
                                                                              row_major, pool))
         return pyarrow_wrap_tensor(c_tensor)
 
+    def copy_to(self, MemoryManager memory_manager):
+        """
+        Copy the entire RecordBatch to destination MemoryManager.
+
+        This copies each column of the record batch to create
+        a new record batch where all underlying buffers for the columns have
+        been copied to the destination MemoryManager.
+
+        Parameters
+        ----------
+        memory_manager : pyarrow.MemoryManager
+
+        Returns
+        ------
+        RecordBatch
+        """
+        cdef:
+            shared_ptr[CRecordBatch] c_batch
+
+        with nogil:
+            c_batch = GetResultValue(self.batch.CopyTo(memory_manager.unwrap()))
+        return pyarrow_wrap_batch(c_batch)
+
     def _export_to_c(self, out_ptr, out_schema_ptr=0):
         """
         Export to a C ArrowArray struct, given its pointer.
