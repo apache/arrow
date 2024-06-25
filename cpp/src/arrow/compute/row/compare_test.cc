@@ -194,53 +194,59 @@ TEST(KeyCompare, CompareColumnsToRowsLarge) {
   ASSERT_GT(row_size * num_rows, two_gb);
 
   MemoryPool* pool = default_memory_pool();
-  TempVectorStack stack;
-  ASSERT_OK(stack.Init(pool, KeyCompare::CompareColumnsToRowsTempStackUsage(num_rows)));
 
-  std::vector<Datum> columns;
+  // The left side columns.
+  std::vector<KeyColumnArray> columns_left;
+  ExecBatch batch_left;
   {
+    std::vector<Datum> values;
+
     // Several fixed length arrays containing random content.
     for (const auto& type : fixed_length_types) {
-      ASSERT_OK_AND_ASSIGN(auto column, ::arrow::gen::Random(type)->Generate(num_rows));
-      columns.push_back(std::move(column));
+      ASSERT_OK_AND_ASSIGN(auto value, ::arrow::gen::Random(type)->Generate(num_rows));
+      values.push_back(std::move(value));
     }
     // A var length array containing 'X' repeated var_length times.
-    ASSERT_OK_AND_ASSIGN(auto column_var_length,
+    ASSERT_OK_AND_ASSIGN(auto value_var_length,
                          ::arrow::gen::Constant(
                              std::make_shared<BinaryScalar>(std::string(var_length, 'X')))
                              ->Generate(num_rows));
-    columns.push_back(std::move(column_var_length));
+    values.push_back(std::move(value_var_length));
+
+    batch_left = ExecBatch(std::move(values), num_rows);
+    ASSERT_OK(ColumnArraysFromExecBatch(batch_left, &columns_left));
   }
-  ExecBatch batch(std::move(columns), num_rows);
 
-  std::vector<KeyColumnMetadata> column_metadatas;
-  ASSERT_OK(ColumnMetadatasFromExecBatch(batch, &column_metadatas));
-  std::vector<KeyColumnArray> column_arrays;
-  ASSERT_OK(ColumnArraysFromExecBatch(batch, &column_arrays));
+  // The right side row table.
+  RowTableImpl row_table_right;
+  {
+    // Encode the row table with the left columns.
+    std::vector<KeyColumnMetadata> column_metadatas;
+    ASSERT_OK(ColumnMetadatasFromExecBatch(batch_left, &column_metadatas));
+    RowTableMetadata table_metadata;
+    table_metadata.FromColumnMetadataVector(column_metadatas, sizeof(uint64_t),
+                                            sizeof(uint64_t));
+    ASSERT_OK(row_table_right.Init(pool, table_metadata));
+    std::vector<uint16_t> row_ids(num_rows);
+    std::iota(row_ids.begin(), row_ids.end(), 0);
+    RowTableEncoder row_encoder;
+    row_encoder.Init(column_metadatas, sizeof(uint64_t), sizeof(uint64_t));
+    row_encoder.PrepareEncodeSelected(0, num_rows, columns_left);
+    ASSERT_OK(row_encoder.EncodeSelected(
+        &row_table_right, static_cast<uint32_t>(num_rows), row_ids.data()));
 
-  // The row table (right side).
-  RowTableMetadata table_metadata_right;
-  table_metadata_right.FromColumnMetadataVector(column_metadatas, sizeof(uint64_t),
-                                                sizeof(uint64_t));
-  RowTableImpl row_table;
-  ASSERT_OK(row_table.Init(pool, table_metadata_right));
-  std::vector<uint16_t> row_ids_right(num_rows);
-  std::iota(row_ids_right.begin(), row_ids_right.end(), 0);
-  RowTableEncoder row_encoder;
-  row_encoder.Init(column_metadatas, sizeof(uint64_t), sizeof(uint64_t));
-  row_encoder.PrepareEncodeSelected(0, num_rows, column_arrays);
-  ASSERT_OK(row_encoder.EncodeSelected(&row_table, static_cast<uint32_t>(num_rows),
-                                       row_ids_right.data()));
+    // The row table must contain an offset buffer.
+    ASSERT_NE(row_table_right.offsets(), NULLPTR);
+    // The whole point of this test.
+    ASSERT_GT(row_table_right.offsets()[num_rows - 1], two_gb);
+  }
 
-  // The row table must contain an offset buffer.
-  ASSERT_NE(row_table.offsets(), NULLPTR);
-  // The whole point of this test.
-  ASSERT_GT(row_table.offsets()[num_rows - 1], two_gb);
+  // The rows to compare.
+  std::vector<uint32_t> row_ids_to_compare(num_rows);
+  std::iota(row_ids_to_compare.begin(), row_ids_to_compare.end(), 0);
 
-  // The left rows.
-  std::vector<uint32_t> row_ids_left(num_rows);
-  std::iota(row_ids_left.begin(), row_ids_left.end(), 0);
-
+  TempVectorStack stack;
+  ASSERT_OK(stack.Init(pool, KeyCompare::CompareColumnsToRowsTempStackUsage(num_rows)));
   LightContext ctx{CpuInfo::GetInstance()->hardware_flags(), &stack};
 
   {
@@ -248,22 +254,10 @@ TEST(KeyCompare, CompareColumnsToRowsLarge) {
     uint32_t num_rows_no_match;
     std::vector<uint16_t> row_ids_out(num_rows);
     KeyCompare::CompareColumnsToRows(num_rows, /*sel_left_maybe_null=*/NULLPTR,
-                                     row_ids_left.data(), &ctx, &num_rows_no_match,
-                                     row_ids_out.data(), column_arrays, row_table,
-                                     /*are_cols_in_encoding_order=*/true, NULLPTR);
-    ASSERT_EQ(num_rows_no_match, 0);
-  }
-
-  {
-    // With selection, output no match row ids.
-    uint32_t num_rows_no_match;
-    std::vector<uint16_t> row_ids_out(num_rows);
-    std::vector<uint16_t> selection_left(num_rows);
-    std::iota(selection_left.begin(), selection_left.end(), 0);
-    KeyCompare::CompareColumnsToRows(num_rows, selection_left.data(), row_ids_left.data(),
-                                     &ctx, &num_rows_no_match, row_ids_out.data(),
-                                     column_arrays, row_table,
-                                     /*are_cols_in_encoding_order=*/true, NULLPTR);
+                                     row_ids_to_compare.data(), &ctx, &num_rows_no_match,
+                                     row_ids_out.data(), columns_left, row_table_right,
+                                     /*are_cols_in_encoding_order=*/true,
+                                     /*out_match_bitvector_maybe_null=*/NULLPTR);
     ASSERT_EQ(num_rows_no_match, 0);
   }
 
@@ -271,21 +265,37 @@ TEST(KeyCompare, CompareColumnsToRowsLarge) {
     // No selection, output match bit vector.
     std::vector<uint8_t> match_bitvector(BytesForBits(num_rows));
     KeyCompare::CompareColumnsToRows(
-        num_rows, /*sel_left_maybe_null=*/NULLPTR, row_ids_left.data(), &ctx, NULLPTR,
-        NULLPTR, column_arrays, row_table, /*are_cols_in_encoding_order=*/true,
-        match_bitvector.data());
+        num_rows, /*sel_left_maybe_null=*/NULLPTR, row_ids_to_compare.data(), &ctx,
+        /*out_num_rows=*/NULLPTR, /*out_sel_left_maybe_same=*/NULLPTR, columns_left,
+        row_table_right,
+        /*are_cols_in_encoding_order=*/true, match_bitvector.data());
     ASSERT_EQ(arrow::internal::CountSetBits(match_bitvector.data(), 0, num_rows),
               num_rows);
+  }
+
+  std::vector<uint16_t> selection_left(num_rows);
+  std::iota(selection_left.begin(), selection_left.end(), 0);
+
+  {
+    // With selection, output no match row ids.
+    uint32_t num_rows_no_match;
+    std::vector<uint16_t> row_ids_out(num_rows);
+    KeyCompare::CompareColumnsToRows(num_rows, selection_left.data(),
+                                     row_ids_to_compare.data(), &ctx, &num_rows_no_match,
+                                     row_ids_out.data(), columns_left, row_table_right,
+                                     /*are_cols_in_encoding_order=*/true,
+                                     /*out_match_bitvector_maybe_null=*/NULLPTR);
+    ASSERT_EQ(num_rows_no_match, 0);
   }
 
   {
     // With selection, output match bit vector.
     std::vector<uint8_t> match_bitvector(BytesForBits(num_rows));
-    std::vector<uint16_t> selection_left(num_rows);
-    std::iota(selection_left.begin(), selection_left.end(), 0);
     KeyCompare::CompareColumnsToRows(
-        num_rows, NULLPTR, row_ids_left.data(), &ctx, NULLPTR, NULLPTR, column_arrays,
-        row_table, /*are_cols_in_encoding_order=*/true, match_bitvector.data());
+        num_rows, /*sel_left_maybe_null=*/NULLPTR, row_ids_to_compare.data(), &ctx,
+        /*out_num_rows=*/NULLPTR, /*out_sel_left_maybe_same=*/NULLPTR, columns_left,
+        row_table_right,
+        /*are_cols_in_encoding_order=*/true, match_bitvector.data());
     ASSERT_EQ(arrow::internal::CountSetBits(match_bitvector.data(), 0, num_rows),
               num_rows);
   }
