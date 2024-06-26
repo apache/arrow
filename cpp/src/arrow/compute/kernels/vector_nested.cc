@@ -89,8 +89,8 @@ struct ListParentIndicesArray {
 
     const offset_type* offsets = list_view.GetValues<offset_type>(1);
     const offset_type* sizes = list_view.GetValues<offset_type>(2);
-    offset_type values_offset;
-    offset_type values_length;
+    int64_t values_offset;
+    int64_t values_length;
     ARROW_ASSIGN_OR_RAISE(std::tie(values_offset, values_length),
                           RangeOfValuesUsed(list_view));
 
