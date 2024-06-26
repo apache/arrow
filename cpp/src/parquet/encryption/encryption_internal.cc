@@ -463,10 +463,13 @@ int AesDecryptor::AesDecryptorImpl::GcmDecrypt(const uint8_t* ciphertext,
       throw ParquetException("Wrong ciphertext length");
     }
     ciphertext_len = written_ciphertext_len + length_buffer_length_;
-  } else {
-    if (ciphertext_len == 0) {
-      throw ParquetException("Zero ciphertext length");
-    }
+  }
+
+  if (ciphertext_len < length_buffer_length_ + kNonceLength + kGcmTagLength) {
+    std::stringstream ss;
+    ss << "Invalid ciphertext length " << ciphertext_len << ". Expected at least "
+       << length_buffer_length_ + kNonceLength + kGcmTagLength << "\n";
+    throw ParquetException(ss.str());
   }
 
   // Extracting IV and tag
@@ -528,10 +531,13 @@ int AesDecryptor::AesDecryptorImpl::CtrDecrypt(const uint8_t* ciphertext,
       throw ParquetException("Wrong ciphertext length");
     }
     ciphertext_len = written_ciphertext_len;
-  } else {
-    if (ciphertext_len == 0) {
-      throw ParquetException("Zero ciphertext length");
-    }
+  }
+
+  if (ciphertext_len < kNonceLength) {
+    std::stringstream ss;
+    ss << "Invalid ciphertext length " << ciphertext_len << ". Expected at least "
+       << kNonceLength << "\n";
+    throw ParquetException(ss.str());
   }
 
   // Extracting nonce
