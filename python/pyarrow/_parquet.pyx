@@ -1953,7 +1953,6 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     else:
         raise TypeError("'store_decimal_as_integer' must type boolean")
 
-
     # column_encoding
     # encoding map - encode individual columns
 
