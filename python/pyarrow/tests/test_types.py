@@ -364,7 +364,7 @@ def test_dateutil_tzinfo_to_string():
 @pytest.mark.timezone_data
 def test_zoneinfo_tzinfo_to_string():
     zoneinfo = pytest.importorskip('zoneinfo')
-    if sys.platform == 'win32' or sys.platform == 'emscripten':
+    if sys.platform == 'win32':
         # zoneinfo requires an additional dependency On Windows
         # tzdata provides IANA time zone data
         pytest.importorskip('tzdata')

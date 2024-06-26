@@ -1158,7 +1158,7 @@ def test_sequence_timestamp_with_timezone_inference():
         arr = pa.array(prepended)
         assert arr.type == expected_type
 
-
+@pytest.mark.timezone_data
 def test_sequence_timestamp_with_zoneinfo_timezone_inference():
     pytest.importorskip("zoneinfo")
     import zoneinfo
