@@ -125,7 +125,7 @@ def run_server_thread(dist_dir, q):
 @contextlib.contextmanager
 def launch_server(dist_dir):
     q = multiprocessing.Queue()
-    p = multiprocessing.Process(target=run_server_thread, args=[dist_dir, q])
+    p = multiprocessing.Process(target=run_server_thread, args=[dist_dir, q], daemon=True)
     p.start()
     address = q.get(timeout=50)
     yield address
@@ -259,10 +259,6 @@ def _load_pyarrow_in_runner(driver, wheel_name):
         """import sys
 import micropip
 if "pyarrow" not in sys.modules:
-    try:
-        import tzdata
-    except:
-        await micropip.install("tzdata")
     await micropip.install("hypothesis")
     import pyodide_js as pjs
     await pjs.loadPackage("numpy")
