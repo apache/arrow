@@ -21,4 +21,10 @@ add_arrow_test(test
                PREFIX
                "arrow-fixed-shape-tensor")
 
+add_arrow_test(test
+               SOURCES
+               unknown_test.cc
+               PREFIX
+               "arrow-extension-unknown")
+
 arrow_install_all_headers("arrow/extension")
