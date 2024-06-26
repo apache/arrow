@@ -57,8 +57,6 @@ except ImportError:
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not flight'
 pytestmark = pytest.mark.flight
-# All tests on this module can be run when numpy is or is not available
-pytestmark = pytest.mark.without_numpy
 
 
 def test_import():
