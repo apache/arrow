@@ -61,8 +61,10 @@ class GatherBaseCRTP {
   template <typename IndexCType>
   bool IsSrcValid(const ArraySpan& src_validity, const IndexCType* idx,
                   int64_t position) const {
+    // Translate position into index on the source
+    const int64_t index = idx[position];
     ARROW_COMPILER_ASSUME(src_validity.buffers[0].data != nullptr);
-    return src_validity.IsValid(idx[position]);
+    return src_validity.IsValid(index);
   }
 
   ARROW_FORCE_INLINE int64_t ExecuteNoNulls(int64_t idx_length) {
@@ -89,6 +91,9 @@ class GatherBaseCRTP {
   // doesn't have to be called for resulting null positions. A position is
   // considered null if either the index or the source value is null at that
   // position.
+  //
+  // ValiditySpan is any class that `GatherImpl::IsSrcValid(src_validity, idx, position)`
+  // can be called with.
   template <bool kOutputIsZeroInitialized, typename IndexCType,
             class ValiditySpan = ArraySpan>
   ARROW_FORCE_INLINE int64_t ExecuteWithNulls(const ValiditySpan& src_validity,
@@ -330,7 +335,10 @@ struct ChunkedValiditySpan {
 
   bool MayHaveNulls() const { return may_have_nulls; }
 
-  bool IsValid(int64_t position) const {
+  bool IsSrcValid(const IndexCType* idx, int64_t position) const {
+    // idx is unused because all the indices have been pre-resolved into
+    // `chunk_location_vec` by ChunkResolver::ResolveMany.
+    ARROW_UNUSED(idx);
     auto loc = chunk_location_vec[position];
     return chunks_validity.chunk(static_cast<int>(loc.chunk_index))
         ->IsValid(loc.index_in_chunk);
@@ -402,7 +410,7 @@ class GatherFromChunks
 
   bool IsSrcValid(const ChunkedValiditySpan<IndexCType>& src_validity,
                   const IndexCType* idx, int64_t position) const {
-    return src_validity.IsValid(position);
+    return src_validity.IsSrcValid(idx, position);
   }
 
  public:
