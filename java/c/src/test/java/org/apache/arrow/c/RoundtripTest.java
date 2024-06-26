@@ -1041,35 +1041,4 @@ public class RoundtripTest {
       getUnderlyingVector().set(index, bb.array());
     }
   }
-
-  @Test
-  public void testSliceVarCharVector() {
-    try (final VarCharVector vector = new VarCharVector("v", allocator)) {
-      setVector(vector, "abc", "def", "ghi", "efd", "mkl", "cwp", null);
-      // assertTrue(roundtrip(vector, VarCharVector.class));
-      // then slice the vector and try to use the C Data interface.
-      System.out.println("Original vector: " + vector);
-      TransferPair tp = vector.getTransferPair(allocator);
-      System.out.println("Slice range : (2, 4)");
-      tp.splitAndTransfer(2, 4);
-      final ArrowBuf originalOffsetBuffer = vector.getOffsetBuffer();
-      final ArrowBuf originalValueBuffer = vector.getDataBuffer();
-      try (VarCharVector sliced = (VarCharVector) tp.getTo()) {
-        System.out.println("sliced vector: " + sliced);
-
-        final ArrowBuf slicedOffsetBuffer = sliced.getOffsetBuffer();
-        final ArrowBuf slicedValueBuffer = sliced.getDataBuffer();
-
-        final int lastSet = sliced.getLastSet();
-        final int firstOffsetSlice = slicedOffsetBuffer.getInt(0);
-        final int lastOffsetSlice =
-            slicedOffsetBuffer.getInt((lastSet + 1) * (long) VarCharVector.OFFSET_WIDTH);
-        System.out.println("Sliced Buffer First Offset: " + firstOffsetSlice);
-        System.out.println("Sliced Buffer Last Offset: " + lastOffsetSlice);
-        System.out.println("Sliced Offset Buffer capacity: " + slicedOffsetBuffer.capacity());
-        System.out.println("Sliced Buffer ValueBuffer capacity: " + slicedValueBuffer.capacity());
-        System.out.println("Original ValueBuffer capacity: " + originalValueBuffer.capacity());
-      }
-    }
-  }
 }
