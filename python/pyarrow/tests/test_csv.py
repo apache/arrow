@@ -36,7 +36,10 @@ import weakref
 
 import pytest
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 
 import pyarrow as pa
 from pyarrow.csv import (
@@ -415,6 +418,7 @@ class BaseTestCSV(abc.ABC):
             "kl": [],
         }
 
+    @pytest.mark.numpy
     def test_skip_rows_after_names(self):
         rows = b"ab,cd\nef,gh\nij,kl\nmn,op\n"
 
@@ -520,6 +524,7 @@ class BaseTestCSV(abc.ABC):
             assert (values[opts.skip_rows + opts.skip_rows_after_names:] ==
                     table_dict[name])
 
+    @pytest.mark.numpy
     def test_row_number_offset_in_errors(self):
         # Row numbers are only correctly counted in serial reads
         def format_msg(msg_format, row, *args):
@@ -1361,6 +1366,7 @@ class BaseCSVTableRead(BaseTestCSV):
             'b,c': ['eh'],
         }
 
+    @pytest.mark.numpy
     def test_small_random_csv(self):
         csv, expected = make_random_csv(num_cols=2, num_rows=10)
         table = self.read_bytes(csv)
@@ -1368,6 +1374,7 @@ class BaseCSVTableRead(BaseTestCSV):
         assert table.equals(expected)
         assert table.to_pydict() == expected.to_pydict()
 
+    @pytest.mark.numpy
     def test_stress_block_sizes(self):
         # Test a number of small block sizes to stress block stitching
         csv_base, expected = make_random_csv(num_cols=2, num_rows=500)
@@ -1735,6 +1742,7 @@ class BaseStreamingCSVRead(BaseTestCSV):
                           [{'a': ["un"],
                             'b': ["éléphant"]}])
 
+    @pytest.mark.numpy
     def test_small_random_csv(self):
         csv, expected = make_random_csv(num_cols=2, num_rows=10)
         reader = self.open_bytes(csv)
@@ -1743,6 +1751,7 @@ class BaseStreamingCSVRead(BaseTestCSV):
         assert table.equals(expected)
         assert table.to_pydict() == expected.to_pydict()
 
+    @pytest.mark.numpy
     def test_stress_block_sizes(self):
         # Test a number of small block sizes to stress block stitching
         csv_base, expected = make_random_csv(num_cols=2, num_rows=500)
@@ -1802,6 +1811,7 @@ class BaseStreamingCSVRead(BaseTestCSV):
         with pytest.raises(StopIteration):
             assert reader.read_next_batch()
 
+    @pytest.mark.numpy
     def test_skip_rows_after_names(self):
         super().test_skip_rows_after_names()
 
@@ -1848,6 +1858,7 @@ class BaseTestCompressedCSVRead:
         except pa.ArrowNotImplementedError as e:
             pytest.skip(str(e))
 
+    @pytest.mark.numpy
     def test_random_csv(self):
         csv, expected = make_random_csv(num_cols=2, num_rows=100)
         csv_path = os.path.join(self.tmpdir, self.csv_filename)
