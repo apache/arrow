@@ -34,10 +34,10 @@ std::shared_ptr<ArrowInputStream> ReaderProperties::GetStream(
     // of source
     PARQUET_ASSIGN_OR_THROW(
         std::shared_ptr<::arrow::io::InputStream> safe_stream,
-        ::arrow::io::RandomAccessFile::GetStream(source, start, num_bytes));
-    PARQUET_ASSIGN_OR_THROW(
-        auto stream, ::arrow::io::BufferedInputStream::Create(buffer_size_, pool_,
-                                                              safe_stream, num_bytes));
+        ::arrow::io::RandomAccessFile::GetStream(std::move(source), start, num_bytes));
+    PARQUET_ASSIGN_OR_THROW(auto stream, ::arrow::io::BufferedInputStream::Create(
+                                             std::min(buffer_size_, num_bytes), pool_,
+                                             safe_stream, num_bytes));
     return stream;
   } else {
     PARQUET_ASSIGN_OR_THROW(auto data, source->ReadAt(start, num_bytes));
