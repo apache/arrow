@@ -19,7 +19,10 @@ import ctypes
 from functools import wraps
 import pytest
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    pytest.skip(reason="Failures on test collection due to numpy NOT enabled", allow_module_level=True)
 
 import pyarrow as pa
 from pyarrow.vendored.version import Version

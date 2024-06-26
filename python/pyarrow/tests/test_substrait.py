@@ -608,6 +608,7 @@ def test_output_field_names(use_threads):
     assert res_tb == expected
 
 
+@pytest.mark.numpy
 def test_scalar_aggregate_udf_basic(varargs_agg_func_fixture):
 
     test_table = pa.Table.from_pydict(
@@ -756,6 +757,7 @@ def test_scalar_aggregate_udf_basic(varargs_agg_func_fixture):
     assert res_tb == expected_tb
 
 
+@pytest.mark.numpy
 def test_hash_aggregate_udf_basic(varargs_agg_func_fixture):
 
     test_table = pa.Table.from_pydict(

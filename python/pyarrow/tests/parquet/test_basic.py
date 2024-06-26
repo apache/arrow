@@ -20,7 +20,10 @@ import io
 import warnings
 from shutil import copytree
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 import pytest
 
 import pyarrow as pa
