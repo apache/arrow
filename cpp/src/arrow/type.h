@@ -550,7 +550,7 @@ namespace detail {
 template <typename DERIVED, typename BASE, Type::type TYPE_ID, typename C_TYPE>
 class ARROW_EXPORT CTypeImpl : public BASE {
  public:
-  static constexpr Type::type type_id = TYPE_ID;
+  static inline constexpr Type::type type_id = TYPE_ID;
   using c_type = C_TYPE;
   using PhysicalType = DERIVED;
 
@@ -581,7 +581,7 @@ class IntegerTypeImpl : public detail::CTypeImpl<DERIVED, IntegerType, TYPE_ID, 
 /// Concrete type class for always-null data
 class ARROW_EXPORT NullType : public DataType {
  public:
-  static constexpr Type::type type_id = Type::NA;
+  static inline constexpr Type::type type_id = Type::NA;
 
   static constexpr const char* type_name() { return "null"; }
 
@@ -754,7 +754,7 @@ constexpr int64_t kBinaryMemoryLimit = std::numeric_limits<int32_t>::max() - 1;
 /// \brief Concrete type class for variable-size binary data
 class ARROW_EXPORT BinaryType : public BaseBinaryType {
  public:
-  static constexpr Type::type type_id = Type::BINARY;
+  static inline constexpr Type::type type_id = Type::BINARY;
   static constexpr bool is_utf8 = false;
   using offset_type = int32_t;
   using PhysicalType = BinaryType;
@@ -782,7 +782,7 @@ class ARROW_EXPORT BinaryType : public BaseBinaryType {
 /// \brief Concrete type class for variable-size binary view data
 class ARROW_EXPORT BinaryViewType : public DataType {
  public:
-  static constexpr Type::type type_id = Type::BINARY_VIEW;
+  static inline constexpr Type::type type_id = Type::BINARY_VIEW;
   static constexpr bool is_utf8 = false;
   using PhysicalType = BinaryViewType;
 
@@ -879,7 +879,7 @@ class ARROW_EXPORT BinaryViewType : public DataType {
 /// \brief Concrete type class for large variable-size binary data
 class ARROW_EXPORT LargeBinaryType : public BaseBinaryType {
  public:
-  static constexpr Type::type type_id = Type::LARGE_BINARY;
+  static inline constexpr Type::type type_id = Type::LARGE_BINARY;
   static constexpr bool is_utf8 = false;
   using offset_type = int64_t;
   using PhysicalType = LargeBinaryType;
@@ -907,7 +907,7 @@ class ARROW_EXPORT LargeBinaryType : public BaseBinaryType {
 /// \brief Concrete type class for variable-size string data, utf8-encoded
 class ARROW_EXPORT StringType : public BinaryType {
  public:
-  static constexpr Type::type type_id = Type::STRING;
+  static inline constexpr Type::type type_id = Type::STRING;
   static constexpr bool is_utf8 = true;
   using PhysicalType = BinaryType;
 
@@ -925,7 +925,7 @@ class ARROW_EXPORT StringType : public BinaryType {
 /// \brief Concrete type class for variable-size string data, utf8-encoded
 class ARROW_EXPORT StringViewType : public BinaryViewType {
  public:
-  static constexpr Type::type type_id = Type::STRING_VIEW;
+  static inline constexpr Type::type type_id = Type::STRING_VIEW;
   static constexpr bool is_utf8 = true;
   using PhysicalType = BinaryViewType;
 
@@ -943,7 +943,7 @@ class ARROW_EXPORT StringViewType : public BinaryViewType {
 /// \brief Concrete type class for large variable-size string data, utf8-encoded
 class ARROW_EXPORT LargeStringType : public LargeBinaryType {
  public:
-  static constexpr Type::type type_id = Type::LARGE_STRING;
+  static inline constexpr Type::type type_id = Type::LARGE_STRING;
   static constexpr bool is_utf8 = true;
   using PhysicalType = LargeBinaryType;
 
@@ -961,7 +961,7 @@ class ARROW_EXPORT LargeStringType : public LargeBinaryType {
 /// \brief Concrete type class for fixed-size binary data
 class ARROW_EXPORT FixedSizeBinaryType : public FixedWidthType, public ParametricType {
  public:
-  static constexpr Type::type type_id = Type::FIXED_SIZE_BINARY;
+  static inline constexpr Type::type type_id = Type::FIXED_SIZE_BINARY;
   static constexpr bool is_utf8 = false;
 
   static constexpr const char* type_name() { return "fixed_size_binary"; }
@@ -1040,7 +1040,7 @@ class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
 /// If higher precision is needed, consider using Decimal256Type.
 class ARROW_EXPORT Decimal128Type : public DecimalType {
  public:
-  static constexpr Type::type type_id = Type::DECIMAL128;
+  static inline constexpr Type::type type_id = Type::DECIMAL128;
 
   static constexpr const char* type_name() { return "decimal128"; }
 
@@ -1073,7 +1073,7 @@ class ARROW_EXPORT Decimal128Type : public DecimalType {
 /// encoding.
 class ARROW_EXPORT Decimal256Type : public DecimalType {
  public:
-  static constexpr Type::type type_id = Type::DECIMAL256;
+  static inline constexpr Type::type type_id = Type::DECIMAL256;
 
   static constexpr const char* type_name() { return "decimal256"; }
 
@@ -1116,7 +1116,7 @@ class ARROW_EXPORT BaseListType : public NestedType {
 /// list(list(int32)).
 class ARROW_EXPORT ListType : public BaseListType {
  public:
-  static constexpr Type::type type_id = Type::LIST;
+  static inline constexpr Type::type type_id = Type::LIST;
   using offset_type = int32_t;
 
   static constexpr const char* type_name() { return "list"; }
@@ -1147,7 +1147,7 @@ class ARROW_EXPORT ListType : public BaseListType {
 /// LargeListType is like ListType but with 64-bit rather than 32-bit offsets.
 class ARROW_EXPORT LargeListType : public BaseListType {
  public:
-  static constexpr Type::type type_id = Type::LARGE_LIST;
+  static inline constexpr Type::type type_id = Type::LARGE_LIST;
   using offset_type = int64_t;
 
   static constexpr const char* type_name() { return "large_list"; }
@@ -1176,7 +1176,7 @@ class ARROW_EXPORT LargeListType : public BaseListType {
 /// \brief Type class for array of list views
 class ARROW_EXPORT ListViewType : public BaseListType {
  public:
-  static constexpr Type::type type_id = Type::LIST_VIEW;
+  static inline constexpr Type::type type_id = Type::LIST_VIEW;
   using offset_type = int32_t;
 
   static constexpr const char* type_name() { return "list_view"; }
@@ -1210,7 +1210,7 @@ class ARROW_EXPORT ListViewType : public BaseListType {
 /// sizes.
 class ARROW_EXPORT LargeListViewType : public BaseListType {
  public:
-  static constexpr Type::type type_id = Type::LARGE_LIST_VIEW;
+  static inline constexpr Type::type type_id = Type::LARGE_LIST_VIEW;
   using offset_type = int64_t;
 
   static constexpr const char* type_name() { return "large_list_view"; }
@@ -1247,7 +1247,7 @@ class ARROW_EXPORT LargeListViewType : public BaseListType {
 /// Maps can be recursively nested, for example map(utf8, map(utf8, int32)).
 class ARROW_EXPORT MapType : public ListType {
  public:
-  static constexpr Type::type type_id = Type::MAP;
+  static inline constexpr Type::type type_id = Type::MAP;
 
   static constexpr const char* type_name() { return "map"; }
 
@@ -1287,7 +1287,7 @@ class ARROW_EXPORT MapType : public ListType {
 /// \brief Concrete type class for fixed size list data
 class ARROW_EXPORT FixedSizeListType : public BaseListType {
  public:
-  static constexpr Type::type type_id = Type::FIXED_SIZE_LIST;
+  static inline constexpr Type::type type_id = Type::FIXED_SIZE_LIST;
   // While the individual item size is 32-bit, the overall data size
   // (item size * list length) may not fit in a 32-bit int.
   using offset_type = int64_t;
@@ -1323,7 +1323,7 @@ class ARROW_EXPORT FixedSizeListType : public BaseListType {
 /// \brief Concrete type class for struct data
 class ARROW_EXPORT StructType : public NestedType {
  public:
-  static constexpr Type::type type_id = Type::STRUCT;
+  static inline constexpr Type::type type_id = Type::STRUCT;
 
   static constexpr const char* type_name() { return "struct"; }
 
@@ -1427,7 +1427,7 @@ class ARROW_EXPORT UnionType : public NestedType {
 /// Note that, unlike most other types, unions don't have a top-level validity bitmap.
 class ARROW_EXPORT SparseUnionType : public UnionType {
  public:
-  static constexpr Type::type type_id = Type::SPARSE_UNION;
+  static inline constexpr Type::type type_id = Type::SPARSE_UNION;
 
   static constexpr const char* type_name() { return "sparse_union"; }
 
@@ -1456,7 +1456,7 @@ class ARROW_EXPORT SparseUnionType : public UnionType {
 /// Note that, unlike most other types, unions don't have a top-level validity bitmap.
 class ARROW_EXPORT DenseUnionType : public UnionType {
  public:
-  static constexpr Type::type type_id = Type::DENSE_UNION;
+  static inline constexpr Type::type type_id = Type::DENSE_UNION;
 
   static constexpr const char* type_name() { return "dense_union"; }
 
@@ -1472,7 +1472,7 @@ class ARROW_EXPORT DenseUnionType : public UnionType {
 /// \brief Type class for run-end encoded data
 class ARROW_EXPORT RunEndEncodedType : public NestedType {
  public:
-  static constexpr Type::type type_id = Type::RUN_END_ENCODED;
+  static inline constexpr Type::type type_id = Type::RUN_END_ENCODED;
 
   static constexpr const char* type_name() { return "run_end_encoded"; }
 
@@ -1533,7 +1533,7 @@ class ARROW_EXPORT DateType : public TemporalType {
 /// Concrete type class for 32-bit date data (as number of days since UNIX epoch)
 class ARROW_EXPORT Date32Type : public DateType {
  public:
-  static constexpr Type::type type_id = Type::DATE32;
+  static inline constexpr Type::type type_id = Type::DATE32;
   static constexpr DateUnit UNIT = DateUnit::DAY;
   using c_type = int32_t;
   using PhysicalType = Int32Type;
@@ -1556,7 +1556,7 @@ class ARROW_EXPORT Date32Type : public DateType {
 /// Concrete type class for 64-bit date data (as number of milliseconds since UNIX epoch)
 class ARROW_EXPORT Date64Type : public DateType {
  public:
-  static constexpr Type::type type_id = Type::DATE64;
+  static inline constexpr Type::type type_id = Type::DATE64;
   static constexpr DateUnit UNIT = DateUnit::MILLI;
   using c_type = int64_t;
   using PhysicalType = Int64Type;
@@ -1595,7 +1595,7 @@ class ARROW_EXPORT TimeType : public TemporalType, public ParametricType {
 /// since midnight)
 class ARROW_EXPORT Time32Type : public TimeType {
  public:
-  static constexpr Type::type type_id = Type::TIME32;
+  static inline constexpr Type::type type_id = Type::TIME32;
   using c_type = int32_t;
   using PhysicalType = Int32Type;
 
@@ -1614,7 +1614,7 @@ class ARROW_EXPORT Time32Type : public TimeType {
 /// since midnight)
 class ARROW_EXPORT Time64Type : public TimeType {
  public:
-  static constexpr Type::type type_id = Type::TIME64;
+  static inline constexpr Type::type type_id = Type::TIME64;
   using c_type = int64_t;
   using PhysicalType = Int64Type;
 
@@ -1665,7 +1665,7 @@ class ARROW_EXPORT TimestampType : public TemporalType, public ParametricType {
  public:
   using Unit = TimeUnit;
 
-  static constexpr Type::type type_id = Type::TIMESTAMP;
+  static inline constexpr Type::type type_id = Type::TIMESTAMP;
   using c_type = int64_t;
   using PhysicalType = Int64Type;
 
@@ -1711,7 +1711,7 @@ class ARROW_EXPORT IntervalType : public TemporalType, public ParametricType {
 /// in Schema.fbs (years are defined as 12 months).
 class ARROW_EXPORT MonthIntervalType : public IntervalType {
  public:
-  static constexpr Type::type type_id = Type::INTERVAL_MONTHS;
+  static inline constexpr Type::type type_id = Type::INTERVAL_MONTHS;
   using c_type = int32_t;
   using PhysicalType = Int32Type;
 
@@ -1751,7 +1751,7 @@ class ARROW_EXPORT DayTimeIntervalType : public IntervalType {
 
   static_assert(sizeof(DayMilliseconds) == 8,
                 "DayMilliseconds struct assumed to be of size 8 bytes");
-  static constexpr Type::type type_id = Type::INTERVAL_DAY_TIME;
+  static inline constexpr Type::type type_id = Type::INTERVAL_DAY_TIME;
 
   static constexpr const char* type_name() { return "day_time_interval"; }
 
@@ -1791,7 +1791,7 @@ class ARROW_EXPORT MonthDayNanoIntervalType : public IntervalType {
 
   static_assert(sizeof(MonthDayNanos) == 16,
                 "MonthDayNanos struct assumed to be of size 16 bytes");
-  static constexpr Type::type type_id = Type::INTERVAL_MONTH_DAY_NANO;
+  static inline constexpr Type::type type_id = Type::INTERVAL_MONTH_DAY_NANO;
 
   static constexpr const char* type_name() { return "month_day_nano_interval"; }
 
@@ -1818,7 +1818,7 @@ class ARROW_EXPORT DurationType : public TemporalType, public ParametricType {
  public:
   using Unit = TimeUnit;
 
-  static constexpr Type::type type_id = Type::DURATION;
+  static inline constexpr Type::type type_id = Type::DURATION;
   using c_type = int64_t;
   using PhysicalType = Int64Type;
 
@@ -1851,7 +1851,7 @@ class ARROW_EXPORT DurationType : public TemporalType, public ParametricType {
 /// dictionary. Indices are represented by any integer types.
 class ARROW_EXPORT DictionaryType : public FixedWidthType {
  public:
-  static constexpr Type::type type_id = Type::DICTIONARY;
+  static inline constexpr Type::type type_id = Type::DICTIONARY;
 
   static constexpr const char* type_name() { return "dictionary"; }
 
