@@ -330,7 +330,7 @@ class TestBufferedInputStream : public FileTestFixture<BufferedInputStream> {
   }
 
   void MakeExample1(int64_t buffer_size, MemoryPool* pool = default_memory_pool(),
-                    bool fill_raw_read_bound = false) {
+                    int64_t raw_read_bound = -1) {
     test_data_ = kExample1;
 
     ASSERT_OK_AND_ASSIGN(auto file_out, FileOutputStream::Open(path_));
@@ -339,14 +339,8 @@ class TestBufferedInputStream : public FileTestFixture<BufferedInputStream> {
 
     ASSERT_OK_AND_ASSIGN(auto file_in, ReadableFile::Open(path_));
     raw_ = file_in;
-    if (!fill_raw_read_bound) {
-      ASSERT_OK_AND_ASSIGN(buffered_,
-                           BufferedInputStream::Create(buffer_size, pool, raw_));
-    } else {
-      ASSERT_OK_AND_ASSIGN(auto file_size, file_in->GetSize());
-      ASSERT_OK_AND_ASSIGN(
-          buffered_, BufferedInputStream::Create(buffer_size, pool, raw_, file_size));
-    }
+    ASSERT_OK_AND_ASSIGN(
+        buffered_, BufferedInputStream::Create(buffer_size, pool, raw_, raw_read_bound));
   }
 
  protected:
@@ -484,17 +478,16 @@ TEST_F(TestBufferedInputStream, SetBufferSize) {
 // bytes could buffer.
 TEST_F(TestBufferedInputStream, BufferSizeLimit) {
   {
-    MakeExample1(/*buffer_size=*/100000, default_memory_pool(),
-                 /*fill_raw_read_bound=*/true);
-    // buffer_sizes should be limited to the size of the data
-    EXPECT_EQ(test_data_.size(), buffered_->buffer_size());
+    // Buffer size should not exceeds raw_read_bound
+    MakeExample1(/*buffer_size=*/100000, default_memory_pool(), /*raw_read_bound=*/15);
+    EXPECT_EQ(15, buffered_->buffer_size());
   }
-
   {
-    MakeExample1(/*buffer_size=*/10, default_memory_pool(), /*fill_raw_read_bound=*/true);
+    // Set a buffer size after read.
+    MakeExample1(/*buffer_size=*/10, default_memory_pool(), /*raw_read_bound=*/15);
     ASSERT_OK(buffered_->Read(10));
     ASSERT_OK(buffered_->SetBufferSize(/*new_buffer_size=*/100000));
-    EXPECT_EQ(test_data_.size() - 10, buffered_->buffer_size());
+    EXPECT_EQ(5, buffered_->buffer_size());
   }
 }
 
