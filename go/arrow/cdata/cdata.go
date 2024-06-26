@@ -32,7 +32,11 @@ package cdata
 //	memset(out, 0, sizeof(struct ArrowArray));
 //	return out;
 // }
-// struct ArrowArrayStream* get_stream() { return (struct ArrowArrayStream*)malloc(sizeof(struct ArrowArrayStream)); }
+// struct ArrowArrayStream* get_stream() {
+//	struct ArrowArrayStream* out = (struct ArrowArrayStream*)malloc(sizeof(struct ArrowArrayStream));
+//	memset(out, 0, sizeof(struct ArrowArrayStream));
+//	return out;
+// }
 //
 import "C"
 
