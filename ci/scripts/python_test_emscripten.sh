@@ -21,6 +21,9 @@
 # WebAssembly platforms (i.e. one browser, one non-browser).
 
 set -ex
+
+source ~/.nvm/nvm.sh
+
 build_dir=${1}/python
 cd ${build_dir}
 

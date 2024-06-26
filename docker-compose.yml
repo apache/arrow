@@ -911,7 +911,6 @@ services:
       ARROW_BUILD_TYPE: "release"
       ARROW_BUILD_TESTS: "off"
     command: ["
-        source ~/.nvm/nvm.sh &&
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build_emscripten.sh /arrow /build &&
         /arrow/ci/scripts/python_test_emscripten.sh /build /pyodide"]
