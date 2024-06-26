@@ -1950,6 +1950,9 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
             props.enable_store_decimal_as_integer()
         else:
             props.disable_store_decimal_as_integer()
+    else:
+        raise ValueError("'store_decimal_as_integer' must type boolean")
+
 
     # column_encoding
     # encoding map - encode individual columns
