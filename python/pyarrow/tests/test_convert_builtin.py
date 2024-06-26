@@ -23,8 +23,11 @@ import math
 import re
 
 import hypothesis as h
-import numpy as np
 import pytest
+try:
+    import numpy as np
+except ImportError:
+    pytest.skip(reason="Failures on test collection due to numpy NOT enabled", allow_module_level=True)
 
 from pyarrow.pandas_compat import _pandas_api  # noqa
 import pyarrow as pa
