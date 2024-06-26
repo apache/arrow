@@ -1276,16 +1276,10 @@ services:
         repo: ${REPO}
         arch: ${ARCH}
         python: ${PYTHON}
-        numpy: ${NUMPY}
-        pandas: ${PANDAS}
     shm_size: *shm-size
     environment:
       <<: [*common, *ccache, *sccache]
       PARQUET_REQUIRE_ENCRYPTION:  # inherit
-      # The without numpy mark is only used to select tests to be run
-      # when numpy is not installed but those tests will also run
-      # if numpy is present.
-      PYTEST_ARGS: "-k without_numpy"
       # Some tests fail to be collected due to numpy fixtures.
       # That is why we just collect tests from the following modules.
       PYTEST_PYARGS: "pyarrow.tests.test_array
