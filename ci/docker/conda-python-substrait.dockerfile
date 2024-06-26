@@ -28,7 +28,7 @@ COPY ci/conda_env_python.txt \
 # Note: openjdk is pinned to 17 because the
 # substrait repo currently pins to jdk 17.
 # Newer jdk versions are currently failing
-# due to the recent upgrade to Gradle 8 in
+# due to the recent upgrade to Gradle 8 via
 # install_substrait_consumer.sh.
 # https://github.com/substrait-io/substrait-java/issues/274
 RUN mamba install -q -y \
