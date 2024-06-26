@@ -58,7 +58,7 @@ RUN pyodide_dist_url="https://github.com/pyodide/pyodide/releases/download/${pyo
 
 # Install basic build stuff, don't pin versions, hence ignore lint
 # hadolint ignore=DL3008
-RUN apt-get update && apt-get install --no-install-recommends -y -q zip libpthread-stubs0-dev build-essential\
+RUN apt-get update && apt-get install --no-install-recommends -y -q unzip zip libpthread-stubs0-dev build-essential\
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
