@@ -566,6 +566,11 @@ struct ARROW_EXPORT ScalarKernel : public Kernel {
   // bitmaps is a reasonable default
   NullHandling::type null_handling = NullHandling::INTERSECTION;
   MemAllocation::type mem_allocation = MemAllocation::PREALLOCATE;
+
+  // Scalar functions' pure property for return a reasonable value when
+  // the function's output length cannot be determined.
+  // This mark can be fetched from ScalarFunction and set in AddKernel.
+  bool is_pure = true;
 };
 
 // ----------------------------------------------------------------------
