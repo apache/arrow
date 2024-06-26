@@ -63,7 +63,7 @@
         "ARROW_JEMALLOC": "OFF",
         "ARROW_JSON": "ON",
         "ARROW_MIMALLOC": "OFF",
-        "ARROW_ORC": "OFF",
+        "ARROW_ORC": "ON",
         "ARROW_RUNTIME_SIMD_LEVEL": "NONE",
         "ARROW_S3": "OFF",
         "ARROW_SIMD_LEVEL": "NONE",
@@ -71,8 +71,6 @@
         "ARROW_WITH_BROTLI": "ON",
         "ARROW_WITH_OPENTELEMETRY": "OFF",
         "ARROW_WITH_SNAPPY": "ON",
-        "ARROW_WITH_ZLIB": "ON",
-        "ARROW_WITH_ZSTD": "ON",
         "CMAKE_C_BYTE_ORDER": "LITTLE_ENDIAN"
       }
     },

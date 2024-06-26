@@ -4546,6 +4546,7 @@ macro(build_orc)
                       BUILD_BYPRODUCTS ${ORC_STATIC_LIB}
                       CMAKE_ARGS ${ORC_CMAKE_ARGS}
                       DEPENDS ${ARROW_PROTOBUF_LIBPROTOBUF}
+                              ${ARROW_PROTOBUF_PROTOC}
                               ${ARROW_ZSTD_LIBZSTD}
                               ${Snappy_TARGET}
                               LZ4::lz4
