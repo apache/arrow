@@ -64,6 +64,7 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
         ParquetLogicalType_TIME" parquet::LogicalType::Type::TIME"
         ParquetLogicalType_TIMESTAMP" parquet::LogicalType::Type::TIMESTAMP"
         ParquetLogicalType_INT" parquet::LogicalType::Type::INT"
+        ParquetLogicalType_FLOAT16" parquet::LogicalType::Type::FLOAT16"
         ParquetLogicalType_JSON" parquet::LogicalType::Type::JSON"
         ParquetLogicalType_BSON" parquet::LogicalType::Type::BSON"
         ParquetLogicalType_UUID" parquet::LogicalType::Type::UUID"
@@ -554,6 +555,7 @@ cdef extern from "parquet/arrow/writer.h" namespace "parquet::arrow" nogil:
         CStatus WriteTable(const CTable& table, int64_t chunk_size)
         CStatus NewRowGroup(int64_t chunk_size)
         CStatus Close()
+        CStatus AddKeyValueMetadata(const shared_ptr[const CKeyValueMetadata]& key_value_metadata)
 
         const shared_ptr[CFileMetaData] metadata() const
 

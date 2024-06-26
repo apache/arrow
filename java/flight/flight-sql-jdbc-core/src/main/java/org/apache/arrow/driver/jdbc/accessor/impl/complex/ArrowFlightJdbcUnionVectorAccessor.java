@@ -14,19 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc.accessor.impl.complex;
 
 import java.util.function.IntSupplier;
-
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.UnionVector;
 
-/**
- * Accessor for the Arrow type {@link UnionVector}.
- */
+/** Accessor for the Arrow type {@link UnionVector}. */
 public class ArrowFlightJdbcUnionVectorAccessor extends AbstractArrowFlightJdbcUnionVectorAccessor {
 
   private final UnionVector vector;
@@ -34,21 +30,22 @@ public class ArrowFlightJdbcUnionVectorAccessor extends AbstractArrowFlightJdbcU
   /**
    * Instantiate an accessor for a {@link UnionVector}.
    *
-   * @param vector             an instance of a UnionVector.
+   * @param vector an instance of a UnionVector.
    * @param currentRowSupplier the supplier to track the rows.
-   * @param setCursorWasNull   the consumer to set if value was null.
+   * @param setCursorWasNull the consumer to set if value was null.
    */
-  public ArrowFlightJdbcUnionVectorAccessor(UnionVector vector, IntSupplier currentRowSupplier,
-                                            ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+  public ArrowFlightJdbcUnionVectorAccessor(
+      UnionVector vector,
+      IntSupplier currentRowSupplier,
+      ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
     super(currentRowSupplier, setCursorWasNull);
     this.vector = vector;
   }
 
   @Override
   protected ArrowFlightJdbcAccessor createAccessorForVector(ValueVector vector) {
-    return ArrowFlightJdbcAccessorFactory.createAccessor(vector, this::getCurrentRow,
-        (boolean wasNull) -> {
-        });
+    return ArrowFlightJdbcAccessorFactory.createAccessor(
+        vector, this::getCurrentRow, (boolean wasNull) -> {});
   }
 
   @Override

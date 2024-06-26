@@ -35,7 +35,6 @@
 #include "arrow/type.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/unreachable.h"
 #include "arrow/util/vector.h"
 #include "arrow/visit_type_inline.h"
 
@@ -59,17 +58,31 @@ int RecordBatch::num_columns() const { return schema_->num_fields(); }
 class SimpleRecordBatch : public RecordBatch {
  public:
   SimpleRecordBatch(std::shared_ptr<Schema> schema, int64_t num_rows,
-                    std::vector<std::shared_ptr<Array>> columns)
-      : RecordBatch(std::move(schema), num_rows), boxed_columns_(std::move(columns)) {
+                    std::vector<std::shared_ptr<Array>> columns,
+                    std::shared_ptr<Device::SyncEvent> sync_event = nullptr)
+      : RecordBatch(std::move(schema), num_rows),
+        boxed_columns_(std::move(columns)),
+        device_type_(DeviceAllocationType::kCPU),
+        sync_event_(std::move(sync_event)) {
+    if (boxed_columns_.size() > 0) {
+      device_type_ = boxed_columns_[0]->device_type();
+    }
+
     columns_.resize(boxed_columns_.size());
     for (size_t i = 0; i < columns_.size(); ++i) {
       columns_[i] = boxed_columns_[i]->data();
+      DCHECK_EQ(device_type_, columns_[i]->device_type());
     }
   }
 
   SimpleRecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows,
-                    std::vector<std::shared_ptr<ArrayData>> columns)
-      : RecordBatch(std::move(schema), num_rows), columns_(std::move(columns)) {
+                    std::vector<std::shared_ptr<ArrayData>> columns,
+                    DeviceAllocationType device_type = DeviceAllocationType::kCPU,
+                    std::shared_ptr<Device::SyncEvent> sync_event = nullptr)
+      : RecordBatch(std::move(schema), num_rows),
+        columns_(std::move(columns)),
+        device_type_(device_type),
+        sync_event_(std::move(sync_event)) {
     boxed_columns_.resize(schema_->num_fields());
   }
 
@@ -99,6 +112,7 @@ class SimpleRecordBatch : public RecordBatch {
       const std::shared_ptr<Array>& column) const override {
     ARROW_CHECK(field != nullptr);
     ARROW_CHECK(column != nullptr);
+    ARROW_CHECK(column->device_type() == device_type_);
 
     if (!field->type()->Equals(column->type())) {
       return Status::TypeError("Column data type ", field->type()->name(),
@@ -113,7 +127,8 @@ class SimpleRecordBatch : public RecordBatch {
 
     ARROW_ASSIGN_OR_RAISE(auto new_schema, schema_->AddField(i, field));
     return RecordBatch::Make(std::move(new_schema), num_rows_,
-                             internal::AddVectorElement(columns_, i, column->data()));
+                             internal::AddVectorElement(columns_, i, column->data()),
+                             device_type_, sync_event_);
   }
 
   Result<std::shared_ptr<RecordBatch>> SetColumn(
@@ -121,6 +136,7 @@ class SimpleRecordBatch : public RecordBatch {
       const std::shared_ptr<Array>& column) const override {
     ARROW_CHECK(field != nullptr);
     ARROW_CHECK(column != nullptr);
+    ARROW_CHECK(column->device_type() == device_type_);
 
     if (!field->type()->Equals(column->type())) {
       return Status::TypeError("Column data type ", field->type()->name(),
@@ -135,19 +151,22 @@ class SimpleRecordBatch : public RecordBatch {
 
     ARROW_ASSIGN_OR_RAISE(auto new_schema, schema_->SetField(i, field));
     return RecordBatch::Make(std::move(new_schema), num_rows_,
-                             internal::ReplaceVectorElement(columns_, i, column->data()));
+                             internal::ReplaceVectorElement(columns_, i, column->data()),
+                             device_type_, sync_event_);
   }
 
   Result<std::shared_ptr<RecordBatch>> RemoveColumn(int i) const override {
     ARROW_ASSIGN_OR_RAISE(auto new_schema, schema_->RemoveField(i));
     return RecordBatch::Make(std::move(new_schema), num_rows_,
-                             internal::DeleteVectorElement(columns_, i));
+                             internal::DeleteVectorElement(columns_, i), device_type_,
+                             sync_event_);
   }
 
   std::shared_ptr<RecordBatch> ReplaceSchemaMetadata(
       const std::shared_ptr<const KeyValueMetadata>& metadata) const override {
     auto new_schema = schema_->WithMetadata(metadata);
-    return RecordBatch::Make(std::move(new_schema), num_rows_, columns_);
+    return RecordBatch::Make(std::move(new_schema), num_rows_, columns_, device_type_,
+                             sync_event_);
   }
 
   std::shared_ptr<RecordBatch> Slice(int64_t offset, int64_t length) const override {
@@ -157,7 +176,8 @@ class SimpleRecordBatch : public RecordBatch {
       arrays.emplace_back(field->Slice(offset, length));
     }
     int64_t num_rows = std::min(num_rows_ - offset, length);
-    return std::make_shared<SimpleRecordBatch>(schema_, num_rows, std::move(arrays));
+    return std::make_shared<SimpleRecordBatch>(schema_, num_rows, std::move(arrays),
+                                               device_type_, sync_event_);
   }
 
   Status Validate() const override {
@@ -167,11 +187,22 @@ class SimpleRecordBatch : public RecordBatch {
     return RecordBatch::Validate();
   }
 
+  const std::shared_ptr<Device::SyncEvent>& GetSyncEvent() const override {
+    return sync_event_;
+  }
+
+  DeviceAllocationType device_type() const override { return device_type_; }
+
  private:
   std::vector<std::shared_ptr<ArrayData>> columns_;
 
   // Caching boxed array data
   mutable std::vector<std::shared_ptr<Array>> boxed_columns_;
+
+  // the type of device that the buffers for columns are allocated on.
+  // all columns should be on the same type of device.
+  DeviceAllocationType device_type_;
+  std::shared_ptr<Device::SyncEvent> sync_event_;
 };
 
 RecordBatch::RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows)
@@ -179,18 +210,21 @@ RecordBatch::RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows
 
 std::shared_ptr<RecordBatch> RecordBatch::Make(
     std::shared_ptr<Schema> schema, int64_t num_rows,
-    std::vector<std::shared_ptr<Array>> columns) {
+    std::vector<std::shared_ptr<Array>> columns,
+    std::shared_ptr<Device::SyncEvent> sync_event) {
   DCHECK_EQ(schema->num_fields(), static_cast<int>(columns.size()));
   return std::make_shared<SimpleRecordBatch>(std::move(schema), num_rows,
-                                             std::move(columns));
+                                             std::move(columns), std::move(sync_event));
 }
 
 std::shared_ptr<RecordBatch> RecordBatch::Make(
     std::shared_ptr<Schema> schema, int64_t num_rows,
-    std::vector<std::shared_ptr<ArrayData>> columns) {
+    std::vector<std::shared_ptr<ArrayData>> columns, DeviceAllocationType device_type,
+    std::shared_ptr<Device::SyncEvent> sync_event) {
   DCHECK_EQ(schema->num_fields(), static_cast<int>(columns.size()));
   return std::make_shared<SimpleRecordBatch>(std::move(schema), num_rows,
-                                             std::move(columns));
+                                             std::move(columns), device_type,
+                                             std::move(sync_event));
 }
 
 Result<std::shared_ptr<RecordBatch>> RecordBatch::MakeEmpty(
@@ -251,204 +285,11 @@ Result<std::shared_ptr<StructArray>> RecordBatch::ToStructArray() const {
                                        /*offset=*/0);
 }
 
-template <typename Out>
-struct ConvertColumnsToTensorVisitor {
-  Out*& out_values;
-  const ArrayData& in_data;
-
-  template <typename T>
-  Status Visit(const T&) {
-    if constexpr (is_numeric(T::type_id)) {
-      using In = typename T::c_type;
-      auto in_values = ArraySpan(in_data).GetSpan<In>(1, in_data.length);
-
-      if (in_data.null_count == 0) {
-        if constexpr (std::is_same_v<In, Out>) {
-          memcpy(out_values, in_values.data(), in_values.size_bytes());
-          out_values += in_values.size();
-        } else {
-          for (In in_value : in_values) {
-            *out_values++ = static_cast<Out>(in_value);
-          }
-        }
-      } else {
-        for (int64_t i = 0; i < in_data.length; ++i) {
-          *out_values++ =
-              in_data.IsNull(i) ? static_cast<Out>(NAN) : static_cast<Out>(in_values[i]);
-        }
-      }
-      return Status::OK();
-    }
-    Unreachable();
-  }
-};
-
-template <typename Out>
-struct ConvertColumnsToTensorRowMajorVisitor {
-  Out*& out_values;
-  const ArrayData& in_data;
-  int num_cols;
-  int col_idx;
-
-  template <typename T>
-  Status Visit(const T&) {
-    if constexpr (is_numeric(T::type_id)) {
-      using In = typename T::c_type;
-      auto in_values = ArraySpan(in_data).GetSpan<In>(1, in_data.length);
-
-      if (in_data.null_count == 0) {
-        for (int64_t i = 0; i < in_data.length; ++i) {
-          out_values[i * num_cols + col_idx] = static_cast<Out>(in_values[i]);
-        }
-      } else {
-        for (int64_t i = 0; i < in_data.length; ++i) {
-          out_values[i * num_cols + col_idx] =
-              in_data.IsNull(i) ? static_cast<Out>(NAN) : static_cast<Out>(in_values[i]);
-        }
-      }
-      return Status::OK();
-    }
-    Unreachable();
-  }
-};
-
-template <typename DataType>
-inline void ConvertColumnsToTensor(const RecordBatch& batch, uint8_t* out,
-                                   bool row_major) {
-  using CType = typename arrow::TypeTraits<DataType>::CType;
-  auto* out_values = reinterpret_cast<CType*>(out);
-
-  int i = 0;
-  for (const auto& column : batch.columns()) {
-    if (row_major) {
-      ConvertColumnsToTensorRowMajorVisitor<CType> visitor{out_values, *column->data(),
-                                                           batch.num_columns(), i++};
-      DCHECK_OK(VisitTypeInline(*column->type(), &visitor));
-    } else {
-      ConvertColumnsToTensorVisitor<CType> visitor{out_values, *column->data()};
-      DCHECK_OK(VisitTypeInline(*column->type(), &visitor));
-    }
-  }
-}
-
 Result<std::shared_ptr<Tensor>> RecordBatch::ToTensor(bool null_to_nan, bool row_major,
                                                       MemoryPool* pool) const {
-  if (num_columns() == 0) {
-    return Status::TypeError(
-        "Conversion to Tensor for RecordBatches without columns/schema is not "
-        "supported.");
-  }
-  // Check for no validity bitmap of each field
-  // if null_to_nan conversion is set to false
-  for (int i = 0; i < num_columns(); ++i) {
-    if (column(i)->null_count() > 0 && !null_to_nan) {
-      return Status::TypeError(
-          "Can only convert a RecordBatch with no nulls. Set null_to_nan to true to "
-          "convert nulls to NaN");
-    }
-  }
-
-  // Check for supported data types and merge fields
-  // to get the resulting uniform data type
-  if (!is_integer(column(0)->type()->id()) && !is_floating(column(0)->type()->id())) {
-    return Status::TypeError("DataType is not supported: ",
-                             column(0)->type()->ToString());
-  }
-  std::shared_ptr<Field> result_field = schema_->field(0);
-  std::shared_ptr<DataType> result_type = result_field->type();
-
-  Field::MergeOptions options;
-  options.promote_integer_to_float = true;
-  options.promote_integer_sign = true;
-  options.promote_numeric_width = true;
-
-  if (num_columns() > 1) {
-    for (int i = 1; i < num_columns(); ++i) {
-      if (!is_numeric(column(i)->type()->id())) {
-        return Status::TypeError("DataType is not supported: ",
-                                 column(i)->type()->ToString());
-      }
-
-      // Casting of float16 is not supported, throw an error in this case
-      if ((column(i)->type()->id() == Type::HALF_FLOAT ||
-           result_field->type()->id() == Type::HALF_FLOAT) &&
-          column(i)->type()->id() != result_field->type()->id()) {
-        return Status::NotImplemented("Casting from or to halffloat is not supported.");
-      }
-
-      ARROW_ASSIGN_OR_RAISE(
-          result_field, result_field->MergeWith(
-                            schema_->field(i)->WithName(result_field->name()), options));
-    }
-    result_type = result_field->type();
-  }
-
-  // Check if result_type is signed or unsigned integer and null_to_nan is set to true
-  // Then all columns should be promoted to float type
-  if (is_integer(result_type->id()) && null_to_nan) {
-    ARROW_ASSIGN_OR_RAISE(
-        result_field,
-        result_field->MergeWith(field(result_field->name(), float32()), options));
-    result_type = result_field->type();
-  }
-
-  // Allocate memory
-  ARROW_ASSIGN_OR_RAISE(
-      std::shared_ptr<Buffer> result,
-      AllocateBuffer(result_type->bit_width() * num_columns() * num_rows(), pool));
-  // Copy data
-  switch (result_type->id()) {
-    case Type::UINT8:
-      ConvertColumnsToTensor<UInt8Type>(*this, result->mutable_data(), row_major);
-      break;
-    case Type::UINT16:
-    case Type::HALF_FLOAT:
-      ConvertColumnsToTensor<UInt16Type>(*this, result->mutable_data(), row_major);
-      break;
-    case Type::UINT32:
-      ConvertColumnsToTensor<UInt32Type>(*this, result->mutable_data(), row_major);
-      break;
-    case Type::UINT64:
-      ConvertColumnsToTensor<UInt64Type>(*this, result->mutable_data(), row_major);
-      break;
-    case Type::INT8:
-      ConvertColumnsToTensor<Int8Type>(*this, result->mutable_data(), row_major);
-      break;
-    case Type::INT16:
-      ConvertColumnsToTensor<Int16Type>(*this, result->mutable_data(), row_major);
-      break;
-    case Type::INT32:
-      ConvertColumnsToTensor<Int32Type>(*this, result->mutable_data(), row_major);
-      break;
-    case Type::INT64:
-      ConvertColumnsToTensor<Int64Type>(*this, result->mutable_data(), row_major);
-      break;
-    case Type::FLOAT:
-      ConvertColumnsToTensor<FloatType>(*this, result->mutable_data(), row_major);
-      break;
-    case Type::DOUBLE:
-      ConvertColumnsToTensor<DoubleType>(*this, result->mutable_data(), row_major);
-      break;
-    default:
-      return Status::TypeError("DataType is not supported: ", result_type->ToString());
-  }
-
-  // Construct Tensor object
-  const auto& fixed_width_type =
-      internal::checked_cast<const FixedWidthType&>(*result_type);
-  std::vector<int64_t> shape = {num_rows(), num_columns()};
-  std::vector<int64_t> strides;
   std::shared_ptr<Tensor> tensor;
-
-  if (row_major) {
-    ARROW_RETURN_NOT_OK(
-        internal::ComputeRowMajorStrides(fixed_width_type, shape, &strides));
-  } else {
-    ARROW_RETURN_NOT_OK(
-        internal::ComputeColumnMajorStrides(fixed_width_type, shape, &strides));
-  }
-  ARROW_ASSIGN_OR_RAISE(tensor,
-                        Tensor::Make(result_type, std::move(result), shape, strides));
+  ARROW_RETURN_NOT_OK(
+      internal::RecordBatchToTensor(*this, null_to_nan, row_major, pool, &tensor));
   return tensor;
 }
 
@@ -466,6 +307,10 @@ bool RecordBatch::Equals(const RecordBatch& other, bool check_metadata,
     return false;
   }
 
+  if (device_type() != other.device_type()) {
+    return false;
+  }
+
   for (int i = 0; i < num_columns(); ++i) {
     if (!column(i)->Equals(other.column(i), opts)) {
       return false;
@@ -477,6 +322,10 @@ bool RecordBatch::Equals(const RecordBatch& other, bool check_metadata,
 
 bool RecordBatch::ApproxEquals(const RecordBatch& other, const EqualOptions& opts) const {
   if (num_columns() != other.num_columns() || num_rows_ != other.num_rows()) {
+    return false;
+  }
+
+  if (device_type() != other.device_type()) {
     return false;
   }
 
@@ -505,7 +354,7 @@ Result<std::shared_ptr<RecordBatch>> RecordBatch::ReplaceSchema(
           ", did not match new schema field type: ", replace_type->ToString());
     }
   }
-  return RecordBatch::Make(std::move(schema), num_rows(), columns());
+  return RecordBatch::Make(std::move(schema), num_rows(), columns(), GetSyncEvent());
 }
 
 std::vector<std::string> RecordBatch::ColumnNames() const {
@@ -534,7 +383,7 @@ Result<std::shared_ptr<RecordBatch>> RecordBatch::RenameColumns(
   }
 
   return RecordBatch::Make(::arrow::schema(std::move(fields)), num_rows(),
-                           std::move(columns));
+                           std::move(columns), GetSyncEvent());
 }
 
 Result<std::shared_ptr<RecordBatch>> RecordBatch::SelectColumns(
@@ -555,7 +404,8 @@ Result<std::shared_ptr<RecordBatch>> RecordBatch::SelectColumns(
 
   auto new_schema =
       std::make_shared<arrow::Schema>(std::move(fields), schema()->metadata());
-  return RecordBatch::Make(std::move(new_schema), num_rows(), std::move(columns));
+  return RecordBatch::Make(std::move(new_schema), num_rows(), std::move(columns),
+                           GetSyncEvent());
 }
 
 std::shared_ptr<RecordBatch> RecordBatch::Slice(int64_t offset) const {
@@ -647,12 +497,16 @@ Result<std::shared_ptr<Table>> RecordBatchReader::ToTable() {
 class SimpleRecordBatchReader : public RecordBatchReader {
  public:
   SimpleRecordBatchReader(Iterator<std::shared_ptr<RecordBatch>> it,
-                          std::shared_ptr<Schema> schema)
-      : schema_(std::move(schema)), it_(std::move(it)) {}
+                          std::shared_ptr<Schema> schema,
+                          DeviceAllocationType device_type = DeviceAllocationType::kCPU)
+      : schema_(std::move(schema)), it_(std::move(it)), device_type_(device_type) {}
 
   SimpleRecordBatchReader(std::vector<std::shared_ptr<RecordBatch>> batches,
-                          std::shared_ptr<Schema> schema)
-      : schema_(std::move(schema)), it_(MakeVectorIterator(std::move(batches))) {}
+                          std::shared_ptr<Schema> schema,
+                          DeviceAllocationType device_type = DeviceAllocationType::kCPU)
+      : schema_(std::move(schema)),
+        it_(MakeVectorIterator(std::move(batches))),
+        device_type_(device_type) {}
 
   Status ReadNext(std::shared_ptr<RecordBatch>* batch) override {
     return it_.Next().Value(batch);
@@ -660,13 +514,17 @@ class SimpleRecordBatchReader : public RecordBatchReader {
 
   std::shared_ptr<Schema> schema() const override { return schema_; }
 
+  DeviceAllocationType device_type() const override { return device_type_; }
+
  protected:
   std::shared_ptr<Schema> schema_;
   Iterator<std::shared_ptr<RecordBatch>> it_;
+  DeviceAllocationType device_type_;
 };
 
 Result<std::shared_ptr<RecordBatchReader>> RecordBatchReader::Make(
-    std::vector<std::shared_ptr<RecordBatch>> batches, std::shared_ptr<Schema> schema) {
+    std::vector<std::shared_ptr<RecordBatch>> batches, std::shared_ptr<Schema> schema,
+    DeviceAllocationType device_type) {
   if (schema == nullptr) {
     if (batches.size() == 0 || batches[0] == nullptr) {
       return Status::Invalid("Cannot infer schema from empty vector or nullptr");
@@ -675,16 +533,19 @@ Result<std::shared_ptr<RecordBatchReader>> RecordBatchReader::Make(
     schema = batches[0]->schema();
   }
 
-  return std::make_shared<SimpleRecordBatchReader>(std::move(batches), std::move(schema));
+  return std::make_shared<SimpleRecordBatchReader>(std::move(batches), std::move(schema),
+                                                   device_type);
 }
 
 Result<std::shared_ptr<RecordBatchReader>> RecordBatchReader::MakeFromIterator(
-    Iterator<std::shared_ptr<RecordBatch>> batches, std::shared_ptr<Schema> schema) {
+    Iterator<std::shared_ptr<RecordBatch>> batches, std::shared_ptr<Schema> schema,
+    DeviceAllocationType device_type) {
   if (schema == nullptr) {
     return Status::Invalid("Schema cannot be nullptr");
   }
 
-  return std::make_shared<SimpleRecordBatchReader>(std::move(batches), std::move(schema));
+  return std::make_shared<SimpleRecordBatchReader>(std::move(batches), std::move(schema),
+                                                   device_type);
 }
 
 RecordBatchReader::~RecordBatchReader() {
@@ -701,6 +562,10 @@ Result<std::shared_ptr<RecordBatch>> ConcatenateRecordBatches(
   int cols = batches[0]->num_columns();
   auto schema = batches[0]->schema();
   for (size_t i = 0; i < batches.size(); ++i) {
+    if (auto sync = batches[i]->GetSyncEvent()) {
+      ARROW_RETURN_NOT_OK(sync->Wait());
+    }
+
     length += batches[i]->num_rows();
     if (!schema->Equals(batches[i]->schema())) {
       return Status::Invalid(

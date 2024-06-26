@@ -1519,6 +1519,24 @@ cdef class BaseExtensionType(DataType):
         """
         return pyarrow_wrap_data_type(self.ext_type.storage_type())
 
+    @property
+    def byte_width(self):
+        """
+        The byte width of the extension type.
+        """
+        if self.ext_type.byte_width() == -1:
+            raise ValueError("Non-fixed width type")
+        return self.ext_type.byte_width()
+
+    @property
+    def bit_width(self):
+        """
+        The bit width of the extension type.
+        """
+        if self.ext_type.bit_width() == -1:
+            raise ValueError("Non-fixed width type")
+        return self.ext_type.bit_width()
+
     def wrap_array(self, storage):
         """
         Wrap the given storage array as an extension array.
@@ -4171,7 +4189,7 @@ def float16():
       32256
     ]
     >>> a.to_pylist()
-    [1.5, nan]
+    [np.float16(1.5), np.float16(nan)]
     """
     return primitive_type(_Type_HALF_FLOAT)
 
@@ -5332,7 +5350,10 @@ def schema(fields, metadata=None):
     if isinstance(fields, Mapping):
         fields = fields.items()
     elif hasattr(fields, "__arrow_c_schema__"):
-        return Schema._import_from_c_capsule(fields.__arrow_c_schema__())
+        result = Schema._import_from_c_capsule(fields.__arrow_c_schema__())
+        if metadata is not None:
+            result = result.with_metadata(metadata)
+        return result
 
     for item in fields:
         if isinstance(item, tuple):

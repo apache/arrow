@@ -118,6 +118,8 @@ static std::unique_ptr<std::string> log_dir_;
 // Glog's severity map.
 static google::LogSeverity GetMappedSeverity(ArrowLogLevel severity) {
   switch (severity) {
+    case ArrowLogLevel::ARROW_TRACE:
+      return google::GLOG_INFO;
     case ArrowLogLevel::ARROW_DEBUG:
       return google::GLOG_INFO;
     case ArrowLogLevel::ARROW_INFO:

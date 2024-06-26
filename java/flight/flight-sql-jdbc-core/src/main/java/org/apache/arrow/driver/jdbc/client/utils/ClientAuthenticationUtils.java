@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc.client.utils;
 
 import java.io.ByteArrayInputStream;
@@ -36,7 +35,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Enumeration;
 import java.util.List;
-
 import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.auth2.BasicAuthCredentialWriter;
@@ -46,9 +44,7 @@ import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.util.VisibleForTesting;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 
-/**
- * Utils for {@link FlightClientHandler} authentication.
- */
+/** Utils for {@link FlightClientHandler} authentication. */
 public final class ClientAuthenticationUtils {
 
   private ClientAuthenticationUtils() {
@@ -58,14 +54,15 @@ public final class ClientAuthenticationUtils {
   /**
    * Gets the {@link CredentialCallOption} for the provided authentication info.
    *
-   * @param client      the client.
-   * @param credential  the credential as CallOptions.
-   * @param options     the {@link CallOption}s to use.
+   * @param client the client.
+   * @param credential the credential as CallOptions.
+   * @param options the {@link CallOption}s to use.
    * @return the credential call option.
    */
-  public static CredentialCallOption getAuthenticate(final FlightClient client,
-                                                     final CredentialCallOption credential,
-                                                     final CallOption... options) {
+  public static CredentialCallOption getAuthenticate(
+      final FlightClient client,
+      final CredentialCallOption credential,
+      final CallOption... options) {
 
     final List<CallOption> theseOptions = new ArrayList<>();
     theseOptions.add(credential);
@@ -78,27 +75,32 @@ public final class ClientAuthenticationUtils {
   /**
    * Gets the {@link CredentialCallOption} for the provided authentication info.
    *
-   * @param client   the client.
+   * @param client the client.
    * @param username the username.
    * @param password the password.
-   * @param factory  the {@link ClientIncomingAuthHeaderMiddleware.Factory} to use.
-   * @param options  the {@link CallOption}s to use.
+   * @param factory the {@link ClientIncomingAuthHeaderMiddleware.Factory} to use.
+   * @param options the {@link CallOption}s to use.
    * @return the credential call option.
    */
-  public static CredentialCallOption getAuthenticate(final FlightClient client,
-                                                     final String username, final String password,
-                                                     final ClientIncomingAuthHeaderMiddleware.Factory factory,
-                                                     final CallOption... options) {
+  public static CredentialCallOption getAuthenticate(
+      final FlightClient client,
+      final String username,
+      final String password,
+      final ClientIncomingAuthHeaderMiddleware.Factory factory,
+      final CallOption... options) {
 
-    return getAuthenticate(client,
+    return getAuthenticate(
+        client,
         new CredentialCallOption(new BasicAuthCredentialWriter(username, password)),
-        factory, options);
+        factory,
+        options);
   }
 
-  private static CredentialCallOption getAuthenticate(final FlightClient client,
-                                                      final CredentialCallOption token,
-                                                      final ClientIncomingAuthHeaderMiddleware.Factory factory,
-                                                      final CallOption... options) {
+  private static CredentialCallOption getAuthenticate(
+      final FlightClient client,
+      final CredentialCallOption token,
+      final ClientIncomingAuthHeaderMiddleware.Factory factory,
+      final CallOption... options) {
     final List<CallOption> theseOptions = new ArrayList<>();
     theseOptions.add(token);
     theseOptions.addAll(Arrays.asList(options));
@@ -148,17 +150,16 @@ public final class ClientAuthenticationUtils {
   }
 
   /**
-   * It gets the trusted certificate based on the operating system and loads all the certificate into a
-   * {@link InputStream}.
+   * It gets the trusted certificate based on the operating system and loads all the certificate
+   * into a {@link InputStream}.
    *
    * @return An input stream with all the certificates.
-   *
-   * @throws KeyStoreException        if a key store could not be loaded.
-   * @throws CertificateException     if a certificate could not be found.
-   * @throws IOException              if it fails reading the file.
+   * @throws KeyStoreException if a key store could not be loaded.
+   * @throws CertificateException if a certificate could not be found.
+   * @throws IOException if it fails reading the file.
    */
-  public static InputStream getCertificateInputStreamFromSystem(String password) throws KeyStoreException,
-      CertificateException, IOException, NoSuchAlgorithmException {
+  public static InputStream getCertificateInputStreamFromSystem(String password)
+      throws KeyStoreException, CertificateException, IOException, NoSuchAlgorithmException {
 
     List<KeyStore> keyStoreList = new ArrayList<>();
     if (isWindows()) {
@@ -201,36 +202,33 @@ public final class ClientAuthenticationUtils {
   static InputStream getCertificatesInputStream(Collection<KeyStore> keyStores)
       throws IOException, KeyStoreException {
     try (final StringWriter writer = new StringWriter();
-         final JcaPEMWriter pemWriter = new JcaPEMWriter(writer)) {
+        final JcaPEMWriter pemWriter = new JcaPEMWriter(writer)) {
 
       for (KeyStore keyStore : keyStores) {
         getCertificatesInputStream(keyStore, pemWriter);
       }
 
-      return new ByteArrayInputStream(
-        writer.toString().getBytes(StandardCharsets.UTF_8));
+      return new ByteArrayInputStream(writer.toString().getBytes(StandardCharsets.UTF_8));
     }
   }
 
   /**
-   * Generates an {@link InputStream} that contains certificates for a private
-   * key.
+   * Generates an {@link InputStream} that contains certificates for a private key.
    *
    * @param keyStorePath The path of the KeyStore.
    * @param keyStorePass The password of the KeyStore.
    * @return a new {code InputStream} containing the certificates.
    * @throws GeneralSecurityException on error.
-   * @throws IOException              on error.
+   * @throws IOException on error.
    */
-  public static InputStream getCertificateStream(final String keyStorePath,
-                                                 final String keyStorePass)
+  public static InputStream getCertificateStream(
+      final String keyStorePath, final String keyStorePass)
       throws GeneralSecurityException, IOException {
     Preconditions.checkNotNull(keyStorePath, "KeyStore path cannot be null!");
     Preconditions.checkNotNull(keyStorePass, "KeyStorePass cannot be null!");
     final KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
 
-    try (final InputStream keyStoreStream = Files
-        .newInputStream(Paths.get(keyStorePath))) {
+    try (final InputStream keyStoreStream = Files.newInputStream(Paths.get(keyStorePath))) {
       keyStore.load(keyStoreStream, keyStorePass.toCharArray());
     }
 
@@ -238,54 +236,51 @@ public final class ClientAuthenticationUtils {
   }
 
   /**
-   * Generates an {@link InputStream} that contains certificates for path-based
-   * TLS Root Certificates.
+   * Generates an {@link InputStream} that contains certificates for path-based TLS Root
+   * Certificates.
    *
    * @param tlsRootsCertificatesPath The path of the TLS Root Certificates.
    * @return a new {code InputStream} containing the certificates.
    * @throws GeneralSecurityException on error.
-   * @throws IOException              on error.
+   * @throws IOException on error.
    */
   public static InputStream getTlsRootCertificatesStream(final String tlsRootsCertificatesPath)
-          throws GeneralSecurityException, IOException {
-    Preconditions.checkNotNull(tlsRootsCertificatesPath, "TLS Root certificates path cannot be null!");
+      throws GeneralSecurityException, IOException {
+    Preconditions.checkNotNull(
+        tlsRootsCertificatesPath, "TLS Root certificates path cannot be null!");
 
-    return Files
-      .newInputStream(Paths.get(tlsRootsCertificatesPath));
+    return Files.newInputStream(Paths.get(tlsRootsCertificatesPath));
   }
 
   /**
-   * Generates an {@link InputStream} that contains certificates for a path-based
-   * mTLS Client Certificate.
+   * Generates an {@link InputStream} that contains certificates for a path-based mTLS Client
+   * Certificate.
    *
    * @param clientCertificatePath The path of the mTLS Client Certificate.
    * @return a new {code InputStream} containing the certificates.
    * @throws GeneralSecurityException on error.
-   * @throws IOException              on error.
+   * @throws IOException on error.
    */
   public static InputStream getClientCertificateStream(final String clientCertificatePath)
       throws GeneralSecurityException, IOException {
     Preconditions.checkNotNull(clientCertificatePath, "Client certificate path cannot be null!");
 
-    return Files
-      .newInputStream(Paths.get(clientCertificatePath));
+    return Files.newInputStream(Paths.get(clientCertificatePath));
   }
 
   /**
-   * Generates an {@link InputStream} that contains certificates for a path-based
-   * mTLS Client Key.
+   * Generates an {@link InputStream} that contains certificates for a path-based mTLS Client Key.
    *
    * @param clientKeyPath The path of the mTLS Client Key.
    * @return a new {code InputStream} containing the certificates.
    * @throws GeneralSecurityException on error.
-   * @throws IOException              on error.
+   * @throws IOException on error.
    */
   public static InputStream getClientKeyStream(final String clientKeyPath)
-          throws GeneralSecurityException, IOException {
+      throws GeneralSecurityException, IOException {
     Preconditions.checkNotNull(clientKeyPath, "Client key path cannot be null!");
 
-    return Files
-      .newInputStream(Paths.get(clientKeyPath));
+    return Files.newInputStream(Paths.get(clientKeyPath));
   }
 
   private static InputStream getSingleCertificateInputStream(KeyStore keyStore)
@@ -302,16 +297,14 @@ public final class ClientAuthenticationUtils {
     throw new CertificateException("Keystore did not have a certificate.");
   }
 
-  private static InputStream toInputStream(final Certificate certificate)
-      throws IOException {
+  private static InputStream toInputStream(final Certificate certificate) throws IOException {
 
     try (final StringWriter writer = new StringWriter();
-         final JcaPEMWriter pemWriter = new JcaPEMWriter(writer)) {
+        final JcaPEMWriter pemWriter = new JcaPEMWriter(writer)) {
 
       pemWriter.writeObject(certificate);
       pemWriter.flush();
-      return new ByteArrayInputStream(
-          writer.toString().getBytes(StandardCharsets.UTF_8));
+      return new ByteArrayInputStream(writer.toString().getBytes(StandardCharsets.UTF_8));
     }
   }
 }

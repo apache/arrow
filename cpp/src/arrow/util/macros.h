@@ -102,7 +102,7 @@
 #elif defined(_MSC_VER)  // MSVC
 #define ARROW_NORETURN __declspec(noreturn)
 #define ARROW_NOINLINE __declspec(noinline)
-#define ARROW_FORCE_INLINE __declspec(forceinline)
+#define ARROW_FORCE_INLINE __forceinline
 #define ARROW_PREDICT_FALSE(x) (x)
 #define ARROW_PREDICT_TRUE(x) (x)
 #define ARROW_PREFETCH(addr)

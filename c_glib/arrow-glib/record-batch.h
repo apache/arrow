@@ -26,6 +26,7 @@
 G_BEGIN_DECLS
 
 #define GARROW_TYPE_RECORD_BATCH (garrow_record_batch_get_type())
+GARROW_AVAILABLE_IN_ALL
 G_DECLARE_DERIVABLE_TYPE(
   GArrowRecordBatch, garrow_record_batch, GARROW, RECORD_BATCH, GObject)
 struct _GArrowRecordBatchClass
@@ -37,6 +38,7 @@ GARROW_AVAILABLE_IN_6_0
 GArrowRecordBatch *
 garrow_record_batch_import(gpointer c_abi_array, GArrowSchema *schema, GError **error);
 
+GARROW_AVAILABLE_IN_ALL
 GArrowRecordBatch *
 garrow_record_batch_new(GArrowSchema *schema,
                         guint32 n_rows,
@@ -50,6 +52,7 @@ garrow_record_batch_export(GArrowRecordBatch *record_batch,
                            gpointer *c_abi_schema,
                            GError **error);
 
+GARROW_AVAILABLE_IN_ALL
 gboolean
 garrow_record_batch_equal(GArrowRecordBatch *record_batch,
                           GArrowRecordBatch *other_record_batch);
@@ -59,28 +62,43 @@ garrow_record_batch_equal_metadata(GArrowRecordBatch *record_batch,
                                    GArrowRecordBatch *other_record_batch,
                                    gboolean check_metadata);
 
+GARROW_AVAILABLE_IN_ALL
 GArrowSchema *
 garrow_record_batch_get_schema(GArrowRecordBatch *record_batch);
+
 GARROW_AVAILABLE_IN_0_15
 GArrowArray *
 garrow_record_batch_get_column_data(GArrowRecordBatch *record_batch, gint i);
+
+GARROW_AVAILABLE_IN_ALL
 const gchar *
 garrow_record_batch_get_column_name(GArrowRecordBatch *record_batch, gint i);
+
+GARROW_AVAILABLE_IN_ALL
 guint
 garrow_record_batch_get_n_columns(GArrowRecordBatch *record_batch);
+
+GARROW_AVAILABLE_IN_ALL
 gint64
 garrow_record_batch_get_n_rows(GArrowRecordBatch *record_batch);
+
+GARROW_AVAILABLE_IN_ALL
 GArrowRecordBatch *
 garrow_record_batch_slice(GArrowRecordBatch *record_batch, gint64 offset, gint64 length);
 
+GARROW_AVAILABLE_IN_ALL
 gchar *
 garrow_record_batch_to_string(GArrowRecordBatch *record_batch, GError **error);
+
+GARROW_AVAILABLE_IN_ALL
 GArrowRecordBatch *
 garrow_record_batch_add_column(GArrowRecordBatch *record_batch,
                                guint i,
                                GArrowField *field,
                                GArrowArray *column,
                                GError **error);
+
+GARROW_AVAILABLE_IN_ALL
 GArrowRecordBatch *
 garrow_record_batch_remove_column(GArrowRecordBatch *record_batch,
                                   guint i,
@@ -92,6 +110,7 @@ garrow_record_batch_serialize(GArrowRecordBatch *record_batch,
                               GError **error);
 
 #define GARROW_TYPE_RECORD_BATCH_ITERATOR (garrow_record_batch_iterator_get_type())
+GARROW_AVAILABLE_IN_0_17
 G_DECLARE_DERIVABLE_TYPE(GArrowRecordBatchIterator,
                          garrow_record_batch_iterator,
                          GARROW,

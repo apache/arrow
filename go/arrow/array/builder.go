@@ -357,7 +357,7 @@ func NewBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 		return bldr
 	case arrow.FIXED_SIZE_LIST:
 		typ := dtype.(*arrow.FixedSizeListType)
-		return NewFixedSizeListBuilder(mem, typ.Len(), typ.Elem())
+		return NewFixedSizeListBuilderWithField(mem, typ.Len(), typ.ElemField())
 	case arrow.DURATION:
 		typ := dtype.(*arrow.DurationType)
 		return NewDurationBuilder(mem, typ)

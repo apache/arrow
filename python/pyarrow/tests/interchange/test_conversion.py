@@ -335,8 +335,10 @@ def test_pandas_to_pyarrow_with_missing(np_float):
     np_array = np.array([0, np.nan, 2], dtype=np_float)
     datetime_array = [None, dt(2007, 7, 14), dt(2007, 7, 15)]
     df = pd.DataFrame({
-        "a": np_array,   # float, ColumnNullType.USE_NAN
-        "dt": datetime_array  # ColumnNullType.USE_SENTINEL
+        # float, ColumnNullType.USE_NAN
+        "a": np_array,
+        # ColumnNullType.USE_SENTINEL
+        "dt": np.array(datetime_array, dtype="datetime64[ns]")
     })
     expected = pa.table({
         "a": pa.array(np_array, from_pandas=True),

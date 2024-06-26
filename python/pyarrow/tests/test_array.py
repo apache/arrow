@@ -1013,6 +1013,18 @@ def test_list_array_types_from_arrays_fail(list_array_type, list_type_factory):
             arr_slice.offsets, arr_slice.values, mask=arr_slice.is_null())
 
 
+def test_map_cast():
+    # GH-38553
+    t = pa.map_(pa.int64(), pa.int64())
+    arr = pa.array([{1: 2}], type=t)
+    result = arr.cast(pa.map_(pa.int32(), pa.int64()))
+
+    t_expected = pa.map_(pa.int32(), pa.int64())
+    expected = pa.array([{1: 2}], type=t_expected)
+
+    assert result.equals(expected)
+
+
 def test_map_labelled():
     #  ARROW-13735
     t = pa.map_(pa.field("name", "string", nullable=False), "int64")
@@ -1078,6 +1090,54 @@ def test_map_from_arrays():
             # Larger than the original i4
             pa.int64()
         ))
+
+    # pass in null bitmap with type
+    result = pa.MapArray.from_arrays([0, 2, 2, 6], keys, items, pa.map_(
+        keys.type,
+        items.type),
+        mask=pa.array([False, True, False], type=pa.bool_())
+    )
+    assert result.null_count == 1
+    assert result.equals(expected)
+
+    # pass in null bitmap without the type
+    result = pa.MapArray.from_arrays([0, 2, 2, 6], keys, items,
+                                     mask=pa.array([False, True, False],
+                                                   type=pa.bool_())
+                                     )
+    assert result.equals(expected)
+
+    # pass in null bitmap with two nulls
+    offsets = [0, None, None, 6]
+    pyentries = [None, None, pypairs[2:]]
+
+    result = pa.MapArray.from_arrays([0, 2, 2, 6], keys, items, pa.map_(
+        keys.type,
+        items.type),
+        mask=pa.array([True, True, False], type=pa.bool_())
+    )
+    expected = pa.array(pyentries, type=pa.map_(pa.binary(), pa.int32()))
+    assert result.null_count == 2
+    assert result.equals(expected)
+
+    # error if null bitmap and offsets with nulls passed
+    msg1 = 'Ambiguous to specify both validity map and offsets with nulls'
+    with pytest.raises(pa.ArrowInvalid, match=msg1):
+        pa.MapArray.from_arrays(offsets, keys, items, pa.map_(
+            keys.type,
+            items.type),
+            mask=pa.array([False, True, False], type=pa.bool_())
+        )
+
+    # error if null bitmap passed to sliced offset
+    msg2 = 'Null bitmap with offsets slice not supported.'
+    offsets = pa.array([0, 2, 2, 6], pa.int32())
+    with pytest.raises(pa.ArrowNotImplementedError, match=msg2):
+        pa.MapArray.from_arrays(offsets.slice(2), keys, items, pa.map_(
+            keys.type,
+            items.type),
+            mask=pa.array([False, True, False], type=pa.bool_())
+        )
 
     # check invalid usage
     offsets = [0, 1, 3, 5]
@@ -3352,7 +3412,7 @@ def test_numpy_array_protocol():
     result = np.asarray(arr)
     np.testing.assert_array_equal(result, expected)
 
-    if Version(np.__version__) < Version("2.0"):
+    if Version(np.__version__) < Version("2.0.0.dev0"):
         # copy keyword is not strict and not passed down to __array__
         result = np.array(arr, copy=False)
         np.testing.assert_array_equal(result, expected)
@@ -3952,3 +4012,90 @@ def test_swapped_byte_order_fails(numpy_native_dtype):
     # Struct type array
     with pytest.raises(pa.ArrowNotImplementedError):
         pa.StructArray.from_arrays([np_arr], names=['a'])
+
+
+def test_non_cpu_array():
+    cuda = pytest.importorskip("pyarrow.cuda")
+    ctx = cuda.Context(0)
+
+    data = np.arange(4, dtype=np.int32)
+    validity = np.array([True, False, True, False], dtype=np.bool_)
+    cuda_data_buf = ctx.buffer_from_data(data)
+    cuda_validity_buf = ctx.buffer_from_data(validity)
+    arr = pa.Array.from_buffers(pa.int32(), 4, [None, cuda_data_buf])
+    arr2 = pa.Array.from_buffers(pa.int32(), 4, [None, cuda_data_buf])
+    arr_with_nulls = pa.Array.from_buffers(
+        pa.int32(), 4, [cuda_validity_buf, cuda_data_buf])
+
+    # Supported
+    arr.validate()
+    assert arr.offset == 0
+    assert arr.buffers() == [None, cuda_data_buf]
+    assert arr.device_type == pa.DeviceAllocationType.CUDA
+    assert arr.is_cpu is False
+    assert len(arr) == 4
+    assert arr.slice(2, 2).offset == 2
+
+    # TODO support DLPack for CUDA
+    with pytest.raises(NotImplementedError):
+        arr.__dlpack__()
+    with pytest.raises(NotImplementedError):
+        arr.__dlpack_device__()
+
+    # Not Supported
+    with pytest.raises(NotImplementedError):
+        arr.diff(arr2)
+    with pytest.raises(NotImplementedError):
+        arr.cast(pa.int64())
+    with pytest.raises(NotImplementedError):
+        arr.view(pa.int64())
+    with pytest.raises(NotImplementedError):
+        arr.sum()
+    with pytest.raises(NotImplementedError):
+        arr.unique()
+    with pytest.raises(NotImplementedError):
+        arr.dictionary_encode()
+    with pytest.raises(NotImplementedError):
+        arr.value_counts()
+    with pytest.raises(NotImplementedError):
+        arr_with_nulls.null_count
+    with pytest.raises(NotImplementedError):
+        arr.nbytes
+    with pytest.raises(NotImplementedError):
+        arr.get_total_buffer_size()
+    with pytest.raises(NotImplementedError):
+        [i for i in iter(arr)]
+    with pytest.raises(NotImplementedError):
+        repr(arr)
+    with pytest.raises(NotImplementedError):
+        str(arr)
+    with pytest.raises(NotImplementedError):
+        arr == arr2
+    with pytest.raises(NotImplementedError):
+        arr.is_null()
+    with pytest.raises(NotImplementedError):
+        arr.is_nan()
+    with pytest.raises(NotImplementedError):
+        arr.is_valid()
+    with pytest.raises(NotImplementedError):
+        arr.fill_null(0)
+    with pytest.raises(NotImplementedError):
+        arr[0]
+    with pytest.raises(NotImplementedError):
+        arr.take([0])
+    with pytest.raises(NotImplementedError):
+        arr.drop_null()
+    with pytest.raises(NotImplementedError):
+        arr.filter([True, True, False, False])
+    with pytest.raises(NotImplementedError):
+        arr.index(0)
+    with pytest.raises(NotImplementedError):
+        arr.sort()
+    with pytest.raises(NotImplementedError):
+        arr.__array__()
+    with pytest.raises(NotImplementedError):
+        arr.to_numpy()
+    with pytest.raises(NotImplementedError):
+        arr.tolist()
+    with pytest.raises(NotImplementedError):
+        arr.validate(full=True)

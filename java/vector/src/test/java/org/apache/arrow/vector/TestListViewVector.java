@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -26,7 +25,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.BaseRepeatedValueVector;
@@ -420,8 +418,7 @@ public class TestListViewVector {
       listViewVector.allocateNew();
 
       // Initialize the child vector using `initializeChildrenFromFields` method.
-      FieldType fieldType = new FieldType(true, new ArrowType.Int(64, true),
-          null, null);
+      FieldType fieldType = new FieldType(true, new ArrowType.Int(64, true), null, null);
       Field field = new Field("child-vector", fieldType, null);
       listViewVector.initializeChildrenFromFields(Collections.singletonList(field));
 
@@ -502,10 +499,8 @@ public class TestListViewVector {
       listViewVector.allocateNew();
 
       // Initialize the child vector using `initializeChildrenFromFields` method.
-      FieldType fieldType = new FieldType(true, new ArrowType.List(),
-          null, null);
-      FieldType childFieldType = new FieldType(true, new ArrowType.Int(64, true),
-          null, null);
+      FieldType fieldType = new FieldType(true, new ArrowType.List(), null, null);
+      FieldType childFieldType = new FieldType(true, new ArrowType.Int(64, true), null, null);
       Field childField = new Field("child-vector", childFieldType, null);
       List<Field> children = new ArrayList<>();
       children.add(childField);
@@ -649,8 +644,7 @@ public class TestListViewVector {
       listViewVector.allocateNew();
 
       // Initialize the child vector using `initializeChildrenFromFields` method.
-      FieldType fieldType = new FieldType(true, new ArrowType.Int(64, true),
-          null, null);
+      FieldType fieldType = new FieldType(true, new ArrowType.Int(64, true), null, null);
       Field field = new Field("child-vector", fieldType, null);
       listViewVector.initializeChildrenFromFields(Collections.singletonList(field));
 
@@ -871,7 +865,8 @@ public class TestListViewVector {
   public void testClearAndReuse() {
     try (final ListViewVector vector = ListViewVector.empty("listview", allocator)) {
       BigIntVector bigIntVector =
-          (BigIntVector) vector.addOrGetVector(FieldType.nullable(MinorType.BIGINT.getType())).getVector();
+          (BigIntVector)
+              vector.addOrGetVector(FieldType.nullable(MinorType.BIGINT.getType())).getVector();
       vector.setInitialCapacity(10);
       vector.allocateNew();
 
@@ -923,17 +918,23 @@ public class TestListViewVector {
       UnionListViewWriter writer = vector.getWriter();
       writer.allocate();
 
-      //set some values
+      // set some values
       writer.startList();
       writer.integer().writeInt(1);
       writer.integer().writeInt(2);
       writer.endList();
       vector.setValueCount(2);
 
-      Field expectedDataField = new Field(BaseRepeatedValueVector.DATA_VECTOR_NAME,
-          FieldType.nullable(new ArrowType.Int(32, true)), null);
-      Field expectedField = new Field(vector.getName(), FieldType.nullable(ArrowType.ListView.INSTANCE),
-          Arrays.asList(expectedDataField));
+      Field expectedDataField =
+          new Field(
+              BaseRepeatedValueVector.DATA_VECTOR_NAME,
+              FieldType.nullable(new ArrowType.Int(32, true)),
+              null);
+      Field expectedField =
+          new Field(
+              vector.getName(),
+              FieldType.nullable(ArrowType.ListView.INSTANCE),
+              Arrays.asList(expectedDataField));
 
       assertEquals(expectedField, writer.getField());
 
@@ -959,8 +960,9 @@ public class TestListViewVector {
       // Writing with a different timezone should throw
       holder.timezone = "AsdfTimeZone";
       holder.value = 77777;
-      IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-          () -> writer.timeStampMilliTZ().write(holder));
+      IllegalArgumentException ex =
+          assertThrows(
+              IllegalArgumentException.class, () -> writer.timeStampMilliTZ().write(holder));
       assertEquals(
           "holder.timezone: AsdfTimeZone not equal to vector timezone: SomeFakeTimeZone",
           ex.getMessage());
@@ -968,10 +970,16 @@ public class TestListViewVector {
       writer.endList();
       vector.setValueCount(1);
 
-      Field expectedDataField = new Field(BaseRepeatedValueVector.DATA_VECTOR_NAME,
-          FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MILLISECOND, "SomeFakeTimeZone")), null);
-      Field expectedField = new Field(vector.getName(), FieldType.nullable(ArrowType.ListView.INSTANCE),
-          Arrays.asList(expectedDataField));
+      Field expectedDataField =
+          new Field(
+              BaseRepeatedValueVector.DATA_VECTOR_NAME,
+              FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MILLISECOND, "SomeFakeTimeZone")),
+              null);
+      Field expectedField =
+          new Field(
+              vector.getName(),
+              FieldType.nullable(ArrowType.ListView.INSTANCE),
+              Arrays.asList(expectedDataField));
 
       assertEquals(expectedField, writer.getField());
 
@@ -998,19 +1006,24 @@ public class TestListViewVector {
       // Writing with a different unit should throw
       durationHolder.unit = TimeUnit.SECOND;
       durationHolder.value = 8888888;
-      IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-          () -> writer.duration().write(durationHolder));
-      assertEquals(
-          "holder.unit: SECOND not equal to vector unit: MILLISECOND", ex.getMessage());
+      IllegalArgumentException ex =
+          assertThrows(
+              IllegalArgumentException.class, () -> writer.duration().write(durationHolder));
+      assertEquals("holder.unit: SECOND not equal to vector unit: MILLISECOND", ex.getMessage());
 
       writer.endList();
       vector.setValueCount(1);
 
-      Field expectedDataField = new Field(BaseRepeatedValueVector.DATA_VECTOR_NAME,
-          FieldType.nullable(new ArrowType.Duration(TimeUnit.MILLISECOND)), null);
-      Field expectedField = new Field(vector.getName(),
-          FieldType.nullable(ArrowType.ListView.INSTANCE),
-          Arrays.asList(expectedDataField));
+      Field expectedDataField =
+          new Field(
+              BaseRepeatedValueVector.DATA_VECTOR_NAME,
+              FieldType.nullable(new ArrowType.Duration(TimeUnit.MILLISECOND)),
+              null);
+      Field expectedField =
+          new Field(
+              vector.getName(),
+              FieldType.nullable(ArrowType.ListView.INSTANCE),
+              Arrays.asList(expectedDataField));
 
       assertEquals(expectedField, writer.getField());
 
@@ -1025,7 +1038,7 @@ public class TestListViewVector {
       UnionListViewWriter writer = vector.getWriter();
       writer.allocate();
 
-      //set some values
+      // set some values
       writer.startList();
       writer.integer().writeInt(1);
       writer.integer().writeInt(2);
@@ -1050,7 +1063,7 @@ public class TestListViewVector {
       UnionListViewWriter writer = vector.getWriter();
       writer.allocate();
 
-      //set some values
+      // set some values
       writeIntValues(writer, new int[] {1, 2});
       writeIntValues(writer, new int[] {3, 4});
       writeIntValues(writer, new int[] {5, 6});
@@ -1066,8 +1079,11 @@ public class TestListViewVector {
         int offsetBufferSize = valueCount * BaseRepeatedValueViewVector.OFFSET_WIDTH;
         int sizeBufferSize = valueCount * BaseRepeatedValueViewVector.SIZE_WIDTH;
 
-        int expectedSize = validityBufferSize + offsetBufferSize + sizeBufferSize +
-            dataVector.getBufferSizeFor(indices[valueCount]);
+        int expectedSize =
+            validityBufferSize
+                + offsetBufferSize
+                + sizeBufferSize
+                + dataVector.getBufferSizeFor(indices[valueCount]);
         assertEquals(expectedSize, vector.getBufferSizeFor(valueCount));
       }
       vector.validate();
@@ -1538,8 +1554,7 @@ public class TestListViewVector {
 
       // Initialize the child vector using `initializeChildrenFromFields` method.
 
-      FieldType fieldType = new FieldType(true, new ArrowType.Int(16, true),
-          null, null);
+      FieldType fieldType = new FieldType(true, new ArrowType.Int(16, true), null, null);
       Field field = new Field("child-vector", fieldType, null);
       listViewVector.initializeChildrenFromFields(Collections.singletonList(field));
 
@@ -1642,10 +1657,9 @@ public class TestListViewVector {
 
   private void writeIntValues(UnionListViewWriter writer, int[] values) {
     writer.startList();
-    for (int v: values) {
+    for (int v : values) {
       writer.integer().writeInt(v);
     }
     writer.endList();
   }
-
 }

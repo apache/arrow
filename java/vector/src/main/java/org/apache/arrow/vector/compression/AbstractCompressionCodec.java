@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.compression;
 
 import org.apache.arrow.memory.ArrowBuf;
@@ -23,8 +22,8 @@ import org.apache.arrow.memory.util.MemoryUtil;
 import org.apache.arrow.util.Preconditions;
 
 /**
- * The base class for concrete compression codecs, providing
- * common logic for all compression codecs.
+ * The base class for concrete compression codecs, providing common logic for all compression
+ * codecs.
  */
 public abstract class AbstractCompressionCodec implements CompressionCodec {
 
@@ -40,7 +39,8 @@ public abstract class AbstractCompressionCodec implements CompressionCodec {
     }
 
     ArrowBuf compressedBuffer = doCompress(allocator, uncompressedBuffer);
-    long compressedLength = compressedBuffer.writerIndex() - CompressionUtil.SIZE_OF_UNCOMPRESSED_LENGTH;
+    long compressedLength =
+        compressedBuffer.writerIndex() - CompressionUtil.SIZE_OF_UNCOMPRESSED_LENGTH;
     long uncompressedLength = uncompressedBuffer.writerIndex();
 
     if (compressedLength > uncompressedLength) {
@@ -58,7 +58,8 @@ public abstract class AbstractCompressionCodec implements CompressionCodec {
 
   @Override
   public ArrowBuf decompress(BufferAllocator allocator, ArrowBuf compressedBuffer) {
-    Preconditions.checkArgument(compressedBuffer.writerIndex() >= CompressionUtil.SIZE_OF_UNCOMPRESSED_LENGTH,
+    Preconditions.checkArgument(
+        compressedBuffer.writerIndex() >= CompressionUtil.SIZE_OF_UNCOMPRESSED_LENGTH,
         "Not enough data to decompress.");
 
     long decompressedLength = readUncompressedLength(compressedBuffer);
@@ -96,22 +97,20 @@ public abstract class AbstractCompressionCodec implements CompressionCodec {
   }
 
   /**
-   * The method that actually performs the data compression.
-   * The layout of the returned compressed buffer is the compressed data,
-   * plus 8 bytes reserved at the beginning of the buffer for the uncompressed data size.
-   * <p>
-   *   Please note that this method is not responsible for releasing the uncompressed buffer.
-   * </p>
+   * The method that actually performs the data compression. The layout of the returned compressed
+   * buffer is the compressed data, plus 8 bytes reserved at the beginning of the buffer for the
+   * uncompressed data size.
+   *
+   * <p>Please note that this method is not responsible for releasing the uncompressed buffer.
    */
   protected abstract ArrowBuf doCompress(BufferAllocator allocator, ArrowBuf uncompressedBuffer);
 
   /**
-   * The method that actually performs the data decompression.
-   * The layout of the compressed buffer is the compressed data,
-   * plus 8 bytes at the beginning of the buffer storing the uncompressed data size.
-   * <p>
-   *   Please note that this method is not responsible for releasing the compressed buffer.
-   * </p>
+   * The method that actually performs the data decompression. The layout of the compressed buffer
+   * is the compressed data, plus 8 bytes at the beginning of the buffer storing the uncompressed
+   * data size.
+   *
+   * <p>Please note that this method is not responsible for releasing the compressed buffer.
    */
   protected abstract ArrowBuf doDecompress(BufferAllocator allocator, ArrowBuf compressedBuffer);
 }

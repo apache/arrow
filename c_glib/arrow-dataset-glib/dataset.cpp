@@ -19,6 +19,7 @@
 
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/file-system.hpp>
+#include <arrow-glib/reader.hpp>
 #include <arrow-glib/table.hpp>
 
 #include <arrow-dataset-glib/dataset-factory.hpp>
@@ -152,10 +153,44 @@ gadataset_dataset_to_table(GADatasetDataset *dataset, GError **error)
   }
   auto arrow_scanner = *arrow_scanner_result;
   auto arrow_table_result = arrow_scanner->ToTable();
-  if (!garrow::check(error, arrow_scanner_result, "[dataset][to-table]")) {
+  if (!garrow::check(error, arrow_table_result, "[dataset][to-table]")) {
     return NULL;
   }
   return garrow_table_new_raw(&(*arrow_table_result));
+}
+
+/**
+ * gadataset_dataset_to_record_batch_reader:
+ * @dataset: A #GADatasetDataset.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (transfer full) (nullable):
+ *   A #GArrowRecordBatchReader on success, %NULL on error.
+ *
+ * Since: 17.0.0
+ */
+GArrowRecordBatchReader *
+gadataset_dataset_to_record_batch_reader(GADatasetDataset *dataset, GError **error)
+{
+  auto arrow_dataset = gadataset_dataset_get_raw(dataset);
+  auto arrow_scanner_builder_result = arrow_dataset->NewScan();
+  if (!garrow::check(error,
+                     arrow_scanner_builder_result,
+                     "[dataset][to-record-batch-reader]")) {
+    return nullptr;
+  }
+  auto arrow_scanner_builder = *arrow_scanner_builder_result;
+  auto arrow_scanner_result = arrow_scanner_builder->Finish();
+  if (!garrow::check(error, arrow_scanner_result, "[dataset][to-record-batch-reader]")) {
+    return nullptr;
+  }
+  auto arrow_scanner = *arrow_scanner_result;
+  auto arrow_reader_result = arrow_scanner->ToRecordBatchReader();
+  if (!garrow::check(error, arrow_reader_result, "[dataset][to-record-batch-reader]")) {
+    return nullptr;
+  }
+  auto sources = g_list_prepend(nullptr, dataset);
+  return garrow_record_batch_reader_new_raw(&(*arrow_reader_result), sources);
 }
 
 /**

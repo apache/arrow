@@ -14,14 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.ipc;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.channels.Channels;
 import java.util.concurrent.TimeUnit;
-
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Level;
@@ -37,15 +35,11 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
-/**
- * Benchmarks for {@link WriteChannel}.
- */
+/** Benchmarks for {@link WriteChannel}. */
 public class WriteChannelBenchmark {
   // checkstyle:off: MissingJavadocMethod
 
-  /**
-   * State object for align benchmark.
-   */
+  /** State object for align benchmark. */
   @State(Scope.Benchmark)
   public static class AlignState {
 
@@ -78,10 +72,8 @@ public class WriteChannelBenchmark {
   }
 
   public static void main(String[] args) throws RunnerException {
-    Options opt = new OptionsBuilder()
-        .include(WriteChannelBenchmark.class.getSimpleName())
-        .forks(1)
-        .build();
+    Options opt =
+        new OptionsBuilder().include(WriteChannelBenchmark.class.getSimpleName()).forks(1).build();
 
     new Runner(opt).run();
   }

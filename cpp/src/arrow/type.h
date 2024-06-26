@@ -1122,11 +1122,11 @@ class ARROW_EXPORT ListType : public BaseListType {
   static constexpr const char* type_name() { return "list"; }
 
   // List can contain any other logical value type
-  explicit ListType(const std::shared_ptr<DataType>& value_type)
-      : ListType(std::make_shared<Field>("item", value_type)) {}
+  explicit ListType(std::shared_ptr<DataType> value_type)
+      : ListType(std::make_shared<Field>("item", std::move(value_type))) {}
 
-  explicit ListType(const std::shared_ptr<Field>& value_field) : BaseListType(type_id) {
-    children_ = {value_field};
+  explicit ListType(std::shared_ptr<Field> value_field) : BaseListType(type_id) {
+    children_ = {std::move(value_field)};
   }
 
   DataTypeLayout layout() const override {
@@ -1153,12 +1153,11 @@ class ARROW_EXPORT LargeListType : public BaseListType {
   static constexpr const char* type_name() { return "large_list"; }
 
   // List can contain any other logical value type
-  explicit LargeListType(const std::shared_ptr<DataType>& value_type)
-      : LargeListType(std::make_shared<Field>("item", value_type)) {}
+  explicit LargeListType(std::shared_ptr<DataType> value_type)
+      : LargeListType(std::make_shared<Field>("item", std::move(value_type))) {}
 
-  explicit LargeListType(const std::shared_ptr<Field>& value_field)
-      : BaseListType(type_id) {
-    children_ = {value_field};
+  explicit LargeListType(std::shared_ptr<Field> value_field) : BaseListType(type_id) {
+    children_ = {std::move(value_field)};
   }
 
   DataTypeLayout layout() const override {
@@ -1296,12 +1295,13 @@ class ARROW_EXPORT FixedSizeListType : public BaseListType {
   static constexpr const char* type_name() { return "fixed_size_list"; }
 
   // List can contain any other logical value type
-  FixedSizeListType(const std::shared_ptr<DataType>& value_type, int32_t list_size)
-      : FixedSizeListType(std::make_shared<Field>("item", value_type), list_size) {}
+  FixedSizeListType(std::shared_ptr<DataType> value_type, int32_t list_size)
+      : FixedSizeListType(std::make_shared<Field>("item", std::move(value_type)),
+                          list_size) {}
 
-  FixedSizeListType(const std::shared_ptr<Field>& value_field, int32_t list_size)
+  FixedSizeListType(std::shared_ptr<Field> value_field, int32_t list_size)
       : BaseListType(type_id), list_size_(list_size) {
-    children_ = {value_field};
+    children_ = {std::move(value_field)};
   }
 
   DataTypeLayout layout() const override {

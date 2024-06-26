@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.integration.tests;
 
 import org.apache.arrow.flight.FlightClient;
@@ -24,9 +23,7 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.junit.jupiter.api.Test;
 
-/**
- * Run the integration test scenarios in-process.
- */
+/** Run the integration test scenarios in-process. */
 class IntegrationTest {
   @Test
   void authBasicProto() throws Exception {
@@ -95,9 +92,10 @@ class IntegrationTest {
 
   void testScenario(String scenarioName) throws Exception {
     try (final BufferAllocator allocator = new RootAllocator()) {
-      final FlightServer.Builder builder = FlightServer.builder()
-          .allocator(allocator)
-          .location(Location.forGrpcInsecure("0.0.0.0", 0));
+      final FlightServer.Builder builder =
+          FlightServer.builder()
+              .allocator(allocator)
+              .location(Location.forGrpcInsecure("0.0.0.0", 0));
       final Scenario scenario = Scenarios.getScenario(scenarioName);
       scenario.buildServer(builder);
       builder.producer(scenario.producer(allocator, Location.forGrpcInsecure("0.0.0.0", 0)));

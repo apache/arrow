@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.table;
 
 import static org.apache.arrow.vector.table.TestUtils.BIGINT_INT_MAP_VECTOR_NAME;
@@ -53,7 +52,6 @@ import java.time.LocalDateTime;
 import java.time.Period;
 import java.util.ArrayList;
 import java.util.List;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -169,8 +167,7 @@ class RowTest {
     try (Table t = new Table(vectorList)) {
       Row c = t.immutableRow();
       c.setPosition(1);
-      assertThrows(IllegalArgumentException.class,
-          () -> c.getVarCharObj("wrong name"));
+      assertThrows(IllegalArgumentException.class, () -> c.getVarCharObj("wrong name"));
     }
   }
 
@@ -180,8 +177,7 @@ class RowTest {
     try (Table t = new Table(vectorList)) {
       Row c = t.immutableRow();
       c.setPosition(1);
-      assertThrows(ClassCastException.class,
-          () -> c.getVarCharObj(INT_VECTOR_NAME_1));
+      assertThrows(ClassCastException.class, () -> c.getVarCharObj(INT_VECTOR_NAME_1));
     }
   }
 
@@ -252,7 +248,8 @@ class RowTest {
     IntervalUnit unit = IntervalUnit.DAY_TIME;
     final FieldType fieldType = FieldType.nullable(new ArrowType.Interval(unit));
 
-    IntervalDayVector intervalDayVector = new IntervalDayVector("intervalDay_vector", fieldType, allocator);
+    IntervalDayVector intervalDayVector =
+        new IntervalDayVector("intervalDay_vector", fieldType, allocator);
     NullableIntervalDayHolder holder1 = new NullableIntervalDayHolder();
     NullableIntervalDayHolder holder2 = new NullableIntervalDayHolder();
 
@@ -329,7 +326,8 @@ class RowTest {
     IntervalUnit unit = IntervalUnit.YEAR_MONTH;
     final FieldType fieldType = FieldType.nullable(new ArrowType.Interval(unit));
 
-    IntervalYearVector intervalYearVector = new IntervalYearVector("intervalYear_vector", fieldType, allocator);
+    IntervalYearVector intervalYearVector =
+        new IntervalYearVector("intervalYear_vector", fieldType, allocator);
     NullableIntervalYearHolder holder1 = new NullableIntervalYearHolder();
     NullableIntervalYearHolder holder2 = new NullableIntervalYearHolder();
 
@@ -650,7 +648,8 @@ class RowTest {
       c.setPosition(1);
       assertEquals(c.getVarCharObj(1), "two");
       assertEquals(c.getVarCharObj(1), c.getVarCharObj(VARCHAR_VECTOR_NAME_1));
-      assertArrayEquals("two".getBytes(StandardCharsets.UTF_8), c.getVarChar(VARCHAR_VECTOR_NAME_1));
+      assertArrayEquals(
+          "two".getBytes(StandardCharsets.UTF_8), c.getVarChar(VARCHAR_VECTOR_NAME_1));
       assertArrayEquals("two".getBytes(StandardCharsets.UTF_8), c.getVarChar(1));
     }
   }
@@ -685,7 +684,8 @@ class RowTest {
       c.setPosition(1);
       assertEquals(c.getLargeVarCharObj(1), "two");
       assertEquals(c.getLargeVarCharObj(1), c.getLargeVarCharObj(VARCHAR_VECTOR_NAME_1));
-      assertArrayEquals("two".getBytes(StandardCharsets.UTF_8), c.getLargeVarChar(VARCHAR_VECTOR_NAME_1));
+      assertArrayEquals(
+          "two".getBytes(StandardCharsets.UTF_8), c.getLargeVarChar(VARCHAR_VECTOR_NAME_1));
       assertArrayEquals("two".getBytes(StandardCharsets.UTF_8), c.getLargeVarChar(1));
     }
   }
@@ -737,8 +737,7 @@ class RowTest {
         JsonStringHashMap<String, ?> struct =
             (JsonStringHashMap<String, ?>) c.getStruct(STRUCT_VECTOR_NAME);
         @SuppressWarnings("unchecked")
-        JsonStringHashMap<String, ?> struct1 =
-            (JsonStringHashMap<String, ?>) c.getStruct(0);
+        JsonStringHashMap<String, ?> struct1 = (JsonStringHashMap<String, ?>) c.getStruct(0);
         int a = (int) struct.get("struct_int_child");
         double b = (double) struct.get("struct_flt_child");
         int a1 = (int) struct1.get("struct_int_child");
@@ -792,21 +791,21 @@ class RowTest {
 
   @Test
   void testExtensionTypeVector() {
-    TestExtensionType.LocationVector vector = new TestExtensionType.LocationVector("location", allocator);
+    TestExtensionType.LocationVector vector =
+        new TestExtensionType.LocationVector("location", allocator);
     vector.allocateNew();
     vector.set(0, 34.073814f, -118.240784f);
     vector.setValueCount(1);
 
     try (VectorSchemaRoot vsr = VectorSchemaRoot.of(vector);
-         Table table = new Table(vsr)) {
+        Table table = new Table(vsr)) {
       Row c = table.immutableRow();
       c.setPosition(0);
       Object object0 = c.getExtensionType("location");
       Object object1 = c.getExtensionType(0);
       assertEquals(object0, object1);
       @SuppressWarnings("unchecked")
-     JsonStringHashMap<String, ?> struct0 =
-          (JsonStringHashMap<String, ?>) object0;
+      JsonStringHashMap<String, ?> struct0 = (JsonStringHashMap<String, ?>) object0;
       assertEquals(34.073814f, struct0.get("Latitude"));
     }
   }
@@ -822,8 +821,7 @@ class RowTest {
         List<JsonStringHashMap<String, ?>> list =
             (List<JsonStringHashMap<String, ?>>) c.getMap(BIGINT_INT_MAP_VECTOR_NAME);
         @SuppressWarnings("unchecked")
-        List<JsonStringHashMap<String, ?>> list1 =
-            (List<JsonStringHashMap<String, ?>>) c.getMap(0);
+        List<JsonStringHashMap<String, ?>> list1 = (List<JsonStringHashMap<String, ?>>) c.getMap(0);
         for (int j = 0; j < list1.size(); j++) {
           assertEquals(list.get(j), list1.get(j));
         }
