@@ -190,6 +190,17 @@ class TestPythonIntegration(unittest.TestCase):
     def test_string_array(self):
         self.round_trip_array(lambda: pa.array([None, "a", "bb", "ccc"]))
 
+    def test_string_slice_array(self):
+        data = pa.array(["foo", "bar", "baz1", "baz223", "baz23445", "baz2121", "12312baz"])
+        sliced_array = data.slice(offset=2, length=3)
+        self.round_trip_array(lambda: sliced_array)
+
+    def test_binary_slice_array(self):
+        data = pa.array([bytes([97]), bytes([98, 98]), bytes([99, 101, 102]), bytes([99, 101, 103]),
+                         bytes([99, 100, 101, 102]), bytes([98, 101]), bytes([98, 102])], type=pa.binary())
+        sliced_array = data.slice(offset=2, length=3)
+        self.round_trip_array(lambda: sliced_array)
+
     def test_stringview_array(self):
         # with nulls short strings
         self.round_trip_array(lambda: pa.array([None, "a", "bb", "c"], type=pa.string_view()))
