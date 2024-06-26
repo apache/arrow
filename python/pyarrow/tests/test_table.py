@@ -2959,13 +2959,29 @@ def test_table_join_collisions():
 
 
 @pytest.mark.acero
-def test_table_filter_expression():
+@pytest.mark.parametrize('cls', [(pa.Table), (pa.RecordBatch)])
+def test_table_filter_expression(cls):
+    t1 = cls.from_pydict({
+        "colA": [1, 2, 3, 6],
+        "colB": [10, 20, None, 60],
+        "colVals": ["a", "b", "c", "f"]
+    })
+
+    result = t1.filter(pc.field("colB") < 50)
+    assert result == cls.from_pydict({
+        "colA": [1, 2],
+        "colB": [10, 20],
+        "colVals": ["a", "b"]
+    })
+
+
+@pytest.mark.acero
+def test_table_filter_expression_chunks():
     t1 = pa.table({
         "colA": [1, 2, 6],
         "colB": [10, 20, 60],
         "colVals": ["a", "b", "f"]
     })
-
     t2 = pa.table({
         "colA": [99, 2, 1],
         "colB": [99, 20, 10],
