@@ -80,6 +80,7 @@ def check_cython_example_module(mod):
         mod.cast_scalar(scal, pa.list_(pa.int64()))
 
 
+@pytest.mark.numpy
 @pytest.mark.cython
 def test_cython_api(tmpdir):
     """
@@ -162,6 +163,7 @@ def test_cython_api(tmpdir):
                               env=subprocess_env)
 
 
+@pytest.mark.numpy
 @pytest.mark.cython
 def test_visit_strings(tmpdir):
     with tmpdir.as_cwd():

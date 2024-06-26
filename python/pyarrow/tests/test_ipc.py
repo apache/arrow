@@ -24,7 +24,10 @@ import socket
 import threading
 import weakref
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 
 import pyarrow as pa
 from pyarrow.tests.util import changed_environ, invoke_script
@@ -161,14 +164,17 @@ def test_empty_file():
         pa.ipc.open_file(pa.BufferReader(buf))
 
 
+@pytest.mark.numpy
 def test_file_simple_roundtrip(file_fixture):
     file_fixture._check_roundtrip(as_table=False)
 
 
+@pytest.mark.numpy
 def test_file_write_table(file_fixture):
     file_fixture._check_roundtrip(as_table=True)
 
 
+@pytest.mark.numpy
 @pytest.mark.parametrize("sink_factory", [
     lambda: io.BytesIO(),
     lambda: pa.BufferOutputStream()
@@ -186,6 +192,7 @@ def test_file_read_all(sink_factory):
     assert result.equals(expected)
 
 
+@pytest.mark.numpy
 def test_open_file_from_buffer(file_fixture):
     # ARROW-2859; APIs accept the buffer protocol
     file_fixture.write_batches()
@@ -221,6 +228,7 @@ def test_file_read_pandas(file_fixture):
     assert_frame_equal(result, expected)
 
 
+@pytest.mark.numpy
 def test_file_pathlib(file_fixture, tmpdir):
     file_fixture.write_batches()
     source = file_fixture.get_source()
@@ -278,6 +286,7 @@ def test_stream_categorical_roundtrip(stream_fixture):
     assert_frame_equal(table.to_pandas(), df)
 
 
+@pytest.mark.numpy
 def test_open_stream_from_buffer(stream_fixture):
     # ARROW-2859
     stream_fixture.write_batches()
@@ -303,6 +312,7 @@ def test_open_stream_from_buffer(stream_fixture):
     assert tuple(st1) == tuple(stream_fixture.write_stats)
 
 
+@pytest.mark.numpy
 @pytest.mark.parametrize('options', [
     pa.ipc.IpcReadOptions(),
     pa.ipc.IpcReadOptions(use_threads=False),
@@ -321,6 +331,7 @@ def test_open_stream_options(stream_fixture, options):
     assert tuple(st) == tuple(stream_fixture.write_stats)
 
 
+@pytest.mark.numpy
 def test_open_stream_with_wrong_options(stream_fixture):
     stream_fixture.write_batches()
     source = stream_fixture.get_source()
@@ -329,6 +340,7 @@ def test_open_stream_with_wrong_options(stream_fixture):
         pa.ipc.open_stream(source, options=True)
 
 
+@pytest.mark.numpy
 @pytest.mark.parametrize('options', [
     pa.ipc.IpcReadOptions(),
     pa.ipc.IpcReadOptions(use_threads=False),
@@ -346,6 +358,7 @@ def test_open_file_options(file_fixture, options):
     assert st.num_record_batches == 5
 
 
+@pytest.mark.numpy
 def test_open_file_with_wrong_options(file_fixture):
     file_fixture.write_batches()
     source = file_fixture.get_source()
@@ -399,6 +412,7 @@ def test_stream_write_table_batches(stream_fixture):
                                  ignore_index=True))
 
 
+@pytest.mark.numpy
 @pytest.mark.parametrize('use_legacy_ipc_format', [False, True])
 def test_stream_simple_roundtrip(stream_fixture, use_legacy_ipc_format):
     stream_fixture.use_legacy_ipc_format = use_legacy_ipc_format
@@ -419,6 +433,7 @@ def test_stream_simple_roundtrip(stream_fixture, use_legacy_ipc_format):
         reader.read_next_batch()
 
 
+@pytest.mark.numpy
 @pytest.mark.zstd
 def test_compression_roundtrip():
     sink = io.BytesIO()
@@ -508,6 +523,7 @@ def test_write_options_legacy_exclusive(stream_fixture):
         stream_fixture.write_batches()
 
 
+@pytest.mark.numpy
 @pytest.mark.parametrize('options', [
     pa.ipc.IpcWriteOptions(),
     pa.ipc.IpcWriteOptions(allow_64bit=True),
@@ -703,6 +719,7 @@ def test_envvar_set_legacy_ipc_format():
             assert writer._metadata_version == pa.ipc.MetadataVersion.V4
 
 
+@pytest.mark.numpy
 def test_stream_read_all(stream_fixture):
     batches = stream_fixture.write_batches()
     file_contents = pa.BufferReader(stream_fixture.get_source())
@@ -741,6 +758,7 @@ def test_message_ctors_no_segfault():
         repr(pa.MessageReader())
 
 
+@pytest.mark.numpy
 def test_message_reader(example_messages):
     _, messages = example_messages
 
@@ -757,6 +775,7 @@ def test_message_reader(example_messages):
         assert msg.metadata_version == pa.MetadataVersion.V5
 
 
+@pytest.mark.numpy
 def test_message_serialize_read_message(example_messages):
     _, messages = example_messages
 
@@ -781,6 +800,7 @@ def test_message_serialize_read_message(example_messages):
         pa.ipc.read_message(reader)
 
 
+@pytest.mark.numpy
 @pytest.mark.gzip
 def test_message_read_from_compressed(example_messages):
     # Part of ARROW-5910
@@ -797,12 +817,14 @@ def test_message_read_from_compressed(example_messages):
         assert result.equals(message)
 
 
+@pytest.mark.numpy
 def test_message_read_schema(example_messages):
     batches, messages = example_messages
     schema = pa.ipc.read_schema(messages[0])
     assert schema.equals(batches[1].schema)
 
 
+@pytest.mark.numpy
 def test_message_read_record_batch(example_messages):
     batches, messages = example_messages
 
@@ -897,6 +919,7 @@ def socket_fixture():
 
 
 @pytest.mark.sockets
+@pytest.mark.numpy
 def test_socket_simple_roundtrip(socket_fixture):
     socket_fixture.start_server(do_read_all=False)
     writer_batches = socket_fixture.write_batches()
@@ -909,6 +932,7 @@ def test_socket_simple_roundtrip(socket_fixture):
 
 
 @pytest.mark.sockets
+@pytest.mark.numpy
 def test_socket_read_all(socket_fixture):
     socket_fixture.start_server(do_read_all=True)
     writer_batches = socket_fixture.write_batches()

@@ -23,11 +23,14 @@ import weakref
 from uuid import uuid4, UUID
 import sys
 
-import numpy as np
+import pytest
+try:
+    import numpy as np
+except ImportError:
+    pytest.skip(reason="Failures on test collection due to numpy NOT enabled", allow_module_level=True)
+
 import pyarrow as pa
 from pyarrow.vendored.version import Version
-
-import pytest
 
 
 @contextlib.contextmanager

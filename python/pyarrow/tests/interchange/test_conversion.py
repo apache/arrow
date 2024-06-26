@@ -16,10 +16,14 @@
 # under the License.
 
 from datetime import datetime as dt
-import numpy as np
 import pyarrow as pa
 from pyarrow.vendored.version import Version
 import pytest
+
+try:
+    import numpy as np
+except ImportError:
+    pytest.skip(reason="Failures on test collection due to numpy NOT enabled", allow_module_level=True)
 
 import pyarrow.interchange as pi
 from pyarrow.interchange.column import (

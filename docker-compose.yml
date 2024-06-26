@@ -1280,13 +1280,6 @@ services:
     environment:
       <<: [*common, *ccache, *sccache]
       PARQUET_REQUIRE_ENCRYPTION:  # inherit
-      # Some tests fail to be collected due to numpy fixtures.
-      # That is why we just collect tests from the following modules.
-      PYTEST_PYARGS: "pyarrow.tests.test_array
-                      pyarrow.tests.test_compute
-                      pyarrow.tests.test_dataset
-                      pyarrow.tests.test_flight
-                      pyarrow.tests.test_without_numpy"
       HYPOTHESIS_PROFILE:  # inherit
       PYARROW_TEST_HYPOTHESIS:  # inherit
     volumes: *conda-volumes
