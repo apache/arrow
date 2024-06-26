@@ -693,7 +693,7 @@ public class Types {
         return new DenseUnionWriter((DenseUnionVector) vector);
       }
     },
-    MAP(null) {
+    MAP(new Map(false)) {
       @Override
       public FieldVector getNewVector(
           Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {

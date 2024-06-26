@@ -289,6 +289,9 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
   protected FieldWriter getWriter(MinorType type, ArrowType arrowType) {
     if (state == State.UNION) {
       if (requiresArrowType(type)) {
+        if (arrowType == null) {
+          arrowType = type.getType();
+        }
         ((UnionWriter) writer).getWriter(type, arrowType);
       } else {
         ((UnionWriter) writer).getWriter(type);

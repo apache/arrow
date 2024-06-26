@@ -84,6 +84,13 @@ public interface BaseWriter extends AutoCloseable, Positionable {
     <#assign capName = minor.class?cap_first />
     ${capName}Writer ${lowerName}();
     </#list></#list>
+
+    default Decimal256Writer decimal256(int scale, int precision) {
+      return null;
+    }
+    default DecimalWriter decimal(int scale, int precision) {
+      return null;
+    }
   }
 
   public interface MapWriter extends ListWriter {

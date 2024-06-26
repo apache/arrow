@@ -22,14 +22,18 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.StructVector;
+import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.complex.impl.UnionMapReader;
 import org.apache.arrow.vector.complex.impl.UnionMapWriter;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -1203,5 +1207,90 @@ public class TestMapVector {
 
     assertEquals(intField, vec.getField().getChildren().get(0));
     assertEquals(intField, res.getField().getChildren().get(0));
+  }
+
+  @Test
+  public void testSimpleMapVectorWithDecimals() {
+    try (final MapVector vector = MapVector.empty("v", allocator, false)) {
+      vector.allocateNew();
+      UnionMapWriter mapWriter = vector.getWriter();
+
+      mapWriter.setPosition(0);
+      mapWriter.startMap();
+      mapWriter.startEntry();
+      mapWriter.key().decimal(1, 2).writeDecimal(BigDecimal.valueOf(10, 1));
+      mapWriter.value().decimal(1, 2).writeDecimal(BigDecimal.valueOf(20, 1));
+      mapWriter.endEntry();
+      mapWriter.endMap();
+
+      vector.setValueCount(1);
+      assertEquals(vector.getChildrenFromFields().size(), 1);
+      StructVector structVector = (StructVector) vector.getChildrenFromFields().get(0);
+      assertEquals(structVector.getChildrenFromFields().size(), 2);
+      DecimalVector keyVector = (DecimalVector) structVector.getChildrenFromFields().get(0);
+      DecimalVector valueVector = (DecimalVector) structVector.getChildrenFromFields().get(1);
+      assertEquals(keyVector.getObject(0), BigDecimal.valueOf(10, 1));
+      assertEquals(valueVector.getObject(0), BigDecimal.valueOf(20, 1));
+    }
+  }
+
+  @Test
+  public void testWritingDecimals() {
+    try (ListVector from = ListVector.empty("v", allocator)) {
+      UnionListWriter listWriter = from.getWriter();
+      listWriter.allocate();
+
+      listWriter.setPosition(0);
+      listWriter.startList();
+      listWriter.map().startMap();
+      listWriter.map().startEntry();
+      listWriter.map().key().integer().writeInt(10);
+      listWriter.map().value().integer().writeInt(20);
+      listWriter.map().endEntry();
+      listWriter.map().startEntry();
+      listWriter.map().key().decimal(1, 2).writeDecimal(BigDecimal.valueOf(2.0));
+      listWriter.map().value().decimal(1, 2).writeDecimal(BigDecimal.valueOf(3.0));
+      listWriter.map().endEntry();
+      listWriter.map().endMap();
+      listWriter.endList();
+
+      listWriter.setValueCount(1);
+      from.setValueCount(1);
+
+      System.out.println(from);
+    }
+  }
+
+  @Test
+  public void testListOfStruct() {
+    try (ListVector from = ListVector.empty("v", new RootAllocator())) {
+
+      UnionListWriter listWriter = from.getWriter();
+      listWriter.allocate();
+
+      // write null, [null,{"f1":1,"f2":2},null,
+      // {"f1":1,"f2":2},null] alternatively
+      for (int i = 0; i < 10; i++) {
+        listWriter.setPosition(i);
+        if (i % 2 == 0) {
+          listWriter.writeNull();
+          continue;
+        }
+        listWriter.startList();
+        listWriter.struct().writeNull();
+        listWriter.struct().start();
+        listWriter.struct().decimal("f1", 1, 2).writeDecimal(BigDecimal.valueOf(2.0));
+        listWriter.struct().end();
+        listWriter.struct().writeNull();
+        listWriter.struct().start();
+        listWriter.struct().decimal("f1", 1, 2).writeDecimal(BigDecimal.valueOf(3.0));
+        listWriter.struct().end();
+        listWriter.struct().writeNull();
+        listWriter.endList();
+      }
+      from.setValueCount(10);
+
+      System.out.println(from);
+    }
   }
 }
