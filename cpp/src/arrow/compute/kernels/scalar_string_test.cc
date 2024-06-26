@@ -2117,7 +2117,7 @@ TYPED_TEST(TestStringKernels, PadUTF8) {
       R"([null, "a\u2008\u2008\u2008\u2008", "bb\u2008\u2008\u2008", "b\u00E1r\u2008\u2008", "foobar"])",
       &options);
 
-  PadOptions options2{/*width=*/5, "\xe2\x80\x88", /*align_left_on_odd_padding=*/false};
+  PadOptions options2{/*width=*/5, "\xe2\x80\x88", /*lean_left_on_odd_padding=*/false};
   this->CheckUnary(
       "utf8_center", R"([null, "a", "bb", "b\u00E1r", "foobar"])", this->type(),
       R"([null, "\u2008\u2008a\u2008\u2008", "\u2008\u2008bb\u2008", "\u2008b\u00E1r\u2008", "foobar"])",
@@ -2465,7 +2465,7 @@ TYPED_TEST(TestStringKernels, PadAscii) {
   this->CheckUnary("ascii_rpad", R"([null, "a", "bb", "bar", "foobar"])", this->type(),
                    R"([null, "a    ", "bb   ", "bar  ", "foobar"])", &options);
 
-  PadOptions options2{/*width=*/5, " ", /*align_left_on_odd_padding=*/false};
+  PadOptions options2{/*width=*/5, " ", /*lean_left_on_odd_padding=*/false};
   this->CheckUnary("ascii_center", R"([null, "a", "bb", "bar", "foobar"])", this->type(),
                    R"([null, "  a  ", "  bb ", " bar ", "foobar"])", &options2);
 

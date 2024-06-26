@@ -1142,7 +1142,7 @@ struct AsciiPadTransform : public StringTransformBase {
     int64_t left = 0;
     int64_t right = 0;
     if (PadLeft && PadRight) {
-      if (options_.align_left_on_odd_padding) {
+      if (options_.lean_left_on_odd_padding) {
         left = spaces / 2;
         right = spaces - left;
       } else {

@@ -359,7 +359,7 @@ class ARROW_EXPORT StrftimeOptions : public FunctionOptions {
 class ARROW_EXPORT PadOptions : public FunctionOptions {
  public:
   explicit PadOptions(int64_t width, std::string padding = " ",
-                      bool align_left_on_odd_padding = true);
+                      bool lean_left_on_odd_padding = true);
   PadOptions();
   static constexpr char const kTypeName[] = "PadOptions";
 
@@ -370,7 +370,7 @@ class ARROW_EXPORT PadOptions : public FunctionOptions {
   /// What to do if there is an odd number of padding characters (in case of centered
   /// padding). Defaults to alignig on the left (i.e. adding the extra padding character
   /// on the right)
-  bool align_left_on_odd_padding = true;
+  bool lean_left_on_odd_padding = true;
 };
 
 class ARROW_EXPORT TrimOptions : public FunctionOptions {
