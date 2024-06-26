@@ -137,7 +137,7 @@ def test_exported_option_classes():
 @pytest.mark.filterwarnings(
     "ignore:pyarrow.CumulativeSumOptions is deprecated as of 14.0"
 )
-def test_option_class_equality():
+def test_option_class_equality(request):
     options = [
         pc.ArraySortOptions(),
         pc.AssumeTimezoneOptions("UTC"),
@@ -193,17 +193,17 @@ def test_option_class_equality():
         pc.WeekOptions(week_starts_monday=True, count_from_zero=False,
                        first_week_is_fully_in_year=False),
     ]
-    # Timezone database might not be installed on Windows
-    if sys.platform != "win32" or util.windows_has_tzdata():
+    # Timezone database might not be installed on Windows or Emscripten
+    if request.config.pyarrow.is_enabled["timezone_data"]:
         options.append(pc.AssumeTimezoneOptions("Europe/Ljubljana"))
 
     classes = {type(option) for option in options}
 
     for cls in exported_option_classes:
-        # Timezone database might not be installed on Windows
+        # Timezone database might not be installed on Windows or Emscripten
         if (
             cls not in classes
-            and (sys.platform != "win32" or util.windows_has_tzdata())
+            and (request.config.pyarrow.is_enabled["timezone_data"])
             and cls != pc.AssumeTimezoneOptions
         ):
             try:
@@ -2267,7 +2267,7 @@ def test_extract_datetime_components():
     _check_datetime_components(timestamps)
 
     # Test timezone aware timestamp array
-    if sys.platform == "win32" and not util.windows_has_tzdata():
+    if not request.config.pyarrow.is_enabled["timezone_data"]:
         pytest.skip('Timezone database is not installed on Windows')
     else:
         for timezone in timezones:

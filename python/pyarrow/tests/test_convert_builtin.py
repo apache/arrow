@@ -1354,8 +1354,7 @@ def test_sequence_timestamp_nanoseconds():
 
 
 @pytest.mark.pandas
-@pytest.mark.skipif(sys.platform == "win32" and not util.windows_has_tzdata(),
-                    reason="Timezone database is not installed on Windows")
+@pytest.mark.timezone_data
 def test_sequence_timestamp_from_int_with_unit():
     # TODO(wesm): This test might be rewritten to assert the actual behavior
     # when pandas is not installed
