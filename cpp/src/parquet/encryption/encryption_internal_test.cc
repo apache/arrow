@@ -59,6 +59,29 @@ class TestAesEncryption : public ::testing::Test {
     ASSERT_EQ(plaintext_length, expected_plaintext_length);
     ASSERT_EQ(decrypted_text, plaintext);
   }
+
+  static void DecryptInvalidCiphertext(ParquetCipher::type cipher_type) {
+    int key_length = 16;
+    std::string key = "1234567890123450";
+    std::string aad = "abcdefgh";
+    bool metadata = false;
+    bool write_length = true;
+
+    AesDecryptor decryptor(cipher_type, key_length, metadata, write_length);
+
+    // Create ciphertext of all zeros, so the ciphertext length will be read as zero
+    const int ciphertext_length = 100;
+    std::string ciphertext(ciphertext_length, '\0');
+
+    int expected_plaintext_length = ciphertext_length - decryptor.CiphertextSizeDelta();
+    std::string decrypted_text(expected_plaintext_length, '\0');
+
+    EXPECT_THROW(decryptor.Decrypt(str2bytes(ciphertext), 0, str2bytes(key),
+                                   static_cast<int>(key.size()), str2bytes(aad),
+                                   static_cast<int>(aad.size()),
+                                   reinterpret_cast<uint8_t*>(&decrypted_text[0])),
+                 ParquetException);
+  }
 };
 
 TEST_F(TestAesEncryption, AesGcmRoundTrip) {
@@ -69,6 +92,14 @@ TEST_F(TestAesEncryption, AesGcmRoundTrip) {
 TEST_F(TestAesEncryption, AesGcmCtrRoundTrip) {
   EncryptionRoundTrip(ParquetCipher::AES_GCM_CTR_V1, /*write_length=*/true);
   EncryptionRoundTrip(ParquetCipher::AES_GCM_CTR_V1, /*write_length=*/false);
+}
+
+TEST_F(TestAesEncryption, AesGcmDecryptInvalidCiphertext) {
+  DecryptInvalidCiphertext(ParquetCipher::AES_GCM_V1);
+}
+
+TEST_F(TestAesEncryption, AesGcmCtrDecryptInvalidCiphertext) {
+  DecryptInvalidCiphertext(ParquetCipher::AES_GCM_CTR_V1);
 }
 
 }  // namespace parquet::encryption::test
