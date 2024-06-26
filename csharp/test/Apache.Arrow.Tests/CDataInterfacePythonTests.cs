@@ -711,6 +711,61 @@ namespace Apache.Arrow.Tests
         }
 
         [SkippableFact]
+        public unsafe void ExportManagedMemoryArray()
+        {
+            var expectedValues = Enumerable.Range(0, 100).Select(i => i % 10 == 3 ? null : (long?) i).ToArray();
+            var gcRefs = new List<WeakReference>();
+
+            void TestExport()
+            {
+                var array = CreateManagedMemoryArray(expectedValues, gcRefs);
+
+                dynamic pyArray;
+                using (Py.GIL())
+                {
+                    dynamic pa = Py.Import("pyarrow");
+                    pyArray = pa.array(expectedValues);
+                }
+
+                CArrowArray* cArray = CArrowArray.Create();
+                CArrowArrayExporter.ExportArray(array, cArray);
+
+                CArrowSchema* cSchema = CArrowSchema.Create();
+                CArrowSchemaExporter.ExportType(array.Data.DataType, cSchema);
+
+                GcCollect();
+                foreach (var weakRef in gcRefs)
+                {
+                    Assert.True(weakRef.IsAlive);
+                }
+
+                long arrayPtr = ((IntPtr) cArray).ToInt64();
+                long schemaPtr = ((IntPtr) cSchema).ToInt64();
+
+                using (Py.GIL())
+                {
+                    dynamic pa = Py.Import("pyarrow");
+                    dynamic exportedPyArray = pa.Array._import_from_c(arrayPtr, schemaPtr);
+                    Assert.True(exportedPyArray == pyArray);
+
+                    // Required for the Python object to be garbage collected:
+                    exportedPyArray.Dispose();
+                }
+
+                CArrowArray.Free(cArray);
+                CArrowSchema.Free(cSchema);
+            }
+
+            TestExport();
+
+            GcCollect();
+            foreach (var weakRef in gcRefs)
+            {
+                Assert.False(weakRef.IsAlive);
+            }
+        }
+
+        [SkippableFact]
         public unsafe void ExportBatch()
         {
             RecordBatch batch = GetTestRecordBatch();
@@ -875,6 +930,93 @@ namespace Apache.Arrow.Tests
             }
         }
 
+        [SkippableFact]
+        public async Task ExportBatchReadFromIpc()
+        {
+            var originalBatch = GetTestRecordBatch();
+            dynamic pyBatch = GetPythonRecordBatch();
+
+            using (var stream = new MemoryStream())
+            {
+                var writer = new ArrowStreamWriter(stream, originalBatch.Schema);
+                await writer.WriteRecordBatchAsync(originalBatch);
+                await writer.WriteEndAsync();
+
+                stream.Seek(0, SeekOrigin.Begin);
+
+                var reader = new ArrowStreamReader(stream);
+                using var batch = await reader.ReadNextRecordBatchAsync();
+
+                Assert.NotNull(batch);
+                Assert.Equal(originalBatch.Length, batch.Length);
+
+                unsafe
+                {
+                    CArrowArray* cArray = CArrowArray.Create();
+                    CArrowArrayExporter.ExportRecordBatch(batch, cArray);
+
+                    CArrowSchema* cSchema = CArrowSchema.Create();
+                    CArrowSchemaExporter.ExportSchema(batch.Schema, cSchema);
+
+                    long arrayPtr = ((IntPtr)cArray).ToInt64();
+                    long schemaPtr = ((IntPtr)cSchema).ToInt64();
+
+                    using (Py.GIL())
+                    {
+                        dynamic pa = Py.Import("pyarrow");
+                        dynamic exportedPyArray = pa.RecordBatch._import_from_c(arrayPtr, schemaPtr);
+                        Assert.True(exportedPyArray == pyBatch);
+
+                        // Dispose to unpin memory
+                        exportedPyArray.Dispose();
+                    }
+
+                    CArrowArray.Free(cArray);
+                    CArrowSchema.Free(cSchema);
+                }
+            }
+        }
+
+        [SkippableFact]
+        public async Task EarlyDisposeOfExportedBatch()
+        {
+            // Reading IPC data from a Stream creates Arrow buffers backed by ReadOnlyMemory that point
+            // to slices of a single memory buffer owned by the RecordBach (unless compression is used).
+            // Using the exported data after the RecordBatch has been disposed could cause
+            // memory corruption or access violations.
+
+            var originalBatch = GetTestRecordBatch();
+
+            using (var stream = new MemoryStream())
+            {
+                var writer = new ArrowStreamWriter(stream, originalBatch.Schema);
+                await writer.WriteRecordBatchAsync(originalBatch);
+                await writer.WriteEndAsync();
+
+                stream.Seek(0, SeekOrigin.Begin);
+
+                var reader = new ArrowStreamReader(stream);
+                using var batch = await reader.ReadNextRecordBatchAsync();
+
+                Assert.NotNull(batch);
+                Assert.Equal(originalBatch.Length, batch.Length);
+
+                unsafe
+                {
+                    CArrowArray* cArray = CArrowArray.Create();
+                    CArrowArrayExporter.ExportRecordBatch(batch, cArray);
+
+                    CArrowSchema* cSchema = CArrowSchema.Create();
+                    CArrowSchemaExporter.ExportSchema(batch.Schema, cSchema);
+
+                    Assert.Throws<InvalidOperationException>(() => batch.Dispose());
+
+                    CArrowArray.Free(cArray);
+                    CArrowSchema.Free(cSchema);
+                }
+            }
+        }
+
         private static PyObject List(params int?[] values)
         {
             return new PyList(values.Select(i => i == null ? PyObject.None : new PyInt(i.Value)).ToArray());
@@ -903,6 +1045,34 @@ namespace Apache.Arrow.Tests
         private static PyObject Tuple(params int?[] values)
         {
             return new PyTuple(values.Select(i => i == null ? PyObject.None : new PyInt(i.Value)).ToArray());
+        }
+
+        private static IArrowArray CreateManagedMemoryArray(long?[] values, List<WeakReference> gcRefs)
+        {
+            var data = new byte[values.Length * sizeof(long)];
+            var validity = new byte[BitUtility.ByteCount(values.Length)];
+            var typedData = data.AsSpan().CastTo<long>();
+            var nullCount = 0;
+            for (var i = 0; i < values.Length; ++i)
+            {
+                BitUtility.SetBit(validity, i, values[i].HasValue);
+                typedData[i] = values[i].GetValueOrDefault(0);
+                nullCount += values[i].HasValue ? 0 : 1;
+            }
+
+            gcRefs.Add(new WeakReference(data));
+            gcRefs.Add(new WeakReference(validity));
+
+            return new Int64Array(new ArrowBuffer(data), new ArrowBuffer(validity), values.Length, nullCount, 0);
+        }
+
+        private static void GcCollect()
+        {
+            for (int i = 0; i < 3; ++i)
+            {
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+            }
         }
 
         sealed class TestArrayStream : IArrowArrayStream
