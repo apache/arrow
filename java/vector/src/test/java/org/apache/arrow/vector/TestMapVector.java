@@ -1236,8 +1236,8 @@ public class TestMapVector {
 
   @Test
   public void testWritingDecimals() {
-    try (ListVector from = ListVector.empty("v", allocator)) {
-      UnionListWriter listWriter = from.getWriter();
+    try (ListVector vector = ListVector.empty("v", allocator)) {
+      UnionListWriter listWriter = vector.getWriter();
       listWriter.allocate();
 
       listWriter.setPosition(0);
@@ -1255,9 +1255,19 @@ public class TestMapVector {
       listWriter.endList();
 
       listWriter.setValueCount(1);
-      from.setValueCount(1);
+      vector.setValueCount(1);
 
-      System.out.println(from);
+      assertEquals(vector.getChildrenFromFields().size(), 1);
+      MapVector mapVector = (MapVector) vector.getChildrenFromFields().get(0);
+      assertEquals(mapVector.getChildrenFromFields().size(), 1);
+      StructVector structVector = (StructVector) mapVector.getChildrenFromFields().get(0);
+      assertEquals(structVector.getChildrenFromFields().size(), 2);
+      assertEquals(structVector.getChildrenFromFields().get(0).getObject(0), 10);
+      assertEquals(
+          structVector.getChildrenFromFields().get(0).getObject(1), BigDecimal.valueOf(2.0));
+      assertEquals(structVector.getChildrenFromFields().get(1).getObject(0), 20);
+      assertEquals(
+          structVector.getChildrenFromFields().get(1).getObject(1), BigDecimal.valueOf(3.0));
     }
   }
 
