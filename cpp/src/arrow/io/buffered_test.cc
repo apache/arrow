@@ -329,7 +329,8 @@ class TestBufferedInputStream : public FileTestFixture<BufferedInputStream> {
     local_pool_ = MemoryPool::CreateDefault();
   }
 
-  void MakeExample1(int64_t buffer_size, MemoryPool* pool = default_memory_pool()) {
+  void MakeExample1(int64_t buffer_size, MemoryPool* pool = default_memory_pool(),
+                    bool fill_raw_read_bound = false) {
     test_data_ = kExample1;
 
     ASSERT_OK_AND_ASSIGN(auto file_out, FileOutputStream::Open(path_));
@@ -338,7 +339,14 @@ class TestBufferedInputStream : public FileTestFixture<BufferedInputStream> {
 
     ASSERT_OK_AND_ASSIGN(auto file_in, ReadableFile::Open(path_));
     raw_ = file_in;
-    ASSERT_OK_AND_ASSIGN(buffered_, BufferedInputStream::Create(buffer_size, pool, raw_));
+    if (!fill_raw_read_bound) {
+      ASSERT_OK_AND_ASSIGN(buffered_,
+                           BufferedInputStream::Create(buffer_size, pool, raw_));
+    } else {
+      ASSERT_OK_AND_ASSIGN(auto file_size, file_in->GetSize());
+      ASSERT_OK_AND_ASSIGN(
+          buffered_, BufferedInputStream::Create(buffer_size, pool, raw_, file_size));
+    }
   }
 
  protected:
@@ -470,6 +478,24 @@ TEST_F(TestBufferedInputStream, SetBufferSize) {
 
   // Shrinking to exactly number of buffered bytes is ok
   ASSERT_OK(buffered_->SetBufferSize(5));
+}
+
+// GH-43060: Internal buffer should not greater than the
+// bytes could buffer.
+TEST_F(TestBufferedInputStream, BufferSizeLimit) {
+  {
+    MakeExample1(/*buffer_size=*/100000, default_memory_pool(),
+                 /*fill_raw_read_bound=*/true);
+    // buffer_sizes should be limited to the size of the data
+    EXPECT_EQ(test_data_.size(), buffered_->buffer_size());
+  }
+
+  {
+    MakeExample1(/*buffer_size=*/10, default_memory_pool(), /*fill_raw_read_bound=*/true);
+    ASSERT_OK(buffered_->Read(10));
+    ASSERT_OK(buffered_->SetBufferSize(/*new_buffer_size=*/100000));
+    EXPECT_EQ(test_data_.size() - 10, buffered_->buffer_size());
+  }
 }
 
 class TestBufferedInputStreamBound : public ::testing::Test {
