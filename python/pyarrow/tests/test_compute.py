@@ -236,7 +236,6 @@ def test_option_class_equality(request):
         "ArraySortOptions(order=Ascending, null_placement=AtEnd)"
 
 
-@pytest.mark.without_numpy
 def test_list_functions():
     assert len(pc.list_functions()) > 10
     assert "add" in pc.list_functions()
@@ -270,6 +269,7 @@ def test_get_function_hash_aggregate():
                         pc.HashAggregateKernel, 1)
 
 
+@pytest.mark.numpy
 def test_call_function_with_memory_pool():
     arr = pa.array(["foo", "bar", "baz"])
     indices = np.array([2, 2, 1])
@@ -333,7 +333,6 @@ def test_input_type_conversion():
                     "foo").to_pylist() == [True, False, None]
 
 
-@pytest.mark.without_numpy
 @pytest.mark.parametrize('arrow_type', numerical_arrow_types)
 def test_sum_array(arrow_type):
     arr = pa.array([1, 2, 3, 4], type=arrow_type)
@@ -469,7 +468,6 @@ def test_count_substring_regex():
         assert expected.equals(result)
 
 
-@pytest.mark.without_numpy
 def test_find_substring():
     for ty in [pa.string(), pa.binary(), pa.large_string(), pa.large_binary()]:
         arr = pa.array(["ab", "cab", "ba", None], type=ty)
@@ -502,7 +500,6 @@ def test_match_like():
     assert expected.equals(result)
 
 
-@pytest.mark.without_numpy
 def test_match_substring():
     arr = pa.array(["ab", "abc", "ba", None])
     result = pc.match_substring(arr, "ab")
@@ -594,7 +591,6 @@ def test_binary_slice_compatibility():
             assert actual.as_py() == expected
 
 
-@pytest.mark.without_numpy
 def test_split_pattern():
     arr = pa.array(["-foo---bar--", "---foo---b"])
     result = pc.split_pattern(arr, pattern="---")
@@ -690,7 +686,6 @@ def test_min_max():
         s = pc.min_max()
 
 
-@pytest.mark.without_numpy
 def test_any():
     # ARROW-1846
 
@@ -710,7 +705,6 @@ def test_any():
     assert pc.any(a, options=options).as_py() is None
 
 
-@pytest.mark.without_numpy
 def test_all():
     # ARROW-10301
 
@@ -1123,6 +1117,7 @@ def test_binary_join_element_wise():
         'a', 'b', null, options=replace).as_py() is None
 
 
+@pytest.mark.numpy
 def test_take(all_array_types):
     for ty, values in all_array_types:
         arr = pa.array(values, type=ty)
@@ -1166,6 +1161,7 @@ def test_take_indices_types():
             arr.take(indices)
 
 
+@pytest.mark.numpy
 def test_take_on_chunked_array():
     # ARROW-9504
     arr = pa.chunked_array([
@@ -1229,6 +1225,7 @@ def test_take_null_type():
     assert len(table.take(indices).column(0)) == 4
 
 
+@pytest.mark.numpy
 def test_drop_null(all_array_types):
     for ty, values in all_array_types:
         arr = pa.array(values, type=ty)
@@ -1305,6 +1302,7 @@ def test_drop_null_null_type():
     assert len(table.drop_null().column(0)) == 0
 
 
+@pytest.mark.numpy
 def test_filter(all_array_types):
     for ty, values in all_array_types:
         arr = pa.array(values, type=ty)
@@ -1574,6 +1572,7 @@ def test_arithmetic_multiply():
     assert result.equals(expected)
 
 
+@pytest.mark.numpy
 @pytest.mark.parametrize("ty", ["round", "round_to_multiple"])
 def test_round_to_integer(ty):
     if ty == "round":
@@ -1602,6 +1601,7 @@ def test_round_to_integer(ty):
         np.testing.assert_array_equal(result, pa.array(expected))
 
 
+@pytest.mark.numpy
 def test_round():
     values = [320, 3.5, 3.075, 4.5, -3.212, -35.1234, -3.045, None]
     ndigits_and_expected = {
@@ -1620,6 +1620,7 @@ def test_round():
         assert pc.round(values, ndigits, "half_towards_infinity") == result
 
 
+@pytest.mark.numpy
 def test_round_to_multiple():
     values = [320, 3.5, 3.075, 4.5, -3.212, -35.1234, -3.045, None]
     multiple_and_expected = {
@@ -1664,6 +1665,7 @@ def test_round_binary():
         5.0, scale, round_mode="half_towards_infinity") == expect_inf
 
 
+@pytest.mark.numpy
 def test_is_null():
     arr = pa.array([1, 2, 3, None])
     result = arr.is_null()
@@ -1693,6 +1695,7 @@ def test_is_null():
     assert result.equals(expected)
 
 
+@pytest.mark.numpy
 def test_is_nan():
     arr = pa.array([1, 2, 3, None, np.nan])
     result = arr.is_nan()
@@ -1999,6 +2002,7 @@ def check_cast_float_to_decimal(float_ty, float_val, decimal_ty, decimal_ctx,
 
 
 # Cannot test float32 as case generators above assume float64
+@pytest.mark.numpy
 @pytest.mark.parametrize('float_ty', [pa.float64()], ids=str)
 @pytest.mark.parametrize('decimal_ty', decimal_type_traits,
                          ids=lambda v: v.name)
@@ -2016,6 +2020,7 @@ def test_cast_float_to_decimal(float_ty, decimal_ty, case_generator):
                 ctx, decimal_ty.max_precision)
 
 
+@pytest.mark.numpy
 @pytest.mark.parametrize('float_ty', [pa.float32(), pa.float64()], ids=str)
 @pytest.mark.parametrize('decimal_traits', decimal_type_traits,
                          ids=lambda v: v.name)
@@ -2921,6 +2926,7 @@ def test_min_max_element_wise():
     assert result == pa.array([1, 2, None])
 
 
+@pytest.mark.numpy
 @pytest.mark.parametrize('start', (1.25, 10.5, -10.5))
 @pytest.mark.parametrize('skip_nulls', (True, False))
 def test_cumulative_sum(start, skip_nulls):
@@ -2975,6 +2981,7 @@ def test_cumulative_sum(start, skip_nulls):
             pc.cumulative_sum([1, 2, 3], start=strt)
 
 
+@pytest.mark.numpy
 @pytest.mark.parametrize('start', (1.25, 10.5, -10.5))
 @pytest.mark.parametrize('skip_nulls', (True, False))
 def test_cumulative_prod(start, skip_nulls):
@@ -3028,7 +3035,7 @@ def test_cumulative_prod(start, skip_nulls):
         with pytest.raises(pa.ArrowInvalid):
             pc.cumulative_prod([1, 2, 3], start=strt)
 
-
+@pytest.mark.numpy
 @pytest.mark.parametrize('start', (0.5, 3.5, 6.5))
 @pytest.mark.parametrize('skip_nulls', (True, False))
 def test_cumulative_max(start, skip_nulls):
@@ -3086,6 +3093,7 @@ def test_cumulative_max(start, skip_nulls):
             pc.cumulative_max([1, 2, 3], start=strt)
 
 
+@pytest.mark.numpy
 @pytest.mark.parametrize('start', (0.5, 3.5, 6.5))
 @pytest.mark.parametrize('skip_nulls', (True, False))
 def test_cumulative_min(start, skip_nulls):
@@ -3420,6 +3428,7 @@ def create_sample_expressions():
 # Tests the Arrow-specific serialization mechanism
 
 
+@pytest.mark.numpy
 def test_expression_serialization_arrow(pickle_module):
     for expr in create_sample_expressions()["all"]:
         assert isinstance(expr, pc.Expression)
@@ -3427,6 +3436,7 @@ def test_expression_serialization_arrow(pickle_module):
         assert expr.equals(restored)
 
 
+@pytest.mark.numpy
 @pytest.mark.substrait
 def test_expression_serialization_substrait():
 

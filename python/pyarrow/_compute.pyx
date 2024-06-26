@@ -476,7 +476,7 @@ cdef class MetaFunction(Function):
 
 cdef _pack_compute_args(object values, vector[CDatum]* out):
     for val in values:
-        if np is not None and isinstance(val, (list, np.ndarray)):
+        if isinstance(val, list) or (np is not None and isinstance(val, np.ndarray)):
             val = lib.asarray(val)
 
         if isinstance(val, Array):
@@ -2192,7 +2192,7 @@ class QuantileOptions(_QuantileOptions):
 
     def __init__(self, q=0.5, *, interpolation="linear", skip_nulls=True,
                  min_count=0):
-        if not isinstance(q, (list, tuple, np.ndarray)):
+        if not isinstance(q, (list, tuple)) or (np is not None and not isinstance(q, np.ndarray)):
             q = [q]
         self._set_options(q, interpolation, skip_nulls, min_count)
 
@@ -2225,7 +2225,7 @@ class TDigestOptions(_TDigestOptions):
 
     def __init__(self, q=0.5, *, delta=100, buffer_size=500, skip_nulls=True,
                  min_count=0):
-        if not isinstance(q, (list, tuple, np.ndarray)):
+        if not isinstance(q, (list, tuple)) or (np is not None and not isinstance(q, np.ndarray)):
             q = [q]
         self._set_options(q, delta, buffer_size, skip_nulls, min_count)
 
