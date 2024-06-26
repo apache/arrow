@@ -954,7 +954,7 @@ public final class ArrowBuf implements AutoCloseable {
     if (isOutOfBounds(srcIndex, length, src.capacity())) {
       throw new IndexOutOfBoundsException(
           String.format(
-              "index: %d, length: %d (expected: range(0, %d))", index, length, src.capacity()));
+              "index: %d, length: %d (expected: range(0, %d))", srcIndex, length, src.capacity()));
     }
     if (length != 0) {
       // copy length bytes of data from src ArrowBuf starting at
