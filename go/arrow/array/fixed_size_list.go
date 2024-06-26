@@ -162,25 +162,38 @@ func (a *FixedSizeList) MarshalJSON() ([]byte, error) {
 }
 
 type FixedSizeListBuilder struct {
-	builder
-
-	etype  arrow.DataType // data type of the list's elements.
-	n      int32          // number of elements in the fixed-size list.
-	values Builder        // value builder for the list's elements.
+	baseListBuilder
+	n int32 // number of elements in the fixed-size list.
 }
 
 // NewFixedSizeListBuilder returns a builder, using the provided memory allocator.
 // The created list builder will create a list whose elements will be of type etype.
 func NewFixedSizeListBuilder(mem memory.Allocator, n int32, etype arrow.DataType) *FixedSizeListBuilder {
 	return &FixedSizeListBuilder{
-		builder: builder{refCount: 1, mem: mem},
-		etype:   etype,
-		n:       n,
-		values:  NewBuilder(mem, etype),
+		baseListBuilder{
+			builder: builder{refCount: 1, mem: mem},
+			values:  NewBuilder(mem, etype),
+			dt:      arrow.FixedSizeListOf(n, etype),
+		},
+		n,
 	}
 }
 
-func (b *FixedSizeListBuilder) Type() arrow.DataType { return arrow.FixedSizeListOf(b.n, b.etype) }
+// NewFixedSizeListBuilderWithField returns a builder similarly to
+// NewFixedSizeListBuilder, but it accepts a child rather than just a datatype
+// to ensure nullability context is preserved.
+func NewFixedSizeListBuilderWithField(mem memory.Allocator, n int32, field arrow.Field) *FixedSizeListBuilder {
+	return &FixedSizeListBuilder{
+		baseListBuilder{
+			builder: builder{refCount: 1, mem: mem},
+			values:  NewBuilder(mem, field.Type),
+			dt:      arrow.FixedSizeListOfField(n, field),
+		},
+		n,
+	}
+}
+
+func (b *FixedSizeListBuilder) Type() arrow.DataType { return b.dt }
 
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
@@ -296,7 +309,7 @@ func (b *FixedSizeListBuilder) newData() (data *Data) {
 	defer values.Release()
 
 	data = NewData(
-		arrow.FixedSizeListOf(b.n, b.etype), b.length,
+		b.dt, b.length,
 		[]*memory.Buffer{b.nullBitmap},
 		[]arrow.ArrayData{values.Data()},
 		b.nulls,
@@ -336,7 +349,7 @@ func (b *FixedSizeListBuilder) UnmarshalOne(dec *json.Decoder) error {
 	default:
 		return &json.UnmarshalTypeError{
 			Value:  fmt.Sprint(t),
-			Struct: arrow.FixedSizeListOf(b.n, b.etype).String(),
+			Struct: b.dt.String(),
 		}
 	}
 

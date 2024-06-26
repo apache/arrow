@@ -372,6 +372,45 @@ func TestRecordReader(t *testing.T) {
 	}
 }
 
+func TestRecordBuilderRespectsFixedSizeArrayNullability(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	cases := []struct {
+		assertion string
+		fields    []arrow.Field
+	}{
+		{
+			"nullable",
+			[]arrow.Field{{Name: "data", Type: arrow.FixedSizeListOf(1, arrow.PrimitiveTypes.Int32)}},
+		},
+		{
+			"not nullable",
+			[]arrow.Field{{Name: "data", Type: arrow.FixedSizeListOfNonNullable(1, arrow.PrimitiveTypes.Int32)}},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.assertion, func(t *testing.T) {
+			schema := arrow.NewSchema(c.fields, nil)
+			b := array.NewRecordBuilder(mem, schema)
+			defer b.Release()
+
+			lb := b.Field(0).(*array.FixedSizeListBuilder)
+			lb.Append(true)
+
+			vb := lb.ValueBuilder().(*array.Int32Builder)
+			vb.Append(10)
+
+			rec := b.NewRecord()
+			defer rec.Release()
+
+			if got, want := rec.Column(0).String(), "[[10]]"; got != want {
+				t.Fatalf("invalid record: got=%q, want=%q", got, want)
+			}
+		})
+	}
+}
+
 func TestRecordBuilder(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)

@@ -31,13 +31,6 @@ under the License.
   <description>Core implementation of JDBC driver based on Arrow Flight SQL.</description>
   <url>https://arrow.apache.org</url>
 
-  <properties>
-    <org.apache.arrow.flight.name>${project.parent.groupId}:${project.parent.artifactId}</org.apache.arrow.flight.name>
-    <org.apache.arrow.flight.version>${project.parent.version}</org.apache.arrow.flight.version>
-    <org.apache.arrow.flight.jdbc-driver.name>${project.name}</org.apache.arrow.flight.jdbc-driver.name>
-    <org.apache.arrow.flight.jdbc-driver.version>${project.version}</org.apache.arrow.flight.jdbc-driver.version>
-  </properties>
-
   <dependencies>
     <dependency>
       <groupId>org.apache.arrow</groupId>
@@ -97,7 +90,7 @@ under the License.
     <dependency>
       <groupId>commons-io</groupId>
       <artifactId>commons-io</artifactId>
-      <version>2.15.1</version>
+      <version>2.16.1</version>
       <scope>test</scope>
     </dependency>
 
@@ -147,6 +140,13 @@ under the License.
   </dependencies>
 
   <build>
+    <resources>
+      <resource>
+        <filtering>true</filtering>
+        <directory>src/main/resources</directory>
+      </resource>
+    </resources>
+
     <plugins>
       <plugin>
         <artifactId>maven-surefire-plugin</artifactId>
@@ -156,22 +156,6 @@ under the License.
             <arrow.test.dataRoot>${project.basedir}/../../../testing/data</arrow.test.dataRoot>
           </systemPropertyVariables>
         </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>properties-maven-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>write-project-properties-to-file</id>
-            <goals>
-              <goal>write-project-properties</goal>
-            </goals>
-            <phase>generate-resources</phase>
-            <configuration>
-              <outputFile>src/main/resources/properties/flight.properties</outputFile>
-            </configuration>
-          </execution>
-        </executions>
       </plugin>
     </plugins>
   </build>

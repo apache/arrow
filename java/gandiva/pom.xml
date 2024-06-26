@@ -33,8 +33,6 @@ under the License.
 
   <properties>
     <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
-    <checkstyle.config.location>dev/checkstyle/checkstyle-spotless.xml</checkstyle.config.location>
-    <spotless.java.excludes>none</spotless.java.excludes>
     <arrow.cpp.build.dir>../../../cpp/release-build</arrow.cpp.build.dir>
   </properties>
 

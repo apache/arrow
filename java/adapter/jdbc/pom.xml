@@ -32,11 +32,6 @@ under the License.
   <description>(Contrib/Experimental)A library for converting JDBC data to Arrow data.</description>
   <url>http://maven.apache.org</url>
 
-  <properties>
-    <checkstyle.config.location>dev/checkstyle/checkstyle-spotless.xml</checkstyle.config.location>
-    <spotless.java.excludes>none</spotless.java.excludes>
-  </properties>
-
   <dependencies>
 
     <dependency>

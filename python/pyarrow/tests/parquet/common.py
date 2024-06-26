@@ -144,6 +144,7 @@ def alltypes_sample(size=10000, seed=0, categorical=False):
         'int16': np.arange(size, dtype=np.int16),
         'int32': np.arange(size, dtype=np.int32),
         'int64': np.arange(size, dtype=np.int64),
+        'float16': np.arange(size, dtype=np.float16),
         'float32': np.arange(size, dtype=np.float32),
         'float64': np.arange(size, dtype=np.float64),
         'bool': np.random.randn(size) > 0,
