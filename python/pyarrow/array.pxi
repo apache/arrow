@@ -129,7 +129,8 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
         If both type and size are specified may be a single use iterable. If
         not strongly-typed, Arrow type will be inferred for resulting array.
         Any Arrow-compatible array that implements the Arrow PyCapsule Protocol
-        (has an ``__arrow_c_array__`` method) can be passed as well.
+        (has an ``__arrow_c_array__`` or ``__arrow_c_device_array__`` method)
+        can be passed as well.
     type : pyarrow.DataType
         Explicit type to attempt to coerce to, otherwise will be inferred from
         the data.
@@ -245,6 +246,18 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
 
     if hasattr(obj, '__arrow_array__'):
         return _handle_arrow_array_protocol(obj, type, mask, size)
+    elif hasattr(obj, '__arrow_c_device_array__'):
+        if type is not None:
+            requested_type = type.__arrow_c_schema__()
+        else:
+            requested_type = None
+        schema_capsule, array_capsule = obj.__arrow_c_device_array__(requested_type)
+        out_array = Array._import_from_c_device_capsule(schema_capsule, array_capsule)
+        if type is not None and out_array.type != type:
+            # PyCapsule interface type coercion is best effort, so we need to
+            # check the type of the returned array and cast if necessary
+            out_array = array.cast(type, safe=safe, memory_pool=memory_pool)
+        return out_array
     elif hasattr(obj, '__arrow_c_array__'):
         if type is not None:
             requested_type = type.__arrow_c_schema__()
@@ -1879,6 +1892,89 @@ cdef class Array(_PandasConvertible):
                     ImportDeviceArray(c_device_array, c_type)
                 )
         return pyarrow_wrap_array(c_array)
+
+    def __arrow_c_device_array__(self, requested_schema=None, **kwargs):
+        """
+        Get a pair of PyCapsules containing a C ArrowDeviceArray representation
+        of the object.
+
+        Parameters
+        ----------
+        requested_schema : PyCapsule | None
+            A PyCapsule containing a C ArrowSchema representation of a requested
+            schema. PyArrow will attempt to cast the array to this data type.
+            If None, the array will be returned as-is, with a type matching the
+            one returned by :meth:`__arrow_c_schema__()`.
+        kwargs
+            Currently no additional keyword arguments are supported, but
+            this method will accept any keyword with a value of ``None``
+            for compatibility with future keywords.
+
+        Returns
+        -------
+        Tuple[PyCapsule, PyCapsule]
+            A pair of PyCapsules containing a C ArrowSchema and ArrowDeviceArray,
+            respectively.
+        """
+        cdef:
+            ArrowDeviceArray* c_array
+            ArrowSchema* c_schema
+            shared_ptr[CArray] inner_array
+
+        non_default_kwargs = [
+            name for name, value in kwargs.items() if value is not None
+        ]
+        if non_default_kwargs:
+            raise NotImplementedError(
+                f"Received unsupported keyword argument(s): {non_default_kwargs}"
+            )
+
+        if requested_schema is not None:
+            target_type = DataType._import_from_c_capsule(requested_schema)
+
+            if target_type != self.type:
+                if not self.is_cpu:
+                    raise NotImplementedError(
+                        "Casting to a requested schema is only supported for CPU data"
+                    )
+                try:
+                    casted_array = _pc().cast(self, target_type, safe=True)
+                    inner_array = pyarrow_unwrap_array(casted_array)
+                except ArrowInvalid as e:
+                    raise ValueError(
+                        f"Could not cast {self.type} to requested type {target_type}: {e}"
+                    )
+            else:
+                inner_array = self.sp_array
+        else:
+            inner_array = self.sp_array
+
+        schema_capsule = alloc_c_schema(&c_schema)
+        array_capsule = alloc_c_device_array(&c_array)
+
+        with nogil:
+            check_status(ExportDeviceArray(
+                deref(inner_array), <shared_ptr[CSyncEvent]>NULL,
+                c_array, c_schema))
+
+        return schema_capsule, array_capsule
+
+    @staticmethod
+    def _import_from_c_device_capsule(schema_capsule, array_capsule):
+        cdef:
+            ArrowSchema* c_schema
+            ArrowDeviceArray* c_array
+            shared_ptr[CArray] array
+
+        c_schema = <ArrowSchema*> PyCapsule_GetPointer(schema_capsule, 'arrow_schema')
+        c_array = <ArrowDeviceArray*> PyCapsule_GetPointer(
+            array_capsule, 'arrow_device_array'
+        )
+
+        with nogil:
+            array = GetResultValue(ImportDeviceArray(c_array, c_schema))
+
+        return pyarrow_wrap_array(array)
 
     def __dlpack__(self, stream=None):
         """Export a primitive array as a DLPack capsule.

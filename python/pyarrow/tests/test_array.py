@@ -3505,22 +3505,47 @@ def test_array_protocol():
     assert result.equals(expected)
 
 
-def test_c_array_protocol():
-    class ArrayWrapper:
-        def __init__(self, data):
-            self.data = data
+class ArrayWrapper:
+    def __init__(self, data):
+        self.data = data
 
-        def __arrow_c_array__(self, requested_schema=None):
-            return self.data.__arrow_c_array__(requested_schema)
+    def __arrow_c_array__(self, requested_schema=None):
+        return self.data.__arrow_c_array__(requested_schema)
+
+
+class ArrayDeviceWrapper:
+    def __init__(self, data):
+        self.data = data
+
+    def __arrow_c_device_array__(self, requested_schema=None, **kwargs):
+        return self.data.__arrow_c_device_array__(requested_schema, **kwargs)
+
+
+@pytest.mark.parametrize("wrapper_class", [ArrayWrapper, ArrayDeviceWrapper])
+def test_c_array_protocol(wrapper_class):
 
     # Can roundtrip through the C array protocol
-    arr = ArrayWrapper(pa.array([1, 2, 3], type=pa.int64()))
+    arr = wrapper_class(pa.array([1, 2, 3], type=pa.int64()))
     result = pa.array(arr)
     assert result == arr.data
 
     # Will cast to requested type
     result = pa.array(arr, type=pa.int32())
     assert result == pa.array([1, 2, 3], type=pa.int32())
+
+
+def test_c_array_protocol_device_unsupported_keyword():
+    # For the device-aware version, we raise a specific error for unsupported keywords
+    arr = pa.array([1, 2, 3], type=pa.int64())
+
+    with pytest.raises(
+        NotImplementedError,
+        match=r"Received unsupported keyword argument\(s\): \['other'\]"
+    ):
+        arr.__arrow_c_device_array__(other="not-none")
+
+    # but with None value it is ignored
+    _ = arr.__arrow_c_device_array__(other=None)
 
 
 def test_concat_array():
