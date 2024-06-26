@@ -19,7 +19,10 @@ import datetime
 import io
 import warnings
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 import pytest
 
 import pyarrow as pa

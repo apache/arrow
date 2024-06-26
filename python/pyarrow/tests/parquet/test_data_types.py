@@ -18,7 +18,10 @@
 import decimal
 import io
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 import pytest
 
 import pyarrow as pa
@@ -173,6 +176,7 @@ def test_direct_read_dictionary_subfield():
     assert result[0].num_chunks == 1
 
 
+@pytest.mark.numpy
 def test_dictionary_array_automatically_read():
     # ARROW-3246
 
@@ -331,6 +335,7 @@ def test_column_of_lists(tempdir):
     tm.assert_frame_equal(df, df_read)
 
 
+@pytest.mark.numpy
 def test_large_list_records():
     # This was fixed in PARQUET-1100
 
