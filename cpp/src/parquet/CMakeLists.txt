@@ -414,6 +414,7 @@ if(PARQUET_REQUIRE_ENCRYPTION)
                    encryption/test_encryption_util.cc)
   add_parquet_test(encryption-key-management-test
                    SOURCES
+                   encryption/encryption_internal_test.cc
                    encryption/key_management_test.cc
                    encryption/key_metadata_test.cc
                    encryption/key_wrapping_test.cc
