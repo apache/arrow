@@ -28,10 +28,6 @@ from pyarrow.tests import util
 # Ignore these with pytest ... -m 'not orc'
 pytestmark = pytest.mark.orc
 
-if sys.platform!="windows":
-    # on non-windows platforms we need timezone data
-    # or ORC doesn't work
-    pytestmark = [pytest.mark.orc, pytest.mark.timezone_data]
 
 try:
     from pandas.testing import assert_frame_equal
