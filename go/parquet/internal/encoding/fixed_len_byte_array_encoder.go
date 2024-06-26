@@ -75,6 +75,54 @@ func (PlainFixedLenByteArrayEncoder) Type() parquet.Type {
 	return parquet.Types.FixedLenByteArray
 }
 
+// ByteStreamSplitFixedLenByteArrayEncoder writes the raw bytes of the byte array
+// always writing typeLength bytes for each value. (TODO)
+type ByteStreamSplitFixedLenByteArrayEncoder struct {
+	encoder
+
+	bitSetReader bitutils.SetBitRunReader
+}
+
+// Put writes the provided values to the encoder
+func (enc *ByteStreamSplitFixedLenByteArrayEncoder) Put(in []parquet.FixedLenByteArray) {
+	bytesNeeded := len(in) * enc.typeLen
+	enc.sink.Reserve(bytesNeeded)
+	for offset := 0; offset < enc.typeLen; offset++ {
+		for _, val := range in {
+			if len(val) != enc.typeLen {
+				panic(fmt.Sprintf("invalid element of size %d in FixedLenByteArray of size %d", len(val), enc.typeLen))
+			}
+			enc.sink.UnsafeWrite(val[offset : offset+1]) // Single-element slice
+		}
+	}
+}
+
+// PutSpaced is like Put but works with data that is spaced out according to the passed in bitmap
+func (enc *ByteStreamSplitFixedLenByteArrayEncoder) PutSpaced(in []parquet.FixedLenByteArray, validBits []byte, validBitsOffset int64) {
+	if validBits != nil {
+		if enc.bitSetReader == nil {
+			enc.bitSetReader = bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(in)))
+		} else {
+			enc.bitSetReader.Reset(validBits, validBitsOffset, int64(len(in)))
+		}
+
+		for {
+			run := enc.bitSetReader.NextRun()
+			if run.Length == 0 {
+				break
+			}
+			enc.Put(in[int(run.Pos):int(run.Pos+run.Length)])
+		}
+	} else {
+		enc.Put(in)
+	}
+}
+
+// Type returns the underlying physical type this encoder works with, Fixed Length byte arrays.
+func (ByteStreamSplitFixedLenByteArrayEncoder) Type() parquet.Type {
+	return parquet.Types.FixedLenByteArray
+}
+
 // WriteDict overrides the embedded WriteDict function to call a specialized function
 // for copying out the Fixed length values from the dictionary more efficiently.
 func (enc *DictFixedLenByteArrayEncoder) WriteDict(out []byte) {

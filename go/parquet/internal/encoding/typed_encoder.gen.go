@@ -1492,6 +1492,8 @@ func (fixedLenByteArrayEncoderTraits) Encoder(e format.Encoding, useDict bool, d
 	switch e {
 	case format.Encoding_PLAIN:
 		return &PlainFixedLenByteArrayEncoder{encoder: newEncoderBase(e, descr, mem)}
+	case format.Encoding_BYTE_STREAM_SPLIT:
+		return &ByteStreamSplitFixedLenByteArrayEncoder{encoder: newEncoderBase(e, descr, mem)}
 	default:
 		panic("unimplemented encoding type")
 	}
@@ -1515,6 +1517,8 @@ func (fixedLenByteArrayDecoderTraits) Decoder(e parquet.Encoding, descr *schema.
 	switch e {
 	case parquet.Encodings.Plain:
 		return &PlainFixedLenByteArrayDecoder{decoder: newDecoderBase(format.Encoding(e), descr)}
+	case parquet.Encodings.ByteStreamSplit:
+		return &ByteStreamSplitFixedLenByteArrayDecoder{decoder: newDecoderBase(format.Encoding(e), descr)}
 	default:
 		panic("unimplemented encoding type")
 	}

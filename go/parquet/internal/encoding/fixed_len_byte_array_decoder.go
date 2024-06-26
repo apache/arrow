@@ -64,3 +64,54 @@ func (pflba *PlainFixedLenByteArrayDecoder) DecodeSpaced(out []parquet.FixedLenB
 
 	return spacedExpand(out, nullCount, validBits, validBitsOffset), nil
 }
+
+// ByteStreamSplitFixedLenByteArrayDecoder is a plain encoding decoder for Fixed Length Byte Arrays
+type ByteStreamSplitFixedLenByteArrayDecoder struct {
+	decoder
+}
+
+// Type returns the physical type this decoder operates on, FixedLength Byte Arrays
+func (ByteStreamSplitFixedLenByteArrayDecoder) Type() parquet.Type {
+	return parquet.Types.FixedLenByteArray
+}
+
+// Decode populates out with fixed length byte array values until either there are no more
+// values to decode or the length of out has been filled. Then returns the total number of values
+// that were decoded.
+func (dec *ByteStreamSplitFixedLenByteArrayDecoder) Decode(out []parquet.FixedLenByteArray) (int, error) {
+	max := utils.Min(len(out), dec.nvals)
+	numBytesNeeded := max * dec.typeLen
+	if numBytesNeeded > len(dec.data) || numBytesNeeded > math.MaxInt32 {
+		return 0, xerrors.New("parquet: eof exception")
+	}
+
+	for idx := range out[:max] {
+		if len(out[idx]) != dec.typeLen {
+			out[idx] = make(parquet.FixedLenByteArray, dec.typeLen)
+		}
+	}
+
+	for offset := 0; offset < dec.typeLen; offset++ {
+		for idx := range out[:max] {
+			out[idx][offset] = dec.data[0]
+			dec.data = dec.data[1:]
+			dec.nvals--
+		}
+	}
+
+	return max, nil
+}
+
+// DecodeSpaced does the same as Decode but spaces out the resulting slice according to the bitmap leaving space for null values
+func (dec *ByteStreamSplitFixedLenByteArrayDecoder) DecodeSpaced(out []parquet.FixedLenByteArray, nullCount int, validBits []byte, validBitsOffset int64) (int, error) {
+	toRead := len(out) - nullCount
+	valuesRead, err := dec.Decode(out[:toRead])
+	if err != nil {
+		return valuesRead, err
+	}
+	if valuesRead != toRead {
+		return valuesRead, xerrors.New("parquet: number of values / definitions levels read did not match")
+	}
+
+	return spacedExpand(out, nullCount, validBits, validBitsOffset), nil
+}
