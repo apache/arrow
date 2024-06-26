@@ -38,7 +38,6 @@ except ImportError:
 import pyarrow as pa
 import pyarrow.compute as pc
 from pyarrow.lib import ArrowNotImplementedError
-from pyarrow.tests import util
 
 try:
     import pyarrow.substrait as pas
@@ -2244,7 +2243,7 @@ def _check_datetime_components(timestamps, timezone=None):
 
 
 @pytest.mark.pandas
-def test_extract_datetime_components():
+def test_extract_datetime_components(request):
     timestamps = ["1970-01-01T00:00:59.123456789",
                   "2000-02-29T23:23:23.999999999",
                   "2033-05-18T03:33:20.000000000",

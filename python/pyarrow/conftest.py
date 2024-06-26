@@ -143,7 +143,7 @@ except ImportError:
 try:
     import pyarrow.orc  # noqa
     if sys.platform != "win32":
-        # orc tests on non-Windows platforms only work 
+        # orc tests on non-Windows platforms only work
         # if timezone data exists, so skip them if
         # not.
         defaults['orc'] = defaults['timezone_data']
