@@ -511,22 +511,19 @@ struct NullGeneralization {
   }
 
   static type Get(const ChunkedArray& chunk_array) {
-    if (chunk_array.num_chunks() == 0) {
-      return ALL_VALID;
-    }
-    if (chunk_array.null_count() == chunk_array.length()) {
-      return ALL_NULL;
-    }
-
+    std::optional<type> current_gen;
     for (const auto& chunk : chunk_array.chunks()) {
-      ExecValue value;
-      value.SetArray(*chunk->data());
-      auto null_gen = Get(value);
-      if (null_gen == ALL_NULL || null_gen == PERHAPS_NULL) {
+      if (chunk->length() == 0) {
+        continue;
+      }
+
+      const auto& chunk_gen = Get(chunk);
+      if (current_gen.has_value() && chunk_gen != *current_gen) {
         return PERHAPS_NULL;
       }
+      current_gen = chunk_gen;
     }
-    return ALL_VALID;
+    return current_gen.value_or(ALL_VALID);
   }
 
   static type Get(const Datum& datum) {
