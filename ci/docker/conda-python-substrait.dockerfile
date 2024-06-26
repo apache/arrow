@@ -30,6 +30,7 @@ COPY ci/conda_env_python.txt \
 # Newer jdk versions are currently failing
 # due to the recent upgrade to Gradle 8 in
 # install_substrait_consumer.sh.
+# https://github.com/substrait-io/substrait-java/issues/274
 RUN mamba install -q -y \
         --file arrow/ci/conda_env_python.txt \
         --file arrow/ci/conda_env_sphinx.txt \
