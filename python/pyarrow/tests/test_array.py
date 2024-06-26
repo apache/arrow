@@ -4035,6 +4035,8 @@ def test_non_cpu_array():
     assert arr.is_cpu is False
     assert len(arr) == 4
     assert arr.slice(2, 2).offset == 2
+    assert repr(arr)
+    assert str(arr)
 
     # TODO support DLPack for CUDA
     with pytest.raises(NotImplementedError):
@@ -4065,10 +4067,6 @@ def test_non_cpu_array():
         arr.get_total_buffer_size()
     with pytest.raises(NotImplementedError):
         [i for i in iter(arr)]
-    with pytest.raises(NotImplementedError):
-        repr(arr)
-    with pytest.raises(NotImplementedError):
-        str(arr)
     with pytest.raises(NotImplementedError):
         arr == arr2
     with pytest.raises(NotImplementedError):

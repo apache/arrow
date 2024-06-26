@@ -944,3 +944,57 @@ def test_device_interface_batch_array():
     with pytest.raises(ValueError,
                        match="ArrowSchema describes non-struct type"):
         pa.RecordBatch._import_from_c_device(ptr_array, ptr_schema)
+
+
+def test_print_array():
+    batch = make_recordbatch(10)
+    cbuf = cuda.serialize_record_batch(batch, global_context)
+    cbatch = cuda.read_record_batch(cbuf, batch.schema)
+    arr = batch["f0"]
+    carr = cbatch["f0"]
+    assert str(carr) == str(arr)
+
+    batch = make_recordbatch(100)
+    cbuf = cuda.serialize_record_batch(batch, global_context)
+    cbatch = cuda.read_record_batch(cbuf, batch.schema)
+    arr = batch["f0"]
+    carr = cbatch["f0"]
+    assert str(carr) == str(arr)
+
+
+def make_chunked_array(n_elements_per_chunk, n_chunks):
+    arrs = []
+    carrs = []
+    for _ in range(n_chunks):
+        batch = make_recordbatch(n_elements_per_chunk)
+        cbuf = cuda.serialize_record_batch(batch, global_context)
+        cbatch = cuda.read_record_batch(cbuf, batch.schema)
+        arrs.append(batch["f0"])
+        carrs.append(cbatch["f0"])
+
+    return pa.chunked_array(arrs), pa.chunked_array(carrs)
+
+
+def test_print_chunked_array():
+    arr, carr = make_chunked_array(10, 3)
+    assert str(carr) == str(arr)
+
+    arr, carr = make_chunked_array(100, 20)
+    assert str(carr) == str(arr)
+
+
+def test_print_record_batch():
+    batch = make_recordbatch(10)
+    cbuf = cuda.serialize_record_batch(batch, global_context)
+    cbatch = cuda.read_record_batch(cbuf, batch.schema)
+    assert str(cbatch) == str(batch)
+
+    batch = make_recordbatch(100)
+    cbuf = cuda.serialize_record_batch(batch, global_context)
+    cbatch = cuda.read_record_batch(cbuf, batch.schema)
+    assert str(cbatch) == str(batch)
+
+
+def test_print_table():
+    _, table, _, ctable = make_table_cuda()
+    assert str(ctable) == str(table)
