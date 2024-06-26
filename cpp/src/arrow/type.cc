@@ -54,60 +54,6 @@ namespace arrow {
 
 using internal::checked_cast;
 
-constexpr Type::type NullType::type_id;
-constexpr Type::type ListType::type_id;
-constexpr Type::type LargeListType::type_id;
-constexpr Type::type ListViewType::type_id;
-constexpr Type::type LargeListViewType::type_id;
-
-constexpr Type::type MapType::type_id;
-
-constexpr Type::type FixedSizeListType::type_id;
-
-constexpr Type::type BinaryType::type_id;
-
-constexpr Type::type BinaryViewType::type_id;
-
-constexpr Type::type LargeBinaryType::type_id;
-
-constexpr Type::type StringType::type_id;
-
-constexpr Type::type StringViewType::type_id;
-
-constexpr Type::type LargeStringType::type_id;
-
-constexpr Type::type FixedSizeBinaryType::type_id;
-
-constexpr Type::type StructType::type_id;
-
-constexpr Type::type Decimal128Type::type_id;
-
-constexpr Type::type Decimal256Type::type_id;
-
-constexpr Type::type SparseUnionType::type_id;
-
-constexpr Type::type DenseUnionType::type_id;
-
-constexpr Type::type Date32Type::type_id;
-
-constexpr Type::type Date64Type::type_id;
-
-constexpr Type::type Time32Type::type_id;
-
-constexpr Type::type Time64Type::type_id;
-
-constexpr Type::type TimestampType::type_id;
-
-constexpr Type::type MonthIntervalType::type_id;
-
-constexpr Type::type DayTimeIntervalType::type_id;
-
-constexpr Type::type MonthDayNanoIntervalType::type_id;
-
-constexpr Type::type DurationType::type_id;
-
-constexpr Type::type DictionaryType::type_id;
-
 std::vector<Type::type> AllTypeIds() {
   return {Type::NA,
           Type::BOOL,
