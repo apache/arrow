@@ -1241,6 +1241,9 @@ cdef class Array(_PandasConvertible):
         """
         Render a "pretty-printed" string representation of the Array.
 
+        Note: for data on a non-CPU device, the full array is copied to CPU
+        memory.
+
         Parameters
         ----------
         indent : int, default 2
@@ -1261,8 +1264,6 @@ cdef class Array(_PandasConvertible):
             If the array should be rendered as a single line of text
             or if each element should be on its own line.
         """
-        self._assert_cpu()
-
         cdef:
             c_string result
             PrettyPrintOptions options
