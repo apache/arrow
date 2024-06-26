@@ -17,23 +17,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# run tests against Chrome and node.js as representative 
-# WebAssembly platforms (i.e. one browser, one non-browser).
+# install emscripten sdk version $2 to directory $2/emsdk
 
-set -ex
+set -e
 
-source ~/.nvm/nvm.sh
-
-build_dir=${1}/python
-cd ${build_dir}
-
-pyodide_dist_dir=${2}
-
-# note: this uses the newest wheel in dist
-pyodide_wheel=$(ls -t dist/pyarrow*.whl | head -1) 
-
-echo "-------------- Running emscripten tests in Chrome --------------------"
-python scripts/run_emscripten_tests.py ${pyodide_wheel} --dist-dir=${pyodide_dist_dir} --runtime=chrome
-
-echo "-------------- Running emscripten tests in Node ----------------------"
-python scripts/run_emscripten_tests.py ${pyodide_wheel} --dist-dir=${pyodide_dist_dir} --runtime=node
+target_path=$1
+emscripten_version=$2
+cd ${target_path}
+ls emsdk || git clone https://github.com/emscripten-core/emsdk.git
+cd emsdk 
+./emsdk install ${emscripten_version} 
+./emsdk activate ${emscripten_version}
+echo "Installed emsdk to: $1"

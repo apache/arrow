@@ -17,23 +17,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# run tests against Chrome and node.js as representative 
-# WebAssembly platforms (i.e. one browser, one non-browser).
+# Install node.js (used by Emscripten build / test)
+set -e
+node_version=$1
 
-set -ex
-
+wget -q https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh -O- | bash -
 source ~/.nvm/nvm.sh
-
-build_dir=${1}/python
-cd ${build_dir}
-
-pyodide_dist_dir=${2}
-
-# note: this uses the newest wheel in dist
-pyodide_wheel=$(ls -t dist/pyarrow*.whl | head -1) 
-
-echo "-------------- Running emscripten tests in Chrome --------------------"
-python scripts/run_emscripten_tests.py ${pyodide_wheel} --dist-dir=${pyodide_dist_dir} --runtime=chrome
-
-echo "-------------- Running emscripten tests in Node ----------------------"
-python scripts/run_emscripten_tests.py ${pyodide_wheel} --dist-dir=${pyodide_dist_dir} --runtime=node
+nvm install ${node_version}
