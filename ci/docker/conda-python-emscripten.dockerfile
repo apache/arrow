@@ -33,8 +33,7 @@ RUN echo "check PYTHON>=${required_python_min}" && python -c "import sys;sys.exi
 # needs to be a login shell so ~/.profile is read
 SHELL ["/bin/bash", "--login", "-c", "-o", "pipefail"]
 
-RUN python --version && \
-    python -m pip install --no-cache-dir selenium==${selenium_version} &&\
+RUN python -m pip install --no-cache-dir selenium==${selenium_version} &&\
     python -m pip install --no-cache-dir --upgrade --pre pyodide-build==${pyodide_version}
 
 # hadolint ignore=DL3003
