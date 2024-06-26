@@ -1124,7 +1124,7 @@ class PadOptions(_PadOptions):
         What to pad the string with. Should be one byte or codepoint.
     lean_left_on_odd_padding : bool, default True
         What to do if there is an odd number of padding characters (in case
-        of centered padding). Defaults to alignig on the left (i.e. adding
+        of centered padding). Defaults to aligning on the left (i.e. adding
         the extra padding character on the right).
     """
 
