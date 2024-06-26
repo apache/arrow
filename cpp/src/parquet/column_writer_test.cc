@@ -507,23 +507,33 @@ TEST_F(TestValuesWriterInt32Type, RequiredDeltaBinaryPacked) {
   this->TestRequiredWithEncoding(Encoding::DELTA_BINARY_PACKED);
 }
 
+TEST_F(TestValuesWriterInt32Type, RequiredByteStreamSplit) {
+  this->TestRequiredWithEncoding(Encoding::BYTE_STREAM_SPLIT);
+}
+
 TEST_F(TestValuesWriterInt64Type, RequiredDeltaBinaryPacked) {
   this->TestRequiredWithEncoding(Encoding::DELTA_BINARY_PACKED);
+}
+
+TEST_F(TestValuesWriterInt64Type, RequiredByteStreamSplit) {
+  this->TestRequiredWithEncoding(Encoding::BYTE_STREAM_SPLIT);
 }
 
 TEST_F(TestByteArrayValuesWriter, RequiredDeltaLengthByteArray) {
   this->TestRequiredWithEncoding(Encoding::DELTA_LENGTH_BYTE_ARRAY);
 }
 
-/*
-TYPED_TEST(TestByteArrayValuesWriter, RequiredDeltaByteArray) {
+TEST_F(TestByteArrayValuesWriter, RequiredDeltaByteArray) {
   this->TestRequiredWithEncoding(Encoding::DELTA_BYTE_ARRAY);
 }
 
 TEST_F(TestFixedLengthByteArrayValuesWriter, RequiredDeltaByteArray) {
   this->TestRequiredWithEncoding(Encoding::DELTA_BYTE_ARRAY);
 }
-*/
+
+TEST_F(TestFixedLengthByteArrayValuesWriter, RequiredByteStreamSplit) {
+  this->TestRequiredWithEncoding(Encoding::BYTE_STREAM_SPLIT);
+}
 
 TYPED_TEST(TestPrimitiveWriter, RequiredRLEDictionary) {
   this->TestRequiredWithEncoding(Encoding::RLE_DICTIONARY);

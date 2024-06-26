@@ -35,7 +35,7 @@ mvn="${mvn} -T 2C"
 
 pushd ${source_dir}
 
-${mvn} test
+${mvn} clean test
 
 projects=()
 if [ "${ARROW_DATASET}" = "ON" ]; then
@@ -48,14 +48,14 @@ if [ "${ARROW_ORC}" = "ON" ]; then
   projects+=(adapter/orc)
 fi
 if [ "${#projects[@]}" -gt 0 ]; then
-  ${mvn} test \
+  ${mvn} clean test \
          -Parrow-jni \
          -pl $(IFS=,; echo "${projects[*]}") \
          -Darrow.cpp.build.dir=${java_jni_dist_dir}
 fi
 
 if [ "${ARROW_JAVA_CDATA}" = "ON" ]; then
-  ${mvn} test -Parrow-c-data -pl c -Darrow.c.jni.dist.dir=${java_jni_dist_dir}
+  ${mvn} clean test -Parrow-c-data -pl c -Darrow.c.jni.dist.dir=${java_jni_dist_dir}
 fi
 
 popd

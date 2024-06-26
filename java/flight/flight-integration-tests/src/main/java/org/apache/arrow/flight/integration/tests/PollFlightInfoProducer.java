@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.integration.tests;
 
 import java.nio.charset.StandardCharsets;
@@ -23,7 +22,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightEndpoint;
 import org.apache.arrow.flight.FlightInfo;
@@ -40,17 +38,22 @@ class PollFlightInfoProducer extends NoOpFlightProducer {
 
   @Override
   public PollInfo pollFlightInfo(CallContext context, FlightDescriptor descriptor) {
-    Schema schema = new Schema(
-        Collections.singletonList(Field.notNullable("number", Types.MinorType.UINT4.getType())));
-    List<FlightEndpoint> endpoints = Collections.singletonList(
-        new FlightEndpoint(
-            new Ticket("long-running query".getBytes(StandardCharsets.UTF_8))));
-    FlightInfo info = new FlightInfo(schema, descriptor, endpoints, -1, -1 );
+    Schema schema =
+        new Schema(
+            Collections.singletonList(
+                Field.notNullable("number", Types.MinorType.UINT4.getType())));
+    List<FlightEndpoint> endpoints =
+        Collections.singletonList(
+            new FlightEndpoint(new Ticket("long-running query".getBytes(StandardCharsets.UTF_8))));
+    FlightInfo info = new FlightInfo(schema, descriptor, endpoints, -1, -1);
     if (descriptor.isCommand() && Arrays.equals(descriptor.getCommand(), POLL_DESCRIPTOR)) {
       return new PollInfo(info, null, 1.0, null);
     } else {
       return new PollInfo(
-          info, FlightDescriptor.command(POLL_DESCRIPTOR), 0.1, Instant.now().plus(10, ChronoUnit.SECONDS));
+          info,
+          FlightDescriptor.command(POLL_DESCRIPTOR),
+          0.1,
+          Instant.now().plus(10, ChronoUnit.SECONDS));
     }
   }
 }

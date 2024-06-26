@@ -80,7 +80,7 @@ class ARROW_EXPORT Decimal128 : public BasicDecimal128 {
     std::pair<Decimal128, Decimal128> result;
     auto dstatus = BasicDecimal128::Divide(divisor, &result.first, &result.second);
     ARROW_RETURN_NOT_OK(ToArrowStatus(dstatus));
-    return std::move(result);
+    return result;
   }
 
   /// \brief Convert the Decimal128 value to a base 10 decimal string with the given
@@ -118,7 +118,7 @@ class ARROW_EXPORT Decimal128 : public BasicDecimal128 {
     Decimal128 out;
     auto dstatus = BasicDecimal128::Rescale(original_scale, new_scale, &out);
     ARROW_RETURN_NOT_OK(ToArrowStatus(dstatus));
-    return std::move(out);
+    return out;
   }
 
   /// \brief Convert to a signed integer
@@ -218,7 +218,7 @@ class ARROW_EXPORT Decimal256 : public BasicDecimal256 {
     Decimal256 out;
     auto dstatus = BasicDecimal256::Rescale(original_scale, new_scale, &out);
     ARROW_RETURN_NOT_OK(ToArrowStatus(dstatus));
-    return std::move(out);
+    return out;
   }
 
   /// Divide this number by right and return the result.
@@ -235,7 +235,7 @@ class ARROW_EXPORT Decimal256 : public BasicDecimal256 {
     std::pair<Decimal256, Decimal256> result;
     auto dstatus = BasicDecimal256::Divide(divisor, &result.first, &result.second);
     ARROW_RETURN_NOT_OK(ToArrowStatus(dstatus));
-    return std::move(result);
+    return result;
   }
 
   /// \brief Convert from a big-endian byte representation. The length must be

@@ -28,6 +28,7 @@
 #include "arrow/api.h"
 #include "arrow/compute/kernels/row_encoder_internal.h"
 #include "arrow/compute/kernels/test_util.h"
+#include "arrow/compute/light_array_internal.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
@@ -41,6 +42,7 @@ namespace arrow {
 
 using compute::call;
 using compute::default_exec_context;
+using compute::ExecBatchBuilder;
 using compute::ExecSpan;
 using compute::field_ref;
 using compute::SortIndices;
@@ -2036,6 +2038,29 @@ TEST(HashJoin, ResidualFilter) {
                   [3, 4, "alpha", 4, 16, "alpha"]])")});
 }
 
+TEST(HashJoin, FilterEmptyRows) {
+  // Regression test for GH-41121.
+  BatchesWithSchema input_left;
+  input_left.batches = {
+      ExecBatchFromJSON({int32(), utf8(), int32()}, R"([[2, "Jarry", 28]])")};
+  input_left.schema =
+      schema({field("id", int32()), field("name", utf8()), field("age", int32())});
+
+  BatchesWithSchema input_right;
+  input_right.batches = {ExecBatchFromJSON(
+      {int32(), int32(), utf8()},
+      R"([[2, 10, "Jack"], [3, 12, "Mark"], [4, 15, "Tom"], [1, 10, "Jack"]])")};
+  input_right.schema =
+      schema({field("id", int32()), field("stu_id", int32()), field("subject", utf8())});
+
+  const ResidualFilterCaseRunner runner{std::move(input_left), std::move(input_right)};
+
+  Expression filter = greater(field_ref("age"), literal(25));
+
+  runner.Run(JoinType::LEFT_ANTI, {"id"}, {"stu_id"}, std::move(filter),
+             {ExecBatchFromJSON({int32(), utf8(), int32()}, R"([[2, "Jarry", 28]])")});
+}
+
 TEST(HashJoin, TrivialResidualFilter) {
   Expression always_true =
       equal(call("add", {field_ref("l1"), field_ref("r1")}), literal(2));  // 1 + 1 == 2
@@ -3176,6 +3201,56 @@ TEST(HashJoin, ChainedIntegerHashJoins) {
     ARROW_SCOPED_TRACE("Test ", std::to_string(i));
     TestSingleChainOfHashJoins(rng);
   }
+}
+
+// Test that a large number of joins don't overflow the temp vector stack, like GH-39582
+// and GH-39951.
+TEST(HashJoin, ManyJoins) {
+  // The idea of this case is to create many nested join nodes that may possibly cause
+  // recursive usage of temp vector stack. To make sure that the recursion happens:
+  // 1. A left-deep join tree is created so that the left-most (the final probe side)
+  // table will go through all the hash tables from the right side.
+  // 2. Left-outer join is used so that every join will increase the cardinality.
+  // 3. The left-most table contains rows of unique integers from 0 to N.
+  // 4. Each right table at level i contains two rows of integer i, so that the probing of
+  // each level will increase the result by one row.
+  // 5. The left-most table is a single batch of enough rows, so that at each level, the
+  // probing will accumulate enough result rows to have to output to the subsequent level
+  // before finishing the current batch (releasing the buffer allocated on the temp vector
+  // stack), which is essentially the recursive usage of the temp vector stack.
+
+  // A fair number of joins to guarantee temp vector stack overflow before GH-41335.
+  const int num_joins = 16;
+
+  // `ExecBatchBuilder::num_rows_max()` is the number of rows for swiss join to accumulate
+  // before outputting.
+  const int num_left_rows = ExecBatchBuilder::num_rows_max();
+  ASSERT_OK_AND_ASSIGN(
+      auto left_batches,
+      MakeIntegerBatches({[](int row_id) -> int64_t { return row_id; }},
+                         schema({field("l_key", int32())}),
+                         /*num_batches=*/1, /*batch_size=*/num_left_rows));
+  Declaration root{"exec_batch_source",
+                   ExecBatchSourceNodeOptions(std::move(left_batches.schema),
+                                              std::move(left_batches.batches))};
+
+  HashJoinNodeOptions join_opts(JoinType::LEFT_OUTER, /*left_keys=*/{"l_key"},
+                                /*right_keys=*/{"r_key"});
+
+  for (int i = 0; i < num_joins; ++i) {
+    ASSERT_OK_AND_ASSIGN(auto right_batches,
+                         MakeIntegerBatches({[i](int) -> int64_t { return i; }},
+                                            schema({field("r_key", int32())}),
+                                            /*num_batches=*/1, /*batch_size=*/2));
+    Declaration table{"exec_batch_source",
+                      ExecBatchSourceNodeOptions(std::move(right_batches.schema),
+                                                 std::move(right_batches.batches))};
+
+    Declaration new_root{"hashjoin", {std::move(root), std::move(table)}, join_opts};
+    root = std::move(new_root);
+  }
+
+  ASSERT_OK_AND_ASSIGN(std::ignore, DeclarationToTable(std::move(root)));
 }
 
 }  // namespace acero

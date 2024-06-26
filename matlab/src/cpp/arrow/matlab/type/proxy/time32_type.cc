@@ -19,9 +19,11 @@
 
 namespace arrow::matlab::type::proxy {
 
-    Time32Type::Time32Type(std::shared_ptr<arrow::Time32Type> time32_type) : TimeType(std::move(time32_type)) {}
+Time32Type::Time32Type(std::shared_ptr<arrow::Time32Type> time32_type)
+    : TimeType(std::move(time32_type)) {}
 
-    libmexclass::proxy::MakeResult Time32Type::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
-        return make_time_type<arrow::Time32Type>(constructor_arguments);
-    }
+libmexclass::proxy::MakeResult Time32Type::make(
+    const libmexclass::proxy::FunctionArguments& constructor_arguments) {
+  return make_time_type<arrow::Time32Type>(constructor_arguments);
 }
+}  // namespace arrow::matlab::type::proxy

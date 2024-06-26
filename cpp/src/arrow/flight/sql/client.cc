@@ -256,6 +256,114 @@ arrow::Result<int64_t> FlightSqlClient::ExecuteSubstraitUpdate(
   return update_result.record_count();
 }
 
+arrow::Result<int64_t> FlightSqlClient::ExecuteIngest(
+    const FlightCallOptions& options, const std::shared_ptr<RecordBatchReader>& reader,
+    const TableDefinitionOptions& table_definition_options, const std::string& table,
+    const std::optional<std::string>& schema, const std::optional<std::string>& catalog,
+    const bool temporary, const Transaction& transaction,
+    const std::unordered_map<std::string, std::string>& ingest_options) {
+  flight_sql_pb::CommandStatementIngest command;
+
+  flight_sql_pb::CommandStatementIngest_TableDefinitionOptions*
+      pb_table_definition_options =
+          new flight_sql_pb::CommandStatementIngest_TableDefinitionOptions();
+  switch (table_definition_options.if_not_exist) {
+    case TableDefinitionOptionsTableNotExistOption::kUnspecified:
+      pb_table_definition_options->set_if_not_exist(
+          flight_sql_pb::
+              CommandStatementIngest_TableDefinitionOptions_TableNotExistOption_TABLE_NOT_EXIST_OPTION_UNSPECIFIED);  // NOLINT(whitespace/line_length)
+      break;
+    case TableDefinitionOptionsTableNotExistOption::kCreate:
+      pb_table_definition_options->set_if_not_exist(
+          flight_sql_pb::
+              CommandStatementIngest_TableDefinitionOptions_TableNotExistOption_TABLE_NOT_EXIST_OPTION_CREATE);  // NOLINT(whitespace/line_length)
+      break;
+    case TableDefinitionOptionsTableNotExistOption::kFail:
+      pb_table_definition_options->set_if_not_exist(
+          flight_sql_pb::
+              CommandStatementIngest_TableDefinitionOptions_TableNotExistOption_TABLE_NOT_EXIST_OPTION_FAIL);  // NOLINT(whitespace/line_length)
+      break;
+
+    default:
+      break;
+  }
+
+  switch (table_definition_options.if_exists) {
+    case TableDefinitionOptionsTableExistsOption::kUnspecified:
+      pb_table_definition_options->set_if_exists(
+          flight_sql_pb::
+              CommandStatementIngest_TableDefinitionOptions_TableExistsOption_TABLE_EXISTS_OPTION_UNSPECIFIED);  // NOLINT(whitespace/line_length)
+      break;
+    case TableDefinitionOptionsTableExistsOption::kFail:
+      pb_table_definition_options->set_if_exists(
+          flight_sql_pb::
+              CommandStatementIngest_TableDefinitionOptions_TableExistsOption_TABLE_EXISTS_OPTION_FAIL);  // NOLINT(whitespace/line_length)
+      break;
+    case TableDefinitionOptionsTableExistsOption::kAppend:
+      pb_table_definition_options->set_if_exists(
+          flight_sql_pb::
+              CommandStatementIngest_TableDefinitionOptions_TableExistsOption_TABLE_EXISTS_OPTION_APPEND);  // NOLINT(whitespace/line_length)
+      break;
+    case TableDefinitionOptionsTableExistsOption::kReplace:
+      pb_table_definition_options->set_if_exists(
+          flight_sql_pb::
+              CommandStatementIngest_TableDefinitionOptions_TableExistsOption_TABLE_EXISTS_OPTION_REPLACE);  // NOLINT(whitespace/line_length)
+      break;
+
+    default:
+      break;
+  }
+
+  command.set_allocated_table_definition_options(pb_table_definition_options);
+  command.set_table(table);
+
+  if (schema.has_value()) {
+    command.set_schema(schema.value());
+  }
+
+  if (catalog.has_value()) {
+    command.set_catalog(catalog.value());
+  }
+
+  command.set_temporary(temporary);
+
+  if (transaction.is_valid()) {
+    command.set_transaction_id(transaction.transaction_id());
+  }
+
+  auto command_options = command.mutable_options();
+  for (const auto& [key, val] : ingest_options) {
+    (*command_options)[key] = val;
+  }
+
+  ARROW_ASSIGN_OR_RAISE(FlightDescriptor descriptor,
+                        GetFlightDescriptorForCommand(command));
+
+  auto reader_ = reader.get();
+  ARROW_ASSIGN_OR_RAISE(auto stream, DoPut(options, descriptor, reader_->schema()));
+
+  while (true) {
+    ARROW_ASSIGN_OR_RAISE(auto batch, reader_->Next());
+    if (!batch) break;
+    ARROW_RETURN_NOT_OK(stream.writer->WriteRecordBatch(*batch));
+  }
+
+  ARROW_RETURN_NOT_OK(stream.writer->DoneWriting());
+  std::shared_ptr<Buffer> metadata;
+  ARROW_RETURN_NOT_OK(stream.reader->ReadMetadata(&metadata));
+  ARROW_RETURN_NOT_OK(stream.writer->Close());
+
+  if (!metadata) return Status::IOError("Server did not send a response");
+
+  flight_sql_pb::DoPutUpdateResult update_result;
+  if (!update_result.ParseFromArray(metadata->data(),
+                                    static_cast<int>(metadata->size()))) {
+    return Status::Invalid("Unable to parse DoPutUpdateResult");
+  }
+
+  return update_result.record_count();
+}
+
 arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetCatalogs(
     const FlightCallOptions& options) {
   flight_sql_pb::CommandGetCatalogs command;
@@ -574,7 +682,7 @@ arrow::Result<std::unique_ptr<FlightInfo>> PreparedStatement::Execute(
                                          parameter_binding_.get()));
   }
   ARROW_ASSIGN_OR_RAISE(auto flight_info, client_->GetFlightInfo(options, descriptor));
-  return std::move(flight_info);
+  return flight_info;
 }
 
 arrow::Result<int64_t> PreparedStatement::ExecuteUpdate(

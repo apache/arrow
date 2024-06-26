@@ -88,7 +88,7 @@ const FunctionDoc random_doc{
 void RegisterScalarRandom(FunctionRegistry* registry) {
   static auto random_options = RandomOptions::Defaults();
   auto random_func = std::make_shared<ScalarFunction>(
-      "random", Arity::Nullary(), random_doc, &random_options, /*is_impure=*/true);
+      "random", Arity::Nullary(), random_doc, &random_options, /*is_pure=*/false);
   ScalarKernel kernel{{}, float64(), ExecRandom, RandomState::Init};
   kernel.null_handling = NullHandling::OUTPUT_NOT_NULL;
   DCHECK_OK(random_func->AddKernel(kernel));

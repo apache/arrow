@@ -19,15 +19,19 @@
 
 #include "arrow/util/endian.h"
 #include "arrow/util/simd.h"
+#include "arrow/util/small_vector.h"
 #include "arrow/util/ubsan.h"
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <cstdint>
+#include <cstring>
 
-#ifdef ARROW_HAVE_SSE4_2
+#if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_SSE4_2)
+#include <xsimd/xsimd.hpp>
 #define ARROW_HAVE_SIMD_SPLIT
-#endif  // ARROW_HAVE_SSE4_2
+#endif
 
 namespace arrow::util::internal {
 
@@ -35,13 +39,16 @@ namespace arrow::util::internal {
 // SIMD implementations
 //
 
-#if defined(ARROW_HAVE_SSE4_2)
+#if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_SSE4_2)
 template <int kNumStreams>
-void ByteStreamSplitDecodeSse2(const uint8_t* data, int64_t num_values, int64_t stride,
-                               uint8_t* out) {
+void ByteStreamSplitDecodeSimd128(const uint8_t* data, int width, int64_t num_values,
+                                  int64_t stride, uint8_t* out) {
+  using simd_batch = xsimd::make_sized_batch_t<int8_t, 16>;
+
+  assert(width == kNumStreams);
   static_assert(kNumStreams == 4 || kNumStreams == 8, "Invalid number of streams.");
   constexpr int kNumStreamsLog2 = (kNumStreams == 8 ? 3 : 2);
-  constexpr int64_t kBlockSize = sizeof(__m128i) * kNumStreams;
+  constexpr int64_t kBlockSize = sizeof(simd_batch) * kNumStreams;
 
   const int64_t size = num_values * kNumStreams;
   const int64_t num_blocks = size / kBlockSize;
@@ -64,46 +71,48 @@ void ByteStreamSplitDecodeSse2(const uint8_t* data, int64_t num_values, int64_t 
   // Stage 1: AAAA BBBB CCCC DDDD
   // Stage 2: ACAC ACAC BDBD BDBD
   // Stage 3: ABCD ABCD ABCD ABCD
-  __m128i stage[kNumStreamsLog2 + 1][kNumStreams];
+  simd_batch stage[kNumStreamsLog2 + 1][kNumStreams];
   constexpr int kNumStreamsHalf = kNumStreams / 2U;
 
   for (int64_t i = 0; i < num_blocks; ++i) {
     for (int j = 0; j < kNumStreams; ++j) {
-      stage[0][j] = _mm_loadu_si128(
-          reinterpret_cast<const __m128i*>(&data[i * sizeof(__m128i) + j * stride]));
+      stage[0][j] =
+          simd_batch::load_unaligned(&data[i * sizeof(simd_batch) + j * stride]);
     }
     for (int step = 0; step < kNumStreamsLog2; ++step) {
       for (int j = 0; j < kNumStreamsHalf; ++j) {
         stage[step + 1U][j * 2] =
-            _mm_unpacklo_epi8(stage[step][j], stage[step][kNumStreamsHalf + j]);
+            xsimd::zip_lo(stage[step][j], stage[step][kNumStreamsHalf + j]);
         stage[step + 1U][j * 2 + 1U] =
-            _mm_unpackhi_epi8(stage[step][j], stage[step][kNumStreamsHalf + j]);
+            xsimd::zip_hi(stage[step][j], stage[step][kNumStreamsHalf + j]);
       }
     }
     for (int j = 0; j < kNumStreams; ++j) {
-      _mm_storeu_si128(
-          reinterpret_cast<__m128i*>(out + (i * kNumStreams + j) * sizeof(__m128i)),
+      xsimd::store_unaligned(
+          reinterpret_cast<int8_t*>(out + (i * kNumStreams + j) * sizeof(simd_batch)),
           stage[kNumStreamsLog2][j]);
     }
   }
 }
 
 template <int kNumStreams>
-void ByteStreamSplitEncodeSse2(const uint8_t* raw_values, const int64_t num_values,
-                               uint8_t* output_buffer_raw) {
-  static_assert(kNumStreams == 4 || kNumStreams == 8, "Invalid number of streams.");
-  constexpr int kBlockSize = sizeof(__m128i) * kNumStreams;
+void ByteStreamSplitEncodeSimd128(const uint8_t* raw_values, int width,
+                                  const int64_t num_values, uint8_t* output_buffer_raw) {
+  using simd_batch = xsimd::make_sized_batch_t<int8_t, 16>;
 
-  __m128i stage[3][kNumStreams];
-  __m128i final_result[kNumStreams];
+  assert(width == kNumStreams);
+  static_assert(kNumStreams == 4 || kNumStreams == 8, "Invalid number of streams.");
+  constexpr int kBlockSize = sizeof(simd_batch) * kNumStreams;
+
+  simd_batch stage[3][kNumStreams];
+  simd_batch final_result[kNumStreams];
 
   const int64_t size = num_values * kNumStreams;
   const int64_t num_blocks = size / kBlockSize;
-  const __m128i* raw_values_sse = reinterpret_cast<const __m128i*>(raw_values);
-  __m128i* output_buffer_streams[kNumStreams];
+  int8_t* output_buffer_streams[kNumStreams];
   for (int i = 0; i < kNumStreams; ++i) {
     output_buffer_streams[i] =
-        reinterpret_cast<__m128i*>(&output_buffer_raw[num_values * i]);
+        reinterpret_cast<int8_t*>(&output_buffer_raw[num_values * i]);
   }
 
   // First handle suffix.
@@ -117,20 +126,23 @@ void ByteStreamSplitEncodeSse2(const uint8_t* raw_values, const int64_t num_valu
   // The current shuffling algorithm diverges for float and double types but the compiler
   // should be able to remove the branch since only one path is taken for each template
   // instantiation.
-  // Example run for floats:
-  // Step 0, copy:
+  // Example run for 32-bit variables:
+  // Step 0: copy from unaligned input bytes:
   //   0: ABCD ABCD ABCD ABCD 1: ABCD ABCD ABCD ABCD ...
-  // Step 1: _mm_unpacklo_epi8 and mm_unpackhi_epi8:
+  // Step 1: simd_batch<int8_t, 8>::zip_lo and simd_batch<int8_t, 8>::zip_hi:
   //   0: AABB CCDD AABB CCDD 1: AABB CCDD AABB CCDD ...
+  // Step 2: apply simd_batch<int8_t, 8>::zip_lo and  simd_batch<int8_t, 8>::zip_hi again:
   //   0: AAAA BBBB CCCC DDDD 1: AAAA BBBB CCCC DDDD ...
-  // Step 3: __mm_unpacklo_epi8 and _mm_unpackhi_epi8:
+  // Step 3: simd_batch<int8_t, 8>::zip_lo and simd_batch<int8_t, 8>::zip_hi:
   //   0: AAAA AAAA BBBB BBBB 1: CCCC CCCC DDDD DDDD ...
-  // Step 4: __mm_unpacklo_epi64 and _mm_unpackhi_epi64:
+  // Step 4: simd_batch<int64_t, 2>::zip_lo and simd_batch<int64_t, 2>::zip_hi:
   //   0: AAAA AAAA AAAA AAAA 1: BBBB BBBB BBBB BBBB ...
   for (int64_t block_index = 0; block_index < num_blocks; ++block_index) {
     // First copy the data to stage 0.
     for (int i = 0; i < kNumStreams; ++i) {
-      stage[0][i] = _mm_loadu_si128(&raw_values_sse[block_index * kNumStreams + i]);
+      stage[0][i] = simd_batch::load_unaligned(
+          reinterpret_cast<const int8_t*>(raw_values) +
+          (block_index * kNumStreams + i) * sizeof(simd_batch));
     }
 
     // The shuffling of bytes is performed through the unpack intrinsics.
@@ -139,52 +151,86 @@ void ByteStreamSplitEncodeSse2(const uint8_t* raw_values, const int64_t num_valu
     for (int stage_lvl = 0; stage_lvl < 2; ++stage_lvl) {
       for (int i = 0; i < kNumStreams / 2; ++i) {
         stage[stage_lvl + 1][i * 2] =
-            _mm_unpacklo_epi8(stage[stage_lvl][i * 2], stage[stage_lvl][i * 2 + 1]);
+            xsimd::zip_lo(stage[stage_lvl][i * 2], stage[stage_lvl][i * 2 + 1]);
         stage[stage_lvl + 1][i * 2 + 1] =
-            _mm_unpackhi_epi8(stage[stage_lvl][i * 2], stage[stage_lvl][i * 2 + 1]);
+            xsimd::zip_hi(stage[stage_lvl][i * 2], stage[stage_lvl][i * 2 + 1]);
       }
     }
     if constexpr (kNumStreams == 8) {
-      // This is the path for double.
-      __m128i tmp[8];
+      // This is the path for 64bits data.
+      simd_batch tmp[8];
+      using int32_batch = xsimd::make_sized_batch_t<int32_t, 4>;
+      // This is a workaround, see: https://github.com/xtensor-stack/xsimd/issues/735
+      auto from_int32_batch = [](int32_batch from) -> simd_batch {
+        simd_batch dest;
+        memcpy(&dest, &from, sizeof(simd_batch));
+        return dest;
+      };
+      auto to_int32_batch = [](simd_batch from) -> int32_batch {
+        int32_batch dest;
+        memcpy(&dest, &from, sizeof(simd_batch));
+        return dest;
+      };
       for (int i = 0; i < 4; ++i) {
-        tmp[i * 2] = _mm_unpacklo_epi32(stage[2][i], stage[2][i + 4]);
-        tmp[i * 2 + 1] = _mm_unpackhi_epi32(stage[2][i], stage[2][i + 4]);
+        tmp[i * 2] = from_int32_batch(
+            xsimd::zip_lo(to_int32_batch(stage[2][i]), to_int32_batch(stage[2][i + 4])));
+        tmp[i * 2 + 1] = from_int32_batch(
+            xsimd::zip_hi(to_int32_batch(stage[2][i]), to_int32_batch(stage[2][i + 4])));
       }
       for (int i = 0; i < 4; ++i) {
-        final_result[i * 2] = _mm_unpacklo_epi32(tmp[i], tmp[i + 4]);
-        final_result[i * 2 + 1] = _mm_unpackhi_epi32(tmp[i], tmp[i + 4]);
+        final_result[i * 2] = from_int32_batch(
+            xsimd::zip_lo(to_int32_batch(tmp[i]), to_int32_batch(tmp[i + 4])));
+        final_result[i * 2 + 1] = from_int32_batch(
+            xsimd::zip_hi(to_int32_batch(tmp[i]), to_int32_batch(tmp[i + 4])));
       }
     } else {
-      // this is the path for float.
-      __m128i tmp[4];
+      // This is the path for 32bits data.
+      using int64_batch = xsimd::make_sized_batch_t<int64_t, 2>;
+      // This is a workaround, see: https://github.com/xtensor-stack/xsimd/issues/735
+      auto from_int64_batch = [](int64_batch from) -> simd_batch {
+        simd_batch dest;
+        memcpy(&dest, &from, sizeof(simd_batch));
+        return dest;
+      };
+      auto to_int64_batch = [](simd_batch from) -> int64_batch {
+        int64_batch dest;
+        memcpy(&dest, &from, sizeof(simd_batch));
+        return dest;
+      };
+      simd_batch tmp[4];
       for (int i = 0; i < 2; ++i) {
-        tmp[i * 2] = _mm_unpacklo_epi8(stage[2][i * 2], stage[2][i * 2 + 1]);
-        tmp[i * 2 + 1] = _mm_unpackhi_epi8(stage[2][i * 2], stage[2][i * 2 + 1]);
+        tmp[i * 2] = xsimd::zip_lo(stage[2][i * 2], stage[2][i * 2 + 1]);
+        tmp[i * 2 + 1] = xsimd::zip_hi(stage[2][i * 2], stage[2][i * 2 + 1]);
       }
       for (int i = 0; i < 2; ++i) {
-        final_result[i * 2] = _mm_unpacklo_epi64(tmp[i], tmp[i + 2]);
-        final_result[i * 2 + 1] = _mm_unpackhi_epi64(tmp[i], tmp[i + 2]);
+        final_result[i * 2] = from_int64_batch(
+            xsimd::zip_lo(to_int64_batch(tmp[i]), to_int64_batch(tmp[i + 2])));
+        final_result[i * 2 + 1] = from_int64_batch(
+            xsimd::zip_hi(to_int64_batch(tmp[i]), to_int64_batch(tmp[i + 2])));
       }
     }
     for (int i = 0; i < kNumStreams; ++i) {
-      _mm_storeu_si128(&output_buffer_streams[i][block_index], final_result[i]);
+      xsimd::store_unaligned(&output_buffer_streams[i][block_index * sizeof(simd_batch)],
+                             final_result[i]);
     }
   }
 }
-#endif  // ARROW_HAVE_SSE4_2
+
+#endif
 
 #if defined(ARROW_HAVE_AVX2)
 template <int kNumStreams>
-void ByteStreamSplitDecodeAvx2(const uint8_t* data, int64_t num_values, int64_t stride,
-                               uint8_t* out) {
+void ByteStreamSplitDecodeAvx2(const uint8_t* data, int width, int64_t num_values,
+                               int64_t stride, uint8_t* out) {
+  assert(width == kNumStreams);
   static_assert(kNumStreams == 4 || kNumStreams == 8, "Invalid number of streams.");
   constexpr int kNumStreamsLog2 = (kNumStreams == 8 ? 3 : 2);
   constexpr int64_t kBlockSize = sizeof(__m256i) * kNumStreams;
 
   const int64_t size = num_values * kNumStreams;
   if (size < kBlockSize)  // Back to SSE for small size
-    return ByteStreamSplitDecodeSse2<kNumStreams>(data, num_values, stride, out);
+    return ByteStreamSplitDecodeSimd128<kNumStreams>(data, width, num_values, stride,
+                                                     out);
   const int64_t num_blocks = size / kBlockSize;
 
   // First handle suffix.
@@ -260,19 +306,20 @@ void ByteStreamSplitDecodeAvx2(const uint8_t* data, int64_t num_values, int64_t 
 }
 
 template <int kNumStreams>
-void ByteStreamSplitEncodeAvx2(const uint8_t* raw_values, const int64_t num_values,
-                               uint8_t* output_buffer_raw) {
+void ByteStreamSplitEncodeAvx2(const uint8_t* raw_values, int width,
+                               const int64_t num_values, uint8_t* output_buffer_raw) {
+  assert(width == kNumStreams);
   static_assert(kNumStreams == 4 || kNumStreams == 8, "Invalid number of streams.");
   constexpr int kBlockSize = sizeof(__m256i) * kNumStreams;
 
   if constexpr (kNumStreams == 8)  // Back to SSE, currently no path for double.
-    return ByteStreamSplitEncodeSse2<kNumStreams>(raw_values, num_values,
-                                                  output_buffer_raw);
+    return ByteStreamSplitEncodeSimd128<kNumStreams>(raw_values, width, num_values,
+                                                     output_buffer_raw);
 
   const int64_t size = num_values * kNumStreams;
   if (size < kBlockSize)  // Back to SSE for small size
-    return ByteStreamSplitEncodeSse2<kNumStreams>(raw_values, num_values,
-                                                  output_buffer_raw);
+    return ByteStreamSplitEncodeSimd128<kNumStreams>(raw_values, width, num_values,
+                                                     output_buffer_raw);
   const int64_t num_blocks = size / kBlockSize;
   const __m256i* raw_values_simd = reinterpret_cast<const __m256i*>(raw_values);
   __m256i* output_buffer_streams[kNumStreams];
@@ -334,26 +381,27 @@ void ByteStreamSplitEncodeAvx2(const uint8_t* raw_values, const int64_t num_valu
 
 #if defined(ARROW_HAVE_SIMD_SPLIT)
 template <int kNumStreams>
-void inline ByteStreamSplitDecodeSimd(const uint8_t* data, int64_t num_values,
+void inline ByteStreamSplitDecodeSimd(const uint8_t* data, int width, int64_t num_values,
                                       int64_t stride, uint8_t* out) {
 #if defined(ARROW_HAVE_AVX2)
-  return ByteStreamSplitDecodeAvx2<kNumStreams>(data, num_values, stride, out);
-#elif defined(ARROW_HAVE_SSE4_2)
-  return ByteStreamSplitDecodeSse2<kNumStreams>(data, num_values, stride, out);
+  return ByteStreamSplitDecodeAvx2<kNumStreams>(data, width, num_values, stride, out);
+#elif defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_NEON)
+  return ByteStreamSplitDecodeSimd128<kNumStreams>(data, width, num_values, stride, out);
 #else
 #error "ByteStreamSplitDecodeSimd not implemented"
 #endif
 }
 
 template <int kNumStreams>
-void inline ByteStreamSplitEncodeSimd(const uint8_t* raw_values, const int64_t num_values,
+void inline ByteStreamSplitEncodeSimd(const uint8_t* raw_values, int width,
+                                      const int64_t num_values,
                                       uint8_t* output_buffer_raw) {
 #if defined(ARROW_HAVE_AVX2)
-  return ByteStreamSplitEncodeAvx2<kNumStreams>(raw_values, num_values,
+  return ByteStreamSplitEncodeAvx2<kNumStreams>(raw_values, width, num_values,
                                                 output_buffer_raw);
-#elif defined(ARROW_HAVE_SSE4_2)
-  return ByteStreamSplitEncodeSse2<kNumStreams>(raw_values, num_values,
-                                                output_buffer_raw);
+#elif defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_NEON)
+  return ByteStreamSplitEncodeSimd128<kNumStreams>(raw_values, width, num_values,
+                                                   output_buffer_raw);
 #else
 #error "ByteStreamSplitEncodeSimd not implemented"
 #endif
@@ -453,18 +501,30 @@ inline void DoMergeStreams(const uint8_t** src_streams, int width, int64_t nvalu
 }
 
 template <int kNumStreams>
-void ByteStreamSplitEncodeScalar(const uint8_t* raw_values, const int64_t num_values,
-                                 uint8_t* output_buffer_raw) {
+void ByteStreamSplitEncodeScalar(const uint8_t* raw_values, int width,
+                                 const int64_t num_values, uint8_t* out) {
+  assert(width == kNumStreams);
   std::array<uint8_t*, kNumStreams> dest_streams;
   for (int stream = 0; stream < kNumStreams; ++stream) {
-    dest_streams[stream] = &output_buffer_raw[stream * num_values];
+    dest_streams[stream] = &out[stream * num_values];
   }
   DoSplitStreams(raw_values, kNumStreams, num_values, dest_streams.data());
 }
 
+inline void ByteStreamSplitEncodeScalarDynamic(const uint8_t* raw_values, int width,
+                                               const int64_t num_values, uint8_t* out) {
+  ::arrow::internal::SmallVector<uint8_t*, 16> dest_streams;
+  dest_streams.resize(width);
+  for (int stream = 0; stream < width; ++stream) {
+    dest_streams[stream] = &out[stream * num_values];
+  }
+  DoSplitStreams(raw_values, width, num_values, dest_streams.data());
+}
+
 template <int kNumStreams>
-void ByteStreamSplitDecodeScalar(const uint8_t* data, int64_t num_values, int64_t stride,
-                                 uint8_t* out) {
+void ByteStreamSplitDecodeScalar(const uint8_t* data, int width, int64_t num_values,
+                                 int64_t stride, uint8_t* out) {
+  assert(width == kNumStreams);
   std::array<const uint8_t*, kNumStreams> src_streams;
   for (int stream = 0; stream < kNumStreams; ++stream) {
     src_streams[stream] = &data[stream * stride];
@@ -472,26 +532,63 @@ void ByteStreamSplitDecodeScalar(const uint8_t* data, int64_t num_values, int64_
   DoMergeStreams(src_streams.data(), kNumStreams, num_values, out);
 }
 
-template <int kNumStreams>
-void inline ByteStreamSplitEncode(const uint8_t* raw_values, const int64_t num_values,
-                                  uint8_t* output_buffer_raw) {
-#if defined(ARROW_HAVE_SIMD_SPLIT)
-  return ByteStreamSplitEncodeSimd<kNumStreams>(raw_values, num_values,
-                                                output_buffer_raw);
-#else
-  return ByteStreamSplitEncodeScalar<kNumStreams>(raw_values, num_values,
-                                                  output_buffer_raw);
-#endif
+inline void ByteStreamSplitDecodeScalarDynamic(const uint8_t* data, int width,
+                                               int64_t num_values, int64_t stride,
+                                               uint8_t* out) {
+  ::arrow::internal::SmallVector<const uint8_t*, 16> src_streams;
+  src_streams.resize(width);
+  for (int stream = 0; stream < width; ++stream) {
+    src_streams[stream] = &data[stream * stride];
+  }
+  DoMergeStreams(src_streams.data(), width, num_values, out);
 }
 
-template <int kNumStreams>
-void inline ByteStreamSplitDecode(const uint8_t* data, int64_t num_values, int64_t stride,
-                                  uint8_t* out) {
+inline void ByteStreamSplitEncode(const uint8_t* raw_values, int width,
+                                  const int64_t num_values, uint8_t* out) {
 #if defined(ARROW_HAVE_SIMD_SPLIT)
-  return ByteStreamSplitDecodeSimd<kNumStreams>(data, num_values, stride, out);
+#define ByteStreamSplitEncodePerhapsSimd ByteStreamSplitEncodeSimd
 #else
-  return ByteStreamSplitDecodeScalar<kNumStreams>(data, num_values, stride, out);
+#define ByteStreamSplitEncodePerhapsSimd ByteStreamSplitEncodeScalar
 #endif
+  switch (width) {
+    case 1:
+      memcpy(out, raw_values, num_values);
+      return;
+    case 2:
+      return ByteStreamSplitEncodeScalar<2>(raw_values, width, num_values, out);
+    case 4:
+      return ByteStreamSplitEncodePerhapsSimd<4>(raw_values, width, num_values, out);
+    case 8:
+      return ByteStreamSplitEncodePerhapsSimd<8>(raw_values, width, num_values, out);
+    case 16:
+      return ByteStreamSplitEncodeScalar<16>(raw_values, width, num_values, out);
+  }
+  return ByteStreamSplitEncodeScalarDynamic(raw_values, width, num_values, out);
+#undef ByteStreamSplitEncodePerhapsSimd
+}
+
+inline void ByteStreamSplitDecode(const uint8_t* data, int width, int64_t num_values,
+                                  int64_t stride, uint8_t* out) {
+#if defined(ARROW_HAVE_SIMD_SPLIT)
+#define ByteStreamSplitDecodePerhapsSimd ByteStreamSplitDecodeSimd
+#else
+#define ByteStreamSplitDecodePerhapsSimd ByteStreamSplitDecodeScalar
+#endif
+  switch (width) {
+    case 1:
+      memcpy(out, data, num_values);
+      return;
+    case 2:
+      return ByteStreamSplitDecodeScalar<2>(data, width, num_values, stride, out);
+    case 4:
+      return ByteStreamSplitDecodePerhapsSimd<4>(data, width, num_values, stride, out);
+    case 8:
+      return ByteStreamSplitDecodePerhapsSimd<8>(data, width, num_values, stride, out);
+    case 16:
+      return ByteStreamSplitDecodeScalar<16>(data, width, num_values, stride, out);
+  }
+  return ByteStreamSplitDecodeScalarDynamic(data, width, num_values, stride, out);
+#undef ByteStreamSplitDecodePerhapsSimd
 }
 
 }  // namespace arrow::util::internal

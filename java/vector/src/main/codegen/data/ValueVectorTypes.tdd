@@ -189,7 +189,9 @@
       fields: [{name: "start", type: "int"}, {name: "end", type: "int"}, {name: "buffer", type: "ArrowBuf"}],
       minor: [
         { class: "VarBinary" , friendlyType: "byte[]" },
-        { class: "VarChar" , friendlyType: "Text" }
+        { class: "VarChar" , friendlyType: "Text" },
+        { class: "ViewVarBinary" , friendlyType: "byte[]" },
+        { class: "ViewVarChar" , friendlyType: "Text" }
       ]
     },
     {

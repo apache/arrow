@@ -77,6 +77,10 @@ Status ValidateTensorParameters(const std::shared_ptr<DataType>& type,
                                 const std::vector<int64_t>& strides,
                                 const std::vector<std::string>& dim_names);
 
+ARROW_EXPORT
+Status RecordBatchToTensor(const RecordBatch& batch, bool null_to_nan, bool row_major,
+                           MemoryPool* pool, std::shared_ptr<Tensor>* tensor);
+
 }  // namespace internal
 
 class ARROW_EXPORT Tensor {

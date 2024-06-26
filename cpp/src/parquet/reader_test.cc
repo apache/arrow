@@ -21,6 +21,8 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <type_traits>
+#include <utility>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -33,6 +35,7 @@
 #include "arrow/testing/random.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/config.h"
+#include "arrow/util/range.h"
 
 #include "parquet/column_reader.h"
 #include "parquet/column_scanner.h"
@@ -45,6 +48,7 @@
 #include "parquet/test_util.h"
 
 using arrow::internal::checked_pointer_cast;
+using arrow::internal::Zip;
 
 namespace parquet {
 using schema::GroupNode;
@@ -123,6 +127,10 @@ std::string concatenated_gzip_members() {
 
 std::string byte_stream_split() { return data_file("byte_stream_split.zstd.parquet"); }
 
+std::string byte_stream_split_extended() {
+  return data_file("byte_stream_split_extended.gzip.parquet");
+}
+
 template <typename DType, typename ValueType = typename DType::c_type>
 std::vector<ValueType> ReadColumnValues(ParquetFileReader* file_reader, int row_group,
                                         int column, int64_t expected_values_read) {
@@ -137,6 +145,23 @@ std::vector<ValueType> ReadColumnValues(ParquetFileReader* file_reader, int row_
   return values;
 }
 
+template <typename ValueType>
+void AssertColumnValuesEqual(const ColumnDescriptor* descr,
+                             const std::vector<ValueType>& left_values,
+                             const std::vector<ValueType>& right_values) {
+  if constexpr (std::is_same_v<ValueType, FLBA>) {
+    // operator== for FLBA in test_util.h is unusable (it hard-codes length to 12)
+    const auto length = descr->type_length();
+    for (const auto& [left, right] : Zip(left_values, right_values)) {
+      std::string_view left_view(reinterpret_cast<const char*>(left.ptr), length);
+      std::string_view right_view(reinterpret_cast<const char*>(right.ptr), length);
+      ASSERT_EQ(left_view, right_view);
+    }
+  } else {
+    ASSERT_EQ(left_values, right_values);
+  }
+}
+
 // TODO: Assert on definition and repetition levels
 template <typename DType, typename ValueType = typename DType::c_type>
 void AssertColumnValues(std::shared_ptr<TypedColumnReader<DType>> col, int64_t batch_size,
@@ -149,9 +174,46 @@ void AssertColumnValues(std::shared_ptr<TypedColumnReader<DType>> col, int64_t b
   auto levels_read =
       col->ReadBatch(batch_size, nullptr, nullptr, values.data(), &values_read);
   ASSERT_EQ(expected_levels_read, levels_read);
-
-  ASSERT_EQ(expected_values, values);
   ASSERT_EQ(expected_values_read, values_read);
+  AssertColumnValuesEqual(col->descr(), expected_values, values);
+}
+
+template <typename DType, typename ValueType = typename DType::c_type>
+void AssertColumnValuesEqual(std::shared_ptr<TypedColumnReader<DType>> left_col,
+                             std::shared_ptr<TypedColumnReader<DType>> right_col,
+                             int64_t batch_size, int64_t expected_levels_read,
+                             int64_t expected_values_read) {
+  std::vector<ValueType> left_values(batch_size);
+  std::vector<ValueType> right_values(batch_size);
+  int64_t values_read, levels_read;
+
+  levels_read =
+      left_col->ReadBatch(batch_size, nullptr, nullptr, left_values.data(), &values_read);
+  ASSERT_EQ(expected_levels_read, levels_read);
+  ASSERT_EQ(expected_values_read, values_read);
+
+  levels_read = right_col->ReadBatch(batch_size, nullptr, nullptr, right_values.data(),
+                                     &values_read);
+  ASSERT_EQ(expected_levels_read, levels_read);
+  ASSERT_EQ(expected_values_read, values_read);
+
+  AssertColumnValuesEqual(left_col->descr(), left_values, right_values);
+}
+
+template <typename DType, typename ValueType = typename DType::c_type>
+void AssertColumnValuesEqual(ParquetFileReader* file_reader, const std::string& left_col,
+                             const std::string& right_col, int64_t num_rows,
+                             int row_group = 0) {
+  ARROW_SCOPED_TRACE("left_col = '", left_col, "', right_col = '", right_col, "'");
+
+  auto left_col_index = file_reader->metadata()->schema()->ColumnIndex(left_col);
+  auto right_col_index = file_reader->metadata()->schema()->ColumnIndex(right_col);
+  auto row_group_reader = file_reader->RowGroup(row_group);
+  auto left_reader = checked_pointer_cast<TypedColumnReader<DType>>(
+      row_group_reader->Column(left_col_index));
+  auto right_reader = checked_pointer_cast<TypedColumnReader<DType>>(
+      row_group_reader->Column(right_col_index));
+  AssertColumnValuesEqual(left_reader, right_reader, num_rows, num_rows, num_rows);
 }
 
 void CheckRowGroupMetadata(const RowGroupMetaData* rg_metadata,
@@ -1015,7 +1077,24 @@ Column 1
   ASSERT_EQ(header_output + dump_output, ss_dump.str());
 }
 
-TEST(TestJSONWithLocalFile, JSONOutput) {
+class TestJSONWithLocalFile : public ::testing::Test {
+ public:
+  static std::string ReadFromLocalFile(std::string_view local_file_name) {
+    std::stringstream ss;
+    // empty list means print all
+    std::list<int> columns;
+
+    auto reader =
+        ParquetFileReader::OpenFile(data_file(local_file_name.data()),
+                                    /*memory_map=*/false, default_reader_properties());
+    ParquetFilePrinter printer(reader.get());
+    printer.JSONPrint(ss, columns, local_file_name.data());
+
+    return ss.str();
+  }
+};
+
+TEST_F(TestJSONWithLocalFile, JSONOutput) {
   std::string json_output = R"###({
   "FileName": "alltypes_plain.parquet",
   "Version": "1.0",
@@ -1069,16 +1148,28 @@ TEST(TestJSONWithLocalFile, JSONOutput) {
 }
 )###";
 
-  std::stringstream ss;
-  // empty list means print all
-  std::list<int> columns;
+  std::string json_content = ReadFromLocalFile("alltypes_plain.parquet");
+  ASSERT_EQ(json_output, json_content);
+}
 
-  auto reader =
-      ParquetFileReader::OpenFile(alltypes_plain(), false, default_reader_properties());
-  ParquetFilePrinter printer(reader.get());
-  printer.JSONPrint(ss, columns, "alltypes_plain.parquet");
+TEST_F(TestJSONWithLocalFile, JSONOutputFLBA) {
+  // min-max stats for FLBA contains non-utf8 output, so we don't check
+  // the whole json output.
+  std::string json_content = ReadFromLocalFile("fixed_length_byte_array.parquet");
 
-  ASSERT_EQ(json_output, ss.str());
+  std::string json_contains = R"###({
+  "FileName": "fixed_length_byte_array.parquet",
+  "Version": "1.0",
+  "CreatedBy": "parquet-mr version 1.13.0-SNAPSHOT (build d057b39d93014fe40f5067ee4a33621e65c91552)",
+  "TotalRows": "1000",
+  "NumberOfRowGroups": "1",
+  "NumberOfRealColumns": "1",
+  "NumberOfColumns": "1",
+  "Columns": [
+     { "Id": "0", "Name": "flba_field", "PhysicalType": "FIXED_LEN_BYTE_ARRAY(4)", "ConvertedType": "NONE", "LogicalType": {"Type": "None"} }
+  ])###";
+
+  EXPECT_THAT(json_content, testing::HasSubstr(json_contains));
 }
 
 TEST(TestFileReader, BufferedReadsWithDictionary) {
@@ -1521,6 +1612,34 @@ TEST(TestByteStreamSplit, FloatIntegrationFile) {
   }
 }
 #endif  // ARROW_WITH_ZSTD
+
+#ifdef ARROW_WITH_ZLIB
+TEST(TestByteStreamSplit, ExtendedIntegrationFile) {
+  auto file_path = byte_stream_split_extended();
+  auto file = ParquetFileReader::OpenFile(file_path);
+
+  const int64_t kNumRows = 200;
+
+  ASSERT_EQ(kNumRows, file->metadata()->num_rows());
+  ASSERT_EQ(14, file->metadata()->num_columns());
+  ASSERT_EQ(1, file->metadata()->num_row_groups());
+
+  AssertColumnValuesEqual<FloatType>(file.get(), "float_plain", "float_byte_stream_split",
+                                     kNumRows);
+  AssertColumnValuesEqual<DoubleType>(file.get(), "double_plain",
+                                      "double_byte_stream_split", kNumRows);
+  AssertColumnValuesEqual<Int32Type>(file.get(), "int32_plain", "int32_byte_stream_split",
+                                     kNumRows);
+  AssertColumnValuesEqual<Int64Type>(file.get(), "int64_plain", "int64_byte_stream_split",
+                                     kNumRows);
+  AssertColumnValuesEqual<FLBAType>(file.get(), "float16_plain",
+                                    "float16_byte_stream_split", kNumRows);
+  AssertColumnValuesEqual<FLBAType>(file.get(), "flba5_plain", "flba5_byte_stream_split",
+                                    kNumRows);
+  AssertColumnValuesEqual<FLBAType>(file.get(), "decimal_plain",
+                                    "decimal_byte_stream_split", kNumRows);
+}
+#endif  // ARROW_WITH_ZLIB
 
 struct PageIndexReaderParam {
   std::vector<int32_t> row_group_indices;

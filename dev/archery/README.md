@@ -23,7 +23,7 @@ Archery is documented on the Arrow website:
 
 * [Daily development using Archery](https://arrow.apache.org/docs/developers/continuous_integration/archery.html)
 * [Using Archery and Crossbow](https://arrow.apache.org/docs/developers/continuous_integration/crossbow.html)
-* [Using Archer and Docker](https://arrow.apache.org/docs/developers/continuous_integration/docker.html)
+* [Using Archery and Docker](https://arrow.apache.org/docs/developers/continuous_integration/docker.html)
 
 # Installing Archery
 

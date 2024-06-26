@@ -117,8 +117,12 @@ Status AzureOptions::ExtractFromUriQuery(const Uri& uri) {
         credential_kind = CredentialKind::kDefault;
       } else if (kv.second == "anonymous") {
         credential_kind = CredentialKind::kAnonymous;
+      } else if (kv.second == "cli") {
+        credential_kind = CredentialKind::kCLI;
       } else if (kv.second == "workload_identity") {
         credential_kind = CredentialKind::kWorkloadIdentity;
+      } else if (kv.second == "environment") {
+        credential_kind = CredentialKind::kEnvironment;
       } else {
         // Other credential kinds should be inferred from the given
         // parameters automatically.
@@ -168,8 +172,14 @@ Status AzureOptions::ExtractFromUriQuery(const Uri& uri) {
       case CredentialKind::kAnonymous:
         RETURN_NOT_OK(ConfigureAnonymousCredential());
         break;
+      case CredentialKind::kCLI:
+        RETURN_NOT_OK(ConfigureCLICredential());
+        break;
       case CredentialKind::kWorkloadIdentity:
         RETURN_NOT_OK(ConfigureWorkloadIdentityCredential());
+        break;
+      case CredentialKind::kEnvironment:
+        RETURN_NOT_OK(ConfigureEnvironmentCredential());
         break;
       default:
         // Default credential
@@ -250,8 +260,10 @@ bool AzureOptions::Equals(const AzureOptions& other) const {
       return storage_shared_key_credential_->AccountName ==
              other.storage_shared_key_credential_->AccountName;
     case CredentialKind::kClientSecret:
+    case CredentialKind::kCLI:
     case CredentialKind::kManagedIdentity:
     case CredentialKind::kWorkloadIdentity:
+    case CredentialKind::kEnvironment:
       return token_credential_->GetCredentialName() ==
              other.token_credential_->GetCredentialName();
   }
@@ -276,6 +288,13 @@ std::string BuildBaseUrl(const std::string& scheme, const std::string& authority
   }
   url += "/";
   return url;
+}
+
+template <typename... PrefixArgs>
+Status ExceptionToStatus(const Storage::StorageException& exception,
+                         PrefixArgs&&... prefix_args) {
+  return Status::IOError(std::forward<PrefixArgs>(prefix_args)..., " Azure Error: [",
+                         exception.ErrorCode, "] ", exception.what());
 }
 }  // namespace
 
@@ -324,9 +343,21 @@ Status AzureOptions::ConfigureManagedIdentityCredential(const std::string& clien
   return Status::OK();
 }
 
+Status AzureOptions::ConfigureCLICredential() {
+  credential_kind_ = CredentialKind::kCLI;
+  token_credential_ = std::make_shared<Azure::Identity::AzureCliCredential>();
+  return Status::OK();
+}
+
 Status AzureOptions::ConfigureWorkloadIdentityCredential() {
   credential_kind_ = CredentialKind::kWorkloadIdentity;
   token_credential_ = std::make_shared<Azure::Identity::WorkloadIdentityCredential>();
+  return Status::OK();
+}
+
+Status AzureOptions::ConfigureEnvironmentCredential() {
+  credential_kind_ = CredentialKind::kEnvironment;
+  token_credential_ = std::make_shared<Azure::Identity::EnvironmentCredential>();
   return Status::OK();
 }
 
@@ -334,6 +365,10 @@ Result<std::unique_ptr<Blobs::BlobServiceClient>> AzureOptions::MakeBlobServiceC
     const {
   if (account_name.empty()) {
     return Status::Invalid("AzureOptions doesn't contain a valid account name");
+  }
+  if (!(blob_storage_scheme == "http" || blob_storage_scheme == "https")) {
+    return Status::Invalid("AzureOptions::blob_storage_scheme must be http or https: ",
+                           blob_storage_scheme);
   }
   switch (credential_kind_) {
     case CredentialKind::kAnonymous:
@@ -345,7 +380,9 @@ Result<std::unique_ptr<Blobs::BlobServiceClient>> AzureOptions::MakeBlobServiceC
       [[fallthrough]];
     case CredentialKind::kClientSecret:
     case CredentialKind::kManagedIdentity:
+    case CredentialKind::kCLI:
     case CredentialKind::kWorkloadIdentity:
+    case CredentialKind::kEnvironment:
       return std::make_unique<Blobs::BlobServiceClient>(AccountBlobUrl(account_name),
                                                         token_credential_);
     case CredentialKind::kStorageSharedKey:
@@ -360,6 +397,10 @@ AzureOptions::MakeDataLakeServiceClient() const {
   if (account_name.empty()) {
     return Status::Invalid("AzureOptions doesn't contain a valid account name");
   }
+  if (!(dfs_storage_scheme == "http" || dfs_storage_scheme == "https")) {
+    return Status::Invalid("AzureOptions::dfs_storage_scheme must be http or https: ",
+                           dfs_storage_scheme);
+  }
   switch (credential_kind_) {
     case CredentialKind::kAnonymous:
       return std::make_unique<DataLake::DataLakeServiceClient>(
@@ -371,7 +412,9 @@ AzureOptions::MakeDataLakeServiceClient() const {
       [[fallthrough]];
     case CredentialKind::kClientSecret:
     case CredentialKind::kManagedIdentity:
+    case CredentialKind::kCLI:
     case CredentialKind::kWorkloadIdentity:
+    case CredentialKind::kEnvironment:
       return std::make_unique<DataLake::DataLakeServiceClient>(
           AccountDfsUrl(account_name), token_credential_);
     case CredentialKind::kStorageSharedKey:
@@ -379,6 +422,25 @@ AzureOptions::MakeDataLakeServiceClient() const {
           AccountDfsUrl(account_name), storage_shared_key_credential_);
   }
   return Status::Invalid("AzureOptions doesn't contain a valid auth configuration");
+}
+
+Result<std::string> AzureOptions::GenerateSASToken(
+    Storage::Sas::BlobSasBuilder* builder, Blobs::BlobServiceClient* client) const {
+  using SasProtocol = Storage::Sas::SasProtocol;
+  builder->Protocol =
+      blob_storage_scheme == "http" ? SasProtocol::HttpsAndHttp : SasProtocol::HttpsOnly;
+  if (storage_shared_key_credential_) {
+    return builder->GenerateSasToken(*storage_shared_key_credential_);
+  } else {
+    // GH-39344: This part isn't tested. This may not work.
+    try {
+      auto delegation_key_response = client->GetUserDelegationKey(builder->ExpiresOn);
+      return builder->GenerateSasToken(delegation_key_response.Value, account_name);
+    } catch (const Storage::StorageException& exception) {
+      return ExceptionToStatus(exception, "GetUserDelegationKey failed for '",
+                               client->GetUrl(), "'.");
+    }
+  }
 }
 
 namespace {
@@ -449,13 +511,6 @@ struct AzureLocation {
     return status.ok() ? status : Status::Invalid(status.message(), " in location ", all);
   }
 };
-
-template <typename... PrefixArgs>
-Status ExceptionToStatus(const Storage::StorageException& exception,
-                         PrefixArgs&&... prefix_args) {
-  return Status::IOError(std::forward<PrefixArgs>(prefix_args)..., " Azure Error: [",
-                         exception.ErrorCode, "] ", exception.what());
-}
 
 Status PathNotFound(const AzureLocation& location) {
   return ::arrow::fs::internal::PathNotFound(location.all);
@@ -547,7 +602,6 @@ std::shared_ptr<const KeyValueMetadata> PropertiesToMetadata(
   auto metadata = std::make_shared<KeyValueMetadata>();
   // Not supported yet:
   // * properties.ObjectReplicationSourceProperties
-  // * properties.Metadata
   //
   // They may have the same key defined in the following
   // metadata->Append() list. If we have duplicated key in metadata,
@@ -669,16 +723,33 @@ std::shared_ptr<const KeyValueMetadata> PropertiesToMetadata(
     metadata->Append("Last-Accessed-On", properties.LastAccessedOn.Value().ToString());
   }
   metadata->Append("Has-Legal-Hold", FormatValue<BooleanType>(properties.HasLegalHold));
+  for (const auto& [key, value] : properties.Metadata) {
+    metadata->Append(key, value);
+  }
   return metadata;
 }
 
-Storage::Metadata ArrowMetadataToAzureMetadata(
-    const std::shared_ptr<const KeyValueMetadata>& arrow_metadata) {
-  Storage::Metadata azure_metadata;
-  for (auto key_value : arrow_metadata->sorted_pairs()) {
-    azure_metadata[key_value.first] = key_value.second;
+void ArrowMetadataToCommitBlockListOptions(
+    const std::shared_ptr<const KeyValueMetadata>& arrow_metadata,
+    Blobs::CommitBlockListOptions& options) {
+  using ::arrow::internal::AsciiEqualsCaseInsensitive;
+  for (auto& [key, value] : arrow_metadata->sorted_pairs()) {
+    if (AsciiEqualsCaseInsensitive(key, "Content-Type")) {
+      options.HttpHeaders.ContentType = value;
+    } else if (AsciiEqualsCaseInsensitive(key, "Content-Encoding")) {
+      options.HttpHeaders.ContentEncoding = value;
+    } else if (AsciiEqualsCaseInsensitive(key, "Content-Language")) {
+      options.HttpHeaders.ContentLanguage = value;
+    } else if (AsciiEqualsCaseInsensitive(key, "Content-Hash")) {
+      // Ignore: auto-generated value
+    } else if (AsciiEqualsCaseInsensitive(key, "Content-Disposition")) {
+      options.HttpHeaders.ContentDisposition = value;
+    } else if (AsciiEqualsCaseInsensitive(key, "Cache-Control")) {
+      options.HttpHeaders.CacheControl = value;
+    } else {
+      options.Metadata[key] = value;
+    }
   }
-  return azure_metadata;
 }
 
 class ObjectInputFile final : public io::RandomAccessFile {
@@ -813,7 +884,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
       DCHECK_LE(bytes_read, nbytes);
       RETURN_NOT_OK(buffer->Resize(bytes_read));
     }
-    return std::move(buffer);
+    return buffer;
   }
 
   Result<int64_t> Read(int64_t nbytes, void* out) override {
@@ -825,7 +896,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
   Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) override {
     ARROW_ASSIGN_OR_RAISE(auto buffer, ReadAt(pos_, nbytes));
     pos_ += buffer->size();
-    return std::move(buffer);
+    return buffer;
   }
 
  private:
@@ -864,9 +935,7 @@ Result<Blobs::Models::GetBlockListResult> GetBlockList(
 
 Status CommitBlockList(std::shared_ptr<Storage::Blobs::BlockBlobClient> block_blob_client,
                        const std::vector<std::string>& block_ids,
-                       const Storage::Metadata& metadata) {
-  Blobs::CommitBlockListOptions options;
-  options.Metadata = metadata;
+                       const Blobs::CommitBlockListOptions& options) {
   try {
     // CommitBlockList puts all block_ids in the latest element. That means in the case of
     // overlapping block_ids the newly staged block ids will always replace the
@@ -891,9 +960,10 @@ class ObjectAppendStream final : public io::OutputStream {
         io_context_(io_context),
         location_(location) {
     if (metadata && metadata->size() != 0) {
-      metadata_ = ArrowMetadataToAzureMetadata(metadata);
+      ArrowMetadataToCommitBlockListOptions(metadata, commit_block_list_options_);
     } else if (options.default_metadata && options.default_metadata->size() != 0) {
-      metadata_ = ArrowMetadataToAzureMetadata(options.default_metadata);
+      ArrowMetadataToCommitBlockListOptions(options.default_metadata,
+                                            commit_block_list_options_);
     }
   }
 
@@ -996,7 +1066,7 @@ class ObjectAppendStream final : public io::OutputStream {
       // flush. This also avoids some unhandled errors when flushing in the destructor.
       return Status::OK();
     }
-    return CommitBlockList(block_blob_client_, block_ids_, metadata_);
+    return CommitBlockList(block_blob_client_, block_ids_, commit_block_list_options_);
   }
 
  private:
@@ -1053,7 +1123,7 @@ class ObjectAppendStream final : public io::OutputStream {
   bool initialised_ = false;
   int64_t pos_ = 0;
   std::vector<std::string> block_ids_;
-  Storage::Metadata metadata_;
+  Blobs::CommitBlockListOptions commit_block_list_options_;
 };
 
 bool IsDfsEmulator(const AzureOptions& options) {
@@ -1162,6 +1232,15 @@ Status CreateContainerIfNotExists(const std::string& container_name,
     return ExceptionToStatus(exception, "Failed to create a container: ", container_name,
                              ": ", container_client.GetUrl());
   }
+}
+
+FileInfo FileInfoFromPath(std::string_view container,
+                          const DataLake::Models::PathItem& path) {
+  FileInfo info{internal::ConcatAbstractPath(container, path.Name),
+                path.IsDirectory ? FileType::Directory : FileType::File};
+  info.set_size(path.FileSize);
+  info.set_mtime(std::chrono::system_clock::time_point{path.LastModified});
+  return info;
 }
 
 FileInfo DirectoryFileInfoFromPath(std::string_view path) {
@@ -1561,7 +1640,7 @@ class AzureFileSystem::Impl {
   }
 
  private:
-  /// \pref location.container is not empty.
+  /// \pre location.container is not empty.
   template <typename ContainerClient>
   Status CheckDirExists(const ContainerClient& container_client,
                         const AzureLocation& location) {
@@ -1576,7 +1655,9 @@ class AzureFileSystem::Impl {
     if (info.type() == FileType::NotFound) {
       return PathNotFound(location);
     }
-    DCHECK_EQ(info.type(), FileType::Directory);
+    if (info.type() != FileType::Directory) {
+      return NotADir(location);
+    }
     return Status::OK();
   }
 
@@ -1604,6 +1685,50 @@ class AzureFileSystem::Impl {
     auto result = (offset == std::string_view::npos) ? s : s.substr(offset);
     DCHECK(!result.empty() && result.back() != internal::kSep);
     return result;
+  }
+
+  /// \brief List the paths at the root of a filesystem or some dir in a filesystem.
+  ///
+  /// \pre adlfs_client is the client for the filesystem named like the first
+  /// segment of select.base_dir.
+  Status GetFileInfoWithSelectorFromFileSystem(
+      const DataLake::DataLakeFileSystemClient& adlfs_client,
+      const Core::Context& context, Azure::Nullable<int32_t> page_size_hint,
+      const FileSelector& select, FileInfoVector* acc_results) {
+    ARROW_ASSIGN_OR_RAISE(auto base_location, AzureLocation::FromString(select.base_dir));
+
+    auto directory_client = adlfs_client.GetDirectoryClient(base_location.path);
+    bool found = false;
+    DataLake::ListPathsOptions options;
+    options.PageSizeHint = page_size_hint;
+
+    try {
+      auto list_response = directory_client.ListPaths(select.recursive, options, context);
+      for (; list_response.HasPage(); list_response.MoveToNextPage(context)) {
+        if (list_response.Paths.empty()) {
+          continue;
+        }
+        found = true;
+        for (const auto& path : list_response.Paths) {
+          if (path.Name == base_location.path && !path.IsDirectory) {
+            return NotADir(base_location);
+          }
+          acc_results->push_back(FileInfoFromPath(base_location.container, path));
+        }
+      }
+    } catch (const Storage::StorageException& exception) {
+      if (IsContainerNotFound(exception) || exception.ErrorCode == "PathNotFound") {
+        found = false;
+      } else {
+        return ExceptionToStatus(exception,
+                                 "Failed to list paths in a directory: ", select.base_dir,
+                                 ": ", directory_client.GetUrl());
+      }
+    }
+
+    return found || select.allow_not_found
+               ? Status::OK()
+               : ::arrow::fs::internal::PathNotFound(select.base_dir);
   }
 
   /// \brief List the blobs at the root of a container or some dir in a container.
@@ -1755,6 +1880,20 @@ class AzureFileSystem::Impl {
       return VisitContainers(context, std::move(on_container));
     }
 
+    auto adlfs_client = GetFileSystemClient(base_location.container);
+    ARROW_ASSIGN_OR_RAISE(auto hns_support, HierarchicalNamespaceSupport(adlfs_client));
+    if (hns_support == HNSSupport::kContainerNotFound) {
+      if (select.allow_not_found) {
+        return Status::OK();
+      } else {
+        return ::arrow::fs::internal::PathNotFound(select.base_dir);
+      }
+    }
+    if (hns_support == HNSSupport::kEnabled) {
+      return GetFileInfoWithSelectorFromFileSystem(adlfs_client, context, page_size_hint,
+                                                   select, acc_results);
+    }
+    DCHECK_EQ(hns_support, HNSSupport::kDisabled);
     auto container_client =
         blob_service_client_->GetBlobContainerClient(base_location.container);
     return GetFileInfoWithSelectorFromContainer(container_client, context, page_size_hint,
@@ -1803,8 +1942,67 @@ class AzureFileSystem::Impl {
                            const AzureLocation& location, bool recursive) {
     DCHECK(!location.container.empty());
     DCHECK(!location.path.empty());
-    // Non-recursive CreateDir calls require the parent directory to exist.
-    if (!recursive) {
+    if (recursive) {
+      // Recursive CreateDir calls require that all path segments be
+      // either a directory or not found.
+
+      // Check each path segment is a directory or not
+      // found. Nonexistent segments are collected to
+      // nonexistent_locations. We'll create directories for
+      // nonexistent segments later.
+      std::vector<AzureLocation> nonexistent_locations;
+      for (auto prefix = location; !prefix.path.empty(); prefix = prefix.parent()) {
+        ARROW_ASSIGN_OR_RAISE(auto info, GetFileInfo(container_client, prefix));
+        if (info.type() == FileType::File) {
+          return NotADir(prefix);
+        }
+        if (info.type() == FileType::NotFound) {
+          nonexistent_locations.push_back(prefix);
+        }
+      }
+      // Ensure container exists
+      ARROW_ASSIGN_OR_RAISE(auto container,
+                            AzureLocation::FromString(location.container));
+      ARROW_ASSIGN_OR_RAISE(auto container_info,
+                            GetContainerPropsAsFileInfo(container, container_client));
+      if (container_info.type() == FileType::NotFound) {
+        try {
+          container_client.CreateIfNotExists();
+        } catch (const Storage::StorageException& exception) {
+          return ExceptionToStatus(exception, "Failed to create directory '",
+                                   location.all, "': ", container_client.GetUrl());
+        }
+      }
+      // Create nonexistent directories from shorter to longer:
+      //
+      // Example:
+      //
+      // * location: /container/a/b/c/d/
+      // * Nonexistent path segments:
+      //   * /container/a/
+      //   * /container/a/c/
+      //   * /container/a/c/d/
+      // * target_locations:
+      //   1. /container/a/c/d/
+      //   2. /container/a/c/
+      //   3. /container/a/
+      //
+      // Create order:
+      //   1. /container/a/
+      //   2. /container/a/c/
+      //   3. /container/a/c/d/
+      for (size_t i = nonexistent_locations.size(); i > 0; --i) {
+        const auto& nonexistent_location = nonexistent_locations[i - 1];
+        try {
+          create_if_not_exists(container_client, nonexistent_location);
+        } catch (const Storage::StorageException& exception) {
+          return ExceptionToStatus(exception, "Failed to create directory '",
+                                   location.all, "': ", container_client.GetUrl());
+        }
+      }
+      return Status::OK();
+    } else {
+      // Non-recursive CreateDir calls require the parent directory to exist.
       auto parent = location.parent();
       if (!parent.path.empty()) {
         RETURN_NOT_OK(CheckDirExists(container_client, parent));
@@ -1812,28 +2010,17 @@ class AzureFileSystem::Impl {
       // If the parent location is just the container, we don't need to check if it
       // exists because the operation we perform below will fail if the container
       // doesn't exist and we can handle that error according to the recursive flag.
-    }
-    try {
-      create_if_not_exists(container_client, location);
-      return Status::OK();
-    } catch (const Storage::StorageException& exception) {
-      if (IsContainerNotFound(exception)) {
-        try {
-          if (recursive) {
-            container_client.CreateIfNotExists();
-            create_if_not_exists(container_client, location);
-            return Status::OK();
-          } else {
-            auto parent = location.parent();
-            return PathNotFound(parent);
-          }
-        } catch (const Storage::StorageException& second_exception) {
-          return ExceptionToStatus(second_exception, "Failed to create directory '",
-                                   location.all, "': ", container_client.GetUrl());
+      try {
+        create_if_not_exists(container_client, location);
+        return Status::OK();
+      } catch (const Storage::StorageException& exception) {
+        if (IsContainerNotFound(exception)) {
+          auto parent = location.parent();
+          return PathNotFound(parent);
         }
+        return ExceptionToStatus(exception, "Failed to create directory '", location.all,
+                                 "': ", container_client.GetUrl());
       }
-      return ExceptionToStatus(exception, "Failed to create directory '", location.all,
-                               "': ", container_client.GetUrl());
     }
   }
 
@@ -2001,8 +2188,15 @@ class AzureFileSystem::Impl {
     bool found_dir_marker_blob = false;
     try {
       auto list_response = container_client.ListBlobs(options);
-      if (require_dir_to_exist && list_response.Blobs.empty()) {
-        return PathNotFound(location);
+      if (list_response.Blobs.empty()) {
+        if (require_dir_to_exist) {
+          return PathNotFound(location);
+        } else {
+          ARROW_ASSIGN_OR_RAISE(auto info, GetFileInfo(container_client, location));
+          if (info.type() == FileType::File) {
+            return NotADir(location);
+          }
+        }
       }
       for (; list_response.HasPage(); list_response.MoveToNextPage()) {
         if (list_response.Blobs.empty()) {
@@ -2085,6 +2279,17 @@ class AzureFileSystem::Impl {
                                Azure::Nullable<std::string> lease_id = {}) {
     DCHECK(!location.container.empty());
     DCHECK(!location.path.empty());
+    ARROW_ASSIGN_OR_RAISE(auto file_info, GetFileInfo(adlfs_client, location, lease_id));
+    if (file_info.type() == FileType::NotFound) {
+      if (require_dir_to_exist) {
+        return PathNotFound(location);
+      } else {
+        return Status::OK();
+      }
+    }
+    if (file_info.type() != FileType::Directory) {
+      return NotADir(location);
+    }
     auto directory_client = adlfs_client.GetDirectoryClient(
         std::string(internal::RemoveTrailingSlash(location.path)));
     DataLake::DeleteDirectoryOptions options;
@@ -2128,6 +2333,9 @@ class AzureFileSystem::Impl {
                   kDelimiter, path.Name, ": ", sub_directory_client.GetUrl());
             }
           } else {
+            if (path.Name == location.path) {
+              return NotADir(location);
+            }
             auto sub_file_client = adlfs_client.GetFileClient(path.Name);
             try {
               sub_file_client.Delete();
@@ -2715,8 +2923,30 @@ class AzureFileSystem::Impl {
     if (src == dest) {
       return Status::OK();
     }
+    std::string sas_token;
+    {
+      Storage::Sas::BlobSasBuilder builder;
+      std::chrono::seconds available_period(60);
+      builder.ExpiresOn = std::chrono::system_clock::now() + available_period;
+      builder.BlobContainerName = src.container;
+      builder.BlobName = src.path;
+      builder.Resource = Storage::Sas::BlobSasResource::Blob;
+      builder.SetPermissions(Storage::Sas::BlobSasPermissions::Read);
+      ARROW_ASSIGN_OR_RAISE(
+          sas_token, options_.GenerateSASToken(&builder, blob_service_client_.get()));
+    }
+    auto src_url = GetBlobClient(src.container, src.path).GetUrl() + sas_token;
     auto dest_blob_client = GetBlobClient(dest.container, dest.path);
-    auto src_url = GetBlobClient(src.container, src.path).GetUrl();
+    if (!dest.path.empty()) {
+      auto dest_parent = dest.parent();
+      if (!dest_parent.path.empty()) {
+        auto dest_container_client = GetBlobContainerClient(dest_parent.container);
+        ARROW_ASSIGN_OR_RAISE(auto info, GetFileInfo(dest_container_client, dest_parent));
+        if (info.type() == FileType::File) {
+          return NotADir(dest_parent);
+        }
+      }
+    }
     try {
       dest_blob_client.CopyFromUri(src_url);
     } catch (const Storage::StorageException& exception) {

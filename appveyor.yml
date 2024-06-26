@@ -44,6 +44,7 @@ environment:
     ARROW_BUILD_FLIGHT_SQL: "ON"
     ARROW_BUILD_GANDIVA: "ON"
     ARROW_GCS: "ON"
+    ARROW_ORC: "ON"
     ARROW_S3: "ON"
     GENERATOR: Ninja
     PYTHON: "3.10"

@@ -21,9 +21,12 @@
 
 #include <arrow-glib/arrow-glib.h>
 
+#include <gandiva-glib/version.h>
+
 G_BEGIN_DECLS
 
 #define GGANDIVA_TYPE_FUNCTION_SIGNATURE (ggandiva_function_signature_get_type())
+GGANDIVA_AVAILABLE_IN_14_0
 G_DECLARE_DERIVABLE_TYPE(GGandivaFunctionSignature,
                          ggandiva_function_signature,
                          GGANDIVA,
@@ -35,20 +38,31 @@ struct _GGandivaFunctionSignatureClass
   GObjectClass parent_class;
 };
 
+GGANDIVA_AVAILABLE_IN_14_0
 GGandivaFunctionSignature *
 ggandiva_function_signature_new(const gchar *base_name,
                                 GList *parameter_types,
                                 GArrowDataType *return_type);
+
+GGANDIVA_AVAILABLE_IN_14_0
 gboolean
 ggandiva_function_signature_equal(GGandivaFunctionSignature *function_signature,
                                   GGandivaFunctionSignature *other_function_signature);
+
+GGANDIVA_AVAILABLE_IN_14_0
 gchar *
 ggandiva_function_signature_to_string(GGandivaFunctionSignature *function_signature);
+
+GGANDIVA_AVAILABLE_IN_14_0
 GArrowDataType *
 ggandiva_function_signature_get_return_type(
   GGandivaFunctionSignature *function_signature);
+
+GGANDIVA_AVAILABLE_IN_14_0
 gchar *
 ggandiva_function_signature_get_base_name(GGandivaFunctionSignature *function_signature);
+
+GGANDIVA_AVAILABLE_IN_14_0
 GList *
 ggandiva_function_signature_get_param_types(
   GGandivaFunctionSignature *function_signature);

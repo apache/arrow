@@ -323,6 +323,7 @@ def test_byte_stream_split():
     # This is only a smoke test.
     arr_float = pa.array(list(map(float, range(100))))
     arr_int = pa.array(list(map(int, range(100))))
+    arr_bool = pa.array([True, False] * 50)
     data_float = [arr_float, arr_float]
     table = pa.Table.from_arrays(data_float, names=['a', 'b'])
 
@@ -342,16 +343,16 @@ def test_byte_stream_split():
                      use_byte_stream_split=['a', 'b'])
 
     # Check with mixed column types.
-    mixed_table = pa.Table.from_arrays([arr_float, arr_int],
-                                       names=['a', 'b'])
+    mixed_table = pa.Table.from_arrays([arr_float, arr_float, arr_int, arr_int],
+                                       names=['a', 'b', 'c', 'd'])
     _check_roundtrip(mixed_table, expected=mixed_table,
-                     use_dictionary=['b'],
-                     use_byte_stream_split=['a'])
+                     use_dictionary=['b', 'd'],
+                     use_byte_stream_split=['a', 'c'])
 
     # Try to use the wrong data type with the byte_stream_split encoding.
     # This should throw an exception.
-    table = pa.Table.from_arrays([arr_int], names=['tmp'])
-    with pytest.raises(IOError):
+    table = pa.Table.from_arrays([arr_bool], names=['tmp'])
+    with pytest.raises(IOError, match='BYTE_STREAM_SPLIT only supports'):
         _check_roundtrip(table, expected=table, use_byte_stream_split=True,
                          use_dictionary=False)
 
@@ -367,12 +368,13 @@ def test_column_encoding():
         [arr_float, arr_int, arr_bin, arr_flba, arr_bool],
         names=['a', 'b', 'c', 'd', 'e'])
 
-    # Check "BYTE_STREAM_SPLIT" for column 'a' and "PLAIN" column_encoding for
-    # column 'b' and 'c'.
+    # Check "BYTE_STREAM_SPLIT" for columns 'a', 'b', 'd'
+    # and "PLAIN" column_encoding for column 'c'.
     _check_roundtrip(mixed_table, expected=mixed_table, use_dictionary=False,
                      column_encoding={'a': "BYTE_STREAM_SPLIT",
-                                      'b': "PLAIN",
-                                      'c': "PLAIN"})
+                                      'b': "BYTE_STREAM_SPLIT",
+                                      'c': "PLAIN",
+                                      'd': "BYTE_STREAM_SPLIT"})
 
     # Check "PLAIN" for all columns.
     _check_roundtrip(mixed_table, expected=mixed_table,
@@ -406,20 +408,20 @@ def test_column_encoding():
                      use_dictionary=False,
                      column_encoding={'e': "RLE"})
 
-    # Try to pass "BYTE_STREAM_SPLIT" column encoding for integer column 'b'.
-    # This should throw an error as it is only supports FLOAT and DOUBLE.
+    # Try to pass "BYTE_STREAM_SPLIT" column encoding for boolean column 'e'.
+    # This should throw an error as it is does not support BOOLEAN.
     with pytest.raises(IOError,
-                       match="BYTE_STREAM_SPLIT only supports FLOAT and"
-                             " DOUBLE"):
+                       match="BYTE_STREAM_SPLIT only supports"):
         _check_roundtrip(mixed_table, expected=mixed_table,
                          use_dictionary=False,
                          column_encoding={'a': "PLAIN",
-                                          'b': "BYTE_STREAM_SPLIT",
-                                          'c': "PLAIN"})
+                                          'c': "PLAIN",
+                                          'e': "BYTE_STREAM_SPLIT"})
 
     # Try to pass use "DELTA_BINARY_PACKED" encoding on float column.
     # This should throw an error as only integers are supported.
-    with pytest.raises(OSError):
+    with pytest.raises(OSError,
+                       match="DELTA_BINARY_PACKED encoder only supports"):
         _check_roundtrip(mixed_table, expected=mixed_table,
                          use_dictionary=False,
                          column_encoding={'a': "DELTA_BINARY_PACKED",
@@ -429,13 +431,15 @@ def test_column_encoding():
     # Try to pass "RLE_DICTIONARY".
     # This should throw an error as dictionary encoding is already used by
     # default and not supported to be specified as "fallback" encoding
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError,
+                       match="'RLE_DICTIONARY' is already used by default"):
         _check_roundtrip(mixed_table, expected=mixed_table,
                          use_dictionary=False,
                          column_encoding="RLE_DICTIONARY")
 
     # Try to pass unsupported encoding.
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError,
+                       match="Unsupported column encoding: 'MADE_UP_ENCODING'"):
         _check_roundtrip(mixed_table, expected=mixed_table,
                          use_dictionary=False,
                          column_encoding={'a': "MADE_UP_ENCODING"})

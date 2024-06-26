@@ -1519,6 +1519,24 @@ cdef class BaseExtensionType(DataType):
         """
         return pyarrow_wrap_data_type(self.ext_type.storage_type())
 
+    @property
+    def byte_width(self):
+        """
+        The byte width of the extension type.
+        """
+        if self.ext_type.byte_width() == -1:
+            raise ValueError("Non-fixed width type")
+        return self.ext_type.byte_width()
+
+    @property
+    def bit_width(self):
+        """
+        The bit width of the extension type.
+        """
+        if self.ext_type.bit_width() == -1:
+            raise ValueError("Non-fixed width type")
+        return self.ext_type.bit_width()
+
     def wrap_array(self, storage):
         """
         Wrap the given storage array as an extension array.
@@ -3462,7 +3480,7 @@ cdef DataType primitive_type(Type type):
 # Type factory functions
 
 
-def field(name, type, bint nullable=True, metadata=None):
+def field(name, type=None, nullable=None, metadata=None):
     """
     Create a pyarrow.Field instance.
 
@@ -3470,6 +3488,8 @@ def field(name, type, bint nullable=True, metadata=None):
     ----------
     name : str or bytes
         Name of the field.
+        Alternatively, you can also pass an object that implements the Arrow
+        PyCapsule Protocol for schemas (has an ``__arrow_c_schema__`` method).
     type : pyarrow.DataType
         Arrow datatype of the field.
     nullable : bool, default True
@@ -3504,10 +3524,24 @@ def field(name, type, bint nullable=True, metadata=None):
     >>> pa.struct([field])
     StructType(struct<key: int32>)
     """
+    if hasattr(name, "__arrow_c_schema__"):
+        if type is not None:
+            raise ValueError(
+                "cannot specify 'type' when creating a Field from an ArrowSchema"
+            )
+        field = Field._import_from_c_capsule(name.__arrow_c_schema__())
+        if metadata is not None:
+            field = field.with_metadata(metadata)
+        if nullable is not None:
+            field = field.with_nullable(nullable)
+        return field
+
     cdef:
         Field result = Field.__new__(Field)
         DataType _type = ensure_type(type, allow_none=False)
         shared_ptr[const CKeyValueMetadata] c_meta
+
+    nullable = True if nullable is None else nullable
 
     metadata = ensure_metadata(metadata, allow_none=True)
     c_meta = pyarrow_unwrap_metadata(metadata)
@@ -4155,7 +4189,7 @@ def float16():
       32256
     ]
     >>> a.to_pylist()
-    [1.5, nan]
+    [np.float16(1.5), np.float16(nan)]
     """
     return primitive_type(_Type_HALF_FLOAT)
 
@@ -5316,7 +5350,10 @@ def schema(fields, metadata=None):
     if isinstance(fields, Mapping):
         fields = fields.items()
     elif hasattr(fields, "__arrow_c_schema__"):
-        return Schema._import_from_c_capsule(fields.__arrow_c_schema__())
+        result = Schema._import_from_c_capsule(fields.__arrow_c_schema__())
+        if metadata is not None:
+            result = result.with_metadata(metadata)
+        return result
 
     for item in fields:
         if isinstance(item, tuple):
@@ -5505,3 +5542,24 @@ cdef object alloc_c_stream(ArrowArrayStream** c_stream):
     # Ensure the capsule destructor doesn't call a random release pointer
     c_stream[0].release = NULL
     return PyCapsule_New(c_stream[0], 'arrow_array_stream', &pycapsule_stream_deleter)
+
+
+cdef void pycapsule_device_array_deleter(object array_capsule) noexcept:
+    cdef:
+        ArrowDeviceArray* device_array
+    # Do not invoke the deleter on a used/moved capsule
+    device_array = <ArrowDeviceArray*>cpython.PyCapsule_GetPointer(
+        array_capsule, 'arrow_device_array'
+    )
+    if device_array.array.release != NULL:
+        device_array.array.release(&device_array.array)
+
+    free(device_array)
+
+
+cdef object alloc_c_device_array(ArrowDeviceArray** c_array):
+    c_array[0] = <ArrowDeviceArray*> malloc(sizeof(ArrowDeviceArray))
+    # Ensure the capsule destructor doesn't call a random release pointer
+    c_array[0].array.release = NULL
+    return PyCapsule_New(
+        c_array[0], 'arrow_device_array', &pycapsule_device_array_deleter)

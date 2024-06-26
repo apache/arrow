@@ -22,6 +22,9 @@
 #include "MatlabDataArray.hpp"
 
 namespace arrow::matlab::bit {
-    ::matlab::data::TypedArray<bool> unpack(const std::shared_ptr<arrow::Buffer>& packed_buffer, int64_t length, int64_t start_offset);
-    const uint8_t* extract_ptr(const ::matlab::data::TypedArray<bool>& unpacked_validity_bitmap);
-}
+::matlab::data::TypedArray<bool> unpack(
+    const std::shared_ptr<arrow::Buffer>& packed_buffer, int64_t length,
+    int64_t start_offset);
+const uint8_t* extract_ptr(
+    const ::matlab::data::TypedArray<bool>& unpacked_validity_bitmap);
+}  // namespace arrow::matlab::bit

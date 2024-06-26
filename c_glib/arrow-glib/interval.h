@@ -26,6 +26,7 @@
 G_BEGIN_DECLS
 
 #define GARROW_TYPE_DAY_MILLISECOND (garrow_day_millisecond_get_type())
+GARROW_AVAILABLE_IN_8_0
 G_DECLARE_DERIVABLE_TYPE(
   GArrowDayMillisecond, garrow_day_millisecond, GARROW, DAY_MILLISECOND, GObject)
 
@@ -47,6 +48,7 @@ garrow_day_millisecond_less_than(GArrowDayMillisecond *day_millisecond,
                                  GArrowDayMillisecond *other_day_millisecond);
 
 #define GARROW_TYPE_MONTH_DAY_NANO (garrow_month_day_nano_get_type())
+GARROW_AVAILABLE_IN_8_0
 G_DECLARE_DERIVABLE_TYPE(
   GArrowMonthDayNano, garrow_month_day_nano, GARROW, MONTH_DAY_NANO, GObject)
 

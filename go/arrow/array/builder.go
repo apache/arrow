@@ -20,10 +20,10 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/bitutil"
-	"github.com/apache/arrow/go/v16/arrow/memory"
-	"github.com/apache/arrow/go/v16/internal/json"
+	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/arrow/go/v17/arrow/bitutil"
+	"github.com/apache/arrow/go/v17/arrow/memory"
+	"github.com/apache/arrow/go/v17/internal/json"
 )
 
 const (
@@ -357,7 +357,7 @@ func NewBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 		return bldr
 	case arrow.FIXED_SIZE_LIST:
 		typ := dtype.(*arrow.FixedSizeListType)
-		return NewFixedSizeListBuilder(mem, typ.Len(), typ.Elem())
+		return NewFixedSizeListBuilderWithField(mem, typ.Len(), typ.ElemField())
 	case arrow.DURATION:
 		typ := dtype.(*arrow.DurationType)
 		return NewDurationBuilder(mem, typ)

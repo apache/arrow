@@ -95,6 +95,7 @@
 #include "arrow/result.h"
 #include "arrow/util/atfork_internal.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/config.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/mutex.h"
@@ -1083,7 +1084,7 @@ Result<FileDescriptor> FileOpenReadable(const PlatformFilename& file_name) {
   }
 #endif
 
-  return std::move(fd);
+  return fd;
 }
 
 Result<FileDescriptor> FileOpenWritable(const PlatformFilename& file_name,
@@ -1147,7 +1148,7 @@ Result<FileDescriptor> FileOpenWritable(const PlatformFilename& file_name,
     // Seek to end, as O_APPEND does not necessarily do it
     RETURN_NOT_OK(lseek64_compat(fd.fd(), 0, SEEK_END));
   }
-  return std::move(fd);
+  return fd;
 }
 
 Result<int64_t> FileTell(int fd) {
@@ -1485,6 +1486,7 @@ Status MemoryMapRemap(void* addr, size_t old_size, size_t new_size, int fildes,
 }
 
 Status MemoryAdviseWillNeed(const std::vector<MemoryRegion>& regions) {
+#ifndef __EMSCRIPTEN__
   const auto page_size = static_cast<size_t>(GetPageSize());
   DCHECK_GT(page_size, 0);
   const size_t page_mask = ~(page_size - 1);
@@ -1540,6 +1542,9 @@ Status MemoryAdviseWillNeed(const std::vector<MemoryRegion>& regions) {
     }
   }
   return Status::OK();
+#else
+  return Status::OK();
+#endif
 #else
   return Status::OK();
 #endif
@@ -1962,7 +1967,7 @@ Result<std::unique_ptr<TemporaryDir>> TemporaryDir::Make(const std::string& pref
   for (const auto& base_dir : base_dirs) {
     ARROW_ASSIGN_OR_RAISE(auto ptr, TryCreatingDirectory(base_dir));
     if (ptr) {
-      return std::move(ptr);
+      return ptr;
     }
     // Cannot create in this directory, try the next one
   }
@@ -2067,7 +2072,9 @@ Status SendSignal(int signum) {
 }
 
 Status SendSignalToThread(int signum, uint64_t thread_id) {
-#ifdef _WIN32
+#ifndef ARROW_ENABLE_THREADING
+  return Status::NotImplemented("Can't send signal with no threads");
+#elif defined(_WIN32)
   return Status::NotImplemented("Cannot send signal to specific thread on Windows");
 #else
   // Have to use a C-style cast because pthread_t can be a pointer *or* integer type

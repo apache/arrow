@@ -25,7 +25,7 @@
 #include "arrow/acero/util.h"
 #include "arrow/array/util.h"  // MakeArrayFromScalar
 #include "arrow/compute/kernels/row_encoder_internal.h"
-#include "arrow/compute/key_hash.h"
+#include "arrow/compute/key_hash_internal.h"
 #include "arrow/compute/row/compare_internal.h"
 #include "arrow/compute/row/encode_internal.h"
 #include "arrow/util/bit_util.h"
@@ -2167,6 +2167,11 @@ Status JoinResidualFilter::FilterOneBatch(const ExecBatch& keypayload_batch,
   ARROW_DCHECK(!output_payload_ids || payload_ids_maybe_null);
 
   *num_passing_rows = 0;
+
+  if (num_batch_rows == 0) {
+    return Status::OK();
+  }
+
   ARROW_ASSIGN_OR_RAISE(Datum mask,
                         EvalFilter(keypayload_batch, num_batch_rows, batch_row_ids,
                                    key_ids_maybe_null, payload_ids_maybe_null));
@@ -2465,6 +2470,8 @@ Status JoinProbeProcessor::OnFinished() {
 
 class SwissJoin : public HashJoinImpl {
  public:
+  static constexpr auto kTempStackUsage = 64 * arrow::util::MiniBatch::kMiniBatchLength;
+
   Status Init(QueryContext* ctx, JoinType join_type, size_t num_threads,
               const HashJoinProjectionMaps* proj_map_left,
               const HashJoinProjectionMaps* proj_map_right,
@@ -2508,6 +2515,7 @@ class SwissJoin : public HashJoinImpl {
 
     local_states_.resize(num_threads_);
     for (int i = 0; i < num_threads_; ++i) {
+      RETURN_NOT_OK(local_states_[i].stack.Init(pool_, kTempStackUsage));
       local_states_[i].hash_table_ready = false;
       local_states_[i].num_output_batches = 0;
       local_states_[i].materialize.Init(pool_, proj_map_left, proj_map_right);
@@ -2561,8 +2569,7 @@ class SwissJoin : public HashJoinImpl {
 
     ExecBatch keypayload_batch;
     ARROW_ASSIGN_OR_RAISE(keypayload_batch, KeyPayloadFromInput(/*side=*/0, &batch));
-    ARROW_ASSIGN_OR_RAISE(arrow::util::TempVectorStack * temp_stack,
-                          ctx_->GetTempStack(thread_index));
+    arrow::util::TempVectorStack* temp_stack = &local_states_[thread_index].stack;
 
     return CancelIfNotOK(
         probe_processor_.OnNextBatch(thread_index, keypayload_batch, temp_stack,
@@ -2674,8 +2681,7 @@ class SwissJoin : public HashJoinImpl {
             input_batch.values[schema->num_cols(HashJoinProjection::KEY) + icol];
       }
     }
-    ARROW_ASSIGN_OR_RAISE(arrow::util::TempVectorStack * temp_stack,
-                          ctx_->GetTempStack(thread_id));
+    arrow::util::TempVectorStack* temp_stack = &local_states_[thread_id].stack;
     RETURN_NOT_OK(CancelIfNotOK(hash_table_build_.PushNextBatch(
         static_cast<int64_t>(thread_id), key_batch, no_payload ? nullptr : &payload_batch,
         temp_stack)));
@@ -2710,8 +2716,7 @@ class SwissJoin : public HashJoinImpl {
 
   Status MergeFinished(size_t thread_id) {
     RETURN_NOT_OK(status());
-    ARROW_ASSIGN_OR_RAISE(arrow::util::TempVectorStack * temp_stack,
-                          ctx_->GetTempStack(thread_id));
+    arrow::util::TempVectorStack* temp_stack = &local_states_[thread_id].stack;
     hash_table_build_.FinishPrtnMerge(temp_stack);
     return CancelIfNotOK(OnBuildHashTableFinished(static_cast<int64_t>(thread_id)));
   }
@@ -2766,8 +2771,7 @@ class SwissJoin : public HashJoinImpl {
         std::min((task_id + 1) * kNumRowsPerScanTask, hash_table_.num_rows());
     // Get thread index and related temp vector stack
     //
-    ARROW_ASSIGN_OR_RAISE(arrow::util::TempVectorStack * temp_stack,
-                          ctx_->GetTempStack(thread_id));
+    arrow::util::TempVectorStack* temp_stack = &local_states_[thread_id].stack;
 
     // Split into mini-batches
     //
@@ -2944,6 +2948,7 @@ class SwissJoin : public HashJoinImpl {
   FinishedCallback finished_callback_;
 
   struct ThreadLocalState {
+    arrow::util::TempVectorStack stack;
     JoinResultMaterialize materialize;
     std::vector<KeyColumnArray> temp_column_arrays;
     int64_t num_output_batches;
@@ -2980,7 +2985,7 @@ class SwissJoin : public HashJoinImpl {
 
 Result<std::unique_ptr<HashJoinImpl>> HashJoinImpl::MakeSwiss() {
   std::unique_ptr<HashJoinImpl> impl{new SwissJoin()};
-  return std::move(impl);
+  return impl;
 }
 
 }  // namespace acero

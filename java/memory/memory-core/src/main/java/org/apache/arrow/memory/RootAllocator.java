@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.memory;
 
 import org.apache.arrow.memory.rounding.DefaultRoundingPolicy;
@@ -22,9 +21,8 @@ import org.apache.arrow.memory.rounding.RoundingPolicy;
 import org.apache.arrow.util.VisibleForTesting;
 
 /**
- * A root allocator for using direct memory for Arrow Vectors/Arrays. Supports creating a
- * tree of descendant child allocators to facilitate better instrumentation of memory
- * allocations.
+ * A root allocator for using direct memory for Arrow Vectors/Arrays. Supports creating a tree of
+ * descendant child allocators to facilitate better instrumentation of memory allocations.
  */
 public class RootAllocator extends BaseAllocator {
 
@@ -37,33 +35,32 @@ public class RootAllocator extends BaseAllocator {
   }
 
   public RootAllocator(final AllocationListener listener, final long limit) {
-    //todo fix DefaultRoundingPolicy when using Netty
+    // todo fix DefaultRoundingPolicy when using Netty
     this(listener, limit, DefaultRoundingPolicy.DEFAULT_ROUNDING_POLICY);
   }
 
   /**
    * Constructor.
    *
-   * @param listener        the allocation listener
-   * @param limit           max allocation size in bytes
-   * @param roundingPolicy  the policy for rounding the buffer size
+   * @param listener the allocation listener
+   * @param limit max allocation size in bytes
+   * @param roundingPolicy the policy for rounding the buffer size
    */
-  public RootAllocator(final AllocationListener listener, final long limit, RoundingPolicy roundingPolicy) {
-    this(configBuilder()
-        .listener(listener)
-        .maxAllocation(limit)
-        .roundingPolicy(roundingPolicy)
-        .build()
-    );
+  public RootAllocator(
+      final AllocationListener listener, final long limit, RoundingPolicy roundingPolicy) {
+    this(
+        configBuilder()
+            .listener(listener)
+            .maxAllocation(limit)
+            .roundingPolicy(roundingPolicy)
+            .build());
   }
 
   public RootAllocator(Config config) {
     super(null, "ROOT", config);
   }
 
-  /**
-   * Verify the accounting state of the allocation system.
-   */
+  /** Verify the accounting state of the allocation system. */
   @VisibleForTesting
   public void verify() {
     verifyAllocator();

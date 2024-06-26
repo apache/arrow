@@ -472,7 +472,7 @@ class BaseMemoryPoolImpl : public MemoryPool {
     }
 #endif
 
-    stats_.UpdateAllocatedBytes(size);
+    stats_.DidAllocateBytes(size);
     return Status::OK();
   }
 
@@ -494,7 +494,7 @@ class BaseMemoryPoolImpl : public MemoryPool {
     }
 #endif
 
-    stats_.UpdateAllocatedBytes(new_size - old_size);
+    stats_.DidReallocateBytes(old_size, new_size);
     return Status::OK();
   }
 
@@ -509,7 +509,7 @@ class BaseMemoryPoolImpl : public MemoryPool {
 #endif
     Allocator::DeallocateAligned(buffer, size, alignment);
 
-    stats_.UpdateAllocatedBytes(-size, /*is_free*/ true);
+    stats_.DidFreeBytes(size);
   }
 
   void ReleaseUnused() override { Allocator::ReleaseUnused(); }
@@ -761,20 +761,20 @@ class ProxyMemoryPool::ProxyMemoryPoolImpl {
 
   Status Allocate(int64_t size, int64_t alignment, uint8_t** out) {
     RETURN_NOT_OK(pool_->Allocate(size, alignment, out));
-    stats_.UpdateAllocatedBytes(size);
+    stats_.DidAllocateBytes(size);
     return Status::OK();
   }
 
   Status Reallocate(int64_t old_size, int64_t new_size, int64_t alignment,
                     uint8_t** ptr) {
     RETURN_NOT_OK(pool_->Reallocate(old_size, new_size, alignment, ptr));
-    stats_.UpdateAllocatedBytes(new_size - old_size);
+    stats_.DidReallocateBytes(old_size, new_size);
     return Status::OK();
   }
 
   void Free(uint8_t* buffer, int64_t size, int64_t alignment) {
     pool_->Free(buffer, size, alignment);
-    stats_.UpdateAllocatedBytes(-size, /*is_free=*/true);
+    stats_.DidFreeBytes(size);
   }
 
   int64_t bytes_allocated() const { return stats_.bytes_allocated(); }

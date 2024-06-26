@@ -21,7 +21,7 @@ ARG python=3.8
 FROM ${repo}:${arch}-conda-python-${python}
 
 ARG jdk=8
-ARG maven=3.5
+ARG maven=3.8.7
 RUN mamba install -q -y \
         maven=${maven} \
         openjdk=${jdk} \

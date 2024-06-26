@@ -65,7 +65,7 @@ export function makeBuilder<T extends dtypes.DataType = any, TNull = any>(option
 export function vectorFromArray(values: readonly (null | undefined)[], type?: dtypes.Null): Vector<dtypes.Null>;
 export function vectorFromArray(values: readonly (null | undefined | boolean)[], type?: dtypes.Bool): Vector<dtypes.Bool>;
 export function vectorFromArray<T extends dtypes.Utf8 | dtypes.Dictionary<dtypes.Utf8> = dtypes.Dictionary<dtypes.Utf8, dtypes.Int32>>(values: readonly (null | undefined | string)[], type?: T): Vector<T>;
-export function vectorFromArray<T extends dtypes.Date_>(values: readonly (null | undefined | Date)[], type?: T): Vector<T>;
+export function vectorFromArray<T extends dtypes.TimestampMillisecond>(values: readonly (null | undefined | Date)[], type?: T): Vector<T>;
 export function vectorFromArray<T extends dtypes.Int>(values: readonly (null | undefined | number)[], type: T): Vector<T>;
 export function vectorFromArray<T extends dtypes.Int64 | dtypes.Uint64 = dtypes.Int64>(values: readonly (null | undefined | bigint)[], type?: T): Vector<T>;
 export function vectorFromArray<T extends dtypes.Float = dtypes.Float64>(values: readonly (null | undefined | number)[], type?: T): Vector<T>;
@@ -145,7 +145,7 @@ function inferType(value: readonly unknown[]): dtypes.DataType {
     } else if (booleansCount + nullsCount === value.length) {
         return new dtypes.Bool;
     } else if (datesCount + nullsCount === value.length) {
-        return new dtypes.DateMillisecond;
+        return new dtypes.TimestampMillisecond;
     } else if (arraysCount + nullsCount === value.length) {
         const array = value as Array<unknown>[];
         const childType = inferType(array[array.findIndex((ary) => ary != null)]);

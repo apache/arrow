@@ -148,7 +148,7 @@ prop_to_n <- function(.data, prop) {
 
 validate_prop <- function(prop) {
   if (!is.numeric(prop) || length(prop) != 1 || is.na(prop) || prop < 0 || prop > 1) {
-    stop("`prop` must be a single numeric value between 0 and 1", call. = FALSE)
+    validation_error("`prop` must be a single numeric value between 0 and 1")
   }
 }
 

@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -26,7 +25,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Optional;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
@@ -41,9 +39,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-/**
- * Test clients/servers with different metadata versions.
- */
+/** Test clients/servers with different metadata versions. */
 public class TestMetadataVersion {
   private static BufferAllocator allocator;
   private static Schema schema;
@@ -54,9 +50,12 @@ public class TestMetadataVersion {
   @BeforeAll
   public static void setUpClass() {
     allocator = new RootAllocator(Integer.MAX_VALUE);
-    schema = new Schema(Collections.singletonList(Field.nullable("foo", new ArrowType.Int(32, true))));
-    unionSchema = new Schema(
-        Collections.singletonList(Field.nullable("union", new ArrowType.Union(UnionMode.Dense, new int[]{0}))));
+    schema =
+        new Schema(Collections.singletonList(Field.nullable("foo", new ArrowType.Int(32, true))));
+    unionSchema =
+        new Schema(
+            Collections.singletonList(
+                Field.nullable("union", new ArrowType.Union(UnionMode.Dense, new int[] {0}))));
 
     // avoid writing legacy ipc format by default
     optionV4 = new IpcOption(false, MetadataVersion.V4);
@@ -71,7 +70,7 @@ public class TestMetadataVersion {
   @Test
   public void testGetFlightInfoV4() throws Exception {
     try (final FlightServer server = startServer(optionV4);
-         final FlightClient client = connect(server)) {
+        final FlightClient client = connect(server)) {
       final FlightInfo result = client.getInfo(FlightDescriptor.command(new byte[0]));
       assertEquals(Optional.of(schema), result.getSchemaOptional());
     }
@@ -80,7 +79,7 @@ public class TestMetadataVersion {
   @Test
   public void testGetSchemaV4() throws Exception {
     try (final FlightServer server = startServer(optionV4);
-         final FlightClient client = connect(server)) {
+        final FlightClient client = connect(server)) {
       final SchemaResult result = client.getSchema(FlightDescriptor.command(new byte[0]));
       assertEquals(schema, result.getSchema());
     }
@@ -89,32 +88,43 @@ public class TestMetadataVersion {
   @Test
   public void testUnionCheck() throws Exception {
     assertThrows(IllegalArgumentException.class, () -> new SchemaResult(unionSchema, optionV4));
-    assertThrows(IllegalArgumentException.class, () ->
-        new FlightInfo(unionSchema, FlightDescriptor.command(new byte[0]), Collections.emptyList(), -1, -1, optionV4));
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            new FlightInfo(
+                unionSchema,
+                FlightDescriptor.command(new byte[0]),
+                Collections.emptyList(),
+                -1,
+                -1,
+                optionV4));
     try (final FlightServer server = startServer(optionV4);
-         final FlightClient client = connect(server);
-         final FlightStream stream = client.getStream(new Ticket("union".getBytes(StandardCharsets.UTF_8)))) {
+        final FlightClient client = connect(server);
+        final FlightStream stream =
+            client.getStream(new Ticket("union".getBytes(StandardCharsets.UTF_8)))) {
       final FlightRuntimeException err = assertThrows(FlightRuntimeException.class, stream::next);
-      assertTrue(err.getMessage().contains("Cannot write union with V4 metadata"), err.getMessage());
+      assertTrue(
+          err.getMessage().contains("Cannot write union with V4 metadata"), err.getMessage());
     }
 
     try (final FlightServer server = startServer(optionV4);
-         final FlightClient client = connect(server);
-         final VectorSchemaRoot root = VectorSchemaRoot.create(unionSchema, allocator)) {
+        final FlightClient client = connect(server);
+        final VectorSchemaRoot root = VectorSchemaRoot.create(unionSchema, allocator)) {
       final FlightDescriptor descriptor = FlightDescriptor.command(new byte[0]);
       final SyncPutListener reader = new SyncPutListener();
       final FlightClient.ClientStreamListener listener = client.startPut(descriptor, reader);
-      final IllegalArgumentException err = assertThrows(IllegalArgumentException.class,
-          () -> listener.start(root, null, optionV4));
-      assertTrue(err.getMessage().contains("Cannot write union with V4 metadata"), err.getMessage());
+      final IllegalArgumentException err =
+          assertThrows(IllegalArgumentException.class, () -> listener.start(root, null, optionV4));
+      assertTrue(
+          err.getMessage().contains("Cannot write union with V4 metadata"), err.getMessage());
     }
   }
 
   @Test
   public void testPutV4() throws Exception {
     try (final FlightServer server = startServer(optionV4);
-         final FlightClient client = connect(server);
-         final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
+        final FlightClient client = connect(server);
+        final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
       generateData(root);
       final FlightDescriptor descriptor = FlightDescriptor.command(new byte[0]);
       final SyncPutListener reader = new SyncPutListener();
@@ -129,8 +139,8 @@ public class TestMetadataVersion {
   @Test
   public void testGetV4() throws Exception {
     try (final FlightServer server = startServer(optionV4);
-         final FlightClient client = connect(server);
-         final FlightStream stream = client.getStream(new Ticket(new byte[0]))) {
+        final FlightClient client = connect(server);
+        final FlightStream stream = client.getStream(new Ticket(new byte[0]))) {
       assertTrue(stream.next());
       assertEquals(optionV4.metadataVersion, stream.metadataVersion);
       validateRoot(stream.getRoot());
@@ -141,9 +151,10 @@ public class TestMetadataVersion {
   @Test
   public void testExchangeV4ToV5() throws Exception {
     try (final FlightServer server = startServer(optionV5);
-         final FlightClient client = connect(server);
-         final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator);
-         final FlightClient.ExchangeReaderWriter stream = client.doExchange(FlightDescriptor.command(new byte[0]))) {
+        final FlightClient client = connect(server);
+        final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator);
+        final FlightClient.ExchangeReaderWriter stream =
+            client.doExchange(FlightDescriptor.command(new byte[0]))) {
       stream.getWriter().start(root, null, optionV4);
       generateData(root);
       stream.getWriter().putNext();
@@ -158,9 +169,10 @@ public class TestMetadataVersion {
   @Test
   public void testExchangeV5ToV4() throws Exception {
     try (final FlightServer server = startServer(optionV4);
-         final FlightClient client = connect(server);
-         final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator);
-         final FlightClient.ExchangeReaderWriter stream = client.doExchange(FlightDescriptor.command(new byte[0]))) {
+        final FlightClient client = connect(server);
+        final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator);
+        final FlightClient.ExchangeReaderWriter stream =
+            client.doExchange(FlightDescriptor.command(new byte[0]))) {
       stream.getWriter().start(root, null, optionV5);
       generateData(root);
       stream.getWriter().putNext();
@@ -175,9 +187,10 @@ public class TestMetadataVersion {
   @Test
   public void testExchangeV4ToV4() throws Exception {
     try (final FlightServer server = startServer(optionV4);
-         final FlightClient client = connect(server);
-         final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator);
-         final FlightClient.ExchangeReaderWriter stream = client.doExchange(FlightDescriptor.command(new byte[0]))) {
+        final FlightClient client = connect(server);
+        final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator);
+        final FlightClient.ExchangeReaderWriter stream =
+            client.doExchange(FlightDescriptor.command(new byte[0]))) {
       stream.getWriter().start(root, null, optionV4);
       generateData(root);
       stream.getWriter().putNext();
@@ -245,10 +258,17 @@ public class TestMetadataVersion {
         try (final VectorSchemaRoot root = VectorSchemaRoot.create(unionSchema, allocator)) {
           listener.start(root, null, option);
         } catch (IllegalArgumentException e) {
-          listener.error(CallStatus.INTERNAL.withCause(e).withDescription(e.getMessage()).toRuntimeException());
+          listener.error(
+              CallStatus.INTERNAL
+                  .withCause(e)
+                  .withDescription(e.getMessage())
+                  .toRuntimeException());
           return;
         }
-        listener.error(CallStatus.INTERNAL.withDescription("Expected exception not raised").toRuntimeException());
+        listener.error(
+            CallStatus.INTERNAL
+                .withDescription("Expected exception not raised")
+                .toRuntimeException());
         return;
       }
       try (final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
@@ -260,7 +280,8 @@ public class TestMetadataVersion {
     }
 
     @Override
-    public Runnable acceptPut(CallContext context, FlightStream flightStream, StreamListener<PutResult> ackStream) {
+    public Runnable acceptPut(
+        CallContext context, FlightStream flightStream, StreamListener<PutResult> ackStream) {
       return () -> {
         try {
           assertTrue(flightStream.next());
@@ -269,17 +290,19 @@ public class TestMetadataVersion {
         } catch (AssertionError err) {
           // gRPC doesn't propagate stack traces across the wire.
           err.printStackTrace();
-          ackStream.onError(CallStatus.INVALID_ARGUMENT
-              .withCause(err)
-              .withDescription("Server assertion failed: " + err)
-              .toRuntimeException());
+          ackStream.onError(
+              CallStatus.INVALID_ARGUMENT
+                  .withCause(err)
+                  .withDescription("Server assertion failed: " + err)
+                  .toRuntimeException());
           return;
         } catch (RuntimeException err) {
           err.printStackTrace();
-          ackStream.onError(CallStatus.INTERNAL
-              .withCause(err)
-              .withDescription("Server assertion failed: " + err)
-              .toRuntimeException());
+          ackStream.onError(
+              CallStatus.INTERNAL
+                  .withCause(err)
+                  .withDescription("Server assertion failed: " + err)
+                  .toRuntimeException());
           return;
         }
         ackStream.onCompleted();
@@ -296,17 +319,19 @@ public class TestMetadataVersion {
         } catch (AssertionError err) {
           // gRPC doesn't propagate stack traces across the wire.
           err.printStackTrace();
-          writer.error(CallStatus.INVALID_ARGUMENT
-              .withCause(err)
-              .withDescription("Server assertion failed: " + err)
-              .toRuntimeException());
+          writer.error(
+              CallStatus.INVALID_ARGUMENT
+                  .withCause(err)
+                  .withDescription("Server assertion failed: " + err)
+                  .toRuntimeException());
           return;
         } catch (RuntimeException err) {
           err.printStackTrace();
-          writer.error(CallStatus.INTERNAL
-              .withCause(err)
-              .withDescription("Server assertion failed: " + err)
-              .toRuntimeException());
+          writer.error(
+              CallStatus.INTERNAL
+                  .withCause(err)
+                  .withDescription("Server assertion failed: " + err)
+                  .toRuntimeException());
           return;
         }
 

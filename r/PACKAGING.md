@@ -40,7 +40,7 @@ Wait for the release candidate to be cut:
 
 ## After release candidate has been cut
 
-- [ ] Create a CRAN-release branch from the release candidate commit
+- [ ] Create a CRAN-release branch from the release candidate commit, name the new branch e.g. `maint-X.X.X-r` and push to upstream
 
 ## Prepare and check the .tar.gz that will be released to CRAN.
 
@@ -94,7 +94,7 @@ Ensure linux binary packages are available:
 
 Wait for CRAN...
 - [ ] Accepted!
-- [ ] Tag the tip of the CRAN-specific release branch
+- [ ] Tag the tip of the CRAN-specific release branch with `r-universe-release`
 - [ ] Add a new line to the matrix in the [backwards compatability job](https://github.com/apache/arrow/blob/main/dev/tasks/r/github.linux.arrow.version.back.compat.yml)
 - [ ] (patch releases only) Update the package version in `ci/scripts/PKGBUILD`, `dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb`, `r/DESCRIPTION`, and `r/NEWS.md`
 - [ ] (CRAN-only releases) Rebuild news page with `pkgdown::build_news()` and submit a PR to the asf-site branch of the docs site with the contents of `arrow/r/docs/news/index.html` replacing the current contents of `arrow-site/docs/r/news/index.html`

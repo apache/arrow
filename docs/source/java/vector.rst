@@ -226,7 +226,7 @@ A :class:`ListVector` is a vector that holds a list of values for each index. Wo
 For example, the code below shows how to build a :class:`ListVector` of int's using the writer :class:`UnionListWriter`. We build a vector from 0 to 9 and each index contains a list with values [[0, 0, 0, 0, 0], [0, 1, 2, 3, 4], [0, 2, 4, 6, 8], …, [0, 9, 18, 27, 36]]. List values can be added in any order so writing a list such as [3, 1, 2] would be just as valid.
 
 .. code-block:: Java
-  
+
   try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
     ListVector listVector = ListVector.empty("vector", allocator)) {
     UnionListWriter writer = listVector.getWriter();
@@ -240,7 +240,7 @@ For example, the code below shows how to build a :class:`ListVector` of int's us
        writer.endList();
     }
     listVector.setValueCount(10);
-  }    
+  }
 
 :class:`ListVector` values can be accessed either through the get API or through the reader class :class:`UnionListReader`. To read all the values, first enumerate through the indexes, and then enumerate through the inner list values.
 
@@ -342,7 +342,7 @@ This is where the ``DictionaryEncoding``'s 'id' attribute comes in. This value i
     // now we want to decode our vector, so we retrieve its dictionary from the provider
     Field f = vsr.getField(encoded.getName());
     DictionaryEncoding encoding = f.getDictionary();
-    Dictionary dictionary = provider.get(encoding.getId());
+    Dictionary dictionary = provider.lookup(encoding.getId());
 
 As you can see, a ``DictionaryProvider`` is handy for managing the dictionaries associated with a ``VectorSchemaRoot``. More importantly, it helps package the dictionaries for a ``VectorSchemaRoot`` when it's written. The classes ``ArrowFileWriter`` and ``ArrowStreamWriter`` both accept an optional ``DictionaryProvider`` argument for that purpose. You can find example code for writing dictionaries in the documentation for (:doc:`ipc`). ``ArrowReader`` and its subclasses also implement the ``DictionaryProvider`` interface, so you can retrieve the actual dictionaries when reading a file.
 

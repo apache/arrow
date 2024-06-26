@@ -39,6 +39,7 @@ endfunction()
 
 add_arrow_test(feather_test)
 add_arrow_ipc_test(json_simple_test)
+add_arrow_ipc_test(message_internal_test)
 add_arrow_ipc_test(read_write_test)
 add_arrow_ipc_test(tensor_test)
 
@@ -56,6 +57,7 @@ if(ARROW_BUILD_UTILITIES OR ARROW_BUILD_INTEGRATION)
   target_link_libraries(arrow-file-to-stream ${ARROW_UTIL_LIB})
   add_executable(arrow-stream-to-file stream_to_file.cc)
   target_link_libraries(arrow-stream-to-file ${ARROW_UTIL_LIB})
+
   if(ARROW_BUILD_UTILITIES)
     install(TARGETS arrow-file-to-stream arrow-stream-to-file ${INSTALL_IS_OPTIONAL}
             DESTINATION ${CMAKE_INSTALL_BINDIR})

@@ -236,6 +236,9 @@ from pyarrow.lib import (null, bool_,
                          RunEndEncodedScalar, ExtensionScalar)
 
 # Buffers, allocation
+from pyarrow.lib import (DeviceAllocationType, Device, MemoryManager,
+                         default_cpu_memory_manager)
+
 from pyarrow.lib import (Buffer, ResizableBuffer, foreign_buffer, py_buffer,
                          Codec, compress, decompress, allocate_buffer)
 

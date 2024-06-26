@@ -14,51 +14,46 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.sql;
 
+import com.google.protobuf.Message;
 import java.util.List;
-
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightEndpoint;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.sql.impl.FlightSql;
 import org.apache.arrow.vector.types.pojo.Schema;
 
-import com.google.protobuf.Message;
-
-/**
- * A {@link FlightSqlProducer} that implements getting FlightInfo for each metadata request.
- */
+/** A {@link FlightSqlProducer} that implements getting FlightInfo for each metadata request. */
 public abstract class BasicFlightSqlProducer extends NoOpFlightSqlProducer {
 
   @Override
-  public FlightInfo getFlightInfoSqlInfo(FlightSql.CommandGetSqlInfo request, CallContext context,
-                                         FlightDescriptor descriptor) {
+  public FlightInfo getFlightInfoSqlInfo(
+      FlightSql.CommandGetSqlInfo request, CallContext context, FlightDescriptor descriptor) {
     return generateFlightInfo(request, descriptor, Schemas.GET_SQL_INFO_SCHEMA);
   }
 
   @Override
-  public FlightInfo getFlightInfoTypeInfo(FlightSql.CommandGetXdbcTypeInfo request, CallContext context,
-                                          FlightDescriptor descriptor) {
+  public FlightInfo getFlightInfoTypeInfo(
+      FlightSql.CommandGetXdbcTypeInfo request, CallContext context, FlightDescriptor descriptor) {
     return generateFlightInfo(request, descriptor, Schemas.GET_TYPE_INFO_SCHEMA);
   }
 
   @Override
-  public FlightInfo getFlightInfoCatalogs(FlightSql.CommandGetCatalogs request, CallContext context,
-                                          FlightDescriptor descriptor) {
+  public FlightInfo getFlightInfoCatalogs(
+      FlightSql.CommandGetCatalogs request, CallContext context, FlightDescriptor descriptor) {
     return generateFlightInfo(request, descriptor, Schemas.GET_CATALOGS_SCHEMA);
   }
 
   @Override
-  public FlightInfo getFlightInfoSchemas(FlightSql.CommandGetDbSchemas request, CallContext context,
-                                         FlightDescriptor descriptor) {
+  public FlightInfo getFlightInfoSchemas(
+      FlightSql.CommandGetDbSchemas request, CallContext context, FlightDescriptor descriptor) {
     return generateFlightInfo(request, descriptor, Schemas.GET_SCHEMAS_SCHEMA);
   }
 
   @Override
-  public FlightInfo getFlightInfoTables(FlightSql.CommandGetTables request, CallContext context,
-                                        FlightDescriptor descriptor) {
+  public FlightInfo getFlightInfoTables(
+      FlightSql.CommandGetTables request, CallContext context, FlightDescriptor descriptor) {
     if (request.getIncludeSchema()) {
       return generateFlightInfo(request, descriptor, Schemas.GET_TABLES_SCHEMA);
     }
@@ -66,43 +61,46 @@ public abstract class BasicFlightSqlProducer extends NoOpFlightSqlProducer {
   }
 
   @Override
-  public FlightInfo getFlightInfoTableTypes(FlightSql.CommandGetTableTypes request, CallContext context,
-                                            FlightDescriptor descriptor) {
+  public FlightInfo getFlightInfoTableTypes(
+      FlightSql.CommandGetTableTypes request, CallContext context, FlightDescriptor descriptor) {
     return generateFlightInfo(request, descriptor, Schemas.GET_TABLE_TYPES_SCHEMA);
   }
 
   @Override
-  public FlightInfo getFlightInfoPrimaryKeys(FlightSql.CommandGetPrimaryKeys request, CallContext context,
-                                             FlightDescriptor descriptor) {
+  public FlightInfo getFlightInfoPrimaryKeys(
+      FlightSql.CommandGetPrimaryKeys request, CallContext context, FlightDescriptor descriptor) {
     return generateFlightInfo(request, descriptor, Schemas.GET_PRIMARY_KEYS_SCHEMA);
   }
 
   @Override
-  public FlightInfo getFlightInfoExportedKeys(FlightSql.CommandGetExportedKeys request, CallContext context,
-                                              FlightDescriptor descriptor) {
+  public FlightInfo getFlightInfoExportedKeys(
+      FlightSql.CommandGetExportedKeys request, CallContext context, FlightDescriptor descriptor) {
     return generateFlightInfo(request, descriptor, Schemas.GET_EXPORTED_KEYS_SCHEMA);
   }
 
   @Override
-  public FlightInfo getFlightInfoImportedKeys(FlightSql.CommandGetImportedKeys request, CallContext context,
-                                              FlightDescriptor descriptor) {
+  public FlightInfo getFlightInfoImportedKeys(
+      FlightSql.CommandGetImportedKeys request, CallContext context, FlightDescriptor descriptor) {
     return generateFlightInfo(request, descriptor, Schemas.GET_IMPORTED_KEYS_SCHEMA);
   }
 
   @Override
-  public FlightInfo getFlightInfoCrossReference(FlightSql.CommandGetCrossReference request, CallContext context,
-                                                FlightDescriptor descriptor) {
+  public FlightInfo getFlightInfoCrossReference(
+      FlightSql.CommandGetCrossReference request,
+      CallContext context,
+      FlightDescriptor descriptor) {
     return generateFlightInfo(request, descriptor, Schemas.GET_CROSS_REFERENCE_SCHEMA);
   }
 
   /**
-   * Return a list of FlightEndpoints for the given request and FlightDescriptor. This method should validate that
-   * the request is supported by this FlightSqlProducer.
+   * Return a list of FlightEndpoints for the given request and FlightDescriptor. This method should
+   * validate that the request is supported by this FlightSqlProducer.
    */
-  protected abstract <T extends Message>
-        List<FlightEndpoint> determineEndpoints(T request, FlightDescriptor flightDescriptor, Schema schema);
+  protected abstract <T extends Message> List<FlightEndpoint> determineEndpoints(
+      T request, FlightDescriptor flightDescriptor, Schema schema);
 
-  protected <T extends Message> FlightInfo generateFlightInfo(T request, FlightDescriptor descriptor, Schema schema) {
+  protected <T extends Message> FlightInfo generateFlightInfo(
+      T request, FlightDescriptor descriptor, Schema schema) {
     final List<FlightEndpoint> endpoints = determineEndpoints(request, descriptor, schema);
     return new FlightInfo(schema, descriptor, endpoints, -1, -1);
   }

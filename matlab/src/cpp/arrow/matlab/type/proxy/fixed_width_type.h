@@ -21,14 +21,13 @@
 namespace arrow::matlab::type::proxy {
 
 class FixedWidthType : public arrow::matlab::type::proxy::Type {
-    public:
-        FixedWidthType(std::shared_ptr<arrow::FixedWidthType> type);
-    
-        virtual ~FixedWidthType() {}
+ public:
+  FixedWidthType(std::shared_ptr<arrow::FixedWidthType> type);
 
-    protected:
-        void getBitWidth(libmexclass::proxy::method::Context& context);
+  virtual ~FixedWidthType() {}
 
+ protected:
+  void getBitWidth(libmexclass::proxy::method::Context& context);
 };
 
-}
+}  // namespace arrow::matlab::type::proxy

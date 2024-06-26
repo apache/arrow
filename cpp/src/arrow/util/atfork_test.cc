@@ -35,6 +35,7 @@
 
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/atfork_internal.h"
+#include "arrow/util/config.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 
@@ -109,6 +110,10 @@ class TestAtFork : public ::testing::Test {
 #ifndef _WIN32
 
 TEST_F(TestAtFork, EmptyHandlers) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+
   auto handlers = std::make_shared<AtForkHandler>();
 
   RegisterAtFork(handlers);
@@ -130,6 +135,10 @@ TEST_F(TestAtFork, EmptyHandlers) {
 }
 
 TEST_F(TestAtFork, SingleThread) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+
   auto handlers1 = std::make_shared<AtForkHandler>(PushBefore(1), PushParentAfter(11),
                                                    PushChildAfter(21));
   auto handlers2 = std::make_shared<AtForkHandler>(PushBefore(2), PushParentAfter(12),
@@ -188,6 +197,10 @@ TEST_F(TestAtFork, SingleThread) {
 // https://github.com/google/sanitizers/issues/950.
 
 TEST_F(TestAtFork, MultipleThreads) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+
   const int kNumThreads = 5;
   const int kNumIterations = 40;
   const int kParentAfterAddend = 10000;
@@ -245,6 +258,9 @@ TEST_F(TestAtFork, NestedChild) {
 #ifdef __APPLE__
   GTEST_SKIP() << "Nested fork is not supported on macOS";
 #endif
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
 
   auto handlers1 = std::make_shared<AtForkHandler>(PushBefore(1), PushParentAfter(11),
                                                    PushChildAfter(21));
@@ -286,6 +302,10 @@ TEST_F(TestAtFork, NestedChild) {
 
 #ifdef _WIN32
 TEST_F(TestAtFork, NoOp) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+
   auto handlers = std::make_shared<AtForkHandler>(PushBefore(1), PushParentAfter(11),
                                                   PushChildAfter(21));
 

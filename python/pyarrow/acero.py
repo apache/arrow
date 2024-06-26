@@ -383,8 +383,8 @@ def _filter_table(table, expression):
 
     Parameters
     ----------
-    table : Table or Dataset
-        Table or Dataset that should be filtered.
+    table : Table or RecordBatch
+        Table that should be filtered.
     expression : Expression
         The expression on which rows should be filtered.
 
@@ -392,11 +392,19 @@ def _filter_table(table, expression):
     -------
     Table
     """
+    is_batch = False
+    if isinstance(table, RecordBatch):
+        table = Table.from_batches([table])
+        is_batch = True
+
     decl = Declaration.from_sequence([
         Declaration("table_source", options=TableSourceNodeOptions(table)),
         Declaration("filter", options=FilterNodeOptions(expression))
     ])
-    return decl.to_table(use_threads=True)
+    result = decl.to_table(use_threads=True)
+    if is_batch:
+        result = result.combine_chunks().to_batches()[0]
+    return result
 
 
 def _sort_source(table_or_dataset, sort_keys, output_type=Table, **kwargs):

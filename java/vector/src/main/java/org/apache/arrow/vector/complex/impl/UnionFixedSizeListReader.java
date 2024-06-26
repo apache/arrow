@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.complex.impl;
 
 import org.apache.arrow.vector.ValueVector;
@@ -25,9 +24,7 @@ import org.apache.arrow.vector.complex.writer.FieldWriter;
 import org.apache.arrow.vector.holders.UnionHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
 
-/**
- * Reader for fixed size list vectors.
- */
+/** Reader for fixed size list vectors. */
 public class UnionFixedSizeListReader extends AbstractFieldReader {
 
   private final FixedSizeListVector vector;
@@ -36,9 +33,7 @@ public class UnionFixedSizeListReader extends AbstractFieldReader {
 
   private int currentOffset;
 
-  /**
-   * Constructs a new instance that reads data in <code>vector</code>.
-   */
+  /** Constructs a new instance that reads data in <code>vector</code>. */
   public UnionFixedSizeListReader(FixedSizeListVector vector) {
     this.vector = vector;
     this.data = vector.getDataVector();

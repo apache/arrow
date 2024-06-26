@@ -13,8 +13,9 @@ read_json_arrow(
 )
 }
 \arguments{
-\item{file}{A character file name or URI, literal data (either a single string or a \link{raw} vector),
-an Arrow input stream, or a \code{FileSystem} with path (\code{SubTreeFileSystem}).
+\item{file}{A character file name or URI, connection, literal data (either a
+single string or a \link{raw} vector), an Arrow input stream, or a \code{FileSystem}
+with path (\code{SubTreeFileSystem}).
 
 If a file name, a memory-mapped Arrow \link{InputStream} will be opened and
 closed when finished; compression will be detected from the file extension

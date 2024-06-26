@@ -51,6 +51,8 @@ permissions:
   contents: read
 
 env:
+  ARCHERY_DEBUG: 1
+  ARCHERY_USE_DOCKER_CLI: 1
   DOCKER_VOLUME_PREFIX: ".docker/"
 
 jobs:
@@ -119,7 +121,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        r: ["4.3"]
+        r: ["4.4"]
         ubuntu: [20.04]
         force-tests: ["true"]
     env:
@@ -142,7 +144,7 @@ jobs:
             ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-${{ hashFiles('cpp/src/**/*.cc','cpp/src/**/*.h)') }}-
             ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-
       - name: Setup Python
-        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
+        uses: actions/setup-python@82c7e631bb3cdc910f68e0081d67478d79c6982d # v5.1.0
         with:
           python-version: 3.8
       - name: Setup Archery
@@ -190,12 +192,11 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - { org: "rhub", image: "debian-gcc-devel", tag: "latest", devtoolset: "" }
+          - { org: "rhub", image: "ubuntu-gcc12", tag: "latest" }
     env:
       R_ORG: ${{ matrix.config.org }}
       R_IMAGE: ${{ matrix.config.image }}
       R_TAG: ${{ matrix.config.tag }}
-      DEVTOOLSET_VERSION: ${{ matrix.config.devtoolset }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
@@ -203,7 +204,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Setup Python
-        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
+        uses: actions/setup-python@82c7e631bb3cdc910f68e0081d67478d79c6982d # v5.1.0
         with:
           python-version: 3.8
       - name: Setup Archery
@@ -369,11 +370,12 @@ jobs:
             MAKEFLAGS = paste0("-j", parallel::detectCores()),
             ARROW_R_DEV = TRUE,
             "_R_CHECK_FORCE_SUGGESTS_" = FALSE,
-            "_R_CHECK_STOP_ON_INVALID_NUMERIC_VERSION_INPUTS_" = TRUE
+            "_R_CHECK_STOP_ON_INVALID_NUMERIC_VERSION_INPUTS_" = TRUE,
+            "_R_CHECK_DONTTEST_EXAMPLES_" = TRUE
           )
           rcmdcheck::rcmdcheck(".",
             build_args = '--no-build-vignettes',
-            args = c('--no-manual', '--as-cran', '--ignore-vignettes', '--run-donttest'),
+            args = c('--no-manual', '--as-cran', '--ignore-vignettes'),
             error_on = 'warning',
             check_dir = 'check',
             timeout = 3600

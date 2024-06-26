@@ -14,13 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc;
 
+import com.google.common.collect.ImmutableMap;
 import java.lang.reflect.Constructor;
 import java.sql.Connection;
 import java.util.Properties;
-
 import org.apache.arrow.driver.jdbc.authentication.UserPasswordAuthentication;
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty;
 import org.apache.arrow.driver.jdbc.utils.MockFlightSqlProducer;
@@ -28,43 +27,41 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.calcite.avatica.UnregisteredDriver;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
-import com.google.common.collect.ImmutableMap;
-
-/**
- * Tests for {@link ArrowFlightJdbcDriver}.
- */
+/** Tests for {@link ArrowFlightJdbcDriver}. */
 public class ArrowFlightJdbcFactoryTest {
 
-  @ClassRule
-  public static final FlightServerTestRule FLIGHT_SERVER_TEST_RULE;
+  @RegisterExtension public static final FlightServerTestExtension FLIGHT_SERVER_TEST_EXTENSION;
   private static final MockFlightSqlProducer PRODUCER = new MockFlightSqlProducer();
 
   static {
     UserPasswordAuthentication authentication =
-        new UserPasswordAuthentication.Builder().user("user1", "pass1").user("user2", "pass2")
+        new UserPasswordAuthentication.Builder()
+            .user("user1", "pass1")
+            .user("user2", "pass2")
             .build();
 
-    FLIGHT_SERVER_TEST_RULE = new FlightServerTestRule.Builder()
-        .authentication(authentication)
-        .producer(PRODUCER)
-        .build();
+    FLIGHT_SERVER_TEST_EXTENSION =
+        new FlightServerTestExtension.Builder()
+            .authentication(authentication)
+            .producer(PRODUCER)
+            .build();
   }
 
   private BufferAllocator allocator;
   private ArrowFlightJdbcConnectionPoolDataSource dataSource;
 
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     allocator = new RootAllocator(Long.MAX_VALUE);
-    dataSource = FLIGHT_SERVER_TEST_RULE.createConnectionPoolDataSource();
+    dataSource = FLIGHT_SERVER_TEST_EXTENSION.createConnectionPoolDataSource();
   }
 
-  @After
+  @AfterEach
   public void tearDown() throws Exception {
     AutoCloseables.close(dataSource, allocator);
   }
@@ -77,13 +74,21 @@ public class ArrowFlightJdbcFactoryTest {
     ArrowFlightJdbcFactory factory = constructor.newInstance();
 
     final Properties properties = new Properties();
-    properties.putAll(ImmutableMap.of(
-        ArrowFlightConnectionProperty.HOST.camelName(), "localhost",
-        ArrowFlightConnectionProperty.PORT.camelName(), 32010,
-        ArrowFlightConnectionProperty.USE_ENCRYPTION.camelName(), false));
+    properties.putAll(
+        ImmutableMap.of(
+            ArrowFlightConnectionProperty.HOST.camelName(),
+            "localhost",
+            ArrowFlightConnectionProperty.PORT.camelName(),
+            32010,
+            ArrowFlightConnectionProperty.USE_ENCRYPTION.camelName(),
+            false));
 
-    try (Connection connection = factory.newConnection(driver, constructor.newInstance(),
-        "jdbc:arrow-flight-sql://localhost:32010", properties)) {
+    try (Connection connection =
+        factory.newConnection(
+            driver,
+            constructor.newInstance(),
+            "jdbc:arrow-flight-sql://localhost:32010",
+            properties)) {
       assert connection.isValid(300);
     }
   }
