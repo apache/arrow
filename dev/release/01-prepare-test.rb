@@ -254,10 +254,10 @@ class PrepareTest < Test::Unit::TestCase
         ],
       },
       {
-        path: "python/setup.py",
+        path: "python/pyproject.toml",
         hunks: [
-          ["-default_version = '#{@snapshot_version}'",
-           "+default_version = '#{@release_version}'"],
+          ["-fallback_version = '#{@release_version}a0'",
+           "+fallback_version = '#{@release_version}'"],
         ],
       },
       {

@@ -14,13 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.auth;
-
-import java.util.Optional;
-
-import org.apache.arrow.flight.FlightRuntimeException;
-import org.apache.arrow.flight.grpc.StatusUtils;
 
 import io.grpc.Context;
 import io.grpc.Contexts;
@@ -31,10 +25,11 @@ import io.grpc.ServerCallHandler;
 import io.grpc.ServerInterceptor;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
+import java.util.Optional;
+import org.apache.arrow.flight.FlightRuntimeException;
+import org.apache.arrow.flight.grpc.StatusUtils;
 
-/**
- * GRPC Interceptor for performing authentication.
- */
+/** GRPC Interceptor for performing authentication. */
 public class ServerAuthInterceptor implements ServerInterceptor {
 
   private final ServerAuthHandler authHandler;
@@ -44,9 +39,11 @@ public class ServerAuthInterceptor implements ServerInterceptor {
   }
 
   @Override
-  public <ReqT, RespT> Listener<ReqT> interceptCall(ServerCall<ReqT, RespT> call, Metadata headers,
-      ServerCallHandler<ReqT, RespT> next) {
-    if (!call.getMethodDescriptor().getFullMethodName().equals(AuthConstants.HANDSHAKE_DESCRIPTOR_NAME)) {
+  public <ReqT, RespT> Listener<ReqT> interceptCall(
+      ServerCall<ReqT, RespT> call, Metadata headers, ServerCallHandler<ReqT, RespT> next) {
+    if (!call.getMethodDescriptor()
+        .getFullMethodName()
+        .equals(AuthConstants.HANDSHAKE_DESCRIPTOR_NAME)) {
       final Optional<String> peerIdentity;
 
       // Allow customizing the response code by throwing FlightRuntimeException
@@ -64,12 +61,17 @@ public class ServerAuthInterceptor implements ServerInterceptor {
 
       if (!peerIdentity.isPresent()) {
         // Send back a description along with the status code
-        call.close(Status.UNAUTHENTICATED
-            .withDescription("Unauthenticated (invalid or missing auth token)"), new Metadata());
+        call.close(
+            Status.UNAUTHENTICATED.withDescription(
+                "Unauthenticated (invalid or missing auth token)"),
+            new Metadata());
         return new NoopServerCallListener<>();
       }
-      return Contexts.interceptCall(Context.current().withValue(AuthConstants.PEER_IDENTITY_KEY, peerIdentity.get()),
-          call, headers, next);
+      return Contexts.interceptCall(
+          Context.current().withValue(AuthConstants.PEER_IDENTITY_KEY, peerIdentity.get()),
+          call,
+          headers,
+          next);
     }
 
     return next.startCall(call, headers);
@@ -80,6 +82,5 @@ public class ServerAuthInterceptor implements ServerInterceptor {
     return authHandler.isValid(token);
   }
 
-  private static class NoopServerCallListener<T> extends ServerCall.Listener<T> {
-  }
+  private static class NoopServerCallListener<T> extends ServerCall.Listener<T> {}
 }

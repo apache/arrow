@@ -63,12 +63,12 @@ class PostBumpVersionsTest < Test::Unit::TestCase
         previous_version_components[2].succ!
       end
       sh(env,
-         "dev/release/post-11-bump-versions.sh",
+         "dev/release/post-12-bump-versions.sh",
          previous_version_components.join("."),
          @release_version)
     else
       sh(env,
-         "dev/release/post-11-bump-versions.sh",
+         "dev/release/post-12-bump-versions.sh",
          @release_version,
          @next_version)
     end
@@ -179,10 +179,10 @@ class PostBumpVersionsTest < Test::Unit::TestCase
         ],
       },
       {
-        path: "python/setup.py",
+        path: "python/pyproject.toml",
         hunks: [
-          ["-default_version = '#{@snapshot_version}'",
-           "+default_version = '#{@next_snapshot_version}'"],
+          ["-fallback_version = '#{@release_version}a0'",
+           "+fallback_version = '#{@next_version}a0'"],
         ],
       },
       {

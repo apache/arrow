@@ -117,8 +117,12 @@ Status AzureOptions::ExtractFromUriQuery(const Uri& uri) {
         credential_kind = CredentialKind::kDefault;
       } else if (kv.second == "anonymous") {
         credential_kind = CredentialKind::kAnonymous;
+      } else if (kv.second == "cli") {
+        credential_kind = CredentialKind::kCLI;
       } else if (kv.second == "workload_identity") {
         credential_kind = CredentialKind::kWorkloadIdentity;
+      } else if (kv.second == "environment") {
+        credential_kind = CredentialKind::kEnvironment;
       } else {
         // Other credential kinds should be inferred from the given
         // parameters automatically.
@@ -168,8 +172,14 @@ Status AzureOptions::ExtractFromUriQuery(const Uri& uri) {
       case CredentialKind::kAnonymous:
         RETURN_NOT_OK(ConfigureAnonymousCredential());
         break;
+      case CredentialKind::kCLI:
+        RETURN_NOT_OK(ConfigureCLICredential());
+        break;
       case CredentialKind::kWorkloadIdentity:
         RETURN_NOT_OK(ConfigureWorkloadIdentityCredential());
+        break;
+      case CredentialKind::kEnvironment:
+        RETURN_NOT_OK(ConfigureEnvironmentCredential());
         break;
       default:
         // Default credential
@@ -250,8 +260,10 @@ bool AzureOptions::Equals(const AzureOptions& other) const {
       return storage_shared_key_credential_->AccountName ==
              other.storage_shared_key_credential_->AccountName;
     case CredentialKind::kClientSecret:
+    case CredentialKind::kCLI:
     case CredentialKind::kManagedIdentity:
     case CredentialKind::kWorkloadIdentity:
+    case CredentialKind::kEnvironment:
       return token_credential_->GetCredentialName() ==
              other.token_credential_->GetCredentialName();
   }
@@ -331,9 +343,21 @@ Status AzureOptions::ConfigureManagedIdentityCredential(const std::string& clien
   return Status::OK();
 }
 
+Status AzureOptions::ConfigureCLICredential() {
+  credential_kind_ = CredentialKind::kCLI;
+  token_credential_ = std::make_shared<Azure::Identity::AzureCliCredential>();
+  return Status::OK();
+}
+
 Status AzureOptions::ConfigureWorkloadIdentityCredential() {
   credential_kind_ = CredentialKind::kWorkloadIdentity;
   token_credential_ = std::make_shared<Azure::Identity::WorkloadIdentityCredential>();
+  return Status::OK();
+}
+
+Status AzureOptions::ConfigureEnvironmentCredential() {
+  credential_kind_ = CredentialKind::kEnvironment;
+  token_credential_ = std::make_shared<Azure::Identity::EnvironmentCredential>();
   return Status::OK();
 }
 
@@ -341,6 +365,10 @@ Result<std::unique_ptr<Blobs::BlobServiceClient>> AzureOptions::MakeBlobServiceC
     const {
   if (account_name.empty()) {
     return Status::Invalid("AzureOptions doesn't contain a valid account name");
+  }
+  if (!(blob_storage_scheme == "http" || blob_storage_scheme == "https")) {
+    return Status::Invalid("AzureOptions::blob_storage_scheme must be http or https: ",
+                           blob_storage_scheme);
   }
   switch (credential_kind_) {
     case CredentialKind::kAnonymous:
@@ -352,7 +380,9 @@ Result<std::unique_ptr<Blobs::BlobServiceClient>> AzureOptions::MakeBlobServiceC
       [[fallthrough]];
     case CredentialKind::kClientSecret:
     case CredentialKind::kManagedIdentity:
+    case CredentialKind::kCLI:
     case CredentialKind::kWorkloadIdentity:
+    case CredentialKind::kEnvironment:
       return std::make_unique<Blobs::BlobServiceClient>(AccountBlobUrl(account_name),
                                                         token_credential_);
     case CredentialKind::kStorageSharedKey:
@@ -367,6 +397,10 @@ AzureOptions::MakeDataLakeServiceClient() const {
   if (account_name.empty()) {
     return Status::Invalid("AzureOptions doesn't contain a valid account name");
   }
+  if (!(dfs_storage_scheme == "http" || dfs_storage_scheme == "https")) {
+    return Status::Invalid("AzureOptions::dfs_storage_scheme must be http or https: ",
+                           dfs_storage_scheme);
+  }
   switch (credential_kind_) {
     case CredentialKind::kAnonymous:
       return std::make_unique<DataLake::DataLakeServiceClient>(
@@ -378,7 +412,9 @@ AzureOptions::MakeDataLakeServiceClient() const {
       [[fallthrough]];
     case CredentialKind::kClientSecret:
     case CredentialKind::kManagedIdentity:
+    case CredentialKind::kCLI:
     case CredentialKind::kWorkloadIdentity:
+    case CredentialKind::kEnvironment:
       return std::make_unique<DataLake::DataLakeServiceClient>(
           AccountDfsUrl(account_name), token_credential_);
     case CredentialKind::kStorageSharedKey:
@@ -390,6 +426,9 @@ AzureOptions::MakeDataLakeServiceClient() const {
 
 Result<std::string> AzureOptions::GenerateSASToken(
     Storage::Sas::BlobSasBuilder* builder, Blobs::BlobServiceClient* client) const {
+  using SasProtocol = Storage::Sas::SasProtocol;
+  builder->Protocol =
+      blob_storage_scheme == "http" ? SasProtocol::HttpsAndHttp : SasProtocol::HttpsOnly;
   if (storage_shared_key_credential_) {
     return builder->GenerateSasToken(*storage_shared_key_credential_);
   } else {

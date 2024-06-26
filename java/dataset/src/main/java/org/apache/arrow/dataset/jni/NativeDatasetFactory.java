@@ -14,19 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.dataset.jni;
 
 import java.io.IOException;
-
 import org.apache.arrow.dataset.source.DatasetFactory;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.SchemaUtility;
 
-/**
- * Native implementation of {@link DatasetFactory}.
- */
+/** Native implementation of {@link DatasetFactory}. */
 public class NativeDatasetFactory implements DatasetFactory {
   private final long datasetFactoryId;
   private final NativeMemoryPool memoryPool;
@@ -37,17 +33,19 @@ public class NativeDatasetFactory implements DatasetFactory {
   /**
    * Constructor.
    *
-   * @param allocator a context allocator associated with this factory. Any buffer that will be created natively will
-   *                  be then bound to this allocator.
-   * @param memoryPool the native memory pool associated with this factory. Any buffer created natively should request
-   *                   for memory spaces from this memory pool. This is a mapped instance of c++ arrow::MemoryPool.
-   * @param datasetFactoryId an ID, at the same time the native pointer of the underlying native instance of this
-   *                         factory. Make sure in c++ side  the pointer is pointing to the shared pointer wrapping
-   *                         the actual instance so we could successfully decrease the reference count once
-   *                         {@link #close} is called.
+   * @param allocator a context allocator associated with this factory. Any buffer that will be
+   *     created natively will be then bound to this allocator.
+   * @param memoryPool the native memory pool associated with this factory. Any buffer created
+   *     natively should request for memory spaces from this memory pool. This is a mapped instance
+   *     of c++ arrow::MemoryPool.
+   * @param datasetFactoryId an ID, at the same time the native pointer of the underlying native
+   *     instance of this factory. Make sure in c++ side the pointer is pointing to the shared
+   *     pointer wrapping the actual instance so we could successfully decrease the reference count
+   *     once {@link #close} is called.
    * @see #close()
    */
-  public NativeDatasetFactory(BufferAllocator allocator, NativeMemoryPool memoryPool, long datasetFactoryId) {
+  public NativeDatasetFactory(
+      BufferAllocator allocator, NativeMemoryPool memoryPool, long datasetFactoryId) {
     this.allocator = allocator;
     this.memoryPool = memoryPool;
     this.datasetFactoryId = datasetFactoryId;
@@ -82,7 +80,8 @@ public class NativeDatasetFactory implements DatasetFactory {
         if (closed) {
           throw new NativeInstanceReleasedException();
         }
-        return new NativeDataset(new NativeContext(allocator, memoryPool),
+        return new NativeDataset(
+            new NativeContext(allocator, memoryPool),
             JniWrapper.get().createDataset(datasetFactoryId, serialized));
       }
     } catch (IOException e) {
@@ -90,9 +89,7 @@ public class NativeDatasetFactory implements DatasetFactory {
     }
   }
 
-  /**
-   * Close this factory by release the pointer of the native instance.
-   */
+  /** Close this factory by release the pointer of the native instance. */
   @Override
   public synchronized void close() {
     if (closed) {

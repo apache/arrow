@@ -2964,8 +2964,13 @@ cdef extern from "arrow/c/abi.h":
     cdef struct ArrowArrayStream:
         void (*release)(ArrowArrayStream*) noexcept nogil
 
+    ctypedef int32_t ArrowDeviceType
+    cdef ArrowDeviceType ARROW_DEVICE_CUDA
+
     cdef struct ArrowDeviceArray:
-        pass
+        ArrowArray array
+        int64_t device_id
+        int32_t device_type
 
 cdef extern from "arrow/c/bridge.h" namespace "arrow" nogil:
     CStatus ExportType(CDataType&, ArrowSchema* out)

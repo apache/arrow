@@ -14,17 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc;
 
 import java.sql.SQLException;
 import java.sql.Statement;
-
 import org.apache.arrow.flight.FlightInfo;
 
-/**
- * A {@link Statement} that deals with {@link FlightInfo}.
- */
+/** A {@link Statement} that deals with {@link FlightInfo}. */
 public interface ArrowFlightInfoStatement extends Statement {
 
   @Override

@@ -14,30 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.c;
 
-/**
- * Base interface for C Data Interface structures.
- */
+/** Base interface for C Data Interface structures. */
 public interface BaseStruct extends AutoCloseable {
   /**
    * Get memory address.
-   * 
+   *
    * @return Memory address
    */
   long memoryAddress();
 
   /**
    * Call the release callback of an ArrowArray.
-   * <p>
-   * This function must not be called for child arrays.
+   *
+   * <p>This function must not be called for child arrays.
    */
   void release();
 
-  /**
-   * Close to release the main buffer.
-   */
+  /** Close to release the main buffer. */
   @Override
   void close();
 }

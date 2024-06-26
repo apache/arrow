@@ -14,12 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.auth2;
 
+import io.grpc.StatusRuntimeException;
+import io.grpc.stub.StreamObserver;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.flight.grpc.StatusUtils;
@@ -27,17 +27,13 @@ import org.apache.arrow.flight.impl.Flight.HandshakeRequest;
 import org.apache.arrow.flight.impl.Flight.HandshakeResponse;
 import org.apache.arrow.flight.impl.FlightServiceGrpc.FlightServiceStub;
 
-import io.grpc.StatusRuntimeException;
-import io.grpc.stub.StreamObserver;
-
-/**
- * Utility class for executing a handshake with a FlightServer.
- */
+/** Utility class for executing a handshake with a FlightServer. */
 public class ClientHandshakeWrapper {
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ClientHandshakeWrapper.class);
+  private static final org.slf4j.Logger logger =
+      org.slf4j.LoggerFactory.getLogger(ClientHandshakeWrapper.class);
 
   /**
-   * Do handshake for a client.  The stub will be authenticated after this method returns.
+   * Do handshake for a client. The stub will be authenticated after this method returns.
    *
    * @param stub The service stub.
    */
@@ -83,8 +79,7 @@ public class ClientHandshakeWrapper {
     }
 
     @Override
-    public void onNext(HandshakeResponse value) {
-    }
+    public void onNext(HandshakeResponse value) {}
 
     @Override
     public void onError(Throwable t) {
@@ -96,5 +91,4 @@ public class ClientHandshakeWrapper {
       completed.complete(true);
     }
   }
-
 }

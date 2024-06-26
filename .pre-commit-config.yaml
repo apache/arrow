@@ -34,7 +34,13 @@ repos:
     hooks:
       - id: hadolint-docker
         name: Docker Format
-        exclude: ^dev/.*$
+        # We can enable this after we fix all existing lint failures.
+        # files: (/Dockerfile|\.dockerfile)$
+        files: >-
+          (
+          ?^ci/docker/python-wheel-windows-test-vs2019\.dockerfile$|
+          )
+        types: []
   - repo: https://github.com/pycqa/flake8
     rev: 6.1.0
     hooks:
@@ -141,3 +147,17 @@ repos:
           '--disable',
           'dangling-hyphen,line-too-long',
         ]
+  - repo: https://github.com/golangci/golangci-lint
+    rev: v1.59.0
+    hooks:
+      # no built-in support for multiple go.mod
+      # https://github.com/golangci/golangci-lint/issues/828
+      - id: golangci-lint-full
+        name: golangci-lint-full-arrow
+        entry: bash -c 'cd go/arrow && golangci-lint run'
+      - id: golangci-lint-full
+        name: golangci-lint-full-parquet
+        entry: bash -c 'cd go/parquet && golangci-lint run'
+      - id: golangci-lint-full
+        name: golangci-lint-full-internal
+        entry: bash -c 'cd go/internal && golangci-lint run'

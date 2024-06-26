@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.c;
 
 import static org.apache.arrow.c.NativeUtil.NULL;
@@ -22,7 +21,6 @@ import static org.apache.arrow.util.Preconditions.checkNotNull;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-
 import org.apache.arrow.c.jni.JniWrapper;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -32,9 +30,9 @@ import org.apache.arrow.util.VisibleForTesting;
 
 /**
  * C Data Interface ArrowArray.
- * <p>
- * Represents a wrapper for the following C structure:
- * 
+ *
+ * <p>Represents a wrapper for the following C structure:
+ *
  * <pre>
  * struct ArrowArray {
  *     // Array data description
@@ -46,7 +44,7 @@ import org.apache.arrow.util.VisibleForTesting;
  *     const void** buffers;
  *     struct ArrowArray** children;
  *     struct ArrowArray* dictionary;
- * 
+ *
  *     // Release callback
  *     void (*release)(struct ArrowArray*);
  *     // Opaque producer-specific data
@@ -60,9 +58,7 @@ public class ArrowArray implements BaseStruct {
 
   private ArrowBuf data;
 
-  /**
-   * Snapshot of the ArrowArray raw data.
-   */
+  /** Snapshot of the ArrowArray raw data. */
   public static class Snapshot {
     public long length;
     public long null_count;
@@ -75,9 +71,7 @@ public class ArrowArray implements BaseStruct {
     public long release;
     public long private_data;
 
-    /**
-     * Initialize empty ArrowArray snapshot.
-     */
+    /** Initialize empty ArrowArray snapshot. */
     public Snapshot() {
       length = NULL;
       null_count = NULL;
@@ -94,21 +88,22 @@ public class ArrowArray implements BaseStruct {
 
   /**
    * Create ArrowArray from an existing memory address.
-   * <p>
-   * The resulting ArrowArray does not own the memory.
-   * 
+   *
+   * <p>The resulting ArrowArray does not own the memory.
+   *
    * @param memoryAddress Memory address to wrap
    * @return A new ArrowArray instance
    */
   public static ArrowArray wrap(long memoryAddress) {
-    return new ArrowArray(new ArrowBuf(ReferenceManager.NO_OP, null, ArrowArray.SIZE_OF, memoryAddress));
+    return new ArrowArray(
+        new ArrowBuf(ReferenceManager.NO_OP, null, ArrowArray.SIZE_OF, memoryAddress));
   }
 
   /**
    * Create ArrowArray by allocating memory.
-   * <p>
-   * The resulting ArrowArray owns the memory.
-   * 
+   *
+   * <p>The resulting ArrowArray owns the memory.
+   *
    * @param allocator Allocator for memory allocations
    * @return A new ArrowArray instance
    */
@@ -123,9 +118,7 @@ public class ArrowArray implements BaseStruct {
     this.data = data;
   }
 
-  /**
-   * Mark the array as released.
-   */
+  /** Mark the array as released. */
   public void markReleased() {
     directBuffer().putLong(INDEX_RELEASE_CALLBACK, NULL);
   }
@@ -156,12 +149,13 @@ public class ArrowArray implements BaseStruct {
   }
 
   private ByteBuffer directBuffer() {
-    return MemoryUtil.directBuffer(memoryAddress(), ArrowArray.SIZE_OF).order(ByteOrder.nativeOrder());
+    return MemoryUtil.directBuffer(memoryAddress(), ArrowArray.SIZE_OF)
+        .order(ByteOrder.nativeOrder());
   }
 
   /**
    * Take a snapshot of the ArrowArray raw values.
-   * 
+   *
    * @return snapshot
    */
   public Snapshot snapshot() {
@@ -180,12 +174,18 @@ public class ArrowArray implements BaseStruct {
     return snapshot;
   }
 
-  /**
-   * Write values from Snapshot to the underlying ArrowArray memory buffer.
-   */
+  /** Write values from Snapshot to the underlying ArrowArray memory buffer. */
   public void save(Snapshot snapshot) {
-    directBuffer().putLong(snapshot.length).putLong(snapshot.null_count).putLong(snapshot.offset)
-        .putLong(snapshot.n_buffers).putLong(snapshot.n_children).putLong(snapshot.buffers).putLong(snapshot.children)
-        .putLong(snapshot.dictionary).putLong(snapshot.release).putLong(snapshot.private_data);
+    directBuffer()
+        .putLong(snapshot.length)
+        .putLong(snapshot.null_count)
+        .putLong(snapshot.offset)
+        .putLong(snapshot.n_buffers)
+        .putLong(snapshot.n_children)
+        .putLong(snapshot.buffers)
+        .putLong(snapshot.children)
+        .putLong(snapshot.dictionary)
+        .putLong(snapshot.release)
+        .putLong(snapshot.private_data);
   }
 }

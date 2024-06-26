@@ -547,39 +547,6 @@ struct VarBinarySelectionImpl : public Selection<VarBinarySelectionImpl<Type>, T
   }
 };
 
-struct FSBSelectionImpl : public Selection<FSBSelectionImpl, FixedSizeBinaryType> {
-  using Base = Selection<FSBSelectionImpl, FixedSizeBinaryType>;
-  LIFT_BASE_MEMBERS();
-
-  TypedBufferBuilder<uint8_t> data_builder;
-
-  FSBSelectionImpl(KernelContext* ctx, const ExecSpan& batch, int64_t output_length,
-                   ExecResult* out)
-      : Base(ctx, batch, output_length, out), data_builder(ctx->memory_pool()) {}
-
-  template <typename Adapter>
-  Status GenerateOutput() {
-    FixedSizeBinaryArray typed_values(this->values.ToArrayData());
-    int32_t value_size = typed_values.byte_width();
-
-    RETURN_NOT_OK(data_builder.Reserve(value_size * output_length));
-    Adapter adapter(this);
-    return adapter.Generate(
-        [&](int64_t index) {
-          auto val = typed_values.GetView(index);
-          data_builder.UnsafeAppend(reinterpret_cast<const uint8_t*>(val.data()),
-                                    value_size);
-          return Status::OK();
-        },
-        [&]() {
-          data_builder.UnsafeAppend(value_size, static_cast<uint8_t>(0x00));
-          return Status::OK();
-        });
-  }
-
-  Status Finish() override { return data_builder.Finish(&out->buffers[1]); }
-};
-
 template <typename Type>
 struct ListSelectionImpl : public Selection<ListSelectionImpl<Type>, Type> {
   using offset_type = typename Type::offset_type;
@@ -939,23 +906,6 @@ Status LargeVarBinaryTakeExec(KernelContext* ctx, const ExecSpan& batch,
   return TakeExec<VarBinarySelectionImpl<LargeBinaryType>>(ctx, batch, out);
 }
 
-Status FSBTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  const ArraySpan& values = batch[0].array;
-  const auto byte_width = values.type->byte_width();
-  // Use primitive Take implementation (presumably faster) for some byte widths
-  switch (byte_width) {
-    case 1:
-    case 2:
-    case 4:
-    case 8:
-    case 16:
-    case 32:
-      return PrimitiveTakeExec(ctx, batch, out);
-    default:
-      return TakeExec<FSBSelectionImpl>(ctx, batch, out);
-  }
-}
-
 Status ListTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   return TakeExec<ListSelectionImpl<ListType>>(ctx, batch, out);
 }
@@ -968,26 +918,12 @@ Status FSLTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const ArraySpan& values = batch[0].array;
 
   // If a FixedSizeList wraps a fixed-width type we can, in some cases, use
-  // PrimitiveTakeExec for a fixed-size list array.
+  // FixedWidthTakeExec for a fixed-size list array.
   if (util::IsFixedWidthLike(values,
                              /*force_null_count=*/true,
                              /*exclude_bool_and_dictionary=*/true)) {
-    const auto byte_width = util::FixedWidthInBytes(*values.type);
-    // Additionally, PrimitiveTakeExec is only implemented for specific byte widths.
-    // TODO(GH-41301): Extend PrimitiveTakeExec for any fixed-width type.
-    switch (byte_width) {
-      case 1:
-      case 2:
-      case 4:
-      case 8:
-      case 16:
-      case 32:
-        return PrimitiveTakeExec(ctx, batch, out);
-      default:
-        break;  // fallback to TakeExec<FSBSelectionImpl>
-    }
+    return FixedWidthTakeExec(ctx, batch, out);
   }
-
   return TakeExec<FSLSelectionImpl>(ctx, batch, out);
 }
 

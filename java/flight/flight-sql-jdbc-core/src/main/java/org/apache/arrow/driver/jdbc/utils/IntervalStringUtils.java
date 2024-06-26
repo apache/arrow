@@ -14,29 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc.utils;
 
 import java.time.Duration;
 import java.time.Period;
-
 import org.apache.arrow.vector.util.DateUtility;
 
 /**
- * Utility class to format periods similar to Oracle's representation
- * of "INTERVAL * to *" data type.
+ * Utility class to format periods similar to Oracle's representation of "INTERVAL * to *" data
+ * type.
  */
 public final class IntervalStringUtils {
 
-  /**
-   * Constructor Method of class.
-   */
-  private IntervalStringUtils( ) {
-  }
+  /** Constructor Method of class. */
+  private IntervalStringUtils() {}
 
   /**
-   * Formats a period similar to Oracle INTERVAL YEAR TO MONTH data type<br>.
-   * For example, the string "+21-02" defines an interval of 21 years and 2 months.
+   * Formats a period similar to Oracle INTERVAL YEAR TO MONTH data type<br>
+   * . For example, the string "+21-02" defines an interval of 21 years and 2 months.
    */
   public static String formatIntervalYear(final Period p) {
     long months = p.toTotalMonths();
@@ -52,9 +47,9 @@ public final class IntervalStringUtils {
   }
 
   /**
-   * Formats a period similar to Oracle INTERVAL DAY TO SECOND data type.<br>.
-   * For example, the string "-001 18:25:16.766" defines an interval of
-   * - 1 day 18 hours 25 minutes 16 seconds and 766 milliseconds.
+   * Formats a period similar to Oracle INTERVAL DAY TO SECOND data type.<br>
+   * . For example, the string "-001 18:25:16.766" defines an interval of - 1 day 18 hours 25
+   * minutes 16 seconds and 766 milliseconds.
    */
   public static String formatIntervalDay(final Duration d) {
     long millis = d.toMillis();
@@ -77,6 +72,7 @@ public final class IntervalStringUtils {
     final int seconds = (int) (millis / DateUtility.secondsToMillis);
     millis = millis % DateUtility.secondsToMillis;
 
-    return String.format("%c%03d %02d:%02d:%02d.%03d", neg ? '-' : '+', days, hours, minutes, seconds, millis);
+    return String.format(
+        "%c%03d %02d:%02d:%02d.%03d", neg ? '-' : '+', days, hours, minutes, seconds, millis);
   }
 }

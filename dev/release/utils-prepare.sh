@@ -26,10 +26,12 @@ update_versions() {
     release)
       local version=${base_version}
       local r_version=${base_version}
+      local python_version=${base_version}
       ;;
     snapshot)
       local version=${next_version}-SNAPSHOT
       local r_version=${base_version}.9000
+      local python_version=${next_version}a0
       ;;
   esac
   local major_version=${version%%.*}
@@ -126,10 +128,10 @@ update_versions() {
 
   pushd "${ARROW_DIR}/python"
   sed -i.bak -E -e \
-    "s/^default_version = '.+'/default_version = '${version}'/" \
-    setup.py
-  rm -f setup.py.bak
-  git add setup.py
+    "s/^fallback_version = '.+'/fallback_version = '${python_version}'/" \
+    pyproject.toml
+  rm -f pyproject.toml.bak
+  git add pyproject.toml
   sed -i.bak -E -e \
     "s/^set\(PYARROW_VERSION \".+\"\)/set(PYARROW_VERSION \"${version}\")/" \
     CMakeLists.txt

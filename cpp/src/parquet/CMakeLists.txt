@@ -397,6 +397,7 @@ add_parquet_test(writer-test
 
 add_parquet_test(arrow-test
                  SOURCES
+                 arrow/arrow_metadata_test.cc
                  arrow/arrow_reader_writer_test.cc
                  arrow/arrow_schema_test.cc
                  arrow/arrow_statistics_test.cc)

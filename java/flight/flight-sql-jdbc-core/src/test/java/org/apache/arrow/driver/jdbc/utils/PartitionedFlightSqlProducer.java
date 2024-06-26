@@ -14,14 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc.utils;
 
 import static com.google.protobuf.Any.pack;
 
+import com.google.protobuf.ByteString;
+import com.google.protobuf.Message;
 import java.util.Arrays;
 import java.util.List;
-
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightEndpoint;
@@ -34,14 +34,9 @@ import org.apache.arrow.flight.sql.impl.FlightSql;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.Schema;
 
-import com.google.protobuf.ByteString;
-import com.google.protobuf.Message;
-
 public class PartitionedFlightSqlProducer extends BasicFlightSqlProducer {
 
-  /**
-   * A minimal FlightProducer intended to just serve data when given the correct Ticket.
-   */
+  /** A minimal FlightProducer intended to just serve data when given the correct Ticket. */
   public static class DataOnlyFlightSqlProducer extends NoOpFlightProducer {
     private final Ticket ticket;
     private final VectorSchemaRoot data;
@@ -54,7 +49,8 @@ public class PartitionedFlightSqlProducer extends BasicFlightSqlProducer {
     @Override
     public void getStream(CallContext context, Ticket ticket, ServerStreamListener listener) {
       if (!Arrays.equals(ticket.getBytes(), this.ticket.getBytes())) {
-        listener.error(CallStatus.INVALID_ARGUMENT.withDescription("Illegal ticket.").toRuntimeException());
+        listener.error(
+            CallStatus.INVALID_ARGUMENT.withDescription("Illegal ticket.").toRuntimeException());
         return;
       }
 
@@ -80,8 +76,10 @@ public class PartitionedFlightSqlProducer extends BasicFlightSqlProducer {
   }
 
   @Override
-  public void createPreparedStatement(FlightSql.ActionCreatePreparedStatementRequest request,
-                                      CallContext context, StreamListener<Result> listener) {
+  public void createPreparedStatement(
+      FlightSql.ActionCreatePreparedStatementRequest request,
+      CallContext context,
+      StreamListener<Result> listener) {
     final FlightSql.ActionCreatePreparedStatementResult.Builder resultBuilder =
         FlightSql.ActionCreatePreparedStatementResult.newBuilder()
             .setPreparedStatementHandle(ByteString.EMPTY);
@@ -100,14 +98,18 @@ public class PartitionedFlightSqlProducer extends BasicFlightSqlProducer {
   }
 
   @Override
-  public FlightInfo getFlightInfoPreparedStatement(FlightSql.CommandPreparedStatementQuery command,
-                                                   CallContext context, FlightDescriptor descriptor) {
+  public FlightInfo getFlightInfoPreparedStatement(
+      FlightSql.CommandPreparedStatementQuery command,
+      CallContext context,
+      FlightDescriptor descriptor) {
     return FlightInfo.builder(schema, descriptor, endpoints).build();
   }
 
   @Override
-  public void closePreparedStatement(FlightSql.ActionClosePreparedStatementRequest request,
-                                     CallContext context, StreamListener<Result> listener) {
+  public void closePreparedStatement(
+      FlightSql.ActionClosePreparedStatementRequest request,
+      CallContext context,
+      StreamListener<Result> listener) {
     listener.onCompleted();
   }
 

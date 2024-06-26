@@ -221,6 +221,17 @@ class TestConvertMetadata:
         )
         _check_pandas_roundtrip(df, preserve_index=True)
 
+    def test_column_index_names_with_decimal(self):
+        # GH-41503: Test valid roundtrip with decimal value in column index
+        df = pd.DataFrame(
+            [[decimal.Decimal(5), decimal.Decimal(6)]],
+            columns=pd.MultiIndex.from_product(
+                [[decimal.Decimal(1)], [decimal.Decimal(2), decimal.Decimal(3)]]
+            ),
+            index=[decimal.Decimal(4)],
+        )
+        _check_pandas_roundtrip(df, preserve_index=True)
+
     def test_range_index_shortcut(self):
         # ARROW-1639
         index_name = 'foo'
@@ -769,7 +780,7 @@ class TestConvertPrimitiveTypes:
             info = np.iinfo(dtype)
             values = np.random.randint(max(info.min, np.iinfo(np.int_).min),
                                        min(info.max, np.iinfo(np.int_).max),
-                                       size=num_values)
+                                       size=num_values, dtype=dtype)
             data[dtype] = values.astype(dtype)
             fields.append(pa.field(dtype, arrow_dtype))
 
@@ -4745,6 +4756,7 @@ def make_df_with_timestamps():
             np.datetime64('2050-05-03 15:42', 'ns'),
         ],
     })
+    df['dateTimeMs'] = df['dateTimeMs'].astype('object')
     # Not part of what we're testing, just ensuring that the inputs are what we
     # expect.
     assert (df.dateTimeMs.dtype, df.dateTimeNs.dtype) == (

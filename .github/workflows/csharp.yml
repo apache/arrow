@@ -94,8 +94,8 @@ jobs:
         run: ci/scripts/csharp_test.sh $(pwd)
 
   macos:
-    name: ARM64 macOS 14 C# ${{ matrix.dotnet }}
-    runs-on: macos-latest
+    name: AMD64 macOS 13 C# ${{ matrix.dotnet }}
+    runs-on: macos-13 # Pending https://github.com/pythonnet/pythonnet/issues/2396
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 15
     strategy:

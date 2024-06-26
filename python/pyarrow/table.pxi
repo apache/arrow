@@ -3752,9 +3752,12 @@ cdef class RecordBatch(_Tabular):
         This is a low-level function intended for expert users.
         """
         cdef:
-            void* c_ptr = _as_c_pointer(in_ptr)
+            ArrowDeviceArray* c_device_array = <ArrowDeviceArray*>_as_c_pointer(in_ptr)
             void* c_schema_ptr
             shared_ptr[CRecordBatch] c_batch
+
+        if c_device_array.device_type == ARROW_DEVICE_CUDA:
+            _ensure_cuda_loaded()
 
         c_schema = pyarrow_unwrap_schema(schema)
         if c_schema == nullptr:
@@ -3762,11 +3765,11 @@ cdef class RecordBatch(_Tabular):
             c_schema_ptr = _as_c_pointer(schema, allow_null=True)
             with nogil:
                 c_batch = GetResultValue(ImportDeviceRecordBatch(
-                    <ArrowDeviceArray*> c_ptr, <ArrowSchema*> c_schema_ptr))
+                    c_device_array, <ArrowSchema*> c_schema_ptr))
         else:
             with nogil:
                 c_batch = GetResultValue(ImportDeviceRecordBatch(
-                    <ArrowDeviceArray*> c_ptr, c_schema))
+                    c_device_array, c_schema))
         return pyarrow_wrap_batch(c_batch)
 
 

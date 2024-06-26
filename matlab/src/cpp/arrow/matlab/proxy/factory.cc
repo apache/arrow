@@ -34,6 +34,8 @@
 #include "arrow/matlab/io/csv/proxy/table_writer.h"
 #include "arrow/matlab/io/feather/proxy/reader.h"
 #include "arrow/matlab/io/feather/proxy/writer.h"
+#include "arrow/matlab/io/ipc/proxy/record_batch_file_reader.h"
+#include "arrow/matlab/io/ipc/proxy/record_batch_file_writer.h"
 #include "arrow/matlab/tabular/proxy/record_batch.h"
 #include "arrow/matlab/tabular/proxy/schema.h"
 #include "arrow/matlab/tabular/proxy/table.h"
@@ -107,6 +109,8 @@ libmexclass::proxy::MakeResult Factory::make_proxy(
   REGISTER_PROXY(arrow.c.proxy.ArrayImporter       , arrow::matlab::c::proxy::ArrayImporter);
   REGISTER_PROXY(arrow.c.proxy.Schema              , arrow::matlab::c::proxy::Schema);
   REGISTER_PROXY(arrow.c.proxy.RecordBatchImporter , arrow::matlab::c::proxy::RecordBatchImporter);
+  REGISTER_PROXY(arrow.io.ipc.proxy.RecordBatchFileReader , arrow::matlab::io::ipc::proxy::RecordBatchFileReader);
+  REGISTER_PROXY(arrow.io.ipc.proxy.RecordBatchFileWriter , arrow::matlab::io::ipc::proxy::RecordBatchFileWriter);
   // clang-format on
 
   return libmexclass::error::Error{error::UNKNOWN_PROXY_ERROR_ID,

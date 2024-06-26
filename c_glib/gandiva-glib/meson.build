@@ -86,6 +86,7 @@ libgandiva_glib = library('gandiva-glib',
                           implicit_include_directories: false,
                           include_directories: base_include_directories,
                           cpp_args: ['-DGGANDIVA_COMPILATION'],
+                          c_args: ['-DGGANDIVA_COMPILATION'],
                           soversion: so_version,
                           version: library_version)
 gandiva_glib = declare_dependency(link_with: libgandiva_glib,

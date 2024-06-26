@@ -61,11 +61,17 @@ public class ArrowCExporter {
             // deallocated
             self.arrowData = arrowData
             for arrowBuffer in arrowData.buffers {
-                data.append(arrowBuffer.rawPointer)
+                self.data.append(arrowBuffer.rawPointer)
             }
 
-            self.buffers = UnsafeMutablePointer(mutating: data)
+            self.buffers = UnsafeMutablePointer<UnsafeRawPointer?>.allocate(capacity: self.data.count)
+            self.buffers.initialize(from: &self.data, count: self.data.count)
             super.init()
+        }
+
+        deinit {
+            self.buffers.deinitialize(count: self.data.count)
+            self.buffers.deallocate()
         }
     }
 

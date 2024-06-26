@@ -14,24 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.avro;
 
 import java.io.IOException;
-
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.avro.Schema;
 import org.apache.avro.io.Decoder;
 
-/**
- * Utility class to convert Avro objects to columnar Arrow format objects.
- */
+/** Utility class to convert Avro objects to columnar Arrow format objects. */
 public class AvroToArrow {
 
   /**
-   * Fetch the data from {@link Decoder} and convert it to Arrow objects.
-   * Only for testing purpose.
+   * Fetch the data from {@link Decoder} and convert it to Arrow objects. Only for testing purpose.
+   *
    * @param schema avro schema.
    * @param decoder avro decoder
    * @param config configuration of the conversion.
@@ -48,15 +44,14 @@ public class AvroToArrow {
 
   /**
    * Fetch the data from {@link Decoder} and iteratively convert it to Arrow objects.
+   *
    * @param schema avro schema
    * @param decoder avro decoder
    * @param config configuration of the conversion.
    * @throws IOException on error
    */
   public static AvroToArrowVectorIterator avroToArrowIterator(
-      Schema schema,
-      Decoder decoder,
-      AvroToArrowConfig config) throws IOException {
+      Schema schema, Decoder decoder, AvroToArrowConfig config) throws IOException {
 
     Preconditions.checkNotNull(schema, "Avro schema object cannot be null");
     Preconditions.checkNotNull(decoder, "Avro decoder object cannot be null");

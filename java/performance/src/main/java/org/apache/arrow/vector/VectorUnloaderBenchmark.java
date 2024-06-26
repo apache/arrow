@@ -14,11 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 import java.util.concurrent.TimeUnit;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
@@ -36,9 +34,7 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
-/**
- * Benchmarks for {@link VectorUnloader}.
- */
+/** Benchmarks for {@link VectorUnloader}. */
 @State(Scope.Benchmark)
 public class VectorUnloaderBenchmark {
   // checkstyle:off: MissingJavadocMethod
@@ -49,15 +45,13 @@ public class VectorUnloaderBenchmark {
 
   private BufferAllocator allocator;
 
-  private VarCharVector [] vectors;
+  private VarCharVector[] vectors;
 
   private VectorUnloader unloader;
 
   private ArrowRecordBatch recordBatch;
 
-  /**
-   * Setup benchmarks.
-   */
+  /** Setup benchmarks. */
   @Setup(Level.Trial)
   public void prepare() {
     allocator = new RootAllocator(ALLOCATOR_CAPACITY);
@@ -84,9 +78,7 @@ public class VectorUnloaderBenchmark {
     }
   }
 
-  /**
-   * Tear down benchmarks.
-   */
+  /** Tear down benchmarks. */
   @TearDown(Level.Trial)
   public void tearDown() {
     allocator.close();
@@ -100,7 +92,8 @@ public class VectorUnloaderBenchmark {
   }
 
   public static void main(String[] args) throws RunnerException {
-    Options opt = new OptionsBuilder()
+    Options opt =
+        new OptionsBuilder()
             .include(VectorUnloaderBenchmark.class.getSimpleName())
             .forks(1)
             .build();

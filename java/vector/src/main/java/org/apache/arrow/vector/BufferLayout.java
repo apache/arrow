@@ -14,32 +14,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 import org.apache.arrow.util.Preconditions;
 
 /**
- * Metadata class that captures the "type" of an Arrow buffer.
- * (e.g. data buffers, offset buffers for variable width types and validity
- * buffers).
+ * Metadata class that captures the "type" of an Arrow buffer. (e.g. data buffers, offset buffers
+ * for variable width types and validity buffers).
  */
 public class BufferLayout {
 
   /**
-   * Enumeration of the different logical types a buffer can have.
-   * Data buffer is common to most of the layouts.
-   * Offset buffer is used for variable width types.
-   * Validity buffer is used for nullable types.
-   * Type buffer is used for Union types.
-   * Size buffer is used for ListView and LargeListView types.
+   * Enumeration of the different logical types a buffer can have. Data buffer is common to most of
+   * the layouts. Offset buffer is used for variable width types. Validity buffer is used for
+   * nullable types. Type buffer is used for Union types. Size buffer is used for ListView and
+   * LargeListView types.
    */
   public enum BufferType {
     DATA("DATA"),
     OFFSET("OFFSET"),
     VALIDITY("VALIDITY"),
     TYPE("TYPE_ID"),
-    SIZE("SIZE");
+    SIZE("SIZE"),
+    VIEWS("VIEWS"),
+    VARIADIC_DATA_BUFFERS("VARIADIC_DATA_BUFFERS");
 
     private final String name;
 
@@ -64,6 +62,7 @@ public class BufferLayout {
   private static final BufferLayout VALUES_16 = new BufferLayout(BufferType.DATA, 16);
   private static final BufferLayout VALUES_8 = new BufferLayout(BufferType.DATA, 8);
   private static final BufferLayout SIZE_BUFFER = new BufferLayout(BufferType.SIZE, 32);
+  private static final BufferLayout VIEW_BUFFER = new BufferLayout(BufferType.VIEWS, 16);
 
   public static BufferLayout typeBuffer() {
     return TYPE_BUFFER;
@@ -82,7 +81,7 @@ public class BufferLayout {
   }
 
   /**
-   * Returns a databuffer for the given bitwidth.  Only supports powers of two between 8 and 128
+   * Returns a databuffer for the given bitwidth. Only supports powers of two between 8 and 128
    * inclusive.
    */
   public static BufferLayout dataBuffer(int typeBitWidth) {
@@ -114,6 +113,10 @@ public class BufferLayout {
 
   public static BufferLayout byteVector() {
     return dataBuffer(8);
+  }
+
+  public static BufferLayout viewVector() {
+    return VIEW_BUFFER;
   }
 
   private final short typeBitWidth;

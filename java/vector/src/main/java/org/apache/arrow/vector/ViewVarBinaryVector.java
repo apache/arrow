@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
@@ -31,10 +30,11 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
 /**
- * ViewVarBinaryVector implements a variable width view vector of binary values which could be NULL. A
- * validity buffer (bit vector) is maintained to track which elements in the vector are null.
+ * ViewVarBinaryVector implements a variable width view vector of binary values which could be NULL.
+ * A validity buffer (bit vector) is maintained to track which elements in the vector are null.
  */
-public final class ViewVarBinaryVector extends BaseVariableWidthViewVector {
+public final class ViewVarBinaryVector extends BaseVariableWidthViewVector
+    implements ValueIterableVector<byte[]> {
 
   /**
    * Instantiate a ViewVarBinaryVector. This doesn't allocate any memory for the data in vector.
@@ -179,8 +179,8 @@ public final class ViewVarBinaryVector extends BaseVariableWidthViewVector {
   }
 
   /**
-   * Same as {@link #set(int, NullableViewVarBinaryHolder)} except that it handles the case where index
-   * and length of a new element are beyond the existing capacity of the vector.
+   * Same as {@link #set(int, NullableViewVarBinaryHolder)} except that it handles the case where
+   * index and length of a new element are beyond the existing capacity of the vector.
    *
    * @param index position of the element to set
    * @param holder holder that carries data buffer.
@@ -205,14 +205,12 @@ public final class ViewVarBinaryVector extends BaseVariableWidthViewVector {
    */
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
-    // TODO: https://github.com/apache/arrow/issues/40932
-    throw new UnsupportedOperationException("Unsupported operation");
+    return new TransferImpl(ref, allocator);
   }
 
   @Override
   public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
-    // TODO: https://github.com/apache/arrow/issues/40932
-    throw new UnsupportedOperationException("Unsupported operation");
+    return new TransferImpl(field, allocator);
   }
 
   /**
@@ -223,7 +221,42 @@ public final class ViewVarBinaryVector extends BaseVariableWidthViewVector {
    */
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
-    // TODO: https://github.com/apache/arrow/issues/40932
-    throw new UnsupportedOperationException("Unsupported operation");
+    return new TransferImpl((ViewVarBinaryVector) to);
+  }
+
+  private class TransferImpl implements TransferPair {
+    ViewVarBinaryVector to;
+
+    public TransferImpl(String ref, BufferAllocator allocator) {
+      to = new ViewVarBinaryVector(ref, field.getFieldType(), allocator);
+    }
+
+    public TransferImpl(Field field, BufferAllocator allocator) {
+      to = new ViewVarBinaryVector(field, allocator);
+    }
+
+    public TransferImpl(ViewVarBinaryVector to) {
+      this.to = to;
+    }
+
+    @Override
+    public ViewVarBinaryVector getTo() {
+      return to;
+    }
+
+    @Override
+    public void transfer() {
+      transferTo(to);
+    }
+
+    @Override
+    public void splitAndTransfer(int startIndex, int length) {
+      splitAndTransferTo(startIndex, length, to);
+    }
+
+    @Override
+    public void copyValueSafe(int fromIndex, int toIndex) {
+      to.copyFromSafe(fromIndex, toIndex, ViewVarBinaryVector.this);
+    }
   }
 }

@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.ipc;
 
 import java.io.IOException;
@@ -24,7 +23,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 import org.apache.arrow.flatbuf.Footer;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.VisibleForTesting;
@@ -40,10 +38,7 @@ import org.apache.arrow.vector.validate.MetadataV4UnionChecker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * An implementation of {@link ArrowReader} that reads the standard arrow binary
- * file format.
- */
+/** An implementation of {@link ArrowReader} that reads the standard arrow binary file format. */
 public class ArrowFileReader extends ArrowReader {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(ArrowFileReader.class);
@@ -54,13 +49,17 @@ public class ArrowFileReader extends ArrowReader {
   private int currentRecordBatch = 0;
 
   public ArrowFileReader(
-      SeekableReadChannel in, BufferAllocator allocator, CompressionCodec.Factory compressionFactory) {
+      SeekableReadChannel in,
+      BufferAllocator allocator,
+      CompressionCodec.Factory compressionFactory) {
     super(allocator, compressionFactory);
     this.in = in;
   }
 
   public ArrowFileReader(
-      SeekableByteChannel in, BufferAllocator allocator, CompressionCodec.Factory compressionFactory) {
+      SeekableByteChannel in,
+      BufferAllocator allocator,
+      CompressionCodec.Factory compressionFactory) {
     this(new SeekableReadChannel(in), allocator, compressionFactory);
   }
 
@@ -95,11 +94,13 @@ public class ArrowFileReader extends ArrowReader {
       buffer.flip();
       byte[] array = buffer.array();
       if (!ArrowMagic.validateMagic(Arrays.copyOfRange(array, 4, array.length))) {
-        throw new InvalidArrowFileException("missing Magic number " + Arrays.toString(buffer.array()));
+        throw new InvalidArrowFileException(
+            "missing Magic number " + Arrays.toString(buffer.array()));
       }
       int footerLength = MessageSerializer.bytesToInt(array);
-      if (footerLength <= 0 || footerLength + ArrowMagic.MAGIC_LENGTH * 2 + 4 > in.size() ||
-              footerLength > footerLengthOffset) {
+      if (footerLength <= 0
+          || footerLength + ArrowMagic.MAGIC_LENGTH * 2 + 4 > in.size()
+          || footerLength > footerLengthOffset) {
         throw new InvalidArrowFileException("invalid footer length: " + footerLength);
       }
       long footerOffset = footerLengthOffset - footerLength;
@@ -130,9 +131,7 @@ public class ArrowFileReader extends ArrowReader {
     }
   }
 
-  /**
-   * Get custom metadata.
-   */
+  /** Get custom metadata. */
   public Map<String, String> getMetaData() {
     if (footer != null) {
       return footer.getMetaData();
@@ -149,7 +148,8 @@ public class ArrowFileReader extends ArrowReader {
    */
   public ArrowDictionaryBatch readDictionary() throws IOException {
     if (currentDictionaryBatch >= footer.getDictionaries().size()) {
-      throw new IOException("Requested more dictionaries than defined in footer: " + currentDictionaryBatch);
+      throw new IOException(
+          "Requested more dictionaries than defined in footer: " + currentDictionaryBatch);
     }
     ArrowBlock block = footer.getDictionaries().get(currentDictionaryBatch++);
     return readDictionaryBatch(in, block, allocator);
@@ -170,23 +170,18 @@ public class ArrowFileReader extends ArrowReader {
     }
   }
 
-
   public List<ArrowBlock> getDictionaryBlocks() throws IOException {
     ensureInitialized();
     return footer.getDictionaries();
   }
 
-  /**
-   * Returns the {@link ArrowBlock} metadata from the file.
-   */
+  /** Returns the {@link ArrowBlock} metadata from the file. */
   public List<ArrowBlock> getRecordBlocks() throws IOException {
     ensureInitialized();
     return footer.getRecordBatches();
   }
 
-  /**
-   * Loads record batch for the given block.
-   */
+  /** Loads record batch for the given block. */
   public boolean loadRecordBatch(ArrowBlock block) throws IOException {
     ensureInitialized();
     int blockIndex = footer.getRecordBatches().indexOf(block);
@@ -202,11 +197,13 @@ public class ArrowFileReader extends ArrowReader {
     return footer;
   }
 
-  private ArrowDictionaryBatch readDictionaryBatch(SeekableReadChannel in,
-                                                   ArrowBlock block,
-                                                   BufferAllocator allocator) throws IOException {
-    LOGGER.debug("DictionaryRecordBatch at {}, metadata: {}, body: {}",
-        block.getOffset(), block.getMetadataLength(), block.getBodyLength());
+  private ArrowDictionaryBatch readDictionaryBatch(
+      SeekableReadChannel in, ArrowBlock block, BufferAllocator allocator) throws IOException {
+    LOGGER.debug(
+        "DictionaryRecordBatch at {}, metadata: {}, body: {}",
+        block.getOffset(),
+        block.getMetadataLength(),
+        block.getBodyLength());
     in.setPosition(block.getOffset());
     ArrowDictionaryBatch batch = MessageSerializer.deserializeDictionaryBatch(in, block, allocator);
     if (batch == null) {
@@ -215,11 +212,12 @@ public class ArrowFileReader extends ArrowReader {
     return batch;
   }
 
-  private ArrowRecordBatch readRecordBatch(SeekableReadChannel in,
-                                           ArrowBlock block,
-                                           BufferAllocator allocator) throws IOException {
-    LOGGER.debug("RecordBatch at {}, metadata: {}, body: {}",
-        block.getOffset(), block.getMetadataLength(),
+  private ArrowRecordBatch readRecordBatch(
+      SeekableReadChannel in, ArrowBlock block, BufferAllocator allocator) throws IOException {
+    LOGGER.debug(
+        "RecordBatch at {}, metadata: {}, body: {}",
+        block.getOffset(),
+        block.getMetadataLength(),
         block.getBodyLength());
     in.setPosition(block.getOffset());
     ArrowRecordBatch batch = MessageSerializer.deserializeRecordBatch(in, block, allocator);

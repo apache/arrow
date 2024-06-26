@@ -14,9 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.util;
 
+import com.fasterxml.jackson.core.JsonGenerationException;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.databind.SerializerProvider;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 import java.io.DataInput;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -31,15 +35,9 @@ import java.text.CharacterIterator;
 import java.text.StringCharacterIterator;
 import java.util.Optional;
 
-import com.fasterxml.jackson.core.JsonGenerationException;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.databind.SerializerProvider;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import com.fasterxml.jackson.databind.ser.std.StdSerializer;
-
 /**
- * A simplified byte wrapper similar to Hadoop's Text class without all the dependencies.
- * Lifted from Hadoop 2.7.1
+ * A simplified byte wrapper similar to Hadoop's Text class without all the dependencies. Lifted
+ * from Hadoop 2.7.1
  */
 @JsonSerialize(using = Text.TextSerializer.class)
 public class Text extends ReusableByteArray {
@@ -48,7 +46,8 @@ public class Text extends ReusableByteArray {
       new ThreadLocal<CharsetEncoder>() {
         @Override
         protected CharsetEncoder initialValue() {
-          return Charset.forName("UTF-8").newEncoder()
+          return Charset.forName("UTF-8")
+              .newEncoder()
               .onMalformedInput(CodingErrorAction.REPORT)
               .onUnmappableCharacter(CodingErrorAction.REPORT);
         }
@@ -58,12 +57,12 @@ public class Text extends ReusableByteArray {
       new ThreadLocal<CharsetDecoder>() {
         @Override
         protected CharsetDecoder initialValue() {
-          return Charset.forName("UTF-8").newDecoder()
+          return Charset.forName("UTF-8")
+              .newDecoder()
               .onMalformedInput(CodingErrorAction.REPORT)
               .onUnmappableCharacter(CodingErrorAction.REPORT);
         }
       };
-
 
   public Text() {
     super();
@@ -119,13 +118,12 @@ public class Text extends ReusableByteArray {
   }
 
   /**
-   * Returns the Unicode Scalar Value (32-bit integer value) for the character at
-   * <code>position</code>. Note that this method avoids using the converter or doing String
-   * instantiation.
+   * Returns the Unicode Scalar Value (32-bit integer value) for the character at <code>position
+   * </code>. Note that this method avoids using the converter or doing String instantiation.
    *
    * @param position the index of the char we want to retrieve
    * @return the Unicode scalar value at position or -1 if the position is invalid or points to a
-   *         trailing byte
+   *     trailing byte
    */
   public int charAt(int position) {
     if (position > this.length) {
@@ -144,15 +142,15 @@ public class Text extends ReusableByteArray {
   }
 
   /**
-   * Finds any occurrence of <code>what</code> in the backing buffer, starting as position
-   * <code>start</code>. The starting position is measured in bytes and the return value is in terms
-   * of byte position in the buffer. The backing buffer is not converted to a string for this
+   * Finds any occurrence of <code>what</code> in the backing buffer, starting as position <code>
+   * start</code>. The starting position is measured in bytes and the return value is in terms of
+   * byte position in the buffer. The backing buffer is not converted to a string for this
    * operation.
    *
-   * @param what  the string to search for
+   * @param what the string to search for
    * @param start where to start from
-   * @return byte position of the first occurrence of the search string in the UTF-8 buffer or -1
-   *         if not found
+   * @return byte position of the first occurrence of the search string in the UTF-8 buffer or -1 if
+   *     not found
    */
   public int find(String what, int start) {
     try {
@@ -230,9 +228,9 @@ public class Text extends ReusableByteArray {
   /**
    * Set the Text to range of bytes.
    *
-   * @param utf8  the data to copy from
+   * @param utf8 the data to copy from
    * @param start the first position of the new string
-   * @param len   the number of bytes of the new string
+   * @param len the number of bytes of the new string
    */
   public void set(byte[] utf8, int start, int len) {
     super.set(utf8, start, len);
@@ -241,9 +239,9 @@ public class Text extends ReusableByteArray {
   /**
    * Append a range of bytes to the end of the given text.
    *
-   * @param utf8  the data to copy from
+   * @param utf8 the data to copy from
    * @param start the first position to append from utf8
-   * @param len   the number of bytes to append
+   * @param len the number of bytes to append
    */
   public void append(byte[] utf8, int start, int len) {
     setCapacity(length + len, true);
@@ -254,8 +252,8 @@ public class Text extends ReusableByteArray {
   /**
    * Clear the string to empty.
    *
-   * <em>Note</em>: For performance reasons, this call does not clear the underlying byte array that
-   * is retrievable via {@link #getBytes()}. In order to free the byte-array memory, call
+   * <p><em>Note</em>: For performance reasons, this call does not clear the underlying byte array
+   * that is retrievable via {@link #getBytes()}. In order to free the byte-array memory, call
    * {@link #set(byte[])} with an empty byte array (For example, <code>new byte[0]</code>).
    */
   public void clear() {
@@ -275,7 +273,7 @@ public class Text extends ReusableByteArray {
    * Read a Text object whose length is already known. This allows creating Text from a stream which
    * uses a different serialization format.
    *
-   * @param in  the input to initialize from
+   * @param in the input to initialize from
    * @param len how many bytes to read from in
    * @throws IOException if something bad happens
    */
@@ -307,8 +305,7 @@ public class Text extends ReusableByteArray {
     return decode(ByteBuffer.wrap(utf8), true);
   }
 
-  public static String decode(byte[] utf8, int start, int length)
-      throws CharacterCodingException {
+  public static String decode(byte[] utf8, int start, int length) throws CharacterCodingException {
     return decode(ByteBuffer.wrap(utf8, start, length), true);
   }
 
@@ -317,9 +314,9 @@ public class Text extends ReusableByteArray {
    * is true, then malformed input is replaced with the substitution character, which is U+FFFD.
    * Otherwise the method throws a MalformedInputException.
    *
-   * @param utf8    the bytes to decode
-   * @param start   where to start from
-   * @param length  length of the bytes to decode
+   * @param utf8 the bytes to decode
+   * @param start where to start from
+   * @param length length of the bytes to decode
    * @param replace whether to replace malformed characters with U+FFFD
    * @return the decoded string
    * @throws CharacterCodingException if the input could not be decoded
@@ -329,12 +326,10 @@ public class Text extends ReusableByteArray {
     return decode(ByteBuffer.wrap(utf8, start, length), replace);
   }
 
-  private static String decode(ByteBuffer utf8, boolean replace)
-      throws CharacterCodingException {
+  private static String decode(ByteBuffer utf8, boolean replace) throws CharacterCodingException {
     CharsetDecoder decoder = DECODER_FACTORY.get();
     if (replace) {
-      decoder.onMalformedInput(
-          java.nio.charset.CodingErrorAction.REPLACE);
+      decoder.onMalformedInput(java.nio.charset.CodingErrorAction.REPLACE);
       decoder.onUnmappableCharacter(CodingErrorAction.REPLACE);
     }
     String str = decoder.decode(utf8).toString();
@@ -354,8 +349,7 @@ public class Text extends ReusableByteArray {
    * @return ByteBuffer: bytes stores at ByteBuffer.array() and length is ByteBuffer.limit()
    * @throws CharacterCodingException if the string could not be encoded
    */
-  public static ByteBuffer encode(String string)
-      throws CharacterCodingException {
+  public static ByteBuffer encode(String string) throws CharacterCodingException {
     return encode(string, true);
   }
 
@@ -364,20 +358,18 @@ public class Text extends ReusableByteArray {
    * true, then malformed input is replaced with the substitution character, which is U+FFFD.
    * Otherwise the method throws a MalformedInputException.
    *
-   * @param string  the string to encode
+   * @param string the string to encode
    * @param replace whether to replace malformed characters with U+FFFD
    * @return ByteBuffer: bytes stores at ByteBuffer.array() and length is ByteBuffer.limit()
    * @throws CharacterCodingException if the string could not be encoded
    */
-  public static ByteBuffer encode(String string, boolean replace)
-      throws CharacterCodingException {
+  public static ByteBuffer encode(String string, boolean replace) throws CharacterCodingException {
     CharsetEncoder encoder = ENCODER_FACTORY.get();
     if (replace) {
       encoder.onMalformedInput(CodingErrorAction.REPLACE);
       encoder.onUnmappableCharacter(CodingErrorAction.REPLACE);
     }
-    ByteBuffer bytes =
-        encoder.encode(CharBuffer.wrap(string.toCharArray()));
+    ByteBuffer bytes = encoder.encode(CharBuffer.wrap(string.toCharArray()));
     if (replace) {
       encoder.onMalformedInput(CodingErrorAction.REPORT);
       encoder.onUnmappableCharacter(CodingErrorAction.REPORT);
@@ -418,9 +410,9 @@ public class Text extends ReusableByteArray {
   /**
    * Check to see if a byte array is valid utf-8.
    *
-   * @param utf8  the array of bytes
+   * @param utf8 the array of bytes
    * @param start the offset of the first byte in the array
-   * @param len   the length of the byte sequence
+   * @param len the length of the byte sequence
    * @throws MalformedInputException if the byte array contains invalid bytes
    */
   public static void validateUTF8(byte[] utf8, int start, int len) throws MalformedInputException {
@@ -433,10 +425,11 @@ public class Text extends ReusableByteArray {
   /**
    * Check to see if a byte array is valid utf-8.
    *
-   * @param utf8  the array of bytes
+   * @param utf8 the array of bytes
    * @param start the offset of the first byte in the array
-   * @param len   the length of the byte sequence
-   * @return the position where a malformed byte occurred or Optional.empty() if the byte array was valid UTF-8.
+   * @param len the length of the byte sequence
+   * @return the position where a malformed byte occurred or Optional.empty() if the byte array was
+   *     valid UTF-8.
    */
   private static Optional<Integer> validateUTF8Internal(byte[] utf8, int start, int len) {
     int count = start;
@@ -519,22 +512,265 @@ public class Text extends ReusableByteArray {
    * Trailing bytes have the value -1. The values 4 and 5 are presented in this table, even though
    * valid UTF-8 cannot include the five and six byte sequences.
    */
-  static final int[] bytesFromUTF8 =
-      {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-          0, 0, 0, 0, 0, 0, 0,
-          // trail bytes
-          -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-          -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-          -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-          -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 1, 1, 1, 1, 1,
-          1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-          1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3,
-          3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5};
+  static final int[] bytesFromUTF8 = {
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    // trail bytes
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    4,
+    4,
+    4,
+    4,
+    5,
+    5,
+    5,
+    5
+  };
 
   /**
    * Returns the next code point at the current position in the buffer. The buffer's position will
@@ -584,8 +820,9 @@ public class Text extends ReusableByteArray {
     return ch;
   }
 
-  static final int[] offsetsFromUTF8 =
-      {0x00000000, 0x00003080, 0x000E2080, 0x03C82080, 0xFA082080, 0x82082080};
+  static final int[] offsetsFromUTF8 = {
+    0x00000000, 0x00003080, 0x000E2080, 0x03C82080, 0xFA082080, 0x82082080
+  };
 
   /**
    * For the given string, returns the number of UTF-8 bytes required to encode the string.
@@ -622,9 +859,7 @@ public class Text extends ReusableByteArray {
     return size;
   }
 
-  /**
-   * JSON serializer for {@link Text}.
-   */
+  /** JSON serializer for {@link Text}. */
   public static class TextSerializer extends StdSerializer<Text> {
 
     public TextSerializer() {
@@ -633,9 +868,8 @@ public class Text extends ReusableByteArray {
 
     @Override
     public void serialize(
-        Text text,
-        JsonGenerator jsonGenerator,
-        SerializerProvider serializerProvider) throws IOException, JsonGenerationException {
+        Text text, JsonGenerator jsonGenerator, SerializerProvider serializerProvider)
+        throws IOException, JsonGenerationException {
       jsonGenerator.writeString(text.toString());
     }
   }

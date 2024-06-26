@@ -14,16 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.auth;
 
 import java.util.Iterator;
-
 import org.apache.arrow.flight.impl.Flight.BasicAuth;
 
-/**
- * A client auth handler that supports username and password.
- */
+/** A client auth handler that supports username and password. */
 public class BasicClientAuthHandler implements ClientAuthHandler {
 
   private final String name;
@@ -54,5 +50,4 @@ public class BasicClientAuthHandler implements ClientAuthHandler {
   public byte[] getCallToken() {
     return token;
   }
-
 }

@@ -21,6 +21,3 @@ arrow-git.properties
 cmake_install.cmake
 install_manifest.txt
 target/
-
-# Generated properties file
-flight/flight-sql-jdbc-core/src/main/resources/properties/flight.properties

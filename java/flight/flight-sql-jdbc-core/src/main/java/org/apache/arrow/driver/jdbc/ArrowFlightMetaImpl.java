@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc;
 
 import java.sql.Connection;
@@ -25,7 +24,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-
 import org.apache.arrow.driver.jdbc.client.ArrowFlightSqlClientHandler.PreparedStatement;
 import org.apache.arrow.driver.jdbc.utils.AvaticaParameterBinder;
 import org.apache.arrow.driver.jdbc.utils.ConvertUtils;
@@ -39,14 +37,13 @@ import org.apache.calcite.avatica.NoSuchStatementException;
 import org.apache.calcite.avatica.QueryState;
 import org.apache.calcite.avatica.remote.TypedValue;
 
-/**
- * Metadata handler for Arrow Flight.
- */
+/** Metadata handler for Arrow Flight. */
 public class ArrowFlightMetaImpl extends MetaImpl {
   private final Map<StatementHandleKey, PreparedStatement> statementHandlePreparedStatementMap;
 
   /**
    * Constructs a {@link MetaImpl} object specific for Arrow Flight.
+   *
    * @param connection A {@link AvaticaConnection}.
    */
   public ArrowFlightMetaImpl(final AvaticaConnection connection) {
@@ -55,14 +52,16 @@ public class ArrowFlightMetaImpl extends MetaImpl {
     setDefaultConnectionProperties();
   }
 
-  /**
-   * Construct a signature.
-   */
+  /** Construct a signature. */
   static Signature newSignature(final String sql, Schema resultSetSchema, Schema parameterSchema) {
-    List<ColumnMetaData> columnMetaData = resultSetSchema == null ?
-            new ArrayList<>() : ConvertUtils.convertArrowFieldsToColumnMetaDataList(resultSetSchema.getFields());
-    List<AvaticaParameter> parameters = parameterSchema == null ?
-            new ArrayList<>() : ConvertUtils.convertArrowFieldsToAvaticaParameters(parameterSchema.getFields());
+    List<ColumnMetaData> columnMetaData =
+        resultSetSchema == null
+            ? new ArrayList<>()
+            : ConvertUtils.convertArrowFieldsToColumnMetaDataList(resultSetSchema.getFields());
+    List<AvaticaParameter> parameters =
+        parameterSchema == null
+            ? new ArrayList<>()
+            : ConvertUtils.convertArrowFieldsToAvaticaParameters(parameterSchema.getFields());
 
     return new Signature(
         columnMetaData,
@@ -70,15 +69,15 @@ public class ArrowFlightMetaImpl extends MetaImpl {
         parameters,
         Collections.emptyMap(),
         null, // unnecessary, as SQL requests use ArrowFlightJdbcCursor
-        StatementType.SELECT
-    );
+        StatementType.SELECT);
   }
 
   @Override
   public void closeStatement(final StatementHandle statementHandle) {
     PreparedStatement preparedStatement =
         statementHandlePreparedStatementMap.remove(new StatementHandleKey(statementHandle));
-    // Testing if the prepared statement was created because the statement can be not created until this moment
+    // Testing if the prepared statement was created because the statement can be not created until
+    // this moment
     if (preparedStatement != null) {
       preparedStatement.close();
     }
@@ -90,54 +89,64 @@ public class ArrowFlightMetaImpl extends MetaImpl {
   }
 
   @Override
-  public ExecuteResult execute(final StatementHandle statementHandle,
-                               final List<TypedValue> typedValues, final long maxRowCount) {
-    Preconditions.checkArgument(connection.id.equals(statementHandle.connectionId),
-            "Connection IDs are not consistent");
+  public ExecuteResult execute(
+      final StatementHandle statementHandle,
+      final List<TypedValue> typedValues,
+      final long maxRowCount) {
+    Preconditions.checkArgument(
+        connection.id.equals(statementHandle.connectionId), "Connection IDs are not consistent");
     PreparedStatement preparedStatement = getPreparedStatement(statementHandle);
 
     if (preparedStatement == null) {
       throw new IllegalStateException("Prepared statement not found: " + statementHandle);
     }
 
-
-    new AvaticaParameterBinder(preparedStatement, ((ArrowFlightConnection) connection).getBufferAllocator())
-            .bind(typedValues);
+    new AvaticaParameterBinder(
+            preparedStatement, ((ArrowFlightConnection) connection).getBufferAllocator())
+        .bind(typedValues);
 
     if (statementHandle.signature == null) {
       // Update query
       long updatedCount = preparedStatement.executeUpdate();
-      return new ExecuteResult(Collections.singletonList(MetaResultSet.count(statementHandle.connectionId,
-              statementHandle.id, updatedCount)));
+      return new ExecuteResult(
+          Collections.singletonList(
+              MetaResultSet.count(statementHandle.connectionId, statementHandle.id, updatedCount)));
     } else {
       // TODO Why is maxRowCount ignored?
       return new ExecuteResult(
-              Collections.singletonList(MetaResultSet.create(
-                      statementHandle.connectionId, statementHandle.id,
-                      true, statementHandle.signature, null)));
+          Collections.singletonList(
+              MetaResultSet.create(
+                  statementHandle.connectionId,
+                  statementHandle.id,
+                  true,
+                  statementHandle.signature,
+                  null)));
     }
   }
 
   @Override
-  public ExecuteResult execute(final StatementHandle statementHandle,
-                               final List<TypedValue> typedValues, final int maxRowsInFirstFrame) {
+  public ExecuteResult execute(
+      final StatementHandle statementHandle,
+      final List<TypedValue> typedValues,
+      final int maxRowsInFirstFrame) {
     return execute(statementHandle, typedValues, (long) maxRowsInFirstFrame);
   }
 
   @Override
-  public ExecuteBatchResult executeBatch(final StatementHandle statementHandle,
-                                         final List<List<TypedValue>> parameterValuesList)
+  public ExecuteBatchResult executeBatch(
+      final StatementHandle statementHandle, final List<List<TypedValue>> parameterValuesList)
       throws IllegalStateException {
-    Preconditions.checkArgument(connection.id.equals(statementHandle.connectionId),
-            "Connection IDs are not consistent");
+    Preconditions.checkArgument(
+        connection.id.equals(statementHandle.connectionId), "Connection IDs are not consistent");
     PreparedStatement preparedStatement = getPreparedStatement(statementHandle);
 
     if (preparedStatement == null) {
       throw new IllegalStateException("Prepared statement not found: " + statementHandle);
     }
 
-    final AvaticaParameterBinder binder = new AvaticaParameterBinder(preparedStatement,
-            ((ArrowFlightConnection) connection).getBufferAllocator());
+    final AvaticaParameterBinder binder =
+        new AvaticaParameterBinder(
+            preparedStatement, ((ArrowFlightConnection) connection).getBufferAllocator());
     for (int i = 0; i < parameterValuesList.size(); i++) {
       binder.bind(parameterValuesList.get(i), i);
     }
@@ -148,49 +157,53 @@ public class ArrowFlightMetaImpl extends MetaImpl {
   }
 
   @Override
-  public Frame fetch(final StatementHandle statementHandle, final long offset,
-                     final int fetchMaxRowCount) {
+  public Frame fetch(
+      final StatementHandle statementHandle, final long offset, final int fetchMaxRowCount) {
     /*
      * ArrowFlightMetaImpl does not use frames.
      * Instead, we have accessors that contain a VectorSchemaRoot with
      * the results.
      */
     throw AvaticaConnection.HELPER.wrap(
-        String.format("%s does not use frames.", this),
-        AvaticaConnection.HELPER.unsupported());
+        String.format("%s does not use frames.", this), AvaticaConnection.HELPER.unsupported());
   }
 
   private PreparedStatement prepareForHandle(final String query, StatementHandle handle) {
     final PreparedStatement preparedStatement =
         ((ArrowFlightConnection) connection).getClientHandler().prepare(query);
-    handle.signature = newSignature(query, preparedStatement.getDataSetSchema(),
-            preparedStatement.getParameterSchema());
+    handle.signature =
+        newSignature(
+            query, preparedStatement.getDataSetSchema(), preparedStatement.getParameterSchema());
     statementHandlePreparedStatementMap.put(new StatementHandleKey(handle), preparedStatement);
     return preparedStatement;
   }
 
   @Override
-  public StatementHandle prepare(final ConnectionHandle connectionHandle,
-                                 final String query, final long maxRowCount) {
+  public StatementHandle prepare(
+      final ConnectionHandle connectionHandle, final String query, final long maxRowCount) {
     final StatementHandle handle = super.createStatement(connectionHandle);
     prepareForHandle(query, handle);
     return handle;
   }
 
   @Override
-  public ExecuteResult prepareAndExecute(final StatementHandle statementHandle,
-                                         final String query, final long maxRowCount,
-                                         final PrepareCallback prepareCallback)
+  public ExecuteResult prepareAndExecute(
+      final StatementHandle statementHandle,
+      final String query,
+      final long maxRowCount,
+      final PrepareCallback prepareCallback)
       throws NoSuchStatementException {
     return prepareAndExecute(
         statementHandle, query, maxRowCount, -1 /* Not used */, prepareCallback);
   }
 
   @Override
-  public ExecuteResult prepareAndExecute(final StatementHandle handle,
-                                         final String query, final long maxRowCount,
-                                         final int maxRowsInFirstFrame,
-                                         final PrepareCallback callback)
+  public ExecuteResult prepareAndExecute(
+      final StatementHandle handle,
+      final String query,
+      final long maxRowCount,
+      final int maxRowsInFirstFrame,
+      final PrepareCallback callback)
       throws NoSuchStatementException {
     try {
       PreparedStatement preparedStatement = prepareForHandle(query, handle);
@@ -203,11 +216,12 @@ public class ArrowFlightMetaImpl extends MetaImpl {
         callback.assign(handle.signature, null, updateCount);
       }
       callback.execute();
-      final MetaResultSet metaResultSet = MetaResultSet.create(handle.connectionId, handle.id,
-          false, handle.signature, null);
+      final MetaResultSet metaResultSet =
+          MetaResultSet.create(handle.connectionId, handle.id, false, handle.signature, null);
       return new ExecuteResult(Collections.singletonList(metaResultSet));
     } catch (SQLTimeoutException e) {
-      // So far AvaticaStatement(executeInternal) only handles NoSuchStatement and Runtime Exceptions.
+      // So far AvaticaStatement(executeInternal) only handles NoSuchStatement and Runtime
+      // Exceptions.
       throw new RuntimeException(e);
     } catch (SQLException e) {
       throw new NoSuchStatementException(handle);
@@ -228,8 +242,8 @@ public class ArrowFlightMetaImpl extends MetaImpl {
   }
 
   @Override
-  public boolean syncResults(final StatementHandle statementHandle,
-                             final QueryState queryState, final long offset)
+  public boolean syncResults(
+      final StatementHandle statementHandle, final QueryState queryState, final long offset)
       throws NoSuchStatementException {
     // TODO Fill this stub.
     return false;
@@ -237,7 +251,8 @@ public class ArrowFlightMetaImpl extends MetaImpl {
 
   void setDefaultConnectionProperties() {
     // TODO Double-check this.
-    connProps.setDirty(false)
+    connProps
+        .setDirty(false)
         .setAutoCommit(true)
         .setReadOnly(true)
         .setCatalog(null)
@@ -249,7 +264,8 @@ public class ArrowFlightMetaImpl extends MetaImpl {
     return statementHandlePreparedStatementMap.get(new StatementHandleKey(statementHandle));
   }
 
-  // Helper used to look up prepared statement instances later. Avatica doesn't give us the signature in
+  // Helper used to look up prepared statement instances later. Avatica doesn't give us the
+  // signature in
   // an UPDATE code path so we can't directly use StatementHandle as a map key.
   private static final class StatementHandleKey {
     public final String connectionId;

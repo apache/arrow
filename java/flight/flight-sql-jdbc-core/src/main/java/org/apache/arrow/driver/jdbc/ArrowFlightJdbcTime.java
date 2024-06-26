@@ -14,24 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc;
 
 import static org.apache.calcite.avatica.util.DateTimeUtils.MILLIS_PER_DAY;
 
+import com.google.common.collect.ImmutableList;
 import java.sql.Time;
 import java.time.LocalTime;
 import java.time.temporal.ChronoField;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
-
 import org.apache.arrow.util.VisibleForTesting;
 
-import com.google.common.collect.ImmutableList;
-
 /**
- * Wrapper class for Time objects to include the milliseconds part in ISO 8601 format in this#toString.
+ * Wrapper class for Time objects to include the milliseconds part in ISO 8601 format in
+ * this#toString.
  */
 public class ArrowFlightJdbcTime extends Time {
   private static final List<String> LEADING_ZEROES = ImmutableList.of("", "0", "00");
@@ -54,7 +52,8 @@ public class ArrowFlightJdbcTime extends Time {
 
   @VisibleForTesting
   ArrowFlightJdbcTime(final LocalTime time) {
-    // Although the constructor is deprecated, this is the exact same code as Time#valueOf(LocalTime)
+    // Although the constructor is deprecated, this is the exact same code as
+    // Time#valueOf(LocalTime)
     super(time.getHour(), time.getMinute(), time.getSecond());
     millisReprValue = time.get(ChronoField.MILLI_OF_SECOND);
   }
