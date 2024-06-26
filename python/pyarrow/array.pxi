@@ -1904,6 +1904,10 @@ cdef class Array(_PandasConvertible):
             schema. PyArrow will attempt to cast the array to this data type.
             If None, the array will be returned as-is, with a type matching the
             one returned by :meth:`__arrow_c_schema__()`.
+        kwargs
+            Currently no additional keyword arguments are supported, but
+            this method will accept any keyword with a value of ``None``
+            for compatibility with future keywords.
 
         Returns
         -------
@@ -1928,7 +1932,10 @@ cdef class Array(_PandasConvertible):
             target_type = DataType._import_from_c_capsule(requested_schema)
 
             if target_type != self.type:
-                # TODO should protect from trying to cast non-CPU data
+                if not self.is_cpu:
+                    raise NotImplementedError(
+                        "Casting to a requested schema is only supported for CPU data"
+                    )
                 try:
                     casted_array = _pc().cast(self, target_type, safe=True)
                     inner_array = pyarrow_unwrap_array(casted_array)

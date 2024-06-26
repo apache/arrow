@@ -1016,6 +1016,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int num_columns()
         int64_t num_rows()
 
+        CDeviceAllocationType device_type()
+
         CStatus Validate() const
         CStatus ValidateFull() const
 

@@ -3782,6 +3782,10 @@ cdef class RecordBatch(_Tabular):
             schema. PyArrow will attempt to cast the batch to this data type.
             If None, the batch will be returned as-is, with a type matching the
             one returned by :meth:`__arrow_c_schema__()`.
+        kwargs
+            Currently no additional keyword arguments are supported, but
+            this method will accept any keyword with a value of ``None``
+            for compatibility with future keywords.
 
         Returns
         -------
@@ -3806,7 +3810,10 @@ cdef class RecordBatch(_Tabular):
             target_schema = Schema._import_from_c_capsule(requested_schema)
 
             if target_schema != self.schema:
-                # TODO should protect from trying to cast non-CPU data
+                if not self.is_cpu:
+                    raise NotImplementedError(
+                        "Casting to a requested schema is only supported for CPU data"
+                    )
                 try:
                     casted_batch = self.cast(target_schema, safe=True)
                     inner_batch = pyarrow_unwrap_batch(casted_batch)
@@ -3859,6 +3866,24 @@ cdef class RecordBatch(_Tabular):
             batch = GetResultValue(ImportDeviceRecordBatch(c_array, c_schema))
 
         return pyarrow_wrap_batch(batch)
+
+    @property
+    def device_type(self):
+        """
+        The device type where the arrays in the RecordBatch reside.
+
+        Returns
+        -------
+        DeviceAllocationType
+        """
+        return _wrap_device_allocation_type(self.sp_batch.get().device_type())
+
+    @property
+    def is_cpu(self):
+        """
+        Whether the RecordBatch's arrays are CPU-accessible.
+        """
+        return self.device_type == DeviceAllocationType.CPU
 
 
 def _reconstruct_record_batch(columns, schema):
