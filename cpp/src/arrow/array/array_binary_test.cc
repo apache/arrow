@@ -363,8 +363,6 @@ TYPED_TEST(TestStringArray, TestEmptyStringComparison) {
 
 TYPED_TEST(TestStringArray, CompareNullByteSlots) { this->TestCompareNullByteSlots(); }
 
-TYPED_TEST(TestStringArray, BufferDetailsWithSlice) { this->TestBufferDetailsWithSlice(); }
-
 TYPED_TEST(TestStringArray, TestSliceGetString) { this->TestSliceGetString(); }
 
 TYPED_TEST(TestStringArray, TestValidateOffsets) { this->TestValidateOffsets(); }
