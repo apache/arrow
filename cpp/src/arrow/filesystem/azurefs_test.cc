@@ -53,6 +53,7 @@
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/future.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
@@ -929,8 +930,9 @@ class TestAzureFileSystem : public ::testing::Test {
   void UploadLines(const std::vector<std::string>& lines, const std::string& path,
                    int total_size) {
     ASSERT_OK_AND_ASSIGN(auto output, fs()->OpenOutputStream(path, {}));
-    const auto all_lines = std::accumulate(lines.begin(), lines.end(), std::string(""));
-    ASSERT_OK(output->Write(all_lines));
+    for (auto const& line : lines) {
+      ASSERT_OK(output->Write(line.data(), line.size()));
+    }
     ASSERT_OK(output->Close());
   }
 
@@ -1472,6 +1474,93 @@ class TestAzureFileSystem : public ::testing::Test {
         ::testing::HasSubstr("Not a directory: '" + data.Path("dir/file0/") + "'"),
         fs()->DeleteFile(data.Path("dir/file0/")));
     arrow::fs::AssertFileInfo(fs(), data.Path("dir/file0"), FileType::File);
+  }
+
+  void AssertObjectContents(AzureFileSystem* fs, std::string_view path,
+                            std::string_view expected) {
+    ASSERT_OK_AND_ASSIGN(auto input, fs->OpenInputStream(std::string{path}));
+    std::string contents;
+    std::shared_ptr<Buffer> buffer;
+    do {
+      ASSERT_OK_AND_ASSIGN(buffer, input->Read(128 * 1024));
+      ASSERT_TRUE(buffer);
+      contents.append(buffer->ToString());
+    } while (buffer->size() != 0);
+
+    EXPECT_EQ(expected, contents);
+  }
+
+  void TestOpenOutputStreamSmall() {
+    ASSERT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options_));
+
+    auto data = SetUpPreexistingData();
+    const auto path = data.ContainerPath("test-write-object");
+    ASSERT_OK_AND_ASSIGN(auto output, fs->OpenOutputStream(path, {}));
+    const std::string_view expected(PreexistingData::kLoremIpsum);
+    ASSERT_OK(output->Write(expected));
+    ASSERT_OK(output->Close());
+
+    // Verify we can read the object back.
+    AssertObjectContents(fs.get(), path, expected);
+  }
+
+  void TestOpenOutputStreamLarge() {
+    ASSERT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options_));
+
+    auto data = SetUpPreexistingData();
+    const auto path = data.ContainerPath("test-write-object");
+    ASSERT_OK_AND_ASSIGN(auto output, fs->OpenOutputStream(path, {}));
+    std::array<std::int64_t, 3> sizes{257 * 1024, 258 * 1024, 259 * 1024};
+    std::array<std::string, 3> buffers{
+        std::string(sizes[0], 'A'),
+        std::string(sizes[1], 'B'),
+        std::string(sizes[2], 'C'),
+    };
+    auto expected = std::int64_t{0};
+    for (auto i = 0; i != 3; ++i) {
+      ASSERT_OK(output->Write(buffers[i]));
+      expected += sizes[i];
+      ASSERT_EQ(expected, output->Tell());
+    }
+    ASSERT_OK(output->Close());
+
+    AssertObjectContents(fs.get(), path, buffers[0] + buffers[1] + buffers[2]);
+  }
+
+  void TestOpenOutputStreamCloseAsyncDestructor() {
+    ASSERT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options_));
+    std::shared_ptr<io::OutputStream> stream;
+    auto data = SetUpPreexistingData();
+    const std::string path = data.ContainerPath("test-write-object");
+    constexpr auto payload = PreexistingData::kLoremIpsum;
+
+    ASSERT_OK_AND_ASSIGN(stream, fs->OpenOutputStream(path));
+    ASSERT_OK(stream->Write(payload));
+    // Destructor implicitly closes stream and completes the multipart upload.
+    // GH-37670: Testing it doesn't matter whether flush is triggered asynchronously
+    // after CloseAsync or synchronously after stream.reset() since we're just
+    // checking that `closeAsyncFut` keeps the stream alive until completion
+    // rather than segfaulting on a dangling stream
+    auto close_fut = stream->CloseAsync();
+    stream.reset();
+    ASSERT_OK(close_fut.MoveResult());
+
+    AssertObjectContents(fs.get(), path, payload);
+  }
+
+  void TestOpenOutputStreamDestructor() {
+    ASSERT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options_));
+    std::shared_ptr<io::OutputStream> stream;
+    constexpr auto* payload = "new data";
+    auto data = SetUpPreexistingData();
+    const std::string path = data.ContainerPath("test-write-object");
+
+    ASSERT_OK_AND_ASSIGN(stream, fs->OpenOutputStream(path));
+    ASSERT_OK(stream->Write(payload));
+    // Destructor implicitly closes stream and completes the multipart upload.
+    stream.reset();
+
+    AssertObjectContents(fs.get(), path, payload);
   }
 
  private:
@@ -2704,54 +2793,19 @@ TEST_F(TestAzuriteFileSystem, WriteMetadataHttpHeaders) {
   ASSERT_EQ("text/plain", content_type);
 }
 
-TEST_F(TestAzuriteFileSystem, OpenOutputStreamSmall) {
-  auto data = SetUpPreexistingData();
-  const auto path = data.ContainerPath("test-write-object");
-  ASSERT_OK_AND_ASSIGN(auto output, fs()->OpenOutputStream(path, {}));
-  const std::string_view expected(PreexistingData::kLoremIpsum);
-  ASSERT_OK(output->Write(expected));
-  ASSERT_OK(output->Close());
-
-  // Verify we can read the object back.
-  ASSERT_OK_AND_ASSIGN(auto input, fs()->OpenInputStream(path));
-
-  std::array<char, 1024> inbuf{};
-  ASSERT_OK_AND_ASSIGN(auto size, input->Read(inbuf.size(), inbuf.data()));
-
-  EXPECT_EQ(expected, std::string_view(inbuf.data(), size));
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamSmallNoBackgroundWrites) {
+  options_.background_writes = false;
+  TestOpenOutputStreamSmall();
 }
 
-TEST_F(TestAzuriteFileSystem, OpenOutputStreamLarge) {
-  auto data = SetUpPreexistingData();
-  const auto path = data.ContainerPath("test-write-object");
-  ASSERT_OK_AND_ASSIGN(auto output, fs()->OpenOutputStream(path, {}));
-  std::array<std::int64_t, 3> sizes{257 * 1024, 258 * 1024, 259 * 1024};
-  std::array<std::string, 3> buffers{
-      std::string(sizes[0], 'A'),
-      std::string(sizes[1], 'B'),
-      std::string(sizes[2], 'C'),
-  };
-  auto expected = std::int64_t{0};
-  for (auto i = 0; i != 3; ++i) {
-    ASSERT_OK(output->Write(buffers[i]));
-    expected += sizes[i];
-    ASSERT_EQ(expected, output->Tell());
-  }
-  ASSERT_OK(output->Close());
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamSmall) { TestOpenOutputStreamSmall(); }
 
-  // Verify we can read the object back.
-  ASSERT_OK_AND_ASSIGN(auto input, fs()->OpenInputStream(path));
-
-  std::string contents;
-  std::shared_ptr<Buffer> buffer;
-  do {
-    ASSERT_OK_AND_ASSIGN(buffer, input->Read(128 * 1024));
-    ASSERT_TRUE(buffer);
-    contents.append(buffer->ToString());
-  } while (buffer->size() != 0);
-
-  EXPECT_EQ(contents, buffers[0] + buffers[1] + buffers[2]);
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamLargeNoBackgroundWrites) {
+  options_.background_writes = false;
+  TestOpenOutputStreamLarge();
 }
+
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamLarge) { TestOpenOutputStreamLarge(); }
 
 TEST_F(TestAzuriteFileSystem, OpenOutputStreamTruncatesExistingFile) {
   auto data = SetUpPreexistingData();
@@ -2818,6 +2872,24 @@ TEST_F(TestAzuriteFileSystem, OpenOutputStreamClosed) {
                                        std::strlen(PreexistingData::kLoremIpsum)));
   ASSERT_RAISES(Invalid, output->Flush());
   ASSERT_RAISES(Invalid, output->Tell());
+}
+
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamAsyncDestructor) {
+  TestOpenOutputStreamCloseAsyncDestructor();
+}
+
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamAsyncDestructorNoBackgroundWrites) {
+  options_.background_writes = false;
+  TestOpenOutputStreamCloseAsyncDestructor();
+}
+
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamDestructor) {
+  TestOpenOutputStreamDestructor();
+}
+
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamDestructorNoBackgroundWrites) {
+  options_.background_writes = false;
+  TestOpenOutputStreamDestructor();
 }
 
 TEST_F(TestAzuriteFileSystem, OpenOutputStreamUri) {
