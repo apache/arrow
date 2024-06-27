@@ -1003,8 +1003,8 @@ Status ChunkedArrayFromJSON(const std::shared_ptr<DataType>& type,
   ArrayVector out_chunks;
   out_chunks.reserve(json_strings.size());
   for (const std::string& chunk_json : json_strings) {
-    out_chunks.emplace_back();
-    ARROW_ASSIGN_OR_RAISE(out_chunks.back(), ArrayFromJSON(type, chunk_json));
+    auto& out_chunk = out_chunks.emplace_back();
+    ARROW_ASSIGN_OR_RAISE(out_chunk, ArrayFromJSON(type, chunk_json));
   }
   *out = std::make_shared<ChunkedArray>(std::move(out_chunks), type);
   return Status::OK();
