@@ -1203,7 +1203,6 @@ tasks:
         PYTHON: 3.12
       image: conda-python-emscripten
 
-
   test-conda-python-3.11-hypothesis:
     ci: github
     template: docker-tests/github.linux.yml
