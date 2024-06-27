@@ -709,7 +709,7 @@ def test_struct_from_arrays():
 
     # From structtype
     structtype = pa.struct([fa, fb, fc])
-    arr = pa.StructArray.from_arrays([a, b, c], structtype=structtype)
+    arr = pa.StructArray.from_arrays([a, b, c], type=structtype)
     assert arr.type == pa.struct([fa, fb, fc])
     assert not arr.type[0].nullable
     assert arr.to_pylist() == expected_list
