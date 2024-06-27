@@ -130,6 +130,7 @@ def launch_server(dist_dir):
     )
     p.start()
     address = q.get(timeout=50)
+    time.sleep(0.1)  # wait to make sure server is started
     yield address
     p.terminate()
 
@@ -142,6 +143,7 @@ class NodeDriver:
             [shutil.which("node"), "-i"], stdin=subprocess.PIPE, bufsize=0
         )
         print(self.process)
+        time.sleep(0.1)  # wait for node to start
         self.hostname = hostname
         self.port = port
         self.last_ret_code = None
@@ -157,8 +159,22 @@ class NodeDriver:
     def clear_logs(self):
         pass  # we don't handle logs for node
 
+    def write_stdin(self, buffer):
+        # because we use unbuffered IO for
+        # stdout, stdin.write is also unbuffered
+        # so might under-run on writes
+        while len(buffer) > 0 and self.process.poll() is None:
+            written = self.process.stdin.write(buffer)
+            if written == len(buffer):
+                break
+            elif written == 0:
+                # full buffer - wait
+                time.sleep(0.01)
+            else:
+                buffer = buffer[written:]
+
     def execute_js(self, code, wait_for_terminate=True):
-        self.process.stdin.write((code + "\n").encode("utf-8"))
+        self.write_stdin((code + "\n").encode("utf-8"))
 
     def load_arrow(self):
         self.execute_js(f"await pyodide.loadPackage('{PYARROW_WHEEL_PATH}')")
@@ -175,7 +191,7 @@ class NodeDriver:
     def wait_for_done(self):
         # in node we just let it run above
         # then send EOF and join process
-        self.process.stdin.write(b"process.exit(python_output)\n")
+        self.write_stdin(b"process.exit(python_output)\n")
         return self.process.wait()
 
 
