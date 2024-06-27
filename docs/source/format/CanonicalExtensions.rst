@@ -283,22 +283,20 @@ UUID
    A specific UUID version is not required or guaranteed. This extension represents
    UUIDs as FixedSizeBinary(16) with big-endian notation and does not interpret the bytes in any way.
 
-Unknown
+Opaque
 =======
 
-Unknown represents a type or array that an Arrow-based system received from an
-external (often non-Arrow) system, which it cannot interpret itself or did not
-have support for in advance.  In this case, it can pass on Unknown to its own
-clients to communicate that a field exists, but that it cannot interpret the
-field or data.
+Opaque represents a type or array that an Arrow-based system received from an
+external (often non-Arrow) system, which it cannot interpret or did not have
+support for in advance.  In this case, it can pass on Opaque to its clients to
+show that a field exists, but that it cannot interpret the field or data.
 
 Extension parameters:
 
-* Extension name: ``arrow.unknown``.
+* Extension name: ``arrow.opaque``.
 
 * The storage type of this extension is any type.  If there is no underlying
-  data, the storage type should be Null.  If there is data, the storage type
-  may be any type.
+  data, the storage type should be Null.
 
 * Extension type parameters:
 
@@ -315,48 +313,44 @@ Rationale
 ---------
 
 Arrow systems often wrap non-Arrow systems, and so they must be prepared to
-handle data types and data that don't have an equivalent Arrow type.  A hard
-error is not useful to clients.  A client may still want to know of the
-existence of a field, or the types of other, supported fields, without getting
-an error just because of an unrecognized type in one column.  Similarly,
-dropping unsupported fields/columns is also a poor solution.
+handle data types and data that don't have an equivalent Arrow type.  A client
+may still want to know of the existence of a field, or the types of other,
+supported fields.  So returning an error because of an unrecognized type in
+one column, or dropping unsupported fields/columns, are poor solutions.
 
-Of course, the Arrow system can use extension types.  But it cannot have an
-extension type prepared for every possible type in advance; the non-Arrow
-system can have its own extension mechanisms.  It could "make up" a fresh
-extension type on-the-fly.  But this misleads downstream systems who cannot
-tell if the type is truly supported or not by the intermediate Arrow
-application.
+Of course, the Arrow system can use extension types.  But it will not have an
+extension type prepared for every possible type in advance; for example, the
+non-Arrow system may have its own extension mechanisms.  It could "make up" an
+extension type on the fly.  But this misleads clients who cannot tell if the
+type is truly supported or not by the intermediate Arrow application.
 
-The Unknown type is superior in all cases.  Because it explicitly means that
-the *intermediate* system does not support a type, it can be used to
-explicitly declare an unsupported field or column, without silently losing
-data or sending irrelevant errors.  In other words: if an Arrow system
-encounters a non-Arrow type it was not prepared to handle at runtime, it can
-use Unknown to pass the type along to an Arrow client.
+The Opaque type can be used instead.  Because it explicitly means that the
+*intermediate* system does not support a type, it can be used to declare an
+unsupported field or column without silently losing data or erroring.  In
+other words: if an Arrow system encounters a non-Arrow type it was not
+prepared to handle, it can use Opaque to still pass the type on to a client.
 
 Applications **should not** make conventions around vendor_name and type_name.
 If there is a type that multiple systems want to support, they should create a
-formal extension type.  They *should not* try to agree to use particular
-parameters of the Unknown type.  These parameters are meant for human end
-users to understand what type was not supported.  Of course, applications may
-interpret these fields regardless but must be prepared for breakage (if for
-example the type becomes formally supported with a custom extension type in a
-later software revision).
+formal extension type.  They *should not* try to agree on particular
+parameters of the Opaque type.  These parameters are meant for human end users
+to understand what type was not supported.  Of course, applications may
+interpret these fields regardless, but must be prepared for breakage (if for
+example the type becomes supported with a custom extension type in a later
+software revision).
 
-Unknown is not about file formats.  Considerations such as JSON or other file
-formats, or MIME types, are irrelevant, and Unknown should not be used as a
-generic container for file format data (XML/JSON/etc.).
+Opaque is not about file formats.  Considerations such as MIME types are
+irrelevant, and Opaque should not be thought of as a generic container for
+file format data (XML/JSON/etc.).
 
 Examples:
 
 * Consider a Flight SQL service that supports connecting external databases.
-  Its clients may request the names and types of columns of tables in those
-  databases, but then there may be types that the Flight SQL service does not
-  recognize, due to lack of support or because those systems have their own
-  extensions or user-defined types.
+  Its clients may request the names/types of table columns in those databases,
+  but there may be types that the Flight SQL service does not recognize
+  (e.g. when those systems have their own extensions or user-defined types).
 
-  The Flight SQL service can use the Unknown[Null] type to report that a
+  The Flight SQL service can use the Opaque[Null] type to report that a
   column exists with a particular name and type name in the external database.
   This lets clients know that a column exists, but is not supported.  Null is
   used as the storage type here because only schemas are involved.
@@ -366,9 +360,8 @@ Examples:
   prepare a query that references the unknown column in an expression and
   produces a result that *is* supported.  The server could make up an
   extension type on the fly, but then the client wouldn't be able to tell if
-  it can try to query the column or not, while with Unknown, it knows the
-  column is unsupported.  So as discussed above, Unknown is superior to all
-  alternatives.
+  it can try to query the column or not, while with Opaque, it knows the
+  column is unsupported.
 
   An example of the extension metadata would be::
 
@@ -381,9 +374,9 @@ Examples:
   driver cannot know about all types in advance, as there may be extensions
   (e.g. PostGIS for geospatial functionality).
 
-  Beacuse the driver still has the raw bytes, it can use Unknown[Binary] to
+  Beacuse the driver still has the raw bytes, it can use Opaque[Binary] to
   still return those bytes to the application, which may be able to parse the
-  data itself.  Unknown differentiates the column from an actual binary
+  data itself.  Opaque differentiates the column from an actual binary
   column and makes it clear that the value is unparsed.
 
   An example of the extension metadata would be::
@@ -396,7 +389,7 @@ Examples:
   semantics to existing types, somewhat like Arrow extension types.
 
   The driver would be able to parse the underlying bytes in this case.
-  However, the driver may still want to use the Unknown type.  Consider the
+  However, the driver may still want to use the Opaque type.  Consider the
   example in the PostgreSQL documentation above of a ``complex`` type.  Simply
   mapping the type to a plain Arrow ``struct`` type would lose the semantics
   of that custom type, just like how an Arrow system deciding to treat all
@@ -405,7 +398,7 @@ Examples:
   semantically - for instance, there may be an actual extension type that
   should be used.
 
-  Instead, the driver can use Unknown[Struct] to pass on the composite type
+  Instead, the driver can use Opaque[Struct] to pass on the composite type
   info.  The driver would never actually be able to directly support the type
   in this example, since these types are defined by database administrators,
   not by the developers, and the driver developers can never know about all
@@ -416,13 +409,13 @@ Examples:
     {"type_name": "database_name.schema_name.complex", "vendor_name": "PostgreSQL"}
 
 * The JDBC adapter in the Arrow Java libraries converts JDBC result sets into
-  Arrow arrays, and also to get Arrow schemas from result sets.  JDBC,
-  however, allows drivers to return `arbitrary Java objects
+  Arrow arrays, and can get Arrow schemas from result sets.  JDBC, however,
+  allows drivers to return `arbitrary Java objects
   <https://docs.oracle.com/javase/8/docs/api/java/sql/Types.html#OTHER>`_.
 
   Without the extension type, the JDBC adapter would simply error, making the
   adapter a minefield where results are all-or-nothing, even if an application
-  just wants a schema.  Instead, the driver could use Unknown[Null] as a
+  just wants a schema.  Instead, the driver could use Opaque[Null] as a
   placeholder during schema conversion, only erroring if the application tries
   to fetch the actual data.  That way, clients could at least introspect
   tables and queries to decide whether it can proceed to fetch the data, or
