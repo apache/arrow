@@ -592,7 +592,8 @@ void AddArraySortingKernels(VectorKernel base, VectorFunction* func) {
   }
   {
     // XXX: float16() is not in NumericTypes() yet
-    auto physical_type = GetPhysicalType(float16());
+    auto physical_type = float16();
+    DCHECK_EQ(physical_type->id(), GetPhysicalType(float16())->id());
     base.signature = KernelSignature::Make({float16()}, uint64());
     base.exec = GenerateNumeric<ExecTemplate, UInt64Type>(*physical_type);
     DCHECK_OK(func->AddKernel(base));
