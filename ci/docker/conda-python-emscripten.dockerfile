@@ -45,7 +45,7 @@ RUN source ~/emsdk/emsdk_env.sh && embuilder --pic build zlib
 # install pyodide dist directory to /pyodide
 WORKDIR /
 RUN pyodide_dist_url="https://github.com/pyodide/pyodide/releases/download/${pyodide_version}/pyodide-${pyodide_version}.tar.bz2" && \
-    wget --progress=dot:giga "${pyodide_dist_url}" -O- |tar -xj
+    wget -q "${pyodide_dist_url}" -O- |tar -xj
 
 # install chrome for testing browser based runner
 # zip needed for chrome, libpthread stubs installs pthread module to cmake, build-essential makes
@@ -65,3 +65,9 @@ SHELL ["/bin/bash", "--login", "-i", "-o", "pipefail", "-c"]
 COPY ci/scripts/install_node.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_node.sh 18
 SHELL ["/bin/bash", "--login", "-c"]
+
+ENV ARROW_EMSCRIPTEN = "ON"\
+    ARROW_DEPENDENCY_SOURCE = "BUNDLED"\
+    PYODIDE_VERSION = ${pyodide_version}\
+    ARROW_BUILD_TYPE = "release"\
+    ARROW_BUILD_TESTS = "OFF"
