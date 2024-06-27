@@ -679,18 +679,38 @@ TYPED_TEST(TestFilterKernelWithString, FilterDictionary) {
   this->AssertFilterDictionary(dict, "[3, 4, 2]", "[null, 1, 0]", "[null, 4]");
 }
 
+const auto kListAndListViewTypes = std::vector<std::shared_ptr<DataType>>{
+    list(int32()),
+    list_view(int32()),
+};
+
+const auto kNestedListAndListViewTypes = std::vector<std::shared_ptr<DataType>>{
+    list(list(int32())),
+    list_view(list_view(int32())),
+    list(list_view(int32())),
+    list_view(list(int32())),
+};
+
+const auto kLargeListAndListViewTypes = std::vector<std::shared_ptr<DataType>>{
+    large_list(int32()),
+    large_list_view(int32()),
+};
+
 class TestFilterKernelWithList : public TestFilterKernel {
  public:
 };
 
 TEST_F(TestFilterKernelWithList, FilterListInt32) {
   std::string list_json = "[[], [1,2], null, [3]]";
-  this->AssertFilter(list(int32()), list_json, "[0, 0, 0, 0]", "[]");
-  this->AssertFilter(list(int32()), list_json, "[0, 1, 1, null]", "[[1,2], null, null]");
-  this->AssertFilter(list(int32()), list_json, "[0, 0, 1, null]", "[null, null]");
-  this->AssertFilter(list(int32()), list_json, "[1, 0, 0, 1]", "[[], [3]]");
-  this->AssertFilter(list(int32()), list_json, "[1, 1, 1, 1]", list_json);
-  this->AssertFilter(list(int32()), list_json, "[0, 1, 0, 1]", "[[1,2], [3]]");
+  for (auto& type : kListAndListViewTypes) {
+    ARROW_SCOPED_TRACE("type = ", *type);
+    this->AssertFilter(type, list_json, "[0, 0, 0, 0]", "[]");
+    this->AssertFilter(type, list_json, "[0, 1, 1, null]", "[[1,2], null, null]");
+    this->AssertFilter(type, list_json, "[0, 0, 1, null]", "[null, null]");
+    this->AssertFilter(type, list_json, "[1, 0, 0, 1]", "[[], [3]]");
+    this->AssertFilter(type, list_json, "[1, 1, 1, 1]", list_json);
+    this->AssertFilter(type, list_json, "[0, 1, 0, 1]", "[[1,2], [3]]");
+  }
 }
 
 TEST_F(TestFilterKernelWithList, FilterListListInt32) {
@@ -700,32 +720,36 @@ TEST_F(TestFilterKernelWithList, FilterListListInt32) {
     null,
     [[3, null], null]
   ])";
-  auto type = list(list(int32()));
-  this->AssertFilter(type, list_json, "[0, 0, 0, 0]", "[]");
-  this->AssertFilter(type, list_json, "[0, 1, 1, null]", R"([
-    [[1], [2, null, 2], []],
-    null,
-    null
-  ])");
-  this->AssertFilter(type, list_json, "[0, 0, 1, null]", "[null, null]");
-  this->AssertFilter(type, list_json, "[1, 0, 0, 1]", R"([
-    [],
-    [[3, null], null]
-  ])");
-  this->AssertFilter(type, list_json, "[1, 1, 1, 1]", list_json);
-  this->AssertFilter(type, list_json, "[0, 1, 0, 1]", R"([
-    [[1], [2, null, 2], []],
-    [[3, null], null]
-  ])");
+  for (auto& type : kNestedListAndListViewTypes) {
+    ARROW_SCOPED_TRACE("type = ", *type);
+    this->AssertFilter(type, list_json, "[0, 0, 0, 0]", "[]");
+    this->AssertFilter(type, list_json, "[0, 1, 1, null]", R"([
+      [[1], [2, null, 2], []],
+      null,
+      null
+    ])");
+    this->AssertFilter(type, list_json, "[0, 0, 1, null]", "[null, null]");
+    this->AssertFilter(type, list_json, "[1, 0, 0, 1]", R"([
+      [],
+      [[3, null], null]
+    ])");
+    this->AssertFilter(type, list_json, "[1, 1, 1, 1]", list_json);
+    this->AssertFilter(type, list_json, "[0, 1, 0, 1]", R"([
+      [[1], [2, null, 2], []],
+      [[3, null], null]
+    ])");
+  }
 }
 
 class TestFilterKernelWithLargeList : public TestFilterKernel {};
 
 TEST_F(TestFilterKernelWithLargeList, FilterListInt32) {
   std::string list_json = "[[], [1,2], null, [3]]";
-  this->AssertFilter(large_list(int32()), list_json, "[0, 0, 0, 0]", "[]");
-  this->AssertFilter(large_list(int32()), list_json, "[0, 1, 1, null]",
-                     "[[1,2], null, null]");
+  for (auto& type : kLargeListAndListViewTypes) {
+    ARROW_SCOPED_TRACE("type = ", *type);
+    this->AssertFilter(type, list_json, "[0, 0, 0, 0]", "[]");
+    this->AssertFilter(type, list_json, "[0, 1, 1, null]", "[[1,2], null, null]");
+  }
 }
 
 class TestFilterKernelWithFixedSizeList : public TestFilterKernel {
@@ -1449,17 +1473,18 @@ class TestTakeKernelWithList : public TestTakeKernelTyped<ListType> {};
 
 TEST_F(TestTakeKernelWithList, TakeListInt32) {
   std::string list_json = "[[], [1,2], null, [3]]";
-  CheckTake(list(int32()), list_json, "[]", "[]");
-  CheckTake(list(int32()), list_json, "[3, 2, 1]", "[[3], null, [1,2]]");
-  CheckTake(list(int32()), list_json, "[null, 3, 0]", "[null, [3], []]");
-  CheckTake(list(int32()), list_json, "[null, null]", "[null, null]");
-  CheckTake(list(int32()), list_json, "[3, 0, 0, 3]", "[[3], [], [], [3]]");
-  CheckTake(list(int32()), list_json, "[0, 1, 2, 3]", list_json);
-  CheckTake(list(int32()), list_json, "[0, 0, 0, 0, 0, 0, 1]",
-            "[[], [], [], [], [], [], [1, 2]]");
+  for (auto& type : kListAndListViewTypes) {
+    CheckTake(type, list_json, "[]", "[]");
+    CheckTake(type, list_json, "[3, 2, 1]", "[[3], null, [1,2]]");
+    CheckTake(type, list_json, "[null, 3, 0]", "[null, [3], []]");
+    CheckTake(type, list_json, "[null, null]", "[null, null]");
+    CheckTake(type, list_json, "[3, 0, 0, 3]", "[[3], [], [], [3]]");
+    CheckTake(type, list_json, "[0, 1, 2, 3]", list_json);
+    CheckTake(type, list_json, "[0, 0, 0, 0, 0, 0, 1]",
+              "[[], [], [], [], [], [], [1, 2]]");
 
-  this->TestNoValidityBitmapButUnknownNullCount(list(int32()), "[[], [1,2], [3]]",
-                                                "[0, 1, 0]");
+    this->TestNoValidityBitmapButUnknownNullCount(type, "[[], [1,2], [3]]", "[0, 1, 0]");
+  }
 }
 
 TEST_F(TestTakeKernelWithList, TakeListListInt32) {
@@ -1469,35 +1494,40 @@ TEST_F(TestTakeKernelWithList, TakeListListInt32) {
     null,
     [[3, null], null]
   ])";
-  auto type = list(list(int32()));
-  CheckTake(type, list_json, "[]", "[]");
-  CheckTake(type, list_json, "[3, 2, 1]", R"([
-    [[3, null], null],
-    null,
-    [[1], [2, null, 2], []]
-  ])");
-  CheckTake(type, list_json, "[null, 3, 0]", R"([
-    null,
-    [[3, null], null],
-    []
-  ])");
-  CheckTake(type, list_json, "[null, null]", "[null, null]");
-  CheckTake(type, list_json, "[3, 0, 0, 3]",
-            "[[[3, null], null], [], [], [[3, null], null]]");
-  CheckTake(type, list_json, "[0, 1, 2, 3]", list_json);
-  CheckTake(type, list_json, "[0, 0, 0, 0, 0, 0, 1]",
-            "[[], [], [], [], [], [], [[1], [2, null, 2], []]]");
+  for (auto& type : kNestedListAndListViewTypes) {
+    ARROW_SCOPED_TRACE("type = ", *type);
+    CheckTake(type, list_json, "[]", "[]");
+    CheckTake(type, list_json, "[3, 2, 1]", R"([
+      [[3, null], null],
+      null,
+      [[1], [2, null, 2], []]
+    ])");
+    CheckTake(type, list_json, "[null, 3, 0]", R"([
+      null,
+      [[3, null], null],
+      []
+    ])");
+    CheckTake(type, list_json, "[null, null]", "[null, null]");
+    CheckTake(type, list_json, "[3, 0, 0, 3]",
+              "[[[3, null], null], [], [], [[3, null], null]]");
+    CheckTake(type, list_json, "[0, 1, 2, 3]", list_json);
+    CheckTake(type, list_json, "[0, 0, 0, 0, 0, 0, 1]",
+              "[[], [], [], [], [], [], [[1], [2, null, 2], []]]");
 
-  this->TestNoValidityBitmapButUnknownNullCount(
-      type, "[[[1], [2, null, 2], []], [[3, null]]]", "[0, 1, 0]");
+    this->TestNoValidityBitmapButUnknownNullCount(
+        type, "[[[1], [2, null, 2], []], [[3, null]]]", "[0, 1, 0]");
+  }
 }
 
 class TestTakeKernelWithLargeList : public TestTakeKernelTyped<LargeListType> {};
 
 TEST_F(TestTakeKernelWithLargeList, TakeLargeListInt32) {
   std::string list_json = "[[], [1,2], null, [3]]";
-  CheckTake(large_list(int32()), list_json, "[]", "[]");
-  CheckTake(large_list(int32()), list_json, "[null, 1, 2, 0]", "[null, [1,2], null, []]");
+  for (auto& type : kLargeListAndListViewTypes) {
+    ARROW_SCOPED_TRACE("type = ", *type);
+    CheckTake(type, list_json, "[]", "[]");
+    CheckTake(type, list_json, "[null, 1, 2, 0]", "[null, [1,2], null, []]");
+  }
 }
 
 class TestTakeKernelWithFixedSizeList : public TestTakeKernelTyped<FixedSizeListType> {
@@ -2275,8 +2305,11 @@ class TestDropNullKernelWithList : public TestDropNullKernelTyped<ListType> {};
 
 TEST_F(TestDropNullKernelWithList, DropNullListInt32) {
   std::string list_json = "[[], [1,2], null, [3]]";
-  CheckDropNull(list(int32()), list_json, "[[], [1,2], [3]]");
-  this->TestNoValidityBitmapButUnknownNullCount(list(int32()), "[[], [1,2], [3]]");
+  for (const auto& type : kListAndListViewTypes) {
+    ARROW_SCOPED_TRACE("type = ", *type);
+    CheckDropNull(type, list_json, "[[], [1,2], [3]]");
+    this->TestNoValidityBitmapButUnknownNullCount(type, "[[], [1,2], [3]]");
+  }
 }
 
 TEST_F(TestDropNullKernelWithList, DropNullListListInt32) {
@@ -2286,22 +2319,27 @@ TEST_F(TestDropNullKernelWithList, DropNullListListInt32) {
     null,
     [[3, null], null]
   ])";
-  auto type = list(list(int32()));
-  CheckDropNull(type, list_json, R"([
-    [],
-    [[1], [2, null, 2], []],
-    [[3, null], null]
-  ])");
+  for (auto& type : kNestedListAndListViewTypes) {
+    ARROW_SCOPED_TRACE("type = ", *type);
+    CheckDropNull(type, list_json, R"([
+      [],
+      [[1], [2, null, 2], []],
+      [[3, null], null]
+    ])");
 
-  this->TestNoValidityBitmapButUnknownNullCount(type,
-                                                "[[[1], [2, null, 2], []], [[3, null]]]");
+    this->TestNoValidityBitmapButUnknownNullCount(
+        type, "[[[1], [2, null, 2], []], [[3, null]]]");
+  }
 }
 
 class TestDropNullKernelWithLargeList : public TestDropNullKernelTyped<LargeListType> {};
 
 TEST_F(TestDropNullKernelWithLargeList, DropNullLargeListInt32) {
   std::string list_json = "[[], [1,2], null, [3]]";
-  CheckDropNull(large_list(int32()), list_json, "[[], [1,2],  [3]]");
+  for (auto& type : kLargeListAndListViewTypes) {
+    ARROW_SCOPED_TRACE("type = ", *type);
+    CheckDropNull(type, list_json, "[[], [1,2],  [3]]");
+  }
 
   this->TestNoValidityBitmapButUnknownNullCount(
       fixed_size_list(int32(), 3), "[[1, null, 3], [4, 5, 6], [7, 8, null]]");

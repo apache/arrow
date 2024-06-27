@@ -745,6 +745,8 @@ void PopulateTakeKernels(std::vector<SelectionKernelData>* out) {
       {InputType(Type::EXTENSION), take_indices, ExtensionTake},
       {InputType(Type::LIST), take_indices, ListTakeExec},
       {InputType(Type::LARGE_LIST), take_indices, LargeListTakeExec},
+      {InputType(Type::LIST_VIEW), take_indices, ListViewTakeExec},
+      {InputType(Type::LARGE_LIST_VIEW), take_indices, LargeListViewTakeExec},
       {InputType(Type::FIXED_SIZE_LIST), take_indices, FSLTakeExec},
       {InputType(Type::DENSE_UNION), take_indices, DenseUnionTakeExec},
       {InputType(Type::SPARSE_UNION), take_indices, SparseUnionTakeExec},
