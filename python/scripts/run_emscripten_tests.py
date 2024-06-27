@@ -19,12 +19,13 @@
 import argparse
 import contextlib
 import http.server
-import multiprocessing
 import os
+import queue
 import shutil
 import subprocess
 import sys
 import time
+import threading
 
 from pathlib import Path
 from io import BytesIO
@@ -124,10 +125,8 @@ def run_server_thread(dist_dir, q):
 
 @contextlib.contextmanager
 def launch_server(dist_dir):
-    q = multiprocessing.Queue()
-    p = multiprocessing.Process(
-        target=run_server_thread, args=[dist_dir, q], daemon=True
-    )
+    q = queue.Queue()
+    p = threading.Thread(target=run_server_thread, args=[dist_dir, q], daemon=True)
     p.start()
     address = q.get(timeout=50)
     time.sleep(0.1)  # wait to make sure server is started
