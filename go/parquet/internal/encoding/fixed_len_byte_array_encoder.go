@@ -75,8 +75,8 @@ func (PlainFixedLenByteArrayEncoder) Type() parquet.Type {
 	return parquet.Types.FixedLenByteArray
 }
 
-// ByteStreamSplitFixedLenByteArrayEncoder writes the raw bytes of the byte array
-// always writing typeLength bytes for each value. (TODO)
+// ByteStreamSplitFixedLenByteArrayEncoder writes the underlying bytes of the FixedLenByteArray
+// into interlaced streams as defined by the BYTE_STREAM_SPLIT encoding
 type ByteStreamSplitFixedLenByteArrayEncoder struct {
 	encoder
 
@@ -85,37 +85,17 @@ type ByteStreamSplitFixedLenByteArrayEncoder struct {
 
 // Put writes the provided values to the encoder
 func (enc *ByteStreamSplitFixedLenByteArrayEncoder) Put(in []parquet.FixedLenByteArray) {
-	bytesNeeded := len(in) * enc.typeLen
-	enc.sink.Reserve(bytesNeeded)
-	for offset := 0; offset < enc.typeLen; offset++ {
-		for _, val := range in {
-			if len(val) != enc.typeLen {
-				panic(fmt.Sprintf("invalid element of size %d in FixedLenByteArray of size %d", len(val), enc.typeLen))
-			}
-			enc.sink.UnsafeWrite(val[offset : offset+1]) // Single-element slice
-		}
+	input := make([][]byte, len(in))
+	for i := range in {
+		input[i] = []byte(in[i])
 	}
+
+	putByteStreamSplit(in, enc.sink, enc.typeLen)
 }
 
 // PutSpaced is like Put but works with data that is spaced out according to the passed in bitmap
 func (enc *ByteStreamSplitFixedLenByteArrayEncoder) PutSpaced(in []parquet.FixedLenByteArray, validBits []byte, validBitsOffset int64) {
-	if validBits != nil {
-		if enc.bitSetReader == nil {
-			enc.bitSetReader = bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(in)))
-		} else {
-			enc.bitSetReader.Reset(validBits, validBitsOffset, int64(len(in)))
-		}
-
-		for {
-			run := enc.bitSetReader.NextRun()
-			if run.Length == 0 {
-				break
-			}
-			enc.Put(in[int(run.Pos):int(run.Pos+run.Length)])
-		}
-	} else {
-		enc.Put(in)
-	}
+	putByteStreamSplitSpaced(in, validBits, validBitsOffset, enc.bitSetReader, enc.Put)
 }
 
 // Type returns the underlying physical type this encoder works with, Fixed Length byte arrays.

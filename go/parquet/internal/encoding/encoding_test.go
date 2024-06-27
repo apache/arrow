@@ -410,7 +410,7 @@ func (b *BaseEncodingTestSuite) TestByteStreamSplitRoundTrip() {
 	b.initData(10000, 1)
 
 	switch b.typ {
-	case reflect.TypeOf(parquet.FixedLenByteArray{}):
+	case reflect.TypeOf(float32(0)), reflect.TypeOf(float64(0)), reflect.TypeOf(int32(0)), reflect.TypeOf(int64(0)), reflect.TypeOf(parquet.FixedLenByteArray{}):
 		b.checkRoundTrip(parquet.Encodings.ByteStreamSplit)
 	default:
 		b.Panics(func() { b.checkRoundTrip(parquet.Encodings.ByteStreamSplit) })
