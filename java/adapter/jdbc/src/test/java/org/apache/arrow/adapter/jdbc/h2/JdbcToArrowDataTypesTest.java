@@ -71,7 +71,7 @@ import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
-import org.apache.arrow.vector.extension.UnknownType;
+import org.apache.arrow.vector.extension.OpaqueType;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -204,7 +204,7 @@ public class JdbcToArrowDataTypesTest extends AbstractJdbcToArrowTest {
   }
 
   @Test
-  void testUnknownType() throws SQLException, ClassNotFoundException {
+  void testOpaqueType() throws SQLException, ClassNotFoundException {
     try (BufferAllocator allocator = new RootAllocator()) {
       String url = "jdbc:h2:mem:JdbcToArrowTest";
       String driver = "org.h2.Driver";
@@ -222,7 +222,7 @@ public class JdbcToArrowDataTypesTest extends AbstractJdbcToArrowTest {
           new JdbcToArrowConfigBuilder()
               .setAllocator(allocator)
               .setJdbcToArrowTypeConverter(
-                  JdbcToArrowUtils.reportUnsupportedTypesAsUnknown(typeConverter, "H2"))
+                  JdbcToArrowUtils.reportUnsupportedTypesAsOpaque(typeConverter, "H2"))
               .build();
       Schema schema;
       try (Statement stmt = conn.createStatement();
@@ -235,7 +235,7 @@ public class JdbcToArrowDataTypesTest extends AbstractJdbcToArrowTest {
           new Schema(
               List.of(
                   Field.nullable(
-                      "A", new UnknownType(Types.MinorType.NULL.getType(), "GEOMETRY", "H2")),
+                      "A", new OpaqueType(Types.MinorType.NULL.getType(), "GEOMETRY", "H2")),
                   Field.nullable("B", Types.MinorType.INT.getType())));
       assertEquals(expected, schema);
     }

@@ -64,10 +64,13 @@ import org.apache.arrow.vector.types.pojo.ExtensionTypeRegistry;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 
-/** Unknown represents */
-public class UnknownType extends ArrowType.ExtensionType {
+/**
+ * Opaque is a placeholder for a type from an external (usually non-Arrow) system that could not be
+ * interpreted.
+ */
+public class OpaqueType extends ArrowType.ExtensionType {
   private static final AtomicBoolean registered = new AtomicBoolean(false);
-  public static final String EXTENSION_NAME = "arrow.unknown";
+  public static final String EXTENSION_NAME = "arrow.opaque";
   private final ArrowType storageType;
   private final String typeName;
   private final String vendorName;
@@ -76,7 +79,7 @@ public class UnknownType extends ArrowType.ExtensionType {
   public static void ensureRegistered() {
     if (!registered.getAndSet(true)) {
       // The values don't matter, we just need an instance
-      ExtensionTypeRegistry.register(new UnknownType(Types.MinorType.NULL.getType(), "", ""));
+      ExtensionTypeRegistry.register(new OpaqueType(Types.MinorType.NULL.getType(), "", ""));
     }
   }
 
@@ -87,7 +90,7 @@ public class UnknownType extends ArrowType.ExtensionType {
    * @param typeName The name of the unknown type.
    * @param vendorName The name of the originating system of the unknown type.
    */
-  public UnknownType(ArrowType storageType, String typeName, String vendorName) {
+  public OpaqueType(ArrowType storageType, String typeName, String vendorName) {
     this.storageType = Objects.requireNonNull(storageType, "storageType");
     this.typeName = Objects.requireNonNull(typeName, "typeName");
     this.vendorName = Objects.requireNonNull(vendorName, "vendorName");
@@ -115,10 +118,10 @@ public class UnknownType extends ArrowType.ExtensionType {
   public boolean extensionEquals(ExtensionType other) {
     return other != null
         && EXTENSION_NAME.equals(other.extensionName())
-        && other instanceof UnknownType
+        && other instanceof OpaqueType
         && storageType.equals(other.storageType())
-        && typeName.equals(((UnknownType) other).typeName())
-        && vendorName.equals(((UnknownType) other).vendorName());
+        && typeName.equals(((OpaqueType) other).typeName())
+        && vendorName.equals(((OpaqueType) other).vendorName());
   }
 
   @Override
@@ -157,7 +160,7 @@ public class UnknownType extends ArrowType.ExtensionType {
     if (!vendorName.isTextual()) {
       throw new InvalidExtensionMetadataException("vendorName should be string, was " + vendorName);
     }
-    return new UnknownType(storageType, typeName.asText(), vendorName.asText());
+    return new OpaqueType(storageType, typeName.asText(), vendorName.asText());
   }
 
   @Override
@@ -166,7 +169,7 @@ public class UnknownType extends ArrowType.ExtensionType {
     final Field field = new Field(name, fieldType, Collections.emptyList());
     final FieldVector underlyingVector =
         storageType.accept(new UnderlyingVectorTypeVisitor(name, allocator));
-    return new UnknownVector(field, allocator, underlyingVector);
+    return new OpaqueVector(field, allocator, underlyingVector);
   }
 
   @Override

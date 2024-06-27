@@ -82,7 +82,7 @@ import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
-import org.apache.arrow.vector.extension.UnknownType;
+import org.apache.arrow.vector.extension.OpaqueType;
 import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -225,18 +225,18 @@ public class JdbcToArrowUtils {
 
   /**
    * Wrap a JDBC to Arrow type converter such that {@link UnsupportedOperationException} becomes
-   * {@link org.apache.arrow.vector.extension.UnknownType}.
+   * {@link OpaqueType}.
    *
    * @param typeConverter The type converter to wrap.
-   * @param vendorName The database name to report as the Unknown type's vendor name.
+   * @param vendorName The database name to report as the Opaque type's vendor name.
    */
-  public static Function<JdbcFieldInfo, ArrowType> reportUnsupportedTypesAsUnknown(
+  public static Function<JdbcFieldInfo, ArrowType> reportUnsupportedTypesAsOpaque(
       Function<JdbcFieldInfo, ArrowType> typeConverter, String vendorName) {
     return (final JdbcFieldInfo fieldInfo) -> {
       try {
         return typeConverter.apply(fieldInfo);
       } catch (UnsupportedOperationException e) {
-        return new UnknownType(MinorType.NULL.getType(), fieldInfo.getTypeName(), vendorName);
+        return new OpaqueType(MinorType.NULL.getType(), fieldInfo.getTypeName(), vendorName);
       }
     };
   }

@@ -23,17 +23,23 @@ import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueIterableVector;
 import org.apache.arrow.vector.types.pojo.Field;
 
-public class UnknownVector extends ExtensionTypeVector<FieldVector>
+/**
+ * Opaque is a wrapper for (usually binary) data from an external (often non-Arrow) system that
+ * could not be interpreted.
+ */
+public class OpaqueVector extends ExtensionTypeVector<FieldVector>
     implements ValueIterableVector<Object> {
-  public UnknownVector(String name, BufferAllocator allocator, FieldVector underlyingVector) {
-    super(name, allocator, underlyingVector);
-  }
+  private final Field field;
 
-  public UnknownVector(Field field, BufferAllocator allocator, FieldVector underlyingVector) {
+  public OpaqueVector(Field field, BufferAllocator allocator, FieldVector underlyingVector) {
     super(field, allocator, underlyingVector);
+    this.field = field;
   }
 
-  // TODO: getField
+  @Override
+  public Field getField() {
+    return field;
+  }
 
   @Override
   public Object getObject(int index) {
@@ -42,13 +48,11 @@ public class UnknownVector extends ExtensionTypeVector<FieldVector>
 
   @Override
   public int hashCode(int index) {
-    // TODO:
-    return 0;
+    return hashCode(index, null);
   }
 
   @Override
   public int hashCode(int index, ArrowBufHasher hasher) {
-    // TODO:
-    return 0;
+    return getUnderlyingVector().hashCode(index, hasher);
   }
 }
