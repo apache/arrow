@@ -28,10 +28,10 @@ if [ $chrome_version = "latest" ]; then
 else
   latest_release_path=LATEST_RELEASE_${chrome_version}
 fi
-CHROME_VERSION_FULL=$(wget --progress=dot:giga --no-verbose -O - "https://googlechromelabs.github.io/chrome-for-testing/${latest_release_path}")
+CHROME_VERSION_FULL=$(wget -q --no-verbose -O - "https://googlechromelabs.github.io/chrome-for-testing/${latest_release_path}")
 CHROME_DOWNLOAD_URL="https://dl.google.com/linux/chrome/deb/pool/main/g/google-chrome-stable/google-chrome-stable_${CHROME_VERSION_FULL}-1_amd64.deb"
 CHROMEDRIVER_DOWNLOAD_URL="https://storage.googleapis.com/chrome-for-testing-public/${CHROME_VERSION_FULL}/linux64/chromedriver-linux64.zip"
-wget --progress=dot:giga --no-verbose -O /tmp/google-chrome.deb "${CHROME_DOWNLOAD_URL}"
+wget -q --no-verbose -O /tmp/google-chrome.deb "${CHROME_DOWNLOAD_URL}"
 apt-get update
 apt install -qqy /tmp/google-chrome.deb
 rm -f /tmp/google-chrome.deb
