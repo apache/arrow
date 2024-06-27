@@ -374,8 +374,9 @@ struct ChunkedFixedWidthValuesSpan {
 
  public:
   explicit ChunkedFixedWidthValuesSpan(const ChunkedArray& values) {
-    bool chunk_values_are_byte_sized = util::FixedWidthInBytes(*values.type()) >= 0;
-    if (chunk_values_are_byte_sized) {
+    const bool chunk_values_are_bit_sized = values.type()->id() == Type::BOOL;
+    DCHECK_EQ(chunk_values_are_bit_sized, util::FixedWidthInBytes(*values.type()) == -1);
+    if (chunk_values_are_bit_sized) {
       src_residual_bit_offsets.resize(values.num_chunks());
     }
     src_chunks.resize(values.num_chunks());
@@ -385,7 +386,7 @@ struct ChunkedFixedWidthValuesSpan {
       DCHECK(util::IsFixedWidthLike(chunk));
 
       auto offset_pointer = util::OffsetPointerOfFixedBitWidthValues(chunk);
-      if (chunk_values_are_byte_sized) {
+      if (chunk_values_are_bit_sized) {
         src_residual_bit_offsets[i] = offset_pointer.first;
       } else {
         DCHECK_EQ(offset_pointer.first, 0);
