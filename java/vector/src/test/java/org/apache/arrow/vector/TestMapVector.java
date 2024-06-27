@@ -1270,37 +1270,4 @@ public class TestMapVector {
           structVector.getChildrenFromFields().get(1).getObject(1), BigDecimal.valueOf(3.0));
     }
   }
-
-  @Test
-  public void testListOfStruct() {
-    try (ListVector from = ListVector.empty("v", new RootAllocator())) {
-
-      UnionListWriter listWriter = from.getWriter();
-      listWriter.allocate();
-
-      // write null, [null,{"f1":1,"f2":2},null,
-      // {"f1":1,"f2":2},null] alternatively
-      for (int i = 0; i < 10; i++) {
-        listWriter.setPosition(i);
-        if (i % 2 == 0) {
-          listWriter.writeNull();
-          continue;
-        }
-        listWriter.startList();
-        listWriter.struct().writeNull();
-        listWriter.struct().start();
-        listWriter.struct().decimal("f1", 1, 2).writeDecimal(BigDecimal.valueOf(2.0));
-        listWriter.struct().end();
-        listWriter.struct().writeNull();
-        listWriter.struct().start();
-        listWriter.struct().decimal("f1", 1, 2).writeDecimal(BigDecimal.valueOf(3.0));
-        listWriter.struct().end();
-        listWriter.struct().writeNull();
-        listWriter.endList();
-      }
-      from.setValueCount(10);
-
-      System.out.println(from);
-    }
-  }
 }

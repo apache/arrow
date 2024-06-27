@@ -127,6 +127,12 @@ public class Union${listName}Writer extends AbstractFieldWriter {
   public ${minor.class}Writer ${lowerName}(String name<#list minor.typeParams as typeParam>, ${typeParam.type} ${typeParam.name}</#list>) {
     return writer.${lowerName}(name<#list minor.typeParams as typeParam>, ${typeParam.name}</#list>);
   }
+  <#if lowerName?contains("decimal")>
+  @Override
+  public ${capName}Writer ${lowerName}(<#list minor.typeParams as typeParam>${typeParam.type} ${typeParam.name}<#if typeParam_has_next>, </#if></#list>) {
+    return writer.${lowerName}(<#list minor.typeParams as typeParam>${typeParam.name}<#if typeParam_has_next>, </#if></#list>);
+  }
+  </#if>
   </#if>
 
   @Override

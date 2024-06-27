@@ -207,7 +207,6 @@ public class UnionMapWriter extends UnionListWriter {
     }
   }
 
-
   @Override
   public StructWriter struct() {
     switch (mode) {

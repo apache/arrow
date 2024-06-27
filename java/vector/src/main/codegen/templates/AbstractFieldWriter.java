@@ -233,6 +233,15 @@ abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWr
   }
   </#if>
 
+  <#if lowerName?contains("decimal")>
+
+  @Override
+  public ${capName}Writer ${lowerName}(<#list minor.typeParams as typeParam>${typeParam.type} ${typeParam.name}<#if typeParam_has_next>, </#if></#list>) {
+    fail("${capName}(" + <#list minor.typeParams as typeParam>"${typeParam.name}: " + ${typeParam.name} + ", " + </#list>")");
+    return null;
+  }
+  </#if>
+
   @Override
   public ${capName}Writer ${lowerName}(String name) {
     fail("${capName}");

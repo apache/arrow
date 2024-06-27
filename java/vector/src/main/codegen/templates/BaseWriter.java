@@ -56,6 +56,9 @@ public interface BaseWriter extends AutoCloseable, Positionable {
     <#if minor.typeParams?? >
     ${capName}Writer ${lowerName}(String name<#list minor.typeParams as typeParam>, ${typeParam.type} ${typeParam.name}</#list>);
     </#if>
+    <#if lowerName?contains("decimal")>
+    ${capName}Writer ${lowerName}(<#list minor.typeParams as typeParam>${typeParam.type} ${typeParam.name}<#if typeParam_has_next>, </#if></#list>);
+    </#if>
     ${capName}Writer ${lowerName}(String name);
     </#list></#list>
 
@@ -83,14 +86,10 @@ public interface BaseWriter extends AutoCloseable, Positionable {
     <#assign upperName = minor.class?upper_case />
     <#assign capName = minor.class?cap_first />
     ${capName}Writer ${lowerName}();
+    <#if lowerName?contains("decimal")>
+    ${capName}Writer ${lowerName}(<#list minor.typeParams as typeParam>${typeParam.type} ${typeParam.name}<#if typeParam_has_next>, </#if></#list>);
+    </#if>
     </#list></#list>
-
-    default Decimal256Writer decimal256(int scale, int precision) {
-      return null;
-    }
-    default DecimalWriter decimal(int scale, int precision) {
-      return null;
-    }
   }
 
   public interface MapWriter extends ListWriter {
