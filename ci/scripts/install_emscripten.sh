@@ -17,15 +17,18 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# install emscripten sdk version $2 to directory $2/emsdk
+# install emscripten sdk version to match pyodide in $2 to directory $1/emsdk
 
 set -e
 
 target_path=$1
-emscripten_version=$2
+pyodide_path=$2
+
+emscripten_version=$(${pyodide_path}/python -c "import sys;print(*sys._emscripten_info.emscripten_version,sep='.')")
+
 cd ${target_path}
 ls emsdk || git clone https://github.com/emscripten-core/emsdk.git
 cd emsdk 
 ./emsdk install ${emscripten_version} 
 ./emsdk activate ${emscripten_version}
-echo "Installed emsdk to: $1"
+echo "Installed emsdk to: ${target_path}"

@@ -22,7 +22,6 @@ FROM ${repo}:${arch}-conda-python-${python}
 
 ARG selenium_version="4.15.2"
 ARG pyodide_version="0.26.0"
-ARG emscripten_version="3.1.58"
 ARG chrome_version="latest"
 ARG required_python_min="(3,12)"
 # fail if python version < 3.12
@@ -35,17 +34,19 @@ SHELL ["/bin/bash", "--login", "-c", "-o", "pipefail"]
 
 RUN python -m pip install --no-cache-dir selenium==${selenium_version} &&\
     python -m pip install --no-cache-dir --upgrade --pre pyodide-build==${pyodide_version}
-
-COPY ci/scripts/install_emscripten.sh /arrow/ci/scripts/
-RUN bash /arrow/ci/scripts/install_emscripten.sh ~ "${emscripten_version}"
     
-# make sure zlib is cached in the EMSDK folder
-RUN source ~/emsdk/emsdk_env.sh && embuilder --pic build zlib
-
 # install pyodide dist directory to /pyodide
 WORKDIR /
 RUN pyodide_dist_url="https://github.com/pyodide/pyodide/releases/download/${pyodide_version}/pyodide-${pyodide_version}.tar.bz2" && \
     wget -q "${pyodide_dist_url}" -O- |tar -xj
+
+# install correct version of emscripten for this pyodide
+COPY ci/scripts/install_emscripten.sh /arrow/ci/scripts/
+RUN bash /arrow/ci/scripts/install_emscripten.sh ~ /pyodide
+
+# make sure zlib is cached in the EMSDK folder
+RUN source ~/emsdk/emsdk_env.sh && embuilder --pic build zlib
+
 
 # install chrome for testing browser based runner
 # zip needed for chrome, libpthread stubs installs pthread module to cmake, build-essential makes
