@@ -537,7 +537,12 @@ Status GetSchemaMetadata(const ::arrow::Schema& schema, ::arrow::MemoryPool* poo
                          const ArrowWriterProperties& properties,
                          std::shared_ptr<const KeyValueMetadata>* out) {
   if (!properties.store_schema()) {
-    *out = nullptr;
+    if (schema.metadata()) {
+      *out = schema.metadata()->Copy();
+    } else {
+      // No metadata to propagate
+      *out = nullptr;
+    }
     return Status::OK();
   }
 
