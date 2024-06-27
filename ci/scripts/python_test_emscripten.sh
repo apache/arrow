@@ -22,8 +22,6 @@
 
 set -ex
 
-source ~/.nvm/nvm.sh
-
 build_dir=${1}/python
 pyodide_dist_dir=${2}
 

@@ -63,8 +63,7 @@ RUN /arrow/ci/scripts/install_chromedriver.sh "${chrome_version}"
 
 SHELL ["/bin/bash", "--login", "-i", "-o", "pipefail", "-c"]
 # install node 18 (needed for async call support)
-COPY ci/scripts/install_node.sh /arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_node.sh 18
+RUN conda install nodejs=18 -c conda-forge
 SHELL ["/bin/bash", "--login", "-c"]
 
 ENV ARROW_EMSCRIPTEN = "ON"\
