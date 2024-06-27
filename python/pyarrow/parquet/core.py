@@ -884,7 +884,7 @@ store_decimal_as_integer : bool, default False
       unscaled value is used.
 
     By default, this is DISABLED and all decimal types annotate fixed_len_byte_array.
-    When enabled, the writer will use following physical types to store decimals:
+    When enabled, the writer will use the following physical types to store decimals:
     - int32: for 1 <= precision <= 9.
     - int64: for 10 <= precision <= 18.
     - fixed_len_byte_array: for precision > 18.
