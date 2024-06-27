@@ -272,6 +272,7 @@ uint32_t KeyCompare::CompareBinaryColumnToRowHelper_avx2(
       }
       __m256i offset_right =
           UnsignedOffsetSafeGather32<4>((int const*)offsets_right, irow_right);
+      offset_right = _mm256_add_epi32(offset_right, _mm256_set1_epi32(offset_within_row));
 
       reinterpret_cast<uint64_t*>(match_bytevector)[i] =
           compare8_fn(rows_left, rows_right, i * unroll, irow_left, offset_right);
