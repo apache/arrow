@@ -85,11 +85,6 @@ type ByteStreamSplitFixedLenByteArrayEncoder struct {
 
 // Put writes the provided values to the encoder
 func (enc *ByteStreamSplitFixedLenByteArrayEncoder) Put(in []parquet.FixedLenByteArray) {
-	input := make([][]byte, len(in))
-	for i := range in {
-		input[i] = []byte(in[i])
-	}
-
 	putByteStreamSplit(in, enc.sink, enc.typeLen)
 }
 

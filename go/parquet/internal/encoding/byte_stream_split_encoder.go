@@ -32,8 +32,7 @@ func putByteStreamSplit[T ~[]byte](in []T, sink *PooledBufferWriter, typeLen int
 	sink.Reserve(bytesNeeded)
 	for offset := 0; offset < typeLen; offset++ {
 		for _, val := range in {
-			sink.UnsafeWrite([]byte{byte(val[offset])}) // Single-element slice
-			// sink.UnsafeWrite(val[offset : offset+1]) // Single-element slice
+			sink.UnsafeWrite(val[offset : offset+1]) // Single-element slice
 		}
 	}
 }
