@@ -46,22 +46,23 @@ func putByteStreamSplitNumeric[T NumericByteStreamSplitType](in []T, enc TypedEn
 
 // putByteStreamSplitSpaced encodes data that has space for nulls using the BYTE_STREAM_SPLIT encoding, calling to the provided putFn to encode runs of non-null values.
 func putByteStreamSplitSpaced[T ByteStreamSplitType](in []T, validBits []byte, validBitsOffset int64, bitSetReader bitutils.SetBitRunReader, putFn func([]T)) {
-	if validBits != nil {
-		if bitSetReader == nil {
-			bitSetReader = bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(in)))
-		} else {
-			bitSetReader.Reset(validBits, validBitsOffset, int64(len(in)))
-		}
-
-		for {
-			run := bitSetReader.NextRun()
-			if run.Length == 0 {
-				break
-			}
-			putFn(in[int(run.Pos):int(run.Pos+run.Length)])
-		}
-	} else {
+	if validBits == nil {
 		putFn(in)
+		return
+	}
+
+	if bitSetReader == nil {
+		bitSetReader = bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(in)))
+	} else {
+		bitSetReader.Reset(validBits, validBitsOffset, int64(len(in)))
+	}
+
+	for {
+		run := bitSetReader.NextRun()
+		if run.Length == 0 {
+			break
+		}
+		putFn(in[int(run.Pos):int(run.Pos+run.Length)])
 	}
 }
 
