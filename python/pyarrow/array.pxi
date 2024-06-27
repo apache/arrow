@@ -3976,13 +3976,13 @@ cdef class StructArray(Array):
         return [pyarrow_wrap_array(arr) for arr in arrays]
 
     @staticmethod
-    def from_arrays(arrays, names=None, fields=None, structtype=None, mask=None,
-                    memory_pool=None):
+    def from_arrays(arrays, names=None, fields=None, mask=None,
+                    memory_pool=None, type=None):
         """
         Construct StructArray from collection of arrays representing
         each field in the struct.
 
-        Either field names or field instances must be passed.
+        Either field names, field instances or a structtype must be passed.
 
         Parameters
         ----------
@@ -3991,12 +3991,12 @@ cdef class StructArray(Array):
             Field names for each struct child.
         fields : List[Field] (optional)
             Field instances for each struct child.
-        structtype : pyarrow.StructType (optional)
-            Struct type for name and type of each child. 
         mask : pyarrow.Array[bool] (optional)
             Indicate which values are null (True) or not null (False).
         memory_pool : MemoryPool (optional)
             For memory allocations, if required, otherwise uses default pool.
+        type : pyarrow.StructType (optional)
+            Struct type for name and type of each child. 
 
         Returns
         -------
@@ -4015,12 +4015,12 @@ cdef class StructArray(Array):
             Field py_field
             DataType struct_type
 
-        if fields is not None and structtype is not None:
+        if fields is not None and type is not None:
             raise ValueError('Must pass either fields or type, not both')
-        
-        if structtype is not None:
+
+        if type is not None:
             fields = []
-            for field in structtype:
+            for field in type:
                 fields.append(field)
 
         if names is None and fields is None:
