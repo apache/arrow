@@ -645,6 +645,10 @@ struct ListViewSelectionImpl : public Selection<ListViewSelectionImpl<Type>, Typ
           return Status::OK();
         },
         [&]() {
+          // 0 could be appended here, but by adding the last offset, we keep
+          // the buffer compatible with how offsets behave in ListType as well.
+          // The invariant that `offsets[i] + sizes[i] <= values.length` is
+          // trivially maintained by having `sizes[i]` set to 0 here.
           offsets_builder.UnsafeAppend(null_list_view_offset);
           sizes_builder.UnsafeAppend(0);
           return Status::OK();
