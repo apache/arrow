@@ -15,6 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/extension/unknown.h"
+#include "arrow/extension/opaque.h"
 
 namespace arrow {}

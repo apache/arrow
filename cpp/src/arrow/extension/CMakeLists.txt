@@ -23,8 +23,8 @@ add_arrow_test(test
 
 add_arrow_test(test
                SOURCES
-               unknown_test.cc
+               opaque_test.cc
                PREFIX
-               "arrow-extension-unknown")
+               "arrow-extension-opaque")
 
 arrow_install_all_headers("arrow/extension")

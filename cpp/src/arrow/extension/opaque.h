@@ -20,23 +20,30 @@
 
 namespace arrow::extension {
 
-/// \brief
-class ARROW_EXPORT UnknownType : public ExtensionType {
+/// \brief Opaque is a placeholder for a type from an external (usually
+///   non-Arrow) system that could not be interpreted.
+class ARROW_EXPORT OpaqueType : public ExtensionType {
  public:
-  explicit UnknownType(std::shared_ptr<DataType> storage_type, std::string type_name,
-                       std::string vendor_name)
+  /// \brief Construct an OpaqueType.
+  ///
+  /// \param[in] storage_type The underlying storage type.  Should be
+  ///   arrow::null if there is no data.
+  /// \param[in] type_name The name of the type in the external system.
+  /// \param[in] vendor_name The name of the external system.
+  explicit OpaqueType(std::shared_ptr<DataType> storage_type, std::string type_name,
+                      std::string vendor_name)
       : ExtensionType(std::move(storage_type)),
         type_name_(std::move(type_name)),
         vendor_name_(std::move(vendor_name)) {}
 
-  std::string extension_name() const override { return "arrow.unknown"; }
+  std::string extension_name() const override { return "arrow.opaque"; }
   std::string ToString(bool show_metadata) const override;
   bool ExtensionEquals(const ExtensionType& other) const override;
   std::string Serialize() const override;
   Result<std::shared_ptr<DataType>> Deserialize(
       std::shared_ptr<DataType> storage_type,
       const std::string& serialized_data) const override;
-  /// Create a UnknownArray from ArrayData
+  /// Create an OpaqueArray from ArrayData
   std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override;
 
   std::string_view type_name() const { return type_name_; }
@@ -47,10 +54,16 @@ class ARROW_EXPORT UnknownType : public ExtensionType {
   std::string vendor_name_;
 };
 
-/// \brief
-class ARROW_EXPORT UnknownArray : public ExtensionArray {
+/// \brief Opaque is a wrapper for (usually binary) data from an external
+///   (often non-Arrow) system that could not be interpreted.
+class ARROW_EXPORT OpaqueArray : public ExtensionArray {
  public:
   using ExtensionArray::ExtensionArray;
 };
+
+/// \brief Return an OpaqueType instance.
+ARROW_EXPORT std::shared_ptr<DataType> opaque(std::shared_ptr<DataType> storage_type,
+                                              std::string type_name,
+                                              std::string vendor_name);
 
 }  // namespace arrow::extension
