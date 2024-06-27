@@ -914,7 +914,7 @@ TEST(RowSegmenter, RowConstantBatch) {
 }
 
 // XXX: float16 is not part of NumericTypes() yet
-auto& AllNumericTypes() {
+const auto& AllNumericTypes() {
   static auto types = []() {
     auto types = NumericTypes();
     types.push_back(float16());
