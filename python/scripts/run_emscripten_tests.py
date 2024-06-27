@@ -139,7 +139,7 @@ class NodeDriver:
 
     def __init__(self, hostname, port):
         self.process = subprocess.Popen(
-            [shutil.which("node"), "-i"], stdin=subprocess.PIPE, bufsize=0
+            [shutil.which("script"),"-c",f'"{shutil.which("node")}"'], stdin=subprocess.PIPE, shell=False, bufsize=0
         )
         print(self.process)
         time.sleep(0.1)  # wait for node to start
