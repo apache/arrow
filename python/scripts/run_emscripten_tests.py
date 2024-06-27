@@ -125,7 +125,9 @@ def run_server_thread(dist_dir, q):
 @contextlib.contextmanager
 def launch_server(dist_dir):
     q = multiprocessing.Queue()
-    p = multiprocessing.Process(target=run_server_thread, args=[dist_dir, q], daemon=True)
+    p = multiprocessing.Process(
+        target=run_server_thread, args=[dist_dir, q], daemon=True
+    )
     p.start()
     address = q.get(timeout=50)
     yield address
