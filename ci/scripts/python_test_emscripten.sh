@@ -25,9 +25,9 @@ set -ex
 source ~/.nvm/nvm.sh
 
 build_dir=${1}/python
-cd ${build_dir}
-
 pyodide_dist_dir=${2}
+
+cd ${build_dir}
 
 # note: this uses the newest wheel in dist
 pyodide_wheel=$(ls -t dist/pyarrow*.whl | head -1) 
