@@ -953,7 +953,7 @@ cdef class InMemoryDataset(Dataset):
     ----------
     source : RecordBatch, Table, list, tuple
         The data for this dataset. Can be a RecordBatch, Table, list of
-        RecordBatch/Table, iterable of RecordBatch, or a RecordBatchReader
+        RecordBatch/Table, or an iterable of RecordBatch
         If an iterable is provided, the schema must also be provided.
     schema : Schema, optional
         Only required if passing an iterable as the source
