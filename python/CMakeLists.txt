@@ -359,6 +359,27 @@ set(PYARROW_CPP_LINK_LIBS "")
 #
 
 # Check all the options from Arrow and PyArrow C++ to be in line
+#
+# Order is important for "NOT ARROW_BUILD_SHARED". We must use
+# depending modules -> depended modules order. For example,
+# ArrowSubstrait depends on ArrowDataset. So PYARROW_CPP_LINK_LIBS
+# must use
+# "ArrowSubstrait::arrow_substrait_static;ArrowDataset::arrow_dataset_static"
+# order.
+
+if(PYARROW_BUILD_SUBSTRAIT)
+  message(STATUS "Building PyArrow with Substrait")
+  if(NOT ARROW_SUBSTRAIT)
+    message(FATAL_ERROR "You must build Arrow C++ with ARROW_SUBSTRAIT=ON")
+  endif()
+  find_package(ArrowSubstrait REQUIRED)
+  if(ARROW_BUILD_SHARED)
+    list(APPEND PYARROW_CPP_LINK_LIBS ArrowSubstrait::arrow_substrait_shared)
+  else()
+    list(APPEND PYARROW_CPP_LINK_LIBS ArrowSubstrait::arrow_substrait_static)
+  endif()
+endif()
+
 if(PYARROW_BUILD_DATASET)
   message(STATUS "Building PyArrow with Dataset")
   if(NOT ARROW_DATASET)
@@ -675,8 +696,6 @@ endif()
 
 # Acero
 if(PYARROW_BUILD_ACERO)
-  list(APPEND CYTHON_EXTENSIONS _acero)
-
   if(ARROW_BUILD_SHARED)
     if(PYARROW_BUNDLE_ARROW_CPP)
       bundle_arrow_lib(${ARROW_ACERO_SHARED_LIB} SO_VERSION ${ARROW_SO_VERSION})
@@ -690,6 +709,7 @@ if(PYARROW_BUILD_ACERO)
     # Acero is statically linked into libarrow_python already
     set(ACERO_LINK_LIBS)
   endif()
+  list(APPEND CYTHON_EXTENSIONS _acero)
 endif()
 
 # Dataset
@@ -779,10 +799,6 @@ endif()
 # Substrait
 if(PYARROW_BUILD_SUBSTRAIT)
   message(STATUS "Building PyArrow with Substrait")
-  if(NOT ARROW_SUBSTRAIT)
-    message(FATAL_ERROR "You must build Arrow C++ with ARROW_SUBSTRAIT=ON")
-  endif()
-  find_package(ArrowSubstrait REQUIRED)
 
   if(ARROW_BUILD_SHARED)
     if(PYARROW_BUNDLE_ARROW_CPP)
@@ -793,10 +809,8 @@ if(PYARROW_BUILD_SUBSTRAIT)
     endif()
     set(SUBSTRAIT_LINK_LIBS ArrowSubstrait::arrow_substrait_shared)
   else()
-    # Only link to the output of substrait, not to libarrow etc.
-    # If we link to the target directly we end up with multiple copies
-    # of libarrow / parquet etc.
-    set(SUBSTRAIT_LINK_LIBS $<TARGET_FILE:ArrowSubstrait::arrow_substrait_static>)
+    # Arrow Substrait is statically linked into libarrow_python already
+    set(SUBSTRAIT_LINK_LIBS)  
   endif()
 
   list(APPEND CYTHON_EXTENSIONS _substrait)
@@ -872,7 +886,7 @@ foreach(module ${CYTHON_EXTENSIONS})
     set_target_properties(${module_name} PROPERTIES COMPILE_DEFINITIONS
                                                     "CYTHON_TRACE=1;CYTHON_TRACE_NOGIL=1")
   endif()
-  target_link_libraries(${module_name} PUBLIC ${LINK_LIBS})
+  target_link_libraries(${module_name} PRIVATE ${LINK_LIBS})
 
   install(TARGETS ${module_name} LIBRARY DESTINATION ".")
   foreach(output ${${module_name}_output})

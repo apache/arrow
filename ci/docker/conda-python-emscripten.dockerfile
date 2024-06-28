@@ -52,17 +52,20 @@ RUN source ~/emsdk/emsdk_env.sh && embuilder --pic build zlib
 
 # Install basic build stuff, don't pin versions, hence ignore lint
 # hadolint ignore=DL3008
-RUN apt-get update && apt-get install --no-install-recommends -y -q unzip zip libpthread-stubs0-dev build-essential && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+#RUN apt-get update && apt-get install --no-install-recommends -y -q unzip zip libpthread-stubs0-dev build-essential && \
+#    apt-get clean && \
+#    rm -rf /var/lib/apt/lists/*
+
+# install node 20 (needed for async call support)
+# and pthread-stubs for build, and unzip needed for chrome build to work
+RUN conda install nodejs=20  unzip pthread-stubs make -c conda-forge
 
 COPY ci/scripts/install_chromedriver.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_chromedriver.sh "${chrome_version}"
 
-SHELL ["/bin/bash", "--login", "-i", "-o", "pipefail", "-c"]
-# install node 18 (needed for async call support)
-RUN conda install nodejs=18 -c conda-forge
-SHELL ["/bin/bash", "--login", "-c"]
+# make the version of make that is installed by conda be available everywhere
+# or else pyodide's isolated build fails to find it
+RUN ln -s $(type -P make) /bin/make
 
 ENV ARROW_BUILD_TESTS="OFF" \
     ARROW_BUILD_TYPE="release" \
