@@ -46,20 +46,11 @@ RUN bash /arrow/ci/scripts/install_emscripten.sh ~ /pyodide
 # make sure zlib is cached in the EMSDK folder
 RUN source ~/emsdk/emsdk_env.sh && embuilder --pic build zlib
 
-# install chrome for testing browser based runner
-# zip needed for chrome, libpthread stubs installs pthread module to cmake, build-essential makes
-# sure that unix make is available in isolated python environments
-
-# Install basic build stuff, don't pin versions, hence ignore lint
-# hadolint ignore=DL3008
-#RUN apt-get update && apt-get install --no-install-recommends -y -q unzip zip libpthread-stubs0-dev build-essential && \
-#    apt-get clean && \
-#    rm -rf /var/lib/apt/lists/*
-
 # install node 20 (needed for async call support)
 # and pthread-stubs for build, and unzip needed for chrome build to work
 RUN conda install nodejs=20  unzip pthread-stubs make -c conda-forge
 
+# install chrome for testing browser based runner
 COPY ci/scripts/install_chromedriver.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_chromedriver.sh "${chrome_version}"
 
