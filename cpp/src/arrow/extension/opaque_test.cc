@@ -20,17 +20,16 @@
 
 #include "arrow/extension/opaque.h"
 #include "arrow/extension_type.h"
+#include "arrow/io/memory.h"
+#include "arrow/ipc/reader.h"
+#include "arrow/ipc/writer.h"
+#include "arrow/record_batch.h"
+#include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/checked_cast.h"
 
 namespace arrow {
-
-TEST(OpaqueType, Registered) {
-  // We need a registered dummy type at runtime to allow for IPC deserialization
-  auto registered_type = GetExtensionType("arrow.opaque");
-  ASSERT_EQ(Type::EXTENSION, registered_type->type_id);
-}
 
 TEST(OpaqueType, Basics) {
   auto type = internal::checked_pointer_cast<extension::OpaqueType>(
@@ -88,7 +87,14 @@ TEST(OpaqueType, Equals) {
   ASSERT_NE(*type4, *type3);
 }
 
-TEST(OpaqueType, CreateFromArray) {}
+TEST(OpaqueType, CreateFromArray) {
+  auto type = internal::checked_pointer_cast<extension::OpaqueType>(
+      extension::opaque(binary(), "geometry", "adbc.postgresql"));
+  auto storage = ArrayFromJSON(binary(), R"(["foobar", null])");
+  auto array = ExtensionType::WrapArray(type, storage);
+  ASSERT_EQ(2, array->length());
+  ASSERT_EQ(1, array->null_count());
+}
 
 void CheckDeserialize(const std::string& serialized,
                       const std::shared_ptr<DataType>& expected) {
@@ -152,6 +158,32 @@ TEST(OpaqueType, MetadataRoundTrip) {
   }
 }
 
-TEST(OpaqueType, BatchRoundTrip) {}
+TEST(OpaqueType, BatchRoundTrip) {
+  auto type = internal::checked_pointer_cast<extension::OpaqueType>(
+      extension::opaque(binary(), "geometry", "adbc.postgresql"));
+  ExtensionTypeGuard guard(type);
+
+  auto storage = ArrayFromJSON(binary(), R"(["foobar", null])");
+  auto array = ExtensionType::WrapArray(type, storage);
+  auto batch =
+      RecordBatch::Make(schema({field("field", type)}), array->length(), {array});
+
+  std::shared_ptr<RecordBatch> written;
+  {
+    ASSERT_OK_AND_ASSIGN(auto out_stream, io::BufferOutputStream::Create());
+    ASSERT_OK(ipc::WriteRecordBatchStream({batch}, ipc::IpcWriteOptions::Defaults(),
+                                          out_stream.get()));
+
+    ASSERT_OK_AND_ASSIGN(auto complete_ipc_stream, out_stream->Finish());
+
+    io::BufferReader reader(complete_ipc_stream);
+    std::shared_ptr<RecordBatchReader> batch_reader;
+    ASSERT_OK_AND_ASSIGN(batch_reader, ipc::RecordBatchStreamReader::Open(&reader));
+    ASSERT_OK(batch_reader->ReadNext(&written));
+  }
+
+  ASSERT_EQ(*batch->schema(), *written->schema());
+  ASSERT_BATCHES_EQUAL(*batch, *written);
+}
 
 }  // namespace arrow

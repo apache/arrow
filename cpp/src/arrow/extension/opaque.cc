@@ -95,7 +95,7 @@ Result<std::shared_ptr<DataType>> OpaqueType::Deserialize(
 
 std::shared_ptr<Array> OpaqueType::MakeArray(std::shared_ptr<ArrayData> data) const {
   DCHECK_EQ(data->type->id(), Type::EXTENSION);
-  DCHECK_EQ("arrow.unknown",
+  DCHECK_EQ("arrow.opaque",
             internal::checked_cast<const ExtensionType&>(*data->type).extension_name());
   return std::make_shared<OpaqueArray>(data);
 }
