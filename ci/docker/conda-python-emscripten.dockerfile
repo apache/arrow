@@ -33,7 +33,7 @@ RUN echo "check PYTHON>=${required_python_min}" && python -c "import sys;sys.exi
 SHELL ["/bin/bash", "--login", "-c", "-o", "pipefail"]
 
 RUN python -m pip install --no-cache-dir selenium==${selenium_version} && \
-    python -m pip install --no-cache-dir --upgrade --pre pyodide-build==${pyodide_version}
+    python -m pip install --no-cache-dir --upgrade pyodide-build==${pyodide_version}
     
 # install pyodide dist directory to /pyodide
 RUN pyodide_dist_url="https://github.com/pyodide/pyodide/releases/download/${pyodide_version}/pyodide-${pyodide_version}.tar.bz2" && \
