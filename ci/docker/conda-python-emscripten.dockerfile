@@ -56,7 +56,7 @@ RUN /arrow/ci/scripts/install_chromedriver.sh "${chrome_version}"
 
 # make the version of make that is installed by conda be available everywhere
 # or else pyodide's isolated build fails to find it
-RUN ln -s $(type -P make) /bin/make
+RUN ln -s "$(type -P make)" /bin/make
 
 ENV ARROW_BUILD_TESTS="OFF" \
     ARROW_BUILD_TYPE="release" \
