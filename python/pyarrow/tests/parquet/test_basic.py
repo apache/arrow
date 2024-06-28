@@ -392,6 +392,7 @@ def test_store_decimal_as_integer(tempdir):
     assert pqcol_decimal_10_18.physical_type == 'INT64'
 
     # Check with store_decimal_as_integer and delta-int encoding.
+    # DELTA_BINARY_PACKED requires parquet physical type to be INT64 or INT32
     _check_roundtrip(table,
                      expected=table,
                      compression="gzip",
