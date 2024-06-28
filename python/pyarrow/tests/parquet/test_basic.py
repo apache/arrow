@@ -19,7 +19,6 @@ import os
 from collections import OrderedDict
 import io
 import warnings
-import tempfile
 from shutil import copytree
 from decimal import Decimal
 
@@ -360,7 +359,7 @@ def test_byte_stream_split():
                          use_dictionary=False)
 
 
-def test_store_decimal_as_integer():
+def test_store_decimal_as_integer(tempdir):
     arr_decimal_1_9 = pa.array(list(map(Decimal, range(100))),
                                type=pa.decimal128(5, 2))
     arr_decimal_10_18 = pa.array(list(map(Decimal, range(100))),
@@ -379,19 +378,18 @@ def test_store_decimal_as_integer():
                      store_decimal_as_integer=True)
 
     # Check physical type in parquet schema
-    with tempfile.TemporaryDirectory() as tempdir:
-        pqtestfile_path = os.path.join(tempdir, 'test.parquet')
-        pq.write_table(table, pqtestfile_path,
-                       compression="gzip",
-                       use_dictionary=False,
-                       store_decimal_as_integer=True)
+    pqtestfile_path = os.path.join(tempdir, 'test.parquet')
+    pq.write_table(table, pqtestfile_path,
+                    compression="gzip",
+                    use_dictionary=False,
+                    store_decimal_as_integer=True)
 
-        pqtestfile = pq.ParquetFile(pqtestfile_path)
-        pqcol_decimal_1_9 = pqtestfile.schema.column(0)
-        pqcol_decimal_10_18 = pqtestfile.schema.column(1)
+    pqtestfile = pq.ParquetFile(pqtestfile_path)
+    pqcol_decimal_1_9 = pqtestfile.schema.column(0)
+    pqcol_decimal_10_18 = pqtestfile.schema.column(1)
 
-        assert pqcol_decimal_1_9.physical_type == 'INT32'
-        assert pqcol_decimal_10_18.physical_type == 'INT64'
+    assert pqcol_decimal_1_9.physical_type == 'INT32'
+    assert pqcol_decimal_10_18.physical_type == 'INT64'
 
     # Check with store_decimal_as_integer and delta-int encoding.
     _check_roundtrip(table,
