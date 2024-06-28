@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -1208,15 +1209,13 @@ public class TestMapVector {
 
   @Test
   public void testValidateKeyValueFieldNames() {
-    FieldType keyType = new FieldType(false, MinorType.BIGINT.getType(), null, null);
+    FieldType keyType = FieldType.notNullable(MinorType.BIGINT.getType());
     FieldType valueType = FieldType.nullable(MinorType.FLOAT8.getType());
 
     Field keyField = new Field("myKey", keyType, null);
     Field valueField = new Field("myValue", valueType, null);
 
-    List<Field> structFields = new ArrayList<>(2);
-    structFields.add(keyField);
-    structFields.add(valueField);
+    List<Field> structFields = Arrays.asList(keyField, valueField);
 
     Field structField =
         new Field("entry", FieldType.notNullable(ArrowType.Struct.INSTANCE), structFields);

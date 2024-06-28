@@ -46,9 +46,9 @@ import org.apache.arrow.vector.util.TransferPair;
 public class MapVector extends ListVector {
 
   /** The default name of the key field in the MapVector. */
-  public static String KEY_NAME = "key";
+  public static final String KEY_NAME = "key";
   /** The default name of the value field in the MapVector. */
-  public static String VALUE_NAME = "value";
+  public static final String VALUE_NAME = "value";
 
   public static final String DATA_VECTOR_NAME = "entries";
 
