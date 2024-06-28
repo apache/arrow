@@ -380,9 +380,9 @@ def test_store_decimal_as_integer(tempdir):
     # Check physical type in parquet schema
     pqtestfile_path = os.path.join(tempdir, 'test.parquet')
     pq.write_table(table, pqtestfile_path,
-                    compression="gzip",
-                    use_dictionary=False,
-                    store_decimal_as_integer=True)
+                   compression="gzip",
+                   use_dictionary=False,
+                   store_decimal_as_integer=True)
 
     pqtestfile = pq.ParquetFile(pqtestfile_path)
     pqcol_decimal_1_9 = pqtestfile.schema.column(0)
@@ -392,6 +392,7 @@ def test_store_decimal_as_integer(tempdir):
     assert pqcol_decimal_10_18.physical_type == 'INT64'
 
     # Check with store_decimal_as_integer and delta-int encoding.
+    # DELTA_BINARY_PACKED requires parquet physical type to be INT64 or INT32
     _check_roundtrip(table,
                      expected=table,
                      compression="gzip",
