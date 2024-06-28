@@ -810,7 +810,7 @@ if(PYARROW_BUILD_SUBSTRAIT)
     set(SUBSTRAIT_LINK_LIBS ArrowSubstrait::arrow_substrait_shared)
   else()
     # Arrow Substrait is statically linked into libarrow_python already
-    set(SUBSTRAIT_LINK_LIBS)  
+    set(SUBSTRAIT_LINK_LIBS)
   endif()
 
   list(APPEND CYTHON_EXTENSIONS _substrait)
