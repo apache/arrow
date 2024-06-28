@@ -80,17 +80,28 @@ func (ByteStreamSplitFixedLenByteArrayDecoder) Type() parquet.Type {
 // values to decode or the length of out has been filled. Then returns the total number of values
 // that were decoded.
 func (dec *ByteStreamSplitFixedLenByteArrayDecoder) Decode(out []parquet.FixedLenByteArray) (int, error) {
-	// res := make([][]byte, len(out))
-	n, err := decodeByteStreamSplit(out, dec, dec.data, dec.typeLen)
-	if err != nil {
-		return n, err
+	max := utils.Min(len(out), dec.ValuesLeft())
+	numBytesNeeded := max * dec.typeLen
+	if numBytesNeeded > len(dec.data) || numBytesNeeded > math.MaxInt32 {
+		return 0, xerrors.New("parquet: eof exception")
 	}
 
-	// for idx := range out {
-	// 	out[idx] = parquet.FixedLenByteArray(res[idx])
-	// }
+	for idx := range out[:max] {
+		if len(out[idx]) != dec.typeLen {
+			out[idx] = make([]byte, dec.typeLen)
+		}
+	}
 
-	return n, nil
+	for offset := 0; offset < dec.typeLen; offset++ {
+		for element := 0; element < max; element++ {
+			encLoc := max*offset + element
+			out[element][offset] = dec.data[encLoc]
+		}
+	}
+
+	dec.SetData(dec.ValuesLeft()-max, dec.data[max:])
+
+	return max, nil
 }
 
 // DecodeSpaced does the same as Decode but spaces out the resulting slice according to the bitmap leaving space for null values

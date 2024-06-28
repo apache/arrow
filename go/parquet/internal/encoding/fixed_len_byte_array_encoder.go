@@ -85,7 +85,22 @@ type ByteStreamSplitFixedLenByteArrayEncoder struct {
 
 // Put writes the provided values to the encoder
 func (enc *ByteStreamSplitFixedLenByteArrayEncoder) Put(in []parquet.FixedLenByteArray) {
-	putByteStreamSplit(in, enc.sink, enc.typeLen)
+	numElements := len(in)
+	bytesNeeded := numElements * enc.typeLen
+	enc.sink.Reserve(bytesNeeded)
+
+	// Make sure len = cap so we can index into any loc rather than append
+	data := enc.sink.buf.Bytes()
+	data = data[:cap(data)]
+
+	for offset := 0; offset < enc.typeLen; offset++ {
+		for element := range in {
+			encLoc := numElements*offset + element
+			data[encLoc] = in[element][offset]
+		}
+	}
+
+	enc.sink.pos += bytesNeeded
 }
 
 // PutSpaced is like Put but works with data that is spaced out according to the passed in bitmap
