@@ -119,6 +119,156 @@ public class TestComplexWriter {
     allocator.close();
   }
 
+  /* Test Utils */
+
+  private void checkNullableStruct(NonNullableStructVector structVector) {
+    StructReader rootReader = new SingleStructReaderImpl(structVector).reader("root");
+    for (int i = 0; i < COUNT; i++) {
+      rootReader.setPosition(i);
+      assertTrue(rootReader.isSet(), "index is set: " + i);
+      FieldReader struct = rootReader.reader("struct");
+      if (i % 2 == 0) {
+        assertTrue(struct.isSet(), "index is set: " + i);
+        assertNotNull(struct.readObject(), "index is set: " + i);
+        assertEquals(i, struct.reader("nested").readLong().longValue());
+      } else {
+        assertFalse(struct.isSet(), "index is not set: " + i);
+        assertNull(struct.readObject(), "index is not set: " + i);
+      }
+    }
+  }
+
+  private void createListTypeVectorWithScalarType(FieldWriter writer) {
+    for (int i = 0; i < COUNT; i++) {
+      writer.startList();
+      for (int j = 0; j < i % 7; j++) {
+        if (j % 2 == 0) {
+          writer.writeInt(j);
+        } else {
+          IntHolder holder = new IntHolder();
+          holder.value = j;
+          writer.write(holder);
+        }
+      }
+      writer.endList();
+    }
+  }
+
+  private void checkListTypeVectorWithScalarType(FieldReader reader) {
+    for (int i = 0; i < COUNT; i++) {
+      reader.setPosition(i);
+      for (int j = 0; j < i % 7; j++) {
+        reader.next();
+        assertEquals(j, reader.reader().readInteger().intValue());
+      }
+    }
+  }
+
+  private void createListTypeVectorWithScalarNull(FieldWriter writer) {
+    for (int i = 0; i < COUNT; i++) {
+      writer.startList();
+      for (int j = 0; j < i % 7; j++) {
+        if (j % 2 == 0) {
+          writer.writeNull();
+        } else {
+          IntHolder holder = new IntHolder();
+          holder.value = j;
+          writer.write(holder);
+        }
+      }
+      writer.endList();
+    }
+  }
+
+  private void checkListTypeVectorWithScalarNull(FieldReader reader) {
+    for (int i = 0; i < COUNT; i++) {
+      reader.setPosition(i);
+      for (int j = 0; j < i % 7; j++) {
+        reader.next();
+        if (j % 2 == 0) {
+          assertFalse(reader.reader().isSet(), "index is set: " + j);
+        } else {
+          assertTrue(reader.reader().isSet(), "index is not set: " + j);
+          assertEquals(j, reader.reader().readInteger().intValue());
+        }
+      }
+    }
+  }
+
+  private void createListTypeVectorWithDecimalType(FieldWriter writer, DecimalHolder holder) {
+    holder.buffer = allocator.buffer(DecimalVector.TYPE_WIDTH);
+    ArrowType arrowType = new ArrowType.Decimal(10, 0, 128);
+    for (int i = 0; i < COUNT; i++) {
+      writer.startList();
+      for (int j = 0; j < i % 7; j++) {
+        if (j % 4 == 0) {
+          writer.writeDecimal(new BigDecimal(j));
+        } else if (j % 4 == 1) {
+          DecimalUtility.writeBigDecimalToArrowBuf(new BigDecimal(j), holder.buffer, 0, DecimalVector.TYPE_WIDTH);
+          holder.start = 0;
+          holder.scale = 0;
+          holder.precision = 10;
+          writer.write(holder);
+        } else if (j % 4 == 2) {
+          DecimalUtility.writeBigDecimalToArrowBuf(new BigDecimal(j), holder.buffer, 0, DecimalVector.TYPE_WIDTH);
+          writer.writeDecimal(0, holder.buffer, arrowType);
+        } else {
+          byte[] value = BigDecimal.valueOf(j).unscaledValue().toByteArray();
+          writer.writeBigEndianBytesToDecimal(value, arrowType);
+        }
+      }
+      writer.endList();
+    }
+  }
+
+  private void checkListTypeVectorWithDecimalType(FieldReader reader) {
+    for (int i = 0; i < COUNT; i++) {
+      reader.setPosition(i);
+      for (int j = 0; j < i % 7; j++) {
+        reader.next();
+        Object expected = new BigDecimal(j);
+        Object actual = reader.reader().readBigDecimal();
+        assertEquals(expected, actual);
+      }
+    }
+  }
+
+  private void createListTypeVectorWithTimeStampMilliTZType(FieldWriter writer) {
+    for (int i = 0; i < COUNT; i++) {
+      writer.startList();
+      for (int j = 0; j < i % 7; j++) {
+        if (j % 2 == 0) {
+          writer.writeNull();
+        } else {
+          TimeStampMilliTZHolder holder = new TimeStampMilliTZHolder();
+          holder.timezone = "FakeTimeZone";
+          holder.value = j;
+          writer.timeStampMilliTZ().write(holder);
+        }
+      }
+      writer.endList();
+    }
+  }
+
+  private void checkListTypeVectorWithTimeStampMilliTZType(FieldReader reader) {
+    for (int i = 0; i < COUNT; i++) {
+      reader.setPosition(i);
+      for (int j = 0; j < i % 7; j++) {
+        reader.next();
+        if (j % 2 == 0) {
+          assertFalse(reader.reader().isSet(), "index is set: " + j);
+        } else {
+          NullableTimeStampMilliTZHolder actual = new NullableTimeStampMilliTZHolder();
+          reader.reader().read(actual);
+          assertEquals(j, actual.value);
+          assertEquals("FakeTimeZone", actual.timezone);
+        }
+      }
+    }
+  }
+
+  /* Test Cases */
+
   @Test
   public void simpleNestedTypes() {
     NonNullableStructVector parent = populateStructVector(null);
@@ -216,23 +366,6 @@ public class TestComplexWriter {
     }
   }
 
-  private void checkNullableStruct(NonNullableStructVector structVector) {
-    StructReader rootReader = new SingleStructReaderImpl(structVector).reader("root");
-    for (int i = 0; i < COUNT; i++) {
-      rootReader.setPosition(i);
-      assertTrue(rootReader.isSet(), "index is set: " + i);
-      FieldReader struct = rootReader.reader("struct");
-      if (i % 2 == 0) {
-        assertTrue(struct.isSet(), "index is set: " + i);
-        assertNotNull(struct.readObject(), "index is set: " + i);
-        assertEquals(i, struct.reader("nested").readLong().longValue());
-      } else {
-        assertFalse(struct.isSet(), "index is not set: " + i);
-        assertNull(struct.readObject(), "index is not set: " + i);
-      }
-    }
-  }
-
   @Test
   public void testList() {
     try (NonNullableStructVector parent = NonNullableStructVector.empty("parent", allocator)) {
@@ -260,247 +393,6 @@ public class TestComplexWriter {
 
       rootReader.setPosition(1);
       assertFalse(rootReader.reader("list").isSet(), "row 1 list is set");
-    }
-  }
-
-  private void createListTypeVectorWithScalarType(FieldWriter writer) {
-    for (int i = 0; i < COUNT; i++) {
-      writer.startList();
-      for (int j = 0; j < i % 7; j++) {
-        if (j % 2 == 0) {
-          writer.writeInt(j);
-        } else {
-          IntHolder holder = new IntHolder();
-          holder.value = j;
-          writer.write(holder);
-        }
-      }
-      writer.endList();
-    }
-  }
-
-  private void checkListTypeVectorWithScalarType(FieldReader reader) {
-    for (int i = 0; i < COUNT; i++) {
-      reader.setPosition(i);
-      for (int j = 0; j < i % 7; j++) {
-        reader.next();
-        assertEquals(j, reader.reader().readInteger().intValue());
-      }
-    }
-  }
-
-  @Test
-  public void listScalarType() {
-    try (ListVector listVector = ListVector.empty("list", allocator)) {
-      listVector.allocateNew();
-      UnionListWriter listWriter = new UnionListWriter(listVector);
-      createListTypeVectorWithScalarType(listWriter);
-      listWriter.setValueCount(COUNT);
-      UnionListReader listReader = new UnionListReader(listVector);
-      // validate
-      checkListTypeVectorWithScalarType(listReader);
-    }
-  }
-
-  @Test
-  public void listViewScalarType() {
-    try (ListViewVector listViewVector = ListViewVector.empty("listview", allocator)) {
-      listViewVector.allocateNew();
-      UnionListViewWriter listViewWriter = new UnionListViewWriter(listViewVector);
-      createListTypeVectorWithScalarType(listViewWriter);
-      listViewWriter.setValueCount(COUNT);
-      UnionListViewReader listViewReader = new UnionListViewReader(listViewVector);
-      // validate
-      checkListTypeVectorWithScalarType(listViewReader);
-    }
-  }
-
-  private void createListTypeVectorWithScalarNull(FieldWriter writer) {
-    for (int i = 0; i < COUNT; i++) {
-      writer.startList();
-      for (int j = 0; j < i % 7; j++) {
-        if (j % 2 == 0) {
-          writer.writeNull();
-        } else {
-          IntHolder holder = new IntHolder();
-          holder.value = j;
-          writer.write(holder);
-        }
-      }
-      writer.endList();
-    }
-  }
-
-  private void checkListTypeVectorWithScalarNull(FieldReader reader) {
-    for (int i = 0; i < COUNT; i++) {
-      reader.setPosition(i);
-      for (int j = 0; j < i % 7; j++) {
-        reader.next();
-        if (j % 2 == 0) {
-          assertFalse(reader.reader().isSet(), "index is set: " + j);
-        } else {
-          assertTrue(reader.reader().isSet(), "index is not set: " + j);
-          assertEquals(j, reader.reader().readInteger().intValue());
-        }
-      }
-    }
-  }
-
-  @Test
-  public void testListScalarNull() {
-    /* Write to an integer list vector
-     * each list of size 8
-     * and having its data values alternating between null and a non-null.
-     * Read and verify
-     */
-    try (ListVector listVector = ListVector.empty("list", allocator)) {
-      listVector.allocateNew();
-      UnionListWriter listWriter = new UnionListWriter(listVector);
-      createListTypeVectorWithScalarNull(listWriter);
-      listWriter.setValueCount(COUNT);
-      UnionListReader listReader = new UnionListReader(listVector);
-      checkListTypeVectorWithScalarNull(listReader);
-    }
-  }
-
-  @Test
-  public void testListViewScalarNull() {
-    /* Write to an integer list vector
-     * each list of size 8
-     * and having its data values alternating between null and a non-null.
-     * Read and verify
-     */
-    try (ListViewVector listViewVector = ListViewVector.empty("listview", allocator)) {
-      listViewVector.allocateNew();
-      UnionListViewWriter listViewWriter = new UnionListViewWriter(listViewVector);
-      createListTypeVectorWithScalarNull(listViewWriter);
-      listViewWriter.setValueCount(COUNT);
-      UnionListViewReader listViewReader = new UnionListViewReader(listViewVector);
-      checkListTypeVectorWithScalarNull(listViewReader);
-    }
-  }
-
-  private void createListTypeVectorWithDecimalType(FieldWriter writer, DecimalHolder holder) {
-    holder.buffer = allocator.buffer(DecimalVector.TYPE_WIDTH);
-    ArrowType arrowType = new ArrowType.Decimal(10, 0, 128);
-    for (int i = 0; i < COUNT; i++) {
-      writer.startList();
-      for (int j = 0; j < i % 7; j++) {
-        if (j % 4 == 0) {
-          writer.writeDecimal(new BigDecimal(j));
-        } else if (j % 4 == 1) {
-          DecimalUtility.writeBigDecimalToArrowBuf(new BigDecimal(j), holder.buffer, 0, DecimalVector.TYPE_WIDTH);
-          holder.start = 0;
-          holder.scale = 0;
-          holder.precision = 10;
-          writer.write(holder);
-        } else if (j % 4 == 2) {
-          DecimalUtility.writeBigDecimalToArrowBuf(new BigDecimal(j), holder.buffer, 0, DecimalVector.TYPE_WIDTH);
-          writer.writeDecimal(0, holder.buffer, arrowType);
-        } else {
-          byte[] value = BigDecimal.valueOf(j).unscaledValue().toByteArray();
-          writer.writeBigEndianBytesToDecimal(value, arrowType);
-        }
-      }
-      writer.endList();
-    }
-  }
-
-  private void checkListTypeVectorWithDecimalType(FieldReader reader) {
-    for (int i = 0; i < COUNT; i++) {
-      reader.setPosition(i);
-      for (int j = 0; j < i % 7; j++) {
-        reader.next();
-        Object expected = new BigDecimal(j);
-        Object actual = reader.reader().readBigDecimal();
-        assertEquals(expected, actual);
-      }
-    }
-  }
-
-  @Test
-  public void listDecimalType() {
-    try (ListVector listVector = ListVector.empty("list", allocator)) {
-      listVector.allocateNew();
-      UnionListWriter listWriter = new UnionListWriter(listVector);
-      DecimalHolder holder = new DecimalHolder();
-      createListTypeVectorWithDecimalType(listWriter, holder);
-      listWriter.setValueCount(COUNT);
-      UnionListReader listReader = new UnionListReader(listVector);
-      checkListTypeVectorWithDecimalType(listReader);
-      holder.buffer.close();
-    }
-  }
-
-  @Test
-  public void listViewDecimalType() {
-    try (ListViewVector listViewVector = ListViewVector.empty("listview", allocator)) {
-      listViewVector.allocateNew();
-      UnionListViewWriter listViewWriter = new UnionListViewWriter(listViewVector);
-      DecimalHolder holder = new DecimalHolder();
-      createListTypeVectorWithDecimalType(listViewWriter, holder);
-      listViewWriter.setValueCount(COUNT);
-      UnionListViewReader listViewReader = new UnionListViewReader(listViewVector);
-      checkListTypeVectorWithDecimalType(listViewReader);
-      holder.buffer.close();
-    }
-  }
-
-  private void createListTypeVectorWithTimeStampMilliTZType(FieldWriter writer) {
-    for (int i = 0; i < COUNT; i++) {
-      writer.startList();
-      for (int j = 0; j < i % 7; j++) {
-        if (j % 2 == 0) {
-          writer.writeNull();
-        } else {
-          TimeStampMilliTZHolder holder = new TimeStampMilliTZHolder();
-          holder.timezone = "FakeTimeZone";
-          holder.value = j;
-          writer.timeStampMilliTZ().write(holder);
-        }
-      }
-      writer.endList();
-    }
-  }
-
-  private void checkListTypeVectorWithTimeStampMilliTZType(FieldReader reader) {
-    for (int i = 0; i < COUNT; i++) {
-      reader.setPosition(i);
-      for (int j = 0; j < i % 7; j++) {
-        reader.next();
-        if (j % 2 == 0) {
-          assertFalse(reader.reader().isSet(), "index is set: " + j);
-        } else {
-          NullableTimeStampMilliTZHolder actual = new NullableTimeStampMilliTZHolder();
-          reader.reader().read(actual);
-          assertEquals(j, actual.value);
-          assertEquals("FakeTimeZone", actual.timezone);
-        }
-      }
-    }
-  }
-
-  @Test
-  public void listTimeStampMilliTZType() {
-    try (ListVector listVector = ListVector.empty("list", allocator)) {
-      listVector.allocateNew();
-      UnionListWriter listWriter = new UnionListWriter(listVector);
-      createListTypeVectorWithTimeStampMilliTZType(listWriter);
-      listWriter.setValueCount(COUNT);
-      UnionListReader listReader = new UnionListReader(listVector);
-      checkListTypeVectorWithTimeStampMilliTZType(listReader);
-    }
-  }
-
-  @Test
-  public void listViewTimeStampMilliTZType() {
-    try (ListViewVector listViewVector = ListViewVector.empty("listview", allocator)) {
-      listViewVector.allocateNew();
-      UnionListViewWriter listViewWriter = new UnionListViewWriter(listViewVector);
-      createListTypeVectorWithTimeStampMilliTZType(listViewWriter);
-      listViewWriter.setValueCount(COUNT);
-      UnionListViewReader listViewReader = new UnionListViewReader(listViewVector);
-      checkListTypeVectorWithTimeStampMilliTZType(listViewReader);
     }
   }
 
@@ -538,29 +430,196 @@ public class TestComplexWriter {
     }
   }
 
-  @Test
-  public void listDurationType() {
-    try (ListVector listVector = ListVector.empty("list", allocator)) {
-      listVector.allocateNew();
-      UnionListWriter listWriter = new UnionListWriter(listVector);
-      createListTypeVectorWithDurationType(listWriter);
-      listWriter.setValueCount(COUNT);
-      UnionListReader listReader = new UnionListReader(listVector);
-      checkListTypeVectorWithDurationType(listReader);
+  private void createScalarTypeVectorWithNullableType(FieldWriter writer) {
+    for (int i = 0; i < COUNT; i++) {
+      if (i % 2 == 0) {
+        writer.setPosition(i);
+        writer.startList();
+        for (int j = 0; j < i % 7; j++) {
+          writer.writeInt(j);
+        }
+        writer.endList();
+      }
     }
   }
 
-  @Test
-  public void listViewDurationType() {
-    try (ListViewVector listViewVector = ListViewVector.empty("listview", allocator)) {
-      listViewVector.allocateNew();
-      UnionListViewWriter listViewWriter = new UnionListViewWriter(listViewVector);
-      createListTypeVectorWithDurationType(listViewWriter);
-      listViewWriter.setValueCount(COUNT);
-      UnionListViewReader listReader = new UnionListViewReader(listViewVector);
-      checkListTypeVectorWithDurationType(listReader);
+  private void checkScalarTypeVectorWithNullableType(FieldReader reader) {
+    for (int i = 0; i < COUNT; i++) {
+      reader.setPosition(i);
+      if (i % 2 == 0) {
+        assertTrue(reader.isSet(), "index is set: " + i);
+        assertEquals(i % 7, ((List<?>) reader.readObject()).size(), "correct length at: " + i);
+      } else {
+        assertFalse(reader.isSet(), "index is not set: " + i);
+        assertNull(reader.readObject(), "index is not set: " + i);
+      }
     }
   }
+
+  private void createListTypeVectorWithStructType(FieldWriter fieldWriter, StructWriter structWriter) {
+    for (int i = 0; i < COUNT; i++) {
+      fieldWriter.startList();
+      for (int j = 0; j < i % 7; j++) {
+        structWriter.start();
+        structWriter.integer("int").writeInt(j);
+        structWriter.bigInt("bigInt").writeBigInt(j);
+        structWriter.end();
+      }
+      fieldWriter.endList();
+    }
+  }
+
+  private void checkListTypeVectorWithStructType(FieldReader reader) {
+    for (int i = 0; i < COUNT; i++) {
+      reader.setPosition(i);
+      for (int j = 0; j < i % 7; j++) {
+        reader.next();
+        assertEquals(j, reader.reader().reader("int").readInteger().intValue(), "record: " + i);
+        assertEquals(j, reader.reader().reader("bigInt").readLong().longValue());
+      }
+    }
+  }
+
+  private void createNestedListTypeVector(FieldWriter fieldWriter) {
+    for (int i = 0; i < COUNT; i++) {
+      fieldWriter.startList();
+      for (int j = 0; j < i % 7; j++) {
+        FieldWriter innerListWriter = (FieldWriter) fieldWriter.list();
+        innerListWriter.startList();
+        for (int k = 0; k < i % 13; k++) {
+          innerListWriter.integer().writeInt(k);
+        }
+        innerListWriter.endList();
+      }
+      fieldWriter.endList();
+    }
+  }
+
+  private void createNestedListTypeVector2(FieldWriter fieldWriter) {
+    FieldWriter innerListWriter = (FieldWriter) fieldWriter.list();
+    for (int i = 0; i < COUNT; i++) {
+      fieldWriter.startList();
+      for (int j = 0; j < i % 7; j++) {
+        innerListWriter.startList();
+        for (int k = 0; k < i % 13; k++) {
+          innerListWriter.integer().writeInt(k);
+        }
+        innerListWriter.endList();
+      }
+      fieldWriter.endList();
+    }
+  }
+
+  private void checkListOfListTypes(final FieldReader reader) {
+    for (int i = 0; i < COUNT; i++) {
+      reader.setPosition(i);
+      for (int j = 0; j < i % 7; j++) {
+        reader.next();
+        FieldReader innerListReader = reader.reader();
+        for (int k = 0; k < i % 13; k++) {
+          innerListReader.next();
+          assertEquals(k, innerListReader.reader().readInteger().intValue(), "record: " + i);
+        }
+      }
+    }
+  }
+
+  private void createUnionListOfListTypeVector(FieldWriter writer) {
+    for (int i = 0; i < COUNT; i++) {
+      writer.startList();
+      for (int j = 0; j < i % 7; j++) {
+        FieldWriter innerListWriter = (FieldWriter) writer.list();
+        innerListWriter.startList();
+        for (int k = 0; k < i % 13; k++) {
+          if (k % 2 == 0) {
+            innerListWriter.integer().writeInt(k);
+          } else {
+            innerListWriter.bigInt().writeBigInt(k);
+          }
+        }
+        innerListWriter.endList();
+      }
+      writer.endList();
+    }
+  }
+
+  private void createUnionListTypeVector2(FieldWriter writer) {
+    FieldWriter innerListWriter = (FieldWriter) writer.list();
+    for (int i = 0; i < COUNT; i++) {
+      writer.startList();
+      for (int j = 0; j < i % 7; j++) {
+        innerListWriter.startList();
+        for (int k = 0; k < i % 13; k++) {
+          if (k % 2 == 0) {
+            innerListWriter.integer().writeInt(k);
+          } else {
+            innerListWriter.bigInt().writeBigInt(k);
+          }
+        }
+        innerListWriter.endList();
+      }
+      writer.endList();
+    }
+  }
+
+  private void checkUnionListType(FieldReader reader) {
+    for (int i = 0; i < COUNT; i++) {
+      reader.setPosition(i);
+      for (int j = 0; j < i % 7; j++) {
+        reader.next();
+        FieldReader innerListReader = reader.reader();
+        for (int k = 0; k < i % 13; k++) {
+          innerListReader.next();
+          if (k % 2 == 0) {
+            assertEquals(k, innerListReader.reader().readInteger().intValue(), "record: " + i);
+          } else {
+            assertEquals(k, innerListReader.reader().readLong().longValue(), "record: " + i);
+          }
+        }
+      }
+    }
+  }
+
+  private static void createListTypeVectorWithMapType(FieldWriter writer) {
+    MapWriter innerMapWriter = writer.map(true);
+    for (int i = 0; i < COUNT; i++) {
+      writer.startList();
+      for (int j = 0; j < i % 7; j++) {
+        innerMapWriter.startMap();
+        for (int k = 0; k < i % 13; k++) {
+          innerMapWriter.startEntry();
+          innerMapWriter.key().integer().writeInt(k);
+          if (k % 2 == 0) {
+            innerMapWriter.value().bigInt().writeBigInt(k);
+          }
+          innerMapWriter.endEntry();
+        }
+        innerMapWriter.endMap();
+      }
+      writer.endList();
+    }
+  }
+
+  private void checkListTypeMap(FieldReader reader) {
+    for (int i = 0; i < COUNT; i++) {
+      reader.setPosition(i);
+      for (int j = 0; j < i % 7; j++) {
+        reader.next();
+        UnionMapReader mapReader = (UnionMapReader) reader.reader();
+        for (int k = 0; k < i % 13; k++) {
+          mapReader.next();
+          assertEquals(k, mapReader.key().readInteger().intValue(), "record key: " + i);
+          if (k % 2 == 0) {
+            assertEquals(k, mapReader.value().readLong().longValue(), "record value: " + i);
+          } else {
+            assertNull(mapReader.value().readLong(), "record value: " + i);
+          }
+        }
+      }
+    }
+  }
+
+  /* Test Cases */
 
   private void createListTypeVectorWithFixedSizeBinaryType(FieldWriter writer, List<ArrowBuf> buffers) {
     for (int i = 0; i < COUNT; i++) {
@@ -600,6 +659,142 @@ public class TestComplexWriter {
   }
 
   @Test
+  public void listScalarType() {
+    try (ListVector listVector = ListVector.empty("list", allocator)) {
+      listVector.allocateNew();
+      UnionListWriter listWriter = new UnionListWriter(listVector);
+      createListTypeVectorWithScalarType(listWriter);
+      listWriter.setValueCount(COUNT);
+      UnionListReader listReader = new UnionListReader(listVector);
+      // validate
+      checkListTypeVectorWithScalarType(listReader);
+    }
+  }
+
+  @Test
+  public void listViewScalarType() {
+    try (ListViewVector listViewVector = ListViewVector.empty("listview", allocator)) {
+      listViewVector.allocateNew();
+      UnionListViewWriter listViewWriter = new UnionListViewWriter(listViewVector);
+      createListTypeVectorWithScalarType(listViewWriter);
+      listViewWriter.setValueCount(COUNT);
+      UnionListViewReader listViewReader = new UnionListViewReader(listViewVector);
+      // validate
+      checkListTypeVectorWithScalarType(listViewReader);
+    }
+  }
+
+  @Test
+  public void testListScalarNull() {
+    /* Write to an integer list vector
+     * each list of size 8
+     * and having its data values alternating between null and a non-null.
+     * Read and verify
+     */
+    try (ListVector listVector = ListVector.empty("list", allocator)) {
+      listVector.allocateNew();
+      UnionListWriter listWriter = new UnionListWriter(listVector);
+      createListTypeVectorWithScalarNull(listWriter);
+      listWriter.setValueCount(COUNT);
+      UnionListReader listReader = new UnionListReader(listVector);
+      checkListTypeVectorWithScalarNull(listReader);
+    }
+  }
+
+  @Test
+  public void testListViewScalarNull() {
+    /* Write to an integer list vector
+     * each list of size 8
+     * and having its data values alternating between null and a non-null.
+     * Read and verify
+     */
+    try (ListViewVector listViewVector = ListViewVector.empty("listview", allocator)) {
+      listViewVector.allocateNew();
+      UnionListViewWriter listViewWriter = new UnionListViewWriter(listViewVector);
+      createListTypeVectorWithScalarNull(listViewWriter);
+      listViewWriter.setValueCount(COUNT);
+      UnionListViewReader listViewReader = new UnionListViewReader(listViewVector);
+      checkListTypeVectorWithScalarNull(listViewReader);
+    }
+  }
+
+  @Test
+  public void listDecimalType() {
+    try (ListVector listVector = ListVector.empty("list", allocator)) {
+      listVector.allocateNew();
+      UnionListWriter listWriter = new UnionListWriter(listVector);
+      DecimalHolder holder = new DecimalHolder();
+      createListTypeVectorWithDecimalType(listWriter, holder);
+      listWriter.setValueCount(COUNT);
+      UnionListReader listReader = new UnionListReader(listVector);
+      checkListTypeVectorWithDecimalType(listReader);
+      holder.buffer.close();
+    }
+  }
+
+  @Test
+  public void listViewDecimalType() {
+    try (ListViewVector listViewVector = ListViewVector.empty("listview", allocator)) {
+      listViewVector.allocateNew();
+      UnionListViewWriter listViewWriter = new UnionListViewWriter(listViewVector);
+      DecimalHolder holder = new DecimalHolder();
+      createListTypeVectorWithDecimalType(listViewWriter, holder);
+      listViewWriter.setValueCount(COUNT);
+      UnionListViewReader listViewReader = new UnionListViewReader(listViewVector);
+      checkListTypeVectorWithDecimalType(listViewReader);
+      holder.buffer.close();
+    }
+  }
+
+  @Test
+  public void listTimeStampMilliTZType() {
+    try (ListVector listVector = ListVector.empty("list", allocator)) {
+      listVector.allocateNew();
+      UnionListWriter listWriter = new UnionListWriter(listVector);
+      createListTypeVectorWithTimeStampMilliTZType(listWriter);
+      listWriter.setValueCount(COUNT);
+      UnionListReader listReader = new UnionListReader(listVector);
+      checkListTypeVectorWithTimeStampMilliTZType(listReader);
+    }
+  }
+
+  @Test
+  public void listViewTimeStampMilliTZType() {
+    try (ListViewVector listViewVector = ListViewVector.empty("listview", allocator)) {
+      listViewVector.allocateNew();
+      UnionListViewWriter listViewWriter = new UnionListViewWriter(listViewVector);
+      createListTypeVectorWithTimeStampMilliTZType(listViewWriter);
+      listViewWriter.setValueCount(COUNT);
+      UnionListViewReader listViewReader = new UnionListViewReader(listViewVector);
+      checkListTypeVectorWithTimeStampMilliTZType(listViewReader);
+    }
+  }
+
+  @Test
+  public void listDurationType() {
+    try (ListVector listVector = ListVector.empty("list", allocator)) {
+      listVector.allocateNew();
+      UnionListWriter listWriter = new UnionListWriter(listVector);
+      createListTypeVectorWithDurationType(listWriter);
+      listWriter.setValueCount(COUNT);
+      UnionListReader listReader = new UnionListReader(listVector);
+      checkListTypeVectorWithDurationType(listReader);
+    }
+  }
+
+  @Test
+  public void listViewDurationType() {
+    try (ListViewVector listViewVector = ListViewVector.empty("listview", allocator)) {
+      listViewVector.allocateNew();
+      UnionListViewWriter listViewWriter = new UnionListViewWriter(listViewVector);
+      createListTypeVectorWithDurationType(listViewWriter);
+      listViewWriter.setValueCount(COUNT);
+      UnionListViewReader listReader = new UnionListViewReader(listViewVector);
+      checkListTypeVectorWithDurationType(listReader);
+    }
+  }
+
+  @Test
   public void listFixedSizeBinaryType() throws Exception {
     List<ArrowBuf> buffers = new ArrayList<>();
     try (ListVector listVector = ListVector.empty("list", allocator)) {
@@ -627,32 +822,6 @@ public class TestComplexWriter {
     AutoCloseables.close(buffers);
   }
 
-  private void createScalarTypeVectorWithNullableType(FieldWriter writer) {
-    for (int i = 0; i < COUNT; i++) {
-      if (i % 2 == 0) {
-        writer.setPosition(i);
-        writer.startList();
-        for (int j = 0; j < i % 7; j++) {
-          writer.writeInt(j);
-        }
-        writer.endList();
-      }
-    }
-  }
-
-  private void checkScalarTypeVectorWithNullableType(FieldReader reader) {
-    for (int i = 0; i < COUNT; i++) {
-      reader.setPosition(i);
-      if (i % 2 == 0) {
-        assertTrue(reader.isSet(), "index is set: " + i);
-        assertEquals(i % 7, ((List<?>) reader.readObject()).size(), "correct length at: " + i);
-      } else {
-        assertFalse(reader.isSet(), "index is not set: " + i);
-        assertNull(reader.readObject(), "index is not set: " + i);
-      }
-    }
-  }
-
   @Test
   public void listScalarTypeNullable() {
     try (ListVector listVector = ListVector.empty("list", allocator)) {
@@ -674,30 +843,6 @@ public class TestComplexWriter {
       listViewWriter.setValueCount(COUNT);
       UnionListViewReader listReader = new UnionListViewReader(listViewVector);
       checkScalarTypeVectorWithNullableType(listReader);
-    }
-  }
-
-  private void createListTypeVectorWithStructType(FieldWriter fieldWriter, StructWriter structWriter) {
-    for (int i = 0; i < COUNT; i++) {
-      fieldWriter.startList();
-      for (int j = 0; j < i % 7; j++) {
-        structWriter.start();
-        structWriter.integer("int").writeInt(j);
-        structWriter.bigInt("bigInt").writeBigInt(j);
-        structWriter.end();
-      }
-      fieldWriter.endList();
-    }
-  }
-
-  private void checkListTypeVectorWithStructType(FieldReader reader) {
-    for (int i = 0; i < COUNT; i++) {
-      reader.setPosition(i);
-      for (int j = 0; j < i % 7; j++) {
-        reader.next();
-        assertEquals(j, reader.reader().reader("int").readInteger().intValue(), "record: " + i);
-        assertEquals(j, reader.reader().reader("bigInt").readLong().longValue());
-      }
     }
   }
 
@@ -727,25 +872,6 @@ public class TestComplexWriter {
     }
   }
 
-  private void createNestedListTypeVector(FieldWriter fieldWriter) {
-    for (int i = 0; i < COUNT; i++) {
-      fieldWriter.startList();
-      for (int j = 0; j < i % 7; j++) {
-        FieldWriter innerListWriter = (FieldWriter) fieldWriter.list();
-        innerListWriter.startList();
-        for (int k = 0; k < i % 13; k++) {
-          innerListWriter.integer().writeInt(k);
-        }
-        innerListWriter.endList();
-      }
-      fieldWriter.endList();
-    }
-  }
-
-  /**
-   * This test is similar to {@link #listListType()} but we get the inner list writer once at the
-   * beginning.
-   */
   @Test
   public void listListType() {
     try (ListVector listVector = ListVector.empty("list", allocator)) {
@@ -767,21 +893,6 @@ public class TestComplexWriter {
       listViewWriter.setValueCount(COUNT);
       UnionListViewReader listReader = new UnionListViewReader(listViewVector);
       checkListOfListTypes(listReader);
-    }
-  }
-
-  private void createNestedListTypeVector2(FieldWriter fieldWriter) {
-    FieldWriter innerListWriter = (FieldWriter) fieldWriter.list();
-    for (int i = 0; i < COUNT; i++) {
-      fieldWriter.startList();
-      for (int j = 0; j < i % 7; j++) {
-        innerListWriter.startList();
-        for (int k = 0; k < i % 13; k++) {
-          innerListWriter.integer().writeInt(k);
-        }
-        innerListWriter.endList();
-      }
-      fieldWriter.endList();
     }
   }
 
@@ -809,39 +920,6 @@ public class TestComplexWriter {
       listViewWriter.setValueCount(COUNT);
       UnionListViewReader listReader = new UnionListViewReader(listViewVector);
       checkListOfListTypes(listReader);
-    }
-  }
-
-  private void checkListOfListTypes(final FieldReader reader) {
-    for (int i = 0; i < COUNT; i++) {
-      reader.setPosition(i);
-      for (int j = 0; j < i % 7; j++) {
-        reader.next();
-        FieldReader innerListReader = reader.reader();
-        for (int k = 0; k < i % 13; k++) {
-          innerListReader.next();
-          assertEquals(k, innerListReader.reader().readInteger().intValue(), "record: " + i);
-        }
-      }
-    }
-  }
-
-  private void createUnionListOfListTypeVector(FieldWriter writer) {
-    for (int i = 0; i < COUNT; i++) {
-      writer.startList();
-      for (int j = 0; j < i % 7; j++) {
-        FieldWriter innerListWriter = (FieldWriter) writer.list();
-        innerListWriter.startList();
-        for (int k = 0; k < i % 13; k++) {
-          if (k % 2 == 0) {
-            innerListWriter.integer().writeInt(k);
-          } else {
-            innerListWriter.bigInt().writeBigInt(k);
-          }
-        }
-        innerListWriter.endList();
-      }
-      writer.endList();
     }
   }
 
@@ -901,43 +979,6 @@ public class TestComplexWriter {
     }
   }
 
-  private void createUnionListTypeVector2(FieldWriter writer) {
-    FieldWriter innerListWriter = (FieldWriter) writer.list();
-    for (int i = 0; i < COUNT; i++) {
-      writer.startList();
-      for (int j = 0; j < i % 7; j++) {
-        innerListWriter.startList();
-        for (int k = 0; k < i % 13; k++) {
-          if (k % 2 == 0) {
-            innerListWriter.integer().writeInt(k);
-          } else {
-            innerListWriter.bigInt().writeBigInt(k);
-          }
-        }
-        innerListWriter.endList();
-      }
-      writer.endList();
-    }
-  }
-
-  private void checkUnionListType(FieldReader reader) {
-    for (int i = 0; i < COUNT; i++) {
-      reader.setPosition(i);
-      for (int j = 0; j < i % 7; j++) {
-        reader.next();
-        FieldReader innerListReader = reader.reader();
-        for (int k = 0; k < i % 13; k++) {
-          innerListReader.next();
-          if (k % 2 == 0) {
-            assertEquals(k, innerListReader.reader().readInteger().intValue(), "record: " + i);
-          } else {
-            assertEquals(k, innerListReader.reader().readLong().longValue(), "record: " + i);
-          }
-        }
-      }
-    }
-  }
-
   @Test
   public void testListMapType() {
     try (ListVector listVector = ListVector.empty("list", allocator)) {
@@ -969,45 +1010,6 @@ public class TestComplexWriter {
       MapVector mapVector = (MapVector) listViewVector.getDataVector();
       ArrowType arrowType = mapVector.getField().getFieldType().getType();
       assertTrue(((ArrowType.Map) arrowType).getKeysSorted());
-    }
-  }
-
-  private static void createListTypeVectorWithMapType(FieldWriter writer) {
-    MapWriter innerMapWriter = writer.map(true);
-    for (int i = 0; i < COUNT; i++) {
-      writer.startList();
-      for (int j = 0; j < i % 7; j++) {
-        innerMapWriter.startMap();
-        for (int k = 0; k < i % 13; k++) {
-          innerMapWriter.startEntry();
-          innerMapWriter.key().integer().writeInt(k);
-          if (k % 2 == 0) {
-            innerMapWriter.value().bigInt().writeBigInt(k);
-          }
-          innerMapWriter.endEntry();
-        }
-        innerMapWriter.endMap();
-      }
-      writer.endList();
-    }
-  }
-
-  private void checkListTypeMap(FieldReader reader) {
-    for (int i = 0; i < COUNT; i++) {
-      reader.setPosition(i);
-      for (int j = 0; j < i % 7; j++) {
-        reader.next();
-        UnionMapReader mapReader = (UnionMapReader) reader.reader();
-        for (int k = 0; k < i % 13; k++) {
-          mapReader.next();
-          assertEquals(k, mapReader.key().readInteger().intValue(), "record key: " + i);
-          if (k % 2 == 0) {
-            assertEquals(k, mapReader.value().readLong().longValue(), "record value: " + i);
-          } else {
-            assertNull(mapReader.value().readLong(), "record value: " + i);
-          }
-        }
-      }
     }
   }
 
