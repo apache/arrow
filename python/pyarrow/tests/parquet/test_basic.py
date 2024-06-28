@@ -15,9 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import os
 from collections import OrderedDict
 import io
 import warnings
+import tempfile
 from shutil import copytree
 from decimal import Decimal
 
@@ -375,6 +377,21 @@ def test_store_decimal_as_integer():
                      compression="gzip",
                      use_dictionary=False,
                      store_decimal_as_integer=True)
+
+    # Check physical type in parquet schema
+    with tempfile.TemporaryDirectory() as tempdir:
+        pqtestfile_path = os.path.join(tempdir, 'test.parquet')
+        pq.write_table(table, pqtestfile_path,
+                       compression="gzip",
+                       use_dictionary=False,
+                       store_decimal_as_integer=True)
+
+        pqtestfile = pq.ParquetFile(pqtestfile_path)
+        pqcol_decimal_1_9 = pqtestfile.schema.column(0)
+        pqcol_decimal_10_18 = pqtestfile.schema.column(1)
+
+        assert pqcol_decimal_1_9.physical_type == 'INT32'
+        assert pqcol_decimal_10_18.physical_type == 'INT64'
 
     # Check with store_decimal_as_integer and delta-int encoding.
     _check_roundtrip(table,
