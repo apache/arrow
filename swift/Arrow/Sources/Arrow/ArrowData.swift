@@ -39,6 +39,10 @@ public class ArrowData {
             if typeId == ArrowTypeId.unknown {
                 throw ArrowError.unknownType("Unknown time type for data")
             }
+        case let .complexInfo(typeId):
+            if typeId == ArrowTypeId.unknown {
+                throw ArrowError.unknownType("Unknown complex type for data")
+            }
         }
 
         self.type = arrowType
