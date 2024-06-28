@@ -501,7 +501,7 @@ func BenchmarkByteStreamSplitDecodingInt32(b *testing.B) {
 
 			decoder := encoding.NewDecoder(parquet.Types.Int32, parquet.Encodings.ByteStreamSplit, nil, memory.DefaultAllocator)
 			b.ResetTimer()
-			b.SetBytes(int64(len(values)))
+			b.SetBytes(int64(len(values) * arrow.Int32SizeBytes))
 			for n := 0; n < b.N; n++ {
 				decoder.SetData(sz, buf.Bytes())
 				decoder.(encoding.Int32Decoder).Decode(output)
@@ -517,11 +517,13 @@ func BenchmarkByteStreamSplitEncodingFixedLenByteArray(b *testing.B) {
 			for idx := range values {
 				values[idx] = []byte{0x12, 0x34}
 			}
-			col := schema.NewColumn(schema.NewFixedLenByteArrayNode("fixedlenbytearray", parquet.Repetitions.Required, 2, -1), 0, 0)
+
+			arraySize := len(values[0])
+			col := schema.NewColumn(schema.NewFixedLenByteArrayNode("fixedlenbytearray", parquet.Repetitions.Required, int32(arraySize), -1), 0, 0)
 			encoder := encoding.NewEncoder(parquet.Types.FixedLenByteArray, parquet.Encodings.ByteStreamSplit,
 				false, col, memory.DefaultAllocator).(encoding.FixedLenByteArrayEncoder)
 			b.ResetTimer()
-			b.SetBytes(int64(len(values) * 2)) // 2-byte arrays
+			b.SetBytes(int64(len(values) * arraySize))
 			for n := 0; n < b.N; n++ {
 				encoder.Put(values)
 				buf, _ := encoder.FlushValues()
@@ -539,7 +541,9 @@ func BenchmarkByteStreamSplitDecodingFixedLenByteArray(b *testing.B) {
 			for idx := range values {
 				values[idx] = []byte{0x12, 0x34}
 			}
-			col := schema.NewColumn(schema.NewFixedLenByteArrayNode("fixedlenbytearray", parquet.Repetitions.Required, 2, -1), 0, 0)
+
+			arraySize := len(values[0])
+			col := schema.NewColumn(schema.NewFixedLenByteArrayNode("fixedlenbytearray", parquet.Repetitions.Required, int32(arraySize), -1), 0, 0)
 			encoder := encoding.NewEncoder(parquet.Types.FixedLenByteArray, parquet.Encodings.ByteStreamSplit,
 				false, col, memory.DefaultAllocator).(encoding.FixedLenByteArrayEncoder)
 			encoder.Put(values)
@@ -548,7 +552,7 @@ func BenchmarkByteStreamSplitDecodingFixedLenByteArray(b *testing.B) {
 
 			decoder := encoding.NewDecoder(parquet.Types.FixedLenByteArray, parquet.Encodings.ByteStreamSplit, col, memory.DefaultAllocator)
 			b.ResetTimer()
-			b.SetBytes(int64(len(values)))
+			b.SetBytes(int64(len(values) * arraySize))
 			for n := 0; n < b.N; n++ {
 				decoder.SetData(sz, buf.Bytes())
 				decoder.(encoding.FixedLenByteArrayDecoder).Decode(output)
