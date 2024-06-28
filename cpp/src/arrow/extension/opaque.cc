@@ -69,6 +69,8 @@ Result<std::shared_ptr<DataType>> OpaqueType::Deserialize(
     return Status::Invalid("Invalid serialized JSON data for OpaqueType: ",
                            rapidjson::GetParseError_En(parsed.GetParseError()), ": ",
                            serialized_data);
+  } else if (!document.IsObject()) {
+    return Status::Invalid("Invalid serialized JSON data for OpaqueType: not an object");
   }
   if (!document.HasMember("type_name")) {
     return Status::Invalid(

@@ -15,6 +15,143 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/extension/opaque.h"
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
 
-namespace arrow {}
+#include "arrow/extension/opaque.h"
+#include "arrow/extension_type.h"
+#include "arrow/testing/gtest_util.h"
+#include "arrow/type_fwd.h"
+#include "arrow/util/checked_cast.h"
+
+namespace arrow {
+
+TEST(OpaqueType, Registered) {
+  // We need a registered dummy type at runtime to allow for IPC deserialization
+  auto registered_type = GetExtensionType("arrow.opaque");
+  ASSERT_EQ(Type::EXTENSION, registered_type->type_id);
+}
+
+TEST(OpaqueType, Basics) {
+  auto type = internal::checked_pointer_cast<extension::OpaqueType>(
+      extension::opaque(null(), "type", "vendor"));
+  auto type2 = internal::checked_pointer_cast<extension::OpaqueType>(
+      extension::opaque(null(), "type2", "vendor"));
+  ASSERT_EQ("arrow.opaque", type->extension_name());
+  ASSERT_EQ(*type, *type);
+  ASSERT_NE(*arrow::null(), *type);
+  ASSERT_NE(*type, *type2);
+  ASSERT_EQ(*arrow::null(), *type->storage_type());
+  ASSERT_THAT(type->Serialize(), ::testing::Not(::testing::IsEmpty()));
+  ASSERT_EQ(R"({"type_name":"type","vendor_name":"vendor"})", type->Serialize());
+  ASSERT_EQ("type", type->type_name());
+  ASSERT_EQ("vendor", type->vendor_name());
+  ASSERT_EQ(
+      "extension<arrow.opaque[storage_type=null, type_name=type, vendor_name=vendor]>",
+      type->ToString(false));
+}
+
+TEST(OpaqueType, Equals) {
+  auto type = internal::checked_pointer_cast<extension::OpaqueType>(
+      extension::opaque(null(), "type", "vendor"));
+  auto type2 = internal::checked_pointer_cast<extension::OpaqueType>(
+      extension::opaque(null(), "type2", "vendor"));
+  auto type3 = internal::checked_pointer_cast<extension::OpaqueType>(
+      extension::opaque(null(), "type", "vendor2"));
+  auto type4 = internal::checked_pointer_cast<extension::OpaqueType>(
+      extension::opaque(int64(), "type", "vendor"));
+  auto type5 = internal::checked_pointer_cast<extension::OpaqueType>(
+      extension::opaque(null(), "type", "vendor"));
+
+  ASSERT_EQ(*type, *type);
+  ASSERT_EQ(*type2, *type2);
+  ASSERT_EQ(*type3, *type3);
+  ASSERT_EQ(*type4, *type4);
+  ASSERT_EQ(*type5, *type5);
+
+  ASSERT_EQ(*type, *type5);
+
+  ASSERT_NE(*type, *type2);
+  ASSERT_NE(*type, *type3);
+  ASSERT_NE(*type, *type4);
+
+  ASSERT_NE(*type2, *type);
+  ASSERT_NE(*type2, *type3);
+  ASSERT_NE(*type2, *type4);
+
+  ASSERT_NE(*type3, *type);
+  ASSERT_NE(*type3, *type2);
+  ASSERT_NE(*type3, *type4);
+
+  ASSERT_NE(*type4, *type);
+  ASSERT_NE(*type4, *type2);
+  ASSERT_NE(*type4, *type3);
+}
+
+TEST(OpaqueType, CreateFromArray) {}
+
+void CheckDeserialize(const std::string& serialized,
+                      const std::shared_ptr<DataType>& expected) {
+  auto type = internal::checked_pointer_cast<extension::OpaqueType>(expected);
+  ASSERT_OK_AND_ASSIGN(auto deserialized,
+                       type->Deserialize(type->storage_type(), serialized));
+  ASSERT_EQ(*expected, *deserialized);
+}
+
+TEST(OpaqueType, Deserialize) {
+  ASSERT_NO_FATAL_FAILURE(
+      CheckDeserialize(R"({"type_name": "type", "vendor_name": "vendor"})",
+                       extension::opaque(null(), "type", "vendor")));
+  ASSERT_NO_FATAL_FAILURE(
+      CheckDeserialize(R"({"type_name": "long name", "vendor_name": "long name"})",
+                       extension::opaque(null(), "long name", "long name")));
+  ASSERT_NO_FATAL_FAILURE(
+      CheckDeserialize(R"({"type_name": "名前", "vendor_name": "名字"})",
+                       extension::opaque(null(), "名前", "名字")));
+  ASSERT_NO_FATAL_FAILURE(CheckDeserialize(
+      R"({"type_name": "type", "vendor_name": "vendor", "extra_field": 2})",
+      extension::opaque(null(), "type", "vendor")));
+
+  auto type = internal::checked_pointer_cast<extension::OpaqueType>(
+      extension::opaque(null(), "type", "vendor"));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("The document is empty"),
+                                  type->Deserialize(null(), R"()"));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  testing::HasSubstr("Missing a name for object member"),
+                                  type->Deserialize(null(), R"({)"));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("not an object"),
+                                  type->Deserialize(null(), R"([])"));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("missing type_name"),
+                                  type->Deserialize(null(), R"({})"));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("type_name is not a string"),
+      type->Deserialize(null(), R"({"type_name": 2, "vendor_name": ""})"));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("type_name is not a string"),
+      type->Deserialize(null(), R"({"type_name": null, "vendor_name": ""})"));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("vendor_name is not a string"),
+      type->Deserialize(null(), R"({"vendor_name": 2, "type_name": ""})"));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("vendor_name is not a string"),
+      type->Deserialize(null(), R"({"vendor_name": null, "type_name": ""})"));
+}
+
+TEST(OpaqueType, MetadataRoundTrip) {
+  for (const auto& type : {
+           extension::opaque(null(), "foo", "bar"),
+           extension::opaque(binary(), "geometry", "postgis"),
+           extension::opaque(fixed_size_list(int64(), 4), "foo", "bar"),
+           extension::opaque(utf8(), "foo", "bar"),
+       }) {
+    auto opaque = internal::checked_pointer_cast<extension::OpaqueType>(type);
+    std::string serialized = opaque->Serialize();
+    ASSERT_OK_AND_ASSIGN(auto deserialized,
+                         opaque->Deserialize(opaque->storage_type(), serialized));
+    ASSERT_EQ(*type, *deserialized);
+  }
+}
+
+TEST(OpaqueType, BatchRoundTrip) {}
+
+}  // namespace arrow

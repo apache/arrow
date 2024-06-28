@@ -906,7 +906,7 @@ endif()
 if(ARROW_JSON)
   arrow_add_object_library(ARROW_JSON
                            extension/fixed_shape_tensor.cc
-                           extension/unknown.cc
+                           extension/opaque.cc
                            json/options.cc
                            json/chunked_builder.cc
                            json/chunker.cc
