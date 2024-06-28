@@ -32,13 +32,12 @@ RUN echo "check PYTHON>=${required_python_min}" && python -c "import sys;sys.exi
 # needs to be a login shell so ~/.profile is read
 SHELL ["/bin/bash", "--login", "-c", "-o", "pipefail"]
 
-RUN python -m pip install --no-cache-dir selenium==${selenium_version} &&\
+RUN python -m pip install --no-cache-dir selenium==${selenium_version} && \
     python -m pip install --no-cache-dir --upgrade --pre pyodide-build==${pyodide_version}
     
 # install pyodide dist directory to /pyodide
-WORKDIR /
 RUN pyodide_dist_url="https://github.com/pyodide/pyodide/releases/download/${pyodide_version}/pyodide-${pyodide_version}.tar.bz2" && \
-    wget -q "${pyodide_dist_url}" -O- |tar -xj
+    wget -q "${pyodide_dist_url}" -O- | tar -xj -C /
 
 # install correct version of emscripten for this pyodide
 COPY ci/scripts/install_emscripten.sh /arrow/ci/scripts/
@@ -46,7 +45,6 @@ RUN bash /arrow/ci/scripts/install_emscripten.sh ~ /pyodide
 
 # make sure zlib is cached in the EMSDK folder
 RUN source ~/emsdk/emsdk_env.sh && embuilder --pic build zlib
-
 
 # install chrome for testing browser based runner
 # zip needed for chrome, libpthread stubs installs pthread module to cmake, build-essential makes
@@ -66,8 +64,8 @@ SHELL ["/bin/bash", "--login", "-i", "-o", "pipefail", "-c"]
 RUN conda install nodejs=18 -c conda-forge
 SHELL ["/bin/bash", "--login", "-c"]
 
-ENV ARROW_EMSCRIPTEN = "ON"\
-    ARROW_DEPENDENCY_SOURCE = "BUNDLED"\
-    PYODIDE_VERSION = ${pyodide_version}\
-    ARROW_BUILD_TYPE = "release"\
-    ARROW_BUILD_TESTS = "OFF"
+ENV ARROW_BUILD_TESTS="OFF" \
+    ARROW_BUILD_TYPE="release" \
+    ARROW_DEPENDENCY_SOURCE="BUNDLED" \
+    ARROW_EMSCRIPTEN="ON" \
+    PYODIDE_VERSION=${pyodide_version}

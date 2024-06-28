@@ -17,7 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# run tests against Chrome and node.js as representative 
+# run tests against Chrome and node.js as representative
 # WebAssembly platforms (i.e. one browser, one non-browser).
 
 set -ex
@@ -28,7 +28,7 @@ pyodide_dist_dir=${2}
 cd ${build_dir}
 
 # note: this uses the newest wheel in dist
-pyodide_wheel=$(ls -t dist/pyarrow*.whl | head -1) 
+pyodide_wheel=$(ls -t dist/pyarrow*.whl | head -1)
 
 echo "-------------- Running emscripten tests in Node ----------------------"
 python scripts/run_emscripten_tests.py ${pyodide_wheel} --dist-dir=${pyodide_dist_dir} --runtime=node
