@@ -886,6 +886,7 @@ foreach(module ${CYTHON_EXTENSIONS})
     set_target_properties(${module_name} PROPERTIES COMPILE_DEFINITIONS
                                                     "CYTHON_TRACE=1;CYTHON_TRACE_NOGIL=1")
   endif()
+  
   target_link_libraries(${module_name} PRIVATE ${LINK_LIBS})
 
   install(TARGETS ${module_name} LIBRARY DESTINATION ".")
