@@ -36,6 +36,7 @@
 #include "arrow/visit_data_inline.h"
 #include "parquet/encoding.h"
 #include "parquet/exception.h"
+#include "parquet/geometry_util.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
 
@@ -47,6 +48,155 @@ using arrow::util::SafeCopy;
 using arrow::util::SafeLoad;
 
 namespace parquet {
+
+class GeometryStatisticsImpl {
+ public:
+  bool Equals(const GeometryStatisticsImpl& other) const {
+    if (is_valid_ != other.is_valid_) {
+      return false;
+    }
+
+    if (!is_valid_ && !other.is_valid_) {
+      return true;
+    }
+
+    auto wkb_types = bounder_.WkbTypes();
+    auto other_wkb_types = other.bounder_.WkbTypes();
+    if (wkb_types.size() != other_wkb_types.size()) {
+      return false;
+    }
+
+    for (size_t i = 0; i < wkb_types.size(); i++) {
+      if (wkb_types[i] != other_wkb_types[i]) {
+        return false;
+      }
+    }
+
+    return bounder_.Bounds() == other.bounder_.Bounds();
+  }
+
+  void Merge(const GeometryStatisticsImpl& other) {
+    if (!is_valid_ || !other.is_valid_) {
+      is_valid_ = false;
+      return;
+    }
+
+    bounder_.ReadBox(other.bounder_.Bounds());
+    bounder_.ReadGeometryTypes(other.bounder_.WkbTypes());
+  }
+
+  void Update(const ByteArray* values, int64_t num_values, int64_t null_count) {
+    if (!is_valid_) {
+      return;
+    }
+
+    geometry::WKBBuffer buf;
+    try {
+      for (int64_t i = 0; i < num_values; i++) {
+        const ByteArray& item = values[i];
+        buf.Init(item.ptr, item.len);
+        bounder_.ReadGeometry(&buf);
+      }
+
+      bounder_.Flush();
+    } catch (ParquetException& e) {
+      is_valid_ = false;
+    }
+  }
+
+  EncodedGeometryStatistics Encode() const {
+    const double* mins = bounder_.Bounds().min;
+    const double* maxes = bounder_.Bounds().max;
+
+    EncodedGeometryStatistics out;
+    out.geometry_types = bounder_.WkbTypes();
+
+    out.xmin = mins[0];
+    out.xmax = maxes[0];
+    out.ymin = mins[1];
+    out.ymax = maxes[1];
+    out.zmin = mins[2];
+    out.zmax = maxes[2];
+    out.mmin = mins[3];
+    out.mmax = maxes[3];
+
+    return out;
+  }
+
+  void Update(const EncodedGeometryStatistics& encoded) {
+    if (!is_valid_) {
+      return;
+    }
+
+    geometry::BoundingBox box;
+    box.min[0] = encoded.xmin;
+    box.max[0] = encoded.xmax;
+    box.min[1] = encoded.ymin;
+    box.max[1] = encoded.ymax;
+
+    if (encoded.has_z()) {
+      box.min[2] = encoded.zmin;
+      box.max[2] = encoded.zmax;
+    }
+
+    if (encoded.has_m()) {
+      box.min[3] = encoded.mmin;
+      box.max[3] = encoded.mmax;
+    }
+
+    bounder_.ReadBox(box);
+    bounder_.ReadGeometryTypes(encoded.geometry_types);
+
+    try {
+      for (const auto& covering : encoded.coverings) {
+        if (covering.first == "WKB") {
+          geometry::WKBBuffer buf(
+              reinterpret_cast<const uint8_t*>(covering.second.data()),
+              covering.second.size());
+          bounder_.ReadGeometry(&buf, false);
+        }
+      }
+    } catch (ParquetException& e) {
+      is_valid_ = false;
+      return;
+    }
+  }
+
+  bool is_valid() const { return is_valid_; }
+
+ private:
+  geometry::WKBGeometryBounder bounder_;
+  bool is_valid_{};
+};
+
+GeometryStatistics::GeometryStatistics() {
+  impl_ = std::make_unique<GeometryStatisticsImpl>();
+}
+
+bool GeometryStatistics::Equals(const GeometryStatistics& other) const {
+  return impl_->Equals(*other.impl_);
+}
+
+void GeometryStatistics::Merge(const GeometryStatistics& other) {
+  impl_->Merge(*other.impl_);
+}
+
+void GeometryStatistics::Update(const ByteArray* values, int64_t num_values,
+                                int64_t null_count) {
+  impl_->Update(values, num_values, null_count);
+}
+
+bool GeometryStatistics::is_valid() const { return impl_->is_valid(); }
+
+EncodedGeometryStatistics GeometryStatistics::Encode() { return impl_->Encode(); }
+
+std::unique_ptr<GeometryStatistics> GeometryStatistics::Decode(
+    const EncodedGeometryStatistics& encoded) {
+  auto out = std::make_unique<GeometryStatistics>();
+  out->impl_->Update(encoded);
+  return out;
+}
+
 namespace {
 
 // ----------------------------------------------------------------------
@@ -553,6 +703,7 @@ LogicalType::Type::type LogicalTypeId(const ColumnDescriptor* descr) {
   }
   return LogicalType::Type::NONE;
 }
+
 LogicalType::Type::type LogicalTypeId(const Statistics& stats) {
   return LogicalTypeId(stats.descr());
 }
@@ -618,6 +769,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   bool HasDistinctCount() const override { return has_distinct_count_; };
   bool HasMinMax() const override { return has_min_max_; }
   bool HasNullCount() const override { return has_null_count_; };
+  bool HasGeometryStatistics() const override { return geometry_statistics_ != nullptr; }
 
   void IncrementNullCount(int64_t n) override {
     statistics_.null_count += n;
@@ -629,6 +781,8 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   static bool IsMeaningfulLogicalType(LogicalType::Type::type type) {
     switch (type) {
       case LogicalType::Type::FLOAT16:
+        return true;
+      case LogicalType::Type::GEOMETRY:
         return true;
       default:
         return false;
@@ -652,6 +806,15 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     if (has_min_max_ != other.has_min_max_) return false;
     if (has_min_max_) {
       if (!MinMaxEqual(other)) return false;
+    }
+
+    if (HasGeometryStatistics() != other.HasGeometryStatistics()) {
+      return false;
+    }
+
+    if (HasGeometryStatistics() &&
+        !geometry_statistics_->Equals(*other.GeometryStatistics())) {
+      return false;
     }
 
     return null_count() == other.null_count() &&
@@ -748,6 +911,9 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     if (HasDistinctCount()) {
       s.set_distinct_count(this->distinct_count());
     }
+    if (HasGeometryStatistics() && geometry_statistics_->is_valid()) {
+      s.set_geometry(geometry_statistics_->Encode());
+    }
     return s;
   }
 
@@ -773,6 +939,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   std::shared_ptr<TypedComparator<DType>> comparator_;
   std::shared_ptr<ResizableBuffer> min_buffer_, max_buffer_;
   LogicalType::Type::type logical_type_ = LogicalType::Type::NONE;
+  std::shared_ptr<GeometryStatistics> geometry_statistics_;
 
   void PlainEncode(const T& src, std::string* dst) const;
   void PlainDecode(const std::string& src, T* dst) const;
@@ -865,6 +1032,12 @@ void TypedStatisticsImpl<DType>::Update(const T* values, int64_t num_values,
 
   if (num_values == 0) return;
   SetMinMaxPair(comparator_->GetMinMax(values, num_values));
+
+  if constexpr (std::is_same<T, ByteArray>::value) {
+    if (logical_type_ == LogicalType::Type::GEOMETRY) {
+      geometry_statistics_->Update(values, num_values, null_count);
+    }
+  }
 }
 
 template <typename DType>
@@ -1035,17 +1208,18 @@ std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,
   DCHECK(encoded_stats != nullptr);
   return Make(descr, encoded_stats->min(), encoded_stats->max(), num_values,
               encoded_stats->null_count, encoded_stats->distinct_count,
+              encoded_stats->geometry_statistics(),
               encoded_stats->has_min && encoded_stats->has_max,
-              encoded_stats->has_null_count, encoded_stats->has_distinct_count, pool);
+              encoded_stats->has_null_count, encoded_stats->has_distinct_count,
+              encoded_stats->has_geometry_statistics, pool);
 }
 
-std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,
-                                             const std::string& encoded_min,
-                                             const std::string& encoded_max,
-                                             int64_t num_values, int64_t null_count,
-                                             int64_t distinct_count, bool has_min_max,
-                                             bool has_null_count, bool has_distinct_count,
-                                             ::arrow::MemoryPool* pool) {
+std::shared_ptr<Statistics> Statistics::Make(
+    const ColumnDescriptor* descr, const std::string& encoded_min,
+    const std::string& encoded_max, int64_t num_values, int64_t null_count,
+    int64_t distinct_count, const EncodedGeometryStatistics& geometry_statistics,
+    bool has_min_max, bool has_null_count, bool has_distinct_count,
+    bool has_geometry_statistics, ::arrow::MemoryPool* pool) {
 #define MAKE_STATS(CAP_TYPE, KLASS)                                              \
   case Type::CAP_TYPE:                                                           \
     return std::make_shared<TypedStatisticsImpl<KLASS>>(                         \
