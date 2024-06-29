@@ -30,7 +30,7 @@ if [ -x "$(command -v git)" ]; then
 fi
 
 # TODO(kszucs): consider to move these to CMake
-if [ ! -z "${CONDA_PREFIX}" && "${ARROW_EMSCRIPTEN:-OFF}" = "OFF" ]; then
+if [ ! -z "${CONDA_PREFIX}" ] && [ "${ARROW_EMSCRIPTEN:-OFF}" = "OFF" ]; then
   echo -e "===\n=== Conda environment for build\n==="
   conda list
 

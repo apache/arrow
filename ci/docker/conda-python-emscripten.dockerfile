@@ -61,5 +61,4 @@ RUN ln -s "$(type -P make)" /bin/make
 ENV ARROW_BUILD_TESTS="OFF" \
     ARROW_BUILD_TYPE="release" \
     ARROW_DEPENDENCY_SOURCE="BUNDLED" \
-    ARROW_EMSCRIPTEN="ON" \
-    PYODIDE_VERSION=${pyodide_version}
+    ARROW_EMSCRIPTEN="ON"

@@ -27,7 +27,9 @@ pyodide_path=$2
 emscripten_version=$(${pyodide_path}/python -c "import sys;print(*sys._emscripten_info.emscripten_version,sep='.')")
 
 cd ${target_path}
-ls emsdk || git clone https://github.com/emscripten-core/emsdk.git
+if [ ! -d emsdk ]; then
+  git clone https://github.com/emscripten-core/emsdk.git
+fi
 cd emsdk 
 ./emsdk install ${emscripten_version} 
 ./emsdk activate ${emscripten_version}
