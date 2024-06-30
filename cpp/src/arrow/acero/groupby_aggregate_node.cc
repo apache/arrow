@@ -240,10 +240,11 @@ Status GroupByNode::Consume(ExecSpan batch) {
     kernel_ctx.SetState(state->agg_states[i].get());
 
     std::vector<ExecValue> column_values;
+    column_values.reserve(agg_src_fieldsets_.size() + 1);
+    column_values.push_back(*id_batch.array());
     for (const int field : agg_src_fieldsets_[i]) {
       column_values.push_back(batch[field]);
     }
-    column_values.emplace_back(*id_batch.array());
     ExecSpan agg_batch(std::move(column_values), batch.length);
     RETURN_NOT_OK(agg_kernels_[i]->resize(&kernel_ctx, state->grouper->num_groups()));
     RETURN_NOT_OK(agg_kernels_[i]->consume(&kernel_ctx, agg_batch));
