@@ -48,7 +48,7 @@ class TestAesEncryption : public ::testing::Test {
 
     AesDecryptor decryptor(cipher_type, kKeyLength, metadata, write_length);
 
-    int expected_plaintext_length = ciphertext_length - decryptor.CiphertextSizeDelta();
+    int expected_plaintext_length = decryptor.PlaintextLength(ciphertext_length);
     std::string decrypted_text(expected_plaintext_length, '\0');
 
     int plaintext_length = decryptor.Decrypt(
@@ -71,7 +71,7 @@ class TestAesEncryption : public ::testing::Test {
     const int ciphertext_length = 100;
     std::string ciphertext(ciphertext_length, '\0');
 
-    int expected_plaintext_length = ciphertext_length - decryptor.CiphertextSizeDelta();
+    int expected_plaintext_length = decryptor.PlaintextLength(ciphertext_length);
     std::string decrypted_text(expected_plaintext_length, '\0');
 
     EXPECT_THROW(decryptor.Decrypt(str2bytes(ciphertext), 0, str2bytes(kKey),
@@ -98,7 +98,7 @@ class TestAesEncryption : public ::testing::Test {
 
     AesDecryptor decryptor(cipher_type, kKeyLength, metadata, write_length);
 
-    int expected_plaintext_length = ciphertext_length - decryptor.CiphertextSizeDelta();
+    int expected_plaintext_length = decryptor.PlaintextLength(ciphertext_length);
     std::string decrypted_text(expected_plaintext_length, '\0');
 
     EXPECT_THROW(decryptor.Decrypt(str2bytes(ciphertext), ciphertext_length - 1,

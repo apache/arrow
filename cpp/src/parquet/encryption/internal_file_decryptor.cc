@@ -33,7 +33,13 @@ Decryptor::Decryptor(std::shared_ptr<encryption::AesDecryptor> aes_decryptor,
       aad_(aad),
       pool_(pool) {}
 
-int Decryptor::CiphertextSizeDelta() { return aes_decryptor_->CiphertextSizeDelta(); }
+int Decryptor::PlaintextLength(int ciphertext_len) const {
+  return aes_decryptor_->PlaintextLength(ciphertext_len);
+}
+
+int Decryptor::CiphertextLength(int plaintext_len) const {
+  return aes_decryptor_->CiphertextLength(plaintext_len);
+}
 
 int Decryptor::Decrypt(const uint8_t* ciphertext, int ciphertext_len,
                        uint8_t* plaintext) {

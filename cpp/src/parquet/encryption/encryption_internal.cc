@@ -325,7 +325,19 @@ class AesDecryptor::AesDecryptorImpl {
     }
   }
 
-  int ciphertext_size_delta() { return ciphertext_size_delta_; }
+  [[nodiscard]] int PlaintextLength(int ciphertext_len) const {
+    if (ciphertext_len < ciphertext_size_delta_) {
+      std::stringstream ss;
+      ss << "Ciphertext length " << ciphertext_len << " is invalid, expected at least "
+         << ciphertext_size_delta_;
+      throw ParquetException(ss.str());
+    }
+    return ciphertext_len - ciphertext_size_delta_;
+  }
+
+  [[nodiscard]] int CiphertextLength(int plaintext_len) const {
+    return plaintext_len + ciphertext_size_delta_;
+  }
 
  private:
   EVP_CIPHER_CTX* ctx_;
@@ -444,7 +456,13 @@ std::shared_ptr<AesDecryptor> AesDecryptor::Make(
   return decryptor;
 }
 
-int AesDecryptor::CiphertextSizeDelta() { return impl_->ciphertext_size_delta(); }
+int AesDecryptor::PlaintextLength(int ciphertext_len) const {
+  return impl_->PlaintextLength(ciphertext_len);
+}
+
+int AesDecryptor::CiphertextLength(int plaintext_len) const {
+  return impl_->CiphertextLength(plaintext_len);
+}
 
 int AesDecryptor::AesDecryptorImpl::GetCiphertextLength(const uint8_t* ciphertext,
                                                         int ciphertext_buffer_len) const {

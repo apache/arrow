@@ -104,11 +104,16 @@ class PARQUET_EXPORT AesDecryptor {
   ~AesDecryptor();
   void WipeOut();
 
-  /// Size difference between plaintext and ciphertext, for this cipher.
-  int CiphertextSizeDelta();
+  /// The size of the plaintext, for this cipher and the specified ciphertext length.
+  [[nodiscard]] int PlaintextLength(int ciphertext_len) const;
+
+  /// The size of the ciphertext, for this cipher and the specified plaintext length.
+  [[nodiscard]] int CiphertextLength(int plaintext_len) const;
 
   /// Decrypts ciphertext with the key and aad. Key length is passed only for
   /// validation. If different from value in constructor, exception will be thrown.
+  /// The caller is responsible for ensuring that the plaintext buffer is at least as
+  /// large as PlaintextLength(ciphertext_len).
   int Decrypt(const uint8_t* ciphertext, int ciphertext_len, const uint8_t* key,
               int key_len, const uint8_t* aad, int aad_len, uint8_t* plaintext);
 

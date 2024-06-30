@@ -411,22 +411,21 @@ class ThriftDeserializer {
       // thrift message is encrypted
       uint32_t clen;
       clen = *len;
-      // decrypt
-      auto decrypted_buffer = std::static_pointer_cast<ResizableBuffer>(
-          AllocateBuffer(decryptor->pool(),
-                         static_cast<int64_t>(clen - decryptor->CiphertextSizeDelta())));
-      const uint8_t* cipher_buf = buf;
       if (clen > static_cast<uint32_t>(std::numeric_limits<int32_t>::max())) {
         std::stringstream ss;
         ss << "Cannot decrypt buffer with length " << clen << ", which overflows int32\n";
         throw ParquetException(ss.str());
       }
+      // decrypt
+      auto decrypted_buffer = std::static_pointer_cast<ResizableBuffer>(AllocateBuffer(
+          decryptor->pool(), decryptor->PlaintextLength(static_cast<int32_t>(clen))));
+      const uint8_t* cipher_buf = buf;
       uint32_t decrypted_buffer_len = decryptor->Decrypt(
           cipher_buf, static_cast<int32_t>(clen), decrypted_buffer->mutable_data());
       if (decrypted_buffer_len <= 0) {
         throw ParquetException("Couldn't decrypt buffer\n");
       }
-      *len = decrypted_buffer_len + decryptor->CiphertextSizeDelta();
+      *len = decryptor->CiphertextLength(static_cast<int32_t>(decrypted_buffer_len));
       DeserializeUnencryptedMessage(decrypted_buffer->data(), &decrypted_buffer_len,
                                     deserialized_msg);
     }

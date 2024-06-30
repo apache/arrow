@@ -55,7 +55,7 @@ std::string DecryptKeyLocally(const std::string& encoded_encrypted_key,
                              false /*contains_length*/);
 
   int decrypted_key_len =
-      static_cast<int>(encrypted_key.size()) - key_decryptor.CiphertextSizeDelta();
+      key_decryptor.PlaintextLength(static_cast<int>(encrypted_key.size()));
   std::string decrypted_key(decrypted_key_len, '\0');
 
   decrypted_key_len = key_decryptor.Decrypt(
