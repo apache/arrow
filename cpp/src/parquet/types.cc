@@ -1618,14 +1618,10 @@ class LogicalType::Impl::Geometry final : public LogicalType::Impl::Incompatible
  public:
   friend class GeometryLogicalType;
 
-  std::string ToString() const override { throw std::runtime_error("not implemented"); }
-  std::string ToJSON() const override { throw std::runtime_error("not implemented"); }
-  format::LogicalType ToThrift() const override {
-    throw std::runtime_error("not implemented");
-  }
-  bool Equals(const LogicalType& other) const override {
-    throw std::runtime_error("not implemented");
-  }
+  std::string ToString() const override;
+  std::string ToJSON() const override;
+  format::LogicalType ToThrift() const override;
+  bool Equals(const LogicalType& other) const override;
 
   const std::string& crs() const { return crs_; }
   LogicalType::GeometryEdges::edges edges() const { return edges_; }
@@ -1648,6 +1644,22 @@ class LogicalType::Impl::Geometry final : public LogicalType::Impl::Incompatible
   LogicalType::GeometryEncoding::geometry_encoding encoding_;
   std::string metadata_;
 };
+
+std::string LogicalType::Impl::Geometry::ToString() const {
+  throw std::runtime_error("not implemented");
+}
+
+std::string LogicalType::Impl::Geometry::ToJSON() const {
+  throw std::runtime_error("not implemented");
+}
+
+format::LogicalType LogicalType::Impl::Geometry::ToThrift() const {
+  throw std::runtime_error("not implemented");
+}
+
+bool LogicalType::Impl::Geometry::Equals(const LogicalType& other) const {
+  throw std::runtime_error("not implemented");
+}
 
 const std::string& GeometryLogicalType::crs() const {
   return (dynamic_cast<const LogicalType::Impl::Geometry&>(*impl_)).crs();
