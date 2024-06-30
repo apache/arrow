@@ -44,7 +44,7 @@ constexpr int8_t kBloomFilterHeader = 8;
 constexpr int8_t kBloomFilterBitset = 9;
 
 /// Performs AES encryption operations with GCM or CTR ciphers.
-class AesEncryptor {
+class PARQUET_EXPORT AesEncryptor {
  public:
   /// Can serve one key length only. Possible values: 16, 24, 32 bytes.
   /// If write_length is true, prepend ciphertext length to the ciphertext
@@ -82,7 +82,7 @@ class AesEncryptor {
 };
 
 /// Performs AES decryption operations with GCM or CTR ciphers.
-class AesDecryptor {
+class PARQUET_EXPORT AesDecryptor {
  public:
   /// Can serve one key length only. Possible values: 16, 24, 32 bytes.
   /// If contains_length is true, expect ciphertext length prepended to the ciphertext
