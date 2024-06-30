@@ -416,7 +416,7 @@ class ThriftDeserializer {
           AllocateBuffer(decryptor->pool(),
                          static_cast<int64_t>(clen - decryptor->CiphertextSizeDelta())));
       const uint8_t* cipher_buf = buf;
-      if (clen > std::numeric_limits<int32_t>::max()) {
+      if (clen > static_cast<uint32_t>(std::numeric_limits<int32_t>::max())) {
         std::stringstream ss;
         ss << "Cannot decrypt buffer with length " << clen << ", which overflows int32\n";
         throw ParquetException(ss.str());
