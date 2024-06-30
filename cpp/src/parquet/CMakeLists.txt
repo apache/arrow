@@ -408,13 +408,13 @@ add_parquet_test(arrow-internals-test SOURCES arrow/path_internal_test.cc
 if(PARQUET_REQUIRE_ENCRYPTION)
   add_parquet_test(encryption-test
                    SOURCES
+                   encryption/encryption_internal_test.cc
                    encryption/write_configurations_test.cc
                    encryption/read_configurations_test.cc
                    encryption/properties_test.cc
                    encryption/test_encryption_util.cc)
   add_parquet_test(encryption-key-management-test
                    SOURCES
-                   encryption/encryption_internal_test.cc
                    encryption/key_management_test.cc
                    encryption/key_metadata_test.cc
                    encryption/key_wrapping_test.cc
