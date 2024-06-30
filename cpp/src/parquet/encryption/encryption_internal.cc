@@ -340,10 +340,11 @@ class AesDecryptor::AesDecryptorImpl {
                  int key_len, uint8_t* plaintext);
 };
 
-int AesDecryptor::Decrypt(const uint8_t* plaintext, int plaintext_len, const uint8_t* key,
-                          int key_len, const uint8_t* aad, int aad_len,
-                          uint8_t* ciphertext) {
-  return impl_->Decrypt(plaintext, plaintext_len, key, key_len, aad, aad_len, ciphertext);
+int AesDecryptor::Decrypt(const uint8_t* ciphertext, int ciphertext_len,
+                          const uint8_t* key, int key_len, const uint8_t* aad,
+                          int aad_len, uint8_t* plaintext) {
+  return impl_->Decrypt(ciphertext, ciphertext_len, key, key_len, aad, aad_len,
+                        plaintext);
 }
 
 void AesDecryptor::WipeOut() { impl_->WipeOut(); }
