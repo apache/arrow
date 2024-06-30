@@ -520,6 +520,12 @@ std::shared_ptr<const LogicalType> LogicalType::Float16() {
   return Float16LogicalType::Make();
 }
 
+std::shared_ptr<const LogicalType> LogicalType::Geometry(
+    std::string crs, LogicalType::GeometryEdges::edges edges,
+    LogicalType::GeometryEncoding::geometry_encoding encoding, std::string metadata) {
+  return GeometryLogicalType::Make(std::move(crs), edges, encoding, std::move(metadata));
+}
+
 std::shared_ptr<const LogicalType> LogicalType::None() { return NoLogicalType::Make(); }
 
 /*
@@ -602,6 +608,7 @@ class LogicalType::Impl {
   class BSON;
   class UUID;
   class Float16;
+  class Geometry;
   class No;
   class Undefined;
 
@@ -673,6 +680,9 @@ bool LogicalType::is_BSON() const { return impl_->type() == LogicalType::Type::B
 bool LogicalType::is_UUID() const { return impl_->type() == LogicalType::Type::UUID; }
 bool LogicalType::is_float16() const {
   return impl_->type() == LogicalType::Type::FLOAT16;
+}
+bool LogicalType::is_geometry() const {
+  return impl_->type() == LogicalType::Type::GEOMETRY;
 }
 bool LogicalType::is_none() const { return impl_->type() == LogicalType::Type::NONE; }
 bool LogicalType::is_valid() const {
@@ -1602,6 +1612,67 @@ class LogicalType::Impl::Float16 final : public LogicalType::Impl::Incompatible,
 };
 
 GENERATE_MAKE(Float16)
+
+class LogicalType::Impl::Geometry final : public LogicalType::Impl::Incompatible,
+                                          public LogicalType::Impl::SimpleApplicable {
+ public:
+  friend class GeometryLogicalType;
+
+  std::string ToString() const override { throw std::runtime_error("not implemented"); }
+  std::string ToJSON() const override { throw std::runtime_error("not implemented"); }
+  format::LogicalType ToThrift() const override {
+    throw std::runtime_error("not implemented");
+  }
+  bool Equals(const LogicalType& other) const override {
+    throw std::runtime_error("not implemented");
+  }
+
+  const std::string& crs() const { return crs_; }
+  LogicalType::GeometryEdges::edges edges() const { return edges_; }
+  LogicalType::GeometryEncoding::geometry_encoding encoding() const { return encoding_; }
+  const std::string& metadata() const { return metadata_; }
+
+ private:
+  Geometry(std::string crs, LogicalType::GeometryEdges::edges edges,
+           LogicalType::GeometryEncoding::geometry_encoding encoding,
+           std::string metadata)
+      : LogicalType::Impl(LogicalType::Type::GEOMETRY, SortOrder::UNKNOWN),
+        LogicalType::Impl::SimpleApplicable(parquet::Type::BYTE_ARRAY),
+        crs_(std::move(crs)),
+        edges_(edges),
+        encoding_(encoding),
+        metadata_(std::move(metadata)) {}
+
+  std::string crs_;
+  LogicalType::GeometryEdges::edges edges_;
+  LogicalType::GeometryEncoding::geometry_encoding encoding_;
+  std::string metadata_;
+};
+
+const std::string& GeometryLogicalType::crs() const {
+  return (dynamic_cast<const LogicalType::Impl::Geometry&>(*impl_)).crs();
+}
+
+LogicalType::GeometryEdges::edges GeometryLogicalType::edges() const {
+  return (dynamic_cast<const LogicalType::Impl::Geometry&>(*impl_)).edges();
+}
+
+LogicalType::GeometryEncoding::geometry_encoding GeometryLogicalType::encoding() const {
+  return (dynamic_cast<const LogicalType::Impl::Geometry&>(*impl_)).encoding();
+}
+
+const std::string& GeometryLogicalType::metadata() const {
+  return (dynamic_cast<const LogicalType::Impl::Geometry&>(*impl_)).metadata();
+}
+
+std::shared_ptr<const LogicalType> GeometryLogicalType::Make(
+    std::string crs, LogicalType::GeometryEdges::edges edges,
+    LogicalType::GeometryEncoding::geometry_encoding encoding, std::string metadata) {
+  auto* logical_type = new GeometryLogicalType();
+  logical_type->impl_.reset(new LogicalType::Impl::Geometry(
+      std::move(crs), edges, encoding, std::move(metadata)));
+  return std::shared_ptr<const LogicalType>(logical_type);
+}
 
 class LogicalType::Impl::No final : public LogicalType::Impl::SimpleCompatible,
                                     public LogicalType::Impl::UniversalApplicable {
