@@ -38,7 +38,7 @@ jobs:
         run: |
           archery docker run \
             -e VERIFY_VERSION="{{ release|default("") }}" \
-            {% if distro == 'almalinux' %}
+            {% if distro == 'almalinux' and target|upper == 'PYTHON' %}
             -e ARROW_GANDIVA=OFF \
             {% endif %}
             -e VERIFY_RC="{{ rc|default("") }}" \
