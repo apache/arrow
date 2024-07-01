@@ -101,6 +101,18 @@ class ARROW_EXPORT Table {
   static Result<std::shared_ptr<Table>> FromChunkedStructArray(
       const std::shared_ptr<ChunkedArray>& array);
 
+  /// \brief Convert Table to Tensor
+  ///
+  /// Create a Tensor object.
+  ///
+  /// \param[in] null_to_nan if true, convert nulls to NaN
+  /// \param[in] row_major if true, create row-major Tensor else column-major Tensor
+  /// \param[in] pool the memory pool to allocate the tensor buffer
+  /// \return the resulting Tensor
+  Result<std::shared_ptr<Tensor>> ToTensor(
+      bool null_to_nan = false, bool row_major = true,
+      MemoryPool* pool = default_memory_pool()) const;
+
   /// \brief Return the table schema
   const std::shared_ptr<Schema>& schema() const { return schema_; }
 
