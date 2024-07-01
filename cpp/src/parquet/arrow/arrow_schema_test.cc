@@ -31,8 +31,11 @@
 #include "parquet/thrift_internal.h"
 
 #include "arrow/array.h"
+#include "arrow/extension/json.h"
+#include "arrow/ipc/writer.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
+#include "arrow/util/base64.h"
 #include "arrow/util/key_value_metadata.h"
 
 using arrow::Field;
@@ -76,17 +79,17 @@ class TestConvertParquetSchema : public ::testing::Test {
       auto result_field = result_schema_->field(i);
       auto expected_field = expected_schema->field(i);
       EXPECT_TRUE(result_field->Equals(expected_field, check_metadata))
-          << "Field " << i << "\n  result: " << result_field->ToString()
-          << "\n  expected: " << expected_field->ToString();
+          << "Field " << i << "\n  result: " << result_field->ToString(check_metadata)
+          << "\n  expected: " << expected_field->ToString(check_metadata);
     }
   }
 
   ::arrow::Status ConvertSchema(
       const std::vector<NodePtr>& nodes,
-      const std::shared_ptr<const KeyValueMetadata>& key_value_metadata = nullptr) {
+      const std::shared_ptr<const KeyValueMetadata>& key_value_metadata = nullptr,
+      ArrowReaderProperties props = ArrowReaderProperties()) {
     NodePtr schema = GroupNode::Make("schema", Repetition::REPEATED, nodes);
     descr_.Init(schema);
-    ArrowReaderProperties props;
     return FromParquetSchema(&descr_, props, key_value_metadata, &result_schema_);
   }
 
@@ -722,6 +725,85 @@ TEST_F(TestConvertParquetSchema, ParquetRepeatedNestedSchema) {
   ASSERT_OK(ConvertSchema(parquet_fields));
 
   ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(arrow_schema));
+}
+
+TEST_F(TestConvertParquetSchema, ParquetSchemaArrowExtensions) {
+  std::vector<NodePtr> parquet_fields;
+  parquet_fields.push_back(PrimitiveNode::Make(
+      "json_1", Repetition::OPTIONAL, ParquetType::BYTE_ARRAY, ConvertedType::JSON));
+  parquet_fields.push_back(PrimitiveNode::Make(
+      "json_2", Repetition::OPTIONAL, ParquetType::BYTE_ARRAY, ConvertedType::JSON));
+
+  {
+    // Parquet file does not contain Arrow schema.
+    // By default both fields should be treated as binary() fields in Arrow.
+    auto arrow_schema = ::arrow::schema(
+        {::arrow::field("json_1", BINARY, true), ::arrow::field("json_2", BINARY, true)});
+    std::shared_ptr<KeyValueMetadata> metadata = ::arrow::key_value_metadata({}, {});
+    ASSERT_OK(ConvertSchema(parquet_fields, metadata));
+    CheckFlatSchema(arrow_schema);
+  }
+
+  {
+    // Parquet file does not contain Arrow schema.
+    // If Arrow extensions are enabled, both fields should be treated as json() extension
+    // fields.
+    ArrowReaderProperties props;
+    props.enable_known_arrow_extensions();
+    auto arrow_schema =
+        ::arrow::schema({::arrow::field("json_1", ::arrow::extension::json(), true),
+                         ::arrow::field("json_2", ::arrow::extension::json(), true)});
+    std::shared_ptr<KeyValueMetadata> metadata = ::arrow::key_value_metadata({}, {});
+    ASSERT_OK(ConvertSchema(parquet_fields, metadata, props));
+    CheckFlatSchema(arrow_schema);
+  }
+
+  {
+    // Parquet file contains Arrow schema.
+    // Arrow schema has precedence. json_1 should be returned as a json() field even
+    // though extensions are not enabled.
+    std::shared_ptr<KeyValueMetadata> field_metadata =
+        ::arrow::key_value_metadata({"foo", "bar"}, {"biz", "baz"});
+    auto arrow_schema = ::arrow::schema(
+        {::arrow::field("json_1", ::arrow::extension::json(), true, field_metadata),
+         ::arrow::field("json_2", BINARY, true)});
+
+    ASSERT_OK_AND_ASSIGN(
+        std::shared_ptr<Buffer> serialized,
+        ::arrow::ipc::SerializeSchema(*arrow_schema, ::arrow::default_memory_pool()));
+    std::string schema_as_string = serialized->ToString();
+    std::string schema_base64 = ::arrow::util::base64_encode(schema_as_string);
+    std::shared_ptr<KeyValueMetadata> metadata =
+        ::arrow::key_value_metadata({"ARROW:schema"}, {schema_base64});
+
+    ASSERT_OK(ConvertSchema(parquet_fields, metadata));
+    CheckFlatSchema(arrow_schema, true /* check_metadata */);
+  }
+
+  {
+    // Parquet file contains Arrow schema.
+    // A contrived example. Parquet believes both columns are JSON. Arrow believes json_1
+    // is a JSON column and json_2 is a binary column. json_2 should be treated as a
+    // binary column even if known_arrow_extensions_enabled is enabled.
+    ArrowReaderProperties props;
+    props.enable_known_arrow_extensions();
+    std::shared_ptr<KeyValueMetadata> field_metadata =
+        ::arrow::key_value_metadata({"foo", "bar"}, {"biz", "baz"});
+    auto arrow_schema = ::arrow::schema(
+        {::arrow::field("json_1", ::arrow::extension::json(), true, field_metadata),
+         ::arrow::field("json_2", BINARY, true)});
+
+    ASSERT_OK_AND_ASSIGN(
+        std::shared_ptr<Buffer> serialized,
+        ::arrow::ipc::SerializeSchema(*arrow_schema, ::arrow::default_memory_pool()));
+    std::string schema_as_string = serialized->ToString();
+    std::string schema_base64 = ::arrow::util::base64_encode(schema_as_string);
+    std::shared_ptr<KeyValueMetadata> metadata =
+        ::arrow::key_value_metadata({"ARROW:schema"}, {schema_base64});
+
+    ASSERT_OK(ConvertSchema(parquet_fields, metadata, props));
+    CheckFlatSchema(arrow_schema, true /* check_metadata */);
+  }
 }
 
 class TestConvertArrowSchema : public ::testing::Test {
