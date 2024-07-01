@@ -91,7 +91,12 @@ std::shared_ptr<AesDecryptor> AesDecryptor::Make(
   return NULLPTR;
 }
 
-int AesDecryptor::CiphertextSizeDelta() {
+int AesDecryptor::PlaintextLength(int ciphertext_len) const {
+  ThrowOpenSSLRequiredException();
+  return -1;
+}
+
+int AesDecryptor::CiphertextLength(int plaintext_len) const {
   ThrowOpenSSLRequiredException();
   return -1;
 }
