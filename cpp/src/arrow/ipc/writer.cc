@@ -461,7 +461,7 @@ class RecordBatchSerializer {
     auto data = array.value_data();
 
     int64_t total_data_bytes = 0;
-    if (value_offsets) {
+    if (value_offsets && array.length() > 0) {
       offset_type last_offset_value;
       RETURN_NOT_OK(MemoryManager::CopyBufferSliceToCPU(
           value_offsets, array.length() * sizeof(offset_type), sizeof(offset_type),
