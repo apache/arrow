@@ -459,6 +459,15 @@ func (p *PrimitiveWriterTestSuite) TestRequiredPlain() {
 	p.testRequiredWithEncoding(parquet.Encodings.Plain)
 }
 
+func (p *PrimitiveWriterTestSuite) TestRequiredByteStreamSplit() {
+	switch p.Typ {
+	case reflect.TypeOf(float32(0)), reflect.TypeOf(float64(0)), reflect.TypeOf(int32(0)), reflect.TypeOf(int64(0)), reflect.TypeOf(parquet.FixedLenByteArray{}):
+		p.testRequiredWithEncoding(parquet.Encodings.ByteStreamSplit)
+	default:
+		p.Panics(func() { p.testRequiredWithEncoding(parquet.Encodings.ByteStreamSplit) })
+	}
+}
+
 func (p *PrimitiveWriterTestSuite) TestRequiredDictionary() {
 	p.testRequiredWithEncoding(parquet.Encodings.PlainDict)
 }

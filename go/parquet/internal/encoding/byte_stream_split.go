@@ -42,7 +42,7 @@ func putByteStreamSplitNumeric[T NumericByteStreamSplitType](in []T, enc TypedEn
 	sink.Reserve(bytesNeeded)
 
 	data := sink.buf.Bytes()
-	data = data[:cap(data)] // Sets len = cap so we can index into any loc rather than append
+	data = data[sink.pos : sink.pos+bytesNeeded] // Get the chunk of memory we plan to write to
 
 	inBytes := arrow.GetBytes(in)
 	switch typeLen {
@@ -137,7 +137,7 @@ func decodeByteStreamSplitNumeric[T NumericByteStreamSplitType](out []T, dec Typ
 		decodeByteStreamSplit(data, outBytes, max, typeLen)
 	}
 
-	dec.SetData(dec.ValuesLeft()-max, data[max:])
+	dec.SetData(dec.ValuesLeft()-max, data[numBytesNeeded:])
 
 	return max, nil
 }

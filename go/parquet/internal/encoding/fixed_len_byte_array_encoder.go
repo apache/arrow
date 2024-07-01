@@ -90,7 +90,7 @@ func (enc *ByteStreamSplitFixedLenByteArrayEncoder) Put(in []parquet.FixedLenByt
 	enc.sink.Reserve(bytesNeeded)
 
 	data := enc.sink.buf.Bytes()
-	data = data[:cap(data)] // Sets len = cap so we can index into any loc rather than append
+	data = data[enc.sink.pos : enc.sink.pos+bytesNeeded] // Get the chunk of memory we plan to write to
 
 	switch enc.typeLen {
 	case 2:

@@ -103,7 +103,7 @@ func (dec *ByteStreamSplitFixedLenByteArrayDecoder) Decode(out []parquet.FixedLe
 		decodeByteStreamSplitFixedLenByteArray(dec.data, out, max, dec.typeLen)
 	}
 
-	dec.SetData(dec.ValuesLeft()-max, dec.data[max:])
+	dec.SetData(dec.ValuesLeft()-max, dec.data[numBytesNeeded:])
 
 	return max, nil
 }
