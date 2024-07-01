@@ -45,10 +45,10 @@ func putByteStreamSplitNumeric[T NumericByteStreamSplitType](in []T, enc TypedEn
 	data = data[:cap(data)] // Sets len = cap so we can index into any loc rather than append
 
 	inBytes := arrow.GetBytes(in)
-	for offset := 0; offset < typeLen; offset++ {
+	for stream := 0; stream < typeLen; stream++ {
 		for element := range in {
-			encLoc := numElements*offset + element
-			decLoc := typeLen*element + offset
+			encLoc := numElements*stream + element
+			decLoc := typeLen*element + stream
 			data[encLoc] = inBytes[decLoc]
 		}
 	}
@@ -88,10 +88,10 @@ func decodeByteStreamSplitNumeric[T NumericByteStreamSplitType](out []T, dec Typ
 	}
 
 	outBytes := arrow.GetBytes(out)
-	for offset := 0; offset < typeLen; offset++ {
+	for stream := 0; stream < typeLen; stream++ {
 		for element := 0; element < max; element++ {
-			encLoc := max*offset + element
-			decLoc := typeLen*element + offset
+			encLoc := max*stream + element
+			decLoc := typeLen*element + stream
 			outBytes[decLoc] = data[encLoc]
 		}
 	}
