@@ -45,15 +45,55 @@ func putByteStreamSplitNumeric[T NumericByteStreamSplitType](in []T, enc TypedEn
 	data = data[:cap(data)] // Sets len = cap so we can index into any loc rather than append
 
 	inBytes := arrow.GetBytes(in)
-	for stream := 0; stream < typeLen; stream++ {
-		for element := range in {
-			encLoc := numElements*stream + element
-			decLoc := typeLen*element + stream
-			data[encLoc] = inBytes[decLoc]
-		}
+	switch typeLen {
+	case 4:
+		encodeByteStreamSplitWidth4(data, inBytes, numElements)
+	case 8:
+		encodeByteStreamSplitWidth8(data, inBytes, numElements)
+	default:
+		encodeByteStreamSplit(data, inBytes, numElements, typeLen)
 	}
 
 	sink.pos += bytesNeeded
+}
+
+// encodeByteStreamSplit encodes the raw bytes provided by 'in' into the output buffer 'data' using BYTE_STREAM_SPLIT encoding
+func encodeByteStreamSplit(data []byte, in []byte, numElements, width int) {
+	for stream := 0; stream < width; stream++ {
+		for element := 0; element < numElements; element++ {
+			encLoc := numElements*stream + element
+			decLoc := width*element + stream
+			data[encLoc] = in[decLoc]
+		}
+	}
+}
+
+// encodeByteStreamSplitWidth4 implements encodeByteStreamSplit optimized for types stored using 4 bytes
+func encodeByteStreamSplitWidth4(data []byte, in []byte, numElements int) {
+	width := 4
+	for element := 0; element < numElements; element++ {
+		decLoc := width * element
+		data[element] = in[decLoc]
+		data[numElements+element] = in[decLoc+1]
+		data[numElements*2+element] = in[decLoc+2]
+		data[numElements*3+element] = in[decLoc+3]
+	}
+}
+
+// encodeByteStreamSplitWidth8 implements encodeByteStreamSplit optimized for types stored using 8 bytes
+func encodeByteStreamSplitWidth8(data []byte, in []byte, numElements int) {
+	width := 8
+	for element := 0; element < numElements; element++ {
+		decLoc := width * element
+		data[element] = in[decLoc]
+		data[numElements+element] = in[decLoc+1]
+		data[numElements*2+element] = in[decLoc+2]
+		data[numElements*3+element] = in[decLoc+3]
+		data[numElements*4+element] = in[decLoc+4]
+		data[numElements*5+element] = in[decLoc+5]
+		data[numElements*6+element] = in[decLoc+6]
+		data[numElements*7+element] = in[decLoc+7]
+	}
 }
 
 // putByteStreamSplitSpaced encodes data that has space for nulls using the BYTE_STREAM_SPLIT encoding, calling to the provided putFn to encode runs of non-null values.
@@ -88,17 +128,57 @@ func decodeByteStreamSplitNumeric[T NumericByteStreamSplitType](out []T, dec Typ
 	}
 
 	outBytes := arrow.GetBytes(out)
-	for stream := 0; stream < typeLen; stream++ {
-		for element := 0; element < max; element++ {
-			encLoc := max*stream + element
-			decLoc := typeLen*element + stream
-			outBytes[decLoc] = data[encLoc]
-		}
+	switch typeLen {
+	case 4:
+		decodeByteStreamSplitWidth4(data, outBytes, max)
+	case 8:
+		decodeByteStreamSplitWidth8(data, outBytes, max)
+	default:
+		decodeByteStreamSplit(data, outBytes, max, typeLen)
 	}
 
 	dec.SetData(dec.ValuesLeft()-max, data[max:])
 
 	return max, nil
+}
+
+// decodeByteStreamSplit decodes the raw bytes provided by 'out' into the output buffer 'data' using BYTE_STREAM_SPLIT encoding
+func decodeByteStreamSplit(data []byte, out []byte, numElements, width int) {
+	for stream := 0; stream < width; stream++ {
+		for element := 0; element < numElements; element++ {
+			encLoc := numElements*stream + element
+			decLoc := width*element + stream
+			out[decLoc] = data[encLoc]
+		}
+	}
+}
+
+// decodeByteStreamSplitWidth4 implements decodeByteStreamSplit optimized for types stored using 4 bytes
+func decodeByteStreamSplitWidth4(data []byte, out []byte, numElements int) {
+	width := 4
+	for element := 0; element < numElements; element++ {
+		decLoc := width * element
+		out[decLoc] = data[element]
+		out[decLoc+1] = data[numElements+element]
+		out[decLoc+2] = data[numElements*2+element]
+		out[decLoc+3] = data[numElements*3+element]
+	}
+}
+
+// decodeByteStreamSplitWidth8 implements decodeByteStreamSplit optimized for types stored using 8 bytes
+func decodeByteStreamSplitWidth8(data []byte, out []byte, numElements int) {
+	width := 8
+	for element := 0; element < numElements; element++ {
+		decLoc := width * element
+		out[decLoc] = data[element]
+		out[decLoc+1] = data[numElements+element]
+		out[decLoc+2] = data[numElements*2+element]
+		out[decLoc+3] = data[numElements*3+element]
+		out[decLoc+4] = data[numElements*4+element]
+		out[decLoc+5] = data[numElements*5+element]
+		out[decLoc+6] = data[numElements*6+element]
+		out[decLoc+7] = data[numElements*7+element]
+	}
 }
 
 // decodeByteStreamSplitSpaced decodes BYTE_STREAM_SPLIT-encoded data with space for nulls, calling to the provided decodeFn to decode runs of non-null values.

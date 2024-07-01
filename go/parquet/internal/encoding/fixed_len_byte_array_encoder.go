@@ -92,14 +92,60 @@ func (enc *ByteStreamSplitFixedLenByteArrayEncoder) Put(in []parquet.FixedLenByt
 	data := enc.sink.buf.Bytes()
 	data = data[:cap(data)] // Sets len = cap so we can index into any loc rather than append
 
-	for offset := 0; offset < enc.typeLen; offset++ {
+	switch enc.typeLen {
+	case 2:
+		encodeByteStreamSplitFixedLenByteArrayWidth2(data, in, numElements)
+	case 4:
+		encodeByteStreamSplitFixedLenByteArrayWidth4(data, in, numElements)
+	case 8:
+		encodeByteStreamSplitFixedLenByteArrayWidth8(data, in, numElements)
+	default:
+		encodeByteStreamSplitFixedLenByteArray(data, in, numElements, enc.typeLen)
+	}
+
+	enc.sink.pos += bytesNeeded
+}
+
+// encodeByteStreamSplitFixedLenByteArray encodes the FixedLenByteArrays provided by 'in' into the output buffer 'data' using BYTE_STREAM_SPLIT encoding
+func encodeByteStreamSplitFixedLenByteArray(data []byte, in []parquet.FixedLenByteArray, numElements, width int) {
+	for offset := 0; offset < width; offset++ {
 		for element := range in {
 			encLoc := numElements*offset + element
 			data[encLoc] = in[element][offset]
 		}
 	}
+}
 
-	enc.sink.pos += bytesNeeded
+// encodeByteStreamSplitFixedLenByteArrayWidth2 implements encodeByteStreamSplitFixedLenByteArray optimized for types stored using 2 bytes
+func encodeByteStreamSplitFixedLenByteArrayWidth2(data []byte, in []parquet.FixedLenByteArray, numElements int) {
+	for element := range in {
+		data[element] = in[element][0]
+		data[numElements+element] = in[element][1]
+	}
+}
+
+// encodeByteStreamSplitFixedLenByteArrayWidth4 implements encodeByteStreamSplitFixedLenByteArray optimized for types stored using 4 bytes
+func encodeByteStreamSplitFixedLenByteArrayWidth4(data []byte, in []parquet.FixedLenByteArray, numElements int) {
+	for element := range in {
+		data[element] = in[element][0]
+		data[numElements+element] = in[element][1]
+		data[numElements*2+element] = in[element][2]
+		data[numElements*3+element] = in[element][3]
+	}
+}
+
+// encodeByteStreamSplitFixedLenByteArrayWidth8 implements encodeByteStreamSplitFixedLenByteArray optimized for types stored using 8 bytes
+func encodeByteStreamSplitFixedLenByteArrayWidth8(data []byte, in []parquet.FixedLenByteArray, numElements int) {
+	for element := range in {
+		data[element] = in[element][0]
+		data[numElements+element] = in[element][1]
+		data[numElements*2+element] = in[element][2]
+		data[numElements*3+element] = in[element][3]
+		data[numElements*4+element] = in[element][4]
+		data[numElements*5+element] = in[element][5]
+		data[numElements*6+element] = in[element][6]
+		data[numElements*7+element] = in[element][7]
+	}
 }
 
 // PutSpaced is like Put but works with data that is spaced out according to the passed in bitmap
