@@ -89,9 +89,8 @@ func (enc *ByteStreamSplitFixedLenByteArrayEncoder) Put(in []parquet.FixedLenByt
 	bytesNeeded := numElements * enc.typeLen
 	enc.sink.Reserve(bytesNeeded)
 
-	// Make sure len = cap so we can index into any loc rather than append
 	data := enc.sink.buf.Bytes()
-	data = data[:cap(data)]
+	data = data[:cap(data)] // Sets len = cap so we can index into any loc rather than append
 
 	for offset := 0; offset < enc.typeLen; offset++ {
 		for element := range in {

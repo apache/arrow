@@ -41,9 +41,8 @@ func putByteStreamSplitNumeric[T NumericByteStreamSplitType](in []T, enc TypedEn
 	bytesNeeded := numElements * typeLen
 	sink.Reserve(bytesNeeded)
 
-	// Make sure len = cap so we can index into any loc rather than append
 	data := sink.buf.Bytes()
-	data = data[:cap(data)]
+	data = data[:cap(data)] // Sets len = cap so we can index into any loc rather than append
 
 	inBytes := arrow.GetBytes(in)
 	for offset := 0; offset < typeLen; offset++ {
