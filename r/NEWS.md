@@ -18,6 +18,7 @@
 -->
 
 # arrow 16.1.0.9000
+* Expose an option `check_directory_existence_before_creation` in `S3FileSystem` which defaults to false. If it's set to false, when creating a directory the code will not check if it already exists or not. It's an optimization to try directory creation and catch the error, rather than issue two dependent I/O calls. If true, when creating a directory the code will only create the directory when necessary at the cost of extra I/O calls. This can be used for key/value cloud storage which has a hard rate limit to number of object mutation operations or scenerios such as the directories already exist and you do not have creation access.
 
 * R functions that users write that use functions that Arrow supports in dataset queries now can be used in queries too. Previously, only functions that used arithmetic operators worked. For example, `time_hours <- function(mins) mins / 60` worked, but `time_hours_rounded <- function(mins) round(mins / 60)` did not; now both work. These are automatic translations rather than true user-defined functions (UDFs); for UDFs, see `register_scalar_function()`. (#41223)
 * `summarize()` supports more complex expressions, and correctly handles cases where column names are reused in expressions. 
