@@ -253,8 +253,9 @@ public class OpaqueType extends ArrowType.ExtensionType {
           return new Float4Vector(name, allocator);
         case DOUBLE:
           return new Float8Vector(name, allocator);
+        default:
+          throw unsupported(type);
       }
-      throw unsupported(type);
     }
 
     @Override
@@ -314,8 +315,9 @@ public class OpaqueType extends ArrowType.ExtensionType {
           return new DateDayVector(name, allocator);
         case MILLISECOND:
           return new DateMilliVector(name, allocator);
+        default:
+          throw unsupported(type);
       }
-      throw unsupported(type);
     }
 
     @Override
@@ -329,8 +331,9 @@ public class OpaqueType extends ArrowType.ExtensionType {
           return new TimeMicroVector(name, allocator);
         case NANOSECOND:
           return new TimeNanoVector(name, allocator);
+        default:
+          throw unsupported(type);
       }
-      throw unsupported(type);
     }
 
     @Override
@@ -345,20 +348,22 @@ public class OpaqueType extends ArrowType.ExtensionType {
             return new TimeStampMicroVector(Field.nullable(name, type), allocator);
           case NANOSECOND:
             return new TimeStampNanoVector(Field.nullable(name, type), allocator);
-        }
-      } else {
-        switch (type.getUnit()) {
-          case SECOND:
-            return new TimeStampSecTZVector(Field.nullable(name, type), allocator);
-          case MILLISECOND:
-            return new TimeStampMilliTZVector(Field.nullable(name, type), allocator);
-          case MICROSECOND:
-            return new TimeStampMicroTZVector(Field.nullable(name, type), allocator);
-          case NANOSECOND:
-            return new TimeStampNanoTZVector(Field.nullable(name, type), allocator);
+          default:
+            throw unsupported(type);
         }
       }
-      throw unsupported(type);
+      switch (type.getUnit()) {
+        case SECOND:
+          return new TimeStampSecTZVector(Field.nullable(name, type), allocator);
+        case MILLISECOND:
+          return new TimeStampMilliTZVector(Field.nullable(name, type), allocator);
+        case MICROSECOND:
+          return new TimeStampMicroTZVector(Field.nullable(name, type), allocator);
+        case NANOSECOND:
+          return new TimeStampNanoTZVector(Field.nullable(name, type), allocator);
+        default:
+          throw unsupported(type);
+      }
     }
 
     @Override
@@ -370,8 +375,9 @@ public class OpaqueType extends ArrowType.ExtensionType {
           return new IntervalDayVector(name, allocator);
         case MONTH_DAY_NANO:
           return new IntervalMonthDayNanoVector(name, allocator);
+        default:
+          throw unsupported(type);
       }
-      throw unsupported(type);
     }
 
     @Override

@@ -16,7 +16,7 @@
  */
 package org.apache.arrow.vector.extension;
 
-/** */
+/** The extension metadata was malformed. */
 public class InvalidExtensionMetadataException extends RuntimeException {
   public InvalidExtensionMetadataException(String message) {
     super(message);
