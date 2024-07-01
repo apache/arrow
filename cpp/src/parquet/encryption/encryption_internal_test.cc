@@ -21,51 +21,53 @@
 
 namespace parquet::encryption::test {
 
-static const int kKeyLength = 16;
-static const std::string kKey = "1234567890123450";
-static const std::string kAad = "abcdefgh";
-static const std::string kPlaintext =
-    "Apache Parquet is an open source, column-oriented data file format designed for "
-    "efficient data storage and retrieval";
-
 class TestAesEncryption : public ::testing::Test {
  protected:
-  static void EncryptionRoundTrip(ParquetCipher::type cipher_type, bool write_length) {
+  void SetUp() override {
+    key_length_ = 16;
+    key_ = "1234567890123450";
+    aad_ = "abcdefgh";
+    plain_text_ =
+        "Apache Parquet is an open source, column-oriented data file format designed for "
+        "efficient data storage and retrieval";
+  }
+
+  void EncryptionRoundTrip(ParquetCipher::type cipher_type, bool write_length) {
     bool metadata = false;
 
-    AesEncryptor encryptor(cipher_type, kKeyLength, metadata, write_length);
+    AesEncryptor encryptor(cipher_type, key_length_, metadata, write_length);
 
     int expected_ciphertext_len =
-        static_cast<int>(kPlaintext.size()) + encryptor.CiphertextSizeDelta();
+        static_cast<int>(plain_text_.size()) + encryptor.CiphertextSizeDelta();
     std::string ciphertext(expected_ciphertext_len, '\0');
 
     int ciphertext_length = encryptor.Encrypt(
-        str2bytes(kPlaintext), static_cast<int>(kPlaintext.size()), str2bytes(kKey),
-        static_cast<int>(kKey.size()), str2bytes(kAad), static_cast<int>(kAad.size()),
+        str2bytes(plain_text_), static_cast<int>(plain_text_.size()), str2bytes(key_),
+        static_cast<int>(key_.size()), str2bytes(aad_), static_cast<int>(aad_.size()),
         reinterpret_cast<uint8_t*>(&ciphertext[0]));
 
     ASSERT_EQ(ciphertext_length, expected_ciphertext_len);
 
-    AesDecryptor decryptor(cipher_type, kKeyLength, metadata, write_length);
+    AesDecryptor decryptor(cipher_type, key_length_, metadata, write_length);
 
     int expected_plaintext_length = decryptor.PlaintextLength(ciphertext_length);
     std::string decrypted_text(expected_plaintext_length, '\0');
 
     int plaintext_length = decryptor.Decrypt(
-        str2bytes(ciphertext), ciphertext_length, str2bytes(kKey),
-        static_cast<int>(kKey.size()), str2bytes(kAad), static_cast<int>(kAad.size()),
+        str2bytes(ciphertext), ciphertext_length, str2bytes(key_),
+        static_cast<int>(key_.size()), str2bytes(aad_), static_cast<int>(aad_.size()),
         reinterpret_cast<uint8_t*>(&decrypted_text[0]));
 
-    ASSERT_EQ(plaintext_length, static_cast<int>(kPlaintext.size()));
+    ASSERT_EQ(plaintext_length, static_cast<int>(plain_text_.size()));
     ASSERT_EQ(plaintext_length, expected_plaintext_length);
-    ASSERT_EQ(decrypted_text, kPlaintext);
+    ASSERT_EQ(decrypted_text, plain_text_);
   }
 
-  static void DecryptInvalidCiphertext(ParquetCipher::type cipher_type) {
+  void DecryptInvalidCiphertext(ParquetCipher::type cipher_type) {
     bool metadata = false;
     bool write_length = true;
 
-    AesDecryptor decryptor(cipher_type, kKeyLength, metadata, write_length);
+    AesDecryptor decryptor(cipher_type, key_length_, metadata, write_length);
 
     // Create ciphertext of all zeros, so the ciphertext length will be read as zero
     const int ciphertext_length = 100;
@@ -74,39 +76,45 @@ class TestAesEncryption : public ::testing::Test {
     int expected_plaintext_length = decryptor.PlaintextLength(ciphertext_length);
     std::string decrypted_text(expected_plaintext_length, '\0');
 
-    EXPECT_THROW(decryptor.Decrypt(str2bytes(ciphertext), 0, str2bytes(kKey),
-                                   static_cast<int>(kKey.size()), str2bytes(kAad),
-                                   static_cast<int>(kAad.size()),
+    EXPECT_THROW(decryptor.Decrypt(str2bytes(ciphertext), 0, str2bytes(key_),
+                                   static_cast<int>(key_.size()), str2bytes(aad_),
+                                   static_cast<int>(aad_.size()),
                                    reinterpret_cast<uint8_t*>(&decrypted_text[0])),
                  ParquetException);
   }
 
-  static void DecryptCiphertextBufferTooSmall(ParquetCipher::type cipher_type) {
+  void DecryptCiphertextBufferTooSmall(ParquetCipher::type cipher_type) {
     bool metadata = false;
     bool write_length = true;
 
-    AesEncryptor encryptor(cipher_type, kKeyLength, metadata, write_length);
+    AesEncryptor encryptor(cipher_type, key_length_, metadata, write_length);
 
     int expected_ciphertext_len =
-        static_cast<int>(kPlaintext.size()) + encryptor.CiphertextSizeDelta();
+        static_cast<int>(plain_text_.size()) + encryptor.CiphertextSizeDelta();
     std::string ciphertext(expected_ciphertext_len, '\0');
 
     int ciphertext_length = encryptor.Encrypt(
-        str2bytes(kPlaintext), static_cast<int>(kPlaintext.size()), str2bytes(kKey),
-        static_cast<int>(kKey.size()), str2bytes(kAad), static_cast<int>(kAad.size()),
+        str2bytes(plain_text_), static_cast<int>(plain_text_.size()), str2bytes(key_),
+        static_cast<int>(key_.size()), str2bytes(aad_), static_cast<int>(aad_.size()),
         reinterpret_cast<uint8_t*>(&ciphertext[0]));
 
-    AesDecryptor decryptor(cipher_type, kKeyLength, metadata, write_length);
+    AesDecryptor decryptor(cipher_type, key_length_, metadata, write_length);
 
     int expected_plaintext_length = decryptor.PlaintextLength(ciphertext_length);
     std::string decrypted_text(expected_plaintext_length, '\0');
 
     EXPECT_THROW(decryptor.Decrypt(str2bytes(ciphertext), ciphertext_length - 1,
-                                   str2bytes(kKey), static_cast<int>(kKey.size()),
-                                   str2bytes(kAad), static_cast<int>(kAad.size()),
+                                   str2bytes(key_), static_cast<int>(key_.size()),
+                                   str2bytes(aad_), static_cast<int>(aad_.size()),
                                    reinterpret_cast<uint8_t*>(&decrypted_text[0])),
                  ParquetException);
   }
+
+ private:
+  int key_length_ = 0;
+  std::string key_;
+  std::string aad_;
+  std::string plain_text_;
 };
 
 TEST_F(TestAesEncryption, AesGcmRoundTrip) {
