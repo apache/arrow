@@ -873,6 +873,23 @@ sorting_columns : Sequence of SortingColumn, default None
     Specify the sort order of the data being written. The writer does not sort
     the data nor does it verify that the data is sorted. The sort order is
     written to the row group metadata, which can then be used by readers.
+store_decimal_as_integer : bool, default False
+    Allow decimals with 1 <= precision <= 18 to be stored as integers.
+    In Parquet, DECIMAL can be stored in any of the following physical types:
+    - int32: for 1 <= precision <= 9.
+    - int64: for 10 <= precision <= 18.
+    - fixed_len_byte_array: precision is limited by the array size.
+      Length n can store <= floor(log_10(2^(8*n - 1) - 1)) base-10 digits.
+    - binary: precision is unlimited. The minimum number of bytes to store the
+      unscaled value is used.
+
+    By default, this is DISABLED and all decimal types annotate fixed_len_byte_array.
+    When enabled, the writer will use the following physical types to store decimals:
+    - int32: for 1 <= precision <= 9.
+    - int64: for 10 <= precision <= 18.
+    - fixed_len_byte_array: for precision > 18.
+
+    As a consequence, decimal columns stored in integer types are more compact.
 """
 
 _parquet_writer_example_doc = """\
@@ -968,6 +985,7 @@ Examples
                  write_page_index=False,
                  write_page_checksum=False,
                  sorting_columns=None,
+                 store_decimal_as_integer=False,
                  **options):
         if use_deprecated_int96_timestamps is None:
             # Use int96 timestamps for Spark
@@ -1020,6 +1038,7 @@ Examples
             write_page_index=write_page_index,
             write_page_checksum=write_page_checksum,
             sorting_columns=sorting_columns,
+            store_decimal_as_integer=store_decimal_as_integer,
             **options)
         self.is_open = True
 
@@ -1873,6 +1892,7 @@ def write_table(table, where, row_group_size=None, version='2.6',
                 write_page_index=False,
                 write_page_checksum=False,
                 sorting_columns=None,
+                store_decimal_as_integer=False,
                 **kwargs):
     # Implementor's note: when adding keywords here / updating defaults, also
     # update it in write_to_dataset and _dataset_parquet.pyx ParquetFileWriteOptions
@@ -1903,6 +1923,7 @@ def write_table(table, where, row_group_size=None, version='2.6',
                 write_page_index=write_page_index,
                 write_page_checksum=write_page_checksum,
                 sorting_columns=sorting_columns,
+                store_decimal_as_integer=store_decimal_as_integer,
                 **kwargs) as writer:
             writer.write_table(table, row_group_size=row_group_size)
     except Exception:

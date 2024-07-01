@@ -432,6 +432,8 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* disable_statistics()
             Builder* enable_statistics()
             Builder* enable_statistics(const c_string& path)
+            Builder* enable_store_decimal_as_integer()
+            Builder* disable_store_decimal_as_integer()
             Builder* data_pagesize(int64_t size)
             Builder* encoding(ParquetEncoding encoding)
             Builder* encoding(const c_string& path,
@@ -595,6 +597,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     write_page_index=*,
     write_page_checksum=*,
     sorting_columns=*,
+    store_decimal_as_integer=*,
 ) except *
 
 
