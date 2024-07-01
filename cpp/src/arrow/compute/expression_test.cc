@@ -845,6 +845,46 @@ void ExpectExecute(Expression expr, Datum in, Datum* actual_out = NULLPTR) {
   }
 }
 
+TEST(Expression, ExecuteCallWithDecimalComparisonOps) {
+  // GH-41011, make sure the decimal's comparison operations are casted
+  // in expression bind and make correct results in expression execute
+  ExpectExecute(
+      call("not_equal", {field_ref("d1"), field_ref("d2")}),
+      ArrayFromJSON(struct_({field("d1", decimal(2, 0)), field("d2", decimal(2, 1))}),
+                    R"([
+      {"d1": "40", "d2": "4.0"},
+      {"d1": "20",  "d2": "2.0"}
+    ])"));
+
+  ExpectExecute(
+      call("less", {field_ref("d1"), field_ref("d2")}),
+      ArrayFromJSON(struct_({field("d1", decimal(2, 1)), field("d2", decimal(2, 0))}),
+                    R"([
+      {"d1": "4.0", "d2": "40"},
+      {"d1": "2.0",  "d2": "20"}
+    ])"));
+
+  for (std::string fname : {"less_equal", "equal"}) {
+    ExpectExecute(
+        call(fname, {field_ref("d1"), field_ref("d2")}),
+        ArrayFromJSON(struct_({field("d1", decimal(3, 2)), field("d2", decimal(2, 1))}),
+                      R"([
+      {"d1": "3.10", "d2": "3.1"},
+      {"d1": "2.10",  "d2": "2.1"}
+    ])"));
+  }
+
+  for (std::string fname : {"greater_equal", "greater"}) {
+    ExpectExecute(
+        call(fname, {field_ref("d1"), field_ref("d2")}),
+        ArrayFromJSON(struct_({field("d1", decimal(2, 0)), field("d2", decimal(2, 1))}),
+                      R"([
+      {"d1": "4", "d2": "3.0"},
+      {"d1": "3",  "d2": "2.0"}
+    ])"));
+  }
+}
+
 TEST(Expression, ExecuteCall) {
   ExpectExecute(add(field_ref("a"), literal(3.5)),
                 ArrayFromJSON(struct_({field("a", float64())}), R"([
