@@ -870,7 +870,8 @@ class PARQUET_EXPORT ArrowReaderProperties {
         batch_size_(kArrowDefaultBatchSize),
         pre_buffer_(true),
         cache_options_(::arrow::io::CacheOptions::LazyDefaults()),
-        coerce_int96_timestamp_unit_(::arrow::TimeUnit::NANO) {}
+        coerce_int96_timestamp_unit_(::arrow::TimeUnit::NANO),
+        convert_unknown_logical_types_(false) {}
 
   /// \brief Set whether to use the IO thread pool to parse columns in parallel.
   ///
@@ -941,6 +942,17 @@ class PARQUET_EXPORT ArrowReaderProperties {
     return coerce_int96_timestamp_unit_;
   }
 
+  /// Convert unknown logical types as their underlying physical type
+  ///
+  /// When enabled, the Arrow reader will use the underlying physical type
+  /// of a logical type that it does not recognize (e.g., one that was added
+  /// to the spec but not implemented in Parquet C++).
+  void set_convert_unknown_logical_types(bool convert_unknown_logical_types) {
+    convert_unknown_logical_types_ = convert_unknown_logical_types;
+  }
+  /// Return whether unknown logical types should be interpreted as their physical type
+  bool convert_unknown_logical_types() const { return convert_unknown_logical_types_; }
+
  private:
   bool use_threads_;
   std::unordered_set<int> read_dict_indices_;
@@ -949,6 +961,7 @@ class PARQUET_EXPORT ArrowReaderProperties {
   ::arrow::io::IOContext io_context_;
   ::arrow::io::CacheOptions cache_options_;
   ::arrow::TimeUnit::type coerce_int96_timestamp_unit_;
+  bool convert_unknown_logical_types_;
 };
 
 /// EXPERIMENTAL: Constructs the default ArrowReaderProperties

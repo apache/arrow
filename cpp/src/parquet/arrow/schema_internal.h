@@ -36,10 +36,12 @@ Result<std::shared_ptr<::arrow::DataType>> FromInt64(const LogicalType& logical_
 
 Result<std::shared_ptr<::arrow::DataType>> GetArrowType(
     Type::type physical_type, const LogicalType& logical_type, int type_length,
-    ::arrow::TimeUnit::type int96_arrow_time_unit = ::arrow::TimeUnit::NANO);
+    ::arrow::TimeUnit::type int96_arrow_time_unit = ::arrow::TimeUnit::NANO,
+    bool convert_unknown_logical_type = false);
 
 Result<std::shared_ptr<::arrow::DataType>> GetArrowType(
     const schema::PrimitiveNode& primitive,
-    ::arrow::TimeUnit::type int96_arrow_time_unit = ::arrow::TimeUnit::NANO);
+    ::arrow::TimeUnit::type int96_arrow_time_unit = ::arrow::TimeUnit::NANO,
+    bool convert_unknown_logical_type = false);
 
 }  // namespace parquet::arrow
