@@ -419,6 +419,7 @@ ParquetWriterProperties$create <- function(column_names,
 #' @section Methods:
 #'
 #' - `WriteTable` Write a [Table] to `sink`
+#' - `WriteBatch` Write a [Batch] to `sink`
 #' - `Close` Close the writer. Note: does not close the `sink`.
 #'   [arrow::io::OutputStream][OutputStream] has its own `close()` method.
 #'
