@@ -101,7 +101,7 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
     sizeBuffer = allocateBuffers(sizeAllocationSizeInBytes);
   }
 
-  private ArrowBuf allocateBuffers(final long size) {
+  protected ArrowBuf allocateBuffers(final long size) {
     final int curSize = (int) size;
     ArrowBuf buffer = allocator.buffer(curSize);
     buffer.readerIndex(0);

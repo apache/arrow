@@ -185,6 +185,12 @@ abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWr
   }
 
   @Override
+  public ListWriter listView() {
+    fail("ListView");
+    return null;
+  }
+
+  @Override
   public MapWriter map() {
     fail("Map");
     return null;
@@ -199,6 +205,12 @@ abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWr
   @Override
   public ListWriter list(String name) {
     fail("List");
+    return null;
+  }
+
+  @Override
+  public ListWriter listView(String name) {
+    fail("ListView");
     return null;
   }
 

@@ -245,6 +245,9 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
       case LIST:
         writer = new UnionListWriter((ListVector) vector, nullableStructWriterFactory);
         break;
+      case LISTVIEW:
+        writer = new UnionListViewWriter((ListViewVector) vector, nullableStructWriterFactory);
+        break;
       case MAP:
         writer = new UnionMapWriter((MapVector) vector);
         break;
