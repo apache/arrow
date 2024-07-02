@@ -2901,19 +2901,26 @@ def test_table_to_recordbatchreader():
 
 
 @pytest.mark.acero
-def test_table_join():
-    t1 = pa.table({
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
+def test_table_join(cls):
+    t1 = cls.from_pydict({
         "colA": [1, 2, 6],
         "col2": ["a", "b", "f"]
     })
 
-    t2 = pa.table({
+    t2 = cls.from_pydict({
         "colB": [99, 2, 1],
         "col3": ["Z", "B", "A"]
     })
 
     result = t1.join(t2, "colA", "colB")
-    assert result.combine_chunks() == pa.table({
+    assert result.combine_chunks().sort_by("colA") == pa.table({
         "colA": [1, 2, 6],
         "col2": ["a", "b", "f"],
         "col3": ["A", "B", None]
@@ -2928,19 +2935,26 @@ def test_table_join():
 
 
 @pytest.mark.acero
-def test_table_join_unique_key():
-    t1 = pa.table({
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
+def test_table_join_unique_key(cls):
+    t1 = cls.from_pydict({
         "colA": [1, 2, 6],
         "col2": ["a", "b", "f"]
     })
 
-    t2 = pa.table({
+    t2 = cls.from_pydict({
         "colA": [99, 2, 1],
         "col3": ["Z", "B", "A"]
     })
 
     result = t1.join(t2, "colA")
-    assert result.combine_chunks() == pa.table({
+    assert result.combine_chunks().sort_by("colA") == pa.table({
         "colA": [1, 2, 6],
         "col2": ["a", "b", "f"],
         "col3": ["A", "B", None]
@@ -2955,14 +2969,21 @@ def test_table_join_unique_key():
 
 
 @pytest.mark.acero
-def test_table_join_collisions():
-    t1 = pa.table({
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
+def test_table_join_collisions(cls):
+    t1 = cls.from_pydict({
         "colA": [1, 2, 6],
         "colB": [10, 20, 60],
         "colVals": ["a", "b", "f"]
     })
 
-    t2 = pa.table({
+    t2 = cls.from_pydict({
         "colA": [99, 2, 1],
         "colB": [99, 20, 10],
         "colVals": ["Z", "B", "A"]
@@ -3019,13 +3040,20 @@ def test_table_filter_expression_chunks():
 
 
 @pytest.mark.acero
-def test_table_join_many_columns():
-    t1 = pa.table({
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
+def test_table_join_many_columns(cls):
+    t1 = cls.from_pydict({
         "colA": [1, 2, 6],
         "col2": ["a", "b", "f"]
     })
 
-    t2 = pa.table({
+    t2 = cls.from_pydict({
         "colB": [99, 2, 1],
         "col3": ["Z", "B", "A"],
         "col4": ["Z", "B", "A"],
@@ -3035,7 +3063,7 @@ def test_table_join_many_columns():
     })
 
     result = t1.join(t2, "colA", "colB")
-    assert result.combine_chunks() == pa.table({
+    assert result.combine_chunks().sort_by("colA") == pa.table({
         "colA": [1, 2, 6],
         "col2": ["a", "b", "f"],
         "col3": ["A", "B", None],
@@ -3058,13 +3086,20 @@ def test_table_join_many_columns():
 
 
 @pytest.mark.dataset
-def test_table_join_asof():
-    t1 = pa.Table.from_pydict({
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
+def test_table_join_asof(cls):
+    t1 = cls.from_pydict({
         "colA": [1, 1, 5, 6, 7],
         "col2": ["a", "b", "a", "b", "f"]
     })
 
-    t2 = pa.Table.from_pydict({
+    t2 = cls.from_pydict({
         "colB": [2, 9, 15],
         "col3": ["a", "b", "g"],
         "colC": [1., 3., 5.]
@@ -3074,7 +3109,7 @@ def test_table_join_asof():
         t2, on="colA", by="col2", tolerance=1,
         right_on="colB", right_by="col3",
     )
-    assert r.combine_chunks() == pa.table({
+    assert r.combine_chunks().sort_by("colA") == pa.table({
         "colA": [1, 1, 5, 6, 7],
         "col2": ["a", "b", "a", "b", "f"],
         "colC": [1., None, None, None, None],
@@ -3082,14 +3117,21 @@ def test_table_join_asof():
 
 
 @pytest.mark.dataset
-def test_table_join_asof_multiple_by():
-    t1 = pa.table({
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
+def test_table_join_asof_multiple_by(cls):
+    t1 = cls.from_pydict({
         "colA": [1, 2, 6],
         "colB": [10, 20, 60],
         "on": [1, 2, 3],
     })
 
-    t2 = pa.table({
+    t2 = cls.from_pydict({
         "colB": [99, 20, 10],
         "colVals": ["Z", "B", "A"],
         "colA": [99, 2, 1],
@@ -3099,7 +3141,7 @@ def test_table_join_asof_multiple_by():
     result = t1.join_asof(
         t2, on="on", by=["colA", "colB"], tolerance=1
     )
-    assert result.sort_by("colA") == pa.table({
+    assert result.combine_chunks().sort_by("colA") == pa.table({
         "colA": [1, 2, 6],
         "colB": [10, 20, 60],
         "on": [1, 2, 3],
@@ -3108,12 +3150,19 @@ def test_table_join_asof_multiple_by():
 
 
 @pytest.mark.dataset
-def test_table_join_asof_empty_by():
-    t1 = pa.table({
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
+def test_table_join_asof_empty_by(cls):
+    t1 = cls.from_pydict({
         "on": [1, 2, 3],
     })
 
-    t2 = pa.table({
+    t2 = cls.from_pydict({
         "colVals": ["Z", "B", "A"],
         "on": [2, 3, 4],
     })
@@ -3121,22 +3170,29 @@ def test_table_join_asof_empty_by():
     result = t1.join_asof(
         t2, on="on", by=[], tolerance=1
     )
-    assert result == pa.table({
+    assert result.combine_chunks() == pa.table({
         "on": [1, 2, 3],
         "colVals": ["Z", "Z", "B"],
     })
 
 
 @pytest.mark.dataset
-def test_table_join_asof_collisions():
-    t1 = pa.table({
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
+def test_table_join_asof_collisions(cls):
+    t1 = cls.from_pydict({
         "colA": [1, 2, 6],
         "colB": [10, 20, 60],
         "on": [1, 2, 3],
         "colVals": ["a", "b", "f"]
     })
 
-    t2 = pa.table({
+    t2 = cls.from_pydict({
         "colB": [99, 20, 10],
         "colVals": ["Z", "B", "A"],
         "colUniq": [100, 200, 300],
@@ -3156,14 +3212,21 @@ def test_table_join_asof_collisions():
 
 
 @pytest.mark.dataset
-def test_table_join_asof_by_length_mismatch():
-    t1 = pa.table({
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
+def test_table_join_asof_by_length_mismatch(cls):
+    t1 = cls.from_pydict({
         "colA": [1, 2, 6],
         "colB": [10, 20, 60],
         "on": [1, 2, 3],
     })
 
-    t2 = pa.table({
+    t2 = cls.from_pydict({
         "colVals": ["Z", "B", "A"],
         "colUniq": [100, 200, 300],
         "colA": [99, 2, 1],
@@ -3178,14 +3241,21 @@ def test_table_join_asof_by_length_mismatch():
         )
 
 
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
 @pytest.mark.dataset
-def test_table_join_asof_by_type_mismatch():
-    t1 = pa.table({
+def test_table_join_asof_by_type_mismatch(cls):
+    t1 = cls.from_pydict({
         "colA": [1, 2, 6],
         "on": [1, 2, 3],
     })
 
-    t2 = pa.table({
+    t2 = cls.from_pydict({
         "colVals": ["Z", "B", "A"],
         "colUniq": [100, 200, 300],
         "colA": [99., 2., 1.],
@@ -3200,14 +3270,21 @@ def test_table_join_asof_by_type_mismatch():
         )
 
 
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
 @pytest.mark.dataset
-def test_table_join_asof_on_type_mismatch():
-    t1 = pa.table({
+def test_table_join_asof_on_type_mismatch(cls):
+    t1 = cls.from_pydict({
         "colA": [1, 2, 6],
         "on": [1, 2, 3],
     })
 
-    t2 = pa.table({
+    t2 = cls.from_pydict({
         "colVals": ["Z", "B", "A"],
         "colUniq": [100, 200, 300],
         "colA": [99, 2, 1],
@@ -3328,13 +3405,20 @@ def test_numpy_array_protocol(constructor):
 
 
 @pytest.mark.acero
-def test_invalid_non_join_column():
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
+def test_invalid_non_join_column(cls):
     NUM_ITEMS = 30
-    t1 = pa.Table.from_pydict({
+    t1 = cls.from_pydict({
         'id': range(NUM_ITEMS),
         'array_column': [[z for z in range(3)] for x in range(NUM_ITEMS)],
     })
-    t2 = pa.Table.from_pydict({
+    t2 = cls.from_pydict({
         'id': range(NUM_ITEMS),
         'value': [x for x in range(NUM_ITEMS)]
     })

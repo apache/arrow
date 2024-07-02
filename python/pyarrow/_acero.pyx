@@ -77,6 +77,34 @@ class TableSourceNodeOptions(_TableSourceNodeOptions):
         self._set_options(table)
 
 
+cdef class _RecordBatchReaderSourceNodeOptions(ExecNodeOptions):
+
+    def _set_options(self, RecordBatchReader reader):
+        cdef:
+            shared_ptr[CRecordBatchReader] c_reader
+
+        c_reader = reader.reader
+        self.wrapped.reset(
+            new CRecordBatchReaderSourceNodeOptions(c_reader),
+        )
+
+
+class RecordBatchReaderSourceNodeOptions(_RecordBatchReaderSourceNodeOptions):
+    """
+    A Source node which accepts a record batch reader.
+
+    This is the option class for the "record_batch_reader_source" node factory.
+
+    Parameters
+    ----------
+    reader : pyarrow.RecordBatchReader
+        The record batch reader which acts as the data source.
+    """
+
+    def __init__(self, RecordBatchReader reader):
+        self._set_options(reader)
+
+
 cdef class _FilterNodeOptions(ExecNodeOptions):
 
     def _set_options(self, Expression filter_expression not None):
