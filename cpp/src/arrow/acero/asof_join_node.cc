@@ -912,7 +912,12 @@ class CompositeTableBuilder {
         }
       }
     }
-    return CompositeTable{schema, inputs.size(), dst_to_src, pool};
+    // NB: The left hand side of the join (index 0) is the reference table of the
+    // asof-join. The output is comprised of continuous slices of the this table, so
+    // we can just take zero-copy slices of it. This is much faster than how other
+    // tables are treated, wherein we need to copy
+    return CompositeTable{schema, inputs.size(), dst_to_src, pool,
+                          /*contiguous_sources=*/{0}};
   }
 };
 
