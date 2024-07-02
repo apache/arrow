@@ -38,11 +38,11 @@ public class NativeDataset implements Dataset {
     if (closed) {
       throw new NativeInstanceReleasedException();
     }
-    int fileFormat = -1;
+    int fileFormatId = -1;
     String[] serialized = null;
     if (options.getFragmentScanOptions().isPresent()) {
       FragmentScanOptions fragmentScanOptions = options.getFragmentScanOptions().get();
-      fileFormat = fragmentScanOptions.fileFormatId();
+      fileFormatId = fragmentScanOptions.fileFormat().id();
       serialized = fragmentScanOptions.serialize();
     }
     long scannerId =
@@ -53,7 +53,7 @@ public class NativeDataset implements Dataset {
                 options.getSubstraitProjection().orElse(null),
                 options.getSubstraitFilter().orElse(null),
                 options.getBatchSize(),
-                fileFormat,
+                fileFormatId,
                 serialized,
                 context.getMemoryPool().getNativeInstanceId());
 

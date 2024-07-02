@@ -16,25 +16,28 @@
  */
 package org.apache.arrow.dataset.scanner.csv;
 
-import java.io.Serializable;
-import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.arrow.dataset.file.FileFormat;
 import org.apache.arrow.dataset.scanner.FragmentScanOptions;
+import org.apache.arrow.dataset.scanner.MapUtil;
 
-public class CsvFragmentScanOptions implements Serializable, FragmentScanOptions {
+public class CsvFragmentScanOptions implements FragmentScanOptions {
   private final CsvConvertOptions convertOptions;
   private final Map<String, String> readOptions;
   private final Map<String, String> parseOptions;
 
   /**
-   * csv scan options, map to CPP struct CsvFragmentScanOptions.
+   * CSV scan options, map to CPP struct CsvFragmentScanOptions. The key in config map is the field
+   * name of mapping cpp struct
    *
-   * @param convertOptions same struct in CPP
-   * @param readOptions same struct in CPP
-   * @param parseOptions same struct in CPP
+   * @param convertOptions similar to CsvFragmentScanOptions#convert_options in CPP, the ArrowSchema
+   *     represents column_types, convert data option such as null value recognition.
+   * @param readOptions similar to CsvFragmentScanOptions#read_options in CPP, specify how to read
+   *     the file such as block_size
+   * @param parseOptions similar to CsvFragmentScanOptions#parse_options in CPP, parse file option
+   *     such as delimiter
    */
   public CsvFragmentScanOptions(
       CsvConvertOptions convertOptions,
@@ -45,24 +48,22 @@ public class CsvFragmentScanOptions implements Serializable, FragmentScanOptions
     this.parseOptions = parseOptions;
   }
 
-  public String typeName() {
-    return FileFormat.CSV.name().toLowerCase(Locale.ROOT);
-  }
-
   /**
    * File format id.
    *
    * @return id
    */
-  public int fileFormatId() {
-    return FileFormat.CSV.id();
+  @Override
+  public FileFormat fileFormat() {
+    return FileFormat.CSV;
   }
 
   /**
-   * Serialize this class to ByteBuffer and then called by jni call.
+   * Serialize this class to string array and then called by JNI call.
    *
-   * @return DirectByteBuffer
+   * @return string array as Map JNI bridge format.
    */
+  @Override
   public String[] serialize() {
     Map<String, String> options =
         Stream.concat(
@@ -74,11 +75,7 @@ public class CsvFragmentScanOptions implements Serializable, FragmentScanOptions
       options.put(
           "column_types", Long.toString(convertOptions.getArrowSchema().get().memoryAddress()));
     }
-    return serializeMap(options);
-  }
-
-  public static CsvFragmentScanOptions deserialize(String serialized) {
-    throw new UnsupportedOperationException("Not implemented now");
+    return MapUtil.convertMapToStringArray(options);
   }
 
   public CsvConvertOptions getConvertOptions() {
