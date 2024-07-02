@@ -83,6 +83,7 @@ def test_type_to_pandas_dtype():
 
 
 @pytest.mark.pandas
+@pytest.mark.processes
 def test_type_to_pandas_dtype_check_import():
     # ARROW-7980
     test_util.invoke_script('arrow_7980.py')

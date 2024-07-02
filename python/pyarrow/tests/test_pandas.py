@@ -2957,6 +2957,8 @@ class TestConvertMisc:
     def test_non_threaded_conversion(self):
         _non_threaded_conversion()
 
+    @pytest.mark.processes
+    @pytest.mark.threading
     def test_threaded_conversion_multiprocess(self):
         # Parallel conversion should work from child processes too (ARROW-2963)
         pool = mp.Pool(2)
@@ -4824,6 +4826,7 @@ def test_timestamp_as_object_fixed_offset():
     assert pa.table(result) == table
 
 
+@pytest.mark.processes
 def test_threaded_pandas_import():
     invoke_script("pandas_threaded_import.py")
 
@@ -5127,6 +5130,7 @@ def test_nested_chunking_valid():
               schema=schema)
 
 
+@pytest.mark.processes
 def test_is_data_frame_race_condition():
     # See https://github.com/apache/arrow/issues/39313
     test_util.invoke_script('arrow_39313.py')

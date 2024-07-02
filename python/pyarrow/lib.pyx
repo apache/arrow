@@ -79,6 +79,17 @@ def set_cpu_count(int count):
     check_status(SetCpuThreadPoolCapacity(count))
 
 
+def is_threading_enabled() -> bool:
+    """
+    Returns True if threading is enabled in libarrow. 
+
+    If it isn't enabled, then python shouldn't create any 
+    threads either, because we're probably on a system where
+    threading doesn't work (e.g. Emscripten).
+    """
+    return libarrow_python.IsThreadingEnabled()
+
+
 Type_NA = _Type_NA
 Type_BOOL = _Type_BOOL
 Type_UINT8 = _Type_UINT8

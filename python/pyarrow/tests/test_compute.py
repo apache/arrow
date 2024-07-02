@@ -38,7 +38,6 @@ except ImportError:
 import pyarrow as pa
 import pyarrow.compute as pc
 from pyarrow.lib import ArrowNotImplementedError
-from pyarrow.tests import util
 
 try:
     import pyarrow.substrait as pas
@@ -137,7 +136,7 @@ def test_exported_option_classes():
 @pytest.mark.filterwarnings(
     "ignore:pyarrow.CumulativeSumOptions is deprecated as of 14.0"
 )
-def test_option_class_equality():
+def test_option_class_equality(request):
     options = [
         pc.ArraySortOptions(),
         pc.AssumeTimezoneOptions("UTC"),
@@ -193,17 +192,17 @@ def test_option_class_equality():
         pc.WeekOptions(week_starts_monday=True, count_from_zero=False,
                        first_week_is_fully_in_year=False),
     ]
-    # Timezone database might not be installed on Windows
-    if sys.platform != "win32" or util.windows_has_tzdata():
+    # Timezone database might not be installed on Windows or Emscripten
+    if request.config.pyarrow.is_enabled["timezone_data"]:
         options.append(pc.AssumeTimezoneOptions("Europe/Ljubljana"))
 
     classes = {type(option) for option in options}
 
     for cls in exported_option_classes:
-        # Timezone database might not be installed on Windows
+        # Timezone database might not be installed on Windows or Emscripten
         if (
             cls not in classes
-            and (sys.platform != "win32" or util.windows_has_tzdata())
+            and (request.config.pyarrow.is_enabled["timezone_data"])
             and cls != pc.AssumeTimezoneOptions
         ):
             try:
@@ -2085,8 +2084,7 @@ def test_strptime():
 
 
 @pytest.mark.pandas
-@pytest.mark.skipif(sys.platform == "win32" and not util.windows_has_tzdata(),
-                    reason="Timezone database is not installed on Windows")
+@pytest.mark.timezone_data
 def test_strftime():
     times = ["2018-03-10 09:00", "2038-01-31 12:23", None]
     timezones = ["CET", "UTC", "Europe/Ljubljana"]
@@ -2245,7 +2243,7 @@ def _check_datetime_components(timestamps, timezone=None):
 
 
 @pytest.mark.pandas
-def test_extract_datetime_components():
+def test_extract_datetime_components(request):
     timestamps = ["1970-01-01T00:00:59.123456789",
                   "2000-02-29T23:23:23.999999999",
                   "2033-05-18T03:33:20.000000000",
@@ -2268,7 +2266,7 @@ def test_extract_datetime_components():
     _check_datetime_components(timestamps)
 
     # Test timezone aware timestamp array
-    if sys.platform == "win32" and not util.windows_has_tzdata():
+    if not request.config.pyarrow.is_enabled["timezone_data"]:
         pytest.skip('Timezone database is not installed on Windows')
     else:
         for timezone in timezones:
@@ -2289,8 +2287,7 @@ def test_iso_calendar_longer_array(unit):
 
 
 @pytest.mark.pandas
-@pytest.mark.skipif(sys.platform == "win32" and not util.windows_has_tzdata(),
-                    reason="Timezone database is not installed on Windows")
+@pytest.mark.timezone_data
 def test_assume_timezone():
     ts_type = pa.timestamp("ns")
     timestamps = pd.to_datetime(["1970-01-01T00:00:59.123456789",
@@ -2485,8 +2482,7 @@ def _check_temporal_rounding(ts, values, unit):
         np.testing.assert_array_equal(result, expected)
 
 
-@pytest.mark.skipif(sys.platform == "win32" and not util.windows_has_tzdata(),
-                    reason="Timezone database is not installed on Windows")
+@pytest.mark.timezone_data
 @pytest.mark.parametrize('unit', ("nanosecond", "microsecond", "millisecond",
                                   "second", "minute", "hour", "day"))
 @pytest.mark.pandas

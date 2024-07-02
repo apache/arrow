@@ -345,6 +345,7 @@ def test_pytz_tzinfo_to_string():
     assert [pa.lib.tzinfo_to_string(i) for i in tz] == expected
 
 
+@pytest.mark.timezone_data
 def test_dateutil_tzinfo_to_string():
     if sys.platform == 'win32':
         # Skip due to new release of python-dateutil
@@ -360,6 +361,7 @@ def test_dateutil_tzinfo_to_string():
     assert pa.lib.tzinfo_to_string(tz) == 'Europe/Paris'
 
 
+@pytest.mark.timezone_data
 def test_zoneinfo_tzinfo_to_string():
     zoneinfo = pytest.importorskip('zoneinfo')
     if sys.platform == 'win32':

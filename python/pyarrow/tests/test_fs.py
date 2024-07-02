@@ -1987,6 +1987,8 @@ def test_s3_finalize_region_resolver():
     subprocess.check_call([sys.executable, "-c", code])
 
 
+@pytest.mark.processes
+@pytest.mark.threading
 @pytest.mark.s3
 def test_concurrent_s3fs_init():
     # GH-39897: lazy concurrent initialization of S3 subsystem should not crash

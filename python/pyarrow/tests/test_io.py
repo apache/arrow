@@ -37,7 +37,7 @@ import pyarrow as pa
 
 
 def check_large_seeks(file_factory, expected_error=None):
-    if sys.platform in ('win32', 'darwin'):
+    if sys.platform in ('win32', 'darwin', 'emscripten'):
         pytest.skip("need sparse file support")
     try:
         filename = tempfile.mktemp(prefix='test_io')
@@ -1143,6 +1143,8 @@ def _try_delete(path):
 
 
 def test_memory_map_writer(tmpdir):
+    if sys.platform == "emscripten":
+        pytest.xfail("Multiple memory maps to same file don't work on emscripten")
     SIZE = 4096
     arr = np.random.randint(0, 256, size=SIZE).astype('u1')
     data = arr.tobytes()[:SIZE]
@@ -1334,6 +1336,9 @@ def test_native_file_modes(tmpdir):
         assert f.seekable()
 
 
+@pytest.mark.xfail(
+    sys.platform == "emscripten", reason="umask doesn't work on Emscripten"
+)
 def test_native_file_permissions(tmpdir):
     # ARROW-10124: permissions of created files should follow umask
     cur_umask = os.umask(0o002)

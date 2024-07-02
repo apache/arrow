@@ -143,6 +143,21 @@ if(NOT DEFINED ARROW_RUNTIME_SIMD_LEVEL)
 endif()
 include(SetupCxxFlags)
 
+if($ENV{PYODIDE})
+  # These variables are needed for building PyArrow on Emscripten.
+  # If they aren't set, CMake cross compiling fails for Python
+  # modules (at least under Pyodide it does).
+  set(Python3_INCLUDE_DIR $ENV{PYTHONINCLUDE})
+  set(Python3_LIBRARY $ENV{CPYTHONLIB})
+  set(Python3_NumPy_INCLUDE_DIR $ENV{NUMPY_LIB}/core/include)
+  set(Python3_EXECUTABLE)
+  set(ENV{_PYTHON_SYSCONFIGDATA_NAME} $ENV{SYSCONFIG_NAME})
+  # we set the c and cxx compiler manually to bypass pywasmcross
+  # which is pyodide's way of messing with C++ build parameters.
+  set(CMAKE_C_COMPILER emcc)
+  set(CMAKE_CXX_COMPILER em++)
+endif()
+
 # Add common flags
 set(CMAKE_CXX_FLAGS "${CXX_COMMON_FLAGS} ${CMAKE_CXX_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${PYARROW_CXXFLAGS}")
@@ -344,6 +359,27 @@ set(PYARROW_CPP_LINK_LIBS "")
 #
 
 # Check all the options from Arrow and PyArrow C++ to be in line
+#
+# Order is important for "NOT ARROW_BUILD_SHARED". We must use
+# depending modules -> depended modules order. For example,
+# ArrowSubstrait depends on ArrowDataset. So PYARROW_CPP_LINK_LIBS
+# must use
+# "ArrowSubstrait::arrow_substrait_static;ArrowDataset::arrow_dataset_static"
+# order.
+
+if(PYARROW_BUILD_SUBSTRAIT)
+  message(STATUS "Building PyArrow with Substrait")
+  if(NOT ARROW_SUBSTRAIT)
+    message(FATAL_ERROR "You must build Arrow C++ with ARROW_SUBSTRAIT=ON")
+  endif()
+  find_package(ArrowSubstrait REQUIRED)
+  if(ARROW_BUILD_SHARED)
+    list(APPEND PYARROW_CPP_LINK_LIBS ArrowSubstrait::arrow_substrait_shared)
+  else()
+    list(APPEND PYARROW_CPP_LINK_LIBS ArrowSubstrait::arrow_substrait_static)
+  endif()
+endif()
+
 if(PYARROW_BUILD_DATASET)
   message(STATUS "Building PyArrow with Dataset")
   if(NOT ARROW_DATASET)
@@ -414,7 +450,17 @@ if(NOT CMAKE_VERSION VERSION_LESS 3.16)
   target_precompile_headers(arrow_python PUBLIC
                             "$<$<COMPILE_LANGUAGE:CXX>:arrow/python/pch.h>")
 endif()
-target_link_libraries(arrow_python PUBLIC ${PYARROW_CPP_LINK_LIBS} Python3::NumPy)
+
+# on static builds we need to be careful not to link PYARROW_CPP_LINK_LIBS
+# into everything depending on arrow_python, or else we get duplicate
+# libraries. Whereas conversely on shared builds, we need everything
+# to depend on everything, as python loads modules separately
+if(ARROW_BUILD_SHARED)
+  target_link_libraries(arrow_python PUBLIC ${PYARROW_CPP_LINK_LIBS})
+else()
+  target_link_libraries(arrow_python PRIVATE ${PYARROW_CPP_LINK_LIBS})
+endif()
+target_link_libraries(arrow_python PUBLIC Python3::NumPy)
 target_compile_definitions(arrow_python PRIVATE ARROW_PYTHON_EXPORTING)
 install(TARGETS arrow_python
         ARCHIVE DESTINATION .
@@ -650,27 +696,37 @@ endif()
 
 # Acero
 if(PYARROW_BUILD_ACERO)
-  if(PYARROW_BUNDLE_ARROW_CPP)
-    bundle_arrow_lib(${ARROW_ACERO_SHARED_LIB} SO_VERSION ${ARROW_SO_VERSION})
-    if(MSVC)
-      bundle_arrow_import_lib(${ARROW_ACERO_IMPORT_LIB})
+  if(ARROW_BUILD_SHARED)
+    if(PYARROW_BUNDLE_ARROW_CPP)
+      bundle_arrow_lib(${ARROW_ACERO_SHARED_LIB} SO_VERSION ${ARROW_SO_VERSION})
+      if(MSVC)
+        bundle_arrow_import_lib(${ARROW_ACERO_IMPORT_LIB})
+      endif()
     endif()
-  endif()
 
-  set(ACERO_LINK_LIBS ArrowAcero::arrow_acero_shared)
+    set(ACERO_LINK_LIBS ArrowAcero::arrow_acero_shared)
+  else()
+    # Acero is statically linked into libarrow_python already
+    set(ACERO_LINK_LIBS)
+  endif()
   list(APPEND CYTHON_EXTENSIONS _acero)
 endif()
 
 # Dataset
 if(PYARROW_BUILD_DATASET)
-  if(PYARROW_BUNDLE_ARROW_CPP)
-    bundle_arrow_lib(${ARROW_DATASET_SHARED_LIB} SO_VERSION ${ARROW_SO_VERSION})
-    if(MSVC)
-      bundle_arrow_import_lib(${ARROW_DATASET_IMPORT_LIB})
+  if(ARROW_BUILD_SHARED)
+    if(PYARROW_BUNDLE_ARROW_CPP)
+      bundle_arrow_lib(${ARROW_DATASET_SHARED_LIB} SO_VERSION ${ARROW_SO_VERSION})
+      if(MSVC)
+        bundle_arrow_import_lib(${ARROW_DATASET_IMPORT_LIB})
+      endif()
     endif()
-  endif()
 
-  set(DATASET_LINK_LIBS ArrowDataset::arrow_dataset_shared)
+    set(DATASET_LINK_LIBS ArrowDataset::arrow_dataset_shared)
+  else()
+    # dataset is statically linked into libarrow_python already
+    set(DATASET_LINK_LIBS)
+  endif()
   list(APPEND CYTHON_EXTENSIONS _dataset)
 endif()
 
@@ -692,7 +748,9 @@ if(PYARROW_BUILD_PARQUET)
     endif()
     set(PARQUET_LINK_LIBS Parquet::parquet_shared)
   else()
-    set(PARQUET_LINK_LIBS Parquet::parquet_static)
+    # don't link the static lib as it is
+    # already in arrow_python
+    set(PARQUET_LINK_LIBS)
   endif()
   list(APPEND CYTHON_EXTENSIONS _parquet)
   if(PYARROW_BUILD_PARQUET_ENCRYPTION)
@@ -741,18 +799,20 @@ endif()
 # Substrait
 if(PYARROW_BUILD_SUBSTRAIT)
   message(STATUS "Building PyArrow with Substrait")
-  if(NOT ARROW_SUBSTRAIT)
-    message(FATAL_ERROR "You must build Arrow C++ with ARROW_SUBSTRAIT=ON")
-  endif()
-  find_package(ArrowSubstrait REQUIRED)
-  if(PYARROW_BUNDLE_ARROW_CPP)
-    bundle_arrow_lib(${ARROW_SUBSTRAIT_SHARED_LIB} SO_VERSION ${ARROW_SO_VERSION})
-    if(MSVC)
-      bundle_arrow_import_lib(${ARROW_SUBSTRAIT_IMPORT_LIB})
+
+  if(ARROW_BUILD_SHARED)
+    if(PYARROW_BUNDLE_ARROW_CPP)
+      bundle_arrow_lib(${ARROW_SUBSTRAIT_SHARED_LIB} SO_VERSION ${ARROW_SO_VERSION})
+      if(MSVC)
+        bundle_arrow_import_lib(${ARROW_SUBSTRAIT_IMPORT_LIB})
+      endif()
     endif()
+    set(SUBSTRAIT_LINK_LIBS ArrowSubstrait::arrow_substrait_shared)
+  else()
+    # Arrow Substrait is statically linked into libarrow_python already
+    set(SUBSTRAIT_LINK_LIBS)
   endif()
 
-  set(SUBSTRAIT_LINK_LIBS ArrowSubstrait::arrow_substrait_shared)
   list(APPEND CYTHON_EXTENSIONS _substrait)
 endif()
 

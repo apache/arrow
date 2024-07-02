@@ -33,7 +33,7 @@ import warnings
 import numpy as np
 
 import pyarrow as pa
-from pyarrow.lib import _pandas_api, frombytes  # noqa
+from pyarrow.lib import _pandas_api, frombytes, is_threading_enabled  # noqa
 
 
 _logical_type_map = {}
@@ -581,6 +581,9 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
             nthreads = pa.cpu_count()
         else:
             nthreads = 1
+    # if we don't have threading in libarrow, don't use threading here either
+    if not is_threading_enabled():
+        nthreads = 1
 
     def convert_column(col, field):
         if field is None:

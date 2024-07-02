@@ -242,6 +242,7 @@ def test_empty_stream():
 
 
 @pytest.mark.pandas
+@pytest.mark.processes
 def test_read_year_month_nano_interval(tmpdir):
     """ARROW-15783: Verify to_pandas works for interval types.
 
@@ -895,6 +896,7 @@ def socket_fixture():
     return SocketStreamFixture()
 
 
+@pytest.mark.sockets
 def test_socket_simple_roundtrip(socket_fixture):
     socket_fixture.start_server(do_read_all=False)
     writer_batches = socket_fixture.write_batches()
@@ -906,6 +908,7 @@ def test_socket_simple_roundtrip(socket_fixture):
         assert reader_batches[i].equals(batch)
 
 
+@pytest.mark.sockets
 def test_socket_read_all(socket_fixture):
     socket_fixture.start_server(do_read_all=True)
     writer_batches = socket_fixture.write_batches()
