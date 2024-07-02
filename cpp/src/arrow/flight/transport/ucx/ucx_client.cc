@@ -97,7 +97,7 @@ class ClientConnection {
       ucp_worker_params_t worker_params;
       std::memset(&worker_params, 0, sizeof(worker_params));
       worker_params.field_mask = UCP_WORKER_PARAM_FIELD_THREAD_MODE;
-      worker_params.thread_mode = UCS_THREAD_MODE_SERIALIZED;
+      worker_params.thread_mode = UCS_THREAD_MODE_MULTI;
 
       ucp_worker_h ucp_worker;
       status = ucp_worker_create(ucp_context->get(), &worker_params, &ucp_worker);
