@@ -21,7 +21,6 @@ package compute
 import (
 	"fmt"
 	"io"
-	"math"
 	"time"
 
 	"github.com/apache/arrow/go/v17/arrow"
@@ -30,6 +29,7 @@ import (
 	"github.com/apache/arrow/go/v17/arrow/compute/internal/kernels"
 	"github.com/apache/arrow/go/v17/arrow/internal/debug"
 	"github.com/apache/arrow/go/v17/arrow/memory"
+	"github.com/apache/arrow/go/v17/internal/utils"
 	"golang.org/x/xerrors"
 )
 
@@ -43,9 +43,9 @@ func (b *bufferWriteSeeker) Reserve(nbytes int) {
 	if b.buf == nil {
 		b.buf = memory.NewResizableBuffer(b.mem)
 	}
-	newCap := int(math.Max(float64(b.buf.Cap()), 256))
+	newCap := utils.Max(b.buf.Cap(), 256)
 	for newCap < b.pos+nbytes {
-		newCap = bitutil.NextPowerOf2(newCap)
+		newCap = bitutil.NextPowerOf2(b.pos + nbytes)
 	}
 	b.buf.Reserve(newCap)
 }
