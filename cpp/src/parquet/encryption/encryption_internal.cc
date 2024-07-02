@@ -325,7 +325,19 @@ class AesDecryptor::AesDecryptorImpl {
     }
   }
 
-  int ciphertext_size_delta() { return ciphertext_size_delta_; }
+  [[nodiscard]] int PlaintextLength(int ciphertext_len) const {
+    if (ciphertext_len < ciphertext_size_delta_) {
+      std::stringstream ss;
+      ss << "Ciphertext length " << ciphertext_len << " is invalid, expected at least "
+         << ciphertext_size_delta_;
+      throw ParquetException(ss.str());
+    }
+    return ciphertext_len - ciphertext_size_delta_;
+  }
+
+  [[nodiscard]] int CiphertextLength(int plaintext_len) const {
+    return plaintext_len + ciphertext_size_delta_;
+  }
 
  private:
   EVP_CIPHER_CTX* ctx_;
@@ -333,6 +345,11 @@ class AesDecryptor::AesDecryptorImpl {
   int key_length_;
   int ciphertext_size_delta_;
   int length_buffer_length_;
+
+  /// Get the actual ciphertext length, inclusive of the length buffer length,
+  /// and validate that the provided buffer size is large enough.
+  int GetCiphertextLength(const uint8_t* ciphertext, int ciphertext_buffer_len) const;
+
   int GcmDecrypt(const uint8_t* ciphertext, int ciphertext_len, const uint8_t* key,
                  int key_len, const uint8_t* aad, int aad_len, uint8_t* plaintext);
 
@@ -340,10 +357,11 @@ class AesDecryptor::AesDecryptorImpl {
                  int key_len, uint8_t* plaintext);
 };
 
-int AesDecryptor::Decrypt(const uint8_t* plaintext, int plaintext_len, const uint8_t* key,
-                          int key_len, const uint8_t* aad, int aad_len,
-                          uint8_t* ciphertext) {
-  return impl_->Decrypt(plaintext, plaintext_len, key, key_len, aad, aad_len, ciphertext);
+int AesDecryptor::Decrypt(const uint8_t* ciphertext, int ciphertext_len,
+                          const uint8_t* key, int key_len, const uint8_t* aad,
+                          int aad_len, uint8_t* plaintext) {
+  return impl_->Decrypt(ciphertext, ciphertext_len, key, key_len, aad, aad_len,
+                        plaintext);
 }
 
 void AesDecryptor::WipeOut() { impl_->WipeOut(); }
@@ -438,7 +456,43 @@ std::shared_ptr<AesDecryptor> AesDecryptor::Make(
   return decryptor;
 }
 
-int AesDecryptor::CiphertextSizeDelta() { return impl_->ciphertext_size_delta(); }
+int AesDecryptor::PlaintextLength(int ciphertext_len) const {
+  return impl_->PlaintextLength(ciphertext_len);
+}
+
+int AesDecryptor::CiphertextLength(int plaintext_len) const {
+  return impl_->CiphertextLength(plaintext_len);
+}
+
+int AesDecryptor::AesDecryptorImpl::GetCiphertextLength(const uint8_t* ciphertext,
+                                                        int ciphertext_buffer_len) const {
+  if (length_buffer_length_ > 0) {
+    if (ciphertext_buffer_len < length_buffer_length_) {
+      std::stringstream ss;
+      ss << "Ciphertext buffer length " << ciphertext_buffer_len
+         << " is insufficient to read the ciphertext length";
+      throw ParquetException(ss.str());
+    }
+
+    // Extract ciphertext length
+    int written_ciphertext_len = ((ciphertext[3] & 0xff) << 24) |
+                                 ((ciphertext[2] & 0xff) << 16) |
+                                 ((ciphertext[1] & 0xff) << 8) | ((ciphertext[0] & 0xff));
+
+    if (ciphertext_buffer_len < (written_ciphertext_len + length_buffer_length_)) {
+      std::stringstream ss;
+      ss << "Serialized ciphertext length "
+         << (written_ciphertext_len + length_buffer_length_)
+         << " is greater than the provided ciphertext buffer length "
+         << ciphertext_buffer_len;
+      throw ParquetException(ss.str());
+    }
+
+    return written_ciphertext_len + length_buffer_length_;
+  } else {
+    return ciphertext_buffer_len;
+  }
+}
 
 int AesDecryptor::AesDecryptorImpl::GcmDecrypt(const uint8_t* ciphertext,
                                                int ciphertext_len, const uint8_t* key,
@@ -452,21 +506,13 @@ int AesDecryptor::AesDecryptorImpl::GcmDecrypt(const uint8_t* ciphertext,
   uint8_t nonce[kNonceLength];
   memset(nonce, 0, kNonceLength);
 
-  if (length_buffer_length_ > 0) {
-    // Extract ciphertext length
-    int written_ciphertext_len = ((ciphertext[3] & 0xff) << 24) |
-                                 ((ciphertext[2] & 0xff) << 16) |
-                                 ((ciphertext[1] & 0xff) << 8) | ((ciphertext[0] & 0xff));
+  ciphertext_len = GetCiphertextLength(ciphertext, ciphertext_len);
 
-    if (ciphertext_len > 0 &&
-        ciphertext_len != (written_ciphertext_len + length_buffer_length_)) {
-      throw ParquetException("Wrong ciphertext length");
-    }
-    ciphertext_len = written_ciphertext_len + length_buffer_length_;
-  } else {
-    if (ciphertext_len == 0) {
-      throw ParquetException("Zero ciphertext length");
-    }
+  if (ciphertext_len < length_buffer_length_ + kNonceLength + kGcmTagLength) {
+    std::stringstream ss;
+    ss << "Invalid ciphertext length " << ciphertext_len << ". Expected at least "
+       << length_buffer_length_ + kNonceLength + kGcmTagLength << "\n";
+    throw ParquetException(ss.str());
   }
 
   // Extracting IV and tag
@@ -517,21 +563,13 @@ int AesDecryptor::AesDecryptorImpl::CtrDecrypt(const uint8_t* ciphertext,
   uint8_t iv[kCtrIvLength];
   memset(iv, 0, kCtrIvLength);
 
-  if (length_buffer_length_ > 0) {
-    // Extract ciphertext length
-    int written_ciphertext_len = ((ciphertext[3] & 0xff) << 24) |
-                                 ((ciphertext[2] & 0xff) << 16) |
-                                 ((ciphertext[1] & 0xff) << 8) | ((ciphertext[0] & 0xff));
+  ciphertext_len = GetCiphertextLength(ciphertext, ciphertext_len);
 
-    if (ciphertext_len > 0 &&
-        ciphertext_len != (written_ciphertext_len + length_buffer_length_)) {
-      throw ParquetException("Wrong ciphertext length");
-    }
-    ciphertext_len = written_ciphertext_len;
-  } else {
-    if (ciphertext_len == 0) {
-      throw ParquetException("Zero ciphertext length");
-    }
+  if (ciphertext_len < length_buffer_length_ + kNonceLength) {
+    std::stringstream ss;
+    ss << "Invalid ciphertext length " << ciphertext_len << ". Expected at least "
+       << length_buffer_length_ + kNonceLength << "\n";
+    throw ParquetException(ss.str());
   }
 
   // Extracting nonce
@@ -551,7 +589,7 @@ int AesDecryptor::AesDecryptorImpl::CtrDecrypt(const uint8_t* ciphertext,
   // Decryption
   if (!EVP_DecryptUpdate(ctx_, plaintext, &len,
                          ciphertext + length_buffer_length_ + kNonceLength,
-                         ciphertext_len - kNonceLength)) {
+                         ciphertext_len - length_buffer_length_ - kNonceLength)) {
     throw ParquetException("Failed decryption update");
   }
 

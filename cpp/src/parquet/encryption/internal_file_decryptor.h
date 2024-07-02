@@ -45,7 +45,8 @@ class PARQUET_EXPORT Decryptor {
   void UpdateAad(const std::string& aad) { aad_ = aad; }
   ::arrow::MemoryPool* pool() { return pool_; }
 
-  int CiphertextSizeDelta();
+  [[nodiscard]] int PlaintextLength(int ciphertext_len) const;
+  [[nodiscard]] int CiphertextLength(int plaintext_len) const;
   int Decrypt(const uint8_t* ciphertext, int ciphertext_len, uint8_t* plaintext);
 
  private:
