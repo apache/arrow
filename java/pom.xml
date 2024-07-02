@@ -23,7 +23,7 @@ under the License.
   <parent>
     <groupId>org.apache</groupId>
     <artifactId>apache</artifactId>
-    <version>31</version>
+    <version>32</version>
   </parent>
 
   <groupId>org.apache.arrow</groupId>
@@ -103,14 +103,18 @@ under the License.
     <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
     <errorprone.javac.version>9+181-r4173-1</errorprone.javac.version>
     <error_prone_core.version>2.28.0</error_prone_core.version>
-    <mockito.core.version>5.11.0</mockito.core.version>
+    <mockito.core.version>4.11.0</mockito.core.version>
     <mockito.inline.version>5.2.0</mockito.inline.version>
     <checker.framework.version>3.44.0</checker.framework.version>
     <doclint>none</doclint>
     <additionalparam>-Xdoclint:none</additionalparam>
+    <!-- List of add-opens arg line arguments if tests are running on JDK 11 or higher -->
+    <surefire.add-opens.argLine>--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED</surefire.add-opens.argLine>
     <!-- org.apache:apache overrides -->
+    <minimalJavaBuildVersion>21</minimalJavaBuildVersion>
     <maven.compiler.source>1.8</maven.compiler.source>
     <maven.compiler.target>1.8</maven.compiler.target>
+    <maven.compiler.release>8</maven.compiler.release>
     <maven.plugin.tools.version>3.12.0</maven.plugin.tools.version>
     <surefire.version>3.2.5</surefire.version>
     <version.apache-rat-plugin>0.16.1</version.apache-rat-plugin>
@@ -123,8 +127,6 @@ under the License.
       is addressed
     -->
     <version.maven-jar-plugin>3.2.2</version.maven-jar-plugin>
-    <version.maven-javadoc-plugin>3.6.3</version.maven-javadoc-plugin>
-    <version.maven-project-info-reports-plugin>3.5.0</version.maven-project-info-reports-plugin>
   </properties>
 
   <dependencyManagement>
@@ -992,30 +994,6 @@ under the License.
         </plugins>
       </build>
     </profile>
-    <profile>
-      <id>jdk11+</id>
-      <activation>
-        <jdk>[11,]</jdk>
-      </activation>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-surefire-plugin</artifactId>
-            <configuration>
-              <argLine>--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED</argLine>
-            </configuration>
-          </plugin>
-          <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-failsafe-plugin</artifactId>
-            <configuration>
-              <argLine>--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED</argLine>
-            </configuration>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
 
     <profile>
       <id>code-coverage</id>
@@ -1344,6 +1322,92 @@ under the License.
                 </configuration>
               </execution>
             </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <!-- Cross java version test profiles -->
+    <profile>
+      <id>cross-jdk-testing</id>
+      <activation>
+        <property>
+          <name>arrow.test.jdk-version</name>
+        </property>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <artifactId>maven-enforcer-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>check-jdk-version-property</id>
+                <goals>
+                  <goal>enforce</goal>
+                </goals>
+                <phase>validate</phase>
+                <configuration>
+                  <rules>
+                    <requireProperty>
+                      <property>arrow.test.jdk-version</property>
+                      <message>"JDK version used for test must be specified."</message>
+                      <regex>^(1\.8|\d{2,})</regex>
+                      <regexMessage>"JDK version used for test must be either 1.8 for Java 8, or 11, 17, 21, ..."</regexMessage>
+                    </requireProperty>
+                  </rules>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <configuration>
+              <jdkToolchain>
+                <version>${arrow.test.jdk-version}</version>
+              </jdkToolchain>
+            </configuration>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-failsafe-plugin</artifactId>
+            <configuration>
+              <jdkToolchain>
+                <version>${arrow.test.jdk-version}</version>
+              </jdkToolchain>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>jdk-testing-jdk11+</id>
+      <activation>
+        <jdk>[11,</jdk>
+        <property>
+          <name>arrow.test.jdk-version</name>
+          <value>!1.8</value>
+        </property>
+      </activation>
+      <properties>
+        <mockito.core.version>5.11.0</mockito.core.version>
+        <mockito.inline.version>5.2.0</mockito.inline.version>
+      </properties>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <configuration>
+              <argLine>${surefire.add-opens.argLine}</argLine>
+            </configuration>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-failsafe-plugin</artifactId>
+            <configuration>
+              <argLine>${surefire.add-opens.argLine}</argLine>
+            </configuration>
           </plugin>
         </plugins>
       </build>

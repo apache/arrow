@@ -86,7 +86,7 @@ public class MurmurHasher implements ArrowBufHasher {
     int index = 0;
     int hash = seed;
     while (index + 4 <= length) {
-      int intValue = MemoryUtil.UNSAFE.getInt(address + index);
+      int intValue = MemoryUtil.getInt(address + index);
       hash = combineHashCode(hash, intValue);
       index += 4;
     }
@@ -96,7 +96,7 @@ public class MurmurHasher implements ArrowBufHasher {
       int intValue = 0;
       for (long i = length - 1; i >= index; i--) {
         intValue <<= 8;
-        intValue |= (MemoryUtil.UNSAFE.getByte(address + i) & 0x000000ff);
+        intValue |= (MemoryUtil.getByte(address + i) & 0x000000ff);
         index += 1;
       }
       hash = combineHashCode(hash, intValue);

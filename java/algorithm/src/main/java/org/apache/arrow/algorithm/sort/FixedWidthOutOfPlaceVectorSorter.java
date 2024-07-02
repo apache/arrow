@@ -77,7 +77,7 @@ public class FixedWidthOutOfPlaceVectorSorter<V extends BaseFixedWidthVector>
           BitVectorHelper.unsetBit(dstValidityBuffer, dstIndex);
         } else {
           BitVectorHelper.setBit(dstValidityBuffer, dstIndex);
-          MemoryUtil.UNSAFE.copyMemory(
+          MemoryUtil.copyMemory(
               srcValueBuffer.memoryAddress() + srcIndex * ((long) valueWidth),
               dstValueBuffer.memoryAddress() + dstIndex * ((long) valueWidth),
               valueWidth);

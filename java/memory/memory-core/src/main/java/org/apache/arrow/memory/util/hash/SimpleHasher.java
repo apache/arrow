@@ -52,21 +52,21 @@ public class SimpleHasher implements ArrowBufHasher {
     int hashValue = 0;
     int index = 0;
     while (index + 8 <= length) {
-      long longValue = MemoryUtil.UNSAFE.getLong(address + index);
+      long longValue = MemoryUtil.getLong(address + index);
       int longHash = getLongHashCode(longValue);
       hashValue = combineHashCode(hashValue, longHash);
       index += 8;
     }
 
     if (index + 4 <= length) {
-      int intValue = MemoryUtil.UNSAFE.getInt(address + index);
+      int intValue = MemoryUtil.getInt(address + index);
       int intHash = intValue;
       hashValue = combineHashCode(hashValue, intHash);
       index += 4;
     }
 
     while (index < length) {
-      byte byteValue = MemoryUtil.UNSAFE.getByte(address + index);
+      byte byteValue = MemoryUtil.getByte(address + index);
       int byteHash = byteValue;
       hashValue = combineHashCode(hashValue, byteHash);
       index += 1;

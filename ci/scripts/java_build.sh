@@ -98,6 +98,12 @@ if [ "${ARROW_JAVA_JNI}" = "ON" ]; then
   mvn="${mvn} -Darrow.cpp.build.dir=${java_jni_dist_dir} -Parrow-jni"
 fi
 
+if [ "${TEST_JDK}" = "8" ]; then
+  mvn="${mvn} -Darrow.test.jdk-version=1.8"
+elif [ "${TEST_JDK}" != "" ]; then
+  mvn="${mvn} -Darrow.test.jdk-version=${TEST_JDK}"
+fi
+
 ${mvn} clean install
 
 if [ "${BUILD_DOCS_JAVA}" == "ON" ]; then

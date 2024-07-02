@@ -35,6 +35,12 @@ mvn="${mvn} -T 2C"
 
 pushd ${source_dir}
 
+if [ "${TEST_JDK}" = "8" ]; then
+  mvn="${mvn} -Darrow.test.jdk-version=1.8"
+elif [ "${TEST_JDK}" != "" ]; then
+  mvn="${mvn} -Darrow.test.jdk-version=${TEST_JDK}"
+fi
+
 ${mvn} clean test
 
 projects=()
