@@ -1440,6 +1440,17 @@ def test_tensor_class_methods(value_type):
     assert result.to_tensor().shape == (1, 3, 2, 2)
     assert result.to_tensor().strides == (12 * bw, 1 * bw, 6 * bw, 2 * bw)
 
+    tensor_type = pa.fixed_shape_tensor(arrow_type, [2, 2, 3], permutation=[2, 1, 0])
+    result = pa.ExtensionArray.from_storage(tensor_type, storage)
+    expected = as_strided(flat_arr, shape=(1, 3, 2, 2),
+                          strides=(bw * 12, bw, bw * 3, bw * 6))
+    np.testing.assert_array_equal(result.to_numpy_ndarray(), expected)
+
+    assert result.type.permutation == [2, 1, 0]
+    assert result.type.shape == [2, 2, 3]
+    assert result.to_tensor().shape == (1, 3, 2, 2)
+    assert result.to_tensor().strides == (12 * bw, 1 * bw, 3 * bw, 6 * bw)
+
 
 @pytest.mark.parametrize("value_type", (np.int8(), np.int64(), np.float32()))
 def test_tensor_array_from_numpy(value_type):

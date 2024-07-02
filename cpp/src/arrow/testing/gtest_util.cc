@@ -49,9 +49,13 @@
 #include "arrow/buffer.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/datum.h"
+#include "arrow/io/memory.h"
 #include "arrow/ipc/json_simple.h"
+#include "arrow/ipc/reader.h"
+#include "arrow/ipc/writer.h"
 #include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
 #include "arrow/pretty_print.h"
+#include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/tensor.h"
@@ -584,6 +588,20 @@ void ApproxCompareBatch(const RecordBatch& left, const RecordBatch& right,
                           [&](const Array& left, const Array& right) {
                             return left.ApproxEquals(right, options);
                           });
+}
+
+void RoundtripBatch(const std::shared_ptr<RecordBatch>& batch,
+                    std::shared_ptr<RecordBatch>* out) {
+  ASSERT_OK_AND_ASSIGN(auto out_stream, io::BufferOutputStream::Create());
+  ASSERT_OK(ipc::WriteRecordBatchStream({batch}, ipc::IpcWriteOptions::Defaults(),
+                                        out_stream.get()));
+
+  ASSERT_OK_AND_ASSIGN(auto complete_ipc_stream, out_stream->Finish());
+
+  io::BufferReader reader(complete_ipc_stream);
+  std::shared_ptr<RecordBatchReader> batch_reader;
+  ASSERT_OK_AND_ASSIGN(batch_reader, ipc::RecordBatchStreamReader::Open(&reader));
+  ASSERT_OK(batch_reader->ReadNext(out));
 }
 
 std::shared_ptr<Array> TweakValidityBit(const std::shared_ptr<Array>& array,
