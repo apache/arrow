@@ -367,6 +367,8 @@ class ARROW_EXPORT AzureFileSystem : public FileSystem {
   Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
       const std::string& path,
       const std::shared_ptr<const KeyValueMetadata>& metadata) override;
+
+  Result<std::string> PathFromUri(const std::string& uri_string) const override;
 };
 
 }  // namespace arrow::fs

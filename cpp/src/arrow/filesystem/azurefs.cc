@@ -3199,4 +3199,23 @@ Result<std::shared_ptr<io::OutputStream>> AzureFileSystem::OpenAppendStream(
   return impl_->OpenAppendStream(location, metadata, false, this);
 }
 
+Result<std::string> AzureFileSystem::PathFromUri(const std::string& uri_string) const {
+  std::string path;
+  Uri uri;
+  RETURN_NOT_OK(uri.Parse(uri_string));
+  RETURN_NOT_OK(AzureOptions::FromUri(uri, &path));
+
+  std::vector<std::string> supported_schemes = {"abfs", "abfss"};
+  const auto scheme = uri.scheme();
+  if (std::find(supported_schemes.begin(), supported_schemes.end(), scheme) ==
+      supported_schemes.end()) {
+    std::string expected_schemes =
+        ::arrow::internal::JoinStrings(supported_schemes, ", ");
+    return Status::Invalid("The filesystem expected a URI with one of the schemes (",
+                           expected_schemes, ") but received ", uri_string);
+  }
+
+  return path;
+}
+
 }  // namespace arrow::fs
