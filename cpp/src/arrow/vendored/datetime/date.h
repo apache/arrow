@@ -4204,6 +4204,8 @@ make_time(const std::chrono::duration<Rep, Period>& d)
     return hh_mm_ss<std::chrono::duration<Rep, Period>>(d);
 }
 
+#if __cplusplus < 202002L
+
 template <class CharT, class Traits, class Duration>
 inline
 typename std::enable_if
@@ -4232,6 +4234,8 @@ operator<<(std::basic_ostream<CharT, Traits>& os, const local_time<Duration>& ut
 {
     return (os << sys_time<Duration>{ut.time_since_epoch()});
 }
+
+#endif
 
 namespace detail
 {
