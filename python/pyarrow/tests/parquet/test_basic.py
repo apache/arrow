@@ -22,7 +22,10 @@ import warnings
 from shutil import copytree
 from decimal import Decimal
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 import pytest
 
 import pyarrow as pa

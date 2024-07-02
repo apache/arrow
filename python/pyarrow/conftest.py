@@ -20,7 +20,6 @@ import pyarrow as pa
 from pyarrow import Codec
 from pyarrow import fs
 
-import numpy as np
 
 groups = [
     'acero',
@@ -40,6 +39,8 @@ groups = [
     'lz4',
     'memory_leak',
     'nopandas',
+    'nonumpy',
+    'numpy',
     'orc',
     'pandas',
     'parquet',
@@ -72,6 +73,8 @@ defaults = {
     'lz4': Codec.is_available('lz4'),
     'memory_leak': False,
     'nopandas': False,
+    'nonumpy': False,
+    'numpy': False,
     'orc': False,
     'pandas': False,
     'parquet': False,
@@ -125,6 +128,12 @@ try:
     defaults['pandas'] = True
 except ImportError:
     defaults['nopandas'] = True
+
+try:
+    import numpy  # noqa
+    defaults['numpy'] = True
+except ImportError:
+    defaults['nonumpy'] = True
 
 try:
     import pyarrow.parquet  # noqa
@@ -295,6 +304,7 @@ def unary_agg_func_fixture():
     Register a unary aggregate function (mean)
     """
     from pyarrow import compute as pc
+    import numpy as np
 
     def func(ctx, x):
         return pa.scalar(np.nanmean(x))
@@ -320,6 +330,7 @@ def varargs_agg_func_fixture():
     Register a unary aggregate function
     """
     from pyarrow import compute as pc
+    import numpy as np
 
     def func(ctx, *args):
         sum = 0.0

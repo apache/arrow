@@ -50,6 +50,8 @@ cdef _sequence_to_array(object sequence, object mask, object size,
 
 
 cdef inline _is_array_like(obj):
+    if "numpy" not in sys.modules:
+        return False
     if isinstance(obj, np.ndarray):
         return True
     return pandas_api._have_pandas_internal() and pandas_api.is_array_like(obj)
@@ -1608,6 +1610,9 @@ cdef class Array(_PandasConvertible):
         """
         self._assert_cpu()
 
+        if "numpy" not in sys.modules:
+            raise ValueError(
+                "Cannot return a numpy.ndarray if Numpy is not present")
         cdef:
             PyObject* out
             PandasOptions c_options

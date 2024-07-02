@@ -17,7 +17,10 @@
 
 import base64
 from datetime import timedelta
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np=None
 import pyarrow.fs as fs
 import pyarrow as pa
 
@@ -170,6 +173,7 @@ def test_write_dataset_parquet_without_encryption():
         _ = pformat.make_write_options(encryption_config="some value")
 
 
+@pytest.mark.numpy
 @pytest.mark.skipif(
     encryption_unavailable, reason="Parquet Encryption is not currently enabled"
 )

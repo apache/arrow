@@ -16,12 +16,16 @@
 # under the License.
 
 import datetime
+import math
 import sys
 
 import pytest
 import hypothesis as h
 import hypothesis.strategies as st
-import hypothesis.extra.numpy as npst
+try:
+    import hypothesis.extra.numpy as npst
+except ImportError:
+    npst = None
 try:
     import hypothesis.extra.pytz as tzst
 except ImportError:
@@ -35,7 +39,6 @@ if sys.platform == 'win32':
         import tzdata  # noqa:F401
     except ImportError:
         zoneinfo = None
-import numpy as np
 
 import pyarrow as pa
 
@@ -276,7 +279,7 @@ def arrays(draw, type, size=None, nullable=True):
         values = draw(npst.arrays(ty.to_pandas_dtype(), shape=(size,)))
         # Workaround ARROW-4952: no easy way to assert array equality
         # in a NaN-tolerant way.
-        values[np.isnan(values)] = -42.0
+        values[math.isnan(values)] = -42.0
         return pa.array(values, type=ty)
     elif pa.types.is_decimal(ty):
         # TODO(kszucs): properly limit the precision

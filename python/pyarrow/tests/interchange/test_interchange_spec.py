@@ -19,10 +19,13 @@ import ctypes
 import hypothesis as h
 import hypothesis.strategies as st
 
-import numpy as np
+import pytest
+try:
+    import numpy as np
+except ImportError:
+    pytest.skip(reason="Failures on test collection due to numpy NOT enabled", allow_module_level=True)
 import pyarrow as pa
 import pyarrow.tests.strategies as past
-import pytest
 
 
 all_types = st.deferred(

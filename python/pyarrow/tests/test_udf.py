@@ -18,7 +18,10 @@
 
 import pytest
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 
 import pyarrow as pa
 from pyarrow import compute as pc
@@ -718,6 +721,7 @@ def test_udt_datasource1_exception():
         _test_datasource1_udt(datasource1_exception)
 
 
+@pytest.mark.numpy
 def test_scalar_agg_basic(unary_agg_func_fixture):
     arr = pa.array([10.0, 20.0, 30.0, 40.0, 50.0], pa.float64())
     result = pc.call_function("mean_udf", [arr])
@@ -725,6 +729,7 @@ def test_scalar_agg_basic(unary_agg_func_fixture):
     assert result == expected
 
 
+@pytest.mark.numpy
 def test_scalar_agg_empty(unary_agg_func_fixture):
     empty = pa.array([], pa.float64())
 
@@ -744,6 +749,7 @@ def test_scalar_agg_wrong_output_type(wrong_output_type_agg_func_fixture):
         pc.call_function("y=wrong_output_type(x)", [arr])
 
 
+@pytest.mark.numpy
 def test_scalar_agg_varargs(varargs_agg_func_fixture):
     arr1 = pa.array([10, 20, 30, 40, 50], pa.int64())
     arr2 = pa.array([1.0, 2.0, 3.0, 4.0, 5.0], pa.float64())
@@ -755,6 +761,7 @@ def test_scalar_agg_varargs(varargs_agg_func_fixture):
     assert result == expected
 
 
+@pytest.mark.numpy
 def test_scalar_agg_exception(exception_agg_func_fixture):
     arr = pa.array([10, 20, 30, 40, 50, 60], pa.int64())
 
@@ -762,6 +769,7 @@ def test_scalar_agg_exception(exception_agg_func_fixture):
         pc.call_function("y=exception_len(x)", [arr])
 
 
+@pytest.mark.numpy
 def test_hash_agg_basic(unary_agg_func_fixture):
     arr1 = pa.array([10.0, 20.0, 30.0, 40.0, 50.0], pa.float64())
     arr2 = pa.array([4, 2, 1, 2, 1], pa.int32())
@@ -780,6 +788,7 @@ def test_hash_agg_basic(unary_agg_func_fixture):
     assert result.sort_by('id') == expected.sort_by('id')
 
 
+@pytest.mark.numpy
 def test_hash_agg_empty(unary_agg_func_fixture):
     arr1 = pa.array([], pa.float64())
     arr2 = pa.array([], pa.int32())
@@ -810,6 +819,7 @@ def test_hash_agg_wrong_output_type(wrong_output_type_agg_func_fixture):
         table.group_by("id").aggregate([("value", "y=wrong_output_type(x)")])
 
 
+@pytest.mark.numpy
 def test_hash_agg_exception(exception_agg_func_fixture):
     arr1 = pa.array([10, 20, 30, 40, 50], pa.int64())
     arr2 = pa.array([4, 2, 1, 2, 1], pa.int32())
@@ -819,6 +829,7 @@ def test_hash_agg_exception(exception_agg_func_fixture):
         table.group_by("id").aggregate([("value", "y=exception_len(x)")])
 
 
+@pytest.mark.numpy
 def test_hash_agg_random(sum_agg_func_fixture):
     """Test hash aggregate udf with randomly sampled data"""
 

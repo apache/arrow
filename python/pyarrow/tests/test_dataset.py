@@ -28,7 +28,10 @@ import time
 from shutil import copytree
 from urllib.parse import quote
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 import pytest
 
 import pyarrow as pa
@@ -579,6 +582,7 @@ def test_abstract_classes():
             klass()
 
 
+@pytest.mark.numpy
 def test_partitioning():
     schema = pa.schema([
         pa.field('i64', pa.int64()),
@@ -2493,6 +2497,7 @@ def _create_partitioned_dataset(basedir):
     return full_table, path
 
 
+@pytest.mark.numpy
 @pytest.mark.parquet
 def test_open_dataset_partitioned_directory(tempdir, dataset_reader, pickle_module):
     full_table, path = _create_partitioned_dataset(tempdir)
@@ -4267,6 +4272,7 @@ def _get_num_of_files_generated(base_directory, file_format):
     return len(list(pathlib.Path(base_directory).glob(f'**/*.{file_format}')))
 
 
+@pytest.mark.numpy
 @pytest.mark.parquet
 def test_write_dataset_max_rows_per_file(tempdir):
     directory = tempdir / 'ds'
@@ -4304,6 +4310,7 @@ def test_write_dataset_max_rows_per_file(tempdir):
                for file_rowcount in result_row_combination)
 
 
+@pytest.mark.numpy
 @pytest.mark.parquet
 def test_write_dataset_min_rows_per_group(tempdir):
     directory = tempdir / 'ds'
@@ -4340,6 +4347,7 @@ def test_write_dataset_min_rows_per_group(tempdir):
                 assert rows_per_batch <= max_rows_per_group
 
 
+@pytest.mark.numpy
 @pytest.mark.parquet
 def test_write_dataset_max_rows_per_group(tempdir):
     directory = tempdir / 'ds'
@@ -4504,6 +4512,7 @@ def test_write_dataset_use_threads(tempdir):
     assert result1.to_table().equals(result2.to_table())
 
 
+@pytest.mark.numpy
 def test_write_table(tempdir):
     table = pa.table([
         pa.array(range(20)), pa.array(np.random.randn(20)),
@@ -4551,6 +4560,7 @@ def test_write_table(tempdir):
         assert pathlib.Path(visited_path) in expected_paths
 
 
+@pytest.mark.numpy
 def test_write_table_multiple_fragments(tempdir):
     table = pa.table([
         pa.array(range(10)), pa.array(np.random.randn(10)),
@@ -4587,6 +4597,7 @@ def test_write_table_multiple_fragments(tempdir):
     )
 
 
+@pytest.mark.numpy
 def test_write_iterable(tempdir):
     table = pa.table([
         pa.array(range(20)), pa.array(np.random.randn(20)),
@@ -4609,6 +4620,7 @@ def test_write_iterable(tempdir):
     assert result.equals(table)
 
 
+@pytest.mark.numpy
 def test_write_scanner(tempdir, dataset_reader):
     table = pa.table([
         pa.array(range(20)), pa.array(np.random.randn(20)),
@@ -4635,6 +4647,7 @@ def test_write_scanner(tempdir, dataset_reader):
                          schema=table.schema, format="feather")
 
 
+@pytest.mark.numpy
 def test_write_table_partitioned_dict(tempdir):
     # ensure writing table partitioned on a dictionary column works without
     # specifying the dictionary values explicitly
@@ -4659,6 +4672,7 @@ def test_write_table_partitioned_dict(tempdir):
     assert result.equals(table)
 
 
+@pytest.mark.numpy
 @pytest.mark.parquet
 def test_write_dataset_parquet(tempdir):
     table = pa.table([
@@ -4703,6 +4717,7 @@ def test_write_dataset_parquet(tempdir):
         assert result.equals(expected)
 
 
+@pytest.mark.numpy
 def test_write_dataset_csv(tempdir):
     table = pa.table([
         pa.array(range(20)), pa.array(np.random.randn(20)),
@@ -4729,6 +4744,7 @@ def test_write_dataset_csv(tempdir):
     assert result.equals(table)
 
 
+@pytest.mark.numpy
 @pytest.mark.parquet
 def test_write_dataset_parquet_file_visitor(tempdir):
     table = pa.table([
@@ -4751,6 +4767,7 @@ def test_write_dataset_parquet_file_visitor(tempdir):
     assert visitor_called
 
 
+@pytest.mark.numpy
 @pytest.mark.parquet
 def test_partition_dataset_parquet_file_visitor(tempdir):
     f1_vals = [item for chunk in range(4) for item in [chunk] * 10]
@@ -4823,6 +4840,7 @@ def test_write_dataset_schema_metadata_parquet(tempdir):
     assert schema.metadata == {b'key': b'value'}
 
 
+@pytest.mark.numpy
 @pytest.mark.parquet
 @pytest.mark.s3
 def test_write_dataset_s3(s3_example_simple):
@@ -4890,6 +4908,7 @@ _minio_put_only_policy = """{
 }"""
 
 
+@pytest.mark.numpy
 @pytest.mark.parquet
 @pytest.mark.s3
 def test_write_dataset_s3_put_only(s3_server):
@@ -5318,6 +5337,7 @@ def test_union_dataset_filter(tempdir, dstype):
         ds.dataset((filtered_ds1, filtered_ds2))
 
 
+@pytest.mark.numpy
 def test_parquet_dataset_filter(tempdir):
     root_path = tempdir / "test_parquet_dataset_filter"
     metadata_path, _ = _create_parquet_dataset_simple(root_path)
