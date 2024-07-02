@@ -16,6 +16,7 @@
  */
 package org.apache.arrow.dataset.jni;
 
+import org.apache.arrow.dataset.scanner.FragmentScanOptions;
 import org.apache.arrow.dataset.scanner.ScanOptions;
 import org.apache.arrow.dataset.source.Dataset;
 
@@ -37,7 +38,13 @@ public class NativeDataset implements Dataset {
     if (closed) {
       throw new NativeInstanceReleasedException();
     }
-
+    int fileFormat = -1;
+    String[] serialized = null;
+    if (options.getFragmentScanOptions().isPresent()) {
+      FragmentScanOptions fragmentScanOptions = options.getFragmentScanOptions().get();
+      fileFormat = fragmentScanOptions.fileFormatId();
+      serialized = fragmentScanOptions.serialize();
+    }
     long scannerId =
         JniWrapper.get()
             .createScanner(
@@ -46,6 +53,8 @@ public class NativeDataset implements Dataset {
                 options.getSubstraitProjection().orElse(null),
                 options.getSubstraitFilter().orElse(null),
                 options.getBatchSize(),
+                fileFormat,
+                serialized,
                 context.getMemoryPool().getNativeInstanceId());
 
     return new NativeScanner(context, scannerId);
