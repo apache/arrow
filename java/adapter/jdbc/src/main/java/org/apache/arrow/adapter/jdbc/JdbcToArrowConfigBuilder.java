@@ -211,6 +211,8 @@ public class JdbcToArrowConfigBuilder {
    *
    * <p>Defaults to wrapping {@link JdbcToArrowUtils#getArrowTypeFromJdbcType(JdbcFieldInfo,
    * Calendar)}.
+   *
+   * @see JdbcToArrowUtils#reportUnsupportedTypesAsUnknown(Function)
    */
   public JdbcToArrowConfigBuilder setJdbcToArrowTypeConverter(
       Function<JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter) {

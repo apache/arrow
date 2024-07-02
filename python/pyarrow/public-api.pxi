@@ -124,6 +124,8 @@ cdef api object pyarrow_wrap_data_type(
             return cpy_ext_type.GetInstance()
         elif ext_type.extension_name() == b"arrow.fixed_shape_tensor":
             out = FixedShapeTensorType.__new__(FixedShapeTensorType)
+        elif ext_type.extension_name() == b"arrow.opaque":
+            out = OpaqueType.__new__(OpaqueType)
         else:
             out = BaseExtensionType.__new__(BaseExtensionType)
     else:

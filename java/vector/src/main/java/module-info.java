@@ -25,6 +25,7 @@ module org.apache.arrow.vector {
   exports org.apache.arrow.vector.complex.writer;
   exports org.apache.arrow.vector.compression;
   exports org.apache.arrow.vector.dictionary;
+  exports org.apache.arrow.vector.extension;
   exports org.apache.arrow.vector.holders;
   exports org.apache.arrow.vector.ipc;
   exports org.apache.arrow.vector.ipc.message;
