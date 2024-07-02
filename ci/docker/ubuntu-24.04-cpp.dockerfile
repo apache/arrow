@@ -86,6 +86,7 @@ RUN apt-get update -y -q && \
         libkrb5-dev \
         libldap-dev \
         liblz4-dev \
+        libmimalloc-dev \
         libnghttp2-dev \
         libprotobuf-dev \
         libprotoc-dev \
@@ -178,6 +179,7 @@ ENV ARROW_ACERO=ON \
     ARROW_HDFS=ON \
     ARROW_HOME=/usr/local \
     ARROW_INSTALL_NAME_RPATH=OFF \
+    ARROW_MIMALLOC=ON \
     ARROW_ORC=ON \
     ARROW_PARQUET=ON \
     ARROW_S3=ON \

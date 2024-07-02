@@ -134,6 +134,7 @@ jobs:
       ARROW_GLIB_WERROR: true
       ARROW_HOME: /tmp/local
       ARROW_JEMALLOC: OFF
+      ARROW_MIMALLOC: ON
       ARROW_ORC: OFF
       ARROW_PARQUET: ON
       ARROW_WITH_BROTLI: ON
@@ -211,6 +212,7 @@ jobs:
       ARROW_HDFS: OFF
       ARROW_HOME: /ucrt${{ matrix.mingw-n-bits }}
       ARROW_JEMALLOC: OFF
+      ARROW_MIMALLOC: OFF
       ARROW_PARQUET: ON
       ARROW_PYTHON: OFF
       ARROW_S3: ON

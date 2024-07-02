@@ -52,6 +52,7 @@ RUN \
     libgrpc++-dev \
     libgtest-dev \
     liblz4-dev \
+    libmimalloc-dev \
     libmlir-15-dev \
     libprotobuf-dev \
     libprotoc-dev \

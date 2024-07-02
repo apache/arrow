@@ -64,6 +64,7 @@ RUN apt-get update -y -q && \
         libkrb5-dev \
         libldap-dev \
         liblz4-dev \
+        libmimalloc-dev \
         libnghttp2-dev \
         libprotobuf-dev \
         libprotoc-dev \

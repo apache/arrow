@@ -40,6 +40,7 @@ case "${target}" in
     packages+=(${MINGW_PACKAGE_PREFIX}-libutf8proc)
     packages+=(${MINGW_PACKAGE_PREFIX}-libxml2)
     packages+=(${MINGW_PACKAGE_PREFIX}-lz4)
+    packages+=(${MINGW_PACKAGE_PREFIX}-mimalloc)
     packages+=(${MINGW_PACKAGE_PREFIX}-ninja)
     packages+=(${MINGW_PACKAGE_PREFIX}-nlohmann-json)
     packages+=(${MINGW_PACKAGE_PREFIX}-protobuf)
