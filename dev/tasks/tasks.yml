@@ -1549,8 +1549,8 @@ tasks:
       image: conda-python-hdfs
 {% endfor %}
 
-{% for python_version, spark_version, test_pyarrow_only, numpy_version, jdk_version in [("3.8", "v3.5.0", "false", "latest", "8"),
-                                                                                        ("3.10", "v3.5.0", "false", "1.23", "8"),
+{% for python_version, spark_version, test_pyarrow_only, numpy_version, jdk_version in [("3.8", "v3.5.0", "false", "latest", "11"),
+                                                                                        ("3.10", "v3.5.0", "false", "1.23", "11"),
                                                                                         ("3.11", "master", "false", "latest", "17")] %}
   test-conda-python-{{ python_version }}-spark-{{ spark_version }}:
     ci: github

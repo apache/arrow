@@ -23,7 +23,7 @@ ARG arch=amd64
 ARG maven=3.8.7
 ARG node=16
 ARG yarn=1.22
-ARG jdk=8
+ARG jdk=11
 ARG go=1.21.8
 
 # Install Archery and integration dependencies
