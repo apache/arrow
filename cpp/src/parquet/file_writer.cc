@@ -567,6 +567,55 @@ void WriteEncryptedFileMetadata(const FileMetaData& file_metadata,
   }
 }
 
+// TODO: remove
+void WriteEncryptedMetadataFile(
+    const FileMetaData& metadata, ::arrow::io::OutputStream* sink,
+    std::shared_ptr<FileEncryptionProperties> file_encryption_properties) {
+  auto file_encryptor = std::make_unique<InternalFileEncryptor>(
+      file_encryption_properties.get(), ::arrow::default_memory_pool());
+
+  if (file_encryption_properties->encrypted_footer()) {
+    PARQUET_THROW_NOT_OK(sink->Write(kParquetEMagic, 4));
+  } else {
+    // Encrypted file with plaintext footer mode.
+    PARQUET_THROW_NOT_OK(sink->Write(kParquetMagic, 4));
+  }
+
+  if (file_encryption_properties->encrypted_footer()) {
+    PARQUET_ASSIGN_OR_THROW(int64_t position, sink->Tell());
+    uint64_t metadata_start = static_cast<uint64_t>(position);
+
+    auto writer_props = parquet::WriterProperties::Builder()
+                            .encryption(file_encryption_properties)
+                            ->build();
+    auto crypto_metadata =
+        FileMetaDataBuilder::Make(metadata.schema(), writer_props)->GetCryptoMetaData();
+    WriteFileCryptoMetaData(*crypto_metadata, sink);
+
+    auto footer_encryptor = file_encryptor->GetFooterEncryptor();
+    WriteEncryptedFileMetadata(metadata, sink, footer_encryptor, true);
+    PARQUET_ASSIGN_OR_THROW(position, sink->Tell());
+    uint32_t footer_and_crypto_len = static_cast<uint32_t>(position - metadata_start);
+    PARQUET_THROW_NOT_OK(
+        sink->Write(reinterpret_cast<uint8_t*>(&footer_and_crypto_len), 4));
+    PARQUET_THROW_NOT_OK(sink->Write(kParquetEMagic, 4));
+  } else {  // Encrypted file with plaintext footer
+    auto footer_signing_encryptor = file_encryptor->GetFooterSigningEncryptor();
+    WriteEncryptedFileMetadata(metadata, sink, footer_signing_encryptor, false);
+  }
+}
+
+void WriteEncryptedMetadataFile2(
+    const FileMetaData& metadata, std::shared_ptr<::arrow::io::OutputStream> sink,
+    std::shared_ptr<FileEncryptionProperties> file_encryption_properties) {
+  auto schema = ::arrow::internal::checked_pointer_cast<GroupNode>(
+      metadata.schema()->schema_root());
+  auto writer_props =
+      WriterProperties::Builder().encryption(file_encryption_properties)->build();
+  auto writer = ParquetFileWriter::Open(sink, schema, writer_props);
+  writer->Close();
+}
+
 void WriteFileCryptoMetaData(const FileCryptoMetaData& crypto_metadata,
                              ArrowOutputStream* sink) {
   crypto_metadata.WriteTo(sink);
