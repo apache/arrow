@@ -508,6 +508,15 @@ cdef class ColumnChunkMetaData(_Weakrefable):
         """Whether the column chunk has a column index"""
         return self.metadata.GetColumnIndexLocation().has_value()
 
+    @property
+    def metadata(self):
+        """Additional metadata as key value pairs (dict[bytes, bytes])."""
+        wrapped = pyarrow_wrap_metadata(self.metadata.key_value_metadata())
+        if wrapped is not None:
+            return wrapped.to_dict()
+        else:
+            return wrapped
+
 
 cdef class SortingColumn:
     """
