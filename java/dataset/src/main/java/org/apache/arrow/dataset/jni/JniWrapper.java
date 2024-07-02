@@ -71,6 +71,8 @@ public class JniWrapper {
    * @param substraitProjection substrait extended expression to evaluate for project new columns
    * @param substraitFilter substrait extended expression to evaluate for apply filter
    * @param batchSize batch size of scanned record batches.
+   * @param fileFormat file format ID.
+   * @param serializedFragmentScanOptions serialized FragmentScanOptions.
    * @param memoryPool identifier of memory pool used in the native scanner.
    * @return the native pointer of the arrow::dataset::Scanner instance.
    */
@@ -80,6 +82,8 @@ public class JniWrapper {
       ByteBuffer substraitProjection,
       ByteBuffer substraitFilter,
       long batchSize,
+      int fileFormat,
+      String[] serializedFragmentScanOptions,
       long memoryPool);
 
   /**
