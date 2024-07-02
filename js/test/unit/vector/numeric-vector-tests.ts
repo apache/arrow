@@ -21,7 +21,7 @@ import {
     util,
     Vector, makeVector, vectorFromArray, makeData,
     Float, Float16, Float32, Float64,
-    Int, Int8, Int16, Int32, Int64, Uint8, Uint16, Uint32, Uint64, DataType
+    Int, Int8, Int16, Int32, Int64, Uint8, Uint16, Uint32, Uint64, DataType, Decimal
 } from 'apache-arrow';
 import type {
     TypedArray,
@@ -230,6 +230,16 @@ describe(`IntVector`, () => {
             test(`return type is correct`, () => checkDtype(Uint64, vector));
             test(`has correct byteLength`, () => { expect(vector.byteLength).toBe(vector.length * 8); });
         });
+    });
+});
+
+describe(`DecimalVector`, () => {
+    test(`Values get scaled by the scale in the type`, () => {
+        const vec1 = vectorFromArray([new Uint32Array([0x00000001, 0x00000000, 0x00000000, 0x00000000])], new Decimal(0, 10));
+        expect(+vec1.get(0)!).toBe(1);
+
+        const vec2 = vectorFromArray([new Uint32Array([0x00000001, 0x00000000, 0x00000000, 0x00000000])], new Decimal(1, 10));
+        expect(+vec2.get(0)!).toBe(0.1);
     });
 });
 
