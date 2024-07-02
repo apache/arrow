@@ -43,7 +43,6 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Arrays;
 import java.util.Calendar;
-import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest;
@@ -233,7 +232,7 @@ public class JdbcToArrowDataTypesTest extends AbstractJdbcToArrowTest {
 
       Schema expected =
           new Schema(
-              List.of(
+              Arrays.asList(
                   Field.nullable(
                       "A", new OpaqueType(Types.MinorType.NULL.getType(), "GEOMETRY", "H2")),
                   Field.nullable("B", Types.MinorType.INT.getType())));
