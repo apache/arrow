@@ -124,7 +124,8 @@ final class ArrayImporter {
         NativeUtil.toJavaArray(snapshot.buffers, checkedCastToInt(snapshot.n_buffers));
 
     try (final BufferImportTypeVisitor visitor =
-        new BufferImportTypeVisitor(allocator, underlyingAllocation, fieldNode, bufferPointers)) {
+        new BufferImportTypeVisitor(
+            allocator, underlyingAllocation, fieldNode, snapshot.offset, bufferPointers)) {
       final List<ArrowBuf> buffers;
       if (bufferPointers == null || bufferPointers.length == 0) {
         buffers = Collections.emptyList();
