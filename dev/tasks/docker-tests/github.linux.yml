@@ -25,6 +25,7 @@ jobs:
       Docker Test {{ flags|default("") }} {{ image }} {{ command|default("") }}
     runs-on: ubuntu-latest
 {{ macros.github_set_env(env) }}
+    timeout-minutes: {{ timeout|default(60) }}
     steps:
       {{ macros.github_checkout_arrow(fetch_depth=fetch_depth|default(1))|indent }}
       {{ macros.github_free_space()|indent }}
