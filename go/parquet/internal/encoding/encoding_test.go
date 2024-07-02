@@ -406,6 +406,17 @@ func (b *BaseEncodingTestSuite) TestDeltaByteArrayRoundTrip() {
 	}
 }
 
+func (b *BaseEncodingTestSuite) TestByteStreamSplitRoundTrip() {
+	b.initData(10000, 1)
+
+	switch b.typ {
+	case reflect.TypeOf(float32(0)), reflect.TypeOf(float64(0)), reflect.TypeOf(int32(0)), reflect.TypeOf(int64(0)), reflect.TypeOf(parquet.FixedLenByteArray{}):
+		b.checkRoundTrip(parquet.Encodings.ByteStreamSplit)
+	default:
+		b.Panics(func() { b.checkRoundTrip(parquet.Encodings.ByteStreamSplit) })
+	}
+}
+
 func (b *BaseEncodingTestSuite) TestSpacedRoundTrip() {
 	exec := func(vals, repeats int, validBitsOffset int64, nullProb float64) {
 		b.Run(fmt.Sprintf("%d vals %d repeats %d offset %0.3f null", vals, repeats, validBitsOffset, 1-nullProb), func() {
@@ -859,4 +870,38 @@ func TestBooleanPlainDecoderAfterFlushing(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, n, 1)
 	assert.Equal(t, decSlice[0], false)
+}
+
+// Test encoding in multiple chunks to validate we're properly resetting the encoder/decoder between writes/reads.
+// Chunking ByteStreamSplit-encoded data in this way is not typical, it primarily tests internal behavior.
+func TestMultipleChunksByteStreamSplit(t *testing.T) {
+	size := 10
+	chunk := 6
+
+	input := make([]int32, size)
+	output := make([]int32, size)
+	for idx := range input {
+		input[idx] = int32(idx)
+	}
+	encoder := encoding.NewEncoder(parquet.Types.Int32, parquet.Encodings.ByteStreamSplit,
+		false, nil, memory.DefaultAllocator).(encoding.Int32Encoder)
+
+	encoder.Put(input[:chunk])
+	encoder.Put(input[chunk:])
+	buf, err := encoder.FlushValues()
+	require.NoError(t, err)
+	defer buf.Release()
+
+	decoder := encoding.NewDecoder(parquet.Types.Int32, parquet.Encodings.ByteStreamSplit, nil, memory.DefaultAllocator)
+	require.NoError(t, decoder.SetData(size, buf.Bytes()))
+
+	nvals, err := decoder.(encoding.Int32Decoder).Decode(output[:chunk])
+	require.NoError(t, err)
+	require.Equal(t, chunk, nvals)
+
+	nvals, err = decoder.(encoding.Int32Decoder).Decode(output[chunk:])
+	require.NoError(t, err)
+	require.Equal(t, size-chunk, nvals)
+
+	require.Equal(t, input, output)
 }
