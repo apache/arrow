@@ -381,8 +381,8 @@ ToCsvFragmentScanOptions(const std::unordered_map<std::string, std::string>& con
       options->parse_options.quoting = ParseBool(value);
     } else if (key == "column_types") {
       int64_t schema_address = std::stol(value);
-      ArrowSchema* cSchema = reinterpret_cast<ArrowSchema*>(schema_address);
-      ARROW_ASSIGN_OR_RAISE(auto schema, arrow::ImportSchema(cSchema));
+      ArrowSchema* c_schema = reinterpret_cast<ArrowSchema*>(schema_address);
+      ARROW_ASSIGN_OR_RAISE(auto schema, arrow::ImportSchema(c_schema));
       auto& column_types = options->convert_options.column_types;
       for (auto field : schema->fields()) {
         column_types[field->name()] = field->type();
@@ -414,6 +414,7 @@ std::unordered_map<std::string, std::string> ToStringMap(JNIEnv* env,
                                                          jobjectArray& str_array) {
   int length = env->GetArrayLength(str_array);
   std::unordered_map<std::string, std::string> map;
+  map.reserve(length / 2);
   for (int i = 0; i < length; i += 2) {
     auto key = reinterpret_cast<jstring>(env->GetObjectArrayElement(str_array, i));
     auto value = reinterpret_cast<jstring>(env->GetObjectArrayElement(str_array, i + 1));

@@ -16,6 +16,7 @@
  */
 package org.apache.arrow.dataset;
 
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.google.common.collect.ImmutableMap;
@@ -35,10 +36,12 @@ import org.apache.arrow.dataset.source.Dataset;
 import org.apache.arrow.dataset.source.DatasetFactory;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.ValueIterableVector;
 import org.apache.arrow.vector.ipc.ArrowReader;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.hamcrest.collection.IsIterableContainingInOrder;
 import org.junit.jupiter.api.Test;
 
 public class TestFragmentScanOptions {
@@ -72,10 +75,13 @@ public class TestFragmentScanOptions {
           Dataset dataset = datasetFactory.finish();
           Scanner scanner = dataset.newScan(options);
           ArrowReader reader = scanner.scanBatches()) {
+
         assertEquals(schema.getFields(), reader.getVectorSchemaRoot().getSchema().getFields());
         int rowCount = 0;
         while (reader.loadNextBatch()) {
-          assertEquals("[1, 2, 3]", reader.getVectorSchemaRoot().getVector("Id").toString());
+          final ValueIterableVector<Integer> idVector =
+              (ValueIterableVector<Integer>) reader.getVectorSchemaRoot().getVector("Id");
+          assertThat(idVector.getValueIterable(), IsIterableContainingInOrder.contains(1, 2, 3));
           rowCount += reader.getVectorSchemaRoot().getRowCount();
         }
         assertEquals(3, rowCount);

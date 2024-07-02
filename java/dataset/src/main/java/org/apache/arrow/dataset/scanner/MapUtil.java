@@ -16,11 +16,26 @@
  */
 package org.apache.arrow.dataset.scanner;
 
-import org.apache.arrow.dataset.file.FileFormat;
+import java.util.Map;
 
-/** The file fragment scan options interface. It is used to transfer to JNI call. */
-public interface FragmentScanOptions {
-  FileFormat fileFormat();
-
-  String[] serialize();
+/** The utility class for Map. */
+public class MapUtil {
+  /**
+   * Convert the map to string array as JNI bridge.
+   *
+   * @param config config map
+   * @return string array for serialization
+   */
+  public static String[] convertMapToStringArray(Map<String, String> config) {
+    if (config.isEmpty()) {
+      return null;
+    }
+    String[] configs = new String[config.size() * 2];
+    int i = 0;
+    for (Map.Entry<String, String> entry : config.entrySet()) {
+      configs[i++] = entry.getKey();
+      configs[i++] = entry.getValue();
+    }
+    return configs;
+  }
 }
