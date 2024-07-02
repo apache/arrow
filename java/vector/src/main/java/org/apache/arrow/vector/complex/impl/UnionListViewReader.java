@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.complex.impl;
 
 import org.apache.arrow.vector.ValueVector;
@@ -25,9 +24,7 @@ import org.apache.arrow.vector.holders.UnionHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 
-/**
- * {@link FieldReader} for listview of union types.
- */
+/** {@link FieldReader} for listview of union types. */
 public class UnionListViewReader extends AbstractFieldReader {
 
   private final ListViewVector vector;
@@ -37,6 +34,7 @@ public class UnionListViewReader extends AbstractFieldReader {
 
   /**
    * Constructor for UnionListViewReader.
+   *
    * @param vector the vector to read from
    */
   public UnionListViewReader(ListViewVector vector) {
@@ -61,7 +59,8 @@ public class UnionListViewReader extends AbstractFieldReader {
       currentOffset = 0;
       size = 0;
     } else {
-      currentOffset = vector.getOffsetBuffer().getInt(index * (long) BaseRepeatedValueViewVector.OFFSET_WIDTH);
+      currentOffset =
+          vector.getOffsetBuffer().getInt(index * (long) BaseRepeatedValueViewVector.OFFSET_WIDTH);
       size = vector.getSizeBuffer().getInt(index * (long) BaseRepeatedValueViewVector.SIZE_WIDTH);
     }
   }
@@ -98,7 +97,8 @@ public class UnionListViewReader extends AbstractFieldReader {
 
   @Override
   public boolean next() {
-    // Here, the currentOffSet keeps track of the current position in the vector inside the list at set position.
+    // Here, the currentOffSet keeps track of the current position in the vector inside the list at
+    // set position.
     // And, size keeps track of the elements count in the list, so to make sure we traverse
     // the full list, we need to check if the currentOffset is less than the currentOffset + size
     if (currentOffset < currentOffset + size) {

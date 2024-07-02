@@ -486,8 +486,12 @@ public class ListViewVector extends BaseRepeatedValueViewVector
 
     @Override
     public void splitAndTransfer(int startIndex, int length) {
-      Preconditions.checkArgument(startIndex >= 0 && length >= 0 && startIndex + length <= valueCount,
-          "Invalid parameters startIndex: %s, length: %s for valueCount: %s", startIndex, length, valueCount);
+      Preconditions.checkArgument(
+          startIndex >= 0 && length >= 0 && startIndex + length <= valueCount,
+          "Invalid parameters startIndex: %s, length: %s for valueCount: %s",
+          startIndex,
+          length,
+          valueCount);
       to.clear();
       if (length > 0) {
         final int startPoint = offsetBuffer.getInt((long) startIndex * OFFSET_WIDTH);
@@ -554,8 +558,11 @@ public class ListViewVector extends BaseRepeatedValueViewVector
           target.allocateValidityBuffer(byteSizeTarget);
 
           for (int i = 0; i < byteSizeTarget - 1; i++) {
-            byte b1 = BitVectorHelper.getBitsFromCurrentByte(validityBuffer, firstByteSource + i, offset);
-            byte b2 = BitVectorHelper.getBitsFromNextByte(validityBuffer, firstByteSource + i + 1, offset);
+            byte b1 =
+                BitVectorHelper.getBitsFromCurrentByte(validityBuffer, firstByteSource + i, offset);
+            byte b2 =
+                BitVectorHelper.getBitsFromNextByte(
+                    validityBuffer, firstByteSource + i + 1, offset);
 
             target.validityBuffer.setByte(i, (b1 + b2));
           }
@@ -570,15 +577,18 @@ public class ListViewVector extends BaseRepeatedValueViewVector
            * by shifting data from the current byte.
            */
           if ((firstByteSource + byteSizeTarget - 1) < lastByteSource) {
-            byte b1 = BitVectorHelper.getBitsFromCurrentByte(validityBuffer,
-                firstByteSource + byteSizeTarget - 1, offset);
-            byte b2 = BitVectorHelper.getBitsFromNextByte(validityBuffer,
-                firstByteSource + byteSizeTarget, offset);
+            byte b1 =
+                BitVectorHelper.getBitsFromCurrentByte(
+                    validityBuffer, firstByteSource + byteSizeTarget - 1, offset);
+            byte b2 =
+                BitVectorHelper.getBitsFromNextByte(
+                    validityBuffer, firstByteSource + byteSizeTarget, offset);
 
             target.validityBuffer.setByte(byteSizeTarget - 1, b1 + b2);
           } else {
-            byte b1 = BitVectorHelper.getBitsFromCurrentByte(validityBuffer,
-                firstByteSource + byteSizeTarget - 1, offset);
+            byte b1 =
+                BitVectorHelper.getBitsFromCurrentByte(
+                    validityBuffer, firstByteSource + byteSizeTarget - 1, offset);
             target.validityBuffer.setByte(byteSizeTarget - 1, b1);
           }
         }
@@ -591,9 +601,7 @@ public class ListViewVector extends BaseRepeatedValueViewVector
     }
 
     @Override
-    public void copyValueSafe(int from, int to) {
-
-    }
+    public void copyValueSafe(int from, int to) {}
   }
 
   @Override

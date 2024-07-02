@@ -204,13 +204,15 @@ public class TestComplexWriter {
         if (j % 4 == 0) {
           writer.writeDecimal(new BigDecimal(j));
         } else if (j % 4 == 1) {
-          DecimalUtility.writeBigDecimalToArrowBuf(new BigDecimal(j), holder.buffer, 0, DecimalVector.TYPE_WIDTH);
+          DecimalUtility.writeBigDecimalToArrowBuf(
+              new BigDecimal(j), holder.buffer, 0, DecimalVector.TYPE_WIDTH);
           holder.start = 0;
           holder.scale = 0;
           holder.precision = 10;
           writer.write(holder);
         } else if (j % 4 == 2) {
-          DecimalUtility.writeBigDecimalToArrowBuf(new BigDecimal(j), holder.buffer, 0, DecimalVector.TYPE_WIDTH);
+          DecimalUtility.writeBigDecimalToArrowBuf(
+              new BigDecimal(j), holder.buffer, 0, DecimalVector.TYPE_WIDTH);
           writer.writeDecimal(0, holder.buffer, arrowType);
         } else {
           byte[] value = BigDecimal.valueOf(j).unscaledValue().toByteArray();
@@ -456,7 +458,8 @@ public class TestComplexWriter {
     }
   }
 
-  private void createListTypeVectorWithStructType(FieldWriter fieldWriter, StructWriter structWriter) {
+  private void createListTypeVectorWithStructType(
+      FieldWriter fieldWriter, StructWriter structWriter) {
     for (int i = 0; i < COUNT; i++) {
       fieldWriter.startList();
       for (int j = 0; j < i % 7; j++) {
@@ -621,7 +624,8 @@ public class TestComplexWriter {
 
   /* Test Cases */
 
-  private void createListTypeVectorWithFixedSizeBinaryType(FieldWriter writer, List<ArrowBuf> buffers) {
+  private void createListTypeVectorWithFixedSizeBinaryType(
+      FieldWriter writer, List<ArrowBuf> buffers) {
     for (int i = 0; i < COUNT; i++) {
       writer.startList();
       for (int j = 0; j < i % 7; j++) {
@@ -897,7 +901,8 @@ public class TestComplexWriter {
   }
 
   /**
-   * This test is similar to {@link #listListType()} but we get the inner list writer once at the beginning.
+   * This test is similar to {@link #listListType()} but we get the inner list writer once at the
+   * beginning.
    */
   @Test
   public void listListType2() {
@@ -964,8 +969,8 @@ public class TestComplexWriter {
   }
 
   /**
-   * This test is similar to {@link #unionListViewListType()}
-   * but we get the inner list writer once at the beginning.
+   * This test is similar to {@link #unionListViewListType()} but we get the inner list writer once
+   * at the beginning.
    */
   @Test
   public void unionListViewListType2() {
@@ -1598,7 +1603,8 @@ public class TestComplexWriter {
       Float4Reader float4Reader = singleStructReader.reader("float4Field");
       Float8Reader float8Reader = singleStructReader.reader("float8Field");
       UnionListReader listReader = (UnionListReader) singleStructReader.reader("listField");
-      // UnionListViewReader listViewReader = (UnionListViewReader) singleStructReader.reader("listViewField");
+      // UnionListViewReader listViewReader = (UnionListViewReader)
+      // singleStructReader.reader("listViewField");
       UnionMapReader mapReader = (UnionMapReader) singleStructReader.reader("mapField");
 
       for (int i = 0; i < initialCapacity; i++) {
