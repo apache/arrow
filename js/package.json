@@ -88,7 +88,7 @@
     "gulp": "4.0.2",
     "glob": "10.4.1",
     "google-closure-compiler": "20240317.0.0",
-    "gulp-esbuild": "0.12.0",
+    "gulp-esbuild": "0.12.1",
     "gulp-json-transform": "0.5.0",
     "gulp-rename": "2.0.0",
     "gulp-replace": "1.1.4",
