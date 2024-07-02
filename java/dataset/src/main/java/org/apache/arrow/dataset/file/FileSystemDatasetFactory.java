@@ -16,8 +16,10 @@
  */
 package org.apache.arrow.dataset.file;
 
+import java.util.Optional;
 import org.apache.arrow.dataset.jni.NativeDatasetFactory;
 import org.apache.arrow.dataset.jni.NativeMemoryPool;
+import org.apache.arrow.dataset.scanner.FragmentScanOptions;
 import org.apache.arrow.memory.BufferAllocator;
 
 /** Java binding of the C++ FileSystemDatasetFactory. */
@@ -25,19 +27,45 @@ public class FileSystemDatasetFactory extends NativeDatasetFactory {
 
   public FileSystemDatasetFactory(
       BufferAllocator allocator, NativeMemoryPool memoryPool, FileFormat format, String uri) {
-    super(allocator, memoryPool, createNative(format, uri));
+    super(allocator, memoryPool, createNative(format, uri, Optional.empty()));
+  }
+
+  public FileSystemDatasetFactory(
+      BufferAllocator allocator,
+      NativeMemoryPool memoryPool,
+      FileFormat format,
+      String uri,
+      Optional<FragmentScanOptions> fragmentScanOptions) {
+    super(allocator, memoryPool, createNative(format, uri, fragmentScanOptions));
   }
 
   public FileSystemDatasetFactory(
       BufferAllocator allocator, NativeMemoryPool memoryPool, FileFormat format, String[] uris) {
-    super(allocator, memoryPool, createNative(format, uris));
+    super(allocator, memoryPool, createNative(format, uris, Optional.empty()));
   }
 
-  private static long createNative(FileFormat format, String uri) {
-    return JniWrapper.get().makeFileSystemDatasetFactory(uri, format.id());
+  public FileSystemDatasetFactory(
+      BufferAllocator allocator,
+      NativeMemoryPool memoryPool,
+      FileFormat format,
+      String[] uris,
+      Optional<FragmentScanOptions> fragmentScanOptions) {
+    super(allocator, memoryPool, createNative(format, uris, fragmentScanOptions));
   }
 
-  private static long createNative(FileFormat format, String[] uris) {
-    return JniWrapper.get().makeFileSystemDatasetFactory(uris, format.id());
+  private static long createNative(
+      FileFormat format, String uri, Optional<FragmentScanOptions> fragmentScanOptions) {
+    return JniWrapper.get()
+        .makeFileSystemDatasetFactory(
+            uri, format.id(), fragmentScanOptions.map(FragmentScanOptions::serialize).orElse(null));
+  }
+
+  private static long createNative(
+      FileFormat format, String[] uris, Optional<FragmentScanOptions> fragmentScanOptions) {
+    return JniWrapper.get()
+        .makeFileSystemDatasetFactoryWithFiles(
+            uris,
+            format.id(),
+            fragmentScanOptions.map(FragmentScanOptions::serialize).orElse(null));
   }
 }
