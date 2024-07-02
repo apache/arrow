@@ -25,6 +25,11 @@ ARG manylinux
 ENV MANYLINUX_VERSION=${manylinux}
 
 # Ensure dnf is installed, especially for the manylinux2014 base
+RUN if [ "${MANYLINUX_VERSION}" == "2014" ]; then \
+        sed -i s/mirror.centos.org/vault.centos.org/g /etc/yum.repos.d/*.repo && \
+        sed -i s/^#.*baseurl=http/baseurl=http/g /etc/yum.repos.d/*.repo && \
+        sed -i s/^mirrorlist=http/#mirrorlist=http/g /etc/yum.repos.d/*.repo; \
+    fi
 RUN yum install -y dnf
 
 # Install basic dependencies
