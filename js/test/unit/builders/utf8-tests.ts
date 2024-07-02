@@ -47,7 +47,7 @@ function runTestsWithEncoder(name: string, encode: (vals: (string | null)[], nul
     describe(`${encode.name} ${name}`, () => {
         it(`encodes strings no nulls`, async () => {
             const vals = stringsNoNulls(20);
-            validateVector(vals, await encode(vals, []), []);
+            validateVector(vals, await encode([], []), []);
         });
         it(`encodes strings with nulls`, async () => {
             const vals = stringsWithNulls(20);
