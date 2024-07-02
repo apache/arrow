@@ -52,12 +52,16 @@ std::vector<std::shared_ptr<CastFunction>> GetBooleanCasts() {
   AddCommonCasts(Type::BOOL, boolean(), func.get());
   AddZeroCopyCast(Type::BOOL, boolean(), boolean(), func.get());
 
+  auto kGenerateNumeric =
+      GenerateNumeric<applicator::ScalarUnary, BooleanType, ArrayKernelExec, IsNonZero>;
   for (const auto& ty : NumericTypes()) {
-    ArrayKernelExec exec =
-        GenerateNumeric<applicator::ScalarUnary, BooleanType, ArrayKernelExec, IsNonZero>(
-            *ty);
+    ArrayKernelExec exec = kGenerateNumeric(*ty);
     DCHECK_OK(func->AddKernel(ty->id(), {ty}, boolean(), exec));
   }
+  // HALF_FLOAT is not included in NumericTypes()
+  ArrayKernelExec exec = kGenerateNumeric(Type::HALF_FLOAT);
+  DCHECK_OK(func->AddKernel(Type::HALF_FLOAT, {float16()}, boolean(), exec));
+
   for (const auto& ty : BaseBinaryTypes()) {
     ArrayKernelExec exec = GenerateVarBinaryBase<applicator::ScalarUnaryNotNull,
                                                  BooleanType, ParseBooleanString>(*ty);

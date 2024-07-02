@@ -336,7 +336,17 @@ class FloatConverter final : public ConcreteConverter<FloatConverter<Type, Build
       return this->AppendNull();
     }
     c_type value;
-    RETURN_NOT_OK(ConvertNumber<Type>(json_obj, *this->type_, &value));
+    if constexpr (std::is_same_v<Type, HalfFloatType>) {
+      // We use double as that's what the JSON parser
+      // produces before any truncating casts are applied.
+      double value64;
+      RETURN_NOT_OK(ConvertNumber<DoubleType>(json_obj, *this->type_, &value64));
+      // Then we use Float16 to turn the double into the uint16_t value
+      // that we use to carry the float16 bits.
+      value = Float16::FromDouble(value64).bits();
+    } else {
+      RETURN_NOT_OK(ConvertNumber<Type>(json_obj, *this->type_, &value));
+    }
     return builder_->Append(value);
   }
 
@@ -930,7 +940,7 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
     SIMPLE_CONVERTER_CASE(Type::DURATION, IntegerConverter<DurationType>)
     SIMPLE_CONVERTER_CASE(Type::NA, NullConverter)
     SIMPLE_CONVERTER_CASE(Type::BOOL, BooleanConverter)
-    SIMPLE_CONVERTER_CASE(Type::HALF_FLOAT, IntegerConverter<HalfFloatType>)
+    SIMPLE_CONVERTER_CASE(Type::HALF_FLOAT, FloatConverter<HalfFloatType>)
     SIMPLE_CONVERTER_CASE(Type::FLOAT, FloatConverter<FloatType>)
     SIMPLE_CONVERTER_CASE(Type::DOUBLE, FloatConverter<DoubleType>)
     SIMPLE_CONVERTER_CASE(Type::LIST, VarLengthListLikeConverter<ListType>)
@@ -1003,8 +1013,8 @@ Status ChunkedArrayFromJSON(const std::shared_ptr<DataType>& type,
   ArrayVector out_chunks;
   out_chunks.reserve(json_strings.size());
   for (const std::string& chunk_json : json_strings) {
-    out_chunks.emplace_back();
-    ARROW_ASSIGN_OR_RAISE(out_chunks.back(), ArrayFromJSON(type, chunk_json));
+    auto& out_chunk = out_chunks.emplace_back();
+    ARROW_ASSIGN_OR_RAISE(out_chunk, ArrayFromJSON(type, chunk_json));
   }
   *out = std::make_shared<ChunkedArray>(std::move(out_chunks), type);
   return Status::OK();

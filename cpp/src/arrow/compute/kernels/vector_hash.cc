@@ -548,6 +548,7 @@ KernelInit GetHashInit(Type::type type_id) {
       return HashInit<RegularHashKernel<UInt8Type, Action>>;
     case Type::INT16:
     case Type::UINT16:
+    case Type::HALF_FLOAT:
       return HashInit<RegularHashKernel<UInt16Type, Action>>;
     case Type::INT32:
     case Type::UINT32:
@@ -695,6 +696,12 @@ void AddHashKernels(VectorFunction* func, VectorKernel base, OutputType out_ty) 
   for (const auto& ty : PrimitiveTypes()) {
     base.init = GetHashInit<Action>(ty->id());
     base.signature = KernelSignature::Make({ty}, out_ty);
+    DCHECK_OK(func->AddKernel(base));
+  }
+  {
+    // XXX: float16() is not in PrimitiveTypes()
+    base.init = GetHashInit<Action>(Type::HALF_FLOAT);
+    base.signature = KernelSignature::Make({float16()}, out_ty);
     DCHECK_OK(func->AddKernel(base));
   }
 

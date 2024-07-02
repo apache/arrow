@@ -959,6 +959,8 @@ KernelType GenerateNumeric(detail::GetTypeId get_id) {
       return Generator<Type0, FloatType, Args...>::Exec;
     case Type::DOUBLE:
       return Generator<Type0, DoubleType, Args...>::Exec;
+    case Type::HALF_FLOAT:
+      return Generator<Type0, HalfFloatType, Args...>::Exec;
     default:
       DCHECK(false);
       return FailFunctor<KernelType>::Exec;
@@ -975,6 +977,8 @@ ArrayKernelExec GenerateFloatingPoint(detail::GetTypeId get_id) {
       return Generator<Type0, FloatType, Args...>::Exec;
     case Type::DOUBLE:
       return Generator<Type0, DoubleType, Args...>::Exec;
+    case Type::HALF_FLOAT:
+      return Generator<Type0, HalfFloatType, Args...>::Exec;
     default:
       DCHECK(false);
       return nullptr;
