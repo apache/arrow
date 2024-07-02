@@ -562,12 +562,12 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_closeDataset
  * Class:     org_apache_arrow_dataset_jni_JniWrapper
  * Method:    createScanner
  * Signature:
- * (J[Ljava/lang/String;Ljava/nio/ByteBuffer;Ljava/nio/ByteBuffer;JJ;[Ljava/lang/String;J)J
+ * (J[Ljava/lang/String;Ljava/nio/ByteBuffer;Ljava/nio/ByteBuffer;JI;[Ljava/lang/String;J)J
  */
 JNIEXPORT jlong JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_createScanner(
     JNIEnv* env, jobject, jlong dataset_id, jobjectArray columns,
     jobject substrait_projection, jobject substrait_filter, jlong batch_size,
-    jlong file_format_id, jobjectArray options, jlong memory_pool_id) {
+    jint file_format_id, jobjectArray options, jlong memory_pool_id) {
   JNI_METHOD_START
   arrow::MemoryPool* pool = reinterpret_cast<arrow::MemoryPool*>(memory_pool_id);
   if (pool == nullptr) {

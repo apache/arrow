@@ -82,7 +82,7 @@ public class JniWrapper {
       ByteBuffer substraitProjection,
       ByteBuffer substraitFilter,
       long batchSize,
-      long fileFormat,
+      int fileFormat,
       String[] serializedFragmentScanOptions,
       long memoryPool);
 
