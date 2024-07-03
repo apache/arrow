@@ -17,6 +17,7 @@
 package encoding
 
 import (
+	"bytes"
 	"math"
 
 	"github.com/apache/arrow/go/v17/internal/utils"
@@ -69,25 +70,24 @@ func (pflba *PlainFixedLenByteArrayDecoder) DecodeSpaced(out []parquet.FixedLenB
 // bytes representing FixedLenByteArray values
 type ByteStreamSplitFixedLenByteArrayDecoder struct {
 	PlainFixedLenByteArrayDecoder
-	pageBuffer []byte
+	pageBuffer bytes.Buffer
 }
 
 // func decodePage
 func (dec *ByteStreamSplitFixedLenByteArrayDecoder) SetData(nvals int, data []byte) error {
-	if dec.pageBuffer == nil {
-		dec.pageBuffer = make([]byte, len(data))
-	}
+	dec.pageBuffer.Grow(len(data))
+	buf := dec.pageBuffer.Bytes()[:len(data)]
 
 	switch dec.typeLen {
 	case 2:
-		decodeByteStreamSplitWidth2(data, dec.pageBuffer)
+		decodeByteStreamSplitWidth2(data, buf)
 	case 4:
-		decodeByteStreamSplitWidth4(data, dec.pageBuffer)
+		decodeByteStreamSplitWidth4(data, buf)
 	case 8:
-		decodeByteStreamSplitWidth8(data, dec.pageBuffer)
+		decodeByteStreamSplitWidth8(data, buf)
 	default:
-		decodeByteStreamSplit(data, dec.pageBuffer, dec.typeLen)
+		decodeByteStreamSplit(data, buf, dec.typeLen)
 	}
 
-	return dec.PlainFixedLenByteArrayDecoder.SetData(nvals, dec.pageBuffer)
+	return dec.PlainFixedLenByteArrayDecoder.SetData(nvals, buf)
 }

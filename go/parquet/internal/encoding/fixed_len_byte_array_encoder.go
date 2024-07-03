@@ -79,26 +79,39 @@ func (PlainFixedLenByteArrayEncoder) Type() parquet.Type {
 // into interlaced streams as defined by the BYTE_STREAM_SPLIT encoding
 type ByteStreamSplitFixedLenByteArrayEncoder struct {
 	PlainFixedLenByteArrayEncoder
+	flushBuffer *PooledBufferWriter
 }
 
 func (enc *ByteStreamSplitFixedLenByteArrayEncoder) FlushValues() (Buffer, error) {
-	in, out, err := flushByteStreamSplit(&enc.PlainFixedLenByteArrayEncoder)
+	in, err := enc.PlainFixedLenByteArrayEncoder.FlushValues()
 	if err != nil {
 		return nil, err
 	}
 
-	switch enc.typeLen {
-	case 2:
-		encodeByteStreamSplitWidth2(out.Bytes(), in.Bytes())
-	case 4:
-		encodeByteStreamSplitWidth4(out.Bytes(), in.Bytes())
-	case 8:
-		encodeByteStreamSplitWidth8(out.Bytes(), in.Bytes())
-	default:
-		encodeByteStreamSplit(out.Bytes(), in.Bytes(), enc.typeLen)
+	if enc.flushBuffer == nil {
+		enc.flushBuffer = NewPooledBufferWriter(in.Len())
 	}
 
-	return out.Finish(), nil
+	enc.flushBuffer.buf.ResizeNoShrink(in.Len())
+
+	switch enc.typeLen {
+	case 2:
+		encodeByteStreamSplitWidth2(enc.flushBuffer.Bytes(), in.Bytes())
+	case 4:
+		encodeByteStreamSplitWidth4(enc.flushBuffer.Bytes(), in.Bytes())
+	case 8:
+		encodeByteStreamSplitWidth8(enc.flushBuffer.Bytes(), in.Bytes())
+	default:
+		encodeByteStreamSplit(enc.flushBuffer.Bytes(), in.Bytes(), enc.typeLen)
+	}
+
+	return enc.flushBuffer.Finish(), nil
+}
+
+func (enc *ByteStreamSplitFixedLenByteArrayEncoder) Release() {
+	enc.PlainFixedLenByteArrayEncoder.Release()
+	releaseBufferToPool(enc.flushBuffer)
+	enc.flushBuffer = nil
 }
 
 // WriteDict overrides the embedded WriteDict function to call a specialized function

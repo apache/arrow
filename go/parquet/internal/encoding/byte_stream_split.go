@@ -17,6 +17,9 @@
 package encoding
 
 import (
+	"bytes"
+
+	"github.com/apache/arrow/go/v17/arrow/memory"
 	"github.com/apache/arrow/go/v17/parquet"
 )
 
@@ -134,134 +137,177 @@ func decodeByteStreamSplitWidth8(data []byte, out []byte) {
 	}
 }
 
-func flushByteStreamSplit(enc TypedEncoder) (Buffer, *PooledBufferWriter, error) {
-	in, err := enc.FlushValues()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	out := NewPooledBufferWriter(in.Len())
-	out.buf.ResizeNoShrink(in.Len())
-
-	return in, out, nil
+func releaseBufferToPool(pooled *PooledBufferWriter) {
+	buf := pooled.buf
+	memory.Set(buf.Buf(), 0)
+	buf.ResizeNoShrink(0)
+	bufferPool.Put(buf)
 }
 
 // ByteStreamSplitFloat32Encoder writes the underlying bytes of the Float32
 // into interlaced streams as defined by the BYTE_STREAM_SPLIT encoding
 type ByteStreamSplitFloat32Encoder struct {
 	PlainFloat32Encoder
+	flushBuffer *PooledBufferWriter
 }
 
 func (enc *ByteStreamSplitFloat32Encoder) FlushValues() (Buffer, error) {
-	in, out, err := flushByteStreamSplit(&enc.PlainFloat32Encoder)
+	in, err := enc.PlainFloat32Encoder.FlushValues()
 	if err != nil {
 		return nil, err
 	}
-	encodeByteStreamSplitWidth4(out.Bytes(), in.Bytes())
-	return out.Finish(), nil
+
+	if enc.flushBuffer == nil {
+		enc.flushBuffer = NewPooledBufferWriter(in.Len())
+	}
+
+	enc.flushBuffer.buf.Resize(in.Len())
+	encodeByteStreamSplitWidth4(enc.flushBuffer.Bytes(), in.Bytes())
+	return enc.flushBuffer.Finish(), nil
+}
+
+func (enc *ByteStreamSplitFloat32Encoder) Release() {
+	enc.PlainFloat32Encoder.Release()
+	releaseBufferToPool(enc.flushBuffer)
+	enc.flushBuffer = nil
 }
 
 // ByteStreamSplitFloat64Encoder writes the underlying bytes of the Float64
 // into interlaced streams as defined by the BYTE_STREAM_SPLIT encoding
 type ByteStreamSplitFloat64Encoder struct {
 	PlainFloat64Encoder
+	flushBuffer *PooledBufferWriter
 }
 
 func (enc *ByteStreamSplitFloat64Encoder) FlushValues() (Buffer, error) {
-	in, out, err := flushByteStreamSplit(&enc.PlainFloat64Encoder)
+	in, err := enc.PlainFloat64Encoder.FlushValues()
 	if err != nil {
 		return nil, err
 	}
-	encodeByteStreamSplitWidth8(out.Bytes(), in.Bytes())
-	return out.Finish(), nil
+
+	if enc.flushBuffer == nil {
+		enc.flushBuffer = NewPooledBufferWriter(in.Len())
+	}
+
+	enc.flushBuffer.buf.Resize(in.Len())
+	encodeByteStreamSplitWidth8(enc.flushBuffer.Bytes(), in.Bytes())
+	return enc.flushBuffer.Finish(), nil
+}
+
+func (enc *ByteStreamSplitFloat64Encoder) Release() {
+	enc.PlainFloat64Encoder.Release()
+	releaseBufferToPool(enc.flushBuffer)
+	enc.flushBuffer = nil
 }
 
 // ByteStreamSplitInt32Encoder writes the underlying bytes of the Int32
 // into interlaced streams as defined by the BYTE_STREAM_SPLIT encoding
 type ByteStreamSplitInt32Encoder struct {
 	PlainInt32Encoder
+	flushBuffer *PooledBufferWriter
 }
 
 func (enc *ByteStreamSplitInt32Encoder) FlushValues() (Buffer, error) {
-	in, out, err := flushByteStreamSplit(&enc.PlainInt32Encoder)
+	in, err := enc.PlainInt32Encoder.FlushValues()
 	if err != nil {
 		return nil, err
 	}
-	encodeByteStreamSplitWidth4(out.Bytes(), in.Bytes())
-	return out.Finish(), nil
+
+	if enc.flushBuffer == nil {
+		enc.flushBuffer = NewPooledBufferWriter(in.Len())
+	}
+
+	enc.flushBuffer.buf.Resize(in.Len())
+	encodeByteStreamSplitWidth4(enc.flushBuffer.Bytes(), in.Bytes())
+	return enc.flushBuffer.Finish(), nil
+}
+
+func (enc *ByteStreamSplitInt32Encoder) Release() {
+	enc.PlainInt32Encoder.Release()
+	releaseBufferToPool(enc.flushBuffer)
+	enc.flushBuffer = nil
 }
 
 // ByteStreamSplitInt64Encoder writes the underlying bytes of the Int64
 // into interlaced streams as defined by the BYTE_STREAM_SPLIT encoding
 type ByteStreamSplitInt64Encoder struct {
 	PlainInt64Encoder
+	flushBuffer *PooledBufferWriter
 }
 
 func (enc *ByteStreamSplitInt64Encoder) FlushValues() (Buffer, error) {
-	in, out, err := flushByteStreamSplit(&enc.PlainInt64Encoder)
+	in, err := enc.PlainInt64Encoder.FlushValues()
 	if err != nil {
 		return nil, err
 	}
-	encodeByteStreamSplitWidth8(out.Bytes(), in.Bytes())
-	return out.Finish(), nil
+
+	if enc.flushBuffer == nil {
+		enc.flushBuffer = NewPooledBufferWriter(in.Len())
+	}
+
+	enc.flushBuffer.buf.Resize(in.Len())
+	encodeByteStreamSplitWidth8(enc.flushBuffer.Bytes(), in.Bytes())
+	return enc.flushBuffer.Finish(), nil
+}
+
+func (enc *ByteStreamSplitInt64Encoder) Release() {
+	enc.PlainInt64Encoder.Release()
+	releaseBufferToPool(enc.flushBuffer)
+	enc.flushBuffer = nil
 }
 
 // ByteStreamSplitFloat32Decoder is a decoder for BYTE_STREAM_SPLIT-encoded
 // bytes representing Float32 values
 type ByteStreamSplitFloat32Decoder struct {
 	PlainFloat32Decoder
-	pageBuffer []byte
+	pageBuffer bytes.Buffer
 }
 
 func (dec *ByteStreamSplitFloat32Decoder) SetData(nvals int, data []byte) error {
-	if dec.pageBuffer == nil {
-		dec.pageBuffer = make([]byte, len(data))
-	}
-	decodeByteStreamSplitWidth4(data, dec.pageBuffer)
-	return dec.PlainFloat32Decoder.SetData(nvals, dec.pageBuffer)
+	dec.pageBuffer.Grow(len(data))
+	buf := dec.pageBuffer.Bytes()[:len(data)]
+	decodeByteStreamSplitWidth4(data, buf)
+	return dec.PlainFloat32Decoder.SetData(nvals, buf)
 }
 
 // ByteStreamSplitFloat64Decoder is a decoder for BYTE_STREAM_SPLIT-encoded
 // bytes representing Float64 values
 type ByteStreamSplitFloat64Decoder struct {
 	PlainFloat64Decoder
-	pageBuffer []byte
+	pageBuffer bytes.Buffer
 }
 
 func (dec *ByteStreamSplitFloat64Decoder) SetData(nvals int, data []byte) error {
-	if dec.pageBuffer == nil {
-		dec.pageBuffer = make([]byte, len(data))
-	}
-	decodeByteStreamSplitWidth8(data, dec.pageBuffer)
-	return dec.PlainFloat64Decoder.SetData(nvals, dec.pageBuffer)
+	dec.pageBuffer.Grow(len(data))
+	buf := dec.pageBuffer.Bytes()[:len(data)]
+	decodeByteStreamSplitWidth8(data, buf)
+	return dec.PlainFloat64Decoder.SetData(nvals, buf)
 }
 
 // ByteStreamSplitInt32Decoder is a decoder for BYTE_STREAM_SPLIT-encoded
 // bytes representing Int32 values
 type ByteStreamSplitInt32Decoder struct {
 	PlainInt32Decoder
-	pageBuffer []byte
+	pageBuffer bytes.Buffer
 }
 
 func (dec *ByteStreamSplitInt32Decoder) SetData(nvals int, data []byte) error {
-	if dec.pageBuffer == nil {
-		dec.pageBuffer = make([]byte, len(data))
-	}
-	decodeByteStreamSplitWidth4(data, dec.pageBuffer)
-	return dec.PlainInt32Decoder.SetData(nvals, dec.pageBuffer)
+	dec.pageBuffer.Grow(len(data))
+	buf := dec.pageBuffer.Bytes()[:len(data)]
+	decodeByteStreamSplitWidth4(data, buf)
+	return dec.PlainInt32Decoder.SetData(nvals, buf)
 }
 
 // ByteStreamSplitInt64Decoder is a decoder for BYTE_STREAM_SPLIT-encoded
 // bytes representing Int64 values
 type ByteStreamSplitInt64Decoder struct {
 	PlainInt64Decoder
-	pageBuffer []byte
+	pageBuffer bytes.Buffer
 }
 
 func (dec *ByteStreamSplitInt64Decoder) SetData(nvals int, data []byte) error {
-	if dec.pageBuffer == nil {
-		dec.pageBuffer = make([]byte, len(data))
-	}
-	decodeByteStreamSplitWidth8(data, dec.pageBuffer)
-	return dec.PlainInt64Decoder.SetData(nvals, dec.pageBuffer)
+	dec.pageBuffer.Grow(len(data))
+	buf := dec.pageBuffer.Bytes()[:len(data)]
+	decodeByteStreamSplitWidth8(data, buf)
+	return dec.PlainInt64Decoder.SetData(nvals, buf)
 }

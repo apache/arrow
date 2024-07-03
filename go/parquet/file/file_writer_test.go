@@ -525,10 +525,6 @@ func TestBatchedByteStreamSplitFileRoundtrip(t *testing.T) {
 	require.True(t, ok)
 
 	output := make([]parquet.FixedLenByteArray, size)
-	// total, valuesRead, err := f16ColumnReader.ReadBatch(int64(size), output, nil, nil)
-	// require.NoError(t, err)
-	// require.EqualValues(t, size, total)
-	// require.EqualValues(t, size, valuesRead)
 
 	total, valuesRead, err := f16ColumnReader.ReadBatch(int64(chunk), output[:chunk], nil, nil)
 	require.NoError(t, err)
