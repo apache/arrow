@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -22,7 +21,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.time.Duration;
-
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.holders.NullableDurationHolder;
 import org.apache.arrow.vector.types.TimeUnit;
@@ -47,8 +45,9 @@ public class TestDurationVector {
 
   @Test
   public void testSecBasics() {
-    try (DurationVector secVector = TestUtils.newVector(DurationVector.class, "second",
-        new ArrowType.Duration(TimeUnit.SECOND), allocator)) {
+    try (DurationVector secVector =
+        TestUtils.newVector(
+            DurationVector.class, "second", new ArrowType.Duration(TimeUnit.SECOND), allocator)) {
 
       secVector.allocateNew();
       secVector.setNull(0);
@@ -63,15 +62,19 @@ public class TestDurationVector {
       secVector.get(0, holder);
       assertEquals(0, holder.isSet);
       secVector.get(1, holder);
-      assertEquals(1 , holder.isSet);
-      assertEquals(1000 , holder.value);
+      assertEquals(1, holder.isSet);
+      assertEquals(1000, holder.value);
     }
   }
 
   @Test
   public void testMilliBasics() {
-    try (DurationVector milliVector = TestUtils.newVector(DurationVector.class, "nanos",
-        new ArrowType.Duration(TimeUnit.MILLISECOND), allocator)) {
+    try (DurationVector milliVector =
+        TestUtils.newVector(
+            DurationVector.class,
+            "nanos",
+            new ArrowType.Duration(TimeUnit.MILLISECOND),
+            allocator)) {
 
       milliVector.allocateNew();
       milliVector.setNull(0);
@@ -86,15 +89,19 @@ public class TestDurationVector {
       milliVector.get(0, holder);
       assertEquals(0, holder.isSet);
       milliVector.get(1, holder);
-      assertEquals(1 , holder.isSet);
-      assertEquals(1000 , holder.value);
+      assertEquals(1, holder.isSet);
+      assertEquals(1000, holder.value);
     }
   }
 
   @Test
   public void testMicroBasics() {
-    try (DurationVector microVector = TestUtils.newVector(DurationVector.class, "micro",
-        new ArrowType.Duration(TimeUnit.MICROSECOND), allocator)) {
+    try (DurationVector microVector =
+        TestUtils.newVector(
+            DurationVector.class,
+            "micro",
+            new ArrowType.Duration(TimeUnit.MICROSECOND),
+            allocator)) {
 
       microVector.allocateNew();
       microVector.setNull(0);
@@ -109,15 +116,19 @@ public class TestDurationVector {
       microVector.get(0, holder);
       assertEquals(0, holder.isSet);
       microVector.get(1, holder);
-      assertEquals(1 , holder.isSet);
-      assertEquals(1000 , holder.value);
+      assertEquals(1, holder.isSet);
+      assertEquals(1000, holder.value);
     }
   }
 
   @Test
   public void testNanosBasics() {
-    try (DurationVector nanoVector = TestUtils.newVector(DurationVector.class, "nanos",
-        new ArrowType.Duration(TimeUnit.NANOSECOND), allocator)) {
+    try (DurationVector nanoVector =
+        TestUtils.newVector(
+            DurationVector.class,
+            "nanos",
+            new ArrowType.Duration(TimeUnit.NANOSECOND),
+            allocator)) {
 
       nanoVector.allocateNew();
       nanoVector.setNull(0);
@@ -132,18 +143,20 @@ public class TestDurationVector {
       nanoVector.get(0, holder);
       assertEquals(0, holder.isSet);
       nanoVector.get(1, holder);
-      assertEquals(1 , holder.isSet);
-      assertEquals(1000000 , holder.value);
+      assertEquals(1, holder.isSet);
+      assertEquals(1000000, holder.value);
     }
   }
 
   @Test
   public void testGetTransferPairWithField() {
-    final DurationVector fromVector = TestUtils.newVector(DurationVector.class, "nanos",
-        new ArrowType.Duration(TimeUnit.NANOSECOND), allocator);
+    final DurationVector fromVector =
+        TestUtils.newVector(
+            DurationVector.class, "nanos", new ArrowType.Duration(TimeUnit.NANOSECOND), allocator);
     final TransferPair transferPair = fromVector.getTransferPair(fromVector.getField(), allocator);
     final DurationVector toVector = (DurationVector) transferPair.getTo();
-    // Field inside a new vector created by reusing a field should be the same in memory as the original field.
+    // Field inside a new vector created by reusing a field should be the same in memory as the
+    // original field.
     assertSame(fromVector.getField(), toVector.getField());
   }
 }

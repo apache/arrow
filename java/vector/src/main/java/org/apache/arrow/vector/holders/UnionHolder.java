@@ -14,15 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.holders;
 
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.types.Types.MinorType;
 
-/**
- * {@link ValueHolder} for Union Vectors.
- */
+/** {@link ValueHolder} for Union Vectors. */
 public class UnionHolder implements ValueHolder {
   public FieldReader reader;
   public int isSet;

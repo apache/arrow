@@ -525,19 +525,19 @@ std::shared_ptr<DataType> decimal256(int32_t precision, int32_t scale);
 
 /// \brief Create a ListType instance from its child Field type
 ARROW_EXPORT
-std::shared_ptr<DataType> list(const std::shared_ptr<Field>& value_type);
+std::shared_ptr<DataType> list(std::shared_ptr<Field> value_type);
 
 /// \brief Create a ListType instance from its child DataType
 ARROW_EXPORT
-std::shared_ptr<DataType> list(const std::shared_ptr<DataType>& value_type);
+std::shared_ptr<DataType> list(std::shared_ptr<DataType> value_type);
 
 /// \brief Create a LargeListType instance from its child Field type
 ARROW_EXPORT
-std::shared_ptr<DataType> large_list(const std::shared_ptr<Field>& value_type);
+std::shared_ptr<DataType> large_list(std::shared_ptr<Field> value_type);
 
 /// \brief Create a LargeListType instance from its child DataType
 ARROW_EXPORT
-std::shared_ptr<DataType> large_list(const std::shared_ptr<DataType>& value_type);
+std::shared_ptr<DataType> large_list(std::shared_ptr<DataType> value_type);
 
 /// \brief Create a ListViewType instance
 ARROW_EXPORT std::shared_ptr<DataType> list_view(std::shared_ptr<DataType> value_type);
@@ -568,12 +568,12 @@ std::shared_ptr<DataType> map(std::shared_ptr<DataType> key_type,
 
 /// \brief Create a FixedSizeListType instance from its child Field type
 ARROW_EXPORT
-std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<Field>& value_type,
+std::shared_ptr<DataType> fixed_size_list(std::shared_ptr<Field> value_type,
                                           int32_t list_size);
 
 /// \brief Create a FixedSizeListType instance from its child DataType
 ARROW_EXPORT
-std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<DataType>& value_type,
+std::shared_ptr<DataType> fixed_size_list(std::shared_ptr<DataType> value_type,
                                           int32_t list_size);
 /// \brief Return a Duration instance (naming use _type to avoid namespace conflict with
 /// built in time classes).

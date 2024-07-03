@@ -102,6 +102,7 @@ TEST(FunctionOptions, Equality) {
 #endif
   options.emplace_back(new PadOptions(5, " "));
   options.emplace_back(new PadOptions(10, "A"));
+  options.emplace_back(new PadOptions(10, "A", false));
   options.emplace_back(new TrimOptions(" "));
   options.emplace_back(new TrimOptions("abc"));
   options.emplace_back(new SliceOptions(/*start=*/1));

@@ -807,7 +807,7 @@ MapArray::MapArray(const std::shared_ptr<DataType>& type, int64_t length,
 Result<std::shared_ptr<Array>> MapArray::FromArraysInternal(
     std::shared_ptr<DataType> type, const std::shared_ptr<Array>& offsets,
     const std::shared_ptr<Array>& keys, const std::shared_ptr<Array>& items,
-    MemoryPool* pool, const std::shared_ptr<Buffer>& null_bitmap) {
+    MemoryPool* pool, std::shared_ptr<Buffer> null_bitmap) {
   using offset_type = typename MapType::offset_type;
   using OffsetArrowType = typename CTypeTraits<offset_type>::ArrowType;
 
@@ -836,7 +836,7 @@ Result<std::shared_ptr<Array>> MapArray::FromArraysInternal(
     return Status::NotImplemented("Null bitmap with offsets slice not supported.");
   }
 
-  if (offsets->null_count() > 0) {
+  if (offsets->data()->MayHaveNulls()) {
     ARROW_ASSIGN_OR_RAISE(auto buffers,
                           CleanListOffsets<MapType>(NULLPTR, *offsets, pool));
     return std::make_shared<MapArray>(type, offsets->length() - 1, std::move(buffers),
@@ -847,30 +847,32 @@ Result<std::shared_ptr<Array>> MapArray::FromArraysInternal(
   const auto& typed_offsets = checked_cast<const OffsetArrayType&>(*offsets);
 
   BufferVector buffers;
-  int64_t null_count;
-  if (null_bitmap != nullptr) {
-    buffers = BufferVector({std::move(null_bitmap), typed_offsets.values()});
-    null_count = null_bitmap->size();
-  } else {
-    buffers = BufferVector({null_bitmap, typed_offsets.values()});
-    null_count = 0;
+  buffers.resize(2);
+  int64_t null_count = 0;
+  if (null_bitmap) {
+    buffers[0] = std::move(null_bitmap);
+    null_count = kUnknownNullCount;
   }
+  buffers[1] = typed_offsets.values();
   return std::make_shared<MapArray>(type, offsets->length() - 1, std::move(buffers), keys,
                                     items, /*null_count=*/null_count, offsets->offset());
 }
 
-Result<std::shared_ptr<Array>> MapArray::FromArrays(
-    const std::shared_ptr<Array>& offsets, const std::shared_ptr<Array>& keys,
-    const std::shared_ptr<Array>& items, MemoryPool* pool,
-    const std::shared_ptr<Buffer>& null_bitmap) {
+Result<std::shared_ptr<Array>> MapArray::FromArrays(const std::shared_ptr<Array>& offsets,
+                                                    const std::shared_ptr<Array>& keys,
+                                                    const std::shared_ptr<Array>& items,
+                                                    MemoryPool* pool,
+                                                    std::shared_ptr<Buffer> null_bitmap) {
   return FromArraysInternal(std::make_shared<MapType>(keys->type(), items->type()),
-                            offsets, keys, items, pool, null_bitmap);
+                            offsets, keys, items, pool, std::move(null_bitmap));
 }
 
-Result<std::shared_ptr<Array>> MapArray::FromArrays(
-    std::shared_ptr<DataType> type, const std::shared_ptr<Array>& offsets,
-    const std::shared_ptr<Array>& keys, const std::shared_ptr<Array>& items,
-    MemoryPool* pool, const std::shared_ptr<Buffer>& null_bitmap) {
+Result<std::shared_ptr<Array>> MapArray::FromArrays(std::shared_ptr<DataType> type,
+                                                    const std::shared_ptr<Array>& offsets,
+                                                    const std::shared_ptr<Array>& keys,
+                                                    const std::shared_ptr<Array>& items,
+                                                    MemoryPool* pool,
+                                                    std::shared_ptr<Buffer> null_bitmap) {
   if (type->id() != Type::MAP) {
     return Status::TypeError("Expected map type, got ", type->ToString());
   }
@@ -881,7 +883,8 @@ Result<std::shared_ptr<Array>> MapArray::FromArrays(
   if (!map_type.item_type()->Equals(items->type())) {
     return Status::TypeError("Mismatching map items type");
   }
-  return FromArraysInternal(std::move(type), offsets, keys, items, pool, null_bitmap);
+  return FromArraysInternal(std::move(type), offsets, keys, items, pool,
+                            std::move(null_bitmap));
 }
 
 Status MapArray::ValidateChildData(

@@ -53,6 +53,7 @@ test_that("try_arrow_dplyr/abandon_ship adds the right message about collect()",
     })
   }
 
+  skip_if_not_available("dataset")
   ds <- InMemoryDataset$create(arrow_table(x = 1))
   for (i in 0:2) {
     expect_snapshot(tester(ds, i), error = TRUE)

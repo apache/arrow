@@ -79,6 +79,7 @@ func newConfig(opts ...Option) *config {
 		alloc:              memory.NewGoAllocator(),
 		codec:              -1, // uncompressed
 		ensureNativeEndian: true,
+		compressNP:         1,
 	}
 
 	for _, opt := range opts {
@@ -132,9 +133,12 @@ func WithZstd() Option {
 // WithCompressConcurrency specifies a number of goroutines to spin up for
 // concurrent compression of the body buffers when writing compress IPC records.
 // If n <= 1 then compression will be done serially without goroutine
-// parallelization. Default is 0.
+// parallelization. Default is 1.
 func WithCompressConcurrency(n int) Option {
 	return func(cfg *config) {
+		if n <= 0 {
+			n = 1
+		}
 		cfg.compressNP = n
 	}
 }

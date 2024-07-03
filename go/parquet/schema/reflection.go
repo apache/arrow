@@ -23,9 +23,9 @@ import (
 	"strings"
 
 	"github.com/apache/arrow/go/v17/arrow/float16"
+	"github.com/apache/arrow/go/v17/internal/utils"
 	"github.com/apache/arrow/go/v17/parquet"
 	format "github.com/apache/arrow/go/v17/parquet/internal/gen-go/parquet"
-	"golang.org/x/xerrors"
 )
 
 type taggedInfo struct {
@@ -609,14 +609,7 @@ func NewSchemaFromStruct(obj interface{}) (sc *Schema, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			sc = nil
-			switch x := r.(type) {
-			case string:
-				err = xerrors.New(x)
-			case error:
-				err = x
-			default:
-				err = xerrors.New("unknown panic")
-			}
+			err = utils.FormatRecoveredError("unknown panic", r)
 		}
 	}()
 
@@ -824,14 +817,7 @@ func NewStructFromSchema(sc *Schema) (t reflect.Type, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			t = nil
-			switch x := r.(type) {
-			case string:
-				err = xerrors.New(x)
-			case error:
-				err = x
-			default:
-				err = xerrors.New("unknown panic")
-			}
+			err = utils.FormatRecoveredError("unknown panic", r)
 		}
 	}()
 

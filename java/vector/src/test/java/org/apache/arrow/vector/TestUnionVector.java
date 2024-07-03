@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -27,7 +26,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.MapVector;
@@ -71,7 +69,8 @@ public class TestUnionVector {
     uInt4Holder.isSet = 1;
 
     try (UnionVector unionVector =
-             new UnionVector(EMPTY_SCHEMA_PATH, allocator, /* field type */ null, /* call-back */ null)) {
+        new UnionVector(
+            EMPTY_SCHEMA_PATH, allocator, /* field type */ null, /* call-back */ null)) {
       unionVector.allocateNew();
 
       // write some data
@@ -99,7 +98,8 @@ public class TestUnionVector {
   @Test
   public void testUnionVectorMapValue() throws Exception {
     try (UnionVector unionVector =
-             new UnionVector(EMPTY_SCHEMA_PATH, allocator, /* field type */ null, /* call-back */ null)) {
+        new UnionVector(
+            EMPTY_SCHEMA_PATH, allocator, /* field type */ null, /* call-back */ null)) {
       unionVector.allocateNew();
 
       UnionWriter writer = (UnionWriter) unionVector.getWriter();
@@ -161,7 +161,8 @@ public class TestUnionVector {
   @Test
   public void testTransfer() throws Exception {
     try (UnionVector srcVector =
-             new UnionVector(EMPTY_SCHEMA_PATH, allocator, /* field type */ null, /* call-back */ null)) {
+        new UnionVector(
+            EMPTY_SCHEMA_PATH, allocator, /* field type */ null, /* call-back */ null)) {
       srcVector.allocateNew();
 
       // write some data
@@ -176,7 +177,8 @@ public class TestUnionVector {
       srcVector.setValueCount(6);
 
       try (UnionVector destVector =
-               new UnionVector(EMPTY_SCHEMA_PATH, allocator, /* field type */ null, /* call-back */ null)) {
+          new UnionVector(
+              EMPTY_SCHEMA_PATH, allocator, /* field type */ null, /* call-back */ null)) {
         TransferPair pair = srcVector.makeTransferPair(destVector);
 
         // Creating the transfer should transfer the type of the field at least.
@@ -212,7 +214,8 @@ public class TestUnionVector {
   @Test
   public void testSplitAndTransfer() throws Exception {
     try (UnionVector sourceVector =
-             new UnionVector(EMPTY_SCHEMA_PATH, allocator, /* field type */ null, /* call-back */ null)) {
+        new UnionVector(
+            EMPTY_SCHEMA_PATH, allocator, /* field type */ null, /* call-back */ null)) {
 
       sourceVector.allocateNew();
 
@@ -263,17 +266,12 @@ public class TestUnionVector {
       assertEquals(50, sourceVector.getObject(9));
 
       try (UnionVector toVector =
-               new UnionVector(EMPTY_SCHEMA_PATH, allocator, /* field type */ null, /* call-back */ null)) {
+          new UnionVector(
+              EMPTY_SCHEMA_PATH, allocator, /* field type */ null, /* call-back */ null)) {
 
         final TransferPair transferPair = sourceVector.makeTransferPair(toVector);
 
-        final int[][] transferLengths = {{0, 3},
-            {3, 1},
-            {4, 2},
-            {6, 1},
-            {7, 1},
-            {8, 2}
-        };
+        final int[][] transferLengths = {{0, 3}, {3, 1}, {4, 2}, {6, 1}, {7, 1}, {8, 2}};
 
         for (final int[] transferLength : transferLengths) {
           final int start = transferLength[0];
@@ -283,7 +281,9 @@ public class TestUnionVector {
 
           /* check the toVector output after doing the splitAndTransfer */
           for (int i = 0; i < length; i++) {
-            assertEquals(sourceVector.getObject(start + i), toVector.getObject(i),
+            assertEquals(
+                sourceVector.getObject(start + i),
+                toVector.getObject(i),
                 "Different data at indexes: " + (start + i) + "and " + i);
           }
         }
@@ -294,7 +294,8 @@ public class TestUnionVector {
   @Test
   public void testSplitAndTransferWithMixedVectors() throws Exception {
     try (UnionVector sourceVector =
-             new UnionVector(EMPTY_SCHEMA_PATH, allocator, /* field type */ null, /* call-back */ null)) {
+        new UnionVector(
+            EMPTY_SCHEMA_PATH, allocator, /* field type */ null, /* call-back */ null)) {
 
       sourceVector.allocateNew();
 
@@ -354,16 +355,12 @@ public class TestUnionVector {
       assertEquals(30.5f, sourceVector.getObject(9));
 
       try (UnionVector toVector =
-               new UnionVector(EMPTY_SCHEMA_PATH, allocator, /* field type */ null, /* call-back */ null)) {
+          new UnionVector(
+              EMPTY_SCHEMA_PATH, allocator, /* field type */ null, /* call-back */ null)) {
 
         final TransferPair transferPair = sourceVector.makeTransferPair(toVector);
 
-        final int[][] transferLengths = {{0, 2},
-            {2, 1},
-            {3, 2},
-            {5, 3},
-            {8, 2}
-        };
+        final int[][] transferLengths = {{0, 2}, {2, 1}, {3, 2}, {5, 3}, {8, 2}};
 
         for (final int[] transferLength : transferLengths) {
           final int start = transferLength[0];
@@ -373,7 +370,9 @@ public class TestUnionVector {
 
           /* check the toVector output after doing the splitAndTransfer */
           for (int i = 0; i < length; i++) {
-            assertEquals(sourceVector.getObject(start + i), toVector.getObject(i),
+            assertEquals(
+                sourceVector.getObject(start + i),
+                toVector.getObject(i),
                 "Different values at index: " + i);
           }
         }
@@ -394,8 +393,9 @@ public class TestUnionVector {
     children.add(new Field("int", FieldType.nullable(MinorType.INT.getType()), null));
     children.add(new Field("varchar", FieldType.nullable(MinorType.VARCHAR.getType()), null));
 
-    final FieldType fieldType = new FieldType(false, new ArrowType.Union(UnionMode.Sparse, typeIds),
-        /*dictionary=*/null, metadata);
+    final FieldType fieldType =
+        new FieldType(
+            false, new ArrowType.Union(UnionMode.Sparse, typeIds), /*dictionary=*/ null, metadata);
     final Field field = new Field("union", fieldType, children);
 
     MinorType minorType = MinorType.UNION;
@@ -421,7 +421,8 @@ public class TestUnionVector {
   @Test
   public void testGetBufferAddress() throws Exception {
     try (UnionVector vector =
-             new UnionVector(EMPTY_SCHEMA_PATH, allocator, /* field type */ null, /* call-back */ null)) {
+        new UnionVector(
+            EMPTY_SCHEMA_PATH, allocator, /* field type */ null, /* call-back */ null)) {
       boolean error = false;
 
       vector.allocateNew();
@@ -454,7 +455,6 @@ public class TestUnionVector {
 
       List<ArrowBuf> buffers = vector.getFieldBuffers();
 
-
       try {
         vector.getOffsetBufferAddress();
       } catch (UnsupportedOperationException ue) {
@@ -479,7 +479,8 @@ public class TestUnionVector {
   @Test
   public void testSetGetNull() {
     try (UnionVector srcVector =
-             new UnionVector(EMPTY_SCHEMA_PATH, allocator, /* field type */ null, /* call-back */ null)) {
+        new UnionVector(
+            EMPTY_SCHEMA_PATH, allocator, /* field type */ null, /* call-back */ null)) {
       srcVector.allocateNew();
 
       final NullableIntHolder holder = new NullableIntHolder();
@@ -502,22 +503,30 @@ public class TestUnionVector {
   @Test
   public void testCreateNewVectorWithoutTypeExceptionThrown() {
     try (UnionVector vector =
-        new UnionVector(EMPTY_SCHEMA_PATH, allocator, /* field type */ null, /* call-back */ null)) {
-      IllegalArgumentException e1 = assertThrows(IllegalArgumentException.class,
-          () -> vector.getTimeStampMilliTZVector());
-      assertEquals("No TimeStampMilliTZ present. Provide ArrowType argument to create a new vector", e1.getMessage());
+        new UnionVector(
+            EMPTY_SCHEMA_PATH, allocator, /* field type */ null, /* call-back */ null)) {
+      IllegalArgumentException e1 =
+          assertThrows(IllegalArgumentException.class, () -> vector.getTimeStampMilliTZVector());
+      assertEquals(
+          "No TimeStampMilliTZ present. Provide ArrowType argument to create a new vector",
+          e1.getMessage());
 
-      IllegalArgumentException e2 = assertThrows(IllegalArgumentException.class,
-          () -> vector.getDurationVector());
-      assertEquals("No Duration present. Provide ArrowType argument to create a new vector", e2.getMessage());
+      IllegalArgumentException e2 =
+          assertThrows(IllegalArgumentException.class, () -> vector.getDurationVector());
+      assertEquals(
+          "No Duration present. Provide ArrowType argument to create a new vector",
+          e2.getMessage());
 
-      IllegalArgumentException e3 = assertThrows(IllegalArgumentException.class,
-          () -> vector.getFixedSizeBinaryVector());
-      assertEquals("No FixedSizeBinary present. Provide ArrowType argument to create a new vector", e3.getMessage());
+      IllegalArgumentException e3 =
+          assertThrows(IllegalArgumentException.class, () -> vector.getFixedSizeBinaryVector());
+      assertEquals(
+          "No FixedSizeBinary present. Provide ArrowType argument to create a new vector",
+          e3.getMessage());
 
-      IllegalArgumentException e4 = assertThrows(IllegalArgumentException.class,
-          () -> vector.getDecimalVector());
-      assertEquals("No Decimal present. Provide ArrowType argument to create a new vector", e4.getMessage());
+      IllegalArgumentException e4 =
+          assertThrows(IllegalArgumentException.class, () -> vector.getDecimalVector());
+      assertEquals(
+          "No Decimal present. Provide ArrowType argument to create a new vector", e4.getMessage());
     }
   }
 

@@ -1606,6 +1606,10 @@ class ObjectOutputStream final : public io::OutputStream {
     io::internal::CloseFromDestructor(this);
   }
 
+  std::shared_ptr<ObjectOutputStream> Self() {
+    return std::dynamic_pointer_cast<ObjectOutputStream>(shared_from_this());
+  }
+
   Status Init() {
     ARROW_ASSIGN_OR_RAISE(auto client_lock, holder_->Lock());
 
@@ -1724,9 +1728,9 @@ class ObjectOutputStream final : public io::OutputStream {
 
     RETURN_NOT_OK(EnsureReadyToFlushFromClose());
 
-    auto self = std::dynamic_pointer_cast<ObjectOutputStream>(shared_from_this());
     // Wait for in-progress uploads to finish (if async writes are enabled)
-    return FlushAsync().Then([self]() { return self->FinishPartUploadAfterFlush(); });
+    return FlushAsync().Then(
+        [self = Self()]() { return self->FinishPartUploadAfterFlush(); });
   }
 
   bool closed() const override { return closed_; }
@@ -1892,7 +1896,15 @@ class ObjectOutputStream final : public io::OutputStream {
     }
     // Notify completion
     if (--state->parts_in_progress == 0) {
-      state->pending_parts_completed.MarkFinished(state->status);
+      // GH-41862: avoid potential deadlock if the Future's callback is called
+      // with the mutex taken.
+      auto fut = state->pending_parts_completed;
+      lock.unlock();
+      // State could be mutated concurrently if another thread writes to the
+      // stream, but in this case the Flush() call is only advisory anyway.
+      // Besides, it's not generally sound to write to an OutputStream from
+      // several threads at once.
+      fut.MarkFinished(state->status);
     }
   }
 

@@ -14,17 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.ipc;
 
 import static java.util.Arrays.asList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import com.google.flatbuffers.FlatBufferBuilder;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-
 import org.apache.arrow.flatbuf.Footer;
 import org.apache.arrow.vector.ipc.message.ArrowBlock;
 import org.apache.arrow.vector.ipc.message.ArrowFooter;
@@ -34,17 +33,20 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.jupiter.api.Test;
 
-import com.google.flatbuffers.FlatBufferBuilder;
-
 public class TestArrowFooter {
 
   @Test
   public void test() {
-    Schema schema = new Schema(asList(
-        new Field("a", FieldType.nullable(new ArrowType.Int(8, true)), Collections.<Field>emptyList())
-    ));
+    Schema schema =
+        new Schema(
+            asList(
+                new Field(
+                    "a",
+                    FieldType.nullable(new ArrowType.Int(8, true)),
+                    Collections.<Field>emptyList())));
     ArrowFooter footer =
-        new ArrowFooter(schema, Collections.<ArrowBlock>emptyList(), Collections.<ArrowBlock>emptyList());
+        new ArrowFooter(
+            schema, Collections.<ArrowBlock>emptyList(), Collections.<ArrowBlock>emptyList());
     ArrowFooter newFooter = roundTrip(footer);
     assertEquals(footer, newFooter);
 
@@ -55,7 +57,6 @@ public class TestArrowFooter {
     assertEquals(footer, roundTrip(footer));
   }
 
-
   private ArrowFooter roundTrip(ArrowFooter footer) {
     FlatBufferBuilder builder = new FlatBufferBuilder();
     int i = footer.writeTo(builder);
@@ -64,5 +65,4 @@ public class TestArrowFooter {
     ArrowFooter newFooter = new ArrowFooter(Footer.getRootAsFooter(dataBuffer));
     return newFooter;
   }
-
 }

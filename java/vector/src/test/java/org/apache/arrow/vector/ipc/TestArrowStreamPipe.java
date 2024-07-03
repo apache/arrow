@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.ipc;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -25,14 +24,10 @@ import java.io.IOException;
 import java.nio.channels.Pipe;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.ipc.ArrowStreamReader;
-import org.apache.arrow.vector.ipc.ArrowStreamWriter;
-import org.apache.arrow.vector.ipc.MessageSerializerTest;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.jupiter.api.Test;
 
@@ -46,8 +41,7 @@ public class TestArrowStreamPipe {
     private final ArrowStreamWriter writer;
     private final VectorSchemaRoot root;
 
-    public WriterThread(int numBatches, WritableByteChannel sinkChannel)
-        throws IOException {
+    public WriterThread(int numBatches, WritableByteChannel sinkChannel) throws IOException {
       this.numBatches = numBatches;
       BufferAllocator allocator = alloc.newChildAllocator("writer thread", 0, Integer.MAX_VALUE);
       root = VectorSchemaRoot.create(schema, allocator);
@@ -90,33 +84,33 @@ public class TestArrowStreamPipe {
     private final BufferAllocator alloc = new RootAllocator(Long.MAX_VALUE);
     private boolean done = false;
 
-    public ReaderThread(ReadableByteChannel sourceChannel)
-        throws IOException {
-      reader = new ArrowStreamReader(sourceChannel, alloc) {
+    public ReaderThread(ReadableByteChannel sourceChannel) throws IOException {
+      reader =
+          new ArrowStreamReader(sourceChannel, alloc) {
 
-        @Override
-        public boolean loadNextBatch() throws IOException {
-          if (super.loadNextBatch()) {
-            batchesRead++;
-          } else {
-            done = true;
-            return false;
-          }
-          VectorSchemaRoot root = getVectorSchemaRoot();
-          assertEquals(16, root.getRowCount());
-          TinyIntVector vector = (TinyIntVector) root.getFieldVectors().get(0);
-          assertEquals((byte) (batchesRead - 1), vector.get(0));
-          for (int i = 1; i < 16; i++) {
-            if (i < 8) {
-              assertEquals((byte) (i + 1), vector.get(i));
-            } else {
-              assertTrue(vector.isNull(i));
+            @Override
+            public boolean loadNextBatch() throws IOException {
+              if (super.loadNextBatch()) {
+                batchesRead++;
+              } else {
+                done = true;
+                return false;
+              }
+              VectorSchemaRoot root = getVectorSchemaRoot();
+              assertEquals(16, root.getRowCount());
+              TinyIntVector vector = (TinyIntVector) root.getFieldVectors().get(0);
+              assertEquals((byte) (batchesRead - 1), vector.get(0));
+              for (int i = 1; i < 16; i++) {
+                if (i < 8) {
+                  assertEquals((byte) (i + 1), vector.get(i));
+                } else {
+                  assertTrue(vector.isNull(i));
+                }
+              }
+
+              return true;
             }
-          }
-
-          return true;
-        }
-      };
+          };
     }
 
     @Override

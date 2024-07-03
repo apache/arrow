@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -71,7 +70,8 @@ public class TestIntervalYearVector {
     final IntervalYearVector fromVector = new IntervalYearVector("", allocator);
     final TransferPair transferPair = fromVector.getTransferPair(fromVector.getField(), allocator);
     final IntervalYearVector toVector = (IntervalYearVector) transferPair.getTo();
-    // Field inside a new vector created by reusing a field should be the same in memory as the original field.
+    // Field inside a new vector created by reusing a field should be the same in memory as the
+    // original field.
     assertSame(fromVector.getField(), toVector.getField());
   }
 }

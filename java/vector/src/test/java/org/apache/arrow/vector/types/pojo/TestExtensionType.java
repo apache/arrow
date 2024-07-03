@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.types.pojo;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -35,7 +34,6 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.Collections;
 import java.util.UUID;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
@@ -43,6 +41,7 @@ import org.apache.arrow.vector.ExtensionTypeVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.Float4Vector;
+import org.apache.arrow.vector.ValueIterableVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.compare.Range;
 import org.apache.arrow.vector.compare.RangeEqualsVisitor;
@@ -56,13 +55,12 @@ import org.apache.arrow.vector.validate.ValidateVectorVisitor;
 import org.junit.jupiter.api.Test;
 
 public class TestExtensionType {
-  /**
-   * Test that a custom UUID type can be round-tripped through a temporary file.
-   */
+  /** Test that a custom UUID type can be round-tripped through a temporary file. */
   @Test
   public void roundtripUuid() throws IOException {
     ExtensionTypeRegistry.register(new UuidType());
-    final Schema schema = new Schema(Collections.singletonList(Field.nullable("a", new UuidType())));
+    final Schema schema =
+        new Schema(Collections.singletonList(Field.nullable("a", new UuidType())));
     try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
         final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
       UUID u1 = UUID.randomUUID();
@@ -74,15 +72,16 @@ public class TestExtensionType {
       root.setRowCount(2);
 
       final File file = File.createTempFile("uuidtest", ".arrow");
-      try (final WritableByteChannel channel = FileChannel
-          .open(Paths.get(file.getAbsolutePath()), StandardOpenOption.WRITE);
+      try (final WritableByteChannel channel =
+              FileChannel.open(Paths.get(file.getAbsolutePath()), StandardOpenOption.WRITE);
           final ArrowFileWriter writer = new ArrowFileWriter(root, null, channel)) {
         writer.start();
         writer.writeBatch();
         writer.end();
       }
 
-      try (final SeekableByteChannel channel = Files.newByteChannel(Paths.get(file.getAbsolutePath()));
+      try (final SeekableByteChannel channel =
+              Files.newByteChannel(Paths.get(file.getAbsolutePath()));
           final ArrowFileReader reader = new ArrowFileReader(channel, allocator)) {
         reader.loadNextBatch();
         final VectorSchemaRoot readerRoot = reader.getVectorSchemaRoot();
@@ -90,10 +89,15 @@ public class TestExtensionType {
 
         final Field field = readerRoot.getSchema().getFields().get(0);
         final UuidType expectedType = new UuidType();
-        assertEquals(field.getMetadata().get(ExtensionType.EXTENSION_METADATA_KEY_NAME), expectedType.extensionName());
-        assertEquals(field.getMetadata().get(ExtensionType.EXTENSION_METADATA_KEY_METADATA), expectedType.serialize());
+        assertEquals(
+            field.getMetadata().get(ExtensionType.EXTENSION_METADATA_KEY_NAME),
+            expectedType.extensionName());
+        assertEquals(
+            field.getMetadata().get(ExtensionType.EXTENSION_METADATA_KEY_METADATA),
+            expectedType.serialize());
 
-        final ExtensionTypeVector deserialized = (ExtensionTypeVector) readerRoot.getFieldVectors().get(0);
+        final ExtensionTypeVector deserialized =
+            (ExtensionTypeVector) readerRoot.getFieldVectors().get(0);
         assertEquals(vector.getValueCount(), deserialized.getValueCount());
         for (int i = 0; i < vector.getValueCount(); i++) {
           assertEquals(vector.isNull(i), deserialized.isNull(i));
@@ -105,13 +109,12 @@ public class TestExtensionType {
     }
   }
 
-  /**
-   * Test that a custom UUID type can be read as its underlying type.
-   */
+  /** Test that a custom UUID type can be read as its underlying type. */
   @Test
   public void readUnderlyingType() throws IOException {
     ExtensionTypeRegistry.register(new UuidType());
-    final Schema schema = new Schema(Collections.singletonList(Field.nullable("a", new UuidType())));
+    final Schema schema =
+        new Schema(Collections.singletonList(Field.nullable("a", new UuidType())));
     try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
         final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
       UUID u1 = UUID.randomUUID();
@@ -123,8 +126,8 @@ public class TestExtensionType {
       root.setRowCount(2);
 
       final File file = File.createTempFile("uuidtest", ".arrow");
-      try (final WritableByteChannel channel = FileChannel
-          .open(Paths.get(file.getAbsolutePath()), StandardOpenOption.WRITE);
+      try (final WritableByteChannel channel =
+              FileChannel.open(Paths.get(file.getAbsolutePath()), StandardOpenOption.WRITE);
           final ArrowFileWriter writer = new ArrowFileWriter(root, null, channel)) {
         writer.start();
         writer.writeBatch();
@@ -133,22 +136,32 @@ public class TestExtensionType {
 
       ExtensionTypeRegistry.unregister(new UuidType());
 
-      try (final SeekableByteChannel channel = Files.newByteChannel(Paths.get(file.getAbsolutePath()));
+      try (final SeekableByteChannel channel =
+              Files.newByteChannel(Paths.get(file.getAbsolutePath()));
           final ArrowFileReader reader = new ArrowFileReader(channel, allocator)) {
         reader.loadNextBatch();
         final VectorSchemaRoot readerRoot = reader.getVectorSchemaRoot();
         assertEquals(1, readerRoot.getSchema().getFields().size());
         assertEquals("a", readerRoot.getSchema().getFields().get(0).getName());
-        assertTrue(readerRoot.getSchema().getFields().get(0).getType() instanceof ArrowType.FixedSizeBinary);
-        assertEquals(16,
-            ((ArrowType.FixedSizeBinary) readerRoot.getSchema().getFields().get(0).getType()).getByteWidth());
+        assertTrue(
+            readerRoot.getSchema().getFields().get(0).getType()
+                instanceof ArrowType.FixedSizeBinary);
+        assertEquals(
+            16,
+            ((ArrowType.FixedSizeBinary) readerRoot.getSchema().getFields().get(0).getType())
+                .getByteWidth());
 
         final Field field = readerRoot.getSchema().getFields().get(0);
         final UuidType expectedType = new UuidType();
-        assertEquals(field.getMetadata().get(ExtensionType.EXTENSION_METADATA_KEY_NAME), expectedType.extensionName());
-        assertEquals(field.getMetadata().get(ExtensionType.EXTENSION_METADATA_KEY_METADATA), expectedType.serialize());
+        assertEquals(
+            field.getMetadata().get(ExtensionType.EXTENSION_METADATA_KEY_NAME),
+            expectedType.extensionName());
+        assertEquals(
+            field.getMetadata().get(ExtensionType.EXTENSION_METADATA_KEY_METADATA),
+            expectedType.serialize());
 
-        final FixedSizeBinaryVector deserialized = (FixedSizeBinaryVector) readerRoot.getFieldVectors().get(0);
+        final FixedSizeBinaryVector deserialized =
+            (FixedSizeBinaryVector) readerRoot.getFieldVectors().get(0);
         assertEquals(vector.getValueCount(), deserialized.getValueCount());
         for (int i = 0; i < vector.getValueCount(); i++) {
           assertEquals(vector.isNull(i), deserialized.isNull(i));
@@ -166,26 +179,27 @@ public class TestExtensionType {
 
   @Test
   public void testNullCheck() {
-    NullPointerException e = assertThrows(NullPointerException.class,
-        () -> {
-          try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
-               final ExtensionTypeVector vector = new UuidVector("uuid", allocator, null)) {
-            vector.getField();
-            vector.allocateNewSafe();
-          }
-        });
+    NullPointerException e =
+        assertThrows(
+            NullPointerException.class,
+            () -> {
+              try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
+                  final ExtensionTypeVector vector = new UuidVector("uuid", allocator, null)) {
+                vector.getField();
+                vector.allocateNewSafe();
+              }
+            });
     assertTrue(e.getMessage().contains("underlyingVector cannot be null."));
   }
 
-  /**
-   * Test that a custom Location type can be round-tripped through a temporary file.
-   */
+  /** Test that a custom Location type can be round-tripped through a temporary file. */
   @Test
   public void roundtripLocation() throws IOException {
     ExtensionTypeRegistry.register(new LocationType());
-    final Schema schema = new Schema(Collections.singletonList(Field.nullable("location", new LocationType())));
+    final Schema schema =
+        new Schema(Collections.singletonList(Field.nullable("location", new LocationType())));
     try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
-         final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
+        final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
       LocationVector vector = (LocationVector) root.getVector("location");
       vector.allocateNew();
       vector.set(0, 34.073814f, -118.240784f);
@@ -195,26 +209,32 @@ public class TestExtensionType {
       root.setRowCount(4);
 
       final File file = File.createTempFile("locationtest", ".arrow");
-      try (final WritableByteChannel channel = FileChannel
-              .open(Paths.get(file.getAbsolutePath()), StandardOpenOption.WRITE);
-           final ArrowFileWriter writer = new ArrowFileWriter(root, null, channel)) {
+      try (final WritableByteChannel channel =
+              FileChannel.open(Paths.get(file.getAbsolutePath()), StandardOpenOption.WRITE);
+          final ArrowFileWriter writer = new ArrowFileWriter(root, null, channel)) {
         writer.start();
         writer.writeBatch();
         writer.end();
       }
 
-      try (final SeekableByteChannel channel = Files.newByteChannel(Paths.get(file.getAbsolutePath()));
-           final ArrowFileReader reader = new ArrowFileReader(channel, allocator)) {
+      try (final SeekableByteChannel channel =
+              Files.newByteChannel(Paths.get(file.getAbsolutePath()));
+          final ArrowFileReader reader = new ArrowFileReader(channel, allocator)) {
         reader.loadNextBatch();
         final VectorSchemaRoot readerRoot = reader.getVectorSchemaRoot();
         assertEquals(root.getSchema(), readerRoot.getSchema());
 
         final Field field = readerRoot.getSchema().getFields().get(0);
         final LocationType expectedType = new LocationType();
-        assertEquals(field.getMetadata().get(ExtensionType.EXTENSION_METADATA_KEY_NAME), expectedType.extensionName());
-        assertEquals(field.getMetadata().get(ExtensionType.EXTENSION_METADATA_KEY_METADATA), expectedType.serialize());
+        assertEquals(
+            field.getMetadata().get(ExtensionType.EXTENSION_METADATA_KEY_NAME),
+            expectedType.extensionName());
+        assertEquals(
+            field.getMetadata().get(ExtensionType.EXTENSION_METADATA_KEY_METADATA),
+            expectedType.serialize());
 
-        final ExtensionTypeVector deserialized = (ExtensionTypeVector) readerRoot.getFieldVectors().get(0);
+        final ExtensionTypeVector deserialized =
+            (ExtensionTypeVector) readerRoot.getFieldVectors().get(0);
         assertTrue(deserialized instanceof LocationVector);
         assertEquals("location", deserialized.getName());
         StructVector deserStruct = (StructVector) deserialized.getUnderlyingVector();
@@ -236,10 +256,12 @@ public class TestExtensionType {
     UuidType uuidType = new UuidType();
     ExtensionTypeRegistry.register(uuidType);
     try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
-         UuidVector a1 = (UuidVector) uuidType.getNewVector("a", FieldType.nullable(uuidType), allocator);
-         UuidVector a2 = (UuidVector) uuidType.getNewVector("a", FieldType.nullable(uuidType), allocator);
-         UuidVector bb = (UuidVector) uuidType.getNewVector("a", FieldType.nullable(uuidType), allocator)
-         ) {
+        UuidVector a1 =
+            (UuidVector) uuidType.getNewVector("a", FieldType.nullable(uuidType), allocator);
+        UuidVector a2 =
+            (UuidVector) uuidType.getNewVector("a", FieldType.nullable(uuidType), allocator);
+        UuidVector bb =
+            (UuidVector) uuidType.getNewVector("a", FieldType.nullable(uuidType), allocator)) {
       UUID u1 = UUID.randomUUID();
       UUID u2 = UUID.randomUUID();
 
@@ -293,7 +315,8 @@ public class TestExtensionType {
     @Override
     public ArrowType deserialize(ArrowType storageType, String serializedData) {
       if (!storageType.equals(storageType())) {
-        throw new UnsupportedOperationException("Cannot construct UuidType from underlying type " + storageType);
+        throw new UnsupportedOperationException(
+            "Cannot construct UuidType from underlying type " + storageType);
       }
       return new UuidType();
     }
@@ -309,9 +332,11 @@ public class TestExtensionType {
     }
   }
 
-  static class UuidVector extends ExtensionTypeVector<FixedSizeBinaryVector> {
+  static class UuidVector extends ExtensionTypeVector<FixedSizeBinaryVector>
+      implements ValueIterableVector<UUID> {
 
-    public UuidVector(String name, BufferAllocator allocator, FixedSizeBinaryVector underlyingVector) {
+    public UuidVector(
+        String name, BufferAllocator allocator, FixedSizeBinaryVector underlyingVector) {
       super(name, allocator, underlyingVector);
     }
 
@@ -359,7 +384,8 @@ public class TestExtensionType {
     @Override
     public ArrowType deserialize(ArrowType storageType, String serializedData) {
       if (!storageType.equals(storageType())) {
-        throw new UnsupportedOperationException("Cannot construct LocationType from underlying type " + storageType);
+        throw new UnsupportedOperationException(
+            "Cannot construct LocationType from underlying type " + storageType);
       }
       return new LocationType();
     }
@@ -375,15 +401,20 @@ public class TestExtensionType {
     }
   }
 
-  public static class LocationVector extends ExtensionTypeVector<StructVector> {
+  public static class LocationVector extends ExtensionTypeVector<StructVector>
+      implements ValueIterableVector<java.util.Map<String, ?>> {
 
     private static StructVector buildUnderlyingVector(String name, BufferAllocator allocator) {
       final StructVector underlyingVector =
-              new StructVector(name, allocator, FieldType.nullable(ArrowType.Struct.INSTANCE), null);
-      underlyingVector.addOrGet("Latitude",
-              FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)), Float4Vector.class);
-      underlyingVector.addOrGet("Longitude",
-              FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)), Float4Vector.class);
+          new StructVector(name, allocator, FieldType.nullable(ArrowType.Struct.INSTANCE), null);
+      underlyingVector.addOrGet(
+          "Latitude",
+          FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)),
+          Float4Vector.class);
+      underlyingVector.addOrGet(
+          "Longitude",
+          FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)),
+          Float4Vector.class);
       return underlyingVector;
     }
 

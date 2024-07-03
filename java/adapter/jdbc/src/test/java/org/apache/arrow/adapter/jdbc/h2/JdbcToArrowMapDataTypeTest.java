@@ -23,24 +23,32 @@ import java.io.IOException;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.Calendar;
+import java.util.stream.Stream;
 import org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowConfigBuilder;
+import org.apache.arrow.adapter.jdbc.Table;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.MapVector;
-import org.junit.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /** Test MapConsumer with OTHER jdbc type. */
 public class JdbcToArrowMapDataTypeTest extends AbstractJdbcToArrowTest {
 
-  public JdbcToArrowMapDataTypeTest() throws IOException {
-    this.table = getTable("h2/test1_map_h2.yml", JdbcToArrowMapDataTypeTest.class);
+  public static Stream<Arguments> getTestData() throws IOException {
+    return Stream.of(
+        Arguments.of(getTable("h2/test1_map_h2.yml", JdbcToArrowMapDataTypeTest.class)));
   }
 
   /** Test Method to test JdbcToArrow Functionality for Map form Types.OTHER column */
-  @Test
-  @Override
-  public void testJdbcToArrowValues() throws SQLException, IOException {
+  @ParameterizedTest
+  @MethodSource("getTestData")
+  public void testJdbcToArrowValues(Table table)
+      throws SQLException, IOException, ClassNotFoundException {
+    this.initializeDatabase(table);
+
     Calendar calendar = Calendar.getInstance();
     ResultSetMetaData rsmd = getQueryMetaData(table.getQuery());
     testDataSets(

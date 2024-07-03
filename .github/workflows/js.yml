@@ -81,10 +81,10 @@ jobs:
         run: archery docker push debian-js
 
   macos:
-    name: AMD64 macOS 11 NodeJS ${{ matrix.node }}
-    runs-on: macos-latest
-    if: github.event_name == 'push'
-    timeout-minutes: 90
+    name: AMD64 macOS 12 NodeJS ${{ matrix.node }}
+    runs-on: macos-12
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -114,7 +114,8 @@ jobs:
   windows:
     name: AMD64 Windows NodeJS ${{ matrix.node }}
     runs-on: windows-latest
-    if: github.event_name == 'push'
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:

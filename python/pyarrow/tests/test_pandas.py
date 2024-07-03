@@ -780,7 +780,7 @@ class TestConvertPrimitiveTypes:
             info = np.iinfo(dtype)
             values = np.random.randint(max(info.min, np.iinfo(np.int_).min),
                                        min(info.max, np.iinfo(np.int_).max),
-                                       size=num_values)
+                                       size=num_values, dtype=dtype)
             data[dtype] = values.astype(dtype)
             fields.append(pa.field(dtype, arrow_dtype))
 
@@ -4754,6 +4754,7 @@ def make_df_with_timestamps():
             np.datetime64('2050-05-03 15:42', 'ns'),
         ],
     })
+    df['dateTimeMs'] = df['dateTimeMs'].astype('object')
     # Not part of what we're testing, just ensuring that the inputs are what we
     # expect.
     assert (df.dateTimeMs.dtype, df.dateTimeNs.dtype) == (

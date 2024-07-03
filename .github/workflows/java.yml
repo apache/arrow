@@ -105,9 +105,9 @@ jobs:
         run: archery docker push ${{ matrix.image }}
 
   macos:
-    name: AMD64 macOS 11 Java JDK ${{ matrix.jdk }}
-    runs-on: macos-latest
-    if: github.event_name == 'push'
+    name: AMD64 macOS 12 Java JDK ${{ matrix.jdk }}
+    runs-on: macos-12
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 30
     strategy:
       fail-fast: false

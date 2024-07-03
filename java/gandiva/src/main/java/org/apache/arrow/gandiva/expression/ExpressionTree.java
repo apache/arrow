@@ -14,16 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.gandiva.expression;
 
 import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.ipc.GandivaTypes;
 import org.apache.arrow.vector.types.pojo.Field;
 
-/**
- * Opaque class representing an expression.
- */
+/** Opaque class representing an expression. */
 public class ExpressionTree {
   private final TreeNode root;
   private final Field resultField;
@@ -35,6 +32,7 @@ public class ExpressionTree {
 
   /**
    * Converts an expression tree into a protobuf.
+   *
    * @return A protobuf representing the expression tree
    */
   public GandivaTypes.ExpressionRoot toProtobuf() throws GandivaException {

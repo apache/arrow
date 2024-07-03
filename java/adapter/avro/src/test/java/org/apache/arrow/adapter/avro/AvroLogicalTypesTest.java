@@ -16,9 +16,9 @@
  */
 package org.apache.arrow.adapter.avro;
 
-import static junit.framework.TestCase.assertNull;
-import static junit.framework.TestCase.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
@@ -32,7 +32,7 @@ import org.apache.arrow.vector.util.DateUtility;
 import org.apache.avro.Conversions;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericFixed;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class AvroLogicalTypesTest extends AvroTestBase {
 

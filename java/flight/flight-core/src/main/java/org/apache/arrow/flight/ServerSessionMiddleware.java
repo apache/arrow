@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight;
 
 import java.util.Collections;
@@ -24,9 +23,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-/**
- * Middleware for handling Flight SQL Sessions including session cookie handling.
- */
+/** Middleware for handling Flight SQL Sessions including session cookie handling. */
 public class ServerSessionMiddleware implements FlightServerMiddleware {
   Factory factory;
   boolean existingSession;
@@ -35,18 +32,15 @@ public class ServerSessionMiddleware implements FlightServerMiddleware {
 
   public static final String sessionCookieName = "arrow_flight_session_id";
 
-  /**
-   * Factory for managing and accessing ServerSessionMiddleware.
-   */
+  /** Factory for managing and accessing ServerSessionMiddleware. */
   public static class Factory implements FlightServerMiddleware.Factory<ServerSessionMiddleware> {
-    private final ConcurrentMap<String, Session> sessionStore =
-        new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, Session> sessionStore = new ConcurrentHashMap<>();
     private final Callable<String> idGenerator;
 
     /**
      * Construct a factory for ServerSessionMiddleware.
      *
-     * Factory manages and accesses persistent sessions based on HTTP cookies.
+     * <p>Factory manages and accesses persistent sessions based on HTTP cookies.
      *
      * @param idGenerator A Callable returning unique session id Strings.
      */
@@ -59,7 +53,8 @@ public class ServerSessionMiddleware implements FlightServerMiddleware {
       try {
         id = idGenerator.call();
       } catch (Exception ignored) {
-        // Most impls aren't going to throw so don't make caller handle a nonexistent checked exception
+        // Most impls aren't going to throw so don't make caller handle a nonexistent checked
+        // exception
         throw CallStatus.INTERNAL.withDescription("Session creation error").toRuntimeException();
       }
 
@@ -73,13 +68,15 @@ public class ServerSessionMiddleware implements FlightServerMiddleware {
 
     private void closeSession(String id) {
       if (sessionStore.remove(id) == null) {
-        throw CallStatus.NOT_FOUND.withDescription("Session id '" + id + "' not found.").toRuntimeException();
+        throw CallStatus.NOT_FOUND
+            .withDescription("Session id '" + id + "' not found.")
+            .toRuntimeException();
       }
     }
 
     @Override
-    public ServerSessionMiddleware onCallStarted(CallInfo callInfo, CallHeaders incomingHeaders,
-                                                RequestContext context) {
+    public ServerSessionMiddleware onCallStarted(
+        CallInfo callInfo, CallHeaders incomingHeaders, RequestContext context) {
       String sessionId = null;
 
       final Iterable<String> it = incomingHeaders.getAll("cookie");
@@ -109,17 +106,18 @@ public class ServerSessionMiddleware implements FlightServerMiddleware {
       Session session = sessionStore.get(sessionId);
       // Cookie provided by caller, but invalid
       if (session == null) {
-        // Can't soft-fail/proceed here, clients will get unexpected behaviour without options they thought were set.
-        throw CallStatus.NOT_FOUND.withDescription("Invalid " + sessionCookieName + " cookie.").toRuntimeException();
+        // Can't soft-fail/proceed here, clients will get unexpected behaviour without options they
+        // thought were set.
+        throw CallStatus.NOT_FOUND
+            .withDescription("Invalid " + sessionCookieName + " cookie.")
+            .toRuntimeException();
       }
 
       return new ServerSessionMiddleware(this, incomingHeaders, session);
     }
   }
 
-  /**
-   * A thread-safe container for named SessionOptionValues.
-   */
+  /** A thread-safe container for named SessionOptionValues. */
   public static class Session {
     public final String id;
     private ConcurrentMap<String, SessionOptionValue> sessionData =
@@ -149,7 +147,7 @@ public class ServerSessionMiddleware implements FlightServerMiddleware {
       sessionData.put(name, value);
     }
 
-    /** Idempotently  remove name from this session. */
+    /** Idempotently remove name from this session. */
     public void eraseSessionOption(String name) {
       sessionData.remove(name);
     }
@@ -157,8 +155,8 @@ public class ServerSessionMiddleware implements FlightServerMiddleware {
 
   private final CallHeaders headers;
 
-  private ServerSessionMiddleware(ServerSessionMiddleware.Factory factory,
-                                  CallHeaders incomingHeaders, Session session) {
+  private ServerSessionMiddleware(
+      ServerSessionMiddleware.Factory factory, CallHeaders incomingHeaders, Session session) {
     this.factory = factory;
     headers = incomingHeaders;
     this.session = session;
@@ -190,11 +188,13 @@ public class ServerSessionMiddleware implements FlightServerMiddleware {
   /**
    * Close the current session.
    *
-   * It is an error to call this without a valid session specified via cookie or equivalent.
-   * */
+   * <p>It is an error to call this without a valid session specified via cookie or equivalent.
+   */
   public synchronized void closeSession() {
     if (session == null) {
-      throw CallStatus.NOT_FOUND.withDescription("No session found for the current call.").toRuntimeException();
+      throw CallStatus.NOT_FOUND
+          .withDescription("No session found for the current call.")
+          .toRuntimeException();
     }
     factory.closeSession(session.id);
     closedSessionId = session.id;
@@ -211,15 +211,14 @@ public class ServerSessionMiddleware implements FlightServerMiddleware {
       outgoingHeaders.insert("set-cookie", sessionCookieName + "=" + session.id);
     }
     if (closedSessionId != null) {
-      outgoingHeaders.insert("set-cookie", sessionCookieName + "=" + closedSessionId + "; Max-Age=0");
+      outgoingHeaders.insert(
+          "set-cookie", sessionCookieName + "=" + closedSessionId + "; Max-Age=0");
     }
   }
 
   @Override
-  public void onCallCompleted(CallStatus status) {
-  }
+  public void onCallCompleted(CallStatus status) {}
 
   @Override
-  public void onCallErrored(Throwable err) {
-  }
+  public void onCallErrored(Throwable err) {}
 }

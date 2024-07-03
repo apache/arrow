@@ -107,6 +107,73 @@ test_that("Garbage R metadata doesn't break things", {
     "Invalid metadata$r",
     fixed = TRUE
   )
+
+  bad <- new.env(parent = emptyenv())
+  makeActiveBinding("columns", function() stop("This should not run"), bad)
+  tab$metadata <- list(r = rawToChar(serialize(bad, NULL, ascii = TRUE)))
+  expect_warning(
+    as.data.frame(tab),
+    "Invalid metadata$r",
+    fixed = TRUE
+  )
+
+  # https://hiddenlayer.com/research/r-bitrary-code-execution/
+  tab$metadata <- list(r = "A
+3
+262913
+197888
+5
+UTF-8
+5
+252
+6
+1
+262153
+7
+message
+2
+16
+1
+262153
+32
+arbitrary\040code\040was\040just\040executed
+254
+")
+  expect_message(
+    expect_warning(
+      as.data.frame(tab),
+      "Invalid metadata$r",
+      fixed = TRUE
+    ),
+    NA
+  )
+})
+
+test_that("Complex or unsafe attributes are pruned from R metadata, if they exist", {
+  tab <- Table$create(example_data[1:6])
+  bad <- new.env()
+  makeActiveBinding("class", function() stop("This should not run"), bad)
+  tab$metadata <- list(r = rawToChar(serialize(list(attributes = bad), NULL, ascii = TRUE)))
+  expect_warning(
+    as.data.frame(tab),
+    "Potentially unsafe or invalid elements have been discarded from R metadata.
+i Type: \"environment\"
+> If you trust the source, you can set `options(arrow.unsafe_metadata = TRUE)` to preserve them.",
+    fixed = TRUE
+  )
+  # You can set an option to allow them through.
+  # It still warns, just differently, and it doesn't prune the attributes
+  withr::local_options(list("arrow.unsafe_metadata" = TRUE))
+  expect_warning(
+    expect_warning(
+      as.data.frame(tab),
+      "R metadata may have unsafe or invalid elements
+i Type: \"environment\""
+    ),
+    # This particular example ultimately fails because it's not a list
+    "Invalid metadata$r",
+    fixed = TRUE
+  )
 })
 
 test_that("Metadata serialization compression", {
@@ -253,6 +320,8 @@ test_that("Row-level metadata (does not) roundtrip in datasets", {
   # metadata should be handled separately ARROW-14020, ARROW-12542
   skip_if_not_available("dataset")
   skip_if_not_available("parquet")
+
+  library(dplyr, warn.conflicts = FALSE)
 
   df <- tibble::tibble(
     metadata = list(

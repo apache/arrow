@@ -17,7 +17,7 @@
 package org.apache.arrow.adapter.jdbc.h2;
 
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.*;
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.IOException;
 import java.sql.ResultSet;
@@ -25,8 +25,6 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Calendar;
-import java.util.Collection;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest;
 import org.apache.arrow.adapter.jdbc.ArrowVectorIterator;
@@ -57,29 +55,17 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * JUnit Test Class which contains methods to test JDBC to Arrow data conversion functionality with
  * various data types for H2 database using single test data file.
  */
-@RunWith(Parameterized.class)
 public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
 
   private static final String[] testFiles = {"h2/test1_all_datatypes_h2.yml"};
-
-  /**
-   * Constructor which populates the table object for each test iteration.
-   *
-   * @param table Table object
-   * @param reuseVectorSchemaRoot A flag indicating if we should reuse vector schema roots.
-   */
-  public JdbcToArrowTest(Table table, boolean reuseVectorSchemaRoot) {
-    this.table = table;
-    this.reuseVectorSchemaRoot = reuseVectorSchemaRoot;
-  }
 
   /**
    * Get the test data as a collection of Table objects for each test iteration.
@@ -89,21 +75,22 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
    * @throws ClassNotFoundException on error
    * @throws IOException on error
    */
-  @Parameterized.Parameters(name = "table = {0}, reuse batch = {1}")
-  public static Collection<Object[]> getTestData()
+  public static Stream<Arguments> getTestData()
       throws SQLException, ClassNotFoundException, IOException {
     return Arrays.stream(prepareTestData(testFiles, JdbcToArrowTest.class))
-        .flatMap(row -> Stream.of(new Object[] {row[0], true}, new Object[] {row[0], false}))
-        .collect(Collectors.toList());
+        .flatMap(row -> Stream.of(Arguments.of(row[0], true), Arguments.of(row[0], false)));
   }
 
   /**
    * Test Method to test JdbcToArrow Functionality for various H2 DB based datatypes with only one
    * test data file.
    */
-  @Test
-  @Override
-  public void testJdbcToArrowValues() throws SQLException, IOException {
+  @ParameterizedTest
+  @MethodSource("getTestData")
+  public void testJdbcToArrowValues(Table table)
+      throws SQLException, IOException, ClassNotFoundException {
+    this.initializeDatabase(table);
+
     testDataSets(
         sqlToArrow(
             conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance()),
@@ -146,8 +133,12 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
         true);
   }
 
-  @Test
-  public void testJdbcSchemaMetadata() throws SQLException {
+  @ParameterizedTest
+  @MethodSource("getTestData")
+  public void testJdbcSchemaMetadata(Table table, boolean reuseVectorSchemaRoot)
+      throws SQLException, ClassNotFoundException {
+    this.initializeDatabase(table);
+
     Calendar calendar = Calendar.getInstance();
     ResultSetMetaData rsmd = getQueryMetaData(table.getQuery());
     JdbcToArrowConfig config =
@@ -266,8 +257,12 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
     }
   }
 
-  @Test
-  public void runLargeNumberOfRows() throws IOException, SQLException {
+  @ParameterizedTest
+  @MethodSource("getTestData")
+  public void runLargeNumberOfRows(Table table, boolean reuseVectorSchemaRoot)
+      throws IOException, SQLException, ClassNotFoundException {
+    this.initializeDatabase(table);
+
     BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
     int x = 0;
     final int targetRows = 600000;

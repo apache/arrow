@@ -25,11 +25,11 @@ import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getFloatValues
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getIntValues;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getListValues;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getLongValues;
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -69,26 +69,17 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.pojo.ArrowType;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
-@RunWith(Parameterized.class)
 public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
 
-  /**
-   * Constructor which populates the table object for each test iteration.
-   *
-   * @param table Table object
-   * @param reuseVectorSchemaRoot A flag indicating if we should reuse vector schema roots.
-   */
-  public JdbcToArrowVectorIteratorTest(Table table, boolean reuseVectorSchemaRoot) {
-    super(table, reuseVectorSchemaRoot);
-  }
+  @ParameterizedTest
+  @MethodSource("getTestData")
+  public void testJdbcToArrowValues(Table table)
+      throws SQLException, IOException, ClassNotFoundException {
+    this.initializeDatabase(table);
 
-  @Test
-  @Override
-  public void testJdbcToArrowValues() throws SQLException, IOException {
     JdbcToArrowConfig config =
         new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance())
             .setTargetBatchSize(3)
@@ -102,8 +93,12 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
     validate(iterator);
   }
 
-  @Test
-  public void testVectorSchemaRootReuse() throws SQLException, IOException {
+  @ParameterizedTest
+  @MethodSource("getTestData")
+  public void testVectorSchemaRootReuse(Table table, boolean reuseVectorSchemaRoot)
+      throws SQLException, IOException, ClassNotFoundException {
+    this.initializeDatabase(table);
+
     Integer[][] intValues = {
       {101, 102, 103},
       {104, null, null},
@@ -175,8 +170,11 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
     assertTrue(batchCount > 1);
   }
 
-  @Test
-  public void testJdbcToArrowValuesNoLimit() throws SQLException, IOException {
+  @ParameterizedTest
+  @MethodSource("getTestData")
+  public void testJdbcToArrowValuesNoLimit(Table table)
+      throws SQLException, IOException, ClassNotFoundException {
+    this.initializeDatabase(table);
 
     JdbcToArrowConfig config =
         new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance())
@@ -191,8 +189,12 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
     validate(iterator);
   }
 
-  @Test
-  public void testTimeStampConsumer() throws SQLException, IOException {
+  @ParameterizedTest
+  @MethodSource("getTestData")
+  public void testTimeStampConsumer(Table table, boolean reuseVectorSchemaRoot)
+      throws SQLException, IOException, ClassNotFoundException {
+    this.initializeDatabase(table);
+
     final String sql = "select timestamp_field11 from table1";
 
     // first experiment, with calendar and time zone.
@@ -535,8 +537,12 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
     return result;
   }
 
-  @Test
-  public void testJdbcToArrowCustomTypeConversion() throws SQLException, IOException {
+  @ParameterizedTest
+  @MethodSource("getTestData")
+  public void testJdbcToArrowCustomTypeConversion(Table table, boolean reuseVectorSchemaRoot)
+      throws SQLException, IOException, ClassNotFoundException {
+    this.initializeDatabase(table);
+
     JdbcToArrowConfigBuilder builder =
         new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance())
             .setTargetBatchSize(JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE)

@@ -14,11 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 import java.util.concurrent.TimeUnit;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -34,9 +32,7 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
-/**
- * Benchmarks for {@link BaseValueVector}.
- */
+/** Benchmarks for {@link BaseValueVector}. */
 @State(Scope.Benchmark)
 public class BaseValueVectorBenchmarks {
 
@@ -48,9 +44,7 @@ public class BaseValueVectorBenchmarks {
 
   private IntVector vector;
 
-  /**
-   * Setup benchmarks.
-   */
+  /** Setup benchmarks. */
   @Setup
   public void prepare() {
     allocator = new RootAllocator(ALLOCATOR_CAPACITY);
@@ -58,9 +52,7 @@ public class BaseValueVectorBenchmarks {
     vector.allocateNew(VECTOR_LENGTH);
   }
 
-  /**
-   * Tear down benchmarks.
-   */
+  /** Tear down benchmarks. */
   @TearDown
   public void tearDown() {
     vector.close();
@@ -69,6 +61,7 @@ public class BaseValueVectorBenchmarks {
 
   /**
    * Test {@link BaseValueVector#computeCombinedBufferSize(int, int)}.
+   *
    * @return useless. To avoid DCE by JIT.
    */
   @Benchmark
@@ -82,14 +75,13 @@ public class BaseValueVectorBenchmarks {
     return totalSize;
   }
 
-  public static void main(String [] args) throws RunnerException {
-    Options opt = new OptionsBuilder()
-        .include(BaseValueVectorBenchmarks.class.getSimpleName())
-        .forks(1)
-        .build();
+  public static void main(String[] args) throws RunnerException {
+    Options opt =
+        new OptionsBuilder()
+            .include(BaseValueVectorBenchmarks.class.getSimpleName())
+            .forks(1)
+            .build();
 
     new Runner(opt).run();
   }
-
-
 }

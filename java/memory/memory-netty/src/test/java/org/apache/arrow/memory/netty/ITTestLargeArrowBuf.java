@@ -14,29 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.memory.netty;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
 /**
- * Integration test for large (more than 2GB) {@link org.apache.arrow.memory.ArrowBuf}.
- * To run this test, please make sure there is at least 4GB memory in the system.
+ * Integration test for large (more than 2GB) {@link org.apache.arrow.memory.ArrowBuf}. To run this
+ * test, please make sure there is at least 4GB memory in the system.
  */
 public class ITTestLargeArrowBuf {
   private static final Logger logger = LoggerFactory.getLogger(ITTestLargeArrowBuf.class);
 
   private void run(long bufSize) {
     try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-         ArrowBuf largeBuf = allocator.buffer(bufSize)) {
+        ArrowBuf largeBuf = allocator.buffer(bufSize)) {
       assertEquals(bufSize, largeBuf.capacity());
       logger.trace("Successfully allocated a buffer with capacity {}", largeBuf.capacity());
 
@@ -71,5 +69,4 @@ public class ITTestLargeArrowBuf {
   public void testMaxIntArrowBuf() {
     run(Integer.MAX_VALUE);
   }
-
 }

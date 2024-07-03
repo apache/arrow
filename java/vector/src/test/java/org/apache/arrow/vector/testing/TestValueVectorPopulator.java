@@ -14,14 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.testing;
 
 import static org.apache.arrow.vector.testing.ValueVectorDataPopulator.setVector;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
@@ -52,7 +50,6 @@ import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.compare.VectorEqualsVisitor;
-import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -77,7 +74,7 @@ public class TestValueVectorPopulator {
   @Test
   public void testPopulateBigIntVector() {
     try (final BigIntVector vector1 = new BigIntVector("vector", allocator);
-         final BigIntVector vector2 = new BigIntVector("vector", allocator)) {
+        final BigIntVector vector2 = new BigIntVector("vector", allocator)) {
 
       vector1.allocateNew(10);
       for (int i = 0; i < 10; i++) {
@@ -97,7 +94,7 @@ public class TestValueVectorPopulator {
   @Test
   public void testPopulateBitVector() {
     try (final BitVector vector1 = new BitVector("vector", allocator);
-         final BitVector vector2 = new BitVector("vector", allocator)) {
+        final BitVector vector2 = new BitVector("vector", allocator)) {
 
       vector1.allocateNew(10);
       for (int i = 0; i < 10; i++) {
@@ -117,7 +114,7 @@ public class TestValueVectorPopulator {
   @Test
   public void testPopulateDateDayVector() {
     try (final DateDayVector vector1 = new DateDayVector("vector", allocator);
-         final DateDayVector vector2 = new DateDayVector("vector", allocator)) {
+        final DateDayVector vector2 = new DateDayVector("vector", allocator)) {
 
       vector1.allocateNew(10);
       for (int i = 0; i < 10; i++) {
@@ -137,7 +134,7 @@ public class TestValueVectorPopulator {
   @Test
   public void testPopulateDateMilliVector() {
     try (final DateMilliVector vector1 = new DateMilliVector("vector", allocator);
-         final DateMilliVector vector2 = new DateMilliVector("vector", allocator)) {
+        final DateMilliVector vector2 = new DateMilliVector("vector", allocator)) {
 
       vector1.allocateNew(10);
       for (int i = 0; i < 10; i++) {
@@ -157,7 +154,7 @@ public class TestValueVectorPopulator {
   @Test
   public void testPopulateDecimalVector() {
     try (final DecimalVector vector1 = new DecimalVector("vector", allocator, 10, 3);
-         final DecimalVector vector2 = new DecimalVector("vector", allocator, 10, 3)) {
+        final DecimalVector vector2 = new DecimalVector("vector", allocator, 10, 3)) {
 
       vector1.allocateNew(10);
       for (int i = 0; i < 10; i++) {
@@ -178,7 +175,7 @@ public class TestValueVectorPopulator {
   public void testPopulateDurationVector() {
     final FieldType fieldType = FieldType.nullable(new ArrowType.Duration(TimeUnit.SECOND));
     try (final DurationVector vector1 = new DurationVector("vector", fieldType, allocator);
-         final DurationVector vector2 = new DurationVector("vector", fieldType, allocator)) {
+        final DurationVector vector2 = new DurationVector("vector", fieldType, allocator)) {
 
       vector1.allocateNew(10);
       for (int i = 0; i < 10; i++) {
@@ -199,7 +196,7 @@ public class TestValueVectorPopulator {
   @Test
   public void testPopulateFixedSizeBinaryVector() {
     try (final FixedSizeBinaryVector vector1 = new FixedSizeBinaryVector("vector", allocator, 5);
-         final FixedSizeBinaryVector vector2 = new FixedSizeBinaryVector("vector", allocator, 5)) {
+        final FixedSizeBinaryVector vector2 = new FixedSizeBinaryVector("vector", allocator, 5)) {
 
       vector1.allocateNew(10);
       for (int i = 0; i < 10; i++) {
@@ -211,9 +208,18 @@ public class TestValueVectorPopulator {
       }
       vector1.setValueCount(10);
 
-      setVector(vector2, null, "test1".getBytes(StandardCharsets.UTF_8), null,
-          "test3".getBytes(StandardCharsets.UTF_8), null, "test5".getBytes(StandardCharsets.UTF_8), null,
-          "test7".getBytes(StandardCharsets.UTF_8), null, "test9".getBytes(StandardCharsets.UTF_8));
+      setVector(
+          vector2,
+          null,
+          "test1".getBytes(StandardCharsets.UTF_8),
+          null,
+          "test3".getBytes(StandardCharsets.UTF_8),
+          null,
+          "test5".getBytes(StandardCharsets.UTF_8),
+          null,
+          "test7".getBytes(StandardCharsets.UTF_8),
+          null,
+          "test9".getBytes(StandardCharsets.UTF_8));
       assertTrue(VectorEqualsVisitor.vectorEquals(vector1, vector2));
     }
   }
@@ -221,7 +227,7 @@ public class TestValueVectorPopulator {
   @Test
   public void testPopulateFloat4Vector() {
     try (final Float4Vector vector1 = new Float4Vector("vector", allocator);
-         final Float4Vector vector2 = new Float4Vector("vector", allocator)) {
+        final Float4Vector vector2 = new Float4Vector("vector", allocator)) {
 
       vector1.allocateNew(10);
       for (int i = 0; i < 10; i++) {
@@ -240,7 +246,7 @@ public class TestValueVectorPopulator {
   @Test
   public void testPopulateFloat8Vector() {
     try (final Float8Vector vector1 = new Float8Vector("vector", allocator);
-         final Float8Vector vector2 = new Float8Vector("vector", allocator)) {
+        final Float8Vector vector2 = new Float8Vector("vector", allocator)) {
 
       vector1.allocateNew(10);
       for (int i = 0; i < 10; i++) {
@@ -259,7 +265,7 @@ public class TestValueVectorPopulator {
   @Test
   public void testPopulateIntVector() {
     try (final IntVector vector1 = new IntVector("vector", allocator);
-         final IntVector vector2 = new IntVector("vector", allocator)) {
+        final IntVector vector2 = new IntVector("vector", allocator)) {
 
       vector1.allocateNew(10);
       for (int i = 0; i < 10; i++) {
@@ -279,7 +285,7 @@ public class TestValueVectorPopulator {
   @Test
   public void testPopulateSmallIntVector() {
     try (final SmallIntVector vector1 = new SmallIntVector("vector", allocator);
-         final SmallIntVector vector2 = new SmallIntVector("vector", allocator)) {
+        final SmallIntVector vector2 = new SmallIntVector("vector", allocator)) {
 
       vector1.allocateNew(10);
       for (int i = 0; i < 10; i++) {
@@ -291,8 +297,9 @@ public class TestValueVectorPopulator {
       }
       vector1.setValueCount(10);
 
-      ValueVectorDataPopulator.setVector(vector2, null, (short) 1, null, (short) 3, null, (short) 5,
-          null, (short) 7, null, (short) 9);
+      ValueVectorDataPopulator.setVector(
+          vector2, null, (short) 1, null, (short) 3, null, (short) 5, null, (short) 7, null,
+          (short) 9);
       assertTrue(VectorEqualsVisitor.vectorEquals(vector1, vector2));
     }
   }
@@ -300,7 +307,7 @@ public class TestValueVectorPopulator {
   @Test
   public void testPopulateIntervalDayVector() {
     try (final IntervalYearVector vector1 = new IntervalYearVector("vector", allocator);
-         final IntervalYearVector vector2 = new IntervalYearVector("vector", allocator)) {
+        final IntervalYearVector vector2 = new IntervalYearVector("vector", allocator)) {
 
       vector1.allocateNew(10);
       for (int i = 0; i < 10; i++) {
@@ -320,7 +327,7 @@ public class TestValueVectorPopulator {
   @Test
   public void testPopulateTimeMicroVector() {
     try (final TimeMicroVector vector1 = new TimeMicroVector("vector", allocator);
-         final TimeMicroVector vector2 = new TimeMicroVector("vector", allocator)) {
+        final TimeMicroVector vector2 = new TimeMicroVector("vector", allocator)) {
 
       vector1.allocateNew(10);
       for (int i = 0; i < 10; i++) {
@@ -358,7 +365,7 @@ public class TestValueVectorPopulator {
   @Test
   public void testPopulateTimeNanoVector() {
     try (final TimeNanoVector vector1 = new TimeNanoVector("vector", allocator);
-         final TimeNanoVector vector2 = new TimeNanoVector("vector", allocator)) {
+        final TimeNanoVector vector2 = new TimeNanoVector("vector", allocator)) {
 
       vector1.allocateNew(10);
       for (int i = 0; i < 10; i++) {
@@ -377,7 +384,7 @@ public class TestValueVectorPopulator {
   @Test
   public void testPopulateTimeSecVector() {
     try (final TimeSecVector vector1 = new TimeSecVector("vector", allocator);
-         final TimeSecVector vector2 = new TimeSecVector("vector", allocator)) {
+        final TimeSecVector vector2 = new TimeSecVector("vector", allocator)) {
 
       vector1.allocateNew(10);
       for (int i = 0; i < 10; i++) {
@@ -415,7 +422,7 @@ public class TestValueVectorPopulator {
   @Test
   public void testPopulateTimeStampMilliVector() {
     try (final TimeStampMilliVector vector1 = new TimeStampMilliVector("vector", allocator);
-         final TimeStampMilliVector vector2 = new TimeStampMilliVector("vector", allocator)) {
+        final TimeStampMilliVector vector2 = new TimeStampMilliVector("vector", allocator)) {
 
       vector1.allocateNew(10);
       for (int i = 0; i < 10; i++) {
@@ -453,7 +460,7 @@ public class TestValueVectorPopulator {
   @Test
   public void testPopulateTimeStampSecVector() {
     try (final TimeStampSecVector vector1 = new TimeStampSecVector("vector", allocator);
-         final TimeStampSecVector vector2 = new TimeStampSecVector("vector", allocator)) {
+        final TimeStampSecVector vector2 = new TimeStampSecVector("vector", allocator)) {
 
       vector1.allocateNew(10);
       for (int i = 0; i < 10; i++) {
@@ -472,7 +479,7 @@ public class TestValueVectorPopulator {
   @Test
   public void testPopulateTinyIntVector() {
     try (final TinyIntVector vector1 = new TinyIntVector("vector", allocator);
-         final TinyIntVector vector2 = new TinyIntVector("vector", allocator)) {
+        final TinyIntVector vector2 = new TinyIntVector("vector", allocator)) {
 
       vector1.allocateNew(10);
       for (int i = 0; i < 10; i++) {
@@ -483,7 +490,8 @@ public class TestValueVectorPopulator {
         }
       }
       vector1.setValueCount(10);
-      setVector(vector2, null, (byte) 1, null, (byte) 3, null, (byte) 5, null, (byte) 7, null, (byte) 9);
+      setVector(
+          vector2, null, (byte) 1, null, (byte) 3, null, (byte) 5, null, (byte) 7, null, (byte) 9);
       assertTrue(VectorEqualsVisitor.vectorEquals(vector1, vector2));
     }
   }
@@ -491,7 +499,7 @@ public class TestValueVectorPopulator {
   @Test
   public void testPopulateUInt1Vector() {
     try (final UInt1Vector vector1 = new UInt1Vector("vector", allocator);
-         final UInt1Vector vector2 = new UInt1Vector("vector", allocator)) {
+        final UInt1Vector vector2 = new UInt1Vector("vector", allocator)) {
 
       vector1.allocateNew(10);
       for (int i = 0; i < 10; i++) {
@@ -502,7 +510,8 @@ public class TestValueVectorPopulator {
         }
       }
       vector1.setValueCount(10);
-      setVector(vector2, null, (byte) 1, null, (byte) 3, null, (byte) 5, null, (byte) 7, null, (byte) 9);
+      setVector(
+          vector2, null, (byte) 1, null, (byte) 3, null, (byte) 5, null, (byte) 7, null, (byte) 9);
       assertTrue(VectorEqualsVisitor.vectorEquals(vector1, vector2));
     }
   }
@@ -510,7 +519,7 @@ public class TestValueVectorPopulator {
   @Test
   public void testPopulateUInt2Vector() {
     try (final UInt2Vector vector1 = new UInt2Vector("vector", allocator);
-         final UInt2Vector vector2 = new UInt2Vector("vector", allocator)) {
+        final UInt2Vector vector2 = new UInt2Vector("vector", allocator)) {
 
       vector1.allocateNew(10);
       for (int i = 0; i < 10; i++) {
@@ -521,7 +530,8 @@ public class TestValueVectorPopulator {
         }
       }
       vector1.setValueCount(10);
-      setVector(vector2, null, (char) 1, null, (char) 3, null, (char) 5, null, (char) 7, null, (char) 9);
+      setVector(
+          vector2, null, (char) 1, null, (char) 3, null, (char) 5, null, (char) 7, null, (char) 9);
       assertTrue(VectorEqualsVisitor.vectorEquals(vector1, vector2));
     }
   }
@@ -529,7 +539,7 @@ public class TestValueVectorPopulator {
   @Test
   public void testPopulateUInt4Vector() {
     try (final UInt4Vector vector1 = new UInt4Vector("vector", allocator);
-         final UInt4Vector vector2 = new UInt4Vector("vector", allocator)) {
+        final UInt4Vector vector2 = new UInt4Vector("vector", allocator)) {
 
       vector1.allocateNew(10);
       for (int i = 0; i < 10; i++) {
@@ -567,7 +577,7 @@ public class TestValueVectorPopulator {
   @Test
   public void testPopulateVarBinaryVector() {
     try (final VarBinaryVector vector1 = new VarBinaryVector("vector", allocator);
-         final VarBinaryVector vector2 = new VarBinaryVector("vector", allocator)) {
+        final VarBinaryVector vector2 = new VarBinaryVector("vector", allocator)) {
 
       vector1.allocateNew(10);
       for (int i = 0; i < 10; i++) {
@@ -579,9 +589,18 @@ public class TestValueVectorPopulator {
       }
       vector1.setValueCount(10);
 
-      setVector(vector2, null, "test1".getBytes(StandardCharsets.UTF_8), null,
-          "test3".getBytes(StandardCharsets.UTF_8), null, "test5".getBytes(StandardCharsets.UTF_8), null,
-          "test7".getBytes(StandardCharsets.UTF_8), null, "test9".getBytes(StandardCharsets.UTF_8));
+      setVector(
+          vector2,
+          null,
+          "test1".getBytes(StandardCharsets.UTF_8),
+          null,
+          "test3".getBytes(StandardCharsets.UTF_8),
+          null,
+          "test5".getBytes(StandardCharsets.UTF_8),
+          null,
+          "test7".getBytes(StandardCharsets.UTF_8),
+          null,
+          "test9".getBytes(StandardCharsets.UTF_8));
       assertTrue(VectorEqualsVisitor.vectorEquals(vector1, vector2));
     }
   }
@@ -589,7 +608,7 @@ public class TestValueVectorPopulator {
   @Test
   public void testPopulateVarCharVector() {
     try (final VarCharVector vector1 = new VarCharVector("vector", allocator);
-         final VarCharVector vector2 = new VarCharVector("vector", allocator)) {
+        final VarCharVector vector2 = new VarCharVector("vector", allocator)) {
 
       vector1.allocateNew(10);
       for (int i = 0; i < 10; i++) {

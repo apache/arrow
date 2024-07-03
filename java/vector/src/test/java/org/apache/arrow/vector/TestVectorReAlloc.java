@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -23,7 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.nio.charset.StandardCharsets;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.complex.DenseUnionVector;
@@ -43,7 +41,6 @@ import org.apache.arrow.vector.util.DataSizeRoundingUtil;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
 
 public class TestVectorReAlloc {
 
@@ -256,10 +253,14 @@ public class TestVectorReAlloc {
 
     try (final VarCharVector vector = new VarCharVector("", allocator)) {
       vector.allocateNew(count);
-      
-      // verify that the validity buffer and value buffer have capacity for at least 'count' elements.
-      assertTrue(vector.getValidityBuffer().capacity() >= DataSizeRoundingUtil.divideBy8Ceil(count));
-      assertTrue(vector.getOffsetBuffer().capacity() >= (count + 1) * BaseVariableWidthVector.OFFSET_WIDTH);
+
+      // verify that the validity buffer and value buffer have capacity for at least 'count'
+      // elements.
+      assertTrue(
+          vector.getValidityBuffer().capacity() >= DataSizeRoundingUtil.divideBy8Ceil(count));
+      assertTrue(
+          vector.getOffsetBuffer().capacity()
+              >= (count + 1) * BaseVariableWidthVector.OFFSET_WIDTH);
     }
   }
 
@@ -269,10 +270,14 @@ public class TestVectorReAlloc {
 
     try (final LargeVarCharVector vector = new LargeVarCharVector("", allocator)) {
       vector.allocateNew(count);
-      
-      // verify that the validity buffer and value buffer have capacity for at least 'count' elements.
-      assertTrue(vector.getValidityBuffer().capacity() >= DataSizeRoundingUtil.divideBy8Ceil(count));
-      assertTrue(vector.getOffsetBuffer().capacity() >= (count + 1) * BaseLargeVariableWidthVector.OFFSET_WIDTH);
+
+      // verify that the validity buffer and value buffer have capacity for at least 'count'
+      // elements.
+      assertTrue(
+          vector.getValidityBuffer().capacity() >= DataSizeRoundingUtil.divideBy8Ceil(count));
+      assertTrue(
+          vector.getOffsetBuffer().capacity()
+              >= (count + 1) * BaseLargeVariableWidthVector.OFFSET_WIDTH);
     }
   }
 
@@ -283,9 +288,13 @@ public class TestVectorReAlloc {
     try (final VarCharVector vector = new VarCharVector("", allocator)) {
       AllocationHelper.allocateNew(vector, count);
 
-      // verify that the validity buffer and value buffer have capacity for at least 'count' elements.
-      assertTrue(vector.getValidityBuffer().capacity() >= DataSizeRoundingUtil.divideBy8Ceil(count));
-      assertTrue(vector.getOffsetBuffer().capacity() >= (count + 1) * BaseVariableWidthVector.OFFSET_WIDTH);
+      // verify that the validity buffer and value buffer have capacity for at least 'count'
+      // elements.
+      assertTrue(
+          vector.getValidityBuffer().capacity() >= DataSizeRoundingUtil.divideBy8Ceil(count));
+      assertTrue(
+          vector.getOffsetBuffer().capacity()
+              >= (count + 1) * BaseVariableWidthVector.OFFSET_WIDTH);
     }
   }
 
@@ -296,9 +305,13 @@ public class TestVectorReAlloc {
     try (final LargeVarCharVector vector = new LargeVarCharVector("", allocator)) {
       AllocationHelper.allocateNew(vector, count);
 
-      // verify that the validity buffer and value buffer have capacity for at least 'count' elements.
-      assertTrue(vector.getValidityBuffer().capacity() >= DataSizeRoundingUtil.divideBy8Ceil(count));
-      assertTrue(vector.getOffsetBuffer().capacity() >= (count + 1) * BaseLargeVariableWidthVector.OFFSET_WIDTH);
+      // verify that the validity buffer and value buffer have capacity for at least 'count'
+      // elements.
+      assertTrue(
+          vector.getValidityBuffer().capacity() >= DataSizeRoundingUtil.divideBy8Ceil(count));
+      assertTrue(
+          vector.getOffsetBuffer().capacity()
+              >= (count + 1) * BaseLargeVariableWidthVector.OFFSET_WIDTH);
     }
   }
 
@@ -341,7 +354,8 @@ public class TestVectorReAlloc {
 
   @Test
   public void testRepeatedValueVectorClearAndSet() throws Exception {
-    try (final ListVector vector = new ListVector("", allocator, FieldType.nullable(MinorType.INT.getType()), null)) {
+    try (final ListVector vector =
+        new ListVector("", allocator, FieldType.nullable(MinorType.INT.getType()), null)) {
       vector.allocateNewSafe(); // Initial allocation
       UnionListWriter writer = vector.getWriter();
 
@@ -394,8 +408,9 @@ public class TestVectorReAlloc {
 
   @Test
   public void testFixedSizeListVectorClearAndSet() {
-    try (final FixedSizeListVector vector = new FixedSizeListVector("", allocator,
-        FieldType.nullable(new ArrowType.FixedSizeList(2)), null)) {
+    try (final FixedSizeListVector vector =
+        new FixedSizeListVector(
+            "", allocator, FieldType.nullable(new ArrowType.FixedSizeList(2)), null)) {
       vector.allocateNewSafe(); // Initial allocation
       UnionFixedSizeListWriter writer = vector.getWriter();
 
@@ -423,7 +438,8 @@ public class TestVectorReAlloc {
 
   @Test
   public void testUnionVectorClearAndSet() {
-    try (final UnionVector vector = new UnionVector("", allocator, /* field type */ null, /* call-back */ null)) {
+    try (final UnionVector vector =
+        new UnionVector("", allocator, /* field type */ null, /* call-back */ null)) {
       vector.allocateNewSafe(); // Initial allocation
 
       NullableIntHolder holder = new NullableIntHolder();

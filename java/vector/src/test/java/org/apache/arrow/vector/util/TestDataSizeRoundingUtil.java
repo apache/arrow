@@ -14,16 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.util;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.junit.jupiter.api.Test;
 
-/**
- * Test cases for {@link DataSizeRoundingUtil}.
- */
+/** Test cases for {@link DataSizeRoundingUtil}. */
 public class TestDataSizeRoundingUtil {
 
   @Test
