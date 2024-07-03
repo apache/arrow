@@ -72,7 +72,7 @@ using arrow::internal::Iota;
 // Help reduce verbosity
 using ParquetReader = parquet::ParquetFileReader;
 
-using parquet::RecordReader;
+using parquet::internal::RecordReader;
 
 namespace bit_util = arrow::bit_util;
 
