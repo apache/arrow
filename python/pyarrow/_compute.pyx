@@ -2445,7 +2445,7 @@ cdef class Expression(_Weakrefable):
 
         Parameters
         ----------
-        magges : bytes or Buffer or a protobuf Message
+        message : bytes or Buffer or a protobuf Message
             The Substrait message to deserialize
 
         Returns
