@@ -387,7 +387,7 @@ internal struct Arrow_Flight_Protocol_FlightServiceNIOClient: Arrow_Flight_Proto
 /// flight service can expose one or more predefined endpoints that can be
 /// accessed using the Arrow Flight Protocol. Additionally, a flight service
 /// can expose a set of actions that are available.
-@available(macOS 10.15, iOS 13, tvOS 13, watchOS 6, *)
+@available(macOS 12.0, iOS 13, tvOS 13, watchOS 6, *)
 internal protocol Arrow_Flight_Protocol_FlightServiceAsyncClientProtocol: GRPCClient {
   static var serviceDescriptor: GRPCServiceDescriptor { get }
   var interceptors: Arrow_Flight_Protocol_FlightServiceClientInterceptorFactoryProtocol? { get }
@@ -435,7 +435,7 @@ internal protocol Arrow_Flight_Protocol_FlightServiceAsyncClientProtocol: GRPCCl
   ) -> GRPCAsyncServerStreamingCall<Arrow_Flight_Protocol_Empty, Arrow_Flight_Protocol_ActionType>
 }
 
-@available(macOS 10.15, iOS 13, tvOS 13, watchOS 6, *)
+@available(macOS 12.0, iOS 13, tvOS 13, watchOS 6, *)
 extension Arrow_Flight_Protocol_FlightServiceAsyncClientProtocol {
   internal static var serviceDescriptor: GRPCServiceDescriptor {
     return Arrow_Flight_Protocol_FlightServiceClientMetadata.serviceDescriptor
@@ -548,7 +548,7 @@ extension Arrow_Flight_Protocol_FlightServiceAsyncClientProtocol {
   }
 }
 
-@available(macOS 10.15, iOS 13, tvOS 13, watchOS 6, *)
+@available(macOS 12.0, iOS 13, tvOS 13, watchOS 6, *)
 extension Arrow_Flight_Protocol_FlightServiceAsyncClientProtocol {
   internal func handshake<RequestStream>(
     _ requests: RequestStream,
@@ -695,7 +695,7 @@ extension Arrow_Flight_Protocol_FlightServiceAsyncClientProtocol {
   }
 }
 
-@available(macOS 10.15, iOS 13, tvOS 13, watchOS 6, *)
+@available(macOS 12.0, iOS 13, tvOS 13, watchOS 6, *)
 internal struct Arrow_Flight_Protocol_FlightServiceAsyncClient: Arrow_Flight_Protocol_FlightServiceAsyncClientProtocol {
   internal var channel: GRPCChannel
   internal var defaultCallOptions: CallOptions
@@ -1008,7 +1008,7 @@ extension Arrow_Flight_Protocol_FlightServiceProvider {
 /// can expose a set of actions that are available.
 ///
 /// To implement a server, implement an object which conforms to this protocol.
-@available(macOS 10.15, iOS 13, tvOS 13, watchOS 6, *)
+@available(macOS 12.0, iOS 13, tvOS 13, watchOS 6, *)
 internal protocol Arrow_Flight_Protocol_FlightServiceAsyncProvider: CallHandlerProvider, Sendable {
   static var serviceDescriptor: GRPCServiceDescriptor { get }
   var interceptors: Arrow_Flight_Protocol_FlightServiceServerInterceptorFactoryProtocol? { get }
@@ -1123,7 +1123,7 @@ internal protocol Arrow_Flight_Protocol_FlightServiceAsyncProvider: CallHandlerP
   ) async throws
 }
 
-@available(macOS 10.15, iOS 13, tvOS 13, watchOS 6, *)
+@available(macOS 12.0, iOS 13, tvOS 13, watchOS 6, *)
 extension Arrow_Flight_Protocol_FlightServiceAsyncProvider {
   internal static var serviceDescriptor: GRPCServiceDescriptor {
     return Arrow_Flight_Protocol_FlightServiceServerMetadata.serviceDescriptor
