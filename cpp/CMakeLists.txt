@@ -21,7 +21,8 @@ message(STATUS "Building using CMake version: ${CMAKE_VERSION}")
 # https://www.cmake.org/cmake/help/latest/policy/CMP0025.html
 #
 # Compiler id for Apple Clang is now AppleClang.
-cmake_policy(SET CMP0025 NEW)
+cmake_policy(
+SET CMP0025 NEW)
 
 # https://cmake.org/cmake/help/latest/policy/CMP0042.html
 #
@@ -68,7 +69,8 @@ cmake_policy(SET CMP0091 NEW)
 # but we use the NEW behavior explicitly to suppress CMP0135
 # warnings.
 if(POLICY CMP0135)
-  cmake_policy(SET CMP0135 NEW)
+  cmake_policy(
+SET CMP0135 NEW)
 endif()
 
 set(ARROW_VERSION "17.0.0-SNAPSHOT")

@@ -35,7 +35,7 @@ Result<std::shared_ptr<Buffer>> Buffer::CopySlice(const int64_t start,
                                                   const int64_t nbytes,
                                                   MemoryPool* pool) const {
   // Sanity checks
-  ARROW_CHECK_LE(start, size_);
+  ARROW_CHECK_LE(start,  size_);
   ARROW_CHECK_LE(nbytes, size_ - start);
   DCHECK_GE(nbytes, 0);
 
@@ -58,7 +58,7 @@ Status CheckBufferSlice(const Buffer& buffer, int64_t offset) {
     // Avoid UBSAN in subtraction below
     return Status::IndexError("Negative buffer slice offset");
   }
-  return CheckBufferSlice(buffer, offset, buffer.size() - offset);
+  return CheckBufferSlice(buffer,  offset, buffer.size() - offset);
 }
 
 }  // namespace
