@@ -4508,6 +4508,8 @@ function(build_orc)
                        URL_HASH "SHA256=${ARROW_ORC_BUILD_SHA256_CHECKSUM}")
   prepare_fetchcontent()
 
+  set(CMAKE_UNITY_BUILD FALSE)
+
   get_target_property(LZ4_INCLUDE_DIR LZ4::lz4 INTERFACE_INCLUDE_DIRECTORIES)
   get_filename_component(LZ4_ROOT "${LZ4_INCLUDE_DIR}" DIRECTORY)
   set(LZ4_HOME
