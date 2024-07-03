@@ -26,6 +26,7 @@ RUN sed -i \
       /etc/yum.repos.d/*.repo
 
 # devtoolset is required for C++17
+RUN ls -lrt /etc/yum.repos.d/
 RUN \
   yum install -y \
     centos-release-scl \
