@@ -144,7 +144,8 @@ RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 # - libgtest-dev only provide sources
 # - libprotobuf-dev only provide sources
 # ARROW-17051: this build uses static Protobuf, so we must also use
-# static Arrow to run Flight/Flight SQL tests
+# static Arrow to run Flight/Flight SQL tests.
+# We can't use bundled ORC because CMake (3.16.3) on Ubuntu 20.04 is old.
 ENV absl_SOURCE=BUNDLED \
     ARROW_ACERO=ON \
     ARROW_AZURE=OFF \
@@ -158,7 +159,7 @@ ENV absl_SOURCE=BUNDLED \
     ARROW_HDFS=ON \
     ARROW_HOME=/usr/local \
     ARROW_INSTALL_NAME_RPATH=OFF \
-    ARROW_ORC=ON \
+    ARROW_ORC=OFF \
     ARROW_PARQUET=ON \
     ARROW_S3=ON \
     ARROW_SUBSTRAIT=ON \
