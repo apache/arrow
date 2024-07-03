@@ -22,7 +22,7 @@ Substrait
 The ``arrow-substrait`` module implements support for the Substrait_ format,
 enabling conversion to and from Arrow objects.
 
-The ``arrow-dataset`` module can execute Substrait_ plans via the 
+The ``arrow-dataset`` module can execute Substrait_ plans via the
 :doc:`Acero <../cpp/streaming_execution>` query engine.
 
 .. contents::
@@ -86,9 +86,9 @@ If ``Substrait Python`` is installed, the schema can also be converted to
 Working with Expressions
 ========================
 
-Arrow compute expressions can be encoded and decoded using the 
-:meth:`pyarrow.substrait.serialize_expressions` and :meth:`pyarrow.substrait.deserialize_expressions` 
-functions.
+Arrow compute expressions can be encoded and decoded using the
+:meth:`pyarrow.substrait.serialize_expressions` and
+:meth:`pyarrow.substrait.deserialize_expressions` functions.
 
 .. code-block:: python
 
@@ -193,7 +193,7 @@ Executing Queries Using Substrait Extended Expressions
 ======================================================
 
 Dataset supports executing queries using Substrait's `Extended Expression`_,
-the expressions can be passed to the dataset scanner in the form of 
+the expressions can be passed to the dataset scanner in the form of
 :class:`pyarrow.substrait.BoundExpressions`
 
 .. code-block:: python
@@ -208,7 +208,7 @@ the expressions can be passed to the dataset scanner in the form of
     substrait_schema = pa_substrait.serialize_schema(dataset.schema).to_pysubstrait()
 
     # SELECT project_name FROM dataset WHERE project_name = 'pyarrow'
-    
+
     projection = proto.ExtendedExpression(referred_expr=[
         {"expression": {"selection": {"direct_reference": {"struct_field": {"field": 0}}}},
         "output_names": ["project_name"]}
