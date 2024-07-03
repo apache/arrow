@@ -30,7 +30,7 @@ RUN \
   yum install -y \
     centos-release-scl \
     epel-release && \
-    sed -i \
+  sed -i \
     -e 's/^mirrorlist/#mirrorlist/' \
     -e 's/^#baseurl/baseurl/' \
     -e 's/mirror\.centos\.org/vault.centos.org/' \
