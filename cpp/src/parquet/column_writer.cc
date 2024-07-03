@@ -2446,6 +2446,8 @@ template <>
 void TypedColumnWriterImpl<BooleanType>::UpdateBloomFilterSpaced(const bool*, int64_t,
                                                                  const uint8_t*,
                                                                  int64_t) {
+  // BooleanType does not have a bloom filter currently,
+  // so bloom_filter_ should always be nullptr.
   DCHECK(bloom_filter_ == nullptr);
 }
 
@@ -2504,7 +2506,7 @@ void TypedColumnWriterImpl<ByteArrayType>::UpdateBloomFilterArray(
     const ::arrow::Array& values) {
   if (bloom_filter_) {
     // TODO(mwish): GH-37832 currently we don't support write StringView/BinaryView to
-    //  parquet file. We can support
+    //  parquet file.
     if (!::arrow::is_base_binary_like(values.type_id())) {
       throw ParquetException("Only BaseBinaryArray and subclasses supported");
     }
@@ -2513,7 +2515,11 @@ void TypedColumnWriterImpl<ByteArrayType>::UpdateBloomFilterArray(
       UpdateBinaryBloomFilter(bloom_filter_,
                               checked_cast<const ::arrow::BinaryArray&>(values));
     } else {
-      DCHECK(::arrow::is_large_binary_like(values.type_id()));
+      // TODO(mwish): GH-37832 currently we don't support write StringView/BinaryView to
+      //  parquet file.
+      if (!::arrow::is_large_binary_like(values.type_id())) {
+        throw ParquetException("Only LargeBinaryArray and subclasses supported");
+      }
       UpdateBinaryBloomFilter(bloom_filter_,
                               checked_cast<const ::arrow::LargeBinaryArray&>(values));
     }

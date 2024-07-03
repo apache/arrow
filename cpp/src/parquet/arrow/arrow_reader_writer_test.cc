@@ -5763,13 +5763,24 @@ class ParquetBloomFilterRoundTripTest : public ::testing::Test,
   }
 
   template <typename ArrowType>
-  void VerifyBloomFilter(const BloomFilter* bloom_filter,
-                         const ::arrow::ChunkedArray& chunked_array) {
+  void VerifyBloomFilterContains(const BloomFilter* bloom_filter,
+                                 const ::arrow::ChunkedArray& chunked_array) {
     for (auto value : ::arrow::stl::Iterate<ArrowType>(chunked_array)) {
       if (value == std::nullopt) {
         continue;
       }
       EXPECT_TRUE(bloom_filter->FindHash(bloom_filter->Hash(value.value())));
+    }
+  }
+
+  template <typename ArrowType>
+  void VerifyBloomFilterNotContains(const BloomFilter* bloom_filter,
+                                    const ::arrow::ChunkedArray& chunked_array) {
+    for (auto value : ::arrow::stl::Iterate<ArrowType>(chunked_array)) {
+      if (value == std::nullopt) {
+        continue;
+      }
+      EXPECT_FALSE(bloom_filter->FindHash(bloom_filter->Hash(value.value())));
     }
   }
 
@@ -5781,7 +5792,7 @@ TEST_F(ParquetBloomFilterRoundTripTest, SimpleRoundTrip) {
   auto schema = ::arrow::schema(
       {::arrow::field("c0", ::arrow::int64()), ::arrow::field("c1", ::arrow::utf8())});
   BloomFilterOptions options;
-  options.ndv = 100;
+  options.ndv = 10;
   auto writer_properties = WriterProperties::Builder()
                                .enable_bloom_filter_options(options, "c0")
                                ->enable_bloom_filter_options(options, "c1")
@@ -5804,16 +5815,26 @@ TEST_F(ParquetBloomFilterRoundTripTest, SimpleRoundTrip) {
   int64_t bloom_filter_idx = 0;  // current index in `bloom_filters_`
   for (int64_t row_group_id = 0; row_group_id < 2; ++row_group_id) {
     {
+      // The bloom filter for same column in another row-group.
+      int64_t bloom_filter_idx_another_rg =
+          row_group_id == 0 ? bloom_filter_idx + 2 : bloom_filter_idx - 2;
       ASSERT_NE(nullptr, bloom_filters_[bloom_filter_idx]);
       auto col = table->column(0)->Slice(current_row, row_group_row_count[row_group_id]);
-      VerifyBloomFilter<::arrow::Int64Type>(bloom_filters_[bloom_filter_idx].get(), *col);
+      VerifyBloomFilterContains<::arrow::Int64Type>(
+          bloom_filters_[bloom_filter_idx].get(), *col);
+      VerifyBloomFilterNotContains<::arrow::Int64Type>(
+          bloom_filters_[bloom_filter_idx_another_rg].get(), *col);
       ++bloom_filter_idx;
     }
     {
+      int64_t bloom_filter_idx_another_rg =
+          row_group_id == 0 ? bloom_filter_idx + 2 : bloom_filter_idx - 2;
       ASSERT_NE(nullptr, bloom_filters_[bloom_filter_idx]);
       auto col = table->column(1)->Slice(current_row, row_group_row_count[row_group_id]);
-      VerifyBloomFilter<::arrow::StringType>(bloom_filters_[bloom_filter_idx].get(),
-                                             *col);
+      VerifyBloomFilterContains<::arrow::StringType>(
+          bloom_filters_[bloom_filter_idx].get(), *col);
+      VerifyBloomFilterNotContains<::arrow::StringType>(
+          bloom_filters_[bloom_filter_idx_another_rg].get(), *col);
       ++bloom_filter_idx;
     }
     current_row += row_group_row_count[row_group_id];
@@ -5828,7 +5849,7 @@ TEST_F(ParquetBloomFilterRoundTripTest, SimpleRoundTripDictionary) {
        ::arrow::field("c1", ::arrow::dictionary(::arrow::int64(), ::arrow::utf8()))});
   bloom_filters_.clear();
   BloomFilterOptions options;
-  options.ndv = 100;
+  options.ndv = 10;
   auto writer_properties = WriterProperties::Builder()
                                .enable_bloom_filter_options(options, "c0")
                                ->enable_bloom_filter_options(options, "c1")
@@ -5843,6 +5864,7 @@ TEST_F(ParquetBloomFilterRoundTripTest, SimpleRoundTripDictionary) {
         [6,     "f"]
   ])"};
   auto table = ::arrow::TableFromJSON(schema, contents);
+  // using non_dict_table to adapt some interface which doesn't support dictionary.
   auto non_dict_table = ::arrow::TableFromJSON(origin_schema, contents);
   WriteFile(writer_properties, table);
 
@@ -5853,18 +5875,28 @@ TEST_F(ParquetBloomFilterRoundTripTest, SimpleRoundTripDictionary) {
   int64_t bloom_filter_idx = 0;  // current index in `bloom_filters_`
   for (int64_t row_group_id = 0; row_group_id < 2; ++row_group_id) {
     {
+      // The bloom filter for same column in another row-group.
+      int64_t bloom_filter_idx_another_rg =
+          row_group_id == 0 ? bloom_filter_idx + 2 : bloom_filter_idx - 2;
       ASSERT_NE(nullptr, bloom_filters_[bloom_filter_idx]);
       auto col = non_dict_table->column(0)->Slice(current_row,
                                                   row_group_row_count[row_group_id]);
-      VerifyBloomFilter<::arrow::Int64Type>(bloom_filters_[bloom_filter_idx].get(), *col);
+      VerifyBloomFilterContains<::arrow::Int64Type>(
+          bloom_filters_[bloom_filter_idx].get(), *col);
+      VerifyBloomFilterNotContains<::arrow::Int64Type>(
+          bloom_filters_[bloom_filter_idx_another_rg].get(), *col);
       ++bloom_filter_idx;
     }
     {
+      int64_t bloom_filter_idx_another_rg =
+          row_group_id == 0 ? bloom_filter_idx + 2 : bloom_filter_idx - 2;
       ASSERT_NE(nullptr, bloom_filters_[bloom_filter_idx]);
       auto col = non_dict_table->column(1)->Slice(current_row,
                                                   row_group_row_count[row_group_id]);
-      VerifyBloomFilter<::arrow::StringType>(bloom_filters_[bloom_filter_idx].get(),
-                                             *col);
+      VerifyBloomFilterContains<::arrow::StringType>(
+          bloom_filters_[bloom_filter_idx].get(), *col);
+      VerifyBloomFilterNotContains<::arrow::StringType>(
+          bloom_filters_[bloom_filter_idx_another_rg].get(), *col);
       ++bloom_filter_idx;
     }
     current_row += row_group_row_count[row_group_id];
@@ -5875,7 +5907,7 @@ TEST_F(ParquetBloomFilterRoundTripTest, SimpleRoundTripWithOneFilter) {
   auto schema = ::arrow::schema(
       {::arrow::field("c0", ::arrow::int64()), ::arrow::field("c1", ::arrow::utf8())});
   BloomFilterOptions options;
-  options.ndv = 100;
+  options.ndv = 10;
   auto writer_properties = WriterProperties::Builder()
                                .enable_bloom_filter_options(options, "c0")
                                ->disable_bloom_filter("c1")
@@ -5900,7 +5932,8 @@ TEST_F(ParquetBloomFilterRoundTripTest, SimpleRoundTripWithOneFilter) {
     {
       ASSERT_NE(nullptr, bloom_filters_[bloom_filter_idx]);
       auto col = table->column(0)->Slice(current_row, row_group_row_count[row_group_id]);
-      VerifyBloomFilter<::arrow::Int64Type>(bloom_filters_[bloom_filter_idx].get(), *col);
+      VerifyBloomFilterContains<::arrow::Int64Type>(
+          bloom_filters_[bloom_filter_idx].get(), *col);
       ++bloom_filter_idx;
     }
     current_row += row_group_row_count[row_group_id];
@@ -5910,7 +5943,7 @@ TEST_F(ParquetBloomFilterRoundTripTest, SimpleRoundTripWithOneFilter) {
 TEST_F(ParquetBloomFilterRoundTripTest, ThrowForBoolean) {
   auto schema = ::arrow::schema({::arrow::field("boolean_col", ::arrow::boolean())});
   BloomFilterOptions options;
-  options.ndv = 100;
+  options.ndv = 10;
   auto writer_properties = WriterProperties::Builder()
                                .enable_bloom_filter_options(options, "boolean_col")
                                ->max_row_group_length(4)

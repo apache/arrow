@@ -41,6 +41,9 @@ class BloomFilterBuilderImpl : public BloomFilterBuilder {
   explicit BloomFilterBuilderImpl(const SchemaDescriptor* schema,
                                   const WriterProperties* properties)
       : schema_(schema), properties_(properties) {}
+  BloomFilterBuilderImpl(const BloomFilterBuilderImpl&) = delete;
+  BloomFilterBuilderImpl(BloomFilterBuilderImpl&&) = default;
+
   /// Append a new row group to host all incoming bloom filters.
   void AppendRowGroup() override;
 
@@ -51,14 +54,11 @@ class BloomFilterBuilderImpl : public BloomFilterBuilder {
   /// been flushed.
   void WriteTo(::arrow::io::OutputStream* sink, BloomFilterLocation* location) override;
 
-  BloomFilterBuilderImpl(const BloomFilterBuilderImpl&) = delete;
-  BloomFilterBuilderImpl(BloomFilterBuilderImpl&&) = default;
-
  private:
   /// Make sure column ordinal is not out of bound and the builder is in good state.
   void CheckState(int32_t column_ordinal) const {
     if (finished_) {
-      throw ParquetException("BloomFilterBuilder is already finished.");
+      throw ParquetException("Cannot call WriteTo() twice on BloomFilterBuilder.");
     }
     if (column_ordinal < 0 || column_ordinal >= schema_->num_columns()) {
       throw ParquetException("Invalid column ordinal: ", column_ordinal);
@@ -85,7 +85,7 @@ class BloomFilterBuilderImpl : public BloomFilterBuilder {
 void BloomFilterBuilderImpl::AppendRowGroup() {
   if (finished_) {
     throw ParquetException(
-        "Cannot call AppendRowGroup() to finished BloomFilterBuilder.");
+        "Cannot call AppendRowGroup() to BloomFilterBuilder::WriteTo is called");
   }
   file_bloom_filters_.emplace_back(std::make_unique<RowGroupBloomFilters>());
 }
@@ -93,12 +93,16 @@ void BloomFilterBuilderImpl::AppendRowGroup() {
 BloomFilter* BloomFilterBuilderImpl::GetOrCreateBloomFilter(int32_t column_ordinal) {
   CheckState(column_ordinal);
   const ColumnDescriptor* column_descr = schema_->Column(column_ordinal);
+  // Bloom filter does not support boolean type, and this should be checked in
+  // CheckState() already.
   DCHECK_NE(column_descr->physical_type(), Type::BOOLEAN);
   auto bloom_filter_options_opt = properties_->bloom_filter_options(column_descr->path());
   if (bloom_filter_options_opt == std::nullopt) {
     return nullptr;
   }
   BloomFilterOptions bloom_filter_options = *bloom_filter_options_opt;
+  // CheckState() should have checked that file_bloom_filters_ is not empty.
+  DCHECK(!file_bloom_filters_.empty());
   RowGroupBloomFilters& row_group_bloom_filter = *file_bloom_filters_.back();
   auto iter = row_group_bloom_filter.find(column_ordinal);
   if (iter == row_group_bloom_filter.end()) {
@@ -111,7 +115,10 @@ BloomFilter* BloomFilterBuilderImpl::GetOrCreateBloomFilter(int32_t column_ordin
     DCHECK(insert_result.second);
     iter = insert_result.first;
   }
-  ARROW_CHECK(iter->second != nullptr);
+  if (iter->second == nullptr) {
+    throw ParquetException("Bloom filter state is invalid for column ",
+                           column_descr->path());
+  }
   return iter->second.get();
 }
 
@@ -130,22 +137,20 @@ void BloomFilterBuilderImpl::WriteTo(::arrow::io::OutputStream* sink,
     if (row_group_bloom_filters.empty()) {
       continue;
     }
-    bool has_valid_bloom_filter = false;
     int num_columns = schema_->num_columns();
     std::vector<std::optional<IndexLocation>> locations(num_columns, std::nullopt);
 
     // serialize bloom filter in ascending order of column id
     for (auto& [column_id, filter] : row_group_bloom_filters) {
-      ARROW_CHECK(filter != nullptr);
+      if (ARROW_PREDICT_FALSE(filter == nullptr)) {
+        throw ParquetException("Bloom filter state is invalid for column ", column_id);
+      }
       PARQUET_ASSIGN_OR_THROW(int64_t offset, sink->Tell());
       filter->WriteTo(sink);
       PARQUET_ASSIGN_OR_THROW(int64_t pos, sink->Tell());
-      has_valid_bloom_filter = true;
       locations[column_id] = IndexLocation{offset, static_cast<int32_t>(pos - offset)};
     }
-    if (has_valid_bloom_filter) {
-      location->bloom_filter_location.emplace(row_group_ordinal, std::move(locations));
-    }
+    location->bloom_filter_location.emplace(row_group_ordinal, std::move(locations));
   }
 }
 }  // namespace
