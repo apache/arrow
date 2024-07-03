@@ -25,7 +25,9 @@
 #include "arrow/c/helpers.h"
 #include "arrow/dataset/api.h"
 #include "arrow/dataset/file_base.h"
+#ifdef ARROW_CSV
 #include "arrow/dataset/file_csv.h"
+#endif
 #include "arrow/filesystem/api.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/engine/substrait/util.h"
