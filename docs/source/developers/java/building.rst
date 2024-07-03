@@ -32,7 +32,7 @@ Arrow Java uses the `Maven <https://maven.apache.org/>`_ build system.
 
 Building requires:
 
-* JDK 8+
+* JDK 11+
 * Maven 3+
 
 .. note::

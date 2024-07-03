@@ -28,7 +28,7 @@ This driver can be used with any database that implements Flight SQL.
 Installation and Requirements
 =============================
 
-The driver is compatible with JDK 8+.  On JDK 9+, the following JVM
+The driver is compatible with JDK 11+. Note that the following JVM
 parameter is required:
 
 .. code-block:: shell
