@@ -31,7 +31,7 @@ try:
 except ImportError:
     py_substrait = None
 else:
-    import substrait.proto
+    import substrait.proto  # noqa: F401
 
 
 # TODO GH-37235: Fix exception handling
