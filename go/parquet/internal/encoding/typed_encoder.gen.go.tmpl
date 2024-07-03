@@ -161,7 +161,7 @@ func ({{.lower}}DecoderTraits) Decoder(e parquet.Encoding, descr *schema.Column,
 {{- end}}
 {{- if or (eq .Name "FixedLenByteArray") (eq .Name "Float32") (eq .Name "Float64") (eq .Name "Int32") (eq .Name "Int64")}}
   case parquet.Encodings.ByteStreamSplit:
-    return &ByteStreamSplit{{.Name}}Decoder{decoder: newDecoderBase(format.Encoding(e), descr)}
+    return &ByteStreamSplit{{.Name}}Decoder{Plain{{.Name}}Decoder: Plain{{.Name}}Decoder{decoder: newDecoderBase(format.Encoding(e), descr)}}
 {{- end}}
   default:
     panic("unimplemented encoding type")

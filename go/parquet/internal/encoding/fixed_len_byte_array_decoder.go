@@ -68,89 +68,26 @@ func (pflba *PlainFixedLenByteArrayDecoder) DecodeSpaced(out []parquet.FixedLenB
 // ByteStreamSplitFixedLenByteArrayDecoder is a decoder for BYTE_STREAM_SPLIT-encoded
 // bytes representing FixedLenByteArray values
 type ByteStreamSplitFixedLenByteArrayDecoder struct {
-	decoder
+	PlainFixedLenByteArrayDecoder
+	pageBuffer []byte
 }
 
-// Type returns the physical type this decoder operates on, FixedLength Byte Arrays
-func (ByteStreamSplitFixedLenByteArrayDecoder) Type() parquet.Type {
-	return parquet.Types.FixedLenByteArray
-}
-
-// Decode populates out with fixed length byte array values until either there are no more
-// values to decode or the length of out has been filled. Then returns the total number of values
-// that were decoded.
-func (dec *ByteStreamSplitFixedLenByteArrayDecoder) Decode(out []parquet.FixedLenByteArray) (int, error) {
-	max := utils.Min(len(out), dec.ValuesLeft())
-	numBytesNeeded := max * dec.typeLen
-	if numBytesNeeded > len(dec.data) || numBytesNeeded > math.MaxInt32 {
-		return 0, xerrors.New("parquet: eof exception")
-	}
-
-	for idx := range out[:max] {
-		if len(out[idx]) != dec.typeLen {
-			out[idx] = make([]byte, dec.typeLen)
-		}
+// func decodePage
+func (dec *ByteStreamSplitFixedLenByteArrayDecoder) SetData(nvals int, data []byte) error {
+	if dec.pageBuffer == nil {
+		dec.pageBuffer = make([]byte, len(data))
 	}
 
 	switch dec.typeLen {
 	case 2:
-		decodeByteStreamSplitFixedLenByteArrayWidth2(dec.data, out, max)
+		decodeByteStreamSplitWidth2(data, dec.pageBuffer)
 	case 4:
-		decodeByteStreamSplitFixedLenByteArrayWidth4(dec.data, out, max)
+		decodeByteStreamSplitWidth4(data, dec.pageBuffer)
 	case 8:
-		decodeByteStreamSplitFixedLenByteArrayWidth8(dec.data, out, max)
+		decodeByteStreamSplitWidth8(data, dec.pageBuffer)
 	default:
-		decodeByteStreamSplitFixedLenByteArray(dec.data, out, max, dec.typeLen)
+		decodeByteStreamSplit(data, dec.pageBuffer, dec.typeLen)
 	}
 
-	dec.SetData(dec.ValuesLeft()-max, dec.data[numBytesNeeded:])
-
-	return max, nil
-}
-
-// decodeByteStreamSplitFixedLenByteArray decodes the FixedLenByteArrays provided by 'out' into the output buffer 'data' using BYTE_STREAM_SPLIT encoding
-func decodeByteStreamSplitFixedLenByteArray(data []byte, out []parquet.FixedLenByteArray, numElements, width int) {
-	for offset := 0; offset < width; offset++ {
-		for element := 0; element < numElements; element++ {
-			encLoc := numElements*offset + element
-			out[element][offset] = data[encLoc]
-		}
-	}
-}
-
-// decodeByteStreamSplitFixedLenByteArrayWidth2 implements decodeByteStreamSplitFixedLenByteArray optimized for types stored using 2 bytes
-func decodeByteStreamSplitFixedLenByteArrayWidth2(data []byte, out []parquet.FixedLenByteArray, numElements int) {
-	for element := 0; element < numElements; element++ {
-		out[element][0] = data[element]
-		out[element][1] = data[numElements+element]
-	}
-}
-
-// decodeByteStreamSplitFixedLenByteArrayWidth4 implements decodeByteStreamSplitFixedLenByteArray optimized for types stored using 4 bytes
-func decodeByteStreamSplitFixedLenByteArrayWidth4(data []byte, out []parquet.FixedLenByteArray, numElements int) {
-	for element := 0; element < numElements; element++ {
-		out[element][0] = data[element]
-		out[element][1] = data[numElements+element]
-		out[element][2] = data[numElements*2+element]
-		out[element][3] = data[numElements*3+element]
-	}
-}
-
-// decodeByteStreamSplitFixedLenByteArrayWidth8 implements decodeByteStreamSplitFixedLenByteArray optimized for types stored using 8 bytes
-func decodeByteStreamSplitFixedLenByteArrayWidth8(data []byte, out []parquet.FixedLenByteArray, numElements int) {
-	for element := 0; element < numElements; element++ {
-		out[element][0] = data[element]
-		out[element][1] = data[numElements+element]
-		out[element][2] = data[numElements*2+element]
-		out[element][3] = data[numElements*3+element]
-		out[element][4] = data[numElements*4+element]
-		out[element][5] = data[numElements*5+element]
-		out[element][6] = data[numElements*6+element]
-		out[element][7] = data[numElements*7+element]
-	}
-}
-
-// DecodeSpaced does the same as Decode but spaces out the resulting slice according to the bitmap leaving space for null values
-func (dec *ByteStreamSplitFixedLenByteArrayDecoder) DecodeSpaced(out []parquet.FixedLenByteArray, nullCount int, validBits []byte, validBitsOffset int64) (int, error) {
-	return decodeByteStreamSplitSpaced(out, nullCount, validBits, validBitsOffset, dec.Decode)
+	return dec.PlainFixedLenByteArrayDecoder.SetData(nvals, dec.pageBuffer)
 }

@@ -17,12 +17,7 @@
 package encoding
 
 import (
-	"math"
-
-	"github.com/apache/arrow/go/v17/arrow"
-	"github.com/apache/arrow/go/v17/internal/utils"
 	"github.com/apache/arrow/go/v17/parquet"
-	"golang.org/x/xerrors"
 )
 
 type NumericByteStreamSplitType interface {
@@ -86,32 +81,9 @@ func encodeByteStreamSplitWidth8(data []byte, in []byte) {
 	}
 }
 
-// decodeByteStreamSplit is a generic implementation of the BYTE_STREAM_SPLIT decoder for fixed-width numeric types.
-func decodeByteStreamSplitNumeric[T NumericByteStreamSplitType](out []T, dec TypedDecoder, data []byte) (int, error) {
-	max := utils.Min(len(out), dec.ValuesLeft())
-	typeLen := dec.Type().ByteSize()
-	numBytesNeeded := max * typeLen
-	if numBytesNeeded > len(data) || numBytesNeeded > math.MaxInt32 {
-		return 0, xerrors.New("parquet: eof exception")
-	}
-
-	outBytes := arrow.GetBytes(out)
-	switch typeLen {
-	case 4:
-		decodeByteStreamSplitWidth4(data, outBytes, max)
-	case 8:
-		decodeByteStreamSplitWidth8(data, outBytes, max)
-	default:
-		decodeByteStreamSplit(data, outBytes, max, typeLen)
-	}
-
-	dec.SetData(dec.ValuesLeft()-max, data[numBytesNeeded:])
-
-	return max, nil
-}
-
 // decodeByteStreamSplit decodes the raw bytes provided by 'out' into the output buffer 'data' using BYTE_STREAM_SPLIT encoding
-func decodeByteStreamSplit(data []byte, out []byte, numElements, width int) {
+func decodeByteStreamSplit(data []byte, out []byte, width int) {
+	numElements := len(data) / width
 	for stream := 0; stream < width; stream++ {
 		for element := 0; element < numElements; element++ {
 			encLoc := numElements*stream + element
@@ -121,9 +93,21 @@ func decodeByteStreamSplit(data []byte, out []byte, numElements, width int) {
 	}
 }
 
+// decodeByteStreamSplitWidth2 implements decodeByteStreamSplit optimized for types stored using 2 bytes
+func decodeByteStreamSplitWidth2(data []byte, out []byte) {
+	width := 2
+	numElements := len(data) / width
+	for element := 0; element < numElements; element++ {
+		decLoc := width * element
+		out[decLoc] = data[element]
+		out[decLoc+1] = data[numElements+element]
+	}
+}
+
 // decodeByteStreamSplitWidth4 implements decodeByteStreamSplit optimized for types stored using 4 bytes
-func decodeByteStreamSplitWidth4(data []byte, out []byte, numElements int) {
+func decodeByteStreamSplitWidth4(data []byte, out []byte) {
 	width := 4
+	numElements := len(data) / width
 	for element := 0; element < numElements; element++ {
 		decLoc := width * element
 		out[decLoc] = data[element]
@@ -134,8 +118,9 @@ func decodeByteStreamSplitWidth4(data []byte, out []byte, numElements int) {
 }
 
 // decodeByteStreamSplitWidth8 implements decodeByteStreamSplit optimized for types stored using 8 bytes
-func decodeByteStreamSplitWidth8(data []byte, out []byte, numElements int) {
+func decodeByteStreamSplitWidth8(data []byte, out []byte) {
 	width := 8
+	numElements := len(data) / width
 	for element := 0; element < numElements; element++ {
 		decLoc := width * element
 		out[decLoc] = data[element]
@@ -147,20 +132,6 @@ func decodeByteStreamSplitWidth8(data []byte, out []byte, numElements int) {
 		out[decLoc+6] = data[numElements*6+element]
 		out[decLoc+7] = data[numElements*7+element]
 	}
-}
-
-// decodeByteStreamSplitSpaced decodes BYTE_STREAM_SPLIT-encoded data with space for nulls, calling to the provided decodeFn to decode runs of non-null values.
-func decodeByteStreamSplitSpaced[T ByteStreamSplitType](out []T, nullCount int, validBits []byte, validBitsOffset int64, decodeFn func([]T) (int, error)) (int, error) {
-	toRead := len(out) - nullCount
-	valuesRead, err := decodeFn(out[:toRead])
-	if err != nil {
-		return valuesRead, err
-	}
-	if valuesRead != toRead {
-		return valuesRead, xerrors.New("parquet: number of values / definitions levels read did not match")
-	}
-
-	return spacedExpand(out, nullCount, validBits, validBitsOffset), nil
 }
 
 func flushByteStreamSplit(enc TypedEncoder) (Buffer, *PooledBufferWriter, error) {
@@ -238,91 +209,59 @@ func (enc *ByteStreamSplitInt64Encoder) FlushValues() (Buffer, error) {
 // ByteStreamSplitFloat32Decoder is a decoder for BYTE_STREAM_SPLIT-encoded
 // bytes representing Float32 values
 type ByteStreamSplitFloat32Decoder struct {
-	decoder
+	PlainFloat32Decoder
+	pageBuffer []byte
 }
 
-// Type returns the physical type this decoder operates on, Float32
-func (ByteStreamSplitFloat32Decoder) Type() parquet.Type {
-	return parquet.Types.Float
-}
-
-// Decode populates out with float32 values until either there are no more
-// values to decode or the length of out has been filled. Then returns the total number of values
-// that were decoded.
-func (dec *ByteStreamSplitFloat32Decoder) Decode(out []float32) (int, error) {
-	return decodeByteStreamSplitNumeric(out, dec, dec.data)
-}
-
-// DecodeSpaced does the same as Decode but spaces out the resulting slice according to the bitmap leaving space for null values
-func (dec *ByteStreamSplitFloat32Decoder) DecodeSpaced(out []float32, nullCount int, validBits []byte, validBitsOffset int64) (int, error) {
-	return decodeByteStreamSplitSpaced(out, nullCount, validBits, validBitsOffset, dec.Decode)
+func (dec *ByteStreamSplitFloat32Decoder) SetData(nvals int, data []byte) error {
+	if dec.pageBuffer == nil {
+		dec.pageBuffer = make([]byte, len(data))
+	}
+	decodeByteStreamSplitWidth4(data, dec.pageBuffer)
+	return dec.PlainFloat32Decoder.SetData(nvals, dec.pageBuffer)
 }
 
 // ByteStreamSplitFloat64Decoder is a decoder for BYTE_STREAM_SPLIT-encoded
 // bytes representing Float64 values
 type ByteStreamSplitFloat64Decoder struct {
-	decoder
+	PlainFloat64Decoder
+	pageBuffer []byte
 }
 
-// Type returns the physical type this decoder operates on, Float64
-func (ByteStreamSplitFloat64Decoder) Type() parquet.Type {
-	return parquet.Types.Double
-}
-
-// Decode populates out with float64 values until either there are no more
-// values to decode or the length of out has been filled. Then returns the total number of values
-// that were decoded.
-func (dec *ByteStreamSplitFloat64Decoder) Decode(out []float64) (int, error) {
-	return decodeByteStreamSplitNumeric(out, dec, dec.data)
-}
-
-// DecodeSpaced does the same as Decode but spaces out the resulting slice according to the bitmap leaving space for null values
-func (dec *ByteStreamSplitFloat64Decoder) DecodeSpaced(out []float64, nullCount int, validBits []byte, validBitsOffset int64) (int, error) {
-	return decodeByteStreamSplitSpaced(out, nullCount, validBits, validBitsOffset, dec.Decode)
+func (dec *ByteStreamSplitFloat64Decoder) SetData(nvals int, data []byte) error {
+	if dec.pageBuffer == nil {
+		dec.pageBuffer = make([]byte, len(data))
+	}
+	decodeByteStreamSplitWidth8(data, dec.pageBuffer)
+	return dec.PlainFloat64Decoder.SetData(nvals, dec.pageBuffer)
 }
 
 // ByteStreamSplitInt32Decoder is a decoder for BYTE_STREAM_SPLIT-encoded
 // bytes representing Int32 values
 type ByteStreamSplitInt32Decoder struct {
-	decoder
+	PlainInt32Decoder
+	pageBuffer []byte
 }
 
-// Type returns the physical type this decoder operates on, Int32
-func (ByteStreamSplitInt32Decoder) Type() parquet.Type {
-	return parquet.Types.Int32
-}
-
-// Decode populates out with int32 values until either there are no more
-// values to decode or the length of out has been filled. Then returns the total number of values
-// that were decoded.
-func (dec *ByteStreamSplitInt32Decoder) Decode(out []int32) (int, error) {
-	return decodeByteStreamSplitNumeric(out, dec, dec.data)
-}
-
-// DecodeSpaced does the same as Decode but spaces out the resulting slice according to the bitmap leaving space for null values
-func (dec *ByteStreamSplitInt32Decoder) DecodeSpaced(out []int32, nullCount int, validBits []byte, validBitsOffset int64) (int, error) {
-	return decodeByteStreamSplitSpaced(out, nullCount, validBits, validBitsOffset, dec.Decode)
+func (dec *ByteStreamSplitInt32Decoder) SetData(nvals int, data []byte) error {
+	if dec.pageBuffer == nil {
+		dec.pageBuffer = make([]byte, len(data))
+	}
+	decodeByteStreamSplitWidth4(data, dec.pageBuffer)
+	return dec.PlainInt32Decoder.SetData(nvals, dec.pageBuffer)
 }
 
 // ByteStreamSplitInt64Decoder is a decoder for BYTE_STREAM_SPLIT-encoded
 // bytes representing Int64 values
 type ByteStreamSplitInt64Decoder struct {
-	decoder
+	PlainInt64Decoder
+	pageBuffer []byte
 }
 
-// Type returns the physical type this decoder operates on, Int64
-func (ByteStreamSplitInt64Decoder) Type() parquet.Type {
-	return parquet.Types.Int64
-}
-
-// Decode populates out with int64 values until either there are no more
-// values to decode or the length of out has been filled. Then returns the total number of values
-// that were decoded.
-func (dec *ByteStreamSplitInt64Decoder) Decode(out []int64) (int, error) {
-	return decodeByteStreamSplitNumeric(out, dec, dec.data)
-}
-
-// DecodeSpaced does the same as Decode but spaces out the resulting slice according to the bitmap leaving space for null values
-func (dec *ByteStreamSplitInt64Decoder) DecodeSpaced(out []int64, nullCount int, validBits []byte, validBitsOffset int64) (int, error) {
-	return decodeByteStreamSplitSpaced(out, nullCount, validBits, validBitsOffset, dec.Decode)
+func (dec *ByteStreamSplitInt64Decoder) SetData(nvals int, data []byte) error {
+	if dec.pageBuffer == nil {
+		dec.pageBuffer = make([]byte, len(data))
+	}
+	decodeByteStreamSplitWidth8(data, dec.pageBuffer)
+	return dec.PlainInt64Decoder.SetData(nvals, dec.pageBuffer)
 }
