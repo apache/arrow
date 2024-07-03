@@ -49,7 +49,7 @@ function makeIntervalMonthDayNanoVector(intervalArray: IntervalValue[]) {
     const type = new IntervalMonthDayNano();
     const length = intervalArray.length;
     const data = new Int32Array(length * 4);
-    const intervalLength = intervalArray.length
+    const intervalLength = intervalArray.length;
     for (let i = 0; i < intervalLength; i++) {
         const intValue = convertIntervalValueToIntArray(intervalArray[i]);
         const intLength = intValue.length;
