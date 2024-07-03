@@ -26,12 +26,12 @@ RUN sed -i \
       /etc/yum.repos.d/*.repo
 
 # devtoolset is required for C++17
-RUN ls -lrt /etc/yum.repos.d/
 RUN \
   yum install -y \
     centos-release-scl \
-    epel-release && \
-    sed -i \
+    epel-release
+RUN ls -lrt /etc/yum.repos.d/
+RUN sed -i \
     -e 's/^mirrorlist/#mirrorlist/' \
     -e 's/^#baseurl/baseurl/' \
     -e 's/mirror\.centos\.org/vault.centos.org/' \
