@@ -41,9 +41,11 @@ import org.apache.arrow.vector.ValueIterableVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.compare.VectorVisitor;
+import org.apache.arrow.vector.complex.impl.ComplexCopier;
 import org.apache.arrow.vector.complex.impl.UnionListViewReader;
 import org.apache.arrow.vector.complex.impl.UnionListViewWriter;
 import org.apache.arrow.vector.complex.reader.FieldReader;
+import org.apache.arrow.vector.complex.writer.FieldWriter;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -332,16 +334,17 @@ public class ListViewVector extends BaseRepeatedValueViewVector
 
   @Override
   public void copyFromSafe(int inIndex, int outIndex, ValueVector from) {
-    // TODO: https://github.com/apache/arrow/issues/41270
-    throw new UnsupportedOperationException(
-        "ListViewVector does not support copyFromSafe operation yet.");
+    copyFrom(inIndex, outIndex, from);
   }
 
   @Override
   public void copyFrom(int inIndex, int outIndex, ValueVector from) {
-    // TODO: https://github.com/apache/arrow/issues/41270
-    throw new UnsupportedOperationException(
-        "ListViewVector does not support copyFrom operation yet.");
+    Preconditions.checkArgument(this.getMinorType() == from.getMinorType());
+    FieldReader in = from.getReader();
+    in.setPosition(inIndex);
+    FieldWriter out = getWriter();
+    out.setPosition(outIndex);
+    ComplexCopier.copy(in, out);
   }
 
   @Override
@@ -597,11 +600,13 @@ public class ListViewVector extends BaseRepeatedValueViewVector
 
     @Override
     public ValueVector getTo() {
-      return null;
+      return to;
     }
 
     @Override
-    public void copyValueSafe(int from, int to) {}
+    public void copyValueSafe(int from, int to) {
+      this.to.copyFrom(from, to, ListViewVector.this);
+    }
   }
 
   @Override

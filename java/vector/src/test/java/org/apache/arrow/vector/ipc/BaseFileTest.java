@@ -61,6 +61,7 @@ import org.apache.arrow.vector.complex.impl.UnionMapReader;
 import org.apache.arrow.vector.complex.impl.UnionMapWriter;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
+import org.apache.arrow.vector.complex.writer.BaseWriter.ListViewWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.StructWriter;
 import org.apache.arrow.vector.complex.writer.BigIntWriter;
@@ -587,7 +588,7 @@ public class BaseFileTest {
           assertEquals(i, unionReader.readLong().longValue());
           break;
         case 2:
-          assertEquals(i % 3, unionReader.size());
+          assertEquals(i % 3 * 2, unionReader.size());
           break;
         case 3:
           NullableTimeStampMilliHolder h = new NullableTimeStampMilliHolder();
@@ -612,6 +613,7 @@ public class BaseFileTest {
     IntWriter intWriter = rootWriter.integer("union");
     BigIntWriter bigIntWriter = rootWriter.bigInt("union");
     ListWriter listWriter = rootWriter.list("union");
+    ListViewWriter listViewWriter = rootWriter.listView("union");
     StructWriter structWriter = rootWriter.struct("union");
     for (int i = 0; i < count; i++) {
       switch (i % 4) {
@@ -626,10 +628,14 @@ public class BaseFileTest {
         case 2:
           listWriter.setPosition(i);
           listWriter.startList();
+          listViewWriter.setPosition(i);
+          listViewWriter.startListView();
           for (int j = 0; j < i % 3; j++) {
             listWriter.varChar().writeVarChar(0, 3, varchar);
+            listViewWriter.varChar().writeVarChar(0, 3, varchar);
           }
           listWriter.endList();
+          listViewWriter.endListView();
           break;
         case 3:
           structWriter.setPosition(i);

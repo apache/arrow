@@ -77,6 +77,17 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
   }
 
   @Override
+  public void startListView() {
+    getWriter(MinorType.LISTVIEW).startListView();
+  }
+
+  @Override
+  public void endListView() {
+    getWriter(MinorType.LISTVIEW).endListView();
+    setPosition(idx() + 1);
+  }
+
+  @Override
   public void startMap() {
     getWriter(MinorType.MAP).startMap();
   }
@@ -256,70 +267,6 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
   </#list></#list>
   public void writeNull() {
   }
-
-  @Override
-  public StructWriter struct() {
-    return getWriter(MinorType.LIST).struct();
-  }
-
-  @Override
-  public ListWriter list() {
-    return getWriter(MinorType.LIST).list();
-  }
-
-  @Override
-  public MapWriter map() {
-    return getWriter(MinorType.LIST).map();
-  }
-
-  @Override
-  public MapWriter map(boolean keysSorted) {
-    return getWriter(MinorType.MAP, new ArrowType.Map(keysSorted));
-  }
-
-  @Override
-  public StructWriter struct(String name) {
-    return getWriter(MinorType.STRUCT).struct(name);
-  }
-
-  @Override
-  public ListWriter list(String name) {
-    return getWriter(MinorType.STRUCT).list(name);
-  }
-
-  @Override
-  public MapWriter map(String name) {
-    return getWriter(MinorType.STRUCT).map(name);
-  }
-
-  @Override
-  public MapWriter map(String name, boolean keysSorted) {
-    return getWriter(MinorType.STRUCT).map(name, keysSorted);
-  }
-  <#list vv.types as type><#list type.minor as minor>
-  <#assign lowerName = minor.class?uncap_first />
-  <#if lowerName == "int" ><#assign lowerName = "integer" /></#if>
-  <#assign upperName = minor.class?upper_case />
-  <#assign capName = minor.class?cap_first />
-
-  <#if minor.typeParams?? >
-  @Override
-  public ${capName}Writer ${lowerName}(String name<#list minor.typeParams as typeParam>, ${typeParam.type} ${typeParam.name}</#list>) {
-    return getWriter(MinorType.STRUCT).${lowerName}(name<#list minor.typeParams as typeParam>, ${typeParam.name}</#list>);
-  }
-
-  </#if>
-  @Override
-  public ${capName}Writer ${lowerName}(String name) {
-    return getWriter(MinorType.STRUCT).${lowerName}(name);
-  }
-
-  @Override
-  public ${capName}Writer ${lowerName}() {
-    return getWriter(MinorType.LIST).${lowerName}();
-  }
-
-  </#list></#list>
 
   public void copyReader(FieldReader reader) {
     getWriter().copyReader(reader);

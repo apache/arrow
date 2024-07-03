@@ -45,6 +45,7 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
   UnionVector data;
   private StructWriter structWriter;
   private UnionListWriter listWriter;
+  private UnionListViewWriter listViewWriter;
   private UnionMapWriter mapWriter;
   private List<BaseWriter> writers = new java.util.ArrayList<>();
   private final NullableStructWriterFactory nullableStructWriterFactory;
@@ -87,6 +88,17 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
   @Override
   public void endList() {
     getListWriter().endList();
+  }
+
+  @Override
+  public void startListView() {
+    getListViewWriter().startListView();
+    data.setType(idx(), MinorType.LISTVIEW);
+  }
+
+  @Override
+  public void endListView() {
+    getListViewWriter().endListView();
   }
 
   @Override
@@ -143,9 +155,23 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
     return listWriter;
   }
 
+  private ListViewWriter getListViewWriter() {
+    if (listViewWriter == null) {
+      listViewWriter = new UnionListViewWriter(data.getListView(), nullableStructWriterFactory);
+      listViewWriter.setPosition(idx());
+      writers.add(listViewWriter);
+    }
+    return listViewWriter;
+  }
+
   public ListWriter asList() {
     data.setType(idx(), MinorType.LIST);
     return getListWriter();
+  }
+
+  public ListViewWriter asListView() {
+    data.setType(idx(), MinorType.LISTVIEW);
+    return getListViewWriter();
   }
 
   private MapWriter getMapWriter() {
@@ -181,6 +207,8 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
       return getStructWriter();
     case LIST:
       return getListWriter();
+    case LISTVIEW:
+      return getListViewWriter();
     case MAP:
       return getMapWriter(arrowType);
     <#list vv.types as type>
@@ -365,6 +393,20 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
     data.setType(idx(), MinorType.STRUCT);
     getStructWriter().setPosition(idx());
     return getStructWriter().list(name);
+  }
+
+  @Override
+  public ListViewWriter listView() {
+    data.setType(idx(), MinorType.LISTVIEW);
+    getListViewWriter().setPosition(idx());
+    return getListViewWriter().listView();
+  }
+
+  @Override
+  public ListViewWriter listView(String name) {
+    data.setType(idx(), MinorType.STRUCT);
+    getStructWriter().setPosition(idx());
+    return getStructWriter().listView(name);
   }
 
   @Override

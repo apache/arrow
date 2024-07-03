@@ -84,6 +84,7 @@ import org.apache.arrow.vector.holders.NullableTimeStampMilliTZHolder;
 import org.apache.arrow.vector.holders.NullableTimeStampNanoTZHolder;
 import org.apache.arrow.vector.holders.TimeStampMilliTZHolder;
 import org.apache.arrow.vector.types.TimeUnit;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
@@ -265,6 +266,95 @@ public class TestComplexWriter {
           assertEquals(j, actual.value);
           assertEquals("FakeTimeZone", actual.timezone);
         }
+      }
+    }
+  }
+
+  private void complexCopierHelper(MinorType type) {
+    try (NonNullableStructVector parent = NonNullableStructVector.empty("parent", allocator)) {
+      ComplexWriter writer = new ComplexWriterImpl("root", parent);
+      StructWriter rootWriter = writer.rootAsStruct();
+      ListWriter listWriter;
+      if (type == MinorType.LIST) {
+        listWriter = rootWriter.list("list");
+      } else if (type == MinorType.LISTVIEW) {
+        listWriter = rootWriter.listView("listView");
+      } else {
+        throw new UnsupportedOperationException(
+            "Unsupported type" + type + "for complexCopierHelper util.");
+      }
+      StructWriter innerStructWriter = listWriter.struct();
+      IntWriter outerIntWriter = listWriter.integer();
+      rootWriter.start();
+      listWriter.startList();
+      outerIntWriter.writeInt(1);
+      outerIntWriter.writeInt(2);
+      innerStructWriter.start();
+      IntWriter intWriter = innerStructWriter.integer("a");
+      intWriter.writeInt(1);
+      innerStructWriter.end();
+      innerStructWriter.start();
+      intWriter = innerStructWriter.integer("a");
+      intWriter.writeInt(2);
+      innerStructWriter.end();
+      listWriter.endList();
+      rootWriter.end();
+      writer.setValueCount(1);
+
+      StructVector structVector = (StructVector) parent.getChild("root");
+      TransferPair tp = structVector.getTransferPair(allocator);
+      tp.splitAndTransfer(0, 1);
+      NonNullableStructVector toStructVector = (NonNullableStructVector) tp.getTo();
+      JsonStringHashMap<?, ?> toMapValue = (JsonStringHashMap<?, ?>) toStructVector.getObject(0);
+      JsonStringArrayList<?> object;
+      if (type == MinorType.LIST) {
+        object = (JsonStringArrayList<?>) toMapValue.get("list");
+      } else {
+        object = (JsonStringArrayList<?>) toMapValue.get("listView");
+      }
+      assertEquals(1, object.get(0));
+      assertEquals(2, object.get(1));
+      JsonStringHashMap<?, ?> innerStruct = (JsonStringHashMap<?, ?>) object.get(2);
+      assertEquals(1, innerStruct.get("a"));
+      innerStruct = (JsonStringHashMap<?, ?>) object.get(3);
+      assertEquals(2, innerStruct.get("a"));
+      toStructVector.close();
+    }
+  }
+
+  private void createNullsWithListWriters(FieldWriter writer) {
+    for (int i = 0; i < COUNT; i++) {
+      writer.setPosition(i);
+      if (i % 2 == 0) {
+        writer.startList();
+        if (i % 4 == 0) {
+          writer.integer().writeNull();
+        } else {
+          writer.integer().writeInt(i);
+          writer.integer().writeInt(i * 2);
+        }
+        writer.endList();
+      } else {
+        writer.writeNull();
+      }
+    }
+  }
+
+  private void checkNullsWithListWriters(FieldReader reader) {
+    for (int i = 0; i < COUNT; i++) {
+      reader.setPosition(i);
+      if (i % 2 == 0) {
+        assertTrue(reader.isSet());
+        reader.next();
+        if (i % 4 == 0) {
+          assertNull(reader.reader().readInteger());
+        } else {
+          assertEquals(i, reader.reader().readInteger().intValue());
+          reader.next();
+          assertEquals(i * 2, reader.reader().readInteger().intValue());
+        }
+      } else {
+        assertFalse(reader.isSet());
       }
     }
   }
@@ -1478,42 +1568,12 @@ public class TestComplexWriter {
 
   @Test
   public void complexCopierWithList() {
-    try (NonNullableStructVector parent = NonNullableStructVector.empty("parent", allocator)) {
-      ComplexWriter writer = new ComplexWriterImpl("root", parent);
-      StructWriter rootWriter = writer.rootAsStruct();
-      ListWriter listWriter = rootWriter.list("list");
-      StructWriter innerStructWriter = listWriter.struct();
-      IntWriter outerIntWriter = listWriter.integer();
-      rootWriter.start();
-      listWriter.startList();
-      outerIntWriter.writeInt(1);
-      outerIntWriter.writeInt(2);
-      innerStructWriter.start();
-      IntWriter intWriter = innerStructWriter.integer("a");
-      intWriter.writeInt(1);
-      innerStructWriter.end();
-      innerStructWriter.start();
-      intWriter = innerStructWriter.integer("a");
-      intWriter.writeInt(2);
-      innerStructWriter.end();
-      listWriter.endList();
-      rootWriter.end();
-      writer.setValueCount(1);
+    complexCopierHelper(MinorType.LIST);
+  }
 
-      StructVector structVector = (StructVector) parent.getChild("root");
-      TransferPair tp = structVector.getTransferPair(allocator);
-      tp.splitAndTransfer(0, 1);
-      NonNullableStructVector toStructVector = (NonNullableStructVector) tp.getTo();
-      JsonStringHashMap<?, ?> toMapValue = (JsonStringHashMap<?, ?>) toStructVector.getObject(0);
-      JsonStringArrayList<?> object = (JsonStringArrayList<?>) toMapValue.get("list");
-      assertEquals(1, object.get(0));
-      assertEquals(2, object.get(1));
-      JsonStringHashMap<?, ?> innerStruct = (JsonStringHashMap<?, ?>) object.get(2);
-      assertEquals(1, innerStruct.get("a"));
-      innerStruct = (JsonStringHashMap<?, ?>) object.get(3);
-      assertEquals(2, innerStruct.get("a"));
-      toStructVector.close();
-    }
+  @Test
+  public void complexCopierWithListView() {
+    complexCopierHelper(MinorType.LISTVIEW);
   }
 
   @Test
@@ -1532,8 +1592,7 @@ public class TestComplexWriter {
       Float4Writer float4Writer = singleStructWriter.float4("float4Field");
       Float8Writer float8Writer = singleStructWriter.float8("float8Field");
       ListWriter listWriter = singleStructWriter.list("listField");
-      // TODO: we need to implement transferPair functionality here
-      // ListWriter listViewWriter = singleStructWriter.listView("listViewField");
+      ListWriter listViewWriter = singleStructWriter.listView("listViewField");
       MapWriter mapWriter = singleStructWriter.map("mapField", false);
 
       int intValue = 100;
@@ -1557,13 +1616,13 @@ public class TestComplexWriter {
         listWriter.integer().writeInt(intValue + i + 3);
         listWriter.endList();
 
-        // listViewWriter.setPosition(i);
-        // listViewWriter.startList();
-        // listViewWriter.integer().writeInt(intValue + i);
-        // listViewWriter.integer().writeInt(intValue + i + 1);
-        // listViewWriter.integer().writeInt(intValue + i + 2);
-        // listViewWriter.integer().writeInt(intValue + i + 3);
-        // listViewWriter.endList();
+        listViewWriter.setPosition(i);
+        listViewWriter.startListView();
+        listViewWriter.integer().writeInt(intValue + i);
+        listViewWriter.integer().writeInt(intValue + i + 1);
+        listViewWriter.integer().writeInt(intValue + i + 2);
+        listViewWriter.integer().writeInt(intValue + i + 3);
+        listViewWriter.endListView();
 
         mapWriter.setPosition(i);
         mapWriter.startMap();
@@ -1603,8 +1662,8 @@ public class TestComplexWriter {
       Float4Reader float4Reader = singleStructReader.reader("float4Field");
       Float8Reader float8Reader = singleStructReader.reader("float8Field");
       UnionListReader listReader = (UnionListReader) singleStructReader.reader("listField");
-      // UnionListViewReader listViewReader = (UnionListViewReader)
-      // singleStructReader.reader("listViewField");
+      UnionListViewReader listViewReader =
+          (UnionListViewReader) singleStructReader.reader("listViewField");
       UnionMapReader mapReader = (UnionMapReader) singleStructReader.reader("mapField");
 
       for (int i = 0; i < initialCapacity; i++) {
@@ -1613,7 +1672,7 @@ public class TestComplexWriter {
         float4Reader.setPosition(i);
         float8Reader.setPosition(i);
         listReader.setPosition(i);
-        // listViewReader.setPosition(i);
+        listViewReader.setPosition(i);
         mapReader.setPosition(i);
 
         assertEquals(intValue + i, intReader.readInteger().intValue());
@@ -1626,10 +1685,10 @@ public class TestComplexWriter {
           assertEquals(intValue + i + j, listReader.reader().readInteger().intValue());
         }
 
-        // for (int j = 0; j < 4; j++) {
-        //   listViewReader.next();
-        //   assertEquals(intValue + i + j, listViewReader.reader().readInteger().intValue());
-        // }
+        for (int j = 0; j < 4; j++) {
+          listViewReader.next();
+          assertEquals(intValue + i + j, listViewReader.reader().readInteger().intValue());
+        }
 
         for (int k = 0; k < 4; k += 2) {
           mapReader.next();
@@ -1650,40 +1709,31 @@ public class TestComplexWriter {
       UnionListWriter listWriter = listVector.getWriter();
 
       // expected listVector :  [[null], null, [2, 4], null, [null], null, [6, 12], ...]
-      for (int i = 0; i < COUNT; i++) {
-        listWriter.setPosition(i);
-        if (i % 2 == 0) {
-          listWriter.startList();
-          if (i % 4 == 0) {
-            listWriter.integer().writeNull();
-          } else {
-            listWriter.integer().writeInt(i);
-            listWriter.integer().writeInt(i * 2);
-          }
-          listWriter.endList();
-        } else {
-          listWriter.writeNull();
-        }
-      }
+      createNullsWithListWriters(listWriter);
       listVector.setValueCount(COUNT);
 
       UnionListReader listReader = new UnionListReader(listVector);
-      for (int i = 0; i < COUNT; i++) {
-        listReader.setPosition(i);
-        if (i % 2 == 0) {
-          assertTrue(listReader.isSet());
-          listReader.next();
-          if (i % 4 == 0) {
-            assertNull(listReader.reader().readInteger());
-          } else {
-            assertEquals(i, listReader.reader().readInteger().intValue());
-            listReader.next();
-            assertEquals(i * 2, listReader.reader().readInteger().intValue());
-          }
-        } else {
-          assertFalse(listReader.isSet());
-        }
-      }
+      checkNullsWithListWriters(listReader);
+    }
+  }
+
+  @Test
+  public void testListViewWriterWithNulls() {
+    try (ListViewVector listViewVector = ListViewVector.empty("listView", allocator)) {
+      listViewVector.setInitialCapacity(COUNT);
+      listViewVector.allocateNew();
+      listViewVector
+          .getValidityBuffer()
+          .setOne(0, (int) listViewVector.getValidityBuffer().capacity());
+
+      UnionListViewWriter listWriter = listViewVector.getWriter();
+
+      // expected listVector :  [[null], null, [2, 4], null, [null], null, [6, 12], ...]
+      createNullsWithListWriters(listWriter);
+      listViewVector.setValueCount(COUNT);
+
+      UnionListViewReader listReader = new UnionListViewReader(listViewVector);
+      checkNullsWithListWriters(listReader);
     }
   }
 
@@ -1735,6 +1785,61 @@ public class TestComplexWriter {
           }
         } else {
           assertFalse(listReader.isSet());
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testListViewOfListViewWriterWithNulls() {
+    try (ListViewVector listViewVector = ListViewVector.empty("listViewoflistView", allocator)) {
+      listViewVector.setInitialCapacity(COUNT);
+      listViewVector.allocateNew();
+      listViewVector
+          .getValidityBuffer()
+          .setOne(0, (int) listViewVector.getValidityBuffer().capacity());
+
+      UnionListViewWriter listViewWriter = listViewVector.getWriter();
+
+      // create list : [ [null], null, [[null, 2, 4]], null, [null], null, [[null, 6, 12]], ... ]
+      for (int i = 0; i < COUNT; i++) {
+        listViewWriter.setPosition(i);
+        if (i % 2 == 0) {
+          listViewWriter.startList();
+          if (i % 4 == 0) {
+            listViewWriter.listView().writeNull();
+          } else {
+            listViewWriter.listView().startList();
+            listViewWriter.listView().integer().writeNull();
+            listViewWriter.listView().integer().writeInt(i);
+            listViewWriter.listView().integer().writeInt(i * 2);
+            listViewWriter.listView().endList();
+          }
+          listViewWriter.endList();
+        } else {
+          listViewWriter.writeNull();
+        }
+      }
+      listViewVector.setValueCount(COUNT);
+
+      UnionListViewReader listViewReader = new UnionListViewReader(listViewVector);
+      for (int i = 0; i < COUNT; i++) {
+        listViewReader.setPosition(i);
+        if (i % 2 == 0) {
+          assertTrue(listViewReader.isSet());
+          listViewReader.next();
+          if (i % 4 == 0) {
+            assertFalse(listViewReader.reader().isSet());
+          } else {
+            listViewReader.reader().next();
+            assertFalse(listViewReader.reader().reader().isSet());
+            listViewReader.reader().next();
+            assertEquals(i, listViewReader.reader().reader().readInteger().intValue());
+            listViewReader.reader().next();
+            assertEquals(i * 2, listViewReader.reader().reader().readInteger().intValue());
+          }
+        } else {
+          assertFalse(listViewReader.isSet());
         }
       }
     }
@@ -1797,6 +1902,72 @@ public class TestComplexWriter {
             assertEquals(i, listReader.reader().reader().reader().readInteger().intValue());
             listReader.reader().reader().next();
             assertEquals(i * 2, listReader.reader().reader().reader().readInteger().intValue());
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testListViewOfListViewOfListViewWriterWithNulls() {
+    try (ListViewVector listViewVector =
+        ListViewVector.empty("listViewoflistViewoflistView", allocator)) {
+      listViewVector.setInitialCapacity(COUNT);
+      listViewVector.allocateNew();
+      listViewVector
+          .getValidityBuffer()
+          .setOne(0, (int) listViewVector.getValidityBuffer().capacity());
+
+      UnionListViewWriter listViewWriter = listViewVector.getWriter();
+
+      // create list : [ null, [null], [[null]], [[[null, 1, 2]]], null, [null], ...
+      for (int i = 0; i < COUNT; i++) {
+        listViewWriter.setPosition(i);
+        if (i % 4 == 0) {
+          listViewWriter.writeNull();
+        } else {
+          listViewWriter.startListView();
+          if (i % 4 == 1) {
+            listViewWriter.listView().writeNull();
+          } else if (i % 4 == 2) {
+            listViewWriter.listView().startListView();
+            listViewWriter.listView().listView().writeNull();
+            listViewWriter.listView().endListView();
+          } else {
+            listViewWriter.listView().startListView();
+            listViewWriter.listView().listView().startListView();
+            listViewWriter.listView().listView().integer().writeNull();
+            listViewWriter.listView().listView().integer().writeInt(i);
+            listViewWriter.listView().listView().integer().writeInt(i * 2);
+            listViewWriter.listView().listView().endListView();
+            listViewWriter.listView().endListView();
+          }
+          listViewWriter.endListView();
+        }
+      }
+      listViewVector.setValueCount(COUNT);
+
+      UnionListViewReader listViewReader = new UnionListViewReader(listViewVector);
+      for (int i = 0; i < COUNT; i++) {
+        listViewReader.setPosition(i);
+        if (i % 4 == 0) {
+          assertFalse(listViewReader.isSet());
+        } else {
+          assertTrue(listViewReader.isSet());
+          listViewReader.next();
+          if (i % 4 == 1) {
+            assertFalse(listViewReader.reader().isSet());
+          } else if (i % 4 == 2) {
+            listViewReader.reader().next();
+            assertFalse(listViewReader.reader().reader().isSet());
+          } else {
+            listViewReader.reader().next();
+            listViewReader.reader().reader().next();
+            assertFalse(listViewReader.reader().reader().reader().isSet());
+            listViewReader.reader().reader().next();
+            assertEquals(i, listViewReader.reader().reader().reader().readInteger().intValue());
+            listViewReader.reader().reader().next();
+            assertEquals(i * 2, listViewReader.reader().reader().reader().readInteger().intValue());
           }
         }
       }

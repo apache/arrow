@@ -153,6 +153,12 @@ public class TestJSONFile extends BaseFileTest {
 
   @Test
   public void testWriteReadUnionJSON() throws IOException {
+    /*
+    * TODO: UnionWriter varChar() -> Also forwards with MinorType.LIST
+        PromotableWriter varChar() -> Also forwards with MinorType.LIST
+        Because of this we cannot actually create a ListViewVector.
+        We need to fix this first.
+    * */
     File file = new File("target/mytest_write_union.json");
     int count = COUNT;
     try (BufferAllocator vectorAllocator =
