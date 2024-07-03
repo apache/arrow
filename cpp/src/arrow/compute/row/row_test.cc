@@ -28,7 +28,6 @@ namespace compute {
 namespace {
 
 Result<RowTableImpl> MakeRowTableFromColumn(const std::shared_ptr<Array>& column,
-                                            // int64_t num_rows) {
                                             int64_t num_rows, int row_alignment,
                                             int string_alignment) {
   DCHECK_GE(column->length(), num_rows);
