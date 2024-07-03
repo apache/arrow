@@ -34,6 +34,7 @@ This allows to easily integrate PyArrow with other languages and technologies.
 .. toctree::
    :maxdepth: 2
 
+   integration/substrait
    integration/python_r
    integration/python_java
    integration/extending
