@@ -33,10 +33,9 @@ RUN \
   sed -i \
     -e 's/^mirrorlist/#mirrorlist/' \
     -e 's/^#baseurl/baseurl/' \
+    -e 's/^# baseurl/baseurl/' \
     -e 's/mirror\.centos\.org/vault.centos.org/' \
     /etc/yum.repos.d/CentOS-SCLo-scl*.repo && \
-  cat /etc/yum.repos.d/CentOS-SCLo-scl.repo && \
-  cat /etc/yum.repos.d/CentOS-SCLo-scl-rh.repo && \
   yum install -y \
     cmake3 \
     curl \
