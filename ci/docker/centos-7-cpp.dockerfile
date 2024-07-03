@@ -29,13 +29,12 @@ RUN sed -i \
 RUN \
   yum install -y \
     centos-release-scl \
-    epel-release
-RUN ls -lrt /etc/yum.repos.d/
-RUN sed -i \
+    epel-release && \
+    sed -i \
     -e 's/^mirrorlist/#mirrorlist/' \
     -e 's/^#baseurl/baseurl/' \
     -e 's/mirror\.centos\.org/vault.centos.org/' \
-    /etc/yum.repos.d/CentOS-SCLo.repo && \
+    /etc/yum.repos.d/CentOS-SCLo-scl.repo && \
   yum install -y \
     cmake3 \
     curl \
