@@ -26,6 +26,11 @@ from pyarrow.lib cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_substrait cimport *
 
+try:
+    import substrait as py_substrait
+except ImportError:
+    py_substrait = None
+
 
 # TODO GH-37235: Fix exception handling
 cdef CDeclaration _create_named_table_provider(
@@ -187,9 +192,32 @@ def _parse_json_plan(plan):
     return pyarrow_wrap_buffer(c_buf_plan)
 
 
+class SubstraitSchema:
+    """A Schema encoded for Substrait usage.
+
+    The SubstraitSchema contains a schema represented
+    both as a substrait ``NamedStruct`` and as an
+    ``ExtendedExpression``.
+
+    The ``ExtendedExpression`` is available for cases where types
+    used by the schema require extensions to decode them.
+    In such case the schema will be the ``base_schema`` of the
+    ``ExtendedExpression`` and all extensions will be provided.
+    """
+
+    def __init__(self, schema, expression):
+        self.schema = schema
+        self.expression = expression
+
+    def to_pysubstrait(self):
+        if py_substrait is None:
+            raise ImportError("The 'substrait' package is required.")
+        return py_substrait.proto.ExtendedExpression.FromString(self.expression)
+
+
 def serialize_schema(schema):
     """
-    Serialize a schema into Substrait
+    Serialize a schema into a SubstraitSchema object.
 
     Parameters
     ----------
@@ -198,48 +226,37 @@ def serialize_schema(schema):
 
     Returns
     -------
-    Buffer
-        A NamedStruct message containing the serialized schema
+    SubstraitSchema
+        The schema stored in a SubstraitSchema object.
     """
+    return SubstraitSchema(
+        schema=_serialize_namedstruct_schema(schema),
+        expression=serialize_expressions([], [], schema, allow_arrow_extensions=True)
+    )
+
+
+def _serialize_namedstruct_schema(schema):
     cdef:
         CResult[shared_ptr[CBuffer]] c_res_buffer
         shared_ptr[CBuffer] c_buffer
         CConversionOptions c_conversion_options
         CExtensionSet c_extensions
-        CResult[CExtensionSetTypeRecord] c_typerecord_res
-        CResult[uint32_t] c_res_type
-        uint32_t c_type_id
-        cpp_string_view c_empty_str
-        CSubstraitId c_id = CSubstraitId(c_empty_str, c_empty_str)
-        dict extension_types = {}
-
-    for field in schema:
-        c_res_type = c_extensions.EncodeType(
-            deref(pyarrow_unwrap_data_type(field.type)))
-        if not c_res_type.ok():
-            continue
-        c_type_id = GetResultValue(c_res_type)
-        c_typerecord_res = c_extensions.DecodeType(c_type_id)
-        c_id = GetResultValue(c_typerecord_res).id
-        extension_types[frombytes(c_id.name.data())] = {
-            "anchor": c_type_id,
-            "uri": frombytes(c_id.uri.data())
-        }
 
     with nogil:
         c_res_buffer = SerializeSchema(deref((<Schema> schema).sp_schema), &c_extensions, c_conversion_options)
         c_buffer = GetResultValue(c_res_buffer)
 
-    return extension_types, memoryview(pyarrow_wrap_buffer(c_buffer))
+    return memoryview(pyarrow_wrap_buffer(c_buffer))
 
 
 def deserialize_schema(buf):
     """
-    Deserialize a NamedStruct Substrait message into a Schema object
+    Deserialize a ``NamedStruct`` Substrait message
+    or a SubstraitSchema object into an Arrow Schema object
 
     Parameters
     ----------
-    buf : Buffer or bytes
+    buf : Buffer or bytes or SubstraitSchema
         The message to deserialize
 
     Returns
@@ -253,6 +270,9 @@ def deserialize_schema(buf):
         shared_ptr[CSchema] c_schema
         CConversionOptions c_conversion_options
         CExtensionSet c_extensions
+
+    if isinstance(buf, SubstraitSchema):
+        return deserialize_expressions(buf.expression).schema
 
     if isinstance(buf, (bytes, memoryview)):
         c_buffer = pyarrow_unwrap_buffer(py_buffer(buf))
