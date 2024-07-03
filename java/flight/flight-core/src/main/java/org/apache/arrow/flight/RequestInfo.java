@@ -16,11 +16,10 @@
  */
 package org.apache.arrow.flight;
 
-import java.net.SocketAddress;
-
 import io.grpc.Attributes;
 import io.grpc.Grpc;
 import io.grpc.ServerCall;
+import java.net.SocketAddress;
 
 /** Information about a request. */
 public final class RequestInfo {

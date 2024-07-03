@@ -17,6 +17,7 @@
 package org.apache.arrow.flight.auth2;
 
 import org.apache.arrow.flight.CallHeaders;
+import org.apache.arrow.flight.RequestInfo;
 
 /**
  * Partial implementation of {@link CallHeaderAuthenticator} for bearer-token based authentication.
@@ -31,16 +32,21 @@ public abstract class BearerTokenAuthenticator implements CallHeaderAuthenticato
 
   @Override
   public AuthResult authenticate(CallHeaders incomingHeaders) {
+    return authenticate(incomingHeaders, null);
+  }
+
+  @Override
+  public AuthResult authenticate(CallHeaders incomingHeaders, RequestInfo requestInfo) {
     // Check if headers contain a bearer token and if so, validate the token.
     final String bearerToken =
         AuthUtilities.getValueFromAuthHeader(incomingHeaders, Auth2Constants.BEARER_PREFIX);
     if (bearerToken != null) {
-      return validateBearer(bearerToken);
+      return validateBearer(bearerToken, requestInfo);
     }
 
     // Delegate to the basic auth handler to do the validation.
     final CallHeaderAuthenticator.AuthResult result =
-        initialAuthenticator.authenticate(incomingHeaders);
+        initialAuthenticator.authenticate(incomingHeaders, requestInfo);
     return getAuthResultWithBearerToken(result);
   }
 
@@ -60,4 +66,15 @@ public abstract class BearerTokenAuthenticator implements CallHeaderAuthenticato
    * @return A successful AuthResult if validation succeeded.
    */
   protected abstract AuthResult validateBearer(String bearerToken);
+
+  /**
+   * Validate the bearer token.
+   *
+   * @param bearerToken The bearer token to validate.
+   * @param requestInfo Information about the request.
+   * @return A successful AuthResult if validation succeeded.
+   */
+  protected AuthResult validateBearer(String bearerToken, RequestInfo requestInfo) {
+    return validateBearer(bearerToken);
+  }
 }
