@@ -195,7 +195,7 @@ abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWr
   }
 
   @Override
-  public ListViewWriter listView() {
+  public ListWriter listView() {
     fail("ListView");
     return null;
   }
@@ -219,7 +219,7 @@ abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWr
   }
 
   @Override
-  public ListViewWriter listView(String name) {
+  public ListWriter listView(String name) {
     fail("ListView");
     return null;
   }

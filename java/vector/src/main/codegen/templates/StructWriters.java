@@ -204,7 +204,7 @@ public class ${mode}StructWriter extends AbstractFieldWriter {
   }
 
   @Override
-  public ListViewWriter listView(String name) {
+  public ListWriter listView(String name) {
     String finalName = handleCase(name);
     FieldWriter writer = fields.get(finalName);
     int vectorCount = container.size();

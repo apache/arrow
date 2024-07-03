@@ -248,7 +248,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
   }
 
   @Override
-  public ListViewWriter rootAsListView() {
+  public ListWriter rootAsListView() {
     switch (mode) {
       case INIT:
         int vectorCount = container.size();

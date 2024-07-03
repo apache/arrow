@@ -251,7 +251,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
   }
 
   @Override
-  public ListViewWriter listView() {
+  public ListWriter listView() {
     return getWriter(MinorType.LISTVIEW).listView();
   }
 
@@ -276,7 +276,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
   }
 
   @Override
-  public ListViewWriter listView(String name) {
+  public ListWriter listView(String name) {
     return getWriter(MinorType.STRUCT).listView(name);
   }
 

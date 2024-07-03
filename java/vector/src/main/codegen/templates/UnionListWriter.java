@@ -159,14 +159,14 @@ public class Union${listName}Writer extends AbstractFieldWriter {
   }
 
   @Override
-  public ListViewWriter listView() {
+  public ListWriter listView() {
     return writer;
   }
 
   @Override
-  public ListViewWriter listView(String name) {
-    ListViewWriter listViewWriter = writer.listView(name);
-    return listViewWriter;
+  public ListWriter listView(String name) {
+    ListWriter listWriter = writer.listView(name);
+    return listWriter;
   }
 
   @Override

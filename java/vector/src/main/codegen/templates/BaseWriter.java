@@ -62,7 +62,7 @@ public interface BaseWriter extends AutoCloseable, Positionable {
     void copyReaderToField(String name, FieldReader reader);
     StructWriter struct(String name);
     ListWriter list(String name);
-    ListViewWriter listView(String name);
+    ListWriter listView(String name);
     MapWriter map(String name);
     MapWriter map(String name, boolean keysSorted);
     void start();
@@ -76,7 +76,7 @@ public interface BaseWriter extends AutoCloseable, Positionable {
     void endListView();
     StructWriter struct();
     ListWriter list();
-    ListViewWriter listView();
+    ListWriter listView();
     MapWriter map();
     MapWriter map(boolean keysSorted);
     void copyReader(FieldReader reader);
@@ -88,9 +88,6 @@ public interface BaseWriter extends AutoCloseable, Positionable {
     <#assign capName = minor.class?cap_first />
     ${capName}Writer ${lowerName}();
     </#list></#list>
-  }
-
-  public interface ListViewWriter extends ListWriter {
   }
 
   public interface MapWriter extends ListWriter {
@@ -113,7 +110,7 @@ public interface BaseWriter extends AutoCloseable, Positionable {
     void copyReader(FieldReader reader);
     StructWriter rootAsStruct();
     ListWriter rootAsList();
-    ListViewWriter rootAsListView();
+    ListWriter rootAsListView();
     MapWriter rootAsMap(boolean keysSorted);
 
     void setPosition(int index);

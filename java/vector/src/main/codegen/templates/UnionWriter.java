@@ -155,7 +155,7 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
     return listWriter;
   }
 
-  private ListViewWriter getListViewWriter() {
+  private ListWriter getListViewWriter() {
     if (listViewWriter == null) {
       listViewWriter = new UnionListViewWriter(data.getListView(), nullableStructWriterFactory);
       listViewWriter.setPosition(idx());
@@ -169,7 +169,7 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
     return getListWriter();
   }
 
-  public ListViewWriter asListView() {
+  public ListWriter asListView() {
     data.setType(idx(), MinorType.LISTVIEW);
     return getListViewWriter();
   }
@@ -396,14 +396,14 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
   }
 
   @Override
-  public ListViewWriter listView() {
+  public ListWriter listView() {
     data.setType(idx(), MinorType.LISTVIEW);
     getListViewWriter().setPosition(idx());
     return getListViewWriter().listView();
   }
 
   @Override
-  public ListViewWriter listView(String name) {
+  public ListWriter listView(String name) {
     data.setType(idx(), MinorType.STRUCT);
     getStructWriter().setPosition(idx());
     return getStructWriter().listView(name);

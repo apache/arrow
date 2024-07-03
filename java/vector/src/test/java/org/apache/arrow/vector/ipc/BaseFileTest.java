@@ -61,7 +61,6 @@ import org.apache.arrow.vector.complex.impl.UnionMapReader;
 import org.apache.arrow.vector.complex.impl.UnionMapWriter;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
-import org.apache.arrow.vector.complex.writer.BaseWriter.ListViewWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.StructWriter;
 import org.apache.arrow.vector.complex.writer.BigIntWriter;
@@ -613,7 +612,7 @@ public class BaseFileTest {
     IntWriter intWriter = rootWriter.integer("union");
     BigIntWriter bigIntWriter = rootWriter.bigInt("union");
     ListWriter listWriter = rootWriter.list("union");
-    ListViewWriter listViewWriter = rootWriter.listView("union");
+    ListWriter listViewWriter = rootWriter.listView("union");
     StructWriter structWriter = rootWriter.struct("union");
     for (int i = 0; i < count; i++) {
       switch (i % 4) {
