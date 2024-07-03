@@ -22,7 +22,8 @@ import (
 	"github.com/apache/arrow/go/v17/arrow/memory"
 )
 
-// encodeByteStreamSplit encodes the raw bytes provided by 'in' into the output buffer 'data' using BYTE_STREAM_SPLIT encoding
+// encodeByteStreamSplit encodes the raw bytes provided by 'in' into the output buffer 'data' using BYTE_STREAM_SPLIT encoding.
+// 'data' must have space for at least len(in) bytes.
 func encodeByteStreamSplit(data []byte, in []byte, width int) {
 	numElements := len(in) / width
 	for stream := 0; stream < width; stream++ {
@@ -34,7 +35,8 @@ func encodeByteStreamSplit(data []byte, in []byte, width int) {
 	}
 }
 
-// encodeByteStreamSplitWidth2 implements encodeByteStreamSplit optimized for types stored using 2 bytes
+// encodeByteStreamSplitWidth2 implements encodeByteStreamSplit optimized for types stored using 2 bytes.
+// 'data' must have space for at least len(in) bytes.
 func encodeByteStreamSplitWidth2(data []byte, in []byte) {
 	const width = 2
 	numElements := len(in) / width
@@ -45,7 +47,8 @@ func encodeByteStreamSplitWidth2(data []byte, in []byte) {
 	}
 }
 
-// encodeByteStreamSplitWidth4 implements encodeByteStreamSplit optimized for types stored using 4 bytes
+// encodeByteStreamSplitWidth4 implements encodeByteStreamSplit optimized for types stored using 4 bytes.
+// 'data' must have space for at least len(in) bytes.
 func encodeByteStreamSplitWidth4(data []byte, in []byte) {
 	const width = 4
 	numElements := len(in) / width
@@ -58,7 +61,8 @@ func encodeByteStreamSplitWidth4(data []byte, in []byte) {
 	}
 }
 
-// encodeByteStreamSplitWidth8 implements encodeByteStreamSplit optimized for types stored using 8 bytes
+// encodeByteStreamSplitWidth8 implements encodeByteStreamSplit optimized for types stored using 8 bytes.
+// 'data' must have space for at least len(in) bytes.
 func encodeByteStreamSplitWidth8(data []byte, in []byte) {
 	const width = 8
 	numElements := len(in) / width
@@ -75,7 +79,8 @@ func encodeByteStreamSplitWidth8(data []byte, in []byte) {
 	}
 }
 
-// decodeByteStreamSplit decodes the raw bytes provided by 'out' into the output buffer 'data' using BYTE_STREAM_SPLIT encoding
+// decodeByteStreamSplit decodes the raw bytes provided by 'data' into the output buffer 'out' using BYTE_STREAM_SPLIT encoding.
+// 'out' must have space for at least len(data) bytes.
 func decodeByteStreamSplit(data []byte, out []byte, width int) {
 	numElements := len(data) / width
 	for stream := 0; stream < width; stream++ {
@@ -87,7 +92,8 @@ func decodeByteStreamSplit(data []byte, out []byte, width int) {
 	}
 }
 
-// decodeByteStreamSplitWidth2 implements decodeByteStreamSplit optimized for types stored using 2 bytes
+// decodeByteStreamSplitWidth2 implements decodeByteStreamSplit optimized for types stored using 2 bytes.
+// 'out' must have space for at least len(data) bytes.
 func decodeByteStreamSplitWidth2(data []byte, out []byte) {
 	const width = 2
 	numElements := len(data) / width
@@ -98,7 +104,8 @@ func decodeByteStreamSplitWidth2(data []byte, out []byte) {
 	}
 }
 
-// decodeByteStreamSplitWidth4 implements decodeByteStreamSplit optimized for types stored using 4 bytes
+// decodeByteStreamSplitWidth4 implements decodeByteStreamSplit optimized for types stored using 4 bytes.
+// 'out' must have space for at least len(data) bytes.
 func decodeByteStreamSplitWidth4(data []byte, out []byte) {
 	const width = 4
 	numElements := len(data) / width
@@ -111,7 +118,8 @@ func decodeByteStreamSplitWidth4(data []byte, out []byte) {
 	}
 }
 
-// decodeByteStreamSplitWidth8 implements decodeByteStreamSplit optimized for types stored using 8 bytes
+// decodeByteStreamSplitWidth8 implements decodeByteStreamSplit optimized for types stored using 8 bytes.
+// 'out' must have space for at least len(data) bytes.
 func decodeByteStreamSplitWidth8(data []byte, out []byte) {
 	const width = 8
 	numElements := len(data) / width
