@@ -20,16 +20,7 @@ import (
 	"bytes"
 
 	"github.com/apache/arrow/go/v17/arrow/memory"
-	"github.com/apache/arrow/go/v17/parquet"
 )
-
-type NumericByteStreamSplitType interface {
-	float32 | float64 | int32 | int64
-}
-
-type ByteStreamSplitType interface {
-	NumericByteStreamSplitType | parquet.FixedLenByteArray
-}
 
 // encodeByteStreamSplit encodes the raw bytes provided by 'in' into the output buffer 'data' using BYTE_STREAM_SPLIT encoding
 func encodeByteStreamSplit(data []byte, in []byte, width int) {
@@ -45,7 +36,7 @@ func encodeByteStreamSplit(data []byte, in []byte, width int) {
 
 // encodeByteStreamSplitWidth2 implements encodeByteStreamSplit optimized for types stored using 2 bytes
 func encodeByteStreamSplitWidth2(data []byte, in []byte) {
-	width := 2
+	const width = 2
 	numElements := len(in) / width
 	for element := 0; element < numElements; element++ {
 		decLoc := width * element
@@ -56,7 +47,7 @@ func encodeByteStreamSplitWidth2(data []byte, in []byte) {
 
 // encodeByteStreamSplitWidth4 implements encodeByteStreamSplit optimized for types stored using 4 bytes
 func encodeByteStreamSplitWidth4(data []byte, in []byte) {
-	width := 4
+	const width = 4
 	numElements := len(in) / width
 	for element := 0; element < numElements; element++ {
 		decLoc := width * element
@@ -69,7 +60,7 @@ func encodeByteStreamSplitWidth4(data []byte, in []byte) {
 
 // encodeByteStreamSplitWidth8 implements encodeByteStreamSplit optimized for types stored using 8 bytes
 func encodeByteStreamSplitWidth8(data []byte, in []byte) {
-	width := 8
+	const width = 8
 	numElements := len(in) / width
 	for element := 0; element < numElements; element++ {
 		decLoc := width * element
@@ -98,7 +89,7 @@ func decodeByteStreamSplit(data []byte, out []byte, width int) {
 
 // decodeByteStreamSplitWidth2 implements decodeByteStreamSplit optimized for types stored using 2 bytes
 func decodeByteStreamSplitWidth2(data []byte, out []byte) {
-	width := 2
+	const width = 2
 	numElements := len(data) / width
 	for element := 0; element < numElements; element++ {
 		decLoc := width * element
@@ -109,7 +100,7 @@ func decodeByteStreamSplitWidth2(data []byte, out []byte) {
 
 // decodeByteStreamSplitWidth4 implements decodeByteStreamSplit optimized for types stored using 4 bytes
 func decodeByteStreamSplitWidth4(data []byte, out []byte) {
-	width := 4
+	const width = 4
 	numElements := len(data) / width
 	for element := 0; element < numElements; element++ {
 		decLoc := width * element
@@ -122,7 +113,7 @@ func decodeByteStreamSplitWidth4(data []byte, out []byte) {
 
 // decodeByteStreamSplitWidth8 implements decodeByteStreamSplit optimized for types stored using 8 bytes
 func decodeByteStreamSplitWidth8(data []byte, out []byte) {
-	width := 8
+	const width = 8
 	numElements := len(data) / width
 	for element := 0; element < numElements; element++ {
 		decLoc := width * element

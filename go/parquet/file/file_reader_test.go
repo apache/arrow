@@ -447,6 +447,7 @@ func TestRleBooleanEncodingFileRead(t *testing.T) {
 
 	assert.Equal(t, expected, values[:len(expected)])
 }
+
 func TestByteStreamSplitEncodingFileRead(t *testing.T) {
 	dir := os.Getenv("PARQUET_TEST_DATA")
 	if dir == "" {
