@@ -489,7 +489,7 @@ export class IntervalDayTime extends Interval_<Type.IntervalDayTime> { construct
 /** @ignore */
 export class IntervalYearMonth extends Interval_<Type.IntervalYearMonth> { constructor() { super(IntervalUnit.YEAR_MONTH); } }
 /** @ignore */
-export class IntervalMonthDayNano extends Interval_<Type.IntervalMonthDayNano> { constructor() { super(IntervalUnit.MONTH_DAY_NANO) } }
+export class IntervalMonthDayNano extends Interval_<Type.IntervalMonthDayNano> { constructor() { super(IntervalUnit.MONTH_DAY_NANO); } }
 
 /** @ignore */
 type Durations = Type.Duration | Type.DurationSecond | Type.DurationMillisecond | Type.DurationMicrosecond | Type.DurationNanosecond;
