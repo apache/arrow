@@ -105,7 +105,7 @@ def test_run_query_input_types(tmpdir, query):
 
     # Otherwise error for invalid query
     msg = "ParseFromZeroCopyStream failed for substrait.Plan"
-    with pytest.raises(OSError, match=msg):
+    with pytest.raises(ArrowInvalid, match=msg):
         substrait.run_query(query)
 
 
@@ -1088,12 +1088,17 @@ def test_serializing_schema():
     returned = pa.substrait.deserialize_schema(substrait_schema)
     assert expected_schema == returned
 
-    _, returned = pa.substrait.serialize_schema(returned)
-    assert isinstance(returned, (bytes, memoryview))  # protobuf accepts those
-    assert returned == substrait_schema
+    arrow_substrait_schema = pa.substrait.serialize_schema(returned)
+    assert arrow_substrait_schema.schema == substrait_schema
 
-    returned = pa.substrait.deserialize_schema(returned)
+    returned = pa.substrait.deserialize_schema(arrow_substrait_schema)
     assert expected_schema == returned
+
+    returned = pa.substrait.deserialize_schema(arrow_substrait_schema.schema)
+    assert expected_schema == returned
+
+    returned = pa.substrait.deserialize_expressions(arrow_substrait_schema.expression)
+    assert returned.schema == expected_schema
 
 
 def test_bound_expression_from_Message():
