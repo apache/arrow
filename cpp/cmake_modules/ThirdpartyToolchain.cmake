@@ -4513,8 +4513,12 @@ function(build_orc)
   set(LZ4_HOME
       ${LZ4_ROOT}
       CACHE BOOL "" FORCE)
-  set(LZ4_LIBRARY $<TARGET_FILE:LZ4::lz4>)
-  set(LZ4_STATIC_LIB $<TARGET_FILE:LZ4::lz4>)
+  set(LZ4_LIBRARY
+      LZ4::lz4
+      CACHE STRING "" FORCE)
+  set(LZ4_STATIC_LIB
+      LZ4::lz4
+      CACHE STRING "" FORCE)
 
   get_target_property(PROTOBUF_INCLUDE_DIR ${ARROW_PROTOBUF_LIBPROTOBUF}
                       INTERFACE_INCLUDE_DIRECTORIES)
@@ -4534,7 +4538,7 @@ function(build_orc)
       ${Snappy_ROOT}
       CACHE BOOL "" FORCE)
   set(SNAPPY_LIBRARY
-      $<TARGET_FILE:${Snappy_TARGET}>
+      ${Snappy_TARGET}
       CACHE STRING "" FORCE)
 
   get_target_property(ZLIB_INCLUDE_DIR ZLIB::ZLIB INTERFACE_INCLUDE_DIRECTORIES)
@@ -4542,6 +4546,15 @@ function(build_orc)
   set(ZLIB_HOME
       ${ZLIB_ROOT}
       CACHE BOOL "" FORCE)
+  set(ZLIB_LIBRARY
+      ZLIB::ZLIB
+      CACHE STRING "" FORCE)
+  get_target_property(ZLIB_TYPE ZLIB::ZLIB TYPE)
+  if(ZLIB_TYPE STREQUAL "STATIC_LIBRARY")
+    set(ZLIB_STATIC_LIB
+        ZLIB::ZLIB
+        CACHE STRING "" FORCE)
+  endif()
 
   get_target_property(ZSTD_INCLUDE_DIR ${ARROW_ZSTD_LIBZSTD}
                       INTERFACE_INCLUDE_DIRECTORIES)
