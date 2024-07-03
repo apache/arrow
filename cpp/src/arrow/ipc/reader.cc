@@ -540,7 +540,8 @@ Result<std::shared_ptr<Buffer>> DecompressBuffer(const std::shared_ptr<Buffer>& 
                            actual_decompressed);
   }
 
-  return std::move(uncompressed);
+  // R build with openSUSE155 requires an explicit shared_ptr construction
+  return std::shared_ptr<Buffer>(std::move(uncompressed));
 }
 
 Status DecompressBuffers(Compression::type compression, const IpcReadOptions& options,
@@ -1174,7 +1175,7 @@ static Result<std::unique_ptr<Message>> ReadMessageFromBlock(
 
   ARROW_ASSIGN_OR_RAISE(auto message, ReadMessage(block.offset, block.metadata_length,
                                                   file, fields_loader));
-  return std::move(message);
+  return message;
 }
 
 static Future<std::shared_ptr<Message>> ReadMessageFromBlockAsync(
@@ -1536,7 +1537,7 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     ARROW_ASSIGN_OR_RAISE(auto message,
                           arrow::ipc::ReadMessageFromBlock(block, file_, fields_loader));
     stats_.num_messages.fetch_add(1, std::memory_order_relaxed);
-    return std::move(message);
+    return message;
   }
 
   Status ReadDictionaries() {
@@ -1632,7 +1633,7 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     }
     context.compression = compression;
     context.metadata_version = internal::GetMetadataVersion(message->version());
-    return std::move(context);
+    return context;
   }
 
   Result<const flatbuf::RecordBatch*> GetBatchFromMessage(
@@ -2704,7 +2705,7 @@ Result<std::shared_ptr<Buffer>> IoRecordedRandomAccessFile::Read(int64_t nbytes)
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> buffer, ReadAt(position_, nbytes));
   auto num_bytes_read = std::min(file_size_, position_ + nbytes) - position_;
   position_ += num_bytes_read;
-  return std::move(buffer);
+  return buffer;
 }
 
 const io::IOContext& IoRecordedRandomAccessFile::io_context() const {

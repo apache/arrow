@@ -23,20 +23,32 @@
 
 #include <arrow-glib/buffer.h>
 
+GARROW_EXTERN
 GArrowBuffer *
 garrow_buffer_new_raw(std::shared_ptr<arrow::Buffer> *arrow_buffer);
+
+GARROW_EXTERN
 GArrowBuffer *
 garrow_buffer_new_raw_bytes(std::shared_ptr<arrow::Buffer> *arrow_buffer, GBytes *data);
+
+GARROW_EXTERN
 GArrowBuffer *
 garrow_buffer_new_raw_parent(std::shared_ptr<arrow::Buffer> *arrow_buffer,
                              GArrowBuffer *parent);
+
+GARROW_EXTERN
 std::shared_ptr<arrow::Buffer>
 garrow_buffer_get_raw(GArrowBuffer *buffer);
 
+GARROW_EXTERN
 GArrowMutableBuffer *
 garrow_mutable_buffer_new_raw(std::shared_ptr<arrow::MutableBuffer> *arrow_buffer);
+
+GARROW_EXTERN
 GArrowMutableBuffer *
 garrow_mutable_buffer_new_raw_bytes(std::shared_ptr<arrow::MutableBuffer> *arrow_buffer,
                                     GBytes *data);
+
+GARROW_EXTERN
 GArrowResizableBuffer *
 garrow_resizable_buffer_new_raw(std::shared_ptr<arrow::ResizableBuffer> *arrow_buffer);

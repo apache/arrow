@@ -14,12 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.dataset.scanner;
 
 import java.io.IOException;
 import java.util.Iterator;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorUnloader;
@@ -28,10 +26,7 @@ import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Schema;
 
-/**
- * An implementation of {@link ArrowReader} that reads
- * the dataset from {@link Scanner}.
- */
+/** An implementation of {@link ArrowReader} that reads the dataset from {@link Scanner}. */
 public class ArrowScannerReader extends ArrowReader {
   private final Scanner scanner;
 
@@ -93,8 +88,7 @@ public class ArrowScannerReader extends ArrowReader {
     }
 
     VectorLoader loader = new VectorLoader(this.getVectorSchemaRoot());
-    VectorUnloader unloader =
-        new VectorUnloader(currentReader.getVectorSchemaRoot());
+    VectorUnloader unloader = new VectorUnloader(currentReader.getVectorSchemaRoot());
     try (ArrowRecordBatch recordBatch = unloader.getRecordBatch()) {
       loader.load(recordBatch);
     }

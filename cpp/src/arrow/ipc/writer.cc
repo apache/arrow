@@ -154,6 +154,11 @@ class RecordBatchSerializer {
       return Status::CapacityError("Cannot write arrays larger than 2^31 - 1 in length");
     }
 
+    if (arr.offset() != 0 && arr.device_type() != DeviceAllocationType::kCPU) {
+      // https://github.com/apache/arrow/issues/43029
+      return Status::NotImplemented("Cannot compute null count for non-cpu sliced array");
+    }
+
     // push back all common elements
     field_nodes_.push_back({arr.length(), arr.null_count(), 0});
 
@@ -164,7 +169,7 @@ class RecordBatchSerializer {
         std::shared_ptr<Buffer> bitmap;
         RETURN_NOT_OK(GetTruncatedBitmap(arr.offset(), arr.length(), arr.null_bitmap(),
                                          options_.memory_pool, &bitmap));
-        out_->body_buffers.emplace_back(bitmap);
+        out_->body_buffers.emplace_back(std::move(bitmap));
       } else {
         // Push a dummy zero-length buffer, not to be copied
         out_->body_buffers.emplace_back(kNullBuffer);
@@ -222,8 +227,9 @@ class RecordBatchSerializer {
       RETURN_NOT_OK(
           result->Resize(actual_length + sizeof(int64_t), /* shrink_to_fit= */ true));
     }
-    *reinterpret_cast<int64_t*>(result->mutable_data()) =
-        bit_util::ToLittleEndian(prefixed_length);
+    int64_t prefixed_length_little_endian = bit_util::ToLittleEndian(prefixed_length);
+    util::SafeStore(result->mutable_data(), prefixed_length_little_endian);
+
     *out = SliceBuffer(std::move(result), /*offset=*/0, actual_length + sizeof(int64_t));
 
     return Status::OK();
@@ -415,7 +421,7 @@ class RecordBatchSerializer {
     std::shared_ptr<Buffer> data;
     RETURN_NOT_OK(GetTruncatedBitmap(array.offset(), array.length(), array.values(),
                                      options_.memory_pool, &data));
-    out_->body_buffers.emplace_back(data);
+    out_->body_buffers.emplace_back(std::move(data));
     return Status::OK();
   }
 
@@ -442,20 +448,28 @@ class RecordBatchSerializer {
                    data->size() - byte_offset);
       data = SliceBuffer(data, byte_offset, buffer_length);
     }
-    out_->body_buffers.emplace_back(data);
+    out_->body_buffers.emplace_back(std::move(data));
     return Status::OK();
   }
 
   template <typename T>
   enable_if_base_binary<typename T::TypeClass, Status> Visit(const T& array) {
+    using offset_type = typename T::offset_type;
+
     std::shared_ptr<Buffer> value_offsets;
     RETURN_NOT_OK(GetZeroBasedValueOffsets<T>(array, &value_offsets));
     auto data = array.value_data();
 
     int64_t total_data_bytes = 0;
-    if (value_offsets) {
-      total_data_bytes = array.value_offset(array.length()) - array.value_offset(0);
+    if (value_offsets && array.length() > 0) {
+      offset_type last_offset_value;
+      RETURN_NOT_OK(MemoryManager::CopyBufferSliceToCPU(
+          value_offsets, array.length() * sizeof(offset_type), sizeof(offset_type),
+          reinterpret_cast<uint8_t*>(&last_offset_value)));
+
+      total_data_bytes = last_offset_value;
     }
+
     if (NeedTruncate(array.offset(), data.get(), total_data_bytes)) {
       // Slice the data buffer to include only the range we need now
       const int64_t start_offset = array.value_offset(0);
@@ -464,8 +478,8 @@ class RecordBatchSerializer {
       data = SliceBuffer(data, start_offset, slice_length);
     }
 
-    out_->body_buffers.emplace_back(value_offsets);
-    out_->body_buffers.emplace_back(data);
+    out_->body_buffers.emplace_back(std::move(value_offsets));
+    out_->body_buffers.emplace_back(std::move(data));
     return Status::OK();
   }
 
@@ -494,8 +508,15 @@ class RecordBatchSerializer {
     offset_type values_offset = 0;
     offset_type values_length = 0;
     if (value_offsets) {
-      values_offset = array.value_offset(0);
-      values_length = array.value_offset(array.length()) - values_offset;
+      RETURN_NOT_OK(MemoryManager::CopyBufferSliceToCPU(
+          array.value_offsets(), array.offset() * sizeof(offset_type),
+          sizeof(offset_type), reinterpret_cast<uint8_t*>(&values_offset)));
+      offset_type last_values_offset = 0;
+      RETURN_NOT_OK(MemoryManager::CopyBufferSliceToCPU(
+          array.value_offsets(), (array.offset() + array.length()) * sizeof(offset_type),
+          sizeof(offset_type), reinterpret_cast<uint8_t*>(&last_values_offset)));
+
+      values_length = last_values_offset - values_offset;
     }
 
     if (array.offset() != 0 || values_length < values->length()) {
@@ -566,7 +587,7 @@ class RecordBatchSerializer {
     RETURN_NOT_OK(GetTruncatedBuffer(
         offset, length, static_cast<int32_t>(sizeof(UnionArray::type_code_t)),
         array.type_codes(), options_.memory_pool, &type_codes));
-    out_->body_buffers.emplace_back(type_codes);
+    out_->body_buffers.emplace_back(std::move(type_codes));
 
     --max_recursion_depth_;
     for (int i = 0; i < array.num_fields(); ++i) {
@@ -585,7 +606,7 @@ class RecordBatchSerializer {
     RETURN_NOT_OK(GetTruncatedBuffer(
         offset, length, static_cast<int32_t>(sizeof(UnionArray::type_code_t)),
         array.type_codes(), options_.memory_pool, &type_codes));
-    out_->body_buffers.emplace_back(type_codes);
+    out_->body_buffers.emplace_back(std::move(type_codes));
 
     --max_recursion_depth_;
     const auto& type = checked_cast<const UnionType&>(*array.type());
@@ -640,7 +661,7 @@ class RecordBatchSerializer {
 
       value_offsets = std::move(shifted_offsets_buffer);
     }
-    out_->body_buffers.emplace_back(value_offsets);
+    out_->body_buffers.emplace_back(std::move(value_offsets));
 
     // Visit children and slice accordingly
     for (int i = 0; i < type.num_fields(); ++i) {
@@ -1561,7 +1582,8 @@ Result<std::unique_ptr<RecordBatchWriter>> OpenRecordBatchWriter(
   auto writer = std::make_unique<internal::IpcFormatWriter>(
       std::move(sink), schema, options, /*is_file_format=*/false);
   RETURN_NOT_OK(writer->Start());
-  return std::move(writer);
+  // R build with openSUSE155 requires an explicit unique_ptr construction
+  return std::unique_ptr<RecordBatchWriter>(std::move(writer));
 }
 
 Result<std::unique_ptr<IpcPayloadWriter>> MakePayloadStreamWriter(

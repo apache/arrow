@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"unicode/utf8"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/arrow/go/v17/arrow/memory"
 )
 
 type BinaryScalar interface {

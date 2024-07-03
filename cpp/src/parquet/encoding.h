@@ -255,6 +255,11 @@ class Decoder {
 
   // Sets the data for a new page. This will be called multiple times on the same
   // decoder and should reset all internal state.
+  //
+  // `num_values` comes from the data page header, and may be greater than the number of
+  // physical values in the data buffer if there are some omitted (null) values.
+  // `len`, on the other hand, is the size in bytes of the data buffer and
+  // directly relates to the number of physical values.
   virtual void SetData(int num_values, const uint8_t* data, int len) = 0;
 
   // Returns the number of values left (for the last call to SetData()). This is
@@ -400,7 +405,9 @@ class BooleanDecoder : virtual public TypedDecoder<BooleanType> {
   /// \brief Decode and bit-pack values into a buffer
   ///
   /// \param[in] buffer destination for decoded values
-  /// This buffer will contain bit-packed values.
+  /// This buffer will contain bit-packed values. If
+  /// max_values is not a multiple of 8, the trailing bits
+  /// of the last byte will be undefined.
   /// \param[in] max_values max values to decode.
   /// \return The number of values decoded. Should be identical to max_values except
   /// at the end of the current data page.

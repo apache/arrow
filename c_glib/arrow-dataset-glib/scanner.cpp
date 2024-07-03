@@ -128,6 +128,28 @@ gadataset_scanner_to_table(GADatasetScanner *scanner, GError **error)
   }
 }
 
+/**
+ * gadataset_scanner_to_record_batch_reader:
+ * @scanner: A #GADatasetScanner.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (transfer full) (nullable):
+ *   A #GArrowRecordBatchReader on success, %NULL on error.
+ *
+ * Since: 17.0.0
+ */
+GArrowRecordBatchReader *
+gadataset_scanner_to_record_batch_reader(GADatasetScanner *scanner, GError **error)
+{
+  auto arrow_scanner = gadataset_scanner_get_raw(scanner);
+  auto arrow_reader_result = arrow_scanner->ToRecordBatchReader();
+  if (!garrow::check(error, arrow_reader_result, "[scanner][to-record-batch-reader]")) {
+    return nullptr;
+  }
+  auto sources = g_list_prepend(nullptr, scanner);
+  return garrow_record_batch_reader_new_raw(&(*arrow_reader_result), sources);
+}
+
 typedef struct GADatasetScannerBuilderPrivate_
 {
   std::shared_ptr<arrow::dataset::ScannerBuilder> scanner_builder;

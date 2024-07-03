@@ -51,6 +51,13 @@ def setup_jvm():
     kwargs = {}
     # This will be the default behaviour in jpype 0.8+
     kwargs['convertStrings'] = False
+
+    # For debugging purpose please uncomment the following, and include *jvm_args, before **kwargs
+    # in startJVM function call
+    # jvm_args = [
+    #     "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
+    # ]
+
     jpype.startJVM(jpype.getDefaultJVMPath(), "-Djava.class.path=" + jar_path, **kwargs)
 
 
@@ -182,6 +189,55 @@ class TestPythonIntegration(unittest.TestCase):
 
     def test_string_array(self):
         self.round_trip_array(lambda: pa.array([None, "a", "bb", "ccc"]))
+
+    def test_stringview_array(self):
+        # with nulls short strings
+        self.round_trip_array(lambda: pa.array([None, "a", "bb", "c"], type=pa.string_view()))
+        # with nulls long and strings
+        self.round_trip_array(lambda: pa.array([None, "a", "bb"*10, "c"*13], type=pa.string_view()))
+        # without nulls short strings
+        self.round_trip_array(lambda: pa.array(["a", "bb", "c"], type=pa.string_view()))
+        # without nulls long and strings
+        self.round_trip_array(lambda: pa.array(["a", "bb"*10, "c"*13], type=pa.string_view()))
+        # with multiple data buffers
+        arr1 = pa.array(["a", "bb", "c"], type=pa.string_view())
+        arr2 = pa.array(["b", "ee" * 10, "f" * 20], type=pa.string_view())
+        arr3 = pa.array(["c", "abc" * 20, "efg" * 30], type=pa.string_view())
+        arr4 = pa.array(["d", "abcd" * 100, "efgh" * 200], type=pa.string_view())
+        self.round_trip_array(lambda: pa.concat_arrays([arr1, arr2, arr3, arr4]))
+        # empty strings
+        self.round_trip_array(lambda: pa.array(["", "bb" * 10, "c", "", "d", ""], type=pa.string_view()))
+        # null value variations
+        self.round_trip_array(lambda: pa.array(["bb" * 10, None, "", "d", None], type=pa.string_view()))
+        # empty array
+        self.round_trip_array(lambda: pa.array([], type=pa.string_view()))
+        # all null array
+        self.round_trip_array(lambda: pa.array([None, None, None], type=pa.string_view()))
+
+    def test_binaryview_array(self):
+        # with nulls short binary values
+        self.round_trip_array(lambda: pa.array([None, bytes([97]), bytes([98, 98]), bytes([99])], type=pa.binary_view()))
+        # with nulls long binary values
+        self.round_trip_array(lambda: pa.array([None, bytes([97]), bytes([98, 98] * 10), bytes([99] * 13)], type=pa.binary_view()))
+        # without nulls short binary values
+        self.round_trip_array(lambda: pa.array([bytes([97]), bytes([98, 98]), bytes([99])], type=pa.binary_view()))
+        # without nulls long binary values
+        self.round_trip_array(lambda: pa.array([bytes([97]), bytes([98, 98] * 10), bytes([99] * 13)], type=pa.binary_view()))
+        # with multiple data buffers
+        arr1 = pa.array([bytes([97]), bytes([98, 98]), bytes([99])], type=pa.binary_view())
+        arr2 = pa.array([bytes([98]), bytes([98, 98] * 10), bytes([99] * 13)], type=pa.binary_view())
+        arr3 = pa.array([bytes([99]), bytes([98, 100] * 100), bytes([99, 100]) * 30], type=pa.binary_view())
+        arr4 = pa.array([bytes([100]), bytes([98, 100, 101] * 200), bytes([98, 99]) * 300], type=pa.binary_view())
+        self.round_trip_array(lambda: pa.concat_arrays([arr1, arr2, arr3, arr4]))
+        # empty binary values
+        self.round_trip_array(lambda: pa.array([bytes([]), bytes([97, 97]) * 10, bytes([98]), bytes([]), bytes([97]), bytes([])],
+                                               type=pa.binary_view()))
+        # null value variations
+        self.round_trip_array(lambda: pa.array([bytes([97, 97]) * 10, None, bytes([]), bytes([99]), None], type=pa.binary_view()))
+        # empty array
+        self.round_trip_array(lambda: pa.array([], type=pa.binary_view()))
+        # all null array
+        self.round_trip_array(lambda: pa.array([None, None, None], type=pa.binary_view()))
 
     def test_decimal_array(self):
         data = [

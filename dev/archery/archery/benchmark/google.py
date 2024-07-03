@@ -57,7 +57,7 @@ class GoogleBenchmarkCommand(Command):
                     "--benchmark_out_format=json"]
 
             if repetition_min_time is not None:
-                argv.append(f"--benchmark_min_time={repetition_min_time:.6f}")
+                argv.append(f"--benchmark_min_time={repetition_min_time:.6f}s")
 
             if self.benchmark_filter:
                 argv.append(f"--benchmark_filter={self.benchmark_filter}")

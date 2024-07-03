@@ -32,12 +32,32 @@ struct ArrayExportTraits {
   typedef struct ArrowArray CType;
   static constexpr auto IsReleasedFunc = &ArrowArrayIsReleased;
   static constexpr auto ReleaseFunc = &ArrowArrayRelease;
+  static constexpr auto MoveFunc = &ArrowArrayMove;
+  static constexpr auto MarkReleased = &ArrowArrayMarkReleased;
+};
+
+struct ArrayDeviceExportTraits {
+  typedef struct ArrowDeviceArray CType;
+  static constexpr auto IsReleasedFunc = &ArrowDeviceArrayIsReleased;
+  static constexpr auto ReleaseFunc = &ArrowDeviceArrayRelease;
+  static constexpr auto MoveFunc = &ArrowDeviceArrayMove;
+  static constexpr auto MarkReleased = &ArrowDeviceArrayMarkReleased;
 };
 
 struct ArrayStreamExportTraits {
   typedef struct ArrowArrayStream CType;
   static constexpr auto IsReleasedFunc = &ArrowArrayStreamIsReleased;
   static constexpr auto ReleaseFunc = &ArrowArrayStreamRelease;
+  static constexpr auto MoveFunc = &ArrowArrayStreamMove;
+  static constexpr auto MarkReleased = &ArrowArrayStreamMarkReleased;
+};
+
+struct ArrayDeviceStreamExportTraits {
+  typedef struct ArrowDeviceArrayStream CType;
+  static constexpr auto IsReleasedFunc = &ArrowDeviceArrayStreamIsReleased;
+  static constexpr auto ReleaseFunc = &ArrowDeviceArrayStreamRelease;
+  static constexpr auto MoveFunc = &ArrowDeviceArrayStreamMove;
+  static constexpr auto MarkReleased = &ArrowDeviceArrayStreamMarkReleased;
 };
 
 // A RAII-style object to release a C Array / Schema struct at block scope exit.
@@ -79,7 +99,9 @@ class ExportGuard {
 
 using SchemaExportGuard = ExportGuard<SchemaExportTraits>;
 using ArrayExportGuard = ExportGuard<ArrayExportTraits>;
+using DeviceArrayExportGuard = ExportGuard<ArrayDeviceExportTraits>;
 using ArrayStreamExportGuard = ExportGuard<ArrayStreamExportTraits>;
+using DeviceArrayStreamExportGuard = ExportGuard<ArrayDeviceStreamExportTraits>;
 
 }  // namespace internal
 }  // namespace arrow

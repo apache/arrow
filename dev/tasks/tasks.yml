@@ -59,12 +59,13 @@ groups:
     - conan-*
     - debian-*
     - java-jars
+    - matlab
     - nuget
     - python-sdist
     - r-binary-packages
     - ubuntu-*
     - wheel-*
-    - test-ubuntu-*-docs
+    - test-debian-*-docs
 
 {############################# Testing tasks #################################}
 
@@ -79,6 +80,7 @@ groups:
 
   java:
     - "*java*"
+    - test-*spark*
 
   python:
     - test-*python*
@@ -407,7 +409,7 @@ tasks:
       arrow_jemalloc: "ON"
       python_version: "{{ python_version }}"
       macos_deployment_target: "{{ macos_version }}"
-      runs_on: "macos-latest"
+      runs_on: "macos-13"
       vcpkg_arch: "amd64"
     artifacts:
       - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-{{ platform_tag }}.whl
@@ -449,8 +451,7 @@ tasks:
 
 {############################## Linux PKGS ####################################}
 
-{% for target in ["debian-bullseye",
-                  "debian-bookworm",
+{% for target in ["debian-bookworm",
                   "debian-trixie",
                   "ubuntu-focal",
                   "ubuntu-jammy",
@@ -491,59 +492,59 @@ tasks:
       - gir1.2-gandiva-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-acero-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-acero1600-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-acero1600_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-acero1700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-acero1700_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset-glib1600-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-dataset-glib1600_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset1600-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-dataset1600_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib1700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-dataset-glib1700_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset1700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-dataset1700_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight-glib1600-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-flight-glib1600_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight-glib1700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-flight-glib1700_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-sql-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-sql-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-sql-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight-sql-glib1600-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-flight-sql-glib1600_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight-sql1600-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-flight-sql1600_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight1600-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-flight1600_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight-sql-glib1700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-flight-sql-glib1700_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight-sql1700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-flight-sql1700_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight1700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-flight1700_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-glib1600-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-glib1600_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow1600-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow1600_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-glib1700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-glib1700_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow1700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow1700_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib1600-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libgandiva-glib1600_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva1600-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libgandiva1600_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib1700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libgandiva-glib1700_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva1700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libgandiva1700_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet-glib1600-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libparquet-glib1600_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet1600-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libparquet1600_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-glib1700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libparquet-glib1700_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet1700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libparquet1700_{no_rc_version}-1_[a-z0-9]+.deb
       - parquet-tools_{no_rc_version}-1_[a-z0-9]+.deb
     {% if architecture == "amd64" %}
       - gir1.2-arrow-cuda-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda-glib1600-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-cuda-glib1600_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda1600-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-cuda1600_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda-glib1700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-cuda-glib1700_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda1700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-cuda1700_{no_rc_version}-1_[a-z0-9]+.deb
     {% endif %}
   {% endfor %}
 {% endfor %}
@@ -665,6 +666,14 @@ tasks:
     params:
       formula: apache-arrow.rb
 
+  ############################## MATLAB Packages ################################
+
+  matlab:
+    ci: github
+    template: matlab/github.yml
+    artifacts:
+      - matlab-arrow-{no_rc_version}.mltbx
+
   ############################## Arrow JAR's ##################################
 
   java-jars:
@@ -738,7 +747,6 @@ tasks:
       - arrow-jdbc-{no_rc_snapshot_version}.pom
       - arrow-maven-plugins-{no_rc_snapshot_version}-cyclonedx.json
       - arrow-maven-plugins-{no_rc_snapshot_version}-cyclonedx.xml
-      - arrow-maven-plugins-{no_rc_snapshot_version}-src.zip
       - arrow-maven-plugins-{no_rc_snapshot_version}.pom
       - arrow-memory-core-{no_rc_snapshot_version}-cyclonedx.json
       - arrow-memory-core-{no_rc_snapshot_version}-cyclonedx.xml
@@ -842,7 +850,6 @@ tasks:
       - module-info-compiler-maven-plugin-{no_rc_snapshot_version}-cyclonedx.xml
       - module-info-compiler-maven-plugin-{no_rc_snapshot_version}-javadoc.jar
       - module-info-compiler-maven-plugin-{no_rc_snapshot_version}-sources.jar
-      - module-info-compiler-maven-plugin-{no_rc_snapshot_version}-src.zip
       - module-info-compiler-maven-plugin-{no_rc_snapshot_version}.jar
       - module-info-compiler-maven-plugin-{no_rc_snapshot_version}.pom
 
@@ -878,12 +885,12 @@ tasks:
       - r-lib__libarrow__bin__darwin-arm64-openssl-3.0__arrow-{no_rc_r_version}\.zip
       - r-lib__libarrow__bin__darwin-x86_64-openssl-1.1__arrow-{no_rc_r_version}\.zip
       - r-lib__libarrow__bin__darwin-x86_64-openssl-3.0__arrow-{no_rc_r_version}\.zip
+      - r-pkg__bin__windows__contrib__4.4__arrow_{no_rc_r_version}\.zip
       - r-pkg__bin__windows__contrib__4.3__arrow_{no_rc_r_version}\.zip
-      - r-pkg__bin__windows__contrib__4.2__arrow_{no_rc_r_version}\.zip
+      - r-pkg__bin__macosx__big-sur-x86_64__contrib__4.4__arrow_{no_rc_r_version}\.tgz
       - r-pkg__bin__macosx__big-sur-x86_64__contrib__4.3__arrow_{no_rc_r_version}\.tgz
-      - r-pkg__bin__macosx__contrib__4.2__arrow_{no_rc_r_version}\.tgz
+      - r-pkg__bin__macosx__big-sur-arm64__contrib__4.4__arrow_{no_rc_r_version}\.tgz
       - r-pkg__bin__macosx__big-sur-arm64__contrib__4.3__arrow_{no_rc_r_version}\.tgz
-      - r-pkg__bin__macosx__big-sur-arm64__contrib__4.2__arrow_{no_rc_r_version}\.tgz
       - r-pkg__src__contrib__arrow_{no_rc_r_version}\.tar\.gz
 
 
@@ -1039,14 +1046,13 @@ tasks:
       image: {{ image }}
 {% endfor %}
 
-  # Use azure to run valgrind tests to prevent OOM
   test-conda-cpp-valgrind:
-    ci: azure
-    template: docker-tests/azure.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       image: conda-cpp-valgrind
 
-{% for ubuntu_version in ["20.04", "22.04", "24.04"] %}
+{% for ubuntu_version in ["20.04", "22.04"] %}
   test-ubuntu-{{ ubuntu_version }}-cpp:
     ci: github
     template: docker-tests/github.linux.yml
@@ -1064,13 +1070,25 @@ tasks:
         UBUNTU: 20.04
       image: ubuntu-cpp-bundled
 
+  test-ubuntu-24.04-cpp:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        CLANG_TOOLS: 15
+        LLVM: 15
+        UBUNTU: 24.04
+      image: ubuntu-cpp
+
   test-ubuntu-24.04-cpp-gcc-14:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
-        UBUNTU: "24.04"
+        CLANG_TOOLS: 15
         GCC_VERSION: 14
+        LLVM: 15
+        UBUNTU: 24.04
       # rapidjson 1.1.0 has an error caught by gcc 14.
       # https://github.com/Tencent/rapidjson/issues/718
       flags: -e CC=gcc-14 -e CXX=g++-14 -e RapidJSON_SOURCE=BUNDLED
@@ -1081,6 +1099,7 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       env:
+        ARCHERY_USE_DOCKER_CLI: 0
         UBUNTU: 20.04
       flags: -e ARROW_SKYHOOK=ON
       image: ubuntu-cpp
@@ -1155,6 +1174,14 @@ tasks:
       flags: "-e ARROW_CSV=ON -e ARROW_PARQUET=ON"
       image: ubuntu-cpp-minimal
 
+  test-ubuntu-22.04-cpp-emscripten:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        UBUNTU: 22.04
+      image: ubuntu-cpp-emscripten
+
 {% for python_version in ["3.8", "3.9", "3.10", "3.11", "3.12"] %}
   test-conda-python-{{ python_version }}:
     ci: github
@@ -1196,8 +1223,8 @@ tasks:
       image: conda-python-cython2
 
   test-debian-12-python-3-amd64:
-    ci: azure
-    template: docker-tests/azure.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         DEBIAN: 12
@@ -1214,8 +1241,8 @@ tasks:
       image: debian-python
 
   test-ubuntu-20.04-python-3:
-    ci: azure
-    template: docker-tests/azure.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         UBUNTU: 20.04
@@ -1230,16 +1257,16 @@ tasks:
       image: ubuntu-python
 
   test-fedora-39-python-3:
-    ci: azure
-    template: docker-tests/azure.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         FEDORA: 39
       image: fedora-python
 
   test-r-linux-valgrind:
-    ci: azure
-    template: docker-tests/azure.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         ARROW_R_DEV: "TRUE"
@@ -1326,10 +1353,10 @@ tasks:
       r_tag: latest
       r_custom_ccache: true
 
-{% for r_org, r_image, r_tag in [("rhub", "ubuntu-gcc-release", "latest"),
+{% for r_org, r_image, r_tag in [("rhub", "ubuntu-release", "latest"),
                                  ("rocker", "r-ver", "latest"),
                                  ("rstudio", "r-base", "4.2-focal"),
-                                 ("rstudio", "r-base", "4.1-opensuse153")] %}
+                                 ("rstudio", "r-base", "4.1-opensuse155")] %}
   test-r-{{ r_org }}-{{ r_image }}-{{ r_tag }}:
     ci: azure
     template: r/azure.linux.yml
@@ -1347,9 +1374,9 @@ tasks:
     template: r/azure.linux.yml
     params:
       r_org: rhub
-      r_image: debian-gcc-devel-lto
+      r_image: gcc13
       r_tag: latest
-      flags: '-e NOT_CRAN=false -e INSTALL_ARGS=--use-LTO'
+      flags: '-e INSTALL_ARGS=--use-LTO'
 
   # This one has -flto=auto
   test-r-ubuntu-22.04:
@@ -1381,15 +1408,6 @@ tasks:
         GCC_VERSION: 12
       image: ubuntu-r-only-r
 
-  test-r-rstudio-r-base-4.2-centos7-devtoolset-8:
-    ci: azure
-    template: r/azure.linux.yml
-    params:
-      r_org: rstudio
-      r_image: r-base
-      r_tag: 4.2-centos7
-      devtoolset_version: 8
-
   test-r-minimal-build:
     ci: azure
     template: r/azure.linux.yml
@@ -1400,25 +1418,25 @@ tasks:
       flags: "-e LIBARROW_MINIMAL=TRUE"
 
   test-ubuntu-r-sanitizer:
-    ci: azure
-    template: docker-tests/azure.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         R_PRUNE_DEPS: TRUE
       image: ubuntu-r-sanitizer
 
-  test-fedora-r-clang-sanitizer:
-    ci: azure
-    template: docker-tests/azure.linux.yml
+  test-r-clang-sanitizer:
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         R_PRUNE_DEPS: TRUE
-      image: fedora-r-clang-sanitizer
+      image: r-clang-sanitizer
 
   {% for go_version, staticcheck in [("1.21", "v0.4.7"), ("1.22", "latest")] %}
   test-debian-12-go-{{ go_version }}:
-    ci: azure
-    template: docker-tests/azure.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         DEBIAN: 12
@@ -1428,15 +1446,15 @@ tasks:
   {% endfor %}
 
   # be sure to update binary-task.rb when upgrading ubuntu
-  test-ubuntu-22.04-docs:
+  test-debian-12-docs:
     ci: github
     template: docs/github.linux.yml
     params:
       env:
-        UBUNTU: 22.04
+        JDK: 17
       pr_number: Unset
       flags: "-v $PWD/build/:/build/"
-      image: ubuntu-docs
+      image: debian-docs
       publish: false
     artifacts:
       - docs.tar.gz
@@ -1447,12 +1465,16 @@ tasks:
     ci: github
     template: docker-tests/github.cuda.yml
     params:
+      env:
+        ARCHERY_USE_DOCKER_CLI: 0
       image: ubuntu-cuda-cpp
 
   test-cuda-python:
     ci: github
     template: docker-tests/github.cuda.yml
     params:
+      env:
+        ARCHERY_USE_DOCKER_CLI: 0
       image: ubuntu-cuda-python
 
   ############################## Fuzz tests #################################
@@ -1472,10 +1494,11 @@ tasks:
 
 {% for python_version, pandas_version, numpy_version, cache_leaf in [("3.8", "1.0", "1.19", True),
                                                                      ("3.9", "latest", "latest", False),
+                                                                     ("3.10", "latest", "1.26", False),
                                                                      ("3.10", "latest", "latest", False),
                                                                      ("3.10", "nightly", "nightly", False),
                                                                      ("3.11", "upstream_devel", "nightly", False)] %}
-  test-conda-python-{{ python_version }}-pandas-{{ pandas_version }}:
+  test-conda-python-{{ python_version }}-pandas-{{ pandas_version }}-numpy-{{ numpy_version }}:
     ci: github
     template: docker-tests/github.linux.yml
     params:
@@ -1513,8 +1536,9 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       env:
-        PYTHON: "3.10"
+        ARCHERY_USE_DOCKER_CLI: 0
         HDFS: "{{ hdfs_version }}"
+        PYTHON: "3.10"
       image: conda-python-hdfs
 {% endfor %}
 
@@ -1559,8 +1583,8 @@ tasks:
     template: docs/github.linux.yml
     params:
       env:
-        UBUNTU: 22.04
+        JDK: 17
       pr_number: Unset
       flags: "-v $PWD/build/:/build/"
-      image: ubuntu-docs
+      image: debian-docs
       publish: true

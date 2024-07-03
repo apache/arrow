@@ -25,12 +25,14 @@
 G_BEGIN_DECLS
 
 #define GARROW_TYPE_TENSOR (garrow_tensor_get_type())
+GARROW_AVAILABLE_IN_ALL
 G_DECLARE_DERIVABLE_TYPE(GArrowTensor, garrow_tensor, GARROW, TENSOR, GObject)
 struct _GArrowTensorClass
 {
   GObjectClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_ALL
 GArrowTensor *
 garrow_tensor_new(GArrowDataType *data_type,
                   GArrowBuffer *data,
@@ -40,30 +42,55 @@ garrow_tensor_new(GArrowDataType *data_type,
                   gsize n_strides,
                   gchar **dimension_names,
                   gsize n_dimension_names);
+GARROW_AVAILABLE_IN_ALL
 gboolean
 garrow_tensor_equal(GArrowTensor *tensor, GArrowTensor *other_tensor);
+
+GARROW_AVAILABLE_IN_ALL
 GArrowDataType *
 garrow_tensor_get_value_data_type(GArrowTensor *tensor);
+
+GARROW_AVAILABLE_IN_ALL
 GArrowType
 garrow_tensor_get_value_type(GArrowTensor *tensor);
+
+GARROW_AVAILABLE_IN_ALL
 GArrowBuffer *
 garrow_tensor_get_buffer(GArrowTensor *tensor);
+
+GARROW_AVAILABLE_IN_ALL
 gint64 *
 garrow_tensor_get_shape(GArrowTensor *tensor, gint *n_dimensions);
+
+GARROW_AVAILABLE_IN_ALL
 gint64 *
 garrow_tensor_get_strides(GArrowTensor *tensor, gint *n_strides);
+
+GARROW_AVAILABLE_IN_ALL
 gint
 garrow_tensor_get_n_dimensions(GArrowTensor *tensor);
+
+GARROW_AVAILABLE_IN_ALL
 const gchar *
 garrow_tensor_get_dimension_name(GArrowTensor *tensor, gint i);
+
+GARROW_AVAILABLE_IN_ALL
 gint64
 garrow_tensor_get_size(GArrowTensor *tensor);
+
+GARROW_AVAILABLE_IN_ALL
 gboolean
 garrow_tensor_is_mutable(GArrowTensor *tensor);
+
+GARROW_AVAILABLE_IN_ALL
 gboolean
 garrow_tensor_is_contiguous(GArrowTensor *tensor);
+
+GARROW_AVAILABLE_IN_ALL
 gboolean
 garrow_tensor_is_row_major(GArrowTensor *tensor);
+
+GARROW_AVAILABLE_IN_ALL
 gboolean
 garrow_tensor_is_column_major(GArrowTensor *tensor);
 

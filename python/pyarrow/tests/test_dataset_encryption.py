@@ -142,6 +142,18 @@ def test_dataset_encryption_decryption():
 
     assert table.equals(dataset.to_table())
 
+    # set decryption properties for parquet fragment scan options
+    decryption_properties = crypto_factory.file_decryption_properties(
+        kms_connection_config, decryption_config)
+    pq_scan_opts = ds.ParquetFragmentScanOptions(
+        decryption_properties=decryption_properties
+    )
+
+    pformat = pa.dataset.ParquetFileFormat(default_fragment_scan_options=pq_scan_opts)
+    dataset = ds.dataset("sample_dataset", format=pformat, filesystem=mockfs)
+
+    assert table.equals(dataset.to_table())
+
 
 @pytest.mark.skipif(
     not encryption_unavailable, reason="Parquet Encryption is currently enabled"

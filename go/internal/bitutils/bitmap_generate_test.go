@@ -19,7 +19,7 @@ package bitutils_test
 import (
 	"testing"
 
-	"github.com/apache/arrow/go/v16/internal/bitutils"
+	"github.com/apache/arrow/go/v17/internal/bitutils"
 	"golang.org/x/exp/rand"
 )
 

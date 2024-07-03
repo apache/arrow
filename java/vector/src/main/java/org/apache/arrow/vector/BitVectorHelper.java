@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
@@ -26,40 +25,30 @@ import org.apache.arrow.memory.util.MemoryUtil;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.util.DataSizeRoundingUtil;
 
-
 /**
- * Helper class for performing generic operations on a bit vector buffer.
- * External use of this class is not recommended.
+ * Helper class for performing generic operations on a bit vector buffer. External use of this class
+ * is not recommended.
  */
 public class BitVectorHelper {
 
-  private BitVectorHelper() {
-  }
+  private BitVectorHelper() {}
 
-  /**
-   * Get the index of byte corresponding to bit index in validity buffer.
-   */
+  /** Get the index of byte corresponding to bit index in validity buffer. */
   public static long byteIndex(long absoluteBitIndex) {
     return absoluteBitIndex >> 3;
   }
 
-  /**
-   * Get the relative index of bit within the byte in validity buffer.
-   */
+  /** Get the relative index of bit within the byte in validity buffer. */
   public static int bitIndex(long absoluteBitIndex) {
     return checkedCastToInt(absoluteBitIndex & 7);
   }
 
-  /**
-   * Get the index of byte corresponding to bit index in validity buffer.
-   */
+  /** Get the index of byte corresponding to bit index in validity buffer. */
   public static int byteIndex(int absoluteBitIndex) {
     return absoluteBitIndex >> 3;
   }
 
-  /**
-   * Get the relative index of bit within the byte in validity buffer.
-   */
+  /** Get the relative index of bit within the byte in validity buffer. */
   public static int bitIndex(int absoluteBitIndex) {
     return absoluteBitIndex & 7;
   }
@@ -133,8 +122,8 @@ public class BitVectorHelper {
   }
 
   /**
-   * Set the bit at a given index to provided value (1 or 0). Internally
-   * takes care of allocating the buffer if the caller didn't do so.
+   * Set the bit at a given index to provided value (1 or 0). Internally takes care of allocating
+   * the buffer if the caller didn't do so.
    *
    * @param validityBuffer validity buffer of the vector
    * @param allocator allocator for the buffer
@@ -143,8 +132,8 @@ public class BitVectorHelper {
    * @param value value to set
    * @return ArrowBuf
    */
-  public static ArrowBuf setValidityBit(ArrowBuf validityBuffer, BufferAllocator allocator,
-                                        int valueCount, int index, int value) {
+  public static ArrowBuf setValidityBit(
+      ArrowBuf validityBuffer, BufferAllocator allocator, int valueCount, int index, int value) {
     if (validityBuffer == null) {
       validityBuffer = allocator.buffer(getValidityBufferSize(valueCount));
     }
@@ -171,8 +160,7 @@ public class BitVectorHelper {
   }
 
   /**
-   * Compute the size of validity buffer required to manage a given number
-   * of elements in a vector.
+   * Compute the size of validity buffer required to manage a given number of elements in a vector.
    *
    * @param valueCount number of elements in the vector
    * @return buffer size
@@ -182,8 +170,8 @@ public class BitVectorHelper {
   }
 
   /**
-   * Given a validity buffer, find the number of bits that are not set.
-   * This is used to compute the number of null elements in a nullable vector.
+   * Given a validity buffer, find the number of bits that are not set. This is used to compute the
+   * number of null elements in a nullable vector.
    *
    * @param validityBuffer validity buffer of the vector
    * @param valueCount number of values in the vector
@@ -233,14 +221,15 @@ public class BitVectorHelper {
 
   /**
    * Tests if all bits in a validity buffer are equal 0 or 1, according to the specified parameter.
+   *
    * @param validityBuffer the validity buffer.
    * @param valueCount the bit count.
-   * @param  checkOneBits if set to true, the method checks if all bits are equal to 1;
-   *                      otherwise, it checks if all bits are equal to 0.
+   * @param checkOneBits if set to true, the method checks if all bits are equal to 1; otherwise, it
+   *     checks if all bits are equal to 0.
    * @return true if all bits are 0 or 1 according to the parameter, and false otherwise.
    */
   public static boolean checkAllBitsEqualTo(
-          final ArrowBuf validityBuffer, final int valueCount, final boolean checkOneBits) {
+      final ArrowBuf validityBuffer, final int valueCount, final boolean checkOneBits) {
     if (valueCount == 0) {
       return true;
     }
@@ -300,30 +289,31 @@ public class BitVectorHelper {
   }
 
   /** Returns the byte at index from data right-shifted by offset. */
-  public static byte getBitsFromCurrentByte(final ArrowBuf data, final int index, final int offset) {
+  public static byte getBitsFromCurrentByte(
+      final ArrowBuf data, final int index, final int offset) {
     return (byte) ((data.getByte(index) & 0xFF) >>> offset);
   }
 
-  /**
-   * Returns the byte at <code>index</code> from left-shifted by (8 - <code>offset</code>).
-   */
+  /** Returns the byte at <code>index</code> from left-shifted by (8 - <code>offset</code>). */
   public static byte getBitsFromNextByte(ArrowBuf data, int index, int offset) {
     return (byte) ((data.getByte(index) << (8 - offset)));
   }
 
   /**
-   * Returns a new buffer if the source validity buffer is either all null or all
-   * not-null, otherwise returns a buffer pointing to the same memory as source.
+   * Returns a new buffer if the source validity buffer is either all null or all not-null,
+   * otherwise returns a buffer pointing to the same memory as source.
    *
    * @param fieldNode The fieldNode containing the null count
-   * @param sourceValidityBuffer The source validity buffer that will have its
-   *     position copied if there is a mix of null and non-null values
+   * @param sourceValidityBuffer The source validity buffer that will have its position copied if
+   *     there is a mix of null and non-null values
    * @param allocator The allocator to use for creating a new buffer if necessary.
-   * @return A new buffer that is either allocated or points to the same memory as sourceValidityBuffer.
+   * @return A new buffer that is either allocated or points to the same memory as
+   *     sourceValidityBuffer.
    */
-  public static ArrowBuf loadValidityBuffer(final ArrowFieldNode fieldNode,
-                                            final ArrowBuf sourceValidityBuffer,
-                                            final BufferAllocator allocator) {
+  public static ArrowBuf loadValidityBuffer(
+      final ArrowFieldNode fieldNode,
+      final ArrowBuf sourceValidityBuffer,
+      final BufferAllocator allocator) {
     final int valueCount = fieldNode.getLength();
     ArrowBuf newBuffer = null;
 
@@ -331,10 +321,10 @@ public class BitVectorHelper {
     //   - validity buffer is not present, that is, it is either null or empty (in the case of
     //     IPC for instance).
     //   - values are either all NULLs or all non-NULLs
-    boolean isValidityBufferNull = sourceValidityBuffer == null ||
-        sourceValidityBuffer.capacity() == 0;
-    if (isValidityBufferNull &&
-        (fieldNode.getNullCount() == 0 || fieldNode.getNullCount() == valueCount)) {
+    boolean isValidityBufferNull =
+        sourceValidityBuffer == null || sourceValidityBuffer.capacity() == 0;
+    if (isValidityBufferNull
+        && (fieldNode.getNullCount() == 0 || fieldNode.getNullCount() == valueCount)) {
       newBuffer = allocator.buffer(getValidityBufferSize(valueCount));
       newBuffer.setZero(0, newBuffer.capacity());
       if (fieldNode.getNullCount() != 0) {
@@ -353,15 +343,16 @@ public class BitVectorHelper {
       /* mixed byte pattern -- create another ArrowBuf associated with the
        * target allocator
        */
-      newBuffer = sourceValidityBuffer.getReferenceManager().retain(sourceValidityBuffer, allocator);
+      newBuffer =
+          sourceValidityBuffer.getReferenceManager().retain(sourceValidityBuffer, allocator);
     }
 
     return newBuffer;
   }
 
   /**
-   * Set the byte of the given index in the data buffer by applying a bit mask to
-   * the current byte at that index.
+   * Set the byte of the given index in the data buffer by applying a bit mask to the current byte
+   * at that index.
    *
    * @param data buffer to set
    * @param byteIndex byteIndex within the buffer
@@ -375,14 +366,16 @@ public class BitVectorHelper {
 
   /**
    * Concat two validity buffers.
+   *
    * @param input1 the first validity buffer.
    * @param numBits1 the number of bits in the first validity buffer.
    * @param input2 the second validity buffer.
    * @param numBits2 the number of bits in the second validity buffer.
-   * @param output the output validity buffer. It can be the same one as the first input.
-   *     The caller must make sure the output buffer has enough capacity.
+   * @param output the output validity buffer. It can be the same one as the first input. The caller
+   *     must make sure the output buffer has enough capacity.
    */
-  public static void concatBits(ArrowBuf input1, int numBits1, ArrowBuf input2, int numBits2, ArrowBuf output) {
+  public static void concatBits(
+      ArrowBuf input1, int numBits1, ArrowBuf input2, int numBits2, ArrowBuf output) {
     int numBytes1 = DataSizeRoundingUtil.divideBy8Ceil(numBits1);
     int numBytes2 = DataSizeRoundingUtil.divideBy8Ceil(numBits2);
     int numBytesOut = DataSizeRoundingUtil.divideBy8Ceil(numBits1 + numBits2);
@@ -397,9 +390,12 @@ public class BitVectorHelper {
     }
 
     if (bitIndex(numBits1) == 0) {
-      // The number of bits for the first bit set is a multiple of 8, so the boundary is at byte boundary.
-      // For this case, we have a shortcut to copy all bytes from the second set after the byte boundary.
-      MemoryUtil.UNSAFE.copyMemory(input2.memoryAddress(), output.memoryAddress() + numBytes1, numBytes2);
+      // The number of bits for the first bit set is a multiple of 8, so the boundary is at byte
+      // boundary.
+      // For this case, we have a shortcut to copy all bytes from the second set after the byte
+      // boundary.
+      MemoryUtil.UNSAFE.copyMemory(
+          input2.memoryAddress(), output.memoryAddress() + numBytes1, numBytes2);
       return;
     }
 

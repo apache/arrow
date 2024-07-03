@@ -350,10 +350,10 @@ Closing unresponsive connections
    calls Cancel() on a timer, with the main thread resetting the timer every time
    an operation completes successfully. For a fully-worked out example, see the
    Cookbook.
-   
+
    .. note:: There is a long standing ticket for a per-write/per-read timeout
              instead of a per call timeout (ARROW-6062_), but this is not (easily)
-             possible to implement with the blocking gRPC API. 
+             possible to implement with the blocking gRPC API.
 
 .. _best gRPC practices: https://grpc.io/docs/guides/performance/#general
 .. _gRPC keys: https://grpc.github.io/grpc/cpp/group__grpc__arg__keys.html

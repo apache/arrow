@@ -14,12 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight;
 
-import org.apache.arrow.flight.impl.Flight;
-
 import com.google.protobuf.ByteString;
+import org.apache.arrow.flight.impl.Flight;
 
 /**
  * An opaque action for the service to perform.

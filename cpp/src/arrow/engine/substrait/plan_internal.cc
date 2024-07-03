@@ -65,7 +65,7 @@ Result<std::unique_ptr<substrait::Plan>> PlanToProto(
   plan_rel->set_allocated_root(rel_root.release());
   subs_plan->mutable_relations()->AddAllocated(plan_rel.release());
   RETURN_NOT_OK(AddExtensionSetToPlan(*ext_set, subs_plan.get()));
-  return std::move(subs_plan);
+  return subs_plan;
 }
 
 }  // namespace engine

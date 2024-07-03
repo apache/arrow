@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc;
 
 import java.sql.Array;
@@ -23,7 +22,6 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Arrays;
 import java.util.Map;
-
 import org.apache.arrow.driver.jdbc.accessor.impl.complex.AbstractArrowFlightJdbcListVectorAccessor;
 import org.apache.arrow.driver.jdbc.utils.SqlTypes;
 import org.apache.arrow.memory.util.LargeMemoryUtil;
@@ -46,9 +44,10 @@ public class ArrowFlightJdbcArray implements Array {
   private final long valuesCount;
 
   /**
-   * Instantiate an {@link Array} backed up by given {@link FieldVector}, limited by a start offset and values count.
+   * Instantiate an {@link Array} backed up by given {@link FieldVector}, limited by a start offset
+   * and values count.
    *
-   * @param dataVector  underlying FieldVector, containing the Array items.
+   * @param dataVector underlying FieldVector, containing the Array items.
    * @param startOffset offset from FieldVector pointing to this Array's first value.
    * @param valuesCount how many items this Array contains.
    */
@@ -111,8 +110,8 @@ public class ArrowFlightJdbcArray implements Array {
     }
 
     checkBoundaries(index, count);
-    return getArrayNoBoundCheck(this.dataVector,
-        LargeMemoryUtil.checkedCastToInt(this.startOffset + index), count);
+    return getArrayNoBoundCheck(
+        this.dataVector, LargeMemoryUtil.checkedCastToInt(this.startOffset + index), count);
   }
 
   @Override
@@ -134,12 +133,11 @@ public class ArrowFlightJdbcArray implements Array {
     return getResultSet(index, count, null);
   }
 
-  private static ResultSet getResultSetNoBoundariesCheck(ValueVector dataVector, long start,
-                                                         long count)
-      throws SQLException {
+  private static ResultSet getResultSetNoBoundariesCheck(
+      ValueVector dataVector, long start, long count) throws SQLException {
     TransferPair transferPair = dataVector.getTransferPair(dataVector.getAllocator());
-    transferPair.splitAndTransfer(LargeMemoryUtil.checkedCastToInt(start),
-        LargeMemoryUtil.checkedCastToInt(count));
+    transferPair.splitAndTransfer(
+        LargeMemoryUtil.checkedCastToInt(start), LargeMemoryUtil.checkedCastToInt(count));
     FieldVector vectorSlice = (FieldVector) transferPair.getTo();
 
     VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.of(vectorSlice);
@@ -154,14 +152,12 @@ public class ArrowFlightJdbcArray implements Array {
     }
 
     checkBoundaries(index, count);
-    return getResultSetNoBoundariesCheck(this.dataVector,
-        LargeMemoryUtil.checkedCastToInt(this.startOffset + index), count);
+    return getResultSetNoBoundariesCheck(
+        this.dataVector, LargeMemoryUtil.checkedCastToInt(this.startOffset + index), count);
   }
 
   @Override
-  public void free() {
-
-  }
+  public void free() {}
 
   @Override
   public String toString() {

@@ -48,10 +48,10 @@ a version of your choosing.
 
 ```bash
 $ flatc --version
-flatc version 23.5.26
+flatc version 24.3.25
 
 $ grep "dep.fbs.version" java/pom.xml
-    <dep.fbs.version>23.5.26</dep.fbs.version>
+    <dep.fbs.version>24.3.25</dep.fbs.version>
 ```
 
 2. Generate the flatbuffer java files by performing the following:
@@ -66,10 +66,7 @@ rm -rf java/format/src
 flatc --java -o java/format/src/main/java format/*.fbs
 
 # prepend license header
-find java/format/src -type f | while read file; do
-  (cat header | while read line; do echo "// $line"; done; cat $file) > $file.tmp
-  mv $file.tmp $file
-done
+mvn spotless:apply -pl :arrow-format
 ```
 
 ## Performance Tuning

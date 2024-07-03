@@ -14,9 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.grpc;
 
+import io.netty.buffer.ByteBuf;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.reflect.Constructor;
@@ -24,8 +24,6 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
-
-import io.netty.buffer.ByteBuf;
 
 /**
  * Allow a user to add a ByteBuf based InputStream directly into GRPC WritableBuffer to avoid an
@@ -41,7 +39,6 @@ public class AddWritableBuffer {
   private static final Class<?> bufChainOut;
 
   static {
-
     Constructor<?> tmpConstruct = null;
     Field tmpBufferList = null;
     Field tmpCurrent = null;
@@ -54,7 +51,8 @@ public class AddWritableBuffer {
       Constructor<?> tmpConstruct2 = nwb.getDeclaredConstructor(ByteBuf.class);
       tmpConstruct2.setAccessible(true);
 
-      Class<?> tmpBufChainOut2 = Class.forName("io.grpc.internal.MessageFramer$BufferChainOutputStream");
+      Class<?> tmpBufChainOut2 =
+          Class.forName("io.grpc.internal.MessageFramer$BufferChainOutputStream");
 
       Field tmpBufferList2 = tmpBufChainOut2.getDeclaredField("bufferList");
       tmpBufferList2.setAccessible(true);
@@ -72,7 +70,8 @@ public class AddWritableBuffer {
       tmpBufChainOut = tmpBufChainOut2;
 
     } catch (Exception ex) {
-      new RuntimeException("Failed to initialize AddWritableBuffer, falling back to slow path", ex).printStackTrace();
+      new RuntimeException("Failed to initialize AddWritableBuffer, falling back to slow path", ex)
+          .printStackTrace();
     }
 
     bufConstruct = tmpConstruct;
@@ -80,18 +79,22 @@ public class AddWritableBuffer {
     current = tmpCurrent;
     listAdd = tmpListAdd;
     bufChainOut = tmpBufChainOut;
-
   }
 
   /**
-   * Add the provided ByteBuf to the gRPC BufferChainOutputStream if possible, else copy the buffer to the stream.
+   * Add the provided ByteBuf to the gRPC BufferChainOutputStream if possible, else copy the buffer
+   * to the stream.
+   *
    * @param buf The buffer to add.
    * @param stream The Candidate OutputStream to add to.
-   * @param tryZeroCopy If true, try to zero-copy append the buffer to the stream. This may not succeed.
+   * @param tryZeroCopy If true, try to zero-copy append the buffer to the stream. This may not
+   *     succeed.
    * @return True if buffer was zero-copy added to the stream. False if the buffer was copied.
-   * @throws IOException if the fast path is not enabled and there was an error copying the buffer to the stream.
+   * @throws IOException if the fast path is not enabled and there was an error copying the buffer
+   *     to the stream.
    */
-  public static boolean add(ByteBuf buf, OutputStream stream, boolean tryZeroCopy) throws IOException {
+  public static boolean add(ByteBuf buf, OutputStream stream, boolean tryZeroCopy)
+      throws IOException {
     if (!tryZeroCopy || !tryAddBuffer(buf, stream)) {
       buf.getBytes(0, stream, buf.readableBytes());
       return false;
@@ -120,7 +123,10 @@ public class AddWritableBuffer {
       listAdd.invoke(list, obj);
       current.set(stream, obj);
       return true;
-    } catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException | InstantiationException e) {
+    } catch (IllegalAccessException
+        | IllegalArgumentException
+        | InvocationTargetException
+        | InstantiationException e) {
       e.printStackTrace();
       return false;
     }

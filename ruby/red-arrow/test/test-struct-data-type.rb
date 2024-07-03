@@ -101,7 +101,7 @@ class StructDataTypeTest < Test::Unit::TestCase
 
       test("[invalid]") do
         invalid = []
-        message = "field name or index must be String, Symbol or Integer"
+        message = +"field name or index must be String, Symbol or Integer"
         message << ": <#{invalid.inspect}>"
         assert_raise(ArgumentError.new(message)) do
           @data_type[invalid]

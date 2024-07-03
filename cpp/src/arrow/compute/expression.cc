@@ -763,9 +763,7 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const ExecBatch& i
   for (size_t i = 0; i < arguments.size(); ++i) {
     ARROW_ASSIGN_OR_RAISE(
         arguments[i], ExecuteScalarExpression(call->arguments[i], input, exec_context));
-    if (arguments[i].is_array()) {
-      all_scalar = false;
-    }
+    all_scalar &= arguments[i].is_scalar();
   }
 
   int64_t input_length;
@@ -1645,7 +1643,7 @@ Expression and_(const std::vector<Expression>& operands) {
 
   Expression folded = operands.front();
   for (auto it = operands.begin() + 1; it != operands.end(); ++it) {
-    folded = and_(std::move(folded), std::move(*it));
+    folded = and_(std::move(folded), *it);
   }
   return folded;
 }
@@ -1659,7 +1657,7 @@ Expression or_(const std::vector<Expression>& operands) {
 
   Expression folded = operands.front();
   for (auto it = operands.begin() + 1; it != operands.end(); ++it) {
-    folded = or_(std::move(folded), std::move(*it));
+    folded = or_(std::move(folded), *it);
   }
   return folded;
 }

@@ -80,6 +80,10 @@ case "$(uname)" in
     ;;
 esac
 
+if [ "${ARROW_EMSCRIPTEN:-OFF}" = "ON" ]; then  
+  n_jobs=1 # avoid spurious fails on emscripten due to loading too many big executables
+fi
+
 pushd ${build_dir}
 
 if [ -z "${PYTHON}" ] && ! which python > /dev/null 2>&1; then

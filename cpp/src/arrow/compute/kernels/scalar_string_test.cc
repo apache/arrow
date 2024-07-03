@@ -1988,6 +1988,11 @@ TYPED_TEST(TestBaseBinaryKernels, ExtractRegexInvalid) {
 #endif
 
 TYPED_TEST(TestStringKernels, Strptime) {
+#ifdef __EMSCRIPTEN__
+  GTEST_SKIP() << "Skipping some strptime tests due to emscripten bug "
+                  "https://github.com/emscripten-core/emscripten/issues/20466";
+#endif
+
   std::string input1 = R"(["5/1/2020", null, null, "12/13/1900", null])";
   std::string input2 = R"(["5-1-2020", "12/13/1900"])";
   std::string input3 = R"(["5/1/2020", "AA/BB/CCCC"])";
@@ -2008,6 +2013,7 @@ TYPED_TEST(TestStringKernels, Strptime) {
   this->CheckUnary("strptime", input4, unit, output4, &options);
 
   options.format = "%m/%d/%Y %%z";
+  // emscripten bug https://github.com/emscripten-core/emscripten/issues/20466
   this->CheckUnary("strptime", input5, unit, output1, &options);
 
   options.error_is_null = false;
@@ -2019,6 +2025,11 @@ TYPED_TEST(TestStringKernels, Strptime) {
 }
 
 TYPED_TEST(TestStringKernels, StrptimeZoneOffset) {
+#ifdef __EMSCRIPTEN__
+  GTEST_SKIP()
+      << "Emscripten bug https://github.com/emscripten-core/emscripten/issues/20467";
+#endif
+
   if (!arrow::internal::kStrptimeSupportsZone) {
     GTEST_SKIP() << "strptime does not support %z on this platform";
   }
@@ -2105,6 +2116,12 @@ TYPED_TEST(TestStringKernels, PadUTF8) {
       "utf8_rpad", R"([null, "a", "bb", "b\u00E1r", "foobar"])", this->type(),
       R"([null, "a\u2008\u2008\u2008\u2008", "bb\u2008\u2008\u2008", "b\u00E1r\u2008\u2008", "foobar"])",
       &options);
+
+  PadOptions options2{/*width=*/5, "\xe2\x80\x88", /*lean_left_on_odd_padding=*/false};
+  this->CheckUnary(
+      "utf8_center", R"([null, "a", "bb", "b\u00E1r", "foobar"])", this->type(),
+      R"([null, "\u2008\u2008a\u2008\u2008", "\u2008\u2008bb\u2008", "\u2008b\u00E1r\u2008", "foobar"])",
+      &options2);
 
   PadOptions options_bad{/*width=*/3, /*padding=*/"spam"};
   auto input = ArrayFromJSON(this->type(), R"(["foo"])");
@@ -2447,6 +2464,10 @@ TYPED_TEST(TestStringKernels, PadAscii) {
                    R"([null, "    a", "   bb", "  bar", "foobar"])", &options);
   this->CheckUnary("ascii_rpad", R"([null, "a", "bb", "bar", "foobar"])", this->type(),
                    R"([null, "a    ", "bb   ", "bar  ", "foobar"])", &options);
+
+  PadOptions options2{/*width=*/5, " ", /*lean_left_on_odd_padding=*/false};
+  this->CheckUnary("ascii_center", R"([null, "a", "bb", "bar", "foobar"])", this->type(),
+                   R"([null, "  a  ", "  bb ", " bar ", "foobar"])", &options2);
 
   PadOptions options_bad{/*width=*/3, /*padding=*/"spam"};
   auto input = ArrayFromJSON(this->type(), R"(["foo"])");

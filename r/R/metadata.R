@@ -30,7 +30,7 @@
     }
   }
 
-  out <- serialize(x, NULL, ascii = TRUE)
+  out <- serialize(safe_r_metadata(x, on_save = TRUE), NULL, ascii = TRUE)
 
   # if the metadata is over 100 kB, compress
   if (option_compress_metadata() && object.size(out) > 100000) {
@@ -44,21 +44,108 @@
 }
 
 .deserialize_arrow_r_metadata <- function(x) {
-  tryCatch(
-    expr = {
-      out <- unserialize(charToRaw(x))
-
-      # if this is still raw, try decompressing
-      if (is.raw(out)) {
-        out <- unserialize(memDecompress(out, type = "gzip"))
-      }
-      out
-    },
+  tryCatch(unserialize_r_metadata(x),
     error = function(e) {
+      if (getOption("arrow.debug", FALSE)) {
+        print(conditionMessage(e))
+      }
       warning("Invalid metadata$r", call. = FALSE)
       NULL
     }
   )
+}
+
+unserialize_r_metadata <- function(x) {
+  # Check that this is ASCII serialized data (as in, what we wrote)
+  if (!identical(substr(unclass(x), 1, 1), "A")) {
+    stop("Invalid serialized data")
+  }
+  out <- safe_unserialize(charToRaw(x))
+  # If it's still raw, decompress and unserialize again
+  if (is.raw(out)) {
+    decompressed <- memDecompress(out, type = "gzip")
+    if (!identical(rawToChar(decompressed[1]), "A")) {
+      stop("Invalid serialized compressed data")
+    }
+    out <- safe_unserialize(decompressed)
+  }
+  if (!is.list(out)) {
+    stop("Invalid serialized data: must be a list")
+  }
+  safe_r_metadata(out)
+}
+
+safe_unserialize <- function(x) {
+  # By capturing the data in a list, we can inspect it for promises without
+  # triggering their evaluation.
+  out <- list(unserialize(x))
+  if (typeof(out[[1]]) == "promise") {
+    stop("Serialized data contains a promise object")
+  }
+  out[[1]]
+}
+
+safe_r_metadata <- function(metadata, on_save = FALSE) {
+  # This function recurses through the metadata list and checks that all
+  # elements are of types that are allowed in R metadata.
+  # If it finds an element that is not allowed, it removes it.
+  #
+  # This function is used both when saving and loading metadata.
+  # @param on_save: If TRUE, the function will not warn if it removes elements:
+  # we're just cleaning up the metadata for saving. If FALSE, it means we're
+  # loading the metadata, and we'll warn if we find invalid elements.
+  #
+  # When loading metadata, you can optionally keep the invalid elements by
+  # setting `options(arrow.unsafe_metadata = TRUE)`. It will still check
+  # for invalid elements and warn if any are found, though.
+
+  # This variable will be used to store the types of elements that were removed,
+  # if any, so we can give an informative warning if needed.
+  types_removed <- c()
+
+  # Internal function that we'll recursively apply,
+  # and mutate the `types_removed` variable outside of it.
+  check_r_metadata_types_recursive <- function(x) {
+    allowed_types <- c("character", "double", "integer", "logical", "complex", "list", "NULL")
+    if (is.list(x)) {
+      types <- map_chr(x, typeof)
+      x[types == "list"] <- map(x[types == "list"], check_r_metadata_types_recursive)
+      ok <- types %in% allowed_types
+      if (!all(ok)) {
+        # Record the invalid types, then remove the offending elements
+        types_removed <<- c(types_removed, setdiff(types, allowed_types))
+        x <- x[ok]
+      }
+    }
+    x
+  }
+  new <- check_r_metadata_types_recursive(metadata)
+
+  # On save: don't warn, just save the filtered metadata
+  if (on_save) {
+    return(new)
+  }
+  # On load: warn if any elements were removed
+  if (length(types_removed)) {
+    types_msg <- paste("Type:", oxford_paste(unique(types_removed)))
+    if (getOption("arrow.unsafe_metadata", FALSE)) {
+      # We've opted-in to unsafe metadata, so warn but return the original metadata
+      rlang::warn(
+        "R metadata may have unsafe or invalid elements",
+        body = c("i" = types_msg)
+      )
+      new <- metadata
+    } else {
+      rlang::warn(
+        "Potentially unsafe or invalid elements have been discarded from R metadata.",
+        body = c(
+          "i" = types_msg,
+          ">" = "If you trust the source, you can set `options(arrow.unsafe_metadata = TRUE)` to preserve them."
+        )
+      )
+    }
+  }
+  new
 }
 
 #' @importFrom rlang trace_back

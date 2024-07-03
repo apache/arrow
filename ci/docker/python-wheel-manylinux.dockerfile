@@ -39,8 +39,7 @@ ENV CPYTHON_VERSION=cp38
 ENV PATH=/opt/python/${CPYTHON_VERSION}-${CPYTHON_VERSION}/bin:${PATH}
 
 # Install CMake
-# AWS SDK doesn't work with CMake=3.22 due to https://gitlab.kitware.com/cmake/cmake/-/issues/22524
-ARG cmake=3.21.4
+ARG cmake=3.29.2
 COPY ci/scripts/install_cmake.sh arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_cmake.sh ${arch} linux ${cmake} /usr/local
 
@@ -99,5 +98,4 @@ SHELL ["/bin/bash", "-i", "-c"]
 ENTRYPOINT ["/bin/bash", "-i", "-c"]
 
 COPY python/requirements-wheel-build.txt /arrow/python/
-# TODO(GH-39848) Remove the `--pre --extra-index-url` for numpy nightly again before the 16.0 release 
-RUN pip install -r /arrow/python/requirements-wheel-build.txt --pre --extra-index-url "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple"
+RUN pip install -r /arrow/python/requirements-wheel-build.txt

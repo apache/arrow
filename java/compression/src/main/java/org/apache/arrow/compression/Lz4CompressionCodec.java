@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.compression;
 
 import java.io.ByteArrayInputStream;
@@ -22,7 +21,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
@@ -32,21 +30,21 @@ import org.apache.commons.compress.compressors.lz4.FramedLZ4CompressorInputStrea
 import org.apache.commons.compress.compressors.lz4.FramedLZ4CompressorOutputStream;
 import org.apache.commons.compress.utils.IOUtils;
 
-/**
- * Compression codec for the LZ4 algorithm.
- */
+/** Compression codec for the LZ4 algorithm. */
 public class Lz4CompressionCodec extends AbstractCompressionCodec {
 
   @Override
   protected ArrowBuf doCompress(BufferAllocator allocator, ArrowBuf uncompressedBuffer) {
-    Preconditions.checkArgument(uncompressedBuffer.writerIndex() <= Integer.MAX_VALUE,
-        "The uncompressed buffer size exceeds the integer limit %s.", Integer.MAX_VALUE);
+    Preconditions.checkArgument(
+        uncompressedBuffer.writerIndex() <= Integer.MAX_VALUE,
+        "The uncompressed buffer size exceeds the integer limit %s.",
+        Integer.MAX_VALUE);
 
     byte[] inBytes = new byte[(int) uncompressedBuffer.writerIndex()];
-    uncompressedBuffer.getBytes(/*index=*/0, inBytes);
+    uncompressedBuffer.getBytes(/*index=*/ 0, inBytes);
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
     try (InputStream in = new ByteArrayInputStream(inBytes);
-         OutputStream out = new FramedLZ4CompressorOutputStream(baos)) {
+        OutputStream out = new FramedLZ4CompressorOutputStream(baos)) {
       IOUtils.copy(in, out);
     } catch (IOException e) {
       throw new RuntimeException(e);
@@ -54,7 +52,8 @@ public class Lz4CompressionCodec extends AbstractCompressionCodec {
 
     byte[] outBytes = baos.toByteArray();
 
-    ArrowBuf compressedBuffer = allocator.buffer(CompressionUtil.SIZE_OF_UNCOMPRESSED_LENGTH + outBytes.length);
+    ArrowBuf compressedBuffer =
+        allocator.buffer(CompressionUtil.SIZE_OF_UNCOMPRESSED_LENGTH + outBytes.length);
     compressedBuffer.setBytes(CompressionUtil.SIZE_OF_UNCOMPRESSED_LENGTH, outBytes);
     compressedBuffer.writerIndex(CompressionUtil.SIZE_OF_UNCOMPRESSED_LENGTH + outBytes.length);
     return compressedBuffer;
@@ -62,12 +61,16 @@ public class Lz4CompressionCodec extends AbstractCompressionCodec {
 
   @Override
   protected ArrowBuf doDecompress(BufferAllocator allocator, ArrowBuf compressedBuffer) {
-    Preconditions.checkArgument(compressedBuffer.writerIndex() <= Integer.MAX_VALUE,
-        "The compressed buffer size exceeds the integer limit %s", Integer.MAX_VALUE);
+    Preconditions.checkArgument(
+        compressedBuffer.writerIndex() <= Integer.MAX_VALUE,
+        "The compressed buffer size exceeds the integer limit %s",
+        Integer.MAX_VALUE);
 
     long decompressedLength = readUncompressedLength(compressedBuffer);
 
-    byte[] inBytes = new byte[(int) (compressedBuffer.writerIndex() - CompressionUtil.SIZE_OF_UNCOMPRESSED_LENGTH)];
+    byte[] inBytes =
+        new byte
+            [(int) (compressedBuffer.writerIndex() - CompressionUtil.SIZE_OF_UNCOMPRESSED_LENGTH)];
     compressedBuffer.getBytes(CompressionUtil.SIZE_OF_UNCOMPRESSED_LENGTH, inBytes);
     ByteArrayOutputStream out = new ByteArrayOutputStream((int) decompressedLength);
     try (InputStream in = new FramedLZ4CompressorInputStream(new ByteArrayInputStream(inBytes))) {
@@ -78,7 +81,7 @@ public class Lz4CompressionCodec extends AbstractCompressionCodec {
 
     byte[] outBytes = out.toByteArray();
     ArrowBuf decompressedBuffer = allocator.buffer(outBytes.length);
-    decompressedBuffer.setBytes(/*index=*/0, outBytes);
+    decompressedBuffer.setBytes(/*index=*/ 0, outBytes);
     decompressedBuffer.writerIndex(decompressedLength);
     return decompressedBuffer;
   }

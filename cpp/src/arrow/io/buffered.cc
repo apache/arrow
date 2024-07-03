@@ -282,12 +282,19 @@ class BufferedInputStream::Impl : public BufferedBase {
     return raw_pos_ - bytes_buffered_;
   }
 
+  // Resize internal read buffer. Note that the internal buffer-size
+  // should be not larger than the raw_read_bound_.
   Status SetBufferSize(int64_t new_buffer_size) {
     if (new_buffer_size <= 0) {
       return Status::Invalid("Buffer size should be positive");
     }
     if ((buffer_pos_ + bytes_buffered_) >= new_buffer_size) {
       return Status::Invalid("Cannot shrink read buffer if buffered data remains");
+    }
+    if (raw_read_bound_ >= 0) {
+      // No need to reserve space for more than the total remaining number of bytes.
+      new_buffer_size = std::min(new_buffer_size,
+                                 bytes_buffered_ + (raw_read_bound_ - raw_read_total_));
     }
     return ResizeBuffer(new_buffer_size);
   }
@@ -423,7 +430,8 @@ class BufferedInputStream::Impl : public BufferedBase {
       RETURN_NOT_OK(buffer->Resize(bytes_read, false /* shrink_to_fit */));
       buffer->ZeroPadding();
     }
-    return std::move(buffer);
+    // R build with openSUSE155 requires an explicit shared_ptr construction
+    return std::shared_ptr<Buffer>(std::move(buffer));
   }
 
   // For providing access to the raw file handles
@@ -432,6 +440,8 @@ class BufferedInputStream::Impl : public BufferedBase {
  private:
   std::shared_ptr<InputStream> raw_;
   int64_t raw_read_total_;
+  // a bound on the maximum number of bytes to read from the raw input stream.
+  // The default -1 indicates that it is unbounded
   int64_t raw_read_bound_;
 
   // Number of remaining bytes in the buffer, to be reduced on each read from

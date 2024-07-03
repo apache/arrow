@@ -14,20 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.ipc;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Adapter around {@link ReadableByteChannel} that reads into {@linkplain ArrowBuf}s.
- */
+/** Adapter around {@link ReadableByteChannel} that reads into {@linkplain ArrowBuf}s. */
 public class ReadChannel implements AutoCloseable {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(ReadChannel.class);
@@ -44,8 +40,8 @@ public class ReadChannel implements AutoCloseable {
   }
 
   /**
-   * Reads bytes into buffer until it is full (buffer.remaining() == 0). Returns the
-   * number of bytes read which can be less than full if there are no more.
+   * Reads bytes into buffer until it is full (buffer.remaining() == 0). Returns the number of bytes
+   * read which can be less than full if there are no more.
    *
    * @param buffer The buffer to read to
    * @return the number of byte read

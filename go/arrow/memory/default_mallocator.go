@@ -19,7 +19,7 @@
 package memory
 
 import (
-	"github.com/apache/arrow/go/v16/arrow/memory/mallocator"
+	"github.com/apache/arrow/go/v17/arrow/memory/mallocator"
 )
 
 // DefaultAllocator is a default implementation of Allocator and can be used anywhere
