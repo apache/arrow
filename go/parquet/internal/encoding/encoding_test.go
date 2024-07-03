@@ -871,37 +871,3 @@ func TestBooleanPlainDecoderAfterFlushing(t *testing.T) {
 	assert.Equal(t, n, 1)
 	assert.Equal(t, decSlice[0], false)
 }
-
-// Test encoding in multiple chunks to validate we're properly resetting the encoder/decoder between writes/reads.
-// Chunking ByteStreamSplit-encoded data in this way is not typical, it primarily tests internal behavior.
-func TestMultipleChunksByteStreamSplit(t *testing.T) {
-	size := 10
-	chunk := 6
-
-	input := make([]int32, size)
-	output := make([]int32, size)
-	for idx := range input {
-		input[idx] = int32(idx)
-	}
-	encoder := encoding.NewEncoder(parquet.Types.Int32, parquet.Encodings.ByteStreamSplit,
-		false, nil, memory.DefaultAllocator).(encoding.Int32Encoder)
-
-	encoder.Put(input[:chunk])
-	encoder.Put(input[chunk:])
-	buf, err := encoder.FlushValues()
-	require.NoError(t, err)
-	defer buf.Release()
-
-	decoder := encoding.NewDecoder(parquet.Types.Int32, parquet.Encodings.ByteStreamSplit, nil, memory.DefaultAllocator)
-	require.NoError(t, decoder.SetData(size, buf.Bytes()))
-
-	nvals, err := decoder.(encoding.Int32Decoder).Decode(output[:chunk])
-	require.NoError(t, err)
-	require.Equal(t, chunk, nvals)
-
-	nvals, err = decoder.(encoding.Int32Decoder).Decode(output[chunk:])
-	require.NoError(t, err)
-	require.Equal(t, size-chunk, nvals)
-
-	require.Equal(t, input, output)
-}

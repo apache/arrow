@@ -20,7 +20,6 @@ import (
 	"math"
 
 	"github.com/apache/arrow/go/v17/arrow"
-	"github.com/apache/arrow/go/v17/internal/bitutils"
 	"github.com/apache/arrow/go/v17/internal/utils"
 	"github.com/apache/arrow/go/v17/parquet"
 	"golang.org/x/xerrors"
@@ -34,31 +33,9 @@ type ByteStreamSplitType interface {
 	NumericByteStreamSplitType | parquet.FixedLenByteArray
 }
 
-// putByteStreamSplitNumeric is a generic implementation of the BYTE_STREAM_SPLIT encoding for fixed-width numeric types.
-func putByteStreamSplitNumeric[T NumericByteStreamSplitType](in []T, enc TypedEncoder, sink *PooledBufferWriter) {
-	numElements := len(in)
-	typeLen := enc.Type().ByteSize()
-	bytesNeeded := numElements * typeLen
-	sink.Reserve(bytesNeeded)
-
-	data := sink.buf.Bytes()
-	data = data[sink.pos : sink.pos+bytesNeeded] // Get the chunk of memory we plan to write to
-
-	inBytes := arrow.GetBytes(in)
-	switch typeLen {
-	case 4:
-		encodeByteStreamSplitWidth4(data, inBytes, numElements)
-	case 8:
-		encodeByteStreamSplitWidth8(data, inBytes, numElements)
-	default:
-		encodeByteStreamSplit(data, inBytes, numElements, typeLen)
-	}
-
-	sink.pos += bytesNeeded
-}
-
 // encodeByteStreamSplit encodes the raw bytes provided by 'in' into the output buffer 'data' using BYTE_STREAM_SPLIT encoding
-func encodeByteStreamSplit(data []byte, in []byte, numElements, width int) {
+func encodeByteStreamSplit(data []byte, in []byte, width int) {
+	numElements := len(in) / width
 	for stream := 0; stream < width; stream++ {
 		for element := 0; element < numElements; element++ {
 			encLoc := numElements*stream + element
@@ -68,9 +45,21 @@ func encodeByteStreamSplit(data []byte, in []byte, numElements, width int) {
 	}
 }
 
+// encodeByteStreamSplitWidth2 implements encodeByteStreamSplit optimized for types stored using 2 bytes
+func encodeByteStreamSplitWidth2(data []byte, in []byte) {
+	width := 2
+	numElements := len(in) / width
+	for element := 0; element < numElements; element++ {
+		decLoc := width * element
+		data[element] = in[decLoc]
+		data[numElements+element] = in[decLoc+1]
+	}
+}
+
 // encodeByteStreamSplitWidth4 implements encodeByteStreamSplit optimized for types stored using 4 bytes
-func encodeByteStreamSplitWidth4(data []byte, in []byte, numElements int) {
+func encodeByteStreamSplitWidth4(data []byte, in []byte) {
 	width := 4
+	numElements := len(in) / width
 	for element := 0; element < numElements; element++ {
 		decLoc := width * element
 		data[element] = in[decLoc]
@@ -81,8 +70,9 @@ func encodeByteStreamSplitWidth4(data []byte, in []byte, numElements int) {
 }
 
 // encodeByteStreamSplitWidth8 implements encodeByteStreamSplit optimized for types stored using 8 bytes
-func encodeByteStreamSplitWidth8(data []byte, in []byte, numElements int) {
+func encodeByteStreamSplitWidth8(data []byte, in []byte) {
 	width := 8
+	numElements := len(in) / width
 	for element := 0; element < numElements; element++ {
 		decLoc := width * element
 		data[element] = in[decLoc]
@@ -93,28 +83,6 @@ func encodeByteStreamSplitWidth8(data []byte, in []byte, numElements int) {
 		data[numElements*5+element] = in[decLoc+5]
 		data[numElements*6+element] = in[decLoc+6]
 		data[numElements*7+element] = in[decLoc+7]
-	}
-}
-
-// putByteStreamSplitSpaced encodes data that has space for nulls using the BYTE_STREAM_SPLIT encoding, calling to the provided putFn to encode runs of non-null values.
-func putByteStreamSplitSpaced[T ByteStreamSplitType](in []T, validBits []byte, validBitsOffset int64, bitSetReader bitutils.SetBitRunReader, putFn func([]T)) {
-	if validBits == nil {
-		putFn(in)
-		return
-	}
-
-	if bitSetReader == nil {
-		bitSetReader = bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(in)))
-	} else {
-		bitSetReader.Reset(validBits, validBitsOffset, int64(len(in)))
-	}
-
-	for {
-		run := bitSetReader.NextRun()
-		if run.Length == 0 {
-			break
-		}
-		putFn(in[int(run.Pos):int(run.Pos+run.Length)])
 	}
 }
 
@@ -195,92 +163,76 @@ func decodeByteStreamSplitSpaced[T ByteStreamSplitType](out []T, nullCount int, 
 	return spacedExpand(out, nullCount, validBits, validBitsOffset), nil
 }
 
+func flushByteStreamSplit(enc TypedEncoder) (Buffer, *PooledBufferWriter, error) {
+	in, err := enc.FlushValues()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	out := NewPooledBufferWriter(in.Len())
+	out.buf.ResizeNoShrink(in.Len())
+
+	return in, out, nil
+}
+
 // ByteStreamSplitFloat32Encoder writes the underlying bytes of the Float32
 // into interlaced streams as defined by the BYTE_STREAM_SPLIT encoding
 type ByteStreamSplitFloat32Encoder struct {
-	encoder
-	bitSetReader bitutils.SetBitRunReader
+	PlainFloat32Encoder
 }
 
-// Put writes the provided values to the encoder
-func (enc *ByteStreamSplitFloat32Encoder) Put(in []float32) {
-	putByteStreamSplitNumeric(in, enc, enc.sink)
-}
-
-// PutSpaced is like Put but works with data that is spaced out according to the passed in bitmap
-func (enc *ByteStreamSplitFloat32Encoder) PutSpaced(in []float32, validBits []byte, validBitsOffset int64) {
-	putByteStreamSplitSpaced(in, validBits, validBitsOffset, enc.bitSetReader, enc.Put)
-}
-
-// Type returns the underlying physical type this encoder works with, Float32.
-func (enc ByteStreamSplitFloat32Encoder) Type() parquet.Type {
-	return parquet.Types.Float
+func (enc *ByteStreamSplitFloat32Encoder) FlushValues() (Buffer, error) {
+	in, out, err := flushByteStreamSplit(&enc.PlainFloat32Encoder)
+	if err != nil {
+		return nil, err
+	}
+	encodeByteStreamSplitWidth4(out.Bytes(), in.Bytes())
+	return out.Finish(), nil
 }
 
 // ByteStreamSplitFloat64Encoder writes the underlying bytes of the Float64
 // into interlaced streams as defined by the BYTE_STREAM_SPLIT encoding
 type ByteStreamSplitFloat64Encoder struct {
-	encoder
-	bitSetReader bitutils.SetBitRunReader
+	PlainFloat64Encoder
 }
 
-// Put writes the provided values to the encoder
-func (enc *ByteStreamSplitFloat64Encoder) Put(in []float64) {
-	putByteStreamSplitNumeric(in, enc, enc.sink)
-}
-
-// PutSpaced is like Put but works with data that is spaced out according to the passed in bitmap
-func (enc *ByteStreamSplitFloat64Encoder) PutSpaced(in []float64, validBits []byte, validBitsOffset int64) {
-	putByteStreamSplitSpaced(in, validBits, validBitsOffset, enc.bitSetReader, enc.Put)
-}
-
-// Type returns the underlying physical type this encoder works with, Float64.
-func (enc ByteStreamSplitFloat64Encoder) Type() parquet.Type {
-	return parquet.Types.Double
+func (enc *ByteStreamSplitFloat64Encoder) FlushValues() (Buffer, error) {
+	in, out, err := flushByteStreamSplit(&enc.PlainFloat64Encoder)
+	if err != nil {
+		return nil, err
+	}
+	encodeByteStreamSplitWidth8(out.Bytes(), in.Bytes())
+	return out.Finish(), nil
 }
 
 // ByteStreamSplitInt32Encoder writes the underlying bytes of the Int32
 // into interlaced streams as defined by the BYTE_STREAM_SPLIT encoding
 type ByteStreamSplitInt32Encoder struct {
-	encoder
-	bitSetReader bitutils.SetBitRunReader
+	PlainInt32Encoder
 }
 
-// Put writes the provided values to the encoder
-func (enc *ByteStreamSplitInt32Encoder) Put(in []int32) {
-	putByteStreamSplitNumeric(in, enc, enc.sink)
-}
-
-// PutSpaced is like Put but works with data that is spaced out according to the passed in bitmap
-func (enc *ByteStreamSplitInt32Encoder) PutSpaced(in []int32, validBits []byte, validBitsOffset int64) {
-	putByteStreamSplitSpaced(in, validBits, validBitsOffset, enc.bitSetReader, enc.Put)
-}
-
-// Type returns the underlying physical type this encoder works with, Int32.
-func (enc ByteStreamSplitInt32Encoder) Type() parquet.Type {
-	return parquet.Types.Int32
+func (enc *ByteStreamSplitInt32Encoder) FlushValues() (Buffer, error) {
+	in, out, err := flushByteStreamSplit(&enc.PlainInt32Encoder)
+	if err != nil {
+		return nil, err
+	}
+	encodeByteStreamSplitWidth4(out.Bytes(), in.Bytes())
+	return out.Finish(), nil
 }
 
 // ByteStreamSplitInt64Encoder writes the underlying bytes of the Int64
 // into interlaced streams as defined by the BYTE_STREAM_SPLIT encoding
 type ByteStreamSplitInt64Encoder struct {
-	encoder
-	bitSetReader bitutils.SetBitRunReader
+	PlainInt64Encoder
 }
 
-// Put writes the provided values to the encoder
-func (enc *ByteStreamSplitInt64Encoder) Put(in []int64) {
-	putByteStreamSplitNumeric(in, enc, enc.sink)
-}
-
-// PutSpaced is like Put but works with data that is spaced out according to the passed in bitmap
-func (enc *ByteStreamSplitInt64Encoder) PutSpaced(in []int64, validBits []byte, validBitsOffset int64) {
-	putByteStreamSplitSpaced(in, validBits, validBitsOffset, enc.bitSetReader, enc.Put)
-}
-
-// Type returns the underlying physical type this encoder works with, Int64.
-func (enc ByteStreamSplitInt64Encoder) Type() parquet.Type {
-	return parquet.Types.Int64
+func (enc *ByteStreamSplitInt64Encoder) FlushValues() (Buffer, error) {
+	in, out, err := flushByteStreamSplit(&enc.PlainInt64Encoder)
+	if err != nil {
+		return nil, err
+	}
+	encodeByteStreamSplitWidth8(out.Bytes(), in.Bytes())
+	return out.Finish(), nil
 }
 
 // ByteStreamSplitFloat32Decoder is a decoder for BYTE_STREAM_SPLIT-encoded

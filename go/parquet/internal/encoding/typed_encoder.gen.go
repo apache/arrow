@@ -89,7 +89,7 @@ func (int32EncoderTraits) Encoder(e format.Encoding, useDict bool, descr *schema
 		return DeltaBitPackInt32Encoder{&deltaBitPackEncoder{
 			encoder: newEncoderBase(e, descr, mem)}}
 	case format.Encoding_BYTE_STREAM_SPLIT:
-		return &ByteStreamSplitInt32Encoder{encoder: newEncoderBase(e, descr, mem)}
+		return &ByteStreamSplitInt32Encoder{PlainInt32Encoder: PlainInt32Encoder{encoder: newEncoderBase(e, descr, mem)}}
 	default:
 		panic("unimplemented encoding type")
 	}
@@ -330,7 +330,7 @@ func (int64EncoderTraits) Encoder(e format.Encoding, useDict bool, descr *schema
 		return DeltaBitPackInt64Encoder{&deltaBitPackEncoder{
 			encoder: newEncoderBase(e, descr, mem)}}
 	case format.Encoding_BYTE_STREAM_SPLIT:
-		return &ByteStreamSplitInt64Encoder{encoder: newEncoderBase(e, descr, mem)}
+		return &ByteStreamSplitInt64Encoder{PlainInt64Encoder: PlainInt64Encoder{encoder: newEncoderBase(e, descr, mem)}}
 	default:
 		panic("unimplemented encoding type")
 	}
@@ -783,7 +783,7 @@ func (float32EncoderTraits) Encoder(e format.Encoding, useDict bool, descr *sche
 	case format.Encoding_PLAIN:
 		return &PlainFloat32Encoder{encoder: newEncoderBase(e, descr, mem)}
 	case format.Encoding_BYTE_STREAM_SPLIT:
-		return &ByteStreamSplitFloat32Encoder{encoder: newEncoderBase(e, descr, mem)}
+		return &ByteStreamSplitFloat32Encoder{PlainFloat32Encoder: PlainFloat32Encoder{encoder: newEncoderBase(e, descr, mem)}}
 	default:
 		panic("unimplemented encoding type")
 	}
@@ -1012,7 +1012,7 @@ func (float64EncoderTraits) Encoder(e format.Encoding, useDict bool, descr *sche
 	case format.Encoding_PLAIN:
 		return &PlainFloat64Encoder{encoder: newEncoderBase(e, descr, mem)}
 	case format.Encoding_BYTE_STREAM_SPLIT:
-		return &ByteStreamSplitFloat64Encoder{encoder: newEncoderBase(e, descr, mem)}
+		return &ByteStreamSplitFloat64Encoder{PlainFloat64Encoder: PlainFloat64Encoder{encoder: newEncoderBase(e, descr, mem)}}
 	default:
 		panic("unimplemented encoding type")
 	}
@@ -1509,7 +1509,7 @@ func (fixedLenByteArrayEncoderTraits) Encoder(e format.Encoding, useDict bool, d
 	case format.Encoding_PLAIN:
 		return &PlainFixedLenByteArrayEncoder{encoder: newEncoderBase(e, descr, mem)}
 	case format.Encoding_BYTE_STREAM_SPLIT:
-		return &ByteStreamSplitFixedLenByteArrayEncoder{encoder: newEncoderBase(e, descr, mem)}
+		return &ByteStreamSplitFixedLenByteArrayEncoder{PlainFixedLenByteArrayEncoder: PlainFixedLenByteArrayEncoder{encoder: newEncoderBase(e, descr, mem)}}
 	default:
 		panic("unimplemented encoding type")
 	}
