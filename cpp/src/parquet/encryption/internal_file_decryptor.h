@@ -47,7 +47,8 @@ class PARQUET_EXPORT Decryptor {
 
   [[nodiscard]] int PlaintextLength(int ciphertext_len) const;
   [[nodiscard]] int CiphertextLength(int plaintext_len) const;
-  int Decrypt(const uint8_t* ciphertext, int ciphertext_len, uint8_t* plaintext);
+  int Decrypt(::arrow::util::span<const uint8_t> ciphertext,
+              ::arrow::util::span<uint8_t> plaintext);
 
  private:
   std::shared_ptr<encryption::AesDecryptor> aes_decryptor_;

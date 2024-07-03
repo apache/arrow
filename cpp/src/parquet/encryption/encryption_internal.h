@@ -21,6 +21,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/util/span.h"
 #include "parquet/properties.h"
 #include "parquet/types.h"
 
@@ -114,8 +115,10 @@ class PARQUET_EXPORT AesDecryptor {
   /// validation. If different from value in constructor, exception will be thrown.
   /// The caller is responsible for ensuring that the plaintext buffer is at least as
   /// large as PlaintextLength(ciphertext_len).
-  int Decrypt(const uint8_t* ciphertext, int ciphertext_len, const uint8_t* key,
-              int key_len, const uint8_t* aad, int aad_len, uint8_t* plaintext);
+  int Decrypt(::arrow::util::span<const uint8_t> ciphertext,
+              ::arrow::util::span<const uint8_t> key,
+              ::arrow::util::span<const uint8_t> aad,
+              ::arrow::util::span<uint8_t> plaintext);
 
  private:
   // PIMPL Idiom

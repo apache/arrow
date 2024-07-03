@@ -39,28 +39,28 @@ class TestAesEncryption : public ::testing::Test {
 
     int expected_ciphertext_len =
         static_cast<int>(plain_text_.size()) + encryptor.CiphertextSizeDelta();
-    std::string ciphertext(expected_ciphertext_len, '\0');
+    std::vector<uint8_t> ciphertext(expected_ciphertext_len, '\0');
 
-    int ciphertext_length = encryptor.Encrypt(
-        str2bytes(plain_text_), static_cast<int>(plain_text_.size()), str2bytes(key_),
-        static_cast<int>(key_.size()), str2bytes(aad_), static_cast<int>(aad_.size()),
-        reinterpret_cast<uint8_t*>(&ciphertext[0]));
+    int ciphertext_length =
+        encryptor.Encrypt(str2bytes(plain_text_), static_cast<int>(plain_text_.size()),
+                          str2bytes(key_), static_cast<int>(key_.size()), str2bytes(aad_),
+                          static_cast<int>(aad_.size()), ciphertext.data());
 
     ASSERT_EQ(ciphertext_length, expected_ciphertext_len);
 
     AesDecryptor decryptor(cipher_type, key_length_, metadata, write_length);
 
     int expected_plaintext_length = decryptor.PlaintextLength(ciphertext_length);
-    std::string decrypted_text(expected_plaintext_length, '\0');
+    std::vector<uint8_t> decrypted_text(expected_plaintext_length, '\0');
 
-    int plaintext_length = decryptor.Decrypt(
-        str2bytes(ciphertext), ciphertext_length, str2bytes(key_),
-        static_cast<int>(key_.size()), str2bytes(aad_), static_cast<int>(aad_.size()),
-        reinterpret_cast<uint8_t*>(&decrypted_text[0]));
+    int plaintext_length =
+        decryptor.Decrypt(ciphertext, str2span(key_), str2span(aad_), decrypted_text);
+
+    std::string decrypted_text_str(decrypted_text.begin(), decrypted_text.end());
 
     ASSERT_EQ(plaintext_length, static_cast<int>(plain_text_.size()));
     ASSERT_EQ(plaintext_length, expected_plaintext_length);
-    ASSERT_EQ(decrypted_text, plain_text_);
+    ASSERT_EQ(decrypted_text_str, plain_text_);
   }
 
   void DecryptInvalidCiphertext(ParquetCipher::type cipher_type) {
@@ -71,16 +71,14 @@ class TestAesEncryption : public ::testing::Test {
 
     // Create ciphertext of all zeros, so the ciphertext length will be read as zero
     const int ciphertext_length = 100;
-    std::string ciphertext(ciphertext_length, '\0');
+    std::vector<uint8_t> ciphertext(ciphertext_length, '\0');
 
     int expected_plaintext_length = decryptor.PlaintextLength(ciphertext_length);
-    std::string decrypted_text(expected_plaintext_length, '\0');
+    std::vector<uint8_t> decrypted_text(expected_plaintext_length, '\0');
 
-    EXPECT_THROW(decryptor.Decrypt(str2bytes(ciphertext), 0, str2bytes(key_),
-                                   static_cast<int>(key_.size()), str2bytes(aad_),
-                                   static_cast<int>(aad_.size()),
-                                   reinterpret_cast<uint8_t*>(&decrypted_text[0])),
-                 ParquetException);
+    EXPECT_THROW(
+        decryptor.Decrypt(ciphertext, str2span(key_), str2span(aad_), decrypted_text),
+        ParquetException);
   }
 
   void DecryptCiphertextBufferTooSmall(ParquetCipher::type cipher_type) {
@@ -91,22 +89,22 @@ class TestAesEncryption : public ::testing::Test {
 
     int expected_ciphertext_len =
         static_cast<int>(plain_text_.size()) + encryptor.CiphertextSizeDelta();
-    std::string ciphertext(expected_ciphertext_len, '\0');
+    std::vector<uint8_t> ciphertext(expected_ciphertext_len, '\0');
 
-    int ciphertext_length = encryptor.Encrypt(
-        str2bytes(plain_text_), static_cast<int>(plain_text_.size()), str2bytes(key_),
-        static_cast<int>(key_.size()), str2bytes(aad_), static_cast<int>(aad_.size()),
-        reinterpret_cast<uint8_t*>(&ciphertext[0]));
+    int ciphertext_length =
+        encryptor.Encrypt(str2bytes(plain_text_), static_cast<int>(plain_text_.size()),
+                          str2bytes(key_), static_cast<int>(key_.size()), str2bytes(aad_),
+                          static_cast<int>(aad_.size()), ciphertext.data());
 
     AesDecryptor decryptor(cipher_type, key_length_, metadata, write_length);
 
     int expected_plaintext_length = decryptor.PlaintextLength(ciphertext_length);
-    std::string decrypted_text(expected_plaintext_length, '\0');
+    std::vector<uint8_t> decrypted_text(expected_plaintext_length, '\0');
 
-    EXPECT_THROW(decryptor.Decrypt(str2bytes(ciphertext), ciphertext_length - 1,
-                                   str2bytes(key_), static_cast<int>(key_.size()),
-                                   str2bytes(aad_), static_cast<int>(aad_.size()),
-                                   reinterpret_cast<uint8_t*>(&decrypted_text[0])),
+    ::arrow::util::span<uint8_t> truncated_ciphertext(ciphertext.data(),
+                                                      ciphertext_length - 1);
+    EXPECT_THROW(decryptor.Decrypt(truncated_ciphertext, str2span(key_), str2span(aad_),
+                                   decrypted_text),
                  ParquetException);
   }
 

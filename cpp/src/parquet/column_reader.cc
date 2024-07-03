@@ -515,7 +515,8 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
           crypto_ctx_.data_decryptor->PlaintextLength(compressed_len),
           /*shrink_to_fit=*/false));
       compressed_len = crypto_ctx_.data_decryptor->Decrypt(
-          page_buffer->data(), compressed_len, decryption_buffer_->mutable_data());
+          page_buffer->span_as<uint8_t>(),
+          decryption_buffer_->mutable_span_as<uint8_t>());
 
       page_buffer = decryption_buffer_;
     }
