@@ -25,10 +25,17 @@ ARG manylinux
 ENV MANYLINUX_VERSION=${manylinux}
 
 # Ensure dnf is installed, especially for the manylinux2014 base
-RUN if [ "${MANYLINUX_VERSION}" == "2014" ]; then \
-        sed -i s/mirror.centos.org/vault.centos.org/g /etc/yum.repos.d/*.repo && \
-        sed -i s/^#.*baseurl=http/baseurl=http/g /etc/yum.repos.d/*.repo && \
-        sed -i s/^mirrorlist=http/#mirrorlist=http/g /etc/yum.repos.d/*.repo; \
+RUN if [ "${MANYLINUX_VERSION}" = "2014" ]; then \
+      sed -i \
+        -e 's/^mirrorlist/#mirrorlist/' \
+        -e 's/^#baseurl/baseurl/' \
+        -e 's/mirror\.centos\.org/vault.centos.org/' \
+        /etc/yum.repos.d/*.repo; \
+      if [ "${arch}" != "amd64" ]; then \
+        sed -i \
+          -e 's,vault\.centos\.org/centos,vault.centos.org/altarch,' \
+          /etc/yum.repos.d/CentOS-SCLo-scl-rh.repo; \
+      fi; \
     fi
 RUN yum install -y dnf
 
