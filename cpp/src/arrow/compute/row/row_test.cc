@@ -93,10 +93,11 @@ TEST(RowTableMemoryConsumption, Encode) {
       ASSERT_NE(row_table.data(1), NULLPTR);
       ASSERT_EQ(row_table.data(2), NULLPTR);
 
-      auto null_bytes_per_row = row_table.metadata().null_masks_bytes_per_row;
-      int64_t actual_null_mask_size = num_rows * null_bytes_per_row;
+      int64_t actual_null_mask_size =
+          num_rows * row_table.metadata().null_masks_bytes_per_row;
       ASSERT_GT(actual_null_mask_size * 2,
                 row_table.buffer_size(0) - padding_for_vectors);
+
       int64_t actual_rows_size = num_rows * uint32()->byte_width();
       ASSERT_GT(actual_rows_size * 2, row_table.buffer_size(1) - padding_for_vectors);
     }
@@ -110,15 +111,15 @@ TEST(RowTableMemoryConsumption, Encode) {
       ASSERT_NE(row_table.data(1), NULLPTR);
       ASSERT_NE(row_table.data(2), NULLPTR);
 
-      auto null_bytes_per_row = row_table.metadata().null_masks_bytes_per_row;
-      int64_t actual_null_mask_size = num_rows * null_bytes_per_row;
+      int64_t actual_null_mask_size =
+          num_rows * row_table.metadata().null_masks_bytes_per_row;
       ASSERT_GT(actual_null_mask_size * 2,
                 row_table.buffer_size(0) - padding_for_vectors);
-      constexpr int64_t offset_width = sizeof(uint32_t);
-      int64_t actual_offset_size = num_rows * offset_width;
+
+      int64_t actual_offset_size = num_rows * sizeof(uint32_t);
       ASSERT_GT(actual_offset_size * 2, row_table.buffer_size(1) - padding_for_vectors);
-      auto row_width = row_table.offsets()[1];
-      int64_t actual_rows_size = num_rows * row_width;
+
+      int64_t actual_rows_size = num_rows * row_table.offsets()[1];
       ASSERT_GT(actual_rows_size * 2, row_table.buffer_size(2) - padding_for_vectors);
     }
   }
