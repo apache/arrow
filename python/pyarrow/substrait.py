@@ -24,6 +24,7 @@ try:
         serialize_expressions,
         deserialize_schema,
         serialize_schema,
+        SubstraitSchema
     )
 except ImportError as exc:
     raise ImportError(

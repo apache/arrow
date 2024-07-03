@@ -30,6 +30,8 @@ try:
     import substrait as py_substrait
 except ImportError:
     py_substrait = None
+else:
+    import substrait.proto
 
 
 # TODO GH-37235: Fix exception handling
@@ -210,6 +212,7 @@ class SubstraitSchema:
         self.expression = expression
 
     def to_pysubstrait(self):
+        """Convert the schema to a substrait-python ExtendedExpression object."""
         if py_substrait is None:
             raise ImportError("The 'substrait' package is required.")
         return py_substrait.proto.ExtendedExpression.FromString(self.expression)
