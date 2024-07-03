@@ -158,8 +158,6 @@ Status RowTableEncoder::EncodeSelected(RowTableImpl* rows, uint32_t num_selected
   EncoderOffsets::GetRowOffsetsSelected(rows, batch_varbinary_cols_, num_selected,
                                         selection);
 
-  // RETURN_NOT_OK(rows->AppendEmpty(static_cast<uint32_t>(0),
-  //                                 static_cast<uint32_t>(rows->offsets()[num_selected])));
   RETURN_NOT_OK(rows->AppendEmpty(static_cast<uint32_t>(0), static_cast<uint32_t>(0)));
 
   for (size_t icol = 0; icol < batch_all_cols_.size(); ++icol) {
