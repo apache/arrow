@@ -4606,7 +4606,7 @@ function(build_orc)
       TRUE
       PARENT_SCOPE)
 
-  add_library(orc::orc INTERFACE)
+  add_library(orc::orc INTERFACE IMPORTED)
   target_link_libraries(orc::orc INTERFACE orc)
   target_include_directories(orc::orc INTERFACE "${orc_BINARY_DIR}/c++/include"
                                                 "${orc_SOURCE_DIR}/c++/include")
