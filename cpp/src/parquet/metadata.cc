@@ -1360,9 +1360,9 @@ class ApplicationVersionParser {
   // For parsing.
   std::string spaces_;
   std::string digits_;
-  size_t version_parsing_position_;
-  size_t version_start_;
-  size_t version_end_;
+  size_t version_parsing_position_{0};
+  size_t version_start_{0};
+  size_t version_end_{0};
   std::string version_string_;
 };
 }  // namespace
