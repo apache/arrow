@@ -64,8 +64,8 @@ public class DateTimeUtilsTest {
 
     try { // Trying to guarantee timezone returns to its original value
       final long expectedEpochMillis = epochMillis - offset;
-      final long actualEpochMillis = DateTimeUtils.applyCalendarOffset(epochMillis, Calendar.getInstance(
-              alternateTimezone));
+      final long actualEpochMillis =
+          DateTimeUtils.applyCalendarOffset(epochMillis, Calendar.getInstance(alternateTimezone));
 
       assertThat(actualEpochMillis, is(expectedEpochMillis));
     } finally {

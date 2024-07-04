@@ -40,8 +40,8 @@ public class DateTimeUtils {
       calendar = Calendar.getInstance();
     }
     Instant currInstant = Instant.ofEpochMilli(milliseconds);
-    LocalDateTime getTimestampWithoutTZ = LocalDateTime.ofInstant(currInstant,
-            TimeZone.getTimeZone("UTC").toZoneId());
+    LocalDateTime getTimestampWithoutTZ =
+        LocalDateTime.ofInstant(currInstant, TimeZone.getTimeZone("UTC").toZoneId());
     ZonedDateTime parsedTime = getTimestampWithoutTZ.atZone(calendar.getTimeZone().toZoneId());
     return parsedTime.toEpochSecond() * 1000;
   }

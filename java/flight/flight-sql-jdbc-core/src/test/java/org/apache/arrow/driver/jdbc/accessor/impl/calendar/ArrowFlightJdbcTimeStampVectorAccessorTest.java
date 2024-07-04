@@ -29,7 +29,6 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
-import java.util.Arrays;
 import java.util.Calendar;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
@@ -188,16 +187,22 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
     TimeZone timeZone = TimeZone.getTimeZone(AMERICA_SAO_PAULO);
     Calendar calendar = Calendar.getInstance(timeZone);
 
-    TimeZone finalTimeZoneForResultWithoutCalendar = ofNullable(getTimeZoneForVector(vector))
-            .orElse(TimeZone.getTimeZone("Asia/Hong_Kong"));
+    TimeZone finalTimeZoneForResultWithoutCalendar =
+        ofNullable(getTimeZoneForVector(vector)).orElse(TimeZone.getTimeZone("Asia/Hong_Kong"));
 
-    accessorIterator.iterate(vector, (accessor, currentRow) -> {
-      final Timestamp resultWithoutCalendar = accessor.getTimestamp(null);
-      final Timestamp result = accessor.getTimestamp(calendar);
+    accessorIterator.iterate(
+        vector,
+        (accessor, currentRow) -> {
+          final Timestamp resultWithoutCalendar = accessor.getTimestamp(null);
+          final Timestamp result = accessor.getTimestamp(calendar);
 
-      assertOffsetIsConsistentWithAccessorGetters(timeZone, finalTimeZoneForResultWithoutCalendar, result.getTime(),
-              resultWithoutCalendar.getTime(), accessor);
-    });
+          assertOffsetIsConsistentWithAccessorGetters(
+              timeZone,
+              finalTimeZoneForResultWithoutCalendar,
+              result.getTime(),
+              resultWithoutCalendar.getTime(),
+              accessor);
+        });
     TimeZone.setDefault(null);
   }
 
@@ -232,8 +237,8 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
     TimeZone timeZone = TimeZone.getTimeZone(AMERICA_SAO_PAULO);
     Calendar calendar = Calendar.getInstance(timeZone);
 
-    TimeZone finalTimeZoneForResultWithoutCalendar = ofNullable(getTimeZoneForVector(vector))
-            .orElse(TimeZone.getDefault());
+    TimeZone finalTimeZoneForResultWithoutCalendar =
+        ofNullable(getTimeZoneForVector(vector)).orElse(TimeZone.getDefault());
 
     accessorIterator.iterate(
         vector,
@@ -241,9 +246,13 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
           final Date resultWithoutCalendar = accessor.getDate(null);
           final Date result = accessor.getDate(calendar);
 
-      assertOffsetIsConsistentWithAccessorGetters(timeZone, finalTimeZoneForResultWithoutCalendar, result.getTime(),
-              resultWithoutCalendar.getTime(), accessor);
-    });
+          assertOffsetIsConsistentWithAccessorGetters(
+              timeZone,
+              finalTimeZoneForResultWithoutCalendar,
+              result.getTime(),
+              resultWithoutCalendar.getTime(),
+              accessor);
+        });
   }
 
   @ParameterizedTest
@@ -277,8 +286,8 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
     TimeZone timeZone = TimeZone.getTimeZone(AMERICA_SAO_PAULO);
     Calendar calendar = Calendar.getInstance(timeZone);
 
-    TimeZone finalTimeZoneForResultWithoutCalendar = ofNullable(getTimeZoneForVector(vector))
-            .orElse(TimeZone.getDefault());
+    TimeZone finalTimeZoneForResultWithoutCalendar =
+        ofNullable(getTimeZoneForVector(vector)).orElse(TimeZone.getDefault());
 
     accessorIterator.iterate(
         vector,
@@ -286,9 +295,13 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
           final Time resultWithoutCalendar = accessor.getTime(null);
           final Time result = accessor.getTime(calendar);
 
-      assertOffsetIsConsistentWithAccessorGetters(timeZone, finalTimeZoneForResultWithoutCalendar, result.getTime(),
-              resultWithoutCalendar.getTime(), accessor);
-    });
+          assertOffsetIsConsistentWithAccessorGetters(
+              timeZone,
+              finalTimeZoneForResultWithoutCalendar,
+              result.getTime(),
+              resultWithoutCalendar.getTime(),
+              accessor);
+        });
   }
 
   @ParameterizedTest
@@ -311,8 +324,9 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
       TimeUnit timeUnit = getTimeUnitForVector(vector);
       long millis = timeUnit.toMillis((Long) object);
 
-      ZonedDateTime sourceTZDateTime = LocalDateTime
-              .ofInstant(Instant.ofEpochMilli(millis), TimeZone.getTimeZone("UTC").toZoneId())
+      ZonedDateTime sourceTZDateTime =
+          LocalDateTime.ofInstant(
+                  Instant.ofEpochMilli(millis), TimeZone.getTimeZone("UTC").toZoneId())
               .atZone(TimeZone.getTimeZone(timeZone).toZoneId());
       expectedTimestamp = new Timestamp(sourceTZDateTime.toEpochSecond() * 1000);
     }
@@ -373,15 +387,18 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
     }
   }
 
-  private void assertOffsetIsConsistentWithAccessorGetters(TimeZone timeZone,
-                                                           TimeZone finalTimeZoneForResultWithoutCalendar, long result,
-                                                           long resultWithoutCalendar,
-                                                           ArrowFlightJdbcTimeStampVectorAccessor accessor) {
-    final TimeZone timeZoneForResult = getTimeZoneForVector(vector) == null ? timeZone :
-            finalTimeZoneForResultWithoutCalendar;
+  private void assertOffsetIsConsistentWithAccessorGetters(
+      TimeZone timeZone,
+      TimeZone finalTimeZoneForResultWithoutCalendar,
+      long result,
+      long resultWithoutCalendar,
+      ArrowFlightJdbcTimeStampVectorAccessor accessor) {
+    final TimeZone timeZoneForResult =
+        getTimeZoneForVector(vector) == null ? timeZone : finalTimeZoneForResultWithoutCalendar;
 
-    long offset = timeZoneForResult.getOffset(result) -
-            finalTimeZoneForResultWithoutCalendar.getOffset(resultWithoutCalendar);
+    long offset =
+        timeZoneForResult.getOffset(result)
+            - finalTimeZoneForResultWithoutCalendar.getOffset(resultWithoutCalendar);
 
     assertThat(resultWithoutCalendar - result, is(offset));
     assertThat(accessor.wasNull(), is(false));

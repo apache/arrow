@@ -95,7 +95,10 @@ public class ArrowFlightJdbcTimeStampVectorAccessor extends ArrowFlightJdbcAcces
       sourceTimeZone = defaultTimeZone;
     }
 
-    return localDateTime.atZone(sourceTimeZone).withZoneSameInstant(defaultTimeZone).toLocalDateTime();
+    return localDateTime
+        .atZone(sourceTimeZone)
+        .withZoneSameInstant(defaultTimeZone)
+        .toLocalDateTime();
   }
 
   @Override
@@ -160,8 +163,8 @@ public class ArrowFlightJdbcTimeStampVectorAccessor extends ArrowFlightJdbcAcces
       case MILLISECOND:
         return DateUtility::getLocalDateTimeFromEpochMilli;
       case SECOND:
-        return seconds -> DateUtility.getLocalDateTimeFromEpochMilli(
-            TimeUnit.SECONDS.toMillis(seconds));
+        return seconds ->
+            DateUtility.getLocalDateTimeFromEpochMilli(TimeUnit.SECONDS.toMillis(seconds));
       default:
         throw new UnsupportedOperationException("Invalid Arrow time unit");
     }
