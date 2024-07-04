@@ -4225,7 +4225,8 @@ macro(build_nlohmann_json)
   set(NLOHMANN_JSON_INCLUDE_DIR "${NLOHMANN_JSON_PREFIX}/include")
   set(NLOHMANN_JSON_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>"
-      -DJSON_BuildTests=OFF)
+      # google-cloud-cpp requires JSON_MultipleHeaders=ON
+      -DJSON_BuildTests=OFF -DJSON_MultipleHeaders=ON)
 
   set(NLOHMANN_JSON_BUILD_BYPRODUCTS ${NLOHMANN_JSON_PREFIX}/include/nlohmann/json.hpp)
 
@@ -4294,7 +4295,6 @@ macro(build_google_cloud_cpp_storage)
       # We need this to build with OpenSSL 3.0.
       # See also: https://github.com/googleapis/google-cloud-cpp/issues/8544
       -DGOOGLE_CLOUD_CPP_ENABLE_WERROR=OFF
-      -DGOOGLE_CLOUD_CPP_NLOHMANN_JSON_HEADER=$<TARGET_PROPERTY:nlohmann_json::nlohmann_json,INTERFACE_INCLUDE_DIRECTORIES>
       -DGOOGLE_CLOUD_CPP_WITH_MOCKS=OFF
       -DOPENSSL_CRYPTO_LIBRARY=${OPENSSL_CRYPTO_LIBRARY}
       -DOPENSSL_INCLUDE_DIR=${OPENSSL_INCLUDE_DIR}
