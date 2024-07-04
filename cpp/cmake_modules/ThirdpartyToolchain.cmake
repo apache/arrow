@@ -4597,6 +4597,8 @@ function(build_orc)
 
   fetchcontent_makeavailable(orc)
   if(CMAKE_VERSION VERSION_LESS 3.28)
+    message("XXX: ${orc_SOURCE_DIR}")
+    file(MAKE_DIRECTORY ${orc_SOURCE_DIR})
     set_property(DIRECTORY ${orc_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
   endif()
 
@@ -4604,10 +4606,10 @@ function(build_orc)
       TRUE
       PARENT_SCOPE)
 
-  target_include_directories(orc INTERFACE "${orc_BINARY_DIR}/c++/include"
-                                           "${orc_SOURCE_DIR}/c++/include")
-
-  add_library(orc::orc ALIAS orc)
+  add_library(orc::orc INTERFACE)
+  target_link_libraries(orc::orc INTERFACE orc)
+  target_include_directories(orc::orc INTERFACE "${orc_BINARY_DIR}/c++/include"
+                                                "${orc_SOURCE_DIR}/c++/include")
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS orc)
   set(ARROW_BUNDLED_STATIC_LIBS
