@@ -72,6 +72,7 @@
 # %%define use_glog (%%{_rhel} <= 8)
 %define use_glog 0
 %define use_mimalloc (%{_rhel} >= 8)
+%define use_orc (%{_rhel} >= 8)
 # TODO: Enable this. This works on local but is fragile on GitHub Actions and
 # Travis CI.
 # %%define use_s3 (%%{_rhel} >= 8)
@@ -179,7 +180,9 @@ cd cpp
 %if %{use_mimalloc}
   -DARROW_MIMALLOC=ON \
 %endif
+%if %{use_orc}
   -DARROW_ORC=ON \
+%endif
   -DARROW_PACKAGE_KIND=rpm \
   -DARROW_PARQUET=ON \
 %if %{use_s3}
