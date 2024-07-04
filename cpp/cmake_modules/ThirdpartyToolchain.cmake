@@ -4597,8 +4597,6 @@ function(build_orc)
 
   fetchcontent_makeavailable(orc)
   if(CMAKE_VERSION VERSION_LESS 3.28)
-    message("XXX: ${orc_SOURCE_DIR}")
-    file(MAKE_DIRECTORY ${orc_SOURCE_DIR})
     set_property(DIRECTORY ${orc_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
   endif()
 
