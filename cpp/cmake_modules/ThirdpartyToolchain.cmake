@@ -4581,7 +4581,7 @@ function(build_orc)
       OFF
       CACHE BOOL "" FORCE)
 
-  # TODO: This should be fixed in upstream.
+  # We can remove this with ORC 2.0.2 or later.
   list(PREPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_BINARY_DIR}/_deps/orc-src/cmake_modules)
 
   fetchcontent_makeavailable(orc)
