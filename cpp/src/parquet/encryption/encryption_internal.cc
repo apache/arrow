@@ -337,6 +337,11 @@ class AesDecryptor::AesDecryptorImpl {
   }
 
   [[nodiscard]] int CiphertextLength(int plaintext_len) const {
+    if (plaintext_len < 0) {
+      std::stringstream ss;
+      ss << "Negative plaintext length " << plaintext_len;
+      throw ParquetException(ss.str());
+    }
     return plaintext_len + ciphertext_size_delta_;
   }
 
