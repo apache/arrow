@@ -69,9 +69,11 @@ build() {
   mkdir -p ${cpp_build_dir}
   pushd ${cpp_build_dir}
 
+  # We use static cURL. If we can use cURL's CMake package, we don't need to
+  # specify CURL_STATICLIB explicitly. But we don't have cURL's CMake package.
   # The Rtools libutf8proc is a static lib, but Findutf8proc.cmake doesn't
   # set the appropriate compiler definition.
-  export CPPFLAGS="-DUTF8PROC_STATIC"
+  export CPPFLAGS="-DCURL_STATICLIB -DUTF8PROC_STATIC"
 
   # CMAKE_UNITY_BUILD is set to OFF as otherwise some compute functionality
   # segfaults in tests
