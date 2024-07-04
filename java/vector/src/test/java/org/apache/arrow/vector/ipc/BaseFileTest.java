@@ -630,8 +630,8 @@ public class BaseFileTest {
           listViewWriter.setPosition(i);
           listViewWriter.startListView();
           for (int j = 0; j < i % 3; j++) {
-            listWriter.varChar().writeVarChar(0, 3, varchar);
             listViewWriter.varChar().writeVarChar(0, 3, varchar);
+            listWriter.varChar().writeVarChar(0, 3, varchar);
           }
           listWriter.endList();
           listViewWriter.endListView();

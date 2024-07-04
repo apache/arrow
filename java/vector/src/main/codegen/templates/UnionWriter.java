@@ -42,13 +42,13 @@ import org.apache.arrow.vector.types.Types.MinorType;
 @SuppressWarnings("unused")
 public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
 
-  UnionVector data;
-  private StructWriter structWriter;
-  private UnionListWriter listWriter;
-  private UnionListViewWriter listViewWriter;
-  private UnionMapWriter mapWriter;
-  private List<BaseWriter> writers = new java.util.ArrayList<>();
-  private final NullableStructWriterFactory nullableStructWriterFactory;
+  protected UnionVector data;
+  protected StructWriter structWriter;
+  protected UnionListWriter listWriter;
+  protected UnionListViewWriter listViewWriter;
+  protected UnionMapWriter mapWriter;
+  protected List<BaseWriter> writers = new java.util.ArrayList<>();
+  protected final NullableStructWriterFactory nullableStructWriterFactory;
 
   public UnionWriter(UnionVector vector) {
     this(vector, NullableStructWriterFactory.getNullableStructWriterFactoryInstance());
@@ -57,6 +57,40 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
   public UnionWriter(UnionVector vector, NullableStructWriterFactory nullableStructWriterFactory) {
     data = vector;
     this.nullableStructWriterFactory = nullableStructWriterFactory;
+  }
+
+  public UnionViewWriter promote() {
+    UnionViewWriter unionViewWriter = new UnionViewWriter(data, nullableStructWriterFactory);
+    unionViewWriter.setStructWriter(structWriter);
+    unionViewWriter.setListWriter(listWriter);
+    unionViewWriter.setListViewWriter(listViewWriter);
+    unionViewWriter.setMapWriter(mapWriter);
+    unionViewWriter.setWriters(writers);
+    return unionViewWriter;
+  }
+
+  public void setStructWriter(StructWriter structWriter) {
+    this.structWriter = structWriter;
+  }
+
+  public void setListWriter(UnionListWriter listWriter) {
+    this.listWriter = listWriter;
+  }
+
+  public void setListViewWriter(UnionListViewWriter listViewWriter) {
+    this.listViewWriter = listViewWriter;
+  }
+
+  public void setMapWriter(UnionMapWriter mapWriter) {
+    this.mapWriter = mapWriter;
+  }
+
+  public List<BaseWriter> getWriters() {
+    return writers;
+  }
+
+  public void setWriters(List<BaseWriter> writers) {
+    this.writers = writers;
   }
 
   @Override
@@ -146,7 +180,7 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
     return getStructWriter();
   }
 
-  private ListWriter getListWriter() {
+  protected ListWriter getListWriter() {
     if (listWriter == null) {
       listWriter = new UnionListWriter(data.getList(), nullableStructWriterFactory);
       listWriter.setPosition(idx());
@@ -155,7 +189,7 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
     return listWriter;
   }
 
-  private ListWriter getListViewWriter() {
+  protected ListWriter getListViewWriter() {
     if (listViewWriter == null) {
       listViewWriter = new UnionListViewWriter(data.getListView(), nullableStructWriterFactory);
       listViewWriter.setPosition(idx());

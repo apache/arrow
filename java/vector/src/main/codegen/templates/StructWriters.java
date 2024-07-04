@@ -219,9 +219,10 @@ public class ${mode}StructWriter extends AbstractFieldWriter {
     } else {
       if (writer instanceof PromotableViewWriter) {
         // ensure writers are initialized
-        ((PromotableViewWriter)writer).getWriter(MinorType.LISTVIEW);
+        ((PromotableViewWriter) writer).getWriter(MinorType.LISTVIEW);
       } else {
-        ((PromotableWriter)writer).getWriter(MinorType.LISTVIEW);
+        writer = ((PromotableWriter) writer).promote();
+        ((PromotableViewWriter) writer).getWriter(MinorType.LISTVIEW);
       }
     }
     return writer;

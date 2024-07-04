@@ -28,29 +28,27 @@ import java.util.Locale;
 
 public class PromotableWriter extends AbstractPromotableFieldWriter {
 
-  private final AbstractStructVector parentContainer;
-  private final ListVector listVector;
-  private final ListViewVector listViewVector;
-  private final FixedSizeListVector fixedListVector;
-  private final LargeListVector largeListVector;
-  private final NullableStructWriterFactory nullableStructWriterFactory;
-  private int position;
-  private static final int MAX_DECIMAL_PRECISION = 38;
-  private static final int MAX_DECIMAL256_PRECISION = 76;
-  // determines whether the writer is a list or listview writer
-  private boolean isList = false;
+  protected final AbstractStructVector parentContainer;
+  protected final ListVector listVector;
+  protected final ListViewVector listViewVector;
+  protected final FixedSizeListVector fixedListVector;
+  protected final LargeListVector largeListVector;
+  protected final NullableStructWriterFactory nullableStructWriterFactory;
+  protected int position;
+  protected static final int MAX_DECIMAL_PRECISION = 38;
+  protected static final int MAX_DECIMAL256_PRECISION = 76;
 
-  private enum State {
+  protected enum State {
     UNTYPED,
     SINGLE,
     UNION
   }
 
-  private MinorType type;
-  private ValueVector vector;
-  private UnionVector unionVector;
-  private State state;
-  private FieldWriter writer;
+  protected MinorType type;
+  protected ValueVector vector;
+  protected UnionVector unionVector;
+  protected State state;
+  protected FieldWriter writer;
 
   /**
    * Constructs a new instance.
@@ -124,7 +122,6 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
       ListVector listVector,
       NullableStructWriterFactory nullableStructWriterFactory) {
     this.listVector = listVector;
-    this.isList = true;
     this.listViewVector = null;
     this.parentContainer = null;
     this.fixedListVector = null;
@@ -213,7 +210,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     }
   }
 
-  private void setWriter(ValueVector v) {
+  protected void setWriter(ValueVector v) {
     state = State.SINGLE;
     vector = v;
     type = v.getMinorType();
@@ -222,7 +219,6 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
         writer = nullableStructWriterFactory.build((StructVector) vector);
         break;
       case LIST:
-        isList = true;
         writer = new UnionListWriter((ListVector) vector, nullableStructWriterFactory);
         break;
       case LISTVIEW:
@@ -310,7 +306,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     }
   }
 
-  private boolean requiresArrowType(MinorType type) {
+  protected boolean requiresArrowType(MinorType type) {
     return type == MinorType.DECIMAL
         || type == MinorType.MAP
         || type == MinorType.DURATION
@@ -369,7 +365,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     return writer;
   }
 
-  private FieldWriter promoteToUnion() {
+  protected FieldWriter promoteToUnion() {
     String name = vector.getField().getName();
     TransferPair tp =
         vector.getTransferPair(
@@ -584,5 +580,35 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
   @Override
   public void close() throws Exception {
     getWriter().close();
+  }
+
+  public void setState(State state) {
+    this.state = state;
+  }
+
+  public void setType(MinorType type) {
+    this.type = type;
+  }
+
+  public void setUnionVector(UnionVector unionVector) {
+    this.unionVector = unionVector;
+  }
+
+  public void setVector(ValueVector vector) {
+    this.vector = vector;
+  }
+
+  public void setWriter(FieldWriter writer) {
+    this.writer = writer;
+  }
+
+  public PromotableViewWriter promote() {
+    PromotableViewWriter promotableViewWriter = new PromotableViewWriter(unionVector, parentContainer, nullableStructWriterFactory);
+    promotableViewWriter.setPosition(position);
+    promotableViewWriter.setWriter(writer);
+    promotableViewWriter.setState(state);
+    promotableViewWriter.setUnionVector(unionVector);
+    promotableViewWriter.setType(MinorType.LISTVIEW);
+    return promotableViewWriter;
   }
 }

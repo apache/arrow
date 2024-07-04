@@ -69,6 +69,51 @@ public class PromotableViewWriter extends PromotableWriter {
     super(v, parentContainer, nullableStructWriterFactory);
   }
 
+  @Override
+  protected FieldWriter getWriter(MinorType type, ArrowType arrowType) {
+    if (state == State.UNION) {
+      if (requiresArrowType(type)) {
+        writer = ((UnionWriter) writer).promote();
+        ((UnionViewWriter) writer).getWriter(type, arrowType);
+      } else {
+        writer = ((UnionWriter) writer).promote();
+        ((UnionViewWriter) writer).getWriter(type);
+      }
+    } else if (state == State.UNTYPED) {
+      if (type == null) {
+        // ???
+        return null;
+      }
+      if (arrowType == null) {
+        arrowType = type.getType();
+      }
+      FieldType fieldType = new FieldType(addVectorAsNullable, arrowType, null, null);
+      ValueVector v;
+      if (listVector != null) {
+        v = listVector.addOrGetVector(fieldType).getVector();
+      } else if (fixedListVector != null) {
+        v = fixedListVector.addOrGetVector(fieldType).getVector();
+      } else if (listViewVector != null) {
+        v = listViewVector.addOrGetVector(fieldType).getVector();
+      } else {
+        v = largeListVector.addOrGetVector(fieldType).getVector();
+      }
+      v.allocateNew();
+      setWriter(v);
+      writer.setPosition(position);
+    } else if (type != this.type) {
+      promoteToUnion();
+      if (requiresArrowType(type)) {
+        writer = ((UnionWriter) writer).promote();
+        ((UnionViewWriter) writer).getWriter(type, arrowType);
+      } else {
+        writer = ((UnionWriter) writer).promote();
+        ((UnionViewWriter) writer).getWriter(type);
+      }
+    }
+    return writer;
+  }
+
   <#list vv.types as type><#list type.minor as minor>
   <#assign lowerName = minor.class?uncap_first />
   <#if lowerName == "int" ><#assign lowerName = "integer" /></#if>
