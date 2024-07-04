@@ -2532,6 +2532,7 @@ macro(build_zlib)
     set_property(TARGET ZLIB::ZLIB
                  PROPERTY IMPORTED_LOCATION
                           "${EMSCRIPTEN_SYSROOT}/lib/wasm32-emscripten/pic/libz.a")
+    target_include_directories(ZLIB::ZLIB INTERFACE "${EMSCRIPTEN_SYSROOT}/include")
     list(APPEND ARROW_BUNDLED_STATIC_LIBS ZLIB::ZLIB)
   else()
     set(ZLIB_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/zlib_ep/src/zlib_ep-install")
@@ -4517,7 +4518,7 @@ function(build_orc)
   get_filename_component(LZ4_ROOT "${LZ4_INCLUDE_DIR}" DIRECTORY)
   set(LZ4_HOME
       ${LZ4_ROOT}
-      CACHE BOOL "" FORCE)
+      CACHE STRING "" FORCE)
   set(LZ4_LIBRARY
       LZ4::lz4
       CACHE STRING "" FORCE)
@@ -4530,7 +4531,7 @@ function(build_orc)
   get_filename_component(Protobuf_ROOT "${PROTOBUF_INCLUDE_DIR}" DIRECTORY)
   set(PROTOBUF_HOME
       ${Protobuf_ROOT}
-      CACHE BOOL "" FORCE)
+      CACHE STRING "" FORCE)
   target_include_directories(${ARROW_PROTOBUF_LIBPROTOC}
                              INTERFACE "${PROTOBUF_INCLUDE_DIR}")
   set(PROTOBUF_EXECUTABLE $<TARGET_FILE:${ARROW_PROTOBUF_PROTOC}>)
@@ -4544,7 +4545,7 @@ function(build_orc)
   get_filename_component(Snappy_ROOT "${SNAPPY_INCLUDE_DIR}" DIRECTORY)
   set(SNAPPY_HOME
       ${Snappy_ROOT}
-      CACHE BOOL "" FORCE)
+      CACHE STRING "" FORCE)
   set(SNAPPY_LIBRARY
       ${Snappy_TARGET}
       CACHE STRING "" FORCE)
@@ -4556,7 +4557,7 @@ function(build_orc)
   get_filename_component(ZLIB_ROOT "${ZLIB_INCLUDE_DIR}" DIRECTORY)
   set(ZLIB_HOME
       ${ZLIB_ROOT}
-      CACHE BOOL "" FORCE)
+      CACHE STRING "" FORCE)
   set(ZLIB_LIBRARY
       ZLIB::ZLIB
       CACHE STRING "" FORCE)
@@ -4569,7 +4570,7 @@ function(build_orc)
   get_filename_component(ZSTD_ROOT "${ZSTD_INCLUDE_DIR}" DIRECTORY)
   set(ZSTD_HOME
       ${ZSTD_ROOT}
-      CACHE BOOL "" FORCE)
+      CACHE STRING "" FORCE)
   set(ZSTD_LIBRARY ${ARROW_ZSTD_LIBZSTD})
 
   set(BUILD_CPP_TESTS
