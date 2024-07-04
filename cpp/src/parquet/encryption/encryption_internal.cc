@@ -31,6 +31,7 @@
 #include "parquet/encryption/openssl_internal.h"
 #include "parquet/exception.h"
 
+using ::arrow::util::span;
 using parquet::ParquetException;
 
 namespace parquet::encryption {
@@ -315,10 +316,8 @@ class AesDecryptor::AesDecryptorImpl {
 
   ~AesDecryptorImpl() { WipeOut(); }
 
-  int Decrypt(::arrow::util::span<const uint8_t> ciphertext,
-              ::arrow::util::span<const uint8_t> key,
-              ::arrow::util::span<const uint8_t> aad,
-              ::arrow::util::span<uint8_t> plaintext);
+  int Decrypt(span<const uint8_t> ciphertext, span<const uint8_t> key,
+              span<const uint8_t> aad, span<uint8_t> plaintext);
 
   void WipeOut() {
     if (nullptr != ctx_) {
@@ -350,23 +349,17 @@ class AesDecryptor::AesDecryptorImpl {
 
   /// Get the actual ciphertext length, inclusive of the length buffer length,
   /// and validate that the provided buffer size is large enough.
-  [[nodiscard]] int GetCiphertextLength(
-      ::arrow::util::span<const uint8_t> ciphertext) const;
+  [[nodiscard]] int GetCiphertextLength(span<const uint8_t> ciphertext) const;
 
-  int GcmDecrypt(::arrow::util::span<const uint8_t> ciphertext,
-                 ::arrow::util::span<const uint8_t> key,
-                 ::arrow::util::span<const uint8_t> aad,
-                 ::arrow::util::span<uint8_t> plaintext);
+  int GcmDecrypt(span<const uint8_t> ciphertext, span<const uint8_t> key,
+                 span<const uint8_t> aad, span<uint8_t> plaintext);
 
-  int CtrDecrypt(::arrow::util::span<const uint8_t> ciphertext,
-                 ::arrow::util::span<const uint8_t> key,
-                 ::arrow::util::span<uint8_t> plaintext);
+  int CtrDecrypt(span<const uint8_t> ciphertext, span<const uint8_t> key,
+                 span<uint8_t> plaintext);
 };
 
-int AesDecryptor::Decrypt(::arrow::util::span<const uint8_t> ciphertext,
-                          ::arrow::util::span<const uint8_t> key,
-                          ::arrow::util::span<const uint8_t> aad,
-                          ::arrow::util::span<uint8_t> plaintext) {
+int AesDecryptor::Decrypt(span<const uint8_t> ciphertext, span<const uint8_t> key,
+                          span<const uint8_t> aad, span<uint8_t> plaintext) {
   return impl_->Decrypt(ciphertext, key, aad, plaintext);
 }
 
@@ -471,7 +464,7 @@ int AesDecryptor::CiphertextLength(int plaintext_len) const {
 }
 
 int AesDecryptor::AesDecryptorImpl::GetCiphertextLength(
-    ::arrow::util::span<const uint8_t> ciphertext) const {
+    span<const uint8_t> ciphertext) const {
   if (length_buffer_length_ > 0) {
     if (ciphertext.size() < static_cast<size_t>(length_buffer_length_)) {
       std::stringstream ss;
@@ -510,9 +503,10 @@ int AesDecryptor::AesDecryptorImpl::GetCiphertextLength(
   }
 }
 
-int AesDecryptor::AesDecryptorImpl::GcmDecrypt(
-    ::arrow::util::span<const uint8_t> ciphertext, ::arrow::util::span<const uint8_t> key,
-    ::arrow::util::span<const uint8_t> aad, ::arrow::util::span<uint8_t> plaintext) {
+int AesDecryptor::AesDecryptorImpl::GcmDecrypt(span<const uint8_t> ciphertext,
+                                               span<const uint8_t> key,
+                                               span<const uint8_t> aad,
+                                               span<uint8_t> plaintext) {
   int len;
   int plaintext_len;
 
@@ -578,9 +572,9 @@ int AesDecryptor::AesDecryptorImpl::GcmDecrypt(
   return plaintext_len;
 }
 
-int AesDecryptor::AesDecryptorImpl::CtrDecrypt(
-    ::arrow::util::span<const uint8_t> ciphertext, ::arrow::util::span<const uint8_t> key,
-    ::arrow::util::span<uint8_t> plaintext) {
+int AesDecryptor::AesDecryptorImpl::CtrDecrypt(span<const uint8_t> ciphertext,
+                                               span<const uint8_t> key,
+                                               span<uint8_t> plaintext) {
   int len;
   int plaintext_len;
 
@@ -635,10 +629,10 @@ int AesDecryptor::AesDecryptorImpl::CtrDecrypt(
   return plaintext_len;
 }
 
-int AesDecryptor::AesDecryptorImpl::Decrypt(::arrow::util::span<const uint8_t> ciphertext,
-                                            ::arrow::util::span<const uint8_t> key,
-                                            ::arrow::util::span<const uint8_t> aad,
-                                            ::arrow::util::span<uint8_t> plaintext) {
+int AesDecryptor::AesDecryptorImpl::Decrypt(span<const uint8_t> ciphertext,
+                                            span<const uint8_t> key,
+                                            span<const uint8_t> aad,
+                                            span<uint8_t> plaintext) {
   if (static_cast<size_t>(key_length_) != key.size()) {
     std::stringstream ss;
     ss << "Wrong key length " << key.size() << ". Should be " << key_length_;
