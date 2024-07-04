@@ -40,7 +40,6 @@ public class ArrowFlightJdbcTimeStampVectorAccessor extends ArrowFlightJdbcAcces
 
   private final TimeZone timeZone;
   private final Getter getter;
-  private final TimeUnit timeUnit;
   private final LongToUTCDateTime longToUTCDateTime;
   private final Holder holder;
 
@@ -59,7 +58,6 @@ public class ArrowFlightJdbcTimeStampVectorAccessor extends ArrowFlightJdbcAcces
     this.getter = createGetter(vector);
 
     this.timeZone = getTimeZoneForVector(vector);
-    this.timeUnit = getTimeUnitForVector(vector);
     this.longToUTCDateTime = getLongToUTCDateTimeForVector(vector);
   }
 
@@ -150,8 +148,6 @@ public class ArrowFlightJdbcTimeStampVectorAccessor extends ArrowFlightJdbcAcces
   }
 
   protected static LongToUTCDateTime getLongToUTCDateTimeForVector(TimeStampVector vector) {
-    String timeZoneID = "UTC";
-
     ArrowType.Timestamp arrowType =
         (ArrowType.Timestamp) vector.getField().getFieldType().getType();
 
