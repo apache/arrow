@@ -75,6 +75,7 @@ RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 
+# We can't use bundled ORC because CMake (3.16.3) on Ubuntu 20.04 is old.
 ENV ARROW_ACERO=ON \
     ARROW_AZURE=OFF \
     ARROW_BUILD_TESTS=ON \
@@ -85,7 +86,7 @@ ENV ARROW_ACERO=ON \
     ARROW_HDFS=ON \
     ARROW_HOME=/usr/local \
     ARROW_INSTALL_NAME_RPATH=OFF \
-    ARROW_ORC=ON \
+    ARROW_ORC=OFF \
     ARROW_PARQUET=ON \
     ARROW_S3=ON \
     ARROW_USE_CCACHE=ON \
