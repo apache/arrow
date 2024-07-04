@@ -89,6 +89,14 @@ inline const uint8_t* str2bytes(const std::string& str) {
   return reinterpret_cast<const uint8_t*>(cbytes);
 }
 
+inline ::arrow::util::span<const uint8_t> str2span(const std::string& str) {
+  if (str.empty()) {
+    return {};
+  }
+
+  return {reinterpret_cast<const uint8_t*>(str.data()), str.size()};
+}
+
 class PARQUET_EXPORT ColumnEncryptionProperties {
  public:
   class PARQUET_EXPORT Builder {

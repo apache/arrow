@@ -55,15 +55,13 @@ std::string DecryptKeyLocally(const std::string& encoded_encrypted_key,
                              false /*contains_length*/);
 
   int decrypted_key_len =
-      static_cast<int>(encrypted_key.size()) - key_decryptor.CiphertextSizeDelta();
+      key_decryptor.PlaintextLength(static_cast<int>(encrypted_key.size()));
   std::string decrypted_key(decrypted_key_len, '\0');
+  ::arrow::util::span<uint8_t> decrypted_key_span(
+      reinterpret_cast<uint8_t*>(&decrypted_key[0]), decrypted_key_len);
 
-  decrypted_key_len = key_decryptor.Decrypt(
-      reinterpret_cast<const uint8_t*>(encrypted_key.data()),
-      static_cast<int>(encrypted_key.size()),
-      reinterpret_cast<const uint8_t*>(master_key.data()),
-      static_cast<int>(master_key.size()), reinterpret_cast<const uint8_t*>(aad.data()),
-      static_cast<int>(aad.size()), reinterpret_cast<uint8_t*>(&decrypted_key[0]));
+  decrypted_key_len = key_decryptor.Decrypt(str2span(encrypted_key), str2span(master_key),
+                                            str2span(aad), decrypted_key_span);
 
   return decrypted_key;
 }
