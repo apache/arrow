@@ -471,10 +471,12 @@ int AesDecryptor::CiphertextLength(int plaintext_len) const {
 int AesDecryptor::AesDecryptorImpl::GetCiphertextLength(
     span<const uint8_t> ciphertext) const {
   if (length_buffer_length_ > 0) {
-    if (ciphertext.size() < static_cast<size_t>(length_buffer_length_)) {
+    // Note: length_buffer_length_ must be either 0 or kBufferSizeLength
+    if (ciphertext.size() < static_cast<size_t>(kBufferSizeLength)) {
       std::stringstream ss;
       ss << "Ciphertext buffer length " << ciphertext.size()
-         << " is insufficient to read the ciphertext length";
+         << " is insufficient to read the ciphertext length."
+         << " At least " << kBufferSizeLength << " bytes are required.";
       throw ParquetException(ss.str());
     }
 
