@@ -30,7 +30,7 @@ function formatIntervalValue(value: IntervalValue): IntervalValue {
 function convertIntervalValueToIntArray(value: IntervalValue): Int32Array {
     const int64s = new BigInt64Array(2);
     int64s[0] = BigInt(value.months ?? 0) + BigInt(value.days ?? 0) * (BigInt(1) << BigInt(32));
-    int64s[1] = value.nanoseconds ? value.nanoseconds : BigInt(0);
+    int64s[1] = value.nanoseconds ?? BigInt(0);
     return new Int32Array(int64s.buffer);
 }
 
