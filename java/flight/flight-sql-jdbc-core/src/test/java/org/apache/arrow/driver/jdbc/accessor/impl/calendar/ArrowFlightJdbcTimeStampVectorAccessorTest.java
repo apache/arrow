@@ -328,7 +328,7 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
           LocalDateTime.ofInstant(
                   Instant.ofEpochMilli(millis), TimeZone.getTimeZone("UTC").toZoneId())
               .atZone(TimeZone.getTimeZone(timeZone).toZoneId());
-      expectedTimestamp = new Timestamp(sourceTZDateTime.toEpochSecond() * 1000);
+      expectedTimestamp = new Timestamp(sourceTZDateTime.toInstant().toEpochMilli());
     }
     return expectedTimestamp;
   }
