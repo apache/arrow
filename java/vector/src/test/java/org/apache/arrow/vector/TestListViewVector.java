@@ -102,7 +102,7 @@ public class TestListViewVector {
       listViewWriter.bigInt().writeBigInt(4);
       listViewWriter.endList();
 
-      listViewVector.setValueCount(5);
+      listViewWriter.setValueCount(5);
       // check value count
       assertEquals(5, listViewVector.getValueCount());
 
