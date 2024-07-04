@@ -3690,6 +3690,7 @@ macro(build_absl)
                         absl::strings
                         absl::cord
                         absl::str_format
+                        absl::strerror
                         absl::optional)
   set_property(TARGET absl::statusor
                PROPERTY INTERFACE_LINK_LIBRARIES
