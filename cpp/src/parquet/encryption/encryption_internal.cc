@@ -501,7 +501,7 @@ int AesDecryptor::AesDecryptorImpl::GetCiphertextLength(
 
     return written_ciphertext_len + length_buffer_length_;
   } else {
-    if (ciphertext.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
+    if (ciphertext.size() > static_cast<size_t>(std::numeric_limits<int32_t>::max())) {
       std::stringstream ss;
       ss << "Ciphertext buffer length " << ciphertext.size() << " overflows int32";
       throw ParquetException(ss.str());
