@@ -43,7 +43,7 @@ public class DateTimeUtils {
     LocalDateTime getTimestampWithoutTZ =
         LocalDateTime.ofInstant(currInstant, TimeZone.getTimeZone("UTC").toZoneId());
     ZonedDateTime parsedTime = getTimestampWithoutTZ.atZone(calendar.getTimeZone().toZoneId());
-    return parsedTime.toEpochSecond() * 1000;
+    return parsedTime.toInstant().toEpochMilli();
   }
 
   /**
