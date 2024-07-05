@@ -459,16 +459,27 @@ class ConcatenateImpl {
     return Status::OK();
   }
 
-  Status Visit(const ListType&) {
+  Status Visit(const ListType& input_type) {
     std::vector<Range> value_ranges;
     ARROW_ASSIGN_OR_RAISE(auto index_buffers, Buffers(1, sizeof(int32_t)));
-    ARROW_ASSIGN_OR_RAISE(
-        auto outcome, ConcatenateOffsets<int32_t>(index_buffers, pool_, &out_->buffers[1],
-                                                  &value_ranges));
-    RETURN_IF_NOT_OK_OUTCOME(outcome);
+    ARROW_ASSIGN_OR_RAISE(auto offsets_outcome,
+                          ConcatenateOffsets<int32_t>(index_buffers, pool_,
+                                                      &out_->buffers[1], &value_ranges));
+    switch (offsets_outcome) {
+      case OffsetBufferOpOutcome::kOk:
+        break;
+      case OffsetBufferOpOutcome::kOffsetOverflow:
+        suggested_cast_ = large_list(input_type.value_type());
+        return OffsetOverflowStatus();
+    }
     ARROW_ASSIGN_OR_RAISE(auto child_data, ChildData(0, value_ranges));
-    return ConcatenateImpl(child_data, pool_)
-        .Concatenate(&out_->child_data[0], /*hints=*/nullptr);
+    ErrorHints child_error_hints;
+    auto status = ConcatenateImpl(child_data, pool_)
+                      .Concatenate(&out_->child_data[0], &child_error_hints);
+    if (!status.ok() && child_error_hints.suggested_cast) {
+      suggested_cast_ = list(std::move(child_error_hints.suggested_cast));
+    }
+    return status;
   }
 
   Status Visit(const LargeListType&) {
@@ -479,8 +490,13 @@ class ConcatenateImpl {
                                                   &value_ranges));
     RETURN_IF_NOT_OK_OUTCOME(outcome);
     ARROW_ASSIGN_OR_RAISE(auto child_data, ChildData(0, value_ranges));
-    return ConcatenateImpl(child_data, pool_)
-        .Concatenate(&out_->child_data[0], /*hints=*/nullptr);
+    ErrorHints child_error_hints;
+    auto status = ConcatenateImpl(child_data, pool_)
+                      .Concatenate(&out_->child_data[0], &child_error_hints);
+    if (!status.ok() && child_error_hints.suggested_cast) {
+      suggested_cast_ = large_list(std::move(child_error_hints.suggested_cast));
+    }
+    return status;
   }
 
   template <typename T>
