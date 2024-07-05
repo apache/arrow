@@ -4524,11 +4524,9 @@ function(build_orc)
     set(PROTOBUF_HOME
         ${Protobuf_ROOT}
         CACHE STRING "" FORCE)
-    target_include_directories(${ARROW_PROTOBUF_LIBPROTOC}
-                               INTERFACE "${PROTOBUF_INCLUDE_DIR}")
-    set(PROTOBUF_EXECUTABLE $<TARGET_FILE:${ARROW_PROTOBUF_PROTOC}>)
-    set(PROTOBUF_LIBRARY $<TARGET_FILE:${ARROW_PROTOBUF_LIBPROTOBUF}>)
-    set(PROTOC_LIBRARY $<TARGET_FILE:${ARROW_PROTOBUF_LIBPROTOC}>)
+    set(PROTOBUF_EXECUTABLE ${ARROW_PROTOBUF_PROTOC})
+    set(PROTOBUF_LIBRARY ${ARROW_PROTOBUF_LIBPROTOBUF})
+    set(PROTOC_LIBRARY ${ARROW_PROTOBUF_LIBPROTOC})
 
     set(ORC_PREFER_STATIC_SNAPPY
         OFF
@@ -4656,6 +4654,7 @@ function(build_orc)
                         BUILD_BYPRODUCTS ${ORC_STATIC_LIB}
                         CMAKE_ARGS ${ORC_CMAKE_ARGS}
                         DEPENDS ${ARROW_PROTOBUF_LIBPROTOBUF}
+                                ${ARROW_PROTOBUF_PROTOC}
                                 ${ARROW_ZSTD_LIBZSTD}
                                 ${Snappy_TARGET}
                                 LZ4::lz4
