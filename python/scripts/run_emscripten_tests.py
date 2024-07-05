@@ -43,30 +43,30 @@ class TemplateOverrider(http.server.SimpleHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-type", "application/x-zip")
             self.end_headers()
-            self.copyfile(PYARROW_WHEEL_PATH.open(mode="rb"), self.wfile)
+            with PYARROW_WHEEL_PATH.open(mode="rb") as wheel:
+                self.copyfile(wheel, self.wfile)
         if self.path.endswith("/test.html"):
             body = b"""
                 <!doctype html>
                 <html>
                 <head>
                     <script>
-                        window.python_done_callback=undefined;
-                        window.python_logs=[];
-                        function capturelogs(evt)
-                        {
-                            if('results' in evt.data){
-                                if(window.python_done_callback){
-                                    let callback=window.python_done_callback;
-                                    window.python_done_callback=undefined;
+                        window.python_done_callback = undefined;
+                        window.python_logs = [];
+                        function capturelogs(evt) {
+                            if ('results' in evt.data) {
+                                if (window.python_done_callback) {
+                                    let callback = window.python_done_callback;
+                                    window.python_done_callback = undefined;
                                     callback({result:evt.data.results});
                                 }
                             }
-                            if('print' in evt.data){
+                            if ('print' in evt.data) {
                                 evt.data.print.forEach((x)=>{window.python_logs.push(x)});
                             }
                         }
                         window.pyworker = new Worker("worker.js");
-                        window.pyworker.onmessage=capturelogs;
+                        window.pyworker.onmessage = capturelogs;
                     </script>
                 </head>
                 <body></body>
@@ -82,13 +82,13 @@ class TemplateOverrider(http.server.SimpleHTTPRequestHandler):
                 importScripts("./pyodide.js");
                 onmessage = async function (e) {
                     const data = e.data;
-                    if(!self.pyodide){
-                        self.pyodide = await loadPyodide()
+                    if (!self.pyodide) {
+                        self.pyodide = await loadPyodide();
                     }
-                    function do_print(arg){
-                        let databytes = Array.from(arg)
-                        self.postMessage({print:databytes})
-                        return databytes.length
+                    function do_print(arg) {
+                        let databytes = Array.from(arg);
+                        self.postMessage({print:databytes});
+                        return databytes.length;
                     }
                     self.pyodide.setStdout({write:do_print,isatty:data.isatty});
                     self.pyodide.setStderr({write:do_print,isatty:data.isatty});
@@ -96,7 +96,7 @@ class TemplateOverrider(http.server.SimpleHTTPRequestHandler):
                     await self.pyodide.loadPackagesFromImports(data.python);
                     let results = await self.pyodide.runPythonAsync(data.python);
                     self.postMessage({results});
-                    console.log('FINISHED_WEBWORKER')
+                    console.log('FINISHED_WEBWORKER');
                 }
                 """
             self.send_response(200)
@@ -139,7 +139,7 @@ class NodeDriver:
 
     def __init__(self, hostname, port):
         self.process = subprocess.Popen(
-            [shutil.which("script"), "-c", f'"{shutil.which("node")}"'],
+            [shutil.which("script"), "-c", shutil.which("node")],
             stdin=subprocess.PIPE,
             shell=False,
             bufsize=0,
@@ -153,8 +153,8 @@ class NodeDriver:
     def load_pyodide(self, dist_dir):
         self.execute_js(
             f"""
-        const {{ loadPyodide }} = require('{dist_dir}/pyodide.js')
-        let pyodide = await loadPyodide()
+        const {{ loadPyodide }} = require('{dist_dir}/pyodide.js');
+        let pyodide = await loadPyodide();
         """
         )
 
@@ -179,7 +179,7 @@ class NodeDriver:
         self.write_stdin((code + "\n").encode("utf-8"))
 
     def load_arrow(self):
-        self.execute_js(f"await pyodide.loadPackage('{PYARROW_WHEEL_PATH}')")
+        self.execute_js(f"await pyodide.loadPackage('{PYARROW_WHEEL_PATH}');")
 
     def execute_python(self, code, wait_for_terminate=True):
         js_code = f"""
@@ -216,11 +216,11 @@ class BrowserDriver:
         if wait_for_terminate:
             self.driver.execute_async_script(
                 f"""
-                let callback=arguments[arguments.length-1];
+                let callback = arguments[arguments.length-1];
                 python = `{code}`;
-                window.python_done_callback=callback
+                window.python_done_callback = callback;
                 window.pyworker.postMessage(
-                    {{python,isatty:{'true' if sys.stdout.isatty() else 'false'}}})
+                    {{python, isatty: {'true' if sys.stdout.isatty() else 'false'}}});
                 """
             )
         else:
@@ -234,7 +234,7 @@ class BrowserDriver:
             )
 
     def clear_logs(self):
-        self.driver.execute_script("window.python_logs = []")
+        self.driver.execute_script("window.python_logs = [];")
 
     def wait_for_done(self):
         while True:
@@ -248,7 +248,7 @@ class BrowserDriver:
             done = self.driver.execute_script("return window.python_script_done")
             if done is not None:
                 value = done["result"]
-                self.driver.execute_script("delete window.python_script_done")
+                self.driver.execute_script("delete window.python_script_done;")
                 return value
             time.sleep(0.1)
 
@@ -309,7 +309,7 @@ parser.add_argument(
     "--runtime",
     type=str,
     choices=["chrome", "node", "firefox"],
-    help="Runtime to run tests in ",
+    help="Runtime to run tests in",
     default="chrome",
 )
 args = parser.parse_args()
@@ -339,7 +339,7 @@ with launch_server(dist_dir) as (hostname, port):
         """
 import pyarrow,pathlib
 pyarrow_dir = pathlib.Path(pyarrow.__file__).parent
-pytest.main([pyarrow_dir,'-v'])
+pytest.main([pyarrow_dir, '-v'])
 """,
         wait_for_terminate=False,
     )
