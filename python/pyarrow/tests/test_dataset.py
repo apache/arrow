@@ -809,7 +809,6 @@ def test_parquet_scan_options():
 
     assert opts1.use_buffered_stream is False
     assert opts1.buffer_size == 2**13
-
     if is_threading_enabled():  # pre buffering requires threads
         assert opts1.pre_buffer is True
     assert opts1.thrift_string_size_limit == 100_000_000  # default in C++

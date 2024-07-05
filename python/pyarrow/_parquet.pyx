@@ -1454,7 +1454,7 @@ cdef class ParquetReader(_Weakrefable):
             FileReaderBuilder builder
 
         if pre_buffer and not is_threading_enabled():
-            pre_buffer=False
+            pre_buffer = False
 
         if metadata is not None:
             c_metadata = metadata.sp_metadata

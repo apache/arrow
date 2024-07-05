@@ -245,7 +245,7 @@ class BrowserDriver:
             )
             if len(lines) > 0:
                 sys.stdout.buffer.write(bytes(lines))
-            done = self.driver.execute_script("return window.python_script_done")
+            done = self.driver.execute_script("return window.python_script_done;")
             if done is not None:
                 value = done["result"]
                 self.driver.execute_script("delete window.python_script_done;")
