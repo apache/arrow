@@ -56,6 +56,7 @@ def test_io_thread_count():
         pa.set_io_thread_count(n)
 
 
+@pytest.mark.processes
 def test_env_var_io_thread_count():
     # Test that the number of IO threads can be overridden with the
     # ARROW_IO_THREADS environment variable.
@@ -117,6 +118,7 @@ def test_runtime_info():
         subprocess.check_call([sys.executable, "-c", code], env=env)
 
 
+@pytest.mark.processes
 def test_import_at_shutdown():
     # GH-38626: importing PyArrow at interpreter shutdown would crash
     code = """if 1:

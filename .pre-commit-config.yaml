@@ -38,6 +38,7 @@ repos:
         # files: (/Dockerfile|\.dockerfile)$
         files: >-
           (
+          ?^ci/docker/conda-python-emscripten\.dockerfile$|
           ?^ci/docker/python-wheel-windows-test-vs2019\.dockerfile$|
           )
         types: []
