@@ -92,6 +92,14 @@ Status OffsetOverflowStatus() {
       return OffsetOverflowStatus();             \
   }
 
+struct ErrorHints {
+  /// \brief Suggested cast to avoid overflow during concatenation.
+  ///
+  /// If the concatenation of offsets overflows, this field might be set to the
+  /// a type that uses larger offsets (e.g. large_utf8, large_list).
+  std::shared_ptr<DataType> suggested_cast;
+};
+
 // Allocate a buffer and concatenate bitmaps into it.
 Status ConcatenateBitmaps(const std::vector<Bitmap>& bitmaps, MemoryPool* pool,
                           std::shared_ptr<Buffer>* out) {
@@ -347,11 +355,17 @@ class ConcatenateImpl {
     }
   }
 
-  Status Concatenate(std::shared_ptr<ArrayData>* out) && {
+  Status Concatenate(std::shared_ptr<ArrayData>* out, ErrorHints* out_hints) && {
     if (out_->null_count != 0 && internal::may_have_validity_bitmap(out_->type->id())) {
       RETURN_NOT_OK(ConcatenateBitmaps(Bitmaps(0), pool_, &out_->buffers[0]));
     }
-    RETURN_NOT_OK(VisitTypeInline(*out_->type, this));
+    auto status = VisitTypeInline(*out_->type, this);
+    if (!status.ok()) {
+      if (out_hints) {
+        out_hints->suggested_cast = std::move(suggested_cast_);
+      }
+      return status;
+    }
     *out = std::move(out_);
     return Status::OK();
   }
@@ -437,7 +451,8 @@ class ConcatenateImpl {
                                                   &value_ranges));
     RETURN_IF_NOT_OK_OUTCOME(outcome);
     ARROW_ASSIGN_OR_RAISE(auto child_data, ChildData(0, value_ranges));
-    return ConcatenateImpl(child_data, pool_).Concatenate(&out_->child_data[0]);
+    return ConcatenateImpl(child_data, pool_)
+        .Concatenate(&out_->child_data[0], /*hints=*/nullptr);
   }
 
   Status Visit(const LargeListType&) {
@@ -448,7 +463,8 @@ class ConcatenateImpl {
                                                   &value_ranges));
     RETURN_IF_NOT_OK_OUTCOME(outcome);
     ARROW_ASSIGN_OR_RAISE(auto child_data, ChildData(0, value_ranges));
-    return ConcatenateImpl(child_data, pool_).Concatenate(&out_->child_data[0]);
+    return ConcatenateImpl(child_data, pool_)
+        .Concatenate(&out_->child_data[0], /*hints=*/nullptr);
   }
 
   template <typename T>
@@ -470,7 +486,8 @@ class ConcatenateImpl {
 
     // Concatenate the values
     ARROW_ASSIGN_OR_RAISE(ArrayDataVector value_data, ChildData(0, value_ranges));
-    RETURN_NOT_OK(ConcatenateImpl(value_data, pool_).Concatenate(&out_->child_data[0]));
+    RETURN_NOT_OK(ConcatenateImpl(value_data, pool_)
+                      .Concatenate(&out_->child_data[0], /*hints=*/nullptr));
     out_->child_data[0]->type = type.value_type();
 
     // Concatenate the sizes first
@@ -489,13 +506,15 @@ class ConcatenateImpl {
 
   Status Visit(const FixedSizeListType& fixed_size_list) {
     ARROW_ASSIGN_OR_RAISE(auto child_data, ChildData(0, fixed_size_list.list_size()));
-    return ConcatenateImpl(child_data, pool_).Concatenate(&out_->child_data[0]);
+    return ConcatenateImpl(child_data, pool_)
+        .Concatenate(&out_->child_data[0], /*hints=*/nullptr);
   }
 
   Status Visit(const StructType& s) {
     for (int i = 0; i < s.num_fields(); ++i) {
       ARROW_ASSIGN_OR_RAISE(auto child_data, ChildData(i));
-      RETURN_NOT_OK(ConcatenateImpl(child_data, pool_).Concatenate(&out_->child_data[i]));
+      RETURN_NOT_OK(ConcatenateImpl(child_data, pool_)
+                        .Concatenate(&out_->child_data[i], /*hints=*/nullptr));
     }
     return Status::OK();
   }
@@ -610,8 +629,8 @@ class ConcatenateImpl {
       case UnionMode::SPARSE: {
         for (int i = 0; i < u.num_fields(); i++) {
           ARROW_ASSIGN_OR_RAISE(auto child_data, ChildData(i));
-          RETURN_NOT_OK(
-              ConcatenateImpl(child_data, pool_).Concatenate(&out_->child_data[i]));
+          RETURN_NOT_OK(ConcatenateImpl(child_data, pool_)
+                            .Concatenate(&out_->child_data[i], /*hints=*/nullptr));
         }
         break;
       }
@@ -621,8 +640,8 @@ class ConcatenateImpl {
           for (size_t j = 0; j < in_.size(); j++) {
             child_data[j] = in_[j]->child_data[i];
           }
-          RETURN_NOT_OK(
-              ConcatenateImpl(child_data, pool_).Concatenate(&out_->child_data[i]));
+          RETURN_NOT_OK(ConcatenateImpl(child_data, pool_)
+                            .Concatenate(&out_->child_data[i], /*hints=*/nullptr));
         }
         break;
       }
@@ -706,7 +725,8 @@ class ConcatenateImpl {
       storage_data[i]->type = e.storage_type();
     }
     std::shared_ptr<ArrayData> out_storage;
-    RETURN_NOT_OK(ConcatenateImpl(storage_data, pool_).Concatenate(&out_storage));
+    RETURN_NOT_OK(ConcatenateImpl(storage_data, pool_)
+                      .Concatenate(&out_storage, /*hints=*/nullptr));
     out_storage->type = in_[0]->type;
     out_ = std::move(out_storage);
     return Status::OK();
@@ -837,6 +857,7 @@ class ConcatenateImpl {
   const ArrayDataVector& in_;
   MemoryPool* pool_;
   std::shared_ptr<ArrayData> out_;
+  std::shared_ptr<DataType> suggested_cast_;
 };
 
 }  // namespace
@@ -858,7 +879,7 @@ Result<std::shared_ptr<Array>> Concatenate(const ArrayVector& arrays, MemoryPool
   }
 
   std::shared_ptr<ArrayData> out_data;
-  RETURN_NOT_OK(ConcatenateImpl(data, pool).Concatenate(&out_data));
+  RETURN_NOT_OK(ConcatenateImpl(data, pool).Concatenate(&out_data, /*hints=*/nullptr));
   return MakeArray(std::move(out_data));
 }
 
