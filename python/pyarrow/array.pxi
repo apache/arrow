@@ -129,7 +129,8 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
         If both type and size are specified may be a single use iterable. If
         not strongly-typed, Arrow type will be inferred for resulting array.
         Any Arrow-compatible array that implements the Arrow PyCapsule Protocol
-        (has an ``__arrow_c_array__`` method) can be passed as well.
+        (has an ``__arrow_c_array__`` or ``__arrow_c_device_array__`` method)
+        can be passed as well.
     type : pyarrow.DataType
         Explicit type to attempt to coerce to, otherwise will be inferred from
         the data.
@@ -245,6 +246,18 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
 
     if hasattr(obj, '__arrow_array__'):
         return _handle_arrow_array_protocol(obj, type, mask, size)
+    elif hasattr(obj, '__arrow_c_device_array__'):
+        if type is not None:
+            requested_type = type.__arrow_c_schema__()
+        else:
+            requested_type = None
+        schema_capsule, array_capsule = obj.__arrow_c_device_array__(requested_type)
+        out_array = Array._import_from_c_device_capsule(schema_capsule, array_capsule)
+        if type is not None and out_array.type != type:
+            # PyCapsule interface type coercion is best effort, so we need to
+            # check the type of the returned array and cast if necessary
+            out_array = array.cast(type, safe=safe, memory_pool=memory_pool)
+        return out_array
     elif hasattr(obj, '__arrow_c_array__'):
         if type is not None:
             requested_type = type.__arrow_c_schema__()
@@ -956,6 +969,7 @@ cdef class Array(_PandasConvertible):
         +"two-and-a-half"
 
         """
+        self._assert_cpu()
         cdef c_string result
         with nogil:
             result = self.ap.Diff(deref(other.ap))
@@ -982,6 +996,7 @@ cdef class Array(_PandasConvertible):
         -------
         cast : Array
         """
+        self._assert_cpu()
         return _pc().cast(self, target_type, safe=safe,
                           options=options, memory_pool=memory_pool)
 
@@ -1000,6 +1015,7 @@ cdef class Array(_PandasConvertible):
         -------
         view : Array
         """
+        self._assert_cpu()
         cdef DataType type = ensure_type(target_type)
         cdef shared_ptr[CArray] result
         with nogil:
@@ -1022,6 +1038,7 @@ cdef class Array(_PandasConvertible):
         sum : Scalar
             A scalar containing the sum value.
         """
+        self._assert_cpu()
         options = _pc().ScalarAggregateOptions(**kwargs)
         return _pc().call_function('sum', [self], options)
 
@@ -1034,6 +1051,7 @@ cdef class Array(_PandasConvertible):
         unique : Array
             An array of the same data type, with deduplicated elements.
         """
+        self._assert_cpu()
         return _pc().call_function('unique', [self])
 
     def dictionary_encode(self, null_encoding='mask'):
@@ -1052,6 +1070,7 @@ cdef class Array(_PandasConvertible):
         encoded : DictionaryArray
             A dictionary-encoded version of this array.
         """
+        self._assert_cpu()
         options = _pc().DictionaryEncodeOptions(null_encoding)
         return _pc().call_function('dictionary_encode', [self], options)
 
@@ -1064,6 +1083,7 @@ cdef class Array(_PandasConvertible):
         StructArray
             An array of  <input type "Values", int64 "Counts"> structs
         """
+        self._assert_cpu()
         return _pc().call_function('value_counts', [self])
 
     @staticmethod
@@ -1105,6 +1125,7 @@ cdef class Array(_PandasConvertible):
                      memory_pool=memory_pool)
 
     def __reduce__(self):
+        self._assert_cpu()
         return _restore_array, \
             (_reduce_array_data(self.sp_array.get().data().get()),)
 
@@ -1172,6 +1193,7 @@ cdef class Array(_PandasConvertible):
 
     @property
     def null_count(self):
+        self._assert_cpu()
         return self.sp_array.get().null_count()
 
     @property
@@ -1191,9 +1213,8 @@ cdef class Array(_PandasConvertible):
         The dictionary of dictionary arrays will always be counted in their
         entirety even if the array only references a portion of the dictionary.
         """
-        cdef:
-            CResult[int64_t] c_size_res
-
+        self._assert_cpu()
+        cdef CResult[int64_t] c_size_res
         with nogil:
             c_size_res = ReferencedBufferSize(deref(self.ap))
             size = GetResultValue(c_size_res)
@@ -1210,16 +1231,17 @@ cdef class Array(_PandasConvertible):
         If a buffer is referenced multiple times then it will
         only be counted once.
         """
-        cdef:
-            int64_t total_buffer_size
-
+        self._assert_cpu()
+        cdef int64_t total_buffer_size
         total_buffer_size = TotalBufferSize(deref(self.ap))
         return total_buffer_size
 
     def __sizeof__(self):
+        self._assert_cpu()
         return super(Array, self).__sizeof__() + self.nbytes
 
     def __iter__(self):
+        self._assert_cpu()
         for i in range(len(self)):
             yield self.getitem(i)
 
@@ -1231,6 +1253,9 @@ cdef class Array(_PandasConvertible):
                   int container_window=2, c_bool skip_new_lines=False):
         """
         Render a "pretty-printed" string representation of the Array.
+
+        Note: for data on a non-CPU device, the full array is copied to CPU
+        memory.
 
         Parameters
         ----------
@@ -1307,6 +1332,8 @@ cdef class Array(_PandasConvertible):
         -------
         bool
         """
+        self._assert_cpu()
+        other._assert_cpu()
         return self.ap.Equals(deref(other.ap))
 
     def __len__(self):
@@ -1331,6 +1358,7 @@ cdef class Array(_PandasConvertible):
         -------
         array : boolean Array
         """
+        self._assert_cpu()
         options = _pc().NullOptions(nan_is_null=nan_is_null)
         return _pc().call_function('is_null', [self], options)
 
@@ -1342,12 +1370,14 @@ cdef class Array(_PandasConvertible):
         -------
         array : boolean Array
         """
+        self._assert_cpu()
         return _pc().call_function('is_nan', [self])
 
     def is_valid(self):
         """
         Return BooleanArray indicating the non-null values.
         """
+        self._assert_cpu()
         return _pc().is_valid(self)
 
     def fill_null(self, fill_value):
@@ -1364,6 +1394,7 @@ cdef class Array(_PandasConvertible):
         result : Array
             A new array with nulls replaced by the given value.
         """
+        self._assert_cpu()
         return _pc().fill_null(self, fill_value)
 
     def __getitem__(self, key):
@@ -1380,12 +1411,14 @@ cdef class Array(_PandasConvertible):
         -------
         value : Scalar (index) or Array (slice)
         """
+        self._assert_cpu()
         if isinstance(key, slice):
             return _normalize_slice(self, key)
 
         return self.getitem(_normalize_index(key, self.length()))
 
     cdef getitem(self, int64_t i):
+        self._assert_cpu()
         return Scalar.wrap(GetResultValue(self.ap.GetScalar(i)))
 
     def slice(self, offset=0, length=None):
@@ -1404,8 +1437,7 @@ cdef class Array(_PandasConvertible):
         -------
         sliced : RecordBatch
         """
-        cdef:
-            shared_ptr[CArray] result
+        cdef shared_ptr[CArray] result
 
         if offset < 0:
             raise IndexError('Offset must be non-negative')
@@ -1436,12 +1468,14 @@ cdef class Array(_PandasConvertible):
         taken : Array
             An array with the same datatype, containing the taken values.
         """
+        self._assert_cpu()
         return _pc().take(self, indices)
 
     def drop_null(self):
         """
         Remove missing values from an array.
         """
+        self._assert_cpu()
         return _pc().drop_null(self)
 
     def filter(self, object mask, *, null_selection_behavior='drop'):
@@ -1463,6 +1497,7 @@ cdef class Array(_PandasConvertible):
             An array of the same type, with only the elements selected by
             the boolean mask.
         """
+        self._assert_cpu()
         return _pc().filter(self, mask,
                             null_selection_behavior=null_selection_behavior)
 
@@ -1488,6 +1523,7 @@ cdef class Array(_PandasConvertible):
         index : Int64Scalar
             The index of the value in the array (-1 if not found).
         """
+        self._assert_cpu()
         return _pc().index(self, value, start, end, memory_pool=memory_pool)
 
     def sort(self, order="ascending", **kwargs):
@@ -1507,6 +1543,7 @@ cdef class Array(_PandasConvertible):
         -------
         result : Array
         """
+        self._assert_cpu()
         indices = _pc().sort_indices(
             self,
             options=_pc().SortOptions(sort_keys=[("", order)], **kwargs)
@@ -1514,9 +1551,12 @@ cdef class Array(_PandasConvertible):
         return self.take(indices)
 
     def _to_pandas(self, options, types_mapper=None, **kwargs):
+        self._assert_cpu()
         return _array_like_to_pandas(self, options, types_mapper=types_mapper)
 
     def __array__(self, dtype=None, copy=None):
+        self._assert_cpu()
+
         if copy is False:
             try:
                 values = self.to_numpy(zero_copy_only=True)
@@ -1566,6 +1606,8 @@ cdef class Array(_PandasConvertible):
         -------
         array : numpy.ndarray
         """
+        self._assert_cpu()
+
         cdef:
             PyObject* out
             PandasOptions c_options
@@ -1604,6 +1646,7 @@ cdef class Array(_PandasConvertible):
         -------
         lst : list
         """
+        self._assert_cpu()
         return [x.as_py() for x in self]
 
     def tolist(self):
@@ -1629,6 +1672,7 @@ cdef class Array(_PandasConvertible):
         ArrowInvalid
         """
         if full:
+            self._assert_cpu()
             with nogil:
                 check_status(self.ap.ValidateFull())
         else:
@@ -1737,6 +1781,8 @@ cdef class Array(_PandasConvertible):
             A pair of PyCapsules containing a C ArrowSchema and ArrowArray,
             respectively.
         """
+        self._assert_cpu()
+
         cdef:
             ArrowArray* c_array
             ArrowSchema* c_schema
@@ -1847,6 +1893,89 @@ cdef class Array(_PandasConvertible):
                 )
         return pyarrow_wrap_array(c_array)
 
+    def __arrow_c_device_array__(self, requested_schema=None, **kwargs):
+        """
+        Get a pair of PyCapsules containing a C ArrowDeviceArray representation
+        of the object.
+
+        Parameters
+        ----------
+        requested_schema : PyCapsule | None
+            A PyCapsule containing a C ArrowSchema representation of a requested
+            schema. PyArrow will attempt to cast the array to this data type.
+            If None, the array will be returned as-is, with a type matching the
+            one returned by :meth:`__arrow_c_schema__()`.
+        kwargs
+            Currently no additional keyword arguments are supported, but
+            this method will accept any keyword with a value of ``None``
+            for compatibility with future keywords.
+
+        Returns
+        -------
+        Tuple[PyCapsule, PyCapsule]
+            A pair of PyCapsules containing a C ArrowSchema and ArrowDeviceArray,
+            respectively.
+        """
+        cdef:
+            ArrowDeviceArray* c_array
+            ArrowSchema* c_schema
+            shared_ptr[CArray] inner_array
+
+        non_default_kwargs = [
+            name for name, value in kwargs.items() if value is not None
+        ]
+        if non_default_kwargs:
+            raise NotImplementedError(
+                f"Received unsupported keyword argument(s): {non_default_kwargs}"
+            )
+
+        if requested_schema is not None:
+            target_type = DataType._import_from_c_capsule(requested_schema)
+
+            if target_type != self.type:
+                if not self.is_cpu:
+                    raise NotImplementedError(
+                        "Casting to a requested schema is only supported for CPU data"
+                    )
+                try:
+                    casted_array = _pc().cast(self, target_type, safe=True)
+                    inner_array = pyarrow_unwrap_array(casted_array)
+                except ArrowInvalid as e:
+                    raise ValueError(
+                        f"Could not cast {self.type} to requested type {target_type}: {e}"
+                    )
+            else:
+                inner_array = self.sp_array
+        else:
+            inner_array = self.sp_array
+
+        schema_capsule = alloc_c_schema(&c_schema)
+        array_capsule = alloc_c_device_array(&c_array)
+
+        with nogil:
+            check_status(ExportDeviceArray(
+                deref(inner_array), <shared_ptr[CSyncEvent]>NULL,
+                c_array, c_schema))
+
+        return schema_capsule, array_capsule
+
+    @staticmethod
+    def _import_from_c_device_capsule(schema_capsule, array_capsule):
+        cdef:
+            ArrowSchema* c_schema
+            ArrowDeviceArray* c_array
+            shared_ptr[CArray] array
+
+        c_schema = <ArrowSchema*> PyCapsule_GetPointer(schema_capsule, 'arrow_schema')
+        c_array = <ArrowDeviceArray*> PyCapsule_GetPointer(
+            array_capsule, 'arrow_device_array'
+        )
+
+        with nogil:
+            array = GetResultValue(ImportDeviceArray(c_array, c_schema))
+
+        return pyarrow_wrap_array(array)
+
     def __dlpack__(self, stream=None):
         """Export a primitive array as a DLPack capsule.
 
@@ -1884,6 +2013,28 @@ cdef class Array(_PandasConvertible):
         """
         device = GetResultValue(ExportDevice(self.sp_array))
         return device.device_type, device.device_id
+
+    @property
+    def device_type(self):
+        """
+        The device type where the array resides.
+
+        Returns
+        -------
+        DeviceAllocationType
+        """
+        return _wrap_device_allocation_type(self.sp_array.get().device_type())
+
+    @property
+    def is_cpu(self):
+        """
+        Whether the array is CPU-accessible.
+        """
+        return self.device_type == DeviceAllocationType.CPU
+
+    cdef void _assert_cpu(self) except *:
+        if self.sp_array.get().device_type() != CDeviceAllocationType_kCPU:
+            raise NotImplementedError("Implemented only for data on CPU device")
 
 
 cdef _array_like_to_pandas(obj, options, types_mapper):

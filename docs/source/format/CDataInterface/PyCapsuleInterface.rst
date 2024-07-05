@@ -27,8 +27,8 @@ The Arrow PyCapsule Interface
 Rationale
 =========
 
-The :ref:`C data interface <c-data-interface>` and
-:ref:`C stream interface <c-stream-interface>` allow moving Arrow data between
+The :ref:`C data interface <c-data-interface>`, :ref:`C stream interface <c-stream-interface>`
+and :ref:`C device interface <c-device-data-interface>` allow moving Arrow data between
 different implementations of Arrow. However, these interfaces don't specify how
 Python libraries should expose these structs to other libraries. Prior to this,
 many libraries simply provided export to PyArrow data structures, using the
@@ -43,7 +43,7 @@ Goals
 -----
 
 * Standardize the `PyCapsule`_ objects that represent ``ArrowSchema``, ``ArrowArray``,
-  and ``ArrowArrayStream``.
+  ``ArrowArrayStream``, ``ArrowDeviceArray`` and ``ArrowDeviceArrayStream``.
 * Define standard methods that export Arrow data into such capsule objects,
   so that any Python library wanting to accept Arrow data as input can call the
   corresponding method instead of hardcoding support for specific Arrow
@@ -80,7 +80,10 @@ Arrow structures are recognized, the following names must be used:
      - ``arrow_array``
    * - ArrowArrayStream
      - ``arrow_array_stream``
-
+   * - ArrowDeviceArray
+     - ``arrow_device_array``
+   * - ArrowDeviceArrayStream
+     - ``arrow_device_array_stream``
 
 Lifetime Semantics
 ------------------
@@ -94,6 +97,10 @@ If the capsule has been passed to a consumer, the consumer should have moved
 the data and marked the release callback as null, so there isn’t a risk of
 releasing data the consumer is using.
 :ref:`Read more in the C Data Interface specification <c-data-interface-released>`.
+
+In case of a device struct, the above mentioned release callback is the
+``release`` member of the embedded ``ArrowArray`` structure.
+:ref:`Read more in the C Device Interface specification <c-device-data-interface-semantics>`.
 
 Just like in the C Data Interface, the PyCapsule objects defined here can only
 be consumed once.
@@ -110,12 +117,17 @@ The interface consists of three separate protocols:
 * ``ArrowArrayExportable``, which defines the ``__arrow_c_array__`` method.
 * ``ArrowStreamExportable``, which defines the ``__arrow_c_stream__`` method.
 
+Two additional protocols are defined for the Device interface:
+
+* ``ArrowDeviceArrayExportable``, which defines the ``__arrow_c_device_array__`` method.
+* ``ArrowDeviceStreamExportable``, which defines the ``__arrow_c_device_stream__`` method.
+
 ArrowSchema Export
 ------------------
 
 Schemas, fields, and data types can implement the method ``__arrow_c_schema__``.
 
-.. py:method:: __arrow_c_schema__(self) -> object
+.. py:method:: __arrow_c_schema__(self)
 
     Export the object as an ArrowSchema.
 
@@ -129,7 +141,7 @@ ArrowArray Export
 Arrays and record batches (contiguous tables) can implement the method
 ``__arrow_c_array__``.
 
-.. py:method:: __arrow_c_array__(self, requested_schema: object | None = None) -> Tuple[object, object]
+.. py:method:: __arrow_c_array__(self, requested_schema=None)
 
     Export the object as a pair of ArrowSchema and ArrowArray structures.
 
@@ -142,13 +154,32 @@ Arrays and record batches (contiguous tables) can implement the method
         respectively. The schema capsule should have the name ``"arrow_schema"``
         and the array capsule should have the name ``"arrow_array"``.
 
+Libraries supporting the Device interface can implement a ``__arrow_c_device_array__``
+method on those objects, which works the same as ``__arrow_c_array__`` except
+for returning an ArrowDeviceArray structure instead of an ArrowArray structure:
+
+.. py:method:: __arrow_c_device_array__(self, requested_schema=None, **kwargs)
+
+    Export the object as a pair of ArrowSchema and ArrowDeviceArray structures.
+
+    :param requested_schema: A PyCapsule containing a C ArrowSchema representation
+        of a requested schema. Conversion to this schema is best-effort. See
+        `Schema Requests`_.
+    :type requested_schema: PyCapsule or None
+    :param kwargs: Additional keyword arguments should only be accepted if they have
+        a default value of ``None``, to allow for future addition of new keywords.
+        See :ref:`arrow-pycapsule-interface-device-support` for more details.
+
+    :return: A pair of PyCapsules containing a C ArrowSchema and ArrowDeviceArray,
+        respectively. The schema capsule should have the name ``"arrow_schema"``
+        and the array capsule should have the name ``"arrow_device_array"``.
 
 ArrowStream Export
 ------------------
 
 Tables / DataFrames and streams can implement the method ``__arrow_c_stream__``.
 
-.. py:method:: __arrow_c_stream__(self, requested_schema: object | None = None) -> object
+.. py:method:: __arrow_c_stream__(self, requested_schema=None)
 
     Export the object as an ArrowArrayStream.
 
@@ -159,6 +190,26 @@ Tables / DataFrames and streams can implement the method ``__arrow_c_stream__``.
 
     :return: A PyCapsule containing a C ArrowArrayStream representation of the
         object. The capsule must have a name of ``"arrow_array_stream"``.
+
+Libraries supporting the Device interface can implement a ``__arrow_c_device_stream__``
+method on those objects, which works the same as ``__arrow_c_stream__`` except
+for returning an ArrowDeviceArrayStream structure instead of an ArrowArrayStream
+structure:
+
+.. py:method:: __arrow_c_device_stream__(self, requested_schema=None, **kwargs)
+
+    Export the object as an ArrowDeviceArrayStream.
+
+    :param requested_schema: A PyCapsule containing a C ArrowSchema representation
+        of a requested schema. Conversion to this schema is best-effort. See
+        `Schema Requests`_.
+    :type requested_schema: PyCapsule or None
+    :param kwargs: Additional keyword arguments should only be accepted if they have
+        a default value of ``None``, to allow for future addition of new keywords.
+        See :ref:`arrow-pycapsule-interface-device-support` for more details.
+
+    :return: A PyCapsule containing a C ArrowDeviceArrayStream representation of the
+        object. The capsule must have a name of ``"arrow_device_array_stream"``.
 
 Schema Requests
 ---------------
@@ -185,9 +236,63 @@ raise an exception. The requested schema mechanism is only meant to negotiate
 between different representations of the same data and not to allow arbitrary
 schema transformations.
 
-
 .. _PyCapsule: https://docs.python.org/3/c-api/capsule.html
 
+
+.. _arrow-pycapsule-interface-device-support:
+
+Device Support
+--------------
+
+The PyCapsule interface has cross hardware support through using the
+:ref:`C device interface <c-device-data-interface>`. This means it is possible
+to exchange data on non-CPU devices (e.g. CUDA GPUs) and to inspect on what
+device the exchanged data lives.
+
+For exchanging the data structures, this interface has two sets of protocol
+methods: the standard CPU-only versions (:meth:`__arrow_c_array__` and
+:meth:`__arrow_c_stream__`) and the equivalent device-aware versions
+(:meth:`__arrow_c_device_array__`, and :meth:`__arrow_c_device_stream__`).
+
+For CPU-only producers, it is allowed to either implement only the standard
+CPU-only protocol methods, or either implement both the CPU-only and device-aware
+methods. The absence of the device version methods implies CPU-only data. For
+CPU-only consumers, it is encouraged to be able to consume both versions of the
+protocol.
+
+For a device-aware producer whose data structures can only reside in
+non-CPU memory, it is recommended to only implement the device version of the
+protocol (e.g. only add ``__arrow_c_device_array__``, and not add ``__arrow_c_array__``).
+Producers that have data structures that can live both on CPU or non-CPU devices
+can implement both versions of the protocol, but the CPU-only versions
+(:meth:`__arrow_c_array__` and :meth:`__arrow_c_stream__`) should be guaranteed
+to contain valid pointers for CPU memory (thus, when trying to export non-CPU data,
+either raise an error or make a copy to CPU memory).
+
+Producing the ``ArrowDeviceArray`` and ``ArrowDeviceArrayStream`` structures
+is expected to not involve any cross-device copying of data.
+
+The device-aware methods (:meth:`__arrow_c_device_array__`, and :meth:`__arrow_c_device_stream__`)
+should accept additional keyword arguments (``**kwargs``), if they have a
+default value of ``None``. This allows for future addition of new optional
+keywords, where the default value for such a new keyword will always be ``None``.
+The implementor is responsible for raising a ``NotImplementedError`` for any
+additional keyword being passed by the user which is not recognised. For
+example:
+
+.. code-block:: python
+
+    def __arrow_c_device_array__(self, requested_schema=None, **kwargs):
+
+        non_default_kwargs = [
+            name for name, value in kwargs.items() if value is not None
+        ]
+        if non_default_kwargs:
+            raise NotImplementedError(
+                f"Received unsupported keyword argument(s): {non_default_kwargs}"
+            )
+
+        ...
 
 Protocol Typehints
 ------------------
@@ -214,6 +319,22 @@ function accepts an object implementing one of these protocols.
         def __arrow_c_stream__(
             self,
             requested_schema: object | None = None
+        ) -> object:
+            ...
+
+    class ArrowDeviceArrayExportable(Protocol):
+        def __arrow_c_device_array__(
+            self,
+            requested_schema: object | None = None,
+            **kwargs,
+        ) -> Tuple[object, object]:
+            ...
+
+    class ArrowDeviceStreamExportable(Protocol):
+        def __arrow_c_device_stream__(
+            self,
+            requested_schema: object | None = None,
+            **kwargs,
         ) -> object:
             ...
 

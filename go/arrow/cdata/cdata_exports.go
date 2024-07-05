@@ -293,7 +293,7 @@ func (exp *schemaExporter) export(field arrow.Field) {
 func (exp *schemaExporter) finish(out *CArrowSchema) {
 	out.dictionary = nil
 	if exp.dict != nil {
-		out.dictionary = (*CArrowSchema)(C.malloc(C.sizeof_struct_ArrowSchema))
+		out.dictionary = (*CArrowSchema)(C.calloc(C.sizeof_struct_ArrowSchema, C.size_t(1)))
 		exp.dict.finish(out.dictionary)
 	}
 	out.name = C.CString(exp.name)
@@ -413,7 +413,7 @@ func exportArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema) {
 		childPtrs[0], childPtrs[1] = &children[0], &children[1]
 		out.children = (**CArrowArray)(unsafe.Pointer(&childPtrs[0]))
 	case *array.Dictionary:
-		out.dictionary = (*CArrowArray)(C.malloc(C.sizeof_struct_ArrowArray))
+		out.dictionary = (*CArrowArray)(C.calloc(C.sizeof_struct_ArrowArray, C.size_t(1)))
 		exportArray(arr.Dictionary(), out.dictionary, nil)
 	case array.Union:
 		out.n_children = C.int64_t(arr.NumFields())

@@ -535,18 +535,28 @@ def test_chunked_array_c_stream_interface():
     assert result == data.cast(pa.int16())
 
 
-def test_recordbatch_c_array_interface():
-    class BatchWrapper:
-        def __init__(self, batch):
-            self.batch = batch
+class BatchWrapper:
+    def __init__(self, batch):
+        self.batch = batch
 
-        def __arrow_c_array__(self, requested_schema=None):
-            return self.batch.__arrow_c_array__(requested_schema)
+    def __arrow_c_array__(self, requested_schema=None):
+        return self.batch.__arrow_c_array__(requested_schema)
 
+
+class BatchDeviceWrapper:
+    def __init__(self, batch):
+        self.batch = batch
+
+    def __arrow_c_device_array__(self, requested_schema=None, **kwargs):
+        return self.batch.__arrow_c_device_array__(requested_schema, **kwargs)
+
+
+@pytest.mark.parametrize("wrapper_class", [BatchWrapper, BatchDeviceWrapper])
+def test_recordbatch_c_array_interface(wrapper_class):
     data = pa.record_batch([
         pa.array([1, 2, 3], type=pa.int64())
     ], names=['a'])
-    wrapper = BatchWrapper(data)
+    wrapper = wrapper_class(data)
 
     # Can roundtrip through the wrapper.
     result = pa.record_batch(wrapper)
@@ -563,18 +573,28 @@ def test_recordbatch_c_array_interface():
     assert result == expected
 
 
-def test_table_c_array_interface():
-    class BatchWrapper:
-        def __init__(self, batch):
-            self.batch = batch
+def test_recordbatch_c_array_interface_device_unsupported_keyword():
+    # For the device-aware version, we raise a specific error for unsupported keywords
+    data = pa.record_batch(
+        [pa.array([1, 2, 3], type=pa.int64())], names=['a']
+    )
 
-        def __arrow_c_array__(self, requested_schema=None):
-            return self.batch.__arrow_c_array__(requested_schema)
+    with pytest.raises(
+        NotImplementedError,
+        match=r"Received unsupported keyword argument\(s\): \['other'\]"
+    ):
+        data.__arrow_c_device_array__(other="not-none")
 
+    # but with None value it is ignored
+    _ = data.__arrow_c_device_array__(other=None)
+
+
+@pytest.mark.parametrize("wrapper_class", [BatchWrapper, BatchDeviceWrapper])
+def test_table_c_array_interface(wrapper_class):
     data = pa.record_batch([
         pa.array([1, 2, 3], type=pa.int64())
     ], names=['a'])
-    wrapper = BatchWrapper(data)
+    wrapper = wrapper_class(data)
 
     # Can roundtrip through the wrapper.
     result = pa.table(wrapper)
@@ -2959,13 +2979,29 @@ def test_table_join_collisions():
 
 
 @pytest.mark.acero
-def test_table_filter_expression():
+@pytest.mark.parametrize('cls', [(pa.Table), (pa.RecordBatch)])
+def test_table_filter_expression(cls):
+    t1 = cls.from_pydict({
+        "colA": [1, 2, 3, 6],
+        "colB": [10, 20, None, 60],
+        "colVals": ["a", "b", "c", "f"]
+    })
+
+    result = t1.filter(pc.field("colB") < 50)
+    assert result == cls.from_pydict({
+        "colA": [1, 2],
+        "colB": [10, 20],
+        "colVals": ["a", "b"]
+    })
+
+
+@pytest.mark.acero
+def test_table_filter_expression_chunks():
     t1 = pa.table({
         "colA": [1, 2, 6],
         "colB": [10, 20, 60],
         "colVals": ["a", "b", "f"]
     })
-
     t2 = pa.table({
         "colA": [99, 2, 1],
         "colB": [99, 20, 10],

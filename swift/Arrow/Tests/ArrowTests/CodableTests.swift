@@ -18,7 +18,7 @@
 import XCTest
 @testable import Arrow
 
-final class CodableTests: XCTestCase {
+final class CodableTests: XCTestCase { // swiftlint:disable:this type_body_length
     public class TestClass: Codable {
         public var propBool: Bool
         public var propInt8: Int8
@@ -223,6 +223,112 @@ final class CodableTests: XCTestCase {
             }
         case .failure(let err):
             throw err
+        }
+    }
+
+    func getArrayValue<T>(_ rb: RecordBatch, colIndex: Int, rowIndex: UInt) -> T? {
+        let anyArray = rb.columns[colIndex].array as! AnyArray // swiftlint:disable:this force_cast
+        return anyArray.asAny(UInt(rowIndex)) as? T
+    }
+
+    func testArrowKeyedEncoder() throws { // swiftlint:disable:this function_body_length
+        var infos = [TestClass]()
+        for index in 0..<10 {
+            let tClass = TestClass()
+            let offset = index * 12
+            tClass.propBool = index % 2 == 0
+            tClass.propInt8 = Int8(offset + 1)
+            tClass.propInt16 = Int16(offset + 2)
+            tClass.propInt32 = Int32(offset + 3)
+            tClass.propInt64 = Int64(offset + 4)
+            tClass.propUInt8 = UInt8(offset + 5)
+            tClass.propUInt16 = UInt16(offset + 6)
+            tClass.propUInt32 = UInt32(offset + 7)
+            tClass.propUInt64 = UInt64(offset + 8)
+            tClass.propFloat = Float(offset + 9)
+            tClass.propDouble = index % 2 == 0 ? Double(offset + 10) : nil
+            tClass.propString = "\(offset + 11)"
+            tClass.propDate = Date.now
+            infos.append(tClass)
+        }
+
+        let rb = try ArrowEncoder.encode(infos)!
+        XCTAssertEqual(Int(rb.length), infos.count)
+        XCTAssertEqual(rb.columns.count, 13)
+        XCTAssertEqual(rb.columns[0].type.id, ArrowTypeId.boolean)
+        XCTAssertEqual(rb.columns[1].type.id, ArrowTypeId.int8)
+        XCTAssertEqual(rb.columns[2].type.id, ArrowTypeId.int16)
+        XCTAssertEqual(rb.columns[3].type.id, ArrowTypeId.int32)
+        XCTAssertEqual(rb.columns[4].type.id, ArrowTypeId.int64)
+        XCTAssertEqual(rb.columns[5].type.id, ArrowTypeId.uint8)
+        XCTAssertEqual(rb.columns[6].type.id, ArrowTypeId.uint16)
+        XCTAssertEqual(rb.columns[7].type.id, ArrowTypeId.uint32)
+        XCTAssertEqual(rb.columns[8].type.id, ArrowTypeId.uint64)
+        XCTAssertEqual(rb.columns[9].type.id, ArrowTypeId.float)
+        XCTAssertEqual(rb.columns[10].type.id, ArrowTypeId.double)
+        XCTAssertEqual(rb.columns[11].type.id, ArrowTypeId.string)
+        XCTAssertEqual(rb.columns[12].type.id, ArrowTypeId.date64)
+        for index in 0..<10 {
+            let offset = index * 12
+            XCTAssertEqual(getArrayValue(rb, colIndex: 0, rowIndex: UInt(index)), index % 2 == 0)
+            XCTAssertEqual(getArrayValue(rb, colIndex: 1, rowIndex: UInt(index)), Int8(offset + 1))
+            XCTAssertEqual(getArrayValue(rb, colIndex: 2, rowIndex: UInt(index)), Int16(offset + 2))
+            XCTAssertEqual(getArrayValue(rb, colIndex: 3, rowIndex: UInt(index)), Int32(offset + 3))
+            XCTAssertEqual(getArrayValue(rb, colIndex: 4, rowIndex: UInt(index)), Int64(offset + 4))
+            XCTAssertEqual(getArrayValue(rb, colIndex: 5, rowIndex: UInt(index)), UInt8(offset + 5))
+            XCTAssertEqual(getArrayValue(rb, colIndex: 6, rowIndex: UInt(index)), UInt16(offset + 6))
+            XCTAssertEqual(getArrayValue(rb, colIndex: 7, rowIndex: UInt(index)), UInt32(offset + 7))
+            XCTAssertEqual(getArrayValue(rb, colIndex: 8, rowIndex: UInt(index)), UInt64(offset + 8))
+            XCTAssertEqual(getArrayValue(rb, colIndex: 9, rowIndex: UInt(index)), Float(offset + 9))
+            if index % 2 == 0 {
+                XCTAssertEqual(getArrayValue(rb, colIndex: 10, rowIndex: UInt(index)), Double(offset + 10))
+            } else {
+                XCTAssertEqual(getArrayValue(rb, colIndex: 10, rowIndex: UInt(index)), Double?(nil))
+            }
+
+            XCTAssertEqual(getArrayValue(rb, colIndex: 11, rowIndex: UInt(index)), String(offset + 11))
+        }
+    }
+
+    func testArrowUnkeyedEncoder() throws {
+        var testMap = [Int8: String?]()
+        for index in 0..<10 {
+            testMap[Int8(index)] = "test\(index)"
+        }
+
+        let rb = try ArrowEncoder.encode(testMap)
+        XCTAssertEqual(Int(rb.length), testMap.count)
+        XCTAssertEqual(rb.columns.count, 2)
+        XCTAssertEqual(rb.columns[0].type.id, ArrowTypeId.int8)
+        XCTAssertEqual(rb.columns[1].type.id, ArrowTypeId.string)
+        for index in 0..<10 {
+            let key: Int8 = getArrayValue(rb, colIndex: 0, rowIndex: UInt(index))!
+            let value: String = getArrayValue(rb, colIndex: 1, rowIndex: UInt(index))!
+            XCTAssertEqual("test\(key)", value)
+        }
+    }
+
+    func testArrowSingleEncoder() throws {
+        var intArray = [Int32?]()
+        for index in 0..<100 {
+            if index == 10 {
+                intArray.append(nil)
+            } else {
+                intArray.append(Int32(index))
+            }
+        }
+
+        let rb = try ArrowEncoder.encode(intArray)!
+        XCTAssertEqual(Int(rb.length), intArray.count)
+        XCTAssertEqual(rb.columns.count, 1)
+        XCTAssertEqual(rb.columns[0].type.id, ArrowTypeId.int32)
+        for index in 0..<100 {
+            if index == 10 {
+                let anyArray = rb.columns[0].array as! AnyArray // swiftlint:disable:this force_cast
+                XCTAssertNil(anyArray.asAny(UInt(index)))
+            } else {
+                XCTAssertEqual(getArrayValue(rb, colIndex: 0, rowIndex: UInt(index)), Int32(index))
+            }
         }
     }
 }

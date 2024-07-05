@@ -57,6 +57,8 @@ using internal::checked_cast;
 constexpr Type::type NullType::type_id;
 constexpr Type::type ListType::type_id;
 constexpr Type::type LargeListType::type_id;
+constexpr Type::type ListViewType::type_id;
+constexpr Type::type LargeListViewType::type_id;
 
 constexpr Type::type MapType::type_id;
 
