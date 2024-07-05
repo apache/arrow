@@ -34,6 +34,7 @@ import pyarrow.tests.strategies as past
 from pyarrow.vendored.version import Version
 
 
+@pytest.mark.processes
 def test_total_bytes_allocated():
     code = """if 1:
     import pyarrow as pa

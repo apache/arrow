@@ -18,14 +18,12 @@
 import datetime
 import decimal
 import pytest
-import sys
 import weakref
 
 import numpy as np
 
 import pyarrow as pa
 import pyarrow.compute as pc
-from pyarrow.tests import util
 
 
 @pytest.mark.parametrize(['value', 'ty', 'klass'], [
@@ -157,8 +155,7 @@ def test_hashing_struct_scalar():
     assert hash1 == hash2
 
 
-@pytest.mark.skipif(sys.platform == "win32" and not util.windows_has_tzdata(),
-                    reason="Timezone database is not installed on Windows")
+@pytest.mark.timezone_data
 def test_timestamp_scalar():
     a = repr(pa.scalar("0000-01-01").cast(pa.timestamp("s")))
     assert a == "<pyarrow.TimestampScalar: '0000-01-01T00:00:00'>"
@@ -325,8 +322,7 @@ def test_cast():
         pa.scalar('foo').cast('int32')
 
 
-@pytest.mark.skipif(sys.platform == "win32" and not util.windows_has_tzdata(),
-                    reason="Timezone database is not installed on Windows")
+@pytest.mark.timezone_data
 def test_cast_timestamp_to_string():
     # GH-35370
     pytest.importorskip("pytz")
