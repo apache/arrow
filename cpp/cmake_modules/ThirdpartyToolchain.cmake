@@ -4494,7 +4494,7 @@ target_include_directories(arrow::hadoop INTERFACE "${HADOOP_HOME}/include")
 function(build_orc)
   message(STATUS "Building Apache ORC from source")
 
-  if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.28)
+  if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.29)
     fetchcontent_declare(orc
                          ${FC_DECLARE_COMMON_OPTIONS}
                          URL ${ORC_SOURCE_URL}
@@ -4589,9 +4589,6 @@ function(build_orc)
          ${CMAKE_CURRENT_BINARY_DIR}/_deps/orc-src/cmake_modules)
 
     fetchcontent_makeavailable(orc)
-    if(CMAKE_VERSION VERSION_LESS 3.28)
-      set_property(DIRECTORY ${orc_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
-    endif()
 
     add_library(orc::orc INTERFACE IMPORTED)
     target_link_libraries(orc::orc INTERFACE orc)
