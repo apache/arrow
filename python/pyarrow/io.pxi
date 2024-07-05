@@ -798,7 +798,6 @@ cdef class NativeFile(_Weakrefable):
             free(buf)
             cleanup()
 
-
     def upload(self, stream, buffer_size=None):
         """
         Write from a source stream to this file.
