@@ -96,7 +96,6 @@ class TemplateOverrider(http.server.SimpleHTTPRequestHandler):
                     await self.pyodide.loadPackagesFromImports(data.python);
                     let results = await self.pyodide.runPythonAsync(data.python);
                     self.postMessage({results});
-                    console.log('FINISHED_WEBWORKER');
                 }
                 """
             self.send_response(200)
@@ -328,11 +327,8 @@ with launch_server(dist_dir) as (hostname, port):
 
     print("Load pyodide in browser")
     driver.load_pyodide(dist_dir)
-    print("Done\n")
-
     print("Load pyarrow in browser")
     _load_pyarrow_in_runner(driver, Path(args.wheel).name)
-    print("Done\n")
     driver.clear_logs()
     print("Run pytest in browser")
     driver.execute_python(

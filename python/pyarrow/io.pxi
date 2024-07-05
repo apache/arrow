@@ -33,6 +33,7 @@ from queue import Queue, Empty as QueueEmpty
 from pyarrow.lib cimport check_status, HaveLibHdfs
 from pyarrow.util import _is_path_like, _stringify_path
 
+
 # 64K
 DEFAULT_BUFFER_SIZE = 2 ** 16
 
@@ -704,6 +705,7 @@ cdef class NativeFile(_Weakrefable):
         if buf == NULL:
             raise MemoryError("Failed to allocate {0} bytes"
                               .format(buffer_size))
+
         writer_thread.start()
 
         cdef int64_t total_bytes = 0
@@ -734,6 +736,7 @@ cdef class NativeFile(_Weakrefable):
         finally:
             free(buf)
             done = True
+
         writer_thread.join()
         if exc_info is not None:
             raise exc_info[0], exc_info[1], exc_info[2]
@@ -793,6 +796,8 @@ cdef class NativeFile(_Weakrefable):
                 stream.write(pybuf)
         finally:
             free(buf)
+            cleanup()
+
 
     def upload(self, stream, buffer_size=None):
         """
@@ -847,6 +852,7 @@ cdef class NativeFile(_Weakrefable):
                 write_queue.put_nowait(buf)
         finally:
             done = True
+
         writer_thread.join()
         if exc_info is not None:
             raise exc_info[0], exc_info[1], exc_info[2]

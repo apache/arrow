@@ -1408,7 +1408,6 @@ class BaseCSVTableRead(BaseTestCSV):
 
     @pytest.mark.threading
     def test_cancellation(self):
-
         if (threading.current_thread().ident !=
                 threading.main_thread().ident):
             pytest.skip("test only works from main Python thread")
