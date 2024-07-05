@@ -382,13 +382,29 @@ class ConcatenateImpl {
     return ConcatenateBuffers(buffers, pool_).Value(&out_->buffers[1]);
   }
 
-  Status Visit(const BinaryType&) {
+  Status Visit(const BinaryType& input_type) {
     std::vector<Range> value_ranges;
     ARROW_ASSIGN_OR_RAISE(auto index_buffers, Buffers(1, sizeof(int32_t)));
     ARROW_ASSIGN_OR_RAISE(
         auto outcome, ConcatenateOffsets<int32_t>(index_buffers, pool_, &out_->buffers[1],
                                                   &value_ranges));
-    RETURN_IF_NOT_OK_OUTCOME(outcome);
+    switch (outcome) {
+      case OffsetBufferOpOutcome::kOk:
+        break;
+      case OffsetBufferOpOutcome::kOffsetOverflow:
+        switch (input_type.id()) {
+          case Type::BINARY:
+            suggested_cast_ = large_binary();
+            break;
+          case Type::STRING:
+            suggested_cast_ = large_utf8();
+            break;
+          default:
+            DCHECK(false) << "unexpected type id from BinaryType: " << input_type;
+            break;
+        }
+        return OffsetOverflowStatus();
+    }
     ARROW_ASSIGN_OR_RAISE(auto value_buffers, Buffers(2, value_ranges));
     return ConcatenateBuffers(value_buffers, pool_).Value(&out_->buffers[2]);
   }
@@ -862,7 +878,9 @@ class ConcatenateImpl {
 
 }  // namespace
 
-Result<std::shared_ptr<Array>> Concatenate(const ArrayVector& arrays, MemoryPool* pool) {
+Result<std::shared_ptr<Array>> Concatenate(
+    const ArrayVector& arrays, MemoryPool* pool,
+    std::shared_ptr<DataType>* out_suggested_cast) {
   if (arrays.size() == 0) {
     return Status::Invalid("Must pass at least one array");
   }
@@ -879,8 +897,27 @@ Result<std::shared_ptr<Array>> Concatenate(const ArrayVector& arrays, MemoryPool
   }
 
   std::shared_ptr<ArrayData> out_data;
-  RETURN_NOT_OK(ConcatenateImpl(data, pool).Concatenate(&out_data, /*hints=*/nullptr));
+  ErrorHints hints;
+  auto status = ConcatenateImpl(data, pool).Concatenate(&out_data, &hints);
+  if (!status.ok()) {
+    if (hints.suggested_cast) {
+      DCHECK(status.IsInvalid());
+      *out_suggested_cast = std::move(hints.suggested_cast);
+    }
+    return status;
+  }
   return MakeArray(std::move(out_data));
+}
+
+Result<std::shared_ptr<Array>> Concatenate(const ArrayVector& arrays, MemoryPool* pool) {
+  std::shared_ptr<DataType> suggested_cast;
+  auto result = Concatenate(arrays, pool, &suggested_cast);
+  if (!result.ok() && suggested_cast && arrays.size() > 0) {
+    DCHECK(result.status().IsInvalid());
+    return Status::Invalid(result.status().message(), ", consider casting input from `",
+                           *arrays[0]->type(), "` to `", *suggested_cast, "` first.");
+  }
+  return result;
 }
 
 #undef RETURN_IF_NOT_OK_OUTCOME

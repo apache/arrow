@@ -29,6 +29,7 @@
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
@@ -662,13 +663,39 @@ TEST_F(ConcatenateTest, ExtensionType) {
 }
 
 TEST_F(ConcatenateTest, OffsetOverflow) {
-  auto fake_long = ArrayFromJSON(utf8(), "[\"\"]");
-  fake_long->data()->GetMutableValues<int32_t>(1)[1] =
-      std::numeric_limits<int32_t>::max();
-  std::shared_ptr<Array> concatenated;
-  // XX since the data fake_long claims to own isn't there, this will segfault if
-  // Concatenate doesn't detect overflow and raise an error.
-  ASSERT_RAISES(Invalid, Concatenate({fake_long, fake_long}).status());
+  for (auto& ty : {binary(), utf8()}) {
+    auto fake_long = ArrayFromJSON(ty, "[\"\"]");
+    fake_long->data()->GetMutableValues<int32_t>(1)[1] =
+        std::numeric_limits<int32_t>::max();
+    // XXX: since the data fake_long claims to own isn't there, this would
+    // segfault if Concatenate didn't detect overflow and raise an error.
+    auto concatenate_status = Concatenate({fake_long, fake_long});
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid,
+        ::testing::StrEq("Invalid: offset overflow while concatenating arrays, "
+                         "consider casting input from `" +
+                         ty->ToString() + "` to `large_" + ty->ToString() + "` first."),
+        concatenate_status);
+
+    std::shared_ptr<DataType> suggested_cast;
+    concatenate_status =
+        Concatenate({fake_long, fake_long}, default_memory_pool(), &suggested_cast);
+    // Message is doesn't contain the suggested cast type when the caller
+    // asks for it by passing the output parameter.
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::StrEq("Invalid: offset overflow while concatenating arrays"),
+        concatenate_status);
+    switch (ty->id()) {
+      case Type::BINARY:
+        ASSERT_EQ(suggested_cast->id(), Type::LARGE_BINARY);
+        break;
+      case Type::STRING:
+        ASSERT_EQ(suggested_cast->id(), Type::LARGE_STRING);
+        break;
+      default:
+        break;
+    }
+  }
 }
 
 TEST_F(ConcatenateTest, DictionaryConcatenateWithEmptyUint16) {
