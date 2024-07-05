@@ -69,6 +69,12 @@ build() {
   mkdir -p ${cpp_build_dir}
   pushd ${cpp_build_dir}
 
+  # We use static cURL in google-cloud-cpp. If we can use cURL's CMake
+  # package, we don't need to specify CURL_STATICLIB explicitly. But
+  # we don't have cURL's CMake package. We need to use CXXFLAGS
+  # instead of ARROW_CXXFLAGS because ARROW_CXXFLAGS aren't passed to
+  # ExternProjects.
+  export CXXFLAGS="${CXXFLAGS} -DCURL_STATICLIB"
   # The Rtools libutf8proc is a static lib, but Findutf8proc.cmake doesn't
   # set the appropriate compiler definition.
   export CPPFLAGS="-DUTF8PROC_STATIC"
