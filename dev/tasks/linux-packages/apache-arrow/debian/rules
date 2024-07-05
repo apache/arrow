@@ -14,55 +14,44 @@ BUILD_TYPE=release
 	dh $@ --with gir
 
 override_dh_auto_configure:
-	if dpkg -l nvidia-cuda-toolkit > /dev/null 2>&1; then		\
-	  ARROW_CUDA=ON;						\
-	else								\
-	  ARROW_CUDA=OFF;						\
-	fi;								\
-	cmake_version=$$(						\
-	  cmake --version |						\
-	  grep								\
-	    --extended-regexp						\
-	    --only-matching						\
-	    '[0-9]+\.[0-9]+');						\
-	if dpkg --compare-versions $${cmake_version} ge 3.22; then	\
-	  ARROW_ORC=ON;							\
-	else								\
-	  ARROW_ORC=OFF;						\
-	fi;								\
-	dh_auto_configure						\
-	  --sourcedirectory=cpp						\
-	  --builddirectory=cpp_build					\
-	  --buildsystem=cmake+ninja					\
-	  --								\
-	  -DARROW_BUILD_UTILITIES=ON					\
-	  -DARROW_COMPUTE=ON						\
-	  -DARROW_CSV=ON						\
-	  -DARROW_CUDA=$${ARROW_CUDA}					\
-	  -DARROW_DATASET=ON						\
-	  -DARROW_FILESYSTEM=ON						\
-	  -DARROW_FLIGHT=ON						\
-	  -DARROW_FLIGHT_SQL=ON						\
-	  -DARROW_GANDIVA=ON						\
-	  -DARROW_GCS=ON						\
-	  -DARROW_HDFS=ON						\
-	  -DARROW_JSON=ON						\
-	  -DARROW_MIMALLOC=ON						\
-	  -DARROW_ORC=$${ARROW_ORC}					\
-	  -DARROW_PACKAGE_KIND=deb					\
-	  -DARROW_PARQUET=ON						\
-	  -DARROW_S3=ON							\
-	  -DARROW_USE_CCACHE=OFF					\
-	  -DARROW_USE_MOLD=ON						\
-	  -DARROW_WITH_BROTLI=ON					\
-	  -DARROW_WITH_BZ2=ON						\
-	  -DARROW_WITH_LZ4=ON						\
-	  -DARROW_WITH_SNAPPY=ON					\
-	  -DARROW_WITH_ZLIB=ON						\
-	  -DARROW_WITH_ZSTD=ON						\
-	  -DCMAKE_BUILD_TYPE=$(BUILD_TYPE)				\
-	  -DCUDAToolkit_ROOT=/usr					\
-	  -DPARQUET_BUILD_EXECUTABLES=ON				\
+	if dpkg -l nvidia-cuda-toolkit > /dev/null 2>&1; then	\
+	  ARROW_CUDA=ON;					\
+	else							\
+	  ARROW_CUDA=OFF;					\
+	fi;							\
+	dh_auto_configure					\
+	  --sourcedirectory=cpp					\
+	  --builddirectory=cpp_build				\
+	  --buildsystem=cmake+ninja				\
+	  --							\
+	  -DARROW_BUILD_UTILITIES=ON				\
+	  -DARROW_COMPUTE=ON					\
+	  -DARROW_CSV=ON					\
+	  -DARROW_CUDA=$${ARROW_CUDA}				\
+	  -DARROW_DATASET=ON					\
+	  -DARROW_FILESYSTEM=ON					\
+	  -DARROW_FLIGHT=ON					\
+	  -DARROW_FLIGHT_SQL=ON					\
+	  -DARROW_GANDIVA=ON					\
+	  -DARROW_GCS=ON					\
+	  -DARROW_HDFS=ON					\
+	  -DARROW_JSON=ON					\
+	  -DARROW_MIMALLOC=ON					\
+	  -DARROW_ORC=ON					\
+	  -DARROW_PACKAGE_KIND=deb				\
+	  -DARROW_PARQUET=ON					\
+	  -DARROW_S3=ON						\
+	  -DARROW_USE_CCACHE=OFF				\
+	  -DARROW_USE_MOLD=ON					\
+	  -DARROW_WITH_BROTLI=ON				\
+	  -DARROW_WITH_BZ2=ON					\
+	  -DARROW_WITH_LZ4=ON					\
+	  -DARROW_WITH_SNAPPY=ON				\
+	  -DARROW_WITH_ZLIB=ON					\
+	  -DARROW_WITH_ZSTD=ON					\
+	  -DCMAKE_BUILD_TYPE=$(BUILD_TYPE)			\
+	  -DCUDAToolkit_ROOT=/usr				\
+	  -DPARQUET_BUILD_EXECUTABLES=ON			\
 	  -DPARQUET_REQUIRE_ENCRYPTION=ON
 
 override_dh_auto_build:

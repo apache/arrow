@@ -687,19 +687,6 @@ test_and_install_cpp() {
     ARROW_CMAKE_OPTIONS="${ARROW_CMAKE_OPTIONS:-} -G ${CMAKE_GENERATOR}"
   fi
 
-  if [ -z "${ARROW_ORC}" ]; then
-    cmake_version=$(cmake --version | \
-                      grep \
-                        --extended-regexp \
-                        --only-matching \
-                        '[0-9]+\.[0-9]+')
-    if expr ${cmake_version} '>=' 3.22; then
-      ARROW_ORC=ON
-    else
-      ARROW_ORC=OFF
-    fi
-  fi
-
   local ARROW_BUILD_INTEGRATION=OFF
   local ARROW_BUILD_TESTS=OFF
   if [ ${TEST_INTEGRATION_CPP} -gt 0 ]; then
@@ -727,7 +714,7 @@ test_and_install_cpp() {
     -DARROW_GCS=${ARROW_GCS} \
     -DARROW_HDFS=ON \
     -DARROW_JSON=ON \
-    -DARROW_ORC=${ARROW_ORC} \
+    -DARROW_ORC=ON \
     -DARROW_PARQUET=ON \
     -DARROW_SUBSTRAIT=ON \
     -DARROW_S3=${ARROW_S3} \
@@ -779,6 +766,7 @@ test_python() {
   export PYARROW_PARALLEL=$NPROC
   export PYARROW_WITH_DATASET=1
   export PYARROW_WITH_HDFS=1
+  export PYARROW_WITH_ORC=1
   export PYARROW_WITH_PARQUET=1
   export PYARROW_WITH_PARQUET_ENCRYPTION=1
   if [ "${ARROW_CUDA}" = "ON" ]; then
@@ -792,9 +780,6 @@ test_python() {
   fi
   if [ "${ARROW_GCS}" = "ON" ]; then
     export PYARROW_WITH_GCS=1
-  fi
-  if [ "${ARROW_ORC}" = "ON" ]; then
-    export PYARROW_WITH_ORC=1
   fi
   if [ "${ARROW_S3}" = "ON" ]; then
     export PYARROW_WITH_S3=1
@@ -813,6 +798,7 @@ import pyarrow.csv
 import pyarrow.dataset
 import pyarrow.fs
 import pyarrow.json
+import pyarrow.orc
 import pyarrow.parquet
 "
   if [ "${ARROW_CUDA}" == "ON" ]; then
@@ -826,9 +812,6 @@ import pyarrow.parquet
   fi
   if [ "${ARROW_GCS}" == "ON" ]; then
     python -c "import pyarrow._gcsfs"
-  fi
-  if [ "${ARROW_ORC}" == "ON" ]; then
-    python -c "import pyarrow.orc"
   fi
   if [ "${ARROW_S3}" == "ON" ]; then
     python -c "import pyarrow._s3fs"
@@ -1333,7 +1316,6 @@ fi
 : ${ARROW_FLIGHT:=ON}
 : ${ARROW_GANDIVA:=ON}
 : ${ARROW_GCS:=OFF}
-: ${ARROW_ORC:=}
 : ${ARROW_S3:=OFF}
 
 TEST_SUCCESS=no

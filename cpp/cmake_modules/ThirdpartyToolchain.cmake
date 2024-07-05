@@ -4492,124 +4492,200 @@ target_include_directories(arrow::hadoop INTERFACE "${HADOOP_HOME}/include")
 # Apache ORC
 
 function(build_orc)
-  if(CMAKE_VERSION VERSION_LESS 3.22)
-    # We can't disable installing Apache ORC by
-    # "set_property(DIRECTORY ${orc_SOURCE_DIR} PROPERTY
-    # EXCLUDE_FROM_ALL TRUE)" with CMake 3.16.
-    #
-    # At least CMake 3.22 on Ubuntu 22.04 works. So we use 3.22
-    # here. We may be able to use more earlier version here.
-    message(FATAL_ERROR "Building Apache ORC requires at least CMake 3.22. "
-                        "(At least we can't use CMake 3.16)")
-  endif()
   message(STATUS "Building Apache ORC from source")
-  fetchcontent_declare(orc
-                       ${FC_DECLARE_COMMON_OPTIONS}
-                       URL ${ORC_SOURCE_URL}
-                       URL_HASH "SHA256=${ARROW_ORC_BUILD_SHA256_CHECKSUM}")
-  prepare_fetchcontent()
 
-  set(CMAKE_UNITY_BUILD FALSE)
+  if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.28)
+    fetchcontent_declare(orc
+                         ${FC_DECLARE_COMMON_OPTIONS}
+                         URL ${ORC_SOURCE_URL}
+                         URL_HASH "SHA256=${ARROW_ORC_BUILD_SHA256_CHECKSUM}")
+    prepare_fetchcontent()
 
-  set(ORC_PREFER_STATIC_LZ4
-      OFF
-      CACHE BOOL "" FORCE)
-  get_target_property(LZ4_INCLUDE_DIR LZ4::lz4 INTERFACE_INCLUDE_DIRECTORIES)
-  get_filename_component(LZ4_ROOT "${LZ4_INCLUDE_DIR}" DIRECTORY)
-  set(LZ4_HOME
-      ${LZ4_ROOT}
-      CACHE STRING "" FORCE)
-  set(LZ4_LIBRARY
-      LZ4::lz4
-      CACHE STRING "" FORCE)
+    set(CMAKE_UNITY_BUILD FALSE)
 
-  set(ORC_PREFER_STATIC_PROTOBUF
-      OFF
-      CACHE BOOL "" FORCE)
-  get_target_property(PROTOBUF_INCLUDE_DIR ${ARROW_PROTOBUF_LIBPROTOBUF}
-                      INTERFACE_INCLUDE_DIRECTORIES)
-  get_filename_component(Protobuf_ROOT "${PROTOBUF_INCLUDE_DIR}" DIRECTORY)
-  set(PROTOBUF_HOME
-      ${Protobuf_ROOT}
-      CACHE STRING "" FORCE)
-  target_include_directories(${ARROW_PROTOBUF_LIBPROTOC}
-                             INTERFACE "${PROTOBUF_INCLUDE_DIR}")
-  set(PROTOBUF_EXECUTABLE $<TARGET_FILE:${ARROW_PROTOBUF_PROTOC}>)
-  set(PROTOBUF_LIBRARY $<TARGET_FILE:${ARROW_PROTOBUF_LIBPROTOBUF}>)
-  set(PROTOC_LIBRARY $<TARGET_FILE:${ARROW_PROTOBUF_LIBPROTOC}>)
+    set(ORC_PREFER_STATIC_LZ4
+        OFF
+        CACHE BOOL "" FORCE)
+    get_target_property(LZ4_INCLUDE_DIR LZ4::lz4 INTERFACE_INCLUDE_DIRECTORIES)
+    get_filename_component(LZ4_ROOT "${LZ4_INCLUDE_DIR}" DIRECTORY)
+    set(LZ4_HOME
+        ${LZ4_ROOT}
+        CACHE STRING "" FORCE)
+    set(LZ4_LIBRARY
+        LZ4::lz4
+        CACHE STRING "" FORCE)
 
-  set(ORC_PREFER_STATIC_SNAPPY
-      OFF
-      CACHE BOOL "" FORCE)
-  get_target_property(SNAPPY_INCLUDE_DIR ${Snappy_TARGET} INTERFACE_INCLUDE_DIRECTORIES)
-  get_filename_component(Snappy_ROOT "${SNAPPY_INCLUDE_DIR}" DIRECTORY)
-  set(SNAPPY_HOME
-      ${Snappy_ROOT}
-      CACHE STRING "" FORCE)
-  set(SNAPPY_LIBRARY
-      ${Snappy_TARGET}
-      CACHE STRING "" FORCE)
+    set(ORC_PREFER_STATIC_PROTOBUF
+        OFF
+        CACHE BOOL "" FORCE)
+    get_target_property(PROTOBUF_INCLUDE_DIR ${ARROW_PROTOBUF_LIBPROTOBUF}
+                        INTERFACE_INCLUDE_DIRECTORIES)
+    get_filename_component(Protobuf_ROOT "${PROTOBUF_INCLUDE_DIR}" DIRECTORY)
+    set(PROTOBUF_HOME
+        ${Protobuf_ROOT}
+        CACHE STRING "" FORCE)
+    target_include_directories(${ARROW_PROTOBUF_LIBPROTOC}
+                               INTERFACE "${PROTOBUF_INCLUDE_DIR}")
+    set(PROTOBUF_EXECUTABLE $<TARGET_FILE:${ARROW_PROTOBUF_PROTOC}>)
+    set(PROTOBUF_LIBRARY $<TARGET_FILE:${ARROW_PROTOBUF_LIBPROTOBUF}>)
+    set(PROTOC_LIBRARY $<TARGET_FILE:${ARROW_PROTOBUF_LIBPROTOC}>)
 
-  set(ORC_PREFER_STATIC_ZLIB
-      OFF
-      CACHE BOOL "" FORCE)
-  get_target_property(ZLIB_INCLUDE_DIR ZLIB::ZLIB INTERFACE_INCLUDE_DIRECTORIES)
-  get_filename_component(ZLIB_ROOT "${ZLIB_INCLUDE_DIR}" DIRECTORY)
-  set(ZLIB_HOME
-      ${ZLIB_ROOT}
-      CACHE STRING "" FORCE)
-  set(ZLIB_LIBRARY
-      ZLIB::ZLIB
-      CACHE STRING "" FORCE)
+    set(ORC_PREFER_STATIC_SNAPPY
+        OFF
+        CACHE BOOL "" FORCE)
+    get_target_property(SNAPPY_INCLUDE_DIR ${Snappy_TARGET} INTERFACE_INCLUDE_DIRECTORIES)
+    get_filename_component(Snappy_ROOT "${SNAPPY_INCLUDE_DIR}" DIRECTORY)
+    set(SNAPPY_HOME
+        ${Snappy_ROOT}
+        CACHE STRING "" FORCE)
+    set(SNAPPY_LIBRARY
+        ${Snappy_TARGET}
+        CACHE STRING "" FORCE)
 
-  set(ORC_PREFER_STATIC_ZSTD
-      OFF
-      CACHE BOOL "" FORCE)
-  get_target_property(ZSTD_INCLUDE_DIR ${ARROW_ZSTD_LIBZSTD}
-                      INTERFACE_INCLUDE_DIRECTORIES)
-  get_filename_component(ZSTD_ROOT "${ZSTD_INCLUDE_DIR}" DIRECTORY)
-  set(ZSTD_HOME
-      ${ZSTD_ROOT}
-      CACHE STRING "" FORCE)
-  set(ZSTD_LIBRARY ${ARROW_ZSTD_LIBZSTD})
+    set(ORC_PREFER_STATIC_ZLIB
+        OFF
+        CACHE BOOL "" FORCE)
+    get_target_property(ZLIB_INCLUDE_DIR ZLIB::ZLIB INTERFACE_INCLUDE_DIRECTORIES)
+    get_filename_component(ZLIB_ROOT "${ZLIB_INCLUDE_DIR}" DIRECTORY)
+    set(ZLIB_HOME
+        ${ZLIB_ROOT}
+        CACHE STRING "" FORCE)
+    set(ZLIB_LIBRARY
+        ZLIB::ZLIB
+        CACHE STRING "" FORCE)
 
-  set(BUILD_CPP_TESTS
-      OFF
-      CACHE BOOL "" FORCE)
-  set(BUILD_JAVA
-      OFF
-      CACHE BOOL "" FORCE)
-  set(BUILD_LIBHDFSPP
-      OFF
-      CACHE BOOL "" FORCE)
-  set(BUILD_TOOLS
-      OFF
-      CACHE BOOL "" FORCE)
-  set(INSTALL_VENDORED_LIBS
-      OFF
-      CACHE BOOL "" FORCE)
-  set(STOP_BUILD_ON_WARNING
-      OFF
-      CACHE BOOL "" FORCE)
+    set(ORC_PREFER_STATIC_ZSTD
+        OFF
+        CACHE BOOL "" FORCE)
+    get_target_property(ZSTD_INCLUDE_DIR ${ARROW_ZSTD_LIBZSTD}
+                        INTERFACE_INCLUDE_DIRECTORIES)
+    get_filename_component(ZSTD_ROOT "${ZSTD_INCLUDE_DIR}" DIRECTORY)
+    set(ZSTD_HOME
+        ${ZSTD_ROOT}
+        CACHE STRING "" FORCE)
+    set(ZSTD_LIBRARY ${ARROW_ZSTD_LIBZSTD})
 
-  # We can remove this with ORC 2.0.2 or later.
-  list(PREPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_BINARY_DIR}/_deps/orc-src/cmake_modules)
+    set(BUILD_CPP_TESTS
+        OFF
+        CACHE BOOL "" FORCE)
+    set(BUILD_JAVA
+        OFF
+        CACHE BOOL "" FORCE)
+    set(BUILD_LIBHDFSPP
+        OFF
+        CACHE BOOL "" FORCE)
+    set(BUILD_TOOLS
+        OFF
+        CACHE BOOL "" FORCE)
+    set(INSTALL_VENDORED_LIBS
+        OFF
+        CACHE BOOL "" FORCE)
+    set(STOP_BUILD_ON_WARNING
+        OFF
+        CACHE BOOL "" FORCE)
 
-  fetchcontent_makeavailable(orc)
-  if(CMAKE_VERSION VERSION_LESS 3.28)
-    set_property(DIRECTORY ${orc_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
+    # We can remove this with ORC 2.0.2 or later.
+    list(PREPEND CMAKE_MODULE_PATH
+         ${CMAKE_CURRENT_BINARY_DIR}/_deps/orc-src/cmake_modules)
+
+    fetchcontent_makeavailable(orc)
+    if(CMAKE_VERSION VERSION_LESS 3.28)
+      set_property(DIRECTORY ${orc_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
+    endif()
+
+    add_library(orc::orc INTERFACE IMPORTED)
+    target_link_libraries(orc::orc INTERFACE orc)
+    target_include_directories(orc::orc INTERFACE "${orc_BINARY_DIR}/c++/include"
+                                                  "${orc_SOURCE_DIR}/c++/include")
+
+    list(APPEND ARROW_BUNDLED_STATIC_LIBS orc)
+  else()
+    set(ORC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/orc_ep-install")
+    set(ORC_HOME "${ORC_PREFIX}")
+    set(ORC_INCLUDE_DIR "${ORC_PREFIX}/include")
+    set(ORC_STATIC_LIB
+        "${ORC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}orc${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    )
+
+    get_target_property(ORC_PROTOBUF_ROOT ${ARROW_PROTOBUF_LIBPROTOBUF}
+                        INTERFACE_INCLUDE_DIRECTORIES)
+    get_filename_component(ORC_PROTOBUF_ROOT "${ORC_PROTOBUF_ROOT}" DIRECTORY)
+
+    get_target_property(ORC_SNAPPY_INCLUDE_DIR ${Snappy_TARGET}
+                        INTERFACE_INCLUDE_DIRECTORIES)
+    get_filename_component(ORC_SNAPPY_ROOT "${ORC_SNAPPY_INCLUDE_DIR}" DIRECTORY)
+
+    get_target_property(ORC_LZ4_ROOT LZ4::lz4 INTERFACE_INCLUDE_DIRECTORIES)
+    get_filename_component(ORC_LZ4_ROOT "${ORC_LZ4_ROOT}" DIRECTORY)
+
+    get_target_property(ORC_ZSTD_ROOT ${ARROW_ZSTD_LIBZSTD} INTERFACE_INCLUDE_DIRECTORIES)
+    get_filename_component(ORC_ZSTD_ROOT "${ORC_ZSTD_ROOT}" DIRECTORY)
+
+    set(ORC_CMAKE_ARGS
+        ${EP_COMMON_CMAKE_ARGS}
+        "-DCMAKE_INSTALL_PREFIX=${ORC_PREFIX}"
+        -DSTOP_BUILD_ON_WARNING=OFF
+        -DBUILD_LIBHDFSPP=OFF
+        -DBUILD_JAVA=OFF
+        -DBUILD_TOOLS=OFF
+        -DBUILD_CPP_TESTS=OFF
+        -DINSTALL_VENDORED_LIBS=OFF
+        "-DLZ4_HOME=${ORC_LZ4_ROOT}"
+        "-DPROTOBUF_EXECUTABLE=$<TARGET_FILE:${ARROW_PROTOBUF_PROTOC}>"
+        "-DPROTOBUF_HOME=${ORC_PROTOBUF_ROOT}"
+        "-DPROTOBUF_INCLUDE_DIR=$<TARGET_PROPERTY:${ARROW_PROTOBUF_LIBPROTOBUF},INTERFACE_INCLUDE_DIRECTORIES>"
+        "-DPROTOBUF_LIBRARY=$<TARGET_FILE:${ARROW_PROTOBUF_LIBPROTOBUF}>"
+        "-DPROTOC_LIBRARY=$<TARGET_FILE:${ARROW_PROTOBUF_LIBPROTOC}>"
+        "-DSNAPPY_HOME=${ORC_SNAPPY_ROOT}"
+        "-DSNAPPY_LIBRARY=$<TARGET_FILE:${Snappy_TARGET}>"
+        "-DLZ4_LIBRARY=$<TARGET_FILE:LZ4::lz4>"
+        "-DLZ4_STATIC_LIB=$<TARGET_FILE:LZ4::lz4>"
+        "-DLZ4_INCLUDE_DIR=${ORC_LZ4_ROOT}/include"
+        "-DSNAPPY_INCLUDE_DIR=${ORC_SNAPPY_INCLUDE_DIR}"
+        "-DZSTD_HOME=${ORC_ZSTD_ROOT}"
+        "-DZSTD_INCLUDE_DIR=$<TARGET_PROPERTY:${ARROW_ZSTD_LIBZSTD},INTERFACE_INCLUDE_DIRECTORIES>"
+        "-DZSTD_LIBRARY=$<TARGET_FILE:${ARROW_ZSTD_LIBZSTD}>")
+    if(ZLIB_ROOT)
+      set(ORC_CMAKE_ARGS ${ORC_CMAKE_ARGS} "-DZLIB_HOME=${ZLIB_ROOT}")
+    endif()
+
+    # Work around CMake bug
+    file(MAKE_DIRECTORY ${ORC_INCLUDE_DIR})
+
+    externalproject_add(orc_ep
+                        ${EP_COMMON_OPTIONS}
+                        URL ${ORC_SOURCE_URL}
+                        URL_HASH "SHA256=${ARROW_ORC_BUILD_SHA256_CHECKSUM}"
+                        BUILD_BYPRODUCTS ${ORC_STATIC_LIB}
+                        CMAKE_ARGS ${ORC_CMAKE_ARGS}
+                        DEPENDS ${ARROW_PROTOBUF_LIBPROTOBUF}
+                                ${ARROW_ZSTD_LIBZSTD}
+                                ${Snappy_TARGET}
+                                LZ4::lz4
+                                ZLIB::ZLIB)
+    add_library(orc::orc STATIC IMPORTED)
+    set_target_properties(orc::orc PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}")
+    target_include_directories(orc::orc BEFORE INTERFACE "${ORC_INCLUDE_DIR}")
+    target_link_libraries(orc::orc INTERFACE LZ4::lz4 ZLIB::ZLIB ${ARROW_ZSTD_LIBZSTD}
+                                             ${Snappy_TARGET})
+    # Protobuf generated files may use ABSL_DCHECK*() and
+    # absl::log_internal_check_op is needed for them.
+    if(TARGET absl::log_internal_check_op)
+      target_link_libraries(orc::orc INTERFACE absl::log_internal_check_op)
+    endif()
+    if(NOT MSVC)
+      if(NOT APPLE AND ARROW_ENABLE_THREADING)
+        target_link_libraries(orc::orc INTERFACE Threads::Threads)
+      endif()
+      target_link_libraries(orc::orc INTERFACE ${CMAKE_DL_LIBS})
+    endif()
+    add_dependencies(orc::orc orc_ep)
+    list(APPEND ARROW_BUNDLED_STATIC_LIBS orc::orc)
   endif()
 
   set(ORC_VENDORED
       TRUE
       PARENT_SCOPE)
-
-  add_library(orc::orc INTERFACE IMPORTED)
-  target_link_libraries(orc::orc INTERFACE orc)
-  target_include_directories(orc::orc INTERFACE "${orc_BINARY_DIR}/c++/include"
-                                                "${orc_SOURCE_DIR}/c++/include")
-
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS orc)
   set(ARROW_BUNDLED_STATIC_LIBS
       ${ARROW_BUNDLED_STATIC_LIBS}
       PARENT_SCOPE)

@@ -72,7 +72,6 @@
 # %%define use_glog (%%{_rhel} <= 8)
 %define use_glog 0
 %define use_mimalloc (%{_rhel} >= 8)
-%define use_orc (%{_rhel} >= 8 || %{is_amazon_linux})
 # TODO: Enable this. This works on local but is fragile on GitHub Actions and
 # Travis CI.
 # %%define use_s3 (%%{_rhel} >= 8)
@@ -180,9 +179,7 @@ cd cpp
 %if %{use_mimalloc}
   -DARROW_MIMALLOC=ON \
 %endif
-%if %{use_orc}
   -DARROW_ORC=ON \
-%endif
   -DARROW_PACKAGE_KIND=rpm \
   -DARROW_PARQUET=ON \
 %if %{use_s3}
@@ -328,9 +325,7 @@ Libraries and header files for Apache Arrow C++.
 %{_libdir}/pkgconfig/arrow-csv.pc
 %{_libdir}/pkgconfig/arrow-filesystem.pc
 %{_libdir}/pkgconfig/arrow-json.pc
-%if %{use_orc}
 %{_libdir}/pkgconfig/arrow-orc.pc
-%endif
 %{_libdir}/pkgconfig/arrow.pc
 
 %package -n %{name}%{so_version}-acero-libs
@@ -598,9 +593,7 @@ Libraries and header files for Apache Arrow GLib.
 %{_libdir}/libarrow-glib.a
 %{_libdir}/libarrow-glib.so
 %{_libdir}/pkgconfig/arrow-glib.pc
-%if %{use_orc}
 %{_libdir}/pkgconfig/arrow-orc-glib.pc
-%endif
 
 %package glib-doc
 Summary:	Documentation for Apache Arrow GLib
