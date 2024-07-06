@@ -4524,6 +4524,9 @@ function(build_orc)
     set(PROTOBUF_HOME
         ${Protobuf_ROOT}
         CACHE STRING "" FORCE)
+    # ORC uses this.
+    target_include_directories(${ARROW_PROTOBUF_LIBPROTOC}
+                               INTERFACE "${PROTOBUF_INCLUDE_DIR}")
     set(PROTOBUF_EXECUTABLE ${ARROW_PROTOBUF_PROTOC})
     set(PROTOBUF_LIBRARY ${ARROW_PROTOBUF_LIBPROTOBUF})
     set(PROTOC_LIBRARY ${ARROW_PROTOBUF_LIBPROTOC})
