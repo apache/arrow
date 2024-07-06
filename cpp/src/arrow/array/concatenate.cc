@@ -552,10 +552,16 @@ class ConcatenateImpl {
     return Status::OK();
   }
 
-  Status Visit(const FixedSizeListType& fixed_size_list) {
-    ARROW_ASSIGN_OR_RAISE(auto child_data, ChildData(0, fixed_size_list.list_size()));
-    return ConcatenateImpl(child_data, pool_)
-        .Concatenate(&out_->child_data[0], /*hints=*/nullptr);
+  Status Visit(const FixedSizeListType& fsl_type) {
+    ARROW_ASSIGN_OR_RAISE(auto child_data, ChildData(0, fsl_type.list_size()));
+    ErrorHints hints;
+    auto status =
+        ConcatenateImpl(child_data, pool_).Concatenate(&out_->child_data[0], &hints);
+    if (!status.ok() && hints.suggested_cast) {
+      suggested_cast_ =
+          fixed_size_list(std::move(hints.suggested_cast), fsl_type.list_size());
+    }
+    return status;
   }
 
   Status Visit(const StructType& s) {

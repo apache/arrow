@@ -684,13 +684,14 @@ std::shared_ptr<DataType> LargeVersionOfType(const std::shared_ptr<DataType>& ty
   }
 }
 
+std::shared_ptr<DataType> fixed_size_list_of_1(std::shared_ptr<DataType> type) {
+  return fixed_size_list(std::move(type), 1);
+}
+
 TEST_F(ConcatenateTest, OffsetOverflow) {
   using TypeFactory = std::shared_ptr<DataType> (*)(std::shared_ptr<DataType>);
   static const std::vector<TypeFactory> kNestedTypeFactories = {
-      list,
-      large_list,
-      list_view,
-      large_list_view,
+      list, large_list, list_view, large_list_view, fixed_size_list_of_1,
   };
 
   auto* pool = default_memory_pool();
