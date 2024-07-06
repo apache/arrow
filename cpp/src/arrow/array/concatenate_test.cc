@@ -671,16 +671,28 @@ std::shared_ptr<DataType> LargeVersionOfType(const std::shared_ptr<DataType>& ty
       return large_utf8();
     case Type::LIST:
       return large_list(static_cast<const ListType&>(*type).value_type());
+    case Type::LIST_VIEW:
+      return large_list_view(static_cast<const ListViewType&>(*type).value_type());
+    case Type::LARGE_BINARY:
+    case Type::LARGE_STRING:
     case Type::LARGE_LIST:
-      break;
+    case Type::LARGE_LIST_VIEW:
+      return type;
     default:
       Unreachable();
       break;
   }
-  return type;
 }
 
 TEST_F(ConcatenateTest, OffsetOverflow) {
+  using TypeFactory = std::shared_ptr<DataType> (*)(std::shared_ptr<DataType>);
+  static const std::vector<TypeFactory> kNestedTypeFactories = {
+      list,
+      large_list,
+      list_view,
+      large_list_view,
+  };
+
   auto* pool = default_memory_pool();
   std::shared_ptr<DataType> suggested_cast;
   for (auto& ty : {binary(), utf8()}) {
@@ -709,12 +721,10 @@ TEST_F(ConcatenateTest, OffsetOverflow) {
 
     // Check that the suggested cast is correct when concatenation
     // fails due to the child array being too large.
-    using TypeFactory = std::shared_ptr<DataType> (*)(std::shared_ptr<DataType>);
-    static const std::vector<TypeFactory> kTypeFactories = {list, large_list};
-    for (auto factory : kTypeFactories) {
-      auto list_type = factory(ty);
+    for (auto factory : kNestedTypeFactories) {
+      auto nested_ty = factory(ty);
       auto expected_suggestion = factory(large_ty);
-      auto fake_long_list = ArrayFromJSON(list_type, "[[\"\"]]");
+      auto fake_long_list = ArrayFromJSON(nested_ty, "[[\"\"]]");
       fake_long_list->data()->child_data[0] = fake_long->data();
 
       ASSERT_RAISES(
@@ -732,6 +742,23 @@ TEST_F(ConcatenateTest, OffsetOverflow) {
       Invalid,
       Concatenate({fake_long_list, fake_long_list}, pool, &suggested_cast).status());
   ASSERT_TRUE(suggested_cast->Equals(LargeVersionOfType(list_ty)));
+
+  auto list_view_ty = list_view(null());
+  auto fake_long_list_view = ArrayFromJSON(list_view_ty, "[[], []]");
+  {
+    constexpr int kInt32Max = std::numeric_limits<int32_t>::max();
+    auto* values = fake_long_list_view->data()->child_data[0].get();
+    auto* mutable_offsets = fake_long_list_view->data()->GetMutableValues<int32_t>(1);
+    auto* mutable_sizes = fake_long_list_view->data()->GetMutableValues<int32_t>(2);
+    values->length = 2 * static_cast<int64_t>(kInt32Max);
+    mutable_offsets[1] = kInt32Max;
+    mutable_offsets[0] = kInt32Max;
+    mutable_sizes[0] = kInt32Max;
+  }
+  ASSERT_RAISES(Invalid, Concatenate({fake_long_list_view, fake_long_list_view}, pool,
+                                     &suggested_cast)
+                             .status());
+  ASSERT_TRUE(suggested_cast->Equals(LargeVersionOfType(list_view_ty)));
 }
 
 TEST_F(ConcatenateTest, DictionaryConcatenateWithEmptyUint16) {

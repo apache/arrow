@@ -517,9 +517,17 @@ class ConcatenateImpl {
     }
 
     // Concatenate the values
+    ErrorHints child_error_hints;
     ARROW_ASSIGN_OR_RAISE(ArrayDataVector value_data, ChildData(0, value_ranges));
-    RETURN_NOT_OK(ConcatenateImpl(value_data, pool_)
-                      .Concatenate(&out_->child_data[0], /*hints=*/nullptr));
+    auto values_status = ConcatenateImpl(value_data, pool_)
+                             .Concatenate(&out_->child_data[0], &child_error_hints);
+    if (!values_status.ok()) {
+      if (child_error_hints.suggested_cast) {
+        suggested_cast_ = std::make_shared<std::remove_reference_t<T>>(
+            std::move(child_error_hints.suggested_cast));
+      }
+      return values_status;
+    }
     out_->child_data[0]->type = type.value_type();
 
     // Concatenate the sizes first
@@ -532,7 +540,15 @@ class ConcatenateImpl {
         auto outcome, ConcatenateListViewOffsets<offset_type>(
                           in_, /*sizes=*/out_->buffers[2]->mutable_data_as<offset_type>(),
                           offset_buffers, value_ranges, pool_, &out_->buffers[1]));
-    RETURN_IF_NOT_OK_OUTCOME(outcome);
+    switch (outcome) {
+      case OffsetBufferOpOutcome::kOk:
+        break;
+      case OffsetBufferOpOutcome::kOffsetOverflow:
+        if constexpr (T::type_id == Type::LIST_VIEW) {
+          suggested_cast_ = large_list_view(type.value_type());
+        }
+        return OffsetOverflowStatus();
+    }
     return Status::OK();
   }
 
