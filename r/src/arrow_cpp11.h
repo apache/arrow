@@ -39,11 +39,6 @@
 #define ARROW_R_DCHECK(EXPR)
 #endif
 
-// borrowed from enc package
-// because R does not make these macros available (i.e. from Defn.h)
-#define UTF8_MASK (1 << 3)
-#define ASCII_MASK (1 << 6)
-
 // For context, see:
 // https://github.com/r-devel/r-svn/blob/6418faeb6f5d87d3d9b92b8978773bc3856b4b6f/src/main/altrep.c#L37
 #define ALTREP_CLASS_SERIALIZED_CLASS(x) ATTRIB(x)
