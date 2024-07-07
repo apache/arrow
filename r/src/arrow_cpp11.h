@@ -130,9 +130,7 @@ class complexs {
 // functions that need to be called from an unwind_protect()
 namespace unsafe {
 
-inline const char* utf8_string(SEXP s) {
-  return Rf_translateCharUTF8(s);
-}
+inline const char* utf8_string(SEXP s) { return Rf_translateCharUTF8(s); }
 
 inline R_xlen_t r_string_size(SEXP s) {
   if (s == NA_STRING) {
@@ -385,7 +383,7 @@ SEXP to_r6(const std::shared_ptr<T>& ptr, const char* r6_class_name) {
   cpp11::external_pointer<std::shared_ptr<T>> xp(new std::shared_ptr<T>(ptr));
   SEXP r6_class = Rf_install(r6_class_name);
 
-  if (! R_existsVarInFrame(arrow::r::ns::arrow, r6_class)) {
+  if (!R_existsVarInFrame(arrow::r::ns::arrow, r6_class)) {
     cpp11::stop("No arrow R6 class named '%s'", r6_class_name);
   }
 
