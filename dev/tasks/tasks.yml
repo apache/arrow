@@ -1280,6 +1280,7 @@ tasks:
       env:
         ARROW_R_DEV: "TRUE"
       image: ubuntu-r-valgrind
+      timeout: 300 # 5 hours
 
   test-r-linux-rchk:
     ci: github
@@ -1564,10 +1565,11 @@ tasks:
         TEST_PYARROW_ONLY: "{{ test_pyarrow_only }}"
         NUMPY: "{{ numpy_version }}"
         JDK: "{{ jdk_version }}"
+      fetch_depth: 0
       # use the branch-3.0 of spark, so prevent reusing any layers
       flags: --no-leaf-cache
       image: conda-python-spark
-      fetch_depth: 0
+      timeout: 90
 {% endfor %}
 
 {% for kind in ["static", "static-system-dependency"] %}
