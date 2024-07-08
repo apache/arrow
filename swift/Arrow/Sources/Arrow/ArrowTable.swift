@@ -185,7 +185,7 @@ public class RecordBatch {
 
     public func anyData(for columnIndex: Int) -> AnyArray {
         let arrayHolder = column(columnIndex)
-        return (arrayHolder.array as! AnyArray) // swiftlint:disable:this force_cast
+        return arrayHolder.array
     }
 
     public func column(_ index: Int) -> ArrowArrayHolder {

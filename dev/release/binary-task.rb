@@ -16,6 +16,7 @@
 # under the License.
 
 require "cgi/util"
+require "digest/sha1"
 require "digest/sha2"
 require "io/console"
 require "json"

@@ -1406,6 +1406,7 @@ class BaseCSVTableRead(BaseTestCSV):
         assert table.num_rows == 0
         assert table.column_names == col_names
 
+    @pytest.mark.threading
     def test_cancellation(self):
         if (threading.current_thread().ident !=
                 threading.main_thread().ident):
@@ -1475,6 +1476,7 @@ class BaseCSVTableRead(BaseTestCSV):
         assert isinstance(e, pa.ArrowCancelled)
         assert e.signum == signum
 
+    @pytest.mark.threading
     def test_cancellation_disabled(self):
         # ARROW-12622: reader would segfault when the cancelling signal
         # handler was not enabled (e.g. if disabled, or if not on the
@@ -1825,6 +1827,7 @@ class TestSerialStreamingCSVRead(BaseStreamingCSVRead):
         return False
 
 
+@pytest.mark.threading
 class TestThreadedStreamingCSVRead(BaseStreamingCSVRead):
     @property
     def use_threads(self):

@@ -166,10 +166,9 @@ TEST(KeyCompare, CompareColumnsToRowsTempStackUsage) {
   }
 }
 
-#ifndef ARROW_VALGRIND
 // Compare columns to rows at offsets over 2GB within a row table.
 // Certain AVX2 instructions may behave unexpectedly causing troubles like GH-41813.
-TEST(KeyCompare, CompareColumnsToRowsLarge) {
+TEST(KeyCompare, LARGE_MEMORY_TEST(CompareColumnsToRowsLarge)) {
   if constexpr (sizeof(void*) == 4) {
     GTEST_SKIP() << "Test only works on 64-bit platforms";
   }
@@ -300,7 +299,6 @@ TEST(KeyCompare, CompareColumnsToRowsLarge) {
               num_rows);
   }
 }
-#endif  // ARROW_VALGRIND
 
 }  // namespace compute
 }  // namespace arrow

@@ -39,14 +39,6 @@
 #define ARROW_R_DCHECK(EXPR)
 #endif
 
-// borrowed from enc package
-// because R does not make these macros available (i.e. from Defn.h)
-#define UTF8_MASK (1 << 3)
-#define ASCII_MASK (1 << 6)
-
-#define IS_ASCII(x) (LEVELS(x) & ASCII_MASK)
-#define IS_UTF8(x) (LEVELS(x) & UTF8_MASK)
-
 // For context, see:
 // https://github.com/r-devel/r-svn/blob/6418faeb6f5d87d3d9b92b8978773bc3856b4b6f/src/main/altrep.c#L37
 #define ALTREP_CLASS_SERIALIZED_CLASS(x) ATTRIB(x)
@@ -133,19 +125,11 @@ class complexs {
 // functions that need to be called from an unwind_protect()
 namespace unsafe {
 
-inline const char* utf8_string(SEXP s) {
-  if (!IS_UTF8(s) && !IS_ASCII(s)) {
-    return Rf_translateCharUTF8(s);
-  } else {
-    return CHAR(s);
-  }
-}
+inline const char* utf8_string(SEXP s) { return Rf_translateCharUTF8(s); }
 
 inline R_xlen_t r_string_size(SEXP s) {
   if (s == NA_STRING) {
     return 0;
-  } else if (IS_ASCII(s) || IS_UTF8(s)) {
-    return XLENGTH(s);
   } else {
     return strlen(Rf_translateCharUTF8(s));
   }
@@ -164,7 +148,7 @@ inline SEXP utf8_strings(SEXP x) {
 
     for (R_xlen_t i = 0; i < n; i++, ++p_x) {
       SEXP s = *p_x;
-      if (s != NA_STRING && !IS_UTF8(s) && !IS_ASCII(s)) {
+      if (s != NA_STRING) {
         SET_STRING_ELT(x, i, Rf_mkCharCE(Rf_translateCharUTF8(s), CE_UTF8));
       }
     }
@@ -394,7 +378,7 @@ SEXP to_r6(const std::shared_ptr<T>& ptr, const char* r6_class_name) {
   cpp11::external_pointer<std::shared_ptr<T>> xp(new std::shared_ptr<T>(ptr));
   SEXP r6_class = Rf_install(r6_class_name);
 
-  if (Rf_findVarInFrame3(arrow::r::ns::arrow, r6_class, FALSE) == R_UnboundValue) {
+  if (!R_existsVarInFrame(arrow::r::ns::arrow, r6_class)) {
     cpp11::stop("No arrow R6 class named '%s'", r6_class_name);
   }
 

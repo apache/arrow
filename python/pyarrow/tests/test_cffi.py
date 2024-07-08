@@ -749,6 +749,7 @@ def test_roundtrip_chunked_array_capsule_requested_schema():
         chunked.__arrow_c_stream__(requested_capsule)
 
 
+@needs_cffi
 def test_import_device_no_cuda():
     try:
         import pyarrow.cuda  # noqa
