@@ -560,7 +560,7 @@ func BenchmarkByteStreamSplitEncodingFixedLenByteArray(b *testing.B) {
 		b.Run(fmt.Sprintf("len %d", sz), func(b *testing.B) {
 			values := make([]parquet.FixedLenByteArray, sz)
 			for idx := range values {
-				values[idx] = []byte{0x12, 0x34}
+				values[idx] = []byte{0x12, 0x34, 0x56, 0x78}
 			}
 
 			arraySize := len(values[0])
@@ -584,7 +584,7 @@ func BenchmarkByteStreamSplitDecodingFixedLenByteArray(b *testing.B) {
 			output := make([]parquet.FixedLenByteArray, sz)
 			values := make([]parquet.FixedLenByteArray, sz)
 			for idx := range values {
-				values[idx] = []byte{0x12, 0x34}
+				values[idx] = []byte{0x12, 0x34, 0x56, 0x78}
 			}
 
 			arraySize := len(values[0])

@@ -17,9 +17,13 @@
 package encoding
 
 import (
-	"bytes"
+	"fmt"
+	"math"
 
+	"github.com/apache/arrow/go/v17/arrow"
 	"github.com/apache/arrow/go/v17/arrow/memory"
+	"github.com/apache/arrow/go/v17/parquet"
+	"golang.org/x/xerrors"
 )
 
 // encodeByteStreamSplit encodes the raw bytes provided by 'in' into the output buffer 'data' using BYTE_STREAM_SPLIT encoding.
@@ -79,60 +83,83 @@ func encodeByteStreamSplitWidth8(data []byte, in []byte) {
 	}
 }
 
-// decodeByteStreamSplit decodes the raw bytes provided by 'data' into the output buffer 'out' using BYTE_STREAM_SPLIT encoding.
+// decodeByteStreamSplitBatchWidth4 decodes the batch of nValues raw bytes representing a 4-byte datatype provided by 'data',
+// into the output buffer 'out' using BYTE_STREAM_SPLIT encoding.
 // 'out' must have space for at least len(data) bytes.
-func decodeByteStreamSplit(data []byte, out []byte, width int) {
-	numElements := len(data) / width
+func decodeByteStreamSplitBatchWidth4(data []byte, nValues, stride int, out []byte) {
+	const width = 4
+	for element := 0; element < nValues; element++ {
+		out[width*element] = data[element]
+		out[width*element+1] = data[stride+element]
+		out[width*element+2] = data[2*stride+element]
+		out[width*element+3] = data[3*stride+element]
+	}
+}
+
+// decodeByteStreamSplitBatchWidth8 decodes the batch of nValues raw bytes representing a 8-byte datatype provided by 'data',
+// into the output buffer 'out' using BYTE_STREAM_SPLIT encoding.
+// 'out' must have space for at least len(data) bytes.
+func decodeByteStreamSplitBatchWidth8(data []byte, nValues, stride int, out []byte) {
+	const width = 8
+	for element := 0; element < nValues; element++ {
+		out[width*element] = data[element]
+		out[width*element+1] = data[stride+element]
+		out[width*element+2] = data[2*stride+element]
+		out[width*element+3] = data[3*stride+element]
+		out[width*element+4] = data[4*stride+element]
+		out[width*element+5] = data[5*stride+element]
+		out[width*element+6] = data[6*stride+element]
+		out[width*element+7] = data[7*stride+element]
+	}
+}
+
+// decodeByteStreamSplitBatchFLBA decodes the batch of nValues FixedLenByteArrays provided by 'data',
+// into the output slice 'out' using BYTE_STREAM_SPLIT encoding.
+// 'out' must have space for at least nValues slices.
+func decodeByteStreamSplitBatchFLBA(data []byte, nValues, stride, width int, out []parquet.FixedLenByteArray) {
 	for stream := 0; stream < width; stream++ {
-		for element := 0; element < numElements; element++ {
-			encLoc := numElements*stream + element
-			decLoc := width*element + stream
-			out[decLoc] = data[encLoc]
+		for element := 0; element < nValues; element++ {
+			encLoc := stride*stream + element
+			out[element][stream] = data[encLoc]
 		}
 	}
 }
 
-// decodeByteStreamSplitWidth2 implements decodeByteStreamSplit optimized for types stored using 2 bytes.
-// 'out' must have space for at least len(data) bytes.
-func decodeByteStreamSplitWidth2(data []byte, out []byte) {
-	const width = 2
-	numElements := len(data) / width
-	for element := 0; element < numElements; element++ {
-		decLoc := width * element
-		out[decLoc] = data[element]
-		out[decLoc+1] = data[numElements+element]
+// decodeByteStreamSplitBatchFLBAWidth2 decodes the batch of nValues FixedLenByteArrays of length 2 provided by 'data',
+// into the output slice 'out' using BYTE_STREAM_SPLIT encoding.
+// 'out' must have space for at least nValues slices.
+func decodeByteStreamSplitBatchFLBAWidth2(data []byte, nValues, stride int, out []parquet.FixedLenByteArray) {
+	for element := 0; element < nValues; element++ {
+		out[element][0] = data[element]
+		out[element][1] = data[stride+element]
 	}
 }
 
-// decodeByteStreamSplitWidth4 implements decodeByteStreamSplit optimized for types stored using 4 bytes.
-// 'out' must have space for at least len(data) bytes.
-func decodeByteStreamSplitWidth4(data []byte, out []byte) {
-	const width = 4
-	numElements := len(data) / width
-	for element := 0; element < numElements; element++ {
-		decLoc := width * element
-		out[decLoc] = data[element]
-		out[decLoc+1] = data[numElements+element]
-		out[decLoc+2] = data[numElements*2+element]
-		out[decLoc+3] = data[numElements*3+element]
+// decodeByteStreamSplitBatchFLBAWidth4 decodes the batch of nValues FixedLenByteArrays of length 4 provided by 'data',
+// into the output slice 'out' using BYTE_STREAM_SPLIT encoding.
+// 'out' must have space for at least nValues slices.
+func decodeByteStreamSplitBatchFLBAWidth4(data []byte, nValues, stride int, out []parquet.FixedLenByteArray) {
+	for element := 0; element < nValues; element++ {
+		out[element][0] = data[element]
+		out[element][1] = data[stride+element]
+		out[element][2] = data[stride*2+element]
+		out[element][3] = data[stride*3+element]
 	}
 }
 
-// decodeByteStreamSplitWidth8 implements decodeByteStreamSplit optimized for types stored using 8 bytes.
-// 'out' must have space for at least len(data) bytes.
-func decodeByteStreamSplitWidth8(data []byte, out []byte) {
-	const width = 8
-	numElements := len(data) / width
-	for element := 0; element < numElements; element++ {
-		decLoc := width * element
-		out[decLoc] = data[element]
-		out[decLoc+1] = data[numElements+element]
-		out[decLoc+2] = data[numElements*2+element]
-		out[decLoc+3] = data[numElements*3+element]
-		out[decLoc+4] = data[numElements*4+element]
-		out[decLoc+5] = data[numElements*5+element]
-		out[decLoc+6] = data[numElements*6+element]
-		out[decLoc+7] = data[numElements*7+element]
+// decodeByteStreamSplitBatchFLBAWidth8 decodes the batch of nValues FixedLenByteArrays of length 8 provided by 'data',
+// into the output slice 'out' using BYTE_STREAM_SPLIT encoding.
+// 'out' must have space for at least nValues slices.
+func decodeByteStreamSplitBatchFLBAWidth8(data []byte, nValues, stride int, out []parquet.FixedLenByteArray) {
+	for element := 0; element < nValues; element++ {
+		out[element][0] = data[element]
+		out[element][1] = data[stride+element]
+		out[element][2] = data[stride*2+element]
+		out[element][3] = data[stride*3+element]
+		out[element][4] = data[stride*4+element]
+		out[element][5] = data[stride*5+element]
+		out[element][6] = data[stride*6+element]
+		out[element][7] = data[stride*7+element]
 	}
 }
 
@@ -141,6 +168,18 @@ func releaseBufferToPool(pooled *PooledBufferWriter) {
 	memory.Set(buf.Buf(), 0)
 	buf.ResizeNoShrink(0)
 	bufferPool.Put(buf)
+}
+
+func validateByteStreamSplitPageData(typeLen, nvals int, data []byte) (int, error) {
+	if nvals*typeLen < len(data) {
+		return 0, fmt.Errorf("data size (%d) is too small for the number of values in in BYTE_STREAM_SPLIT (%d)", len(data), nvals)
+	}
+
+	if len(data)%typeLen != 0 {
+		return 0, fmt.Errorf("ByteStreamSplit data size %d not aligned with byte_width: %d", len(data), typeLen)
+	}
+
+	return len(data) / typeLen, nil
 }
 
 // ByteStreamSplitFloat32Encoder writes the underlying bytes of the Float32
@@ -255,58 +294,74 @@ func (enc *ByteStreamSplitInt64Encoder) Release() {
 	enc.flushBuffer = nil
 }
 
-// ByteStreamSplitFloat32Decoder is a decoder for BYTE_STREAM_SPLIT-encoded
-// bytes representing Float32 values
-type ByteStreamSplitFloat32Decoder struct {
-	PlainFloat32Decoder
-	pageBuffer bytes.Buffer
+type ByteStreamSplitFloat32Decoder = ByteStreamSplitDecoder[float32]
+type ByteStreamSplitFloat64Decoder = ByteStreamSplitDecoder[float64]
+type ByteStreamSplitInt32Decoder = ByteStreamSplitDecoder[int32]
+type ByteStreamSplitInt64Decoder = ByteStreamSplitDecoder[int64]
+
+type ByteStreamSplitDecoder[T float32 | float64 | int32 | int64] struct {
+	decoder
+	stride int
 }
 
-func (dec *ByteStreamSplitFloat32Decoder) SetData(nvals int, data []byte) error {
-	dec.pageBuffer.Grow(len(data))
-	buf := dec.pageBuffer.Bytes()[:len(data)]
-	decodeByteStreamSplitWidth4(data, buf)
-	return dec.PlainFloat32Decoder.SetData(nvals, buf)
+func (dec *ByteStreamSplitDecoder[T]) Type() parquet.Type {
+	switch any(dec).(type) {
+	case *ByteStreamSplitDecoder[float32]:
+		return parquet.Types.Float
+	case *ByteStreamSplitDecoder[float64]:
+		return parquet.Types.Double
+	case *ByteStreamSplitDecoder[int32]:
+		return parquet.Types.Int32
+	case *ByteStreamSplitDecoder[int64]:
+		return parquet.Types.Int64
+	default:
+		return parquet.Types.Undefined
+	}
 }
 
-// ByteStreamSplitFloat64Decoder is a decoder for BYTE_STREAM_SPLIT-encoded
-// bytes representing Float64 values
-type ByteStreamSplitFloat64Decoder struct {
-	PlainFloat64Decoder
-	pageBuffer bytes.Buffer
+func (dec *ByteStreamSplitDecoder[T]) SetData(nvals int, data []byte) error {
+	nvals, err := validateByteStreamSplitPageData(dec.Type().ByteSize(), nvals, data)
+	if err != nil {
+		return err
+	}
+
+	dec.stride = nvals
+	return dec.decoder.SetData(nvals, data)
 }
 
-func (dec *ByteStreamSplitFloat64Decoder) SetData(nvals int, data []byte) error {
-	dec.pageBuffer.Grow(len(data))
-	buf := dec.pageBuffer.Bytes()[:len(data)]
-	decodeByteStreamSplitWidth8(data, buf)
-	return dec.PlainFloat64Decoder.SetData(nvals, buf)
+func (dec *ByteStreamSplitDecoder[T]) Decode(out []T) (int, error) {
+	typeLen := dec.Type().ByteSize()
+	toRead := len(out)
+	numBytesNeeded := toRead * typeLen
+	if numBytesNeeded > len(dec.data) || numBytesNeeded > math.MaxInt32 {
+		return 0, xerrors.New("parquet: eof exception")
+	}
+
+	outBytes := arrow.GetBytes(out)
+	switch typeLen {
+	case 4:
+		decodeByteStreamSplitBatchWidth4(dec.data, toRead, dec.stride, outBytes)
+	case 8:
+		decodeByteStreamSplitBatchWidth8(dec.data, toRead, dec.stride, outBytes)
+	default:
+		return 0, fmt.Errorf("encoding ByteStreamSplit is only defined for numeric type of width 4 or 8, found: %d", typeLen)
+	}
+
+	dec.nvals -= toRead
+	dec.data = dec.data[toRead:]
+
+	return toRead, nil
 }
 
-// ByteStreamSplitInt32Decoder is a decoder for BYTE_STREAM_SPLIT-encoded
-// bytes representing Int32 values
-type ByteStreamSplitInt32Decoder struct {
-	PlainInt32Decoder
-	pageBuffer bytes.Buffer
-}
+func (dec *ByteStreamSplitDecoder[T]) DecodeSpaced(out []T, nullCount int, validBits []byte, validBitsOffset int64) (int, error) {
+	toRead := len(out) - nullCount
+	valuesRead, err := dec.Decode(out[:toRead])
+	if err != nil {
+		return valuesRead, err
+	}
+	if valuesRead != toRead {
+		return valuesRead, xerrors.New("parquet: number of values / definitions levels read did not match")
+	}
 
-func (dec *ByteStreamSplitInt32Decoder) SetData(nvals int, data []byte) error {
-	dec.pageBuffer.Grow(len(data))
-	buf := dec.pageBuffer.Bytes()[:len(data)]
-	decodeByteStreamSplitWidth4(data, buf)
-	return dec.PlainInt32Decoder.SetData(nvals, buf)
-}
-
-// ByteStreamSplitInt64Decoder is a decoder for BYTE_STREAM_SPLIT-encoded
-// bytes representing Int64 values
-type ByteStreamSplitInt64Decoder struct {
-	PlainInt64Decoder
-	pageBuffer bytes.Buffer
-}
-
-func (dec *ByteStreamSplitInt64Decoder) SetData(nvals int, data []byte) error {
-	dec.pageBuffer.Grow(len(data))
-	buf := dec.pageBuffer.Bytes()[:len(data)]
-	decodeByteStreamSplitWidth8(data, buf)
-	return dec.PlainInt64Decoder.SetData(nvals, buf)
+	return spacedExpand(out, nullCount, validBits, validBitsOffset), nil
 }
