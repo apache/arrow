@@ -66,6 +66,7 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
     unionViewWriter.setListViewWriter(listViewWriter);
     unionViewWriter.setMapWriter(mapWriter);
     unionViewWriter.setWriters(writers);
+    unionViewWriter.setPosition(idx());
     return unionViewWriter;
   }
 

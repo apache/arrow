@@ -609,6 +609,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     promotableViewWriter.setState(state);
     promotableViewWriter.setUnionVector(unionVector);
     promotableViewWriter.setType(MinorType.LISTVIEW);
+    promotableViewWriter.setPosition(idx());
     return promotableViewWriter;
   }
 }
