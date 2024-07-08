@@ -44,7 +44,8 @@ class PARQUET_EXPORT Encryptor {
   ::arrow::MemoryPool* pool() { return pool_; }
 
   int CiphertextSizeDelta();
-  int Encrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* ciphertext);
+  int Encrypt(::arrow::util::span<const uint8_t> plaintext,
+              ::arrow::util::span<uint8_t> ciphertext);
 
   bool EncryptColumnMetaData(
       bool encrypted_footer,

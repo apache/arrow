@@ -640,11 +640,13 @@ class FileMetaData::FileMetaDataImpl {
     uint32_t serialized_len = metadata_len_;
     ThriftSerializer serializer;
     serializer.SerializeToBuffer(metadata_.get(), &serialized_len, &serialized_data);
+    ::arrow::util::span<const uint8_t> serialized_data_span(serialized_data,
+                                                            serialized_len);
 
     // encrypt with nonce
-    auto nonce = const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(signature));
-    auto tag = const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(signature)) +
-               encryption::kNonceLength;
+    ::arrow::util::span<const uint8_t> nonce(reinterpret_cast<const uint8_t*>(signature),
+                                             encryption::kNonceLength);
+    auto tag = reinterpret_cast<const uint8_t*>(signature) + encryption::kNonceLength;
 
     std::string key = file_decryptor_->GetFooterKey();
     std::string aad = encryption::CreateFooterAad(file_decryptor_->file_aad());
@@ -657,9 +659,8 @@ class FileMetaData::FileMetaDataImpl {
         AllocateBuffer(file_decryptor_->pool(),
                        aes_encryptor->CiphertextSizeDelta() + serialized_len));
     uint32_t encrypted_len = aes_encryptor->SignedFooterEncrypt(
-        serialized_data, serialized_len, str2bytes(key), static_cast<int>(key.size()),
-        str2bytes(aad), static_cast<int>(aad.size()), nonce,
-        encrypted_buffer->mutable_data());
+        serialized_data_span, str2span(key), str2span(aad), nonce,
+        encrypted_buffer->mutable_span_as<uint8_t>());
     // Delete AES encryptor object. It was created only to verify the footer signature.
     aes_encryptor->WipeOut();
     delete aes_encryptor;
@@ -701,12 +702,13 @@ class FileMetaData::FileMetaDataImpl {
       uint8_t* serialized_data;
       uint32_t serialized_len;
       serializer.SerializeToBuffer(metadata_.get(), &serialized_len, &serialized_data);
+      ::arrow::util::span<const uint8_t> serialized_data_span(serialized_data,
+                                                              serialized_len);
 
       // encrypt the footer key
       std::vector<uint8_t> encrypted_data(encryptor->CiphertextSizeDelta() +
                                           serialized_len);
-      unsigned encrypted_len =
-          encryptor->Encrypt(serialized_data, serialized_len, encrypted_data.data());
+      unsigned encrypted_len = encryptor->Encrypt(serialized_data_span, encrypted_data);
 
       // write unencrypted footer
       PARQUET_THROW_NOT_OK(dst->Write(serialized_data, serialized_len));
@@ -1559,11 +1561,12 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
 
         serializer.SerializeToBuffer(&column_chunk_->meta_data, &serialized_len,
                                      &serialized_data);
+        ::arrow::util::span<const uint8_t> serialized_data_span(serialized_data,
+                                                                serialized_len);
 
         std::vector<uint8_t> encrypted_data(encryptor->CiphertextSizeDelta() +
                                             serialized_len);
-        unsigned encrypted_len =
-            encryptor->Encrypt(serialized_data, serialized_len, encrypted_data.data());
+        unsigned encrypted_len = encryptor->Encrypt(serialized_data_span, encrypted_data);
 
         const char* temp =
             const_cast<const char*>(reinterpret_cast<char*>(encrypted_data.data()));

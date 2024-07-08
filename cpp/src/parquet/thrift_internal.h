@@ -525,13 +525,14 @@ class ThriftSerializer {
     }
   }
 
-  int64_t SerializeEncryptedObj(ArrowOutputStream* out, uint8_t* out_buffer,
+  int64_t SerializeEncryptedObj(ArrowOutputStream* out, const uint8_t* out_buffer,
                                 uint32_t out_length, Encryptor* encryptor) {
     auto cipher_buffer = std::static_pointer_cast<ResizableBuffer>(AllocateBuffer(
         encryptor->pool(),
         static_cast<int64_t>(encryptor->CiphertextSizeDelta() + out_length)));
+    ::arrow::util::span<const uint8_t> out_span(out_buffer, out_length);
     int cipher_buffer_len =
-        encryptor->Encrypt(out_buffer, out_length, cipher_buffer->mutable_data());
+        encryptor->Encrypt(out_span, cipher_buffer->mutable_span_as<uint8_t>());
 
     PARQUET_THROW_NOT_OK(out->Write(cipher_buffer->data(), cipher_buffer_len));
     return static_cast<int64_t>(cipher_buffer_len);

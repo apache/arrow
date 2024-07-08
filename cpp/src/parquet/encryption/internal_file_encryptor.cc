@@ -33,10 +33,9 @@ Encryptor::Encryptor(encryption::AesEncryptor* aes_encryptor, const std::string&
 
 int Encryptor::CiphertextSizeDelta() { return aes_encryptor_->CiphertextSizeDelta(); }
 
-int Encryptor::Encrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* ciphertext) {
-  return aes_encryptor_->Encrypt(plaintext, plaintext_len, str2bytes(key_),
-                                 static_cast<int>(key_.size()), str2bytes(aad_),
-                                 static_cast<int>(aad_.size()), ciphertext);
+int Encryptor::Encrypt(::arrow::util::span<const uint8_t> plaintext,
+                       ::arrow::util::span<uint8_t> ciphertext) {
+  return aes_encryptor_->Encrypt(plaintext, str2span(key_), str2span(aad_), ciphertext);
 }
 
 // InternalFileEncryptor
