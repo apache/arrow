@@ -294,9 +294,20 @@ func (enc *ByteStreamSplitInt64Encoder) Release() {
 	enc.flushBuffer = nil
 }
 
+// ByteStreamSplitFloat32Decoder is a decoder for BYTE_STREAM_SPLIT-encoded
+// bytes representing Float32 values
 type ByteStreamSplitFloat32Decoder = ByteStreamSplitDecoder[float32]
+
+// ByteStreamSplitFloat64Decoder is a decoder for BYTE_STREAM_SPLIT-encoded
+// bytes representing Float64 values
 type ByteStreamSplitFloat64Decoder = ByteStreamSplitDecoder[float64]
+
+// ByteStreamSplitInt32Decoder is a decoder for BYTE_STREAM_SPLIT-encoded
+// bytes representing Int32 values
 type ByteStreamSplitInt32Decoder = ByteStreamSplitDecoder[int32]
+
+// ByteStreamSplitInt64Decoder is a decoder for BYTE_STREAM_SPLIT-encoded
+// bytes representing Int64 values
 type ByteStreamSplitInt64Decoder = ByteStreamSplitDecoder[int64]
 
 type ByteStreamSplitDecoder[T float32 | float64 | int32 | int64] struct {
