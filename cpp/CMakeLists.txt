@@ -71,6 +71,14 @@ if(POLICY CMP0135)
   cmake_policy(SET CMP0135 NEW)
 endif()
 
+# https://cmake.org/cmake/help/latest/policy/CMP0170.html
+#
+# CMP0170 is for enforcing dependency populations by users with
+# FETCHCONTENT_FULLY_DISCONNECTED=ON.
+if(POLICY CMP0170)
+  cmake_policy(SET CMP0170 NEW)
+endif()
+
 set(ARROW_VERSION "17.0.0-SNAPSHOT")
 
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSION}")
