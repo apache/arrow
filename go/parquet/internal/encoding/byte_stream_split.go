@@ -305,7 +305,7 @@ type ByteStreamSplitDecoder[T float32 | float64 | int32 | int64] struct {
 }
 
 func (dec *ByteStreamSplitDecoder[T]) Type() parquet.Type {
-	switch any(dec).(type) {
+	switch v := any(dec).(type) {
 	case *ByteStreamSplitDecoder[float32]:
 		return parquet.Types.Float
 	case *ByteStreamSplitDecoder[float64]:
@@ -315,7 +315,7 @@ func (dec *ByteStreamSplitDecoder[T]) Type() parquet.Type {
 	case *ByteStreamSplitDecoder[int64]:
 		return parquet.Types.Int64
 	default:
-		return parquet.Types.Undefined
+		panic(fmt.Sprintf("ByteStreamSplitDecoder is not supported for type: %T", v))
 	}
 }
 
