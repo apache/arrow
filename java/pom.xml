@@ -94,7 +94,7 @@ under the License.
     <dep.netty-bom.version>4.1.110.Final</dep.netty-bom.version>
     <dep.grpc-bom.version>1.63.0</dep.grpc-bom.version>
     <dep.protobuf-bom.version>3.25.1</dep.protobuf-bom.version>
-    <dep.jackson-bom.version>2.17.1</dep.jackson-bom.version>
+    <dep.jackson-bom.version>2.17.2</dep.jackson-bom.version>
     <dep.hadoop.version>3.4.0</dep.hadoop.version>
     <dep.fbs.version>24.3.25</dep.fbs.version>
     <dep.avro.version>1.11.3</dep.avro.version>
