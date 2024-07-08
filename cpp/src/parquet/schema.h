@@ -465,7 +465,8 @@ class PARQUET_EXPORT SchemaDescriptor {
   // Root Node
   schema::NodePtr schema_;
   // Root Node
-  const schema::GroupNode* group_node_{nullptr};
+  // Would never be NULLPTR.
+  const schema::GroupNode* group_node_;
 
   void BuildTree(const schema::NodePtr& node, int16_t max_def_level,
                  int16_t max_rep_level, const schema::NodePtr& base);
