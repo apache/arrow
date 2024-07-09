@@ -1638,6 +1638,14 @@ class LogicalType::Impl::Float16 final : public LogicalType::Impl::Incompatible,
 
 GENERATE_MAKE(Float16)
 
+#define geometry_edges_string(u___)             \
+  ((u___) == LogicalType::GeometryEdges::PLANAR \
+       ? "planar"                               \
+       : ((u___) == LogicalType::GeometryEdges::SPHERICAL ? "spherical" : "unknown"))
+
+#define geometry_encoding_string(u___) \
+  ((u___) == LogicalType::GeometryEncoding::WKB ? "wkb" : "unknown")
+
 class LogicalType::Impl::Geometry final : public LogicalType::Impl::Incompatible,
                                           public LogicalType::Impl::SimpleApplicable {
  public:
@@ -1671,11 +1679,32 @@ class LogicalType::Impl::Geometry final : public LogicalType::Impl::Incompatible
 };
 
 std::string LogicalType::Impl::Geometry::ToString() const {
-  throw std::runtime_error("not implemented");
+  std::stringstream type;
+  type << "Geometry(crs=" << crs_ << ", edges=" << geometry_edges_string(edges_)
+       << ", encoding=" << geometry_encoding_string(encoding_)
+       << ", metadata=" << metadata_ << ")";
+  return type.str();
 }
 
 std::string LogicalType::Impl::Geometry::ToJSON() const {
-  throw std::runtime_error("not implemented");
+  std::stringstream json;
+  json << R"({"Type": "Geometry")";
+
+  if (crs_.size() > 0) {
+    // TODO(paleolimbot): we'll need to escape the crs or assume that it's valid JSON
+    json << R"(, "crs": )" << crs_;
+  }
+
+  json << R"(, "edges": )" << geometry_edges_string(edges_);
+  json << R"(, "encoding": )" << geometry_encoding_string(encoding_);
+
+  if (metadata_.size() > 0) {
+    // TODO(paleolimbot): we'll need to escape the metadata or assume that it's valid JSON
+    json << R"(, "metadata": )" << crs_;
+  }
+
+  json << "}";
+  return json.str();
 }
 
 format::LogicalType LogicalType::Impl::Geometry::ToThrift() const {
