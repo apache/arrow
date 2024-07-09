@@ -463,6 +463,31 @@ std::shared_ptr<const LogicalType> LogicalType::FromThrift(
     return UUIDLogicalType::Make();
   } else if (type.__isset.FLOAT16) {
     return Float16LogicalType::Make();
+  } else if (type.__isset.GEOMETRY) {
+    std::string crs;
+    if (type.GEOMETRY.__isset.crs) {
+      crs = type.GEOMETRY.crs;
+    }
+
+    LogicalType::GeometryEdges::edges edges = LogicalType::GeometryEdges::UNKNOWN;
+    if (type.GEOMETRY.edges == format::Edges::PLANAR) {
+      edges = LogicalType::GeometryEdges::PLANAR;
+    } else if (type.GEOMETRY.edges == format::Edges::SPHERICAL) {
+      edges = LogicalType::GeometryEdges::SPHERICAL;
+    }
+
+    LogicalType::GeometryEncoding::geometry_encoding encoding =
+        LogicalType::GeometryEncoding::UNKNOWN;
+    if (type.GEOMETRY.encoding == format::GeometryEncoding::WKB) {
+      encoding = LogicalType::GeometryEncoding::WKB;
+    }
+
+    std::string metadata;
+    if (type.GEOMETRY.__isset.crs) {
+      metadata = type.GEOMETRY.metadata;
+    }
+
+    return GeometryLogicalType::Make(crs, edges, encoding, metadata);
   } else {
     throw ParquetException("Metadata contains Thrift LogicalType that is not recognized");
   }
@@ -1654,7 +1679,31 @@ std::string LogicalType::Impl::Geometry::ToJSON() const {
 }
 
 format::LogicalType LogicalType::Impl::Geometry::ToThrift() const {
-  throw std::runtime_error("not implemented");
+  format::LogicalType type;
+  format::GeometryType geometry_type;
+
+  // Canonially export crs of "" as an unset CRS
+  if (crs_.size() > 0) {
+    geometry_type.__set_crs(crs_);
+  }
+
+  DCHECK(edges_ != LogicalType::GeometryEdges::UNKNOWN);
+  if (edges_ == LogicalType::GeometryEdges::SPHERICAL) {
+    geometry_type.__set_edges(format::Edges::SPHERICAL);
+  } else {
+    geometry_type.__set_edges(format::Edges::PLANAR);
+  }
+
+  DCHECK_EQ(encoding_, LogicalType::GeometryEncoding::WKB);
+  geometry_type.__set_encoding(format::GeometryEncoding::WKB);
+
+  // Canonically export empty metadata as unset
+  if (metadata_.size() > 0) {
+    geometry_type.__set_metadata(metadata_);
+  }
+
+  type.__set_GEOMETRY(geometry_type);
+  return type;
 }
 
 bool LogicalType::Impl::Geometry::Equals(const LogicalType& other) const {
