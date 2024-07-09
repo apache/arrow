@@ -57,7 +57,7 @@ Result<RowTableImpl> MakeRowTableFromColumn(const std::shared_ptr<Array>& column
   RETURN_NOT_OK(row_encoder.EncodeSelected(&row_table, static_cast<uint32_t>(num_rows),
                                            row_ids.data()));
 
-  return std::move(row_table);
+  return row_table;
 }
 
 }  // namespace
