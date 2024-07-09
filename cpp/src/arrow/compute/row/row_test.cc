@@ -62,6 +62,9 @@ Result<RowTableImpl> MakeRowTableFromColumn(const std::shared_ptr<Array>& column
 
 }  // namespace
 
+// GH-43129: Ensure that the memory consumption of the row table is reasonable, that is,
+// with the growth factor of 2, the actual memory usage does not exceed twice the amount
+// of memory actually needed.
 TEST(RowTableMemoryConsumption, Encode) {
   constexpr int64_t num_rows_max = 8192;
   constexpr int64_t padding_for_vectors = 64;
@@ -87,10 +90,12 @@ TEST(RowTableMemoryConsumption, Encode) {
 
       int64_t actual_null_mask_size =
           num_rows * row_table.metadata().null_masks_bytes_per_row;
+      ASSERT_LE(actual_null_mask_size, row_table.buffer_size(0) - padding_for_vectors);
       ASSERT_GT(actual_null_mask_size * 2,
                 row_table.buffer_size(0) - padding_for_vectors);
 
       int64_t actual_rows_size = num_rows * uint32()->byte_width();
+      ASSERT_LE(actual_rows_size, row_table.buffer_size(1) - padding_for_vectors);
       ASSERT_GT(actual_rows_size * 2, row_table.buffer_size(1) - padding_for_vectors);
     }
 
@@ -105,13 +110,16 @@ TEST(RowTableMemoryConsumption, Encode) {
 
       int64_t actual_null_mask_size =
           num_rows * row_table.metadata().null_masks_bytes_per_row;
+      ASSERT_LE(actual_null_mask_size, row_table.buffer_size(0) - padding_for_vectors);
       ASSERT_GT(actual_null_mask_size * 2,
                 row_table.buffer_size(0) - padding_for_vectors);
 
       int64_t actual_offset_size = num_rows * sizeof(uint32_t);
+      ASSERT_LE(actual_offset_size, row_table.buffer_size(1) - padding_for_vectors);
       ASSERT_GT(actual_offset_size * 2, row_table.buffer_size(1) - padding_for_vectors);
 
       int64_t actual_rows_size = num_rows * row_table.offsets()[1];
+      ASSERT_LE(actual_rows_size, row_table.buffer_size(2) - padding_for_vectors);
       ASSERT_GT(actual_rows_size * 2, row_table.buffer_size(2) - padding_for_vectors);
     }
   }
