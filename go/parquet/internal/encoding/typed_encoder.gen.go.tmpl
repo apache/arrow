@@ -94,6 +94,10 @@ func ({{.lower}}EncoderTraits) Encoder(e format.Encoding, useDict bool, descr *s
       encoder: newEncoderBase(e, descr, mem),
     }
 {{- end}}
+{{- if or (eq .Name "FixedLenByteArray") (eq .Name "Float32") (eq .Name "Float64") (eq .Name "Int32") (eq .Name "Int64")}}
+  case format.Encoding_BYTE_STREAM_SPLIT:
+    return &ByteStreamSplit{{.Name}}Encoder{Plain{{.Name}}Encoder: Plain{{.Name}}Encoder{encoder: newEncoderBase(e,descr,mem)}}
+{{- end}}
   default:
     panic("unimplemented encoding type")
   }
@@ -154,6 +158,10 @@ func ({{.lower}}DecoderTraits) Decoder(e parquet.Encoding, descr *schema.Column,
         decoder: newDecoderBase(format.Encoding(e), descr),
         mem: mem,
       }}
+{{- end}}
+{{- if or (eq .Name "FixedLenByteArray") (eq .Name "Float32") (eq .Name "Float64") (eq .Name "Int32") (eq .Name "Int64")}}
+  case parquet.Encodings.ByteStreamSplit:
+    return &ByteStreamSplit{{.Name}}Decoder{decoder: newDecoderBase(format.Encoding(e), descr)}
 {{- end}}
   default:
     panic("unimplemented encoding type")

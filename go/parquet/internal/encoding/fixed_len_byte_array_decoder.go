@@ -17,6 +17,7 @@
 package encoding
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/apache/arrow/go/v17/internal/utils"
@@ -55,6 +56,76 @@ func (pflba *PlainFixedLenByteArrayDecoder) Decode(out []parquet.FixedLenByteArr
 func (pflba *PlainFixedLenByteArrayDecoder) DecodeSpaced(out []parquet.FixedLenByteArray, nullCount int, validBits []byte, validBitsOffset int64) (int, error) {
 	toRead := len(out) - nullCount
 	valuesRead, err := pflba.Decode(out[:toRead])
+	if err != nil {
+		return valuesRead, err
+	}
+	if valuesRead != toRead {
+		return valuesRead, xerrors.New("parquet: number of values / definitions levels read did not match")
+	}
+
+	return spacedExpand(out, nullCount, validBits, validBitsOffset), nil
+}
+
+// ByteStreamSplitFixedLenByteArrayDecoder is a decoder for BYTE_STREAM_SPLIT-encoded
+// bytes representing FixedLenByteArray values
+type ByteStreamSplitFixedLenByteArrayDecoder struct {
+	decoder
+	stride int
+}
+
+func (dec *ByteStreamSplitFixedLenByteArrayDecoder) Type() parquet.Type {
+	return parquet.Types.FixedLenByteArray
+}
+
+func (dec *ByteStreamSplitFixedLenByteArrayDecoder) SetData(nvals int, data []byte) error {
+	if nvals*dec.typeLen < len(data) {
+		return fmt.Errorf("data size (%d) is too small for the number of values in in BYTE_STREAM_SPLIT (%d)", len(data), nvals)
+	}
+
+	if len(data)%dec.typeLen != 0 {
+		return fmt.Errorf("ByteStreamSplit data size %d not aligned with type %s and byte_width: %d", len(data), dec.Type(), dec.typeLen)
+	}
+
+	nvals = len(data) / dec.typeLen
+	dec.stride = nvals
+
+	return dec.decoder.SetData(nvals, data)
+}
+
+func (dec *ByteStreamSplitFixedLenByteArrayDecoder) Decode(out []parquet.FixedLenByteArray) (int, error) {
+	toRead := len(out)
+	numBytesNeeded := toRead * dec.typeLen
+	if numBytesNeeded > len(dec.data) || numBytesNeeded > math.MaxInt32 {
+		return 0, xerrors.New("parquet: eof exception")
+	}
+
+	for i := range out {
+		if cap(out[i]) < dec.typeLen {
+			out[i] = make(parquet.FixedLenByteArray, dec.typeLen)
+		} else {
+			out[i] = out[i][:dec.typeLen]
+		}
+	}
+
+	switch dec.typeLen {
+	case 2:
+		decodeByteStreamSplitBatchFLBAWidth2(dec.data, toRead, dec.stride, out)
+	case 4:
+		decodeByteStreamSplitBatchFLBAWidth4(dec.data, toRead, dec.stride, out)
+	case 8:
+		decodeByteStreamSplitBatchFLBAWidth8(dec.data, toRead, dec.stride, out)
+	default:
+		decodeByteStreamSplitBatchFLBA(dec.data, toRead, dec.stride, dec.typeLen, out)
+	}
+
+	dec.nvals -= toRead
+	dec.data = dec.data[toRead:]
+	return toRead, nil
+}
+
+func (dec *ByteStreamSplitFixedLenByteArrayDecoder) DecodeSpaced(out []parquet.FixedLenByteArray, nullCount int, validBits []byte, validBitsOffset int64) (int, error) {
+	toRead := len(out) - nullCount
+	valuesRead, err := dec.Decode(out[:toRead])
 	if err != nil {
 		return valuesRead, err
 	}

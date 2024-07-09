@@ -406,6 +406,17 @@ func (b *BaseEncodingTestSuite) TestDeltaByteArrayRoundTrip() {
 	}
 }
 
+func (b *BaseEncodingTestSuite) TestByteStreamSplitRoundTrip() {
+	b.initData(10000, 1)
+
+	switch b.typ {
+	case reflect.TypeOf(float32(0)), reflect.TypeOf(float64(0)), reflect.TypeOf(int32(0)), reflect.TypeOf(int64(0)), reflect.TypeOf(parquet.FixedLenByteArray{}):
+		b.checkRoundTrip(parquet.Encodings.ByteStreamSplit)
+	default:
+		b.Panics(func() { b.checkRoundTrip(parquet.Encodings.ByteStreamSplit) })
+	}
+}
+
 func (b *BaseEncodingTestSuite) TestSpacedRoundTrip() {
 	exec := func(vals, repeats int, validBitsOffset int64, nullProb float64) {
 		b.Run(fmt.Sprintf("%d vals %d repeats %d offset %0.3f null", vals, repeats, validBitsOffset, 1-nullProb), func() {
