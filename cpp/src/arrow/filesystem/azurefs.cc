@@ -1141,6 +1141,7 @@ class ObjectAppendStream final : public io::OutputStream {
       current_block_size_ += to_copy;
       advance_ptr(to_copy);
       pos_ += to_copy;
+      content_length_ += to_copy;
 
       // If buffer isn't full, break
       if (current_block_size_ < kBlockUploadSize) {
@@ -1156,6 +1157,7 @@ class ObjectAppendStream final : public io::OutputStream {
       RETURN_NOT_OK(AppendBlock(data_ptr, kBlockUploadSize));
       advance_ptr(kBlockUploadSize);
       pos_ += kBlockUploadSize;
+      content_length_ += kBlockUploadSize;
     }
 
     // Buffer remaining bytes
@@ -1165,6 +1167,7 @@ class ObjectAppendStream final : public io::OutputStream {
                                                 kBlockUploadSize, io_context_.pool()));
       RETURN_NOT_OK(current_block_->Write(data_ptr, current_block_size_));
       pos_ += current_block_size_;
+      content_length_ += current_block_size_;
     }
 
     return Status::OK();
@@ -1244,9 +1247,6 @@ class ObjectAppendStream final : public io::OutputStream {
 
       RETURN_NOT_OK(StageBlock(block_blob_client_.get(), block_id, block_content));
     }
-
-    pos_ += nbytes;
-    content_length_ += nbytes;
 
     return Status::OK();
   }

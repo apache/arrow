@@ -1510,7 +1510,7 @@ class TestAzureFileSystem : public ::testing::Test {
     auto data = SetUpPreexistingData();
     const auto path = data.ContainerPath("test-write-object");
     ASSERT_OK_AND_ASSIGN(auto output, fs->OpenOutputStream(path, {}));
-    std::array<std::int64_t, 3> sizes{257 * 1024, 258 * 1024, 259 * 1024};
+    std::array<std::int64_t, 3> sizes{2570 * 1024, 258 * 1024, 259 * 1024};
     std::array<std::string, 3> buffers{
         std::string(sizes[0], 'A'),
         std::string(sizes[1], 'B'),
