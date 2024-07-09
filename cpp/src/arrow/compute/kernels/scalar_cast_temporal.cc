@@ -535,7 +535,7 @@ std::shared_ptr<CastFunction> GetDate32Cast() {
 
 std::shared_ptr<CastFunction> GetDate64Cast() {
   auto func = std::make_shared<CastFunction>("cast_date64", Type::DATE64);
-  const auto out_ty = date64();
+  const auto& out_ty = date64();
   AddCommonCasts(Type::DATE64, out_ty, func.get());
 
   // date64 -> date64
