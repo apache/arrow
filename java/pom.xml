@@ -81,8 +81,8 @@ under the License.
   </scm>
 
   <issueManagement>
-    <system>Jira</system>
-    <url>https://issues.apache.org/jira/browse/arrow</url>
+    <system>GitHub</system>
+    <url>https://github.com/apache/arrow/issues</url>
   </issueManagement>
 
   <properties>
