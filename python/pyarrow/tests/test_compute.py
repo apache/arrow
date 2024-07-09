@@ -1842,6 +1842,26 @@ def test_cast():
     assert pc.cast(arr, expected.type) == expected
 
 
+def test_identity_cast_dates():
+    dt = datetime.date(1990, 3, 1)
+    data = [[dt], [dt]]
+
+    schema = pa.schema([
+        ('date32', pa.date32()),
+        ('date64', pa.date64()),
+    ])
+
+    batch = pa.RecordBatch.from_arrays(data, schema=schema)
+
+    table = pa.RecordBatchReader.from_batches(
+        schema,
+        [batch]
+    ).cast(schema).read_all()
+
+    assert table['date32'][0].as_py() == dt
+    assert table['date64'][0].as_py() == dt
+
+
 @pytest.mark.parametrize('value_type', numerical_arrow_types)
 def test_fsl_to_fsl_cast(value_type):
     # Different field name and different type.

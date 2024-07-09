@@ -1199,25 +1199,6 @@ def test_py_record_batch_reader():
         reader = pa.RecordBatchReader.from_batches(None, batches)
         pass
 
-    # https://github.com/apache/arrow/issues/43183
-    dt = datetime.date(1990, 3, 1)
-    data = [[dt], [dt]]
-
-    schema = pa.schema([
-        ('date32', pa.date32()),
-        ('date64', pa.date64()),
-    ])
-
-    batch = pa.RecordBatch.from_arrays(data, schema=schema)
-
-    table = pa.RecordBatchReader.from_batches(
-        schema,
-        [batch]
-    ).cast(schema).read_all()
-
-    assert table['date32'][0].as_py() == dt
-    assert table['date64'][0].as_py() == dt
-
 
 def test_record_batch_reader_from_arrow_stream():
 

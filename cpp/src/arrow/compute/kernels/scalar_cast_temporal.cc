@@ -514,7 +514,7 @@ std::shared_ptr<CastFunction> GetDate32Cast() {
   AddCommonCasts(Type::DATE32, out_ty, func.get());
 
   // date32 -> date32
-  AddCrossUnitCast<Date32Type>(func.get());
+  AddZeroCopyCast(Type::DATE32, date32(), date32(), func.get());
 
   // int32 -> date32
   AddZeroCopyCast(Type::INT32, int32(), date32(), func.get());
@@ -539,7 +539,7 @@ std::shared_ptr<CastFunction> GetDate64Cast() {
   AddCommonCasts(Type::DATE64, out_ty, func.get());
 
   // date64 -> date64
-  AddCrossUnitCast<Date64Type>(func.get());
+  AddZeroCopyCast(Type::DATE64, date64(), date64(), func.get());
 
   // int64 -> date64
   AddZeroCopyCast(Type::INT64, int64(), date64(), func.get());
