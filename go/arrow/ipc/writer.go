@@ -856,10 +856,18 @@ func (w *recordEncoder) getZeroBasedValueOffsets(arr arrow.Array) *memory.Buffer
 	// if we have a non-zero offset, then the value offsets do not start at
 	// zero. we must a) create a new offsets array with shifted offsets and
 	// b) slice the values array accordingly
-	//
+	hasNonZeroOffset := data.Offset() != 0
+
 	// or if there are more value offsets than values (the array has been sliced)
 	// we need to trim off the trailing offsets
-	needsTruncateAndShift := data.Offset() != 0 || offsetBytesNeeded < voffsets.Len()
+	hasMoreOffsetsThanValues := offsetBytesNeeded < voffsets.Len()
+
+	// or if the offsets do not start from the zero index, we need to shift them
+	// and slice the values array
+	offsetsDoNotStartFromZero := voffsets.Bytes()[0] > 0
+
+	// determine whether the offsets array should be shifted
+	needsTruncateAndShift := hasNonZeroOffset || hasMoreOffsetsThanValues || offsetsDoNotStartFromZero
 
 	if needsTruncateAndShift {
 		shiftedOffsets := memory.NewResizableBuffer(w.mem)

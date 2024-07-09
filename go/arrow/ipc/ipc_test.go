@@ -622,8 +622,8 @@ func TestIpcEmptyMap(t *testing.T) {
 	assert.True(t, arrow.TypeEqual(dt, r.Record().Column(0).DataType()))
 }
 
-func TestArrow41993(t *testing.T) {
-
+// GH-41993
+func TestArrowBinaryIPCWriterTruncatedVOffsets(t *testing.T) {
 	var buf bytes.Buffer
 	buf.WriteString("apple")
 	buf.WriteString("pear")
@@ -651,7 +651,6 @@ func TestArrow41993(t *testing.T) {
 	)
 
 	str := array.NewStringData(data)
-	fmt.Println(str) // outputs: ["pear" "banana"]
 	require.Equal(t, 2, str.Len())
 	require.Equal(t, "pear", str.Value(0))
 	require.Equal(t, "banana", str.Value(1))
@@ -668,14 +667,14 @@ func TestArrow41993(t *testing.T) {
 	var output bytes.Buffer
 	writer := ipc.NewWriter(&output, ipc.WithSchema(schema))
 
-	err := writer.Write(record)
-	require.NoError(t, err)
-
+	require.NoError(t, writer.Write(record))
 	require.NoError(t, writer.Close())
 
 	reader, err := ipc.NewReader(bytes.NewReader(output.Bytes()), ipc.WithSchema(schema))
 	require.NoError(t, err)
+	defer reader.Release()
 
-	reader.Next()
+	require.True(t, reader.Next())
 	require.NoError(t, reader.Err())
+	require.False(t, reader.Next())
 }
