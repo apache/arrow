@@ -22,7 +22,7 @@ class SourceTest < Test::Unit::TestCase
   def setup
     @current_commit = git_current_commit
     detect_versions
-    @tag_name = "apache-arrow-#{@release_version}-rc0"
+    @tag_name_no_rc = "apache-arrow-#{@release_version}"
     @archive_name = "apache-arrow-#{@release_version}.tar.gz"
     @script = File.expand_path("dev/release/02-source.sh")
     @tarball_script = File.expand_path("dev/release/utils-create-release-tarball.sh")
@@ -50,7 +50,7 @@ class SourceTest < Test::Unit::TestCase
 
   def test_symbolic_links
     source
-    Dir.chdir(@tag_name) do
+    Dir.chdir(@tag_name_no_rc) do
       assert_equal([],
                    Find.find(".").find_all {|path| File.symlink?(path)})
     end
@@ -58,7 +58,7 @@ class SourceTest < Test::Unit::TestCase
 
   def test_csharp_git_commit_information
     source
-    Dir.chdir("#{@tag_name}/csharp") do
+    Dir.chdir("#{@tag_name_no_rc}/csharp") do
       FileUtils.mv("dummy.git", "../.git")
       sh("dotnet", "pack", "-c", "Release")
       FileUtils.mv("../.git", "dummy.git")
@@ -83,7 +83,7 @@ class SourceTest < Test::Unit::TestCase
 
   def test_python_version
     source
-    Dir.chdir("#{@tag_name}/python") do
+    Dir.chdir("#{@tag_name_no_rc}/python") do
       sh("python3", "setup.py", "sdist")
       if on_release_branch?
         pyarrow_source_archive = "dist/pyarrow-#{@release_version}.tar.gz"

@@ -30,26 +30,27 @@ version=$1
 rc=$2
 
 tag=apache-arrow-${version}-rc${rc}
+root_folder=apache-arrow-${version}
 tarball=apache-arrow-${version}.tar.gz
 
 : ${release_hash:=$(git rev-list --max-count=1 ${tag})}
 
-rm -rf ${tag}
+rm -rf ${root_folder}
 
 # be conservative and use the release hash, even though git produces the same
 # archive (identical hashes) using the scm tag
 (cd "${SOURCE_TOP_DIR}" && \
-  git archive ${release_hash} --prefix ${tag}/) | \
+  git archive ${release_hash} --prefix ${root_folder}/) | \
   tar xf -
 
 # Resolve symbolic and hard links
-rm -rf ${tag}.tmp
-mv ${tag} ${tag}.tmp
-cp -R -L ${tag}.tmp ${tag}
-rm -rf ${tag}.tmp
+rm -rf ${root_folder}.tmp
+mv ${root_folder} ${root_folder}.tmp
+cp -R -L ${root_folder}.tmp ${root_folder}
+rm -rf ${root_folder}.tmp
 
 # Create a dummy .git/ directory to download the source files from GitHub with Source Link in C#.
-dummy_git=${tag}/csharp/dummy.git
+dummy_git=${root_folder}/csharp/dummy.git
 mkdir ${dummy_git}
 pushd ${dummy_git}
 echo ${release_hash} > HEAD
@@ -58,5 +59,5 @@ mkdir objects refs
 popd 
 
 # Create new tarball from modified source directory
-tar czf ${tarball} ${tag}
-rm -rf ${tag}
+tar czf ${tarball} ${root_folder}
+rm -rf ${root_folder}
