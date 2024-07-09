@@ -520,36 +520,6 @@ public class TestComplexWriter {
     }
   }
 
-  private void createNestedListTypeVector(FieldWriter fieldWriter) {
-    for (int i = 0; i < COUNT; i++) {
-      fieldWriter.startList();
-      for (int j = 0; j < i % 7; j++) {
-        FieldWriter innerListWriter = (FieldWriter) fieldWriter.list();
-        innerListWriter.startList();
-        for (int k = 0; k < i % 13; k++) {
-          innerListWriter.integer().writeInt(k);
-        }
-        innerListWriter.endList();
-      }
-      fieldWriter.endList();
-    }
-  }
-
-  private void createNestedListTypeVector2(FieldWriter fieldWriter) {
-    FieldWriter innerListWriter = (FieldWriter) fieldWriter.list();
-    for (int i = 0; i < COUNT; i++) {
-      fieldWriter.startList();
-      for (int j = 0; j < i % 7; j++) {
-        innerListWriter.startList();
-        for (int k = 0; k < i % 13; k++) {
-          innerListWriter.integer().writeInt(k);
-        }
-        innerListWriter.endList();
-      }
-      fieldWriter.endList();
-    }
-  }
-
   private void checkListOfListTypes(final FieldReader reader) {
     for (int i = 0; i < COUNT; i++) {
       reader.setPosition(i);
@@ -561,44 +531,6 @@ public class TestComplexWriter {
           assertEquals(k, innerListReader.reader().readInteger().intValue(), "record: " + i);
         }
       }
-    }
-  }
-
-  private void createUnionListOfListTypeVector(FieldWriter writer) {
-    for (int i = 0; i < COUNT; i++) {
-      writer.startList();
-      for (int j = 0; j < i % 7; j++) {
-        FieldWriter innerListWriter = (FieldWriter) writer.list();
-        innerListWriter.startList();
-        for (int k = 0; k < i % 13; k++) {
-          if (k % 2 == 0) {
-            innerListWriter.integer().writeInt(k);
-          } else {
-            innerListWriter.bigInt().writeBigInt(k);
-          }
-        }
-        innerListWriter.endList();
-      }
-      writer.endList();
-    }
-  }
-
-  private void createUnionListTypeVector2(FieldWriter writer) {
-    FieldWriter innerListWriter = (FieldWriter) writer.list();
-    for (int i = 0; i < COUNT; i++) {
-      writer.startList();
-      for (int j = 0; j < i % 7; j++) {
-        innerListWriter.startList();
-        for (int k = 0; k < i % 13; k++) {
-          if (k % 2 == 0) {
-            innerListWriter.integer().writeInt(k);
-          } else {
-            innerListWriter.bigInt().writeBigInt(k);
-          }
-        }
-        innerListWriter.endList();
-      }
-      writer.endList();
     }
   }
 
@@ -968,7 +900,18 @@ public class TestComplexWriter {
     try (ListVector listVector = ListVector.empty("list", allocator)) {
       listVector.allocateNew();
       UnionListWriter listWriter = new UnionListWriter(listVector);
-      createNestedListTypeVector2(listWriter);
+      ListWriter innerListWriter = listWriter.list();
+      for (int i = 0; i < COUNT; i++) {
+        listWriter.startList();
+        for (int j = 0; j < i % 7; j++) {
+          innerListWriter.startList();
+          for (int k = 0; k < i % 13; k++) {
+            innerListWriter.integer().writeInt(k);
+          }
+          innerListWriter.endList();
+        }
+        listWriter.endList();
+      }
       listWriter.setValueCount(COUNT);
       UnionListReader listReader = new UnionListReader(listVector);
       checkListOfListTypes(listReader);
@@ -980,7 +923,18 @@ public class TestComplexWriter {
     try (ListViewVector listViewVector = ListViewVector.empty("listview", allocator)) {
       listViewVector.allocateNew();
       UnionListViewWriter listViewWriter = new UnionListViewWriter(listViewVector);
-      createNestedListTypeVector2(listViewWriter);
+      ListWriter innerListWriter = listViewWriter.list();
+      for (int i = 0; i < COUNT; i++) {
+        listViewWriter.startListView();
+        for (int j = 0; j < i % 7; j++) {
+          innerListWriter.startListView();
+          for (int k = 0; k < i % 13; k++) {
+            innerListWriter.integer().writeInt(k);
+          }
+          innerListWriter.endListView();
+        }
+        listViewWriter.endListView();
+      }
       listViewWriter.setValueCount(COUNT);
       UnionListViewReader listReader = new UnionListViewReader(listViewVector);
       checkListOfListTypes(listReader);
@@ -992,7 +946,22 @@ public class TestComplexWriter {
     try (ListVector listVector = ListVector.empty("list", allocator)) {
       listVector.allocateNew();
       UnionListWriter listWriter = new UnionListWriter(listVector);
-      createUnionListOfListTypeVector(listWriter);
+      for (int i = 0; i < COUNT; i++) {
+        listWriter.startList();
+        for (int j = 0; j < i % 7; j++) {
+          ListWriter innerListWriter = listWriter.list();
+          innerListWriter.startList();
+          for (int k = 0; k < i % 13; k++) {
+            if (k % 2 == 0) {
+              innerListWriter.integer().writeInt(k);
+            } else {
+              innerListWriter.bigInt().writeBigInt(k);
+            }
+          }
+          innerListWriter.endList();
+        }
+        listWriter.endList();
+      }
       listWriter.setValueCount(COUNT);
       UnionListReader listReader = new UnionListReader(listVector);
       checkUnionListType(listReader);
@@ -1004,7 +973,22 @@ public class TestComplexWriter {
     try (ListViewVector listViewVector = ListViewVector.empty("listview", allocator)) {
       listViewVector.allocateNew();
       UnionListViewWriter listViewWriter = new UnionListViewWriter(listViewVector);
-      createUnionListOfListTypeVector(listViewWriter);
+      for (int i = 0; i < COUNT; i++) {
+        listViewWriter.startList();
+        for (int j = 0; j < i % 7; j++) {
+          ListWriter innerListWriter = listViewWriter.listView();
+          innerListWriter.startListView();
+          for (int k = 0; k < i % 13; k++) {
+            if (k % 2 == 0) {
+              innerListWriter.integer().writeInt(k);
+            } else {
+              innerListWriter.bigInt().writeBigInt(k);
+            }
+          }
+          innerListWriter.endListView();
+        }
+        listViewWriter.endListView();
+      }
       listViewWriter.setValueCount(COUNT);
       UnionListViewReader listViewReader = new UnionListViewReader(listViewVector);
       checkUnionListType(listViewReader);
@@ -1020,7 +1004,22 @@ public class TestComplexWriter {
     try (ListVector listVector = ListVector.empty("list", allocator)) {
       listVector.allocateNew();
       UnionListWriter listWriter = new UnionListWriter(listVector);
-      createUnionListTypeVector2(listWriter);
+      ListWriter innerListWriter = listWriter.listView();
+      for (int i = 0; i < COUNT; i++) {
+        listWriter.startList();
+        for (int j = 0; j < i % 7; j++) {
+          innerListWriter.startList();
+          for (int k = 0; k < i % 13; k++) {
+            if (k % 2 == 0) {
+              innerListWriter.integer().writeInt(k);
+            } else {
+              innerListWriter.bigInt().writeBigInt(k);
+            }
+          }
+          innerListWriter.endList();
+        }
+        listWriter.endList();
+      }
       listWriter.setValueCount(COUNT);
       UnionListReader listReader = new UnionListReader(listVector);
       checkUnionListType(listReader);
@@ -1036,7 +1035,22 @@ public class TestComplexWriter {
     try (ListViewVector listViewVector = ListViewVector.empty("listview", allocator)) {
       listViewVector.allocateNew();
       UnionListViewWriter listViewWriter = new UnionListViewWriter(listViewVector);
-      createUnionListTypeVector2(listViewWriter);
+      ListWriter innerListWriter = listViewWriter.listView();
+      for (int i = 0; i < COUNT; i++) {
+        listViewWriter.startListView();
+        for (int j = 0; j < i % 7; j++) {
+          innerListWriter.startListView();
+          for (int k = 0; k < i % 13; k++) {
+            if (k % 2 == 0) {
+              innerListWriter.integer().writeInt(k);
+            } else {
+              innerListWriter.bigInt().writeBigInt(k);
+            }
+          }
+          innerListWriter.endListView();
+        }
+        listViewWriter.endListView();
+      }
       listViewWriter.setValueCount(COUNT);
       UnionListViewReader listViewReader = new UnionListViewReader(listViewVector);
       checkUnionListType(listViewReader);
