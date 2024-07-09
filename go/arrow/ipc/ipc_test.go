@@ -676,5 +676,15 @@ func TestArrowBinaryIPCWriterTruncatedVOffsets(t *testing.T) {
 
 	require.True(t, reader.Next())
 	require.NoError(t, reader.Err())
+
+	rec := reader.Record()
+	require.EqualValues(t, 1, rec.NumCols())
+	require.EqualValues(t, 2, rec.NumRows())
+
+	col, ok := rec.Column(0).(*array.String)
+	require.True(t, ok)
+	require.Equal(t, "pear", col.Value(0))
+	require.Equal(t, "banana", col.Value(1))
+
 	require.False(t, reader.Next())
 }
