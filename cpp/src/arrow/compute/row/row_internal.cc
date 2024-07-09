@@ -325,7 +325,7 @@ Status RowTableImpl::AppendSelectionFrom(const RowTableImpl& from,
     // Varying-length rows
     auto from_offsets = reinterpret_cast<const uint32_t*>(from.offsets_->data());
     auto to_offsets = reinterpret_cast<uint32_t*>(offsets_->mutable_data());
-    // TODO: The following two variables are possibly overflowing.
+    // TODO(GH-43202): The following two variables are possibly overflowing.
     uint32_t total_length = to_offsets[num_rows_];
     uint32_t total_length_to_append = 0;
     for (uint32_t i = 0; i < num_rows_to_append; ++i) {
