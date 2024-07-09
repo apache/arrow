@@ -550,11 +550,6 @@ test_that("We can use WriteBatch on ParquetFileWriter", {
 })
 
 test_that("WriteBatch on ParquetFileWriter errors when called on closed sink", {
-  # Skip this test if the Arrow C++ version is <15.0.0 because a check for the
-  # writer being in the closed state wasn't added until 15 which means this will
-  # segfault on lower versions.
-  skip_on_cpp_older_than("15.0.0")
-
   sink <- FileOutputStream$create(tempfile())
   sch <- schema(a = int32())
   props <- ParquetWriterProperties$create(column_names = names(sch))

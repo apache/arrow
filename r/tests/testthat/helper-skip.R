@@ -110,18 +110,6 @@ skip_on_r_older_than <- function(r_version) {
   }
 }
 
-skip_on_cpp_older_than <- function(cpp_version) {
-  if (force_tests()) {
-    return()
-  }
-
-  current_version <- arrow_info()$build_info$cpp_version
-
-  if (current_version < cpp_version) {
-    skip(paste("C++ version:", current_version))
-  }
-}
-
 skip_on_python_older_than <- function(python_version) {
   if (force_tests()) {
     return()
