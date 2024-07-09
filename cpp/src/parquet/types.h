@@ -168,11 +168,11 @@ class PARQUET_EXPORT LogicalType {
   };
 
   struct GeometryEncoding {
-    enum geometry_encoding { WKB = 0 };
+    enum geometry_encoding { UNKNOWN = 0, WKB = 1 };
   };
 
   struct GeometryEdges {
-    enum edges { PLANAR = 0, SPHERICAL = 1 };
+    enum edges { UNKNOWN = 0, PLANAR = 1, SPHERICAL = 2 };
   };
 
   /// \brief If possible, return a logical type equivalent to the given legacy
