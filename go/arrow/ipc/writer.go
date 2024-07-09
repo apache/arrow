@@ -853,6 +853,8 @@ func (w *recordEncoder) getZeroBasedValueOffsets(arr arrow.Array) *memory.Buffer
 		return nil
 	}
 
+	dataTypeWidth := arr.DataType().Layout().Buffers[1].ByteWidth
+
 	// if we have a non-zero offset, then the value offsets do not start at
 	// zero. we must a) create a new offsets array with shifted offsets and
 	// b) slice the values array accordingly
@@ -864,7 +866,13 @@ func (w *recordEncoder) getZeroBasedValueOffsets(arr arrow.Array) *memory.Buffer
 
 	// or if the offsets do not start from the zero index, we need to shift them
 	// and slice the values array
-	offsetsDoNotStartFromZero := voffsets.Bytes()[0] > 0
+	var firstOffset int64
+	if dataTypeWidth == 8 {
+		firstOffset = arrow.Int64Traits.CastFromBytes(voffsets.Bytes())[0]
+	} else {
+		firstOffset = int64(arrow.Int32Traits.CastFromBytes(voffsets.Bytes())[0])
+	}
+	offsetsDoNotStartFromZero := firstOffset != 0
 
 	// determine whether the offsets array should be shifted
 	needsTruncateAndShift := hasNonZeroOffset || hasMoreOffsetsThanValues || offsetsDoNotStartFromZero
@@ -873,7 +881,7 @@ func (w *recordEncoder) getZeroBasedValueOffsets(arr arrow.Array) *memory.Buffer
 		shiftedOffsets := memory.NewResizableBuffer(w.mem)
 		shiftedOffsets.Resize(offsetBytesNeeded)
 
-		switch arr.DataType().Layout().Buffers[1].ByteWidth {
+		switch dataTypeWidth {
 		case 8:
 			dest := arrow.Int64Traits.CastFromBytes(shiftedOffsets.Bytes())
 			offsets := arrow.Int64Traits.CastFromBytes(voffsets.Bytes())[data.Offset() : data.Offset()+data.Len()+1]
