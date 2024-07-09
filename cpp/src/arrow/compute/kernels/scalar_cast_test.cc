@@ -1646,6 +1646,10 @@ TEST(Cast, DateToDate) {
         86400000,
        864000000])");
 
+  // Zero copy
+  CheckCast(day_32, day_32);
+  CheckCast(day_64, day_64);
+
   // Multiply promotion
   CheckCast(day_32, day_64);
 
