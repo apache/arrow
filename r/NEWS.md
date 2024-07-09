@@ -24,6 +24,7 @@
 * `summarize()` supports more complex expressions, and correctly handles cases where column names are reused in expressions. 
 * The `na_matches` argument to the `dplyr::*_join()` functions is now supported. This argument controls whether `NA` values are considered equal when joining. (#41358)
 * R metadata, stored in the Arrow schema to support round-tripping data between R and Arrow/Parquet, is now serialized and deserialized more strictly. This makes it safer to load data from files from unknown sources into R data.frames. (#41969)
+* The minimum version of the Arrow C++ library the Arrow R package can be built with has been bumped to 15.0.0 (#42241)
 
 # arrow 16.1.0
 
