@@ -40,7 +40,7 @@ int AesEncryptor::SignedFooterEncrypt(::arrow::util::span<const uint8_t> footer,
 
 void AesEncryptor::WipeOut() { ThrowOpenSSLRequiredException(); }
 
-int AesEncryptor::CiphertextSizeDelta() {
+int AesEncryptor::CiphertextLength(int64_t plaintext_len) const {
   ThrowOpenSSLRequiredException();
   return -1;
 }

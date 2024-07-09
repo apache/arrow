@@ -31,7 +31,9 @@ Encryptor::Encryptor(encryption::AesEncryptor* aes_encryptor, const std::string&
       aad_(aad),
       pool_(pool) {}
 
-int Encryptor::CiphertextSizeDelta() { return aes_encryptor_->CiphertextSizeDelta(); }
+int Encryptor::CiphertextLength(int64_t plaintext_len) const {
+  return aes_encryptor_->CiphertextLength(plaintext_len);
+}
 
 int Encryptor::Encrypt(::arrow::util::span<const uint8_t> plaintext,
                        ::arrow::util::span<uint8_t> ciphertext) {

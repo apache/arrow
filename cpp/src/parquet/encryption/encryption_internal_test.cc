@@ -38,7 +38,7 @@ class TestAesEncryption : public ::testing::Test {
     AesEncryptor encryptor(cipher_type, key_length_, metadata, write_length);
 
     int expected_ciphertext_len =
-        static_cast<int>(plain_text_.size()) + encryptor.CiphertextSizeDelta();
+        encryptor.CiphertextLength(static_cast<int64_t>(plain_text_.size()));
     std::vector<uint8_t> ciphertext(expected_ciphertext_len, '\0');
 
     int ciphertext_length = encryptor.Encrypt(str2span(plain_text_), str2span(key_),
@@ -86,7 +86,7 @@ class TestAesEncryption : public ::testing::Test {
     AesEncryptor encryptor(cipher_type, key_length_, metadata, write_length);
 
     int expected_ciphertext_len =
-        static_cast<int>(plain_text_.size()) + encryptor.CiphertextSizeDelta();
+        encryptor.CiphertextLength(static_cast<int64_t>(plain_text_.size()));
     std::vector<uint8_t> ciphertext(expected_ciphertext_len, '\0');
 
     int ciphertext_length = encryptor.Encrypt(str2span(plain_text_), str2span(key_),

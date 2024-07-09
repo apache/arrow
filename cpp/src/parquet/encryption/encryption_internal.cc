@@ -71,7 +71,26 @@ class AesEncryptor::AesEncryptorImpl {
     }
   }
 
-  int ciphertext_size_delta() { return ciphertext_size_delta_; }
+  [[nodiscard]] int CiphertextLength(int64_t plaintext_len) const {
+    if (plaintext_len < 0) {
+      std::stringstream ss;
+      ss << "Negative plaintext length " << plaintext_len;
+      throw ParquetException(ss.str());
+    } else if (plaintext_len > std::numeric_limits<int32_t>::max()) {
+      std::stringstream ss;
+      ss << "Plaintext length " << plaintext_len << " overflows int32";
+      throw ParquetException(ss.str());
+    }
+
+    int64_t ciphertext_len = plaintext_len + ciphertext_size_delta_;
+    if (ciphertext_len > std::numeric_limits<int32_t>::max()) {
+      std::stringstream ss;
+      ss << "Ciphertext length " << ciphertext_len << " overflows int32";
+      throw ParquetException(ss.str());
+    }
+
+    return static_cast<int32_t>(ciphertext_len);
+  }
 
  private:
   EVP_CIPHER_CTX* ctx_;
@@ -327,7 +346,9 @@ int AesEncryptor::SignedFooterEncrypt(span<const uint8_t> footer, span<const uin
 
 void AesEncryptor::WipeOut() { impl_->WipeOut(); }
 
-int AesEncryptor::CiphertextSizeDelta() { return impl_->ciphertext_size_delta(); }
+int AesEncryptor::CiphertextLength(int64_t plaintext_len) const {
+  return impl_->CiphertextLength(plaintext_len);
+}
 
 int AesEncryptor::Encrypt(span<const uint8_t> plaintext, span<const uint8_t> key,
                           span<const uint8_t> aad, span<uint8_t> ciphertext) {

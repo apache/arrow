@@ -655,9 +655,9 @@ class FileMetaData::FileMetaDataImpl {
         file_decryptor_->algorithm(), static_cast<int>(key.size()), true,
         false /*write_length*/, nullptr);
 
-    std::shared_ptr<Buffer> encrypted_buffer = std::static_pointer_cast<ResizableBuffer>(
-        AllocateBuffer(file_decryptor_->pool(),
-                       aes_encryptor->CiphertextSizeDelta() + serialized_len));
+    std::shared_ptr<Buffer> encrypted_buffer =
+        std::static_pointer_cast<ResizableBuffer>(AllocateBuffer(
+            file_decryptor_->pool(), aes_encryptor->CiphertextLength(serialized_len)));
     uint32_t encrypted_len = aes_encryptor->SignedFooterEncrypt(
         serialized_data_span, str2span(key), str2span(aad), nonce,
         encrypted_buffer->mutable_span_as<uint8_t>());
@@ -706,8 +706,7 @@ class FileMetaData::FileMetaDataImpl {
                                                               serialized_len);
 
       // encrypt the footer key
-      std::vector<uint8_t> encrypted_data(encryptor->CiphertextSizeDelta() +
-                                          serialized_len);
+      std::vector<uint8_t> encrypted_data(encryptor->CiphertextLength(serialized_len));
       unsigned encrypted_len = encryptor->Encrypt(serialized_data_span, encrypted_data);
 
       // write unencrypted footer
@@ -1564,8 +1563,7 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
         ::arrow::util::span<const uint8_t> serialized_data_span(serialized_data,
                                                                 serialized_len);
 
-        std::vector<uint8_t> encrypted_data(encryptor->CiphertextSizeDelta() +
-                                            serialized_len);
+        std::vector<uint8_t> encrypted_data(encryptor->CiphertextLength(serialized_len));
         unsigned encrypted_len = encryptor->Encrypt(serialized_data_span, encrypted_data);
 
         const char* temp =
