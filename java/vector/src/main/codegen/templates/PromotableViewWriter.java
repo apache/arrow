@@ -114,6 +114,11 @@ public class PromotableViewWriter extends PromotableWriter {
     return writer;
   }
 
+  @Override
+  public StructWriter struct() {
+    return getWriter(MinorType.LISTVIEW).struct();
+  }
+
   <#list vv.types as type><#list type.minor as minor>
   <#assign lowerName = minor.class?uncap_first />
   <#if lowerName == "int" ><#assign lowerName = "integer" /></#if>

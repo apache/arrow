@@ -717,6 +717,8 @@ public class UnionVector extends AbstractContainerVector implements FieldVector 
           return getStruct();
         case LIST:
           return getList();
+        case LISTVIEW:
+          return getListView();
         case MAP:
           return getMap(name, arrowType);
         default:

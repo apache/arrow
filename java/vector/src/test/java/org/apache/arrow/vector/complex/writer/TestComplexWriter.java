@@ -84,7 +84,6 @@ import org.apache.arrow.vector.holders.NullableTimeStampMilliTZHolder;
 import org.apache.arrow.vector.holders.NullableTimeStampNanoTZHolder;
 import org.apache.arrow.vector.holders.TimeStampMilliTZHolder;
 import org.apache.arrow.vector.types.TimeUnit;
-import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
@@ -267,58 +266,6 @@ public class TestComplexWriter {
           assertEquals("FakeTimeZone", actual.timezone);
         }
       }
-    }
-  }
-
-  private void complexCopierHelper(MinorType type) {
-    try (NonNullableStructVector parent = NonNullableStructVector.empty("parent", allocator)) {
-      ComplexWriter writer = new ComplexWriterImpl("root", parent);
-      StructWriter rootWriter = writer.rootAsStruct();
-      ListWriter listWriter;
-      if (type == MinorType.LIST) {
-        listWriter = rootWriter.list("list");
-      } else if (type == MinorType.LISTVIEW) {
-        listWriter = rootWriter.listView("listView");
-      } else {
-        throw new UnsupportedOperationException(
-            "Unsupported type" + type + "for complexCopierHelper util.");
-      }
-      StructWriter innerStructWriter = listWriter.struct();
-      IntWriter outerIntWriter = listWriter.integer();
-      rootWriter.start();
-      listWriter.startList();
-      outerIntWriter.writeInt(1);
-      outerIntWriter.writeInt(2);
-      innerStructWriter.start();
-      IntWriter intWriter = innerStructWriter.integer("a");
-      intWriter.writeInt(1);
-      innerStructWriter.end();
-      innerStructWriter.start();
-      intWriter = innerStructWriter.integer("a");
-      intWriter.writeInt(2);
-      innerStructWriter.end();
-      listWriter.endList();
-      rootWriter.end();
-      writer.setValueCount(1);
-
-      StructVector structVector = (StructVector) parent.getChild("root");
-      TransferPair tp = structVector.getTransferPair(allocator);
-      tp.splitAndTransfer(0, 1);
-      NonNullableStructVector toStructVector = (NonNullableStructVector) tp.getTo();
-      JsonStringHashMap<?, ?> toMapValue = (JsonStringHashMap<?, ?>) toStructVector.getObject(0);
-      JsonStringArrayList<?> object;
-      if (type == MinorType.LIST) {
-        object = (JsonStringArrayList<?>) toMapValue.get("list");
-      } else {
-        object = (JsonStringArrayList<?>) toMapValue.get("listView");
-      }
-      assertEquals(1, object.get(0));
-      assertEquals(2, object.get(1));
-      JsonStringHashMap<?, ?> innerStruct = (JsonStringHashMap<?, ?>) object.get(2);
-      assertEquals(1, innerStruct.get("a"));
-      innerStruct = (JsonStringHashMap<?, ?>) object.get(3);
-      assertEquals(2, innerStruct.get("a"));
-      toStructVector.close();
     }
   }
 
@@ -971,7 +918,18 @@ public class TestComplexWriter {
     try (ListVector listVector = ListVector.empty("list", allocator)) {
       listVector.allocateNew();
       UnionListWriter listWriter = new UnionListWriter(listVector);
-      createNestedListTypeVector(listWriter);
+      for (int i = 0; i < COUNT; i++) {
+        listWriter.startList();
+        for (int j = 0; j < i % 7; j++) {
+          ListWriter innerListWriter = listWriter.list();
+          innerListWriter.startList();
+          for (int k = 0; k < i % 13; k++) {
+            innerListWriter.integer().writeInt(k);
+          }
+          innerListWriter.endList();
+        }
+        listWriter.endList();
+      }
       listWriter.setValueCount(COUNT);
       UnionListReader listReader = new UnionListReader(listVector);
       checkListOfListTypes(listReader);
@@ -983,7 +941,18 @@ public class TestComplexWriter {
     try (ListViewVector listViewVector = ListViewVector.empty("listview", allocator)) {
       listViewVector.allocateNew();
       UnionListViewWriter listViewWriter = new UnionListViewWriter(listViewVector);
-      createNestedListTypeVector(listViewWriter);
+      for (int i = 0; i < COUNT; i++) {
+        listViewWriter.startListView();
+        for (int j = 0; j < i % 7; j++) {
+          ListWriter innerListWriter = listViewWriter.listView();
+          innerListWriter.startListView();
+          for (int k = 0; k < i % 13; k++) {
+            innerListWriter.integer().writeInt(k);
+          }
+          innerListWriter.endListView();
+        }
+        listViewWriter.endListView();
+      }
       listViewWriter.setValueCount(COUNT);
       UnionListViewReader listReader = new UnionListViewReader(listViewVector);
       checkListOfListTypes(listReader);
@@ -1568,12 +1537,84 @@ public class TestComplexWriter {
 
   @Test
   public void complexCopierWithList() {
-    complexCopierHelper(MinorType.LIST);
+    try (NonNullableStructVector parent = NonNullableStructVector.empty("parent", allocator)) {
+      ComplexWriter writer = new ComplexWriterImpl("root", parent);
+      StructWriter rootWriter = writer.rootAsStruct();
+      ListWriter listWriter = rootWriter.list("list");
+
+      StructWriter innerStructWriter = listWriter.struct();
+      IntWriter outerIntWriter = listWriter.integer();
+      rootWriter.start();
+      listWriter.startList();
+      outerIntWriter.writeInt(1);
+      outerIntWriter.writeInt(2);
+      innerStructWriter.start();
+      IntWriter intWriter = innerStructWriter.integer("a");
+      intWriter.writeInt(1);
+      innerStructWriter.end();
+      innerStructWriter.start();
+      intWriter = innerStructWriter.integer("a");
+      intWriter.writeInt(2);
+      innerStructWriter.end();
+      listWriter.endList();
+      rootWriter.end();
+      writer.setValueCount(1);
+
+      StructVector structVector = (StructVector) parent.getChild("root");
+      TransferPair tp = structVector.getTransferPair(allocator);
+      tp.splitAndTransfer(0, 1);
+      NonNullableStructVector toStructVector = (NonNullableStructVector) tp.getTo();
+      JsonStringHashMap<?, ?> toMapValue = (JsonStringHashMap<?, ?>) toStructVector.getObject(0);
+      JsonStringArrayList<?> object = (JsonStringArrayList<?>) toMapValue.get("list");
+      assertEquals(1, object.get(0));
+      assertEquals(2, object.get(1));
+      JsonStringHashMap<?, ?> innerStruct = (JsonStringHashMap<?, ?>) object.get(2);
+      assertEquals(1, innerStruct.get("a"));
+      innerStruct = (JsonStringHashMap<?, ?>) object.get(3);
+      assertEquals(2, innerStruct.get("a"));
+      toStructVector.close();
+    }
   }
 
   @Test
   public void complexCopierWithListView() {
-    complexCopierHelper(MinorType.LISTVIEW);
+    try (NonNullableStructVector parent = NonNullableStructVector.empty("parent", allocator)) {
+      ComplexWriter writer = new ComplexWriterImpl("root", parent);
+      StructWriter rootWriter = writer.rootAsStruct();
+      ListWriter listViewWriter = rootWriter.listView("listView");
+
+      StructWriter innerStructWriter = listViewWriter.struct();
+      IntWriter outerIntWriter = listViewWriter.integer();
+      rootWriter.start();
+      listViewWriter.startListView();
+      outerIntWriter.writeInt(1);
+      outerIntWriter.writeInt(2);
+      innerStructWriter.start();
+      IntWriter intWriter = innerStructWriter.integer("a");
+      intWriter.writeInt(1);
+      innerStructWriter.end();
+      innerStructWriter.start();
+      intWriter = innerStructWriter.integer("a");
+      intWriter.writeInt(2);
+      innerStructWriter.end();
+      listViewWriter.endListView();
+      rootWriter.end();
+      writer.setValueCount(1);
+
+      StructVector structVector = (StructVector) parent.getChild("root");
+      TransferPair tp = structVector.getTransferPair(allocator);
+      tp.splitAndTransfer(0, 1);
+      NonNullableStructVector toStructVector = (NonNullableStructVector) tp.getTo();
+      JsonStringHashMap<?, ?> toMapValue = (JsonStringHashMap<?, ?>) toStructVector.getObject(0);
+      JsonStringArrayList<?> object = (JsonStringArrayList<?>) toMapValue.get("listView");
+      assertEquals(1, object.get(0));
+      assertEquals(2, object.get(1));
+      JsonStringHashMap<?, ?> innerStruct = (JsonStringHashMap<?, ?>) object.get(2);
+      assertEquals(1, innerStruct.get("a"));
+      innerStruct = (JsonStringHashMap<?, ?>) object.get(3);
+      assertEquals(2, innerStruct.get("a"));
+      toStructVector.close();
+    }
   }
 
   @Test
@@ -1805,17 +1846,17 @@ public class TestComplexWriter {
       for (int i = 0; i < COUNT; i++) {
         listViewWriter.setPosition(i);
         if (i % 2 == 0) {
-          listViewWriter.startList();
+          listViewWriter.startListView();
           if (i % 4 == 0) {
             listViewWriter.listView().writeNull();
           } else {
-            listViewWriter.listView().startList();
+            listViewWriter.listView().startListView();
             listViewWriter.listView().integer().writeNull();
             listViewWriter.listView().integer().writeInt(i);
             listViewWriter.listView().integer().writeInt(i * 2);
-            listViewWriter.listView().endList();
+            listViewWriter.listView().endListView();
           }
-          listViewWriter.endList();
+          listViewWriter.endListView();
         } else {
           listViewWriter.writeNull();
         }
