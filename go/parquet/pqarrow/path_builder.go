@@ -25,6 +25,7 @@ import (
 	"github.com/apache/arrow/go/v17/arrow/array"
 	"github.com/apache/arrow/go/v17/arrow/memory"
 	"github.com/apache/arrow/go/v17/internal/bitutils"
+	"github.com/apache/arrow/go/v17/internal/utils"
 	"github.com/apache/arrow/go/v17/parquet/internal/encoding"
 	"golang.org/x/xerrors"
 )
@@ -301,7 +302,7 @@ type pathBuilder struct {
 	paths            []pathInfo
 	nullableInParent bool
 
-	refCount atomic.Int64
+	refCount *atomic.Int64
 }
 
 func (p *pathBuilder) Retain() {
@@ -498,7 +499,7 @@ type multipathLevelBuilder struct {
 	data      arrow.ArrayData
 	builder   pathBuilder
 
-	refCount atomic.Int64
+	refCount *atomic.Int64
 }
 
 func (m *multipathLevelBuilder) Retain() {
@@ -516,13 +517,11 @@ func (m *multipathLevelBuilder) Release() {
 
 func newMultipathLevelBuilder(arr arrow.Array, fieldNullable bool) (*multipathLevelBuilder, error) {
 	ret := &multipathLevelBuilder{
+		refCount:  utils.NewRefCount(1),
 		rootRange: elemRange{int64(0), int64(arr.Data().Len())},
 		data:      arr.Data(),
-		builder:   pathBuilder{nullableInParent: fieldNullable, paths: make([]pathInfo, 0)},
+		builder:   pathBuilder{nullableInParent: fieldNullable, paths: make([]pathInfo, 0), refCount: utils.NewRefCount(1)},
 	}
-	ret.builder.Retain()
-	ret.Retain()
-
 	if err := ret.builder.Visit(arr); err != nil {
 		return nil, err
 	}
