@@ -188,15 +188,13 @@ jobs:
           cache: true
           cache-dependency-path: go/go.sum
       - name: Run build
-        run: |
-          cd go
-          GOARCH=386 go build ./...
+        run: GOARCH=386 go build ./...
+        working-directory: ./go
       - name: Run test
-        run: |
-          cd go
-          # No asm simd support for 386
-          # WIP refactor, only tests in the specified dirs have been fixed
-          GOARCH=386 go test -tags noasm ./parquet/file/...
+        # No asm simd support for 386
+        # WIP refactor, only tests in the specified dirs have been fixed
+        run: GOARCH=386 go test -tags noasm ./parquet/file/...
+        working-directory: ./go
 
   docker_cgo:
     name: AMD64 Debian 12 Go ${{ matrix.go }} - CGO
