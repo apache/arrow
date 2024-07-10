@@ -262,25 +262,6 @@ under the License.
         </executions>
       </plugin>
       <plugin>
-        <!-- add generated sources to classpath -->
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>build-helper-maven-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>add-generated-sources-to-classpath</id>
-            <goals>
-              <goal>add-source</goal>
-            </goals>
-            <phase>generate-sources</phase>
-            <configuration>
-              <sources>
-                <source>${project.build.directory}/generated-sources/protobuf</source>
-              </sources>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
         <artifactId>maven-assembly-plugin</artifactId>
         <configuration>
           <descriptorRefs>
