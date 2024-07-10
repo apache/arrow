@@ -168,8 +168,8 @@ jobs:
           python3 -m pip install benchadapt@git+https://github.com/conbench/conbench.git@main#subdirectory=benchadapt/python
           python3 ci/scripts/go_bench_adapt.py
 
-  build386:
-    name: Go Cross-build for 386
+  build_test_386:
+    name: Go Cross-build and test for 386
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 20
@@ -191,6 +191,10 @@ jobs:
         run: |
           cd go
           GOARCH=386 go build ./...
+      - name: Run test
+        run: |
+          cd go
+          GOARCH=386 go test -tags noasm ./...
 
   docker_cgo:
     name: AMD64 Debian 12 Go ${{ matrix.go }} - CGO
