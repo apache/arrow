@@ -246,13 +246,13 @@ int64_t RowTableImpl::size_rows_varying_length(int64_t num_bytes) const {
 }
 
 void RowTableImpl::UpdateBufferPointers() {
-  buffers_[0] = null_masks_->mutable_data();
+  buffers_[0] = null_masks_.get();
   if (metadata_.is_fixed_length) {
-    buffers_[1] = rows_->mutable_data();
+    buffers_[1] = rows_.get();
     buffers_[2] = nullptr;
   } else {
-    buffers_[1] = offsets_->mutable_data();
-    buffers_[2] = rows_->mutable_data();
+    buffers_[1] = offsets_.get();
+    buffers_[2] = rows_.get();
   }
 }
 

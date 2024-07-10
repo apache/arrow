@@ -189,11 +189,17 @@ class ARROW_EXPORT RowTableImpl {
   // Accessors into the table's buffers
   const uint8_t* data(int i) const {
     ARROW_DCHECK(i >= 0 && i < kMaxBuffers);
-    return buffers_[i];
+    if (ARROW_PREDICT_TRUE(buffers_[i])) {
+      return buffers_[i]->data();
+    }
+    return NULLPTR;
   }
   uint8_t* mutable_data(int i) {
     ARROW_DCHECK(i >= 0 && i < kMaxBuffers);
-    return buffers_[i];
+    if (ARROW_PREDICT_TRUE(buffers_[i])) {
+      return buffers_[i]->mutable_data();
+    }
+    return NULLPTR;
   }
   const uint32_t* offsets() const { return reinterpret_cast<const uint32_t*>(data(1)); }
   uint32_t* mutable_offsets() { return reinterpret_cast<uint32_t*>(mutable_data(1)); }
@@ -206,6 +212,12 @@ class ARROW_EXPORT RowTableImpl {
   /// that values are only appended (and not modified in place) between
   /// successive calls
   bool has_any_nulls(const LightContext* ctx) const;
+
+  /// \brief Size of the table's buffers
+  int64_t buffer_size(int i) const {
+    ARROW_DCHECK(i >= 0 && i < kMaxBuffers);
+    return buffers_[i]->size();
+  }
 
  private:
   Status ResizeFixedLengthBuffers(int64_t num_extra_rows);
@@ -236,7 +248,7 @@ class ARROW_EXPORT RowTableImpl {
   // Stores the fixed-length parts of the rows
   std::unique_ptr<ResizableBuffer> rows_;
   static constexpr int kMaxBuffers = 3;
-  uint8_t* buffers_[kMaxBuffers];
+  ResizableBuffer* buffers_[kMaxBuffers];
   // The number of rows in the table
   int64_t num_rows_;
   // The number of rows that can be stored in the table without resizing

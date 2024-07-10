@@ -152,14 +152,21 @@ void RowTableEncoder::PrepareEncodeSelected(int64_t start_row, int64_t num_rows,
 Status RowTableEncoder::EncodeSelected(RowTableImpl* rows, uint32_t num_selected,
                                        const uint16_t* selection) {
   rows->Clean();
-  RETURN_NOT_OK(
-      rows->AppendEmpty(static_cast<uint32_t>(num_selected), static_cast<uint32_t>(0)));
 
+  // First AppendEmpty with num_selected rows and zero extra bytes to resize the
+  // fixed-length buffers (including buffer for offsets).
+  RETURN_NOT_OK(
+      rows->AppendEmpty(static_cast<uint32_t>(num_selected),
+                        /*num_extra_bytes_to_append=*/static_cast<uint32_t>(0)));
+  // Then populate the offsets of the var-length columns, which will be used as the target
+  // size of the var-length buffers resizing below.
   EncoderOffsets::GetRowOffsetsSelected(rows, batch_varbinary_cols_, num_selected,
                                         selection);
-
-  RETURN_NOT_OK(rows->AppendEmpty(static_cast<uint32_t>(0),
-                                  static_cast<uint32_t>(rows->offsets()[num_selected])));
+  // Last AppendEmpty with zero rows and zero extra bytes to resize the var-length buffers
+  // based on the populated offsets.
+  RETURN_NOT_OK(
+      rows->AppendEmpty(/*num_rows_to_append=*/static_cast<uint32_t>(0),
+                        /*num_extra_bytes_to_append=*/static_cast<uint32_t>(0)));
 
   for (size_t icol = 0; icol < batch_all_cols_.size(); ++icol) {
     if (batch_all_cols_[icol].metadata().is_fixed_length) {
