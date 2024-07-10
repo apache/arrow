@@ -65,3 +65,56 @@ index 000000000..e839c93a4
 + }
 + 
 + static inline bool LeftShiftOverflows(uint8_t value, uint32_t shift) {
+diff --git a/ports/thrift/portfile.cmake b/ports/thrift/portfile.cmake
+index 1501782..71d2147 100644
+--- a/ports/thrift/portfile.cmake
++++ b/ports/thrift/portfile.cmake
+@@ -12,7 +12,7 @@ vcpkg_find_acquire_program(BISON)
+ vcpkg_from_github(
+     OUT_SOURCE_PATH SOURCE_PATH
+     REPO apache/thrift
+-    REF "${VERSION}"
++    REF "v${VERSION}"
+     SHA512 5e4ee9870b30fe5ba484d39781c435716f7f3903793dc8aae96594ca813b1a5a73363b84719038ca8fa3ab8ef0a419a28410d936ff7b3bbadf36fc085a6883ae
+     HEAD_REF master
+     PATCHES
+diff --git a/ports/thrift/vcpkg.json b/ports/thrift/vcpkg.json
+index 2d5a854..9ff49ec 100644
+--- a/ports/thrift/vcpkg.json
++++ b/ports/thrift/vcpkg.json
+@@ -1,6 +1,7 @@
+ {
+   "name": "thrift",
+   "version": "0.20.0",
++  "port-version": 1,
+   "description": "Apache Thrift is a software project spanning a variety of programming languages and use cases. Our goal is to make reliable, performant communication and data serialization across languages as efficient and seamless as possible.",
+   "homepage": "https://github.com/apache/thrift",
+   "license": "Apache-2.0",
+diff --git a/versions/baseline.json b/versions/baseline.json
+index c6ce736..9ad1d63 100644
+--- a/versions/baseline.json
++++ b/versions/baseline.json
+@@ -8622,7 +8622,7 @@
+     },
+     "thrift": {
+       "baseline": "0.20.0",
+-      "port-version": 0
++      "port-version": 1
+     },
+     "tidy-html5": {
+       "baseline": "5.8.0",
+diff --git a/versions/t-/thrift.json b/versions/t-/thrift.json
+index 3db38c5..7464bde 100644
+--- a/versions/t-/thrift.json
++++ b/versions/t-/thrift.json
+@@ -1,5 +1,10 @@
+ {
+   "versions": [
++    {
++      "git-tree": "13757a6b05741cf3c9c39e3a1dcc5e5cd685e025",
++      "version": "0.20.0",
++      "port-version": 1
++    },
+     {
+       "git-tree": "6855be1ce96497811d4eb0a9879baf6cf1b3610c",
+       "version": "0.20.0",
