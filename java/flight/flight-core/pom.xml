@@ -155,6 +155,7 @@ under the License.
           </systemPropertyVariables>
         </configuration>
       </plugin>
+      <!--
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
@@ -220,6 +221,7 @@ under the License.
           </execution>
         </executions>
       </plugin>
+      -->
       <plugin>
         <groupId>org.xolstice.maven.plugins</groupId>
         <artifactId>protobuf-maven-plugin</artifactId>
@@ -261,6 +263,7 @@ under the License.
           </execution>
         </executions>
       </plugin>
+      <!--
       <plugin>
         <artifactId>maven-assembly-plugin</artifactId>
         <configuration>
@@ -278,6 +281,7 @@ under the License.
           </execution>
         </executions>
       </plugin>
+      -->
     </plugins>
   </build>
 
