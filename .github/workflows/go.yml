@@ -191,9 +191,8 @@ jobs:
         run: GOARCH=386 go build ./...
         working-directory: ./go
       - name: Run test
-        # No asm simd support for 386
         # WIP refactor, only tests in the specified dirs have been fixed
-        run: GOARCH=386 go test -tags noasm ./parquet/file/...
+        run: GOARCH=386 go test ./parquet/file/...
         working-directory: ./go
 
   docker_cgo:
