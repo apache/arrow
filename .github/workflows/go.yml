@@ -168,8 +168,8 @@ jobs:
           python3 -m pip install benchadapt@git+https://github.com/conbench/conbench.git@main#subdirectory=benchadapt/python
           python3 ci/scripts/go_bench_adapt.py
 
-  build386:
-    name: Go Cross-build for 386
+  build_test_386:
+    name: Go Cross-build and test for 386
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 20
@@ -188,9 +188,12 @@ jobs:
           cache: true
           cache-dependency-path: go/go.sum
       - name: Run build
-        run: |
-          cd go
-          GOARCH=386 go build ./...
+        run: GOARCH=386 go build ./...
+        working-directory: ./go
+      - name: Run test
+        # WIP refactor, only tests in the specified dirs have been fixed
+        run: GOARCH=386 go test ./parquet/file/...
+        working-directory: ./go
 
   docker_cgo:
     name: AMD64 Debian 12 Go ${{ matrix.go }} - CGO
