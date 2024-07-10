@@ -30,7 +30,6 @@ import java.util.List;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.complex.ListViewVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.impl.ComplexWriterImpl;
 import org.apache.arrow.vector.complex.writer.BaseWriter;
@@ -154,12 +153,6 @@ public class TestJSONFile extends BaseFileTest {
 
   @Test
   public void testWriteReadUnionJSON() throws IOException {
-    /*
-    * TODO: UnionWriter varChar() -> Also forwards with MinorType.LIST
-        PromotableWriter varChar() -> Also forwards with MinorType.LIST
-        Because of this we cannot actually create a ListViewVector.
-        We need to fix this first.
-    * */
     File file = new File("target/mytest_write_union.json");
     int count = COUNT;
     try (BufferAllocator vectorAllocator =
@@ -169,8 +162,6 @@ public class TestJSONFile extends BaseFileTest {
       printVectors(parent.getChildrenFromFields());
 
       try (VectorSchemaRoot root = new VectorSchemaRoot(parent.getChild("root"))) {
-        ListViewVector vec =
-            (ListViewVector) root.getFieldVectors().get(0).getChildrenFromFields().get(3);
         validateUnionData(count, root);
         writeJSON(file, root, null);
 
