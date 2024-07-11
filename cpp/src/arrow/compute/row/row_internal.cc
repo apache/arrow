@@ -337,7 +337,7 @@ Status RowTableImpl::AppendSelectionFrom(const RowTableImpl& from,
       if (ARROW_PREDICT_FALSE(arrow::internal::AddWithOverflow(
               total_length, total_length_to_append, &to_offset_maybe_overflow))) {
         return Status::Invalid("Offset overflow detected in row table for row ",
-                               num_rows_ + i + 1, " of length ", length,
+                               num_rows_ + i, " of length ", length,
                                " bytes to current length ", to_offsets[num_rows_ + i],
                                " bytes");
       }

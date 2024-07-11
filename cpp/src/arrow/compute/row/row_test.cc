@@ -21,6 +21,7 @@
 #include "arrow/compute/row/row_internal.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
+// #include "arrow/testing/random.h"
 
 namespace arrow {
 namespace compute {
@@ -125,14 +126,51 @@ TEST(RowTableMemoryConsumption, Encode) {
   }
 }
 
+TEST(RowTableOffsetOverflow, LARGE_MEMORY_TEST(Encode)) {
+  if constexpr (sizeof(void*) == 4) {
+    GTEST_SKIP() << "Test only works on 64-bit platforms";
+  }
+
+  constexpr int64_t length_per_binary = 512 * 1024 * 1024;
+  constexpr int64_t num_rows = 8;
+
+  MemoryPool* pool = default_memory_pool();
+
+  std::vector<KeyColumnArray> columns;
+  std::vector<Datum> values;
+  ASSERT_OK_AND_ASSIGN(
+      auto value, ::arrow::gen::Constant(
+                      std::make_shared<BinaryScalar>(std::string(length_per_binary, 'X')))
+                      ->Generate(1));
+  values.push_back(std::move(value));
+  ExecBatch batch = ExecBatch(std::move(values), 1);
+  ASSERT_OK(ColumnArraysFromExecBatch(batch, &columns));
+
+  std::vector<KeyColumnMetadata> column_metadatas;
+  ASSERT_OK(ColumnMetadatasFromExecBatch(batch, &column_metadatas));
+  RowTableMetadata table_metadata;
+  table_metadata.FromColumnMetadataVector(column_metadatas, sizeof(uint64_t),
+                                          sizeof(uint64_t));
+  RowTableImpl row_table;
+  ASSERT_OK(row_table.Init(pool, table_metadata));
+  std::vector<uint16_t> row_ids(num_rows, 0);
+  RowTableEncoder row_encoder;
+  row_encoder.Init(column_metadatas, sizeof(uint64_t), sizeof(uint64_t));
+  row_encoder.PrepareEncodeSelected(0, num_rows, columns);
+  ASSERT_OK(row_encoder.EncodeSelected(&row_table, static_cast<uint32_t>(num_rows),
+                                       row_ids.data()));
+}
+
 // TEST(RowTableOffsetOverflow, LARGE_MEMORY_TEST(Encode)) {
 //   if constexpr (sizeof(void*) == 4) {
 //     GTEST_SKIP() << "Test only works on 64-bit platforms";
 //   }
 
-//   // The idea of this case is to create a row table containing one fixed length column and
+//   // The idea of this case is to create a row table containing one fixed length column
+//   and
 //   // one var length column (so the row is hence var length and has offset buffer), by
-//   // appending the same small batch of n rows repeatedly until it has more than 2^31 rows.
+//   // appending the same small batch of n rows repeatedly until it has more than 2^31
+//   rows.
 //   // Then compare the last n rows of the row table with the batch.
 //   constexpr int64_t num_rows_batch = std::numeric_limits<uint16_t>::max();
 //   constexpr int64_t num_rows_row_table = 30000 * num_rows_batch;
@@ -199,7 +237,8 @@ TEST(RowTableMemoryConsumption, Encode) {
 
 //   TempVectorStack stack;
 //   ASSERT_OK(
-//       stack.Init(pool, KeyCompare::CompareColumnsToRowsTempStackUsage(num_rows_batch)));
+//       stack.Init(pool,
+//       KeyCompare::CompareColumnsToRowsTempStackUsage(num_rows_batch)));
 //   LightContext ctx{CpuInfo::GetInstance()->hardware_flags(), &stack};
 
 //   {
@@ -207,8 +246,9 @@ TEST(RowTableMemoryConsumption, Encode) {
 //     uint32_t num_rows_no_match;
 //     std::vector<uint16_t> row_ids_out(num_rows_batch);
 //     KeyCompare::CompareColumnsToRows(num_rows_batch, /*sel_left_maybe_null=*/NULLPTR,
-//                                      row_ids_to_compare.data(), &ctx, &num_rows_no_match,
-//                                      row_ids_out.data(), columns_left, row_table_right,
+//                                      row_ids_to_compare.data(), &ctx,
+//                                      &num_rows_no_match, row_ids_out.data(),
+//                                      columns_left, row_table_right,
 //                                      /*are_cols_in_encoding_order=*/true,
 //                                      /*out_match_bitvector_maybe_null=*/NULLPTR);
 //     ASSERT_EQ(num_rows_no_match, 0);
@@ -218,7 +258,8 @@ TEST(RowTableMemoryConsumption, Encode) {
 //     // No selection, output match bit vector.
 //     std::vector<uint8_t> match_bitvector(BytesForBits(num_rows_batch));
 //     KeyCompare::CompareColumnsToRows(
-//         num_rows_batch, /*sel_left_maybe_null=*/NULLPTR, row_ids_to_compare.data(), &ctx,
+//         num_rows_batch, /*sel_left_maybe_null=*/NULLPTR, row_ids_to_compare.data(),
+//         &ctx,
 //         /*out_num_rows=*/NULLPTR, /*out_sel_left_maybe_same=*/NULLPTR, columns_left,
 //         row_table_right,
 //         /*are_cols_in_encoding_order=*/true, match_bitvector.data());
@@ -234,8 +275,9 @@ TEST(RowTableMemoryConsumption, Encode) {
 //     uint32_t num_rows_no_match;
 //     std::vector<uint16_t> row_ids_out(num_rows_batch);
 //     KeyCompare::CompareColumnsToRows(num_rows_batch, selection_left.data(),
-//                                      row_ids_to_compare.data(), &ctx, &num_rows_no_match,
-//                                      row_ids_out.data(), columns_left, row_table_right,
+//                                      row_ids_to_compare.data(), &ctx,
+//                                      &num_rows_no_match, row_ids_out.data(),
+//                                      columns_left, row_table_right,
 //                                      /*are_cols_in_encoding_order=*/true,
 //                                      /*out_match_bitvector_maybe_null=*/NULLPTR);
 //     ASSERT_EQ(num_rows_no_match, 0);
