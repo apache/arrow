@@ -34,8 +34,6 @@
 #include <vector>
 #endif
 
-namespace arrow_vendored
-{
 namespace date
 {
 
@@ -291,8 +289,7 @@ struct transition
     std::ostream&
     operator<<(std::ostream& os, const transition& t)
     {
-        using date::operator<<;
-        os << t.timepoint << "Z ";
+        date::operator<<(os, t.timepoint) << "Z ";
         if (t.info->offset >= std::chrono::seconds{0})
             os << '+';
         os << make_time(t.info->offset);
@@ -310,7 +307,6 @@ struct transition
 }  // namespace detail
 
 }  // namespace date
-}  // namespace arrow_vendored
 
 #if defined(_MSC_VER) && (_MSC_VER < 1900)
 #include "tz.h"

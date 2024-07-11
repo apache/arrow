@@ -22,7 +22,7 @@
 // SOFTWARE.
 //
 
-#include "ios.h"
+#include "date/ios.h"
 
 #if TARGET_OS_IPHONE
 
@@ -47,8 +47,6 @@
 #define TAR_SIZE_POSITION               124
 #define TAR_SIZE_SIZE                   12
 
-namespace arrow_vendored
-{
 namespace date
 {
     namespace iOSUtils
@@ -335,6 +333,5 @@ namespace date
 
     }  // namespace iOSUtils
 }  // namespace date
-}  // namespace arrow_vendored
 
 #endif  // TARGET_OS_IPHONE
