@@ -339,22 +339,23 @@ Status TransferInt(RecordReader* reader,
   }
   auto array_data =
       ::arrow::ArrayData::Make(field->type(), length, std::move(buffers), null_count);
-  array_data->statistics.null_count = null_count;
+  auto array_statistics = std::make_shared<::arrow::ArrayStatistics>();
+  array_statistics->null_count = null_count;
   auto statistics = metadata->statistics().get();
   if (statistics) {
     if (statistics->HasDistinctCount()) {
-      array_data->statistics.distinct_count = statistics->distinct_count();
+      array_statistics->distinct_count = statistics->distinct_count();
     }
     if (statistics->HasMinMax()) {
       auto typed_statistics =
           static_cast<::parquet::TypedStatistics<ParquetType>*>(statistics);
-      array_data->statistics.min_buffer =
-          static_cast<ArrowCType>(typed_statistics->min());
-      array_data->statistics.max_buffer =
-          static_cast<ArrowCType>(typed_statistics->max());
+      array_statistics->min_buffer = static_cast<ArrowCType>(typed_statistics->min());
+      array_statistics->max_buffer = static_cast<ArrowCType>(typed_statistics->max());
     }
   }
-  *out = std::make_shared<ArrayType<ArrowType>>(std::move(array_data));
+  auto array = std::make_shared<ArrayType<ArrowType>>(std::move(array_data));
+  array->SetStatistics(std::move(array_statistics));
+  *out = std::move(array);
   return Status::OK();
 }
 
@@ -401,19 +402,22 @@ Status TransferBool(RecordReader* reader,
   }
   auto array_data = ::arrow::ArrayData::Make(::arrow::boolean(), length,
                                              std::move(buffers), null_count);
-  array_data->statistics.null_count = null_count;
+  auto array_statistics = std::make_shared<::arrow::ArrayStatistics>();
+  array_statistics->null_count = null_count;
   auto statistics = metadata->statistics().get();
   if (statistics) {
     if (statistics->HasDistinctCount()) {
-      array_data->statistics.distinct_count = statistics->distinct_count();
+      array_statistics->distinct_count = statistics->distinct_count();
     }
     if (statistics->HasMinMax()) {
       auto bool_statistics = static_cast<::parquet::BoolStatistics*>(statistics);
-      array_data->statistics.min_buffer = bool_statistics->min();
-      array_data->statistics.max_buffer = bool_statistics->max();
+      array_statistics->min_buffer = bool_statistics->min();
+      array_statistics->max_buffer = bool_statistics->max();
     }
   }
-  *out = std::make_shared<BooleanArray>(std::move(array_data));
+  auto array = std::make_shared<BooleanArray>(std::move(array_data));
+  array->SetStatistics(std::move(array_statistics));
+  *out = std::move(array);
   return Status::OK();
 }
 

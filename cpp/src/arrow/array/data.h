@@ -24,7 +24,6 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/array/statistics.h"
 #include "arrow/buffer.h"
 #include "arrow/result.h"
 #include "arrow/type.h"
@@ -153,8 +152,7 @@ struct ARROW_EXPORT ArrayData {
         offset(other.offset),
         buffers(std::move(other.buffers)),
         child_data(std::move(other.child_data)),
-        dictionary(std::move(other.dictionary)),
-        statistics(std::move(other.statistics)) {
+        dictionary(std::move(other.dictionary)) {
     SetNullCount(other.null_count);
   }
 
@@ -165,8 +163,7 @@ struct ARROW_EXPORT ArrayData {
         offset(other.offset),
         buffers(other.buffers),
         child_data(other.child_data),
-        dictionary(other.dictionary),
-        statistics(other.statistics) {
+        dictionary(other.dictionary) {
     SetNullCount(other.null_count);
   }
 
@@ -179,7 +176,6 @@ struct ARROW_EXPORT ArrayData {
     buffers = std::move(other.buffers);
     child_data = std::move(other.child_data);
     dictionary = std::move(other.dictionary);
-    statistics = std::move(other.statistics);
     return *this;
   }
 
@@ -192,7 +188,6 @@ struct ARROW_EXPORT ArrayData {
     buffers = other.buffers;
     child_data = other.child_data;
     dictionary = other.dictionary;
-    statistics = other.statistics;
     return *this;
   }
 
@@ -395,9 +390,6 @@ struct ARROW_EXPORT ArrayData {
 
   // The dictionary for this Array, if any. Only used for dictionary type
   std::shared_ptr<ArrayData> dictionary;
-
-  // The statistics for this Array.
-  ArrayStatistics statistics{};
 };
 
 /// \brief A non-owning Buffer reference

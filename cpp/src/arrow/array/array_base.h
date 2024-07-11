@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "arrow/array/data.h"
+#include "arrow/array/statistics.h"
 #include "arrow/buffer.h"
 #include "arrow/compare.h"
 #include "arrow/result.h"
@@ -232,13 +233,17 @@ class ARROW_EXPORT Array {
   /// \return DeviceAllocationType
   DeviceAllocationType device_type() const { return data_->device_type(); }
 
+  /// \brief Set the statistics to this Array
+  ///
+  /// \param[in] statistics the statistics of this Array
+  void SetStatistics(std::shared_ptr<ArrayStatistics> statistics) {
+    statistics_ = std::move(statistics);
+  }
+
   /// \brief Return the statistics of this Array
   ///
-  /// This just delegates to calling statistics on the underlying ArrayData
-  /// object which backs this Array.
-  ///
-  /// \return const ArrayStatistics&
-  const ArrayStatistics& statistics() const { return data_->statistics; }
+  /// \return std::shared_ptr<ArrayStatistics>
+  std::shared_ptr<ArrayStatistics> GetStatistics() const { return statistics_; }
 
  protected:
   Array() = default;
@@ -256,6 +261,9 @@ class ARROW_EXPORT Array {
     }
     data_ = data;
   }
+
+  // The statistics for this Array.
+  std::shared_ptr<ArrayStatistics> statistics_;
 
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Array);
