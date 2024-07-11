@@ -194,10 +194,9 @@ int AesEncryptor::AesEncryptorImpl::Encrypt(span<const uint8_t> plaintext,
     throw ParquetException(ss.str());
   }
 
-  uint8_t nonce[kNonceLength];
-  memset(nonce, 0, kNonceLength);
+  std::array<uint8_t, kNonceLength> nonce{};
   // Random nonce
-  RAND_bytes(nonce, sizeof(nonce));
+  RAND_bytes(nonce.data(), kNonceLength);
 
   if (kGcmMode == aes_mode_) {
     return GcmEncrypt(plaintext, key, nonce, aad, ciphertext);
@@ -214,8 +213,7 @@ int AesEncryptor::AesEncryptorImpl::GcmEncrypt(span<const uint8_t> plaintext,
   int len;
   int ciphertext_len;
 
-  uint8_t tag[kGcmTagLength];
-  memset(tag, 0, kGcmTagLength);
+  std::array<uint8_t, kGcmTagLength> tag{};
 
   if (nonce.size() != static_cast<size_t>(kNonceLength)) {
     std::stringstream ss;
@@ -253,7 +251,7 @@ int AesEncryptor::AesEncryptorImpl::GcmEncrypt(span<const uint8_t> plaintext,
   ciphertext_len += len;
 
   // Getting the tag
-  if (1 != EVP_CIPHER_CTX_ctrl(ctx_, EVP_CTRL_GCM_GET_TAG, kGcmTagLength, tag)) {
+  if (1 != EVP_CIPHER_CTX_ctrl(ctx_, EVP_CTRL_GCM_GET_TAG, kGcmTagLength, tag.data())) {
     throw ParquetException("Couldn't get AES-GCM tag");
   }
 
@@ -267,7 +265,7 @@ int AesEncryptor::AesEncryptorImpl::GcmEncrypt(span<const uint8_t> plaintext,
   }
   std::copy(nonce.begin(), nonce.begin() + kNonceLength,
             ciphertext.begin() + length_buffer_length_);
-  std::copy(tag, tag + kGcmTagLength,
+  std::copy(tag.begin(), tag.end(),
             ciphertext.begin() + length_buffer_length_ + kNonceLength + ciphertext_len);
 
   return length_buffer_length_ + buffer_size;
@@ -290,13 +288,12 @@ int AesEncryptor::AesEncryptorImpl::CtrEncrypt(span<const uint8_t> plaintext,
   // counter field.
   // The first 31 bits of the initial counter field are set to 0, the last bit
   // is set to 1.
-  uint8_t iv[kCtrIvLength];
-  memset(iv, 0, kCtrIvLength);
-  std::copy(nonce.begin(), nonce.begin() + kNonceLength, iv);
+  std::array<uint8_t, kCtrIvLength> iv{};
+  std::copy(nonce.begin(), nonce.begin() + kNonceLength, iv.begin());
   iv[kCtrIvLength - 1] = 1;
 
   // Setting key and IV
-  if (1 != EVP_EncryptInit_ex(ctx_, nullptr, nullptr, key.data(), iv)) {
+  if (1 != EVP_EncryptInit_ex(ctx_, nullptr, nullptr, key.data(), iv.data())) {
     throw ParquetException("Couldn't set key and IV");
   }
 
@@ -569,10 +566,8 @@ int AesDecryptor::AesDecryptorImpl::GcmDecrypt(span<const uint8_t> ciphertext,
   int len;
   int plaintext_len;
 
-  uint8_t tag[kGcmTagLength];
-  memset(tag, 0, kGcmTagLength);
-  uint8_t nonce[kNonceLength];
-  memset(nonce, 0, kNonceLength);
+  std::array<uint8_t, kGcmTagLength> tag{};
+  std::array<uint8_t, kNonceLength> nonce{};
 
   int ciphertext_len = GetCiphertextLength(ciphertext);
 
@@ -592,12 +587,12 @@ int AesDecryptor::AesDecryptorImpl::GcmDecrypt(span<const uint8_t> ciphertext,
 
   // Extracting IV and tag
   std::copy(ciphertext.begin() + length_buffer_length_,
-            ciphertext.begin() + length_buffer_length_ + kNonceLength, nonce);
+            ciphertext.begin() + length_buffer_length_ + kNonceLength, nonce.begin());
   std::copy(ciphertext.begin() + ciphertext_len - kGcmTagLength,
-            ciphertext.begin() + ciphertext_len, tag);
+            ciphertext.begin() + ciphertext_len, tag.begin());
 
   // Setting key and IV
-  if (1 != EVP_DecryptInit_ex(ctx_, nullptr, nullptr, key.data(), nonce)) {
+  if (1 != EVP_DecryptInit_ex(ctx_, nullptr, nullptr, key.data(), nonce.data())) {
     throw ParquetException("Couldn't set key and IV");
   }
 
@@ -618,7 +613,7 @@ int AesDecryptor::AesDecryptorImpl::GcmDecrypt(span<const uint8_t> ciphertext,
   plaintext_len = len;
 
   // Checking the tag (authentication)
-  if (!EVP_CIPHER_CTX_ctrl(ctx_, EVP_CTRL_GCM_SET_TAG, kGcmTagLength, tag)) {
+  if (!EVP_CIPHER_CTX_ctrl(ctx_, EVP_CTRL_GCM_SET_TAG, kGcmTagLength, tag.data())) {
     throw ParquetException("Failed authentication");
   }
 
@@ -637,8 +632,7 @@ int AesDecryptor::AesDecryptorImpl::CtrDecrypt(span<const uint8_t> ciphertext,
   int len;
   int plaintext_len;
 
-  uint8_t iv[kCtrIvLength];
-  memset(iv, 0, kCtrIvLength);
+  std::array<uint8_t, kCtrIvLength> iv{};
 
   int ciphertext_len = GetCiphertextLength(ciphertext);
 
@@ -658,7 +652,7 @@ int AesDecryptor::AesDecryptorImpl::CtrDecrypt(span<const uint8_t> ciphertext,
 
   // Extracting nonce
   std::copy(ciphertext.begin() + length_buffer_length_,
-            ciphertext.begin() + length_buffer_length_ + kNonceLength, iv);
+            ciphertext.begin() + length_buffer_length_ + kNonceLength, iv.begin());
   // Parquet CTR IVs are comprised of a 12-byte nonce and a 4-byte initial
   // counter field.
   // The first 31 bits of the initial counter field are set to 0, the last bit
@@ -666,7 +660,7 @@ int AesDecryptor::AesDecryptorImpl::CtrDecrypt(span<const uint8_t> ciphertext,
   iv[kCtrIvLength - 1] = 1;
 
   // Setting key and IV
-  if (1 != EVP_DecryptInit_ex(ctx_, nullptr, nullptr, key.data(), iv)) {
+  if (1 != EVP_DecryptInit_ex(ctx_, nullptr, nullptr, key.data(), iv.data())) {
     throw ParquetException("Couldn't set key and IV");
   }
 
