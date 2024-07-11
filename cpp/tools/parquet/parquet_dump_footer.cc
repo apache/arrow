@@ -29,6 +29,7 @@
 
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/util/endian.h"
+#include "arrow/util/ubsan.h"
 #include "parquet/thrift_internal.h"
 #include "generated/parquet_types.h"
 
@@ -53,8 +54,7 @@ Usage: parquet-dump-footer
 }
 
 uint32_t ReadLE32(const void* p) {
-  uint32_t x;
-  memcpy(&x, p, sizeof(x));
+  uint32_t x = arrow::util::SafeLoadAs<uint32_t>(static_cast<const uint8_t*>(p));
   return arrow::bit_util::FromLittleEndian(x);
 }
 
@@ -65,8 +65,8 @@ void AppendLE32(uint32_t v, std::string* out) {
 
 template <typename T>
 bool Deserialize(const char* data, uint32_t len, T* obj) {
-  parquet::ThriftDeserializer des(/*string_size_limit=*/10 << 20,
-                                  /*container_size_limit=*/10 << 20);
+  parquet::ThriftDeserializer des(/*string_size_limit=*/1 << 30,
+                                  /*container_size_limit=*/1 << 30);
   try {
     des.DeserializeMessage(reinterpret_cast<const uint8_t*>(data), &len, obj);
     return true;
@@ -102,9 +102,11 @@ void Scrub(std::string* s) {
   const size_t n = s->size();
   s->clear();
   while (s->size() < n) {
-    size_t m = std::min(n, sizeof(pool) / 2);
-    std::uniform_int_distribution<> start(0, sizeof(pool) / 2);
-    s->append(&pool[start(rng)], m);
+    // To avoid repeating patterns we start somewhere up to halfway through the pool and
+    // append up to half the pool chars.
+    std::uniform_int_distribution<size_t> half(0, sizeof(pool) / 2 - 1);
+    size_t m = std::min(n, half(rng) + 1 /* at least one */);
+    s->append(&pool[half(rng)], m);
   }
 }
 
