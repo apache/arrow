@@ -76,20 +76,15 @@ class AesEncryptor::AesEncryptorImpl {
       std::stringstream ss;
       ss << "Negative plaintext length " << plaintext_len;
       throw ParquetException(ss.str());
-    } else if (plaintext_len > std::numeric_limits<int32_t>::max()) {
+    } else if (plaintext_len >
+               std::numeric_limits<int32_t>::max() - ciphertext_size_delta_) {
       std::stringstream ss;
-      ss << "Plaintext length " << plaintext_len << " overflows int32";
+      ss << "Plaintext length " << plaintext_len << " plus ciphertext size delta "
+         << ciphertext_size_delta_ << " overflows int32";
       throw ParquetException(ss.str());
     }
 
-    int64_t ciphertext_len = plaintext_len + ciphertext_size_delta_;
-    if (ciphertext_len > std::numeric_limits<int32_t>::max()) {
-      std::stringstream ss;
-      ss << "Ciphertext length " << ciphertext_len << " overflows int32";
-      throw ParquetException(ss.str());
-    }
-
-    return static_cast<int32_t>(ciphertext_len);
+    return static_cast<int32_t>(plaintext_len + ciphertext_size_delta_);
   }
 
  private:
@@ -392,6 +387,11 @@ class AesDecryptor::AesDecryptorImpl {
     if (plaintext_len < 0) {
       std::stringstream ss;
       ss << "Negative plaintext length " << plaintext_len;
+      throw ParquetException(ss.str());
+    } else if (plaintext_len > std::numeric_limits<int>::max() - ciphertext_size_delta_) {
+      std::stringstream ss;
+      ss << "Plaintext length " << plaintext_len << " plus ciphertext size delta "
+         << ciphertext_size_delta_ << " overflows int32";
       throw ParquetException(ss.str());
     }
     return plaintext_len + ciphertext_size_delta_;
