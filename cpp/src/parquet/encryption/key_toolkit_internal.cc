@@ -32,7 +32,7 @@ std::string EncryptKeyLocally(const std::string& key_bytes, const std::string& m
                              static_cast<int>(master_key.size()), false,
                              false /*write_length*/);
 
-  int encrypted_key_len =
+  int32_t encrypted_key_len =
       key_encryptor.CiphertextLength(static_cast<int64_t>(key_bytes.size()));
   std::string encrypted_key(encrypted_key_len, '\0');
   ::arrow::util::span<uint8_t> encrypted_key_span(

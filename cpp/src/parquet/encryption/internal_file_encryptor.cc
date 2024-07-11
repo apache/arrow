@@ -31,7 +31,7 @@ Encryptor::Encryptor(encryption::AesEncryptor* aes_encryptor, const std::string&
       aad_(aad),
       pool_(pool) {}
 
-int Encryptor::CiphertextLength(int64_t plaintext_len) const {
+int32_t Encryptor::CiphertextLength(int64_t plaintext_len) const {
   return aes_encryptor_->CiphertextLength(plaintext_len);
 }
 

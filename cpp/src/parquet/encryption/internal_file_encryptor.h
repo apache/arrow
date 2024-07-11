@@ -43,7 +43,7 @@ class PARQUET_EXPORT Encryptor {
   void UpdateAad(const std::string& aad) { aad_ = aad; }
   ::arrow::MemoryPool* pool() { return pool_; }
 
-  [[nodiscard]] int CiphertextLength(int64_t plaintext_len) const;
+  [[nodiscard]] int32_t CiphertextLength(int64_t plaintext_len) const;
 
   int Encrypt(::arrow::util::span<const uint8_t> plaintext,
               ::arrow::util::span<uint8_t> ciphertext);

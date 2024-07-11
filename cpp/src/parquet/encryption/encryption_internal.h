@@ -62,7 +62,7 @@ class PARQUET_EXPORT AesEncryptor {
   ~AesEncryptor();
 
   /// The size of the ciphertext, for this cipher and the specified plaintext length.
-  [[nodiscard]] int CiphertextLength(int64_t plaintext_len) const;
+  [[nodiscard]] int32_t CiphertextLength(int64_t plaintext_len) const;
 
   /// Encrypts plaintext with the key and aad. Key length is passed only for validation.
   /// If different from value in constructor, exception will be thrown.

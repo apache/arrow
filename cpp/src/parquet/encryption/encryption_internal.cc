@@ -71,7 +71,7 @@ class AesEncryptor::AesEncryptorImpl {
     }
   }
 
-  [[nodiscard]] int CiphertextLength(int64_t plaintext_len) const {
+  [[nodiscard]] int32_t CiphertextLength(int64_t plaintext_len) const {
     if (plaintext_len < 0) {
       std::stringstream ss;
       ss << "Negative plaintext length " << plaintext_len;
@@ -346,7 +346,7 @@ int AesEncryptor::SignedFooterEncrypt(span<const uint8_t> footer, span<const uin
 
 void AesEncryptor::WipeOut() { impl_->WipeOut(); }
 
-int AesEncryptor::CiphertextLength(int64_t plaintext_len) const {
+int32_t AesEncryptor::CiphertextLength(int64_t plaintext_len) const {
   return impl_->CiphertextLength(plaintext_len);
 }
 
