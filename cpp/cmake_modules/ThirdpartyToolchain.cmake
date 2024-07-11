@@ -4109,17 +4109,22 @@ endmacro()
 
 if(ARROW_WITH_GOOGLE_CLOUD_CPP OR ARROW_WITH_GRPC)
   # Google Cloud C++ SDK and gRPC require Google Abseil
+  if(ARROW_WITH_GOOGLE_CLOUD_CPP)
+    set(ARROW_ABSL_CMAKE_PACKAGE_NAME Arrow)
+    set(ARROW_ABSL_PC_PACKAGE_NAME arrow)
+  else()
+    set(ARROW_ABSL_CMAKE_PACKAGE_NAME ArrowFlight)
+    set(ARROW_ABSL_PC_PACKAGE_NAME arrow-flight)
+  endif()
   resolve_dependency(absl
                      ARROW_CMAKE_PACKAGE_NAME
-                     ArrowFlight
+                     ${ARROW_ABSL_CMAKE_PACKAGE_NAME}
                      ARROW_PC_PACKAGE_NAME
-                     arrow-flight
+                     ${ARROW_ABSL_PC_PACKAGE_NAME}
                      HAVE_ALT
                      FALSE
                      FORCE_ANY_NEWER_VERSION
                      TRUE
-                     PC_PACKAGE_NAMES
-                     absl
                      REQUIRED_VERSION
                      ${ARROW_ABSL_REQUIRED_VERSION})
 endif()
