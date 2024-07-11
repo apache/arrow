@@ -4108,6 +4108,7 @@ macro(build_grpc)
 endmacro()
 
 if(ARROW_WITH_GOOGLE_CLOUD_CPP OR ARROW_WITH_GRPC)
+  set(ARROW_ABSL_REQUIRED_VERSION 20211102)
   # Google Cloud C++ SDK and gRPC require Google Abseil
   if(ARROW_WITH_GOOGLE_CLOUD_CPP)
     set(ARROW_ABSL_CMAKE_PACKAGE_NAME Arrow)
