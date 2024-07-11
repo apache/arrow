@@ -84,6 +84,8 @@
 #   pragma warning(disable : 4127)
 #endif
 
+namespace arrow_vendored
+{
 namespace date
 {
 
@@ -8233,6 +8235,7 @@ operator<<(std::basic_ostream<CharT, Traits>& os,
 }
 
 }  // namespace date
+}  // namespace arrow_vendored
 
 #ifdef _MSC_VER
 #   pragma warning(pop)

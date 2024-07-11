@@ -30,6 +30,10 @@
 // been invented (that would involve another several millennia of evolution).
 // We did not mean to shout.
 
+// NOTE(ARROW): This is required so that symbols are properly exported from the DLL
+#include "visibility.h"
+
+
 #ifdef _WIN32
    // windows.h will be included directly and indirectly (e.g. by curl).
    // We need to define these macros to prevent windows.h bringing in
@@ -83,10 +87,10 @@
 #  include <windows.h>
 #endif  // _WIN32
 
-#include "date/tz_private.h"
+#include "tz_private.h"
 
 #ifdef __APPLE__
-#  include "date/ios.h"
+#  include "ios.h"
 #else
 #  define TARGET_OS_IPHONE 0
 #  define TARGET_OS_SIMULATOR 0
@@ -118,7 +122,7 @@
 #include <vector>
 #include <sys/stat.h>
 
-// unistd.h is used on some platforms as part of the the means to get
+// unistd.h is used on some platforms as part of the means to get
 // the current time zone. On Win32 windows.h provides a means to do it.
 // gcc/mingw supports unistd.h on Win32 but MSVC does not.
 
@@ -384,7 +388,8 @@ private:
 };
 
 #endif  // !USE_OS_TZDB
-
+namespace arrow_vendored
+{
 namespace date
 {
 // +---------------------+
@@ -4142,6 +4147,7 @@ current_zone()
 }
 
 }  // namespace date
+}  // namespace arrow_vendored
 
 #if defined(__GNUC__) && __GNUC__ < 5
 # pragma GCC diagnostic pop

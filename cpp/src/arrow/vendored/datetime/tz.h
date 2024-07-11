@@ -43,6 +43,12 @@
 // required. On Windows, the names are never "Standard" so mapping is always required.
 // Technically any OS may use the mapping process but currently only Windows does use it.
 
+// NOTE(ARROW): If this is not set, then the library will attempt to
+// use libcurl to obtain a timezone database, and we probably do not want this.
+#ifndef _WIN32
+#define USE_OS_TZDB 1
+#endif
+
 #ifndef USE_OS_TZDB
 #  define USE_OS_TZDB 0
 #endif
@@ -134,6 +140,8 @@ static_assert(HAS_REMOTE_API == 0 ? AUTO_DOWNLOAD == 0 : true,
 #  endif
 #endif
 
+namespace arrow_vendored
+{
 namespace date
 {
 
@@ -2788,5 +2796,6 @@ to_gps_time(const tai_time<Duration>& t)
 }
 
 }  // namespace date
+}  // namespace arrow_vendored
 
 #endif  // TZ_H
