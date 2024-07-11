@@ -530,13 +530,16 @@ int AesDecryptor::AesDecryptorImpl::GetCiphertextLength(
     }
 
     // Extract ciphertext length
-    int written_ciphertext_len = ((ciphertext[3] & 0xff) << 24) |
-                                 ((ciphertext[2] & 0xff) << 16) |
-                                 ((ciphertext[1] & 0xff) << 8) | ((ciphertext[0] & 0xff));
+    uint32_t written_ciphertext_len = (static_cast<uint32_t>(ciphertext[3]) << 24) |
+                                      (static_cast<uint32_t>(ciphertext[2]) << 16) |
+                                      (static_cast<uint32_t>(ciphertext[1]) << 8) |
+                                      (static_cast<uint32_t>(ciphertext[0]));
 
-    if (written_ciphertext_len < 0) {
+    if (written_ciphertext_len >
+        static_cast<uint32_t>(std::numeric_limits<int>::max() - length_buffer_length_)) {
       std::stringstream ss;
-      ss << "Negative ciphertext length " << written_ciphertext_len;
+      ss << "Written ciphertext length " << written_ciphertext_len
+         << " plus length buffer length " << length_buffer_length_ << " overflows int";
       throw ParquetException(ss.str());
     } else if (ciphertext.size() <
                static_cast<size_t>(written_ciphertext_len) + length_buffer_length_) {
@@ -548,7 +551,7 @@ int AesDecryptor::AesDecryptorImpl::GetCiphertextLength(
       throw ParquetException(ss.str());
     }
 
-    return written_ciphertext_len + length_buffer_length_;
+    return static_cast<int>(written_ciphertext_len) + length_buffer_length_;
   } else {
     if (ciphertext.size() > static_cast<size_t>(std::numeric_limits<int32_t>::max())) {
       std::stringstream ss;
