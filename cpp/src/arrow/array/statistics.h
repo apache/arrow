@@ -43,16 +43,23 @@ struct ARROW_EXPORT ArrayStatistics {
   /// \brief The number of distinct values, may not be set
   std::optional<int64_t> distinct_count = std::nullopt;
 
-  /// \brief The current minimum value buffer, may not be set
+  /// \brief The minimum value buffer, may not be set
   std::optional<ElementBufferType> min_buffer = std::nullopt;
 
-  /// \brief The current maximum value buffer, may not be set
+  /// \brief Whether the minimum value is exact or not, may not be set
+  std::optional<bool> is_min_exact = std::nullopt;
+
+  /// \brief The maximum value buffer, may not be set
   std::optional<ElementBufferType> max_buffer = std::nullopt;
+
+  /// \brief Whether the maximum value is exact or not, may not be set
+  std::optional<bool> is_max_exact = std::nullopt;
 
   /// \brief Check two Statistics for equality
   bool Equals(const ArrayStatistics& other) const {
     return null_count == other.null_count && distinct_count == other.distinct_count &&
-           min_buffer == other.min_buffer && max_buffer == other.max_buffer;
+           min_buffer == other.min_buffer && is_min_exact == other.is_min_exact &&
+           max_buffer == other.max_buffer && is_max_exact == other.is_max_exact;
   }
 };
 

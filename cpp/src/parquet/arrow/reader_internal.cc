@@ -350,7 +350,9 @@ Status TransferInt(RecordReader* reader,
       auto typed_statistics =
           static_cast<::parquet::TypedStatistics<ParquetType>*>(statistics);
       array_statistics->min_buffer = static_cast<ArrowCType>(typed_statistics->min());
+      array_statistics->is_min_exact = true;
       array_statistics->max_buffer = static_cast<ArrowCType>(typed_statistics->max());
+      array_statistics->is_max_exact = true;
     }
   }
   auto array = std::make_shared<ArrayType<ArrowType>>(std::move(array_data));
@@ -412,7 +414,9 @@ Status TransferBool(RecordReader* reader,
     if (statistics->HasMinMax()) {
       auto bool_statistics = static_cast<::parquet::BoolStatistics*>(statistics);
       array_statistics->min_buffer = bool_statistics->min();
+      array_statistics->is_min_exact = true;
       array_statistics->max_buffer = bool_statistics->max();
+      array_statistics->is_max_exact = true;
     }
   }
   auto array = std::make_shared<BooleanArray>(std::move(array_data));
