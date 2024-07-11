@@ -404,7 +404,7 @@ Status TransferBool(RecordReader* reader,
   }
   auto array_data = ::arrow::ArrayData::Make(::arrow::boolean(), length,
                                              std::move(buffers), null_count);
-  auto array_statistics = std::make_shared<::arrow::ArrayStatistics>();
+  auto array_statistics = std::make_shared<::arrow::BooleanArrayStatistics>();
   array_statistics->null_count = null_count;
   auto statistics = metadata->statistics().get();
   if (statistics) {
