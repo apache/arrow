@@ -332,14 +332,13 @@ Status RowTableImpl::AppendSelectionFrom(const RowTableImpl& from,
       uint16_t row_id = source_row_ids ? source_row_ids[i] : i;
       uint32_t length = from_offsets[row_id + 1] - from_offsets[row_id];
       total_length_to_append += length;
-      // to_offsets[num_rows_ + i + 1] = total_length + total_length_to_append;
       uint32_t to_offset_maybe_overflow = 0;
       if (ARROW_PREDICT_FALSE(arrow::internal::AddWithOverflow(
               total_length, total_length_to_append, &to_offset_maybe_overflow))) {
-        return Status::Invalid("Offset overflow detected in row table for row ",
-                               num_rows_ + i, " of length ", length,
-                               " bytes to current length ", to_offsets[num_rows_ + i],
-                               " bytes");
+        return Status::Invalid(
+            "Offset overflow detected in RowTableImpl::AppendSelectionFrom for row ",
+            num_rows_ + i, " of length ", length, " bytes, current length in total is ",
+            to_offsets[num_rows_ + i], " bytes");
       }
       to_offsets[num_rows_ + i + 1] = to_offset_maybe_overflow;
     }

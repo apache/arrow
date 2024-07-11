@@ -126,16 +126,22 @@ TEST(RowTableMemoryConsumption, Encode) {
   }
 }
 
+// GH-43202: Ensure that when offset overflow happens in encoding the row table, an
+// explicit error is raised instead of a silent wrong result.
 TEST(RowTableOffsetOverflow, LARGE_MEMORY_TEST(Encode)) {
   if constexpr (sizeof(void*) == 4) {
     GTEST_SKIP() << "Test only works on 64-bit platforms";
   }
 
-  constexpr int64_t length_per_binary = 512 * 1024 * 1024;
+  // Use 8 512MB var-length rows (occupies 4GB+) to overflow the offset in the row table.
   constexpr int64_t num_rows = 8;
+  constexpr int64_t length_per_binary = 512 * 1024 * 1024;
+  constexpr int64_t row_alignment = sizeof(uint32_t);
+  constexpr int64_t var_length_alignment = sizeof(uint32_t);
 
   MemoryPool* pool = default_memory_pool();
 
+  // The column to encode.
   std::vector<KeyColumnArray> columns;
   std::vector<Datum> values;
   ASSERT_OK_AND_ASSIGN(
@@ -146,155 +152,107 @@ TEST(RowTableOffsetOverflow, LARGE_MEMORY_TEST(Encode)) {
   ExecBatch batch = ExecBatch(std::move(values), 1);
   ASSERT_OK(ColumnArraysFromExecBatch(batch, &columns));
 
+  // The row table.
   std::vector<KeyColumnMetadata> column_metadatas;
   ASSERT_OK(ColumnMetadatasFromExecBatch(batch, &column_metadatas));
   RowTableMetadata table_metadata;
-  table_metadata.FromColumnMetadataVector(column_metadatas, sizeof(uint64_t),
-                                          sizeof(uint64_t));
+  table_metadata.FromColumnMetadataVector(column_metadatas, row_alignment,
+                                          var_length_alignment);
   RowTableImpl row_table;
   ASSERT_OK(row_table.Init(pool, table_metadata));
-  std::vector<uint16_t> row_ids(num_rows, 0);
   RowTableEncoder row_encoder;
-  row_encoder.Init(column_metadatas, sizeof(uint64_t), sizeof(uint64_t));
-  row_encoder.PrepareEncodeSelected(0, num_rows, columns);
-  ASSERT_OK(row_encoder.EncodeSelected(&row_table, static_cast<uint32_t>(num_rows),
-                                       row_ids.data()));
+  row_encoder.Init(column_metadatas, row_alignment, var_length_alignment);
+
+  // The rows to encode.
+  std::vector<uint16_t> row_ids(num_rows, 0);
+
+  // Encoding 7 rows should be fine.
+  {
+    row_encoder.PrepareEncodeSelected(0, num_rows - 1, columns);
+    ASSERT_OK(row_encoder.EncodeSelected(&row_table, static_cast<uint32_t>(num_rows - 1),
+                                         row_ids.data()));
+  }
+
+  // Encoding 8 rows should overflow.
+  {
+    int64_t length_per_row = table_metadata.fixed_length + length_per_binary;
+    std::stringstream expected_error_message;
+    expected_error_message
+        << "Invalid: Offset overflow detected in EncoderOffsets for row " << num_rows - 1
+        << " of length " << length_per_row << " bytes, current length in total is "
+        << length_per_row * (num_rows - 1) << " bytes";
+    row_encoder.PrepareEncodeSelected(0, num_rows, columns);
+    ASSERT_RAISES_WITH_MESSAGE(
+        Invalid, expected_error_message.str(),
+        row_encoder.EncodeSelected(&row_table, static_cast<uint32_t>(num_rows),
+                                   row_ids.data()));
+  }
 }
 
-// TEST(RowTableOffsetOverflow, LARGE_MEMORY_TEST(Encode)) {
-//   if constexpr (sizeof(void*) == 4) {
-//     GTEST_SKIP() << "Test only works on 64-bit platforms";
-//   }
+// GH-43202: Ensure that when offset overflow happens in appending to the row table, an
+// explicit error is raised instead of a silent wrong result.
+TEST(RowTableOffsetOverflow, LARGE_MEMORY_TEST(AppendFrom)) {
+  if constexpr (sizeof(void*) == 4) {
+    GTEST_SKIP() << "Test only works on 64-bit platforms";
+  }
 
-//   // The idea of this case is to create a row table containing one fixed length column
-//   and
-//   // one var length column (so the row is hence var length and has offset buffer), by
-//   // appending the same small batch of n rows repeatedly until it has more than 2^31
-//   rows.
-//   // Then compare the last n rows of the row table with the batch.
-//   constexpr int64_t num_rows_batch = std::numeric_limits<uint16_t>::max();
-//   constexpr int64_t num_rows_row_table = 30000 * num_rows_batch;
-//   // (std::numeric_limits<int32_t>::max() + 1ll) / num_rows_batch * num_rows_batch -
-//   // num_rows_batch;
+  // Use 8 512MB var-length rows (occupies 4GB+) to overflow the offset in the row table.
+  constexpr int64_t num_rows = 8;
+  constexpr int64_t length_per_binary = 512 * 1024 * 1024;
+  constexpr int64_t num_rows_seed = 1;
+  constexpr int64_t row_alignment = sizeof(uint32_t);
+  constexpr int64_t var_length_alignment = sizeof(uint32_t);
 
-//   MemoryPool* pool = default_memory_pool();
+  MemoryPool* pool = default_memory_pool();
 
-//   // The left side columns with num_rows_batch rows.
-//   std::vector<KeyColumnArray> columns_left;
-//   ExecBatch batch_left;
-//   {
-//     std::vector<Datum> values;
+  // The column to encode.
+  std::vector<KeyColumnArray> columns;
+  std::vector<Datum> values;
+  ASSERT_OK_AND_ASSIGN(
+      auto value, ::arrow::gen::Constant(
+                      std::make_shared<BinaryScalar>(std::string(length_per_binary, 'X')))
+                      ->Generate(num_rows_seed));
+  values.push_back(std::move(value));
+  ExecBatch batch = ExecBatch(std::move(values), num_rows_seed);
+  ASSERT_OK(ColumnArraysFromExecBatch(batch, &columns));
 
-//     // A fixed length array containing random values.
-//     ASSERT_OK_AND_ASSIGN(auto value_fixed_length,
-//                          ::arrow::gen::Random(uint32())->Generate(num_rows_batch));
-//     values.push_back(std::move(value_fixed_length));
+  // The seed row table.
+  std::vector<KeyColumnMetadata> column_metadatas;
+  ASSERT_OK(ColumnMetadatasFromExecBatch(batch, &column_metadatas));
+  RowTableMetadata table_metadata;
+  table_metadata.FromColumnMetadataVector(column_metadatas, row_alignment,
+                                          var_length_alignment);
+  RowTableImpl row_table_seed;
+  ASSERT_OK(row_table_seed.Init(pool, table_metadata));
+  RowTableEncoder row_encoder;
+  row_encoder.Init(column_metadatas, row_alignment, var_length_alignment);
+  row_encoder.PrepareEncodeSelected(0, num_rows_seed, columns);
+  std::vector<uint16_t> row_ids(num_rows_seed, 0);
+  ASSERT_OK(row_encoder.EncodeSelected(
+      &row_table_seed, static_cast<uint32_t>(num_rows_seed), row_ids.data()));
 
-//     // A var length array containing small var length values ("X").
-//     ASSERT_OK_AND_ASSIGN(auto value_var_length,
-//                          ::arrow::gen::Constant(std::make_shared<BinaryScalar>("X"))
-//                              ->Generate(num_rows_batch));
-//     values.push_back(std::move(value_var_length));
+  // The target row table.
+  RowTableImpl row_table;
+  ASSERT_OK(row_table.Init(pool, table_metadata));
 
-//     batch_left = ExecBatch(std::move(values), num_rows_batch);
-//     ASSERT_OK(ColumnArraysFromExecBatch(batch_left, &columns_left));
-//   }
+  // Appending the seed 7 times should be fine.
+  for (int i = 0; i < num_rows - 1; ++i) {
+    ASSERT_OK(row_table.AppendSelectionFrom(row_table_seed, num_rows_seed,
+                                            /*source_row_ids=*/NULLPTR));
+  }
 
-//   // The right side row table with num_rows_row_table rows.
-//   RowTableImpl row_table_right;
-//   {
-//     // Encode the row table with the left columns repeatedly.
-//     std::vector<KeyColumnMetadata> column_metadatas;
-//     ASSERT_OK(ColumnMetadatasFromExecBatch(batch_left, &column_metadatas));
-//     RowTableMetadata table_metadata;
-//     table_metadata.FromColumnMetadataVector(column_metadatas, sizeof(uint64_t),
-//                                             sizeof(uint64_t));
-//     ASSERT_OK(row_table_right.Init(pool, table_metadata));
-//     RowTableImpl row_table_batch;
-//     ASSERT_OK(row_table_batch.Init(pool, table_metadata));
-//     std::vector<uint16_t> row_ids(num_rows_batch);
-//     std::iota(row_ids.begin(), row_ids.end(), 0);
-//     RowTableEncoder row_encoder;
-//     row_encoder.Init(column_metadatas, sizeof(uint64_t), sizeof(uint64_t));
-//     row_encoder.PrepareEncodeSelected(0, num_rows_batch, columns_left);
-//     ASSERT_OK(row_encoder.EncodeSelected(
-//         &row_table_batch, static_cast<uint32_t>(num_rows_batch), row_ids.data()));
-//     for (int i = 0; i < num_rows_row_table / num_rows_batch; ++i) {
-//       ASSERT_OK(row_table_right.AppendSelectionFrom(row_table_batch, num_rows_batch,
-//                                                     /*source_row_ids=*/NULLPTR));
-//     }
-
-//     // The row table must contain an offset buffer.
-//     ASSERT_NE(row_table_right.offsets(), NULLPTR);
-//     ASSERT_EQ(row_table_right.length(), num_rows_row_table);
-//   }
-
-//   // The rows to compare: all rows in the batch to the last num_rows_batch rows of the
-//   // row table.
-//   std::vector<uint32_t> row_ids_to_compare(num_rows_batch);
-//   std::iota(row_ids_to_compare.begin(), row_ids_to_compare.end(),
-//             num_rows_row_table - num_rows_batch);
-
-//   TempVectorStack stack;
-//   ASSERT_OK(
-//       stack.Init(pool,
-//       KeyCompare::CompareColumnsToRowsTempStackUsage(num_rows_batch)));
-//   LightContext ctx{CpuInfo::GetInstance()->hardware_flags(), &stack};
-
-//   {
-//     // No selection, output no match row ids.
-//     uint32_t num_rows_no_match;
-//     std::vector<uint16_t> row_ids_out(num_rows_batch);
-//     KeyCompare::CompareColumnsToRows(num_rows_batch, /*sel_left_maybe_null=*/NULLPTR,
-//                                      row_ids_to_compare.data(), &ctx,
-//                                      &num_rows_no_match, row_ids_out.data(),
-//                                      columns_left, row_table_right,
-//                                      /*are_cols_in_encoding_order=*/true,
-//                                      /*out_match_bitvector_maybe_null=*/NULLPTR);
-//     ASSERT_EQ(num_rows_no_match, 0);
-//   }
-
-//   {
-//     // No selection, output match bit vector.
-//     std::vector<uint8_t> match_bitvector(BytesForBits(num_rows_batch));
-//     KeyCompare::CompareColumnsToRows(
-//         num_rows_batch, /*sel_left_maybe_null=*/NULLPTR, row_ids_to_compare.data(),
-//         &ctx,
-//         /*out_num_rows=*/NULLPTR, /*out_sel_left_maybe_same=*/NULLPTR, columns_left,
-//         row_table_right,
-//         /*are_cols_in_encoding_order=*/true, match_bitvector.data());
-//     ASSERT_EQ(arrow::internal::CountSetBits(match_bitvector.data(), 0, num_rows_batch),
-//               num_rows_batch);
-//   }
-
-//   std::vector<uint16_t> selection_left(num_rows_batch);
-//   std::iota(selection_left.begin(), selection_left.end(), 0);
-
-//   {
-//     // With selection, output no match row ids.
-//     uint32_t num_rows_no_match;
-//     std::vector<uint16_t> row_ids_out(num_rows_batch);
-//     KeyCompare::CompareColumnsToRows(num_rows_batch, selection_left.data(),
-//                                      row_ids_to_compare.data(), &ctx,
-//                                      &num_rows_no_match, row_ids_out.data(),
-//                                      columns_left, row_table_right,
-//                                      /*are_cols_in_encoding_order=*/true,
-//                                      /*out_match_bitvector_maybe_null=*/NULLPTR);
-//     ASSERT_EQ(num_rows_no_match, 0);
-//   }
-
-//   {
-//     // With selection, output match bit vector.
-//     std::vector<uint8_t> match_bitvector(BytesForBits(num_rows_batch));
-//     KeyCompare::CompareColumnsToRows(
-//         num_rows_batch, selection_left.data(), row_ids_to_compare.data(), &ctx,
-//         /*out_num_rows=*/NULLPTR, /*out_sel_left_maybe_same=*/NULLPTR, columns_left,
-//         row_table_right,
-//         /*are_cols_in_encoding_order=*/true, match_bitvector.data());
-//     ASSERT_EQ(arrow::internal::CountSetBits(match_bitvector.data(), 0, num_rows_batch),
-//               num_rows_batch);
-//   }
-// }
+  // Appending the seed the 8-th time should overflow.
+  int64_t length_per_row = table_metadata.fixed_length + length_per_binary;
+  std::stringstream expected_error_message;
+  expected_error_message
+      << "Invalid: Offset overflow detected in RowTableImpl::AppendSelectionFrom for row "
+      << num_rows - 1 << " of length " << length_per_row
+      << " bytes, current length in total is " << length_per_row * (num_rows - 1)
+      << " bytes";
+  ASSERT_RAISES_WITH_MESSAGE(Invalid, expected_error_message.str(),
+                             row_table.AppendSelectionFrom(row_table_seed, num_rows_seed,
+                                                           /*source_row_ids=*/NULLPTR));
+}
 
 }  // namespace compute
 }  // namespace arrow
