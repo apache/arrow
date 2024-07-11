@@ -61,18 +61,22 @@ class PARQUET_EXPORT AesEncryptor {
 
   ~AesEncryptor();
 
-  /// Size difference between plaintext and ciphertext, for this cipher.
-  int CiphertextSizeDelta();
+  /// The size of the ciphertext, for this cipher and the specified plaintext length.
+  [[nodiscard]] int32_t CiphertextLength(int64_t plaintext_len) const;
 
   /// Encrypts plaintext with the key and aad. Key length is passed only for validation.
   /// If different from value in constructor, exception will be thrown.
-  int Encrypt(const uint8_t* plaintext, int plaintext_len, const uint8_t* key,
-              int key_len, const uint8_t* aad, int aad_len, uint8_t* ciphertext);
+  int Encrypt(::arrow::util::span<const uint8_t> plaintext,
+              ::arrow::util::span<const uint8_t> key,
+              ::arrow::util::span<const uint8_t> aad,
+              ::arrow::util::span<uint8_t> ciphertext);
 
   /// Encrypts plaintext footer, in order to compute footer signature (tag).
-  int SignedFooterEncrypt(const uint8_t* footer, int footer_len, const uint8_t* key,
-                          int key_len, const uint8_t* aad, int aad_len,
-                          const uint8_t* nonce, uint8_t* encrypted_footer);
+  int SignedFooterEncrypt(::arrow::util::span<const uint8_t> footer,
+                          ::arrow::util::span<const uint8_t> key,
+                          ::arrow::util::span<const uint8_t> aad,
+                          ::arrow::util::span<const uint8_t> nonce,
+                          ::arrow::util::span<uint8_t> encrypted_footer);
 
   void WipeOut();
 
