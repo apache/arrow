@@ -167,10 +167,10 @@ int AesEncryptor::AesEncryptorImpl::SignedFooterEncrypt(span<const uint8_t> foot
     throw ParquetException(ss.str());
   }
 
-  if (encrypted_footer.size() < footer.size() + ciphertext_size_delta_) {
+  if (encrypted_footer.size() != footer.size() + ciphertext_size_delta_) {
     std::stringstream ss;
     ss << "Encrypted footer buffer length " << encrypted_footer.size()
-       << " is insufficient for footer length " << footer.size();
+       << " does not match expected length " << (footer.size() + ciphertext_size_delta_);
     throw ParquetException(ss.str());
   }
 
@@ -191,10 +191,11 @@ int AesEncryptor::AesEncryptorImpl::Encrypt(span<const uint8_t> plaintext,
     throw ParquetException(ss.str());
   }
 
-  if (ciphertext.size() < plaintext.size() + ciphertext_size_delta_) {
+  if (ciphertext.size() != plaintext.size() + ciphertext_size_delta_) {
     std::stringstream ss;
     ss << "Ciphertext buffer length " << ciphertext.size()
-       << " is insufficient for plaintext length " << plaintext.size();
+       << " does not match expected length "
+       << (plaintext.size() + ciphertext_size_delta_);
     throw ParquetException(ss.str());
   }
 
@@ -221,9 +222,9 @@ int AesEncryptor::AesEncryptorImpl::GcmEncrypt(span<const uint8_t> plaintext,
   uint8_t tag[kGcmTagLength];
   memset(tag, 0, kGcmTagLength);
 
-  if (nonce.size() < static_cast<size_t>(kNonceLength)) {
+  if (nonce.size() != static_cast<size_t>(kNonceLength)) {
     std::stringstream ss;
-    ss << "Invalid nonce size " << nonce.size() << ", require at least " << kNonceLength;
+    ss << "Invalid nonce size " << nonce.size() << ", expected " << kNonceLength;
     throw ParquetException(ss.str());
   }
 
@@ -284,9 +285,9 @@ int AesEncryptor::AesEncryptorImpl::CtrEncrypt(span<const uint8_t> plaintext,
   int len;
   int ciphertext_len;
 
-  if (nonce.size() < static_cast<size_t>(kNonceLength)) {
+  if (nonce.size() != static_cast<size_t>(kNonceLength)) {
     std::stringstream ss;
-    ss << "Invalid nonce size " << nonce.size() << ", require at least " << kNonceLength;
+    ss << "Invalid nonce size " << nonce.size() << ", expected " << kNonceLength;
     throw ParquetException(ss.str());
   }
 
