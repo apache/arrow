@@ -1563,7 +1563,7 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
                                                                 serialized_len);
 
         std::vector<uint8_t> encrypted_data(encryptor->CiphertextLength(serialized_len));
-        unsigned encrypted_len = encryptor->Encrypt(serialized_data_span, encrypted_data);
+        int encrypted_len = encryptor->Encrypt(serialized_data_span, encrypted_data);
 
         const char* temp =
             const_cast<const char*>(reinterpret_cast<char*>(encrypted_data.data()));
