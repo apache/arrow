@@ -357,7 +357,7 @@ Status TransferInt(RecordReader* reader,
   }
   auto array = std::make_shared<ArrayType<ArrowType>>(std::move(array_data));
   array->SetStatistics(std::move(array_statistics));
-  *out = std::move(array);
+  *out = std::make_shared<ChunkedArray>(std::move(array));
   return Status::OK();
 }
 
@@ -421,7 +421,7 @@ Status TransferBool(RecordReader* reader,
   }
   auto array = std::make_shared<BooleanArray>(std::move(array_data));
   array->SetStatistics(std::move(array_statistics));
-  *out = std::move(array);
+  *out = std::make_shared<ChunkedArray>(std::move(array));
   return Status::OK();
 }
 
