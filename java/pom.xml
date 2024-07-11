@@ -105,7 +105,7 @@ under the License.
     <error_prone_core.version>2.28.0</error_prone_core.version>
     <mockito.core.version>5.11.0</mockito.core.version>
     <mockito.inline.version>5.2.0</mockito.inline.version>
-    <checker.framework.version>3.44.0</checker.framework.version>
+    <checker.framework.version>3.45.0</checker.framework.version>
     <doclint>none</doclint>
     <additionalparam>-Xdoclint:none</additionalparam>
     <!-- org.apache:apache overrides -->
