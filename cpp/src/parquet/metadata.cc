@@ -652,6 +652,9 @@ class FileMetaData::FileMetaDataImpl {
     auto aes_encryptor = encryption::AesEncryptor::Make(file_decryptor_->algorithm(),
                                                         static_cast<int>(key.size()),
                                                         true, false /*write_length*/);
+    if (ARROW_PREDICT_FALSE(aes_encryptor == nullptr)) {
+      throw ParquetException("Could not create AES encryptor for signature verification");
+    }
 
     std::shared_ptr<Buffer> encrypted_buffer = std::static_pointer_cast<ResizableBuffer>(
         AllocateBuffer(file_decryptor_->pool(),
@@ -662,6 +665,7 @@ class FileMetaData::FileMetaDataImpl {
         encrypted_buffer->mutable_data());
     // Delete AES encryptor object. It was created only to verify the footer signature.
     aes_encryptor->WipeOut();
+    aes_encryptor = nullptr;
     return 0 ==
            memcmp(encrypted_buffer->data() + encrypted_len - encryption::kGcmTagLength,
                   tag, encryption::kGcmTagLength);
