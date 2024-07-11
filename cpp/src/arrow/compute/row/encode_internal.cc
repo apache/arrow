@@ -717,9 +717,9 @@ Status EncoderOffsets::GetRowOffsetsSelected(RowTableImpl* rows,
     uint32_t sum_maybe_overflow = 0;
     if (ARROW_PREDICT_FALSE(
             arrow::internal::AddWithOverflow(sum, length, &sum_maybe_overflow))) {
-      return Status::Invalid("Offset overflow detected in EncoderOffsets for row ", i,
-                             " of length ", length, " bytes, current length in total is ",
-                             sum, " bytes");
+      return Status::Invalid(
+          "Offset overflow detected in EncoderOffsets::GetRowOffsetsSelected for row ", i,
+          " of length ", length, " bytes, current length in total is ", sum, " bytes");
     }
     sum = sum_maybe_overflow;
   }

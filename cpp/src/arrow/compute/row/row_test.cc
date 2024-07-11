@@ -21,7 +21,6 @@
 #include "arrow/compute/row/row_internal.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
-// #include "arrow/testing/random.h"
 
 namespace arrow {
 namespace compute {
@@ -177,10 +176,11 @@ TEST(RowTableOffsetOverflow, LARGE_MEMORY_TEST(Encode)) {
   {
     int64_t length_per_row = table_metadata.fixed_length + length_per_binary;
     std::stringstream expected_error_message;
-    expected_error_message
-        << "Invalid: Offset overflow detected in EncoderOffsets for row " << num_rows - 1
-        << " of length " << length_per_row << " bytes, current length in total is "
-        << length_per_row * (num_rows - 1) << " bytes";
+    expected_error_message << "Invalid: Offset overflow detected in "
+                              "EncoderOffsets::GetRowOffsetsSelected for row "
+                           << num_rows - 1 << " of length " << length_per_row
+                           << " bytes, current length in total is "
+                           << length_per_row * (num_rows - 1) << " bytes";
     row_encoder.PrepareEncodeSelected(0, num_rows, columns);
     ASSERT_RAISES_WITH_MESSAGE(
         Invalid, expected_error_message.str(),
