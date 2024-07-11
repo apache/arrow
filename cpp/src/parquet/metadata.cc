@@ -707,7 +707,7 @@ class FileMetaData::FileMetaDataImpl {
 
       // encrypt the footer key
       std::vector<uint8_t> encrypted_data(encryptor->CiphertextLength(serialized_len));
-      unsigned encrypted_len = encryptor->Encrypt(serialized_data_span, encrypted_data);
+      int encrypted_len = encryptor->Encrypt(serialized_data_span, encrypted_data);
 
       // write unencrypted footer
       PARQUET_THROW_NOT_OK(dst->Write(serialized_data, serialized_len));
