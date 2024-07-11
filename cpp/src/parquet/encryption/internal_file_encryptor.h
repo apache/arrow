@@ -103,7 +103,7 @@ class InternalFileEncryptor {
   encryption::AesEncryptor* GetDataAesEncryptor(ParquetCipher::type algorithm,
                                                 size_t key_len);
 
-  int MapKeyLenToEncryptorArrayIndex(int key_len);
+  int MapKeyLenToEncryptorArrayIndex(int key_len) const;
 };
 
 }  // namespace parquet

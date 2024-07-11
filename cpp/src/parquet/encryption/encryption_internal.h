@@ -52,12 +52,11 @@ class PARQUET_EXPORT AesEncryptor {
   explicit AesEncryptor(ParquetCipher::type alg_id, int key_len, bool metadata,
                         bool write_length = true);
 
-  static AesEncryptor* Make(ParquetCipher::type alg_id, int key_len, bool metadata,
-                            std::vector<AesEncryptor*>* all_encryptors);
+  static std::unique_ptr<AesEncryptor> Make(ParquetCipher::type alg_id, int key_len,
+                                            bool metadata);
 
-  static AesEncryptor* Make(ParquetCipher::type alg_id, int key_len, bool metadata,
-                            bool write_length,
-                            std::vector<AesEncryptor*>* all_encryptors);
+  static std::unique_ptr<AesEncryptor> Make(ParquetCipher::type alg_id, int key_len,
+                                            bool metadata, bool write_length);
 
   ~AesEncryptor();
 

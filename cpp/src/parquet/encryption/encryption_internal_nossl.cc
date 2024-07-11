@@ -70,14 +70,13 @@ void AesDecryptor::WipeOut() { ThrowOpenSSLRequiredException(); }
 
 AesDecryptor::~AesDecryptor() {}
 
-AesEncryptor* AesEncryptor::Make(ParquetCipher::type alg_id, int key_len, bool metadata,
-                                 std::vector<AesEncryptor*>* all_encryptors) {
+std::unique_ptr<AesEncryptor> AesEncryptor::Make(ParquetCipher::type alg_id, int key_len,
+                                                 bool metadata) {
   return NULLPTR;
 }
 
-AesEncryptor* AesEncryptor::Make(ParquetCipher::type alg_id, int key_len, bool metadata,
-                                 bool write_length,
-                                 std::vector<AesEncryptor*>* all_encryptors) {
+std::unique_ptr<AesEncryptor> AesEncryptor::Make(ParquetCipher::type alg_id, int key_len,
+                                                 bool metadata, bool write_length) {
   return NULLPTR;
 }
 

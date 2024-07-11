@@ -135,7 +135,7 @@ InternalFileEncryptor::InternalFileEncryptor::GetColumnEncryptor(
   return encryptor;
 }
 
-int InternalFileEncryptor::MapKeyLenToEncryptorArrayIndex(int key_len) {
+int InternalFileEncryptor::MapKeyLenToEncryptorArrayIndex(int key_len) const {
   if (key_len == 16)
     return 0;
   else if (key_len == 24)
@@ -150,8 +150,8 @@ encryption::AesEncryptor* InternalFileEncryptor::GetMetaAesEncryptor(
   int key_len = static_cast<int>(key_size);
   int index = MapKeyLenToEncryptorArrayIndex(key_len);
   if (meta_encryptor_[index] == nullptr) {
-    meta_encryptor_[index].reset(
-        encryption::AesEncryptor::Make(algorithm, key_len, true, &all_encryptors_));
+    meta_encryptor_[index] = encryption::AesEncryptor::Make(algorithm, key_len, true);
+    all_encryptors_.push_back(meta_encryptor_[index].get());
   }
   return meta_encryptor_[index].get();
 }
@@ -161,8 +161,8 @@ encryption::AesEncryptor* InternalFileEncryptor::GetDataAesEncryptor(
   int key_len = static_cast<int>(key_size);
   int index = MapKeyLenToEncryptorArrayIndex(key_len);
   if (data_encryptor_[index] == nullptr) {
-    data_encryptor_[index].reset(
-        encryption::AesEncryptor::Make(algorithm, key_len, false, &all_encryptors_));
+    data_encryptor_[index] = encryption::AesEncryptor::Make(algorithm, key_len, false);
+    all_encryptors_.push_back(data_encryptor_[index].get());
   }
   return data_encryptor_[index].get();
 }
