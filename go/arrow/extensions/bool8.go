@@ -19,7 +19,7 @@ type Bool8Type struct {
 }
 
 func NewBool8Type() *Bool8Type {
-	return &Bool8Type{ExtensionBase: arrow.ExtensionBase{Storage: arrow.PrimitiveTypes.Uint8}}
+	return &Bool8Type{ExtensionBase: arrow.ExtensionBase{Storage: arrow.PrimitiveTypes.Int8}}
 }
 
 func (b *Bool8Type) ArrayType() reflect.Type { return reflect.TypeOf(Bool8Array{}) }
@@ -28,7 +28,7 @@ func (b *Bool8Type) Deserialize(storageType arrow.DataType, data string) (arrow.
 	if data != ExtensionNameBool8 {
 		return nil, fmt.Errorf("type identifier did not match: '%s'", data)
 	}
-	if !arrow.TypeEqual(storageType, arrow.PrimitiveTypes.Uint8) {
+	if !arrow.TypeEqual(storageType, arrow.PrimitiveTypes.Int8) {
 		return nil, fmt.Errorf("invalid storage type for Bool8Type: %s", storageType.Name())
 	}
 	return NewBool8Type(), nil
@@ -73,7 +73,7 @@ func (a *Bool8Array) String() string {
 }
 
 func (a *Bool8Array) Value(i int) bool {
-	return uint8ToBool(a.Storage().(*array.Uint8).Value(i))
+	return int8ToBool(a.Storage().(*array.Int8).Value(i))
 }
 
 func (a *Bool8Array) ValueStr(i int) string {
@@ -102,15 +102,15 @@ func (a *Bool8Array) GetOneForMarshal(i int) interface{} {
 	return a.Value(i)
 }
 
-func boolToUint8(v bool) uint8 {
-	var res uint8
+func boolToInt8(v bool) int8 {
+	var res int8
 	if v {
 		res = 1
 	}
 	return res
 }
 
-func uint8ToBool(v uint8) bool {
+func int8ToBool(v int8) bool {
 	return v != 0
 }
 
@@ -126,11 +126,11 @@ func NewBool8Builder(builder *array.ExtensionBuilder) *Bool8Builder {
 }
 
 func (b *Bool8Builder) Append(v bool) {
-	b.ExtensionBuilder.Builder.(*array.Uint8Builder).Append(boolToUint8(v))
+	b.ExtensionBuilder.Builder.(*array.Int8Builder).Append(boolToInt8(v))
 }
 
 func (b *Bool8Builder) UnsafeAppend(v bool) {
-	b.ExtensionBuilder.Builder.(*array.Uint8Builder).UnsafeAppend(boolToUint8(v))
+	b.ExtensionBuilder.Builder.(*array.Int8Builder).UnsafeAppend(boolToInt8(v))
 }
 
 func (b *Bool8Builder) AppendValueFromString(s string) error {
@@ -150,8 +150,8 @@ func (b *Bool8Builder) AppendValueFromString(s string) error {
 
 func (b *Bool8Builder) AppendValues(v []bool, valid []bool) {
 	boolsAsBytes := arrow.GetBool8Bytes(v)
-	boolsAsUint8s := arrow.GetData[uint8](boolsAsBytes)
-	b.ExtensionBuilder.Builder.(*array.Uint8Builder).AppendValues(boolsAsUint8s, valid)
+	boolsAsInt8s := arrow.GetData[int8](boolsAsBytes)
+	b.ExtensionBuilder.Builder.(*array.Int8Builder).AppendValues(boolsAsInt8s, valid)
 }
 
 func (b *Bool8Builder) UnmarshalOne(dec *json.Decoder) error {
