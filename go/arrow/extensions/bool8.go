@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"unsafe"
 
 	"github.com/apache/arrow/go/v17/arrow"
 	"github.com/apache/arrow/go/v17/arrow/array"
@@ -19,6 +20,7 @@ type Bool8Type struct {
 	arrow.ExtensionBase
 }
 
+// NewBool8Type creates a new Bool8Type with the underlying storage type set correctly to Int8.
 func NewBool8Type() *Bool8Type {
 	return &Bool8Type{ExtensionBase: arrow.ExtensionBase{Storage: arrow.PrimitiveTypes.Int8}}
 }
@@ -26,9 +28,6 @@ func NewBool8Type() *Bool8Type {
 func (b *Bool8Type) ArrayType() reflect.Type { return reflect.TypeOf(Bool8Array{}) }
 
 func (b *Bool8Type) Deserialize(storageType arrow.DataType, data string) (arrow.ExtensionType, error) {
-	if data != ExtensionNameBool8 {
-		return nil, fmt.Errorf("type identifier did not match: '%s'", data)
-	}
 	if !arrow.TypeEqual(storageType, arrow.PrimitiveTypes.Int8) {
 		return nil, fmt.Errorf("invalid storage type for Bool8Type: %s", storageType.Name())
 	}
@@ -41,7 +40,7 @@ func (b *Bool8Type) ExtensionEquals(other arrow.ExtensionType) bool {
 
 func (b *Bool8Type) ExtensionName() string { return ExtensionNameBool8 }
 
-func (b *Bool8Type) Serialize() string { return ExtensionNameBool8 }
+func (b *Bool8Type) Serialize() string { return "" }
 
 func (b *Bool8Type) String() string { return fmt.Sprintf("Bool8<storage=%s>", b.Storage) }
 
@@ -149,8 +148,7 @@ func (b *Bool8Builder) AppendValueFromString(s string) error {
 }
 
 func (b *Bool8Builder) AppendValues(v []bool, valid []bool) {
-	boolsAsBytes := arrow.GetBool8Bytes(v)
-	boolsAsInt8s := arrow.GetData[int8](boolsAsBytes)
+	boolsAsInt8s := unsafe.Slice((*int8)(unsafe.Pointer(unsafe.SliceData(v))), len(v))
 	b.ExtensionBuilder.Builder.(*array.Int8Builder).AppendValues(boolsAsInt8s, valid)
 }
 

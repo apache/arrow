@@ -117,14 +117,6 @@ func GetBytes[T FixedWidthType | ViewHeader](in []T) []byte {
 	return reinterpretSlice[byte](in)
 }
 
-// GetBool8Bytes reinterprets a slice of bool to a slice of bytes.
-//
-// NOTE: This must not be used for standard Arrow Boolean arrays as they are bitpacked.
-// The resulting byte slice is only valid for the Bool8 extension type.
-func GetBool8Bytes(in []bool) []byte {
-	return reinterpretSlice[byte](in)
-}
-
 // GetData reinterprets a slice of bytes to a slice of T.
 //
 // NOTE: the buffer's length must be a multiple of Sizeof(T).
