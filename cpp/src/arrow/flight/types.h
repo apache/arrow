@@ -183,6 +183,11 @@ struct ARROW_FLIGHT_EXPORT ActionType : public internal::BaseType<ActionType> {
   /// \brief A human-readable description of the action.
   std::string description;
 
+  ActionType() = default;
+
+  ActionType(std::string type, std::string description)
+      : type(std::move(type)), description(std::move(description)) {}
+
   std::string ToString() const;
   bool Equals(const ActionType& other) const;
 
@@ -204,6 +209,9 @@ struct ARROW_FLIGHT_EXPORT Criteria : public internal::BaseType<Criteria> {
   /// Opaque criteria expression, dependent on server implementation
   std::string expression;
 
+  Criteria() = default;
+  explicit Criteria(std::string expression) : expression(std::move(expression)) {}
+
   std::string ToString() const;
   bool Equals(const Criteria& other) const;
 
@@ -222,6 +230,10 @@ struct ARROW_FLIGHT_EXPORT Action : public internal::BaseType<Action> {
   /// The action content as a Buffer
   std::shared_ptr<Buffer> body;
 
+  Action() = default;
+  Action(std::string type, std::shared_ptr<Buffer> body)
+      : type(std::move(type)), body(std::move(body)) {}
+
   std::string ToString() const;
   bool Equals(const Action& other) const;
 
@@ -235,6 +247,9 @@ struct ARROW_FLIGHT_EXPORT Action : public internal::BaseType<Action> {
 /// \brief Opaque result returned after executing an action
 struct ARROW_FLIGHT_EXPORT Result : public internal::BaseType<Result> {
   std::shared_ptr<Buffer> body;
+
+  Result() = default;
+  explicit Result(std::shared_ptr<Buffer> body) : body(std::move(body)) {}
 
   std::string ToString() const;
   bool Equals(const Result& other) const;
@@ -265,7 +280,10 @@ enum class CancelStatus {
 /// \brief The result of the CancelFlightInfo action.
 struct ARROW_FLIGHT_EXPORT CancelFlightInfoResult
     : public internal::BaseType<CancelFlightInfoResult> {
-  CancelStatus status;
+  CancelStatus status = CancelStatus::kUnspecified;
+
+  CancelFlightInfoResult() = default;
+  explicit CancelFlightInfoResult(CancelStatus status) : status(status) {}
 
   std::string ToString() const;
   bool Equals(const CancelFlightInfoResult& other) const;
@@ -284,6 +302,10 @@ std::ostream& operator<<(std::ostream& os, CancelStatus status);
 struct ARROW_FLIGHT_EXPORT BasicAuth : public internal::BaseType<BasicAuth> {
   std::string username;
   std::string password;
+
+  BasicAuth() = default;
+  BasicAuth(std::string username, std::string password)
+      : username(std::move(username)), password(std::move(password)) {}
 
   std::string ToString() const;
   bool Equals(const BasicAuth& other) const;
@@ -304,7 +326,7 @@ struct ARROW_FLIGHT_EXPORT FlightDescriptor
   };
 
   /// The descriptor type
-  DescriptorType type;
+  DescriptorType type = UNKNOWN;
 
   /// Opaque value used to express a command. Should only be defined when type
   /// is CMD
@@ -313,6 +335,10 @@ struct ARROW_FLIGHT_EXPORT FlightDescriptor
   /// List of strings identifying a particular dataset. Should only be defined
   /// when type is PATH
   std::vector<std::string> path;
+
+  FlightDescriptor() = default;
+  FlightDescriptor(DescriptorType type, std::string cmd, std::vector<std::string> path)
+      : type(type), cmd(std::move(cmd)), path(std::move(path)) {}
 
   bool Equals(const FlightDescriptor& other) const;
 
@@ -346,6 +372,9 @@ struct ARROW_FLIGHT_EXPORT FlightDescriptor
 /// when requesting a data stream with the DoGet RPC
 struct ARROW_FLIGHT_EXPORT Ticket : public internal::BaseType<Ticket> {
   std::string ticket;
+
+  Ticket() = default;
+  explicit Ticket(std::string ticket) : ticket(std::move(ticket)) {}
 
   std::string ToString() const;
   bool Equals(const Ticket& other) const;
@@ -449,6 +478,14 @@ struct ARROW_FLIGHT_EXPORT FlightEndpoint : public internal::BaseType<FlightEndp
   /// Opaque Application-defined metadata
   std::string app_metadata;
 
+  FlightEndpoint() = default;
+  FlightEndpoint(Ticket ticket, std::vector<Location> locations,
+                 std::optional<Timestamp> expiration_time, std::string app_metadata)
+      : ticket(std::move(ticket)),
+        locations(std::move(locations)),
+        expiration_time(expiration_time),
+        app_metadata(std::move(app_metadata)) {}
+
   std::string ToString() const;
   bool Equals(const FlightEndpoint& other) const;
 
@@ -463,6 +500,10 @@ struct ARROW_FLIGHT_EXPORT FlightEndpoint : public internal::BaseType<FlightEndp
 struct ARROW_FLIGHT_EXPORT RenewFlightEndpointRequest
     : public internal::BaseType<RenewFlightEndpointRequest> {
   FlightEndpoint endpoint;
+
+  RenewFlightEndpointRequest() = default;
+  explicit RenewFlightEndpointRequest(FlightEndpoint endpoint)
+      : endpoint(std::move(endpoint)) {}
 
   std::string ToString() const;
   bool Equals(const RenewFlightEndpointRequest& other) const;
@@ -482,6 +523,13 @@ struct ARROW_FLIGHT_EXPORT FlightPayload : public internal::BaseType<FlightPaylo
   std::shared_ptr<Buffer> descriptor;
   std::shared_ptr<Buffer> app_metadata;
   ipc::IpcPayload ipc_message;
+
+  FlightPayload() = default;
+  FlightPayload(std::shared_ptr<Buffer> descriptor, std::shared_ptr<Buffer> app_metadata,
+                ipc::IpcPayload ipc_message)
+      : descriptor(std::move(descriptor)),
+        app_metadata(std::move(app_metadata)),
+        ipc_message(std::move(ipc_message)) {}
 
   /// \brief Check that the payload can be written to the wire.
   Status Validate() const;
@@ -620,22 +668,19 @@ class ARROW_FLIGHT_EXPORT PollInfo : public internal::BaseType<PollInfo> {
         progress(std::nullopt),
         expiration_time(std::nullopt) {}
 
-  explicit PollInfo(std::unique_ptr<FlightInfo> info,
-                    std::optional<FlightDescriptor> descriptor,
-                    std::optional<double> progress,
-                    std::optional<Timestamp> expiration_time)
+  PollInfo(std::unique_ptr<FlightInfo> info, std::optional<FlightDescriptor> descriptor,
+           std::optional<double> progress, std::optional<Timestamp> expiration_time)
       : info(std::move(info)),
         descriptor(std::move(descriptor)),
         progress(progress),
         expiration_time(expiration_time) {}
 
-  // Must not be explicit; to declare one we must declare all ("rule of five")
-  PollInfo(const PollInfo& other)  // NOLINT(runtime/explicit)
+  PollInfo(const PollInfo& other)
       : info(other.info ? std::make_unique<FlightInfo>(*other.info) : NULLPTR),
         descriptor(other.descriptor),
         progress(other.progress),
         expiration_time(other.expiration_time) {}
-  PollInfo(PollInfo&& other) noexcept = default;  // NOLINT(runtime/explicit)
+  PollInfo(PollInfo&& other) noexcept = default;
   ~PollInfo() = default;
   PollInfo& operator=(const PollInfo& other) {
     info = other.info ? std::make_unique<FlightInfo>(*other.info) : NULLPTR;
@@ -671,6 +716,10 @@ class ARROW_FLIGHT_EXPORT PollInfo : public internal::BaseType<PollInfo> {
 struct ARROW_FLIGHT_EXPORT CancelFlightInfoRequest
     : public internal::BaseType<CancelFlightInfoRequest> {
   std::unique_ptr<FlightInfo> info;
+
+  CancelFlightInfoRequest() = default;
+  explicit CancelFlightInfoRequest(std::unique_ptr<FlightInfo> info)
+      : info(std::move(info)) {}
 
   std::string ToString() const;
   bool Equals(const CancelFlightInfoRequest& other) const;
@@ -734,6 +783,11 @@ struct ARROW_FLIGHT_EXPORT SetSessionOptionsRequest
     : public internal::BaseType<SetSessionOptionsRequest> {
   std::map<std::string, SessionOptionValue> session_options;
 
+  SetSessionOptionsRequest() = default;
+  explicit SetSessionOptionsRequest(
+      std::map<std::string, SessionOptionValue> session_options)
+      : session_options(std::move(session_options)) {}
+
   std::string ToString() const;
   bool Equals(const SetSessionOptionsRequest& other) const;
 
@@ -761,6 +815,10 @@ struct ARROW_FLIGHT_EXPORT SetSessionOptionsResult
 
   std::map<std::string, Error> errors;
 
+  SetSessionOptionsResult() = default;
+  explicit SetSessionOptionsResult(std::map<std::string, Error> errors)
+      : errors(std::move(errors)) {}
+
   std::string ToString() const;
   bool Equals(const SetSessionOptionsResult& other) const;
 
@@ -774,6 +832,8 @@ struct ARROW_FLIGHT_EXPORT SetSessionOptionsResult
 /// \brief A request to get current session options.
 struct ARROW_FLIGHT_EXPORT GetSessionOptionsRequest
     : public internal::BaseType<GetSessionOptionsRequest> {
+  GetSessionOptionsRequest() = default;
+
   std::string ToString() const;
   bool Equals(const GetSessionOptionsRequest& other) const;
 
@@ -789,6 +849,11 @@ struct ARROW_FLIGHT_EXPORT GetSessionOptionsResult
     : public internal::BaseType<GetSessionOptionsResult> {
   std::map<std::string, SessionOptionValue> session_options;
 
+  GetSessionOptionsResult() = default;
+  explicit GetSessionOptionsResult(
+      std::map<std::string, SessionOptionValue> session_options)
+      : session_options(std::move(session_options)) {}
+
   std::string ToString() const;
   bool Equals(const GetSessionOptionsResult& other) const;
 
@@ -802,6 +867,8 @@ struct ARROW_FLIGHT_EXPORT GetSessionOptionsResult
 /// \brief A request to close the open client session.
 struct ARROW_FLIGHT_EXPORT CloseSessionRequest
     : public internal::BaseType<CloseSessionRequest> {
+  CloseSessionRequest() = default;
+
   std::string ToString() const;
   bool Equals(const CloseSessionRequest& other) const;
 
@@ -816,6 +883,10 @@ struct ARROW_FLIGHT_EXPORT CloseSessionRequest
 struct ARROW_FLIGHT_EXPORT CloseSessionResult
     : public internal::BaseType<CloseSessionResult> {
   CloseSessionStatus status;
+
+  CloseSessionResult() = default;
+  CloseSessionResult(CloseSessionStatus status)  // NOLINT runtime/explicit
+      : status(status) {}
 
   std::string ToString() const;
   bool Equals(const CloseSessionResult& other) const;
