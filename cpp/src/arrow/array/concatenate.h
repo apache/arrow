@@ -24,6 +24,7 @@
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+namespace internal {
 
 /// \brief Concatenate arrays
 ///
@@ -38,6 +39,8 @@ namespace arrow {
 ARROW_EXPORT
 Result<std::shared_ptr<Array>> Concatenate(const ArrayVector& arrays, MemoryPool* pool,
                                            std::shared_ptr<DataType>* out_suggested_cast);
+
+}  // namespace internal
 
 /// \brief Concatenate arrays
 ///

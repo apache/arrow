@@ -712,7 +712,8 @@ TEST_F(ConcatenateTest, OffsetOverflow) {
                          ty->ToString() + "` to `large_" + ty->ToString() + "` first."),
         concatenate_status);
 
-    concatenate_status = Concatenate({fake_long, fake_long}, pool, &suggested_cast);
+    concatenate_status =
+        internal::Concatenate({fake_long, fake_long}, pool, &suggested_cast);
     // Message is doesn't contain the suggested cast type when the caller
     // asks for it by passing the output parameter.
     EXPECT_RAISES_WITH_MESSAGE_THAT(
@@ -728,9 +729,9 @@ TEST_F(ConcatenateTest, OffsetOverflow) {
       auto fake_long_list = ArrayFromJSON(nested_ty, "[[\"\"]]");
       fake_long_list->data()->child_data[0] = fake_long->data();
 
-      ASSERT_RAISES(
-          Invalid,
-          Concatenate({fake_long_list, fake_long_list}, pool, &suggested_cast).status());
+      ASSERT_RAISES(Invalid, internal::Concatenate({fake_long_list, fake_long_list}, pool,
+                                                   &suggested_cast)
+                                 .status());
       ASSERT_TRUE(suggested_cast->Equals(*expected_suggestion));
     }
   }
@@ -739,9 +740,9 @@ TEST_F(ConcatenateTest, OffsetOverflow) {
   auto fake_long_list = ArrayFromJSON(list_ty, "[[\"Hello\"]]");
   fake_long_list->data()->GetMutableValues<int32_t>(1)[1] =
       std::numeric_limits<int32_t>::max();
-  ASSERT_RAISES(
-      Invalid,
-      Concatenate({fake_long_list, fake_long_list}, pool, &suggested_cast).status());
+  ASSERT_RAISES(Invalid, internal::Concatenate({fake_long_list, fake_long_list}, pool,
+                                               &suggested_cast)
+                             .status());
   ASSERT_TRUE(suggested_cast->Equals(LargeVersionOfType(list_ty)));
 
   auto list_view_ty = list_view(null());
@@ -756,8 +757,8 @@ TEST_F(ConcatenateTest, OffsetOverflow) {
     mutable_offsets[0] = kInt32Max;
     mutable_sizes[0] = kInt32Max;
   }
-  ASSERT_RAISES(Invalid, Concatenate({fake_long_list_view, fake_long_list_view}, pool,
-                                     &suggested_cast)
+  ASSERT_RAISES(Invalid, internal::Concatenate({fake_long_list_view, fake_long_list_view},
+                                               pool, &suggested_cast)
                              .status());
   ASSERT_TRUE(suggested_cast->Equals(LargeVersionOfType(list_view_ty)));
 }

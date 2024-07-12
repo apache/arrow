@@ -916,6 +916,8 @@ class ConcatenateImpl {
 
 }  // namespace
 
+namespace internal {
+
 Result<std::shared_ptr<Array>> Concatenate(
     const ArrayVector& arrays, MemoryPool* pool,
     std::shared_ptr<DataType>* out_suggested_cast) {
@@ -947,9 +949,11 @@ Result<std::shared_ptr<Array>> Concatenate(
   return MakeArray(std::move(out_data));
 }
 
+}  // namespace internal
+
 Result<std::shared_ptr<Array>> Concatenate(const ArrayVector& arrays, MemoryPool* pool) {
   std::shared_ptr<DataType> suggested_cast;
-  auto result = Concatenate(arrays, pool, &suggested_cast);
+  auto result = internal::Concatenate(arrays, pool, &suggested_cast);
   if (!result.ok() && suggested_cast && arrays.size() > 0) {
     DCHECK(result.status().IsInvalid());
     return Status::Invalid(result.status().message(), ", consider casting input from `",
