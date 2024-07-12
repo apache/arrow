@@ -79,8 +79,9 @@ void TestRoundtrip(const std::vector<FlightType>& values,
     ASSERT_OK(internal::ToProto(values[i], &pb_value));
 
     if constexpr (std::is_same_v<FlightType, FlightInfo>) {
-      ASSERT_OK_AND_ASSIGN(FlightInfo value, internal::FromProto(pb_value));
-      EXPECT_EQ(values[i], value);
+      FlightInfo::Data info_data;
+      ASSERT_OK(internal::FromProto(pb_value, &info_data));
+      EXPECT_EQ(values[i], FlightInfo{std::move(info_data)});
     } else if constexpr (std::is_same_v<FlightType, SchemaResult>) {
       std::string data;
       ASSERT_OK(internal::FromProto(pb_value, &data));

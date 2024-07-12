@@ -277,7 +277,7 @@ arrow::Result<FlightInfo> FlightInfo::Make(const Schema& schema,
   data.ordered = ordered;
   data.app_metadata = std::move(app_metadata);
   RETURN_NOT_OK(internal::SchemaToString(schema, &data.schema));
-  return FlightInfo(data);
+  return FlightInfo(std::move(data));
 }
 
 arrow::Result<std::shared_ptr<Schema>> FlightInfo::GetSchema(
@@ -300,8 +300,9 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightInfo::Deserialize(
     std::string_view serialized) {
   pb::FlightInfo pb_info;
   RETURN_NOT_OK(ParseFromString("FlightInfo", serialized, &pb_info));
-  ARROW_ASSIGN_OR_RAISE(FlightInfo info, internal::FromProto(pb_info));
-  return std::make_unique<FlightInfo>(std::move(info));
+  FlightInfo::Data info_data;
+  RETURN_NOT_OK(internal::FromProto(pb_info, &info_data));
+  return std::make_unique<FlightInfo>(std::move(info_data));
 }
 
 std::string FlightInfo::ToString() const {
