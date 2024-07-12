@@ -49,9 +49,16 @@ Status ProtoStringInputTooBig(const char* name) {
 }
 
 ARROW_NOINLINE
+Status ProtoStringOutputTooBig(const char* name) {
+  return Status::Invalid("Serialized ", name, " exceeded 2 GiB limit");
+}
+
+ARROW_NOINLINE
 Status InvalidProtoString(const char* name) {
   return Status::Invalid("Not a valid ", name);
 }
+
+// Status-returning ser/de functions that allow reuse of the same output objects
 
 template <class PBType>
 Status ParseFromString(const char* name, std::string_view serialized, PBType* out) {
@@ -65,11 +72,28 @@ Status ParseFromString(const char* name, std::string_view serialized, PBType* ou
 }
 
 template <class PBType, class T>
+Status SerializeToString(const char* name, const T& in, PBType* out_pb,
+                         std::string* out) {
+  RETURN_NOT_OK(internal::ToProto(in, out_pb));
+  return out_pb->SerializeToString(out) ? Status::OK() : ProtoStringOutputTooBig(name);
+}
+
+// Result-returning ser/de functions (more convenient)
+
+template <class PBType, class T>
 arrow::Result<T> DeserializeProtoString(const char* name, std::string_view serialized) {
   PBType pb;
   RETURN_NOT_OK(ParseFromString(name, serialized, &pb));
   T out;
   RETURN_NOT_OK(internal::FromProto(pb, &out));
+  return out;
+}
+
+template <class PBType, class T>
+arrow::Result<std::string> SerializeToProtoString(const char* name, const T& in) {
+  PBType pb;
+  std::string out;
+  RETURN_NOT_OK(SerializeToString<PBType>(name, in, &pb, &out));
   return out;
 }
 
@@ -207,14 +231,7 @@ bool SchemaResult::Equals(const SchemaResult& other) const {
 }
 
 arrow::Result<std::string> SchemaResult::SerializeToString() const {
-  pb::SchemaResult pb_schema_result;
-  RETURN_NOT_OK(internal::ToProto(*this, &pb_schema_result));
-
-  std::string out;
-  if (!pb_schema_result.SerializeToString(&out)) {
-    return Status::IOError("Serialized SchemaResult exceeded 2 GiB limit");
-  }
-  return out;
+  return SerializeToProtoString<pb::SchemaResult>("SchemaResult", *this);
 }
 
 arrow::Result<SchemaResult> SchemaResult::Deserialize(std::string_view serialized) {
@@ -224,14 +241,7 @@ arrow::Result<SchemaResult> SchemaResult::Deserialize(std::string_view serialize
 }
 
 arrow::Result<std::string> FlightDescriptor::SerializeToString() const {
-  pb::FlightDescriptor pb_descriptor;
-  RETURN_NOT_OK(internal::ToProto(*this, &pb_descriptor));
-
-  std::string out;
-  if (!pb_descriptor.SerializeToString(&out)) {
-    return Status::IOError("Serialized FlightDescriptor exceeded 2 GiB limit");
-  }
-  return out;
+  return SerializeToProtoString<pb::FlightDescriptor>("FlightDescriptor", *this);
 }
 
 arrow::Result<FlightDescriptor> FlightDescriptor::Deserialize(
@@ -249,14 +259,7 @@ std::string Ticket::ToString() const {
 bool Ticket::Equals(const Ticket& other) const { return ticket == other.ticket; }
 
 arrow::Result<std::string> Ticket::SerializeToString() const {
-  pb::Ticket pb_ticket;
-  RETURN_NOT_OK(internal::ToProto(*this, &pb_ticket));
-
-  std::string out;
-  if (!pb_ticket.SerializeToString(&out)) {
-    return Status::IOError("Serialized Ticket exceeded 2 GiB limit");
-  }
-  return out;
+  return SerializeToProtoString<pb::Ticket>("Ticket", *this);
 }
 
 arrow::Result<Ticket> Ticket::Deserialize(std::string_view serialized) {
@@ -292,14 +295,7 @@ arrow::Result<std::shared_ptr<Schema>> FlightInfo::GetSchema(
 }
 
 arrow::Result<std::string> FlightInfo::SerializeToString() const {
-  pb::FlightInfo pb_info;
-  RETURN_NOT_OK(internal::ToProto(*this, &pb_info));
-
-  std::string out;
-  if (!pb_info.SerializeToString(&out)) {
-    return Status::IOError("Serialized FlightInfo exceeded 2 GiB limit");
-  }
-  return out;
+  return SerializeToProtoString<pb::FlightInfo>("FlightInfo", *this);
 }
 
 arrow::Result<std::unique_ptr<FlightInfo>> FlightInfo::Deserialize(
@@ -345,14 +341,7 @@ bool FlightInfo::Equals(const FlightInfo& other) const {
 }
 
 arrow::Result<std::string> PollInfo::SerializeToString() const {
-  pb::PollInfo pb_info;
-  RETURN_NOT_OK(internal::ToProto(*this, &pb_info));
-
-  std::string out;
-  if (!pb_info.SerializeToString(&out)) {
-    return Status::IOError("Serialized PollInfo exceeded 2 GiB limit");
-  }
-  return out;
+  return SerializeToProtoString<pb::PollInfo>("PollInfo", *this);
 }
 
 arrow::Result<std::unique_ptr<PollInfo>> PollInfo::Deserialize(
@@ -439,14 +428,8 @@ bool CancelFlightInfoRequest::Equals(const CancelFlightInfoRequest& other) const
 }
 
 arrow::Result<std::string> CancelFlightInfoRequest::SerializeToString() const {
-  pb::CancelFlightInfoRequest pb_request;
-  RETURN_NOT_OK(internal::ToProto(*this, &pb_request));
-
-  std::string out;
-  if (!pb_request.SerializeToString(&out)) {
-    return Status::IOError("Serialized CancelFlightInfoRequest exceeded 2 GiB limit");
-  }
-  return out;
+  return SerializeToProtoString<pb::CancelFlightInfoRequest>("CancelFlightInfoRequest",
+                                                             *this);
 }
 
 arrow::Result<CancelFlightInfoRequest> CancelFlightInfoRequest::Deserialize(
@@ -574,14 +557,8 @@ bool SetSessionOptionsRequest::Equals(const SetSessionOptionsRequest& other) con
 }
 
 arrow::Result<std::string> SetSessionOptionsRequest::SerializeToString() const {
-  pb::SetSessionOptionsRequest pb_request;
-  RETURN_NOT_OK(internal::ToProto(*this, &pb_request));
-
-  std::string out;
-  if (!pb_request.SerializeToString(&out)) {
-    return Status::IOError("Serialized SetSessionOptionsRequest exceeded 2GiB limit");
-  }
-  return out;
+  return SerializeToProtoString<pb::SetSessionOptionsRequest>("SetSessionOptionsRequest",
+                                                              *this);
 }
 
 arrow::Result<SetSessionOptionsRequest> SetSessionOptionsRequest::Deserialize(
@@ -608,14 +585,8 @@ bool SetSessionOptionsResult::Equals(const SetSessionOptionsResult& other) const
 }
 
 arrow::Result<std::string> SetSessionOptionsResult::SerializeToString() const {
-  pb::SetSessionOptionsResult pb_result;
-  RETURN_NOT_OK(internal::ToProto(*this, &pb_result));
-
-  std::string out;
-  if (!pb_result.SerializeToString(&out)) {
-    return Status::IOError("Serialized SetSessionOptionsResult exceeded 2GiB limit");
-  }
-  return out;
+  return SerializeToProtoString<pb::SetSessionOptionsResult>("SetSessionOptionsResult",
+                                                             *this);
 }
 
 arrow::Result<SetSessionOptionsResult> SetSessionOptionsResult::Deserialize(
@@ -635,14 +606,8 @@ bool GetSessionOptionsRequest::Equals(const GetSessionOptionsRequest& other) con
 }
 
 arrow::Result<std::string> GetSessionOptionsRequest::SerializeToString() const {
-  pb::GetSessionOptionsRequest pb_request;
-  RETURN_NOT_OK(internal::ToProto(*this, &pb_request));
-
-  std::string out;
-  if (!pb_request.SerializeToString(&out)) {
-    return Status::IOError("Serialized GetSessionOptionsRequest exceeded 2GiB limit");
-  }
-  return out;
+  return SerializeToProtoString<pb::GetSessionOptionsRequest>("GetSessionOptionsRequest",
+                                                              *this);
 }
 
 arrow::Result<GetSessionOptionsRequest> GetSessionOptionsRequest::Deserialize(
@@ -664,14 +629,8 @@ bool GetSessionOptionsResult::Equals(const GetSessionOptionsResult& other) const
 }
 
 arrow::Result<std::string> GetSessionOptionsResult::SerializeToString() const {
-  pb::GetSessionOptionsResult pb_result;
-  RETURN_NOT_OK(internal::ToProto(*this, &pb_result));
-
-  std::string out;
-  if (!pb_result.SerializeToString(&out)) {
-    return Status::IOError("Serialized GetSessionOptionsResult exceeded 2GiB limit");
-  }
-  return out;
+  return SerializeToProtoString<pb::GetSessionOptionsResult>("GetSessionOptionsResult",
+                                                             *this);
 }
 
 arrow::Result<GetSessionOptionsResult> GetSessionOptionsResult::Deserialize(
@@ -687,14 +646,7 @@ std::string CloseSessionRequest::ToString() const { return "<CloseSessionRequest
 bool CloseSessionRequest::Equals(const CloseSessionRequest& other) const { return true; }
 
 arrow::Result<std::string> CloseSessionRequest::SerializeToString() const {
-  pb::CloseSessionRequest pb_request;
-  RETURN_NOT_OK(internal::ToProto(*this, &pb_request));
-
-  std::string out;
-  if (!pb_request.SerializeToString(&out)) {
-    return Status::IOError("Serialized CloseSessionRequest exceeded 2GiB limit");
-  }
-  return out;
+  return SerializeToProtoString<pb::CloseSessionRequest>("CloseSessionRequest", *this);
 }
 
 arrow::Result<CloseSessionRequest> CloseSessionRequest::Deserialize(
@@ -718,14 +670,7 @@ bool CloseSessionResult::Equals(const CloseSessionResult& other) const {
 }
 
 arrow::Result<std::string> CloseSessionResult::SerializeToString() const {
-  pb::CloseSessionResult pb_result;
-  RETURN_NOT_OK(internal::ToProto(*this, &pb_result));
-
-  std::string out;
-  if (!pb_result.SerializeToString(&out)) {
-    return Status::IOError("Serialized CloseSessionResult exceeded 2GiB limit");
-  }
-  return out;
+  return SerializeToProtoString<pb::CloseSessionResult>("CloseSessionResult", *this);
 }
 
 arrow::Result<CloseSessionResult> CloseSessionResult::Deserialize(
@@ -837,14 +782,7 @@ bool FlightEndpoint::Equals(const FlightEndpoint& other) const {
 }
 
 arrow::Result<std::string> FlightEndpoint::SerializeToString() const {
-  pb::FlightEndpoint pb_flight_endpoint;
-  RETURN_NOT_OK(internal::ToProto(*this, &pb_flight_endpoint));
-
-  std::string out;
-  if (!pb_flight_endpoint.SerializeToString(&out)) {
-    return Status::IOError("Serialized FlightEndpoint exceeded 2 GiB limit");
-  }
-  return out;
+  return SerializeToProtoString<pb::FlightEndpoint>("FlightEndpoint", *this);
 }
 
 arrow::Result<FlightEndpoint> FlightEndpoint::Deserialize(std::string_view serialized) {
@@ -863,14 +801,8 @@ bool RenewFlightEndpointRequest::Equals(const RenewFlightEndpointRequest& other)
 }
 
 arrow::Result<std::string> RenewFlightEndpointRequest::SerializeToString() const {
-  pb::RenewFlightEndpointRequest pb_request;
-  RETURN_NOT_OK(internal::ToProto(*this, &pb_request));
-
-  std::string out;
-  if (!pb_request.SerializeToString(&out)) {
-    return Status::IOError("Serialized RenewFlightEndpointRequest exceeded 2 GiB limit");
-  }
-  return out;
+  return SerializeToProtoString<pb::RenewFlightEndpointRequest>(
+      "RenewFlightEndpointRequest", *this);
 }
 
 arrow::Result<RenewFlightEndpointRequest> RenewFlightEndpointRequest::Deserialize(
@@ -916,14 +848,7 @@ bool ActionType::Equals(const ActionType& other) const {
 }
 
 arrow::Result<std::string> ActionType::SerializeToString() const {
-  pb::ActionType pb_action_type;
-  RETURN_NOT_OK(internal::ToProto(*this, &pb_action_type));
-
-  std::string out;
-  if (!pb_action_type.SerializeToString(&out)) {
-    return Status::IOError("Serialized ActionType exceeded 2 GiB limit");
-  }
-  return out;
+  return SerializeToProtoString<pb::ActionType>("ActionType", *this);
 }
 
 arrow::Result<ActionType> ActionType::Deserialize(std::string_view serialized) {
@@ -939,14 +864,7 @@ bool Criteria::Equals(const Criteria& other) const {
 }
 
 arrow::Result<std::string> Criteria::SerializeToString() const {
-  pb::Criteria pb_criteria;
-  RETURN_NOT_OK(internal::ToProto(*this, &pb_criteria));
-
-  std::string out;
-  if (!pb_criteria.SerializeToString(&out)) {
-    return Status::IOError("Serialized Criteria exceeded 2 GiB limit");
-  }
-  return out;
+  return SerializeToProtoString<pb::Criteria>("Criteria", *this);
 }
 
 arrow::Result<Criteria> Criteria::Deserialize(std::string_view serialized) {
@@ -972,14 +890,7 @@ bool Action::Equals(const Action& other) const {
 }
 
 arrow::Result<std::string> Action::SerializeToString() const {
-  pb::Action pb_action;
-  RETURN_NOT_OK(internal::ToProto(*this, &pb_action));
-
-  std::string out;
-  if (!pb_action.SerializeToString(&out)) {
-    return Status::IOError("Serialized Action exceeded 2 GiB limit");
-  }
-  return out;
+  return SerializeToProtoString<pb::Action>("Action", *this);
 }
 
 arrow::Result<Action> Action::Deserialize(std::string_view serialized) {
@@ -1002,14 +913,7 @@ bool Result::Equals(const Result& other) const {
 }
 
 arrow::Result<std::string> Result::SerializeToString() const {
-  pb::Result pb_result;
-  RETURN_NOT_OK(internal::ToProto(*this, &pb_result));
-
-  std::string out;
-  if (!pb_result.SerializeToString(&out)) {
-    return Status::IOError("Serialized Result exceeded 2 GiB limit");
-  }
-  return out;
+  return SerializeToProtoString<pb::Result>("Result", *this);
 }
 
 arrow::Result<Result> Result::Deserialize(std::string_view serialized) {
@@ -1027,15 +931,8 @@ bool CancelFlightInfoResult::Equals(const CancelFlightInfoResult& other) const {
 }
 
 arrow::Result<std::string> CancelFlightInfoResult::SerializeToString() const {
-  pb::CancelFlightInfoResult pb_result;
-  RETURN_NOT_OK(internal::ToProto(*this, &pb_result));
-
-  std::string out;
-  if (!pb_result.SerializeToString(&out)) {
-    return Status::IOError(
-        "Serialized ActionCancelFlightInfoResult exceeded 2 GiB limit");
-  }
-  return out;
+  return SerializeToProtoString<pb::CancelFlightInfoResult>("CancelFlightInfoResult",
+                                                            *this);
 }
 
 arrow::Result<CancelFlightInfoResult> CancelFlightInfoResult::Deserialize(
@@ -1163,13 +1060,7 @@ arrow::Result<BasicAuth> BasicAuth::Deserialize(std::string_view serialized) {
 }
 
 arrow::Result<std::string> BasicAuth::SerializeToString() const {
-  pb::BasicAuth pb_result;
-  RETURN_NOT_OK(internal::ToProto(*this, &pb_result));
-  std::string out;
-  if (!pb_result.SerializeToString(&out)) {
-    return Status::IOError("Serialized BasicAuth exceeded 2 GiB limit");
-  }
-  return out;
+  return SerializeToProtoString<pb::BasicAuth>("BasicAuth", *this);
 }
 
 //------------------------------------------------------------
