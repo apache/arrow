@@ -132,7 +132,13 @@ namespace Apache.Arrow.Ipc
 
                 Flatbuf.Message message = Flatbuf.Message.GetRootAsMessage(CreateByteBuffer(messageBuff));
 
-                int bodyLength = checked((int)message.BodyLength);
+                if (message.BodyLength > int.MaxValue)
+                {
+                    throw new OverflowException(
+                        $"Arrow IPC message body length ({message.BodyLength}) is larger than " +
+                        $"the maximum supported message size ({int.MaxValue})");
+                }
+                int bodyLength = (int)message.BodyLength;
 
                 IMemoryOwner<byte> bodyBuffOwner = _allocator.Allocate(bodyLength);
                 Memory<byte> bodyBuff = bodyBuffOwner.Memory.Slice(0, bodyLength);
