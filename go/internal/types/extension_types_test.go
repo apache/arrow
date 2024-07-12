@@ -35,9 +35,7 @@ var testUUID = uuid.New()
 func TestUUIDExtensionBuilder(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(t, 0)
-	extBuilder := array.NewExtensionBuilder(mem, types.NewUUIDType())
-	defer extBuilder.Release()
-	builder := types.NewUUIDBuilder(extBuilder)
+	builder := types.NewUUIDBuilder(mem)
 	builder.Append(testUUID)
 	arr := builder.NewArray()
 	defer arr.Release()
@@ -72,9 +70,7 @@ func TestUUIDStringRoundTrip(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(t, 0)
 
-	extBuilder := array.NewExtensionBuilder(mem, types.NewUUIDType())
-	defer extBuilder.Release()
-	b := types.NewUUIDBuilder(extBuilder)
+	b := types.NewUUIDBuilder(mem)
 	b.Append(uuid.Nil)
 	b.AppendNull()
 	b.Append(uuid.NameSpaceURL)
@@ -85,9 +81,7 @@ func TestUUIDStringRoundTrip(t *testing.T) {
 	defer arr.Release()
 
 	// 2. create array via AppendValueFromString
-	extBuilder1 := array.NewExtensionBuilder(mem, types.NewUUIDType())
-	defer extBuilder1.Release()
-	b1 := types.NewUUIDBuilder(extBuilder1)
+	b1 := types.NewUUIDBuilder(mem)
 	defer b1.Release()
 
 	for i := 0; i < arr.Len(); i++ {

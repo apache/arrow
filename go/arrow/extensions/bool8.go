@@ -8,6 +8,7 @@ import (
 
 	"github.com/apache/arrow/go/v17/arrow"
 	"github.com/apache/arrow/go/v17/arrow/array"
+	"github.com/apache/arrow/go/v17/arrow/memory"
 	"github.com/apache/arrow/go/v17/internal/json"
 )
 
@@ -44,8 +45,8 @@ func (b *Bool8Type) Serialize() string { return ExtensionNameBool8 }
 
 func (b *Bool8Type) String() string { return fmt.Sprintf("Bool8<storage=%s>", b.Storage) }
 
-func (*Bool8Type) NewBuilder(bldr *array.ExtensionBuilder) array.Builder {
-	return NewBool8Builder(bldr)
+func (*Bool8Type) NewBuilder(mem memory.Allocator) array.Builder {
+	return NewBool8Builder(mem)
 }
 
 // Bool8Array is logically an array of boolean values but uses
@@ -120,9 +121,8 @@ type Bool8Builder struct {
 	*array.ExtensionBuilder
 }
 
-func NewBool8Builder(builder *array.ExtensionBuilder) *Bool8Builder {
-	builder.Retain()
-	return &Bool8Builder{ExtensionBuilder: builder}
+func NewBool8Builder(mem memory.Allocator) *Bool8Builder {
+	return &Bool8Builder{ExtensionBuilder: array.NewExtensionBuilder(mem, NewBool8Type())}
 }
 
 func (b *Bool8Builder) Append(v bool) {
@@ -189,8 +189,8 @@ func (b *Bool8Builder) Unmarshal(dec *json.Decoder) error {
 }
 
 var (
-	_ arrow.ExtensionType           = (*Bool8Type)(nil)
-	_ array.ExtensionBuilderWrapper = (*Bool8Type)(nil)
-	_ array.ExtensionArray          = (*Bool8Array)(nil)
-	_ array.Builder                 = (*Bool8Builder)(nil)
+	_ arrow.ExtensionType          = (*Bool8Type)(nil)
+	_ array.CustomExtensionBuilder = (*Bool8Type)(nil)
+	_ array.ExtensionArray         = (*Bool8Array)(nil)
+	_ array.Builder                = (*Bool8Builder)(nil)
 )
