@@ -13,16 +13,17 @@ import (
 
 const ExtensionNameBool8 = "bool8"
 
+// Bool8Type represents a logical boolean that is stored using 8 bits.
 type Bool8Type struct {
 	arrow.ExtensionBase
 }
 
-// ArrayType implements arrow.ExtensionType.
-func (b *Bool8Type) ArrayType() reflect.Type {
-	return reflect.TypeOf(Bool8Array{})
+func NewBool8Type() *Bool8Type {
+	return &Bool8Type{ExtensionBase: arrow.ExtensionBase{Storage: arrow.PrimitiveTypes.Uint8}}
 }
 
-// Deserialize implements arrow.ExtensionType.
+func (b *Bool8Type) ArrayType() reflect.Type { return reflect.TypeOf(Bool8Array{}) }
+
 func (b *Bool8Type) Deserialize(storageType arrow.DataType, data string) (arrow.ExtensionType, error) {
 	if data != ExtensionNameBool8 {
 		return nil, fmt.Errorf("type identifier did not match: '%s'", data)
@@ -33,45 +34,30 @@ func (b *Bool8Type) Deserialize(storageType arrow.DataType, data string) (arrow.
 	return NewBool8Type(), nil
 }
 
-// ExtensionEquals implements arrow.ExtensionType.
 func (b *Bool8Type) ExtensionEquals(other arrow.ExtensionType) bool {
 	return b.ExtensionName() == other.ExtensionName()
 }
 
-// ExtensionName implements arrow.ExtensionType.
-func (b *Bool8Type) ExtensionName() string {
-	return ExtensionNameBool8
-}
+func (b *Bool8Type) ExtensionName() string { return ExtensionNameBool8 }
 
-// Serialize implements arrow.ExtensionType.
-func (b *Bool8Type) Serialize() string {
-	return ExtensionNameBool8
-}
+func (b *Bool8Type) Serialize() string { return ExtensionNameBool8 }
 
-// String implements arrow.ExtensionType.
-// Subtle: this method shadows the method (ExtensionBase).String of Bool8Type.ExtensionBase.
-func (b *Bool8Type) String() string {
-	panic("unimplemented")
-}
-
-func NewBool8Type() *Bool8Type {
-	return &Bool8Type{ExtensionBase: arrow.ExtensionBase{
-		Storage: arrow.PrimitiveTypes.Uint8}}
-}
+func (b *Bool8Type) String() string { return fmt.Sprintf("Bool8<storage=%s>", b.Storage) }
 
 func (*Bool8Type) NewBuilder(bldr *array.ExtensionBuilder) array.Builder {
 	return NewBool8Builder(bldr)
 }
 
+// Bool8Array is logically an array of boolean values but uses
+// 8 bits to store values instead of 1 bit as in the native BooleanArray.
 type Bool8Array struct {
 	array.ExtensionArrayBase
 }
 
 func (a *Bool8Array) String() string {
 	var o strings.Builder
-	arr := a.Storage().(*array.Uint8)
 	o.WriteString("[")
-	for i := 0; i < arr.Len(); i++ {
+	for i := 0; i < a.Len(); i++ {
 		if i > 0 {
 			o.WriteString(" ")
 		}
@@ -101,7 +87,7 @@ func (a *Bool8Array) ValueStr(i int) string {
 
 func (a *Bool8Array) MarshalJSON() ([]byte, error) {
 	values := make([]interface{}, a.Len())
-	for i := 0; i < a.Len()-a.NullN(); i++ {
+	for i := 0; i < a.Len(); i++ {
 		if a.IsValid(i) {
 			values[i] = a.Value(i)
 		}
@@ -128,6 +114,8 @@ func uint8ToBool(v uint8) bool {
 	return v != 0
 }
 
+// Bool8Builder is a convenience builder for the Bool8 extension type,
+// allowing arrays to be built with boolean values rather than the underlying storage type.
 type Bool8Builder struct {
 	*array.ExtensionBuilder
 }
@@ -201,7 +189,8 @@ func (b *Bool8Builder) Unmarshal(dec *json.Decoder) error {
 }
 
 var (
-	_ arrow.ExtensionType  = (*Bool8Type)(nil)
-	_ array.ExtensionArray = (*Bool8Array)(nil)
-	_ array.Builder        = (*Bool8Builder)(nil)
+	_ arrow.ExtensionType           = (*Bool8Type)(nil)
+	_ array.ExtensionBuilderWrapper = (*Bool8Type)(nil)
+	_ array.ExtensionArray          = (*Bool8Array)(nil)
+	_ array.Builder                 = (*Bool8Builder)(nil)
 )

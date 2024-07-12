@@ -25,11 +25,13 @@ func TestBool8ExtensionBuilder(t *testing.T) {
 	defer builder.Release()
 
 	builder.Append(true)
+	builder.AppendNull()
+	builder.Append(false)
 	arr := builder.NewArray()
 	defer arr.Release()
 
 	arrStr := arr.String()
-	require.Equal(t, `[true]`, arrStr)
+	require.Equal(t, "[true (null) false]", arrStr)
 
 	jsonStr, err := json.Marshal(arr)
 	require.NoError(t, err)
