@@ -27,7 +27,7 @@ namespace parquet {
 Decryptor::Decryptor(std::shared_ptr<encryption::AesDecryptor> aes_decryptor,
                      const std::string& key, const std::string& file_aad,
                      const std::string& aad, ::arrow::MemoryPool* pool)
-    : aes_decryptor_(aes_decryptor),
+    : aes_decryptor_(std::move(aes_decryptor)),
       key_(key),
       file_aad_(file_aad),
       aad_(aad),
@@ -154,11 +154,15 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptor(
     aes_data_decryptor = encryption::AesDecryptor::Make(
         algorithm_, key_len, /*metadata=*/false, &all_decryptors_);
   }
+  if (ARROW_PREDICT_FALSE(aes_metadata_decryptor == nullptr ||
+                          aes_data_decryptor == nullptr)) {
+    throw ParquetException("Failed to create AES decryptor");
+  }
 
   footer_metadata_decryptor_ = std::make_shared<Decryptor>(
-      aes_metadata_decryptor, footer_key, file_aad_, aad, pool_);
-  footer_data_decryptor_ =
-      std::make_shared<Decryptor>(aes_data_decryptor, footer_key, file_aad_, aad, pool_);
+      std::move(aes_metadata_decryptor), footer_key, file_aad_, aad, pool_);
+  footer_data_decryptor_ = std::make_shared<Decryptor>(std::move(aes_data_decryptor),
+                                                       footer_key, file_aad_, aad, pool_);
 
   if (metadata) return footer_metadata_decryptor_;
   return footer_data_decryptor_;
