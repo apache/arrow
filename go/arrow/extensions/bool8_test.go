@@ -14,14 +14,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	MINSIZE = 1024
+	MAXSIZE = 65536
+)
+
 func TestBool8ExtensionBuilder(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(t, 0)
 
-	extBuilder := array.NewExtensionBuilder(mem, extensions.NewBool8Type())
-	defer extBuilder.Release()
-
-	builder := extensions.NewBool8Builder(extBuilder)
+	builder := extensions.NewBool8Builder(mem)
 	defer builder.Release()
 
 	builder.Append(true)
@@ -49,6 +51,8 @@ func TestBool8ExtensionRecordBuilder(t *testing.T) {
 	}, nil)
 
 	builder := array.NewRecordBuilder(memory.DefaultAllocator, schema)
+	defer builder.Release()
+
 	builder.Field(0).(*extensions.Bool8Builder).Append(true)
 	record := builder.NewRecord()
 	defer record.Release()
@@ -59,6 +63,8 @@ func TestBool8ExtensionRecordBuilder(t *testing.T) {
 
 	record1, _, err := array.RecordFromJSON(memory.DefaultAllocator, schema, bytes.NewReader(b))
 	require.NoError(t, err)
+	defer record1.Release()
+
 	require.Equal(t, record, record1)
 
 	require.NoError(t, builder.UnmarshalJSON([]byte(`{"bool8":true}`)))
@@ -74,9 +80,7 @@ func TestBool8StringRoundTrip(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(t, 0)
 
-	extBuilder := array.NewExtensionBuilder(mem, extensions.NewBool8Type())
-	defer extBuilder.Release()
-	b := extensions.NewBool8Builder(extBuilder)
+	b := extensions.NewBool8Builder(mem)
 	b.Append(true)
 	b.AppendNull()
 	b.Append(false)
@@ -87,9 +91,7 @@ func TestBool8StringRoundTrip(t *testing.T) {
 	defer arr.Release()
 
 	// 2. create array via AppendValueFromString
-	extBuilder1 := array.NewExtensionBuilder(mem, extensions.NewBool8Type())
-	defer extBuilder1.Release()
-	b1 := extensions.NewBool8Builder(extBuilder1)
+	b1 := extensions.NewBool8Builder(mem)
 	defer b1.Release()
 
 	for i := 0; i < arr.Len(); i++ {
@@ -106,10 +108,7 @@ func TestCompareBool8AndBoolean(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(t, 0)
 
-	extBuilder := array.NewExtensionBuilder(mem, extensions.NewBool8Type())
-	defer extBuilder.Release()
-
-	bool8bldr := extensions.NewBool8Builder(extBuilder)
+	bool8bldr := extensions.NewBool8Builder(mem)
 	defer bool8bldr.Release()
 
 	boolbldr := array.NewBooleanBuilder(mem)
@@ -132,16 +131,8 @@ func TestCompareBool8AndBoolean(t *testing.T) {
 	}
 }
 
-const (
-	MINSIZE = 1024
-	MAXSIZE = 65536
-)
-
 func BenchmarkWriteBool8Array(b *testing.B) {
-	extBuilder := array.NewExtensionBuilder(memory.DefaultAllocator, extensions.NewBool8Type())
-	defer extBuilder.Release()
-
-	bool8bldr := extensions.NewBool8Builder(extBuilder)
+	bool8bldr := extensions.NewBool8Builder(memory.DefaultAllocator)
 	defer bool8bldr.Release()
 
 	for sz := MINSIZE; sz < MAXSIZE+1; sz *= 2 {
@@ -185,10 +176,7 @@ func BenchmarkWriteBooleanArray(b *testing.B) {
 }
 
 func BenchmarkReadBool8Array(b *testing.B) {
-	extBuilder := array.NewExtensionBuilder(memory.DefaultAllocator, extensions.NewBool8Type())
-	defer extBuilder.Release()
-
-	bool8bldr := extensions.NewBool8Builder(extBuilder)
+	bool8bldr := extensions.NewBool8Builder(memory.DefaultAllocator)
 	defer bool8bldr.Release()
 
 	for sz := MINSIZE; sz < MAXSIZE+1; sz *= 2 {
