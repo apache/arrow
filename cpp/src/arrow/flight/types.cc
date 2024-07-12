@@ -90,11 +90,9 @@ arrow::Result<T> DeserializeProtoString(const char* name, std::string_view seria
 }
 
 template <class PBType, class T>
-arrow::Result<std::string> SerializeToProtoString(const char* name, const T& in) {
+Status SerializeToProtoString(const char* name, const T& in, std::string* out) {
   PBType pb;
-  std::string out;
-  RETURN_NOT_OK(SerializeToString<PBType>(name, in, &pb, &out));
-  return out;
+  return SerializeToString<PBType>(name, in, &pb, out);
 }
 
 }  // namespace
@@ -230,8 +228,8 @@ bool SchemaResult::Equals(const SchemaResult& other) const {
   return raw_schema_ == other.raw_schema_;
 }
 
-arrow::Result<std::string> SchemaResult::SerializeToString() const {
-  return SerializeToProtoString<pb::SchemaResult>("SchemaResult", *this);
+arrow::Status SchemaResult::DoSerializeToString(std::string* out) const {
+  return SerializeToProtoString<pb::SchemaResult>("SchemaResult", *this, out);
 }
 
 arrow::Result<SchemaResult> SchemaResult::Deserialize(std::string_view serialized) {
@@ -240,8 +238,8 @@ arrow::Result<SchemaResult> SchemaResult::Deserialize(std::string_view serialize
   return SchemaResult{pb_schema_result.schema()};
 }
 
-arrow::Result<std::string> FlightDescriptor::SerializeToString() const {
-  return SerializeToProtoString<pb::FlightDescriptor>("FlightDescriptor", *this);
+arrow::Status FlightDescriptor::DoSerializeToString(std::string* out) const {
+  return SerializeToProtoString<pb::FlightDescriptor>("FlightDescriptor", *this, out);
 }
 
 arrow::Result<FlightDescriptor> FlightDescriptor::Deserialize(
@@ -258,8 +256,8 @@ std::string Ticket::ToString() const {
 
 bool Ticket::Equals(const Ticket& other) const { return ticket == other.ticket; }
 
-arrow::Result<std::string> Ticket::SerializeToString() const {
-  return SerializeToProtoString<pb::Ticket>("Ticket", *this);
+arrow::Status Ticket::DoSerializeToString(std::string* out) const {
+  return SerializeToProtoString<pb::Ticket>("Ticket", *this, out);
 }
 
 arrow::Result<Ticket> Ticket::Deserialize(std::string_view serialized) {
@@ -294,8 +292,8 @@ arrow::Result<std::shared_ptr<Schema>> FlightInfo::GetSchema(
   return schema_;
 }
 
-arrow::Result<std::string> FlightInfo::SerializeToString() const {
-  return SerializeToProtoString<pb::FlightInfo>("FlightInfo", *this);
+arrow::Status FlightInfo::DoSerializeToString(std::string* out) const {
+  return SerializeToProtoString<pb::FlightInfo>("FlightInfo", *this, out);
 }
 
 arrow::Result<std::unique_ptr<FlightInfo>> FlightInfo::Deserialize(
@@ -340,8 +338,8 @@ bool FlightInfo::Equals(const FlightInfo& other) const {
          data_.app_metadata == other.data_.app_metadata;
 }
 
-arrow::Result<std::string> PollInfo::SerializeToString() const {
-  return SerializeToProtoString<pb::PollInfo>("PollInfo", *this);
+arrow::Status PollInfo::DoSerializeToString(std::string* out) const {
+  return SerializeToProtoString<pb::PollInfo>("PollInfo", *this, out);
 }
 
 arrow::Result<std::unique_ptr<PollInfo>> PollInfo::Deserialize(
@@ -427,9 +425,9 @@ bool CancelFlightInfoRequest::Equals(const CancelFlightInfoRequest& other) const
   return info == other.info;
 }
 
-arrow::Result<std::string> CancelFlightInfoRequest::SerializeToString() const {
+arrow::Status CancelFlightInfoRequest::DoSerializeToString(std::string* out) const {
   return SerializeToProtoString<pb::CancelFlightInfoRequest>("CancelFlightInfoRequest",
-                                                             *this);
+                                                             *this, out);
 }
 
 arrow::Result<CancelFlightInfoRequest> CancelFlightInfoRequest::Deserialize(
@@ -556,9 +554,9 @@ bool SetSessionOptionsRequest::Equals(const SetSessionOptionsRequest& other) con
   return CompareSessionOptionMaps(session_options, other.session_options);
 }
 
-arrow::Result<std::string> SetSessionOptionsRequest::SerializeToString() const {
+arrow::Status SetSessionOptionsRequest::DoSerializeToString(std::string* out) const {
   return SerializeToProtoString<pb::SetSessionOptionsRequest>("SetSessionOptionsRequest",
-                                                              *this);
+                                                              *this, out);
 }
 
 arrow::Result<SetSessionOptionsRequest> SetSessionOptionsRequest::Deserialize(
@@ -584,9 +582,9 @@ bool SetSessionOptionsResult::Equals(const SetSessionOptionsResult& other) const
   return true;
 }
 
-arrow::Result<std::string> SetSessionOptionsResult::SerializeToString() const {
+arrow::Status SetSessionOptionsResult::DoSerializeToString(std::string* out) const {
   return SerializeToProtoString<pb::SetSessionOptionsResult>("SetSessionOptionsResult",
-                                                             *this);
+                                                             *this, out);
 }
 
 arrow::Result<SetSessionOptionsResult> SetSessionOptionsResult::Deserialize(
@@ -605,9 +603,9 @@ bool GetSessionOptionsRequest::Equals(const GetSessionOptionsRequest& other) con
   return true;
 }
 
-arrow::Result<std::string> GetSessionOptionsRequest::SerializeToString() const {
+arrow::Status GetSessionOptionsRequest::DoSerializeToString(std::string* out) const {
   return SerializeToProtoString<pb::GetSessionOptionsRequest>("GetSessionOptionsRequest",
-                                                              *this);
+                                                              *this, out);
 }
 
 arrow::Result<GetSessionOptionsRequest> GetSessionOptionsRequest::Deserialize(
@@ -628,9 +626,9 @@ bool GetSessionOptionsResult::Equals(const GetSessionOptionsResult& other) const
   return CompareSessionOptionMaps(session_options, other.session_options);
 }
 
-arrow::Result<std::string> GetSessionOptionsResult::SerializeToString() const {
+arrow::Status GetSessionOptionsResult::DoSerializeToString(std::string* out) const {
   return SerializeToProtoString<pb::GetSessionOptionsResult>("GetSessionOptionsResult",
-                                                             *this);
+                                                             *this, out);
 }
 
 arrow::Result<GetSessionOptionsResult> GetSessionOptionsResult::Deserialize(
@@ -645,8 +643,9 @@ std::string CloseSessionRequest::ToString() const { return "<CloseSessionRequest
 
 bool CloseSessionRequest::Equals(const CloseSessionRequest& other) const { return true; }
 
-arrow::Result<std::string> CloseSessionRequest::SerializeToString() const {
-  return SerializeToProtoString<pb::CloseSessionRequest>("CloseSessionRequest", *this);
+arrow::Status CloseSessionRequest::DoSerializeToString(std::string* out) const {
+  return SerializeToProtoString<pb::CloseSessionRequest>("CloseSessionRequest", *this,
+                                                         out);
 }
 
 arrow::Result<CloseSessionRequest> CloseSessionRequest::Deserialize(
@@ -669,8 +668,8 @@ bool CloseSessionResult::Equals(const CloseSessionResult& other) const {
   return status == other.status;
 }
 
-arrow::Result<std::string> CloseSessionResult::SerializeToString() const {
-  return SerializeToProtoString<pb::CloseSessionResult>("CloseSessionResult", *this);
+arrow::Status CloseSessionResult::DoSerializeToString(std::string* out) const {
+  return SerializeToProtoString<pb::CloseSessionResult>("CloseSessionResult", *this, out);
 }
 
 arrow::Result<CloseSessionResult> CloseSessionResult::Deserialize(
@@ -781,8 +780,8 @@ bool FlightEndpoint::Equals(const FlightEndpoint& other) const {
   return true;
 }
 
-arrow::Result<std::string> FlightEndpoint::SerializeToString() const {
-  return SerializeToProtoString<pb::FlightEndpoint>("FlightEndpoint", *this);
+arrow::Status FlightEndpoint::DoSerializeToString(std::string* out) const {
+  return SerializeToProtoString<pb::FlightEndpoint>("FlightEndpoint", *this, out);
 }
 
 arrow::Result<FlightEndpoint> FlightEndpoint::Deserialize(std::string_view serialized) {
@@ -800,9 +799,9 @@ bool RenewFlightEndpointRequest::Equals(const RenewFlightEndpointRequest& other)
   return endpoint == other.endpoint;
 }
 
-arrow::Result<std::string> RenewFlightEndpointRequest::SerializeToString() const {
+arrow::Status RenewFlightEndpointRequest::DoSerializeToString(std::string* out) const {
   return SerializeToProtoString<pb::RenewFlightEndpointRequest>(
-      "RenewFlightEndpointRequest", *this);
+      "RenewFlightEndpointRequest", *this, out);
 }
 
 arrow::Result<RenewFlightEndpointRequest> RenewFlightEndpointRequest::Deserialize(
@@ -847,8 +846,8 @@ bool ActionType::Equals(const ActionType& other) const {
   return type == other.type && description == other.description;
 }
 
-arrow::Result<std::string> ActionType::SerializeToString() const {
-  return SerializeToProtoString<pb::ActionType>("ActionType", *this);
+arrow::Status ActionType::DoSerializeToString(std::string* out) const {
+  return SerializeToProtoString<pb::ActionType>("ActionType", *this, out);
 }
 
 arrow::Result<ActionType> ActionType::Deserialize(std::string_view serialized) {
@@ -863,8 +862,8 @@ bool Criteria::Equals(const Criteria& other) const {
   return expression == other.expression;
 }
 
-arrow::Result<std::string> Criteria::SerializeToString() const {
-  return SerializeToProtoString<pb::Criteria>("Criteria", *this);
+arrow::Status Criteria::DoSerializeToString(std::string* out) const {
+  return SerializeToProtoString<pb::Criteria>("Criteria", *this, out);
 }
 
 arrow::Result<Criteria> Criteria::Deserialize(std::string_view serialized) {
@@ -889,8 +888,8 @@ bool Action::Equals(const Action& other) const {
          ((body == other.body) || (body && other.body && body->Equals(*other.body)));
 }
 
-arrow::Result<std::string> Action::SerializeToString() const {
-  return SerializeToProtoString<pb::Action>("Action", *this);
+arrow::Status Action::DoSerializeToString(std::string* out) const {
+  return SerializeToProtoString<pb::Action>("Action", *this, out);
 }
 
 arrow::Result<Action> Action::Deserialize(std::string_view serialized) {
@@ -912,8 +911,8 @@ bool Result::Equals(const Result& other) const {
   return (body == other.body) || (body && other.body && body->Equals(*other.body));
 }
 
-arrow::Result<std::string> Result::SerializeToString() const {
-  return SerializeToProtoString<pb::Result>("Result", *this);
+arrow::Status Result::DoSerializeToString(std::string* out) const {
+  return SerializeToProtoString<pb::Result>("Result", *this, out);
 }
 
 arrow::Result<Result> Result::Deserialize(std::string_view serialized) {
@@ -930,9 +929,9 @@ bool CancelFlightInfoResult::Equals(const CancelFlightInfoResult& other) const {
   return status == other.status;
 }
 
-arrow::Result<std::string> CancelFlightInfoResult::SerializeToString() const {
+arrow::Status CancelFlightInfoResult::DoSerializeToString(std::string* out) const {
   return SerializeToProtoString<pb::CancelFlightInfoResult>("CancelFlightInfoResult",
-                                                            *this);
+                                                            *this, out);
 }
 
 arrow::Result<CancelFlightInfoResult> CancelFlightInfoResult::Deserialize(
@@ -1059,8 +1058,8 @@ arrow::Result<BasicAuth> BasicAuth::Deserialize(std::string_view serialized) {
   return DeserializeProtoString<pb::BasicAuth, BasicAuth>("BasicAuth", serialized);
 }
 
-arrow::Result<std::string> BasicAuth::SerializeToString() const {
-  return SerializeToProtoString<pb::BasicAuth>("BasicAuth", *this);
+arrow::Status BasicAuth::DoSerializeToString(std::string* out) const {
+  return SerializeToProtoString<pb::BasicAuth>("BasicAuth", *this, out);
 }
 
 //------------------------------------------------------------
