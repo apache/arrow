@@ -689,7 +689,7 @@ endif()
 
 if("${ARROW_TEST_LINKAGE}" STREQUAL "shared")
   if(ARROW_BUILD_TESTS AND NOT ARROW_BUILD_SHARED)
-    message(FATAL_ERROR "If using shared linkage for unit tests, must also \
+    message(FATAL_ERROR "If using ARROW_TEST_LINKAGE=shared, must also \
 pass ARROW_BUILD_SHARED=on")
   endif()
   # Use shared linking for unit tests if it's available
