@@ -48,9 +48,7 @@ Status ParseFromString(const char* name, std::string_view serialized, PBType* ou
   if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
     return Status::Invalid("Serialized ", name, " size should not exceed 2 GiB");
   }
-  google::protobuf::io::ArrayInputStream input(serialized.data(),
-                                               static_cast<int>(serialized.size()));
-  if (!out->ParseFromZeroCopyStream(&input)) {
+  if (!out->ParseFromArray(serialized.data(), static_cast<int>(serialized.size()))) {
     return Status::Invalid("Not a valid ", name);
   }
   return Status::OK();
