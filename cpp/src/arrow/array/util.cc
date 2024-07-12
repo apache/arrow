@@ -337,7 +337,7 @@ Result<std::shared_ptr<ArrayData>> SwapEndianArrayData(
 }  // namespace internal
 
 std::shared_ptr<Array> MakeArray(const std::shared_ptr<ArrayData>& data,
-                                 const std::shared_ptr<ArrayStatistics> statistics) {
+                                 const std::shared_ptr<ArrayStatistics>& statistics) {
   std::shared_ptr<Array> out;
   ArrayDataWrapper wrapper_visitor(data, statistics, &out);
   DCHECK_OK(VisitTypeInline(*data->type, &wrapper_visitor));
