@@ -190,12 +190,14 @@ TEST(TestStatisticsRead, Boolean) {
   ASSERT_EQ(true, statistics->null_count.has_value());
   ASSERT_EQ(1, statistics->null_count.value());
   ASSERT_EQ(false, statistics->distinct_count.has_value());
-  ASSERT_EQ(true, statistics->min().has_value());
-  ASSERT_EQ(true, statistics->min().value());
+  ASSERT_EQ(true, statistics->min_buffer.has_value());
+  ASSERT_EQ(true, std::holds_alternative<bool>(*statistics->min_buffer));
+  ASSERT_EQ(true, std::get<bool>(*statistics->min_buffer));
   ASSERT_EQ(true, statistics->is_min_exact.has_value());
   ASSERT_EQ(true, statistics->is_min_exact.value());
-  ASSERT_EQ(true, statistics->max().has_value());
-  ASSERT_EQ(true, statistics->max().value());
+  ASSERT_EQ(true, statistics->max_buffer.has_value());
+  ASSERT_EQ(true, std::holds_alternative<bool>(*statistics->max_buffer));
+  ASSERT_EQ(true, std::get<bool>(*statistics->max_buffer));
   ASSERT_EQ(true, statistics->is_min_exact.has_value());
   ASSERT_EQ(true, statistics->is_min_exact.value());
 }
@@ -208,12 +210,14 @@ TEST(TestStatisticsRead, Int8) {
   ASSERT_EQ(true, statistics->null_count.has_value());
   ASSERT_EQ(1, statistics->null_count.value());
   ASSERT_EQ(false, statistics->distinct_count.has_value());
-  ASSERT_EQ(true, statistics->min().has_value());
-  ASSERT_EQ(-1, statistics->min().value());
+  ASSERT_EQ(true, statistics->min_buffer.has_value());
+  ASSERT_EQ(true, std::holds_alternative<int8_t>(*statistics->min_buffer));
+  ASSERT_EQ(-1, std::get<int8_t>(*statistics->min_buffer));
   ASSERT_EQ(true, statistics->is_min_exact.has_value());
   ASSERT_EQ(true, statistics->is_min_exact.value());
-  ASSERT_EQ(true, statistics->max().has_value());
-  ASSERT_EQ(1, statistics->max().value());
+  ASSERT_EQ(true, statistics->max_buffer.has_value());
+  ASSERT_EQ(true, std::holds_alternative<int8_t>(*statistics->max_buffer));
+  ASSERT_EQ(1, std::get<int8_t>(*statistics->max_buffer));
   ASSERT_EQ(true, statistics->is_min_exact.has_value());
   ASSERT_EQ(true, statistics->is_min_exact.value());
 }

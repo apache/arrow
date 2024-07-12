@@ -63,29 +63,4 @@ struct ARROW_EXPORT ArrayStatistics {
   }
 };
 
-/// \brief A typed implementation of ArrayStatistics
-template <typename TypeClass>
-class TypedArrayStatistics : public ArrayStatistics {
- public:
-  using ElementType = typename TypeClass::c_type;
-
-  /// \brief The current minimum value, may not be set
-  std::optional<ElementType> min() const {
-    if (min_buffer && std::holds_alternative<ElementType>(*min_buffer)) {
-      return std::get<ElementType>(*min_buffer);
-    } else {
-      return std::nullopt;
-    }
-  }
-
-  /// \brief The current maximum value, may not be set
-  std::optional<ElementType> max() const {
-    if (max_buffer && std::holds_alternative<ElementType>(*max_buffer)) {
-      return std::get<ElementType>(*max_buffer);
-    } else {
-      return std::nullopt;
-    }
-  }
-};
-
 }  // namespace arrow

@@ -70,11 +70,6 @@ class ARROW_EXPORT BooleanArray : public PrimitiveArray {
 
   IteratorType end() const { return IteratorType(*this, length()); }
 
-  /// \brief Return the statistics for boolean.
-  std::shared_ptr<BooleanArrayStatistics> statistics() const {
-    return std::static_pointer_cast<BooleanArrayStatistics>(statistics_);
-  }
-
  protected:
   using PrimitiveArray::PrimitiveArray;
 
@@ -129,11 +124,6 @@ class NumericArray : public PrimitiveArray {
   IteratorType begin() const { return IteratorType(*this); }
 
   IteratorType end() const { return IteratorType(*this, length()); }
-
-  /// \brief Return the typed statistics.
-  std::shared_ptr<TypedArrayStatistics<TYPE>> statistics() const {
-    return std::static_pointer_cast<TypedArrayStatistics<TYPE>>(Array::statistics());
-  }
 
  protected:
   using PrimitiveArray::PrimitiveArray;
