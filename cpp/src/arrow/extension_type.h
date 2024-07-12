@@ -72,6 +72,15 @@ class ARROW_EXPORT ExtensionType : public DataType {
   /// \param[in] data the physical storage for the extension type
   virtual std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const = 0;
 
+  /// \brief Wrap built-in Array type in a user-defined ExtensionArray instance
+  /// \param[in] data the physical storage for the extension type
+  /// \param[in] statistics the physical statistics for the extension type
+  virtual std::shared_ptr<Array> MakeArray(
+      std::shared_ptr<ArrayData> data,
+      std::shared_ptr<ArrayStatistics> statistics) const {
+    return MakeArray(std::move(data));
+  }
+
   /// \brief Create an instance of the ExtensionType given the actual storage
   /// type and the serialized representation
   /// \param[in] storage_type the physical storage type of the extension

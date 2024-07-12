@@ -41,8 +41,7 @@ PrimitiveArray::PrimitiveArray(const std::shared_ptr<DataType>& type, int64_t le
 // ----------------------------------------------------------------------
 // BooleanArray
 
-BooleanArray::BooleanArray(const std::shared_ptr<ArrayData>& data)
-    : PrimitiveArray(data) {
+void BooleanArray::ValidateData(const std::shared_ptr<ArrayData>& data) {
   ARROW_CHECK_EQ(data->type->id(), Type::BOOL);
 }
 
@@ -70,10 +69,6 @@ int64_t BooleanArray::true_count() const {
 // ----------------------------------------------------------------------
 // Day time interval
 
-DayTimeIntervalArray::DayTimeIntervalArray(const std::shared_ptr<ArrayData>& data) {
-  SetData(data);
-}
-
 DayTimeIntervalArray::DayTimeIntervalArray(const std::shared_ptr<DataType>& type,
                                            int64_t length,
                                            const std::shared_ptr<Buffer>& data,
@@ -96,11 +91,6 @@ DayTimeIntervalType::DayMilliseconds DayTimeIntervalArray::GetValue(int64_t i) c
 
 // ----------------------------------------------------------------------
 // Month, day and Nanos interval
-
-MonthDayNanoIntervalArray::MonthDayNanoIntervalArray(
-    const std::shared_ptr<ArrayData>& data) {
-  SetData(data);
-}
 
 MonthDayNanoIntervalArray::MonthDayNanoIntervalArray(
     const std::shared_ptr<DataType>& type, int64_t length,

@@ -78,11 +78,14 @@ int64_t DictionaryArray::GetValueIndex(int64_t i) const {
   }
 }
 
-DictionaryArray::DictionaryArray(const std::shared_ptr<ArrayData>& data)
-    : dict_type_(checked_cast<const DictionaryType*>(data->type.get())) {
+DictionaryArray::DictionaryArray(const std::shared_ptr<ArrayData>& data,
+                                 const std::shared_ptr<ArrayStatistics>& statistics)
+    : Array(data, statistics),
+      dict_type_(checked_cast<const DictionaryType*>(data->type.get())) {}
+
+void DictionaryArray::ValidateData(const std::shared_ptr<ArrayData>& data) {
   ARROW_CHECK_EQ(data->type->id(), Type::DICTIONARY);
   ARROW_CHECK_NE(data->dictionary, nullptr);
-  SetData(data);
 }
 
 void DictionaryArray::SetData(const std::shared_ptr<ArrayData>& data) {

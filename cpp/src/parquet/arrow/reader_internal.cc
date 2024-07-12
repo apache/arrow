@@ -355,8 +355,8 @@ Status TransferInt(RecordReader* reader,
       array_statistics->is_max_exact = true;
     }
   }
-  auto array = std::make_shared<ArrayType<ArrowType>>(std::move(array_data));
-  array->SetStatistics(std::move(array_statistics));
+  auto array = std::make_shared<ArrayType<ArrowType>>(std::move(array_data),
+                                                      std::move(array_statistics));
   *out = std::make_shared<ChunkedArray>(std::move(array));
   return Status::OK();
 }
@@ -419,8 +419,8 @@ Status TransferBool(RecordReader* reader,
       array_statistics->is_max_exact = true;
     }
   }
-  auto array = std::make_shared<BooleanArray>(std::move(array_data));
-  array->SetStatistics(std::move(array_statistics));
+  auto array =
+      std::make_shared<BooleanArray>(std::move(array_data), std::move(array_statistics));
   *out = std::make_shared<ChunkedArray>(std::move(array));
   return Status::OK();
 }

@@ -186,7 +186,7 @@ TEST(TestStatisticsRead, Boolean) {
   ASSERT_OK_AND_ASSIGN(auto array,
                        StatisticsReadArray(::arrow::boolean(), R"([true, null, true])"));
   auto typed_array = std::static_pointer_cast<::arrow::BooleanArray>(array);
-  auto statistics = typed_array->GetStatistics();
+  auto statistics = typed_array->statistics();
   ASSERT_EQ(true, statistics->null_count.has_value());
   ASSERT_EQ(1, statistics->null_count.value());
   ASSERT_EQ(false, statistics->distinct_count.has_value());
@@ -204,7 +204,7 @@ TEST(TestStatisticsRead, Int8) {
   ASSERT_OK_AND_ASSIGN(auto array,
                        StatisticsReadArray(::arrow::int8(), R"([1, null, -1, 1])"));
   auto typed_array = std::static_pointer_cast<::arrow::Int8Array>(array);
-  auto statistics = typed_array->GetStatistics();
+  auto statistics = typed_array->statistics();
   ASSERT_EQ(true, statistics->null_count.has_value());
   ASSERT_EQ(1, statistics->null_count.value());
   ASSERT_EQ(false, statistics->distinct_count.has_value());

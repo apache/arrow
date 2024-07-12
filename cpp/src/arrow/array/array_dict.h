@@ -54,7 +54,8 @@ class ARROW_EXPORT DictionaryArray : public Array {
  public:
   using TypeClass = DictionaryType;
 
-  explicit DictionaryArray(const std::shared_ptr<ArrayData>& data);
+  explicit DictionaryArray(const std::shared_ptr<ArrayData>& data,
+                           const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR);
 
   DictionaryArray(const std::shared_ptr<DataType>& type,
                   const std::shared_ptr<Array>& indices,
@@ -114,7 +115,8 @@ class ARROW_EXPORT DictionaryArray : public Array {
   const DictionaryType* dict_type() const { return dict_type_; }
 
  private:
-  void SetData(const std::shared_ptr<ArrayData>& data);
+  void ValidateData(const std::shared_ptr<ArrayData>& data) override;
+  void SetData(const std::shared_ptr<ArrayData>& data) override;
   const DictionaryType* dict_type_;
   std::shared_ptr<Array> indices_;
 

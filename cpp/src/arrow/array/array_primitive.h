@@ -41,7 +41,9 @@ class ARROW_EXPORT BooleanArray : public PrimitiveArray {
   using TypeClass = BooleanType;
   using IteratorType = stl::ArrayIterator<BooleanArray>;
 
-  explicit BooleanArray(const std::shared_ptr<ArrayData>& data);
+  explicit BooleanArray(const std::shared_ptr<ArrayData>& data,
+                        const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR)
+      : PrimitiveArray(data, statistics) {}
 
   BooleanArray(int64_t length, const std::shared_ptr<Buffer>& data,
                const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
@@ -69,12 +71,14 @@ class ARROW_EXPORT BooleanArray : public PrimitiveArray {
   IteratorType end() const { return IteratorType(*this, length()); }
 
   /// \brief Return the statistics for boolean.
-  std::shared_ptr<BooleanArrayStatistics> GetStatistics() const {
-    return std::static_pointer_cast<BooleanArrayStatistics>(Array::GetStatistics());
+  std::shared_ptr<BooleanArrayStatistics> statistics() const {
+    return std::static_pointer_cast<BooleanArrayStatistics>(statistics_);
   }
 
  protected:
   using PrimitiveArray::PrimitiveArray;
+
+  void ValidateData(const std::shared_ptr<ArrayData>& data) override;
 };
 
 /// \addtogroup numeric-arrays
@@ -95,7 +99,9 @@ class NumericArray : public PrimitiveArray {
   using value_type = typename TypeClass::c_type;
   using IteratorType = stl::ArrayIterator<NumericArray<TYPE>>;
 
-  explicit NumericArray(const std::shared_ptr<ArrayData>& data) : PrimitiveArray(data) {}
+  explicit NumericArray(const std::shared_ptr<ArrayData>& data,
+                        const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR)
+      : PrimitiveArray(data, statistics) {}
 
   // Only enable this constructor without a type argument for types without additional
   // metadata
@@ -125,8 +131,8 @@ class NumericArray : public PrimitiveArray {
   IteratorType end() const { return IteratorType(*this, length()); }
 
   /// \brief Return the typed statistics.
-  std::shared_ptr<TypedArrayStatistics<TYPE>> GetStatistics() const {
-    return std::static_pointer_cast<TypedArrayStatistics<TYPE>>(Array::GetStatistics());
+  std::shared_ptr<TypedArrayStatistics<TYPE>> statistics() const {
+    return std::static_pointer_cast<TypedArrayStatistics<TYPE>>(Array::statistics());
   }
 
  protected:
@@ -141,7 +147,10 @@ class ARROW_EXPORT DayTimeIntervalArray : public PrimitiveArray {
   using TypeClass = DayTimeIntervalType;
   using IteratorType = stl::ArrayIterator<DayTimeIntervalArray>;
 
-  explicit DayTimeIntervalArray(const std::shared_ptr<ArrayData>& data);
+  explicit DayTimeIntervalArray(
+      const std::shared_ptr<ArrayData>& data,
+      const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR)
+      : PrimitiveArray(data, statistics) {}
 
   DayTimeIntervalArray(const std::shared_ptr<DataType>& type, int64_t length,
                        const std::shared_ptr<Buffer>& data,
@@ -177,7 +186,10 @@ class ARROW_EXPORT MonthDayNanoIntervalArray : public PrimitiveArray {
   using TypeClass = MonthDayNanoIntervalType;
   using IteratorType = stl::ArrayIterator<MonthDayNanoIntervalArray>;
 
-  explicit MonthDayNanoIntervalArray(const std::shared_ptr<ArrayData>& data);
+  explicit MonthDayNanoIntervalArray(
+      const std::shared_ptr<ArrayData>& data,
+      const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR)
+      : PrimitiveArray(data, statistics) {}
 
   MonthDayNanoIntervalArray(const std::shared_ptr<DataType>& type, int64_t length,
                             const std::shared_ptr<Buffer>& data,

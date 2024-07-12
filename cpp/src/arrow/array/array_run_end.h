@@ -53,7 +53,10 @@ class ARROW_EXPORT RunEndEncodedArray : public Array {
  public:
   using TypeClass = RunEndEncodedType;
 
-  explicit RunEndEncodedArray(const std::shared_ptr<ArrayData>& data);
+  explicit RunEndEncodedArray(
+      const std::shared_ptr<ArrayData>& data,
+      const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR)
+      : Array(data, statistics) {}
 
   /// \brief Construct a RunEndEncodedArray from all parameters
   ///
@@ -85,7 +88,8 @@ class ARROW_EXPORT RunEndEncodedArray : public Array {
       const std::shared_ptr<Array>& values, int64_t logical_offset = 0);
 
  protected:
-  void SetData(const std::shared_ptr<ArrayData>& data);
+  void ValidateData(const std::shared_ptr<ArrayData>& data) override;
+  void SetData(const std::shared_ptr<ArrayData>& data) override;
 
  public:
   /// \brief Returns an array holding the logical indexes of each run-end

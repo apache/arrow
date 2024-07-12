@@ -59,22 +59,25 @@ namespace {
 
 class ArrayDataWrapper {
  public:
-  ArrayDataWrapper(const std::shared_ptr<ArrayData>& data, std::shared_ptr<Array>* out)
-      : data_(data), out_(out) {}
+  ArrayDataWrapper(const std::shared_ptr<ArrayData>& data,
+                   const std::shared_ptr<ArrayStatistics>& statistics,
+                   std::shared_ptr<Array>* out)
+      : data_(data), statistics_(statistics), out_(out) {}
 
   template <typename T>
   Status Visit(const T&) {
     using ArrayType = typename TypeTraits<T>::ArrayType;
-    *out_ = std::make_shared<ArrayType>(data_);
+    *out_ = std::make_shared<ArrayType>(data_, statistics_);
     return Status::OK();
   }
 
   Status Visit(const ExtensionType& type) {
-    *out_ = type.MakeArray(data_);
+    *out_ = type.MakeArray(data_, statistics_);
     return Status::OK();
   }
 
   const std::shared_ptr<ArrayData>& data_;
+  const std::shared_ptr<ArrayStatistics>& statistics_;
   std::shared_ptr<Array>* out_;
 };
 
@@ -333,9 +336,10 @@ Result<std::shared_ptr<ArrayData>> SwapEndianArrayData(
 
 }  // namespace internal
 
-std::shared_ptr<Array> MakeArray(const std::shared_ptr<ArrayData>& data) {
+std::shared_ptr<Array> MakeArray(const std::shared_ptr<ArrayData>& data,
+                                 const std::shared_ptr<ArrayStatistics> statistics) {
   std::shared_ptr<Array> out;
-  ArrayDataWrapper wrapper_visitor(data, &out);
+  ArrayDataWrapper wrapper_visitor(data, statistics, &out);
   DCHECK_OK(VisitTypeInline(*data->type, &wrapper_visitor));
   DCHECK(out);
   return out;
