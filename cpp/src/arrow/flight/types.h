@@ -159,8 +159,24 @@ struct ARROW_FLIGHT_EXPORT CertKeyPair {
   std::string pem_key;
 };
 
+namespace internal {
+
+// Base CRTP type
+template <class T>
+struct BaseType {
+ protected:
+  const T& self() const { return static_cast<const T&>(*this); }
+  T& self() { return static_cast<T&>(*this); }
+
+ public:
+  friend bool operator==(const T& left, const T& right) { return left.Equals(right); }
+  friend bool operator!=(const T& left, const T& right) { return !left.Equals(right); }
+};
+
+}  // namespace internal
+
 /// \brief A type of action that can be performed with the DoAction RPC.
-struct ARROW_FLIGHT_EXPORT ActionType {
+struct ARROW_FLIGHT_EXPORT ActionType : public internal::BaseType<ActionType> {
   /// \brief The name of the action.
   std::string type;
 
@@ -169,13 +185,6 @@ struct ARROW_FLIGHT_EXPORT ActionType {
 
   std::string ToString() const;
   bool Equals(const ActionType& other) const;
-
-  friend bool operator==(const ActionType& left, const ActionType& right) {
-    return left.Equals(right);
-  }
-  friend bool operator!=(const ActionType& left, const ActionType& right) {
-    return !(left == right);
-  }
 
   /// \brief Serialize this message to its wire-format representation.
   arrow::Result<std::string> SerializeToString() const;
@@ -191,19 +200,12 @@ struct ARROW_FLIGHT_EXPORT ActionType {
 };
 
 /// \brief Opaque selection criteria for ListFlights RPC
-struct ARROW_FLIGHT_EXPORT Criteria {
+struct ARROW_FLIGHT_EXPORT Criteria : public internal::BaseType<Criteria> {
   /// Opaque criteria expression, dependent on server implementation
   std::string expression;
 
   std::string ToString() const;
   bool Equals(const Criteria& other) const;
-
-  friend bool operator==(const Criteria& left, const Criteria& right) {
-    return left.Equals(right);
-  }
-  friend bool operator!=(const Criteria& left, const Criteria& right) {
-    return !(left == right);
-  }
 
   /// \brief Serialize this message to its wire-format representation.
   arrow::Result<std::string> SerializeToString() const;
@@ -213,7 +215,7 @@ struct ARROW_FLIGHT_EXPORT Criteria {
 };
 
 /// \brief An action to perform with the DoAction RPC
-struct ARROW_FLIGHT_EXPORT Action {
+struct ARROW_FLIGHT_EXPORT Action : public internal::BaseType<Action> {
   /// The action type
   std::string type;
 
@@ -223,13 +225,6 @@ struct ARROW_FLIGHT_EXPORT Action {
   std::string ToString() const;
   bool Equals(const Action& other) const;
 
-  friend bool operator==(const Action& left, const Action& right) {
-    return left.Equals(right);
-  }
-  friend bool operator!=(const Action& left, const Action& right) {
-    return !(left == right);
-  }
-
   /// \brief Serialize this message to its wire-format representation.
   arrow::Result<std::string> SerializeToString() const;
 
@@ -238,18 +233,11 @@ struct ARROW_FLIGHT_EXPORT Action {
 };
 
 /// \brief Opaque result returned after executing an action
-struct ARROW_FLIGHT_EXPORT Result {
+struct ARROW_FLIGHT_EXPORT Result : public internal::BaseType<Result> {
   std::shared_ptr<Buffer> body;
 
   std::string ToString() const;
   bool Equals(const Result& other) const;
-
-  friend bool operator==(const Result& left, const Result& right) {
-    return left.Equals(right);
-  }
-  friend bool operator!=(const Result& left, const Result& right) {
-    return !(left == right);
-  }
 
   /// \brief Serialize this message to its wire-format representation.
   arrow::Result<std::string> SerializeToString() const;
@@ -275,20 +263,12 @@ enum class CancelStatus {
 };
 
 /// \brief The result of the CancelFlightInfo action.
-struct ARROW_FLIGHT_EXPORT CancelFlightInfoResult {
+struct ARROW_FLIGHT_EXPORT CancelFlightInfoResult
+    : public internal::BaseType<CancelFlightInfoResult> {
   CancelStatus status;
 
   std::string ToString() const;
   bool Equals(const CancelFlightInfoResult& other) const;
-
-  friend bool operator==(const CancelFlightInfoResult& left,
-                         const CancelFlightInfoResult& right) {
-    return left.Equals(right);
-  }
-  friend bool operator!=(const CancelFlightInfoResult& left,
-                         const CancelFlightInfoResult& right) {
-    return !(left == right);
-  }
 
   /// \brief Serialize this message to its wire-format representation.
   arrow::Result<std::string> SerializeToString() const;
@@ -301,19 +281,12 @@ ARROW_FLIGHT_EXPORT
 std::ostream& operator<<(std::ostream& os, CancelStatus status);
 
 /// \brief message for simple auth
-struct ARROW_FLIGHT_EXPORT BasicAuth {
+struct ARROW_FLIGHT_EXPORT BasicAuth : public internal::BaseType<BasicAuth> {
   std::string username;
   std::string password;
 
   std::string ToString() const;
   bool Equals(const BasicAuth& other) const;
-
-  friend bool operator==(const BasicAuth& left, const BasicAuth& right) {
-    return left.Equals(right);
-  }
-  friend bool operator!=(const BasicAuth& left, const BasicAuth& right) {
-    return !(left == right);
-  }
 
   /// \brief Deserialize this message from its wire-format representation.
   static arrow::Result<BasicAuth> Deserialize(std::string_view serialized);
@@ -322,7 +295,8 @@ struct ARROW_FLIGHT_EXPORT BasicAuth {
 };
 
 /// \brief A request to retrieve or generate a dataset
-struct ARROW_FLIGHT_EXPORT FlightDescriptor {
+struct ARROW_FLIGHT_EXPORT FlightDescriptor
+    : public internal::BaseType<FlightDescriptor> {
   enum DescriptorType {
     UNKNOWN = 0,  /// Unused
     PATH = 1,     /// Named path identifying a dataset
@@ -366,29 +340,15 @@ struct ARROW_FLIGHT_EXPORT FlightDescriptor {
   static FlightDescriptor Path(const std::vector<std::string>& p) {
     return FlightDescriptor{PATH, "", p};
   }
-
-  friend bool operator==(const FlightDescriptor& left, const FlightDescriptor& right) {
-    return left.Equals(right);
-  }
-  friend bool operator!=(const FlightDescriptor& left, const FlightDescriptor& right) {
-    return !(left == right);
-  }
 };
 
 /// \brief Data structure providing an opaque identifier or credential to use
 /// when requesting a data stream with the DoGet RPC
-struct ARROW_FLIGHT_EXPORT Ticket {
+struct ARROW_FLIGHT_EXPORT Ticket : public internal::BaseType<Ticket> {
   std::string ticket;
 
   std::string ToString() const;
   bool Equals(const Ticket& other) const;
-
-  friend bool operator==(const Ticket& left, const Ticket& right) {
-    return left.Equals(right);
-  }
-  friend bool operator!=(const Ticket& left, const Ticket& right) {
-    return !(left == right);
-  }
 
   /// \brief Get the wire-format representation of this type.
   ///
@@ -416,7 +376,7 @@ ARROW_FLIGHT_EXPORT
 extern const char* kSchemeGrpcTls;
 
 /// \brief A host location (a URI)
-struct ARROW_FLIGHT_EXPORT Location {
+struct ARROW_FLIGHT_EXPORT Location : public internal::BaseType<Location> {
  public:
   /// \brief Initialize a blank location.
   Location();
@@ -464,13 +424,6 @@ struct ARROW_FLIGHT_EXPORT Location {
 
   bool Equals(const Location& other) const;
 
-  friend bool operator==(const Location& left, const Location& right) {
-    return left.Equals(right);
-  }
-  friend bool operator!=(const Location& left, const Location& right) {
-    return !(left == right);
-  }
-
  private:
   friend class FlightClient;
   friend class FlightServerBase;
@@ -479,7 +432,7 @@ struct ARROW_FLIGHT_EXPORT Location {
 
 /// \brief A flight ticket and list of locations where the ticket can be
 /// redeemed
-struct ARROW_FLIGHT_EXPORT FlightEndpoint {
+struct ARROW_FLIGHT_EXPORT FlightEndpoint : public internal::BaseType<FlightEndpoint> {
   /// Opaque ticket identify; use with DoGet RPC
   Ticket ticket;
 
@@ -499,13 +452,6 @@ struct ARROW_FLIGHT_EXPORT FlightEndpoint {
   std::string ToString() const;
   bool Equals(const FlightEndpoint& other) const;
 
-  friend bool operator==(const FlightEndpoint& left, const FlightEndpoint& right) {
-    return left.Equals(right);
-  }
-  friend bool operator!=(const FlightEndpoint& left, const FlightEndpoint& right) {
-    return !(left == right);
-  }
-
   /// \brief Serialize this message to its wire-format representation.
   arrow::Result<std::string> SerializeToString() const;
 
@@ -514,20 +460,12 @@ struct ARROW_FLIGHT_EXPORT FlightEndpoint {
 };
 
 /// \brief The request of the RenewFlightEndpoint action.
-struct ARROW_FLIGHT_EXPORT RenewFlightEndpointRequest {
+struct ARROW_FLIGHT_EXPORT RenewFlightEndpointRequest
+    : public internal::BaseType<RenewFlightEndpointRequest> {
   FlightEndpoint endpoint;
 
   std::string ToString() const;
   bool Equals(const RenewFlightEndpointRequest& other) const;
-
-  friend bool operator==(const RenewFlightEndpointRequest& left,
-                         const RenewFlightEndpointRequest& right) {
-    return left.Equals(right);
-  }
-  friend bool operator!=(const RenewFlightEndpointRequest& left,
-                         const RenewFlightEndpointRequest& right) {
-    return !(left == right);
-  }
 
   /// \brief Serialize this message to its wire-format representation.
   arrow::Result<std::string> SerializeToString() const;
@@ -540,7 +478,7 @@ struct ARROW_FLIGHT_EXPORT RenewFlightEndpointRequest {
 /// \brief Staging data structure for messages about to be put on the wire
 ///
 /// This structure corresponds to FlightData in the protocol.
-struct ARROW_FLIGHT_EXPORT FlightPayload {
+struct ARROW_FLIGHT_EXPORT FlightPayload : public internal::BaseType<FlightPayload> {
   std::shared_ptr<Buffer> descriptor;
   std::shared_ptr<Buffer> app_metadata;
   ipc::IpcPayload ipc_message;
@@ -550,7 +488,7 @@ struct ARROW_FLIGHT_EXPORT FlightPayload {
 };
 
 /// \brief Schema result returned after a schema request RPC
-struct ARROW_FLIGHT_EXPORT SchemaResult {
+struct ARROW_FLIGHT_EXPORT SchemaResult : public internal::BaseType<SchemaResult> {
  public:
   SchemaResult() = default;
   explicit SchemaResult(std::string schema) : raw_schema_(std::move(schema)) {}
@@ -570,13 +508,6 @@ struct ARROW_FLIGHT_EXPORT SchemaResult {
   std::string ToString() const;
   bool Equals(const SchemaResult& other) const;
 
-  friend bool operator==(const SchemaResult& left, const SchemaResult& right) {
-    return left.Equals(right);
-  }
-  friend bool operator!=(const SchemaResult& left, const SchemaResult& right) {
-    return !(left == right);
-  }
-
   /// \brief Serialize this message to its wire-format representation.
   arrow::Result<std::string> SerializeToString() const;
 
@@ -589,7 +520,7 @@ struct ARROW_FLIGHT_EXPORT SchemaResult {
 
 /// \brief The access coordinates for retrieval of a dataset, returned by
 /// GetFlightInfo
-class ARROW_FLIGHT_EXPORT FlightInfo {
+class ARROW_FLIGHT_EXPORT FlightInfo : public internal::BaseType<FlightInfo> {
  public:
   struct Data {
     std::string schema;
@@ -661,13 +592,6 @@ class ARROW_FLIGHT_EXPORT FlightInfo {
   /// the schemas.
   bool Equals(const FlightInfo& other) const;
 
-  friend bool operator==(const FlightInfo& left, const FlightInfo& right) {
-    return left.Equals(right);
-  }
-  friend bool operator!=(const FlightInfo& left, const FlightInfo& right) {
-    return !(left == right);
-  }
-
  private:
   Data data_;
   mutable std::shared_ptr<Schema> schema_;
@@ -675,7 +599,7 @@ class ARROW_FLIGHT_EXPORT FlightInfo {
 };
 
 /// \brief The information to process a long-running query.
-class ARROW_FLIGHT_EXPORT PollInfo {
+class ARROW_FLIGHT_EXPORT PollInfo : public internal::BaseType<PollInfo> {
  public:
   /// The currently available results so far.
   std::unique_ptr<FlightInfo> info = NULLPTR;
@@ -741,30 +665,15 @@ class ARROW_FLIGHT_EXPORT PollInfo {
   /// serialized schema representations, NOT the logical equality of
   /// the schemas.
   bool Equals(const PollInfo& other) const;
-
-  friend bool operator==(const PollInfo& left, const PollInfo& right) {
-    return left.Equals(right);
-  }
-  friend bool operator!=(const PollInfo& left, const PollInfo& right) {
-    return !(left == right);
-  }
 };
 
 /// \brief The request of the CancelFlightInfoRequest action.
-struct ARROW_FLIGHT_EXPORT CancelFlightInfoRequest {
+struct ARROW_FLIGHT_EXPORT CancelFlightInfoRequest
+    : public internal::BaseType<CancelFlightInfoRequest> {
   std::unique_ptr<FlightInfo> info;
 
   std::string ToString() const;
   bool Equals(const CancelFlightInfoRequest& other) const;
-
-  friend bool operator==(const CancelFlightInfoRequest& left,
-                         const CancelFlightInfoRequest& right) {
-    return left.Equals(right);
-  }
-  friend bool operator!=(const CancelFlightInfoRequest& left,
-                         const CancelFlightInfoRequest& right) {
-    return !(left == right);
-  }
 
   /// \brief Serialize this message to its wire-format representation.
   arrow::Result<std::string> SerializeToString() const;
@@ -821,20 +730,12 @@ std::string ToString(const CloseSessionStatus& status);
 std::ostream& operator<<(std::ostream& os, const CloseSessionStatus& status);
 
 /// \brief A request to set a set of session options by name/value.
-struct ARROW_FLIGHT_EXPORT SetSessionOptionsRequest {
+struct ARROW_FLIGHT_EXPORT SetSessionOptionsRequest
+    : public internal::BaseType<SetSessionOptionsRequest> {
   std::map<std::string, SessionOptionValue> session_options;
 
   std::string ToString() const;
   bool Equals(const SetSessionOptionsRequest& other) const;
-
-  friend bool operator==(const SetSessionOptionsRequest& left,
-                         const SetSessionOptionsRequest& right) {
-    return left.Equals(right);
-  }
-  friend bool operator!=(const SetSessionOptionsRequest& left,
-                         const SetSessionOptionsRequest& right) {
-    return !(left == right);
-  }
 
   /// \brief Serialize this message to its wire-format representation.
   arrow::Result<std::string> SerializeToString() const;
@@ -844,7 +745,8 @@ struct ARROW_FLIGHT_EXPORT SetSessionOptionsRequest {
 };
 
 /// \brief The result(s) of setting session option(s).
-struct ARROW_FLIGHT_EXPORT SetSessionOptionsResult {
+struct ARROW_FLIGHT_EXPORT SetSessionOptionsResult
+    : public internal::BaseType<SetSessionOptionsResult> {
   struct Error {
     SetSessionOptionErrorValue value;
 
@@ -862,15 +764,6 @@ struct ARROW_FLIGHT_EXPORT SetSessionOptionsResult {
   std::string ToString() const;
   bool Equals(const SetSessionOptionsResult& other) const;
 
-  friend bool operator==(const SetSessionOptionsResult& left,
-                         const SetSessionOptionsResult& right) {
-    return left.Equals(right);
-  }
-  friend bool operator!=(const SetSessionOptionsResult& left,
-                         const SetSessionOptionsResult& right) {
-    return !(left == right);
-  }
-
   /// \brief Serialize this message to its wire-format representation.
   arrow::Result<std::string> SerializeToString() const;
 
@@ -879,18 +772,10 @@ struct ARROW_FLIGHT_EXPORT SetSessionOptionsResult {
 };
 
 /// \brief A request to get current session options.
-struct ARROW_FLIGHT_EXPORT GetSessionOptionsRequest {
+struct ARROW_FLIGHT_EXPORT GetSessionOptionsRequest
+    : public internal::BaseType<GetSessionOptionsRequest> {
   std::string ToString() const;
   bool Equals(const GetSessionOptionsRequest& other) const;
-
-  friend bool operator==(const GetSessionOptionsRequest& left,
-                         const GetSessionOptionsRequest& right) {
-    return left.Equals(right);
-  }
-  friend bool operator!=(const GetSessionOptionsRequest& left,
-                         const GetSessionOptionsRequest& right) {
-    return !(left == right);
-  }
 
   /// \brief Serialize this message to its wire-format representation.
   arrow::Result<std::string> SerializeToString() const;
@@ -900,20 +785,12 @@ struct ARROW_FLIGHT_EXPORT GetSessionOptionsRequest {
 };
 
 /// \brief The current session options.
-struct ARROW_FLIGHT_EXPORT GetSessionOptionsResult {
+struct ARROW_FLIGHT_EXPORT GetSessionOptionsResult
+    : public internal::BaseType<GetSessionOptionsResult> {
   std::map<std::string, SessionOptionValue> session_options;
 
   std::string ToString() const;
   bool Equals(const GetSessionOptionsResult& other) const;
-
-  friend bool operator==(const GetSessionOptionsResult& left,
-                         const GetSessionOptionsResult& right) {
-    return left.Equals(right);
-  }
-  friend bool operator!=(const GetSessionOptionsResult& left,
-                         const GetSessionOptionsResult& right) {
-    return !(left == right);
-  }
 
   /// \brief Serialize this message to its wire-format representation.
   arrow::Result<std::string> SerializeToString() const;
@@ -923,18 +800,10 @@ struct ARROW_FLIGHT_EXPORT GetSessionOptionsResult {
 };
 
 /// \brief A request to close the open client session.
-struct ARROW_FLIGHT_EXPORT CloseSessionRequest {
+struct ARROW_FLIGHT_EXPORT CloseSessionRequest
+    : public internal::BaseType<CloseSessionRequest> {
   std::string ToString() const;
   bool Equals(const CloseSessionRequest& other) const;
-
-  friend bool operator==(const CloseSessionRequest& left,
-                         const CloseSessionRequest& right) {
-    return left.Equals(right);
-  }
-  friend bool operator!=(const CloseSessionRequest& left,
-                         const CloseSessionRequest& right) {
-    return !(left == right);
-  }
 
   /// \brief Serialize this message to its wire-format representation.
   arrow::Result<std::string> SerializeToString() const;
@@ -944,20 +813,12 @@ struct ARROW_FLIGHT_EXPORT CloseSessionRequest {
 };
 
 /// \brief The result of attempting to close the client session.
-struct ARROW_FLIGHT_EXPORT CloseSessionResult {
+struct ARROW_FLIGHT_EXPORT CloseSessionResult
+    : public internal::BaseType<CloseSessionResult> {
   CloseSessionStatus status;
 
   std::string ToString() const;
   bool Equals(const CloseSessionResult& other) const;
-
-  friend bool operator==(const CloseSessionResult& left,
-                         const CloseSessionResult& right) {
-    return left.Equals(right);
-  }
-  friend bool operator!=(const CloseSessionResult& left,
-                         const CloseSessionResult& right) {
-    return !(left == right);
-  }
 
   /// \brief Serialize this message to its wire-format representation.
   arrow::Result<std::string> SerializeToString() const;
