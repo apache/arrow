@@ -333,6 +333,7 @@ class PrepareTest < Test::Unit::TestCase
           "-#{line}",
           "+#{new_line}",
         ]
+      end
       expected_changes << {hunks: hunks, path: path}
     end
 
