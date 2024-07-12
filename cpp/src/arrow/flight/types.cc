@@ -41,6 +41,31 @@
 
 namespace arrow {
 namespace flight {
+namespace {
+
+template <class PBType>
+Status ParseFromString(const char* name, std::string_view serialized, PBType* out) {
+  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
+    return Status::Invalid("Serialized ", name, " size should not exceed 2 GiB");
+  }
+  google::protobuf::io::ArrayInputStream input(serialized.data(),
+                                               static_cast<int>(serialized.size()));
+  if (!out->ParseFromZeroCopyStream(&input)) {
+    return Status::Invalid("Not a valid ", name);
+  }
+  return Status::OK();
+}
+
+template <class PBType, class T>
+arrow::Result<T> DeserializeProtoString(const char* name, std::string_view serialized) {
+  PBType pb;
+  RETURN_NOT_OK(ParseFromString(name, serialized, &pb));
+  T out;
+  RETURN_NOT_OK(internal::FromProto(pb, &out));
+  return out;
+}
+
+}  // namespace
 
 const char* kSchemeGrpc = "grpc";
 const char* kSchemeGrpcTcp = "grpc+tcp";
@@ -186,14 +211,7 @@ arrow::Result<std::string> SchemaResult::SerializeToString() const {
 
 arrow::Result<SchemaResult> SchemaResult::Deserialize(std::string_view serialized) {
   pb::SchemaResult pb_schema_result;
-  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
-    return Status::Invalid("Serialized SchemaResult size should not exceed 2 GiB");
-  }
-  google::protobuf::io::ArrayInputStream input(serialized.data(),
-                                               static_cast<int>(serialized.size()));
-  if (!pb_schema_result.ParseFromZeroCopyStream(&input)) {
-    return Status::Invalid("Not a valid SchemaResult");
-  }
+  RETURN_NOT_OK(ParseFromString("SchemaResult", serialized, &pb_schema_result));
   return SchemaResult{pb_schema_result.schema()};
 }
 
@@ -210,18 +228,8 @@ arrow::Result<std::string> FlightDescriptor::SerializeToString() const {
 
 arrow::Result<FlightDescriptor> FlightDescriptor::Deserialize(
     std::string_view serialized) {
-  pb::FlightDescriptor pb_descriptor;
-  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
-    return Status::Invalid("Serialized FlightDescriptor size should not exceed 2 GiB");
-  }
-  google::protobuf::io::ArrayInputStream input(serialized.data(),
-                                               static_cast<int>(serialized.size()));
-  if (!pb_descriptor.ParseFromZeroCopyStream(&input)) {
-    return Status::Invalid("Not a valid FlightDescriptor");
-  }
-  FlightDescriptor out;
-  RETURN_NOT_OK(internal::FromProto(pb_descriptor, &out));
-  return out;
+  return DeserializeProtoString<pb::FlightDescriptor, FlightDescriptor>(
+      "FlightDescriptor", serialized);
 }
 
 std::string Ticket::ToString() const {
@@ -244,18 +252,7 @@ arrow::Result<std::string> Ticket::SerializeToString() const {
 }
 
 arrow::Result<Ticket> Ticket::Deserialize(std::string_view serialized) {
-  pb::Ticket pb_ticket;
-  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
-    return Status::Invalid("Serialized Ticket size should not exceed 2 GiB");
-  }
-  google::protobuf::io::ArrayInputStream input(serialized.data(),
-                                               static_cast<int>(serialized.size()));
-  if (!pb_ticket.ParseFromZeroCopyStream(&input)) {
-    return Status::Invalid("Not a valid Ticket");
-  }
-  Ticket out;
-  RETURN_NOT_OK(internal::FromProto(pb_ticket, &out));
-  return out;
+  return DeserializeProtoString<pb::Ticket, Ticket>("Ticket", serialized);
 }
 
 arrow::Result<FlightInfo> FlightInfo::Make(const Schema& schema,
@@ -300,14 +297,7 @@ arrow::Result<std::string> FlightInfo::SerializeToString() const {
 arrow::Result<std::unique_ptr<FlightInfo>> FlightInfo::Deserialize(
     std::string_view serialized) {
   pb::FlightInfo pb_info;
-  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
-    return Status::Invalid("Serialized FlightInfo size should not exceed 2 GiB");
-  }
-  google::protobuf::io::ArrayInputStream input(serialized.data(),
-                                               static_cast<int>(serialized.size()));
-  if (!pb_info.ParseFromZeroCopyStream(&input)) {
-    return Status::Invalid("Not a valid FlightInfo");
-  }
+  RETURN_NOT_OK(ParseFromString("FlightInfo", serialized, &pb_info));
   ARROW_ASSIGN_OR_RAISE(FlightInfo info, internal::FromProto(pb_info));
   return std::make_unique<FlightInfo>(std::move(info));
 }
@@ -360,14 +350,7 @@ arrow::Result<std::string> PollInfo::SerializeToString() const {
 arrow::Result<std::unique_ptr<PollInfo>> PollInfo::Deserialize(
     std::string_view serialized) {
   pb::PollInfo pb_info;
-  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
-    return Status::Invalid("Serialized PollInfo size should not exceed 2 GiB");
-  }
-  google::protobuf::io::ArrayInputStream input(serialized.data(),
-                                               static_cast<int>(serialized.size()));
-  if (!pb_info.ParseFromZeroCopyStream(&input)) {
-    return Status::Invalid("Not a valid PollInfo");
-  }
+  RETURN_NOT_OK(ParseFromString("PollInfo", serialized, &pb_info));
   PollInfo info;
   RETURN_NOT_OK(internal::FromProto(pb_info, &info));
   return std::make_unique<PollInfo>(std::move(info));
@@ -460,19 +443,8 @@ arrow::Result<std::string> CancelFlightInfoRequest::SerializeToString() const {
 
 arrow::Result<CancelFlightInfoRequest> CancelFlightInfoRequest::Deserialize(
     std::string_view serialized) {
-  pb::CancelFlightInfoRequest pb_request;
-  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
-    return Status::Invalid(
-        "Serialized CancelFlightInfoRequest size should not exceed 2 GiB");
-  }
-  google::protobuf::io::ArrayInputStream input(serialized.data(),
-                                               static_cast<int>(serialized.size()));
-  if (!pb_request.ParseFromZeroCopyStream(&input)) {
-    return Status::Invalid("Not a valid CancelFlightInfoRequest");
-  }
-  CancelFlightInfoRequest out;
-  RETURN_NOT_OK(internal::FromProto(pb_request, &out));
-  return out;
+  return DeserializeProtoString<pb::CancelFlightInfoRequest, CancelFlightInfoRequest>(
+      "CancelFlightInfoRequest", serialized);
 }
 
 static const char* const SetSessionOptionStatusNames[] = {"Unspecified", "InvalidName",
@@ -606,20 +578,8 @@ arrow::Result<std::string> SetSessionOptionsRequest::SerializeToString() const {
 
 arrow::Result<SetSessionOptionsRequest> SetSessionOptionsRequest::Deserialize(
     std::string_view serialized) {
-  // TODO these & SerializeToString should all be factored out to a superclass
-  pb::SetSessionOptionsRequest pb_request;
-  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
-    return Status::Invalid(
-        "Serialized SetSessionOptionsRequest size should not exceed 2 GiB");
-  }
-  google::protobuf::io::ArrayInputStream input(serialized.data(),
-                                               static_cast<int>(serialized.size()));
-  if (!pb_request.ParseFromZeroCopyStream(&input)) {
-    return Status::Invalid("Not a valid SetSessionOptionsRequest");
-  }
-  SetSessionOptionsRequest out;
-  RETURN_NOT_OK(internal::FromProto(pb_request, &out));
-  return out;
+  return DeserializeProtoString<pb::SetSessionOptionsRequest, SetSessionOptionsRequest>(
+      "SetSessionOptionsRequest", serialized);
 }
 
 // SetSessionOptionsResult
@@ -652,19 +612,8 @@ arrow::Result<std::string> SetSessionOptionsResult::SerializeToString() const {
 
 arrow::Result<SetSessionOptionsResult> SetSessionOptionsResult::Deserialize(
     std::string_view serialized) {
-  pb::SetSessionOptionsResult pb_result;
-  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
-    return Status::Invalid(
-        "Serialized SetSessionOptionsResult size should not exceed 2 GiB");
-  }
-  google::protobuf::io::ArrayInputStream input(serialized.data(),
-                                               static_cast<int>(serialized.size()));
-  if (!pb_result.ParseFromZeroCopyStream(&input)) {
-    return Status::Invalid("Not a valid SetSessionOptionsResult");
-  }
-  SetSessionOptionsResult out;
-  RETURN_NOT_OK(internal::FromProto(pb_result, &out));
-  return out;
+  return DeserializeProtoString<pb::SetSessionOptionsResult, SetSessionOptionsResult>(
+      "SetSessionOptionsResult", serialized);
 }
 
 // GetSessionOptionsRequest
@@ -690,28 +639,15 @@ arrow::Result<std::string> GetSessionOptionsRequest::SerializeToString() const {
 
 arrow::Result<GetSessionOptionsRequest> GetSessionOptionsRequest::Deserialize(
     std::string_view serialized) {
-  pb::GetSessionOptionsRequest pb_request;
-  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
-    return Status::Invalid(
-        "Serialized GetSessionOptionsRequest size should not exceed 2 GiB");
-  }
-  google::protobuf::io::ArrayInputStream input(serialized.data(),
-                                               static_cast<int>(serialized.size()));
-  if (!pb_request.ParseFromZeroCopyStream(&input)) {
-    return Status::Invalid("Not a valid GetSessionOptionsRequest");
-  }
-  GetSessionOptionsRequest out;
-  RETURN_NOT_OK(internal::FromProto(pb_request, &out));
-  return out;
+  return DeserializeProtoString<pb::GetSessionOptionsRequest, GetSessionOptionsRequest>(
+      "GetSessionOptionsRequest", serialized);
 }
 
 // GetSessionOptionsResult
 
 std::string GetSessionOptionsResult::ToString() const {
   std::stringstream ss;
-
   ss << "<GetSessionOptionsResult session_options=" << session_options << '>';
-
   return ss.str();
 }
 
@@ -732,19 +668,8 @@ arrow::Result<std::string> GetSessionOptionsResult::SerializeToString() const {
 
 arrow::Result<GetSessionOptionsResult> GetSessionOptionsResult::Deserialize(
     std::string_view serialized) {
-  pb::GetSessionOptionsResult pb_result;
-  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
-    return Status::Invalid(
-        "Serialized GetSessionOptionsResult size should not exceed 2 GiB");
-  }
-  google::protobuf::io::ArrayInputStream input(serialized.data(),
-                                               static_cast<int>(serialized.size()));
-  if (!pb_result.ParseFromZeroCopyStream(&input)) {
-    return Status::Invalid("Not a valid GetSessionOptionsResult");
-  }
-  GetSessionOptionsResult out;
-  RETURN_NOT_OK(internal::FromProto(pb_result, &out));
-  return out;
+  return DeserializeProtoString<pb::GetSessionOptionsResult, GetSessionOptionsResult>(
+      "GetSessionOptionsResult", serialized);
 }
 
 // CloseSessionRequest
@@ -766,18 +691,8 @@ arrow::Result<std::string> CloseSessionRequest::SerializeToString() const {
 
 arrow::Result<CloseSessionRequest> CloseSessionRequest::Deserialize(
     std::string_view serialized) {
-  pb::CloseSessionRequest pb_request;
-  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
-    return Status::Invalid("Serialized CloseSessionRequest size should not exceed 2 GiB");
-  }
-  google::protobuf::io::ArrayInputStream input(serialized.data(),
-                                               static_cast<int>(serialized.size()));
-  if (!pb_request.ParseFromZeroCopyStream(&input)) {
-    return Status::Invalid("Not a valid CloseSessionRequest");
-  }
-  CloseSessionRequest out;
-  RETURN_NOT_OK(internal::FromProto(pb_request, &out));
-  return out;
+  return DeserializeProtoString<pb::CloseSessionRequest, CloseSessionRequest>(
+      "CloseSessionRequest", serialized);
 }
 
 // CloseSessionResult
@@ -807,18 +722,8 @@ arrow::Result<std::string> CloseSessionResult::SerializeToString() const {
 
 arrow::Result<CloseSessionResult> CloseSessionResult::Deserialize(
     std::string_view serialized) {
-  pb::CloseSessionResult pb_result;
-  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
-    return Status::Invalid("Serialized CloseSessionResult size should not exceed 2 GiB");
-  }
-  google::protobuf::io::ArrayInputStream input(serialized.data(),
-                                               static_cast<int>(serialized.size()));
-  if (!pb_result.ParseFromZeroCopyStream(&input)) {
-    return Status::Invalid("Not a valid CloseSessionResult");
-  }
-  CloseSessionResult out;
-  RETURN_NOT_OK(internal::FromProto(pb_result, &out));
-  return out;
+  return DeserializeProtoString<pb::CloseSessionResult, CloseSessionResult>(
+      "CloseSessionResult", serialized);
 }
 
 Location::Location() { uri_ = std::make_shared<arrow::util::Uri>(); }
@@ -935,18 +840,8 @@ arrow::Result<std::string> FlightEndpoint::SerializeToString() const {
 }
 
 arrow::Result<FlightEndpoint> FlightEndpoint::Deserialize(std::string_view serialized) {
-  pb::FlightEndpoint pb_flight_endpoint;
-  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
-    return Status::Invalid("Serialized FlightEndpoint size should not exceed 2 GiB");
-  }
-  google::protobuf::io::ArrayInputStream input(serialized.data(),
-                                               static_cast<int>(serialized.size()));
-  if (!pb_flight_endpoint.ParseFromZeroCopyStream(&input)) {
-    return Status::Invalid("Not a valid FlightEndpoint");
-  }
-  FlightEndpoint out;
-  RETURN_NOT_OK(internal::FromProto(pb_flight_endpoint, &out));
-  return out;
+  return DeserializeProtoString<pb::FlightEndpoint, FlightEndpoint>("FlightEndpoint",
+                                                                    serialized);
 }
 
 std::string RenewFlightEndpointRequest::ToString() const {
@@ -972,19 +867,9 @@ arrow::Result<std::string> RenewFlightEndpointRequest::SerializeToString() const
 
 arrow::Result<RenewFlightEndpointRequest> RenewFlightEndpointRequest::Deserialize(
     std::string_view serialized) {
-  pb::RenewFlightEndpointRequest pb_request;
-  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
-    return Status::Invalid(
-        "Serialized RenewFlightEndpointRequest size should not exceed 2 GiB");
-  }
-  google::protobuf::io::ArrayInputStream input(serialized.data(),
-                                               static_cast<int>(serialized.size()));
-  if (!pb_request.ParseFromZeroCopyStream(&input)) {
-    return Status::Invalid("Not a valid RenewFlightEndpointRequest");
-  }
-  RenewFlightEndpointRequest out;
-  RETURN_NOT_OK(internal::FromProto(pb_request, &out));
-  return out;
+  return DeserializeProtoString<pb::RenewFlightEndpointRequest,
+                                RenewFlightEndpointRequest>("RenewFlightEndpointRequest",
+                                                            serialized);
 }
 
 std::string ActionType::ToString() const {
@@ -1034,18 +919,7 @@ arrow::Result<std::string> ActionType::SerializeToString() const {
 }
 
 arrow::Result<ActionType> ActionType::Deserialize(std::string_view serialized) {
-  pb::ActionType pb_action_type;
-  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
-    return Status::Invalid("Serialized ActionType size should not exceed 2 GiB");
-  }
-  google::protobuf::io::ArrayInputStream input(serialized.data(),
-                                               static_cast<int>(serialized.size()));
-  if (!pb_action_type.ParseFromZeroCopyStream(&input)) {
-    return Status::Invalid("Not a valid ActionType");
-  }
-  ActionType out;
-  RETURN_NOT_OK(internal::FromProto(pb_action_type, &out));
-  return out;
+  return DeserializeProtoString<pb::ActionType, ActionType>("ActionType", serialized);
 }
 
 std::string Criteria::ToString() const {
@@ -1068,18 +942,7 @@ arrow::Result<std::string> Criteria::SerializeToString() const {
 }
 
 arrow::Result<Criteria> Criteria::Deserialize(std::string_view serialized) {
-  pb::Criteria pb_criteria;
-  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
-    return Status::Invalid("Serialized Criteria size should not exceed 2 GiB");
-  }
-  google::protobuf::io::ArrayInputStream input(serialized.data(),
-                                               static_cast<int>(serialized.size()));
-  if (!pb_criteria.ParseFromZeroCopyStream(&input)) {
-    return Status::Invalid("Not a valid Criteria");
-  }
-  Criteria out;
-  RETURN_NOT_OK(internal::FromProto(pb_criteria, &out));
-  return out;
+  return DeserializeProtoString<pb::Criteria, Criteria>("Criteria", serialized);
 }
 
 std::string Action::ToString() const {
@@ -1112,18 +975,7 @@ arrow::Result<std::string> Action::SerializeToString() const {
 }
 
 arrow::Result<Action> Action::Deserialize(std::string_view serialized) {
-  pb::Action pb_action;
-  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
-    return Status::Invalid("Serialized Action size should not exceed 2 GiB");
-  }
-  google::protobuf::io::ArrayInputStream input(serialized.data(),
-                                               static_cast<int>(serialized.size()));
-  if (!pb_action.ParseFromZeroCopyStream(&input)) {
-    return Status::Invalid("Not a valid Action");
-  }
-  Action out;
-  RETURN_NOT_OK(internal::FromProto(pb_action, &out));
-  return out;
+  return DeserializeProtoString<pb::Action, Action>("Action", serialized);
 }
 
 std::string Result::ToString() const {
@@ -1153,18 +1005,7 @@ arrow::Result<std::string> Result::SerializeToString() const {
 }
 
 arrow::Result<Result> Result::Deserialize(std::string_view serialized) {
-  pb::Result pb_result;
-  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
-    return Status::Invalid("Serialized Result size should not exceed 2 GiB");
-  }
-  google::protobuf::io::ArrayInputStream input(serialized.data(),
-                                               static_cast<int>(serialized.size()));
-  if (!pb_result.ParseFromZeroCopyStream(&input)) {
-    return Status::Invalid("Not a valid Result");
-  }
-  Result out;
-  RETURN_NOT_OK(internal::FromProto(pb_result, &out));
-  return out;
+  return DeserializeProtoString<pb::Result, Result>("Result", serialized);
 }
 
 std::string CancelFlightInfoResult::ToString() const {
@@ -1191,19 +1032,8 @@ arrow::Result<std::string> CancelFlightInfoResult::SerializeToString() const {
 
 arrow::Result<CancelFlightInfoResult> CancelFlightInfoResult::Deserialize(
     std::string_view serialized) {
-  pb::CancelFlightInfoResult pb_result;
-  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
-    return Status::Invalid(
-        "Serialized ActionCancelFlightInfoResult size should not exceed 2 GiB");
-  }
-  google::protobuf::io::ArrayInputStream input(serialized.data(),
-                                               static_cast<int>(serialized.size()));
-  if (!pb_result.ParseFromZeroCopyStream(&input)) {
-    return Status::Invalid("Not a valid CancelFlightInfoResult");
-  }
-  CancelFlightInfoResult out;
-  RETURN_NOT_OK(internal::FromProto(pb_result, &out));
-  return out;
+  return DeserializeProtoString<pb::CancelFlightInfoResult, CancelFlightInfoResult>(
+      "CancelFlightInfoResult", serialized);
 }
 
 std::ostream& operator<<(std::ostream& os, CancelStatus status) {
@@ -1321,18 +1151,7 @@ bool BasicAuth::Equals(const BasicAuth& other) const {
 }
 
 arrow::Result<BasicAuth> BasicAuth::Deserialize(std::string_view serialized) {
-  pb::BasicAuth pb_result;
-  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
-    return Status::Invalid("Serialized BasicAuth size should not exceed 2 GiB");
-  }
-  google::protobuf::io::ArrayInputStream input(serialized.data(),
-                                               static_cast<int>(serialized.size()));
-  if (!pb_result.ParseFromZeroCopyStream(&input)) {
-    return Status::Invalid("Not a valid BasicAuth");
-  }
-  BasicAuth out;
-  RETURN_NOT_OK(internal::FromProto(pb_result, &out));
-  return out;
+  return DeserializeProtoString<pb::BasicAuth, BasicAuth>("BasicAuth", serialized);
 }
 
 arrow::Result<std::string> BasicAuth::SerializeToString() const {
