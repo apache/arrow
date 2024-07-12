@@ -326,6 +326,23 @@ class PrepareTest < Test::Unit::TestCase
       expected_changes << {hunks: hunks, path: path}
     end
 
+    Dir.glob("java/**/pom.xml") do |path|
+      version = "<tag>#{@snapshot_version}</tag>"
+      lines = File.readlines(path, chomp: true)
+      target_lines = lines.grep(/#{Regexp.escape(version)}/)
+      hunks = []
+      target_lines.each do |line|
+        new_line = line.gsub("main") do
+          "apache-arrow-#{@release_version}"
+        end
+        hunks << [
+          "-#{line}",
+          "+#{new_line}",
+        ]
+      end
+      expected_changes << {hunks: hunks, path: path}
+    end
+
     Dir.glob("ruby/**/version.rb") do |path|
       version = "  VERSION = \"#{@snapshot_version}\""
       new_version = "  VERSION = \"#{@release_version}\""
