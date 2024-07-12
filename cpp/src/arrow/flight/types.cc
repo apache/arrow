@@ -43,13 +43,23 @@ namespace arrow {
 namespace flight {
 namespace {
 
+ARROW_NOINLINE
+Status ProtoStringInputTooBig(const char* name) {
+  return Status::Invalid("Serialized ", name, " size should not exceed 2 GiB");
+}
+
+ARROW_NOINLINE
+Status InvalidProtoString(const char* name) {
+  return Status::Invalid("Not a valid ", name);
+}
+
 template <class PBType>
 Status ParseFromString(const char* name, std::string_view serialized, PBType* out) {
   if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
-    return Status::Invalid("Serialized ", name, " size should not exceed 2 GiB");
+    return ProtoStringInputTooBig(name);
   }
   if (!out->ParseFromArray(serialized.data(), static_cast<int>(serialized.size()))) {
-    return Status::Invalid("Not a valid ", name);
+    return InvalidProtoString(name);
   }
   return Status::OK();
 }
