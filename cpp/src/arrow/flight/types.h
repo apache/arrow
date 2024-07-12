@@ -210,7 +210,8 @@ struct ARROW_FLIGHT_EXPORT Criteria : public internal::BaseType<Criteria> {
   std::string expression;
 
   Criteria() = default;
-  explicit Criteria(std::string expression) : expression(std::move(expression)) {}
+  Criteria(std::string expression)  // NOLINT runtime/explicit
+      : expression(std::move(expression)) {}
 
   std::string ToString() const;
   bool Equals(const Criteria& other) const;
@@ -249,7 +250,8 @@ struct ARROW_FLIGHT_EXPORT Result : public internal::BaseType<Result> {
   std::shared_ptr<Buffer> body;
 
   Result() = default;
-  explicit Result(std::shared_ptr<Buffer> body) : body(std::move(body)) {}
+  Result(std::shared_ptr<Buffer> body)  // NOLINT runtime/explicit
+      : body(std::move(body)) {}
 
   std::string ToString() const;
   bool Equals(const Result& other) const;
@@ -283,7 +285,8 @@ struct ARROW_FLIGHT_EXPORT CancelFlightInfoResult
   CancelStatus status = CancelStatus::kUnspecified;
 
   CancelFlightInfoResult() = default;
-  explicit CancelFlightInfoResult(CancelStatus status) : status(status) {}
+  CancelFlightInfoResult(CancelStatus status)  // NOLINT runtime/explicit
+      : status(status) {}
 
   std::string ToString() const;
   bool Equals(const CancelFlightInfoResult& other) const;
@@ -374,7 +377,8 @@ struct ARROW_FLIGHT_EXPORT Ticket : public internal::BaseType<Ticket> {
   std::string ticket;
 
   Ticket() = default;
-  explicit Ticket(std::string ticket) : ticket(std::move(ticket)) {}
+  Ticket(std::string ticket)  // NOLINT runtime/explicit
+      : ticket(std::move(ticket)) {}
 
   std::string ToString() const;
   bool Equals(const Ticket& other) const;
@@ -718,7 +722,7 @@ struct ARROW_FLIGHT_EXPORT CancelFlightInfoRequest
   std::unique_ptr<FlightInfo> info;
 
   CancelFlightInfoRequest() = default;
-  explicit CancelFlightInfoRequest(std::unique_ptr<FlightInfo> info)
+  CancelFlightInfoRequest(std::unique_ptr<FlightInfo> info)  // NOLINT runtime/explicit
       : info(std::move(info)) {}
 
   std::string ToString() const;
@@ -816,7 +820,7 @@ struct ARROW_FLIGHT_EXPORT SetSessionOptionsResult
   std::map<std::string, Error> errors;
 
   SetSessionOptionsResult() = default;
-  explicit SetSessionOptionsResult(std::map<std::string, Error> errors)
+  SetSessionOptionsResult(std::map<std::string, Error> errors)  // NOLINT runtime/explicit
       : errors(std::move(errors)) {}
 
   std::string ToString() const;
@@ -850,7 +854,7 @@ struct ARROW_FLIGHT_EXPORT GetSessionOptionsResult
   std::map<std::string, SessionOptionValue> session_options;
 
   GetSessionOptionsResult() = default;
-  explicit GetSessionOptionsResult(
+  GetSessionOptionsResult(  // NOLINT runtime/explicit
       std::map<std::string, SessionOptionValue> session_options)
       : session_options(std::move(session_options)) {}
 
