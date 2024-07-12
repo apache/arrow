@@ -31,6 +31,7 @@
 #include <variant>
 #include <vector>
 
+#include "arrow/buffer.h"
 #include "arrow/flight/type_fwd.h"
 #include "arrow/flight/visibility.h"
 #include "arrow/ipc/options.h"
@@ -179,6 +180,12 @@ struct BaseType {
     std::string out;
     ARROW_RETURN_NOT_OK(self().DoSerializeToString(&out));
     return out;
+  }
+
+  inline arrow::Result<std::shared_ptr<Buffer>> SerializeToBuffer() const {
+    std::string out;
+    ARROW_RETURN_NOT_OK(self().DoSerializeToString(&out));
+    return Buffer::FromString(std::move(out));
   }
 };
 
