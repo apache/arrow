@@ -140,13 +140,10 @@ class BaseBinaryArray : public FlatArray {
  protected:
   // For subclasses
   BaseBinaryArray() = default;
-  explicit BaseBinaryArray(const std::shared_ptr<ArrayData>& data,
-                           const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR)
-      : FlatArray(data, statistics) {}
 
   // Protected method for constructors
   void SetData(const std::shared_ptr<ArrayData>& data) override {
-    this->Array::SetData(data);
+    Array::SetData(data);
     raw_value_offsets_ = data->GetValuesSafe<offset_type>(1, /*offset=*/0);
     raw_data_ = data->GetValuesSafe<uint8_t>(2, /*offset=*/0);
   }
@@ -159,8 +156,9 @@ class BaseBinaryArray : public FlatArray {
 class ARROW_EXPORT BinaryArray : public BaseBinaryArray<BinaryType> {
  public:
   explicit BinaryArray(const std::shared_ptr<ArrayData>& data,
-                       const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR)
-      : BaseBinaryArray(data, statistics) {}
+                       const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR) {
+    Init(data, statistics);
+  }
 
   BinaryArray(int64_t length, const std::shared_ptr<Buffer>& value_offsets,
               const std::shared_ptr<Buffer>& data,
@@ -180,8 +178,9 @@ class ARROW_EXPORT StringArray : public BinaryArray {
   using TypeClass = StringType;
 
   explicit StringArray(const std::shared_ptr<ArrayData>& data,
-                       const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR)
-      : BinaryArray(data, statistics) {}
+                       const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR) {
+    Init(data, statistics);
+  }
 
   StringArray(int64_t length, const std::shared_ptr<Buffer>& value_offsets,
               const std::shared_ptr<Buffer>& data,
@@ -200,9 +199,11 @@ class ARROW_EXPORT StringArray : public BinaryArray {
 /// Concrete Array class for large variable-size binary data
 class ARROW_EXPORT LargeBinaryArray : public BaseBinaryArray<LargeBinaryType> {
  public:
-  explicit LargeBinaryArray(const std::shared_ptr<ArrayData>& data,
-                            const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR)
-      : BaseBinaryArray(data, statistics) {}
+  explicit LargeBinaryArray(
+      const std::shared_ptr<ArrayData>& data,
+      const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR) {
+    Init(data, statistics);
+  }
 
   LargeBinaryArray(int64_t length, const std::shared_ptr<Buffer>& value_offsets,
                    const std::shared_ptr<Buffer>& data,
@@ -220,9 +221,11 @@ class ARROW_EXPORT LargeStringArray : public LargeBinaryArray {
  public:
   using TypeClass = LargeStringType;
 
-  explicit LargeStringArray(const std::shared_ptr<ArrayData>& data,
-                            const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR)
-      : LargeBinaryArray(data, statistics) {}
+  explicit LargeStringArray(
+      const std::shared_ptr<ArrayData>& data,
+      const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR) {
+    Init(data, statistics);
+  }
 
   LargeStringArray(int64_t length, const std::shared_ptr<Buffer>& value_offsets,
                    const std::shared_ptr<Buffer>& data,
@@ -250,8 +253,9 @@ class ARROW_EXPORT BinaryViewArray : public FlatArray {
   using c_type = BinaryViewType::c_type;
 
   explicit BinaryViewArray(const std::shared_ptr<ArrayData>& data,
-                           const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR)
-      : FlatArray(data, statistics) {}
+                           const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR) {
+    Init(data, statistics);
+  }
 
   BinaryViewArray(std::shared_ptr<DataType> type, int64_t length,
                   std::shared_ptr<Buffer> views, BufferVector data_buffers,
@@ -273,7 +277,8 @@ class ARROW_EXPORT BinaryViewArray : public FlatArray {
   IteratorType end() const { return IteratorType(*this, length()); }
 
  protected:
-  using FlatArray::FlatArray;
+  // This constructor defers Init() to a derived array class
+  BinaryViewArray() = default;
 
   void ValidateData(const std::shared_ptr<ArrayData>& data) override;
 
@@ -292,8 +297,9 @@ class ARROW_EXPORT StringViewArray : public BinaryViewArray {
   using TypeClass = StringViewType;
 
   explicit StringViewArray(const std::shared_ptr<ArrayData>& data,
-                           const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR)
-      : BinaryViewArray(data, statistics) {}
+                           const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR) {
+    Init(data, statistics);
+  }
 
   using BinaryViewArray::BinaryViewArray;
 
@@ -317,8 +323,9 @@ class ARROW_EXPORT FixedSizeBinaryArray : public PrimitiveArray {
 
   explicit FixedSizeBinaryArray(
       const std::shared_ptr<ArrayData>& data,
-      const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR)
-      : PrimitiveArray(data, statistics) {}
+      const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR) {
+    Init(data, statistics);
+  }
 
   FixedSizeBinaryArray(const std::shared_ptr<DataType>& type, int64_t length,
                        const std::shared_ptr<Buffer>& data,
@@ -347,8 +354,8 @@ class ARROW_EXPORT FixedSizeBinaryArray : public PrimitiveArray {
   IteratorType end() const { return IteratorType(*this, length()); }
 
  protected:
-  void SetData(const std::shared_ptr<ArrayData>& data) {
-    this->PrimitiveArray::SetData(data);
+  void SetData(const std::shared_ptr<ArrayData>& data) override {
+    PrimitiveArray::SetData(data);
     byte_width_ =
         internal::checked_cast<const FixedSizeBinaryType&>(*type()).byte_width();
   }

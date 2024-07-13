@@ -917,7 +917,7 @@ void FixedSizeListArray::ValidateData(const std::shared_ptr<ArrayData>& data) {
 }
 
 void FixedSizeListArray::SetData(const std::shared_ptr<ArrayData>& data) {
-  this->Array::SetData(data);
+  Array::SetData(data);
 
   ARROW_CHECK_EQ(list_type()->value_type()->id(), data->child_data[0]->type->id());
   DCHECK(list_type()->value_type()->Equals(data->child_data[0]->type));
@@ -1160,7 +1160,7 @@ Result<std::shared_ptr<Array>> StructArray::GetFlattenedField(int index,
 // UnionArray
 
 void UnionArray::SetData(const std::shared_ptr<ArrayData>& data) {
-  this->Array::SetData(data);
+  Array::SetData(data);
 
   union_type_ = checked_cast<const UnionType*>(data_->type.get());
 
@@ -1170,7 +1170,7 @@ void UnionArray::SetData(const std::shared_ptr<ArrayData>& data) {
 }
 
 void SparseUnionArray::SetData(const std::shared_ptr<ArrayData>& data) {
-  this->UnionArray::SetData(data);
+  UnionArray::SetData(data);
   ARROW_CHECK_EQ(data_->type->id(), Type::SPARSE_UNION);
   ARROW_CHECK_EQ(data_->buffers.size(), 2);
 
@@ -1179,7 +1179,7 @@ void SparseUnionArray::SetData(const std::shared_ptr<ArrayData>& data) {
 }
 
 void DenseUnionArray::SetData(const std::shared_ptr<ArrayData>& data) {
-  this->UnionArray::SetData(data);
+  UnionArray::SetData(data);
 
   ARROW_CHECK_EQ(data_->type->id(), Type::DENSE_UNION);
   ARROW_CHECK_EQ(data_->buffers.size(), 3);

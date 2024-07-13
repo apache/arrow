@@ -80,8 +80,9 @@ int64_t DictionaryArray::GetValueIndex(int64_t i) const {
 
 DictionaryArray::DictionaryArray(const std::shared_ptr<ArrayData>& data,
                                  const std::shared_ptr<ArrayStatistics>& statistics)
-    : Array(data, statistics),
-      dict_type_(checked_cast<const DictionaryType*>(data->type.get())) {}
+    : dict_type_(checked_cast<const DictionaryType*>(data->type.get())) {
+  Init(data, statistics);
+}
 
 void DictionaryArray::ValidateData(const std::shared_ptr<ArrayData>& data) {
   ARROW_CHECK_EQ(data->type->id(), Type::DICTIONARY);

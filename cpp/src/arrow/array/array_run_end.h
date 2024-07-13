@@ -55,8 +55,9 @@ class ARROW_EXPORT RunEndEncodedArray : public Array {
 
   explicit RunEndEncodedArray(
       const std::shared_ptr<ArrayData>& data,
-      const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR)
-      : Array(data, statistics) {}
+      const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR) {
+    Init(data, statistics);
+  }
 
   /// \brief Construct a RunEndEncodedArray from all parameters
   ///
