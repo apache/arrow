@@ -162,18 +162,34 @@ struct ARROW_FLIGHT_EXPORT CertKeyPair {
 
 namespace internal {
 
+template <typename T>
+struct remove_unique_ptr {
+  using type = T;
+};
+
+template <typename T>
+struct remove_unique_ptr<std::unique_ptr<T>> {
+  using type = T;
+};
+
 // Base CRTP type
 template <class T>
 struct BaseType {
  protected:
-  const T& self() const { return static_cast<const T&>(*this); }
-  T& self() { return static_cast<T&>(*this); }
+  using SelfT = typename remove_unique_ptr<T>::type;
+
+  const SelfT& self() const { return static_cast<const SelfT&>(*this); }
+  SelfT& self() { return static_cast<SelfT&>(*this); }
 
  public:
   BaseType() = default;
 
-  friend bool operator==(const T& left, const T& right) { return left.Equals(right); }
-  friend bool operator!=(const T& left, const T& right) { return !left.Equals(right); }
+  friend bool operator==(const SelfT& left, const SelfT& right) {
+    return left.Equals(right);
+  }
+  friend bool operator!=(const SelfT& left, const SelfT& right) {
+    return !left.Equals(right);
+  }
 
   /// \brief Serialize this message to its wire-format representation.
   inline arrow::Result<std::string> SerializeToString() const {
@@ -589,7 +605,8 @@ struct ARROW_FLIGHT_EXPORT SchemaResult : public internal::BaseType<SchemaResult
 
 /// \brief The access coordinates for retrieval of a dataset, returned by
 /// GetFlightInfo
-class ARROW_FLIGHT_EXPORT FlightInfo : public internal::BaseType<FlightInfo> {
+class ARROW_FLIGHT_EXPORT FlightInfo
+    : public internal::BaseType<std::unique_ptr<FlightInfo>> {
  public:
   struct Data {
     std::string schema;
@@ -668,7 +685,8 @@ class ARROW_FLIGHT_EXPORT FlightInfo : public internal::BaseType<FlightInfo> {
 };
 
 /// \brief The information to process a long-running query.
-class ARROW_FLIGHT_EXPORT PollInfo : public internal::BaseType<PollInfo> {
+class ARROW_FLIGHT_EXPORT PollInfo
+    : public internal::BaseType<std::unique_ptr<PollInfo>> {
  public:
   /// The currently available results so far.
   std::unique_ptr<FlightInfo> info = NULLPTR;

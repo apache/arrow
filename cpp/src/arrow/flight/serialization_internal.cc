@@ -268,6 +268,13 @@ Status FromProto(const pb::FlightInfo& pb_info, FlightInfo::Data* info) {
   return Status::OK();
 }
 
+Status FromProto(const pb::FlightInfo& pb_info, std::unique_ptr<FlightInfo>* info) {
+  FlightInfo::Data info_data;
+  RETURN_NOT_OK(FromProto(pb_info, &info_data));
+  *info = std::make_unique<FlightInfo>(std::move(info_data));
+  return Status::OK();
+}
+
 Status FromProto(const pb::BasicAuth& pb_basic_auth, BasicAuth* basic_auth) {
   basic_auth->password = pb_basic_auth.password();
   basic_auth->username = pb_basic_auth.username();
@@ -337,6 +344,13 @@ Status FromProto(const pb::PollInfo& pb_info, PollInfo* info) {
   } else {
     info->expiration_time = std::nullopt;
   }
+  return Status::OK();
+}
+
+Status FromProto(const pb::PollInfo& pb_info, std::unique_ptr<PollInfo>* info) {
+  PollInfo poll_info;
+  RETURN_NOT_OK(FromProto(pb_info, &poll_info));
+  *info = std::make_unique<PollInfo>(std::move(poll_info));
   return Status::OK();
 }
 
