@@ -198,6 +198,12 @@ struct BaseType {
     return out;
   }
 
+  inline static arrow::Result<T> Deserialize(std::string_view serialized) {
+    T out;
+    ARROW_RETURN_NOT_OK(SelfT::DoDeserialize(serialized, &out));
+    return out;
+  }
+
   inline arrow::Result<std::shared_ptr<Buffer>> SerializeToBuffer() const {
     std::string out;
     ARROW_RETURN_NOT_OK(self().DoSerializeToString(&out));
@@ -227,7 +233,7 @@ struct ARROW_FLIGHT_EXPORT ActionType : public internal::BaseType<ActionType> {
   arrow::Status DoSerializeToString(std::string* out) const;
 
   /// \brief Deserialize this message from its wire-format representation.
-  static arrow::Result<ActionType> Deserialize(std::string_view serialized);
+  static arrow::Status DoDeserialize(std::string_view serialized, ActionType* out);
 
   static const ActionType kCancelFlightInfo;
   static const ActionType kRenewFlightEndpoint;
@@ -252,7 +258,7 @@ struct ARROW_FLIGHT_EXPORT Criteria : public internal::BaseType<Criteria> {
   arrow::Status DoSerializeToString(std::string* out) const;
 
   /// \brief Deserialize this message from its wire-format representation.
-  static arrow::Result<Criteria> Deserialize(std::string_view serialized);
+  static arrow::Status DoDeserialize(std::string_view serialized, Criteria* out);
 };
 
 /// \brief An action to perform with the DoAction RPC
@@ -274,7 +280,7 @@ struct ARROW_FLIGHT_EXPORT Action : public internal::BaseType<Action> {
   arrow::Status DoSerializeToString(std::string* out) const;
 
   /// \brief Deserialize this message from its wire-format representation.
-  static arrow::Result<Action> Deserialize(std::string_view serialized);
+  static arrow::Status DoDeserialize(std::string_view serialized, Action* out);
 };
 
 /// \brief Opaque result returned after executing an action
@@ -292,7 +298,7 @@ struct ARROW_FLIGHT_EXPORT Result : public internal::BaseType<Result> {
   arrow::Status DoSerializeToString(std::string* out) const;
 
   /// \brief Deserialize this message from its wire-format representation.
-  static arrow::Result<Result> Deserialize(std::string_view serialized);
+  static arrow::Status DoDeserialize(std::string_view serialized, Result* out);
 };
 
 enum class CancelStatus {
@@ -327,7 +333,8 @@ struct ARROW_FLIGHT_EXPORT CancelFlightInfoResult
   arrow::Status DoSerializeToString(std::string* out) const;
 
   /// \brief Deserialize this message from its wire-format representation.
-  static arrow::Result<CancelFlightInfoResult> Deserialize(std::string_view serialized);
+  static arrow::Status DoDeserialize(std::string_view serialized,
+                                     CancelFlightInfoResult* out);
 };
 
 ARROW_FLIGHT_EXPORT
@@ -345,10 +352,11 @@ struct ARROW_FLIGHT_EXPORT BasicAuth : public internal::BaseType<BasicAuth> {
   std::string ToString() const;
   bool Equals(const BasicAuth& other) const;
 
-  /// \brief Deserialize this message from its wire-format representation.
-  static arrow::Result<BasicAuth> Deserialize(std::string_view serialized);
   /// \brief Serialize this message to its wire-format representation.
   arrow::Status DoSerializeToString(std::string* out) const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  static arrow::Status DoDeserialize(std::string_view serialized, BasicAuth* out);
 };
 
 /// \brief A request to retrieve or generate a dataset
@@ -391,7 +399,7 @@ struct ARROW_FLIGHT_EXPORT FlightDescriptor
   ///
   /// Useful when interoperating with non-Flight systems (e.g. REST
   /// services) that may want to return Flight types.
-  static arrow::Result<FlightDescriptor> Deserialize(std::string_view serialized);
+  static arrow::Status DoDeserialize(std::string_view serialized, FlightDescriptor* out);
 
   // Convenience factory functions
 
@@ -426,7 +434,7 @@ struct ARROW_FLIGHT_EXPORT Ticket : public internal::BaseType<Ticket> {
   ///
   /// Useful when interoperating with non-Flight systems (e.g. REST
   /// services) that may want to return Flight types.
-  static arrow::Result<Ticket> Deserialize(std::string_view serialized);
+  static arrow::Status DoDeserialize(std::string_view serialized, Ticket* out);
 };
 
 class FlightClient;
@@ -530,7 +538,7 @@ struct ARROW_FLIGHT_EXPORT FlightEndpoint : public internal::BaseType<FlightEndp
   arrow::Status DoSerializeToString(std::string* out) const;
 
   /// \brief Deserialize this message from its wire-format representation.
-  static arrow::Result<FlightEndpoint> Deserialize(std::string_view serialized);
+  static arrow::Status DoDeserialize(std::string_view serialized, FlightEndpoint* out);
 };
 
 /// \brief The request of the RenewFlightEndpoint action.
@@ -549,8 +557,8 @@ struct ARROW_FLIGHT_EXPORT RenewFlightEndpointRequest
   arrow::Status DoSerializeToString(std::string* out) const;
 
   /// \brief Deserialize this message from its wire-format representation.
-  static arrow::Result<RenewFlightEndpointRequest> Deserialize(
-      std::string_view serialized);
+  static arrow::Status DoDeserialize(std::string_view serialized,
+                                     RenewFlightEndpointRequest* out);
 };
 
 /// \brief Staging data structure for messages about to be put on the wire
@@ -597,7 +605,7 @@ struct ARROW_FLIGHT_EXPORT SchemaResult : public internal::BaseType<SchemaResult
   arrow::Status DoSerializeToString(std::string* out) const;
 
   /// \brief Deserialize this message from its wire-format representation.
-  static arrow::Result<SchemaResult> Deserialize(std::string_view serialized);
+  static arrow::Status DoDeserialize(std::string_view serialized, SchemaResult* out);
 
  private:
   std::string raw_schema_;
@@ -668,8 +676,8 @@ class ARROW_FLIGHT_EXPORT FlightInfo
   ///
   /// Useful when interoperating with non-Flight systems (e.g. REST
   /// services) that may want to return Flight types.
-  static arrow::Result<std::unique_ptr<FlightInfo>> Deserialize(
-      std::string_view serialized);
+  static arrow::Status DoDeserialize(std::string_view serialized,
+                                     std::unique_ptr<FlightInfo>* out);
 
   std::string ToString() const;
 
@@ -740,8 +748,8 @@ class ARROW_FLIGHT_EXPORT PollInfo
   ///
   /// Useful when interoperating with non-Flight systems (e.g. REST
   /// services) that may want to return Flight types.
-  static arrow::Result<std::unique_ptr<PollInfo>> Deserialize(
-      std::string_view serialized);
+  static arrow::Status DoDeserialize(std::string_view serialized,
+                                     std::unique_ptr<PollInfo>* out);
 
   std::string ToString() const;
 
@@ -767,7 +775,8 @@ struct ARROW_FLIGHT_EXPORT CancelFlightInfoRequest
   arrow::Status DoSerializeToString(std::string* out) const;
 
   /// \brief Deserialize this message from its wire-format representation.
-  static arrow::Result<CancelFlightInfoRequest> Deserialize(std::string_view serialized);
+  static arrow::Status DoDeserialize(std::string_view serialized,
+                                     CancelFlightInfoRequest* out);
 };
 
 /// \brief Variant supporting all possible value types for {Set,Get}SessionOptions
@@ -834,7 +843,8 @@ struct ARROW_FLIGHT_EXPORT SetSessionOptionsRequest
   arrow::Status DoSerializeToString(std::string* out) const;
 
   /// \brief Deserialize this message from its wire-format representation.
-  static arrow::Result<SetSessionOptionsRequest> Deserialize(std::string_view serialized);
+  static arrow::Status DoDeserialize(std::string_view serialized,
+                                     SetSessionOptionsRequest* out);
 };
 
 /// \brief The result(s) of setting session option(s).
@@ -865,7 +875,8 @@ struct ARROW_FLIGHT_EXPORT SetSessionOptionsResult
   arrow::Status DoSerializeToString(std::string* out) const;
 
   /// \brief Deserialize this message from its wire-format representation.
-  static arrow::Result<SetSessionOptionsResult> Deserialize(std::string_view serialized);
+  static arrow::Status DoDeserialize(std::string_view serialized,
+                                     SetSessionOptionsResult* out);
 };
 
 /// \brief A request to get current session options.
@@ -880,7 +891,8 @@ struct ARROW_FLIGHT_EXPORT GetSessionOptionsRequest
   arrow::Status DoSerializeToString(std::string* out) const;
 
   /// \brief Deserialize this message from its wire-format representation.
-  static arrow::Result<GetSessionOptionsRequest> Deserialize(std::string_view serialized);
+  static arrow::Status DoDeserialize(std::string_view serialized,
+                                     GetSessionOptionsRequest* out);
 };
 
 /// \brief The current session options.
@@ -900,7 +912,8 @@ struct ARROW_FLIGHT_EXPORT GetSessionOptionsResult
   arrow::Status DoSerializeToString(std::string* out) const;
 
   /// \brief Deserialize this message from its wire-format representation.
-  static arrow::Result<GetSessionOptionsResult> Deserialize(std::string_view serialized);
+  static arrow::Status DoDeserialize(std::string_view serialized,
+                                     GetSessionOptionsResult* out);
 };
 
 /// \brief A request to close the open client session.
@@ -915,7 +928,8 @@ struct ARROW_FLIGHT_EXPORT CloseSessionRequest
   arrow::Status DoSerializeToString(std::string* out) const;
 
   /// \brief Deserialize this message from its wire-format representation.
-  static arrow::Result<CloseSessionRequest> Deserialize(std::string_view serialized);
+  static arrow::Status DoDeserialize(std::string_view serialized,
+                                     CloseSessionRequest* out);
 };
 
 /// \brief The result of attempting to close the client session.
@@ -934,7 +948,8 @@ struct ARROW_FLIGHT_EXPORT CloseSessionResult
   arrow::Status DoSerializeToString(std::string* out) const;
 
   /// \brief Deserialize this message from its wire-format representation.
-  static arrow::Result<CloseSessionResult> Deserialize(std::string_view serialized);
+  static arrow::Status DoDeserialize(std::string_view serialized,
+                                     CloseSessionResult* out);
 };
 
 /// \brief An iterator to FlightInfo instances returned by ListFlights.
