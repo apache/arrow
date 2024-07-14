@@ -2821,8 +2821,8 @@ void DeltaLengthByteArrayEncoder::Put(const T* src, int num_values) {
 }
 
 void DeltaLengthByteArrayEncoder::PutSpaced(const T* src, int num_values,
-                                                   const uint8_t* valid_bits,
-                                                   int64_t valid_bits_offset) {
+                                            const uint8_t* valid_bits,
+                                            int64_t valid_bits_offset) {
   if (valid_bits != NULLPTR) {
     PARQUET_ASSIGN_OR_THROW(auto buffer, ::arrow::AllocateBuffer(num_values * sizeof(T),
                                                                  this->memory_pool()));
