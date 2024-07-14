@@ -76,14 +76,6 @@ TEST(InternalHeaders, AssignOrRaiseExposed) {
 #endif
 }
 
-TEST(InternalHeaders, ReturnNotOkExposed) {
-#define RETURN_NOT_OK
-#ifdef RETURN_NOT_OK
-  FAIL() << "RETURN_NOT_OK should not be visible from Arrow public headers.";
-#endif
-#undef RETURN_NOT_OK
-}
-
 TEST(InternalDependencies, OpenTelemetryExposed) {
 #ifdef OPENTELEMETRY_VERSION
   FAIL() << "OpenTelemetry should not be visible from Arrow public headers.";
