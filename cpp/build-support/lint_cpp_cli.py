@@ -60,8 +60,7 @@ def lint_file(path):
          'Use ARROW_ASSIGN_OR_RAISE in header files', []),
         (lambda x: re.match(_DCHECK_REGEX, x),
          'Use ARROW_DCHECK in header files', _paths('''\
-         arrow/logging.h
-         '''))
+         arrow/util/logging.h'''))
 
     ]
 
