@@ -54,8 +54,6 @@ class Encryptor;
 class OffsetIndexBuilder;
 class WriterProperties;
 
-using KeyValueMetadata = ::arrow::KeyValueMetadata;
-
 class PARQUET_EXPORT LevelEncoder {
  public:
   LevelEncoder();
@@ -189,7 +187,7 @@ class PARQUET_EXPORT ColumnWriter {
   /// \note This will overwrite any existing metadata with the same key.
   /// \throw ParquetException if Close() has been called.
   virtual void AddKeyValueMetadata(
-      const std::shared_ptr<const KeyValueMetadata>& key_value_metadata) = 0;
+      const std::shared_ptr<const ::arrow::KeyValueMetadata>& key_value_metadata) = 0;
 
   /// \brief Reset the ColumnChunk key-value metadata.
   /// \throw ParquetException if Close() has been called.
