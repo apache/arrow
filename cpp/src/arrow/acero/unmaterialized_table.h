@@ -248,8 +248,9 @@ class UnmaterializedSliceBuilder {
     }
     if (slice.num_components) {
       size_t last_index = slice.num_components - 1;
-      ARROW_DCHECK_EQ(slice.components[last_index].end - slice.components[last_index].start,
-                end - start)
+      ARROW_DCHECK_EQ(
+          slice.components[last_index].end - slice.components[last_index].start,
+          end - start)
           << "Slices should be the same length. ";
     }
     slice.components[slice.num_components++] = CompositeEntry{rb.get(), start, end};
