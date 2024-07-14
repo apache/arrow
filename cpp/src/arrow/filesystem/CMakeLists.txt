@@ -62,7 +62,7 @@ if(ARROW_AZURE)
                  Boost::system)
 endif()
 
-if(ARROW_S3)
+if(ARROW_S3 AND NOT ARROW_S3_MODULE)
   add_arrow_test(s3fs_test
                  SOURCES
                  s3fs_test.cc
@@ -115,6 +115,18 @@ if(ARROW_S3)
       target_link_libraries(arrow-filesystem-s3fs-benchmark PRIVATE parquet_shared)
     endif()
   endif()
+elseif(ARROW_S3 AND ARROW_S3_MODULE)
+  add_arrow_test(s3fs_test
+                 SOURCES
+                 s3fs_module_test.cc
+                 s3_test_util.cc
+                 EXTRA_LABELS
+                 filesystem
+                 DEFINITIONS
+                 ARROW_S3_LIBPATH="$<TARGET_FILE:arrow_s3fs>"
+                 EXTRA_LINK_LIBS
+                 Boost::filesystem
+                 Boost::system)
 endif()
 
 if(ARROW_HDFS)
