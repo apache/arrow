@@ -31,6 +31,7 @@ import (
 
 	"github.com/apache/arrow/go/v17/arrow"
 	"github.com/apache/arrow/go/v17/arrow/array"
+	"github.com/apache/arrow/go/v17/arrow/bitutil"
 	"github.com/apache/arrow/go/v17/arrow/ipc"
 	"github.com/apache/arrow/go/v17/arrow/memory"
 )
@@ -619,4 +620,71 @@ func TestIpcEmptyMap(t *testing.T) {
 	assert.True(t, r.Next())
 	assert.Zero(t, r.Record().NumRows())
 	assert.True(t, arrow.TypeEqual(dt, r.Record().Column(0).DataType()))
+}
+
+// GH-41993
+func TestArrowBinaryIPCWriterTruncatedVOffsets(t *testing.T) {
+	var buf bytes.Buffer
+	buf.WriteString("apple")
+	buf.WriteString("pear")
+	buf.WriteString("banana")
+	values := buf.Bytes()
+
+	offsets := []int32{5, 9, 15} // <-- only "pear" and "banana"
+	voffsets := arrow.Int32Traits.CastToBytes(offsets)
+
+	validity := []byte{0}
+	bitutil.SetBit(validity, 0)
+	bitutil.SetBit(validity, 1)
+
+	data := array.NewData(
+		arrow.BinaryTypes.String,
+		2, // <-- only "pear" and "banana"
+		[]*memory.Buffer{
+			memory.NewBufferBytes(validity),
+			memory.NewBufferBytes(voffsets),
+			memory.NewBufferBytes(values),
+		},
+		nil,
+		0,
+		0,
+	)
+
+	str := array.NewStringData(data)
+	require.Equal(t, 2, str.Len())
+	require.Equal(t, "pear", str.Value(0))
+	require.Equal(t, "banana", str.Value(1))
+
+	schema := arrow.NewSchema([]arrow.Field{
+		{
+			Name:     "string",
+			Type:     arrow.BinaryTypes.String,
+			Nullable: true,
+		},
+	}, nil)
+	record := array.NewRecord(schema, []arrow.Array{str}, 2)
+
+	var output bytes.Buffer
+	writer := ipc.NewWriter(&output, ipc.WithSchema(schema))
+
+	require.NoError(t, writer.Write(record))
+	require.NoError(t, writer.Close())
+
+	reader, err := ipc.NewReader(bytes.NewReader(output.Bytes()), ipc.WithSchema(schema))
+	require.NoError(t, err)
+	defer reader.Release()
+
+	require.True(t, reader.Next())
+	require.NoError(t, reader.Err())
+
+	rec := reader.Record()
+	require.EqualValues(t, 1, rec.NumCols())
+	require.EqualValues(t, 2, rec.NumRows())
+
+	col, ok := rec.Column(0).(*array.String)
+	require.True(t, ok)
+	require.Equal(t, "pear", col.Value(0))
+	require.Equal(t, "banana", col.Value(1))
+
+	require.False(t, reader.Next())
 }
