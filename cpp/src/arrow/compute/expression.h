@@ -220,9 +220,15 @@ Result<Expression> ReplaceFieldsWithKnownValues(const KnownFieldValues& known_va
 /// a boolean expression which is guaranteed to evaluate to `true`. For example, this is
 /// used to remove redundant function calls from a filter expression or to replace a
 /// reference to a constant-value field with a literal.
+///
+/// An is_in predicate can be simplified in certain cases if the value set is
+/// sorted and does not contain deuplicates. Passing true for is_in_value_set_sorted
+/// let's us assume that both of these conditions hold for any is_in call found
+/// in the expression.
 ARROW_EXPORT
 Result<Expression> SimplifyWithGuarantee(Expression,
-                                         const Expression& guaranteed_true_predicate);
+                                         const Expression& guaranteed_true_predicate,
+                                         bool is_in_value_set_sorted = false);
 
 /// Replace all named field refs (e.g. "x" or "x.y") with field paths (e.g. [0] or [1,3])
 ///

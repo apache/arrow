@@ -1242,20 +1242,93 @@ struct Inequality {
                             /*insert_implicit_casts=*/false, &exec_context);
   }
 
+  /// Simplify an is_in predicate against this inequality as a guarantee.
+  Result<Expression> SimplifyIsIn(Expression expr) {
+    const auto& guarantee = *this;
+    auto call = expr.call();
+    auto options = checked_pointer_cast<SetLookupOptions>(call->options);
+
+    auto value_set = options->value_set.make_array();
+    if (!value_set) return expr;
+    if (value_set->length() == 0) return literal(false);
+
+    // For now, only simplify when the guarantee is non-nullable.
+    if (guarantee.nullable) return expr;
+
+    auto compare = [&value_set, &guarantee](size_t i) -> Result<Comparison::type> {
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar, value_set->GetScalar(i));
+      // Nulls compare greater than any non-null value.
+      if (!scalar->is_valid) {
+        return Comparison::GREATER;
+      }
+      ARROW_ASSIGN_OR_RAISE(Comparison::type cmp,
+                            Comparison::Execute(scalar, guarantee.bound));
+      return cmp;
+    };
+
+    size_t lo = 0;
+    size_t hi = value_set->length();
+    while (lo + 1 < hi) {
+      size_t mid = (lo + hi) / 2;
+      ARROW_ASSIGN_OR_RAISE(Comparison::type cmp, compare(mid));
+      if (cmp & Comparison::LESS_EQUAL) {
+        lo = mid;
+      } else {
+        hi = mid;
+      }
+    }
+
+    ARROW_ASSIGN_OR_RAISE(Comparison::type cmp, compare(lo));
+    size_t pivot = lo + (cmp == Comparison::LESS ? 1 : 0);
+    bool found = cmp == Comparison::EQUAL;
+
+    std::shared_ptr<Array> simplified_value_set;
+    if (guarantee.cmp == Comparison::EQUAL) {
+      return literal(found);
+    } else if (guarantee.cmp == Comparison::LESS) {
+      simplified_value_set = value_set->Slice(0, pivot);
+    } else if (guarantee.cmp == Comparison::LESS_EQUAL) {
+      simplified_value_set = value_set->Slice(0, pivot + (found ? 1 : 0));
+    } else if (guarantee.cmp == Comparison::GREATER) {
+      simplified_value_set = value_set->Slice(pivot + (found ? 1 : 0));
+    } else if (guarantee.cmp == Comparison::GREATER_EQUAL) {
+      simplified_value_set = value_set->Slice(pivot);
+    } else {
+      // We should never reach here.
+      return expr;
+    }
+
+    if (simplified_value_set->length() == 0) return literal(false);
+    if (simplified_value_set->length() == value_set->length()) return expr;
+
+    Expression::Call simplified_call;
+    simplified_call.function_name = "is_in";
+    simplified_call.arguments = call->arguments;
+    simplified_call.options = std::make_shared<SetLookupOptions>(
+        std::move(simplified_value_set), options->null_matching_behavior);
+    ExecContext exec_context;
+    return BindNonRecursive(std::move(simplified_call),
+                            /*insert_implicit_casts=*/false, &exec_context);
+  }
+
   /// \brief Simplify the given expression given this inequality as a guarantee.
-  Result<Expression> Simplify(Expression expr) {
+  Result<Expression> Simplify(Expression expr, bool is_in_value_set_sorted) {
     const auto& guarantee = *this;
 
     auto call = expr.call();
     if (!call) return expr;
 
+    const auto& lhs = Comparison::StripOrderPreservingCasts(call->arguments[0]);
+    if (!lhs.field_ref()) return expr;
+    if (*lhs.field_ref() != guarantee.target) return expr;
+
     if (call->function_name == "is_valid" || call->function_name == "is_null") {
       if (guarantee.nullable) return expr;
-      const auto& lhs = Comparison::StripOrderPreservingCasts(call->arguments[0]);
-      if (!lhs.field_ref()) return expr;
-      if (*lhs.field_ref() != guarantee.target) return expr;
-
       return call->function_name == "is_valid" ? literal(true) : literal(false);
+    }
+
+    if (call->function_name == "is_in" && is_in_value_set_sorted) {
+      return SimplifyIsIn(expr);
     }
 
     auto cmp = Comparison::Get(expr);
@@ -1264,10 +1337,6 @@ struct Inequality {
     auto rhs = call->arguments[1].literal();
     if (!rhs) return expr;
     if (!rhs->is_scalar()) return expr;
-
-    const auto& lhs = Comparison::StripOrderPreservingCasts(call->arguments[0]);
-    if (!lhs.field_ref()) return expr;
-    if (*lhs.field_ref() != guarantee.target) return expr;
 
     // Whether the RHS of the expression is EQUAL, LESS, or GREATER than the
     // RHS of the guarantee. N.B. Comparison::type is a bitmask
@@ -1346,7 +1415,8 @@ Result<Expression> SimplifyIsValidGuarantee(Expression expr,
 }  // namespace
 
 Result<Expression> SimplifyWithGuarantee(Expression expr,
-                                         const Expression& guaranteed_true_predicate) {
+                                         const Expression& guaranteed_true_predicate,
+                                         bool is_in_value_set_sorted) {
   KnownFieldValues known_values;
   auto conjunction_members = GuaranteeConjunctionMembers(guaranteed_true_predicate);
 
@@ -1366,12 +1436,13 @@ Result<Expression> SimplifyWithGuarantee(Expression expr,
     if (!guarantee.call()) continue;
 
     if (auto inequality = Inequality::ExtractOne(guarantee)) {
-      ARROW_ASSIGN_OR_RAISE(auto simplified,
-                            ModifyExpression(
-                                std::move(expr), [](Expression expr) { return expr; },
-                                [&](Expression expr, ...) -> Result<Expression> {
-                                  return inequality->Simplify(std::move(expr));
-                                }));
+      ARROW_ASSIGN_OR_RAISE(
+        auto simplified,
+        ModifyExpression(
+          std::move(expr), [is_in_value_set_sorted](Expression expr) { return expr; },
+          [&](Expression expr, ...) -> Result<Expression> {
+            return inequality->Simplify(std::move(expr), is_in_value_set_sorted);
+          }));
 
       if (Identical(simplified, expr)) continue;
 
