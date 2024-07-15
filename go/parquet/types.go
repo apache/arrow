@@ -296,6 +296,7 @@ var (
 		DeltaByteArray       Encoding
 		DeltaBinaryPacked    Encoding
 		DeltaLengthByteArray Encoding
+		ByteStreamSplit      Encoding
 	}{
 		Plain:                Encoding(format.Encoding_PLAIN),
 		PlainDict:            Encoding(format.Encoding_PLAIN_DICTIONARY),
@@ -305,6 +306,7 @@ var (
 		DeltaByteArray:       Encoding(format.Encoding_DELTA_BYTE_ARRAY),
 		DeltaBinaryPacked:    Encoding(format.Encoding_DELTA_BINARY_PACKED),
 		DeltaLengthByteArray: Encoding(format.Encoding_DELTA_LENGTH_BYTE_ARRAY),
+		ByteStreamSplit:      Encoding(format.Encoding_BYTE_STREAM_SPLIT),
 	}
 
 	// ColumnOrders contains constants for the Column Ordering fields

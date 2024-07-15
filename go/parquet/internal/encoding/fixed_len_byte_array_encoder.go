@@ -75,6 +75,45 @@ func (PlainFixedLenByteArrayEncoder) Type() parquet.Type {
 	return parquet.Types.FixedLenByteArray
 }
 
+// ByteStreamSplitFixedLenByteArrayEncoder writes the underlying bytes of the FixedLenByteArray
+// into interlaced streams as defined by the BYTE_STREAM_SPLIT encoding
+type ByteStreamSplitFixedLenByteArrayEncoder struct {
+	PlainFixedLenByteArrayEncoder
+	flushBuffer *PooledBufferWriter
+}
+
+func (enc *ByteStreamSplitFixedLenByteArrayEncoder) FlushValues() (Buffer, error) {
+	in, err := enc.PlainFixedLenByteArrayEncoder.FlushValues()
+	if err != nil {
+		return nil, err
+	}
+
+	if enc.flushBuffer == nil {
+		enc.flushBuffer = NewPooledBufferWriter(in.Len())
+	}
+
+	enc.flushBuffer.buf.ResizeNoShrink(in.Len())
+
+	switch enc.typeLen {
+	case 2:
+		encodeByteStreamSplitWidth2(enc.flushBuffer.Bytes(), in.Bytes())
+	case 4:
+		encodeByteStreamSplitWidth4(enc.flushBuffer.Bytes(), in.Bytes())
+	case 8:
+		encodeByteStreamSplitWidth8(enc.flushBuffer.Bytes(), in.Bytes())
+	default:
+		encodeByteStreamSplit(enc.flushBuffer.Bytes(), in.Bytes(), enc.typeLen)
+	}
+
+	return enc.flushBuffer.Finish(), nil
+}
+
+func (enc *ByteStreamSplitFixedLenByteArrayEncoder) Release() {
+	enc.PlainFixedLenByteArrayEncoder.Release()
+	releaseBufferToPool(enc.flushBuffer)
+	enc.flushBuffer = nil
+}
+
 // WriteDict overrides the embedded WriteDict function to call a specialized function
 // for copying out the Fixed length values from the dictionary more efficiently.
 func (enc *DictFixedLenByteArrayEncoder) WriteDict(out []byte) {

@@ -88,6 +88,8 @@ func (int32EncoderTraits) Encoder(e format.Encoding, useDict bool, descr *schema
 	case format.Encoding_DELTA_BINARY_PACKED:
 		return DeltaBitPackInt32Encoder{&deltaBitPackEncoder{
 			encoder: newEncoderBase(e, descr, mem)}}
+	case format.Encoding_BYTE_STREAM_SPLIT:
+		return &ByteStreamSplitInt32Encoder{PlainInt32Encoder: PlainInt32Encoder{encoder: newEncoderBase(e, descr, mem)}}
 	default:
 		panic("unimplemented encoding type")
 	}
@@ -120,6 +122,8 @@ func (int32DecoderTraits) Decoder(e parquet.Encoding, descr *schema.Column, useD
 				decoder: newDecoderBase(format.Encoding(e), descr),
 				mem:     mem,
 			}}
+	case parquet.Encodings.ByteStreamSplit:
+		return &ByteStreamSplitInt32Decoder{decoder: newDecoderBase(format.Encoding(e), descr)}
 	default:
 		panic("unimplemented encoding type")
 	}
@@ -325,6 +329,8 @@ func (int64EncoderTraits) Encoder(e format.Encoding, useDict bool, descr *schema
 	case format.Encoding_DELTA_BINARY_PACKED:
 		return DeltaBitPackInt64Encoder{&deltaBitPackEncoder{
 			encoder: newEncoderBase(e, descr, mem)}}
+	case format.Encoding_BYTE_STREAM_SPLIT:
+		return &ByteStreamSplitInt64Encoder{PlainInt64Encoder: PlainInt64Encoder{encoder: newEncoderBase(e, descr, mem)}}
 	default:
 		panic("unimplemented encoding type")
 	}
@@ -357,6 +363,8 @@ func (int64DecoderTraits) Decoder(e parquet.Encoding, descr *schema.Column, useD
 				decoder: newDecoderBase(format.Encoding(e), descr),
 				mem:     mem,
 			}}
+	case parquet.Encodings.ByteStreamSplit:
+		return &ByteStreamSplitInt64Decoder{decoder: newDecoderBase(format.Encoding(e), descr)}
 	default:
 		panic("unimplemented encoding type")
 	}
@@ -774,6 +782,8 @@ func (float32EncoderTraits) Encoder(e format.Encoding, useDict bool, descr *sche
 	switch e {
 	case format.Encoding_PLAIN:
 		return &PlainFloat32Encoder{encoder: newEncoderBase(e, descr, mem)}
+	case format.Encoding_BYTE_STREAM_SPLIT:
+		return &ByteStreamSplitFloat32Encoder{PlainFloat32Encoder: PlainFloat32Encoder{encoder: newEncoderBase(e, descr, mem)}}
 	default:
 		panic("unimplemented encoding type")
 	}
@@ -797,6 +807,8 @@ func (float32DecoderTraits) Decoder(e parquet.Encoding, descr *schema.Column, us
 	switch e {
 	case parquet.Encodings.Plain:
 		return &PlainFloat32Decoder{decoder: newDecoderBase(format.Encoding(e), descr)}
+	case parquet.Encodings.ByteStreamSplit:
+		return &ByteStreamSplitFloat32Decoder{decoder: newDecoderBase(format.Encoding(e), descr)}
 	default:
 		panic("unimplemented encoding type")
 	}
@@ -999,6 +1011,8 @@ func (float64EncoderTraits) Encoder(e format.Encoding, useDict bool, descr *sche
 	switch e {
 	case format.Encoding_PLAIN:
 		return &PlainFloat64Encoder{encoder: newEncoderBase(e, descr, mem)}
+	case format.Encoding_BYTE_STREAM_SPLIT:
+		return &ByteStreamSplitFloat64Encoder{PlainFloat64Encoder: PlainFloat64Encoder{encoder: newEncoderBase(e, descr, mem)}}
 	default:
 		panic("unimplemented encoding type")
 	}
@@ -1022,6 +1036,8 @@ func (float64DecoderTraits) Decoder(e parquet.Encoding, descr *schema.Column, us
 	switch e {
 	case parquet.Encodings.Plain:
 		return &PlainFloat64Decoder{decoder: newDecoderBase(format.Encoding(e), descr)}
+	case parquet.Encodings.ByteStreamSplit:
+		return &ByteStreamSplitFloat64Decoder{decoder: newDecoderBase(format.Encoding(e), descr)}
 	default:
 		panic("unimplemented encoding type")
 	}
@@ -1492,6 +1508,8 @@ func (fixedLenByteArrayEncoderTraits) Encoder(e format.Encoding, useDict bool, d
 	switch e {
 	case format.Encoding_PLAIN:
 		return &PlainFixedLenByteArrayEncoder{encoder: newEncoderBase(e, descr, mem)}
+	case format.Encoding_BYTE_STREAM_SPLIT:
+		return &ByteStreamSplitFixedLenByteArrayEncoder{PlainFixedLenByteArrayEncoder: PlainFixedLenByteArrayEncoder{encoder: newEncoderBase(e, descr, mem)}}
 	default:
 		panic("unimplemented encoding type")
 	}
@@ -1515,6 +1533,8 @@ func (fixedLenByteArrayDecoderTraits) Decoder(e parquet.Encoding, descr *schema.
 	switch e {
 	case parquet.Encodings.Plain:
 		return &PlainFixedLenByteArrayDecoder{decoder: newDecoderBase(format.Encoding(e), descr)}
+	case parquet.Encodings.ByteStreamSplit:
+		return &ByteStreamSplitFixedLenByteArrayDecoder{decoder: newDecoderBase(format.Encoding(e), descr)}
 	default:
 		panic("unimplemented encoding type")
 	}

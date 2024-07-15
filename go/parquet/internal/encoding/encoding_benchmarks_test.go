@@ -464,3 +464,173 @@ func BenchmarkDecodeDictByteArray(b *testing.B) {
 		dictDec.Decode(out)
 	}
 }
+
+func BenchmarkByteStreamSplitEncodingInt32(b *testing.B) {
+	for sz := MINSIZE; sz < MAXSIZE+1; sz *= 2 {
+		b.Run(fmt.Sprintf("len %d", sz), func(b *testing.B) {
+			values := make([]int32, sz)
+			for idx := range values {
+				values[idx] = 64
+			}
+			encoder := encoding.NewEncoder(parquet.Types.Int32, parquet.Encodings.ByteStreamSplit,
+				false, nil, memory.DefaultAllocator).(encoding.Int32Encoder)
+			b.ResetTimer()
+			b.SetBytes(int64(len(values) * arrow.Int32SizeBytes))
+			for n := 0; n < b.N; n++ {
+				encoder.Put(values)
+				buf, _ := encoder.FlushValues()
+				buf.Release()
+			}
+		})
+	}
+}
+
+func BenchmarkByteStreamSplitDecodingInt32(b *testing.B) {
+	for sz := MINSIZE; sz < MAXSIZE+1; sz *= 2 {
+		b.Run(fmt.Sprintf("len %d", sz), func(b *testing.B) {
+			output := make([]int32, sz)
+			values := make([]int32, sz)
+			for idx := range values {
+				values[idx] = 64
+			}
+			encoder := encoding.NewEncoder(parquet.Types.Int32, parquet.Encodings.ByteStreamSplit,
+				false, nil, memory.DefaultAllocator).(encoding.Int32Encoder)
+			encoder.Put(values)
+			buf, _ := encoder.FlushValues()
+			defer buf.Release()
+
+			decoder := encoding.NewDecoder(parquet.Types.Int32, parquet.Encodings.ByteStreamSplit, nil, memory.DefaultAllocator)
+			b.ResetTimer()
+			b.SetBytes(int64(len(values) * arrow.Int32SizeBytes))
+			for n := 0; n < b.N; n++ {
+				decoder.SetData(sz, buf.Bytes())
+				decoder.(encoding.Int32Decoder).Decode(output)
+			}
+		})
+	}
+}
+
+func BenchmarkByteStreamSplitDecodingInt32Batched(b *testing.B) {
+	const batchSize = 512
+	for sz := MINSIZE; sz < MAXSIZE+1; sz *= 2 {
+		b.Run(fmt.Sprintf("len %d", sz), func(b *testing.B) {
+			output := make([]int32, sz)
+			values := make([]int32, sz)
+			for idx := range values {
+				values[idx] = 64
+			}
+			encoder := encoding.NewEncoder(parquet.Types.Int32, parquet.Encodings.ByteStreamSplit,
+				false, nil, memory.DefaultAllocator).(encoding.Int32Encoder)
+			encoder.Put(values)
+			buf, _ := encoder.FlushValues()
+			defer buf.Release()
+
+			decoder := encoding.NewDecoder(parquet.Types.Int32, parquet.Encodings.ByteStreamSplit, nil, memory.DefaultAllocator)
+			b.ResetTimer()
+			b.SetBytes(int64(len(values) * arrow.Int32SizeBytes))
+			for n := 0; n < b.N; n++ {
+				decoder.SetData(sz, buf.Bytes())
+				for batch := 0; batch*batchSize < sz; batch++ {
+					offset := batch * batchSize
+					decoder.(encoding.Int32Decoder).Decode(output[offset : offset+batchSize])
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkByteStreamSplitEncodingInt64(b *testing.B) {
+	for sz := MINSIZE; sz < MAXSIZE+1; sz *= 2 {
+		b.Run(fmt.Sprintf("len %d", sz), func(b *testing.B) {
+			values := make([]int64, sz)
+			for idx := range values {
+				values[idx] = 64
+			}
+			encoder := encoding.NewEncoder(parquet.Types.Int64, parquet.Encodings.ByteStreamSplit,
+				false, nil, memory.DefaultAllocator).(encoding.Int64Encoder)
+			b.ResetTimer()
+			b.SetBytes(int64(len(values) * arrow.Int64SizeBytes))
+			for n := 0; n < b.N; n++ {
+				encoder.Put(values)
+				buf, _ := encoder.FlushValues()
+				buf.Release()
+			}
+		})
+	}
+}
+
+func BenchmarkByteStreamSplitDecodingInt64(b *testing.B) {
+	for sz := MINSIZE; sz < MAXSIZE+1; sz *= 2 {
+		b.Run(fmt.Sprintf("len %d", sz), func(b *testing.B) {
+			output := make([]int64, sz)
+			values := make([]int64, sz)
+			for idx := range values {
+				values[idx] = 64
+			}
+			encoder := encoding.NewEncoder(parquet.Types.Int64, parquet.Encodings.ByteStreamSplit,
+				false, nil, memory.DefaultAllocator).(encoding.Int64Encoder)
+			encoder.Put(values)
+			buf, _ := encoder.FlushValues()
+			defer buf.Release()
+
+			decoder := encoding.NewDecoder(parquet.Types.Int64, parquet.Encodings.ByteStreamSplit, nil, memory.DefaultAllocator)
+			b.ResetTimer()
+			b.SetBytes(int64(len(values) * arrow.Int64SizeBytes))
+			for n := 0; n < b.N; n++ {
+				decoder.SetData(sz, buf.Bytes())
+				decoder.(encoding.Int64Decoder).Decode(output)
+			}
+		})
+	}
+}
+
+func BenchmarkByteStreamSplitEncodingFixedLenByteArray(b *testing.B) {
+	for sz := MINSIZE; sz < MAXSIZE+1; sz *= 2 {
+		b.Run(fmt.Sprintf("len %d", sz), func(b *testing.B) {
+			values := make([]parquet.FixedLenByteArray, sz)
+			for idx := range values {
+				values[idx] = []byte{0x12, 0x34, 0x56, 0x78}
+			}
+
+			arraySize := len(values[0])
+			col := schema.NewColumn(schema.NewFixedLenByteArrayNode("fixedlenbytearray", parquet.Repetitions.Required, int32(arraySize), -1), 0, 0)
+			encoder := encoding.NewEncoder(parquet.Types.FixedLenByteArray, parquet.Encodings.ByteStreamSplit,
+				false, col, memory.DefaultAllocator).(encoding.FixedLenByteArrayEncoder)
+			b.ResetTimer()
+			b.SetBytes(int64(len(values) * arraySize))
+			for n := 0; n < b.N; n++ {
+				encoder.Put(values)
+				buf, _ := encoder.FlushValues()
+				buf.Release()
+			}
+		})
+	}
+}
+
+func BenchmarkByteStreamSplitDecodingFixedLenByteArray(b *testing.B) {
+	for sz := MINSIZE; sz < MAXSIZE+1; sz *= 2 {
+		b.Run(fmt.Sprintf("len %d", sz), func(b *testing.B) {
+			output := make([]parquet.FixedLenByteArray, sz)
+			values := make([]parquet.FixedLenByteArray, sz)
+			for idx := range values {
+				values[idx] = []byte{0x12, 0x34, 0x56, 0x78}
+			}
+
+			arraySize := len(values[0])
+			col := schema.NewColumn(schema.NewFixedLenByteArrayNode("fixedlenbytearray", parquet.Repetitions.Required, int32(arraySize), -1), 0, 0)
+			encoder := encoding.NewEncoder(parquet.Types.FixedLenByteArray, parquet.Encodings.ByteStreamSplit,
+				false, col, memory.DefaultAllocator).(encoding.FixedLenByteArrayEncoder)
+			encoder.Put(values)
+			buf, _ := encoder.FlushValues()
+			defer buf.Release()
+
+			decoder := encoding.NewDecoder(parquet.Types.FixedLenByteArray, parquet.Encodings.ByteStreamSplit, col, memory.DefaultAllocator)
+			b.ResetTimer()
+			b.SetBytes(int64(len(values) * arraySize))
+			for n := 0; n < b.N; n++ {
+				decoder.SetData(sz, buf.Bytes())
+				decoder.(encoding.FixedLenByteArrayDecoder).Decode(output)
+			}
+		})
+	}
+}

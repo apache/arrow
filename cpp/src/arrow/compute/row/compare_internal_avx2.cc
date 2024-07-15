@@ -180,6 +180,40 @@ uint32_t KeyCompare::NullUpdateColumnToRowImp_avx2(
   }
 }
 
+namespace {
+
+// Intrinsics `_mm256_i32gather_epi32/64` treat the `vindex` as signed integer, and we
+// are using `uint32_t` to represent the offset, in range of [0, 4G), within the row
+// table. When the offset is larger than `0x80000000` (2GB), those intrinsics will treat
+// it as negative offset and gather the data from undesired address. To avoid this issue,
+// we normalize the addresses by translating `base` `0x80000000` higher, and `offset`
+// `0x80000000` lower. This way, the offset is always in range of [-2G, 2G) and those
+// intrinsics are safe.
+
+constexpr uint64_t kTwoGB = 0x80000000ull;
+
+template <uint32_t kScale>
+inline __m256i UnsignedOffsetSafeGather32(int const* base, __m256i offset) {
+  int const* normalized_base = base + kTwoGB / sizeof(int);
+  __m256i normalized_offset =
+      _mm256_sub_epi32(offset, _mm256_set1_epi32(static_cast<int>(kTwoGB / kScale)));
+  return _mm256_i32gather_epi32(normalized_base, normalized_offset,
+                                static_cast<int>(kScale));
+}
+
+template <uint32_t kScale>
+inline __m256i UnsignedOffsetSafeGather64(arrow::util::int64_for_gather_t const* base,
+                                          __m128i offset) {
+  arrow::util::int64_for_gather_t const* normalized_base =
+      base + kTwoGB / sizeof(arrow::util::int64_for_gather_t);
+  __m128i normalized_offset =
+      _mm_sub_epi32(offset, _mm_set1_epi32(static_cast<int>(kTwoGB / kScale)));
+  return _mm256_i32gather_epi64(normalized_base, normalized_offset,
+                                static_cast<int>(kScale));
+}
+
+}  // namespace
+
 template <bool use_selection, class COMPARE8_FN>
 uint32_t KeyCompare::CompareBinaryColumnToRowHelper_avx2(
     uint32_t offset_within_row, uint32_t num_rows_to_compare,
@@ -236,10 +270,8 @@ uint32_t KeyCompare::CompareBinaryColumnToRowHelper_avx2(
         irow_right =
             _mm256_loadu_si256(reinterpret_cast<const __m256i*>(left_to_right_map) + i);
       }
-      // TODO: Need to test if this gather is OK when irow_right is larger than
-      // 0x80000000u.
       __m256i offset_right =
-          _mm256_i32gather_epi32((const int*)offsets_right, irow_right, 4);
+          UnsignedOffsetSafeGather32<4>((int const*)offsets_right, irow_right);
       offset_right = _mm256_add_epi32(offset_right, _mm256_set1_epi32(offset_within_row));
 
       reinterpret_cast<uint64_t*>(match_bytevector)[i] =
@@ -252,40 +284,6 @@ uint32_t KeyCompare::CompareBinaryColumnToRowHelper_avx2(
     return num_rows_to_compare - (num_rows_to_compare % unroll);
   }
 }
-
-namespace {
-
-// Intrinsics `_mm256_i32gather_epi32/64` treat the `vindex` as signed integer, and we
-// are using `uint32_t` to represent the offset, in range of [0, 4G), within the row
-// table. When the offset is larger than `0x80000000` (2GB), those intrinsics will treat
-// it as negative offset and gather the data from undesired address. To avoid this issue,
-// we normalize the addresses by translating `base` `0x80000000` higher, and `offset`
-// `0x80000000` lower. This way, the offset is always in range of [-2G, 2G) and those
-// intrinsics are safe.
-
-constexpr uint64_t kTwoGB = 0x80000000ull;
-
-template <uint32_t kScale>
-inline __m256i UnsignedOffsetSafeGather32(int const* base, __m256i offset) {
-  int const* normalized_base = base + kTwoGB / sizeof(int);
-  __m256i normalized_offset =
-      _mm256_sub_epi32(offset, _mm256_set1_epi32(static_cast<int>(kTwoGB / kScale)));
-  return _mm256_i32gather_epi32(normalized_base, normalized_offset,
-                                static_cast<int>(kScale));
-}
-
-template <uint32_t kScale>
-inline __m256i UnsignedOffsetSafeGather64(arrow::util::int64_for_gather_t const* base,
-                                          __m128i offset) {
-  arrow::util::int64_for_gather_t const* normalized_base =
-      base + kTwoGB / sizeof(arrow::util::int64_for_gather_t);
-  __m128i normalized_offset =
-      _mm_sub_epi32(offset, _mm_set1_epi32(static_cast<int>(kTwoGB / kScale)));
-  return _mm256_i32gather_epi64(normalized_base, normalized_offset,
-                                static_cast<int>(kScale));
-}
-
-}  // namespace
 
 template <int column_width>
 inline uint64_t CompareSelected8_avx2(const uint8_t* left_base, const uint8_t* right_base,

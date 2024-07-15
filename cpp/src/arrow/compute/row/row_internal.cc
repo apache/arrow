@@ -246,13 +246,13 @@ int64_t RowTableImpl::size_rows_varying_length(int64_t num_bytes) const {
 }
 
 void RowTableImpl::UpdateBufferPointers() {
-  buffers_[0] = null_masks_->mutable_data();
+  buffers_[0] = null_masks_.get();
   if (metadata_.is_fixed_length) {
-    buffers_[1] = rows_->mutable_data();
+    buffers_[1] = rows_.get();
     buffers_[2] = nullptr;
   } else {
-    buffers_[1] = offsets_->mutable_data();
-    buffers_[2] = rows_->mutable_data();
+    buffers_[1] = offsets_.get();
+    buffers_[2] = rows_.get();
   }
 }
 
@@ -325,6 +325,7 @@ Status RowTableImpl::AppendSelectionFrom(const RowTableImpl& from,
     // Varying-length rows
     auto from_offsets = reinterpret_cast<const uint32_t*>(from.offsets_->data());
     auto to_offsets = reinterpret_cast<uint32_t*>(offsets_->mutable_data());
+    // TODO(GH-43202): The following two variables are possibly overflowing.
     uint32_t total_length = to_offsets[num_rows_];
     uint32_t total_length_to_append = 0;
     for (uint32_t i = 0; i < num_rows_to_append; ++i) {

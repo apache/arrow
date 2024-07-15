@@ -71,6 +71,14 @@ if(POLICY CMP0135)
   cmake_policy(SET CMP0135 NEW)
 endif()
 
+# https://cmake.org/cmake/help/latest/policy/CMP0170.html
+#
+# CMP0170 is for enforcing dependency populations by users with
+# FETCHCONTENT_FULLY_DISCONNECTED=ON.
+if(POLICY CMP0170)
+  cmake_policy(SET CMP0170 NEW)
+endif()
+
 set(ARROW_VERSION "17.0.0-SNAPSHOT")
 
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSION}")
@@ -681,7 +689,7 @@ endif()
 
 if("${ARROW_TEST_LINKAGE}" STREQUAL "shared")
   if(ARROW_BUILD_TESTS AND NOT ARROW_BUILD_SHARED)
-    message(FATAL_ERROR "If using shared linkage for unit tests, must also \
+    message(FATAL_ERROR "If using ARROW_TEST_LINKAGE=shared, must also \
 pass ARROW_BUILD_SHARED=on")
   endif()
   # Use shared linking for unit tests if it's available

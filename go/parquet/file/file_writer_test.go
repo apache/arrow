@@ -464,3 +464,79 @@ func TestCloseError(t *testing.T) {
 	writer := file.NewParquetWriter(sink, sc)
 	assert.Error(t, writer.Close())
 }
+
+func TestBatchedByteStreamSplitFileRoundtrip(t *testing.T) {
+	input := []parquet.FixedLenByteArray{
+		{1, 2},
+		{3, 4},
+		{5, 6},
+		{7, 8},
+	}
+
+	size := len(input)
+	chunk := size / 2
+
+	props := parquet.NewWriterProperties(
+		parquet.WithEncoding(parquet.Encodings.ByteStreamSplit),
+		parquet.WithDictionaryDefault(false),
+		parquet.WithBatchSize(int64(chunk)),
+		parquet.WithDataPageSize(int64(size)*2),
+	)
+
+	field, err := schema.NewPrimitiveNodeLogical("f16", parquet.Repetitions.Required, schema.Float16LogicalType{}, parquet.Types.FixedLenByteArray, 2, 1)
+	require.NoError(t, err)
+
+	schema, err := schema.NewGroupNode("test", parquet.Repetitions.Required, schema.FieldList{field}, 0)
+	require.NoError(t, err)
+
+	sink := encoding.NewBufferWriter(0, memory.DefaultAllocator)
+	writer := file.NewParquetWriter(sink, schema, file.WithWriterProps(props))
+
+	rgw := writer.AppendRowGroup()
+	cw, err := rgw.NextColumn()
+	require.NoError(t, err)
+
+	f16ColumnWriter, ok := cw.(*file.FixedLenByteArrayColumnChunkWriter)
+	require.True(t, ok)
+
+	nVals, err := f16ColumnWriter.WriteBatch(input[:chunk], nil, nil)
+	require.NoError(t, err)
+	require.EqualValues(t, chunk, nVals)
+
+	nVals, err = f16ColumnWriter.WriteBatch(input[chunk:], nil, nil)
+	require.NoError(t, err)
+	require.EqualValues(t, chunk, nVals)
+
+	require.NoError(t, cw.Close())
+	require.NoError(t, rgw.Close())
+	require.NoError(t, writer.Close())
+
+	rdr, err := file.NewParquetReader(bytes.NewReader(sink.Bytes()))
+	require.NoError(t, err)
+
+	require.Equal(t, 1, rdr.NumRowGroups())
+	require.EqualValues(t, size, rdr.NumRows())
+
+	rgr := rdr.RowGroup(0)
+	cr, err := rgr.Column(0)
+	require.NoError(t, err)
+
+	f16ColumnReader, ok := cr.(*file.FixedLenByteArrayColumnChunkReader)
+	require.True(t, ok)
+
+	output := make([]parquet.FixedLenByteArray, size)
+
+	total, valuesRead, err := f16ColumnReader.ReadBatch(int64(chunk), output[:chunk], nil, nil)
+	require.NoError(t, err)
+	require.EqualValues(t, chunk, total)
+	require.EqualValues(t, chunk, valuesRead)
+
+	total, valuesRead, err = f16ColumnReader.ReadBatch(int64(chunk), output[chunk:], nil, nil)
+	require.NoError(t, err)
+	require.EqualValues(t, chunk, total)
+	require.EqualValues(t, chunk, valuesRead)
+
+	require.Equal(t, input, output)
+
+	require.NoError(t, rdr.Close())
+}

@@ -63,6 +63,7 @@
 %define gcc_package gcc
 %endif
 
+%define use_bundled_nlohmann_json (%{_rhel} == 8)
 %define use_flight (%{_rhel} >= 8 || %{_amzn} >= 2023)
 %define use_gandiva (%{_rhel} >= 8 || %{_amzn} >= 2023)
 %define use_gcs (%{_rhel} >= 8)
@@ -117,7 +118,7 @@ BuildRequires:	glog-devel
 BuildRequires:	grpc-devel
 BuildRequires:	grpc-plugins
 %endif
-%if %{use_gcs}
+%if %{use_gcs} && !%{use_bundled_nlohmann_json}
 BuildRequires:	json-devel
 %endif
 BuildRequires:	libzstd-devel
@@ -194,6 +195,9 @@ cd cpp
   -DCMAKE_BUILD_TYPE=$cpp_build_type \
   -DPARQUET_BUILD_EXECUTABLES=ON \
   -DPARQUET_REQUIRE_ENCRYPTION=ON \
+%if %{use_bundled_nlohmann_json}
+  -Dnlohmann_json_SOURCE=BUNDLED \
+%endif
   -G"Unix Makefiles"
 %arrow_cmake_build
 cd -
@@ -280,7 +284,7 @@ Requires:	%{name}%{so_version}-libs = %{version}-%{release}
 Requires:	brotli-devel
 Requires:	bzip2-devel
 Requires:	curl-devel
-%if %{use_gcs}
+%if %{use_gcs} && !%{use_bundled_nlohmann_json}
 Requires:	json-devel
 %endif
 Requires:	libzstd-devel
