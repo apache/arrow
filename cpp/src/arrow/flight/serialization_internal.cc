@@ -283,8 +283,8 @@ Status FromProto(const pb::BasicAuth& pb_basic_auth, BasicAuth* basic_auth) {
   return Status::OK();
 }
 
-Status FromProto(const pb::SchemaResult& pb_result, std::string* result) {
-  *result = pb_result.schema();
+Status FromProto(const pb::SchemaResult& pb_result, SchemaResult* result) {
+  *result = SchemaResult{pb_result.schema()};
   return Status::OK();
 }
 

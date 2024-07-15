@@ -989,10 +989,8 @@ arrow::Status SchemaResult::SerializeToString(std::string* out) const {
 }
 
 arrow::Status SchemaResult::Deserialize(std::string_view serialized, SchemaResult* out) {
-  pb::SchemaResult pb_schema_result;
-  RETURN_NOT_OK(ParseFromString("SchemaResult", serialized, &pb_schema_result));
-  *out = SchemaResult{pb_schema_result.schema()};
-  return Status::OK();
+  return DeserializeProtoString<pb::SchemaResult, SchemaResult>("SchemaResult",
+                                                                serialized, out);
 }
 
 //------------------------------------------------------------

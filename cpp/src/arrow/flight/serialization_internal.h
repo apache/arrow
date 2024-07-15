@@ -96,7 +96,7 @@ Status FromProto(const pb::PollInfo& pb_info, PollInfo* info);
 Status FromProto(const pb::PollInfo& pb_info, std::unique_ptr<PollInfo>* info);
 Status FromProto(const pb::CancelFlightInfoRequest& pb_request,
                  CancelFlightInfoRequest* request);
-Status FromProto(const pb::SchemaResult& pb_result, std::string* result);
+Status FromProto(const pb::SchemaResult& pb_result, SchemaResult* result);
 Status FromProto(const pb::BasicAuth& pb_basic_auth, BasicAuth* info);
 Status FromProto(const pb::SetSessionOptionsRequest& pb_request,
                  SetSessionOptionsRequest* request);
