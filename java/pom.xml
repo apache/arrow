@@ -41,21 +41,26 @@ under the License.
       <subscribe>dev-subscribe@arrow.apache.org</subscribe>
       <unsubscribe>dev-unsubscribe@arrow.apache.org</unsubscribe>
       <post>dev@arrow.apache.org</post>
-      <archive>https://mail-archives.apache.org/mod_mbox/arrow-dev/</archive>
+      <archive>https://lists.apache.org/list.html?dev@arrow.apache.org</archive>
     </mailingList>
     <mailingList>
       <name>Commits List</name>
       <subscribe>commits-subscribe@arrow.apache.org</subscribe>
       <unsubscribe>commits-unsubscribe@arrow.apache.org</unsubscribe>
       <post>commits@arrow.apache.org</post>
-      <archive>https://mail-archives.apache.org/mod_mbox/arrow-commits/</archive>
+      <archive>https://lists.apache.org/list.html?commits@arrow.apache.org</archive>
     </mailingList>
     <mailingList>
       <name>Issues List</name>
       <subscribe>issues-subscribe@arrow.apache.org</subscribe>
       <unsubscribe>issues-unsubscribe@arrow.apache.org</unsubscribe>
-      <archive>https://mail-archives.apache.org/mod_mbox/arrow-issues/</archive>
+      <archive>https://lists.apache.org/list.html?issues@arrow.apache.org</archive>
     </mailingList>
+    <mailingList>
+      <name>Github List</name>
+      <subscribe>github-subscribe@arrow.apache.org</subscribe>
+      <unsubscribe>github-unsubscribe@arrow.apache.org</unsubscribe>
+      <archive>https://lists.apache.org/list.html?github@arrow.apache.org</archive>
   </mailingLists>
 
   <modules>
