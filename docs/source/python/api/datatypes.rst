@@ -58,6 +58,7 @@ These should be used to create Arrow data types and schemas.
    binary_view
    string_view
    decimal128
+   decimal256
    list_
    large_list
    list_view
@@ -101,6 +102,7 @@ functions above.
    Time64Type
    FixedSizeBinaryType
    Decimal128Type
+   Decimal256Type
    Field
    Schema
    RunEndEncodedType

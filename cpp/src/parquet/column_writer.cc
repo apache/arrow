@@ -303,9 +303,10 @@ class SerializedPageWriter : public PageWriter {
     if (data_encryptor_.get()) {
       UpdateEncryption(encryption::kDictionaryPage);
       PARQUET_THROW_NOT_OK(encryption_buffer_->Resize(
-          data_encryptor_->CiphertextSizeDelta() + output_data_len, false));
-      output_data_len = data_encryptor_->Encrypt(compressed_data->data(), output_data_len,
-                                                 encryption_buffer_->mutable_data());
+          data_encryptor_->CiphertextLength(output_data_len), false));
+      output_data_len =
+          data_encryptor_->Encrypt(compressed_data->span_as<uint8_t>(),
+                                   encryption_buffer_->mutable_span_as<uint8_t>());
       output_data_buffer = encryption_buffer_->data();
     }
 
@@ -395,11 +396,11 @@ class SerializedPageWriter : public PageWriter {
 
     if (data_encryptor_.get()) {
       PARQUET_THROW_NOT_OK(encryption_buffer_->Resize(
-          data_encryptor_->CiphertextSizeDelta() + output_data_len, false));
+          data_encryptor_->CiphertextLength(output_data_len), false));
       UpdateEncryption(encryption::kDataPage);
-      output_data_len = data_encryptor_->Encrypt(compressed_data->data(),
-                                                 static_cast<int32_t>(output_data_len),
-                                                 encryption_buffer_->mutable_data());
+      output_data_len =
+          data_encryptor_->Encrypt(compressed_data->span_as<uint8_t>(),
+                                   encryption_buffer_->mutable_span_as<uint8_t>());
       output_data_buffer = encryption_buffer_->data();
     }
 

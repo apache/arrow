@@ -25,6 +25,7 @@ import (
 	"github.com/apache/arrow/go/v17/arrow/array"
 	"github.com/apache/arrow/go/v17/arrow/memory"
 	"github.com/apache/arrow/go/v17/internal/bitutils"
+	"github.com/apache/arrow/go/v17/internal/utils"
 	"github.com/apache/arrow/go/v17/parquet/internal/encoding"
 	"golang.org/x/xerrors"
 )
@@ -301,15 +302,15 @@ type pathBuilder struct {
 	paths            []pathInfo
 	nullableInParent bool
 
-	refCount int64
+	refCount *atomic.Int64
 }
 
 func (p *pathBuilder) Retain() {
-	atomic.AddInt64(&p.refCount, 1)
+	p.refCount.Add(1)
 }
 
 func (p *pathBuilder) Release() {
-	if atomic.AddInt64(&p.refCount, -1) == 0 {
+	if p.refCount.Add(-1) == 0 {
 		for idx := range p.paths {
 			p.paths[idx].primitiveArr.Release()
 			p.paths[idx].primitiveArr = nil
@@ -498,15 +499,15 @@ type multipathLevelBuilder struct {
 	data      arrow.ArrayData
 	builder   pathBuilder
 
-	refCount int64
+	refCount *atomic.Int64
 }
 
 func (m *multipathLevelBuilder) Retain() {
-	atomic.AddInt64(&m.refCount, 1)
+	m.refCount.Add(1)
 }
 
 func (m *multipathLevelBuilder) Release() {
-	if atomic.AddInt64(&m.refCount, -1) == 0 {
+	if m.refCount.Add(-1) == 0 {
 		m.data.Release()
 		m.data = nil
 		m.builder.Release()
@@ -516,10 +517,10 @@ func (m *multipathLevelBuilder) Release() {
 
 func newMultipathLevelBuilder(arr arrow.Array, fieldNullable bool) (*multipathLevelBuilder, error) {
 	ret := &multipathLevelBuilder{
-		refCount:  1,
+		refCount:  utils.NewRefCount(1),
 		rootRange: elemRange{int64(0), int64(arr.Data().Len())},
 		data:      arr.Data(),
-		builder:   pathBuilder{nullableInParent: fieldNullable, paths: make([]pathInfo, 0), refCount: 1},
+		builder:   pathBuilder{nullableInParent: fieldNullable, paths: make([]pathInfo, 0), refCount: utils.NewRefCount(1)},
 	}
 	if err := ret.builder.Visit(arr); err != nil {
 		return nil, err

@@ -1842,6 +1842,14 @@ def test_cast():
     assert pc.cast(arr, expected.type) == expected
 
 
+@pytest.mark.parametrize('value_type', [pa.date32(), pa.date64()])
+def test_identity_cast_dates(value_type):
+    dt = datetime.date(1990, 3, 1)
+
+    arr = pa.array([dt], type=value_type)
+    assert pc.cast(arr, value_type) == arr
+
+
 @pytest.mark.parametrize('value_type', numerical_arrow_types)
 def test_fsl_to_fsl_cast(value_type):
     # Different field name and different type.

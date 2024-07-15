@@ -2874,33 +2874,6 @@ endmacro()
 # ----------------------------------------------------------------------
 # Dependencies for Arrow Flight RPC
 
-macro(ensure_absl)
-  if(NOT absl_FOUND)
-    if(${absl_SOURCE} STREQUAL "AUTO")
-      # We can't use resolve_dependency(absl 20211102) to use Abseil
-      # 20211102 or later because Abseil's CMake package uses "EXACT"
-      # version match strategy. Our CMake configuration will work with
-      # Abseil LTS 20211102 or later. So we want to accept Abseil LTS
-      # 20211102 or later. We need to update
-      # ARROW_ABSL_REQUIRED_LTS_VERSIONS list when new Abseil LTS is
-      # released.
-      set(ARROW_ABSL_REQUIRED_LTS_VERSIONS 20230125 20220623 20211102)
-      foreach(_VERSION ${ARROW_ABSL_REQUIRED_LTS_VERSIONS})
-        find_package(absl ${_VERSION})
-        if(absl_FOUND)
-          break()
-        endif()
-      endforeach()
-      # If we can't find Abseil LTS 20211102 or later, we use bundled
-      # Abseil.
-      if(NOT absl_FOUND)
-        set(absl_SOURCE "BUNDLED")
-      endif()
-    endif()
-    resolve_dependency(absl)
-  endif()
-endmacro()
-
 macro(build_absl)
   message(STATUS "Building Abseil-cpp from source")
   set(absl_FOUND TRUE)
@@ -3845,7 +3818,6 @@ macro(build_grpc)
                      TRUE
                      PC_PACKAGE_NAMES
                      libcares)
-  ensure_absl()
 
   message(STATUS "Building gRPC from source")
 
@@ -4135,12 +4107,40 @@ macro(build_grpc)
   endif()
 endmacro()
 
+if(ARROW_WITH_GOOGLE_CLOUD_CPP OR ARROW_WITH_GRPC)
+  set(ARROW_ABSL_REQUIRED_VERSION 20211102)
+  # Google Cloud C++ SDK and gRPC require Google Abseil
+  if(ARROW_WITH_GOOGLE_CLOUD_CPP)
+    set(ARROW_ABSL_CMAKE_PACKAGE_NAME Arrow)
+    set(ARROW_ABSL_PC_PACKAGE_NAME arrow)
+  else()
+    set(ARROW_ABSL_CMAKE_PACKAGE_NAME ArrowFlight)
+    set(ARROW_ABSL_PC_PACKAGE_NAME arrow-flight)
+  endif()
+  resolve_dependency(absl
+                     ARROW_CMAKE_PACKAGE_NAME
+                     ${ARROW_ABSL_CMAKE_PACKAGE_NAME}
+                     ARROW_PC_PACKAGE_NAME
+                     ${ARROW_ABSL_PC_PACKAGE_NAME}
+                     HAVE_ALT
+                     FALSE
+                     FORCE_ANY_NEWER_VERSION
+                     TRUE
+                     REQUIRED_VERSION
+                     ${ARROW_ABSL_REQUIRED_VERSION})
+endif()
+
 if(ARROW_WITH_GRPC)
   if(NOT ARROW_ENABLE_THREADING)
     message(FATAL_ERROR "Can't use gRPC with ARROW_ENABLE_THREADING=OFF")
   endif()
 
   set(ARROW_GRPC_REQUIRED_VERSION "1.30.0")
+  if(absl_SOURCE STREQUAL "BUNDLED" AND NOT gRPC_SOURCE STREQUAL "BUNDLED")
+    # System gRPC can't be used with bundled Abseil
+    message(STATUS "Forcing gRPC_SOURCE to BUNDLED because absl_SOURCE is BUNDLED")
+    set(gRPC_SOURCE "BUNDLED")
+  endif()
   if(NOT Protobuf_SOURCE STREQUAL gRPC_SOURCE)
     # ARROW-15495: Protobuf/gRPC must come from the same source
     message(STATUS "Forcing gRPC_SOURCE to Protobuf_SOURCE (${Protobuf_SOURCE})")
@@ -4259,7 +4259,6 @@ macro(build_google_cloud_cpp_storage)
   message(STATUS "Only building the google-cloud-cpp::storage component")
 
   # List of dependencies taken from https://github.com/googleapis/google-cloud-cpp/blob/main/doc/packaging.md
-  ensure_absl()
   build_crc32c_once()
 
   # Curl is required on all platforms, but building it internally might also trip over S3's copy.

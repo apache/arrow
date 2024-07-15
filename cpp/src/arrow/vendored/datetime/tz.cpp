@@ -96,6 +96,10 @@
 #  define TARGET_OS_SIMULATOR 0
 #endif
 
+#if defined(ANDROID) || defined(__ANDROID__)
+#include <sys/system_properties.h>
+#endif
+
 #if USE_OS_TZDB
 #  include <dirent.h>
 #endif
@@ -2709,7 +2713,8 @@ operator<<(std::ostream& os, const time_zone& z)
         os.width(8);
         os << s.format_ << "   ";
         os << s.until_year_ << ' ' << s.until_date_;
-        os << "   " << s.until_utc_ << " UTC";
+        os << "   ";
+        date::operator<<(os, s.until_utc_) << " UTC";
         os << "   " << s.until_std_ << " STD";
         os << "   " << s.until_loc_;
         os << "   " << make_time(s.initial_save_);
@@ -2734,8 +2739,7 @@ operator<<(std::ostream& os, const time_zone& z)
 std::ostream&
 operator<<(std::ostream& os, const leap_second& x)
 {
-    using namespace date;
-    return os << x.date_ << "  +";
+    return date::operator<<(os, x.date_) << "  +";
 }
 
 #if USE_OS_TZDB
@@ -3716,6 +3720,67 @@ get_tzdb()
     return get_tzdb_list().front();
 }
 
+namespace {
+
+class recursion_limiter
+{
+    unsigned depth_ = 0;
+    unsigned limit_;
+
+    class restore_recursion_depth;
+
+public:
+    recursion_limiter(recursion_limiter const&) = delete;
+    recursion_limiter& operator=(recursion_limiter const&) = delete;
+
+    explicit constexpr recursion_limiter(unsigned limit) noexcept;
+
+    restore_recursion_depth count();
+};
+
+class recursion_limiter::restore_recursion_depth
+{
+    recursion_limiter* rc_;
+
+public:
+    ~restore_recursion_depth();
+    restore_recursion_depth(restore_recursion_depth&&) = default;
+
+    explicit restore_recursion_depth(recursion_limiter* rc) noexcept;
+};
+
+inline
+recursion_limiter::restore_recursion_depth::~restore_recursion_depth()
+{
+    --(rc_->depth_);
+}
+
+inline
+recursion_limiter::restore_recursion_depth::restore_recursion_depth(recursion_limiter* rc)
+                                                                                  noexcept
+    : rc_{rc}
+{}
+
+inline
+constexpr
+recursion_limiter::recursion_limiter(unsigned limit) noexcept
+    : limit_{limit}
+{
+}
+
+inline
+recursion_limiter::restore_recursion_depth
+recursion_limiter::count()
+{
+    ++depth_;
+    if (depth_ > limit_)
+        throw std::runtime_error("recursion limit of " +
+                                  std::to_string(limit_) + " exceeded");
+    return restore_recursion_depth{this};
+}
+
+}  // unnamed namespace
+
 const time_zone*
 #if HAS_STRING_VIEW
 tzdb::locate_zone(std::string_view tz_name) const
@@ -3723,6 +3788,10 @@ tzdb::locate_zone(std::string_view tz_name) const
 tzdb::locate_zone(const std::string& tz_name) const
 #endif
 {
+    // If a link-to-link chain exceeds this limit, give up
+    thread_local recursion_limiter rc{10};
+    auto restore_count = rc.count();
+
     auto zi = std::lower_bound(zones.begin(), zones.end(), tz_name,
 #if HAS_STRING_VIEW
         [](const time_zone& z, const std::string_view& nm)
@@ -3746,13 +3815,7 @@ tzdb::locate_zone(const std::string& tz_name) const
         });
         if (li != links.end() && li->name() == tz_name)
         {
-            zi = std::lower_bound(zones.begin(), zones.end(), li->target(),
-                [](const time_zone& z, const std::string& nm)
-                {
-                    return z.name() < nm;
-                });
-            if (zi != zones.end() && zi->name() == li->target())
-                return &*zi;
+            return locate_zone(li->target());
         }
 #endif  // !USE_OS_TZDB
         throw std::runtime_error(std::string(tz_name) + " not found in timezone database");
@@ -4038,6 +4101,18 @@ tzdb::current_zone() const
         if (!result.empty())
             return locate_zone(result);
 #endif
+    // Fall through to try other means.
+    }
+    {
+    // On Android, it is not possible to use file based approach either,
+    // we have to ask the value of `persist.sys.timezone` system property
+#if defined(ANDROID) || defined(__ANDROID__)
+    char sys_timezone[PROP_VALUE_MAX];
+    if (__system_property_get("persist.sys.timezone", sys_timezone) > 0)
+    {
+        return locate_zone(sys_timezone);
+    }
+#endif // defined(ANDROID) || defined(__ANDROID__)
     // Fall through to try other means.
     }
     {
