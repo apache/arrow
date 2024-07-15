@@ -162,6 +162,10 @@ namespace Apache.Arrow.C
                     case ArrowTypeId.BinaryView:
                         buffers = ImportByteArrayViewBuffers(cArray);
                         break;
+                    case ArrowTypeId.LargeString:
+                    case ArrowTypeId.LargeBinary:
+                        buffers = ImportLargeByteArrayBuffers(cArray);
+                        break;
                     case ArrowTypeId.List:
                         children = ProcessListChildren(cArray, ((ListType)type).ValueDataType);
                         buffers = ImportListBuffers(cArray);
@@ -169,6 +173,10 @@ namespace Apache.Arrow.C
                     case ArrowTypeId.ListView:
                         children = ProcessListChildren(cArray, ((ListViewType)type).ValueDataType);
                         buffers = ImportListViewBuffers(cArray);
+                        break;
+                    case ArrowTypeId.LargeList:
+                        children = ProcessListChildren(cArray, ((LargeListType)type).ValueDataType);
+                        buffers = ImportLargeListBuffers(cArray);
                         break;
                     case ArrowTypeId.FixedSizeList:
                         children = ProcessListChildren(cArray, ((FixedSizeListType)type).ValueDataType);
@@ -313,6 +321,27 @@ namespace Apache.Arrow.C
                 return buffers;
             }
 
+            private ArrowBuffer[] ImportLargeByteArrayBuffers(CArrowArray* cArray)
+            {
+                if (cArray->n_buffers != 3)
+                {
+                    throw new InvalidOperationException("Large byte arrays are expected to have exactly three buffers");
+                }
+
+                int length = checked((int)cArray->length);
+                int offsetsLength = checked((length + 1) * 8);
+                long* offsets = (long*)cArray->buffers[1];
+                Debug.Assert(offsets != null);
+                long valuesLength = offsets[length];
+
+                ArrowBuffer[] buffers = new ArrowBuffer[3];
+                buffers[0] = ImportValidityBuffer(cArray);
+                buffers[1] = ImportCArrayBuffer(cArray, 1, offsetsLength);
+                buffers[2] = ImportCArrayBuffer(cArray, 2, checked((int)valuesLength));
+
+                return buffers;
+            }
+
             private ArrowBuffer[] ImportListBuffers(CArrowArray* cArray)
             {
                 if (cArray->n_buffers != 2)
@@ -344,6 +373,23 @@ namespace Apache.Arrow.C
                 buffers[0] = ImportValidityBuffer(cArray);
                 buffers[1] = ImportCArrayBuffer(cArray, 1, offsetsLength);
                 buffers[2] = ImportCArrayBuffer(cArray, 2, offsetsLength);
+
+                return buffers;
+            }
+
+            private ArrowBuffer[] ImportLargeListBuffers(CArrowArray* cArray)
+            {
+                if (cArray->n_buffers != 2)
+                {
+                    throw new InvalidOperationException("Large list arrays are expected to have exactly two buffers");
+                }
+
+                int length = checked((int)cArray->length);
+                int offsetsLength = checked((length + 1) * 8);
+
+                ArrowBuffer[] buffers = new ArrowBuffer[2];
+                buffers[0] = ImportValidityBuffer(cArray);
+                buffers[1] = ImportCArrayBuffer(cArray, 1, offsetsLength);
 
                 return buffers;
             }
