@@ -921,6 +921,8 @@ namespace internal {
 Result<std::shared_ptr<Array>> Concatenate(
     const ArrayVector& arrays, MemoryPool* pool,
     std::shared_ptr<DataType>* out_suggested_cast) {
+  DCHECK(out_suggested_cast);
+  *out_suggested_cast = nullptr;
   if (arrays.size() == 0) {
     return Status::Invalid("Must pass at least one array");
   }
