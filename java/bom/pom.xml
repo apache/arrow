@@ -61,6 +61,7 @@ under the License.
       <subscribe>github-subscribe@arrow.apache.org</subscribe>
       <unsubscribe>github-unsubscribe@arrow.apache.org</unsubscribe>
       <archive>https://lists.apache.org/list.html?github@arrow.apache.org</archive>
+    </mailingList>
   </mailingLists>
 
   <scm child.scm.connection.inherit.append.path="false" child.scm.developerConnection.inherit.append.path="false" child.scm.url.inherit.append.path="false">

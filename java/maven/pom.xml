@@ -64,6 +64,7 @@ under the License.
       <subscribe>github-subscribe@arrow.apache.org</subscribe>
       <unsubscribe>github-unsubscribe@arrow.apache.org</unsubscribe>
       <archive>https://lists.apache.org/list.html?github@arrow.apache.org</archive>
+    </mailingList>
   </mailingLists>
 
   <modules>
