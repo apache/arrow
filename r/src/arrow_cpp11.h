@@ -378,9 +378,17 @@ SEXP to_r6(const std::shared_ptr<T>& ptr, const char* r6_class_name) {
   cpp11::external_pointer<std::shared_ptr<T>> xp(new std::shared_ptr<T>(ptr));
   SEXP r6_class = Rf_install(r6_class_name);
 
+// R_existsVarInFrame doesn't exist before R 4.2, so we need to fall back to
+// Rf_findVarInFrame3 if it is not defined.
+#ifdef R_existsVarInFrame
   if (!R_existsVarInFrame(arrow::r::ns::arrow, r6_class)) {
     cpp11::stop("No arrow R6 class named '%s'", r6_class_name);
   }
+#else
+  if (Rf_findVarInFrame3(arrow::r::ns::arrow, r6_class, FALSE) == R_UnboundValue) {
+    cpp11::stop("No arrow R6 class named '%s'", r6_class_name);
+  }
+#endif
 
   // make call:  <symbol>$new(<x>)
   SEXP call = PROTECT(Rf_lang3(R_DollarSymbol, r6_class, arrow::r::symbols::new_));
