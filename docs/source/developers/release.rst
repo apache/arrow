@@ -406,7 +406,7 @@ Be sure to go through on the following checklist:
    .. code-block:: Bash
 
       # dev/release/post-05-update-gh-release-notes.sh 17.0.0
-      dev/release/post-05-update-gh-release-notes.sh apache-arrow-X.Y.Z
+      dev/release/post-05-update-gh-release-notes.sh <version>
 
 .. dropdown:: Update Homebrew packages
    :animate: fade-in-slide-down
