@@ -98,10 +98,16 @@ from collections import namedtuple
 import inspect
 from textwrap import dedent
 import warnings
+from typing import TYPE_CHECKING, Any
 
 import pyarrow as pa
 from pyarrow import _compute_docstrings
 from pyarrow.vendored import docscrape
+
+if TYPE_CHECKING:
+    # prevents missing attribute errors in type checker
+    # See https://github.com/apache/arrow/issues/43285
+    def __getattr__(name: str) -> Any: ...
 
 
 def _get_arg_names(func):
