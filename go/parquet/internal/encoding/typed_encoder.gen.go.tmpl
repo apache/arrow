@@ -135,10 +135,9 @@ func ({{.lower}}DecoderTraits) Decoder(e parquet.Encoding, descr *schema.Column,
       mem = memory.DefaultAllocator
     }
     return &DeltaBitPack{{.Name}}Decoder{
-      deltaBitPackDecoder: &deltaBitPackDecoder{
-        decoder: newDecoderBase(format.Encoding(e), descr),
-        mem:     mem,
-      }}
+      decoder: newDecoderBase(format.Encoding(e), descr),
+      mem:     mem,
+    }
 {{- end}}
 {{- if eq .Name "ByteArray"}}
   case parquet.Encodings.DeltaLengthByteArray:

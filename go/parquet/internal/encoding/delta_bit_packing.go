@@ -19,6 +19,7 @@ package encoding
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"math"
 	"math/bits"
 	"reflect"
@@ -32,7 +33,7 @@ import (
 
 // see the deltaBitPack encoder for a description of the encoding format that is
 // used for delta-bitpacking.
-type deltaBitPackDecoder struct {
+type deltaBitPackDecoder[T int32 | int64] struct {
 	decoder
 
 	mem memory.Allocator
@@ -52,18 +53,20 @@ type deltaBitPackDecoder struct {
 
 	totalValues uint64
 	lastVal     int64
+
+	miniBlockValues []T
 }
 
 // returns the number of bytes read so far
-func (d *deltaBitPackDecoder) bytesRead() int64 {
+func (d *deltaBitPackDecoder[T]) bytesRead() int64 {
 	return d.bitdecoder.CurOffset()
 }
 
-func (d *deltaBitPackDecoder) Allocator() memory.Allocator { return d.mem }
+func (d *deltaBitPackDecoder[T]) Allocator() memory.Allocator { return d.mem }
 
 // SetData sets the bytes and the expected number of values to decode
 // into the decoder, updating the decoder and allowing it to be reused.
-func (d *deltaBitPackDecoder) SetData(nvalues int, data []byte) error {
+func (d *deltaBitPackDecoder[T]) SetData(nvalues int, data []byte) error {
 	// set our data into the underlying decoder for the type
 	if err := d.decoder.SetData(nvalues, data); err != nil {
 		return err
@@ -103,7 +106,7 @@ func (d *deltaBitPackDecoder) SetData(nvalues int, data []byte) error {
 }
 
 // initialize a block to decode
-func (d *deltaBitPackDecoder) initBlock() error {
+func (d *deltaBitPackDecoder[T]) initBlock() error {
 	// first we grab the min delta value that we'll start from
 	var ok bool
 	if d.minDelta, ok = d.bitdecoder.GetZigZagVlqInt(); !ok {
@@ -126,16 +129,9 @@ func (d *deltaBitPackDecoder) initBlock() error {
 	return nil
 }
 
-// DeltaBitPackInt32Decoder decodes Int32 values which are packed using the Delta BitPacking algorithm.
-type DeltaBitPackInt32Decoder struct {
-	*deltaBitPackDecoder
-
-	miniBlockValues []int32
-}
-
-func (d *DeltaBitPackInt32Decoder) unpackNextMini() error {
+func (d *deltaBitPackDecoder[T]) unpackNextMini() error {
 	if d.miniBlockValues == nil {
-		d.miniBlockValues = make([]int32, 0, int(d.valsPerMini))
+		d.miniBlockValues = make([]T, 0, int(d.valsPerMini))
 	} else {
 		d.miniBlockValues = d.miniBlockValues[:0]
 	}
@@ -149,7 +145,7 @@ func (d *DeltaBitPackInt32Decoder) unpackNextMini() error {
 		}
 
 		d.lastVal += int64(delta) + int64(d.minDelta)
-		d.miniBlockValues = append(d.miniBlockValues, int32(d.lastVal))
+		d.miniBlockValues = append(d.miniBlockValues, T(d.lastVal))
 	}
 	d.miniBlockIdx++
 	return nil
@@ -157,7 +153,7 @@ func (d *DeltaBitPackInt32Decoder) unpackNextMini() error {
 
 // Decode retrieves min(remaining values, len(out)) values from the data and returns the number
 // of values actually decoded and any errors encountered.
-func (d *DeltaBitPackInt32Decoder) Decode(out []int32) (int, error) {
+func (d *deltaBitPackDecoder[T]) Decode(out []T) (int, error) {
 	max := shared_utils.Min(len(out), int(d.totalValues))
 	if max == 0 {
 		return 0, nil
@@ -165,7 +161,7 @@ func (d *DeltaBitPackInt32Decoder) Decode(out []int32) (int, error) {
 
 	out = out[:max]
 	if !d.usedFirst { // starting value to calculate deltas against
-		out[0] = int32(d.lastVal)
+		out[0] = T(d.lastVal)
 		out = out[1:]
 		d.usedFirst = true
 	}
@@ -198,7 +194,7 @@ func (d *DeltaBitPackInt32Decoder) Decode(out []int32) (int, error) {
 }
 
 // DecodeSpaced is like Decode, but the result is spaced out appropriately based on the passed in bitmap
-func (d *DeltaBitPackInt32Decoder) DecodeSpaced(out []int32, nullCount int, validBits []byte, validBitsOffset int64) (int, error) {
+func (d *deltaBitPackDecoder[T]) DecodeSpaced(out []T, nullCount int, validBits []byte, validBitsOffset int64) (int, error) {
 	toread := len(out) - nullCount
 	values, err := d.Decode(out[:toread])
 	if err != nil {
@@ -211,101 +207,19 @@ func (d *DeltaBitPackInt32Decoder) DecodeSpaced(out []int32, nullCount int, vali
 	return spacedExpand(out, nullCount, validBits, validBitsOffset), nil
 }
 
-// Type returns the physical parquet type that this decoder decodes, in this case Int32
-func (DeltaBitPackInt32Decoder) Type() parquet.Type {
-	return parquet.Types.Int32
+func (dec *deltaBitPackDecoder[T]) Type() parquet.Type {
+	switch v := any(dec).(type) {
+	case *deltaBitPackDecoder[int32]:
+		return parquet.Types.Int32
+	case *deltaBitPackDecoder[int64]:
+		return parquet.Types.Int64
+	default:
+		panic(fmt.Sprintf("deltaBitPackDecoder is not supported for type: %T", v))
+	}
 }
 
-// DeltaBitPackInt64Decoder decodes a delta bit packed int64 column of data.
-type DeltaBitPackInt64Decoder struct {
-	*deltaBitPackDecoder
-
-	miniBlockValues []int64
-}
-
-func (d *DeltaBitPackInt64Decoder) unpackNextMini() error {
-	if d.miniBlockValues == nil {
-		d.miniBlockValues = make([]int64, 0, int(d.valsPerMini))
-	} else {
-		d.miniBlockValues = d.miniBlockValues[:0]
-	}
-
-	d.deltaBitWidth = d.deltaBitWidths.Bytes()[int(d.miniBlockIdx)]
-	d.currentMiniBlockVals = d.valsPerMini
-
-	for j := 0; j < int(d.valsPerMini); j++ {
-		delta, ok := d.bitdecoder.GetValue(int(d.deltaBitWidth))
-		if !ok {
-			return errors.New("parquet: eof exception")
-		}
-
-		d.lastVal += int64(delta) + d.minDelta
-		d.miniBlockValues = append(d.miniBlockValues, d.lastVal)
-	}
-	d.miniBlockIdx++
-	return nil
-}
-
-// Decode retrieves min(remaining values, len(out)) values from the data and returns the number
-// of values actually decoded and any errors encountered.
-func (d *DeltaBitPackInt64Decoder) Decode(out []int64) (int, error) {
-	max := shared_utils.Min(len(out), d.nvals)
-	if max == 0 {
-		return 0, nil
-	}
-
-	out = out[:max]
-	if !d.usedFirst {
-		out[0] = d.lastVal
-		out = out[1:]
-		d.usedFirst = true
-	}
-
-	var err error
-	for len(out) > 0 {
-		if d.currentBlockVals == 0 {
-			err = d.initBlock()
-			if err != nil {
-				return 0, err
-			}
-		}
-		if d.currentMiniBlockVals == 0 {
-			err = d.unpackNextMini()
-		}
-
-		if err != nil {
-			return 0, err
-		}
-
-		start := int(d.valsPerMini - d.currentMiniBlockVals)
-		numCopied := copy(out, d.miniBlockValues[start:])
-
-		out = out[numCopied:]
-		d.currentBlockVals -= uint32(numCopied)
-		d.currentMiniBlockVals -= uint32(numCopied)
-	}
-	d.nvals -= max
-	return max, nil
-}
-
-// Type returns the physical parquet type that this decoder decodes, in this case Int64
-func (DeltaBitPackInt64Decoder) Type() parquet.Type {
-	return parquet.Types.Int64
-}
-
-// DecodeSpaced is like Decode, but the result is spaced out appropriately based on the passed in bitmap
-func (d DeltaBitPackInt64Decoder) DecodeSpaced(out []int64, nullCount int, validBits []byte, validBitsOffset int64) (int, error) {
-	toread := len(out) - nullCount
-	values, err := d.Decode(out[:toread])
-	if err != nil {
-		return values, err
-	}
-	if values != toread {
-		return values, errors.New("parquet: number of values / definition levels read did not match")
-	}
-
-	return spacedExpand(out, nullCount, validBits, validBitsOffset), nil
-}
+type DeltaBitPackInt32Decoder = deltaBitPackDecoder[int32]
+type DeltaBitPackInt64Decoder = deltaBitPackDecoder[int64]
 
 const (
 	// block size must be a multiple of 128

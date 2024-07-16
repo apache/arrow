@@ -160,9 +160,9 @@ func (d *DeltaByteArrayDecoder) Allocator() memory.Allocator { return d.mem }
 // blocks of suffix data in order to initialize the decoder.
 func (d *DeltaByteArrayDecoder) SetData(nvalues int, data []byte) error {
 	prefixLenDec := DeltaBitPackInt32Decoder{
-		deltaBitPackDecoder: &deltaBitPackDecoder{
-			decoder: newDecoderBase(d.encoding, d.descr),
-			mem:     d.mem}}
+		decoder: newDecoderBase(d.encoding, d.descr),
+		mem:     d.mem,
+	}
 
 	if err := prefixLenDec.SetData(nvalues, data); err != nil {
 		return err

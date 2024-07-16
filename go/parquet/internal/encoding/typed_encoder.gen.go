@@ -118,10 +118,9 @@ func (int32DecoderTraits) Decoder(e parquet.Encoding, descr *schema.Column, useD
 			mem = memory.DefaultAllocator
 		}
 		return &DeltaBitPackInt32Decoder{
-			deltaBitPackDecoder: &deltaBitPackDecoder{
-				decoder: newDecoderBase(format.Encoding(e), descr),
-				mem:     mem,
-			}}
+			decoder: newDecoderBase(format.Encoding(e), descr),
+			mem:     mem,
+		}
 	case parquet.Encodings.ByteStreamSplit:
 		return &ByteStreamSplitInt32Decoder{decoder: newDecoderBase(format.Encoding(e), descr)}
 	default:
@@ -359,10 +358,9 @@ func (int64DecoderTraits) Decoder(e parquet.Encoding, descr *schema.Column, useD
 			mem = memory.DefaultAllocator
 		}
 		return &DeltaBitPackInt64Decoder{
-			deltaBitPackDecoder: &deltaBitPackDecoder{
-				decoder: newDecoderBase(format.Encoding(e), descr),
-				mem:     mem,
-			}}
+			decoder: newDecoderBase(format.Encoding(e), descr),
+			mem:     mem,
+		}
 	case parquet.Encodings.ByteStreamSplit:
 		return &ByteStreamSplitInt64Decoder{decoder: newDecoderBase(format.Encoding(e), descr)}
 	default:
