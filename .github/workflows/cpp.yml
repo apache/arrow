@@ -246,7 +246,7 @@ jobs:
           $(brew --prefix bash)/bin/bash \
             ci/scripts/install_minio.sh latest ${ARROW_HOME}
       - name: Set up Python
-        uses: actions/setup-python@v5.1.0
+        uses: actions/setup-python@v5.1.1
         with:
           python-version: 3.12
       - name: Install Google Cloud Storage Testbench
@@ -467,7 +467,7 @@ jobs:
             https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2022-05-26T05-48-41Z
           chmod +x /usr/local/bin/minio.exe
       - name: Set up Python
-        uses: actions/setup-python@v5.1.0
+        uses: actions/setup-python@v5.1.1
         with:
           python-version: 3.9
       - name: Install Google Cloud Storage Testbench
