@@ -400,7 +400,8 @@ Be sure to go through on the following checklist:
    :class-title: sd-fs-5
    :class-container: sd-shadow-md
 
-   A committer must run the following script:
+   A committer must run the following script. This has to be done once the
+   Pull Request from the Update Website script has been merged:
 
    .. code-block:: Bash
 
