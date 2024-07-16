@@ -53,11 +53,14 @@ func (enc *DeltaByteArrayEncoder) EstimatedDataEncodedSize() int64 {
 
 func (enc *DeltaByteArrayEncoder) initEncoders() {
 	enc.prefixEncoder = &DeltaBitPackInt32Encoder{
-		deltaBitPackEncoder: &deltaBitPackEncoder{encoder: newEncoderBase(enc.encoding, nil, enc.mem)}}
+		encoder: newEncoderBase(enc.encoding, nil, enc.mem),
+	}
 	enc.suffixEncoder = &DeltaLengthByteArrayEncoder{
 		newEncoderBase(enc.encoding, nil, enc.mem),
 		&DeltaBitPackInt32Encoder{
-			deltaBitPackEncoder: &deltaBitPackEncoder{encoder: newEncoderBase(enc.encoding, nil, enc.mem)}}}
+			encoder: newEncoderBase(enc.encoding, nil, enc.mem),
+		},
+	}
 }
 
 // Type returns the underlying physical type this operates on, in this case ByteArrays only

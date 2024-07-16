@@ -247,7 +247,7 @@ const (
 //
 // Sets aside bytes at the start of the internal buffer where the header will be written,
 // and only writes the header when FlushValues is called before returning it.
-type deltaBitPackEncoder struct {
+type deltaBitPackEncoder[T int32 | int64] struct {
 	encoder
 
 	bitWriter  *utils.BitWriter
@@ -262,7 +262,7 @@ type deltaBitPackEncoder struct {
 }
 
 // flushBlock flushes out a finished block for writing to the underlying encoder
-func (enc *deltaBitPackEncoder) flushBlock() {
+func (enc *deltaBitPackEncoder[T]) flushBlock() {
 	if len(enc.deltas) == 0 {
 		return
 	}
@@ -314,7 +314,7 @@ func (enc *deltaBitPackEncoder) flushBlock() {
 
 // putInternal is the implementation for actually writing data which must be
 // integral data as int, int8, int32, or int64.
-func (enc *deltaBitPackEncoder) putInternal(data interface{}) {
+func (enc *deltaBitPackEncoder[T]) putInternal(data interface{}) {
 	v := reflect.ValueOf(data)
 	if v.Len() == 0 {
 		return
@@ -346,7 +346,7 @@ func (enc *deltaBitPackEncoder) putInternal(data interface{}) {
 
 // FlushValues flushes any remaining data and returns the finished encoded buffer
 // or returns nil and any error encountered during flushing.
-func (enc *deltaBitPackEncoder) FlushValues() (Buffer, error) {
+func (enc *deltaBitPackEncoder[T]) FlushValues() (Buffer, error) {
 	if enc.bitWriter != nil {
 		// write any remaining values
 		enc.flushBlock()
@@ -379,7 +379,7 @@ func (enc *deltaBitPackEncoder) FlushValues() (Buffer, error) {
 }
 
 // EstimatedDataEncodedSize returns the current amount of data actually flushed out and written
-func (enc *deltaBitPackEncoder) EstimatedDataEncodedSize() int64 {
+func (enc *deltaBitPackEncoder[T]) EstimatedDataEncodedSize() int64 {
 	if enc.bitWriter == nil {
 		return 0
 	}
@@ -387,56 +387,35 @@ func (enc *deltaBitPackEncoder) EstimatedDataEncodedSize() int64 {
 	return int64(enc.bitWriter.Written())
 }
 
-// DeltaBitPackInt32Encoder is an encoder for the delta bitpacking encoding for int32 data.
-type DeltaBitPackInt32Encoder struct {
-	*deltaBitPackEncoder
-}
-
 // Put writes the values from the provided slice of int32 to the encoder
-func (enc DeltaBitPackInt32Encoder) Put(in []int32) {
+func (enc *deltaBitPackEncoder[T]) Put(in []T) {
 	enc.putInternal(in)
 }
 
 // PutSpaced takes a slice of int32 along with a bitmap that describes the nulls and an offset into the bitmap
 // in order to write spaced data to the encoder.
-func (enc DeltaBitPackInt32Encoder) PutSpaced(in []int32, validBits []byte, validBitsOffset int64) {
+func (enc *deltaBitPackEncoder[T]) PutSpaced(in []T, validBits []byte, validBitsOffset int64) {
 	buffer := memory.NewResizableBuffer(enc.mem)
-	buffer.Reserve(arrow.Int32Traits.BytesRequired(len(in)))
+	dt := arrow.GetDataType[T]().(arrow.FixedWidthDataType)
+	buffer.Reserve(dt.Bytes() * len(in))
 	defer buffer.Release()
 
-	data := arrow.Int32Traits.CastFromBytes(buffer.Buf())
+	data := arrow.GetData[T](buffer.Buf())
 	nvalid := spacedCompress(in, data, validBits, validBitsOffset)
 	enc.Put(data[:nvalid])
 }
 
 // Type returns the underlying physical type this encoder works with, in this case Int32
-func (DeltaBitPackInt32Encoder) Type() parquet.Type {
-	return parquet.Types.Int32
+func (dec *deltaBitPackEncoder[T]) Type() parquet.Type {
+	switch v := any(dec).(type) {
+	case *deltaBitPackEncoder[int32]:
+		return parquet.Types.Int32
+	case *deltaBitPackEncoder[int64]:
+		return parquet.Types.Int64
+	default:
+		panic(fmt.Sprintf("deltaBitPackEncoder is not supported for type: %T", v))
+	}
 }
 
-// DeltaBitPackInt32Encoder is an encoder for the delta bitpacking encoding for int32 data.
-type DeltaBitPackInt64Encoder struct {
-	*deltaBitPackEncoder
-}
-
-// Put writes the values from the provided slice of int64 to the encoder
-func (enc DeltaBitPackInt64Encoder) Put(in []int64) {
-	enc.putInternal(in)
-}
-
-// PutSpaced takes a slice of int64 along with a bitmap that describes the nulls and an offset into the bitmap
-// in order to write spaced data to the encoder.
-func (enc DeltaBitPackInt64Encoder) PutSpaced(in []int64, validBits []byte, validBitsOffset int64) {
-	buffer := memory.NewResizableBuffer(enc.mem)
-	buffer.Reserve(arrow.Int64Traits.BytesRequired(len(in)))
-	defer buffer.Release()
-
-	data := arrow.Int64Traits.CastFromBytes(buffer.Buf())
-	nvalid := spacedCompress(in, data, validBits, validBitsOffset)
-	enc.Put(data[:nvalid])
-}
-
-// Type returns the underlying physical type this encoder works with, in this case Int64
-func (DeltaBitPackInt64Encoder) Type() parquet.Type {
-	return parquet.Types.Int64
-}
+type DeltaBitPackInt32Encoder = deltaBitPackEncoder[int32]
+type DeltaBitPackInt64Encoder = deltaBitPackEncoder[int64]
