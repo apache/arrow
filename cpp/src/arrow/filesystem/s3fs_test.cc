@@ -45,11 +45,11 @@
 #include <aws/core/utils/logging/ConsoleLogSystem.h>
 #include <aws/s3/S3Client.h>
 #include <aws/s3/model/CreateBucketRequest.h>
-#include <aws/s3/model/PutBucketVersioningRequest.h>
-#include <aws/s3/model/VersioningConfiguration.h>
 #include <aws/s3/model/GetObjectRequest.h>
-#include <aws/s3/model/PutObjectRequest.h>
 #include <aws/s3/model/ListObjectsV2Request.h>
+#include <aws/s3/model/PutBucketVersioningRequest.h>
+#include <aws/s3/model/PutObjectRequest.h>
+#include <aws/s3/model/VersioningConfiguration.h>
 #include <aws/sts/STSClient.h>
 
 #include "arrow/filesystem/filesystem.h"
@@ -497,16 +497,6 @@ class TestS3FS : public S3TestMixin {
       ASSERT_OK(OutcomeToStatus("PutObject", client_->PutObject(req)));
       req.SetKey(ToAwsString("otherdir/1/2/3/otherfile"));
       req.SetBody(std::make_shared<std::stringstream>("other data"));
-      ASSERT_OK(OutcomeToStatus("PutObject", client_->PutObject(req)));
-
-      req.SetKey(ToAwsString("prefix/01/file1.json.gz"));
-      req.SetBody(std::make_shared<std::stringstream>("test data 1"));
-      ASSERT_OK(OutcomeToStatus("PutObject", client_->PutObject(req)));
-      req.SetKey(ToAwsString("prefix/01/file2.json.gz"));
-      req.SetBody(std::make_shared<std::stringstream>("test data 2"));
-      ASSERT_OK(OutcomeToStatus("PutObject", client_->PutObject(req)));
-      req.SetKey(ToAwsString("prefix/01/file3.json.gz"));
-      req.SetBody(std::make_shared<std::stringstream>("test data 3"));
       ASSERT_OK(OutcomeToStatus("PutObject", client_->PutObject(req)));
     }
   }
@@ -1128,37 +1118,36 @@ TEST_F(TestS3FS, DeleteDirContentsAsync) {
 
 TEST_F(TestS3FS, DeleteFileWithMarker) {
   FileSelector select;
-  select.base_dir = "bucket/prefix/01";
+  select.base_dir = "bucket/somedir/subdir";
   select.recursive = false;
   std::vector<FileInfo> infos;
 
   // Expected files before deletion
   std::vector<std::string> expected_before = {
-      "prefix/01/file1.json.gz",
-      "prefix/01/file2.json.gz",
-      "prefix/01/file3.json.gz"
+      "somedir/subdir/subfile",
   };
 
   // Verify the list of objects before deletion
-  AssertListObjects(client_.get(), "bucket", "prefix/01/", expected_before);
+  AssertListObjects(client_.get(), "bucket", "somedir/subdir", expected_before);
 
   ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
-  ASSERT_EQ(infos.size(), 3);
+  ASSERT_EQ(infos.size(), 1);
 
-  ASSERT_OK(fs_->DeleteFile("bucket/prefix/01/file1.json.gz"));
+  ASSERT_OK(fs_->DeleteFile("bucket/somedir/subdir/subfile"));
 
   // Expected files after deletion
   std::vector<std::string> expected_after = {
-      "prefix/01/",
-      "prefix/01/file2.json.gz",
-      "prefix/01/file3.json.gz"
+      "somedir/subdir/",
   };
 
   // Verify the list of objects after deletion
-  AssertListObjects(client_.get(), "bucket", "prefix/01/", expected_after);
+  AssertListObjects(client_.get(), "bucket", "somedir/subdir", expected_after);
 
+  // Verify the list of objects with GetFileInfo after deletion.
+  // GetFileInfo should return an empty list since the file is deleted. This is because
+  // the directory still exists.
   ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
-  ASSERT_EQ(infos.size(), 2);
+  ASSERT_EQ(infos.size(), 0);
 }
 
 TEST_F(TestS3FS, DeleteWithoutMarker) {
@@ -1166,38 +1155,34 @@ TEST_F(TestS3FS, DeleteWithoutMarker) {
   MakeFileSystem();
 
   FileSelector select;
-  select.base_dir = "bucket/prefix/01";
+  select.base_dir = "bucket/somedir/subdir";
   select.recursive = false;
   std::vector<FileInfo> infos;
 
   // Expected files before deletion
   std::vector<std::string> expected_before = {
-      "prefix/01/file1.json.gz",
-      "prefix/01/file2.json.gz",
-      "prefix/01/file3.json.gz"
+      "somedir/subdir/subfile",
   };
 
   // Verify the list of objects before deletion
-  AssertListObjects(client_.get(), "bucket", "prefix/01/", expected_before);
+  AssertListObjects(client_.get(), "bucket", "somedir/subdir", expected_before);
 
   ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
-  ASSERT_EQ(infos.size(), 3);
+  ASSERT_EQ(infos.size(), 1);
 
-  ASSERT_OK(fs_->DeleteFile("bucket/prefix/01/file1.json.gz"));
+  ASSERT_OK(fs_->DeleteFile("bucket/somedir/subdir/subfile"));
 
   // Expected files after deletion
-  std::vector<std::string> expected_after = {
-      "prefix/01/file2.json.gz",
-      "prefix/01/file3.json.gz"
-  };
+  std::vector<std::string> expected_after = {};
 
   // Verify the list of objects after deletion
-  AssertListObjects(client_.get(), "bucket", "prefix/01/", expected_after);
+  AssertListObjects(client_.get(), "bucket", "somedir/subdir", expected_after);
 
-  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
-  ASSERT_EQ(infos.size(), 2);
+  // Verify the list of objects with GetFileInfo after deletion.
+  // GetFileInfo should return an IOError since the file is deleted. This is because the
+  // directory does not exist.
+  ASSERT_RAISES(IOError, fs_->GetFileInfo(select));
 }
-
 
 TEST_F(TestS3FS, CopyFile) {
   // "File"
