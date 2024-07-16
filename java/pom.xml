@@ -57,7 +57,7 @@ under the License.
       <archive>https://lists.apache.org/list.html?issues@arrow.apache.org</archive>
     </mailingList>
     <mailingList>
-      <name>Github List</name>
+      <name>GitHub List</name>
       <subscribe>github-subscribe@arrow.apache.org</subscribe>
       <unsubscribe>github-unsubscribe@arrow.apache.org</unsubscribe>
       <archive>https://lists.apache.org/list.html?github@arrow.apache.org</archive>
