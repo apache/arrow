@@ -6,6 +6,11 @@ global-include CMakeLists.txt
 graft pyarrow
 graft cmake_modules
 
+prune benchmarks
+prune cmake_modules
+prune examples
+prune scripts
+
 global-exclude *.so
 global-exclude *.pyc
 global-exclude *~
