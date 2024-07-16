@@ -63,14 +63,10 @@ struct ARROW_EXPORT ArrayStatistics {
   }
 
   /// \brief Check two statistics for equality
-  bool operator==(const ArrayStatistics& other) const {
-    return Equals(other);
-  }
+  bool operator==(const ArrayStatistics& other) const { return Equals(other); }
 
   /// \brief Check two statistics for not equality
-  bool operator!=(const ArrayStatistics& other) const {
-    return !Equals(other);
-  }
+  bool operator!=(const ArrayStatistics& other) const { return !Equals(other); }
 };
 
 }  // namespace arrow
