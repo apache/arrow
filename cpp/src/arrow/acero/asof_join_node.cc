@@ -779,9 +779,9 @@ class InputState {
   // Hasher for key elements
   mutable KeyHasher* key_hasher_;
   // Owning node
-  AsofJoinNode* node_;
+  [[maybe_unused]] AsofJoinNode* node_;
   // Index of this input
-  size_t index_;
+  [[maybe_unused]] size_t index_;
   // True if hashing is mandatory
   bool must_hash_;
   // True if by-key values may be rehashed
