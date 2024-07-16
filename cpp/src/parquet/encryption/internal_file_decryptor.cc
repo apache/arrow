@@ -154,10 +154,6 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptor(
     aes_data_decryptor = encryption::AesDecryptor::Make(
         algorithm_, key_len, /*metadata=*/false, &all_decryptors_);
   }
-  if (ARROW_PREDICT_FALSE(aes_metadata_decryptor == nullptr ||
-                          aes_data_decryptor == nullptr)) {
-    throw ParquetException("Failed to create AES decryptor");
-  }
 
   footer_metadata_decryptor_ = std::make_shared<Decryptor>(
       std::move(aes_metadata_decryptor), footer_key, file_aad_, aad, pool_);
@@ -205,9 +201,6 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnDecryptor(
   std::lock_guard<std::mutex> lock(mutex_);
   auto aes_decryptor =
       encryption::AesDecryptor::Make(algorithm_, key_len, metadata, &all_decryptors_);
-  if (ARROW_PREDICT_FALSE(aes_decryptor == nullptr)) {
-    throw ParquetException("Failed to create AES decryptor");
-  }
   return std::make_shared<Decryptor>(std::move(aes_decryptor), column_key, file_aad_, aad,
                                      pool_);
 }

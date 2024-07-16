@@ -72,11 +72,13 @@ AesDecryptor::~AesDecryptor() {}
 
 std::unique_ptr<AesEncryptor> AesEncryptor::Make(ParquetCipher::type alg_id, int key_len,
                                                  bool metadata) {
+  ThrowOpenSSLRequiredException();
   return NULLPTR;
 }
 
 std::unique_ptr<AesEncryptor> AesEncryptor::Make(ParquetCipher::type alg_id, int key_len,
                                                  bool metadata, bool write_length) {
+  ThrowOpenSSLRequiredException();
   return NULLPTR;
 }
 

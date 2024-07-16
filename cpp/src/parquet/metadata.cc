@@ -665,7 +665,6 @@ class FileMetaData::FileMetaDataImpl {
         encrypted_buffer->mutable_data());
     // Delete AES encryptor object. It was created only to verify the footer signature.
     aes_encryptor->WipeOut();
-    aes_encryptor = nullptr;
     return 0 ==
            memcmp(encrypted_buffer->data() + encrypted_len - encryption::kGcmTagLength,
                   tag, encryption::kGcmTagLength);
