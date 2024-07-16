@@ -589,8 +589,7 @@ func TestByteStreamSplitEncodingFileRead(t *testing.T) {
 
 func TestDeltaBinaryPackedMultipleBatches(t *testing.T) {
 	size := 10
-	buf := new(bytes.Buffer)
-	mem := memory.NewGoAllocator()
+	batchSize := size / 2 // write 2 batches
 
 	// Define the schema for the test data
 	fields := []arrow.Field{
@@ -599,7 +598,7 @@ func TestDeltaBinaryPackedMultipleBatches(t *testing.T) {
 	schema := arrow.NewSchema(fields, nil)
 
 	// Create a record batch with the test data
-	b := array.NewRecordBuilder(mem, schema)
+	b := array.NewRecordBuilder(memory.DefaultAllocator, schema)
 	defer b.Release()
 
 	for i := 0; i < size; i++ {
@@ -610,12 +609,12 @@ func TestDeltaBinaryPackedMultipleBatches(t *testing.T) {
 
 	// Write the data to Parquet using the file writer
 	props := parquet.NewWriterProperties(
-		parquet.WithCompression(compress.Codecs.Zstd),
-		parquet.WithCompressionLevel(3),
 		parquet.WithDictionaryDefault(false),
 		parquet.WithEncoding(parquet.Encodings.DeltaBinaryPacked))
 	writerProps := pqarrow.DefaultWriterProps()
-	pw, err := pqarrow.NewFileWriter(schema, buf, props, writerProps)
+
+	var buf bytes.Buffer
+	pw, err := pqarrow.NewFileWriter(schema, &buf, props, writerProps)
 	require.NoError(t, err)
 	require.NoError(t, pw.Write(rec))
 	require.NoError(t, pw.Close())
@@ -625,7 +624,7 @@ func TestDeltaBinaryPackedMultipleBatches(t *testing.T) {
 	require.NoError(t, err)
 	defer reader.Close()
 
-	pr, err := pqarrow.NewFileReader(reader, pqarrow.ArrowReadProperties{BatchSize: 5}, memory.DefaultAllocator)
+	pr, err := pqarrow.NewFileReader(reader, pqarrow.ArrowReadProperties{BatchSize: int64(batchSize)}, memory.DefaultAllocator)
 	require.NoError(t, err)
 
 	rr, err := pr.GetRecordReader(context.Background(), nil, nil)
