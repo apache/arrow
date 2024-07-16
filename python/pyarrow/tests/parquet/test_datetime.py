@@ -17,6 +17,7 @@
 
 import datetime
 import io
+import json
 import warnings
 
 import numpy as np
@@ -353,6 +354,27 @@ def test_timestamp_restore_timezone_nanosecond():
     ty_us = pa.timestamp('us', tz='America/New_York')
     expected = pa.table([arr.cast(ty_us)], names=['f0'])
     _check_roundtrip(table, expected=expected, version='2.4')
+
+
+def test_time_is_adjusted_to_utc_false(tempdir):
+    data = np.arange(3, dtype='i4')
+    t32 = pa.time32('ms')
+    a32 = pa.array(data, type=t32)
+    t64us = pa.time64('us')
+    a64us = pa.array(data.astype('int64'), type=t64us)
+    t64ns = pa.time64('ns')
+    a64ns = pa.array(data.astype('int64'), type=t64ns)
+
+    table = pa.Table.from_arrays([a32, a64us, a64ns],
+                                 ['time32[ms]', 'time64[us]',
+                                  'time64[ns]'])
+
+    filename = tempdir / 'test_time_is_adjusted_to_utc_false.parquet'
+    _write_table(table, filename, time_is_adjusted_to_utc=False)
+    parquet_schema = pq.ParquetFile(filename).schema
+    for i in range(3):
+        type_prop_json = json.loads(parquet_schema.column(i).logical_type.to_json())
+        assert type_prop_json['isAdjustedToUTC'] is False
 
 
 @pytest.mark.pandas

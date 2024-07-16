@@ -972,7 +972,8 @@ class PARQUET_EXPORT ArrowWriterProperties {
           compliant_nested_types_(true),
           engine_version_(V2),
           use_threads_(kArrowDefaultUseThreads),
-          executor_(NULLPTR) {}
+          executor_(NULLPTR),
+          time_is_adjusted_to_utc_(true) {}
     virtual ~Builder() = default;
 
     /// \brief Disable writing legacy int96 timestamps (default disabled).
@@ -1067,12 +1068,26 @@ class PARQUET_EXPORT ArrowWriterProperties {
       return this;
     }
 
+    /// \brief Set time columns as adjusted to utc (default)
+    Builder* set_time_is_adjusted_to_utc() {
+      time_is_adjusted_to_utc_ = true;
+      return this;
+    }
+
+    /// \brief Set time columns as not adjusted to utc
+    ///
+    /// This is true by default
+    Builder* unset_time_is_adjusted_to_utc() {
+      time_is_adjusted_to_utc_ = false;
+      return this;
+    }
+
     /// Create the final properties.
     std::shared_ptr<ArrowWriterProperties> build() {
       return std::shared_ptr<ArrowWriterProperties>(new ArrowWriterProperties(
           write_timestamps_as_int96_, coerce_timestamps_enabled_, coerce_timestamps_unit_,
           truncated_timestamps_allowed_, store_schema_, compliant_nested_types_,
-          engine_version_, use_threads_, executor_));
+          engine_version_, use_threads_, executor_, time_is_adjusted_to_utc_));
     }
 
    private:
@@ -1088,6 +1103,7 @@ class PARQUET_EXPORT ArrowWriterProperties {
 
     bool use_threads_;
     ::arrow::internal::Executor* executor_;
+    bool time_is_adjusted_to_utc_;
   };
 
   bool support_deprecated_int96_timestamps() const { return write_timestamps_as_int96_; }
@@ -1121,6 +1137,9 @@ class PARQUET_EXPORT ArrowWriterProperties {
   /// \brief Returns the executor used to write columns in parallel.
   ::arrow::internal::Executor* executor() const;
 
+  /// \brief Returns whether time types are adjusted to utc
+  bool time_is_adjusted_to_utc() const { return time_is_adjusted_to_utc_; }
+
  private:
   explicit ArrowWriterProperties(bool write_nanos_as_int96,
                                  bool coerce_timestamps_enabled,
@@ -1128,7 +1147,8 @@ class PARQUET_EXPORT ArrowWriterProperties {
                                  bool truncated_timestamps_allowed, bool store_schema,
                                  bool compliant_nested_types,
                                  EngineVersion engine_version, bool use_threads,
-                                 ::arrow::internal::Executor* executor)
+                                 ::arrow::internal::Executor* executor,
+                                 bool time_is_adjusted_to_utc)
       : write_timestamps_as_int96_(write_nanos_as_int96),
         coerce_timestamps_enabled_(coerce_timestamps_enabled),
         coerce_timestamps_unit_(coerce_timestamps_unit),
@@ -1137,7 +1157,8 @@ class PARQUET_EXPORT ArrowWriterProperties {
         compliant_nested_types_(compliant_nested_types),
         engine_version_(engine_version),
         use_threads_(use_threads),
-        executor_(executor) {}
+        executor_(executor),
+        time_is_adjusted_to_utc_(time_is_adjusted_to_utc) {}
 
   const bool write_timestamps_as_int96_;
   const bool coerce_timestamps_enabled_;
@@ -1148,6 +1169,7 @@ class PARQUET_EXPORT ArrowWriterProperties {
   const EngineVersion engine_version_;
   const bool use_threads_;
   ::arrow::internal::Executor* executor_;
+  const bool time_is_adjusted_to_utc_;
 };
 
 /// \brief State object used for writing Arrow data directly to a Parquet

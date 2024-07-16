@@ -459,6 +459,8 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* enable_compliant_nested_types()
             Builder* disable_compliant_nested_types()
             Builder* set_engine_version(ArrowWriterEngineVersion version)
+            Builder* set_time_is_adjusted_to_utc()
+            Builder* unset_time_is_adjusted_to_utc()
             shared_ptr[ArrowWriterProperties] build()
         c_bool support_deprecated_int96_timestamps()
 
@@ -607,6 +609,7 @@ cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
     allow_truncated_timestamps=*,
     writer_engine_version=*,
     use_compliant_nested_type=*,
+    time_is_adjusted_to_utc=*,
     store_schema=*,
 ) except *
 

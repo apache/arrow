@@ -60,6 +60,13 @@ using parquet::WriterProperties;
 using parquet::CreateOutputStream;
 using parquet::arrow::WriteTable;
 
+using parquet::LogicalType;
+using parquet::ParquetFileReader;
+using parquet::Repetition;
+using parquet::schema::GroupNode;
+using parquet::schema::NodePtr;
+using parquet::schema::PrimitiveNode;
+
 using testing::Pointee;
 
 class ParquetFormatHelper {
@@ -227,6 +234,57 @@ TEST_F(TestParquetFileFormat, WriteRecordBatchReaderCustomOptions) {
   EXPECT_OK_AND_ASSIGN(auto actual_schema, fragment->ReadPhysicalSchema());
   AssertSchemaEqual(Schema({field("ts", timestamp(coerce_timestamps_to))}),
                     *actual_schema);
+}
+
+TEST_F(TestParquetFileFormat, WriteRecordBatchReaderTimeIsAdjustedToUTCFalse) {
+  std::vector<parquet::schema::NodePtr> parquet_fields;
+
+  // // Time32 millis, Time64 micros, Time64 nanos
+  auto milli_logical = LogicalType::Time(false, LogicalType::TimeUnit::MILLIS);
+  auto milli_parquet = PrimitiveNode::Make("millis", Repetition::OPTIONAL, milli_logical,
+                                           parquet::Type::INT32, -1);
+  parquet_fields.push_back(milli_parquet);
+  auto micro_logical = LogicalType::Time(false, LogicalType::TimeUnit::MICROS);
+  auto micro_parquet = PrimitiveNode::Make("micros", Repetition::OPTIONAL, micro_logical,
+                                           parquet::Type::INT64, -1);
+  parquet_fields.push_back(micro_parquet);
+  auto nano_logical = LogicalType::Time(false, LogicalType::TimeUnit::NANOS);
+  auto nano_parquet = PrimitiveNode::Make("nanos", Repetition::OPTIONAL, nano_logical,
+                                          parquet::Type::INT64, -1);
+  parquet_fields.push_back(nano_parquet);
+
+  auto milli_arrow = field("millis", time32(TimeUnit::MILLI));
+  auto micro_arrow = field("micros", time64(TimeUnit::MICRO));
+  auto nano_arrow = field("nanos", time64(TimeUnit::NANO));
+  auto arrow_schema = schema({milli_arrow, micro_arrow, nano_arrow});
+
+  auto options =
+      checked_pointer_cast<ParquetFileWriteOptions>(format_->DefaultWriteOptions());
+  options->writer_properties = parquet::WriterProperties::Builder()
+                                   .created_by("TestParquetFileFormat")
+                                   ->disable_statistics()
+                                   ->build();
+  options->arrow_writer_properties =
+      parquet::ArrowWriterProperties::Builder().unset_time_is_adjusted_to_utc()->build();
+
+  auto buffer = WriteToBuffer(arrow_schema, options);
+  auto buffer_reader = std::make_shared<io::BufferReader>(buffer);
+
+  // Get and check the parquet schema
+  std::unique_ptr<ParquetFileReader> reader_ = std::make_unique<ParquetFileReader>();
+  reader_->Open(ParquetFileReader::Contents::Open(buffer_reader));
+  NodePtr schema_node = GroupNode::Make("schema", Repetition::REPEATED, parquet_fields);
+  const GroupNode* expected_schema_node =
+      static_cast<const GroupNode*>(schema_node.get());
+  const GroupNode* result_schema_node = reader_->metadata()->schema()->group_node();
+
+  ASSERT_EQ(expected_schema_node->field_count(), result_schema_node->field_count());
+
+  for (int i = 0; i < expected_schema_node->field_count(); i++) {
+    auto lhs = result_schema_node->field(i);
+    auto rhs = expected_schema_node->field(i);
+    EXPECT_TRUE(lhs->Equals(rhs.get()));
+  }
 }
 
 TEST_F(TestParquetFileFormat, CountRows) { TestCountRows(); }

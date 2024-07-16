@@ -1183,6 +1183,76 @@ TEST_F(TestConvertArrowSchema, ParquetNestedComplianceEnabledNotNullable) {
   ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(parquet_fields));
 }
 
+TEST_F(TestConvertArrowSchema, ParquetTimeIsAdjustedToUTC) {
+  std::vector<NodePtr> parquet_fields;
+  std::vector<std::shared_ptr<Field>> arrow_fields;
+
+  // // Time32 millis, Time64 micros, Time64 nanos
+
+  auto milli_logical = LogicalType::Time(true, LogicalType::TimeUnit::MILLIS);
+  auto milli_parquet = PrimitiveNode::Make("millis", Repetition::OPTIONAL, milli_logical,
+                                           ParquetType::INT32, -1);
+  parquet_fields.push_back(milli_parquet);
+  auto micro_logical = LogicalType::Time(true, LogicalType::TimeUnit::MICROS);
+  auto micro_parquet = PrimitiveNode::Make("micros", Repetition::OPTIONAL, micro_logical,
+                                           ParquetType::INT64, -1);
+  parquet_fields.push_back(milli_parquet);
+  auto nano_logical = LogicalType::Time(true, LogicalType::TimeUnit::NANOS);
+  auto nano_parquet = PrimitiveNode::Make("nanos", Repetition::OPTIONAL, nano_logical,
+                                          ParquetType::INT64, -1);
+  parquet_fields.push_back(nano_parquet);
+
+  auto milli_arrow = ::arrow::field("millis", ::arrow::time32(::arrow::TimeUnit::MILLI));
+  arrow_fields.push_back(milli_arrow);
+  auto micro_arrow = ::arrow::field("micros", ::arrow::time64(::arrow::TimeUnit::MICRO));
+  arrow_fields.push_back(milli_arrow);
+  auto nano_arrow = ::arrow::field("nanos", ::arrow::time64(::arrow::TimeUnit::NANO));
+  arrow_fields.push_back(nano_arrow);
+
+  ArrowWriterProperties::Builder builder;
+  builder.set_time_is_adjusted_to_utc();
+  auto arrow_properties = builder.build();
+
+  ASSERT_OK(ConvertSchema(arrow_fields, arrow_properties));
+
+  ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(parquet_fields));
+}
+
+TEST_F(TestConvertArrowSchema, ParquetTimeIsAdjustedToUTCFalse) {
+  std::vector<NodePtr> parquet_fields;
+  std::vector<std::shared_ptr<Field>> arrow_fields;
+
+  // // Time32 millis, Time64 micros, Time64 nanos
+
+  auto milli_logical = LogicalType::Time(false, LogicalType::TimeUnit::MILLIS);
+  auto milli_parquet = PrimitiveNode::Make("millis", Repetition::OPTIONAL, milli_logical,
+                                           ParquetType::INT32, -1);
+  parquet_fields.push_back(milli_parquet);
+  auto micro_logical = LogicalType::Time(false, LogicalType::TimeUnit::MICROS);
+  auto micro_parquet = PrimitiveNode::Make("micros", Repetition::OPTIONAL, micro_logical,
+                                           ParquetType::INT64, -1);
+  parquet_fields.push_back(milli_parquet);
+  auto nano_logical = LogicalType::Time(false, LogicalType::TimeUnit::NANOS);
+  auto nano_parquet = PrimitiveNode::Make("nanos", Repetition::OPTIONAL, nano_logical,
+                                          ParquetType::INT64, -1);
+  parquet_fields.push_back(nano_parquet);
+
+  auto milli_arrow = ::arrow::field("millis", ::arrow::time32(::arrow::TimeUnit::MILLI));
+  arrow_fields.push_back(milli_arrow);
+  auto micro_arrow = ::arrow::field("micros", ::arrow::time64(::arrow::TimeUnit::MICRO));
+  arrow_fields.push_back(milli_arrow);
+  auto nano_arrow = ::arrow::field("nanos", ::arrow::time64(::arrow::TimeUnit::NANO));
+  arrow_fields.push_back(nano_arrow);
+
+  ArrowWriterProperties::Builder builder;
+  builder.unset_time_is_adjusted_to_utc();
+  auto arrow_properties = builder.build();
+
+  ASSERT_OK(ConvertSchema(arrow_fields, arrow_properties));
+
+  ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(parquet_fields));
+}
+
 TEST_F(TestConvertArrowSchema, ParquetFlatDecimals) {
   std::vector<NodePtr> parquet_fields;
   std::vector<std::shared_ptr<Field>> arrow_fields;
