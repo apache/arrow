@@ -45,8 +45,11 @@
 #include <aws/core/utils/logging/ConsoleLogSystem.h>
 #include <aws/s3/S3Client.h>
 #include <aws/s3/model/CreateBucketRequest.h>
+#include <aws/s3/model/PutBucketVersioningRequest.h>
+#include <aws/s3/model/VersioningConfiguration.h>
 #include <aws/s3/model/GetObjectRequest.h>
 #include <aws/s3/model/PutObjectRequest.h>
+#include <aws/s3/model/ListObjectsV2Request.h>
 #include <aws/sts/STSClient.h>
 
 #include "arrow/filesystem/filesystem.h"
@@ -245,6 +248,33 @@ void AssertObjectContents(Aws::S3::S3Client* client, const std::string& bucket,
   req.SetKey(ToAwsString(key));
   ARROW_AWS_ASSIGN_OR_FAIL(auto result, client->GetObject(req));
   AssertGetObject(result, expected);
+}
+
+void AssertListObjects(Aws::S3::S3Client* client, const std::string& bucket,
+                       const std::string& key, const std::vector<std::string>& expected) {
+  Aws::S3::Model::ListObjectsV2Request req;
+  req.WithBucket(bucket).WithPrefix(key);
+
+  auto outcome = client->ListObjectsV2(req);
+  ASSERT_TRUE(outcome.IsSuccess());
+
+  const auto& result = outcome.GetResult();
+  std::vector<std::string> actual;
+  for (const auto& object : result.GetContents()) {
+    actual.push_back(object.GetKey());
+  }
+
+  // Sort the vectors for comparison
+  std::vector<std::string> sorted_actual = actual;
+  std::vector<std::string> sorted_expected = expected;
+
+  std::sort(sorted_actual.begin(), sorted_actual.end());
+  std::sort(sorted_expected.begin(), sorted_expected.end());
+
+  ASSERT_EQ(sorted_actual.size(), sorted_expected.size());
+  for (size_t i = 0; i < sorted_expected.size(); ++i) {
+    ASSERT_EQ(sorted_actual[i], sorted_expected[i]);
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////
@@ -467,6 +497,16 @@ class TestS3FS : public S3TestMixin {
       ASSERT_OK(OutcomeToStatus("PutObject", client_->PutObject(req)));
       req.SetKey(ToAwsString("otherdir/1/2/3/otherfile"));
       req.SetBody(std::make_shared<std::stringstream>("other data"));
+      ASSERT_OK(OutcomeToStatus("PutObject", client_->PutObject(req)));
+
+      req.SetKey(ToAwsString("prefix/01/file1.json.gz"));
+      req.SetBody(std::make_shared<std::stringstream>("test data 1"));
+      ASSERT_OK(OutcomeToStatus("PutObject", client_->PutObject(req)));
+      req.SetKey(ToAwsString("prefix/01/file2.json.gz"));
+      req.SetBody(std::make_shared<std::stringstream>("test data 2"));
+      ASSERT_OK(OutcomeToStatus("PutObject", client_->PutObject(req)));
+      req.SetKey(ToAwsString("prefix/01/file3.json.gz"));
+      req.SetBody(std::make_shared<std::stringstream>("test data 3"));
       ASSERT_OK(OutcomeToStatus("PutObject", client_->PutObject(req)));
     }
   }
@@ -1085,6 +1125,79 @@ TEST_F(TestS3FS, DeleteDirContentsAsync) {
   AssertFileInfo(infos[2], "bucket/somedir", FileType::Directory);
   AssertFileInfo(infos[3], "bucket/somefile", FileType::File);
 }
+
+TEST_F(TestS3FS, DeleteFileWithMarker) {
+  FileSelector select;
+  select.base_dir = "bucket/prefix/01";
+  select.recursive = false;
+  std::vector<FileInfo> infos;
+
+  // Expected files before deletion
+  std::vector<std::string> expected_before = {
+      "prefix/01/file1.json.gz",
+      "prefix/01/file2.json.gz",
+      "prefix/01/file3.json.gz"
+  };
+
+  // Verify the list of objects before deletion
+  AssertListObjects(client_.get(), "bucket", "prefix/01/", expected_before);
+
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
+  ASSERT_EQ(infos.size(), 3);
+
+  ASSERT_OK(fs_->DeleteFile("bucket/prefix/01/file1.json.gz"));
+
+  // Expected files after deletion
+  std::vector<std::string> expected_after = {
+      "prefix/01/",
+      "prefix/01/file2.json.gz",
+      "prefix/01/file3.json.gz"
+  };
+
+  // Verify the list of objects after deletion
+  AssertListObjects(client_.get(), "bucket", "prefix/01/", expected_after);
+
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
+  ASSERT_EQ(infos.size(), 2);
+}
+
+TEST_F(TestS3FS, DeleteWithoutMarker) {
+  options_.create_missing_dirs_on_delete = false;
+  MakeFileSystem();
+
+  FileSelector select;
+  select.base_dir = "bucket/prefix/01";
+  select.recursive = false;
+  std::vector<FileInfo> infos;
+
+  // Expected files before deletion
+  std::vector<std::string> expected_before = {
+      "prefix/01/file1.json.gz",
+      "prefix/01/file2.json.gz",
+      "prefix/01/file3.json.gz"
+  };
+
+  // Verify the list of objects before deletion
+  AssertListObjects(client_.get(), "bucket", "prefix/01/", expected_before);
+
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
+  ASSERT_EQ(infos.size(), 3);
+
+  ASSERT_OK(fs_->DeleteFile("bucket/prefix/01/file1.json.gz"));
+
+  // Expected files after deletion
+  std::vector<std::string> expected_after = {
+      "prefix/01/file2.json.gz",
+      "prefix/01/file3.json.gz"
+  };
+
+  // Verify the list of objects after deletion
+  AssertListObjects(client_.get(), "bucket", "prefix/01/", expected_after);
+
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
+  ASSERT_EQ(infos.size(), 2);
+}
+
 
 TEST_F(TestS3FS, CopyFile) {
   // "File"

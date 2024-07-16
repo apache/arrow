@@ -2995,8 +2995,11 @@ Status S3FileSystem::DeleteDir(const std::string& s) {
   } else {
     // Delete "directory"
     RETURN_NOT_OK(impl_->DeleteObject(path.bucket, path.key + kSep));
-    // Parent may be implicitly deleted if it became empty, recreate it
-    return impl_->EnsureParentExists(path);
+    if (options().create_missing_dirs_on_delete) {
+      // Parent may be implicitly deleted if it became empty, recreate it
+      return impl_->EnsureParentExists(path);
+    }
+    return Status::OK();
   }
 }
 
@@ -3053,8 +3056,11 @@ Status S3FileSystem::DeleteFile(const std::string& s) {
   }
   // Object found, delete it
   RETURN_NOT_OK(impl_->DeleteObject(path.bucket, path.key));
-  // Parent may be implicitly deleted if it became empty, recreate it
-  return impl_->EnsureParentExists(path);
+  if (options().create_missing_dirs_on_delete) {
+    // Parent may be implicitly deleted if it became empty, recreate it
+    return impl_->EnsureParentExists(path);
+  }
+  return Status::OK();
 }
 
 Status S3FileSystem::Move(const std::string& src, const std::string& dest) {
@@ -3072,8 +3078,12 @@ Status S3FileSystem::Move(const std::string& src, const std::string& dest) {
   }
   RETURN_NOT_OK(impl_->CopyObject(src_path, dest_path));
   RETURN_NOT_OK(impl_->DeleteObject(src_path.bucket, src_path.key));
-  // Source parent may be implicitly deleted if it became empty, recreate it
-  return impl_->EnsureParentExists(src_path);
+
+  if (options().create_missing_dirs_on_delete) {
+    // Source parent may be implicitly deleted if it became empty, recreate it
+    return impl_->EnsureParentExists(src_path);
+  }
+  return Status::OK();
 }
 
 Status S3FileSystem::CopyFile(const std::string& src, const std::string& dest) {
