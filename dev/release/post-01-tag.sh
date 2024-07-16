@@ -25,8 +25,11 @@ if [ "$#" -ne 2 ]; then
   exit
 fi
 
+version=$1
+rc=$2
+
 # Create the release tag and trigger the Publish Release workflow.
-release_candidate_tag=apache-arrow-${version}-rc${num}
+release_candidate_tag=apache-arrow-${version}-rc${rc}
 release_tag=apache-arrow-${version}
-git tag -a ${release_tag} ${release_candidate_tag}^{} -m "[Release] Apache Arrow Release ${version}"
+git tag -a ${release_tag} ${release_candidate_tag} -m "[Release] Apache Arrow Release ${version}"
 git push apache ${release_tag}
