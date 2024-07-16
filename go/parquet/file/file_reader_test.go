@@ -587,7 +587,7 @@ func TestByteStreamSplitEncodingFileRead(t *testing.T) {
 	}
 }
 
-func TestDeltaSomething(t *testing.T) {
+func TestDeltaBinaryPackedMultipleBatches(t *testing.T) {
 	size := 10
 	buf := new(bytes.Buffer)
 	mem := memory.NewGoAllocator()
@@ -616,20 +616,20 @@ func TestDeltaSomething(t *testing.T) {
 		parquet.WithEncoding(parquet.Encodings.DeltaBinaryPacked))
 	writerProps := pqarrow.DefaultWriterProps()
 	pw, err := pqarrow.NewFileWriter(schema, buf, props, writerProps)
-	assert.NoError(t, err)
-	pw.Write(rec)
-	pw.Close()
+	require.NoError(t, err)
+	require.NoError(t, pw.Write(rec))
+	require.NoError(t, pw.Close())
 
 	// Read the data back from the Parquet file
 	reader, err := file.NewParquetReader(bytes.NewReader(buf.Bytes()))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer reader.Close()
 
 	pr, err := pqarrow.NewFileReader(reader, pqarrow.ArrowReadProperties{BatchSize: 5}, memory.DefaultAllocator)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	rr, err := pr.GetRecordReader(context.Background(), nil, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	totalRows := 0
 	for rr.Next() {
@@ -638,13 +638,10 @@ func TestDeltaSomething(t *testing.T) {
 			col := rec.Column(0).(*array.Int64)
 
 			val := col.Value(i)
-			assert.Equal(t, val, int64(totalRows+i))
+			require.Equal(t, val, int64(totalRows+i))
 		}
 		totalRows += int(rec.NumRows())
 	}
 
-	if totalRows != size {
-		t.Fatalf("Expected %d rows, but got %d rows", size, totalRows)
-	}
-
+	require.Equalf(t, size, totalRows, "Expected %d rows, but got %d rows", size, totalRows)
 }
