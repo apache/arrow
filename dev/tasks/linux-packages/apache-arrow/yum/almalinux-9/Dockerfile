@@ -48,6 +48,7 @@ RUN \
     llvm-static \
     lz4-devel \
     make \
+    mimalloc-devel \
     ncurses-devel \
     ninja-build \
     openssl-devel \

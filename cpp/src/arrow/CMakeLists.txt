@@ -449,7 +449,7 @@ if(ARROW_JEMALLOC)
 endif()
 if(ARROW_MIMALLOC)
   foreach(ARROW_MEMORY_POOL_TARGET ${ARROW_MEMORY_POOL_TARGETS})
-    target_link_libraries(${ARROW_MEMORY_POOL_TARGET} PRIVATE mimalloc::mimalloc)
+    target_link_libraries(${ARROW_MEMORY_POOL_TARGET} PRIVATE mimalloc)
   endforeach()
 endif()
 

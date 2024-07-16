@@ -87,6 +87,7 @@ RUN apt-get update -y -q && \
         libkrb5-dev \
         libldap-dev \
         liblz4-dev \
+        libmimalloc-dev \
         libnghttp2-dev \
         libprotobuf-dev \
         libprotoc-dev \
@@ -196,6 +197,7 @@ ENV absl_SOURCE=BUNDLED \
     ARROW_HDFS=ON \
     ARROW_HOME=/usr/local \
     ARROW_INSTALL_NAME_RPATH=OFF \
+    ARROW_MIMALLOC=ON \
     ARROW_ORC=ON \
     ARROW_PARQUET=ON \
     ARROW_S3=ON \
@@ -215,6 +217,7 @@ ENV absl_SOURCE=BUNDLED \
     AWSSDK_SOURCE=BUNDLED \
     Azure_SOURCE=BUNDLED \
     google_cloud_cpp_storage_SOURCE=BUNDLED \
+    mimalloc_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
     PARQUET_BUILD_EXAMPLES=ON \
     PARQUET_BUILD_EXECUTABLES=ON \
