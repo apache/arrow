@@ -328,16 +328,31 @@ namespace Apache.Arrow.C
                     throw new InvalidOperationException("Large byte arrays are expected to have exactly three buffers");
                 }
 
-                int length = checked((int)cArray->length);
-                int offsetsLength = checked((length + 1) * 8);
+                const int maxLength = int.MaxValue / 8 - 1;
+                if (cArray->length > maxLength)
+                {
+                    throw new OverflowException(
+                        $"Cannot import large byte array. Array length {cArray->length} " +
+                        $"is greater than the maximum supported large byte array length ({maxLength})");
+                }
+
+                int length = (int)cArray->length;
+                int offsetsLength = (length + 1) * 8;
                 long* offsets = (long*)cArray->buffers[1];
                 Debug.Assert(offsets != null);
                 long valuesLength = offsets[length];
 
+                if (valuesLength > int.MaxValue)
+                {
+                    throw new OverflowException(
+                        $"Cannot import large byte array. Data length {valuesLength} " +
+                        $"is greater than the maximum supported large byte array data length ({int.MaxValue})");
+                }
+
                 ArrowBuffer[] buffers = new ArrowBuffer[3];
                 buffers[0] = ImportValidityBuffer(cArray);
                 buffers[1] = ImportCArrayBuffer(cArray, 1, offsetsLength);
-                buffers[2] = ImportCArrayBuffer(cArray, 2, checked((int)valuesLength));
+                buffers[2] = ImportCArrayBuffer(cArray, 2, (int)valuesLength);
 
                 return buffers;
             }
@@ -384,8 +399,16 @@ namespace Apache.Arrow.C
                     throw new InvalidOperationException("Large list arrays are expected to have exactly two buffers");
                 }
 
-                int length = checked((int)cArray->length);
-                int offsetsLength = checked((length + 1) * 8);
+                const int maxLength = int.MaxValue / 8 - 1;
+                if (cArray->length > maxLength)
+                {
+                    throw new OverflowException(
+                        $"Cannot import large list array. Array length {cArray->length} " +
+                        $"is greater than the maximum supported large list array length ({maxLength})");
+                }
+
+                int length = (int)cArray->length;
+                int offsetsLength = (length + 1) * 8;
 
                 ArrowBuffer[] buffers = new ArrowBuffer[2];
                 buffers[0] = ImportValidityBuffer(cArray);
