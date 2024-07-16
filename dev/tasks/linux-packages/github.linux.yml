@@ -65,6 +65,11 @@ jobs:
           set -e
           pushd arrow/dev/tasks/linux-packages
           rake version:update
+          for spec in */yum/*.spec.in; do
+            echo "::group::Log ${spec}"
+            cat ${spec}
+            echo "::endgroup::"
+          done
           rake docker:pull || :
           rake --trace {{ task_namespace }}:build BUILD_DIR=build
           popd
