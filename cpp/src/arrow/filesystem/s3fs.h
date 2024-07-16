@@ -177,7 +177,6 @@ struct ARROW_EXPORT S3Options {
   /// to be true to address these scenarios.
   bool check_directory_existence_before_creation = false;
 
-
   /// Whether to create missing directories when deleting files
   ///
   /// Creates 0-byte files to maintain file system semantics during deletion of files and
