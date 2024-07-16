@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"math"
 	"math/bits"
-	"reflect"
 
 	"github.com/apache/arrow/go/v18/arrow"
 	"github.com/apache/arrow/go/v18/arrow/memory"
@@ -314,9 +313,8 @@ func (enc *deltaBitPackEncoder[T]) flushBlock() {
 
 // putInternal is the implementation for actually writing data which must be
 // integral data as int, int8, int32, or int64.
-func (enc *deltaBitPackEncoder[T]) putInternal(data interface{}) {
-	v := reflect.ValueOf(data)
-	if v.Len() == 0 {
+func (enc *deltaBitPackEncoder[T]) Put(in []T) {
+	if len(in) == 0 {
 		return
 	}
 
@@ -326,16 +324,16 @@ func (enc *deltaBitPackEncoder[T]) putInternal(data interface{}) {
 		enc.numMiniBlocks = defaultNumMiniBlocks
 		enc.miniBlockSize = defaultNumValuesPerMini
 
-		enc.firstVal = v.Index(0).Int()
+		enc.firstVal = int64(in[0])
 		enc.currentVal = enc.firstVal
 		idx = 1
 
 		enc.bitWriter = utils.NewBitWriter(enc.sink)
 	}
 
-	enc.totalVals += uint64(v.Len())
-	for ; idx < v.Len(); idx++ {
-		val := v.Index(idx).Int()
+	enc.totalVals += uint64(len(in))
+	for ; idx < len(in); idx++ {
+		val := int64(in[idx])
 		enc.deltas = append(enc.deltas, val-enc.currentVal)
 		enc.currentVal = val
 		if len(enc.deltas) == int(enc.blockSize) {
@@ -385,11 +383,6 @@ func (enc *deltaBitPackEncoder[T]) EstimatedDataEncodedSize() int64 {
 	}
 
 	return int64(enc.bitWriter.Written())
-}
-
-// Put writes the values from the provided slice of int32 to the encoder
-func (enc *deltaBitPackEncoder[T]) Put(in []T) {
-	enc.putInternal(in)
 }
 
 // PutSpaced takes a slice of int32 along with a bitmap that describes the nulls and an offset into the bitmap
