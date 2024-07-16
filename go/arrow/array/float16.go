@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/apache/arrow/go/v17/arrow"
-	"github.com/apache/arrow/go/v17/arrow/float16"
-	"github.com/apache/arrow/go/v17/internal/json"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/float16"
+	"github.com/apache/arrow/go/v18/internal/json"
 )
 
 // A type which represents an immutable sequence of Float16 values.

@@ -140,6 +140,7 @@ Multi-Arch: same
 Depends:
   ${misc:Depends},
   libarrow1700 (= ${binary:Version}),
+@USE_SYSTEM_GRPC@  libabsl-dev,
   libbrotli-dev,
   libbz2-dev,
   libcurl4-openssl-dev,

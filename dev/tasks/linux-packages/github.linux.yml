@@ -64,7 +64,7 @@ jobs:
         run: |
           set -e
           pushd arrow/dev/tasks/linux-packages
-          rake version:update
+          rake version:update ARROW_RELEASE_TIME="$(date --iso-8601=seconds)"
           rake docker:pull || :
           rake --trace {{ task_namespace }}:build BUILD_DIR=build
           popd

@@ -43,7 +43,7 @@
 #include "arrow/testing/util.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/bit_run_reader.h"
-#include "arrow/util/bit_stream_utils.h"
+#include "arrow/util/bit_stream_utils_internal.h"
 #include "arrow/util/bitmap.h"
 #include "arrow/util/bitmap_generate.h"
 #include "arrow/util/bitmap_ops.h"

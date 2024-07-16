@@ -125,5 +125,134 @@ TEST(RowTableMemoryConsumption, Encode) {
   }
 }
 
+// GH-43202: Ensure that when offset overflow happens in encoding the row table, an
+// explicit error is raised instead of a silent wrong result.
+TEST(RowTableOffsetOverflow, LARGE_MEMORY_TEST(Encode)) {
+  if constexpr (sizeof(void*) == 4) {
+    GTEST_SKIP() << "Test only works on 64-bit platforms";
+  }
+
+  // Use 8 512MB var-length rows (occupies 4GB+) to overflow the offset in the row table.
+  constexpr int64_t num_rows = 8;
+  constexpr int64_t length_per_binary = 512 * 1024 * 1024;
+  constexpr int64_t row_alignment = sizeof(uint32_t);
+  constexpr int64_t var_length_alignment = sizeof(uint32_t);
+
+  MemoryPool* pool = default_memory_pool();
+
+  // The column to encode.
+  std::vector<KeyColumnArray> columns;
+  std::vector<Datum> values;
+  ASSERT_OK_AND_ASSIGN(
+      auto value, ::arrow::gen::Constant(
+                      std::make_shared<BinaryScalar>(std::string(length_per_binary, 'X')))
+                      ->Generate(1));
+  values.push_back(std::move(value));
+  ExecBatch batch = ExecBatch(std::move(values), 1);
+  ASSERT_OK(ColumnArraysFromExecBatch(batch, &columns));
+
+  // The row table.
+  std::vector<KeyColumnMetadata> column_metadatas;
+  ASSERT_OK(ColumnMetadatasFromExecBatch(batch, &column_metadatas));
+  RowTableMetadata table_metadata;
+  table_metadata.FromColumnMetadataVector(column_metadatas, row_alignment,
+                                          var_length_alignment);
+  RowTableImpl row_table;
+  ASSERT_OK(row_table.Init(pool, table_metadata));
+  RowTableEncoder row_encoder;
+  row_encoder.Init(column_metadatas, row_alignment, var_length_alignment);
+
+  // The rows to encode.
+  std::vector<uint16_t> row_ids(num_rows, 0);
+
+  // Encoding 7 rows should be fine.
+  {
+    row_encoder.PrepareEncodeSelected(0, num_rows - 1, columns);
+    ASSERT_OK(row_encoder.EncodeSelected(&row_table, static_cast<uint32_t>(num_rows - 1),
+                                         row_ids.data()));
+  }
+
+  // Encoding 8 rows should overflow.
+  {
+    int64_t length_per_row = table_metadata.fixed_length + length_per_binary;
+    std::stringstream expected_error_message;
+    expected_error_message << "Invalid: Offset overflow detected in "
+                              "EncoderOffsets::GetRowOffsetsSelected for row "
+                           << num_rows - 1 << " of length " << length_per_row
+                           << " bytes, current length in total is "
+                           << length_per_row * (num_rows - 1) << " bytes";
+    row_encoder.PrepareEncodeSelected(0, num_rows, columns);
+    ASSERT_RAISES_WITH_MESSAGE(
+        Invalid, expected_error_message.str(),
+        row_encoder.EncodeSelected(&row_table, static_cast<uint32_t>(num_rows),
+                                   row_ids.data()));
+  }
+}
+
+// GH-43202: Ensure that when offset overflow happens in appending to the row table, an
+// explicit error is raised instead of a silent wrong result.
+TEST(RowTableOffsetOverflow, LARGE_MEMORY_TEST(AppendFrom)) {
+  if constexpr (sizeof(void*) == 4) {
+    GTEST_SKIP() << "Test only works on 64-bit platforms";
+  }
+
+  // Use 8 512MB var-length rows (occupies 4GB+) to overflow the offset in the row table.
+  constexpr int64_t num_rows = 8;
+  constexpr int64_t length_per_binary = 512 * 1024 * 1024;
+  constexpr int64_t num_rows_seed = 1;
+  constexpr int64_t row_alignment = sizeof(uint32_t);
+  constexpr int64_t var_length_alignment = sizeof(uint32_t);
+
+  MemoryPool* pool = default_memory_pool();
+
+  // The column to encode.
+  std::vector<KeyColumnArray> columns;
+  std::vector<Datum> values;
+  ASSERT_OK_AND_ASSIGN(
+      auto value, ::arrow::gen::Constant(
+                      std::make_shared<BinaryScalar>(std::string(length_per_binary, 'X')))
+                      ->Generate(num_rows_seed));
+  values.push_back(std::move(value));
+  ExecBatch batch = ExecBatch(std::move(values), num_rows_seed);
+  ASSERT_OK(ColumnArraysFromExecBatch(batch, &columns));
+
+  // The seed row table.
+  std::vector<KeyColumnMetadata> column_metadatas;
+  ASSERT_OK(ColumnMetadatasFromExecBatch(batch, &column_metadatas));
+  RowTableMetadata table_metadata;
+  table_metadata.FromColumnMetadataVector(column_metadatas, row_alignment,
+                                          var_length_alignment);
+  RowTableImpl row_table_seed;
+  ASSERT_OK(row_table_seed.Init(pool, table_metadata));
+  RowTableEncoder row_encoder;
+  row_encoder.Init(column_metadatas, row_alignment, var_length_alignment);
+  row_encoder.PrepareEncodeSelected(0, num_rows_seed, columns);
+  std::vector<uint16_t> row_ids(num_rows_seed, 0);
+  ASSERT_OK(row_encoder.EncodeSelected(
+      &row_table_seed, static_cast<uint32_t>(num_rows_seed), row_ids.data()));
+
+  // The target row table.
+  RowTableImpl row_table;
+  ASSERT_OK(row_table.Init(pool, table_metadata));
+
+  // Appending the seed 7 times should be fine.
+  for (int i = 0; i < num_rows - 1; ++i) {
+    ASSERT_OK(row_table.AppendSelectionFrom(row_table_seed, num_rows_seed,
+                                            /*source_row_ids=*/NULLPTR));
+  }
+
+  // Appending the seed the 8-th time should overflow.
+  int64_t length_per_row = table_metadata.fixed_length + length_per_binary;
+  std::stringstream expected_error_message;
+  expected_error_message
+      << "Invalid: Offset overflow detected in RowTableImpl::AppendSelectionFrom for row "
+      << num_rows - 1 << " of length " << length_per_row
+      << " bytes, current length in total is " << length_per_row * (num_rows - 1)
+      << " bytes";
+  ASSERT_RAISES_WITH_MESSAGE(Invalid, expected_error_message.str(),
+                             row_table.AppendSelectionFrom(row_table_seed, num_rows_seed,
+                                                           /*source_row_ids=*/NULLPTR));
+}
+
 }  // namespace compute
 }  // namespace arrow
