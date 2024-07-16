@@ -206,6 +206,7 @@ func (d *deltaBitPackDecoder[T]) DecodeSpaced(out []T, nullCount int, validBits 
 	return spacedExpand(out, nullCount, validBits, validBitsOffset), nil
 }
 
+// Type returns the underlying physical type this decoder works with
 func (dec *deltaBitPackDecoder[T]) Type() parquet.Type {
 	switch v := any(dec).(type) {
 	case *deltaBitPackDecoder[int32]:
@@ -217,7 +218,10 @@ func (dec *deltaBitPackDecoder[T]) Type() parquet.Type {
 	}
 }
 
+// DeltaBitPackInt32Decoder decodes Int32 values which are packed using the Delta BitPacking algorithm.
 type DeltaBitPackInt32Decoder = deltaBitPackDecoder[int32]
+
+// DeltaBitPackInt64Decoder decodes Int64 values which are packed using the Delta BitPacking algorithm.
 type DeltaBitPackInt64Decoder = deltaBitPackDecoder[int64]
 
 const (
@@ -385,7 +389,7 @@ func (enc *deltaBitPackEncoder[T]) EstimatedDataEncodedSize() int64 {
 	return int64(enc.bitWriter.Written())
 }
 
-// PutSpaced takes a slice of int32 along with a bitmap that describes the nulls and an offset into the bitmap
+// PutSpaced takes a slice of values along with a bitmap that describes the nulls and an offset into the bitmap
 // in order to write spaced data to the encoder.
 func (enc *deltaBitPackEncoder[T]) PutSpaced(in []T, validBits []byte, validBitsOffset int64) {
 	buffer := memory.NewResizableBuffer(enc.mem)
@@ -398,7 +402,7 @@ func (enc *deltaBitPackEncoder[T]) PutSpaced(in []T, validBits []byte, validBits
 	enc.Put(data[:nvalid])
 }
 
-// Type returns the underlying physical type this encoder works with, in this case Int32
+// Type returns the underlying physical type this encoder works with
 func (dec *deltaBitPackEncoder[T]) Type() parquet.Type {
 	switch v := any(dec).(type) {
 	case *deltaBitPackEncoder[int32]:
@@ -410,5 +414,8 @@ func (dec *deltaBitPackEncoder[T]) Type() parquet.Type {
 	}
 }
 
+// DeltaBitPackInt32Encoder is an encoder for the delta bitpacking encoding for Int32 data.
 type DeltaBitPackInt32Encoder = deltaBitPackEncoder[int32]
+
+// DeltaBitPackInt64Encoder is an encoder for the delta bitpacking encoding for Int64 data.
 type DeltaBitPackInt64Encoder = deltaBitPackEncoder[int64]
