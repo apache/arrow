@@ -1252,6 +1252,8 @@ struct Inequality {
     if (!value_set) return expr;
     if (value_set->length() == 0) return literal(false);
 
+    if (!options->sorted_and_deduped) return expr;
+
     // For now, only simplify when the guarantee is non-nullable.
     if (guarantee.nullable) return expr;
 
@@ -1305,14 +1307,15 @@ struct Inequality {
     simplified_call.function_name = "is_in";
     simplified_call.arguments = call->arguments;
     simplified_call.options = std::make_shared<SetLookupOptions>(
-        std::move(simplified_value_set), options->null_matching_behavior);
+        std::move(simplified_value_set), options->null_matching_behavior,
+        /*sorted_and_deduped=*/true);
     ExecContext exec_context;
     return BindNonRecursive(std::move(simplified_call),
                             /*insert_implicit_casts=*/false, &exec_context);
   }
 
   /// \brief Simplify the given expression given this inequality as a guarantee.
-  Result<Expression> Simplify(Expression expr, bool is_in_value_set_sorted) {
+  Result<Expression> Simplify(Expression expr) {
     const auto& guarantee = *this;
 
     auto call = expr.call();
@@ -1327,9 +1330,7 @@ struct Inequality {
       return call->function_name == "is_valid" ? literal(true) : literal(false);
     }
 
-    if (call->function_name == "is_in" && is_in_value_set_sorted) {
-      return SimplifyIsIn(expr);
-    }
+    if (call->function_name == "is_in") return SimplifyIsIn(expr);
 
     auto cmp = Comparison::Get(expr);
     if (!cmp) return expr;
@@ -1415,8 +1416,7 @@ Result<Expression> SimplifyIsValidGuarantee(Expression expr,
 }  // namespace
 
 Result<Expression> SimplifyWithGuarantee(Expression expr,
-                                         const Expression& guaranteed_true_predicate,
-                                         bool is_in_value_set_sorted) {
+                                         const Expression& guaranteed_true_predicate) {
   KnownFieldValues known_values;
   auto conjunction_members = GuaranteeConjunctionMembers(guaranteed_true_predicate);
 
@@ -1436,13 +1436,12 @@ Result<Expression> SimplifyWithGuarantee(Expression expr,
     if (!guarantee.call()) continue;
 
     if (auto inequality = Inequality::ExtractOne(guarantee)) {
-      ARROW_ASSIGN_OR_RAISE(
-        auto simplified,
-        ModifyExpression(
-          std::move(expr), [is_in_value_set_sorted](Expression expr) { return expr; },
-          [&](Expression expr, ...) -> Result<Expression> {
-            return inequality->Simplify(std::move(expr), is_in_value_set_sorted);
-          }));
+      ARROW_ASSIGN_OR_RAISE(auto simplified,
+                            ModifyExpression(
+                                std::move(expr), [](Expression expr) { return expr; },
+                                [&](Expression expr, ...) -> Result<Expression> {
+                                  return inequality->Simplify(std::move(expr));
+                                }));
 
       if (Identical(simplified, expr)) continue;
 

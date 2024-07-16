@@ -287,11 +287,13 @@ class ARROW_EXPORT SetLookupOptions : public FunctionOptions {
     INCONCLUSIVE
   };
 
-  explicit SetLookupOptions(Datum value_set, NullMatchingBehavior = MATCH);
+  explicit SetLookupOptions(Datum value_set, NullMatchingBehavior = MATCH,
+                            bool sorted_and_deduped = false);
   SetLookupOptions();
 
   // DEPRECATED(will be removed after removing of skip_nulls)
-  explicit SetLookupOptions(Datum value_set, bool skip_nulls);
+  explicit SetLookupOptions(Datum value_set, bool skip_nulls,
+                            bool sorted_and_deduped = false);
 
   static constexpr char const kTypeName[] = "SetLookupOptions";
 
@@ -299,6 +301,13 @@ class ARROW_EXPORT SetLookupOptions : public FunctionOptions {
   Datum value_set;
 
   NullMatchingBehavior null_matching_behavior;
+
+  /// Whether the value set is sorted and contains no duplicates.
+  ///
+  /// If true, the caller must guarantee that the value set is sorted with null
+  /// values placed at the end. Setting this option may enable certain
+  /// optimizations e.g., SimplifyWithGuarantee.
+  bool sorted_and_deduped;
 
   // DEPRECATED(will be removed after removing of skip_nulls)
   NullMatchingBehavior GetNullMatchingBehavior() const;

@@ -370,7 +370,8 @@ static auto kRoundToMultipleOptionsType = GetFunctionOptionsType<RoundToMultiple
 static auto kSetLookupOptionsType = GetFunctionOptionsType<SetLookupOptions>(
     DataMember("value_set", &SetLookupOptions::value_set),
     CoercedDataMember("null_matching_behavior", &SetLookupOptions::null_matching_behavior,
-                      &SetLookupOptions::GetNullMatchingBehavior));
+                      &SetLookupOptions::GetNullMatchingBehavior),
+    DataMember("sorted_and_deduped", &SetLookupOptions::sorted_and_deduped));
 static auto kSliceOptionsType = GetFunctionOptionsType<SliceOptions>(
     DataMember("start", &SliceOptions::start), DataMember("stop", &SliceOptions::stop),
     DataMember("step", &SliceOptions::step));
@@ -564,9 +565,11 @@ RoundToMultipleOptions::RoundToMultipleOptions(std::shared_ptr<Scalar> multiple,
       round_mode(round_mode) {}
 constexpr char RoundToMultipleOptions::kTypeName[];
 
-SetLookupOptions::SetLookupOptions(Datum value_set, bool skip_nulls)
+SetLookupOptions::SetLookupOptions(Datum value_set, bool skip_nulls,
+                                   bool sorted_and_deduped)
     : FunctionOptions(internal::kSetLookupOptionsType),
       value_set(std::move(value_set)),
+      sorted_and_deduped(sorted_and_deduped),
       skip_nulls(skip_nulls) {
   if (skip_nulls) {
     this->null_matching_behavior = SetLookupOptions::SKIP;
@@ -575,12 +578,15 @@ SetLookupOptions::SetLookupOptions(Datum value_set, bool skip_nulls)
   }
 }
 SetLookupOptions::SetLookupOptions(
-    Datum value_set, SetLookupOptions::NullMatchingBehavior null_matching_behavior)
+    Datum value_set, SetLookupOptions::NullMatchingBehavior null_matching_behavior,
+    bool sorted_and_deduped)
     : FunctionOptions(internal::kSetLookupOptionsType),
       value_set(std::move(value_set)),
-      null_matching_behavior(std::move(null_matching_behavior)) {}
+      null_matching_behavior(std::move(null_matching_behavior)),
+      sorted_and_deduped(sorted_and_deduped) {}
 SetLookupOptions::SetLookupOptions()
-    : SetLookupOptions({}, SetLookupOptions::NullMatchingBehavior::MATCH) {}
+    : SetLookupOptions({}, SetLookupOptions::NullMatchingBehavior::MATCH,
+                       /*sorted_and_deduped=*/false) {}
 SetLookupOptions::NullMatchingBehavior SetLookupOptions::GetNullMatchingBehavior() const {
   if (!this->skip_nulls.has_value()) {
     return this->null_matching_behavior;

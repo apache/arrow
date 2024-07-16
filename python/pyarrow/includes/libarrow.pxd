@@ -2705,9 +2705,11 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CSetLookupOptions \
             "arrow::compute::SetLookupOptions"(CFunctionOptions):
-        CSetLookupOptions(CDatum value_set, c_bool skip_nulls)
+        CSetLookupOptions(CDatum value_set, c_bool skip_nulls,
+                          c_bool sorted_and_deduped)
         CDatum value_set
         c_bool skip_nulls
+        c_bool sorted_and_deduped
 
     cdef cppclass CRandomOptions \
             "arrow::compute::RandomOptions"(CFunctionOptions):

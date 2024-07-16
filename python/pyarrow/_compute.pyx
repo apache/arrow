@@ -1625,7 +1625,8 @@ class ModeOptions(_ModeOptions):
 
 
 cdef class _SetLookupOptions(FunctionOptions):
-    def _set_options(self, value_set, c_bool skip_nulls):
+    def _set_options(self, value_set, c_bool skip_nulls,
+                     c_bool sorted_and_deduped):
         cdef unique_ptr[CDatum] valset
         if isinstance(value_set, Array):
             valset.reset(new CDatum((<Array> value_set).sp_array))
@@ -1639,7 +1640,9 @@ cdef class _SetLookupOptions(FunctionOptions):
             _raise_invalid_function_option(value_set, "value set",
                                            exception_class=TypeError)
 
-        self.wrapped.reset(new CSetLookupOptions(deref(valset), skip_nulls))
+        self.wrapped.reset(
+            new CSetLookupOptions(deref(valset), skip_nulls, sorted_and_deduped)
+        )
 
 
 class SetLookupOptions(_SetLookupOptions):
@@ -1654,10 +1657,14 @@ class SetLookupOptions(_SetLookupOptions):
         If False, nulls in the input are matched in the value_set just
         like regular values.
         If True, nulls in the input always fail matching.
+    sorted_and_deduped : bool, default False
+        If True, may enable certain optimizations. Requires the caller to
+        guarantee that the value set is sorted with nulls at the end and
+        contains no duplicate values.
     """
 
-    def __init__(self, value_set, *, skip_nulls=False):
-        self._set_options(value_set, skip_nulls)
+    def __init__(self, value_set, *, skip_nulls=False, sorted_and_deduped=False):
+        self._set_options(value_set, skip_nulls, sorted_and_deduped)
 
 
 cdef class _StrptimeOptions(FunctionOptions):
