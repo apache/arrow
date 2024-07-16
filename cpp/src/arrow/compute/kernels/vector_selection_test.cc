@@ -1102,6 +1102,8 @@ TEST(TestFilterMetaFunction, ArityChecking) {
 // ----------------------------------------------------------------------
 // Take tests
 //
+// Shorthand notation (as defined in `TakeMetaFunction`):
+//
 //   A = Array
 //   C = ChunkedArray
 //   R = RecordBatch
@@ -1118,6 +1120,15 @@ TEST(TestFilterMetaFunction, ArityChecking) {
 //   Take(R, A) -> R  (TakeRAR)
 //   Take(T, A) -> T  (TakeTAT)
 //   Take(T, C) -> T  (TakeTCT)
+//
+// The tests extend the notation with a few "union kinds":
+//
+//   X = Array | ChunkedArray
+//
+// Examples:
+//
+//   TakeXA = {TakeAAA, TakeCAC},
+//   TakeXX = {TakeAAA, TakeACC, TakeCAC, TakeCCC}
 
 Result<std::shared_ptr<Array>> TakeAAA(const Array& values, const Array& indices) {
   return Take(values, indices);
@@ -1262,6 +1273,16 @@ void AssertTakeCCC(const std::shared_ptr<DataType>& type,
   ASSERT_OK(TakeCCC(type, values, indices, &actual));
   ValidateOutput(actual);
   AssertChunkedEqual(*ChunkedArrayFromJSON(type, expected), *actual);
+}
+
+void CheckTakeXCC(const Datum& values, const std::vector<std::string>& indices,
+                  const std::vector<std::string>& expected) {
+  EXPECT_TRUE(values.is_array() || values.is_chunked_array());
+  auto idx = ChunkedArrayFromJSON(int32(), indices);
+  ASSERT_OK_AND_ASSIGN(auto actual, Take(values, Datum{idx}));
+  ValidateOutput(actual);
+  AssertChunkedEqual(*ChunkedArrayFromJSON(values.type(), expected),
+                     *actual.chunked_array());
 }
 
 void AssertTakeRAR(const std::shared_ptr<Schema>& schm, const std::string& batch_json,
@@ -1441,20 +1462,12 @@ TEST_F(TestTakeKernel, InvalidIndexType) {
                                         "[0.0, 1.0, 0.1]", &arr));
 }
 
-TEST_F(TestTakeKernel, TakeCCCEmptyIndices) {
-  auto dat = ChunkedArrayFromJSON(int8(), {"[]"});
-  auto idx = ChunkedArrayFromJSON(int32(), {});
-  ASSERT_OK_AND_ASSIGN(auto out, TakeCCC(dat, idx));
-  ValidateOutput(out);
-  AssertDatumsEqual(ChunkedArrayFromJSON(int8(), {"[]"}), out, true);
-}
-
-TEST_F(TestTakeKernel, TakeACCEmptyIndices) {
-  auto dat = ArrayFromJSON(int8(), {"[]"});
-  auto idx = ChunkedArrayFromJSON(int32(), {});
-  ASSERT_OK_AND_ASSIGN(auto out, TakeACC(dat, idx));
-  ValidateOutput(out);
-  AssertDatumsEqual(ChunkedArrayFromJSON(int8(), {"[]"}), out, true);
+TEST_F(TestTakeKernel, TakeXCCEmptyIndices) {
+  auto expected = std::vector<std::string>{"[]"};
+  auto values = ArrayFromJSON(int8(), {"[1, 3, 3, 7]"});
+  CheckTakeXCC(values, {"[]"}, expected);
+  auto chunked_values = std::make_shared<ChunkedArray>(values);
+  CheckTakeXCC(chunked_values, {"[]"}, expected);
 }
 
 TEST_F(TestTakeKernel, DefaultOptions) {
