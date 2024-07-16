@@ -1101,33 +1101,113 @@ TEST(TestFilterMetaFunction, ArityChecking) {
 
 // ----------------------------------------------------------------------
 // Take tests
+//
+//   A = Array
+//   C = ChunkedArray
+//   R = RecordBatch
+//   T = Table
+//
+// (e.g. TakeCAC = Take(ChunkedArray, Array) -> ChunkedArray)
+//
+// The interface implemented by `TakeMetaFunction` is:
+//
+//   Take(A, A) -> A  (TakeAAA)
+//   Take(A, C) -> C  (TakeACC)
+//   Take(C, A) -> C  (TakeCAC)
+//   Take(C, C) -> C  (TakeCCC)
+//   Take(R, A) -> R  (TakeRAR)
+//   Take(T, A) -> T  (TakeTAT)
+//   Take(T, C) -> T  (TakeTCT)
 
-void AssertTakeArrays(const std::shared_ptr<Array>& values,
-                      const std::shared_ptr<Array>& indices,
-                      const std::shared_ptr<Array>& expected) {
-  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> actual, Take(*values, *indices));
+Result<std::shared_ptr<Array>> TakeAAA(const Array& values, const Array& indices) {
+  return Take(values, indices);
+}
+
+Status TakeAAA(const std::shared_ptr<DataType>& type, const std::string& values,
+               const std::shared_ptr<DataType>& index_type, const std::string& indices,
+               std::shared_ptr<Array>* out) {
+  return TakeAAA(*ArrayFromJSON(type, values), *ArrayFromJSON(index_type, indices))
+      .Value(out);
+}
+
+Result<Datum> TakeACC(const std::shared_ptr<Array>& values,
+                      const std::shared_ptr<ChunkedArray>& indices) {
+  return Take(values, indices);
+}
+
+Status TakeCAC(const std::shared_ptr<DataType>& type,
+               const std::vector<std::string>& values, const std::string& indices,
+               std::shared_ptr<ChunkedArray>* out) {
+  ARROW_ASSIGN_OR_RAISE(Datum result, Take(ChunkedArrayFromJSON(type, values),
+                                           ArrayFromJSON(int8(), indices)));
+  *out = result.chunked_array();
+  return Status::OK();
+}
+
+Result<Datum> TakeCCC(const std::shared_ptr<ChunkedArray>& values,
+                      const std::shared_ptr<ChunkedArray>& indices) {
+  return Take(values, indices);
+}
+
+Status TakeCCC(const std::shared_ptr<DataType>& type,
+               const std::vector<std::string>& values,
+               const std::vector<std::string>& indices,
+               std::shared_ptr<ChunkedArray>* out) {
+  ARROW_ASSIGN_OR_RAISE(Datum result, Take(ChunkedArrayFromJSON(type, values),
+                                           ChunkedArrayFromJSON(int8(), indices)));
+  *out = result.chunked_array();
+  return Status::OK();
+}
+
+Status TakeRAR(const std::shared_ptr<Schema>& schm, const std::string& batch_json,
+               const std::shared_ptr<DataType>& index_type, const std::string& indices,
+               std::shared_ptr<RecordBatch>* out) {
+  auto batch = RecordBatchFromJSON(schm, batch_json);
+  ARROW_ASSIGN_OR_RAISE(Datum result,
+                        Take(Datum(batch), Datum(ArrayFromJSON(index_type, indices))));
+  *out = result.record_batch();
+  return Status::OK();
+}
+
+Status TakeTAT(const std::shared_ptr<Schema>& schm,
+               const std::vector<std::string>& values, const std::string& indices,
+               std::shared_ptr<Table>* out) {
+  ARROW_ASSIGN_OR_RAISE(Datum result, Take(Datum(TableFromJSON(schm, values)),
+                                           Datum(ArrayFromJSON(int8(), indices))));
+  *out = result.table();
+  return Status::OK();
+}
+
+Status TakeTCT(const std::shared_ptr<Schema>& schm,
+               const std::vector<std::string>& values,
+               const std::vector<std::string>& indices, std::shared_ptr<Table>* out) {
+  ARROW_ASSIGN_OR_RAISE(Datum result, Take(Datum(TableFromJSON(schm, values)),
+                                           Datum(ChunkedArrayFromJSON(int8(), indices))));
+  *out = result.table();
+  return Status::OK();
+}
+
+// Assert helpers for Take tests
+
+void DoAssertTakeAAA(const std::shared_ptr<Array>& values,
+                     const std::shared_ptr<Array>& indices,
+                     const std::shared_ptr<Array>& expected) {
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> actual, TakeAAA(*values, *indices));
   ValidateOutput(actual);
   AssertArraysEqual(*expected, *actual, /*verbose=*/true);
 }
 
-Status TakeJSON(const std::shared_ptr<DataType>& type, const std::string& values,
-                const std::shared_ptr<DataType>& index_type, const std::string& indices,
-                std::shared_ptr<Array>* out) {
-  return Take(*ArrayFromJSON(type, values), *ArrayFromJSON(index_type, indices))
-      .Value(out);
-}
-
-void DoCheckTake(const std::shared_ptr<Array>& values,
-                 const std::shared_ptr<Array>& indices,
-                 const std::shared_ptr<Array>& expected) {
-  AssertTakeArrays(values, indices, expected);
+void DoCheckTakeAAA(const std::shared_ptr<Array>& values,
+                    const std::shared_ptr<Array>& indices,
+                    const std::shared_ptr<Array>& expected) {
+  DoAssertTakeAAA(values, indices, expected);
 
   // Check sliced values
   ASSERT_OK_AND_ASSIGN(auto values_filler, MakeArrayOfNull(values->type(), 2));
   ASSERT_OK_AND_ASSIGN(auto values_sliced,
                        Concatenate({values_filler, values, values_filler}));
   values_sliced = values_sliced->Slice(2, values->length());
-  AssertTakeArrays(values_sliced, indices, expected);
+  DoAssertTakeAAA(values_sliced, indices, expected);
 
   // Check sliced indices
   ASSERT_OK_AND_ASSIGN(auto zero, MakeScalar(indices->type(), int8_t{0}));
@@ -1135,33 +1215,93 @@ void DoCheckTake(const std::shared_ptr<Array>& values,
   ASSERT_OK_AND_ASSIGN(auto indices_sliced,
                        Concatenate({indices_filler, indices, indices_filler}));
   indices_sliced = indices_sliced->Slice(3, indices->length());
-  AssertTakeArrays(values, indices_sliced, expected);
+  DoAssertTakeAAA(values, indices_sliced, expected);
 }
 
-void CheckTake(const std::shared_ptr<DataType>& type, const std::string& values_json,
-               const std::string& indices_json, const std::string& expected_json) {
+void CheckTakeAAA(const std::shared_ptr<DataType>& type, const std::string& values_json,
+                  const std::string& indices_json, const std::string& expected_json) {
   auto values = ArrayFromJSON(type, values_json);
   auto expected = ArrayFromJSON(type, expected_json);
   for (auto index_type : {int8(), uint32()}) {
     auto indices = ArrayFromJSON(index_type, indices_json);
-    DoCheckTake(values, indices, expected);
+    DoCheckTakeAAA(values, indices, expected);
   }
 }
 
-void AssertTakeNull(const std::string& values, const std::string& indices,
-                    const std::string& expected) {
-  CheckTake(null(), values, indices, expected);
+void AssertTakeAAADictionary(std::shared_ptr<DataType> value_type,
+                             const std::string& dictionary_values,
+                             const std::string& dictionary_indices,
+                             const std::string& indices,
+                             const std::string& expected_indices) {
+  auto dict = ArrayFromJSON(value_type, dictionary_values);
+  auto type = dictionary(int8(), value_type);
+  ASSERT_OK_AND_ASSIGN(
+      auto values,
+      DictionaryArray::FromArrays(type, ArrayFromJSON(int8(), dictionary_indices), dict));
+  ASSERT_OK_AND_ASSIGN(
+      auto expected,
+      DictionaryArray::FromArrays(type, ArrayFromJSON(int8(), expected_indices), dict));
+  auto take_indices = ArrayFromJSON(int8(), indices);
+  DoAssertTakeAAA(values, take_indices, expected);
 }
 
-void AssertTakeBoolean(const std::string& values, const std::string& indices,
-                       const std::string& expected) {
-  CheckTake(boolean(), values, indices, expected);
+void AssertTakeCAC(const std::shared_ptr<DataType>& type,
+                   const std::vector<std::string>& values, const std::string& indices,
+                   const std::vector<std::string>& expected) {
+  std::shared_ptr<ChunkedArray> actual;
+  ASSERT_OK(TakeCAC(type, values, indices, &actual));
+  ValidateOutput(actual);
+  AssertChunkedEqual(*ChunkedArrayFromJSON(type, expected), *actual);
 }
+
+void AssertTakeCCC(const std::shared_ptr<DataType>& type,
+                   const std::vector<std::string>& values,
+                   const std::vector<std::string>& indices,
+                   const std::vector<std::string>& expected) {
+  std::shared_ptr<ChunkedArray> actual;
+  ASSERT_OK(TakeCCC(type, values, indices, &actual));
+  ValidateOutput(actual);
+  AssertChunkedEqual(*ChunkedArrayFromJSON(type, expected), *actual);
+}
+
+void AssertTakeRAR(const std::shared_ptr<Schema>& schm, const std::string& batch_json,
+                   const std::string& indices, const std::string& expected_batch) {
+  std::shared_ptr<RecordBatch> actual;
+
+  for (auto index_type : {int8(), uint32()}) {
+    ASSERT_OK(TakeRAR(schm, batch_json, index_type, indices, &actual));
+    ValidateOutput(actual);
+    ASSERT_BATCHES_EQUAL(*RecordBatchFromJSON(schm, expected_batch), *actual);
+  }
+}
+
+void AssertTakeTAT(const std::shared_ptr<Schema>& schm,
+                   const std::vector<std::string>& table_json, const std::string& filter,
+                   const std::vector<std::string>& expected_table) {
+  std::shared_ptr<Table> actual;
+
+  ASSERT_OK(TakeTAT(schm, table_json, filter, &actual));
+  ValidateOutput(actual);
+  ASSERT_TABLES_EQUAL(*TableFromJSON(schm, expected_table), *actual);
+}
+
+void AssertTakeTCT(const std::shared_ptr<Schema>& schm,
+                   const std::vector<std::string>& table_json,
+                   const std::vector<std::string>& filter,
+                   const std::vector<std::string>& expected_table) {
+  std::shared_ptr<Table> actual;
+
+  ASSERT_OK(TakeTCT(schm, table_json, filter, &actual));
+  ValidateOutput(actual);
+  ASSERT_TABLES_EQUAL(*TableFromJSON(schm, expected_table), *actual);
+}
+
+// Validators used by random data tests
 
 template <typename ValuesType, typename IndexType>
-void ValidateTakeImpl(const std::shared_ptr<Array>& values,
-                      const std::shared_ptr<Array>& indices,
-                      const std::shared_ptr<Array>& result) {
+void ValidateTakeAAAImpl(const std::shared_ptr<Array>& values,
+                         const std::shared_ptr<Array>& indices,
+                         const std::shared_ptr<Array>& result) {
   using ValuesArrayType = typename TypeTraits<ValuesType>::ArrayType;
   using IndexArrayType = typename TypeTraits<IndexType>::ArrayType;
   auto typed_values = checked_pointer_cast<ValuesArrayType>(values);
@@ -1188,42 +1328,43 @@ void ValidateTakeImpl(const std::shared_ptr<Array>& values,
 }
 
 template <typename ValuesType>
-void ValidateTake(const std::shared_ptr<Array>& values,
-                  const std::shared_ptr<Array>& indices) {
-  ASSERT_OK_AND_ASSIGN(Datum out, Take(values, indices));
-  auto taken = out.make_array();
+void ValidateTakeAAA(const std::shared_ptr<Array>& values,
+                     const std::shared_ptr<Array>& indices) {
+  ASSERT_OK_AND_ASSIGN(auto taken, TakeAAA(*values, *indices));
   ValidateOutput(taken);
   ASSERT_EQ(indices->length(), taken->length());
   switch (indices->type_id()) {
     case Type::INT8:
-      ValidateTakeImpl<ValuesType, Int8Type>(values, indices, taken);
+      ValidateTakeAAAImpl<ValuesType, Int8Type>(values, indices, taken);
       break;
     case Type::INT16:
-      ValidateTakeImpl<ValuesType, Int16Type>(values, indices, taken);
+      ValidateTakeAAAImpl<ValuesType, Int16Type>(values, indices, taken);
       break;
     case Type::INT32:
-      ValidateTakeImpl<ValuesType, Int32Type>(values, indices, taken);
+      ValidateTakeAAAImpl<ValuesType, Int32Type>(values, indices, taken);
       break;
     case Type::INT64:
-      ValidateTakeImpl<ValuesType, Int64Type>(values, indices, taken);
+      ValidateTakeAAAImpl<ValuesType, Int64Type>(values, indices, taken);
       break;
     case Type::UINT8:
-      ValidateTakeImpl<ValuesType, UInt8Type>(values, indices, taken);
+      ValidateTakeAAAImpl<ValuesType, UInt8Type>(values, indices, taken);
       break;
     case Type::UINT16:
-      ValidateTakeImpl<ValuesType, UInt16Type>(values, indices, taken);
+      ValidateTakeAAAImpl<ValuesType, UInt16Type>(values, indices, taken);
       break;
     case Type::UINT32:
-      ValidateTakeImpl<ValuesType, UInt32Type>(values, indices, taken);
+      ValidateTakeAAAImpl<ValuesType, UInt32Type>(values, indices, taken);
       break;
     case Type::UINT64:
-      ValidateTakeImpl<ValuesType, UInt64Type>(values, indices, taken);
+      ValidateTakeAAAImpl<ValuesType, UInt64Type>(values, indices, taken);
       break;
     default:
       FAIL() << "Invalid index type";
       break;
   }
 }
+
+// ----
 
 template <typename T>
 T GetMaxIndex(int64_t values_length) {
@@ -1245,7 +1386,7 @@ class TestTakeKernel : public ::testing::Test {
                                                const std::shared_ptr<Array>& indices) {
     ASSERT_EQ(values->null_count(), 0);
     ASSERT_EQ(indices->null_count(), 0);
-    auto expected = (*Take(values, indices)).make_array();
+    ASSERT_OK_AND_ASSIGN(auto expected, TakeAAA(*values, *indices));
 
     auto new_values = MakeArray(values->data()->Copy());
     new_values->data()->buffers[0].reset();
@@ -1253,7 +1394,7 @@ class TestTakeKernel : public ::testing::Test {
     auto new_indices = MakeArray(indices->data()->Copy());
     new_indices->data()->buffers[0].reset();
     new_indices->data()->null_count = kUnknownNullCount;
-    auto result = (*Take(new_values, new_indices)).make_array();
+    ASSERT_OK_AND_ASSIGN(auto result, TakeAAA(*new_values, *new_indices));
 
     AssertArraysEqual(*expected, *result);
   }
@@ -1267,16 +1408,16 @@ class TestTakeKernel : public ::testing::Test {
 
   void TestNumericBasics(const std::shared_ptr<DataType>& type) {
     ARROW_SCOPED_TRACE("type = ", *type);
-    CheckTake(type, "[7, 8, 9]", "[]", "[]");
-    CheckTake(type, "[7, 8, 9]", "[0, 1, 0]", "[7, 8, 7]");
-    CheckTake(type, "[null, 8, 9]", "[0, 1, 0]", "[null, 8, null]");
-    CheckTake(type, "[7, 8, 9]", "[null, 1, 0]", "[null, 8, 7]");
-    CheckTake(type, "[null, 8, 9]", "[]", "[]");
-    CheckTake(type, "[7, 8, 9]", "[0, 0, 0, 0, 0, 0, 2]", "[7, 7, 7, 7, 7, 7, 9]");
+    CheckTakeAAA(type, "[7, 8, 9]", "[]", "[]");
+    CheckTakeAAA(type, "[7, 8, 9]", "[0, 1, 0]", "[7, 8, 7]");
+    CheckTakeAAA(type, "[null, 8, 9]", "[0, 1, 0]", "[null, 8, null]");
+    CheckTakeAAA(type, "[7, 8, 9]", "[null, 1, 0]", "[null, 8, 7]");
+    CheckTakeAAA(type, "[null, 8, 9]", "[]", "[]");
+    CheckTakeAAA(type, "[7, 8, 9]", "[0, 0, 0, 0, 0, 0, 2]", "[7, 7, 7, 7, 7, 7, 9]");
 
     std::shared_ptr<Array> arr;
-    ASSERT_RAISES(IndexError, TakeJSON(type, "[7, 8, 9]", int8(), "[0, 9, 0]", &arr));
-    ASSERT_RAISES(IndexError, TakeJSON(type, "[7, 8, 9]", int8(), "[0, -1, 0]", &arr));
+    ASSERT_RAISES(IndexError, TakeAAA(type, "[7, 8, 9]", int8(), "[0, 9, 0]", &arr));
+    ASSERT_RAISES(IndexError, TakeAAA(type, "[7, 8, 9]", int8(), "[0, -1, 0]", &arr));
   }
 };
 
@@ -1284,34 +1425,34 @@ template <typename ArrowType>
 class TestTakeKernelTyped : public TestTakeKernel {};
 
 TEST_F(TestTakeKernel, TakeNull) {
-  AssertTakeNull("[null, null, null]", "[0, 1, 0]", "[null, null, null]");
-  AssertTakeNull("[null, null, null]", "[0, 2]", "[null, null]");
+  CheckTakeAAA(null(), "[null, null, null]", "[0, 1, 0]", "[null, null, null]");
+  CheckTakeAAA(null(), "[null, null, null]", "[0, 2]", "[null, null]");
 
   std::shared_ptr<Array> arr;
   ASSERT_RAISES(IndexError,
-                TakeJSON(null(), "[null, null, null]", int8(), "[0, 9, 0]", &arr));
+                TakeAAA(null(), "[null, null, null]", int8(), "[0, 9, 0]", &arr));
   ASSERT_RAISES(IndexError,
-                TakeJSON(boolean(), "[null, null, null]", int8(), "[0, -1, 0]", &arr));
+                TakeAAA(boolean(), "[null, null, null]", int8(), "[0, -1, 0]", &arr));
 }
 
 TEST_F(TestTakeKernel, InvalidIndexType) {
   std::shared_ptr<Array> arr;
-  ASSERT_RAISES(NotImplemented, TakeJSON(null(), "[null, null, null]", float32(),
-                                         "[0.0, 1.0, 0.1]", &arr));
+  ASSERT_RAISES(NotImplemented, TakeAAA(null(), "[null, null, null]", float32(),
+                                        "[0.0, 1.0, 0.1]", &arr));
 }
 
-TEST_F(TestTakeKernel, TakeCCEmptyIndices) {
-  Datum dat = ChunkedArrayFromJSON(int8(), {"[]"});
-  Datum idx = ChunkedArrayFromJSON(int32(), {});
-  ASSERT_OK_AND_ASSIGN(auto out, Take(dat, idx));
+TEST_F(TestTakeKernel, TakeCCCEmptyIndices) {
+  auto dat = ChunkedArrayFromJSON(int8(), {"[]"});
+  auto idx = ChunkedArrayFromJSON(int32(), {});
+  ASSERT_OK_AND_ASSIGN(auto out, TakeCCC(dat, idx));
   ValidateOutput(out);
   AssertDatumsEqual(ChunkedArrayFromJSON(int8(), {"[]"}), out, true);
 }
 
-TEST_F(TestTakeKernel, TakeACEmptyIndices) {
-  Datum dat = ArrayFromJSON(int8(), {"[]"});
-  Datum idx = ChunkedArrayFromJSON(int32(), {});
-  ASSERT_OK_AND_ASSIGN(auto out, Take(dat, idx));
+TEST_F(TestTakeKernel, TakeACCEmptyIndices) {
+  auto dat = ArrayFromJSON(int8(), {"[]"});
+  auto idx = ChunkedArrayFromJSON(int32(), {});
+  ASSERT_OK_AND_ASSIGN(auto out, TakeACC(dat, idx));
   ValidateOutput(out);
   AssertDatumsEqual(ChunkedArrayFromJSON(int8(), {"[]"}), out, true);
 }
@@ -1329,18 +1470,18 @@ TEST_F(TestTakeKernel, DefaultOptions) {
 }
 
 TEST_F(TestTakeKernel, TakeBoolean) {
-  AssertTakeBoolean("[7, 8, 9]", "[]", "[]");
-  AssertTakeBoolean("[true, false, true]", "[0, 1, 0]", "[true, false, true]");
-  AssertTakeBoolean("[null, false, true]", "[0, 1, 0]", "[null, false, null]");
-  AssertTakeBoolean("[true, false, true]", "[null, 1, 0]", "[null, false, true]");
+  CheckTakeAAA(boolean(), "[7, 8, 9]", "[]", "[]");
+  CheckTakeAAA(boolean(), "[true, false, true]", "[0, 1, 0]", "[true, false, true]");
+  CheckTakeAAA(boolean(), "[null, false, true]", "[0, 1, 0]", "[null, false, null]");
+  CheckTakeAAA(boolean(), "[true, false, true]", "[null, 1, 0]", "[null, false, true]");
 
   TestNoValidityBitmapButUnknownNullCount(boolean(), "[true, false, true]", "[1, 0, 0]");
 
   std::shared_ptr<Array> arr;
   ASSERT_RAISES(IndexError,
-                TakeJSON(boolean(), "[true, false, true]", int8(), "[0, 9, 0]", &arr));
+                TakeAAA(boolean(), "[true, false, true]", int8(), "[0, 9, 0]", &arr));
   ASSERT_RAISES(IndexError,
-                TakeJSON(boolean(), "[true, false, true]", int8(), "[0, -1, 0]", &arr));
+                TakeAAA(boolean(), "[true, false, true]", int8(), "[0, -1, 0]", &arr));
 }
 
 TEST_F(TestTakeKernel, Temporal) {
@@ -1349,8 +1490,8 @@ TEST_F(TestTakeKernel, Temporal) {
   this->TestNumericBasics(timestamp(TimeUnit::NANO, "Europe/Paris"));
   this->TestNumericBasics(duration(TimeUnit::SECOND));
   this->TestNumericBasics(date32());
-  CheckTake(date64(), "[0, 86400000, null]", "[null, 1, 1, 0]",
-            "[null, 86400000, 86400000, 0]");
+  CheckTakeAAA(date64(), "[0, 86400000, null]", "[null, 1, 1, 0]",
+               "[null, 86400000, 86400000, 0]");
 }
 
 TEST_F(TestTakeKernel, Duration) {
@@ -1363,20 +1504,20 @@ TEST_F(TestTakeKernel, Interval) {
   this->TestNumericBasics(month_interval());
 
   auto type = day_time_interval();
-  CheckTake(type, "[[1, -600], [2, 3000], null]", "[0, null, 2, 1]",
-            "[[1, -600], null, null, [2, 3000]]");
+  CheckTakeAAA(type, "[[1, -600], [2, 3000], null]", "[0, null, 2, 1]",
+               "[[1, -600], null, null, [2, 3000]]");
   type = month_day_nano_interval();
-  CheckTake(type, "[[1, -2, 34567890123456789], [2, 3, -34567890123456789], null]",
-            "[0, null, 2, 1]",
-            "[[1, -2, 34567890123456789], null, null, [2, 3, -34567890123456789]]");
+  CheckTakeAAA(type, "[[1, -2, 34567890123456789], [2, 3, -34567890123456789], null]",
+               "[0, null, 2, 1]",
+               "[[1, -2, 34567890123456789], null, null, [2, 3, -34567890123456789]]");
 }
 
 template <typename ArrowType>
 class TestTakeKernelWithNumeric : public TestTakeKernelTyped<ArrowType> {
  protected:
-  void AssertTake(const std::string& values, const std::string& indices,
-                  const std::string& expected) {
-    CheckTake(type_singleton(), values, indices, expected);
+  void AssertTakeAAA(const std::string& values, const std::string& indices,
+                     const std::string& expected) {
+    CheckTakeAAA(type_singleton(), values, indices, expected);
   }
 
   std::shared_ptr<DataType> type_singleton() {
@@ -1396,34 +1537,26 @@ class TestTakeKernelWithString : public TestTakeKernelTyped<TypeClass> {
     return TypeTraits<TypeClass>::type_singleton();
   }
 
-  void AssertTake(const std::string& values, const std::string& indices,
-                  const std::string& expected) {
-    CheckTake(value_type(), values, indices, expected);
+  void CheckTakeAAA(const std::string& values, const std::string& indices,
+                    const std::string& expected) {
+    arrow::compute::CheckTakeAAA(value_type(), values, indices, expected);
   }
 
-  void AssertTakeDictionary(const std::string& dictionary_values,
-                            const std::string& dictionary_indices,
-                            const std::string& indices,
-                            const std::string& expected_indices) {
-    auto dict = ArrayFromJSON(value_type(), dictionary_values);
-    auto type = dictionary(int8(), value_type());
-    ASSERT_OK_AND_ASSIGN(auto values,
-                         DictionaryArray::FromArrays(
-                             type, ArrayFromJSON(int8(), dictionary_indices), dict));
-    ASSERT_OK_AND_ASSIGN(
-        auto expected,
-        DictionaryArray::FromArrays(type, ArrayFromJSON(int8(), expected_indices), dict));
-    auto take_indices = ArrayFromJSON(int8(), indices);
-    AssertTakeArrays(values, take_indices, expected);
+  void AssertTakeAAADictionary(const std::string& dictionary_values,
+                               const std::string& dictionary_indices,
+                               const std::string& indices,
+                               const std::string& expected_indices) {
+    return arrow::compute::AssertTakeAAADictionary(
+        value_type(), dictionary_values, dictionary_indices, indices, expected_indices);
   }
 };
 
 TYPED_TEST_SUITE(TestTakeKernelWithString, BaseBinaryArrowTypes);
 
 TYPED_TEST(TestTakeKernelWithString, TakeString) {
-  this->AssertTake(R"(["a", "b", "c"])", "[0, 1, 0]", R"(["a", "b", "a"])");
-  this->AssertTake(R"([null, "b", "c"])", "[0, 1, 0]", "[null, \"b\", null]");
-  this->AssertTake(R"(["a", "b", "c"])", "[null, 1, 0]", R"([null, "b", "a"])");
+  this->CheckTakeAAA(R"(["a", "b", "c"])", "[0, 1, 0]", R"(["a", "b", "a"])");
+  this->CheckTakeAAA(R"([null, "b", "c"])", "[0, 1, 0]", "[null, \"b\", null]");
+  this->CheckTakeAAA(R"(["a", "b", "c"])", "[null, 1, 0]", R"([null, "b", "a"])");
 
   this->TestNoValidityBitmapButUnknownNullCount(this->value_type(), R"(["a", "b", "c"])",
                                                 "[0, 1, 0]");
@@ -1431,32 +1564,34 @@ TYPED_TEST(TestTakeKernelWithString, TakeString) {
   std::shared_ptr<DataType> type = this->value_type();
   std::shared_ptr<Array> arr;
   ASSERT_RAISES(IndexError,
-                TakeJSON(type, R"(["a", "b", "c"])", int8(), "[0, 9, 0]", &arr));
-  ASSERT_RAISES(IndexError, TakeJSON(type, R"(["a", "b", null, "ddd", "ee"])", int64(),
-                                     "[2, 5]", &arr));
+                TakeAAA(type, R"(["a", "b", "c"])", int8(), "[0, 9, 0]", &arr));
+  ASSERT_RAISES(IndexError, TakeAAA(type, R"(["a", "b", null, "ddd", "ee"])", int64(),
+                                    "[2, 5]", &arr));
 }
 
 TYPED_TEST(TestTakeKernelWithString, TakeDictionary) {
   auto dict = R"(["a", "b", "c", "d", "e"])";
-  this->AssertTakeDictionary(dict, "[3, 4, 2]", "[0, 1, 0]", "[3, 4, 3]");
-  this->AssertTakeDictionary(dict, "[null, 4, 2]", "[0, 1, 0]", "[null, 4, null]");
-  this->AssertTakeDictionary(dict, "[3, 4, 2]", "[null, 1, 0]", "[null, 4, 3]");
+  this->AssertTakeAAADictionary(dict, "[3, 4, 2]", "[0, 1, 0]", "[3, 4, 3]");
+  this->AssertTakeAAADictionary(dict, "[null, 4, 2]", "[0, 1, 0]", "[null, 4, null]");
+  this->AssertTakeAAADictionary(dict, "[3, 4, 2]", "[null, 1, 0]", "[null, 4, 3]");
 }
 
 class TestTakeKernelFSB : public TestTakeKernelTyped<FixedSizeBinaryType> {
  public:
   std::shared_ptr<DataType> value_type() { return fixed_size_binary(3); }
 
-  void AssertTake(const std::string& values, const std::string& indices,
-                  const std::string& expected) {
-    CheckTake(value_type(), values, indices, expected);
+  void AssertTakeAAA(const std::string& values, const std::string& indices,
+                     const std::string& expected) {
+    CheckTakeAAA(value_type(), values, indices, expected);
   }
 };
 
 TEST_F(TestTakeKernelFSB, TakeFixedSizeBinary) {
-  this->AssertTake(R"(["aaa", "bbb", "ccc"])", "[0, 1, 0]", R"(["aaa", "bbb", "aaa"])");
-  this->AssertTake(R"([null, "bbb", "ccc"])", "[0, 1, 0]", "[null, \"bbb\", null]");
-  this->AssertTake(R"(["aaa", "bbb", "ccc"])", "[null, 1, 0]", R"([null, "bbb", "aaa"])");
+  this->AssertTakeAAA(R"(["aaa", "bbb", "ccc"])", "[0, 1, 0]",
+                      R"(["aaa", "bbb", "aaa"])");
+  this->AssertTakeAAA(R"([null, "bbb", "ccc"])", "[0, 1, 0]", "[null, \"bbb\", null]");
+  this->AssertTakeAAA(R"(["aaa", "bbb", "ccc"])", "[null, 1, 0]",
+                      R"([null, "bbb", "aaa"])");
 
   this->TestNoValidityBitmapButUnknownNullCount(this->value_type(),
                                                 R"(["aaa", "bbb", "ccc"])", "[0, 1, 0]");
@@ -1464,9 +1599,9 @@ TEST_F(TestTakeKernelFSB, TakeFixedSizeBinary) {
   std::shared_ptr<DataType> type = this->value_type();
   std::shared_ptr<Array> arr;
   ASSERT_RAISES(IndexError,
-                TakeJSON(type, R"(["aaa", "bbb", "ccc"])", int8(), "[0, 9, 0]", &arr));
-  ASSERT_RAISES(IndexError, TakeJSON(type, R"(["aaa", "bbb", null, "ddd", "eee"])",
-                                     int64(), "[2, 5]", &arr));
+                TakeAAA(type, R"(["aaa", "bbb", "ccc"])", int8(), "[0, 9, 0]", &arr));
+  ASSERT_RAISES(IndexError, TakeAAA(type, R"(["aaa", "bbb", null, "ddd", "eee"])",
+                                    int64(), "[2, 5]", &arr));
 }
 
 class TestTakeKernelWithList : public TestTakeKernelTyped<ListType> {};
@@ -1474,14 +1609,14 @@ class TestTakeKernelWithList : public TestTakeKernelTyped<ListType> {};
 TEST_F(TestTakeKernelWithList, TakeListInt32) {
   std::string list_json = "[[], [1,2], null, [3]]";
   for (auto& type : kListAndListViewTypes) {
-    CheckTake(type, list_json, "[]", "[]");
-    CheckTake(type, list_json, "[3, 2, 1]", "[[3], null, [1,2]]");
-    CheckTake(type, list_json, "[null, 3, 0]", "[null, [3], []]");
-    CheckTake(type, list_json, "[null, null]", "[null, null]");
-    CheckTake(type, list_json, "[3, 0, 0, 3]", "[[3], [], [], [3]]");
-    CheckTake(type, list_json, "[0, 1, 2, 3]", list_json);
-    CheckTake(type, list_json, "[0, 0, 0, 0, 0, 0, 1]",
-              "[[], [], [], [], [], [], [1, 2]]");
+    CheckTakeAAA(type, list_json, "[]", "[]");
+    CheckTakeAAA(type, list_json, "[3, 2, 1]", "[[3], null, [1,2]]");
+    CheckTakeAAA(type, list_json, "[null, 3, 0]", "[null, [3], []]");
+    CheckTakeAAA(type, list_json, "[null, null]", "[null, null]");
+    CheckTakeAAA(type, list_json, "[3, 0, 0, 3]", "[[3], [], [], [3]]");
+    CheckTakeAAA(type, list_json, "[0, 1, 2, 3]", list_json);
+    CheckTakeAAA(type, list_json, "[0, 0, 0, 0, 0, 0, 1]",
+                 "[[], [], [], [], [], [], [1, 2]]");
 
     this->TestNoValidityBitmapButUnknownNullCount(type, "[[], [1,2], [3]]", "[0, 1, 0]");
   }
@@ -1496,23 +1631,23 @@ TEST_F(TestTakeKernelWithList, TakeListListInt32) {
   ])";
   for (auto& type : kNestedListAndListViewTypes) {
     ARROW_SCOPED_TRACE("type = ", *type);
-    CheckTake(type, list_json, "[]", "[]");
-    CheckTake(type, list_json, "[3, 2, 1]", R"([
+    CheckTakeAAA(type, list_json, "[]", "[]");
+    CheckTakeAAA(type, list_json, "[3, 2, 1]", R"([
       [[3, null], null],
       null,
       [[1], [2, null, 2], []]
     ])");
-    CheckTake(type, list_json, "[null, 3, 0]", R"([
+    CheckTakeAAA(type, list_json, "[null, 3, 0]", R"([
       null,
       [[3, null], null],
       []
     ])");
-    CheckTake(type, list_json, "[null, null]", "[null, null]");
-    CheckTake(type, list_json, "[3, 0, 0, 3]",
-              "[[[3, null], null], [], [], [[3, null], null]]");
-    CheckTake(type, list_json, "[0, 1, 2, 3]", list_json);
-    CheckTake(type, list_json, "[0, 0, 0, 0, 0, 0, 1]",
-              "[[], [], [], [], [], [], [[1], [2, null, 2], []]]");
+    CheckTakeAAA(type, list_json, "[null, null]", "[null, null]");
+    CheckTakeAAA(type, list_json, "[3, 0, 0, 3]",
+                 "[[[3, null], null], [], [], [[3, null], null]]");
+    CheckTakeAAA(type, list_json, "[0, 1, 2, 3]", list_json);
+    CheckTakeAAA(type, list_json, "[0, 0, 0, 0, 0, 0, 1]",
+                 "[[], [], [], [], [], [], [[1], [2, null, 2], []]]");
 
     this->TestNoValidityBitmapButUnknownNullCount(
         type, "[[[1], [2, null, 2], []], [[3, null]]]", "[0, 1, 0]");
@@ -1525,15 +1660,15 @@ TEST_F(TestTakeKernelWithLargeList, TakeLargeListInt32) {
   std::string list_json = "[[], [1,2], null, [3]]";
   for (auto& type : kLargeListAndListViewTypes) {
     ARROW_SCOPED_TRACE("type = ", *type);
-    CheckTake(type, list_json, "[]", "[]");
-    CheckTake(type, list_json, "[null, 1, 2, 0]", "[null, [1,2], null, []]");
+    CheckTakeAAA(type, list_json, "[]", "[]");
+    CheckTakeAAA(type, list_json, "[null, 1, 2, 0]", "[null, [1,2], null, []]");
   }
 }
 
 class TestTakeKernelWithFixedSizeList : public TestTakeKernelTyped<FixedSizeListType> {
  protected:
-  void CheckTakeOnNestedLists(const std::shared_ptr<DataType>& inner_type,
-                              const std::vector<int>& list_sizes, int64_t length) {
+  void CheckTakeAAAOnNestedLists(const std::shared_ptr<DataType>& inner_type,
+                                 const std::vector<int>& list_sizes, int64_t length) {
     using NLG = ::arrow::util::internal::NestedListGenerator;
     // Create two equivalent lists: one as a FixedSizeList and another as a List.
     ASSERT_OK_AND_ASSIGN(auto fsl_list,
@@ -1544,28 +1679,28 @@ class TestTakeKernelWithFixedSizeList : public TestTakeKernelTyped<FixedSizeList
 
     auto indices = ArrayFromJSON(int64(), "[1, 2, 4]");
     // Use the Take on ListType as the reference implementation.
-    ASSERT_OK_AND_ASSIGN(auto expected_list, Take(*list, *indices));
+    ASSERT_OK_AND_ASSIGN(auto expected_list, TakeAAA(*list, *indices));
     ASSERT_OK_AND_ASSIGN(auto expected_fsl, Cast(*expected_list, fsl_list->type()));
-    DoCheckTake(fsl_list, indices, expected_fsl);
+    DoCheckTakeAAA(fsl_list, indices, expected_fsl);
   }
 };
 
 TEST_F(TestTakeKernelWithFixedSizeList, TakeFixedSizeListInt32) {
   std::string list_json = "[null, [1, null, 3], [4, 5, 6], [7, 8, null]]";
-  CheckTake(fixed_size_list(int32(), 3), list_json, "[]", "[]");
-  CheckTake(fixed_size_list(int32(), 3), list_json, "[3, 2, 1]",
-            "[[7, 8, null], [4, 5, 6], [1, null, 3]]");
-  CheckTake(fixed_size_list(int32(), 3), list_json, "[null, 2, 0]",
-            "[null, [4, 5, 6], null]");
-  CheckTake(fixed_size_list(int32(), 3), list_json, "[null, null]", "[null, null]");
-  CheckTake(fixed_size_list(int32(), 3), list_json, "[3, 0, 0, 3]",
-            "[[7, 8, null], null, null, [7, 8, null]]");
-  CheckTake(fixed_size_list(int32(), 3), list_json, "[0, 1, 2, 3]", list_json);
+  CheckTakeAAA(fixed_size_list(int32(), 3), list_json, "[]", "[]");
+  CheckTakeAAA(fixed_size_list(int32(), 3), list_json, "[3, 2, 1]",
+               "[[7, 8, null], [4, 5, 6], [1, null, 3]]");
+  CheckTakeAAA(fixed_size_list(int32(), 3), list_json, "[null, 2, 0]",
+               "[null, [4, 5, 6], null]");
+  CheckTakeAAA(fixed_size_list(int32(), 3), list_json, "[null, null]", "[null, null]");
+  CheckTakeAAA(fixed_size_list(int32(), 3), list_json, "[3, 0, 0, 3]",
+               "[[7, 8, null], null, null, [7, 8, null]]");
+  CheckTakeAAA(fixed_size_list(int32(), 3), list_json, "[0, 1, 2, 3]", list_json);
 
   // No nulls in inner list values trigger the use of FixedWidthTakeExec() in
   // FSLTakeExec()
   std::string no_nulls_list_json = "[[0, 0, 0], [1, 2, 3], [4, 5, 6], [7, 8, 9]]";
-  CheckTake(
+  CheckTakeAAA(
       fixed_size_list(int32(), 3), no_nulls_list_json, "[2, 2, 2, 2, 2, 2, 1]",
       "[[4, 5, 6], [4, 5, 6], [4, 5, 6], [4, 5, 6], [4, 5, 6], [4, 5, 6], [1, 2, 3]]");
 
@@ -1577,18 +1712,19 @@ TEST_F(TestTakeKernelWithFixedSizeList, TakeFixedSizeListInt32) {
 TEST_F(TestTakeKernelWithFixedSizeList, TakeFixedSizeListVarWidth) {
   std::string list_json =
       R"([["zero", "one", ""], ["two", "", "three"], ["four", "five", "six"], ["seven", "eight", ""]])";
-  CheckTake(fixed_size_list(utf8(), 3), list_json, "[]", "[]");
-  CheckTake(fixed_size_list(utf8(), 3), list_json, "[3, 2, 1]",
-            R"([["seven", "eight", ""], ["four", "five", "six"], ["two", "", "three"]])");
-  CheckTake(fixed_size_list(utf8(), 3), list_json, "[null, 2, 0]",
-            R"([null, ["four", "five", "six"], ["zero", "one", ""]])");
-  CheckTake(fixed_size_list(utf8(), 3), list_json, R"([null, null])", "[null, null]");
-  CheckTake(
+  CheckTakeAAA(fixed_size_list(utf8(), 3), list_json, "[]", "[]");
+  CheckTakeAAA(
+      fixed_size_list(utf8(), 3), list_json, "[3, 2, 1]",
+      R"([["seven", "eight", ""], ["four", "five", "six"], ["two", "", "three"]])");
+  CheckTakeAAA(fixed_size_list(utf8(), 3), list_json, "[null, 2, 0]",
+               R"([null, ["four", "five", "six"], ["zero", "one", ""]])");
+  CheckTakeAAA(fixed_size_list(utf8(), 3), list_json, R"([null, null])", "[null, null]");
+  CheckTakeAAA(
       fixed_size_list(utf8(), 3), list_json, "[3, 0, 0,3]",
       R"([["seven", "eight", ""], ["zero", "one", ""], ["zero", "one", ""], ["seven", "eight", ""]])");
-  CheckTake(fixed_size_list(utf8(), 3), list_json, "[0, 1, 2, 3]", list_json);
-  CheckTake(fixed_size_list(utf8(), 3), list_json, "[2, 2, 2, 2, 2, 2, 1]",
-            R"([
+  CheckTakeAAA(fixed_size_list(utf8(), 3), list_json, "[0, 1, 2, 3]", list_json);
+  CheckTakeAAA(fixed_size_list(utf8(), 3), list_json, "[2, 2, 2, 2, 2, 2, 1]",
+               R"([
                  ["four", "five", "six"], ["four", "five", "six"],
                  ["four", "five", "six"], ["four", "five", "six"],
                  ["four", "five", "six"], ["four", "five", "six"],
@@ -1606,7 +1742,7 @@ TEST_F(TestTakeKernelWithFixedSizeList, TakeFixedSizeListModuloNesting) {
   NLG::VisitAllNestedListConfigurations(
       value_types, [this](const std::shared_ptr<DataType>& inner_type,
                           const std::vector<int>& list_sizes) {
-        this->CheckTakeOnNestedLists(inner_type, list_sizes, /*length=*/5);
+        this->CheckTakeAAAOnNestedLists(inner_type, list_sizes, /*length=*/5);
       });
 }
 
@@ -1619,21 +1755,21 @@ TEST_F(TestTakeKernelWithMap, TakeMapStringToInt32) {
     [["cap", 8]],
     []
   ])";
-  CheckTake(map(utf8(), int32()), map_json, "[]", "[]");
-  CheckTake(map(utf8(), int32()), map_json, "[3, 1, 3, 1, 3]",
-            "[[], null, [], null, []]");
-  CheckTake(map(utf8(), int32()), map_json, "[2, 1, null]", R"([
+  CheckTakeAAA(map(utf8(), int32()), map_json, "[]", "[]");
+  CheckTakeAAA(map(utf8(), int32()), map_json, "[3, 1, 3, 1, 3]",
+               "[[], null, [], null, []]");
+  CheckTakeAAA(map(utf8(), int32()), map_json, "[2, 1, null]", R"([
     [["cap", 8]],
     null,
     null
   ])");
-  CheckTake(map(utf8(), int32()), map_json, "[2, 1, 0]", R"([
+  CheckTakeAAA(map(utf8(), int32()), map_json, "[2, 1, 0]", R"([
     [["cap", 8]],
     null,
     [["joe", 0], ["mark", null]]
   ])");
-  CheckTake(map(utf8(), int32()), map_json, "[0, 1, 2, 3]", map_json);
-  CheckTake(map(utf8(), int32()), map_json, "[0, 0, 0, 0, 0, 0, 3]", R"([
+  CheckTakeAAA(map(utf8(), int32()), map_json, "[0, 1, 2, 3]", map_json);
+  CheckTakeAAA(map(utf8(), int32()), map_json, "[0, 0, 0, 0, 0, 0, 3]", R"([
     [["joe", 0], ["mark", null]],
     [["joe", 0], ["mark", null]],
     [["joe", 0], ["mark", null]],
@@ -1654,21 +1790,21 @@ TEST_F(TestTakeKernelWithStruct, TakeStruct) {
     {"a": 2, "b": "hello"},
     {"a": 4, "b": "eh"}
   ])";
-  CheckTake(struct_type, struct_json, "[]", "[]");
-  CheckTake(struct_type, struct_json, "[3, 1, 3, 1, 3]", R"([
+  CheckTakeAAA(struct_type, struct_json, "[]", "[]");
+  CheckTakeAAA(struct_type, struct_json, "[3, 1, 3, 1, 3]", R"([
     {"a": 4, "b": "eh"},
     {"a": 1, "b": ""},
     {"a": 4, "b": "eh"},
     {"a": 1, "b": ""},
     {"a": 4, "b": "eh"}
   ])");
-  CheckTake(struct_type, struct_json, "[3, 1, 0]", R"([
+  CheckTakeAAA(struct_type, struct_json, "[3, 1, 0]", R"([
     {"a": 4, "b": "eh"},
     {"a": 1, "b": ""},
     null
   ])");
-  CheckTake(struct_type, struct_json, "[0, 1, 2, 3]", struct_json);
-  CheckTake(struct_type, struct_json, "[0, 2, 2, 2, 2, 2, 2]", R"([
+  CheckTakeAAA(struct_type, struct_json, "[0, 1, 2, 3]", struct_json);
+  CheckTakeAAA(struct_type, struct_json, "[0, 2, 2, 2, 2, 2, 2]", R"([
     null,
     {"a": 2, "b": "hello"},
     {"a": 2, "b": "hello"},
@@ -1697,22 +1833,22 @@ TEST_F(TestTakeKernelWithUnion, TakeUnion) {
       [2, 111],
       [5, null]
     ])";
-    CheckTake(union_type, union_json, "[]", "[]");
-    CheckTake(union_type, union_json, "[3, 0, 3, 0, 3]", R"([
+    CheckTakeAAA(union_type, union_json, "[]", "[]");
+    CheckTakeAAA(union_type, union_json, "[3, 0, 3, 0, 3]", R"([
       [5, "eh"],
       [2, 222],
       [5, "eh"],
       [2, 222],
       [5, "eh"]
     ])");
-    CheckTake(union_type, union_json, "[4, 2, 0, 6]", R"([
+    CheckTakeAAA(union_type, union_json, "[4, 2, 0, 6]", R"([
       [2, null],
       [5, "hello"],
       [2, 222],
       [5, null]
     ])");
-    CheckTake(union_type, union_json, "[0, 1, 2, 3, 4, 5, 6]", union_json);
-    CheckTake(union_type, union_json, "[1, 2, 2, 2, 2, 2, 2]", R"([
+    CheckTakeAAA(union_type, union_json, "[0, 1, 2, 3, 4, 5, 6]", union_json);
+    CheckTakeAAA(union_type, union_json, "[1, 2, 2, 2, 2, 2, 2]", R"([
       [2, null],
       [5, "hello"],
       [5, "hello"],
@@ -1721,7 +1857,7 @@ TEST_F(TestTakeKernelWithUnion, TakeUnion) {
       [5, "hello"],
       [5, "hello"]
     ])");
-    CheckTake(union_type, union_json, "[0, null, 1, null, 2, 2, 2]", R"([
+    CheckTakeAAA(union_type, union_json, "[0, null, 1, null, 2, 2, 2]", R"([
       [2, 222],
       [2, null],
       [2, null],
@@ -1735,17 +1871,17 @@ TEST_F(TestTakeKernelWithUnion, TakeUnion) {
 
 class TestPermutationsWithTake : public ::testing::Test {
  protected:
-  void DoTake(const Int16Array& values, const Int16Array& indices,
-              std::shared_ptr<Int16Array>* out) {
+  void DoTakeAAA(const Int16Array& values, const Int16Array& indices,
+                 std::shared_ptr<Int16Array>* out) {
     ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> boxed_out, Take(values, indices));
     ValidateOutput(boxed_out);
     *out = checked_pointer_cast<Int16Array>(std::move(boxed_out));
   }
 
-  std::shared_ptr<Int16Array> DoTake(const Int16Array& values,
-                                     const Int16Array& indices) {
+  std::shared_ptr<Int16Array> DoTakeAAA(const Int16Array& values,
+                                        const Int16Array& indices) {
     std::shared_ptr<Int16Array> out;
-    DoTake(values, indices, &out);
+    DoTakeAAA(values, indices, &out);
     return out;
   }
 
@@ -1754,9 +1890,9 @@ class TestPermutationsWithTake : public ::testing::Test {
     array = Identity(array->length());
     while (n != 0) {
       if (n & 1) {
-        array = DoTake(*array, *power_of_2);
+        array = DoTakeAAA(*array, *power_of_2);
       }
-      power_of_2 = DoTake(*power_of_2, *power_of_2);
+      power_of_2 = DoTakeAAA(*power_of_2, *power_of_2);
       n >>= 1;
     }
     return array;
@@ -1800,7 +1936,7 @@ class TestPermutationsWithTake : public ::testing::Test {
     auto permutation_to_the_i = permutation;
     for (int16_t cycle_length = 1; cycle_length <= length; ++cycle_length) {
       cycle_lengths[cycle_length] = HasTrivialCycle(*permutation_to_the_i);
-      permutation_to_the_i = DoTake(*permutation, *permutation_to_the_i);
+      permutation_to_the_i = DoTakeAAA(*permutation, *permutation_to_the_i);
     }
 
     uint64_t cycle_to_identity_length = 1;
@@ -1842,36 +1978,12 @@ TEST_F(TestPermutationsWithTake, InvertPermutation) {
       if (inverse == nullptr) {
         break;
       }
-      ASSERT_TRUE(DoTake(*inverse, *permutation)->Equals(identity));
+      ASSERT_TRUE(DoTakeAAA(*inverse, *permutation)->Equals(identity));
     }
   }
 }
 
-class TestTakeKernelWithRecordBatch : public TestTakeKernelTyped<RecordBatch> {
- public:
-  void AssertTake(const std::shared_ptr<Schema>& schm, const std::string& batch_json,
-                  const std::string& indices, const std::string& expected_batch) {
-    std::shared_ptr<RecordBatch> actual;
-
-    for (auto index_type : {int8(), uint32()}) {
-      ASSERT_OK(TakeJSON(schm, batch_json, index_type, indices, &actual));
-      ValidateOutput(actual);
-      ASSERT_BATCHES_EQUAL(*RecordBatchFromJSON(schm, expected_batch), *actual);
-    }
-  }
-
-  Status TakeJSON(const std::shared_ptr<Schema>& schm, const std::string& batch_json,
-                  const std::shared_ptr<DataType>& index_type, const std::string& indices,
-                  std::shared_ptr<RecordBatch>* out) {
-    auto batch = RecordBatchFromJSON(schm, batch_json);
-    ARROW_ASSIGN_OR_RAISE(Datum result,
-                          Take(Datum(batch), Datum(ArrayFromJSON(index_type, indices))));
-    *out = result.record_batch();
-    return Status::OK();
-  }
-};
-
-TEST_F(TestTakeKernelWithRecordBatch, TakeRecordBatch) {
+TEST(TestTakeKernelWithRecordBatch, TakeRecordBatch) {
   std::vector<std::shared_ptr<Field>> fields = {field("a", int32()), field("b", utf8())};
   auto schm = schema(fields);
 
@@ -1881,21 +1993,21 @@ TEST_F(TestTakeKernelWithRecordBatch, TakeRecordBatch) {
     {"a": 2, "b": "hello"},
     {"a": 4, "b": "eh"}
   ])";
-  this->AssertTake(schm, struct_json, "[]", "[]");
-  this->AssertTake(schm, struct_json, "[3, 1, 3, 1, 3]", R"([
+  AssertTakeRAR(schm, struct_json, "[]", "[]");
+  AssertTakeRAR(schm, struct_json, "[3, 1, 3, 1, 3]", R"([
     {"a": 4, "b": "eh"},
     {"a": 1, "b": ""},
     {"a": 4, "b": "eh"},
     {"a": 1, "b": ""},
     {"a": 4, "b": "eh"}
   ])");
-  this->AssertTake(schm, struct_json, "[3, 1, 0]", R"([
+  AssertTakeRAR(schm, struct_json, "[3, 1, 0]", R"([
     {"a": 4, "b": "eh"},
     {"a": 1, "b": ""},
     {"a": null, "b": "yo"}
   ])");
-  this->AssertTake(schm, struct_json, "[0, 1, 2, 3]", struct_json);
-  this->AssertTake(schm, struct_json, "[0, 2, 2, 2, 2, 2, 2]", R"([
+  AssertTakeRAR(schm, struct_json, "[0, 1, 2, 3]", struct_json);
+  AssertTakeRAR(schm, struct_json, "[0, 2, 2, 2, 2, 2, 2]", R"([
     {"a": null, "b": "yo"},
     {"a": 2, "b": "hello"},
     {"a": 2, "b": "hello"},
@@ -1906,126 +2018,39 @@ TEST_F(TestTakeKernelWithRecordBatch, TakeRecordBatch) {
   ])");
 }
 
-class TestTakeKernelWithChunkedArray : public TestTakeKernelTyped<ChunkedArray> {
- public:
-  void AssertTake(const std::shared_ptr<DataType>& type,
-                  const std::vector<std::string>& values, const std::string& indices,
-                  const std::vector<std::string>& expected) {
-    std::shared_ptr<ChunkedArray> actual;
-    ASSERT_OK(this->TakeWithArray(type, values, indices, &actual));
-    ValidateOutput(actual);
-    AssertChunkedEqual(*ChunkedArrayFromJSON(type, expected), *actual);
-  }
-
-  void AssertChunkedTake(const std::shared_ptr<DataType>& type,
-                         const std::vector<std::string>& values,
-                         const std::vector<std::string>& indices,
-                         const std::vector<std::string>& expected) {
-    std::shared_ptr<ChunkedArray> actual;
-    ASSERT_OK(this->TakeWithChunkedArray(type, values, indices, &actual));
-    ValidateOutput(actual);
-    AssertChunkedEqual(*ChunkedArrayFromJSON(type, expected), *actual);
-  }
-
-  Status TakeWithArray(const std::shared_ptr<DataType>& type,
-                       const std::vector<std::string>& values, const std::string& indices,
-                       std::shared_ptr<ChunkedArray>* out) {
-    ARROW_ASSIGN_OR_RAISE(Datum result, Take(ChunkedArrayFromJSON(type, values),
-                                             ArrayFromJSON(int8(), indices)));
-    *out = result.chunked_array();
-    return Status::OK();
-  }
-
-  Status TakeWithChunkedArray(const std::shared_ptr<DataType>& type,
-                              const std::vector<std::string>& values,
-                              const std::vector<std::string>& indices,
-                              std::shared_ptr<ChunkedArray>* out) {
-    ARROW_ASSIGN_OR_RAISE(Datum result, Take(ChunkedArrayFromJSON(type, values),
-                                             ChunkedArrayFromJSON(int8(), indices)));
-    *out = result.chunked_array();
-    return Status::OK();
-  }
-};
-
-TEST_F(TestTakeKernelWithChunkedArray, TakeChunkedArray) {
+TEST(TestTakeKernelWithChunkedArray, TakeChunkedArray) {
   for (auto& ty : {boolean(), int8(), uint64()}) {
-    this->AssertTake(ty, {"[]"}, "[]", {"[]"});
-    this->AssertChunkedTake(ty, {}, {}, {});
-    this->AssertChunkedTake(ty, {}, {"[]"}, {"[]"});
-    this->AssertChunkedTake(ty, {}, {"[null]"}, {"[null]"});
-    this->AssertChunkedTake(ty, {"[]"}, {}, {});
-    this->AssertChunkedTake(ty, {"[]"}, {"[]"}, {"[]"});
-    this->AssertChunkedTake(ty, {"[]"}, {"[null]"}, {"[null]"});
+    AssertTakeCAC(ty, {"[]"}, "[]", {"[]"});
+    AssertTakeCCC(ty, {}, {}, {});
+    AssertTakeCCC(ty, {}, {"[]"}, {"[]"});
+    AssertTakeCCC(ty, {}, {"[null]"}, {"[null]"});
+    AssertTakeCCC(ty, {"[]"}, {}, {});
+    AssertTakeCCC(ty, {"[]"}, {"[]"}, {"[]"});
+    AssertTakeCCC(ty, {"[]"}, {"[null]"}, {"[null]"});
   }
 
-  this->AssertTake(boolean(), {"[true]", "[false, true]"}, "[0, 1, 0, 2]",
-                   {"[true, false, true, true]"});
-  this->AssertChunkedTake(boolean(), {"[false]", "[true, false]"},
-                          {"[0, 1, 0]", "[]", "[2]"},
-                          {"[false, true, false]", "[]", "[false]"});
-  this->AssertTake(boolean(), {"[true]", "[false, true]"}, "[2, 1]", {"[true, false]"});
+  AssertTakeCAC(boolean(), {"[true]", "[false, true]"}, "[0, 1, 0, 2]",
+                {"[true, false, true, true]"});
+  AssertTakeCCC(boolean(), {"[false]", "[true, false]"}, {"[0, 1, 0]", "[]", "[2]"},
+                {"[false, true, false]", "[]", "[false]"});
+  AssertTakeCAC(boolean(), {"[true]", "[false, true]"}, "[2, 1]", {"[true, false]"});
 
   std::shared_ptr<ChunkedArray> arr;
   for (auto& int_ty : SignedIntTypes()) {
-    this->AssertTake(int_ty, {"[7]", "[8, 9]"}, "[0, 1, 0, 2]", {"[7, 8, 7, 9]"});
-    this->AssertChunkedTake(int_ty, {"[7]", "[8, 9]"}, {"[0, 1, 0]", "[]", "[2]"},
-                            {"[7, 8, 7]", "[]", "[9]"});
-    this->AssertTake(int_ty, {"[7]", "[8, 9]"}, "[2, 1]", {"[9, 8]"});
+    AssertTakeCAC(int_ty, {"[7]", "[8, 9]"}, "[0, 1, 0, 2]", {"[7, 8, 7, 9]"});
+    AssertTakeCCC(int_ty, {"[7]", "[8, 9]"}, {"[0, 1, 0]", "[]", "[2]"},
+                  {"[7, 8, 7]", "[]", "[9]"});
+    AssertTakeCAC(int_ty, {"[7]", "[8, 9]"}, "[2, 1]", {"[9, 8]"});
 
+    ASSERT_RAISES(IndexError, TakeCAC(int_ty, {"[7]", "[8, 9]"}, "[0, 5]", &arr));
     ASSERT_RAISES(IndexError,
-                  this->TakeWithArray(int_ty, {"[7]", "[8, 9]"}, "[0, 5]", &arr));
-    ASSERT_RAISES(IndexError, this->TakeWithChunkedArray(int_ty, {"[7]", "[8, 9]"},
-                                                         {"[0, 1, 0]", "[5, 1]"}, &arr));
-    ASSERT_RAISES(IndexError, this->TakeWithChunkedArray(int_ty, {}, {"[0]"}, &arr));
-    ASSERT_RAISES(IndexError, this->TakeWithChunkedArray(int_ty, {"[]"}, {"[0]"}, &arr));
+                  TakeCCC(int_ty, {"[7]", "[8, 9]"}, {"[0, 1, 0]", "[5, 1]"}, &arr));
+    ASSERT_RAISES(IndexError, TakeCCC(int_ty, {}, {"[0]"}, &arr));
+    ASSERT_RAISES(IndexError, TakeCCC(int_ty, {"[]"}, {"[0]"}, &arr));
   }
 }
 
-class TestTakeKernelWithTable : public TestTakeKernelTyped<Table> {
- public:
-  void AssertTake(const std::shared_ptr<Schema>& schm,
-                  const std::vector<std::string>& table_json, const std::string& filter,
-                  const std::vector<std::string>& expected_table) {
-    std::shared_ptr<Table> actual;
-
-    ASSERT_OK(this->TakeWithArray(schm, table_json, filter, &actual));
-    ValidateOutput(actual);
-    ASSERT_TABLES_EQUAL(*TableFromJSON(schm, expected_table), *actual);
-  }
-
-  void AssertChunkedTake(const std::shared_ptr<Schema>& schm,
-                         const std::vector<std::string>& table_json,
-                         const std::vector<std::string>& filter,
-                         const std::vector<std::string>& expected_table) {
-    std::shared_ptr<Table> actual;
-
-    ASSERT_OK(this->TakeWithChunkedArray(schm, table_json, filter, &actual));
-    ValidateOutput(actual);
-    ASSERT_TABLES_EQUAL(*TableFromJSON(schm, expected_table), *actual);
-  }
-
-  Status TakeWithArray(const std::shared_ptr<Schema>& schm,
-                       const std::vector<std::string>& values, const std::string& indices,
-                       std::shared_ptr<Table>* out) {
-    ARROW_ASSIGN_OR_RAISE(Datum result, Take(Datum(TableFromJSON(schm, values)),
-                                             Datum(ArrayFromJSON(int8(), indices))));
-    *out = result.table();
-    return Status::OK();
-  }
-
-  Status TakeWithChunkedArray(const std::shared_ptr<Schema>& schm,
-                              const std::vector<std::string>& values,
-                              const std::vector<std::string>& indices,
-                              std::shared_ptr<Table>* out) {
-    ARROW_ASSIGN_OR_RAISE(Datum result,
-                          Take(Datum(TableFromJSON(schm, values)),
-                               Datum(ChunkedArrayFromJSON(int8(), indices))));
-    *out = result.table();
-    return Status::OK();
-  }
-};
-
-TEST_F(TestTakeKernelWithTable, TakeTable) {
+TEST(TestTakeKernelWithTable, TakeTable) {
   std::vector<std::shared_ptr<Field>> fields = {field("a", int32()), field("b", utf8())};
   auto schm = schema(fields);
 
@@ -2033,11 +2058,11 @@ TEST_F(TestTakeKernelWithTable, TakeTable) {
       "[{\"a\": null, \"b\": \"yo\"},{\"a\": 1, \"b\": \"\"}]",
       "[{\"a\": 2, \"b\": \"hello\"},{\"a\": 4, \"b\": \"eh\"}]"};
 
-  this->AssertTake(schm, table_json, "[]", {"[]"});
+  AssertTakeTAT(schm, table_json, "[]", {"[]"});
   std::vector<std::string> expected_310 = {
       "[{\"a\": 4, \"b\": \"eh\"},{\"a\": 1, \"b\": \"\"},{\"a\": null, \"b\": \"yo\"}]"};
-  this->AssertTake(schm, table_json, "[3, 1, 0]", expected_310);
-  this->AssertChunkedTake(schm, table_json, {"[0, 1]", "[2, 3]"}, table_json);
+  AssertTakeTAT(schm, table_json, "[3, 1, 0]", expected_310);
+  AssertTakeTCT(schm, table_json, {"[0, 1]", "[2, 3]"}, table_json);
 }
 
 TEST(TestTakeMetaFunction, ArityChecking) {
@@ -2077,14 +2102,14 @@ void CheckTakeRandom(const std::shared_ptr<Array>& values, int64_t indices_lengt
                                           max_index, null_probability);
   auto indices_no_nulls = rand->Numeric<IndexType>(
       indices_length, static_cast<IndexCType>(0), max_index, /*null_probability=*/0.0);
-  ValidateTake<ValuesType>(values, indices);
-  ValidateTake<ValuesType>(values, indices_no_nulls);
+  ValidateTakeAAA<ValuesType>(values, indices);
+  ValidateTakeAAA<ValuesType>(values, indices_no_nulls);
   // Sliced indices array
   if (indices_length >= 2) {
     indices = indices->Slice(1, indices_length - 2);
     indices_no_nulls = indices_no_nulls->Slice(1, indices_length - 2);
-    ValidateTake<ValuesType>(values, indices);
-    ValidateTake<ValuesType>(values, indices_no_nulls);
+    ValidateTakeAAA<ValuesType>(values, indices);
+    ValidateTakeAAA<ValuesType>(values, indices_no_nulls);
   }
 }
 
