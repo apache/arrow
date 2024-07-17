@@ -67,6 +67,7 @@ org.apache.arrow.flight.core does not read unnamed module ...``
 
 Finally, if you are using arrow-dataset, you'll also need to report that JDK internals need to be exposed.
 Modifying the command above for arrow-memory:
+
 .. code-block:: shell
 
    # Directly on the command line
