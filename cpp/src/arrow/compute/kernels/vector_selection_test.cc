@@ -28,6 +28,7 @@
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
 #include "arrow/compute/kernels/test_util.h"
+#include "arrow/scalar.h"
 #include "arrow/table.h"
 #include "arrow/testing/builder.h"
 #include "arrow/testing/fixed_width_test_util.h"
@@ -1146,11 +1147,16 @@ Result<Datum> TakeACC(const std::shared_ptr<Array>& values,
   return Take(values, indices);
 }
 
+Result<Datum> TakeCAC(std::shared_ptr<ChunkedArray> values,
+                      std::shared_ptr<Array> indices) {
+  return Take(values, indices);
+}
+
 Status TakeCAC(const std::shared_ptr<DataType>& type,
                const std::vector<std::string>& values, const std::string& indices,
                std::shared_ptr<ChunkedArray>* out) {
-  ARROW_ASSIGN_OR_RAISE(Datum result, Take(ChunkedArrayFromJSON(type, values),
-                                           ArrayFromJSON(int8(), indices)));
+  ARROW_ASSIGN_OR_RAISE(Datum result, TakeCAC(ChunkedArrayFromJSON(type, values),
+                                              ArrayFromJSON(int8(), indices)));
   *out = result.chunked_array();
   return Status::OK();
 }
@@ -1239,11 +1245,55 @@ void CheckTakeAAA(const std::shared_ptr<DataType>& type, const std::string& valu
   }
 }
 
-void AssertTakeAAADictionary(std::shared_ptr<DataType> value_type,
-                             const std::string& dictionary_values,
-                             const std::string& dictionary_indices,
-                             const std::string& indices,
-                             const std::string& expected_indices) {
+// TakeXA = {TakeAAA, TakeCAC}
+void CheckTakeXA(const std::shared_ptr<Array>& values,
+                 const std::shared_ptr<Array>& indices,
+                 const std::shared_ptr<Array>& expected) {
+  auto pool = default_memory_pool();
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> actual, TakeAAA(*values, *indices));
+  ValidateOutput(actual);
+  AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+
+  // We check TakeCAC by checking this equality:
+  //
+  // TakeAAA(Concat(V, V, V), I') == Concat(TakeCAC([V, V, V], I'))
+  // where
+  //   V = values
+  //   I = indices
+  //   I' = Concat(I + 2 * V.length, I,  I + V.length)
+  auto values3 = ArrayVector{values, values, values};
+  ASSERT_OK_AND_ASSIGN(auto concat_values3, Concatenate(values3, pool));
+  auto chunked_values3 = std::make_shared<ChunkedArray>(values3);
+  std::shared_ptr<Array> concat_indices3;
+  {
+    Int32Scalar double_length(static_cast<int32_t>(2 * values->length()));
+    Int32Scalar zero(static_cast<int32_t>(values->length()));
+    Int32Scalar length(static_cast<int32_t>(values->length()));
+    ASSERT_OK_AND_ASSIGN(auto indices_prefix, Add(indices, double_length));
+    ASSERT_OK_AND_ASSIGN(auto indices_middle, Add(indices, zero));
+    ASSERT_OK_AND_ASSIGN(auto indices_suffix, Add(indices, length));
+    auto indices3 = ArrayVector{
+        indices_prefix.make_array(),
+        indices_middle.make_array(),
+        indices_suffix.make_array(),
+    };
+    ASSERT_OK_AND_ASSIGN(concat_indices3, Concatenate(indices3, pool));
+  }
+  ASSERT_OK_AND_ASSIGN(auto concat_expected3,
+                       Concatenate({expected, expected, expected}));
+  ASSERT_OK_AND_ASSIGN(Datum chunked_actual, TakeCAC(chunked_values3, concat_indices3));
+  ValidateOutput(chunked_actual);
+  ASSERT_OK_AND_ASSIGN(auto concat_actual,
+                       Concatenate(chunked_actual.chunked_array()->chunks()));
+  AssertArraysEqual(*concat_expected3, *concat_actual, /*verbose=*/true);
+}
+
+void CheckTakeXADictionary(std::shared_ptr<DataType> value_type,
+                           const std::string& dictionary_values,
+                           const std::string& dictionary_indices,
+                           const std::string& indices,
+                           const std::string& expected_indices) {
   auto dict = ArrayFromJSON(value_type, dictionary_values);
   auto type = dictionary(int8(), value_type);
   ASSERT_OK_AND_ASSIGN(
@@ -1253,7 +1303,7 @@ void AssertTakeAAADictionary(std::shared_ptr<DataType> value_type,
       auto expected,
       DictionaryArray::FromArrays(type, ArrayFromJSON(int8(), expected_indices), dict));
   auto take_indices = ArrayFromJSON(int8(), indices);
-  DoAssertTakeAAA(values, take_indices, expected);
+  CheckTakeXA(values, take_indices, expected);
 }
 
 void AssertTakeCAC(const std::shared_ptr<DataType>& type,
@@ -1559,7 +1609,7 @@ class TestTakeKernelWithString : public TestTakeKernelTyped<TypeClass> {
                                const std::string& dictionary_indices,
                                const std::string& indices,
                                const std::string& expected_indices) {
-    return arrow::compute::AssertTakeAAADictionary(
+    return arrow::compute::CheckTakeXADictionary(
         value_type(), dictionary_values, dictionary_indices, indices, expected_indices);
   }
 };
