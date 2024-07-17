@@ -88,7 +88,6 @@ update_versions() {
     # versions-maven-plugin:set-scm-tag does not update the whole reactor. Invoking separately
     mvn versions:set-scm-tag -DnewTag=apache-arrow-${version} -DgenerateBackupPoms=false -pl :arrow-java-root
     mvn versions:set-scm-tag -DnewTag=apache-arrow-${version} -DgenerateBackupPoms=false -pl :arrow-bom
-    mvn versions:set-scm-tag -DnewTag=apache-arrow-${version} -DgenerateBackupPoms=false -pl :arrow-maven-plugins
   fi
   git add "pom.xml"
   git add "**/pom.xml"
