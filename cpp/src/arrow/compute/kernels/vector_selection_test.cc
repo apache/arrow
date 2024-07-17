@@ -1132,7 +1132,8 @@ TEST(TestFilterMetaFunction, ArityChecking) {
 //   TakeXX = {TakeAAA, TakeACC, TakeCAC, TakeCCC}
 
 Result<std::shared_ptr<Array>> TakeAAA(const Array& values, const Array& indices) {
-  return Take(values, indices);
+  ARROW_ASSIGN_OR_RAISE(Datum out, Take(Datum(values), Datum(indices)));
+  return out.make_array();
 }
 
 Status TakeAAA(const std::shared_ptr<DataType>& type, const std::string& values,
@@ -1142,14 +1143,14 @@ Status TakeAAA(const std::shared_ptr<DataType>& type, const std::string& values,
       .Value(out);
 }
 
-Result<Datum> TakeACC(const std::shared_ptr<Array>& values,
-                      const std::shared_ptr<ChunkedArray>& indices) {
-  return Take(values, indices);
+Result<Datum> TakeACC(std::shared_ptr<Array> values,
+                      std::shared_ptr<ChunkedArray> indices) {
+  return Take(Datum{std::move(values)}, Datum{std::move(indices)});
 }
 
 Result<Datum> TakeCAC(std::shared_ptr<ChunkedArray> values,
                       std::shared_ptr<Array> indices) {
-  return Take(values, indices);
+  return Take(Datum{std::move(values)}, Datum{std::move(indices)});
 }
 
 Status TakeCAC(const std::shared_ptr<DataType>& type,
@@ -1161,17 +1162,17 @@ Status TakeCAC(const std::shared_ptr<DataType>& type,
   return Status::OK();
 }
 
-Result<Datum> TakeCCC(const std::shared_ptr<ChunkedArray>& values,
-                      const std::shared_ptr<ChunkedArray>& indices) {
-  return Take(values, indices);
+Result<Datum> TakeCCC(std::shared_ptr<ChunkedArray> values,
+                      std::shared_ptr<ChunkedArray> indices) {
+  return Take(Datum{std::move(values)}, Datum{std::move(indices)});
 }
 
 Status TakeCCC(const std::shared_ptr<DataType>& type,
                const std::vector<std::string>& values,
                const std::vector<std::string>& indices,
                std::shared_ptr<ChunkedArray>* out) {
-  ARROW_ASSIGN_OR_RAISE(Datum result, Take(ChunkedArrayFromJSON(type, values),
-                                           ChunkedArrayFromJSON(int8(), indices)));
+  ARROW_ASSIGN_OR_RAISE(Datum result, TakeCCC(ChunkedArrayFromJSON(type, values),
+                                              ChunkedArrayFromJSON(int8(), indices)));
   *out = result.chunked_array();
   return Status::OK();
 }
@@ -1180,8 +1181,8 @@ Status TakeRAR(const std::shared_ptr<Schema>& schm, const std::string& batch_jso
                const std::shared_ptr<DataType>& index_type, const std::string& indices,
                std::shared_ptr<RecordBatch>* out) {
   auto batch = RecordBatchFromJSON(schm, batch_json);
-  ARROW_ASSIGN_OR_RAISE(Datum result,
-                        Take(Datum(batch), Datum(ArrayFromJSON(index_type, indices))));
+  ARROW_ASSIGN_OR_RAISE(Datum result, Take(Datum{std::move(batch)},
+                                           Datum{ArrayFromJSON(index_type, indices)}));
   *out = result.record_batch();
   return Status::OK();
 }
@@ -1189,8 +1190,8 @@ Status TakeRAR(const std::shared_ptr<Schema>& schm, const std::string& batch_jso
 Status TakeTAT(const std::shared_ptr<Schema>& schm,
                const std::vector<std::string>& values, const std::string& indices,
                std::shared_ptr<Table>* out) {
-  ARROW_ASSIGN_OR_RAISE(Datum result, Take(Datum(TableFromJSON(schm, values)),
-                                           Datum(ArrayFromJSON(int8(), indices))));
+  ARROW_ASSIGN_OR_RAISE(Datum result, Take(Datum{TableFromJSON(schm, values)},
+                                           Datum{ArrayFromJSON(int8(), indices)}));
   *out = result.table();
   return Status::OK();
 }
