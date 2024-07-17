@@ -1287,7 +1287,8 @@ struct Inequality {
     std::shared_ptr<Array> simplified_value_set;
     if (guarantee.cmp == Comparison::EQUAL) {
       return literal(found);
-    } else if (guarantee.cmp == Comparison::LESS) {
+    }
+    if (guarantee.cmp == Comparison::LESS) {
       simplified_value_set = value_set->Slice(0, pivot);
     } else if (guarantee.cmp == Comparison::LESS_EQUAL) {
       simplified_value_set = value_set->Slice(0, pivot + (found ? 1 : 0));
