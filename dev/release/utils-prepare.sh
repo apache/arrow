@@ -83,8 +83,13 @@ update_versions() {
   popd
 
   pushd "${ARROW_DIR}/java"
-  mvn versions:set -DnewVersion=${version} -DprocessAllModules
-  find . -type f -name pom.xml.versionsBackup -delete
+  mvn versions:set -DnewVersion=${version} -DprocessAllModules -DgenerateBackupPoms=false
+  if [ "${type}" = "release" ]; then
+    # versions-maven-plugin:set-scm-tag does not update the whole reactor. Invoking separately
+    mvn versions:set-scm-tag -DnewTag=apache-arrow-${version} -DgenerateBackupPoms=false -pl :arrow-java-root
+    mvn versions:set-scm-tag -DnewTag=apache-arrow-${version} -DgenerateBackupPoms=false -pl :arrow-bom
+    mvn versions:set-scm-tag -DnewTag=apache-arrow-${version} -DgenerateBackupPoms=false -pl :arrow-maven-plugins
+  fi
   git add "pom.xml"
   git add "**/pom.xml"
   popd

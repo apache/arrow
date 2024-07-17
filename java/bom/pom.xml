@@ -17,7 +17,7 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 -->
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" child.project.url.inherit.append.path="false" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
@@ -30,8 +30,51 @@ under the License.
   <artifactId>arrow-bom</artifactId>
   <version>18.0.0-SNAPSHOT</version>
   <packaging>pom</packaging>
+
   <name>Arrow Bill of Materials</name>
   <description>Arrow Bill of Materials</description>
+  <url>https://arrow.apache.org/</url>
+
+  <mailingLists>
+    <mailingList>
+      <name>Developer List</name>
+      <subscribe>dev-subscribe@arrow.apache.org</subscribe>
+      <unsubscribe>dev-unsubscribe@arrow.apache.org</unsubscribe>
+      <post>dev@arrow.apache.org</post>
+      <archive>https://lists.apache.org/list.html?dev@arrow.apache.org</archive>
+    </mailingList>
+    <mailingList>
+      <name>Commits List</name>
+      <subscribe>commits-subscribe@arrow.apache.org</subscribe>
+      <unsubscribe>commits-unsubscribe@arrow.apache.org</unsubscribe>
+      <post>commits@arrow.apache.org</post>
+      <archive>https://lists.apache.org/list.html?commits@arrow.apache.org</archive>
+    </mailingList>
+    <mailingList>
+      <name>Issues List</name>
+      <subscribe>issues-subscribe@arrow.apache.org</subscribe>
+      <unsubscribe>issues-unsubscribe@arrow.apache.org</unsubscribe>
+      <archive>https://lists.apache.org/list.html?issues@arrow.apache.org</archive>
+    </mailingList>
+    <mailingList>
+      <name>GitHub List</name>
+      <subscribe>github-subscribe@arrow.apache.org</subscribe>
+      <unsubscribe>github-unsubscribe@arrow.apache.org</unsubscribe>
+      <archive>https://lists.apache.org/list.html?github@arrow.apache.org</archive>
+    </mailingList>
+  </mailingLists>
+
+  <scm child.scm.connection.inherit.append.path="false" child.scm.developerConnection.inherit.append.path="false" child.scm.url.inherit.append.path="false">
+    <connection>scm:git:https://github.com/apache/arrow.git</connection>
+    <developerConnection>scm:git:https://github.com/apache/arrow.git</developerConnection>
+    <tag>main</tag>
+    <url>https://github.com/apache/arrow/tree/${project.scm.tag}</url>
+  </scm>
+
+  <issueManagement>
+    <system>GitHub</system>
+    <url>https://github.com/apache/arrow/issues</url>
+  </issueManagement>
 
   <properties>
     <arrow.vector.classifier></arrow.vector.classifier>
@@ -168,6 +211,11 @@ under the License.
           <groupId>com.diffplug.spotless</groupId>
           <artifactId>spotless-maven-plugin</artifactId>
           <version>2.30.0</version>
+        </plugin>
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>versions-maven-plugin</artifactId>
+          <version>2.17.0</version>
         </plugin>
       </plugins>
     </pluginManagement>
