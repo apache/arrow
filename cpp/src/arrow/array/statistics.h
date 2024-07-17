@@ -30,7 +30,6 @@ namespace arrow {
 /// as Apache Parquet may have statistics. Statistics associated with
 /// data source can be read unified API via this class.
 struct ARROW_EXPORT ArrayStatistics {
- public:
   using ElementBufferType = std::variant<bool, int8_t, uint8_t, int16_t, uint16_t,
                                          int32_t, uint32_t, int64_t, uint64_t>;
 
