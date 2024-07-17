@@ -18,6 +18,8 @@
 #pragma once
 
 #include <optional>
+#include <string>
+#include <string_view>
 #include <variant>
 
 #include "arrow/util/visibility.h"
@@ -30,8 +32,9 @@ namespace arrow {
 /// as Apache Parquet may have statistics. Statistics associated with
 /// data source can be read unified API via this class.
 struct ARROW_EXPORT ArrayStatistics {
-  using ElementBufferType = std::variant<bool, int8_t, uint8_t, int16_t, uint16_t,
-                                         int32_t, uint32_t, int64_t, uint64_t>;
+  using ElementBufferType =
+      std::variant<bool, int8_t, uint8_t, int16_t, uint16_t, int32_t, uint32_t, int64_t,
+                   uint64_t, std::string, std::string_view>;
 
   ArrayStatistics() = default;
   ~ArrayStatistics() = default;
