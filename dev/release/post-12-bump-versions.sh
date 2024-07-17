@@ -64,7 +64,7 @@ if [ ${BUMP_VERSION_POST_TAG} -gt 0 ]; then
 fi
 
 if [ ${BUMP_DEB_PACKAGE_NAMES} -gt 0 ] && \
-     [ "${next_version}" != "$(current_version)" ]; then
+     [ "${next_version}" != "${version}" ]; then
   update_deb_package_names "${version}" "${next_version}"
 fi
 
