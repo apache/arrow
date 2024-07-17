@@ -332,20 +332,7 @@ if(ARROW_BUILD_BENCHMARKS)
 
   add_dependencies(arrow_flight arrow-flight-benchmark)
 
-  if(ARROW_WITH_UCX)
-    if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
-      target_link_libraries(arrow-flight-benchmark arrow_flight_transport_ucx_static)
-      target_link_libraries(arrow-flight-perf-server arrow_flight_transport_ucx_static)
-    else()
-      target_link_libraries(arrow-flight-benchmark arrow_flight_transport_ucx_shared)
-      target_link_libraries(arrow-flight-perf-server arrow_flight_transport_ucx_shared)
-    endif()
-  endif()
 endif(ARROW_BUILD_BENCHMARKS)
-
-if(ARROW_WITH_UCX)
-  add_subdirectory(transport/ucx)
-endif()
 
 if(ARROW_FLIGHT_SQL)
   add_subdirectory(sql)

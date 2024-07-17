@@ -198,8 +198,6 @@ Flight RPC
 +--------------------------------------------+-------+-------+-------+----+-------+-------+-------+-------+
 | gRPC + TLS transport (grpc+tls:)           | ✓     | ✓     | ✓     |    | ✓     | ✓     |       |       |
 +--------------------------------------------+-------+-------+-------+----+-------+-------+-------+-------+
-| UCX_ transport (ucx:) (1)                  | ✓     |       |       |    |       |       |       |       |
-+--------------------------------------------+-------+-------+-------+----+-------+-------+-------+-------+
 
 Supported features in the gRPC transport:
 
@@ -221,42 +219,16 @@ Supported features in the gRPC transport:
 | RPC error codes                            | ✓     | ✓     | ✓     |    | ✓     | ✓     |       |       |
 +--------------------------------------------+-------+-------+-------+----+-------+-------+-------+-------+
 
-Supported features in the UCX transport:
-
-+--------------------------------------------+-------+-------+-------+----+-------+-------+-------+-------+
-| Flight RPC Feature                         | C++   | Java  | Go    | JS | C#    | Rust  | Julia | Swift |
-+============================================+=======+=======+=======+====+=======+=======+=======+=======+
-| All RPC methods                            | ✓ (4) |       |       |    |       |       |       |       |
-+--------------------------------------------+-------+-------+-------+----+-------+-------+-------+-------+
-| Authentication handlers                    |       |       |       |    |       |       |       |       |
-+--------------------------------------------+-------+-------+-------+----+-------+-------+-------+-------+
-| Call timeouts                              |       |       |       |    |       |       |       |       |
-+--------------------------------------------+-------+-------+-------+----+-------+-------+-------+-------+
-| Call cancellation                          |       |       |       |    |       |       |       |       |
-+--------------------------------------------+-------+-------+-------+----+-------+-------+-------+-------+
-| Concurrent client calls                    | ✓ (5) |       |       |    |       |       |       |       |
-+--------------------------------------------+-------+-------+-------+----+-------+-------+-------+-------+
-| Custom middleware                          |       |       |       |    |       |       |       |       |
-+--------------------------------------------+-------+-------+-------+----+-------+-------+-------+-------+
-| RPC error codes                            | ✓     |       |       |    |       |       |       |       |
-+--------------------------------------------+-------+-------+-------+----+-------+-------+-------+-------+
-
 Notes:
 
 * \(1) Flight UCX transport has been deprecated on the 19.0.0 release.
 * \(2) Support using AspNetCore authentication handlers.
 * \(3) Whether a single client can support multiple concurrent calls.
-* \(4) Only support for DoExchange, DoGet, DoPut, and GetFlightInfo.
-* \(5) Each concurrent call is a separate connection to the server
-  (unlike gRPC where concurrent calls are multiplexed over a single
-  connection). This will generally provide better throughput but
-  consumes more resources both on the server and the client.
 
 .. seealso::
    The :ref:`flight-rpc` specification.
 
 .. _gRPC: https://grpc.io/
-.. _UCX: https://openucx.org/
 
 Flight SQL
 ==========
