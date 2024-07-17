@@ -23,7 +23,7 @@ under the License.
   <parent>
     <groupId>org.apache</groupId>
     <artifactId>apache</artifactId>
-    <version>31</version>
+    <version>33</version>
   </parent>
 
   <groupId>org.apache.arrow</groupId>
