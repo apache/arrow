@@ -477,12 +477,6 @@ under the License.
                     </fileSets>
                   </inputs>
                 </plugin>
-                <plugin>
-                  <artifactId>maven-compiler-plugin</artifactId>
-                  <outputs>
-                    <storeEnabled>false</storeEnabled>
-                  </outputs>
-                </plugin>
               </plugins>
             </develocity>
           </configuration>
@@ -732,7 +726,7 @@ under the License.
           <dependency>
             <groupId>com.puppycrawl.tools</groupId>
             <artifactId>checkstyle</artifactId>
-            <version>8.29</version>
+            <version>10.17.0</version>
           </dependency>
           <dependency>
             <groupId>org.slf4j</groupId>
