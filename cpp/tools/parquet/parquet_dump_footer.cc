@@ -48,7 +48,7 @@ Usage: parquet-dump-footer
   --out        Output file: defaults to stdout
 
   Dumps the footer of a Parquet file to stdout or a file, optionally with
-  potentially PII metadata scrubbed.
+  potentially user specific metadata scrubbed.
 )";
   return 1;
 }
