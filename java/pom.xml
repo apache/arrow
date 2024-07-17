@@ -477,6 +477,12 @@ under the License.
                     </fileSets>
                   </inputs>
                 </plugin>
+                <plugin>
+                  <artifactId>maven-compiler-plugin</artifactId>
+                  <outputs>
+                    <storeEnabled>false</storeEnabled>
+                  </outputs>
+                </plugin>
               </plugins>
             </develocity>
           </configuration>
