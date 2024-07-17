@@ -15,4 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// This empty .cc file is for embedding not inlined symbols in
+// arrow::ArrayStatistics into libarrow.
+
 #include "arrow/array/statistics.h"
