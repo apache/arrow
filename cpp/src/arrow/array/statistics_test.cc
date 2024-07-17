@@ -39,26 +39,26 @@ TEST(ArrayStatisticsTest, TestDistinctCount) {
 
 TEST(ArrayStatisticsTest, TestMin) {
   ArrayStatistics statistics;
-  ASSERT_FALSE(statistics.min_buffer.has_value());
+  ASSERT_FALSE(statistics.min.has_value());
   ASSERT_FALSE(statistics.is_min_exact.has_value());
-  statistics.min_buffer = static_cast<int32_t>(29);
+  statistics.min = static_cast<int32_t>(29);
   statistics.is_min_exact = true;
-  ASSERT_TRUE(statistics.min_buffer.has_value());
-  ASSERT_TRUE(std::holds_alternative<int32_t>(statistics.min_buffer.value()));
-  ASSERT_EQ(29, std::get<int32_t>(statistics.min_buffer.value()));
+  ASSERT_TRUE(statistics.min.has_value());
+  ASSERT_TRUE(std::holds_alternative<int32_t>(statistics.min.value()));
+  ASSERT_EQ(29, std::get<int32_t>(statistics.min.value()));
   ASSERT_TRUE(statistics.is_min_exact.has_value());
   ASSERT_TRUE(statistics.is_min_exact.value());
 }
 
 TEST(ArrayStatisticsTest, TestMax) {
   ArrayStatistics statistics;
-  ASSERT_FALSE(statistics.max_buffer.has_value());
+  ASSERT_FALSE(statistics.max.has_value());
   ASSERT_FALSE(statistics.is_max_exact.has_value());
-  statistics.max_buffer = std::string("hello");
+  statistics.max = std::string("hello");
   statistics.is_max_exact = false;
-  ASSERT_TRUE(statistics.max_buffer.has_value());
-  ASSERT_TRUE(std::holds_alternative<std::string>(statistics.max_buffer.value()));
-  ASSERT_EQ("hello", std::get<std::string>(statistics.max_buffer.value()));
+  ASSERT_TRUE(statistics.max.has_value());
+  ASSERT_TRUE(std::holds_alternative<std::string>(statistics.max.value()));
+  ASSERT_EQ("hello", std::get<std::string>(statistics.max.value()));
   ASSERT_TRUE(statistics.is_max_exact.has_value());
   ASSERT_FALSE(statistics.is_max_exact.value());
 }
@@ -79,9 +79,9 @@ TEST(ArrayStatisticsTest, TestEquality) {
   statistics2.distinct_count = 2929;
   ASSERT_EQ(statistics1, statistics2);
 
-  statistics1.min_buffer = std::string_view("world");
+  statistics1.min = std::string_view("world");
   ASSERT_NE(statistics1, statistics2);
-  statistics2.min_buffer = std::string_view("world");
+  statistics2.min = std::string_view("world");
   ASSERT_EQ(statistics1, statistics2);
 
   statistics1.is_min_exact = false;
@@ -89,9 +89,9 @@ TEST(ArrayStatisticsTest, TestEquality) {
   statistics2.is_min_exact = false;
   ASSERT_EQ(statistics1, statistics2);
 
-  statistics1.max_buffer = static_cast<int64_t>(-255);
+  statistics1.max = static_cast<int64_t>(-255);
   ASSERT_NE(statistics1, statistics2);
-  statistics2.max_buffer = static_cast<int64_t>(-255);
+  statistics2.max = static_cast<int64_t>(-255);
   ASSERT_EQ(statistics1, statistics2);
 
   statistics1.is_max_exact = true;

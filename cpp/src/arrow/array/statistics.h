@@ -32,7 +32,7 @@ namespace arrow {
 /// as Apache Parquet may have statistics. Statistics associated with
 /// data source can be read unified API via this class.
 struct ARROW_EXPORT ArrayStatistics {
-  using ElementBufferType =
+  using ValueType =
       std::variant<bool, int8_t, uint8_t, int16_t, uint16_t, int32_t, uint32_t, int64_t,
                    uint64_t, std::string, std::string_view>;
 
@@ -45,14 +45,14 @@ struct ARROW_EXPORT ArrayStatistics {
   /// \brief The number of distinct values, may not be set
   std::optional<int64_t> distinct_count = std::nullopt;
 
-  /// \brief The minimum value buffer, may not be set
-  std::optional<ElementBufferType> min_buffer = std::nullopt;
+  /// \brief The minimum value, may not be set
+  std::optional<ValueType> min = std::nullopt;
 
   /// \brief Whether the minimum value is exact or not, may not be set
   std::optional<bool> is_min_exact = std::nullopt;
 
-  /// \brief The maximum value buffer, may not be set
-  std::optional<ElementBufferType> max_buffer = std::nullopt;
+  /// \brief The maximum value, may not be set
+  std::optional<ValueType> max = std::nullopt;
 
   /// \brief Whether the maximum value is exact or not, may not be set
   std::optional<bool> is_max_exact = std::nullopt;
@@ -60,8 +60,8 @@ struct ARROW_EXPORT ArrayStatistics {
   /// \brief Check two statistics for equality
   bool Equals(const ArrayStatistics& other) const {
     return null_count == other.null_count && distinct_count == other.distinct_count &&
-           min_buffer == other.min_buffer && is_min_exact == other.is_min_exact &&
-           max_buffer == other.max_buffer && is_max_exact == other.is_max_exact;
+           min == other.min && is_min_exact == other.is_min_exact && max == other.max &&
+           is_max_exact == other.is_max_exact;
   }
 
   /// \brief Check two statistics for equality
