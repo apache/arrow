@@ -680,7 +680,6 @@ std::shared_ptr<DataType> LargeVersionOfType(const std::shared_ptr<DataType>& ty
       return type;
     default:
       Unreachable();
-      break;
   }
 }
 
