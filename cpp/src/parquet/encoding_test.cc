@@ -2234,6 +2234,77 @@ TEST(DeltaLengthByteArrayEncodingAdHoc, ArrowBinaryDirectPut) {
   }
 }
 
+TEST(DeltaLengthByteArrayEncodingAdHoc, ArrowBinaryViewDirectPut) {
+  const int64_t size = 50;
+  const int32_t min_length = 0;
+  const int32_t max_length = 10;
+  const int32_t num_unique = 10;
+  const double null_probability = 0.25;
+  auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::DELTA_LENGTH_BYTE_ARRAY);
+  auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::DELTA_LENGTH_BYTE_ARRAY);
+
+  auto castTo = [](std::shared_ptr<::arrow::Array> result,
+                   const std::shared_ptr<::arrow::DataType>& to_type) {
+    ::arrow::compute::CastOptions options;
+    options.to_type = to_type;
+    EXPECT_OK_AND_ASSIGN(
+        auto tmp, CallFunction("cast", {::arrow::Datum{result}}, &options, nullptr));
+    result = tmp.make_array();
+    return result;
+  };
+
+  auto CheckSeed = [&](std::shared_ptr<::arrow::Array> values) {
+    ASSERT_NO_THROW(encoder->Put(*values));
+    const auto* binary_view_array =
+        checked_cast<const ::arrow::BinaryViewArray*>(values.get());
+    // For DeltaLength encoding, the estimated size should be at least the total byte size
+    // BinaryViewArray doesn't have a total value length method, so calculate by hand.
+    int64_t total_size = 0;
+    for (int64_t i = 0; i < binary_view_array->length(); i++) {
+      total_size += binary_view_array->GetView(i).size();
+    }
+    EXPECT_GE(encoder->EstimatedDataEncodedSize(), total_size)
+        << "Estimated size should be at least the total byte size";
+    const auto buf = encoder->FlushValues();
+
+    const int num_values = static_cast<int>(values->length() - values->null_count());
+    decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
+
+    typename EncodingTraits<ByteArrayType>::Accumulator acc;
+    if (values->type()->id() == ::arrow::Type::type::STRING_VIEW) {
+      acc.builder = std::make_unique<::arrow::StringBuilder>();
+    } else {
+      acc.builder = std::make_unique<::arrow::BinaryBuilder>();
+    }
+    ASSERT_EQ(num_values,
+              decoder->DecodeArrow(static_cast<int>(values->length()),
+                                   static_cast<int>(values->null_count()),
+                                   values->null_bitmap_data(), values->offset(), &acc));
+
+    std::shared_ptr<::arrow::Array> result;
+
+    ASSERT_OK(acc.builder->Finish(&result));
+    ASSERT_EQ(values->length(), result->length());
+    ASSERT_OK(result->ValidateFull());
+
+    ::arrow::AssertArraysEqual(*values, *castTo(result, values->type()), true);
+  };
+
+  ::arrow::random::RandomArrayGenerator rag(42);
+  auto values = rag.StringView(0, min_length, max_length, null_probability);
+  CheckSeed(values);
+  for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
+    rag = ::arrow::random::RandomArrayGenerator(seed);
+    values = rag.StringView(size, min_length, max_length, null_probability);
+    CheckSeed(values);
+
+    values = castTo(
+        rag.BinaryWithRepeats(size, num_unique, min_length, max_length, null_probability),
+        ::arrow::binary_view());
+    CheckSeed(values);
+  }
+}
+
 TEST(DeltaLengthByteArrayEncodingAdHoc, ArrowDirectPut) {
   auto CheckEncode = [](std::shared_ptr<::arrow::Array> values,
                         std::shared_ptr<::arrow::Array> lengths) {
