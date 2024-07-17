@@ -130,6 +130,9 @@ class TrackedRandomAccessFileImpl : public TrackedRandomAccessFile {
     return delegate_->Read(nbytes);
   }
   bool supports_zero_copy() const override { return delegate_->supports_zero_copy(); }
+  int64_t preferred_read_size(std::optional<int64_t> nbytes) const override {
+    return delegate_->preferred_read_size(nbytes);
+  }
   Result<int64_t> GetSize() override { return delegate_->GetSize(); }
   Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* out) override {
     SaveReadRange(position, nbytes);

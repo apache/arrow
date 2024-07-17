@@ -33,8 +33,11 @@
 #define ARROW_GCS_RETURN_NOT_OK(expr) \
   if (!expr.ok()) return internal::ToArrowStatus(expr)
 
-namespace arrow {
-namespace fs {
+namespace arrow::fs {
+
+// Instruct callers to avoid reads < 1.5 MiB if possible
+// (see https://github.com/googleapis/google-cloud-cpp/pull/2945)
+static constexpr int64_t kPreferredReadSize = 3 * 1024 * 1024 / 2;
 
 bool GcsCredentials::Equals(const GcsCredentials& other) const {
   if (holder_->credentials == other.holder_->credentials) {
@@ -283,6 +286,9 @@ class GcsRandomAccessFile : public arrow::io::RandomAccessFile {
   // @name InputStream
   Result<std::shared_ptr<const KeyValueMetadata>> ReadMetadata() override {
     return internal::FromObjectMetadata(metadata_);
+  }
+  int64_t preferred_read_size(std::optional<int64_t> nbytes) const override {
+    return kPreferredReadSize;
   }
   //@}
 
@@ -971,5 +977,4 @@ std::shared_ptr<GcsFileSystem> GcsFileSystem::Make(const GcsOptions& options,
 GcsFileSystem::GcsFileSystem(const GcsOptions& options, const io::IOContext& context)
     : FileSystem(context), impl_(std::make_shared<Impl>(options)) {}
 
-}  // namespace fs
-}  // namespace arrow
+}  // namespace arrow::fs
