@@ -1596,7 +1596,8 @@ class ObjectInputFile final : public io::RandomAccessFile {
 static constexpr int64_t kPartUploadSize = 10 * 1024 * 1024;
 
 // Above this threshold, use a multi-part upload instead of a single request upload. Only
-// relevant if early sanitization of writing to the bucket is activated.
+// relevant if early sanitization of writing to the bucket is disabled (see
+// `allow_delayed_open`).
 static constexpr int64_t kMultiPartUploadThresholdSize = kPartUploadSize - 1;
 
 static_assert(kMultiPartUploadThresholdSize < kPartUploadSize,
@@ -2094,8 +2095,9 @@ class ObjectOutputStream final : public io::OutputStream {
     }
     // GH-41862: avoid potential deadlock if the Future's callback is called
     // with the mutex taken.
+    auto fut = state->pending_uploads_completed;
     lock.unlock();
-    state->pending_uploads_completed.MarkFinished(state->status);
+    fut.MarkFinished(state->status);
   }
 
   static void HandleUploadPartOutcome(const std::shared_ptr<UploadState>& state,

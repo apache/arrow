@@ -23,8 +23,6 @@
 #include <utility>
 #include <vector>
 
-#include <aws/s3/model/DeleteObjectsRequest.h>
-#include <aws/s3/model/ListObjectsV2Request.h>
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
@@ -47,7 +45,9 @@
 #include <aws/core/utils/logging/ConsoleLogSystem.h>
 #include <aws/s3/S3Client.h>
 #include <aws/s3/model/CreateBucketRequest.h>
+#include <aws/s3/model/DeleteObjectsRequest.h>
 #include <aws/s3/model/GetObjectRequest.h>
+#include <aws/s3/model/ListObjectsV2Request.h>
 #include <aws/s3/model/PutObjectRequest.h>
 #include <aws/sts/STSClient.h>
 
@@ -488,12 +488,12 @@ class TestS3FS : public S3TestMixin {
   Status RestoreTestBucket() {
     // First empty the test bucket, and then re-upload initial test files.
 
-    Aws::Vector<Aws::S3::Model::Object> all_objects;
+    Aws::S3::Model::Delete delete_object;
     {
       // Mostly taken from
       // https://github.com/awsdocs/aws-doc-sdk-examples/blob/main/cpp/example_code/s3/list_objects.cpp
       Aws::S3::Model::ListObjectsV2Request req;
-      req.WithBucket(Aws::String{"bucket"});
+      req.SetBucket(Aws::String{"bucket"});
 
       Aws::String continuation_token;
       do {
@@ -507,7 +507,11 @@ class TestS3FS : public S3TestMixin {
           return OutcomeToStatus("ListObjectsV2", outcome);
         } else {
           Aws::Vector<Aws::S3::Model::Object> objects = outcome.GetResult().GetContents();
-          all_objects.insert(all_objects.end(), objects.begin(), objects.end());
+          for (const auto& object : objects) {
+            delete_object.AddObjects(
+                Aws::S3::Model::ObjectIdentifier().WithKey(object.GetKey()));
+          }
+
           continuation_token = outcome.GetResult().GetNextContinuationToken();
         }
       } while (!continuation_token.empty());
@@ -516,13 +520,7 @@ class TestS3FS : public S3TestMixin {
     {
       Aws::S3::Model::DeleteObjectsRequest req;
 
-      Aws::S3::Model::Delete delete_object;
-      for (const auto& object : all_objects) {
-        delete_object.AddObjects(
-            Aws::S3::Model::ObjectIdentifier().WithKey(object.GetKey()));
-      }
-
-      req.SetDelete(delete_object);
+      req.SetDelete(std::move(delete_object));
       req.SetBucket(Aws::String{"bucket"});
 
       RETURN_NOT_OK(OutcomeToStatus("DeleteObjects", client_->DeleteObjects(req)));
@@ -639,8 +637,6 @@ class TestS3FS : public S3TestMixin {
     ASSERT_OK(stream->Close());
     ASSERT_TRUE(weak_fs.expired());
     AssertObjectContents(client_.get(), "bucket", "newfile99", "some other data");
-
-    ASSERT_OK(RestoreTestBucket());
   }
 
   void TestOpenOutputStreamAbort() {
@@ -651,8 +647,6 @@ class TestS3FS : public S3TestMixin {
     ASSERT_OK(stream->Abort());
     ASSERT_EQ(stream->closed(), true);
     AssertObjectContents(client_.get(), "bucket", "somefile", "some data");
-
-    ASSERT_OK(RestoreTestBucket());
   }
 
   void TestOpenOutputStreamDestructor() {
@@ -662,8 +656,6 @@ class TestS3FS : public S3TestMixin {
     // Destructor implicitly closes stream and completes the multipart upload.
     stream.reset();
     AssertObjectContents(client_.get(), "bucket", "somefile", "new data");
-
-    ASSERT_OK(RestoreTestBucket());
   }
 
   void TestOpenOutputStreamCloseAsyncDestructor() {
@@ -696,8 +688,6 @@ class TestS3FS : public S3TestMixin {
     });
     ASSERT_OK(close_fut.MoveResult());
     AssertObjectContents(client_.get(), "bucket", "somefile", "new data");
-
-    ASSERT_OK(RestoreTestBucket());
   }
 
  protected:
@@ -1329,6 +1319,7 @@ TEST_F(TestS3FS, OpenOutputStream) {
     combination.ApplyToS3Options(&options_);
     MakeFileSystem();
     TestOpenOutputStream(combination.allow_delayed_open);
+    ASSERT_OK(RestoreTestBucket());
   }
 }
 
@@ -1339,6 +1330,7 @@ TEST_F(TestS3FS, OpenOutputStreamAbort) {
     combination.ApplyToS3Options(&options_);
     MakeFileSystem();
     TestOpenOutputStreamAbort();
+    ASSERT_OK(RestoreTestBucket());
   }
 }
 
@@ -1349,6 +1341,7 @@ TEST_F(TestS3FS, OpenOutputStreamDestructor) {
     combination.ApplyToS3Options(&options_);
     MakeFileSystem();
     TestOpenOutputStreamDestructor();
+    ASSERT_OK(RestoreTestBucket());
   }
 }
 
@@ -1364,12 +1357,14 @@ TEST_F(TestS3FS, OpenOutputStreamAsync) {
 
 TEST_F(TestS3FS, OpenOutputStreamCloseAsyncFutureDeadlockBackgroundWrites) {
   TestOpenOutputStreamCloseAsyncFutureDeadlock();
+  ASSERT_OK(RestoreTestBucket());
 }
 
 TEST_F(TestS3FS, OpenOutputStreamCloseAsyncFutureDeadlockSyncWrite) {
   options_.background_writes = false;
   MakeFileSystem();
   TestOpenOutputStreamCloseAsyncFutureDeadlock();
+  ASSERT_OK(RestoreTestBucket());
 }
 
 TEST_F(TestS3FS, OpenOutputStreamMetadata) {
