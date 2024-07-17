@@ -30,8 +30,8 @@
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/ubsan.h"
-#include "parquet/thrift_internal.h"
 #include "generated/parquet_types.h"
+#include "parquet/thrift_internal.h"
 
 using apache::thrift::protocol::TCompactProtocol;
 using apache::thrift::transport::TMemoryBuffer;
@@ -91,7 +91,7 @@ bool Serialize(const T& obj, std::string* out) {
 // Replace the contents of s with random data of the same length.
 void Scrub(std::string* s) {
   static char pool[4096];
-  static std::mt19937 rng(std::random_device {}());
+  static std::mt19937 rng(std::random_device{}());
   static const bool kPoolInit = [] {
     std::uniform_int_distribution<> caps(65, 90);
     for (size_t i = 0; i < sizeof(pool); i++) pool[i] = caps(rng);
