@@ -178,7 +178,6 @@ public final class ArrowFlightConnection extends AvaticaConnection {
     }
 
     try {
-      AutoCloseables.close(clientHandler);
       allocator.getChildAllocators().forEach(AutoCloseables::closeNoChecked);
       AutoCloseables.close(allocator);
 
