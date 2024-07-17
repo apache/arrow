@@ -637,7 +637,7 @@ cdef class FunctionOptions(_Weakrefable):
     def __repr__(self):
         type_name = self.__class__.__name__
         # Remove {} so we can use our own braces
-        string_repr = frombytes(self.get_options().ToString())[1:-1]
+        string_repr = frombytes(self.get_options().ToString())
         return f"{type_name}({string_repr})"
 
     def __eq__(self, FunctionOptions other):
@@ -829,6 +829,12 @@ def _min_count_doc(*, default):
     return f"""min_count : int, default {default}
         Minimum number of non-null values in the input.  If the number
         of non-null values is below `min_count`, the output is null.
+"""
+
+
+def _filter(*, default):
+    return f"""filter : Expression, default {default}
+        An expression that can be used to filter batch data.
 """
 
 
@@ -1497,8 +1503,14 @@ class StructFieldOptions(_StructFieldOptions):
 
 
 cdef class _ScalarAggregateOptions(FunctionOptions):
-    def _set_options(self, skip_nulls, min_count):
-        self.wrapped.reset(new CScalarAggregateOptions(skip_nulls, min_count))
+    def _set_options(self, skip_nulls, min_count, filter):
+        if isinstance(filter, Expression):
+            c_filter = (<Expression>filter).unwrap()
+        else:
+            c_filter = CMakeScalarExpression(
+                <shared_ptr[CScalar]> make_shared[CBooleanScalar](True)
+            )
+        self.wrapped.reset(new CScalarAggregateOptions(skip_nulls, min_count, c_filter))
 
 
 class ScalarAggregateOptions(_ScalarAggregateOptions):
@@ -1509,10 +1521,13 @@ class ScalarAggregateOptions(_ScalarAggregateOptions):
     ----------
     {_skip_nulls_doc()}
     {_min_count_doc(default=1)}
+    {_filter(default=None)}
     """
 
-    def __init__(self, *, skip_nulls=True, min_count=1):
-        self._set_options(skip_nulls, min_count)
+    def __init__(self, *, skip_nulls=True, min_count=1, filter=None):
+        if filter is None:
+            filter = Expression._scalar(True)
+        self._set_options(skip_nulls, min_count, filter)
 
 
 cdef class _CountOptions(FunctionOptions):
@@ -1522,9 +1537,11 @@ cdef class _CountOptions(FunctionOptions):
         "all": CCountMode_ALL,
     }
 
-    def _set_options(self, mode):
+    def _set_options(self, mode, filter):
         try:
-            self.wrapped.reset(new CCountOptions(self._mode_map[mode]))
+            if isinstance(filter, Expression):
+                c_filter = (<Expression>filter).unwrap()
+            self.wrapped.reset(new CCountOptions(self._mode_map[mode], c_filter))
         except KeyError:
             _raise_invalid_function_option(mode, "count mode")
 
@@ -1538,15 +1555,25 @@ class CountOptions(_CountOptions):
     mode : str, default "only_valid"
         Which values to count in the input.
         Accepted values are "only_valid", "only_null", "all".
+    filter : Expression, default None
+        An expression that can be used to filter batch data.
     """
 
-    def __init__(self, mode="only_valid"):
-        self._set_options(mode)
+    def __init__(self, mode="only_valid", filter=None):
+        if filter is None:
+            filter = Expression._scalar(True)
+        self._set_options(mode, filter)
 
 
 cdef class _IndexOptions(FunctionOptions):
-    def _set_options(self, scalar):
-        self.wrapped.reset(new CIndexOptions(pyarrow_unwrap_scalar(scalar)))
+    def _set_options(self, scalar, filter):
+        if isinstance(filter, Expression):
+            c_filter = (<Expression>filter).unwrap()
+        else:
+            c_filter = CMakeScalarExpression(
+                <shared_ptr[CScalar]> make_shared[CBooleanScalar](True)
+            )
+        self.wrapped.reset(new CIndexOptions(pyarrow_unwrap_scalar(scalar), c_filter))
 
 
 class IndexOptions(_IndexOptions):
@@ -1557,10 +1584,14 @@ class IndexOptions(_IndexOptions):
     ----------
     value : Scalar
         The value to search for.
+    filter : Expression, default None
+        An expression that can be used to filter batch data.
     """
 
-    def __init__(self, value):
-        self._set_options(value)
+    def __init__(self, value, filter=None):
+        if filter is None:
+            filter = Expression._scalar(True)
+        self._set_options(value, filter)
 
 
 cdef class _MapLookupOptions(FunctionOptions):
@@ -1604,8 +1635,10 @@ class MapLookupOptions(_MapLookupOptions):
 
 
 cdef class _ModeOptions(FunctionOptions):
-    def _set_options(self, n, skip_nulls, min_count):
-        self.wrapped.reset(new CModeOptions(n, skip_nulls, min_count))
+    def _set_options(self, n, skip_nulls, min_count, filter):
+        if isinstance(filter, Expression):
+            c_filter = (<Expression>filter).unwrap()
+        self.wrapped.reset(new CModeOptions(n, skip_nulls, min_count, c_filter))
 
 
 class ModeOptions(_ModeOptions):
@@ -1618,10 +1651,13 @@ class ModeOptions(_ModeOptions):
         Number of distinct most-common values to return.
     {_skip_nulls_doc()}
     {_min_count_doc(default=0)}
+    {_filter(default=None)}
     """
 
-    def __init__(self, n=1, *, skip_nulls=True, min_count=0):
-        self._set_options(n, skip_nulls, min_count)
+    def __init__(self, n=1, *, skip_nulls=True, min_count=0, filter=None):
+        if filter is None:
+            filter = Expression._scalar(True)
+        self._set_options(n, skip_nulls, min_count, filter)
 
 
 cdef class _SetLookupOptions(FunctionOptions):
@@ -1847,8 +1883,14 @@ class NullOptions(_NullOptions):
 
 
 cdef class _VarianceOptions(FunctionOptions):
-    def _set_options(self, ddof, skip_nulls, min_count):
-        self.wrapped.reset(new CVarianceOptions(ddof, skip_nulls, min_count))
+    def _set_options(self, ddof, skip_nulls, min_count, filter):
+        if isinstance(filter, Expression):
+            c_filter = (<Expression>filter).unwrap()
+        else:
+            c_filter = CMakeScalarExpression(
+                <shared_ptr[CScalar]> make_shared[CBooleanScalar](True)
+            )
+        self.wrapped.reset(new CVarianceOptions(ddof, skip_nulls, min_count, c_filter))
 
 
 class VarianceOptions(_VarianceOptions):
@@ -1861,10 +1903,13 @@ class VarianceOptions(_VarianceOptions):
         Number of degrees of freedom.
     {_skip_nulls_doc()}
     {_min_count_doc(default=0)}
+    {_filter(default=None)}
     """
 
-    def __init__(self, *, ddof=0, skip_nulls=True, min_count=0):
-        self._set_options(ddof, skip_nulls, min_count)
+    def __init__(self, *, ddof=0, skip_nulls=True, min_count=0, filter=None):
+        if filter is None:
+            filter = Expression._scalar(True)
+        self._set_options(ddof, skip_nulls, min_count, filter)
 
 
 cdef class _SplitOptions(FunctionOptions):
@@ -2155,11 +2200,17 @@ cdef class _QuantileOptions(FunctionOptions):
         "midpoint": CQuantileInterp_MIDPOINT,
     }
 
-    def _set_options(self, quantiles, interp, skip_nulls, min_count):
+    def _set_options(self, quantiles, interp, skip_nulls, min_count, filter):
         try:
+            if isinstance(filter, Expression):
+                c_filter = (<Expression>filter).unwrap()
+            else:
+                c_filter = CMakeScalarExpression(
+                    <shared_ptr[CScalar]> make_shared[CBooleanScalar](True)
+                )
             self.wrapped.reset(
                 new CQuantileOptions(quantiles, self._interp_map[interp],
-                                     skip_nulls, min_count)
+                                     skip_nulls, min_count, c_filter)
             )
         except KeyError:
             _raise_invalid_function_option(interp, "quantile interpolation")
@@ -2185,21 +2236,30 @@ class QuantileOptions(_QuantileOptions):
         - "midpoint": compute the (unweighted) mean of the two data points
     {_skip_nulls_doc()}
     {_min_count_doc(default=0)}
+    {_filter(default=None)}
     """
 
     def __init__(self, q=0.5, *, interpolation="linear", skip_nulls=True,
-                 min_count=0):
+                 min_count=0, filter=None):
         if not isinstance(q, (list, tuple, np.ndarray)):
             q = [q]
-        self._set_options(q, interpolation, skip_nulls, min_count)
+        if filter is None:
+            filter = Expression._scalar(True)
+        self._set_options(q, interpolation, skip_nulls, min_count, filter)
 
 
 cdef class _TDigestOptions(FunctionOptions):
     def _set_options(self, quantiles, delta, buffer_size, skip_nulls,
-                     min_count):
+                     min_count, filter):
+        if isinstance(filter, Expression):
+            c_filter = (<Expression>filter).unwrap()
+        else:
+            c_filter = CMakeScalarExpression(
+                <shared_ptr[CScalar]> make_shared[CBooleanScalar](True)
+            )
         self.wrapped.reset(
             new CTDigestOptions(quantiles, delta, buffer_size, skip_nulls,
-                                min_count)
+                                min_count, c_filter)
         )
 
 
@@ -2218,13 +2278,16 @@ class TDigestOptions(_TDigestOptions):
         Buffer size for the T-digest algorithm.
     {_skip_nulls_doc()}
     {_min_count_doc(default=0)}
+    {_filter(default=None)}
     """
 
     def __init__(self, q=0.5, *, delta=100, buffer_size=500, skip_nulls=True,
-                 min_count=0):
+                 min_count=0, filter=None):
         if not isinstance(q, (list, tuple, np.ndarray)):
             q = [q]
-        self._set_options(q, delta, buffer_size, skip_nulls, min_count)
+        if filter is None:
+            filter = Expression._scalar(True)
+        self._set_options(q, delta, buffer_size, skip_nulls, min_count, filter)
 
 
 cdef class _Utf8NormalizeOptions(FunctionOptions):
@@ -2393,7 +2456,7 @@ cdef class Expression(_Weakrefable):
       1,
       2,
       3
-    ], null_matching_behavior=MATCH})>
+    ], null_matching_behavior=MATCH}, filter = true)>
     """
 
     def __init__(self):

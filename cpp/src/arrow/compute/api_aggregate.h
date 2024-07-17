@@ -22,6 +22,7 @@
 
 #include <vector>
 
+#include "arrow/compute/expression.h"
 #include "arrow/compute/function_options.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
@@ -47,7 +48,8 @@ class ExecContext;
 /// By default, null values are ignored (skip_nulls = true).
 class ARROW_EXPORT ScalarAggregateOptions : public FunctionOptions {
  public:
-  explicit ScalarAggregateOptions(bool skip_nulls = true, uint32_t min_count = 1);
+  explicit ScalarAggregateOptions(bool skip_nulls = true, uint32_t min_count = 1,
+                                  Expression filter = literal(true));
   static constexpr char const kTypeName[] = "ScalarAggregateOptions";
   static ScalarAggregateOptions Defaults() { return ScalarAggregateOptions{}; }
 
@@ -71,7 +73,8 @@ class ARROW_EXPORT CountOptions : public FunctionOptions {
     /// Count both non-null and null values.
     ALL,
   };
-  explicit CountOptions(CountMode mode = CountMode::ONLY_VALID);
+  explicit CountOptions(CountMode mode = CountMode::ONLY_VALID,
+                        Expression filter = literal(true));
   static constexpr char const kTypeName[] = "CountOptions";
   static CountOptions Defaults() { return CountOptions{}; }
 
@@ -84,7 +87,8 @@ class ARROW_EXPORT CountOptions : public FunctionOptions {
 /// By default, returns the most common value and count.
 class ARROW_EXPORT ModeOptions : public FunctionOptions {
  public:
-  explicit ModeOptions(int64_t n = 1, bool skip_nulls = true, uint32_t min_count = 0);
+  explicit ModeOptions(int64_t n = 1, bool skip_nulls = true, uint32_t min_count = 0,
+                       Expression filter = literal(true));
   static constexpr char const kTypeName[] = "ModeOptions";
   static ModeOptions Defaults() { return ModeOptions{}; }
 
@@ -102,7 +106,8 @@ class ARROW_EXPORT ModeOptions : public FunctionOptions {
 /// By default, ddof is zero, and population variance or stddev is returned.
 class ARROW_EXPORT VarianceOptions : public FunctionOptions {
  public:
-  explicit VarianceOptions(int ddof = 0, bool skip_nulls = true, uint32_t min_count = 0);
+  explicit VarianceOptions(int ddof = 0, bool skip_nulls = true, uint32_t min_count = 0,
+                           Expression filter = literal(true));
   static constexpr char const kTypeName[] = "VarianceOptions";
   static VarianceOptions Defaults() { return VarianceOptions{}; }
 
@@ -129,11 +134,13 @@ class ARROW_EXPORT QuantileOptions : public FunctionOptions {
   };
 
   explicit QuantileOptions(double q = 0.5, enum Interpolation interpolation = LINEAR,
-                           bool skip_nulls = true, uint32_t min_count = 0);
+                           bool skip_nulls = true, uint32_t min_count = 0,
+                           Expression filter = literal(true));
 
   explicit QuantileOptions(std::vector<double> q,
                            enum Interpolation interpolation = LINEAR,
-                           bool skip_nulls = true, uint32_t min_count = 0);
+                           bool skip_nulls = true, uint32_t min_count = 0,
+                           Expression filter = literal(true));
 
   static constexpr char const kTypeName[] = "QuantileOptions";
   static QuantileOptions Defaults() { return QuantileOptions{}; }
@@ -155,10 +162,10 @@ class ARROW_EXPORT TDigestOptions : public FunctionOptions {
  public:
   explicit TDigestOptions(double q = 0.5, uint32_t delta = 100,
                           uint32_t buffer_size = 500, bool skip_nulls = true,
-                          uint32_t min_count = 0);
+                          uint32_t min_count = 0, Expression filter = literal(true));
   explicit TDigestOptions(std::vector<double> q, uint32_t delta = 100,
                           uint32_t buffer_size = 500, bool skip_nulls = true,
-                          uint32_t min_count = 0);
+                          uint32_t min_count = 0, Expression filter = literal(true));
   static constexpr char const kTypeName[] = "TDigestOptions";
   static TDigestOptions Defaults() { return TDigestOptions{}; }
 
@@ -178,7 +185,7 @@ class ARROW_EXPORT TDigestOptions : public FunctionOptions {
 /// \brief Control Index kernel behavior
 class ARROW_EXPORT IndexOptions : public FunctionOptions {
  public:
-  explicit IndexOptions(std::shared_ptr<Scalar> value);
+  explicit IndexOptions(std::shared_ptr<Scalar> value, Expression filter = literal(true));
   // Default constructor for serialization
   IndexOptions();
   static constexpr char const kTypeName[] = "IndexOptions";
@@ -210,6 +217,10 @@ struct ARROW_EXPORT Aggregate {
       : Aggregate(std::move(function), /*options=*/NULLPTR,
                   /*target=*/std::vector<FieldRef>{}, std::move(name)) {}
 
+  Aggregate(std::string function, std::string name,
+            std::shared_ptr<FunctionOptions> options)
+      : Aggregate(std::move(function), std::move(options),
+                  /*target=*/std::vector<FieldRef>{}, std::move(name)) {}
   /// the name of the aggregation function
   std::string function;
 

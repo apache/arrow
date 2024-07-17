@@ -31,6 +31,10 @@ namespace internal {
 
 namespace {
 
+Result<ExecBatch> AggregateFilter(KernelContext* ctx, const ExecSpan& batch,
+                                  const Expression& expr) {
+  return checked_cast<ScalarAggregator*>(ctx->state())->FilterBatch(ctx, batch, expr);
+}
 Status AggregateConsume(KernelContext* ctx, const ExecSpan& batch) {
   return checked_cast<ScalarAggregator*>(ctx->state())->Consume(ctx, batch);
 }
@@ -48,8 +52,9 @@ Status AggregateFinalize(KernelContext* ctx, Datum* out) {
 void AddAggKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
                   ScalarAggregateFunction* func, SimdLevel::type simd_level,
                   const bool ordered) {
-  ScalarAggregateKernel kernel(std::move(sig), std::move(init), AggregateConsume,
-                               AggregateMerge, AggregateFinalize, ordered);
+  ScalarAggregateKernel kernel(std::move(sig), std::move(init), AggregateFilter,
+                               AggregateConsume, AggregateMerge, AggregateFinalize,
+                               ordered);
   // Set the simd level
   kernel.simd_level = simd_level;
   DCHECK_OK(func->AddKernel(std::move(kernel)));
@@ -58,8 +63,9 @@ void AddAggKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
 void AddAggKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
                   ScalarAggregateFinalize finalize, ScalarAggregateFunction* func,
                   SimdLevel::type simd_level, const bool ordered) {
-  ScalarAggregateKernel kernel(std::move(sig), std::move(init), AggregateConsume,
-                               AggregateMerge, std::move(finalize), ordered);
+  ScalarAggregateKernel kernel(std::move(sig), std::move(init), AggregateFilter,
+                               AggregateConsume, AggregateMerge, std::move(finalize),
+                               ordered);
   // Set the simd level
   kernel.simd_level = simd_level;
   DCHECK_OK(func->AddKernel(std::move(kernel)));
@@ -1019,8 +1025,8 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   static auto default_scalar_aggregate_options = ScalarAggregateOptions::Defaults();
   static auto default_count_options = CountOptions::Defaults();
 
-  auto func = std::make_shared<ScalarAggregateFunction>("count_all", Arity::Nullary(),
-                                                        count_all_doc, NULLPTR);
+  auto func = std::make_shared<ScalarAggregateFunction>(
+      "count_all", Arity::Nullary(), count_all_doc, &default_count_options);
 
   // Takes no input (counts all rows), outputs int64 scalar
   AddAggKernel(KernelSignature::Make({}, int64()), CountAllInit, func.get());
