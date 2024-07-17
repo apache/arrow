@@ -412,6 +412,7 @@ arrow_add_object_library(ARROW_ARRAY
                          array/concatenate.cc
                          array/data.cc
                          array/diff.cc
+                         array/statistics.cc
                          array/util.cc
                          array/validate.cc)
 
