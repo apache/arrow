@@ -27,7 +27,7 @@ namespace arrow {
 /// \brief Statistics for an Array
 ///
 /// Apache Arrow format doesn't have statistics but data source such
-/// as Apache Parquet may have statistics. Statistics associate with
+/// as Apache Parquet may have statistics. Statistics associated with
 /// data source can be read unified API via this class.
 struct ARROW_EXPORT ArrayStatistics {
  public:
