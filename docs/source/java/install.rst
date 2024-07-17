@@ -30,9 +30,9 @@ Java Compatibility
 ==================
 
 Java modules are compatible with JDK 8 and above. Currently, JDK versions
-8, 11, 17, and 21 are tested in CI. The latest JDK is also tested in CI.
+11, 17, and 21 are tested in CI. The latest JDK is also tested in CI.
 
-When using Java 9 or later, some JDK internals must be exposed by
+Note that some JDK internals must be exposed by
 adding ``--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED`` to the ``java`` command:
 
 .. code-block:: shell

@@ -82,7 +82,6 @@ under the License.
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-annotations</artifactId>
-      <scope>test</scope>
     </dependency>
 
     <dependency>
@@ -93,24 +92,30 @@ under the License.
 
   </dependencies>
 
-  <profiles>
-    <profile>
-      <id>jdk11+</id>
-      <activation>
-        <jdk>[11,]</jdk>
-      </activation>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-surefire-plugin</artifactId>
-            <configuration combine.self="override">
-              <argLine>--add-reads=org.apache.arrow.adapter.jdbc=com.fasterxml.jackson.dataformat.yaml --add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED -Duser.timezone=UTC</argLine>
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>analyze</id>
+            <phase>verify</phase>
+            <configuration>
+              <ignoredNonTestScopedDependencies>
+                <ignoredNonTestScopedDependency>com.fasterxml.jackson.core:jackson-annotations</ignoredNonTestScopedDependency>
+              </ignoredNonTestScopedDependencies>
             </configuration>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
-  </profiles>
-
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration combine.self="override">
+          <argLine>--add-reads=org.apache.arrow.adapter.jdbc=com.fasterxml.jackson.dataformat.yaml --add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED -Duser.timezone=UTC</argLine>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
 </project>

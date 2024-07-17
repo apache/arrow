@@ -165,6 +165,7 @@ under the License.
       <scope>test</scope>
     </dependency>
   </dependencies>
+
   <build>
     <resources>
       <resource>
@@ -179,6 +180,7 @@ under the License.
       <plugin>
         <artifactId>maven-surefire-plugin</artifactId>
         <configuration>
+          <argLine combine.self="override">--add-reads=org.apache.arrow.dataset=com.fasterxml.jackson.databind --add-opens=java.base/java.nio=org.apache.arrow.dataset,org.apache.arrow.memory.core,ALL-UNNAMED</argLine>
           <enableAssertions>false</enableAssertions>
           <systemPropertyVariables>
             <arrow.test.dataRoot>${project.basedir}/../../testing/data</arrow.test.dataRoot>
@@ -202,24 +204,4 @@ under the License.
       </plugin>
     </plugins>
   </build>
-
-  <profiles>
-    <profile>
-      <id>jdk11+</id>
-      <activation>
-        <jdk>[11,]</jdk>
-      </activation>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-surefire-plugin</artifactId>
-            <configuration>
-              <argLine combine.self="override">--add-reads=org.apache.arrow.dataset=com.fasterxml.jackson.databind --add-opens=java.base/java.nio=org.apache.arrow.dataset,org.apache.arrow.memory.core,ALL-UNNAMED</argLine>
-            </configuration>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
-  </profiles>
 </project>

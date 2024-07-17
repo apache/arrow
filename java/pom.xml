@@ -65,7 +65,6 @@ under the License.
   </mailingLists>
 
   <modules>
-    <module>maven</module>
     <module>bom</module>
     <module>format</module>
     <module>memory</module>
@@ -98,7 +97,7 @@ under the License.
     <dep.slf4j.version>2.0.13</dep.slf4j.version>
     <dep.guava-bom.version>33.2.1-jre</dep.guava-bom.version>
     <dep.netty-bom.version>4.1.110.Final</dep.netty-bom.version>
-    <dep.grpc-bom.version>1.63.0</dep.grpc-bom.version>
+    <dep.grpc-bom.version>1.65.0</dep.grpc-bom.version>
     <dep.protobuf-bom.version>3.25.1</dep.protobuf-bom.version>
     <dep.jackson-bom.version>2.17.2</dep.jackson-bom.version>
     <dep.hadoop.version>3.4.0</dep.hadoop.version>
@@ -115,8 +114,10 @@ under the License.
     <doclint>none</doclint>
     <additionalparam>-Xdoclint:none</additionalparam>
     <!-- org.apache:apache overrides -->
-    <maven.compiler.source>1.8</maven.compiler.source>
-    <maven.compiler.target>1.8</maven.compiler.target>
+    <minimalJavaBuildVersion>11</minimalJavaBuildVersion>
+    <maven.compiler.source>11</maven.compiler.source>
+    <maven.compiler.target>11</maven.compiler.target>
+    <maven.compiler.release>11</maven.compiler.release>
     <maven.plugin.tools.version>3.12.0</maven.plugin.tools.version>
     <surefire.version>3.2.5</surefire.version>
     <version.apache-rat-plugin>0.16.1</version.apache-rat-plugin>
@@ -298,8 +299,6 @@ under the License.
           <artifactId>maven-compiler-plugin</artifactId>
           <configuration>
             <fork>true</fork>
-            <excludes>**/module-info.java</excludes>
-            <testExcludes>**/module-info.java</testExcludes>
             <useModulePath>false</useModulePath>
             <annotationProcessorPaths>
               <path>
@@ -313,6 +312,7 @@ under the License.
         <plugin>
           <artifactId>maven-surefire-plugin</artifactId>
           <configuration>
+            <argLine>--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED</argLine>
             <enableAssertions>true</enableAssertions>
             <childDelegation>true</childDelegation>
             <forkCount>${forkCount}</forkCount>
@@ -325,11 +325,13 @@ under the License.
               which in turn can cause OOM. -->
               <arrow.vector.max_allocation_bytes>1048576</arrow.vector.max_allocation_bytes>
             </systemPropertyVariables>
+            <useModulePath>false</useModulePath>
           </configuration>
         </plugin>
         <plugin>
           <artifactId>maven-failsafe-plugin</artifactId>
           <configuration>
+            <argLine>--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED</argLine>
             <systemPropertyVariables>
               <java.io.tmpdir>${project.build.directory}</java.io.tmpdir>
               <io.netty.tryReflectionSetAccessible>true</io.netty.tryReflectionSetAccessible>
@@ -444,12 +446,8 @@ under the License.
             <sourceFileExcludes>
               <sourceFileExclude>**/module-info.java</sourceFileExclude>
             </sourceFileExcludes>
+            <skippedModules>arrow-memory-netty-buffer-patch,arrow-memory-netty,flight-sql-jdbc-core,flight-integration-tests,arrow-performance</skippedModules>
           </configuration>
-        </plugin>
-        <plugin>
-          <groupId>org.apache.arrow.maven.plugins</groupId>
-          <artifactId>module-info-compiler-maven-plugin</artifactId>
-          <version>${project.version}</version>
         </plugin>
         <plugin>
           <groupId>com.gradle</groupId>
@@ -491,6 +489,7 @@ under the License.
             <protocArtifact>com.google.protobuf:protoc:${dep.protobuf-bom.version}:exe:${os.detected.classifier}</protocArtifact>
             <pluginId>grpc-java</pluginId>
             <pluginArtifact>io.grpc:protoc-gen-grpc-java:${dep.grpc-bom.version}:exe:${os.detected.classifier}</pluginArtifact>
+            <pluginParameter>@generated=omit</pluginParameter>
           </configuration>
         </plugin>
         <plugin>
@@ -780,24 +779,6 @@ under the License.
         </executions>
       </plugin>
       <plugin>
-        <groupId>org.apache.arrow.maven.plugins</groupId>
-        <artifactId>module-info-compiler-maven-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>default-compile</id>
-            <goals>
-              <goal>compile</goal>
-            </goals>
-          </execution>
-          <execution>
-            <id>default-testCompile</id>
-            <goals>
-              <goal>testCompile</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-project-info-reports-plugin</artifactId>
       </plugin>
@@ -856,6 +837,7 @@ under the License.
           <sourceFileExcludes>
             <sourceFileExclude>**/module-info.java</sourceFileExclude>
           </sourceFileExcludes>
+          <skippedModules>arrow-memory-netty-buffer-patch,arrow-memory-netty,flight-sql-jdbc-core,flight-integration-tests,arrow-performance</skippedModules>
         </configuration>
         <reportSets>
           <reportSet>
@@ -917,56 +899,13 @@ under the License.
     </profile>
 
     <profile>
-      <id>error-prone-jdk8</id>
       <!--
            Do not activate Error Prone while running with Eclipse/M2E as it causes incompatibilities
            with other annotation processors.
            See https://github.com/jbosstools/m2e-apt/issues/62 for details
-
-           Note: Maintaining error-prone version with JDK8
-           See https://github.com/google/error-prone/blob/f8e33bc460be82ab22256a7ef8b979d7a2cacaba/docs/installation.md#jdk-8
       -->
+      <id>error-prone</id>
       <activation>
-        <jdk>1.8</jdk>
-        <property>
-          <name>!m2e.version</name>
-        </property>
-      </activation>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-compiler-plugin</artifactId>
-            <configuration>
-              <compilerArgs combine.children="append">
-                <arg>-XDcompilePolicy=simple</arg>
-                <arg>-Xplugin:ErrorProne</arg>
-                <arg>-J-Xbootclasspath/p:${settings.localRepository}/com/google/errorprone/javac/${errorprone.javac.version}/javac-${errorprone.javac.version}.jar</arg>
-              </compilerArgs>
-              <annotationProcessorPaths combine.children="append">
-                <path>
-                  <groupId>com.google.errorprone</groupId>
-                  <artifactId>error_prone_core</artifactId>
-                  <!--
-                       Reference: https://errorprone.info/docs/installation
-                       Error Prone 2.10.0 is the latest version
-                       to support running on JDK 8.
-                       With right flags it could be upgraded,
-                       but we choose to keep this unchanged for now.
-                  -->
-                  <version>2.10.0</version>
-                </path>
-              </annotationProcessorPaths>
-            </configuration>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
-
-    <profile>
-      <id>error-prone-jdk11+</id>
-      <activation>
-        <jdk>[11,]</jdk>
         <property>
           <name>!m2e.version</name>
         </property>
@@ -998,30 +937,6 @@ under the License.
                   <version>${error_prone_core.version}</version>
                 </path>
               </annotationProcessorPaths>
-            </configuration>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
-    <profile>
-      <id>jdk11+</id>
-      <activation>
-        <jdk>[11,]</jdk>
-      </activation>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-surefire-plugin</artifactId>
-            <configuration>
-              <argLine>--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED</argLine>
-            </configuration>
-          </plugin>
-          <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-failsafe-plugin</artifactId>
-            <configuration>
-              <argLine>--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED</argLine>
             </configuration>
           </plugin>
         </plugins>

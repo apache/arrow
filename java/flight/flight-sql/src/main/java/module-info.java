@@ -25,5 +25,6 @@ module org.apache.arrow.flight.sql {
   requires org.apache.arrow.flight.core;
   requires org.apache.arrow.memory.core;
   requires org.apache.arrow.vector;
+  requires org.apache.commons.cli;
   requires protobuf.java;
 }

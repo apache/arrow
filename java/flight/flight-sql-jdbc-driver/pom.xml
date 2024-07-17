@@ -161,6 +161,7 @@ under the License.
                     <exclude>META-INF/native/libio_grpc_netty*</exclude>
                     <exclude>META-INF/native/io_grpc_netty_shaded*</exclude>
                     <exclude>**/*.proto</exclude>
+                    <exclude>**/module-info.class</exclude>
                   </excludes>
                 </filter>
               </filters>

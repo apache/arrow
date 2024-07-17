@@ -37,17 +37,4 @@ under the License.
     <module>flight-sql-jdbc-driver</module>
     <module>flight-integration-tests</module>
   </modules>
-
-  <profiles>
-    <profile>
-      <id>pin-mockito-jdk8</id>
-      <activation>
-        <jdk>1.8</jdk>
-      </activation>
-      <properties>
-        <mockito.core.version>4.11.0</mockito.core.version>
-        <mockito.inline.version>5.2.0</mockito.inline.version>
-      </properties>
-    </profile>
-  </profiles>
 </project>
