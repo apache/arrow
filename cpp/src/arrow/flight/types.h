@@ -235,6 +235,8 @@ struct ARROW_FLIGHT_EXPORT ActionType : public internal::BaseType<ActionType> {
   arrow::Status DoSerializeToString(std::string* out) const;
 
   /// \brief Deserialize this message from its wire-format representation.
+  ///
+  /// Use `Deserialize` if you want a Result-returning version.
   static arrow::Status DoDeserialize(std::string_view serialized, ActionType* out);
 
   static const ActionType kCancelFlightInfo;
@@ -262,6 +264,8 @@ struct ARROW_FLIGHT_EXPORT Criteria : public internal::BaseType<Criteria> {
   arrow::Status DoSerializeToString(std::string* out) const;
 
   /// \brief Deserialize this message from its wire-format representation.
+  ///
+  /// Use `Deserialize` if you want a Result-returning version.
   static arrow::Status DoDeserialize(std::string_view serialized, Criteria* out);
 };
 
@@ -286,6 +290,8 @@ struct ARROW_FLIGHT_EXPORT Action : public internal::BaseType<Action> {
   arrow::Status DoSerializeToString(std::string* out) const;
 
   /// \brief Deserialize this message from its wire-format representation.
+  ///
+  /// Use `Deserialize` if you want a Result-returning version.
   static arrow::Status DoDeserialize(std::string_view serialized, Action* out);
 };
 
@@ -306,6 +312,8 @@ struct ARROW_FLIGHT_EXPORT Result : public internal::BaseType<Result> {
   arrow::Status DoSerializeToString(std::string* out) const;
 
   /// \brief Deserialize this message from its wire-format representation.
+  ///
+  /// Use `Deserialize` if you want a Result-returning version.
   static arrow::Status DoDeserialize(std::string_view serialized, Result* out);
 };
 
@@ -343,6 +351,8 @@ struct ARROW_FLIGHT_EXPORT CancelFlightInfoResult
   arrow::Status DoSerializeToString(std::string* out) const;
 
   /// \brief Deserialize this message from its wire-format representation.
+  ///
+  /// Use `Deserialize` if you want a Result-returning version.
   static arrow::Status DoDeserialize(std::string_view serialized,
                                      CancelFlightInfoResult* out);
 };
@@ -368,6 +378,8 @@ struct ARROW_FLIGHT_EXPORT BasicAuth : public internal::BaseType<BasicAuth> {
   arrow::Status DoSerializeToString(std::string* out) const;
 
   /// \brief Deserialize this message from its wire-format representation.
+  ///
+  /// Use `Deserialize` if you want a Result-returning version.
   static arrow::Status DoDeserialize(std::string_view serialized, BasicAuth* out);
 };
 
@@ -413,6 +425,8 @@ struct ARROW_FLIGHT_EXPORT FlightDescriptor
   ///
   /// Useful when interoperating with non-Flight systems (e.g. REST
   /// services) that may want to return Flight types.
+  ///
+  /// Use `Deserialize` if you want a Result-returning version.
   static arrow::Status DoDeserialize(std::string_view serialized, FlightDescriptor* out);
 
   // Convenience factory functions
@@ -450,6 +464,8 @@ struct ARROW_FLIGHT_EXPORT Ticket : public internal::BaseType<Ticket> {
   ///
   /// Useful when interoperating with non-Flight systems (e.g. REST
   /// services) that may want to return Flight types.
+  ///
+  /// Use `Deserialize` if you want a Result-returning version.
   static arrow::Status DoDeserialize(std::string_view serialized, Ticket* out);
 };
 
@@ -556,6 +572,8 @@ struct ARROW_FLIGHT_EXPORT FlightEndpoint : public internal::BaseType<FlightEndp
   arrow::Status DoSerializeToString(std::string* out) const;
 
   /// \brief Deserialize this message from its wire-format representation.
+  ///
+  /// Use `Deserialize` if you want a Result-returning version.
   static arrow::Status DoDeserialize(std::string_view serialized, FlightEndpoint* out);
 };
 
@@ -577,6 +595,8 @@ struct ARROW_FLIGHT_EXPORT RenewFlightEndpointRequest
   arrow::Status DoSerializeToString(std::string* out) const;
 
   /// \brief Deserialize this message from its wire-format representation.
+  ///
+  /// Use `Deserialize` if you want a Result-returning version.
   static arrow::Status DoDeserialize(std::string_view serialized,
                                      RenewFlightEndpointRequest* out);
 };
@@ -627,6 +647,8 @@ struct ARROW_FLIGHT_EXPORT SchemaResult : public internal::BaseType<SchemaResult
   arrow::Status DoSerializeToString(std::string* out) const;
 
   /// \brief Deserialize this message from its wire-format representation.
+  ///
+  /// Use `Deserialize` if you want a Result-returning version.
   static arrow::Status DoDeserialize(std::string_view serialized, SchemaResult* out);
 
  private:
@@ -700,6 +722,8 @@ class ARROW_FLIGHT_EXPORT FlightInfo
   ///
   /// Useful when interoperating with non-Flight systems (e.g. REST
   /// services) that may want to return Flight types.
+  ///
+  /// Use `Deserialize` if you want a Result-returning version.
   static arrow::Status DoDeserialize(std::string_view serialized,
                                      std::unique_ptr<FlightInfo>* out);
 
@@ -774,6 +798,8 @@ class ARROW_FLIGHT_EXPORT PollInfo
   ///
   /// Useful when interoperating with non-Flight systems (e.g. REST
   /// services) that may want to return Flight types.
+  ///
+  /// Use `Deserialize` if you want a Result-returning version.
   static arrow::Status DoDeserialize(std::string_view serialized,
                                      std::unique_ptr<PollInfo>* out);
 
@@ -803,6 +829,8 @@ struct ARROW_FLIGHT_EXPORT CancelFlightInfoRequest
   arrow::Status DoSerializeToString(std::string* out) const;
 
   /// \brief Deserialize this message from its wire-format representation.
+  ///
+  /// Use `Deserialize` if you want a Result-returning version.
   static arrow::Status DoDeserialize(std::string_view serialized,
                                      CancelFlightInfoRequest* out);
 };
@@ -873,6 +901,8 @@ struct ARROW_FLIGHT_EXPORT SetSessionOptionsRequest
   arrow::Status DoSerializeToString(std::string* out) const;
 
   /// \brief Deserialize this message from its wire-format representation.
+  ///
+  /// Use `Deserialize` if you want a Result-returning version.
   static arrow::Status DoDeserialize(std::string_view serialized,
                                      SetSessionOptionsRequest* out);
 };
@@ -907,6 +937,8 @@ struct ARROW_FLIGHT_EXPORT SetSessionOptionsResult
   arrow::Status DoSerializeToString(std::string* out) const;
 
   /// \brief Deserialize this message from its wire-format representation.
+  ///
+  /// Use `Deserialize` if you want a Result-returning version.
   static arrow::Status DoDeserialize(std::string_view serialized,
                                      SetSessionOptionsResult* out);
 };
@@ -925,6 +957,8 @@ struct ARROW_FLIGHT_EXPORT GetSessionOptionsRequest
   arrow::Status DoSerializeToString(std::string* out) const;
 
   /// \brief Deserialize this message from its wire-format representation.
+  ///
+  /// Use `Deserialize` if you want a Result-returning version.
   static arrow::Status DoDeserialize(std::string_view serialized,
                                      GetSessionOptionsRequest* out);
 };
@@ -948,6 +982,8 @@ struct ARROW_FLIGHT_EXPORT GetSessionOptionsResult
   arrow::Status DoSerializeToString(std::string* out) const;
 
   /// \brief Deserialize this message from its wire-format representation.
+  ///
+  /// Use `Deserialize` if you want a Result-returning version.
   static arrow::Status DoDeserialize(std::string_view serialized,
                                      GetSessionOptionsResult* out);
 };
@@ -966,6 +1002,8 @@ struct ARROW_FLIGHT_EXPORT CloseSessionRequest
   arrow::Status DoSerializeToString(std::string* out) const;
 
   /// \brief Deserialize this message from its wire-format representation.
+  ///
+  /// Use `Deserialize` if you want a Result-returning version.
   static arrow::Status DoDeserialize(std::string_view serialized,
                                      CloseSessionRequest* out);
 };
@@ -988,6 +1026,8 @@ struct ARROW_FLIGHT_EXPORT CloseSessionResult
   arrow::Status DoSerializeToString(std::string* out) const;
 
   /// \brief Deserialize this message from its wire-format representation.
+  ///
+  /// Use `Deserialize` if you want a Result-returning version.
   static arrow::Status DoDeserialize(std::string_view serialized,
                                      CloseSessionResult* out);
 };
