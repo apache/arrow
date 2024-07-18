@@ -1521,6 +1521,38 @@ def test_flight_do_get_metadata():
         assert data.equals(table)
 
 
+def test_flight_metadata_record_batch_reader_iterator():
+    """Verify the iterator interface works as expected."""
+    batches1 = []
+    batches2 = []
+
+    with MetadataFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
+        reader = client.do_get(flight.Ticket(b''))
+        idx = 0
+        while True:
+            try:
+                batch, metadata = reader.read_chunk()
+                batches1.append(batch)
+                server_idx, = struct.unpack('<i', metadata.to_pybytes())
+                assert idx == server_idx
+                idx += 1
+            except StopIteration:
+                break
+
+    with MetadataFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
+        reader = client.do_get(flight.Ticket(b''))
+        idx = 0
+        for batch, metadata in reader:
+            batches2.append(batch)
+            server_idx, = struct.unpack('<i', metadata.to_pybytes())
+            assert idx == server_idx
+            idx += 1
+
+    assert batches1 == batches2
+
+
 def test_flight_do_get_metadata_v4():
     """Try a simple do_get call with V4 metadata version."""
     table = pa.Table.from_arrays(
