@@ -37,29 +37,15 @@ using apache::thrift::protocol::TCompactProtocol;
 using apache::thrift::transport::TMemoryBuffer;
 using apache::thrift::transport::TTransport;
 
+namespace parquet {
 namespace {
-int PrintHelp() {
-  std::cerr << R"(
-Usage: parquet-dump-footer
-  -h|--help    Print help and exit
-  --no-scrub   Do not scrub potentially PII metadata
-  --json       Output JSON instead of binary
-  --in         Input file: required
-  --out        Output file: defaults to stdout
-
-  Dumps the footer of a Parquet file to stdout or a file, optionally with
-  potentially user specific metadata scrubbed.
-)";
-  return 1;
-}
-
 uint32_t ReadLE32(const void* p) {
-  uint32_t x = arrow::util::SafeLoadAs<uint32_t>(static_cast<const uint8_t*>(p));
-  return arrow::bit_util::FromLittleEndian(x);
+  uint32_t x = ::arrow::util::SafeLoadAs<uint32_t>(static_cast<const uint8_t*>(p));
+  return ::arrow::bit_util::FromLittleEndian(x);
 }
 
 void AppendLE32(uint32_t v, std::string* out) {
-  v = arrow::bit_util::ToLittleEndian(v);
+  v = ::arrow::bit_util::ToLittleEndian(v);
   out->append(reinterpret_cast<const char*>(&v), sizeof(v));
 }
 
@@ -90,24 +76,9 @@ bool Serialize(const T& obj, std::string* out) {
 
 // Replace the contents of s with random data of the same length.
 void Scrub(std::string* s) {
-  static char pool[4096];
   static std::mt19937 rng(std::random_device{}());
-  static const bool kPoolInit = [] {
-    std::uniform_int_distribution<> caps(65, 90);
-    for (size_t i = 0; i < sizeof(pool); i++) pool[i] = caps(rng);
-    return true;
-  }();
-  (void)kPoolInit;
-
-  const size_t n = s->size();
-  s->clear();
-  while (s->size() < n) {
-    // To avoid repeating patterns we start somewhere up to halfway through the pool and
-    // append up to half the pool chars.
-    std::uniform_int_distribution<size_t> half(0, sizeof(pool) / 2 - 1);
-    size_t m = std::min(n, half(rng) + 1 /* at least one */);
-    s->append(&pool[half(rng)], m);
-  }
+  std::uniform_int_distribution<> caps(65, 90);
+  for (auto& c : *s) c = caps(rng);
 }
 
 void Scrub(parquet::format::FileMetaData* md) {
@@ -162,29 +133,9 @@ int64_t ParseFooter(const std::string& tail, parquet::format::FileMetaData* md) 
 }
 }  // namespace
 
-int main(int argc, char** argv) {
-  bool help = false;
-  bool scrub = true;
-  bool json = false;
-  std::string in;
-  std::string out;
-  for (int i = 1; i < argc; i++) {
-    char* arg = argv[i];
-    help |= !std::strcmp(arg, "-h") || !std::strcmp(arg, "--help");
-    scrub &= !!std::strcmp(arg, "--no-scrub");
-    json |= !std::strcmp(arg, "--json");
-    if (!std::strcmp(arg, "--in")) {
-      if (i + 1 >= argc) return PrintHelp();
-      in = argv[++i];
-    }
-    if (!std::strcmp(arg, "--out")) {
-      if (i + 1 >= argc) return PrintHelp();
-      out = argv[++i];
-    }
-  }
-  if (help || in.empty()) return PrintHelp();
+int DoIt(std::string in, bool scrub, bool json, std::string out) {
   std::string path;
-  auto fs = arrow::fs::FileSystemFromUriOrPath(in, &path).ValueOrDie();
+  auto fs = ::arrow::fs::FileSystemFromUriOrPath(in, &path).ValueOrDie();
   auto file = fs->OpenInputFile(path).ValueOrDie();
   int64_t file_len = file->GetSize().ValueOrDie();
   if (file_len < 8) {
@@ -245,4 +196,45 @@ int main(int argc, char** argv) {
   }
 
   return 0;
+}
+}  // namespace parquet
+
+static int PrintHelp() {
+  std::cerr << R"(
+Usage: parquet-dump-footer
+  -h|--help    Print help and exit
+  --no-scrub   Do not scrub potentially user specific metadata
+  --json       Output JSON instead of binary
+  --in         Input file: required
+  --out        Output file: defaults to stdout
+
+  Dumps the footer of a Parquet file to stdout or a file, optionally with
+  potentially user specific metadata scrubbed.
+)";
+  return 1;
+}
+
+int main(int argc, char** argv) {
+  bool help = false;
+  bool scrub = true;
+  bool json = false;
+  std::string in;
+  std::string out;
+  for (int i = 1; i < argc; i++) {
+    char* arg = argv[i];
+    help |= !std::strcmp(arg, "-h") || !std::strcmp(arg, "--help");
+    scrub &= !!std::strcmp(arg, "--no-scrub");
+    json |= !std::strcmp(arg, "--json");
+    if (!std::strcmp(arg, "--in")) {
+      if (i + 1 >= argc) return PrintHelp();
+      in = argv[++i];
+    }
+    if (!std::strcmp(arg, "--out")) {
+      if (i + 1 >= argc) return PrintHelp();
+      out = argv[++i];
+    }
+  }
+  if (help || in.empty()) return PrintHelp();
+
+  return parquet::DoIt(in, scrub, json, out);
 }
