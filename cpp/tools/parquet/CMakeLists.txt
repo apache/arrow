@@ -31,11 +31,6 @@ if(PARQUET_BUILD_EXECUTABLES)
     install(TARGETS ${TOOL} ${INSTALL_IS_OPTIONAL}
             RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
   endforeach(TOOL)
-  if(ARROW_BUILD_SHARED)
-    target_link_libraries(parquet-dump-footer arrow_shared)
-  else()
-    target_link_libraries(parquet-dump-footer arrow_static)
-  endif()
   target_link_libraries(parquet-dump-footer thrift::thrift)
 
   add_dependencies(parquet ${PARQUET_TOOLS})
