@@ -203,13 +203,13 @@ static int PrintHelp() {
   std::cerr << R"(
 Usage: parquet-dump-footer
   -h|--help    Print help and exit
-  --no-scrub   Do not scrub potentially user specific metadata
+  --no-scrub   Do not scrub potentially confidential metadata
   --json       Output JSON instead of binary
   --in         Input file: required
   --out        Output file: defaults to stdout
 
   Dumps the footer of a Parquet file to stdout or a file, optionally with
-  potentially user specific metadata scrubbed.
+  potentially confidential metadata scrubbed.
 )";
   return 1;
 }
