@@ -565,10 +565,25 @@ class ConcatenateImpl {
   }
 
   Status Visit(const StructType& s) {
+    std::shared_ptr<StructType> suggested = nullptr;
     for (int i = 0; i < s.num_fields(); ++i) {
       ARROW_ASSIGN_OR_RAISE(auto child_data, ChildData(i));
-      RETURN_NOT_OK(ConcatenateImpl(child_data, pool_)
-                        .Concatenate(&out_->child_data[i], /*hints=*/nullptr));
+      ErrorHints child_hints;
+      auto status = ConcatenateImpl(child_data, pool_)
+                        .Concatenate(&out_->child_data[i], &child_hints);
+      if (!status.ok() && child_hints.suggested_cast) {
+        ARROW_ASSIGN_OR_RAISE(
+            suggested,
+            suggested
+                ? suggested->SetField(
+                      i, s.field(i)->WithType(std::move(child_hints.suggested_cast)))
+                : s.SetField(
+                      i, s.field(i)->WithType(std::move(child_hints.suggested_cast))));
+      }
+    }
+    if (suggested) {
+      suggested_cast_ = std::move(suggested);
+      return OffsetOverflowStatus();
     }
     return Status::OK();
   }
