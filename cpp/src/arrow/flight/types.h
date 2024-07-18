@@ -635,7 +635,7 @@ struct ARROW_FLIGHT_EXPORT RenewFlightEndpointRequest
 /// \brief Staging data structure for messages about to be put on the wire
 ///
 /// This structure corresponds to FlightData in the protocol.
-struct ARROW_FLIGHT_EXPORT FlightPayload : public internal::BaseType<FlightPayload> {
+struct ARROW_FLIGHT_EXPORT FlightPayload {
   std::shared_ptr<Buffer> descriptor;
   std::shared_ptr<Buffer> app_metadata;
   ipc::IpcPayload ipc_message;
