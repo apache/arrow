@@ -54,8 +54,6 @@ public class LargeBinaryArray : Array, IReadOnlyList<byte[]>, ICollection<byte[]
 
     public ReadOnlySpan<long> ValueOffsets => ValueOffsetsBuffer.Span.CastTo<long>().Slice(Offset, Length + 1);
 
-    public ReadOnlySpan<byte> Values => ValueBuffer.Span.CastTo<byte>();
-
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public int GetValueLength(int index)
     {
