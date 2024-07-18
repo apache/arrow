@@ -16,7 +16,7 @@
 # under the License.
 
 if(PARQUET_BUILD_EXECUTABLES)
-  set(PARQUET_TOOLS parquet-dump-schema parquet-reader parquet-scan parquet-dump-footer)
+  set(PARQUET_TOOLS parquet-dump-schema parquet-reader parquet-scan)
 
   foreach(TOOL ${PARQUET_TOOLS})
     string(REGEX REPLACE "-" "_" TOOL_SOURCE ${TOOL})
@@ -31,7 +31,13 @@ if(PARQUET_BUILD_EXECUTABLES)
     install(TARGETS ${TOOL} ${INSTALL_IS_OPTIONAL}
             RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
   endforeach(TOOL)
-  target_link_libraries(parquet-dump-footer thrift::thrift)
+
+  # Only build parquet-dump-footer when statically linking.
+  if(ARROW_BUILD_SHARED)
+  else()
+    add_executable(parquet-dump-footer parquet-dump-footer.cc)
+    target_link_libraries(parquet-dump-footer parquet_static thrift::thrift)
+  endif()
 
   add_dependencies(parquet ${PARQUET_TOOLS})
 endif()
