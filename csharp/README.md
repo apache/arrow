@@ -82,7 +82,6 @@ for currently available features.
 - Float, Double, Half-float (.NET 6+)
 - Binary (variable-length)
 - String (utf-8)
-- Large Binary, Large String (but data buffers > 2 GiB are not supported)
 - Null
 
 ### Parametric Types
@@ -95,7 +94,6 @@ for currently available features.
 - Time64
 - Binary (fixed-length)
 - List
-- Large List (but offsets must be representable as int32)
 - Struct
 - Union
 - Map
@@ -130,13 +128,19 @@ for currently available features.
     - Run End Encoding
 - Types
     - Tensor
-- Array views
-    - Binary
-    - List
-    - String
-    - Large Binary
-    - Large List
-    - Large String
+- Arrays
+    - Large Arrays. There are large array types provided to help with interoperability with other libraries,
+      but these do not support buffers larger than 2 GiB and an exception will be raised if trying to import an array that is too large.
+        - Large Binary
+        - Large List
+        - Large String
+    - Views
+        - Binary
+        - List
+        - String
+        - Large Binary
+        - Large List
+        - Large String
 - Array Operations
 	- Equality / Comparison
 	- Casting
