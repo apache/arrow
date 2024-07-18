@@ -195,7 +195,7 @@ struct BaseType {
   /// \brief Serialize this message to its wire-format representation.
   inline arrow::Result<std::string> SerializeToString() const {
     std::string out;
-    ARROW_RETURN_NOT_OK(self().SerializeToString(&out));
+    ARROW_RETURN_NOT_OK(self().SelfT::SerializeToString(&out));
     return out;
   }
 
@@ -207,7 +207,7 @@ struct BaseType {
 
   inline arrow::Result<std::shared_ptr<Buffer>> SerializeToBuffer() const {
     std::string out;
-    ARROW_RETURN_NOT_OK(self().SerializeToString(&out));
+    ARROW_RETURN_NOT_OK(self().SelfT::SerializeToString(&out));
     return Buffer::FromString(std::move(out));
   }
 };
