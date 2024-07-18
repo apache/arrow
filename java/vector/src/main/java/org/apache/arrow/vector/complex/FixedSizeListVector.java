@@ -602,7 +602,9 @@ public class FixedSizeListVector extends BaseValueVector
 
     public TransferImpl(FixedSizeListVector to) {
       this.to = to;
-      to.addOrGetVector(vector.getField().getFieldType());
+      if (!(vector instanceof ZeroVector)) {
+        to.addOrGetVector(vector.getField().getFieldType());
+      }
       dataPair = vector.makeTransferPair(to.vector);
     }
 
