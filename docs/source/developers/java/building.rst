@@ -335,7 +335,6 @@ Arrow repository, and update the following settings:
   right click the directory, and select Mark Directory as > Generated Sources
   Root. There is no need to mark other generated sources directories, as only
   the ``vector`` module generates sources.
-* For JDK 8, disable the ``error-prone`` profile to build the project successfully.
 * For JDK 11, due to an `IntelliJ bug
   <https://youtrack.jetbrains.com/issue/IDEA-201168>`__, you must go into
   Settings > Build, Execution, Deployment > Compiler > Java Compiler and disable
@@ -538,3 +537,40 @@ Installing Manually
 
 .. _builds@arrow.apache.org: https://lists.apache.org/list.html?builds@arrow.apache.org
 .. _GitHub Nightly: https://github.com/ursacomputing/crossbow/releases/tag/nightly-packaging-2022-07-30-0-github-java-jars
+
+Installing Staging Packages
+===========================
+
+.. warning::
+    These packages are not official releases. Use them at your own risk.
+
+Arrow staging builds are created when a Release Candidate (RC) is being prepared. This allows users to test the RC in their applications before voting on the release.
+
+
+Installing from Apache Staging
+--------------------------------
+1. Look up the next version number for the Arrow libraries used.
+
+2. Add Apache Staging Repository to the Maven/Gradle project.
+
+   .. code-block:: xml
+
+      <properties>
+         <arrow.version>9.0.0</arrow.version>
+      </properties>
+      ...
+      <repositories>
+         <repository>
+               <id>arrow-apache-staging</id>
+               <url>https://repository.apache.org/content/repositories/staging</url>
+         </repository>
+      </repositories>
+      ...
+      <dependencies>
+         <dependency>
+               <groupId>org.apache.arrow</groupId>
+               <artifactId>arrow-vector</artifactId>
+               <version>${arrow.version}</version>
+         </dependency>
+      </dependencies>
+      ...

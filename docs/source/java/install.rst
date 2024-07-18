@@ -29,8 +29,8 @@ Java modules are regularly built and tested on macOS and Linux distributions.
 Java Compatibility
 ==================
 
-Java modules are compatible with JDK 8 and above. Currently, JDK versions
-11, 17, and 21 are tested in CI. The latest JDK is also tested in CI.
+Java modules are compatible with JDK 11 and above. Currently, JDK versions
+11, 17, 21, and latest are tested in CI.
 
 Note that some JDK internals must be exposed by
 adding ``--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED`` to the ``java`` command:
