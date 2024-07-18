@@ -34,11 +34,11 @@ if(PARQUET_BUILD_EXECUTABLES)
 
   # Only build parquet-dump-footer when statically linking.
   if(ARROW_BUILD_SHARED)
+
   else()
     add_executable(parquet-dump-footer parquet-dump-footer.cc)
     target_link_libraries(parquet-dump-footer parquet_static thrift::thrift)
-    set_target_properties(parquet-dump-footer PROPERTIES
-                          INSTALL_RPATH_USE_LINK_PATH TRUE)
+    set_target_properties(parquet-dump-footer PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
     install(TARGETS parquet-dump-footer ${INSTALL_IS_OPTIONAL}
             RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
   endif()
