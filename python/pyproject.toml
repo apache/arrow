@@ -75,7 +75,7 @@ include-package-data=true
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["pyarrow", "pyarrow.*"]
+include = ["pyarrow*"]
 
 [tool.setuptools.package-data]
 pyarrow = ["*.pxd", "*.pyx", "includes/*.pxd"]
