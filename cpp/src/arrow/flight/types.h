@@ -555,6 +555,19 @@ struct ARROW_FLIGHT_EXPORT Location : public internal::BaseType<Location> {
 
   bool Equals(const Location& other) const;
 
+  using SuperT::Deserialize;
+  using SuperT::SerializeToString;
+
+  /// \brief Serialize this message to its wire-format representation.
+  ///
+  /// Use `SerializeToString()` if you want a Result-returning version.
+  arrow::Status SerializeToString(std::string* out) const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  ///
+  /// Use `Deserialize(serialized)` if you want a Result-returning version.
+  static arrow::Status Deserialize(std::string_view serialized, Location* out);
+
  private:
   friend class FlightClient;
   friend class FlightServerBase;
