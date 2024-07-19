@@ -775,6 +775,14 @@ bool FlightEndpoint::Equals(const FlightEndpoint& other) const {
   return true;
 }
 
+arrow::Status Location::SerializeToString(std::string* out) const {
+  return SerializeToProtoString<pb::Location>("Location", *this, out);
+}
+
+arrow::Status Location::Deserialize(std::string_view serialized, Location* out) {
+  return DeserializeProtoString<pb::Location, Location>("Location", serialized, out);
+}
+
 arrow::Status FlightEndpoint::SerializeToString(std::string* out) const {
   return SerializeToProtoString<pb::FlightEndpoint>("FlightEndpoint", *this, out);
 }
