@@ -246,7 +246,7 @@ func (fw *FileWriter) Write(rec arrow.Record) error {
 		}
 	}
 	fw.colIdx = 0
-	return nil
+	return fw.rgw.Close()
 }
 
 // WriteTable writes an arrow table to the underlying file using chunkSize to determine
