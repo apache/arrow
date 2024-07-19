@@ -26,7 +26,7 @@ tbl$verses <- verses[[1]]
 # c(" a ", "  b  ", "   c   ", ...) increasing padding
 # nchar =   3  5  7  9 11 13 15 17 19 21
 tbl$padded_strings <- stringr::str_pad(letters[1:10], width = 2 * (1:10) + 1, side = "both")
-tbl$some_negative <- tbl$int * (-1)^(1:nrow(tbl)) # nolint
+tbl$some_negative <- tbl$int * (-1)^(seq_len(nrow(tbl))) # nolint
 
 test_that("filter() on is.na()", {
   compare_dplyr_binding(
@@ -314,7 +314,7 @@ test_that("Filtering on a column that doesn't exist errors correctly", {
 test_that("Filtering with unsupported functions", {
   compare_dplyr_binding(
     .input %>%
-      filter(int > 2, pnorm(dbl) > .99) %>%
+      filter(int > 2, pnorm(dbl) > 0.99) %>%
       collect(),
     tbl,
     warning = paste(
@@ -329,7 +329,7 @@ test_that("Filtering with unsupported functions", {
       filter(
         nchar(chr, type = "bytes", allowNA = TRUE) == 1, # bad, Arrow msg
         int > 2, # good
-        pnorm(dbl) > .99 # bad, opaque, but we'll error on the first one before we get here
+        pnorm(dbl) > 0.99 # bad, opaque, but we'll error on the first one before we get here
       ) %>%
       collect(),
     tbl,
@@ -472,7 +472,7 @@ test_that(".by argument", {
   # filter should pulling not grouped data into R when using the .by argument
   compare_dplyr_binding(
     .input %>%
-      filter(int > 2, pnorm(dbl) > .99, .by = chr) %>%
+      filter(int > 2, pnorm(dbl) > 0.99, .by = chr) %>%
       collect(),
     tbl,
     warning = paste(
