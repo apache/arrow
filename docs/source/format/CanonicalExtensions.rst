@@ -286,10 +286,10 @@ UUID
 Opaque
 =======
 
-Opaque represents a type or array that an Arrow-based system received from an
-external (often non-Arrow) system, which it cannot interpret or did not have
-support for in advance.  In this case, it can pass on Opaque to its clients to
-show that a field exists, but that it cannot interpret the field or data.
+Opaque represents a type that an Arrow-based system received from an external
+(often non-Arrow) system, but that it cannot interpret.  In this case, it can
+pass on Opaque to its clients to at least show that a field exists and
+preserve metadata about the type from the other system.
 
 Extension parameters:
 
@@ -312,97 +312,65 @@ Extension parameters:
 Rationale
 ---------
 
-Arrow systems often wrap non-Arrow systems, and so they must be prepared to
-handle data types and data that don't have an equivalent Arrow type.  A client
-may still want to know of the existence of a field, or the types of other,
-supported fields.  So returning an error because of an unrecognized type in
-one column, or dropping unsupported fields/columns, are poor solutions.
+Interfacing with non-Arrow systems requires a way to handle data that doesn't
+have an equivalent Arrow type.  In this case, use the Opaque type, which
+explicitly represents an unsupported field.  Other solutions are inadequate:
 
-Of course, the Arrow system can use extension types.  But it will not have an
-extension type prepared for every possible type in advance; for example, the
-non-Arrow system may have its own extension mechanisms.  It could "make up" an
-extension type on the fly.  But this misleads clients who cannot tell if the
-type is truly supported or not by the intermediate Arrow application.
-
-The Opaque type can be used instead.  Because it explicitly means that the
-*intermediate* system does not support a type, it can be used to declare an
-unsupported field or column without silently losing data or erroring.  In
-other words: if an Arrow system encounters a non-Arrow type it was not
-prepared to handle, it can use Opaque to still pass the type on to a client.
+* Raising an error means even one unsupported field makes all operations
+  impossible, even if (for instance) the user is just trying to view a schema.
+* Dropping unsupported columns misleads the user as to the actual schema.
+* An extension type may not exist for the unsupported type.
+* Generating an extension type on the fly would falsely imply support.
 
 Applications **should not** make conventions around vendor_name and type_name.
-If there is a type that multiple systems want to support, they should create a
-formal extension type.  They *should not* try to agree on particular
-parameters of the Opaque type.  These parameters are meant for human end users
-to understand what type was not supported.  Of course, applications may
-interpret these fields regardless, but must be prepared for breakage (if for
-example the type becomes supported with a custom extension type in a later
-software revision).
-
-Opaque is not about file formats.  Considerations such as MIME types are
-irrelevant, and Opaque should not be thought of as a generic container for
-file format data (XML/JSON/etc.).
+These parameters are meant for human end users to understand what type wasn't
+supported.  Applications may try to interpret these fields, but must be
+prepared for breakage (e.g., when the type becomes supported with a custom
+extension type later on).  Similarly, **Opaque is not a generic container for
+file formats**.  Considerations such as MIME types are irrelevant.  In both of
+these cases, create a custom extension type instead.
 
 Examples:
 
-* Consider a Flight SQL service that supports connecting external databases.
-  Its clients may request the names/types of table columns in those databases,
-  but there may be types that the Flight SQL service does not recognize
-  (e.g. when those systems have their own extensions or user-defined types).
-
-  The Flight SQL service can use the Opaque[Null] type to report that a
-  column exists with a particular name and type name in the external database.
-  This lets clients know that a column exists, but is not supported.  Null is
-  used as the storage type here because only schemas are involved.
-
-  The client would presumably not be able to query such columns from the
-  service, but there may be other columns that it could query, or it could
-  prepare a query that references the unknown column in an expression and
-  produces a result that *is* supported.  The server could make up an
-  extension type on the fly, but then the client wouldn't be able to tell if
-  it can try to query the column or not, while with Opaque, it knows the
-  column is unsupported.
+* A Flight SQL service that supports connecting external databases may
+  encounter columns with unsupported types in external tables.  In this case,
+  it can use the Opaque[Null] type to at least report that a column exists
+  with a particular name and type name.  This lets clients know that a column
+  exists, but is not supported.  Null is used as the storage type here because
+  only schemas are involved.
 
   An example of the extension metadata would be::
 
     {"type_name": "varray", "vendor_name": "Oracle"}
 
-* The ADBC PostgreSQL driver may get bytes for a field whose type it does not
-  recognize.  This is because of how PostgreSQL and its wire protocol work:
-  values come from the server as length-prefixed bytes, so the driver will
-  always have bytes for fields and needs to know how to parse them.  But the
-  driver cannot know about all types in advance, as there may be extensions
-  (e.g. PostGIS for geospatial functionality).
-
-  Beacuse the driver still has the raw bytes, it can use Opaque[Binary] to
-  still return those bytes to the application, which may be able to parse the
-  data itself.  Opaque differentiates the column from an actual binary
-  column and makes it clear that the value is unparsed.
+* The ADBC PostgreSQL driver gets results as a series of length-prefixed byte
+  fields.  But the driver will not always know how to parse the bytes, as
+  there may be extensions (e.g. PostGIS).  It can use Opaque[Binary] to still
+  return those bytes to the application, which may be able to parse the data
+  itself.  Opaque differentiates the column from an actual binary column and
+  makes it clear that the value is directly from PostgreSQL.  (A custom
+  extension type is preferred, but there will always be extensions that the
+  driver does not know about.)
 
   An example of the extension metadata would be::
 
     {"type_name": "geometry", "vendor_name": "PostGIS"}
 
-* The ADBC PostgreSQL driver may also get bytes for a field whose type it can
-  only partially recognize.  For example, PostgreSQL supports `composite types
-  <https://www.postgresql.org/docs/current/rowtypes.html>`_ that ascribe new
-  semantics to existing types, somewhat like Arrow extension types.
+* The ADBC PostgreSQL driver may also know how to parse the bytes, but not
+  know the intended semantics.  For example, `composite types
+  <https://www.postgresql.org/docs/current/rowtypes.html>`_ can add new
+  semantics to existing types, somewhat like Arrow extension types.  The
+  driver would be able to parse the underlying bytes in this case, but would
+  still use the Opaque type.
 
-  The driver would be able to parse the underlying bytes in this case.
-  However, the driver may still want to use the Opaque type.  Consider the
-  example in the PostgreSQL documentation above of a ``complex`` type.  Simply
-  mapping the type to a plain Arrow ``struct`` type would lose the semantics
-  of that custom type, just like how an Arrow system deciding to treat all
-  extension types by dropping the extension metadata would be undesirable.
-  Meanwhile, dynamically generating an extension type would also be wrong
-  semantically - for instance, there may be an actual extension type that
-  should be used.
-
-  Instead, the driver can use Opaque[Struct] to pass on the composite type
-  info.  The driver would never actually be able to directly support the type
-  in this example, since these types are defined by database administrators,
-  not by the developers, and the driver developers can never know about all
-  these possibilities.
+  Consider the example in the PostgreSQL documentation of a ``complex`` type.
+  Mapping the type to a plain Arrow ``struct`` type would lose meaning, just
+  like how an Arrow system deciding to treat all extension types by dropping
+  the extension metadata would be undesirable.  Instead, the driver can use
+  Opaque[Struct] to pass on the composite type info.  (It would be wrong to
+  try to map this to an Arrow-defined complex type: it does not know the
+  proper semantics of a user-defined type, which cannot and should not be
+  hardcoded into the driver in the first place.)
 
   An example of the extension metadata would be::
 
@@ -413,13 +381,10 @@ Examples:
   allows drivers to return `arbitrary Java objects
   <https://docs.oracle.com/javase/8/docs/api/java/sql/Types.html#OTHER>`_.
 
-  Without the extension type, the JDBC adapter would simply error, making the
-  adapter a minefield where results are all-or-nothing, even if an application
-  just wants a schema.  Instead, the driver could use Opaque[Null] as a
-  placeholder during schema conversion, only erroring if the application tries
-  to fetch the actual data.  That way, clients could at least introspect
-  tables and queries to decide whether it can proceed to fetch the data, or
-  only query certain columns.
+  The driver can use Opaque[Null] as a placeholder during schema conversion,
+  only erroring if the application tries to fetch the actual data.  That way,
+  clients can at least introspect result schemas to decide whether it can
+  proceed to fetch the data, or only query certain columns.
 
   An example of the extension metadata would be::
 
