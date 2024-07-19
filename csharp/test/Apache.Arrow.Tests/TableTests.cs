@@ -63,9 +63,9 @@ namespace Apache.Arrow.Tests
             Table table1 = Table.TableFromRecordBatches(recordBatch1.Schema, recordBatches);
             Assert.Equal(20, table1.RowCount);
 #if NET5_0_OR_GREATER
-            Assert.Equal(35, table1.ColumnCount);
+            Assert.Equal(38, table1.ColumnCount);
 #else
-            Assert.Equal(34, table1.ColumnCount);
+            Assert.Equal(37, table1.ColumnCount);
 #endif
             Assert.Equal("ChunkedArray: Length=20, DataType=list", table1.Column(0).Data.ToString());
 
