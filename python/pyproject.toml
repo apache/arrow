@@ -74,7 +74,6 @@ zip-safe=false
 include-package-data=true
 
 [tool.setuptools.packages.find]
-where = ["."]
 include = ["pyarrow"]
 exclude = ["pyarrow/tests", "pyarrow."]
 namespaces = false
