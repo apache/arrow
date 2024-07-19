@@ -268,22 +268,6 @@ arrow::Status FlightDescriptor::Deserialize(std::string_view serialized,
       "FlightDescriptor", serialized, out);
 }
 
-std::string Ticket::ToString() const {
-  std::stringstream ss;
-  ss << "<Ticket ticket='" << ticket << "'>";
-  return ss.str();
-}
-
-bool Ticket::Equals(const Ticket& other) const { return ticket == other.ticket; }
-
-arrow::Status Ticket::SerializeToString(std::string* out) const {
-  return SerializeToProtoString<pb::Ticket>("Ticket", *this, out);
-}
-
-arrow::Status Ticket::Deserialize(std::string_view serialized, Ticket* out) {
-  return DeserializeProtoString<pb::Ticket, Ticket>("Ticket", serialized, out);
-}
-
 arrow::Result<FlightInfo> FlightInfo::Make(const Schema& schema,
                                            const FlightDescriptor& descriptor,
                                            const std::vector<FlightEndpoint>& endpoints,
@@ -691,6 +675,22 @@ arrow::Status CloseSessionResult::Deserialize(std::string_view serialized,
                                               CloseSessionResult* out) {
   return DeserializeProtoString<pb::CloseSessionResult, CloseSessionResult>(
       "CloseSessionResult", serialized, out);
+}
+
+std::string Ticket::ToString() const {
+  std::stringstream ss;
+  ss << "<Ticket ticket='" << ticket << "'>";
+  return ss.str();
+}
+
+bool Ticket::Equals(const Ticket& other) const { return ticket == other.ticket; }
+
+arrow::Status Ticket::SerializeToString(std::string* out) const {
+  return SerializeToProtoString<pb::Ticket>("Ticket", *this, out);
+}
+
+arrow::Status Ticket::Deserialize(std::string_view serialized, Ticket* out) {
+  return DeserializeProtoString<pb::Ticket, Ticket>("Ticket", serialized, out);
 }
 
 Location::Location() { uri_ = std::make_shared<arrow::util::Uri>(); }

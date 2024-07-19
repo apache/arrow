@@ -415,6 +415,25 @@ message PollInfo {
 }
 
 /*
+ * An opaque identifier that the service can use to retrieve a particular
+ * portion of a stream.
+ *
+ * Tickets are meant to be single use. It is an error/application-defined
+ * behavior to reuse a ticket.
+ */
+message Ticket {
+  bytes ticket = 1;
+}
+
+/*
+ * A location where a Flight service will accept retrieval of a particular
+ * stream given a ticket.
+ */
+message Location {
+  string uri = 1;
+}
+
+/*
  * A particular stream or split associated with a flight.
  */
 message FlightEndpoint {
@@ -472,25 +491,6 @@ message FlightEndpoint {
  */
 message RenewFlightEndpointRequest {
   FlightEndpoint endpoint = 1;
-}
-
-/*
- * A location where a Flight service will accept retrieval of a particular
- * stream given a ticket.
- */
-message Location {
-  string uri = 1;
-}
-
-/*
- * An opaque identifier that the service can use to retrieve a particular
- * portion of a stream.
- *
- * Tickets are meant to be single use. It is an error/application-defined
- * behavior to reuse a ticket.
- */
-message Ticket {
-  bytes ticket = 1;
 }
 
 /*

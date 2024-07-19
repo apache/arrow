@@ -61,6 +61,18 @@ class Uri;
 
 namespace flight {
 
+ARROW_FLIGHT_EXPORT
+extern const char* kSchemeGrpc;
+ARROW_FLIGHT_EXPORT
+extern const char* kSchemeGrpcTcp;
+ARROW_FLIGHT_EXPORT
+extern const char* kSchemeGrpcUnix;
+ARROW_FLIGHT_EXPORT
+extern const char* kSchemeGrpcTls;
+
+class FlightClient;
+class FlightServerBase;
+
 /// \brief A timestamp compatible with Protocol Buffer's
 /// google.protobuf.Timestamp:
 ///
@@ -500,18 +512,6 @@ struct ARROW_FLIGHT_EXPORT Ticket : public internal::BaseType<Ticket> {
   /// Use `Deserialize(serialized)` if you want a Result-returning version.
   static arrow::Status Deserialize(std::string_view serialized, Ticket* out);
 };
-
-class FlightClient;
-class FlightServerBase;
-
-ARROW_FLIGHT_EXPORT
-extern const char* kSchemeGrpc;
-ARROW_FLIGHT_EXPORT
-extern const char* kSchemeGrpcTcp;
-ARROW_FLIGHT_EXPORT
-extern const char* kSchemeGrpcUnix;
-ARROW_FLIGHT_EXPORT
-extern const char* kSchemeGrpcTls;
 
 /// \brief A host location (a URI)
 struct ARROW_FLIGHT_EXPORT Location : public internal::BaseType<Location> {
