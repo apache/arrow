@@ -32,6 +32,8 @@ class ExampleServer(flight.FlightServerBase):
         [],
         -1,
         -1,
+        False,
+        b""
     )
 
     def get_flight_info(self, context, descriptor):

@@ -153,7 +153,8 @@ class ConstantFlightServer(FlightServerBase):
                 pa.schema([]),
                 flight.FlightDescriptor.for_path('/foo'),
                 [],
-                -1, -1
+                -1, -1,
+                False, b""
             )
 
     def do_get(self, context, ticket):
@@ -253,8 +254,10 @@ class GetInfoFlightServer(FlightServerBase):
                     [flight.Location.for_grpc_tcp('localhost', 5005)],
                 ),
             ],
-            -1,
-            -1,
+            1,
+            42,
+            True,
+            b"test app metadata"
         )
 
     def get_schema(self, context, descriptor):
@@ -388,7 +391,8 @@ class ErrorFlightServer(FlightServerBase):
             pa.schema([]),
             flight.FlightDescriptor.for_path('/foo'),
             [],
-            -1, -1
+            -1, -1,
+            False, b""
         )
         raise flight.FlightInternalError("foo")
 
@@ -882,8 +886,10 @@ def test_repr():
         "schema= "
         "descriptor=<pyarrow.flight.FlightDescriptor path=[]> "
         "endpoints=[] "
-        "total_records=-1 "
-        "total_bytes=-1>")
+        "total_records=1 "
+        "total_bytes=42 "
+        "ordered=True "
+        "app_metadata=b'test app metadata'>")
     location_repr = "<pyarrow.flight.Location b'grpc+tcp://localhost:1234'>"
     result_repr = "<pyarrow.flight.Result body=(3 bytes)>"
     schema_result_repr = "<pyarrow.flight.SchemaResult schema=()>"
@@ -895,7 +901,7 @@ def test_repr():
     assert repr(flight.FlightDescriptor.for_command("foo")) == descriptor_repr
     assert repr(flight.FlightEndpoint(b"foo", [])) == endpoint_repr
     info = flight.FlightInfo(
-        pa.schema([]), flight.FlightDescriptor.for_path(), [], -1, -1)
+        pa.schema([]), flight.FlightDescriptor.for_path(), [], 1, 42, True, b"test app metadata")
     assert repr(info) == info_repr
     assert repr(flight.Location("grpc+tcp://localhost:1234")) == location_repr
     assert repr(flight.Result(b"foo")) == result_repr
@@ -910,22 +916,69 @@ def test_repr():
 
 def test_eq():
     items = [
+        lambda: (flight.Action("foo", b""), flight.Action("bar", b"")),
         lambda: (flight.Action("foo", b""), flight.Action("foo", b"bar")),
         lambda: (flight.ActionType("foo", "bar"),
                  flight.ActionType("foo", "baz")),
         lambda: (flight.BasicAuth("user", "pass"),
                  flight.BasicAuth("user2", "pass")),
+        lambda: (flight.BasicAuth("user", "pass"),
+                 flight.BasicAuth("user", "pass2")),
         lambda: (flight.FlightDescriptor.for_command("foo"),
                  flight.FlightDescriptor.for_path("foo")),
         lambda: (flight.FlightEndpoint(b"foo", []),
-                 flight.FlightEndpoint(b"", [])),
+                 flight.FlightEndpoint(b"bar", [])),
+        lambda: (flight.FlightEndpoint(b"foo", [flight.Location("grpc+tcp://localhost:1234")]),
+                 flight.FlightEndpoint(b"foo", [flight.Location("grpc+tls://localhost:1234")])),
         lambda: (
             flight.FlightInfo(
                 pa.schema([]),
-                flight.FlightDescriptor.for_path(), [], -1, -1),
+                flight.FlightDescriptor.for_path(), [], -1, -1, False, b""),
+            flight.FlightInfo(
+                pa.schema([("ints", pa.int64())]),
+                flight.FlightDescriptor.for_path(), [], -1, -1, False, b"")),
+        lambda: (
             flight.FlightInfo(
                 pa.schema([]),
-                flight.FlightDescriptor.for_command(b"foo"), [], -1, 42)),
+                flight.FlightDescriptor.for_path(), [], -1, -1, False, b""),
+            flight.FlightInfo(
+                pa.schema([]),
+                flight.FlightDescriptor.for_command(b"foo"), [], -1, -1, False, b"")),
+        lambda: (
+            flight.FlightInfo(
+                pa.schema([]),
+                flight.FlightDescriptor.for_path(), [flight.FlightEndpoint(b"foo", [])], -1, -1, False, b""),
+            flight.FlightInfo(
+                pa.schema([]),
+                flight.FlightDescriptor.for_path(), [flight.FlightEndpoint(b"bar", [])], -1, -1, False, b"")),
+        lambda: (
+            flight.FlightInfo(
+                pa.schema([]),
+                flight.FlightDescriptor.for_path(), [], -1, -1, False, b""),
+            flight.FlightInfo(
+                pa.schema([]),
+                flight.FlightDescriptor.for_path(), [], 1, -1, False, b"")),
+        lambda: (
+            flight.FlightInfo(
+                pa.schema([]),
+                flight.FlightDescriptor.for_path(), [], -1, -1, False, b""),
+            flight.FlightInfo(
+                pa.schema([]),
+                flight.FlightDescriptor.for_path(), [], -1, 42, False, b"")),
+        lambda: (
+            flight.FlightInfo(
+                pa.schema([]),
+                flight.FlightDescriptor.for_path(), [], -1, -1, False, b""),
+            flight.FlightInfo(
+                pa.schema([]),
+                flight.FlightDescriptor.for_path(), [], -1, -1, True, b"")),
+        lambda: (
+            flight.FlightInfo(
+                pa.schema([]),
+                flight.FlightDescriptor.for_path(), [], -1, -1, False, b""),
+            flight.FlightInfo(
+                pa.schema([]),
+                flight.FlightDescriptor.for_path(), [], -1, -1, False, b"meta")),
         lambda: (flight.Location("grpc+tcp://localhost:1234"),
                  flight.Location("grpc+tls://localhost:1234")),
         lambda: (flight.Result(b"foo"), flight.Result(b"bar")),
@@ -937,8 +990,12 @@ def test_eq():
     for gen in items:
         lhs1, rhs1 = gen()
         lhs2, rhs2 = gen()
+        assert lhs1 == lhs1
         assert lhs1 == lhs2
+        assert lhs2 == lhs1
+        assert rhs1 == rhs1
         assert rhs1 == rhs2
+        assert rhs2 == rhs1
         assert lhs1 != rhs1
 
 
@@ -1062,8 +1119,10 @@ def test_flight_get_info():
     with GetInfoFlightServer() as server:
         client = FlightClient(('localhost', server.port))
         info = client.get_flight_info(flight.FlightDescriptor.for_command(b''))
-        assert info.total_records == -1
-        assert info.total_bytes == -1
+        assert info.total_records == 1
+        assert info.total_bytes == 42
+        assert info.ordered
+        assert info.app_metadata == b"test app metadata"
         assert info.schema == pa.schema([('a', pa.int32())])
         assert len(info.endpoints) == 2
         assert len(info.endpoints[0].locations) == 1
@@ -1709,14 +1768,18 @@ def test_roundtrip_types():
                 [flight.Location.for_grpc_tcp('localhost', 5005)],
             ),
         ],
-        -1,
-        -1,
+        1,
+        42,
+        True,
+        b'test app metadata'
     )
     info2 = flight.FlightInfo.deserialize(info.serialize())
     assert info.schema == info2.schema
     assert info.descriptor == info2.descriptor
     assert info.total_bytes == info2.total_bytes
     assert info.total_records == info2.total_records
+    assert info.ordered == info2.ordered
+    assert info.app_metadata == info2.app_metadata
     assert info.endpoints == info2.endpoints
 
     endpoint = flight.FlightEndpoint(
@@ -2367,7 +2430,8 @@ def test_headers_trailers():
                 pa.schema([]),
                 descriptor,
                 [],
-                -1, -1
+                -1, -1,
+                False, b""
             )
 
     class HeadersTrailersMiddlewareFactory(ClientMiddlewareFactory):

@@ -844,7 +844,7 @@ cdef class FlightInfo(_Weakrefable):
         return obj
 
     def __init__(self, Schema schema, FlightDescriptor descriptor, endpoints,
-                 total_records, total_bytes):
+                 total_records, total_bytes, ordered, app_metadata):
         """Create a FlightInfo object from a schema, descriptor, and endpoints.
 
         Parameters
@@ -856,9 +856,13 @@ cdef class FlightInfo(_Weakrefable):
         endpoints : list of FlightEndpoint
             a list of endpoints where this flight is available.
         total_records : int
-            the total records in this flight, or -1 if unknown
+            the total records in this flight, or -1 if unknown.
         total_bytes : int
-            the total bytes in this flight, or -1 if unknown
+            the total bytes in this flight, or -1 if unknown.
+        ordered : boolean
+            Whether endpoints are in the same order as the data.
+        app_metadata : str
+            Application-defined opaque metadata.
         """
         cdef:
             shared_ptr[CSchema] c_schema = pyarrow_unwrap_schema(schema)
@@ -875,7 +879,9 @@ cdef class FlightInfo(_Weakrefable):
                                              descriptor.descriptor,
                                              c_endpoints,
                                              total_records,
-                                             total_bytes, &self.info))
+                                             total_bytes,
+                                             ordered,
+                                             app_metadata, &self.info))
 
     @property
     def total_records(self):
@@ -886,6 +892,22 @@ cdef class FlightInfo(_Weakrefable):
     def total_bytes(self):
         """The size in bytes of the data in this flight, or -1 if unknown."""
         return self.info.get().total_bytes()
+
+    @property
+    def ordered(self):
+        """Whether endpoints are in the same order as the data."""
+        return self.info.get().ordered()
+
+    @property
+    def app_metadata(self):
+        """
+        Application-defined opaque metadata.
+
+        There is no inherent or required relationship between this and the app_metadata fields in the FlightEndpoints
+        or resulting FlightData messages. Since this metadata is application-defined, a given application could define
+        there to be a relationship, but there is none required by the spec.
+        """
+        return self.info.get().app_metadata()
 
     @property
     def schema(self):
@@ -950,7 +972,9 @@ cdef class FlightInfo(_Weakrefable):
                 f"descriptor={self.descriptor} "
                 f"endpoints={self.endpoints} "
                 f"total_records={self.total_records} "
-                f"total_bytes={self.total_bytes}>")
+                f"total_bytes={self.total_bytes} "
+                f"ordered={self.ordered} "
+                f"app_metadata={self.app_metadata}>")
 
 
 cdef class FlightStreamChunk(_Weakrefable):

@@ -48,6 +48,9 @@ def list_flights(args, client, connection_args={}):
         else:
             print("Unknown")
 
+        print(f"Data are {'ordered' if flight.ordered else 'not ordered'}")
+        print(f"App metadata:", flight.app_metadata)
+
         print("Number of endpoints:", len(flight.endpoints))
         print("Schema:")
         print(flight.schema)
