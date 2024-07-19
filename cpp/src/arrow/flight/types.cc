@@ -151,6 +151,26 @@ Status MakeFlightError(FlightStatusCode code, std::string message,
                        std::make_shared<FlightStatusDetail>(code, std::move(extra_info)));
 }
 
+//------------------------------------------------------------
+// Wrapper types for Flight RPC protobuf messages
+
+std::string BasicAuth::ToString() const {
+  return arrow::util::StringBuilder("<BasicAuth username='", username,
+                                    "' password=(redacted)>");
+}
+
+bool BasicAuth::Equals(const BasicAuth& other) const {
+  return (username == other.username) && (password == other.password);
+}
+
+arrow::Status BasicAuth::Deserialize(std::string_view serialized, BasicAuth* out) {
+  return DeserializeProtoString<pb::BasicAuth, BasicAuth>("BasicAuth", serialized, out);
+}
+
+arrow::Status BasicAuth::SerializeToString(std::string* out) const {
+  return SerializeToProtoString<pb::BasicAuth>("BasicAuth", *this, out);
+}
+
 std::string FlightDescriptor::ToString() const {
   std::stringstream ss;
   ss << "<FlightDescriptor ";
@@ -964,6 +984,8 @@ std::ostream& operator<<(std::ostream& os, CancelStatus status) {
   return os;
 }
 
+//------------------------------------------------------------
+
 Status ResultStream::Drain() {
   while (true) {
     ARROW_ASSIGN_OR_RAISE(auto result, Next());
@@ -1049,23 +1071,6 @@ arrow::Result<std::unique_ptr<Result>> SimpleResultStream::Next() {
     return nullptr;
   }
   return std::make_unique<Result>(std::move(results_[position_++]));
-}
-
-std::string BasicAuth::ToString() const {
-  return arrow::util::StringBuilder("<BasicAuth username='", username,
-                                    "' password=(redacted)>");
-}
-
-bool BasicAuth::Equals(const BasicAuth& other) const {
-  return (username == other.username) && (password == other.password);
-}
-
-arrow::Status BasicAuth::Deserialize(std::string_view serialized, BasicAuth* out) {
-  return DeserializeProtoString<pb::BasicAuth, BasicAuth>("BasicAuth", serialized, out);
-}
-
-arrow::Status BasicAuth::SerializeToString(std::string* out) const {
-  return SerializeToProtoString<pb::BasicAuth>("BasicAuth", *this, out);
 }
 
 //------------------------------------------------------------

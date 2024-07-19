@@ -214,6 +214,40 @@ struct BaseType {
 
 }  // namespace internal
 
+//------------------------------------------------------------
+// Wrapper types for Flight RPC protobuf messages
+
+// A wrapper around arrow.flight.protocol.HandshakeRequest is not defined
+// A wrapper around arrow.flight.protocol.HandshakeResponse is not defined
+
+/// \brief message for simple auth
+struct ARROW_FLIGHT_EXPORT BasicAuth : public internal::BaseType<BasicAuth> {
+  std::string username;
+  std::string password;
+
+  BasicAuth() = default;
+  BasicAuth(std::string username, std::string password)
+      : username(std::move(username)), password(std::move(password)) {}
+
+  std::string ToString() const;
+  bool Equals(const BasicAuth& other) const;
+
+  using SuperT::Deserialize;
+  using SuperT::SerializeToString;
+
+  /// \brief Serialize this message to its wire-format representation.
+  ///
+  /// Use `SerializeToString()` if you want a Result-returning version.
+  arrow::Status SerializeToString(std::string* out) const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  ///
+  /// Use `Deserialize(serialized)` if you want a Result-returning version.
+  static arrow::Status Deserialize(std::string_view serialized, BasicAuth* out);
+};
+
+// A wrapper around arrow.flight.protocol.Empty is not defined
+
 /// \brief A type of action that can be performed with the DoAction RPC.
 struct ARROW_FLIGHT_EXPORT ActionType : public internal::BaseType<ActionType> {
   /// \brief The name of the action.
@@ -375,32 +409,6 @@ struct ARROW_FLIGHT_EXPORT CancelFlightInfoResult
 
 ARROW_FLIGHT_EXPORT
 std::ostream& operator<<(std::ostream& os, CancelStatus status);
-
-/// \brief message for simple auth
-struct ARROW_FLIGHT_EXPORT BasicAuth : public internal::BaseType<BasicAuth> {
-  std::string username;
-  std::string password;
-
-  BasicAuth() = default;
-  BasicAuth(std::string username, std::string password)
-      : username(std::move(username)), password(std::move(password)) {}
-
-  std::string ToString() const;
-  bool Equals(const BasicAuth& other) const;
-
-  using SuperT::Deserialize;
-  using SuperT::SerializeToString;
-
-  /// \brief Serialize this message to its wire-format representation.
-  ///
-  /// Use `SerializeToString()` if you want a Result-returning version.
-  arrow::Status SerializeToString(std::string* out) const;
-
-  /// \brief Deserialize this message from its wire-format representation.
-  ///
-  /// Use `Deserialize(serialized)` if you want a Result-returning version.
-  static arrow::Status Deserialize(std::string_view serialized, BasicAuth* out);
-};
 
 /// \brief A request to retrieve or generate a dataset
 struct ARROW_FLIGHT_EXPORT FlightDescriptor
@@ -1101,6 +1109,8 @@ struct ARROW_FLIGHT_EXPORT CloseSessionResult
   /// Use `Deserialize(serialized)` if you want a Result-returning version.
   static arrow::Status Deserialize(std::string_view serialized, CloseSessionResult* out);
 };
+
+//------------------------------------------------------------
 
 /// \brief An iterator to FlightInfo instances returned by ListFlights.
 class ARROW_FLIGHT_EXPORT FlightListing {
