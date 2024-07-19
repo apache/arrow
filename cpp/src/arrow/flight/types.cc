@@ -151,20 +151,6 @@ Status MakeFlightError(FlightStatusCode code, std::string message,
                        std::make_shared<FlightStatusDetail>(code, std::move(extra_info)));
 }
 
-bool FlightDescriptor::Equals(const FlightDescriptor& other) const {
-  if (type != other.type) {
-    return false;
-  }
-  switch (type) {
-    case PATH:
-      return path == other.path;
-    case CMD:
-      return cmd == other.cmd;
-    default:
-      return false;
-  }
-}
-
 std::string FlightDescriptor::ToString() const {
   std::stringstream ss;
   ss << "<FlightDescriptor ";
@@ -190,6 +176,20 @@ std::string FlightDescriptor::ToString() const {
   }
   ss << ">";
   return ss.str();
+}
+
+bool FlightDescriptor::Equals(const FlightDescriptor& other) const {
+  if (type != other.type) {
+    return false;
+  }
+  switch (type) {
+    case PATH:
+      return path == other.path;
+    case CMD:
+      return cmd == other.cmd;
+    default:
+      return false;
+  }
 }
 
 Status FlightPayload::Validate() const {
@@ -712,7 +712,6 @@ arrow::Result<Location> Location::ForScheme(const std::string& scheme,
   return Location::Parse(uri_string.str());
 }
 
-std::string Location::ToString() const { return uri_->ToString(); }
 std::string Location::scheme() const {
   std::string scheme = uri_->scheme();
   if (scheme.empty()) {
@@ -721,6 +720,8 @@ std::string Location::scheme() const {
   }
   return scheme;
 }
+
+std::string Location::ToString() const { return uri_->ToString(); }
 
 bool Location::Equals(const Location& other) const {
   return ToString() == other.ToString();

@@ -427,10 +427,9 @@ struct ARROW_FLIGHT_EXPORT FlightDescriptor
   FlightDescriptor(DescriptorType type, std::string cmd, std::vector<std::string> path)
       : type(type), cmd(std::move(cmd)), path(std::move(path)) {}
 
-  bool Equals(const FlightDescriptor& other) const;
-
   /// \brief Get a human-readable form of this descriptor.
   std::string ToString() const;
+  bool Equals(const FlightDescriptor& other) const;
 
   using SuperT::Deserialize;
   using SuperT::SerializeToString;
@@ -547,12 +546,11 @@ struct ARROW_FLIGHT_EXPORT Location : public internal::BaseType<Location> {
   static arrow::Result<Location> ForScheme(const std::string& scheme,
                                            const std::string& host, const int port);
 
-  /// \brief Get a representation of this URI as a string.
-  std::string ToString() const;
-
   /// \brief Get the scheme of this URI.
   std::string scheme() const;
 
+  /// \brief Get a representation of this URI as a string.
+  std::string ToString() const;
   bool Equals(const Location& other) const;
 
   using SuperT::Deserialize;
