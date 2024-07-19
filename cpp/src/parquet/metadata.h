@@ -396,6 +396,13 @@ class PARQUET_EXPORT FileMetaData {
   /// FileMetaData.
   std::shared_ptr<FileMetaData> Subset(const std::vector<int>& row_groups) const;
 
+  /// \brief Serializes metadata unencrypted to a string.
+  ///
+  /// \param[in] scrub removes sensitive information from the metadata.
+  /// \param[in] json indicates if the metadata should be serialized as JSON, otherwise
+  /// thrift.
+  std::string SerializeUnencrypted(bool scrub, bool json) const;
+
  private:
   friend FileMetaDataBuilder;
   friend class SerializedFile;
