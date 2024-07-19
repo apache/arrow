@@ -40,7 +40,6 @@ export default packageTask;
 
 const createMainPackageJson = (target, format) => (orig) => ({
     ...createTypeScriptPackageJson(target, format)(orig),
-    bin: orig.bin,
     name: npmPkgName,
     type: 'commonjs',
     main: `${mainExport}.node.js`,
@@ -90,7 +89,6 @@ const createMainPackageJson = (target, format) => (orig) => ({
 
 const createTypeScriptPackageJson = (target, format) => (orig) => ({
     ...createScopedPackageJSON(target, format)(orig),
-    bin: undefined,
     main: `${mainExport}.node.ts`,
     module: `${mainExport}.node.ts`,
     types: `${mainExport}.node.ts`,
@@ -108,6 +106,9 @@ const createScopedPackageJSON = (target, format) => (({ name, ...orig }) =>
     packageJSONFields.reduce(
         (xs, key) => ({ ...xs, [key]: xs[key] || orig[key] }),
         {
+            bin: Object.entries(orig.bin).reduce((xs, [key, val]) => ({
+                ...xs, [key]: val.replace('.cjs', '.js')
+            }), {}),
             // un-set version, since it's automatically applied during the release process
             version: undefined,
             // set the scoped package name (e.g. "@apache-arrow/esnext-esm")
