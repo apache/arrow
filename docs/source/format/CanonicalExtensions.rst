@@ -405,7 +405,7 @@ better zero-copy compatibility with various systems that also store booleans usi
 * The storage type of this extension is ``Int8`` where:
 
   * **false** is denoted by the value ``0``.
-  * **true** can be specified using any non-zero value.
+  * **true** can be specified using any non-zero value. Preferably ``1``.
 
 * Extension type parameters:
 
