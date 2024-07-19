@@ -901,7 +901,9 @@ def test_repr():
     assert repr(flight.FlightDescriptor.for_command("foo")) == descriptor_repr
     assert repr(flight.FlightEndpoint(b"foo", [])) == endpoint_repr
     info = flight.FlightInfo(
-        pa.schema([]), flight.FlightDescriptor.for_path(), [], 1, 42, True, b"test app metadata")
+        pa.schema([]), flight.FlightDescriptor.for_path(), [],
+        1, 42, True, b"test app metadata"
+    )
     assert repr(info) == info_repr
     assert repr(flight.Location("grpc+tcp://localhost:1234")) == location_repr
     assert repr(flight.Result(b"foo")) == result_repr
@@ -928,8 +930,12 @@ def test_eq():
                  flight.FlightDescriptor.for_path("foo")),
         lambda: (flight.FlightEndpoint(b"foo", []),
                  flight.FlightEndpoint(b"bar", [])),
-        lambda: (flight.FlightEndpoint(b"foo", [flight.Location("grpc+tcp://localhost:1234")]),
-                 flight.FlightEndpoint(b"foo", [flight.Location("grpc+tls://localhost:1234")])),
+        lambda: (
+            flight.FlightEndpoint(
+                b"foo", [flight.Location("grpc+tcp://localhost:1234")]),
+            flight.FlightEndpoint(
+                b"foo", [flight.Location("grpc+tls://localhost:1234")])
+        ),
         lambda: (
             flight.FlightInfo(
                 pa.schema([]),
@@ -947,10 +953,14 @@ def test_eq():
         lambda: (
             flight.FlightInfo(
                 pa.schema([]),
-                flight.FlightDescriptor.for_path(), [flight.FlightEndpoint(b"foo", [])], -1, -1, False, b""),
+                flight.FlightDescriptor.for_path(),
+                [flight.FlightEndpoint(b"foo", [])],
+                -1, -1, False, b""),
             flight.FlightInfo(
                 pa.schema([]),
-                flight.FlightDescriptor.for_path(), [flight.FlightEndpoint(b"bar", [])], -1, -1, False, b"")),
+                flight.FlightDescriptor.for_path(),
+                [flight.FlightEndpoint(b"bar", [])],
+                -1, -1, False, b"")),
         lambda: (
             flight.FlightInfo(
                 pa.schema([]),
