@@ -1106,8 +1106,6 @@ class ObjectAppendStream final : public io::OutputStream {
   }
 
   Future<> FlushAsync() {
-    RETURN_NOT_OK(CheckClosed("flush"));
-
     // Wait for background writes to finish
     std::unique_lock<std::mutex> lock(upload_state_->mutex);
     return upload_state_->pending_blocks_completed;
@@ -1128,9 +1126,11 @@ class ObjectAppendStream final : public io::OutputStream {
     }
 
     const auto* data_ptr = reinterpret_cast<const int8_t*>(data);
-    auto advance_ptr = [&data_ptr, &nbytes](const int64_t offset) {
+    auto advance_ptr = [this, &data_ptr, &nbytes](const int64_t offset) {
       data_ptr += offset;
       nbytes -= offset;
+      pos_ += offset;
+      content_length_ += offset;
     };
 
     // Handle case where we have some bytes buffered from prior calls.
@@ -1140,8 +1140,6 @@ class ObjectAppendStream final : public io::OutputStream {
       RETURN_NOT_OK(current_block_->Write(data_ptr, to_copy));
       current_block_size_ += to_copy;
       advance_ptr(to_copy);
-      pos_ += to_copy;
-      content_length_ += to_copy;
 
       // If buffer isn't full, break
       if (current_block_size_ < kBlockUploadSize) {
@@ -1156,15 +1154,20 @@ class ObjectAppendStream final : public io::OutputStream {
     while (nbytes >= kBlockUploadSize) {
       RETURN_NOT_OK(AppendBlock(data_ptr, kBlockUploadSize));
       advance_ptr(kBlockUploadSize);
-      pos_ += kBlockUploadSize;
-      content_length_ += kBlockUploadSize;
     }
 
     // Buffer remaining bytes
     if (nbytes > 0) {
       current_block_size_ = nbytes;
-      ARROW_ASSIGN_OR_RAISE(current_block_, io::BufferOutputStream::Create(
-                                                kBlockUploadSize, io_context_.pool()));
+
+      if (current_block_ == nullptr) {
+        ARROW_ASSIGN_OR_RAISE(current_block_, io::BufferOutputStream::Create(
+                                                  kBlockUploadSize, io_context_.pool()));
+      } else {
+        // Re-use the allocation from before.
+        RETURN_NOT_OK(current_block_->Reset(kBlockUploadSize, io_context_.pool()));
+      }
+
       RETURN_NOT_OK(current_block_->Write(data_ptr, current_block_size_));
       pos_ += current_block_size_;
       content_length_ += current_block_size_;

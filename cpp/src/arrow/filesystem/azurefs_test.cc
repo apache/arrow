@@ -1510,37 +1510,38 @@ class TestAzureFileSystem : public ::testing::Test {
     auto data = SetUpPreexistingData();
     const auto path = data.ContainerPath("test-write-object");
     ASSERT_OK_AND_ASSIGN(auto output, fs->OpenOutputStream(path, {}));
-    std::array<std::int64_t, 3> sizes{2570 * 1024, 258 * 1024, 259 * 1024};
-    std::array<std::string, 3> buffers{
-        std::string(sizes[0], 'A'),
-        std::string(sizes[1], 'B'),
-        std::string(sizes[2], 'C'),
-    };
-    auto expected = std::int64_t{0};
-    for (auto i = 0; i != 3; ++i) {
+
+    // Upload 5 MB, 4 MB und 2 MB and a very small write to test varying sizes
+    std::array<std::int64_t, 4> sizes{5 * 1024 * 1024, 4 * 1024 * 1024, 2 * 1024 * 1024,
+                                      2000};
+    std::array<std::string, 4> buffers{
+        std::string(sizes[0], 'A'), std::string(sizes[1], 'B'),
+        std::string(sizes[2], 'C'), std::string(sizes[3], 'D')};
+    auto expected_size = std::int64_t{0};
+    for (size_t i = 0; i < buffers.size(); ++i) {
       ASSERT_OK(output->Write(buffers[i]));
-      expected += sizes[i];
-      ASSERT_EQ(expected, output->Tell());
+      expected_size += sizes[i];
+      ASSERT_EQ(expected_size, output->Tell());
     }
     ASSERT_OK(output->Close());
 
-    AssertObjectContents(fs.get(), path, buffers[0] + buffers[1] + buffers[2]);
+    AssertObjectContents(fs.get(), path,
+                         buffers[0] + buffers[1] + buffers[2] + buffers[3]);
   }
 
   void TestOpenOutputStreamCloseAsyncDestructor() {
     ASSERT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options_));
-    std::shared_ptr<io::OutputStream> stream;
     auto data = SetUpPreexistingData();
     const std::string path = data.ContainerPath("test-write-object");
     constexpr auto payload = PreexistingData::kLoremIpsum;
 
-    ASSERT_OK_AND_ASSIGN(stream, fs->OpenOutputStream(path));
+    ASSERT_OK_AND_ASSIGN(auto stream, fs->OpenOutputStream(path));
     ASSERT_OK(stream->Write(payload));
-    // Destructor implicitly closes stream and completes the multipart upload.
-    // GH-37670: Testing it doesn't matter whether flush is triggered asynchronously
+    // Destructor implicitly closes stream and completes the upload.
+    // Testing it doesn't matter whether flush is triggered asynchronously
     // after CloseAsync or synchronously after stream.reset() since we're just
-    // checking that `closeAsyncFut` keeps the stream alive until completion
-    // rather than segfaulting on a dangling stream
+    // checking that the future keeps the stream alive until completion
+    // rather than segfaulting on a dangling stream.
     auto close_fut = stream->CloseAsync();
     stream.reset();
     ASSERT_OK(close_fut.MoveResult());
@@ -1550,12 +1551,11 @@ class TestAzureFileSystem : public ::testing::Test {
 
   void TestOpenOutputStreamDestructor() {
     ASSERT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options_));
-    std::shared_ptr<io::OutputStream> stream;
     constexpr auto* payload = "new data";
     auto data = SetUpPreexistingData();
     const std::string path = data.ContainerPath("test-write-object");
 
-    ASSERT_OK_AND_ASSIGN(stream, fs->OpenOutputStream(path));
+    ASSERT_OK_AND_ASSIGN(auto stream, fs->OpenOutputStream(path));
     ASSERT_OK(stream->Write(payload));
     // Destructor implicitly closes stream and completes the multipart upload.
     stream.reset();
@@ -2793,15 +2793,15 @@ TEST_F(TestAzuriteFileSystem, WriteMetadataHttpHeaders) {
   ASSERT_EQ("text/plain", content_type);
 }
 
-TEST_F(TestAzuriteFileSystem, OpenOutputStreamSmallNoBackgroundWrites) {
-  options_.background_writes = false;
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamSmallBackgroundWrites) {
+  options_.background_writes = true;
   TestOpenOutputStreamSmall();
 }
 
 TEST_F(TestAzuriteFileSystem, OpenOutputStreamSmall) { TestOpenOutputStreamSmall(); }
 
-TEST_F(TestAzuriteFileSystem, OpenOutputStreamLargeNoBackgroundWrites) {
-  options_.background_writes = false;
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamLargeBackgroundWrites) {
+  options_.background_writes = true;
   TestOpenOutputStreamLarge();
 }
 
@@ -2878,8 +2878,8 @@ TEST_F(TestAzuriteFileSystem, OpenOutputStreamAsyncDestructor) {
   TestOpenOutputStreamCloseAsyncDestructor();
 }
 
-TEST_F(TestAzuriteFileSystem, OpenOutputStreamAsyncDestructorNoBackgroundWrites) {
-  options_.background_writes = false;
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamAsyncDestructorBackgroundWrites) {
+  options_.background_writes = true;
   TestOpenOutputStreamCloseAsyncDestructor();
 }
 
@@ -2887,8 +2887,8 @@ TEST_F(TestAzuriteFileSystem, OpenOutputStreamDestructor) {
   TestOpenOutputStreamDestructor();
 }
 
-TEST_F(TestAzuriteFileSystem, OpenOutputStreamDestructorNoBackgroundWrites) {
-  options_.background_writes = false;
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamDestructorBackgroundWrites) {
+  options_.background_writes = true;
   TestOpenOutputStreamDestructor();
 }
 
