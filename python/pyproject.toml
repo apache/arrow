@@ -76,7 +76,7 @@ include-package-data=true
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["pyarrow"]
-exclude = ["pyarrow.tests"]
+exclude = ["pyarrow/tests", "pyarrow."]
 namespaces = false
 
 [tool.setuptools.package-data]
