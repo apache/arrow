@@ -117,19 +117,42 @@ private func makeFixedHolder<T>(
     }
 }
 
+ func makeStructHolder(
+    _ field: ArrowField,
+    buffers: [ArrowBuffer],
+    nullCount: UInt,
+    children: [ArrowData],
+    rbLength: UInt
+) -> Result<ArrowArrayHolder, ArrowError> {
+    do {
+        let arrowData = try ArrowData(field.type,
+                                      buffers: buffers, children: children,
+                                      nullCount: nullCount, length: rbLength)
+        return .success(ArrowArrayHolderImpl(try StructArray(arrowData)))
+    } catch let error as ArrowError {
+        return .failure(error)
+    } catch {
+        return .failure(.unknownError("\(error)"))
+    }
+}
+
 func makeArrayHolder(
     _ field: org_apache_arrow_flatbuf_Field,
     buffers: [ArrowBuffer],
-    nullCount: UInt
+    nullCount: UInt,
+    children: [ArrowData]?,
+    rbLength: UInt
 ) -> Result<ArrowArrayHolder, ArrowError> {
     let arrowField = fromProto(field: field)
-    return makeArrayHolder(arrowField, buffers: buffers, nullCount: nullCount)
+    return makeArrayHolder(arrowField, buffers: buffers, nullCount: nullCount, children: children, rbLength: rbLength)
 }
 
 func makeArrayHolder( // swiftlint:disable:this cyclomatic_complexity
     _ field: ArrowField,
     buffers: [ArrowBuffer],
-    nullCount: UInt
+    nullCount: UInt,
+    children: [ArrowData]?,
+    rbLength: UInt
 ) -> Result<ArrowArrayHolder, ArrowError> {
     let typeId = field.type.id
     switch typeId {
@@ -159,12 +182,12 @@ func makeArrayHolder( // swiftlint:disable:this cyclomatic_complexity
         return makeStringHolder(buffers, nullCount: nullCount)
     case .binary:
         return makeBinaryHolder(buffers, nullCount: nullCount)
-    case .date32:
+    case .date32, .date64:
         return makeDateHolder(field, buffers: buffers, nullCount: nullCount)
-    case .time32:
+    case .time32, .time64:
         return makeTimeHolder(field, buffers: buffers, nullCount: nullCount)
-    case .time64:
-        return makeTimeHolder(field, buffers: buffers, nullCount: nullCount)
+    case .strct:
+        return makeStructHolder(field, buffers: buffers, nullCount: nullCount, children: children!, rbLength: rbLength)
     default:
         return .failure(.unknownType("Type \(typeId) currently not supported"))
     }
@@ -187,7 +210,16 @@ func isFixedPrimitive(_ type: org_apache_arrow_flatbuf_Type_) -> Bool {
     }
 }
 
-func findArrowType( // swiftlint:disable:this cyclomatic_complexity
+func isNestedType(_ type: org_apache_arrow_flatbuf_Type_) -> Bool {
+    switch type {
+    case .struct_:
+        return true
+    default:
+        return false
+    }
+}
+
+func findArrowType( // swiftlint:disable:this cyclomatic_complexity function_body_length
     _ field: org_apache_arrow_flatbuf_Field) -> ArrowType {
     let type = field.typeType
     switch type {
@@ -229,6 +261,17 @@ func findArrowType( // swiftlint:disable:this cyclomatic_complexity
         }
 
         return ArrowTypeTime64(timeType.unit == .microsecond ? .microseconds : .nanoseconds)
+    case .struct_:
+        _ = field.type(type: org_apache_arrow_flatbuf_Struct_.self)!
+        var fields = [ArrowField]()
+        for index in 0..<field.childrenCount {
+            let childField = field.children(at: index)!
+            let childType = findArrowType(childField)
+            fields.append(
+                ArrowField(childField.name ?? "", type: childType, isNullable: childField.nullable))
+        }
+
+        return ArrowNestedType(ArrowType.ArrowStruct, fields: fields)
     default:
         return ArrowType(ArrowType.ArrowUnknown)
     }

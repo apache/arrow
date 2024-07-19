@@ -153,7 +153,8 @@ public class ArrowCImporter {
             }
         }
 
-        switch makeArrayHolder(arrowField, buffers: arrowBuffers, nullCount: nullCount) {
+        switch makeArrayHolder(arrowField, buffers: arrowBuffers,
+                               nullCount: nullCount, children: nil, rbLength: 0) {
         case .success(let holder):
             return .success(ImportArrayHolder(holder, cArrayPtr: cArrayPtr))
         case .failure(let err):
