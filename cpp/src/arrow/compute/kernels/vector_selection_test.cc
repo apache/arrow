@@ -1234,14 +1234,12 @@ void CheckTakeAAA(const std::shared_ptr<DataType>& type, const std::string& valu
 }
 
 // TakeXA = {TakeAAA, TakeCAC}
-void CheckTakeXA(const std::shared_ptr<Array>& values,
-                 const std::shared_ptr<Array>& indices,
-                 const std::shared_ptr<Array>& expected) {
+void DoCheckTakeXA(const std::shared_ptr<Array>& values,
+                   const std::shared_ptr<Array>& indices,
+                   const std::shared_ptr<Array>& expected) {
   auto pool = default_memory_pool();
 
-  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> actual, TakeAAA(*values, *indices));
-  ValidateOutput(actual);
-  AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+  DoCheckTakeAAA(values, indices, expected);
 
   // We check TakeCAC by checking this equality:
   //
@@ -1292,7 +1290,7 @@ void CheckTakeXADictionary(std::shared_ptr<DataType> value_type,
       auto expected,
       DictionaryArray::FromArrays(type, ArrayFromJSON(int8(), expected_indices), dict));
   auto take_indices = ArrayFromJSON(int8(), indices);
-  CheckTakeXA(values, take_indices, expected);
+  DoCheckTakeXA(values, take_indices, expected);
 }
 
 void AssertTakeCAC(const std::shared_ptr<DataType>& type,
