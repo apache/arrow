@@ -26,7 +26,7 @@ tbl$verses <- verses[[1]]
 # c(" a ", "  b  ", "   c   ", ...) increasing padding
 # nchar =   3  5  7  9 11 13 15 17 19 21
 tbl$padded_strings <- stringr::str_pad(letters[1:10], width = 2 * (1:10) + 1, side = "both")
-tbl$some_negative <- tbl$int * (-1)^(seq_len(nrow(tbl))) # nolint
+tbl$some_negative <- tbl$int * (-1)^(1:nrow(tbl)) # nolint
 
 test_that("filter() on is.na()", {
   compare_dplyr_binding(
