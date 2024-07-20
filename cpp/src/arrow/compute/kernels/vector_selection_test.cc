@@ -1268,12 +1268,13 @@ void CheckTakeXA(const std::shared_ptr<Array>& values,
   auto chunked_values3 = std::make_shared<ChunkedArray>(values3);
   std::shared_ptr<Array> concat_indices3;
   {
-    Int32Scalar double_length(static_cast<int32_t>(2 * values->length()));
-    Int32Scalar zero(static_cast<int32_t>(values->length()));
-    Int32Scalar length(static_cast<int32_t>(values->length()));
-    ASSERT_OK_AND_ASSIGN(auto indices_prefix, Add(indices, double_length));
-    ASSERT_OK_AND_ASSIGN(auto indices_middle, Add(indices, zero));
-    ASSERT_OK_AND_ASSIGN(auto indices_suffix, Add(indices, length));
+    auto double_length =
+        MakeScalar(indices->type(), static_cast<int>(2 * values->length()));
+    auto zero = MakeScalar(indices->type(), 0);
+    auto length = MakeScalar(indices->type(), static_cast<int>(values->length()));
+    ASSERT_OK_AND_ASSIGN(auto indices_prefix, Add(indices, *double_length));
+    ASSERT_OK_AND_ASSIGN(auto indices_middle, Add(indices, *zero));
+    ASSERT_OK_AND_ASSIGN(auto indices_suffix, Add(indices, *length));
     auto indices3 = ArrayVector{
         indices_prefix.make_array(),
         indices_middle.make_array(),
