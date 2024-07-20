@@ -435,6 +435,45 @@ arrow::Status CancelFlightInfoRequest::Deserialize(std::string_view serialized,
       "CancelFlightInfoRequest", serialized, out);
 }
 
+std::string CancelFlightInfoResult::ToString() const {
+  std::stringstream ss;
+  ss << "<CancelFlightInfoResult status=" << status << ">";
+  return ss.str();
+}
+
+bool CancelFlightInfoResult::Equals(const CancelFlightInfoResult& other) const {
+  return status == other.status;
+}
+
+arrow::Status CancelFlightInfoResult::SerializeToString(std::string* out) const {
+  return SerializeToProtoString<pb::CancelFlightInfoResult>("CancelFlightInfoResult",
+                                                            *this, out);
+}
+
+arrow::Status CancelFlightInfoResult::Deserialize(std::string_view serialized,
+                                                  CancelFlightInfoResult* out) {
+  return DeserializeProtoString<pb::CancelFlightInfoResult, CancelFlightInfoResult>(
+      "CancelFlightInfoResult", serialized, out);
+}
+
+std::ostream& operator<<(std::ostream& os, CancelStatus status) {
+  switch (status) {
+    case CancelStatus::kUnspecified:
+      os << "Unspecified";
+      break;
+    case CancelStatus::kCancelled:
+      os << "Cancelled";
+      break;
+    case CancelStatus::kCancelling:
+      os << "Cancelling";
+      break;
+    case CancelStatus::kNotCancellable:
+      os << "NotCancellable";
+      break;
+  }
+  return os;
+}
+
 static const char* const SetSessionOptionStatusNames[] = {"Unspecified", "InvalidName",
                                                           "InvalidValue", "Error"};
 static const char* const CloseSessionStatusNames[] = {"Unspecified", "Closed", "Closing",
@@ -943,45 +982,6 @@ arrow::Status Result::SerializeToString(std::string* out) const {
 
 arrow::Status Result::Deserialize(std::string_view serialized, Result* out) {
   return DeserializeProtoString<pb::Result, Result>("Result", serialized, out);
-}
-
-std::string CancelFlightInfoResult::ToString() const {
-  std::stringstream ss;
-  ss << "<CancelFlightInfoResult status=" << status << ">";
-  return ss.str();
-}
-
-bool CancelFlightInfoResult::Equals(const CancelFlightInfoResult& other) const {
-  return status == other.status;
-}
-
-arrow::Status CancelFlightInfoResult::SerializeToString(std::string* out) const {
-  return SerializeToProtoString<pb::CancelFlightInfoResult>("CancelFlightInfoResult",
-                                                            *this, out);
-}
-
-arrow::Status CancelFlightInfoResult::Deserialize(std::string_view serialized,
-                                                  CancelFlightInfoResult* out) {
-  return DeserializeProtoString<pb::CancelFlightInfoResult, CancelFlightInfoResult>(
-      "CancelFlightInfoResult", serialized, out);
-}
-
-std::ostream& operator<<(std::ostream& os, CancelStatus status) {
-  switch (status) {
-    case CancelStatus::kUnspecified:
-      os << "Unspecified";
-      break;
-    case CancelStatus::kCancelled:
-      os << "Cancelled";
-      break;
-    case CancelStatus::kCancelling:
-      os << "Cancelling";
-      break;
-    case CancelStatus::kNotCancellable:
-      os << "NotCancellable";
-      break;
-  }
-  return os;
 }
 
 //------------------------------------------------------------

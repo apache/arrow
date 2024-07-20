@@ -376,52 +376,6 @@ struct ARROW_FLIGHT_EXPORT Result : public internal::BaseType<Result> {
   static arrow::Status Deserialize(std::string_view serialized, Result* out);
 };
 
-enum class CancelStatus {
-  /// The cancellation status is unknown. Servers should avoid using
-  /// this value (send a kNotCancellable if the requested FlightInfo
-  /// is not known). Clients can retry the request.
-  kUnspecified = 0,
-  /// The cancellation request is complete. Subsequent requests with
-  /// the same payload may return kCancelled or a kNotCancellable error.
-  kCancelled = 1,
-  /// The cancellation request is in progress. The client may retry
-  /// the cancellation request.
-  kCancelling = 2,
-  // The FlightInfo is not cancellable. The client should not retry the
-  // cancellation request.
-  kNotCancellable = 3,
-};
-
-/// \brief The result of the CancelFlightInfo action.
-struct ARROW_FLIGHT_EXPORT CancelFlightInfoResult
-    : public internal::BaseType<CancelFlightInfoResult> {
-  CancelStatus status = CancelStatus::kUnspecified;
-
-  CancelFlightInfoResult() = default;
-  CancelFlightInfoResult(CancelStatus status)  // NOLINT runtime/explicit
-      : status(status) {}
-
-  std::string ToString() const;
-  bool Equals(const CancelFlightInfoResult& other) const;
-
-  using SuperT::Deserialize;
-  using SuperT::SerializeToString;
-
-  /// \brief Serialize this message to its wire-format representation.
-  ///
-  /// Use `SerializeToString()` if you want a Result-returning version.
-  arrow::Status SerializeToString(std::string* out) const;
-
-  /// \brief Deserialize this message from its wire-format representation.
-  ///
-  /// Use `Deserialize(serialized)` if you want a Result-returning version.
-  static arrow::Status Deserialize(std::string_view serialized,
-                                   CancelFlightInfoResult* out);
-};
-
-ARROW_FLIGHT_EXPORT
-std::ostream& operator<<(std::ostream& os, CancelStatus status);
-
 /// \brief A request to retrieve or generate a dataset
 struct ARROW_FLIGHT_EXPORT FlightDescriptor
     : public internal::BaseType<FlightDescriptor> {
@@ -896,6 +850,52 @@ struct ARROW_FLIGHT_EXPORT CancelFlightInfoRequest
   static arrow::Status Deserialize(std::string_view serialized,
                                    CancelFlightInfoRequest* out);
 };
+
+enum class CancelStatus {
+  /// The cancellation status is unknown. Servers should avoid using
+  /// this value (send a kNotCancellable if the requested FlightInfo
+  /// is not known). Clients can retry the request.
+  kUnspecified = 0,
+  /// The cancellation request is complete. Subsequent requests with
+  /// the same payload may return kCancelled or a kNotCancellable error.
+  kCancelled = 1,
+  /// The cancellation request is in progress. The client may retry
+  /// the cancellation request.
+  kCancelling = 2,
+  // The FlightInfo is not cancellable. The client should not retry the
+  // cancellation request.
+  kNotCancellable = 3,
+};
+
+/// \brief The result of the CancelFlightInfo action.
+struct ARROW_FLIGHT_EXPORT CancelFlightInfoResult
+    : public internal::BaseType<CancelFlightInfoResult> {
+  CancelStatus status = CancelStatus::kUnspecified;
+
+  CancelFlightInfoResult() = default;
+  CancelFlightInfoResult(CancelStatus status)  // NOLINT runtime/explicit
+      : status(status) {}
+
+  std::string ToString() const;
+  bool Equals(const CancelFlightInfoResult& other) const;
+
+  using SuperT::Deserialize;
+  using SuperT::SerializeToString;
+
+  /// \brief Serialize this message to its wire-format representation.
+  ///
+  /// Use `SerializeToString()` if you want a Result-returning version.
+  arrow::Status SerializeToString(std::string* out) const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  ///
+  /// Use `Deserialize(serialized)` if you want a Result-returning version.
+  static arrow::Status Deserialize(std::string_view serialized,
+                                   CancelFlightInfoResult* out);
+};
+
+ARROW_FLIGHT_EXPORT
+std::ostream& operator<<(std::ostream& os, CancelStatus status);
 
 /// \brief Variant supporting all possible value types for {Set,Get}SessionOptions
 ///
