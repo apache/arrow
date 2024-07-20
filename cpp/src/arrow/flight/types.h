@@ -376,6 +376,44 @@ struct ARROW_FLIGHT_EXPORT Result : public internal::BaseType<Result> {
   static arrow::Status Deserialize(std::string_view serialized, Result* out);
 };
 
+/// \brief Schema result returned after a schema request RPC
+struct ARROW_FLIGHT_EXPORT SchemaResult : public internal::BaseType<SchemaResult> {
+ public:
+  SchemaResult() = default;
+  explicit SchemaResult(std::string schema) : raw_schema_(std::move(schema)) {}
+
+  /// \brief Factory method to construct a SchemaResult.
+  static arrow::Result<std::unique_ptr<SchemaResult>> Make(const Schema& schema);
+
+  /// \brief return schema
+  /// \param[in,out] dictionary_memo for dictionary bookkeeping, will
+  /// be modified
+  /// \return Arrow result with the reconstructed Schema
+  arrow::Result<std::shared_ptr<Schema>> GetSchema(
+      ipc::DictionaryMemo* dictionary_memo) const;
+
+  const std::string& serialized_schema() const { return raw_schema_; }
+
+  std::string ToString() const;
+  bool Equals(const SchemaResult& other) const;
+
+  using SuperT::Deserialize;
+  using SuperT::SerializeToString;
+
+  /// \brief Serialize this message to its wire-format representation.
+  ///
+  /// Use `SerializeToString()` if you want a Result-returning version.
+  arrow::Status SerializeToString(std::string* out) const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  ///
+  /// Use `Deserialize(serialized)` if you want a Result-returning version.
+  static arrow::Status Deserialize(std::string_view serialized, SchemaResult* out);
+
+ private:
+  std::string raw_schema_;
+};
+
 /// \brief A request to retrieve or generate a dataset
 struct ARROW_FLIGHT_EXPORT FlightDescriptor
     : public internal::BaseType<FlightDescriptor> {
@@ -622,44 +660,6 @@ struct ARROW_FLIGHT_EXPORT FlightPayload {
 
   /// \brief Check that the payload can be written to the wire.
   Status Validate() const;
-};
-
-/// \brief Schema result returned after a schema request RPC
-struct ARROW_FLIGHT_EXPORT SchemaResult : public internal::BaseType<SchemaResult> {
- public:
-  SchemaResult() = default;
-  explicit SchemaResult(std::string schema) : raw_schema_(std::move(schema)) {}
-
-  /// \brief Factory method to construct a SchemaResult.
-  static arrow::Result<std::unique_ptr<SchemaResult>> Make(const Schema& schema);
-
-  /// \brief return schema
-  /// \param[in,out] dictionary_memo for dictionary bookkeeping, will
-  /// be modified
-  /// \return Arrow result with the reconstructed Schema
-  arrow::Result<std::shared_ptr<Schema>> GetSchema(
-      ipc::DictionaryMemo* dictionary_memo) const;
-
-  const std::string& serialized_schema() const { return raw_schema_; }
-
-  std::string ToString() const;
-  bool Equals(const SchemaResult& other) const;
-
-  using SuperT::Deserialize;
-  using SuperT::SerializeToString;
-
-  /// \brief Serialize this message to its wire-format representation.
-  ///
-  /// Use `SerializeToString()` if you want a Result-returning version.
-  arrow::Status SerializeToString(std::string* out) const;
-
-  /// \brief Deserialize this message from its wire-format representation.
-  ///
-  /// Use `Deserialize(serialized)` if you want a Result-returning version.
-  static arrow::Status Deserialize(std::string_view serialized, SchemaResult* out);
-
- private:
-  std::string raw_schema_;
 };
 
 /// \brief The access coordinates for retrieval of a dataset, returned by

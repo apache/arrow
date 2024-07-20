@@ -226,38 +226,6 @@ Status FlightPayload::Validate() const {
   return Status::OK();
 }
 
-arrow::Result<std::shared_ptr<Schema>> SchemaResult::GetSchema(
-    ipc::DictionaryMemo* dictionary_memo) const {
-  // Create a non-owned Buffer to avoid copying
-  io::BufferReader schema_reader(std::make_shared<Buffer>(raw_schema_));
-  return ipc::ReadSchema(&schema_reader, dictionary_memo);
-}
-
-arrow::Result<std::unique_ptr<SchemaResult>> SchemaResult::Make(const Schema& schema) {
-  std::string schema_in;
-  RETURN_NOT_OK(internal::SchemaToString(schema, &schema_in));
-  return std::make_unique<SchemaResult>(std::move(schema_in));
-}
-
-std::string SchemaResult::ToString() const {
-  return "<SchemaResult raw_schema=(serialized)>";
-}
-
-bool SchemaResult::Equals(const SchemaResult& other) const {
-  return raw_schema_ == other.raw_schema_;
-}
-
-arrow::Status SchemaResult::SerializeToString(std::string* out) const {
-  return SerializeToProtoString<pb::SchemaResult>("SchemaResult", *this, out);
-}
-
-arrow::Status SchemaResult::Deserialize(std::string_view serialized, SchemaResult* out) {
-  pb::SchemaResult pb_schema_result;
-  RETURN_NOT_OK(ParseFromString("SchemaResult", serialized, &pb_schema_result));
-  *out = SchemaResult{pb_schema_result.schema()};
-  return Status::OK();
-}
-
 arrow::Status FlightDescriptor::SerializeToString(std::string* out) const {
   return SerializeToProtoString<pb::FlightDescriptor>("FlightDescriptor", *this, out);
 }
@@ -982,6 +950,38 @@ arrow::Status Result::SerializeToString(std::string* out) const {
 
 arrow::Status Result::Deserialize(std::string_view serialized, Result* out) {
   return DeserializeProtoString<pb::Result, Result>("Result", serialized, out);
+}
+
+arrow::Result<std::shared_ptr<Schema>> SchemaResult::GetSchema(
+    ipc::DictionaryMemo* dictionary_memo) const {
+  // Create a non-owned Buffer to avoid copying
+  io::BufferReader schema_reader(std::make_shared<Buffer>(raw_schema_));
+  return ipc::ReadSchema(&schema_reader, dictionary_memo);
+}
+
+arrow::Result<std::unique_ptr<SchemaResult>> SchemaResult::Make(const Schema& schema) {
+  std::string schema_in;
+  RETURN_NOT_OK(internal::SchemaToString(schema, &schema_in));
+  return std::make_unique<SchemaResult>(std::move(schema_in));
+}
+
+std::string SchemaResult::ToString() const {
+  return "<SchemaResult raw_schema=(serialized)>";
+}
+
+bool SchemaResult::Equals(const SchemaResult& other) const {
+  return raw_schema_ == other.raw_schema_;
+}
+
+arrow::Status SchemaResult::SerializeToString(std::string* out) const {
+  return SerializeToProtoString<pb::SchemaResult>("SchemaResult", *this, out);
+}
+
+arrow::Status SchemaResult::Deserialize(std::string_view serialized, SchemaResult* out) {
+  pb::SchemaResult pb_schema_result;
+  RETURN_NOT_OK(ParseFromString("SchemaResult", serialized, &pb_schema_result));
+  *out = SchemaResult{pb_schema_result.schema()};
+  return Status::OK();
 }
 
 //------------------------------------------------------------
