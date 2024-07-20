@@ -46,7 +46,10 @@
 #include <aws/s3/S3Client.h>
 #include <aws/s3/model/CreateBucketRequest.h>
 #include <aws/s3/model/GetObjectRequest.h>
+#include <aws/s3/model/ListObjectsV2Request.h>
+#include <aws/s3/model/PutBucketVersioningRequest.h>
 #include <aws/s3/model/PutObjectRequest.h>
+#include <aws/s3/model/VersioningConfiguration.h>
 #include <aws/sts/STSClient.h>
 
 #include "arrow/filesystem/filesystem.h"
@@ -245,6 +248,33 @@ void AssertObjectContents(Aws::S3::S3Client* client, const std::string& bucket,
   req.SetKey(ToAwsString(key));
   ARROW_AWS_ASSIGN_OR_FAIL(auto result, client->GetObject(req));
   AssertGetObject(result, expected);
+}
+
+void AssertListObjects(Aws::S3::S3Client* client, const std::string& bucket,
+                       const std::string& key, const std::vector<std::string>& expected) {
+  Aws::S3::Model::ListObjectsV2Request req;
+  req.WithBucket(bucket).WithPrefix(key);
+
+  auto outcome = client->ListObjectsV2(req);
+  ASSERT_TRUE(outcome.IsSuccess());
+
+  const auto& result = outcome.GetResult();
+  std::vector<std::string> actual;
+  for (const auto& object : result.GetContents()) {
+    actual.push_back(object.GetKey());
+  }
+
+  // Sort the vectors for comparison
+  std::vector<std::string> sorted_actual = actual;
+  std::vector<std::string> sorted_expected = expected;
+
+  std::sort(sorted_actual.begin(), sorted_actual.end());
+  std::sort(sorted_expected.begin(), sorted_expected.end());
+
+  ASSERT_EQ(sorted_actual.size(), sorted_expected.size());
+  for (size_t i = 0; i < sorted_expected.size(); ++i) {
+    ASSERT_EQ(sorted_actual[i], sorted_expected[i]);
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////
@@ -1084,6 +1114,74 @@ TEST_F(TestS3FS, DeleteDirContentsAsync) {
   AssertFileInfo(infos[1], "bucket/otherdir", FileType::Directory);
   AssertFileInfo(infos[2], "bucket/somedir", FileType::Directory);
   AssertFileInfo(infos[3], "bucket/somefile", FileType::File);
+}
+
+TEST_F(TestS3FS, DeleteFileWithMarker) {
+  FileSelector select;
+  select.base_dir = "bucket/somedir/subdir";
+  select.recursive = false;
+  std::vector<FileInfo> infos;
+
+  // Expected files before deletion
+  std::vector<std::string> expected_before = {
+      "somedir/subdir/subfile",
+  };
+
+  // Verify the list of objects before deletion
+  AssertListObjects(client_.get(), "bucket", "somedir/subdir", expected_before);
+
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
+  ASSERT_EQ(infos.size(), 1);
+
+  ASSERT_OK(fs_->DeleteFile("bucket/somedir/subdir/subfile"));
+
+  // Expected files after deletion
+  std::vector<std::string> expected_after = {
+      "somedir/subdir/",
+  };
+
+  // Verify the list of objects after deletion
+  AssertListObjects(client_.get(), "bucket", "somedir/subdir", expected_after);
+
+  // Verify the list of objects with GetFileInfo after deletion.
+  // GetFileInfo should return an empty list since the file is deleted. This is because
+  // the directory still exists.
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
+  ASSERT_EQ(infos.size(), 0);
+}
+
+TEST_F(TestS3FS, DeleteWithoutMarker) {
+  options_.create_missing_dirs_on_delete = false;
+  MakeFileSystem();
+
+  FileSelector select;
+  select.base_dir = "bucket/somedir/subdir";
+  select.recursive = false;
+  std::vector<FileInfo> infos;
+
+  // Expected files before deletion
+  std::vector<std::string> expected_before = {
+      "somedir/subdir/subfile",
+  };
+
+  // Verify the list of objects before deletion
+  AssertListObjects(client_.get(), "bucket", "somedir/subdir", expected_before);
+
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
+  ASSERT_EQ(infos.size(), 1);
+
+  ASSERT_OK(fs_->DeleteFile("bucket/somedir/subdir/subfile"));
+
+  // Expected files after deletion
+  std::vector<std::string> expected_after = {};
+
+  // Verify the list of objects after deletion
+  AssertListObjects(client_.get(), "bucket", "somedir/subdir", expected_after);
+
+  // Verify the list of objects with GetFileInfo after deletion.
+  // GetFileInfo should return an IOError since the file is deleted. This is because the
+  // directory does not exist.
+  ASSERT_RAISES(IOError, fs_->GetFileInfo(select));
 }
 
 TEST_F(TestS3FS, CopyFile) {
