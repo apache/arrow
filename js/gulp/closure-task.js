@@ -52,7 +52,7 @@ export const closureTask = ((cache) => memoizeTask(cache, async function closure
     for (const publicModulePath of publicModulePaths(srcAbsolute)) {
         exportedImports.push({
             publicModulePath,
-            exports_: getPublicExportedNames(await import(publicModulePath))
+            exports_: getPublicExportedNames(await import(`file://${publicModulePath}`))
         });
     }
 
