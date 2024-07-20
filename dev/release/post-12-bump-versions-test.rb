@@ -358,8 +358,15 @@ class PostBumpVersionsTest < Test::Unit::TestCase
   def test_deb_package_names
     omit_on_release_branch unless bump_type.nil?
     current_commit = git_current_commit
-    stdout = bump_versions("DEB_PACKAGE_NAMES")
-    changes = parse_patch(git("log", "-p", "#{current_commit}.."))
+    stdout = bump_versions("VERSION_POST_TAG", "DEB_PACKAGE_NAMES")
+    log = git("log", "-p", "#{current_commit}..")
+    # Remove a commit for VERSION_POST_TAG
+    if log.scan(/^commit/).size == 1
+      log = ""
+    else
+      log.gsub!(/\A(commit.*?)^commit .*\z/um, "\\1")
+    end
+    changes = parse_patch(log)
     sampled_changes = changes.collect do |change|
       first_hunk = change[:hunks][0]
       first_removed_line = first_hunk.find { |line| line.start_with?("-") }
