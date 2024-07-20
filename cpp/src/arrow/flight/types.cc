@@ -151,6 +151,39 @@ Status MakeFlightError(FlightStatusCode code, std::string message,
                        std::make_shared<FlightStatusDetail>(code, std::move(extra_info)));
 }
 
+static std::ostream& operator<<(std::ostream& os, std::vector<std::string> values) {
+  os << '[';
+  std::string sep = "";
+  for (const auto& v : values) {
+    os << sep << std::quoted(v);
+    sep = ", ";
+  }
+  os << ']';
+
+  return os;
+}
+
+template <typename T>
+static std::ostream& operator<<(std::ostream& os, std::map<std::string, T> m) {
+  os << '{';
+  std::string sep = "";
+  if constexpr (std::is_convertible_v<T, std::string_view>) {
+    // std::string, char*, std::string_view
+    for (const auto& [k, v] : m) {
+      os << sep << '[' << k << "]: " << std::quoted(v) << '"';
+      sep = ", ";
+    }
+  } else {
+    for (const auto& [k, v] : m) {
+      os << sep << '[' << k << "]: " << v;
+      sep = ", ";
+    }
+  }
+  os << '}';
+
+  return os;
+}
+
 //------------------------------------------------------------
 // Wrapper types for Flight RPC protobuf messages
 
@@ -428,42 +461,9 @@ std::ostream& operator<<(std::ostream& os, CancelStatus status) {
   return os;
 }
 
-static const char* const SetSessionOptionStatusNames[] = {"Unspecified", "InvalidName",
-                                                          "InvalidValue", "Error"};
-static const char* const CloseSessionStatusNames[] = {"Unspecified", "Closed", "Closing",
-                                                      "NotClosable"};
+// Session management messages
 
-// Helpers for stringifying maps containing various types
-std::string ToString(const SetSessionOptionErrorValue& error_value) {
-  return SetSessionOptionStatusNames[static_cast<int>(error_value)];
-}
-
-std::ostream& operator<<(std::ostream& os,
-                         const SetSessionOptionErrorValue& error_value) {
-  os << ToString(error_value);
-  return os;
-}
-
-std::string ToString(const CloseSessionStatus& status) {
-  return CloseSessionStatusNames[static_cast<int>(status)];
-}
-
-std::ostream& operator<<(std::ostream& os, const CloseSessionStatus& status) {
-  os << ToString(status);
-  return os;
-}
-
-std::ostream& operator<<(std::ostream& os, std::vector<std::string> values) {
-  os << '[';
-  std::string sep = "";
-  for (const auto& v : values) {
-    os << sep << std::quoted(v);
-    sep = ", ";
-  }
-  os << ']';
-
-  return os;
-}
+// SessionOptionValue
 
 std::ostream& operator<<(std::ostream& os, const SessionOptionValue& v) {
   if (std::holds_alternative<std::monostate>(v)) {
@@ -483,33 +483,6 @@ std::ostream& operator<<(std::ostream& os, const SessionOptionValue& v) {
   return os;
 }
 
-std::ostream& operator<<(std::ostream& os, const SetSessionOptionsResult::Error& e) {
-  os << '{' << e.value << '}';
-  return os;
-}
-
-template <typename T>
-std::ostream& operator<<(std::ostream& os, std::map<std::string, T> m) {
-  os << '{';
-  std::string sep = "";
-  if constexpr (std::is_convertible_v<T, std::string_view>) {
-    // std::string, char*, std::string_view
-    for (const auto& [k, v] : m) {
-      os << sep << '[' << k << "]: " << std::quoted(v) << '"';
-      sep = ", ";
-    }
-  } else {
-    for (const auto& [k, v] : m) {
-      os << sep << '[' << k << "]: " << v;
-      sep = ", ";
-    }
-  }
-  os << '}';
-
-  return os;
-}
-
-namespace {
 static bool CompareSessionOptionMaps(const std::map<std::string, SessionOptionValue>& a,
                                      const std::map<std::string, SessionOptionValue>& b) {
   if (a.size() != b.size()) {
@@ -530,15 +503,30 @@ static bool CompareSessionOptionMaps(const std::map<std::string, SessionOptionVa
   }
   return true;
 }
-}  // namespace
+
+// SetSessionOptionErrorValue
+
+std::string ToString(const SetSessionOptionErrorValue& error_value) {
+  static constexpr const char* SetSessionOptionStatusNames[] = {
+      "Unspecified",
+      "InvalidName",
+      "InvalidValue",
+      "Error",
+  };
+  return SetSessionOptionStatusNames[static_cast<int>(error_value)];
+}
+
+std::ostream& operator<<(std::ostream& os,
+                         const SetSessionOptionErrorValue& error_value) {
+  os << ToString(error_value);
+  return os;
+}
 
 // SetSessionOptionsRequest
 
 std::string SetSessionOptionsRequest::ToString() const {
   std::stringstream ss;
-
   ss << "<SetSessionOptionsRequest session_options=" << session_options << '>';
-
   return ss.str();
 }
 
@@ -559,11 +547,14 @@ arrow::Status SetSessionOptionsRequest::Deserialize(std::string_view serialized,
 
 // SetSessionOptionsResult
 
+std::ostream& operator<<(std::ostream& os, const SetSessionOptionsResult::Error& e) {
+  os << '{' << e.value << '}';
+  return os;
+}
+
 std::string SetSessionOptionsResult::ToString() const {
   std::stringstream ss;
-
   ss << "<SetSessionOptionsResult errors=" << errors << '>';
-
   return ss.str();
 }
 
@@ -646,13 +637,28 @@ arrow::Status CloseSessionRequest::Deserialize(std::string_view serialized,
       "CloseSessionRequest", serialized, out);
 }
 
+// CloseSessionStatus
+
+std::string ToString(const CloseSessionStatus& status) {
+  static constexpr const char* CloseSessionStatusNames[] = {
+      "Unspecified",
+      "Closed",
+      "Closing",
+      "NotClosable",
+  };
+  return CloseSessionStatusNames[static_cast<int>(status)];
+}
+
+std::ostream& operator<<(std::ostream& os, const CloseSessionStatus& status) {
+  os << ToString(status);
+  return os;
+}
+
 // CloseSessionResult
 
 std::string CloseSessionResult::ToString() const {
   std::stringstream ss;
-
   ss << "<CloseSessionResult status=" << status << '>';
-
   return ss.str();
 }
 
@@ -669,6 +675,8 @@ arrow::Status CloseSessionResult::Deserialize(std::string_view serialized,
   return DeserializeProtoString<pb::CloseSessionResult, CloseSessionResult>(
       "CloseSessionResult", serialized, out);
 }
+
+// Ticket
 
 std::string Ticket::ToString() const {
   std::stringstream ss;

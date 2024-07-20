@@ -899,52 +899,17 @@ struct ARROW_FLIGHT_EXPORT FlightPayload {
   Status Validate() const;
 };
 
+// A wrapper around arrow.flight.protocol.PutResult is not defined
+
+// Session management messages
+
 /// \brief Variant supporting all possible value types for {Set,Get}SessionOptions
 ///
 /// By convention, an attempt to set a valueless (std::monostate) SessionOptionValue
 /// should attempt to unset or clear the named option value on the server.
 using SessionOptionValue = std::variant<std::monostate, std::string, bool, int64_t,
                                         double, std::vector<std::string>>;
-
-/// \brief The result of setting a session option.
-enum class SetSessionOptionErrorValue : int8_t {
-  /// \brief The status of setting the option is unknown.
-  ///
-  /// Servers should avoid using this value (send a NOT_FOUND error if the requested
-  /// session is not known). Clients can retry the request.
-  kUnspecified,
-  /// \brief The given session option name is invalid.
-  kInvalidName,
-  /// \brief The session option value or type is invalid.
-  kInvalidValue,
-  /// \brief The session option cannot be set.
-  kError
-};
-std::string ToString(const SetSessionOptionErrorValue& error_value);
-std::ostream& operator<<(std::ostream& os, const SetSessionOptionErrorValue& error_value);
-
-/// \brief The result of closing a session.
-enum class CloseSessionStatus : int8_t {
-  // \brief The session close status is unknown.
-  //
-  // Servers should avoid using this value (send a NOT_FOUND error if the requested
-  // session is not known). Clients can retry the request.
-  kUnspecified,
-  // \brief The session close request is complete.
-  //
-  // Subsequent requests with the same session produce a NOT_FOUND error.
-  kClosed,
-  // \brief The session close request is in progress.
-  //
-  // The client may retry the request.
-  kClosing,
-  // \brief The session is not closeable.
-  //
-  // The client should not retry the request.
-  kNotClosable
-};
-std::string ToString(const CloseSessionStatus& status);
-std::ostream& operator<<(std::ostream& os, const CloseSessionStatus& status);
+std::ostream& operator<<(std::ostream& os, const SessionOptionValue& v);
 
 /// \brief A request to set a set of session options by name/value.
 struct ARROW_FLIGHT_EXPORT SetSessionOptionsRequest
@@ -973,6 +938,23 @@ struct ARROW_FLIGHT_EXPORT SetSessionOptionsRequest
   static arrow::Status Deserialize(std::string_view serialized,
                                    SetSessionOptionsRequest* out);
 };
+
+/// \brief The result of setting a session option.
+enum class SetSessionOptionErrorValue : int8_t {
+  /// \brief The status of setting the option is unknown.
+  ///
+  /// Servers should avoid using this value (send a NOT_FOUND error if the requested
+  /// session is not known). Clients can retry the request.
+  kUnspecified,
+  /// \brief The given session option name is invalid.
+  kInvalidName,
+  /// \brief The session option value or type is invalid.
+  kInvalidValue,
+  /// \brief The session option cannot be set.
+  kError
+};
+std::string ToString(const SetSessionOptionErrorValue& error_value);
+std::ostream& operator<<(std::ostream& os, const SetSessionOptionErrorValue& error_value);
 
 /// \brief The result(s) of setting session option(s).
 struct ARROW_FLIGHT_EXPORT SetSessionOptionsResult
@@ -1085,6 +1067,29 @@ struct ARROW_FLIGHT_EXPORT CloseSessionRequest
   /// Use `Deserialize(serialized)` if you want a Result-returning version.
   static arrow::Status Deserialize(std::string_view serialized, CloseSessionRequest* out);
 };
+
+/// \brief The result of closing a session.
+enum class CloseSessionStatus : int8_t {
+  // \brief The session close status is unknown.
+  //
+  // Servers should avoid using this value (send a NOT_FOUND error if the requested
+  // session is not known). Clients can retry the request.
+  kUnspecified,
+  // \brief The session close request is complete.
+  //
+  // Subsequent requests with the same session produce a NOT_FOUND error.
+  kClosed,
+  // \brief The session close request is in progress.
+  //
+  // The client may retry the request.
+  kClosing,
+  // \brief The session is not closeable.
+  //
+  // The client should not retry the request.
+  kNotClosable
+};
+std::string ToString(const CloseSessionStatus& status);
+std::ostream& operator<<(std::ostream& os, const CloseSessionStatus& status);
 
 /// \brief The result of attempting to close the client session.
 struct ARROW_FLIGHT_EXPORT CloseSessionResult
