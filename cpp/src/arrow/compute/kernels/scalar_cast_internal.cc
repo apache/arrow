@@ -279,8 +279,10 @@ void AddZeroCopyCast(Type::type in_type_id, InputType in_type, OutputType out_ty
 }
 
 static bool CanCastFromDictionary(Type::type type_id) {
+  /// TODO(GH-43010): add is_binary_view_like() here once array_take
+  /// can handle string-views
   return (is_primitive(type_id) || is_base_binary_like(type_id) ||
-          is_fixed_size_binary(type_id) || is_binary_view_like(type_id));
+          is_fixed_size_binary(type_id));
 }
 
 void AddCommonCasts(Type::type out_type_id, OutputType out_ty, CastFunction* func) {
