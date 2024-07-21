@@ -205,8 +205,6 @@ TEST(Cast, CanCast) {
     ExpectCanCast(from_base_binary, {boolean()});
     ExpectCanCast(from_base_binary, kNumericTypes);
     ExpectCanCast(from_base_binary, kBaseBinaryTypes);
-    // XXX: add float16 to kNumericTypes
-    ExpectCanCast(from_base_binary, {float16()});
     ExpectCanCast(dictionary(int64(), from_base_binary), {from_base_binary});
 
     // any cast which is valid for the dictionary is valid for the DictionaryArray
