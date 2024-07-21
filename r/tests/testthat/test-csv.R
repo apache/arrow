@@ -738,5 +738,14 @@ test_that("read_csv2_arrow correctly parses comma decimals", {
   tf <- tempfile()
   writeLines("x;y\n1,2;c", con = tf)
   expect_equal(read_csv2_arrow(tf), tibble(x = 1.2, y = "c"))
+})
 
+test_that("lazy readr can roundtrip to table", {
+  tf <- tempfile()
+  on.exit(unlink(tf))
+
+  write.csv(tbl, tf, row.names = FALSE)
+  tab <- arrow::as_arrow_table(readr::read_csv(tf, lazy = TRUE, show_col_types = FALSE))
+
+  expect_equal(tbl, as_tibble(tab))
 })

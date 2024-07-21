@@ -148,7 +148,7 @@ inline SEXP utf8_strings(SEXP x) {
 
     for (R_xlen_t i = 0; i < n; i++, ++p_x) {
       SEXP s = *p_x;
-      if (s != NA_STRING) {
+      if (s != NA_STRING && ALTREP(s)) {
         SET_STRING_ELT(x, i, Rf_mkCharCE(Rf_translateCharUTF8(s), CE_UTF8));
       }
     }
