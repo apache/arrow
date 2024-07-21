@@ -16,7 +16,7 @@
 # under the License.
 
 ARG arch=amd64
-FROM ${arch}/alpine:3.16
+FROM ${arch}/alpine:3.20.1
 
 RUN apk add \
         bash \
