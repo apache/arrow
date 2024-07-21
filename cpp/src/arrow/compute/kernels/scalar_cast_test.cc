@@ -205,7 +205,11 @@ TEST(Cast, CanCast) {
     ExpectCanCast(from_base_binary, {boolean()});
     ExpectCanCast(from_base_binary, kNumericTypes);
     ExpectCanCast(from_base_binary, kBaseBinaryTypes);
-    ExpectCanCast(dictionary(int64(), from_base_binary), {from_base_binary});
+    /// TODO(GH-43010): include is_binary_view_like() types here once array_take
+    /// can handle string-views
+    if (!is_binary_view_like(*from_base_binary)) {
+      ExpectCanCast(dictionary(int64(), from_base_binary), {from_base_binary});
+    }
 
     // any cast which is valid for the dictionary is valid for the DictionaryArray
     ExpectCanCast(dictionary(uint32(), from_base_binary), kBaseBinaryTypes);
