@@ -867,10 +867,10 @@ class FileMetaData::FileMetaDataImpl {
     return out;
   }
 
-  std::string SerializeUnencrypted(bool scrub, bool json) const {
+  std::string SerializeUnencrypted(bool scrub, bool debug) const {
     auto md = *metadata_;
     if (scrub) Scrub(&md);
-    if (json) {
+    if (debug) {
       std::ostringstream ss;
       md.printTo(ss);
       return ss.str();

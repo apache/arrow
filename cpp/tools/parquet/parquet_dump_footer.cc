@@ -95,7 +95,7 @@ static int PrintHelp() {
   std::cerr << R"(Usage: parquet-dump-footer
   -h|--help    Print help and exit
   --no-scrub   Do not scrub potentially confidential metadata
-  --json       Output JSON instead of binary
+  --debug      Output text represenation of footer for inspection
   --in <uri>   Input file (required): must be an URI or an absolute local path
   --out <path> Output file (optional, default stdout)
 
