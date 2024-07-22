@@ -206,7 +206,7 @@ public class OpaqueType extends ArrowType.ExtensionType {
 
     private RuntimeException unsupported(ArrowType type) {
       throw new UnsupportedOperationException(
-          "UnknownType#getUnderlyingVector is not supported for storage type: " + type);
+          "OpaqueType#getUnderlyingVector is not supported for storage type: " + type);
     }
 
     @Override
