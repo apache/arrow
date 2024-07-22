@@ -2120,7 +2120,7 @@ TEST(TestTakeKernelWithRecordBatch, TakeRecordBatch) {
   ])");
 }
 
-TEST(TestTakeKernelWithChunkedArray, TakeChunkedArray) {
+TEST(TestTakeKernelWithChunkedIndices, TakeChunkedArray) {
   for (auto& ty : {boolean(), int8(), uint64()}) {
     AssertTakeCAC(ty, {"[]"}, "[]", {"[]"});
     AssertTakeCCC(ty, {}, {}, {});
