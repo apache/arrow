@@ -2080,8 +2080,7 @@ TEST_F(TestPermutationsWithTake, InvertPermutation) {
       if (inverse == nullptr) {
         break;
       }
-      ASSERT_OK_AND_ASSIGN(auto result, DoTakeAAA(inverse, permutation));
-      AssertArraysEqual(*result, *identity);
+      DoAssertTakeAAA(inverse, permutation, identity);
     }
   }
 }
