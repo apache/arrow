@@ -18,6 +18,7 @@ package org.apache.arrow.flight;
 
 import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
 import static org.apache.arrow.flight.Location.forGrpcInsecure;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.common.collect.ImmutableList;
 import java.util.concurrent.ExecutorService;
@@ -33,7 +34,6 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -181,7 +181,7 @@ public class TestBackPressure {
           root.clear();
         }
         long expected = wait - epsilon;
-        Assertions.assertTrue(
+        assertTrue(
             bpStrategy.getSleepTime() > expected,
             String.format(
                 "Expected a sleep of at least %dms but only slept for %d",

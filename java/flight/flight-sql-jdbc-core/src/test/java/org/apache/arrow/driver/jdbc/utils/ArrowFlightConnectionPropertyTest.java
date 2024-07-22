@@ -17,71 +17,76 @@
 package org.apache.arrow.driver.jdbc.utils;
 
 import static org.apache.arrow.util.AutoCloseables.close;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.mockito.MockitoAnnotations.openMocks;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Assume;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameter;
-import org.junit.runners.Parameterized.Parameters;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-@RunWith(Parameterized.class)
+@ExtendWith(MockitoExtension.class)
 public final class ArrowFlightConnectionPropertyTest {
 
   @Mock public Properties properties;
 
   private AutoCloseable mockitoResource;
 
-  @Parameter public ArrowFlightConnectionProperty arrowFlightConnectionProperty;
+  public ArrowFlightConnectionProperty arrowFlightConnectionProperty;
 
-  @Before
+  @BeforeEach
   public void setUp() {
     mockitoResource = openMocks(this);
   }
 
-  @After
+  @AfterEach
   public void tearDown() throws Exception {
     close(mockitoResource);
   }
 
-  @Test
-  public void testWrapIsUnsupported() {
+  @ParameterizedTest
+  @MethodSource("provideParameters")
+  public void testWrapIsUnsupported(ArrowFlightConnectionProperty property) {
+    this.arrowFlightConnectionProperty = property;
     ThrowableAssertionUtils.simpleAssertThrowableClass(
         UnsupportedOperationException.class, () -> arrowFlightConnectionProperty.wrap(properties));
   }
 
-  @Test
-  public void testRequiredPropertyThrows() {
-    Assume.assumeTrue(arrowFlightConnectionProperty.required());
+  @ParameterizedTest
+  @MethodSource("provideParameters")
+  public void testRequiredPropertyThrows(ArrowFlightConnectionProperty property) {
+    this.arrowFlightConnectionProperty = property;
+    assumeTrue(arrowFlightConnectionProperty.required());
     ThrowableAssertionUtils.simpleAssertThrowableClass(
         IllegalStateException.class, () -> arrowFlightConnectionProperty.get(new Properties()));
   }
 
-  @Test
-  public void testOptionalPropertyReturnsDefault() {
-    Assume.assumeTrue(!arrowFlightConnectionProperty.required());
-    Assert.assertEquals(
+  @ParameterizedTest
+  @MethodSource("provideParameters")
+  public void testOptionalPropertyReturnsDefault(ArrowFlightConnectionProperty property) {
+    this.arrowFlightConnectionProperty = property;
+    assumeTrue(!arrowFlightConnectionProperty.required());
+    assertEquals(
         arrowFlightConnectionProperty.defaultValue(),
         arrowFlightConnectionProperty.get(new Properties()));
   }
 
-  @Parameters
-  public static List<Object[]> provideParameters() {
+  public static List<Arguments> provideParameters() {
     final ArrowFlightConnectionProperty[] arrowFlightConnectionProperties =
         ArrowFlightConnectionProperty.values();
-    final List<Object[]> parameters = new ArrayList<>(arrowFlightConnectionProperties.length);
+    final List<Arguments> parameters = new ArrayList<>(arrowFlightConnectionProperties.length);
     for (final ArrowFlightConnectionProperty arrowFlightConnectionProperty :
         arrowFlightConnectionProperties) {
-      parameters.add(new Object[] {arrowFlightConnectionProperty});
+      parameters.add(Arguments.of(arrowFlightConnectionProperty));
     }
     return parameters;
   }

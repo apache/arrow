@@ -29,10 +29,10 @@ Java modules are regularly built and tested on macOS and Linux distributions.
 Java Compatibility
 ==================
 
-Java modules are compatible with JDK 8 and above. Currently, JDK versions
-8, 11, 17, and 21 are tested in CI. The latest JDK is also tested in CI.
+Java modules are compatible with JDK 11 and above. Currently, JDK versions
+11, 17, 21, and latest are tested in CI.
 
-When using Java 9 or later, some JDK internals must be exposed by
+Note that some JDK internals must be exposed by
 adding ``--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED`` to the ``java`` command:
 
 .. code-block:: shell
@@ -67,6 +67,7 @@ org.apache.arrow.flight.core does not read unnamed module ...``
 
 Finally, if you are using arrow-dataset, you'll also need to report that JDK internals need to be exposed.
 Modifying the command above for arrow-memory:
+
 .. code-block:: shell
 
    # Directly on the command line

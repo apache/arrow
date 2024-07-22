@@ -60,11 +60,6 @@
       <property name="eachLine" value="true"/>
     </module>
 
-    <module name="LineLength">
-        <property name="max" value="120"/>
-        <property name="ignorePattern" value="^package.*|^import.*|a href|href|http://|https://|ftp://"/>
-    </module>
-
     <module name="TreeWalker">
         <module name="OuterTypeFilename"/>
         <module name="IllegalTokenText">
@@ -84,21 +79,6 @@
             <property name="tokens" value="LITERAL_TRY, LITERAL_FINALLY, LITERAL_IF, LITERAL_ELSE, LITERAL_SWITCH"/>
         </module>
         <module name="NeedBraces"/>
-        <module name="RightCurly"/>
-        <module name="RightCurly">
-            <property name="option" value="alone"/>
-            <property name="tokens" value="CLASS_DEF, METHOD_DEF, CTOR_DEF, LITERAL_FOR, LITERAL_WHILE, LITERAL_DO, STATIC_INIT, INSTANCE_INIT"/>
-        </module>
-        <module name="WhitespaceAround">
-            <property name="allowEmptyConstructors" value="true"/>
-            <property name="allowEmptyMethods" value="true"/>
-            <property name="allowEmptyTypes" value="true"/>
-            <property name="allowEmptyLoops" value="true"/>
-            <message key="ws.notFollowed"
-             value="WhitespaceAround: ''{0}'' is not followed by whitespace. Empty blocks may only be represented as '{}' when not part of a multi-block statement (4.1.3)"/>
-             <message key="ws.notPreceded"
-             value="WhitespaceAround: ''{0}'' is not preceded with whitespace."/>
-        </module>
         <module name="WhitespaceAfter">
             <property name="tokens" value="COMMA, SEMI, TYPECAST"/>
         </module>
@@ -109,9 +89,6 @@
         <module name="FallThrough"/>
         <module name="UpperEll"/>
         <module name="ModifierOrder"/>
-        <module name="EmptyLineSeparator">
-            <property name="allowNoEmptyLineBetweenFields" value="true"/>
-        </module>
         <module name="SeparatorWrap">
             <property name="tokens" value="DOT"/>
             <property name="option" value="nl"/>
@@ -177,34 +154,15 @@
              <message key="ws.notPreceded"
              value="GenericWhitespace ''{0}'' is not preceded with whitespace."/>
         </module>
-        <module name="Indentation">
-            <property name="basicOffset" value="2"/>
-            <property name="braceAdjustment" value="0"/>
-            <property name="caseIndent" value="2"/>
-            <property name="throwsIndent" value="4"/>
-            <property name="lineWrappingIndentation" value="4"/>
-            <property name="arrayInitIndent" value="2"/>
-        </module>
         <module name="OverloadMethodsDeclarationOrder"/>
         <module name="VariableDeclarationUsageDistance"/>
         <module name="AvoidStarImport">
             <property name="allowStaticMemberImports" value="true"/>
         </module>
-        <module name="ImportOrder">
-            <property name="groups" value="java,javax,org,com"/>
-            <property name="ordered" value="true"/>
-            <property name="separated" value="true"/>
-            <property name="option" value="top"/>
-            <property name="sortStaticImportsAlphabetically" value="true"/>
-        </module>
         <module name="SingleSpaceSeparator">
             <property name="validateComments" value="true"/>
         </module>
         <module name="MethodParamPad"/>
-        <module name="OperatorWrap">
-            <property name="option" value="eol"/>
-            <property name="tokens" value="BAND, BOR, BSR, BXOR, DIV, EQUAL, GE, GT, LAND, LE, LITERAL_INSTANCEOF, LOR, LT, MINUS, MOD, NOT_EQUAL, PLUS, QUESTION, SL, SR, STAR "/>
-        </module>
         <module name="AnnotationLocation">
             <property name="tokens" value="CLASS_DEF, INTERFACE_DEF, ENUM_DEF, METHOD_DEF, CTOR_DEF"/>
         </module>
@@ -245,9 +203,6 @@
             <property name="format" value="^[a-z][a-z0-9][a-zA-Z0-9_]*$"/>
             <message key="name.invalidPattern"
              value="Method name ''{0}'' must match pattern ''{1}''."/>
-        </module>
-        <module name="SingleLineJavadoc">
-            <property name="ignoreInlineTags" value="false"/>
         </module>
         <module name="EmptyCatchBlock">
             <property name="exceptionVariableName" value="expected|ignore"/>

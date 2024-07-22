@@ -612,6 +612,63 @@ struct ListSelectionImpl : public Selection<ListSelectionImpl<Type>, Type> {
   }
 };
 
+template <typename Type>
+struct ListViewSelectionImpl : public Selection<ListViewSelectionImpl<Type>, Type> {
+  using offset_type = typename Type::offset_type;
+
+  using Base = Selection<ListViewSelectionImpl<Type>, Type>;
+  LIFT_BASE_MEMBERS();
+
+  TypedBufferBuilder<offset_type> offsets_builder;
+  TypedBufferBuilder<offset_type> sizes_builder;
+
+  ListViewSelectionImpl(KernelContext* ctx, const ExecSpan& batch, int64_t output_length,
+                        ExecResult* out)
+      : Base(ctx, batch, output_length, out),
+        offsets_builder(ctx->memory_pool()),
+        sizes_builder(ctx->memory_pool()) {}
+
+  template <typename Adapter>
+  Status GenerateOutput() {
+    auto* offsets = this->values.template GetValues<offset_type>(1);
+    auto* sizes = this->values.template GetValues<offset_type>(2);
+
+    offset_type null_list_view_offset = 0;
+    Adapter adapter(this);
+    RETURN_NOT_OK(adapter.Generate(
+        [&](int64_t index) {
+          offset_type value_offset = offsets[index];
+          offset_type value_length = sizes[index];
+          offsets_builder.UnsafeAppend(value_offset);
+          sizes_builder.UnsafeAppend(value_length);
+          null_list_view_offset = value_offset + value_length;
+          return Status::OK();
+        },
+        [&]() {
+          // 0 could be appended here, but by adding the last offset, we keep
+          // the buffer compatible with how offsets behave in ListType as well.
+          // The invariant that `offsets[i] + sizes[i] <= values.length` is
+          // trivially maintained by having `sizes[i]` set to 0 here.
+          offsets_builder.UnsafeAppend(null_list_view_offset);
+          sizes_builder.UnsafeAppend(0);
+          return Status::OK();
+        }));
+    return Status::OK();
+  }
+
+  Status Init() override {
+    RETURN_NOT_OK(offsets_builder.Reserve(output_length));
+    return sizes_builder.Reserve(output_length);
+  }
+
+  Status Finish() override {
+    RETURN_NOT_OK(offsets_builder.Finish(&out->buffers[1]));
+    RETURN_NOT_OK(sizes_builder.Finish(&out->buffers[2]));
+    out->child_data = {this->values.child_data[0].ToArrayData()};
+    return Status::OK();
+  }
+};
+
 struct DenseUnionSelectionImpl
     : public Selection<DenseUnionSelectionImpl, DenseUnionType> {
   using Base = Selection<DenseUnionSelectionImpl, DenseUnionType>;
@@ -858,6 +915,15 @@ Status LargeListFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult
   return FilterExec<ListSelectionImpl<LargeListType>>(ctx, batch, out);
 }
 
+Status ListViewFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  return FilterExec<ListViewSelectionImpl<ListViewType>>(ctx, batch, out);
+}
+
+Status LargeListViewFilterExec(KernelContext* ctx, const ExecSpan& batch,
+                               ExecResult* out) {
+  return FilterExec<ListViewSelectionImpl<LargeListViewType>>(ctx, batch, out);
+}
+
 Status FSLFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const ArraySpan& values = batch[0].array;
 
@@ -912,6 +978,14 @@ Status ListTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) 
 
 Status LargeListTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   return TakeExec<ListSelectionImpl<LargeListType>>(ctx, batch, out);
+}
+
+Status ListViewTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  return TakeExec<ListViewSelectionImpl<ListViewType>>(ctx, batch, out);
+}
+
+Status LargeListViewTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  return TakeExec<ListViewSelectionImpl<LargeListViewType>>(ctx, batch, out);
 }
 
 Status FSLTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {

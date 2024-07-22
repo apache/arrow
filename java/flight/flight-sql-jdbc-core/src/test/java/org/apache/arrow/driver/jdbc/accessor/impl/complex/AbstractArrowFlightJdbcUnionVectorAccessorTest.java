@@ -27,20 +27,20 @@ import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.ArrowFlightJdbcNullVectorAccessor;
 import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.ValueVector;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.Spy;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-@RunWith(MockitoJUnitRunner.class)
+@ExtendWith(MockitoExtension.class)
 public class AbstractArrowFlightJdbcUnionVectorAccessorTest {
 
   @Mock ArrowFlightJdbcAccessor innerAccessor;
   @Spy AbstractArrowFlightJdbcUnionVectorAccessorMock accessor;
 
-  @Before
+  @BeforeEach
   public void setup() {
     when(accessor.getAccessor()).thenReturn(innerAccessor);
   }

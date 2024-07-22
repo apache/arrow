@@ -23,7 +23,7 @@ private func makeBinaryHolder(_ buffers: [ArrowBuffer],
     do {
         let arrowType = ArrowType(ArrowType.ArrowBinary)
         let arrowData = try ArrowData(arrowType, buffers: buffers, nullCount: nullCount)
-        return .success(ArrowArrayHolderImpl(BinaryArray(arrowData)))
+        return .success(ArrowArrayHolderImpl(try BinaryArray(arrowData)))
     } catch let error as ArrowError {
         return .failure(error)
     } catch {
@@ -36,7 +36,7 @@ private func makeStringHolder(_ buffers: [ArrowBuffer],
     do {
         let arrowType = ArrowType(ArrowType.ArrowString)
         let arrowData = try ArrowData(arrowType, buffers: buffers, nullCount: nullCount)
-        return .success(ArrowArrayHolderImpl(StringArray(arrowData)))
+        return .success(ArrowArrayHolderImpl(try StringArray(arrowData)))
     } catch let error as ArrowError {
         return .failure(error)
     } catch {
@@ -51,11 +51,11 @@ private func makeDateHolder(_ field: ArrowField,
     do {
         if field.type.id == .date32 {
             let arrowData = try ArrowData(field.type, buffers: buffers, nullCount: nullCount)
-            return .success(ArrowArrayHolderImpl(Date32Array(arrowData)))
+            return .success(ArrowArrayHolderImpl(try Date32Array(arrowData)))
         }
 
         let arrowData = try ArrowData(field.type, buffers: buffers, nullCount: nullCount)
-        return .success(ArrowArrayHolderImpl(Date64Array(arrowData)))
+        return .success(ArrowArrayHolderImpl(try Date64Array(arrowData)))
     } catch let error as ArrowError {
         return .failure(error)
     } catch {
@@ -71,7 +71,7 @@ private func makeTimeHolder(_ field: ArrowField,
         if field.type.id == .time32 {
             if let arrowType = field.type as? ArrowTypeTime32 {
                 let arrowData = try ArrowData(arrowType, buffers: buffers, nullCount: nullCount)
-                return .success(ArrowArrayHolderImpl(FixedArray<Time32>(arrowData)))
+                return .success(ArrowArrayHolderImpl(try FixedArray<Time32>(arrowData)))
             } else {
                 return .failure(.invalid("Incorrect field type for time: \(field.type)"))
             }
@@ -79,7 +79,7 @@ private func makeTimeHolder(_ field: ArrowField,
 
         if let arrowType = field.type as? ArrowTypeTime64 {
             let arrowData = try ArrowData(arrowType, buffers: buffers, nullCount: nullCount)
-            return .success(ArrowArrayHolderImpl(FixedArray<Time64>(arrowData)))
+            return .success(ArrowArrayHolderImpl(try FixedArray<Time64>(arrowData)))
         } else {
             return .failure(.invalid("Incorrect field type for time: \(field.type)"))
         }
@@ -95,7 +95,7 @@ private func makeBoolHolder(_ buffers: [ArrowBuffer],
     do {
         let arrowType = ArrowType(ArrowType.ArrowBool)
         let arrowData = try ArrowData(arrowType, buffers: buffers, nullCount: nullCount)
-        return .success(ArrowArrayHolderImpl(BoolArray(arrowData)))
+        return .success(ArrowArrayHolderImpl(try BoolArray(arrowData)))
     } catch let error as ArrowError {
         return .failure(error)
     } catch {
@@ -109,7 +109,7 @@ private func makeFixedHolder<T>(
 ) -> Result<ArrowArrayHolder, ArrowError> {
     do {
         let arrowData = try ArrowData(field.type, buffers: buffers, nullCount: nullCount)
-        return .success(ArrowArrayHolderImpl(FixedArray<T>(arrowData)))
+        return .success(ArrowArrayHolderImpl(try FixedArray<T>(arrowData)))
     } catch let error as ArrowError {
         return .failure(error)
     } catch {

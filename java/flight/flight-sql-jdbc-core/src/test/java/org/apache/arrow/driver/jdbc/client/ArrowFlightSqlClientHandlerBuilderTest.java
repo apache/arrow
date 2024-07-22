@@ -16,37 +16,39 @@
  */
 package org.apache.arrow.driver.jdbc.client;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotSame;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Optional;
-import org.apache.arrow.driver.jdbc.FlightServerTestRule;
+import org.apache.arrow.driver.jdbc.FlightServerTestExtension;
 import org.apache.arrow.driver.jdbc.utils.CoreMockedSqlProducers;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 /** Test the behavior of ArrowFlightSqlClientHandler.Builder */
 public class ArrowFlightSqlClientHandlerBuilderTest {
-  @ClassRule
-  public static final FlightServerTestRule FLIGHT_SERVER_TEST_RULE =
-      FlightServerTestRule.createStandardTestRule(CoreMockedSqlProducers.getLegacyProducer());
+
+  @RegisterExtension
+  public static final FlightServerTestExtension FLIGHT_SERVER_TEST_EXTENSION =
+      FlightServerTestExtension.createStandardTestExtension(
+          CoreMockedSqlProducers.getLegacyProducer());
 
   private static BufferAllocator allocator;
 
-  @BeforeClass
+  @BeforeAll
   public static void setup() {
     allocator = new RootAllocator(Long.MAX_VALUE);
   }
 
-  @AfterClass
+  @AfterAll
   public static void tearDown() {
     allocator.close();
   }
@@ -56,11 +58,11 @@ public class ArrowFlightSqlClientHandlerBuilderTest {
     // Arrange
     final ArrowFlightSqlClientHandler.Builder rootBuilder =
         new ArrowFlightSqlClientHandler.Builder()
-            .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
-            .withPort(FLIGHT_SERVER_TEST_RULE.getPort())
+            .withHost(FLIGHT_SERVER_TEST_EXTENSION.getHost())
+            .withPort(FLIGHT_SERVER_TEST_EXTENSION.getPort())
             .withBufferAllocator(allocator)
-            .withUsername(FlightServerTestRule.DEFAULT_USER)
-            .withPassword(FlightServerTestRule.DEFAULT_PASSWORD)
+            .withUsername(FlightServerTestExtension.DEFAULT_USER)
+            .withPassword(FlightServerTestExtension.DEFAULT_PASSWORD)
             .withEncryption(false)
             .withRetainCookies(true)
             .withRetainAuth(false);
@@ -81,11 +83,11 @@ public class ArrowFlightSqlClientHandlerBuilderTest {
     // Arrange
     final ArrowFlightSqlClientHandler.Builder rootBuilder =
         new ArrowFlightSqlClientHandler.Builder()
-            .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
-            .withPort(FLIGHT_SERVER_TEST_RULE.getPort())
+            .withHost(FLIGHT_SERVER_TEST_EXTENSION.getHost())
+            .withPort(FLIGHT_SERVER_TEST_EXTENSION.getPort())
             .withBufferAllocator(allocator)
-            .withUsername(FlightServerTestRule.DEFAULT_USER)
-            .withPassword(FlightServerTestRule.DEFAULT_PASSWORD)
+            .withUsername(FlightServerTestExtension.DEFAULT_USER)
+            .withPassword(FlightServerTestExtension.DEFAULT_PASSWORD)
             .withEncryption(false)
             .withRetainCookies(false)
             .withRetainAuth(false);
@@ -106,11 +108,11 @@ public class ArrowFlightSqlClientHandlerBuilderTest {
     // Arrange
     final ArrowFlightSqlClientHandler.Builder rootBuilder =
         new ArrowFlightSqlClientHandler.Builder()
-            .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
-            .withPort(FLIGHT_SERVER_TEST_RULE.getPort())
+            .withHost(FLIGHT_SERVER_TEST_EXTENSION.getHost())
+            .withPort(FLIGHT_SERVER_TEST_EXTENSION.getPort())
             .withBufferAllocator(allocator)
-            .withUsername(FlightServerTestRule.DEFAULT_USER)
-            .withPassword(FlightServerTestRule.DEFAULT_PASSWORD)
+            .withUsername(FlightServerTestExtension.DEFAULT_USER)
+            .withPassword(FlightServerTestExtension.DEFAULT_PASSWORD)
             .withEncryption(false)
             .withRetainCookies(true)
             .withRetainAuth(true);

@@ -17,39 +17,34 @@
 package org.apache.arrow.driver.jdbc.accessor.impl.complex;
 
 import static org.hamcrest.CoreMatchers.equalTo;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.sql.Array;
 import java.sql.ResultSet;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils;
-import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
+import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestExtension;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.LargeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.hamcrest.CoreMatchers;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ErrorCollector;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
-@RunWith(Parameterized.class)
 public class AbstractArrowFlightJdbcListAccessorTest {
 
-  @ClassRule
-  public static RootAllocatorTestRule rootAllocatorTestRule = new RootAllocatorTestRule();
+  @RegisterExtension
+  public static RootAllocatorTestExtension rootAllocatorTestExtension =
+      new RootAllocatorTestExtension();
 
-  @Rule public final ErrorCollector collector = new ErrorCollector();
-
-  private final Supplier<ValueVector> vectorSupplier;
   private ValueVector vector;
 
   private final AccessorTestUtils.AccessorSupplier<AbstractArrowFlightJdbcListVectorAccessor>
@@ -71,49 +66,46 @@ public class AbstractArrowFlightJdbcListAccessorTest {
           };
 
   final AccessorTestUtils.AccessorIterator<AbstractArrowFlightJdbcListVectorAccessor>
-      accessorIterator = new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
+      accessorIterator = new AccessorTestUtils.AccessorIterator<>(accessorSupplier);
 
-  @Parameterized.Parameters(name = "{1}")
-  public static Collection<Object[]> data() {
-    return Arrays.asList(
-        new Object[][] {
-          {(Supplier<ValueVector>) () -> rootAllocatorTestRule.createListVector(), "ListVector"},
-          {
-            (Supplier<ValueVector>) () -> rootAllocatorTestRule.createLargeListVector(),
-            "LargeListVector"
-          },
-          {
-            (Supplier<ValueVector>) () -> rootAllocatorTestRule.createFixedSizeListVector(),
-            "FixedSizeListVector"
-          },
-        });
+  public static Stream<Arguments> data() {
+    return Stream.of(
+        Arguments.of(
+            (Supplier<ValueVector>) () -> rootAllocatorTestExtension.createListVector(),
+            "ListVector"),
+        Arguments.of(
+            (Supplier<ValueVector>) () -> rootAllocatorTestExtension.createLargeListVector(),
+            "LargeListVector"),
+        Arguments.of(
+            (Supplier<ValueVector>) () -> rootAllocatorTestExtension.createFixedSizeListVector(),
+            "FixedSizeListVector"));
   }
 
-  public AbstractArrowFlightJdbcListAccessorTest(
-      Supplier<ValueVector> vectorSupplier, String vectorType) {
-    this.vectorSupplier = vectorSupplier;
+  public void setup(Supplier<ValueVector> vectorSupplier) {
+    this.vector = vectorSupplier.get();
   }
 
-  @Before
-  public void setup() {
-    this.vector = this.vectorSupplier.get();
-  }
-
-  @After
+  @AfterEach
   public void tearDown() {
     this.vector.close();
   }
 
-  @Test
-  public void testShouldGetObjectClassReturnCorrectClass() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testShouldGetObjectClassReturnCorrectClass(Supplier<ValueVector> vectorSupplier)
+      throws Exception {
+    setup(vectorSupplier);
     accessorIterator.assertAccessorGetter(
         vector,
         AbstractArrowFlightJdbcListVectorAccessor::getObjectClass,
         (accessor, currentRow) -> equalTo(List.class));
   }
 
-  @Test
-  public void testShouldGetObjectReturnValidList() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testShouldGetObjectReturnValidList(Supplier<ValueVector> vectorSupplier)
+      throws Exception {
+    setup(vectorSupplier);
     accessorIterator.assertAccessorGetter(
         vector,
         AbstractArrowFlightJdbcListVectorAccessor::getObject,
@@ -121,8 +113,10 @@ public class AbstractArrowFlightJdbcListAccessorTest {
             equalTo(Arrays.asList(0, currentRow, currentRow * 2, currentRow * 3, currentRow * 4)));
   }
 
-  @Test
-  public void testShouldGetObjectReturnNull() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testShouldGetObjectReturnNull(Supplier<ValueVector> vectorSupplier) throws Exception {
+    setup(vectorSupplier);
     vector.clear();
     vector.allocateNewSafe();
     vector.setValueCount(5);
@@ -133,8 +127,11 @@ public class AbstractArrowFlightJdbcListAccessorTest {
         (accessor, currentRow) -> CoreMatchers.nullValue());
   }
 
-  @Test
-  public void testShouldGetArrayReturnValidArray() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testShouldGetArrayReturnValidArray(Supplier<ValueVector> vectorSupplier)
+      throws Exception {
+    setup(vectorSupplier);
     accessorIterator.iterate(
         vector,
         (accessor, currentRow) -> {
@@ -143,15 +140,17 @@ public class AbstractArrowFlightJdbcListAccessorTest {
 
           Object[] arrayObject = (Object[]) array.getArray();
 
-          collector.checkThat(
+          assertThat(
               arrayObject,
               equalTo(
                   new Object[] {0, currentRow, currentRow * 2, currentRow * 3, currentRow * 4}));
         });
   }
 
-  @Test
-  public void testShouldGetArrayReturnNull() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testShouldGetArrayReturnNull(Supplier<ValueVector> vectorSupplier) throws Exception {
+    setup(vectorSupplier);
     vector.clear();
     vector.allocateNewSafe();
     vector.setValueCount(5);
@@ -160,8 +159,11 @@ public class AbstractArrowFlightJdbcListAccessorTest {
         vector, AbstractArrowFlightJdbcListVectorAccessor::getArray, CoreMatchers.nullValue());
   }
 
-  @Test
-  public void testShouldGetArrayReturnValidArrayPassingOffsets() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testShouldGetArrayReturnValidArrayPassingOffsets(Supplier<ValueVector> vectorSupplier)
+      throws Exception {
+    setup(vectorSupplier);
     accessorIterator.iterate(
         vector,
         (accessor, currentRow) -> {
@@ -170,13 +172,16 @@ public class AbstractArrowFlightJdbcListAccessorTest {
 
           Object[] arrayObject = (Object[]) array.getArray(1, 3);
 
-          collector.checkThat(
+          assertThat(
               arrayObject, equalTo(new Object[] {currentRow, currentRow * 2, currentRow * 3}));
         });
   }
 
-  @Test
-  public void testShouldGetArrayGetResultSetReturnValidResultSet() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testShouldGetArrayGetResultSetReturnValidResultSet(
+      Supplier<ValueVector> vectorSupplier) throws Exception {
+    setup(vectorSupplier);
     accessorIterator.iterate(
         vector,
         (accessor, currentRow) -> {
@@ -187,10 +192,10 @@ public class AbstractArrowFlightJdbcListAccessorTest {
             int count = 0;
             while (rs.next()) {
               final int value = rs.getInt(1);
-              collector.checkThat(value, equalTo(currentRow * count));
+              assertThat(value, equalTo(currentRow * count));
               count++;
             }
-            collector.checkThat(count, equalTo(5));
+            assertThat(count, equalTo(5));
           }
         });
   }

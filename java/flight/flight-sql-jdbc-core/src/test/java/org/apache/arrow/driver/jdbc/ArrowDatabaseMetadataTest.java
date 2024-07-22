@@ -31,6 +31,10 @@ import static org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportsConvert.SQL_
 import static org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportsConvert.SQL_CONVERT_BIT_VALUE;
 import static org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportsConvert.SQL_CONVERT_INTEGER_VALUE;
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -77,13 +81,10 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.Text;
-import org.junit.AfterClass;
-import org.junit.Assert;
-import org.junit.BeforeClass;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ErrorCollector;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 /** Class containing the tests from the {@link ArrowDatabaseMetadata}. */
 @SuppressWarnings("DoubleBraceInitialization")
@@ -93,13 +94,13 @@ public class ArrowDatabaseMetadataTest {
   private static final MockFlightSqlProducer FLIGHT_SQL_PRODUCER_EMPTY_SQLINFO =
       new MockFlightSqlProducer();
 
-  @ClassRule
-  public static final FlightServerTestRule FLIGHT_SERVER_TEST_RULE =
-      FlightServerTestRule.createStandardTestRule(FLIGHT_SQL_PRODUCER);
+  @RegisterExtension
+  public static final FlightServerTestExtension FLIGHT_SERVER_TEST_EXTENSION =
+      FlightServerTestExtension.createStandardTestExtension(FLIGHT_SQL_PRODUCER);
 
-  @ClassRule
-  public static final FlightServerTestRule FLIGHT_SERVER_EMPTY_SQLINFO_TEST_RULE =
-      FlightServerTestRule.createStandardTestRule(FLIGHT_SQL_PRODUCER_EMPTY_SQLINFO);
+  @RegisterExtension
+  public static final FlightServerTestExtension FLIGHT_SERVER_EMPTY_SQLINFO_TEST_RULE =
+      FlightServerTestExtension.createStandardTestExtension(FLIGHT_SQL_PRODUCER_EMPTY_SQLINFO);
 
   private static final int ROW_COUNT = 10;
   private static final List<List<Object>> EXPECTED_GET_CATALOGS_RESULTS =
@@ -338,12 +339,11 @@ public class ArrowDatabaseMetadataTest {
             .collect(toList());
   }
 
-  @Rule public final ErrorCollector collector = new ErrorCollector();
-  public final ResultSetTestUtils resultSetTestUtils = new ResultSetTestUtils(collector);
+  public final ResultSetTestUtils resultSetTestUtils = new ResultSetTestUtils();
 
-  @BeforeClass
+  @BeforeAll
   public static void setUpBeforeClass() throws SQLException {
-    connection = FLIGHT_SERVER_TEST_RULE.getConnection(false);
+    connection = FLIGHT_SERVER_TEST_EXTENSION.getConnection(false);
 
     final Message commandGetCatalogs = CommandGetCatalogs.getDefaultInstance();
     final Consumer<ServerStreamListener> commandGetCatalogsResultProducer =
@@ -655,7 +655,7 @@ public class ArrowDatabaseMetadataTest {
             EXPECTED_STORED_FUNCTIONS_USING_CALL_SYNTAX_SUPPORTED);
   }
 
-  @AfterClass
+  @AfterAll
   public static void tearDown() throws Exception {
     AutoCloseables.close(connection, FLIGHT_SQL_PRODUCER, FLIGHT_SQL_PRODUCER_EMPTY_SQLINFO);
   }
@@ -835,148 +835,132 @@ public class ArrowDatabaseMetadataTest {
   @Test
   public void testGetSqlInfo() throws SQLException {
     final DatabaseMetaData metaData = connection.getMetaData();
-    collector.checkThat(metaData.getDatabaseProductName(), is(EXPECTED_DATABASE_PRODUCT_NAME));
-    collector.checkThat(
-        metaData.getDatabaseProductVersion(), is(EXPECTED_DATABASE_PRODUCT_VERSION));
-    collector.checkThat(metaData.getIdentifierQuoteString(), is(EXPECTED_IDENTIFIER_QUOTE_STRING));
-    collector.checkThat(metaData.isReadOnly(), is(EXPECTED_IS_READ_ONLY));
-    collector.checkThat(metaData.getSQLKeywords(), is(EXPECTED_SQL_KEYWORDS));
-    collector.checkThat(metaData.getNumericFunctions(), is(EXPECTED_NUMERIC_FUNCTIONS));
-    collector.checkThat(metaData.getStringFunctions(), is(EXPECTED_STRING_FUNCTIONS));
-    collector.checkThat(metaData.getSystemFunctions(), is(EXPECTED_SYSTEM_FUNCTIONS));
-    collector.checkThat(metaData.getTimeDateFunctions(), is(EXPECTED_TIME_DATE_FUNCTIONS));
-    collector.checkThat(metaData.getSearchStringEscape(), is(EXPECTED_SEARCH_STRING_ESCAPE));
-    collector.checkThat(metaData.getExtraNameCharacters(), is(EXPECTED_EXTRA_NAME_CHARACTERS));
-    collector.checkThat(metaData.supportsConvert(), is(EXPECTED_SQL_SUPPORTS_CONVERT));
-    collector.checkThat(metaData.supportsConvert(BIT, INTEGER), is(EXPECTED_SQL_SUPPORTS_CONVERT));
-    collector.checkThat(metaData.supportsConvert(BIT, BIGINT), is(EXPECTED_SQL_SUPPORTS_CONVERT));
-    collector.checkThat(
+    assertThat(metaData.getDatabaseProductName(), is(EXPECTED_DATABASE_PRODUCT_NAME));
+    assertThat(metaData.getDatabaseProductVersion(), is(EXPECTED_DATABASE_PRODUCT_VERSION));
+    assertThat(metaData.getIdentifierQuoteString(), is(EXPECTED_IDENTIFIER_QUOTE_STRING));
+    assertThat(metaData.isReadOnly(), is(EXPECTED_IS_READ_ONLY));
+    assertThat(metaData.getSQLKeywords(), is(EXPECTED_SQL_KEYWORDS));
+    assertThat(metaData.getNumericFunctions(), is(EXPECTED_NUMERIC_FUNCTIONS));
+    assertThat(metaData.getStringFunctions(), is(EXPECTED_STRING_FUNCTIONS));
+    assertThat(metaData.getSystemFunctions(), is(EXPECTED_SYSTEM_FUNCTIONS));
+    assertThat(metaData.getTimeDateFunctions(), is(EXPECTED_TIME_DATE_FUNCTIONS));
+    assertThat(metaData.getSearchStringEscape(), is(EXPECTED_SEARCH_STRING_ESCAPE));
+    assertThat(metaData.getExtraNameCharacters(), is(EXPECTED_EXTRA_NAME_CHARACTERS));
+    assertThat(metaData.supportsConvert(), is(EXPECTED_SQL_SUPPORTS_CONVERT));
+    assertThat(metaData.supportsConvert(BIT, INTEGER), is(EXPECTED_SQL_SUPPORTS_CONVERT));
+    assertThat(metaData.supportsConvert(BIT, BIGINT), is(EXPECTED_SQL_SUPPORTS_CONVERT));
+    assertThat(
         metaData.supportsConvert(BIGINT, INTEGER), is(EXPECTED_INVALID_SQL_SUPPORTS_CONVERT));
-    collector.checkThat(
+    assertThat(
         metaData.supportsConvert(JAVA_OBJECT, INTEGER), is(EXPECTED_INVALID_SQL_SUPPORTS_CONVERT));
-    collector.checkThat(
+    assertThat(
         metaData.supportsTableCorrelationNames(), is(EXPECTED_SUPPORTS_TABLE_CORRELATION_NAMES));
-    collector.checkThat(
-        metaData.supportsExpressionsInOrderBy(), is(EXPECTED_EXPRESSIONS_IN_ORDER_BY));
-    collector.checkThat(
-        metaData.supportsOrderByUnrelated(), is(EXPECTED_SUPPORTS_ORDER_BY_UNRELATED));
-    collector.checkThat(metaData.supportsGroupBy(), is(EXPECTED_SUPPORTS_GROUP_BY));
-    collector.checkThat(
-        metaData.supportsGroupByUnrelated(), is(EXPECTED_SUPPORTS_GROUP_BY_UNRELATED));
-    collector.checkThat(
-        metaData.supportsLikeEscapeClause(), is(EXPECTED_SUPPORTS_LIKE_ESCAPE_CLAUSE));
-    collector.checkThat(metaData.supportsNonNullableColumns(), is(EXPECTED_NON_NULLABLE_COLUMNS));
-    collector.checkThat(metaData.supportsMinimumSQLGrammar(), is(EXPECTED_MINIMUM_SQL_GRAMMAR));
-    collector.checkThat(metaData.supportsCoreSQLGrammar(), is(EXPECTED_CORE_SQL_GRAMMAR));
-    collector.checkThat(metaData.supportsExtendedSQLGrammar(), is(EXPECTED_EXTEND_SQL_GRAMMAR));
-    collector.checkThat(
-        metaData.supportsANSI92EntryLevelSQL(), is(EXPECTED_ANSI92_ENTRY_LEVEL_SQL));
-    collector.checkThat(
-        metaData.supportsANSI92IntermediateSQL(), is(EXPECTED_ANSI92_INTERMEDIATE_SQL));
-    collector.checkThat(metaData.supportsANSI92FullSQL(), is(EXPECTED_ANSI92_FULL_SQL));
-    collector.checkThat(metaData.supportsOuterJoins(), is(EXPECTED_SUPPORTS_OUTER_JOINS));
-    collector.checkThat(metaData.supportsFullOuterJoins(), is(EXPECTED_SUPPORTS_FULL_OUTER_JOINS));
-    collector.checkThat(metaData.supportsLimitedOuterJoins(), is(EXPECTED_SUPPORTS_LIMITED_JOINS));
-    collector.checkThat(metaData.getSchemaTerm(), is(EXPECTED_SCHEMA_TERM));
-    collector.checkThat(metaData.getProcedureTerm(), is(EXPECTED_PROCEDURE_TERM));
-    collector.checkThat(metaData.getCatalogTerm(), is(EXPECTED_CATALOG_TERM));
-    collector.checkThat(metaData.isCatalogAtStart(), is(EXPECTED_CATALOG_AT_START));
-    collector.checkThat(
-        metaData.supportsSchemasInProcedureCalls(), is(EXPECTED_SCHEMAS_IN_PROCEDURE_CALLS));
-    collector.checkThat(
+    assertThat(metaData.supportsExpressionsInOrderBy(), is(EXPECTED_EXPRESSIONS_IN_ORDER_BY));
+    assertThat(metaData.supportsOrderByUnrelated(), is(EXPECTED_SUPPORTS_ORDER_BY_UNRELATED));
+    assertThat(metaData.supportsGroupBy(), is(EXPECTED_SUPPORTS_GROUP_BY));
+    assertThat(metaData.supportsGroupByUnrelated(), is(EXPECTED_SUPPORTS_GROUP_BY_UNRELATED));
+    assertThat(metaData.supportsLikeEscapeClause(), is(EXPECTED_SUPPORTS_LIKE_ESCAPE_CLAUSE));
+    assertThat(metaData.supportsNonNullableColumns(), is(EXPECTED_NON_NULLABLE_COLUMNS));
+    assertThat(metaData.supportsMinimumSQLGrammar(), is(EXPECTED_MINIMUM_SQL_GRAMMAR));
+    assertThat(metaData.supportsCoreSQLGrammar(), is(EXPECTED_CORE_SQL_GRAMMAR));
+    assertThat(metaData.supportsExtendedSQLGrammar(), is(EXPECTED_EXTEND_SQL_GRAMMAR));
+    assertThat(metaData.supportsANSI92EntryLevelSQL(), is(EXPECTED_ANSI92_ENTRY_LEVEL_SQL));
+    assertThat(metaData.supportsANSI92IntermediateSQL(), is(EXPECTED_ANSI92_INTERMEDIATE_SQL));
+    assertThat(metaData.supportsANSI92FullSQL(), is(EXPECTED_ANSI92_FULL_SQL));
+    assertThat(metaData.supportsOuterJoins(), is(EXPECTED_SUPPORTS_OUTER_JOINS));
+    assertThat(metaData.supportsFullOuterJoins(), is(EXPECTED_SUPPORTS_FULL_OUTER_JOINS));
+    assertThat(metaData.supportsLimitedOuterJoins(), is(EXPECTED_SUPPORTS_LIMITED_JOINS));
+    assertThat(metaData.getSchemaTerm(), is(EXPECTED_SCHEMA_TERM));
+    assertThat(metaData.getProcedureTerm(), is(EXPECTED_PROCEDURE_TERM));
+    assertThat(metaData.getCatalogTerm(), is(EXPECTED_CATALOG_TERM));
+    assertThat(metaData.isCatalogAtStart(), is(EXPECTED_CATALOG_AT_START));
+    assertThat(metaData.supportsSchemasInProcedureCalls(), is(EXPECTED_SCHEMAS_IN_PROCEDURE_CALLS));
+    assertThat(
         metaData.supportsSchemasInIndexDefinitions(), is(EXPECTED_SCHEMAS_IN_INDEX_DEFINITIONS));
-    collector.checkThat(
+    assertThat(
         metaData.supportsCatalogsInIndexDefinitions(), is(EXPECTED_CATALOGS_IN_INDEX_DEFINITIONS));
-    collector.checkThat(metaData.supportsPositionedDelete(), is(EXPECTED_POSITIONED_DELETE));
-    collector.checkThat(metaData.supportsPositionedUpdate(), is(EXPECTED_POSITIONED_UPDATE));
-    collector.checkThat(
+    assertThat(metaData.supportsPositionedDelete(), is(EXPECTED_POSITIONED_DELETE));
+    assertThat(metaData.supportsPositionedUpdate(), is(EXPECTED_POSITIONED_UPDATE));
+    assertThat(
         metaData.supportsResultSetType(ResultSet.TYPE_FORWARD_ONLY),
         is(EXPECTED_TYPE_FORWARD_ONLY));
-    collector.checkThat(
-        metaData.supportsSelectForUpdate(), is(EXPECTED_SELECT_FOR_UPDATE_SUPPORTED));
-    collector.checkThat(
-        metaData.supportsStoredProcedures(), is(EXPECTED_STORED_PROCEDURES_SUPPORTED));
-    collector.checkThat(
-        metaData.supportsSubqueriesInComparisons(), is(EXPECTED_SUBQUERIES_IN_COMPARISON));
-    collector.checkThat(metaData.supportsSubqueriesInExists(), is(EXPECTED_SUBQUERIES_IN_EXISTS));
-    collector.checkThat(metaData.supportsSubqueriesInIns(), is(EXPECTED_SUBQUERIES_IN_INS));
-    collector.checkThat(
-        metaData.supportsSubqueriesInQuantifieds(), is(EXPECTED_SUBQUERIES_IN_QUANTIFIEDS));
-    collector.checkThat(
+    assertThat(metaData.supportsSelectForUpdate(), is(EXPECTED_SELECT_FOR_UPDATE_SUPPORTED));
+    assertThat(metaData.supportsStoredProcedures(), is(EXPECTED_STORED_PROCEDURES_SUPPORTED));
+    assertThat(metaData.supportsSubqueriesInComparisons(), is(EXPECTED_SUBQUERIES_IN_COMPARISON));
+    assertThat(metaData.supportsSubqueriesInExists(), is(EXPECTED_SUBQUERIES_IN_EXISTS));
+    assertThat(metaData.supportsSubqueriesInIns(), is(EXPECTED_SUBQUERIES_IN_INS));
+    assertThat(metaData.supportsSubqueriesInQuantifieds(), is(EXPECTED_SUBQUERIES_IN_QUANTIFIEDS));
+    assertThat(
         metaData.supportsCorrelatedSubqueries(), is(EXPECTED_CORRELATED_SUBQUERIES_SUPPORTED));
-    collector.checkThat(metaData.supportsUnion(), is(EXPECTED_SUPPORTS_UNION));
-    collector.checkThat(metaData.supportsUnionAll(), is(EXPECTED_SUPPORTS_UNION_ALL));
-    collector.checkThat(
-        metaData.getMaxBinaryLiteralLength(), is(EXPECTED_MAX_BINARY_LITERAL_LENGTH));
-    collector.checkThat(metaData.getMaxCharLiteralLength(), is(EXPECTED_MAX_CHAR_LITERAL_LENGTH));
-    collector.checkThat(metaData.getMaxColumnsInGroupBy(), is(EXPECTED_MAX_COLUMNS_IN_GROUP_BY));
-    collector.checkThat(metaData.getMaxColumnsInIndex(), is(EXPECTED_MAX_COLUMNS_IN_INDEX));
-    collector.checkThat(metaData.getMaxColumnsInOrderBy(), is(EXPECTED_MAX_COLUMNS_IN_ORDER_BY));
-    collector.checkThat(metaData.getMaxColumnsInSelect(), is(EXPECTED_MAX_COLUMNS_IN_SELECT));
-    collector.checkThat(metaData.getMaxConnections(), is(EXPECTED_MAX_CONNECTIONS));
-    collector.checkThat(metaData.getMaxCursorNameLength(), is(EXPECTED_MAX_CURSOR_NAME_LENGTH));
-    collector.checkThat(metaData.getMaxIndexLength(), is(EXPECTED_MAX_INDEX_LENGTH));
-    collector.checkThat(metaData.getMaxSchemaNameLength(), is(EXPECTED_SCHEMA_NAME_LENGTH));
-    collector.checkThat(
-        metaData.getMaxProcedureNameLength(), is(EXPECTED_MAX_PROCEDURE_NAME_LENGTH));
-    collector.checkThat(metaData.getMaxCatalogNameLength(), is(EXPECTED_MAX_CATALOG_NAME_LENGTH));
-    collector.checkThat(metaData.getMaxRowSize(), is(EXPECTED_MAX_ROW_SIZE));
-    collector.checkThat(
-        metaData.doesMaxRowSizeIncludeBlobs(), is(EXPECTED_MAX_ROW_SIZE_INCLUDES_BLOBS));
-    collector.checkThat(metaData.getMaxStatementLength(), is(EXPECTED_MAX_STATEMENT_LENGTH));
-    collector.checkThat(metaData.getMaxStatements(), is(EXPECTED_MAX_STATEMENTS));
-    collector.checkThat(metaData.getMaxTableNameLength(), is(EXPECTED_MAX_TABLE_NAME_LENGTH));
-    collector.checkThat(metaData.getMaxTablesInSelect(), is(EXPECTED_MAX_TABLES_IN_SELECT));
-    collector.checkThat(metaData.getMaxUserNameLength(), is(EXPECTED_MAX_USERNAME_LENGTH));
-    collector.checkThat(
+    assertThat(metaData.supportsUnion(), is(EXPECTED_SUPPORTS_UNION));
+    assertThat(metaData.supportsUnionAll(), is(EXPECTED_SUPPORTS_UNION_ALL));
+    assertThat(metaData.getMaxBinaryLiteralLength(), is(EXPECTED_MAX_BINARY_LITERAL_LENGTH));
+    assertThat(metaData.getMaxCharLiteralLength(), is(EXPECTED_MAX_CHAR_LITERAL_LENGTH));
+    assertThat(metaData.getMaxColumnsInGroupBy(), is(EXPECTED_MAX_COLUMNS_IN_GROUP_BY));
+    assertThat(metaData.getMaxColumnsInIndex(), is(EXPECTED_MAX_COLUMNS_IN_INDEX));
+    assertThat(metaData.getMaxColumnsInOrderBy(), is(EXPECTED_MAX_COLUMNS_IN_ORDER_BY));
+    assertThat(metaData.getMaxColumnsInSelect(), is(EXPECTED_MAX_COLUMNS_IN_SELECT));
+    assertThat(metaData.getMaxConnections(), is(EXPECTED_MAX_CONNECTIONS));
+    assertThat(metaData.getMaxCursorNameLength(), is(EXPECTED_MAX_CURSOR_NAME_LENGTH));
+    assertThat(metaData.getMaxIndexLength(), is(EXPECTED_MAX_INDEX_LENGTH));
+    assertThat(metaData.getMaxSchemaNameLength(), is(EXPECTED_SCHEMA_NAME_LENGTH));
+    assertThat(metaData.getMaxProcedureNameLength(), is(EXPECTED_MAX_PROCEDURE_NAME_LENGTH));
+    assertThat(metaData.getMaxCatalogNameLength(), is(EXPECTED_MAX_CATALOG_NAME_LENGTH));
+    assertThat(metaData.getMaxRowSize(), is(EXPECTED_MAX_ROW_SIZE));
+    assertThat(metaData.doesMaxRowSizeIncludeBlobs(), is(EXPECTED_MAX_ROW_SIZE_INCLUDES_BLOBS));
+    assertThat(metaData.getMaxStatementLength(), is(EXPECTED_MAX_STATEMENT_LENGTH));
+    assertThat(metaData.getMaxStatements(), is(EXPECTED_MAX_STATEMENTS));
+    assertThat(metaData.getMaxTableNameLength(), is(EXPECTED_MAX_TABLE_NAME_LENGTH));
+    assertThat(metaData.getMaxTablesInSelect(), is(EXPECTED_MAX_TABLES_IN_SELECT));
+    assertThat(metaData.getMaxUserNameLength(), is(EXPECTED_MAX_USERNAME_LENGTH));
+    assertThat(
         metaData.getDefaultTransactionIsolation(), is(EXPECTED_DEFAULT_TRANSACTION_ISOLATION));
-    collector.checkThat(metaData.supportsTransactions(), is(EXPECTED_TRANSACTIONS_SUPPORTED));
-    collector.checkThat(metaData.supportsBatchUpdates(), is(EXPECTED_BATCH_UPDATES_SUPPORTED));
-    collector.checkThat(metaData.supportsSavepoints(), is(EXPECTED_SAVEPOINTS_SUPPORTED));
-    collector.checkThat(
-        metaData.supportsNamedParameters(), is(EXPECTED_NAMED_PARAMETERS_SUPPORTED));
-    collector.checkThat(metaData.locatorsUpdateCopy(), is(EXPECTED_LOCATORS_UPDATE_COPY));
+    assertThat(metaData.supportsTransactions(), is(EXPECTED_TRANSACTIONS_SUPPORTED));
+    assertThat(metaData.supportsBatchUpdates(), is(EXPECTED_BATCH_UPDATES_SUPPORTED));
+    assertThat(metaData.supportsSavepoints(), is(EXPECTED_SAVEPOINTS_SUPPORTED));
+    assertThat(metaData.supportsNamedParameters(), is(EXPECTED_NAMED_PARAMETERS_SUPPORTED));
+    assertThat(metaData.locatorsUpdateCopy(), is(EXPECTED_LOCATORS_UPDATE_COPY));
 
-    collector.checkThat(
+    assertThat(
         metaData.supportsResultSetType(ResultSet.TYPE_SCROLL_INSENSITIVE),
         is(EXPECTED_TYPE_SCROLL_INSENSITIVE));
-    collector.checkThat(
+    assertThat(
         metaData.supportsResultSetType(ResultSet.TYPE_SCROLL_SENSITIVE),
         is(EXPECTED_TYPE_SCROLL_SENSITIVE));
-    collector.checkThat(
+    assertThat(
         metaData.supportsSchemasInPrivilegeDefinitions(),
         is(EXPECTED_SCHEMAS_IN_PRIVILEGE_DEFINITIONS));
-    collector.checkThat(
+    assertThat(
         metaData.supportsCatalogsInPrivilegeDefinitions(),
         is(EXPECTED_CATALOGS_IN_PRIVILEGE_DEFINITIONS));
-    collector.checkThat(
+    assertThat(
         metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_NONE),
         is(EXPECTED_TRANSACTION_NONE));
-    collector.checkThat(
+    assertThat(
         metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_READ_COMMITTED),
         is(EXPECTED_TRANSACTION_READ_COMMITTED));
-    collector.checkThat(
+    assertThat(
         metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_READ_UNCOMMITTED),
         is(EXPECTED_TRANSACTION_READ_UNCOMMITTED));
-    collector.checkThat(
+    assertThat(
         metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_REPEATABLE_READ),
         is(EXPECTED_TRANSACTION_REPEATABLE_READ));
-    collector.checkThat(
+    assertThat(
         metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_SERIALIZABLE),
         is(EXPECTED_TRANSACTION_SERIALIZABLE));
-    collector.checkThat(
+    assertThat(
         metaData.dataDefinitionCausesTransactionCommit(),
         is(EXPECTED_DATA_DEFINITION_CAUSES_TRANSACTION_COMMIT));
-    collector.checkThat(
+    assertThat(
         metaData.dataDefinitionIgnoredInTransactions(),
         is(EXPECTED_DATA_DEFINITIONS_IN_TRANSACTIONS_IGNORED));
-    collector.checkThat(
+    assertThat(
         metaData.supportsStoredFunctionsUsingCallSyntax(),
         is(EXPECTED_STORED_FUNCTIONS_USING_CALL_SYNTAX_SUPPORTED));
-    collector.checkThat(
+    assertThat(
         metaData.supportsIntegrityEnhancementFacility(),
         is(EXPECTED_SUPPORTS_INTEGRITY_ENHANCEMENT_FACILITY));
-    collector.checkThat(
+    assertThat(
         metaData.supportsDifferentTableCorrelationNames(),
         is(EXPECTED_SUPPORTS_DIFFERENT_TABLE_CORRELATION_NAMES));
 
@@ -1406,122 +1390,122 @@ public class ArrowDatabaseMetadataTest {
   private void testEmptyResultSet(
       final ResultSet resultSet, final Map<Integer, String> expectedResultSetSchema)
       throws SQLException {
-    Assert.assertFalse(resultSet.next());
+    assertFalse(resultSet.next());
     final ResultSetMetaData resultSetMetaData = resultSet.getMetaData();
     for (final Map.Entry<Integer, String> entry : expectedResultSetSchema.entrySet()) {
-      Assert.assertEquals(entry.getValue(), resultSetMetaData.getColumnLabel(entry.getKey()));
+      assertEquals(entry.getValue(), resultSetMetaData.getColumnLabel(entry.getKey()));
     }
   }
 
   @Test
   public void testGetColumnSize() {
-    Assert.assertEquals(
+    assertEquals(
         Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_BYTE),
         ArrowDatabaseMetadata.getColumnSize(new ArrowType.Int(Byte.SIZE, true)));
-    Assert.assertEquals(
+    assertEquals(
         Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_SHORT),
         ArrowDatabaseMetadata.getColumnSize(new ArrowType.Int(Short.SIZE, true)));
-    Assert.assertEquals(
+    assertEquals(
         Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_INT),
         ArrowDatabaseMetadata.getColumnSize(new ArrowType.Int(Integer.SIZE, true)));
-    Assert.assertEquals(
+    assertEquals(
         Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_LONG),
         ArrowDatabaseMetadata.getColumnSize(new ArrowType.Int(Long.SIZE, true)));
 
-    Assert.assertEquals(
+    assertEquals(
         Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_VARCHAR_AND_BINARY),
         ArrowDatabaseMetadata.getColumnSize(new ArrowType.Utf8()));
-    Assert.assertEquals(
+    assertEquals(
         Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_VARCHAR_AND_BINARY),
         ArrowDatabaseMetadata.getColumnSize(new ArrowType.Binary()));
 
-    Assert.assertEquals(
+    assertEquals(
         Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_TIMESTAMP_SECONDS),
         ArrowDatabaseMetadata.getColumnSize(new ArrowType.Timestamp(TimeUnit.SECOND, null)));
-    Assert.assertEquals(
+    assertEquals(
         Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_TIMESTAMP_MILLISECONDS),
         ArrowDatabaseMetadata.getColumnSize(new ArrowType.Timestamp(TimeUnit.MILLISECOND, null)));
-    Assert.assertEquals(
+    assertEquals(
         Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_TIMESTAMP_MICROSECONDS),
         ArrowDatabaseMetadata.getColumnSize(new ArrowType.Timestamp(TimeUnit.MICROSECOND, null)));
-    Assert.assertEquals(
+    assertEquals(
         Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_TIMESTAMP_NANOSECONDS),
         ArrowDatabaseMetadata.getColumnSize(new ArrowType.Timestamp(TimeUnit.NANOSECOND, null)));
 
-    Assert.assertEquals(
+    assertEquals(
         Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_TIME),
         ArrowDatabaseMetadata.getColumnSize(new ArrowType.Time(TimeUnit.SECOND, Integer.SIZE)));
-    Assert.assertEquals(
+    assertEquals(
         Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_TIME_MILLISECONDS),
         ArrowDatabaseMetadata.getColumnSize(
             new ArrowType.Time(TimeUnit.MILLISECOND, Integer.SIZE)));
-    Assert.assertEquals(
+    assertEquals(
         Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_TIME_MICROSECONDS),
         ArrowDatabaseMetadata.getColumnSize(
             new ArrowType.Time(TimeUnit.MICROSECOND, Integer.SIZE)));
-    Assert.assertEquals(
+    assertEquals(
         Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_TIME_NANOSECONDS),
         ArrowDatabaseMetadata.getColumnSize(new ArrowType.Time(TimeUnit.NANOSECOND, Integer.SIZE)));
 
-    Assert.assertEquals(
+    assertEquals(
         Integer.valueOf(ArrowDatabaseMetadata.COLUMN_SIZE_DATE),
         ArrowDatabaseMetadata.getColumnSize(new ArrowType.Date(DateUnit.DAY)));
 
-    Assert.assertNull(
+    assertNull(
         ArrowDatabaseMetadata.getColumnSize(
             new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)));
   }
 
   @Test
   public void testGetDecimalDigits() {
-    Assert.assertEquals(
+    assertEquals(
         Integer.valueOf(ArrowDatabaseMetadata.NO_DECIMAL_DIGITS),
         ArrowDatabaseMetadata.getDecimalDigits(new ArrowType.Int(Byte.SIZE, true)));
 
-    Assert.assertEquals(
+    assertEquals(
         Integer.valueOf(ArrowDatabaseMetadata.NO_DECIMAL_DIGITS),
         ArrowDatabaseMetadata.getDecimalDigits(new ArrowType.Timestamp(TimeUnit.SECOND, null)));
-    Assert.assertEquals(
+    assertEquals(
         Integer.valueOf(ArrowDatabaseMetadata.DECIMAL_DIGITS_TIME_MILLISECONDS),
         ArrowDatabaseMetadata.getDecimalDigits(
             new ArrowType.Timestamp(TimeUnit.MILLISECOND, null)));
-    Assert.assertEquals(
+    assertEquals(
         Integer.valueOf(ArrowDatabaseMetadata.DECIMAL_DIGITS_TIME_MICROSECONDS),
         ArrowDatabaseMetadata.getDecimalDigits(
             new ArrowType.Timestamp(TimeUnit.MICROSECOND, null)));
-    Assert.assertEquals(
+    assertEquals(
         Integer.valueOf(ArrowDatabaseMetadata.DECIMAL_DIGITS_TIME_NANOSECONDS),
         ArrowDatabaseMetadata.getDecimalDigits(new ArrowType.Timestamp(TimeUnit.NANOSECOND, null)));
 
-    Assert.assertEquals(
+    assertEquals(
         Integer.valueOf(ArrowDatabaseMetadata.NO_DECIMAL_DIGITS),
         ArrowDatabaseMetadata.getDecimalDigits(new ArrowType.Time(TimeUnit.SECOND, Integer.SIZE)));
-    Assert.assertEquals(
+    assertEquals(
         Integer.valueOf(ArrowDatabaseMetadata.DECIMAL_DIGITS_TIME_MILLISECONDS),
         ArrowDatabaseMetadata.getDecimalDigits(
             new ArrowType.Time(TimeUnit.MILLISECOND, Integer.SIZE)));
-    Assert.assertEquals(
+    assertEquals(
         Integer.valueOf(ArrowDatabaseMetadata.DECIMAL_DIGITS_TIME_MICROSECONDS),
         ArrowDatabaseMetadata.getDecimalDigits(
             new ArrowType.Time(TimeUnit.MICROSECOND, Integer.SIZE)));
-    Assert.assertEquals(
+    assertEquals(
         Integer.valueOf(ArrowDatabaseMetadata.DECIMAL_DIGITS_TIME_NANOSECONDS),
         ArrowDatabaseMetadata.getDecimalDigits(
             new ArrowType.Time(TimeUnit.NANOSECOND, Integer.SIZE)));
 
-    Assert.assertEquals(
+    assertEquals(
         Integer.valueOf(ArrowDatabaseMetadata.NO_DECIMAL_DIGITS),
         ArrowDatabaseMetadata.getDecimalDigits(new ArrowType.Date(DateUnit.DAY)));
 
-    Assert.assertNull(ArrowDatabaseMetadata.getDecimalDigits(new ArrowType.Utf8()));
+    assertNull(ArrowDatabaseMetadata.getDecimalDigits(new ArrowType.Utf8()));
   }
 
   @Test
   public void testSqlToRegexLike() {
-    Assert.assertEquals(".*", ArrowDatabaseMetadata.sqlToRegexLike("%"));
-    Assert.assertEquals(".", ArrowDatabaseMetadata.sqlToRegexLike("_"));
-    Assert.assertEquals("\\*", ArrowDatabaseMetadata.sqlToRegexLike("*"));
-    Assert.assertEquals("T\\*E.S.*T", ArrowDatabaseMetadata.sqlToRegexLike("T*E_S%T"));
+    assertEquals(".*", ArrowDatabaseMetadata.sqlToRegexLike("%"));
+    assertEquals(".", ArrowDatabaseMetadata.sqlToRegexLike("_"));
+    assertEquals("\\*", ArrowDatabaseMetadata.sqlToRegexLike("*"));
+    assertEquals("T\\*E.S.*T", ArrowDatabaseMetadata.sqlToRegexLike("T*E_S%T"));
   }
 
   @Test
@@ -1529,11 +1513,11 @@ public class ArrowDatabaseMetadataTest {
     try (final Connection testConnection =
         FLIGHT_SERVER_EMPTY_SQLINFO_TEST_RULE.getConnection(false)) {
       final DatabaseMetaData metaData = testConnection.getMetaData();
-      collector.checkThat(metaData.getSQLKeywords(), is(""));
-      collector.checkThat(metaData.getNumericFunctions(), is(""));
-      collector.checkThat(metaData.getStringFunctions(), is(""));
-      collector.checkThat(metaData.getSystemFunctions(), is(""));
-      collector.checkThat(metaData.getTimeDateFunctions(), is(""));
+      assertThat(metaData.getSQLKeywords(), is(""));
+      assertThat(metaData.getNumericFunctions(), is(""));
+      assertThat(metaData.getStringFunctions(), is(""));
+      assertThat(metaData.getSystemFunctions(), is(""));
+      assertThat(metaData.getTimeDateFunctions(), is(""));
     }
   }
 }

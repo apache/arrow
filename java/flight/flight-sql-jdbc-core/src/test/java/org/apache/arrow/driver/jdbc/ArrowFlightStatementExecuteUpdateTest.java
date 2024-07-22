@@ -22,6 +22,8 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.not;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -37,14 +39,12 @@ import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.calcite.avatica.AvaticaUtils;
-import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ErrorCollector;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 /** Tests for {@link ArrowFlightStatement#executeUpdate}. */
 public class ArrowFlightStatementExecuteUpdateTest {
@@ -60,15 +60,14 @@ public class ArrowFlightStatementExecuteUpdateTest {
           Collections.singletonList(Field.nullable("placeholder", MinorType.VARCHAR.getType())));
   private static final MockFlightSqlProducer PRODUCER = new MockFlightSqlProducer();
 
-  @ClassRule
-  public static final FlightServerTestRule SERVER_TEST_RULE =
-      FlightServerTestRule.createStandardTestRule(PRODUCER);
+  @RegisterExtension
+  public static final FlightServerTestExtension FLIGHT_SERVER_TEST_EXTENSION =
+      FlightServerTestExtension.createStandardTestExtension(PRODUCER);
 
-  @Rule public final ErrorCollector collector = new ErrorCollector();
   public Connection connection;
   public Statement statement;
 
-  @BeforeClass
+  @BeforeAll
   public static void setUpBeforeClass() {
     PRODUCER.addUpdateQuery(UPDATE_SAMPLE_QUERY, UPDATE_SAMPLE_QUERY_AFFECTED_COLS);
     PRODUCER.addUpdateQuery(LARGE_UPDATE_SAMPLE_QUERY, LARGE_UPDATE_SAMPLE_QUERY_AFFECTED_COLS);
@@ -90,18 +89,18 @@ public class ArrowFlightStatementExecuteUpdateTest {
             }));
   }
 
-  @Before
+  @BeforeEach
   public void setUp() throws SQLException {
-    connection = SERVER_TEST_RULE.getConnection(false);
+    connection = FLIGHT_SERVER_TEST_EXTENSION.getConnection(false);
     statement = connection.createStatement();
   }
 
-  @After
+  @AfterEach
   public void tearDown() throws Exception {
     AutoCloseables.close(statement, connection);
   }
 
-  @AfterClass
+  @AfterAll
   public static void tearDownAfterClass() throws Exception {
     AutoCloseables.close(PRODUCER);
   }
@@ -109,8 +108,7 @@ public class ArrowFlightStatementExecuteUpdateTest {
   @Test
   public void testExecuteUpdateShouldReturnNumColsAffectedForNumRowsFittingInt()
       throws SQLException {
-    collector.checkThat(
-        statement.executeUpdate(UPDATE_SAMPLE_QUERY), is(UPDATE_SAMPLE_QUERY_AFFECTED_COLS));
+    assertThat(statement.executeUpdate(UPDATE_SAMPLE_QUERY), is(UPDATE_SAMPLE_QUERY_AFFECTED_COLS));
   }
 
   @Test
@@ -118,7 +116,7 @@ public class ArrowFlightStatementExecuteUpdateTest {
       throws SQLException {
     final long result = statement.executeUpdate(LARGE_UPDATE_SAMPLE_QUERY);
     final long expectedRowCountRaw = LARGE_UPDATE_SAMPLE_QUERY_AFFECTED_COLS;
-    collector.checkThat(
+    assertThat(
         result,
         is(
             allOf(
@@ -131,40 +129,52 @@ public class ArrowFlightStatementExecuteUpdateTest {
 
   @Test
   public void testExecuteLargeUpdateShouldReturnNumColsAffected() throws SQLException {
-    collector.checkThat(
+    assertThat(
         statement.executeLargeUpdate(LARGE_UPDATE_SAMPLE_QUERY),
         is(LARGE_UPDATE_SAMPLE_QUERY_AFFECTED_COLS));
   }
 
-  @Test(expected = SQLFeatureNotSupportedException.class)
+  @Test
   // TODO Implement `Statement#executeUpdate(String, int)`
   public void testExecuteUpdateUnsupportedWithDriverFlag() throws SQLException {
-    collector.checkThat(
-        statement.executeUpdate(UPDATE_SAMPLE_QUERY, Statement.RETURN_GENERATED_KEYS),
-        is(UPDATE_SAMPLE_QUERY_AFFECTED_COLS));
+    assertThrows(
+        SQLFeatureNotSupportedException.class,
+        () -> {
+          assertThat(
+              statement.executeUpdate(UPDATE_SAMPLE_QUERY, Statement.NO_GENERATED_KEYS),
+              is(UPDATE_SAMPLE_QUERY_AFFECTED_COLS));
+        });
   }
 
-  @Test(expected = SQLFeatureNotSupportedException.class)
+  @Test
   // TODO Implement `Statement#executeUpdate(String, int[])`
   public void testExecuteUpdateUnsupportedWithArrayOfInts() throws SQLException {
-    collector.checkThat(
-        statement.executeUpdate(UPDATE_SAMPLE_QUERY, new int[0]),
-        is(UPDATE_SAMPLE_QUERY_AFFECTED_COLS));
+    assertThrows(
+        SQLFeatureNotSupportedException.class,
+        () -> {
+          assertThat(
+              statement.executeUpdate(UPDATE_SAMPLE_QUERY, new int[0]),
+              is(UPDATE_SAMPLE_QUERY_AFFECTED_COLS));
+        });
   }
 
-  @Test(expected = SQLFeatureNotSupportedException.class)
+  @Test
   // TODO Implement `Statement#executeUpdate(String, String[])`
   public void testExecuteUpdateUnsupportedWithArraysOfStrings() throws SQLException {
-    collector.checkThat(
-        statement.executeUpdate(UPDATE_SAMPLE_QUERY, new String[0]),
-        is(UPDATE_SAMPLE_QUERY_AFFECTED_COLS));
+    assertThrows(
+        SQLFeatureNotSupportedException.class,
+        () -> {
+          assertThat(
+              statement.executeUpdate(UPDATE_SAMPLE_QUERY, new String[0]),
+              is(UPDATE_SAMPLE_QUERY_AFFECTED_COLS));
+        });
   }
 
   @Test
   public void testExecuteShouldExecuteUpdateQueryAutomatically() throws SQLException {
-    collector.checkThat(
+    assertThat(
         statement.execute(UPDATE_SAMPLE_QUERY), is(false)); // Meaning there was an update query.
-    collector.checkThat(
+    assertThat(
         statement.execute(REGULAR_QUERY_SAMPLE), is(true)); // Meaning there was a select query.
   }
 
@@ -172,26 +182,26 @@ public class ArrowFlightStatementExecuteUpdateTest {
   public void testShouldFailToPrepareStatementForNullQuery() {
     int count = 0;
     try {
-      collector.checkThat(statement.execute(null), is(false));
+      assertThat(statement.execute(null), is(false));
     } catch (final SQLException e) {
       count++;
-      collector.checkThat(e.getCause(), is(instanceOf(NullPointerException.class)));
+      assertThat(e.getCause(), is(instanceOf(NullPointerException.class)));
     }
-    collector.checkThat(count, is(1));
+    assertThat(count, is(1));
   }
 
   @Test
   public void testShouldFailToPrepareStatementForClosedStatement() throws SQLException {
     statement.close();
-    collector.checkThat(statement.isClosed(), is(true));
+    assertThat(statement.isClosed(), is(true));
     int count = 0;
     try {
       statement.execute(UPDATE_SAMPLE_QUERY);
     } catch (final SQLException e) {
       count++;
-      collector.checkThat(e.getMessage(), is("Statement closed"));
+      assertThat(e.getMessage(), is("Statement closed"));
     }
-    collector.checkThat(count, is(1));
+    assertThat(count, is(1));
   }
 
   @Test
@@ -208,10 +218,10 @@ public class ArrowFlightStatementExecuteUpdateTest {
        * we simply throw an `IllegalArgumentException` for queries not registered
        * in our `MockFlightSqlProducer`.
        */
-      collector.checkThat(
+      assertThat(
           e.getMessage(),
           is(format("Error while executing SQL \"%s\": Query not found", badQuery)));
     }
-    collector.checkThat(count, is(1));
+    assertThat(count, is(1));
   }
 }

@@ -17,7 +17,6 @@
 package org.apache.arrow.driver.jdbc.utils;
 
 import static java.lang.Runtime.getRuntime;
-import static java.util.Arrays.asList;
 import static org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.CATALOG;
 import static org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.HOST;
 import static org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.PASSWORD;
@@ -26,94 +25,83 @@ import static org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl
 import static org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.USER;
 import static org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.USE_ENCRYPTION;
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.MatcherAssert.assertThat;
 
-import java.util.List;
 import java.util.Properties;
 import java.util.Random;
 import java.util.function.Function;
+import java.util.stream.Stream;
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ErrorCollector;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameter;
-import org.junit.runners.Parameterized.Parameters;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
-@RunWith(Parameterized.class)
 public final class ArrowFlightConnectionConfigImplTest {
 
   private static final Random RANDOM = new Random(12L);
 
-  private final Properties properties = new Properties();
+  private Properties properties;
   private ArrowFlightConnectionConfigImpl arrowFlightConnectionConfig;
 
-  @Rule public final ErrorCollector collector = new ErrorCollector();
-
-  @Parameter public ArrowFlightConnectionProperty property;
-
-  @Parameter(value = 1)
+  public ArrowFlightConnectionProperty property;
   public Object value;
-
-  @Parameter(value = 2)
   public Function<ArrowFlightConnectionConfigImpl, ?> arrowFlightConnectionConfigFunction;
 
-  @Before
+  @BeforeEach
   public void setUp() {
+    properties = new Properties();
     arrowFlightConnectionConfig = new ArrowFlightConnectionConfigImpl(properties);
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideParameters")
+  public void testGetProperty(
+      ArrowFlightConnectionProperty property,
+      Object value,
+      Function<ArrowFlightConnectionConfigImpl, ?> configFunction) {
     properties.put(property.camelName(), value);
+    arrowFlightConnectionConfigFunction = configFunction;
+    assertThat(configFunction.apply(arrowFlightConnectionConfig), is(value));
+    assertThat(arrowFlightConnectionConfigFunction.apply(arrowFlightConnectionConfig), is(value));
   }
 
-  @Test
-  public void testGetProperty() {
-    collector.checkThat(
-        arrowFlightConnectionConfigFunction.apply(arrowFlightConnectionConfig), is(value));
-  }
-
-  @Parameters(name = "<{0}> as <{1}>")
-  public static List<Object[]> provideParameters() {
-    return asList(
-        new Object[][] {
-          {
+  public static Stream<Arguments> provideParameters() {
+    return Stream.of(
+        Arguments.of(
             HOST,
             "host",
-            (Function<ArrowFlightConnectionConfigImpl, ?>) ArrowFlightConnectionConfigImpl::getHost
-          },
-          {
+            (Function<ArrowFlightConnectionConfigImpl, ?>)
+                ArrowFlightConnectionConfigImpl::getHost),
+        Arguments.of(
             PORT,
             RANDOM.nextInt(Short.toUnsignedInt(Short.MAX_VALUE)),
-            (Function<ArrowFlightConnectionConfigImpl, ?>) ArrowFlightConnectionConfigImpl::getPort
-          },
-          {
+            (Function<ArrowFlightConnectionConfigImpl, ?>)
+                ArrowFlightConnectionConfigImpl::getPort),
+        Arguments.of(
             USER,
             "user",
-            (Function<ArrowFlightConnectionConfigImpl, ?>) ArrowFlightConnectionConfigImpl::getUser
-          },
-          {
+            (Function<ArrowFlightConnectionConfigImpl, ?>)
+                ArrowFlightConnectionConfigImpl::getUser),
+        Arguments.of(
             PASSWORD,
             "password",
             (Function<ArrowFlightConnectionConfigImpl, ?>)
-                ArrowFlightConnectionConfigImpl::getPassword
-          },
-          {
+                ArrowFlightConnectionConfigImpl::getPassword),
+        Arguments.of(
             USE_ENCRYPTION,
             RANDOM.nextBoolean(),
             (Function<ArrowFlightConnectionConfigImpl, ?>)
-                ArrowFlightConnectionConfigImpl::useEncryption
-          },
-          {
+                ArrowFlightConnectionConfigImpl::useEncryption),
+        Arguments.of(
             THREAD_POOL_SIZE,
             RANDOM.nextInt(getRuntime().availableProcessors()),
             (Function<ArrowFlightConnectionConfigImpl, ?>)
-                ArrowFlightConnectionConfigImpl::threadPoolSize
-          },
-          {
+                ArrowFlightConnectionConfigImpl::threadPoolSize),
+        Arguments.of(
             CATALOG,
             "catalog",
             (Function<ArrowFlightConnectionConfigImpl, ?>)
-                ArrowFlightConnectionConfigImpl::getCatalog
-          },
-        });
+                ArrowFlightConnectionConfigImpl::getCatalog));
   }
 }

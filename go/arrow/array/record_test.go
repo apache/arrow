@@ -21,9 +21,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/v17/arrow"
-	"github.com/apache/arrow/go/v17/arrow/array"
-	"github.com/apache/arrow/go/v17/arrow/memory"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/array"
+	"github.com/apache/arrow/go/v18/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -367,6 +367,45 @@ func TestRecordReader(t *testing.T) {
 			}
 			if !assert.Equal(t, tc.err, err) {
 				t.Fatalf("invalid error: got=%v, want=%v", err, tc.err)
+			}
+		})
+	}
+}
+
+func TestRecordBuilderRespectsFixedSizeArrayNullability(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	cases := []struct {
+		assertion string
+		fields    []arrow.Field
+	}{
+		{
+			"nullable",
+			[]arrow.Field{{Name: "data", Type: arrow.FixedSizeListOf(1, arrow.PrimitiveTypes.Int32)}},
+		},
+		{
+			"not nullable",
+			[]arrow.Field{{Name: "data", Type: arrow.FixedSizeListOfNonNullable(1, arrow.PrimitiveTypes.Int32)}},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.assertion, func(t *testing.T) {
+			schema := arrow.NewSchema(c.fields, nil)
+			b := array.NewRecordBuilder(mem, schema)
+			defer b.Release()
+
+			lb := b.Field(0).(*array.FixedSizeListBuilder)
+			lb.Append(true)
+
+			vb := lb.ValueBuilder().(*array.Int32Builder)
+			vb.Append(10)
+
+			rec := b.NewRecord()
+			defer rec.Release()
+
+			if got, want := rec.Column(0).String(), "[[10]]"; got != want {
+				t.Fatalf("invalid record: got=%q, want=%q", got, want)
 			}
 		})
 	}

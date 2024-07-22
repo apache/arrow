@@ -122,6 +122,14 @@ public class ArrowTypeTime64: ArrowType {
     }
 }
 
+public class ArrowNestedType: ArrowType {
+    let fields: [ArrowField]
+    public init(_ info: ArrowType.Info, fields: [ArrowField]) {
+        self.fields = fields
+        super.init(info)
+    }
+}
+
 public class ArrowType {
     public private(set) var info: ArrowType.Info
     public static let ArrowInt8 = Info.primitiveInfo(ArrowTypeId.int8)
@@ -142,6 +150,7 @@ public class ArrowType {
     public static let ArrowBinary = Info.variableInfo(ArrowTypeId.binary)
     public static let ArrowTime32 = Info.timeInfo(ArrowTypeId.time32)
     public static let ArrowTime64 = Info.timeInfo(ArrowTypeId.time64)
+    public static let ArrowStruct = Info.complexInfo(ArrowTypeId.strct)
 
     public init(_ info: ArrowType.Info) {
         self.info = info
@@ -155,6 +164,8 @@ public class ArrowType {
             return id
         case .variableInfo(let id):
             return id
+        case .complexInfo(let id):
+            return id
         }
     }
 
@@ -162,6 +173,42 @@ public class ArrowType {
         case primitiveInfo(ArrowTypeId)
         case variableInfo(ArrowTypeId)
         case timeInfo(ArrowTypeId)
+        case complexInfo(ArrowTypeId)
+    }
+
+    public static func infoForType( // swiftlint:disable:this cyclomatic_complexity
+        _ type: Any.Type) -> ArrowType.Info {
+        if type == String.self {
+            return ArrowType.ArrowString
+        } else if type == Date.self {
+            return ArrowType.ArrowDate64
+        } else if type == Bool.self {
+            return ArrowType.ArrowBool
+        } else if type == Data.self {
+            return ArrowType.ArrowBinary
+        } else if type == Int8.self {
+            return ArrowType.ArrowInt8
+        } else if type == Int16.self {
+            return ArrowType.ArrowInt16
+        } else if type == Int32.self {
+            return ArrowType.ArrowInt32
+        } else if type == Int64.self {
+            return ArrowType.ArrowInt64
+        } else if type == UInt8.self {
+            return ArrowType.ArrowUInt8
+        } else if type == UInt16.self {
+            return ArrowType.ArrowUInt16
+        } else if type == UInt32.self {
+            return ArrowType.ArrowUInt32
+        } else if type == UInt64.self {
+            return ArrowType.ArrowUInt64
+        } else if type == Float.self {
+            return ArrowType.ArrowFloat
+        } else if type == Double.self {
+            return ArrowType.ArrowDouble
+        } else {
+            return ArrowType.ArrowUnknown
+        }
     }
 
     public static func infoForNumericType<T>(_ type: T.Type) -> ArrowType.Info {
@@ -227,6 +274,8 @@ public class ArrowType {
             return MemoryLayout<Int8>.stride
         case .string:
             return MemoryLayout<Int8>.stride
+        case .strct:
+            return 0
         default:
             fatalError("Stride requested for unknown type: \(self)")
         }
@@ -351,3 +400,4 @@ func getBytesFor<T>(_ data: T) -> Data? {
         return nil
     }
 }
+// swiftlint:disable:this file_length

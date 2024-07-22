@@ -18,6 +18,10 @@ package org.apache.arrow.flight;
 
 import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
 import static org.apache.arrow.flight.Location.forGrpcInsecure;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -29,7 +33,6 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class TestServerMiddleware {
@@ -51,9 +54,9 @@ public class TestServerMiddleware {
         },
         (recorder) -> {
           final CallStatus status = recorder.statusFuture.get();
-          Assertions.assertNotNull(status);
-          Assertions.assertNotNull(status.cause());
-          Assertions.assertEquals(FlightStatusCode.INTERNAL, status.code());
+          assertNotNull(status);
+          assertNotNull(status.cause());
+          assertEquals(FlightStatusCode.INTERNAL, status.code());
         });
     // Check the status after server shutdown (to make sure gRPC finishes pending calls on the
     // server side)
@@ -77,10 +80,10 @@ public class TestServerMiddleware {
         },
         (recorder) -> {
           final CallStatus status = recorder.statusFuture.get();
-          Assertions.assertNotNull(status);
-          Assertions.assertNull(status.cause());
-          Assertions.assertEquals(FlightStatusCode.UNAVAILABLE, status.code());
-          Assertions.assertEquals("description", status.description());
+          assertNotNull(status);
+          assertNull(status.cause());
+          assertEquals(FlightStatusCode.UNAVAILABLE, status.code());
+          assertEquals("description", status.description());
         });
   }
 
@@ -102,11 +105,11 @@ public class TestServerMiddleware {
         (recorder) -> {
           final CallStatus status = recorder.statusFuture.get();
           final Throwable err = recorder.errFuture.get();
-          Assertions.assertNotNull(status);
-          Assertions.assertEquals(FlightStatusCode.OK, status.code());
-          Assertions.assertNull(status.cause());
-          Assertions.assertNotNull(err);
-          Assertions.assertEquals("test", err.getMessage());
+          assertNotNull(status);
+          assertEquals(FlightStatusCode.OK, status.code());
+          assertNull(status.cause());
+          assertNotNull(err);
+          assertEquals("test", err.getMessage());
         });
   }
 
@@ -119,11 +122,11 @@ public class TestServerMiddleware {
         (recorder) -> {
           final CallStatus status = recorder.statusFuture.get();
           final Throwable err = recorder.errFuture.get();
-          Assertions.assertNotNull(status);
-          Assertions.assertEquals(FlightStatusCode.OK, status.code());
-          Assertions.assertNull(status.cause());
-          Assertions.assertNotNull(err);
-          Assertions.assertEquals("test", err.getMessage());
+          assertNotNull(status);
+          assertEquals(FlightStatusCode.OK, status.code());
+          assertNull(status.cause());
+          assertNotNull(err);
+          assertEquals("test", err.getMessage());
         });
   }
 
@@ -135,11 +138,11 @@ public class TestServerMiddleware {
         (recorder) -> {
           final CallStatus status = recorder.statusFuture.get();
           final Throwable err = recorder.errFuture.get();
-          Assertions.assertNotNull(status);
-          Assertions.assertEquals(FlightStatusCode.OK, status.code());
-          Assertions.assertNull(status.cause());
-          Assertions.assertNotNull(err);
-          Assertions.assertEquals("test", err.getMessage());
+          assertNotNull(status);
+          assertEquals(FlightStatusCode.OK, status.code());
+          assertNull(status.cause());
+          assertNotNull(err);
+          assertEquals("test", err.getMessage());
         });
   }
 
@@ -151,11 +154,11 @@ public class TestServerMiddleware {
         (recorder) -> {
           final CallStatus status = recorder.statusFuture.get();
           final Throwable err = recorder.errFuture.get();
-          Assertions.assertNotNull(status);
-          Assertions.assertEquals(FlightStatusCode.OK, status.code());
-          Assertions.assertNull(status.cause());
-          Assertions.assertNotNull(err);
-          Assertions.assertEquals("test", err.getMessage());
+          assertNotNull(status);
+          assertEquals(FlightStatusCode.OK, status.code());
+          assertNull(status.cause());
+          assertNotNull(err);
+          assertEquals("test", err.getMessage());
         });
   }
 
@@ -169,11 +172,10 @@ public class TestServerMiddleware {
         },
         (recorder) -> {
           final CallStatus status = recorder.statusFuture.get();
-          Assertions.assertNotNull(status);
-          Assertions.assertEquals(FlightStatusCode.INTERNAL, status.code());
-          Assertions.assertNotNull(status.cause());
-          Assertions.assertEquals(
-              new RuntimeException("test").getMessage(), status.cause().getMessage());
+          assertNotNull(status);
+          assertEquals(FlightStatusCode.INTERNAL, status.code());
+          assertNotNull(status.cause());
+          assertEquals(new RuntimeException("test").getMessage(), status.cause().getMessage());
         });
   }
 
@@ -185,17 +187,17 @@ public class TestServerMiddleware {
           try (final FlightStream stream = client.getStream(new Ticket(new byte[0]))) {
             while (stream.next()) {}
           } catch (Exception e) {
-            Assertions.fail(e.toString());
+            fail(e.toString());
           }
         },
         (recorder) -> {
           final CallStatus status = recorder.statusFuture.get();
           final Throwable err = recorder.errFuture.get();
-          Assertions.assertNotNull(status);
-          Assertions.assertEquals(FlightStatusCode.OK, status.code());
-          Assertions.assertNull(status.cause());
-          Assertions.assertNotNull(err);
-          Assertions.assertEquals("test", err.getMessage());
+          assertNotNull(status);
+          assertEquals(FlightStatusCode.OK, status.code());
+          assertNull(status.cause());
+          assertNotNull(err);
+          assertEquals("test", err.getMessage());
         });
   }
 

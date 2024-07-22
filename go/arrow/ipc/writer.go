@@ -26,15 +26,15 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v17/arrow"
-	"github.com/apache/arrow/go/v17/arrow/array"
-	"github.com/apache/arrow/go/v17/arrow/bitutil"
-	"github.com/apache/arrow/go/v17/arrow/internal"
-	"github.com/apache/arrow/go/v17/arrow/internal/debug"
-	"github.com/apache/arrow/go/v17/arrow/internal/dictutils"
-	"github.com/apache/arrow/go/v17/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v17/arrow/memory"
-	"github.com/apache/arrow/go/v17/internal/utils"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/array"
+	"github.com/apache/arrow/go/v18/arrow/bitutil"
+	"github.com/apache/arrow/go/v18/arrow/internal"
+	"github.com/apache/arrow/go/v18/arrow/internal/debug"
+	"github.com/apache/arrow/go/v18/arrow/internal/dictutils"
+	"github.com/apache/arrow/go/v18/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v18/arrow/memory"
+	"github.com/apache/arrow/go/v18/internal/utils"
 )
 
 type swriter struct {
@@ -86,6 +86,7 @@ type Writer struct {
 	mapper          dictutils.Mapper
 	codec           flatbuf.CompressionType
 	compressNP      int
+	compressors     []compressor
 	minSpaceSavings *float64
 
 	// map of the last written dictionaries by id
@@ -107,6 +108,7 @@ func NewWriterWithPayloadWriter(pw PayloadWriter, opts ...Option) *Writer {
 		compressNP:      cfg.compressNP,
 		minSpaceSavings: cfg.minSpaceSavings,
 		emitDictDeltas:  cfg.emitDictDeltas,
+		compressors:     make([]compressor, cfg.compressNP),
 	}
 }
 
@@ -120,6 +122,8 @@ func NewWriter(w io.Writer, opts ...Option) *Writer {
 		schema:         cfg.schema,
 		codec:          cfg.codec,
 		emitDictDeltas: cfg.emitDictDeltas,
+		compressNP:     cfg.compressNP,
+		compressors:    make([]compressor, cfg.compressNP),
 	}
 }
 
@@ -170,7 +174,16 @@ func (w *Writer) Write(rec arrow.Record) (err error) {
 	const allow64b = true
 	var (
 		data = Payload{msg: MessageRecordBatch}
-		enc  = newRecordEncoder(w.mem, 0, kMaxNestingDepth, allow64b, w.codec, w.compressNP, w.minSpaceSavings)
+		enc  = newRecordEncoder(
+			w.mem,
+			0,
+			kMaxNestingDepth,
+			allow64b,
+			w.codec,
+			w.compressNP,
+			w.minSpaceSavings,
+			w.compressors,
+		)
 	)
 	defer data.Release()
 
@@ -310,10 +323,20 @@ type recordEncoder struct {
 	allow64b        bool
 	codec           flatbuf.CompressionType
 	compressNP      int
+	compressors     []compressor
 	minSpaceSavings *float64
 }
 
-func newRecordEncoder(mem memory.Allocator, startOffset, maxDepth int64, allow64b bool, codec flatbuf.CompressionType, compressNP int, minSpaceSavings *float64) *recordEncoder {
+func newRecordEncoder(
+	mem memory.Allocator,
+	startOffset,
+	maxDepth int64,
+	allow64b bool,
+	codec flatbuf.CompressionType,
+	compressNP int,
+	minSpaceSavings *float64,
+	compressors []compressor,
+) *recordEncoder {
 	return &recordEncoder{
 		mem:             mem,
 		start:           startOffset,
@@ -321,6 +344,7 @@ func newRecordEncoder(mem memory.Allocator, startOffset, maxDepth int64, allow64
 		allow64b:        allow64b,
 		codec:           codec,
 		compressNP:      compressNP,
+		compressors:     compressors,
 		minSpaceSavings: minSpaceSavings,
 	}
 }
@@ -338,6 +362,13 @@ func (w *recordEncoder) shouldCompress(uncompressed, compressed int) bool {
 func (w *recordEncoder) reset() {
 	w.start = 0
 	w.fields = make([]fieldMetadata, 0)
+}
+
+func (w *recordEncoder) getCompressor(id int) compressor {
+	if w.compressors[id] == nil {
+		w.compressors[id] = getCompressor(w.codec)
+	}
+	return w.compressors[id]
 }
 
 func (w *recordEncoder) compressBodyBuffers(p *Payload) error {
@@ -378,7 +409,7 @@ func (w *recordEncoder) compressBodyBuffers(p *Payload) error {
 	}
 
 	if w.compressNP <= 1 {
-		codec := getCompressor(w.codec)
+		codec := w.getCompressor(0)
 		for idx := range p.body {
 			if err := compress(idx, codec); err != nil {
 				return err
@@ -395,11 +426,11 @@ func (w *recordEncoder) compressBodyBuffers(p *Payload) error {
 	)
 	defer cancel()
 
-	for i := 0; i < w.compressNP; i++ {
+	for workerID := 0; workerID < w.compressNP; workerID++ {
 		wg.Add(1)
-		go func() {
+		go func(id int) {
 			defer wg.Done()
-			codec := getCompressor(w.codec)
+			codec := w.getCompressor(id)
 			for {
 				select {
 				case idx, ok := <-ch:
@@ -418,7 +449,7 @@ func (w *recordEncoder) compressBodyBuffers(p *Payload) error {
 					return
 				}
 			}
-		}()
+		}(workerID)
 	}
 
 	for idx := range p.body {
@@ -822,19 +853,35 @@ func (w *recordEncoder) getZeroBasedValueOffsets(arr arrow.Array) *memory.Buffer
 		return nil
 	}
 
+	dataTypeWidth := arr.DataType().Layout().Buffers[1].ByteWidth
+
 	// if we have a non-zero offset, then the value offsets do not start at
 	// zero. we must a) create a new offsets array with shifted offsets and
 	// b) slice the values array accordingly
-	//
+	hasNonZeroOffset := data.Offset() != 0
+
 	// or if there are more value offsets than values (the array has been sliced)
 	// we need to trim off the trailing offsets
-	needsTruncateAndShift := data.Offset() != 0 || offsetBytesNeeded < voffsets.Len()
+	hasMoreOffsetsThanValues := offsetBytesNeeded < voffsets.Len()
+
+	// or if the offsets do not start from the zero index, we need to shift them
+	// and slice the values array
+	var firstOffset int64
+	if dataTypeWidth == 8 {
+		firstOffset = arrow.Int64Traits.CastFromBytes(voffsets.Bytes())[0]
+	} else {
+		firstOffset = int64(arrow.Int32Traits.CastFromBytes(voffsets.Bytes())[0])
+	}
+	offsetsDoNotStartFromZero := firstOffset != 0
+
+	// determine whether the offsets array should be shifted
+	needsTruncateAndShift := hasNonZeroOffset || hasMoreOffsetsThanValues || offsetsDoNotStartFromZero
 
 	if needsTruncateAndShift {
 		shiftedOffsets := memory.NewResizableBuffer(w.mem)
 		shiftedOffsets.Resize(offsetBytesNeeded)
 
-		switch arr.DataType().Layout().Buffers[1].ByteWidth {
+		switch dataTypeWidth {
 		case 8:
 			dest := arrow.Int64Traits.CastFromBytes(shiftedOffsets.Bytes())
 			offsets := arrow.Int64Traits.CastFromBytes(voffsets.Bytes())[data.Offset() : data.Offset()+data.Len()+1]

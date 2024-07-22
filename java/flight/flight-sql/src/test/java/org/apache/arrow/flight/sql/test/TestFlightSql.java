@@ -25,6 +25,7 @@ import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.CoreMatchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -67,7 +68,6 @@ import org.apache.arrow.vector.util.Text;
 import org.hamcrest.Matcher;
 import org.hamcrest.MatcherAssert;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
@@ -216,7 +216,7 @@ public class TestFlightSql {
     try (final FlightStream stream =
         sqlClient.getStream(
             sqlClient.getTables(null, null, null, null, false).getEndpoints().get(0).getTicket())) {
-      Assertions.assertAll(
+      assertAll(
           () -> {
             MatcherAssert.assertThat(
                 stream.getSchema(), is(FlightSqlProducer.Schemas.GET_TABLES_SCHEMA_NO_SCHEMA));
@@ -268,7 +268,7 @@ public class TestFlightSql {
                 .get(0)
                 .getTicket())) {
 
-      Assertions.assertAll(
+      assertAll(
           () ->
               MatcherAssert.assertThat(
                   stream.getSchema(), is(FlightSqlProducer.Schemas.GET_TABLES_SCHEMA_NO_SCHEMA)),
@@ -293,7 +293,7 @@ public class TestFlightSql {
                 .getEndpoints()
                 .get(0)
                 .getTicket())) {
-      Assertions.assertAll(
+      assertAll(
           () ->
               MatcherAssert.assertThat(
                   stream.getSchema(), is(FlightSqlProducer.Schemas.GET_TABLES_SCHEMA)),
@@ -447,7 +447,7 @@ public class TestFlightSql {
   @Test
   public void testSimplePreparedStatementSchema() throws Exception {
     try (final PreparedStatement preparedStatement = sqlClient.prepare("SELECT * FROM intTable")) {
-      Assertions.assertAll(
+      assertAll(
           () -> {
             final Schema actualSchema = preparedStatement.getResultSetSchema();
             MatcherAssert.assertThat(actualSchema, is(SCHEMA_INT_TABLE));
@@ -464,7 +464,7 @@ public class TestFlightSql {
     try (final PreparedStatement preparedStatement = sqlClient.prepare("SELECT * FROM intTable");
         final FlightStream stream =
             sqlClient.getStream(preparedStatement.execute().getEndpoints().get(0).getTicket())) {
-      Assertions.assertAll(
+      assertAll(
           () -> MatcherAssert.assertThat(stream.getSchema(), is(SCHEMA_INT_TABLE)),
           () ->
               MatcherAssert.assertThat(
@@ -489,7 +489,7 @@ public class TestFlightSql {
 
         FlightStream stream = sqlClient.getStream(flightInfo.getEndpoints().get(0).getTicket());
 
-        Assertions.assertAll(
+        assertAll(
             () -> MatcherAssert.assertThat(stream.getSchema(), is(SCHEMA_INT_TABLE)),
             () ->
                 MatcherAssert.assertThat(
@@ -530,7 +530,7 @@ public class TestFlightSql {
           deletePrepare.setParameters(deleteRoot);
           deletedRows = deletePrepare.executeUpdate();
         }
-        Assertions.assertAll(
+        assertAll(
             () -> MatcherAssert.assertThat(updatedRows, is(10L)),
             () -> MatcherAssert.assertThat(deletedRows, is(10L)));
       }
@@ -547,7 +547,7 @@ public class TestFlightSql {
 
       final long deletedRows = deletePrepare.executeUpdate();
 
-      Assertions.assertAll(
+      assertAll(
           () -> MatcherAssert.assertThat(updatedRows, is(1L)),
           () -> MatcherAssert.assertThat(deletedRows, is(1L)));
     }
@@ -556,7 +556,7 @@ public class TestFlightSql {
   @Test
   public void testSimplePreparedStatementClosesProperly() {
     final PreparedStatement preparedStatement = sqlClient.prepare("SELECT * FROM intTable");
-    Assertions.assertAll(
+    assertAll(
         () -> {
           MatcherAssert.assertThat(preparedStatement.isClosed(), is(false));
         },
@@ -577,7 +577,7 @@ public class TestFlightSql {
   public void testGetCatalogsResults() throws Exception {
     try (final FlightStream stream =
         sqlClient.getStream(sqlClient.getCatalogs().getEndpoints().get(0).getTicket())) {
-      Assertions.assertAll(
+      assertAll(
           () ->
               MatcherAssert.assertThat(
                   stream.getSchema(), is(FlightSqlProducer.Schemas.GET_CATALOGS_SCHEMA)),
@@ -600,7 +600,7 @@ public class TestFlightSql {
   public void testGetTableTypesResult() throws Exception {
     try (final FlightStream stream =
         sqlClient.getStream(sqlClient.getTableTypes().getEndpoints().get(0).getTicket())) {
-      Assertions.assertAll(
+      assertAll(
           () -> {
             MatcherAssert.assertThat(
                 stream.getSchema(), is(FlightSqlProducer.Schemas.GET_TABLE_TYPES_SCHEMA));
@@ -630,7 +630,7 @@ public class TestFlightSql {
   public void testGetSchemasResult() throws Exception {
     try (final FlightStream stream =
         sqlClient.getStream(sqlClient.getSchemas(null, null).getEndpoints().get(0).getTicket())) {
-      Assertions.assertAll(
+      assertAll(
           () -> {
             MatcherAssert.assertThat(
                 stream.getSchema(), is(FlightSqlProducer.Schemas.GET_SCHEMAS_SCHEMA));
@@ -663,11 +663,11 @@ public class TestFlightSql {
 
     final List<List<String>> results = getResults(stream);
 
-    Assertions.assertAll(
+    assertAll(
         () -> MatcherAssert.assertThat(results.size(), is(1)),
         () -> {
           final List<String> result = results.get(0);
-          Assertions.assertAll(
+          assertAll(
               () -> MatcherAssert.assertThat(result.get(0), is("")),
               () -> MatcherAssert.assertThat(result.get(1), is("APP")),
               () -> MatcherAssert.assertThat(result.get(2), is("INTTABLE")),
@@ -688,7 +688,7 @@ public class TestFlightSql {
   public void testGetSqlInfoResults() throws Exception {
     final FlightInfo info = sqlClient.getSqlInfo();
     try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
-      Assertions.assertAll(
+      assertAll(
           () ->
               MatcherAssert.assertThat(
                   stream.getSchema(), is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA)),
@@ -703,7 +703,7 @@ public class TestFlightSql {
     final FlightSql.SqlInfo arg = FlightSql.SqlInfo.FLIGHT_SQL_SERVER_NAME;
     final FlightInfo info = sqlClient.getSqlInfo(arg);
     try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
-      Assertions.assertAll(
+      assertAll(
           () ->
               MatcherAssert.assertThat(
                   stream.getSchema(), is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA)),
@@ -732,7 +732,7 @@ public class TestFlightSql {
     };
     final FlightInfo info = sqlClient.getSqlInfo(args);
     try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
-      Assertions.assertAll(
+      assertAll(
           () ->
               MatcherAssert.assertThat(
                   stream.getSchema(), is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA)),
@@ -771,13 +771,13 @@ public class TestFlightSql {
               is("3")); // delete_rule
 
       final List<Executable> assertions = new ArrayList<>();
-      Assertions.assertEquals(1, results.size());
+      assertEquals(1, results.size());
       for (int i = 0; i < matchers.size(); i++) {
         final String actual = results.get(0).get(i);
         final Matcher<String> expected = matchers.get(i);
         assertions.add(() -> MatcherAssert.assertThat(actual, expected));
       }
-      Assertions.assertAll(assertions);
+      assertAll(assertions);
     }
   }
 
@@ -809,14 +809,14 @@ public class TestFlightSql {
               is("3"), // update_rule
               is("3")); // delete_rule
 
-      Assertions.assertEquals(1, results.size());
+      assertEquals(1, results.size());
       final List<Executable> assertions = new ArrayList<>();
       for (int i = 0; i < matchers.size(); i++) {
         final String actual = results.get(0).get(i);
         final Matcher<String> expected = matchers.get(i);
         assertions.add(() -> MatcherAssert.assertThat(actual, expected));
       }
-      Assertions.assertAll(assertions);
+      assertAll(assertions);
     }
   }
 
@@ -1334,14 +1334,14 @@ public class TestFlightSql {
               is("3"), // update_rule
               is("3")); // delete_rule
 
-      Assertions.assertEquals(1, results.size());
+      assertEquals(1, results.size());
       final List<Executable> assertions = new ArrayList<>();
       for (int i = 0; i < matchers.size(); i++) {
         final String actual = results.get(0).get(i);
         final Matcher<String> expected = matchers.get(i);
         assertions.add(() -> MatcherAssert.assertThat(actual, expected));
       }
-      Assertions.assertAll(assertions);
+      assertAll(assertions);
     }
   }
 
@@ -1363,7 +1363,7 @@ public class TestFlightSql {
     try (final FlightStream stream =
         sqlClient.getStream(
             sqlClient.execute("SELECT * FROM intTable").getEndpoints().get(0).getTicket())) {
-      Assertions.assertAll(
+      assertAll(
           () -> {
             MatcherAssert.assertThat(stream.getSchema(), is(SCHEMA_INT_TABLE));
           },
@@ -1376,7 +1376,7 @@ public class TestFlightSql {
 
   @Test
   public void testExecuteUpdate() {
-    Assertions.assertAll(
+    assertAll(
         () -> {
           long insertedCount =
               sqlClient.executeUpdate(
@@ -1404,7 +1404,7 @@ public class TestFlightSql {
             sqlClient.prepare("SELECT * FROM intTable WHERE 1 = 0");
         final FlightStream stream =
             sqlClient.getStream(preparedStatement.execute().getEndpoints().get(0).getTicket())) {
-      Assertions.assertAll(
+      assertAll(
           () -> MatcherAssert.assertThat(stream.getSchema(), is(SCHEMA_INT_TABLE)),
           () -> {
             final List<List<String>> result = getResults(stream);
@@ -1419,7 +1419,7 @@ public class TestFlightSql {
     CancelFlightInfoRequest request = new CancelFlightInfoRequest(info);
     FlightRuntimeException fre =
         assertThrows(FlightRuntimeException.class, () -> sqlClient.cancelFlightInfo(request));
-    Assertions.assertEquals(FlightStatusCode.UNIMPLEMENTED, fre.status().code());
+    assertEquals(FlightStatusCode.UNIMPLEMENTED, fre.status().code());
   }
 
   @Test

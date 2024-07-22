@@ -250,6 +250,7 @@ libarrow_glib = library('arrow-glib',
                         implicit_include_directories: false,
                         include_directories: base_include_directories,
                         cpp_args: ['-DGARROW_COMPILATION'],
+                        c_args: ['-DGARROW_COMPILATION'],
                         soversion: so_version,
                         version: library_version)
 arrow_glib = declare_dependency(link_with: libarrow_glib,

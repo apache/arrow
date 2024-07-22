@@ -18,6 +18,7 @@ package org.apache.arrow.flight;
 
 import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
 import static org.apache.arrow.flight.Location.forGrpcInsecure;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Iterator;
 import java.util.Optional;
@@ -25,7 +26,6 @@ import org.apache.arrow.flight.auth.ClientAuthHandler;
 import org.apache.arrow.flight.auth.ServerAuthHandler;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class TestAuth {
@@ -33,7 +33,7 @@ public class TestAuth {
   /** An auth handler that does not send messages should not block the server forever. */
   @Test
   public void noMessages() throws Exception {
-    Assertions.assertThrows(
+    assertThrows(
         RuntimeException.class,
         () -> {
           try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
@@ -62,7 +62,7 @@ public class TestAuth {
   /** An auth handler that sends an error should not block the server forever. */
   @Test
   public void clientError() throws Exception {
-    Assertions.assertThrows(
+    assertThrows(
         RuntimeException.class,
         () -> {
           try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);

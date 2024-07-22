@@ -70,7 +70,7 @@ class GANDIVA_EXPORT DexVisitor {
 
 /// Default implementation with only DCHECK().
 #define VISIT_DCHECK(DEX_CLASS) \
-  void Visit(const DEX_CLASS& dex) override { DCHECK(0); }
+  void Visit(const DEX_CLASS& dex) override { ARROW_DCHECK(0); }
 
 class GANDIVA_EXPORT DexDefaultVisitor : public DexVisitor {
   VISIT_DCHECK(VectorReadValidityDex)

@@ -341,7 +341,8 @@ static auto kMatchSubstringOptionsType = GetFunctionOptionsType<MatchSubstringOp
 static auto kNullOptionsType = GetFunctionOptionsType<NullOptions>(
     DataMember("nan_is_null", &NullOptions::nan_is_null));
 static auto kPadOptionsType = GetFunctionOptionsType<PadOptions>(
-    DataMember("width", &PadOptions::width), DataMember("padding", &PadOptions::padding));
+    DataMember("width", &PadOptions::width), DataMember("padding", &PadOptions::padding),
+    DataMember("lean_left_on_odd_padding", &PadOptions::lean_left_on_odd_padding));
 static auto kReplaceSliceOptionsType = GetFunctionOptionsType<ReplaceSliceOptions>(
     DataMember("start", &ReplaceSliceOptions::start),
     DataMember("stop", &ReplaceSliceOptions::stop),
@@ -480,10 +481,11 @@ NullOptions::NullOptions(bool nan_is_null)
     : FunctionOptions(internal::kNullOptionsType), nan_is_null(nan_is_null) {}
 constexpr char NullOptions::kTypeName[];
 
-PadOptions::PadOptions(int64_t width, std::string padding)
+PadOptions::PadOptions(int64_t width, std::string padding, bool lean_left_on_odd_padding)
     : FunctionOptions(internal::kPadOptionsType),
       width(width),
-      padding(std::move(padding)) {}
+      padding(std::move(padding)),
+      lean_left_on_odd_padding(lean_left_on_odd_padding) {}
 PadOptions::PadOptions() : PadOptions(0, " ") {}
 constexpr char PadOptions::kTypeName[];
 

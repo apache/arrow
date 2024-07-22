@@ -22,7 +22,7 @@ under the License.
   <parent>
     <groupId>org.apache.arrow</groupId>
     <artifactId>arrow-java-root</artifactId>
-    <version>17.0.0-SNAPSHOT</version>
+    <version>18.0.0-SNAPSHOT</version>
   </parent>
   <artifactId>arrow-performance</artifactId>
   <packaging>jar</packaging>
@@ -30,8 +30,6 @@ under the License.
   <description>JMH Performance benchmarks for other Arrow libraries.</description>
 
   <properties>
-    <checkstyle.config.location>dev/checkstyle/checkstyle-spotless.xml</checkstyle.config.location>
-    <spotless.java.excludes>none</spotless.java.excludes>
     <jmh.version>1.37</jmh.version>
     <uberjar.name>benchmarks</uberjar.name>
     <skip.perf.benchmarks>true</skip.perf.benchmarks>

@@ -16,9 +16,14 @@
 # under the License.
 
 import pytest
+
+import os
 import pyarrow as pa
 from pyarrow import Codec
 from pyarrow import fs
+from pyarrow.lib import is_threading_enabled
+from pyarrow.tests.util import windows_has_tzdata
+import sys
 
 import numpy as np
 
@@ -31,6 +36,7 @@ groups = [
     'dataset',
     'hypothesis',
     'fastparquet',
+    'flight',
     'gandiva',
     'gcs',
     'gdb',
@@ -44,12 +50,15 @@ groups = [
     'pandas',
     'parquet',
     'parquet_encryption',
-    's3',
-    'snappy',
-    'substrait',
-    'flight',
-    'slow',
+    'processes',
     'requires_testing_data',
+    's3',
+    'slow',
+    'snappy',
+    'sockets',
+    'substrait',
+    'threading',
+    'timezone_data',
     'zstd',
 ]
 
@@ -76,13 +85,30 @@ defaults = {
     'pandas': False,
     'parquet': False,
     'parquet_encryption': False,
+    'processes': True,
     'requires_testing_data': True,
     's3': False,
     'slow': False,
     'snappy': Codec.is_available('snappy'),
+    'sockets': True,
     'substrait': False,
+    'threading': is_threading_enabled(),
+    'timezone_data': True,
     'zstd': Codec.is_available('zstd'),
 }
+
+if sys.platform == "emscripten":
+    # Emscripten doesn't support subprocess,
+    # multiprocessing, gdb or socket based
+    # networking
+    defaults['gdb'] = False
+    defaults['processes'] = False
+    defaults['sockets'] = False
+
+if sys.platform == "win32":
+    defaults['timezone_data'] = windows_has_tzdata()
+elif sys.platform == "emscripten":
+    defaults['timezone_data'] = os.path.exists("/usr/share/zoneinfo")
 
 try:
     import cython  # noqa
@@ -116,7 +142,13 @@ except ImportError:
 
 try:
     import pyarrow.orc  # noqa
-    defaults['orc'] = True
+    if sys.platform == "win32":
+        defaults['orc'] = True
+    else:
+        # orc tests on non-Windows platforms only work
+        # if timezone data exists, so skip them if
+        # not.
+        defaults['orc'] = defaults['timezone_data']
 except ImportError:
     pass
 

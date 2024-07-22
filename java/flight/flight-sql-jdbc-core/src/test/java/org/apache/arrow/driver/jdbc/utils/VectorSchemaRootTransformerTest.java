@@ -16,6 +16,11 @@
  */
 package org.apache.arrow.driver.jdbc.utils;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+
 import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -29,20 +34,22 @@ import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.Assert;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 public class VectorSchemaRootTransformerTest {
 
-  @Rule public RootAllocatorTestRule rootAllocatorTestRule = new RootAllocatorTestRule();
-  private final BufferAllocator rootAllocator = rootAllocatorTestRule.getRootAllocator();
+  @RegisterExtension
+  public static RootAllocatorTestExtension rootAllocatorTestExtension =
+      new RootAllocatorTestExtension();
+
+  private final BufferAllocator rootAllocator = rootAllocatorTestExtension.getRootAllocator();
 
   @Test
   public void testTransformerBuilderWorksCorrectly() throws Exception {
-    final VarBinaryVector field1 = rootAllocatorTestRule.createVarBinaryVector("FIELD_1");
-    final VarBinaryVector field2 = rootAllocatorTestRule.createVarBinaryVector("FIELD_2");
-    final VarBinaryVector field3 = rootAllocatorTestRule.createVarBinaryVector("FIELD_3");
+    final VarBinaryVector field1 = rootAllocatorTestExtension.createVarBinaryVector("FIELD_1");
+    final VarBinaryVector field2 = rootAllocatorTestExtension.createVarBinaryVector("FIELD_2");
+    final VarBinaryVector field3 = rootAllocatorTestExtension.createVarBinaryVector("FIELD_3");
 
     try (final VectorSchemaRoot originalRoot = VectorSchemaRoot.of(field1, field2, field3);
         final VectorSchemaRoot clonedRoot = cloneVectorSchemaRoot(originalRoot)) {
@@ -65,11 +72,11 @@ public class VectorSchemaRootTransformerTest {
                   Field.nullable("FIELD_2_RENAMED", new ArrowType.Binary()),
                   Field.nullable("FIELD_1_RENAMED", new ArrowType.Binary())));
       try (final VectorSchemaRoot transformedRoot = createVectorSchemaRoot(transformedSchema)) {
-        Assert.assertSame(transformedRoot, transformer.transform(clonedRoot, transformedRoot));
-        Assert.assertEquals(transformedSchema, transformedRoot.getSchema());
+        assertSame(transformedRoot, transformer.transform(clonedRoot, transformedRoot));
+        assertEquals(transformedSchema, transformedRoot.getSchema());
 
         final int rowCount = originalRoot.getRowCount();
-        Assert.assertEquals(rowCount, transformedRoot.getRowCount());
+        assertEquals(rowCount, transformedRoot.getRowCount());
 
         final VarBinaryVector originalField1 = (VarBinaryVector) originalRoot.getVector("FIELD_1");
         final VarBinaryVector originalField2 = (VarBinaryVector) originalRoot.getVector("FIELD_2");
@@ -84,10 +91,10 @@ public class VectorSchemaRootTransformerTest {
         final FieldVector emptyField = transformedRoot.getVector("EMPTY_FIELD");
 
         for (int i = 0; i < rowCount; i++) {
-          Assert.assertArrayEquals(originalField1.getObject(i), transformedField1.getObject(i));
-          Assert.assertArrayEquals(originalField2.getObject(i), transformedField2.getObject(i));
-          Assert.assertArrayEquals(originalField3.getObject(i), transformedField3.getObject(i));
-          Assert.assertNull(emptyField.getObject(i));
+          assertArrayEquals(originalField1.getObject(i), transformedField1.getObject(i));
+          assertArrayEquals(originalField2.getObject(i), transformedField2.getObject(i));
+          assertArrayEquals(originalField3.getObject(i), transformedField3.getObject(i));
+          assertNull(emptyField.getObject(i));
         }
       }
     }

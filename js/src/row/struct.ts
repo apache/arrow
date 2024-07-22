@@ -124,10 +124,10 @@ class StructRowProxyHandler<T extends TypeMap = any> implements ProxyHandler<Str
         return row[kParent].type.children.map((f) => f.name);
     }
     has(row: StructRow<T>, key: string) {
-        return row[kParent].type.children.findIndex((f) => f.name === key) !== -1;
+        return row[kParent].type.children.some((f) => f.name === key);
     }
     getOwnPropertyDescriptor(row: StructRow<T>, key: string) {
-        if (row[kParent].type.children.findIndex((f) => f.name === key) !== -1) {
+        if (row[kParent].type.children.some((f) => f.name === key)) {
             return { writable: true, enumerable: true, configurable: true };
         }
         return;

@@ -304,6 +304,7 @@ public class MessageSerializer {
                 + layout.getSize());
       }
     }
+
     out.align();
     return out.getCurrentPosition() - bufferStart;
   }
@@ -435,13 +436,23 @@ public class MessageSerializer {
             : new ArrowBodyCompression(
                 recordBatchFB.compression().codec(), recordBatchFB.compression().method());
 
+    List<Long> variadicBufferCounts = new ArrayList<>();
+    for (int i = 0; i < recordBatchFB.variadicBufferCountsLength(); i++) {
+      variadicBufferCounts.add(recordBatchFB.variadicBufferCounts(i));
+    }
+
     if ((int) recordBatchFB.length() != recordBatchFB.length()) {
       throw new IOException(
           "Cannot currently deserialize record batches with more than INT_MAX records.");
     }
     ArrowRecordBatch arrowRecordBatch =
         new ArrowRecordBatch(
-            checkedCastToInt(recordBatchFB.length()), nodes, buffers, bodyCompression);
+            checkedCastToInt(recordBatchFB.length()),
+            nodes,
+            buffers,
+            bodyCompression,
+            variadicBufferCounts,
+            /*alignBuffers*/ true);
     body.getReferenceManager().release();
     return arrowRecordBatch;
   }

@@ -9,7 +9,7 @@
 
   <ItemGroup>
     <PackageReference Include="System.CommandLine" Version="2.0.0-beta1.21216.1" />
-    <PackageReference Include="System.Text.Json" Version="5.0.2" />
+    <PackageReference Include="System.Text.Json" Version="8.0.4" />
     <ProjectReference Include="..\..\src\Apache.Arrow.Compression\Apache.Arrow.Compression.csproj" />
     <ProjectReference Include="..\..\src\Apache.Arrow\Apache.Arrow.csproj" />
     <ProjectReference Include="..\Apache.Arrow.Tests\Apache.Arrow.Tests.csproj" />
