@@ -36,6 +36,7 @@ import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.LargeListVector;
 import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.ListViewVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 
@@ -638,5 +639,10 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
     VectorAppender underlyingAppender = new VectorAppender(targetUnderlying);
     deltaVector.getUnderlyingVector().accept(underlyingAppender, null);
     return targetVector;
+  }
+
+  @Override
+  public ValueVector visit(ListViewVector vector, Void value) {
+    throw new UnsupportedOperationException("ListView vectors are not supported.");
   }
 }

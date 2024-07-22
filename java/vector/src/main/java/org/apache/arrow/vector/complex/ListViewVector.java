@@ -249,7 +249,19 @@ public class ListViewVector extends BaseRepeatedValueViewVector
    */
   @Override
   public void exportCDataBuffers(List<ArrowBuf> buffers, ArrowBuf buffersPtr, long nullValue) {
-    throw new UnsupportedOperationException("exportCDataBuffers Not implemented yet");
+    exportBuffer(validityBuffer, buffers, buffersPtr, nullValue, true);
+
+    if (offsetBuffer.capacity() == 0) {
+      // Empty offset buffer is allowed for historical reason.
+      // To export it through C Data interface, we need to allocate a buffer with one offset.
+      // We set `retain = false` to explicitly not increase the ref count for the exported buffer.
+      // The ref count of the newly created buffer (i.e., 1) already represents the usage
+      // at imported side.
+      exportBuffer(allocateBuffers(OFFSET_WIDTH), buffers, buffersPtr, nullValue, false);
+    } else {
+      exportBuffer(offsetBuffer, buffers, buffersPtr, nullValue, true);
+    }
+    exportBuffer(sizeBuffer, buffers, buffersPtr, nullValue, true);
   }
 
   @Override
@@ -449,7 +461,7 @@ public class ListViewVector extends BaseRepeatedValueViewVector
 
   @Override
   public <OUT, IN> OUT accept(VectorVisitor<OUT, IN> visitor, IN value) {
-    throw new UnsupportedOperationException();
+    return visitor.visit(this, value);
   }
 
   private class TransferImpl implements TransferPair {

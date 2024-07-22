@@ -644,10 +644,12 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
       int sizeWidth = BaseRepeatedValueViewVector.SIZE_WIDTH;
 
       if (!isNull) {
-        final int startIndexLeft = leftVector.getOffsetBuffer().getInt((long) leftIndex * offsetWidth);
+        final int startIndexLeft =
+            leftVector.getOffsetBuffer().getInt((long) leftIndex * offsetWidth);
         final int leftSize = leftVector.getSizeBuffer().getInt((long) leftIndex * sizeWidth);
 
-        final int startIndexRight = rightVector.getOffsetBuffer().getInt((long) rightIndex * offsetWidth);
+        final int startIndexRight =
+            rightVector.getOffsetBuffer().getInt((long) rightIndex * offsetWidth);
         final int rightSize = rightVector.getSizeBuffer().getInt((long) rightIndex * sizeWidth);
 
         if (leftSize != rightSize) {

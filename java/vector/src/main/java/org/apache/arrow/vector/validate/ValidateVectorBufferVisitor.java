@@ -30,7 +30,6 @@ import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.TypeLayout;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.compare.VectorVisitor;
-import org.apache.arrow.vector.complex.BaseRepeatedValueViewVector;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.LargeListVector;
@@ -81,16 +80,6 @@ public class ValidateVectorBufferVisitor implements VectorVisitor<Void, Void> {
         "Not enough capacity for the offset buffer. Minimum capacity %s, actual capacity %s.",
         minCapacity,
         offsetBuffer.capacity());
-  }
-
-  private void validateSizeBuffer(ListViewVector vector, long minCapacity) {
-    ArrowBuf sizeBuffer = vector.getSizeBuffer();
-    validateOrThrow(sizeBuffer != null, "The size buffer is null.");
-    validateOrThrow(
-        sizeBuffer.capacity() >= minCapacity,
-        "Not enough capacity for the size buffer. Minimum capacity %s, actual capacity %s.",
-        minCapacity,
-        sizeBuffer.capacity());
   }
 
   private void validateFixedWidthDataBuffer(ValueVector vector, int valueCount, int bitWidth) {
@@ -302,31 +291,6 @@ public class ValidateVectorBufferVisitor implements VectorVisitor<Void, Void> {
 
   @Override
   public Void visit(ListViewVector vector, Void value) {
-    // TODO: complete this method
-    int valueCount = vector.getValueCount();
-    validateVectorCommon(vector);
-    validateValidityBuffer(vector, valueCount);
-    validateSizeBuffer(vector, (long) valueCount * ListViewVector.SIZE_WIDTH);
-    long minOffsetCapacity =
-        valueCount == 0 ? 0L : (long) (valueCount + 1) * ListVector.OFFSET_WIDTH;
-    validateOffsetBuffer(vector, minOffsetCapacity);
-
-    FieldVector dataVector = vector.getDataVector();
-    // TODO: rather use the size buffer to get the dataLength and do the validation
-    int lastOffset =
-        valueCount == 0
-            ? 0
-            : vector.getOffsetBuffer().getInt(valueCount * BaseVariableWidthVector.OFFSET_WIDTH);
-    int dataVectorLength = dataVector == null ? 0 : dataVector.getValueCount();
-    validateOrThrow(
-        dataVectorLength >= lastOffset,
-        "Inner vector does not contain enough elements. Minimum element count %s, actual element count %s",
-        lastOffset + 1,
-        dataVectorLength);
-
-    if (dataVector != null) {
-      dataVector.accept(this, null);
-    }
-    return null;
+    throw new UnsupportedOperationException("ListView vectors are not supported.");
   }
 }

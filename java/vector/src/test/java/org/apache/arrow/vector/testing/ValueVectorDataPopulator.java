@@ -742,8 +742,8 @@ public class ValueVectorDataPopulator {
 
     // set underlying vectors
     int curPos = 0;
-    vector.getOffsetBuffer().setInt(0, curPos);
     for (int i = 0; i < values.length; i++) {
+      vector.getOffsetBuffer().setInt((long) i * BaseRepeatedValueViewVector.OFFSET_WIDTH, curPos);
       if (values[i] == null) {
         BitVectorHelper.unsetBit(vector.getValidityBuffer(), i);
       } else {
@@ -753,7 +753,9 @@ public class ValueVectorDataPopulator {
           curPos += 1;
         }
       }
-      vector.getOffsetBuffer().setInt((long) i * BaseRepeatedValueViewVector.OFFSET_WIDTH, curPos);
+      vector
+          .getSizeBuffer()
+          .setInt((long) i * BaseRepeatedValueViewVector.SIZE_WIDTH, values[i].size());
     }
     dataVector.setValueCount(curPos);
     vector.setValueCount(values.length);

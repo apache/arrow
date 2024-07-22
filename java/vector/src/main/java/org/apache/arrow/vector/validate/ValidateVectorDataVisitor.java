@@ -31,6 +31,7 @@ import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.LargeListVector;
 import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.ListViewVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 
@@ -205,5 +206,10 @@ public class ValidateVectorDataVisitor implements VectorVisitor<Void, Void> {
   public Void visit(ExtensionTypeVector<?> vector, Void value) {
     vector.getUnderlyingVector().accept(this, value);
     return null;
+  }
+
+  @Override
+  public Void visit(ListViewVector vector, Void value) {
+    throw new UnsupportedOperationException("ListView vectors are not supported.");
   }
 }
