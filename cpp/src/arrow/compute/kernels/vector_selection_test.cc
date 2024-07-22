@@ -1220,16 +1220,6 @@ void DoCheckTakeAAA(const std::shared_ptr<Array>& values,
   DoAssertTakeAAA(values, indices_sliced, expected);
 }
 
-void CheckTakeAAA(const std::shared_ptr<DataType>& type, const std::string& values_json,
-                  const std::string& indices_json, const std::string& expected_json) {
-  auto values = ArrayFromJSON(type, values_json);
-  auto expected = ArrayFromJSON(type, expected_json);
-  for (auto index_type : {int8(), uint32()}) {
-    auto indices = ArrayFromJSON(index_type, indices_json);
-    DoCheckTakeAAA(values, indices, expected);
-  }
-}
-
 void DoCheckTakeCACWithArrays(const std::shared_ptr<Array>& values,
                               const std::shared_ptr<Array>& indices,
                               const std::shared_ptr<Array>& expected) {
@@ -1640,8 +1630,8 @@ class TestTakeKernelWithString : public TestTakeKernelTyped<TypeClass> {
                               const std::string& dictionary_indices,
                               const std::string& indices,
                               const std::string& expected_indices) {
-    return compute::CheckTakeXADictionary(this->value_type(), dictionary_values,
-                                          dictionary_indices, indices, expected_indices);
+    return CheckTakeXADictionary(this->value_type(), dictionary_values,
+                                 dictionary_indices, indices, expected_indices);
   }
 };
 
@@ -1701,11 +1691,16 @@ using ListAndListViewArrowTypes =
 template <typename ArrowListType>
 class TestTakeKernelWithList : public TestTakeKernelTyped<ListType> {
  protected:
+  std::shared_ptr<DataType> inner_type_ = nullptr;
+
   std::shared_ptr<DataType> value_type(std::shared_ptr<DataType> inner_type) const {
     return std::make_shared<ArrowListType>(std::move(inner_type));
   }
 
-  std::shared_ptr<DataType> value_type() const override { return value_type(int32()); }
+  std::shared_ptr<DataType> value_type() const override {
+    EXPECT_TRUE(inner_type_);
+    return value_type(inner_type_);
+  }
 
   std::vector<std::shared_ptr<DataType>> InnerListTypes() const {
     return std::vector<std::shared_ptr<DataType>>{
@@ -1720,6 +1715,7 @@ class TestTakeKernelWithList : public TestTakeKernelTyped<ListType> {
 TYPED_TEST_SUITE(TestTakeKernelWithList, ListAndListViewArrowTypes);
 
 TYPED_TEST(TestTakeKernelWithList, TakeListInt32) {
+  this->inner_type_ = int32();
   std::string list_json = "[[], [1,2], null, [3]]";
   {
     this->CheckTakeXA(list_json, "[]", "[]");
@@ -1743,32 +1739,33 @@ TYPED_TEST(TestTakeKernelWithList, TakeListListInt32) {
     [[3, null], null]
   ])";
   for (auto& inner_type : this->InnerListTypes()) {
-    auto type = this->value_type(inner_type);
-    ARROW_SCOPED_TRACE("type = ", *type);
-    compute::CheckTakeXA(type, list_json, "[]", "[]");
-    compute::CheckTakeXA(type, list_json, "[3, 2, 1]", R"([
+    this->inner_type_ = inner_type;
+    ARROW_SCOPED_TRACE("type = ", *this->value_type());
+    this->CheckTakeXA(list_json, "[]", "[]");
+    this->CheckTakeXA(list_json, "[3, 2, 1]", R"([
       [[3, null], null],
       null,
       [[1], [2, null, 2], []]
     ])");
-    compute::CheckTakeXA(type, list_json, "[null, 3, 0]", R"([
+    this->CheckTakeXA(list_json, "[null, 3, 0]", R"([
       null,
       [[3, null], null],
       []
     ])");
-    compute::CheckTakeXA(type, list_json, "[null, null]", "[null, null]");
-    compute::CheckTakeXA(type, list_json, "[3, 0, 0, 3]",
-                         "[[[3, null], null], [], [], [[3, null], null]]");
-    compute::CheckTakeXA(type, list_json, "[0, 1, 2, 3]", list_json);
-    compute::CheckTakeXA(type, list_json, "[0, 0, 0, 0, 0, 0, 1]",
-                         "[[], [], [], [], [], [], [[1], [2, null, 2], []]]");
+    this->CheckTakeXA(list_json, "[null, null]", "[null, null]");
+    this->CheckTakeXA(list_json, "[3, 0, 0, 3]",
+                      "[[[3, null], null], [], [], [[3, null], null]]");
+    this->CheckTakeXA(list_json, "[0, 1, 2, 3]", list_json);
+    this->CheckTakeXA(list_json, "[0, 0, 0, 0, 0, 0, 1]",
+                      "[[], [], [], [], [], [], [[1], [2, null, 2], []]]");
 
-    this->DoTestNoValidityBitmapButUnknownNullCount(
-        type, "[[[1], [2, null, 2], []], [[3, null]]]", "[0, 1, 0]");
+    this->TestNoValidityBitmapButUnknownNullCount(
+        "[[[1], [2, null, 2], []], [[3, null]]]", "[0, 1, 0]");
   }
 }
 
 TYPED_TEST(TestTakeKernelWithList, TakeLargeListInt32) {
+  this->inner_type_ = int32();
   std::string list_json = "[[], [1,2], null, [3]]";
   {
     ARROW_SCOPED_TRACE("type = ", *this->value_type());
@@ -1779,12 +1776,15 @@ TYPED_TEST(TestTakeKernelWithList, TakeLargeListInt32) {
 
 class TestTakeKernelWithFixedSizeList : public TestTakeKernelTyped<FixedSizeListType> {
  protected:
+  std::shared_ptr<DataType> inner_type_ = nullptr;
+
   std::shared_ptr<DataType> value_type() const override {
-    return fixed_size_list(int32(), 3);
+    EXPECT_TRUE(inner_type_);
+    return fixed_size_list(inner_type_, 3);
   }
 
-  void CheckTakeAAAOnNestedLists(const std::shared_ptr<DataType>& inner_type,
-                                 const std::vector<int>& list_sizes, int64_t length) {
+  void CheckTakeXAOnNestedLists(const std::shared_ptr<DataType>& inner_type,
+                                const std::vector<int>& list_sizes, int64_t length) {
     using NLG = ::arrow::util::internal::NestedListGenerator;
     // Create two equivalent lists: one as a FixedSizeList and another as a List.
     ASSERT_OK_AND_ASSIGN(auto fsl_list,
@@ -1797,11 +1797,12 @@ class TestTakeKernelWithFixedSizeList : public TestTakeKernelTyped<FixedSizeList
     // Use the Take on ListType as the reference implementation.
     ASSERT_OK_AND_ASSIGN(auto expected_list, TakeAAA(*list, *indices));
     ASSERT_OK_AND_ASSIGN(auto expected_fsl, Cast(*expected_list, fsl_list->type()));
-    DoCheckTakeAAA(fsl_list, indices, expected_fsl);
+    DoCheckTakeXA(fsl_list, indices, expected_fsl);
   }
 };
 
 TEST_F(TestTakeKernelWithFixedSizeList, TakeFixedSizeListInt32) {
+  inner_type_ = int32();
   std::string list_json = "[null, [1, null, 3], [4, 5, 6], [7, 8, null]]";
   CheckTakeXA(list_json, "[]", "[]");
   CheckTakeXA(list_json, "[3, 2, 1]", "[[7, 8, null], [4, 5, 6], [1, null, 3]]");
@@ -1822,21 +1823,22 @@ TEST_F(TestTakeKernelWithFixedSizeList, TakeFixedSizeListInt32) {
 }
 
 TEST_F(TestTakeKernelWithFixedSizeList, TakeFixedSizeListVarWidth) {
+  inner_type_ = utf8();
   std::string list_json =
       R"([["zero", "one", ""], ["two", "", "three"], ["four", "five", "six"], ["seven", "eight", ""]])";
-  CheckTakeAAA(fixed_size_list(utf8(), 3), list_json, "[]", "[]");
-  CheckTakeAAA(
-      fixed_size_list(utf8(), 3), list_json, "[3, 2, 1]",
+  CheckTakeXA(list_json, "[]", "[]");
+  CheckTakeXA(
+      list_json, "[3, 2, 1]",
       R"([["seven", "eight", ""], ["four", "five", "six"], ["two", "", "three"]])");
-  CheckTakeAAA(fixed_size_list(utf8(), 3), list_json, "[null, 2, 0]",
-               R"([null, ["four", "five", "six"], ["zero", "one", ""]])");
-  CheckTakeAAA(fixed_size_list(utf8(), 3), list_json, R"([null, null])", "[null, null]");
-  CheckTakeAAA(
-      fixed_size_list(utf8(), 3), list_json, "[3, 0, 0,3]",
+  CheckTakeXA(list_json, "[null, 2, 0]",
+              R"([null, ["four", "five", "six"], ["zero", "one", ""]])");
+  CheckTakeXA(list_json, R"([null, null])", "[null, null]");
+  CheckTakeXA(
+      list_json, "[3, 0, 0,3]",
       R"([["seven", "eight", ""], ["zero", "one", ""], ["zero", "one", ""], ["seven", "eight", ""]])");
-  CheckTakeAAA(fixed_size_list(utf8(), 3), list_json, "[0, 1, 2, 3]", list_json);
-  CheckTakeAAA(fixed_size_list(utf8(), 3), list_json, "[2, 2, 2, 2, 2, 2, 1]",
-               R"([
+  CheckTakeXA(list_json, "[0, 1, 2, 3]", list_json);
+  CheckTakeXA(list_json, "[2, 2, 2, 2, 2, 2, 1]",
+              R"([
                  ["four", "five", "six"], ["four", "five", "six"],
                  ["four", "five", "six"], ["four", "five", "six"],
                  ["four", "five", "six"], ["four", "five", "six"],
@@ -1854,11 +1856,14 @@ TEST_F(TestTakeKernelWithFixedSizeList, TakeFixedSizeListModuloNesting) {
   NLG::VisitAllNestedListConfigurations(
       value_types, [this](const std::shared_ptr<DataType>& inner_type,
                           const std::vector<int>& list_sizes) {
-        this->CheckTakeAAAOnNestedLists(inner_type, list_sizes, /*length=*/5);
+        this->CheckTakeXAOnNestedLists(inner_type, list_sizes, /*length=*/5);
       });
 }
 
-class TestTakeKernelWithMap : public TestTakeKernelTyped<MapType> {};
+class TestTakeKernelWithMap : public TestTakeKernelTyped<MapType> {
+ protected:
+  std::shared_ptr<DataType> value_type() const override { return map(utf8(), int32()); }
+};
 
 TEST_F(TestTakeKernelWithMap, TakeMapStringToInt32) {
   std::string map_json = R"([
@@ -1867,21 +1872,20 @@ TEST_F(TestTakeKernelWithMap, TakeMapStringToInt32) {
     [["cap", 8]],
     []
   ])";
-  CheckTakeAAA(map(utf8(), int32()), map_json, "[]", "[]");
-  CheckTakeAAA(map(utf8(), int32()), map_json, "[3, 1, 3, 1, 3]",
-               "[[], null, [], null, []]");
-  CheckTakeAAA(map(utf8(), int32()), map_json, "[2, 1, null]", R"([
+  CheckTakeXA(map_json, "[]", "[]");
+  CheckTakeXA(map_json, "[3, 1, 3, 1, 3]", "[[], null, [], null, []]");
+  CheckTakeXA(map_json, "[2, 1, null]", R"([
     [["cap", 8]],
     null,
     null
   ])");
-  CheckTakeAAA(map(utf8(), int32()), map_json, "[2, 1, 0]", R"([
+  CheckTakeXA(map_json, "[2, 1, 0]", R"([
     [["cap", 8]],
     null,
     [["joe", 0], ["mark", null]]
   ])");
-  CheckTakeAAA(map(utf8(), int32()), map_json, "[0, 1, 2, 3]", map_json);
-  CheckTakeAAA(map(utf8(), int32()), map_json, "[0, 0, 0, 0, 0, 0, 3]", R"([
+  CheckTakeXA(map_json, "[0, 1, 2, 3]", map_json);
+  CheckTakeXA(map_json, "[0, 0, 0, 0, 0, 0, 3]", R"([
     [["joe", 0], ["mark", null]],
     [["joe", 0], ["mark", null]],
     [["joe", 0], ["mark", null]],
@@ -1961,22 +1965,22 @@ TYPED_TEST(TestTakeKernelWithUnion, TakeUnion) {
       [2, 111],
       [5, null]
     ])";
-    CheckTakeAAA(union_type, union_json, "[]", "[]");
-    CheckTakeAAA(union_type, union_json, "[3, 0, 3, 0, 3]", R"([
+    CheckTakeXA(union_type, union_json, "[]", "[]");
+    CheckTakeXA(union_type, union_json, "[3, 0, 3, 0, 3]", R"([
       [5, "eh"],
       [2, 222],
       [5, "eh"],
       [2, 222],
       [5, "eh"]
     ])");
-    CheckTakeAAA(union_type, union_json, "[4, 2, 0, 6]", R"([
+    CheckTakeXA(union_type, union_json, "[4, 2, 0, 6]", R"([
       [2, null],
       [5, "hello"],
       [2, 222],
       [5, null]
     ])");
-    CheckTakeAAA(union_type, union_json, "[0, 1, 2, 3, 4, 5, 6]", union_json);
-    CheckTakeAAA(union_type, union_json, "[1, 2, 2, 2, 2, 2, 2]", R"([
+    CheckTakeXA(union_type, union_json, "[0, 1, 2, 3, 4, 5, 6]", union_json);
+    CheckTakeXA(union_type, union_json, "[1, 2, 2, 2, 2, 2, 2]", R"([
       [2, null],
       [5, "hello"],
       [5, "hello"],
@@ -1985,7 +1989,7 @@ TYPED_TEST(TestTakeKernelWithUnion, TakeUnion) {
       [5, "hello"],
       [5, "hello"]
     ])");
-    CheckTakeAAA(union_type, union_json, "[0, null, 1, null, 2, 2, 2]", R"([
+    CheckTakeXA(union_type, union_json, "[0, null, 1, null, 2, 2, 2]", R"([
       [2, 222],
       [2, null],
       [2, null],
@@ -2176,7 +2180,8 @@ TEST(TestTakeKernelWithTable, TakeTable) {
 
   AssertTakeTAT(schm, table_json, "[]", {"[]"});
   std::vector<std::string> expected_310 = {
-      "[{\"a\": 4, \"b\": \"eh\"},{\"a\": 1, \"b\": \"\"},{\"a\": null, \"b\": \"yo\"}]"};
+      "[{\"a\": 4, \"b\": \"eh\"},{\"a\": 1, \"b\": \"\"},{\"a\": null, \"b\": "
+      "\"yo\"}]"};
   AssertTakeTAT(schm, table_json, "[3, 1, 0]", expected_310);
   AssertTakeTCT(schm, table_json, {"[0, 1]", "[2, 3]"}, table_json);
 }
