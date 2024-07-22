@@ -934,6 +934,23 @@ Result<Blobs::Models::GetBlockListResult> GetBlockList(
   }
 }
 
+Status CommitBlockList(std::shared_ptr<Storage::Blobs::BlockBlobClient> block_blob_client,
+                       const std::vector<std::string>& block_ids,
+                       const Blobs::CommitBlockListOptions& options) {
+  try {
+    // CommitBlockList puts all block_ids in the latest element. That means in the case
+    // of overlapping block_ids the newly staged block ids will always replace the
+    // previously committed blocks.
+    // https://learn.microsoft.com/en-us/rest/api/storageservices/put-block-list?tabs=microsoft-entra-id#request-body
+    block_blob_client->CommitBlockList(block_ids, options);
+  } catch (const Storage::StorageException& exception) {
+    return ExceptionToStatus(
+        exception, "CommitBlockList failed for '", block_blob_client->GetUrl(),
+        "'. Committing is required to flush an output/append stream.");
+  }
+  return Status::OK();
+}
+
 Status StageBlock(Blobs::BlockBlobClient* block_blob_client, const std::string& id,
                   Core::IO::MemoryBodyStream& content) {
   try {
@@ -948,10 +965,8 @@ Status StageBlock(Blobs::BlockBlobClient* block_blob_client, const std::string& 
   return Status::OK();
 }
 
-/**
- * Writes will be buffered up to this size (in bytes) before actually uploading them.
- */
-static constexpr int64_t kBlockUploadSize = 10 * 1024 * 1024;
+/// Writes will be buffered up to this size (in bytes) before actually uploading them.
+static constexpr int64_t kBlockUploadSizeBytes = 10 * 1024 * 1024;
 
 class ObjectAppendStream final : public io::OutputStream {
  private:
@@ -1102,7 +1117,9 @@ class ObjectAppendStream final : public io::OutputStream {
     auto fut = FlushAsync();
     RETURN_NOT_OK(fut.status());
 
-    return CommitBlockList();
+    std::unique_lock<std::mutex> lock(upload_state_->mutex);
+    return CommitBlockList(block_blob_client_, upload_state_->block_ids,
+                           commit_block_list_options_);
   }
 
   Future<> FlushAsync() {
@@ -1136,13 +1153,14 @@ class ObjectAppendStream final : public io::OutputStream {
     // Handle case where we have some bytes buffered from prior calls.
     if (current_block_size_ > 0) {
       // Try to fill current buffer
-      const int64_t to_copy = std::min(nbytes, kBlockUploadSize - current_block_size_);
+      const int64_t to_copy =
+          std::min(nbytes, kBlockUploadSizeBytes - current_block_size_);
       RETURN_NOT_OK(current_block_->Write(data_ptr, to_copy));
       current_block_size_ += to_copy;
       advance_ptr(to_copy);
 
       // If buffer isn't full, break
-      if (current_block_size_ < kBlockUploadSize) {
+      if (current_block_size_ < kBlockUploadSizeBytes) {
         return Status::OK();
       }
 
@@ -1151,9 +1169,9 @@ class ObjectAppendStream final : public io::OutputStream {
     }
 
     // We can upload chunks without copying them into a buffer
-    while (nbytes >= kBlockUploadSize) {
-      RETURN_NOT_OK(AppendBlock(data_ptr, kBlockUploadSize));
-      advance_ptr(kBlockUploadSize);
+    while (nbytes >= kBlockUploadSizeBytes) {
+      RETURN_NOT_OK(AppendBlock(data_ptr, kBlockUploadSizeBytes));
+      advance_ptr(kBlockUploadSizeBytes);
     }
 
     // Buffer remaining bytes
@@ -1161,11 +1179,12 @@ class ObjectAppendStream final : public io::OutputStream {
       current_block_size_ = nbytes;
 
       if (current_block_ == nullptr) {
-        ARROW_ASSIGN_OR_RAISE(current_block_, io::BufferOutputStream::Create(
-                                                  kBlockUploadSize, io_context_.pool()));
+        ARROW_ASSIGN_OR_RAISE(
+            current_block_,
+            io::BufferOutputStream::Create(kBlockUploadSizeBytes, io_context_.pool()));
       } else {
         // Re-use the allocation from before.
-        RETURN_NOT_OK(current_block_->Reset(kBlockUploadSize, io_context_.pool()));
+        RETURN_NOT_OK(current_block_->Reset(kBlockUploadSizeBytes, io_context_.pool()));
       }
 
       RETURN_NOT_OK(current_block_->Write(data_ptr, current_block_size_));
@@ -1251,23 +1270,6 @@ class ObjectAppendStream final : public io::OutputStream {
       RETURN_NOT_OK(StageBlock(block_blob_client_.get(), block_id, block_content));
     }
 
-    return Status::OK();
-  }
-
-  Status CommitBlockList() {
-    std::unique_lock<std::mutex> lock(upload_state_->mutex);
-    try {
-      // CommitBlockList puts all block_ids in the latest element. That means in the case
-      // of overlapping block_ids the newly staged block ids will always replace the
-      // previously committed blocks.
-      // https://learn.microsoft.com/en-us/rest/api/storageservices/put-block-list?tabs=microsoft-entra-id#request-body
-      block_blob_client_->CommitBlockList(upload_state_->block_ids,
-                                          commit_block_list_options_);
-    } catch (const Storage::StorageException& exception) {
-      return ExceptionToStatus(
-          exception, "CommitBlockList failed for '", block_blob_client_->GetUrl(),
-          "'. Committing is required to flush an output/append stream.");
-    }
     return Status::OK();
   }
 
