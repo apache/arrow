@@ -27,5 +27,6 @@ module org.apache.arrow.memory.core {
   requires jsr305;
   requires static org.checkerframework.checker.qual;
   requires static org.immutables.value.annotations;
+  requires static com.google.errorprone.annotations;
   requires org.slf4j;
 }
