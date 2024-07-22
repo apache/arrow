@@ -1492,7 +1492,17 @@ class TestTakeKernel : public ::testing::Test {
 };
 
 template <typename ArrowType>
-class TestTakeKernelTyped : public TestTakeKernel {};
+class TestTakeKernelTyped : public TestTakeKernel {
+ protected:
+  virtual std::shared_ptr<DataType> value_type() const {
+    if constexpr (is_parameter_free_type<ArrowType>::value) {
+      return TypeTraits<ArrowType>::type_singleton();
+    } else {
+      EXPECT_TRUE(false) << "value_type() must be overridden for parameterized types";
+      return nullptr;
+    }
+  }
+};
 
 static const std::string kNull3 = "[null, null, null]";
 
@@ -1594,37 +1604,30 @@ class TestTakeKernelWithNumeric : public TestTakeKernelTyped<ArrowType> {
  protected:
   void AssertTakeAAA(const std::string& values, const std::string& indices,
                      const std::string& expected) {
-    CheckTakeAAA(type_singleton(), values, indices, expected);
-  }
-
-  std::shared_ptr<DataType> type_singleton() {
-    return TypeTraits<ArrowType>::type_singleton();
+    CheckTakeAAA(this->value_type(), values, indices, expected);
   }
 };
 
 TYPED_TEST_SUITE(TestTakeKernelWithNumeric, NumericArrowTypes);
 TYPED_TEST(TestTakeKernelWithNumeric, TakeNumeric) {
-  this->TestNumericBasics(this->type_singleton());
+  this->TestNumericBasics(this->value_type());
 }
 
 template <typename TypeClass>
 class TestTakeKernelWithString : public TestTakeKernelTyped<TypeClass> {
  public:
-  std::shared_ptr<DataType> value_type() {
-    return TypeTraits<TypeClass>::type_singleton();
-  }
-
   void CheckTakeXA(const std::string& values, const std::string& indices,
                    const std::string& expected) {
-    arrow::compute::CheckTakeXA(value_type(), values, indices, expected);
+    arrow::compute::CheckTakeXA(this->value_type(), values, indices, expected);
   }
 
   void AssertTakeAAADictionary(const std::string& dictionary_values,
                                const std::string& dictionary_indices,
                                const std::string& indices,
                                const std::string& expected_indices) {
-    return arrow::compute::CheckTakeXADictionary(
-        value_type(), dictionary_values, dictionary_indices, indices, expected_indices);
+    return arrow::compute::CheckTakeXADictionary(this->value_type(), dictionary_values,
+                                                 dictionary_indices, indices,
+                                                 expected_indices);
   }
 };
 
@@ -1657,7 +1660,7 @@ TYPED_TEST(TestTakeKernelWithString, TakeDictionary) {
 
 class TestTakeKernelFSB : public TestTakeKernelTyped<FixedSizeBinaryType> {
  public:
-  std::shared_ptr<DataType> value_type() { return fixed_size_binary(3); }
+  std::shared_ptr<DataType> value_type() const override { return fixed_size_binary(3); }
 
   void CheckTakeXA(const std::string& values, const std::string& indices,
                    const std::string& expected) {
@@ -1687,6 +1690,7 @@ TEST_F(TestTakeKernelFSB, TakeFixedSizeBinary) {
 
 class TestTakeKernelWithList : public TestTakeKernelTyped<ListType> {};
 
+// XXX: define this with a test suite instead
 TEST_F(TestTakeKernelWithList, TakeListInt32) {
   std::string list_json = "[[], [1,2], null, [3]]";
   for (auto& type : kListAndListViewTypes) {
@@ -1899,12 +1903,25 @@ TEST_F(TestTakeKernelWithStruct, TakeStruct) {
       struct_type, R"([{"a": 1}, {"a": 2, "b": "hello"}])", "[0, 1, 0]");
 }
 
-class TestTakeKernelWithUnion : public TestTakeKernelTyped<UnionType> {};
-
-TEST_F(TestTakeKernelWithUnion, TakeUnion) {
-  for (const auto& union_type :
-       {dense_union({field("a", int32()), field("b", utf8())}, {2, 5}),
-        sparse_union({field("a", int32()), field("b", utf8())}, {2, 5})}) {
+template <typename ArrowUnionType>
+class TestTakeKernelWithUnion : public TestTakeKernelTyped<ArrowUnionType> {
+ protected:
+  std::shared_ptr<DataType> value_type() const override {
+    return std::make_shared<ArrowUnionType>(
+        FieldVector{
+            field("a", int32()),
+            field("b", utf8()),
+        },
+        std::vector<int8_t>{
+            2,
+            5,
+        });
+  }
+};
+TYPED_TEST_SUITE(TestTakeKernelWithUnion, UnionArrowTypes);
+TYPED_TEST(TestTakeKernelWithUnion, TakeUnion) {
+  auto union_type = this->value_type();
+  {
     auto union_json = R"([
       [2, 222],
       [2, null],
