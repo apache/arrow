@@ -1447,9 +1447,9 @@ uint64_t GetMaxIndex(int64_t values_length) {
 }
 
 class TestTakeKernel : public ::testing::Test {
- public:
-  void TestNoValidityBitmapButUnknownNullCount(const std::shared_ptr<Array>& values,
-                                               const std::shared_ptr<Array>& indices) {
+ private:
+  void DoTestNoValidityBitmapButUnknownNullCount(const std::shared_ptr<Array>& values,
+                                                 const std::shared_ptr<Array>& indices) {
     ASSERT_EQ(values->null_count(), 0);
     ASSERT_EQ(indices->null_count(), 0);
     ASSERT_OK_AND_ASSIGN(auto expected, TakeAAA(*values, *indices));
@@ -1463,11 +1463,12 @@ class TestTakeKernel : public ::testing::Test {
     DoCheckTakeXA(new_values, new_indices, expected);
   }
 
-  void TestNoValidityBitmapButUnknownNullCount(
+ public:
+  void DoTestNoValidityBitmapButUnknownNullCount(
       const std::shared_ptr<DataType>& type, const std::string& values,
       const std::string& indices, std::shared_ptr<DataType> index_type = int8()) {
-    TestNoValidityBitmapButUnknownNullCount(ArrayFromJSON(type, values),
-                                            ArrayFromJSON(index_type, indices));
+    DoTestNoValidityBitmapButUnknownNullCount(ArrayFromJSON(type, values),
+                                              ArrayFromJSON(index_type, indices));
   }
 
   void TestNumericBasics(const std::shared_ptr<DataType>& type) {
@@ -1501,6 +1502,18 @@ class TestTakeKernelTyped : public TestTakeKernel {
       EXPECT_TRUE(false) << "value_type() must be overridden for parameterized types";
       return nullptr;
     }
+  }
+
+  void TestNoValidityBitmapButUnknownNullCount(
+      const std::string& values, const std::string& indices,
+      const std::shared_ptr<DataType>& index_type = int8()) {
+    return DoTestNoValidityBitmapButUnknownNullCount(this->value_type(), values, indices,
+                                                     index_type);
+  }
+
+  void CheckTakeXA(const std::string& values, const std::string& indices,
+                   const std::string& expected) {
+    compute::CheckTakeXA(this->value_type(), values, indices, expected);
   }
 };
 
@@ -1556,7 +1569,8 @@ TEST_F(TestTakeKernel, TakeBoolean) {
   CheckTakeXA(boolean(), "[null, false, true]", "[0, 1, 0]", "[null, false, null]");
   CheckTakeXA(boolean(), "[true, false, true]", "[null, 1, 0]", "[null, false, true]");
 
-  TestNoValidityBitmapButUnknownNullCount(boolean(), "[true, false, true]", "[1, 0, 0]");
+  DoTestNoValidityBitmapButUnknownNullCount(boolean(), "[true, false, true]",
+                                            "[1, 0, 0]");
 
   const std::string kTrueFalseTrue = "[true, false, true]";
   std::shared_ptr<Array> arr;
@@ -1600,13 +1614,7 @@ TEST_F(TestTakeKernel, Interval) {
 }
 
 template <typename ArrowType>
-class TestTakeKernelWithNumeric : public TestTakeKernelTyped<ArrowType> {
- protected:
-  void AssertTakeAAA(const std::string& values, const std::string& indices,
-                     const std::string& expected) {
-    CheckTakeAAA(this->value_type(), values, indices, expected);
-  }
-};
+class TestTakeKernelWithNumeric : public TestTakeKernelTyped<ArrowType> {};
 
 TYPED_TEST_SUITE(TestTakeKernelWithNumeric, NumericArrowTypes);
 TYPED_TEST(TestTakeKernelWithNumeric, TakeNumeric) {
@@ -1616,18 +1624,12 @@ TYPED_TEST(TestTakeKernelWithNumeric, TakeNumeric) {
 template <typename TypeClass>
 class TestTakeKernelWithString : public TestTakeKernelTyped<TypeClass> {
  public:
-  void CheckTakeXA(const std::string& values, const std::string& indices,
-                   const std::string& expected) {
-    arrow::compute::CheckTakeXA(this->value_type(), values, indices, expected);
-  }
-
-  void AssertTakeAAADictionary(const std::string& dictionary_values,
-                               const std::string& dictionary_indices,
-                               const std::string& indices,
-                               const std::string& expected_indices) {
-    return arrow::compute::CheckTakeXADictionary(this->value_type(), dictionary_values,
-                                                 dictionary_indices, indices,
-                                                 expected_indices);
+  void AssertTakeXADictionary(const std::string& dictionary_values,
+                              const std::string& dictionary_indices,
+                              const std::string& indices,
+                              const std::string& expected_indices) {
+    return compute::CheckTakeXADictionary(this->value_type(), dictionary_values,
+                                          dictionary_indices, indices, expected_indices);
   }
 };
 
@@ -1638,8 +1640,7 @@ TYPED_TEST(TestTakeKernelWithString, TakeString) {
   this->CheckTakeXA(R"([null, "b", "c"])", "[0, 1, 0]", "[null, \"b\", null]");
   this->CheckTakeXA(R"(["a", "b", "c"])", "[null, 1, 0]", R"([null, "b", "a"])");
 
-  this->TestNoValidityBitmapButUnknownNullCount(this->value_type(), R"(["a", "b", "c"])",
-                                                "[0, 1, 0]");
+  this->TestNoValidityBitmapButUnknownNullCount(R"(["a", "b", "c"])", "[0, 1, 0]");
 
   std::shared_ptr<DataType> type = this->value_type();
   const std::string kABC = R"(["a", "b", "c"])";
@@ -1653,19 +1654,14 @@ TYPED_TEST(TestTakeKernelWithString, TakeString) {
 
 TYPED_TEST(TestTakeKernelWithString, TakeDictionary) {
   auto dict = R"(["a", "b", "c", "d", "e"])";
-  this->AssertTakeAAADictionary(dict, "[3, 4, 2]", "[0, 1, 0]", "[3, 4, 3]");
-  this->AssertTakeAAADictionary(dict, "[null, 4, 2]", "[0, 1, 0]", "[null, 4, null]");
-  this->AssertTakeAAADictionary(dict, "[3, 4, 2]", "[null, 1, 0]", "[null, 4, 3]");
+  this->AssertTakeXADictionary(dict, "[3, 4, 2]", "[0, 1, 0]", "[3, 4, 3]");
+  this->AssertTakeXADictionary(dict, "[null, 4, 2]", "[0, 1, 0]", "[null, 4, null]");
+  this->AssertTakeXADictionary(dict, "[3, 4, 2]", "[null, 1, 0]", "[null, 4, 3]");
 }
 
 class TestTakeKernelFSB : public TestTakeKernelTyped<FixedSizeBinaryType> {
  public:
   std::shared_ptr<DataType> value_type() const override { return fixed_size_binary(3); }
-
-  void CheckTakeXA(const std::string& values, const std::string& indices,
-                   const std::string& expected) {
-    ::arrow::compute::CheckTakeXA(value_type(), values, indices, expected);
-  }
 };
 
 TEST_F(TestTakeKernelFSB, TakeFixedSizeBinary) {
@@ -1674,10 +1670,9 @@ TEST_F(TestTakeKernelFSB, TakeFixedSizeBinary) {
   this->CheckTakeXA(R"([null, "bbb", "ccc"])", "[0, 1, 0]", "[null, \"bbb\", null]");
   this->CheckTakeXA(kABC, "[null, 1, 0]", R"([null, "bbb", "aaa"])");
 
+  this->TestNoValidityBitmapButUnknownNullCount(kABC, "[0, 1, 0]");
+
   std::shared_ptr<DataType> type = this->value_type();
-
-  this->TestNoValidityBitmapButUnknownNullCount(type, kABC, "[0, 1, 0]");
-
   const std::string kABNullDE = R"(["aaa", "bbb", "ccc", null, "eee"])";
   std::shared_ptr<Array> arr;
   ASSERT_RAISES(IndexError, TakeAAA(type, kABC, "[0, 9, 0]").Value(&arr));
@@ -1688,70 +1683,94 @@ TEST_F(TestTakeKernelFSB, TakeFixedSizeBinary) {
                 TakeCAC(type, {kABNullDE, kABC}, "[4, 10]").Value(&chunked_arr));
 }
 
-class TestTakeKernelWithList : public TestTakeKernelTyped<ListType> {};
+using ListAndListViewArrowTypes =
+    ::testing::Types<ListType, LargeListType, ListViewType, LargeListViewType>;
 
-// XXX: define this with a test suite instead
-TEST_F(TestTakeKernelWithList, TakeListInt32) {
+template <typename ArrowListType>
+class TestTakeKernelWithList : public TestTakeKernelTyped<ListType> {
+ protected:
+  std::shared_ptr<DataType> value_type(std::shared_ptr<DataType> inner_type) const {
+    return std::make_shared<ArrowListType>(std::move(inner_type));
+  }
+
+  std::shared_ptr<DataType> value_type() const override { return value_type(int32()); }
+
+  std::vector<std::shared_ptr<DataType>> InnerListTypes() const {
+    return std::vector<std::shared_ptr<DataType>>{
+        list(int32()),
+        large_list(int32()),
+        list_view(int32()),
+        large_list_view(int32()),
+    };
+  }
+};
+
+TYPED_TEST_SUITE(TestTakeKernelWithList, ListAndListViewArrowTypes);
+
+TYPED_TEST(TestTakeKernelWithList, TakeListInt32) {
   std::string list_json = "[[], [1,2], null, [3]]";
-  for (auto& type : kListAndListViewTypes) {
-    CheckTakeXA(type, list_json, "[]", "[]");
-    CheckTakeXA(type, list_json, "[3, 2, 1]", "[[3], null, [1,2]]");
-    CheckTakeXA(type, list_json, "[null, 3, 0]", "[null, [3], []]");
-    CheckTakeXA(type, list_json, "[null, null]", "[null, null]");
-    CheckTakeXA(type, list_json, "[3, 0, 0, 3]", "[[3], [], [], [3]]");
-    CheckTakeXA(type, list_json, "[0, 1, 2, 3]", list_json);
-    CheckTakeXA(type, list_json, "[0, 0, 0, 0, 0, 0, 1]",
-                "[[], [], [], [], [], [], [1, 2]]");
+  {
+    this->CheckTakeXA(list_json, "[]", "[]");
+    this->CheckTakeXA(list_json, "[3, 2, 1]", "[[3], null, [1,2]]");
+    this->CheckTakeXA(list_json, "[null, 3, 0]", "[null, [3], []]");
+    this->CheckTakeXA(list_json, "[null, null]", "[null, null]");
+    this->CheckTakeXA(list_json, "[3, 0, 0, 3]", "[[3], [], [], [3]]");
+    this->CheckTakeXA(list_json, "[0, 1, 2, 3]", list_json);
+    this->CheckTakeXA(list_json, "[0, 0, 0, 0, 0, 0, 1]",
+                      "[[], [], [], [], [], [], [1, 2]]");
 
-    this->TestNoValidityBitmapButUnknownNullCount(type, "[[], [1,2], [3]]", "[0, 1, 0]");
+    this->TestNoValidityBitmapButUnknownNullCount("[[], [1,2], [3]]", "[0, 1, 0]");
   }
 }
 
-TEST_F(TestTakeKernelWithList, TakeListListInt32) {
+TYPED_TEST(TestTakeKernelWithList, TakeListListInt32) {
   std::string list_json = R"([
     [],
     [[1], [2, null, 2], []],
     null,
     [[3, null], null]
   ])";
-  for (auto& type : kNestedListAndListViewTypes) {
+  for (auto& inner_type : this->InnerListTypes()) {
+    auto type = this->value_type(inner_type);
     ARROW_SCOPED_TRACE("type = ", *type);
-    CheckTakeXA(type, list_json, "[]", "[]");
-    CheckTakeXA(type, list_json, "[3, 2, 1]", R"([
+    compute::CheckTakeXA(type, list_json, "[]", "[]");
+    compute::CheckTakeXA(type, list_json, "[3, 2, 1]", R"([
       [[3, null], null],
       null,
       [[1], [2, null, 2], []]
     ])");
-    CheckTakeXA(type, list_json, "[null, 3, 0]", R"([
+    compute::CheckTakeXA(type, list_json, "[null, 3, 0]", R"([
       null,
       [[3, null], null],
       []
     ])");
-    CheckTakeXA(type, list_json, "[null, null]", "[null, null]");
-    CheckTakeXA(type, list_json, "[3, 0, 0, 3]",
-                "[[[3, null], null], [], [], [[3, null], null]]");
-    CheckTakeXA(type, list_json, "[0, 1, 2, 3]", list_json);
-    CheckTakeXA(type, list_json, "[0, 0, 0, 0, 0, 0, 1]",
-                "[[], [], [], [], [], [], [[1], [2, null, 2], []]]");
+    compute::CheckTakeXA(type, list_json, "[null, null]", "[null, null]");
+    compute::CheckTakeXA(type, list_json, "[3, 0, 0, 3]",
+                         "[[[3, null], null], [], [], [[3, null], null]]");
+    compute::CheckTakeXA(type, list_json, "[0, 1, 2, 3]", list_json);
+    compute::CheckTakeXA(type, list_json, "[0, 0, 0, 0, 0, 0, 1]",
+                         "[[], [], [], [], [], [], [[1], [2, null, 2], []]]");
 
-    this->TestNoValidityBitmapButUnknownNullCount(
+    this->DoTestNoValidityBitmapButUnknownNullCount(
         type, "[[[1], [2, null, 2], []], [[3, null]]]", "[0, 1, 0]");
   }
 }
 
-class TestTakeKernelWithLargeList : public TestTakeKernelTyped<LargeListType> {};
-
-TEST_F(TestTakeKernelWithLargeList, TakeLargeListInt32) {
+TYPED_TEST(TestTakeKernelWithList, TakeLargeListInt32) {
   std::string list_json = "[[], [1,2], null, [3]]";
-  for (auto& type : kLargeListAndListViewTypes) {
-    ARROW_SCOPED_TRACE("type = ", *type);
-    CheckTakeXA(type, list_json, "[]", "[]");
-    CheckTakeXA(type, list_json, "[null, 1, 2, 0]", "[null, [1,2], null, []]");
+  {
+    ARROW_SCOPED_TRACE("type = ", *this->value_type());
+    this->CheckTakeXA(list_json, "[]", "[]");
+    this->CheckTakeXA(list_json, "[null, 1, 2, 0]", "[null, [1,2], null, []]");
   }
 }
 
 class TestTakeKernelWithFixedSizeList : public TestTakeKernelTyped<FixedSizeListType> {
  protected:
+  std::shared_ptr<DataType> value_type() const override {
+    return fixed_size_list(int32(), 3);
+  }
+
   void CheckTakeAAAOnNestedLists(const std::shared_ptr<DataType>& inner_type,
                                  const std::vector<int>& list_sizes, int64_t length) {
     using NLG = ::arrow::util::internal::NestedListGenerator;
@@ -1772,25 +1791,21 @@ class TestTakeKernelWithFixedSizeList : public TestTakeKernelTyped<FixedSizeList
 
 TEST_F(TestTakeKernelWithFixedSizeList, TakeFixedSizeListInt32) {
   std::string list_json = "[null, [1, null, 3], [4, 5, 6], [7, 8, null]]";
-  CheckTakeXA(fixed_size_list(int32(), 3), list_json, "[]", "[]");
-  CheckTakeXA(fixed_size_list(int32(), 3), list_json, "[3, 2, 1]",
-              "[[7, 8, null], [4, 5, 6], [1, null, 3]]");
-  CheckTakeXA(fixed_size_list(int32(), 3), list_json, "[null, 2, 0]",
-              "[null, [4, 5, 6], null]");
-  CheckTakeXA(fixed_size_list(int32(), 3), list_json, "[null, null]", "[null, null]");
-  CheckTakeXA(fixed_size_list(int32(), 3), list_json, "[3, 0, 0, 3]",
-              "[[7, 8, null], null, null, [7, 8, null]]");
-  CheckTakeXA(fixed_size_list(int32(), 3), list_json, "[0, 1, 2, 3]", list_json);
+  CheckTakeXA(list_json, "[]", "[]");
+  CheckTakeXA(list_json, "[3, 2, 1]", "[[7, 8, null], [4, 5, 6], [1, null, 3]]");
+  CheckTakeXA(list_json, "[null, 2, 0]", "[null, [4, 5, 6], null]");
+  CheckTakeXA(list_json, "[null, null]", "[null, null]");
+  CheckTakeXA(list_json, "[3, 0, 0, 3]", "[[7, 8, null], null, null, [7, 8, null]]");
+  CheckTakeXA(list_json, "[0, 1, 2, 3]", list_json);
 
   // No nulls in inner list values trigger the use of FixedWidthTakeExec() in
   // FSLTakeExec()
   std::string no_nulls_list_json = "[[0, 0, 0], [1, 2, 3], [4, 5, 6], [7, 8, 9]]";
   CheckTakeXA(
-      fixed_size_list(int32(), 3), no_nulls_list_json, "[2, 2, 2, 2, 2, 2, 1]",
+      no_nulls_list_json, "[2, 2, 2, 2, 2, 2, 1]",
       "[[4, 5, 6], [4, 5, 6], [4, 5, 6], [4, 5, 6], [4, 5, 6], [4, 5, 6], [1, 2, 3]]");
 
-  this->TestNoValidityBitmapButUnknownNullCount(fixed_size_list(int32(), 3),
-                                                "[[1, null, 3], [4, 5, 6], [7, 8, null]]",
+  this->TestNoValidityBitmapButUnknownNullCount("[[1, null, 3], [4, 5, 6], [7, 8, null]]",
                                                 "[0, 1, 0]");
 }
 
@@ -1865,31 +1880,34 @@ TEST_F(TestTakeKernelWithMap, TakeMapStringToInt32) {
   ])");
 }
 
-class TestTakeKernelWithStruct : public TestTakeKernelTyped<StructType> {};
+class TestTakeKernelWithStruct : public TestTakeKernelTyped<StructType> {
+  std::shared_ptr<DataType> value_type() const override {
+    return struct_({field("a", int32()), field("b", utf8())});
+  }
+};
 
 TEST_F(TestTakeKernelWithStruct, TakeStruct) {
-  auto struct_type = struct_({field("a", int32()), field("b", utf8())});
   auto struct_json = R"([
     null,
     {"a": 1, "b": ""},
     {"a": 2, "b": "hello"},
     {"a": 4, "b": "eh"}
   ])";
-  CheckTakeXA(struct_type, struct_json, "[]", "[]");
-  CheckTakeXA(struct_type, struct_json, "[3, 1, 3, 1, 3]", R"([
+  this->CheckTakeXA(struct_json, "[]", "[]");
+  this->CheckTakeXA(struct_json, "[3, 1, 3, 1, 3]", R"([
     {"a": 4, "b": "eh"},
     {"a": 1, "b": ""},
     {"a": 4, "b": "eh"},
     {"a": 1, "b": ""},
     {"a": 4, "b": "eh"}
   ])");
-  CheckTakeXA(struct_type, struct_json, "[3, 1, 0]", R"([
+  this->CheckTakeXA(struct_json, "[3, 1, 0]", R"([
     {"a": 4, "b": "eh"},
     {"a": 1, "b": ""},
     null
   ])");
-  CheckTakeXA(struct_type, struct_json, "[0, 1, 2, 3]", struct_json);
-  CheckTakeXA(struct_type, struct_json, "[0, 2, 2, 2, 2, 2, 2]", R"([
+  this->CheckTakeXA(struct_json, "[0, 1, 2, 3]", struct_json);
+  this->CheckTakeXA(struct_json, "[0, 2, 2, 2, 2, 2, 2]", R"([
     null,
     {"a": 2, "b": "hello"},
     {"a": 2, "b": "hello"},
@@ -1899,8 +1917,8 @@ TEST_F(TestTakeKernelWithStruct, TakeStruct) {
     {"a": 2, "b": "hello"}
   ])");
 
-  this->TestNoValidityBitmapButUnknownNullCount(
-      struct_type, R"([{"a": 1}, {"a": 2, "b": "hello"}])", "[0, 1, 0]");
+  this->TestNoValidityBitmapButUnknownNullCount(R"([{"a": 1}, {"a": 2, "b": "hello"}])",
+                                                "[0, 1, 0]");
 }
 
 template <typename ArrowUnionType>
