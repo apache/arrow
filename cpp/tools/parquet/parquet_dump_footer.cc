@@ -47,7 +47,7 @@ int DoIt(std::string in, bool scrub, bool json, std::string out) {
     std::cerr << "File too short: " << in << "\n";
     return 3;
   }
-  // Do a first opportunistic read of up to 1 MiB to try and get the entire footer
+  // First do an opportunistic read of up to 1 MiB to try and get the entire footer.
   int64_t tail_len = std::min(file_len, int64_t{1} << 20);
   std::string tail;
   tail.resize(tail_len);
@@ -58,8 +58,11 @@ int DoIt(std::string in, bool scrub, bool json, std::string out) {
     return 4;
   }
   uint32_t metadata_len = ReadLE32(data + tail_len - 8);
-  if (metadata_len > tail_len - 8) {
-    // The footer is larger than the initial read, read again the exact size
+  if (tail_len >= metadata_len + 8) {
+    // The footer is entirely in the initial read. Trim to size.
+    tail = tail.substr(tail_len - (metadata_len + 8));
+  } else {
+    // The footer is larger than the initial read, read again the exact size.
     if (metadata_len > file_len) {
       std::cerr << "File too short: " << in << "\n";
       return 5;
@@ -68,9 +71,6 @@ int DoIt(std::string in, bool scrub, bool json, std::string out) {
     tail.resize(tail_len);
     data = tail.data();
     file->ReadAt(file_len - tail_len, tail_len, data).ValueOrDie();
-  } else {
-    // Keep the footer + the magic bytes
-    tail = tail.substr(tail_len - (metadata_len + 8));
   }
   auto md = FileMetaData::Make(tail.data(), &metadata_len);
   std::string ser = md->SerializeUnencrypted(scrub, json);
@@ -125,7 +125,7 @@ int main(int argc, char** argv) {
       if (i + 1 >= argc) return PrintHelp();
       out = argv[++i];
     } else {
-      // Unknown option
+      // Unknown option.
       return PrintHelp();
     }
   }
