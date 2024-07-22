@@ -1276,6 +1276,17 @@ void DoCheckTakeXA(const std::shared_ptr<Array>& values,
   AssertArraysEqual(*concat_expected3, *concat_actual, /*verbose=*/true);
 }
 
+// TakeXA = {TakeAAA, TakeCAC}
+void CheckTakeXA(const std::shared_ptr<DataType>& type, const std::string& values_json,
+                 const std::string& indices_json, const std::string& expected_json) {
+  auto values = ArrayFromJSON(type, values_json);
+  auto expected = ArrayFromJSON(type, expected_json);
+  for (auto index_type : {int8(), uint32()}) {
+    auto indices = ArrayFromJSON(index_type, indices_json);
+    DoCheckTakeXA(values, indices, expected);
+  }
+}
+
 void CheckTakeXADictionary(std::shared_ptr<DataType> value_type,
                            const std::string& dictionary_values,
                            const std::string& dictionary_indices,
@@ -1478,15 +1489,18 @@ template <typename ArrowType>
 class TestTakeKernelTyped : public TestTakeKernel {};
 
 TEST_F(TestTakeKernel, TakeNull) {
-  CheckTakeAAA(null(), "[null, null, null]", "[0, 1, 0]", "[null, null, null]");
-  CheckTakeAAA(null(), "[null, null, null]", "[0, 2]", "[null, null]");
+  std::string null3 = "[null, null, null]";
+  CheckTakeXA(null(), null3, "[0, 1, 0]", "[null, null, null]");
+  CheckTakeXA(null(), null3, "[0, 2]", "[null, null]");
 
   std::shared_ptr<Array> arr;
+  ASSERT_RAISES(IndexError, TakeAAA(null(), null3, int8(), "[0, 9, 0]").Value(&arr));
+  ASSERT_RAISES(IndexError, TakeAAA(boolean(), null3, int8(), "[0, -1, 0]").Value(&arr));
+  Datum chunked_arr;
   ASSERT_RAISES(IndexError,
-                TakeAAA(null(), "[null, null, null]", int8(), "[0, 9, 0]").Value(&arr));
-  ASSERT_RAISES(
-      IndexError,
-      TakeAAA(boolean(), "[null, null, null]", int8(), "[0, -1, 0]").Value(&arr));
+                TakeCAC(null(), {null3, null3}, "[0, 9, 0]").Value(&chunked_arr));
+  ASSERT_RAISES(IndexError,
+                TakeCAC(boolean(), {null3, null3}, "[0, -1, 0]").Value(&chunked_arr));
 }
 
 TEST_F(TestTakeKernel, InvalidIndexType) {
