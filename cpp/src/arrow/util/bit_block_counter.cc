@@ -24,8 +24,7 @@
 #include "arrow/buffer.h"
 #include "arrow/util/bitmap_ops.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 BitBlockCount BitBlockCounter::GetBlockSlow(int64_t block_size) noexcept {
   const int16_t run_length = static_cast<int16_t>(std::min(bits_remaining_, block_size));
@@ -70,5 +69,4 @@ OptionalBinaryBitBlockCounter::OptionalBinaryBitBlockCounter(
           left_bitmap ? left_bitmap->data() : nullptr, left_offset,
           right_bitmap ? right_bitmap->data() : nullptr, right_offset, length) {}
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

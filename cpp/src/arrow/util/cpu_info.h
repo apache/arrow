@@ -27,8 +27,7 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 /// CpuInfo is an interface to query for cpu information at runtime.  The caller can
 /// ask for the sizes of the caches and what hardware features are supported.
@@ -110,5 +109,4 @@ class ARROW_EXPORT CpuInfo {
   std::unique_ptr<Impl> impl_;
 };
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

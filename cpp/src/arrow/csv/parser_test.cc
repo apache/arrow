@@ -30,8 +30,7 @@
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 
-namespace arrow {
-namespace csv {
+namespace arrow::csv {
 
 void CheckSkipRows(const std::string& rows, int32_t num_rows,
                    int32_t expected_skipped_rows, int32_t expected_skipped_bytes) {
@@ -853,5 +852,4 @@ TEST(BlockParser, RowNumberAppendedToError) {
   }
 }
 
-}  // namespace csv
-}  // namespace arrow
+}  // namespace arrow::csv

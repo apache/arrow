@@ -22,10 +22,7 @@
 
 #include <memory>
 
-namespace arrow {
-
-namespace util {
-namespace tracing {
+namespace arrow::util::tracing {
 
 #ifdef ARROW_WITH_OPENTELEMETRY
 
@@ -49,6 +46,4 @@ void Span::reset() {}
 
 #endif
 
-}  // namespace tracing
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util::tracing

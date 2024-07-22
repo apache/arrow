@@ -28,8 +28,7 @@
 #include "arrow/csv/test_common.h"
 #include "arrow/testing/gtest_util.h"
 
-namespace arrow {
-namespace csv {
+namespace arrow::csv {
 
 void AssertChunkSize(Chunker& chunker, const std::string& str, uint32_t chunk_size) {
   std::shared_ptr<Buffer> block, whole, partial;
@@ -379,5 +378,4 @@ TEST_P(BaseChunkerTest, ParseSkip) {
   }
 }
 
-}  // namespace csv
-}  // namespace arrow
+}  // namespace arrow::csv

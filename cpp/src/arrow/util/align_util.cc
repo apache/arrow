@@ -26,9 +26,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 
-namespace arrow {
-
-namespace util {
+namespace arrow::util {
 
 bool CheckAlignment(const Buffer& buffer, int64_t alignment) {
   if (alignment <= 0) {
@@ -280,5 +278,4 @@ Result<std::shared_ptr<Table>> EnsureAlignment(std::shared_ptr<Table> table,
   }
 }
 
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util

@@ -23,8 +23,7 @@
 #include "arrow/testing/random.h"
 #include "arrow/util/bitmap_ops.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 using arrow::bit_util::BytesForBits;
 using arrow::internal::CpuInfo;
@@ -300,5 +299,4 @@ TEST(KeyCompare, LARGE_MEMORY_TEST(CompareColumnsToRowsLarge)) {
   }
 }
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

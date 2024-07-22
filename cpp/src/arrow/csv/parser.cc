@@ -29,8 +29,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/simd.h"
 
-namespace arrow {
-namespace csv {
+namespace arrow::csv {
 
 using detail::DataBatch;
 using detail::ParsedValueDesc;
@@ -698,5 +697,4 @@ int32_t SkipRows(const uint8_t* data, uint32_t size, int32_t num_rows,
   return skipped_rows;
 }
 
-}  // namespace csv
-}  // namespace arrow
+}  // namespace arrow::csv

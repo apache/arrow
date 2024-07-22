@@ -30,9 +30,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/string.h"
 
-namespace arrow {
-
-namespace acero {
+namespace arrow::acero {
 
 Result<std::shared_ptr<Table>> TableGroupBy(
     std::shared_ptr<Table> table, std::vector<Aggregate> aggregates,
@@ -210,5 +208,4 @@ TEST(GroupByNode, NoSkipNulls) {
   AssertExecBatchesEqualIgnoringOrder(out_schema, {expected_batch}, out_batches.batches);
 }
 
-}  // namespace acero
-}  // namespace arrow
+}  // namespace arrow::acero

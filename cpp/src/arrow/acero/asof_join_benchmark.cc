@@ -24,8 +24,7 @@
 #include "arrow/table.h"
 #include "arrow/testing/future_util.h"
 
-namespace arrow {
-namespace acero {
+namespace arrow::acero {
 
 static const char* kTimeCol = "time";
 static const char* kKeyCol = "id";
@@ -165,5 +164,4 @@ void SetArgs(benchmark::internal::Benchmark* bench) {
 
 BENCHMARK(AsOfJoinOverhead)->Apply(SetArgs);
 
-}  // namespace acero
-}  // namespace arrow
+}  // namespace arrow::acero

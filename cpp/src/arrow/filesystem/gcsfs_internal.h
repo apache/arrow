@@ -30,8 +30,7 @@
 
 #include "arrow/filesystem/filesystem.h"
 
-namespace arrow {
-namespace fs {
+namespace arrow::fs {
 struct GcsOptions;
 
 namespace internal {
@@ -67,5 +66,4 @@ ARROW_EXPORT std::int64_t Depth(std::string_view path);
 ARROW_EXPORT google::cloud::Options AsGoogleCloudOptions(const GcsOptions& options);
 
 }  // namespace internal
-}  // namespace fs
-}  // namespace arrow
+}  // namespace arrow::fs

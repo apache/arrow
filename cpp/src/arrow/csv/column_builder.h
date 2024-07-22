@@ -26,8 +26,7 @@
 #include "arrow/util/type_fwd.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace csv {
+namespace arrow::csv {
 
 class BlockParser;
 struct ConvertOptions;
@@ -74,5 +73,4 @@ class ARROW_EXPORT ColumnBuilder {
   std::shared_ptr<arrow::internal::TaskGroup> task_group_;
 };
 
-}  // namespace csv
-}  // namespace arrow
+}  // namespace arrow::csv

@@ -29,8 +29,7 @@
 #include <opentelemetry/context/propagation/text_map_propagator.h>
 #endif
 
-namespace arrow {
-namespace flight {
+namespace arrow::flight {
 
 namespace {
 #ifdef ARROW_WITH_OPENTELEMETRY
@@ -98,5 +97,4 @@ std::shared_ptr<ClientMiddlewareFactory> MakeTracingClientMiddlewareFactory() {
   return std::make_shared<TracingClientMiddlewareFactory>();
 }
 
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight

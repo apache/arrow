@@ -20,8 +20,7 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 
-namespace arrow {
-namespace dataset {
+namespace arrow::dataset {
 
 Status CheckProjectable(const Schema& from, const Schema& to) {
   for (const auto& to_field : to.fields()) {
@@ -59,5 +58,4 @@ Status CheckProjectable(const Schema& from, const Schema& to) {
   return Status::OK();
 }
 
-}  // namespace dataset
-}  // namespace arrow
+}  // namespace arrow::dataset

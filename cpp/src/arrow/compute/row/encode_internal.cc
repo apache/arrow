@@ -19,8 +19,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/int_util_overflow.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 void RowTableEncoder::Init(const std::vector<KeyColumnMetadata>& cols, int row_alignment,
                            int string_alignment) {
@@ -904,5 +903,4 @@ void EncoderNulls::EncodeSelected(RowTableImpl* rows,
   }
 }
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

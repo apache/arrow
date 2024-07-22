@@ -47,9 +47,7 @@
 #include "arrow/util/string.h"
 #include "arrow/util/value_parsing.h"
 
-namespace arrow {
-namespace flight {
-namespace integration_tests {
+namespace arrow::flight::integration_tests {
 namespace {
 
 using arrow::internal::checked_cast;
@@ -2295,6 +2293,4 @@ Status GetScenario(const std::string& scenario_name, std::shared_ptr<Scenario>* 
   return Status::KeyError("Scenario not found: ", scenario_name);
 }
 
-}  // namespace integration_tests
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight::integration_tests

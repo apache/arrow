@@ -42,9 +42,7 @@
 DEFINE_int32(port, 31337, "Server port to listen on");
 DEFINE_string(scenario, "", "Integration test scenario to run");
 
-namespace arrow {
-namespace flight {
-namespace integration_tests {
+namespace arrow::flight::integration_tests {
 
 struct IntegrationDataset {
   std::shared_ptr<Schema> schema;
@@ -176,9 +174,7 @@ class IntegrationTestScenario : public Scenario {
   }
 };
 
-}  // namespace integration_tests
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight::integration_tests
 
 std::unique_ptr<arrow::flight::FlightServerBase> g_server;
 

@@ -35,8 +35,7 @@
 #include "arrow/util/compression.h"
 #include "arrow/util/config.h"
 
-namespace arrow {
-namespace io {
+namespace arrow::io {
 
 using ::arrow::util::Codec;
 
@@ -308,5 +307,4 @@ INSTANTIATE_TEST_SUITE_P(TestZSTDOutputStream, CompressedOutputStreamTest,
                          ::testing::Values(Compression::ZSTD));
 #endif
 
-}  // namespace io
-}  // namespace arrow
+}  // namespace arrow::io

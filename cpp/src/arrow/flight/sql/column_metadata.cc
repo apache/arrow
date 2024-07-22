@@ -25,8 +25,7 @@ namespace arrow {
 
 using internal::ToChars;
 
-namespace flight {
-namespace sql {
+namespace flight::sql {
 namespace {
 
 /// \brief Constant variable used to convert boolean true value
@@ -191,6 +190,5 @@ ColumnMetadata::ColumnMetadataBuilder::ColumnMetadataBuilder()
 ColumnMetadata ColumnMetadata::ColumnMetadataBuilder::Build() const {
   return ColumnMetadata{metadata_map_};
 }
-}  // namespace sql
-}  // namespace flight
+}  // namespace flight::sql
 }  // namespace arrow

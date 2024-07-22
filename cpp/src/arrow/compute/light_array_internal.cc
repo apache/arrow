@@ -23,8 +23,7 @@
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/macros.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 KeyColumnArray::KeyColumnArray(const KeyColumnMetadata& metadata, int64_t length,
                                const uint8_t* validity_buffer,
@@ -761,5 +760,4 @@ ExecBatch ExecBatchBuilder::Flush() {
   return out;
 }
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

@@ -27,8 +27,7 @@
 #include "arrow/util/type_fwd.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace io {
+namespace arrow::io {
 
 struct ARROW_EXPORT CacheOptions {
   static constexpr double kDefaultIdealBandwidthUtilizationFrac = 0.9;
@@ -153,5 +152,4 @@ class ARROW_EXPORT ReadRangeCache {
 };
 
 }  // namespace internal
-}  // namespace io
-}  // namespace arrow
+}  // namespace arrow::io

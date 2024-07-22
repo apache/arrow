@@ -24,8 +24,7 @@
 #include "arrow/util/launder.h"
 #include "arrow/util/macros.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 template <typename T>
 class AlignedStorage {
@@ -141,5 +140,4 @@ class AlignedStorage {
 #endif
 };
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

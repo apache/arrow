@@ -30,8 +30,7 @@
 #include "arrow/util/ubsan.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 namespace detail {
 
 inline uint64_t LoadWord(const uint8_t* bytes) {
@@ -566,5 +565,4 @@ static void VisitTwoBitBlocksVoid(const uint8_t* left_bitmap, int64_t left_offse
   }
 }
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

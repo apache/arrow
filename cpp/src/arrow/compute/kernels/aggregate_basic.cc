@@ -25,9 +25,7 @@
 
 #include <memory>
 
-namespace arrow {
-namespace compute {
-namespace internal {
+namespace arrow::compute::internal {
 
 namespace {
 
@@ -1185,6 +1183,4 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
-}  // namespace internal
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute::internal

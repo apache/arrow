@@ -19,8 +19,7 @@
 
 #include "arrow/testing/gtest_util.h"
 
-namespace arrow {
-namespace csv {
+namespace arrow::csv {
 
 std::string MakeCSVData(std::vector<std::string> lines) {
   std::string s;
@@ -117,5 +116,4 @@ Result<std::shared_ptr<Buffer>> MakeSampleCsvBuffer(
   return MemoryManager::CopyBuffer(table_buffer, default_cpu_memory_manager());
 }
 
-}  // namespace csv
-}  // namespace arrow
+}  // namespace arrow::csv

@@ -33,8 +33,7 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 /// \addtogroup compute-functions
 /// @{
@@ -405,5 +404,4 @@ class ARROW_EXPORT MetaFunction : public Function {
 
 /// @}
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

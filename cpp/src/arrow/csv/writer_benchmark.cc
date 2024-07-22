@@ -30,8 +30,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 
-namespace arrow {
-namespace csv {
+namespace arrow::csv {
 
 namespace {
 
@@ -161,5 +160,4 @@ BENCHMARK(WriteCsvStringWithQuote)->Apply(NullPercents);
 BENCHMARK(WriteCsvStringRejectQuote)->Apply(NullPercents);
 BENCHMARK(WriteCsvNumericCheckQuote)->Apply(NullPercents);
 
-}  // namespace csv
-}  // namespace arrow
+}  // namespace arrow::csv

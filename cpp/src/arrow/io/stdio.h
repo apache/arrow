@@ -22,8 +22,7 @@
 #include "arrow/io/interfaces.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace io {
+namespace arrow::io {
 
 // Output stream that just writes to stdout.
 class ARROW_EXPORT StdoutStream : public OutputStream {
@@ -78,5 +77,4 @@ class ARROW_EXPORT StdinStream : public InputStream {
   int64_t pos_;
 };
 
-}  // namespace io
-}  // namespace arrow
+}  // namespace arrow::io

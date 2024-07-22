@@ -27,8 +27,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/vector.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 const std::vector<std::shared_ptr<DataType>> kSampleFixedDataTypes = {
     int8(),   int16(),  int32(),  int64(),           uint8(),
@@ -702,5 +701,4 @@ TEST(ExecBatchBuilder, AppendNulls) {
   ASSERT_EQ(0, pool->bytes_allocated());
 }
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

@@ -24,9 +24,7 @@
 
 namespace rj = arrow::rapidjson;
 
-namespace arrow {
-namespace json {
-namespace internal {
+namespace arrow::json::internal {
 
 class ObjectWriter::Impl {
  public:
@@ -76,6 +74,4 @@ void ObjectWriter::SetBool(std::string_view key, bool value) {
 
 std::string ObjectWriter::Serialize() { return impl_->Serialize(); }
 
-}  // namespace internal
-}  // namespace json
-}  // namespace arrow
+}  // namespace arrow::json::internal

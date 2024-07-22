@@ -63,8 +63,7 @@
 #define CPUINFO_ARCH_PPC
 #endif
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 namespace {
 
@@ -587,8 +586,7 @@ void CpuInfo::EnableFeature(int64_t flag, bool enable) {
   impl_->EnableFeature(flag, enable);
 }
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal
 
 #undef CPUINFO_ARCH_X86
 #undef CPUINFO_ARCH_ARM

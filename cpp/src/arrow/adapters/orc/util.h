@@ -28,9 +28,7 @@
 
 namespace liborc = orc;
 
-namespace arrow {
-namespace adapters {
-namespace orc {
+namespace arrow::adapters::orc {
 
 Result<std::shared_ptr<DataType>> GetArrowType(const liborc::Type* type);
 
@@ -63,6 +61,4 @@ ARROW_EXPORT Status WriteBatch(const ChunkedArray& chunked_array, int64_t length
 /// \brief Get the major version provided by the official ORC C++ library.
 ARROW_EXPORT int GetOrcMajorVersion();
 
-}  // namespace orc
-}  // namespace adapters
-}  // namespace arrow
+}  // namespace arrow::adapters::orc

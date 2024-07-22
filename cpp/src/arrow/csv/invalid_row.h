@@ -20,8 +20,7 @@
 #include <functional>
 #include <string_view>
 
-namespace arrow {
-namespace csv {
+namespace arrow::csv {
 
 /// \brief Description of an invalid row
 struct InvalidRow {
@@ -51,5 +50,4 @@ enum class InvalidRowResult {
 /// skipped
 using InvalidRowHandler = std::function<InvalidRowResult(const InvalidRow&)>;
 
-}  // namespace csv
-}  // namespace arrow
+}  // namespace arrow::csv

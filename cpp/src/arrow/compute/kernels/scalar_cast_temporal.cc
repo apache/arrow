@@ -32,8 +32,7 @@ namespace arrow {
 using internal::ParseTimestampISO8601;
 using internal::ParseYYYY_MM_DD;
 
-namespace compute {
-namespace internal {
+namespace compute::internal {
 
 constexpr int64_t kMillisecondsInDay = 86400000;
 
@@ -664,6 +663,5 @@ std::vector<std::shared_ptr<CastFunction>> GetTemporalCasts() {
   return functions;
 }
 
-}  // namespace internal
-}  // namespace compute
+}  // namespace compute::internal
 }  // namespace arrow

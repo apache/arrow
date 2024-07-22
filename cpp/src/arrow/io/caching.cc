@@ -29,8 +29,7 @@
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
 
-namespace arrow {
-namespace io {
+namespace arrow::io {
 
 CacheOptions CacheOptions::Defaults() {
   return CacheOptions{internal::ReadRangeCache::kDefaultHoleSizeLimit,
@@ -332,5 +331,4 @@ Future<> ReadRangeCache::WaitFor(std::vector<ReadRange> ranges) {
 }
 
 }  // namespace internal
-}  // namespace io
-}  // namespace arrow
+}  // namespace arrow::io

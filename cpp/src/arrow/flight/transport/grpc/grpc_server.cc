@@ -39,10 +39,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/uri.h"
 
-namespace arrow {
-namespace flight {
-namespace transport {
-namespace grpc {
+namespace arrow::flight::transport::grpc {
 
 namespace pb = arrow::flight::protocol;
 using FlightService = pb::FlightService;
@@ -677,7 +674,4 @@ void InitializeFlightGrpcServer() {
 #undef RETURN_WITH_MIDDLEWARE
 #undef SERVICE_RETURN_NOT_OK
 
-}  // namespace grpc
-}  // namespace transport
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight::transport::grpc

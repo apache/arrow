@@ -24,8 +24,7 @@
 #include "arrow/testing/random.h"
 #include "arrow/util/benchmark_util.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 constexpr auto kSeed = 0x94378165;
 
@@ -164,5 +163,4 @@ BENCHMARK(IsInInt32SmallSet)->RangeMultiplier(4)->Range(2, 64);
 BENCHMARK(IsInInt64SmallSet)->RangeMultiplier(4)->Range(2, 64);
 BENCHMARK(IsInInt32LargeSet)->RangeMultiplier(100)->Range(1000, 1000000);
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

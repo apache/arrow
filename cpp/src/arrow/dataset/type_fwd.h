@@ -27,8 +27,7 @@
 #include "arrow/filesystem/type_fwd.h"  // IWYU pragma: export
 #include "arrow/type_fwd.h"             // IWYU pragma: export
 
-namespace arrow {
-namespace dataset {
+namespace arrow::dataset {
 
 class Dataset;
 class DatasetFactory;
@@ -109,5 +108,4 @@ class ScanTask;
 using ScanTaskVector = std::vector<std::shared_ptr<ScanTask>>;
 using ScanTaskIterator = Iterator<std::shared_ptr<ScanTask>>;
 
-}  // namespace dataset
-}  // namespace arrow
+}  // namespace arrow::dataset

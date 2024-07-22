@@ -20,8 +20,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/time.h"
 
-namespace arrow {
-namespace util {
+namespace arrow::util {
 
 TEST(TimeTest, ConvertTimestampValue) {
   auto convert = [](TimeUnit::type in, TimeUnit::type out, int64_t value) {
@@ -59,5 +58,4 @@ TEST(TimeTest, ConvertTimestampValue) {
   EXPECT_EQ(convert(TimeUnit::NANO, TimeUnit::MICRO, 6000), 6);
 }
 
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util

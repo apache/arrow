@@ -23,13 +23,11 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace json {
+namespace arrow::json {
 
 struct ParseOptions;
 
 ARROW_EXPORT
 std::unique_ptr<Chunker> MakeChunker(const ParseOptions& options);
 
-}  // namespace json
-}  // namespace arrow
+}  // namespace arrow::json

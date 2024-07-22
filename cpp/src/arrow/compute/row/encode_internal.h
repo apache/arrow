@@ -31,8 +31,7 @@
 #include "arrow/status.h"
 #include "arrow/util/bit_util.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 /// Converts between Arrow's typical column representation to a row-based representation
 ///
@@ -320,5 +319,4 @@ class EncoderNulls {
                      std::vector<KeyColumnArray>* cols);
 };
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

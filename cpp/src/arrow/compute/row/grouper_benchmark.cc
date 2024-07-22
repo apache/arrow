@@ -25,8 +25,7 @@
 #include "arrow/testing/random.h"
 #include "arrow/util/benchmark_util.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 constexpr auto kSeed = 0x0ff1ce;
 constexpr int64_t kRound = 16;
@@ -152,5 +151,4 @@ BENCHMARK_CAPTURE(GrouperWithMultiTypes,
                   {utf8(), int32(), int64(), fixed_size_binary(32), boolean()})
     ->Apply(SetArgs);
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

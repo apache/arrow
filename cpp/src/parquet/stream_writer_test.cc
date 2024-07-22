@@ -27,8 +27,7 @@
 #include "arrow/io/memory.h"
 #include "parquet/exception.h"
 
-namespace parquet {
-namespace test {
+namespace parquet::test {
 
 template <typename T>
 using optional = StreamWriter::optional<T>;
@@ -415,5 +414,4 @@ TEST_F(TestOptionalFields, OutputOperatorTAndSkipColumns) {
   EXPECT_EQ(num_rows, writer_.current_row());
 }
 
-}  // namespace test
-}  // namespace parquet
+}  // namespace parquet::test

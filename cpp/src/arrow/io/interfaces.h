@@ -30,8 +30,7 @@
 #include "arrow/util/type_fwd.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace io {
+namespace arrow::io {
 
 struct ReadRange {
   int64_t offset;
@@ -358,5 +357,4 @@ ARROW_EXPORT
 Result<Iterator<std::shared_ptr<Buffer>>> MakeInputStreamIterator(
     std::shared_ptr<InputStream> stream, int64_t block_size);
 
-}  // namespace io
-}  // namespace arrow
+}  // namespace arrow::io

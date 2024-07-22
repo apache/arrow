@@ -26,9 +26,7 @@
 #include "arrow/util/type_fwd.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace io {
-namespace internal {
+namespace arrow::io::internal {
 
 ARROW_EXPORT void CloseFromDestructor(FileInterface* file);
 
@@ -61,6 +59,4 @@ auto SubmitIO(IOContext io_context, SubmitArgs&&... submit_args)
                                        std::forward<SubmitArgs>(submit_args)...);
 }
 
-}  // namespace internal
-}  // namespace io
-}  // namespace arrow
+}  // namespace arrow::io::internal

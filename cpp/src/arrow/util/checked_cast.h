@@ -21,8 +21,7 @@
 #include <type_traits>
 #include <utility>
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 template <typename OutputType, typename InputType>
 inline OutputType checked_cast(InputType&& value) {
@@ -57,5 +56,4 @@ std::unique_ptr<T> checked_pointer_cast(std::unique_ptr<U> r) noexcept {
 #endif
 }
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

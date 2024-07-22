@@ -23,8 +23,7 @@
 #include "arrow/util/config.h"
 #include "arrow/util/logging.h"
 
-namespace arrow {
-namespace acero {
+namespace arrow::acero {
 
 class TaskSchedulerImpl : public TaskScheduler {
  public:
@@ -427,5 +426,4 @@ std::unique_ptr<TaskScheduler> TaskScheduler::Make() {
   return impl;
 }
 
-}  // namespace acero
-}  // namespace arrow
+}  // namespace arrow::acero

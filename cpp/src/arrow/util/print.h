@@ -22,8 +22,7 @@
 
 using arrow::internal::ToChars;
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 namespace detail {
 
@@ -73,5 +72,4 @@ struct PrintVector {
 };
 template <typename Range, typename Separator>
 PrintVector(const Range&, const Separator&) -> PrintVector<Range, Separator>;
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

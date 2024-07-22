@@ -57,8 +57,7 @@ using internal::CountSetBits;
 using internal::OptionalBitBlockCounter;
 using internal::OptionalBitIndexer;
 
-namespace compute {
-namespace internal {
+namespace compute::internal {
 
 namespace {
 
@@ -350,6 +349,5 @@ void RegisterVectorSelection(FunctionRegistry* registry) {
       MakeIndicesNonZeroFunction("indices_nonzero", indices_nonzero_doc)));
 }
 
-}  // namespace internal
-}  // namespace compute
+}  // namespace compute::internal
 }  // namespace arrow

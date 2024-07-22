@@ -30,8 +30,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 // A LRU (Least recently used) replacement cache
 template <typename Key, typename Value>
@@ -206,5 +205,4 @@ static auto MemoizeLruThreadUnsafe(Func&& func, int32_t cache_capacity)
                                                                  cache_capacity);
 }
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

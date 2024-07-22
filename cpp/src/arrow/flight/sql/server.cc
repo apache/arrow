@@ -35,9 +35,7 @@
 #define PROPERTY_TO_OPTIONAL(COMMAND, PROPERTY) \
   COMMAND.has_##PROPERTY() ? std::make_optional(COMMAND.PROPERTY()) : std::nullopt
 
-namespace arrow {
-namespace flight {
-namespace sql {
+namespace arrow::flight::sql {
 
 namespace pb = arrow::flight::protocol;
 
@@ -1397,8 +1395,6 @@ const std::shared_ptr<Schema>& SqlSchema::GetXdbcTypeInfoSchema() {
   });
   return kSchema;
 }
-}  // namespace sql
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight::sql
 
 #undef PROPERTY_TO_OPTIONAL

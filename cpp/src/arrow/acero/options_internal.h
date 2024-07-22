@@ -22,8 +22,7 @@
 #include <ostream>
 #endif
 
-namespace arrow {
-namespace acero {
+namespace arrow::acero {
 
 struct DebugOptions {
 #ifndef NDEBUG
@@ -34,5 +33,4 @@ struct DebugOptions {
 #endif
 };
 
-}  // namespace acero
-}  // namespace arrow
+}  // namespace arrow::acero

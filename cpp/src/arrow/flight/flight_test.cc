@@ -76,8 +76,7 @@
 #include <opentelemetry/trace/propagation/http_trace_context.h>
 #endif
 
-namespace arrow {
-namespace flight {
+namespace arrow::flight {
 
 namespace pb = arrow::flight::protocol;
 
@@ -1789,5 +1788,4 @@ TEST_F(TestTracing, NoOp) {
 }
 #endif
 
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight

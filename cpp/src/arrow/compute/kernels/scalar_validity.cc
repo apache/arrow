@@ -28,8 +28,7 @@ namespace arrow {
 using internal::CopyBitmap;
 using internal::InvertBitmap;
 
-namespace compute {
-namespace internal {
+namespace compute::internal {
 namespace {
 
 Status IsValidExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
@@ -282,6 +281,5 @@ void RegisterScalarValidity(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(MakeIsNanFunction("is_nan", is_nan_doc)));
 }
 
-}  // namespace internal
-}  // namespace compute
+}  // namespace compute::internal
 }  // namespace arrow

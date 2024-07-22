@@ -30,8 +30,7 @@
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 
-namespace arrow {
-namespace io {
+namespace arrow::io {
 
 struct TransformInputStream::Impl {
   std::shared_ptr<InputStream> wrapped_;
@@ -158,5 +157,4 @@ Future<std::shared_ptr<const KeyValueMetadata>> TransformInputStream::ReadMetada
   return impl_->wrapped_->ReadMetadataAsync(io_context);
 }
 
-}  // namespace io
-}  // namespace arrow
+}  // namespace arrow::io

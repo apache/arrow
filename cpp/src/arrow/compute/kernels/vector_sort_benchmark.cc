@@ -25,8 +25,7 @@
 #include "arrow/util/benchmark_util.h"
 #include "arrow/util/logging.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 constexpr auto kSeed = 0x0ff1ce;
 constexpr int32_t kDictionarySize = 24;  // a typical dictionary size
@@ -534,5 +533,4 @@ BENCHMARK(ArrayRankStringWide)->Apply(ArrayRankSetArgs);
 BENCHMARK(ChunkedArrayRankInt64Narrow)->Apply(ArrayRankSetArgs);
 BENCHMARK(ChunkedArrayRankInt64Wide)->Apply(ArrayRankSetArgs);
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

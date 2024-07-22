@@ -22,9 +22,7 @@
 
 #include <arrow/flight/sql/server_session_middleware_factory.h>
 
-namespace arrow {
-namespace flight {
-namespace sql {
+namespace arrow::flight::sql {
 
 class ServerSessionMiddlewareFactoryPrivate : public ServerSessionMiddlewareFactory {
  public:
@@ -40,6 +38,4 @@ TEST(ServerSessionMiddleware, ParseCookieString) {
   ASSERT_EQ(e1, r1);
 }
 
-}  // namespace sql
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight::sql

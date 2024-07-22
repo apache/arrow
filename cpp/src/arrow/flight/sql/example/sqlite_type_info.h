@@ -19,10 +19,7 @@
 
 #include "arrow/record_batch.h"
 
-namespace arrow {
-namespace flight {
-namespace sql {
-namespace example {
+namespace arrow::flight::sql::example {
 
 /// \brief Gets the hard-coded type info from Sqlite for all data types.
 /// \return A record batch.
@@ -32,7 +29,4 @@ arrow::Result<std::shared_ptr<RecordBatch>> DoGetTypeInfoResult();
 ///        for a specific data type.
 /// \return A record batch.
 arrow::Result<std::shared_ptr<RecordBatch>> DoGetTypeInfoResult(int data_type_filter);
-}  // namespace example
-}  // namespace sql
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight::sql::example

@@ -44,8 +44,7 @@
 #undef PREALLOCATE
 #endif
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 class FunctionOptions;
 
@@ -748,5 +747,4 @@ struct ARROW_EXPORT HashAggregateKernel : public Kernel {
   bool ordered = false;
 };
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

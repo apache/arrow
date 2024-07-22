@@ -41,8 +41,7 @@ namespace arrow {
 
 using arrow::internal::StartsWith;
 
-namespace acero {
-namespace internal {
+namespace acero::internal {
 
 static constexpr uint32_t kStartDate =
     8035;  // January 1, 1992 is 8035 days after January 1, 1970
@@ -642,6 +641,5 @@ TEST(TpchNode, AllTables) {
   }
 }
 
-}  // namespace internal
-}  // namespace acero
+}  // namespace acero::internal
 }  // namespace arrow

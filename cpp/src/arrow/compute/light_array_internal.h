@@ -31,8 +31,7 @@
 /// makes compromises in terms of strong ownership and the range of data types supported
 /// in order to gain performance and reduced overhead.
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 /// \brief Context needed by various execution engine operations
 ///
@@ -448,5 +447,4 @@ class ARROW_EXPORT ExecBatchBuilder {
   std::vector<ResizableArrayData> values_;
 };
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

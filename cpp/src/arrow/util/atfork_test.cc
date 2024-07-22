@@ -39,8 +39,7 @@
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 using testing::ElementsAre;
 using testing::IsSubsetOf;
@@ -317,5 +316,4 @@ TEST_F(TestAtFork, NoOp) {
 }
 #endif
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

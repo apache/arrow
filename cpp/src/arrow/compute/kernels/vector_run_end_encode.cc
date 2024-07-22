@@ -25,9 +25,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/ree_util.h"
 
-namespace arrow {
-namespace compute {
-namespace internal {
+namespace arrow::compute::internal {
 namespace {
 
 struct RunEndEncodingState : public KernelState {
@@ -623,6 +621,4 @@ void RegisterVectorRunEndDecode(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(function)));
 }
 
-}  // namespace internal
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute::internal

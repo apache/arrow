@@ -34,8 +34,7 @@
 #include "arrow/testing/fixed_width_test_util.h"
 #include "arrow/testing/gtest_util.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 namespace {
 
@@ -364,5 +363,4 @@ void CheckDispatchFails(std::string func_name, std::vector<TypeHolder> types) {
   ASSERT_NOT_OK(function->DispatchExact(types));
 }
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

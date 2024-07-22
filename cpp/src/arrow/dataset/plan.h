@@ -19,15 +19,11 @@
 
 #include "arrow/dataset/visibility.h"
 
-namespace arrow {
-namespace dataset {
-namespace internal {
+namespace arrow::dataset::internal {
 
 /// Register dataset-based exec nodes with the exec node registry
 ///
 /// This function must be called before using dataset ExecNode factories
 ARROW_DS_EXPORT void Initialize();
 
-}  // namespace internal
-}  // namespace dataset
-}  // namespace arrow
+}  // namespace arrow::dataset::internal

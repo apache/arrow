@@ -29,8 +29,7 @@
 
 namespace arrow {
 using util::Uri;
-namespace fs {
-namespace internal {
+namespace fs::internal {
 
 ARROW_EXPORT
 TimePoint CurrentTimePoint();
@@ -101,6 +100,6 @@ Result<FileInfoVector> GlobFiles(const std::shared_ptr<FileSystem>& filesystem,
 
 extern FileSystemGlobalOptions global_options;
 
-}  // namespace internal
-}  // namespace fs
+}  // namespace fs::internal
+
 }  // namespace arrow

@@ -20,8 +20,7 @@
 
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 /// \brief Compute the CRC32 checksum of the given data
 ///
@@ -32,5 +31,4 @@ namespace internal {
 ARROW_EXPORT
 uint32_t crc32(uint32_t prev, const void* data, size_t length);
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

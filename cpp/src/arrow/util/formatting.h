@@ -39,8 +39,7 @@
 #include "arrow/util/visibility.h"
 #include "arrow/vendored/datetime.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 /// \brief The entry point for conversion to strings.
 template <typename ARROW_TYPE, typename Enable = void>
@@ -652,5 +651,4 @@ class StringFormatter<MonthDayNanoIntervalType> {
   }
 };
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

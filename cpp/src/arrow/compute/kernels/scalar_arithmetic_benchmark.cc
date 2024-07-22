@@ -25,8 +25,7 @@
 #include "arrow/testing/random.h"
 #include "arrow/util/benchmark_util.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 constexpr auto kSeed = 0x94378165;
 
@@ -157,5 +156,4 @@ DECLARE_ARITHMETIC_CHECKED_BENCHMARKS(ArrayScalarKernel, MultiplyChecked);
 DECLARE_ARITHMETIC_CHECKED_BENCHMARKS(ArrayArrayKernel, DivideChecked);
 DECLARE_ARITHMETIC_CHECKED_BENCHMARKS(ArrayScalarKernel, DivideChecked);
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

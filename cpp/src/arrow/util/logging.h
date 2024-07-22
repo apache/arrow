@@ -42,8 +42,7 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace util {
+namespace arrow::util {
 
 enum class ArrowLogLevel : int {
   ARROW_TRACE = -2,
@@ -271,7 +270,6 @@ class NullLog {
 };
 
 }  // namespace detail
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util
 
 #endif  // GANDIVA_IR

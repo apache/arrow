@@ -26,8 +26,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 /// \addtogroup compute-functions
 /// @{
@@ -77,5 +76,4 @@ ARROW_EXPORT void PrintTo(const FunctionOptions&, std::ostream*);
 
 /// @}
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

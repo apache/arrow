@@ -17,8 +17,7 @@
 
 #include "arrow/flight/server_auth.h"
 
-namespace arrow {
-namespace flight {
+namespace arrow::flight {
 
 ServerAuthHandler::~ServerAuthHandler() {}
 
@@ -35,5 +34,4 @@ Status NoOpAuthHandler::IsValid(const ServerCallContext& context,
   return Status::OK();
 }
 
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight

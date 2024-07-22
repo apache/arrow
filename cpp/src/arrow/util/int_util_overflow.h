@@ -32,8 +32,7 @@
 #include "arrow/util/windows_fixup.h"
 // clang-format on
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 // Define functions AddWithOverflow, SubtractWithOverflow, MultiplyWithOverflow
 // with the signature `bool(T u, T v, T* out)` where T is an integer type.
@@ -114,5 +113,4 @@ SignedInt SafeLeftShift(SignedInt u, Shift shift) {
   return static_cast<SignedInt>(static_cast<UnsignedInt>(u) << shift);
 }
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

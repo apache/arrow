@@ -21,8 +21,7 @@
 
 #include "arrow/result.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 /// Helper providing single-lookup conditional insertion into std::map or
 /// std::unordered_map. If `key` exists in the container, an iterator to that pair
@@ -59,5 +58,4 @@ auto GetOrInsertGenerated(Map* map, typename Map::key_type key, Gen&& gen)
   return it_success.first;
 }
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

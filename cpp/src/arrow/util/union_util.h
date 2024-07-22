@@ -18,8 +18,7 @@
 #include <cstdint>
 #include "arrow/array/data.h"
 
-namespace arrow {
-namespace union_util {
+namespace arrow::union_util {
 
 /// \brief Compute the number of of logical nulls in a sparse union array
 int64_t LogicalSparseUnionNullCount(const ArraySpan& span);
@@ -27,5 +26,4 @@ int64_t LogicalSparseUnionNullCount(const ArraySpan& span);
 /// \brief Compute the number of of logical nulls in a dense union array
 int64_t LogicalDenseUnionNullCount(const ArraySpan& span);
 
-}  // namespace union_util
-}  // namespace arrow
+}  // namespace arrow::union_util

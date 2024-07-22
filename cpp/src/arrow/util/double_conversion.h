@@ -19,14 +19,10 @@
 
 #include "arrow/vendored/double-conversion/double-conversion.h"  // IWYU pragma: export
 
-namespace arrow {
-namespace util {
-namespace double_conversion {
+namespace arrow::util::double_conversion {
 
 using ::arrow_vendored::double_conversion::DoubleToStringConverter;
 using ::arrow_vendored::double_conversion::StringBuilder;
 using ::arrow_vendored::double_conversion::StringToDoubleConverter;
 
-}  // namespace double_conversion
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util::double_conversion

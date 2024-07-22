@@ -48,8 +48,7 @@ constexpr std::string_view kBaseDir = "";
 
 using arrow::internal::checked_pointer_cast;
 
-namespace arrow {
-namespace dataset {
+namespace arrow::dataset {
 
 // Base class to test writing and reading encrypted dataset.
 class DatasetEncryptionTestBase : public ::testing::Test {
@@ -265,5 +264,4 @@ TEST_F(LargeRowEncryptionTest, ReadEncryptLargeRows) {
   ASSERT_NO_FATAL_FAILURE(TestScanDataset());
 }
 
-}  // namespace dataset
-}  // namespace arrow
+}  // namespace arrow::dataset

@@ -32,8 +32,7 @@
 #include "arrow/type.h"
 #include "arrow/util/tracing.h"
 
-namespace arrow {
-namespace acero {
+namespace arrow::acero {
 
 using util::AccumulationQueue;
 
@@ -71,5 +70,4 @@ class HashJoinImpl {
   arrow::util::tracing::Span span_;
 };
 
-}  // namespace acero
-}  // namespace arrow
+}  // namespace arrow::acero

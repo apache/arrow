@@ -17,8 +17,7 @@
 
 #pragma once
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 class FunctionRegistry;
 
@@ -69,5 +68,4 @@ void RegisterScalarAggregateVariance(FunctionRegistry* registry);
 void RegisterAggregateOptions(FunctionRegistry* registry);
 
 }  // namespace internal
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

@@ -19,11 +19,7 @@
 
 #include "arrow/adapters/orc/options.h"
 
-namespace arrow {
-
-namespace adapters {
-
-namespace orc {
+namespace arrow::adapters::orc {
 
 std::string FileVersion::ToString() const {
   std::stringstream ss;
@@ -31,6 +27,4 @@ std::string FileVersion::ToString() const {
   return ss.str();
 }
 
-}  // namespace orc
-}  // namespace adapters
-}  // namespace arrow
+}  // namespace arrow::adapters::orc

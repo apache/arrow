@@ -28,8 +28,7 @@
 #include "arrow/type.h"
 #include "arrow/util/key_value_metadata.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 // ----------------------------------------------------------------------
 // TypeMatcher
@@ -441,5 +440,4 @@ TEST(KernelSignature, VarArgsToString) {
   ASSERT_EQ("varargs[string, int8*] -> string", sig2.ToString());
 }
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

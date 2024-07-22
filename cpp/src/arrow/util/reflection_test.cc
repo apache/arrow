@@ -23,8 +23,7 @@
 #include "arrow/util/reflection_internal.h"
 #include "arrow/util/string.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 // generic property-based equality comparison
 template <typename Class>
@@ -221,5 +220,4 @@ TEST(Reflection, EnumTraits) {
   static_assert(std::is_same<EnumTraits<PersonType>::Type, Int8Type>::value, "");
 }
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

@@ -22,8 +22,7 @@
 #include "arrow/acero/options.h"
 #include "arrow/acero/test_nodes.h"
 
-namespace arrow {
-namespace acero {
+namespace arrow::acero {
 
 struct PauseThenStopNodeOptions : public ExecNodeOptions {
   explicit PauseThenStopNodeOptions(int num_pass) : num_pass(num_pass) {}
@@ -157,5 +156,4 @@ TEST(SourceNode, PauseThenStopInput) { TestPauseThenStop<PauseThenStopInputNode>
 
 TEST(SourceNode, PauseThenStopPlan) { TestPauseThenStop<PauseThenStopPlanNode>(); }
 
-}  // namespace acero
-}  // namespace arrow
+}  // namespace arrow::acero

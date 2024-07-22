@@ -36,8 +36,7 @@
 #include "arrow/util/future.h"
 #include "arrow/util/test_common.h"
 
-namespace arrow {
-namespace util {
+namespace arrow::util {
 
 constexpr std::string_view kDummyName = "unit test";
 
@@ -727,5 +726,4 @@ TEST(AsyncTaskScheduler, Priority) {
   }
 }
 
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util

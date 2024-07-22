@@ -28,8 +28,7 @@
 #include "arrow/util/type_fwd.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace json {
+namespace arrow::json {
 
 /// A class that reads an entire JSON file into a Arrow Table
 ///
@@ -114,5 +113,4 @@ class ARROW_EXPORT StreamingReader : public RecordBatchReader {
       ::arrow::internal::Executor* cpu_executor = NULLPTR);
 };
 
-}  // namespace json
-}  // namespace arrow
+}  // namespace arrow::json

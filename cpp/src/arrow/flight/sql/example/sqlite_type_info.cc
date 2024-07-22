@@ -25,10 +25,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/util/rows_to_batches.h"
 
-namespace arrow {
-namespace flight {
-namespace sql {
-namespace example {
+namespace arrow::flight::sql::example {
 
 arrow::Result<std::shared_ptr<RecordBatch>> DoGetTypeInfoResult() {
   auto schema = SqlSchema::GetXdbcTypeInfoSchema();
@@ -207,7 +204,4 @@ arrow::Result<std::shared_ptr<RecordBatch>> DoGetTypeInfoResult(int data_type_fi
   return record_batch->Slice(pair.first - data_type_vector.begin(),
                              pair.second - pair.first);
 }
-}  // namespace example
-}  // namespace sql
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight::sql::example

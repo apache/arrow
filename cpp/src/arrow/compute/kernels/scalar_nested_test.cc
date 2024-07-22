@@ -26,8 +26,7 @@
 #include "arrow/testing/matchers.h"
 #include "arrow/util/key_value_metadata.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 static std::shared_ptr<DataType> GetOffsetType(const DataType& type) {
   switch (type.id()) {
@@ -989,5 +988,4 @@ TEST(MakeStruct, ChunkedArrayDifferentChunking) {
   ASSERT_RAISES(Invalid, MakeStructor({i32->Slice(1), str}, field_names));
 }
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

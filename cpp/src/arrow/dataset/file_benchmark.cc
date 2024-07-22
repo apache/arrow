@@ -27,8 +27,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/iterator.h"
 
-namespace arrow {
-namespace dataset {
+namespace arrow::dataset {
 
 struct SampleDataset {
   std::shared_ptr<Dataset> dataset;
@@ -101,5 +100,4 @@ BENCHMARK_CAPTURE(GetFilteredFragments, single_file,
 // Apply a filter, but keep most of the files.
 BENCHMARK_CAPTURE(GetFilteredFragments, range, greater(field_ref("a"), literal(1)));
 
-}  // namespace dataset
-}  // namespace arrow
+}  // namespace arrow::dataset

@@ -25,8 +25,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
 
-namespace arrow {
-namespace csv {
+namespace arrow::csv {
 
 // Functionality for converting Arrow data to Comma separated value text.
 // This library supports all primitive types that can be cast to a StringArray or
@@ -86,5 +85,4 @@ Result<std::shared_ptr<ipc::RecordBatchWriter>> MakeCSVWriter(
 
 /// @}
 
-}  // namespace csv
-}  // namespace arrow
+}  // namespace arrow::csv

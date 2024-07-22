@@ -29,8 +29,7 @@
 
 #include <memory>
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 using arrow::internal::checked_pointer_cast;
 
@@ -2068,5 +2067,4 @@ TEST_F(TestFillNullType, TestFillOnNullType) {
   this->AssertFillNullArray(FillNullBackward, this->array(R"([null, null])"),
                             this->array(R"([null, null])"));
 }
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

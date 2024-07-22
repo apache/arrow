@@ -27,8 +27,7 @@
 #include "arrow/flight/visibility.h"  // IWYU pragma: keep
 #include "arrow/status.h"
 
-namespace arrow {
-namespace flight {
+namespace arrow::flight {
 
 /// \brief Server-side middleware for a call, instantiated per RPC.
 ///
@@ -100,5 +99,4 @@ class ARROW_FLIGHT_EXPORT ServerMiddlewareFactory {
   }
 };
 
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight

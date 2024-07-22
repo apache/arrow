@@ -38,8 +38,7 @@ namespace arrow {
 using internal::EndsWith;
 using internal::StartsWith;
 
-namespace compute {
-namespace internal {
+namespace compute::internal {
 
 namespace {
 
@@ -3462,6 +3461,5 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
   AddAsciiStringRepeat(registry);
 }
 
-}  // namespace internal
-}  // namespace compute
+}  // namespace compute::internal
 }  // namespace arrow

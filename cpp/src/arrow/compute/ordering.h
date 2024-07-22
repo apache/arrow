@@ -24,8 +24,7 @@
 #include "arrow/util/compare.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 enum class SortOrder {
   /// Arrange values in increasing order
@@ -116,5 +115,4 @@ class ARROW_EXPORT Ordering : public util::EqualityComparable<Ordering> {
   bool is_implicit_ = false;
 };
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

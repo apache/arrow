@@ -29,8 +29,7 @@ using arrow::util::Float16;
 using internal::checked_cast;
 using internal::PrimitiveScalarBase;
 
-namespace compute {
-namespace internal {
+namespace compute::internal {
 
 // ----------------------------------------------------------------------
 
@@ -311,6 +310,5 @@ void AddCommonCasts(Type::type out_type_id, OutputType out_ty, CastFunction* fun
                             MemAllocation::NO_PREALLOCATE));
 }
 
-}  // namespace internal
-}  // namespace compute
+}  // namespace compute::internal
 }  // namespace arrow

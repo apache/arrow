@@ -28,8 +28,7 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 struct BitRun {
   int64_t length;
@@ -511,5 +510,4 @@ inline void VisitSetBitRunsVoid(const std::shared_ptr<Buffer>& bitmap, int64_t o
                       std::forward<Visit>(visit));
 }
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

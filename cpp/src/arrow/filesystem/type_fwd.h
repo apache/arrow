@@ -19,8 +19,7 @@
 
 #include <cstdint>
 
-namespace arrow {
-namespace fs {
+namespace arrow::fs {
 
 /// \brief FileSystem entry type
 enum class FileType : int8_t {
@@ -49,5 +48,4 @@ class S3FileSystem;
 class SlowFileSystem;
 class SubTreeFileSystem;
 
-}  // namespace fs
-}  // namespace arrow
+}  // namespace arrow::fs

@@ -33,9 +33,7 @@
 #include "arrow/dataset/visibility.h"
 #include "arrow/util/compare.h"
 
-namespace arrow {
-
-namespace dataset {
+namespace arrow::dataset {
 
 constexpr char kFilenamePartitionSep = '_';
 
@@ -428,5 +426,4 @@ class ARROW_DS_EXPORT PartitioningOrFactory {
 
 /// @}
 
-}  // namespace dataset
-}  // namespace arrow
+}  // namespace arrow::dataset

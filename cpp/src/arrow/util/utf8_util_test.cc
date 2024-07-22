@@ -26,8 +26,7 @@
 #include "arrow/util/string.h"
 #include "arrow/util/utf8_internal.h"
 
-namespace arrow {
-namespace util {
+namespace arrow::util {
 
 class UTF8Test : public ::testing::Test {
  protected:
@@ -562,5 +561,4 @@ TEST(UTF8Length, Basics) {
   ASSERT_EQ(length("\xf0\x9f\x99\x8c"), 1);
 }
 
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util

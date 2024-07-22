@@ -25,9 +25,7 @@
 #include "arrow/compute/exec.h"
 #include "arrow/result.h"
 
-namespace arrow {
-namespace acero {
-namespace util {
+namespace arrow::acero::util {
 
 using arrow::compute::ExecBatch;
 
@@ -155,6 +153,4 @@ class SerialSequencingQueue {
   static std::unique_ptr<SerialSequencingQueue> Make(Processor* processor);
 };
 
-}  // namespace util
-}  // namespace acero
-}  // namespace arrow
+}  // namespace arrow::acero::util

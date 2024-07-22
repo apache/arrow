@@ -56,8 +56,7 @@ using compute::RowSegmenter;
 using compute::ScalarAggregateKernel;
 using compute::Segment;
 
-namespace acero {
-namespace aggregate {
+namespace acero::aggregate {
 
 Status GroupByNode::Init() {
   output_task_group_id_ = plan_->query_context()->RegisterTaskGroup(
@@ -442,6 +441,5 @@ Status GroupByNode::InitLocalStateIfNeeded(ThreadLocalState* state) {
   return Status::OK();
 }
 
-}  // namespace aggregate
-}  // namespace acero
+}  // namespace acero::aggregate
 }  // namespace arrow

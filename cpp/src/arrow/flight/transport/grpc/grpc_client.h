@@ -21,16 +21,10 @@
 
 #include "arrow/flight/visibility.h"
 
-namespace arrow {
-namespace flight {
-namespace transport {
-namespace grpc {
+namespace arrow::flight::transport::grpc {
 
 /// \brief Register the gRPC transport implementation. Idempotent.
 ARROW_FLIGHT_EXPORT
 void InitializeFlightGrpcClient();
 
-}  // namespace grpc
-}  // namespace transport
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight::transport::grpc

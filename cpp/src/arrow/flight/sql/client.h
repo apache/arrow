@@ -28,9 +28,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 
-namespace arrow {
-namespace flight {
-namespace sql {
+namespace arrow::flight::sql {
 
 class PreparedStatement;
 class Transaction;
@@ -515,6 +513,4 @@ class ARROW_FLIGHT_SQL_EXPORT Transaction {
   std::string transaction_id_;
 };
 
-}  // namespace sql
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight::sql

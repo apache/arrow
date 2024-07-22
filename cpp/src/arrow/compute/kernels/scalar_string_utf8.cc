@@ -27,9 +27,7 @@
 #include <utf8proc.h>
 #endif
 
-namespace arrow {
-namespace compute {
-namespace internal {
+namespace arrow::compute::internal {
 
 namespace {
 
@@ -1411,6 +1409,4 @@ void RegisterScalarStringUtf8(FunctionRegistry* registry) {
 #endif
 }
 
-}  // namespace internal
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute::internal

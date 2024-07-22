@@ -27,8 +27,7 @@
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 
-namespace arrow {
-namespace json {
+namespace arrow::json {
 
 constexpr int kSeed = 0x432432;
 
@@ -230,5 +229,4 @@ BENCHMARK(ParseJSONFields)
     ->ArgNames({"ordered", "schema", "sparsity", "num_fields"})
     ->ArgsProduct({{1, 0}, {1, 0}, {0, 10, 90}, {10, 100, 1000}});
 
-}  // namespace json
-}  // namespace arrow
+}  // namespace arrow::json

@@ -40,9 +40,7 @@
 #include "arrow/util/tracing.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace internal {
-namespace tracing {
+namespace arrow::internal::tracing {
 
 #ifdef ARROW_WITH_OPENTELEMETRY
 ARROW_EXPORT
@@ -239,6 +237,4 @@ struct Scope {
 
 #endif
 
-}  // namespace tracing
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal::tracing

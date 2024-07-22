@@ -33,8 +33,7 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace ipc {
+namespace arrow::ipc {
 
 struct IpcWriteOptions;
 
@@ -561,5 +560,4 @@ Status DecodeMessage(MessageDecoder* decoder, io::InputStream* stream);
 Status WriteMessage(const Buffer& message, const IpcWriteOptions& options,
                     io::OutputStream* file, int32_t* message_length);
 
-}  // namespace ipc
-}  // namespace arrow
+}  // namespace arrow::ipc

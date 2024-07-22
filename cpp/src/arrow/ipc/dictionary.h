@@ -30,8 +30,7 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace ipc {
+namespace arrow::ipc {
 
 namespace internal {
 
@@ -173,5 +172,4 @@ Status CollectDictionaries(const RecordBatch& batch, DictionaryMemo* memo);
 
 }  // namespace internal
 
-}  // namespace ipc
-}  // namespace arrow
+}  // namespace arrow::ipc

@@ -25,8 +25,7 @@
 #include "arrow/testing/random.h"
 #include "arrow/util/benchmark_util.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 constexpr auto kSeed = 0x94378165;
 
@@ -55,5 +54,4 @@ void SetArgs(benchmark::internal::Benchmark* bench) {
 BENCHMARK_TEMPLATE(ArrayArrayKernel, And)->Apply(SetArgs);
 BENCHMARK_TEMPLATE(ArrayArrayKernel, KleeneAnd)->Apply(SetArgs);
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

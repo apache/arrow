@@ -24,10 +24,7 @@
 #include "arrow/flight/sql/example/sqlite_statement.h"
 #include "arrow/record_batch.h"
 
-namespace arrow {
-namespace flight {
-namespace sql {
-namespace example {
+namespace arrow::flight::sql::example {
 
 class SqliteStatementBatchReader : public RecordBatchReader {
  public:
@@ -63,7 +60,4 @@ class SqliteStatementBatchReader : public RecordBatchReader {
                              std::shared_ptr<Schema> schema);
 };
 
-}  // namespace example
-}  // namespace sql
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight::sql::example

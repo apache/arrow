@@ -20,8 +20,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace io {
+namespace arrow::io {
 
 struct FileMode {
   enum type { READ, WRITE, READWRITE };
@@ -73,5 +72,4 @@ class CompressedOutputStream;
 class BufferedInputStream;
 class BufferedOutputStream;
 
-}  // namespace io
-}  // namespace arrow
+}  // namespace arrow::io

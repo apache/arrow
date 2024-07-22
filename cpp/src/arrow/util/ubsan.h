@@ -25,8 +25,7 @@
 
 #include "arrow/util/macros.h"
 
-namespace arrow {
-namespace util {
+namespace arrow::util {
 
 namespace internal {
 
@@ -83,5 +82,4 @@ inline std::enable_if_t<std::is_trivially_copyable_v<T>, void> SafeStore(void* u
   std::memcpy(unaligned, &value, sizeof(T));
 }
 
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util

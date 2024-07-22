@@ -21,8 +21,7 @@
 #include <string>
 #include "gandiva/basic_decimal_scalar.h"
 
-namespace gandiva {
-namespace decimalops {
+namespace gandiva::decimalops {
 
 /// Return the sum of 'x' and 'y'.
 /// out_precision and out_scale are passed along for efficiency, they must match
@@ -86,5 +85,4 @@ BasicDecimal128 Ceil(const BasicDecimalScalar128& x, bool* overflow);
 /// floor decimal
 BasicDecimal128 Floor(const BasicDecimalScalar128& x, bool* overflow);
 
-}  // namespace decimalops
-}  // namespace gandiva
+}  // namespace gandiva::decimalops

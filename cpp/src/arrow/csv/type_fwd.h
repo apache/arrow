@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-namespace arrow {
-namespace csv {
+namespace arrow::csv {
 
 class TableReader;
 struct ConvertOptions;
@@ -24,5 +23,4 @@ struct ReadOptions;
 struct ParseOptions;
 struct WriteOptions;
 
-}  // namespace csv
-}  // namespace arrow
+}  // namespace arrow::csv

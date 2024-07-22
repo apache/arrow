@@ -68,10 +68,7 @@
     break;                                                                    \
   }
 
-namespace arrow {
-namespace flight {
-namespace sql {
-namespace example {
+namespace arrow::flight::sql::example {
 
 // Batch size for SQLite statement results
 static constexpr int32_t kMaxBatchSize = 16384;
@@ -212,7 +209,4 @@ Status SqliteStatementBatchReader::ReadNext(std::shared_ptr<RecordBatch>* out) {
 #undef INT_BUILDER_CASE
 #undef FLOAT_BUILDER_CASE
 
-}  // namespace example
-}  // namespace sql
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight::sql::example

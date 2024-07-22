@@ -21,13 +21,7 @@
 
 #include "arrow/util/compression.h"  // IWYU pragma: export
 
-namespace arrow {
-namespace util {
-
-// ----------------------------------------------------------------------
-// Internal Codec factories
-
-namespace internal {
+namespace arrow::util::internal {
 
 // Brotli compression quality is max (11) by default, which is slow.
 // We use 8 as a default as it is the best trade-off for Parquet workload.
@@ -76,6 +70,4 @@ constexpr int kZSTDDefaultCompressionLevel = 1;
 std::unique_ptr<Codec> MakeZSTDCodec(
     int compression_level = kZSTDDefaultCompressionLevel);
 
-}  // namespace internal
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util::internal

@@ -35,8 +35,7 @@
 #include "arrow/result.h"
 #include "arrow/util/macros.h"
 
-namespace arrow {
-namespace dataset {
+namespace arrow::dataset {
 
 /// \defgroup dataset-discovery Discovery API
 ///
@@ -271,5 +270,4 @@ class ARROW_DS_EXPORT FileSystemDatasetFactory : public DatasetFactory {
   FileSystemFactoryOptions options_;
 };
 
-}  // namespace dataset
-}  // namespace arrow
+}  // namespace arrow::dataset

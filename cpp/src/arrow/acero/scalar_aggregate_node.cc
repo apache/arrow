@@ -53,8 +53,7 @@ using compute::RowSegmenter;
 using compute::ScalarAggregateKernel;
 using compute::Segment;
 
-namespace acero {
-namespace aggregate {
+namespace acero::aggregate {
 
 Result<AggregateNodeArgs<ScalarAggregateKernel>>
 ScalarAggregateNode::MakeAggregateNodeArgs(const std::shared_ptr<Schema>& input_schema,
@@ -318,6 +317,5 @@ Status ScalarAggregateNode::OutputResult(bool is_last) {
   return Status::OK();
 }
 
-}  // namespace aggregate
-}  // namespace acero
+}  // namespace acero::aggregate
 }  // namespace arrow

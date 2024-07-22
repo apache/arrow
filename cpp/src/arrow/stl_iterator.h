@@ -29,8 +29,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/macros.h"
 
-namespace arrow {
-namespace stl {
+namespace arrow::stl {
 
 namespace detail {
 
@@ -276,8 +275,7 @@ ChunkedArrayRange<ArrayType> Iterate(const ChunkedArray& chunked_array) {
   return stl::ChunkedArrayRange<ArrayType>{&chunked_array};
 }
 
-}  // namespace stl
-}  // namespace arrow
+}  // namespace arrow::stl
 
 namespace std {
 

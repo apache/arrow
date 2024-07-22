@@ -27,8 +27,7 @@ namespace arrow {
 
 using internal::checked_cast;
 
-namespace compute {
-namespace internal {
+namespace compute::internal {
 
 template <typename OutType, typename InType, typename Enable = void>
 struct CastFunctor {};
@@ -82,6 +81,5 @@ ARROW_EXPORT extern OutputType kOutputTargetType;
 // - extension types with a compatible storage type
 void AddCommonCasts(Type::type out_type_id, OutputType out_ty, CastFunction* func);
 
-}  // namespace internal
-}  // namespace compute
+}  // namespace compute::internal
 }  // namespace arrow

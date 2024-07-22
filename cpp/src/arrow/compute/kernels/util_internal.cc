@@ -28,8 +28,7 @@ namespace arrow {
 
 using internal::checked_cast;
 
-namespace compute {
-namespace internal {
+namespace compute::internal {
 
 namespace {
 
@@ -63,6 +62,5 @@ void AddNullExec(ScalarFunction* func) {
   DCHECK_OK(func->AddKernel(std::move(input_types), OutputType(null()), NullToNullExec));
 }
 
-}  // namespace internal
-}  // namespace compute
+}  // namespace compute::internal
 }  // namespace arrow

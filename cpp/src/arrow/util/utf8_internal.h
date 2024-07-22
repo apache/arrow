@@ -35,8 +35,7 @@
 #include "arrow/util/utf8.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace util {
+namespace arrow::util {
 
 namespace internal {
 
@@ -556,5 +555,4 @@ static inline int64_t UTF8Length(const uint8_t* first, const uint8_t* last) {
   return length;
 }
 
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util

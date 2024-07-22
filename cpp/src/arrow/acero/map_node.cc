@@ -30,8 +30,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/tracing_internal.h"
 
-namespace arrow {
-namespace acero {
+namespace arrow::acero {
 
 MapNode::MapNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
                  std::shared_ptr<Schema> output_schema)
@@ -85,5 +84,4 @@ Status MapNode::InputReceived(ExecNode* input, ExecBatch batch) {
 
 void MapNode::Finish() {}
 
-}  // namespace acero
-}  // namespace arrow
+}  // namespace arrow::acero

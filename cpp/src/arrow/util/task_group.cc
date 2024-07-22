@@ -28,8 +28,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/thread_pool.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 namespace {
 
@@ -221,5 +220,4 @@ std::shared_ptr<TaskGroup> TaskGroup::MakeThreaded(Executor* thread_pool,
   return std::shared_ptr<TaskGroup>(new ThreadedTaskGroup{thread_pool, stop_token});
 }
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

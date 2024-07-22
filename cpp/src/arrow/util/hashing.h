@@ -48,8 +48,7 @@
 
 #include "arrow/vendored/xxhash.h"  // IWYU pragma: keep
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 // XXX would it help to have a 32-bit hash value on large datasets?
 typedef uint64_t hash_t;
@@ -940,5 +939,4 @@ struct StringViewHash {
   }
 };
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

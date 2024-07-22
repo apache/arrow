@@ -26,9 +26,7 @@
 #include "arrow/chunk_resolver.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 
-namespace arrow {
-namespace compute {
-namespace internal {
+namespace arrow::compute::internal {
 
 // The target chunk in a chunked array.
 struct ResolvedChunk {
@@ -78,6 +76,4 @@ inline std::vector<const Array*> GetArrayPointers(const ArrayVector& arrays) {
   return pointers;
 }
 
-}  // namespace internal
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute::internal

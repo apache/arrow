@@ -61,8 +61,7 @@ using internal::VisitBitBlocks;
 using internal::VisitBitBlocksVoid;
 using internal::VisitTwoBitBlocksVoid;
 
-namespace compute {
-namespace internal {
+namespace compute::internal {
 
 /// KernelState adapter for the common case of kernels whose only
 /// state is an instance of a subclass of FunctionOptions.
@@ -1371,6 +1370,5 @@ void PromoteIntegerForDurationArithmetic(std::vector<TypeHolder>* types);
 
 // END of DispatchBest helpers
 // ----------------------------------------------------------------------
-}  // namespace internal
-}  // namespace compute
+}  // namespace compute::internal
 }  // namespace arrow

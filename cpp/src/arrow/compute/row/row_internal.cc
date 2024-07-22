@@ -20,8 +20,7 @@
 #include "arrow/compute/util.h"
 #include "arrow/util/int_util_overflow.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 uint32_t RowTableMetadata::num_varbinary_cols() const {
   uint32_t result = 0;
@@ -419,5 +418,4 @@ bool RowTableImpl::has_any_nulls(const LightContext* ctx) const {
   return has_any_nulls_;
 }
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

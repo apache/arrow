@@ -32,8 +32,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 
-namespace arrow {
-namespace dataset {
+namespace arrow::dataset {
 
 class OrcFormatHelper {
  public:
@@ -92,5 +91,4 @@ INSTANTIATE_TEST_SUITE_P(TestScan, TestOrcFileFormatScan,
                          ::testing::ValuesIn(TestFormatParams::Values()),
                          TestFormatParams::ToTestNameString);
 
-}  // namespace dataset
-}  // namespace arrow
+}  // namespace arrow::dataset

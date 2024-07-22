@@ -32,8 +32,7 @@
 
 using testing::SizeIs;
 
-namespace arrow {
-namespace dataset {
+namespace arrow::dataset {
 
 void AssertSchemasAre(std::vector<std::shared_ptr<Schema>> actual,
                       std::vector<std::shared_ptr<Schema>> expected) {
@@ -489,5 +488,4 @@ TEST(UnionDatasetFactoryTest, ConflictingSchemas) {
   EXPECT_EQ(*dataset->schema(), *schema({f64, i32}));
 }
 
-}  // namespace dataset
-}  // namespace arrow
+}  // namespace arrow::dataset

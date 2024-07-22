@@ -32,8 +32,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/iterator.h"
 
-namespace arrow {
-namespace dataset {
+namespace arrow::dataset {
 
 /// \brief GetFragmentsFromDatasets transforms a vector<Dataset> into a
 /// flattened FragmentIterator.
@@ -156,5 +155,4 @@ inline RecordBatchGenerator MakeChunkedBatchGenerator(RecordBatchGenerator gen,
       });
 }
 
-}  // namespace dataset
-}  // namespace arrow
+}  // namespace arrow::dataset

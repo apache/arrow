@@ -20,9 +20,7 @@
 #include "arrow/flight/sql/server_session_middleware.h"
 #include "arrow/flight/sql/server_session_middleware_factory.h"
 
-namespace arrow {
-namespace flight {
-namespace sql {
+namespace arrow::flight::sql {
 
 class ServerSessionMiddlewareImpl : public ServerSessionMiddleware {
  protected:
@@ -230,6 +228,4 @@ void FlightSession::EraseSessionOption(const std::string& name) {
   map_.erase(name);
 }
 
-}  // namespace sql
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight::sql

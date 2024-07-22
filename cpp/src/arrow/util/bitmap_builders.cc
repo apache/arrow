@@ -28,8 +28,7 @@
 #include "arrow/status.h"
 #include "arrow/util/bit_util.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 namespace {
 
@@ -71,5 +70,4 @@ Result<std::shared_ptr<Buffer>> BitmapAllButOne(MemoryPool* pool, int64_t length
   return std::shared_ptr<Buffer>(std::move(buffer));
 }
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

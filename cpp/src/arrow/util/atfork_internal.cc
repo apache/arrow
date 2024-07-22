@@ -29,8 +29,7 @@
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 namespace {
 
@@ -150,5 +149,4 @@ void RegisterAtFork(std::weak_ptr<AtForkHandler> weak_handler) {
   GetAtForkState()->RegisterAtFork(std::move(weak_handler));
 }
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

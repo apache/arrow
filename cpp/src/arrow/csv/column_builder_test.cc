@@ -36,8 +36,7 @@
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/value_parsing.h"
 
-namespace arrow {
-namespace csv {
+namespace arrow::csv {
 
 class BlockParser;
 
@@ -690,5 +689,4 @@ TEST_F(InferringColumnBuilderTest, SingleChunkBinaryAutoDict) {
                        {expected_dictionary});
 }
 
-}  // namespace csv
-}  // namespace arrow
+}  // namespace arrow::csv

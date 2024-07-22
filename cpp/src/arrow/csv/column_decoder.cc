@@ -36,8 +36,7 @@
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
 
-namespace arrow {
-namespace csv {
+namespace arrow::csv {
 
 class ConcreteColumnDecoder : public ColumnDecoder {
  public:
@@ -242,5 +241,4 @@ Result<std::shared_ptr<ColumnDecoder>> ColumnDecoder::MakeNull(
   return std::make_shared<NullColumnDecoder>(std::move(type), pool);
 }
 
-}  // namespace csv
-}  // namespace arrow
+}  // namespace arrow::csv

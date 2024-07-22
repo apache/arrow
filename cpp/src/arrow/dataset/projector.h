@@ -22,11 +22,9 @@
 #include "arrow/dataset/visibility.h"
 #include "arrow/type_fwd.h"
 
-namespace arrow {
-namespace dataset {
+namespace arrow::dataset {
 
 // FIXME this is superceded by compute::Expression::Bind
 ARROW_DS_EXPORT Status CheckProjectable(const Schema& from, const Schema& to);
 
-}  // namespace dataset
-}  // namespace arrow
+}  // namespace arrow::dataset

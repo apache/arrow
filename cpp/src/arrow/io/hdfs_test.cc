@@ -41,8 +41,7 @@
 // includes windows.h implicitly.
 #include <boost/filesystem.hpp>  // NOLINT
 
-namespace arrow {
-namespace io {
+namespace arrow::io {
 
 std::vector<uint8_t> RandomData(int64_t size) {
   std::vector<uint8_t> buffer(size);
@@ -463,5 +462,4 @@ TEST_F(TestHadoopFileSystem, ThreadSafety) {
   ASSERT_EQ(niter * 4, correct_count);
 }
 
-}  // namespace io
-}  // namespace arrow
+}  // namespace arrow::io

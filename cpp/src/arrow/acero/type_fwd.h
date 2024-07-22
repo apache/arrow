@@ -19,9 +19,7 @@
 
 #include "arrow/compute/type_fwd.h"
 
-namespace arrow {
-
-namespace acero {
+namespace arrow::acero {
 
 class ExecNode;
 class ExecPlan;
@@ -32,5 +30,4 @@ struct QueryOptions;
 struct Declaration;
 class SinkNodeConsumer;
 
-}  // namespace acero
-}  // namespace arrow
+}  // namespace arrow::acero

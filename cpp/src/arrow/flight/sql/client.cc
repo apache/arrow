@@ -33,9 +33,7 @@
 
 namespace flight_sql_pb = arrow::flight::protocol::sql;
 
-namespace arrow {
-namespace flight {
-namespace sql {
+namespace arrow::flight::sql {
 
 namespace {
 arrow::Result<FlightDescriptor> GetFlightDescriptorForCommand(
@@ -925,6 +923,4 @@ std::ostream& operator<<(std::ostream& os, CancelResult result) {
   return os;
 }
 
-}  // namespace sql
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight::sql

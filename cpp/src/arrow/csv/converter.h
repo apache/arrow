@@ -26,8 +26,7 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace csv {
+namespace arrow::csv {
 
 class BlockParser;
 
@@ -78,5 +77,4 @@ class ARROW_EXPORT DictionaryConverter : public Converter {
   std::shared_ptr<DataType> value_type_;
 };
 
-}  // namespace csv
-}  // namespace arrow
+}  // namespace arrow::csv

@@ -22,8 +22,7 @@
 #include "arrow/util/bitmap_ops.h"  // CountSetBits
 #include "arrow/util/config.h"
 
-namespace arrow {
-namespace acero {
+namespace arrow::acero {
 
 BloomFilterMasks::BloomFilterMasks() {
   std::seed_seq seed{0, 0, 0, 0, 0, 0, 0, 0};
@@ -443,5 +442,4 @@ std::unique_ptr<BloomFilterBuilder> BloomFilterBuilder::Make(
   return nullptr;
 }
 
-}  // namespace acero
-}  // namespace arrow
+}  // namespace arrow::acero

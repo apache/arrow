@@ -27,9 +27,7 @@
 #include "arrow/acero/util.h"
 #include "arrow/util/macros.h"
 
-namespace arrow {
-
-namespace acero {
+namespace arrow::acero {
 
 // Generates batches from data, then benchmark rows_per_second and batches_per_second for
 // an isolated node. We do this by passing in batches through a task scheduler, and
@@ -144,5 +142,4 @@ Status BenchmarkNodeOverhead(benchmark::State& state, int32_t num_batches,
   return Status::OK();
 }
 
-}  // namespace acero
-}  // namespace arrow
+}  // namespace arrow::acero

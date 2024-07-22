@@ -19,11 +19,9 @@
 
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 ARROW_EXPORT
 void DebugTrap();
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

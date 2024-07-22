@@ -17,8 +17,7 @@
 
 #pragma once
 
-namespace arrow {
-namespace ipc {
+namespace arrow::ipc {
 
 enum class MetadataVersion : char {
   /// 0.1.0
@@ -64,5 +63,4 @@ namespace feather {
 class Reader;
 
 }  // namespace feather
-}  // namespace ipc
-}  // namespace arrow
+}  // namespace arrow::ipc

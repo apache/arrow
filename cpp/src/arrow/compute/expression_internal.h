@@ -29,8 +29,7 @@
 #include "arrow/table.h"
 #include "arrow/util/logging.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 using internal::GetCastFunction;
 
@@ -290,5 +289,4 @@ inline Result<std::shared_ptr<compute::Function>> GetFunction(
   return GetCastFunction(*to_type);
 }
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

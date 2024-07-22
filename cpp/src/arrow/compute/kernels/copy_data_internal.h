@@ -19,9 +19,7 @@
 
 #include "arrow/compute/kernels/codegen_internal.h"
 
-namespace arrow {
-namespace compute {
-namespace internal {
+namespace arrow::compute::internal {
 
 template <typename Type, typename Enable = void>
 struct CopyDataUtils {};
@@ -107,6 +105,4 @@ struct CopyDataUtils<
   }
 };
 
-}  // namespace internal
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute::internal

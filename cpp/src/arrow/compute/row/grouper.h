@@ -25,8 +25,7 @@
 #include "arrow/result.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 /// \brief A segment
 /// A segment group is a chunk of continuous rows that have the same segment key. (For
@@ -184,5 +183,4 @@ class ARROW_EXPORT Grouper {
       ExecContext* ctx = default_exec_context());
 };
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

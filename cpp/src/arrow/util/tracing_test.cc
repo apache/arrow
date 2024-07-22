@@ -23,9 +23,7 @@
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/tracing_internal.h"
 
-namespace arrow {
-namespace util {
-namespace tracing {
+namespace arrow::util::tracing {
 
 #ifdef ARROW_WITH_OPENTELEMETRY
 
@@ -48,6 +46,4 @@ TEST(Tracing, OtLifetime) {
 
 #endif
 
-}  // namespace tracing
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util::tracing

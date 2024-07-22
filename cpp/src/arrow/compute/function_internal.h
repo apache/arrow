@@ -59,8 +59,7 @@ struct EnumTraits<compute::SortOrder>
 };
 }  // namespace internal
 
-namespace compute {
-namespace internal {
+namespace compute::internal {
 
 using arrow::internal::EnumTraits;
 using arrow::internal::has_enum_traits;
@@ -704,6 +703,5 @@ Status CheckAllArrayOrScalar(const std::vector<Datum>& values);
 ARROW_EXPORT
 Result<std::vector<TypeHolder>> GetFunctionArgumentTypes(const std::vector<Datum>& args);
 
-}  // namespace internal
-}  // namespace compute
+}  // namespace compute::internal
 }  // namespace arrow

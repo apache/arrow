@@ -21,8 +21,7 @@
 #include <iostream>
 #include <vector>
 
-namespace skyhook {
-namespace rados {
+namespace skyhook::rados {
 
 template <typename... Args>
 arrow::Status GetStatusFromReturnCode(int code, Args&&... args) {
@@ -98,5 +97,4 @@ void RadosConn::Shutdown() {
   }
 }
 
-}  // namespace rados
-}  // namespace skyhook
+}  // namespace skyhook::rados

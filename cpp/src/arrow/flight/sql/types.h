@@ -28,9 +28,7 @@
 #include "arrow/flight/sql/visibility.h"
 #include "arrow/type_fwd.h"
 
-namespace arrow {
-namespace flight {
-namespace sql {
+namespace arrow::flight::sql {
 
 /// \defgroup flight-sql-common-types Common protocol types for Flight SQL
 ///
@@ -956,6 +954,4 @@ std::ostream& operator<<(std::ostream& os, CancelResult result);
 
 /// @}
 
-}  // namespace sql
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight::sql

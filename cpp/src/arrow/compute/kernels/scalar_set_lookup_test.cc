@@ -42,8 +42,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 // ----------------------------------------------------------------------
 // IsIn tests
@@ -1952,5 +1951,4 @@ TEST(TestSetLookup, IsInWithImplicitCasts) {
                    ArrayFromJSON(boolean(), "[0, 1, 0, 1]"), &opts);
 }
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

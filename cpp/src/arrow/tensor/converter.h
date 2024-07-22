@@ -21,8 +21,7 @@
 
 #include <memory>
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 struct SparseTensorConverterMixin {
   static bool IsNonZero(const uint8_t val) { return val != 0; }
@@ -63,5 +62,4 @@ Result<std::shared_ptr<Tensor>> MakeTensorFromSparseCSCMatrix(
 Result<std::shared_ptr<Tensor>> MakeTensorFromSparseCSFTensor(
     MemoryPool* pool, const SparseCSFTensor* sparse_tensor);
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

@@ -24,9 +24,7 @@
 #include "arrow/compute/kernel.h"                    // IWYU pragma: keep
 #include "arrow/compute/kernels/codegen_internal.h"  // IWYU pragma: keep
 
-namespace arrow {
-namespace compute {
-namespace internal {
+namespace arrow::compute::internal {
 
 using CastState = OptionsWrapper<CastOptions>;
 
@@ -68,6 +66,4 @@ std::vector<std::shared_ptr<CastFunction>> GetExtensionCasts();
 ARROW_EXPORT
 Result<std::shared_ptr<CastFunction>> GetCastFunction(const DataType& to_type);
 
-}  // namespace internal
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute::internal

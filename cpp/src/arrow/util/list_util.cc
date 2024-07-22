@@ -29,9 +29,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/string.h"
 
-namespace arrow::list_util {
-
-namespace internal {
+namespace arrow::list_util::internal {
 
 namespace {
 
@@ -232,6 +230,4 @@ Result<int64_t> SumOfLogicalListSizes(const ArraySpan& input) {
       "SumOfLogicalListSizes: input is not a var-length list-like array");
 }
 
-}  // namespace internal
-
-}  // namespace arrow::list_util
+}  // namespace arrow::list_util::internal

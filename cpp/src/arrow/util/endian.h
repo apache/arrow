@@ -58,8 +58,7 @@
 #include "arrow/util/type_traits.h"
 #include "arrow/util/ubsan.h"
 
-namespace arrow {
-namespace bit_util {
+namespace arrow::bit_util {
 
 //
 // Byte-swap 16-bit, 32-bit and 64-bit values
@@ -241,5 +240,4 @@ static inline std::array<T, N> FromNative(std::array<T, N> array) {
 
 }  // namespace little_endian
 
-}  // namespace bit_util
-}  // namespace arrow
+}  // namespace arrow::bit_util

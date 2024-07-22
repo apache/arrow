@@ -38,8 +38,7 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 TEST(FunctionOptions, Equality) {
   std::vector<std::shared_ptr<FunctionOptions>> options;
@@ -457,5 +456,4 @@ TEST(FunctionExecutor, Basics) {
   }
 }
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

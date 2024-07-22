@@ -31,9 +31,7 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace adapters {
-namespace orc {
+namespace arrow::adapters::orc {
 
 /// \brief Information about an ORC stripe
 struct StripeInformation {
@@ -318,6 +316,4 @@ class ARROW_EXPORT ORCFileWriter {
   ORCFileWriter();
 };
 
-}  // namespace orc
-}  // namespace adapters
-}  // namespace arrow
+}  // namespace arrow::adapters::orc

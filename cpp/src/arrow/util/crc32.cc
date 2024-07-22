@@ -92,8 +92,7 @@
 
 #include "arrow/util/endian.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 #define ALIGNOF_UINT32_T alignof(uint32_t)
 
@@ -962,5 +961,4 @@ uint32_t crc32(uint32_t prev, const void* data, size_t length) {
   return ~crc;
 }
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

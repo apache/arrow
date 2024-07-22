@@ -30,9 +30,7 @@
 #include "arrow/flight/client_middleware.h"
 #include "arrow/result.h"
 
-namespace arrow {
-namespace flight {
-namespace internal {
+namespace arrow::flight::internal {
 
 /// \brief Case insensitive comparator for use by cookie caching map. Cookies are not
 /// case-sensitive.
@@ -121,6 +119,4 @@ class ARROW_FLIGHT_EXPORT CookieCache {
       cookies;
 };
 
-}  // namespace internal
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight::internal

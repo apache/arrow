@@ -32,8 +32,7 @@
 #include "arrow/util/benchmark_util.h"
 #include "arrow/util/value_parsing.h"
 
-namespace arrow {
-namespace csv {
+namespace arrow::csv {
 
 ::arrow::BenchmarkMemoryTracker memory_tracker;
 
@@ -154,5 +153,4 @@ BENCHMARK(StringConversion);
 BENCHMARK(TimestampConversionDefault);
 BENCHMARK(TimestampConversionStrptime);
 
-}  // namespace csv
-}  // namespace arrow
+}  // namespace arrow::csv

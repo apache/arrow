@@ -36,9 +36,7 @@
 
 using namespace std::string_view_literals;  // NOLINT
 
-namespace arrow {
-namespace dataset {
-namespace internal {
+namespace arrow::dataset::internal {
 
 using arrow::fs::internal::MockFileInfo;
 using arrow::fs::internal::MockFileSystem;
@@ -585,6 +583,4 @@ TEST_F(DatasetWriterTestFixture, ErrOnExistingData) {
   AssertEmptyFiles({"testdir/part-0.arrow"});
 }
 
-}  // namespace internal
-}  // namespace dataset
-}  // namespace arrow
+}  // namespace arrow::dataset::internal

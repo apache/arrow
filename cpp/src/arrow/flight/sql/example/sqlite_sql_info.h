@@ -19,16 +19,10 @@
 
 #include "arrow/flight/sql/types.h"
 
-namespace arrow {
-namespace flight {
-namespace sql {
-namespace example {
+namespace arrow::flight::sql::example {
 
 /// \brief Gets the mapping from SQL info ids to SqlInfoResult instances.
 /// \return the cache.
 SqlInfoResultMap GetSqlInfoResultMap();
 
-}  // namespace example
-}  // namespace sql
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight::sql::example

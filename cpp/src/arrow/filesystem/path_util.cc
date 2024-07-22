@@ -31,8 +31,7 @@ namespace arrow {
 
 using internal::StartsWith;
 
-namespace fs {
-namespace internal {
+namespace fs::internal {
 
 // XXX How does this encode Windows UNC paths?
 
@@ -398,6 +397,5 @@ bool Globber::Matches(const std::string& path) {
   return regex_match(path, impl_->pattern_);
 }
 
-}  // namespace internal
-}  // namespace fs
+}  // namespace fs::internal
 }  // namespace arrow

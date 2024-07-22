@@ -25,8 +25,7 @@
 #include "arrow/util/config.h"
 #include "gtest/gtest.h"
 
-namespace arrow {
-namespace util {
+namespace arrow::util {
 
 TEST(CountingSemaphore, Basic) {
 #ifndef ARROW_ENABLE_THREADING
@@ -107,5 +106,4 @@ TEST(CountingSemaphore, Stress) {
   ASSERT_FALSE(max_exceeded.load());
 }
 
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util

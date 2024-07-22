@@ -33,8 +33,7 @@
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 
-namespace arrow {
-namespace csv {
+namespace arrow::csv {
 
 struct WriterTestParams {
   WriterTestParams(std::shared_ptr<Schema> schema, std::string batch_data,
@@ -379,5 +378,4 @@ INSTANTIATE_TEST_SUITE_P(
                          "\n2016-02-29 10:42:23-0700,2016-02-29 17:42:23Z\n")));
 #endif
 
-}  // namespace csv
-}  // namespace arrow
+}  // namespace arrow::csv

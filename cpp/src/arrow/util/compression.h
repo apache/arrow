@@ -28,8 +28,7 @@
 #include "arrow/util/type_fwd.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace util {
+namespace arrow::util {
 
 constexpr int kUseDefaultCompressionLevel = std::numeric_limits<int>::min();
 
@@ -237,5 +236,4 @@ class ARROW_EXPORT Codec {
   virtual Status Init();
 };
 
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util

@@ -35,8 +35,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/thread_pool.h"
 
-namespace arrow {
-namespace csv {
+namespace arrow::csv {
 
 class BlockParser;
 
@@ -382,5 +381,4 @@ TEST_F(InferringColumnDecoderTest, Empty) { this->TestEmpty(); }
 
 // More inference tests are in InferringColumnBuilderTest
 
-}  // namespace csv
-}  // namespace arrow
+}  // namespace arrow::csv

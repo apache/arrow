@@ -19,8 +19,7 @@
 
 #include <new>
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 #if __cpp_lib_launder
 using std::launder;
@@ -31,5 +30,4 @@ constexpr T* launder(T* p) noexcept {
 }
 #endif
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

@@ -25,9 +25,7 @@
 #include "arrow/compute/kernels/vector_selection_internal.h"
 #include "arrow/memory_pool.h"
 
-namespace arrow {
-namespace compute {
-namespace internal {
+namespace arrow::compute::internal {
 
 const TakeOptions* GetDefaultTakeOptions();
 
@@ -35,6 +33,4 @@ std::unique_ptr<Function> MakeTakeMetaFunction();
 
 void PopulateTakeKernels(std::vector<SelectionKernelData>* out);
 
-}  // namespace internal
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute::internal

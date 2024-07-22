@@ -30,8 +30,7 @@
 #include "arrow/util/config.h"  // For ARROW_COMPUTE
 #include "arrow/util/logging.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 class FunctionRegistry::FunctionRegistryImpl {
  public:
@@ -341,5 +340,4 @@ FunctionRegistry* GetFunctionRegistry() {
   return g_registry.get();
 }
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

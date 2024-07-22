@@ -55,8 +55,7 @@
 #define PIPE_READ read
 #endif
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 void AssertExists(const PlatformFilename& path) {
   bool exists = false;
@@ -1123,5 +1122,4 @@ TEST(Memory, TotalMemory) {
 #endif
 }
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

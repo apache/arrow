@@ -45,8 +45,7 @@ namespace arrow {
 
 using internal::ToChars;
 
-namespace flight {
-namespace internal {
+namespace flight::internal {
 
 using CookiePair = std::optional<std::pair<std::string, std::string>>;
 using CookieHeaderPair =
@@ -282,6 +281,6 @@ std::string CookieCache::GetValidCookiesAsString() {
   return cookie_string;
 }
 
-}  // namespace internal
-}  // namespace flight
+}  // namespace flight::internal
+
 }  // namespace arrow

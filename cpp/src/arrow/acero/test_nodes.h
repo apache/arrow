@@ -23,8 +23,7 @@
 #include "arrow/acero/test_util_internal.h"
 #include "arrow/testing/random.h"
 
-namespace arrow {
-namespace acero {
+namespace arrow::acero {
 
 // \brief Make a delaying source that is optionally noisy (prints when it emits)
 AsyncGenerator<std::optional<ExecBatch>> MakeDelayedGen(
@@ -82,5 +81,4 @@ struct GatedNodeOptions : public ExecNodeOptions {
 
 void RegisterTestNodes();
 
-}  // namespace acero
-}  // namespace arrow
+}  // namespace arrow::acero

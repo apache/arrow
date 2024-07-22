@@ -41,8 +41,7 @@ using internal::DictionaryTraits;
 using internal::HashTraits;
 using internal::TransposeInts;
 
-namespace compute {
-namespace internal {
+namespace compute::internal {
 
 namespace {
 
@@ -838,6 +837,5 @@ void RegisterDictionaryDecode(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::make_shared<DictionaryDecodeMetaFunction>()));
 }
 
-}  // namespace internal
-}  // namespace compute
+}  // namespace compute::internal
 }  // namespace arrow

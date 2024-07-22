@@ -22,9 +22,7 @@
 #include "arrow/compute/exec.h"
 #include "arrow/type.h"
 
-namespace arrow {
-namespace acero {
-namespace asofjoin {
+namespace arrow::acero::asofjoin {
 
 using AsofJoinKeys = AsofJoinNodeOptions::Keys;
 
@@ -36,6 +34,4 @@ ARROW_ACERO_EXPORT Result<std::shared_ptr<Schema>> MakeOutputSchema(
     const std::vector<std::shared_ptr<Schema>>& input_schema,
     const std::vector<AsofJoinKeys>& input_keys);
 
-}  // namespace asofjoin
-}  // namespace acero
-}  // namespace arrow
+}  // namespace arrow::acero::asofjoin

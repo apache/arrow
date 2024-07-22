@@ -18,8 +18,7 @@
 #include "arrow/acero/partition_util.h"
 #include <mutex>
 
-namespace arrow {
-namespace acero {
+namespace arrow::acero {
 
 PartitionLocks::PartitionLocks() : num_prtns_(0), locks_(nullptr), rngs_(nullptr) {}
 
@@ -85,5 +84,4 @@ void PartitionLocks::ReleasePartitionLock(int prtn_id) {
   lock->store(false, std::memory_order_release);
 }
 
-}  // namespace acero
-}  // namespace arrow
+}  // namespace arrow::acero

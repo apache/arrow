@@ -26,11 +26,9 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace csv {
+namespace arrow::csv {
 
 ARROW_EXPORT
 std::unique_ptr<Chunker> MakeChunker(const ParseOptions& options);
 
-}  // namespace csv
-}  // namespace arrow
+}  // namespace arrow::csv

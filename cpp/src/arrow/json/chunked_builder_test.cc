@@ -32,8 +32,7 @@
 #include "arrow/util/task_group.h"
 #include "arrow/util/thread_pool.h"
 
-namespace arrow {
-namespace json {
+namespace arrow::json {
 
 using std::string_view;
 
@@ -447,5 +446,4 @@ TEST(InferringChunkedArrayBuilder, MultipleChunkList) {
   AssertFieldEqual({"a"}, actual, *expected);
 }
 
-}  // namespace json
-}  // namespace arrow
+}  // namespace arrow::json

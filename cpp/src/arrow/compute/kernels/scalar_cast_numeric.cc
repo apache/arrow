@@ -37,8 +37,7 @@ using internal::ParseValue;
 using internal::PrimitiveScalarBase;
 using util::Float16;
 
-namespace compute {
-namespace internal {
+namespace compute::internal {
 
 Status CastIntegerToInteger(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const auto& options = checked_cast<const CastState*>(ctx->state())->options;
@@ -915,6 +914,5 @@ std::vector<std::shared_ptr<CastFunction>> GetNumericCasts() {
   return functions;
 }
 
-}  // namespace internal
-}  // namespace compute
+}  // namespace compute::internal
 }  // namespace arrow

@@ -26,10 +26,7 @@
 #include "arrow/flight/sql/example/sqlite_statement_batch_reader.h"
 #include "arrow/record_batch.h"
 
-namespace arrow {
-namespace flight {
-namespace sql {
-namespace example {
+namespace arrow::flight::sql::example {
 
 class SqliteTablesWithSchemaBatchReader : public RecordBatchReader {
  private:
@@ -52,7 +49,4 @@ class SqliteTablesWithSchemaBatchReader : public RecordBatchReader {
   Status ReadNext(std::shared_ptr<RecordBatch>* batch) override;
 };
 
-}  // namespace example
-}  // namespace sql
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight::sql::example

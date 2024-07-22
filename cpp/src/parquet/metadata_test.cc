@@ -28,9 +28,7 @@
 #include "parquet/thrift_internal.h"
 #include "parquet/types.h"
 
-namespace parquet {
-
-namespace metadata {
+namespace parquet::metadata {
 
 // Helper function for generating table metadata
 std::unique_ptr<parquet::FileMetaData> GenerateTableMetaData(
@@ -737,5 +735,4 @@ TEST(ApplicationVersion, FullWithSpaces) {
   ASSERT_EQ("cd", version.version.build_info);
 }
 
-}  // namespace metadata
-}  // namespace parquet
+}  // namespace parquet::metadata

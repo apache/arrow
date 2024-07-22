@@ -24,9 +24,7 @@
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/stl_allocator.h"
 
-namespace arrow {
-namespace compute {
-namespace internal {
+namespace arrow::compute::internal {
 
 namespace {
 
@@ -565,6 +563,4 @@ void RegisterScalarAggregateQuantile(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
-}  // namespace internal
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute::internal

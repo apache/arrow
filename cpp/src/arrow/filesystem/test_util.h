@@ -27,8 +27,7 @@
 #include "arrow/testing/visibility.h"
 #include "arrow/util/counting_semaphore.h"
 
-namespace arrow {
-namespace fs {
+namespace arrow::fs {
 
 static constexpr double kTimeSlack = 2.0;  // In seconds
 
@@ -252,5 +251,4 @@ class ARROW_TESTING_EXPORT GenericFileSystemTest {
 #define GENERIC_FS_TYPED_TEST_FUNCTIONS(TEST_CLASS) \
   GENERIC_FS_TEST_FUNCTIONS_MACROS(TYPED_TEST, TEST_CLASS)
 
-}  // namespace fs
-}  // namespace arrow
+}  // namespace arrow::fs

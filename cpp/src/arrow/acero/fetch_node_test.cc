@@ -27,8 +27,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 
-namespace arrow {
-namespace acero {
+namespace arrow::acero {
 
 static constexpr int kRowsPerBatch = 16;
 static constexpr int kNumBatches = 32;
@@ -85,5 +84,4 @@ TEST(FetchNode, Invalid) {
   CheckFetchInvalid({10, -1}, "`count` must be non-negative");
 }
 
-}  // namespace acero
-}  // namespace arrow
+}  // namespace arrow::acero

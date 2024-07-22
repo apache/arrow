@@ -25,8 +25,7 @@
 
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 /// Match regex against target and produce string_views out of matches.
 inline bool RegexMatch(const std::regex& regex, std::string_view target,
@@ -47,5 +46,4 @@ inline bool RegexMatch(const std::regex& regex, std::string_view target,
   return true;
 }
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

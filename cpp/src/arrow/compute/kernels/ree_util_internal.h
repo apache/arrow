@@ -33,10 +33,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/logging.h"
 
-namespace arrow {
-namespace compute {
-namespace internal {
-namespace ree_util {
+namespace arrow::compute::internal::ree_util {
 
 template <typename ArrowType, bool in_has_validity_buffer,
           bool out_has_validity_buffer = in_has_validity_buffer, typename Enable = void>
@@ -381,7 +378,4 @@ Result<std::shared_ptr<ArrayData>> MakeNullREEArray(
     const std::shared_ptr<DataType>& run_end_type, int64_t logical_length,
     MemoryPool* pool);
 
-}  // namespace ree_util
-}  // namespace internal
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute::internal::ree_util

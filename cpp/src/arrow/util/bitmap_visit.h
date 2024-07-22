@@ -22,8 +22,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_reader.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 // A function that visits each bit in a bitmap and calls a visitor function with a
 // boolean representation of that bit. This is intended to be analogous to
@@ -84,5 +83,4 @@ void VisitBitsUnrolled(const uint8_t* bitmap, int64_t start_offset, int64_t leng
                      visit);
 }
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

@@ -19,8 +19,7 @@
 
 #include "arrow/compute/row/encode_internal.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 void EncoderBinary::DecodeHelper_avx2(bool is_row_fixed_length, uint32_t start_row,
                                       uint32_t num_rows, uint32_t offset_within_row,
@@ -228,5 +227,4 @@ void EncoderVarBinary::DecodeImp_avx2(uint32_t start_row, uint32_t num_rows,
       });
 }
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

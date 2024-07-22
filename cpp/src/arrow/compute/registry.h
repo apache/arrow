@@ -28,8 +28,7 @@
 #include "arrow/status.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 class Function;
 class FunctionOptionsType;
@@ -122,5 +121,4 @@ class ARROW_EXPORT FunctionRegistry {
   explicit FunctionRegistry(FunctionRegistryImpl* impl);
 };
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

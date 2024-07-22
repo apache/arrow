@@ -25,9 +25,7 @@
 
 #include "arrow/type_fwd.h"
 
-namespace arrow {
-namespace fs {
-namespace internal {
+namespace arrow::fs::internal {
 
 constexpr char kSep = '/';
 
@@ -173,6 +171,4 @@ class ARROW_EXPORT Globber {
   std::unique_ptr<Impl> impl_;
 };
 
-}  // namespace internal
-}  // namespace fs
-}  // namespace arrow
+}  // namespace arrow::fs::internal

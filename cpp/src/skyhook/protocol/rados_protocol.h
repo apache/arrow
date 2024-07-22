@@ -24,8 +24,7 @@
 
 #include <memory>
 
-namespace skyhook {
-namespace rados {
+namespace skyhook::rados {
 
 class IoCtxInterface {
  public:
@@ -100,5 +99,4 @@ class RadosConn {
   bool connected;
 };
 
-}  // namespace rados
-}  // namespace skyhook
+}  // namespace skyhook::rados

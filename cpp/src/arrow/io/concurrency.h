@@ -26,9 +26,7 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace io {
-namespace internal {
+namespace arrow::io::internal {
 
 template <class LockType>
 class SharedLockGuard {
@@ -258,6 +256,4 @@ class ARROW_EXPORT RandomAccessFileConcurrencyWrapper : public RandomAccessFile 
   mutable SharedExclusiveChecker lock_;
 };
 
-}  // namespace internal
-}  // namespace io
-}  // namespace arrow
+}  // namespace arrow::io::internal

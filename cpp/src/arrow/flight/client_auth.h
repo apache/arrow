@@ -22,9 +22,7 @@
 #include "arrow/flight/visibility.h"
 #include "arrow/status.h"
 
-namespace arrow {
-
-namespace flight {
+namespace arrow::flight {
 
 /// \brief A reader for messages from the server during an
 /// authentication handshake.
@@ -58,5 +56,4 @@ class ARROW_FLIGHT_EXPORT ClientAuthHandler {
   virtual Status GetToken(std::string* token) = 0;
 };
 
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight

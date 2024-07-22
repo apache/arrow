@@ -26,8 +26,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 // A std::generate() like function to write sequential bits into a bitmap area.
 // Bits preceding the bitmap area are preserved, bits following the bitmap
@@ -108,5 +107,4 @@ void GenerateBitsUnrolled(uint8_t* bitmap, int64_t start_offset, int64_t length,
   }
 }
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

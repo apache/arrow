@@ -20,8 +20,7 @@
 #include "arrow/compute/ordering.h"
 #include "arrow/util/unreachable.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 bool SortKey::Equals(const SortKey& other) const {
   return target == other.target && order == other.order;
@@ -91,5 +90,4 @@ std::string Ordering::ToString() const {
   return ss.str();
 }
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

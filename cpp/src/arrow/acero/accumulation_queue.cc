@@ -25,9 +25,7 @@
 #include "arrow/compute/exec.h"
 #include "arrow/util/logging.h"
 
-namespace arrow {
-namespace acero {
-namespace util {
+namespace arrow::acero::util {
 using arrow::compute::ExecBatch;
 AccumulationQueue::AccumulationQueue(AccumulationQueue&& that) {
   this->batches_ = std::move(that.batches_);
@@ -170,6 +168,4 @@ std::unique_ptr<SerialSequencingQueue> SerialSequencingQueue::Make(Processor* pr
   return std::make_unique<SerialSequencingQueueImpl>(processor);
 }
 
-}  // namespace util
-}  // namespace acero
-}  // namespace arrow
+}  // namespace arrow::acero::util

@@ -33,8 +33,7 @@
 // the precompiled-to-ir code (this causes issues with symbol resolution at runtime), we
 // use a wrapper exported from the CPP code. The wrapper functions are named gdv_xlarge_xx
 
-namespace gandiva {
-namespace decimalops {
+namespace gandiva::decimalops {
 
 using arrow::BasicDecimal128;
 
@@ -719,5 +718,4 @@ int64_t ToInt64(const BasicDecimalScalar128& in, bool* overflow) {
   return static_cast<int64_t>(rounded.low_bits());
 }
 
-}  // namespace decimalops
-}  // namespace gandiva
+}  // namespace gandiva::decimalops

@@ -20,11 +20,7 @@
 #include "arrow/memory_pool.h"
 #include "arrow/util/config.h"
 
-namespace arrow {
-
-namespace memory_pool {
-
-namespace internal {
+namespace arrow::memory_pool::internal {
 
 static constexpr int64_t kDebugXorSuffix = -0x181fe80e0b464188LL;
 
@@ -48,8 +44,4 @@ class JemallocAllocator {
 
 #endif  // defined(ARROW_JEMALLOC)
 
-}  // namespace internal
-
-}  // namespace memory_pool
-
-}  // namespace arrow
+}  // namespace arrow::memory_pool::internal

@@ -20,8 +20,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/queue.h"
 
-namespace arrow {
-namespace util {
+namespace arrow::util {
 
 TEST(TestSpscQueue, TestMoveOnly) {
   SpscQueue<MoveOnlyDataType> queue(3);
@@ -51,5 +50,4 @@ TEST(TestSpscQueue, TestMoveOnly) {
   ASSERT_EQ(queue.SizeGuess(), 0);
 }
 
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util

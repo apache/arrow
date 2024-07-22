@@ -38,10 +38,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 
-namespace arrow {
-namespace flight {
-namespace sql {
-namespace example {
+namespace arrow::flight::sql::example {
 
 using arrow::internal::checked_cast;
 
@@ -993,7 +990,4 @@ Status SQLiteFlightSqlServer::EndTransaction(const ServerCallContext& context,
   return impl_->EndTransaction(context, request);
 }
 
-}  // namespace example
-}  // namespace sql
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight::sql::example

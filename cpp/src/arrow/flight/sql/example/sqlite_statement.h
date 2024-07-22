@@ -25,10 +25,7 @@
 #include "arrow/flight/sql/column_metadata.h"
 #include "arrow/type_fwd.h"
 
-namespace arrow {
-namespace flight {
-namespace sql {
-namespace example {
+namespace arrow::flight::sql::example {
 
 /// \brief Create an object ColumnMetadata using the column type and
 ///        table name.
@@ -84,7 +81,4 @@ class SqliteStatement {
   SqliteStatement(sqlite3* db, sqlite3_stmt* stmt) : db_(db), stmt_(stmt) {}
 };
 
-}  // namespace example
-}  // namespace sql
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight::sql::example

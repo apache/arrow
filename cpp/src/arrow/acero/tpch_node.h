@@ -27,9 +27,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 
-namespace arrow {
-namespace acero {
-namespace internal {
+namespace arrow::acero::internal {
 
 class ARROW_ACERO_EXPORT TpchGen {
  public:
@@ -60,6 +58,4 @@ class ARROW_ACERO_EXPORT TpchGen {
   virtual Result<ExecNode*> Region(std::vector<std::string> columns = {}) = 0;
 };
 
-}  // namespace internal
-}  // namespace acero
-}  // namespace arrow
+}  // namespace arrow::acero::internal

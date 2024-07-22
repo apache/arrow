@@ -27,9 +27,7 @@
 #include "arrow/acero/test_util_internal.h"
 #include "arrow/compute/exec.h"
 
-namespace arrow {
-
-namespace acero {
+namespace arrow::acero {
 
 Status BenchmarkNodeOverhead(benchmark::State& state, int32_t num_batches,
                              int32_t batch_size, arrow::acero::BatchesWithSchema data,
@@ -44,5 +42,4 @@ Status BenchmarkIsolatedNodeOverhead(benchmark::State& state,
                                      arrow::acero::ExecNodeOptions& options,
                                      arrow::MemoryPool* pool = default_memory_pool());
 
-}  // namespace acero
-}  // namespace arrow
+}  // namespace arrow::acero

@@ -27,8 +27,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 
-namespace arrow {
-namespace stl {
+namespace arrow::stl {
 
 /// \brief A STL allocator delegating allocations to a Arrow MemoryPool
 template <class T>
@@ -160,5 +159,4 @@ bool operator!=(const allocator<T1>& lhs, const allocator<T2>& rhs) noexcept {
   return !(lhs == rhs);
 }
 
-}  // namespace stl
-}  // namespace arrow
+}  // namespace arrow::stl

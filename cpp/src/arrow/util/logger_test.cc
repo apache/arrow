@@ -26,8 +26,7 @@
 // Emit log via the default logger
 #define DO_LOG(LEVEL, ...) ARROW_LOGGER_CALL("", LEVEL, __VA_ARGS__)
 
-namespace arrow {
-namespace util {
+namespace arrow::util {
 
 namespace {
 
@@ -136,5 +135,4 @@ TEST(LoggerTest, Registry) {
 
 #undef DO_LOG
 
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util

@@ -22,8 +22,7 @@
 #include "arrow/util/async_generator.h"
 #include "arrow/util/logging.h"
 
-namespace arrow {
-namespace acero {
+namespace arrow::acero {
 
 constexpr int64_t TableSourceNodeOptions::kDefaultMaxBatchSize;
 
@@ -74,5 +73,4 @@ ExecBatchSourceNodeOptions::ExecBatchSourceNodeOptions(std::shared_ptr<Schema> s
     : SchemaSourceNodeOptions(std::move(schema), VecToItMaker(std::move(batches)),
                               requires_io) {}
 
-}  // namespace acero
-}  // namespace arrow
+}  // namespace arrow::acero

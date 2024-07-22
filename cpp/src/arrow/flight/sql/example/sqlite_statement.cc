@@ -32,10 +32,7 @@
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 
-namespace arrow {
-namespace flight {
-namespace sql {
-namespace example {
+namespace arrow::flight::sql::example {
 
 using arrow::internal::checked_cast;
 
@@ -263,7 +260,4 @@ Status SqliteStatement::Bind(size_t batch_index, int64_t row_index) {
   return Status::OK();
 }
 
-}  // namespace example
-}  // namespace sql
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight::sql::example

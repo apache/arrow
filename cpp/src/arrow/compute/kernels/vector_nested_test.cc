@@ -25,8 +25,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/checked_cast.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 using arrow::internal::checked_cast;
 
@@ -312,5 +311,4 @@ TEST(TestVectorNested, ListParentIndicesFixedSizeList) {
   }
 }
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

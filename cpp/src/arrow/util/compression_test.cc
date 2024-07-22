@@ -32,8 +32,7 @@
 #include "arrow/util/compression.h"
 #include "arrow/util/config.h"
 
-namespace arrow {
-namespace util {
+namespace arrow::util {
 
 std::vector<uint8_t> MakeRandomData(int data_size) {
   std::vector<uint8_t> data(data_size);
@@ -749,5 +748,4 @@ TEST(TestCodecLZ4Hadoop, Compatibility) {
 }
 #endif
 
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util

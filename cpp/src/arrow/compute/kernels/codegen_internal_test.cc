@@ -23,9 +23,7 @@
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 
-namespace arrow {
-namespace compute {
-namespace internal {
+namespace arrow::compute::internal {
 
 TEST(TestDispatchBest, CastBinaryDecimalArgs) {
   std::vector<TypeHolder> args;
@@ -324,6 +322,4 @@ TEST(TestDispatchBest, ReplaceTemporalTypes) {
   AssertTypeEqual(*args[1], *int64());
 }
 
-}  // namespace internal
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute::internal

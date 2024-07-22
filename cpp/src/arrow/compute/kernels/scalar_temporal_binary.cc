@@ -32,8 +32,7 @@ namespace arrow {
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
-namespace compute {
-namespace internal {
+namespace compute::internal {
 
 namespace {
 
@@ -538,6 +537,5 @@ void RegisterScalarTemporalBinary(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(nanoseconds_between)));
 }
 
-}  // namespace internal
-}  // namespace compute
+}  // namespace compute::internal
 }  // namespace arrow

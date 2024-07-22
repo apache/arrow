@@ -20,8 +20,7 @@
 #include "arrow/compute/key_map_internal.h"
 #include "arrow/util/logging.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 // This is more or less translation of equivalent scalar code, adjusted for a
 // different instruction set (e.g. missing leading zero count instruction).
@@ -410,5 +409,4 @@ int SwissTable::extract_group_ids_avx2(const int num_keys, const uint32_t* hashe
   return num_keys - (num_keys % unroll);
 }
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

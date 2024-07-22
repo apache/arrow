@@ -29,9 +29,7 @@
 #include "arrow/flight/sql/types.h"
 #include "arrow/status.h"
 
-namespace arrow {
-namespace flight {
-namespace sql {
+namespace arrow::flight::sql {
 
 static constexpr char const kSessionCookieName[] = "arrow_flight_session_id";
 
@@ -83,6 +81,4 @@ class ARROW_FLIGHT_SQL_EXPORT ServerSessionMiddleware : public ServerMiddleware 
 ARROW_FLIGHT_SQL_EXPORT std::shared_ptr<ServerMiddlewareFactory>
 MakeServerSessionMiddlewareFactory(std::function<std::string()> id_gen);
 
-}  // namespace sql
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight::sql

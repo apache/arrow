@@ -22,9 +22,7 @@
 #include "arrow/csv/options.h"
 #include "arrow/util/simd.h"
 
-namespace arrow {
-namespace csv {
-namespace internal {
+namespace arrow::csv::internal {
 
 template <bool Quoting, bool Escaping>
 class SpecializedOptions {
@@ -208,6 +206,4 @@ template <typename SpecializedOptions>
 using PreferredBulkFilterType = BloomFilter4B<SpecializedOptions>;
 #endif
 
-}  // namespace internal
-}  // namespace csv
-}  // namespace arrow
+}  // namespace arrow::csv::internal

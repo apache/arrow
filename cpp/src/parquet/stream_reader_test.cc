@@ -28,8 +28,7 @@
 #include "parquet/exception.h"
 #include "parquet/test_util.h"
 
-namespace parquet {
-namespace test {
+namespace parquet::test {
 
 template <typename T>
 using optional = StreamReader::optional<T>;
@@ -1035,5 +1034,4 @@ TEST_F(TestMultiRowGroupStreamReader, SkipRows) {
   EXPECT_TRUE(reader_.eof());
 }
 
-}  // namespace test
-}  // namespace parquet
+}  // namespace parquet::test

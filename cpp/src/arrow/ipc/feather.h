@@ -43,8 +43,7 @@ class RandomAccessFile;
 
 }  // namespace io
 
-namespace ipc {
-namespace feather {
+namespace ipc::feather {
 
 static constexpr const int kFeatherV1Version = 2;
 static constexpr const int kFeatherV2Version = 3;
@@ -145,6 +144,5 @@ ARROW_EXPORT
 Status WriteTable(const Table& table, io::OutputStream* dst,
                   const WriteProperties& properties = WriteProperties::Defaults());
 
-}  // namespace feather
-}  // namespace ipc
+}  // namespace ipc::feather
 }  // namespace arrow

@@ -29,8 +29,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/macros.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 using MakeFunctionRegistry = std::function<std::unique_ptr<FunctionRegistry>()>;
 using GetNumFunctions = std::function<int()>;
@@ -240,5 +239,4 @@ TEST(TestRegistry, RegisterNestedFunctions) {
   }
 }
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

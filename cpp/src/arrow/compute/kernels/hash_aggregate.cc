@@ -57,8 +57,7 @@ namespace arrow {
 using internal::checked_cast;
 using internal::FirstTimeBitmapWriter;
 
-namespace compute {
-namespace internal {
+namespace compute::internal {
 namespace {
 
 /// C++ abstract base class for the HashAggregateKernel interface.
@@ -3689,6 +3688,5 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
   }
 }
 
-}  // namespace internal
-}  // namespace compute
+}  // namespace compute::internal
 }  // namespace arrow

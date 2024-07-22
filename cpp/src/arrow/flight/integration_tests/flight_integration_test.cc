@@ -24,9 +24,7 @@
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 
-namespace arrow {
-namespace flight {
-namespace integration_tests {
+namespace arrow::flight::integration_tests {
 
 Status RunScenario(const std::string& scenario_name) {
   std::shared_ptr<Scenario> scenario;
@@ -93,6 +91,4 @@ TEST(FlightIntegration, FlightSqlIngestion) {
   ASSERT_OK(RunScenario("flight_sql:ingestion"));
 }
 
-}  // namespace integration_tests
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight::integration_tests

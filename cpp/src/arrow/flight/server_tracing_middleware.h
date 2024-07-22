@@ -27,8 +27,7 @@
 #include "arrow/flight/visibility.h"
 #include "arrow/status.h"
 
-namespace arrow {
-namespace flight {
+namespace arrow::flight {
 
 /// \brief Returns a ServerMiddlewareFactory that handles receiving OpenTelemetry spans.
 ARROW_FLIGHT_EXPORT std::shared_ptr<ServerMiddlewareFactory>
@@ -64,5 +63,4 @@ class ARROW_FLIGHT_EXPORT TracingServerMiddleware : public ServerMiddleware {
   std::unique_ptr<Impl> impl_;
 };
 
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight

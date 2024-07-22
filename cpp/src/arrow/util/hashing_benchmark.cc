@@ -27,8 +27,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/hashing.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 template <class Integer>
 static std::vector<Integer> MakeIntegers(int32_t n_values) {
@@ -119,5 +118,4 @@ BENCHMARK(HashSmallStrings);
 BENCHMARK(HashMediumStrings);
 BENCHMARK(HashLargeStrings);
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

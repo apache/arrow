@@ -35,8 +35,7 @@
 #include "arrow/util/formatting.h"
 #include "arrow/util/value_parsing.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 template <typename c_int>
 static std::vector<std::string> MakeIntStrings(int32_t num_items) {
@@ -299,5 +298,4 @@ BENCHMARK_TEMPLATE(IntegerFormatting, UInt64Type);
 BENCHMARK_TEMPLATE(FloatFormatting, FloatType);
 BENCHMARK_TEMPLATE(FloatFormatting, DoubleType);
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

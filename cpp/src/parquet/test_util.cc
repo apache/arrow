@@ -37,8 +37,7 @@
 #include "parquet/encoding.h"
 #include "parquet/platform.h"
 
-namespace parquet {
-namespace test {
+namespace parquet::test {
 
 const char* get_data_dir() {
   const auto result = std::getenv("PARQUET_TEST_DATA");
@@ -194,5 +193,4 @@ void prefixed_random_byte_array(int n, uint32_t seed, uint8_t* buf, int len, FLB
   }
 }
 
-}  // namespace test
-}  // namespace parquet
+}  // namespace parquet::test

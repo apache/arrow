@@ -27,8 +27,7 @@
 #include "arrow/io/interfaces.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace io {
+namespace arrow::io {
 
 class ARROW_EXPORT TransformInputStream : public InputStream {
  public:
@@ -56,5 +55,4 @@ class ARROW_EXPORT TransformInputStream : public InputStream {
   std::unique_ptr<Impl> impl_;
 };
 
-}  // namespace io
-}  // namespace arrow
+}  // namespace arrow::io

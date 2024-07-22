@@ -25,9 +25,7 @@ namespace arrow {
 using bit_util::CountTrailingZeros;
 using internal::CpuInfo;
 
-namespace util {
-
-namespace bit_util {
+namespace util::bit_util {
 
 inline uint64_t SafeLoadUpTo8Bytes(const uint8_t* bytes, int num_bytes) {
   // This will not be correct on big-endian architectures.
@@ -328,7 +326,6 @@ bool are_all_bytes_zero(int64_t hardware_flags, const uint8_t* bytes,
   return result_or == 0;
 }
 
-}  // namespace bit_util
-}  // namespace util
+}  // namespace util::bit_util
 
 }  // namespace arrow

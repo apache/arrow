@@ -44,8 +44,7 @@
 #include "arrow/gpu/cuda_api.h"
 #endif
 
-namespace arrow {
-namespace flight {
+namespace arrow::flight {
 
 using arrow::internal::checked_cast;
 
@@ -1921,5 +1920,4 @@ void AsyncClientTest::TestListenerLifetime() {
   ASSERT_FINISHES_OK(future);
 }
 
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight

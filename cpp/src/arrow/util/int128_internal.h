@@ -23,8 +23,7 @@
 #include <boost/multiprecision/cpp_int.hpp>
 #endif
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 // NOTE: __int128_t and boost::multiprecision::int128_t are not interchangeable.
 // For example, __int128_t does not have any member function, and does not have
@@ -41,5 +40,4 @@ using boost::multiprecision::int128_t;
 using boost::multiprecision::uint128_t;
 #endif
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

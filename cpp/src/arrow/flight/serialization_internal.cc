@@ -35,9 +35,7 @@ struct overloaded : Ts... {
 template <class... Ts>  // CTAD will not be needed for >=C++20
 overloaded(Ts...)->overloaded<Ts...>;
 
-namespace arrow {
-namespace flight {
-namespace internal {
+namespace arrow::flight::internal {
 
 // Timestamp
 
@@ -554,6 +552,4 @@ Status ToProto(const CloseSessionResult& result, pb::CloseSessionResult* pb_resu
   return Status::OK();
 }
 
-}  // namespace internal
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight::internal

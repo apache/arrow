@@ -40,8 +40,7 @@
 #include "arrow/util/utf8_internal.h"
 #include "arrow/util/value_parsing.h"  // IWYU pragma: keep
 
-namespace arrow {
-namespace csv {
+namespace arrow::csv {
 
 using internal::checked_cast;
 using internal::Trie;
@@ -827,5 +826,4 @@ Result<std::shared_ptr<DictionaryConverter>> DictionaryConverter::Make(
   return ptr;
 }
 
-}  // namespace csv
-}  // namespace arrow
+}  // namespace arrow::csv

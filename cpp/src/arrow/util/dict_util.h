@@ -19,10 +19,8 @@
 
 #include "arrow/array/data.h"
 
-namespace arrow {
-namespace dict_util {
+namespace arrow::dict_util {
 
 int64_t LogicalNullCount(const ArraySpan& span);
 
-}  // namespace dict_util
-}  // namespace arrow
+}  // namespace arrow::dict_util

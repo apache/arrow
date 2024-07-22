@@ -39,9 +39,7 @@
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/type_fwd.h"
 
-namespace arrow {
-
-namespace acero {
+namespace arrow::acero {
 
 ARROW_ACERO_EXPORT
 Status ValidateExecNodeInputs(ExecPlan* plan, const std::vector<ExecNode*>& inputs,
@@ -180,5 +178,4 @@ class ARROW_ACERO_EXPORT TracedNode {
   ExecNode* node_;
 };
 
-}  // namespace acero
-}  // namespace arrow
+}  // namespace arrow::acero

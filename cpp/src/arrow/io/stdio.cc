@@ -22,8 +22,7 @@
 #include "arrow/buffer.h"
 #include "arrow/result.h"
 
-namespace arrow {
-namespace io {
+namespace arrow::io {
 
 //
 // StdoutStream implementation
@@ -89,5 +88,4 @@ Result<std::shared_ptr<Buffer>> StdinStream::Read(int64_t nbytes) {
   return std::shared_ptr<Buffer>(std::move(buffer));
 }
 
-}  // namespace io
-}  // namespace arrow
+}  // namespace arrow::io

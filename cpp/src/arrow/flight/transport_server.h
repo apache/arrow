@@ -29,8 +29,7 @@ namespace arrow {
 namespace ipc {
 class Message;
 }
-namespace flight {
-namespace internal {
+namespace flight::internal {
 
 /// \brief A transport-specific interface for reading/writing Arrow
 ///   data for a server.
@@ -128,6 +127,5 @@ class ARROW_FLIGHT_EXPORT ServerTransport {
   std::shared_ptr<MemoryManager> memory_manager_;
 };
 
-}  // namespace internal
-}  // namespace flight
+}  // namespace flight::internal
 }  // namespace arrow

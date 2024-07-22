@@ -35,9 +35,7 @@ namespace arrow {
 
 using internal::ToChars;
 
-namespace flight {
-namespace transport {
-namespace grpc {
+namespace flight::transport::grpc {
 
 using internal::TransportStatus;
 
@@ -336,7 +334,5 @@ static ::grpc::Status ToRawGrpcStatus(const Status& arrow_status) {
   return status;
 }
 
-}  // namespace grpc
-}  // namespace transport
-}  // namespace flight
+}  // namespace flight::transport::grpc
 }  // namespace arrow

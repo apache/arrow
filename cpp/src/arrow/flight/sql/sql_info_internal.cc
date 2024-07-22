@@ -20,10 +20,7 @@
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
 
-namespace arrow {
-namespace flight {
-namespace sql {
-namespace internal {
+namespace arrow::flight::sql::internal {
 
 Status SqlInfoResultAppender::operator()(const std::string& value) {
   ARROW_RETURN_NOT_OK(value_builder_->Append(kStringValueIndex));
@@ -95,7 +92,4 @@ SqlInfoResultAppender::SqlInfoResultAppender(DenseUnionBuilder* value_builder)
       int32_to_int32_list_builder_(
           reinterpret_cast<MapBuilder*>(value_builder_->child(kInt32ToInt32ListIndex))) {}
 
-}  // namespace internal
-}  // namespace sql
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight::sql::internal

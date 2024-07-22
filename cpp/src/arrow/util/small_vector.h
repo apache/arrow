@@ -30,8 +30,7 @@
 #include "arrow/util/aligned_storage.h"
 #include "arrow/util/macros.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 template <typename T, size_t N, bool NonTrivialDestructor>
 struct StaticVectorStorageBase {
@@ -507,5 +506,4 @@ using StaticVector = StaticVectorImpl<T, N, StaticVectorStorage<T, N>>;
 template <typename T, size_t N>
 using SmallVector = StaticVectorImpl<T, N, SmallVectorStorage<T, N>>;
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

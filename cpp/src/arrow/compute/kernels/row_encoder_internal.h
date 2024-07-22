@@ -26,8 +26,7 @@ namespace arrow {
 
 using internal::checked_cast;
 
-namespace compute {
-namespace internal {
+namespace compute::internal {
 
 struct KeyEncoder {
   // the first byte of an encoded key is used to indicate nullity
@@ -282,6 +281,5 @@ class ARROW_EXPORT RowEncoder {
   std::vector<std::shared_ptr<ExtensionType>> extension_types_;
 };
 
-}  // namespace internal
-}  // namespace compute
+}  // namespace compute::internal
 }  // namespace arrow

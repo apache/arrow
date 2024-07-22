@@ -31,8 +31,7 @@ namespace arrow {
 using internal::CountSetBits;
 using list_util::internal::RangeOfValuesUsed;
 
-namespace compute {
-namespace internal {
+namespace compute::internal {
 namespace {
 
 template <typename Type>
@@ -262,6 +261,5 @@ void RegisterVectorNested(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::make_shared<ListParentIndicesFunction>()));
 }
 
-}  // namespace internal
-}  // namespace compute
+}  // namespace compute::internal
 }  // namespace arrow

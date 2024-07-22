@@ -42,9 +42,7 @@
 #include "arrow/flight/types.h"
 #include "arrow/flight/types_async.h"
 
-namespace arrow {
-
-namespace flight {
+namespace arrow::flight {
 
 namespace {
 template <typename T>
@@ -774,5 +772,4 @@ Status FlightClient::CheckOpen() const {
   return Status::OK();
 }
 
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight

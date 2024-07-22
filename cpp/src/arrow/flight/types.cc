@@ -39,8 +39,7 @@
 #include "arrow/util/string_builder.h"
 #include "arrow/util/uri.h"
 
-namespace arrow {
-namespace flight {
+namespace arrow::flight {
 namespace {
 
 ARROW_NOINLINE
@@ -1142,5 +1141,4 @@ void AsyncListenerBase::TryCancel() {
   }
 }
 
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight

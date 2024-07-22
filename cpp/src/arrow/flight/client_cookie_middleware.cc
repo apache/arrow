@@ -19,8 +19,7 @@
 #include "arrow/flight/cookie_internal.h"
 #include "arrow/util/value_parsing.h"
 
-namespace arrow {
-namespace flight {
+namespace arrow::flight {
 
 /// \brief Client-side middleware for sending/receiving HTTP style cookies.
 class ClientCookieMiddlewareFactory : public ClientMiddlewareFactory {
@@ -61,5 +60,4 @@ std::shared_ptr<ClientMiddlewareFactory> GetCookieFactory() {
   return std::make_shared<ClientCookieMiddlewareFactory>();
 }
 
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight

@@ -22,8 +22,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 
-namespace arrow {
-namespace util {
+namespace arrow::util {
 
 template <typename T>
 void CheckAlignment(const void* ptr) {
@@ -90,5 +89,4 @@ class TempVectorHolder {
   uint32_t num_elements_;
 };
 
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util

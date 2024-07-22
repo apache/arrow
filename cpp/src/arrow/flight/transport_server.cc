@@ -27,9 +27,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 
-namespace arrow {
-namespace flight {
-namespace internal {
+namespace arrow::flight::internal {
 
 Status ServerDataStream::WritePutMetadata(const Buffer&) {
   return Status::NotImplemented("Writing put metadata for this stream");
@@ -318,6 +316,4 @@ Status ServerTransport::DoExchange(const ServerCallContext& context,
   return Status::OK();
 }
 
-}  // namespace internal
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight::internal

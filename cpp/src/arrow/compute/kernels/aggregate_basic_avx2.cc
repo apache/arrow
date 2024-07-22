@@ -17,9 +17,7 @@
 
 #include "arrow/compute/kernels/aggregate_basic_internal.h"
 
-namespace arrow {
-namespace compute {
-namespace internal {
+namespace arrow::compute::internal {
 
 // ----------------------------------------------------------------------
 // Sum implementation
@@ -83,6 +81,4 @@ void AddMinMaxAvx2AggKernels(ScalarAggregateFunction* func) {
   AddMinMaxKernel(MinMaxInitAvx2, Type::INTERVAL_MONTHS, func, SimdLevel::AVX2);
 }
 
-}  // namespace internal
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute::internal

@@ -55,15 +55,11 @@
 
 namespace arrow {
 
-namespace memory_pool {
-
-namespace internal {
+namespace memory_pool::internal {
 
 alignas(kDefaultBufferAlignment) int64_t zero_size_area[1] = {kDebugXorSuffix};
 
-}  // namespace internal
-
-}  // namespace memory_pool
+}  // namespace memory_pool::internal
 
 namespace {
 

@@ -20,8 +20,7 @@
 #include <cassert>
 #include <chrono>
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 class StopWatch {
   // This clock should give us wall clock time
@@ -44,5 +43,4 @@ class StopWatch {
   std::chrono::time_point<ClockType> start_;
 };
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

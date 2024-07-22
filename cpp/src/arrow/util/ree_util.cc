@@ -23,8 +23,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/ree_util.h"
 
-namespace arrow {
-namespace ree_util {
+namespace arrow::ree_util {
 
 namespace {
 
@@ -246,5 +245,4 @@ Status ValidateRunEndEncodedChildren(const RunEndEncodedType& type,
   }
 }
 
-}  // namespace ree_util
-}  // namespace arrow
+}  // namespace arrow::ree_util

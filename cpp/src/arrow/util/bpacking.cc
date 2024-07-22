@@ -33,8 +33,7 @@
 #include "arrow/util/bpacking_neon.h"
 #endif
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 namespace {
 
@@ -393,5 +392,4 @@ int unpack64(const uint8_t* in, uint64_t* out, int batch_size, int num_bits) {
   return unpack64_default(in, out, batch_size, num_bits);
 }
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

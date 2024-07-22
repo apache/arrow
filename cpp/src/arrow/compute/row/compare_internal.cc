@@ -27,8 +27,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/ubsan.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 template <bool use_selection>
 void KeyCompare::NullUpdateColumnToRow(uint32_t id_col, uint32_t num_rows_to_compare,
@@ -461,5 +460,4 @@ void KeyCompare::CompareColumnsToRows(
   }
 }
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

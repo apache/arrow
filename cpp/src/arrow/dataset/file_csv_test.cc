@@ -38,8 +38,7 @@
 #include "arrow/testing/util.h"
 #include "arrow/util/config.h"
 
-namespace arrow {
-namespace dataset {
+namespace arrow::dataset {
 
 class CsvFormatHelper {
  public:
@@ -550,5 +549,4 @@ INSTANTIATE_TEST_SUITE_P(TestScanNode, TestCsvFileFormatScanNode,
                          ::testing::ValuesIn(TestFormatParams::Values()),
                          TestFormatParams::ToTestNameString);
 
-}  // namespace dataset
-}  // namespace arrow
+}  // namespace arrow::dataset

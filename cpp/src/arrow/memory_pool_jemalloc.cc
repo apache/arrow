@@ -78,9 +78,7 @@ const char* je_arrow_malloc_conf =
 
 namespace arrow {
 
-namespace memory_pool {
-
-namespace internal {
+namespace memory_pool::internal {
 
 Status JemallocAllocator::AllocateAligned(int64_t size, int64_t alignment,
                                           uint8_t** out) {
@@ -131,9 +129,7 @@ void JemallocAllocator::ReleaseUnused() {
   mallctl("arena." ARROW_STRINGIFY(MALLCTL_ARENAS_ALL) ".purge", NULL, NULL, NULL, 0);
 }
 
-}  // namespace internal
-
-}  // namespace memory_pool
+}  // namespace memory_pool::internal
 
 #define RETURN_IF_JEMALLOC_ERROR(ERR)                  \
   do {                                                 \

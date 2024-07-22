@@ -39,8 +39,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/value_parsing.h"
 
-namespace arrow {
-namespace csv {
+namespace arrow::csv {
 
 class BlockParser;
 
@@ -877,5 +876,4 @@ TEST(TestDecimalDictConverter, Errors) {
   ASSERT_RAISES(Invalid, DictConversion(value_type, "1e10\n"));
 }
 
-}  // namespace csv
-}  // namespace arrow
+}  // namespace arrow::csv

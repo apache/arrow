@@ -33,8 +33,7 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/memory.h"
 
-namespace arrow {
-namespace io {
+namespace arrow::io {
 
 // ----------------------------------------------------------------------
 // OutputStream that writes to resizable buffer
@@ -387,5 +386,4 @@ Status BufferReader::DoSeek(int64_t position) {
   return Status::OK();
 }
 
-}  // namespace io
-}  // namespace arrow
+}  // namespace arrow::io

@@ -29,8 +29,7 @@
 namespace arrow {
 using internal::CopyBitmap;
 
-namespace compute {
-namespace internal {
+namespace compute::internal {
 
 Status CastToDictionary(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const CastOptions& options = CastState::Get(ctx);
@@ -106,6 +105,5 @@ std::vector<std::shared_ptr<CastFunction>> GetDictionaryCasts() {
   return {cast_dict};
 }
 
-}  // namespace internal
-}  // namespace compute
+}  // namespace compute::internal
 }  // namespace arrow

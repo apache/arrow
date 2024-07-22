@@ -35,8 +35,7 @@
 #include "arrow/util/ubsan.h"
 #include "arrow/visit_type_inline.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 using internal::checked_cast;
 
@@ -939,5 +938,4 @@ Status IntegersCanFit(const Scalar& scalar, const DataType& target_type) {
   return IntegersCanFit(span, target_type);
 }
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

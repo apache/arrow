@@ -20,8 +20,7 @@
 #include "arrow/acero/swiss_join_internal.h"
 #include "arrow/util/bit_util.h"
 
-namespace arrow {
-namespace acero {
+namespace arrow::acero {
 
 template <class PROCESS_8_VALUES_FN>
 int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int num_rows,
@@ -189,5 +188,4 @@ int RowArrayAccessor::VisitNulls_avx2(const RowTableImpl& rows, int column_id,
   return num_rows - (num_rows % unroll);
 }
 
-}  // namespace acero
-}  // namespace arrow
+}  // namespace arrow::acero

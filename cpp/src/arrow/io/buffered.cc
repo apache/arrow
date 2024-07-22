@@ -30,8 +30,7 @@
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 
-namespace arrow {
-namespace io {
+namespace arrow::io {
 
 // ----------------------------------------------------------------------
 // BufferedOutputStream implementation
@@ -507,5 +506,4 @@ Future<std::shared_ptr<const KeyValueMetadata>> BufferedInputStream::ReadMetadat
   return impl_->raw()->ReadMetadataAsync(io_context);
 }
 
-}  // namespace io
-}  // namespace arrow
+}  // namespace arrow::io

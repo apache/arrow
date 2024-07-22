@@ -38,16 +38,13 @@
 #include "arrow/flight/types.h"
 #include "arrow/flight/visibility.h"
 
-namespace boost {
-namespace process {
+namespace boost::process {
 
 class child;
 
-}  // namespace process
-}  // namespace boost
+}  // namespace boost::process
 
-namespace arrow {
-namespace flight {
+namespace arrow::flight {
 
 // ----------------------------------------------------------------------
 // Helpers to compare values for equality
@@ -260,5 +257,4 @@ Status ExampleTlsCertificates(std::vector<CertKeyPair>* out);
 ARROW_FLIGHT_EXPORT
 Status ExampleTlsCertificateRoot(CertKeyPair* out);
 
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight

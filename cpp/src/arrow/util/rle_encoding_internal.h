@@ -31,8 +31,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/macros.h"
 
-namespace arrow {
-namespace util {
+namespace arrow::util {
 
 /// Utility classes to do run length encoding (RLE) for fixed bit width values.  If runs
 /// are sufficiently long, RLE is used, otherwise, the values are just bit-packed
@@ -822,5 +821,4 @@ inline void RleEncoder::Clear() {
   bit_writer_.Clear();
 }
 
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util

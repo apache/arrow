@@ -22,8 +22,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/benchmark_util.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 static void RandomKernel(benchmark::State& state, bool is_seed) {
   const int64_t length = state.range(0);
@@ -52,5 +51,4 @@ void SetArgs(benchmark::internal::Benchmark* bench) {
 BENCHMARK(RandomKernelSystem)->Apply(SetArgs);
 BENCHMARK(RandomKernelSeed)->Apply(SetArgs);
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

@@ -25,8 +25,7 @@
 #include "arrow/testing/random.h"
 #include "arrow/util/benchmark_util.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 namespace {
 
 // Use a fixed hash to ensure consistent results from run to run.
@@ -160,5 +159,4 @@ DECLARE_ROUND_BENCHMARKS(RoundArrayBenchmark, Round);
 DECLARE_ROUND_BENCHMARKS(RoundBinaryArrayBenchmark, RoundBinary);
 
 }  // namespace
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

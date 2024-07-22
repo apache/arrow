@@ -37,9 +37,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/checked_cast.h"
 
-namespace arrow {
-namespace flight {
-namespace sql {
+namespace arrow::flight::sql {
 
 using arrow::internal::checked_cast;
 
@@ -219,6 +217,4 @@ TEST_F(TestAcero, Transactions) {
                                   client_->PrepareSubstrait(call_options, plan, handle));
 }
 
-}  // namespace sql
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight::sql

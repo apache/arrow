@@ -25,8 +25,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/trie.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 std::vector<std::string> AllNulls() {
   return {"#N/A",    "#N/A N/A", "#NA", "-1.#IND", "-1.#QNAN", "-NaN", "-nan", "1.#IND",
@@ -218,5 +217,4 @@ BENCHMARK(InlinedTrieLookupNotFound);
 
 #endif
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

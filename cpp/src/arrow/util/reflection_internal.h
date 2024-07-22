@@ -24,8 +24,7 @@
 
 #include "arrow/type_traits.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 template <typename...>
 struct all_same : std::true_type {};
@@ -131,5 +130,4 @@ struct has_enum_traits : std::false_type {};
 template <typename T>
 struct has_enum_traits<T, void_t<typename EnumTraits<T>::Type>> : std::true_type {};
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

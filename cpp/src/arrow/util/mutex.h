@@ -22,8 +22,7 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace util {
+namespace arrow::util {
 
 /// A wrapper around std::mutex since we can't use it directly in
 /// public headers due to C++/CLI.
@@ -81,5 +80,4 @@ ARROW_EXPORT
 Mutex* GlobalForkSafeMutex();
 #endif
 
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util

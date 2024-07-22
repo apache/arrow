@@ -19,8 +19,7 @@
 
 #include <cstdint>
 
-namespace arrow {
-namespace ipc {
+namespace arrow::ipc {
 
 // Buffers are padded to 64-byte boundaries (for SIMD)
 static constexpr int32_t kArrowAlignment = 64;
@@ -37,5 +36,4 @@ static inline int64_t PaddedLength(int64_t nbytes, int32_t alignment = kArrowAli
   return ((nbytes + alignment - 1) / alignment) * alignment;
 }
 
-}  // namespace ipc
-}  // namespace arrow
+}  // namespace arrow::ipc

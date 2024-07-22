@@ -24,9 +24,7 @@
 #include "arrow/result.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace json {
-namespace internal {
+namespace arrow::json::internal {
 
 /// This class is a helper to parse a json object from a string.
 /// It uses rapidjson::Document in implementation.
@@ -49,6 +47,4 @@ class ARROW_EXPORT ObjectParser {
   std::unique_ptr<Impl> impl_;
 };
 
-}  // namespace internal
-}  // namespace json
-}  // namespace arrow
+}  // namespace arrow::json::internal

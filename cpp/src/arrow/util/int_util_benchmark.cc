@@ -26,8 +26,7 @@
 #include "arrow/util/benchmark_util.h"
 #include "arrow/util/int_util.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 constexpr auto kSeed = 0x94378165;
 
@@ -143,5 +142,4 @@ void BoundsCheckSetArgs(benchmark::internal::Benchmark* bench) {
 BENCHMARK(CheckIndexBoundsInt32)->Apply(BoundsCheckSetArgs);
 BENCHMARK(CheckIndexBoundsUInt32)->Apply(BoundsCheckSetArgs);
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

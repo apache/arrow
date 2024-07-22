@@ -25,8 +25,7 @@
 #include "arrow/json/options.h"
 #include "arrow/json/test_common.h"
 
-namespace arrow {
-namespace json {
+namespace arrow::json {
 
 Result<std::shared_ptr<Array>> Convert(std::shared_ptr<DataType> type,
                                        std::shared_ptr<Array> unconverted) {
@@ -263,5 +262,4 @@ TEST(ConverterTest, Decimal128And256PrecisionError) {
   }
 }
 
-}  // namespace json
-}  // namespace arrow
+}  // namespace arrow::json

@@ -27,8 +27,7 @@
 #include "arrow/csv/parser.h"
 #include "arrow/testing/gtest_util.h"
 
-namespace arrow {
-namespace csv {
+namespace arrow::csv {
 
 struct Example {
   int32_t num_rows;
@@ -237,5 +236,4 @@ BENCHMARK(ParseCSVFlightsExample);
 BENCHMARK(ParseCSVVehiclesExample);
 BENCHMARK(ParseCSVStocksExample);
 
-}  // namespace csv
-}  // namespace arrow
+}  // namespace arrow::csv

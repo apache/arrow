@@ -25,9 +25,7 @@
 #include "arrow/flight/visibility.h"
 #include "arrow/status.h"
 
-namespace arrow {
-
-namespace flight {
+namespace arrow::flight {
 
 /// \brief A reader for messages from the client during an
 /// authentication handshake.
@@ -121,5 +119,4 @@ class ARROW_FLIGHT_EXPORT NoOpAuthHandler : public ServerAuthHandler {
                  std::string* peer_identity) override;
 };
 
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight

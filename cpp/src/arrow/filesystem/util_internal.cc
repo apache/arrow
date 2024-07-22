@@ -32,8 +32,7 @@ namespace arrow {
 using internal::StatusDetailFromErrno;
 using util::Uri;
 
-namespace fs {
-namespace internal {
+namespace fs::internal {
 
 TimePoint CurrentTimePoint() {
   auto now = std::chrono::system_clock::now();
@@ -262,6 +261,6 @@ Result<FileInfoVector> GlobFiles(const std::shared_ptr<FileSystem>& filesystem,
 
 FileSystemGlobalOptions global_options;
 
-}  // namespace internal
-}  // namespace fs
+}  // namespace fs::internal
+
 }  // namespace arrow

@@ -27,8 +27,7 @@
 #include "arrow/util/config.h"
 #include "arrow/util/logging.h"
 
-namespace arrow {
-namespace util {
+namespace arrow::util {
 
 struct Mutex::Impl {
   std::mutex mutex_;
@@ -85,5 +84,4 @@ AfterForkState AfterForkState::instance;
 Mutex* GlobalForkSafeMutex() { return AfterForkState::instance.mutex; }
 #endif  // _WIN32
 
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util

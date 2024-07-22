@@ -26,8 +26,7 @@
 #include "arrow/util/string.h"
 #include "arrow/util/vector.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 TEST(StlUtilTest, VectorAddRemoveTest) {
   std::vector<int> values;
@@ -175,5 +174,4 @@ TEST(StlUtilTest, VectorUnwrapOrRaise) {
   ASSERT_RAISES(Invalid, UnwrapOrRaise(std::move(some_bad)));
 }
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

@@ -36,9 +36,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/compression.h"
 
-namespace arrow {
-
-namespace dataset {
+namespace arrow::dataset {
 
 /// \defgroup dataset-file-formats File formats for reading and writing datasets
 /// \defgroup dataset-filesystem File system datasets
@@ -491,5 +489,4 @@ namespace internal {
 ARROW_DS_EXPORT void InitializeDatasetWriter(arrow::acero::ExecFactoryRegistry* registry);
 }
 
-}  // namespace dataset
-}  // namespace arrow
+}  // namespace arrow::dataset

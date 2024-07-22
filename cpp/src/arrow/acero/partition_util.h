@@ -26,8 +26,7 @@
 #include "arrow/buffer.h"
 #include "arrow/util/pcg_random.h"
 
-namespace arrow {
-namespace acero {
+namespace arrow::acero {
 
 class PartitionSort {
  public:
@@ -180,5 +179,4 @@ class PartitionLocks {
   std::unique_ptr<arrow::random::pcg32_fast[]> rngs_;
 };
 
-}  // namespace acero
-}  // namespace arrow
+}  // namespace arrow::acero

@@ -18,8 +18,7 @@
 #include "arrow/util/dispatch.h"
 #include "arrow/util/logging.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 template <typename UnpackBits>
 static int unpack32_specialized(const uint32_t* in, uint32_t* out, int batch_size,
@@ -134,5 +133,4 @@ static int unpack32_specialized(const uint32_t* in, uint32_t* out, int batch_siz
   return batch_size;
 }
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

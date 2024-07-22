@@ -89,9 +89,7 @@ namespace liborc = orc;
   ORC_BEGIN_CATCH_NOT_OK(_s); \
   ORC_END_CATCH_NOT_OK
 
-namespace arrow {
-namespace adapters {
-namespace orc {
+namespace arrow::adapters::orc {
 
 namespace {
 
@@ -849,6 +847,4 @@ Status ORCFileWriter::Write(const RecordBatch& record_batch) {
 
 Status ORCFileWriter::Close() { return impl_->Close(); }
 
-}  // namespace orc
-}  // namespace adapters
-}  // namespace arrow
+}  // namespace arrow::adapters::orc

@@ -21,8 +21,7 @@
 
 #include "arrow/util/bit_util.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 #if ARROW_LITTLE_ENDIAN
 
@@ -50,5 +49,4 @@ BitRunReader::BitRunReader(const uint8_t* bitmap, int64_t start_offset, int64_t 
 
 #endif
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

@@ -24,8 +24,7 @@
 #include "arrow/util/tracing_internal.h"
 #include "arrow/util/ubsan.h"
 
-namespace arrow {
-namespace acero {
+namespace arrow::acero {
 
 Status ValidateExecNodeInputs(ExecPlan* plan, const std::vector<ExecNode*>& inputs,
                               int expected_num_inputs, const char* kind_name) {
@@ -134,5 +133,4 @@ void TracedNode::NoteInputReceived(const ExecBatch& batch) const {
                            {{"node.label", node_->label()}});
 }
 
-}  // namespace acero
-}  // namespace arrow
+}  // namespace arrow::acero

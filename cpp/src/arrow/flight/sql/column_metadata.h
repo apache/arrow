@@ -22,9 +22,7 @@
 #include "arrow/flight/sql/visibility.h"
 #include "arrow/util/key_value_metadata.h"
 
-namespace arrow {
-namespace flight {
-namespace sql {
+namespace arrow::flight::sql {
 
 /// \brief Helper class to set column metadata.
 class ARROW_FLIGHT_SQL_EXPORT ColumnMetadata {
@@ -178,6 +176,4 @@ class ARROW_FLIGHT_SQL_EXPORT ColumnMetadata {
     ColumnMetadataBuilder();
   };
 };
-}  // namespace sql
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight::sql

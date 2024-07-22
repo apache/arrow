@@ -26,8 +26,7 @@
 #include "arrow/compute/light_array_internal.h"
 #include "arrow/compute/util.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 // Forward declarations only needed for making test functions a friend of the classes in
 // this file.
@@ -238,5 +237,4 @@ class ARROW_EXPORT Hashing64 {
                       const uint8_t* keys, uint64_t* hashes);
 };
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

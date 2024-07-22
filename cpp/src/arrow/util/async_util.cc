@@ -29,9 +29,7 @@
 
 using namespace std::string_view_literals;  // NOLINT
 
-namespace arrow {
-
-namespace util {
+namespace arrow::util {
 
 class ThrottleImpl : public ThrottledAsyncTaskScheduler::Throttle {
  public:
@@ -529,5 +527,4 @@ std::unique_ptr<ThrottledAsyncTaskScheduler> MakeThrottledAsyncTaskGroup(
                                                    std::move(task_group));
 }
 
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util

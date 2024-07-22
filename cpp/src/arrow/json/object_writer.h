@@ -23,9 +23,7 @@
 
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace json {
-namespace internal {
+namespace arrow::json::internal {
 
 /// This class is a helper to serialize a json object to a string.
 /// It uses rapidjson in implementation.
@@ -44,6 +42,4 @@ class ARROW_EXPORT ObjectWriter {
   std::unique_ptr<Impl> impl_;
 };
 
-}  // namespace internal
-}  // namespace json
-}  // namespace arrow
+}  // namespace arrow::json::internal

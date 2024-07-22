@@ -35,8 +35,7 @@
 #include "arrow/util/hashing.h"
 #include "arrow/util/logging.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 template <typename Integer>
 static std::unordered_set<Integer> MakeDistinctIntegers(int32_t n_values) {
@@ -600,5 +599,4 @@ TEST(BitmapHashTest, LongerInputs) {
   }
 }
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

@@ -21,9 +21,7 @@
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/tdigest.h"
 
-namespace arrow {
-namespace compute {
-namespace internal {
+namespace arrow::compute::internal {
 
 namespace {
 
@@ -249,6 +247,4 @@ void RegisterScalarAggregateTDigest(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(approx_median));
 }
 
-}  // namespace internal
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute::internal

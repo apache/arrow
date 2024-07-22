@@ -34,8 +34,7 @@ namespace arrow {
 
 using internal::ToChars;
 
-namespace compute {
-namespace internal {
+namespace compute::internal {
 namespace {
 
 template <typename Type, typename offset_type = typename Type::offset_type>
@@ -984,6 +983,5 @@ void RegisterScalarNested(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(make_struct_function)));
 }
 
-}  // namespace internal
-}  // namespace compute
+}  // namespace compute::internal
 }  // namespace arrow

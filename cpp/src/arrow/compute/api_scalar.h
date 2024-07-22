@@ -31,8 +31,7 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 /// \addtogroup compute-concrete-options
 ///
@@ -1718,5 +1717,4 @@ ARROW_EXPORT Result<Datum> NanosecondsBetween(const Datum& left, const Datum& ri
 /// \note API not yet finalized
 ARROW_EXPORT Result<Datum> MapLookup(const Datum& map, MapLookupOptions options,
                                      ExecContext* ctx = NULLPTR);
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

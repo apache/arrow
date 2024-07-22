@@ -25,8 +25,7 @@
 #include "arrow/util/type_fwd.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace json {
+namespace arrow::json {
 
 class PromotionGraph;
 
@@ -64,5 +63,4 @@ ARROW_EXPORT Status MakeChunkedArrayBuilder(
     const PromotionGraph* promotion_graph, const std::shared_ptr<DataType>& type,
     std::shared_ptr<ChunkedArrayBuilder>* out);
 
-}  // namespace json
-}  // namespace arrow
+}  // namespace arrow::json

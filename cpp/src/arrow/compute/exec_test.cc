@@ -50,8 +50,7 @@ namespace arrow {
 
 using internal::checked_cast;
 
-namespace compute {
-namespace detail {
+namespace compute::detail {
 
 using ::arrow::internal::BitmapEquals;
 using ::arrow::internal::CopyBitmap;
@@ -1425,6 +1424,5 @@ TEST(Ordering, IsSuborderOf) {
   CheckOrdering(unordered, {true, true, true, true, true, true});
 }
 
-}  // namespace detail
-}  // namespace compute
+}  // namespace compute::detail
 }  // namespace arrow

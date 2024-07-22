@@ -38,9 +38,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/windows_fixup.h"
 
-namespace arrow {
-namespace fs {
-namespace internal {
+namespace arrow::fs::internal {
 
 namespace {
 
@@ -807,6 +805,4 @@ FileInfoGenerator MockAsyncFileSystem::GetFileInfoGenerator(const FileSelector& 
   }
 }
 
-}  // namespace internal
-}  // namespace fs
-}  // namespace arrow
+}  // namespace arrow::fs::internal

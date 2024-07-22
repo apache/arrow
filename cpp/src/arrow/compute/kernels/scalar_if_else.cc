@@ -39,8 +39,7 @@ using internal::Bitmap;
 using internal::BitmapWordReader;
 using internal::BitRunReader;
 
-namespace compute {
-namespace internal {
+namespace compute::internal {
 
 namespace {
 
@@ -2931,6 +2930,5 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
   }
 }
 
-}  // namespace internal
-}  // namespace compute
+}  // namespace compute::internal
 }  // namespace arrow

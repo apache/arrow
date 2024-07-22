@@ -28,8 +28,7 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace util {
+namespace arrow::util {
 
 struct SourceLocation {
   const char* file = "";
@@ -122,8 +121,7 @@ class ARROW_EXPORT LogMessage {
   std::shared_ptr<Impl> impl_;
 };
 
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util
 
 // For the following macros, log statements with a lower severity than
 // `ARROW_MINIMUM_LOG_LEVEL` will be stripped from the build

@@ -31,8 +31,7 @@
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 
-namespace arrow {
-namespace io {
+namespace arrow::io {
 
 // Multiply the average by this ratio to get the intended standard deviation
 static constexpr double kStandardDeviationRatio = 0.1;
@@ -144,5 +143,4 @@ Result<std::string_view> SlowRandomAccessFile::Peek(int64_t nbytes) {
   return stream_->Peek(nbytes);
 }
 
-}  // namespace io
-}  // namespace arrow
+}  // namespace arrow::io

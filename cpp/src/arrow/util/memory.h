@@ -22,8 +22,7 @@
 
 #include "arrow/util/macros.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 // A helper function for doing memcpy with multiple threads. This is required
 // to saturate the memory bandwidth of modern cpus.
@@ -39,5 +38,4 @@ bool SharedPtrEquals(const std::shared_ptr<T>& left, const std::shared_ptr<T>& r
   return left->Equals(*right);
 }
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

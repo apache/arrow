@@ -28,8 +28,7 @@
 #include "arrow/io/type_fwd.h"
 #include "arrow/result.h"
 
-namespace arrow {
-namespace dataset {
+namespace arrow::dataset {
 
 /// \addtogroup dataset-file-formats
 ///
@@ -71,5 +70,4 @@ class ARROW_DS_EXPORT OrcFileFormat : public FileFormat {
 
 /// @}
 
-}  // namespace dataset
-}  // namespace arrow
+}  // namespace arrow::dataset

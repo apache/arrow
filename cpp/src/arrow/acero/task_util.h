@@ -27,8 +27,7 @@
 #include "arrow/util/config.h"
 #include "arrow/util/logging.h"
 
-namespace arrow {
-namespace acero {
+namespace arrow::acero {
 
 // Atomic value surrounded by padding bytes to avoid cache line invalidation
 // whenever it is modified by a concurrent thread on a different CPU core.
@@ -98,5 +97,4 @@ class ARROW_ACERO_EXPORT TaskScheduler {
   static std::unique_ptr<TaskScheduler> Make();
 };
 
-}  // namespace acero
-}  // namespace arrow
+}  // namespace arrow::acero

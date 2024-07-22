@@ -44,8 +44,7 @@
 #include "parquet/arrow/writer.h"
 #include "parquet/properties.h"
 
-namespace arrow {
-namespace fs {
+namespace arrow::fs {
 
 using ::arrow::fs::internal::ConnectRetryStrategy;
 using ::arrow::fs::internal::OutcomeToStatus;
@@ -431,5 +430,4 @@ PQ_BENCHMARK_PICK(A, 250, 402, (std::vector<int>{0, 1, 2, 3, 4, 90}));
 // Scenario B: test selecting a large set of contiguous columns.
 PQ_BENCHMARK_PICK(B, 250, 402, (::arrow::internal::Iota(41)));
 
-}  // namespace fs
-}  // namespace arrow
+}  // namespace arrow::fs

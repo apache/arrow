@@ -37,9 +37,7 @@
 
 namespace rj = arrow::rapidjson;
 
-namespace arrow {
-
-namespace extension {
+namespace arrow::extension {
 
 namespace {
 
@@ -430,5 +428,4 @@ std::shared_ptr<DataType> fixed_shape_tensor(const std::shared_ptr<DataType>& va
   return maybe_type.MoveValueUnsafe();
 }
 
-}  // namespace extension
-}  // namespace arrow
+}  // namespace arrow::extension

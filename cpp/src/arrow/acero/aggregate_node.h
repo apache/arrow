@@ -28,9 +28,7 @@
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
 
-namespace arrow {
-namespace acero {
-namespace aggregate {
+namespace arrow::acero::aggregate {
 
 using compute::Aggregate;
 using compute::default_exec_context;
@@ -52,6 +50,4 @@ ARROW_ACERO_EXPORT Result<std::shared_ptr<Schema>> MakeOutputSchema(
     const std::vector<FieldRef>& segment_keys, const std::vector<Aggregate>& aggregates,
     ExecContext* exec_ctx = default_exec_context());
 
-}  // namespace aggregate
-}  // namespace acero
-}  // namespace arrow
+}  // namespace arrow::acero::aggregate

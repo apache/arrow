@@ -23,8 +23,7 @@
 
 using testing::Eq;
 
-namespace arrow {
-namespace acero {
+namespace arrow::acero {
 
 const char* kLeftSuffix = ".left";
 const char* kRightSuffix = ".right";
@@ -184,5 +183,4 @@ TEST(FieldMap, ExtensionTypeHashJoin) {
   EXPECT_EQ(i.get(0), 0);
 }
 
-}  // namespace acero
-}  // namespace arrow
+}  // namespace arrow::acero

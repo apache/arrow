@@ -20,9 +20,7 @@
 
 #include <rapidjson/document.h>
 
-namespace arrow {
-namespace json {
-namespace internal {
+namespace arrow::json::internal {
 
 namespace rj = arrow::rapidjson;
 
@@ -100,6 +98,4 @@ Result<std::unordered_map<std::string, std::string>> ObjectParser::GetStringMap(
   return impl_->GetStringMap();
 }
 
-}  // namespace internal
-}  // namespace json
-}  // namespace arrow
+}  // namespace arrow::json::internal

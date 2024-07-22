@@ -27,8 +27,7 @@
 
 using testing::UnorderedElementsAreArray;
 
-namespace arrow {
-namespace acero {
+namespace arrow::acero {
 
 struct TestUnionNode : public ::testing::Test {
   static constexpr int kNumBatches = 10;
@@ -154,5 +153,4 @@ TEST_F(TestUnionNode, TestEmpty) {
   this->CheckUnionExecNode(/*num_input_nodes*/ 0, /*num_batches=*/0, /*parallel=*/false);
 }
 
-}  // namespace acero
-}  // namespace arrow
+}  // namespace arrow::acero

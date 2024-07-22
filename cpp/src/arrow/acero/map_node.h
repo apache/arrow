@@ -31,8 +31,7 @@
 #include "arrow/util/cancel.h"
 #include "arrow/util/type_fwd.h"
 
-namespace arrow {
-namespace acero {
+namespace arrow::acero {
 
 /// A utility base class for simple exec nodes with one input
 ///
@@ -77,5 +76,4 @@ class ARROW_ACERO_EXPORT MapNode : public ExecNode, public TracedNode {
   AtomicCounter input_counter_;
 };
 
-}  // namespace acero
-}  // namespace arrow
+}  // namespace arrow::acero

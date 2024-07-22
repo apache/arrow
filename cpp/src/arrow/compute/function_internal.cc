@@ -27,9 +27,7 @@
 #include "arrow/scalar.h"
 #include "arrow/util/checked_cast.h"
 
-namespace arrow {
-namespace compute {
-namespace internal {
+namespace arrow::compute::internal {
 using ::arrow::internal::checked_cast;
 
 constexpr char kTypeNameField[] = "_type_name";
@@ -131,6 +129,4 @@ Result<std::vector<TypeHolder>> GetFunctionArgumentTypes(const std::vector<Datum
   return inputs;
 }
 
-}  // namespace internal
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute::internal

@@ -28,9 +28,7 @@
 
 #include <arrow/flight/sql/server_session_middleware.h>
 
-namespace arrow {
-namespace flight {
-namespace sql {
+namespace arrow::flight::sql {
 
 /// \brief A factory for ServerSessionMiddleware, itself storing session data.
 class ARROW_FLIGHT_SQL_EXPORT ServerSessionMiddlewareFactory
@@ -56,6 +54,4 @@ class ARROW_FLIGHT_SQL_EXPORT ServerSessionMiddlewareFactory
   Status CloseSession(std::string id);
 };
 
-}  // namespace sql
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight::sql

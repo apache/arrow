@@ -26,8 +26,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"
 
-namespace arrow {
-namespace ree_util {
+namespace arrow::ree_util {
 
 /// \brief Get the child array holding the run ends from an REE array
 inline const ArraySpan& RunEndsArray(const ArraySpan& span) { return span.child_data[0]; }
@@ -578,5 +577,4 @@ class MergedRunsIterator {
   int64_t logical_pos_;
 };
 
-}  // namespace ree_util
-}  // namespace arrow
+}  // namespace arrow::ree_util

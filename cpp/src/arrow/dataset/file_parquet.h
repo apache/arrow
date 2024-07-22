@@ -54,8 +54,7 @@ struct SchemaManifest;
 }  // namespace arrow
 }  // namespace parquet
 
-namespace arrow {
-namespace dataset {
+namespace arrow::dataset {
 
 struct ParquetDecryptionConfig;
 struct ParquetEncryptionConfig;
@@ -400,5 +399,4 @@ class ARROW_DS_EXPORT ParquetDatasetFactory : public DatasetFactory {
 
 /// @}
 
-}  // namespace dataset
-}  // namespace arrow
+}  // namespace arrow::dataset

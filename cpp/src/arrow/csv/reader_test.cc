@@ -38,8 +38,7 @@
 #include "arrow/util/future.h"
 #include "arrow/util/thread_pool.h"
 
-namespace arrow {
-namespace csv {
+namespace arrow::csv {
 
 // Allows the streaming reader to be used in tests that expect a table reader
 class StreamingReaderAsTableReader : public TableReader {
@@ -488,5 +487,4 @@ TEST(CountRowsAsync, Errors) {
                               internal::GetCpuThreadPool(), read_options, parse_options));
 }
 
-}  // namespace csv
-}  // namespace arrow
+}  // namespace arrow::csv

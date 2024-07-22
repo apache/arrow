@@ -29,9 +29,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 
-namespace arrow {
-namespace compute {
-namespace internal {
+namespace arrow::compute::internal {
 
 // Visit all physical types for which sorting is implemented.
 #define VISIT_SORTABLE_PHYSICAL_TYPES(VISIT) \
@@ -794,6 +792,4 @@ inline Result<std::shared_ptr<ArrayData>> MakeMutableUInt64Array(
   return ArrayData::Make(uint64(), length, {nullptr, std::move(data)}, /*null_count=*/0);
 }
 
-}  // namespace internal
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute::internal

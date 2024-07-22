@@ -23,8 +23,7 @@
 #include "arrow/testing/random.h"
 #include "arrow/util/benchmark_util.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 constexpr auto kSeed = 0x0ff1ce;
 
 static void SelectKBenchmark(benchmark::State& state,
@@ -54,5 +53,4 @@ BENCHMARK(SelectKInt64)
     ->Args({1 << 23, 100})
     ->Unit(benchmark::TimeUnit::kNanosecond);
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

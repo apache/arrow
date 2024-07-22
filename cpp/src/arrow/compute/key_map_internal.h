@@ -26,8 +26,7 @@
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 // SwissTable is a variant of a hash table implementation.
 // This implementation is vectorized, that is: main interface methods take arrays of input
@@ -285,5 +284,4 @@ void SwissTable::insert_into_empty_slot(uint32_t slot_id, uint32_t hash,
   *ptr |= (static_cast<uint64_t>(group_id) << (groupid_bit_offset & 63));
 }
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

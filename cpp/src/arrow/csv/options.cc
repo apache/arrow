@@ -17,8 +17,7 @@
 
 #include "arrow/csv/options.h"
 
-namespace arrow {
-namespace csv {
+namespace arrow::csv {
 
 ParseOptions ParseOptions::Defaults() { return ParseOptions(); }
 
@@ -85,5 +84,4 @@ Status WriteOptions::Validate() const {
   return Status::OK();
 }
 
-}  // namespace csv
-}  // namespace arrow
+}  // namespace arrow::csv

@@ -32,8 +32,7 @@ using internal::checked_cast;
 using internal::checked_pointer_cast;
 using std::string_view;
 
-namespace compute {
-namespace internal {
+namespace compute::internal {
 
 namespace {
 
@@ -919,6 +918,5 @@ void RegisterScalarComparison(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(max_element_wise)));
 }
 
-}  // namespace internal
-}  // namespace compute
+}  // namespace compute::internal
 }  // namespace arrow

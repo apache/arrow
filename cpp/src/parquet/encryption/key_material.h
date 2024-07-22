@@ -21,13 +21,9 @@
 
 #include "parquet/platform.h"
 
-namespace arrow {
-namespace json {
-namespace internal {
+namespace arrow::json::internal {
 class ObjectParser;
-}  // namespace internal
-}  // namespace json
-}  // namespace arrow
+}  // namespace arrow::json::internal
 
 namespace parquet::encryption {
 

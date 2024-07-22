@@ -29,10 +29,7 @@
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
 
-namespace arrow {
-namespace flight {
-namespace sql {
-namespace example {
+namespace arrow::flight::sql::example {
 
 std::shared_ptr<Schema> SqliteTablesWithSchemaBatchReader::schema() const {
   return SqlSchema::GetTablesSchemaWithIncludedSchema();
@@ -107,7 +104,4 @@ Status SqliteTablesWithSchemaBatchReader::ReadNext(std::shared_ptr<RecordBatch>*
   return Status::OK();
 }
 
-}  // namespace example
-}  // namespace sql
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight::sql::example

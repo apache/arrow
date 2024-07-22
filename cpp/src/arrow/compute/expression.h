@@ -30,8 +30,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/small_vector.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 /// \defgroup expression-core Expressions to describe data transformations
 ///
@@ -291,5 +290,4 @@ ARROW_EXPORT Expression not_(Expression operand);
 
 /// @}
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

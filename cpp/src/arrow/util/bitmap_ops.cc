@@ -31,8 +31,7 @@
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/logging.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length) {
   constexpr int64_t pop_len = sizeof(uint64_t) * 8;
@@ -474,5 +473,4 @@ void BitmapOrNot(const uint8_t* left, int64_t left_offset, const uint8_t* right,
   BitmapOp<OrNotOp>(left, left_offset, right, right_offset, length, out_offset, out);
 }
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

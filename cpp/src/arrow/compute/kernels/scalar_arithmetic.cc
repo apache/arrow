@@ -45,8 +45,7 @@ using internal::MultiplyWithOverflow;
 using internal::NegateWithOverflow;
 using internal::SubtractWithOverflow;
 
-namespace compute {
-namespace internal {
+namespace compute::internal {
 
 using applicator::ScalarBinary;
 using applicator::ScalarBinaryEqualTypes;
@@ -1753,6 +1752,5 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(logb_checked)));
 }
 
-}  // namespace internal
-}  // namespace compute
+}  // namespace compute::internal
 }  // namespace arrow

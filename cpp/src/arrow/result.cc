@@ -21,9 +21,7 @@
 
 #include "arrow/util/logging.h"
 
-namespace arrow {
-
-namespace internal {
+namespace arrow::internal {
 
 void DieWithMessage(const std::string& msg) { ARROW_LOG(FATAL) << msg; }
 
@@ -31,6 +29,4 @@ void InvalidValueOrDie(const Status& st) {
   DieWithMessage(std::string("ValueOrDie called on an error: ") + st.ToString());
 }
 
-}  // namespace internal
-
-}  // namespace arrow
+}  // namespace arrow::internal

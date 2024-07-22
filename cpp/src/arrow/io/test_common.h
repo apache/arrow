@@ -25,8 +25,7 @@
 #include "arrow/testing/visibility.h"
 #include "arrow/type_fwd.h"
 
-namespace arrow {
-namespace io {
+namespace arrow::io {
 
 class MemoryMappedFile;
 
@@ -63,5 +62,4 @@ class ARROW_TESTING_EXPORT TrackedRandomAccessFile : public io::RandomAccessFile
   static std::unique_ptr<TrackedRandomAccessFile> Make(io::RandomAccessFile* target);
 };
 
-}  // namespace io
-}  // namespace arrow
+}  // namespace arrow::io

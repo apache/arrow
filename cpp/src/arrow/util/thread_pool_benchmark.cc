@@ -32,8 +32,7 @@
 #include "arrow/util/task_group.h"
 #include "arrow/util/thread_pool.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 struct Workload {
   explicit Workload(int32_t size) : size_(size), data_(kDataSize) {
@@ -244,5 +243,4 @@ BENCHMARK(ThreadPoolSpawn)->Apply(ThreadPoolSpawn_Customize);
 BENCHMARK(ThreadedTaskGroup)->Apply(ThreadPoolSpawn_Customize);
 BENCHMARK(ThreadPoolSubmit)->Apply(ThreadPoolSpawn_Customize);
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

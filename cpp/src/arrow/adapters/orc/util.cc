@@ -48,8 +48,7 @@ using internal::checked_cast;
 using internal::checked_pointer_cast;
 using internal::ToChars;
 
-namespace adapters {
-namespace orc {
+namespace adapters::orc {
 
 namespace {
 
@@ -1228,6 +1227,5 @@ int GetOrcMajorVersion() {
   return std::stoi(major_version);
 }
 
-}  // namespace orc
-}  // namespace adapters
+}  // namespace adapters::orc
 }  // namespace arrow

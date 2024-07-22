@@ -44,8 +44,7 @@ class ByteBuffer;
 
 }  // namespace grpc
 
-namespace arrow {
-namespace flight {
+namespace arrow::flight {
 
 namespace protocol {
 
@@ -53,8 +52,7 @@ class FlightData;
 
 }  // namespace protocol
 
-namespace transport {
-namespace grpc {
+namespace transport::grpc {
 // Those two functions are defined in serialization_internal.cc
 
 // Write FlightData to a grpc::ByteBuffer without extra copying
@@ -65,10 +63,8 @@ namespace grpc {
 // protobuf without copying
 ::grpc::Status FlightDataDeserialize(::grpc::ByteBuffer* buffer,
                                      arrow::flight::internal::FlightData* out);
-}  // namespace grpc
-}  // namespace transport
-}  // namespace flight
-}  // namespace arrow
+}  // namespace transport::grpc
+}  // namespace arrow::flight
 
 namespace grpc {
 

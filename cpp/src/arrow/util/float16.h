@@ -29,8 +29,7 @@
 #include "arrow/util/ubsan.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace util {
+namespace arrow::util {
 
 /// \brief Class representing an IEEE half-precision float, encoded as a `uint16_t`
 ///
@@ -185,8 +184,7 @@ class ARROW_EXPORT Float16 {
 
 static_assert(std::is_trivial_v<Float16>);
 
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util
 
 // TODO: Not complete
 template <>

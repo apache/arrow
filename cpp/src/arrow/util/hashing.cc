@@ -20,8 +20,7 @@
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/macros.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 namespace {
 
@@ -82,5 +81,4 @@ hash_t ComputeBitmapHash(const uint8_t* bitmap, hash_t seed, int64_t bits_offset
   return MurmurHashBitmap64(bitmap, seed, bits_offset, num_bits);
 }
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

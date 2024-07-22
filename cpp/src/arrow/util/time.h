@@ -24,8 +24,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace util {
+namespace arrow::util {
 
 enum DivideOrMultiply {
   MULTIPLY,
@@ -79,5 +78,4 @@ inline int64_t CastSecondsToUnit(TimeUnit::type unit, int64_t seconds) {
   return VisitDuration(unit, CastSecondsToUnitImpl{}, seconds);
 }
 
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util

@@ -21,9 +21,7 @@
 
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace util {
-namespace tracing {
+namespace arrow::util::tracing {
 
 class ARROW_EXPORT SpanDetails {
  public:
@@ -40,6 +38,4 @@ class ARROW_EXPORT Span {
   std::unique_ptr<SpanDetails> details;
 };
 
-}  // namespace tracing
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util::tracing

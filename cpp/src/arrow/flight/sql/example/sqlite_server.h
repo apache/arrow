@@ -28,10 +28,7 @@
 #include "arrow/flight/sql/server.h"
 #include "arrow/result.h"
 
-namespace arrow {
-namespace flight {
-namespace sql {
-namespace example {
+namespace arrow::flight::sql::example {
 
 /// \brief Convert a column type to a ArrowType.
 /// \param sqlite_type the sqlite type.
@@ -155,7 +152,4 @@ class SQLiteFlightSqlServer : public FlightSqlServerBase {
   explicit SQLiteFlightSqlServer(std::shared_ptr<Impl> impl);
 };
 
-}  // namespace example
-}  // namespace sql
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight::sql::example

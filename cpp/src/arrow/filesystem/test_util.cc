@@ -39,8 +39,7 @@
 
 using ::testing::ElementsAre;
 
-namespace arrow {
-namespace fs {
+namespace arrow::fs {
 
 namespace {
 
@@ -1226,5 +1225,4 @@ GENERIC_FS_TEST_DEFINE(TestSpecialChars)
 
 #undef GENERIC_FS_TEST_DEFINE
 
-}  // namespace fs
-}  // namespace arrow
+}  // namespace arrow::fs

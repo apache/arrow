@@ -26,8 +26,7 @@
 #include "arrow/util/type_fwd.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace csv {
+namespace arrow::csv {
 
 class BlockParser;
 struct ConvertOptions;
@@ -60,5 +59,4 @@ class ARROW_EXPORT ColumnDecoder {
   ColumnDecoder() = default;
 };
 
-}  // namespace csv
-}  // namespace arrow
+}  // namespace arrow::csv

@@ -20,8 +20,7 @@
 #include "arrow/compute/key_hash_internal.h"
 #include "arrow/util/bit_util.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 inline __m256i Hashing32::Avalanche_avx2(__m256i hash) {
   hash = _mm256_xor_si256(hash, _mm256_srli_epi32(hash, 15));
@@ -313,5 +312,4 @@ uint32_t Hashing32::HashVarLen_avx2(bool combine_hashes, uint32_t num_rows,
   }
 }
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

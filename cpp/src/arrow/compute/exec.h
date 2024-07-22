@@ -39,8 +39,7 @@
 #include "arrow/util/type_fwd.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 // It seems like 64K might be a good default chunksize to use for execution
 // based on the experience of other query processing systems. The current
@@ -485,5 +484,4 @@ Result<std::shared_ptr<FunctionExecutor>> GetFunctionExecutor(
 
 /// @}
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

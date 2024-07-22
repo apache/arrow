@@ -32,9 +32,7 @@
 #include "arrow/flight/sql/visibility.h"
 #include "arrow/flight/types.h"
 
-namespace arrow {
-namespace flight {
-namespace sql {
+namespace arrow::flight::sql {
 
 /// \defgroup flight-sql-protocol-messages Flight SQL Protocol Messages
 /// Simple struct wrappers for various protocol messages, used to
@@ -797,6 +795,4 @@ class ARROW_FLIGHT_SQL_EXPORT SqlSchema {
   /// \return The default schema template.
   static const std::shared_ptr<Schema>& GetSqlInfoSchema();
 };
-}  // namespace sql
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight::sql

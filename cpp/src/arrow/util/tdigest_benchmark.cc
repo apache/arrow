@@ -21,8 +21,7 @@
 #include "arrow/testing/random.h"
 #include "arrow/util/tdigest.h"
 
-namespace arrow {
-namespace util {
+namespace arrow::util {
 
 static constexpr uint32_t kDelta = 100;
 static constexpr uint32_t kBufferSize = 500;
@@ -45,5 +44,4 @@ static void BenchmarkTDigest(benchmark::State& state) {
 
 BENCHMARK(BenchmarkTDigest)->Arg(1 << 12)->Arg(1 << 16)->Arg(1 << 20);
 
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util

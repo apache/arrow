@@ -17,12 +17,10 @@
 
 #include "arrow/json/options.h"
 
-namespace arrow {
-namespace json {
+namespace arrow::json {
 
 ParseOptions ParseOptions::Defaults() { return ParseOptions(); }
 
 ReadOptions ReadOptions::Defaults() { return ReadOptions(); }
 
-}  // namespace json
-}  // namespace arrow
+}  // namespace arrow::json

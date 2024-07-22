@@ -27,8 +27,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/ree_util.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 namespace {
 
@@ -400,5 +399,4 @@ INSTANTIATE_TEST_SUITE_P(EncodeArrayTests, TestRunEndEncodeDecode,
                                             ::testing::Values(int16(), int32(),
                                                               int64())));
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

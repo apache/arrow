@@ -26,8 +26,7 @@ namespace arrow {
 
 using internal::FirstTimeBitmapWriter;
 
-namespace compute {
-namespace internal {
+namespace compute::internal {
 
 // extract the null bitmap from the leading nullity bytes of encoded keys
 Status KeyEncoder::DecodeNulls(MemoryPool* pool, int32_t length, uint8_t** encoded_bytes,
@@ -381,6 +380,5 @@ Result<ExecBatch> RowEncoder::Decode(int64_t num_rows, const int32_t* row_ids) {
   return out;
 }
 
-}  // namespace internal
-}  // namespace compute
+}  // namespace compute::internal
 }  // namespace arrow

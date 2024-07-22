@@ -37,9 +37,7 @@
 #define LZ4F_HEADER_SIZE_MAX 19
 #endif
 
-namespace arrow {
-namespace util {
-namespace internal {
+namespace arrow::util::internal {
 
 namespace {
 
@@ -541,7 +539,4 @@ std::unique_ptr<Codec> MakeLz4RawCodec(int compression_level) {
   return std::make_unique<Lz4Codec>(compression_level);
 }
 
-}  // namespace internal
-
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util::internal

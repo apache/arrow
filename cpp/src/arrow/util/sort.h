@@ -24,8 +24,7 @@
 #include <utility>
 #include <vector>
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 template <typename T, typename Cmp = std::less<T>>
 std::vector<int64_t> ArgSort(const std::vector<T>& values, Cmp&& cmp = {}) {
@@ -74,5 +73,4 @@ size_t Permute(const std::vector<int64_t>& indices, std::vector<T>* values) {
   return cycle_count;
 }
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

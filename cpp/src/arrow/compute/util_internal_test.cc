@@ -21,8 +21,7 @@
 #include "arrow/compute/util_internal.h"
 #include "arrow/testing/gtest_util.h"
 
-namespace arrow {
-namespace util {
+namespace arrow::util {
 
 class TempVectorStackTest : public ::testing::Test {
  protected:
@@ -48,5 +47,4 @@ TEST_F(TempVectorStackTest, BufferCapacitySufficiency) {
   }
 }
 
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util

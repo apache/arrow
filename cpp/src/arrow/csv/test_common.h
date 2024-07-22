@@ -25,8 +25,7 @@
 #include "arrow/csv/parser.h"
 #include "arrow/testing/visibility.h"
 
-namespace arrow {
-namespace csv {
+namespace arrow::csv {
 
 ARROW_TESTING_EXPORT
 std::string MakeCSVData(std::vector<std::string> lines);
@@ -51,5 +50,4 @@ ARROW_TESTING_EXPORT
 Result<std::shared_ptr<Buffer>> MakeSampleCsvBuffer(
     size_t num_rows, std::function<bool(size_t row_num)> is_valid = {});
 
-}  // namespace csv
-}  // namespace arrow
+}  // namespace arrow::csv

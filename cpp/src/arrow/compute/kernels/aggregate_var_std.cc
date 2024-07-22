@@ -24,9 +24,7 @@
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/int128_internal.h"
 
-namespace arrow {
-namespace compute {
-namespace internal {
+namespace arrow::compute::internal {
 
 namespace {
 
@@ -314,6 +312,4 @@ void RegisterScalarAggregateVariance(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(AddStddevAggKernels()));
 }
 
-}  // namespace internal
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute::internal

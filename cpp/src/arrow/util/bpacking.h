@@ -22,13 +22,11 @@
 
 #include <stdint.h>
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 ARROW_EXPORT
 int unpack32(const uint32_t* in, uint32_t* out, int batch_size, int num_bits);
 ARROW_EXPORT
 int unpack64(const uint8_t* in, uint64_t* out, int batch_size, int num_bits);
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

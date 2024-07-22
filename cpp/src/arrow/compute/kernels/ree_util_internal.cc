@@ -27,10 +27,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/logging.h"
 
-namespace arrow {
-namespace compute {
-namespace internal {
-namespace ree_util {
+namespace arrow::compute::internal::ree_util {
 
 Result<std::shared_ptr<Buffer>> AllocateValuesBuffer(int64_t length, const DataType& type,
                                                      MemoryPool* pool,
@@ -136,7 +133,4 @@ Result<std::shared_ptr<ArrayData>> MakeNullREEArray(
                          /*null_count=*/0);
 }
 
-}  // namespace ree_util
-}  // namespace internal
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute::internal::ree_util

@@ -23,8 +23,7 @@
 #include "arrow/csv/options.h"
 #include "arrow/util/logging.h"
 
-namespace arrow {
-namespace csv {
+namespace arrow::csv {
 
 enum class InferKind {
   Null,
@@ -161,5 +160,4 @@ class InferStatus {
   const ConvertOptions& options_;
 };
 
-}  // namespace csv
-}  // namespace arrow
+}  // namespace arrow::csv

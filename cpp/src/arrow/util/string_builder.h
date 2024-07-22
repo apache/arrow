@@ -24,8 +24,7 @@
 
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace util {
+namespace arrow::util {
 
 namespace detail {
 
@@ -80,5 +79,4 @@ class ToStringOstreamable {
   }
 };
 
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util

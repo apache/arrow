@@ -25,8 +25,7 @@
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 class ExecContext;
 
@@ -705,5 +704,4 @@ Result<std::shared_ptr<Array>> PairwiseDiff(const Array& array,
                                             bool check_overflow = false,
                                             ExecContext* ctx = NULLPTR);
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

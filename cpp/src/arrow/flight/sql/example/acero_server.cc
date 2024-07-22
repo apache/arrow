@@ -29,10 +29,7 @@
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
 
-namespace arrow {
-namespace flight {
-namespace sql {
-namespace acero_example {
+namespace arrow::flight::sql::acero_example {
 
 namespace {
 
@@ -186,7 +183,4 @@ arrow::Result<std::unique_ptr<FlightSqlServerBase>> MakeAceroServer() {
   return std::make_unique<AceroFlightSqlServer>();
 }
 
-}  // namespace acero_example
-}  // namespace sql
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight::sql::acero_example

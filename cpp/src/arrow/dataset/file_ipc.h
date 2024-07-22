@@ -29,8 +29,7 @@
 #include "arrow/ipc/type_fwd.h"
 #include "arrow/result.h"
 
-namespace arrow {
-namespace dataset {
+namespace arrow::dataset {
 
 /// \addtogroup dataset-file-formats
 ///
@@ -119,5 +118,4 @@ class ARROW_DS_EXPORT IpcFileWriter : public FileWriter {
 
 /// @}
 
-}  // namespace dataset
-}  // namespace arrow
+}  // namespace arrow::dataset

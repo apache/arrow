@@ -20,10 +20,7 @@
 #include "arrow/flight/sql/types.h"
 #include "arrow/flight/sql/visibility.h"
 
-namespace arrow {
-namespace flight {
-namespace sql {
-namespace internal {
+namespace arrow::flight::sql::internal {
 
 /// \brief Auxiliary class used to populate GetSqlInfo's DenseUnionArray with different
 /// data types.
@@ -82,7 +79,4 @@ class ARROW_FLIGHT_SQL_EXPORT SqlInfoResultAppender {
   };
 };
 
-}  // namespace internal
-}  // namespace sql
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight::sql::internal

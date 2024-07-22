@@ -33,8 +33,7 @@ static ARROW_NOINLINE bool ValidateAsciiNoInline(const uint8_t* data, int64_t si
   return ::arrow::util::ValidateAscii(data, size);
 }
 
-namespace arrow {
-namespace util {
+namespace arrow::util {
 
 static const char* tiny_valid_ascii = "characters";
 static const char* tiny_valid_non_ascii = "caractères";
@@ -146,5 +145,4 @@ BENCHMARK(ValidateLargeAscii);
 BENCHMARK(ValidateLargeAlmostAscii);
 BENCHMARK(ValidateLargeNonAscii);
 
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util

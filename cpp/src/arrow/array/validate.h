@@ -21,8 +21,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 // Internal functions implementing Array::Validate() and friends.
 
@@ -52,5 +51,4 @@ Status ValidateUTF8(const Array& array);
 ARROW_EXPORT
 Status ValidateUTF8(const ArrayData& data);
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

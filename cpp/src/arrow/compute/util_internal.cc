@@ -24,8 +24,7 @@
 #include <sanitizer/asan_interface.h>
 #endif
 
-namespace arrow {
-namespace util {
+namespace arrow::util {
 
 TempVectorStack::~TempVectorStack() {
 #ifdef ADDRESS_SANITIZER
@@ -96,5 +95,4 @@ void TempVectorStack::release(int id, uint32_t num_bytes) {
   --num_vectors_;
 }
 
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util

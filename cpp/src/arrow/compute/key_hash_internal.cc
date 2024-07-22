@@ -26,8 +26,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/ubsan.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 inline uint32_t Hashing32::Round(uint32_t acc, uint32_t input) {
   acc += input * PRIME32_2;
@@ -913,5 +912,4 @@ Status Hashing64::HashBatch(const ExecBatch& key_batch, uint64_t* hashes,
   return Status::OK();
 }
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

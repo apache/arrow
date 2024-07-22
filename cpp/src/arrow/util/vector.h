@@ -26,8 +26,7 @@
 #include "arrow/util/functional.h"
 #include "arrow/util/logging.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 template <typename T>
 std::vector<T> DeleteVectorElement(const std::vector<T>& values, size_t index) {
@@ -168,5 +167,4 @@ Result<std::vector<T>> UnwrapOrRaise(const std::vector<Result<T>>& results) {
   return out;
 }
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

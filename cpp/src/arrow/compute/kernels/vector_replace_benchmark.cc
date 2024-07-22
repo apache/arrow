@@ -24,8 +24,7 @@
 
 #include "arrow/compute/api_vector.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 using ::arrow::internal::checked_pointer_cast;
 
@@ -86,5 +85,4 @@ BENCHMARK(ReplaceWithMaskLowSelectivityBench)->Args({kLongLength, 99});
 BENCHMARK(ReplaceWithMaskHighSelectivityBench)->Args({kLongLength, 0});
 BENCHMARK(ReplaceWithMaskHighSelectivityBench)->Args({kLongLength, 99});
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

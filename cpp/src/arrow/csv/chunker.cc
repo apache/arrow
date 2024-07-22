@@ -27,8 +27,7 @@
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 
-namespace arrow {
-namespace csv {
+namespace arrow::csv {
 
 namespace {
 
@@ -397,5 +396,4 @@ std::unique_ptr<Chunker> MakeChunker(const ParseOptions& options) {
   return std::make_unique<Chunker>(std::move(delimiter));
 }
 
-}  // namespace csv
-}  // namespace arrow
+}  // namespace arrow::csv

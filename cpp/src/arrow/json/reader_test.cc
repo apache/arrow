@@ -34,8 +34,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/vector.h"
 
-namespace arrow {
-namespace json {
+namespace arrow::json {
 
 using std::string_view;
 
@@ -1010,5 +1009,4 @@ TEST_F(AsyncStreamingReaderTest, StressSharedIoAndCpuExecutor) {
   AssertBatchSequenceEquals(expected.batches, batches);
 }
 
-}  // namespace json
-}  // namespace arrow
+}  // namespace arrow::json

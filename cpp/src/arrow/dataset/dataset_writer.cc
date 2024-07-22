@@ -40,8 +40,7 @@ namespace arrow {
 using internal::Executor;
 using internal::ToChars;
 
-namespace dataset {
-namespace internal {
+namespace dataset::internal {
 
 namespace {
 
@@ -727,6 +726,5 @@ void DatasetWriter::WriteRecordBatch(std::shared_ptr<RecordBatch> batch,
 
 void DatasetWriter::Finish() { impl_->Finish(); }
 
-}  // namespace internal
-}  // namespace dataset
+}  // namespace dataset::internal
 }  // namespace arrow

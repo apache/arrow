@@ -20,9 +20,7 @@
 #include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/scalar.h"
 
-namespace arrow {
-namespace compute {
-namespace internal {
+namespace arrow::compute::internal {
 
 namespace {
 Status CastToExtension(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
@@ -70,6 +68,4 @@ std::vector<std::shared_ptr<CastFunction>> GetExtensionCasts() {
   return {func};
 }
 
-}  // namespace internal
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute::internal

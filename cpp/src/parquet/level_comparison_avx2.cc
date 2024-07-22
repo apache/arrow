@@ -19,8 +19,7 @@
 #include "parquet/level_comparison_inc.h"
 #undef PARQUET_IMPL_NAMESPACE
 
-namespace parquet {
-namespace internal {
+namespace parquet::internal {
 
 uint64_t GreaterThanBitmapAvx2(const int16_t* levels, int64_t num_levels, int16_t rhs) {
   return avx2::GreaterThanBitmapImpl(levels, num_levels, rhs);
@@ -30,5 +29,4 @@ MinMax FindMinMaxAvx2(const int16_t* levels, int64_t num_levels) {
   return avx2::FindMinMaxImpl(levels, num_levels);
 }
 
-}  // namespace internal
-}  // namespace parquet
+}  // namespace parquet::internal

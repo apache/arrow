@@ -15,12 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-namespace arrow {
-namespace json {
+namespace arrow::json {
 
 class TableReader;
 struct ReadOptions;
 struct ParseOptions;
 
-}  // namespace json
-}  // namespace arrow
+}  // namespace arrow::json

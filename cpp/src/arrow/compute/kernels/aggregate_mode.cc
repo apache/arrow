@@ -28,9 +28,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 
-namespace arrow {
-namespace compute {
-namespace internal {
+namespace arrow::compute::internal {
 
 namespace {
 
@@ -510,6 +508,4 @@ void RegisterScalarAggregateMode(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
-}  // namespace internal
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute::internal

@@ -54,10 +54,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/logging.h"
 
-namespace arrow {
-namespace flight {
-namespace transport {
-namespace grpc {
+namespace arrow::flight::transport::grpc {
 
 namespace pb = arrow::flight::protocol;
 
@@ -481,7 +478,4 @@ bool ReadPayload(::grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>* read
 #pragma GCC diagnostic pop
 #endif
 
-}  // namespace grpc
-}  // namespace transport
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight::transport::grpc

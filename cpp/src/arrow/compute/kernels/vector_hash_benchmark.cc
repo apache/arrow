@@ -29,8 +29,7 @@
 
 #include "arrow/compute/api.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 static void BuildDictionary(benchmark::State& state) {  // NOLINT non-const reference
   const int64_t iterations = 1024;
@@ -255,5 +254,4 @@ void UInt8SetArgs(benchmark::internal::Benchmark* bench) {
 
 BENCHMARK(UniqueUInt8)->Apply(UInt8SetArgs);
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

@@ -79,8 +79,7 @@ using compute::RowSegmenter;
 using compute::ScalarAggregateKernel;
 using compute::Segment;
 
-namespace acero {
-namespace aggregate {
+namespace acero::aggregate {
 
 template <typename KernelType>
 struct AggregateNodeArgs {
@@ -353,6 +352,5 @@ class GroupByNode : public ExecNode, public TracedNode {
   ExecBatch out_data_;
 };
 
-}  // namespace aggregate
-}  // namespace acero
+}  // namespace acero::aggregate
 }  // namespace arrow

@@ -24,8 +24,7 @@
 
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 struct ARROW_EXPORT AtForkHandler {
   using CallbackBefore = std::function<std::any()>;
@@ -55,5 +54,4 @@ struct ARROW_EXPORT AtForkHandler {
 ARROW_EXPORT
 void RegisterAtFork(std::weak_ptr<AtForkHandler>);
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal
