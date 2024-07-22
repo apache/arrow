@@ -280,7 +280,7 @@ class TestPythonIntegration(unittest.TestCase):
     def test_listview_array(self):
         self.round_trip_array(lambda: pa.array(
             [[], [0], [1, 2], [4, 5, 6]], pa.list_view(pa.int64())
-            # disabled check_metadata since the list internal field name ("item")
+            # disabled check_metadata since the listview internal field name ("item")
             # is not preserved during round trips (it becomes "$data$").
         ), check_metadata=False)
 
