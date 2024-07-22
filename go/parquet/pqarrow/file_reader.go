@@ -375,6 +375,12 @@ func (fr *FileReader) ReadRowGroups(ctx context.Context, indices, rowGroups []in
 		data.data.Release()
 	}
 
+	if ctxErr := ctx.Err(); err == nil && ctxErr != nil {
+		// if the context is in error, but we haven't set an error yet, then it means that the parent context
+		// was cancelled. In this case, we should exit early as some columns may not have been read yet.
+		err = ctxErr
+	}
+
 	if err != nil {
 		// if we encountered an error, consume any waiting data on the channel
 		// so the goroutines don't leak and so memory can get cleaned up. we already
