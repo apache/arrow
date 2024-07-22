@@ -92,6 +92,7 @@ AesDecryptor::AesDecryptor(ParquetCipher::type alg_id, int key_len, bool metadat
 std::shared_ptr<AesDecryptor> AesDecryptor::Make(
     ParquetCipher::type alg_id, int key_len, bool metadata,
     std::vector<std::weak_ptr<AesDecryptor>>* all_decryptors) {
+  ThrowOpenSSLRequiredException();
   return NULLPTR;
 }
 

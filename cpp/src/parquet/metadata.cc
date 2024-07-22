@@ -654,9 +654,6 @@ class FileMetaData::FileMetaDataImpl {
     auto aes_encryptor = encryption::AesEncryptor::Make(file_decryptor_->algorithm(),
                                                         static_cast<int>(key.size()),
                                                         true, false /*write_length*/);
-    if (ARROW_PREDICT_FALSE(aes_encryptor == nullptr)) {
-      throw ParquetException("Could not create AES encryptor for signature verification");
-    }
 
     std::shared_ptr<Buffer> encrypted_buffer = AllocateBuffer(
         file_decryptor_->pool(), aes_encryptor->CiphertextLength(serialized_len));
