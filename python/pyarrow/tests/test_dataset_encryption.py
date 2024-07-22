@@ -35,6 +35,7 @@ except ImportError:
 try:
     from pyarrow.tests.parquet.encryption import InMemoryKmsClient
     import pyarrow.parquet.encryption as pe
+    from pyarrow._dataset_parquet import ParquetDatasetFactory  # noqa
 except ImportError:
     encryption_unavailable = True
 
@@ -253,12 +254,12 @@ def test_dataset_metadata_encryption_decryption(tempdir):
     mockfs = fs._MockFileSystem()
     mockfs.create_dir(path)
 
-    partitioning = ds.partitioning(
-        schema=pa.schema([
-            pa.field("year", pa.int64())
-        ]),
-        flavor="hive"
-    )
+    # partitioning = ds.partitioning(
+    #     schema=pa.schema([
+    #         pa.field("year", pa.int64())
+    #     ]),
+    #     flavor="hive"
+    # )
 
     ds.write_dataset(
         data=table,
@@ -287,7 +288,7 @@ def test_dataset_metadata_encryption_decryption(tempdir):
     pq.write_to_dataset(
         table,
         path,
-        partitioning=partitioning,
+        # partitioning=partitioning,
         encryption_config=parquet_encryption_cfg,
         metadata_collector=metadata_collector,
         filesystem=mockfs
@@ -298,36 +299,31 @@ def test_dataset_metadata_encryption_decryption(tempdir):
     decryption_properties = crypto_factory.file_decryption_properties(
         kms_connection_config, decryption_config)
 
-    metadata_schema = pa.schema(
-        field
-        for field in table.schema
-        if field.name != "year"
-    )
     pq.write_metadata(
-        metadata_schema,
+        table.schema,
         metadata_file,
-        metadata_collector,
+        metadata_collector=metadata_collector,
         encryption_properties=encryption_properties,
         filesystem=mockfs,
     )
 
-    dataset = ds.parquet_dataset(
-        metadata_file,
-        format=pformat,
-        partitioning=partitioning,
-        filesystem=mockfs
+    pq_scan_opts = ds.ParquetFragmentScanOptions(
+        decryption_config=parquet_decryption_cfg,
+        decryption_properties=decryption_properties
     )
 
-    new_table = dataset.to_table()
+    pformat = pa.dataset.ParquetFileFormat(default_fragment_scan_options=pq_scan_opts)
+    factory = ParquetDatasetFactory(metadata_file, filesystem=mockfs, format=pformat)
+    dataset = factory.finish(table.schema)
 
-    for field in table.schema:
-        # Schema order is not persevered
-        assert field == new_table.schema.field_by_name(field.name)
+    # TODO: This still fails "OSError: Failed decryption finalization"
+    new_table = dataset.to_table()
+    assert table.equals(new_table)
 
     metadata = pq.read_metadata(
         metadata_file, decryption_properties=decryption_properties, filesystem=mockfs)
 
-    assert metadata.num_columns == 2
+    assert metadata.num_columns == 3
     assert metadata.num_rows == 6
-    assert metadata.num_row_groups == 4
-    assert metadata.schema.to_arrow_schema() == metadata_schema
+    assert metadata.num_row_groups == 1
+    assert metadata.schema.to_arrow_schema() == table.schema

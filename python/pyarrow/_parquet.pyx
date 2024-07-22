@@ -1061,7 +1061,10 @@ cdef class FileMetaData(_Weakrefable):
         cdef:
             shared_ptr[COutputStream] sink
             c_string c_where
-            shared_ptr[CFileEncryptionProperties] properties
+            shared_ptr[CFileEncryptionProperties] c_properties
+            # Builder* encryption(
+            #     shared_ptr[CFileEncryptionProperties]
+            #     file_encryption_properties)
 
         try:
             where = _stringify_path(where)
@@ -1073,12 +1076,12 @@ cdef class FileMetaData(_Weakrefable):
                 sink = GetResultValue(FileOutputStream.Open(c_where))
 
         if encryption_properties is not None:
-            properties = (<FileEncryptionProperties> encryption_properties).unwrap()
+            c_properties = (<FileEncryptionProperties> encryption_properties).unwrap()
 
         with nogil:
             if encryption_properties is not None:
                 check_status(
-                    WriteEncryptedMetadataFile(deref(self._metadata), sink.get(), properties))
+                    WriteEncryptedMetadataFile(deref(self._metadata), sink, c_properties))
             else:
                 check_status(WriteMetaDataFile(deref(self._metadata), sink.get()))
 
