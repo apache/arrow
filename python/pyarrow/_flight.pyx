@@ -973,8 +973,8 @@ cdef class FlightInfo(_Weakrefable):
                 f"endpoints={self.endpoints} "
                 f"total_records={self.total_records} "
                 f"total_bytes={self.total_bytes} "
-                f"ordered={self.ordered} "
-                f"app_metadata={self.app_metadata}>")
+                f"ordered={'true' if self.ordered else 'false'} "
+                f"app_metadata='{self.app_metadata.hex()}'>")
 
 
 cdef class FlightStreamChunk(_Weakrefable):

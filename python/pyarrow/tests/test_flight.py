@@ -888,8 +888,8 @@ def test_repr():
         "endpoints=[] "
         "total_records=1 "
         "total_bytes=42 "
-        "ordered=True "
-        "app_metadata=b'test app metadata'>")
+        "ordered=true "
+        "app_metadata='7465737420617070206d65746164617461'>")
     location_repr = "<pyarrow.flight.Location b'grpc+tcp://localhost:1234'>"
     result_repr = "<pyarrow.flight.Result body=(3 bytes)>"
     schema_result_repr = "<pyarrow.flight.SchemaResult schema=()>"
