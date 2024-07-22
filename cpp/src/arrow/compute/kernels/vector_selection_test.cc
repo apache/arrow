@@ -1130,6 +1130,7 @@ TEST(TestFilterMetaFunction, ArityChecking) {
 //
 //   TakeXA = {TakeAAA, TakeCAC},
 //   TakeXX = {TakeAAA, TakeACC, TakeCAC, TakeCCC}
+namespace {
 
 Result<std::shared_ptr<Array>> TakeAAA(const Array& values, const Array& indices) {
   ARROW_ASSIGN_OR_RAISE(Datum out, Take(Datum(values), Datum(indices)));
@@ -1142,10 +1143,7 @@ Result<std::shared_ptr<Array>> TakeAAA(
   return TakeAAA(*ArrayFromJSON(type, values), *ArrayFromJSON(index_type, indices));
 }
 
-Result<Datum> TakeACC(std::shared_ptr<Array> values,
-                      std::shared_ptr<ChunkedArray> indices) {
-  return Take(Datum{std::move(values)}, Datum{std::move(indices)});
-}
+// TakeACC is never tested directly, so it is not defined here
 
 Result<Datum> TakeCAC(std::shared_ptr<ChunkedArray> values,
                       std::shared_ptr<Array> indices) {
@@ -1445,6 +1443,8 @@ template <>
 uint64_t GetMaxIndex(int64_t values_length) {
   return static_cast<uint64_t>(values_length - 1);
 }
+
+}  // namespace
 
 class TestTakeKernel : public ::testing::Test {
  private:
