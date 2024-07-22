@@ -16,7 +16,7 @@
 # under the License.
 
 if(PARQUET_BUILD_EXECUTABLES)
-  set(PARQUET_TOOLS parquet-dump-schema parquet-reader parquet-scan)
+  set(PARQUET_TOOLS parquet-dump-footer parquet-dump-schema parquet-reader parquet-scan)
 
   foreach(TOOL ${PARQUET_TOOLS})
     string(REGEX REPLACE "-" "_" TOOL_SOURCE ${TOOL})
@@ -31,6 +31,7 @@ if(PARQUET_BUILD_EXECUTABLES)
     install(TARGETS ${TOOL} ${INSTALL_IS_OPTIONAL}
             RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
   endforeach(TOOL)
+  target_link_libraries(parquet-dump-footer ${ARROW_LIBRARIES})
 
   add_dependencies(parquet ${PARQUET_TOOLS})
 endif()
