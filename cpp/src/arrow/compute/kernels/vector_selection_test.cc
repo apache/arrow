@@ -1505,6 +1505,10 @@ TEST_F(TestTakeKernel, InvalidIndexType) {
   std::shared_ptr<Array> arr;
   ASSERT_RAISES(NotImplemented,
                 TakeAAA(null(), kNull3, "[0.0, 1.0, 0.1]", float32()).Value(&arr));
+  Datum chunked_arr;
+  ASSERT_RAISES(NotImplemented,
+                TakeCAC(null(), {kNull3, kNull3}, "[0.0, 1.0, 0.1]", float32())
+                    .Value(&chunked_arr));
 }
 
 TEST_F(TestTakeKernel, TakeXCCEmptyIndices) {
