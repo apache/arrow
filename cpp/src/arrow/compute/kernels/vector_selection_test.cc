@@ -1136,10 +1136,9 @@ Result<std::shared_ptr<Array>> TakeAAA(const Array& values, const Array& indices
   return out.make_array();
 }
 
-Result<std::shared_ptr<Array>> TakeAAA(const std::shared_ptr<DataType>& type,
-                                       const std::string& values,
-                                       const std::shared_ptr<DataType>& index_type,
-                                       const std::string& indices) {
+Result<std::shared_ptr<Array>> TakeAAA(
+    const std::shared_ptr<DataType>& type, const std::string& values,
+    const std::string& indices, const std::shared_ptr<DataType>& index_type = int32()) {
   return TakeAAA(*ArrayFromJSON(type, values), *ArrayFromJSON(index_type, indices));
 }
 
@@ -1155,9 +1154,8 @@ Result<Datum> TakeCAC(std::shared_ptr<ChunkedArray> values,
 
 Result<Datum> TakeCAC(const std::shared_ptr<DataType>& type,
                       const std::vector<std::string>& values, const std::string& indices,
-                      const std::shared_ptr<DataType>& indices_type = int8()) {
-  return TakeCAC(ChunkedArrayFromJSON(type, values),
-                 ArrayFromJSON(indices_type, indices));
+                      const std::shared_ptr<DataType>& index_type = int8()) {
+  return TakeCAC(ChunkedArrayFromJSON(type, values), ArrayFromJSON(index_type, indices));
 }
 
 Result<Datum> TakeCCC(std::shared_ptr<ChunkedArray> values,
@@ -1173,16 +1171,17 @@ Result<Datum> TakeCCC(const std::shared_ptr<DataType>& type,
 }
 
 Result<Datum> TakeRAR(const std::shared_ptr<Schema>& schm, const std::string& batch_json,
-                      const std::shared_ptr<DataType>& index_type,
-                      const std::string& indices) {
+                      const std::string& indices,
+                      const std::shared_ptr<DataType>& index_type = int8()) {
   auto batch = RecordBatchFromJSON(schm, batch_json);
   return Take(Datum{std::move(batch)}, Datum{ArrayFromJSON(index_type, indices)});
 }
 
 Result<Datum> TakeTAT(const std::shared_ptr<Schema>& schm,
-                      const std::vector<std::string>& values,
-                      const std::string& indices) {
-  return Take(Datum{TableFromJSON(schm, values)}, Datum{ArrayFromJSON(int8(), indices)});
+                      const std::vector<std::string>& values, const std::string& indices,
+                      const std::shared_ptr<DataType>& index_type = int8()) {
+  return Take(Datum{TableFromJSON(schm, values)},
+              Datum{ArrayFromJSON(index_type, indices)});
 }
 
 Result<Datum> TakeTCT(const std::shared_ptr<Schema>& schm,
@@ -1334,7 +1333,7 @@ void CheckTakeXCC(const Datum& values, const std::vector<std::string>& indices,
 void AssertTakeRAR(const std::shared_ptr<Schema>& schm, const std::string& batch_json,
                    const std::string& indices, const std::string& expected_batch) {
   for (auto index_type : {int8(), uint32()}) {
-    ASSERT_OK_AND_ASSIGN(auto actual, TakeRAR(schm, batch_json, index_type, indices));
+    ASSERT_OK_AND_ASSIGN(auto actual, TakeRAR(schm, batch_json, indices, index_type));
     ValidateOutput(actual);
     ASSERT_BATCHES_EQUAL(*RecordBatchFromJSON(schm, expected_batch),
                          *actual.record_batch());
@@ -1461,11 +1460,11 @@ class TestTakeKernel : public ::testing::Test {
     AssertArraysEqual(*expected, *result);
   }
 
-  void TestNoValidityBitmapButUnknownNullCount(const std::shared_ptr<DataType>& type,
-                                               const std::string& values,
-                                               const std::string& indices) {
+  void TestNoValidityBitmapButUnknownNullCount(
+      const std::shared_ptr<DataType>& type, const std::string& values,
+      const std::string& indices, std::shared_ptr<DataType> index_type = int8()) {
     TestNoValidityBitmapButUnknownNullCount(ArrayFromJSON(type, values),
-                                            ArrayFromJSON(int16(), indices));
+                                            ArrayFromJSON(index_type, indices));
   }
 
   void TestNumericBasics(const std::shared_ptr<DataType>& type) {
@@ -1478,36 +1477,34 @@ class TestTakeKernel : public ::testing::Test {
     CheckTakeAAA(type, "[7, 8, 9]", "[0, 0, 0, 0, 0, 0, 2]", "[7, 7, 7, 7, 7, 7, 9]");
 
     std::shared_ptr<Array> arr;
-    ASSERT_RAISES(IndexError,
-                  TakeAAA(type, "[7, 8, 9]", int8(), "[0, 9, 0]").Value(&arr));
-    ASSERT_RAISES(IndexError,
-                  TakeAAA(type, "[7, 8, 9]", int8(), "[0, -1, 0]").Value(&arr));
+    ASSERT_RAISES(IndexError, TakeAAA(type, "[7, 8, 9]", "[0, 9, 0]").Value(&arr));
+    ASSERT_RAISES(IndexError, TakeAAA(type, "[7, 8, 9]", "[0, -1, 0]").Value(&arr));
   }
 };
 
 template <typename ArrowType>
 class TestTakeKernelTyped : public TestTakeKernel {};
 
+static const std::string kNull3 = "[null, null, null]";
+
 TEST_F(TestTakeKernel, TakeNull) {
-  std::string null3 = "[null, null, null]";
-  CheckTakeXA(null(), null3, "[0, 1, 0]", "[null, null, null]");
-  CheckTakeXA(null(), null3, "[0, 2]", "[null, null]");
+  CheckTakeXA(null(), kNull3, "[0, 1, 0]", "[null, null, null]");
+  CheckTakeXA(null(), kNull3, "[0, 2]", "[null, null]");
 
   std::shared_ptr<Array> arr;
-  ASSERT_RAISES(IndexError, TakeAAA(null(), null3, int8(), "[0, 9, 0]").Value(&arr));
-  ASSERT_RAISES(IndexError, TakeAAA(boolean(), null3, int8(), "[0, -1, 0]").Value(&arr));
+  ASSERT_RAISES(IndexError, TakeAAA(null(), kNull3, "[0, 9, 0]").Value(&arr));
+  ASSERT_RAISES(IndexError, TakeAAA(boolean(), kNull3, "[0, -1, 0]").Value(&arr));
   Datum chunked_arr;
   ASSERT_RAISES(IndexError,
-                TakeCAC(null(), {null3, null3}, "[0, 9, 0]").Value(&chunked_arr));
+                TakeCAC(null(), {kNull3, kNull3}, "[0, 9, 0]").Value(&chunked_arr));
   ASSERT_RAISES(IndexError,
-                TakeCAC(boolean(), {null3, null3}, "[0, -1, 0]").Value(&chunked_arr));
+                TakeCAC(boolean(), {kNull3, kNull3}, "[0, -1, 0]").Value(&chunked_arr));
 }
 
 TEST_F(TestTakeKernel, InvalidIndexType) {
   std::shared_ptr<Array> arr;
-  ASSERT_RAISES(
-      NotImplemented,
-      TakeAAA(null(), "[null, null, null]", float32(), "[0.0, 1.0, 0.1]").Value(&arr));
+  ASSERT_RAISES(NotImplemented,
+                TakeAAA(null(), kNull3, "[0.0, 1.0, 0.1]", float32()).Value(&arr));
 }
 
 TEST_F(TestTakeKernel, TakeXCCEmptyIndices) {
@@ -1539,12 +1536,10 @@ TEST_F(TestTakeKernel, TakeBoolean) {
   TestNoValidityBitmapButUnknownNullCount(boolean(), "[true, false, true]", "[1, 0, 0]");
 
   std::shared_ptr<Array> arr;
-  ASSERT_RAISES(
-      IndexError,
-      TakeAAA(boolean(), "[true, false, true]", int8(), "[0, 9, 0]").Value(&arr));
-  ASSERT_RAISES(
-      IndexError,
-      TakeAAA(boolean(), "[true, false, true]", int8(), "[0, -1, 0]").Value(&arr));
+  ASSERT_RAISES(IndexError,
+                TakeAAA(boolean(), "[true, false, true]", "[0, 9, 0]").Value(&arr));
+  ASSERT_RAISES(IndexError,
+                TakeAAA(boolean(), "[true, false, true]", "[0, -1, 0]").Value(&arr));
 }
 
 TEST_F(TestTakeKernel, Temporal) {
@@ -1626,11 +1621,9 @@ TYPED_TEST(TestTakeKernelWithString, TakeString) {
 
   std::shared_ptr<DataType> type = this->value_type();
   std::shared_ptr<Array> arr;
+  ASSERT_RAISES(IndexError, TakeAAA(type, R"(["a", "b", "c"])", "[0, 9, 0]").Value(&arr));
   ASSERT_RAISES(IndexError,
-                TakeAAA(type, R"(["a", "b", "c"])", int8(), "[0, 9, 0]").Value(&arr));
-  ASSERT_RAISES(
-      IndexError,
-      TakeAAA(type, R"(["a", "b", null, "ddd", "ee"])", int64(), "[2, 5]").Value(&arr));
+                TakeAAA(type, R"(["a", "b", null, "ddd", "ee"])", "[2, 5]").Value(&arr));
 }
 
 TYPED_TEST(TestTakeKernelWithString, TakeDictionary) {
@@ -1662,12 +1655,11 @@ TEST_F(TestTakeKernelFSB, TakeFixedSizeBinary) {
 
   std::shared_ptr<DataType> type = this->value_type();
   std::shared_ptr<Array> arr;
+  ASSERT_RAISES(IndexError,
+                TakeAAA(type, R"(["aaa", "bbb", "ccc"])", "[0, 9, 0]").Value(&arr));
   ASSERT_RAISES(
       IndexError,
-      TakeAAA(type, R"(["aaa", "bbb", "ccc"])", int8(), "[0, 9, 0]").Value(&arr));
-  ASSERT_RAISES(IndexError,
-                TakeAAA(type, R"(["aaa", "bbb", null, "ddd", "eee"])", int64(), "[2, 5]")
-                    .Value(&arr));
+      TakeAAA(type, R"(["aaa", "bbb", null, "ddd", "eee"])", "[2, 5]").Value(&arr));
 }
 
 class TestTakeKernelWithList : public TestTakeKernelTyped<ListType> {};
