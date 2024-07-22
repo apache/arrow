@@ -1237,6 +1237,7 @@ void DoCheckTakeXA(const std::shared_ptr<Array>& values,
                    const std::shared_ptr<Array>& indices,
                    const std::shared_ptr<Array>& expected) {
   auto pool = default_memory_pool();
+  const bool indices_null_count_is_known = indices->null_count() != kUnknownNullCount;
 
   DoCheckTakeAAA(values, indices, expected);
 
@@ -1265,6 +1266,10 @@ void DoCheckTakeXA(const std::shared_ptr<Array>& values,
         indices_suffix.make_array(),
     };
     ASSERT_OK_AND_ASSIGN(concat_indices3, Concatenate(indices3, pool));
+    // Preserve the fact that indices->null_count() is unknown if it is unknown.
+    if (!indices_null_count_is_known) {
+      concat_indices3->data()->null_count = kUnknownNullCount;
+    }
   }
   ASSERT_OK_AND_ASSIGN(auto concat_expected3,
                        Concatenate({expected, expected, expected}));
@@ -1455,9 +1460,7 @@ class TestTakeKernel : public ::testing::Test {
     auto new_indices = MakeArray(indices->data()->Copy());
     new_indices->data()->buffers[0].reset();
     new_indices->data()->null_count = kUnknownNullCount;
-    ASSERT_OK_AND_ASSIGN(auto result, TakeAAA(*new_values, *new_indices));
-
-    AssertArraysEqual(*expected, *result);
+    DoCheckTakeXA(new_values, new_indices, expected);
   }
 
   void TestNoValidityBitmapButUnknownNullCount(
@@ -1469,16 +1472,22 @@ class TestTakeKernel : public ::testing::Test {
 
   void TestNumericBasics(const std::shared_ptr<DataType>& type) {
     ARROW_SCOPED_TRACE("type = ", *type);
-    CheckTakeAAA(type, "[7, 8, 9]", "[]", "[]");
-    CheckTakeAAA(type, "[7, 8, 9]", "[0, 1, 0]", "[7, 8, 7]");
-    CheckTakeAAA(type, "[null, 8, 9]", "[0, 1, 0]", "[null, 8, null]");
-    CheckTakeAAA(type, "[7, 8, 9]", "[null, 1, 0]", "[null, 8, 7]");
-    CheckTakeAAA(type, "[null, 8, 9]", "[]", "[]");
-    CheckTakeAAA(type, "[7, 8, 9]", "[0, 0, 0, 0, 0, 0, 2]", "[7, 7, 7, 7, 7, 7, 9]");
+    CheckTakeXA(type, "[7, 8, 9]", "[]", "[]");
+    CheckTakeXA(type, "[7, 8, 9]", "[0, 1, 0]", "[7, 8, 7]");
+    CheckTakeXA(type, "[null, 8, 9]", "[0, 1, 0]", "[null, 8, null]");
+    CheckTakeXA(type, "[7, 8, 9]", "[null, 1, 0]", "[null, 8, 7]");
+    CheckTakeXA(type, "[null, 8, 9]", "[]", "[]");
+    CheckTakeXA(type, "[7, 8, 9]", "[0, 0, 0, 0, 0, 0, 2]", "[7, 7, 7, 7, 7, 7, 9]");
 
+    const std::string k789 = "[7, 8, 9]";
     std::shared_ptr<Array> arr;
-    ASSERT_RAISES(IndexError, TakeAAA(type, "[7, 8, 9]", "[0, 9, 0]").Value(&arr));
-    ASSERT_RAISES(IndexError, TakeAAA(type, "[7, 8, 9]", "[0, -1, 0]").Value(&arr));
+    ASSERT_RAISES(IndexError, TakeAAA(type, k789, "[0, 9, 0]").Value(&arr));
+    ASSERT_RAISES(IndexError, TakeAAA(type, k789, "[0, -1, 0]").Value(&arr));
+    Datum chunked_arr;
+    ASSERT_RAISES(IndexError,
+                  TakeCAC(type, {k789, k789}, "[0, 9, 0]").Value(&chunked_arr));
+    ASSERT_RAISES(IndexError,
+                  TakeCAC(type, {k789, k789}, "[0, -1, 0]").Value(&chunked_arr));
   }
 };
 
@@ -1532,18 +1541,24 @@ TEST_F(TestTakeKernel, DefaultOptions) {
 }
 
 TEST_F(TestTakeKernel, TakeBoolean) {
-  CheckTakeAAA(boolean(), "[7, 8, 9]", "[]", "[]");
-  CheckTakeAAA(boolean(), "[true, false, true]", "[0, 1, 0]", "[true, false, true]");
-  CheckTakeAAA(boolean(), "[null, false, true]", "[0, 1, 0]", "[null, false, null]");
-  CheckTakeAAA(boolean(), "[true, false, true]", "[null, 1, 0]", "[null, false, true]");
+  CheckTakeXA(boolean(), "[7, 8, 9]", "[]", "[]");
+  CheckTakeXA(boolean(), "[true, false, true]", "[0, 1, 0]", "[true, false, true]");
+  CheckTakeXA(boolean(), "[null, false, true]", "[0, 1, 0]", "[null, false, null]");
+  CheckTakeXA(boolean(), "[true, false, true]", "[null, 1, 0]", "[null, false, true]");
 
   TestNoValidityBitmapButUnknownNullCount(boolean(), "[true, false, true]", "[1, 0, 0]");
 
+  const std::string kTrueFalseTrue = "[true, false, true]";
   std::shared_ptr<Array> arr;
+  ASSERT_RAISES(IndexError, TakeAAA(boolean(), kTrueFalseTrue, "[0, 9, 0]").Value(&arr));
+  ASSERT_RAISES(IndexError, TakeAAA(boolean(), kTrueFalseTrue, "[0, -1, 0]").Value(&arr));
+  Datum chunked_arr;
   ASSERT_RAISES(IndexError,
-                TakeAAA(boolean(), "[true, false, true]", "[0, 9, 0]").Value(&arr));
+                TakeCAC(boolean(), {kTrueFalseTrue, kTrueFalseTrue}, "[0, 9, 0]")
+                    .Value(&chunked_arr));
   ASSERT_RAISES(IndexError,
-                TakeAAA(boolean(), "[true, false, true]", "[0, -1, 0]").Value(&arr));
+                TakeCAC(boolean(), {kTrueFalseTrue, kTrueFalseTrue}, "[0, -1, 0]")
+                    .Value(&chunked_arr));
 }
 
 TEST_F(TestTakeKernel, Temporal) {
@@ -1552,8 +1567,8 @@ TEST_F(TestTakeKernel, Temporal) {
   this->TestNumericBasics(timestamp(TimeUnit::NANO, "Europe/Paris"));
   this->TestNumericBasics(duration(TimeUnit::SECOND));
   this->TestNumericBasics(date32());
-  CheckTakeAAA(date64(), "[0, 86400000, null]", "[null, 1, 1, 0]",
-               "[null, 86400000, 86400000, 0]");
+  CheckTakeXA(date64(), "[0, 86400000, null]", "[null, 1, 1, 0]",
+              "[null, 86400000, 86400000, 0]");
 }
 
 TEST_F(TestTakeKernel, Duration) {
@@ -1566,12 +1581,12 @@ TEST_F(TestTakeKernel, Interval) {
   this->TestNumericBasics(month_interval());
 
   auto type = day_time_interval();
-  CheckTakeAAA(type, "[[1, -600], [2, 3000], null]", "[0, null, 2, 1]",
-               "[[1, -600], null, null, [2, 3000]]");
+  CheckTakeXA(type, "[[1, -600], [2, 3000], null]", "[0, null, 2, 1]",
+              "[[1, -600], null, null, [2, 3000]]");
   type = month_day_nano_interval();
-  CheckTakeAAA(type, "[[1, -2, 34567890123456789], [2, 3, -34567890123456789], null]",
-               "[0, null, 2, 1]",
-               "[[1, -2, 34567890123456789], null, null, [2, 3, -34567890123456789]]");
+  CheckTakeXA(type, "[[1, -2, 34567890123456789], [2, 3, -34567890123456789], null]",
+              "[0, null, 2, 1]",
+              "[[1, -2, 34567890123456789], null, null, [2, 3, -34567890123456789]]");
 }
 
 template <typename ArrowType>
@@ -1599,9 +1614,9 @@ class TestTakeKernelWithString : public TestTakeKernelTyped<TypeClass> {
     return TypeTraits<TypeClass>::type_singleton();
   }
 
-  void CheckTakeAAA(const std::string& values, const std::string& indices,
-                    const std::string& expected) {
-    arrow::compute::CheckTakeAAA(value_type(), values, indices, expected);
+  void CheckTakeXA(const std::string& values, const std::string& indices,
+                   const std::string& expected) {
+    arrow::compute::CheckTakeXA(value_type(), values, indices, expected);
   }
 
   void AssertTakeAAADictionary(const std::string& dictionary_values,
@@ -1616,18 +1631,21 @@ class TestTakeKernelWithString : public TestTakeKernelTyped<TypeClass> {
 TYPED_TEST_SUITE(TestTakeKernelWithString, BaseBinaryArrowTypes);
 
 TYPED_TEST(TestTakeKernelWithString, TakeString) {
-  this->CheckTakeAAA(R"(["a", "b", "c"])", "[0, 1, 0]", R"(["a", "b", "a"])");
-  this->CheckTakeAAA(R"([null, "b", "c"])", "[0, 1, 0]", "[null, \"b\", null]");
-  this->CheckTakeAAA(R"(["a", "b", "c"])", "[null, 1, 0]", R"([null, "b", "a"])");
+  this->CheckTakeXA(R"(["a", "b", "c"])", "[0, 1, 0]", R"(["a", "b", "a"])");
+  this->CheckTakeXA(R"([null, "b", "c"])", "[0, 1, 0]", "[null, \"b\", null]");
+  this->CheckTakeXA(R"(["a", "b", "c"])", "[null, 1, 0]", R"([null, "b", "a"])");
 
   this->TestNoValidityBitmapButUnknownNullCount(this->value_type(), R"(["a", "b", "c"])",
                                                 "[0, 1, 0]");
 
   std::shared_ptr<DataType> type = this->value_type();
+  const std::string kABC = R"(["a", "b", "c"])";
   std::shared_ptr<Array> arr;
-  ASSERT_RAISES(IndexError, TakeAAA(type, R"(["a", "b", "c"])", "[0, 9, 0]").Value(&arr));
-  ASSERT_RAISES(IndexError,
-                TakeAAA(type, R"(["a", "b", null, "ddd", "ee"])", "[2, 5]").Value(&arr));
+  ASSERT_RAISES(IndexError, TakeAAA(type, kABC, "[0, 9, 0]").Value(&arr));
+  ASSERT_RAISES(IndexError, TakeAAA(type, kABC, "[2, 5]").Value(&arr));
+  Datum chunked_arr;
+  ASSERT_RAISES(IndexError, TakeCAC(type, {kABC, kABC}, "[0, 9, 0]").Value(&chunked_arr));
+  ASSERT_RAISES(IndexError, TakeCAC(type, {kABC, kABC}, "[4, 10]").Value(&chunked_arr));
 }
 
 TYPED_TEST(TestTakeKernelWithString, TakeDictionary) {
@@ -1641,29 +1659,30 @@ class TestTakeKernelFSB : public TestTakeKernelTyped<FixedSizeBinaryType> {
  public:
   std::shared_ptr<DataType> value_type() { return fixed_size_binary(3); }
 
-  void AssertTakeAAA(const std::string& values, const std::string& indices,
-                     const std::string& expected) {
-    CheckTakeAAA(value_type(), values, indices, expected);
+  void CheckTakeXA(const std::string& values, const std::string& indices,
+                   const std::string& expected) {
+    ::arrow::compute::CheckTakeXA(value_type(), values, indices, expected);
   }
 };
 
 TEST_F(TestTakeKernelFSB, TakeFixedSizeBinary) {
-  this->AssertTakeAAA(R"(["aaa", "bbb", "ccc"])", "[0, 1, 0]",
-                      R"(["aaa", "bbb", "aaa"])");
-  this->AssertTakeAAA(R"([null, "bbb", "ccc"])", "[0, 1, 0]", "[null, \"bbb\", null]");
-  this->AssertTakeAAA(R"(["aaa", "bbb", "ccc"])", "[null, 1, 0]",
-                      R"([null, "bbb", "aaa"])");
-
-  this->TestNoValidityBitmapButUnknownNullCount(this->value_type(),
-                                                R"(["aaa", "bbb", "ccc"])", "[0, 1, 0]");
+  const std::string kABC = R"(["aaa", "bbb", "ccc"])";
+  this->CheckTakeXA(kABC, "[0, 1, 0]", R"(["aaa", "bbb", "aaa"])");
+  this->CheckTakeXA(R"([null, "bbb", "ccc"])", "[0, 1, 0]", "[null, \"bbb\", null]");
+  this->CheckTakeXA(kABC, "[null, 1, 0]", R"([null, "bbb", "aaa"])");
 
   std::shared_ptr<DataType> type = this->value_type();
+
+  this->TestNoValidityBitmapButUnknownNullCount(type, kABC, "[0, 1, 0]");
+
+  const std::string kABNullDE = R"(["aaa", "bbb", "ccc", null, "eee"])";
   std::shared_ptr<Array> arr;
+  ASSERT_RAISES(IndexError, TakeAAA(type, kABC, "[0, 9, 0]").Value(&arr));
+  ASSERT_RAISES(IndexError, TakeAAA(type, kABNullDE, "[2, 5]").Value(&arr));
+  Datum chunked_arr;
+  ASSERT_RAISES(IndexError, TakeCAC(type, {kABC, kABC}, "[0, 9, 0]").Value(&chunked_arr));
   ASSERT_RAISES(IndexError,
-                TakeAAA(type, R"(["aaa", "bbb", "ccc"])", "[0, 9, 0]").Value(&arr));
-  ASSERT_RAISES(
-      IndexError,
-      TakeAAA(type, R"(["aaa", "bbb", null, "ddd", "eee"])", "[2, 5]").Value(&arr));
+                TakeCAC(type, {kABNullDE, kABC}, "[4, 10]").Value(&chunked_arr));
 }
 
 class TestTakeKernelWithList : public TestTakeKernelTyped<ListType> {};
@@ -1671,14 +1690,14 @@ class TestTakeKernelWithList : public TestTakeKernelTyped<ListType> {};
 TEST_F(TestTakeKernelWithList, TakeListInt32) {
   std::string list_json = "[[], [1,2], null, [3]]";
   for (auto& type : kListAndListViewTypes) {
-    CheckTakeAAA(type, list_json, "[]", "[]");
-    CheckTakeAAA(type, list_json, "[3, 2, 1]", "[[3], null, [1,2]]");
-    CheckTakeAAA(type, list_json, "[null, 3, 0]", "[null, [3], []]");
-    CheckTakeAAA(type, list_json, "[null, null]", "[null, null]");
-    CheckTakeAAA(type, list_json, "[3, 0, 0, 3]", "[[3], [], [], [3]]");
-    CheckTakeAAA(type, list_json, "[0, 1, 2, 3]", list_json);
-    CheckTakeAAA(type, list_json, "[0, 0, 0, 0, 0, 0, 1]",
-                 "[[], [], [], [], [], [], [1, 2]]");
+    CheckTakeXA(type, list_json, "[]", "[]");
+    CheckTakeXA(type, list_json, "[3, 2, 1]", "[[3], null, [1,2]]");
+    CheckTakeXA(type, list_json, "[null, 3, 0]", "[null, [3], []]");
+    CheckTakeXA(type, list_json, "[null, null]", "[null, null]");
+    CheckTakeXA(type, list_json, "[3, 0, 0, 3]", "[[3], [], [], [3]]");
+    CheckTakeXA(type, list_json, "[0, 1, 2, 3]", list_json);
+    CheckTakeXA(type, list_json, "[0, 0, 0, 0, 0, 0, 1]",
+                "[[], [], [], [], [], [], [1, 2]]");
 
     this->TestNoValidityBitmapButUnknownNullCount(type, "[[], [1,2], [3]]", "[0, 1, 0]");
   }
@@ -1693,23 +1712,23 @@ TEST_F(TestTakeKernelWithList, TakeListListInt32) {
   ])";
   for (auto& type : kNestedListAndListViewTypes) {
     ARROW_SCOPED_TRACE("type = ", *type);
-    CheckTakeAAA(type, list_json, "[]", "[]");
-    CheckTakeAAA(type, list_json, "[3, 2, 1]", R"([
+    CheckTakeXA(type, list_json, "[]", "[]");
+    CheckTakeXA(type, list_json, "[3, 2, 1]", R"([
       [[3, null], null],
       null,
       [[1], [2, null, 2], []]
     ])");
-    CheckTakeAAA(type, list_json, "[null, 3, 0]", R"([
+    CheckTakeXA(type, list_json, "[null, 3, 0]", R"([
       null,
       [[3, null], null],
       []
     ])");
-    CheckTakeAAA(type, list_json, "[null, null]", "[null, null]");
-    CheckTakeAAA(type, list_json, "[3, 0, 0, 3]",
-                 "[[[3, null], null], [], [], [[3, null], null]]");
-    CheckTakeAAA(type, list_json, "[0, 1, 2, 3]", list_json);
-    CheckTakeAAA(type, list_json, "[0, 0, 0, 0, 0, 0, 1]",
-                 "[[], [], [], [], [], [], [[1], [2, null, 2], []]]");
+    CheckTakeXA(type, list_json, "[null, null]", "[null, null]");
+    CheckTakeXA(type, list_json, "[3, 0, 0, 3]",
+                "[[[3, null], null], [], [], [[3, null], null]]");
+    CheckTakeXA(type, list_json, "[0, 1, 2, 3]", list_json);
+    CheckTakeXA(type, list_json, "[0, 0, 0, 0, 0, 0, 1]",
+                "[[], [], [], [], [], [], [[1], [2, null, 2], []]]");
 
     this->TestNoValidityBitmapButUnknownNullCount(
         type, "[[[1], [2, null, 2], []], [[3, null]]]", "[0, 1, 0]");
@@ -1722,8 +1741,8 @@ TEST_F(TestTakeKernelWithLargeList, TakeLargeListInt32) {
   std::string list_json = "[[], [1,2], null, [3]]";
   for (auto& type : kLargeListAndListViewTypes) {
     ARROW_SCOPED_TRACE("type = ", *type);
-    CheckTakeAAA(type, list_json, "[]", "[]");
-    CheckTakeAAA(type, list_json, "[null, 1, 2, 0]", "[null, [1,2], null, []]");
+    CheckTakeXA(type, list_json, "[]", "[]");
+    CheckTakeXA(type, list_json, "[null, 1, 2, 0]", "[null, [1,2], null, []]");
   }
 }
 
@@ -1749,20 +1768,20 @@ class TestTakeKernelWithFixedSizeList : public TestTakeKernelTyped<FixedSizeList
 
 TEST_F(TestTakeKernelWithFixedSizeList, TakeFixedSizeListInt32) {
   std::string list_json = "[null, [1, null, 3], [4, 5, 6], [7, 8, null]]";
-  CheckTakeAAA(fixed_size_list(int32(), 3), list_json, "[]", "[]");
-  CheckTakeAAA(fixed_size_list(int32(), 3), list_json, "[3, 2, 1]",
-               "[[7, 8, null], [4, 5, 6], [1, null, 3]]");
-  CheckTakeAAA(fixed_size_list(int32(), 3), list_json, "[null, 2, 0]",
-               "[null, [4, 5, 6], null]");
-  CheckTakeAAA(fixed_size_list(int32(), 3), list_json, "[null, null]", "[null, null]");
-  CheckTakeAAA(fixed_size_list(int32(), 3), list_json, "[3, 0, 0, 3]",
-               "[[7, 8, null], null, null, [7, 8, null]]");
-  CheckTakeAAA(fixed_size_list(int32(), 3), list_json, "[0, 1, 2, 3]", list_json);
+  CheckTakeXA(fixed_size_list(int32(), 3), list_json, "[]", "[]");
+  CheckTakeXA(fixed_size_list(int32(), 3), list_json, "[3, 2, 1]",
+              "[[7, 8, null], [4, 5, 6], [1, null, 3]]");
+  CheckTakeXA(fixed_size_list(int32(), 3), list_json, "[null, 2, 0]",
+              "[null, [4, 5, 6], null]");
+  CheckTakeXA(fixed_size_list(int32(), 3), list_json, "[null, null]", "[null, null]");
+  CheckTakeXA(fixed_size_list(int32(), 3), list_json, "[3, 0, 0, 3]",
+              "[[7, 8, null], null, null, [7, 8, null]]");
+  CheckTakeXA(fixed_size_list(int32(), 3), list_json, "[0, 1, 2, 3]", list_json);
 
   // No nulls in inner list values trigger the use of FixedWidthTakeExec() in
   // FSLTakeExec()
   std::string no_nulls_list_json = "[[0, 0, 0], [1, 2, 3], [4, 5, 6], [7, 8, 9]]";
-  CheckTakeAAA(
+  CheckTakeXA(
       fixed_size_list(int32(), 3), no_nulls_list_json, "[2, 2, 2, 2, 2, 2, 1]",
       "[[4, 5, 6], [4, 5, 6], [4, 5, 6], [4, 5, 6], [4, 5, 6], [4, 5, 6], [1, 2, 3]]");
 
@@ -1852,21 +1871,21 @@ TEST_F(TestTakeKernelWithStruct, TakeStruct) {
     {"a": 2, "b": "hello"},
     {"a": 4, "b": "eh"}
   ])";
-  CheckTakeAAA(struct_type, struct_json, "[]", "[]");
-  CheckTakeAAA(struct_type, struct_json, "[3, 1, 3, 1, 3]", R"([
+  CheckTakeXA(struct_type, struct_json, "[]", "[]");
+  CheckTakeXA(struct_type, struct_json, "[3, 1, 3, 1, 3]", R"([
     {"a": 4, "b": "eh"},
     {"a": 1, "b": ""},
     {"a": 4, "b": "eh"},
     {"a": 1, "b": ""},
     {"a": 4, "b": "eh"}
   ])");
-  CheckTakeAAA(struct_type, struct_json, "[3, 1, 0]", R"([
+  CheckTakeXA(struct_type, struct_json, "[3, 1, 0]", R"([
     {"a": 4, "b": "eh"},
     {"a": 1, "b": ""},
     null
   ])");
-  CheckTakeAAA(struct_type, struct_json, "[0, 1, 2, 3]", struct_json);
-  CheckTakeAAA(struct_type, struct_json, "[0, 2, 2, 2, 2, 2, 2]", R"([
+  CheckTakeXA(struct_type, struct_json, "[0, 1, 2, 3]", struct_json);
+  CheckTakeXA(struct_type, struct_json, "[0, 2, 2, 2, 2, 2, 2]", R"([
     null,
     {"a": 2, "b": "hello"},
     {"a": 2, "b": "hello"},
