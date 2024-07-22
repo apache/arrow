@@ -309,6 +309,9 @@ Extension parameters:
   additional fields may be added, but all fields current and future are never
   required to interpret the array.
 
+  Developers **should not** attempt to enable public semantic interoperability
+  of Opaque by canonicalizing specific values of these parameters.
+
 Rationale
 ---------
 
