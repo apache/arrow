@@ -651,9 +651,9 @@ class FileMetaData::FileMetaDataImpl {
     std::string key = file_decryptor_->GetFooterKey();
     std::string aad = encryption::CreateFooterAad(file_decryptor_->file_aad());
 
-    auto aes_encryptor = encryption::AesEncryptor::Make(
-        file_decryptor_->algorithm(), static_cast<int>(key.size()), true,
-        false /*write_length*/, nullptr);
+    auto aes_encryptor = encryption::AesEncryptor::Make(file_decryptor_->algorithm(),
+                                                        static_cast<int>(key.size()),
+                                                        true, false /*write_length*/);
 
     std::shared_ptr<Buffer> encrypted_buffer = AllocateBuffer(
         file_decryptor_->pool(), aes_encryptor->CiphertextLength(serialized_len));
@@ -662,7 +662,6 @@ class FileMetaData::FileMetaDataImpl {
         encrypted_buffer->mutable_span_as<uint8_t>());
     // Delete AES encryptor object. It was created only to verify the footer signature.
     aes_encryptor->WipeOut();
-    delete aes_encryptor;
     return 0 ==
            memcmp(encrypted_buffer->data() + encrypted_len - encryption::kGcmTagLength,
                   tag, encryption::kGcmTagLength);
