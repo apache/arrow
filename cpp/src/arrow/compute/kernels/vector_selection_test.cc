@@ -1230,14 +1230,11 @@ void CheckTakeAAA(const std::shared_ptr<DataType>& type, const std::string& valu
   }
 }
 
-// TakeXA = {TakeAAA, TakeCAC}
-void DoCheckTakeXA(const std::shared_ptr<Array>& values,
-                   const std::shared_ptr<Array>& indices,
-                   const std::shared_ptr<Array>& expected) {
+void DoCheckTakeCACWithArrays(const std::shared_ptr<Array>& values,
+                              const std::shared_ptr<Array>& indices,
+                              const std::shared_ptr<Array>& expected) {
   auto pool = default_memory_pool();
   const bool indices_null_count_is_known = indices->null_count() != kUnknownNullCount;
-
-  DoCheckTakeAAA(values, indices, expected);
 
   // We check TakeCAC by checking this equality:
   //
@@ -1276,6 +1273,14 @@ void DoCheckTakeXA(const std::shared_ptr<Array>& values,
   ASSERT_OK_AND_ASSIGN(auto concat_actual,
                        Concatenate(chunked_actual.chunked_array()->chunks()));
   AssertArraysEqual(*concat_expected3, *concat_actual, /*verbose=*/true);
+}
+
+// TakeXA = {TakeAAA, TakeCAC}
+void DoCheckTakeXA(const std::shared_ptr<Array>& values,
+                   const std::shared_ptr<Array>& indices,
+                   const std::shared_ptr<Array>& expected) {
+  DoCheckTakeAAA(values, indices, expected);
+  DoCheckTakeCACWithArrays(values, indices, expected);
 }
 
 // TakeXA = {TakeAAA, TakeCAC}
