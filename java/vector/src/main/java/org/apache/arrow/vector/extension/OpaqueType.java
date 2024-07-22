@@ -179,7 +179,7 @@ public class OpaqueType extends ArrowType.ExtensionType {
 
   @Override
   public String toString() {
-    return "UnknownType("
+    return "OpaqueType("
         + storageType
         + ", typeName='"
         + typeName
