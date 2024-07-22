@@ -92,8 +92,7 @@ int DoIt(std::string in, bool scrub, bool json, std::string out) {
 }  // namespace parquet
 
 static int PrintHelp() {
-  std::cerr << R"(
-Usage: parquet-dump-footer
+  std::cerr << R"(Usage: parquet-dump-footer
   -h|--help    Print help and exit
   --no-scrub   Do not scrub potentially confidential metadata
   --json       Output JSON instead of binary

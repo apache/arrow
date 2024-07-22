@@ -605,12 +605,14 @@ std::vector<SortingColumn> RowGroupMetaData::sorting_columns() const {
   return impl_->sorting_columns();
 }
 
+// Replace string data with random-generated uppercase characters
 static void Scrub(std::string* s) {
   static ::arrow::random::pcg64 rng;
   std::uniform_int_distribution<> caps(65, 90);
   for (auto& c : *s) c = caps(rng);
 }
 
+// Replace potentially sensitive metadata with random data
 static void Scrub(format::FileMetaData* md) {
   for (auto& s : md->schema) {
     Scrub(&s.name);
