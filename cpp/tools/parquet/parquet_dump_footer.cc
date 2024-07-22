@@ -47,6 +47,7 @@ int DoIt(std::string in, bool scrub, bool json, std::string out) {
     std::cerr << "File too short: " << in << "\n";
     return 3;
   }
+  // Do a first opportunistic read of up to 1 MiB to try and get the entire footer
   int64_t tail_len = std::min(file_len, int64_t{1} << 20);
   std::string tail;
   tail.resize(tail_len);
@@ -58,6 +59,7 @@ int DoIt(std::string in, bool scrub, bool json, std::string out) {
   }
   uint32_t metadata_len = ReadLE32(data + tail_len - 8);
   if (metadata_len > tail_len - 8) {
+    // The footer is larger than the initial read, read again the exact size
     if (metadata_len > file_len) {
       std::cerr << "File too short: " << in << "\n";
       return 5;
@@ -66,6 +68,9 @@ int DoIt(std::string in, bool scrub, bool json, std::string out) {
     tail.resize(tail_len);
     data = tail.data();
     file->ReadAt(file_len - tail_len, tail_len, data).ValueOrDie();
+  } else {
+    // Keep the footer + the magic bytes
+    tail = tail.substr(tail_len - (metadata_len + 8));
   }
   auto md = FileMetaData::Make(tail.data(), &metadata_len);
   std::string ser = md->SerializeUnencrypted(scrub, json);
@@ -92,36 +97,40 @@ Usage: parquet-dump-footer
   -h|--help    Print help and exit
   --no-scrub   Do not scrub potentially confidential metadata
   --json       Output JSON instead of binary
-  --in         Input file: required
-  --out        Output file: defaults to stdout
+  --in <uri>   Input file (required): must be an URI or an absolute local path
+  --out <path> Output file (optional, default stdout)
 
-  Dumps the footer of a Parquet file to stdout or a file, optionally with
+  Dump the footer of a Parquet file to stdout or to a file, optionally with
   potentially confidential metadata scrubbed.
 )";
   return 1;
 }
 
 int main(int argc, char** argv) {
-  bool help = false;
   bool scrub = true;
   bool json = false;
   std::string in;
   std::string out;
   for (int i = 1; i < argc; i++) {
     char* arg = argv[i];
-    help |= !std::strcmp(arg, "-h") || !std::strcmp(arg, "--help");
-    scrub &= !!std::strcmp(arg, "--no-scrub");
-    json |= !std::strcmp(arg, "--json");
-    if (!std::strcmp(arg, "--in")) {
+    if (!std::strcmp(arg, "-h") || !std::strcmp(arg, "--help")) {
+      return PrintHelp();
+    } else if (!std::strcmp(arg, "--no-scrub")) {
+      scrub = false;
+    } else if (!std::strcmp(arg, "--json")) {
+      json = true;
+    } else if (!std::strcmp(arg, "--in")) {
       if (i + 1 >= argc) return PrintHelp();
       in = argv[++i];
-    }
-    if (!std::strcmp(arg, "--out")) {
+    } else if (!std::strcmp(arg, "--out")) {
       if (i + 1 >= argc) return PrintHelp();
       out = argv[++i];
+    } else {
+      // Unknown option
+      return PrintHelp();
     }
   }
-  if (help || in.empty()) return PrintHelp();
+  if (in.empty()) return PrintHelp();
 
   return parquet::DoIt(in, scrub, json, out);
 }
