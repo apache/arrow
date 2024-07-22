@@ -151,18 +151,57 @@ Status MakeFlightError(FlightStatusCode code, std::string message,
                        std::make_shared<FlightStatusDetail>(code, std::move(extra_info)));
 }
 
-bool FlightDescriptor::Equals(const FlightDescriptor& other) const {
-  if (type != other.type) {
-    return false;
+static std::ostream& operator<<(std::ostream& os, std::vector<std::string> values) {
+  os << '[';
+  std::string sep = "";
+  for (const auto& v : values) {
+    os << sep << std::quoted(v);
+    sep = ", ";
   }
-  switch (type) {
-    case PATH:
-      return path == other.path;
-    case CMD:
-      return cmd == other.cmd;
-    default:
-      return false;
+  os << ']';
+
+  return os;
+}
+
+template <typename T>
+static std::ostream& operator<<(std::ostream& os, std::map<std::string, T> m) {
+  os << '{';
+  std::string sep = "";
+  if constexpr (std::is_convertible_v<T, std::string_view>) {
+    // std::string, char*, std::string_view
+    for (const auto& [k, v] : m) {
+      os << sep << '[' << k << "]: " << std::quoted(v) << '"';
+      sep = ", ";
+    }
+  } else {
+    for (const auto& [k, v] : m) {
+      os << sep << '[' << k << "]: " << v;
+      sep = ", ";
+    }
   }
+  os << '}';
+
+  return os;
+}
+
+//------------------------------------------------------------
+// Wrapper types for Flight RPC protobuf messages
+
+std::string BasicAuth::ToString() const {
+  return arrow::util::StringBuilder("<BasicAuth username='", username,
+                                    "' password=(redacted)>");
+}
+
+bool BasicAuth::Equals(const BasicAuth& other) const {
+  return (username == other.username) && (password == other.password);
+}
+
+arrow::Status BasicAuth::Deserialize(std::string_view serialized, BasicAuth* out) {
+  return DeserializeProtoString<pb::BasicAuth, BasicAuth>("BasicAuth", serialized, out);
+}
+
+arrow::Status BasicAuth::SerializeToString(std::string* out) const {
+  return SerializeToProtoString<pb::BasicAuth>("BasicAuth", *this, out);
 }
 
 std::string FlightDescriptor::ToString() const {
@@ -192,50 +231,18 @@ std::string FlightDescriptor::ToString() const {
   return ss.str();
 }
 
-Status FlightPayload::Validate() const {
-  static constexpr int64_t kInt32Max = std::numeric_limits<int32_t>::max();
-  if (descriptor && descriptor->size() > kInt32Max) {
-    return Status::CapacityError("Descriptor size overflow (>= 2**31)");
+bool FlightDescriptor::Equals(const FlightDescriptor& other) const {
+  if (type != other.type) {
+    return false;
   }
-  if (app_metadata && app_metadata->size() > kInt32Max) {
-    return Status::CapacityError("app_metadata size overflow (>= 2**31)");
+  switch (type) {
+    case PATH:
+      return path == other.path;
+    case CMD:
+      return cmd == other.cmd;
+    default:
+      return false;
   }
-  if (ipc_message.body_length > kInt32Max) {
-    return Status::Invalid("Cannot send record batches exceeding 2GiB yet");
-  }
-  return Status::OK();
-}
-
-arrow::Result<std::shared_ptr<Schema>> SchemaResult::GetSchema(
-    ipc::DictionaryMemo* dictionary_memo) const {
-  // Create a non-owned Buffer to avoid copying
-  io::BufferReader schema_reader(std::make_shared<Buffer>(raw_schema_));
-  return ipc::ReadSchema(&schema_reader, dictionary_memo);
-}
-
-arrow::Result<std::unique_ptr<SchemaResult>> SchemaResult::Make(const Schema& schema) {
-  std::string schema_in;
-  RETURN_NOT_OK(internal::SchemaToString(schema, &schema_in));
-  return std::make_unique<SchemaResult>(std::move(schema_in));
-}
-
-std::string SchemaResult::ToString() const {
-  return "<SchemaResult raw_schema=(serialized)>";
-}
-
-bool SchemaResult::Equals(const SchemaResult& other) const {
-  return raw_schema_ == other.raw_schema_;
-}
-
-arrow::Status SchemaResult::SerializeToString(std::string* out) const {
-  return SerializeToProtoString<pb::SchemaResult>("SchemaResult", *this, out);
-}
-
-arrow::Status SchemaResult::Deserialize(std::string_view serialized, SchemaResult* out) {
-  pb::SchemaResult pb_schema_result;
-  RETURN_NOT_OK(ParseFromString("SchemaResult", serialized, &pb_schema_result));
-  *out = SchemaResult{pb_schema_result.schema()};
-  return Status::OK();
 }
 
 arrow::Status FlightDescriptor::SerializeToString(std::string* out) const {
@@ -246,22 +253,6 @@ arrow::Status FlightDescriptor::Deserialize(std::string_view serialized,
                                             FlightDescriptor* out) {
   return DeserializeProtoString<pb::FlightDescriptor, FlightDescriptor>(
       "FlightDescriptor", serialized, out);
-}
-
-std::string Ticket::ToString() const {
-  std::stringstream ss;
-  ss << "<Ticket ticket='" << ticket << "'>";
-  return ss.str();
-}
-
-bool Ticket::Equals(const Ticket& other) const { return ticket == other.ticket; }
-
-arrow::Status Ticket::SerializeToString(std::string* out) const {
-  return SerializeToProtoString<pb::Ticket>("Ticket", *this, out);
-}
-
-arrow::Status Ticket::Deserialize(std::string_view serialized, Ticket* out) {
-  return DeserializeProtoString<pb::Ticket, Ticket>("Ticket", serialized, out);
 }
 
 arrow::Result<FlightInfo> FlightInfo::Make(const Schema& schema,
@@ -431,42 +422,48 @@ arrow::Status CancelFlightInfoRequest::Deserialize(std::string_view serialized,
       "CancelFlightInfoRequest", serialized, out);
 }
 
-static const char* const SetSessionOptionStatusNames[] = {"Unspecified", "InvalidName",
-                                                          "InvalidValue", "Error"};
-static const char* const CloseSessionStatusNames[] = {"Unspecified", "Closed", "Closing",
-                                                      "NotClosable"};
-
-// Helpers for stringifying maps containing various types
-std::string ToString(const SetSessionOptionErrorValue& error_value) {
-  return SetSessionOptionStatusNames[static_cast<int>(error_value)];
+std::string CancelFlightInfoResult::ToString() const {
+  std::stringstream ss;
+  ss << "<CancelFlightInfoResult status=" << status << ">";
+  return ss.str();
 }
 
-std::ostream& operator<<(std::ostream& os,
-                         const SetSessionOptionErrorValue& error_value) {
-  os << ToString(error_value);
-  return os;
+bool CancelFlightInfoResult::Equals(const CancelFlightInfoResult& other) const {
+  return status == other.status;
 }
 
-std::string ToString(const CloseSessionStatus& status) {
-  return CloseSessionStatusNames[static_cast<int>(status)];
+arrow::Status CancelFlightInfoResult::SerializeToString(std::string* out) const {
+  return SerializeToProtoString<pb::CancelFlightInfoResult>("CancelFlightInfoResult",
+                                                            *this, out);
 }
 
-std::ostream& operator<<(std::ostream& os, const CloseSessionStatus& status) {
-  os << ToString(status);
-  return os;
+arrow::Status CancelFlightInfoResult::Deserialize(std::string_view serialized,
+                                                  CancelFlightInfoResult* out) {
+  return DeserializeProtoString<pb::CancelFlightInfoResult, CancelFlightInfoResult>(
+      "CancelFlightInfoResult", serialized, out);
 }
 
-std::ostream& operator<<(std::ostream& os, std::vector<std::string> values) {
-  os << '[';
-  std::string sep = "";
-  for (const auto& v : values) {
-    os << sep << std::quoted(v);
-    sep = ", ";
+std::ostream& operator<<(std::ostream& os, CancelStatus status) {
+  switch (status) {
+    case CancelStatus::kUnspecified:
+      os << "Unspecified";
+      break;
+    case CancelStatus::kCancelled:
+      os << "Cancelled";
+      break;
+    case CancelStatus::kCancelling:
+      os << "Cancelling";
+      break;
+    case CancelStatus::kNotCancellable:
+      os << "NotCancellable";
+      break;
   }
-  os << ']';
-
   return os;
 }
+
+// Session management messages
+
+// SessionOptionValue
 
 std::ostream& operator<<(std::ostream& os, const SessionOptionValue& v) {
   if (std::holds_alternative<std::monostate>(v)) {
@@ -486,33 +483,6 @@ std::ostream& operator<<(std::ostream& os, const SessionOptionValue& v) {
   return os;
 }
 
-std::ostream& operator<<(std::ostream& os, const SetSessionOptionsResult::Error& e) {
-  os << '{' << e.value << '}';
-  return os;
-}
-
-template <typename T>
-std::ostream& operator<<(std::ostream& os, std::map<std::string, T> m) {
-  os << '{';
-  std::string sep = "";
-  if constexpr (std::is_convertible_v<T, std::string_view>) {
-    // std::string, char*, std::string_view
-    for (const auto& [k, v] : m) {
-      os << sep << '[' << k << "]: " << std::quoted(v) << '"';
-      sep = ", ";
-    }
-  } else {
-    for (const auto& [k, v] : m) {
-      os << sep << '[' << k << "]: " << v;
-      sep = ", ";
-    }
-  }
-  os << '}';
-
-  return os;
-}
-
-namespace {
 static bool CompareSessionOptionMaps(const std::map<std::string, SessionOptionValue>& a,
                                      const std::map<std::string, SessionOptionValue>& b) {
   if (a.size() != b.size()) {
@@ -533,15 +503,30 @@ static bool CompareSessionOptionMaps(const std::map<std::string, SessionOptionVa
   }
   return true;
 }
-}  // namespace
+
+// SetSessionOptionErrorValue
+
+std::string ToString(const SetSessionOptionErrorValue& error_value) {
+  static constexpr const char* SetSessionOptionStatusNames[] = {
+      "Unspecified",
+      "InvalidName",
+      "InvalidValue",
+      "Error",
+  };
+  return SetSessionOptionStatusNames[static_cast<int>(error_value)];
+}
+
+std::ostream& operator<<(std::ostream& os,
+                         const SetSessionOptionErrorValue& error_value) {
+  os << ToString(error_value);
+  return os;
+}
 
 // SetSessionOptionsRequest
 
 std::string SetSessionOptionsRequest::ToString() const {
   std::stringstream ss;
-
   ss << "<SetSessionOptionsRequest session_options=" << session_options << '>';
-
   return ss.str();
 }
 
@@ -562,11 +547,14 @@ arrow::Status SetSessionOptionsRequest::Deserialize(std::string_view serialized,
 
 // SetSessionOptionsResult
 
+std::ostream& operator<<(std::ostream& os, const SetSessionOptionsResult::Error& e) {
+  os << '{' << e.value << '}';
+  return os;
+}
+
 std::string SetSessionOptionsResult::ToString() const {
   std::stringstream ss;
-
   ss << "<SetSessionOptionsResult errors=" << errors << '>';
-
   return ss.str();
 }
 
@@ -649,13 +637,28 @@ arrow::Status CloseSessionRequest::Deserialize(std::string_view serialized,
       "CloseSessionRequest", serialized, out);
 }
 
+// CloseSessionStatus
+
+std::string ToString(const CloseSessionStatus& status) {
+  static constexpr const char* CloseSessionStatusNames[] = {
+      "Unspecified",
+      "Closed",
+      "Closing",
+      "NotClosable",
+  };
+  return CloseSessionStatusNames[static_cast<int>(status)];
+}
+
+std::ostream& operator<<(std::ostream& os, const CloseSessionStatus& status) {
+  os << ToString(status);
+  return os;
+}
+
 // CloseSessionResult
 
 std::string CloseSessionResult::ToString() const {
   std::stringstream ss;
-
   ss << "<CloseSessionResult status=" << status << '>';
-
   return ss.str();
 }
 
@@ -671,6 +674,24 @@ arrow::Status CloseSessionResult::Deserialize(std::string_view serialized,
                                               CloseSessionResult* out) {
   return DeserializeProtoString<pb::CloseSessionResult, CloseSessionResult>(
       "CloseSessionResult", serialized, out);
+}
+
+// Ticket
+
+std::string Ticket::ToString() const {
+  std::stringstream ss;
+  ss << "<Ticket ticket='" << ticket << "'>";
+  return ss.str();
+}
+
+bool Ticket::Equals(const Ticket& other) const { return ticket == other.ticket; }
+
+arrow::Status Ticket::SerializeToString(std::string* out) const {
+  return SerializeToProtoString<pb::Ticket>("Ticket", *this, out);
+}
+
+arrow::Status Ticket::Deserialize(std::string_view serialized, Ticket* out) {
+  return DeserializeProtoString<pb::Ticket, Ticket>("Ticket", serialized, out);
 }
 
 Location::Location() { uri_ = std::make_shared<arrow::util::Uri>(); }
@@ -712,7 +733,6 @@ arrow::Result<Location> Location::ForScheme(const std::string& scheme,
   return Location::Parse(uri_string.str());
 }
 
-std::string Location::ToString() const { return uri_->ToString(); }
 std::string Location::scheme() const {
   std::string scheme = uri_->scheme();
   if (scheme.empty()) {
@@ -721,6 +741,8 @@ std::string Location::scheme() const {
   }
   return scheme;
 }
+
+std::string Location::ToString() const { return uri_->ToString(); }
 
 bool Location::Equals(const Location& other) const {
   return ToString() == other.ToString();
@@ -813,6 +835,20 @@ arrow::Status RenewFlightEndpointRequest::Deserialize(std::string_view serialize
   return DeserializeProtoString<pb::RenewFlightEndpointRequest,
                                 RenewFlightEndpointRequest>("RenewFlightEndpointRequest",
                                                             serialized, out);
+}
+
+Status FlightPayload::Validate() const {
+  static constexpr int64_t kInt32Max = std::numeric_limits<int32_t>::max();
+  if (descriptor && descriptor->size() > kInt32Max) {
+    return Status::CapacityError("Descriptor size overflow (>= 2**31)");
+  }
+  if (app_metadata && app_metadata->size() > kInt32Max) {
+    return Status::CapacityError("app_metadata size overflow (>= 2**31)");
+  }
+  if (ipc_message.body_length > kInt32Max) {
+    return Status::Invalid("Cannot send record batches exceeding 2GiB yet");
+  }
+  return Status::OK();
 }
 
 std::string ActionType::ToString() const {
@@ -924,44 +960,39 @@ arrow::Status Result::Deserialize(std::string_view serialized, Result* out) {
   return DeserializeProtoString<pb::Result, Result>("Result", serialized, out);
 }
 
-std::string CancelFlightInfoResult::ToString() const {
-  std::stringstream ss;
-  ss << "<CancelFlightInfoResult status=" << status << ">";
-  return ss.str();
+arrow::Result<std::shared_ptr<Schema>> SchemaResult::GetSchema(
+    ipc::DictionaryMemo* dictionary_memo) const {
+  // Create a non-owned Buffer to avoid copying
+  io::BufferReader schema_reader(std::make_shared<Buffer>(raw_schema_));
+  return ipc::ReadSchema(&schema_reader, dictionary_memo);
 }
 
-bool CancelFlightInfoResult::Equals(const CancelFlightInfoResult& other) const {
-  return status == other.status;
+arrow::Result<std::unique_ptr<SchemaResult>> SchemaResult::Make(const Schema& schema) {
+  std::string schema_in;
+  RETURN_NOT_OK(internal::SchemaToString(schema, &schema_in));
+  return std::make_unique<SchemaResult>(std::move(schema_in));
 }
 
-arrow::Status CancelFlightInfoResult::SerializeToString(std::string* out) const {
-  return SerializeToProtoString<pb::CancelFlightInfoResult>("CancelFlightInfoResult",
-                                                            *this, out);
+std::string SchemaResult::ToString() const {
+  return "<SchemaResult raw_schema=(serialized)>";
 }
 
-arrow::Status CancelFlightInfoResult::Deserialize(std::string_view serialized,
-                                                  CancelFlightInfoResult* out) {
-  return DeserializeProtoString<pb::CancelFlightInfoResult, CancelFlightInfoResult>(
-      "CancelFlightInfoResult", serialized, out);
+bool SchemaResult::Equals(const SchemaResult& other) const {
+  return raw_schema_ == other.raw_schema_;
 }
 
-std::ostream& operator<<(std::ostream& os, CancelStatus status) {
-  switch (status) {
-    case CancelStatus::kUnspecified:
-      os << "Unspecified";
-      break;
-    case CancelStatus::kCancelled:
-      os << "Cancelled";
-      break;
-    case CancelStatus::kCancelling:
-      os << "Cancelling";
-      break;
-    case CancelStatus::kNotCancellable:
-      os << "NotCancellable";
-      break;
-  }
-  return os;
+arrow::Status SchemaResult::SerializeToString(std::string* out) const {
+  return SerializeToProtoString<pb::SchemaResult>("SchemaResult", *this, out);
 }
+
+arrow::Status SchemaResult::Deserialize(std::string_view serialized, SchemaResult* out) {
+  pb::SchemaResult pb_schema_result;
+  RETURN_NOT_OK(ParseFromString("SchemaResult", serialized, &pb_schema_result));
+  *out = SchemaResult{pb_schema_result.schema()};
+  return Status::OK();
+}
+
+//------------------------------------------------------------
 
 Status ResultStream::Drain() {
   while (true) {
@@ -1048,23 +1079,6 @@ arrow::Result<std::unique_ptr<Result>> SimpleResultStream::Next() {
     return nullptr;
   }
   return std::make_unique<Result>(std::move(results_[position_++]));
-}
-
-std::string BasicAuth::ToString() const {
-  return arrow::util::StringBuilder("<BasicAuth username='", username,
-                                    "' password=(redacted)>");
-}
-
-bool BasicAuth::Equals(const BasicAuth& other) const {
-  return (username == other.username) && (password == other.password);
-}
-
-arrow::Status BasicAuth::Deserialize(std::string_view serialized, BasicAuth* out) {
-  return DeserializeProtoString<pb::BasicAuth, BasicAuth>("BasicAuth", serialized, out);
-}
-
-arrow::Status BasicAuth::SerializeToString(std::string* out) const {
-  return SerializeToProtoString<pb::BasicAuth>("BasicAuth", *this, out);
 }
 
 //------------------------------------------------------------
