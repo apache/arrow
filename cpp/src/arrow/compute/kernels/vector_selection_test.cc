@@ -1987,72 +1987,58 @@ TYPED_TEST(TestTakeKernelWithUnion, TakeUnion) {
 
 class TestPermutationsWithTake : public ::testing::Test {
  protected:
-  void DoTakeAAA(const Int16Array& values, const Int16Array& indices,
-                 std::shared_ptr<Int16Array>* out) {
-    ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> boxed_out, Take(values, indices));
+  Result<std::shared_ptr<Int16Array>> DoTakeAAA(
+      const std::shared_ptr<Int16Array>& values,
+      const std::shared_ptr<Int16Array>& indices) {
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> boxed_out, TakeAAA(*values, *indices));
     ValidateOutput(boxed_out);
-    *out = checked_pointer_cast<Int16Array>(std::move(boxed_out));
+    return checked_pointer_cast<Int16Array>(std::move(boxed_out));
   }
 
-  std::shared_ptr<Int16Array> DoTakeAAA(const Int16Array& values,
-                                        const Int16Array& indices) {
-    std::shared_ptr<Int16Array> out;
-    DoTakeAAA(values, indices, &out);
-    return out;
-  }
-
-  std::shared_ptr<Int16Array> DoTakeN(uint64_t n, std::shared_ptr<Int16Array> array) {
+  Result<std::shared_ptr<Int16Array>> DoTakeN(uint64_t n,
+                                              std::shared_ptr<Int16Array> array) {
     auto power_of_2 = array;
-    array = Identity(array->length());
+    ARROW_ASSIGN_OR_RAISE(array, Identity(array->length()));
     while (n != 0) {
       if (n & 1) {
-        array = DoTakeAAA(*array, *power_of_2);
+        ARROW_ASSIGN_OR_RAISE(array, DoTakeAAA(array, power_of_2));
       }
-      power_of_2 = DoTakeAAA(*power_of_2, *power_of_2);
+      ARROW_ASSIGN_OR_RAISE(power_of_2, DoTakeAAA(power_of_2, power_of_2));
       n >>= 1;
     }
     return array;
   }
 
   template <typename Rng>
-  void Shuffle(const Int16Array& array, Rng& gen, std::shared_ptr<Int16Array>* shuffled) {
+  Result<std::shared_ptr<Int16Array>> Shuffle(const Int16Array& array, Rng& gen) {
     auto byte_length = array.length() * sizeof(int16_t);
-    ASSERT_OK_AND_ASSIGN(auto data, array.values()->CopySlice(0, byte_length));
+    ARROW_ASSIGN_OR_RAISE(auto data, array.values()->CopySlice(0, byte_length));
     auto mutable_data = reinterpret_cast<int16_t*>(data->mutable_data());
     std::shuffle(mutable_data, mutable_data + array.length(), gen);
-    shuffled->reset(new Int16Array(array.length(), data));
+    return std::make_shared<Int16Array>(array.length(), data);
   }
 
-  template <typename Rng>
-  std::shared_ptr<Int16Array> Shuffle(const Int16Array& array, Rng& gen) {
-    std::shared_ptr<Int16Array> out;
-    Shuffle(array, gen, &out);
-    return out;
-  }
-
-  void Identity(int64_t length, std::shared_ptr<Int16Array>* identity) {
+  Result<std::shared_ptr<Int16Array>> Identity(int64_t length) {
+    std::shared_ptr<Int16Array> identity;
     Int16Builder identity_builder;
-    ASSERT_OK(identity_builder.Resize(length));
+    RETURN_NOT_OK(identity_builder.Resize(length));
     for (int16_t i = 0; i < length; ++i) {
       identity_builder.UnsafeAppend(i);
     }
-    ASSERT_OK(identity_builder.Finish(identity));
+    RETURN_NOT_OK(identity_builder.Finish(&identity));
+    return identity;
   }
 
-  std::shared_ptr<Int16Array> Identity(int64_t length) {
-    std::shared_ptr<Int16Array> out;
-    Identity(length, &out);
-    return out;
-  }
-
-  std::shared_ptr<Int16Array> Inverse(const std::shared_ptr<Int16Array>& permutation) {
+  Result<std::shared_ptr<Int16Array>> Inverse(
+      const std::shared_ptr<Int16Array>& permutation) {
     auto length = static_cast<int16_t>(permutation->length());
 
     std::vector<bool> cycle_lengths(length + 1, false);
     auto permutation_to_the_i = permutation;
     for (int16_t cycle_length = 1; cycle_length <= length; ++cycle_length) {
       cycle_lengths[cycle_length] = HasTrivialCycle(*permutation_to_the_i);
-      permutation_to_the_i = DoTakeAAA(*permutation, *permutation_to_the_i);
+      ARROW_ASSIGN_OR_RAISE(permutation_to_the_i,
+                            DoTakeAAA(permutation, permutation_to_the_i));
     }
 
     uint64_t cycle_to_identity_length = 1;
@@ -2088,13 +2074,14 @@ TEST_F(TestPermutationsWithTake, InvertPermutation) {
   for (auto seed : std::vector<random::SeedType>({0, kRandomSeed, kRandomSeed * 2 - 1})) {
     std::default_random_engine gen(seed);
     for (int16_t length = 0; length < 1 << 10; ++length) {
-      auto identity = Identity(length);
-      auto permutation = Shuffle(*identity, gen);
-      auto inverse = Inverse(permutation);
+      ASSERT_OK_AND_ASSIGN(auto identity, Identity(length));
+      ASSERT_OK_AND_ASSIGN(auto permutation, Shuffle(*identity, gen));
+      ASSERT_OK_AND_ASSIGN(auto inverse, Inverse(permutation));
       if (inverse == nullptr) {
         break;
       }
-      ASSERT_TRUE(DoTakeAAA(*inverse, *permutation)->Equals(identity));
+      ASSERT_OK_AND_ASSIGN(auto result, DoTakeAAA(inverse, permutation));
+      AssertArraysEqual(*result, *identity);
     }
   }
 }
