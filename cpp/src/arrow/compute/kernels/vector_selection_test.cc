@@ -1368,9 +1368,9 @@ void AssertTakeTCT(const std::shared_ptr<Schema>& schm,
 // Validators used by random data tests
 
 template <typename ValuesType, typename IndexType>
-void ValidateTakeAAAImpl(const std::shared_ptr<Array>& values,
-                         const std::shared_ptr<Array>& indices,
-                         const std::shared_ptr<Array>& result) {
+void ValidateTakeXAImpl(const std::shared_ptr<Array>& values,
+                        const std::shared_ptr<Array>& indices,
+                        const std::shared_ptr<Array>& result) {
   using ValuesArrayType = typename TypeTraits<ValuesType>::ArrayType;
   using IndexArrayType = typename TypeTraits<IndexType>::ArrayType;
   auto typed_values = checked_pointer_cast<ValuesArrayType>(values);
@@ -1394,38 +1394,45 @@ void ValidateTakeAAAImpl(const std::shared_ptr<Array>& values,
           << i;
     }
   }
+  // DoCheckTakeCACWithArrays transforms the indices which has a risk of
+  // overflow, so we only call it if the index type is not too wide.
+  if (indices->type()->byte_width() <= 4) {
+    auto cast_options = CastOptions::Safe(TypeHolder{int64()});
+    ASSERT_OK_AND_ASSIGN(auto indices64, Cast(indices, cast_options));
+    DoCheckTakeCACWithArrays(values, indices64.make_array(), /*expected=*/result);
+  }
 }
 
 template <typename ValuesType>
-void ValidateTakeAAA(const std::shared_ptr<Array>& values,
-                     const std::shared_ptr<Array>& indices) {
+void ValidateTakeXA(const std::shared_ptr<Array>& values,
+                    const std::shared_ptr<Array>& indices) {
   ASSERT_OK_AND_ASSIGN(auto taken, TakeAAA(*values, *indices));
   ValidateOutput(taken);
   ASSERT_EQ(indices->length(), taken->length());
   switch (indices->type_id()) {
     case Type::INT8:
-      ValidateTakeAAAImpl<ValuesType, Int8Type>(values, indices, taken);
+      ValidateTakeXAImpl<ValuesType, Int8Type>(values, indices, taken);
       break;
     case Type::INT16:
-      ValidateTakeAAAImpl<ValuesType, Int16Type>(values, indices, taken);
+      ValidateTakeXAImpl<ValuesType, Int16Type>(values, indices, taken);
       break;
     case Type::INT32:
-      ValidateTakeAAAImpl<ValuesType, Int32Type>(values, indices, taken);
+      ValidateTakeXAImpl<ValuesType, Int32Type>(values, indices, taken);
       break;
     case Type::INT64:
-      ValidateTakeAAAImpl<ValuesType, Int64Type>(values, indices, taken);
+      ValidateTakeXAImpl<ValuesType, Int64Type>(values, indices, taken);
       break;
     case Type::UINT8:
-      ValidateTakeAAAImpl<ValuesType, UInt8Type>(values, indices, taken);
+      ValidateTakeXAImpl<ValuesType, UInt8Type>(values, indices, taken);
       break;
     case Type::UINT16:
-      ValidateTakeAAAImpl<ValuesType, UInt16Type>(values, indices, taken);
+      ValidateTakeXAImpl<ValuesType, UInt16Type>(values, indices, taken);
       break;
     case Type::UINT32:
-      ValidateTakeAAAImpl<ValuesType, UInt32Type>(values, indices, taken);
+      ValidateTakeXAImpl<ValuesType, UInt32Type>(values, indices, taken);
       break;
     case Type::UINT64:
-      ValidateTakeAAAImpl<ValuesType, UInt64Type>(values, indices, taken);
+      ValidateTakeXAImpl<ValuesType, UInt64Type>(values, indices, taken);
       break;
     default:
       FAIL() << "Invalid index type";
@@ -2211,14 +2218,14 @@ void CheckTakeRandom(const std::shared_ptr<Array>& values, int64_t indices_lengt
                                           max_index, null_probability);
   auto indices_no_nulls = rand->Numeric<IndexType>(
       indices_length, static_cast<IndexCType>(0), max_index, /*null_probability=*/0.0);
-  ValidateTakeAAA<ValuesType>(values, indices);
-  ValidateTakeAAA<ValuesType>(values, indices_no_nulls);
+  ValidateTakeXA<ValuesType>(values, indices);
+  ValidateTakeXA<ValuesType>(values, indices_no_nulls);
   // Sliced indices array
   if (indices_length >= 2) {
     indices = indices->Slice(1, indices_length - 2);
     indices_no_nulls = indices_no_nulls->Slice(1, indices_length - 2);
-    ValidateTakeAAA<ValuesType>(values, indices);
-    ValidateTakeAAA<ValuesType>(values, indices_no_nulls);
+    ValidateTakeXA<ValuesType>(values, indices);
+    ValidateTakeXA<ValuesType>(values, indices_no_nulls);
   }
 }
 
