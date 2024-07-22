@@ -39,6 +39,9 @@
 #include "parquet/schema_internal.h"
 #include "parquet/thrift_internal.h"
 
+// Include this after thrift_internal.h
+#include <thrift/protocol/TJSONProtocol.h>
+
 namespace parquet {
 
 const ApplicationVersion& ApplicationVersion::PARQUET_251_FIXED_VERSION() {
@@ -869,9 +872,7 @@ class FileMetaData::FileMetaDataImpl {
     auto md = *metadata_;
     if (scrub) Scrub(&md);
     if (json) {
-      std::ostringstream ss;
-      md.printTo(ss);
-      return ss.str();
+      return apache::thrift::ThriftJSONString(md);
     } else {
       ThriftSerializer serializer;
       std::string out;
