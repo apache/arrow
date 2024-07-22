@@ -2080,7 +2080,7 @@ TEST_F(TestPermutationsWithTake, InvertPermutation) {
       if (inverse == nullptr) {
         break;
       }
-      DoAssertTakeAAA(inverse, permutation, identity);
+      DoCheckTakeXA(inverse, permutation, identity);
     }
   }
 }
