@@ -44,12 +44,14 @@ class JavaConfiguration:
                  # build & benchmark
                  build_extras=None, benchmark_extras=None):
         self.java_home = java_home
+        self.java_options = java_options
 
-        required_options = " ".join(self.REQUIRED_JAVA_OPTIONS)
-        if java_options:
-            self.java_options = java_options + " " + required_options
+        if self.java_options is None:
+            self.java_options = " ".join(self.REQUIRED_JAVA_OPTIONS)
         else:
-            self.java_options = required_options
+            for option in self.REQUIRED_JAVA_OPTIONS:
+                if option not in self.java_options:
+                    self.java_options += " " + option
 
         self.build_extras = list(build_extras) if build_extras else []
         self.benchmark_extras = list(
