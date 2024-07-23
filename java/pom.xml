@@ -132,6 +132,8 @@ under the License.
       is addressed
     -->
     <version.maven-jar-plugin>3.2.2</version.maven-jar-plugin>
+    <version.maven-javadoc-plugin>3.6.3</version.maven-javadoc-plugin>
+    <version.maven-project-info-reports-plugin>3.5.0</version.maven-project-info-reports-plugin>
   </properties>
 
   <dependencyManagement>
