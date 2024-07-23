@@ -1274,14 +1274,16 @@ void DoCheckTakeCACWithArrays(const std::shared_ptr<Array>& values,
   //   I = indices
   const int64_t n = values->length();
   const int64_t k = n / 4;
-  auto value_slices = ArrayVector{values->Slice(0, k), values->Slice(k, 2 * k),
-                                  values->Slice(3 * k, n - k)};
-  auto chunked_values = std::make_shared<ChunkedArray>(value_slices);
-  ASSERT_OK_AND_ASSIGN(chunked_actual, TakeCAC(chunked_values, indices));
-  ValidateOutput(chunked_actual);
-  ASSERT_OK_AND_ASSIGN(concat_actual,
-                       Concatenate(chunked_actual.chunked_array()->chunks()));
-  AssertArraysEqual(*concat_actual, *expected, /*verbose=*/true);
+  if (k > 0) {
+    auto value_slices = ArrayVector{values->Slice(0, k), values->Slice(k, 2 * k),
+                                    values->Slice(3 * k, n - k)};
+    auto chunked_values = std::make_shared<ChunkedArray>(value_slices);
+    ASSERT_OK_AND_ASSIGN(chunked_actual, TakeCAC(chunked_values, indices));
+    ValidateOutput(chunked_actual);
+    ASSERT_OK_AND_ASSIGN(concat_actual,
+                         Concatenate(chunked_actual.chunked_array()->chunks()));
+    AssertArraysEqual(*concat_actual, *expected, /*verbose=*/true);
+  }
 }
 
 // TakeXA = {TakeAAA, TakeCAC}
