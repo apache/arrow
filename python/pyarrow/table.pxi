@@ -3940,6 +3940,10 @@ cdef class RecordBatch(_Tabular):
         """
         return self.device_type == DeviceAllocationType.CPU
 
+    cdef void _assert_cpu(self) except *:
+        if self.sp_batch.get().device_type() != CDeviceAllocationType_kCPU:
+            raise NotImplementedError("Implemented only for data on CPU device")
+
 
 def _reconstruct_record_batch(columns, schema):
     """
@@ -5713,6 +5717,9 @@ cdef class Table(_Tabular):
         PyCapsule
         """
         return self.to_reader().__arrow_c_stream__(requested_schema)
+
+    cdef void _assert_cpu(self) noexcept:
+        return  # TODO GH-43728
 
 
 def _reconstruct_table(arrays, schema):

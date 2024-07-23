@@ -522,6 +522,7 @@ cdef class Table(_Tabular):
         CTable* table
 
     cdef void init(self, const shared_ptr[CTable]& table)
+    cdef void _assert_cpu(self) noexcept
 
 
 cdef class RecordBatch(_Tabular):
@@ -531,6 +532,7 @@ cdef class RecordBatch(_Tabular):
         Schema _schema
 
     cdef void init(self, const shared_ptr[CRecordBatch]& table)
+    cdef void _assert_cpu(self) except *
 
 
 cdef class Device(_Weakrefable):
