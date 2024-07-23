@@ -1954,7 +1954,6 @@ class TestTakeKernelWithUnion : public TestTakeKernelTyped<ArrowUnionType> {
 };
 TYPED_TEST_SUITE(TestTakeKernelWithUnion, UnionArrowTypes);
 TYPED_TEST(TestTakeKernelWithUnion, TakeUnion) {
-  auto union_type = this->value_type();
   {
     auto union_json = R"([
       [2, 222],
@@ -1965,22 +1964,22 @@ TYPED_TEST(TestTakeKernelWithUnion, TakeUnion) {
       [2, 111],
       [5, null]
     ])";
-    CheckTakeXA(union_type, union_json, "[]", "[]");
-    CheckTakeXA(union_type, union_json, "[3, 0, 3, 0, 3]", R"([
+    this->CheckTakeXA(union_json, "[]", "[]");
+    this->CheckTakeXA(union_json, "[3, 0, 3, 0, 3]", R"([
       [5, "eh"],
       [2, 222],
       [5, "eh"],
       [2, 222],
       [5, "eh"]
     ])");
-    CheckTakeXA(union_type, union_json, "[4, 2, 0, 6]", R"([
+    this->CheckTakeXA(union_json, "[4, 2, 0, 6]", R"([
       [2, null],
       [5, "hello"],
       [2, 222],
       [5, null]
     ])");
-    CheckTakeXA(union_type, union_json, "[0, 1, 2, 3, 4, 5, 6]", union_json);
-    CheckTakeXA(union_type, union_json, "[1, 2, 2, 2, 2, 2, 2]", R"([
+    this->CheckTakeXA(union_json, "[0, 1, 2, 3, 4, 5, 6]", union_json);
+    this->CheckTakeXA(union_json, "[1, 2, 2, 2, 2, 2, 2]", R"([
       [2, null],
       [5, "hello"],
       [5, "hello"],
@@ -1989,7 +1988,7 @@ TYPED_TEST(TestTakeKernelWithUnion, TakeUnion) {
       [5, "hello"],
       [5, "hello"]
     ])");
-    CheckTakeXA(union_type, union_json, "[0, null, 1, null, 2, 2, 2]", R"([
+    this->CheckTakeXA(union_json, "[0, null, 1, null, 2, 2, 2]", R"([
       [2, 222],
       [2, null],
       [2, null],
