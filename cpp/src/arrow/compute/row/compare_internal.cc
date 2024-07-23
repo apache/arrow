@@ -110,12 +110,13 @@ void KeyCompare::CompareBinaryColumnToRowHelper(
     }
   } else {
     const uint8_t* rows_left = col.data(1);
-    const uint32_t* offsets_right = rows.offsets();
+    const RowTableImpl::offset_type* offsets_right = rows.offsets();
     const uint8_t* rows_right = rows.data(2);
     for (uint32_t i = first_row_to_compare; i < num_rows_to_compare; ++i) {
       uint32_t irow_left = use_selection ? sel_left_maybe_null[i] : i;
       uint32_t irow_right = left_to_right_map[irow_left];
-      uint32_t offset_right = offsets_right[irow_right] + offset_within_row;
+      RowTableImpl::offset_type offset_right =
+          offsets_right[irow_right] + offset_within_row;
       match_bytevector[i] = compare_fn(rows_left, rows_right, irow_left, offset_right);
     }
   }
@@ -145,7 +146,7 @@ void KeyCompare::CompareBinaryColumnToRow(uint32_t offset_within_row,
         offset_within_row, num_processed, num_rows_to_compare, sel_left_maybe_null,
         left_to_right_map, ctx, col, rows, match_bytevector,
         [bit_offset](const uint8_t* left_base, const uint8_t* right_base,
-                     uint32_t irow_left, uint32_t offset_right) {
+                     uint32_t irow_left, RowTableImpl::offset_type offset_right) {
           uint8_t left =
               bit_util::GetBit(left_base, irow_left + bit_offset) ? 0xff : 0x00;
           uint8_t right = right_base[offset_right];
@@ -156,7 +157,7 @@ void KeyCompare::CompareBinaryColumnToRow(uint32_t offset_within_row,
         offset_within_row, num_processed, num_rows_to_compare, sel_left_maybe_null,
         left_to_right_map, ctx, col, rows, match_bytevector,
         [](const uint8_t* left_base, const uint8_t* right_base, uint32_t irow_left,
-           uint32_t offset_right) {
+           RowTableImpl::offset_type offset_right) {
           uint8_t left = left_base[irow_left];
           uint8_t right = right_base[offset_right];
           return left == right ? 0xff : 0;
@@ -166,7 +167,7 @@ void KeyCompare::CompareBinaryColumnToRow(uint32_t offset_within_row,
         offset_within_row, num_processed, num_rows_to_compare, sel_left_maybe_null,
         left_to_right_map, ctx, col, rows, match_bytevector,
         [](const uint8_t* left_base, const uint8_t* right_base, uint32_t irow_left,
-           uint32_t offset_right) {
+           RowTableImpl::offset_type offset_right) {
           util::CheckAlignment<uint16_t>(left_base);
           util::CheckAlignment<uint16_t>(right_base + offset_right);
           uint16_t left = reinterpret_cast<const uint16_t*>(left_base)[irow_left];
@@ -178,7 +179,7 @@ void KeyCompare::CompareBinaryColumnToRow(uint32_t offset_within_row,
         offset_within_row, num_processed, num_rows_to_compare, sel_left_maybe_null,
         left_to_right_map, ctx, col, rows, match_bytevector,
         [](const uint8_t* left_base, const uint8_t* right_base, uint32_t irow_left,
-           uint32_t offset_right) {
+           RowTableImpl::offset_type offset_right) {
           util::CheckAlignment<uint32_t>(left_base);
           util::CheckAlignment<uint32_t>(right_base + offset_right);
           uint32_t left = reinterpret_cast<const uint32_t*>(left_base)[irow_left];
@@ -190,7 +191,7 @@ void KeyCompare::CompareBinaryColumnToRow(uint32_t offset_within_row,
         offset_within_row, num_processed, num_rows_to_compare, sel_left_maybe_null,
         left_to_right_map, ctx, col, rows, match_bytevector,
         [](const uint8_t* left_base, const uint8_t* right_base, uint32_t irow_left,
-           uint32_t offset_right) {
+           RowTableImpl::offset_type offset_right) {
           util::CheckAlignment<uint64_t>(left_base);
           util::CheckAlignment<uint64_t>(right_base + offset_right);
           uint64_t left = reinterpret_cast<const uint64_t*>(left_base)[irow_left];
@@ -202,7 +203,7 @@ void KeyCompare::CompareBinaryColumnToRow(uint32_t offset_within_row,
         offset_within_row, num_processed, num_rows_to_compare, sel_left_maybe_null,
         left_to_right_map, ctx, col, rows, match_bytevector,
         [&col](const uint8_t* left_base, const uint8_t* right_base, uint32_t irow_left,
-               uint32_t offset_right) {
+               RowTableImpl::offset_type offset_right) {
           uint32_t length = col.metadata().fixed_length;
 
           // Non-zero length guarantees no underflow
@@ -241,7 +242,7 @@ void KeyCompare::CompareVarBinaryColumnToRowHelper(
     const uint32_t* left_to_right_map, LightContext* ctx, const KeyColumnArray& col,
     const RowTableImpl& rows, uint8_t* match_bytevector) {
   const uint32_t* offsets_left = col.offsets();
-  const uint32_t* offsets_right = rows.offsets();
+  const RowTableImpl::offset_type* offsets_right = rows.offsets();
   const uint8_t* rows_left = col.data(2);
   const uint8_t* rows_right = rows.data(2);
   for (uint32_t i = first_row_to_compare; i < num_rows_to_compare; ++i) {
@@ -249,7 +250,7 @@ void KeyCompare::CompareVarBinaryColumnToRowHelper(
     uint32_t irow_right = left_to_right_map[irow_left];
     uint32_t begin_left = offsets_left[irow_left];
     uint32_t length_left = offsets_left[irow_left + 1] - begin_left;
-    uint32_t begin_right = offsets_right[irow_right];
+    RowTableImpl::offset_type begin_right = offsets_right[irow_right];
     uint32_t length_right;
     uint32_t offset_within_row;
     if (!is_first_varbinary_col) {

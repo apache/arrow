@@ -122,7 +122,7 @@ void RowArrayAccessor::Visit(const RowTableImpl& rows, int column_id, int num_ro
   if (!is_fixed_length_column) {
     int varbinary_column_id = VarbinaryColumnId(rows.metadata(), column_id);
     const uint8_t* row_ptr_base = rows.data(2);
-    const uint32_t* row_offsets = rows.offsets();
+    const RowTableImpl::offset_type* row_offsets = rows.offsets();
     uint32_t field_offset_within_row, field_length;
 
     if (varbinary_column_id == 0) {
@@ -173,7 +173,7 @@ void RowArrayAccessor::Visit(const RowTableImpl& rows, int column_id, int num_ro
       // Case 4: This is a fixed length column in a varying length row
       //
       const uint8_t* row_ptr_base = rows.data(2) + field_offset_within_row;
-      const uint32_t* row_offsets = rows.offsets();
+      const RowTableImpl::offset_type* row_offsets = rows.offsets();
       for (int i = 0; i < num_rows; ++i) {
         uint32_t row_id = row_ids[i];
         const uint8_t* row_ptr = row_ptr_base + row_offsets[row_id];
@@ -565,8 +565,8 @@ void RowArrayMerge::CopyVaryingLength(RowTableImpl* target, const RowTableImpl& 
                                       int64_t first_target_row_offset,
                                       const int64_t* source_rows_permutation) {
   int64_t num_source_rows = source.length();
-  uint32_t* target_offsets = target->mutable_offsets();
-  const uint32_t* source_offsets = source.offsets();
+  RowTableImpl::offset_type* target_offsets = target->mutable_offsets();
+  const RowTableImpl::offset_type* source_offsets = source.offsets();
 
   // Permutation of source rows is optional.
   //
@@ -593,7 +593,8 @@ void RowArrayMerge::CopyVaryingLength(RowTableImpl* target, const RowTableImpl& 
       int64_t source_row_id = source_rows_permutation[i];
       const uint64_t* source_row_ptr = reinterpret_cast<const uint64_t*>(
           source.data(2) + source_offsets[source_row_id]);
-      uint32_t length = source_offsets[source_row_id + 1] - source_offsets[source_row_id];
+      int64_t length = source_offsets[source_row_id + 1] - source_offsets[source_row_id];
+      DCHECK_LE(length, std::numeric_limits<uint32_t>::max());
 
       // Rows should be 64-bit aligned.
       // In that case we can copy them using a sequence of 64-bit read/writes.
