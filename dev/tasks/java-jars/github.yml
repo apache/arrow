@@ -83,7 +83,7 @@ jobs:
           - { runs_on: ["macos-13"], arch: "x86_64"}
           - { runs_on: ["macos-14"], arch: "aarch_64" }
     env:
-      MACOSX_DEPLOYMENT_TARGET: "13.10"
+      MACOSX_DEPLOYMENT_TARGET: "14.0"
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       - name: Set up Python
