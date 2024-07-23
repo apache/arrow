@@ -32,7 +32,8 @@ try:
     import numpy as np
     import numpy.testing as npt
 except ImportError:
-    pytest.skip(reason="Failures on test collection due to numpy NOT enabled", allow_module_level=True)
+    pytest.skip(reason="Failures on test collection due to numpy NOT enabled",
+                allow_module_level=True)
 
 from pyarrow.pandas_compat import get_logical_type, _pandas_api
 from pyarrow.tests.util import invoke_script, random_ascii, rands

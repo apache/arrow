@@ -23,7 +23,8 @@ import weakref
 try:
     import numpy as np
 except ImportError:
-    pytest.skip(reason="Failures on test collection due to numpy NOT enabled", allow_module_level=True)
+    pytest.skip(reason="Failures on test collection due to numpy NOT enabled",
+                allow_module_level=True)
 
 import pyarrow as pa
 import pyarrow.compute as pc
