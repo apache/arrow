@@ -24,7 +24,6 @@ module org.apache.arrow.memory.core {
 
   requires java.compiler;
   requires transitive jdk.unsupported;
-  requires jsr305;
   requires static org.checkerframework.checker.qual;
   requires static org.immutables.value.annotations;
   requires static com.google.errorprone.annotations;
