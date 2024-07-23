@@ -590,7 +590,7 @@ public class BaseFileTest {
           assertEquals(i % 3, unionReader.size());
           break;
         case 3:
-          // assertEquals(i % 4, unionReader.size());
+          assertEquals(3, unionReader.size());
           break;
         case 4:
           NullableTimeStampMilliHolder h = new NullableTimeStampMilliHolder();
