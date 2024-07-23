@@ -22,14 +22,17 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.StructVector;
+import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.complex.impl.UnionMapReader;
 import org.apache.arrow.vector.complex.impl.UnionMapWriter;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -1203,5 +1206,67 @@ public class TestMapVector {
 
     assertEquals(intField, vec.getField().getChildren().get(0));
     assertEquals(intField, res.getField().getChildren().get(0));
+  }
+
+  @Test
+  public void testSimpleMapVectorWithDecimals() {
+    try (final MapVector vector = MapVector.empty("v", allocator, false)) {
+      vector.allocateNew();
+      UnionMapWriter mapWriter = vector.getWriter();
+
+      mapWriter.setPosition(0);
+      mapWriter.startMap();
+      mapWriter.startEntry();
+      mapWriter.key().decimal(1, 2).writeDecimal(BigDecimal.valueOf(10, 1));
+      mapWriter.value().decimal(1, 2).writeDecimal(BigDecimal.valueOf(20, 1));
+      mapWriter.endEntry();
+      mapWriter.endMap();
+
+      vector.setValueCount(1);
+      assertEquals(vector.getChildrenFromFields().size(), 1);
+      StructVector structVector = (StructVector) vector.getChildrenFromFields().get(0);
+      assertEquals(structVector.getChildrenFromFields().size(), 2);
+      DecimalVector keyVector = (DecimalVector) structVector.getChildrenFromFields().get(0);
+      DecimalVector valueVector = (DecimalVector) structVector.getChildrenFromFields().get(1);
+      assertEquals(keyVector.getObject(0), BigDecimal.valueOf(10, 1));
+      assertEquals(valueVector.getObject(0), BigDecimal.valueOf(20, 1));
+    }
+  }
+
+  @Test
+  public void testWritingDecimals() {
+    try (ListVector vector = ListVector.empty("v", allocator)) {
+      UnionListWriter listWriter = vector.getWriter();
+      listWriter.allocate();
+
+      listWriter.setPosition(0);
+      listWriter.startList();
+      listWriter.map().startMap();
+      listWriter.map().startEntry();
+      listWriter.map().key().integer().writeInt(10);
+      listWriter.map().value().integer().writeInt(20);
+      listWriter.map().endEntry();
+      listWriter.map().startEntry();
+      listWriter.map().key().decimal(1, 2).writeDecimal(BigDecimal.valueOf(2.0));
+      listWriter.map().value().decimal(1, 2).writeDecimal(BigDecimal.valueOf(3.0));
+      listWriter.map().endEntry();
+      listWriter.map().endMap();
+      listWriter.endList();
+
+      listWriter.setValueCount(1);
+      vector.setValueCount(1);
+
+      assertEquals(vector.getChildrenFromFields().size(), 1);
+      MapVector mapVector = (MapVector) vector.getChildrenFromFields().get(0);
+      assertEquals(mapVector.getChildrenFromFields().size(), 1);
+      StructVector structVector = (StructVector) mapVector.getChildrenFromFields().get(0);
+      assertEquals(structVector.getChildrenFromFields().size(), 2);
+      assertEquals(structVector.getChildrenFromFields().get(0).getObject(0), 10);
+      assertEquals(
+          structVector.getChildrenFromFields().get(0).getObject(1), BigDecimal.valueOf(2.0));
+      assertEquals(structVector.getChildrenFromFields().get(1).getObject(0), 20);
+      assertEquals(
+          structVector.getChildrenFromFields().get(1).getObject(1), BigDecimal.valueOf(3.0));
+    }
   }
 }
