@@ -107,8 +107,8 @@ strides: {0.strides}""".format(self)
         array([[  2,   2,   4],
                [  4,   5, 100]], dtype=int32)
         """
-        if "numpy" not in sys.modules:
-            raise ValueError(
+        if np is None:
+            raise ImportError(
                 "Cannot return a numpy.ndarray if Numpy is not present")
         cdef PyObject* out
 
@@ -481,8 +481,8 @@ shape: {0.shape}""".format(self)
         """
         Convert arrow::SparseCOOTensor to numpy.ndarrays with zero copy.
         """
-        if "numpy" not in sys.modules:
-            raise ValueError(
+        if np is None:
+            raise ImportError(
                 "Cannot return a numpy.ndarray if Numpy is not present")
         cdef PyObject* out_data
         cdef PyObject* out_coords
@@ -749,8 +749,8 @@ shape: {0.shape}""".format(self)
         """
         Convert arrow::SparseCSRMatrix to numpy.ndarrays with zero copy.
         """
-        if "numpy" not in sys.modules:
-            raise ValueError(
+        if np is None:
+            raise ImportError(
                 "Cannot return a numpy.ndarray if Numpy is not present")
         cdef PyObject* out_data
         cdef PyObject* out_indptr
@@ -990,8 +990,8 @@ shape: {0.shape}""".format(self)
         """
         Convert arrow::SparseCSCMatrix to numpy.ndarrays with zero copy
         """
-        if "numpy" not in sys.modules:
-            raise ValueError(
+        if np is None:
+            raise ImportError(
                 "Cannot return a numpy.ndarray if Numpy is not present")
         cdef PyObject* out_data
         cdef PyObject* out_indptr
@@ -1228,8 +1228,8 @@ shape: {0.shape}""".format(self)
         """
         Convert arrow::SparseCSFTensor to numpy.ndarrays with zero copy
         """
-        if "numpy" not in sys.modules:
-            raise ValueError(
+        if np is None:
+            raise ImportError(
                 "Cannot return a numpy.ndarray if Numpy is not present")
         cdef PyObject* out_data
         cdef PyObject* out_indptr
