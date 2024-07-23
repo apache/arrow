@@ -355,18 +355,18 @@ add_feature_flags () {
       # NOTE: parquet is assumed to have the same -L flag as arrow
       # so there is no need to add its location to PKG_DIRS
     fi
-    if arrow_built_with ARROW_DATASET; then
-      PKG_CFLAGS_FEATURES="$PKG_CFLAGS_FEATURES -DARROW_R_WITH_DATASET"
-      PKG_CONFIG_NAMES_FEATURES="$PKG_CONFIG_NAMES_FEATURES arrow-dataset"
-      PKG_LIBS_FEATURES_WITHOUT_PC="-larrow_dataset $PKG_LIBS_FEATURES_WITHOUT_PC"
-      # NOTE: arrow_dataset is assumed to have the same -L flag as arrow
-      # so there is no need to add its location to PKG_DIRS
-    fi
     if arrow_built_with ARROW_ACERO; then
       PKG_CFLAGS_FEATURES="$PKG_CFLAGS_FEATURES -DARROW_R_WITH_ACERO"
       PKG_CONFIG_NAMES_FEATURES="$PKG_CONFIG_NAMES_FEATURES arrow-acero"
       PKG_LIBS_FEATURES_WITHOUT_PC="-larrow_acero $PKG_LIBS_FEATURES_WITHOUT_PC"
       # NOTE: arrow_acero is assumed to have the same -L flag as arrow
+      # so there is no need to add its location to PKG_DIRS
+    fi
+    if arrow_built_with ARROW_DATASET; then
+      PKG_CFLAGS_FEATURES="$PKG_CFLAGS_FEATURES -DARROW_R_WITH_DATASET"
+      PKG_CONFIG_NAMES_FEATURES="$PKG_CONFIG_NAMES_FEATURES arrow-dataset"
+      PKG_LIBS_FEATURES_WITHOUT_PC="-larrow_dataset $PKG_LIBS_FEATURES_WITHOUT_PC"
+      # NOTE: arrow_dataset is assumed to have the same -L flag as arrow
       # so there is no need to add its location to PKG_DIRS
     fi
     if arrow_built_with ARROW_SUBSTRAIT; then
