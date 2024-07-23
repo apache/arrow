@@ -284,7 +284,7 @@ UUID
    UUIDs as FixedSizeBinary(16) with big-endian notation and does not interpret the bytes in any way.
 
 Opaque
-=======
+======
 
 Opaque represents a type that an Arrow-based system received from an external
 (often non-Arrow) system, but that it cannot interpret.  In this case, it can
