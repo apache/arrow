@@ -34,6 +34,7 @@ def inject_cpp_tests(ns):
         if np is None and ('numpy' in case.name or 'pandas' in case.name):
             # Skip C++ tests that require pandas or numpy if numpy not present
             continue
+
         def wrapper(case=case):
             case()
         wrapper.__name__ = wrapper.__qualname__ = case.name

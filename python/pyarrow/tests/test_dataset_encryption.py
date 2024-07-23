@@ -20,7 +20,7 @@ from datetime import timedelta
 try:
     import numpy as np
 except ImportError:
-    np=None
+    np = None
 import pyarrow.fs as fs
 import pyarrow as pa
 

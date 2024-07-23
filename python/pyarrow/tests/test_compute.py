@@ -3035,6 +3035,7 @@ def test_cumulative_prod(start, skip_nulls):
         with pytest.raises(pa.ArrowInvalid):
             pc.cumulative_prod([1, 2, 3], start=strt)
 
+
 @pytest.mark.numpy
 @pytest.mark.parametrize('start', (0.5, 3.5, 6.5))
 @pytest.mark.parametrize('skip_nulls', (True, False))
