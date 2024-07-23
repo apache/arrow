@@ -1519,7 +1519,7 @@ class TestTakeKernelTyped : public TestTakeKernel {
   }
 };
 
-static const std::string kNull3 = "[null, null, null]";
+static const char kNull3[] = "[null, null, null]";
 
 TEST_F(TestTakeKernel, TakeNull) {
   CheckTakeXA(null(), kNull3, "[0, 1, 0]", "[null, null, null]");
