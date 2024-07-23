@@ -950,10 +950,10 @@ public class TestRangeEqualsVisitor {
   }
 
   private void writeListViewVector(UnionListViewWriter writer, double[] values) {
-    writer.startList();
+    writer.startListView();
     for (double v : values) {
       writer.float8().writeFloat8(v);
     }
-    writer.endList();
+    writer.endListView();
   }
 }

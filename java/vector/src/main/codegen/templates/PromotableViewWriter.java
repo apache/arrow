@@ -25,7 +25,15 @@
 import java.util.Locale;
 <#include "/@includes/vv_imports.ftl" />
 
-
+/**
+ * This FieldWriter implementation delegates all FieldWriter API calls to an inner FieldWriter. This
+ * inner field writer can start as a specific type, and this class will promote the writer to a
+ * UnionWriter if a call is made that the specifically typed writer cannot handle. A new UnionVector
+ * is created, wrapping the original vector, and replaces the original vector in the parent vector,
+ * which can be either an AbstractStructVector or a ListViewVector.
+ *
+ * <p>The writer used can either be for single elements (struct) or lists.
+ */
 public class PromotableViewWriter extends PromotableWriter {
 
   public PromotableViewWriter(ValueVector v, FixedSizeListVector fixedListVector) {
