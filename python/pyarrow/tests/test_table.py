@@ -978,7 +978,7 @@ def check_tensors(tensor, expected_tensor, type, size):
 
 
 @pytest.mark.numpy
-def test_recordbatch_to_tensor_uniform_type(typ):
+def test_recordbatch_to_tensor_uniform_type():
     for typ in [
         np.uint8, np.uint16, np.uint32, np.uint64,
         np.int8, np.int16, np.int32, np.int64,
