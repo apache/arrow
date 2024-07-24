@@ -19,11 +19,13 @@ package extensions_test
 import (
 	"bytes"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/apache/arrow/go/v17/arrow"
 	"github.com/apache/arrow/go/v17/arrow/array"
 	"github.com/apache/arrow/go/v17/arrow/extensions"
+	"github.com/apache/arrow/go/v17/arrow/ipc"
 	"github.com/apache/arrow/go/v17/arrow/memory"
 	"github.com/apache/arrow/go/v17/internal/json"
 	"github.com/stretchr/testify/assert"
@@ -145,6 +147,46 @@ func TestCompareBool8AndBoolean(t *testing.T) {
 	for i := 0; i < boolArr.Len(); i++ {
 		require.Equal(t, boolArr.Value(i), bool8Arr.Value(i))
 	}
+}
+
+func TestBool8TypeBatchIPCRoundTrip(t *testing.T) {
+	typ := extensions.NewBool8Type()
+	arrow.RegisterExtensionType(typ)
+	defer arrow.UnregisterExtensionType(typ.ExtensionName())
+
+	storage, _, err := array.FromJSON(memory.DefaultAllocator, arrow.PrimitiveTypes.Int8,
+		strings.NewReader(`[-1, 0, 1, 2, null]`))
+	require.NoError(t, err)
+	defer storage.Release()
+
+	arr := array.NewExtensionArrayWithStorage(typ, storage)
+	defer arr.Release()
+
+	batch := array.NewRecord(arrow.NewSchema([]arrow.Field{{Name: "field", Type: typ, Nullable: true}}, nil),
+		[]arrow.Array{arr}, -1)
+	defer batch.Release()
+
+	var written arrow.Record
+	{
+		var buf bytes.Buffer
+		wr := ipc.NewWriter(&buf, ipc.WithSchema(batch.Schema()))
+		require.NoError(t, wr.Write(batch))
+		require.NoError(t, wr.Close())
+
+		rdr, err := ipc.NewReader(&buf)
+		require.NoError(t, err)
+		written, err = rdr.Read()
+		require.NoError(t, err)
+		written.Retain()
+		defer written.Release()
+		rdr.Release()
+	}
+
+	assert.Truef(t, batch.Schema().Equal(written.Schema()), "expected: %s, got: %s",
+		batch.Schema(), written.Schema())
+
+	assert.Truef(t, array.RecordEqual(batch, written), "expected: %s, got: %s",
+		batch, written)
 }
 
 func BenchmarkWriteBool8Array(b *testing.B) {
