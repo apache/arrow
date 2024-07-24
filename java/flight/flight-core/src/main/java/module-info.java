@@ -35,7 +35,6 @@ module org.apache.arrow.flight.core {
   requires io.netty.common;
   requires io.netty.handler;
   requires io.netty.transport;
-  requires jsr305;
   requires org.apache.arrow.format;
   requires org.apache.arrow.memory.core;
   requires org.apache.arrow.vector;

@@ -17,7 +17,6 @@
 package org.apache.arrow.memory;
 
 import java.util.concurrent.atomic.AtomicLong;
-import javax.annotation.concurrent.ThreadSafe;
 import org.apache.arrow.util.Preconditions;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
@@ -25,7 +24,6 @@ import org.checkerframework.checker.nullness.qual.Nullable;
  * Provides a concurrent way to manage account for memory usage without locking. Used as basis for
  * Allocators. All operations are threadsafe (except for close).
  */
-@ThreadSafe
 class Accountant implements AutoCloseable {
 
   /** The parent allocator. */
