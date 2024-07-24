@@ -403,7 +403,7 @@ under the License.
                   <pluginExecutionFilter>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-checkstyle-plugin</artifactId>
-                    <versionRange>[0,)</versionRange>
+                    <version>3.4.0</version>
                     <goals>
                       <goal>check</goal>
                     </goals>
