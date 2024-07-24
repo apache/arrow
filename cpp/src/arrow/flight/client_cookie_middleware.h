@@ -23,11 +23,9 @@
 
 #include "arrow/flight/client_middleware.h"
 
-namespace arrow {
-namespace flight {
+namespace arrow::flight {
 
 /// \brief Returns a ClientMiddlewareFactory that handles sending and receiving cookies.
 ARROW_FLIGHT_EXPORT std::shared_ptr<ClientMiddlewareFactory> GetCookieFactory();
 
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight

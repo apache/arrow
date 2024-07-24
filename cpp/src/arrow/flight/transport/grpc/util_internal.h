@@ -89,6 +89,6 @@ ARROW_FLIGHT_EXPORT
 ::grpc::Status ToGrpcStatus(const Status& arrow_status,
                             ::grpc::ServerContext* ctx = nullptr);
 
-}  // namespace flight::transport::grpc
-} // namespace flight
-} // namespace arrow
+}  // namespace transport::grpc
+}  // namespace flight
+}  // namespace arrow

@@ -26,8 +26,7 @@
 #include "arrow/flight/visibility.h"  // IWYU pragma: keep
 #include "arrow/status.h"
 
-namespace arrow {
-namespace flight {
+namespace arrow::flight {
 
 /// \brief Client-side middleware for a call, instantiated per RPC.
 ///
@@ -74,5 +73,4 @@ class ARROW_FLIGHT_EXPORT ClientMiddlewareFactory {
                          std::unique_ptr<ClientMiddleware>* middleware) = 0;
 };
 
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight

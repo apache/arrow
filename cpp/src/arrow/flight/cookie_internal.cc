@@ -282,5 +282,4 @@ std::string CookieCache::GetValidCookiesAsString() {
 }
 
 }  // namespace flight::internal
-
 }  // namespace arrow
