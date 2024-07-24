@@ -19,6 +19,7 @@
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/kernels/common_internal.h"
+#include "arrow/compute/kernels/set_lookup_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/type.h"
 #include "arrow/util/bit_util.h"
@@ -33,11 +34,6 @@ using internal::HashTraits;
 
 namespace compute::internal {
 namespace {
-
-// This base class enables non-templated access to the value set type
-struct SetLookupStateBase : public KernelState {
-  std::shared_ptr<DataType> value_set_type;
-};
 
 template <typename Type>
 struct SetLookupState : public SetLookupStateBase {

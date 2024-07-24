@@ -28,6 +28,7 @@
 #include "arrow/compute/expression_internal.h"
 #include "arrow/compute/function_internal.h"
 #include "arrow/compute/util.h"
+#include "arrow/compute/kernels/set_lookup_internal.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
@@ -1148,6 +1149,34 @@ Result<Expression> Canonicalize(Expression expr, compute::ExecContext* exec_cont
 
 namespace {
 
+/// Preprocess an `is_in` predicate value set for simplification.
+/// \pre `value_set` is non-empty
+/// \return the value set sorted with duplicate and null values removed
+Result<std::shared_ptr<Array>> PrepareIsInValueSet(std::shared_ptr<Array> value_set) {
+  DCHECK_GT(value_set->length(), 0);
+  ARROW_ASSIGN_OR_RAISE(value_set, Unique(value_set));
+  ARROW_ASSIGN_OR_RAISE(
+      std::shared_ptr<Array> sort_indices,
+      SortIndices(value_set, SortOptions({}, NullPlacement::AtEnd)));
+  ARROW_ASSIGN_OR_RAISE(
+      value_set,
+      Take(*value_set, *sort_indices, TakeOptions(/*bounds_check=*/false)));
+  if (value_set->IsNull(value_set->length() - 1)) {
+    value_set = value_set->Slice(0, value_set->length() - 1);
+  }
+  return value_set;
+}
+
+/// Context for expression simplification.
+struct SimplificationContext {
+  /// Mapping from `is_in` calls to simplified value sets.
+  ///
+  /// `is_in` predicates with large value sets can be expensive to bind, so we
+  /// accumulate simplifications in the context and defer binding until all
+  /// inequalities have been processed.
+  std::unordered_map<const Expression::Call*, std::shared_ptr<Array>> is_in_value_sets;
+};
+
 // An inequality comparison which a target Expression is known to satisfy. If nullable,
 // the target may evaluate to null in addition to values satisfying the comparison.
 struct Inequality {
@@ -1242,27 +1271,17 @@ struct Inequality {
                             /*insert_implicit_casts=*/false, &exec_context);
   }
 
-  /// Simplify an is_in predicate against this inequality as a guarantee.
-  Result<Expression> SimplifyIsIn(Expression expr) {
-    const auto& guarantee = *this;
-    auto call = expr.call();
-    auto options = checked_pointer_cast<SetLookupOptions>(call->options);
+  /// Simplify an `is_in` value set against an inequality guarantee.
+  /// \pre `value_set` is non-empty
+  /// \return a simplified value set, or a bool if the simplification results in
+  ///   a boolean literal predicate.
+  static Result<std::variant<std::shared_ptr<Array>, bool>> SimplifyIsInValueSet(
+      const Inequality& guarantee, std::shared_ptr<Array> value_set) {
+    DCHECK_GT(value_set->length(), 0);
 
-    auto value_set = options->value_set.make_array();
-    if (!value_set) return expr;
-    if (value_set->length() == 0) return literal(false);
-
-    if (!options->sorted_and_deduped) return expr;
-
-    // For now, only simplify when the guarantee is non-nullable.
-    if (guarantee.nullable) return expr;
-
-    auto compare = [&value_set, &guarantee](size_t i) -> Result<Comparison::type> {
+    auto compare = [&guarantee, &value_set](size_t i) -> Result<Comparison::type> {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar, value_set->GetScalar(i));
-      // Nulls compare greater than any non-null value.
-      if (!scalar->is_valid) {
-        return Comparison::GREATER;
-      }
+      DCHECK(scalar->is_valid);
       ARROW_ASSIGN_OR_RAISE(Comparison::type cmp,
                             Comparison::Execute(scalar, guarantee.bound));
       return cmp;
@@ -1284,54 +1303,86 @@ struct Inequality {
     size_t pivot = lo + (cmp == Comparison::LESS ? 1 : 0);
     bool found = cmp == Comparison::EQUAL;
 
-    std::shared_ptr<Array> simplified_value_set;
-    if (guarantee.cmp == Comparison::EQUAL) {
-      return literal(found);
-    }
-    if (guarantee.cmp == Comparison::LESS) {
-      simplified_value_set = value_set->Slice(0, pivot);
-    } else if (guarantee.cmp == Comparison::LESS_EQUAL) {
-      simplified_value_set = value_set->Slice(0, pivot + (found ? 1 : 0));
-    } else if (guarantee.cmp == Comparison::GREATER) {
-      simplified_value_set = value_set->Slice(pivot + (found ? 1 : 0));
-    } else if (guarantee.cmp == Comparison::GREATER_EQUAL) {
-      simplified_value_set = value_set->Slice(pivot);
-    } else {
-      // We should never reach here.
-      return expr;
+    switch (guarantee.cmp) {
+      case Comparison::EQUAL:
+        return found;
+      case Comparison::LESS:
+        value_set = value_set->Slice(0, pivot);
+        break;
+      case Comparison::LESS_EQUAL:
+        value_set = value_set->Slice(0, pivot + (found ? 1 : 0));
+        break;
+      case Comparison::GREATER:
+        value_set = value_set->Slice(pivot + (found ? 1 : 0));
+        break;
+      case Comparison::GREATER_EQUAL:
+        value_set = value_set->Slice(pivot);
+        break;
+      default:
+        DCHECK(false);
+        break;
     }
 
-    if (simplified_value_set->length() == 0) return literal(false);
-    if (simplified_value_set->length() == value_set->length()) return expr;
-
-    Expression::Call simplified_call;
-    simplified_call.function_name = "is_in";
-    simplified_call.arguments = call->arguments;
-    simplified_call.options = std::make_shared<SetLookupOptions>(
-        std::move(simplified_value_set), options->null_matching_behavior,
-        /*sorted_and_deduped=*/true);
-    ExecContext exec_context;
-    return BindNonRecursive(std::move(simplified_call),
-                            /*insert_implicit_casts=*/false, &exec_context);
+    if (value_set->length() == 0) return false;
+    return value_set;
   }
 
   /// \brief Simplify the given expression given this inequality as a guarantee.
-  Result<Expression> Simplify(Expression expr) {
+  Result<Expression> Simplify(Expression expr, SimplificationContext& context) {
     const auto& guarantee = *this;
 
     auto call = expr.call();
     if (!call) return expr;
 
-    const auto& lhs = Comparison::StripOrderPreservingCasts(call->arguments[0]);
-    if (!lhs.field_ref()) return expr;
-    if (*lhs.field_ref() != guarantee.target) return expr;
-
     if (call->function_name == "is_valid" || call->function_name == "is_null") {
       if (guarantee.nullable) return expr;
+      const auto& lhs = Comparison::StripOrderPreservingCasts(call->arguments[0]);
+      if (!lhs.field_ref()) return expr;
+      if (*lhs.field_ref() != guarantee.target) return expr;
+
       return call->function_name == "is_valid" ? literal(true) : literal(false);
     }
 
-    if (call->function_name == "is_in") return SimplifyIsIn(expr);
+    if (call->function_name == "is_in") {
+      // Null-matching behavior is complex and reduces the chances of reduction
+      // of `is_in` calls to a single literal for every possible input, so we
+      // abort the simplification if nulls are possible in the input.
+      if (guarantee.nullable) return expr;
+
+      const auto& lhs = Comparison::StripOrderPreservingCasts(call->arguments[0]);
+      if (!lhs.field_ref()) return expr;
+      if (*lhs.field_ref() != guarantee.target) return expr;
+
+      auto options = checked_pointer_cast<SetLookupOptions>(call->options);
+      auto unsimplified_value_set = options->value_set.make_array();
+      if (unsimplified_value_set->length() == 0) return literal(false);
+
+      std::shared_ptr<Array>& value_set = context.is_in_value_sets[call];
+      if (!value_set) {
+        // Simplification for `is_in` requires that the value set is preprocessed.
+        // We store the prepared value set in the kernel state to avoid repeated
+        // preprocessing across calls to `SimplifyWithGuarantee`.
+        auto state = checked_pointer_cast<internal::SetLookupStateBase>(
+            call->kernel_state);
+        if (!state->sorted_and_unique_value_set) {
+          ARROW_ASSIGN_OR_RAISE(state->sorted_and_unique_value_set,
+                                PrepareIsInValueSet(unsimplified_value_set));
+        }
+        if (state->sorted_and_unique_value_set->length() == 0) {
+          context.is_in_value_sets.erase(call);
+          return literal(false);
+        }
+        value_set = state->sorted_and_unique_value_set;
+      }
+
+      ARROW_ASSIGN_OR_RAISE(auto result, SimplifyIsInValueSet(guarantee, value_set));
+      if (std::holds_alternative<bool>(result)) {
+        context.is_in_value_sets.erase(call);
+        return literal(std::get<bool>(result));
+      }
+      value_set = std::get<std::shared_ptr<Array>>(result);
+      return expr;
+    }
 
     auto cmp = Comparison::Get(expr);
     if (!cmp) return expr;
@@ -1339,6 +1390,10 @@ struct Inequality {
     auto rhs = call->arguments[1].literal();
     if (!rhs) return expr;
     if (!rhs->is_scalar()) return expr;
+
+    const auto& lhs = Comparison::StripOrderPreservingCasts(call->arguments[0]);
+    if (!lhs.field_ref()) return expr;
+    if (*lhs.field_ref() != guarantee.target) return expr;
 
     // Whether the RHS of the expression is EQUAL, LESS, or GREATER than the
     // RHS of the guarantee. N.B. Comparison::type is a bitmask
@@ -1418,6 +1473,7 @@ Result<Expression> SimplifyIsValidGuarantee(Expression expr,
 
 Result<Expression> SimplifyWithGuarantee(Expression expr,
                                          const Expression& guaranteed_true_predicate) {
+  SimplificationContext context;
   KnownFieldValues known_values;
   auto conjunction_members = GuaranteeConjunctionMembers(guaranteed_true_predicate);
 
@@ -1441,7 +1497,7 @@ Result<Expression> SimplifyWithGuarantee(Expression expr,
                             ModifyExpression(
                                 std::move(expr), [](Expression expr) { return expr; },
                                 [&](Expression expr, ...) -> Result<Expression> {
-                                  return inequality->Simplify(std::move(expr));
+                                  return inequality->Simplify(std::move(expr), context);
                                 }));
 
       if (Identical(simplified, expr)) continue;
@@ -1461,6 +1517,40 @@ Result<Expression> SimplifyWithGuarantee(Expression expr,
       RETURN_NOT_OK(CanonicalizeAndFoldConstants());
     }
   }
+
+  // Materialize any deferred `is_in` value set simplification tracked in the
+  // simplification context.
+  auto materialize_is_in_value_sets = [&](Expression expr, ...) -> Result<Expression> {
+    auto call = expr.call();
+    if (!call) return expr;
+    if (call->function_name != "is_in") return expr;
+    auto options = checked_pointer_cast<SetLookupOptions>(call->options);
+    auto state = checked_pointer_cast<internal::SetLookupStateBase>(call->kernel_state);
+    if (context.is_in_value_sets.count(call) == 0) return expr;
+    auto simplified_value_set = context.is_in_value_sets.at(call);
+
+    // If the simplified value set was unchanged, then return the original expression
+    // instead of a clone.
+    if (simplified_value_set->length() == state->sorted_and_unique_value_set->length()) {
+      return expr;
+    }
+
+    ExecContext exec_context;
+    Expression::Call simplified_call;
+    simplified_call.function_name = "is_in";
+    simplified_call.arguments = call->arguments;
+    simplified_call.options = std::make_shared<SetLookupOptions>(
+        simplified_value_set, options->null_matching_behavior);
+    ARROW_ASSIGN_OR_RAISE(
+        Expression simplified_expr,
+        BindNonRecursive(std::move(simplified_call),
+                         /*insert_implicit_casts=*/false, &exec_context));
+    return simplified_expr;
+  };
+
+  ARROW_ASSIGN_OR_RAISE(expr, ModifyExpression(
+      std::move(expr), [](Expression expr) { return expr; },
+      materialize_is_in_value_sets));
 
   return expr;
 }

@@ -265,8 +265,7 @@ TEST(Expression, ToString) {
 
   EXPECT_EQ(
       in_12.ToString(),
-      "index_in(beta, {value_set=int32:[\n  1,\n  2\n], null_matching_behavior=MATCH, "
-      "sorted_and_deduped=false})");
+      "index_in(beta, {value_set=int32:[\n  1,\n  2\n], null_matching_behavior=MATCH})");
 
   EXPECT_EQ(and_(field_ref("a"), field_ref("b")).ToString(), "(a and b)");
   EXPECT_EQ(or_(field_ref("a"), field_ref("b")).ToString(), "(a or b)");
@@ -1618,44 +1617,58 @@ TEST(Expression, SimplifyWithComparisonAndNullableCaveat) {
 }
 
 TEST(Expression, SimplifyIsIn) {
-  auto is_in = [](Expression field, std::string json_array, bool sorted_and_deduped) {
+  auto is_in = [](Expression field, std::string json_array) {
     SetLookupOptions options{ArrayFromJSON(int32(), json_array),
-                             SetLookupOptions::MATCH, sorted_and_deduped};
+                             SetLookupOptions::MATCH};
     return call("is_in", {field}, options);
   };
 
-  Simplify{is_in(field_ref("i32"), "[]", /*sorted_and_deduped=*/true)}
+  Simplify{is_in(field_ref("i32"), "[]")}
       .WithGuarantee(greater(field_ref("i32"), literal(2)))
       .Expect(false);
 
-  Simplify{is_in(field_ref("i32"), "[1,3,5,7,9]", /*sorted_and_deduped=*/true)}
+  Simplify{is_in(field_ref("i32"), "[null]")}
+      .WithGuarantee(greater(field_ref("i32"), literal(2)))
+      .Expect(false);
+
+  Simplify{is_in(field_ref("i32"), "[1,3,5,7,9]")}
       .WithGuarantee(equal(field_ref("i32"), literal(7)))
       .Expect(true);
 
-  Simplify{is_in(field_ref("i32"), "[1,3,5,7,9]", /*sorted_and_deduped=*/true)}
-      .WithGuarantee(greater(field_ref("i32"), literal(3)))
-      .Expect(is_in(field_ref("i32"), "[5,7,9]", /*sorted_and_deduped=*/true));
+  Simplify{is_in(field_ref("i32"), "[1,3,5,7,9]")}
+      .WithGuarantee(equal(field_ref("i32"), literal(6)))
+      .Expect(false);
 
-  Simplify{is_in(field_ref("i32"), "[1,3,5,7,9]", /*sorted_and_deduped=*/true)}
+  Simplify{is_in(field_ref("i32"), "[1,3,5,7,9]")}
+      .WithGuarantee(greater(field_ref("i32"), literal(3)))
+      .Expect(is_in(field_ref("i32"), "[5,7,9]"));
+
+  Simplify{is_in(field_ref("i32"), "[1,null,3,5,null,7,9]")}
+      .WithGuarantee(greater(field_ref("i32"), literal(3)))
+      .Expect(is_in(field_ref("i32"), "[5,7,9]"));
+
+  Simplify{is_in(field_ref("i32"), "[1,3,5,7,9]")}
       .WithGuarantee(greater(field_ref("i32"), literal(9)))
       .Expect(false);
 
-  Simplify{is_in(field_ref("i32"), "[1,3,5,7,9]", /*sorted_and_deduped=*/true)}
+  Simplify{is_in(field_ref("i32"), "[1,3,5,7,9]")}
       .WithGuarantee(less_equal(field_ref("i32"), literal(0)))
       .Expect(false);
 
-  Simplify{is_in(field_ref("i32"), "[1,3,5,7,9]", /*sorted_and_deduped=*/true)}
+  Simplify{is_in(field_ref("i32"), "[1,3,5,7,9]")}
       .WithGuarantee(greater(field_ref("i32"), literal(0)))
       .ExpectUnchanged();
 
-  Simplify{is_in(field_ref("i32"), "[1,3,5,7,9]", /*sorted_and_deduped=*/true)}
+  Simplify{is_in(field_ref("i32"), "[1,3,5,7,9]")}
       .WithGuarantee(
           or_(equal(field_ref("i32"), literal(3)), is_null(field_ref("i32"))))
       .ExpectUnchanged();
 
-  Simplify{is_in(field_ref("i32"), "[1,3,5,7,9]", /*sorted_and_deduped=*/false)}
-      .WithGuarantee(less_equal(field_ref("i32"), literal(7)))
-      .ExpectUnchanged();
+  Simplify{is_in(field_ref("i32"), "[1,3,5,7,9]")}
+      .WithGuarantee(
+          and_(less_equal(field_ref("i32"), literal(7)),
+               greater(field_ref("i32"), literal(4))))
+      .Expect(is_in(field_ref("i32"), "[5,7]"));
 }
 
 TEST(Expression, SimplifyThenExecute) {
