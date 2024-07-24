@@ -54,6 +54,8 @@ func Test_fromArrowType(t *testing.T) {
 		{Name: "f19-duration_ms", Type: arrow.FixedWidthTypes.Duration_ms},
 		{Name: "f20-duration_us", Type: arrow.FixedWidthTypes.Duration_us},
 		{Name: "f21-duration_ns", Type: arrow.FixedWidthTypes.Duration_ns},
+		{Name: "f22-large-string", Type: arrow.BinaryTypes.LargeString},
+		{Name: "f23-large-binary", Type: arrow.BinaryTypes.LargeBinary},
 	}
 
 	schema := arrow.NewSchema(fields, nil)
@@ -98,6 +100,9 @@ func Test_fromArrowType(t *testing.T) {
 	b.Field(18).(*array.DurationBuilder).Append(1)
 	b.Field(19).(*array.DurationBuilder).Append(1)
 	b.Field(20).(*array.DurationBuilder).Append(1)
+	b.Field(21).(*array.LargeStringBuilder).Append("a")
+	// BinaryBuilder is also used for building a LargeBinary array
+	b.Field(22).(*array.BinaryBuilder).Append([]byte("a"))
 
 	rec := b.NewRecord()
 	defer rec.Release()
@@ -135,4 +140,6 @@ func Test_fromArrowType(t *testing.T) {
 	tf(t, 18, time.Duration(1000000))                        // "f19-duration_ms"
 	tf(t, 19, time.Duration(1000))                           // "f20-duration_us"
 	tf(t, 20, time.Duration(1))                              // "f21-duration_ns"
+	tf(t, 21, "a")                                           // "f22-large-string"
+	tf(t, 22, []byte("a"))                                   // "f23-large-binary"
 }
