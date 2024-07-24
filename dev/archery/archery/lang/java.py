@@ -34,14 +34,24 @@ class Jar(CommandStackMixin, Java):
 
 
 class JavaConfiguration:
-    def __init__(self,
+    REQUIRED_JAVA_OPTIONS = [
+        "--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED",
+    ]
 
+    def __init__(self,
                  # toolchain
                  java_home=None, java_options=None,
                  # build & benchmark
                  build_extras=None, benchmark_extras=None):
         self.java_home = java_home
         self.java_options = java_options
+
+        if self.java_options is None:
+            self.java_options = " ".join(self.REQUIRED_JAVA_OPTIONS)
+        else:
+            for option in self.REQUIRED_JAVA_OPTIONS:
+                if option not in self.java_options:
+                    self.java_options += " " + option
 
         self.build_extras = list(build_extras) if build_extras else []
         self.benchmark_extras = list(
