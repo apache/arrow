@@ -18,7 +18,9 @@
 #undef HAVE_LANGINFO
 
 #ifndef _WIN32
+# if !(defined(__ANDROID__) && __ANDROID_API__ < 26)
 #define HAVE_LANGINFO 1
+#endif
 #endif
 
 #ifdef HAVE_LANGINFO
