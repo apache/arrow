@@ -32,7 +32,25 @@ namespace arrow {
 
 class Status;
 
-namespace flight::transport::grpc {
+namespace flight {
+
+#define GRPC_RETURN_NOT_OK(expr)                                 \
+  do {                                                           \
+    ::arrow::Status _s = (expr);                                 \
+    if (ARROW_PREDICT_FALSE(!_s.ok())) {                         \
+      return ::arrow::flight::transport::grpc::ToGrpcStatus(_s); \
+    }                                                            \
+  } while (0)
+
+#define GRPC_RETURN_NOT_GRPC_OK(expr)    \
+  do {                                   \
+    ::grpc::Status _s = (expr);          \
+    if (ARROW_PREDICT_FALSE(!_s.ok())) { \
+      return _s;                         \
+    }                                    \
+  } while (0)
+
+namespace transport::grpc {
 
 /// The name of the header used to pass authentication tokens.
 ARROW_FLIGHT_EXPORT
@@ -72,4 +90,5 @@ ARROW_FLIGHT_EXPORT
                             ::grpc::ServerContext* ctx = nullptr);
 
 }  // namespace flight::transport::grpc
-}  // namespace arrow
+} // namespace flight
+} // namespace arrow
