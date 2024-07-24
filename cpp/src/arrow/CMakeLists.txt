@@ -166,7 +166,9 @@ if(WIN32)
   list(APPEND ARROW_SYSTEM_LINK_LIBS "ws2_32")
 endif()
 
-if(NOT WIN32 AND NOT APPLE AND NOT ANDROID)
+if(NOT WIN32
+   AND NOT APPLE
+   AND NOT ANDROID)
   # Pass -lrt on Linux only
   list(APPEND ARROW_SYSTEM_LINK_LIBS rt)
 endif()
