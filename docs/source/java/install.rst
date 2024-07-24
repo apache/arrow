@@ -40,7 +40,7 @@ adding ``--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED
    # Directly on the command line
    $ java --add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED -jar ...
    # Indirectly via environment variables
-   $ env _JAVA_OPTIONS="--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED" java -jar ...
+   $ env JDK_JAVA_OPTIONS="--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED" java -jar ...
 
 Otherwise, you may see errors like ``module java.base does not "opens
 java.nio" to unnamed module`` or ``module java.base does not "opens
@@ -58,7 +58,7 @@ Modifying the command above for Flight:
    # Directly on the command line
    $ java --add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED -jar ...
    # Indirectly via environment variables
-   $ env _JAVA_OPTIONS="--add-reads=org.apache.arrow.flight.core=ALL-UNNAMED --add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED" java -jar ...
+   $ env JDK_JAVA_OPTIONS="--add-reads=org.apache.arrow.flight.core=ALL-UNNAMED --add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED" java -jar ...
 
 Otherwise, you may see errors like ``java.lang.IllegalAccessError: superclass access check failed: class
 org.apache.arrow.flight.ArrowMessage$ArrowBufRetainingCompositeByteBuf (in module org.apache.arrow.flight.core)
@@ -73,7 +73,7 @@ Modifying the command above for arrow-memory:
    # Directly on the command line
    $ java --add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED -jar ...
    # Indirectly via environment variables
-   $ env _JAVA_OPTIONS="--add-opens=java.base/java.nio=org.apache.arrow.dataset,org.apache.arrow.memory.core,ALL-UNNAMED" java -jar ...
+   $ env JDK_JAVA_OPTIONS="--add-opens=java.base/java.nio=org.apache.arrow.dataset,org.apache.arrow.memory.core,ALL-UNNAMED" java -jar ...
 
 Otherwise you may see errors such as ``java.lang.RuntimeException: java.lang.reflect.InaccessibleObjectException:
 Unable to make static void java.nio.Bits.reserveMemory(long,long) accessible: module
@@ -216,7 +216,7 @@ Or they can be added via environment variable, for example when executing your c
 
 .. code-block::
 
-    _JAVA_OPTIONS="--add-opens=java.base/java.nio=ALL-UNNAMED" mvn exec:java -Dexec.mainClass="YourMainCode"
+    JDK_JAVA_OPTIONS="--add-opens=java.base/java.nio=ALL-UNNAMED" mvn exec:java -Dexec.mainClass="YourMainCode"
 
 Installing from Source
 ======================

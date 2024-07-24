@@ -73,7 +73,7 @@ class JavaConfiguration:
             env["JAVA_HOME"] = self.java_home
 
         if self.java_options:
-            env["JAVA_OPTIONS"] = self.java_options
+            env["JDK_JAVA_OPTIONS"] = self.java_options
 
         return env
 
