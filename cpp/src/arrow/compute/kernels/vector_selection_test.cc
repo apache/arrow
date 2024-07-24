@@ -1696,7 +1696,7 @@ TEST_F(TestTakeKernelFSB, TakeFixedSizeBinary) {
   this->TestNoValidityBitmapButUnknownNullCount(kABC, "[0, 1, 0]");
 
   std::shared_ptr<DataType> type = this->value_type();
-  const std::string kABNullDE = R"(["aaa", "bbb", "ccc", null, "eee"])";
+  const std::string kABNullDE = R"(["aaa", "bbb", null, "ddd", "eee"])";
   std::shared_ptr<Array> arr;
   ASSERT_RAISES(IndexError, TakeAAA(type, kABC, "[0, 9, 0]").Value(&arr));
   ASSERT_RAISES(IndexError, TakeAAA(type, kABNullDE, "[2, 5]").Value(&arr));
@@ -1973,7 +1973,9 @@ class TestTakeKernelWithUnion : public TestTakeKernelTyped<ArrowUnionType> {
         });
   }
 };
+
 TYPED_TEST_SUITE(TestTakeKernelWithUnion, UnionArrowTypes);
+
 TYPED_TEST(TestTakeKernelWithUnion, TakeUnion) {
   {
     auto union_json = R"([
