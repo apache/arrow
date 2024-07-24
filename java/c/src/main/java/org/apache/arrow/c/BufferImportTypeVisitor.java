@@ -229,8 +229,7 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
         type,
         start,
         end);
-    final int len = end - start;
-    return Arrays.asList(maybeImportBitmap(type), adjustedOffsets, importData(type, len));
+    return Arrays.asList(maybeImportBitmap(type), adjustedOffsets, importData(type, end));
   }
 
   private List<ArrowBuf> visitVariableWidthView(ArrowType type) {
@@ -300,8 +299,7 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
         type,
         start,
         end);
-    final int len = end - start;
-    return Arrays.asList(maybeImportBitmap(type), adjustedOffsets, importData(type, len));
+    return Arrays.asList(maybeImportBitmap(type), adjustedOffsets, importData(type, end));
   }
 
   @Override
