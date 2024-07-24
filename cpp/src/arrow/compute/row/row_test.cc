@@ -184,7 +184,7 @@ TEST(RowTableLarge, LARGE_MEMORY_TEST(Encode)) {
 }
 
 // GH-XXXXX: Ensure that we can build a row table with more than 4GB row data.
-TEST(RowTableOffsetOverflow, LARGE_MEMORY_TEST(AppendFrom)) {
+TEST(RowTableLarge, LARGE_MEMORY_TEST(AppendFrom)) {
   if constexpr (sizeof(void*) == 4) {
     GTEST_SKIP() << "Test only works on 64-bit platforms";
   }
