@@ -1406,6 +1406,16 @@ tasks:
         GCC_VERSION: 12
       image: ubuntu-r-only-r
 
+  # This also has -flto=auto
+  test-r-gcc-13:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        UBUNTU: 24.04
+        GCC_VERSION: 13
+      image: ubuntu-r-only-r
+
   test-r-minimal-build:
     ci: azure
     template: r/azure.linux.yml
