@@ -121,6 +121,11 @@ class ARROW_EXPORT InputStreamConcurrencyWrapper : public InputStream {
     return derived()->DoPeek(nbytes);
   }
 
+  Status Advance(int64_t nbytes) override {
+    auto guard = lock_.exclusive_guard();
+    return derived()->DoAdvance(nbytes);
+  }
+
   /*
   Methods to implement in derived class:
 
@@ -132,6 +137,7 @@ class ARROW_EXPORT InputStreamConcurrencyWrapper : public InputStream {
   And optionally:
 
   Status DoAbort() override;
+  Status DoAdvance(int64_t nbytes) override;
   Result<std::string_view> DoPeek(int64_t nbytes) override;
 
   These methods should be protected in the derived class and
@@ -144,6 +150,8 @@ class ARROW_EXPORT InputStreamConcurrencyWrapper : public InputStream {
   // Default implementations.  They are virtual because the derived class may
   // have derived classes itself.
   virtual Status DoAbort() { return derived()->DoClose(); }
+
+  virtual Status DoAdvance(int64_t nbytes) { return derived()->Advance(nbytes); }
 
   virtual Result<std::string_view> DoPeek(int64_t ARROW_ARG_UNUSED(nbytes)) {
     return Status::NotImplemented("Peek not implemented");

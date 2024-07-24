@@ -434,6 +434,32 @@ class BufferedInputStream::Impl : public BufferedBase {
     return std::shared_ptr<Buffer>(std::move(buffer));
   }
 
+  Status Advance(int64_t nbytes) {
+    if (nbytes < 0) {
+      return Status::Invalid("Bytes to advance must be non-negative. Received:", nbytes);
+    }
+    if (nbytes == 0) {
+      return Status::OK();
+    }
+
+    if (nbytes < bytes_buffered_) {
+      ConsumeBuffer(nbytes);
+      return Status::OK();
+    }
+
+    // Invalidate buffered data, as with a Seek or large Read
+    int64_t remain_skip_bytes = nbytes - bytes_buffered_;
+    RewindBuffer();
+    // TODO(mwish): Considering using raw_->Advance if available,
+    // currently we don't have a way to know if the underlying stream supports fast
+    // skipping. So we just read and discard the data.
+    auto result = Read(remain_skip_bytes);
+    if (!result.ok()) {
+      return result.status();
+    }
+    return Status::OK();
+  }
+
   // For providing access to the raw file handles
   std::shared_ptr<InputStream> raw() const { return raw_; }
 
@@ -497,6 +523,8 @@ Result<int64_t> BufferedInputStream::DoRead(int64_t nbytes, void* out) {
 Result<std::shared_ptr<Buffer>> BufferedInputStream::DoRead(int64_t nbytes) {
   return impl_->Read(nbytes);
 }
+
+Status BufferedInputStream::DoAdvance(int64_t nbytes) { return impl_->Advance(nbytes); }
 
 Result<std::shared_ptr<const KeyValueMetadata>> BufferedInputStream::ReadMetadata() {
   return impl_->raw()->ReadMetadata();

@@ -210,7 +210,7 @@ class ARROW_EXPORT InputStream : virtual public FileInterface, virtual public Re
   /// \brief Advance or skip stream indicated number of bytes
   /// \param[in] nbytes the number to move forward
   /// \return Status
-  Status Advance(int64_t nbytes);
+  virtual Status Advance(int64_t nbytes);
 
   /// \brief Return zero-copy string_view to upcoming bytes.
   ///
