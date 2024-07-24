@@ -1077,6 +1077,7 @@ tasks:
         GCC_VERSION: 13
         CLANG_TOOLS: 15
         LLVM: 15
+      flags: '-e ARROW_DEPENDENCY_SOURCE=BUNDLED'
       image: ubuntu-cpp
 
   test-ubuntu-24.04-cpp-gcc-14:
