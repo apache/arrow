@@ -1272,6 +1272,16 @@ struct Inequality {
   }
 
   /// Simplify an `is_in` value set against an inequality guarantee.
+  ///
+  /// Simplifying an `is_in` predicate involves filtering out any values from
+  /// the value set that cannot possibly be found given the guarantee. For
+  /// example, if we have the predicate 'x is_in [1, 2, 3, 4]' and the guarantee
+  /// 'x > 2', then the simplified predicate 'x is_in [3, 4]' is equivalent.
+  /// This can be done efficiently if the value set is sorted and unique by
+  /// binary searching the inequality gound and slicing the value set
+  /// accordingly.
+  ///
+  /// \pre `guarantee` is non-nullable
   /// \pre `value_set` is non-empty
   /// \return a simplified value set, or a bool if the simplification results in
   ///   a boolean literal predicate.
