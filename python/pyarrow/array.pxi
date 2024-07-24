@@ -3982,7 +3982,7 @@ cdef class StructArray(Array):
         Construct StructArray from collection of arrays representing
         each field in the struct.
 
-        Either field names, field instances or a structtype must be passed.
+        Either field names, field instances or a struct type must be passed.
 
         Parameters
         ----------
