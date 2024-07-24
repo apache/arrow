@@ -1743,17 +1743,10 @@ def generate_binary_view_case():
 def generate_list_view_case():
     fields = [
         ListViewField('lv', get_field('item', 'float32')),
+        LargeListViewField('llv', get_field('item', 'float32')),
     ]
     batch_sizes = [0, 7, 256]
     return _generate_file("list_view", fields, batch_sizes)
-
-
-def generate_large_list_view_case():
-    fields = [
-        LargeListViewField('llv', get_field('item', 'float32'))
-    ]
-    batch_sizes = [0, 7, 256]
-    return _generate_file("large_list_view", fields, batch_sizes)
 
 
 def generate_nested_large_offsets_case():
@@ -1942,12 +1935,6 @@ def get_generated_json_files(tempdir=None):
         .skip_tester('Rust'),
 
         generate_list_view_case()
-        .skip_tester('C#')     # Doesn't support large list views
-        .skip_tester('JS')
-        .skip_tester('nanoarrow')
-        .skip_tester('Rust'),
-
-        generate_large_list_view_case()
         .skip_tester('C#')     # Doesn't support large list views
         .skip_tester('Java')
         .skip_tester('JS')

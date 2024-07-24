@@ -85,7 +85,6 @@ import org.apache.arrow.vector.compare.VectorEqualsVisitor;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.LargeListVector;
 import org.apache.arrow.vector.complex.ListVector;
-import org.apache.arrow.vector.complex.ListViewVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
@@ -681,26 +680,6 @@ public class RoundtripTest {
           Arrays.stream(new int[] {1, 2}).boxed().collect(Collectors.toList()),
           Arrays.stream(new int[] {3, 4}).boxed().collect(Collectors.toList()));
       assertTrue(roundtrip(vector, FixedSizeListVector.class));
-    }
-  }
-
-  @Test
-  public void testListViewVector() {
-    try (final ListViewVector vector = ListViewVector.empty("v", allocator)) {
-      setVector(
-          vector,
-          Arrays.stream(new int[] {1, 2}).boxed().collect(Collectors.toList()),
-          Arrays.stream(new int[] {3, 4}).boxed().collect(Collectors.toList()),
-          new ArrayList<Integer>());
-      assertTrue(roundtrip(vector, ListViewVector.class));
-    }
-  }
-
-  @Test
-  public void testEmptyListViewVector() {
-    try (final ListViewVector vector = ListViewVector.empty("v", allocator)) {
-      setVector(vector, new ArrayList<Integer>());
-      assertTrue(roundtrip(vector, ListViewVector.class));
     }
   }
 
