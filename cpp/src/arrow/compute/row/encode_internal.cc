@@ -265,7 +265,8 @@ void EncoderInteger::Decode(uint32_t start_row, uint32_t num_rows,
            num_rows * row_size);
   } else if (rows.metadata().is_fixed_length) {
     uint32_t row_size = rows.metadata().fixed_length;
-    const uint8_t* row_base = rows.data(1) + start_row * row_size;
+    const uint8_t* row_base =
+        rows.data(1) + static_cast<RowTableImpl::offset_type>(start_row) * row_size;
     row_base += offset_within_row;
     uint8_t* col_base = col_prep.mutable_data(1);
     switch (col_prep.metadata().fixed_length) {
@@ -588,7 +589,9 @@ void EncoderBinaryPair::DecodeImp(uint32_t num_rows_to_skip, uint32_t start_row,
   const RowTableImpl::offset_type* offsets;
   const uint8_t* src_base;
   if (is_row_fixed_length) {
-    src_base = rows.data(1) + fixed_length * start_row + offset_within_row;
+    src_base = rows.data(1) +
+               static_cast<RowTableImpl::offset_type>(start_row) * fixed_length +
+               offset_within_row;
     offsets = nullptr;
   } else {
     src_base = rows.data(2) + offset_within_row;
