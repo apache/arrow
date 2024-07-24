@@ -29,8 +29,6 @@ import (
 	"github.com/apache/arrow/go/v17/internal/json"
 )
 
-const ExtensionNameBool8 = "bool8"
-
 // Bool8Type represents a logical boolean that is stored using 8 bits.
 type Bool8Type struct {
 	arrow.ExtensionBase
@@ -54,11 +52,11 @@ func (b *Bool8Type) ExtensionEquals(other arrow.ExtensionType) bool {
 	return b.ExtensionName() == other.ExtensionName()
 }
 
-func (b *Bool8Type) ExtensionName() string { return ExtensionNameBool8 }
+func (b *Bool8Type) ExtensionName() string { return "arrow.bool8" }
 
 func (b *Bool8Type) Serialize() string { return "" }
 
-func (b *Bool8Type) String() string { return fmt.Sprintf("Bool8<storage=%s>", b.Storage) }
+func (b *Bool8Type) String() string { return fmt.Sprintf("extension<%s>", b.ExtensionName()) }
 
 func (*Bool8Type) NewBuilder(mem memory.Allocator) array.Builder {
 	return NewBool8Builder(mem)
