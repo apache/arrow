@@ -1058,6 +1058,15 @@ tasks:
         UBUNTU: 20.04
       image: ubuntu-cpp-bundled
 
+  test-ubuntu-24.04-cpp-gcc-13-bundled:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        UBUNTU: 24.04
+        GCC_VERSION: 13
+      image: ubuntu-cpp-bundled
+
   test-ubuntu-24.04-cpp:
     ci: github
     template: docker-tests/github.linux.yml
@@ -1066,20 +1075,6 @@ tasks:
         CLANG_TOOLS: 15
         LLVM: 15
         UBUNTU: 24.04
-      image: ubuntu-cpp
-
-  test-ubuntu-24.04-cpp-gcc-13:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      env:
-        UBUNTU: 24.04
-        GCC_VERSION: 13
-        CLANG_TOOLS: 15
-        LLVM: 15
-      # ABSL 20211102.0 has an error caught by gcc 13.
-      # https://github.com/abseil/abseil-cpp/pull/1187
-      flags: '-e absl_SOURCE=BUNDLED -e Protobuf_SOURCE=BUNDLED'
       image: ubuntu-cpp
 
   test-ubuntu-24.04-cpp-gcc-14:
