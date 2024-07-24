@@ -250,51 +250,6 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
   }
 
   @Override
-  public ListWriter list() {
-    return getWriter(MinorType.LIST).list();
-  }
-
-  @Override
-  public ListWriter listView() {
-    return getWriter(MinorType.LISTVIEW).listView();
-  }
-
-  @Override
-  public MapWriter map() {
-    return getWriter(MinorType.LIST).map();
-  }
-
-  @Override
-  public MapWriter map(boolean keysSorted) {
-    return getWriter(MinorType.MAP, new ArrowType.Map(keysSorted));
-  }
-
-  @Override
-  public StructWriter struct(String name) {
-    return getWriter(MinorType.STRUCT).struct(name);
-  }
-
-  @Override
-  public ListWriter list(String name) {
-    return getWriter(MinorType.STRUCT).list(name);
-  }
-
-  @Override
-  public ListWriter listView(String name) {
-    return getWriter(MinorType.STRUCT).listView(name);
-  }
-
-  @Override
-  public MapWriter map(String name) {
-    return getWriter(MinorType.STRUCT).map(name);
-  }
-
-  @Override
-  public MapWriter map(String name, boolean keysSorted) {
-    return getWriter(MinorType.STRUCT).map(name, keysSorted);
-  }
-
-  @Override
   public void writeNull() {
     FieldWriter w = getWriter();
     if (w != null) {
@@ -550,12 +505,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
   public ${capName}Writer ${lowerName}(String name<#list minor.typeParams as typeParam>, ${typeParam.type} ${typeParam.name}</#list>) {
     return getWriter(MinorType.STRUCT).${lowerName}(name<#list minor.typeParams as typeParam>, ${typeParam.name}</#list>);
   }
-
   </#if>
-  @Override
-  public ${capName}Writer ${lowerName}(String name) {
-    return getWriter(MinorType.STRUCT).${lowerName}(name);
-  }
 
   @Override
   public ${capName}Writer ${lowerName}() {
@@ -563,7 +513,6 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
   }
 
   </#list></#list>
-
 
   @Override
   public void allocate() {
