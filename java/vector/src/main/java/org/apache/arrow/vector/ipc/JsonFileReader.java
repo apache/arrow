@@ -891,7 +891,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         nextFieldIs(bufferType.getName());
         int innerBufferValueCount = valueCount;
         if (bufferType.equals(OFFSET) && !(type instanceof Union) && !(type instanceof ListView)) {
-          /* offset buffer has 1 additional value capacity except for dense unions */
+          /* offset buffer has 1 additional value capacity except for dense unions and ListView */
           innerBufferValueCount = valueCount + 1;
         }
 

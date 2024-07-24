@@ -81,10 +81,10 @@ public class PromotableViewWriter extends PromotableWriter {
   protected FieldWriter getWriter(MinorType type, ArrowType arrowType) {
     if (state == State.UNION) {
       if (requiresArrowType(type)) {
-        writer = ((UnionWriter) writer).promote();
+        writer = ((UnionWriter) writer).toViewWriter();
         ((UnionViewWriter) writer).getWriter(type, arrowType);
       } else {
-        writer = ((UnionWriter) writer).promote();
+        writer = ((UnionWriter) writer).toViewWriter();
         ((UnionViewWriter) writer).getWriter(type);
       }
     } else if (state == State.UNTYPED) {
@@ -112,10 +112,10 @@ public class PromotableViewWriter extends PromotableWriter {
     } else if (type != this.type) {
       promoteToUnion();
       if (requiresArrowType(type)) {
-        writer = ((UnionWriter) writer).promote();
+        writer = ((UnionWriter) writer).toViewWriter();
         ((UnionViewWriter) writer).getWriter(type, arrowType);
       } else {
-        writer = ((UnionWriter) writer).promote();
+        writer = ((UnionWriter) writer).toViewWriter();
         ((UnionViewWriter) writer).getWriter(type);
       }
     }
@@ -139,7 +139,6 @@ public class PromotableViewWriter extends PromotableWriter {
   }
 
   </#list></#list>
-
 
   @Override
   public void allocate() {
