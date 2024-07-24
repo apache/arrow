@@ -1068,6 +1068,17 @@ tasks:
         UBUNTU: 24.04
       image: ubuntu-cpp
 
+  test-ubuntu-24.04-cpp-gcc-13:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        UBUNTU: 24.04
+        GCC_VERSION: 13
+        CLANG_TOOLS: 15
+        LLVM: 15
+      image: ubuntu-cpp
+
   test-ubuntu-24.04-cpp-gcc-14:
     ci: github
     template: docker-tests/github.linux.yml
@@ -1404,16 +1415,6 @@ tasks:
       env:
         UBUNTU: 22.04
         GCC_VERSION: 12
-      image: ubuntu-r-only-r
-
-  # This also has -flto=auto
-  test-r-gcc-13:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      env:
-        UBUNTU: 24.04
-        GCC_VERSION: 13
       image: ubuntu-r-only-r
 
   test-r-minimal-build:
