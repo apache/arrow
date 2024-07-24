@@ -951,6 +951,17 @@ public class RoundtripTest {
     }
   }
 
+  @Test
+  public void testSliceVarCharVector() {
+    try (final VarCharVector vector = new VarCharVector("v", allocator);
+        VarCharVector target = new VarCharVector("v", allocator)) {
+      setVector(vector, "foo", "bar", "baz1", "baz223", "baz23445", "baz2121", "12312baz");
+      vector.splitAndTransferTo(2, 3, target);
+
+      System.out.println(target);
+    }
+  }
+
   private VectorSchemaRoot createTestVSR() {
     BitVector bitVector = new BitVector("boolean", allocator);
 
