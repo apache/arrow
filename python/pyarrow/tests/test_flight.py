@@ -246,16 +246,18 @@ class GetInfoFlightServer(FlightServerBase):
             pa.schema([('a', pa.int32())]),
             descriptor,
             [
-                flight.FlightEndpoint(b'', ['grpc://test']),
+                flight.FlightEndpoint(b'', ['grpc://test'], None, b''),
                 flight.FlightEndpoint(
                     b'',
                     [flight.Location.for_grpc_tcp('localhost', 5005)],
+                    pa.scalar("2023-04-05T12:34:56.789").cast(pa.timestamp("ms")),
+                    b"endpoint app metadata"
                 ),
             ],
             1,
             42,
             True,
-            "test app metadata"
+            "info app metadata"
         )
 
     def get_schema(self, context, descriptor):
@@ -876,7 +878,9 @@ def test_repr():
     descriptor_repr = "<pyarrow.flight.FlightDescriptor cmd=b'foo'>"
     endpoint_repr = ("<pyarrow.flight.FlightEndpoint "
                      "ticket=<pyarrow.flight.Ticket ticket=b'foo'> "
-                     "locations=[]>")
+                     "locations=[] "
+                     "expiration_time=2023-04-05 12:34:56+00:00 "
+                     "app_metadata='656e64706f696e7420617070206d65746164617461'>")
     info_repr = (
         "<pyarrow.flight.FlightInfo "
         "schema= "
@@ -895,7 +899,11 @@ def test_repr():
     assert repr(flight.ActionType("foo", "bar")) == action_type_repr
     assert repr(flight.BasicAuth("user", "pass")) == basic_auth_repr
     assert repr(flight.FlightDescriptor.for_command("foo")) == descriptor_repr
-    assert repr(flight.FlightEndpoint(b"foo", [])) == endpoint_repr
+    endpoint = flight.FlightEndpoint(
+        b"foo", [], pa.scalar("2023-04-05T12:34:56").cast(pa.timestamp("s")),
+        b"endpoint app metadata"
+    )
+    assert repr(endpoint) == endpoint_repr
     info = flight.FlightInfo(
         pa.schema([]), flight.FlightDescriptor.for_path(), [],
         1, 42, True, b"test app metadata"
@@ -924,14 +932,18 @@ def test_eq():
                  flight.BasicAuth("user", "pass2")),
         lambda: (flight.FlightDescriptor.for_command("foo"),
                  flight.FlightDescriptor.for_path("foo")),
-        lambda: (flight.FlightEndpoint(b"foo", []),
-                 flight.FlightEndpoint(b"bar", [])),
+        lambda: (flight.FlightEndpoint(b"foo", [], None, b''),
+                 flight.FlightEndpoint(b"bar", [], None, b'')),
         lambda: (
             flight.FlightEndpoint(
-                b"foo", [flight.Location("grpc+tcp://localhost:1234")]),
+                b"foo", [flight.Location("grpc+tcp://localhost:1234")], None, b''),
             flight.FlightEndpoint(
-                b"foo", [flight.Location("grpc+tls://localhost:1234")])
+                b"foo", [flight.Location("grpc+tls://localhost:1234")], None, b'')
         ),
+        lambda: (flight.FlightEndpoint(b"foo", [], pa.scalar("2023-04-05T12:34:56").cast(pa.timestamp("s")), b''),
+                 flight.FlightEndpoint(b"foo", [], pa.scalar("2023-04-05T12:34:56.789").cast(pa.timestamp("ms")), b'')),
+        lambda: (flight.FlightEndpoint(b"foo", [], None, b''),
+                 flight.FlightEndpoint(b"foo", [], None, b'meta')),
         lambda: (
             flight.FlightInfo(
                 pa.schema([]),
@@ -1126,11 +1138,16 @@ def test_flight_get_info():
         assert info.total_records == 1
         assert info.total_bytes == 42
         assert info.ordered
-        assert info.app_metadata == b"test app metadata"
+        assert info.app_metadata == b"info app metadata"
         assert info.schema == pa.schema([('a', pa.int32())])
         assert len(info.endpoints) == 2
         assert len(info.endpoints[0].locations) == 1
+        assert info.endpoints[0].expiration_time is None
+        assert info.endpoints[0].app_metadata == b""
         assert info.endpoints[0].locations[0] == flight.Location('grpc://test')
+        assert info.endpoints[1].expiration_time == \
+            pa.scalar("2023-04-05T12:34:56.789+00:00").cast(pa.timestamp("ns", "UTC"))
+        assert info.endpoints[1].app_metadata == b"endpoint app metadata"
         assert info.endpoints[1].locations[0] == \
             flight.Location.for_grpc_tcp('localhost', 5005)
 
@@ -1766,10 +1783,12 @@ def test_roundtrip_types():
         pa.schema([('a', pa.int32())]),
         desc,
         [
-            flight.FlightEndpoint(b'', ['grpc://test']),
+            flight.FlightEndpoint(b'', ['grpc://test'], None, b''),
             flight.FlightEndpoint(
                 b'',
                 [flight.Location.for_grpc_tcp('localhost', 5005)],
+                pa.scalar("2023-04-05T12:34:56").cast(pa.timestamp("ms")),
+                b'endpoint app metadata'
             ),
         ],
         1,
@@ -1788,7 +1807,9 @@ def test_roundtrip_types():
 
     endpoint = flight.FlightEndpoint(
         ticket,
-        ['grpc://test', flight.Location.for_grpc_tcp('localhost', 5005)]
+        ['grpc://test', flight.Location.for_grpc_tcp('localhost', 5005)],
+        pa.scalar("2023-04-05T12:34:56").cast(pa.timestamp("s")),
+        b'endpoint app metadata'
     )
     assert endpoint == flight.FlightEndpoint.deserialize(endpoint.serialize())
 

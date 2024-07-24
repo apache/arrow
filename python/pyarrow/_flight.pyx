@@ -31,7 +31,8 @@ from libcpp cimport bool as c_bool
 from pyarrow.lib cimport *
 from pyarrow.lib import (ArrowCancelled, ArrowException, ArrowInvalid,
                          SignalStopHandler)
-from pyarrow.lib import as_buffer, frombytes, tobytes
+from pyarrow.lib import as_buffer, frombytes, timestamp, tobytes
+from pyarrow.includes.chrono cimport duration, duration_cast, nanoseconds
 from pyarrow.includes.libarrow_flight cimport *
 from pyarrow.ipc import _get_legacy_format_default, _ReadPandasMixin
 import pyarrow.lib as lib
@@ -704,7 +705,7 @@ cdef class FlightEndpoint(_Weakrefable):
     cdef:
         CFlightEndpoint endpoint
 
-    def __init__(self, ticket, locations):
+    def __init__(self, ticket, locations, expiration_time, app_metadata):
         """Create a FlightEndpoint from a ticket and list of locations.
 
         Parameters
@@ -713,6 +714,12 @@ cdef class FlightEndpoint(_Weakrefable):
             the ticket needed to access this flight
         locations : list of string URIs
             locations where this flight is available
+        expiration_time : TimestampScalar, optional
+            Expiration time of this stream. If present, clients may assume
+            they can retry DoGet requests. Otherwise, clients should avoid
+            retrying DoGet requests.
+        app_metadata : str
+            Application-defined opaque metadata.
 
         Raises
         ------
@@ -736,6 +743,11 @@ cdef class FlightEndpoint(_Weakrefable):
                     CLocation.Parse(tobytes(location)).Value(&c_location))
             self.endpoint.locations.push_back(c_location)
 
+        if expiration_time is not None:
+            self.endpoint.expiration_time = time_point(nanoseconds(expiration_time.cast(timestamp("ns")).value))
+
+        self.endpoint.app_metadata = tobytes(app_metadata)
+
     @property
     def ticket(self):
         """Get the ticket in this endpoint."""
@@ -745,6 +757,23 @@ cdef class FlightEndpoint(_Weakrefable):
     def locations(self):
         return [Location.wrap(location)
                 for location in self.endpoint.locations]
+
+    @property
+    def expiration_time(self):
+        cdef:
+            int64_t timestamp
+            const char* UTC = "UTC"
+            shared_ptr[CTimestampType] time_type = make_shared[CTimestampType](TimeUnit.TimeUnit_NANO, UTC)
+            shared_ptr[CTimestampScalar] shared
+        if self.endpoint.expiration_time.has_value():
+            timestamp = duration_cast[nanoseconds](self.endpoint.expiration_time.value().time_since_epoch()).count()
+            shared = make_shared[CTimestampScalar](timestamp, time_type);
+            return Scalar.wrap(<shared_ptr[CScalar]> shared)
+        return None
+
+    @property
+    def app_metadata(self):
+        return self.endpoint.app_metadata
 
     def serialize(self):
         """Get the wire-format representation of this type.
@@ -770,7 +799,9 @@ cdef class FlightEndpoint(_Weakrefable):
 
     def __repr__(self):
         return (f"<pyarrow.flight.FlightEndpoint ticket={self.ticket!r} "
-                f"locations={self.locations!r}>")
+                f"locations={self.locations!r} "
+                f"expiration_time={self.expiration_time} "
+                f"app_metadata='{self.app_metadata.hex()}'>")
 
     def __eq__(self, FlightEndpoint other):
         return self.endpoint == other.endpoint
