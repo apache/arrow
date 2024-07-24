@@ -18,7 +18,6 @@
 #include "arrow/compute/row/row_internal.h"
 
 #include "arrow/compute/util.h"
-#include "arrow/util/int_util_overflow.h"
 
 namespace arrow {
 namespace compute {
