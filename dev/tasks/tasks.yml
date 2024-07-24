@@ -1077,7 +1077,9 @@ tasks:
         GCC_VERSION: 13
         CLANG_TOOLS: 15
         LLVM: 15
-      flags: '-e ARROW_DEPENDENCY_SOURCE=BUNDLED'
+      # ABSL 20211102.0 has an error caught by gcc 13.
+      # https://github.com/abseil/abseil-cpp/pull/1187
+      flags: '-e absl_SOURCE=BUNDLED'
       image: ubuntu-cpp
 
   test-ubuntu-24.04-cpp-gcc-14:
