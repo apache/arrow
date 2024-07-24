@@ -1079,7 +1079,7 @@ tasks:
         LLVM: 15
       # ABSL 20211102.0 has an error caught by gcc 13.
       # https://github.com/abseil/abseil-cpp/pull/1187
-      flags: '-e absl_SOURCE=BUNDLED Protobuf_SOURCE=BUNDLED'
+      flags: '-e absl_SOURCE=BUNDLED -e Protobuf_SOURCE=BUNDLED'
       image: ubuntu-cpp
 
   test-ubuntu-24.04-cpp-gcc-14:
