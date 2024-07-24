@@ -63,6 +63,23 @@ if(ARROW_AZURE)
 endif()
 
 if(ARROW_S3)
+  set(ARROW_S3_TEST_EXTRA_LINK_LIBS)
+  # arrow_shared/arrow_static is specified implicitly via
+  # arrow_testing_shared/arrow_testing_static but we specify
+  # arrow_shared/arrow_static explicitly here to ensure using libarrow
+  # before libaws* on link. If we use libaws*.a before libarrow,
+  # static variables storage of AWS SDK for C++ in libaws*.a may be
+  # mixed with one in libarrow.
+  if(ARROW_TEST_LINKAGE STREQUAL "shared")
+    list(APPEND ARROW_S3_TEST_EXTRA_LINK_LIBS arrow_shared)
+  else()
+    list(APPEND ARROW_S3_TEST_EXTRA_LINK_LIBS arrow_static)
+  endif()
+  list(APPEND
+       ARROW_S3_TEST_EXTRA_LINK_LIBS
+       ${AWSSDK_LINK_LIBRARIES}
+       Boost::filesystem
+       Boost::system)
   add_arrow_test(s3fs_test
                  SOURCES
                  s3fs_test.cc
@@ -70,18 +87,17 @@ if(ARROW_S3)
                  EXTRA_LABELS
                  filesystem
                  EXTRA_LINK_LIBS
-                 ${AWSSDK_LINK_LIBRARIES}
-                 Boost::filesystem
-                 Boost::system)
+                 ${ARROW_S3_TEST_EXTRA_LINK_LIBS})
   if(TARGET arrow-s3fs-test)
     set(ARROW_S3FS_TEST_COMPILE_DEFINITIONS)
     get_target_property(AWS_CPP_SDK_S3_TYPE aws-cpp-sdk-s3 TYPE)
-    # We need to initialize AWS C++ SDK for direct use (not via
+    # We need to initialize AWS SDK for C++ for direct use (not via
     # arrow::fs::S3FileSystem) in arrow-s3fs-test if we use static AWS
-    # C++ SDK and hide symbols of them. Because AWS C++ SDK has
-    # internal static variables that aren't shared in libarrow and
+    # SDK for C++ and hide symbols of them. Because AWS SDK for C++
+    # has internal static variables that aren't shared in libarrow and
     # arrow-s3fs-test. It means that arrow::fs::InitializeS3() doesn't
-    # initialize AWS C++ SDK that is directly used in arrow-s3fs-test.
+    # initialize AWS SDK for C++ that is directly used in
+    # arrow-s3fs-test.
     if(AWS_CPP_SDK_S3_TYPE STREQUAL "STATIC_LIBRARY"
        AND CXX_LINKER_SUPPORTS_VERSION_SCRIPT)
       list(APPEND ARROW_S3FS_TEST_COMPILE_DEFINITIONS "AWS_CPP_SDK_S3_PRIVATE_STATIC")

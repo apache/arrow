@@ -30,9 +30,9 @@
 //
 // You can download the library and cli utilities via:
 //
-//	go get -u github.com/apache/arrow/go/v17/parquet
-//	go install github.com/apache/arrow/go/v17/parquet/cmd/parquet_reader@latest
-//	go install github.com/apache/arrow/go/v17/parquet/cmd/parquet_schema@latest
+//	go get -u github.com/apache/arrow/go/v18/parquet
+//	go install github.com/apache/arrow/go/v18/parquet/cmd/parquet_reader@latest
+//	go install github.com/apache/arrow/go/v18/parquet/cmd/parquet_schema@latest
 //
 // # Modules
 //
@@ -60,8 +60,18 @@
 // # Encodings
 //
 // The encoding types supported in this package are:
-// Plain, Plain/RLE Dictionary, Delta Binary Packed (only integer types), Delta Byte Array
-// (only ByteArray), Delta Length Byte Array (only ByteArray)
+//
+//   - Plain
+//
+//   - Plain/RLE Dictionary
+//
+//   - Delta Binary Packed (only integer types)
+//
+//   - Delta Byte Array (only ByteArray)
+//
+//   - Delta Length Byte Array (only ByteArray)
+//
+//   - Byte Stream Split (Float, Double, Int32, Int64, FixedLenByteArray)
 //
 // Tip: Some platforms don't necessarily support all kinds of encodings. If you're not
 // sure what to use, just use Plain and Dictionary encoding.

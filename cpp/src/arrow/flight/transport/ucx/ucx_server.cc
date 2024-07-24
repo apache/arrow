@@ -376,7 +376,7 @@ class UcxServerImpl : public arrow::flight::internal::ServerTransport {
     std::unique_ptr<FlightInfo> info;
     std::string response;
     SERVER_RETURN_NOT_OK(driver, base_->GetFlightInfo(context, descriptor, &info));
-    SERVER_RETURN_NOT_OK(driver, info->SerializeToString().Value(&response));
+    SERVER_RETURN_NOT_OK(driver, info->DoSerializeToString(&response));
     RETURN_NOT_OK(driver->SendFrame(FrameType::kBuffer,
                                     reinterpret_cast<const uint8_t*>(response.data()),
                                     static_cast<int64_t>(response.size())));
@@ -397,7 +397,7 @@ class UcxServerImpl : public arrow::flight::internal::ServerTransport {
     std::unique_ptr<PollInfo> info;
     std::string response;
     SERVER_RETURN_NOT_OK(driver, base_->PollFlightInfo(context, descriptor, &info));
-    SERVER_RETURN_NOT_OK(driver, info->SerializeToString().Value(&response));
+    SERVER_RETURN_NOT_OK(driver, info->DoSerializeToString(&response));
     RETURN_NOT_OK(driver->SendFrame(FrameType::kBuffer,
                                     reinterpret_cast<const uint8_t*>(response.data()),
                                     static_cast<int64_t>(response.size())));

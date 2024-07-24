@@ -20,11 +20,11 @@ import (
 	"io"
 	"sync"
 
-	"github.com/apache/arrow/go/v17/arrow"
-	"github.com/apache/arrow/go/v17/arrow/bitutil"
-	"github.com/apache/arrow/go/v17/arrow/memory"
-	"github.com/apache/arrow/go/v17/internal/utils"
-	"github.com/apache/arrow/go/v17/parquet"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/bitutil"
+	"github.com/apache/arrow/go/v18/arrow/memory"
+	"github.com/apache/arrow/go/v18/internal/utils"
+	"github.com/apache/arrow/go/v18/parquet"
 	"golang.org/x/xerrors"
 )
 
@@ -187,7 +187,7 @@ func (b *PooledBufferWriter) Reserve(nbytes int) {
 
 	newCap := utils.Max(b.buf.Cap(), 256)
 	for newCap < b.pos+nbytes {
-		newCap = bitutil.NextPowerOf2(newCap)
+		newCap = bitutil.NextPowerOf2(b.pos + nbytes)
 	}
 	b.buf.Reserve(newCap)
 }
@@ -380,9 +380,9 @@ func (b *BufferWriter) Reserve(nbytes int) {
 	if b.buffer == nil {
 		b.buffer = memory.NewResizableBuffer(b.mem)
 	}
-	newCap := utils.Max(b.buffer.Cap()+b.offset, 256)
-	for newCap < b.pos+nbytes+b.offset {
-		newCap = bitutil.NextPowerOf2(newCap)
+	newCap := utils.Max(b.buffer.Cap(), 256)
+	for newCap < b.pos+nbytes {
+		newCap = bitutil.NextPowerOf2(b.pos + nbytes)
 	}
 	b.buffer.Reserve(newCap)
 }

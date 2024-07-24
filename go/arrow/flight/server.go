@@ -23,7 +23,7 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/apache/arrow/go/v17/arrow/flight/gen/flight"
+	"github.com/apache/arrow/go/v18/arrow/flight/gen/flight"
 	"google.golang.org/grpc"
 )
 

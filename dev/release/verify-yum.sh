@@ -201,6 +201,11 @@ echo "::group::Test Apache Arrow C++"
 ${install_command} ${enablerepo_epel} arrow-devel-${package_version}
 if [ -n "${devtoolset}" ]; then
   ${install_command} ${scl_package}
+  sed -i \
+    -e 's/^mirrorlist/#mirrorlist/' \
+    -e 's/^#baseurl/baseurl/' \
+    -e 's/mirror\.centos\.org/vault.centos.org/' \
+    /etc/yum.repos.d/CentOS-SCLo-scl-rh.repo
 fi
 ${install_command} \
   ${cmake_package} \

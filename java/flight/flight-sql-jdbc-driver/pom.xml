@@ -22,7 +22,7 @@ under the License.
   <parent>
     <groupId>org.apache.arrow</groupId>
     <artifactId>arrow-flight</artifactId>
-    <version>17.0.0-SNAPSHOT</version>
+    <version>18.0.0-SNAPSHOT</version>
   </parent>
 
   <artifactId>flight-sql-jdbc-driver</artifactId>
@@ -161,6 +161,7 @@ under the License.
                     <exclude>META-INF/native/libio_grpc_netty*</exclude>
                     <exclude>META-INF/native/io_grpc_netty_shaded*</exclude>
                     <exclude>**/*.proto</exclude>
+                    <exclude>**/module-info.class</exclude>
                   </excludes>
                 </filter>
               </filters>

@@ -26,15 +26,15 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v17/arrow"
-	"github.com/apache/arrow/go/v17/arrow/array"
-	"github.com/apache/arrow/go/v17/arrow/bitutil"
-	"github.com/apache/arrow/go/v17/arrow/internal"
-	"github.com/apache/arrow/go/v17/arrow/internal/debug"
-	"github.com/apache/arrow/go/v17/arrow/internal/dictutils"
-	"github.com/apache/arrow/go/v17/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v17/arrow/memory"
-	"github.com/apache/arrow/go/v17/internal/utils"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/array"
+	"github.com/apache/arrow/go/v18/arrow/bitutil"
+	"github.com/apache/arrow/go/v18/arrow/internal"
+	"github.com/apache/arrow/go/v18/arrow/internal/debug"
+	"github.com/apache/arrow/go/v18/arrow/internal/dictutils"
+	"github.com/apache/arrow/go/v18/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v18/arrow/memory"
+	"github.com/apache/arrow/go/v18/internal/utils"
 )
 
 type swriter struct {
@@ -853,19 +853,35 @@ func (w *recordEncoder) getZeroBasedValueOffsets(arr arrow.Array) *memory.Buffer
 		return nil
 	}
 
+	dataTypeWidth := arr.DataType().Layout().Buffers[1].ByteWidth
+
 	// if we have a non-zero offset, then the value offsets do not start at
 	// zero. we must a) create a new offsets array with shifted offsets and
 	// b) slice the values array accordingly
-	//
+	hasNonZeroOffset := data.Offset() != 0
+
 	// or if there are more value offsets than values (the array has been sliced)
 	// we need to trim off the trailing offsets
-	needsTruncateAndShift := data.Offset() != 0 || offsetBytesNeeded < voffsets.Len()
+	hasMoreOffsetsThanValues := offsetBytesNeeded < voffsets.Len()
+
+	// or if the offsets do not start from the zero index, we need to shift them
+	// and slice the values array
+	var firstOffset int64
+	if dataTypeWidth == 8 {
+		firstOffset = arrow.Int64Traits.CastFromBytes(voffsets.Bytes())[0]
+	} else {
+		firstOffset = int64(arrow.Int32Traits.CastFromBytes(voffsets.Bytes())[0])
+	}
+	offsetsDoNotStartFromZero := firstOffset != 0
+
+	// determine whether the offsets array should be shifted
+	needsTruncateAndShift := hasNonZeroOffset || hasMoreOffsetsThanValues || offsetsDoNotStartFromZero
 
 	if needsTruncateAndShift {
 		shiftedOffsets := memory.NewResizableBuffer(w.mem)
 		shiftedOffsets.Resize(offsetBytesNeeded)
 
-		switch arr.DataType().Layout().Buffers[1].ByteWidth {
+		switch dataTypeWidth {
 		case 8:
 			dest := arrow.Int64Traits.CastFromBytes(shiftedOffsets.Bytes())
 			offsets := arrow.Int64Traits.CastFromBytes(voffsets.Bytes())[data.Offset() : data.Offset()+data.Len()+1]

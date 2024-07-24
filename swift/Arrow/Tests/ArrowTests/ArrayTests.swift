@@ -212,6 +212,67 @@ final class ArrayTests: XCTestCase { // swiftlint:disable:this type_body_length
         XCTAssertEqual(microArray[2], 987654321)
     }
 
+    func testStructArray() throws { // swiftlint:disable:this function_body_length
+        class StructTest {
+            var fieldBool: Bool = false
+            var fieldInt8: Int8 = 0
+            var fieldInt16: Int16 = 0
+            var fieldInt32: Int32 = 0
+            var fieldInt64: Int64 = 0
+            var fieldUInt8: UInt8 = 0
+            var fieldUInt16: UInt16 = 0
+            var fieldUInt32: UInt32 = 0
+            var fieldUInt64: UInt64 = 0
+            var fieldDouble: Double = 0
+            var fieldFloat: Float = 0
+            var fieldString: String = ""
+            var fieldData = Data()
+            var fieldDate: Date = Date.now
+        }
+
+        enum STIndex: Int {
+            case bool, int8, int16, int32, int64
+            case uint8, uint16, uint32, uint64, double
+            case float, string, data, date
+        }
+
+        let testData = StructTest()
+        let dateNow = Date.now
+        let structBuilder = try ArrowArrayBuilders.loadStructArrayBuilderForType(testData)
+        structBuilder.append([true, Int8(1), Int16(2), Int32(3), Int64(4),
+                              UInt8(5), UInt16(6), UInt32(7), UInt64(8), Double(9.9),
+                              Float(10.10), "11", Data("12".utf8), dateNow])
+        structBuilder.append(nil)
+        structBuilder.append([true, Int8(13), Int16(14), Int32(15), Int64(16),
+                              UInt8(17), UInt16(18), UInt32(19), UInt64(20), Double(21.21),
+                              Float(22.22), "23", Data("24".utf8), dateNow])
+        XCTAssertEqual(structBuilder.length, 3)
+        let structArray = try structBuilder.finish()
+        XCTAssertEqual(structArray.length, 3)
+        XCTAssertNil(structArray[1])
+        XCTAssertEqual(structArray.arrowFields![0].length, 3)
+        XCTAssertNil(structArray.arrowFields![0].array.asAny(1))
+        XCTAssertEqual(structArray[0]![STIndex.bool.rawValue] as? Bool, true)
+        XCTAssertEqual(structArray[0]![STIndex.int8.rawValue] as? Int8, 1)
+        XCTAssertEqual(structArray[0]![STIndex.int16.rawValue] as? Int16, 2)
+        XCTAssertEqual(structArray[0]![STIndex.int32.rawValue] as? Int32, 3)
+        XCTAssertEqual(structArray[0]![STIndex.int64.rawValue] as? Int64, 4)
+        XCTAssertEqual(structArray[0]![STIndex.uint8.rawValue] as? UInt8, 5)
+        XCTAssertEqual(structArray[0]![STIndex.uint16.rawValue] as? UInt16, 6)
+        XCTAssertEqual(structArray[0]![STIndex.uint32.rawValue] as? UInt32, 7)
+        XCTAssertEqual(structArray[0]![STIndex.uint64.rawValue] as? UInt64, 8)
+        XCTAssertEqual(structArray[0]![STIndex.double.rawValue] as? Double, 9.9)
+        XCTAssertEqual(structArray[0]![STIndex.float.rawValue] as? Float, 10.10)
+        XCTAssertEqual(structArray[2]![STIndex.string.rawValue] as? String, "23")
+        XCTAssertEqual(
+            String(decoding: (structArray[0]![STIndex.data.rawValue] as? Data)!, as: UTF8.self), "12")
+        let dateFormatter = DateFormatter()
+        dateFormatter.timeStyle = .full
+        XCTAssertTrue(
+            dateFormatter.string(from: (structArray[0]![STIndex.date.rawValue] as? Date)!) ==
+            dateFormatter.string(from: dateNow))
+    }
+
     func checkHolderForType(_ checkType: ArrowType) throws {
         let buffers = [ArrowBuffer(length: 0, capacity: 0,
                                 rawPointer: UnsafeMutableRawPointer.allocate(byteCount: 0, alignment: .zero)),

@@ -31,6 +31,7 @@ module org.apache.arrow.flight.core {
   requires io.grpc.netty;
   requires io.grpc.protobuf;
   requires io.grpc.stub;
+  requires io.netty.buffer;
   requires io.netty.common;
   requires io.netty.handler;
   requires io.netty.transport;
@@ -38,5 +39,6 @@ module org.apache.arrow.flight.core {
   requires org.apache.arrow.memory.core;
   requires org.apache.arrow.vector;
   requires protobuf.java;
+  requires protobuf.java.util;
   requires org.slf4j;
 }

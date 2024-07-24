@@ -154,6 +154,11 @@ class RecordBatchSerializer {
       return Status::CapacityError("Cannot write arrays larger than 2^31 - 1 in length");
     }
 
+    if (arr.offset() != 0 && arr.device_type() != DeviceAllocationType::kCPU) {
+      // https://github.com/apache/arrow/issues/43029
+      return Status::NotImplemented("Cannot compute null count for non-cpu sliced array");
+    }
+
     // push back all common elements
     field_nodes_.push_back({arr.length(), arr.null_count(), 0});
 
@@ -449,14 +454,22 @@ class RecordBatchSerializer {
 
   template <typename T>
   enable_if_base_binary<typename T::TypeClass, Status> Visit(const T& array) {
+    using offset_type = typename T::offset_type;
+
     std::shared_ptr<Buffer> value_offsets;
     RETURN_NOT_OK(GetZeroBasedValueOffsets<T>(array, &value_offsets));
     auto data = array.value_data();
 
     int64_t total_data_bytes = 0;
-    if (value_offsets) {
-      total_data_bytes = array.value_offset(array.length()) - array.value_offset(0);
+    if (value_offsets && array.length() > 0) {
+      offset_type last_offset_value;
+      RETURN_NOT_OK(MemoryManager::CopyBufferSliceToCPU(
+          value_offsets, array.length() * sizeof(offset_type), sizeof(offset_type),
+          reinterpret_cast<uint8_t*>(&last_offset_value)));
+
+      total_data_bytes = last_offset_value;
     }
+
     if (NeedTruncate(array.offset(), data.get(), total_data_bytes)) {
       // Slice the data buffer to include only the range we need now
       const int64_t start_offset = array.value_offset(0);
@@ -495,8 +508,15 @@ class RecordBatchSerializer {
     offset_type values_offset = 0;
     offset_type values_length = 0;
     if (value_offsets) {
-      values_offset = array.value_offset(0);
-      values_length = array.value_offset(array.length()) - values_offset;
+      RETURN_NOT_OK(MemoryManager::CopyBufferSliceToCPU(
+          array.value_offsets(), array.offset() * sizeof(offset_type),
+          sizeof(offset_type), reinterpret_cast<uint8_t*>(&values_offset)));
+      offset_type last_values_offset = 0;
+      RETURN_NOT_OK(MemoryManager::CopyBufferSliceToCPU(
+          array.value_offsets(), (array.offset() + array.length()) * sizeof(offset_type),
+          sizeof(offset_type), reinterpret_cast<uint8_t*>(&last_values_offset)));
+
+      values_length = last_values_offset - values_offset;
     }
 
     if (array.offset() != 0 || values_length < values->length()) {

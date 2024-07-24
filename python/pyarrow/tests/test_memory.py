@@ -26,6 +26,7 @@ import pyarrow as pa
 
 import pytest
 
+pytestmark = pytest.mark.processes
 
 possible_backends = ["system", "jemalloc", "mimalloc"]
 

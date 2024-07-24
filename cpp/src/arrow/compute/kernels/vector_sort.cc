@@ -870,7 +870,7 @@ const SortOptions* GetDefaultSortOptions() {
 const FunctionDoc sort_indices_doc(
     "Return the indices that would sort an array, record batch or table",
     ("This function computes an array of indices that define a stable sort\n"
-     "of the input array, record batch or table.  By default, nNull values are\n"
+     "of the input array, record batch or table.  By default, null values are\n"
      "considered greater than any other value and are therefore sorted at the\n"
      "end of the input. For floating-point types, NaNs are considered greater\n"
      "than any other non-null value, but smaller than null values.\n"

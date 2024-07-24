@@ -24,11 +24,11 @@ import (
 	"math/bits"
 
 	"github.com/JohnCGriffin/overflow"
-	"github.com/apache/arrow/go/v17/arrow/bitutil"
-	shared_utils "github.com/apache/arrow/go/v17/internal/utils"
-	"github.com/apache/arrow/go/v17/parquet"
-	format "github.com/apache/arrow/go/v17/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v17/parquet/internal/utils"
+	"github.com/apache/arrow/go/v18/arrow/bitutil"
+	shared_utils "github.com/apache/arrow/go/v18/internal/utils"
+	"github.com/apache/arrow/go/v18/parquet"
+	format "github.com/apache/arrow/go/v18/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v18/parquet/internal/utils"
 )
 
 // LevelEncoder is for handling the encoding of Definition and Repetition levels

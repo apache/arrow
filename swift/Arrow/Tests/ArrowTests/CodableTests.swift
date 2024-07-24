@@ -227,7 +227,7 @@ final class CodableTests: XCTestCase { // swiftlint:disable:this type_body_lengt
     }
 
     func getArrayValue<T>(_ rb: RecordBatch, colIndex: Int, rowIndex: UInt) -> T? {
-        let anyArray = rb.columns[colIndex].array as! AnyArray // swiftlint:disable:this force_cast
+        let anyArray = rb.columns[colIndex].array
         return anyArray.asAny(UInt(rowIndex)) as? T
     }
 
@@ -324,7 +324,7 @@ final class CodableTests: XCTestCase { // swiftlint:disable:this type_body_lengt
         XCTAssertEqual(rb.columns[0].type.id, ArrowTypeId.int32)
         for index in 0..<100 {
             if index == 10 {
-                let anyArray = rb.columns[0].array as! AnyArray // swiftlint:disable:this force_cast
+                let anyArray = rb.columns[0].array
                 XCTAssertNil(anyArray.asAny(UInt(index)))
             } else {
                 XCTAssertEqual(getArrayValue(rb, colIndex: 0, rowIndex: UInt(index)), Int32(index))

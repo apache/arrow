@@ -28,7 +28,7 @@
 #include "arrow/acero/options.h"
 #include "arrow/acero/query_context.h"
 #include "arrow/acero/time_series_util.h"
-#include "arrow/acero/unmaterialized_table.h"
+#include "arrow/acero/unmaterialized_table_internal.h"
 #include "arrow/acero/util.h"
 #include "arrow/array/builder_base.h"
 #include "arrow/result.h"

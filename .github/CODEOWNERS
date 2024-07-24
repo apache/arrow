@@ -40,7 +40,7 @@
 /matlab/ @kevingurney @kou @sgilmore10
 /python/pyarrow/_flight.pyx @lidavidm
 /python/pyarrow/**/*gandiva* @wjones127
-/r/ @paleolimbot @thisisnic
+/r/ @thisisnic
 /ruby/ @kou
 /swift/ @kou
 

@@ -1656,8 +1656,8 @@ the Arrow spec.
 .. _Message.fbs: https://github.com/apache/arrow/blob/main/format/Message.fbs
 .. _File.fbs: https://github.com/apache/arrow/blob/main/format/File.fbs
 .. _least-significant bit (LSB) numbering: https://en.wikipedia.org/wiki/Bit_numbering
-.. _Intel performance guide: https://software.intel.com/en-us/articles/practical-intel-avx-optimization-on-2nd-generation-intel-core-processors
+.. _Intel performance guide: https://web.archive.org/web/20151101074635/https://software.intel.com/en-us/articles/practical-intel-avx-optimization-on-2nd-generation-intel-core-processors
 .. _Endianness: https://en.wikipedia.org/wiki/Endianness
-.. _SIMD: https://software.intel.com/en-us/cpp-compiler-developer-guide-and-reference-introduction-to-the-simd-data-layout-templates
+.. _SIMD: https://www.intel.com/content/www/us/en/docs/cpp-compiler/developer-guide-reference/2021-8/simd-data-layout-templates.html
 .. _Parquet: https://parquet.apache.org/docs/
 .. _UmbraDB: https://db.in.tum.de/~freitag/papers/p29-neumann-cidr20.pdf
