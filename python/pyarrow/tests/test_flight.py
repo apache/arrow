@@ -940,8 +940,13 @@ def test_eq():
             flight.FlightEndpoint(
                 b"foo", [flight.Location("grpc+tls://localhost:1234")], None, b'')
         ),
-        lambda: (flight.FlightEndpoint(b"foo", [], pa.scalar("2023-04-05T12:34:56").cast(pa.timestamp("s")), b''),
-                 flight.FlightEndpoint(b"foo", [], pa.scalar("2023-04-05T12:34:56.789").cast(pa.timestamp("ms")), b'')),
+        lambda: (
+            flight.FlightEndpoint(
+                b"foo", [], pa.scalar("2023-04-05T12:34:56").cast(pa.timestamp("s")),
+                b''),
+            flight.FlightEndpoint(
+                 b"foo", [],
+                 pa.scalar("2023-04-05T12:34:56.789").cast(pa.timestamp("ms")), b'')),
         lambda: (flight.FlightEndpoint(b"foo", [], None, b''),
                  flight.FlightEndpoint(b"foo", [], None, b'meta')),
         lambda: (
