@@ -87,7 +87,7 @@ func (a *Bool8Array) String() string {
 }
 
 func (a *Bool8Array) Value(i int) bool {
-	return int8ToBool(a.Storage().(*array.Int8).Value(i))
+	return a.Storage().(*array.Int8).Value(i) != 0
 }
 
 func (a *Bool8Array) ValueStr(i int) string {
@@ -122,10 +122,6 @@ func boolToInt8(v bool) int8 {
 		res = 1
 	}
 	return res
-}
-
-func int8ToBool(v int8) bool {
-	return v != 0
 }
 
 // Bool8Builder is a convenience builder for the Bool8 extension type,
