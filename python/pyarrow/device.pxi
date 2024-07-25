@@ -158,7 +158,6 @@ cdef class MemoryManager(_Weakrefable):
         """
         return self.memory_manager.get().is_cpu()
 
-
 def default_cpu_memory_manager():
     """
     Return the default CPU MemoryManager instance.
