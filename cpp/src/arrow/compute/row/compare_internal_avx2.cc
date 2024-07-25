@@ -245,11 +245,13 @@ uint32_t KeyCompare::CompareBinaryColumnToRowHelper_avx2(
             _mm256_loadu_si256(reinterpret_cast<const __m256i*>(left_to_right_map) + i);
       }
 
-      __m256i offset_right_lo = _mm256_i32gather_epi64((const long long*)offsets_right,
-                                                       _mm256_castsi256_si128(irow_right),
-                                                       sizeof(RowTableImpl::offset_type));
+      auto offsets_right_i64 =
+          reinterpret_cast<const arrow::util::int64_for_gather_t*>(offsets_right);
+      __m256i offset_right_lo =
+          _mm256_i32gather_epi64(offsets_right_i64, _mm256_castsi256_si128(irow_right),
+                                 sizeof(RowTableImpl::offset_type));
       __m256i offset_right_hi = _mm256_i32gather_epi64(
-          (const long long*)offsets_right, _mm256_extracti128_si256(irow_right, 1),
+          offsets_right_i64, _mm256_extracti128_si256(irow_right, 1),
           sizeof(RowTableImpl::offset_type));
       offset_right_lo =
           _mm256_add_epi64(offset_right_lo, _mm256_set1_epi64x(offset_within_row));
