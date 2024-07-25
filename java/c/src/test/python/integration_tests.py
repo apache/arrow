@@ -58,7 +58,7 @@ def setup_jvm():
         "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
     ]
 
-    jpype.startJVM(jpype.getDefaultJVMPath(), "-Djava.class.path=" + jar_path, *jvm_args, **kwargs)
+    jpype.startJVM(jpype.getDefaultJVMPath(), "-Djava.class.path=" + jar_path, **kwargs)
 
 
 class Bridge:
