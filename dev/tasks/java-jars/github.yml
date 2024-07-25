@@ -142,7 +142,7 @@ jobs:
           brew bundle --file=arrow/java/Brewfile
           
           # installing googletest older version
-          brew install googletest@1.14
+          brew install googletest@1.14.0
       - name: Build C++ libraries
         env:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
