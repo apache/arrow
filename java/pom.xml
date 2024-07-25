@@ -1302,7 +1302,7 @@ under the License.
                       <property>arrow.test.jdk-version</property>
                       <message>"JDK version used for test must be specified."</message>
                       <regex>^\d{2,}</regex>
-                      <regexMessage>"JDK version used for test must 11, 17, 21, ..."</regexMessage>
+                      <regexMessage>"JDK version used for test must be 11, 17, 21, ..."</regexMessage>
                     </requireProperty>
                   </rules>
                 </configuration>

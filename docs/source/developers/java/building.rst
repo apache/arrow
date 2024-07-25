@@ -332,7 +332,7 @@ toolchains to be configured beforehand, and then a specific test property needs 
 Configuring Maven toolchains
 ----------------------------
 
-To be able to use a JDK versionfor testing, it needs to be registered first in Maven ``toolchains.xml``
+To be able to use a JDK version for testing, it needs to be registered first in Maven ``toolchains.xml``
 configuration file usually located under ``${HOME}/.m2`` with the following snippet added to it:
 
   .. code-block::
