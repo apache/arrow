@@ -81,7 +81,7 @@ TEST(RowTableMemoryConsumption, Encode) {
                        ::arrow::gen::Constant(std::make_shared<BinaryScalar>("X"))
                            ->Generate(num_rows_max));
 
-  for (int64_t num_rows : {1024, 1025, 4095, 4096, 4097}) {
+  for (int64_t num_rows : {1023, 1024, 1025, 4095, 4096, 4097}) {
     // Fixed length column.
     {
       SCOPED_TRACE("encoding fixed length column of " + std::to_string(num_rows) +
