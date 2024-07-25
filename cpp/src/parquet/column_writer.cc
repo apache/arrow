@@ -999,10 +999,7 @@ void ColumnWriterImpl::BuildDataPageV1(int64_t definition_levels_rle_size,
   PARQUET_THROW_NOT_OK(uncompressed_data_->Resize(uncompressed_size, false));
   ConcatenateBuffers(definition_levels_rle_size, repetition_levels_rle_size, values,
                      uncompressed_data_->mutable_data());
-
-  EncodedStatistics page_stats;
-  std::shared_ptr<SizeStatistics> page_size_stats;
-  std::tie(page_stats, page_size_stats) = GetPageStatistics();
+  auto [page_stats, page_size_stats] = GetPageStatistics();
   page_stats.ApplyStatSizeLimits(properties_->max_statistics_size(descr_->path()));
   page_stats.set_is_signed(SortOrder::SIGNED == descr_->sort_order());
   ResetPageStatistics();
@@ -1061,9 +1058,7 @@ void ColumnWriterImpl::BuildDataPageV2(int64_t definition_levels_rle_size,
   ConcatenateBuffers(definition_levels_rle_size, repetition_levels_rle_size,
                      compressed_values, combined->mutable_data());
 
-  EncodedStatistics page_stats;
-  std::shared_ptr<SizeStatistics> page_size_stats;
-  std::tie(page_stats, page_size_stats) = GetPageStatistics();
+  auto [page_stats, page_size_stats] = GetPageStatistics();
   page_stats.ApplyStatSizeLimits(properties_->max_statistics_size(descr_->path()));
   page_stats.set_is_signed(SortOrder::SIGNED == descr_->sort_order());
   ResetPageStatistics();
@@ -1250,8 +1245,8 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
         properties->data_page_version() == ParquetDataPageVersion::V2 ||
         properties->page_index_enabled(descr_->path());
 
-    if (properties->size_statistics_level() == SizeStatisticsLevel::CHUNK ||
-        properties->size_statistics_level() == SizeStatisticsLevel::PAGE) {
+    if (properties->size_statistics_level() == SizeStatisticsLevel::ColumnChunk ||
+        properties->size_statistics_level() == SizeStatisticsLevel::Page) {
       page_size_stats_builder_ = SizeStatisticsBuilder::Make(descr_);
       chunk_size_stats_ = page_size_stats_builder_->Build();
     }
@@ -1389,7 +1384,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   StatisticsPair GetPageStatistics() override {
     StatisticsPair result;
     if (page_statistics_) result.first = page_statistics_->Encode();
-    if (properties_->size_statistics_level() == SizeStatisticsLevel::PAGE) {
+    if (properties_->size_statistics_level() == SizeStatisticsLevel::Page) {
       result.second = page_size_stats_builder_->Build();
     }
     return result;
@@ -1596,13 +1591,15 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     }
 
     if (descr_->max_definition_level() > 0) {
-      page_size_stats_builder_->AddDefinitionLevels(num_levels, def_levels);
+      page_size_stats_builder_->AddDefinitionLevels(
+          {def_levels, static_cast<size_t>(num_levels)});
     } else {
       page_size_stats_builder_->AddDefinitionLevel(num_levels, /*def_level=*/0);
     }
 
     if (descr_->max_repetition_level() > 0) {
-      page_size_stats_builder_->AddRepetitionLevels(num_levels, rep_levels);
+      page_size_stats_builder_->AddRepetitionLevels(
+          {rep_levels, static_cast<size_t>(num_levels)});
     } else {
       page_size_stats_builder_->AddRepetitionLevel(num_levels, /*rep_level=*/0);
     }

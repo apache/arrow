@@ -26,6 +26,7 @@
 #include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/span.h"
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/reader_internal.h"
 #include "parquet/arrow/schema.h"
@@ -52,7 +53,8 @@ TEST(SizeStatistics, WriteBatchLevels) {
 
   auto write_batch_levels =
       [&](const std::vector<int64_t>& histogram,
-          const std::function<void(SizeStatisticsBuilder*, int64_t, const int16_t*)>&
+          const std::function<void(SizeStatisticsBuilder*,
+                                   ::arrow::util::span<const int16_t>)>&
               write_levels_func) {
         std::vector<int16_t> levels;
         for (int16_t level = 0; level < static_cast<int16_t>(histogram.size()); level++) {
@@ -65,7 +67,8 @@ TEST(SizeStatistics, WriteBatchLevels) {
         constexpr size_t kBatchSize = 64;
         for (size_t i = 0; i < levels.size(); i += kBatchSize) {
           auto batch_size = static_cast<int64_t>(std::min(kBatchSize, levels.size() - i));
-          write_levels_func(builder.get(), batch_size, levels.data() + i);
+          write_levels_func(builder.get(),
+                            {levels.data() + i, static_cast<size_t>(batch_size)});
         }
       };
 
@@ -183,16 +186,16 @@ TEST(SizeStatistics, MergeStatistics) {
         std::make_unique<ColumnDescriptor>(schema::ByteArray("a"), /*max_def_level=*/3,
                                            /*max_rep_level=*/3)}) {
     auto builder = SizeStatisticsBuilder::Make(descr.get());
-    builder->AddRepetitionLevels(kNumValues, def_levels.data());
-    builder->AddDefinitionLevels(kNumValues, rep_levels.data());
+    builder->AddRepetitionLevels(rep_levels);
+    builder->AddDefinitionLevels(def_levels);
     if (descr->physical_type() == Type::BYTE_ARRAY) {
       builder->AddValues(values.data(), kNumValues);
     }
     auto size_statistics_1 = builder->Build();
 
     builder->Reset();
-    builder->AddRepetitionLevels(kNumValues, def_levels.data());
-    builder->AddDefinitionLevels(kNumValues, rep_levels.data());
+    builder->AddRepetitionLevels(rep_levels);
+    builder->AddDefinitionLevels(def_levels);
     if (descr->physical_type() == Type::BYTE_ARRAY) {
       builder->AddValues(values.data(), kNumValues);
     }
@@ -228,8 +231,8 @@ TEST(SizeStatistics, ThriftSerDe) {
         std::make_unique<ColumnDescriptor>(schema::ByteArray("a"), /*max_def_level=*/3,
                                            /*max_rep_level=*/3)}) {
     auto builder = SizeStatisticsBuilder::Make(descr.get());
-    builder->AddRepetitionLevels(kNumValues, def_levels.data());
-    builder->AddDefinitionLevels(kNumValues, rep_levels.data());
+    builder->AddRepetitionLevels(rep_levels);
+    builder->AddDefinitionLevels(def_levels);
     if (descr->physical_type() == Type::BYTE_ARRAY) {
       builder->AddValues(values.data(), kNumValues);
     }
@@ -367,7 +370,7 @@ TEST_F(SizeStatisticsRoundTripTest, DisableSizeStats) {
       ::arrow::field("a", ::arrow::list(::arrow::list(::arrow::int32()))),
       ::arrow::field("b", ::arrow::list(::arrow::list(::arrow::utf8()))),
   });
-  WriteFile(SizeStatisticsLevel::NONE, ::arrow::TableFromJSON(schema, {R"([
+  WriteFile(SizeStatisticsLevel::None, ::arrow::TableFromJSON(schema, {R"([
       [ [[1],[1,1],[1,1,1]], [["a"],["a","a"],["a","a","a"]] ],
       [ [[0,1,null]],        [["foo","bar",null]]            ],
       [ [],                  []                              ],
@@ -387,7 +390,7 @@ TEST_F(SizeStatisticsRoundTripTest, EnableColumnChunkSizeStats) {
       ::arrow::field("a", ::arrow::list(::arrow::list(::arrow::int32()))),
       ::arrow::field("b", ::arrow::list(::arrow::list(::arrow::utf8()))),
   });
-  WriteFile(SizeStatisticsLevel::CHUNK, ::arrow::TableFromJSON(schema, {R"([
+  WriteFile(SizeStatisticsLevel::ColumnChunk, ::arrow::TableFromJSON(schema, {R"([
       [ [[1],[1,1],[1,1,1]], [["a"],["a","a"],["a","a","a"]] ],
       [ [[0,1,null]],        [["foo","bar",null]]            ],
       [ [],                  []                              ],
@@ -418,7 +421,7 @@ TEST_F(SizeStatisticsRoundTripTest, EnablePageSizeStats) {
       ::arrow::field("a", ::arrow::list(::arrow::list(::arrow::int32()))),
       ::arrow::field("b", ::arrow::list(::arrow::list(::arrow::utf8()))),
   });
-  WriteFile(SizeStatisticsLevel::PAGE, ::arrow::TableFromJSON(schema, {R"([
+  WriteFile(SizeStatisticsLevel::Page, ::arrow::TableFromJSON(schema, {R"([
       [ [[1],[1,1],[1,1,1]], [["a"],["a","a"],["a","a","a"]] ],
       [ [[0,1,null]],        [["foo","bar",null]]            ],
       [ [],                  []                              ],
@@ -472,7 +475,7 @@ TEST_F(SizeStatisticsRoundTripTest, WriteDictionaryArray) {
 
   auto schema = ::arrow::schema({::arrow::field("a", dict_type)});
   auto table = ::arrow::Table::Make(schema, {array}, indices->length());
-  WriteFile(SizeStatisticsLevel::PAGE, table);
+  WriteFile(SizeStatisticsLevel::Page, table);
 
   ReadSizeStatistics();
   EXPECT_THAT(row_group_stats_,

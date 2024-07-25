@@ -28,23 +28,8 @@
 #include "parquet/encryption/type_fwd.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
-#include "parquet/schema.h"
-#include "parquet/types.h"
 
 namespace parquet {
-
-class ColumnDescriptor;
-class EncodedStatistics;
-class FileCryptoMetaData;
-class SizeStatistics;
-class Statistics;
-class SchemaDescriptor;
-
-namespace schema {
-
-class ColumnPath;
-
-}  // namespace schema
 
 using KeyValueMetadata = ::arrow::KeyValueMetadata;
 
