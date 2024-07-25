@@ -32,7 +32,7 @@ from pyarrow.lib cimport *
 from pyarrow.lib import (ArrowCancelled, ArrowException, ArrowInvalid,
                          SignalStopHandler)
 from pyarrow.lib import as_buffer, frombytes, timestamp, tobytes
-from pyarrow.includes.chrono cimport duration_cast, nanoseconds
+from pyarrow.includes.chrono cimport duration_cast, microseconds
 from pyarrow.includes.libarrow_flight cimport *
 from pyarrow.ipc import _get_legacy_format_default, _ReadPandasMixin
 import pyarrow.lib as lib
@@ -744,7 +744,7 @@ cdef class FlightEndpoint(_Weakrefable):
             self.endpoint.locations.push_back(c_location)
 
         if expiration_time is not None:
-            self.endpoint.expiration_time = time_point(nanoseconds(expiration_time.cast(timestamp("ns")).value))
+            self.endpoint.expiration_time = time_point(microseconds(expiration_time.cast(timestamp("us")).value))
 
         self.endpoint.app_metadata = tobytes(app_metadata)
 
@@ -763,10 +763,10 @@ cdef class FlightEndpoint(_Weakrefable):
         cdef:
             int64_t time_since_epoch
             const char* UTC = "UTC"
-            shared_ptr[CTimestampType] time_type = make_shared[CTimestampType](TimeUnit.TimeUnit_NANO, UTC)
+            shared_ptr[CTimestampType] time_type = make_shared[CTimestampType](TimeUnit.TimeUnit_MICRO, UTC)
             shared_ptr[CTimestampScalar] shared
         if self.endpoint.expiration_time.has_value():
-            time_since_epoch = duration_cast[nanoseconds](self.endpoint.expiration_time.value().time_since_epoch()).count()
+            time_since_epoch = duration_cast[microseconds](self.endpoint.expiration_time.value().time_since_epoch()).count()
             shared = make_shared[CTimestampScalar](time_since_epoch, time_type);
             return Scalar.wrap(<shared_ptr[CScalar]> shared)
         return None

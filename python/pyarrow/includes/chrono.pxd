@@ -6,8 +6,8 @@ cdef extern from "<chrono>" namespace "std::chrono":
         duration(int64_t count)
         const int64_t count()
 
-    cdef cppclass nanoseconds(duration):
-        nanoseconds(int64_t count)
+    cdef cppclass microseconds(duration):
+        microseconds(int64_t count)
 
     T duration_cast[T](duration d)
 
