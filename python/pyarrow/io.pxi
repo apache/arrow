@@ -1446,6 +1446,27 @@ cdef class Buffer(_Weakrefable):
         """
         return _wrap_device_allocation_type(self.buffer.get().device_type())
 
+    def copy(self, MemoryManager mm):
+        """
+        The buffer contents will be copied into a new buffer allocated by the
+        given MemoryManager.  This function supports cross-device copies.
+
+        Parameters
+        ---------
+        MemoryManager
+            Memory manager used to allocate the new buffer.
+
+        Returns
+        -------
+        Buffer
+        """
+        cdef:
+            shared_ptr[CBuffer] c_buffer
+
+        c_buffer = GetResultValue(self.buffer.get().Copy(self.buffer, mm.unwrap()))
+        return pyarrow_wrap_buffer(c_buffer)
+
+
     @property
     def parent(self):
         cdef shared_ptr[CBuffer] parent_buf = self.buffer.get().parent()

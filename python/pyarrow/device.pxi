@@ -130,6 +130,9 @@ cdef class MemoryManager(_Weakrefable):
         self.init(mm)
         return self
 
+    cdef inline shared_ptr[CMemoryManager] unwrap(self) nogil:
+        return self.memory_manager
+
     def __repr__(self):
         return "<pyarrow.MemoryManager device: {}>".format(
             frombytes(self.memory_manager.get().device().get().ToString())
@@ -151,7 +154,6 @@ cdef class MemoryManager(_Weakrefable):
         address is CPU-accessible.
         """
         return self.memory_manager.get().is_cpu()
-
 
 def default_cpu_memory_manager():
     """
