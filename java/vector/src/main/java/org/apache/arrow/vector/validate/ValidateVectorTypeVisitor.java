@@ -66,7 +66,6 @@ import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.LargeListVector;
 import org.apache.arrow.vector.complex.ListVector;
-import org.apache.arrow.vector.complex.ListViewVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.types.DateUnit;
@@ -478,10 +477,5 @@ public class ValidateVectorTypeVisitor implements VectorVisitor<Void, Void> {
   public Void visit(ExtensionTypeVector<?> vector, Void value) {
     validateExtensionTypeVector(vector);
     return null;
-  }
-
-  @Override
-  public Void visit(ListViewVector vector, Void value) {
-    throw new UnsupportedOperationException("ListView vectors are not supported.");
   }
 }

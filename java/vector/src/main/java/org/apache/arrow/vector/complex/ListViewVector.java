@@ -340,6 +340,11 @@ public class ListViewVector extends BaseRepeatedValueViewVector
   }
 
   @Override
+  public <OUT, IN> OUT accept(VectorVisitor<OUT, IN> visitor, IN value) {
+    throw new UnsupportedOperationException("ListViewVector does not support visitor pattern.");
+  }
+
+  @Override
   public void copyFrom(int inIndex, int outIndex, ValueVector from) {
     Preconditions.checkArgument(this.getMinorType() == from.getMinorType());
     FieldReader in = from.getReader();
@@ -447,11 +452,6 @@ public class ListViewVector extends BaseRepeatedValueViewVector
       hash = ByteFunctionHelpers.combineHash(hash, vector.hashCode(i, hasher));
     }
     return hash;
-  }
-
-  @Override
-  public <OUT, IN> OUT accept(VectorVisitor<OUT, IN> visitor, IN value) {
-    return visitor.visit(this, value);
   }
 
   private class TransferImpl implements TransferPair {

@@ -2938,66 +2938,6 @@ public class TestValueVector {
   }
 
   @Test
-  public void testListViewVectorEqualsWithNull() {
-    try (final ListViewVector vector1 = ListViewVector.empty("listview", allocator);
-        final ListViewVector vector2 = ListViewVector.empty("listview", allocator); ) {
-
-      UnionListViewWriter writer1 = vector1.getWriter();
-      writer1.allocate();
-
-      // set some values
-      writeListViewVector(writer1, new int[] {1, 2});
-      writeListViewVector(writer1, new int[] {3, 4});
-      writeListViewVector(writer1, new int[] {});
-      writer1.setValueCount(3);
-
-      UnionListViewWriter writer2 = vector2.getWriter();
-      writer2.allocate();
-
-      // set some values
-      writeListViewVector(writer2, new int[] {1, 2});
-      writeListViewVector(writer2, new int[] {3, 4});
-      writer2.setValueCount(3);
-
-      VectorEqualsVisitor visitor = new VectorEqualsVisitor();
-
-      assertFalse(visitor.vectorEquals(vector1, vector2));
-    }
-  }
-
-  @Test
-  public void testListViewVectorEquals() {
-    try (final ListViewVector vector1 = ListViewVector.empty("listview", allocator);
-        final ListViewVector vector2 = ListViewVector.empty("listview", allocator); ) {
-
-      UnionListViewWriter writer1 = vector1.getWriter();
-      writer1.allocate();
-
-      // set some values
-      writeListViewVector(writer1, new int[] {1, 2});
-      writeListViewVector(writer1, new int[] {3, 4});
-      writeListViewVector(writer1, new int[] {5, 6});
-      writer1.setValueCount(3);
-
-      UnionListViewWriter writer2 = vector2.getWriter();
-      writer2.allocate();
-
-      // set some values
-      writeListViewVector(writer2, new int[] {1, 2});
-      writeListViewVector(writer2, new int[] {3, 4});
-      writer2.setValueCount(2);
-
-      VectorEqualsVisitor visitor = new VectorEqualsVisitor();
-      assertFalse(visitor.vectorEquals(vector1, vector2));
-
-      writeListViewVector(writer2, new int[] {5, 6});
-      writer2.setValueCount(3);
-
-      assertTrue(visitor.vectorEquals(vector1, vector2));
-    }
-  }
-
-  @Test
   public void testListViewVectorSetNull() {
     try (final ListViewVector vector = ListViewVector.empty("listview", allocator)) {
       UnionListViewWriter writer = vector.getWriter();
