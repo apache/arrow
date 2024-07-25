@@ -20,11 +20,12 @@
 #include <optional>
 
 #include "parquet/platform.h"
+#include "parquet/type_fwd.h"
+#include "arrow/util/span.h"
 
 namespace parquet {
 
 struct ByteArray;
-class ColumnDescriptor;
 
 /// \brief SizeStatistics is a proxy around format::SizeStatistics.
 ///
@@ -51,16 +52,16 @@ class PARQUET_EXPORT SizeStatistics {
   /// represents the number of times the repetition level was observed in the
   /// data.
   ///
-  /// This field may be omitted if max_repetition_level is 0 without loss
-  /// of information.
+  /// This field may be omitted (a.k.a. zero-length vector) if max_repetition_level
+  /// is 0 without loss of information.
   ///
   /// \returns repetition level histogram of all levels if not empty.
   const std::vector<int64_t>& repetition_level_histogram() const;
 
   /// Same as repetition_level_histogram except for definition levels.
   ///
-  /// This field may be omitted if max_definition_level is 0 or 1 without
-  /// loss of information.
+  /// This field may be omitted (a.k.a. zero-length vector) if max_definition_level
+  /// is 0 without loss of information.
   ///
   /// \returns definition level histogram of all levels if not empty.
   const std::vector<int64_t>& definition_level_histogram() const;
@@ -96,8 +97,8 @@ class PARQUET_EXPORT SizeStatistics {
 
   // PIMPL Idiom
   SizeStatistics();
-  class SizeStatisticsImpl;
-  std::unique_ptr<SizeStatisticsImpl> impl_;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 
 /// \brief Builder to create a SizeStatistics.
@@ -109,14 +110,12 @@ class PARQUET_EXPORT SizeStatisticsBuilder {
   ~SizeStatisticsBuilder();
 
   /// \brief Add repetition levels to the histogram.
-  /// \param num_levels number of repetition levels to add.
   /// \param rep_levels repetition levels to add.
-  void AddRepetitionLevels(int64_t num_levels, const int16_t* rep_levels);
+  void AddRepetitionLevels(::arrow::util::span<const int16_t> rep_levels);
 
   /// \brief Add definition levels to the histogram.
-  /// \param num_levels number of definition levels to add.
   /// \param def_levels definition levels to add.
-  void AddDefinitionLevels(int64_t num_levels, const int16_t* def_levels);
+  void AddDefinitionLevels(::arrow::util::span<const int16_t> def_levels);
 
   /// \brief Add repeated repetition level to the histogram.
   /// \param num_levels number of repetition levels to add.
@@ -153,8 +152,8 @@ class PARQUET_EXPORT SizeStatisticsBuilder {
  private:
   // PIMPL Idiom
   explicit SizeStatisticsBuilder(const ColumnDescriptor* descr);
-  class SizeStatisticsBuilderImpl;
-  std::unique_ptr<SizeStatisticsBuilderImpl> impl_;
+  class Impl;
+  std::unique_ptr<Impl> impl_;
 };
 
 }  // namespace parquet
