@@ -141,8 +141,8 @@ jobs:
 
           brew bundle --file=arrow/java/Brewfile
           
-          # installing googletest older version
-          brew install googletest@1.14.0
+          # We want to use the bundled googletest for linking.
+          brew uninstall googletest
       - name: Build C++ libraries
         env:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
