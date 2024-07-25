@@ -139,7 +139,8 @@ inline R_xlen_t r_string_size(SEXP s) {
 
 inline SEXP utf8_strings(SEXP x) {
   return cpp11::unwind_protect([&] {
-    // ensure that x is not actually altrep first
+    // ensure that x is not actually altrep first this also ensures that
+    // x is not altrep even after it is materialized
     bool was_altrep = ALTREP(x);
     if (was_altrep) {
       x = PROTECT(Rf_duplicate(x));
