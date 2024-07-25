@@ -98,6 +98,8 @@ groups:
 
   vcpkg:
     - test-*vcpkg*
+    - wheel-*
+    - java-jars
 
   integration:
     - test-*dask*
