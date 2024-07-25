@@ -34,6 +34,7 @@ RUN apt-get update -y -q && \
         libcurl4-openssl-dev \
         python3-pip \
         tzdata \
+        tzdata-legacy \
         wget && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
