@@ -23,7 +23,7 @@ under the License.
   <parent>
     <groupId>org.apache</groupId>
     <artifactId>apache</artifactId>
-    <version>31</version>
+    <version>33</version>
   </parent>
 
   <groupId>org.apache.arrow</groupId>
@@ -106,8 +106,7 @@ under the License.
     <arrow.vector.classifier></arrow.vector.classifier>
     <forkCount>2</forkCount>
     <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
-    <errorprone.javac.version>9+181-r4173-1</errorprone.javac.version>
-    <error_prone_core.version>2.28.0</error_prone_core.version>
+    <error_prone_core.version>2.29.2</error_prone_core.version>
     <mockito.core.version>5.11.0</mockito.core.version>
     <mockito.inline.version>5.2.0</mockito.inline.version>
     <checker.framework.version>3.45.0</checker.framework.version>
@@ -118,20 +117,11 @@ under the License.
     <maven.compiler.source>11</maven.compiler.source>
     <maven.compiler.target>11</maven.compiler.target>
     <maven.compiler.release>11</maven.compiler.release>
-    <maven.plugin.tools.version>3.12.0</maven.plugin.tools.version>
-    <surefire.version>3.2.5</surefire.version>
-    <version.apache-rat-plugin>0.16.1</version.apache-rat-plugin>
-    <version.maven-assembly-plugin>3.7.1</version.maven-assembly-plugin>
-    <version.maven-compiler-plugin>3.12.1</version.maven-compiler-plugin>
-    <version.maven-dependency-plugin>3.6.1</version.maven-dependency-plugin>
-    <version.maven-gpg-plugin>3.2.4</version.maven-gpg-plugin>
     <!--
       Downgrade maven-jar-plugin until https://github.com/codehaus-plexus/plexus-archiver/issues/332
       is addressed
     -->
     <version.maven-jar-plugin>3.2.2</version.maven-jar-plugin>
-    <version.maven-javadoc-plugin>3.6.3</version.maven-javadoc-plugin>
-    <version.maven-project-info-reports-plugin>3.5.0</version.maven-project-info-reports-plugin>
   </properties>
 
   <dependencyManagement>
@@ -156,9 +146,10 @@ under the License.
         <version>${dep.fbs.version}</version>
       </dependency>
       <dependency>
-        <groupId>com.google.code.findbugs</groupId>
-        <artifactId>jsr305</artifactId>
-        <version>3.0.2</version>
+        <groupId>com.google.errorprone</groupId>
+        <artifactId>error_prone_annotations</artifactId>
+        <version>${error_prone_core.version}</version>
+        <scope>provided</scope>
       </dependency>
       <dependency>
         <groupId>org.slf4j</groupId>
@@ -274,13 +265,13 @@ under the License.
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-junit-jupiter</artifactId>
-      <version>2.25.1</version>
+      <version>5.12.0</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
-      <version>1.3.14</version>
+      <version>1.4.14</version>
       <scope>test</scope>
     </dependency>
     <dependency>

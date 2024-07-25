@@ -23,7 +23,7 @@ under the License.
   <parent>
     <groupId>org.apache</groupId>
     <artifactId>apache</artifactId>
-    <version>31</version>
+    <version>33</version>
   </parent>
 
   <groupId>org.apache.arrow</groupId>
@@ -83,16 +83,6 @@ under the License.
     <maven.compiler.source>11</maven.compiler.source>
     <maven.compiler.target>11</maven.compiler.target>
     <maven.compiler.release>11</maven.compiler.release>
-    <maven.plugin.tools.version>3.12.0</maven.plugin.tools.version>
-    <surefire.version>3.2.5</surefire.version>
-    <version.apache-rat-plugin>0.16.1</version.apache-rat-plugin>
-    <version.maven-assembly-plugin>3.7.1</version.maven-assembly-plugin>
-    <version.maven-compiler-plugin>3.12.1</version.maven-compiler-plugin>
-    <version.maven-dependency-plugin>3.6.1</version.maven-dependency-plugin>
-    <version.maven-gpg-plugin>3.2.4</version.maven-gpg-plugin>
-    <version.maven-jar-plugin>3.2.2</version.maven-jar-plugin>
-    <version.maven-javadoc-plugin>3.6.3</version.maven-javadoc-plugin>
-    <version.maven-project-info-reports-plugin>3.5.0</version.maven-project-info-reports-plugin>
   </properties>
 
   <dependencyManagement>

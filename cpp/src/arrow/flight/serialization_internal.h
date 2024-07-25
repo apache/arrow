@@ -94,6 +94,7 @@ Status ToProto(const Result& result, pb::Result* pb_result);
 Status ToProto(const CancelFlightInfoResult& result,
                pb::CancelFlightInfoResult* pb_result);
 Status ToProto(const Criteria& criteria, pb::Criteria* pb_criteria);
+Status ToProto(const Location& location, pb::Location* pb_location);
 Status ToProto(const SchemaResult& result, pb::SchemaResult* pb_result);
 Status ToProto(const Ticket& ticket, pb::Ticket* pb_ticket);
 Status ToProto(const BasicAuth& basic_auth, pb::BasicAuth* pb_basic_auth);

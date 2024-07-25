@@ -209,58 +209,10 @@ message Action {
 }
 
 /*
- * The request of the CancelFlightInfo action.
- *
- * The request should be stored in Action.body.
- */
-message CancelFlightInfoRequest {
-  FlightInfo info = 1;
-}
-
-/*
- * The request of the RenewFlightEndpoint action.
- *
- * The request should be stored in Action.body.
- */
-message RenewFlightEndpointRequest {
-  FlightEndpoint endpoint = 1;
-}
-
-/*
  * An opaque result returned after executing an action.
  */
 message Result {
   bytes body = 1;
-}
-
-/*
- * The result of a cancel operation.
- *
- * This is used by CancelFlightInfoResult.status.
- */
-enum CancelStatus {
-  // The cancellation status is unknown. Servers should avoid using
-  // this value (send a NOT_FOUND error if the requested query is
-  // not known). Clients can retry the request.
-  CANCEL_STATUS_UNSPECIFIED = 0;
-  // The cancellation request is complete. Subsequent requests with
-  // the same payload may return CANCELLED or a NOT_FOUND error.
-  CANCEL_STATUS_CANCELLED = 1;
-  // The cancellation request is in progress. The client may retry
-  // the cancellation request.
-  CANCEL_STATUS_CANCELLING = 2;
-  // The query is not cancellable. The client should not retry the
-  // cancellation request.
-  CANCEL_STATUS_NOT_CANCELLABLE = 3;
-}
-
-/*
- * The result of the CancelFlightInfo action.
- *
- * The result should be stored in Result.body.
- */
-message CancelFlightInfoResult {
-  CancelStatus status = 1;
 }
 
 /*
@@ -424,6 +376,64 @@ message PollInfo {
 }
 
 /*
+ * The request of the CancelFlightInfo action.
+ *
+ * The request should be stored in Action.body.
+ */
+message CancelFlightInfoRequest {
+  FlightInfo info = 1;
+}
+
+/*
+ * The result of a cancel operation.
+ *
+ * This is used by CancelFlightInfoResult.status.
+ */
+enum CancelStatus {
+  // The cancellation status is unknown. Servers should avoid using
+  // this value (send a NOT_FOUND error if the requested query is
+  // not known). Clients can retry the request.
+  CANCEL_STATUS_UNSPECIFIED = 0;
+  // The cancellation request is complete. Subsequent requests with
+  // the same payload may return CANCELLED or a NOT_FOUND error.
+  CANCEL_STATUS_CANCELLED = 1;
+  // The cancellation request is in progress. The client may retry
+  // the cancellation request.
+  CANCEL_STATUS_CANCELLING = 2;
+  // The query is not cancellable. The client should not retry the
+  // cancellation request.
+  CANCEL_STATUS_NOT_CANCELLABLE = 3;
+}
+
+/*
+ * The result of the CancelFlightInfo action.
+ *
+ * The result should be stored in Result.body.
+ */
+message CancelFlightInfoResult {
+  CancelStatus status = 1;
+}
+
+/*
+ * An opaque identifier that the service can use to retrieve a particular
+ * portion of a stream.
+ *
+ * Tickets are meant to be single use. It is an error/application-defined
+ * behavior to reuse a ticket.
+ */
+message Ticket {
+  bytes ticket = 1;
+}
+
+/*
+ * A location where a Flight service will accept retrieval of a particular
+ * stream given a ticket.
+ */
+message Location {
+  string uri = 1;
+}
+
+/*
  * A particular stream or split associated with a flight.
  */
 message FlightEndpoint {
@@ -475,22 +485,12 @@ message FlightEndpoint {
 }
 
 /*
- * A location where a Flight service will accept retrieval of a particular
- * stream given a ticket.
- */
-message Location {
-  string uri = 1;
-}
-
-/*
- * An opaque identifier that the service can use to retrieve a particular
- * portion of a stream.
+ * The request of the RenewFlightEndpoint action.
  *
- * Tickets are meant to be single use. It is an error/application-defined
- * behavior to reuse a ticket.
+ * The request should be stored in Action.body.
  */
-message Ticket {
-  bytes ticket = 1;
+message RenewFlightEndpointRequest {
+  FlightEndpoint endpoint = 1;
 }
 
 /*

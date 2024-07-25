@@ -167,6 +167,29 @@ func TestArrowReaderAdHocReadFloat16s(t *testing.T) {
 	}
 }
 
+func TestArrowReaderCanceledContext(t *testing.T) {
+	dataDir := getDataDir()
+
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	filename := filepath.Join(dataDir, "int32_decimal.parquet")
+	require.FileExists(t, filename)
+
+	rdr, err := file.OpenParquetFile(filename, false, file.WithReadProps(parquet.NewReaderProperties(mem)))
+	require.NoError(t, err)
+	defer rdr.Close()
+	arrowRdr, err := pqarrow.NewFileReader(rdr, pqarrow.ArrowReadProperties{}, mem)
+	require.NoError(t, err)
+
+	// create a canceled context
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err = arrowRdr.ReadTable(ctx)
+	require.ErrorIs(t, err, context.Canceled)
+}
+
 func TestRecordReaderParallel(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(t, 0)
