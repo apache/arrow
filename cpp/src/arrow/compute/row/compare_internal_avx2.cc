@@ -403,8 +403,9 @@ inline uint64_t Compare8_Binary_avx2(uint32_t length, const uint8_t* left_base,
   if (use_selection) {
     _mm256_storeu_si256(reinterpret_cast<__m256i*>(irow_left_array), irow_left);
   }
-  _mm256_store_si256(reinterpret_cast<__m256i*>(offset_right_array), offset_right_lo);
-  _mm256_store_si256(reinterpret_cast<__m256i*>(&offset_right_array[4]), offset_right_hi);
+  _mm256_storeu_si256(reinterpret_cast<__m256i*>(offset_right_array), offset_right_lo);
+  _mm256_storeu_si256(reinterpret_cast<__m256i*>(&offset_right_array[4]),
+                      offset_right_hi);
 
   // Non-zero length guarantees no underflow
   int32_t num_loops_less_one = (static_cast<int32_t>(length) + 31) / 32 - 1;
