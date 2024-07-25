@@ -744,7 +744,8 @@ cdef class FlightEndpoint(_Weakrefable):
             self.endpoint.locations.push_back(c_location)
 
         if expiration_time is not None:
-            self.endpoint.expiration_time = time_point(microseconds(expiration_time.cast(timestamp("us")).value))
+            self.endpoint.expiration_time = time_point(
+                microseconds(expiration_time.cast(timestamp("us")).value))
 
         self.endpoint.app_metadata = tobytes(app_metadata)
 
@@ -766,8 +767,9 @@ cdef class FlightEndpoint(_Weakrefable):
             shared_ptr[CTimestampType] time_type = make_shared[CTimestampType](TimeUnit.TimeUnit_MICRO, UTC)
             shared_ptr[CTimestampScalar] shared
         if self.endpoint.expiration_time.has_value():
-            time_since_epoch = duration_cast[microseconds](self.endpoint.expiration_time.value().time_since_epoch()).count()
-            shared = make_shared[CTimestampScalar](time_since_epoch, time_type);
+            time_since_epoch = duration_cast[microseconds](
+                self.endpoint.expiration_time.value().time_since_epoch()).count()
+            shared = make_shared[CTimestampScalar](time_since_epoch, time_type)
             return Scalar.wrap(<shared_ptr[CScalar]> shared)
         return None
 
