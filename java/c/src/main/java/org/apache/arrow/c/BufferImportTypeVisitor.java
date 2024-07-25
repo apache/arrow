@@ -119,7 +119,7 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
   }
 
   private ArrowBuf importOffsets(ArrowType type, long bytesPerSlot) {
-    final long capacity = bytesPerSlot * (fieldNode.getLength() + 1);
+    final long capacity = bytesPerSlot * (fieldNode.getLength() + arrowArrayOffset + 1);
     return importBuffer(type, 1, capacity);
   }
 
