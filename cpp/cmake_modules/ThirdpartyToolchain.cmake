@@ -955,6 +955,7 @@ endif()
 # cmake command line will favor the last defined variable when a duplicate is
 # encountered. This requires that `EP_COMMON_CMAKE_ARGS` is always the first
 # argument.
+string(STRIP ${EP_CXX_FLAGS} EP_CXX_FLAGS)
 set(EP_COMMON_CMAKE_ARGS
     ${EP_COMMON_TOOLCHAIN}
     -DBUILD_SHARED_LIBS=OFF
@@ -2881,7 +2882,7 @@ macro(build_absl)
   set(ABSL_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/absl_ep-install")
   set(ABSL_INCLUDE_DIR "${ABSL_PREFIX}/include")
   set(ABSL_CMAKE_ARGS "${EP_COMMON_CMAKE_ARGS}" -DABSL_RUN_TESTS=OFF
-                      "-DCMAKE_INSTALL_PREFIX=${ABSL_PREFIX}" -DABSL_PROPAGATE_CXX_STD=ON)
+                      "-DCMAKE_INSTALL_PREFIX=${ABSL_PREFIX}")
   if(CMAKE_COMPILER_IS_GNUCC AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 13.0)
     list(APPEND ABSL_CMAKE_ARGS "-DCMAKE_CXX_FLAGS=-include stdint.h")
   endif()
