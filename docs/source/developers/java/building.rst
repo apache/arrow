@@ -321,6 +321,54 @@ Building Java JNI Modules
           -Darrow.c.jni.dist.dir=<absolute path to your arrow folder>/java-dist/lib/ \
           -Parrow-jni clean install
 
+Testing
+=======
+
+By default, Maven uses the same Java version to both build the code and run the tests.
+
+It is also possible to use a different JDK version for the tests. This requires Maven
+toolchains to be configured beforehand, and then a specific test property needs to be set.
+
+Configuring Maven toolchains
+----------------------------
+
+To be able to use a JDK version for testing, it needs to be registered first in Maven ``toolchains.xml``
+configuration file usually located under ``${HOME}/.m2`` with the following snippet added to it:
+
+  .. code-block::
+
+      <?xml version="1.0" encoding="UTF8"?>
+      <toolchains>
+
+        [...]
+
+        <toolchain>
+          <type>jdk</type>
+          <provides>
+            <version>21</version> <!-- Replace with the corresponding JDK version: 11, 17, ... -->
+            <vendor>temurin</vendor> <!-- Replace with the vendor/distribution: temurin, oracle, zulu ... -->
+          </provides>
+          <configuration>
+            <jdkHome>path/to/jdk/home</jdkHome> <!-- Replace with the path to the JDK -->
+          </configuration>
+        </toolchain>
+
+        [...]
+
+      </toolchains>
+
+Testing with a specific JDK
+---------------------------
+
+To run Arrow tests with a specific JDK version, use the ``arrow.test.jdk-version`` property.
+
+For example, to run Arrow tests with JDK 17, use the following snippet:
+
+  .. code-block::
+
+      $ cd arrow/java
+      $ mvn -Darrow.test.jdk-version=17 clean verify
+
 IDE Configuration
 =================
 

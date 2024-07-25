@@ -112,6 +112,8 @@ under the License.
     <checker.framework.version>3.45.0</checker.framework.version>
     <doclint>none</doclint>
     <additionalparam>-Xdoclint:none</additionalparam>
+    <!-- List of add-opens arg line arguments for tests -->
+    <surefire.add-opens.argLine>--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED</surefire.add-opens.argLine>
     <!-- org.apache:apache overrides -->
     <minimalJavaBuildVersion>11</minimalJavaBuildVersion>
     <maven.compiler.source>11</maven.compiler.source>
@@ -303,7 +305,7 @@ under the License.
         <plugin>
           <artifactId>maven-surefire-plugin</artifactId>
           <configuration>
-            <argLine>--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED</argLine>
+            <argLine>${surefire.add-opens.argLine}</argLine>
             <enableAssertions>true</enableAssertions>
             <childDelegation>true</childDelegation>
             <forkCount>${forkCount}</forkCount>
@@ -322,7 +324,7 @@ under the License.
         <plugin>
           <artifactId>maven-failsafe-plugin</artifactId>
           <configuration>
-            <argLine>--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED</argLine>
+            <argLine>${surefire.add-opens.argLine}</argLine>
             <systemPropertyVariables>
               <java.io.tmpdir>${project.build.directory}</java.io.tmpdir>
               <io.netty.tryReflectionSetAccessible>true</io.netty.tryReflectionSetAccessible>
@@ -1261,6 +1263,60 @@ under the License.
                 </configuration>
               </execution>
             </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <!-- Cross java version test profiles -->
+    <profile>
+      <id>cross-jdk-testing</id>
+      <activation>
+        <property>
+          <name>arrow.test.jdk-version</name>
+        </property>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <artifactId>maven-enforcer-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>check-jdk-version-property</id>
+                <goals>
+                  <goal>enforce</goal>
+                </goals>
+                <phase>validate</phase>
+                <configuration>
+                  <rules>
+                    <requireProperty>
+                      <property>arrow.test.jdk-version</property>
+                      <message>"JDK version used for test must be specified."</message>
+                      <regex>^\d{2,}</regex>
+                      <regexMessage>"JDK version used for test must be 11, 17, 21, ..."</regexMessage>
+                    </requireProperty>
+                  </rules>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <configuration>
+              <jdkToolchain>
+                <version>${arrow.test.jdk-version}</version>
+              </jdkToolchain>
+            </configuration>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-failsafe-plugin</artifactId>
+            <configuration>
+              <jdkToolchain>
+                <version>${arrow.test.jdk-version}</version>
+              </jdkToolchain>
+            </configuration>
           </plugin>
         </plugins>
       </build>
