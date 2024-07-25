@@ -397,7 +397,7 @@ Examples:
 =============
 
 Bool8 represents a boolean value using 1 byte (8 bits) to store each value instead of only 1 bit as in
-the native Arrow Boolean type. Although less compact that the native representation, Bool8 may have
+the original Arrow Boolean type. Although less compact than the original representation, Bool8 may have
 better zero-copy compatibility with various systems that also store booleans using 1 byte.
 
 * Extension name: ``arrow.bool8``.
