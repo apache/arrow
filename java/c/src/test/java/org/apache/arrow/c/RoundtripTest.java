@@ -77,6 +77,7 @@ import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
+import org.apache.arrow.vector.VariableWidthFieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.ViewVarBinaryVector;
 import org.apache.arrow.vector.ViewVarCharVector;
@@ -954,12 +955,81 @@ public class RoundtripTest {
   @Test
   public void testSliceVarCharVector() {
     try (final VarCharVector vector = new VarCharVector("v", allocator);
+        VarCharVector slicedVector = new VarCharVector("v", allocator);
         VarCharVector target = new VarCharVector("v", allocator)) {
+      slicedVector.allocateNew();
       setVector(vector, "foo", "bar", "baz1", "baz223", "baz23445", "baz2121", "12312baz");
-      vector.splitAndTransferTo(2, 3, target);
+      // slice information
+      final int startIndex = 2;
+      final int length = 3;
+      // create a sliced vector manually to mimic C++ slice behavior
+      final ArrowBuf offsetBuffer = vector.getOffsetBuffer();
+      final ArrowBuf dataBuffer = vector.getDataBuffer();
+      final int offsetWidth = VarCharVector.OFFSET_WIDTH;
 
-      System.out.println(target);
+      final ArrowBuf expectedSliceOffSetBuffer =
+          offsetBuffer.slice(startIndex * offsetWidth, (length + 1) * offsetWidth);
+      final int sizeOfDataBuffer = expectedSliceOffSetBuffer.getInt(length * offsetWidth);
+      final ArrowBuf expectedSliceDataBuffer = dataBuffer.slice(0, sizeOfDataBuffer);
+      final ArrowBuf expectedSliceValidityBuffer = allocator.buffer(8);
+      expectedSliceValidityBuffer.setLong(0, 0b00000111);
+
+      createSlicedVector(
+          slicedVector,
+          expectedSliceValidityBuffer,
+          expectedSliceOffSetBuffer,
+          expectedSliceDataBuffer,
+          length);
+
+      vector.splitAndTransferTo(startIndex, length, target);
+
+      assertTrue(VectorEqualsVisitor.vectorEquals(target, slicedVector));
+      assertTrue(roundtrip(slicedVector, VarCharVector.class));
+
+      expectedSliceValidityBuffer.close();
     }
+  }
+
+  private static void createSlicedVector(
+      VariableWidthFieldVector slicedVector,
+      ArrowBuf expectedSliceValidityBuffer,
+      ArrowBuf expectedSliceOffSetBuffer,
+      ArrowBuf expectedSliceDataBuffer,
+      int length) {
+    final ArrowBuf sliceValidityBuffer = slicedVector.getValidityBuffer();
+    final ArrowBuf slicedOffsetBuffer = slicedVector.getOffsetBuffer();
+    final ArrowBuf slicedDataBuffer = slicedVector.getDataBuffer();
+
+    setBuffersFromExpectedBuffers(
+        sliceValidityBuffer,
+        expectedSliceValidityBuffer,
+        slicedOffsetBuffer,
+        expectedSliceOffSetBuffer,
+        slicedDataBuffer,
+        expectedSliceDataBuffer,
+        length);
+
+    // setLastSet before SetValueCount to make sure fillHoles doesn't get called
+    slicedVector.setLastSet(length - 1);
+    slicedVector.setValueCount(length);
+  }
+
+  private static void setBuffersFromExpectedBuffers(
+      ArrowBuf sliceValidityBuffer,
+      ArrowBuf expectedSliceValidityBuffer,
+      ArrowBuf slicedOffsetBuffer,
+      ArrowBuf expectedSliceOffSetBuffer,
+      ArrowBuf slicedDataBuffer,
+      ArrowBuf expectedSliceDataBuffer,
+      int length) {
+    final int offsetWidth = VarCharVector.OFFSET_WIDTH;
+    sliceValidityBuffer.setBytes(
+        0, expectedSliceValidityBuffer, 0, expectedSliceValidityBuffer.capacity());
+    for (int i = 0; i < length + 1; i++) {
+      slicedOffsetBuffer.setInt(
+          (long) i * offsetWidth, expectedSliceOffSetBuffer.getInt((long) i * offsetWidth));
+    }
+    slicedDataBuffer.setBytes(0, expectedSliceDataBuffer, 0, expectedSliceDataBuffer.capacity());
   }
 
   private VectorSchemaRoot createTestVSR() {
