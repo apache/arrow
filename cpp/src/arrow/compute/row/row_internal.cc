@@ -293,8 +293,12 @@ Status RowTableImpl::ResizeFixedLengthBuffers(int64_t num_extra_rows) {
 }
 
 Status RowTableImpl::ResizeOptionalVaryingLengthBuffer(int64_t num_extra_bytes) {
+  if (metadata_.is_fixed_length) {
+    return Status::OK();
+  }
+
   int64_t num_bytes = offsets()[num_rows_];
-  if (bytes_capacity_ >= num_bytes + num_extra_bytes || metadata_.is_fixed_length) {
+  if (bytes_capacity_ >= num_bytes + num_extra_bytes) {
     return Status::OK();
   }
 
