@@ -201,7 +201,6 @@ cdef class Context(_Weakrefable):
         """
         The device instance associated with this context.
 
-
         Returns
         -------
         Device
