@@ -55,7 +55,7 @@ def setup_jvm():
     # For debugging purpose please uncomment the following, and include *jvm_args, before **kwargs
     # in startJVM function call
     # jvm_args = [
-    #    "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
+    #   "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
     # ]
 
     jpype.startJVM(jpype.getDefaultJVMPath(), "-Djava.class.path=" + jar_path, **kwargs)
