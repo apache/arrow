@@ -955,7 +955,6 @@ endif()
 # cmake command line will favor the last defined variable when a duplicate is
 # encountered. This requires that `EP_COMMON_CMAKE_ARGS` is always the first
 # argument.
-string(STRIP ${EP_CXX_FLAGS} EP_CXX_FLAGS)
 set(EP_COMMON_CMAKE_ARGS
     ${EP_COMMON_TOOLCHAIN}
     -DBUILD_SHARED_LIBS=OFF
