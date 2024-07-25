@@ -327,6 +327,8 @@ TEST(KeyCompare, LARGE_MEMORY_TEST(CompareColumnsToRowsOver4GB)) {
   constexpr int64_t k4GB = 4ll * 1024 * 1024 * 1024;
   constexpr int64_t size_row_min = fixed_length + var_length_min;
   constexpr int64_t num_rows_row_table = k4GB / size_row_min + num_rows_batch;
+  static_assert(num_rows_row_table < std::numeric_limits<uint32_t>::max(),
+                "row table length must be less than uint32 max");
   static_assert(num_rows_row_table * size_row_min > k4GB,
                 "row table size must be greater than 4GB");
 
@@ -389,7 +391,7 @@ TEST(KeyCompare, LARGE_MEMORY_TEST(CompareColumnsToRowsOver4GB)) {
   // batch.
   std::vector<uint32_t> row_ids_to_compare(num_rows_batch);
   std::iota(row_ids_to_compare.begin(), row_ids_to_compare.end(),
-            num_rows_row_table - num_rows_batch);
+            static_cast<uint32_t>(num_rows_row_table - num_rows_batch));
 
   TempVectorStack stack;
   ASSERT_OK(
