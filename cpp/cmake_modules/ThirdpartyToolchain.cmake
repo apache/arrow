@@ -694,7 +694,7 @@ if(DEFINED ENV{ARROW_GTEST_URL})
   set(GTEST_SOURCE_URL "$ENV{ARROW_GTEST_URL}")
 else()
   set_urls(GTEST_SOURCE_URL
-           "https://github.com/google/googletest/archive/release-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
+           "https://github.com/google/googletest/archive/refs/tags/v${ARROW_GTEST_BUILD_VERSION}.tar.gz"
            "https://chromium.googlesource.com/external/github.com/google/googletest/+archive/release-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
            "${THIRDPARTY_MIRROR_URL}/gtest-${ARROW_GTEST_BUILD_VERSION}.tar.gz")
 endif()
@@ -2331,7 +2331,7 @@ if(ARROW_TESTING)
                      HAVE_ALT
                      TRUE
                      REQUIRED_VERSION
-                     1.10.0)
+                     1.15.0)
 
   if(GTest_SOURCE STREQUAL "SYSTEM")
     find_package(PkgConfig QUIET)
