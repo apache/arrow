@@ -30,12 +30,11 @@
 
 namespace parquet {
 
-class SizeStatistics::SizeStatisticsImpl {
+class SizeStatistics::Impl {
  public:
-  SizeStatisticsImpl() = default;
+  Impl() = default;
 
-  SizeStatisticsImpl(const format::SizeStatistics* size_stats,
-                     const ColumnDescriptor* descr)
+  Impl(const format::SizeStatistics* size_stats, const ColumnDescriptor* descr)
       : rep_level_histogram_(size_stats->repetition_level_histogram),
         def_level_histogram_(size_stats->definition_level_histogram) {
     if (descr->physical_type() == Type::BYTE_ARRAY &&
@@ -99,10 +98,10 @@ std::optional<int64_t> SizeStatistics::unencoded_byte_array_data_bytes() const {
 void SizeStatistics::Merge(const SizeStatistics& other) { return impl_->Merge(other); }
 
 SizeStatistics::SizeStatistics(const void* size_statistics, const ColumnDescriptor* descr)
-    : impl_(std::make_unique<SizeStatisticsImpl>(
+    : impl_(std::make_unique<Impl>(
           reinterpret_cast<const format::SizeStatistics*>(size_statistics), descr)) {}
 
-SizeStatistics::SizeStatistics() : impl_(std::make_unique<SizeStatisticsImpl>()) {}
+SizeStatistics::SizeStatistics() : impl_(std::make_unique<Impl>()) {}
 
 SizeStatistics::~SizeStatistics() = default;
 
@@ -111,9 +110,9 @@ std::unique_ptr<SizeStatistics> SizeStatistics::Make(const void* size_statistics
   return std::unique_ptr<SizeStatistics>(new SizeStatistics(size_statistics, descr));
 }
 
-class SizeStatisticsBuilder::SizeStatisticsBuilderImpl {
+class SizeStatisticsBuilder::Impl {
  public:
-  explicit SizeStatisticsBuilderImpl(const ColumnDescriptor* descr)
+  explicit Impl(const ColumnDescriptor* descr)
       : rep_level_histogram_(descr->max_repetition_level() + 1, 0),
         def_level_histogram_(descr->max_definition_level() + 1, 0) {
     if (descr->physical_type() == Type::BYTE_ARRAY) {
@@ -121,17 +120,17 @@ class SizeStatisticsBuilder::SizeStatisticsBuilderImpl {
     }
   }
 
-  void WriteRepetitionLevels(int64_t num_levels, const int16_t* rep_levels) {
-    for (int64_t i = 0; i < num_levels; ++i) {
-      ARROW_DCHECK_LT(rep_levels[i], static_cast<int16_t>(rep_level_histogram_.size()));
-      rep_level_histogram_[rep_levels[i]]++;
+  void WriteRepetitionLevels(::arrow::util::span<const int16_t> rep_levels) {
+    for (int16_t rep_level : rep_levels) {
+      ARROW_DCHECK_LT(rep_level, static_cast<int16_t>(rep_level_histogram_.size()));
+      rep_level_histogram_[rep_level]++;
     }
   }
 
-  void WriteDefinitionLevels(int64_t num_levels, const int16_t* def_levels) {
-    for (int64_t i = 0; i < num_levels; ++i) {
-      ARROW_DCHECK_LT(def_levels[i], static_cast<int16_t>(def_level_histogram_.size()));
-      def_level_histogram_[def_levels[i]]++;
+  void WriteDefinitionLevels(::arrow::util::span<const int16_t> def_levels) {
+    for (int16_t def_level : def_levels) {
+      ARROW_DCHECK_LT(def_level, static_cast<int16_t>(def_level_histogram_.size()));
+      def_level_histogram_[def_level]++;
     }
   }
 
@@ -217,14 +216,14 @@ class SizeStatisticsBuilder::SizeStatisticsBuilderImpl {
   std::optional<int64_t> unencoded_byte_array_data_bytes_;
 };
 
-void SizeStatisticsBuilder::AddRepetitionLevels(int64_t num_levels,
-                                                const int16_t* rep_levels) {
-  impl_->WriteRepetitionLevels(num_levels, rep_levels);
+void SizeStatisticsBuilder::AddRepetitionLevels(
+    ::arrow::util::span<const int16_t> rep_levels) {
+  impl_->WriteRepetitionLevels(rep_levels);
 }
 
-void SizeStatisticsBuilder::AddDefinitionLevels(int64_t num_levels,
-                                                const int16_t* def_levels) {
-  impl_->WriteDefinitionLevels(num_levels, def_levels);
+void SizeStatisticsBuilder::AddDefinitionLevels(
+    ::arrow::util::span<const int16_t> def_levels) {
+  impl_->WriteDefinitionLevels(def_levels);
 }
 
 void SizeStatisticsBuilder::AddRepetitionLevel(int64_t num_levels, int16_t rep_level) {
@@ -255,7 +254,7 @@ std::unique_ptr<SizeStatistics> SizeStatisticsBuilder::Build() { return impl_->B
 void SizeStatisticsBuilder::Reset() { return impl_->Reset(); }
 
 SizeStatisticsBuilder::SizeStatisticsBuilder(const ColumnDescriptor* descr)
-    : impl_(std::make_unique<SizeStatisticsBuilderImpl>(descr)) {}
+    : impl_(std::make_unique<Impl>(descr)) {}
 
 SizeStatisticsBuilder::~SizeStatisticsBuilder() = default;
 

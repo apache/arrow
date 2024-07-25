@@ -570,7 +570,7 @@ class ColumnIndexBuilderImpl final : public ColumnIndexBuilder {
     auto boundary_order = DetermineBoundaryOrder(min_values, max_values);
     column_index_.__set_boundary_order(ToThrift(boundary_order));
 
-    /// Finalize level histogram.
+    // Finalize level histogram.
     const int64_t num_pages = column_index_.null_pages.size();
     const int64_t rep_level_hist_size = column_index_.repetition_level_histograms.size();
     const int64_t def_level_hist_size = column_index_.definition_level_histograms.size();
