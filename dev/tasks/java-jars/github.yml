@@ -83,7 +83,7 @@ jobs:
           - { runs_on: ["macos-13"], arch: "x86_64"}
           - { runs_on: ["macos-14"], arch: "aarch_64" }
     env:
-      MACOSX_DEPLOYMENT_TARGET: "10.15"
+      MACOSX_DEPLOYMENT_TARGET: "14.0"
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       - name: Set up Python
@@ -140,6 +140,12 @@ jobs:
           brew uninstall protobuf
 
           brew bundle --file=arrow/java/Brewfile
+          
+          # We want to use the bundled googletest for static linking. Since
+          # both BUNDLED and brew options are enabled, it could cause a conflict
+          # when there is a version mismatch.
+          # We uninstall googletest to ensure using the bundled googletest.
+          brew uninstall googletest
       - name: Build C++ libraries
         env:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
