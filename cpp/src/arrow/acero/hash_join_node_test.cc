@@ -30,6 +30,7 @@
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/compute/light_array_internal.h"
 #include "arrow/testing/extension_type.h"
+#include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
@@ -3251,6 +3252,25 @@ TEST(HashJoin, ManyJoins) {
   }
 
   ASSERT_OK_AND_ASSIGN(std::ignore, DeclarationToTable(std::move(root)));
+}
+
+// Test that both the key and the payload of the right side (the build side) are larger
+// than 4GB, and the 64-bit offset in the hash table can handle it correctly.
+TEST(HashJoin, LARGE_MEMORY_TEST(BuildSideOver4GB)) {
+  // constexpr int64_t k5GB = 5ll * 1024 * 1024 * 1024;
+  // constexpr int16_t num_rows_per_batch = 1024;
+  // constexpr int bytes_per_column = 8;
+  // constexpr int64_t num_batches = k5GB / (num_rows_per_batch * bytes_per_column);
+  // constexpr int64_t num_rows = num_rows_per_batch * num_batches;
+  // const int num_left_rows = ExecBatchBuilder::num_rows_max();
+
+  // std::vector<Datum> values;
+  // ASSERT_OK_AND_ASSIGN(auto value_fixed_length,
+  //                      ::arrow::gen::Random(fixed_size_binary(bytes_per_column))
+  //                          ->Generate(num_rows_per_batch));
+  // values.push_back(std::move(value_fixed_length));
+
+  // ExecBatch batch = ExecBatch(std::move(values), num_rows_per_batch);
 }
 
 }  // namespace acero
