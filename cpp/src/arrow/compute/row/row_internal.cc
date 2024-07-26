@@ -190,7 +190,7 @@ Status RowTableImpl::Init(MemoryPool* pool, const RowTableMetadata& metadata) {
         auto offsets, AllocateResizableBuffer(size_offsets(kInitialRowsCapacity), pool_));
     offsets_ = std::move(offsets);
     memset(offsets_->mutable_data(), 0, size_offsets(kInitialRowsCapacity));
-    reinterpret_cast<uint32_t*>(offsets_->mutable_data())[0] = 0;
+    reinterpret_cast<offset_type*>(offsets_->mutable_data())[0] = 0;
 
     ARROW_ASSIGN_OR_RAISE(
         auto rows,
@@ -225,7 +225,7 @@ void RowTableImpl::Clean() {
   has_any_nulls_ = false;
 
   if (!metadata_.is_fixed_length) {
-    reinterpret_cast<uint32_t*>(offsets_->mutable_data())[0] = 0;
+    reinterpret_cast<offset_type*>(offsets_->mutable_data())[0] = 0;
   }
 }
 
