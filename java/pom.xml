@@ -717,10 +717,6 @@ under the License.
         </configuration>
         <dependencies>
           <dependency>
-            <groupId>com.puppycrawl.tools</groupId>
-            <artifactId>checkstyle</artifactId>
-          </dependency>
-          <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>jcl-over-slf4j</artifactId>
             <version>${dep.slf4j.version}</version>
