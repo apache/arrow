@@ -4512,9 +4512,12 @@ function(build_orc)
   message(STATUS "Building Apache ORC from source")
 
   if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.29)
+    find_program(PATCH patch REQUIRED)
+    set(ORC_PATCH_COMMAND ${PATCH} -p1 -i ${CMAKE_CURRENT_LIST_DIR}/orc.diff)
     fetchcontent_declare(orc
                          ${FC_DECLARE_COMMON_OPTIONS}
                          URL ${ORC_SOURCE_URL}
+                         PATCH_COMMAND ${ORC_PATCH_COMMAND}
                          URL_HASH "SHA256=${ARROW_ORC_BUILD_SHA256_CHECKSUM}")
     prepare_fetchcontent()
 
