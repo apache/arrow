@@ -18,6 +18,7 @@
 {% import 'macros.jinja' as macros with context %}
 
 {{ macros.github_header() }}
+  VCPKG_ROOT: {{ "${{ github.workspace }}/vcpkg" }}
 
 jobs:
 
@@ -26,6 +27,7 @@ jobs:
     name: Build C++ libraries Ubuntu {{ arch }}
     runs-on: {{ '${{ matrix.platform.runs_on }}' }}
     env:
+      VCPKG_BINARY_SOURCES: 'clear;nuget,GitHub,readwrite'
       # architecture name used for archery build
       ARCH: {{ '${{ matrix.platform.archery_arch }}' }}
       ARCH_ALIAS: {{ '${{ matrix.platform.archery_arch_alias }}' }}
@@ -50,6 +52,45 @@ jobs:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_free_space()|indent }}
       {{ macros.github_install_archery()|indent }}
+        - name: Retrieve VCPKG version from arrow/.env
+          run: |
+            vcpkg_version=$(cat "arrow/.env" | grep "VCPKG" | cut -d "=" -f2 | tr -d '"')
+            echo "VCPKG_VERSION=$vcpkg_version" >> $GITHUB_ENV
+
+        - name: Install Vcpkg
+          run: arrow/ci/scripts/install_vcpkg.sh $VCPKG_ROOT $VCPKG_VERSION
+
+        - name: Add Vcpkg to PATH
+          run: echo ${VCPKG_ROOT} >> $GITHUB_PATH
+
+        - name: Setup NuGet Credentials
+          env:
+            GITHUB_TOKEN: { { '${{ secrets.GITHUB_TOKEN }}' } }
+          run: |
+            mono $(vcpkg fetch nuget | tail -n 1) \
+              sources add \
+              -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json" \
+              -storepasswordincleartext \
+              -name "GitHub" \
+              -username "$GITHUB_REPOSITORY_OWNER" \
+              -password "$GITHUB_TOKEN" \
+            
+            mono $(vcpkg fetch nuget | tail -n 1) \
+              setapikey "$GITHUB_TOKEN" \
+              -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json"
+
+        - name: Install Packages
+          run: |
+            vcpkg install \
+              --clean-after-build \
+              --x-install-root=${VCPKG_ROOT}/installed \
+              --x-manifest-root=arrow/ci/vcpkg \
+              --x-feature=azure \
+              --x-feature=flight \
+              --x-feature=gcs \
+              --x-feature=json \
+              --x-feature=parquet \
+              --x-feature=s3
       - name: Build C++ libraries
         env:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
