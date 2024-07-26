@@ -120,7 +120,9 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
 
   private ArrowBuf importOffsets(ArrowType type, long bytesPerSlot) {
     final long capacity = bytesPerSlot * (fieldNode.getLength() + arrowArrayOffset + 1);
-    return importBuffer(type, 1, capacity);
+    ArrowBuf offsets = importBuffer(type, 1, capacity);
+    return offsets.slice(
+        arrowArrayOffset * bytesPerSlot, (long) (fieldNode.getLength() + 1) * bytesPerSlot);
   }
 
   private ArrowBuf importData(ArrowType type, long capacity) {
@@ -216,20 +218,15 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
   @Override
   public List<ArrowBuf> visit(ArrowType.Utf8 type) {
     ArrowBuf offsets = importOffsets(type, VarCharVector.OFFSET_WIDTH);
-    ArrowBuf adjustedOffsets =
-        offsets.slice(
-            arrowArrayOffset * VarCharVector.OFFSET_WIDTH,
-            (long) (fieldNode.getLength() + 1) * VarCharVector.OFFSET_WIDTH);
-    final int start = adjustedOffsets.getInt(0);
-    final int end =
-        adjustedOffsets.getInt((fieldNode.getLength()) * (long) VarCharVector.OFFSET_WIDTH);
+    final int start = offsets.getInt(0);
+    final int end = offsets.getInt((fieldNode.getLength()) * (long) VarCharVector.OFFSET_WIDTH);
     checkState(
         end >= start,
         "Offset buffer for type %s is malformed: start: %s, end: %s",
         type,
         start,
         end);
-    return Arrays.asList(maybeImportBitmap(type), adjustedOffsets, importData(type, end));
+    return Arrays.asList(maybeImportBitmap(type), offsets, importData(type, end));
   }
 
   private List<ArrowBuf> visitVariableWidthView(ArrowType type) {
@@ -286,20 +283,15 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
   @Override
   public List<ArrowBuf> visit(ArrowType.Binary type) {
     ArrowBuf offsets = importOffsets(type, VarBinaryVector.OFFSET_WIDTH);
-    ArrowBuf adjustedOffsets =
-        offsets.slice(
-            arrowArrayOffset * VarBinaryVector.OFFSET_WIDTH,
-            (long) (fieldNode.getLength() + 1) * VarBinaryVector.OFFSET_WIDTH);
-    final int start = adjustedOffsets.getInt(0);
-    final int end =
-        adjustedOffsets.getInt(fieldNode.getLength() * (long) VarBinaryVector.OFFSET_WIDTH);
+    final int start = offsets.getInt(0);
+    final int end = offsets.getInt(fieldNode.getLength() * (long) VarBinaryVector.OFFSET_WIDTH);
     checkState(
         end >= start,
         "Offset buffer for type %s is malformed: start: %s, end: %s",
         type,
         start,
         end);
-    return Arrays.asList(maybeImportBitmap(type), adjustedOffsets, importData(type, end));
+    return Arrays.asList(maybeImportBitmap(type), offsets, importData(type, end));
   }
 
   @Override
