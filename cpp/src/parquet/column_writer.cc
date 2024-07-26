@@ -353,8 +353,9 @@ class SerializedPageWriter : public PageWriter {
                       total_compressed_size_, total_uncompressed_size_, has_dictionary,
                       fallback, dict_encoding_stats_, data_encoding_stats_,
                       meta_encryptor_);
-    // Write metadata at end of column chunk
-    metadata_->WriteTo(sink_.get());
+
+    // Not write metadata at end of column chunk since we will
+    // write it in the Parquet Thrift Footer.
   }
 
   /**
@@ -667,8 +668,8 @@ class BufferedPageWriter : public PageWriter {
                       has_dictionary, fallback, pager_->dict_encoding_stats_,
                       pager_->data_encoding_stats_, pager_->meta_encryptor_);
 
-    // Write metadata at end of column chunk
-    metadata_->WriteTo(in_memory_sink_.get());
+    // Not write metadata at end of column chunk since we will
+    // write it in the Parquet Thrift Footer.
 
     // Buffered page writer needs to adjust page offsets.
     pager_->FinishPageIndexes(final_position);
