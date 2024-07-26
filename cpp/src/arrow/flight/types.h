@@ -428,10 +428,10 @@ struct ARROW_FLIGHT_EXPORT FlightDescriptor
   /// when type is PATH
   std::vector<std::string> path;
 
-  FlightDescriptor() = default;
-
-  FlightDescriptor(DescriptorType type, std::string cmd, std::vector<std::string> path)
-      : type(type), cmd(std::move(cmd)), path(std::move(path)) {}
+  FlightDescriptor();
+  FlightDescriptor(DescriptorType type, std::string cmd,
+                   std::vector<std::string> path) noexcept;
+  ~FlightDescriptor();
 
   /// \brief Get a human-readable form of this descriptor.
   std::string ToString() const;
@@ -462,8 +462,8 @@ struct ARROW_FLIGHT_EXPORT FlightDescriptor
     return FlightDescriptor{CMD, std::move(cmd), {}};
   }
 
-  static FlightDescriptor Path(const std::vector<std::string>& p) {
-    return FlightDescriptor{PATH, "", p};
+  static FlightDescriptor Path(std::vector<std::string> path) {
+    return FlightDescriptor{PATH, "", std::move(path)};
   }
 };
 

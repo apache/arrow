@@ -205,6 +205,14 @@ arrow::Status BasicAuth::SerializeToString(std::string* out) const {
   return SerializeToProtoString<pb::BasicAuth>("BasicAuth", *this, out);
 }
 
+FlightDescriptor::FlightDescriptor() = default;
+
+FlightDescriptor::FlightDescriptor(DescriptorType type, std::string cmd,
+                                   std::vector<std::string> path) noexcept
+    : type(type), cmd(std::move(cmd)), path(std::move(path)) {}
+
+FlightDescriptor::~FlightDescriptor() = default;
+
 std::string FlightDescriptor::ToString() const {
   std::stringstream ss;
   ss << "<FlightDescriptor ";
