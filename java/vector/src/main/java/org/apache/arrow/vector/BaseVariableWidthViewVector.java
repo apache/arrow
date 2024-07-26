@@ -315,9 +315,9 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
   /**
    * Get the inner vectors.
    *
+   * @return the inner vectors for this field as defined by the TypeLayout
    * @deprecated This API will be removed as the current implementations no longer support inner
    *     vectors.
-   * @return the inner vectors for this field as defined by the TypeLayout
    */
   @Deprecated
   @Override

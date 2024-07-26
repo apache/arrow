@@ -319,9 +319,9 @@ public class LargeListVector extends BaseValueVector
   /**
    * Get the inner vectors.
    *
+   * @return the inner vectors for this field as defined by the TypeLayout
    * @deprecated This API will be removed as the current implementations no longer support inner
    *     vectors.
-   * @return the inner vectors for this field as defined by the TypeLayout
    */
   @Deprecated
   @Override
@@ -494,9 +494,9 @@ public class LargeListVector extends BaseValueVector
   /**
    * Get the offset vector.
    *
+   * @return the underlying offset vector or null if none exists.
    * @deprecated This API will be removed, as the current implementations no longer hold inner
    *     offset vectors.
-   * @return the underlying offset vector or null if none exists.
    */
   @Override
   @Deprecated
