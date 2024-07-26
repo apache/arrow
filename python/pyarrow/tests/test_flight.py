@@ -251,7 +251,7 @@ class GetInfoFlightServer(FlightServerBase):
                     b'',
                     [flight.Location.for_grpc_tcp('localhost', 5005)],
                     pa.scalar("2023-04-05T12:34:56.789").cast(pa.timestamp("ms")),
-                    b"endpoint app metadata"
+                    "endpoint app metadata"
                 ),
             ],
             1,

@@ -718,7 +718,7 @@ cdef class FlightEndpoint(_Weakrefable):
             Expiration time of this stream. If present, clients may assume
             they can retry DoGet requests. Otherwise, clients should avoid
             retrying DoGet requests.
-        app_metadata : str
+        app_metadata : bytes or str
             Application-defined opaque metadata.
 
         Raises
