@@ -19,10 +19,14 @@
 
 #pragma once
 
-#include "arrow/flight/protocol_internal.h"  // IWYU pragma: keep
 #include "arrow/flight/transport.h"
+#include "arrow/flight/type_fwd.h"
 #include "arrow/flight/types.h"
-#include "arrow/util/macros.h"
+#include "arrow/flight/visibility.h"
+
+namespace google::protobuf {
+class Timestamp;
+}  // namespace google::protobuf
 
 namespace arrow {
 
@@ -34,6 +38,32 @@ class Message;
 }  // namespace ipc
 
 namespace flight {
+// Protobuf types from Flight.proto
+namespace protocol {
+class Action;
+class ActionType;
+class BasicAuth;
+class CancelFlightInfoRequest;
+class CancelFlightInfoResult;
+class Criteria;
+class FlightData;
+class FlightDescriptor;
+class FlightEndpoint;
+class FlightInfo;
+class GetSessionOptionsRequest;
+class Location;
+class PollInfo;
+class RenewFlightEndpointRequest;
+class Result;
+class SchemaResult;
+class SetSessionOptionsRequest;
+class SetSessionOptionsResult;
+class Ticket;
+class GetSessionOptionsRequest;
+class GetSessionOptionsResult;
+class CloseSessionRequest;
+class CloseSessionResult;
+}  // namespace protocol
 namespace pb = arrow::flight::protocol;
 namespace internal {
 

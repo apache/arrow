@@ -25,6 +25,7 @@
 #include <utility>
 
 #include "arrow/buffer.h"
+#include "arrow/flight/protocol_internal.h"
 #include "arrow/flight/serialization_internal.h"
 #include "arrow/flight/types_async.h"
 #include "arrow/io/memory.h"
@@ -696,6 +697,8 @@ arrow::Status Ticket::Deserialize(std::string_view serialized, Ticket* out) {
 
 Location::Location() { uri_ = std::make_shared<arrow::util::Uri>(); }
 
+Location::~Location() = default;
+
 arrow::Result<Location> Location::Parse(const std::string& uri_string) {
   Location location;
   RETURN_NOT_OK(location.uri_->Parse(uri_string));
@@ -1001,6 +1004,9 @@ Status ResultStream::Drain() {
   }
   return Status::OK();
 }
+
+FlightStreamChunk::FlightStreamChunk() noexcept = default;
+FlightStreamChunk::~FlightStreamChunk() = default;
 
 arrow::Result<std::vector<std::shared_ptr<RecordBatch>>>
 MetadataRecordBatchReader::ToRecordBatches() {

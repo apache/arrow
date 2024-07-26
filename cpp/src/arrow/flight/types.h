@@ -41,22 +41,16 @@
 
 namespace arrow {
 
-class Buffer;
 class RecordBatch;
 class Schema;
-class Status;
 class Table;
 
 namespace ipc {
-
 class DictionaryMemo;
-
 }  // namespace ipc
 
 namespace util {
-
 class Uri;
-
 }  // namespace util
 
 namespace flight {
@@ -746,6 +740,8 @@ struct ARROW_FLIGHT_EXPORT Location : public internal::BaseType<Location> {
   /// \brief Initialize a blank location.
   Location();
 
+  ~Location();
+
   /// \brief Initialize a location by parsing a URI string
   static arrow::Result<Location> Parse(const std::string& uri_string);
 
@@ -1148,6 +1144,9 @@ class ARROW_FLIGHT_EXPORT ResultStream {
 /// \brief A holder for a RecordBatch with associated Flight metadata.
 struct ARROW_FLIGHT_EXPORT FlightStreamChunk {
  public:
+  FlightStreamChunk() noexcept;
+  ~FlightStreamChunk();
+
   std::shared_ptr<RecordBatch> data;
   std::shared_ptr<Buffer> app_metadata;
 };
