@@ -60,8 +60,7 @@ class FlightServer(pyarrow.flight.FlightServerBase):
 
         return pyarrow.flight.FlightInfo(table.schema,
                                          descriptor, endpoints,
-                                         table.num_rows, data_size,
-                                         False, b"")
+                                         table.num_rows, data_size)
 
     def list_flights(self, context, criteria):
         for key, table in self.flights.items():

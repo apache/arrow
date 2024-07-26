@@ -31,9 +31,7 @@ class ExampleServer(flight.FlightServerBase):
         flight.FlightDescriptor.for_command(b"simple"),
         [],
         -1,
-        -1,
-        False,
-        b""
+        -1
     )
 
     def get_flight_info(self, context, descriptor):

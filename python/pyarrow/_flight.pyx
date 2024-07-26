@@ -844,7 +844,7 @@ cdef class FlightInfo(_Weakrefable):
         return obj
 
     def __init__(self, Schema schema, FlightDescriptor descriptor, endpoints,
-                 total_records, total_bytes, ordered, app_metadata):
+                 total_records, total_bytes, ordered=False, app_metadata=""):
         """Create a FlightInfo object from a schema, descriptor, and endpoints.
 
         Parameters
@@ -859,9 +859,9 @@ cdef class FlightInfo(_Weakrefable):
             the total records in this flight, or -1 if unknown.
         total_bytes : int
             the total bytes in this flight, or -1 if unknown.
-        ordered : boolean
+        ordered : boolean optional, default False
             Whether endpoints are in the same order as the data.
-        app_metadata : bytes or str
+        app_metadata : bytes or str optional, default ""
             Application-defined opaque metadata.
         """
         cdef:

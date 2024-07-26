@@ -153,8 +153,7 @@ class ConstantFlightServer(FlightServerBase):
                 pa.schema([]),
                 flight.FlightDescriptor.for_path('/foo'),
                 [],
-                -1, -1,
-                False, b""
+                -1, -1
             )
 
     def do_get(self, context, ticket):
@@ -391,8 +390,7 @@ class ErrorFlightServer(FlightServerBase):
             pa.schema([]),
             flight.FlightDescriptor.for_path('/foo'),
             [],
-            -1, -1,
-            False, b""
+            -1, -1
         )
         raise flight.FlightInternalError("foo")
 
@@ -939,56 +937,56 @@ def test_eq():
         lambda: (
             flight.FlightInfo(
                 pa.schema([]),
-                flight.FlightDescriptor.for_path(), [], -1, -1, False, b""),
+                flight.FlightDescriptor.for_path(), [], -1, -1),
             flight.FlightInfo(
                 pa.schema([("ints", pa.int64())]),
-                flight.FlightDescriptor.for_path(), [], -1, -1, False, b"")),
+                flight.FlightDescriptor.for_path(), [], -1, -1)),
         lambda: (
             flight.FlightInfo(
                 pa.schema([]),
-                flight.FlightDescriptor.for_path(), [], -1, -1, False, b""),
+                flight.FlightDescriptor.for_path(), [], -1, -1),
             flight.FlightInfo(
                 pa.schema([]),
-                flight.FlightDescriptor.for_command(b"foo"), [], -1, -1, False, b"")),
+                flight.FlightDescriptor.for_command(b"foo"), [], -1, -1)),
         lambda: (
             flight.FlightInfo(
                 pa.schema([]),
                 flight.FlightDescriptor.for_path(),
                 [flight.FlightEndpoint(b"foo", [])],
-                -1, -1, False, b""),
+                -1, -1),
             flight.FlightInfo(
                 pa.schema([]),
                 flight.FlightDescriptor.for_path(),
                 [flight.FlightEndpoint(b"bar", [])],
-                -1, -1, False, b"")),
+                -1, -1)),
         lambda: (
             flight.FlightInfo(
                 pa.schema([]),
-                flight.FlightDescriptor.for_path(), [], -1, -1, False, b""),
+                flight.FlightDescriptor.for_path(), [], -1, -1),
             flight.FlightInfo(
                 pa.schema([]),
-                flight.FlightDescriptor.for_path(), [], 1, -1, False, b"")),
+                flight.FlightDescriptor.for_path(), [], 1, -1)),
         lambda: (
             flight.FlightInfo(
                 pa.schema([]),
-                flight.FlightDescriptor.for_path(), [], -1, -1, False, b""),
+                flight.FlightDescriptor.for_path(), [], -1, -1),
             flight.FlightInfo(
                 pa.schema([]),
-                flight.FlightDescriptor.for_path(), [], -1, 42, False, b"")),
+                flight.FlightDescriptor.for_path(), [], -1, 42)),
         lambda: (
             flight.FlightInfo(
                 pa.schema([]),
-                flight.FlightDescriptor.for_path(), [], -1, -1, False, b""),
+                flight.FlightDescriptor.for_path(), [], -1, -1, False),
             flight.FlightInfo(
                 pa.schema([]),
-                flight.FlightDescriptor.for_path(), [], -1, -1, True, b"")),
+                flight.FlightDescriptor.for_path(), [], -1, -1, True)),
         lambda: (
             flight.FlightInfo(
                 pa.schema([]),
-                flight.FlightDescriptor.for_path(), [], -1, -1, False, b""),
+                flight.FlightDescriptor.for_path(), [], -1, -1, app_metadata=b""),
             flight.FlightInfo(
                 pa.schema([]),
-                flight.FlightDescriptor.for_path(), [], -1, -1, False, b"meta")),
+                flight.FlightDescriptor.for_path(), [], -1, -1, app_metadata=b"meta")),
         lambda: (flight.Location("grpc+tcp://localhost:1234"),
                  flight.Location("grpc+tls://localhost:1234")),
         lambda: (flight.Result(b"foo"), flight.Result(b"bar")),
@@ -2440,8 +2438,7 @@ def test_headers_trailers():
                 pa.schema([]),
                 descriptor,
                 [],
-                -1, -1,
-                False, b""
+                -1, -1
             )
 
     class HeadersTrailersMiddlewareFactory(ClientMiddlewareFactory):
