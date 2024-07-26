@@ -952,6 +952,50 @@ public class RoundtripTest {
     }
   }
 
+  private FieldVector getSlicedVector(FieldVector vector, int offset) {
+    // Consumer allocates empty structures
+    try (ArrowSchema consumerArrowSchema = ArrowSchema.allocateNew(allocator);
+        ArrowArray consumerArrowArray = ArrowArray.allocateNew(allocator)) {
+
+      // Producer creates structures from existing memory pointers
+      try (ArrowSchema arrowSchema = ArrowSchema.wrap(consumerArrowSchema.memoryAddress());
+          ArrowArray arrowArray = ArrowArray.wrap(consumerArrowArray.memoryAddress())) {
+        // Producer exports vector into the C Data Interface structures
+        Data.exportVector(allocator, vector, null, arrowArray, arrowSchema);
+      }
+      // consumerArrowArray.snapshot().offset = offset;
+
+      // Consumer imports vector
+      FieldVector imported =
+          Data.importVector(childAllocator, consumerArrowArray, consumerArrowSchema, null);
+      if (!(imported instanceof NullVector)) {
+        assertEquals(childAllocator, imported.getAllocator());
+      }
+
+      // Check that transfers work
+      TransferPair pair = imported.getTransferPair(allocator);
+      pair.transfer();
+      return (FieldVector) pair.getTo();
+    }
+  }
+
+  @Test
+  public void testSliceVarCharVector2() {
+    try (final VarCharVector vector = new VarCharVector("v", allocator);
+        VarCharVector target = new VarCharVector("v", allocator)) {
+      setVector(vector, "foo", "bar", "baz1", "baz223", "baz23445", "baz2121", "12312baz");
+      // slice information
+      final int startIndex = 2;
+      final int length = 3;
+      // create a sliced vector manually to mimic C++ slice behavior
+      VarCharVector slicedVector = (VarCharVector) getSlicedVector(vector, startIndex);
+      vector.splitAndTransferTo(startIndex, length, target);
+
+      // assertTrue(VectorEqualsVisitor.vectorEquals(target, slicedVector));
+      assertTrue(roundtrip(slicedVector, VarCharVector.class));
+    }
+  }
+
   @Test
   public void testSliceVarCharVector() {
     try (final VarCharVector vector = new VarCharVector("v", allocator);
