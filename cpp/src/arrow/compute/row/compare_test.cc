@@ -299,8 +299,7 @@ TEST(KeyCompare, LARGE_MEMORY_TEST(CompareColumnsToRowsOver2GB)) {
   // The overall size should be larger than 2GB.
   ASSERT_GT(row_size * num_rows, k2GB);
 
-  // The left side columns.
-  std::vector<KeyColumnArray> columns_left;
+  // The left side batch.
   ExecBatch batch_left;
   {
     std::vector<Datum> values;
@@ -318,18 +317,19 @@ TEST(KeyCompare, LARGE_MEMORY_TEST(CompareColumnsToRowsOver2GB)) {
     values.push_back(std::move(value_var_length));
 
     batch_left = ExecBatch(std::move(values), num_rows);
-    ASSERT_OK(ColumnArraysFromExecBatch(batch_left, &columns_left));
   }
+
+  // The left side columns.
+  std::vector<KeyColumnArray> columns_left;
+  ASSERT_OK(ColumnArraysFromExecBatch(batch_left, &columns_left));
 
   // The right side row table.
   ASSERT_OK_AND_ASSIGN(RowTableImpl row_table_right,
                        MakeRowTableFromExecBatch(batch_left));
-  {
-    // The row table must contain an offset buffer.
-    ASSERT_NE(row_table_right.data(2), NULLPTR);
-    // The whole point of this test.
-    ASSERT_GT(row_table_right.offsets()[num_rows - 1], k2GB);
-  }
+  // The row table must contain an offset buffer.
+  ASSERT_NE(row_table_right.data(2), NULLPTR);
+  // The whole point of this test.
+  ASSERT_GT(row_table_right.offsets()[num_rows - 1], k2GB);
 
   // The rows to compare.
   std::vector<uint32_t> row_ids_to_compare(num_rows);
@@ -362,8 +362,7 @@ TEST(KeyCompare, LARGE_MEMORY_TEST(CompareColumnsToRowsOver4GBFixedLength)) {
   static_assert(num_rows_row_table * fixed_length > k4GB,
                 "row table size must be greater than 4GB");
 
-  // The left side columns with num_rows_batch rows.
-  std::vector<KeyColumnArray> columns_left;
+  // The left side batch with num_rows_batch rows.
   ExecBatch batch_left;
   {
     std::vector<Datum> values;
@@ -373,19 +372,23 @@ TEST(KeyCompare, LARGE_MEMORY_TEST(CompareColumnsToRowsOver4GBFixedLength)) {
         auto value_fixed_length,
         Random(fixed_size_binary(fixed_length))->Generate(num_rows_batch));
     values.push_back(std::move(value_fixed_length));
+
+    batch_left = ExecBatch(std::move(values), num_rows_batch);
   }
+
+  // The left side columns with num_rows_batch rows.
+  std::vector<KeyColumnArray> columns_left;
+  ASSERT_OK(ColumnArraysFromExecBatch(batch_left, &columns_left));
 
   // The right side row table with num_rows_row_table rows.
   ASSERT_OK_AND_ASSIGN(
       RowTableImpl row_table_right,
       RepeatRowTableUntil(MakeRowTableFromExecBatch(batch_left).ValueUnsafe(),
                           num_rows_row_table));
-  {
-    // The row table must not contain a third buffer.
-    ASSERT_EQ(row_table_right.data(2), NULLPTR);
-    // The row data must be greater than 4GB.
-    ASSERT_GT(row_table_right.buffer_size(1), k4GB);
-  }
+  // The row table must not contain a third buffer.
+  ASSERT_EQ(row_table_right.data(2), NULLPTR);
+  // The row data must be greater than 4GB.
+  ASSERT_GT(row_table_right.buffer_size(1), k4GB);
 
   // The rows to compare: the last num_rows_batch rows in the row table VS. the whole
   // batch.
@@ -425,8 +428,7 @@ TEST(KeyCompare, LARGE_MEMORY_TEST(CompareColumnsToRowsOver4GBVarLength)) {
   static_assert(num_rows_row_table * size_row_min > k4GB,
                 "row table size must be greater than 4GB");
 
-  // The left side columns with num_rows_batch rows.
-  std::vector<KeyColumnArray> columns_left;
+  // The left side batch with num_rows_batch rows.
   ExecBatch batch_left;
   {
     std::vector<Datum> values;
@@ -444,20 +446,21 @@ TEST(KeyCompare, LARGE_MEMORY_TEST(CompareColumnsToRowsOver4GBVarLength)) {
     values.push_back(std::move(value_var_length));
 
     batch_left = ExecBatch(std::move(values), num_rows_batch);
-    ASSERT_OK(ColumnArraysFromExecBatch(batch_left, &columns_left));
   }
+
+  // The left side columns with num_rows_batch rows.
+  std::vector<KeyColumnArray> columns_left;
+  ASSERT_OK(ColumnArraysFromExecBatch(batch_left, &columns_left));
 
   // The right side row table with num_rows_row_table rows.
   ASSERT_OK_AND_ASSIGN(
       RowTableImpl row_table_right,
       RepeatRowTableUntil(MakeRowTableFromExecBatch(batch_left).ValueUnsafe(),
                           num_rows_row_table));
-  {
-    // The row table must contain an offset buffer.
-    ASSERT_NE(row_table_right.data(2), NULLPTR);
-    // At least the last row should be located at over 4GB.
-    ASSERT_GT(row_table_right.offsets()[num_rows_row_table - 1], k4GB);
-  }
+  // The row table must contain an offset buffer.
+  ASSERT_NE(row_table_right.data(2), NULLPTR);
+  // At least the last row should be located at over 4GB.
+  ASSERT_GT(row_table_right.offsets()[num_rows_row_table - 1], k4GB);
 
   // The rows to compare: the last num_rows_batch rows in the row table VS. the whole
   // batch.
