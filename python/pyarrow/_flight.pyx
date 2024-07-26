@@ -861,7 +861,7 @@ cdef class FlightInfo(_Weakrefable):
             the total bytes in this flight, or -1 if unknown.
         ordered : boolean
             Whether endpoints are in the same order as the data.
-        app_metadata : str
+        app_metadata : bytes or str
             Application-defined opaque metadata.
         """
         cdef:
@@ -881,7 +881,7 @@ cdef class FlightInfo(_Weakrefable):
                                              total_records,
                                              total_bytes,
                                              ordered,
-                                             app_metadata, &self.info))
+                                             tobytes(app_metadata), &self.info))
 
     @property
     def total_records(self):

@@ -257,7 +257,7 @@ class GetInfoFlightServer(FlightServerBase):
             1,
             42,
             True,
-            b"test app metadata"
+            "test app metadata"
         )
 
     def get_schema(self, context, descriptor):
