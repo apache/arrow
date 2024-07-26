@@ -333,10 +333,6 @@ schemes for the given transports:
 +----------------------------+--------------------------------+
 | (reuse connection)         | arrow-flight-reuse-connection: |
 +----------------------------+--------------------------------+
-| UCX_ (plaintext)           | ucx:                           |
-+----------------------------+--------------------------------+
-
-.. _UCX: https://openucx.org/
 
 Connection Reuse
 ----------------
