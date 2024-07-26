@@ -705,7 +705,7 @@ cdef class FlightEndpoint(_Weakrefable):
     cdef:
         CFlightEndpoint endpoint
 
-    def __init__(self, ticket, locations, expiration_time, app_metadata):
+    def __init__(self, ticket, locations, expiration_time=None, app_metadata=""):
         """Create a FlightEndpoint from a ticket and list of locations.
 
         Parameters
@@ -714,11 +714,11 @@ cdef class FlightEndpoint(_Weakrefable):
             the ticket needed to access this flight
         locations : list of string URIs
             locations where this flight is available
-        expiration_time : TimestampScalar, optional
+        expiration_time : TimestampScalar optional, default None
             Expiration time of this stream. If present, clients may assume
             they can retry DoGet requests. Otherwise, clients should avoid
             retrying DoGet requests.
-        app_metadata : bytes or str
+        app_metadata : bytes or str optional, default ""
             Application-defined opaque metadata.
 
         Raises

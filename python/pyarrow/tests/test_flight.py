@@ -246,7 +246,7 @@ class GetInfoFlightServer(FlightServerBase):
             pa.schema([('a', pa.int32())]),
             descriptor,
             [
-                flight.FlightEndpoint(b'', ['grpc://test'], None, b''),
+                flight.FlightEndpoint(b'', ['grpc://test']),
                 flight.FlightEndpoint(
                     b'',
                     [flight.Location.for_grpc_tcp('localhost', 5005)],
@@ -932,23 +932,22 @@ def test_eq():
                  flight.BasicAuth("user", "pass2")),
         lambda: (flight.FlightDescriptor.for_command("foo"),
                  flight.FlightDescriptor.for_path("foo")),
-        lambda: (flight.FlightEndpoint(b"foo", [], None, b''),
-                 flight.FlightEndpoint(b"bar", [], None, b'')),
+        lambda: (flight.FlightEndpoint(b"foo", []),
+                 flight.FlightEndpoint(b"bar", [])),
         lambda: (
             flight.FlightEndpoint(
-                b"foo", [flight.Location("grpc+tcp://localhost:1234")], None, b''),
+                b"foo", [flight.Location("grpc+tcp://localhost:1234")]),
             flight.FlightEndpoint(
-                b"foo", [flight.Location("grpc+tls://localhost:1234")], None, b'')
+                b"foo", [flight.Location("grpc+tls://localhost:1234")])
         ),
         lambda: (
             flight.FlightEndpoint(
-                b"foo", [], pa.scalar("2023-04-05T12:34:56").cast(pa.timestamp("s")),
-                b''),
+                b"foo", [], pa.scalar("2023-04-05T12:34:56").cast(pa.timestamp("s"))),
             flight.FlightEndpoint(
                 b"foo", [],
-                pa.scalar("2023-04-05T12:34:56.789").cast(pa.timestamp("ms")), b'')),
-        lambda: (flight.FlightEndpoint(b"foo", [], None, b''),
-                 flight.FlightEndpoint(b"foo", [], None, b'meta')),
+                pa.scalar("2023-04-05T12:34:56.789").cast(pa.timestamp("ms")))),
+        lambda: (flight.FlightEndpoint(b"foo", [], app_metadata=b''),
+                 flight.FlightEndpoint(b"foo", [], app_metadata=b'meta')),
         lambda: (
             flight.FlightInfo(
                 pa.schema([]),
@@ -1788,7 +1787,7 @@ def test_roundtrip_types():
         pa.schema([('a', pa.int32())]),
         desc,
         [
-            flight.FlightEndpoint(b'', ['grpc://test'], None, b''),
+            flight.FlightEndpoint(b'', ['grpc://test']),
             flight.FlightEndpoint(
                 b'',
                 [flight.Location.for_grpc_tcp('localhost', 5005)],
