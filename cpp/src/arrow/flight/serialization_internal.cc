@@ -42,7 +42,9 @@ namespace arrow {
 namespace flight {
 namespace internal {
 
-Status PackProtoCommand(const google::protobuf::Message& command, FlightDescriptor* out) {
+namespace {
+
+Status PackToAnyAndSerialize(const google::protobuf::Message& command, std::string* out) {
   google::protobuf::Any any;
 #if PROTOBUF_VERSION >= 3015000
   if (!any.PackFrom(command)) {
@@ -52,14 +54,21 @@ Status PackProtoCommand(const google::protobuf::Message& command, FlightDescript
   any.PackFrom(command);
 #endif
 
-  std::string buf;
 #if PROTOBUF_VERSION >= 3015000
-  if (!any.SerializeToString(&buf)) {
+  if (!any.SerializeToString(out)) {
     return Status::SerializationError("Failed to serialize ", command.GetTypeName());
   }
 #else
-  any.SerializeToString(&buf);
+  any.SerializeToString(out);
 #endif
+  return Status::OK();
+}
+
+}  // namespace
+
+Status PackProtoCommand(const google::protobuf::Message& command, FlightDescriptor* out) {
+  std::string buf;
+  RETURN_NOT_OK(PackToAnyAndSerialize(command, &buf));
   *out = FlightDescriptor::Command(std::move(buf));
   return Status::OK();
 }
