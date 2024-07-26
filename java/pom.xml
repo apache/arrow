@@ -105,6 +105,7 @@ under the License.
     <dep.avro.version>1.11.3</dep.avro.version>
     <arrow.vector.classifier></arrow.vector.classifier>
     <forkCount>2</forkCount>
+    <checkstyle.version>10.17.0</checkstyle.version>
     <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
     <error_prone_core.version>2.29.2</error_prone_core.version>
     <mockito.core.version>5.11.0</mockito.core.version>
@@ -716,6 +717,11 @@ under the License.
           <linkXRef>false</linkXRef>
         </configuration>
         <dependencies>
+          <dependency>
+            <groupId>com.puppycrawl.tools</groupId>
+            <artifactId>checkstyle</artifactId>
+            <version>${checkstyle.version}</version>
+          </dependency>
           <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>jcl-over-slf4j</artifactId>
