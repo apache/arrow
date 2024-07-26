@@ -1,0 +1,22 @@
+diff --git a/cmake_modules/ThirdpartyToolchain.cmake b/cmake_modules/ThirdpartyToolchain.cmake
+index aa520ff..01ab294 100644
+--- a/cmake_modules/ThirdpartyToolchain.cmake
++++ b/cmake_modules/ThirdpartyToolchain.cmake
+@@ -464,7 +464,7 @@ add_library (orc::protoc ALIAS orc_protoc)
+ 
+ if (ORC_PACKAGE_KIND STREQUAL "conan")
+   target_link_libraries (orc_protobuf INTERFACE ${protobuf_LIBRARIES})
+-elseif (ORC_PREFER_STATIC_PROTOBUF AND ${PROTOBUF_STATIC_LIB})
++elseif (ORC_PREFER_STATIC_PROTOBUF AND DEFINED PROTOBUF_STATIC_LIB)
+   target_link_libraries (orc_protobuf INTERFACE ${PROTOBUF_STATIC_LIB})
+ else ()
+   target_link_libraries (orc_protobuf INTERFACE ${PROTOBUF_LIBRARY})
+@@ -476,7 +476,7 @@ else ()
+ endif ()
+ 
+ if (NOT ORC_PACKAGE_KIND STREQUAL "conan")
+-  if (ORC_PREFER_STATIC_PROTOBUF AND ${PROTOC_STATIC_LIB})
++  if (ORC_PREFER_STATIC_PROTOBUF AND DEFINED PROTOC_STATIC_LIB)
+     target_link_libraries (orc_protoc INTERFACE ${PROTOC_STATIC_LIB})
+   else ()
+     target_link_libraries (orc_protoc INTERFACE ${PROTOC_LIBRARY})
