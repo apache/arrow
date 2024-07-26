@@ -458,8 +458,8 @@ struct ARROW_FLIGHT_EXPORT FlightDescriptor
 
   // Convenience factory functions
 
-  static FlightDescriptor Command(const std::string& c) {
-    return FlightDescriptor{CMD, c, {}};
+  static FlightDescriptor Command(std::string cmd) {
+    return FlightDescriptor{CMD, std::move(cmd), {}};
   }
 
   static FlightDescriptor Path(const std::vector<std::string>& p) {

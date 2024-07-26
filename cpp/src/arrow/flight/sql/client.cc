@@ -24,6 +24,7 @@
 #include <google/protobuf/any.pb.h>
 
 #include "arrow/buffer.h"
+#include "arrow/flight/serialization_internal.h"
 #include "arrow/flight/sql/protocol_internal.h"
 #include "arrow/flight/types.h"
 #include "arrow/io/memory.h"
@@ -40,24 +41,9 @@ namespace sql {
 namespace {
 arrow::Result<FlightDescriptor> GetFlightDescriptorForCommand(
     const google::protobuf::Message& command) {
-  google::protobuf::Any any;
-#if PROTOBUF_VERSION >= 3015000
-  if (!any.PackFrom(command)) {
-    return Status::SerializationError("Failed to pack ", command.GetTypeName());
-  }
-#else
-  any.PackFrom(command);
-#endif
-
-  std::string buf;
-#if PROTOBUF_VERSION >= 3015000
-  if (!any.SerializeToString(&buf)) {
-    return Status::SerializationError("Failed to serialize ", command.GetTypeName());
-  }
-#else
-  any.SerializeToString(&buf);
-#endif
-  return FlightDescriptor::Command(buf);
+  FlightDescriptor descriptor;
+  RETURN_NOT_OK(flight::internal::PackProtoCommand(command, &descriptor));
+  return descriptor;
 }
 
 arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoForCommand(

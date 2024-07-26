@@ -20,6 +20,8 @@
 #include <memory>
 #include <string>
 
+#include <google/protobuf/any.pb.h>
+
 #include "arrow/buffer.h"
 #include "arrow/flight/protocol_internal.h"
 #include "arrow/io/memory.h"
@@ -39,6 +41,28 @@ overloaded(Ts...)->overloaded<Ts...>;
 namespace arrow {
 namespace flight {
 namespace internal {
+
+Status PackProtoCommand(const google::protobuf::Message& command, FlightDescriptor* out) {
+  google::protobuf::Any any;
+#if PROTOBUF_VERSION >= 3015000
+  if (!any.PackFrom(command)) {
+    return Status::SerializationError("Failed to pack ", command.GetTypeName());
+  }
+#else
+  any.PackFrom(command);
+#endif
+
+  std::string buf;
+#if PROTOBUF_VERSION >= 3015000
+  if (!any.SerializeToString(&buf)) {
+    return Status::SerializationError("Failed to serialize ", command.GetTypeName());
+  }
+#else
+  any.SerializeToString(&buf);
+#endif
+  *out = FlightDescriptor::Command(std::move(buf));
+  return Status::OK();
+}
 
 // Timestamp
 

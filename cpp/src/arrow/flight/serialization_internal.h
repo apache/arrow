@@ -25,6 +25,7 @@
 #include "arrow/flight/visibility.h"
 
 namespace google::protobuf {
+class Message;
 class Timestamp;
 }  // namespace google::protobuf
 
@@ -72,6 +73,14 @@ static constexpr char kAuthHeader[] = "authorization";
 
 ARROW_FLIGHT_EXPORT
 Status SchemaToString(const Schema& schema, std::string* out);
+
+/// \brief Wraps a protobuf message representing a Flight command in a FlightDescriptor.
+///
+/// A `FlightDescriptor` can carry a string representing a command in any
+/// format the implementation desires. A common pattern in Flight implementations
+/// is to wrap a message in a `protobuf::Any` message, which is then serialized
+/// into the string of the `FlightDescriptor.`
+Status PackProtoCommand(const google::protobuf::Message& command, FlightDescriptor* out);
 
 // These functions depend on protobuf types which are not exported in the Flight DLL.
 
