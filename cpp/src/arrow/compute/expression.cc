@@ -1162,6 +1162,8 @@ Result<std::shared_ptr<Array>> PrepareIsInValueSet(std::shared_ptr<Array> value_
       value_set,
       Take(*value_set, *sort_indices, TakeOptions(/*bounds_check=*/false)));
   if (value_set->IsNull(value_set->length() - 1)) {
+    // If the last one is null we know it's the only
+    // one because of the call to `Unique` above.
     value_set = value_set->Slice(0, value_set->length() - 1);
   }
   return value_set;
