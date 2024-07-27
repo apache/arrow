@@ -750,8 +750,7 @@ test_that("altrep columns can roundtrip to table", {
   expect_equal(tbl, as_tibble(arrow_table(new_df)))
 
   # but also if we materialize the vector
-  # this could also be accomplished with printing, 
-  # though with that the error goes from 
+  # this could also be accomplished with printing
   new_df <- read_csv_arrow(tf)
   test_arrow_altrep_force_materialize(new_df$chr)
 
