@@ -150,6 +150,43 @@ static void BuildBinaryArray(benchmark::State& state) {  // NOLINT non-const ref
   state.SetItemsProcessed(state.iterations() * kItemsProcessed);
 }
 
+static void BuildSmallBinaryViewArray(
+    benchmark::State& state) {  // NOLINT non-const reference
+  std::string_view kBinaryStrings[] = {"1", "12345678", "12345", "123456789", "12", "", "   "};
+
+  for (auto _ : state) {
+    BinaryViewBuilder builder(memory_tracker.memory_pool());
+
+    for (int64_t i = 0; i < kRounds * kNumberOfElements; i++) {
+      ABORT_NOT_OK(builder.Append(kBinaryStrings[i % 7]));
+    }
+
+    std::shared_ptr<Array> out;
+    ABORT_NOT_OK(builder.Finish(&out));
+  }
+
+  state.SetBytesProcessed(state.iterations() * kBytesProcessed);
+  state.SetItemsProcessed(state.iterations() * kItemsProcessed);
+}
+
+static void BuildLargeBinaryViewArray(
+    benchmark::State& state) {  // NOLINT non-const reference
+  const char* kLargeBinaryString = "12345678901234567890123456789012345678901234567890";
+  for (auto _ : state) {
+    BinaryViewBuilder builder(memory_tracker.memory_pool());
+
+    for (int64_t i = 0; i < kRounds * kNumberOfElements; i++) {
+      ABORT_NOT_OK(builder.Append(kLargeBinaryString));
+    }
+
+    std::shared_ptr<Array> out;
+    ABORT_NOT_OK(builder.Finish(&out));
+  }
+
+  state.SetBytesProcessed(state.iterations() * kBytesProcessed);
+  state.SetItemsProcessed(state.iterations() * kItemsProcessed);
+}
+
 static void BuildChunkedBinaryArray(
     benchmark::State& state) {  // NOLINT non-const reference
   // 1MB chunks
@@ -458,6 +495,8 @@ BENCHMARK(BuildBinaryArray);
 BENCHMARK(BuildChunkedBinaryArray);
 BENCHMARK(BuildFixedSizeBinaryArray);
 BENCHMARK(BuildDecimalArray);
+BENCHMARK(BuildSmallBinaryViewArray);
+BENCHMARK(BuildLargeBinaryViewArray);
 
 BENCHMARK(BuildInt64DictionaryArrayRandom);
 BENCHMARK(BuildInt64DictionaryArraySequential);
