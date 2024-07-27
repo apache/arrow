@@ -21,9 +21,16 @@ register_bindings_conditional <- function() {
     value_set <- Array$create(table)
     # If possible, `table` should be the same type as `x`
     # Try downcasting here; otherwise Acero may upcast x to table's type
+    x_type <- x$type()
+    # GH-43440: `is_in` doesn't want a DictionaryType in the value_set,
+    # so we'll cast to its value_type
+    # TODO: should this be pushed into cast_or_parse? Is this a bigger issue?
+    if (inherits(x_type, "DictionaryType")) {
+      x_type <- x_type$value_type
+    }
     try(
-      value_set <- cast_or_parse(value_set, x$type()),
-      silent = TRUE
+      value_set <- cast_or_parse(value_set, x_type),
+      silent = !getOption("arrow.debug", FALSE)
     )
 
     expr <- Expression$create("is_in", x,
