@@ -41,6 +41,9 @@ using testing::UnorderedElementsAreArray;
 
 namespace arrow {
 
+using arrow::gen::Constant;
+using arrow::random::kSeedMax;
+using arrow::random::RandomArrayGenerator;
 using compute::call;
 using compute::default_exec_context;
 using compute::ExecBatchBuilder;
@@ -3254,24 +3257,81 @@ TEST(HashJoin, ManyJoins) {
   ASSERT_OK_AND_ASSIGN(std::ignore, DeclarationToTable(std::move(root)));
 }
 
-// Test that both the key and the payload of the right side (the build side) are larger
-// than 4GB, and the 64-bit offset in the hash table can handle it correctly.
-TEST(HashJoin, LARGE_MEMORY_TEST(BuildSideOver4GB)) {
-  // constexpr int64_t k5GB = 5ll * 1024 * 1024 * 1024;
-  // constexpr int16_t num_rows_per_batch = 1024;
-  // constexpr int bytes_per_column = 8;
-  // constexpr int64_t num_batches = k5GB / (num_rows_per_batch * bytes_per_column);
-  // constexpr int64_t num_rows = num_rows_per_batch * num_batches;
-  // const int num_left_rows = ExecBatchBuilder::num_rows_max();
+// Test that both the key and the payload of the right side (the build side) are fixed
+// length and larger than 4GB, and the 64-bit offset in the hash table can handle it
+// correctly.
+TEST(HashJoin, LARGE_MEMORY_TEST(BuildSideOver4GBFixedLength)) {
+  constexpr int64_t k5GB = 4ll * 1024 * 1024 * 1024;
+  const auto type = uint64();
+  constexpr int16_t num_rows_per_batch_left = 1024;
+  constexpr int16_t num_rows_per_batch_right = 4096;
+  const int64_t num_batches_left = 8;
+  const int64_t num_batches_right =
+      k5GB / (num_rows_per_batch_right * type->byte_width());
 
-  // std::vector<Datum> values;
-  // ASSERT_OK_AND_ASSIGN(auto value_fixed_length,
-  //                      ::arrow::gen::Random(fixed_size_binary(bytes_per_column))
-  //                          ->Generate(num_rows_per_batch));
-  // values.push_back(std::move(value_fixed_length));
+  // Left side composed of num_batches_left identical batches of num_rows_per_batch_left
+  // rows of zeros.
+  BatchesWithSchema batches_left;
+  {
+    // A column with num_rows_per_batch_left zeros.
+    ASSERT_OK_AND_ASSIGN(
+        auto column,
+        Constant(std::make_shared<UInt64Scalar>(0))->Generate(num_rows_per_batch_left));
 
-  // ExecBatch batch = ExecBatch(std::move(values), num_rows_per_batch);
+    // Use the column as both the key and the payload.
+    std::vector<Datum> columns;
+    columns.push_back(column);
+    columns.push_back(column);
+    ExecBatch batch(std::move(columns), num_rows_per_batch_left);
+    batches_left =
+        BatchesWithSchema{std::vector<ExecBatch>(num_batches_left, std::move(batch)),
+                          schema({field("l_key", type), field("l_payload", type)})};
+  }
+
+  // Right side composed of num_batches_right identical batches of
+  // num_rows_per_batch_right rows containing only 1 zero.
+  BatchesWithSchema batches_right;
+  {
+    // A column with (num_rows_per_batch_right - 1) non-zeros (possibly null) and 1 zero.
+    auto non_zeros =
+        RandomArrayGenerator(kSeedMax).UInt64(num_rows_per_batch_right - 1,
+                                              /*min=*/1, num_rows_per_batch_right,
+                                              /*null_probability =*/0.01);
+    ASSERT_OK_AND_ASSIGN(auto zero,
+                         Constant(std::make_shared<UInt64Scalar>(0))->Generate(1));
+    ASSERT_OK_AND_ASSIGN(auto column, Concatenate({non_zeros, zero}));
+
+    // Use the column as both the key and the payload.
+    std::vector<Datum> columns;
+    columns.push_back(column);
+    columns.push_back(column);
+    ExecBatch batch(std::move(columns), num_rows_per_batch_right);
+    batches_right =
+        BatchesWithSchema{std::vector<ExecBatch>(num_batches_right, std::move(batch)),
+                          schema({field("r_key", type), field("r_payload", type)})};
+  }
+
+  Declaration left{"exec_batch_source",
+                   ExecBatchSourceNodeOptions(std::move(batches_left.schema),
+                                              std::move(batches_left.batches))};
+
+  Declaration right{"exec_batch_source",
+                    ExecBatchSourceNodeOptions(std::move(batches_right.schema),
+                                               std::move(batches_right.batches))};
+
+  HashJoinNodeOptions join_opts(JoinType::INNER, /*left_keys=*/{"l_key"},
+                                /*right_keys=*/{"r_key"});
+  Declaration join{"hashjoin", {std::move(left), std::move(right)}, join_opts};
+
+  ASSERT_OK_AND_ASSIGN(auto result, DeclarationToTable(std::move(join)));
+  ASSERT_EQ(result->num_rows(),
+            num_batches_left * num_rows_per_batch_left * num_batches_right);
 }
+
+// Test that both the key and the payload of the right side (the build side) are var
+// length and larger than 4GB, and the 64-bit offset in the hash table can handle it
+// correctly.
+TEST(HashJoin, LARGE_MEMORY_TEST(BuildSideOver4GBVarLength)) {}
 
 }  // namespace acero
 }  // namespace arrow
