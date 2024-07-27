@@ -31,7 +31,6 @@ if(PARQUET_BUILD_EXECUTABLES)
     install(TARGETS ${TOOL} ${INSTALL_IS_OPTIONAL}
             RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
   endforeach(TOOL)
-  target_link_libraries(parquet-dump-footer ${ARROW_LIBRARIES})
 
   add_dependencies(parquet ${PARQUET_TOOLS})
 endif()
