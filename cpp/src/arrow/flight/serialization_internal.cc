@@ -73,6 +73,15 @@ Status PackProtoCommand(const google::protobuf::Message& command, FlightDescript
   return Status::OK();
 }
 
+Status PackProtoAction(std::string action_type, const google::protobuf::Message& action,
+                       Action* out) {
+  std::string buf;
+  RETURN_NOT_OK(PackToAnyAndSerialize(action, &buf));
+  out->type = std::move(action_type);
+  out->body = Buffer::FromString(std::move(buf));
+  return Status::OK();
+}
+
 // Timestamp
 
 Status FromProto(const google::protobuf::Timestamp& pb_timestamp, Timestamp* timestamp) {

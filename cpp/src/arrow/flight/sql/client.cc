@@ -62,32 +62,11 @@ arrow::Result<std::unique_ptr<SchemaResult>> GetSchemaForCommand(
   return client->GetSchema(options, descriptor);
 }
 
-::arrow::Result<Action> PackAction(const std::string& action_type,
-                                   const google::protobuf::Message& message) {
-  google::protobuf::Any any;
-#if PROTOBUF_VERSION >= 3015000
-  if (!any.PackFrom(message)) {
-    return Status::SerializationError("Could not pack ", message.GetTypeName(),
-                                      " into Any");
-  }
-#else
-  any.PackFrom(message);
-#endif
-
-  std::string buffer;
-#if PROTOBUF_VERSION >= 3015000
-  if (!any.SerializeToString(&buffer)) {
-    return Status::SerializationError("Could not serialize packed ",
-                                      message.GetTypeName());
-  }
-#else
-  any.SerializeToString(&buffer);
-#endif
-
-  Action action;
-  action.type = action_type;
-  action.body = Buffer::FromString(std::move(buffer));
-  return action;
+arrow::Result<Action> PackAction(std::string action_type,
+                                 const google::protobuf::Message& action) {
+  Action out;
+  RETURN_NOT_OK(flight::internal::PackProtoAction(action_type, action, &out));
+  return out;
 }
 
 void SetPlan(const SubstraitPlan& plan, flight_sql_pb::SubstraitPlan* pb_plan) {

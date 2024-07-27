@@ -82,6 +82,15 @@ Status SchemaToString(const Schema& schema, std::string* out);
 /// into the string of the `FlightDescriptor.`
 Status PackProtoCommand(const google::protobuf::Message& command, FlightDescriptor* out);
 
+/// \brief Wraps a protobuf message representing a Flight action.
+///
+/// A Flight action can carry a string representing an action in any format the
+/// implementation desires. A common pattern in Flight implementations is to
+/// wrap a message in a `protobuf::Any` message, which is then serialized into
+/// the string of the `Action.`
+Status PackProtoAction(std::string action_type, const google::protobuf::Message& action,
+                       Action* out);
+
 // These functions depend on protobuf types which are not exported in the Flight DLL.
 
 Status FromProto(const google::protobuf::Timestamp& pb_timestamp, Timestamp* timestamp);
