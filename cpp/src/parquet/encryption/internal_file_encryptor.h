@@ -88,8 +88,6 @@ class InternalFileEncryptor {
   std::shared_ptr<Encryptor> footer_signing_encryptor_;
   std::shared_ptr<Encryptor> footer_encryptor_;
 
-  std::vector<encryption::AesEncryptor*> all_encryptors_;
-
   // Key must be 16, 24 or 32 bytes in length. Thus there could be up to three
   // types of meta_encryptors and data_encryptors.
   std::unique_ptr<encryption::AesEncryptor> meta_encryptor_[3];
@@ -105,7 +103,7 @@ class InternalFileEncryptor {
   encryption::AesEncryptor* GetDataAesEncryptor(ParquetCipher::type algorithm,
                                                 size_t key_len);
 
-  int MapKeyLenToEncryptorArrayIndex(int key_len);
+  int MapKeyLenToEncryptorArrayIndex(int key_len) const;
 };
 
 }  // namespace parquet

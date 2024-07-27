@@ -18,6 +18,7 @@ package pqarrow
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"sync"
@@ -374,6 +375,10 @@ func (fr *FileReader) ReadRowGroups(ctx context.Context, indices, rowGroups []in
 		columns[data.idx] = *arrow.NewColumn(sc.Field(data.idx), data.data)
 		data.data.Release()
 	}
+
+	// if the context is in error, but we haven't set an error yet, then it means that the parent context
+	// was cancelled. In this case, we should exit early as some columns may not have been read yet.
+	err = errors.Join(err, ctx.Err())
 
 	if err != nil {
 		// if we encountered an error, consume any waiting data on the channel

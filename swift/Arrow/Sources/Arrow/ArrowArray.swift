@@ -78,41 +78,41 @@ public class ArrowArrayHolderImpl: ArrowArrayHolder {
         _ arrowType: ArrowType, with: ArrowData) throws -> ArrowArrayHolder {
         switch arrowType.id {
         case .int8:
-            return ArrowArrayHolderImpl(FixedArray<Int8>(with))
+            return try ArrowArrayHolderImpl(FixedArray<Int8>(with))
         case .int16:
-            return ArrowArrayHolderImpl(FixedArray<Int16>(with))
+            return try ArrowArrayHolderImpl(FixedArray<Int16>(with))
         case .int32:
-            return ArrowArrayHolderImpl(FixedArray<Int32>(with))
+            return try ArrowArrayHolderImpl(FixedArray<Int32>(with))
         case .int64:
-            return ArrowArrayHolderImpl(FixedArray<Int64>(with))
+            return try ArrowArrayHolderImpl(FixedArray<Int64>(with))
         case .uint8:
-            return ArrowArrayHolderImpl(FixedArray<UInt8>(with))
+            return try ArrowArrayHolderImpl(FixedArray<UInt8>(with))
         case .uint16:
-            return ArrowArrayHolderImpl(FixedArray<UInt16>(with))
+            return try ArrowArrayHolderImpl(FixedArray<UInt16>(with))
         case .uint32:
-            return ArrowArrayHolderImpl(FixedArray<UInt32>(with))
+            return try ArrowArrayHolderImpl(FixedArray<UInt32>(with))
         case .uint64:
-            return ArrowArrayHolderImpl(FixedArray<UInt64>(with))
+            return try ArrowArrayHolderImpl(FixedArray<UInt64>(with))
         case .double:
-            return ArrowArrayHolderImpl(FixedArray<Double>(with))
+            return try ArrowArrayHolderImpl(FixedArray<Double>(with))
         case .float:
-            return ArrowArrayHolderImpl(FixedArray<Float>(with))
+            return try ArrowArrayHolderImpl(FixedArray<Float>(with))
         case .date32:
-            return ArrowArrayHolderImpl(Date32Array(with))
+            return try ArrowArrayHolderImpl(Date32Array(with))
         case .date64:
-            return ArrowArrayHolderImpl(Date64Array(with))
+            return try ArrowArrayHolderImpl(Date64Array(with))
         case .time32:
-            return ArrowArrayHolderImpl(Time32Array(with))
+            return try ArrowArrayHolderImpl(Time32Array(with))
         case .time64:
-            return ArrowArrayHolderImpl(Time64Array(with))
+            return try ArrowArrayHolderImpl(Time64Array(with))
         case .string:
-            return ArrowArrayHolderImpl(StringArray(with))
+            return try ArrowArrayHolderImpl(StringArray(with))
         case .boolean:
-            return ArrowArrayHolderImpl(BoolArray(with))
+            return try ArrowArrayHolderImpl(BoolArray(with))
         case .binary:
-            return ArrowArrayHolderImpl(BinaryArray(with))
+            return try ArrowArrayHolderImpl(BinaryArray(with))
         case .strct:
-            return ArrowArrayHolderImpl(StructArray(with))
+            return try ArrowArrayHolderImpl(StructArray(with))
         default:
             throw ArrowError.invalid("Array not found for type: \(arrowType)")
         }
@@ -125,7 +125,7 @@ public class ArrowArray<T>: AsString, AnyArray {
     public var nullCount: UInt {return self.arrowData.nullCount}
     public var length: UInt {return self.arrowData.length}
 
-    public required init(_ arrowData: ArrowData) {
+    public required init(_ arrowData: ArrowData) throws {
         self.arrowData = arrowData
     }
 
@@ -277,18 +277,14 @@ public class BinaryArray: ArrowArray<Data> {
 
 public class StructArray: ArrowArray<[Any?]> {
     public private(set) var arrowFields: [ArrowArrayHolder]?
-    public required init(_ arrowData: ArrowData) {
-        super.init(arrowData)
-    }
-
-    public func initialize() throws -> StructArray {
+    public required init(_ arrowData: ArrowData) throws {
+        try super.init(arrowData)
         var fields = [ArrowArrayHolder]()
         for child in arrowData.children {
             fields.append(try ArrowArrayHolderImpl.loadArray(child.type, with: child))
         }
 
         self.arrowFields = fields
-        return self
     }
 
     public override subscript(_ index: UInt) -> [Any?]? {

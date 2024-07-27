@@ -79,8 +79,9 @@ void TestRoundtrip(const std::vector<FlightType>& values,
     ASSERT_OK(internal::ToProto(values[i], &pb_value));
 
     if constexpr (std::is_same_v<FlightType, FlightInfo>) {
-      ASSERT_OK_AND_ASSIGN(FlightInfo value, internal::FromProto(pb_value));
-      EXPECT_EQ(values[i], value);
+      FlightInfo::Data info_data;
+      ASSERT_OK(internal::FromProto(pb_value, &info_data));
+      EXPECT_EQ(values[i], FlightInfo{std::move(info_data)});
     } else if constexpr (std::is_same_v<FlightType, SchemaResult>) {
       std::string data;
       ASSERT_OK(internal::FromProto(pb_value, &data));
@@ -152,9 +153,11 @@ TEST(FlightTypes, BasicAuth) {
 }
 
 TEST(FlightTypes, Criteria) {
-  std::vector<Criteria> values = {{""}, {"criteria"}};
-  std::vector<std::string> reprs = {"<Criteria expression=''>",
-                                    "<Criteria expression='criteria'>"};
+  std::vector<Criteria> values = {Criteria{""}, Criteria{"criteria"}};
+  std::vector<std::string> reprs = {
+      "<Criteria expression=''>",
+      "<Criteria expression='criteria'>",
+  };
   ASSERT_NO_FATAL_FAILURE(TestRoundtrip<pb::Criteria>(values, reprs));
 }
 
@@ -191,14 +194,14 @@ TEST(FlightTypes, FlightEndpoint) {
   Timestamp expiration_time(
       std::chrono::duration_cast<Timestamp::duration>(expiration_time_duration));
   std::vector<FlightEndpoint> values = {
-      {{""}, {}, std::nullopt, {}},
-      {{"foo"}, {}, std::nullopt, {}},
-      {{"bar"}, {}, std::nullopt, {"\xDE\xAD\xBE\xEF"}},
-      {{"foo"}, {}, expiration_time, {}},
-      {{"foo"}, {location1}, std::nullopt, {}},
-      {{"bar"}, {location1}, std::nullopt, {}},
-      {{"foo"}, {location2}, std::nullopt, {}},
-      {{"foo"}, {location1, location2}, std::nullopt, {"\xba\xdd\xca\xfe"}},
+      {Ticket{""}, {}, std::nullopt, {}},
+      {Ticket{"foo"}, {}, std::nullopt, {}},
+      {Ticket{"bar"}, {}, std::nullopt, {"\xDE\xAD\xBE\xEF"}},
+      {Ticket{"foo"}, {}, expiration_time, {}},
+      {Ticket{"foo"}, {location1}, std::nullopt, {}},
+      {Ticket{"bar"}, {location1}, std::nullopt, {}},
+      {Ticket{"foo"}, {location2}, std::nullopt, {}},
+      {Ticket{"foo"}, {location1, location2}, std::nullopt, {"\xba\xdd\xca\xfe"}},
   };
   std::vector<std::string> reprs = {
       "<FlightEndpoint ticket=<Ticket ticket=''> locations=[] "
@@ -299,9 +302,9 @@ TEST(FlightTypes, PollInfo) {
 
 TEST(FlightTypes, Result) {
   std::vector<Result> values = {
-      {Buffer::FromString("")},
-      {Buffer::FromString("foo")},
-      {Buffer::FromString("bar")},
+      Result{Buffer::FromString("")},
+      Result{Buffer::FromString("foo")},
+      Result{Buffer::FromString("bar")},
   };
   std::vector<std::string> reprs = {
       "<Result body=(0 bytes)>",
@@ -333,9 +336,9 @@ TEST(FlightTypes, SchemaResult) {
 
 TEST(FlightTypes, Ticket) {
   std::vector<Ticket> values = {
-      {""},
-      {"foo"},
-      {"bar"},
+      Ticket{""},
+      Ticket{"foo"},
+      Ticket{"bar"},
   };
   std::vector<std::string> reprs = {
       "<Ticket ticket=''>",

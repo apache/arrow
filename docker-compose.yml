@@ -1202,7 +1202,7 @@ services:
     build:
       args:
         base: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2014-vcpkg-${VCPKG}
-        java: 1.8.0
+        java: 11
       context: .
       dockerfile: ci/docker/java-jni-manylinux-201x.dockerfile
       cache_from:
@@ -1747,7 +1747,7 @@ services:
     #   docker-compose run java
     # Parameters:
     #   MAVEN: 3.9.5
-    #   JDK: 8, 11, 17, 21
+    #   JDK: 11, 17, 21
     image: ${ARCH}/maven:${MAVEN}-eclipse-temurin-${JDK}
     shm_size: *shm-size
     volumes: &java-volumes

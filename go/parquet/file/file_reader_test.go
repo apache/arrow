@@ -18,6 +18,7 @@ package file_test
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"encoding/binary"
 	"fmt"
@@ -26,6 +27,8 @@ import (
 	"path"
 	"testing"
 
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/array"
 	"github.com/apache/arrow/go/v18/arrow/memory"
 	"github.com/apache/arrow/go/v18/internal/utils"
 	"github.com/apache/arrow/go/v18/parquet"
@@ -35,6 +38,7 @@ import (
 	format "github.com/apache/arrow/go/v18/parquet/internal/gen-go/parquet"
 	"github.com/apache/arrow/go/v18/parquet/internal/thrift"
 	"github.com/apache/arrow/go/v18/parquet/metadata"
+	"github.com/apache/arrow/go/v18/parquet/pqarrow"
 	"github.com/apache/arrow/go/v18/parquet/schema"
 	libthrift "github.com/apache/thrift/lib/go/thrift"
 	"github.com/stretchr/testify/assert"
@@ -581,4 +585,62 @@ func TestByteStreamSplitEncodingFileRead(t *testing.T) {
 			require.Equal(t, valuesPlain, valuesByteStreamSplit)
 		})
 	}
+}
+
+func TestDeltaBinaryPackedMultipleBatches(t *testing.T) {
+	size := 10
+	batchSize := size / 2 // write 2 batches
+
+	// Define the schema for the test data
+	fields := []arrow.Field{
+		{Name: "int64", Type: arrow.PrimitiveTypes.Int64, Nullable: true},
+	}
+	schema := arrow.NewSchema(fields, nil)
+
+	// Create a record batch with the test data
+	b := array.NewRecordBuilder(memory.DefaultAllocator, schema)
+	defer b.Release()
+
+	for i := 0; i < size; i++ {
+		b.Field(0).(*array.Int64Builder).Append(int64(i))
+	}
+	rec := b.NewRecord()
+	defer rec.Release()
+
+	// Write the data to Parquet using the file writer
+	props := parquet.NewWriterProperties(
+		parquet.WithDictionaryDefault(false),
+		parquet.WithEncoding(parquet.Encodings.DeltaBinaryPacked))
+	writerProps := pqarrow.DefaultWriterProps()
+
+	var buf bytes.Buffer
+	pw, err := pqarrow.NewFileWriter(schema, &buf, props, writerProps)
+	require.NoError(t, err)
+	require.NoError(t, pw.Write(rec))
+	require.NoError(t, pw.Close())
+
+	// Read the data back from the Parquet file
+	reader, err := file.NewParquetReader(bytes.NewReader(buf.Bytes()))
+	require.NoError(t, err)
+	defer reader.Close()
+
+	pr, err := pqarrow.NewFileReader(reader, pqarrow.ArrowReadProperties{BatchSize: int64(batchSize)}, memory.DefaultAllocator)
+	require.NoError(t, err)
+
+	rr, err := pr.GetRecordReader(context.Background(), nil, nil)
+	require.NoError(t, err)
+
+	totalRows := 0
+	for rr.Next() {
+		rec := rr.Record()
+		for i := 0; i < int(rec.NumRows()); i++ {
+			col := rec.Column(0).(*array.Int64)
+
+			val := col.Value(i)
+			require.Equal(t, val, int64(totalRows+i))
+		}
+		totalRows += int(rec.NumRows())
+	}
+
+	require.Equalf(t, size, totalRows, "Expected %d rows, but got %d rows", size, totalRows)
 }

@@ -55,7 +55,11 @@ func TestFileWriterRowGroupNumRows(t *testing.T) {
 	numRows, err := writer.RowGroupNumRows()
 	require.NoError(t, err)
 	assert.Equal(t, 4, numRows)
+
+	// Make sure that row group stats are up-to-date immediately after writing
+	bytesWritten := writer.RowGroupTotalBytesWritten()
 	require.NoError(t, writer.Close())
+	require.Equal(t, bytesWritten, writer.RowGroupTotalBytesWritten())
 }
 
 func TestFileWriterNumRows(t *testing.T) {

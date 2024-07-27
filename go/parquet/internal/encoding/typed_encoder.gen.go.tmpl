@@ -79,15 +79,17 @@ func ({{.lower}}EncoderTraits) Encoder(e format.Encoding, useDict bool, descr *s
 {{- end}}
 {{- if or (eq .Name "Int32") (eq .Name "Int64")}}
   case format.Encoding_DELTA_BINARY_PACKED:
-    return DeltaBitPack{{.Name}}Encoder{&deltaBitPackEncoder{
-      encoder: newEncoderBase(e, descr, mem)}}
+    return &DeltaBitPack{{.Name}}Encoder{
+      encoder: newEncoderBase(e, descr, mem),
+    }
 {{- end}}
 {{- if eq .Name "ByteArray"}}
   case format.Encoding_DELTA_LENGTH_BYTE_ARRAY:
     return &DeltaLengthByteArrayEncoder{
       encoder: newEncoderBase(e, descr, mem),
       lengthEncoder: &DeltaBitPackInt32Encoder{
-        &deltaBitPackEncoder{encoder: newEncoderBase(e, descr, mem)}},
+        encoder: newEncoderBase(e, descr, mem),
+      },
     }
   case format.Encoding_DELTA_BYTE_ARRAY:
     return &DeltaByteArrayEncoder{
@@ -135,10 +137,9 @@ func ({{.lower}}DecoderTraits) Decoder(e parquet.Encoding, descr *schema.Column,
       mem = memory.DefaultAllocator
     }
     return &DeltaBitPack{{.Name}}Decoder{
-      deltaBitPackDecoder: &deltaBitPackDecoder{
-        decoder: newDecoderBase(format.Encoding(e), descr),
-        mem:     mem,
-      }}
+      decoder: newDecoderBase(format.Encoding(e), descr),
+      mem:     mem,
+    }
 {{- end}}
 {{- if eq .Name "ByteArray"}}
   case parquet.Encodings.DeltaLengthByteArray:

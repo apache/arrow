@@ -110,9 +110,9 @@ func (d *DeltaLengthByteArrayDecoder) Allocator() memory.Allocator { return d.me
 // followed by the rest of the byte array data immediately after.
 func (d *DeltaLengthByteArrayDecoder) SetData(nvalues int, data []byte) error {
 	dec := DeltaBitPackInt32Decoder{
-		deltaBitPackDecoder: &deltaBitPackDecoder{
-			decoder: newDecoderBase(d.encoding, d.descr),
-			mem:     d.mem}}
+		decoder: newDecoderBase(d.encoding, d.descr),
+		mem:     d.mem,
+	}
 
 	if err := dec.SetData(nvalues, data); err != nil {
 		return err

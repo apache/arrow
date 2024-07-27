@@ -59,6 +59,7 @@ under the License.
         <artifactId>maven-failsafe-plugin</artifactId>
         <executions>
           <execution>
+            <id>default-it</id>
             <goals>
               <goal>integration-test</goal>
               <goal>verify</goal>
@@ -161,6 +162,7 @@ under the License.
                     <exclude>META-INF/native/libio_grpc_netty*</exclude>
                     <exclude>META-INF/native/io_grpc_netty_shaded*</exclude>
                     <exclude>**/*.proto</exclude>
+                    <exclude>**/module-info.class</exclude>
                   </excludes>
                 </filter>
               </filters>

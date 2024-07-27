@@ -98,6 +98,8 @@ groups:
 
   vcpkg:
     - test-*vcpkg*
+    - wheel-*
+    - java-jars
 
   integration:
     - test-*dask*
@@ -745,9 +747,6 @@ tasks:
       - arrow-jdbc-{no_rc_snapshot_version}-tests.jar
       - arrow-jdbc-{no_rc_snapshot_version}.jar
       - arrow-jdbc-{no_rc_snapshot_version}.pom
-      - arrow-maven-plugins-{no_rc_snapshot_version}-cyclonedx.json
-      - arrow-maven-plugins-{no_rc_snapshot_version}-cyclonedx.xml
-      - arrow-maven-plugins-{no_rc_snapshot_version}.pom
       - arrow-memory-core-{no_rc_snapshot_version}-cyclonedx.json
       - arrow-memory-core-{no_rc_snapshot_version}-cyclonedx.xml
       - arrow-memory-core-{no_rc_snapshot_version}-javadoc.jar
@@ -843,12 +842,6 @@ tasks:
       - flight-sql-jdbc-driver-{no_rc_snapshot_version}-tests.jar
       - flight-sql-jdbc-driver-{no_rc_snapshot_version}.jar
       - flight-sql-jdbc-driver-{no_rc_snapshot_version}.pom
-      - module-info-compiler-maven-plugin-{no_rc_snapshot_version}-cyclonedx.json
-      - module-info-compiler-maven-plugin-{no_rc_snapshot_version}-cyclonedx.xml
-      - module-info-compiler-maven-plugin-{no_rc_snapshot_version}-javadoc.jar
-      - module-info-compiler-maven-plugin-{no_rc_snapshot_version}-sources.jar
-      - module-info-compiler-maven-plugin-{no_rc_snapshot_version}.jar
-      - module-info-compiler-maven-plugin-{no_rc_snapshot_version}.pom
 
   ############################## NuGet packages ###############################
 
@@ -1065,6 +1058,15 @@ tasks:
     params:
       env:
         UBUNTU: 20.04
+      image: ubuntu-cpp-bundled
+
+  test-ubuntu-24.04-cpp-gcc-13-bundled:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        UBUNTU: 24.04
+        GCC_VERSION: 13
       image: ubuntu-cpp-bundled
 
   test-ubuntu-24.04-cpp:
@@ -1549,9 +1551,7 @@ tasks:
       image: conda-python-hdfs
 {% endfor %}
 
-{% for python_version, spark_version, test_pyarrow_only, numpy_version, jdk_version in [("3.8", "v3.5.0", "false", "latest", "8"),
-                                                                                        ("3.10", "v3.5.0", "false", "1.23", "8"),
-                                                                                        ("3.11", "master", "false", "latest", "17")] %}
+{% for python_version, spark_version, test_pyarrow_only, numpy_version, jdk_version in [("3.11", "master", "false", "latest", "17")] %}
   test-conda-python-{{ python_version }}-spark-{{ spark_version }}:
     ci: github
     template: docker-tests/github.linux.yml

@@ -998,7 +998,8 @@ TEST_F(TestFlightClient, ListFlights) {
 }
 
 TEST_F(TestFlightClient, ListFlightsWithCriteria) {
-  ASSERT_OK_AND_ASSIGN(auto listing, client_->ListFlights(FlightCallOptions(), {"foo"}));
+  ASSERT_OK_AND_ASSIGN(auto listing,
+                       client_->ListFlights(FlightCallOptions{}, Criteria{"foo"}));
   std::unique_ptr<FlightInfo> info;
   ASSERT_OK_AND_ASSIGN(info, listing->Next());
   ASSERT_TRUE(info == nullptr);

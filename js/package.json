@@ -84,7 +84,6 @@
     "eslint": "8.57.0",
     "eslint-plugin-jest": "28.5.0",
     "eslint-plugin-unicorn": "54.0.0",
-    "esm": "https://github.com/jsg2021/esm/releases/download/v3.x.x-pr883/esm-3.x.x-pr883.tgz",
     "gulp": "4.0.2",
     "glob": "10.4.1",
     "google-closure-compiler": "20240317.0.0",
