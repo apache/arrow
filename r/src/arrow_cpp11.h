@@ -138,7 +138,13 @@ inline R_xlen_t r_string_size(SEXP s) {
 }  // namespace unsafe
 
 inline SEXP utf8_strings(SEXP x) {
-  return cpp11::unwind_protect([x] {
+  return cpp11::unwind_protect([&] {
+    // ensure that x is not actually altrep first this also ensures that
+    // x is not altrep even after it is materialized
+    bool was_altrep = ALTREP(x);
+    if (was_altrep) {
+      x = PROTECT(Rf_duplicate(x));
+    }
     R_xlen_t n = XLENGTH(x);
 
     // if `x` is an altrep of some sort, this will
@@ -151,6 +157,9 @@ inline SEXP utf8_strings(SEXP x) {
       if (s != NA_STRING) {
         SET_STRING_ELT(x, i, Rf_mkCharCE(Rf_translateCharUTF8(s), CE_UTF8));
       }
+    }
+    if (was_altrep) {
+      UNPROTECT(1);
     }
     return x;
   });
