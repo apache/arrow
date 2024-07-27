@@ -1154,7 +1154,7 @@ namespace {
 /// \return the value set sorted with duplicate and null values removed
 Result<std::shared_ptr<Array>> PrepareIsInValueSet(std::shared_ptr<Array> value_set) {
   DCHECK_GT(value_set->length(), 0);
-  ARROW_ASSIGN_OR_RAISE(value_set, Unique(value_set));
+  ARROW_ASSIGN_OR_RAISE(value_set, Unique(std::move(value_set)));
   ARROW_ASSIGN_OR_RAISE(
       std::shared_ptr<Array> sort_indices,
       SortIndices(value_set, SortOptions({}, NullPlacement::AtEnd)));
