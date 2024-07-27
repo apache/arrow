@@ -740,12 +740,21 @@ test_that("read_csv2_arrow correctly parses comma decimals", {
   expect_equal(read_csv2_arrow(tf), tibble(x = 1.2, y = "c"))
 })
 
-test_that("lazy readr can roundtrip to table", {
+test_that("altrep columns can roundtrip to table", {
   tf <- tempfile()
   on.exit(unlink(tf))
-
   write.csv(tbl, tf, row.names = FALSE)
-  tab <- arrow::as_arrow_table(readr::read_csv(tf, lazy = TRUE, show_col_types = FALSE))
 
-  expect_equal(tbl, as_tibble(tab))
+  # read in, some columns will be altrep by default
+  new_df <- read_csv_arrow(tf)
+  expect_equal(tbl, as_tibble(arrow_table(new_df)))
+
+  # but also if we materialize the vector
+  # this could also be accomplished with printing, 
+  # though with that the error goes from 
+  new_df <- read_csv_arrow(tf)
+  test_arrow_altrep_force_materialize(new_df$chr)
+
+  # we should still be able to turn this into a table
+  expect_equal(tbl, as_tibble(arrow_table(new_df)))
 })

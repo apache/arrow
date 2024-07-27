@@ -62,7 +62,6 @@ Suggests:
     lubridate,
     pillar,
     pkgload,
-    readr,
     reticulate,
     rmarkdown,
     stringi,
