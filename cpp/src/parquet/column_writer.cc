@@ -356,6 +356,7 @@ class SerializedPageWriter : public PageWriter {
 
     // Not write metadata at end of column chunk since we will
     // write it in the Parquet Thrift Footer.
+    // See: https://github.com/apache/parquet-format/pull/440
   }
 
   /**
@@ -670,6 +671,7 @@ class BufferedPageWriter : public PageWriter {
 
     // Not write metadata at end of column chunk since we will
     // write it in the Parquet Thrift Footer.
+    // See: https://github.com/apache/parquet-format/pull/440
 
     // Buffered page writer needs to adjust page offsets.
     pager_->FinishPageIndexes(final_position);
