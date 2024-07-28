@@ -104,7 +104,7 @@ void KeyCompare::CompareBinaryColumnToRowHelper(
     const uint8_t* rows_right = rows.data(1);
     for (uint32_t i = first_row_to_compare; i < num_rows_to_compare; ++i) {
       uint32_t irow_left = use_selection ? sel_left_maybe_null[i] : i;
-      // irow_right is used to index into row data so elevate to the row offset type.
+      // irow_right is used to index into row data so promote to the row offset type.
       RowTableImpl::offset_type irow_right = left_to_right_map[irow_left];
       RowTableImpl::offset_type offset_right =
           irow_right * fixed_length + offset_within_row;
