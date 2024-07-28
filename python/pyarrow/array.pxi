@@ -4448,6 +4448,34 @@ cdef class FixedShapeTensorArray(ExtensionArray):
         )
 
 
+cdef class OpaqueArray(ExtensionArray):
+    """
+    Concrete class for opaque extension arrays.
+
+    Examples
+    --------
+    Define the extension type for an opaque array
+
+    >>> import pyarrow as pa
+    >>> opaque_type = pa.opaque(
+    ...     pa.binary(),
+    ...     type_name="geometry",
+    ...     vendor_name="postgis",
+    ... )
+
+    Create an extension array
+
+    >>> arr = [None, b"data"]
+    >>> storage = pa.array(arr, pa.binary())
+    >>> pa.ExtensionArray.from_storage(opaque_type, storage)
+    <pyarrow.lib.OpaqueArray object at ...>
+    [
+      null,
+      64617461
+    ]
+    """
+
+
 cdef dict _array_classes = {
     _Type_NA: NullArray,
     _Type_BOOL: BooleanArray,
