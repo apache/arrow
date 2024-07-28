@@ -389,7 +389,7 @@ Status RowTableImpl::AppendSelectionFrom(const RowTableImpl& from,
 }
 
 Status RowTableImpl::AppendEmpty(uint32_t num_rows_to_append,
-                                 uint32_t num_extra_bytes_to_append) {
+                                 int64_t num_extra_bytes_to_append) {
   RETURN_NOT_OK(ResizeFixedLengthBuffers(num_rows_to_append));
   if (!metadata_.is_fixed_length) {
     RETURN_NOT_OK(ResizeOptionalVaryingLengthBuffer(num_extra_bytes_to_append));

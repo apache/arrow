@@ -44,6 +44,7 @@ namespace arrow {
 using arrow::gen::Constant;
 using arrow::random::kSeedMax;
 using arrow::random::RandomArrayGenerator;
+using compute::and_;
 using compute::call;
 using compute::default_exec_context;
 using compute::ExecBatchBuilder;
@@ -3257,55 +3258,68 @@ TEST(HashJoin, ManyJoins) {
   ASSERT_OK_AND_ASSIGN(std::ignore, DeclarationToTable(std::move(root)));
 }
 
+namespace {
+
+void AssertRowCountEq(Declaration source, int64_t expected) {
+  Declaration count{"aggregate",
+                    {std::move(source)},
+                    AggregateNodeOptions{/*aggregates=*/{{"count_all", "count(*)"}}}};
+  ASSERT_OK_AND_ASSIGN(auto batches, DeclarationToExecBatches(std::move(count)));
+  ASSERT_EQ(batches.batches.size(), 1);
+  ASSERT_EQ(batches.batches[0].values.size(), 1);
+  ASSERT_TRUE(batches.batches[0].values[0].is_scalar());
+  ASSERT_EQ(batches.batches[0].values[0].scalar()->type->id(), Type::INT64);
+  ASSERT_TRUE(batches.batches[0].values[0].scalar_as<Int64Scalar>().is_valid);
+  ASSERT_EQ(batches.batches[0].values[0].scalar_as<Int64Scalar>().value, expected);
+}
+
+}  // namespace
+
 // Test that both the key and the payload of the right side (the build side) are fixed
 // length and larger than 4GB, and the 64-bit offset in the hash table can handle it
 // correctly.
 TEST(HashJoin, LARGE_MEMORY_TEST(BuildSideOver4GBFixedLength)) {
-  constexpr int64_t k5GB = 4ll * 1024 * 1024 * 1024;
+  constexpr int64_t k5GB = 5ll * 1024 * 1024 * 1024;
   const auto type = uint64();
-  constexpr int16_t num_rows_per_batch_left = 1024;
+  const uint64_t value_match = 42;
+  constexpr int16_t num_rows_per_batch_left = 128;
   constexpr int16_t num_rows_per_batch_right = 4096;
   const int64_t num_batches_left = 8;
   const int64_t num_batches_right =
       k5GB / (num_rows_per_batch_right * type->byte_width());
 
   // Left side composed of num_batches_left identical batches of num_rows_per_batch_left
-  // rows of zeros.
+  // rows of value_match-es.
   BatchesWithSchema batches_left;
   {
-    // A column with num_rows_per_batch_left zeros.
-    ASSERT_OK_AND_ASSIGN(
-        auto column,
-        Constant(std::make_shared<UInt64Scalar>(0))->Generate(num_rows_per_batch_left));
+    // A column with num_rows_per_batch_left value_match-es.
+    ASSERT_OK_AND_ASSIGN(auto column,
+                         Constant(std::make_shared<UInt64Scalar>(value_match))
+                             ->Generate(num_rows_per_batch_left));
 
     // Use the column as both the key and the payload.
-    std::vector<Datum> columns;
-    columns.push_back(column);
-    columns.push_back(column);
-    ExecBatch batch(std::move(columns), num_rows_per_batch_left);
+    ExecBatch batch({column, column}, num_rows_per_batch_left);
     batches_left =
         BatchesWithSchema{std::vector<ExecBatch>(num_batches_left, std::move(batch)),
                           schema({field("l_key", type), field("l_payload", type)})};
   }
 
   // Right side composed of num_batches_right identical batches of
-  // num_rows_per_batch_right rows containing only 1 zero.
+  // num_rows_per_batch_right rows containing only 1 value_match.
   BatchesWithSchema batches_right;
   {
-    // A column with (num_rows_per_batch_right - 1) non-zeros (possibly null) and 1 zero.
-    auto non_zeros =
-        RandomArrayGenerator(kSeedMax).UInt64(num_rows_per_batch_right - 1,
-                                              /*min=*/1, num_rows_per_batch_right,
-                                              /*null_probability =*/0.01);
-    ASSERT_OK_AND_ASSIGN(auto zero,
-                         Constant(std::make_shared<UInt64Scalar>(0))->Generate(1));
-    ASSERT_OK_AND_ASSIGN(auto column, Concatenate({non_zeros, zero}));
+    // A column with (num_rows_per_batch_right - 1) non-value_match-es (possibly null) and
+    // 1 value_match.
+    auto non_matches = RandomArrayGenerator(kSeedMax).UInt64(
+        num_rows_per_batch_right - 1,
+        /*min=*/value_match + 1, /*max=*/value_match + 1 + num_rows_per_batch_right,
+        /*null_probability =*/0.01);
+    ASSERT_OK_AND_ASSIGN(
+        auto match, Constant(std::make_shared<UInt64Scalar>(value_match))->Generate(1));
+    ASSERT_OK_AND_ASSIGN(auto column, Concatenate({non_matches, match}));
 
     // Use the column as both the key and the payload.
-    std::vector<Datum> columns;
-    columns.push_back(column);
-    columns.push_back(column);
-    ExecBatch batch(std::move(columns), num_rows_per_batch_right);
+    ExecBatch batch({column, column}, num_rows_per_batch_right);
     batches_right =
         BatchesWithSchema{std::vector<ExecBatch>(num_batches_right, std::move(batch)),
                           schema({field("r_key", type), field("r_payload", type)})};
@@ -3323,15 +3337,110 @@ TEST(HashJoin, LARGE_MEMORY_TEST(BuildSideOver4GBFixedLength)) {
                                 /*right_keys=*/{"r_key"});
   Declaration join{"hashjoin", {std::move(left), std::move(right)}, join_opts};
 
-  ASSERT_OK_AND_ASSIGN(auto result, DeclarationToTable(std::move(join)));
-  ASSERT_EQ(result->num_rows(),
-            num_batches_left * num_rows_per_batch_left * num_batches_right);
+  ASSERT_OK_AND_ASSIGN(auto batches_result, DeclarationToExecBatches(std::move(join)));
+  Declaration result{"exec_batch_source",
+                     ExecBatchSourceNodeOptions(std::move(batches_result.schema),
+                                                std::move(batches_result.batches))};
+
+  // The row count of hash join should be (number of value_match-es in left side) *
+  // (number of value_match-es in right side).
+  AssertRowCountEq(result,
+                   num_batches_left * num_rows_per_batch_left * num_batches_right);
+
+  // All rows should be value_match-es.
+  auto predicate = and_({equal(field_ref("l_key"), literal(value_match)),
+                         equal(field_ref("l_payload"), literal(value_match)),
+                         equal(field_ref("r_key"), literal(value_match)),
+                         equal(field_ref("r_payload"), literal(value_match))});
+  Declaration filter{"filter", {result}, FilterNodeOptions{std::move(predicate)}};
+  AssertRowCountEq(std::move(filter),
+                   num_batches_left * num_rows_per_batch_left * num_batches_right);
 }
 
 // Test that both the key and the payload of the right side (the build side) are var
 // length and larger than 4GB, and the 64-bit offset in the hash table can handle it
 // correctly.
-TEST(HashJoin, LARGE_MEMORY_TEST(BuildSideOver4GBVarLength)) {}
+TEST(HashJoin, LARGE_MEMORY_TEST(BuildSideOver4GBVarLength)) {
+  constexpr int64_t k5GB = 5ll * 1024 * 1024 * 1024;
+  const auto type = utf8();
+  constexpr int value_no_match_length_min = 128;
+  constexpr int value_no_match_length_max = 129;
+  constexpr int value_match_length = 130;
+  const auto value_match =
+      std::make_shared<StringScalar>(std::string(value_match_length, 'X'));
+  constexpr int16_t num_rows_per_batch_left = 128;
+  constexpr int16_t num_rows_per_batch_right = 4096;
+  const int64_t num_batches_left = 8;
+  const int64_t num_batches_right =
+      k5GB / (num_rows_per_batch_right * value_no_match_length_min);
+
+  // Left side composed of num_batches_left identical batches of num_rows_per_batch_left
+  // rows of value_match-es.
+  BatchesWithSchema batches_left;
+  {
+    // A column with num_rows_per_batch_left value_match-es.
+    ASSERT_OK_AND_ASSIGN(auto column,
+                         Constant(value_match)->Generate(num_rows_per_batch_left));
+
+    // Use the column as both the key and the payload.
+    ExecBatch batch({column, column}, num_rows_per_batch_left);
+    batches_left =
+        BatchesWithSchema{std::vector<ExecBatch>(num_batches_left, std::move(batch)),
+                          schema({field("l_key", type), field("l_payload", type)})};
+  }
+
+  // Right side composed of num_batches_right identical batches of
+  // num_rows_per_batch_right rows containing only 1 value_match.
+  BatchesWithSchema batches_right;
+  {
+    // A column with (num_rows_per_batch_right - 1) non-value_match-es (possibly null) and
+    // 1 value_match.
+    auto non_matches =
+        RandomArrayGenerator(kSeedMax).String(num_rows_per_batch_right - 1,
+                                              /*min_length=*/value_no_match_length_min,
+                                              /*max_length=*/value_no_match_length_max,
+                                              /*null_probability =*/0.01);
+    ASSERT_OK_AND_ASSIGN(auto match, Constant(value_match)->Generate(1));
+    ASSERT_OK_AND_ASSIGN(auto column, Concatenate({non_matches, match}));
+
+    // Use the column as both the key and the payload.
+    ExecBatch batch({column, column}, num_rows_per_batch_right);
+    batches_right =
+        BatchesWithSchema{std::vector<ExecBatch>(num_batches_right, std::move(batch)),
+                          schema({field("r_key", type), field("r_payload", type)})};
+  }
+
+  Declaration left{"exec_batch_source",
+                   ExecBatchSourceNodeOptions(std::move(batches_left.schema),
+                                              std::move(batches_left.batches))};
+
+  Declaration right{"exec_batch_source",
+                    ExecBatchSourceNodeOptions(std::move(batches_right.schema),
+                                               std::move(batches_right.batches))};
+
+  HashJoinNodeOptions join_opts(JoinType::INNER, /*left_keys=*/{"l_key"},
+                                /*right_keys=*/{"r_key"});
+  Declaration join{"hashjoin", {std::move(left), std::move(right)}, join_opts};
+
+  ASSERT_OK_AND_ASSIGN(auto batches_result, DeclarationToExecBatches(std::move(join)));
+  Declaration result{"exec_batch_source",
+                     ExecBatchSourceNodeOptions(std::move(batches_result.schema),
+                                                std::move(batches_result.batches))};
+
+  // The row count of hash join should be (number of value_match-es in left side) *
+  // (number of value_match-es in right side).
+  AssertRowCountEq(result,
+                   num_batches_left * num_rows_per_batch_left * num_batches_right);
+
+  // All rows should be value_match-es.
+  auto predicate = and_({equal(field_ref("l_key"), literal(value_match)),
+                         equal(field_ref("l_payload"), literal(value_match)),
+                         equal(field_ref("r_key"), literal(value_match)),
+                         equal(field_ref("r_payload"), literal(value_match))});
+  Declaration filter{"filter", {result}, FilterNodeOptions{std::move(predicate)}};
+  AssertRowCountEq(std::move(filter),
+                   num_batches_left * num_rows_per_batch_left * num_batches_right);
+}
 
 }  // namespace acero
 }  // namespace arrow

@@ -473,18 +473,10 @@ Status RowArrayMerge::PrepareForMerge(RowArray* target,
     (*first_target_row_id)[sources.size()] = num_rows;
   }
 
-  // TODO: WIP, this should fire for a join larger than 4GB.
-  if (num_bytes > std::numeric_limits<uint32_t>::max()) {
-    return Status::Invalid(
-        "There are more than 2^32 bytes of key data.  Acero cannot "
-        "process a join of this magnitude");
-  }
-
   // Allocate target memory
   //
   target->rows_.Clean();
-  RETURN_NOT_OK(target->rows_.AppendEmpty(static_cast<uint32_t>(num_rows),
-                                          static_cast<uint32_t>(num_bytes)));
+  RETURN_NOT_OK(target->rows_.AppendEmpty(static_cast<uint32_t>(num_rows), num_bytes));
 
   // In case of varying length rows,
   // initialize the first row offset for each range of rows corresponding to a

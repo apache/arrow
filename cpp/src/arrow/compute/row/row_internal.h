@@ -188,7 +188,7 @@ class ARROW_EXPORT RowTableImpl {
   /// \param num_extra_bytes_to_append For tables storing variable-length data this
   ///     should be a guess of how many data bytes will be needed to populate the
   ///     data.  This is ignored if there are no variable-length columns
-  Status AppendEmpty(uint32_t num_rows_to_append, uint32_t num_extra_bytes_to_append);
+  Status AppendEmpty(uint32_t num_rows_to_append, int64_t num_extra_bytes_to_append);
   /// \brief Append rows from a source table
   /// \param from The table to append from
   /// \param num_rows_to_append The number of rows to append
