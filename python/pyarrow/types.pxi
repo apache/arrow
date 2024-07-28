@@ -5266,7 +5266,7 @@ def opaque(DataType storage_type, str type_name not None, str vendor_name not No
 
     Examples
     --------
-    Create an instance of opaque extension type:
+    Create an instance of an opaque extension type:
 
     >>> import pyarrow as pa
     >>> type = pa.opaque(pa.binary(), "other", "jdbc")
@@ -5282,7 +5282,7 @@ def opaque(DataType storage_type, str type_name not None, str vendor_name not No
     >>> type.vendor_name
     'jdbc'
 
-    Create a table with fixed shape tensor extension array:
+    Create a table with an opaque array:
 
     >>> arr = [None, b"foobar"]
     >>> storage = pa.array(arr, pa.binary())

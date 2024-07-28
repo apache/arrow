@@ -4444,7 +4444,7 @@ cdef class OpaqueArray(ExtensionArray):
 
     Examples
     --------
-    Define the extension type for opaque array
+    Define the extension type for an opaque array
 
     >>> import pyarrow as pa
     >>> opaque_type = pa.opaque(
