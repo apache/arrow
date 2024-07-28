@@ -350,13 +350,14 @@ TEST(KeyCompare, LARGE_MEMORY_TEST(CompareColumnsToRowsOver4GBFixedLength)) {
 
   // A small batch to append to the row table repeatedly to grow the row table to big
   // enough.
-  constexpr int64_t num_rows_batch = std::numeric_limits<uint16_t>::max() + 1ll;
+  constexpr int64_t num_rows_batch = std::numeric_limits<uint16_t>::max();
   constexpr int fixed_length = 256;
 
   // The size of the row table is one batch larger than 4GB, and we'll compare the last
   // num_rows_batch rows.
   constexpr int64_t k4GB = 4ll * 1024 * 1024 * 1024;
-  constexpr int64_t num_rows_row_table = k4GB / fixed_length + num_rows_batch;
+  constexpr int64_t num_rows_row_table =
+      (k4GB / (fixed_length * num_rows_batch) + 1) * num_rows_batch;
   static_assert(num_rows_row_table < std::numeric_limits<uint32_t>::max(),
                 "row table length must be less than uint32 max");
   static_assert(num_rows_row_table * fixed_length > k4GB,
@@ -411,7 +412,7 @@ TEST(KeyCompare, LARGE_MEMORY_TEST(CompareColumnsToRowsOver4GBVarLength)) {
 
   // A small batch to append to the row table repeatedly to grow the row table to big
   // enough.
-  constexpr int64_t num_rows_batch = std::numeric_limits<uint16_t>::max() + 1ll;
+  constexpr int64_t num_rows_batch = std::numeric_limits<uint16_t>::max();
   constexpr int fixed_length = 128;
   // Involve some small randomness in the var length column.
   constexpr int var_length_min = 128;
@@ -422,7 +423,8 @@ TEST(KeyCompare, LARGE_MEMORY_TEST(CompareColumnsToRowsOver4GBVarLength)) {
   // num_rows_batch rows.
   constexpr int64_t k4GB = 4ll * 1024 * 1024 * 1024;
   constexpr int64_t size_row_min = fixed_length + var_length_min;
-  constexpr int64_t num_rows_row_table = k4GB / size_row_min + num_rows_batch;
+  constexpr int64_t num_rows_row_table =
+      (k4GB / (size_row_min * num_rows_batch) + 1) * num_rows_batch;
   static_assert(num_rows_row_table < std::numeric_limits<uint32_t>::max(),
                 "row table length must be less than uint32 max");
   static_assert(num_rows_row_table * size_row_min > k4GB,

@@ -3280,8 +3280,13 @@ void AssertRowCountEq(Declaration source, int64_t expected) {
 // correctly.
 TEST(HashJoin, LARGE_MEMORY_TEST(BuildSideOver4GBFixedLength)) {
   constexpr int64_t k5GB = 5ll * 1024 * 1024 * 1024;
-  const auto type = uint64();
-  const uint64_t value_match = 42;
+  constexpr int fixed_length = 128;
+  const auto type = fixed_size_binary(fixed_length);
+  constexpr uint8_t byte_no_match_min = static_cast<uint8_t>('A');
+  constexpr uint8_t byte_no_match_max = static_cast<uint8_t>('y');
+  constexpr uint8_t byte_match = static_cast<uint8_t>('z');
+  const auto value_match =
+      std::make_shared<FixedSizeBinaryScalar>(std::string(fixed_length, byte_match));
   constexpr int16_t num_rows_per_batch_left = 128;
   constexpr int16_t num_rows_per_batch_right = 4096;
   const int64_t num_batches_left = 8;
@@ -3294,8 +3299,7 @@ TEST(HashJoin, LARGE_MEMORY_TEST(BuildSideOver4GBFixedLength)) {
   {
     // A column with num_rows_per_batch_left value_match-es.
     ASSERT_OK_AND_ASSIGN(auto column,
-                         Constant(std::make_shared<UInt64Scalar>(value_match))
-                             ->Generate(num_rows_per_batch_left));
+                         Constant(value_match)->Generate(num_rows_per_batch_left));
 
     // Use the column as both the key and the payload.
     ExecBatch batch({column, column}, num_rows_per_batch_left);
@@ -3310,12 +3314,11 @@ TEST(HashJoin, LARGE_MEMORY_TEST(BuildSideOver4GBFixedLength)) {
   {
     // A column with (num_rows_per_batch_right - 1) non-value_match-es (possibly null) and
     // 1 value_match.
-    auto non_matches = RandomArrayGenerator(kSeedMax).UInt64(
-        num_rows_per_batch_right - 1,
-        /*min=*/value_match + 1, /*max=*/value_match + 1 + num_rows_per_batch_right,
+    auto non_matches = RandomArrayGenerator(kSeedMax).FixedSizeBinary(
+        num_rows_per_batch_right - 1, fixed_length,
+        /*min_byte=*/byte_no_match_min, /*max_byte=*/byte_no_match_max,
         /*null_probability =*/0.01);
-    ASSERT_OK_AND_ASSIGN(
-        auto match, Constant(std::make_shared<UInt64Scalar>(value_match))->Generate(1));
+    ASSERT_OK_AND_ASSIGN(auto match, Constant(value_match)->Generate(1));
     ASSERT_OK_AND_ASSIGN(auto column, Concatenate({non_matches, match}));
 
     // Use the column as both the key and the payload.
