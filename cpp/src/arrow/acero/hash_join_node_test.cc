@@ -419,9 +419,10 @@ std::vector<std::shared_ptr<Array>> GenRandomRecords(
                                       data_types[i].null_probability));
           break;
         default:
-          result.push_back(rag.FixedSizeBinary(
-              num_rows, data_types[i].fixed_length, static_cast<uint8_t>('A'),
-              static_cast<uint8_t>('z'), data_types[i].null_probability));
+          result.push_back(rag.FixedSizeBinary(num_rows, data_types[i].fixed_length,
+                                               /*min_byte=*/static_cast<uint8_t>('A'),
+                                               /*max_byte=*/static_cast<uint8_t>('z'),
+                                               data_types[i].null_probability));
           break;
       }
     } else {

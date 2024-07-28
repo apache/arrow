@@ -148,7 +148,9 @@ struct TakeBenchmark {
 
   void FixedSizeBinary() {
     const auto byte_width = static_cast<int32_t>(state.range(kByteWidthRange));
-    auto values = rand.FixedSizeBinary(args.size, byte_width, args.null_proportion);
+    auto values = rand.FixedSizeBinary(
+        args.size, byte_width, /*min_byte=*/static_cast<uint8_t>('A'),
+        /*max_byte=*/static_cast<uint8_t>('z'), args.null_proportion);
     Bench(values);
     state.counters["byte_width"] = byte_width;
   }
