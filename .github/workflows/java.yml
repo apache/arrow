@@ -150,6 +150,7 @@ jobs:
         with:
           java-version: ${{ matrix.jdk }}
           distribution: 'temurin'
+      - run: git config --global core.autocrlf false
       - name: Checkout Arrow
         uses: actions/checkout@v4
         with:
