@@ -93,7 +93,9 @@ static void ArrayRangeEqualsFixedSizeBinary(benchmark::State& state) {
   RegressionArgs args(state, /*size_is_bytes=*/false);
 
   auto rng = random::RandomArrayGenerator(kSeed);
-  auto array = rng.FixedSizeBinary(args.size, /*byte_width=*/8, args.null_proportion);
+  auto array = rng.FixedSizeBinary(
+      args.size, /*byte_width=*/8, /*min_byte=*/static_cast<uint8_t>('A'),
+      /*max_byte=*/static_cast<uint8_t>('z'), args.null_proportion);
 
   BenchmarkArrayRangeEquals(array, state);
 }
