@@ -138,11 +138,6 @@ jobs:
           # used on test  We uninstall Homebrew's Protobuf to ensure using
           # bundled Protobuf.
           brew uninstall protobuf
-          # We want to use the bundled googletest for static linking. Since
-          # both BUNDLED and brew options are enabled, it could cause a conflict
-          # when there is a version mismatch.
-          # We uninstall googletest to ensure using the bundled googletest.
-          brew uninstall googletest
 
           brew bundle --file=arrow/java/Brewfile
       - name: Build C++ libraries
