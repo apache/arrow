@@ -24,7 +24,7 @@ index aa520ff..01ab294 100644
  if (ORC_PACKAGE_KIND STREQUAL "conan")
    target_link_libraries (orc_protobuf INTERFACE ${protobuf_LIBRARIES})
 -elseif (ORC_PREFER_STATIC_PROTOBUF AND ${PROTOBUF_STATIC_LIB})
-+elseif (ORC_PREFER_STATIC_PROTOBUF AND DEFINED PROTOBUF_STATIC_LIB)
++elseif (ORC_PREFER_STATIC_PROTOBUF AND PROTOBUF_STATIC_LIB)
    target_link_libraries (orc_protobuf INTERFACE ${PROTOBUF_STATIC_LIB})
  else ()
    target_link_libraries (orc_protobuf INTERFACE ${PROTOBUF_LIBRARY})
@@ -33,7 +33,7 @@ index aa520ff..01ab294 100644
  
  if (NOT ORC_PACKAGE_KIND STREQUAL "conan")
 -  if (ORC_PREFER_STATIC_PROTOBUF AND ${PROTOC_STATIC_LIB})
-+  if (ORC_PREFER_STATIC_PROTOBUF AND DEFINED PROTOC_STATIC_LIB)
++  if (ORC_PREFER_STATIC_PROTOBUF AND PROTOC_STATIC_LIB)
      target_link_libraries (orc_protoc INTERFACE ${PROTOC_STATIC_LIB})
    else ()
      target_link_libraries (orc_protoc INTERFACE ${PROTOC_LIBRARY})
