@@ -390,7 +390,7 @@ ToCsvFragmentScanOptions(const std::unordered_map<std::string, std::string>& con
     } else if (key == "strings_can_be_null") {
       options->convert_options.strings_can_be_null = ParseBool(value);
     } else {
-      return arrow::Status::Invalid("Config " + it.first + " is not supported.");
+      return arrow::Status::Invalid("Config " + key + " is not supported.");
     }
   }
   return options;
