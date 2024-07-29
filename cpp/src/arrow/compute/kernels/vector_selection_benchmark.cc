@@ -172,7 +172,9 @@ struct TakeBenchmark {
     const auto byte_width = static_cast<int32_t>(state.range(kByteWidthRange));
     auto chunked_array =
         GenChunkedArray(num_chunks, [this, byte_width](int64_t chunk_length) {
-          return rand.FixedSizeBinary(chunk_length, byte_width, args.null_proportion);
+          return rand.FixedSizeBinary(
+              chunk_length, byte_width, /*min_byte=*/static_cast<uint8_t>('A'),
+              /*max_byte=*/static_cast<uint8_t>('z'), args.null_proportion);
         });
     BenchChunked(chunked_array, chunk_indices_too);
     state.counters["byte_width"] = byte_width;
@@ -269,8 +271,9 @@ struct FilterBenchmark {
   void FixedSizeBinary() {
     const int32_t byte_width = static_cast<int32_t>(state.range(2));
     const int64_t array_size = args.size / byte_width;
-    auto values =
-        rand.FixedSizeBinary(array_size, byte_width, args.values_null_proportion);
+    auto values = rand.FixedSizeBinary(
+        array_size, byte_width, /*min_byte=*/static_cast<uint8_t>('A'),
+        /*max_byte=*/static_cast<uint8_t>('z'), args.values_null_proportion);
     Bench(values);
     state.counters["byte_width"] = byte_width;
   }
