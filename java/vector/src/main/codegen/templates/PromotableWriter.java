@@ -539,22 +539,6 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     getWriter().close();
   }
 
-  protected void setState(State state) {
-    this.state = state;
-  }
-
-  protected void setType(MinorType type) {
-    this.type = type;
-  }
-
-  protected void setUnionVector(UnionVector unionVector) {
-    this.unionVector = unionVector;
-  }
-
-  protected void setWriter(FieldWriter writer) {
-    this.writer = writer;
-  }
-
   /**
    * Convert the writer to a PromotableViewWriter.
    *
@@ -562,12 +546,11 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
    */
   public PromotableViewWriter toViewWriter() {
     PromotableViewWriter promotableViewWriter = new PromotableViewWriter(unionVector, parentContainer, nullableStructWriterFactory);
-    promotableViewWriter.setPosition(position);
-    promotableViewWriter.setWriter(writer);
-    promotableViewWriter.setState(state);
-    promotableViewWriter.setUnionVector(unionVector);
-    promotableViewWriter.setType(MinorType.LISTVIEW);
-    promotableViewWriter.setPosition(idx());
+    promotableViewWriter.position = position;
+    promotableViewWriter.writer = writer;
+    promotableViewWriter.state = state;
+    promotableViewWriter.unionVector = unionVector;
+    promotableViewWriter.type = MinorType.LISTVIEW;
     return promotableViewWriter;
   }
 }

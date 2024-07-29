@@ -66,33 +66,13 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
    */
   public UnionViewWriter toViewWriter() {
     UnionViewWriter unionViewWriter = new UnionViewWriter(data, nullableStructWriterFactory);
-    unionViewWriter.setStructWriter(structWriter);
-    unionViewWriter.setListWriter(listWriter);
-    unionViewWriter.setListViewWriter(listViewWriter);
-    unionViewWriter.setMapWriter(mapWriter);
-    unionViewWriter.setWriters(writers);
-    unionViewWriter.setPosition(idx());
+    unionViewWriter.structWriter = structWriter;
+    unionViewWriter.listWriter = listWriter;
+    unionViewWriter.listViewWriter = listViewWriter;
+    unionViewWriter.mapWriter = mapWriter;
+    unionViewWriter.writers = writers;
+    unionViewWriter.setPosition(this.getPosition());
     return unionViewWriter;
-  }
-
-  protected void setStructWriter(StructWriter structWriter) {
-    this.structWriter = structWriter;
-  }
-
-  protected void setListWriter(UnionListWriter listWriter) {
-    this.listWriter = listWriter;
-  }
-
-  protected void setListViewWriter(UnionListViewWriter listViewWriter) {
-    this.listViewWriter = listViewWriter;
-  }
-
-  protected void setMapWriter(UnionMapWriter mapWriter) {
-    this.mapWriter = mapWriter;
-  }
-
-  protected void setWriters(List<BaseWriter> writers) {
-    this.writers = writers;
   }
 
   @Override
