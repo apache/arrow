@@ -24,6 +24,7 @@ under the License.
     <groupId>org.apache</groupId>
     <artifactId>apache</artifactId>
     <version>33</version>
+    <relativePath></relativePath>
   </parent>
 
   <groupId>org.apache.arrow</groupId>
