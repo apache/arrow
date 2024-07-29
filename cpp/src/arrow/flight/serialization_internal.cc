@@ -82,6 +82,17 @@ Status PackProtoAction(std::string action_type, const google::protobuf::Message&
   return Status::OK();
 }
 
+Status UnpackProtoAction(const Action& action, google::protobuf::Message* out) {
+  google::protobuf::Any any;
+  if (!any.ParseFromArray(action.body->data(), static_cast<int>(action.body->size()))) {
+    return Status::Invalid("Unable to parse action ", action.type);
+  }
+  if (!any.UnpackTo(out)) {
+    return Status::Invalid("Unable to unpack ", out->GetTypeName());
+  }
+  return Status::OK();
+}
+
 // Timestamp
 
 Status FromProto(const google::protobuf::Timestamp& pb_timestamp, Timestamp* timestamp) {

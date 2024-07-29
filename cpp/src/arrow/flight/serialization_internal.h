@@ -91,6 +91,9 @@ Status PackProtoCommand(const google::protobuf::Message& command, FlightDescript
 Status PackProtoAction(std::string action_type, const google::protobuf::Message& action,
                        Action* out);
 
+/// \brief Unpacks a protobuf message packed by PackProtoAction.
+Status UnpackProtoAction(const Action& action, google::protobuf::Message* out);
+
 // These functions depend on protobuf types which are not exported in the Flight DLL.
 
 Status FromProto(const google::protobuf::Timestamp& pb_timestamp, Timestamp* timestamp);
