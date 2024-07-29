@@ -14,12 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.arrow.dataset.scanner;
+package org.apache.arrow.dataset.utils;
 
 import java.util.Map;
 
 /** The utility class for Map. */
 public class MapUtil {
+  private MapUtil() {}
+
   /**
    * Convert the map to string array as JNI bridge.
    *

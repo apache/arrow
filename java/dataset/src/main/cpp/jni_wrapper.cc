@@ -374,9 +374,7 @@ arrow::Result<std::shared_ptr<arrow::dataset::FragmentScanOptions>>
 ToCsvFragmentScanOptions(const std::unordered_map<std::string, std::string>& configs) {
   std::shared_ptr<arrow::dataset::CsvFragmentScanOptions> options =
       std::make_shared<arrow::dataset::CsvFragmentScanOptions>();
-  for (auto const& it : configs) {
-    auto& key = it.first;
-    auto& value = it.second;
+  for (auto const& [key, value] : configs) {
     if (key == "delimiter") {
       options->parse_options.delimiter = value.data()[0];
     } else if (key == "quoting") {

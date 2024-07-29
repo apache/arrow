@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.arrow.dataset.file.FileFormat;
 import org.apache.arrow.dataset.scanner.FragmentScanOptions;
-import org.apache.arrow.dataset.scanner.MapUtil;
+import org.apache.arrow.dataset.utils.MapUtil;
 
 public class CsvFragmentScanOptions implements FragmentScanOptions {
   private final CsvConvertOptions convertOptions;
@@ -49,9 +49,9 @@ public class CsvFragmentScanOptions implements FragmentScanOptions {
   }
 
   /**
-   * File format id.
+   * File format.
    *
-   * @return id
+   * @return file format.
    */
   @Override
   public FileFormat fileFormat() {
@@ -59,7 +59,8 @@ public class CsvFragmentScanOptions implements FragmentScanOptions {
   }
 
   /**
-   * Serialize this class to string array and then called by JNI call.
+   * This is an internal function to invoke by serializer. Serialize this class to string array and
+   * then called by JNI call.
    *
    * @return string array as Map JNI bridge format.
    */

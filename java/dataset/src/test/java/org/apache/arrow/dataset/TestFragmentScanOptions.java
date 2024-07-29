@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.google.common.collect.ImmutableMap;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Optional;
 import org.apache.arrow.c.ArrowSchema;
 import org.apache.arrow.c.CDataDictionaryProvider;
@@ -86,6 +87,82 @@ public class TestFragmentScanOptions {
         }
         assertEquals(3, rowCount);
       }
+    }
+  }
+
+  @Test
+  public void testCsvConvertOptionsDelimiterNotSet() throws Exception {
+    final Schema schema =
+        new Schema(
+            Arrays.asList(
+                Field.nullable("Id", new ArrowType.Int(32, true)),
+                Field.nullable("Name", new ArrowType.Utf8()),
+                Field.nullable("Language", new ArrowType.Utf8())),
+            null);
+    String path = "file://" + getClass().getResource("/").getPath() + "/data/student.csv";
+    BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+    try (ArrowSchema cSchema = ArrowSchema.allocateNew(allocator);
+        CDataDictionaryProvider provider = new CDataDictionaryProvider()) {
+      Data.exportSchema(allocator, schema, provider, cSchema);
+      CsvConvertOptions convertOptions = new CsvConvertOptions(ImmutableMap.of());
+      convertOptions.setArrowSchema(cSchema);
+      CsvFragmentScanOptions fragmentScanOptions =
+          new CsvFragmentScanOptions(convertOptions, ImmutableMap.of(), ImmutableMap.of());
+      ScanOptions options =
+          new ScanOptions.Builder(/*batchSize*/ 32768)
+              .columns(Optional.empty())
+              .fragmentScanOptions(fragmentScanOptions)
+              .build();
+      try (DatasetFactory datasetFactory =
+              new FileSystemDatasetFactory(
+                  allocator, NativeMemoryPool.getDefault(), FileFormat.CSV, path);
+          Dataset dataset = datasetFactory.finish();
+          Scanner scanner = dataset.newScan(options);
+          ArrowReader reader = scanner.scanBatches()) {
+
+        assertEquals(schema.getFields(), reader.getVectorSchemaRoot().getSchema().getFields());
+        int rowCount = 0;
+        while (reader.loadNextBatch()) {
+          final ValueIterableVector<Integer> idVector =
+              (ValueIterableVector<Integer>) reader.getVectorSchemaRoot().getVector("Id");
+          assertThat(idVector.getValueIterable(), IsIterableContainingInOrder.contains(1, 2, 3));
+          rowCount += reader.getVectorSchemaRoot().getRowCount();
+        }
+        assertEquals(3, rowCount);
+      }
+    }
+  }
+
+  @Test
+  public void testCsvConvertOptionsNoOption() throws Exception {
+    final Schema schema =
+        new Schema(
+            Collections.singletonList(Field.nullable("Id;Name;Language", new ArrowType.Utf8())),
+            null);
+    String path = "file://" + getClass().getResource("/").getPath() + "/data/student.csv";
+    BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+    ScanOptions options =
+        new ScanOptions.Builder(/*batchSize*/ 32768).columns(Optional.empty()).build();
+    try (DatasetFactory datasetFactory =
+            new FileSystemDatasetFactory(
+                allocator, NativeMemoryPool.getDefault(), FileFormat.CSV, path);
+        Dataset dataset = datasetFactory.finish();
+        Scanner scanner = dataset.newScan(options);
+        ArrowReader reader = scanner.scanBatches()) {
+
+      assertEquals(schema.getFields(), reader.getVectorSchemaRoot().getSchema().getFields());
+      int rowCount = 0;
+      while (reader.loadNextBatch()) {
+        final ValueIterableVector<String> idVector =
+            (ValueIterableVector<String>)
+                reader.getVectorSchemaRoot().getVector("Id;Name;Language");
+        assertThat(
+            idVector.getValueIterable(),
+            IsIterableContainingInOrder.contains(
+                "1;Juno;Java\n" + "2;Peter;Python\n" + "3;Celin;C++"));
+        rowCount += reader.getVectorSchemaRoot().getRowCount();
+      }
+      assertEquals(3, rowCount);
     }
   }
 }
