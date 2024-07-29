@@ -1284,26 +1284,43 @@ struct Inequality {
   /// accordingly.
   ///
   /// \pre `guarantee` is non-nullable
+  /// \pre `guarantee.bound` is a scalar
+  /// \pre `guarantee.bound.type()->id() == value_set->type_id()`
   /// \pre `value_set` is non-empty
   /// \return a simplified value set, or a bool if the simplification results in
   ///   a boolean literal predicate.
-  static Result<std::variant<std::shared_ptr<Array>, bool>> SimplifyIsInValueSet(
+  template <typename ArrowType>
+  static std::variant<std::shared_ptr<Array>, bool> SimplifyIsInValueSet(
       const Inequality& guarantee, std::shared_ptr<Array> value_set) {
+    using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
+    using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
+    using CType = decltype(checked_pointer_cast<ArrayType>(value_set)->Value(0));
+
+    DCHECK(guarantee.bound.is_scalar());
+    DCHECK_EQ(guarantee.bound.type()->id(), value_set->type_id());
     DCHECK_GT(value_set->length(), 0);
 
-    auto compare = [&guarantee, &value_set](size_t i) -> Result<Comparison::type> {
-      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar, value_set->GetScalar(i));
-      DCHECK(scalar->is_valid);
-      ARROW_ASSIGN_OR_RAISE(Comparison::type cmp,
-                            Comparison::Execute(scalar, guarantee.bound));
-      return cmp;
+    CType bound;
+    if constexpr (std::is_same_v<std::shared_ptr<Buffer>,
+                                 typename ScalarType::ValueType>) {
+        bound = static_cast<CType>(*guarantee.bound.scalar_as<ScalarType>().value);
+    } else {
+        bound = guarantee.bound.scalar_as<ScalarType>().value;
+    }
+
+    auto compare = [&bound, &value_set](size_t i) -> Comparison::type {
+      DCHECK(value_set->IsValid(i));
+      auto value = checked_pointer_cast<ArrayType>(value_set)->Value(i);
+      return value == bound ? Comparison::EQUAL
+                            : value < bound ? Comparison::LESS
+                                            : Comparison::GREATER;
     };
 
     size_t lo = 0;
     size_t hi = value_set->length();
     while (lo + 1 < hi) {
       size_t mid = (lo + hi) / 2;
-      ARROW_ASSIGN_OR_RAISE(Comparison::type cmp, compare(mid));
+      Comparison::type cmp = compare(mid);
       if (cmp & Comparison::LESS_EQUAL) {
         lo = mid;
       } else {
@@ -1311,7 +1328,7 @@ struct Inequality {
       }
     }
 
-    ARROW_ASSIGN_OR_RAISE(Comparison::type cmp, compare(lo));
+    Comparison::type cmp = compare(lo);
     size_t pivot = lo + (cmp == Comparison::LESS ? 1 : 0);
     bool found = cmp == Comparison::EQUAL;
 
@@ -1330,7 +1347,8 @@ struct Inequality {
       case Comparison::GREATER_EQUAL:
         value_set = value_set->Slice(pivot);
         break;
-      default:
+      case Comparison::NOT_EQUAL:
+      case Comparison::NA:
         DCHECK(false);
         break;
     }
@@ -1361,6 +1379,10 @@ struct Inequality {
       // abort the simplification if nulls are possible in the input.
       if (guarantee.nullable) return expr;
 
+      if (!guarantee.bound.is_scalar()) {
+        return Status::Invalid("Cannot simplify inequality on a non-scalar bound");
+      }
+
       const auto& lhs = Comparison::StripOrderPreservingCasts(call->arguments[0]);
       if (!lhs.field_ref()) return expr;
       if (*lhs.field_ref() != guarantee.target) return expr;
@@ -1368,6 +1390,17 @@ struct Inequality {
       auto options = checked_pointer_cast<SetLookupOptions>(call->options);
       auto unsimplified_value_set = options->value_set.make_array();
       if (unsimplified_value_set->length() == 0) return literal(false);
+
+      Type::type value_set_type = unsimplified_value_set->type_id();
+      // Simplification for `is_in` requires that comparison kernels exist, so
+      // we skip simplification for non-primitive and non-base-binary types.
+      if (!is_integer(value_set_type) && !is_temporal(value_set_type)
+          && !is_base_binary_like(value_set_type)) {
+        return expr;
+      }
+      // For now, we abort simplification if the guarantee bound's type does not
+      // exactly match the value set's type.
+      if (guarantee.bound.type()->id() != value_set_type) return expr;
 
       std::shared_ptr<Array>& value_set = context.is_in_value_sets[call];
       if (!value_set) {
@@ -1387,7 +1420,37 @@ struct Inequality {
         value_set = state->sorted_and_unique_value_set;
       }
 
-      ARROW_ASSIGN_OR_RAISE(auto result, SimplifyIsInValueSet(guarantee, value_set));
+#define CASE(TYPE_CLASS)                                                       \
+  case TYPE_CLASS##Type::type_id:                                              \
+    result = SimplifyIsInValueSet<TYPE_CLASS##Type>(guarantee, value_set);     \
+    break;
+
+      std::variant<std::shared_ptr<Array>, bool> result;
+      switch (value_set_type) {
+        CASE(UInt8)
+        CASE(Int8)
+        CASE(UInt16)
+        CASE(Int16)
+        CASE(UInt32)
+        CASE(Int32)
+        CASE(UInt64)
+        CASE(Int64)
+        CASE(Date32)
+        CASE(Date64)
+        CASE(Time32)
+        CASE(Time64)
+        CASE(Timestamp)
+        CASE(Binary)
+        CASE(String)
+        CASE(LargeBinary)
+        CASE(LargeString)
+        default:
+          DCHECK(false);
+          return expr;
+      }
+
+#undef CASE
+
       if (std::holds_alternative<bool>(result)) {
         context.is_in_value_sets.erase(call);
         return literal(std::get<bool>(result));
