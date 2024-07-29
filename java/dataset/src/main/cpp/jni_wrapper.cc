@@ -51,7 +51,7 @@ jmethodID unreserve_memory_method;
 
 jlong default_memory_pool_id = -1L;
 
-jint JNI_VERSION = JNI_VERSION_1_6;
+jint JNI_VERSION = JNI_VERSION_10;
 
 class JniPendingException : public std::runtime_error {
  public:
