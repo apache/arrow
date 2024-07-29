@@ -924,7 +924,7 @@ endif()
 
 if(ARROW_ORC)
   arrow_add_object_library(ARROW_ORC adapters/orc/adapter.cc adapters/orc/options.cc
-                           adapters/orc/util.cc)
+                           adapters/orc/statistics.cc adapters/orc/util.cc)
   foreach(ARROW_ORC_TARGET ${ARROW_ORC_TARGETS})
     target_link_libraries(${ARROW_ORC_TARGET} PRIVATE orc::orc)
     if(ARROW_ORC_VERSION VERSION_LESS "2.0.0")

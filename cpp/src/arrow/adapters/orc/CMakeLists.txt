@@ -20,7 +20,7 @@
 #
 
 # Headers: top level
-install(FILES adapter.h options.h
+install(FILES adapter.h options.h statistics.h
         DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/adapters/orc")
 
 # pkg-config support

@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <memory>
 
+#include "arrow/adapters/orc/statistics.h"
 #include "arrow/array/builder_base.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
@@ -62,6 +63,16 @@ ARROW_EXPORT Status WriteBatch(const ChunkedArray& chunked_array, int64_t length
 
 /// \brief Get the major version provided by the official ORC C++ library.
 ARROW_EXPORT int GetOrcMajorVersion();
+
+/// \brief Convert ORC file statistics to arrow wrapper
+Result<std::unique_ptr<Statistics>> ConvertStats(
+    const liborc::Statistics* stats,
+    const std::shared_ptr<Schema> schema);
+
+/// \brief Convert ORC stripe statistics to arrow wrapper
+Result<std::unique_ptr<StripeStatistics>> ConvertStripeStats(
+    const liborc::StripeStatistics* stats,
+    const std::shared_ptr<Schema> schema);
 
 }  // namespace orc
 }  // namespace adapters

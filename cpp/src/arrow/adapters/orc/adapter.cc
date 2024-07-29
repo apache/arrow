@@ -29,6 +29,7 @@
 #endif
 
 #include "arrow/adapters/orc/util.h"
+#include "arrow/adapters/orc/statistics.h"
 #include "arrow/builder.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/memory_pool.h"
@@ -333,6 +334,18 @@ class ORCFileReader::Impl {
     return std::const_pointer_cast<const KeyValueMetadata>(metadata);
   }
 
+  Result<std::unique_ptr<Statistics>> GetFileStatistics() {
+    ARROW_ASSIGN_OR_RAISE(auto schema, ReadSchema());
+    return ConvertStats(reader_->getStatistics().get(), schema);
+  }
+
+  Result<std::unique_ptr<StripeStatistics>> GetStripeStatistics(
+      uint64_t stripeIndex) {
+    ARROW_ASSIGN_OR_RAISE(auto schema, ReadSchema());
+    return ConvertStripeStats(reader_->getStripeStatistics(stripeIndex).get(),
+                              schema);
+  }
+
   Result<std::shared_ptr<Schema>> GetArrowSchema(const liborc::Type& type) {
     if (type.getKind() != liborc::STRUCT) {
       return Status::NotImplemented(
@@ -571,6 +584,15 @@ Result<std::unique_ptr<ORCFileReader>> ORCFileReader::Open(
 
 Result<std::shared_ptr<const KeyValueMetadata>> ORCFileReader::ReadMetadata() {
   return impl_->ReadMetadata();
+}
+
+Result<std::unique_ptr<Statistics>> ORCFileReader::GetFileStatistics() {
+  return impl_->GetFileStatistics();
+}
+
+Result<std::unique_ptr<StripeStatistics>> ORCFileReader::GetStripeStatistics(
+    uint64_t stripeIndex) {
+  return impl_->GetStripeStatistics(stripeIndex);
 }
 
 Result<std::shared_ptr<Schema>> ORCFileReader::ReadSchema() {

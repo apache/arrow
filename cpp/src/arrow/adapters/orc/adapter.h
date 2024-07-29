@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "arrow/adapters/orc/options.h"
+#include "arrow/adapters/orc/statistics.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
@@ -266,6 +267,10 @@ class ARROW_EXPORT ORCFileReader {
   ///
   /// \return A KeyValueMetadata object containing the ORC metadata
   Result<std::shared_ptr<const KeyValueMetadata>> ReadMetadata();
+
+
+  Result<std::unique_ptr<Statistics>> GetFileStatistics();
+  Result<std::unique_ptr<StripeStatistics>> GetStripeStatistics(uint64_t stripeIndex);
 
  private:
   class Impl;

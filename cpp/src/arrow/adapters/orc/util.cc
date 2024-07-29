@@ -18,10 +18,12 @@
 #include "arrow/adapters/orc/util.h"
 
 #include <cmath>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <vector>
 
+#include "arrow/adapters/orc/statistics.h"
 #include "arrow/array/builder_base.h"
 #include "arrow/builder.h"
 #include "arrow/chunked_array.h"
@@ -38,6 +40,7 @@
 #include "orc/MemoryPool.hh"
 #include "orc/OrcFile.hh"
 #include "orc/orc-config.hh"
+#include "orc/Statistics.hh"
 
 // alias to not interfere with nested orc namespace
 namespace liborc = orc;
@@ -1226,6 +1229,96 @@ int GetOrcMajorVersion() {
   std::string major_version;
   std::getline(orc_version, major_version, '.');
   return std::stoi(major_version);
+}
+
+namespace {
+
+  /// \brief Convert ORC lib column stats to arrow column stats
+  ColumnStatistics* ConvertColStat(const liborc::ColumnStatistics* orcStat,
+                                   Type::type colType) {
+    ColumnStatistics* colStat;
+    switch(colType) {
+      case Type::INT8:
+      case Type::INT16:
+      case Type::INT32:
+      case Type::INT64: {
+        auto intOrcStat = dynamic_cast<const liborc::IntegerColumnStatistics*>(orcStat);
+        if (intOrcStat != nullptr) {
+          auto* intColStat = new IntegerColumnStatistics();
+          intColStat->SetHasMin(intOrcStat->hasMinimum());
+          intColStat->SetHasMax(intOrcStat->hasMaximum());
+          intColStat->SetHasSum(intOrcStat->hasSum());
+          int64_t min, max, sum;
+          min = max = sum = -1;
+          if (intOrcStat->hasMinimum()) { min = intOrcStat->getMinimum(); }
+          if (intOrcStat->hasMaximum()) { max = intOrcStat->getMaximum(); }
+          if (intOrcStat->hasSum()) { sum = intOrcStat->getSum(); }
+          intColStat->SetInternalStatistics(InternalIntStats(min, max, sum));
+          colStat = intColStat;
+          break;
+        }
+      }
+      case Type::DOUBLE:
+      case Type::FLOAT:
+      default:
+        colStat = new ColumnStatistics();
+      break;
+    }
+
+    colStat->SetHasNull(orcStat->hasNull());
+    colStat->SetValueCount(orcStat->getNumberOfValues());
+    colStat->SetType(colType);
+    return colStat;
+  }
+
+  /// \brief Get arrow column statistics from ORC lib Statistics
+  std::vector<ColumnStatistics*> GetColStats(
+      const liborc::Statistics* stats,
+      const std::shared_ptr<Schema> schema) {
+    std::vector<ColumnStatistics*> arrowColStats;
+    for(auto i = 0; i < stats->getNumberOfColumns() - 1; i++) {
+      auto colType = schema->field(i)->type()->id();
+      auto orcStat = stats->getColumnStatistics(i + 1);
+      auto colStat = ConvertColStat(orcStat, colType);
+      arrowColStats.push_back(colStat);
+    }
+    return arrowColStats;
+  }
+
+} // namespace
+
+/// \brief Convert ORC lib Statistics to arrow Statistics
+Result<std::unique_ptr<Statistics>> ConvertStats(
+    const liborc::Statistics* stats,
+    const std::shared_ptr<Schema> schema) {
+
+  auto colStats = GetColStats(stats, schema);
+  auto arrowStats = std::make_unique<Statistics>();
+  arrowStats->SetColumnStatistics(colStats);
+  return arrowStats;
+}
+
+/// \brief Convert ORC lib Statistics to arrow StripeStatistics
+Result<std::unique_ptr<StripeStatistics>> ConvertStripeStats(
+    const liborc::StripeStatistics* stats,
+    const std::shared_ptr<Schema> schema) {
+
+  auto stripeColStats = GetColStats(stats, schema);
+  auto arrowStats = std::make_unique<StripeStatistics>();
+  arrowStats->SetColumnStatistics(stripeColStats);
+
+  std::vector<std::vector<ColumnStatistics*>> rowIndexStats;
+  rowIndexStats.resize(stats->getNumberOfColumns());
+  for(auto i = 0; i < stats->getNumberOfColumns(); i++) {
+    auto colType = schema->field(i)->type()->id();
+    for(auto j = 0; j < stats->getNumberOfRowIndexStats(i); j++) {
+      auto orcStats = stats->getRowIndexStatistics(i, j);
+      auto arrowColStats = ConvertColStat(orcStats, colType);
+      rowIndexStats[i].push_back(arrowColStats);
+    }
+  }
+  arrowStats->SetRowIndexStats(rowIndexStats);
+  return arrowStats;
 }
 
 }  // namespace orc
