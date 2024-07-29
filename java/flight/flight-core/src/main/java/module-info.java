@@ -26,6 +26,8 @@ module org.apache.arrow.flight.core {
   requires com.fasterxml.jackson.databind;
   requires com.google.common;
   requires com.google.errorprone.annotations;
+  requires com.google.protobuf;
+  requires com.google.protobuf.util;
   requires io.grpc;
   requires io.grpc.internal;
   requires io.grpc.netty;
@@ -38,7 +40,5 @@ module org.apache.arrow.flight.core {
   requires org.apache.arrow.format;
   requires org.apache.arrow.memory.core;
   requires org.apache.arrow.vector;
-  requires protobuf.java;
-  requires protobuf.java.util;
   requires org.slf4j;
 }

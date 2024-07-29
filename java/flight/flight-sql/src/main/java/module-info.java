@@ -21,10 +21,10 @@ module org.apache.arrow.flight.sql {
   exports org.apache.arrow.flight.sql.util;
 
   requires com.google.common;
+  requires com.google.protobuf;
   requires java.sql;
   requires org.apache.arrow.flight.core;
   requires org.apache.arrow.memory.core;
   requires org.apache.arrow.vector;
   requires org.apache.commons.cli;
-  requires protobuf.java;
 }
