@@ -281,14 +281,6 @@ public class JsonFileWriter implements AutoCloseable {
               vectorBufferTmp.setLong(0, 0);
               writeValueToGenerator(bufferType, vectorBufferTmp, null, vector, i);
             }
-          } else if (bufferType.equals(SIZE)
-              && vector.getValueCount() == 0
-              && vector.getMinorType() == MinorType.LISTVIEW) {
-            // Empty vectors may not have allocated a sizes buffer
-            try (ArrowBuf vectorBufferTmp = vector.getAllocator().buffer(4)) {
-              vectorBufferTmp.setInt(0, 0);
-              writeValueToGenerator(bufferType, vectorBufferTmp, null, vector, i);
-            }
           } else {
             writeValueToGenerator(bufferType, vectorBuffer, null, vector, i);
           }
