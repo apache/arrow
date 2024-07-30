@@ -5347,13 +5347,14 @@ def schema(fields, metadata=None):
         Field py_field
         vector[shared_ptr[CField]] c_fields
 
-    if isinstance(fields, Mapping):
-        fields = fields.items()
-    elif hasattr(fields, "__arrow_c_schema__"):
+    if hasattr(fields, "__arrow_c_schema__"):
         result = Schema._import_from_c_capsule(fields.__arrow_c_schema__())
         if metadata is not None:
             result = result.with_metadata(metadata)
         return result
+
+    if isinstance(fields, Mapping):
+        fields = fields.items()
 
     for item in fields:
         if isinstance(item, tuple):
