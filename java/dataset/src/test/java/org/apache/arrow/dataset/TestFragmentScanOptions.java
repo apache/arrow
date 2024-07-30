@@ -165,4 +165,44 @@ public class TestFragmentScanOptions {
       assertEquals(3, rowCount);
     }
   }
+
+  @Test
+  public void testCsvReadParseAndReadOptions() throws Exception {
+    final Schema schema =
+        new Schema(
+            Collections.singletonList(Field.nullable("Id;Name;Language", new ArrowType.Utf8())),
+            null);
+    String path = "file://" + getClass().getResource("/").getPath() + "/data/student.csv";
+    BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+    CsvFragmentScanOptions fragmentScanOptions =
+        new CsvFragmentScanOptions(
+            new CsvConvertOptions(ImmutableMap.of()),
+            ImmutableMap.of("skip_rows", "1"),
+            ImmutableMap.of("delimiter", ";"));
+    ScanOptions options =
+        new ScanOptions.Builder(/*batchSize*/ 32768)
+            .columns(Optional.empty())
+            .fragmentScanOptions(fragmentScanOptions)
+            .build();
+    try (DatasetFactory datasetFactory =
+            new FileSystemDatasetFactory(
+                allocator, NativeMemoryPool.getDefault(), FileFormat.CSV, path);
+        Dataset dataset = datasetFactory.finish();
+        Scanner scanner = dataset.newScan(options);
+        ArrowReader reader = scanner.scanBatches()) {
+
+      assertEquals(schema.getFields(), reader.getVectorSchemaRoot().getSchema().getFields());
+      int rowCount = 0;
+      while (reader.loadNextBatch()) {
+        final ValueIterableVector<String> idVector =
+            (ValueIterableVector<String>)
+                reader.getVectorSchemaRoot().getVector("Id;Name;Language");
+        assertThat(
+            idVector.getValueIterable(),
+            IsIterableContainingInOrder.contains("2;Peter;Python\n" + "3;Celin;C++"));
+        rowCount += reader.getVectorSchemaRoot().getRowCount();
+      }
+      assertEquals(2, rowCount);
+    }
+  }
 }
