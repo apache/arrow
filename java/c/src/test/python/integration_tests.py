@@ -258,8 +258,30 @@ class TestPythonIntegration(unittest.TestCase):
         ]
         self.round_trip_array(lambda: pa.array(data, pa.decimal128(5, 2)))
 
+    def test_decimal_slice_array(self):
+        array_data = [
+            round(decimal.Decimal(722.82), 2),
+            round(decimal.Decimal(-934.11), 2),
+            None,
+            round(decimal.Decimal(122.82), 2),
+            round(decimal.Decimal(934.11), 2),
+            round(decimal.Decimal(632.11), 2),
+            round(decimal.Decimal(312.11), 2),
+            round(decimal.Decimal(221.11), 2),
+        ]
+        data = pa.array(array_data, pa.decimal128(5, 2))
+        sliced_array = data.slice(offset=2, length=3)
+        # TODO: complete this function
+        # self.round_trip_array(lambda: sliced_array)
+
     def test_int_array(self):
         self.round_trip_array(lambda: pa.array([1, 2, 3], type=pa.int32()))
+
+    def test_int_slice_array(self):
+        data = pa.array([1, 2, None, 4, 5, 6, 7, 8, 9, 10], type=pa.int32())
+        sliced_array = data.slice(offset=2, length=3)
+        # TODO: complete this function
+        # self.round_trip_array(lambda: sliced_array)
 
     def test_list_array(self):
         self.round_trip_array(lambda: pa.array(
@@ -267,6 +289,16 @@ class TestPythonIntegration(unittest.TestCase):
             # disabled check_metadata since the list internal field name ("item")
             # is not preserved during round trips (it becomes "$data$").
         ), check_metadata=False)
+
+    def test_list_slice_array(self):
+        data = pa.array(
+            [[], [0], None, [1, 2], [4, 5, 6], [7, 8, 9, 10], [11, 12, 13, 14, 15]], pa.list_(pa.int64())
+            # disabled check_metadata since the list internal field name ("item")
+            # is not preserved during round trips (it becomes "$data$").
+        )
+        sliced_array = data.slice(offset=2, length=3)
+        # TODO: complete this function
+        # self.round_trip_array(lambda: sliced_array, check_metadata=False)
 
     def test_empty_list_array(self):
         """Validates GH-37056 fix.
@@ -302,9 +334,35 @@ class TestPythonIntegration(unittest.TestCase):
         ]
         self.round_trip_array(lambda: pa.array(data, type=pa.struct(fields)))
 
+    def test_struct_slice_array(self):
+        fields = [
+            ("f1", pa.int32()),
+            ("f2", pa.string()),
+        ]
+        array_data = [
+            {"f1": 1, "f2": "a"},
+            None,
+            {"f1": 3, "f2": None},
+            {"f1": None, "f2": "d"},
+            {"f1": None, "f2": None},
+            {"f1": 6, "f2": "f"},
+            {"f1": 7, "f2": "g"},
+            {"f1": 8, "f2": "h"},
+        ]
+        data = pa.array(array_data, type=pa.struct(fields))
+        sliced_array = data.slice(offset=2, length=3)
+        # TODO: complete this function
+        # self.round_trip_array(lambda: sliced_array)
+
     def test_dict(self):
         self.round_trip_array(
             lambda: pa.array(["a", "b", None, "d"], pa.dictionary(pa.int64(), pa.utf8())))
+
+    def test_slice_dict(self):
+        data = pa.array(["a", "b", None, "d", "e", "f"], pa.dictionary(pa.int64(), pa.utf8()))
+        sliced_array = data.slice(offset=2, length=3)
+        # TODO: complete this function
+        # self.round_trip_array(lambda: sliced_array)
 
     def test_map(self):
         offsets = [0, None, 2, 6]
@@ -314,6 +372,17 @@ class TestPythonIntegration(unittest.TestCase):
         items = pa.array(pyitems, type="i4")
         self.round_trip_array(
             lambda: pa.MapArray.from_arrays(offsets, keys, items))
+
+    def test_slice_map(self):
+        offsets = [0, None, 2, 6]
+        pykeys = [b"a", b"b", b"c", b"d", b"e", b"f"]
+        pyitems = [1, 2, 3, None, 4, 5]
+        keys = pa.array(pykeys, type="binary")
+        items = pa.array(pyitems, type="i4")
+        data = pa.MapArray.from_arrays(offsets, keys, items)
+        sliced_array = data.slice(offset=2, length=3)
+        # TODO: complete this function
+        # self.round_trip_array(lambda: sliced_array)
 
     def test_field(self):
         self.round_trip_field(lambda: pa.field("aa", pa.bool_()))
