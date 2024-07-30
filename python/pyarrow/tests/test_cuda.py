@@ -57,6 +57,17 @@ def test_Context():
     assert global_context.device_number == 0
     assert global_context1.device_number == cuda.Context.get_num_devices() - 1
 
+    mm = global_context.memory_manager
+    assert not mm.is_cpu
+    assert "<pyarrow.MemoryManager device: CudaDevice" in repr(mm)
+
+    dev = global_context.device
+    assert dev == mm.device
+
+    assert not dev.is_cpu
+    assert dev.device_id == 0
+    assert dev.device_type == pa.DeviceAllocationType.CUDA
+
     with pytest.raises(ValueError,
                        match=("device_number argument must "
                               "be non-negative less than")):
