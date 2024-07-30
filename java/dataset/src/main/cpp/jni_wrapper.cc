@@ -383,7 +383,7 @@ bool setCsvConvertOptions(arrow::csv::ConvertOptions& options, const std::string
   if (key == "column_types") {
     int64_t schema_address = std::stol(value);
     ArrowSchema* c_schema = reinterpret_cast<ArrowSchema*>(schema_address);
-    ARROW_ASSIGN_OR_RAISE(auto schema, arrow::ImportSchema(c_schema));
+    JniGetOrThrow(auto schema, arrow::ImportSchema(c_schema));
     auto& column_types = options.column_types;
     for (auto field : schema->fields()) {
       column_types[field->name()] = field->type();
@@ -417,7 +417,7 @@ bool setCsvConvertOptions(arrow::csv::ConvertOptions& options, const std::string
 bool setCsvParseOptions(arrow::csv::ParseOptions& options, const std::string& key,
                         std::string& value) {
   if (key == "delimiter") {
-    options.delimiter = parseChar(value);
+    options.delimiter = ParseChar(value);
   } else if (key == "quoting") {
     options.quoting = ParseBool(value);
   } else if (key == "quote_char") {
@@ -460,7 +460,9 @@ arrow::Result<std::shared_ptr<arrow::dataset::FragmentScanOptions>>
 ToCsvFragmentScanOptions(const std::unordered_map<std::string, std::string>& configs) {
   std::shared_ptr<arrow::dataset::CsvFragmentScanOptions> options =
       std::make_shared<arrow::dataset::CsvFragmentScanOptions>();
-  for (auto const& [key, value] : configs) {
+  for (const auto& it : configs) {
+    const auto& key = it.first;
+    const auto& value = it.second;
     bool setValid = setCsvParseOptions(options->parse_options, key, value) &&
                     setCsvConvertOptions(options->convert_options, key, value) &&
                     setCsvReadOptions(options->read_options, key, value);
