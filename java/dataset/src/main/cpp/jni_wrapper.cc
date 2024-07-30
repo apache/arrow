@@ -25,6 +25,9 @@
 #include "arrow/c/helpers.h"
 #include "arrow/dataset/api.h"
 #include "arrow/dataset/file_base.h"
+#ifdef ARROW_CSV
+#include "arrow/dataset/file_csv.h"
+#endif
 #include "arrow/filesystem/api.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/engine/substrait/util.h"
@@ -363,6 +366,63 @@ std::shared_ptr<arrow::Buffer> LoadArrowBufferFromByteBuffer(JNIEnv* env, jobjec
   return buffer;
 }
 
+inline bool ParseBool(const std::string& value) { return value == "true" ? true : false; }
+
+/// \brief Construct FragmentScanOptions from config map
+#ifdef ARROW_CSV
+arrow::Result<std::shared_ptr<arrow::dataset::FragmentScanOptions>>
+ToCsvFragmentScanOptions(const std::unordered_map<std::string, std::string>& configs) {
+  std::shared_ptr<arrow::dataset::CsvFragmentScanOptions> options =
+      std::make_shared<arrow::dataset::CsvFragmentScanOptions>();
+  for (auto const& [key, value] : configs) {
+    if (key == "delimiter") {
+      options->parse_options.delimiter = value.data()[0];
+    } else if (key == "quoting") {
+      options->parse_options.quoting = ParseBool(value);
+    } else if (key == "column_types") {
+      int64_t schema_address = std::stol(value);
+      ArrowSchema* c_schema = reinterpret_cast<ArrowSchema*>(schema_address);
+      ARROW_ASSIGN_OR_RAISE(auto schema, arrow::ImportSchema(c_schema));
+      auto& column_types = options->convert_options.column_types;
+      for (auto field : schema->fields()) {
+        column_types[field->name()] = field->type();
+      }
+    } else if (key == "strings_can_be_null") {
+      options->convert_options.strings_can_be_null = ParseBool(value);
+    } else {
+      return arrow::Status::Invalid("Config " + key + " is not supported.");
+    }
+  }
+  return options;
+}
+#endif
+
+arrow::Result<std::shared_ptr<arrow::dataset::FragmentScanOptions>>
+GetFragmentScanOptions(jint file_format_id,
+                       const std::unordered_map<std::string, std::string>& configs) {
+  switch (file_format_id) {
+#ifdef ARROW_CSV
+    case 3:
+      return ToCsvFragmentScanOptions(configs);
+#endif
+    default:
+      return arrow::Status::Invalid("Illegal file format id: ", file_format_id);
+  }
+}
+
+std::unordered_map<std::string, std::string> ToStringMap(JNIEnv* env,
+                                                         jobjectArray& str_array) {
+  int length = env->GetArrayLength(str_array);
+  std::unordered_map<std::string, std::string> map;
+  map.reserve(length / 2);
+  for (int i = 0; i < length; i += 2) {
+    auto key = reinterpret_cast<jstring>(env->GetObjectArrayElement(str_array, i));
+    auto value = reinterpret_cast<jstring>(env->GetObjectArrayElement(str_array, i + 1));
+    map[JStringToCString(env, key)] = JStringToCString(env, value);
+  }
+  return map;
+}
+
 /*
  * Class:     org_apache_arrow_dataset_jni_NativeMemoryPool
  * Method:    getDefaultMemoryPool
@@ -501,12 +561,13 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_closeDataset
 /*
  * Class:     org_apache_arrow_dataset_jni_JniWrapper
  * Method:    createScanner
- * Signature: (J[Ljava/lang/String;Ljava/nio/ByteBuffer;Ljava/nio/ByteBuffer;JJ)J
+ * Signature:
+ * (J[Ljava/lang/String;Ljava/nio/ByteBuffer;Ljava/nio/ByteBuffer;JI;[Ljava/lang/String;J)J
  */
 JNIEXPORT jlong JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_createScanner(
     JNIEnv* env, jobject, jlong dataset_id, jobjectArray columns,
-    jobject substrait_projection, jobject substrait_filter,
-    jlong batch_size, jlong memory_pool_id) {
+    jobject substrait_projection, jobject substrait_filter, jlong batch_size,
+    jint file_format_id, jobjectArray options, jlong memory_pool_id) {
   JNI_METHOD_START
   arrow::MemoryPool* pool = reinterpret_cast<arrow::MemoryPool*>(memory_pool_id);
   if (pool == nullptr) {
@@ -554,6 +615,12 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_createScann
       JniThrow("The filter expression has not been provided");
     }
     JniAssertOkOrThrow(scanner_builder->Filter(*filter_expr));
+  }
+  if (file_format_id != -1 && options != nullptr) {
+    std::unordered_map<std::string, std::string> option_map = ToStringMap(env, options);
+    std::shared_ptr<arrow::dataset::FragmentScanOptions> scan_options =
+        JniGetOrThrow(GetFragmentScanOptions(file_format_id, option_map));
+    JniAssertOkOrThrow(scanner_builder->FragmentScanOptions(scan_options));
   }
   JniAssertOkOrThrow(scanner_builder->BatchSize(batch_size));
 
@@ -668,14 +735,29 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_ensureS3Fina
 /*
  * Class:     org_apache_arrow_dataset_file_JniWrapper
  * Method:    makeFileSystemDatasetFactory
- * Signature: (Ljava/lang/String;II)J
+ * Signature: (Ljava/lang/String;II;Ljava/lang/String;Ljava/lang/String)J
  */
 JNIEXPORT jlong JNICALL
-Java_org_apache_arrow_dataset_file_JniWrapper_makeFileSystemDatasetFactory__Ljava_lang_String_2I(
-    JNIEnv* env, jobject, jstring uri, jint file_format_id) {
+Java_org_apache_arrow_dataset_file_JniWrapper_makeFileSystemDatasetFactory(
+    JNIEnv* env, jobject, jstring uri, jint file_format_id, jobjectArray options) {
   JNI_METHOD_START
   std::shared_ptr<arrow::dataset::FileFormat> file_format =
       JniGetOrThrow(GetFileFormat(file_format_id));
+  if (options != nullptr) {
+    std::unordered_map<std::string, std::string> option_map = ToStringMap(env, options);
+    std::shared_ptr<arrow::dataset::FragmentScanOptions> scan_options =
+        JniGetOrThrow(GetFragmentScanOptions(file_format_id, option_map));
+    file_format->default_fragment_scan_options = scan_options;
+#ifdef ARROW_CSV
+    if (file_format_id == 3) {
+      std::shared_ptr<arrow::dataset::CsvFileFormat> csv_file_format =
+          std::dynamic_pointer_cast<arrow::dataset::CsvFileFormat>(file_format);
+      csv_file_format->parse_options =
+          std::dynamic_pointer_cast<arrow::dataset::CsvFragmentScanOptions>(scan_options)
+              ->parse_options;
+    }
+#endif
+  }
   arrow::dataset::FileSystemFactoryOptions options;
   std::shared_ptr<arrow::dataset::DatasetFactory> d =
       JniGetOrThrow(arrow::dataset::FileSystemDatasetFactory::Make(
@@ -686,16 +768,31 @@ Java_org_apache_arrow_dataset_file_JniWrapper_makeFileSystemDatasetFactory__Ljav
 
 /*
  * Class:     org_apache_arrow_dataset_file_JniWrapper
- * Method:    makeFileSystemDatasetFactory
- * Signature: ([Ljava/lang/String;II)J
+ * Method:    makeFileSystemDatasetFactoryWithFiles
+ * Signature: ([Ljava/lang/String;II;[Ljava/lang/String)J
  */
 JNIEXPORT jlong JNICALL
-Java_org_apache_arrow_dataset_file_JniWrapper_makeFileSystemDatasetFactory___3Ljava_lang_String_2I(
-    JNIEnv* env, jobject, jobjectArray uris, jint file_format_id) {
+Java_org_apache_arrow_dataset_file_JniWrapper_makeFileSystemDatasetFactoryWithFiles(
+    JNIEnv* env, jobject, jobjectArray uris, jint file_format_id, jobjectArray options) {
   JNI_METHOD_START
 
   std::shared_ptr<arrow::dataset::FileFormat> file_format =
       JniGetOrThrow(GetFileFormat(file_format_id));
+  if (options != nullptr) {
+    std::unordered_map<std::string, std::string> option_map = ToStringMap(env, options);
+    std::shared_ptr<arrow::dataset::FragmentScanOptions> scan_options =
+        JniGetOrThrow(GetFragmentScanOptions(file_format_id, option_map));
+    file_format->default_fragment_scan_options = scan_options;
+#ifdef ARROW_CSV
+    if (file_format_id == 3) {
+      std::shared_ptr<arrow::dataset::CsvFileFormat> csv_file_format =
+          std::dynamic_pointer_cast<arrow::dataset::CsvFileFormat>(file_format);
+      csv_file_format->parse_options =
+          std::dynamic_pointer_cast<arrow::dataset::CsvFragmentScanOptions>(scan_options)
+              ->parse_options;
+    }
+#endif
+  }
   arrow::dataset::FileSystemFactoryOptions options;
 
   std::vector<std::string> uri_vec = ToStringVector(env, uris);
