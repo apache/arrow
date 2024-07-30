@@ -906,6 +906,7 @@ endif()
 
 if(ARROW_JSON)
   arrow_add_object_library(ARROW_JSON
+                           extension/bool8.cc
                            extension/fixed_shape_tensor.cc
                            extension/opaque.cc
                            json/options.cc
