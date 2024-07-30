@@ -14,17 +14,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.arrow.dataset.scanner.csv;
 
-module org.apache.arrow.flight.sql {
-  exports org.apache.arrow.flight.sql;
-  exports org.apache.arrow.flight.sql.example;
-  exports org.apache.arrow.flight.sql.util;
+import java.util.Map;
+import java.util.Optional;
+import org.apache.arrow.c.ArrowSchema;
 
-  requires com.google.common;
-  requires com.google.protobuf;
-  requires java.sql;
-  requires org.apache.arrow.flight.core;
-  requires org.apache.arrow.memory.core;
-  requires org.apache.arrow.vector;
-  requires org.apache.commons.cli;
+public class CsvConvertOptions {
+
+  private final Map<String, String> configs;
+
+  private Optional<ArrowSchema> cSchema = Optional.empty();
+
+  public CsvConvertOptions(Map<String, String> configs) {
+    this.configs = configs;
+  }
+
+  public Optional<ArrowSchema> getArrowSchema() {
+    return cSchema;
+  }
+
+  public Map<String, String> getConfigs() {
+    return configs;
+  }
+
+  public void set(String key, String value) {
+    configs.put(key, value);
+  }
+
+  public void setArrowSchema(ArrowSchema cSchema) {
+    this.cSchema = Optional.of(cSchema);
+  }
 }

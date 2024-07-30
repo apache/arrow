@@ -14,17 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.arrow.dataset.scanner;
 
-module org.apache.arrow.flight.sql {
-  exports org.apache.arrow.flight.sql;
-  exports org.apache.arrow.flight.sql.example;
-  exports org.apache.arrow.flight.sql.util;
+import org.apache.arrow.dataset.file.FileFormat;
 
-  requires com.google.common;
-  requires com.google.protobuf;
-  requires java.sql;
-  requires org.apache.arrow.flight.core;
-  requires org.apache.arrow.memory.core;
-  requires org.apache.arrow.vector;
-  requires org.apache.commons.cli;
+/** The file fragment scan options interface. It is used to transfer to JNI call. */
+public interface FragmentScanOptions {
+  FileFormat fileFormat();
+
+  String[] serialize();
 }

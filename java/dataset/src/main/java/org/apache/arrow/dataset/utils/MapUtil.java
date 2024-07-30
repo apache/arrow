@@ -14,17 +14,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.arrow.dataset.utils;
 
-module org.apache.arrow.flight.sql {
-  exports org.apache.arrow.flight.sql;
-  exports org.apache.arrow.flight.sql.example;
-  exports org.apache.arrow.flight.sql.util;
+import java.util.Map;
 
-  requires com.google.common;
-  requires com.google.protobuf;
-  requires java.sql;
-  requires org.apache.arrow.flight.core;
-  requires org.apache.arrow.memory.core;
-  requires org.apache.arrow.vector;
-  requires org.apache.commons.cli;
+/** The utility class for Map. */
+public class MapUtil {
+  private MapUtil() {}
+
+  /**
+   * Convert the map to string array as JNI bridge.
+   *
+   * @param config config map
+   * @return string array for serialization
+   */
+  public static String[] convertMapToStringArray(Map<String, String> config) {
+    if (config.isEmpty()) {
+      return null;
+    }
+    String[] configs = new String[config.size() * 2];
+    int i = 0;
+    for (Map.Entry<String, String> entry : config.entrySet()) {
+      configs[i++] = entry.getKey();
+      configs[i++] = entry.getValue();
+    }
+    return configs;
+  }
 }
