@@ -150,9 +150,10 @@ static void BuildBinaryArray(benchmark::State& state) {  // NOLINT non-const ref
   state.SetItemsProcessed(state.iterations() * kItemsProcessed);
 }
 
-static void BuildSmallBinaryViewArray(
+static void BuildInlineBinaryViewArray(
     benchmark::State& state) {  // NOLINT non-const reference
-  std::string_view kBinaryStrings[] = {"1", "12345678", "12345", "123456789", "12", "", "   "};
+  std::string_view kBinaryStrings[] = {"1",  "12345678", "12345", "123456789",
+                                       "12", "",         "   "};
 
   for (auto _ : state) {
     BinaryViewBuilder builder(memory_tracker.memory_pool());
@@ -169,7 +170,7 @@ static void BuildSmallBinaryViewArray(
   state.SetItemsProcessed(state.iterations() * kItemsProcessed);
 }
 
-static void BuildLargeBinaryViewArray(
+static void BuildNonInlineBinaryViewArray(
     benchmark::State& state) {  // NOLINT non-const reference
   const char* kLargeBinaryString = "12345678901234567890123456789012345678901234567890";
   for (auto _ : state) {
@@ -495,8 +496,8 @@ BENCHMARK(BuildBinaryArray);
 BENCHMARK(BuildChunkedBinaryArray);
 BENCHMARK(BuildFixedSizeBinaryArray);
 BENCHMARK(BuildDecimalArray);
-BENCHMARK(BuildSmallBinaryViewArray);
-BENCHMARK(BuildLargeBinaryViewArray);
+BENCHMARK(BuildInlineBinaryViewArray);
+BENCHMARK(BuildNonInlineinaryViewArray);
 
 BENCHMARK(BuildInt64DictionaryArrayRandom);
 BENCHMARK(BuildInt64DictionaryArraySequential);
