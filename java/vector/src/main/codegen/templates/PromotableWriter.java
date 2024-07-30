@@ -245,11 +245,6 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
   }
 
   @Override
-  public StructWriter struct() {
-    return getWriter(MinorType.LIST).struct();
-  }
-
-  @Override
   public void writeNull() {
     FieldWriter w = getWriter();
     if (w != null) {
@@ -493,26 +488,6 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
   public void writeLargeVarChar(String value) {
     getWriter(MinorType.LARGEVARCHAR).writeLargeVarChar(value);
   }
-
-  <#list vv.types as type><#list type.minor as minor>
-  <#assign lowerName = minor.class?uncap_first />
-  <#if lowerName == "int" ><#assign lowerName = "integer" /></#if>
-  <#assign upperName = minor.class?upper_case />
-  <#assign capName = minor.class?cap_first />
-
-  <#if minor.typeParams?? >
-  @Override
-  public ${capName}Writer ${lowerName}(String name<#list minor.typeParams as typeParam>, ${typeParam.type} ${typeParam.name}</#list>) {
-    return getWriter(MinorType.STRUCT).${lowerName}(name<#list minor.typeParams as typeParam>, ${typeParam.name}</#list>);
-  }
-  </#if>
-
-  @Override
-  public ${capName}Writer ${lowerName}() {
-    return getWriter(MinorType.LIST).${lowerName}();
-  }
-
-  </#list></#list>
 
   @Override
   public void allocate() {

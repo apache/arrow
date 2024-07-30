@@ -269,6 +269,11 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
   }
 
   @Override
+  public StructWriter struct() {
+    return getWriter(MinorType.LIST).struct();
+  }
+
+  @Override
   public ListWriter list() {
     return getWriter(MinorType.LIST).list();
   }
@@ -329,6 +334,11 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
   @Override
   public ${capName}Writer ${lowerName}(String name) {
     return getWriter(MinorType.STRUCT).${lowerName}(name);
+  }
+
+  @Override
+  public ${capName}Writer ${lowerName}() {
+    return getWriter(MinorType.LIST).${lowerName}();
   }
 
   </#list></#list>
