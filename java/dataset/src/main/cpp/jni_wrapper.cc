@@ -378,12 +378,12 @@ inline bool ParseChar(const std::string& value) {
 /// \brief Construct FragmentScanOptions from config map
 #ifdef ARROW_CSV
 
-bool setCsvConvertOptions(arrow::csv::ConvertOptions& options, const std::string& key,
-                          std::string& value) {
+bool SetCsvConvertOptions(arrow::csv::ConvertOptions& options, const std::string& key,
+                          const std::string& value) {
   if (key == "column_types") {
     int64_t schema_address = std::stol(value);
     ArrowSchema* c_schema = reinterpret_cast<ArrowSchema*>(schema_address);
-    JniGetOrThrow(auto schema, arrow::ImportSchema(c_schema));
+    auto schema = JniGetOrThrow(arrow::ImportSchema(c_schema));
     auto& column_types = options.column_types;
     for (auto field : schema->fields()) {
       column_types[field->name()] = field->type();
@@ -414,8 +414,8 @@ bool setCsvConvertOptions(arrow::csv::ConvertOptions& options, const std::string
   return true;
 }
 
-bool setCsvParseOptions(arrow::csv::ParseOptions& options, const std::string& key,
-                        std::string& value) {
+bool SetCsvParseOptions(arrow::csv::ParseOptions& options, const std::string& key,
+                        const std::string& value) {
   if (key == "delimiter") {
     options.delimiter = ParseChar(value);
   } else if (key == "quoting") {
@@ -438,7 +438,7 @@ bool setCsvParseOptions(arrow::csv::ParseOptions& options, const std::string& ke
   return true;
 }
 
-bool setCsvReadOptions(arrow::csv::ReadOptions& options, const std::string& key,
+bool SetCsvReadOptions(arrow::csv::ReadOptions& options, const std::string& key,
                        std::string& value) {
   if (key == "use_threads") {
     options.use_threads = ParseBool(value);
@@ -463,9 +463,9 @@ ToCsvFragmentScanOptions(const std::unordered_map<std::string, std::string>& con
   for (const auto& it : configs) {
     const auto& key = it.first;
     const auto& value = it.second;
-    bool setValid = setCsvParseOptions(options->parse_options, key, value) &&
-                    setCsvConvertOptions(options->convert_options, key, value) &&
-                    setCsvReadOptions(options->read_options, key, value);
+    bool setValid = SetCsvParseOptions(options->parse_options, key, value) ||
+                    SetCsvConvertOptions(options->convert_options, key, value) ||
+                    SetCsvReadOptions(options->read_options, key, value);
     if (!setValid) {
       return arrow::Status::Invalid("Config " + key + " is not supported.");
     }
