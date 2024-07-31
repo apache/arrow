@@ -27,7 +27,7 @@ pytestmark = pytest.mark.nonumpy
 def test_array_to_np():
     arr = pa.array(range(10))
 
-    msg = "Cannot return a numpy.ndarray if Numpy is not present"
+    msg = "Cannot return a numpy.ndarray if NumPy is not present"
 
     with pytest.raises(ImportError, match=msg):
         arr.to_numpy()
@@ -39,7 +39,7 @@ def test_chunked_array_to_np():
         [4, 5, 6],
         []
     ])
-    msg = "Cannot return a numpy.ndarray if Numpy is not present"
+    msg = "Cannot return a numpy.ndarray if NumPy is not present"
 
     with pytest.raises(ImportError, match=msg):
         data.to_numpy()
@@ -52,7 +52,7 @@ def test_tensor_to_np():
     tensor_array = pa.ExtensionArray.from_storage(tensor_type, storage)
 
     tensor = tensor_array.to_tensor()
-    msg = "Cannot return a numpy.ndarray if Numpy is not present"
+    msg = "Cannot return a numpy.ndarray if NumPy is not present"
 
     with pytest.raises(ImportError, match=msg):
         tensor.to_numpy()

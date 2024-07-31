@@ -1612,7 +1612,7 @@ cdef class Array(_PandasConvertible):
 
         if np is None:
             raise ImportError(
-                "Cannot return a numpy.ndarray if Numpy is not present")
+                "Cannot return a numpy.ndarray if NumPy is not present")
         cdef:
             PyObject* out
             PandasOptions c_options
