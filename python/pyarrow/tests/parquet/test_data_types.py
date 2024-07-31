@@ -17,6 +17,7 @@
 
 import decimal
 import io
+import random
 
 try:
     import numpy as np
@@ -335,14 +336,13 @@ def test_column_of_lists(tempdir):
     tm.assert_frame_equal(df, df_read)
 
 
-@pytest.mark.numpy
 def test_large_list_records():
     # This was fixed in PARQUET-1100
 
-    list_lengths = np.random.randint(0, 500, size=50)
-    list_lengths[::10] = 0
+    list_lengths = [random.randint(0, 500) for _ in range(50)]
+    list_lengths[::10] = [0, 0, 0, 0, 0]
 
-    list_values = [list(map(int, np.random.randint(0, 100, size=x)))
+    list_values = [list(map(int, [random.randint(0, 100) for _ in range(x)]))
                    if i % 8 else None
                    for i, x in enumerate(list_lengths)]
 
