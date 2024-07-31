@@ -1156,7 +1156,6 @@ def test_partitioned_dataset(tempdir):
     pq.write_table(table, path / "output.parquet")
 
 
-@pytest.mark.numpy
 def test_dataset_read_dictionary(tempdir):
     path = tempdir / "ARROW-3325-dataset"
     t1 = pa.table([[util.rands(10) for i in range(5)] * 10], names=['f0'])

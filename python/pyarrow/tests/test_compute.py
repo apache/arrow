@@ -69,28 +69,26 @@ numerical_arrow_types = [
 ]
 
 
-@pytest.fixture
-def all_array_types():
-    return [
-        ('bool', [True, False, False, True, True]),
-        ('uint8', np.arange(5)),
-        ('int8', np.arange(5)),
-        ('uint16', np.arange(5)),
-        ('int16', np.arange(5)),
-        ('uint32', np.arange(5)),
-        ('int32', np.arange(5)),
-        ('uint64', np.arange(5, 10)),
-        ('int64', np.arange(5, 10)),
-        ('float', np.arange(0, 0.5, 0.1)),
-        ('double', np.arange(0, 0.5, 0.1)),
-        ('string', ['a', 'b', None, 'ddd', 'ee']),
-        ('binary', [b'a', b'b', b'c', b'ddd', b'ee']),
-        (pa.binary(3), [b'abc', b'bcd', b'cde', b'def', b'efg']),
-        (pa.list_(pa.int8()), [[1, 2], [3, 4], [5, 6], None, [9, 16]]),
-        (pa.large_list(pa.int16()), [[1], [2, 3, 4], [5, 6], None, [9, 16]]),
-        (pa.struct([('a', pa.int8()), ('b', pa.int8())]), [
-            {'a': 1, 'b': 2}, None, {'a': 3, 'b': 4}, None, {'a': 5, 'b': 6}]),
-    ]
+all_array_types = [
+    ('bool', [True, False, False, True, True]),
+    ('uint8', range(5)),
+    ('int8', range(5)),
+    ('uint16', range(5)),
+    ('int16', range(5)),
+    ('uint32', range(5)),
+    ('int32', range(5)),
+    ('uint64', range(5, 10)),
+    ('int64', range(5, 10)),
+    ('float', [0, 0.1, 0.2, 0.3, 0.4]),
+    ('double', [0, 0.1, 0.2, 0.3, 0.4]),
+    ('string', ['a', 'b', None, 'ddd', 'ee']),
+    ('binary', [b'a', b'b', b'c', b'ddd', b'ee']),
+    (pa.binary(3), [b'abc', b'bcd', b'cde', b'def', b'efg']),
+    (pa.list_(pa.int8()), [[1, 2], [3, 4], [5, 6], None, [9, 16]]),
+    (pa.large_list(pa.int16()), [[1], [2, 3, 4], [5, 6], None, [9, 16]]),
+    (pa.struct([('a', pa.int8()), ('b', pa.int8())]), [
+        {'a': 1, 'b': 2}, None, {'a': 3, 'b': 4}, None, {'a': 5, 'b': 6}]),
+]
 
 
 def test_exported_functions():
@@ -1117,31 +1115,30 @@ def test_binary_join_element_wise():
         'a', 'b', null, options=replace).as_py() is None
 
 
-@pytest.mark.numpy
-def test_take(all_array_types):
-    for ty, values in all_array_types:
-        arr = pa.array(values, type=ty)
-        for indices_type in [pa.int8(), pa.int64()]:
-            indices = pa.array([0, 4, 2, None], type=indices_type)
-            result = arr.take(indices)
-            result.validate()
-            expected = pa.array([values[0], values[4], values[2], None], type=ty)
-            assert result.equals(expected)
+@pytest.mark.parametrize(('ty', 'values'), all_array_types)
+def test_take(ty, values):
+    arr = pa.array(values, type=ty)
+    for indices_type in [pa.int8(), pa.int64()]:
+        indices = pa.array([0, 4, 2, None], type=indices_type)
+        result = arr.take(indices)
+        result.validate()
+        expected = pa.array([values[0], values[4], values[2], None], type=ty)
+        assert result.equals(expected)
 
-            # empty indices
-            indices = pa.array([], type=indices_type)
-            result = arr.take(indices)
-            result.validate()
-            expected = pa.array([], type=ty)
-            assert result.equals(expected)
+        # empty indices
+        indices = pa.array([], type=indices_type)
+        result = arr.take(indices)
+        result.validate()
+        expected = pa.array([], type=ty)
+        assert result.equals(expected)
 
-        indices = pa.array([2, 5])
-        with pytest.raises(IndexError):
-            arr.take(indices)
+    indices = pa.array([2, 5])
+    with pytest.raises(IndexError):
+        arr.take(indices)
 
-        indices = pa.array([2, -1])
-        with pytest.raises(IndexError):
-            arr.take(indices)
+    indices = pa.array([2, -1])
+    with pytest.raises(IndexError):
+        arr.take(indices)
 
 
 def test_take_indices_types():
@@ -1161,7 +1158,6 @@ def test_take_indices_types():
             arr.take(indices)
 
 
-@pytest.mark.numpy
 def test_take_on_chunked_array():
     # ARROW-9504
     arr = pa.chunked_array([
@@ -1181,7 +1177,7 @@ def test_take_on_chunked_array():
         ]
     ])
 
-    indices = np.array([0, 5, 1, 6, 9, 2])
+    indices = pa.array([0, 5, 1, 6, 9, 2])
     result = arr.take(indices)
     expected = pa.chunked_array([["a", "f", "b", "g", "j", "c"]])
     assert result.equals(expected)
@@ -1225,15 +1221,14 @@ def test_take_null_type():
     assert len(table.take(indices).column(0)) == 4
 
 
-@pytest.mark.numpy
-def test_drop_null(all_array_types):
-    for ty, values in all_array_types:
-        arr = pa.array(values, type=ty)
-        result = arr.drop_null()
-        result.validate(full=True)
-        indices = [i for i in range(len(arr)) if arr[i].is_valid]
-        expected = arr.take(pa.array(indices))
-        assert result.equals(expected)
+@pytest.mark.parametrize(('ty', 'values'), all_array_types)
+def test_drop_null(ty, values):
+    arr = pa.array(values, type=ty)
+    result = arr.drop_null()
+    result.validate(full=True)
+    indices = [i for i in range(len(arr)) if arr[i].is_valid]
+    expected = arr.take(pa.array(indices))
+    assert result.equals(expected)
 
 
 def test_drop_null_chunked_array():
@@ -1302,24 +1297,17 @@ def test_drop_null_null_type():
     assert len(table.drop_null().column(0)) == 0
 
 
-@pytest.mark.numpy
-def test_filter(all_array_types):
-    for ty, values in all_array_types:
-        arr = pa.array(values, type=ty)
+@pytest.mark.parametrize(('ty', 'values'), all_array_types)
+def test_filter(ty, values):
+    arr = pa.array(values, type=ty)
 
-        mask = pa.array([True, False, False, True, None])
-        result = arr.filter(mask, null_selection_behavior='drop')
-        result.validate()
-        assert result.equals(pa.array([values[0], values[3]], type=ty))
-        result = arr.filter(mask, null_selection_behavior='emit_null')
-        result.validate()
-        assert result.equals(pa.array([values[0], values[3], None], type=ty))
-
-    # same test with different array type
-    mask = np.array([True, False, False, True, None])
+    mask = pa.array([True, False, False, True, None])
     result = arr.filter(mask, null_selection_behavior='drop')
     result.validate()
     assert result.equals(pa.array([values[0], values[3]], type=ty))
+    result = arr.filter(mask, null_selection_behavior='emit_null')
+    result.validate()
+    assert result.equals(pa.array([values[0], values[3], None], type=ty))
 
     # non-boolean dtype
     mask = pa.array([0, 1, 0, 1, 0])
@@ -1330,6 +1318,17 @@ def test_filter(all_array_types):
         mask = pa.array([True, False, True])
         with pytest.raises(ValueError, match="must all be the same length"):
             arr.filter(mask)
+
+
+@pytest.mark.numpy
+@pytest.mark.parametrize(('ty', 'values'), all_array_types)
+def test_filter_numpy_array_mask(ty, values):
+    arr = pa.array(values, type=ty)
+    # same test as test_filter with different array type
+    mask = np.array([True, False, False, True, None])
+    result = arr.filter(mask, null_selection_behavior='drop')
+    result.validate()
+    assert result.equals(pa.array([values[0], values[3]], type=ty))
 
 
 def test_filter_chunked_array():
@@ -1572,7 +1571,6 @@ def test_arithmetic_multiply():
     assert result.equals(expected)
 
 
-@pytest.mark.numpy
 @pytest.mark.parametrize("ty", ["round", "round_to_multiple"])
 def test_round_to_integer(ty):
     if ty == "round":
@@ -1598,7 +1596,8 @@ def test_round_to_integer(ty):
     for round_mode, expected in rmode_and_expected.items():
         options = RoundOptions(round_mode=round_mode)
         result = round(values, options=options)
-        np.testing.assert_array_equal(result, pa.array(expected))
+        expected_array = pa.array(expected, type=pa.float64())
+        assert expected_array.equals(result)
 
 
 @pytest.mark.numpy
@@ -1665,7 +1664,6 @@ def test_round_binary():
         5.0, scale, round_mode="half_towards_infinity") == expect_inf
 
 
-@pytest.mark.numpy
 def test_is_null():
     arr = pa.array([1, 2, 3, None])
     result = arr.is_null()
@@ -1685,7 +1683,7 @@ def test_is_null():
     expected = pa.chunked_array([[True, True], [True, False]])
     assert result.equals(expected)
 
-    arr = pa.array([1, 2, 3, None, np.nan])
+    arr = pa.array([1, 2, 3, None, float("nan")])
     result = arr.is_null()
     expected = pa.array([False, False, False, True, False])
     assert result.equals(expected)
@@ -1695,9 +1693,8 @@ def test_is_null():
     assert result.equals(expected)
 
 
-@pytest.mark.numpy
 def test_is_nan():
-    arr = pa.array([1, 2, 3, None, np.nan])
+    arr = pa.array([1, 2, 3, None, float("nan")])
     result = arr.is_nan()
     expected = pa.array([False, False, False, None, True])
     assert result.equals(expected)

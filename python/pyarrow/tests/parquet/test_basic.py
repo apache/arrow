@@ -22,10 +22,6 @@ import warnings
 from shutil import copytree
 from decimal import Decimal
 
-try:
-    import numpy as np
-except ImportError:
-    np = None
 import pytest
 
 import pyarrow as pa
@@ -50,6 +46,10 @@ try:
 except ImportError:
     pd = tm = None
 
+try:
+    import numpy as np
+except ImportError:
+    np = None
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not parquet'

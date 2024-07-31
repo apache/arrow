@@ -117,10 +117,8 @@ def rands(nchars):
     """
     Generate one random string.
     """
-    import numpy as np
-    RANDS_CHARS = np.array(
-        list(string.ascii_letters + string.digits), dtype=(np.str_, 1))
-    return "".join(np.random.choice(RANDS_CHARS, nchars))
+    RANDS_CHARS = list(string.ascii_letters + string.digits)
+    return "".join(random.choice(RANDS_CHARS) for i in range(nchars))
 
 
 def memory_leak_check(f, metric='rss', threshold=1 << 17, iterations=10,
