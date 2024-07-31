@@ -1052,21 +1052,15 @@ class ObjectAppendStream final : public io::OutputStream {
     return Status::OK();
   }
 
-  Status EnsureReadyToFlushFromClose() {
-    if (current_block_) {
-      // Upload remaining buffer
-      RETURN_NOT_OK(WriteBuffer());
-    }
-
-    return Status::OK();
-  }
-
   Status Close() override {
     if (closed_) {
       return Status::OK();
     }
 
-    RETURN_NOT_OK(EnsureReadyToFlushFromClose());
+    if (current_block_) {
+      // Upload remaining buffer
+      RETURN_NOT_OK(WriteBuffer());
+    }
 
     RETURN_NOT_OK(Flush());
     block_blob_client_ = nullptr;
@@ -1079,7 +1073,10 @@ class ObjectAppendStream final : public io::OutputStream {
       return Status::OK();
     }
 
-    RETURN_NOT_OK(EnsureReadyToFlushFromClose());
+    if (current_block_) {
+      // Upload remaining buffer
+      RETURN_NOT_OK(WriteBuffer());
+    }
 
     return FlushAsync();
   }
@@ -1290,12 +1287,11 @@ class ObjectAppendStream final : public io::OutputStream {
   std::shared_ptr<Blobs::BlockBlobClient> block_blob_client_;
   const io::IOContext io_context_;
   const AzureLocation location_;
+  const bool background_writes_;
   int64_t content_length_ = kNoSize;
 
   std::shared_ptr<io::BufferOutputStream> current_block_;
   int64_t current_block_size_ = 0;
-
-  const bool background_writes_;
 
   bool closed_ = false;
   bool initialised_ = false;
