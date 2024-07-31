@@ -24,6 +24,7 @@ import gzip
 import io
 import itertools
 import os
+import random
 import select
 import shutil
 import signal
@@ -35,11 +36,6 @@ import unittest
 import weakref
 
 import pytest
-
-try:
-    import numpy as np
-except ImportError:
-    np = None
 
 import pyarrow as pa
 from pyarrow.csv import (
@@ -57,18 +53,31 @@ def generate_col_names():
             yield first + second
 
 
+def split_rows(arr, num_cols, num_rows):
+    # Split a num_cols x num_rows array into rows
+    for i in range(0, num_rows*num_cols, num_cols):
+        yield list(itertools.islice(arr, i, i + num_cols))
+
+
+def split_columns(arr, num_cols, num_rows):
+    # Split a num_cols x num_rows array into columns
+    for i in range(0, num_cols):
+        yield list(itertools.islice(arr, i, num_cols * num_rows, num_cols))
+
+
 def make_random_csv(num_cols=2, num_rows=10, linesep='\r\n', write_names=True):
-    arr = np.random.RandomState(42).randint(0, 1000, size=(num_cols, num_rows))
+    arr = [random.randint(0, 1000) for _ in range(num_cols * num_rows)]
     csv = io.StringIO()
     col_names = list(itertools.islice(generate_col_names(), num_cols))
     if write_names:
         csv.write(",".join(col_names))
         csv.write(linesep)
-    for row in arr.T:
+    for row in split_rows(arr, num_cols, num_rows):
         csv.write(",".join(map(str, row)))
         csv.write(linesep)
     csv = csv.getvalue().encode()
-    columns = [pa.array(a, type=pa.int64()) for a in arr]
+    columns = [pa.array(row, type=pa.int64())
+               for row in split_columns(arr, num_cols, num_rows)]
     expected = pa.Table.from_arrays(columns, col_names)
     return csv, expected
 
@@ -128,6 +137,25 @@ class InvalidRowHandler:
     def __ne__(self, other):
         return (not isinstance(other, InvalidRowHandler) or
                 other.result != self.result)
+
+
+def test_split_rows_and_columns_utility():
+    num_cols = 5
+    num_rows = 2
+    arr = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    rows = list(split_rows(arr, num_cols, num_rows))
+    assert rows == [
+        [1, 2, 3, 4, 5],
+        [6, 7, 8, 9, 10]
+    ]
+    columns = list(split_columns(arr, num_cols, num_rows))
+    assert columns == [
+        [1, 6],
+        [2, 7],
+        [3, 8],
+        [4, 9],
+        [5, 10]
+    ]
 
 
 def test_read_options(pickle_module):
@@ -418,7 +446,6 @@ class BaseTestCSV(abc.ABC):
             "kl": [],
         }
 
-    @pytest.mark.numpy
     def test_skip_rows_after_names(self):
         rows = b"ab,cd\nef,gh\nij,kl\nmn,op\n"
 
@@ -1366,7 +1393,6 @@ class BaseCSVTableRead(BaseTestCSV):
             'b,c': ['eh'],
         }
 
-    @pytest.mark.numpy
     def test_small_random_csv(self):
         csv, expected = make_random_csv(num_cols=2, num_rows=10)
         table = self.read_bytes(csv)
@@ -1374,7 +1400,6 @@ class BaseCSVTableRead(BaseTestCSV):
         assert table.equals(expected)
         assert table.to_pydict() == expected.to_pydict()
 
-    @pytest.mark.numpy
     def test_stress_block_sizes(self):
         # Test a number of small block sizes to stress block stitching
         csv_base, expected = make_random_csv(num_cols=2, num_rows=500)
@@ -1742,7 +1767,6 @@ class BaseStreamingCSVRead(BaseTestCSV):
                           [{'a': ["un"],
                             'b': ["éléphant"]}])
 
-    @pytest.mark.numpy
     def test_small_random_csv(self):
         csv, expected = make_random_csv(num_cols=2, num_rows=10)
         reader = self.open_bytes(csv)
@@ -1751,7 +1775,6 @@ class BaseStreamingCSVRead(BaseTestCSV):
         assert table.equals(expected)
         assert table.to_pydict() == expected.to_pydict()
 
-    @pytest.mark.numpy
     def test_stress_block_sizes(self):
         # Test a number of small block sizes to stress block stitching
         csv_base, expected = make_random_csv(num_cols=2, num_rows=500)
@@ -1858,7 +1881,6 @@ class BaseTestCompressedCSVRead:
         except pa.ArrowNotImplementedError as e:
             pytest.skip(str(e))
 
-    @pytest.mark.numpy
     def test_random_csv(self):
         csv, expected = make_random_csv(num_cols=2, num_rows=100)
         csv_path = os.path.join(self.tmpdir, self.csv_filename)
