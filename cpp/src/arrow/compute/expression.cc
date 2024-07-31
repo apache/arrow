@@ -1287,8 +1287,8 @@ struct Inequality {
   /// \pre `guarantee.bound` is a scalar
   /// \pre `guarantee.bound.type()->id() == value_set->type_id()`
   /// \pre `value_set` is non-empty
-  /// \return a simplified value set, or a bool if the simplification results in
-  ///   a boolean literal predicate.
+  /// \return a simplified value set, or a bool if the simplification of the value set
+  ///         means the whole is_in expr can become a boolean literal.
   template <typename ArrowType>
   static std::variant<std::shared_ptr<Array>, bool> SimplifyIsInValueSet(
       const Inequality& guarantee, std::shared_ptr<Array> value_set) {
