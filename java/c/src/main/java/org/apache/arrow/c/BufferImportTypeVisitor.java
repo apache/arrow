@@ -113,9 +113,40 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
     return importBuffer(type, index, capacity);
   }
 
+  private ArrowBuf importFixedBitsWithOffset(ArrowType type, int index, long bitsPerSlot) {
+    // TODO: merge with importFixedBits
+    // Calculate the total capacity needed, including the offset
+    final long totalSlots = arrowArrayOffset + fieldNode.getLength();
+    final long totalBits = totalSlots * bitsPerSlot;
+    // final long capacity = DataSizeRoundingUtil.divideBy8Ceil(totalBits);
+
+    // Import the buffer with the calculated capacity
+    ArrowBuf buf = importBuffer(type, index, totalBits);
+
+    // Calculate the start and end positions in bits
+    final long startBit = arrowArrayOffset * bitsPerSlot;
+    final long endBit = (arrowArrayOffset + fieldNode.getLength()) * bitsPerSlot;
+
+    // Calculate the start and end positions in bytes
+    // TODO: this cannot process bit boundaries in slicing
+    final long startByte = DataSizeRoundingUtil.divideBy8Ceil(startBit);
+    final long endByte = DataSizeRoundingUtil.divideBy8Ceil(endBit);
+
+    if (startByte != endByte) {
+      return buf.slice(startByte, endByte - startByte);
+    }
+    return buf;
+  }
+
   private ArrowBuf importFixedBytes(ArrowType type, int index, long bytesPerSlot) {
     final long capacity = bytesPerSlot * fieldNode.getLength();
     return importBuffer(type, index, capacity);
+  }
+
+  private ArrowBuf importFixedBytesWithOffset(ArrowType type, int index, long bytesPerSlot) {
+    final long capacity = bytesPerSlot * (fieldNode.getLength() + arrowArrayOffset);
+    ArrowBuf buf = importBuffer(type, index, capacity);
+    return buf.slice(arrowArrayOffset * bytesPerSlot, fieldNode.getLength() * bytesPerSlot);
   }
 
   private ArrowBuf importOffsets(ArrowType type, long bytesPerSlot) {
@@ -140,6 +171,20 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
       return null;
     }
     return importFixedBits(type, 0, /*bitsPerSlot=*/ 1);
+  }
+
+  private ArrowBuf maybeImportBitmapWithOffset(ArrowType type) {
+    // TODO: merge with maybeImportBitMap
+    checkState(
+        buffers.length > 0,
+        "Expected at least %s buffers for type %s, but found %s",
+        1,
+        type,
+        buffers.length);
+    if (buffers[0] == NULL) {
+      return null;
+    }
+    return importFixedBitsWithOffset(type, 0, /*bitsPerSlot=*/ 1);
   }
 
   @Override
@@ -195,7 +240,8 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
 
   @Override
   public List<ArrowBuf> visit(ArrowType.Int type) {
-    return Arrays.asList(maybeImportBitmap(type), importFixedBits(type, 1, type.getBitWidth()));
+    return Arrays.asList(
+        maybeImportBitmapWithOffset(type), importFixedBitsWithOffset(type, 1, type.getBitWidth()));
   }
 
   @Override
