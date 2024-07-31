@@ -17,8 +17,7 @@
 package org.apache.arrow.dataset;
 
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 
 import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
@@ -274,7 +273,9 @@ public class TestFragmentScanOptions {
             new FileSystemDatasetFactory(
                 allocator, NativeMemoryPool.getDefault(), FileFormat.CSV, path);
         Dataset dataset = datasetFactory.finish();
-        Scanner ignored = dataset.newScan(options)) {}
+        Scanner scanner = dataset.newScan(options)) {
+      assertNotNull(scanner);
+    }
   }
 
   @Test
