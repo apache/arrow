@@ -439,7 +439,7 @@ bool SetCsvParseOptions(arrow::csv::ParseOptions& options, const std::string& ke
 }
 
 bool SetCsvReadOptions(arrow::csv::ReadOptions& options, const std::string& key,
-                       std::string& value) {
+                       const std::string& value) {
   if (key == "use_threads") {
     options.use_threads = ParseBool(value);
   } else if (key == "block_size") {
