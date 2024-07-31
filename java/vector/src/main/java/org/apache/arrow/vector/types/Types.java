@@ -69,6 +69,7 @@ import org.apache.arrow.vector.ViewVarCharVector;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.LargeListVector;
+import org.apache.arrow.vector.complex.LargeListViewVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.ListViewVector;
 import org.apache.arrow.vector.complex.MapVector;
@@ -637,6 +638,19 @@ public class Types {
       public FieldVector getNewVector(
           Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new LargeListVector(
+            field.getName(), allocator, field.getFieldType(), schemaChangeCallback);
+      }
+
+      @Override
+      public FieldWriter getNewFieldWriter(ValueVector vector) {
+        return new UnionLargeListWriter((LargeListVector) vector);
+      }
+    },
+    LARGELISTVIEW(ArrowType.LargeListView.INSTANCE) {
+      @Override
+      public FieldVector getNewVector(
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new LargeListViewVector(
             field.getName(), allocator, field.getFieldType(), schemaChangeCallback);
       }
 

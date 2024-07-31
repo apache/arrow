@@ -403,4 +403,10 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
     throw new UnsupportedOperationException(
         "Importing buffers for view type: " + type + " not supported");
   }
+
+  @Override
+  public List<ArrowBuf> visit(ArrowType.LargeListView type) {
+    throw new UnsupportedOperationException(
+        "Importing buffers for view type: " + type + " not supported");
+  }
 }

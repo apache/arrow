@@ -53,6 +53,7 @@ public class ComplexCopier {
       case LIST:
       case LISTVIEW:
       case LARGELIST:
+      case LARGELISTVIEW:
       case FIXED_SIZE_LIST:
         if (reader.isSet()) {
           writer.startList();
@@ -204,6 +205,8 @@ public class ComplexCopier {
         return (FieldWriter) writer.struct();
       case FIXED_SIZE_LIST:
       case LIST:
+      case LISTVIEW:
+        return (FieldWriter) writer.listView();
       case NULL:
         return (FieldWriter) writer.list();
       case LISTVIEW:

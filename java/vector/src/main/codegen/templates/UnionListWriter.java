@@ -26,7 +26,7 @@ import java.lang.UnsupportedOperationException;
 import java.math.BigDecimal;
 
 <@pp.dropOutputFile />
-<#list ["List", "ListView", "LargeList"] as listName>
+<#list ["List", "ListView", "LargeList", "LargeListView"] as listName>
 
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/Union${listName}Writer.java" />
 
@@ -53,14 +53,14 @@ public class Union${listName}Writer extends AbstractFieldWriter {
   private boolean inStruct = false;
   private boolean listStarted = false;
   private String structName;
-  <#if listName == "LargeList">
+  <#if listName == "LargeList" || listName == "LargeListView">
   private static final long OFFSET_WIDTH = 8;
   <#else>
   private static final int OFFSET_WIDTH = 4;
   </#if>
 
-  <#if listName = "ListView">
-  private static final long SIZE_WIDTH = 4;
+  <#if listName == "ListView" || listName == "LargeListView">
+  private static final long SIZE_WIDTH = listName == "LargeListView" ? 8 : 4;
   </#if>
 
   public Union${listName}Writer(${listName}Vector vector) {
