@@ -565,24 +565,26 @@ class ConcatenateImpl {
   }
 
   Status Visit(const StructType& s) {
-    std::shared_ptr<StructType> suggested = nullptr;
+    std::vector<std::shared_ptr<Field>> suggested_field_casts;
     for (int i = 0; i < s.num_fields(); ++i) {
       ARROW_ASSIGN_OR_RAISE(auto child_data, ChildData(i));
-      ErrorHints child_hints;
+      ErrorHints field_error_hints;
       auto status = ConcatenateImpl(child_data, pool_)
-                        .Concatenate(&out_->child_data[i], &child_hints);
-      if (!status.ok() && child_hints.suggested_cast) {
-        ARROW_ASSIGN_OR_RAISE(
-            suggested,
-            suggested
-                ? suggested->SetField(
-                      i, s.field(i)->WithType(std::move(child_hints.suggested_cast)))
-                : s.SetField(
-                      i, s.field(i)->WithType(std::move(child_hints.suggested_cast))));
+                        .Concatenate(&out_->child_data[i], &field_error_hints);
+      if (!status.ok()) {
+        if (field_error_hints.suggested_cast) {
+          if (suggested_field_casts.empty()) {
+            suggested_field_casts = s.fields();
+          }
+          suggested_field_casts[i] = suggested_field_casts[i]->WithType(
+              std::move(field_error_hints.suggested_cast));
+        } else {
+          return status;
+        }
       }
     }
-    if (suggested) {
-      suggested_cast_ = std::move(suggested);
+    if (!suggested_field_casts.empty()) {
+      suggested_cast_ = struct_(suggested_field_casts);
       return OffsetOverflowStatus();
     }
     return Status::OK();
@@ -701,6 +703,7 @@ class ConcatenateImpl {
           RETURN_NOT_OK(ConcatenateImpl(child_data, pool_)
                             .Concatenate(&out_->child_data[i], /*hints=*/nullptr));
         }
+
         break;
       }
       case UnionMode::DENSE: {
