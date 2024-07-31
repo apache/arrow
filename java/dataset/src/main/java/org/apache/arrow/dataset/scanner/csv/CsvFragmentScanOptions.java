@@ -32,8 +32,8 @@ public class CsvFragmentScanOptions implements FragmentScanOptions {
    * CSV scan options, map to CPP struct CsvFragmentScanOptions. The key in config map is the field
    * name of mapping cpp struct
    *
-   * If the option type is std::vector in cpp code, only support set one value.
-   * For example, for convert option null_values, only support set one string as null value.
+   * <p>If the option type is a std::vector in the CPP code, only support for setting one value. For
+   * example, for convert option null_values, only support set one string as null value.
    *
    * @param convertOptions similar to CsvFragmentScanOptions#convert_options in CPP, the ArrowSchema
    *     represents column_types, convert data option such as null value recognition.

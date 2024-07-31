@@ -18,10 +18,13 @@ package org.apache.arrow.dataset;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Map;
 import java.util.Optional;
 import org.apache.arrow.c.ArrowSchema;
 import org.apache.arrow.c.CDataDictionaryProvider;
@@ -203,6 +206,112 @@ public class TestFragmentScanOptions {
         rowCount += reader.getVectorSchemaRoot().getRowCount();
       }
       assertEquals(2, rowCount);
+    }
+  }
+
+  @Test
+  public void testCsvReadOtherOptions() throws Exception {
+    String path = "file://" + getClass().getResource("/").getPath() + "/data/student.csv";
+    BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+    Map<String, String> convertOption =
+        ImmutableMap.of(
+            "check_utf8",
+            "true",
+            "null_values",
+            "NULL",
+            "true_values",
+            "True",
+            "false_values",
+            "False",
+            "quoted_strings_can_be_null",
+            "true",
+            "auto_dict_encode",
+            "false",
+            "auto_dict_max_cardinality",
+            "3456",
+            "decimal_point",
+            ".",
+            "include_missing_columns",
+            "false");
+    Map<String, String> readOption =
+        ImmutableMap.of(
+            "use_threads",
+            "true",
+            "block_size",
+            "1024",
+            "skip_rows",
+            "12",
+            "skip_rows_after_names",
+            "12",
+            "autogenerate_column_names",
+            "false");
+    Map<String, String> parseOption =
+        ImmutableMap.of(
+            "delimiter",
+            ".",
+            "quoting",
+            "true",
+            "quote_char",
+            "'",
+            "double_quote",
+            "False",
+            "escaping",
+            "true",
+            "escape_char",
+            "v",
+            "newlines_in_values",
+            "false",
+            "ignore_empty_lines",
+            "true");
+    CsvFragmentScanOptions fragmentScanOptions =
+        new CsvFragmentScanOptions(new CsvConvertOptions(convertOption), readOption, parseOption);
+    ScanOptions options =
+        new ScanOptions.Builder(/*batchSize*/ 32768)
+            .columns(Optional.empty())
+            .fragmentScanOptions(fragmentScanOptions)
+            .build();
+    try (DatasetFactory datasetFactory =
+            new FileSystemDatasetFactory(
+                allocator, NativeMemoryPool.getDefault(), FileFormat.CSV, path);
+        Dataset dataset = datasetFactory.finish();
+        Scanner ignored = dataset.newScan(options)) {}
+  }
+
+  @Test
+  public void testCsvInvalidOption() throws Exception {
+    String path = "file://" + getClass().getResource("/").getPath() + "/data/student.csv";
+    BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+    Map<String, String> convertOption = ImmutableMap.of("not_exists_key_check_utf8", "true");
+    CsvFragmentScanOptions fragmentScanOptions =
+        new CsvFragmentScanOptions(
+            new CsvConvertOptions(convertOption), ImmutableMap.of(), ImmutableMap.of());
+    ScanOptions options =
+        new ScanOptions.Builder(/*batchSize*/ 32768)
+            .columns(Optional.empty())
+            .fragmentScanOptions(fragmentScanOptions)
+            .build();
+    try (DatasetFactory datasetFactory =
+            new FileSystemDatasetFactory(
+                allocator, NativeMemoryPool.getDefault(), FileFormat.CSV, path);
+        Dataset dataset = datasetFactory.finish()) {
+      assertThrows(IOException.class, () -> dataset.newScan(options));
+    }
+
+    CsvFragmentScanOptions fragmentScanOptionsFaultValue =
+        new CsvFragmentScanOptions(
+            new CsvConvertOptions(ImmutableMap.of()),
+            ImmutableMap.of("", ""),
+            ImmutableMap.of("escape_char", "vbvb"));
+    ScanOptions optionsFault =
+        new ScanOptions.Builder(/*batchSize*/ 32768)
+            .columns(Optional.empty())
+            .fragmentScanOptions(fragmentScanOptionsFaultValue)
+            .build();
+    try (DatasetFactory datasetFactory =
+            new FileSystemDatasetFactory(
+                allocator, NativeMemoryPool.getDefault(), FileFormat.CSV, path);
+        Dataset dataset = datasetFactory.finish()) {
+      assertThrows(Throwable.class, () -> dataset.newScan(optionsFault));
     }
   }
 }
