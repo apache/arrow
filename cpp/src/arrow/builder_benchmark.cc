@@ -497,7 +497,7 @@ BENCHMARK(BuildChunkedBinaryArray);
 BENCHMARK(BuildFixedSizeBinaryArray);
 BENCHMARK(BuildDecimalArray);
 BENCHMARK(BuildInlineBinaryViewArray);
-BENCHMARK(BuildNonInlineinaryViewArray);
+BENCHMARK(BuildNonInlineBinaryViewArray);
 
 BENCHMARK(BuildInt64DictionaryArrayRandom);
 BENCHMARK(BuildInt64DictionaryArraySequential);
