@@ -114,6 +114,9 @@ struct ARROW_DS_EXPORT ScanOptions {
   /// Note: This  must be true in order for any readahead to happen
   bool use_threads = false;
 
+  /// If true the scanner will add augmented fields to the output schema.
+  bool add_augmented_fields = true;
+
   /// Fragment-specific scan options.
   std::shared_ptr<FragmentScanOptions> fragment_scan_options;
 
@@ -141,7 +144,7 @@ struct ARROW_DS_EXPORT ScanOptions {
 /// Scan-specific options, which can be changed between scans of the same dataset.
 ///
 /// A dataset consists of one or more individual fragments.  A fragment is anything
-/// that is indepedently scannable, often a file.
+/// that is independently scannable, often a file.
 ///
 /// Batches from all fragments will be converted to a single schema. This unified
 /// schema is referred to as the "dataset schema" and is the output schema for
@@ -230,7 +233,7 @@ struct ARROW_DS_EXPORT ScanV2Options : public acero::ExecNodeOptions {
   /// for example, if scanning a parquet file that has batches with 100MiB of data
   /// then the actual readahead will be at least 100MiB
   ///
-  /// Set to 0 to disable readhead.  When disabled, the scanner will read the
+  /// Set to 0 to disable readahead.  When disabled, the scanner will read the
   /// dataset one batch at a time
   ///
   /// This limit applies across all fragments.  If the limit is 32MiB and the
@@ -287,10 +290,12 @@ struct ARROW_DS_EXPORT ProjectionDescr {
 
   /// \brief Create a default projection referencing fields in the dataset schema
   static Result<ProjectionDescr> FromNames(std::vector<std::string> names,
-                                           const Schema& dataset_schema);
+                                           const Schema& dataset_schema,
+                                           bool add_augmented_fields = true);
 
   /// \brief Make a projection that projects every field in the dataset schema
-  static Result<ProjectionDescr> Default(const Schema& dataset_schema);
+  static Result<ProjectionDescr> Default(const Schema& dataset_schema,
+                                         bool add_augmented_fields = true);
 };
 
 /// \brief Utility method to set the projection expression and schema

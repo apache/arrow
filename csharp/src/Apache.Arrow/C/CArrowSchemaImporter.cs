@@ -165,7 +165,7 @@ namespace Apache.Arrow.C
                 }
 
                 // Special handling for nested types
-                if (format == "+l")
+                if (format == "+l" || format == "+vl" || format == "+L")
                 {
                     if (_cSchema->n_children != 1)
                     {
@@ -180,7 +180,13 @@ namespace Apache.Arrow.C
 
                     Field childField = childSchema.GetAsField();
 
-                    return new ListType(childField);
+                    return format[1] switch
+                    {
+                        'l' => new ListType(childField),
+                        'v' => new ListViewType(childField),
+                        'L' => new LargeListType(childField),
+                        _ => throw new InvalidDataException($"Invalid format for list: '{format}'"),
+                    };
                 }
                 else if (format == "+s")
                 {
@@ -303,9 +309,11 @@ namespace Apache.Arrow.C
                     "g" => DoubleType.Default,
                     // Binary data
                     "z" => BinaryType.Default,
-                    //"Z" => new LargeBinaryType() // Not yet implemented
+                    "vz" => BinaryViewType.Default,
+                    "Z" => LargeBinaryType.Default,
                     "u" => StringType.Default,
-                    //"U" => new LargeStringType(), // Not yet implemented
+                    "vu" => StringViewType.Default,
+                    "U" => LargeStringType.Default,
                     // Date and time
                     "tdD" => Date32Type.Default,
                     "tdm" => Date64Type.Default,
@@ -319,7 +327,7 @@ namespace Apache.Arrow.C
                     "tDn" => DurationType.Nanosecond,
                     "tiM" => IntervalType.YearMonth,
                     "tiD" => IntervalType.DayTime,
-                    //"tin" => IntervalType.MonthDayNanosecond, // Not yet implemented
+                    "tin" => IntervalType.MonthDayNanosecond,
                     _ => throw new NotSupportedException("Data type is not yet supported in import.")
                 };
             }

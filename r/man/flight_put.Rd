@@ -17,7 +17,8 @@ flight_put(client, data, path, overwrite = TRUE, max_chunksize = NULL)
 replace it with the contents of \code{data}? Default is \code{TRUE}; if \code{FALSE} and
 \code{path} exists, the function will error.}
 
-\item{max_chunksize}{integer: Maximum size for RecordBatch chunks when a \code{data.frame} is sent.
+\item{max_chunksize}{integer: Maximum number of rows for RecordBatch chunks
+when a \code{data.frame} is sent.
 Individual chunks may be smaller depending on the chunk layout of individual columns.}
 }
 \value{

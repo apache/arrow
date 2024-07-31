@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.DATA_VECTOR_NAME;
@@ -22,7 +21,6 @@ import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.DATA_VECTO
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
@@ -39,10 +37,8 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.TransferPair;
 
-/**
- * A null type vector.
- */
-public class NullVector implements FieldVector {
+/** A null type vector. */
+public class NullVector implements FieldVector, ValueIterableVector<Object> {
 
   private int valueCount;
 
@@ -58,9 +54,19 @@ public class NullVector implements FieldVector {
   }
 
   /**
+   * Instantiate a NullVector with the given number of values.
+   *
+   * @param name name of the vector
+   * @param valueCount number of values (i.e., nulls) in this vector.
+   */
+  public NullVector(String name, int valueCount) {
+    this(new Field(name, FieldType.nullable(Types.MinorType.NULL.getType()), null), valueCount);
+  }
+
+  /**
    * Instantiate a NullVector.
    *
-   * @param name      name of the vector
+   * @param name name of the vector
    * @param fieldType type of Field materialized by this vector.
    */
   public NullVector(String name, FieldType fieldType) {
@@ -73,8 +79,18 @@ public class NullVector implements FieldVector {
    * @param field field materialized by this vector.
    */
   public NullVector(Field field) {
-    this.valueCount = 0;
+    this(field, 0);
+  }
+
+  /**
+   * Instantiate a NullVector with the given number of values.
+   *
+   * @param field field materialized by this vector.
+   * @param valueCount number of values (i.e., nulls) in this vector.
+   */
+  public NullVector(Field field, int valueCount) {
     this.field = field;
+    this.valueCount = valueCount;
   }
 
   @Deprecated
@@ -83,16 +99,13 @@ public class NullVector implements FieldVector {
   }
 
   @Override
-  public void close() {
-  }
+  public void close() {}
 
   @Override
-  public void clear() {
-  }
+  public void clear() {}
 
   @Override
-  public void reset() {
-  }
+  public void reset() {}
 
   @Override
   public Field getField() {
@@ -106,7 +119,7 @@ public class NullVector implements FieldVector {
 
   @Override
   public TransferPair getTransferPair(BufferAllocator allocator) {
-    return getTransferPair((String) null, allocator);
+    return getTransferPair(getName(), allocator);
   }
 
   @Override
@@ -140,8 +153,7 @@ public class NullVector implements FieldVector {
   }
 
   @Override
-  public void reAlloc() {
-  }
+  public void reAlloc() {}
 
   @Override
   public BufferAllocator getAllocator() {
@@ -149,8 +161,7 @@ public class NullVector implements FieldVector {
   }
 
   @Override
-  public void setInitialCapacity(int numRecords) {
-  }
+  public void setInitialCapacity(int numRecords) {}
 
   @Override
   public int getValueCapacity() {
@@ -159,12 +170,12 @@ public class NullVector implements FieldVector {
 
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
-    return new TransferImpl();
+    return new TransferImpl(ref);
   }
 
   @Override
   public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
-    return new TransferImpl();
+    return new TransferImpl(field.getName());
   }
 
   @Override
@@ -213,9 +224,9 @@ public class NullVector implements FieldVector {
   /**
    * Get the inner vectors.
    *
-   * @deprecated This API will be removed as the current implementations no longer support inner vectors.
-   *
    * @return the inner vectors for this field as defined by the TypeLayout
+   * @deprecated This API will be removed as the current implementations no longer support inner
+   *     vectors.
    */
   @Deprecated
   @Override
@@ -272,7 +283,6 @@ public class NullVector implements FieldVector {
   public int getNullCount() {
     return this.valueCount;
   }
-
 
   /**
    * Set the element at the given index to null. In a NullVector, this is a no-op.

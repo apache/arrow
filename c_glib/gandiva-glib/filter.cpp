@@ -41,7 +41,8 @@ G_BEGIN_DECLS
  * Since: 4.0.0
  */
 
-typedef struct GGandivaFilterPrivate_ {
+typedef struct GGandivaFilterPrivate_
+{
   std::shared_ptr<gandiva::Filter> filter;
   GArrowSchema *schema;
   GGandivaCondition *condition;
@@ -53,14 +54,11 @@ enum {
   PROP_CONDITION,
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE(GGandivaFilter,
-                           ggandiva_filter,
-                           G_TYPE_OBJECT)
+G_DEFINE_TYPE_WITH_PRIVATE(GGandivaFilter, ggandiva_filter, G_TYPE_OBJECT)
 
-#define GGANDIVA_FILTER_GET_PRIVATE(obj)         \
-  static_cast<GGandivaFilterPrivate *>(          \
-     ggandiva_filter_get_instance_private(       \
-       GGANDIVA_FILTER(obj)))
+#define GGANDIVA_FILTER_GET_PRIVATE(obj)                                                 \
+  static_cast<GGandivaFilterPrivate *>(                                                  \
+    ggandiva_filter_get_instance_private(GGANDIVA_FILTER(obj)))
 
 static void
 ggandiva_filter_dispose(GObject *object)
@@ -140,7 +138,7 @@ static void
 ggandiva_filter_init(GGandivaFilter *object)
 {
   auto priv = GGANDIVA_FILTER_GET_PRIVATE(object);
-  new(&priv->filter) std::shared_ptr<gandiva::Filter>;
+  new (&priv->filter) std::shared_ptr<gandiva::Filter>;
 }
 
 static void
@@ -148,33 +146,33 @@ ggandiva_filter_class_init(GGandivaFilterClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->dispose      = ggandiva_filter_dispose;
-  gobject_class->finalize     = ggandiva_filter_finalize;
+  gobject_class->dispose = ggandiva_filter_dispose;
+  gobject_class->finalize = ggandiva_filter_finalize;
   gobject_class->set_property = ggandiva_filter_set_property;
   gobject_class->get_property = ggandiva_filter_get_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_pointer("filter",
-                              "Filter",
-                              "The raw std::shared<gandiva::Filter> *",
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_pointer(
+    "filter",
+    "Filter",
+    "The raw std::shared<gandiva::Filter> *",
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_FILTER, spec);
 
-  spec = g_param_spec_object("schema",
-                             "Schema",
-                             "The schema for input record batch",
-                             GARROW_TYPE_SCHEMA,
-                             static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                      G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_object(
+    "schema",
+    "Schema",
+    "The schema for input record batch",
+    GARROW_TYPE_SCHEMA,
+    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_SCHEMA, spec);
 
-  spec = g_param_spec_object("condition",
-                             "Condition",
-                             "The condition for the filter",
-                             GGANDIVA_TYPE_CONDITION,
-                             static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                      G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_object(
+    "condition",
+    "Condition",
+    "The condition for the filter",
+    GGANDIVA_TYPE_CONDITION,
+    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_CONDITION, spec);
 }
 
@@ -190,16 +188,12 @@ ggandiva_filter_class_init(GGandivaFilterClass *klass)
  * Since: 4.0.0
  */
 GGandivaFilter *
-ggandiva_filter_new(GArrowSchema *schema,
-                    GGandivaCondition *condition,
-                    GError **error)
+ggandiva_filter_new(GArrowSchema *schema, GGandivaCondition *condition, GError **error)
 {
   auto arrow_schema = garrow_schema_get_raw(schema);
   auto gandiva_condition = ggandiva_condition_get_raw(condition);
   std::shared_ptr<gandiva::Filter> gandiva_filter;
-  auto status = gandiva::Filter::Make(arrow_schema,
-                                      gandiva_condition,
-                                      &gandiva_filter);
+  auto status = gandiva::Filter::Make(arrow_schema, gandiva_condition, &gandiva_filter);
   if (garrow_error_check(error, status, "[gandiva][filter][new]")) {
     return ggandiva_filter_new_raw(&gandiva_filter, schema, condition);
   } else {
@@ -227,10 +221,8 @@ ggandiva_filter_evaluate(GGandivaFilter *filter,
 {
   auto gandiva_filter = ggandiva_filter_get_raw(filter);
   auto arrow_record_batch = garrow_record_batch_get_raw(record_batch);
-  auto gandiva_selection_vector =
-    ggandiva_selection_vector_get_raw(selection_vector);
-  auto status = gandiva_filter->Evaluate(*arrow_record_batch,
-                                         gandiva_selection_vector);
+  auto gandiva_selection_vector = ggandiva_selection_vector_get_raw(selection_vector);
+  auto status = gandiva_filter->Evaluate(*arrow_record_batch, gandiva_selection_vector);
   return garrow_error_check(error, status, "[gandiva][filter][evaluate]");
 }
 
@@ -242,9 +234,12 @@ ggandiva_filter_new_raw(std::shared_ptr<gandiva::Filter> *gandiva_filter,
                         GGandivaCondition *condition)
 {
   auto filter = g_object_new(GGANDIVA_TYPE_FILTER,
-                             "filter", gandiva_filter,
-                             "schema", schema,
-                             "condition", condition,
+                             "filter",
+                             gandiva_filter,
+                             "schema",
+                             schema,
+                             "condition",
+                             condition,
                              NULL);
   return GGANDIVA_FILTER(filter);
 }

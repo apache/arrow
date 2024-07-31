@@ -254,7 +254,12 @@ class ArrayLoader {
     if (i >= static_cast<int>(variadic_counts->size())) {
       return Status::IOError("variadic_count_index out of range.");
     }
-    return static_cast<size_t>(variadic_counts->Get(i));
+    int64_t count = variadic_counts->Get(i);
+    if (count < 0 || count > std::numeric_limits<int32_t>::max()) {
+      return Status::IOError(
+          "variadic_count must be representable as a positive int32_t, got ", count, ".");
+    }
+    return static_cast<size_t>(count);
   }
 
   Status GetFieldMetadata(int field_index, ArrayData* out) {
@@ -330,6 +335,22 @@ class ArrayLoader {
     return LoadChildren(type.fields());
   }
 
+  template <typename TYPE>
+  Status LoadListView(const TYPE& type) {
+    out_->buffers.resize(3);
+
+    RETURN_NOT_OK(LoadCommon(type.id()));
+    RETURN_NOT_OK(GetBuffer(buffer_index_++, &out_->buffers[1]));
+    RETURN_NOT_OK(GetBuffer(buffer_index_++, &out_->buffers[2]));
+
+    const int num_children = type.num_fields();
+    if (num_children != 1) {
+      return Status::Invalid("Wrong number of children: ", num_children);
+    }
+
+    return LoadChildren(type.fields());
+  }
+
   Status LoadChildren(const std::vector<std::shared_ptr<Field>>& child_fields) {
     DCHECK_NE(out_, nullptr);
     ArrayData* parent = out_;
@@ -372,10 +393,10 @@ class ArrayLoader {
     RETURN_NOT_OK(LoadCommon(type.id()));
     RETURN_NOT_OK(GetBuffer(buffer_index_++, &out_->buffers[1]));
 
-    ARROW_ASSIGN_OR_RAISE(auto character_buffer_count,
+    ARROW_ASSIGN_OR_RAISE(auto data_buffer_count,
                           GetVariadicCount(variadic_count_index_++));
-    out_->buffers.resize(character_buffer_count + 2);
-    for (size_t i = 0; i < character_buffer_count; ++i) {
+    out_->buffers.resize(data_buffer_count + 2);
+    for (size_t i = 0; i < data_buffer_count; ++i) {
       RETURN_NOT_OK(GetBuffer(buffer_index_++, &out_->buffers[i + 2]));
     }
     return Status::OK();
@@ -390,6 +411,11 @@ class ArrayLoader {
   template <typename T>
   enable_if_var_size_list<T, Status> Visit(const T& type) {
     return LoadList(type);
+  }
+
+  template <typename T>
+  enable_if_list_view<T, Status> Visit(const T& type) {
+    return LoadListView(type);
   }
 
   Status Visit(const MapType& type) {
@@ -514,7 +540,8 @@ Result<std::shared_ptr<Buffer>> DecompressBuffer(const std::shared_ptr<Buffer>& 
                            actual_decompressed);
   }
 
-  return std::move(uncompressed);
+  // R build with openSUSE155 requires an explicit shared_ptr construction
+  return std::shared_ptr<Buffer>(std::move(uncompressed));
 }
 
 Status DecompressBuffers(Compression::type compression, const IpcReadOptions& options,
@@ -1148,7 +1175,7 @@ static Result<std::unique_ptr<Message>> ReadMessageFromBlock(
 
   ARROW_ASSIGN_OR_RAISE(auto message, ReadMessage(block.offset, block.metadata_length,
                                                   file, fields_loader));
-  return std::move(message);
+  return message;
 }
 
 static Future<std::shared_ptr<Message>> ReadMessageFromBlockAsync(
@@ -1510,7 +1537,7 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     ARROW_ASSIGN_OR_RAISE(auto message,
                           arrow::ipc::ReadMessageFromBlock(block, file_, fields_loader));
     stats_.num_messages.fetch_add(1, std::memory_order_relaxed);
-    return std::move(message);
+    return message;
   }
 
   Status ReadDictionaries() {
@@ -1606,7 +1633,7 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     }
     context.compression = compression;
     context.metadata_version = internal::GetMetadataVersion(message->version());
-    return std::move(context);
+    return context;
   }
 
   Result<const flatbuf::RecordBatch*> GetBatchFromMessage(
@@ -2678,7 +2705,7 @@ Result<std::shared_ptr<Buffer>> IoRecordedRandomAccessFile::Read(int64_t nbytes)
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> buffer, ReadAt(position_, nbytes));
   auto num_bytes_read = std::min(file_size_, position_ + nbytes) - position_;
   position_ += num_bytes_read;
-  return std::move(buffer);
+  return buffer;
 }
 
 const io::IOContext& IoRecordedRandomAccessFile::io_context() const {

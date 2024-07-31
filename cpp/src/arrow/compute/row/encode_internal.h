@@ -22,8 +22,8 @@
 #include <vector>
 
 #include "arrow/array/data.h"
-#include "arrow/compute/key_map.h"
-#include "arrow/compute/light_array.h"
+#include "arrow/compute/key_map_internal.h"
+#include "arrow/compute/light_array_internal.h"
 #include "arrow/compute/row/row_internal.h"
 #include "arrow/compute/util.h"
 #include "arrow/memory_pool.h"
@@ -227,9 +227,9 @@ class EncoderBinaryPair {
 
 class EncoderOffsets {
  public:
-  static void GetRowOffsetsSelected(RowTableImpl* rows,
-                                    const std::vector<KeyColumnArray>& cols,
-                                    uint32_t num_selected, const uint16_t* selection);
+  static Status GetRowOffsetsSelected(RowTableImpl* rows,
+                                      const std::vector<KeyColumnArray>& cols,
+                                      uint32_t num_selected, const uint16_t* selection);
   static void EncodeSelected(RowTableImpl* rows, const std::vector<KeyColumnArray>& cols,
                              uint32_t num_selected, const uint16_t* selection);
 

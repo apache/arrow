@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <iterator>
@@ -28,6 +29,7 @@
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
@@ -40,24 +42,54 @@
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
+#include "arrow/util/list_util.h"
+#include "arrow/util/unreachable.h"
 
 namespace arrow {
 
-class ConcatenateTest : public ::testing::Test {
- protected:
-  ConcatenateTest()
-      : rng_(seed_),
-        sizes_({0, 1, 2, 4, 16, 31, 1234}),
-        null_probabilities_({0.0, 0.1, 0.5, 0.9, 1.0}) {}
+class SimpleRandomArrayGenerator {
+ private:
+  random::SeedType seed_ = 0xdeadbeef;
+  std::default_random_engine random_engine_;
+  random::RandomArrayGenerator rag_;
 
-  template <typename OffsetType>
-  std::vector<OffsetType> Offsets(int32_t length, int32_t slice_count) {
-    std::vector<OffsetType> offsets(static_cast<std::size_t>(slice_count + 1));
-    std::default_random_engine gen(seed_);
-    std::uniform_int_distribution<OffsetType> dist(0, length);
-    std::generate(offsets.begin(), offsets.end(), [&] { return dist(gen); });
+ public:
+  SimpleRandomArrayGenerator() : random_engine_(seed_), rag_(seed_) {}
+
+  template <typename offset_type>
+  std::vector<offset_type> RandomOffsetsInRange(offset_type min_offset,
+                                                offset_type max_offset,
+                                                int64_t num_offsets) {
+    std::vector<offset_type> offsets(static_cast<std::size_t>(num_offsets));
+    std::uniform_int_distribution<offset_type> dist(min_offset, max_offset);
+    std::generate(offsets.begin(), offsets.end(), [&] { return dist(random_engine_); });
+    return offsets;
+  }
+
+  template <typename offset_type>
+  std::vector<offset_type> Offsets(int32_t values_length, int32_t slice_count) {
+    auto offsets = RandomOffsetsInRange<offset_type>(0, values_length, slice_count + 1);
     std::sort(offsets.begin(), offsets.end());
     return offsets;
+  }
+
+  /// \param[in] random_offsets Random offsets in [0, values_size] and no particular order
+  template <typename offset_type>
+  std::vector<offset_type> ListViewSizes(const std::vector<offset_type>& random_offsets,
+                                         int64_t values_size, double avg_size,
+                                         int64_t num_sizes) {
+    std::normal_distribution<double> normal(/*mean=*/avg_size, /*stddev=*/3.0);
+    std::vector<offset_type> sizes;
+    sizes.reserve(num_sizes);
+    for (int64_t i = 0; i < num_sizes; ++i) {
+      const auto sampled_size = std::llround(normal(random_engine_));
+      auto size = std::max<offset_type>(0, static_cast<offset_type>(sampled_size));
+      if (random_offsets[i] > values_size - size) {
+        size = static_cast<offset_type>(values_size - random_offsets[i]);
+      }
+      sizes.push_back(size);
+    }
+    return sizes;
   }
 
   ArrayVector Slices(const std::shared_ptr<Array>& array,
@@ -69,33 +101,119 @@ class ConcatenateTest : public ::testing::Test {
     return slices;
   }
 
-  template <typename PrimitiveType>
-  std::shared_ptr<Array> GeneratePrimitive(int64_t size, double null_probability) {
-    if (std::is_same<PrimitiveType, BooleanType>::value) {
-      return rng_.Boolean(size, 0.5, null_probability);
-    }
-    return rng_.Numeric<PrimitiveType, uint8_t>(size, 0, 127, null_probability);
+  std::shared_ptr<Buffer> ValidityBitmap(int64_t size, double null_probability) {
+    return rag_.NullBitmap(size, null_probability, kDefaultBufferAlignment,
+                           default_memory_pool());
   }
+
+  template <typename PrimitiveType>
+  std::shared_ptr<Array> PrimitiveArray(int64_t size, double null_probability) {
+    if (std::is_same<PrimitiveType, BooleanType>::value) {
+      return rag_.Boolean(size, 0.5, null_probability);
+    }
+    return rag_.Numeric<PrimitiveType, uint8_t>(size, 0, 127, null_probability);
+  }
+
+  std::shared_ptr<Array> StringArray(int64_t size, double null_probability) {
+    return rag_.String(size, /*min_length =*/0, /*max_length =*/15, null_probability);
+  }
+
+  std::shared_ptr<Array> LargeStringArray(int64_t size, double null_probability) {
+    return rag_.LargeString(size, /*min_length =*/0, /*max_length =*/15,
+                            null_probability);
+  }
+
+  std::shared_ptr<Array> StringViewArray(int64_t size, double null_probability) {
+    return rag_.StringView(size, /*min_length =*/0, /*max_length =*/40, null_probability,
+                           /*max_buffer_length=*/200);
+  }
+
+  std::shared_ptr<Array> ArrayOf(std::shared_ptr<DataType> type, int64_t size,
+                                 double null_probability) {
+    return rag_.ArrayOf(std::move(type), size, null_probability);
+  }
+
+  // TODO(GH-38656): Use the random array generators from testing/random.h here
+
+  template <typename ListType,
+            typename ListArrayType = typename TypeTraits<ListType>::ArrayType>
+  Result<std::shared_ptr<ListArrayType>> ListArray(int32_t length,
+                                                   double null_probability) {
+    using offset_type = typename ListType::offset_type;
+    using OffsetArrowType = typename CTypeTraits<offset_type>::ArrowType;
+
+    auto values_size = length * 4;
+    auto values = PrimitiveArray<Int8Type>(values_size, null_probability);
+    auto offsets_vector = Offsets<offset_type>(values_size, length);
+    // Ensure first and last offsets encompass the whole values array
+    offsets_vector.front() = 0;
+    offsets_vector.back() = static_cast<offset_type>(values_size);
+    std::shared_ptr<Array> offsets;
+    ArrayFromVector<OffsetArrowType>(offsets_vector, &offsets);
+    return ListArrayType::FromArrays(*offsets, *values);
+  }
+
+  template <typename ListViewType,
+            typename ListViewArrayType = typename TypeTraits<ListViewType>::ArrayType>
+  Result<std::shared_ptr<ListViewArrayType>> ListViewArray(int32_t length,
+                                                           double null_probability) {
+    using offset_type = typename ListViewType::offset_type;
+    using OffsetArrowType = typename CTypeTraits<offset_type>::ArrowType;
+
+    constexpr int kAvgListViewSize = 4;
+    auto values_size = kAvgListViewSize * length;
+
+    auto values = PrimitiveArray<Int8Type>(values_size, null_probability);
+
+    std::shared_ptr<Array> offsets;
+    auto offsets_vector = RandomOffsetsInRange<offset_type>(0, values_size, length);
+    ArrayFromVector<OffsetArrowType>(offsets_vector, &offsets);
+
+    std::shared_ptr<Array> sizes;
+    auto sizes_vector =
+        ListViewSizes<offset_type>(offsets_vector, values_size, kAvgListViewSize, length);
+    ArrayFromVector<OffsetArrowType>(sizes_vector, &sizes);
+
+    auto validity_bitmap = ValidityBitmap(length, null_probability);
+    auto valid_count = internal::CountSetBits(validity_bitmap->data(), 0, length);
+
+    return ListViewArrayType::FromArrays(
+        *offsets, *sizes, *values, default_memory_pool(),
+        valid_count == length ? nullptr : std::move(validity_bitmap));
+  }
+};
+
+class ConcatenateTest : public ::testing::Test {
+ private:
+  std::vector<int32_t> sizes_;
+  std::vector<double> null_probabilities_;
+
+ protected:
+  SimpleRandomArrayGenerator rag;
+
+  ConcatenateTest()
+      : sizes_({0, 1, 2, 4, 16, 31, 1234}),
+        null_probabilities_({0.0, 0.1, 0.5, 0.9, 1.0}) {}
 
   void CheckTrailingBitsAreZeroed(const std::shared_ptr<Buffer>& bitmap, int64_t length) {
     if (auto preceding_bits = bit_util::kPrecedingBitmask[length % 8]) {
       auto last_byte = bitmap->data()[length / 8];
       ASSERT_EQ(static_cast<uint8_t>(last_byte & preceding_bits), last_byte)
-          << length << " " << int(preceding_bits);
+          << length << " " << static_cast<int>(preceding_bits);
     }
   }
 
   template <typename ArrayFactory>
   void Check(ArrayFactory&& factory) {
     for (auto size : this->sizes_) {
-      auto offsets = this->Offsets<int32_t>(size, 3);
+      auto offsets = rag.Offsets<int32_t>(size, 3);
       for (auto null_probability : this->null_probabilities_) {
         std::shared_ptr<Array> array;
         factory(size, null_probability, &array);
         ASSERT_OK(array->ValidateFull());
         auto expected = array->Slice(offsets.front(), offsets.back() - offsets.front());
         ASSERT_OK(expected->ValidateFull());
-        auto slices = this->Slices(array, offsets);
+        auto slices = rag.Slices(array, offsets);
         for (auto slice : slices) {
           ASSERT_OK(slice->ValidateFull());
         }
@@ -111,11 +229,6 @@ class ConcatenateTest : public ::testing::Test {
       }
     }
   }
-
-  random::SeedType seed_ = 0xdeadbeef;
-  random::RandomArrayGenerator rng_;
-  std::vector<int32_t> sizes_;
-  std::vector<double> null_probabilities_;
 };
 
 TEST(ConcatenateEmptyArraysTest, TestValueBuffersNullPtr) {
@@ -144,7 +257,7 @@ TYPED_TEST_SUITE(PrimitiveConcatenateTest, PrimitiveArrowTypes);
 
 TYPED_TEST(PrimitiveConcatenateTest, Primitives) {
   this->Check([this](int64_t size, double null_probability, std::shared_ptr<Array>* out) {
-    *out = this->template GeneratePrimitive<TypeParam>(size, null_probability);
+    *out = this->rag.template PrimitiveArray<TypeParam>(size, null_probability);
   });
 }
 
@@ -156,23 +269,21 @@ TEST_F(ConcatenateTest, NullType) {
 
 TEST_F(ConcatenateTest, StringType) {
   Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
-    *out = rng_.String(size, /*min_length =*/0, /*max_length =*/15, null_probability);
+    *out = rag.StringArray(size, null_probability);
     ASSERT_OK((**out).ValidateFull());
   });
 }
 
 TEST_F(ConcatenateTest, StringViewType) {
   Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
-    *out = rng_.StringView(size, /*min_length =*/0, /*max_length =*/40, null_probability,
-                           /*max_buffer_length=*/200);
+    *out = rag.StringViewArray(size, null_probability);
     ASSERT_OK((**out).ValidateFull());
   });
 }
 
 TEST_F(ConcatenateTest, LargeStringType) {
   Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
-    *out =
-        rng_.LargeString(size, /*min_length =*/0, /*max_length =*/15, null_probability);
+    *out = rag.LargeStringArray(size, null_probability);
     ASSERT_OK((**out).ValidateFull());
   });
 }
@@ -181,7 +292,7 @@ TEST_F(ConcatenateTest, FixedSizeListType) {
   Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
     auto list_size = 3;
     auto values_size = size * list_size;
-    auto values = this->GeneratePrimitive<Int8Type>(values_size, null_probability);
+    auto values = this->rag.PrimitiveArray<Int8Type>(values_size, null_probability);
     ASSERT_OK_AND_ASSIGN(*out, FixedSizeListArray::FromArrays(values, list_size));
     ASSERT_OK((**out).ValidateFull());
   });
@@ -189,39 +300,40 @@ TEST_F(ConcatenateTest, FixedSizeListType) {
 
 TEST_F(ConcatenateTest, ListType) {
   Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
-    auto values_size = size * 4;
-    auto values = this->GeneratePrimitive<Int8Type>(values_size, null_probability);
-    auto offsets_vector = this->Offsets<int32_t>(values_size, size);
-    // Ensure first and last offsets encompass the whole values array
-    offsets_vector.front() = 0;
-    offsets_vector.back() = static_cast<int32_t>(values_size);
-    std::shared_ptr<Array> offsets;
-    ArrayFromVector<Int32Type>(offsets_vector, &offsets);
-    ASSERT_OK_AND_ASSIGN(*out, ListArray::FromArrays(*offsets, *values));
+    ASSERT_OK_AND_ASSIGN(*out, this->rag.ListArray<ListType>(size, null_probability));
     ASSERT_OK((**out).ValidateFull());
   });
 }
 
 TEST_F(ConcatenateTest, LargeListType) {
   Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
-    auto values_size = size * 4;
-    auto values = this->GeneratePrimitive<Int8Type>(values_size, null_probability);
-    auto offsets_vector = this->Offsets<int64_t>(values_size, size);
-    // Ensure first and last offsets encompass the whole values array
-    offsets_vector.front() = 0;
-    offsets_vector.back() = static_cast<int64_t>(values_size);
-    std::shared_ptr<Array> offsets;
-    ArrayFromVector<Int64Type>(offsets_vector, &offsets);
-    ASSERT_OK_AND_ASSIGN(*out, LargeListArray::FromArrays(*offsets, *values));
+    ASSERT_OK_AND_ASSIGN(*out,
+                         this->rag.ListArray<LargeListType>(size, null_probability));
+    ASSERT_OK((**out).ValidateFull());
+  });
+}
+
+TEST_F(ConcatenateTest, ListViewType) {
+  Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
+    ASSERT_OK_AND_ASSIGN(*out,
+                         this->rag.ListViewArray<ListViewType>(size, null_probability));
+    ASSERT_OK((**out).ValidateFull());
+  });
+}
+
+TEST_F(ConcatenateTest, LargeListViewType) {
+  Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
+    ASSERT_OK_AND_ASSIGN(
+        *out, this->rag.ListViewArray<LargeListViewType>(size, null_probability));
     ASSERT_OK((**out).ValidateFull());
   });
 }
 
 TEST_F(ConcatenateTest, StructType) {
   Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
-    auto foo = this->GeneratePrimitive<Int8Type>(size, null_probability);
-    auto bar = this->GeneratePrimitive<DoubleType>(size, null_probability);
-    auto baz = this->GeneratePrimitive<BooleanType>(size, null_probability);
+    auto foo = this->rag.PrimitiveArray<Int8Type>(size, null_probability);
+    auto bar = this->rag.PrimitiveArray<DoubleType>(size, null_probability);
+    auto baz = this->rag.PrimitiveArray<BooleanType>(size, null_probability);
     *out = std::make_shared<StructArray>(
         struct_({field("foo", int8()), field("bar", float64()), field("baz", boolean())}),
         size, ArrayVector{foo, bar, baz});
@@ -230,8 +342,8 @@ TEST_F(ConcatenateTest, StructType) {
 
 TEST_F(ConcatenateTest, DictionaryType) {
   Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
-    auto indices = this->GeneratePrimitive<Int32Type>(size, null_probability);
-    auto dict = this->GeneratePrimitive<DoubleType>(128, 0);
+    auto indices = rag.PrimitiveArray<Int32Type>(size, null_probability);
+    auto dict = rag.PrimitiveArray<DoubleType>(128, 0);
     auto type = dictionary(int32(), dict->type());
     *out = std::make_shared<DictionaryArray>(type, indices, dict);
   });
@@ -382,20 +494,20 @@ TEST_F(ConcatenateTest, DictionaryTypeNullSlots) {
 TEST_F(ConcatenateTest, UnionType) {
   // sparse mode
   Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
-    *out = rng_.ArrayOf(sparse_union({
-                            field("a", float64()),
-                            field("b", boolean()),
-                        }),
-                        size, null_probability);
+    *out = rag.ArrayOf(sparse_union({
+                           field("a", float64()),
+                           field("b", boolean()),
+                       }),
+                       size, null_probability);
   });
   // dense mode
   Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
-    *out = rng_.ArrayOf(dense_union({
-                            field("a", uint32()),
-                            field("b", boolean()),
-                            field("c", int8()),
-                        }),
-                        size, null_probability);
+    *out = rag.ArrayOf(dense_union({
+                           field("a", uint32()),
+                           field("b", boolean()),
+                           field("c", int8()),
+                       }),
+                       size, null_probability);
   });
 }
 
@@ -413,7 +525,7 @@ TEST_F(ConcatenateTest, DenseUnionTypeOverflow) {
   auto type_ids_ok = ArrayFromJSON(int8(), "[0]");
   auto offsets_ok = ArrayFromJSON(int32(), "[0]");
   auto child_array_overflow =
-      this->rng_.ArrayOf(null(), std::numeric_limits<int32_t>::max() - 1, 0.0);
+      rag.ArrayOf(null(), std::numeric_limits<int32_t>::max() - 1, 0.0);
   ASSERT_OK_AND_ASSIGN(
       auto array_overflow,
       DenseUnionArray::Make(*type_ids_ok, *offsets_ok, {child_array_overflow}));
@@ -546,19 +658,108 @@ TEST_F(ConcatenateTest, DenseUnionType) {
 
 TEST_F(ConcatenateTest, ExtensionType) {
   Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
-    auto storage = this->GeneratePrimitive<Int16Type>(size, null_probability);
+    auto storage = this->rag.PrimitiveArray<Int16Type>(size, null_probability);
     *out = ExtensionType::WrapArray(smallint(), storage);
   });
 }
 
+std::shared_ptr<DataType> LargeVersionOfType(const std::shared_ptr<DataType>& type) {
+  switch (type->id()) {
+    case Type::BINARY:
+      return large_binary();
+    case Type::STRING:
+      return large_utf8();
+    case Type::LIST:
+      return large_list(static_cast<const ListType&>(*type).value_type());
+    case Type::LIST_VIEW:
+      return large_list_view(static_cast<const ListViewType&>(*type).value_type());
+    case Type::LARGE_BINARY:
+    case Type::LARGE_STRING:
+    case Type::LARGE_LIST:
+    case Type::LARGE_LIST_VIEW:
+      return type;
+    default:
+      Unreachable();
+  }
+}
+
+std::shared_ptr<DataType> fixed_size_list_of_1(std::shared_ptr<DataType> type) {
+  return fixed_size_list(std::move(type), 1);
+}
+
 TEST_F(ConcatenateTest, OffsetOverflow) {
-  auto fake_long = ArrayFromJSON(utf8(), "[\"\"]");
-  fake_long->data()->GetMutableValues<int32_t>(1)[1] =
+  using TypeFactory = std::shared_ptr<DataType> (*)(std::shared_ptr<DataType>);
+  static const std::vector<TypeFactory> kNestedTypeFactories = {
+      list, large_list, list_view, large_list_view, fixed_size_list_of_1,
+  };
+
+  auto* pool = default_memory_pool();
+  std::shared_ptr<DataType> suggested_cast;
+  for (auto& ty : {binary(), utf8()}) {
+    auto large_ty = LargeVersionOfType(ty);
+
+    auto fake_long = ArrayFromJSON(ty, "[\"\"]");
+    fake_long->data()->GetMutableValues<int32_t>(1)[1] =
+        std::numeric_limits<int32_t>::max();
+    // XXX: since the data fake_long claims to own isn't there, this would
+    // segfault if Concatenate didn't detect overflow and raise an error.
+    auto concatenate_status = Concatenate({fake_long, fake_long});
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid,
+        ::testing::StrEq("Invalid: offset overflow while concatenating arrays, "
+                         "consider casting input from `" +
+                         ty->ToString() + "` to `large_" + ty->ToString() + "` first."),
+        concatenate_status);
+
+    concatenate_status =
+        internal::Concatenate({fake_long, fake_long}, pool, &suggested_cast);
+    // Message is doesn't contain the suggested cast type when the caller
+    // asks for it by passing the output parameter.
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::StrEq("Invalid: offset overflow while concatenating arrays"),
+        concatenate_status);
+    ASSERT_TRUE(large_ty->Equals(*suggested_cast));
+
+    // Check that the suggested cast is correct when concatenation
+    // fails due to the child array being too large.
+    for (auto factory : kNestedTypeFactories) {
+      auto nested_ty = factory(ty);
+      auto expected_suggestion = factory(large_ty);
+      auto fake_long_list = ArrayFromJSON(nested_ty, "[[\"\"]]");
+      fake_long_list->data()->child_data[0] = fake_long->data();
+
+      ASSERT_RAISES(Invalid, internal::Concatenate({fake_long_list, fake_long_list}, pool,
+                                                   &suggested_cast)
+                                 .status());
+      ASSERT_TRUE(suggested_cast->Equals(*expected_suggestion));
+    }
+  }
+
+  auto list_ty = list(utf8());
+  auto fake_long_list = ArrayFromJSON(list_ty, "[[\"Hello\"]]");
+  fake_long_list->data()->GetMutableValues<int32_t>(1)[1] =
       std::numeric_limits<int32_t>::max();
-  std::shared_ptr<Array> concatenated;
-  // XX since the data fake_long claims to own isn't there, this will segfault if
-  // Concatenate doesn't detect overflow and raise an error.
-  ASSERT_RAISES(Invalid, Concatenate({fake_long, fake_long}).status());
+  ASSERT_RAISES(Invalid, internal::Concatenate({fake_long_list, fake_long_list}, pool,
+                                               &suggested_cast)
+                             .status());
+  ASSERT_TRUE(suggested_cast->Equals(LargeVersionOfType(list_ty)));
+
+  auto list_view_ty = list_view(null());
+  auto fake_long_list_view = ArrayFromJSON(list_view_ty, "[[], []]");
+  {
+    constexpr int kInt32Max = std::numeric_limits<int32_t>::max();
+    auto* values = fake_long_list_view->data()->child_data[0].get();
+    auto* mutable_offsets = fake_long_list_view->data()->GetMutableValues<int32_t>(1);
+    auto* mutable_sizes = fake_long_list_view->data()->GetMutableValues<int32_t>(2);
+    values->length = 2 * static_cast<int64_t>(kInt32Max);
+    mutable_offsets[1] = kInt32Max;
+    mutable_offsets[0] = kInt32Max;
+    mutable_sizes[0] = kInt32Max;
+  }
+  ASSERT_RAISES(Invalid, internal::Concatenate({fake_long_list_view, fake_long_list_view},
+                                               pool, &suggested_cast)
+                             .status());
+  ASSERT_TRUE(suggested_cast->Equals(LargeVersionOfType(list_view_ty)));
 }
 
 TEST_F(ConcatenateTest, DictionaryConcatenateWithEmptyUint16) {

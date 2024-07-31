@@ -22,7 +22,7 @@ C++ Implementation
 
 Welcome to the Apache Arrow C++ implementation documentation!
 
-.. grid:: 2
+.. grid:: 1 2 2 2
    :gutter: 4
    :padding: 2 2 0 0
    :class-container: sd-text-center
@@ -60,7 +60,7 @@ Welcome to the Apache Arrow C++ implementation documentation!
 
          To the User Guide
 
-.. grid:: 2
+.. grid:: 1 2 2 2
    :gutter: 4
    :padding: 2 2 0 0
    :class-container: sd-text-center

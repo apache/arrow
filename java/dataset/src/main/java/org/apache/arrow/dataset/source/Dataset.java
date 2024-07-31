@@ -14,15 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.dataset.source;
 
 import org.apache.arrow.dataset.scanner.ScanOptions;
 import org.apache.arrow.dataset.scanner.Scanner;
 
-/**
- * A container of Fragments which are the internal iterable unit of read data.
- */
+/** A container of Fragments which are the internal iterable unit of read data. */
 public interface Dataset extends AutoCloseable {
 
   /**

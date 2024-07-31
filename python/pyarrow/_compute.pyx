@@ -1108,8 +1108,8 @@ class MatchSubstringOptions(_MatchSubstringOptions):
 
 
 cdef class _PadOptions(FunctionOptions):
-    def _set_options(self, width, padding):
-        self.wrapped.reset(new CPadOptions(width, tobytes(padding)))
+    def _set_options(self, width, padding, lean_left_on_odd_padding):
+        self.wrapped.reset(new CPadOptions(width, tobytes(padding), lean_left_on_odd_padding))
 
 
 class PadOptions(_PadOptions):
@@ -1122,10 +1122,14 @@ class PadOptions(_PadOptions):
         Desired string length.
     padding : str, default " "
         What to pad the string with. Should be one byte or codepoint.
+    lean_left_on_odd_padding : bool, default True
+        What to do if there is an odd number of padding characters (in case
+        of centered padding). Defaults to aligning on the left (i.e. adding
+        the extra padding character on the right).
     """
 
-    def __init__(self, width, padding=' '):
-        self._set_options(width, padding)
+    def __init__(self, width, padding=' ', lean_left_on_odd_padding=True):
+        self._set_options(width, padding, lean_left_on_odd_padding)
 
 
 cdef class _TrimOptions(FunctionOptions):
@@ -1390,7 +1394,7 @@ class TakeOptions(_TakeOptions):
     ----------
     boundscheck : boolean, default True
         Whether to check indices are within bounds. If False and an
-        index is out of boundes, behavior is undefined (the process
+        index is out of bounds, behavior is undefined (the process
         may crash).
     """
 
@@ -1468,7 +1472,7 @@ cdef class _StructFieldOptions(FunctionOptions):
     def _set_options(self, indices):
 
         if isinstance(indices, (list, tuple)) and not len(indices):
-            # Allow empty indices; effecitively return same array
+            # Allow empty indices; effectively return same array
             self.wrapped.reset(
                 new CStructFieldOptions(<vector[int]>indices))
             return
@@ -1682,6 +1686,9 @@ class StrptimeOptions(_StrptimeOptions):
     ----------
     format : str
         Pattern for parsing input strings as timestamps, such as "%Y/%m/%d".
+        Note that the semantics of the format follow the C/C++ strptime, not the Python one.
+        There are differences in behavior, for example how the "%y" placeholder
+        handles years with less than four digits.
     unit : str
         Timestamp unit of the output.
         Accepted values are "s", "ms", "us", "ns".
@@ -2030,6 +2037,26 @@ class PairwiseOptions(_PairwiseOptions):
 
     def __init__(self, period=1):
         self._set_options(period)
+
+
+cdef class _ListFlattenOptions(FunctionOptions):
+    def _set_options(self, recursive):
+        self.wrapped.reset(new CListFlattenOptions(recursive))
+
+
+class ListFlattenOptions(_ListFlattenOptions):
+    """
+    Options for `list_flatten` function
+
+    Parameters
+    ----------
+    recursive : bool, default False
+        When True, the list array is flattened recursively until an array
+        of non-list values is formed.
+    """
+
+    def __init__(self, recursive=False):
+        self._set_options(recursive)
 
 
 cdef class _ArraySortOptions(FunctionOptions):
@@ -2988,7 +3015,7 @@ def register_aggregate_function(func, function_name, function_doc, in_types, out
     This is often used with ordered or segmented aggregation where groups
     can be emit before accumulating all of the input data.
 
-    Note that currently the size of any input column can not exceed 2 GB
+    Note that currently the size of any input column cannot exceed 2 GB
     for a single segment (all groups combined).
 
     Parameters
@@ -3073,7 +3100,7 @@ def register_tabular_function(func, function_name, function_doc, in_types, out_t
     UdfContext and returning a generator of struct arrays.
     The in_types argument must be empty and the out_type argument
     specifies a schema. Each struct array must have field types
-    correspoding to the schema.
+    corresponding to the schema.
 
     Parameters
     ----------

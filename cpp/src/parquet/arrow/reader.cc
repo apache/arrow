@@ -1043,6 +1043,16 @@ Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_groups,
           }
         }
 
+        // Check all columns has same row-size
+        if (!columns.empty()) {
+          int64_t row_size = columns[0]->length();
+          for (size_t i = 1; i < columns.size(); ++i) {
+            if (columns[i]->length() != row_size) {
+              return ::arrow::Status::Invalid("columns do not have the same size");
+            }
+          }
+        }
+
         auto table = ::arrow::Table::Make(batch_schema, std::move(columns));
         auto table_reader = std::make_shared<::arrow::TableBatchReader>(*table);
 
@@ -1123,10 +1133,10 @@ class RowGroupGenerator {
       auto ready = reader->parquet_reader()->WhenBuffered({row_group}, column_indices);
       if (cpu_executor_) ready = cpu_executor_->TransferAlways(ready);
       row_group_read =
-          ready.Then([this, reader, row_group,
+          ready.Then([cpu_executor = cpu_executor_, reader, row_group,
                       column_indices = std::move(
                           column_indices)]() -> ::arrow::Future<RecordBatchGenerator> {
-            return ReadOneRowGroup(cpu_executor_, reader, row_group, column_indices);
+            return ReadOneRowGroup(cpu_executor, reader, row_group, column_indices);
           });
     }
     in_flight_reads_.push({std::move(row_group_read), num_rows});
@@ -1182,7 +1192,7 @@ FileReaderImpl::GetRecordBatchGenerator(std::shared_ptr<FileReader> reader,
                                         int64_t rows_to_readahead) {
   RETURN_NOT_OK(BoundsCheck(row_group_indices, column_indices));
   if (rows_to_readahead < 0) {
-    return Status::Invalid("rows_to_readahead must be > 0");
+    return Status::Invalid("rows_to_readahead must be >= 0");
   }
   if (reader_properties_.pre_buffer()) {
     BEGIN_PARQUET_CATCH_EXCEPTIONS

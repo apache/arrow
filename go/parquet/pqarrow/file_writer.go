@@ -22,12 +22,12 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/flight"
-	"github.com/apache/arrow/go/v15/internal/utils"
-	"github.com/apache/arrow/go/v15/parquet"
-	"github.com/apache/arrow/go/v15/parquet/file"
-	"github.com/apache/arrow/go/v15/parquet/metadata"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/flight"
+	"github.com/apache/arrow/go/v18/internal/utils"
+	"github.com/apache/arrow/go/v18/parquet"
+	"github.com/apache/arrow/go/v18/parquet/file"
+	"github.com/apache/arrow/go/v18/parquet/metadata"
 	"golang.org/x/xerrors"
 )
 
@@ -134,6 +134,23 @@ func (fw *FileWriter) RowGroupTotalBytesWritten() int64 {
 	return 0
 }
 
+// RowGroupNumRows returns the number of rows written to the current row group.
+// Returns an error if they are unequal between columns that have been written so far.
+func (fw *FileWriter) RowGroupNumRows() (int, error) {
+	if fw.rgw != nil {
+		return fw.rgw.NumRows()
+	}
+	return 0, nil
+}
+
+// NumRows returns the total number of rows that have been written so far.
+func (fw *FileWriter) NumRows() int {
+	if fw.wr != nil {
+		return fw.wr.NumRows()
+	}
+	return 0
+}
+
 // WriteBuffered will either append to an existing row group or create a new one
 // based on the record length and max row group length.
 //
@@ -229,7 +246,7 @@ func (fw *FileWriter) Write(rec arrow.Record) error {
 		}
 	}
 	fw.colIdx = 0
-	return nil
+	return fw.rgw.Close()
 }
 
 // WriteTable writes an arrow table to the underlying file using chunkSize to determine
@@ -305,7 +322,7 @@ func (fw *FileWriter) Close() error {
 // building of writing columns to a file via arrow data without needing to already have
 // a record or table.
 func (fw *FileWriter) WriteColumnChunked(data *arrow.Chunked, offset, size int64) error {
-	acw, err := NewArrowColumnWriter(data, offset, size, fw.manifest, fw.rgw, fw.colIdx)
+	acw, err := newArrowColumnWriter(data, offset, size, fw.manifest, fw.rgw, fw.colIdx)
 	if err != nil {
 		return err
 	}

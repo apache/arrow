@@ -23,11 +23,11 @@ Archery is documented on the Arrow website:
 
 * [Daily development using Archery](https://arrow.apache.org/docs/developers/continuous_integration/archery.html)
 * [Using Archery and Crossbow](https://arrow.apache.org/docs/developers/continuous_integration/crossbow.html)
-* [Using Archer and Docker](https://arrow.apache.org/docs/developers/continuous_integration/docker.html)
+* [Using Archery and Docker](https://arrow.apache.org/docs/developers/continuous_integration/docker.html)
 
 # Installing Archery
 
-See the pages linked aboved for more details. As a general overview, Archery
+See the pages linked above for more details. As a general overview, Archery
 comes in a number of subpackages, each needing to be installed if you want
 to use the functionality of it:
 

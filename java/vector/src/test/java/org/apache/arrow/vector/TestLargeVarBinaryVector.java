@@ -14,36 +14,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-
+import java.util.Objects;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.holders.NullableLargeVarBinaryHolder;
 import org.apache.arrow.vector.util.ReusableByteArray;
 import org.apache.arrow.vector.util.TransferPair;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class TestLargeVarBinaryVector {
 
   private BufferAllocator allocator;
 
-  @Before
+  @BeforeEach
   public void prepare() {
     allocator = new RootAllocator(Integer.MAX_VALUE);
   }
 
-  @After
+  @AfterEach
   public void shutdown() {
     allocator.close();
   }
@@ -61,7 +61,7 @@ public class TestLargeVarBinaryVector {
 
       String str = "hello";
       try (ArrowBuf buf = allocator.buffer(16)) {
-        buf.setBytes(0, str.getBytes());
+        buf.setBytes(0, str.getBytes(StandardCharsets.UTF_8));
 
         binHolder.start = 0;
         binHolder.end = str.length();
@@ -72,7 +72,8 @@ public class TestLargeVarBinaryVector {
 
         // verify results
         assertTrue(vector.isNull(0));
-        assertEquals(str, new String(vector.get(1)));
+        assertEquals(
+            str, new String(Objects.requireNonNull(vector.get(1)), StandardCharsets.UTF_8));
       }
     }
   }
@@ -90,7 +91,7 @@ public class TestLargeVarBinaryVector {
 
       String str = "hello world";
       try (ArrowBuf buf = allocator.buffer(16)) {
-        buf.setBytes(0, str.getBytes());
+        buf.setBytes(0, str.getBytes(StandardCharsets.UTF_8));
 
         binHolder.start = 0;
         binHolder.end = str.length();
@@ -100,7 +101,8 @@ public class TestLargeVarBinaryVector {
         vector.setSafe(1, nullHolder);
 
         // verify results
-        assertEquals(str, new String(vector.get(0)));
+        assertEquals(
+            str, new String(Objects.requireNonNull(vector.get(0)), StandardCharsets.UTF_8));
         assertTrue(vector.isNull(1));
       }
     }
@@ -113,19 +115,23 @@ public class TestLargeVarBinaryVector {
 
       final String str = "hello world";
       final String str2 = "foo";
-      vector.setSafe(0, str.getBytes());
-      vector.setSafe(1, str2.getBytes());
+      vector.setSafe(0, str.getBytes(StandardCharsets.UTF_8));
+      vector.setSafe(1, str2.getBytes(StandardCharsets.UTF_8));
 
       // verify results
       ReusableByteArray reusableByteArray = new ReusableByteArray();
       vector.read(0, reusableByteArray);
       byte[] oldBuffer = reusableByteArray.getBuffer();
-      assertArrayEquals(str.getBytes(), Arrays.copyOfRange(reusableByteArray.getBuffer(),
-          0, (int) reusableByteArray.getLength()));
+      assertArrayEquals(
+          str.getBytes(StandardCharsets.UTF_8),
+          Arrays.copyOfRange(
+              reusableByteArray.getBuffer(), 0, (int) reusableByteArray.getLength()));
 
       vector.read(1, reusableByteArray);
-      assertArrayEquals(str2.getBytes(), Arrays.copyOfRange(reusableByteArray.getBuffer(),
-          0, (int) reusableByteArray.getLength()));
+      assertArrayEquals(
+          str2.getBytes(StandardCharsets.UTF_8),
+          Arrays.copyOfRange(
+              reusableByteArray.getBuffer(), 0, (int) reusableByteArray.getLength()));
 
       // There should not have been any reallocation since the newer value is smaller in length.
       assertSame(oldBuffer, reusableByteArray.getBuffer());
@@ -137,7 +143,7 @@ public class TestLargeVarBinaryVector {
     try (BufferAllocator childAllocator1 = allocator.newChildAllocator("child1", 1000000, 1000000);
         LargeVarBinaryVector v1 = new LargeVarBinaryVector("v1", childAllocator1)) {
       v1.allocateNew();
-      v1.setSafe(4094, "hello world".getBytes(), 0, 11);
+      v1.setSafe(4094, "hello world".getBytes(StandardCharsets.UTF_8), 0, 11);
       v1.setValueCount(4001);
 
       TransferPair tp = v1.getTransferPair(v1.getField(), allocator);

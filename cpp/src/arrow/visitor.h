@@ -64,6 +64,8 @@ class ARROW_EXPORT ArrayVisitor {
   virtual Status Visit(const Decimal256Array& array);
   virtual Status Visit(const ListArray& array);
   virtual Status Visit(const LargeListArray& array);
+  virtual Status Visit(const ListViewArray& array);
+  virtual Status Visit(const LargeListViewArray& array);
   virtual Status Visit(const MapArray& array);
   virtual Status Visit(const FixedSizeListArray& array);
   virtual Status Visit(const StructArray& array);
@@ -115,6 +117,8 @@ class ARROW_EXPORT TypeVisitor {
   virtual Status Visit(const Decimal256Type& type);
   virtual Status Visit(const ListType& type);
   virtual Status Visit(const LargeListType& type);
+  virtual Status Visit(const ListViewType& scalar);
+  virtual Status Visit(const LargeListViewType& scalar);
   virtual Status Visit(const MapType& type);
   virtual Status Visit(const FixedSizeListType& type);
   virtual Status Visit(const StructType& type);
@@ -166,6 +170,8 @@ class ARROW_EXPORT ScalarVisitor {
   virtual Status Visit(const Decimal256Scalar& scalar);
   virtual Status Visit(const ListScalar& scalar);
   virtual Status Visit(const LargeListScalar& scalar);
+  virtual Status Visit(const ListViewScalar& scalar);
+  virtual Status Visit(const LargeListViewScalar& scalar);
   virtual Status Visit(const MapScalar& scalar);
   virtual Status Visit(const FixedSizeListScalar& scalar);
   virtual Status Visit(const StructScalar& scalar);

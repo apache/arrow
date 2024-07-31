@@ -58,6 +58,8 @@ func (t *RunEndEncodedType) Fields() []Field {
 	}
 }
 
+func (t *RunEndEncodedType) NumFields() int { return 2 }
+
 func (*RunEndEncodedType) ValidRunEndsType(dt DataType) bool {
 	switch dt.ID() {
 	case INT16, INT32, INT64:

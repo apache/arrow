@@ -66,8 +66,7 @@ main(int argc, char **argv)
       gint32 value;
 
       value = garrow_int32_array_get_value(GARROW_INT32_ARRAY(array), i);
-      g_print("array[%" G_GINT64_FORMAT "] = %d\n",
-              i, value);
+      g_print("array[%" G_GINT64_FORMAT "] = %d\n", i, value);
     }
   }
 

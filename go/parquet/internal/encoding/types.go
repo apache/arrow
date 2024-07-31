@@ -20,11 +20,11 @@ import (
 	"io"
 	"sync"
 
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/bitutil"
-	"github.com/apache/arrow/go/v15/arrow/memory"
-	"github.com/apache/arrow/go/v15/internal/utils"
-	"github.com/apache/arrow/go/v15/parquet"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/bitutil"
+	"github.com/apache/arrow/go/v18/arrow/memory"
+	"github.com/apache/arrow/go/v18/internal/utils"
+	"github.com/apache/arrow/go/v18/parquet"
 	"golang.org/x/xerrors"
 )
 
@@ -185,9 +185,9 @@ func (b *PooledBufferWriter) Reserve(nbytes int) {
 		b.buf = bufferPool.Get().(*memory.Buffer)
 	}
 
-	newCap := utils.MaxInt(b.buf.Cap()+b.offset, 256)
+	newCap := utils.Max(b.buf.Cap(), 256)
 	for newCap < b.pos+nbytes {
-		newCap = bitutil.NextPowerOf2(newCap)
+		newCap = bitutil.NextPowerOf2(b.pos + nbytes)
 	}
 	b.buf.Reserve(newCap)
 }
@@ -361,11 +361,16 @@ func (b *BufferWriter) Truncate() {
 func (b *BufferWriter) Reset(initial int) {
 	if b.buffer != nil {
 		b.buffer.Release()
+	} else {
+		b.buffer = memory.NewResizableBuffer(b.mem)
 	}
 
 	b.pos = 0
 	b.offset = 0
-	b.Reserve(initial)
+
+	if initial > 0 {
+		b.Reserve(initial)
+	}
 }
 
 // Reserve ensures that there is at least enough capacity to write nbytes
@@ -375,9 +380,9 @@ func (b *BufferWriter) Reserve(nbytes int) {
 	if b.buffer == nil {
 		b.buffer = memory.NewResizableBuffer(b.mem)
 	}
-	newCap := utils.MaxInt(b.buffer.Cap()+b.offset, 256)
-	for newCap < b.pos+nbytes+b.offset {
-		newCap = bitutil.NextPowerOf2(newCap)
+	newCap := utils.Max(b.buffer.Cap(), 256)
+	for newCap < b.pos+nbytes {
+		newCap = bitutil.NextPowerOf2(b.pos + nbytes)
 	}
 	b.buffer.Reserve(newCap)
 }

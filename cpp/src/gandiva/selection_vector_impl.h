@@ -60,7 +60,7 @@ class SelectionVectorImpl : public SelectionVector {
   int64_t GetNumSlots() const override { return num_slots_; }
 
   void SetNumSlots(int64_t num_slots) override {
-    DCHECK_LE(num_slots, max_slots_);
+    ARROW_DCHECK_LE(num_slots, max_slots_);
     num_slots_ = num_slots;
   }
 

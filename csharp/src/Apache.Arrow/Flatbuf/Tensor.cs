@@ -46,6 +46,10 @@ internal struct Tensor : IFlatbufferObject
   public LargeUtf8 TypeAsLargeUtf8() { return Type<LargeUtf8>().Value; }
   public LargeList TypeAsLargeList() { return Type<LargeList>().Value; }
   public RunEndEncoded TypeAsRunEndEncoded() { return Type<RunEndEncoded>().Value; }
+  public BinaryView TypeAsBinaryView() { return Type<BinaryView>().Value; }
+  public Utf8View TypeAsUtf8View() { return Type<Utf8View>().Value; }
+  public ListView TypeAsListView() { return Type<ListView>().Value; }
+  public LargeListView TypeAsLargeListView() { return Type<LargeListView>().Value; }
   /// The dimensions of the tensor, optionally named
   public TensorDim? Shape(int j) { int o = __p.__offset(8); return o != 0 ? (TensorDim?)(new TensorDim()).__assign(__p.__indirect(__p.__vector(o) + j * 4), __p.bb) : null; }
   public int ShapeLength { get { int o = __p.__offset(8); return o != 0 ? __p.__vector_len(o) : 0; } }

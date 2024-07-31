@@ -21,9 +21,10 @@ package csv
 import (
 	"errors"
 	"fmt"
+	"strings"
 
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/memory"
 )
 
 var (
@@ -172,7 +173,7 @@ func WithNullWriter(null string) Option {
 }
 
 // WithBoolWriter override the default bool formatter with a function that returns
-// a string representaton of bool states. i.e. True, False, 1, 0
+// a string representation of bool states. i.e. True, False, 1, 0
 func WithBoolWriter(fmtr func(bool) string) Option {
 	return func(cfg config) {
 		switch cfg := cfg.(type) {
@@ -223,23 +224,46 @@ func WithIncludeColumns(cols []string) Option {
 	}
 }
 
-func validate(schema *arrow.Schema) {
-	for i, f := range schema.Fields() {
-		switch ft := f.Type.(type) {
-		case *arrow.BooleanType:
-		case *arrow.Int8Type, *arrow.Int16Type, *arrow.Int32Type, *arrow.Int64Type:
-		case *arrow.Uint8Type, *arrow.Uint16Type, *arrow.Uint32Type, *arrow.Uint64Type:
-		case *arrow.Float16Type, *arrow.Float32Type, *arrow.Float64Type:
-		case *arrow.StringType, *arrow.LargeStringType:
-		case *arrow.TimestampType:
-		case *arrow.Date32Type, *arrow.Date64Type:
-		case *arrow.Decimal128Type, *arrow.Decimal256Type:
-		case *arrow.ListType, *arrow.LargeListType, *arrow.FixedSizeListType:
-		case *arrow.BinaryType, *arrow.LargeBinaryType, *arrow.FixedSizeBinaryType:
-		case arrow.ExtensionType:
-		case *arrow.NullType:
+// WithStringsReplacer receives a replacer to be applied in the string fields
+// of the CSV. This is useful to remove unwanted characters from the string.
+func WithStringsReplacer(replacer *strings.Replacer) Option {
+	return func(cfg config) {
+		switch cfg := cfg.(type) {
+		case *Writer:
+			cfg.stringReplacer = replacer.Replace
 		default:
-			panic(fmt.Errorf("arrow/csv: field %d (%s) has invalid data type %T", i, f.Name, ft))
+			panic(fmt.Errorf("arrow/csv: unknown config type %T", cfg))
 		}
 	}
+}
+
+func validate(schema *arrow.Schema) {
+	for i, f := range schema.Fields() {
+		if !typeSupported(f.Type) {
+			panic(fmt.Errorf("arrow/csv: field %d (%s) has invalid data type %T", i, f.Name, f.Type))
+		}
+	}
+}
+
+func typeSupported(dt arrow.DataType) bool {
+	switch dt := dt.(type) {
+	case *arrow.BooleanType:
+	case *arrow.Int8Type, *arrow.Int16Type, *arrow.Int32Type, *arrow.Int64Type:
+	case *arrow.Uint8Type, *arrow.Uint16Type, *arrow.Uint32Type, *arrow.Uint64Type:
+	case *arrow.Float16Type, *arrow.Float32Type, *arrow.Float64Type:
+	case *arrow.StringType, *arrow.LargeStringType:
+	case *arrow.TimestampType:
+	case *arrow.Date32Type, *arrow.Date64Type:
+	case *arrow.Decimal128Type, *arrow.Decimal256Type:
+	case *arrow.MapType:
+		return false
+	case arrow.ListLikeType:
+		return typeSupported(dt.Elem())
+	case *arrow.BinaryType, *arrow.LargeBinaryType, *arrow.FixedSizeBinaryType:
+	case arrow.ExtensionType:
+	case *arrow.NullType:
+	default:
+		return false
+	}
+	return true
 }

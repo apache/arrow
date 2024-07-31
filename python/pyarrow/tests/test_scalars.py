@@ -18,14 +18,12 @@
 import datetime
 import decimal
 import pytest
-import sys
 import weakref
 
 import numpy as np
 
 import pyarrow as pa
 import pyarrow.compute as pc
-from pyarrow.tests import util
 
 
 @pytest.mark.parametrize(['value', 'ty', 'klass'], [
@@ -51,10 +49,14 @@ from pyarrow.tests import util
     (b"bytes", None, pa.BinaryScalar),
     ("largestring", pa.large_string(), pa.LargeStringScalar),
     (b"largebytes", pa.large_binary(), pa.LargeBinaryScalar),
+    ("string_view", pa.string_view(), pa.StringViewScalar),
+    (b"bytes_view", pa.binary_view(), pa.BinaryViewScalar),
     (b"abc", pa.binary(3), pa.FixedSizeBinaryScalar),
     ([1, 2, 3], None, pa.ListScalar),
     ([1, 2, 3, 4], pa.large_list(pa.int8()), pa.LargeListScalar),
     ([1, 2, 3, 4, 5], pa.list_(pa.int8(), 5), pa.FixedSizeListScalar),
+    ([1, 2, 3], pa.list_view(pa.int8()), pa.ListViewScalar),
+    ([1, 2, 3, 4], pa.large_list_view(pa.int8()), pa.LargeListViewScalar),
     (datetime.date.today(), None, pa.Date32Scalar),
     (datetime.date.today(), pa.date64(), pa.Date64Scalar),
     (datetime.datetime.now(), None, pa.TimestampScalar),
@@ -153,8 +155,7 @@ def test_hashing_struct_scalar():
     assert hash1 == hash2
 
 
-@pytest.mark.skipif(sys.platform == "win32" and not util.windows_has_tzdata(),
-                    reason="Timezone database is not installed on Windows")
+@pytest.mark.timezone_data
 def test_timestamp_scalar():
     a = repr(pa.scalar("0000-01-01").cast(pa.timestamp("s")))
     assert a == "<pyarrow.TimestampScalar: '0000-01-01T00:00:00'>"
@@ -321,8 +322,7 @@ def test_cast():
         pa.scalar('foo').cast('int32')
 
 
-@pytest.mark.skipif(sys.platform == "win32" and not util.windows_has_tzdata(),
-                    reason="Timezone database is not installed on Windows")
+@pytest.mark.timezone_data
 def test_cast_timestamp_to_string():
     # GH-35370
     pytest.importorskip("pytz")
@@ -488,7 +488,8 @@ def test_month_day_nano_interval():
 @pytest.mark.parametrize('value', ['foo', 'mañana'])
 @pytest.mark.parametrize(('ty', 'scalar_typ'), [
     (pa.string(), pa.StringScalar),
-    (pa.large_string(), pa.LargeStringScalar)
+    (pa.large_string(), pa.LargeStringScalar),
+    (pa.string_view(), pa.StringViewScalar),
 ])
 def test_string(value, ty, scalar_typ):
     s = pa.scalar(value, type=ty)
@@ -506,7 +507,8 @@ def test_string(value, ty, scalar_typ):
 @pytest.mark.parametrize('value', [b'foo', b'bar'])
 @pytest.mark.parametrize(('ty', 'scalar_typ'), [
     (pa.binary(), pa.BinaryScalar),
-    (pa.large_binary(), pa.LargeBinaryScalar)
+    (pa.large_binary(), pa.LargeBinaryScalar),
+    (pa.binary_view(), pa.BinaryViewScalar),
 ])
 def test_binary(value, ty, scalar_typ):
     s = pa.scalar(value, type=ty)
@@ -533,7 +535,9 @@ def test_fixed_size_binary():
 
 @pytest.mark.parametrize(('ty', 'klass'), [
     (pa.list_(pa.string()), pa.ListScalar),
-    (pa.large_list(pa.string()), pa.LargeListScalar)
+    (pa.large_list(pa.string()), pa.LargeListScalar),
+    (pa.list_view(pa.string()), pa.ListViewScalar),
+    (pa.large_list_view(pa.string()), pa.LargeListViewScalar)
 ])
 def test_list(ty, klass):
     v = ['foo', None]
@@ -555,14 +559,29 @@ def test_list(ty, klass):
         s[2]
 
 
-def test_list_from_numpy():
-    s = pa.scalar(np.array([1, 2, 3], dtype=np.int64()))
-    assert s.type == pa.list_(pa.int64())
+@pytest.mark.parametrize('ty', [
+    pa.list_(pa.int64()),
+    pa.large_list(pa.int64()),
+    pa.list_view(pa.int64()),
+    pa.large_list_view(pa.int64()),
+    None
+])
+def test_list_from_numpy(ty):
+    s = pa.scalar(np.array([1, 2, 3], dtype=np.int64()), type=ty)
+    if ty is None:
+        ty = pa.list_(pa.int64())  # expected inferred type
+    assert s.type == ty
     assert s.as_py() == [1, 2, 3]
 
 
 @pytest.mark.pandas
-def test_list_from_pandas():
+@pytest.mark.parametrize('factory', [
+    pa.list_,
+    pa.large_list,
+    pa.list_view,
+    pa.large_list_view
+])
+def test_list_from_pandas(factory):
     import pandas as pd
 
     s = pa.scalar(pd.Series([1, 2, 3]))
@@ -570,11 +589,11 @@ def test_list_from_pandas():
 
     cases = [
         (np.nan, 'null'),
-        (['string', np.nan], pa.list_(pa.binary())),
-        (['string', np.nan], pa.list_(pa.utf8())),
-        ([b'string', np.nan], pa.list_(pa.binary(6))),
-        ([True, np.nan], pa.list_(pa.bool_())),
-        ([decimal.Decimal('0'), np.nan], pa.list_(pa.decimal128(12, 2))),
+        (['string', np.nan], factory(pa.binary())),
+        (['string', np.nan], factory(pa.utf8())),
+        ([b'string', np.nan], factory(pa.binary(6))),
+        ([True, np.nan], factory(pa.bool_())),
+        ([decimal.Decimal('0'), np.nan], factory(pa.decimal128(12, 2))),
     ]
     for case, ty in cases:
         # Both types of exceptions are raised. May want to clean that up
@@ -633,7 +652,7 @@ def test_struct():
     assert s['y'].as_py() == 3.5
 
     with pytest.raises(KeyError):
-        s['non-existent']
+        s['nonexistent']
 
     s = pa.scalar(None, type=ty)
     assert list(s) == list(s.keys()) == ['x', 'y']

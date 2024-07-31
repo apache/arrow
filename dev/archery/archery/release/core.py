@@ -468,7 +468,7 @@ class Release:
                 parquet.append((self.jira_instance.issue(c.issue), c))
             else:
                 warnings.warn(
-                    f'Issue {c.issue} is not MINOR nor pertains to GH' +
+                    f'Issue {c.issue} does not pertain to GH' +
                     ', ARROW or PARQUET')
                 outside.append((c.issue, c))
 

@@ -63,6 +63,7 @@ public func schemaFromMessage(_ schemaData: Data) -> ArrowSchema? {
 }
 
 public protocol ArrowFlightServer: Sendable {
+    var allowReadingUnalignedBuffers: Bool { get }
     func listFlights(_ criteria: FlightCriteria, writer: FlightInfoStreamWriter) async throws
     func getFlightInfo(_ request: FlightDescriptor) async throws -> FlightInfo
     func getSchema(_ request: FlightDescriptor) async throws -> ArrowFlight.FlightSchemaResult
@@ -71,6 +72,12 @@ public protocol ArrowFlightServer: Sendable {
     func doGet(_ ticket: FlightTicket, writer: RecordBatchStreamWriter) async throws
     func doPut(_ reader: RecordBatchStreamReader, writer: PutResultDataStreamWriter) async throws
     func doExchange(_ reader: RecordBatchStreamReader, writer: RecordBatchStreamWriter) async throws
+}
+
+extension ArrowFlightServer {
+    var allowReadingUnalignedBuffers: Bool {
+        return false
+    }
 }
 
 public func makeFlightServer(_ handler: ArrowFlightServer) -> CallHandlerProvider {

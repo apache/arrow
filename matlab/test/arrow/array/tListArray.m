@@ -201,7 +201,7 @@ classdef tListArray < matlab.unittest.TestCase
 
         function TestValidationModeNone(testCase, TestValidationModeArray)
             % Verify that no error is thrown when supplying the
-            % ValidatationMode name-value pair, with a value of
+            % ValidationMode name-value pair, with a value of
             % arrow.array.ValidationMode.None, to the
             % arrow.array.ListArray.fromArrays method.
             offsets = TestValidationModeArray.Offsets;
@@ -213,7 +213,7 @@ classdef tListArray < matlab.unittest.TestCase
 
         function TestValidationModeMinimal(testCase, TestValidationModeArray)
             % Verify that an error of type arrow:array:ValidateMinimalFailed
-            % is thrown when supplying the ValidatationMode name-value pair,
+            % is thrown when supplying the ValidationMode name-value pair,
             % with a value of arrow.array.ValidationMode.Minimal, to the
             % arrow.array.ListArray.fromArrays method, if the provided offsets
             % and values arrays are invalid.
@@ -231,7 +231,7 @@ classdef tListArray < matlab.unittest.TestCase
 
         function TestValidationModeFull(testCase, TestValidationModeArray)
             % Verify that an error of type arrow:array:ValidateFullFailed
-            % is thrown when supplying the ValidatationMode name-value pair,
+            % is thrown when supplying the ValidationMode name-value pair,
             % with a value of arrow.array.ValidationMode.Full, to the
             % arrow.array.ListArray.fromArrays method, if the provided offsets
             % and values arrays are invalid.
@@ -250,7 +250,7 @@ classdef tListArray < matlab.unittest.TestCase
         function TestValidationModeUnsupportedEnum(testCase)
             % Verify that an error of type arrow:array:ValidateUnsupportedEnum
             % is thrown when an unsupported integer enumeration value is
-            % supplied for the ValidatationMode parameter to the internal
+            % supplied for the ValidationMode parameter to the internal
             % C++ ListArray Proxy validate method.
             offsets = arrow.array.Int32Array.fromMATLAB(int32([0, 1, 2]));
             values = arrow.array.Float64Array.fromMATLAB([1, 2, 3]);

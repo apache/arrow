@@ -18,6 +18,7 @@
 # pandas lazy-loading API shim that reduces API call and import overhead
 
 import warnings
+from threading import Lock
 
 
 cdef class _PandasAPIShim(object):
@@ -34,12 +35,13 @@ cdef class _PandasAPIShim(object):
         object _pd, _types_api, _compat_module
         object _data_frame, _index, _series, _categorical_type
         object _datetimetz_type, _extension_array, _extension_dtype
-        object _array_like_types, _is_extension_array_dtype
+        object _array_like_types, _is_extension_array_dtype, _lock
         bint has_sparse
         bint _pd024
-        bint _is_v1
+        bint _is_v1, _is_ge_v21, _is_ge_v3
 
     def __init__(self):
+        self._lock = Lock()
         self._tried_importing_pandas = False
         self._have_pandas = 0
 
@@ -74,8 +76,10 @@ cdef class _PandasAPIShim(object):
                     "installed. Therefore, pandas-specific integration is not "
                     "used.".format(self._version), stacklevel=2)
                 return
-        elif self._loose_version < Version('2.0.0'):
-            self._is_v1 = True
+
+        self._is_v1 = self._loose_version < Version('2.0.0')
+        self._is_ge_v21 = self._loose_version >= Version('2.1.0')
+        self._is_ge_v3 = self._loose_version >= Version('3.0.0.dev0')
 
         self._compat_module = pdcompat
         self._data_frame = pd.DataFrame
@@ -95,13 +99,17 @@ cdef class _PandasAPIShim(object):
         self.has_sparse = False
 
     cdef inline _check_import(self, bint raise_=True):
-        if self._tried_importing_pandas:
-            if not self._have_pandas and raise_:
-                self._import_pandas(raise_)
-            return
+        if not self._tried_importing_pandas:
+            with self._lock:
+                if not self._tried_importing_pandas:
+                    try:
+                        self._import_pandas(raise_)
+                    finally:
+                        self._tried_importing_pandas = True
+                    return
 
-        self._tried_importing_pandas = True
-        self._import_pandas(raise_)
+        if not self._have_pandas and raise_:
+            self._import_pandas(raise_)
 
     def series(self, *args, **kwargs):
         self._check_import()
@@ -157,6 +165,14 @@ cdef class _PandasAPIShim(object):
     def is_v1(self):
         self._check_import()
         return self._is_v1
+
+    def is_ge_v21(self):
+        self._check_import()
+        return self._is_ge_v21
+
+    def is_ge_v3(self):
+        self._check_import()
+        return self._is_ge_v3
 
     @property
     def categorical_type(self):

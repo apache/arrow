@@ -139,7 +139,7 @@ test_that("Writing a dataset: Parquet->Parquet (default)", {
   )
 })
 
-test_that("Writing a dataset: `basename_template` default behavier", {
+test_that("Writing a dataset: `basename_template` default behavior", {
   ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
 
   dst_dir <- make_temp_dir()
@@ -840,7 +840,7 @@ test_that("Writing a dataset to text files with wrapper functions.", {
   expect_equal(new_ds %>% collect(), df)
 })
 
-test_that("Writing a flat file dataset: `basename_template` default behavier", {
+test_that("Writing a flat file dataset: `basename_template` default behavior", {
   ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
 
   dst_dir <- make_temp_dir()

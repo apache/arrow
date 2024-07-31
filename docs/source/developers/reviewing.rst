@@ -217,11 +217,11 @@ Social aspects
 
 * If you know someone who has the competence to help on a blocking issue
   and past experience suggests they may be willing to do so, feel free to
-  add them to the discussion (for example by gently pinging their Github
+  add them to the discussion (for example by gently pinging their GitHub
   handle).
 
 * If the contributor has stopped giving feedback or updating their PR,
-  perhaps they're not interested any more, but perhaps also they're stuck
+  perhaps they're not interested anymore, but perhaps also they're stuck
   on some issue and feel unable to push their contribution any further.
   Don't hesitate to ask (*"I see this PR hasn't seen any updates recently,
   are you stuck on something? Do you need any help?"*).
@@ -260,14 +260,14 @@ Social aspects
 Labelling
 =========
 
-While reviewing PRs, we should try to identify whether the corresponding issue 
+While reviewing PRs, we should try to identify whether the corresponding issue
 needs to be marked with one or both of the following issue labels:
 
 * **Critical Fix**: The change fixes either: (a) a security vulnerability;
   (b) a bug that causes incorrect or invalid data to be produced;
   or (c) a bug that causes a crash (while the API contract is upheld).
   This is intended to mark fixes to issues that may affect users without their
-  knowledge. For this reason, fixing bugs that cause errors don't count, since 
+  knowledge. For this reason, fixing bugs that cause errors don't count, since
   those bugs are usually obvious. Bugs that cause crashes are considered critical
   because they are a possible vector of Denial-of-Service attacks.
 * **Breaking Change**: The change breaks backwards compatibility in a public API.
@@ -275,7 +275,7 @@ needs to be marked with one or both of the following issue labels:
   compatibility, except for the few places where we do guarantee ABI
   compatibility (such as C Data Interface). Experimental APIs are *not*
   exempt from this; they are just more likely to be associated with this tag.
-  
+
 Breaking changes and critical fixes are separate: breaking changes alter the
 API contract, while critical fixes make the implementation align with the
 existing API contract. For example, fixing a bug that caused a Parquet reader

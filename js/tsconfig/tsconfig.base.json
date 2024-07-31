@@ -12,7 +12,6 @@
     /* Basic stuff */
     "moduleResolution": "Node",
     "lib": ["DOM", "ESNext", "ESNext.AsyncIterable"],
-    "esModuleInterop": true,
 
     /* Control what is emitted */
     "declaration": true,

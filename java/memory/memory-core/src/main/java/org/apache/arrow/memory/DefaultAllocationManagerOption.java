@@ -14,54 +14,48 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.memory;
 
 import java.lang.reflect.Field;
+import org.apache.arrow.util.VisibleForTesting;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
-/**
- * A class for choosing the default allocation manager.
- */
+/** A class for choosing the default allocation manager. */
 public class DefaultAllocationManagerOption {
 
-  /**
-   * The environmental variable to set the default allocation manager type.
-   */
+  /** The environmental variable to set the default allocation manager type. */
   public static final String ALLOCATION_MANAGER_TYPE_ENV_NAME = "ARROW_ALLOCATION_MANAGER_TYPE";
 
-  /**
-   * The system property to set the default allocation manager type.
-   */
-  public static final String ALLOCATION_MANAGER_TYPE_PROPERTY_NAME = "arrow.allocation.manager.type";
+  /** The system property to set the default allocation manager type. */
+  public static final String ALLOCATION_MANAGER_TYPE_PROPERTY_NAME =
+      "arrow.allocation.manager.type";
 
-  static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(DefaultAllocationManagerOption.class);
+  static final org.slf4j.Logger LOGGER =
+      org.slf4j.LoggerFactory.getLogger(DefaultAllocationManagerOption.class);
 
-  /**
-   * The default allocation manager factory.
-   */
-  private static AllocationManager.Factory DEFAULT_ALLOCATION_MANAGER_FACTORY = null;
+  /** The default allocation manager factory. */
+  private static AllocationManager.@Nullable Factory DEFAULT_ALLOCATION_MANAGER_FACTORY = null;
 
-  /**
-   * The allocation manager type.
-   */
+  /** The allocation manager type. */
   public enum AllocationManagerType {
-    /**
-     * Netty based allocation manager.
-     */
+    /** Netty based allocation manager. */
     Netty,
 
-    /**
-     * Unsafe based allocation manager.
-     */
+    /** Unsafe based allocation manager. */
     Unsafe,
 
-    /**
-     * Unknown type.
-     */
+    /** Unknown type. */
     Unknown,
   }
 
-  static AllocationManagerType getDefaultAllocationManagerType() {
+  /**
+   * Returns the default allocation manager type.
+   *
+   * @return the default allocation manager type.
+   */
+  @SuppressWarnings("nullness:argument") // enum types valueOf are implicitly non-null
+  @VisibleForTesting
+  public static AllocationManagerType getDefaultAllocationManagerType() {
     AllocationManagerType ret = AllocationManagerType.Unknown;
 
     try {
@@ -103,6 +97,9 @@ public class DefaultAllocationManagerOption {
     return DEFAULT_ALLOCATION_MANAGER_FACTORY;
   }
 
+  @SuppressWarnings({"nullness:argument", "nullness:return"})
+  // incompatible argument for parameter obj of Field.get
+  // Static member qualifying type may not be annotated
   private static AllocationManager.Factory getFactory(String clazzName) {
     try {
       Field field = Class.forName(clazzName).getDeclaredField("FACTORY");
@@ -115,19 +112,23 @@ public class DefaultAllocationManagerOption {
 
   private static AllocationManager.Factory getUnsafeFactory() {
     try {
-      return getFactory("org.apache.arrow.memory.UnsafeAllocationManager");
+      return getFactory("org.apache.arrow.memory.unsafe.UnsafeAllocationManager");
     } catch (RuntimeException e) {
-      throw new RuntimeException("Please add arrow-memory-unsafe to your classpath," +
-          " No DefaultAllocationManager found to instantiate an UnsafeAllocationManager", e);
+      throw new RuntimeException(
+          "Please add arrow-memory-unsafe to your classpath,"
+              + " No DefaultAllocationManager found to instantiate an UnsafeAllocationManager",
+          e);
     }
   }
 
   private static AllocationManager.Factory getNettyFactory() {
     try {
-      return getFactory("org.apache.arrow.memory.NettyAllocationManager");
+      return getFactory("org.apache.arrow.memory.netty.NettyAllocationManager");
     } catch (RuntimeException e) {
-      throw new RuntimeException("Please add arrow-memory-netty to your classpath," +
-          " No DefaultAllocationManager found to instantiate an NettyAllocationManager", e);
+      throw new RuntimeException(
+          "Please add arrow-memory-netty to your classpath,"
+              + " No DefaultAllocationManager found to instantiate an NettyAllocationManager",
+          e);
     }
   }
 }

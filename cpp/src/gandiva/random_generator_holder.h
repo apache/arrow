@@ -34,8 +34,7 @@ class GANDIVA_EXPORT RandomGeneratorHolder : public FunctionHolder {
  public:
   ~RandomGeneratorHolder() override = default;
 
-  static Status Make(const FunctionNode& node,
-                     std::shared_ptr<RandomGeneratorHolder>* holder);
+  static Result<std::shared_ptr<RandomGeneratorHolder>> Make(const FunctionNode& node);
 
   double operator()() { return distribution_(generator_); }
 

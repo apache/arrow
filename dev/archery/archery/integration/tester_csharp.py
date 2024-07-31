@@ -28,7 +28,7 @@ _ARTIFACTS_PATH = os.path.join(ARROW_ROOT_DEFAULT, "csharp/artifacts")
 
 _EXE_PATH = os.path.join(_ARTIFACTS_PATH,
                          "Apache.Arrow.IntegrationTest",
-                         "Debug/net7.0/Apache.Arrow.IntegrationTest",
+                         "Debug/net8.0/Apache.Arrow.IntegrationTest",
                          )
 
 _clr_loaded = False
@@ -38,15 +38,16 @@ def _load_clr():
     global _clr_loaded
     if not _clr_loaded:
         _clr_loaded = True
+        os.environ['DOTNET_GCHeapHardLimit'] = '0xC800000'  # 200 MiB
         import pythonnet
         pythonnet.load("coreclr")
         import clr
         clr.AddReference(
             f"{_ARTIFACTS_PATH}/Apache.Arrow.IntegrationTest/"
-            f"Debug/net7.0/Apache.Arrow.IntegrationTest.dll")
+            f"Debug/net8.0/Apache.Arrow.IntegrationTest.dll")
         clr.AddReference(
             f"{_ARTIFACTS_PATH}/Apache.Arrow.Tests/"
-            f"Debug/net7.0/Apache.Arrow.Tests.dll")
+            f"Debug/net8.0/Apache.Arrow.Tests.dll")
 
         from Apache.Arrow.IntegrationTest import CDataInterface
         CDataInterface.Initialize()
@@ -77,9 +78,7 @@ class _CDataBase:
     def _read_batch_from_json(self, json_path, num_batch):
         from Apache.Arrow.IntegrationTest import CDataInterface
 
-        jf = CDataInterface.ParseJsonFile(json_path)
-        schema = jf.Schema.ToArrow()
-        return schema, jf.Batches[num_batch].ToArrow(schema)
+        return CDataInterface.ParseJsonFile(json_path).ToArrow(num_batch)
 
     def _run_gc(self):
         from Apache.Arrow.IntegrationTest import CDataInterface

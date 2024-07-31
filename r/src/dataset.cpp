@@ -343,8 +343,8 @@ std::shared_ptr<ds::JsonFragmentScanOptions> dataset___JsonFragmentScanOptions__
 std::shared_ptr<ds::ParquetFragmentScanOptions>
 dataset___ParquetFragmentScanOptions__Make(bool use_buffered_stream, int64_t buffer_size,
                                            bool pre_buffer,
-                                           int64_t thrift_string_size_limit,
-                                           int64_t thrift_container_size_limit) {
+                                           int32_t thrift_string_size_limit,
+                                           int32_t thrift_container_size_limit) {
   auto options = std::make_shared<ds::ParquetFragmentScanOptions>();
   if (use_buffered_stream) {
     options->reader_properties->enable_buffered_stream();

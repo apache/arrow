@@ -20,8 +20,9 @@
 set -ex
 
 source_dir=${1}/js
+build_dir=${2}/js
 
-pushd ${source_dir}
+pushd ${build_dir}
 
 yarn lint
 yarn test

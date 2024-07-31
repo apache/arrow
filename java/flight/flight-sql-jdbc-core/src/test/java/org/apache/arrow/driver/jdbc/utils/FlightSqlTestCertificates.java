@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc.utils;
 
 import java.io.File;
@@ -24,9 +23,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
-/**
- * Utility class for unit tests that need to reference the certificate params.
- */
+/** Utility class for unit tests that need to reference the certificate params. */
 public class FlightSqlTestCertificates {
 
   public static final String TEST_DATA_ENV_VAR = "ARROW_TEST_DATA";
@@ -37,9 +34,12 @@ public class FlightSqlTestCertificates {
     if (path == null) {
       path = System.getProperty(TEST_DATA_PROPERTY);
     }
-    return Paths.get(Objects.requireNonNull(path,
-        String.format("Could not find test data path. Set the environment variable %s or the JVM property %s.",
-            TEST_DATA_ENV_VAR, TEST_DATA_PROPERTY)));
+    return Paths.get(
+        Objects.requireNonNull(
+            path,
+            String.format(
+                "Could not find test data path. Set the environment variable %s or the JVM property %s.",
+                TEST_DATA_ENV_VAR, TEST_DATA_PROPERTY)));
   }
 
   /**
@@ -52,16 +52,25 @@ public class FlightSqlTestCertificates {
   }
 
   /**
+   * Create File object with the CA certificate.
+   *
+   * @return A File containing the Root CA certificate.
+   */
+  public static File exampleCACert() {
+    final Path root = getFlightTestDataRoot();
+    return root.resolve("root-ca.pem").toFile();
+  }
+
+  /**
    * Create CertKeyPair object with the certificates and keys.
    *
    * @return A list with CertKeyPair.
    */
   public static List<CertKeyPair> exampleTlsCerts() {
     final Path root = getFlightTestDataRoot();
-    return Arrays.asList(new CertKeyPair(root.resolve("cert0.pem")
-            .toFile(), root.resolve("cert0.pkcs1").toFile()),
-        new CertKeyPair(root.resolve("cert1.pem")
-            .toFile(), root.resolve("cert1.pkcs1").toFile()));
+    return Arrays.asList(
+        new CertKeyPair(root.resolve("cert0.pem").toFile(), root.resolve("cert0.pkcs1").toFile()),
+        new CertKeyPair(root.resolve("cert1.pem").toFile(), root.resolve("cert1.pkcs1").toFile()));
   }
 
   public static class CertKeyPair {

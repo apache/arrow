@@ -14,12 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.algorithm.deduplicate;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.nio.charset.StandardCharsets;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -27,13 +27,11 @@ import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.util.DataSizeRoundingUtil;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-/**
- * Test cases for {@link DeduplicationUtils}.
- */
+/** Test cases for {@link DeduplicationUtils}. */
 public class TestDeduplicationUtils {
 
   private static final int VECTOR_LENGTH = 100;
@@ -42,12 +40,12 @@ public class TestDeduplicationUtils {
 
   private BufferAllocator allocator;
 
-  @Before
+  @BeforeEach
   public void prepare() {
     allocator = new RootAllocator(1024 * 1024);
   }
 
-  @After
+  @AfterEach
   public void shutdown() {
     allocator.close();
   }
@@ -55,10 +53,11 @@ public class TestDeduplicationUtils {
   @Test
   public void testDeduplicateFixedWidth() {
     try (IntVector origVec = new IntVector("original vec", allocator);
-         IntVector dedupVec = new IntVector("deduplicated vec", allocator);
-         IntVector lengthVec = new IntVector("length vec", allocator);
-         ArrowBuf distinctBuf = allocator.buffer(
-                 DataSizeRoundingUtil.divideBy8Ceil(VECTOR_LENGTH * REPETITION_COUNT))) {
+        IntVector dedupVec = new IntVector("deduplicated vec", allocator);
+        IntVector lengthVec = new IntVector("length vec", allocator);
+        ArrowBuf distinctBuf =
+            allocator.buffer(
+                DataSizeRoundingUtil.divideBy8Ceil(VECTOR_LENGTH * REPETITION_COUNT))) {
       origVec.allocateNew(VECTOR_LENGTH * REPETITION_COUNT);
       origVec.setValueCount(VECTOR_LENGTH * REPETITION_COUNT);
       lengthVec.allocateNew();
@@ -71,9 +70,10 @@ public class TestDeduplicationUtils {
       }
 
       DeduplicationUtils.populateRunStartIndicators(origVec, distinctBuf);
-      assertEquals( VECTOR_LENGTH,
-              VECTOR_LENGTH * REPETITION_COUNT -
-                      BitVectorHelper.getNullCount(distinctBuf, VECTOR_LENGTH * REPETITION_COUNT));
+      assertEquals(
+          VECTOR_LENGTH,
+          VECTOR_LENGTH * REPETITION_COUNT
+              - BitVectorHelper.getNullCount(distinctBuf, VECTOR_LENGTH * REPETITION_COUNT));
 
       DeduplicationUtils.populateDeduplicatedValues(distinctBuf, origVec, dedupVec);
       assertEquals(VECTOR_LENGTH, dedupVec.getValueCount());
@@ -82,7 +82,8 @@ public class TestDeduplicationUtils {
         assertEquals(i, dedupVec.get(i));
       }
 
-      DeduplicationUtils.populateRunLengths(distinctBuf, lengthVec, VECTOR_LENGTH * REPETITION_COUNT);
+      DeduplicationUtils.populateRunLengths(
+          distinctBuf, lengthVec, VECTOR_LENGTH * REPETITION_COUNT);
       assertEquals(VECTOR_LENGTH, lengthVec.getValueCount());
 
       for (int i = 0; i < VECTOR_LENGTH; i++) {
@@ -94,12 +95,12 @@ public class TestDeduplicationUtils {
   @Test
   public void testDeduplicateVariableWidth() {
     try (VarCharVector origVec = new VarCharVector("original vec", allocator);
-         VarCharVector dedupVec = new VarCharVector("deduplicated vec", allocator);
-         IntVector lengthVec = new IntVector("length vec", allocator);
-         ArrowBuf distinctBuf = allocator.buffer(
-                 DataSizeRoundingUtil.divideBy8Ceil(VECTOR_LENGTH * REPETITION_COUNT))) {
-      origVec.allocateNew(
-              VECTOR_LENGTH * REPETITION_COUNT * 10, VECTOR_LENGTH * REPETITION_COUNT);
+        VarCharVector dedupVec = new VarCharVector("deduplicated vec", allocator);
+        IntVector lengthVec = new IntVector("length vec", allocator);
+        ArrowBuf distinctBuf =
+            allocator.buffer(
+                DataSizeRoundingUtil.divideBy8Ceil(VECTOR_LENGTH * REPETITION_COUNT))) {
+      origVec.allocateNew(VECTOR_LENGTH * REPETITION_COUNT * 10, VECTOR_LENGTH * REPETITION_COUNT);
       origVec.setValueCount(VECTOR_LENGTH * REPETITION_COUNT);
       lengthVec.allocateNew();
 
@@ -107,24 +108,25 @@ public class TestDeduplicationUtils {
       for (int i = 0; i < VECTOR_LENGTH; i++) {
         String str = String.valueOf(i * i);
         for (int j = 0; j < REPETITION_COUNT; j++) {
-          origVec.set(i * REPETITION_COUNT + j, str.getBytes());
+          origVec.set(i * REPETITION_COUNT + j, str.getBytes(StandardCharsets.UTF_8));
         }
       }
 
       DeduplicationUtils.populateRunStartIndicators(origVec, distinctBuf);
-      assertEquals(VECTOR_LENGTH,
-              VECTOR_LENGTH * REPETITION_COUNT -
-                      BitVectorHelper.getNullCount(distinctBuf, VECTOR_LENGTH * REPETITION_COUNT));
+      assertEquals(
+          VECTOR_LENGTH,
+          VECTOR_LENGTH * REPETITION_COUNT
+              - BitVectorHelper.getNullCount(distinctBuf, VECTOR_LENGTH * REPETITION_COUNT));
 
       DeduplicationUtils.populateDeduplicatedValues(distinctBuf, origVec, dedupVec);
       assertEquals(VECTOR_LENGTH, dedupVec.getValueCount());
 
       for (int i = 0; i < VECTOR_LENGTH; i++) {
-        assertArrayEquals(String.valueOf(i * i).getBytes(), dedupVec.get(i));
+        assertArrayEquals(String.valueOf(i * i).getBytes(StandardCharsets.UTF_8), dedupVec.get(i));
       }
 
       DeduplicationUtils.populateRunLengths(
-              distinctBuf, lengthVec, VECTOR_LENGTH * REPETITION_COUNT);
+          distinctBuf, lengthVec, VECTOR_LENGTH * REPETITION_COUNT);
       assertEquals(VECTOR_LENGTH, lengthVec.getValueCount());
 
       for (int i = 0; i < VECTOR_LENGTH; i++) {

@@ -27,7 +27,7 @@ Developers can use Arrow to exchange data between various
 technologies and languages without incurring in any extra cost of
 marshalling/unmarshalling the data. The Arrow bindings and Arrow
 native libraries on the various platforms will all understand Arrow data
-natively wihout the need to decode it.
+natively without the need to decode it.
 
 This allows to easily integrate PyArrow with other languages and technologies.
 

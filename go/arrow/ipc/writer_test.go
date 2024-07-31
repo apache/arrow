@@ -24,11 +24,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/array"
-	"github.com/apache/arrow/go/v15/arrow/bitutil"
-	"github.com/apache/arrow/go/v15/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/array"
+	"github.com/apache/arrow/go/v18/arrow/bitutil"
+	"github.com/apache/arrow/go/v18/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v18/arrow/memory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -193,7 +193,8 @@ func TestWriteWithCompressionAndMinSavings(t *testing.T) {
 	}
 
 	for _, codec := range []flatbuf.CompressionType{flatbuf.CompressionTypeLZ4_FRAME, flatbuf.CompressionTypeZSTD} {
-		enc := newRecordEncoder(mem, 0, 5, true, codec, 1, nil)
+		compressors := []compressor{getCompressor(codec)}
+		enc := newRecordEncoder(mem, 0, 5, true, codec, 1, nil, compressors)
 		var payload Payload
 		require.NoError(t, enc.encode(&payload, batch))
 		assert.Len(t, payload.body, 2)
@@ -205,7 +206,7 @@ func TestWriteWithCompressionAndMinSavings(t *testing.T) {
 		assert.Greater(t, compressedSize, int64(0))
 		expectedSavings := 1.0 - float64(compressedSize)/float64(uncompressedSize)
 
-		compressEncoder := newRecordEncoder(mem, 0, 5, true, codec, 1, &expectedSavings)
+		compressEncoder := newRecordEncoder(mem, 0, 5, true, codec, 1, &expectedSavings, compressors)
 		payload.Release()
 		payload.body = payload.body[:0]
 		require.NoError(t, compressEncoder.encode(&payload, batch))

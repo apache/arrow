@@ -312,7 +312,7 @@ struct Decimal128RealConversion
     return x;
   }
 
-  /// An appoximate conversion from Decimal128 to Real that guarantees:
+  /// An approximate conversion from Decimal128 to Real that guarantees:
   /// 1. If the decimal is an integer, the conversion is exact.
   /// 2. If the number of fractional digits is <= RealTraits<Real>::kMantissaDigits (e.g.
   ///    8 for float and 16 for double), the conversion is within 1 ULP of the exact
@@ -717,7 +717,7 @@ Status Decimal128::FromString(const char* s, Decimal128* out, int32_t* precision
 Result<Decimal128> Decimal128::FromString(std::string_view s) {
   Decimal128 out;
   RETURN_NOT_OK(FromString(s, &out, nullptr, nullptr));
-  return std::move(out);
+  return out;
 }
 
 Result<Decimal128> Decimal128::FromString(const std::string& s) {
@@ -850,7 +850,7 @@ Status Decimal256::FromString(const char* s, Decimal256* out, int32_t* precision
 Result<Decimal256> Decimal256::FromString(std::string_view s) {
   Decimal256 out;
   RETURN_NOT_OK(FromString(s, &out, nullptr, nullptr));
-  return std::move(out);
+  return out;
 }
 
 Result<Decimal256> Decimal256::FromString(const std::string& s) {
@@ -868,7 +868,7 @@ Result<Decimal256> Decimal256::FromBigEndian(const uint8_t* bytes, int32_t lengt
   std::array<uint64_t, 4> little_endian_array;
 
   if (ARROW_PREDICT_FALSE(length < kMinDecimalBytes || length > kMaxDecimalBytes)) {
-    return Status::Invalid("Length of byte array passed to Decimal128::FromBigEndian ",
+    return Status::Invalid("Length of byte array passed to Decimal256::FromBigEndian ",
                            "was ", length, ", but must be between ", kMinDecimalBytes,
                            " and ", kMaxDecimalBytes);
   }
@@ -1006,7 +1006,7 @@ struct Decimal256RealConversion
     return x;
   }
 
-  /// An appoximate conversion from Decimal256 to Real that guarantees:
+  /// An approximate conversion from Decimal256 to Real that guarantees:
   /// 1. If the decimal is an integer, the conversion is exact.
   /// 2. If the number of fractional digits is <= RealTraits<Real>::kMantissaDigits (e.g.
   ///    8 for float and 16 for double), the conversion is within 1 ULP of the exact

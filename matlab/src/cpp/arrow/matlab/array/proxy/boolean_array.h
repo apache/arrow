@@ -19,19 +19,20 @@
 
 #include "arrow/matlab/array/proxy/array.h"
 
-#include "libmexclass/proxy/Proxy.h"
 #include "arrow/type_fwd.h"
+#include "libmexclass/proxy/Proxy.h"
 
 namespace arrow::matlab::array::proxy {
 
-    class BooleanArray : public arrow::matlab::array::proxy::Array {
-        public:
-            BooleanArray(std::shared_ptr<arrow::BooleanArray> array);
+class BooleanArray : public arrow::matlab::array::proxy::Array {
+ public:
+  BooleanArray(std::shared_ptr<arrow::BooleanArray> array);
 
-            static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
+  static libmexclass::proxy::MakeResult make(
+      const libmexclass::proxy::FunctionArguments& constructor_arguments);
 
-        protected:
-            void toMATLAB(libmexclass::proxy::method::Context& context);
-    };
+ protected:
+  void toMATLAB(libmexclass::proxy::method::Context& context);
+};
 
-}
+}  // namespace arrow::matlab::array::proxy

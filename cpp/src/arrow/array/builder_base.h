@@ -175,8 +175,9 @@ class ARROW_EXPORT ArrayBuilder {
   /// \brief Append a range of values from an array.
   ///
   /// The given array must be the same type as the builder.
-  virtual Status AppendArraySlice(const ArraySpan& array, int64_t offset,
-                                  int64_t length) {
+  virtual Status AppendArraySlice(const ArraySpan& ARROW_ARG_UNUSED(array),
+                                  int64_t ARROW_ARG_UNUSED(offset),
+                                  int64_t ARROW_ARG_UNUSED(length)) {
     return Status::NotImplemented("AppendArraySlice for builder for ", *type());
   }
 
@@ -331,7 +332,7 @@ inline Result<std::unique_ptr<ArrayBuilder>> MakeBuilder(
     const std::shared_ptr<DataType>& type, MemoryPool* pool = default_memory_pool()) {
   std::unique_ptr<ArrayBuilder> out;
   ARROW_RETURN_NOT_OK(MakeBuilder(pool, type, &out));
-  return std::move(out);
+  return out;
 }
 
 /// \brief Construct an empty ArrayBuilder corresponding to the data
@@ -345,11 +346,11 @@ inline Result<std::unique_ptr<ArrayBuilder>> MakeBuilderExactIndex(
     const std::shared_ptr<DataType>& type, MemoryPool* pool = default_memory_pool()) {
   std::unique_ptr<ArrayBuilder> out;
   ARROW_RETURN_NOT_OK(MakeBuilderExactIndex(pool, type, &out));
-  return std::move(out);
+  return out;
 }
 
 /// \brief Construct an empty DictionaryBuilder initialized optionally
-/// with a pre-existing dictionary
+/// with a preexisting dictionary
 /// \param[in] pool the MemoryPool to use for allocations
 /// \param[in] type the dictionary type to create the builder for
 /// \param[in] dictionary the initial dictionary, if any. May be nullptr
@@ -364,7 +365,7 @@ inline Result<std::unique_ptr<ArrayBuilder>> MakeDictionaryBuilder(
     MemoryPool* pool = default_memory_pool()) {
   std::unique_ptr<ArrayBuilder> out;
   ARROW_RETURN_NOT_OK(MakeDictionaryBuilder(pool, type, dictionary, &out));
-  return std::move(out);
+  return out;
 }
 
 }  // namespace arrow

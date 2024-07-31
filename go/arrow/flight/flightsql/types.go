@@ -17,7 +17,7 @@
 package flightsql
 
 import (
-	pb "github.com/apache/arrow/go/v15/arrow/flight/gen/flight"
+	pb "github.com/apache/arrow/go/v18/arrow/flight/gen/flight"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 )
@@ -134,6 +134,20 @@ type (
 		// the substrait release, e.g. "0.23.0"
 		Version string
 	}
+
+	// ExecuteIngestOpts contains the options for executing a bulk ingestion:
+	//
+	// Required:
+	// - TableDefinitionOptions: Specifies the behavior for creating or updating table definitions
+	// - Table: The destination table to load into
+	//
+	// Optional:
+	// - Schema: The DB schema containing the destination table
+	// - Catalog: The catalog containing the destination table
+	// - Temporary: Use a temporary table as the destination
+	// - TransactionId: Ingest as part of this transaction
+	// - Options: Additional, backend-specific options
+	ExecuteIngestOpts pb.CommandStatementIngest
 )
 
 // SqlInfo enum values
@@ -197,6 +211,18 @@ const (
 	//
 	// If 0, there is no timeout.  Servers should reset the timeout when the handle is used in a command.
 	SqlInfoFlightSqlServerTransactionTimeout = SqlInfo(pb.SqlInfo_FLIGHT_SQL_SERVER_TRANSACTION_TIMEOUT)
+
+	// Retrieves a boolean value indicating whether the Flight SQL Server supports executing
+	// bulk ingestion.
+	SqlInfoFlightSqlServerBulkIngestion = SqlInfo(pb.SqlInfo_FLIGHT_SQL_SERVER_BULK_INGESTION)
+	// Retrieves a boolean value indicating whether transactions are supported for bulk ingestion. If not, invoking
+	// the method commit in the context of a bulk ingestion is a noop, and the isolation level is
+	// `arrow.flight.protocol.sql.SqlTransactionIsolationLevel.TRANSACTION_NONE`.
+	//
+	// Returns:
+	// - false: if bulk ingestion transactions are unsupported;
+	// - true: if bulk ingestion transactions are supported.
+	SqlInfoFlightSqlServerIngestTransactionsSupported = SqlInfo(pb.SqlInfo_FLIGHT_SQL_SERVER_INGEST_TRANSACTIONS_SUPPORTED)
 
 	// SQL Syntax Information
 	// Values [500-1000): provide information about the supported SQL Syntax
@@ -525,7 +551,7 @@ const (
 	SqlInfoMaxCharLiteralLen = SqlInfo(pb.SqlInfo_SQL_MAX_CHAR_LITERAL_LENGTH)
 	// Retrieves a int64 value representing the maximum number of characters allowed for a column name.
 	SqlInfoMaxColumnNameLen = SqlInfo(pb.SqlInfo_SQL_MAX_COLUMN_NAME_LENGTH)
-	// Retrieves a int64 value representing the the maximum number of columns allowed in a GROUP BY clause.
+	// Retrieves a int64 value representing the maximum number of columns allowed in a GROUP BY clause.
 	SqlInfoMaxColumnsInGroupBy = SqlInfo(pb.SqlInfo_SQL_MAX_COLUMNS_IN_GROUP_BY)
 	// Retrieves a int64 value representing the maximum number of columns allowed in an index.
 	SqlInfoMaxColumnsInIndex = SqlInfo(pb.SqlInfo_SQL_MAX_COLUMNS_IN_INDEX)
@@ -705,7 +731,7 @@ const (
 	// - return 6 (\b110)  => [SQL_RESULT_SET_CONCURRENCY_READ_ONLY, SQL_RESULT_SET_CONCURRENCY_UPDATABLE]
 	// - return 7 (\b111)  => [SQL_RESULT_SET_CONCURRENCY_UNSPECIFIED, SQL_RESULT_SET_CONCURRENCY_READ_ONLY, SQL_RESULT_SET_CONCURRENCY_UPDATABLE]
 	// Valid result set types are described under `arrow.flight.protocol.sql.SqlSupportedResultSetConcurrency`.
-	SqlInfoSupportedConcurrenciesForResultSetScrollInensitive = SqlInfo(pb.SqlInfo_SQL_SUPPORTED_CONCURRENCIES_FOR_RESULT_SET_SCROLL_INSENSITIVE)
+	SqlInfoSupportedConcurrenciesForResultSetScrollInsensitive = SqlInfo(pb.SqlInfo_SQL_SUPPORTED_CONCURRENCIES_FOR_RESULT_SET_SCROLL_INSENSITIVE)
 
 	// Retrieves a boolean value indicating whether this database supports batch updates.
 	//
@@ -851,4 +877,23 @@ const (
 	// The query is not cancellable. The client should not retry the
 	// cancellation request.
 	CancelResultNotCancellable = pb.ActionCancelQueryResult_CANCEL_RESULT_NOT_CANCELLABLE
+)
+
+type CreatePreparedStatementResult = pb.ActionCreatePreparedStatementResult
+
+type (
+	TableDefinitionOptions                    = pb.CommandStatementIngest_TableDefinitionOptions
+	TableDefinitionOptionsTableNotExistOption = pb.CommandStatementIngest_TableDefinitionOptions_TableNotExistOption
+	TableDefinitionOptionsTableExistsOption   = pb.CommandStatementIngest_TableDefinitionOptions_TableExistsOption
+)
+
+const (
+	TableDefinitionOptionsTableNotExistOptionUnspecified = pb.CommandStatementIngest_TableDefinitionOptions_TABLE_NOT_EXIST_OPTION_UNSPECIFIED
+	TableDefinitionOptionsTableNotExistOptionCreate      = pb.CommandStatementIngest_TableDefinitionOptions_TABLE_NOT_EXIST_OPTION_CREATE
+	TableDefinitionOptionsTableNotExistOptionFail        = pb.CommandStatementIngest_TableDefinitionOptions_TABLE_NOT_EXIST_OPTION_FAIL
+
+	TableDefinitionOptionsTableExistsOptionUnspecified = pb.CommandStatementIngest_TableDefinitionOptions_TABLE_EXISTS_OPTION_UNSPECIFIED
+	TableDefinitionOptionsTableExistsOptionFail        = pb.CommandStatementIngest_TableDefinitionOptions_TABLE_EXISTS_OPTION_FAIL
+	TableDefinitionOptionsTableExistsOptionAppend      = pb.CommandStatementIngest_TableDefinitionOptions_TABLE_EXISTS_OPTION_APPEND
+	TableDefinitionOptionsTableExistsOptionReplace     = pb.CommandStatementIngest_TableDefinitionOptions_TABLE_EXISTS_OPTION_REPLACE
 )

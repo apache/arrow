@@ -17,9 +17,9 @@
 package encoding
 
 import (
-	"github.com/apache/arrow/go/v15/arrow/memory"
-	"github.com/apache/arrow/go/v15/internal/utils"
-	"github.com/apache/arrow/go/v15/parquet"
+	"github.com/apache/arrow/go/v18/arrow/memory"
+	"github.com/apache/arrow/go/v18/internal/utils"
+	"github.com/apache/arrow/go/v18/parquet"
 	"golang.org/x/xerrors"
 )
 
@@ -40,16 +40,27 @@ type DeltaByteArrayEncoder struct {
 }
 
 func (enc *DeltaByteArrayEncoder) EstimatedDataEncodedSize() int64 {
-	return enc.prefixEncoder.EstimatedDataEncodedSize() + enc.suffixEncoder.EstimatedDataEncodedSize()
+	prefixEstimatedSize := int64(0)
+	if enc.prefixEncoder != nil {
+		prefixEstimatedSize = enc.prefixEncoder.EstimatedDataEncodedSize()
+	}
+	suffixEstimatedSize := int64(0)
+	if enc.suffixEncoder != nil {
+		suffixEstimatedSize = enc.suffixEncoder.EstimatedDataEncodedSize()
+	}
+	return prefixEstimatedSize + suffixEstimatedSize
 }
 
 func (enc *DeltaByteArrayEncoder) initEncoders() {
 	enc.prefixEncoder = &DeltaBitPackInt32Encoder{
-		deltaBitPackEncoder: &deltaBitPackEncoder{encoder: newEncoderBase(enc.encoding, nil, enc.mem)}}
+		encoder: newEncoderBase(enc.encoding, nil, enc.mem),
+	}
 	enc.suffixEncoder = &DeltaLengthByteArrayEncoder{
 		newEncoderBase(enc.encoding, nil, enc.mem),
 		&DeltaBitPackInt32Encoder{
-			deltaBitPackEncoder: &deltaBitPackEncoder{encoder: newEncoderBase(enc.encoding, nil, enc.mem)}}}
+			encoder: newEncoderBase(enc.encoding, nil, enc.mem),
+		},
+	}
 }
 
 // Type returns the underlying physical type this operates on, in this case ByteArrays only
@@ -148,13 +159,13 @@ func (DeltaByteArrayDecoder) Type() parquet.Type {
 
 func (d *DeltaByteArrayDecoder) Allocator() memory.Allocator { return d.mem }
 
-// SetData expects the data passed in to be the prefix lengths, followed by the
+// SetData expects the passed in data to be the prefix lengths, followed by the
 // blocks of suffix data in order to initialize the decoder.
 func (d *DeltaByteArrayDecoder) SetData(nvalues int, data []byte) error {
 	prefixLenDec := DeltaBitPackInt32Decoder{
-		deltaBitPackDecoder: &deltaBitPackDecoder{
-			decoder: newDecoderBase(d.encoding, d.descr),
-			mem:     d.mem}}
+		decoder: newDecoderBase(d.encoding, d.descr),
+		mem:     d.mem,
+	}
 
 	if err := prefixLenDec.SetData(nvalues, data); err != nil {
 		return err
@@ -172,7 +183,7 @@ func (d *DeltaByteArrayDecoder) SetData(nvalues int, data []byte) error {
 
 // Decode decodes byte arrays into the slice provided and returns the number of values actually decoded
 func (d *DeltaByteArrayDecoder) Decode(out []parquet.ByteArray) (int, error) {
-	max := utils.MinInt(len(out), d.nvals)
+	max := utils.Min(len(out), d.nvals)
 	if max == 0 {
 		return 0, nil
 	}

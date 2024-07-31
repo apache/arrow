@@ -45,13 +45,13 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/array"
-	"github.com/apache/arrow/go/v15/arrow/flight"
-	"github.com/apache/arrow/go/v15/arrow/flight/flightsql"
-	"github.com/apache/arrow/go/v15/arrow/flight/flightsql/schema_ref"
-	"github.com/apache/arrow/go/v15/arrow/memory"
-	"github.com/apache/arrow/go/v15/arrow/scalar"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/array"
+	"github.com/apache/arrow/go/v18/arrow/flight"
+	"github.com/apache/arrow/go/v18/arrow/flight/flightsql"
+	"github.com/apache/arrow/go/v18/arrow/flight/flightsql/schema_ref"
+	"github.com/apache/arrow/go/v18/arrow/memory"
+	"github.com/apache/arrow/go/v18/arrow/scalar"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -618,21 +618,21 @@ func getParamsForStatement(rdr flight.MessageReader) (params [][]interface{}, er
 	return params, rdr.Err()
 }
 
-func (s *SQLiteFlightSQLServer) DoPutPreparedStatementQuery(_ context.Context, cmd flightsql.PreparedStatementQuery, rdr flight.MessageReader, _ flight.MetadataWriter) error {
+func (s *SQLiteFlightSQLServer) DoPutPreparedStatementQuery(_ context.Context, cmd flightsql.PreparedStatementQuery, rdr flight.MessageReader, _ flight.MetadataWriter) ([]byte, error) {
 	val, ok := s.prepared.Load(string(cmd.GetPreparedStatementHandle()))
 	if !ok {
-		return status.Error(codes.InvalidArgument, "prepared statement not found")
+		return nil, status.Error(codes.InvalidArgument, "prepared statement not found")
 	}
 
 	stmt := val.(Statement)
 	args, err := getParamsForStatement(rdr)
 	if err != nil {
-		return status.Errorf(codes.Internal, "error gathering parameters for prepared statement query: %s", err.Error())
+		return nil, status.Errorf(codes.Internal, "error gathering parameters for prepared statement query: %s", err.Error())
 	}
 
 	stmt.params = args
 	s.prepared.Store(string(cmd.GetPreparedStatementHandle()), stmt)
-	return nil
+	return cmd.GetPreparedStatementHandle(), nil
 }
 
 func (s *SQLiteFlightSQLServer) DoPutPreparedStatementUpdate(ctx context.Context, cmd flightsql.PreparedStatementUpdate, rdr flight.MessageReader) (int64, error) {
@@ -684,7 +684,7 @@ func (s *SQLiteFlightSQLServer) GetFlightInfoPrimaryKeys(_ context.Context, cmd 
 }
 
 func (s *SQLiteFlightSQLServer) DoGetPrimaryKeys(ctx context.Context, cmd flightsql.TableRef) (*arrow.Schema, <-chan flight.StreamChunk, error) {
-	// the field key_name can not be recovered by sqlite so it is
+	// the field key_name cannot be recovered by sqlite so it is
 	// being set to null following the same pattern for catalog name and schema_name
 	var b strings.Builder
 

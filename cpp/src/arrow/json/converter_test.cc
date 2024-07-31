@@ -39,7 +39,7 @@ Result<std::shared_ptr<Array>> Convert(std::shared_ptr<DataType> type,
   return converted;
 }
 
-// bool, null are trivial pass throughs
+// bool, null are trivial pass-throughs
 
 TEST(ConverterTest, Integers) {
   for (auto int_type : {int8(), int16(), int32(), int64()}) {

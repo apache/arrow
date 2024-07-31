@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using Apache.Arrow.Types;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -20,7 +21,7 @@ using System.Linq;
 
 namespace Apache.Arrow
 {
-    public partial class Schema
+    public partial class Schema : IRecordType
     {
         [Obsolete("Use `FieldsList` or `FieldsLookup` instead")]
         public IReadOnlyDictionary<string, Field> Fields => _fieldsDictionary;
@@ -71,11 +72,17 @@ namespace Apache.Arrow
 
         public Field GetFieldByName(string name) => FieldsLookup[name].FirstOrDefault();
 
-        public int GetFieldIndex(string name, StringComparer comparer = default)
+        public int GetFieldIndex(string name, StringComparer comparer)
+        {
+            IEqualityComparer<string> equalityComparer = (IEqualityComparer<string>)comparer;
+            return GetFieldIndex(name, equalityComparer);
+        }
+
+        public int GetFieldIndex(string name, IEqualityComparer<string> comparer = default)
         {
             comparer ??= StringComparer.CurrentCulture;
 
-            return _fieldsList.IndexOf(_fieldsList.First(x => comparer.Compare(x.Name, name) == 0));
+            return _fieldsList.IndexOf(_fieldsList.First(x => comparer.Equals(x.Name, name)));
         }
 
         public Schema RemoveField(int fieldIndex)
@@ -115,6 +122,27 @@ namespace Apache.Arrow
             return new Schema(fields, Metadata);
         }
 
+        public void Accept(IArrowTypeVisitor visitor)
+        {
+            if (visitor is IArrowTypeVisitor<Schema> schemaVisitor)
+            {
+                schemaVisitor.Visit(this);
+            }
+            else if (visitor is IArrowTypeVisitor<IRecordType> interfaceVisitor)
+            {
+                interfaceVisitor.Visit(this);
+            }
+            else
+            {
+                visitor.Visit(this);
+            }
+        }
+
         public override string ToString() => $"{nameof(Schema)}: Num fields={_fieldsList.Count}, Num metadata={Metadata?.Count ?? 0}";
+
+        int IRecordType.FieldCount => _fieldsList.Count;
+        string IArrowType.Name => "RecordBatch";
+        ArrowTypeId IArrowType.TypeId => ArrowTypeId.RecordBatch;
+        bool IArrowType.IsFixedWidth => false;
     }
 }

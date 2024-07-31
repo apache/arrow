@@ -16,10 +16,8 @@
 using System.Threading.Tasks;
 using Apache.Arrow.Flight.Internal;
 using Apache.Arrow.Flight.Protocol;
-using Apache.Arrow.Flight.Server;
 using Apache.Arrow.Flight.Server.Internal;
 using Grpc.Core;
-using Grpc.Net.Client;
 
 namespace Apache.Arrow.Flight.Client
 {
@@ -29,7 +27,7 @@ namespace Apache.Arrow.Flight.Client
 
         private readonly FlightService.FlightServiceClient _client;
 
-        public FlightClient(GrpcChannel grpcChannel)
+        public FlightClient(ChannelBase grpcChannel)
         {
             _client = new FlightService.FlightServiceClient(grpcChannel);
         }
@@ -101,6 +99,22 @@ namespace Apache.Arrow.Flight.Client
             var call = new AsyncDuplexStreamingCall<FlightHandshakeRequest, FlightHandshakeResponse>(
                 writeStream,
                 readStream,
+                channel.ResponseHeadersAsync,
+                channel.GetStatus,
+                channel.GetTrailers,
+                channel.Dispose);
+
+            return call;
+        }
+
+        public FlightRecordBatchExchangeCall DoExchange(FlightDescriptor flightDescriptor, Metadata headers = null)
+        {
+            var channel = _client.DoExchange(headers);
+            var requestStream = new FlightClientRecordBatchStreamWriter(channel.RequestStream, flightDescriptor);
+            var responseStream = new FlightClientRecordBatchStreamReader(channel.ResponseStream);
+            var call = new FlightRecordBatchExchangeCall(
+                requestStream,
+                responseStream,
                 channel.ResponseHeadersAsync,
                 channel.GetStatus,
                 channel.GetTrailers,

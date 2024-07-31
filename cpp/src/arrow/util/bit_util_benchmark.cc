@@ -107,7 +107,7 @@ static std::shared_ptr<Buffer> CreateRandomBuffer(int64_t nbytes) {
   auto buffer = *AllocateBuffer(nbytes);
   memset(buffer->mutable_data(), 0, nbytes);
   random_bytes(nbytes, /*seed=*/0, buffer->mutable_data());
-  return std::move(buffer);
+  return buffer;
 }
 
 static std::shared_ptr<Buffer> CreateRandomBitsBuffer(int64_t nbits,
@@ -449,7 +449,7 @@ static void CopyBitmap(benchmark::State& state) {  // NOLINT non-const reference
   const uint8_t* src = buffer->data();
   const int64_t length = bits_size - OffsetSrc;
 
-  auto copy = *AllocateEmptyBitmap(length);
+  auto copy = *AllocateEmptyBitmap(length + OffsetDest);
 
   for (auto _ : state) {
     internal::CopyBitmap(src, OffsetSrc, length, copy->mutable_data(), OffsetDest);

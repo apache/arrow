@@ -231,13 +231,13 @@ class PARQUET_EXPORT PageIndexReader {
                         const std::vector<int32_t>& column_indices,
                         const PageIndexSelection& selection) = 0;
 
-  /// \brief Advise the reader page index of these row groups will not be read any more.
+  /// \brief Advise the reader page index of these row groups will not be read anymore.
   ///
   /// The PageIndexReader implementation has the opportunity to cancel any prefetch or
   /// release resource that are related to these row groups.
   ///
   /// \param[in] row_group_indices list of row group ordinal that whose page index will
-  /// not be accessed any more.
+  /// not be accessed anymore.
   virtual void WillNotNeed(const std::vector<int32_t>& row_group_indices) = 0;
 
   /// \brief Determine the column index and offset index ranges for the given row group.
@@ -263,7 +263,7 @@ class PARQUET_EXPORT ColumnIndexBuilder {
   /// \brief Add statistics of a data page.
   ///
   /// If the ColumnIndexBuilder has seen any corrupted statistics, it will
-  /// not update statistics any more.
+  /// not update statistics anymore.
   ///
   /// \param stats Page statistics in the encoded form.
   virtual void AddPage(const EncodedStatistics& stats) = 0;

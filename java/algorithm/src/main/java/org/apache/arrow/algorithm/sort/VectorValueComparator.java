@@ -14,54 +14,44 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.algorithm.sort;
 
 import org.apache.arrow.vector.ValueVector;
 
 /**
- * Compare two values at the given indices in the vectors.
- * This is used for vector sorting.
+ * Compare two values at the given indices in the vectors. This is used for vector sorting.
+ *
  * @param <V> type of the vector.
  */
 public abstract class VectorValueComparator<V extends ValueVector> {
 
-  /**
-   * The first vector to compare.
-   */
+  /** The first vector to compare. */
   protected V vector1;
 
-  /**
-   * The second vector to compare.
-   */
+  /** The second vector to compare. */
   protected V vector2;
 
-  /**
-   * Width of the vector value. For variable-length vectors, this value makes no sense.
-   */
+  /** Width of the vector value. For variable-length vectors, this value makes no sense. */
   protected int valueWidth;
-
 
   private boolean checkNullsOnCompare = true;
 
   /**
-   * This value is true by default and re-computed when vectors are attached to the comparator. If both vectors cannot
-   * contain nulls then this value is {@code false} and calls to {@code compare(i1, i2)} are short-circuited
-   * to {@code compareNotNull(i1, i2)} thereby speeding up comparisons resulting in faster sorts etc.
+   * This value is true by default and re-computed when vectors are attached to the comparator. If
+   * both vectors cannot contain nulls then this value is {@code false} and calls to {@code
+   * compare(i1, i2)} are short-circuited to {@code compareNotNull(i1, i2)} thereby speeding up
+   * comparisons resulting in faster sorts etc.
    */
   public boolean checkNullsOnCompare() {
     return this.checkNullsOnCompare;
   }
 
-  /**
-   * Constructor for variable-width vectors.
-   */
-  protected VectorValueComparator() {
-
-  }
+  /** Constructor for variable-width vectors. */
+  protected VectorValueComparator() {}
 
   /**
    * Constructor for fixed-width vectors.
+   *
    * @param valueWidth the record width (in bytes).
    */
   protected VectorValueComparator(int valueWidth) {
@@ -74,6 +64,7 @@ public abstract class VectorValueComparator<V extends ValueVector> {
 
   /**
    * Attach both vectors to compare to the same input vector.
+   *
    * @param vector the vector to attach.
    */
   public void attachVector(V vector) {
@@ -82,6 +73,7 @@ public abstract class VectorValueComparator<V extends ValueVector> {
 
   /**
    * Attach vectors to compare.
+   *
    * @param vector1 the first vector to compare.
    * @param vector2 the second vector to compare.
    */
@@ -99,7 +91,7 @@ public abstract class VectorValueComparator<V extends ValueVector> {
     if (v.getValueCount() == 0) {
       return true;
     }
-    if (! v.getField().isNullable()) {
+    if (!v.getField().isNullable()) {
       return false;
     }
     return v.getNullCount() > 0;
@@ -107,11 +99,11 @@ public abstract class VectorValueComparator<V extends ValueVector> {
 
   /**
    * Compare two values, given their indices.
+   *
    * @param index1 index of the first value to compare.
    * @param index2 index of the second value to compare.
-   * @return an integer greater than 0, if the first value is greater;
-   *     an integer smaller than 0, if the first value is smaller; or 0, if both
-   *     values are equal.
+   * @return an integer greater than 0, if the first value is greater; an integer smaller than 0, if
+   *     the first value is smaller; or 0, if both values are equal.
    */
   public int compare(int index1, int index2) {
     if (checkNullsOnCompare) {
@@ -133,19 +125,19 @@ public abstract class VectorValueComparator<V extends ValueVector> {
   }
 
   /**
-   * Compare two values, given their indices.
-   * This is a fast path for comparing non-null values, so the caller
-   * must make sure that values at both indices are not null.
+   * Compare two values, given their indices. This is a fast path for comparing non-null values, so
+   * the caller must make sure that values at both indices are not null.
+   *
    * @param index1 index of the first value to compare.
    * @param index2 index of the second value to compare.
-   * @return an integer greater than 0, if the first value is greater;
-   *     an integer smaller than 0, if the first value is smaller; or 0, if both
-   *     values are equal.
+   * @return an integer greater than 0, if the first value is greater; an integer smaller than 0, if
+   *     the first value is smaller; or 0, if both values are equal.
    */
   public abstract int compareNotNull(int index1, int index2);
 
   /**
    * Creates a comparator of the same type.
+   *
    * @return the newly created comparator.
    */
   public abstract VectorValueComparator<V> createNew();

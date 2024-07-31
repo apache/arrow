@@ -118,7 +118,7 @@ class GANDIVA_EXPORT Projector {
                   const SelectionVector* selection_vector,
                   const ArrayDataVector& output) const;
 
-  std::string DumpIR();
+  const std::string& DumpIR();
 
   void SetBuiltFromCache(bool flag);
 

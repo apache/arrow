@@ -24,7 +24,7 @@
 #include <string>
 #include <utility>
 
-#include "arrow/compute/function.h"
+#include "arrow/compute/function_options.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
@@ -358,7 +358,8 @@ class ARROW_EXPORT StrftimeOptions : public FunctionOptions {
 
 class ARROW_EXPORT PadOptions : public FunctionOptions {
  public:
-  explicit PadOptions(int64_t width, std::string padding = " ");
+  explicit PadOptions(int64_t width, std::string padding = " ",
+                      bool lean_left_on_odd_padding = true);
   PadOptions();
   static constexpr char const kTypeName[] = "PadOptions";
 
@@ -366,6 +367,10 @@ class ARROW_EXPORT PadOptions : public FunctionOptions {
   int64_t width;
   /// What to pad the string with. Should be one codepoint (Unicode)/byte (ASCII).
   std::string padding;
+  /// What to do if there is an odd number of padding characters (in case of centered
+  /// padding). Defaults to aligning on the left (i.e. adding the extra padding character
+  /// on the right)
+  bool lean_left_on_odd_padding = true;
 };
 
 class ARROW_EXPORT TrimOptions : public FunctionOptions {
@@ -491,7 +496,7 @@ struct ARROW_EXPORT AssumeTimezoneOptions : public FunctionOptions {
 
   /// How to interpret ambiguous local times (due to DST shifts)
   Ambiguous ambiguous;
-  /// How to interpret non-existent local times (due to DST shifts)
+  /// How to interpret nonexistent local times (due to DST shifts)
   Nonexistent nonexistent;
 };
 
@@ -1589,7 +1594,7 @@ ARROW_EXPORT Result<Datum> MonthsBetween(const Datum& left, const Datum& right,
 ARROW_EXPORT Result<Datum> WeeksBetween(const Datum& left, const Datum& right,
                                         ExecContext* ctx = NULLPTR);
 
-/// \brief Month Day Nano Between finds the number of months, days, and nonaseconds
+/// \brief Month Day Nano Between finds the number of months, days, and nanoseconds
 /// between two values
 ///
 /// \param[in] left input treated as the start time

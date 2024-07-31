@@ -92,7 +92,7 @@ implemented directly by a vendor-specific "driver" or a vendor-neutral
 
 Version 1.0.0 of the standard corresponds to tag adbc-1.0.0 of the
 repository ``apache/arrow-adbc``, which is commit
-f044edf5256abfb4c091b0ad2acc73afea2c93c0_.  Note that is is separate
+f044edf5256abfb4c091b0ad2acc73afea2c93c0_.  Note that is separate
 from releases of the actual implementations.
 
 See the language-specific pages for details:
@@ -188,25 +188,25 @@ bypass this wrapper.
 
 .. figure:: ./ADBCQuadrants.svg
 
-   ADBC, JDBC, and ODBC are database-agnostic.  They define the
-   API that the application uses, but not how that API is implemented,
-   instead deferring to drivers to fulfill requests using the protocol
-   of their choice.  JDBC and (generally) ODBC offer results in a
-   row-oriented format, while ADBC offers columnar Arrow data.
+ADBC, JDBC, and ODBC are database-agnostic.  They define the
+API that the application uses, but not how that API is implemented,
+instead deferring to drivers to fulfill requests using the protocol
+of their choice.  JDBC and (generally) ODBC offer results in a
+row-oriented format, while ADBC offers columnar Arrow data.
 
-   Protocols/libraries like libpq (Postgres) and TDS (SQL Server) are
-   database-specific and row-oriented.  Multiple databases may
-   implement the same protocol to try to reuse each other's work,
-   e.g. several databases implement the Postgres wire protocol to
-   benefit from its driver implementations.  But the protocol itself
-   was not designed with multiple databases in mind, nor are they
-   generally meant to be used directly by applications.
+Protocols/libraries like libpq (Postgres) and TDS (SQL Server) are
+database-specific and row-oriented.  Multiple databases may
+implement the same protocol to try to reuse each other's work,
+e.g. several databases implement the Postgres wire protocol to
+benefit from its driver implementations.  But the protocol itself
+was not designed with multiple databases in mind, nor are the
+protocols generally meant to be used directly by applications.
 
-   Some database-specific protocols are Arrow-native, like those of
-   BigQuery and ClickHouse.  Flight SQL additionally is meant to be
-   database-agnostic, but it defines both the client-facing API and
-   the underlying protocol, so it's hard for applications to use it as
-   the API for databases that don't already implement Flight SQL.
+Some database-specific protocols are Arrow-native, like those of
+BigQuery and ClickHouse.  Flight SQL additionally is meant to be
+database-agnostic, but it defines both the client-facing API and
+the underlying protocol, so it's hard for applications to use it as
+the API for databases that don't already implement Flight SQL.
 
 Existing database client APIs
 -----------------------------

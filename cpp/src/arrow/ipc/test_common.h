@@ -108,6 +108,9 @@ ARROW_TESTING_EXPORT
 Status MakeListRecordBatch(std::shared_ptr<RecordBatch>* out);
 
 ARROW_TESTING_EXPORT
+Status MakeListViewRecordBatch(std::shared_ptr<RecordBatch>* out);
+
+ARROW_TESTING_EXPORT
 Status MakeFixedSizeListRecordBatch(std::shared_ptr<RecordBatch>* out);
 
 ARROW_TESTING_EXPORT
@@ -118,6 +121,9 @@ Status MakeNonNullRecordBatch(std::shared_ptr<RecordBatch>* out);
 
 ARROW_TESTING_EXPORT
 Status MakeDeeplyNestedList(std::shared_ptr<RecordBatch>* out);
+
+ARROW_TESTING_EXPORT
+Status MakeDeeplyNestedListView(std::shared_ptr<RecordBatch>* out);
 
 ARROW_TESTING_EXPORT
 Status MakeStruct(std::shared_ptr<RecordBatch>* out);

@@ -255,7 +255,7 @@ classdef tTableValidator < matlab.unittest.TestCase
         end
 
         function GetElementLength(testCase)
-            % Verify GetElementLength returns the the number of rows as the
+            % Verify GetElementLength returns the number of rows as the
             % length of the element.
             import arrow.array.internal.list.TableValidator
             

@@ -14,18 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.algorithm.dictionary;
 
-import static junit.framework.TestCase.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Random;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
@@ -34,13 +32,11 @@ import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryEncoder;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-/**
- * Test cases for {@link HashTableDictionaryEncoder}.
- */
+/** Test cases for {@link HashTableDictionaryEncoder}. */
 public class TestHashTableDictionaryEncoder {
 
   private final int VECTOR_LENGTH = 50;
@@ -53,14 +49,14 @@ public class TestHashTableDictionaryEncoder {
   byte[] one = "111".getBytes(StandardCharsets.UTF_8);
   byte[] two = "222".getBytes(StandardCharsets.UTF_8);
 
-  byte[][] data = new byte[][]{zero, one, two};
+  byte[][] data = new byte[][] {zero, one, two};
 
-  @Before
+  @BeforeEach
   public void prepare() {
     allocator = new RootAllocator(1024 * 1024);
   }
 
-  @After
+  @AfterEach
   public void shutdown() {
     allocator.close();
   }
@@ -69,14 +65,14 @@ public class TestHashTableDictionaryEncoder {
   public void testEncodeAndDecode() {
     Random random = new Random();
     try (VarCharVector rawVector = new VarCharVector("original vector", allocator);
-         IntVector encodedVector = new IntVector("encoded vector", allocator);
-         VarCharVector dictionary = new VarCharVector("dictionary", allocator)) {
+        IntVector encodedVector = new IntVector("encoded vector", allocator);
+        VarCharVector dictionary = new VarCharVector("dictionary", allocator)) {
 
       // set up dictionary
       dictionary.allocateNew();
       for (int i = 0; i < DICTIONARY_LENGTH; i++) {
         // encode "i" as i
-        dictionary.setSafe(i, String.valueOf(i).getBytes());
+        dictionary.setSafe(i, String.valueOf(i).getBytes(StandardCharsets.UTF_8));
       }
       dictionary.setValueCount(DICTIONARY_LENGTH);
 
@@ -84,12 +80,12 @@ public class TestHashTableDictionaryEncoder {
       rawVector.allocateNew(10 * VECTOR_LENGTH, VECTOR_LENGTH);
       for (int i = 0; i < VECTOR_LENGTH; i++) {
         int val = (random.nextInt() & Integer.MAX_VALUE) % DICTIONARY_LENGTH;
-        rawVector.set(i, String.valueOf(val).getBytes());
+        rawVector.set(i, String.valueOf(val).getBytes(StandardCharsets.UTF_8));
       }
       rawVector.setValueCount(VECTOR_LENGTH);
 
       HashTableDictionaryEncoder<IntVector, VarCharVector> encoder =
-              new HashTableDictionaryEncoder<>(dictionary, false);
+          new HashTableDictionaryEncoder<>(dictionary, false);
 
       // perform encoding
       encodedVector.allocateNew();
@@ -98,17 +94,22 @@ public class TestHashTableDictionaryEncoder {
       // verify encoding results
       assertEquals(rawVector.getValueCount(), encodedVector.getValueCount());
       for (int i = 0; i < VECTOR_LENGTH; i++) {
-        assertArrayEquals(rawVector.get(i), String.valueOf(encodedVector.get(i)).getBytes());
+        assertArrayEquals(
+            rawVector.get(i),
+            String.valueOf(encodedVector.get(i)).getBytes(StandardCharsets.UTF_8));
       }
 
       // perform decoding
       Dictionary dict = new Dictionary(dictionary, new DictionaryEncoding(1L, false, null));
-      try (VarCharVector decodedVector = (VarCharVector) DictionaryEncoder.decode(encodedVector, dict)) {
+      try (VarCharVector decodedVector =
+          (VarCharVector) DictionaryEncoder.decode(encodedVector, dict)) {
 
         // verify decoding results
         assertEquals(encodedVector.getValueCount(), decodedVector.getValueCount());
         for (int i = 0; i < VECTOR_LENGTH; i++) {
-          assertArrayEquals(String.valueOf(encodedVector.get(i)).getBytes(), decodedVector.get(i));
+          assertArrayEquals(
+              String.valueOf(encodedVector.get(i)).getBytes(StandardCharsets.UTF_8),
+              decodedVector.get(i));
         }
       }
     }
@@ -118,15 +119,15 @@ public class TestHashTableDictionaryEncoder {
   public void testEncodeAndDecodeWithNull() {
     Random random = new Random();
     try (VarCharVector rawVector = new VarCharVector("original vector", allocator);
-         IntVector encodedVector = new IntVector("encoded vector", allocator);
-         VarCharVector dictionary = new VarCharVector("dictionary", allocator)) {
+        IntVector encodedVector = new IntVector("encoded vector", allocator);
+        VarCharVector dictionary = new VarCharVector("dictionary", allocator)) {
 
       // set up dictionary
       dictionary.allocateNew();
       dictionary.setNull(0);
       for (int i = 1; i < DICTIONARY_LENGTH; i++) {
         // encode "i" as i
-        dictionary.setSafe(i, String.valueOf(i).getBytes());
+        dictionary.setSafe(i, String.valueOf(i).getBytes(StandardCharsets.UTF_8));
       }
       dictionary.setValueCount(DICTIONARY_LENGTH);
 
@@ -137,13 +138,13 @@ public class TestHashTableDictionaryEncoder {
           rawVector.setNull(i);
         } else {
           int val = (random.nextInt() & Integer.MAX_VALUE) % (DICTIONARY_LENGTH - 1) + 1;
-          rawVector.set(i, String.valueOf(val).getBytes());
+          rawVector.set(i, String.valueOf(val).getBytes(StandardCharsets.UTF_8));
         }
       }
       rawVector.setValueCount(VECTOR_LENGTH);
 
       HashTableDictionaryEncoder<IntVector, VarCharVector> encoder =
-              new HashTableDictionaryEncoder<>(dictionary, true);
+          new HashTableDictionaryEncoder<>(dictionary, true);
 
       // perform encoding
       encodedVector.allocateNew();
@@ -155,20 +156,25 @@ public class TestHashTableDictionaryEncoder {
         if (i % 10 == 0) {
           assertEquals(0, encodedVector.get(i));
         } else {
-          assertArrayEquals(rawVector.get(i), String.valueOf(encodedVector.get(i)).getBytes());
+          assertArrayEquals(
+              rawVector.get(i),
+              String.valueOf(encodedVector.get(i)).getBytes(StandardCharsets.UTF_8));
         }
       }
 
       // perform decoding
       Dictionary dict = new Dictionary(dictionary, new DictionaryEncoding(1L, false, null));
-      try (VarCharVector decodedVector = (VarCharVector) DictionaryEncoder.decode(encodedVector, dict)) {
+      try (VarCharVector decodedVector =
+          (VarCharVector) DictionaryEncoder.decode(encodedVector, dict)) {
         // verify decoding results
         assertEquals(encodedVector.getValueCount(), decodedVector.getValueCount());
         for (int i = 0; i < VECTOR_LENGTH; i++) {
           if (i % 10 == 0) {
             assertTrue(decodedVector.isNull(i));
           } else {
-            assertArrayEquals(String.valueOf(encodedVector.get(i)).getBytes(), decodedVector.get(i));
+            assertArrayEquals(
+                String.valueOf(encodedVector.get(i)).getBytes(StandardCharsets.UTF_8),
+                decodedVector.get(i));
           }
         }
       }
@@ -178,14 +184,14 @@ public class TestHashTableDictionaryEncoder {
   @Test
   public void testEncodeNullWithoutNullInDictionary() {
     try (VarCharVector rawVector = new VarCharVector("original vector", allocator);
-         IntVector encodedVector = new IntVector("encoded vector", allocator);
-         VarCharVector dictionary = new VarCharVector("dictionary", allocator)) {
+        IntVector encodedVector = new IntVector("encoded vector", allocator);
+        VarCharVector dictionary = new VarCharVector("dictionary", allocator)) {
 
       // set up dictionary, with no null in it.
       dictionary.allocateNew();
       for (int i = 0; i < DICTIONARY_LENGTH; i++) {
         // encode "i" as i
-        dictionary.setSafe(i, String.valueOf(i).getBytes());
+        dictionary.setSafe(i, String.valueOf(i).getBytes(StandardCharsets.UTF_8));
       }
       dictionary.setValueCount(DICTIONARY_LENGTH);
 
@@ -197,13 +203,15 @@ public class TestHashTableDictionaryEncoder {
       encodedVector.allocateNew();
 
       HashTableDictionaryEncoder<IntVector, VarCharVector> encoder =
-              new HashTableDictionaryEncoder<>(dictionary, true);
+          new HashTableDictionaryEncoder<>(dictionary, true);
 
       // the encoder should encode null, but no null in the dictionary,
       // so an exception should be thrown.
-      assertThrows(IllegalArgumentException.class, () -> {
-        encoder.encode(rawVector, encodedVector);
-      });
+      assertThrows(
+          IllegalArgumentException.class,
+          () -> {
+            encoder.encode(rawVector, encodedVector);
+          });
     }
   }
 
@@ -211,8 +219,8 @@ public class TestHashTableDictionaryEncoder {
   public void testEncodeStrings() {
     // Create a new value vector
     try (final VarCharVector vector = new VarCharVector("foo", allocator);
-         final IntVector encoded = new IntVector("encoded", allocator);
-         final VarCharVector dictionaryVector = new VarCharVector("dict", allocator)) {
+        final IntVector encoded = new IntVector("encoded", allocator);
+        final VarCharVector dictionaryVector = new VarCharVector("dict", allocator)) {
 
       vector.allocateNew(512, 5);
       encoded.allocateNew();
@@ -233,7 +241,7 @@ public class TestHashTableDictionaryEncoder {
       dictionaryVector.setValueCount(3);
 
       HashTableDictionaryEncoder<IntVector, VarCharVector> encoder =
-              new HashTableDictionaryEncoder<>(dictionaryVector);
+          new HashTableDictionaryEncoder<>(dictionaryVector);
       encoder.encode(vector, encoded);
 
       // verify indices
@@ -260,8 +268,8 @@ public class TestHashTableDictionaryEncoder {
   public void testEncodeLargeVector() {
     // Create a new value vector
     try (final VarCharVector vector = new VarCharVector("foo", allocator);
-         final IntVector encoded = new IntVector("encoded", allocator);
-         final VarCharVector dictionaryVector = new VarCharVector("dict", allocator)) {
+        final IntVector encoded = new IntVector("encoded", allocator);
+        final VarCharVector dictionaryVector = new VarCharVector("dict", allocator)) {
       vector.allocateNew();
       encoded.allocateNew();
 
@@ -279,7 +287,7 @@ public class TestHashTableDictionaryEncoder {
       dictionaryVector.setValueCount(3);
 
       HashTableDictionaryEncoder<IntVector, VarCharVector> encoder =
-              new HashTableDictionaryEncoder<>(dictionaryVector);
+          new HashTableDictionaryEncoder<>(dictionaryVector);
       encoder.encode(vector, encoded);
 
       assertEquals(count, encoded.getValueCount());
@@ -303,8 +311,8 @@ public class TestHashTableDictionaryEncoder {
   public void testEncodeBinaryVector() {
     // Create a new value vector
     try (final VarBinaryVector vector = new VarBinaryVector("foo", allocator);
-         final VarBinaryVector dictionaryVector = new VarBinaryVector("dict", allocator);
-         final IntVector encoded = new IntVector("encoded", allocator)) {
+        final VarBinaryVector dictionaryVector = new VarBinaryVector("dict", allocator);
+        final IntVector encoded = new IntVector("encoded", allocator)) {
       vector.allocateNew(512, 5);
       vector.allocateNew();
       encoded.allocateNew();
@@ -325,7 +333,7 @@ public class TestHashTableDictionaryEncoder {
       dictionaryVector.setValueCount(3);
 
       HashTableDictionaryEncoder<IntVector, VarBinaryVector> encoder =
-              new HashTableDictionaryEncoder<>(dictionaryVector);
+          new HashTableDictionaryEncoder<>(dictionaryVector);
       encoder.encode(vector, encoded);
 
       assertEquals(5, encoded.getValueCount());

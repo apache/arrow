@@ -28,6 +28,10 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 
+// Py_IsFinalizing added in Python 3.13.0a4
+#if PY_VERSION_HEX < 0x030D00A4
+#define Py_IsFinalizing() _Py_IsFinalizing()
+#endif
 namespace arrow {
 using compute::ExecSpan;
 using compute::Grouper;
@@ -47,7 +51,7 @@ struct PythonUdfKernelState : public compute::KernelState {
   // function needs to be destroyed at process exit
   // and Python may no longer be initialized.
   ~PythonUdfKernelState() {
-    if (_Py_IsFinalizing()) {
+    if (Py_IsFinalizing()) {
       function->detach();
     }
   }
@@ -64,7 +68,7 @@ struct PythonUdfKernelInit {
   // function needs to be destroyed at process exit
   // and Python may no longer be initialized.
   ~PythonUdfKernelInit() {
-    if (_Py_IsFinalizing()) {
+    if (Py_IsFinalizing()) {
       function->detach();
     }
   }
@@ -132,7 +136,7 @@ struct PythonTableUdfKernelInit {
   // function needs to be destroyed at process exit
   // and Python may no longer be initialized.
   ~PythonTableUdfKernelInit() {
-    if (_Py_IsFinalizing()) {
+    if (Py_IsFinalizing()) {
       function_maker->detach();
     }
   }
@@ -173,7 +177,7 @@ struct PythonUdfScalarAggregatorImpl : public ScalarUdfAggregator {
   };
 
   ~PythonUdfScalarAggregatorImpl() override {
-    if (_Py_IsFinalizing()) {
+    if (Py_IsFinalizing()) {
       function->detach();
     }
   }
@@ -270,12 +274,12 @@ struct PythonUdfHashAggregatorImpl : public HashUdfAggregator {
   };
 
   ~PythonUdfHashAggregatorImpl() override {
-    if (_Py_IsFinalizing()) {
+    if (Py_IsFinalizing()) {
       function->detach();
     }
   }
 
-  // same as ApplyGrouping in parition.cc
+  // same as ApplyGrouping in partition.cc
   // replicated the code here to avoid complicating the dependencies
   static Result<RecordBatchVector> ApplyGroupings(
       const ListArray& groupings, const std::shared_ptr<RecordBatch>& batch) {
@@ -600,7 +604,7 @@ Status RegisterScalarAggregateFunction(PyObject* function, UdfWrapperCallback cb
 /// \param options User provided udf options
 UdfOptions AdjustForHashAggregate(const UdfOptions& options) {
   UdfOptions hash_options;
-  // Append hash_ before the function name to seperate from the scalar
+  // Append hash_ before the function name to separate from the scalar
   // version
   hash_options.func_name = "hash_" + options.func_name;
   // Extend input types with group id. Group id is appended by the group

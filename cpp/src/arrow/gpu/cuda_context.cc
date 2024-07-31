@@ -433,6 +433,11 @@ Result<std::shared_ptr<Buffer>> CudaMemoryManager::CopyBufferTo(
 Result<std::unique_ptr<Buffer>> CudaMemoryManager::CopyNonOwnedTo(
     const Buffer& buf, const std::shared_ptr<MemoryManager>& to) {
   if (to->is_cpu()) {
+    auto sync_event = buf.device_sync_event();
+    if (sync_event) {
+      RETURN_NOT_OK(sync_event->Wait());
+    }
+
     // Device-to-CPU copy
     std::unique_ptr<Buffer> dest;
     ARROW_ASSIGN_OR_RAISE(auto from_context, cuda_device()->GetContext());

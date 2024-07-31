@@ -46,10 +46,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        dotnet: ['7.0.x']
+        dotnet: ['8.0.x']
     steps:
       - name: Install C#
-        uses: actions/setup-dotnet@v3
+        uses: actions/setup-dotnet@v4.0.1
         with:
           dotnet-version: ${{ matrix.dotnet }}
       - name: Checkout Arrow
@@ -74,10 +74,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        dotnet: ['7.0.x']
+        dotnet: ['8.0.x']
     steps:
       - name: Install C#
-        uses: actions/setup-dotnet@v3
+        uses: actions/setup-dotnet@v4.0.1
         with:
           dotnet-version: ${{ matrix.dotnet }}
       - name: Checkout Arrow
@@ -94,19 +94,23 @@ jobs:
         run: ci/scripts/csharp_test.sh $(pwd)
 
   macos:
-    name: AMD64 macOS 11 C# ${{ matrix.dotnet }}
-    runs-on: macos-latest
+    name: AMD64 macOS 13 C# ${{ matrix.dotnet }}
+    runs-on: macos-13 # Pending https://github.com/pythonnet/pythonnet/issues/2396
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        dotnet: ['7.0.x']
+        dotnet: ['8.0.x']
     steps:
       - name: Install C#
-        uses: actions/setup-dotnet@v3
+        uses: actions/setup-dotnet@v4.0.1
         with:
           dotnet-version: ${{ matrix.dotnet }}
+      - name: Setup Python
+        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
+        with:
+          python-version: 3.12
       - name: Checkout Arrow
         uses: actions/checkout@v4
         with:

@@ -14,15 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.table;
 
 import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.OFFSET_WIDTH;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
@@ -117,8 +116,8 @@ public class TestUtils {
     IntVector v1 = getSimpleIntVector(allocator);
     VarCharVector v2 = new VarCharVector(VARCHAR_VECTOR_NAME_1, allocator);
     v2.allocateNew(2);
-    v2.set(0, "one".getBytes());
-    v2.set(1, "two".getBytes());
+    v2.set(0, "one".getBytes(StandardCharsets.UTF_8));
+    v2.set(1, "two".getBytes(StandardCharsets.UTF_8));
     v2.setValueCount(2);
     vectorList.add(v1);
     vectorList.add(v2);
@@ -134,8 +133,8 @@ public class TestUtils {
     IntVector v1 = getSimpleIntVector(allocator);
     LargeVarCharVector v2 = new LargeVarCharVector(VARCHAR_VECTOR_NAME_1, allocator);
     v2.allocateNew(2);
-    v2.set(0, "one".getBytes());
-    v2.set(1, "two".getBytes());
+    v2.set(0, "one".getBytes(StandardCharsets.UTF_8));
+    v2.set(1, "two".getBytes(StandardCharsets.UTF_8));
     v2.setValueCount(2);
     vectorList.add(v1);
     vectorList.add(v2);
@@ -144,16 +143,16 @@ public class TestUtils {
 
   /**
    * Returns a list of two FieldVectors to be used to instantiate Tables for testing. The first
-   * vector is an IntVector and the second is a VarBinaryVector. Each vector has two values set.
-   * The large binary vectors values are "one" and "two" encoded with UTF-8
+   * vector is an IntVector and the second is a VarBinaryVector. Each vector has two values set. The
+   * large binary vectors values are "one" and "two" encoded with UTF-8
    */
   static List<FieldVector> intPlusVarBinaryColumns(BufferAllocator allocator) {
     List<FieldVector> vectorList = new ArrayList<>();
     IntVector v1 = getSimpleIntVector(allocator);
     VarBinaryVector v2 = new VarBinaryVector(VARBINARY_VECTOR_NAME_1, allocator);
     v2.allocateNew(2);
-    v2.set(0, "one".getBytes());
-    v2.set(1, "two".getBytes());
+    v2.set(0, "one".getBytes(StandardCharsets.UTF_8));
+    v2.set(1, "two".getBytes(StandardCharsets.UTF_8));
     v2.setValueCount(2);
     vectorList.add(v1);
     vectorList.add(v2);
@@ -162,16 +161,16 @@ public class TestUtils {
 
   /**
    * Returns a list of two FieldVectors to be used to instantiate Tables for testing. The first
-   * vector is an IntVector and the second is a VarBinaryVector. Each vector has two values set.
-   * The large binary vectors values are "one" and "two" encoded with UTF-8
+   * vector is an IntVector and the second is a VarBinaryVector. Each vector has two values set. The
+   * large binary vectors values are "one" and "two" encoded with UTF-8
    */
   static List<FieldVector> intPlusLargeVarBinaryColumns(BufferAllocator allocator) {
     List<FieldVector> vectorList = new ArrayList<>();
     IntVector v1 = getSimpleIntVector(allocator);
     LargeVarBinaryVector v2 = new LargeVarBinaryVector(VARBINARY_VECTOR_NAME_1, allocator);
     v2.allocateNew(2);
-    v2.set(0, "one".getBytes());
-    v2.set(1, "two".getBytes());
+    v2.set(0, "one".getBytes(StandardCharsets.UTF_8));
+    v2.set(1, "two".getBytes(StandardCharsets.UTF_8));
     v2.setValueCount(2);
     vectorList.add(v1);
     vectorList.add(v2);
@@ -180,16 +179,16 @@ public class TestUtils {
 
   /**
    * Returns a list of two FieldVectors to be used to instantiate Tables for testing. The first
-   * vector is an IntVector and the second is a FixedSizeBinary vector. Each vector has two values set.
-   * The large binary vectors values are "one" and "two" encoded with UTF-8
+   * vector is an IntVector and the second is a FixedSizeBinary vector. Each vector has two values
+   * set. The large binary vectors values are "one" and "two" encoded with UTF-8
    */
   static List<FieldVector> intPlusFixedBinaryColumns(BufferAllocator allocator) {
     List<FieldVector> vectorList = new ArrayList<>();
     IntVector v1 = getSimpleIntVector(allocator);
     FixedSizeBinaryVector v2 = new FixedSizeBinaryVector(FIXEDBINARY_VECTOR_NAME_1, allocator, 3);
     v2.allocateNew(2);
-    v2.set(0, "one".getBytes());
-    v2.set(1, "two".getBytes());
+    v2.set(0, "one".getBytes(StandardCharsets.UTF_8));
+    v2.set(1, "two".getBytes(StandardCharsets.UTF_8));
     v2.setValueCount(2);
     vectorList.add(v1);
     vectorList.add(v2);
@@ -207,9 +206,10 @@ public class TestUtils {
 
   /**
    * Returns a list of fixed-width vectors for testing. It includes
+   *
    * <ol>
-   *   <li>all integral and floating point types</li>
-   *   <li>all basic times and timestamps (second, milli, micro, nano</li>
+   *   <li>all integral and floating point types
+   *   <li>all basic times and timestamps (second, milli, micro, nano
    * </ol>
    *
    * The vector names are based on their type name (e.g. BigIntVector is called "bigInt_vector"
@@ -222,8 +222,8 @@ public class TestUtils {
   }
 
   /**
-   * Returns a list of all integral and floating point vectors.
-   * The vector names are based on their type name (e.g. BigIntVector is called "bigInt_vector"
+   * Returns a list of all integral and floating point vectors. The vector names are based on their
+   * type name (e.g. BigIntVector is called "bigInt_vector"
    */
   static List<FieldVector> numericVectors(
       List<FieldVector> vectors, BufferAllocator allocator, int rowCount) {
@@ -285,8 +285,11 @@ public class TestUtils {
     vectors.add(new IntervalDayVector("intervalDay_vector", allocator));
     vectors.add(new IntervalYearVector("intervalYear_vector", allocator));
     vectors.add(new IntervalMonthDayNanoVector("intervalMonthDayNano_vector", allocator));
-    vectors.add(new DurationVector("duration_vector",
-        new FieldType(true, new ArrowType.Duration(TimeUnit.SECOND), null), allocator));
+    vectors.add(
+        new DurationVector(
+            "duration_vector",
+            new FieldType(true, new ArrowType.Duration(TimeUnit.SECOND), null),
+            allocator));
     vectors.forEach(vec -> GenerateSampleData.generateTestData(vec, rowCount));
     return vectors;
   }
@@ -369,9 +372,11 @@ public class TestUtils {
 
   static List<FieldVector> decimalVector(BufferAllocator allocator, int rowCount) {
     List<FieldVector> vectors = new ArrayList<>();
-    vectors.add(new DecimalVector("decimal_vector",
-        new FieldType(true, new ArrowType.Decimal(38, 10, 128), null),
-        allocator));
+    vectors.add(
+        new DecimalVector(
+            "decimal_vector",
+            new FieldType(true, new ArrowType.Decimal(38, 10, 128), null),
+            allocator));
     vectors.forEach(vec -> generateDecimalData((DecimalVector) vec, rowCount));
     return vectors;
   }
@@ -433,5 +438,4 @@ public class TestUtils {
     }
     vector.setValueCount(valueCount);
   }
-
 }

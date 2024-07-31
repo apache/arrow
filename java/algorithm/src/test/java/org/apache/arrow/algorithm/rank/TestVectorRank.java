@@ -14,37 +14,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.algorithm.rank;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.nio.charset.StandardCharsets;
 import org.apache.arrow.algorithm.sort.DefaultVectorComparators;
 import org.apache.arrow.algorithm.sort.VectorValueComparator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VarCharVector;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-/**
- * Test cases for {@link org.apache.arrow.algorithm.rank.VectorRank}.
- */
+/** Test cases for {@link org.apache.arrow.algorithm.rank.VectorRank}. */
 public class TestVectorRank {
 
   private BufferAllocator allocator;
 
   private static final int VECTOR_LENGTH = 10;
 
-  @Before
+  @BeforeEach
   public void prepare() {
     allocator = new RootAllocator(1024 * 1024);
   }
 
-  @After
+  @AfterEach
   public void shutdown() {
     allocator.close();
   }
@@ -68,7 +66,7 @@ public class TestVectorRank {
       vector.set(9, 6);
 
       VectorValueComparator<IntVector> comparator =
-              DefaultVectorComparators.createDefaultComparator(vector);
+          DefaultVectorComparators.createDefaultComparator(vector);
       assertEquals(7, rank.indexAtRank(vector, comparator, 0));
       assertEquals(0, rank.indexAtRank(vector, comparator, 1));
       assertEquals(6, rank.indexAtRank(vector, comparator, 2));
@@ -89,19 +87,19 @@ public class TestVectorRank {
       vector.allocateNew(VECTOR_LENGTH * 5, VECTOR_LENGTH);
       vector.setValueCount(VECTOR_LENGTH);
 
-      vector.set(0, String.valueOf(1).getBytes());
-      vector.set(1, String.valueOf(5).getBytes());
-      vector.set(2, String.valueOf(3).getBytes());
-      vector.set(3, String.valueOf(7).getBytes());
-      vector.set(4, String.valueOf(9).getBytes());
-      vector.set(5, String.valueOf(8).getBytes());
-      vector.set(6, String.valueOf(2).getBytes());
-      vector.set(7, String.valueOf(0).getBytes());
-      vector.set(8, String.valueOf(4).getBytes());
-      vector.set(9, String.valueOf(6).getBytes());
+      vector.set(0, String.valueOf(1).getBytes(StandardCharsets.UTF_8));
+      vector.set(1, String.valueOf(5).getBytes(StandardCharsets.UTF_8));
+      vector.set(2, String.valueOf(3).getBytes(StandardCharsets.UTF_8));
+      vector.set(3, String.valueOf(7).getBytes(StandardCharsets.UTF_8));
+      vector.set(4, String.valueOf(9).getBytes(StandardCharsets.UTF_8));
+      vector.set(5, String.valueOf(8).getBytes(StandardCharsets.UTF_8));
+      vector.set(6, String.valueOf(2).getBytes(StandardCharsets.UTF_8));
+      vector.set(7, String.valueOf(0).getBytes(StandardCharsets.UTF_8));
+      vector.set(8, String.valueOf(4).getBytes(StandardCharsets.UTF_8));
+      vector.set(9, String.valueOf(6).getBytes(StandardCharsets.UTF_8));
 
       VectorValueComparator<VarCharVector> comparator =
-              DefaultVectorComparators.createDefaultComparator(vector);
+          DefaultVectorComparators.createDefaultComparator(vector);
 
       assertEquals(7, rank.indexAtRank(vector, comparator, 0));
       assertEquals(0, rank.indexAtRank(vector, comparator, 1));
@@ -135,11 +133,13 @@ public class TestVectorRank {
       vector.set(9, 6);
 
       VectorValueComparator<IntVector> comparator =
-              DefaultVectorComparators.createDefaultComparator(vector);
+          DefaultVectorComparators.createDefaultComparator(vector);
 
-      assertThrows(IllegalArgumentException.class, () -> {
-        rank.indexAtRank(vector, comparator, VECTOR_LENGTH + 1);
-      });
+      assertThrows(
+          IllegalArgumentException.class,
+          () -> {
+            rank.indexAtRank(vector, comparator, VECTOR_LENGTH + 1);
+          });
     }
   }
 }

@@ -14,36 +14,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.algorithm.sort;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-/**
- * Test cases for {@link CompositeVectorComparator}.
- */
+/** Test cases for {@link CompositeVectorComparator}. */
 public class TestCompositeVectorComparator {
 
   private BufferAllocator allocator;
 
-  @Before
+  @BeforeEach
   public void prepare() {
     allocator = new RootAllocator(1024 * 1024);
   }
 
-  @After
+  @AfterEach
   public void shutdown() {
     allocator.close();
   }
@@ -58,7 +56,7 @@ public class TestCompositeVectorComparator {
     VarCharVector strVec2 = new VarCharVector("str2", allocator);
 
     try (VectorSchemaRoot batch1 = new VectorSchemaRoot(Arrays.asList(intVec1, strVec1));
-         VectorSchemaRoot batch2 = new VectorSchemaRoot(Arrays.asList(intVec2, strVec2))) {
+        VectorSchemaRoot batch2 = new VectorSchemaRoot(Arrays.asList(intVec2, strVec2))) {
 
       intVec1.allocateNew(vectorLength);
       strVec1.allocateNew(vectorLength * 10, vectorLength);
@@ -67,26 +65,26 @@ public class TestCompositeVectorComparator {
 
       for (int i = 0; i < vectorLength; i++) {
         intVec1.set(i, i);
-        strVec1.set(i, new String("a" + i).getBytes());
+        strVec1.set(i, ("a" + i).getBytes(StandardCharsets.UTF_8));
         intVec2.set(i, i);
-        strVec2.set(i, new String("a5").getBytes());
+        strVec2.set(i, "a5".getBytes(StandardCharsets.UTF_8));
       }
 
       VectorValueComparator<IntVector> innerComparator1 =
-              DefaultVectorComparators.createDefaultComparator(intVec1);
+          DefaultVectorComparators.createDefaultComparator(intVec1);
       innerComparator1.attachVectors(intVec1, intVec2);
       VectorValueComparator<VarCharVector> innerComparator2 =
-              DefaultVectorComparators.createDefaultComparator(strVec1);
+          DefaultVectorComparators.createDefaultComparator(strVec1);
       innerComparator2.attachVectors(strVec1, strVec2);
 
-      VectorValueComparator<ValueVector> comparator = new CompositeVectorComparator(
-          new VectorValueComparator[]{innerComparator1, innerComparator2}
-      );
+      VectorValueComparator<ValueVector> comparator =
+          new CompositeVectorComparator(
+              new VectorValueComparator[] {innerComparator1, innerComparator2});
 
       // verify results
 
       // both elements are equal, the result is equal
-      assertTrue(comparator.compare(5, 5) == 0);
+      assertEquals(0, comparator.compare(5, 5));
 
       // the first element being equal, the second is smaller, and the result is smaller
       assertTrue(comparator.compare(1, 1) < 0);

@@ -35,6 +35,7 @@
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
+#include "arrow/util/config.h"
 
 namespace arrow {
 
@@ -329,9 +330,11 @@ namespace {
 const std::vector<test::MakeRecordBatch*> kBatchCases = {
     &ipc::test::MakeIntRecordBatch,
     &ipc::test::MakeListRecordBatch,
+    &ipc::test::MakeListViewRecordBatch,
     &ipc::test::MakeFixedSizeListRecordBatch,
     &ipc::test::MakeNonNullRecordBatch,
     &ipc::test::MakeDeeplyNestedList,
+    &ipc::test::MakeDeeplyNestedListView,
     &ipc::test::MakeStringTypesRecordBatchWithNulls,
     &ipc::test::MakeStruct,
     &ipc::test::MakeUnion,

@@ -223,7 +223,7 @@ considered equivalent to ``[]`` (no metadata). Duplicated keys are not forbidden
 **Type**: ::
 
     {
-      "name" : "null|struct|list|largelist|fixedsizelist|union|int|floatingpoint|utf8|largeutf8|binary|largebinary|fixedsizebinary|bool|decimal|date|time|timestamp|interval|duration|map"
+      "name" : "null|struct|list|largelist|listview|largelistview|fixedsizelist|union|int|floatingpoint|utf8|largeutf8|binary|largebinary|utf8view|binaryview|fixedsizebinary|bool|decimal|date|time|timestamp|interval|duration|map|runendencoded"
     }
 
 A ``Type`` will have other fields as defined in
@@ -446,12 +446,23 @@ or ``DATA``.
 
 ``BufferData`` is encoded based on the type of buffer:
 
-* ``VALIDITY``: a JSON array of 1 (valid) and 0 (null). Data for  non-nullable
+* ``VALIDITY``: a JSON array of 1 (valid) and 0 (null). Data for non-nullable
   ``Field`` still has a ``VALIDITY`` array, even though all values are 1.
 * ``OFFSET``: a JSON array of integers for 32-bit offsets or
-  string-formatted integers for 64-bit offsets
-* ``TYPE_ID``: a JSON array of integers
-* ``DATA``: a JSON array of encoded values
+  string-formatted integers for 64-bit offsets.
+* ``TYPE_ID``: a JSON array of integers.
+* ``DATA``: a JSON array of encoded values.
+* ``VARIADIC_DATA_BUFFERS``: a JSON array of data buffers represented as
+  hex encoded strings.
+* ``VIEWS``: a JSON array of encoded views, which are JSON objects with:
+
+  * ``SIZE``: an integer indicating the size of the view,
+  * ``INLINED``: an encoded value (this field will be present if ``SIZE``
+    is smaller than 12, otherwise the next three fields will be present),
+  * ``PREFIX_HEX``: the first four bytes of the view encoded as hex,
+  * ``BUFFER_INDEX``: the index in ``VARIADIC_DATA_BUFFERS`` of the buffer
+    viewed,
+  * ``OFFSET``: the offset in the buffer viewed.
 
 The value encoding for ``DATA`` is different depending on the logical
 type:
@@ -491,14 +502,14 @@ integration testing actually tests.
 
 There are two types of integration test cases: the ones populated on the fly
 by the data generator in the Archery utility, and *gold* files that exist
-in the `arrow-testing <https://github.com/apache/arrow-testing/tree/master/data/arrow-ipc-stream/integration>` 
+in the `arrow-testing <https://github.com/apache/arrow-testing/tree/master/data/arrow-ipc-stream/integration>`_
 repository.
 
 Data Generator Tests
 ~~~~~~~~~~~~~~~~~~~~
 
 This is the high-level description of the cases which are generated and
-tested using the ``archery integration`` command (see ``get_generated_json_files`` 
+tested using the ``archery integration`` command (see ``get_generated_json_files``
 in ``datagen.py``):
 
 * Primitive Types
@@ -527,6 +538,9 @@ in ``datagen.py``):
   - Signed indices
   - Unsigned indices
   - Nested dictionaries
+* Run end encoded
+* Binary view and string view
+* List view and large list view
 * Extension Types
 
 
@@ -536,7 +550,7 @@ Gold File Integration Tests
 Pre-generated json and arrow IPC files (both file and stream format) exist
 in the `arrow-testing <https://github.com/apache/arrow-testing>`__ repository
 in the ``data/arrow-ipc-stream/integration`` directory. These serve as
-*gold* files that are assumed to be correct for use in testing. They are 
+*gold* files that are assumed to be correct for use in testing. They are
 referenced by ``runner.py`` in the code for the :ref:`Archery <archery>`
 utility. Below are the test cases which are covered by them:
 
@@ -550,7 +564,7 @@ utility. Below are the test cases which are covered by them:
     + intervals
     + maps
     + nested types (list, struct)
-    + primitives 
+    + primitives
     + primitive with no batches
     + primitive with zero length batches
 

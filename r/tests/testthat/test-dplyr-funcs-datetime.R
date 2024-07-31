@@ -180,7 +180,7 @@ test_that("strptime", {
   )
 
   # these functions' internals use some string processing which requires the
-  # RE2 library (not available on Windows with R 3.6)
+  # RE2 library
   skip_if_not_available("re2")
 
   compare_dplyr_binding(
@@ -198,7 +198,7 @@ test_that("strptime works for individual formats", {
   skip_on_cran()
 
   # these functions' internals use some string processing which requires the
-  # RE2 library (not available on Windows with R 3.6)
+  # RE2 library
   skip_if_not_available("re2")
 
   expect_equal(
@@ -269,7 +269,7 @@ test_that("timestamp round trip correctly via strftime and strptime", {
   skip_on_cran()
 
   # these functions' internals use some string processing which requires the
-  # RE2 library (not available on Windows with R 3.6)
+  # RE2 library
   skip_if_not_available("re2")
 
   tz <- "Pacific/Marquesas"
@@ -291,7 +291,9 @@ test_that("timestamp round trip correctly via strftime and strptime", {
 
   # Some formats are not supported on Windows
   if (!tolower(Sys.info()[["sysname"]]) == "windows") {
-    formats <- c(formats, "%a", "%A", "%b", "%B", "%OS", "%I%p", "%r", "%T%z")
+    # "%r" could also be here, though it is only valid in some locales (those
+    # that use 12 hour formats, so skip for now)
+    formats <- c(formats, "%a", "%A", "%b", "%B", "%OS", "%I%p", "%T%z")
   }
 
   for (fmt in formats) {
@@ -1550,7 +1552,7 @@ test_that("as.difftime()", {
   )
 
   # only integer (or integer-like) -> duration conversion supported in Arrow.
-  # double -> duration not supported. we're not testing the content of the
+  # double -> duration not supported. We aren't testing the content of the
   # error message as it is being generated in the C++ code and it might change,
   # but we want to make sure that this error is raised in our binding implementation
   expect_error(
@@ -1883,37 +1885,6 @@ test_that("`as.Date()` and `as_date()`", {
     test_df
   )
 
-  # we do not support multiple tryFormats
-  # this is not a simple warning, therefore we cannot use compare_dplyr_binding()
-  # with `warning = TRUE`
-  # arrow_table test
-  expect_warning(
-    test_df %>%
-      arrow_table() %>%
-      mutate(
-        date_char_ymd = as.Date(
-          character_ymd_var,
-          tryFormats = c("%Y-%m-%d", "%Y/%m/%d")
-        )
-      ) %>%
-      collect(),
-    regexp = "Consider using the lubridate specialised parsing functions"
-  )
-
-  # record batch test
-  expect_warning(
-    test_df %>%
-      record_batch() %>%
-      mutate(
-        date_char_ymd = as.Date(
-          character_ymd_var,
-          tryFormats = c("%Y-%m-%d", "%Y/%m/%d")
-        )
-      ) %>%
-      collect(),
-    regexp = "Consider using the lubridate specialised parsing functions"
-  )
-
   # strptime does not support a partial format - Arrow returns NA, while
   # lubridate parses correctly
   # TODO: revisit after ARROW-15813
@@ -1961,7 +1932,7 @@ test_that("`as.Date()` and `as_date()`", {
   # `as.Date()` ignores the `tzone` attribute and uses the value of the `tz` arg
   # to `as.Date()`
   # `as_date()` does the opposite: uses the tzone attribute of the POSIXct object
-  # passsed if`tz` is NULL
+  # passed if`tz` is NULL
   compare_dplyr_binding(
     .input %>%
       transmute(
@@ -1970,6 +1941,22 @@ test_that("`as.Date()` and `as_date()`", {
       ) %>%
       collect(),
     test_df
+  )
+
+  skip_if_not_available("dataset")
+  # we do not support multiple tryFormats
+  # Use a dataset to test the alternative suggestion message
+  expect_snapshot(
+    test_df %>%
+      InMemoryDataset$create() %>%
+      transmute(
+        date_char_ymd = as.Date(
+          character_ymd_var,
+          tryFormats = c("%Y-%m-%d", "%Y/%m/%d")
+        )
+      ) %>%
+      collect(),
+    error = TRUE
   )
 })
 
@@ -2080,7 +2067,7 @@ test_that("as_datetime() works with other functions", {
 
 test_that("parse_date_time() works with year, month, and date components", {
   # these functions' internals use some string processing which requires the
-  # RE2 library (not available on Windows with R 3.6)
+  # RE2 library
   skip_if_not_available("re2")
   compare_dplyr_binding(
     .input %>%
@@ -2139,7 +2126,7 @@ test_that("parse_date_time() works with year, month, and date components", {
 
 test_that("parse_date_time() works with a mix of formats and orders", {
   # these functions' internals use some string processing which requires the
-  # RE2 library (not available on Windows with R 3.6)
+  # RE2 library
   skip_if_not_available("re2")
   test_df <- tibble(
     string_combi = c("2021-09-1", "2/09//2021", "09.3.2021")
@@ -2169,7 +2156,7 @@ test_that("year, month, day date/time parsers", {
   )
 
   # these functions' internals use some string processing which requires the
-  # RE2 library (not available on Windows with R 3.6)
+  # RE2 library
   skip_if_not_available("re2")
   compare_dplyr_binding(
     .input %>%
@@ -2221,7 +2208,7 @@ test_that("ym, my & yq parsers", {
   )
 
   # these functions' internals use some string processing which requires the
-  # RE2 library (not available on Windows with R 3.6)
+  # RE2 library
   skip_if_not_available("re2")
   compare_dplyr_binding(
     .input %>%
@@ -2270,7 +2257,7 @@ test_that("ym, my & yq parsers", {
 
 test_that("parse_date_time's other formats", {
   # these functions' internals use some string processing which requires the
-  # RE2 library (not available on Windows with R 3.6)
+  # RE2 library
   skip_if_not_available("re2")
 
   compare_dplyr_binding(
@@ -2401,7 +2388,7 @@ test_that("lubridate's fast_strptime", {
   )
 
   # these functions' internals use some string processing which requires the
-  # RE2 library (not available on Windows with R 3.6)
+  # RE2 library
   skip_if_not_available("re2")
 
   compare_dplyr_binding(
@@ -2508,7 +2495,7 @@ test_that("parse_date_time with hours, minutes and seconds components", {
   # the unseparated strings are versions of "1987-08-22 20:13:59" (with %y)
 
   # these functions' internals use some string processing which requires the
-  # RE2 library (not available on Windows with R 3.6)
+  # RE2 library
   skip_if_not_available("re2")
 
   compare_dplyr_binding(
@@ -2638,7 +2625,7 @@ test_that("parse_date_time with month names and HMS", {
   skip_on_os("windows")
 
   # these functions' internals use some string processing which requires the
-  # RE2 library (not available on Windows with R 3.6 & the minimal nightly builds)
+  # RE2 library (not available in the minimal nightly builds)
   skip_if_not_available("re2")
 
   test_dates_times2 <- tibble(
@@ -2737,7 +2724,7 @@ test_that("parse_date_time with `quiet = FALSE` not supported", {
   # https://issues.apache.org/jira/browse/ARROW-17146
 
   # these functions' internals use some string processing which requires the
-  # RE2 library (not available on Windows with R 3.6 & the minimal nightly builds)
+  # RE2 library (not available in the minimal nightly builds)
   skip_if_not_available("re2")
 
   expect_warning(
@@ -2766,7 +2753,7 @@ test_that("parse_date_time with `quiet = FALSE` not supported", {
 
 test_that("parse_date_time with truncated formats", {
   # these functions' internals use some string processing which requires the
-  # RE2 library (not available on Windows with R 3.6)
+  # RE2 library
   skip_if_not_available("re2")
 
   test_truncation_df <- tibble(
@@ -2831,7 +2818,7 @@ test_that("parse_date_time with truncated formats", {
 })
 
 test_that("parse_date_time with `locale != NULL` not supported", {
-  # parse_date_time currently doesn't take locale paramete which will be
+  # parse_date_time currently doesn't take locale parameter which will be
   # addressed in https://issues.apache.org/jira/browse/ARROW-17147
   skip_if_not_available("re2")
 
@@ -2853,7 +2840,7 @@ test_that("parse_date_time with `exact = TRUE`, and with regular R objects", {
   )
 
   # these functions' internals use some string processing which requires the
-  # RE2 library (not available on Windows with R 3.6)
+  # RE2 library
   skip_if_not_available("re2")
   compare_dplyr_binding(
     .input %>%
@@ -3038,7 +3025,7 @@ test_that("build_formats() and build_format_from_order()", {
 
 # an "easy" date to avoid conflating tests of different things (i.e., it's
 # UTC time, and not one of the edge cases on or extremely close to the
-# rounding boundaty)
+# rounding boundary)
 easy_date <- as.POSIXct("2022-10-11 12:00:00", tz = "UTC")
 easy_df <- tibble::tibble(datetime = easy_date)
 
@@ -3124,11 +3111,9 @@ test_that("timestamp round/floor/ceiling works for a minimal test", {
 })
 
 test_that("timestamp round/floor/ceiling accepts period unit abbreviation", {
-
   # test helper to ensure standard abbreviations of period names
   # are understood by arrow and mirror the lubridate behaviour
   check_period_abbreviation <- function(unit, synonyms) {
-
     # check arrow against lubridate
     compare_dplyr_binding(
       .input %>%
@@ -3253,7 +3238,6 @@ test_that("timestamp round/floor/ceil works for units: month/quarter/year", {
 
 # check helper invoked when we need to avoid the lubridate rounding bug
 check_date_rounding_1051_bypass <- function(data, unit, ignore_attr = TRUE, ...) {
-
   # directly compare arrow to lubridate for floor and ceiling
   compare_dplyr_binding(
     .input %>%
@@ -3286,7 +3270,6 @@ check_date_rounding_1051_bypass <- function(data, unit, ignore_attr = TRUE, ...)
 }
 
 test_that("date round/floor/ceil works for units: month/quarter/year", {
-
   # these test cases are affected by lubridate issue 1051 so we bypass
   # lubridate::round_date() for Date objects with large rounding units
   # https://github.com/tidyverse/lubridate/issues/1051
@@ -3346,7 +3329,6 @@ test_that("timestamp round/floor/ceil works for week units (non-standard week_st
 })
 
 check_date_week_rounding <- function(data, week_start, ignore_attr = TRUE, ...) {
-
   # directly compare arrow to lubridate for floor and ceiling
   compare_dplyr_binding(
     .input %>%
@@ -3393,7 +3375,6 @@ test_that("date round/floor/ceil works for week units (non-standard week_start)"
 # ceiling_date behaves identically to the lubridate version. It takes
 # unit as an argument to run tests separately for different rounding units
 check_boundary_with_unit <- function(unit, ...) {
-
   # timestamps
   compare_dplyr_binding(
     .input %>%
@@ -3462,7 +3443,6 @@ test_that("temporal round/floor/ceil period unit maxima are enforced", {
 # results. this test helper runs that test, skipping cases where lubridate
 # produces incorrect answers
 check_timezone_rounding_vs_lubridate <- function(data, unit) {
-
   # esoteric lubridate bug: on windows and macOS (not linux), lubridate returns
   # incorrect ceiling/floor for timezoned POSIXct times (syd, adl, kat zones,
   # but not mar) but not utc, and not for round, and only for these two
@@ -3700,23 +3680,22 @@ test_that("with_tz() and force_tz() works", {
       mutate(timestamps = force_tz(
         timestamps,
         "Europe/Brussels",
-        roll_dst = "post")
-      ) %>%
+        roll_dst = "post"
+      )) %>%
       collect(),
-    "roll_dst` value must be 'error' or 'boundary' for non-existent times"
+    "roll_dst` value must be 'error' or 'boundary' for nonexistent times"
   )
 
   expect_warning(
     tibble::tibble(timestamps = nonexistent) %>%
       arrow_table() %>%
       mutate(timestamps = force_tz(
-          timestamps,
-          "Europe/Brussels",
-          roll_dst = c("boundary", "NA")
-        )
-      ) %>%
+        timestamps,
+        "Europe/Brussels",
+        roll_dst = c("boundary", "NA")
+      )) %>%
       collect(),
-    "`roll_dst` value must be 'error', 'pre', or 'post' for non-existent times"
+    "`roll_dst` value must be 'error', 'pre', or 'post' for nonexistent times"
   )
 
   # Raise error when the timezone falls into the DST-break

@@ -79,7 +79,7 @@ Status ExprValidator::Visit(const FieldNode& node) {
                   Status::ExpressionValidationError("Field ", node.field()->name(),
                                                     " not in schema."));
 
-  // Ensure that that the found field match.
+  // Ensure that the found field matches.
   FieldPtr field_in_schema = field_in_schema_entry->second;
   ARROW_RETURN_IF(!field_in_schema->Equals(node.field()),
                   Status::ExpressionValidationError(
@@ -93,7 +93,7 @@ Status ExprValidator::Visit(const FunctionNode& node) {
   const auto& desc = node.descriptor();
   FunctionSignature signature(desc->name(), desc->params(), desc->return_type());
 
-  const NativeFunction* native_function = registry_.LookupSignature(signature);
+  const NativeFunction* native_function = registry_->LookupSignature(signature);
   ARROW_RETURN_IF(native_function == nullptr,
                   Status::ExpressionValidationError("Function ", signature.ToString(),
                                                     " not supported yet. "));

@@ -196,7 +196,7 @@ class ARROW_EXPORT Readable {
   /// EXPERIMENTAL: The IOContext associated with this file.
   ///
   /// By default, this is the same as default_io_context(), but it may be
-  /// overriden by subclasses.
+  /// overridden by subclasses.
   virtual const IOContext& io_context() const;
 };
 

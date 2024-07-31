@@ -63,6 +63,6 @@ end
 projector = Gandiva::Projector.new(schema, [expression1, expression2])
 table.each_record_batch do |record_batch|
   outputs = projector.evaluate(record_batch)
-  puts outputs.collect(&:values))
+  puts outputs.collect(&:values)
 end
 ```

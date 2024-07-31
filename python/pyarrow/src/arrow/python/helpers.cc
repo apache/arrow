@@ -29,6 +29,7 @@
 #include "arrow/python/decimal.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/config.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -63,6 +64,8 @@ std::shared_ptr<DataType> GetPrimitiveType(Type::type type) {
       GET_PRIMITIVE_TYPE(STRING, utf8);
       GET_PRIMITIVE_TYPE(LARGE_BINARY, large_binary);
       GET_PRIMITIVE_TYPE(LARGE_STRING, large_utf8);
+      GET_PRIMITIVE_TYPE(BINARY_VIEW, binary_view);
+      GET_PRIMITIVE_TYPE(STRING_VIEW, utf8_view);
       GET_PRIMITIVE_TYPE(INTERVAL_MONTH_DAY_NANO, month_day_nano_interval);
     default:
       return nullptr;
@@ -463,6 +466,14 @@ Status IntegerScalarToFloat32Safe(PyObject* obj, float* out) {
 void DebugPrint(PyObject* obj) {
   std::string repr = PyObject_StdStringRepr(obj);
   PySys_WriteStderr("%s\n", repr.c_str());
+}
+
+bool IsThreadingEnabled() {
+#ifdef ARROW_ENABLE_THREADING
+  return true;
+#else
+  return false;
+#endif
 }
 
 }  // namespace internal

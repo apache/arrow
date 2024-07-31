@@ -152,9 +152,11 @@ class ARROW_EXPORT ChunkedArray {
   ///
   /// Two chunked arrays can be equal only if they have equal datatypes.
   /// However, they may be equal even if they have different chunkings.
-  bool Equals(const ChunkedArray& other) const;
+  bool Equals(const ChunkedArray& other,
+              const EqualOptions& opts = EqualOptions::Defaults()) const;
   /// \brief Determine if two chunked arrays are equal.
-  bool Equals(const std::shared_ptr<ChunkedArray>& other) const;
+  bool Equals(const std::shared_ptr<ChunkedArray>& other,
+              const EqualOptions& opts = EqualOptions::Defaults()) const;
   /// \brief Determine if two chunked arrays approximately equal
   bool ApproxEquals(const ChunkedArray& other,
                     const EqualOptions& = EqualOptions::Defaults()) const;

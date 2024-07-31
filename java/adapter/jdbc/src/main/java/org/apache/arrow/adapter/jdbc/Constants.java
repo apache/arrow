@@ -14,12 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc;
 
-/**
- * String constants used for metadata returned on Vectors.
- */
+/** String constants used for metadata returned on Vectors. */
 public class Constants {
   private Constants() {}
 
@@ -28,5 +25,4 @@ public class Constants {
   public static final String SQL_TABLE_NAME_KEY = "SQL_TABLE_NAME";
   public static final String SQL_COLUMN_NAME_KEY = "SQL_COLUMN_NAME";
   public static final String SQL_TYPE_KEY = "SQL_TYPE";
-
 }

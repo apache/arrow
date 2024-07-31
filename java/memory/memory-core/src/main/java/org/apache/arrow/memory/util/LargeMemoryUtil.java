@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.memory.util;
 
 import org.apache.arrow.memory.BoundsChecking;
@@ -24,10 +23,7 @@ public final class LargeMemoryUtil {
 
   private LargeMemoryUtil() {}
 
-  /**
-   * Casts length to an int, but raises an exception the value is outside
-   * the range of an int.
-   */
+  /** Casts length to an int, but raises an exception the value is outside the range of an int. */
   public static int checkedCastToInt(long length) {
     if (BoundsChecking.BOUNDS_CHECKING_ENABLED) {
       return Math.toIntExact(length);
@@ -35,9 +31,7 @@ public final class LargeMemoryUtil {
     return (int) length;
   }
 
-  /**
-   * Returns a min(Integer.MAX_VALUE, length).
-   */
+  /** Returns a min(Integer.MAX_VALUE, length). */
   public static int capAtMaxInt(long length) {
     return (int) Math.min(length, Integer.MAX_VALUE);
   }

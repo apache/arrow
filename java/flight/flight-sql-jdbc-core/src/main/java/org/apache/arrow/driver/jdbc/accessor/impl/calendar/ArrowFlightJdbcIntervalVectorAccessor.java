@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc.accessor.impl.calendar;
 
 import static org.apache.arrow.driver.jdbc.utils.IntervalStringUtils.formatIntervalDay;
@@ -22,20 +21,21 @@ import static org.apache.arrow.driver.jdbc.utils.IntervalStringUtils.formatInter
 import static org.apache.arrow.vector.util.DateUtility.yearsToMonths;
 
 import java.sql.SQLException;
+import java.time.Duration;
+import java.time.Period;
 import java.util.function.IntSupplier;
-
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.IntervalDayVector;
+import org.apache.arrow.vector.IntervalMonthDayNanoVector;
 import org.apache.arrow.vector.IntervalYearVector;
+import org.apache.arrow.vector.PeriodDuration;
 import org.apache.arrow.vector.holders.NullableIntervalDayHolder;
+import org.apache.arrow.vector.holders.NullableIntervalMonthDayNanoHolder;
 import org.apache.arrow.vector.holders.NullableIntervalYearHolder;
-import org.joda.time.Period;
 
-/**
- * Accessor for the Arrow type {@link IntervalDayVector}.
- */
+/** Accessor for the Arrow type {@link IntervalDayVector}. */
 public class ArrowFlightJdbcIntervalVectorAccessor extends ArrowFlightJdbcAccessor {
 
   private final BaseFixedWidthVector vector;
@@ -45,54 +45,90 @@ public class ArrowFlightJdbcIntervalVectorAccessor extends ArrowFlightJdbcAccess
   /**
    * Instantiate an accessor for a {@link IntervalDayVector}.
    *
-   * @param vector             an instance of a IntervalDayVector.
+   * @param vector an instance of a IntervalDayVector.
    * @param currentRowSupplier the supplier to track the rows.
-   * @param setCursorWasNull   the consumer to set if value was null.
+   * @param setCursorWasNull the consumer to set if value was null.
    */
-  public ArrowFlightJdbcIntervalVectorAccessor(IntervalDayVector vector,
-                                               IntSupplier currentRowSupplier,
-                                               ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+  public ArrowFlightJdbcIntervalVectorAccessor(
+      IntervalDayVector vector,
+      IntSupplier currentRowSupplier,
+      ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
     super(currentRowSupplier, setCursorWasNull);
     this.vector = vector;
-    stringGetter = (index) -> {
-      final NullableIntervalDayHolder holder = new NullableIntervalDayHolder();
-      vector.get(index, holder);
-      if (holder.isSet == 0) {
-        return null;
-      } else {
-        final int days = holder.days;
-        final int millis = holder.milliseconds;
-        return formatIntervalDay(new Period().plusDays(days).plusMillis(millis));
-      }
-    };
+    stringGetter =
+        (index) -> {
+          final NullableIntervalDayHolder holder = new NullableIntervalDayHolder();
+          vector.get(index, holder);
+          if (holder.isSet == 0) {
+            return null;
+          } else {
+            final int days = holder.days;
+            final int millis = holder.milliseconds;
+            return formatIntervalDay(Duration.ofDays(days).plusMillis(millis));
+          }
+        };
     objectClass = java.time.Duration.class;
   }
 
   /**
    * Instantiate an accessor for a {@link IntervalYearVector}.
    *
-   * @param vector             an instance of a IntervalYearVector.
+   * @param vector an instance of a IntervalYearVector.
    * @param currentRowSupplier the supplier to track the rows.
-   * @param setCursorWasNull   the consumer to set if value was null.
+   * @param setCursorWasNull the consumer to set if value was null.
    */
-  public ArrowFlightJdbcIntervalVectorAccessor(IntervalYearVector vector,
-                                               IntSupplier currentRowSupplier,
-                                               ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+  public ArrowFlightJdbcIntervalVectorAccessor(
+      IntervalYearVector vector,
+      IntSupplier currentRowSupplier,
+      ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
     super(currentRowSupplier, setCursorWasNull);
     this.vector = vector;
-    stringGetter = (index) -> {
-      final NullableIntervalYearHolder holder = new NullableIntervalYearHolder();
-      vector.get(index, holder);
-      if (holder.isSet == 0) {
-        return null;
-      } else {
-        final int interval = holder.value;
-        final int years = (interval / yearsToMonths);
-        final int months = (interval % yearsToMonths);
-        return formatIntervalYear(new Period().plusYears(years).plusMonths(months));
-      }
-    };
+    stringGetter =
+        (index) -> {
+          final NullableIntervalYearHolder holder = new NullableIntervalYearHolder();
+          vector.get(index, holder);
+          if (holder.isSet == 0) {
+            return null;
+          } else {
+            final int interval = holder.value;
+            final int years = (interval / yearsToMonths);
+            final int months = (interval % yearsToMonths);
+            return formatIntervalYear(Period.ofYears(years).plusMonths(months));
+          }
+        };
     objectClass = java.time.Period.class;
+  }
+
+  /**
+   * Instantiate an accessor for a {@link IntervalMonthDayNanoVector}.
+   *
+   * @param vector an instance of a IntervalMonthDayNanoVector.
+   * @param currentRowSupplier the supplier to track the rows.
+   * @param setCursorWasNull the consumer to set if value was null.
+   */
+  public ArrowFlightJdbcIntervalVectorAccessor(
+      IntervalMonthDayNanoVector vector,
+      IntSupplier currentRowSupplier,
+      ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+    super(currentRowSupplier, setCursorWasNull);
+    this.vector = vector;
+    stringGetter =
+        (index) -> {
+          final NullableIntervalMonthDayNanoHolder holder =
+              new NullableIntervalMonthDayNanoHolder();
+          vector.get(index, holder);
+          if (holder.isSet == 0) {
+            return null;
+          } else {
+            final int months = holder.months;
+            final int days = holder.days;
+            final long nanos = holder.nanoseconds;
+            final Period period = Period.ofMonths(months).plusDays(days);
+            final Duration duration = Duration.ofNanos(nanos);
+            return new PeriodDuration(period, duration).toISO8601IntervalString();
+          }
+        };
+    objectClass = PeriodDuration.class;
   }
 
   @Override
@@ -116,9 +152,7 @@ public class ArrowFlightJdbcIntervalVectorAccessor extends ArrowFlightJdbcAccess
     return object;
   }
 
-  /**
-   * Functional interface used to unify Interval*Vector#getAsStringBuilder implementations.
-   */
+  /** Functional interface used to unify Interval*Vector#getAsStringBuilder implementations. */
   @FunctionalInterface
   interface StringGetter {
     String get(int index);

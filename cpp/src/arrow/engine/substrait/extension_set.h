@@ -86,7 +86,7 @@ struct ARROW_ENGINE_EXPORT IdHashEq {
 /// \brief Owning storage for ids
 ///
 /// Substrait plans may reuse URIs and names in many places.  For convenience
-/// and performance Substarit ids are typically passed around as views.  As we
+/// and performance Substrait ids are typically passed around as views.  As we
 /// convert a plan from Substrait to Arrow we need to copy these strings out of
 /// the Substrait buffer and into owned storage.  This class serves as that owned
 /// storage.
@@ -295,6 +295,10 @@ class ARROW_ENGINE_EXPORT ExtensionIdRegistry {
 constexpr std::string_view kArrowExtTypesUri =
     "https://github.com/apache/arrow/blob/main/format/substrait/"
     "extension_types.yaml";
+// Extension types that don't match 1:1 with a data type (or the data type is
+// parameterized)
+constexpr std::string_view kTimeNanosTypeName = "time_nanos";
+constexpr Id kTimeNanosId = {kArrowExtTypesUri, kTimeNanosTypeName};
 
 /// A default registry with all supported functions and data types registered
 ///

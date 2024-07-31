@@ -221,18 +221,22 @@ ARROW_TESTING_EXPORT void AssertScalarsEqual(
 ARROW_TESTING_EXPORT void AssertScalarsApproxEqual(
     const Scalar& expected, const Scalar& actual, bool verbose = false,
     const EqualOptions& options = TestingEqualOptions());
-ARROW_TESTING_EXPORT void AssertBatchesEqual(const RecordBatch& expected,
-                                             const RecordBatch& actual,
-                                             bool check_metadata = false);
-ARROW_TESTING_EXPORT void AssertBatchesApproxEqual(const RecordBatch& expected,
-                                                   const RecordBatch& actual);
-ARROW_TESTING_EXPORT void AssertChunkedEqual(const ChunkedArray& expected,
-                                             const ChunkedArray& actual);
-ARROW_TESTING_EXPORT void AssertChunkedEqual(const ChunkedArray& actual,
-                                             const ArrayVector& expected);
+ARROW_TESTING_EXPORT void AssertBatchesEqual(
+    const RecordBatch& expected, const RecordBatch& actual, bool check_metadata = false,
+    const EqualOptions& options = TestingEqualOptions());
+ARROW_TESTING_EXPORT void AssertBatchesApproxEqual(
+    const RecordBatch& expected, const RecordBatch& actual,
+    const EqualOptions& options = TestingEqualOptions());
+ARROW_TESTING_EXPORT void AssertChunkedEqual(
+    const ChunkedArray& expected, const ChunkedArray& actual,
+    const EqualOptions& options = TestingEqualOptions());
+ARROW_TESTING_EXPORT void AssertChunkedEqual(
+    const ChunkedArray& actual, const ArrayVector& expected,
+    const EqualOptions& options = TestingEqualOptions());
 // Like ChunkedEqual, but permits different chunk layout
-ARROW_TESTING_EXPORT void AssertChunkedEquivalent(const ChunkedArray& expected,
-                                                  const ChunkedArray& actual);
+ARROW_TESTING_EXPORT void AssertChunkedEquivalent(
+    const ChunkedArray& expected, const ChunkedArray& actual,
+    const EqualOptions& options = TestingEqualOptions());
 ARROW_TESTING_EXPORT void AssertChunkedApproxEquivalent(
     const ChunkedArray& expected, const ChunkedArray& actual,
     const EqualOptions& options = TestingEqualOptions());
@@ -277,12 +281,13 @@ ARROW_TESTING_EXPORT void AssertSchemaNotEqual(const std::shared_ptr<Schema>& lh
 ARROW_TESTING_EXPORT Result<std::optional<std::string>> PrintArrayDiff(
     const ChunkedArray& expected, const ChunkedArray& actual);
 
-ARROW_TESTING_EXPORT void AssertTablesEqual(const Table& expected, const Table& actual,
-                                            bool same_chunk_layout = true,
-                                            bool flatten = false);
+ARROW_TESTING_EXPORT void AssertTablesEqual(
+    const Table& expected, const Table& actual, bool same_chunk_layout = true,
+    bool flatten = false, const EqualOptions& options = TestingEqualOptions());
 
-ARROW_TESTING_EXPORT void AssertDatumsEqual(const Datum& expected, const Datum& actual,
-                                            bool verbose = false);
+ARROW_TESTING_EXPORT void AssertDatumsEqual(
+    const Datum& expected, const Datum& actual, bool verbose = false,
+    const EqualOptions& options = TestingEqualOptions());
 ARROW_TESTING_EXPORT void AssertDatumsApproxEqual(
     const Datum& expected, const Datum& actual, bool verbose = false,
     const EqualOptions& options = TestingEqualOptions());
@@ -296,12 +301,13 @@ void AssertNumericDataEqual(const C_TYPE* raw_data,
   }
 }
 
-ARROW_TESTING_EXPORT void CompareBatch(const RecordBatch& left, const RecordBatch& right,
-                                       bool compare_metadata = true);
+ARROW_TESTING_EXPORT void CompareBatch(
+    const RecordBatch& left, const RecordBatch& right, bool compare_metadata = true,
+    const EqualOptions& options = TestingEqualOptions());
 
-ARROW_TESTING_EXPORT void ApproxCompareBatch(const RecordBatch& left,
-                                             const RecordBatch& right,
-                                             bool compare_metadata = true);
+ARROW_TESTING_EXPORT void ApproxCompareBatch(
+    const RecordBatch& left, const RecordBatch& right, bool compare_metadata = true,
+    const EqualOptions& options = TestingEqualOptions());
 
 // Check if the padding of the buffers of the array is zero.
 // Also cause valgrind warnings if the padding bytes are uninitialized.
@@ -347,6 +353,19 @@ std::shared_ptr<Scalar> DictScalarFromJSON(const std::shared_ptr<DataType>&,
 ARROW_TESTING_EXPORT
 std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>&,
                                      const std::vector<std::string>& json);
+
+ARROW_TESTING_EXPORT
+std::shared_ptr<Tensor> TensorFromJSON(const std::shared_ptr<DataType>& type,
+                                       std::string_view data, std::string_view shape,
+                                       std::string_view strides = "[]",
+                                       std::string_view dim_names = "[]");
+
+ARROW_TESTING_EXPORT
+std::shared_ptr<Tensor> TensorFromJSON(const std::shared_ptr<DataType>& type,
+                                       std::string_view data,
+                                       const std::vector<int64_t>& shape,
+                                       const std::vector<int64_t>& strides = {},
+                                       const std::vector<std::string>& dim_names = {});
 
 ARROW_TESTING_EXPORT
 Result<std::shared_ptr<Table>> RunEndEncodeTableColumns(

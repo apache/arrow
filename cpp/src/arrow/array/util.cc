@@ -95,7 +95,7 @@ class ArrayDataEndianSwapper {
   Status SwapType(const DataType& type) {
     RETURN_NOT_OK(VisitTypeInline(type, this));
     RETURN_NOT_OK(SwapChildren(type.fields()));
-    if (internal::HasValidityBitmap(type.id())) {
+    if (internal::may_have_validity_bitmap(type.id())) {
       // Copy null bitmap
       out_->buffers[0] = data_->buffers[0];
     }
@@ -125,7 +125,8 @@ class ArrayDataEndianSwapper {
     for (int64_t i = 0; i < length; i++) {
       out_data[i] = bit_util::ByteSwap(in_data[i]);
     }
-    return std::move(out_buffer);
+    // R build with openSUSE155 requires an explicit shared_ptr construction
+    return std::shared_ptr<Buffer>(std::move(out_buffer));
   }
 
   template <typename VALUE_TYPE>
@@ -134,7 +135,6 @@ class ArrayDataEndianSwapper {
       out_->buffers[index] = data_->buffers[index];
       return Status::OK();
     }
-    // Except union, offset has one more element rather than data->length
     ARROW_ASSIGN_OR_RAISE(out_->buffers[index],
                           ByteSwapBuffer<VALUE_TYPE>(data_->buffers[index]));
     return Status::OK();
@@ -290,6 +290,17 @@ class ArrayDataEndianSwapper {
     return Status::OK();
   }
 
+  Status Visit(const ListViewType& type) {
+    RETURN_NOT_OK(SwapOffsets<int32_t>(1));
+    RETURN_NOT_OK(SwapOffsets<int32_t>(2));
+    return Status::OK();
+  }
+  Status Visit(const LargeListViewType& type) {
+    RETURN_NOT_OK(SwapOffsets<int64_t>(1));
+    RETURN_NOT_OK(SwapOffsets<int64_t>(2));
+    return Status::OK();
+  }
+
   Status Visit(const DictionaryType& type) {
     // dictionary was already swapped in ReadDictionary() in ipc/reader.cc
     RETURN_NOT_OK(SwapType(*type.index_type()));
@@ -379,7 +390,14 @@ class NullArrayFactory {
     enable_if_var_size_list<T, Status> Visit(const T& type) {
       // values array may be empty, but there must be at least one offset of 0
       RETURN_NOT_OK(MaxOf(sizeof(typename T::offset_type) * (length_ + 1)));
-      RETURN_NOT_OK(MaxOf(GetBufferLength(type.value_type(), length_)));
+      RETURN_NOT_OK(MaxOf(GetBufferLength(type.value_type(), /*length=*/0)));
+      return Status::OK();
+    }
+
+    template <typename T>
+    enable_if_list_view<T, Status> Visit(const T& type) {
+      RETURN_NOT_OK(MaxOf(sizeof(typename T::offset_type) * length_));
+      RETURN_NOT_OK(MaxOf(GetBufferLength(type.value_type(), /*length=*/0)));
       return Status::OK();
     }
 
@@ -518,8 +536,8 @@ class NullArrayFactory {
   }
 
   template <typename T>
-  enable_if_var_size_list<T, Status> Visit(const T& type) {
-    out_->buffers.resize(2, buffer_);
+  enable_if_var_length_list_like<T, Status> Visit(const T& type) {
+    out_->buffers.resize(is_list_view(T::type_id) ? 3 : 2, buffer_);
     ARROW_ASSIGN_OR_RAISE(out_->child_data[0], CreateChild(type, 0, /*length=*/0));
     return Status::OK();
   }
@@ -531,7 +549,7 @@ class NullArrayFactory {
   }
 
   Status Visit(const StructType& type) {
-    for (int i = 0; i < type_->num_fields(); ++i) {
+    for (int i = 0; i < type.num_fields(); ++i) {
       ARROW_ASSIGN_OR_RAISE(out_->child_data[i], CreateChild(type, i, length_));
     }
     return Status::OK();
@@ -698,9 +716,25 @@ class RepeatedArrayFactory {
     std::shared_ptr<Buffer> offsets_buffer;
     auto size = static_cast<typename T::offset_type>(scalar<T>().value->length());
     RETURN_NOT_OK(CreateOffsetsBuffer(size, &offsets_buffer));
-
     out_ =
         std::make_shared<ArrayType>(scalar_.type, length_, offsets_buffer, value_array);
+    return Status::OK();
+  }
+
+  template <typename T>
+  enable_if_list_view<T, Status> Visit(const T& type) {
+    using ScalarType = typename TypeTraits<T>::ScalarType;
+    using ArrayType = typename TypeTraits<T>::ArrayType;
+
+    auto value = checked_cast<const ScalarType&>(scalar_).value;
+
+    auto size = static_cast<typename T::offset_type>(value->length());
+    ARROW_ASSIGN_OR_RAISE(auto offsets_buffer,
+                          CreateIntBuffer<typename T::offset_type>(0));
+    ARROW_ASSIGN_OR_RAISE(auto sizes_buffer,
+                          CreateIntBuffer<typename T::offset_type>(size));
+    out_ = std::make_shared<ArrayType>(scalar_.type, length_, std::move(offsets_buffer),
+                                       std::move(sizes_buffer), value);
     return Status::OK();
   }
 
@@ -851,6 +885,15 @@ class RepeatedArrayFactory {
       builder.UnsafeAppend(offset);
     }
     return builder.Finish(out);
+  }
+
+  template <typename IntType>
+  Result<std::shared_ptr<Buffer>> CreateIntBuffer(IntType value) {
+    std::shared_ptr<Buffer> buffer;
+    TypedBufferBuilder<IntType> builder(pool_);
+    RETURN_NOT_OK(builder.Append(/*num_copies=*/length_, value));
+    RETURN_NOT_OK(builder.Finish(&buffer));
+    return buffer;
   }
 
   Status CreateBufferOf(const void* data, size_t data_length,

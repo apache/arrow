@@ -18,6 +18,7 @@
 #include "arrow/compute/row/row_internal.h"
 
 #include "arrow/compute/util.h"
+#include "arrow/util/int_util_overflow.h"
 
 namespace arrow {
 namespace compute {
@@ -66,7 +67,8 @@ void RowTableMetadata::FromColumnMetadataVector(
   //
   // Columns are sorted based on the size in bytes of their fixed-length part.
   // For the varying-length column, the fixed-length part is the 32-bit field storing
-  // cumulative length of varying-length fields.
+  // cumulative length of varying-length fields. This is to make the memory access of
+  // each individual column within the encoded row alignment-friendly.
   //
   // The rules are:
   //
@@ -245,13 +247,13 @@ int64_t RowTableImpl::size_rows_varying_length(int64_t num_bytes) const {
 }
 
 void RowTableImpl::UpdateBufferPointers() {
-  buffers_[0] = null_masks_->mutable_data();
+  buffers_[0] = null_masks_.get();
   if (metadata_.is_fixed_length) {
-    buffers_[1] = rows_->mutable_data();
+    buffers_[1] = rows_.get();
     buffers_[2] = nullptr;
   } else {
-    buffers_[1] = offsets_->mutable_data();
-    buffers_[2] = rows_->mutable_data();
+    buffers_[1] = offsets_.get();
+    buffers_[2] = rows_.get();
   }
 }
 
@@ -330,7 +332,15 @@ Status RowTableImpl::AppendSelectionFrom(const RowTableImpl& from,
       uint16_t row_id = source_row_ids ? source_row_ids[i] : i;
       uint32_t length = from_offsets[row_id + 1] - from_offsets[row_id];
       total_length_to_append += length;
-      to_offsets[num_rows_ + i + 1] = total_length + total_length_to_append;
+      uint32_t to_offset_maybe_overflow = 0;
+      if (ARROW_PREDICT_FALSE(arrow::internal::AddWithOverflow(
+              total_length, total_length_to_append, &to_offset_maybe_overflow))) {
+        return Status::Invalid(
+            "Offset overflow detected in RowTableImpl::AppendSelectionFrom for row ",
+            num_rows_ + i, " of length ", length, " bytes, current length in total is ",
+            to_offsets[num_rows_ + i], " bytes");
+      }
+      to_offsets[num_rows_ + i + 1] = to_offset_maybe_overflow;
     }
 
     RETURN_NOT_OK(ResizeOptionalVaryingLengthBuffer(total_length_to_append));

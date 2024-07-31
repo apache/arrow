@@ -38,6 +38,7 @@
 #include "arrow/compute/row/grouper.h"
 #include "arrow/record_batch.h"
 #include "arrow/stl_allocator.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/bitmap_writer.h"
@@ -82,7 +83,8 @@ Result<std::unique_ptr<KernelState>> HashAggregateInit(KernelContext* ctx,
                                                        const KernelInitArgs& args) {
   auto impl = std::make_unique<Impl>();
   RETURN_NOT_OK(impl->Init(ctx->exec_context(), args));
-  return std::move(impl);
+  // R build with openSUSE155 requires an explicit unique_ptr construction
+  return std::unique_ptr<KernelState>(std::move(impl));
 }
 
 Status HashAggregateResize(KernelContext* ctx, int64_t num_groups) {
@@ -441,9 +443,10 @@ struct GroupedCountImpl : public GroupedAggregator {
 // ----------------------------------------------------------------------
 // Sum/Mean/Product implementation
 
-template <typename Type, typename Impl>
+template <typename Type, typename Impl,
+          typename AccumulateType = typename FindAccumulatorType<Type>::Type>
 struct GroupedReducingAggregator : public GroupedAggregator {
-  using AccType = typename FindAccumulatorType<Type>::Type;
+  using AccType = AccumulateType;
   using CType = typename TypeTraits<AccType>::CType;
   using InputCType = typename TypeTraits<Type>::CType;
 
@@ -483,7 +486,8 @@ struct GroupedReducingAggregator : public GroupedAggregator {
 
   Status Merge(GroupedAggregator&& raw_other,
                const ArrayData& group_id_mapping) override {
-    auto other = checked_cast<GroupedReducingAggregator<Type, Impl>*>(&raw_other);
+    auto other =
+        checked_cast<GroupedReducingAggregator<Type, Impl, AccType>*>(&raw_other);
 
     CType* reduced = reduced_.mutable_data();
     int64_t* counts = counts_.mutable_data();
@@ -735,9 +739,18 @@ using GroupedProductFactory =
 // ----------------------------------------------------------------------
 // Mean implementation
 
+template <typename T>
+struct GroupedMeanAccType {
+  using Type = typename std::conditional<is_number_type<T>::value, DoubleType,
+                                         typename FindAccumulatorType<T>::Type>::type;
+};
+
 template <typename Type>
-struct GroupedMeanImpl : public GroupedReducingAggregator<Type, GroupedMeanImpl<Type>> {
-  using Base = GroupedReducingAggregator<Type, GroupedMeanImpl<Type>>;
+struct GroupedMeanImpl
+    : public GroupedReducingAggregator<Type, GroupedMeanImpl<Type>,
+                                       typename GroupedMeanAccType<Type>::Type> {
+  using Base = GroupedReducingAggregator<Type, GroupedMeanImpl<Type>,
+                                         typename GroupedMeanAccType<Type>::Type>;
   using CType = typename Base::CType;
   using InputCType = typename Base::InputCType;
   using MeanType =
@@ -748,7 +761,7 @@ struct GroupedMeanImpl : public GroupedReducingAggregator<Type, GroupedMeanImpl<
   template <typename T = Type>
   static enable_if_number<T, CType> Reduce(const DataType&, const CType u,
                                            const InputCType v) {
-    return static_cast<CType>(to_unsigned(u) + to_unsigned(static_cast<CType>(v)));
+    return static_cast<CType>(u) + static_cast<CType>(v);
   }
 
   static CType Reduce(const DataType&, const CType u, const CType v) {
@@ -803,7 +816,7 @@ struct GroupedMeanImpl : public GroupedReducingAggregator<Type, GroupedMeanImpl<
       (*null_count)++;
       bit_util::SetBitTo((*null_bitmap)->mutable_data(), i, false);
     }
-    return std::move(values);
+    return values;
   }
 
   std::shared_ptr<DataType> out_type() const override {
@@ -1104,7 +1117,8 @@ Result<std::unique_ptr<KernelState>> VarStdInit(KernelContext* ctx,
   auto impl = std::make_unique<GroupedVarStdImpl<T>>();
   impl->result_type_ = result_type;
   RETURN_NOT_OK(impl->Init(ctx->exec_context(), args));
-  return std::move(impl);
+  // R build with openSUSE155 requires an explicit unique_ptr construction
+  return std::unique_ptr<KernelState>(std::move(impl));
 }
 
 template <VarOrStd result_type>
@@ -1675,7 +1689,7 @@ Result<std::unique_ptr<KernelState>> MinMaxInit(KernelContext* ctx,
                                                 const KernelInitArgs& args) {
   ARROW_ASSIGN_OR_RAISE(auto impl, HashAggregateInit<GroupedMinMaxImpl<T>>(ctx, args));
   static_cast<GroupedMinMaxImpl<T>*>(impl.get())->type_ = args.inputs[0].GetSharedPtr();
-  return std::move(impl);
+  return impl;
 }
 
 template <MinOrMax min_or_max>
@@ -1850,8 +1864,8 @@ struct GroupedFirstLastImpl final : public GroupedAggregator {
                const ArrayData& group_id_mapping) override {
     // The merge is asymmetric. "first" from this state gets pick over "first" from other
     // state. "last" from other state gets pick over from this state. This is so that when
-    // using with segmeneted aggregation, we still get the correct "first" and "last"
-    // value for the entire segement.
+    // using with segmented aggregation, we still get the correct "first" and "last"
+    // value for the entire segment.
     auto other = checked_cast<GroupedFirstLastImpl*>(&raw_other);
 
     auto raw_firsts = firsts_.mutable_data();
@@ -2178,7 +2192,7 @@ Result<std::unique_ptr<KernelState>> FirstLastInit(KernelContext* ctx,
   ARROW_ASSIGN_OR_RAISE(auto impl, HashAggregateInit<GroupedFirstLastImpl<T>>(ctx, args));
   static_cast<GroupedFirstLastImpl<T>*>(impl.get())->type_ =
       args.inputs[0].GetSharedPtr();
-  return std::move(impl);
+  return impl;
 }
 
 template <FirstOrLast first_or_last>
@@ -2587,7 +2601,7 @@ Result<std::unique_ptr<KernelState>> GroupedDistinctInit(KernelContext* ctx,
   instance->out_type_ = args.inputs[0].GetSharedPtr();
   ARROW_ASSIGN_OR_RAISE(instance->grouper_,
                         Grouper::Make(args.inputs, ctx->exec_context()));
-  return std::move(impl);
+  return impl;
 }
 
 // ----------------------------------------------------------------------
@@ -2829,7 +2843,7 @@ Result<std::unique_ptr<KernelState>> GroupedOneInit(KernelContext* ctx,
   ARROW_ASSIGN_OR_RAISE(auto impl, HashAggregateInit<GroupedOneImpl<T>>(ctx, args));
   auto instance = static_cast<GroupedOneImpl<T>*>(impl.get());
   instance->out_type_ = args.inputs[0].GetSharedPtr();
-  return std::move(impl);
+  return impl;
 }
 
 struct GroupedOneFactory {
@@ -3227,7 +3241,7 @@ Result<std::unique_ptr<KernelState>> GroupedListInit(KernelContext* ctx,
   ARROW_ASSIGN_OR_RAISE(auto impl, HashAggregateInit<GroupedListImpl<T>>(ctx, args));
   auto instance = static_cast<GroupedListImpl<T>*>(impl.get());
   instance->out_type_ = args.inputs[0].GetSharedPtr();
-  return std::move(impl);
+  return impl;
 }
 
 struct GroupedListFactory {

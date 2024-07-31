@@ -1014,11 +1014,8 @@ cdef class _MetadataRecordBatchReader(_Weakrefable, _ReadPandasMixin):
 
         Returns
         -------
-        data : FlightStreamChunk
+        chunk : FlightStreamChunk
             The next FlightStreamChunk in the stream.
-        app_metadata : Buffer or None
-            Application-specific metadata for the batch as defined by
-            Flight.
 
         Raises
         ------
@@ -1137,8 +1134,8 @@ cdef class MetadataRecordBatchWriter(_CRecordBatchWriter):
         ----------
         table : Table
         max_chunksize : int, default None
-            Maximum size for RecordBatch chunks. Individual chunks may be
-            smaller depending on the chunk layout of individual columns.
+            Maximum number of rows for RecordBatch chunks. Individual chunks may
+            be smaller depending on the chunk layout of individual columns.
         """
         cdef:
             # max_chunksize must be > 0 to have any impact
@@ -2016,8 +2013,9 @@ cdef CStatus _data_stream_next(void* self, CFlightPayload* payload) except *:
     max_attempts = 128
     for _ in range(max_attempts):
         if stream.current_stream != nullptr:
-            check_flight_status(
-                stream.current_stream.get().Next().Value(payload))
+            with nogil:
+                check_flight_status(
+                    stream.current_stream.get().Next().Value(payload))
             # If the stream ended, see if there's another stream from the
             # generator
             if payload.ipc_message.metadata != nullptr:
@@ -2667,7 +2665,7 @@ cdef class TracingServerMiddlewareFactory(ServerMiddlewareFactory):
 cdef class ServerMiddleware(_Weakrefable):
     """Server-side middleware for a call, instantiated per RPC.
 
-    Methods here should be fast and must be infalliable: they should
+    Methods here should be fast and must be infallible: they should
     not raise exceptions or stall indefinitely.
 
     """

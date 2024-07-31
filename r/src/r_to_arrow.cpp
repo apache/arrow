@@ -335,7 +335,7 @@ struct RConvert {
   template <typename Type, typename From>
   static enable_if_integer<Type, Result<typename Type::c_type>> Convert(Type*,
                                                                         From from) {
-    return CIntFromRScalarImpl<typename Type::c_type>(from);
+    return CIntFromRScalarImpl<typename Type::c_type>(static_cast<int64_t>(from));
   }
 
   // ---- convert R integer types to double
@@ -461,7 +461,7 @@ class RPrimitiveConverter<
 
     if (std::is_same<typename T::c_type, r_value_type>::value) {
       auto append_value = [this](r_value_type value) {
-        this->primitive_builder_->UnsafeAppend(value);
+        this->primitive_builder_->UnsafeAppend(static_cast<typename T::c_type>(value));
         return Status::OK();
       };
       return VisitVector(it, size, append_null, append_value);
@@ -595,19 +595,21 @@ class RPrimitiveConverter<T, enable_if_t<is_date_type<T>::value>>
     return VisitVector(it, size, append_null, append_value);
   }
 
-  static int FromRDate(const Date32Type*, int from) { return from; }
+  static int FromRDate(const Date32Type*, double from) { return static_cast<int>(from); }
 
-  static int64_t FromRDate(const Date64Type*, int from) {
+  static int64_t FromRDate(const Date64Type*, double from) {
     constexpr int64_t kMilliSecondsPerDay = 86400000;
-    return from * kMilliSecondsPerDay;
+    return static_cast<int64_t>(from * kMilliSecondsPerDay);
   }
 
   static int FromPosixct(const Date32Type*, double from) {
     constexpr int64_t kSecondsPerDay = 86400;
-    return from / kSecondsPerDay;
+    return static_cast<int>(from / kSecondsPerDay);
   }
 
-  static int64_t FromPosixct(const Date64Type*, double from) { return from * 1000; }
+  static int64_t FromPosixct(const Date64Type*, double from) {
+    return static_cast<int64_t>(from * 1000);
+  }
 };
 
 int64_t get_TimeUnit_multiplier(TimeUnit::type unit) {
@@ -1081,7 +1083,7 @@ class RListConverter : public ListConverter<T, RConverter, RConverterTrait> {
     auto append_value = [this](SEXP value) {
       // TODO: if we decide that this can be run concurrently
       //       we'll have to do vec_size() upfront
-      int n = arrow::r::vec_size(value);
+      R_xlen_t n = arrow::r::vec_size(value);
 
       RETURN_NOT_OK(this->list_builder_->ValidateOverflow(n));
       RETURN_NOT_OK(this->list_builder_->Append());

@@ -38,7 +38,7 @@ namespace Apache.Arrow.Benchmarks
         [GlobalSetup]
         public async Task GlobalSetup()
         {
-            RecordBatch batch = TestData.CreateSampleRecordBatch(length: Count);
+            RecordBatch batch = TestData.CreateSampleRecordBatch(length: Count, createDictionaryArray: false);
             _memoryStream = new MemoryStream();
 
             ArrowStreamWriter writer = new ArrowStreamWriter(_memoryStream, batch.Schema);

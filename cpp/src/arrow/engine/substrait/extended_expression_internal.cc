@@ -85,7 +85,7 @@ Result<NamedExpression> ExpressionFromProto(
   // expression which is not redundant.
   //
   // For example, if the base schema is [struct<foo:i32>, i32] and the expression is
-  // field(0) the the extended expression output names might be ["foo", "my_expression"].
+  // field(0) the extended expression output names might be ["foo", "my_expression"].
   // The "foo" is redundant but we can verify it matches and reject if it does not.
   //
   // The one exception is struct literals which have no field names.  For example, if
@@ -143,7 +143,7 @@ Result<std::unique_ptr<substrait::ExpressionReference>> CreateExpressionReferenc
   ARROW_ASSIGN_OR_RAISE(std::unique_ptr<substrait::Expression> expression,
                         ToProto(expr, ext_set, conversion_options));
   expr_ref->set_allocated_expression(expression.release());
-  return std::move(expr_ref);
+  return expr_ref;
 }
 
 }  // namespace
@@ -178,7 +178,7 @@ Result<BoundExpressions> FromProto(const substrait::ExtendedExpression& expressi
     *ext_set_out = std::move(ext_set);
   }
 
-  return std::move(bound_expressions);
+  return bound_expressions;
 }
 
 Result<std::unique_ptr<substrait::ExtendedExpression>> ToProto(
@@ -203,7 +203,7 @@ Result<std::unique_ptr<substrait::ExtendedExpression>> ToProto(
     expression->mutable_referred_expr()->AddAllocated(expr_ref.release());
   }
   RETURN_NOT_OK(AddExtensionSetToExtendedExpression(*ext_set, expression.get()));
-  return std::move(expression);
+  return expression;
 }
 
 }  // namespace engine

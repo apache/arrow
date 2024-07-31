@@ -22,9 +22,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/apache/arrow/go/v15/parquet"
-	format "github.com/apache/arrow/go/v15/parquet/internal/gen-go/parquet"
-	"golang.org/x/xerrors"
+	"github.com/apache/arrow/go/v18/arrow/float16"
+	"github.com/apache/arrow/go/v18/internal/utils"
+	"github.com/apache/arrow/go/v18/parquet"
+	format "github.com/apache/arrow/go/v18/parquet/internal/gen-go/parquet"
 )
 
 type taggedInfo struct {
@@ -159,6 +160,8 @@ func (t *taggedInfo) UpdateLogicalTypes() {
 			return BSONLogicalType{}
 		case "uuid":
 			return UUIDLogicalType{}
+		case "float16":
+			return Float16LogicalType{}
 		default:
 			panic(fmt.Errorf("invalid logical type specified: %s", t))
 		}
@@ -311,7 +314,7 @@ func infoFromTags(f reflect.StructTag) *taggedInfo {
 	return nil
 }
 
-// typeToNode recurseively converts a physical type and the tag info into parquet Nodes
+// typeToNode recursively converts a physical type and the tag info into parquet Nodes
 //
 // to avoid having to propagate errors up potentially high numbers of recursive calls
 // we use panics and then recover in the public function NewSchemaFromStruct so that a
@@ -373,6 +376,9 @@ func typeToNode(name string, typ reflect.Type, repType parquet.Repetition, info 
 		}
 		return Must(MapOf(name, key, value, repType, fieldID))
 	case reflect.Struct:
+		if typ == reflect.TypeOf(float16.Num{}) {
+			return MustPrimitive(NewPrimitiveNodeLogical(name, repType, Float16LogicalType{}, parquet.Types.FixedLenByteArray, 2, fieldID))
+		}
 		// structs are Group nodes
 		fields := make(FieldList, 0)
 		for i := 0; i < typ.NumField(); i++ {
@@ -545,7 +551,7 @@ func typeToNode(name string, typ reflect.Type, repType parquet.Repetition, info 
 // NewSchemaFromStruct generates a schema from an object type via reflection of
 // the type and reading struct tags for "parquet".
 //
-// Rules
+// # Rules
 //
 // Everything defaults to Required repetition, unless otherwise specified.
 // Pointer types become Optional repetition.
@@ -565,7 +571,7 @@ func typeToNode(name string, typ reflect.Type, repType parquet.Repetition, info 
 //
 // maps will become appropriate Map structures in the schema of the defined key and values.
 //
-// Available Tags
+// # Available Tags
 //
 // name: by default the node will have the same name as the field, this tag let's you specify a name
 //
@@ -603,14 +609,7 @@ func NewSchemaFromStruct(obj interface{}) (sc *Schema, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			sc = nil
-			switch x := r.(type) {
-			case string:
-				err = xerrors.New(x)
-			case error:
-				err = x
-			default:
-				err = xerrors.New("unknown panic")
-			}
+			err = utils.FormatRecoveredError("unknown panic", r)
 		}
 	}()
 
@@ -633,7 +632,7 @@ func typeFromNode(n Node) reflect.Type {
 	switch n.Type() {
 	case Primitive:
 		typ := parquetTypeToReflect[n.(*PrimitiveNode).PhysicalType()]
-		// if a bytearray field is annoted as a String logical type or a UTF8 converted type
+		// if a bytearray field is annotated as a String logical type or a UTF8 converted type
 		// then use a string instead of parquet.ByteArray / parquet.FixedLenByteArray which are []byte
 		if n.LogicalType().Equals(StringLogicalType{}) || n.ConvertedType() == ConvertedTypes.UTF8 {
 			typ = reflect.TypeOf(string(""))
@@ -818,14 +817,7 @@ func NewStructFromSchema(sc *Schema) (t reflect.Type, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			t = nil
-			switch x := r.(type) {
-			case string:
-				err = xerrors.New(x)
-			case error:
-				err = x
-			default:
-				err = xerrors.New("unknown panic")
-			}
+			err = utils.FormatRecoveredError("unknown panic", r)
 		}
 	}()
 

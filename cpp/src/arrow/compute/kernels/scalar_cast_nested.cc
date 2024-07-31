@@ -401,7 +401,7 @@ void AddTypeToTypeCast(CastFunction* func) {
   kernel.exec = CastFunctor::Exec;
   kernel.signature = KernelSignature::Make({InputType(SrcT::type_id)}, kOutputTargetType);
   kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
-  DCHECK_OK(func->AddKernel(StructType::type_id, std::move(kernel)));
+  DCHECK_OK(func->AddKernel(SrcT::type_id, std::move(kernel)));
 }
 
 template <typename DestType>
@@ -480,14 +480,18 @@ std::vector<std::shared_ptr<CastFunction>> GetNestedCasts() {
   auto cast_list = std::make_shared<CastFunction>("cast_list", Type::LIST);
   AddCommonCasts(Type::LIST, kOutputTargetType, cast_list.get());
   AddListCast<ListType, ListType>(cast_list.get());
+  AddListCast<ListViewType, ListType>(cast_list.get());
   AddListCast<LargeListType, ListType>(cast_list.get());
+  AddListCast<LargeListViewType, ListType>(cast_list.get());
   AddTypeToTypeCast<CastFixedToVarList<ListType>, FixedSizeListType>(cast_list.get());
 
   auto cast_large_list =
       std::make_shared<CastFunction>("cast_large_list", Type::LARGE_LIST);
   AddCommonCasts(Type::LARGE_LIST, kOutputTargetType, cast_large_list.get());
   AddListCast<ListType, LargeListType>(cast_large_list.get());
+  AddListCast<ListViewType, LargeListType>(cast_large_list.get());
   AddListCast<LargeListType, LargeListType>(cast_large_list.get());
+  AddListCast<LargeListViewType, LargeListType>(cast_large_list.get());
   AddTypeToTypeCast<CastFixedToVarList<LargeListType>, FixedSizeListType>(
       cast_large_list.get());
 
@@ -503,7 +507,11 @@ std::vector<std::shared_ptr<CastFunction>> GetNestedCasts() {
   AddCommonCasts(Type::FIXED_SIZE_LIST, kOutputTargetType, cast_fsl.get());
   AddTypeToTypeCast<CastFixedList, FixedSizeListType>(cast_fsl.get());
   AddTypeToTypeCast<CastVarToFixedList<ListType>, ListType>(cast_fsl.get());
+  AddTypeToTypeCast<CastVarToFixedList<ListViewType>, ListViewType>(cast_fsl.get());
   AddTypeToTypeCast<CastVarToFixedList<LargeListType>, LargeListType>(cast_fsl.get());
+  AddTypeToTypeCast<CastVarToFixedList<LargeListViewType>, LargeListViewType>(
+      cast_fsl.get());
+  AddTypeToTypeCast<CastVarToFixedList<ListType>, MapType>(cast_fsl.get());
 
   // So is struct
   auto cast_struct = std::make_shared<CastFunction>("cast_struct", Type::STRUCT);

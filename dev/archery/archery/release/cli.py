@@ -32,7 +32,7 @@ from .core import IssueTracker, Release
               help='OAuth token for GitHub authentication')
 @click.pass_obj
 def release(obj, src, github_token):
-    """Release releated commands."""
+    """Release related commands."""
 
     obj['issue_tracker'] = IssueTracker(github_token=github_token)
     obj['repo'] = src.path
@@ -98,7 +98,7 @@ def release_changelog_generate(obj, version, output):
 @release_changelog.command('regenerate')
 @click.pass_obj
 def release_changelog_regenerate(obj):
-    """Regeneretate the whole CHANGELOG.md file"""
+    """Regenerate the whole CHANGELOG.md file"""
     issue_tracker, repo = obj['issue_tracker'], obj['repo']
     changelogs = []
     issue_tracker = IssueTracker(issue_tracker=issue_tracker)

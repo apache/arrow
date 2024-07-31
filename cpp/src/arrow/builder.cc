@@ -221,6 +221,20 @@ struct MakeBuilderImpl {
     return Status::OK();
   }
 
+  Status Visit(const ListViewType& list_view_type) {
+    std::shared_ptr<DataType> value_type = list_view_type.value_type();
+    ARROW_ASSIGN_OR_RAISE(auto value_builder, ChildBuilder(value_type));
+    out.reset(new ListViewBuilder(pool, std::move(value_builder), std::move(type)));
+    return Status::OK();
+  }
+
+  Status Visit(const LargeListViewType& large_list_view_type) {
+    std::shared_ptr<DataType> value_type = large_list_view_type.value_type();
+    ARROW_ASSIGN_OR_RAISE(auto value_builder, ChildBuilder(value_type));
+    out.reset(new LargeListViewBuilder(pool, std::move(value_builder), std::move(type)));
+    return Status::OK();
+  }
+
   Status Visit(const MapType& map_type) {
     ARROW_ASSIGN_OR_RAISE(auto key_builder, ChildBuilder(map_type.key_type()));
     ARROW_ASSIGN_OR_RAISE(auto item_builder, ChildBuilder(map_type.item_type()));

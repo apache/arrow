@@ -13,18 +13,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#nullable enable
+
 using System;
+using System.Collections;
 using System.Collections.Generic;
-#if !NETSTANDARD1_3
 using System.Data.SqlTypes;
-#endif
 using System.Diagnostics;
 using Apache.Arrow.Arrays;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
-    public class Decimal256Array : FixedSizeBinaryArray
+    public class Decimal256Array : FixedSizeBinaryArray, IReadOnlyList<SqlDecimal?>, IReadOnlyList<string?>
     {
         public class Builder : BuilderBase<Decimal256Array, Builder>
         {
@@ -94,7 +95,6 @@ namespace Apache.Arrow
                 return Instance;
             }
 
-#if !NETSTANDARD1_3
             public Builder Append(SqlDecimal value)
             {
                 Span<byte> bytes = stackalloc byte[DataType.ByteWidth];
@@ -123,7 +123,6 @@ namespace Apache.Arrow
 
                 return Instance;
             }
-#endif
 
             public Builder Set(int index, decimal value)
             {
@@ -154,19 +153,42 @@ namespace Apache.Arrow
                 return null;
             }
 
-            return DecimalUtility.GetDecimal(ValueBuffer, index, Scale, ByteWidth);
+            return DecimalUtility.GetDecimal(ValueBuffer, Offset + index, Scale, ByteWidth);
         }
 
-        public string GetString(int index)
+        public IList<decimal?> ToList(bool includeNulls = false)
+        {
+            var list = new List<decimal?>(Length);
+
+            for (int i = 0; i < Length; i++)
+            {
+                decimal? value = GetValue(i);
+
+                if (value.HasValue)
+                {
+                    list.Add(value.Value);
+                }
+                else
+                {
+                    if (includeNulls)
+                    {
+                        list.Add(null);
+                    }
+                }
+            }
+
+            return list;
+        }
+
+        public string? GetString(int index)
         {
             if (IsNull(index))
             {
                 return null;
             }
-            return DecimalUtility.GetString(ValueBuffer, index, Precision, Scale, ByteWidth);
+            return DecimalUtility.GetString(ValueBuffer, Offset + index, Precision, Scale, ByteWidth);
         }
 
-#if !NETSTANDARD1_3
         public bool TryGetSqlDecimal(int index, out SqlDecimal? value)
         {
             if (IsNull(index))
@@ -176,17 +198,51 @@ namespace Apache.Arrow
             }
 
             const int longWidth = 4;
-            var span = ValueBuffer.Span.CastTo<long>().Slice(index * longWidth);
+            var span = ValueBuffer.Span.CastTo<long>().Slice((Offset + index) * longWidth);
             if ((span[2] == 0 && span[3] == 0) ||
                 (span[2] == -1 && span[3] == -1))
             {
-                value = DecimalUtility.GetSqlDecimal128(ValueBuffer, 2 * index, Precision, Scale);
+                value = DecimalUtility.GetSqlDecimal128(ValueBuffer, 2 * (Offset + index), Precision, Scale);
                 return true;
             }
 
             value = null;
             return false;
         }
-#endif
+
+        private SqlDecimal? GetSqlDecimal(int index)
+        {
+            SqlDecimal? value;
+            if (TryGetSqlDecimal(index, out value))
+            {
+                return value;
+            }
+
+            throw new OverflowException("decimal256 value out of range of SqlDecimal");
+        }
+
+        int IReadOnlyCollection<SqlDecimal?>.Count => Length;
+        SqlDecimal? IReadOnlyList<SqlDecimal?>.this[int index] => GetSqlDecimal(index);
+
+        IEnumerator<SqlDecimal?> IEnumerable<SqlDecimal?>.GetEnumerator()
+        {
+            for (int index = 0; index < Length; index++)
+            {
+                yield return GetSqlDecimal(index);
+            }
+        }
+
+        int IReadOnlyCollection<string?>.Count => Length;
+        string? IReadOnlyList<string?>.this[int index] => GetString(index);
+
+        IEnumerator<string?> IEnumerable<string?>.GetEnumerator()
+        {
+            for (int index = 0; index < Length; index++)
+            {
+                yield return GetString(index);
+            }
+        }
+
+        IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable<string?>)this).GetEnumerator();
     }
 }

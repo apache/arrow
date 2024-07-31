@@ -23,6 +23,7 @@ import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseValueVector;
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.ValueIterableVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.AbstractStructVector;
 import org.apache.arrow.vector.complex.ListVector;
@@ -62,6 +63,7 @@ import org.apache.arrow.vector.complex.impl.ComplexCopier;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.BaseValueVector;
+import org.apache.arrow.vector.ValueIterableVector;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.util.Preconditions;
 
@@ -84,7 +86,7 @@ import static org.apache.arrow.vector.types.UnionMode.Dense;
  * each time the vector is accessed.
  * Source code generated using FreeMarker template ${.template_name}
  */
-public class DenseUnionVector extends AbstractContainerVector implements FieldVector {
+public class DenseUnionVector extends AbstractContainerVector implements FieldVector, ValueIterableVector<Object> {
   int valueCount;
 
   NonNullableStructVector internalStruct;
@@ -124,7 +126,7 @@ public class DenseUnionVector extends AbstractContainerVector implements FieldVe
           ArrowType.Struct.INSTANCE, /*dictionary*/ null, /*metadata*/ null);
 
   public static DenseUnionVector empty(String name, BufferAllocator allocator) {
-    FieldType fieldType = FieldType.nullable(new ArrowType.Union(
+    FieldType fieldType = FieldType.notNullable(new ArrowType.Union(
             UnionMode.Dense, null));
     return new DenseUnionVector(name, allocator, fieldType, null);
   }
@@ -662,7 +664,7 @@ public class DenseUnionVector extends AbstractContainerVector implements FieldVe
       ReferenceManager refManager = slicedBuffer.getReferenceManager();
       to.typeBuffer = refManager.transferOwnership(slicedBuffer, to.allocator).getTransferredBuffer();
 
-      // transfer offset byffer
+      // transfer offset buffer
       while (to.offsetBuffer.capacity() < (long) length * OFFSET_WIDTH) {
         to.reallocOffsetBuffer();
       }
@@ -676,10 +678,12 @@ public class DenseUnionVector extends AbstractContainerVector implements FieldVe
 
       for (int i = startIndex; i < startIndex + length; i++) {
         byte typeId = typeBuffer.getByte(i);
-        to.offsetBuffer.setInt((long) (i - startIndex) * OFFSET_WIDTH, typeCounts[typeId]);
-        typeCounts[typeId] += 1;
-        if (typeStarts[typeId] == -1) {
-          typeStarts[typeId] = offsetBuffer.getInt((long) i * OFFSET_WIDTH);
+        if (typeId >= 0) {
+          to.offsetBuffer.setInt((long) (i - startIndex) * OFFSET_WIDTH, typeCounts[typeId]);
+          typeCounts[typeId] += 1;
+          if (typeStarts[typeId] == -1) {
+            typeStarts[typeId] = offsetBuffer.getInt((long) i * OFFSET_WIDTH);
+          }
         }
       }
 
@@ -906,6 +910,14 @@ public class DenseUnionVector extends AbstractContainerVector implements FieldVe
 
   private int getTypeBufferValueCapacity() {
     return (int) typeBuffer.capacity() / TYPE_WIDTH;
+  }
+
+  public void setOffset(int index, int offset) {
+    while (index >= getOffsetBufferValueCapacity()) {
+      reallocOffsetBuffer();
+    }
+
+    offsetBuffer.setInt((long) index * OFFSET_WIDTH, offset);
   }
 
   private long getOffsetBufferValueCapacity() {

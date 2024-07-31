@@ -32,9 +32,7 @@ G_BEGIN_DECLS
  * #GArrowWritableFile is an interface for file output.
  */
 
-G_DEFINE_INTERFACE(GArrowWritableFile,
-                   garrow_writable_file,
-                   G_TYPE_OBJECT)
+G_DEFINE_INTERFACE(GArrowWritableFile, garrow_writable_file, G_TYPE_OBJECT)
 
 static void
 garrow_writable_file_default_init(GArrowWritableFileInterface *iface)
@@ -58,8 +56,7 @@ garrow_writable_file_write_at(GArrowWritableFile *writable_file,
                               gint64 n_bytes,
                               GError **error)
 {
-  const auto arrow_writable_file =
-    garrow_writable_file_get_raw(writable_file);
+  const auto arrow_writable_file = garrow_writable_file_get_raw(writable_file);
 
   auto status = arrow_writable_file->WriteAt(position, data, n_bytes);
   return garrow_error_check(error, status, "[io][writable-file][write-at]");

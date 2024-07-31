@@ -66,7 +66,7 @@ as.data.frame(dat)
 
 When this coercion takes place, each of the columns in the original Arrow Table must be converted to native R data objects. In the `dat` Table, for instance, `dat$x` is stored as the Arrow data type int32 inherited from C++, which becomes an R integer type when `as.data.frame()` is called. 
 
-It is possible to exercise fine grained control over this conversion process. To learn more about the different types and how they are converted, see the [data types](./data_types.html) article. 
+It is possible to exercise fine-grained control over this conversion process. To learn more about the different types and how they are converted, see the [data types](./data_types.html) article. 
 
 
 ## Reading and writing data

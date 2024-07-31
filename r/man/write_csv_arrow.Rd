@@ -19,7 +19,7 @@ write_csv_arrow(
 \arguments{
 \item{x}{\code{data.frame}, \link{RecordBatch}, or \link{Table}}
 
-\item{sink}{A string file path, URI, or \link{OutputStream}, or path in a file
+\item{sink}{A string file path, connection, URI, or \link{OutputStream}, or path in a file
 system (\code{SubTreeFileSystem})}
 
 \item{file}{file name. Specify this or \code{sink}, not both.}

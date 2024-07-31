@@ -65,6 +65,7 @@ RUN latest_system_llvm=14 && \
 RUN apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         autoconf \
+        bzip2 \
         ca-certificates \
         ccache \
         cmake \
@@ -102,6 +103,7 @@ RUN apt-get update -y -q && \
         libxml2-dev \
         libzstd-dev \
         make \
+        mold \
         ninja-build \
         nlohmann-json3-dev \
         npm \
@@ -114,9 +116,19 @@ RUN apt-get update -y -q && \
         rapidjson-dev \
         rsync \
         tzdata \
-        wget && \
+        wget \
+        xz-utils && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
+
+# install emscripten using EMSDK
+ARG emscripten_version="3.1.45"
+RUN cd ~ && git clone https://github.com/emscripten-core/emsdk.git && \
+    cd emsdk && \
+    ./emsdk install ${emscripten_version} && \
+    ./emsdk activate ${emscripten_version} && \
+    echo "Installed emsdk to:" ~/emsdk
+
 
 ARG gcc_version=""
 RUN if [ "${gcc_version}" = "" ]; then \
@@ -150,6 +162,9 @@ RUN if [ "${gcc_version}" = "" ]; then \
       update-alternatives --set c++ /usr/bin/g++; \
     fi
 
+# make sure zlib is cached in the EMSDK folder
+RUN source ~/emsdk/emsdk_env.sh && embuilder --pic build zlib
+
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_minio.sh latest /usr/local
 
@@ -181,13 +196,13 @@ ENV absl_SOURCE=BUNDLED \
     ARROW_HDFS=ON \
     ARROW_HOME=/usr/local \
     ARROW_INSTALL_NAME_RPATH=OFF \
-    ARROW_NO_DEPRECATED_API=ON \
     ARROW_ORC=ON \
     ARROW_PARQUET=ON \
     ARROW_S3=ON \
     ARROW_SUBSTRAIT=ON \
     ARROW_USE_ASAN=OFF \
     ARROW_USE_CCACHE=ON \
+    ARROW_USE_MOLD=ON \
     ARROW_USE_UBSAN=OFF \
     ARROW_WITH_BROTLI=ON \
     ARROW_WITH_BZ2=ON \

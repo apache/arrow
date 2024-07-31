@@ -18,6 +18,7 @@
 #pragma once
 
 #include <atomic>  // IWYU pragma: export
+#include <cassert>
 #include <cstdint>
 #include <memory>
 #include <utility>
@@ -26,6 +27,7 @@
 #include "arrow/buffer.h"
 #include "arrow/result.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/span.h"
@@ -33,12 +35,9 @@
 
 namespace arrow {
 
-class Array;
-struct ArrayData;
-
 namespace internal {
 // ----------------------------------------------------------------------
-// Null handling for types without a validity bitmap
+// Null handling for types without a validity bitmap and the dictionary type
 
 ARROW_EXPORT bool IsNullSparseUnion(const ArrayData& data, int64_t i);
 ARROW_EXPORT bool IsNullDenseUnion(const ArrayData& data, int64_t i);
@@ -46,6 +45,8 @@ ARROW_EXPORT bool IsNullRunEndEncoded(const ArrayData& data, int64_t i);
 
 ARROW_EXPORT bool UnionMayHaveLogicalNulls(const ArrayData& data);
 ARROW_EXPORT bool RunEndEncodedMayHaveLogicalNulls(const ArrayData& data);
+ARROW_EXPORT bool DictionaryMayHaveLogicalNulls(const ArrayData& data);
+
 }  // namespace internal
 
 // When slicing, we do not know the null count of the sliced range without
@@ -100,6 +101,11 @@ struct ARROW_EXPORT ArrayData {
             int64_t null_count = kUnknownNullCount, int64_t offset = 0)
       : ArrayData(std::move(type), length, null_count, offset) {
     this->buffers = std::move(buffers);
+#ifndef NDEBUG
+    // in debug mode, call the `device_type` function to trigger
+    // the DCHECKs that validate all the buffers are on the same device
+    ARROW_UNUSED(this->device_type());
+#endif
   }
 
   ArrayData(std::shared_ptr<DataType> type, int64_t length,
@@ -109,6 +115,12 @@ struct ARROW_EXPORT ArrayData {
       : ArrayData(std::move(type), length, null_count, offset) {
     this->buffers = std::move(buffers);
     this->child_data = std::move(child_data);
+#ifndef NDEBUG
+    // in debug mode, call the `device_type` function to trigger
+    // the DCHECKs that validate all the buffers (including children)
+    // are on the same device
+    ARROW_UNUSED(this->device_type());
+#endif
   }
 
   static std::shared_ptr<ArrayData> Make(std::shared_ptr<DataType> type, int64_t length,
@@ -180,6 +192,21 @@ struct ARROW_EXPORT ArrayData {
   }
 
   std::shared_ptr<ArrayData> Copy() const { return std::make_shared<ArrayData>(*this); }
+
+  /// \brief Copy all buffers and children recursively to destination MemoryManager
+  ///
+  /// This utilizes MemoryManager::CopyBuffer to create a new ArrayData object
+  /// recursively copying the buffers and all child buffers to the destination
+  /// memory manager. This includes dictionaries if applicable.
+  Result<std::shared_ptr<ArrayData>> CopyTo(
+      const std::shared_ptr<MemoryManager>& to) const;
+  /// \brief View or Copy this ArrayData to destination memory manager.
+  ///
+  /// Tries to view the buffer contents on the given memory manager's device
+  /// if possible (to avoid a copy) but falls back to copying if a no-copy view
+  /// isn't supported.
+  Result<std::shared_ptr<ArrayData>> ViewOrCopyTo(
+      const std::shared_ptr<MemoryManager>& to) const;
 
   bool IsNull(int64_t i) const { return !IsValid(i); }
 
@@ -280,7 +307,7 @@ struct ARROW_EXPORT ArrayData {
 
   /// \brief Return true if the validity bitmap may have 0's in it, or if the
   /// child arrays (in the case of types without a validity bitmap) may have
-  /// nulls
+  /// nulls, or if the dictionary of dictionay array may have nulls.
   ///
   /// This is not a drop-in replacement for MayHaveNulls, as historically
   /// MayHaveNulls() has been used to check for the presence of a validity
@@ -325,6 +352,9 @@ struct ARROW_EXPORT ArrayData {
     if (t == Type::RUN_END_ENCODED) {
       return internal::RunEndEncodedMayHaveLogicalNulls(*this);
     }
+    if (t == Type::DICTIONARY) {
+      return internal::DictionaryMayHaveLogicalNulls(*this);
+    }
     return null_count.load() != 0;
   }
 
@@ -338,6 +368,16 @@ struct ARROW_EXPORT ArrayData {
   ///
   /// \see GetNullCount
   int64_t ComputeLogicalNullCount() const;
+
+  /// \brief Return the device_type of the underlying buffers and children
+  ///
+  /// If there are no buffers in this ArrayData object, it just returns
+  /// DeviceAllocationType::kCPU as a default. We also assume that all buffers
+  /// should be allocated on the same device type and perform DCHECKs to confirm
+  /// this in debug mode.
+  ///
+  /// \return DeviceAllocationType
+  DeviceAllocationType device_type() const;
 
   std::shared_ptr<DataType> type;
   int64_t length = 0;
@@ -434,6 +474,38 @@ struct ARROW_EXPORT ArraySpan {
     return GetValues<T>(i, this->offset);
   }
 
+  /// \brief Access a buffer's data as a span
+  ///
+  /// \param i The buffer index
+  /// \param length The required length (in number of typed values) of the requested span
+  /// \pre i > 0
+  /// \pre length <= the length of the buffer (in number of values) that's expected for
+  /// this array type
+  /// \return A span<const T> of the requested length
+  template <typename T>
+  util::span<const T> GetSpan(int i, int64_t length) const {
+    const int64_t buffer_length = buffers[i].size / static_cast<int64_t>(sizeof(T));
+    assert(i > 0 && length + offset <= buffer_length);
+    ARROW_UNUSED(buffer_length);
+    return util::span<const T>(buffers[i].data_as<T>() + this->offset, length);
+  }
+
+  /// \brief Access a buffer's data as a span
+  ///
+  /// \param i The buffer index
+  /// \param length The required length (in number of typed values) of the requested span
+  /// \pre i > 0
+  /// \pre length <= the length of the buffer (in number of values) that's expected for
+  /// this array type
+  /// \return A span<T> of the requested length
+  template <typename T>
+  util::span<T> GetSpan(int i, int64_t length) {
+    const int64_t buffer_length = buffers[i].size / static_cast<int64_t>(sizeof(T));
+    assert(i > 0 && length + offset <= buffer_length);
+    ARROW_UNUSED(buffer_length);
+    return util::span<T>(buffers[i].mutable_data_as<T>() + this->offset, length);
+  }
+
   inline bool IsNull(int64_t i) const { return !IsValid(i); }
 
   inline bool IsValid(int64_t i) const {
@@ -505,7 +577,7 @@ struct ARROW_EXPORT ArraySpan {
 
   /// \brief Return true if the validity bitmap may have 0's in it, or if the
   /// child arrays (in the case of types without a validity bitmap) may have
-  /// nulls
+  /// nulls, or if the dictionary of dictionay array may have nulls.
   ///
   /// \see ArrayData::MayHaveLogicalNulls
   bool MayHaveLogicalNulls() const {
@@ -518,6 +590,9 @@ struct ARROW_EXPORT ArraySpan {
     }
     if (t == Type::RUN_END_ENCODED) {
       return RunEndEncodedMayHaveLogicalNulls();
+    }
+    if (t == Type::DICTIONARY) {
+      return DictionaryMayHaveLogicalNulls();
     }
     return null_count != 0;
   }
@@ -560,6 +635,7 @@ struct ARROW_EXPORT ArraySpan {
 
   bool UnionMayHaveLogicalNulls() const;
   bool RunEndEncodedMayHaveLogicalNulls() const;
+  bool DictionaryMayHaveLogicalNulls() const;
 };
 
 namespace internal {

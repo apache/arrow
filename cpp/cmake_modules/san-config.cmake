@@ -78,6 +78,7 @@ if(${ARROW_USE_TSAN})
 
   # Some of the above also need to be passed to the linker.
   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pie -fsanitize=thread")
+  set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -pie -fsanitize=thread")
 
   # Strictly speaking, TSAN doesn't require dynamic linking. But it does
   # require all code to be position independent, and the easiest way to

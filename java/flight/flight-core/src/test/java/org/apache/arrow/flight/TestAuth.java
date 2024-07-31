@@ -14,20 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight;
 
 import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
 import static org.apache.arrow.flight.Location.forGrpcInsecure;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Iterator;
 import java.util.Optional;
-
 import org.apache.arrow.flight.auth.ClientAuthHandler;
 import org.apache.arrow.flight.auth.ServerAuthHandler;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class TestAuth {
@@ -35,51 +33,64 @@ public class TestAuth {
   /** An auth handler that does not send messages should not block the server forever. */
   @Test
   public void noMessages() throws Exception {
-    Assertions.assertThrows(RuntimeException.class, () -> {
-      try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
-           final FlightServer s = FlightServer.builder(allocator, forGrpcInsecure(LOCALHOST, 0),
-               new NoOpFlightProducer()).authHandler(
-               new OneshotAuthHandler()).build().start();
-           final FlightClient client = FlightClient.builder(allocator, s.getLocation()).build()) {
-        client.authenticate(new ClientAuthHandler() {
-          @Override
-          public void authenticate(ClientAuthSender outgoing, Iterator<byte[]> incoming) {
-          }
+    assertThrows(
+        RuntimeException.class,
+        () -> {
+          try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
+              final FlightServer s =
+                  FlightServer.builder(
+                          allocator, forGrpcInsecure(LOCALHOST, 0), new NoOpFlightProducer())
+                      .authHandler(new OneshotAuthHandler())
+                      .build()
+                      .start();
+              final FlightClient client =
+                  FlightClient.builder(allocator, s.getLocation()).build()) {
+            client.authenticate(
+                new ClientAuthHandler() {
+                  @Override
+                  public void authenticate(ClientAuthSender outgoing, Iterator<byte[]> incoming) {}
 
-          @Override
-          public byte[] getCallToken() {
-            return new byte[0];
+                  @Override
+                  public byte[] getCallToken() {
+                    return new byte[0];
+                  }
+                });
           }
         });
-      }
-    });
   }
 
   /** An auth handler that sends an error should not block the server forever. */
   @Test
   public void clientError() throws Exception {
-    Assertions.assertThrows(RuntimeException.class, () -> {
-      try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
-           final FlightServer s = FlightServer.builder(allocator, forGrpcInsecure(LOCALHOST, 0),
-               new NoOpFlightProducer()).authHandler(
-               new OneshotAuthHandler()).build().start();
-           final FlightClient client = FlightClient.builder(allocator, s.getLocation()).build()) {
-        client.authenticate(new ClientAuthHandler() {
-          @Override
-          public void authenticate(ClientAuthSender outgoing, Iterator<byte[]> incoming) {
-            outgoing.send(new byte[0]);
-            // Ensure the server-side runs
-            incoming.next();
-            outgoing.onError(new RuntimeException("test"));
-          }
+    assertThrows(
+        RuntimeException.class,
+        () -> {
+          try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
+              final FlightServer s =
+                  FlightServer.builder(
+                          allocator, forGrpcInsecure(LOCALHOST, 0), new NoOpFlightProducer())
+                      .authHandler(new OneshotAuthHandler())
+                      .build()
+                      .start();
+              final FlightClient client =
+                  FlightClient.builder(allocator, s.getLocation()).build()) {
+            client.authenticate(
+                new ClientAuthHandler() {
+                  @Override
+                  public void authenticate(ClientAuthSender outgoing, Iterator<byte[]> incoming) {
+                    outgoing.send(new byte[0]);
+                    // Ensure the server-side runs
+                    incoming.next();
+                    outgoing.onError(new RuntimeException("test"));
+                  }
 
-          @Override
-          public byte[] getCallToken() {
-            return new byte[0];
+                  @Override
+                  public byte[] getCallToken() {
+                    return new byte[0];
+                  }
+                });
           }
         });
-      }
-    });
   }
 
   private static class OneshotAuthHandler implements ServerAuthHandler {

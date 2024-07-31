@@ -42,7 +42,7 @@ func (rcv *FixedSizeList) Table() flatbuffers.Table {
 	return rcv._tab
 }
 
-/// Number of list items per value
+// / Number of list items per value
 func (rcv *FixedSizeList) ListSize() int32 {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(4))
 	if o != 0 {
@@ -51,7 +51,7 @@ func (rcv *FixedSizeList) ListSize() int32 {
 	return 0
 }
 
-/// Number of list items per value
+// / Number of list items per value
 func (rcv *FixedSizeList) MutateListSize(n int32) bool {
 	return rcv._tab.MutateInt32Slot(4, n)
 }

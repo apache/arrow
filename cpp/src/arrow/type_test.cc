@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 #include <unordered_set>
@@ -612,7 +613,7 @@ TEST_F(TestSchema, TestMetadataConstruction) {
   AssertSchemaEqual(schema2, schema1);
   AssertSchemaNotEqual(schema2, schema1, /*check_metadata=*/true);
 
-  // Field has different metatadata
+  // Field has different metadata
   AssertSchemaEqual(schema2, schema3);
   AssertSchemaNotEqual(schema2, schema3, /*check_metadata=*/true);
 
@@ -1553,6 +1554,46 @@ TEST(TestLargeListType, Basics) {
   ASSERT_EQ("large_list<item: large_list<item: string>>", lt2.ToString());
 }
 
+TEST(TestListViewType, Basics) {
+  std::shared_ptr<DataType> vt = std::make_shared<UInt8Type>();
+
+  ListViewType list_view_type(vt);
+  ASSERT_EQ(list_view_type.id(), Type::LIST_VIEW);
+
+  ASSERT_EQ("list_view", list_view_type.name());
+  ASSERT_EQ("list_view<item: uint8>", list_view_type.ToString());
+
+  ASSERT_EQ(list_view_type.value_type()->id(), vt->id());
+  ASSERT_EQ(list_view_type.value_type()->id(), vt->id());
+
+  std::shared_ptr<DataType> st = std::make_shared<StringType>();
+  std::shared_ptr<DataType> lt = std::make_shared<ListViewType>(st);
+  ASSERT_EQ("list_view<item: string>", lt->ToString());
+
+  ListViewType lt2(lt);
+  ASSERT_EQ("list_view<item: list_view<item: string>>", lt2.ToString());
+}
+
+TEST(TestLargeListViewType, Basics) {
+  std::shared_ptr<DataType> vt = std::make_shared<UInt8Type>();
+
+  LargeListViewType list_view_type(vt);
+  ASSERT_EQ(list_view_type.id(), Type::LARGE_LIST_VIEW);
+
+  ASSERT_EQ("large_list_view", list_view_type.name());
+  ASSERT_EQ("large_list_view<item: uint8>", list_view_type.ToString());
+
+  ASSERT_EQ(list_view_type.value_type()->id(), vt->id());
+  ASSERT_EQ(list_view_type.value_type()->id(), vt->id());
+
+  std::shared_ptr<DataType> st = std::make_shared<StringType>();
+  std::shared_ptr<DataType> lt = std::make_shared<LargeListViewType>(st);
+  ASSERT_EQ("large_list_view<item: string>", lt->ToString());
+
+  LargeListViewType lt2(lt);
+  ASSERT_EQ("large_list_view<item: large_list_view<item: string>>", lt2.ToString());
+}
+
 TEST(TestMapType, Basics) {
   auto md = key_value_metadata({"foo"}, {"foo value"});
 
@@ -1829,7 +1870,37 @@ TEST(TestListType, Equals) {
   ASSERT_FALSE(list_type.Equals(list_type_named, /*check_metadata=*/true));
 }
 
-TEST(TestListType, Metadata) {
+TEST(TestListViewType, Equals) {
+  auto t1 = list_view(utf8());
+  auto t2 = list_view(utf8());
+  auto t3 = list_view(binary());
+  auto t4 = list_view(field("item", utf8(), /*nullable=*/false));
+  auto tl1 = large_list_view(binary());
+  auto tl2 = large_list_view(binary());
+  auto tl3 = large_list_view(float64());
+
+  AssertTypeEqual(*t1, *t2);
+  AssertTypeNotEqual(*t1, *t3);
+  AssertTypeNotEqual(*t1, *t4);
+  AssertTypeNotEqual(*t3, *tl1);
+  AssertTypeEqual(*tl1, *tl2);
+  AssertTypeNotEqual(*tl2, *tl3);
+
+  std::shared_ptr<DataType> vt = std::make_shared<UInt8Type>();
+  std::shared_ptr<Field> inner_field = std::make_shared<Field>("non_default_name", vt);
+
+  ListViewType list_view_type(vt);
+  ListViewType list_view_type_named(inner_field);
+
+  AssertTypeEqual(list_view_type, list_view_type_named);
+  ASSERT_FALSE(list_view_type.Equals(list_view_type_named, /*check_metadata=*/true));
+  ASSERT_NE(list_view_type.ToString(), list_view_type_named.ToString());
+}
+
+using ListListTypeFactory =
+    std::function<std::shared_ptr<DataType>(std::shared_ptr<Field>)>;
+
+void CheckListListTypeMetadata(ListListTypeFactory list_type_factory) {
   auto md1 = key_value_metadata({"foo", "bar"}, {"foo value", "bar value"});
   auto md2 = key_value_metadata({"foo", "bar"}, {"foo value", "bar value"});
   auto md3 = key_value_metadata({"foo"}, {"foo value"});
@@ -1840,23 +1911,49 @@ TEST(TestListType, Metadata) {
   auto f4 = field("item", utf8());
   auto f5 = field("item", utf8(), /*nullable =*/false, md1);
 
-  auto t1 = list(f1);
-  auto t2 = list(f2);
-  auto t3 = list(f3);
-  auto t4 = list(f4);
-  auto t5 = list(f5);
+  auto t1 = list_type_factory(f1);
+  auto t2 = list_type_factory(f2);
+  auto t3 = list_type_factory(f3);
+  auto t4 = list_type_factory(f4);
+  auto t5 = list_type_factory(f5);
 
   AssertTypeEqual(*t1, *t2);
   AssertTypeEqual(*t1, *t2, /*check_metadata =*/false);
+  ASSERT_EQ(t1->ToString(/*show_metadata=*/true), t2->ToString(/*show_metadata=*/true));
 
   AssertTypeEqual(*t1, *t3);
   AssertTypeNotEqual(*t1, *t3, /*check_metadata =*/true);
+  ASSERT_EQ(t1->ToString(/*show_metadata=*/false), t3->ToString(/*show_metadata=*/false));
+  ASSERT_NE(t1->ToString(/*show_metadata=*/true), t3->ToString(/*show_metadata=*/true));
 
   AssertTypeEqual(*t1, *t4);
   AssertTypeNotEqual(*t1, *t4, /*check_metadata =*/true);
+  ASSERT_EQ(t1->ToString(/*show_metadata=*/false), t4->ToString(/*show_metadata=*/false));
+  ASSERT_NE(t1->ToString(/*show_metadata=*/true), t4->ToString(/*show_metadata=*/true));
 
   AssertTypeNotEqual(*t1, *t5);
   AssertTypeNotEqual(*t1, *t5, /*check_metadata =*/true);
+  ASSERT_NE(t1->ToString(/*show_metadata=*/false), t5->ToString(/*show_metadata=*/false));
+  ASSERT_NE(t1->ToString(/*show_metadata=*/true), t5->ToString(/*show_metadata=*/true));
+}
+
+TEST(TestListType, Metadata) {
+  CheckListListTypeMetadata([](std::shared_ptr<Field> field) { return list(field); });
+}
+
+TEST(TestLargeListType, Metadata) {
+  CheckListListTypeMetadata(
+      [](std::shared_ptr<Field> field) { return large_list(field); });
+}
+
+TEST(TestListViewType, Metadata) {
+  CheckListListTypeMetadata(
+      [](std::shared_ptr<Field> field) { return list_view(field); });
+}
+
+TEST(TestLargeListViewType, Metadata) {
+  CheckListListTypeMetadata(
+      [](std::shared_ptr<Field> field) { return large_list_view(field); });
 }
 
 TEST(TestNestedType, Equals) {
@@ -1998,6 +2095,12 @@ TEST(TestStructType, TestFieldsDifferOnlyInMetadata) {
 
   AssertTypeEqual(s0, s1);
   AssertTypeNotEqual(s0, s1, /* check_metadata = */ true);
+  ASSERT_NE(s0.ToString(), s1.ToString(/*show_metadata=*/true));
+
+  std::string expected = R"(struct<f: string
+-- metadata --
+foo: baz, f: string>)";
+  ASSERT_EQ(s1.ToString(/*show_metadata=*/true), expected);
 
   ASSERT_EQ(s0.fingerprint(), s1.fingerprint());
   ASSERT_NE(s0.metadata_fingerprint(), s1.metadata_fingerprint());
@@ -2258,6 +2361,44 @@ TEST(TypesTest, TestRunEndEncodedType) {
             "run_end_encoded<run_ends: int64, values: list<item: int32>>");
 }
 
+TEST(TypesTest, TestListViewType) {
+  auto int32_expected = std::make_shared<ListViewType>(int32());
+  auto int32_list_view_type = list_view(int32());
+
+  ASSERT_EQ(*int32_expected, *int32_list_view_type);
+
+  auto int32_list_view_type_cast =
+      std::dynamic_pointer_cast<ListViewType>(int32_list_view_type);
+  ASSERT_EQ(*int32_list_view_type_cast->value_type(), *int32());
+
+  ASSERT_TRUE(int32_list_view_type->field(0)->Equals(Field("item", int32(), true)));
+
+  auto int64_list_view_type = list_view(int64());
+  ASSERT_NE(*int32_list_view_type, *int64_list_view_type);
+
+  ASSERT_EQ(int32_list_view_type->ToString(), "list_view<item: int32>");
+  ASSERT_EQ(int64_list_view_type->ToString(), "list_view<item: int64>");
+}
+
+TEST(TypesTest, TestLargeListViewType) {
+  auto int32_expected = std::make_shared<LargeListViewType>(int32());
+  auto int32_list_view_type = large_list_view(int32());
+
+  ASSERT_EQ(*int32_expected, *int32_list_view_type);
+
+  auto int32_list_view_type_cast =
+      std::dynamic_pointer_cast<LargeListViewType>(int32_list_view_type);
+  ASSERT_EQ(*int32_list_view_type_cast->value_type(), *int32());
+
+  ASSERT_TRUE(int32_list_view_type->field(0)->Equals(Field("item", int32(), true)));
+
+  auto int64_list_view_type = large_list_view(int64());
+  ASSERT_NE(*int32_list_view_type, *int64_list_view_type);
+
+  ASSERT_EQ(int32_list_view_type->ToString(), "large_list_view<item: int32>");
+  ASSERT_EQ(int64_list_view_type->ToString(), "large_list_view<item: int64>");
+}
+
 #define TEST_PREDICATE(all_types, type_predicate)                 \
   for (auto type : all_types) {                                   \
     ASSERT_EQ(type_predicate(type->id()), type_predicate(*type)); \
@@ -2296,6 +2437,7 @@ TEST(TypesTest, TestMembership) {
   TEST_PREDICATE(all_types, is_fixed_width);
   TEST_PREDICATE(all_types, is_var_length_list);
   TEST_PREDICATE(all_types, is_list_like);
+  TEST_PREDICATE(all_types, is_var_length_list_like);
   TEST_PREDICATE(all_types, is_nested);
   TEST_PREDICATE(all_types, is_union);
 }

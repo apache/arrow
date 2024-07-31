@@ -20,10 +20,10 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/bitutil"
-	"github.com/apache/arrow/go/v15/arrow/memory"
-	"github.com/apache/arrow/go/v15/internal/json"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/bitutil"
+	"github.com/apache/arrow/go/v18/arrow/memory"
+	"github.com/apache/arrow/go/v18/internal/json"
 )
 
 const (
@@ -357,13 +357,17 @@ func NewBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 		return bldr
 	case arrow.FIXED_SIZE_LIST:
 		typ := dtype.(*arrow.FixedSizeListType)
-		return NewFixedSizeListBuilder(mem, typ.Len(), typ.Elem())
+		return NewFixedSizeListBuilderWithField(mem, typ.Len(), typ.ElemField())
 	case arrow.DURATION:
 		typ := dtype.(*arrow.DurationType)
 		return NewDurationBuilder(mem, typ)
 	case arrow.RUN_END_ENCODED:
 		typ := dtype.(*arrow.RunEndEncodedType)
 		return NewRunEndEncodedBuilder(mem, typ.RunEnds(), typ.Encoded())
+	case arrow.BINARY_VIEW:
+		return NewBinaryViewBuilder(mem)
+	case arrow.STRING_VIEW:
+		return NewStringViewBuilder(mem)
 	}
 	panic(fmt.Errorf("arrow/array: unsupported builder for %T", dtype))
 }

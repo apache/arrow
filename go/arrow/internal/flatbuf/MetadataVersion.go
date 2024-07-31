@@ -31,7 +31,7 @@ const (
 	MetadataVersionV3 MetadataVersion = 2
 	/// >= 0.8.0 (December 2017). Non-backwards compatible with V3.
 	MetadataVersionV4 MetadataVersion = 3
-	/// >= 1.0.0 (July 2020. Backwards compatible with V4 (V5 readers can read V4
+	/// >= 1.0.0 (July 2020). Backwards compatible with V4 (V5 readers can read V4
 	/// metadata and IPC messages). Implementations are recommended to provide a
 	/// V4 compatibility mode with V5 format changes disabled.
 	///

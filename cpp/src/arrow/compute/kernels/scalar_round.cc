@@ -747,7 +747,7 @@ struct Round {
       } else {
         round_val = RoundImpl<CType, RndMode>::Round(round_val);
       }
-      // Equality check is ommitted so that the common case of 10^0 (integer rounding)
+      // Equality check is omitted so that the common case of 10^0 (integer rounding)
       // uses multiply-only
       round_val = ndigits > 0 ? (round_val / pow10) : (round_val * pow10);
       if (!std::isfinite(round_val)) {

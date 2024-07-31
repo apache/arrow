@@ -107,6 +107,14 @@ struct ARROW_FLIGHT_SQL_EXPORT SqlInfoOptions {
     /// supports explicit query cancellation (the CancelQuery action).
     FLIGHT_SQL_SERVER_CANCEL = 9,
 
+    /// Retrieves a boolean value indicating whether the Flight SQL Server
+    /// supports executing bulk ingestion.
+    FLIGHT_SQL_SERVER_BULK_INGESTION = 10,
+
+    /// Retrieves a boolean value indicating whether the Flight SQL Server
+    /// supports transactions for bulk ingestion.
+    FLIGHT_SQL_SERVER_INGEST_TRANSACTIONS_SUPPORTED = 11,
+
     /// Retrieves an int32 value indicating the timeout (in milliseconds) for
     /// prepared statement handles.
     ///
@@ -535,7 +543,7 @@ struct ARROW_FLIGHT_SQL_EXPORT SqlInfoOptions {
     /// allowed for a column name.
     SQL_MAX_COLUMN_NAME_LENGTH = 543,
 
-    /// Retrieves a int64 value representing the the maximum number of columns
+    /// Retrieves a int64 value representing the maximum number of columns
     /// allowed in a GROUP BY clause.
     SQL_MAX_COLUMNS_IN_GROUP_BY = 544,
 
@@ -846,7 +854,7 @@ struct ARROW_FLIGHT_SQL_EXPORT SqlInfoOptions {
 
   /// The level of support for Flight SQL transaction RPCs.
   enum SqlSupportedTransaction {
-    /// Unknown/not indicated/no supoprt
+    /// Unknown/not indicated/no support
     SQL_SUPPORTED_TRANSACTION_NONE = 0,
     /// Transactions, but not savepoints.
     SQL_SUPPORTED_TRANSACTION_TRANSACTION = 1,
@@ -918,6 +926,29 @@ enum class CancelResult : int8_t {
   kCancelled,
   kCancelling,
   kNotCancellable,
+};
+
+/// \brief The action to take if the target table of an ingestion does not exist.
+enum class TableDefinitionOptionsTableNotExistOption {
+  kUnspecified,
+  kCreate,
+  kFail,
+};
+
+/// \brief The action to take if the target table of an ingestion already exists.
+enum class TableDefinitionOptionsTableExistsOption {
+  kUnspecified,
+  kFail,
+  kAppend,
+  kReplace,
+};
+
+/// \brief Options for table definition behavior of bulk ingestion.
+struct TableDefinitionOptions {
+  /// \brief Behavior when the table does not exist.
+  TableDefinitionOptionsTableNotExistOption if_not_exist;
+  /// \brief Behavior when the table exists.
+  TableDefinitionOptionsTableExistsOption if_exists;
 };
 
 ARROW_FLIGHT_SQL_EXPORT

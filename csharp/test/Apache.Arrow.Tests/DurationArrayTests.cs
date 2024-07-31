@@ -113,6 +113,10 @@ namespace Apache.Arrow.Tests
                 var array = builder.Build();
                 Assert.Equal(1, array.Length);
                 Assert.Equal(timeSpan, array.GetTimeSpan(0));
+
+                IReadOnlyList<TimeSpan?> asList = array;
+                Assert.Single(asList);
+                Assert.Equal(timeSpan, asList[0]);
             }
         }
 

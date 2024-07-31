@@ -29,19 +29,25 @@ repos:
         entry: bash -c "git archive HEAD --prefix=apache-arrow/ --output=arrow-src.tar && ./dev/release/run-rat.sh arrow-src.tar"
         always_run: true
         pass_filenames: false
-      - id: hadolint
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.12.0
+    hooks:
+      - id: hadolint-docker
         name: Docker Format
-        language: docker_image
-        types:
-         - dockerfile
-        entry: --entrypoint /bin/hadolint hadolint/hadolint:latest -
-        exclude: ^dev/.*$
+        # We can enable this after we fix all existing lint failures.
+        # files: (/Dockerfile|\.dockerfile)$
+        files: >-
+          (
+          ?^ci/docker/conda-python-emscripten\.dockerfile$|
+          ?^ci/docker/python-wheel-windows-test-vs2019\.dockerfile$|
+          )
+        types: []
   - repo: https://github.com/pycqa/flake8
     rev: 6.1.0
     hooks:
       - id: flake8
         name: Python Format
-        files: ^(python|dev|integration)/
+        files: ^(python|dev|c_glib|integration)/
         types:
           - file
           - python
@@ -52,3 +58,107 @@ repos:
     hooks:
       - id: cython-lint
         args: [--no-pycodestyle]
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v14.0.6
+    hooks:
+      - id: clang-format
+        name: C++ Format
+        types_or:
+          - c++
+          # - json
+          # - proto
+        files: >-
+          ^cpp/
+        exclude: >-
+          (
+          ?\.grpc\.fb\.(cc|h)$|
+          ?\.pb\.(cc|h)$|
+          ?_generated.*\.(cc|h)$|
+          ?^cpp/src/arrow/vendored/|
+          ?^cpp/src/generated/|
+          ?^cpp/thirdparty/|
+          )
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v14.0.6
+    hooks:
+      - id: clang-format
+        name: C/GLib Format
+        files: >-
+          ^c_glib/
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v14.0.6
+    hooks:
+      - id: clang-format
+        name: MATLAB (C++) Format
+        files: >-
+          ^matlab/src/cpp/
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v14.0.6
+    hooks:
+      - id: clang-format
+        name: Python (C++) Format
+        files: >-
+          ^python/pyarrow/src/
+        exclude: >-
+          (
+          ?\.grpc\.fb\.(cc|h)$|
+          ?.pb\.(cc|h)$|
+          ?^cpp/src/generated/|
+          )
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v14.0.6
+    hooks:
+      - id: clang-format
+        name: R (C++) Format
+        files: >-
+          ^r/src/
+        exclude: >-
+          (
+          ?^r/src/arrowExports\.cpp$|
+          )
+  - repo: https://github.com/cheshirekow/cmake-format-precommit
+    rev: v0.6.13
+    hooks:
+      - id: cmake-format
+        name: CMake Format
+        files: >-
+          (
+          ?.*CMakeLists\.txt$|
+          ?^ci/.*/.*\.cmake$|
+          ?^cpp/.*/.*\.cmake\.in$|
+          ?^cpp/.*/.*\.cmake$|
+          )
+        exclude: >-
+          (
+          ?^ci/conan/all/.*CMakeLists\.txt$|
+          ?^cpp/cmake_modules/FindNumPy\.cmake$|
+          ?^cpp/cmake_modules/FindPythonLibsNew\.cmake$|
+          ?^cpp/cmake_modules/UseCython\.cmake$|
+          ?^cpp/src/arrow/util/.*\.h\.cmake$|
+          )
+  - repo: https://github.com/sphinx-contrib/sphinx-lint
+    rev: v0.9.1
+    hooks:
+      - id: sphinx-lint
+        files: ^docs/source
+        exclude: ^docs/source/python/generated
+        args: [
+          '--enable',
+          'all',
+          '--disable',
+          'dangling-hyphen,line-too-long',
+        ]
+  - repo: https://github.com/golangci/golangci-lint
+    rev: v1.59.0
+    hooks:
+      # no built-in support for multiple go.mod
+      # https://github.com/golangci/golangci-lint/issues/828
+      - id: golangci-lint-full
+        name: golangci-lint-full-arrow
+        entry: bash -c 'cd go/arrow && golangci-lint run'
+      - id: golangci-lint-full
+        name: golangci-lint-full-parquet
+        entry: bash -c 'cd go/parquet && golangci-lint run'
+      - id: golangci-lint-full
+        name: golangci-lint-full-internal
+        entry: bash -c 'cd go/internal && golangci-lint run'

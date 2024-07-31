@@ -21,10 +21,6 @@
 
 namespace arrow::matlab::array {
 
-    enum class ValidationMode : uint8_t {
-        None    = 0,
-        Minimal = 1,
-        Full    = 2
-    };
+enum class ValidationMode : uint8_t { None = 0, Minimal = 1, Full = 2 };
 
 }

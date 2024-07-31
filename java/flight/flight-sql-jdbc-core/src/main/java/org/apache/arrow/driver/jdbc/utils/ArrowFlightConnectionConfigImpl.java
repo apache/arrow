@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc.utils;
 
 import java.util.Arrays;
@@ -22,7 +21,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
-
 import org.apache.arrow.driver.jdbc.ArrowFlightConnection;
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.CallOption;
@@ -33,9 +31,7 @@ import org.apache.calcite.avatica.ConnectionConfig;
 import org.apache.calcite.avatica.ConnectionConfigImpl;
 import org.apache.calcite.avatica.ConnectionProperty;
 
-/**
- * A {@link ConnectionConfig} for the {@link ArrowFlightConnection}.
- */
+/** A {@link ConnectionConfig} for the {@link ArrowFlightConnection}. */
 public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl {
   public ArrowFlightConnectionConfigImpl(final Properties properties) {
     super(properties);
@@ -77,7 +73,6 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
     return ArrowFlightConnectionProperty.PASSWORD.getString(properties);
   }
 
-
   public String getToken() {
     return ArrowFlightConnectionProperty.TOKEN.getString(properties);
   }
@@ -109,6 +104,18 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
     return ArrowFlightConnectionProperty.USE_SYSTEM_TRUST_STORE.getBoolean(properties);
   }
 
+  public String getTlsRootCertificatesPath() {
+    return ArrowFlightConnectionProperty.TLS_ROOT_CERTS.getString(properties);
+  }
+
+  public String getClientCertificatePath() {
+    return ArrowFlightConnectionProperty.CLIENT_CERTIFICATE.getString(properties);
+  }
+
+  public String getClientKeyPath() {
+    return ArrowFlightConnectionProperty.CLIENT_KEY.getString(properties);
+  }
+
   /**
    * Whether to use TLS encryption.
    *
@@ -129,6 +136,31 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
    */
   public int threadPoolSize() {
     return ArrowFlightConnectionProperty.THREAD_POOL_SIZE.getInteger(properties);
+  }
+
+  /**
+   * Indicates if sub-connections created for stream retrieval should reuse cookies from the main
+   * connection.
+   */
+  public boolean retainCookies() {
+    return ArrowFlightConnectionProperty.RETAIN_COOKIES.getBoolean(properties);
+  }
+
+  /**
+   * Indicates if sub-connections created for stream retrieval should reuse bearer tokens created
+   * from the main connection.
+   */
+  public boolean retainAuth() {
+    return ArrowFlightConnectionProperty.RETAIN_AUTH.getBoolean(properties);
+  }
+
+  /**
+   * The catalog to which a connection is made.
+   *
+   * @return the catalog.
+   */
+  public String getCatalog() {
+    return ArrowFlightConnectionProperty.CATALOG.getString(properties);
   }
 
   /**
@@ -155,16 +187,15 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
         (key, val) -> {
           // For built-in properties before adding new headers
           if (Arrays.stream(builtInProperties)
-              .noneMatch(builtInProperty -> builtInProperty.camelName.equalsIgnoreCase(key.toString()))) {
+              .noneMatch(
+                  builtInProperty -> builtInProperty.camelName.equalsIgnoreCase(key.toString()))) {
             headers.put(key.toString(), val.toString());
           }
         });
     return headers;
   }
 
-  /**
-   * Custom {@link ConnectionProperty} for the {@link ArrowFlightConnectionConfigImpl}.
-   */
+  /** Custom {@link ConnectionProperty} for the {@link ArrowFlightConnectionConfigImpl}. */
   public enum ArrowFlightConnectionProperty implements ConnectionProperty {
     HOST("host", null, Type.STRING, true),
     PORT("port", null, Type.NUMBER, true),
@@ -175,16 +206,25 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
     TRUST_STORE("trustStore", null, Type.STRING, false),
     TRUST_STORE_PASSWORD("trustStorePassword", null, Type.STRING, false),
     USE_SYSTEM_TRUST_STORE("useSystemTrustStore", true, Type.BOOLEAN, false),
+    TLS_ROOT_CERTS("tlsRootCerts", null, Type.STRING, false),
+    CLIENT_CERTIFICATE("clientCertificate", null, Type.STRING, false),
+    CLIENT_KEY("clientKey", null, Type.STRING, false),
     THREAD_POOL_SIZE("threadPoolSize", 1, Type.NUMBER, false),
-    TOKEN("token", null, Type.STRING, false);
+    TOKEN("token", null, Type.STRING, false),
+    RETAIN_COOKIES("retainCookies", true, Type.BOOLEAN, false),
+    RETAIN_AUTH("retainAuth", true, Type.BOOLEAN, false),
+    CATALOG("catalog", null, Type.STRING, false);
 
     private final String camelName;
     private final Object defaultValue;
     private final Type type;
     private final boolean required;
 
-    ArrowFlightConnectionProperty(final String camelName, final Object defaultValue,
-                                  final Type type, final boolean required) {
+    ArrowFlightConnectionProperty(
+        final String camelName,
+        final Object defaultValue,
+        final Type type,
+        final boolean required) {
       this.camelName = Preconditions.checkNotNull(camelName);
       this.defaultValue = defaultValue;
       this.type = Preconditions.checkNotNull(type);
@@ -205,7 +245,8 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
       }
       if (required) {
         if (value == null) {
-          throw new IllegalStateException(String.format("Required property not provided: <%s>.", this));
+          throw new IllegalStateException(
+              String.format("Required property not provided: <%s>.", this));
         }
         return value;
       } else {

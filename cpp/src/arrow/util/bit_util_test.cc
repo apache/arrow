@@ -43,7 +43,7 @@
 #include "arrow/testing/util.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/bit_run_reader.h"
-#include "arrow/util/bit_stream_utils.h"
+#include "arrow/util/bit_stream_utils_internal.h"
 #include "arrow/util/bitmap.h"
 #include "arrow/util/bitmap_generate.h"
 #include "arrow/util/bitmap_ops.h"
@@ -924,7 +924,7 @@ TEST(FirstTimeBitmapWriter, AppendWordOffsetOverwritesCorrectBitsOnExistingByte)
     writer.Finish();
     EXPECT_EQ(BitmapToString(valid_bits, kBitsAfterAppend), expected_bits);
   };
-  // 0ffset zero would not be a valid mask.
+  // Offset zero would not be a valid mask.
   check_with_set("11111111", 1);
   check_with_set("10111111", 2);
   check_with_set("10011111", 3);

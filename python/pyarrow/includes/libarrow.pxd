@@ -126,10 +126,14 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         _Type_LARGE_BINARY" arrow::Type::LARGE_BINARY"
         _Type_LARGE_STRING" arrow::Type::LARGE_STRING"
         _Type_FIXED_SIZE_BINARY" arrow::Type::FIXED_SIZE_BINARY"
+        _Type_BINARY_VIEW" arrow::Type::BINARY_VIEW"
+        _Type_STRING_VIEW" arrow::Type::STRING_VIEW"
 
         _Type_LIST" arrow::Type::LIST"
         _Type_LARGE_LIST" arrow::Type::LARGE_LIST"
         _Type_FIXED_SIZE_LIST" arrow::Type::FIXED_SIZE_LIST"
+        _Type_LIST_VIEW" arrow::Type::LIST_VIEW"
+        _Type_LARGE_LIST_VIEW" arrow::Type::LARGE_LIST_VIEW"
         _Type_STRUCT" arrow::Type::STRUCT"
         _Type_SPARSE_UNION" arrow::Type::SPARSE_UNION"
         _Type_DENSE_UNION" arrow::Type::DENSE_UNION"
@@ -169,6 +173,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_string ToString()
 
     c_bool is_primitive(Type type)
+    c_bool is_numeric(Type type)
 
     cdef cppclass CArrayData" arrow::ArrayData":
         shared_ptr[CDataType] type
@@ -229,6 +234,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CStatus Validate() const
         CStatus ValidateFull() const
         CResult[shared_ptr[CArray]] View(const shared_ptr[CDataType]& type)
+        CDeviceAllocationType device_type()
 
     shared_ptr[CArray] MakeArray(const shared_ptr[CArrayData]& data)
     CResult[shared_ptr[CArray]] MakeArrayOfNull(
@@ -241,6 +247,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CFixedWidthType" arrow::FixedWidthType"(CDataType):
         int bit_width()
+        int byte_width()
 
     cdef cppclass CNullArray" arrow::NullArray"(CArray):
         CNullArray(int64_t length)
@@ -310,6 +317,38 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CProxyMemoryPool" arrow::ProxyMemoryPool"(CMemoryPool):
         CProxyMemoryPool(CMemoryPool*)
 
+    ctypedef enum CDeviceAllocationType "arrow::DeviceAllocationType":
+        CDeviceAllocationType_kCPU "arrow::DeviceAllocationType::kCPU"
+        CDeviceAllocationType_kCUDA "arrow::DeviceAllocationType::kCUDA"
+        CDeviceAllocationType_kCUDA_HOST "arrow::DeviceAllocationType::kCUDA_HOST"
+        CDeviceAllocationType_kOPENCL "arrow::DeviceAllocationType::kOPENCL"
+        CDeviceAllocationType_kVULKAN "arrow::DeviceAllocationType::kVULKAN"
+        CDeviceAllocationType_kMETAL "arrow::DeviceAllocationType::kMETAL"
+        CDeviceAllocationType_kVPI "arrow::DeviceAllocationType::kVPI"
+        CDeviceAllocationType_kROCM "arrow::DeviceAllocationType::kROCM"
+        CDeviceAllocationType_kROCM_HOST "arrow::DeviceAllocationType::kROCM_HOST"
+        CDeviceAllocationType_kEXT_DEV "arrow::DeviceAllocationType::kEXT_DEV"
+        CDeviceAllocationType_kCUDA_MANAGED "arrow::DeviceAllocationType::kCUDA_MANAGED"
+        CDeviceAllocationType_kONEAPI "arrow::DeviceAllocationType::kONEAPI"
+        CDeviceAllocationType_kWEBGPU "arrow::DeviceAllocationType::kWEBGPU"
+        CDeviceAllocationType_kHEXAGON "arrow::DeviceAllocationType::kHEXAGON"
+
+    cdef cppclass CDevice" arrow::Device":
+        const char* type_name()
+        c_string ToString()
+        c_bool Equals(const CDevice& other)
+        int64_t device_id()
+        c_bool is_cpu() const
+        shared_ptr[CMemoryManager] default_memory_manager()
+        CDeviceAllocationType device_type()
+
+    cdef cppclass CMemoryManager" arrow::MemoryManager":
+        const shared_ptr[CDevice] device()
+        c_bool is_cpu() const
+
+    shared_ptr[CMemoryManager] c_default_cpu_memory_manager \
+        " arrow::default_cpu_memory_manager"()
+
     cdef cppclass CBuffer" arrow::Buffer":
         CBuffer(const uint8_t* data, int64_t size)
         const uint8_t* data()
@@ -322,6 +361,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_bool is_mutable() const
         c_string ToHexString()
         c_bool Equals(const CBuffer& other)
+        shared_ptr[CDevice] device()
+        const shared_ptr[CMemoryManager] memory_manager()
+        CDeviceAllocationType device_type()
 
     CResult[shared_ptr[CBuffer]] SliceBufferSafe(
         const shared_ptr[CBuffer]& buffer, int64_t offset)
@@ -340,6 +382,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     CResult[unique_ptr[CResizableBuffer]] AllocateResizableBuffer(
         const int64_t size, CMemoryPool* pool)
+
+    cdef cppclass CSyncEvent" arrow::Device::SyncEvent":
+        pass
+
+    cdef cppclass CDevice" arrow::Device":
+        pass
 
     cdef CMemoryPool* c_default_memory_pool" arrow::default_memory_pool"()
     cdef CMemoryPool* c_system_memory_pool" arrow::system_memory_pool"()
@@ -361,6 +409,18 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CLargeListType" arrow::LargeListType"(CDataType):
         CLargeListType(const shared_ptr[CDataType]& value_type)
         CLargeListType(const shared_ptr[CField]& field)
+        shared_ptr[CDataType] value_type()
+        shared_ptr[CField] value_field()
+
+    cdef cppclass CListViewType" arrow::ListViewType"(CDataType):
+        CListViewType(const shared_ptr[CDataType]& value_type)
+        CListViewType(const shared_ptr[CField]& field)
+        shared_ptr[CDataType] value_type()
+        shared_ptr[CField] value_field()
+
+    cdef cppclass CLargeListViewType" arrow::LargeListViewType"(CDataType):
+        CLargeListViewType(const shared_ptr[CDataType]& value_type)
+        CLargeListViewType(const shared_ptr[CField]& field)
         shared_ptr[CDataType] value_type()
         shared_ptr[CField] value_field()
 
@@ -482,6 +542,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef shared_ptr[CDataType] CMakeRunEndEncodedType" arrow::run_end_encoded"(
         shared_ptr[CDataType] run_end_type,
         shared_ptr[CDataType] value_type)
+
+    cdef shared_ptr[CDataType] CMakeListViewType" arrow::list_view"(
+        shared_ptr[CField] value_type)
+
+    cdef shared_ptr[CDataType] CMakeLargeListViewType" arrow::large_list_view"(
+        shared_ptr[CField] value_type)
 
     cdef cppclass CSchema" arrow::Schema":
         CSchema(const vector[shared_ptr[CField]]& fields)
@@ -673,15 +739,83 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CFixedSizeListArray" arrow::FixedSizeListArray"(CArray):
         @staticmethod
         CResult[shared_ptr[CArray]] FromArrays(
-            const shared_ptr[CArray]& values, int32_t list_size)
+            const shared_ptr[CArray]& values,
+            int32_t list_size,
+            shared_ptr[CBuffer] null_bitmap)
 
         @staticmethod
         CResult[shared_ptr[CArray]] FromArraysAndType" FromArrays"(
-            const shared_ptr[CArray]& values, shared_ptr[CDataType])
+            const shared_ptr[CArray]& values,
+            shared_ptr[CDataType],
+            shared_ptr[CBuffer] null_bitmap)
 
         int64_t value_offset(int i)
         int64_t value_length(int i)
         shared_ptr[CArray] values()
+        shared_ptr[CDataType] value_type()
+
+    cdef cppclass CListViewArray" arrow::ListViewArray"(CArray):
+        @staticmethod
+        CResult[shared_ptr[CArray]] FromArrays(
+            const CArray& offsets,
+            const CArray& sizes,
+            const CArray& values,
+            CMemoryPool* pool,
+            shared_ptr[CBuffer] null_bitmap,
+        )
+
+        @staticmethod
+        CResult[shared_ptr[CArray]] FromArraysAndType" FromArrays"(
+            shared_ptr[CDataType],
+            const CArray& offsets,
+            const CArray& sizes,
+            const CArray& values,
+            CMemoryPool* pool,
+            shared_ptr[CBuffer] null_bitmap,
+        )
+
+        CResult[shared_ptr[CArray]] Flatten(
+            CMemoryPool* pool
+        )
+
+        const int32_t* raw_value_offsets()
+        const int32_t* raw_value_sizes()
+        int32_t value_offset(int i)
+        int32_t value_length(int i)
+        shared_ptr[CArray] values()
+        shared_ptr[CArray] offsets()
+        shared_ptr[CArray] sizes()
+        shared_ptr[CDataType] value_type()
+
+    cdef cppclass CLargeListViewArray" arrow::LargeListViewArray"(CArray):
+        @staticmethod
+        CResult[shared_ptr[CArray]] FromArrays(
+            const CArray& offsets,
+            const CArray& sizes,
+            const CArray& values,
+            CMemoryPool* pool,
+            shared_ptr[CBuffer] null_bitmap,
+        )
+
+        @staticmethod
+        CResult[shared_ptr[CArray]] FromArraysAndType" FromArrays"(
+            shared_ptr[CDataType],
+            const CArray& offsets,
+            const CArray& sizes,
+            const CArray& values,
+            CMemoryPool* pool,
+            shared_ptr[CBuffer] null_bitmap,
+        )
+
+        CResult[shared_ptr[CArray]] Flatten(
+            CMemoryPool* pool
+        )
+
+        int64_t value_offset(int i)
+        int64_t value_length(int i)
+        shared_ptr[CArray] values()
+        shared_ptr[CArray] offsets()
+        shared_ptr[CArray] sizes()
         shared_ptr[CDataType] value_type()
 
     cdef cppclass CMapArray" arrow::MapArray"(CArray):
@@ -690,7 +824,19 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
             const shared_ptr[CArray]& offsets,
             const shared_ptr[CArray]& keys,
             const shared_ptr[CArray]& items,
-            CMemoryPool* pool)
+            CMemoryPool* pool,
+            const shared_ptr[CBuffer] null_bitmap,
+        )
+
+        @staticmethod
+        CResult[shared_ptr[CArray]] FromArraysAndType" FromArrays"(
+            shared_ptr[CDataType],
+            const shared_ptr[CArray]& offsets,
+            const shared_ptr[CArray]& keys,
+            const shared_ptr[CArray]& items,
+            CMemoryPool* pool,
+            const shared_ptr[CBuffer] null_bitmap,
+        )
 
         shared_ptr[CArray] keys()
         shared_ptr[CArray] items()
@@ -856,12 +1002,21 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CArray] column(int i)
         const c_string& column_name(int i)
 
+        CResult[shared_ptr[CRecordBatch]] AddColumn(
+            int i, shared_ptr[CField] field, shared_ptr[CArray] column)
+        CResult[shared_ptr[CRecordBatch]] RemoveColumn(int i)
+        CResult[shared_ptr[CRecordBatch]] SetColumn(
+            int i, shared_ptr[CField] field, shared_ptr[CArray] column)
+
         const vector[shared_ptr[CArray]]& columns()
 
+        CResult[shared_ptr[CRecordBatch]] RenameColumns(const vector[c_string]&)
         CResult[shared_ptr[CRecordBatch]] SelectColumns(const vector[int]&)
 
         int num_columns()
         int64_t num_rows()
+
+        CDeviceAllocationType device_type()
 
         CStatus Validate() const
         CStatus ValidateFull() const
@@ -871,6 +1026,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         shared_ptr[CRecordBatch] Slice(int64_t offset)
         shared_ptr[CRecordBatch] Slice(int64_t offset, int64_t length)
+
+        CResult[shared_ptr[CTensor]] ToTensor(c_bool null_to_nan, c_bool row_major,
+                                              CMemoryPool* pool) const
 
     cdef cppclass CRecordBatchWithMetadata" arrow::RecordBatchWithMetadata":
         shared_ptr[CRecordBatch] batch
@@ -1054,7 +1212,6 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_bool Equals(const CScalar& other) const
         CStatus Validate() const
         CStatus ValidateFull() const
-        CResult[shared_ptr[CScalar]] CastTo(shared_ptr[CDataType] to) const
 
     cdef cppclass CScalarHash" arrow::Scalar::Hash":
         size_t operator()(const shared_ptr[CScalar]& scalar) const
@@ -1136,6 +1293,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CListScalar" arrow::ListScalar"(CBaseListScalar):
         pass
 
+    cdef cppclass CListViewScalar" arrow::ListViewScalar"(CBaseListScalar):
+        pass
+
+    cdef cppclass CLargeListViewScalar" arrow::LargeListViewScalar"(CBaseListScalar):
+        pass
+
     cdef cppclass CMapScalar" arrow::MapScalar"(CListScalar):
         pass
 
@@ -1197,6 +1360,25 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
             const CTable& table, CMemoryPool* pool)
 
     shared_ptr[CScalar] MakeNullScalar(shared_ptr[CDataType] type)
+
+
+cdef extern from "arrow/c/dlpack_abi.h" nogil:
+    ctypedef enum DLDeviceType:
+        kDLCPU = 1
+
+    ctypedef struct DLDevice:
+        DLDeviceType device_type
+        int32_t device_id
+
+    ctypedef struct DLManagedTensor:
+        void (*deleter)(DLManagedTensor*)
+
+
+cdef extern from "arrow/c/dlpack.h" namespace "arrow::dlpack" nogil:
+    CResult[DLManagedTensor*] ExportToDLPack" arrow::dlpack::ExportArray"(
+        const shared_ptr[CArray]& arr)
+
+    CResult[DLDevice] ExportDevice(const shared_ptr[CArray]& arr)
 
 
 cdef extern from "arrow/builder.h" namespace "arrow" nogil:
@@ -1264,7 +1446,14 @@ cdef extern from "arrow/builder.h" namespace "arrow" nogil:
 
     cdef cppclass CStringBuilder" arrow::StringBuilder"(CBinaryBuilder):
         CStringBuilder(CMemoryPool* pool)
+        CStatus Append(const c_string& value)
 
+    cdef cppclass CBinaryViewBuilder" arrow::BinaryViewBuilder"(CArrayBuilder):
+        CBinaryViewBuilder(shared_ptr[CDataType], CMemoryPool* pool)
+        CStatus Append(const char* value, int32_t length)
+
+    cdef cppclass CStringViewBuilder" arrow::StringViewBuilder"(CBinaryViewBuilder):
+        CStringViewBuilder(CMemoryPool* pool)
         CStatus Append(const c_string& value)
 
     cdef cppclass CTimestampBuilder "arrow::TimestampBuilder"(CArrayBuilder):
@@ -1347,6 +1536,22 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         CStatus Write(const uint8_t* data, int64_t nbytes)
         CStatus Flush()
 
+    cdef cppclass CCacheOptions "arrow::io::CacheOptions":
+        int64_t hole_size_limit
+        int64_t range_size_limit
+        c_bool lazy
+        int64_t prefetch_limit
+        c_bool Equals "operator==" (CCacheOptions other)
+
+        @staticmethod
+        CCacheOptions MakeFromNetworkMetrics(int64_t time_to_first_byte_millis,
+                                             int64_t transfer_bandwidth_mib_per_sec,
+                                             double ideal_bandwidth_utilization_frac,
+                                             int64_t max_ideal_request_size_mib)
+
+        @staticmethod
+        CCacheOptions LazyDefaults()
+
     cdef cppclass COutputStream" arrow::io::OutputStream"(FileInterface,
                                                           Writable):
         pass
@@ -1384,6 +1589,10 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
     cdef cppclass FileOutputStream(COutputStream):
         @staticmethod
         CResult[shared_ptr[COutputStream]] Open(const c_string& path)
+
+        @staticmethod
+        CResult[shared_ptr[COutputStream]] OpenWithAppend" Open"(
+            const c_string& path, c_bool append)
 
         int file_descriptor()
 
@@ -2152,9 +2361,10 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CPadOptions \
             "arrow::compute::PadOptions"(CFunctionOptions):
-        CPadOptions(int64_t width, c_string padding)
+        CPadOptions(int64_t width, c_string padding, c_bool lean_left_on_odd_padding)
         int64_t width
         c_string padding
+        c_bool lean_left_on_odd_padding
 
     cdef cppclass CSliceOptions \
             "arrow::compute::SliceOptions"(CFunctionOptions):
@@ -2422,6 +2632,11 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CPairwiseOptions(int64_t period)
         int64_t period
 
+    cdef cppclass CListFlattenOptions\
+            "arrow::compute::ListFlattenOptions"(CFunctionOptions):
+        CListFlattenOptions(c_bool recursive)
+        c_bool recursive
+
     cdef cppclass CArraySortOptions \
             "arrow::compute::ArraySortOptions"(CFunctionOptions):
         CArraySortOptions(CSortOrder, CNullPlacement)
@@ -2629,6 +2844,8 @@ cdef extern from "arrow/extension_type.h" namespace "arrow":
     cdef cppclass CExtensionType" arrow::ExtensionType"(CDataType):
         c_string extension_name()
         shared_ptr[CDataType] storage_type()
+        int byte_width()
+        int bit_width()
 
         @staticmethod
         shared_ptr[CArray] WrapArray(shared_ptr[CDataType] ext_type,
@@ -2644,9 +2861,11 @@ cdef extern from "arrow/extension_type.h" namespace "arrow":
         shared_ptr[CArray] storage()
 
 
-cdef extern from "arrow/extension/fixed_shape_tensor.h" namespace "arrow::extension":
+cdef extern from "arrow/extension/fixed_shape_tensor.h" namespace "arrow::extension" nogil:
     cdef cppclass CFixedShapeTensorType \
             " arrow::extension::FixedShapeTensorType"(CExtensionType):
+
+        CResult[shared_ptr[CTensor]] MakeTensor(const shared_ptr[CExtensionScalar]& scalar) const
 
         @staticmethod
         CResult[shared_ptr[CDataType]] Make(const shared_ptr[CDataType]& value_type,
@@ -2654,16 +2873,14 @@ cdef extern from "arrow/extension/fixed_shape_tensor.h" namespace "arrow::extens
                                             const vector[int64_t]& permutation,
                                             const vector[c_string]& dim_names)
 
-        CResult[shared_ptr[CDataType]] Deserialize(const shared_ptr[CDataType] storage_type,
-                                                   const c_string& serialized_data) const
-
-        c_string Serialize() const
-
         const shared_ptr[CDataType] value_type()
         const vector[int64_t] shape()
         const vector[int64_t] permutation()
         const vector[c_string] dim_names()
 
+    cdef cppclass CFixedShapeTensorArray \
+            " arrow::extension::FixedShapeTensorArray"(CExtensionArray):
+        const CResult[shared_ptr[CTensor]] ToTensor() const
 
 cdef extern from "arrow/util/compression.h" namespace "arrow" nogil:
     cdef enum CCompressionType" arrow::Compression::type":
@@ -2751,6 +2968,14 @@ cdef extern from "arrow/c/abi.h":
     cdef struct ArrowArrayStream:
         void (*release)(ArrowArrayStream*) noexcept nogil
 
+    ctypedef int32_t ArrowDeviceType
+    cdef ArrowDeviceType ARROW_DEVICE_CUDA
+
+    cdef struct ArrowDeviceArray:
+        ArrowArray array
+        int64_t device_id
+        int32_t device_type
+
 cdef extern from "arrow/c/bridge.h" namespace "arrow" nogil:
     CStatus ExportType(CDataType&, ArrowSchema* out)
     CResult[shared_ptr[CDataType]] ImportType(ArrowSchema*)
@@ -2779,6 +3004,23 @@ cdef extern from "arrow/c/bridge.h" namespace "arrow" nogil:
                                     ArrowArrayStream*)
     CResult[shared_ptr[CRecordBatchReader]] ImportRecordBatchReader(
         ArrowArrayStream*)
+
+    CStatus ExportChunkedArray(shared_ptr[CChunkedArray], ArrowArrayStream*)
+    CResult[shared_ptr[CChunkedArray]] ImportChunkedArray(ArrowArrayStream*)
+
+    CStatus ExportDeviceArray(const CArray&, shared_ptr[CSyncEvent],
+                              ArrowDeviceArray* out, ArrowSchema*)
+    CResult[shared_ptr[CArray]] ImportDeviceArray(
+        ArrowDeviceArray*, shared_ptr[CDataType])
+    CResult[shared_ptr[CArray]] ImportDeviceArray(
+        ArrowDeviceArray*, ArrowSchema*)
+
+    CStatus ExportDeviceRecordBatch(const CRecordBatch&, shared_ptr[CSyncEvent],
+                                    ArrowDeviceArray* out, ArrowSchema*)
+    CResult[shared_ptr[CRecordBatch]] ImportDeviceRecordBatch(
+        ArrowDeviceArray*, shared_ptr[CSchema])
+    CResult[shared_ptr[CRecordBatch]] ImportDeviceRecordBatch(
+        ArrowDeviceArray*, ArrowSchema*)
 
 
 cdef extern from "arrow/util/byte_size.h" namespace "arrow::util" nogil:
@@ -2831,3 +3073,6 @@ cdef extern from "arrow/python/udf.h" namespace "arrow::py" nogil:
 
     CResult[shared_ptr[CRecordBatchReader]] CallTabularFunction(
         const c_string& func_name, const vector[CDatum]& args, CFunctionRegistry* registry)
+
+cdef extern from "arrow/compute/cast.h" namespace "arrow::compute":
+    CResult[CDatum] Cast(const CDatum& value, const CCastOptions& options)

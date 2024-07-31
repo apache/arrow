@@ -21,11 +21,11 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/bitutil"
-	"github.com/apache/arrow/go/v15/arrow/internal/dictutils"
-	"github.com/apache/arrow/go/v15/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/bitutil"
+	"github.com/apache/arrow/go/v18/arrow/internal/dictutils"
+	"github.com/apache/arrow/go/v18/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v18/arrow/memory"
 )
 
 // PayloadWriter is an interface for injecting a different payloadwriter
@@ -278,6 +278,7 @@ type FileWriter struct {
 	mapper          dictutils.Mapper
 	codec           flatbuf.CompressionType
 	compressNP      int
+	compressors     []compressor
 	minSpaceSavings *float64
 
 	// map of the last written dictionaries by id
@@ -302,6 +303,7 @@ func NewFileWriter(w io.WriteSeeker, opts ...Option) (*FileWriter, error) {
 		codec:           cfg.codec,
 		compressNP:      cfg.compressNP,
 		minSpaceSavings: cfg.minSpaceSavings,
+		compressors:     make([]compressor, cfg.compressNP),
 	}
 
 	pos, err := f.w.Seek(0, io.SeekCurrent)
@@ -345,7 +347,9 @@ func (f *FileWriter) Write(rec arrow.Record) error {
 	const allow64b = true
 	var (
 		data = Payload{msg: MessageRecordBatch}
-		enc  = newRecordEncoder(f.mem, 0, kMaxNestingDepth, allow64b, f.codec, f.compressNP, f.minSpaceSavings)
+		enc  = newRecordEncoder(
+			f.mem, 0, kMaxNestingDepth, allow64b, f.codec, f.compressNP, f.minSpaceSavings, f.compressors,
+		)
 	)
 	defer data.Release()
 

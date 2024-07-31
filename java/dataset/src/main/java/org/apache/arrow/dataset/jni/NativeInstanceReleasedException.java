@@ -14,12 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.dataset.jni;
 
-/**
- * Thrown if trying to operate on a native instance that is already released.
- */
+/** Thrown if trying to operate on a native instance that is already released. */
 public class NativeInstanceReleasedException extends RuntimeException {
   public NativeInstanceReleasedException() {
     super("Native instance has been released");

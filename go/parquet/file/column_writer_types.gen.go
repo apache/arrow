@@ -19,16 +19,14 @@
 package file
 
 import (
-	"errors"
-	"fmt"
-
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/array"
-	"github.com/apache/arrow/go/v15/parquet"
-	"github.com/apache/arrow/go/v15/parquet/internal/encoding"
-	format "github.com/apache/arrow/go/v15/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v15/parquet/metadata"
-	"golang.org/x/xerrors"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/array"
+	"github.com/apache/arrow/go/v18/internal/utils"
+	"github.com/apache/arrow/go/v18/parquet"
+	"github.com/apache/arrow/go/v18/parquet/internal/encoding"
+	format "github.com/apache/arrow/go/v18/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v18/parquet/metadata"
+	"github.com/apache/arrow/go/v18/parquet/schema"
 )
 
 // Int32ColumnChunkWriter is the typed interface for writing columns to a parquet
@@ -67,14 +65,7 @@ func NewInt32ColumnChunkWriter(meta *metadata.ColumnChunkMetaDataBuilder, pager 
 func (w *Int32ColumnChunkWriter) WriteBatch(values []int32, defLevels, repLevels []int16) (valueOffset int64, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			switch r := r.(type) {
-			case string:
-				err = xerrors.New(r)
-			case error:
-				err = r
-			default:
-				err = fmt.Errorf("unknown error type: %s", r)
-			}
+			err = utils.FormatRecoveredError("unknown error type", r)
 		}
 	}()
 	// We check for DataPage limits only after we have inserted the values. If a user
@@ -153,14 +144,7 @@ func (w *Int32ColumnChunkWriter) WriteBatchSpaced(values []int32, defLevels, rep
 func (w *Int32ColumnChunkWriter) WriteDictIndices(indices arrow.Array, defLevels, repLevels []int16) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			switch r := r.(type) {
-			case string:
-				err = errors.New(r)
-			case error:
-				err = r
-			default:
-				err = fmt.Errorf("unknown error type: %s", r)
-			}
+			err = utils.FormatRecoveredError("unknown error type", r)
 		}
 	}()
 
@@ -271,14 +255,7 @@ func NewInt64ColumnChunkWriter(meta *metadata.ColumnChunkMetaDataBuilder, pager 
 func (w *Int64ColumnChunkWriter) WriteBatch(values []int64, defLevels, repLevels []int16) (valueOffset int64, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			switch r := r.(type) {
-			case string:
-				err = xerrors.New(r)
-			case error:
-				err = r
-			default:
-				err = fmt.Errorf("unknown error type: %s", r)
-			}
+			err = utils.FormatRecoveredError("unknown error type", r)
 		}
 	}()
 	// We check for DataPage limits only after we have inserted the values. If a user
@@ -357,14 +334,7 @@ func (w *Int64ColumnChunkWriter) WriteBatchSpaced(values []int64, defLevels, rep
 func (w *Int64ColumnChunkWriter) WriteDictIndices(indices arrow.Array, defLevels, repLevels []int16) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			switch r := r.(type) {
-			case string:
-				err = errors.New(r)
-			case error:
-				err = r
-			default:
-				err = fmt.Errorf("unknown error type: %s", r)
-			}
+			err = utils.FormatRecoveredError("unknown error type", r)
 		}
 	}()
 
@@ -475,14 +445,7 @@ func NewInt96ColumnChunkWriter(meta *metadata.ColumnChunkMetaDataBuilder, pager 
 func (w *Int96ColumnChunkWriter) WriteBatch(values []parquet.Int96, defLevels, repLevels []int16) (valueOffset int64, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			switch r := r.(type) {
-			case string:
-				err = xerrors.New(r)
-			case error:
-				err = r
-			default:
-				err = fmt.Errorf("unknown error type: %s", r)
-			}
+			err = utils.FormatRecoveredError("unknown error type", r)
 		}
 	}()
 	// We check for DataPage limits only after we have inserted the values. If a user
@@ -561,14 +524,7 @@ func (w *Int96ColumnChunkWriter) WriteBatchSpaced(values []parquet.Int96, defLev
 func (w *Int96ColumnChunkWriter) WriteDictIndices(indices arrow.Array, defLevels, repLevels []int16) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			switch r := r.(type) {
-			case string:
-				err = errors.New(r)
-			case error:
-				err = r
-			default:
-				err = fmt.Errorf("unknown error type: %s", r)
-			}
+			err = utils.FormatRecoveredError("unknown error type", r)
 		}
 	}()
 
@@ -679,14 +635,7 @@ func NewFloat32ColumnChunkWriter(meta *metadata.ColumnChunkMetaDataBuilder, page
 func (w *Float32ColumnChunkWriter) WriteBatch(values []float32, defLevels, repLevels []int16) (valueOffset int64, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			switch r := r.(type) {
-			case string:
-				err = xerrors.New(r)
-			case error:
-				err = r
-			default:
-				err = fmt.Errorf("unknown error type: %s", r)
-			}
+			err = utils.FormatRecoveredError("unknown error type", r)
 		}
 	}()
 	// We check for DataPage limits only after we have inserted the values. If a user
@@ -765,14 +714,7 @@ func (w *Float32ColumnChunkWriter) WriteBatchSpaced(values []float32, defLevels,
 func (w *Float32ColumnChunkWriter) WriteDictIndices(indices arrow.Array, defLevels, repLevels []int16) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			switch r := r.(type) {
-			case string:
-				err = errors.New(r)
-			case error:
-				err = r
-			default:
-				err = fmt.Errorf("unknown error type: %s", r)
-			}
+			err = utils.FormatRecoveredError("unknown error type", r)
 		}
 	}()
 
@@ -883,14 +825,7 @@ func NewFloat64ColumnChunkWriter(meta *metadata.ColumnChunkMetaDataBuilder, page
 func (w *Float64ColumnChunkWriter) WriteBatch(values []float64, defLevels, repLevels []int16) (valueOffset int64, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			switch r := r.(type) {
-			case string:
-				err = xerrors.New(r)
-			case error:
-				err = r
-			default:
-				err = fmt.Errorf("unknown error type: %s", r)
-			}
+			err = utils.FormatRecoveredError("unknown error type", r)
 		}
 	}()
 	// We check for DataPage limits only after we have inserted the values. If a user
@@ -969,14 +904,7 @@ func (w *Float64ColumnChunkWriter) WriteBatchSpaced(values []float64, defLevels,
 func (w *Float64ColumnChunkWriter) WriteDictIndices(indices arrow.Array, defLevels, repLevels []int16) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			switch r := r.(type) {
-			case string:
-				err = errors.New(r)
-			case error:
-				err = r
-			default:
-				err = fmt.Errorf("unknown error type: %s", r)
-			}
+			err = utils.FormatRecoveredError("unknown error type", r)
 		}
 	}()
 
@@ -1090,14 +1018,7 @@ func NewBooleanColumnChunkWriter(meta *metadata.ColumnChunkMetaDataBuilder, page
 func (w *BooleanColumnChunkWriter) WriteBatch(values []bool, defLevels, repLevels []int16) (valueOffset int64, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			switch r := r.(type) {
-			case string:
-				err = xerrors.New(r)
-			case error:
-				err = r
-			default:
-				err = fmt.Errorf("unknown error type: %s", r)
-			}
+			err = utils.FormatRecoveredError("unknown error type", r)
 		}
 	}()
 	// We check for DataPage limits only after we have inserted the values. If a user
@@ -1176,14 +1097,7 @@ func (w *BooleanColumnChunkWriter) WriteBatchSpaced(values []bool, defLevels, re
 func (w *BooleanColumnChunkWriter) WriteDictIndices(indices arrow.Array, defLevels, repLevels []int16) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			switch r := r.(type) {
-			case string:
-				err = errors.New(r)
-			case error:
-				err = r
-			default:
-				err = fmt.Errorf("unknown error type: %s", r)
-			}
+			err = utils.FormatRecoveredError("unknown error type", r)
 		}
 	}()
 
@@ -1294,14 +1208,7 @@ func NewByteArrayColumnChunkWriter(meta *metadata.ColumnChunkMetaDataBuilder, pa
 func (w *ByteArrayColumnChunkWriter) WriteBatch(values []parquet.ByteArray, defLevels, repLevels []int16) (valueOffset int64, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			switch r := r.(type) {
-			case string:
-				err = xerrors.New(r)
-			case error:
-				err = r
-			default:
-				err = fmt.Errorf("unknown error type: %s", r)
-			}
+			err = utils.FormatRecoveredError("unknown error type", r)
 		}
 	}()
 	// We check for DataPage limits only after we have inserted the values. If a user
@@ -1380,14 +1287,7 @@ func (w *ByteArrayColumnChunkWriter) WriteBatchSpaced(values []parquet.ByteArray
 func (w *ByteArrayColumnChunkWriter) WriteDictIndices(indices arrow.Array, defLevels, repLevels []int16) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			switch r := r.(type) {
-			case string:
-				err = errors.New(r)
-			case error:
-				err = r
-			default:
-				err = fmt.Errorf("unknown error type: %s", r)
-			}
+			err = utils.FormatRecoveredError("unknown error type", r)
 		}
 	}()
 
@@ -1498,14 +1398,7 @@ func NewFixedLenByteArrayColumnChunkWriter(meta *metadata.ColumnChunkMetaDataBui
 func (w *FixedLenByteArrayColumnChunkWriter) WriteBatch(values []parquet.FixedLenByteArray, defLevels, repLevels []int16) (valueOffset int64, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			switch r := r.(type) {
-			case string:
-				err = xerrors.New(r)
-			case error:
-				err = r
-			default:
-				err = fmt.Errorf("unknown error type: %s", r)
-			}
+			err = utils.FormatRecoveredError("unknown error type", r)
 		}
 	}()
 	// We check for DataPage limits only after we have inserted the values. If a user
@@ -1584,14 +1477,7 @@ func (w *FixedLenByteArrayColumnChunkWriter) WriteBatchSpaced(values []parquet.F
 func (w *FixedLenByteArrayColumnChunkWriter) WriteDictIndices(indices arrow.Array, defLevels, repLevels []int16) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			switch r := r.(type) {
-			case string:
-				err = errors.New(r)
-			case error:
-				err = r
-			default:
-				err = fmt.Errorf("unknown error type: %s", r)
-			}
+			err = utils.FormatRecoveredError("unknown error type", r)
 		}
 	}()
 
@@ -1629,7 +1515,11 @@ func (w *FixedLenByteArrayColumnChunkWriter) WriteDictIndices(indices arrow.Arra
 func (w *FixedLenByteArrayColumnChunkWriter) writeValues(values []parquet.FixedLenByteArray, numNulls int64) {
 	w.currentEncoder.(encoding.FixedLenByteArrayEncoder).Put(values)
 	if w.pageStatistics != nil {
-		w.pageStatistics.(*metadata.FixedLenByteArrayStatistics).Update(values, numNulls)
+		if w.Descr().LogicalType().Equals(schema.Float16LogicalType{}) {
+			w.pageStatistics.(*metadata.Float16Statistics).Update(values, numNulls)
+		} else {
+			w.pageStatistics.(*metadata.FixedLenByteArrayStatistics).Update(values, numNulls)
+		}
 	}
 }
 
@@ -1641,7 +1531,11 @@ func (w *FixedLenByteArrayColumnChunkWriter) writeValuesSpaced(spacedValues []pa
 	}
 	if w.pageStatistics != nil {
 		nulls := numValues - numRead
-		w.pageStatistics.(*metadata.FixedLenByteArrayStatistics).UpdateSpaced(spacedValues, validBits, validBitsOffset, nulls)
+		if w.Descr().LogicalType().Equals(schema.Float16LogicalType{}) {
+			w.pageStatistics.(*metadata.Float16Statistics).UpdateSpaced(spacedValues, validBits, validBitsOffset, nulls)
+		} else {
+			w.pageStatistics.(*metadata.FixedLenByteArrayStatistics).UpdateSpaced(spacedValues, validBits, validBitsOffset, nulls)
+		}
 	}
 }
 

@@ -17,6 +17,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+project_name = 'arrow-dataset-glib'
+
 sources = files(
   'dataset-factory.cpp',
   'dataset.cpp',
@@ -47,20 +49,27 @@ cpp_headers = files(
   'scanner.hpp',
 )
 
+version_h = configure_file(
+  input: 'version.h.in',
+  output: 'version.h',
+  command: [python3, generate_version_header_py, '--library', 'GADATASET', '--version', version, '--input', '@INPUT@', '--output', '@OUTPUT@'],
+)
+
+c_headers += version_h
+
 enums = gnome.mkenums('enums',
                       sources: c_headers,
                       identifier_prefix: 'GADataset',
                       symbol_prefix: 'gadataset',
                       c_template: 'enums.c.template',
                       h_template: 'enums.h.template',
-                      install_dir: join_paths(include_dir, 'arrow-dataset-glib'),
+                      install_dir: join_paths(include_dir, project_name),
                       install_header: true)
 enums_source = enums[0]
 enums_header = enums[1]
 
-
 headers = c_headers + cpp_headers
-install_headers(headers, subdir: 'arrow-dataset-glib')
+install_headers(headers, subdir: project_name)
 
 dependencies = [
   arrow_dataset,
@@ -72,6 +81,8 @@ libarrow_dataset_glib = library('arrow-dataset-glib',
                                 dependencies: dependencies,
                                 implicit_include_directories: false,
                                 include_directories: base_include_directories,
+                                cpp_args: ['-DGADATASET_COMPILATION'],
+                                c_args: ['-DGADATASET_COMPILATION'],
                                 soversion: so_version,
                                 version: library_version)
 arrow_dataset_glib = declare_dependency(link_with: libarrow_dataset_glib,
@@ -88,7 +99,7 @@ pkgconfig.generate(libarrow_dataset_glib,
                    version: version)
 
 if have_gi
-  dataset_glib_gir = \
+  arrow_dataset_glib_gir = \
     gnome.generate_gir(libarrow_dataset_glib,
                        dependencies: declare_dependency(sources: arrow_glib_gir),
                        export_packages: 'arrow-dataset-glib',
@@ -96,15 +107,13 @@ if have_gi
                          '--warn-all',
                          '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
                        ],
-                       fatal_warnings: gi_fatal_warnings,
                        header: 'arrow-dataset-glib/arrow-dataset-glib.h',
                        identifier_prefix: 'GADataset',
                        includes: [
                          'Arrow-1.0',
                        ],
-                       install: true,
+                       kwargs: generate_gi_common_args,
                        namespace: 'ArrowDataset',
-                       nsversion: api_version,
                        sources: sources + c_headers + enums,
                        symbol_prefix: 'gadataset')
 
@@ -115,6 +124,6 @@ if have_gi
                           arrow_glib_vapi,
                           'gio-2.0',
                         ],
-                        sources: [dataset_glib_gir[0]])
+                        sources: [arrow_dataset_glib_gir[0]])
   endif
 endif

@@ -30,6 +30,7 @@ import warnings
 from io import BufferedIOBase, IOBase, TextIOBase, UnsupportedOperation
 from queue import Queue, Empty as QueueEmpty
 
+from pyarrow.lib cimport check_status, HaveLibHdfs
 from pyarrow.util import _is_path_like, _stringify_path
 
 
@@ -44,6 +45,18 @@ cdef extern from "Python.h":
 
     # Workaround https://github.com/cython/cython/issues/4707
     bytearray PyByteArray_FromStringAndSize(char *string, Py_ssize_t len)
+
+
+def have_libhdfs():
+    """
+    Return true if HDFS (HadoopFileSystem) library is set up correctly.
+    """
+    try:
+        with nogil:
+            check_status(HaveLibHdfs())
+        return True
+    except Exception:
+        return False
 
 
 def io_thread_count():
@@ -111,6 +124,7 @@ cdef class NativeFile(_Weakrefable):
         self.is_readable = False
         self.is_writable = False
         self.is_seekable = False
+        self._is_appending = False
 
     def __dealloc__(self):
         if self.own_file:
@@ -139,12 +153,15 @@ cdef class NativeFile(_Weakrefable):
         * rb: binary read
         * wb: binary write
         * rb+: binary read and write
+        * ab: binary append
         """
         # Emulate built-in file modes
         if self.is_readable and self.is_writable:
             return 'rb+'
         elif self.is_readable:
             return 'rb'
+        elif self.is_writable and self._is_appending:
+            return 'ab'
         elif self.is_writable:
             return 'wb'
         else:
@@ -642,6 +659,9 @@ cdef class NativeFile(_Weakrefable):
             int64_t bytes_read = 0
             uint8_t* buf
 
+        if not is_threading_enabled():
+            return self._download_nothreads(stream_or_path, buffer_size)
+
         handle = self.get_input_stream()
 
         buffer_size = buffer_size or DEFAULT_BUFFER_SIZE
@@ -721,6 +741,63 @@ cdef class NativeFile(_Weakrefable):
         if exc_info is not None:
             raise exc_info[0], exc_info[1], exc_info[2]
 
+    def _download_nothreads(self, stream_or_path, buffer_size=None):
+        """
+        Internal method to do a download without separate threads, queues etc.
+        Called by download above if is_threading_enabled() == False
+        """
+        cdef:
+            int64_t bytes_read = 0
+            uint8_t* buf
+
+        handle = self.get_input_stream()
+
+        buffer_size = buffer_size or DEFAULT_BUFFER_SIZE
+
+        if not hasattr(stream_or_path, 'read'):
+            stream = open(stream_or_path, 'wb')
+
+            def cleanup():
+                stream.close()
+        else:
+            stream = stream_or_path
+
+            def cleanup():
+                pass
+
+        self.seek(0)
+
+        # This isn't ideal -- PyBytes_FromStringAndSize copies the data from
+        # the passed buffer, so it's hard for us to avoid doubling the memory
+        buf = <uint8_t*> malloc(buffer_size)
+        if buf == NULL:
+            raise MemoryError("Failed to allocate {0} bytes"
+                              .format(buffer_size))
+
+        cdef int64_t total_bytes = 0
+        cdef int32_t c_buffer_size = buffer_size
+
+        try:
+            while True:
+                with nogil:
+                    bytes_read = GetResultValue(
+                        handle.get().Read(c_buffer_size, buf))
+
+                total_bytes += bytes_read
+
+                # EOF
+                if bytes_read == 0:
+                    break
+
+                pybuf = cp.PyBytes_FromStringAndSize(<const char*>buf,
+                                                     bytes_read)
+
+                # no background thread - write on main thread
+                stream.write(pybuf)
+        finally:
+            free(buf)
+            cleanup()
+
     def upload(self, stream, buffer_size=None):
         """
         Write from a source stream to this file.
@@ -732,6 +809,9 @@ cdef class NativeFile(_Weakrefable):
         buffer_size : int, optional
             The buffer size to use for data transfers.
         """
+        if not is_threading_enabled():
+            return self._upload_nothreads(stream, buffer_size)
+
         write_queue = Queue(50)
         self._assert_writable()
 
@@ -775,6 +855,24 @@ cdef class NativeFile(_Weakrefable):
         writer_thread.join()
         if exc_info is not None:
             raise exc_info[0], exc_info[1], exc_info[2]
+
+    def _upload_nothreads(self, stream, buffer_size=None):
+        """
+        Internal method to do an upload without separate threads, queues etc.
+        Called by upload above if is_threading_enabled() == False
+        """
+        self._assert_writable()
+
+        buffer_size = buffer_size or DEFAULT_BUFFER_SIZE
+
+        while True:
+            buf = stream.read(buffer_size)
+            if not buf:
+                break
+
+            # no threading - just write
+            self.write(buf)
+
 
 BufferedIOBase.register(NativeFile)
 
@@ -1113,6 +1211,19 @@ cdef class OSFile(NativeFile):
     'rb'
     b'OSFile'
 
+    Open the file to append:
+
+    >>> with pa.OSFile('example_osfile.arrow', mode='ab') as f:
+    ...     f.mode
+    ...     f.write(b' is super!')
+    ...
+    'ab'
+    10
+    >>> with pa.OSFile('example_osfile.arrow') as f:
+    ...     f.read()
+    ...
+    b'OSFile is super!'
+
     Inspect created OSFile:
 
     >>> pa.OSFile('example_osfile.arrow')
@@ -1134,6 +1245,8 @@ cdef class OSFile(NativeFile):
             self._open_readable(c_path, maybe_unbox_memory_pool(memory_pool))
         elif mode in ('w', 'wb'):
             self._open_writable(c_path)
+        elif mode in ('a', 'ab'):
+            self._open_writable(c_path, append=True)
         else:
             raise ValueError('Invalid file mode: {0}'.format(mode))
 
@@ -1146,10 +1259,13 @@ cdef class OSFile(NativeFile):
         self.is_readable = True
         self.set_random_access_file(<shared_ptr[CRandomAccessFile]> handle)
 
-    cdef _open_writable(self, c_string path):
+    cdef _open_writable(self, c_string path, c_bool append=False):
         with nogil:
-            self.output_stream = GetResultValue(FileOutputStream.Open(path))
+            self.output_stream = GetResultValue(
+                FileOutputStream.OpenWithAppend(path, append)
+            )
         self.is_writable = True
+        self._is_appending = append
 
     def fileno(self):
         self._assert_open()
@@ -1251,6 +1367,10 @@ cdef class Buffer(_Weakrefable):
                 f"is_cpu={self.is_cpu} "
                 f"is_mutable={self.is_mutable}>")
 
+    def _assert_cpu(self):
+        if not self.is_cpu:
+            raise NotImplementedError("Implemented only for data on CPU device")
+
     @property
     def size(self):
         """
@@ -1276,6 +1396,7 @@ cdef class Buffer(_Weakrefable):
         -------
         : bytes
         """
+        self._assert_cpu()
         return self.buffer.get().ToHexString()
 
     @property
@@ -1291,6 +1412,39 @@ cdef class Buffer(_Weakrefable):
         Whether the buffer is CPU-accessible.
         """
         return self.buffer.get().is_cpu()
+
+    @property
+    def device(self):
+        """
+        The device where the buffer resides.
+
+        Returns
+        -------
+        Device
+        """
+        return Device.wrap(self.buffer.get().device())
+
+    @property
+    def memory_manager(self):
+        """
+        The memory manager associated with the buffer.
+
+        Returns
+        -------
+        MemoryManager
+        """
+        return MemoryManager.wrap(self.buffer.get().memory_manager())
+
+    @property
+    def device_type(self):
+        """
+        The device type where the buffer resides.
+
+        Returns
+        -------
+        DeviceAllocationType
+        """
+        return _wrap_device_allocation_type(self.buffer.get().device_type())
 
     @property
     def parent(self):
@@ -1310,6 +1464,7 @@ cdef class Buffer(_Weakrefable):
         return self.getitem(_normalize_index(key, self.size))
 
     cdef getitem(self, int64_t i):
+        self._assert_cpu()
         return self.buffer.get().data()[i]
 
     def slice(self, offset=0, length=None):
@@ -1356,6 +1511,18 @@ cdef class Buffer(_Weakrefable):
         are_equal : bool
             True if buffer contents and size are equal
         """
+        if self.device != other.device:
+            raise ValueError(
+                "Device on which the data resides differs between buffers: "
+                f"{self.device.type_name} and {other.device.type_name}."
+            )
+        if not self.is_cpu:
+            if self.address != other.address:
+                raise NotImplementedError(
+                    "Implemented only for data on CPU device or data with equal "
+                    "addresses"
+                )
+
         cdef c_bool result = False
         with nogil:
             result = self.buffer.get().Equals(deref(other.buffer.get()))
@@ -1368,6 +1535,8 @@ cdef class Buffer(_Weakrefable):
             return self.equals(py_buffer(other))
 
     def __reduce_ex__(self, protocol):
+        self._assert_cpu()
+
         if protocol >= 5:
             bufobj = pickle.PickleBuffer(self)
         elif self.buffer.get().is_mutable():
@@ -1384,11 +1553,15 @@ cdef class Buffer(_Weakrefable):
         """
         Return this buffer as a Python bytes object. Memory is copied.
         """
+        self._assert_cpu()
+
         return cp.PyBytes_FromStringAndSize(
             <const char*>self.buffer.get().data(),
             self.buffer.get().size())
 
     def __getbuffer__(self, cp.Py_buffer* buffer, int flags):
+        self._assert_cpu()
+
         if self.buffer.get().is_mutable():
             buffer.readonly = 0
         else:
@@ -1410,27 +1583,6 @@ cdef class Buffer(_Weakrefable):
         buffer.shape = self.shape
         buffer.strides = self.strides
         buffer.suboffsets = NULL
-
-    def __getsegcount__(self, Py_ssize_t *len_out):
-        if len_out != NULL:
-            len_out[0] = <Py_ssize_t>self.size
-        return 1
-
-    def __getreadbuffer__(self, Py_ssize_t idx, void **p):
-        if idx != 0:
-            raise SystemError("accessing non-existent buffer segment")
-        if p != NULL:
-            p[0] = <void*> self.buffer.get().data()
-        return self.size
-
-    def __getwritebuffer__(self, Py_ssize_t idx, void **p):
-        if not self.buffer.get().is_mutable():
-            raise SystemError("trying to write an immutable buffer")
-        if idx != 0:
-            raise SystemError("accessing non-existent buffer segment")
-        if p != NULL:
-            p[0] = <void*> self.buffer.get().data()
-        return self.size
 
 
 cdef class ResizableBuffer(Buffer):
@@ -1504,12 +1656,12 @@ cdef class BufferOutputStream(NativeFile):
     """
     An output stream that writes to a resizable buffer.
 
-    The buffer is produced as a result when ``get.value()`` is called.
+    The buffer is produced as a result when ``getvalue()`` is called.
 
     Examples
     --------
     Create an output stream, write data to it and finalize it with
-    ``get.value()``:
+    ``getvalue()``:
 
     >>> import pyarrow as pa
     >>> f = pa.BufferOutputStream()
@@ -1609,7 +1761,7 @@ cdef class CompressedInputStream(NativeFile):
 
     Examples
     --------
-    Create an ouput stream wich compresses the data:
+    Create an output stream wich compresses the data:
 
     >>> import pyarrow as pa
     >>> data = b"Compressed stream"
@@ -1666,7 +1818,7 @@ cdef class CompressedOutputStream(NativeFile):
 
     Examples
     --------
-    Create an ouput stream wich compresses the data:
+    Create an output stream wich compresses the data:
 
     >>> import pyarrow as pa
     >>> data = b"Compressed stream"
@@ -1965,7 +2117,7 @@ def foreign_buffer(address, size, base=None):
         Object that owns the referenced memory.
     """
     cdef:
-        intptr_t c_addr = address
+        uintptr_t c_addr = address
         int64_t c_size = size
         shared_ptr[CBuffer] buf
 
@@ -2098,6 +2250,140 @@ cdef CCompressionType _ensure_compression(str name) except *:
         return CCompressionType_ZSTD
     else:
         raise ValueError('Invalid value for compression: {!r}'.format(name))
+
+
+cdef class CacheOptions(_Weakrefable):
+    """
+    Cache options for a pre-buffered fragment scan.
+
+    Parameters
+    ----------
+    hole_size_limit : int, default 8KiB
+        The maximum distance in bytes between two consecutive ranges; beyond
+        this value, ranges are not combined.
+    range_size_limit : int, default 32MiB
+        The maximum size in bytes of a combined range; if combining two
+        consecutive ranges would produce a range of a size greater than this,
+        they are not combined
+    lazy : bool, default True
+        lazy = false: request all byte ranges when PreBuffer or WillNeed is called.
+        lazy = True, prefetch_limit = 0: request merged byte ranges only after the reader
+        needs them.
+        lazy = True, prefetch_limit = k: prefetch up to k merged byte ranges ahead of the
+        range that is currently being read.
+    prefetch_limit : int, default 0
+        The maximum number of ranges to be prefetched. This is only used for
+        lazy cache to asynchronously read some ranges after reading the target
+        range.
+    """
+
+    def __init__(self, *, hole_size_limit=None, range_size_limit=None, lazy=None, prefetch_limit=None):
+        self.wrapped = CCacheOptions.LazyDefaults()
+        if hole_size_limit is not None:
+            self.hole_size_limit = hole_size_limit
+        if range_size_limit is not None:
+            self.range_size_limit = range_size_limit
+        if lazy is not None:
+            self.lazy = lazy
+        if prefetch_limit is not None:
+            self.prefetch_limit = prefetch_limit
+
+    cdef void init(self, CCacheOptions options):
+        self.wrapped = options
+
+    cdef inline CCacheOptions unwrap(self):
+        return self.wrapped
+
+    @staticmethod
+    cdef wrap(CCacheOptions options):
+        self = CacheOptions()
+        self.init(options)
+        return self
+
+    @property
+    def hole_size_limit(self):
+        return self.wrapped.hole_size_limit
+
+    @hole_size_limit.setter
+    def hole_size_limit(self, hole_size_limit):
+        self.wrapped.hole_size_limit = hole_size_limit
+
+    @property
+    def range_size_limit(self):
+        return self.wrapped.range_size_limit
+
+    @range_size_limit.setter
+    def range_size_limit(self, range_size_limit):
+        self.wrapped.range_size_limit = range_size_limit
+
+    @property
+    def lazy(self):
+        return self.wrapped.lazy
+
+    @lazy.setter
+    def lazy(self, lazy):
+        self.wrapped.lazy = lazy
+
+    @property
+    def prefetch_limit(self):
+        return self.wrapped.prefetch_limit
+
+    @prefetch_limit.setter
+    def prefetch_limit(self, prefetch_limit):
+        self.wrapped.prefetch_limit = prefetch_limit
+
+    def __eq__(self, CacheOptions other):
+        try:
+            return self.unwrap().Equals(other.unwrap())
+        except TypeError:
+            return False
+
+    @staticmethod
+    def from_network_metrics(time_to_first_byte_millis, transfer_bandwidth_mib_per_sec,
+                             ideal_bandwidth_utilization_frac=0.9, max_ideal_request_size_mib=64):
+        """
+        Create suiteable CacheOptions based on provided network metrics.
+
+        Typically this will be used with object storage solutions like Amazon S3,
+        Google Cloud Storage and Azure Blob Storage.
+
+        Parameters
+        ----------
+        time_to_first_byte_millis : int
+            Seek-time or Time-To-First-Byte (TTFB) in milliseconds, also called call
+            setup latency of a new read request. The value is a positive integer.
+        transfer_bandwidth_mib_per_sec : int
+            Data transfer Bandwidth (BW) in MiB/sec (per connection). The value is a positive
+            integer.
+        ideal_bandwidth_utilization_frac : int, default 0.9
+            Transfer bandwidth utilization fraction (per connection) to maximize the net
+            data load. The value is a positive float less than 1.
+        max_ideal_request_size_mib : int, default 64
+            The maximum single data request size (in MiB) to maximize the net data load.
+
+        Returns
+        -------
+        CacheOptions
+        """
+        return CacheOptions.wrap(CCacheOptions.MakeFromNetworkMetrics(
+            time_to_first_byte_millis, transfer_bandwidth_mib_per_sec,
+            ideal_bandwidth_utilization_frac, max_ideal_request_size_mib))
+
+    @staticmethod
+    @binding(True)  # Required for Cython < 3
+    def _reconstruct(kwargs):
+        # __reduce__ doesn't allow passing named arguments directly to the
+        # reconstructor, hence this wrapper.
+        return CacheOptions(**kwargs)
+
+    def __reduce__(self):
+        kwargs = dict(
+            hole_size_limit=self.hole_size_limit,
+            range_size_limit=self.range_size_limit,
+            lazy=self.lazy,
+            prefetch_limit=self.prefetch_limit,
+        )
+        return CacheOptions._reconstruct, (kwargs,)
 
 
 cdef class Codec(_Weakrefable):

@@ -14,13 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc.accessor.impl.complex;
 
 import java.sql.Array;
 import java.util.List;
 import java.util.function.IntSupplier;
-
 import org.apache.arrow.driver.jdbc.ArrowFlightJdbcArray;
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
@@ -30,12 +28,14 @@ import org.apache.arrow.vector.complex.LargeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 
 /**
- * Base Accessor for the Arrow types {@link ListVector}, {@link LargeListVector} and {@link FixedSizeListVector}.
+ * Base Accessor for the Arrow types {@link ListVector}, {@link LargeListVector} and {@link
+ * FixedSizeListVector}.
  */
 public abstract class AbstractArrowFlightJdbcListVectorAccessor extends ArrowFlightJdbcAccessor {
 
-  protected AbstractArrowFlightJdbcListVectorAccessor(IntSupplier currentRowSupplier,
-                                                      ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+  protected AbstractArrowFlightJdbcListVectorAccessor(
+      IntSupplier currentRowSupplier,
+      ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
     super(currentRowSupplier, setCursorWasNull);
   }
 
@@ -70,4 +70,3 @@ public abstract class AbstractArrowFlightJdbcListVectorAccessor extends ArrowFli
     return new ArrowFlightJdbcArray(dataVector, startOffset, valuesCount);
   }
 }
-

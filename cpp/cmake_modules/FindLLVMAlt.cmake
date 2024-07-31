@@ -93,8 +93,8 @@ if(LLVM_FOUND)
         debuginfodwarf
         ipo
         linker
-        mcjit
         native
+        orcjit
         target)
     if(LLVM_VERSION_MAJOR GREATER_EQUAL 14)
       list(APPEND LLVM_TARGET_COMPONENTS passes)

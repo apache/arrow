@@ -21,11 +21,12 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/array"
-	"github.com/apache/arrow/go/v15/arrow/memory"
-	"github.com/apache/arrow/go/v15/internal/bitutils"
-	"github.com/apache/arrow/go/v15/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/array"
+	"github.com/apache/arrow/go/v18/arrow/memory"
+	"github.com/apache/arrow/go/v18/internal/bitutils"
+	"github.com/apache/arrow/go/v18/internal/utils"
+	"github.com/apache/arrow/go/v18/parquet/internal/encoding"
 	"golang.org/x/xerrors"
 )
 
@@ -206,7 +207,7 @@ func (n *listNode) fillForLast(rng, childRng *elemRange, ctx *pathWriteCtx) iter
 	fillRepLevels(int(childRng.size()), n.repLevel, ctx)
 	// once we've reached this point the following preconditions should hold:
 	// 1. there are no more repeated path nodes to deal with
-	// 2. all elements in |range| reperesent contiguous elements in the child
+	// 2. all elements in |range| represent contiguous elements in the child
 	//    array (null values would have shortened the range to ensure all
 	//    remaining list elements are present, though they may be empty)
 	// 3. no element of range spans a parent list (intermediate list nodes
@@ -225,7 +226,7 @@ func (n *listNode) fillForLast(rng, childRng *elemRange, ctx *pathWriteCtx) iter
 
 		// this is the start of a new list. we can be sure that it only applies to the
 		// previous list (and doesn't jump to the start of any list further up in nesting
-		// due to the contraints mentioned earlier)
+		// due to the constraints mentioned earlier)
 		ctx.AppendRepLevel(n.prevRepLevel)
 		ctx.AppendRepLevels(int(sizeCheck.size())-1, n.repLevel)
 		childRng.end = sizeCheck.end
@@ -301,15 +302,15 @@ type pathBuilder struct {
 	paths            []pathInfo
 	nullableInParent bool
 
-	refCount int64
+	refCount *atomic.Int64
 }
 
 func (p *pathBuilder) Retain() {
-	atomic.AddInt64(&p.refCount, 1)
+	p.refCount.Add(1)
 }
 
 func (p *pathBuilder) Release() {
-	if atomic.AddInt64(&p.refCount, -1) == 0 {
+	if p.refCount.Add(-1) == 0 {
 		for idx := range p.paths {
 			p.paths[idx].primitiveArr.Release()
 			p.paths[idx].primitiveArr = nil
@@ -498,15 +499,15 @@ type multipathLevelBuilder struct {
 	data      arrow.ArrayData
 	builder   pathBuilder
 
-	refCount int64
+	refCount *atomic.Int64
 }
 
 func (m *multipathLevelBuilder) Retain() {
-	atomic.AddInt64(&m.refCount, 1)
+	m.refCount.Add(1)
 }
 
 func (m *multipathLevelBuilder) Release() {
-	if atomic.AddInt64(&m.refCount, -1) == 0 {
+	if m.refCount.Add(-1) == 0 {
 		m.data.Release()
 		m.data = nil
 		m.builder.Release()
@@ -516,10 +517,10 @@ func (m *multipathLevelBuilder) Release() {
 
 func newMultipathLevelBuilder(arr arrow.Array, fieldNullable bool) (*multipathLevelBuilder, error) {
 	ret := &multipathLevelBuilder{
-		refCount:  1,
+		refCount:  utils.NewRefCount(1),
 		rootRange: elemRange{int64(0), int64(arr.Data().Len())},
 		data:      arr.Data(),
-		builder:   pathBuilder{nullableInParent: fieldNullable, paths: make([]pathInfo, 0), refCount: 1},
+		builder:   pathBuilder{nullableInParent: fieldNullable, paths: make([]pathInfo, 0), refCount: utils.NewRefCount(1)},
 	}
 	if err := ret.builder.Visit(arr); err != nil {
 		return nil, err
@@ -665,7 +666,7 @@ func fillRepLevels(count int, repLvl int16, ctx *pathWriteCtx) {
 
 	fillCount := count
 	// this condition occurs (rep and def levels equals), in one of a few cases:
-	// 1. before any list is encounted
+	// 1. before any list is encountered
 	// 2. after rep-level has been filled in due to null/empty values above
 	// 3. after finishing a list
 	if !ctx.equalRepDeflevlsLen() {

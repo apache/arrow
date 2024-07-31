@@ -109,8 +109,9 @@ flatbuf::MetadataVersion MetadataVersionToFlatbuffer(MetadataVersion version) {
 bool HasValidityBitmap(Type::type type_id, MetadataVersion version) {
   // In V4, null types have no validity bitmap
   // In V5 and later, null and union types have no validity bitmap
-  return (version < MetadataVersion::V5) ? (type_id != Type::NA)
-                                         : ::arrow::internal::HasValidityBitmap(type_id);
+  return (version < MetadataVersion::V5)
+             ? (type_id != Type::NA)
+             : ::arrow::internal::may_have_validity_bitmap(type_id);
 }
 
 namespace {
@@ -190,11 +191,9 @@ Status UnionFromFlatbuffer(const flatbuf::Union* union_data,
   }
 
   if (mode == UnionMode::SPARSE) {
-    ARROW_ASSIGN_OR_RAISE(
-        *out, SparseUnionType::Make(std::move(children), std::move(type_codes)));
+    ARROW_ASSIGN_OR_RAISE(*out, SparseUnionType::Make(children, std::move(type_codes)));
   } else {
-    ARROW_ASSIGN_OR_RAISE(
-        *out, DenseUnionType::Make(std::move(children), std::move(type_codes)));
+    ARROW_ASSIGN_OR_RAISE(*out, DenseUnionType::Make(children, std::move(type_codes)));
   }
   return Status::OK();
 }
@@ -361,6 +360,18 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
       }
       *out = std::make_shared<LargeListType>(children[0]);
       return Status::OK();
+    case flatbuf::Type::ListView:
+      if (children.size() != 1) {
+        return Status::Invalid("ListView must have exactly 1 child field");
+      }
+      *out = std::make_shared<ListViewType>(children[0]);
+      return Status::OK();
+    case flatbuf::Type::LargeListView:
+      if (children.size() != 1) {
+        return Status::Invalid("LargeListView must have exactly 1 child field");
+      }
+      *out = std::make_shared<LargeListViewType>(children[0]);
+      return Status::OK();
     case flatbuf::Type::Map:
       if (children.size() != 1) {
         return Status::Invalid("Map must have exactly 1 child field");
@@ -465,7 +476,9 @@ static Status GetDictionaryEncoding(FBB& fbb, const std::shared_ptr<Field>& fiel
 
 static KeyValueOffset AppendKeyValue(FBB& fbb, const std::string& key,
                                      const std::string& value) {
-  return flatbuf::CreateKeyValue(fbb, fbb.CreateString(key), fbb.CreateString(value));
+  auto fbb_key = fbb.CreateString(key);
+  auto fbb_value = fbb.CreateString(value);
+  return flatbuf::CreateKeyValue(fbb, fbb_key, fbb_value);
 }
 
 static void AppendKeyValueMetadata(FBB& fbb, const KeyValueMetadata& metadata,
@@ -666,6 +679,20 @@ class FieldToFlatbufferVisitor {
     fb_type_ = flatbuf::Type::LargeList;
     RETURN_NOT_OK(VisitChildFields(type));
     type_offset_ = flatbuf::CreateLargeList(fbb_).Union();
+    return Status::OK();
+  }
+
+  Status Visit(const ListViewType& type) {
+    fb_type_ = flatbuf::Type::ListView;
+    RETURN_NOT_OK(VisitChildFields(type));
+    type_offset_ = flatbuf::CreateListView(fbb_).Union();
+    return Status::OK();
+  }
+
+  Status Visit(const LargeListViewType& type) {
+    fb_type_ = flatbuf::Type::LargeListView;
+    RETURN_NOT_OK(VisitChildFields(type));
+    type_offset_ = flatbuf::CreateListView(fbb_).Union();
     return Status::OK();
   }
 
@@ -1397,7 +1424,7 @@ Status GetSchema(const void* opaque_schema, DictionaryMemo* dictionary_memo,
 
   std::shared_ptr<KeyValueMetadata> metadata;
   RETURN_NOT_OK(internal::GetKeyValueMetadata(schema->custom_metadata(), &metadata));
-  // set endianess using the value in flatbuf schema
+  // set endianness using the value in flatbuf schema
   auto endianness = schema->endianness() == flatbuf::Endianness::Little
                         ? Endianness::Little
                         : Endianness::Big;

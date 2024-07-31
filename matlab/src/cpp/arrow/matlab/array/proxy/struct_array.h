@@ -22,23 +22,22 @@
 namespace arrow::matlab::array::proxy {
 
 class StructArray : public arrow::matlab::array::proxy::Array {
-    public:
-        StructArray(std::shared_ptr<arrow::StructArray> struct_array);
-    
-        ~StructArray() {}
+ public:
+  StructArray(std::shared_ptr<arrow::StructArray> struct_array);
 
-        static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
+  ~StructArray() {}
 
-    protected:
+  static libmexclass::proxy::MakeResult make(
+      const libmexclass::proxy::FunctionArguments& constructor_arguments);
 
-        void getNumFields(libmexclass::proxy::method::Context& context);
+ protected:
+  void getNumFields(libmexclass::proxy::method::Context& context);
 
-        void getFieldByIndex(libmexclass::proxy::method::Context& context);
+  void getFieldByIndex(libmexclass::proxy::method::Context& context);
 
-        void getFieldByName(libmexclass::proxy::method::Context& context);
+  void getFieldByName(libmexclass::proxy::method::Context& context);
 
-        void getFieldNames(libmexclass::proxy::method::Context& context);
-
+  void getFieldNames(libmexclass::proxy::method::Context& context);
 };
 
-}
+}  // namespace arrow::matlab::array::proxy

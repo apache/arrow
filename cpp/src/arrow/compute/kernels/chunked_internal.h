@@ -31,26 +31,7 @@ namespace compute {
 namespace internal {
 
 // The target chunk in a chunked array.
-template <typename ArrayType>
 struct ResolvedChunk {
-  using ViewType = GetViewType<typename ArrayType::TypeClass>;
-  using LogicalValueType = typename ViewType::T;
-
-  // The target array in chunked array.
-  const ArrayType* array;
-  // The index in the target array.
-  const int64_t index;
-
-  ResolvedChunk(const ArrayType* array, int64_t index) : array(array), index(index) {}
-
-  bool IsNull() const { return array->IsNull(index); }
-
-  LogicalValueType Value() const { return ViewType::LogicalValue(array->GetView(index)); }
-};
-
-// ResolvedChunk specialization for untyped arrays when all is needed is null lookup
-template <>
-struct ResolvedChunk<Array> {
   // The target array in chunked array.
   const Array* array;
   // The index in the target array.
@@ -58,24 +39,36 @@ struct ResolvedChunk<Array> {
 
   ResolvedChunk(const Array* array, int64_t index) : array(array), index(index) {}
 
+ public:
   bool IsNull() const { return array->IsNull(index); }
+
+  template <typename ArrowType, typename ViewType = GetViewType<ArrowType>>
+  typename ViewType::T Value() const {
+    using LogicalArrayType = typename TypeTraits<ArrowType>::ArrayType;
+    auto* typed_array = checked_cast<const LogicalArrayType*>(array);
+    return ViewType::LogicalValue(typed_array->GetView(index));
+  }
 };
 
-struct ChunkedArrayResolver : protected ::arrow::internal::ChunkResolver {
-  ChunkedArrayResolver(const ChunkedArrayResolver& other)
-      : ::arrow::internal::ChunkResolver(other.chunks_), chunks_(other.chunks_) {}
+class ChunkedArrayResolver {
+ private:
+  ::arrow::internal::ChunkResolver resolver_;
+  std::vector<const Array*> chunks_;
 
+ public:
   explicit ChunkedArrayResolver(const std::vector<const Array*>& chunks)
-      : ::arrow::internal::ChunkResolver(chunks), chunks_(chunks) {}
+      : resolver_(chunks), chunks_(chunks) {}
 
-  template <typename ArrayType>
-  ResolvedChunk<ArrayType> Resolve(int64_t index) const {
-    const auto loc = ::arrow::internal::ChunkResolver::Resolve(index);
-    return {checked_cast<const ArrayType*>(chunks_[loc.chunk_index]), loc.index_in_chunk};
+  ChunkedArrayResolver(ChunkedArrayResolver&& other) = default;
+  ChunkedArrayResolver& operator=(ChunkedArrayResolver&& other) = default;
+
+  ChunkedArrayResolver(const ChunkedArrayResolver& other) = default;
+  ChunkedArrayResolver& operator=(const ChunkedArrayResolver& other) = default;
+
+  ResolvedChunk Resolve(int64_t index) const {
+    const auto loc = resolver_.Resolve(index);
+    return {chunks_[loc.chunk_index], loc.index_in_chunk};
   }
-
- protected:
-  const std::vector<const Array*> chunks_;
 };
 
 inline std::vector<const Array*> GetArrayPointers(const ArrayVector& arrays) {

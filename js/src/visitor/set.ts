@@ -19,13 +19,14 @@ import { Data } from '../data.js';
 import { Field } from '../schema.js';
 import { Vector } from '../vector.js';
 import { Visitor } from '../visitor.js';
+import { bigIntToNumber } from '../util/bigint.js';
 import { encodeUtf8 } from '../util/utf8.js';
 import { TypeToDataType } from '../interfaces.js';
 import { float64ToUint16 } from '../util/math.js';
 import { Type, UnionMode, Precision, DateUnit, TimeUnit, IntervalUnit } from '../enum.js';
 import {
     DataType, Dictionary,
-    Bool, Null, Utf8, Binary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct,
+    Bool, Null, Utf8, LargeUtf8, Binary, LargeBinary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct,
     Float, Float16, Float32, Float64,
     Int, Uint8, Uint16, Uint32, Uint64, Int8, Int16, Int32, Int64,
     Date_, DateDay, DateMillisecond,
@@ -58,7 +59,9 @@ export interface SetVisitor extends Visitor {
     visitFloat32<T extends Float32>(data: Data<T>, index: number, value: T['TValue']): void;
     visitFloat64<T extends Float64>(data: Data<T>, index: number, value: T['TValue']): void;
     visitUtf8<T extends Utf8>(data: Data<T>, index: number, value: T['TValue']): void;
+    visitLargeUtf8<T extends LargeUtf8>(data: Data<T>, index: number, value: T['TValue']): void;
     visitBinary<T extends Binary>(data: Data<T>, index: number, value: T['TValue']): void;
+    visitLargeBinary<T extends LargeBinary>(data: Data<T>, index: number, value: T['TValue']): void;
     visitFixedSizeBinary<T extends FixedSizeBinary>(data: Data<T>, index: number, value: T['TValue']): void;
     visitDate<T extends Date_>(data: Data<T>, index: number, value: T['TValue']): void;
     visitDateDay<T extends DateDay>(data: Data<T>, index: number, value: T['TValue']): void;
@@ -105,27 +108,13 @@ function wrapSet<T extends DataType>(fn: (data: Data<T>, _1: any, _2: any) => vo
 }
 
 /** @ignore */
-export const setEpochMsToDays = (data: Int32Array, index: number, epochMs: number) => { data[index] = Math.trunc(epochMs / 86400000); };
-/** @ignore */
-export const setEpochMsToMillisecondsLong = (data: Int32Array, index: number, epochMs: number) => {
-    data[index] = Math.trunc(epochMs % 4294967296);
-    data[index + 1] = Math.trunc(epochMs / 4294967296);
-};
-/** @ignore */
-export const setEpochMsToMicrosecondsLong = (data: Int32Array, index: number, epochMs: number) => {
-    data[index] = Math.trunc((epochMs * 1000) % 4294967296);
-    data[index + 1] = Math.trunc((epochMs * 1000) / 4294967296);
-};
-/** @ignore */
-export const setEpochMsToNanosecondsLong = (data: Int32Array, index: number, epochMs: number) => {
-    data[index] = Math.trunc((epochMs * 1000000) % 4294967296);
-    data[index + 1] = Math.trunc((epochMs * 1000000) / 4294967296);
-};
+export const setEpochMsToDays = (data: Int32Array, index: number, epochMs: number) => { data[index] = Math.floor(epochMs / 86400000); };
 
 /** @ignore */
-export const setVariableWidthBytes = (values: Uint8Array, valueOffsets: Int32Array, index: number, value: Uint8Array) => {
+export const setVariableWidthBytes = <T extends Int32Array | BigInt64Array>(values: Uint8Array, valueOffsets: T, index: number, value: Uint8Array) => {
     if (index + 1 < valueOffsets.length) {
-        const { [index]: x, [index + 1]: y } = valueOffsets;
+        const x = bigIntToNumber(valueOffsets[index]);
+        const y = bigIntToNumber(valueOffsets[index + 1]);
         values.set(value.subarray(0, y - x), x);
     }
 };
@@ -157,16 +146,14 @@ export const setAnyFloat = <T extends Float>(data: Data<T>, index: number, value
 /** @ignore */
 export const setDateDay = <T extends DateDay>({ values }: Data<T>, index: number, value: T['TValue']): void => { setEpochMsToDays(values, index, value.valueOf()); };
 /** @ignore */
-export const setDateMillisecond = <T extends DateMillisecond>({ values }: Data<T>, index: number, value: T['TValue']): void => { setEpochMsToMillisecondsLong(values, index * 2, value.valueOf()); };
+export const setDateMillisecond = <T extends DateMillisecond>({ values }: Data<T>, index: number, value: T['TValue']): void => { values[index] = BigInt(value); };
 /** @ignore */
 export const setFixedSizeBinary = <T extends FixedSizeBinary>({ stride, values }: Data<T>, index: number, value: T['TValue']): void => { values.set(value.subarray(0, stride), stride * index); };
 
 /** @ignore */
-const setBinary = <T extends Binary>({ values, valueOffsets }: Data<T>, index: number, value: T['TValue']) => setVariableWidthBytes(values, valueOffsets, index, value);
+const setBinary = <T extends Binary | LargeBinary>({ values, valueOffsets }: Data<T>, index: number, value: T['TValue']) => setVariableWidthBytes(values, valueOffsets, index, value);
 /** @ignore */
-const setUtf8 = <T extends Utf8>({ values, valueOffsets }: Data<T>, index: number, value: T['TValue']) => {
-    setVariableWidthBytes(values, valueOffsets, index, encodeUtf8(value));
-};
+const setUtf8 = <T extends Utf8 | LargeUtf8>({ values, valueOffsets }: Data<T>, index: number, value: T['TValue']) => setVariableWidthBytes(values, valueOffsets, index, encodeUtf8(value));
 
 /* istanbul ignore next */
 export const setDate = <T extends Date_>(data: Data<T>, index: number, value: T['TValue']): void => {
@@ -176,13 +163,13 @@ export const setDate = <T extends Date_>(data: Data<T>, index: number, value: T[
 };
 
 /** @ignore */
-export const setTimestampSecond = <T extends TimestampSecond>({ values }: Data<T>, index: number, value: T['TValue']): void => setEpochMsToMillisecondsLong(values, index * 2, value / 1000);
+export const setTimestampSecond = <T extends TimestampSecond>({ values }: Data<T>, index: number, value: T['TValue']): void => { values[index] = BigInt(value / 1000); };
 /** @ignore */
-export const setTimestampMillisecond = <T extends TimestampMillisecond>({ values }: Data<T>, index: number, value: T['TValue']): void => setEpochMsToMillisecondsLong(values, index * 2, value);
+export const setTimestampMillisecond = <T extends TimestampMillisecond>({ values }: Data<T>, index: number, value: T['TValue']): void => { values[index] = BigInt(value); };
 /** @ignore */
-export const setTimestampMicrosecond = <T extends TimestampMicrosecond>({ values }: Data<T>, index: number, value: T['TValue']): void => setEpochMsToMicrosecondsLong(values, index * 2, value);
+export const setTimestampMicrosecond = <T extends TimestampMicrosecond>({ values }: Data<T>, index: number, value: T['TValue']): void => { values[index] = BigInt(value * 1000); };
 /** @ignore */
-export const setTimestampNanosecond = <T extends TimestampNanosecond>({ values }: Data<T>, index: number, value: T['TValue']): void => setEpochMsToNanosecondsLong(values, index * 2, value);
+export const setTimestampNanosecond = <T extends TimestampNanosecond>({ values }: Data<T>, index: number, value: T['TValue']): void => { values[index] = BigInt(value * 1000000); };
 /* istanbul ignore next */
 /** @ignore */
 export const setTimestamp = <T extends Timestamp>(data: Data<T>, index: number, value: T['TValue']): void => {
@@ -365,7 +352,9 @@ SetVisitor.prototype.visitFloat16 = wrapSet(setFloat16);
 SetVisitor.prototype.visitFloat32 = wrapSet(setFloat);
 SetVisitor.prototype.visitFloat64 = wrapSet(setFloat);
 SetVisitor.prototype.visitUtf8 = wrapSet(setUtf8);
+SetVisitor.prototype.visitLargeUtf8 = wrapSet(setUtf8);
 SetVisitor.prototype.visitBinary = wrapSet(setBinary);
+SetVisitor.prototype.visitLargeBinary = wrapSet(setBinary);
 SetVisitor.prototype.visitFixedSizeBinary = wrapSet(setFixedSizeBinary);
 SetVisitor.prototype.visitDate = wrapSet(setDate);
 SetVisitor.prototype.visitDateDay = wrapSet(setDateDay);

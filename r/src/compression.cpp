@@ -22,7 +22,7 @@
 
 // [[arrow::export]]
 std::shared_ptr<arrow::util::Codec> util___Codec__Create(arrow::Compression::type codec,
-                                                         R_xlen_t compression_level) {
+                                                         int compression_level) {
   return ValueOrStop(arrow::util::Codec::Create(codec, compression_level));
 }
 

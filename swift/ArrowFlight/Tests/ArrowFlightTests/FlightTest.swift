@@ -51,9 +51,9 @@ func makeRecordBatch() throws -> RecordBatch {
     date32Builder.append(date2)
     date32Builder.append(date1)
     date32Builder.append(date2)
-    let doubleHolder = ArrowArrayHolder(try doubleBuilder.finish())
-    let stringHolder = ArrowArrayHolder(try stringBuilder.finish())
-    let date32Holder = ArrowArrayHolder(try date32Builder.finish())
+    let doubleHolder = ArrowArrayHolderImpl(try doubleBuilder.finish())
+    let stringHolder = ArrowArrayHolderImpl(try stringBuilder.finish())
+    let date32Holder = ArrowArrayHolderImpl(try date32Builder.finish())
     let result = RecordBatch.Builder()
         .addColumn("col1", arrowArray: doubleHolder)
         .addColumn("col2", arrowArray: stringHolder)
@@ -278,7 +278,7 @@ public class FlightClientTester {
         let descriptor = FlightDescriptor(cmd: cmd.data(using: .utf8)!)
         let rb = try makeRecordBatch()
         var numCall = 0
-        try await client?.doPut(descriptor, recordBatchs: [rb], closure: { _ in
+        try await client?.doPut(descriptor, recordBatches: [rb], closure: { _ in
             numCall += 1
         })
 
@@ -289,7 +289,7 @@ public class FlightClientTester {
         let descriptor = FlightDescriptor(cmd: "flight_ticket".data(using: .utf8)!)
         let rb = try makeRecordBatch()
         var numCall = 0
-        try await client?.doExchange(descriptor, recordBatchs: [rb], closure: { result in
+        try await client?.doExchange(descriptor, recordBatches: [rb], closure: { result in
             numCall += 1
             XCTAssertEqual(result.schema?.fields.count, 3)
             XCTAssertEqual(result.batches[0].length, 4)

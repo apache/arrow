@@ -37,6 +37,14 @@ cpp_headers = files(
   'server.hpp',
 )
 
+version_h = configure_file(
+  input: 'version.h.in',
+  output: 'version.h',
+  command: [python3, generate_version_header_py, '--library', 'GAFLIGHT', '--version', version, '--input', '@INPUT@', '--output', '@OUTPUT@'],
+)
+
+c_headers += version_h
+
 headers = c_headers + cpp_headers
 install_headers(headers, subdir: 'arrow-flight-glib')
 
@@ -50,6 +58,7 @@ libarrow_flight_glib = library('arrow-flight-glib',
                                dependencies: dependencies,
                                implicit_include_directories: false,
                                include_directories: base_include_directories,
+                               cpp_args: ['-DGAFLIGHT_COMPILATION'],
                                soversion: so_version,
                                version: library_version)
 arrow_flight_glib = declare_dependency(link_with: libarrow_flight_glib,
@@ -65,7 +74,7 @@ pkgconfig.generate(libarrow_flight_glib,
                    version: version)
 
 if have_gi
-  flight_glib_gir = \
+  arrow_flight_glib_gir = \
     gnome.generate_gir(libarrow_flight_glib,
                        dependencies: declare_dependency(sources: arrow_glib_gir),
                        export_packages: 'arrow-flight-glib',
@@ -73,26 +82,24 @@ if have_gi
                          '--warn-all',
                          '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
                        ],
-                       fatal_warnings: gi_fatal_warnings,
                        header: 'arrow-flight-glib/arrow-flight-glib.h',
                        identifier_prefix: 'GAFlight',
                        includes: [
                          'Arrow-1.0',
                        ],
-                       install: true,
+                       kwargs: generate_gi_common_args,
                        namespace: 'ArrowFlight',
-                       nsversion: api_version,
                        sources: sources + c_headers,
                        symbol_prefix: 'gaflight')
 
   if generate_vapi
-    flight_glib_vapi = \
+    arrow_flight_glib_vapi = \
       gnome.generate_vapi('arrow-flight-glib',
                           install: true,
                           packages: [
                             arrow_glib_vapi,
                             'gio-2.0',
                           ],
-                          sources: [flight_glib_gir[0]])
+                          sources: [arrow_flight_glib_gir[0]])
   endif
 endif

@@ -14,11 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.algorithm.rank;
 
 import java.util.stream.IntStream;
-
 import org.apache.arrow.algorithm.sort.IndexSorter;
 import org.apache.arrow.algorithm.sort.VectorValueComparator;
 import org.apache.arrow.memory.BufferAllocator;
@@ -28,21 +26,21 @@ import org.apache.arrow.vector.ValueVector;
 
 /**
  * Utility for calculating ranks of vector elements.
+ *
  * @param <V> the vector type
  */
 public class VectorRank<V extends ValueVector> {
 
   private VectorValueComparator<V> comparator;
 
-  /**
-   * Vector indices.
-   */
+  /** Vector indices. */
   private IntVector indices;
 
   private final BufferAllocator allocator;
 
   /**
    * Constructs a vector rank utility.
+   *
    * @param allocator the allocator to use.
    */
   public VectorRank(BufferAllocator allocator) {
@@ -50,9 +48,10 @@ public class VectorRank<V extends ValueVector> {
   }
 
   /**
-   * Given a rank r, gets the index of the element that is the rth smallest in the vector.
-   * The operation is performed without changing the vector, and takes O(n) time,
-   * where n is the length of the vector.
+   * Given a rank r, gets the index of the element that is the rth smallest in the vector. The
+   * operation is performed without changing the vector, and takes O(n) time, where n is the length
+   * of the vector.
+   *
    * @param vector the vector from which to get the element index.
    * @param comparator the criteria for vector element comparison.
    * @param rank the rank to determine.

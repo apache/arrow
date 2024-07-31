@@ -14,23 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.algorithm.deduplicate;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.nio.charset.StandardCharsets;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VarCharVector;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-/**
- * Test cases for {@link VectorRunDeduplicator}.
- */
+/** Test cases for {@link VectorRunDeduplicator}. */
 public class TestVectorRunDeduplicator {
 
   private static final int VECTOR_LENGTH = 100;
@@ -39,12 +37,12 @@ public class TestVectorRunDeduplicator {
 
   private BufferAllocator allocator;
 
-  @Before
+  @BeforeEach
   public void prepare() {
     allocator = new RootAllocator(1024 * 1024);
   }
 
-  @After
+  @AfterEach
   public void shutdown() {
     allocator.close();
   }
@@ -55,7 +53,7 @@ public class TestVectorRunDeduplicator {
         IntVector dedupVec = new IntVector("deduplicated vec", allocator);
         IntVector lengthVec = new IntVector("length vec", allocator);
         VectorRunDeduplicator<IntVector> deduplicator =
-                 new VectorRunDeduplicator<>(origVec, allocator)) {
+            new VectorRunDeduplicator<>(origVec, allocator)) {
       origVec.allocateNew(VECTOR_LENGTH * REPETITION_COUNT);
       origVec.setValueCount(VECTOR_LENGTH * REPETITION_COUNT);
       lengthVec.allocateNew();
@@ -91,12 +89,11 @@ public class TestVectorRunDeduplicator {
   @Test
   public void testDeduplicateVariableWidth() {
     try (VarCharVector origVec = new VarCharVector("original vec", allocator);
-         VarCharVector dedupVec = new VarCharVector("deduplicated vec", allocator);
-         IntVector lengthVec = new IntVector("length vec", allocator);
-         VectorRunDeduplicator<VarCharVector> deduplicator =
-                 new VectorRunDeduplicator<>(origVec, allocator)) {
-      origVec.allocateNew(
-              VECTOR_LENGTH * REPETITION_COUNT * 10, VECTOR_LENGTH * REPETITION_COUNT);
+        VarCharVector dedupVec = new VarCharVector("deduplicated vec", allocator);
+        IntVector lengthVec = new IntVector("length vec", allocator);
+        VectorRunDeduplicator<VarCharVector> deduplicator =
+            new VectorRunDeduplicator<>(origVec, allocator)) {
+      origVec.allocateNew(VECTOR_LENGTH * REPETITION_COUNT * 10, VECTOR_LENGTH * REPETITION_COUNT);
       origVec.setValueCount(VECTOR_LENGTH * REPETITION_COUNT);
       lengthVec.allocateNew();
 
@@ -104,20 +101,20 @@ public class TestVectorRunDeduplicator {
       for (int i = 0; i < VECTOR_LENGTH; i++) {
         String str = String.valueOf(i * i);
         for (int j = 0; j < REPETITION_COUNT; j++) {
-          origVec.set(i * REPETITION_COUNT + j, str.getBytes());
+          origVec.set(i * REPETITION_COUNT + j, str.getBytes(StandardCharsets.UTF_8));
         }
       }
 
       int distinctCount = deduplicator.getRunCount();
       assertEquals(VECTOR_LENGTH, distinctCount);
 
-      dedupVec.allocateNew(distinctCount * 10, distinctCount);
+      dedupVec.allocateNew(distinctCount * 10L, distinctCount);
 
       deduplicator.populateDeduplicatedValues(dedupVec);
       assertEquals(VECTOR_LENGTH, dedupVec.getValueCount());
 
       for (int i = 0; i < VECTOR_LENGTH; i++) {
-        assertArrayEquals(String.valueOf(i * i).getBytes(), dedupVec.get(i));
+        assertArrayEquals(String.valueOf(i * i).getBytes(StandardCharsets.UTF_8), dedupVec.get(i));
       }
 
       deduplicator.populateRunLengths(lengthVec);

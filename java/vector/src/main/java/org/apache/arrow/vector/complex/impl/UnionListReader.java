@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.complex.impl;
 
 import org.apache.arrow.vector.ValueVector;
@@ -26,9 +25,7 @@ import org.apache.arrow.vector.holders.UnionHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 
-/**
- * {@link FieldReader} for list of union types.
- */
+/** {@link FieldReader} for list of union types. */
 public class UnionListReader extends AbstractFieldReader {
 
   private ListVector vector;
@@ -60,8 +57,8 @@ public class UnionListReader extends AbstractFieldReader {
       currentOffset = 0;
       maxOffset = 0;
     } else {
-      currentOffset = vector.getOffsetBuffer().getInt(index * OFFSET_WIDTH) - 1;
-      maxOffset = vector.getOffsetBuffer().getInt((index + 1) * OFFSET_WIDTH);
+      currentOffset = vector.getOffsetBuffer().getInt(index * (long) OFFSET_WIDTH) - 1;
+      maxOffset = vector.getOffsetBuffer().getInt((index + 1) * (long) OFFSET_WIDTH);
     }
   }
 
@@ -106,6 +103,7 @@ public class UnionListReader extends AbstractFieldReader {
     }
   }
 
+  @Override
   public void copyAsValue(ListWriter writer) {
     ComplexCopier.copy(this, (FieldWriter) writer);
   }

@@ -46,7 +46,7 @@
 #'
 #' The default behavior in `open_dataset()` is to inspect the file paths
 #' contained in the provided directory, and if they look like Hive-style, parse
-#' them as Hive. If your dataset has Hive-style partioning in the file paths,
+#' them as Hive. If your dataset has Hive-style partitioning in the file paths,
 #' you do not need to provide anything in the `partitioning` argument to
 #' `open_dataset()` to use them. If you do provide a character vector of
 #' partition column names, they will be ignored if they match what is detected,
@@ -426,7 +426,7 @@ Dataset <- R6Class("Dataset",
     # Start a new scan of the data
     # @return A [ScannerBuilder]
     NewScan = function() dataset___Dataset__NewScan(self),
-    ToString = function() self$schema$ToString(),
+    ToString = function() format_schema(self),
     WithSchema = function(schema) {
       assert_is(schema, "Schema")
       dataset___Dataset__ReplaceSchema(self, schema)

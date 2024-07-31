@@ -14,11 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.complex.impl;
 
 import java.math.BigDecimal;
-
+import java.nio.ByteBuffer;
+import java.util.Locale;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.NullVector;
@@ -27,6 +27,7 @@ import org.apache.arrow.vector.complex.AbstractStructVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.LargeListVector;
 import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.ListViewVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
@@ -37,20 +38,23 @@ import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.arrow.vector.util.Text;
 import org.apache.arrow.vector.util.TransferPair;
 
 /**
- * This FieldWriter implementation delegates all FieldWriter API calls to an inner FieldWriter. This inner field writer
- * can start as a specific type, and this class will promote the writer to a UnionWriter if a call is made that the
- * specifically typed writer cannot handle. A new UnionVector is created, wrapping the original vector, and replaces the
- * original vector in the parent vector, which can be either an AbstractStructVector or a ListVector.
+ * This FieldWriter implementation delegates all FieldWriter API calls to an inner FieldWriter. This
+ * inner field writer can start as a specific type, and this class will promote the writer to a
+ * UnionWriter if a call is made that the specifically typed writer cannot handle. A new UnionVector
+ * is created, wrapping the original vector, and replaces the original vector in the parent vector,
+ * which can be either an AbstractStructVector or a ListVector.
  *
- * <p>The writer used can either be for single elements (struct) or lists.</p>
+ * <p>The writer used can either be for single elements (struct) or lists.
  */
 public class PromotableWriter extends AbstractPromotableFieldWriter {
 
   private final AbstractStructVector parentContainer;
   private final ListVector listVector;
+  private final ListViewVector listViewVector;
   private final FixedSizeListVector fixedListVector;
   private final LargeListVector largeListVector;
   private final NullableStructWriterFactory nullableStructWriterFactory;
@@ -59,7 +63,9 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
   private static final int MAX_DECIMAL256_PRECISION = 76;
 
   private enum State {
-    UNTYPED, SINGLE, UNION
+    UNTYPED,
+    SINGLE,
+    UNION
   }
 
   private MinorType type;
@@ -91,6 +97,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
       NullableStructWriterFactory nullableStructWriterFactory) {
     this.parentContainer = parentContainer;
     this.listVector = null;
+    this.listViewVector = null;
     this.fixedListVector = null;
     this.largeListVector = null;
     this.nullableStructWriterFactory = nullableStructWriterFactory;
@@ -139,6 +146,27 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
       ListVector listVector,
       NullableStructWriterFactory nullableStructWriterFactory) {
     this.listVector = listVector;
+    this.listViewVector = null;
+    this.parentContainer = null;
+    this.fixedListVector = null;
+    this.largeListVector = null;
+    this.nullableStructWriterFactory = nullableStructWriterFactory;
+    init(v);
+  }
+
+  /**
+   * Constructs a new instance.
+   *
+   * @param v The vector to initialize the writer with.
+   * @param listViewVector The vector that serves as a parent of v.
+   * @param nullableStructWriterFactory The factory to create the delegate writer.
+   */
+  public PromotableWriter(
+      ValueVector v,
+      ListViewVector listViewVector,
+      NullableStructWriterFactory nullableStructWriterFactory) {
+    this.listViewVector = listViewVector;
+    this.listVector = null;
     this.parentContainer = null;
     this.fixedListVector = null;
     this.largeListVector = null;
@@ -160,6 +188,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     this.fixedListVector = fixedListVector;
     this.parentContainer = null;
     this.listVector = null;
+    this.listViewVector = null;
     this.largeListVector = null;
     this.nullableStructWriterFactory = nullableStructWriterFactory;
     init(v);
@@ -180,6 +209,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     this.fixedListVector = null;
     this.parentContainer = null;
     this.listVector = null;
+    this.listViewVector = null;
     this.nullableStructWriterFactory = nullableStructWriterFactory;
     init(v);
   }
@@ -248,11 +278,11 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
   }
 
   private boolean requiresArrowType(MinorType type) {
-    return type == MinorType.DECIMAL ||
-        type == MinorType.MAP ||
-        type == MinorType.DURATION ||
-        type == MinorType.FIXEDSIZEBINARY ||
-        (type.name().startsWith("TIMESTAMP") && type.name().endsWith("TZ"));
+    return type == MinorType.DECIMAL
+        || type == MinorType.MAP
+        || type == MinorType.DURATION
+        || type == MinorType.FIXEDSIZEBINARY
+        || (type.name().startsWith("TIMESTAMP") && type.name().endsWith("TZ"));
   }
 
   @Override
@@ -277,6 +307,8 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
         v = listVector.addOrGetVector(fieldType).getVector();
       } else if (fixedListVector != null) {
         v = fixedListVector.addOrGetVector(fieldType).getVector();
+      } else if (listViewVector != null) {
+        v = listViewVector.addOrGetVector(fieldType).getVector();
       } else {
         v = largeListVector.addOrGetVector(fieldType).getVector();
       }
@@ -299,13 +331,16 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     return writer.isEmptyStruct();
   }
 
+  @Override
   protected FieldWriter getWriter() {
     return writer;
   }
 
   private FieldWriter promoteToUnion() {
     String name = vector.getField().getName();
-    TransferPair tp = vector.getTransferPair(vector.getMinorType().name().toLowerCase(), vector.getAllocator());
+    TransferPair tp =
+        vector.getTransferPair(
+            vector.getMinorType().name().toLowerCase(Locale.ROOT), vector.getAllocator());
     tp.transfer();
     if (parentContainer != null) {
       // TODO allow dictionaries in complex types
@@ -317,6 +352,8 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
       unionVector = fixedListVector.promoteToUnion();
     } else if (largeListVector != null) {
       unionVector = largeListVector.promoteToUnion();
+    } else if (listViewVector != null) {
+      unionVector = listViewVector.promoteToUnion();
     }
     unionVector.addVector((FieldVector) tp.getTo());
     writer = new UnionWriter(unionVector, nullableStructWriterFactory);
@@ -331,54 +368,140 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
 
   @Override
   public void write(DecimalHolder holder) {
-    getWriter(MinorType.DECIMAL,
-              new ArrowType.Decimal(MAX_DECIMAL_PRECISION, holder.scale, /*bitWidth=*/128)).write(holder);
+    getWriter(
+            MinorType.DECIMAL,
+            new ArrowType.Decimal(MAX_DECIMAL_PRECISION, holder.scale, /*bitWidth=*/ 128))
+        .write(holder);
   }
 
   @Override
   public void writeDecimal(long start, ArrowBuf buffer, ArrowType arrowType) {
-    getWriter(MinorType.DECIMAL, new ArrowType.Decimal(MAX_DECIMAL_PRECISION,
-        ((ArrowType.Decimal) arrowType).getScale(), /*bitWidth=*/128)).writeDecimal(start, buffer, arrowType);
+    getWriter(
+            MinorType.DECIMAL,
+            new ArrowType.Decimal(
+                MAX_DECIMAL_PRECISION,
+                ((ArrowType.Decimal) arrowType).getScale(),
+                /*bitWidth=*/ 128))
+        .writeDecimal(start, buffer, arrowType);
   }
 
   @Override
   public void writeDecimal(BigDecimal value) {
-    getWriter(MinorType.DECIMAL,
-      new ArrowType.Decimal(MAX_DECIMAL_PRECISION, value.scale(), /*bitWidth=*/128)).writeDecimal(value);
+    getWriter(
+            MinorType.DECIMAL,
+            new ArrowType.Decimal(MAX_DECIMAL_PRECISION, value.scale(), /*bitWidth=*/ 128))
+        .writeDecimal(value);
   }
 
   @Override
   public void writeBigEndianBytesToDecimal(byte[] value, ArrowType arrowType) {
-    getWriter(MinorType.DECIMAL, new ArrowType.Decimal(MAX_DECIMAL_PRECISION,
-        ((ArrowType.Decimal) arrowType).getScale(), /*bitWidth=*/128)).writeBigEndianBytesToDecimal(value, arrowType);
+    getWriter(
+            MinorType.DECIMAL,
+            new ArrowType.Decimal(
+                MAX_DECIMAL_PRECISION,
+                ((ArrowType.Decimal) arrowType).getScale(),
+                /*bitWidth=*/ 128))
+        .writeBigEndianBytesToDecimal(value, arrowType);
   }
 
   @Override
   public void write(Decimal256Holder holder) {
-    getWriter(MinorType.DECIMAL256,
-              new ArrowType.Decimal(MAX_DECIMAL256_PRECISION, holder.scale, /*bitWidth=*/256)).write(holder);
+    getWriter(
+            MinorType.DECIMAL256,
+            new ArrowType.Decimal(MAX_DECIMAL256_PRECISION, holder.scale, /*bitWidth=*/ 256))
+        .write(holder);
   }
 
   @Override
   public void writeDecimal256(long start, ArrowBuf buffer, ArrowType arrowType) {
-    getWriter(MinorType.DECIMAL256, new ArrowType.Decimal(MAX_DECIMAL256_PRECISION,
-        ((ArrowType.Decimal) arrowType).getScale(), /*bitWidth=*/256)).writeDecimal256(start, buffer, arrowType);
+    getWriter(
+            MinorType.DECIMAL256,
+            new ArrowType.Decimal(
+                MAX_DECIMAL256_PRECISION,
+                ((ArrowType.Decimal) arrowType).getScale(),
+                /*bitWidth=*/ 256))
+        .writeDecimal256(start, buffer, arrowType);
   }
 
   @Override
   public void writeDecimal256(BigDecimal value) {
-    getWriter(MinorType.DECIMAL256,
-        new ArrowType.Decimal(MAX_DECIMAL256_PRECISION, value.scale(), /*bitWidth=*/256)).writeDecimal256(value);
+    getWriter(
+            MinorType.DECIMAL256,
+            new ArrowType.Decimal(MAX_DECIMAL256_PRECISION, value.scale(), /*bitWidth=*/ 256))
+        .writeDecimal256(value);
   }
 
   @Override
   public void writeBigEndianBytesToDecimal256(byte[] value, ArrowType arrowType) {
-    getWriter(MinorType.DECIMAL256, new ArrowType.Decimal(MAX_DECIMAL256_PRECISION,
-        ((ArrowType.Decimal) arrowType).getScale(),
-          /*bitWidth=*/256)).writeBigEndianBytesToDecimal256(value, arrowType);
+    getWriter(
+            MinorType.DECIMAL256,
+            new ArrowType.Decimal(
+                MAX_DECIMAL256_PRECISION,
+                ((ArrowType.Decimal) arrowType).getScale(),
+                /*bitWidth=*/ 256))
+        .writeBigEndianBytesToDecimal256(value, arrowType);
   }
 
- 
+  @Override
+  public void writeVarBinary(byte[] value) {
+    getWriter(MinorType.VARBINARY).writeVarBinary(value);
+  }
+
+  @Override
+  public void writeVarBinary(byte[] value, int offset, int length) {
+    getWriter(MinorType.VARBINARY).writeVarBinary(value, offset, length);
+  }
+
+  @Override
+  public void writeVarBinary(ByteBuffer value) {
+    getWriter(MinorType.VARBINARY).writeVarBinary(value);
+  }
+
+  @Override
+  public void writeVarBinary(ByteBuffer value, int offset, int length) {
+    getWriter(MinorType.VARBINARY).writeVarBinary(value, offset, length);
+  }
+
+  @Override
+  public void writeLargeVarBinary(byte[] value) {
+    getWriter(MinorType.LARGEVARBINARY).writeLargeVarBinary(value);
+  }
+
+  @Override
+  public void writeLargeVarBinary(byte[] value, int offset, int length) {
+    getWriter(MinorType.LARGEVARBINARY).writeLargeVarBinary(value, offset, length);
+  }
+
+  @Override
+  public void writeLargeVarBinary(ByteBuffer value) {
+    getWriter(MinorType.LARGEVARBINARY).writeLargeVarBinary(value);
+  }
+
+  @Override
+  public void writeLargeVarBinary(ByteBuffer value, int offset, int length) {
+    getWriter(MinorType.LARGEVARBINARY).writeLargeVarBinary(value, offset, length);
+  }
+
+  @Override
+  public void writeVarChar(Text value) {
+    getWriter(MinorType.VARCHAR).writeVarChar(value);
+  }
+
+  @Override
+  public void writeVarChar(String value) {
+    getWriter(MinorType.VARCHAR).writeVarChar(value);
+  }
+
+  @Override
+  public void writeLargeVarChar(Text value) {
+    getWriter(MinorType.LARGEVARCHAR).writeLargeVarChar(value);
+  }
+
+  @Override
+  public void writeLargeVarChar(String value) {
+    getWriter(MinorType.LARGEVARCHAR).writeLargeVarChar(value);
+  }
+
   @Override
   public void allocate() {
     getWriter().allocate();

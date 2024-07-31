@@ -220,7 +220,7 @@ ARROW_PYTHON_EXPORT
 Result<PyObject*> MonthDayNanoIntervalArrayToPyList(
     const MonthDayNanoIntervalArray& array);
 
-/// \brief Convert the Scalar obect to a pyarrow.MonthDayNano (or None if
+/// \brief Convert the Scalar object to a pyarrow.MonthDayNano (or None if
 /// is isn't valid).
 ARROW_PYTHON_EXPORT
 Result<PyObject*> MonthDayNanoIntervalScalarToPyObject(

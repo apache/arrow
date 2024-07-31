@@ -226,7 +226,7 @@ class BaseTestJSONRead:
         assert table.num_columns == 0
         assert table.num_rows == 2
 
-    def test_reconcile_accross_blocks(self):
+    def test_reconcile_across_blocks(self):
         # ARROW-12065: reconciling inferred types across blocks
         first_row = b'{                               }\n'
         read_options = ReadOptions(block_size=len(first_row))
@@ -303,6 +303,14 @@ class BaseTestJSONRead:
         assert table.schema == expected.schema
         assert table.equals(expected)
         assert table.to_pydict() == expected.to_pydict()
+
+    def test_load_large_json(self):
+        data, expected = make_random_json(num_cols=2, num_rows=100100)
+        # set block size is 10MB
+        read_options = ReadOptions(block_size=1024*1024*10)
+        table = self.read_bytes(data, read_options=read_options)
+        assert table.num_rows == 100100
+        assert expected.num_rows == 100100
 
     def test_stress_block_sizes(self):
         # Test a number of small block sizes to stress block stitching

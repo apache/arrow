@@ -141,15 +141,15 @@ class MainRThread {
   MainRThread() : initialized_(false), executor_(nullptr), stop_source_(nullptr) {}
 };
 
-// This object is used to ensure that signal hanlders are registered when
+// This object is used to ensure that signal handlers are registered when
 // RunWithCapturedR launches its background thread to call Arrow and is
 // cleaned up however this exits. Note that the lifecycle of the StopSource,
 // which is registered at package load, is not necessarily tied to the
 // lifecycle of the signal handlers. The general approach is to register
 // the signal handlers only when we are evaluating code outside the R thread
 // (when we are evaluating code *on* the R thread, R's signal handlers are
-// sufficient and will signal an interupt condition that will propagate
-// via a cpp11::unwind_excpetion).
+// sufficient and will signal an interrupt condition that will propagate
+// via a cpp11::unwind_exception).
 class WithSignalHandlerContext {
  public:
   WithSignalHandlerContext() : signal_handler_registered_(false) {

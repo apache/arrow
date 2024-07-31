@@ -17,13 +17,13 @@
 package encoding
 
 import (
-  "github.com/apache/arrow/go/v15/parquet"
-  "github.com/apache/arrow/go/v15/parquet/schema"
-  format "github.com/apache/arrow/go/v15/parquet/internal/gen-go/parquet"
-  "github.com/apache/arrow/go/v15/arrow"
-  "github.com/apache/arrow/go/v15/parquet/internal/utils"
-  shared_utils "github.com/apache/arrow/go/v15/internal/utils"
-  "github.com/apache/arrow/go/v15/internal/bitutils"
+  "github.com/apache/arrow/go/v18/parquet"
+  "github.com/apache/arrow/go/v18/parquet/schema"
+  format "github.com/apache/arrow/go/v18/parquet/internal/gen-go/parquet"
+  "github.com/apache/arrow/go/v18/arrow"
+  "github.com/apache/arrow/go/v18/parquet/internal/utils"
+  shared_utils "github.com/apache/arrow/go/v18/internal/utils"
+  "github.com/apache/arrow/go/v18/internal/bitutils"
 )
 
 // fully typed encoder interfaces to enable writing against encoder/decoders
@@ -79,20 +79,26 @@ func ({{.lower}}EncoderTraits) Encoder(e format.Encoding, useDict bool, descr *s
 {{- end}}
 {{- if or (eq .Name "Int32") (eq .Name "Int64")}}
   case format.Encoding_DELTA_BINARY_PACKED:
-    return DeltaBitPack{{.Name}}Encoder{&deltaBitPackEncoder{
-      encoder: newEncoderBase(e, descr, mem)}}
+    return &DeltaBitPack{{.Name}}Encoder{
+      encoder: newEncoderBase(e, descr, mem),
+    }
 {{- end}}
 {{- if eq .Name "ByteArray"}}
   case format.Encoding_DELTA_LENGTH_BYTE_ARRAY:
     return &DeltaLengthByteArrayEncoder{
       encoder: newEncoderBase(e, descr, mem),
       lengthEncoder: &DeltaBitPackInt32Encoder{
-        &deltaBitPackEncoder{encoder: newEncoderBase(e, descr, mem)}},
+        encoder: newEncoderBase(e, descr, mem),
+      },
     }
   case format.Encoding_DELTA_BYTE_ARRAY:
     return &DeltaByteArrayEncoder{
       encoder: newEncoderBase(e, descr, mem),
     }
+{{- end}}
+{{- if or (eq .Name "FixedLenByteArray") (eq .Name "Float32") (eq .Name "Float64") (eq .Name "Int32") (eq .Name "Int64")}}
+  case format.Encoding_BYTE_STREAM_SPLIT:
+    return &ByteStreamSplit{{.Name}}Encoder{Plain{{.Name}}Encoder: Plain{{.Name}}Encoder{encoder: newEncoderBase(e,descr,mem)}}
 {{- end}}
   default:
     panic("unimplemented encoding type")
@@ -131,10 +137,9 @@ func ({{.lower}}DecoderTraits) Decoder(e parquet.Encoding, descr *schema.Column,
       mem = memory.DefaultAllocator
     }
     return &DeltaBitPack{{.Name}}Decoder{
-      deltaBitPackDecoder: &deltaBitPackDecoder{
-        decoder: newDecoderBase(format.Encoding(e), descr),
-        mem:     mem,
-      }}
+      decoder: newDecoderBase(format.Encoding(e), descr),
+      mem:     mem,
+    }
 {{- end}}
 {{- if eq .Name "ByteArray"}}
   case parquet.Encodings.DeltaLengthByteArray:
@@ -154,6 +159,10 @@ func ({{.lower}}DecoderTraits) Decoder(e parquet.Encoding, descr *schema.Column,
         decoder: newDecoderBase(format.Encoding(e), descr),
         mem: mem,
       }}
+{{- end}}
+{{- if or (eq .Name "FixedLenByteArray") (eq .Name "Float32") (eq .Name "Float64") (eq .Name "Int32") (eq .Name "Int64")}}
+  case parquet.Encodings.ByteStreamSplit:
+    return &ByteStreamSplit{{.Name}}Decoder{decoder: newDecoderBase(format.Encoding(e), descr)}
 {{- end}}
   default:
     panic("unimplemented encoding type")
@@ -268,10 +277,10 @@ func (Dict{{.Name}}Decoder) Type() parquet.Type {
 }
 
 // Decode populates the passed in slice with min(len(out), remaining values) values,
-// decoding using hte dictionary to get the actual values. Returns the number of values
+// decoding using the dictionary to get the actual values. Returns the number of values
 // actually decoded and any error encountered.
 func (d *Dict{{.Name}}Decoder) Decode(out []{{.name}}) (int, error) {
-  vals := shared_utils.MinInt(len(out), d.nvals)
+  vals := shared_utils.Min(len(out), d.nvals)
   decoded, err := d.decode(out[:vals])
   if err != nil {
     return decoded, err
@@ -285,7 +294,7 @@ func (d *Dict{{.Name}}Decoder) Decode(out []{{.name}}) (int, error) {
 // Decode spaced is like Decode but will space out the data leaving slots for null values
 // based on the provided bitmap.
 func (d *Dict{{.Name}}Decoder) DecodeSpaced(out []{{.name}}, nullCount int, validBits []byte, validBitsOffset int64) (int, error) {
-  vals := shared_utils.MinInt(len(out), d.nvals)
+  vals := shared_utils.Min(len(out), d.nvals)
   decoded, err := d.decodeSpaced(out[:vals], nullCount, validBits, validBitsOffset)
   if err != nil {
     return decoded, err

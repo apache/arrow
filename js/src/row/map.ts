@@ -24,6 +24,8 @@ import { instance as setVisitor } from '../visitor/set.js';
 
 /** @ignore */ export const kKeys = Symbol.for('keys');
 /** @ignore */ export const kVals = Symbol.for('vals');
+/** @ignore */ export const kKeysAsStrings = Symbol.for('kKeysAsStrings');
+/** @ignore */ export const _kKeysAsStrings = Symbol.for('_kKeysAsStrings');
 
 export class MapRow<K extends DataType = any, V extends DataType = any> {
 
@@ -31,11 +33,17 @@ export class MapRow<K extends DataType = any, V extends DataType = any> {
 
     declare private [kKeys]: Vector<K>;
     declare private [kVals]: Data<V>;
+    declare private [_kKeysAsStrings]: string[];
 
     constructor(slice: Data<Struct<{ key: K; value: V }>>) {
         this[kKeys] = new Vector([slice.children[0]]).memoize() as Vector<K>;
         this[kVals] = slice.children[1] as Data<V>;
         return new Proxy(this, new MapRowProxyHandler<K, V>());
+    }
+
+    /** @ignore */
+    get [kKeysAsStrings]() {
+        return this[_kKeysAsStrings] || (this[_kKeysAsStrings] = Array.from(this[kKeys].toArray(), String));
     }
 
     [Symbol.iterator]() {
@@ -107,13 +115,13 @@ class MapRowProxyHandler<K extends DataType = any, V extends DataType = any> imp
     deleteProperty() { return false; }
     preventExtensions() { return true; }
     ownKeys(row: MapRow<K, V>) {
-        return row[kKeys].toArray().map(String);
+        return row[kKeysAsStrings];
     }
     has(row: MapRow<K, V>, key: string | symbol) {
-        return row[kKeys].includes(key);
+        return row[kKeysAsStrings].includes(key as string);
     }
     getOwnPropertyDescriptor(row: MapRow<K, V>, key: string | symbol) {
-        const idx = row[kKeys].indexOf(key);
+        const idx = row[kKeysAsStrings].indexOf(key as string);
         if (idx !== -1) {
             return { writable: true, enumerable: true, configurable: true };
         }
@@ -124,7 +132,7 @@ class MapRowProxyHandler<K extends DataType = any, V extends DataType = any> imp
         if (Reflect.has(row, key)) {
             return (row as any)[key];
         }
-        const idx = row[kKeys].indexOf(key);
+        const idx = row[kKeysAsStrings].indexOf(key as string);
         if (idx !== -1) {
             const val = getVisitor.visit(Reflect.get(row, kVals), idx);
             // Cache key/val lookups
@@ -133,7 +141,7 @@ class MapRowProxyHandler<K extends DataType = any, V extends DataType = any> imp
         }
     }
     set(row: MapRow<K, V>, key: string | symbol, val: V) {
-        const idx = row[kKeys].indexOf(key);
+        const idx = row[kKeysAsStrings].indexOf(key as string);
         if (idx !== -1) {
             setVisitor.visit(Reflect.get(row, kVals), idx, val);
             // Cache key/val lookups
@@ -149,4 +157,5 @@ Object.defineProperties(MapRow.prototype, {
     [Symbol.toStringTag]: { enumerable: false, configurable: false, value: 'Row' },
     [kKeys]: { writable: true, enumerable: false, configurable: false, value: null },
     [kVals]: { writable: true, enumerable: false, configurable: false, value: null },
+    [_kKeysAsStrings]: { writable: true, enumerable: false, configurable: false, value: null },
 });

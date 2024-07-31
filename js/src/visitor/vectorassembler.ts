@@ -27,8 +27,9 @@ import { BufferRegion, FieldNode } from '../ipc/metadata/message.js';
 import {
     DataType, Dictionary,
     Float, Int, Date_, Interval, Time, Timestamp, Union, Duration,
-    Bool, Null, Utf8, Binary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct,
+    Bool, Null, Utf8, LargeUtf8, Binary, LargeBinary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct,
 } from '../type.js';
+import { bigIntToNumber } from '../util/bigint.js';
 
 /** @ignore */
 export interface VectorAssembler extends Visitor {
@@ -41,7 +42,9 @@ export interface VectorAssembler extends Visitor {
     visitInt<T extends Int>(data: Data<T>): this;
     visitFloat<T extends Float>(data: Data<T>): this;
     visitUtf8<T extends Utf8>(data: Data<T>): this;
+    visitLargeUtf8<T extends LargeUtf8>(data: Data<T>): this;
     visitBinary<T extends Binary>(data: Data<T>): this;
+    visitLargeBinary<T extends LargeBinary>(data: Data<T>): this;
     visitFixedSizeBinary<T extends FixedSizeBinary>(data: Data<T>): this;
     visitDate<T extends Date_>(data: Data<T>): this;
     visitTimestamp<T extends Timestamp>(data: Data<T>): this;
@@ -201,12 +204,13 @@ function assembleFlatVector<T extends Int | Float | FixedSizeBinary | Date_ | Ti
 }
 
 /** @ignore */
-function assembleFlatListVector<T extends Utf8 | Binary>(this: VectorAssembler, data: Data<T>) {
+function assembleFlatListVector<T extends Utf8 | LargeUtf8 | Binary | LargeBinary>(this: VectorAssembler, data: Data<T>) {
     const { length, values, valueOffsets } = data;
-    const { [0]: begin, [length]: end } = valueOffsets;
+    const begin = bigIntToNumber(valueOffsets[0]);
+    const end = bigIntToNumber(valueOffsets[length]);
     const byteLength = Math.min(end - begin, values.byteLength - begin);
     // Push in the order FlatList types read their buffers
-    addBuffer.call(this, rebaseValueOffsets(-begin, length + 1, valueOffsets)); // valueOffsets buffer first
+    addBuffer.call(this, rebaseValueOffsets(-begin, length + 1, valueOffsets as any)); // valueOffsets buffer first
     addBuffer.call(this, values.subarray(begin, begin + byteLength)); // sliced values buffer second
     return this;
 }
@@ -234,7 +238,9 @@ VectorAssembler.prototype.visitBool = assembleBoolVector;
 VectorAssembler.prototype.visitInt = assembleFlatVector;
 VectorAssembler.prototype.visitFloat = assembleFlatVector;
 VectorAssembler.prototype.visitUtf8 = assembleFlatListVector;
+VectorAssembler.prototype.visitLargeUtf8 = assembleFlatListVector;
 VectorAssembler.prototype.visitBinary = assembleFlatListVector;
+VectorAssembler.prototype.visitLargeBinary = assembleFlatListVector;
 VectorAssembler.prototype.visitFixedSizeBinary = assembleFlatVector;
 VectorAssembler.prototype.visitDate = assembleFlatVector;
 VectorAssembler.prototype.visitTimestamp = assembleFlatVector;

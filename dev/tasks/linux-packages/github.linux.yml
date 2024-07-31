@@ -29,6 +29,7 @@ jobs:
     {% endif %}
     env:
       ARCHITECTURE: {{ architecture }}
+      ARCHERY_USE_DOCKER_CLI: {{ '0' if architecture == 'arm64' else '1' }}
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_login_dockerhub()|indent }}
@@ -63,7 +64,7 @@ jobs:
         run: |
           set -e
           pushd arrow/dev/tasks/linux-packages
-          rake version:update
+          rake version:update ARROW_RELEASE_TIME="$(date --iso-8601=seconds)"
           rake docker:pull || :
           rake --trace {{ task_namespace }}:build BUILD_DIR=build
           popd

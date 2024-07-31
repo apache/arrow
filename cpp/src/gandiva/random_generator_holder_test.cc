@@ -21,38 +21,35 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/testing/gtest_util.h"
+
 namespace gandiva {
 
 class TestRandGenHolder : public ::testing::Test {
  public:
-  FunctionNode BuildRandFunc() { return FunctionNode("random", {}, arrow::float64()); }
+  FunctionNode BuildRandFunc() { return {"random", {}, arrow::float64()}; }
 
   FunctionNode BuildRandWithSeedFunc(int32_t seed, bool seed_is_null) {
     auto seed_node =
         std::make_shared<LiteralNode>(arrow::int32(), LiteralHolder(seed), seed_is_null);
-    return FunctionNode("rand", {seed_node}, arrow::float64());
+    return {"rand", {seed_node}, arrow::float64()};
   }
 };
 
 TEST_F(TestRandGenHolder, NoSeed) {
-  std::shared_ptr<RandomGeneratorHolder> rand_gen_holder;
   FunctionNode rand_func = BuildRandFunc();
-  auto status = RandomGeneratorHolder::Make(rand_func, &rand_gen_holder);
-  EXPECT_EQ(status.ok(), true) << status.message();
+  EXPECT_OK_AND_ASSIGN(auto rand_gen_holder, RandomGeneratorHolder::Make(rand_func));
 
   auto& random = *rand_gen_holder;
   EXPECT_NE(random(), random());
 }
 
 TEST_F(TestRandGenHolder, WithValidEqualSeeds) {
-  std::shared_ptr<RandomGeneratorHolder> rand_gen_holder_1;
-  std::shared_ptr<RandomGeneratorHolder> rand_gen_holder_2;
   FunctionNode rand_func_1 = BuildRandWithSeedFunc(12, false);
   FunctionNode rand_func_2 = BuildRandWithSeedFunc(12, false);
-  auto status = RandomGeneratorHolder::Make(rand_func_1, &rand_gen_holder_1);
-  EXPECT_EQ(status.ok(), true) << status.message();
-  status = RandomGeneratorHolder::Make(rand_func_2, &rand_gen_holder_2);
-  EXPECT_EQ(status.ok(), true) << status.message();
+
+  EXPECT_OK_AND_ASSIGN(auto rand_gen_holder_1, RandomGeneratorHolder::Make(rand_func_1));
+  EXPECT_OK_AND_ASSIGN(auto rand_gen_holder_2, RandomGeneratorHolder::Make(rand_func_2));
 
   auto& random_1 = *rand_gen_holder_1;
   auto& random_2 = *rand_gen_holder_2;
@@ -65,18 +62,12 @@ TEST_F(TestRandGenHolder, WithValidEqualSeeds) {
 }
 
 TEST_F(TestRandGenHolder, WithValidSeeds) {
-  std::shared_ptr<RandomGeneratorHolder> rand_gen_holder_1;
-  std::shared_ptr<RandomGeneratorHolder> rand_gen_holder_2;
-  std::shared_ptr<RandomGeneratorHolder> rand_gen_holder_3;
   FunctionNode rand_func_1 = BuildRandWithSeedFunc(11, false);
   FunctionNode rand_func_2 = BuildRandWithSeedFunc(12, false);
   FunctionNode rand_func_3 = BuildRandWithSeedFunc(-12, false);
-  auto status = RandomGeneratorHolder::Make(rand_func_1, &rand_gen_holder_1);
-  EXPECT_EQ(status.ok(), true) << status.message();
-  status = RandomGeneratorHolder::Make(rand_func_2, &rand_gen_holder_2);
-  EXPECT_EQ(status.ok(), true) << status.message();
-  status = RandomGeneratorHolder::Make(rand_func_3, &rand_gen_holder_3);
-  EXPECT_EQ(status.ok(), true) << status.message();
+  EXPECT_OK_AND_ASSIGN(auto rand_gen_holder_1, RandomGeneratorHolder::Make(rand_func_1));
+  EXPECT_OK_AND_ASSIGN(auto rand_gen_holder_2, RandomGeneratorHolder::Make(rand_func_2));
+  EXPECT_OK_AND_ASSIGN(auto rand_gen_holder_3, RandomGeneratorHolder::Make(rand_func_3));
 
   auto& random_1 = *rand_gen_holder_1;
   auto& random_2 = *rand_gen_holder_2;
@@ -86,14 +77,10 @@ TEST_F(TestRandGenHolder, WithValidSeeds) {
 }
 
 TEST_F(TestRandGenHolder, WithInValidSeed) {
-  std::shared_ptr<RandomGeneratorHolder> rand_gen_holder_1;
-  std::shared_ptr<RandomGeneratorHolder> rand_gen_holder_2;
   FunctionNode rand_func_1 = BuildRandWithSeedFunc(12, true);
   FunctionNode rand_func_2 = BuildRandWithSeedFunc(0, false);
-  auto status = RandomGeneratorHolder::Make(rand_func_1, &rand_gen_holder_1);
-  EXPECT_EQ(status.ok(), true) << status.message();
-  status = RandomGeneratorHolder::Make(rand_func_2, &rand_gen_holder_2);
-  EXPECT_EQ(status.ok(), true) << status.message();
+  EXPECT_OK_AND_ASSIGN(auto rand_gen_holder_1, RandomGeneratorHolder::Make(rand_func_1));
+  EXPECT_OK_AND_ASSIGN(auto rand_gen_holder_2, RandomGeneratorHolder::Make(rand_func_2));
 
   auto& random_1 = *rand_gen_holder_1;
   auto& random_2 = *rand_gen_holder_2;

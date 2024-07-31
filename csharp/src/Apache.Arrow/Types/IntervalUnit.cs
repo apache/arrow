@@ -13,37 +13,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 namespace Apache.Arrow.Types
 {
     public enum IntervalUnit
     {
         YearMonth = 0,
         DayTime = 1,
-    }
-
-    public sealed class IntervalType : FixedWidthType
-    {
-        public static readonly IntervalType YearMonth = new IntervalType(IntervalUnit.YearMonth);
-        public static readonly IntervalType DayTime = new IntervalType(IntervalUnit.DayTime);
-        private static readonly IntervalType[] _types = new IntervalType[] { YearMonth, DayTime };
-
-        public override ArrowTypeId TypeId => ArrowTypeId.Interval;
-        public override string Name => "date";
-        public override int BitWidth => 64;
-
-        public IntervalUnit Unit { get; }
-
-        public IntervalType(IntervalUnit unit = IntervalUnit.YearMonth)
-        {
-            Unit = unit;
-        }
-
-        public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
-
-        public static IntervalType FromIntervalUnit(IntervalUnit unit)
-        {
-            return _types[(int)unit];
-        }
+        MonthDayNanosecond = 2,
     }
 }

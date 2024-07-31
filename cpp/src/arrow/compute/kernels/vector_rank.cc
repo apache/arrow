@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/compute/function.h"
 #include "arrow/compute/kernels/vector_sort_internal.h"
 #include "arrow/compute/registry.h"
 
@@ -226,8 +227,6 @@ class Ranker<ChunkedArray> : public RankerMixin<ChunkedArray, Ranker<ChunkedArra
 
   template <typename InType>
   Status RankInternal() {
-    using ArrayType = typename TypeTraits<InType>::ArrayType;
-
     if (physical_chunks_.empty()) {
       return Status::OK();
     }
@@ -239,7 +238,7 @@ class Ranker<ChunkedArray> : public RankerMixin<ChunkedArray, Ranker<ChunkedArra
 
     const auto arrays = GetArrayPointers(physical_chunks_);
     auto value_selector = [resolver = ChunkedArrayResolver(arrays)](int64_t index) {
-      return resolver.Resolve<ArrayType>(index).Value();
+      return resolver.Resolve(index).Value<InType>();
     };
     ARROW_ASSIGN_OR_RAISE(*output_, CreateRankings(ctx_, sorted, null_placement_,
                                                    tiebreaker_, value_selector));

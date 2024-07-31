@@ -23,11 +23,11 @@ import (
 	"strconv"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/bitutil"
-	"github.com/apache/arrow/go/v15/arrow/internal/debug"
-	"github.com/apache/arrow/go/v15/arrow/memory"
-	"github.com/apache/arrow/go/v15/internal/json"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/bitutil"
+	"github.com/apache/arrow/go/v18/arrow/internal/debug"
+	"github.com/apache/arrow/go/v18/arrow/memory"
+	"github.com/apache/arrow/go/v18/internal/json"
 )
 
 type BooleanBuilder struct {

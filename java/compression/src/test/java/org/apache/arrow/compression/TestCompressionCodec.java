@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.compression;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -35,7 +34,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.stream.Stream;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -65,9 +63,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-/**
- * Test cases for {@link CompressionCodec}s.
- */
+/** Test cases for {@link CompressionCodec}s. */
 class TestCompressionCodec {
   private BufferAllocator allocator;
 
@@ -117,6 +113,12 @@ class TestCompressionCodec {
     return outputBuffers;
   }
 
+  private void assertWriterIndex(List<ArrowBuf> decompressedBuffers) {
+    for (ArrowBuf decompressedBuf : decompressedBuffers) {
+      assertTrue(decompressedBuf.writerIndex() > 0);
+    }
+  }
+
   @ParameterizedTest
   @MethodSource("codecs")
   void testCompressFixedWidthBuffers(int vectorLength, CompressionCodec codec) throws Exception {
@@ -139,6 +141,7 @@ class TestCompressionCodec {
     List<ArrowBuf> decompressedBuffers = deCompressBuffers(codec, compressedBuffers);
 
     assertEquals(2, decompressedBuffers.size());
+    assertWriterIndex(decompressedBuffers);
 
     // orchestrate new vector
     IntVector newVec = new IntVector("new vec", allocator);
@@ -168,7 +171,7 @@ class TestCompressionCodec {
       if (i % 10 == 0) {
         origVec.setNull(i);
       } else {
-        origVec.setSafe(i, String.valueOf(i).getBytes());
+        origVec.setSafe(i, String.valueOf(i).getBytes(StandardCharsets.UTF_8));
       }
     }
     origVec.setValueCount(vectorLength);
@@ -180,6 +183,7 @@ class TestCompressionCodec {
     List<ArrowBuf> decompressedBuffers = deCompressBuffers(codec, compressedBuffers);
 
     assertEquals(3, decompressedBuffers.size());
+    assertWriterIndex(decompressedBuffers);
 
     // orchestrate new vector
     VarCharVector newVec = new VarCharVector("new vec", allocator);
@@ -191,7 +195,7 @@ class TestCompressionCodec {
       if (i % 10 == 0) {
         assertTrue(newVec.isNull(i));
       } else {
-        assertArrayEquals(String.valueOf(i).getBytes(), newVec.get(i));
+        assertArrayEquals(String.valueOf(i).getBytes(StandardCharsets.UTF_8), newVec.get(i));
       }
     }
 
@@ -234,90 +238,131 @@ class TestCompressionCodec {
   @ParameterizedTest
   @MethodSource("codecTypes")
   void testReadWriteStream(CompressionUtil.CodecType codec) throws Exception {
-    withRoot(codec, (factory, root) -> {
-      ByteArrayOutputStream compressedStream = new ByteArrayOutputStream();
-      try (final ArrowStreamWriter writer = new ArrowStreamWriter(
-          root, new DictionaryProvider.MapDictionaryProvider(),
-          Channels.newChannel(compressedStream),
-          IpcOption.DEFAULT, factory, codec, Optional.of(7))) {
-        writer.start();
-        writer.writeBatch();
-        writer.end();
-      } catch (IOException e) {
-        throw new RuntimeException(e);
-      }
+    withRoot(
+        codec,
+        (factory, root) -> {
+          ByteArrayOutputStream compressedStream = new ByteArrayOutputStream();
+          try (final ArrowStreamWriter writer =
+              new ArrowStreamWriter(
+                  root,
+                  new DictionaryProvider.MapDictionaryProvider(),
+                  Channels.newChannel(compressedStream),
+                  IpcOption.DEFAULT,
+                  factory,
+                  codec,
+                  Optional.of(7))) {
+            writer.start();
+            writer.writeBatch();
+            writer.end();
+          } catch (IOException e) {
+            throw new RuntimeException(e);
+          }
 
-      try (ArrowStreamReader reader = new ArrowStreamReader(
-          new ByteArrayReadableSeekableByteChannel(compressedStream.toByteArray()), allocator, factory)) {
-        assertTrue(reader.loadNextBatch());
-        assertTrue(root.equals(reader.getVectorSchemaRoot()));
-        assertFalse(reader.loadNextBatch());
-      } catch (IOException e) {
-        throw new RuntimeException(e);
-      }
-    });
+          try (ArrowStreamReader reader =
+              new ArrowStreamReader(
+                  new ByteArrayReadableSeekableByteChannel(compressedStream.toByteArray()),
+                  allocator,
+                  factory)) {
+            assertTrue(reader.loadNextBatch());
+            assertTrue(root.equals(reader.getVectorSchemaRoot()));
+            assertFalse(reader.loadNextBatch());
+          } catch (IOException e) {
+            throw new RuntimeException(e);
+          }
+        });
   }
 
   @ParameterizedTest
   @MethodSource("codecTypes")
   void testReadWriteFile(CompressionUtil.CodecType codec) throws Exception {
-    withRoot(codec, (factory, root) -> {
-      ByteArrayOutputStream compressedStream = new ByteArrayOutputStream();
-      try (final ArrowFileWriter writer = new ArrowFileWriter(
-          root, new DictionaryProvider.MapDictionaryProvider(),
-          Channels.newChannel(compressedStream),
-          new HashMap<>(), IpcOption.DEFAULT, factory, codec, Optional.of(7))) {
-        writer.start();
-        writer.writeBatch();
-        writer.end();
-      } catch (IOException e) {
-        throw new RuntimeException(e);
-      }
+    withRoot(
+        codec,
+        (factory, root) -> {
+          ByteArrayOutputStream compressedStream = new ByteArrayOutputStream();
+          try (final ArrowFileWriter writer =
+              new ArrowFileWriter(
+                  root,
+                  new DictionaryProvider.MapDictionaryProvider(),
+                  Channels.newChannel(compressedStream),
+                  new HashMap<>(),
+                  IpcOption.DEFAULT,
+                  factory,
+                  codec,
+                  Optional.of(7))) {
+            writer.start();
+            writer.writeBatch();
+            writer.end();
+          } catch (IOException e) {
+            throw new RuntimeException(e);
+          }
 
-      try (ArrowFileReader reader = new ArrowFileReader(
-          new ByteArrayReadableSeekableByteChannel(compressedStream.toByteArray()), allocator, factory)) {
-        assertTrue(reader.loadNextBatch());
-        assertTrue(root.equals(reader.getVectorSchemaRoot()));
-        assertFalse(reader.loadNextBatch());
-      } catch (IOException e) {
-        throw new RuntimeException(e);
-      }
-    });
+          try (ArrowFileReader reader =
+              new ArrowFileReader(
+                  new ByteArrayReadableSeekableByteChannel(compressedStream.toByteArray()),
+                  allocator,
+                  factory)) {
+            assertTrue(reader.loadNextBatch());
+            assertTrue(root.equals(reader.getVectorSchemaRoot()));
+            assertFalse(reader.loadNextBatch());
+          } catch (IOException e) {
+            throw new RuntimeException(e);
+          }
+        });
   }
 
   /** Unloading a vector should not free source buffers. */
   @ParameterizedTest
   @MethodSource("codecTypes")
   void testUnloadCompressed(CompressionUtil.CodecType codec) {
-    withRoot(codec, (factory, root) -> {
-      root.getFieldVectors().forEach((vector) -> {
-        Arrays.stream(vector.getBuffers(/*clear*/ false)).forEach((buf) -> {
-          assertNotEquals(0, buf.getReferenceManager().getRefCount());
-        });
-      });
+    withRoot(
+        codec,
+        (factory, root) -> {
+          root.getFieldVectors()
+              .forEach(
+                  (vector) -> {
+                    Arrays.stream(vector.getBuffers(/*clear*/ false))
+                        .forEach(
+                            (buf) -> {
+                              assertNotEquals(0, buf.getReferenceManager().getRefCount());
+                            });
+                  });
 
-      final VectorUnloader unloader = new VectorUnloader(
-          root, /*includeNullCount*/ true, factory.createCodec(codec), /*alignBuffers*/ true);
-      unloader.getRecordBatch().close();
+          final VectorUnloader unloader =
+              new VectorUnloader(
+                  root, /*includeNullCount*/
+                  true,
+                  factory.createCodec(codec), /*alignBuffers*/
+                  true);
+          unloader.getRecordBatch().close();
 
-      root.getFieldVectors().forEach((vector) -> {
-        Arrays.stream(vector.getBuffers(/*clear*/ false)).forEach((buf) -> {
-          assertNotEquals(0, buf.getReferenceManager().getRefCount());
+          root.getFieldVectors()
+              .forEach(
+                  (vector) -> {
+                    Arrays.stream(vector.getBuffers(/*clear*/ false))
+                        .forEach(
+                            (buf) -> {
+                              assertNotEquals(0, buf.getReferenceManager().getRefCount());
+                            });
+                  });
         });
-      });
-    });
   }
 
-  void withRoot(CompressionUtil.CodecType codec, BiConsumer<CompressionCodec.Factory, VectorSchemaRoot> testBody) {
-    final Schema schema = new Schema(Arrays.asList(
-        Field.nullable("ints", new ArrowType.Int(32, true)),
-        Field.nullable("strings", ArrowType.Utf8.INSTANCE)));
-    CompressionCodec.Factory factory = codec == CompressionUtil.CodecType.NO_COMPRESSION ?
-        NoCompressionCodec.Factory.INSTANCE : CommonsCompressionFactory.INSTANCE;
+  void withRoot(
+      CompressionUtil.CodecType codec,
+      BiConsumer<CompressionCodec.Factory, VectorSchemaRoot> testBody) {
+    final Schema schema =
+        new Schema(
+            Arrays.asList(
+                Field.nullable("ints", new ArrowType.Int(32, true)),
+                Field.nullable("strings", ArrowType.Utf8.INSTANCE)));
+    CompressionCodec.Factory factory =
+        codec == CompressionUtil.CodecType.NO_COMPRESSION
+            ? NoCompressionCodec.Factory.INSTANCE
+            : CommonsCompressionFactory.INSTANCE;
     try (final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
       final IntVector ints = (IntVector) root.getVector(0);
       final VarCharVector strings = (VarCharVector) root.getVector(1);
-      // Doesn't get compresed
+      // Doesn't get compressed
       ints.setSafe(0, 0x4a3e);
       ints.setSafe(1, 0x8aba);
       ints.setSafe(2, 0x4362);
