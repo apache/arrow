@@ -497,7 +497,7 @@ cdef class ChunkedArray(_PandasConvertible):
         """
         if np is None:
             raise ImportError(
-                "Cannot return a numpy.ndarray if Numpy is not present")
+                "Cannot return a numpy.ndarray if NumPy is not present")
         if zero_copy_only:
             raise ValueError(
                 "zero_copy_only must be False for pyarrow.ChunkedArray.to_numpy"

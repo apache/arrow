@@ -109,7 +109,7 @@ strides: {0.strides}""".format(self)
         """
         if np is None:
             raise ImportError(
-                "Cannot return a numpy.ndarray if Numpy is not present")
+                "Cannot return a numpy.ndarray if NumPy is not present")
         cdef PyObject* out
 
         check_status(TensorToNdarray(self.sp_tensor, self, &out))
@@ -483,7 +483,7 @@ shape: {0.shape}""".format(self)
         """
         if np is None:
             raise ImportError(
-                "Cannot return a numpy.ndarray if Numpy is not present")
+                "Cannot return a numpy.ndarray if NumPy is not present")
         cdef PyObject* out_data
         cdef PyObject* out_coords
 
@@ -751,7 +751,7 @@ shape: {0.shape}""".format(self)
         """
         if np is None:
             raise ImportError(
-                "Cannot return a numpy.ndarray if Numpy is not present")
+                "Cannot return a numpy.ndarray if NumPy is not present")
         cdef PyObject* out_data
         cdef PyObject* out_indptr
         cdef PyObject* out_indices
@@ -992,7 +992,7 @@ shape: {0.shape}""".format(self)
         """
         if np is None:
             raise ImportError(
-                "Cannot return a numpy.ndarray if Numpy is not present")
+                "Cannot return a numpy.ndarray if NumPy is not present")
         cdef PyObject* out_data
         cdef PyObject* out_indptr
         cdef PyObject* out_indices
@@ -1230,7 +1230,7 @@ shape: {0.shape}""".format(self)
         """
         if np is None:
             raise ImportError(
-                "Cannot return a numpy.ndarray if Numpy is not present")
+                "Cannot return a numpy.ndarray if NumPy is not present")
         cdef PyObject* out_data
         cdef PyObject* out_indptr
         cdef PyObject* out_indices
