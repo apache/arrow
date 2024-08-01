@@ -968,6 +968,7 @@ Status StageBlock(Blobs::BlockBlobClient* block_blob_client, const std::string& 
 /// Writes will be buffered up to this size (in bytes) before actually uploading them.
 static constexpr int64_t kBlockUploadSizeBytes = 10 * 1024 * 1024;
 
+/// This output stream, similar to other arrow OutputStreams, is not thread-safe.
 class ObjectAppendStream final : public io::OutputStream {
  private:
   struct UploadState;
