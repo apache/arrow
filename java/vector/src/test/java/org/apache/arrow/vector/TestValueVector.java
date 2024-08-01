@@ -47,9 +47,11 @@ import org.apache.arrow.vector.compare.VectorEqualsVisitor;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.ListViewVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.impl.NullableStructWriter;
+import org.apache.arrow.vector.complex.impl.UnionListViewWriter;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.holders.NullableIntHolder;
 import org.apache.arrow.vector.holders.NullableUInt4Holder;
@@ -2936,6 +2938,29 @@ public class TestValueVector {
   }
 
   @Test
+  public void testListViewVectorSetNull() {
+    try (final ListViewVector vector = ListViewVector.empty("listview", allocator)) {
+      UnionListViewWriter writer = vector.getWriter();
+      writer.allocate();
+
+      writeListViewVector(writer, new int[] {1, 2});
+      writeListViewVector(writer, new int[] {3, 4});
+      writeListViewVector(writer, new int[] {5, 6});
+      vector.setNull(3);
+      vector.setNull(4);
+      vector.setNull(5);
+      writer.setValueCount(6);
+
+      assertEquals(vector.getObject(0), Arrays.asList(1, 2));
+      assertEquals(vector.getObject(1), Arrays.asList(3, 4));
+      assertEquals(vector.getObject(2), Arrays.asList(5, 6));
+      assertTrue(vector.isNull(3));
+      assertTrue(vector.isNull(4));
+      assertTrue(vector.isNull(5));
+    }
+  }
+
+  @Test
   public void testStructVectorEqualsWithNull() {
 
     try (final StructVector vector1 = StructVector.empty("struct", allocator);
@@ -3264,6 +3289,14 @@ public class TestValueVector {
       writer.integer().writeInt(v);
     }
     writer.endList();
+  }
+
+  private void writeListViewVector(UnionListViewWriter writer, int[] values) {
+    writer.startListView();
+    for (int v : values) {
+      writer.integer().writeInt(v);
+    }
+    writer.endListView();
   }
 
   @Test
