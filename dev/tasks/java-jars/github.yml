@@ -183,11 +183,6 @@ jobs:
 
           brew bundle --file=arrow/java/Brewfile
 
-          # We want to use the bundled googletest for static linking. Since
-          # both BUNDLED and brew options are enabled, it could cause a conflict
-          # when there is a version mismatch.
-          # We uninstall googletest to ensure using the bundled googletest.
-          brew uninstall googletest
       - name: Build C++ libraries
         env:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
