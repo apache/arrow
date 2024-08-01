@@ -15,11 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <dirent.h>
+#include <sys/dirent.h>
 #include <chrono>
 #include <cstring>
 #include <memory>
 #include <sstream>
+#include <stack>
 #include <utility>
+#include "arrow/result.h"
+#include "arrow/status.h"
+#include "arrow/util/macros.h"
 
 #ifdef _WIN32
 #include "arrow/util/windows_compatibility.h"
@@ -39,12 +45,14 @@
 #include "arrow/io/type_fwd.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/io_util.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/string.h"
 #include "arrow/util/uri.h"
 #include "arrow/util/windows_fixup.h"
 
 namespace arrow::fs {
 
+using ::arrow::internal::ErrnoMessage;
 using ::arrow::internal::IOErrorFromErrno;
 #ifdef _WIN32
 using ::arrow::internal::IOErrorFromWinError;
@@ -187,31 +195,192 @@ Result<FileInfo> StatFile(const std::string& path) {
 
 #endif
 
-Status StatSelector(const PlatformFilename& dir_fn, const FileSelector& select,
-                    int32_t nesting_depth, std::vector<FileInfo>* out) {
-  auto result = ListDir(dir_fn);
-  if (!result.ok()) {
-    auto status = result.status();
-    if (select.allow_not_found && status.IsIOError()) {
-      ARROW_ASSIGN_OR_RAISE(bool exists, FileExists(dir_fn));
-      if (!exists) {
-        return Status::OK();
-      }
+/// TODO(bryce): docs
+class DirIterator {
+ public:
+  virtual ~DirIterator() {}
+  /// \pre !Done()
+  virtual std::string name() const = 0;
+  /// \pre !Done()
+  virtual bool is_directory() const = 0;
+  /// \pre !Done()
+  virtual Status Next() = 0;
+  virtual bool Done() const = 0;
+};
+
+class UnixDirIterator : public DirIterator {
+ public:
+  UnixDirIterator(DIR* directory, struct dirent* entry) {
+    directory_ = directory;
+    entry_ = entry;
+  }
+  ARROW_DISALLOW_COPY_AND_ASSIGN(UnixDirIterator);
+  ~UnixDirIterator() {
+    if (!directory_) {
+      return;
     }
-    return status;
+    if (closedir(directory_) != 0) {
+      ARROW_LOG(WARNING) << "Cannot close directory handle: " << ErrnoMessage(errno);
+    }
+  }
+  std::string name() const override {
+    DCHECK(!Done());
+    return std::string{entry_->d_name};
   }
 
-  for (const auto& child_fn : *result) {
-    PlatformFilename full_fn = dir_fn.Join(child_fn);
-    ARROW_ASSIGN_OR_RAISE(FileInfo info, StatFile(full_fn.ToNative()));
-    if (info.type() != FileType::NotFound) {
-      out->push_back(std::move(info));
+  bool is_directory() const override {
+    DCHECK(!Done());
+    return entry_->d_type == DT_DIR;
+  }
+
+  Status Next() override {
+    DCHECK(!Done());
+    struct dirent* entry = readdir(directory_);
+
+    if (entry == nullptr) {
+      if (errno != 0) {
+        return IOErrorFromErrno(errno, "Cannot list directory");
+      }
+      entry_ = nullptr;
+      return Status::OK();
     }
-    if (nesting_depth < select.max_recursion && select.recursive &&
-        info.type() == FileType::Directory) {
-      RETURN_NOT_OK(StatSelector(full_fn, select, nesting_depth + 1, out));
+    entry_ = entry;
+
+    return SkipSpecial();
+  }
+
+  bool Done() const override { return !directory_ || !entry_; }
+
+  Status SkipSpecial() {
+    DCHECK(!Done());
+    if (strcmp(entry_->d_name, ".") == 0 || strcmp(entry_->d_name, "..") == 0) {
+      return Next();
+    }
+    return Status::OK();
+  }
+
+  static Result<std::unique_ptr<DirIterator>> Open(const PlatformFilename& path,
+                                                   bool allow_not_found) {
+    DIR* dir = opendir(path.ToNative().c_str());
+
+    if (dir == nullptr) {
+      if (allow_not_found) {
+        ARROW_ASSIGN_OR_RAISE(bool exists, FileExists(path));
+        if (!exists) {
+          return std::make_unique<UnixDirIterator>(nullptr, nullptr);
+        }
+      }
+      return IOErrorFromErrno(errno, "Cannot list directory '", path.ToString(), "'.");
+    }
+    errno = 0;
+    dirent* entry = readdir(dir);
+
+    if (entry == nullptr) {
+      if (errno != 0) {
+        return IOErrorFromErrno(errno, "Cannot list directory '", path.ToString(), "'.");
+      }
+      return std::make_unique<UnixDirIterator>(dir, nullptr);
+    }
+
+    auto dir_it = std::make_unique<UnixDirIterator>(dir, entry);
+    ARROW_RETURN_NOT_OK(dir_it->SkipSpecial());
+    return dir_it;
+  }
+
+ private:
+  DIR* directory_;
+  struct dirent* entry_;
+};
+
+ARROW_NOINLINE Status ListDir(const PlatformFilename& base_dir, bool allow_not_found,
+               const std::function<Status(const DirIterator&)>& callback) {
+  ARROW_ASSIGN_OR_RAISE(auto dir_it, UnixDirIterator::Open(base_dir, allow_not_found));
+
+  while (!dir_it->Done()) {
+    ARROW_RETURN_NOT_OK(callback(*dir_it));
+    auto status = dir_it->Next();
+
+    if (!status.ok()) {
+      if (status.IsIOError()) {
+        auto detail = status.detail();
+        std::string detail_str;
+        if (detail) {
+          detail_str = detail->ToString();
+        }
+        return Status::IOError(status.message(), ": '", base_dir.ToString(), "'. Detail: ", detail_str);
+      }
+
+      return status;
     }
   }
+
+  return Status::OK();
+}
+
+Status GetFileInfoImpl(const FileSelector& select, std::vector<FileInfo>* results) {
+  RETURN_NOT_OK(ValidatePath(select.base_dir));
+  ARROW_ASSIGN_OR_RAISE(auto base_dir, PlatformFilename::FromString(select.base_dir));
+
+  std::stack<FileSelector> stack;
+  stack.push(select);
+  const bool recursive = select.recursive;
+  const bool needs_extended_file_info = select.needs_extended_file_info;
+
+  while (!stack.empty()) {
+    auto current = stack.top();
+    stack.pop();
+
+    // #ifdef _WIN32
+    // TODO: Return a not-ok-Result on WIN32 if Windows UWP/Extended/LongPath
+    // TODO: Make sure I understand the difference between a PlatformFilename and not
+    // if (select.base_dir.rfind("//?/", 0) && select.needs_extended_file_info) {
+    //   return Status::Invalid("FileSelector with needs_extended_file_info is ");
+    // }
+    // #endif
+
+    // RETURN_NOT_OK(StatSelector(fn, select, 0, &results));
+    ARROW_ASSIGN_OR_RAISE(auto base_dir, PlatformFilename::FromString(current.base_dir));
+    auto status = ListDir(base_dir, current.allow_not_found, [&](const DirIterator& dir_entry) {
+      // TODO: Next step, we just changed this to properly propagate the directory
+      // this should fix the tests.
+      ARROW_ASSIGN_OR_RAISE(auto current_base_dir,
+                            PlatformFilename::FromString(current.base_dir));
+      ARROW_ASSIGN_OR_RAISE(PlatformFilename full_fn,
+                            current_base_dir.Join(dir_entry.name()));
+
+      std::string full_fn_string = full_fn.ToString();
+
+      auto file_type = FileType::File;
+      if (dir_entry.is_directory()) {
+        file_type = FileType::Directory;
+        if (recursive && current.max_recursion > 0) {
+          FileSelector dir_selector;
+          dir_selector.base_dir = full_fn_string;
+          dir_selector.recursive = current.recursive;
+          dir_selector.max_recursion = current.max_recursion - 1;
+          // TODO: Document why we're doing this
+          dir_selector.allow_not_found = false;
+          dir_selector.needs_extended_file_info = needs_extended_file_info;
+
+          stack.push(dir_selector);
+        }
+      }
+
+      if (needs_extended_file_info) {
+        ARROW_ASSIGN_OR_RAISE(FileInfo stat_info, StatFile(full_fn.ToNative()));
+        results->push_back(std::move(stat_info));
+      } else {
+        auto& info = results->emplace_back(std::move(full_fn_string), file_type);
+        info.set_size(kNoSize);
+        info.set_mtime(kNoTime);
+      }
+
+      return Status::OK();
+    });
+
+    ARROW_RETURN_NOT_OK(status);
+  }
+
   return Status::OK();
 }
 
@@ -306,11 +475,12 @@ Result<FileInfo> LocalFileSystem::GetFileInfo(const std::string& path) {
   return StatFile(fn.ToNative());
 }
 
+// TODO: Next step is to make an auxiliary function this calls but takes
+// the base dir and the results as a pointer and continues filling in it
+// recursively
 Result<std::vector<FileInfo>> LocalFileSystem::GetFileInfo(const FileSelector& select) {
-  RETURN_NOT_OK(ValidatePath(select.base_dir));
-  ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(select.base_dir));
   std::vector<FileInfo> results;
-  RETURN_NOT_OK(StatSelector(fn, select, 0, &results));
+  ARROW_RETURN_NOT_OK(GetFileInfoImpl(select, &results));
   return results;
 }
 
@@ -365,9 +535,19 @@ class AsyncStatSelector {
 
     ARROW_ASSIGN_OR_RAISE(
         auto base_dir, arrow::internal::PlatformFilename::FromString(selector.base_dir));
-    ARROW_RETURN_NOT_OK(DoDiscovery(std::move(base_dir), 0, std::move(selector),
-                                    std::make_shared<DiscoveryState>(file_gen.producer()),
-                                    io_context, fs_opts.file_info_batch_size));
+
+    if (selector.needs_extended_file_info || true) {
+      ARROW_RETURN_NOT_OK(
+          DoDiscovery(std::move(base_dir), 0, std::move(selector),
+                      std::make_shared<DiscoveryState>(file_gen.producer()), io_context,
+                      fs_opts.file_info_batch_size));
+    } else {
+      // TODO: We need to deal with this but just not now
+      // ARROW_RETURN_NOT_OK(
+      //     DoDiscoveryStdFilesystem(std::move(base_dir), 0, std::move(selector),
+      //                              std::make_shared<DiscoveryState>(file_gen.producer()),
+      //                              io_context, fs_opts.file_info_batch_size));
+    }
 
     return file_gen;
   }
@@ -403,6 +583,7 @@ class AsyncStatSelector {
     std::shared_ptr<DiscoveryState> discovery_state_;
     FileInfoVector current_chunk_;
     std::vector<PlatformFilename> child_fns_;
+    std::vector<FileInfo> child_fis_;
     size_t idx_ = 0;
     bool initialized_ = false;
 
@@ -421,20 +602,27 @@ class AsyncStatSelector {
     /// Pre-initialize the iterator by listing directory contents and caching
     /// in the current instance.
     Status Initialize() {
-      auto result = arrow::internal::ListDir(dir_fn_);
-      if (!result.ok()) {
-        auto status = result.status();
-        if (selector_.allow_not_found && status.IsIOError()) {
-          ARROW_ASSIGN_OR_RAISE(bool exists, FileExists(dir_fn_));
-          if (!exists) {
-            return Status::OK();
-          }
-        }
-        return status;
-      }
-      child_fns_ = result.MoveValueUnsafe();
+      auto status =
+          ListDir(dir_fn_, selector_.allow_not_found, [this](const DirIterator& dir_entry) {
+            ARROW_ASSIGN_OR_RAISE(PlatformFilename full_fn,
+                                  dir_fn_.Join(dir_entry.name()));
 
-      const size_t dirent_count = child_fns_.size();
+            // Ours
+            auto file_type = FileType::File;
+            if (dir_entry.is_directory()) {
+              file_type = FileType::Directory;
+            }
+            auto& info = child_fis_.emplace_back(full_fn.ToString(), file_type);
+            info.set_size(kNoSize);
+            info.set_mtime(kNoTime);
+
+            // Older
+            child_fns_.push_back(std::move(full_fn));
+            return Status::OK();
+          });
+      ARROW_RETURN_NOT_OK(status);
+
+      const size_t dirent_count = child_fis_.size();
       current_chunk_.reserve(dirent_count >= file_info_batch_size_ ? file_info_batch_size_
                                                                    : dirent_count);
 
@@ -449,17 +637,22 @@ class AsyncStatSelector {
           return Finish(init);
         }
       }
-      while (idx_ < child_fns_.size()) {
-        auto full_fn = dir_fn_.Join(child_fns_[idx_++]);
-        auto res = StatFile(full_fn.ToNative());
-        if (!res.ok()) {
-          return Finish(res.status());
+      while (idx_ < child_fis_.size()) {
+        auto child_file_info = child_fis_[idx_++];
+        ARROW_ASSIGN_OR_RAISE(auto full_fn,
+                              PlatformFilename::FromString(child_file_info.path()));
+        if (selector_.needs_extended_file_info) {
+          auto res = StatFile(full_fn.ToNative());
+          if (!res.ok()) {
+            return Finish(res.status());
+          }
+          auto info = res.MoveValueUnsafe();
+          child_file_info.set_size(info.size());
+          child_file_info.set_mtime(info.mtime());
         }
 
-        auto info = res.MoveValueUnsafe();
-
         // Try to recurse into subdirectories, if needed.
-        if (info.type() == FileType::Directory &&
+        if (child_file_info.type() == FileType::Directory &&
             nesting_depth_ < selector_.max_recursion && selector_.recursive) {
           auto status = DoDiscovery(std::move(full_fn), nesting_depth_ + 1, selector_,
                                     discovery_state_, io_context_, file_info_batch_size_);
@@ -468,7 +661,7 @@ class AsyncStatSelector {
           }
         }
         // Everything is ok. Add the item to the current chunk of data.
-        current_chunk_.emplace_back(std::move(info));
+        current_chunk_.push_back(std::move(child_file_info));
         // Keep `current_chunk_` as large, as `batch_size_`.
         // Otherwise, yield the complete chunk to the caller.
         if (current_chunk_.size() == file_info_batch_size_) {

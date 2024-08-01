@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <cerrno>
 #include <chrono>
+#include <cstdio>
 #include <string>
 #include <utility>
 #include <vector>
@@ -26,6 +27,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/buffer.h"
+#include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/mockfs.h"
 #include "arrow/filesystem/test_util.h"
 #include "arrow/io/interfaces.h"
@@ -48,9 +50,15 @@ std::vector<FileInfo> GetAllWithType(FileSystem* fs, FileType type) {
   FileSelector selector;
   selector.base_dir = "";
   selector.recursive = true;
-  std::vector<FileInfo> infos = std::move(fs->GetFileInfo(selector)).ValueOrDie();
+  auto infos_result = (fs->GetFileInfo(selector));
+  if (!infos_result.ok()) {
+    puts("Error in GetFileInfo\n");
+    puts(infos_result.status().ToString().c_str());
+    assert(false);
+    return {};
+  }
   std::vector<FileInfo> result;
-  for (const auto& info : infos) {
+  for (const auto& info : infos_result.ValueUnsafe()) {
     if (info.type() == type) {
       result.push_back(info);
     }

@@ -16,6 +16,9 @@
 // under the License.
 
 // Ensure 64-bit off_t for platforms where it matters
+#include <sys/dirent.h>
+#include "arrow/filesystem/filesystem.h"
+#include "arrow/status.h"
 #ifdef _FILE_OFFSET_BITS
 #undef _FILE_OFFSET_BITS
 #endif
