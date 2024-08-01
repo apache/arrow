@@ -83,7 +83,7 @@
     "esbuild-plugin-alias": "0.2.1",
     "eslint": "8.57.0",
     "eslint-plugin-jest": "28.5.0",
-    "eslint-plugin-unicorn": "54.0.0",
+    "eslint-plugin-unicorn": "55.0.0",
     "gulp": "4.0.2",
     "glob": "10.4.1",
     "google-closure-compiler": "20240317.0.0",
