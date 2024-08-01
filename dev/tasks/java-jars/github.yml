@@ -57,6 +57,11 @@ jobs:
           vcpkg_version=$(cat "arrow/.env" | grep "VCPKG" | cut -d "=" -f2 | tr -d '"')
           echo "VCPKG_VERSION=$vcpkg_version" >> $GITHUB_ENV
 
+      - name: Install CMake
+        env:
+          cmake: 3.29.2
+        run: arrow/ci/scripts/install_cmake.sh ${arch} linux ${cmake} /usr/local
+
       - name: Install Vcpkg
         run: arrow/ci/scripts/install_vcpkg.sh $VCPKG_ROOT $VCPKG_VERSION
 
