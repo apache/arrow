@@ -1688,17 +1688,17 @@ def test_opaque_type(pickle_module, storage_type, storage):
     assert result == opaque_type
 
     # IPC roundtrip
-    tensor_arr_class = opaque_type.__arrow_ext_class__()
+    opaque_arr_class = opaque_type.__arrow_ext_class__()
     storage = pa.array(storage, storage_type)
     arr = pa.ExtensionArray.from_storage(opaque_type, storage)
-    assert isinstance(arr, tensor_arr_class)
+    assert isinstance(arr, opaque_arr_class)
 
     with registered_extension_type(opaque_type):
         buf = ipc_write_batch(pa.RecordBatch.from_arrays([arr], ["ext"]))
         batch = ipc_read_batch(buf)
 
     assert batch.column(0).type.extension_name == "arrow.opaque"
-    assert isinstance(batch.column(0), tensor_arr_class)
+    assert isinstance(batch.column(0), opaque_arr_class)
 
     # cast storage -> extension type
     result = storage.cast(opaque_type)

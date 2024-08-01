@@ -85,6 +85,7 @@ may expose data type-specific methods or properties.
    UnionArray
    ExtensionArray
    FixedShapeTensorArray
+   OpaqueArray
 
 .. _api.scalar:
 
@@ -143,3 +144,5 @@ classes may expose data type-specific methods or properties.
    StructScalar
    UnionScalar
    ExtensionScalar
+   FixedShapeTensorScalar
+   OpaqueScalar
