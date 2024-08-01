@@ -57,7 +57,7 @@ jobs:
           vcpkg_version=$(cat "arrow/.env" | grep "VCPKG" | cut -d "=" -f2 | tr -d '"')
           echo "VCPKG_VERSION=$vcpkg_version" >> $GITHUB_ENV
 
-    {% if ARCH == "aarch64" %}
+    {% if ARCH_ALIAS == "aarch64" %}
       - name: Install CMake
         env:
           cmake: 3.29.2
