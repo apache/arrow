@@ -205,8 +205,6 @@ public class ComplexCopier {
         return (FieldWriter) writer.struct();
       case FIXED_SIZE_LIST:
       case LIST:
-      case LISTVIEW:
-        return (FieldWriter) writer.listView();
       case NULL:
         return (FieldWriter) writer.list();
       case LISTVIEW:

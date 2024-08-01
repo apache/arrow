@@ -72,7 +72,7 @@ public class Union${listName}Writer extends AbstractFieldWriter {
 
   public Union${listName}Writer(${listName}Vector vector, NullableStructWriterFactory nullableStructWriterFactory) {
     this.vector = vector;
-    <#if listName = "ListView">
+    <#if listName = "ListView" || listName = "LargeListView">
     this.writer = new PromotableViewWriter(vector.getDataVector(), vector, nullableStructWriterFactory);
     <#else>
     this.writer = new PromotableWriter(vector.getDataVector(), vector, nullableStructWriterFactory);

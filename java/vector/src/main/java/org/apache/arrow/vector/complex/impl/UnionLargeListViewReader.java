@@ -60,8 +60,11 @@ public class UnionLargeListViewReader extends AbstractFieldReader {
       size = 0;
     } else {
       currentOffset =
-          vector.getOffsetBuffer().getInt(index * (long) BaseLargeRepeatedValueViewVector.OFFSET_WIDTH);
-      size = vector.getSizeBuffer().getInt(index * (long) BaseLargeRepeatedValueViewVector.SIZE_WIDTH);
+          vector
+              .getOffsetBuffer()
+              .getInt(index * (long) BaseLargeRepeatedValueViewVector.OFFSET_WIDTH);
+      size =
+          vector.getSizeBuffer().getInt(index * (long) BaseLargeRepeatedValueViewVector.SIZE_WIDTH);
     }
   }
 

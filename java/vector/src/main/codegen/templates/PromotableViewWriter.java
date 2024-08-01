@@ -68,6 +68,15 @@ public class PromotableViewWriter extends PromotableWriter {
     super(v, listViewVector, nullableStructWriterFactory);
   }
 
+  public PromotableViewWriter(ValueVector v, LargeListViewVector largeListViewVector) {
+    super(v, largeListViewVector);
+  }
+
+  public PromotableViewWriter(ValueVector v, LargeListViewVector largeListViewVector,
+      NullableStructWriterFactory nullableStructWriterFactory) {
+    super(v, largeListViewVector, nullableStructWriterFactory);
+  }
+
   public PromotableViewWriter(ValueVector v, AbstractStructVector parentContainer) {
     super(v, parentContainer);
   }
