@@ -23,6 +23,7 @@
 #include <string>
 
 #include "arrow/buffer.h"
+#include "arrow/chunked_array.h"
 #include "arrow/compute/exec.h"
 #include "arrow/device_allocation_type_set.h"
 #include "arrow/result.h"
@@ -431,6 +432,25 @@ bool InputType::Matches(const Datum& value) const {
   return Matches(*value.type());
 }
 
+bool InputType::MatchesDeviceAllocationType(const Datum& value) const {
+  DCHECK(Matches(value));
+  switch (value.kind()) {
+    case Datum::NONE:
+    case Datum::RECORD_BATCH:
+    case Datum::TABLE:
+      break;
+    case Datum::ARRAY:
+      return accepted_device_types_.contains(value.array()->device_type());
+    case Datum::CHUNKED_ARRAY:
+      return accepted_device_types_.Contains(value.chunked_array()->device_types());
+    case Datum::SCALAR:
+      // Scalars are asssumed as always residing in CPU memory for now.
+      return accepted_device_types_.contains(DeviceAllocationType::kCPU);
+  }
+  DCHECK(false) << "MatchesDeviceAllocationType expects ARRAY, CHUNKED_ARRAY or SCALAR";
+  return false;
+}
+
 const std::shared_ptr<DataType>& InputType::type() const {
   DCHECK_EQ(InputType::EXACT_TYPE, kind_);
   return type_;
@@ -527,6 +547,50 @@ bool KernelSignature::MatchesInputs(const std::vector<TypeHolder>& types) const 
     }
   }
   return true;
+}
+
+bool KernelSignature::MatchesDeviceAllocationTypes(
+    const std::vector<Datum>& args, DeviceAllocationTypeSet* out_expected_device_types,
+    int* out_offending_arg_index) const {
+  DeviceAllocationTypeSet expected_device_types;
+  int offending_arg_index = 0;
+  bool matches = true;
+  if (is_varargs_) {
+    for (size_t i = 0; i < args.size(); ++i) {
+      auto& param_type = in_types_[std::min(i, in_types_.size() - 1)];
+      DCHECK(param_type.Matches(*args[i].type()));
+      if (!param_type.MatchesDeviceAllocationType(args[i])) {
+        matches = false;
+        expected_device_types = param_type.accepted_device_types();
+        offending_arg_index = static_cast<int>(i);
+        break;
+      }
+    }
+  } else {
+    DCHECK(args.size() == in_types_.size());
+    if (args.size() != in_types_.size()) {
+      matches = false;
+    } else {
+      for (size_t i = 0; i < in_types_.size(); ++i) {
+        auto& param_type = in_types_[i];
+        DCHECK(param_type.Matches(*args[i].type()));
+        if (!param_type.MatchesDeviceAllocationType(args[i])) {
+          matches = false;
+          offending_arg_index = static_cast<int>(i);
+          expected_device_types = param_type.accepted_device_types();
+          break;
+        }
+      }
+    }
+  }
+
+  if (out_expected_device_types) {
+    *out_expected_device_types = expected_device_types;
+  }
+  if (out_offending_arg_index) {
+    *out_offending_arg_index = offending_arg_index;
+  }
+  return matches;
 }
 
 size_t KernelSignature::Hash() const {
