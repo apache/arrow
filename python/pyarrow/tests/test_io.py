@@ -25,6 +25,7 @@ import math
 import os
 import pathlib
 import pytest
+import random
 import sys
 import tempfile
 import weakref
@@ -1071,8 +1072,8 @@ def test_mock_output_stream():
 @pytest.fixture
 def sample_disk_data(request, tmpdir):
     SIZE = 4096
-    arr = np.random.randint(0, 256, size=SIZE).astype('u1')
-    data = arr.tobytes()[:SIZE]
+    arr = [random.randint(0, 255) for _ in range(SIZE)]
+    data = bytes(arr[:SIZE])
 
     path = os.path.join(str(tmpdir), guid())
 
@@ -1119,13 +1120,11 @@ def _check_native_file_reader(FACTORY, sample_data,
     assert f.tell() == ex_length
 
 
-@pytest.mark.numpy
 def test_memory_map_reader(sample_disk_data):
     _check_native_file_reader(pa.memory_map, sample_disk_data,
                               allow_read_out_of_bounds=False)
 
 
-@pytest.mark.numpy
 def test_memory_map_retain_buffer_reference(sample_disk_data):
     path, data = sample_disk_data
 
@@ -1142,7 +1141,6 @@ def test_memory_map_retain_buffer_reference(sample_disk_data):
         assert buf.to_pybytes() == expected
 
 
-@pytest.mark.numpy
 def test_os_file_reader(sample_disk_data):
     _check_native_file_reader(pa.OSFile, sample_disk_data)
 
@@ -1158,13 +1156,12 @@ def _try_delete(path):
         pass
 
 
-@pytest.mark.numpy
 def test_memory_map_writer(tmpdir):
     if sys.platform == "emscripten":
         pytest.xfail("Multiple memory maps to same file don't work on emscripten")
     SIZE = 4096
-    arr = np.random.randint(0, 256, size=SIZE).astype('u1')
-    data = arr.tobytes()[:SIZE]
+    arr = [random.randint(0, 255) for _ in range(SIZE)]
+    data = bytes(arr[:SIZE])
 
     path = os.path.join(str(tmpdir), guid())
     with open(path, 'wb') as f:
@@ -1202,12 +1199,11 @@ def test_memory_map_writer(tmpdir):
     assert f.read(3) == b'foo'
 
 
-@pytest.mark.numpy
 def test_memory_map_resize(tmpdir):
     SIZE = 4096
-    arr = np.random.randint(0, 256, size=SIZE).astype(np.uint8)
-    data1 = arr.tobytes()[:(SIZE // 2)]
-    data2 = arr.tobytes()[(SIZE // 2):]
+    arr = [random.randint(0, 255) for _ in range(SIZE)]
+    data1 = bytes(arr[:(SIZE // 2)])
+    data2 = bytes(arr[(SIZE // 2):])
 
     path = os.path.join(str(tmpdir), guid())
 
@@ -1220,7 +1216,7 @@ def test_memory_map_resize(tmpdir):
     mmap.close()
 
     with open(path, 'rb') as f:
-        assert f.read() == arr.tobytes()
+        assert f.read() == bytes(arr[:SIZE])
 
 
 def test_memory_zero_length(tmpdir):
@@ -1257,11 +1253,10 @@ def test_memory_map_deref_remove(tmpdir):
     os.remove(path)  # Shouldn't fail
 
 
-@pytest.mark.numpy
 def test_os_file_writer(tmpdir):
     SIZE = 4096
-    arr = np.random.randint(0, 256, size=SIZE).astype('u1')
-    data = arr.tobytes()[:SIZE]
+    arr = [random.randint(0, 255) for _ in range(SIZE)]
+    data = bytes(arr[:SIZE])
 
     path = os.path.join(str(tmpdir), guid())
     with open(path, 'wb') as f:
