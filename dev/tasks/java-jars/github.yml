@@ -59,9 +59,11 @@ jobs:
 
       - name: Install CMake
         env:
-          cmake: 3.29.2
-        run: arrow/ci/scripts/install_cmake.sh ${ARCH} linux ${cmake} /usr/local
-
+          CMAKE_VERSION: 3.29.2
+        run:
+          if [ -z "$(which cmake)" ]; then
+            arrow/ci/scripts/install_cmake.sh ${ARCH} linux ${CMAKE_VERSION} /usr/local
+          fi
       - name: Install Vcpkg
         run: arrow/ci/scripts/install_vcpkg.sh $VCPKG_ROOT $VCPKG_VERSION
 
