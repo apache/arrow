@@ -978,63 +978,64 @@ def check_tensors(tensor, expected_tensor, type, size):
 
 
 @pytest.mark.numpy
-def test_recordbatch_to_tensor_uniform_type():
-    for typ in [
-        np.uint8, np.uint16, np.uint32, np.uint64,
-        np.int8, np.int16, np.int32, np.int64,
-        np.float32, np.float64,
-    ]:
-        arr1 = [1, 2, 3, 4, 5, 6, 7, 8, 9]
-        arr2 = [10, 20, 30, 40, 50, 60, 70, 80, 90]
-        arr3 = [100, 100, 100, 100, 100, 100, 100, 100, 100]
-        batch = pa.RecordBatch.from_arrays(
-            [
-                pa.array(arr1, type=pa.from_numpy_dtype(typ)),
-                pa.array(arr2, type=pa.from_numpy_dtype(typ)),
-                pa.array(arr3, type=pa.from_numpy_dtype(typ)),
-            ], ["a", "b", "c"]
-        )
+@pytest.mark.parametrize('typ_str', [
+    "uint8", "uint16", "uint32", "uint64",
+    "int8", "int16", "int32", "int64",
+    "float32", "float64",
+])
+def test_recordbatch_to_tensor_uniform_type(typ_str):
+    typ = np.dtype(typ_str)
+    arr1 = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    arr2 = [10, 20, 30, 40, 50, 60, 70, 80, 90]
+    arr3 = [100, 100, 100, 100, 100, 100, 100, 100, 100]
+    batch = pa.RecordBatch.from_arrays(
+        [
+            pa.array(arr1, type=pa.from_numpy_dtype(typ)),
+            pa.array(arr2, type=pa.from_numpy_dtype(typ)),
+            pa.array(arr3, type=pa.from_numpy_dtype(typ)),
+        ], ["a", "b", "c"]
+    )
 
-        result = batch.to_tensor(row_major=False)
-        x = np.column_stack([arr1, arr2, arr3]).astype(typ, order="F")
-        expected = pa.Tensor.from_numpy(x)
-        check_tensors(result, expected, pa.from_numpy_dtype(typ), 27)
+    result = batch.to_tensor(row_major=False)
+    x = np.column_stack([arr1, arr2, arr3]).astype(typ, order="F")
+    expected = pa.Tensor.from_numpy(x)
+    check_tensors(result, expected, pa.from_numpy_dtype(typ), 27)
 
-        result = batch.to_tensor()
-        x = np.column_stack([arr1, arr2, arr3]).astype(typ, order="C")
-        expected = pa.Tensor.from_numpy(x)
-        check_tensors(result, expected, pa.from_numpy_dtype(typ), 27)
+    result = batch.to_tensor()
+    x = np.column_stack([arr1, arr2, arr3]).astype(typ, order="C")
+    expected = pa.Tensor.from_numpy(x)
+    check_tensors(result, expected, pa.from_numpy_dtype(typ), 27)
 
-        # Test offset
-        batch1 = batch.slice(1)
-        arr1 = [2, 3, 4, 5, 6, 7, 8, 9]
-        arr2 = [20, 30, 40, 50, 60, 70, 80, 90]
-        arr3 = [100, 100, 100, 100, 100, 100, 100, 100]
+    # Test offset
+    batch1 = batch.slice(1)
+    arr1 = [2, 3, 4, 5, 6, 7, 8, 9]
+    arr2 = [20, 30, 40, 50, 60, 70, 80, 90]
+    arr3 = [100, 100, 100, 100, 100, 100, 100, 100]
 
-        result = batch1.to_tensor(row_major=False)
-        x = np.column_stack([arr1, arr2, arr3]).astype(typ, order="F")
-        expected = pa.Tensor.from_numpy(x)
-        check_tensors(result, expected, pa.from_numpy_dtype(typ), 24)
+    result = batch1.to_tensor(row_major=False)
+    x = np.column_stack([arr1, arr2, arr3]).astype(typ, order="F")
+    expected = pa.Tensor.from_numpy(x)
+    check_tensors(result, expected, pa.from_numpy_dtype(typ), 24)
 
-        result = batch1.to_tensor()
-        x = np.column_stack([arr1, arr2, arr3]).astype(typ, order="C")
-        expected = pa.Tensor.from_numpy(x)
-        check_tensors(result, expected, pa.from_numpy_dtype(typ), 24)
+    result = batch1.to_tensor()
+    x = np.column_stack([arr1, arr2, arr3]).astype(typ, order="C")
+    expected = pa.Tensor.from_numpy(x)
+    check_tensors(result, expected, pa.from_numpy_dtype(typ), 24)
 
-        batch2 = batch.slice(1, 5)
-        arr1 = [2, 3, 4, 5, 6]
-        arr2 = [20, 30, 40, 50, 60]
-        arr3 = [100, 100, 100, 100, 100]
+    batch2 = batch.slice(1, 5)
+    arr1 = [2, 3, 4, 5, 6]
+    arr2 = [20, 30, 40, 50, 60]
+    arr3 = [100, 100, 100, 100, 100]
 
-        result = batch2.to_tensor(row_major=False)
-        x = np.column_stack([arr1, arr2, arr3]).astype(typ, order="F")
-        expected = pa.Tensor.from_numpy(x)
-        check_tensors(result, expected, pa.from_numpy_dtype(typ), 15)
+    result = batch2.to_tensor(row_major=False)
+    x = np.column_stack([arr1, arr2, arr3]).astype(typ, order="F")
+    expected = pa.Tensor.from_numpy(x)
+    check_tensors(result, expected, pa.from_numpy_dtype(typ), 15)
 
-        result = batch2.to_tensor()
-        x = np.column_stack([arr1, arr2, arr3]).astype(typ, order="C")
-        expected = pa.Tensor.from_numpy(x)
-        check_tensors(result, expected, pa.from_numpy_dtype(typ), 15)
+    result = batch2.to_tensor()
+    x = np.column_stack([arr1, arr2, arr3]).astype(typ, order="C")
+    expected = pa.Tensor.from_numpy(x)
+    check_tensors(result, expected, pa.from_numpy_dtype(typ), 15)
 
 
 @pytest.mark.numpy
