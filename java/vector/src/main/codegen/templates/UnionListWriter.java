@@ -59,8 +59,11 @@ public class Union${listName}Writer extends AbstractFieldWriter {
   private static final int OFFSET_WIDTH = 4;
   </#if>
 
-  <#if listName == "ListView" || listName == "LargeListView">
-  private static final long SIZE_WIDTH = listName == "LargeListView" ? 8 : 4;
+  <#if listName == "ListView">
+  private static final long SIZE_WIDTH = 4;
+  </#if>
+  <#if listName == "LargeListView">
+  private static final long SIZE_WIDTH = 8;
   </#if>
 
   public Union${listName}Writer(${listName}Vector vector) {

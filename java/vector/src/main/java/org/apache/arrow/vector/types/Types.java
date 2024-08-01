@@ -135,6 +135,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType.FloatingPoint;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 import org.apache.arrow.vector.types.pojo.ArrowType.Interval;
 import org.apache.arrow.vector.types.pojo.ArrowType.LargeBinary;
+import org.apache.arrow.vector.types.pojo.ArrowType.LargeListView;
 import org.apache.arrow.vector.types.pojo.ArrowType.LargeUtf8;
 import org.apache.arrow.vector.types.pojo.ArrowType.List;
 import org.apache.arrow.vector.types.pojo.ArrowType.ListView;
@@ -1008,6 +1009,11 @@ public class Types {
           @Override
           public MinorType visit(ListView type) {
             return MinorType.LISTVIEW;
+          }
+
+          @Override
+          public MinorType visit(LargeListView type) {
+            return MinorType.LARGELISTVIEW;
           }
 
           @Override
