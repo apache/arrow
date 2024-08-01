@@ -773,7 +773,97 @@ Result<std::vector<PlatformFilename>> ListDir(const PlatformFilename& dir_path) 
   return results;
 }
 
+// TODO(bryce): Add WinDirIterator definition
+
 #else
+
+namespace {
+class UnixDirIterator : public DirIterator {
+ public:
+  UnixDirIterator(DIR* directory, struct dirent* entry) {
+    directory_ = directory;
+    entry_ = entry;
+  }
+  ARROW_DISALLOW_COPY_AND_ASSIGN(UnixDirIterator);
+  ~UnixDirIterator() {
+    if (!directory_) {
+      return;
+    }
+    if (closedir(directory_) != 0) {
+      ARROW_LOG(WARNING) << "Cannot close directory handle: " << ErrnoMessage(errno);
+    }
+  }
+  std::string name() const override {
+    DCHECK(!Done());
+    return std::string{entry_->d_name};
+  }
+
+  bool is_directory() const override {
+    DCHECK(!Done());
+    return entry_->d_type == DT_DIR;
+  }
+
+  Status Next() override {
+    DCHECK(!Done());
+    struct dirent* entry = readdir(directory_);
+
+    if (entry == nullptr) {
+      if (errno != 0) {
+        return IOErrorFromErrno(errno, "Cannot list directory");
+      }
+      entry_ = nullptr;
+      return Status::OK();
+    }
+    entry_ = entry;
+
+    return SkipSpecial();
+  }
+
+  bool Done() const override { return !directory_ || !entry_; }
+
+  Status SkipSpecial() {
+    DCHECK(!Done());
+    if (strcmp(entry_->d_name, ".") == 0 || strcmp(entry_->d_name, "..") == 0) {
+      return Next();
+    }
+    return Status::OK();
+  }
+
+
+  static Result<std::unique_ptr<DirIterator>> Open(const PlatformFilename& path,
+                                                   bool allow_not_found) {
+    DIR* dir = opendir(path.ToNative().c_str());
+
+    if (dir == nullptr) {
+      if (allow_not_found) {
+        ARROW_ASSIGN_OR_RAISE(bool exists, FileExists(path));
+        if (!exists) {
+          return std::make_unique<UnixDirIterator>(nullptr, nullptr);
+        }
+      }
+      return IOErrorFromErrno(errno, "Cannot list directory '", path.ToString(), "'.");
+    }
+    errno = 0;
+    dirent* entry = readdir(dir);
+
+    if (entry == nullptr) {
+      if (errno != 0) {
+        return IOErrorFromErrno(errno, "Cannot list directory '", path.ToString(), "'.");
+      }
+      return std::make_unique<UnixDirIterator>(dir, nullptr);
+    }
+
+    auto dir_it = std::make_unique<UnixDirIterator>(dir, entry);
+    ARROW_RETURN_NOT_OK(dir_it->SkipSpecial());
+    return dir_it;
+  }
+
+ private:
+  DIR* directory_;
+  struct dirent* entry_;
+};
+
+}
 
 Result<std::vector<PlatformFilename>> ListDir(const PlatformFilename& dir_path) {
   DIR* dir = opendir(dir_path.ToNative().c_str());
@@ -805,6 +895,42 @@ Result<std::vector<PlatformFilename>> ListDir(const PlatformFilename& dir_path) 
 }
 
 #endif
+
+
+
+Result<std::unique_ptr<DirIterator>> DirIterator::Open(const PlatformFilename &path, bool allow_not_found) {
+#ifdef _WIN32
+  // TODO: Need Win32 version
+  // WinDirIterator::Open(path, allow_not_found);
+#else
+  return UnixDirIterator::Open(path, allow_not_found);
+#endif
+}
+
+Status ListDir(const PlatformFilename& base_dir, bool allow_not_found,
+               const std::function<Status(const DirIterator&)>& callback) {
+  ARROW_ASSIGN_OR_RAISE(auto dir_it, DirIterator::Open(base_dir, allow_not_found));
+
+  while (!dir_it->Done()) {
+    ARROW_RETURN_NOT_OK(callback(*dir_it));
+    auto status = dir_it->Next();
+
+    if (!status.ok()) {
+      if (status.IsIOError()) {
+        auto detail = status.detail();
+        std::string detail_str;
+        if (detail) {
+          detail_str = detail->ToString();
+        }
+        return Status::IOError(status.message(), ": '", base_dir.ToString(), "'. Detail: ", detail_str);
+      }
+
+      return status;
+    }
+  }
+
+  return Status::OK();
+}
 
 namespace {
 

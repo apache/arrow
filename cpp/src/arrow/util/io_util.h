@@ -22,6 +22,7 @@
 #endif
 
 #include <atomic>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -115,6 +116,26 @@ Result<bool> DeleteDirTree(const PlatformFilename& dir_path, bool allow_not_foun
 // The returned names are the children's base names, not including dir_path.
 ARROW_EXPORT
 Result<std::vector<PlatformFilename>> ListDir(const PlatformFilename& dir_path);
+
+/// TODO(bryce): docs
+class ARROW_EXPORT DirIterator {
+ public:
+  virtual ~DirIterator() {}
+  /// \pre !Done()
+  virtual std::string name() const = 0;
+  /// \pre !Done()
+  virtual bool is_directory() const = 0;
+  /// \pre !Done()
+  virtual Status Next() = 0;
+  virtual bool Done() const = 0;
+  static Result<std::unique_ptr<DirIterator>> Open(const PlatformFilename& path,
+                                                   bool allow_not_found);
+};
+
+// TODO: Docs
+ARROW_EXPORT
+Status ListDir(const PlatformFilename& base_dir, bool allow_not_found,
+               const std::function<Status(const DirIterator&)>& callback);
 
 /// Delete a file if it exists.
 ///

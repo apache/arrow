@@ -195,195 +195,6 @@ Result<FileInfo> StatFile(const std::string& path) {
 
 #endif
 
-/// TODO(bryce): docs
-class DirIterator {
- public:
-  virtual ~DirIterator() {}
-  /// \pre !Done()
-  virtual std::string name() const = 0;
-  /// \pre !Done()
-  virtual bool is_directory() const = 0;
-  /// \pre !Done()
-  virtual Status Next() = 0;
-  virtual bool Done() const = 0;
-};
-
-class UnixDirIterator : public DirIterator {
- public:
-  UnixDirIterator(DIR* directory, struct dirent* entry) {
-    directory_ = directory;
-    entry_ = entry;
-  }
-  ARROW_DISALLOW_COPY_AND_ASSIGN(UnixDirIterator);
-  ~UnixDirIterator() {
-    if (!directory_) {
-      return;
-    }
-    if (closedir(directory_) != 0) {
-      ARROW_LOG(WARNING) << "Cannot close directory handle: " << ErrnoMessage(errno);
-    }
-  }
-  std::string name() const override {
-    DCHECK(!Done());
-    return std::string{entry_->d_name};
-  }
-
-  bool is_directory() const override {
-    DCHECK(!Done());
-    return entry_->d_type == DT_DIR;
-  }
-
-  Status Next() override {
-    DCHECK(!Done());
-    struct dirent* entry = readdir(directory_);
-
-    if (entry == nullptr) {
-      if (errno != 0) {
-        return IOErrorFromErrno(errno, "Cannot list directory");
-      }
-      entry_ = nullptr;
-      return Status::OK();
-    }
-    entry_ = entry;
-
-    return SkipSpecial();
-  }
-
-  bool Done() const override { return !directory_ || !entry_; }
-
-  Status SkipSpecial() {
-    DCHECK(!Done());
-    if (strcmp(entry_->d_name, ".") == 0 || strcmp(entry_->d_name, "..") == 0) {
-      return Next();
-    }
-    return Status::OK();
-  }
-
-  static Result<std::unique_ptr<DirIterator>> Open(const PlatformFilename& path,
-                                                   bool allow_not_found) {
-    DIR* dir = opendir(path.ToNative().c_str());
-
-    if (dir == nullptr) {
-      if (allow_not_found) {
-        ARROW_ASSIGN_OR_RAISE(bool exists, FileExists(path));
-        if (!exists) {
-          return std::make_unique<UnixDirIterator>(nullptr, nullptr);
-        }
-      }
-      return IOErrorFromErrno(errno, "Cannot list directory '", path.ToString(), "'.");
-    }
-    errno = 0;
-    dirent* entry = readdir(dir);
-
-    if (entry == nullptr) {
-      if (errno != 0) {
-        return IOErrorFromErrno(errno, "Cannot list directory '", path.ToString(), "'.");
-      }
-      return std::make_unique<UnixDirIterator>(dir, nullptr);
-    }
-
-    auto dir_it = std::make_unique<UnixDirIterator>(dir, entry);
-    ARROW_RETURN_NOT_OK(dir_it->SkipSpecial());
-    return dir_it;
-  }
-
- private:
-  DIR* directory_;
-  struct dirent* entry_;
-};
-
-ARROW_NOINLINE Status ListDir(const PlatformFilename& base_dir, bool allow_not_found,
-               const std::function<Status(const DirIterator&)>& callback) {
-  ARROW_ASSIGN_OR_RAISE(auto dir_it, UnixDirIterator::Open(base_dir, allow_not_found));
-
-  while (!dir_it->Done()) {
-    ARROW_RETURN_NOT_OK(callback(*dir_it));
-    auto status = dir_it->Next();
-
-    if (!status.ok()) {
-      if (status.IsIOError()) {
-        auto detail = status.detail();
-        std::string detail_str;
-        if (detail) {
-          detail_str = detail->ToString();
-        }
-        return Status::IOError(status.message(), ": '", base_dir.ToString(), "'. Detail: ", detail_str);
-      }
-
-      return status;
-    }
-  }
-
-  return Status::OK();
-}
-
-Status GetFileInfoImpl(const FileSelector& select, std::vector<FileInfo>* results) {
-  RETURN_NOT_OK(ValidatePath(select.base_dir));
-  ARROW_ASSIGN_OR_RAISE(auto base_dir, PlatformFilename::FromString(select.base_dir));
-
-  std::stack<FileSelector> stack;
-  stack.push(select);
-  const bool recursive = select.recursive;
-  const bool needs_extended_file_info = select.needs_extended_file_info;
-
-  while (!stack.empty()) {
-    auto current = stack.top();
-    stack.pop();
-
-    // #ifdef _WIN32
-    // TODO: Return a not-ok-Result on WIN32 if Windows UWP/Extended/LongPath
-    // TODO: Make sure I understand the difference between a PlatformFilename and not
-    // if (select.base_dir.rfind("//?/", 0) && select.needs_extended_file_info) {
-    //   return Status::Invalid("FileSelector with needs_extended_file_info is ");
-    // }
-    // #endif
-
-    // RETURN_NOT_OK(StatSelector(fn, select, 0, &results));
-    ARROW_ASSIGN_OR_RAISE(auto base_dir, PlatformFilename::FromString(current.base_dir));
-    auto status = ListDir(base_dir, current.allow_not_found, [&](const DirIterator& dir_entry) {
-      // TODO: Next step, we just changed this to properly propagate the directory
-      // this should fix the tests.
-      ARROW_ASSIGN_OR_RAISE(auto current_base_dir,
-                            PlatformFilename::FromString(current.base_dir));
-      ARROW_ASSIGN_OR_RAISE(PlatformFilename full_fn,
-                            current_base_dir.Join(dir_entry.name()));
-
-      std::string full_fn_string = full_fn.ToString();
-
-      auto file_type = FileType::File;
-      if (dir_entry.is_directory()) {
-        file_type = FileType::Directory;
-        if (recursive && current.max_recursion > 0) {
-          FileSelector dir_selector;
-          dir_selector.base_dir = full_fn_string;
-          dir_selector.recursive = current.recursive;
-          dir_selector.max_recursion = current.max_recursion - 1;
-          // TODO: Document why we're doing this
-          dir_selector.allow_not_found = false;
-          dir_selector.needs_extended_file_info = needs_extended_file_info;
-
-          stack.push(dir_selector);
-        }
-      }
-
-      if (needs_extended_file_info) {
-        ARROW_ASSIGN_OR_RAISE(FileInfo stat_info, StatFile(full_fn.ToNative()));
-        results->push_back(std::move(stat_info));
-      } else {
-        auto& info = results->emplace_back(std::move(full_fn_string), file_type);
-        info.set_size(kNoSize);
-        info.set_mtime(kNoTime);
-      }
-
-      return Status::OK();
-    });
-
-    ARROW_RETURN_NOT_OK(status);
-  }
-
-  return Status::OK();
-}
-
 }  // namespace
 
 LocalFileSystemOptions LocalFileSystemOptions::Defaults() { return {}; }
@@ -475,9 +286,73 @@ Result<FileInfo> LocalFileSystem::GetFileInfo(const std::string& path) {
   return StatFile(fn.ToNative());
 }
 
-// TODO: Next step is to make an auxiliary function this calls but takes
-// the base dir and the results as a pointer and continues filling in it
-// recursively
+Status GetFileInfoImpl(const fs::FileSelector& select, std::vector<fs::FileInfo>* results) {
+  RETURN_NOT_OK(ValidatePath(select.base_dir));
+  ARROW_ASSIGN_OR_RAISE(auto base_dir, PlatformFilename::FromString(select.base_dir));
+
+  std::stack<FileSelector> stack;
+  stack.push(select);
+  const bool recursive = select.recursive;
+  const bool needs_extended_file_info = select.needs_extended_file_info;
+
+  while (!stack.empty()) {
+    auto current = stack.top();
+    stack.pop();
+
+    // #ifdef _WIN32
+    // TODO: Return a not-ok-Result on WIN32 if Windows UWP/Extended/LongPath
+    // TODO: Make sure I understand the difference between a PlatformFilename and not
+    // if (select.base_dir.rfind("//?/", 0) && select.needs_extended_file_info) {
+    //   return Status::Invalid("FileSelector with needs_extended_file_info is ");
+    // }
+    // #endif
+
+    // RETURN_NOT_OK(StatSelector(fn, select, 0, &results));
+    ARROW_ASSIGN_OR_RAISE(auto base_dir, PlatformFilename::FromString(current.base_dir));
+    auto status = ListDir(base_dir, current.allow_not_found, [&](const ::arrow::internal::DirIterator& dir_entry) {
+      // TODO: Next step, we just changed this to properly propagate the directory
+      // this should fix the tests.
+      ARROW_ASSIGN_OR_RAISE(auto current_base_dir,
+                            PlatformFilename::FromString(current.base_dir));
+      ARROW_ASSIGN_OR_RAISE(PlatformFilename full_fn,
+                            current_base_dir.Join(dir_entry.name()));
+
+      std::string full_fn_string = full_fn.ToString();
+
+      auto file_type = FileType::File;
+      if (dir_entry.is_directory()) {
+        file_type = FileType::Directory;
+        if (recursive && current.max_recursion > 0) {
+          FileSelector dir_selector;
+          dir_selector.base_dir = full_fn_string;
+          dir_selector.recursive = current.recursive;
+          dir_selector.max_recursion = current.max_recursion - 1;
+          // TODO: Document why we're doing this
+          dir_selector.allow_not_found = false;
+          dir_selector.needs_extended_file_info = needs_extended_file_info;
+
+          stack.push(dir_selector);
+        }
+      }
+
+      if (needs_extended_file_info) {
+        ARROW_ASSIGN_OR_RAISE(FileInfo stat_info, StatFile(full_fn.ToNative()));
+        results->push_back(std::move(stat_info));
+      } else {
+        auto& info = results->emplace_back(std::move(full_fn_string), file_type);
+        info.set_size(kNoSize);
+        info.set_mtime(kNoTime);
+      }
+
+      return Status::OK();
+    });
+
+    ARROW_RETURN_NOT_OK(status);
+  }
+
+  return Status::OK();
+}
+
 Result<std::vector<FileInfo>> LocalFileSystem::GetFileInfo(const FileSelector& select) {
   std::vector<FileInfo> results;
   ARROW_RETURN_NOT_OK(GetFileInfoImpl(select, &results));
@@ -603,7 +478,7 @@ class AsyncStatSelector {
     /// in the current instance.
     Status Initialize() {
       auto status =
-          ListDir(dir_fn_, selector_.allow_not_found, [this](const DirIterator& dir_entry) {
+          ListDir(dir_fn_, selector_.allow_not_found, [this](const ::arrow::internal::DirIterator& dir_entry) {
             ARROW_ASSIGN_OR_RAISE(PlatformFilename full_fn,
                                   dir_fn_.Join(dir_entry.name()));
 
