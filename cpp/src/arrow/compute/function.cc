@@ -101,11 +101,36 @@ Status Function::CheckArity(size_t num_args) const {
 namespace {
 
 Status CheckOptions(const Function& function, const FunctionOptions* options) {
-  if (options == nullptr && function.doc().options_required) {
+  if (ARROW_PREDICT_FALSE(options == nullptr && function.doc().options_required)) {
     return Status::Invalid("Function '", function.name(),
                            "' cannot be called without options");
   }
   return Status::OK();
+}
+
+Status BadDeviceTypeStatus(const std::string& func_name,
+                           DeviceAllocationTypeSet expected_device_type_set,
+                           int offending_arg_index, const Datum& offending_arg) {
+  std::string ordinal;
+  switch (offending_arg_index) {
+    case 0:
+      ordinal = "1st";
+      break;
+    case 1:
+      ordinal = "2nd";
+      break;
+    case 2:
+      ordinal = "3rd";
+      break;
+    default:
+      ordinal = std::to_string(offending_arg_index + 1);
+      ordinal += "th";
+      break;
+  }
+  return Status::NotImplemented("'", func_name, "' expects ",
+                                " argument's device allocation types(s) to be in ",
+                                expected_device_type_set.ToString(), " but got ",
+                                offending_arg.DeviceTypeSet().ToString(), ".");
 }
 
 }  // namespace
@@ -232,6 +257,15 @@ struct FunctionExecutorImpl : public FunctionExecutor {
     if (in_types.size() != args.size()) {
       return Status::Invalid("Execution of '", func_name, "' expected ", in_types.size(),
                              " arguments but got ", args.size());
+    }
+    {
+      DeviceAllocationTypeSet expected_device_type_set;
+      int offending_arg_index = 0;
+      if (ARROW_PREDICT_FALSE(!kernel->signature->MatchesDeviceAllocationTypes(
+              args, &expected_device_type_set, &offending_arg_index))) {
+        return BadDeviceTypeStatus(func_name, expected_device_type_set,
+                                   offending_arg_index, args[offending_arg_index]);
+      }
     }
     if (!inited) {
       ARROW_RETURN_NOT_OK(Init(NULLPTR, default_exec_context()));
