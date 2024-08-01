@@ -648,6 +648,19 @@ public class ListVector extends BaseRepeatedValueVector
     }
   }
 
+  /**
+   * Slice this vector at desired index and length and transfer the corresponding data to the target
+   * vector.
+   *
+   * @param startIndex start position of the split in source vector.
+   * @param length length of the split.
+   * @param target destination vector
+   */
+  public void splitAndTransferTo(int startIndex, int length, ListVector target) {
+    TransferImpl transfer = new TransferImpl(target);
+    transfer.splitAndTransfer(startIndex, length);
+  }
+
   @Override
   protected FieldReader getReaderImpl() {
     return new UnionListReader(this);
