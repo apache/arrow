@@ -39,7 +39,7 @@ ${mvn} clean test
 
 projects=()
 if [ "${ARROW_DATASET}" = "ON" ]; then
-  projects+=(gandiva)
+  projects+=(dataset)
 fi
 if [ "${ARROW_GANDIVA}" = "ON" ]; then
   projects+=(gandiva)
