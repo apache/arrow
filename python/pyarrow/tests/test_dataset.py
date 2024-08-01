@@ -20,6 +20,7 @@ import datetime
 import os
 import pathlib
 import posixpath
+import random
 import sys
 import tempfile
 import textwrap
@@ -583,7 +584,6 @@ def test_abstract_classes():
             klass()
 
 
-@pytest.mark.numpy
 def test_partitioning():
     schema = pa.schema([
         pa.field('i64', pa.int64()),
@@ -688,8 +688,8 @@ def test_partitioning():
 
     # test partitioning roundtrip
     table = pa.table([
-        pa.array(range(20)), pa.array(np.random.randn(20)),
-        pa.array(np.repeat(['a', 'b'], 10))],
+        pa.array(range(20)), pa.array(random.random() for _ in range(20)),
+        pa.array(['a'] * 10 + ['b'] * 10)],
         names=["f1", "f2", "part"]
     )
     partitioning_schema = pa.schema([("part", pa.string())])
@@ -2498,12 +2498,11 @@ def _create_partitioned_dataset(basedir):
         pq.write_table(table.slice(3*i, 3), part / "test.parquet")
 
     full_table = table.append_column(
-        "part", pa.array(np.repeat([0, 1, 2], 3), type=pa.int32()))
+        "part", pa.array([0] * 3 + [1] * 3 + [2] * 3, type=pa.int32()))
 
     return full_table, path
 
 
-@pytest.mark.numpy
 @pytest.mark.parquet
 def test_open_dataset_partitioned_directory(tempdir, dataset_reader, pickle_module):
     full_table, path = _create_partitioned_dataset(tempdir)
@@ -2537,7 +2536,7 @@ def test_open_dataset_partitioned_directory(tempdir, dataset_reader, pickle_modu
 
     result = dataset.to_table()
     expected = table.append_column(
-        "part", pa.array(np.repeat([0, 1, 2], 3), type=pa.int8()))
+        "part", pa.array([0] * 3 + [1] * 3 + [2] * 3, type=pa.int8()))
     assert result.equals(expected)
 
 
@@ -3572,7 +3571,7 @@ def _create_parquet_dataset_simple(root_path):
     metadata_collector = []
 
     for i in range(4):
-        table = pa.table({'f1': [i] * 10, 'f2': np.random.randn(10)})
+        table = pa.table({'f1': [i] * 10, 'f2': [random.random() for _ in range(10)]})
         pq.write_to_dataset(
             table, str(root_path), metadata_collector=metadata_collector
         )
@@ -4260,7 +4259,7 @@ def test_write_dataset_existing_data(tempdir):
 
 
 def _generate_random_int_array(size=4, min=1, max=10):
-    return np.random.randint(min, max, size)
+    return [random.randint(min, max) for _ in range(size)]
 
 
 def _generate_data_and_columns(num_of_columns, num_of_records):
@@ -4279,7 +4278,6 @@ def _get_num_of_files_generated(base_directory, file_format):
     return len(list(pathlib.Path(base_directory).glob(f'**/*.{file_format}')))
 
 
-@pytest.mark.numpy
 @pytest.mark.parquet
 def test_write_dataset_max_rows_per_file(tempdir):
     directory = tempdir / 'ds'
@@ -4317,7 +4315,6 @@ def test_write_dataset_max_rows_per_file(tempdir):
                for file_rowcount in result_row_combination)
 
 
-@pytest.mark.numpy
 @pytest.mark.parquet
 def test_write_dataset_min_rows_per_group(tempdir):
     directory = tempdir / 'ds'
@@ -4354,7 +4351,6 @@ def test_write_dataset_min_rows_per_group(tempdir):
                 assert rows_per_batch <= max_rows_per_group
 
 
-@pytest.mark.numpy
 @pytest.mark.parquet
 def test_write_dataset_max_rows_per_group(tempdir):
     directory = tempdir / 'ds'
@@ -4519,11 +4515,10 @@ def test_write_dataset_use_threads(tempdir):
     assert result1.to_table().equals(result2.to_table())
 
 
-@pytest.mark.numpy
 def test_write_table(tempdir):
     table = pa.table([
-        pa.array(range(20)), pa.array(np.random.randn(20)),
-        pa.array(np.repeat(['a', 'b'], 10))
+        pa.array(range(20)), pa.array(random.random() for _ in range(20)),
+        pa.array(['a'] * 10 + ['b'] * 10)
     ], names=["f1", "f2", "part"])
 
     base_dir = tempdir / 'single'
@@ -4567,11 +4562,10 @@ def test_write_table(tempdir):
         assert pathlib.Path(visited_path) in expected_paths
 
 
-@pytest.mark.numpy
 def test_write_table_multiple_fragments(tempdir):
     table = pa.table([
-        pa.array(range(10)), pa.array(np.random.randn(10)),
-        pa.array(np.repeat(['a', 'b'], 5))
+        pa.array(range(10)), pa.array(random.random() for _ in range(10)),
+        pa.array(['a'] * 5 + ['b'] * 5)
     ], names=["f1", "f2", "part"])
     table = pa.concat_tables([table]*2)
 
@@ -4604,11 +4598,10 @@ def test_write_table_multiple_fragments(tempdir):
     )
 
 
-@pytest.mark.numpy
 def test_write_iterable(tempdir):
     table = pa.table([
-        pa.array(range(20)), pa.array(np.random.randn(20)),
-        pa.array(np.repeat(['a', 'b'], 10))
+        pa.array(range(20)), pa.array(random.random() for _ in range(20)),
+        pa.array(['a'] * 10 + ['b'] * 10)
     ], names=["f1", "f2", "part"])
 
     base_dir = tempdir / 'inmemory_iterable'
@@ -4627,11 +4620,10 @@ def test_write_iterable(tempdir):
     assert result.equals(table)
 
 
-@pytest.mark.numpy
 def test_write_scanner(tempdir, dataset_reader):
     table = pa.table([
-        pa.array(range(20)), pa.array(np.random.randn(20)),
-        pa.array(np.repeat(['a', 'b'], 10))
+        pa.array(range(20)), pa.array(random.random() for _ in range(20)),
+        pa.array(['a'] * 10 + ['b'] * 10)
     ], names=["f1", "f2", "part"])
     dataset = ds.dataset(table)
 
@@ -4654,13 +4646,12 @@ def test_write_scanner(tempdir, dataset_reader):
                          schema=table.schema, format="feather")
 
 
-@pytest.mark.numpy
 def test_write_table_partitioned_dict(tempdir):
     # ensure writing table partitioned on a dictionary column works without
     # specifying the dictionary values explicitly
     table = pa.table([
         pa.array(range(20)),
-        pa.array(np.repeat(['a', 'b'], 10)).dictionary_encode(),
+        pa.array(['a'] * 10 + ['b'] * 10).dictionary_encode(),
     ], names=['col', 'part'])
 
     partitioning = ds.partitioning(table.select(["part"]).schema)
@@ -4724,11 +4715,10 @@ def test_write_dataset_parquet(tempdir):
         assert result.equals(expected)
 
 
-@pytest.mark.numpy
 def test_write_dataset_csv(tempdir):
     table = pa.table([
-        pa.array(range(20)), pa.array(np.random.randn(20)),
-        pa.array(np.repeat(['a', 'b'], 10))
+        pa.array(range(20)), pa.array(random.random() for _ in range(20)),
+        pa.array(['a'] * 10 + ['b'] * 10)
     ], names=["f1", "f2", "chr1"])
 
     base_dir = tempdir / 'csv_dataset'
@@ -4751,12 +4741,11 @@ def test_write_dataset_csv(tempdir):
     assert result.equals(table)
 
 
-@pytest.mark.numpy
 @pytest.mark.parquet
 def test_write_dataset_parquet_file_visitor(tempdir):
     table = pa.table([
-        pa.array(range(20)), pa.array(np.random.randn(20)),
-        pa.array(np.repeat(['a', 'b'], 10))
+        pa.array(range(20)), pa.array(random.random() for _ in range(20)),
+        pa.array(['a'] * 10 + ['b'] * 10)
     ], names=["f1", "f2", "part"])
 
     visitor_called = False
@@ -4774,13 +4763,12 @@ def test_write_dataset_parquet_file_visitor(tempdir):
     assert visitor_called
 
 
-@pytest.mark.numpy
 @pytest.mark.parquet
 def test_partition_dataset_parquet_file_visitor(tempdir):
     f1_vals = [item for chunk in range(4) for item in [chunk] * 10]
     f2_vals = [item*10 for chunk in range(4) for item in [chunk] * 10]
     table = pa.table({'f1': f1_vals, 'f2': f2_vals,
-                      'part': np.repeat(['a', 'b'], 20)})
+                      'part': ['a'] * 20 + ['b'] * 20})
 
     root_path = tempdir / 'partitioned'
     partitioning = ds.partitioning(
@@ -4847,7 +4835,6 @@ def test_write_dataset_schema_metadata_parquet(tempdir):
     assert schema.metadata == {b'key': b'value'}
 
 
-@pytest.mark.numpy
 @pytest.mark.parquet
 @pytest.mark.s3
 def test_write_dataset_s3(s3_example_simple):
@@ -4859,8 +4846,8 @@ def test_write_dataset_s3(s3_example_simple):
     )
 
     table = pa.table([
-        pa.array(range(20)), pa.array(np.random.randn(20)),
-        pa.array(np.repeat(['a', 'b'], 10))],
+        pa.array(range(20)), pa.array(random.random() for _ in range(20)),
+        pa.array(['a'] * 10 + ['b'] * 10)],
         names=["f1", "f2", "part"]
     )
     part = ds.partitioning(pa.schema([("part", pa.string())]), flavor="hive")
@@ -4915,7 +4902,6 @@ _minio_put_only_policy = """{
 }"""
 
 
-@pytest.mark.numpy
 @pytest.mark.parquet
 @pytest.mark.s3
 def test_write_dataset_s3_put_only(s3_server):
@@ -4937,8 +4923,8 @@ def test_write_dataset_s3_put_only(s3_server):
     _configure_s3_limited_user(s3_server, _minio_put_only_policy)
 
     table = pa.table([
-        pa.array(range(20)), pa.array(np.random.randn(20)),
-        pa.array(np.repeat(['a', 'b'], 10))],
+        pa.array(range(20)), pa.array(random.random() for _ in range(20)),
+        pa.array(['a']*10 + ['b'] * 10)],
         names=["f1", "f2", "part"]
     )
     part = ds.partitioning(pa.schema([("part", pa.string())]), flavor="hive")
@@ -5344,7 +5330,6 @@ def test_union_dataset_filter(tempdir, dstype):
         ds.dataset((filtered_ds1, filtered_ds2))
 
 
-@pytest.mark.numpy
 def test_parquet_dataset_filter(tempdir):
     root_path = tempdir / "test_parquet_dataset_filter"
     metadata_path, _ = _create_parquet_dataset_simple(root_path)

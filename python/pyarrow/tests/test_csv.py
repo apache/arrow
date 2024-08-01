@@ -142,7 +142,7 @@ class InvalidRowHandler:
 def test_split_rows_and_columns_utility():
     num_cols = 5
     num_rows = 2
-    arr = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    arr = [x for x in range(1, 11)]
     rows = list(split_rows(arr, num_cols, num_rows))
     assert rows == [
         [1, 2, 3, 4, 5],
