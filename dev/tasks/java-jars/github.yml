@@ -52,46 +52,46 @@ jobs:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_free_space()|indent }}
       {{ macros.github_install_archery()|indent }}
-        - name: Retrieve VCPKG version from arrow/.env
-          run: |
-            vcpkg_version=$(cat "arrow/.env" | grep "VCPKG" | cut -d "=" -f2 | tr -d '"')
-            echo "VCPKG_VERSION=$vcpkg_version" >> $GITHUB_ENV
+      - name: Retrieve VCPKG version from arrow/.env
+        run: |
+          vcpkg_version=$(cat "arrow/.env" | grep "VCPKG" | cut -d "=" -f2 | tr -d '"')
+          echo "VCPKG_VERSION=$vcpkg_version" >> $GITHUB_ENV
 
-        - name: Install Vcpkg
-          run: arrow/ci/scripts/install_vcpkg.sh $VCPKG_ROOT $VCPKG_VERSION
+      - name: Install Vcpkg
+        run: arrow/ci/scripts/install_vcpkg.sh $VCPKG_ROOT $VCPKG_VERSION
 
-        - name: Add Vcpkg to PATH
-          run: echo ${VCPKG_ROOT} >> $GITHUB_PATH
+      - name: Add Vcpkg to PATH
+        run: echo ${VCPKG_ROOT} >> $GITHUB_PATH
 
-        - name: Setup NuGet Credentials
-          env:
-            GITHUB_TOKEN: {{ '${{ secrets.GITHUB_TOKEN }}' }}
-          run: |
-            mono $(vcpkg fetch nuget | tail -n 1) \
-              sources add \
-              -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json" \
-              -storepasswordincleartext \
-              -name "GitHub" \
-              -username "$GITHUB_REPOSITORY_OWNER" \
-              -password "$GITHUB_TOKEN" \
+      - name: Setup NuGet Credentials
+        env:
+          GITHUB_TOKEN: {{ '${{ secrets.GITHUB_TOKEN }}' }}
+        run: |
+          mono $(vcpkg fetch nuget | tail -n 1) \
+            sources add \
+            -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json" \
+            -storepasswordincleartext \
+            -name "GitHub" \
+            -username "$GITHUB_REPOSITORY_OWNER" \
+            -password "$GITHUB_TOKEN" \
 
-            mono $(vcpkg fetch nuget | tail -n 1) \
-              setapikey "$GITHUB_TOKEN" \
-              -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json"
+          mono $(vcpkg fetch nuget | tail -n 1) \
+            setapikey "$GITHUB_TOKEN" \
+            -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json"
 
-        - name: Install Packages
-          run: |
-            vcpkg install \
-              --clean-after-build \
-              --x-install-root=${VCPKG_ROOT}/installed \
-              --x-manifest-root=/arrow/ci/vcpkg \
-              --x-feature=dev \
-              --x-feature=flight \
-              --x-feature=gcs \
-              --x-feature=json \
-              --x-feature=parquet \
-              --x-feature=gandiva \
-              --x-feature=s3
+      - name: Install Packages
+        run: |
+          vcpkg install \
+            --clean-after-build \
+            --x-install-root=${VCPKG_ROOT}/installed \
+            --x-manifest-root=/arrow/ci/vcpkg \
+            --x-feature=dev \
+            --x-feature=flight \
+            --x-feature=gcs \
+            --x-feature=json \
+            --x-feature=parquet \
+            --x-feature=gandiva \
+            --x-feature=s3
 
       - name: Build C++ libraries
         env:
