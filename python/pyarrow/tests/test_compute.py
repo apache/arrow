@@ -1314,10 +1314,10 @@ def test_filter(ty, values):
     with pytest.raises(NotImplementedError):
         arr.filter(mask)
 
-        # wrong length
-        mask = pa.array([True, False, True])
-        with pytest.raises(ValueError, match="must all be the same length"):
-            arr.filter(mask)
+    # wrong length
+    mask = pa.array([True, False, True])
+    with pytest.raises(ValueError, match="must all be the same length"):
+        arr.filter(mask)
 
 
 @pytest.mark.numpy
