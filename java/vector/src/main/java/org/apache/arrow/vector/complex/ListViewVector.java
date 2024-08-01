@@ -341,7 +341,7 @@ public class ListViewVector extends BaseRepeatedValueViewVector
 
   @Override
   public <OUT, IN> OUT accept(VectorVisitor<OUT, IN> visitor, IN value) {
-    throw new UnsupportedOperationException("ListViewVector does not support visitor pattern.");
+    return visitor.visit(this, value);
   }
 
   @Override
