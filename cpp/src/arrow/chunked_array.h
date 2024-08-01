@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <bitset>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -25,6 +26,7 @@
 
 #include "arrow/chunk_resolver.h"
 #include "arrow/compare.h"
+#include "arrow/device_allocation_type.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
@@ -40,6 +42,86 @@ namespace stl {
 template <typename T, typename V>
 class ChunkedArrayIterator;
 }  // namespace stl
+
+class ARROW_EXPORT DeviceAllocationTypeSet {
+ private:
+  std::bitset<kDeviceAllocationTypeMax + 1> device_type_bitset_;
+
+ public:
+  /// \brief Construct an empty set of device types.
+  DeviceAllocationTypeSet() = default;
+
+  /// \brief Construct a set of device types with a single device type.
+  DeviceAllocationTypeSet(  // NOLINT implicit construction
+      DeviceAllocationType accepted_device_type) {
+    add(accepted_device_type);
+  }
+
+  /// \brief Construct a set of device types containing only "kCPU".
+  static DeviceAllocationTypeSet CpuOnly() {
+    return DeviceAllocationTypeSet{DeviceAllocationType::kCPU};
+  }
+
+  /// \brief Construct a set of device types containing all device types.
+  static DeviceAllocationTypeSet All() {
+    DeviceAllocationTypeSet all;
+    all.device_type_bitset_.set();
+    // Don't set the invalid enum values.
+    all.device_type_bitset_.reset(0);
+    all.device_type_bitset_.reset(5);
+    all.device_type_bitset_.reset(6);
+    return all;
+  }
+
+  /// \brief Add a device type to the set of device types.
+  void add(DeviceAllocationType device_type) {
+    device_type_bitset_.set(static_cast<int>(device_type));
+  }
+
+  /// \brief Remove a device type from the set of device types.
+  void remove(DeviceAllocationType device_type) {
+    device_type_bitset_.reset(static_cast<int>(device_type));
+  }
+
+  /// \brief Return true if the set of accepted device types includes the
+  /// device type.
+  bool contains(DeviceAllocationType device_type) const {
+    return device_type_bitset_.test(static_cast<int>(device_type));
+  }
+
+  /// \brief Add all device types from another set to this set.
+  void Add(DeviceAllocationTypeSet other) {
+    device_type_bitset_ |= other.device_type_bitset_;
+  }
+
+  /// \brief Return true if the set of accepted device types includes all the
+  /// device types in the other set.
+  bool Contains(DeviceAllocationTypeSet other) const {
+    // other \subseteq this <==> (other \intersect this == other)
+    return (other.device_type_bitset_ & device_type_bitset_) == other.device_type_bitset_;
+  }
+
+  std::string ToString() const {
+    std::string result = "{";
+    for (int i = 1; i <= kDeviceAllocationTypeMax; i++) {
+      if (device_type_bitset_.test(i)) {
+        // Skip all the unused values in the enum.
+        switch (i) {
+          case 0:
+          case 5:
+          case 6:
+            continue;
+        }
+        if (result.size() > 1) {
+          result += ", ";
+        }
+        result += DeviceAllocationTypeToCStr(static_cast<DeviceAllocationType>(i));
+      }
+    }
+    result += "}";
+    return result;
+  }
+};
 
 /// \class ChunkedArray
 /// \brief A data structure managing a list of primitive Arrow arrays logically
@@ -115,6 +197,10 @@ class ARROW_EXPORT ChunkedArray {
 
   /// \return an ArrayVector of chunks
   const ArrayVector& chunks() const { return chunks_; }
+
+  /// \return The set of device allocation types used by the chunks in this
+  /// chunked array.
+  DeviceAllocationTypeSet DeviceTypeSet() const;
 
   /// \brief Construct a zero-copy slice of the chunked array with the
   /// indicated offset and length
