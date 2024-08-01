@@ -22,10 +22,7 @@ import org.apache.arrow.vector.types.Types;
 <@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/UnionViewWriter.java" />
 
-
-<#include "/@includes/license.ftl" />
-
-    package org.apache.arrow.vector.complex.impl;
+package org.apache.arrow.vector.complex.impl;
 
 <#include "/@includes/vv_imports.ftl" />
     import org.apache.arrow.vector.complex.writer.BaseWriter;
@@ -34,7 +31,6 @@ import org.apache.arrow.vector.types.Types.MinorType;
 <#function is_timestamp_tz type>
   <#return type?starts_with("TimeStamp") && type?ends_with("TZ")>
 </#function>
-
 
 /*
  * This class is generated using freemarker and the ${.template_name} template.
