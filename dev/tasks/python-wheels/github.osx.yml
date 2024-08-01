@@ -88,16 +88,16 @@ jobs:
       - name: Install Packages
         run: |
           vcpkg install \
-          --clean-after-build \
-          --x-install-root=${VCPKG_ROOT}/installed \
-          --x-manifest-root=/arrow/ci/vcpkg \
-          --x-feature=dev \
-          --x-feature=flight \
-          --x-feature=gcs \
-          --x-feature=json \
-          --x-feature=parquet \
-          --x-feature=gandiva \
-          --x-feature=s3
+            --clean-after-build \
+            --x-install-root=${VCPKG_ROOT}/installed \
+            --x-manifest-root=/arrow/ci/vcpkg \
+            --x-feature=dev \
+            --x-feature=flight \
+            --x-feature=gcs \
+            --x-feature=json \
+            --x-feature=parquet \
+            --x-feature=gandiva \
+            --x-feature=s3
 
       - name: Install Python {{ python_version }}
         run: sudo arrow/ci/scripts/install_python.sh macos {{ python_version }}
