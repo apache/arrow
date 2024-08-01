@@ -122,16 +122,6 @@ def pytest_runtest_setup(item):
         item.config.pyarrow.apply_mark(mark)
 
 
-def pytest_collection_modifyitems(items):
-    # Apply numpy and pandas markers to injected C++ tests
-    for item in items:
-        if np is None and 'test_cpp_internals' in item.nodeid:
-            if 'numpy' in item.name:
-                item.add_marker('numpy')
-            elif 'pandas' in item.name:
-                item.add_marker('pandas')
-
-
 @pytest.fixture
 def tempdir(tmpdir):
     # convert pytest's LocalPath to pathlib.Path
