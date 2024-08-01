@@ -85,8 +85,6 @@ jobs:
             setapikey "$GITHUB_TOKEN" \
             -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json"
 
-      # Install the libraries required by the Gandiva to run
-      # Use enable llvm[enable-rtti] in the vcpkg.json to avoid link problems in Gandiva
       - name: Install Packages
         run: |
           vcpkg install \
