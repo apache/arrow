@@ -135,18 +135,24 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
 
     if (startByte != endByte) {
       return buf.slice(startByte, endByte - startByte);
-    } // else {
-      // final ArrowBuf bufCopy = allocator.buffer(buf.capacity());
-      // bufCopy.setZero(0, buf.capacity());
-      //
-      // for (int i = (int) arrowArrayOffset; i < bufCopy.capacity(); i++) {
-      //   if (BitVectorHelper.get(buf, i) == 1) {
-      //     BitVectorHelper.setBit(buf, i);
-      //   }
-      // }
-      // return bufCopy;
-    // }
-    return buf;
+    } else {
+      ArrowBuf bufCopy = allocator.buffer(buf.capacity());
+      bufCopy.setZero(0, buf.capacity());
+      for (int i = 0; i < bufCopy.capacity() * 8; i++) {
+        int bitIndex = (int) (i + arrowArrayOffset);
+        if (bitIndex < buf.capacity() * 8) {
+          if (BitVectorHelper.get(buf, bitIndex) == 1) {
+            BitVectorHelper.setBit(bufCopy, i);
+          } else {
+            BitVectorHelper.unsetBit(bufCopy, i);
+          }
+        } else {
+          BitVectorHelper.unsetBit(bufCopy, i);
+        }
+      }
+      imported.add(bufCopy);
+      return bufCopy;
+    }
   }
 
   private ArrowBuf importFixedBytes(ArrowType type, int index, long bytesPerSlot) {
@@ -216,13 +222,14 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
 
   @Override
   public List<ArrowBuf> visit(ArrowType.List type) {
-    return Arrays.asList(maybeImportBitmap(type), importOffsets(type, ListVector.OFFSET_WIDTH));
+    return Arrays.asList(
+        maybeImportBitmapWithOffset(type), importOffsets(type, ListVector.OFFSET_WIDTH));
   }
 
   @Override
   public List<ArrowBuf> visit(ArrowType.LargeList type) {
     return Arrays.asList(
-        maybeImportBitmap(type), importOffsets(type, LargeListVector.OFFSET_WIDTH));
+        maybeImportBitmapWithOffset(type), importOffsets(type, LargeListVector.OFFSET_WIDTH));
   }
 
   @Override
@@ -283,7 +290,7 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
         type,
         start,
         end);
-    return Arrays.asList(maybeImportBitmap(type), offsets, importData(type, end));
+    return Arrays.asList(maybeImportBitmapWithOffset(type), offsets, importData(type, end));
   }
 
   private List<ArrowBuf> visitVariableWidthView(ArrowType type) {
@@ -348,7 +355,7 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
         type,
         start,
         end);
-    return Arrays.asList(maybeImportBitmap(type), offsets, importData(type, end));
+    return Arrays.asList(maybeImportBitmapWithOffset(type), offsets, importData(type, end));
   }
 
   @Override
