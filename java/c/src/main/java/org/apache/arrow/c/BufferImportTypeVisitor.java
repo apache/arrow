@@ -28,6 +28,7 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.VisibleForTesting;
 import org.apache.arrow.vector.BaseVariableWidthViewVector;
+import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DateMilliVector;
 import org.apache.arrow.vector.DurationVector;
@@ -118,10 +119,10 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
     // Calculate the total capacity needed, including the offset
     final long totalSlots = arrowArrayOffset + fieldNode.getLength();
     final long totalBits = totalSlots * bitsPerSlot;
-    // final long capacity = DataSizeRoundingUtil.divideBy8Ceil(totalBits);
+    final long capacity = DataSizeRoundingUtil.divideBy8Ceil(totalBits);
 
     // Import the buffer with the calculated capacity
-    ArrowBuf buf = importBuffer(type, index, totalBits);
+    ArrowBuf buf = importBuffer(type, index, capacity);
 
     // Calculate the start and end positions in bits
     final long startBit = arrowArrayOffset * bitsPerSlot;
@@ -134,7 +135,17 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
 
     if (startByte != endByte) {
       return buf.slice(startByte, endByte - startByte);
-    }
+    } // else {
+      // final ArrowBuf bufCopy = allocator.buffer(buf.capacity());
+      // bufCopy.setZero(0, buf.capacity());
+      //
+      // for (int i = (int) arrowArrayOffset; i < bufCopy.capacity(); i++) {
+      //   if (BitVectorHelper.get(buf, i) == 1) {
+      //     BitVectorHelper.setBit(buf, i);
+      //   }
+      // }
+      // return bufCopy;
+    // }
     return buf;
   }
 
