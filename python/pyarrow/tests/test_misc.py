@@ -247,6 +247,9 @@ def test_set_timezone_db_path_non_windows():
     pa.ProxyMemoryPool,
     pa.Device,
     pa.MemoryManager,
+    pa.OpaqueArray,
+    pa.OpaqueScalar,
+    pa.OpaqueType,
 ])
 def test_extension_type_constructor_errors(klass):
     # ARROW-2638: prevent calling extension class constructors directly

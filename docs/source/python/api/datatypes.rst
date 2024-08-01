@@ -67,6 +67,8 @@ These should be used to create Arrow data types and schemas.
    struct
    dictionary
    run_end_encoded
+   fixed_shape_tensor
+   opaque
    field
    schema
    from_numpy_dtype
@@ -117,6 +119,14 @@ Specific classes and functions for extension types.
    register_extension_type
    unregister_extension_type
 
+:doc:`Canonical extension types <../../format/CanonicalExtensions>`
+implemented by PyArrow.
+
+.. autosummary::
+   :toctree: ../generated/
+
+   FixedShapeTensorType
+   OpaqueType
 
 .. _api.types.checking:
 .. currentmodule:: pyarrow.types
