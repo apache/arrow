@@ -4447,6 +4447,30 @@ cdef class FixedShapeTensorArray(ExtensionArray):
             FixedSizeListArray.from_arrays(values, shape[1:].prod())
         )
 
+cdef class Bool8Array(ExtensionArray):
+    """
+    Concrete class for bool8 extension arrays.
+    Examples
+    --------
+    Define the extension type for an bool8 array
+    >>> import pyarrow as pa
+    >>> bool8_type = pa.bool8()
+    Create an extension array
+    >>> arr = [-1, 0, 1, 2, None]
+    >>> storage = pa.array(arr, pa.int8())
+    >>> pa.ExtensionArray.from_storage(bool8_type, storage)
+    <pyarrow.lib.Bool8Array object at ...>
+    [
+      -1,
+      0,
+      1,
+      2,
+      null
+    ]
+    """
+
+    def to_numpy(self):
+        return self.storage.to_numpy().view(np.bool_)
 
 cdef class OpaqueArray(ExtensionArray):
     """

@@ -214,6 +214,9 @@ cdef class FixedShapeTensorType(BaseExtensionType):
     cdef:
         const CFixedShapeTensorType* tensor_ext_type
 
+cdef class Bool8Type(BaseExtensionType):
+    cdef:
+        const CBool8Type* bool8_ext_type
 
 cdef class OpaqueType(BaseExtensionType):
     cdef:

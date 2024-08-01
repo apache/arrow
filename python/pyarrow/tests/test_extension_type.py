@@ -1707,3 +1707,61 @@ def test_opaque_type(pickle_module, storage_type, storage):
     # cast extension type -> storage type
     inner = arr.cast(storage_type)
     assert inner == storage
+
+def test_bool8_type(pickle_module):
+    bool8_type = pa.bool8()
+    storage_type = pa.int8()
+    assert bool8_type.extension_name == "arrow.bool8"
+    assert bool8_type.storage_type == storage_type
+    assert str(bool8_type) == "extension<arrow.bool8>"
+
+    assert bool8_type == bool8_type
+    assert bool8_type == pa.bool8()
+    assert bool8_type != storage_type
+
+    # Pickle roundtrip
+    result = pickle_module.loads(pickle_module.dumps(bool8_type))
+    assert result == bool8_type
+
+    # IPC roundtrip
+    bool8_arr_class = bool8_type.__arrow_ext_class__()
+    storage = pa.array([-1, 0, 1, 2, None], storage_type)
+    arr = pa.ExtensionArray.from_storage(bool8_type, storage)
+    assert isinstance(arr, bool8_arr_class)
+
+    with registered_extension_type(bool8_type):
+        buf = ipc_write_batch(pa.RecordBatch.from_arrays([arr], ["ext"]))
+        batch = ipc_read_batch(buf)
+
+    assert batch.column(0).type.extension_name == "arrow.bool8"
+    assert isinstance(batch.column(0), bool8_arr_class)
+
+    # cast storage -> extension type
+    result = storage.cast(bool8_type)
+    assert result == arr
+
+    # cast extension type -> storage type
+    inner = arr.cast(storage_type)
+    assert inner == storage
+
+    # cast extension type -> arrow boolean type
+    bool_type = pa.bool_()
+    arrow_bool_arr = pa.array([True, False, True, True, None], bool_type)
+    cast_bool_arr = arr.cast(bool_type)
+    assert cast_bool_arr == arrow_bool_arr
+
+    # cast arrow boolean type -> extension type, expecting canonical values
+    cast_bool8_arr = arrow_bool_arr.cast(bool8_type)
+    canonical_storage = pa.array([1, 0, 1, 1, None], storage_type)
+    canonical_bool8_arr = pa.ExtensionArray.from_storage(bool8_type, canonical_storage)
+    assert cast_bool8_arr == canonical_bool8_arr
+
+    # zero-copy convert to numpy if non-null
+    with pytest.raises(pa.ArrowInvalid, match="Needed to copy 1 chunks with 1 nulls, but zero_copy_only was True"):
+        arr.to_numpy()
+
+    arr_np_bool = np.array([True, False, True, True], dtype=np.bool_)
+    arr_no_nulls = pa.ExtensionArray.from_storage(bool8_type, pa.array([-1, 0, 1, 2], storage_type))
+    arr_to_np = arr_no_nulls.to_numpy()
+    assert np.array_equal(arr_to_np, arr_np_bool)
+    assert arr_to_np.ctypes.data == arr_no_nulls.buffers()[1].address # zero-copy

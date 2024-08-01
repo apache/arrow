@@ -1084,6 +1084,10 @@ cdef class FixedShapeTensorScalar(ExtensionScalar):
             ctensor = GetResultValue(c_type.MakeTensor(scalar))
         return pyarrow_wrap_tensor(ctensor)
 
+cdef class Bool8Scalar(ExtensionScalar):
+    """
+    Concrete class for bool8 extension scalar.
+    """
 
 cdef class OpaqueScalar(ExtensionScalar):
     """
