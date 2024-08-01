@@ -86,6 +86,18 @@ Result<std::shared_ptr<ChunkedArray>> ChunkedArray::MakeEmpty(
   return std::make_shared<ChunkedArray>(std::move(new_chunks));
 }
 
+DeviceAllocationTypeSet ChunkedArray::DeviceTypeSet() const {
+  if (chunks_.empty()) {
+    // An empty ChunkedArray is considered to be CPU-only.
+    return DeviceAllocationTypeSet::CpuOnly();
+  }
+  DeviceAllocationTypeSet set;
+  for (const auto& chunk : chunks_) {
+    set.add(chunk->device_type());
+  }
+  return set;
+}
+
 bool ChunkedArray::Equals(const ChunkedArray& other, const EqualOptions& opts) const {
   if (length_ != other.length()) {
     return false;
