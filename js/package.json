@@ -104,7 +104,7 @@
     "regenerator-runtime": "0.14.1",
     "rollup": "4.19.2",
     "rxjs": "7.8.1",
-    "ts-jest": "29.1.4",
+    "ts-jest": "29.2.4",
     "ts-node": "10.9.2",
     "typedoc": "0.26.3",
     "typescript": "5.4.5",
