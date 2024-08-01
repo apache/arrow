@@ -14,19 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-import org.apache.arrow.util.Preconditions;
-import org.apache.arrow.vector.complex.impl.NullableStructWriterFactory;
-import org.apache.arrow.vector.types.Types;
-
 <@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/UnionViewWriter.java" />
 
 package org.apache.arrow.vector.complex.impl;
 
 <#include "/@includes/vv_imports.ftl" />
-    import org.apache.arrow.vector.complex.writer.BaseWriter;
+import org.apache.arrow.vector.complex.writer.BaseWriter;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.complex.impl.NullableStructWriterFactory;
+import org.apache.arrow.vector.types.Types;
 
 <#function is_timestamp_tz type>
   <#return type?starts_with("TimeStamp") && type?ends_with("TZ")>
