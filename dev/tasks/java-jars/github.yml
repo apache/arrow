@@ -74,7 +74,7 @@ jobs:
               -name "GitHub" \
               -username "$GITHUB_REPOSITORY_OWNER" \
               -password "$GITHUB_TOKEN" \
-            
+
             mono $(vcpkg fetch nuget | tail -n 1) \
               setapikey "$GITHUB_TOKEN" \
               -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json"
@@ -91,6 +91,7 @@ jobs:
               --x-feature=json \
               --x-feature=parquet \
               --x-feature=s3
+
       - name: Build C++ libraries
         env:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
@@ -181,6 +182,12 @@ jobs:
           brew uninstall protobuf
 
           brew bundle --file=arrow/java/Brewfile
+
+          # We want to use the bundled googletest for static linking. Since
+          # both BUNDLED and brew options are enabled, it could cause a conflict
+          # when there is a version mismatch.
+          # We uninstall googletest to ensure using the bundled googletest.
+          brew uninstall googletest
       - name: Build C++ libraries
         env:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
