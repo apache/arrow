@@ -34,6 +34,7 @@ import pyarrow.tests.strategies as past
 from pyarrow.vendored.version import Version
 
 
+@pytest.mark.processes
 def test_total_bytes_allocated():
     code = """if 1:
     import pyarrow as pa
@@ -702,6 +703,13 @@ def test_struct_from_arrays():
     fb = pa.field("b", b.type)
     fc = pa.field("c", c.type)
     arr = pa.StructArray.from_arrays([a, b, c], fields=[fa, fb, fc])
+    assert arr.type == pa.struct([fa, fb, fc])
+    assert not arr.type[0].nullable
+    assert arr.to_pylist() == expected_list
+
+    # From structtype
+    structtype = pa.struct([fa, fb, fc])
+    arr = pa.StructArray.from_arrays([a, b, c], type=structtype)
     assert arr.type == pa.struct([fa, fb, fc])
     assert not arr.type[0].nullable
     assert arr.to_pylist() == expected_list
@@ -3505,22 +3513,47 @@ def test_array_protocol():
     assert result.equals(expected)
 
 
-def test_c_array_protocol():
-    class ArrayWrapper:
-        def __init__(self, data):
-            self.data = data
+class ArrayWrapper:
+    def __init__(self, data):
+        self.data = data
 
-        def __arrow_c_array__(self, requested_schema=None):
-            return self.data.__arrow_c_array__(requested_schema)
+    def __arrow_c_array__(self, requested_schema=None):
+        return self.data.__arrow_c_array__(requested_schema)
+
+
+class ArrayDeviceWrapper:
+    def __init__(self, data):
+        self.data = data
+
+    def __arrow_c_device_array__(self, requested_schema=None, **kwargs):
+        return self.data.__arrow_c_device_array__(requested_schema, **kwargs)
+
+
+@pytest.mark.parametrize("wrapper_class", [ArrayWrapper, ArrayDeviceWrapper])
+def test_c_array_protocol(wrapper_class):
 
     # Can roundtrip through the C array protocol
-    arr = ArrayWrapper(pa.array([1, 2, 3], type=pa.int64()))
+    arr = wrapper_class(pa.array([1, 2, 3], type=pa.int64()))
     result = pa.array(arr)
     assert result == arr.data
 
     # Will cast to requested type
     result = pa.array(arr, type=pa.int32())
     assert result == pa.array([1, 2, 3], type=pa.int32())
+
+
+def test_c_array_protocol_device_unsupported_keyword():
+    # For the device-aware version, we raise a specific error for unsupported keywords
+    arr = pa.array([1, 2, 3], type=pa.int64())
+
+    with pytest.raises(
+        NotImplementedError,
+        match=r"Received unsupported keyword argument\(s\): \['other'\]"
+    ):
+        arr.__arrow_c_device_array__(other="not-none")
+
+    # but with None value it is ignored
+    _ = arr.__arrow_c_device_array__(other=None)
 
 
 def test_concat_array():
@@ -4012,3 +4045,88 @@ def test_swapped_byte_order_fails(numpy_native_dtype):
     # Struct type array
     with pytest.raises(pa.ArrowNotImplementedError):
         pa.StructArray.from_arrays([np_arr], names=['a'])
+
+
+def test_non_cpu_array():
+    cuda = pytest.importorskip("pyarrow.cuda")
+    ctx = cuda.Context(0)
+
+    data = np.arange(4, dtype=np.int32)
+    validity = np.array([True, False, True, False], dtype=np.bool_)
+    cuda_data_buf = ctx.buffer_from_data(data)
+    cuda_validity_buf = ctx.buffer_from_data(validity)
+    arr = pa.Array.from_buffers(pa.int32(), 4, [None, cuda_data_buf])
+    arr2 = pa.Array.from_buffers(pa.int32(), 4, [None, cuda_data_buf])
+    arr_with_nulls = pa.Array.from_buffers(
+        pa.int32(), 4, [cuda_validity_buf, cuda_data_buf])
+
+    # Supported
+    arr.validate()
+    assert arr.offset == 0
+    assert arr.buffers() == [None, cuda_data_buf]
+    assert arr.device_type == pa.DeviceAllocationType.CUDA
+    assert arr.is_cpu is False
+    assert len(arr) == 4
+    assert arr.slice(2, 2).offset == 2
+    assert repr(arr)
+    assert str(arr)
+
+    # TODO support DLPack for CUDA
+    with pytest.raises(NotImplementedError):
+        arr.__dlpack__()
+    with pytest.raises(NotImplementedError):
+        arr.__dlpack_device__()
+
+    # Not Supported
+    with pytest.raises(NotImplementedError):
+        arr.diff(arr2)
+    with pytest.raises(NotImplementedError):
+        arr.cast(pa.int64())
+    with pytest.raises(NotImplementedError):
+        arr.view(pa.int64())
+    with pytest.raises(NotImplementedError):
+        arr.sum()
+    with pytest.raises(NotImplementedError):
+        arr.unique()
+    with pytest.raises(NotImplementedError):
+        arr.dictionary_encode()
+    with pytest.raises(NotImplementedError):
+        arr.value_counts()
+    with pytest.raises(NotImplementedError):
+        arr_with_nulls.null_count
+    with pytest.raises(NotImplementedError):
+        arr.nbytes
+    with pytest.raises(NotImplementedError):
+        arr.get_total_buffer_size()
+    with pytest.raises(NotImplementedError):
+        [i for i in iter(arr)]
+    with pytest.raises(NotImplementedError):
+        arr == arr2
+    with pytest.raises(NotImplementedError):
+        arr.is_null()
+    with pytest.raises(NotImplementedError):
+        arr.is_nan()
+    with pytest.raises(NotImplementedError):
+        arr.is_valid()
+    with pytest.raises(NotImplementedError):
+        arr.fill_null(0)
+    with pytest.raises(NotImplementedError):
+        arr[0]
+    with pytest.raises(NotImplementedError):
+        arr.take([0])
+    with pytest.raises(NotImplementedError):
+        arr.drop_null()
+    with pytest.raises(NotImplementedError):
+        arr.filter([True, True, False, False])
+    with pytest.raises(NotImplementedError):
+        arr.index(0)
+    with pytest.raises(NotImplementedError):
+        arr.sort()
+    with pytest.raises(NotImplementedError):
+        arr.__array__()
+    with pytest.raises(NotImplementedError):
+        arr.to_numpy()
+    with pytest.raises(NotImplementedError):
+        arr.tolist()
+    with pytest.raises(NotImplementedError):
+        arr.validate(full=True)

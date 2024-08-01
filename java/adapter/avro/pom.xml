@@ -23,7 +23,7 @@ under the License.
   <parent>
     <groupId>org.apache.arrow</groupId>
     <artifactId>arrow-java-root</artifactId>
-    <version>17.0.0-SNAPSHOT</version>
+    <version>18.0.0-SNAPSHOT</version>
     <relativePath>../../pom.xml</relativePath>
   </parent>
 
@@ -31,11 +31,6 @@ under the License.
   <name>Arrow AVRO Adapter</name>
   <description>(Contrib/Experimental) A library for converting Avro data to Arrow data.</description>
   <url>http://maven.apache.org</url>
-
-  <properties>
-    <checkstyle.config.location>dev/checkstyle/checkstyle-spotless.xml</checkstyle.config.location>
-    <spotless.java.excludes>none</spotless.java.excludes>
-  </properties>
 
   <dependencies>
     <dependency>

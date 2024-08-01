@@ -27,7 +27,7 @@
 
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_run_reader.h"
-#include "arrow/util/bit_stream_utils.h"
+#include "arrow/util/bit_stream_utils_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/macros.h"
 

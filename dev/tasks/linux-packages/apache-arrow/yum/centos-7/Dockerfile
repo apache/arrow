@@ -24,7 +24,7 @@ ENV \
 ARG DEBUG
 
 # GH-42128
-# Switch repos to point to to vault.centos.org because Centos 7 is EOL
+# Switch repos to point to to vault.centos.org because CentOS 7 is EOL
 RUN sed -i \
   -e 's/^mirrorlist/#mirrorlist/' \
   -e 's/^#baseurl/baseurl/' \
@@ -37,6 +37,11 @@ RUN \
   yum install -y ${quiet} \
     centos-release-scl-rh \
     epel-release && \
+  sed -i \
+    -e 's/^mirrorlist/#mirrorlist/' \
+    -e 's/^#baseurl/baseurl/' \
+    -e 's/mirror\.centos\.org/vault.centos.org/' \
+    /etc/yum.repos.d/CentOS-SCLo-scl-rh.repo && \
   yum install -y ${quiet} \
     ${SCL}-gcc-c++ \
     ${SCL}-make \

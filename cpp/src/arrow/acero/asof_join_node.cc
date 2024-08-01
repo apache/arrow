@@ -32,7 +32,7 @@
 
 #include "arrow/acero/exec_plan.h"
 #include "arrow/acero/options.h"
-#include "arrow/acero/unmaterialized_table.h"
+#include "arrow/acero/unmaterialized_table_internal.h"
 #ifndef NDEBUG
 #include "arrow/acero/options_internal.h"
 #endif

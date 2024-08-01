@@ -27,6 +27,7 @@ import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.VisibleForTesting;
+import org.apache.arrow.vector.BaseVariableWidthViewVector;
 import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DateMilliVector;
 import org.apache.arrow.vector.DurationVector;
@@ -51,7 +52,6 @@ import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.pojo.ArrowType;
-import org.apache.arrow.vector.types.pojo.ArrowType.ListView;
 import org.apache.arrow.vector.util.DataSizeRoundingUtil;
 
 /** Import buffers from a C Data Interface struct. */
@@ -227,10 +227,37 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
     }
   }
 
+  private List<ArrowBuf> visitVariableWidthView(ArrowType type) {
+    final int viewBufferIndex = 1;
+    final int variadicSizeBufferIndex = this.buffers.length - 1;
+    final long numOfVariadicBuffers = this.buffers.length - 3;
+    final long variadicSizeBufferCapacity = numOfVariadicBuffers * Long.BYTES;
+    List<ArrowBuf> buffers = new ArrayList<>();
+
+    ArrowBuf variadicSizeBuffer =
+        importBuffer(type, variadicSizeBufferIndex, variadicSizeBufferCapacity);
+
+    ArrowBuf view =
+        importFixedBytes(type, viewBufferIndex, BaseVariableWidthViewVector.ELEMENT_SIZE);
+    buffers.add(maybeImportBitmap(type));
+    buffers.add(view);
+
+    // 0th buffer is validity buffer
+    // 1st buffer is view buffer
+    // 2nd buffer onwards are variadic buffer
+    // N-1 (this.buffers.length - 1) buffer is variadic size buffer
+    final int variadicBufferReadOffset = 2;
+    for (int i = 0; i < numOfVariadicBuffers; i++) {
+      long size = variadicSizeBuffer.getLong((long) i * Long.BYTES);
+      buffers.add(importBuffer(type, i + variadicBufferReadOffset, size));
+    }
+
+    return buffers;
+  }
+
   @Override
   public List<ArrowBuf> visit(ArrowType.Utf8View type) {
-    throw new UnsupportedOperationException(
-        "Importing buffers for view type: " + type + " not supported");
+    return visitVariableWidthView(type);
   }
 
   @Override
@@ -270,8 +297,7 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
 
   @Override
   public List<ArrowBuf> visit(ArrowType.BinaryView type) {
-    throw new UnsupportedOperationException(
-        "Importing buffers for view type: " + type + " not supported");
+    return visitVariableWidthView(type);
   }
 
   @Override
@@ -373,7 +399,7 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
   }
 
   @Override
-  public List<ArrowBuf> visit(ListView type) {
+  public List<ArrowBuf> visit(ArrowType.ListView type) {
     throw new UnsupportedOperationException(
         "Importing buffers for view type: " + type + " not supported");
   }

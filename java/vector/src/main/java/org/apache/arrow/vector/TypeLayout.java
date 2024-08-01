@@ -210,8 +210,8 @@ public class TypeLayout {
               }
 
               private TypeLayout newVariableWidthViewTypeLayout() {
-                return newPrimitiveTypeLayout(
-                    BufferLayout.validityVector(), BufferLayout.byteVector());
+                return new TypeLayout(
+                    false, BufferLayout.validityVector(), BufferLayout.viewVector());
               }
 
               private TypeLayout newLargeVariableWidthTypeLayout() {
@@ -232,7 +232,7 @@ public class TypeLayout {
 
               @Override
               public TypeLayout visit(Null type) {
-                return new TypeLayout(Collections.<BufferLayout>emptyList());
+                return new TypeLayout(Collections.emptyList());
               }
 
               @Override
@@ -433,13 +433,30 @@ public class TypeLayout {
 
   private final List<BufferLayout> bufferLayouts;
 
-  public TypeLayout(List<BufferLayout> bufferLayouts) {
+  private final boolean isFixedBufferCount;
+
+  /**
+   * Constructs a new {@link TypeLayout}.
+   *
+   * @param bufferLayouts the individual {@linkplain BufferLayout}s for the given type
+   * @param isFixedBufferCount whether the number of buffers is fixed
+   */
+  public TypeLayout(List<BufferLayout> bufferLayouts, boolean isFixedBufferCount) {
     super();
     this.bufferLayouts = Preconditions.checkNotNull(bufferLayouts);
+    this.isFixedBufferCount = isFixedBufferCount;
+  }
+
+  public TypeLayout(List<BufferLayout> bufferLayouts) {
+    this(bufferLayouts, true);
   }
 
   public TypeLayout(BufferLayout... bufferLayouts) {
-    this(asList(bufferLayouts));
+    this(asList(bufferLayouts), true);
+  }
+
+  public TypeLayout(boolean isFixedBufferCount, BufferLayout... bufferLayouts) {
+    this(asList(bufferLayouts), isFixedBufferCount);
   }
 
   /** Returns the individual {@linkplain BufferLayout}s for the given type. */
@@ -457,6 +474,15 @@ public class TypeLayout {
       types.add(vector.getType());
     }
     return types;
+  }
+
+  /**
+   * Determines whether the buffer count is fixed for the given type.
+   *
+   * @return true if the buffer count is fixed, false otherwise
+   */
+  public boolean isFixedBufferCount() {
+    return isFixedBufferCount;
   }
 
   @Override

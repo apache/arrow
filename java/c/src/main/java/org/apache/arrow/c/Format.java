@@ -225,6 +225,10 @@ final class Format {
         }
       case Utf8:
         return "u";
+      case Utf8View:
+        return "vu";
+      case BinaryView:
+        return "vz";
       case NONE:
         throw new IllegalArgumentException("Arrow type ID is NONE");
       default:
@@ -305,6 +309,10 @@ final class Format {
       case "+m":
         boolean keysSorted = (flags & Flags.ARROW_FLAG_MAP_KEYS_SORTED) != 0;
         return new ArrowType.Map(keysSorted);
+      case "vu":
+        return new ArrowType.Utf8View();
+      case "vz":
+        return new ArrowType.BinaryView();
       default:
         String[] parts = format.split(":", 2);
         if (parts.length == 2) {

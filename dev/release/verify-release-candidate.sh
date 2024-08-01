@@ -21,7 +21,7 @@
 # Requirements
 # - Ruby >= 2.3
 # - Maven >= 3.8.7
-# - JDK >=8
+# - JDK >= 11
 # - gcc >= 4.8
 # - Node.js >= 18
 # - Go >= 1.21
@@ -1153,7 +1153,7 @@ test_linux_wheels() {
     local pyver=${python/m}
     for platform in ${platform_tags}; do
       show_header "Testing Python ${pyver} wheel for platform ${platform}"
-      CONDA_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda
+      CONDA_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda tzdata
       if ! VENV_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_virtualenv; then
         continue
       fi

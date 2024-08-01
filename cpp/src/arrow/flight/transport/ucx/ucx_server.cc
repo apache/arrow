@@ -258,7 +258,7 @@ class UcxServerImpl : public arrow::flight::internal::ServerTransport {
       params.field_mask =
           UCP_LISTENER_PARAM_FIELD_SOCK_ADDR | UCP_LISTENER_PARAM_FIELD_CONN_HANDLER;
       params.sockaddr.addr = reinterpret_cast<const sockaddr*>(&listen_addr);
-      params.sockaddr.addrlen = addrlen;
+      params.sockaddr.addrlen = static_cast<socklen_t>(addrlen);
       params.conn_handler.cb = HandleIncomingConnection;
       params.conn_handler.arg = this;
 
@@ -376,7 +376,7 @@ class UcxServerImpl : public arrow::flight::internal::ServerTransport {
     std::unique_ptr<FlightInfo> info;
     std::string response;
     SERVER_RETURN_NOT_OK(driver, base_->GetFlightInfo(context, descriptor, &info));
-    SERVER_RETURN_NOT_OK(driver, info->SerializeToString().Value(&response));
+    SERVER_RETURN_NOT_OK(driver, info->SerializeToString(&response));
     RETURN_NOT_OK(driver->SendFrame(FrameType::kBuffer,
                                     reinterpret_cast<const uint8_t*>(response.data()),
                                     static_cast<int64_t>(response.size())));
@@ -397,7 +397,7 @@ class UcxServerImpl : public arrow::flight::internal::ServerTransport {
     std::unique_ptr<PollInfo> info;
     std::string response;
     SERVER_RETURN_NOT_OK(driver, base_->PollFlightInfo(context, descriptor, &info));
-    SERVER_RETURN_NOT_OK(driver, info->SerializeToString().Value(&response));
+    SERVER_RETURN_NOT_OK(driver, info->SerializeToString(&response));
     RETURN_NOT_OK(driver->SendFrame(FrameType::kBuffer,
                                     reinterpret_cast<const uint8_t*>(response.data()),
                                     static_cast<int64_t>(response.size())));

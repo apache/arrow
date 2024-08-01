@@ -17,9 +17,11 @@
 package org.apache.arrow.tools;
 
 import static org.apache.arrow.tools.ArrowFileTestFixtures.validateOutput;
+import static org.apache.arrow.tools.ArrowFileTestFixtures.validateVariadicOutput;
 import static org.apache.arrow.tools.ArrowFileTestFixtures.write;
 import static org.apache.arrow.tools.ArrowFileTestFixtures.writeData;
 import static org.apache.arrow.tools.ArrowFileTestFixtures.writeInput;
+import static org.apache.arrow.tools.ArrowFileTestFixtures.writeVariableWidthViewInput;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -344,5 +346,59 @@ public class TestIntegration {
 
     assertTrue(e.getMessage().contains("Different values in column"), e.getMessage());
     assertTrue(e.getMessage().contains("999"), e.getMessage());
+  }
+
+  @Test
+  public void testValidateVariableWidthView() throws Exception {
+    final int valueCount = 256;
+    final int multiplier = 6;
+
+    for (int i = 1; i < multiplier; i++) {
+      File testInFile = new File(testFolder, "testIn.arrow");
+      File testJSONFile = new File(testFolder, "testOut.json");
+      testJSONFile.delete();
+      File testOutFile = new File(testFolder, "testOut.arrow");
+      testOutFile.delete();
+
+      writeVariableWidthViewInput(testInFile, allocator, multiplier * valueCount);
+
+      Integration integration = new Integration();
+
+      // convert it to json
+      String[] args1 = {
+        "-arrow",
+        testInFile.getAbsolutePath(),
+        "-json",
+        testJSONFile.getAbsolutePath(),
+        "-command",
+        Command.ARROW_TO_JSON.name()
+      };
+      integration.run(args1);
+
+      // convert back to arrow
+      String[] args2 = {
+        "-arrow",
+        testOutFile.getAbsolutePath(),
+        "-json",
+        testJSONFile.getAbsolutePath(),
+        "-command",
+        Command.JSON_TO_ARROW.name()
+      };
+      integration.run(args2);
+
+      // check it is the same
+      validateVariadicOutput(testOutFile, allocator, multiplier * valueCount);
+
+      // validate arrow against json
+      String[] args3 = {
+        "-arrow",
+        testInFile.getAbsolutePath(),
+        "-json",
+        testJSONFile.getAbsolutePath(),
+        "-command",
+        Command.VALIDATE.name()
+      };
+      integration.run(args3);
+    }
   }
 }

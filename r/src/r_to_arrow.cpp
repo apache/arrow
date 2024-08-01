@@ -1050,7 +1050,6 @@ class RDictionaryConverter<ValueType, enable_if_has_string_view<ValueType>>
 template <typename T, typename Enable = void>
 struct RConverterTrait;
 
-#if ARROW_VERSION_MAJOR >= 15
 template <typename T>
 struct RConverterTrait<
     T, enable_if_t<!is_nested_type<T>::value && !is_interval_type<T>::value &&
@@ -1062,14 +1061,6 @@ template <typename T>
 struct RConverterTrait<T, enable_if_binary_view_like<T>> {
   // not implemented
 };
-#else
-template <typename T>
-struct RConverterTrait<
-    T, enable_if_t<!is_nested_type<T>::value && !is_interval_type<T>::value &&
-                   !is_extension_type<T>::value>> {
-  using type = RPrimitiveConverter<T>;
-};
-#endif
 
 template <typename T>
 struct RConverterTrait<T, enable_if_list_like<T>> {

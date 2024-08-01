@@ -260,6 +260,28 @@ public class DictionaryTest {
     vector.setValueCount(2);
   }
 
+  private void createStructVectorInline(StructVector vector) {
+    final ViewVarCharVector child1 =
+        vector.addOrGet(
+            "f0", FieldType.nullable(MinorType.VIEWVARCHAR.getType()), ViewVarCharVector.class);
+    final IntVector child2 =
+        vector.addOrGet("f1", FieldType.nullable(MinorType.INT.getType()), IntVector.class);
+
+    // Write the values to child 1
+    child1.allocateNew();
+    child1.set(0, "012345678".getBytes());
+    child1.set(1, "01234".getBytes());
+    vector.setIndexDefined(0);
+
+    // Write the values to child 2
+    child2.allocateNew();
+    child2.set(0, 10);
+    child2.set(1, 11);
+    vector.setIndexDefined(1);
+
+    vector.setValueCount(2);
+  }
+
   @Test
   public void testVectorLoadUnloadOnStructVector() {
     try (final StructVector structVector1 = StructVector.empty("struct", allocator)) {
@@ -275,6 +297,40 @@ public class DictionaryTest {
         assertFalse(recordBatch.getVariadicBufferCounts().isEmpty());
         assertEquals(1, recordBatch.getVariadicBufferCounts().size());
         assertEquals(1, recordBatch.getVariadicBufferCounts().get(0));
+
+        StructVectorLoader vectorLoader = new StructVectorLoader(schema);
+        try (StructVector structVector2 = vectorLoader.load(finalVectorsAllocator, recordBatch)) {
+          // Improve this after fixing https://github.com/apache/arrow/issues/41933
+          // assertTrue(VectorEqualsVisitor.vectorEquals(structVector1, structVector2), "vectors are
+          // not equivalent");
+          assertTrue(
+              VectorEqualsVisitor.vectorEquals(
+                  structVector1.getChild("f0"), structVector2.getChild("f0")),
+              "vectors are not equivalent");
+          assertTrue(
+              VectorEqualsVisitor.vectorEquals(
+                  structVector1.getChild("f1"), structVector2.getChild("f1")),
+              "vectors are not equivalent");
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testVectorLoadUnloadOnStructVectorWithInline() {
+    try (final StructVector structVector1 = StructVector.empty("struct", allocator)) {
+      createStructVectorInline(structVector1);
+      Field field1 = structVector1.getField();
+      Schema schema = new Schema(field1.getChildren());
+      StructVectorUnloader vectorUnloader = new StructVectorUnloader(structVector1);
+
+      try (ArrowRecordBatch recordBatch = vectorUnloader.getRecordBatch();
+          BufferAllocator finalVectorsAllocator =
+              allocator.newChildAllocator("struct", 0, Long.MAX_VALUE); ) {
+        // validating recordBatch contains an output for variadicBufferCounts
+        assertFalse(recordBatch.getVariadicBufferCounts().isEmpty());
+        assertEquals(1, recordBatch.getVariadicBufferCounts().size());
+        assertEquals(0, recordBatch.getVariadicBufferCounts().get(0));
 
         StructVectorLoader vectorLoader = new StructVectorLoader(schema);
         try (StructVector structVector2 = vectorLoader.load(finalVectorsAllocator, recordBatch)) {

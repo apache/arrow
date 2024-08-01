@@ -177,6 +177,16 @@ struct ARROW_EXPORT S3Options {
   /// to be true to address these scenarios.
   bool check_directory_existence_before_creation = false;
 
+  /// Whether to allow file-open methods to return before the actual open.
+  ///
+  /// Enabling this may reduce the latency of `OpenInputStream`, `OpenOutputStream`,
+  /// and similar methods, by reducing the number of roundtrips necessary. It may also
+  /// allow usage of more efficient S3 APIs for small files.
+  /// The downside is that failure conditions such as attempting to open a file in a
+  /// non-existing bucket will only be reported when actual I/O is done (at worse,
+  /// when attempting to close the file).
+  bool allow_delayed_open = false;
+
   /// \brief Default metadata for OpenOutputStream.
   ///
   /// This will be ignored if non-empty metadata is passed to OpenOutputStream.

@@ -34,10 +34,14 @@ popd
 
 source_dir=${1}/swift/Arrow
 pushd ${source_dir}
+sed 's/\/\/ build://g' Package.swift > Package.swift.build
+mv Package.swift.build Package.swift
 swift test
 popd
 
 source_dir=${1}/swift/ArrowFlight
 pushd ${source_dir}
+sed 's/\/\/ build://g' Package.swift > Package.swift.build
+mv Package.swift.build Package.swift
 swift test
 popd

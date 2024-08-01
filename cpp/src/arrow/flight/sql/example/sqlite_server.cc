@@ -126,7 +126,7 @@ arrow::Result<std::unique_ptr<FlightDataStream>> DoGetSQLiteQuery(
 arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoForCommand(
     const FlightDescriptor& descriptor, const std::shared_ptr<Schema>& schema) {
   std::vector<FlightEndpoint> endpoints{
-      FlightEndpoint{{descriptor.cmd}, {}, std::nullopt, ""}};
+      FlightEndpoint{Ticket{descriptor.cmd}, {}, std::nullopt, ""}};
   ARROW_ASSIGN_OR_RAISE(auto result,
                         FlightInfo::Make(*schema, descriptor, endpoints, -1, -1, false))
 
@@ -389,7 +389,7 @@ class SQLiteFlightSqlServer::Impl {
       const ServerCallContext& context, const GetTables& command,
       const FlightDescriptor& descriptor) {
     std::vector<FlightEndpoint> endpoints{
-        FlightEndpoint{{descriptor.cmd}, {}, std::nullopt, ""}};
+        FlightEndpoint{Ticket{descriptor.cmd}, {}, std::nullopt, ""}};
 
     bool include_schema = command.include_schema;
     ARROW_LOG(INFO) << "GetTables include_schema=" << include_schema;

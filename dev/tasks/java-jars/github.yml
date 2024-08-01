@@ -83,7 +83,7 @@ jobs:
           - { runs_on: ["macos-13"], arch: "x86_64"}
           - { runs_on: ["macos-14"], arch: "aarch_64" }
     env:
-      MACOSX_DEPLOYMENT_TARGET: "10.15"
+      MACOSX_DEPLOYMENT_TARGET: "14.0"
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       - name: Set up Python
@@ -242,12 +242,14 @@ jobs:
           test -f arrow/java-dist/arrow_dataset_jni/x86_64/arrow_dataset_jni.dll
           test -f arrow/java-dist/arrow_orc_jni/x86_64/arrow_orc_jni.dll
       - name: Build bundled jar
+        env:
+          MAVEN_ARGS: >-
+            --no-transfer-progress
         run: |
           set -e
           pushd arrow/java
           mvn versions:set -DnewVersion={{ arrow.no_rc_snapshot_version }}
           mvn versions:set -DnewVersion={{ arrow.no_rc_snapshot_version }} -f bom
-          mvn versions:set -DnewVersion={{ arrow.no_rc_snapshot_version }} -f maven
           popd
           arrow/ci/scripts/java_full_build.sh \
             $GITHUB_WORKSPACE/arrow \
