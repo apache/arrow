@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "arrow/array/data.h"
+#include "arrow/array/statistics.h"
 #include "arrow/compare.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
@@ -37,9 +38,12 @@ namespace arrow {
 
 /// \brief Create a strongly-typed Array instance from generic ArrayData
 /// \param[in] data the array contents
+/// \param[in] statistics the array statistics
 /// \return the resulting Array instance
 ARROW_EXPORT
-std::shared_ptr<Array> MakeArray(const std::shared_ptr<ArrayData>& data);
+std::shared_ptr<Array> MakeArray(
+    const std::shared_ptr<ArrayData>& data,
+    const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR);
 
 /// \brief Create a strongly-typed Array instance with all elements null
 /// \param[in] type the array type

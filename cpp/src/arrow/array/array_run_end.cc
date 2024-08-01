@@ -26,20 +26,16 @@ namespace arrow {
 // ----------------------------------------------------------------------
 // RunEndEncodedArray
 
-RunEndEncodedArray::RunEndEncodedArray(const std::shared_ptr<ArrayData>& data) {
-  this->SetData(data);
-}
-
 RunEndEncodedArray::RunEndEncodedArray(const std::shared_ptr<DataType>& type,
                                        int64_t length,
                                        const std::shared_ptr<Array>& run_ends,
                                        const std::shared_ptr<Array>& values,
-                                       int64_t offset) {
-  this->SetData(ArrayData::Make(type, length,
-                                /*buffers=*/{NULLPTR},
-                                /*child_data=*/{run_ends->data(), values->data()},
-                                /*null_count=*/0, offset));
-}
+                                       int64_t offset)
+    : RunEndEncodedArray(
+          ArrayData::Make(type, length,
+                          /*buffers=*/{NULLPTR},
+                          /*child_data=*/{run_ends->data(), values->data()},
+                          /*null_count=*/0, offset)) {}
 
 Result<std::shared_ptr<RunEndEncodedArray>> RunEndEncodedArray::Make(
     const std::shared_ptr<DataType>& type, int64_t logical_length,
@@ -67,14 +63,16 @@ Result<std::shared_ptr<RunEndEncodedArray>> RunEndEncodedArray::Make(
   return Make(ree_type, logical_length, run_ends, values, logical_offset);
 }
 
-void RunEndEncodedArray::SetData(const std::shared_ptr<ArrayData>& data) {
+void RunEndEncodedArray::ValidateData(const std::shared_ptr<ArrayData>& data) {
   ARROW_CHECK_EQ(data->type->id(), Type::RUN_END_ENCODED);
   const auto* ree_type =
       internal::checked_cast<const RunEndEncodedType*>(data->type.get());
   ARROW_CHECK_EQ(data->child_data.size(), 2);
   ARROW_CHECK_EQ(ree_type->run_end_type()->id(), data->child_data[0]->type->id());
   ARROW_CHECK_EQ(ree_type->value_type()->id(), data->child_data[1]->type->id());
+}
 
+void RunEndEncodedArray::SetData(const std::shared_ptr<ArrayData>& data) {
   Array::SetData(data);
   run_ends_array_ = MakeArray(this->data()->child_data[0]);
   values_array_ = MakeArray(this->data()->child_data[1]);

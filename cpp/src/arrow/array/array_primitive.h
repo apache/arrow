@@ -41,7 +41,10 @@ class ARROW_EXPORT BooleanArray : public PrimitiveArray {
   using TypeClass = BooleanType;
   using IteratorType = stl::ArrayIterator<BooleanArray>;
 
-  explicit BooleanArray(const std::shared_ptr<ArrayData>& data);
+  explicit BooleanArray(const std::shared_ptr<ArrayData>& data,
+                        const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR) {
+    Init(data, statistics);
+  }
 
   BooleanArray(int64_t length, const std::shared_ptr<Buffer>& data,
                const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
@@ -69,7 +72,7 @@ class ARROW_EXPORT BooleanArray : public PrimitiveArray {
   IteratorType end() const { return IteratorType(*this, length()); }
 
  protected:
-  using PrimitiveArray::PrimitiveArray;
+  void ValidateData(const std::shared_ptr<ArrayData>& data) override;
 };
 
 /// \addtogroup numeric-arrays
@@ -90,7 +93,10 @@ class NumericArray : public PrimitiveArray {
   using value_type = typename TypeClass::c_type;
   using IteratorType = stl::ArrayIterator<NumericArray<TYPE>>;
 
-  explicit NumericArray(const std::shared_ptr<ArrayData>& data) : PrimitiveArray(data) {}
+  explicit NumericArray(const std::shared_ptr<ArrayData>& data,
+                        const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR) {
+    Init(data, statistics);
+  }
 
   // Only enable this constructor without a type argument for types without additional
   // metadata
@@ -131,7 +137,11 @@ class ARROW_EXPORT DayTimeIntervalArray : public PrimitiveArray {
   using TypeClass = DayTimeIntervalType;
   using IteratorType = stl::ArrayIterator<DayTimeIntervalArray>;
 
-  explicit DayTimeIntervalArray(const std::shared_ptr<ArrayData>& data);
+  explicit DayTimeIntervalArray(
+      const std::shared_ptr<ArrayData>& data,
+      const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR) {
+    Init(data, statistics);
+  }
 
   DayTimeIntervalArray(const std::shared_ptr<DataType>& type, int64_t length,
                        const std::shared_ptr<Buffer>& data,
@@ -167,7 +177,11 @@ class ARROW_EXPORT MonthDayNanoIntervalArray : public PrimitiveArray {
   using TypeClass = MonthDayNanoIntervalType;
   using IteratorType = stl::ArrayIterator<MonthDayNanoIntervalArray>;
 
-  explicit MonthDayNanoIntervalArray(const std::shared_ptr<ArrayData>& data);
+  explicit MonthDayNanoIntervalArray(
+      const std::shared_ptr<ArrayData>& data,
+      const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR) {
+    Init(data, statistics);
+  }
 
   MonthDayNanoIntervalArray(const std::shared_ptr<DataType>& type, int64_t length,
                             const std::shared_ptr<Buffer>& data,

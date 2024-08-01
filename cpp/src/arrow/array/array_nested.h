@@ -162,7 +162,10 @@ class BaseListArray : public VarLengthListLikeArray<TYPE> {
 /// Concrete Array class for list data
 class ARROW_EXPORT ListArray : public BaseListArray<ListType> {
  public:
-  explicit ListArray(std::shared_ptr<ArrayData> data);
+  explicit ListArray(const std::shared_ptr<ArrayData>& data,
+                     const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR) {
+    Init(data, statistics);
+  }
 
   ListArray(std::shared_ptr<DataType> type, int64_t length,
             std::shared_ptr<Buffer> value_offsets, std::shared_ptr<Array> values,
@@ -220,16 +223,19 @@ class ARROW_EXPORT ListArray : public BaseListArray<ListType> {
   std::shared_ptr<Array> offsets() const;
 
  protected:
-  // This constructor defers SetData to a derived array class
+  // This constructor defers Init() to a derived array class
   ListArray() = default;
 
-  void SetData(const std::shared_ptr<ArrayData>& data);
+  void SetData(const std::shared_ptr<ArrayData>& data) override;
 };
 
 /// Concrete Array class for large list data (with 64-bit offsets)
 class ARROW_EXPORT LargeListArray : public BaseListArray<LargeListType> {
  public:
-  explicit LargeListArray(const std::shared_ptr<ArrayData>& data);
+  explicit LargeListArray(const std::shared_ptr<ArrayData>& data,
+                          const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR) {
+    Init(data, statistics);
+  }
 
   LargeListArray(const std::shared_ptr<DataType>& type, int64_t length,
                  const std::shared_ptr<Buffer>& value_offsets,
@@ -284,7 +290,7 @@ class ARROW_EXPORT LargeListArray : public BaseListArray<LargeListType> {
   std::shared_ptr<Array> offsets() const;
 
  protected:
-  void SetData(const std::shared_ptr<ArrayData>& data);
+  void SetData(const std::shared_ptr<ArrayData>& data) override;
 };
 
 // ----------------------------------------------------------------------
@@ -324,7 +330,10 @@ class BaseListViewArray : public VarLengthListLikeArray<TYPE> {
 /// \brief Concrete Array class for list-view data
 class ARROW_EXPORT ListViewArray : public BaseListViewArray<ListViewType> {
  public:
-  explicit ListViewArray(std::shared_ptr<ArrayData> data);
+  explicit ListViewArray(const std::shared_ptr<ArrayData>& data,
+                         const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR) {
+    Init(data, statistics);
+  }
 
   ListViewArray(std::shared_ptr<DataType> type, int64_t length,
                 std::shared_ptr<Buffer> value_offsets,
@@ -402,17 +411,20 @@ class ARROW_EXPORT ListViewArray : public BaseListViewArray<ListViewType> {
   std::shared_ptr<Array> sizes() const;
 
  protected:
-  // This constructor defers SetData to a derived array class
+  // This constructor defers Init() to a derived array class
   ListViewArray() = default;
-
-  void SetData(const std::shared_ptr<ArrayData>& data);
+  void SetData(const std::shared_ptr<ArrayData>& data) override;
 };
 
 /// \brief Concrete Array class for large list-view data (with 64-bit offsets
 /// and sizes)
 class ARROW_EXPORT LargeListViewArray : public BaseListViewArray<LargeListViewType> {
  public:
-  explicit LargeListViewArray(std::shared_ptr<ArrayData> data);
+  explicit LargeListViewArray(
+      const std::shared_ptr<ArrayData>& data,
+      const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR) {
+    Init(data, statistics);
+  }
 
   LargeListViewArray(std::shared_ptr<DataType> type, int64_t length,
                      std::shared_ptr<Buffer> value_offsets,
@@ -486,10 +498,10 @@ class ARROW_EXPORT LargeListViewArray : public BaseListViewArray<LargeListViewTy
   std::shared_ptr<Array> sizes() const;
 
  protected:
-  // This constructor defers SetData to a derived array class
+  // This constructor defers Init() to a derived array class
   LargeListViewArray() = default;
 
-  void SetData(const std::shared_ptr<ArrayData>& data);
+  void SetData(const std::shared_ptr<ArrayData>& data) override;
 };
 
 // ----------------------------------------------------------------------
@@ -502,7 +514,10 @@ class ARROW_EXPORT MapArray : public ListArray {
  public:
   using TypeClass = MapType;
 
-  explicit MapArray(const std::shared_ptr<ArrayData>& data);
+  explicit MapArray(const std::shared_ptr<ArrayData>& data,
+                    const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR) {
+    Init(data, statistics);
+  }
 
   MapArray(const std::shared_ptr<DataType>& type, int64_t length,
            const std::shared_ptr<Buffer>& value_offsets,
@@ -558,7 +573,8 @@ class ARROW_EXPORT MapArray : public ListArray {
       const std::vector<std::shared_ptr<ArrayData>>& child_data);
 
  protected:
-  void SetData(const std::shared_ptr<ArrayData>& data);
+  void ValidateData(const std::shared_ptr<ArrayData>& data) override;
+  void SetData(const std::shared_ptr<ArrayData>& data) override;
 
   static Result<std::shared_ptr<Array>> FromArraysInternal(
       std::shared_ptr<DataType> type, const std::shared_ptr<Array>& offsets,
@@ -579,7 +595,11 @@ class ARROW_EXPORT FixedSizeListArray : public Array {
   using TypeClass = FixedSizeListType;
   using offset_type = TypeClass::offset_type;
 
-  explicit FixedSizeListArray(const std::shared_ptr<ArrayData>& data);
+  explicit FixedSizeListArray(
+      const std::shared_ptr<ArrayData>& data,
+      const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR) {
+    Init(data, statistics);
+  }
 
   FixedSizeListArray(const std::shared_ptr<DataType>& type, int64_t length,
                      const std::shared_ptr<Array>& values,
@@ -655,7 +675,8 @@ class ARROW_EXPORT FixedSizeListArray : public Array {
       int64_t null_count = kUnknownNullCount);
 
  protected:
-  void SetData(const std::shared_ptr<ArrayData>& data);
+  void ValidateData(const std::shared_ptr<ArrayData>& data) override;
+  void SetData(const std::shared_ptr<ArrayData>& data) override;
   int32_t list_size_;
 
  private:
@@ -670,7 +691,10 @@ class ARROW_EXPORT StructArray : public Array {
  public:
   using TypeClass = StructType;
 
-  explicit StructArray(const std::shared_ptr<ArrayData>& data);
+  explicit StructArray(const std::shared_ptr<ArrayData>& data,
+                       const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR) {
+    Init(data, statistics);
+  }
 
   StructArray(const std::shared_ptr<DataType>& type, int64_t length,
               const std::vector<std::shared_ptr<Array>>& children,
@@ -731,6 +755,9 @@ class ARROW_EXPORT StructArray : public Array {
   // For caching boxed child data
   // XXX This is not handled in a thread-safe manner.
   mutable ArrayVector boxed_fields_;
+
+  void ValidateData(const std::shared_ptr<ArrayData>& data) override;
+  void SetData(const std::shared_ptr<ArrayData>& data) override;
 };
 
 // ----------------------------------------------------------------------
@@ -765,7 +792,7 @@ class ARROW_EXPORT UnionArray : public Array {
   std::shared_ptr<Array> field(int pos) const;
 
  protected:
-  void SetData(std::shared_ptr<ArrayData> data);
+  void SetData(const std::shared_ptr<ArrayData>& data) override;
 
   const type_code_t* raw_type_codes_;
   const UnionType* union_type_;
@@ -779,7 +806,11 @@ class ARROW_EXPORT SparseUnionArray : public UnionArray {
  public:
   using TypeClass = SparseUnionType;
 
-  explicit SparseUnionArray(std::shared_ptr<ArrayData> data);
+  explicit SparseUnionArray(
+      const std::shared_ptr<ArrayData>& data,
+      const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR) {
+    Init(data, statistics);
+  }
 
   SparseUnionArray(std::shared_ptr<DataType> type, int64_t length, ArrayVector children,
                    std::shared_ptr<Buffer> type_ids, int64_t offset = 0);
@@ -822,7 +853,7 @@ class ARROW_EXPORT SparseUnionArray : public UnionArray {
       int index, MemoryPool* pool = default_memory_pool()) const;
 
  protected:
-  void SetData(std::shared_ptr<ArrayData> data);
+  void SetData(const std::shared_ptr<ArrayData>& data) override;
 };
 
 /// \brief Concrete Array class for dense union data
@@ -832,7 +863,10 @@ class ARROW_EXPORT DenseUnionArray : public UnionArray {
  public:
   using TypeClass = DenseUnionType;
 
-  explicit DenseUnionArray(const std::shared_ptr<ArrayData>& data);
+  explicit DenseUnionArray(const std::shared_ptr<ArrayData>& data,
+                           const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR) {
+    Init(data, statistics);
+  }
 
   DenseUnionArray(std::shared_ptr<DataType> type, int64_t length, ArrayVector children,
                   std::shared_ptr<Buffer> type_ids,
@@ -890,7 +924,7 @@ class ARROW_EXPORT DenseUnionArray : public UnionArray {
  protected:
   const int32_t* raw_value_offsets_;
 
-  void SetData(const std::shared_ptr<ArrayData>& data);
+  void SetData(const std::shared_ptr<ArrayData>& data) override;
 };
 
 /// @}

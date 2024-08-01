@@ -17,12 +17,14 @@
 
 #include "gtest/gtest.h"
 
+#include "arrow/array.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 
 #include "parquet/api/reader.h"
 #include "parquet/api/writer.h"
 
+#include "parquet/arrow/reader.h"
 #include "parquet/arrow/schema.h"
 #include "parquet/arrow/writer.h"
 #include "parquet/file_writer.h"
@@ -155,5 +157,69 @@ INSTANTIATE_TEST_SUITE_P(
             /*expected_value_count=*/2,
             /*expected_min=*/"z",
             /*expected_max=*/"z"}));
+
+namespace {
+::arrow::Result<std::shared_ptr<::arrow::Array>> StatisticsReadArray(
+    std::shared_ptr<::arrow::DataType> data_type, const std::string& json) {
+  auto schema = ::arrow::schema({::arrow::field("column", data_type)});
+  auto array = ::arrow::ArrayFromJSON(data_type, json);
+  auto record_batch = ::arrow::RecordBatch::Make(schema, array->length(), {array});
+  ARROW_ASSIGN_OR_RAISE(auto sink, ::arrow::io::BufferOutputStream::Create());
+  ARROW_ASSIGN_OR_RAISE(auto writer,
+                        FileWriter::Open(*schema, ::arrow::default_memory_pool(), sink));
+  ARROW_RETURN_NOT_OK(writer->WriteRecordBatch(*record_batch));
+  ARROW_RETURN_NOT_OK(writer->Close());
+  ARROW_ASSIGN_OR_RAISE(auto buffer, sink->Finish());
+
+  auto reader =
+      ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
+  std::unique_ptr<FileReader> file_reader;
+  ARROW_RETURN_NOT_OK(
+      FileReader::Make(::arrow::default_memory_pool(), std::move(reader), &file_reader));
+  std::shared_ptr<::arrow::ChunkedArray> chunked_array;
+  ARROW_RETURN_NOT_OK(file_reader->ReadColumn(0, &chunked_array));
+  return chunked_array->chunk(0);
+}
+}  // namespace
+
+TEST(TestStatisticsRead, Boolean) {
+  ASSERT_OK_AND_ASSIGN(auto array,
+                       StatisticsReadArray(::arrow::boolean(), R"([true, null, true])"));
+  auto typed_array = std::static_pointer_cast<::arrow::BooleanArray>(array);
+  auto statistics = typed_array->statistics();
+  ASSERT_EQ(true, statistics->null_count.has_value());
+  ASSERT_EQ(1, statistics->null_count.value());
+  ASSERT_EQ(false, statistics->distinct_count.has_value());
+  ASSERT_EQ(true, statistics->min_buffer.has_value());
+  ASSERT_EQ(true, std::holds_alternative<bool>(*statistics->min_buffer));
+  ASSERT_EQ(true, std::get<bool>(*statistics->min_buffer));
+  ASSERT_EQ(true, statistics->is_min_exact.has_value());
+  ASSERT_EQ(true, statistics->is_min_exact.value());
+  ASSERT_EQ(true, statistics->max_buffer.has_value());
+  ASSERT_EQ(true, std::holds_alternative<bool>(*statistics->max_buffer));
+  ASSERT_EQ(true, std::get<bool>(*statistics->max_buffer));
+  ASSERT_EQ(true, statistics->is_min_exact.has_value());
+  ASSERT_EQ(true, statistics->is_min_exact.value());
+}
+
+TEST(TestStatisticsRead, Int8) {
+  ASSERT_OK_AND_ASSIGN(auto array,
+                       StatisticsReadArray(::arrow::int8(), R"([1, null, -1, 1])"));
+  auto typed_array = std::static_pointer_cast<::arrow::Int8Array>(array);
+  auto statistics = typed_array->statistics();
+  ASSERT_EQ(true, statistics->null_count.has_value());
+  ASSERT_EQ(1, statistics->null_count.value());
+  ASSERT_EQ(false, statistics->distinct_count.has_value());
+  ASSERT_EQ(true, statistics->min_buffer.has_value());
+  ASSERT_EQ(true, std::holds_alternative<int8_t>(*statistics->min_buffer));
+  ASSERT_EQ(-1, std::get<int8_t>(*statistics->min_buffer));
+  ASSERT_EQ(true, statistics->is_min_exact.has_value());
+  ASSERT_EQ(true, statistics->is_min_exact.value());
+  ASSERT_EQ(true, statistics->max_buffer.has_value());
+  ASSERT_EQ(true, std::holds_alternative<int8_t>(*statistics->max_buffer));
+  ASSERT_EQ(1, std::get<int8_t>(*statistics->max_buffer));
+  ASSERT_EQ(true, statistics->is_min_exact.has_value());
+  ASSERT_EQ(true, statistics->is_min_exact.value());
+}
 
 }  // namespace parquet::arrow

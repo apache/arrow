@@ -32,9 +32,8 @@ namespace arrow {
 
 using internal::checked_cast;
 
-BinaryArray::BinaryArray(const std::shared_ptr<ArrayData>& data) {
+void BinaryArray::ValidateData(const std::shared_ptr<ArrayData>& data) {
   ARROW_CHECK(is_binary_like(data->type->id()));
-  SetData(data);
 }
 
 BinaryArray::BinaryArray(int64_t length, const std::shared_ptr<Buffer>& value_offsets,
@@ -45,9 +44,8 @@ BinaryArray::BinaryArray(int64_t length, const std::shared_ptr<Buffer>& value_of
                           null_count, offset));
 }
 
-LargeBinaryArray::LargeBinaryArray(const std::shared_ptr<ArrayData>& data) {
+void LargeBinaryArray::ValidateData(const std::shared_ptr<ArrayData>& data) {
   ARROW_CHECK(is_large_binary_like(data->type->id()));
-  SetData(data);
 }
 
 LargeBinaryArray::LargeBinaryArray(int64_t length,
@@ -59,9 +57,8 @@ LargeBinaryArray::LargeBinaryArray(int64_t length,
                           null_count, offset));
 }
 
-StringArray::StringArray(const std::shared_ptr<ArrayData>& data) {
+void StringArray::ValidateData(const std::shared_ptr<ArrayData>& data) {
   ARROW_CHECK_EQ(data->type->id(), Type::STRING);
-  SetData(data);
 }
 
 StringArray::StringArray(int64_t length, const std::shared_ptr<Buffer>& value_offsets,
@@ -74,9 +71,8 @@ StringArray::StringArray(int64_t length, const std::shared_ptr<Buffer>& value_of
 
 Status StringArray::ValidateUTF8() const { return internal::ValidateUTF8(*data_); }
 
-LargeStringArray::LargeStringArray(const std::shared_ptr<ArrayData>& data) {
+void LargeStringArray::ValidateData(const std::shared_ptr<ArrayData>& data) {
   ARROW_CHECK_EQ(data->type->id(), Type::LARGE_STRING);
-  SetData(data);
 }
 
 LargeStringArray::LargeStringArray(int64_t length,
@@ -90,9 +86,8 @@ LargeStringArray::LargeStringArray(int64_t length,
 
 Status LargeStringArray::ValidateUTF8() const { return internal::ValidateUTF8(*data_); }
 
-BinaryViewArray::BinaryViewArray(std::shared_ptr<ArrayData> data) {
+void BinaryViewArray::ValidateData(const std::shared_ptr<ArrayData>& data) {
   ARROW_CHECK_EQ(data->type->id(), Type::BINARY_VIEW);
-  SetData(std::move(data));
 }
 
 BinaryViewArray::BinaryViewArray(std::shared_ptr<DataType> type, int64_t length,
@@ -110,16 +105,11 @@ std::string_view BinaryViewArray::GetView(int64_t i) const {
   return util::FromBinaryView(raw_values_[i], data_buffers);
 }
 
-StringViewArray::StringViewArray(std::shared_ptr<ArrayData> data) {
+void StringViewArray::ValidateData(const std::shared_ptr<ArrayData>& data) {
   ARROW_CHECK_EQ(data->type->id(), Type::STRING_VIEW);
-  SetData(std::move(data));
 }
 
 Status StringViewArray::ValidateUTF8() const { return internal::ValidateUTF8(*data_); }
-
-FixedSizeBinaryArray::FixedSizeBinaryArray(const std::shared_ptr<ArrayData>& data) {
-  SetData(data);
-}
 
 FixedSizeBinaryArray::FixedSizeBinaryArray(const std::shared_ptr<DataType>& type,
                                            int64_t length,
