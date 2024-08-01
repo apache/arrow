@@ -50,7 +50,7 @@ std::shared_ptr<Array> Bool8Type::MakeArray(
   DCHECK_EQ(data->type->id(), Type::EXTENSION);
   DCHECK_EQ("arrow.bool8",
             internal::checked_cast<const ExtensionType&>(*data->type).extension_name());
-  return std::make_shared<ExtensionArray>(data);
+  return std::make_shared<Bool8Array>(data);
 }
 
 Result<std::shared_ptr<DataType>> Bool8Type::Make() {

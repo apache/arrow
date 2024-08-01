@@ -20,10 +20,20 @@
 namespace arrow {
 namespace extension {
 
-class ARROW_EXPORT Bool8Array : public ExtensionArray {};
+/// \brief Bool8 is an alternate representation for boolean
+/// arrays using 8 bits instead of 1 bit per value. The underlying
+/// storage type is int8.
+class ARROW_EXPORT Bool8Array : public ExtensionArray {
+ public:
+  using ExtensionArray::ExtensionArray;
+};
 
+/// \brief Bool8 is an alternate representation for boolean
+/// arrays using 8 bits instead of 1 bit per value. The underlying
+/// storage type is int8.
 class ARROW_EXPORT Bool8Type : public ExtensionType {
  public:
+ /// \brief Construct a Bool8Type.
   Bool8Type(): ExtensionType(int8()) {}
 
   std::string extension_name() const override { return "arrow.bool8"; }
@@ -37,11 +47,13 @@ class ARROW_EXPORT Bool8Type : public ExtensionType {
       std::shared_ptr<DataType> storage_type,
       const std::string& serialized_data) const override;
 
+  /// Create a Bool8Array from ArrayData
   std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override;
 
   static Result<std::shared_ptr<DataType>> Make();
 };
 
+/// \brief Return a Bool8Type instance.
 ARROW_EXPORT std::shared_ptr<DataType> bool8();
 
 }  // namespace extension
