@@ -92,9 +92,9 @@ MSG_DEPR_SETUP_BUILD_FLAGS = """
         The '{}' flag is being passed to setup.py, but this is
         deprecated.
 
-        If a certain component is available in Arrow C++, it will
-        automatically be enabled for the PyArrow build as well. If you want
-        to force build a certain component, you can still use the
+        If a certain component is available in Arrow C++, it will automatically
+        be enabled for the PyArrow build as well. If you want to force the
+        build of a certain component, you can still use the
         PYARROW_WITH_$COMPONENT environment variable.
         ***********************************************************************
 
