@@ -368,9 +368,9 @@ std::shared_ptr<arrow::Buffer> LoadArrowBufferFromByteBuffer(JNIEnv* env, jobjec
 
 inline bool ParseBool(const std::string& value) { return value == "true" ? true : false; }
 
-inline bool ParseChar(const std::string& value) {
+inline bool ParseChar(const std::string& key, const std::string& value) {
   if (value.size() != 1) {
-    JniThrow("Csv convert option " + value + " should be a char");
+    JniThrow("Option " + key + " should be a char, but is " + value);
   }
   return value.at(0);
 }
@@ -405,7 +405,7 @@ bool SetCsvConvertOptions(arrow::csv::ConvertOptions& options, const std::string
   } else if (key == "auto_dict_max_cardinality") {
     options.auto_dict_max_cardinality = std::stoi(value);
   } else if (key == "decimal_point") {
-    options.decimal_point = ParseChar(value);
+    options.decimal_point = ParseChar(key, value);
   } else if (key == "include_missing_columns") {
     options.include_missing_columns = ParseBool(value);
   } else {
@@ -417,17 +417,17 @@ bool SetCsvConvertOptions(arrow::csv::ConvertOptions& options, const std::string
 bool SetCsvParseOptions(arrow::csv::ParseOptions& options, const std::string& key,
                         const std::string& value) {
   if (key == "delimiter") {
-    options.delimiter = ParseChar(value);
+    options.delimiter = ParseChar(key, value);
   } else if (key == "quoting") {
     options.quoting = ParseBool(value);
   } else if (key == "quote_char") {
-    options.quote_char = ParseChar(value);
+    options.quote_char = ParseChar(key, value);
   } else if (key == "double_quote") {
     options.double_quote = ParseBool(value);
   } else if (key == "escaping") {
     options.escaping = ParseBool(value);
   } else if (key == "escape_char") {
-    options.escape_char = ParseChar(value);
+    options.escape_char = ParseChar(key, value);
   } else if (key == "newlines_in_values") {
     options.newlines_in_values = ParseBool(value);
   } else if (key == "ignore_empty_lines") {
@@ -456,18 +456,16 @@ bool SetCsvReadOptions(arrow::csv::ReadOptions& options, const std::string& key,
   return true;
 }
 
-arrow::Result<std::shared_ptr<arrow::dataset::FragmentScanOptions>>
-ToCsvFragmentScanOptions(const std::unordered_map<std::string, std::string>& configs) {
+std::shared_ptr<arrow::dataset::FragmentScanOptions> ToCsvFragmentScanOptions(
+    const std::unordered_map<std::string, std::string>& configs) {
   std::shared_ptr<arrow::dataset::CsvFragmentScanOptions> options =
       std::make_shared<arrow::dataset::CsvFragmentScanOptions>();
-  for (const auto& it : configs) {
-    const auto& key = it.first;
-    const auto& value = it.second;
+  for (const auto& [key, value] : configs) {
     bool setValid = SetCsvParseOptions(options->parse_options, key, value) ||
                     SetCsvConvertOptions(options->convert_options, key, value) ||
                     SetCsvReadOptions(options->read_options, key, value);
     if (!setValid) {
-      return arrow::Status::Invalid("Config " + key + " is not supported.");
+      JniThrow("Config " + key + " is not supported.");
     }
   }
   return options;

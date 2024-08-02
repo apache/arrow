@@ -22,7 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Map;
@@ -46,6 +45,7 @@ import org.apache.arrow.vector.ipc.ArrowReader;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.util.Text;
 import org.hamcrest.collection.IsIterableContainingInOrder;
 import org.junit.jupiter.api.Test;
 
@@ -181,7 +181,7 @@ public class TestFragmentScanOptions {
     CsvFragmentScanOptions fragmentScanOptions =
         new CsvFragmentScanOptions(
             new CsvConvertOptions(ImmutableMap.of()),
-            ImmutableMap.of("skip_rows", "1"),
+            ImmutableMap.of("skip_rows_after_names", "1"),
             ImmutableMap.of("delimiter", ";"));
     ScanOptions options =
         new ScanOptions.Builder(/*batchSize*/ 32768)
@@ -190,7 +190,11 @@ public class TestFragmentScanOptions {
             .build();
     try (DatasetFactory datasetFactory =
             new FileSystemDatasetFactory(
-                allocator, NativeMemoryPool.getDefault(), FileFormat.CSV, path);
+                allocator,
+                NativeMemoryPool.getDefault(),
+                FileFormat.CSV,
+                path,
+                Optional.of(fragmentScanOptions));
         Dataset dataset = datasetFactory.finish();
         Scanner scanner = dataset.newScan(options);
         ArrowReader reader = scanner.scanBatches()) {
@@ -198,12 +202,12 @@ public class TestFragmentScanOptions {
       assertEquals(schema.getFields(), reader.getVectorSchemaRoot().getSchema().getFields());
       int rowCount = 0;
       while (reader.loadNextBatch()) {
-        final ValueIterableVector<String> idVector =
-            (ValueIterableVector<String>)
-                reader.getVectorSchemaRoot().getVector("Id;Name;Language");
+        final ValueIterableVector<Text> idVector =
+            (ValueIterableVector<Text>) reader.getVectorSchemaRoot().getVector("Id;Name;Language");
         assertThat(
             idVector.getValueIterable(),
-            IsIterableContainingInOrder.contains("2;Peter;Python\n" + "3;Celin;C++"));
+            IsIterableContainingInOrder.contains(
+                new Text("2;Peter;Python"), new Text("3;Celin;C++")));
         rowCount += reader.getVectorSchemaRoot().getRowCount();
       }
       assertEquals(2, rowCount);
@@ -297,7 +301,7 @@ public class TestFragmentScanOptions {
             new FileSystemDatasetFactory(
                 allocator, NativeMemoryPool.getDefault(), FileFormat.CSV, path);
         Dataset dataset = datasetFactory.finish()) {
-      assertThrows(IOException.class, () -> dataset.newScan(options));
+      assertThrows(RuntimeException.class, () -> dataset.newScan(options));
     }
 
     CsvFragmentScanOptions fragmentScanOptionsFaultValue =
@@ -314,7 +318,7 @@ public class TestFragmentScanOptions {
             new FileSystemDatasetFactory(
                 allocator, NativeMemoryPool.getDefault(), FileFormat.CSV, path);
         Dataset dataset = datasetFactory.finish()) {
-      assertThrows(Throwable.class, () -> dataset.newScan(optionsFault));
+      assertThrows(RuntimeException.class, () -> dataset.newScan(optionsFault));
     }
   }
 }
