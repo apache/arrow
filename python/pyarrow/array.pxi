@@ -4447,6 +4447,35 @@ cdef class FixedShapeTensorArray(ExtensionArray):
             FixedSizeListArray.from_arrays(values, shape[1:].prod())
         )
 
+
+cdef class OpaqueArray(ExtensionArray):
+    """
+    Concrete class for opaque extension arrays.
+
+    Examples
+    --------
+    Define the extension type for an opaque array
+
+    >>> import pyarrow as pa
+    >>> opaque_type = pa.opaque(
+    ...     pa.binary(),
+    ...     type_name="geometry",
+    ...     vendor_name="postgis",
+    ... )
+
+    Create an extension array
+
+    >>> arr = [None, b"data"]
+    >>> storage = pa.array(arr, pa.binary())
+    >>> pa.ExtensionArray.from_storage(opaque_type, storage)
+    <pyarrow.lib.OpaqueArray object at ...>
+    [
+      null,
+      64617461
+    ]
+    """
+
+
 cdef class Bool8Array(ExtensionArray):
     """
     Concrete class for bool8 extension arrays.
@@ -4478,32 +4507,38 @@ cdef class Bool8Array(ExtensionArray):
 
         return _pc().not_equal(self.storage, 0).to_numpy(zero_copy_only=zero_copy_only, writable=writable)
 
-cdef class OpaqueArray(ExtensionArray):
-    """
-    Concrete class for opaque extension arrays.
+    @staticmethod
+    def from_numpy(obj):
+        """
+        Convert numpy array to a bool8 extension array without making a copy.
+        The input array must be 1-dimensional, with either bool_ or int8 dtype.
 
-    Examples
-    --------
-    Define the extension type for an opaque array
+        Parameters
+        ----------
+        obj : numpy.ndarray
 
-    >>> import pyarrow as pa
-    >>> opaque_type = pa.opaque(
-    ...     pa.binary(),
-    ...     type_name="geometry",
-    ...     vendor_name="postgis",
-    ... )
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import numpy as np
+        >>> arr = np.array([True, False, True], dtype=np.bool_)
+        >>> pa.Bool8Array.from_numpy(arr)
+        <pyarrow.lib.Bool8Array object at ...>
+        [
+          1,
+          0,
+          1
+        ]
+        """
 
-    Create an extension array
+        if obj.ndim != 1:
+            raise ValueError(f"Cannot convert {obj.ndim}-D array to bool8 array")
+        
+        if obj.dtype not in [np.bool_, np.int8]:
+            raise TypeError(f"Array dtype {obj.dtype} incompatible with bool8 storage")
 
-    >>> arr = [None, b"data"]
-    >>> storage = pa.array(arr, pa.binary())
-    >>> pa.ExtensionArray.from_storage(opaque_type, storage)
-    <pyarrow.lib.OpaqueArray object at ...>
-    [
-      null,
-      64617461
-    ]
-    """
+        buf = foreign_buffer(obj.ctypes.data, obj.size)
+        return Array.from_buffers(bool8(), obj.size, [None, buf])
 
 
 cdef dict _array_classes = {
