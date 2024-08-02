@@ -4478,6 +4478,39 @@ cdef class Bool8Array(ExtensionArray):
 
         return _pc().not_equal(self.storage, 0).to_numpy(zero_copy_only=zero_copy_only, writable=writable)
 
+    @staticmethod
+    def from_numpy(obj):
+        """
+        Convert numpy array to a bool8 extension array without making a copy.
+        The input array must be 1-dimensional, with either bool_ or int8 dtype.
+
+        Parameters
+        ----------
+        obj : numpy.ndarray
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import numpy as np
+        >>> arr = np.array([True, False, True], dtype=np.bool_)
+        >>> pa.Bool8Array.from_numpy(arr)
+        <pyarrow.lib.Bool8Array object at ...>
+        [
+          1,
+          0,
+          1
+        ]
+        """
+
+        if obj.ndim != 1:
+            raise ValueError(f"Cannot convert {obj.ndim}-D array to bool8 array")
+        
+        if obj.dtype not in [np.bool_, np.int8]:
+            raise TypeError(f"Array dtype {obj.dtype} incompatible with bool8 storage")
+
+        buf = foreign_buffer(obj.ctypes.data, obj.size)
+        return Array.from_buffers(bool8(), obj.size, [None, buf])
+
 cdef dict _array_classes = {
     _Type_NA: NullArray,
     _Type_BOOL: BooleanArray,
