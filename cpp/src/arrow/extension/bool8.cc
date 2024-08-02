@@ -58,9 +58,7 @@ Result<std::shared_ptr<DataType>> Bool8Type::Make() {
 }
 
 std::shared_ptr<DataType> bool8() {
-  auto maybe_type = Bool8Type::Make();
-  ARROW_DCHECK_OK(maybe_type.status());
-  return maybe_type.MoveValueUnsafe();
+  return std::make_shared<Bool8Type>();
 }
 
 }  // namespace arrow::extension
