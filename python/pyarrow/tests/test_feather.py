@@ -814,6 +814,7 @@ def test_nested_types(compression):
     _check_arrow_roundtrip(table, compression=compression)
 
 
+@pytest.mark.numpy
 @h.given(past.all_tables, st.sampled_from(["uncompressed", "lz4", "zstd"]))
 def test_roundtrip(table, compression):
     _check_arrow_roundtrip(table, compression=compression)
