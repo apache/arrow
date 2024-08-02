@@ -281,7 +281,7 @@ public class TestLargeListViewVector {
       largeListViewWriter.listView().bigInt().writeBigInt(35);
       largeListViewWriter.listView().endListView();
 
-      largeListViewWriter.endList();
+      largeListViewWriter.endListView();
 
       largeListViewVector.setValueCount(2);
 
