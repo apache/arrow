@@ -757,8 +757,14 @@ Status NumPyConverter::Visit(const StructType& type) {
     }
 
     for (auto field : type.fields()) {
-      PyObject* tup =
-          PyDict_GetItemString(PyDataType_FIELDS(dtype_), field->name().c_str());
+      PyObject* tup;
+#ifdef Py_GIL_DISABLED
+      PyDict_GetItemStringRef(PyDataType_FIELDS(dtype_), field->name().c_str(), &tup);
+      RETURN_IF_PYERROR();
+      OwnedRef tupref(tup);
+#else
+      tup = PyDict_GetItemString(PyDataType_FIELDS(dtype_), field->name().c_str());
+#endif
       if (tup == NULL) {
         return Status::Invalid("Missing field '", field->name(), "' in struct array");
       }

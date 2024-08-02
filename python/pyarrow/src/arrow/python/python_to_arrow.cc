@@ -1107,11 +1107,19 @@ class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> 
   Status AppendDict(PyObject* dict, PyObject* field_names) {
     // NOTE we're ignoring any extraneous dict items
     for (int i = 0; i < num_fields_; i++) {
-      PyObject* name = PyList_GET_ITEM(field_names, i);  // borrowed
-      PyObject* value = PyDict_GetItem(dict, name);      // borrowed
-      if (value == NULL) {
-        RETURN_IF_PYERROR();
-      }
+      PyObject *name, *value;
+#ifdef Py_GIL_DISABLED
+      name = PyList_GetItemRef(field_names, i);
+      RETURN_IF_PYERROR();
+      PyDict_GetItemRef(dict, name, &value);
+      RETURN_IF_PYERROR();
+      OwnedRef nameref(name);
+      OwnedRef valuered(value);
+#else
+      name = PyList_GET_ITEM(field_names, i);  // borrowed
+      value = PyDict_GetItem(dict, name);      // borrowed
+      RETURN_IF_PYERROR();
+#endif
       RETURN_NOT_OK(this->children_[i]->Append(value ? value : Py_None));
     }
     return Status::OK();
@@ -1141,7 +1149,14 @@ class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> 
       ARROW_ASSIGN_OR_RAISE(auto pair, GetKeyValuePair(items, i));
 
       // validate that the key and the field name are equal
-      PyObject* name = PyList_GET_ITEM(field_names, i);
+      PyObject *name;
+#ifdef Py_GIL_DISABLED
+      name = PyList_GetItemRef(field_names, i);
+      RETURN_IF_PYERROR();
+      OwnedRef nameref(name);
+#else
+      name = PyList_GET_ITEM(field_names, i);
+#endif
       bool are_equal = PyObject_RichCompareBool(pair.first, name, Py_EQ);
       RETURN_IF_PYERROR();
 
