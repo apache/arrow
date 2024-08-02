@@ -26,11 +26,6 @@ import urllib.request
 import pytest
 import hypothesis as h
 
-try:
-    import numpy as np
-except ImportError:
-    np = None
-
 from ..conftest import groups, defaults
 
 from pyarrow import set_timezone_db_path
