@@ -258,15 +258,6 @@ struct FunctionExecutorImpl : public FunctionExecutor {
       return Status::Invalid("Execution of '", func_name, "' expected ", in_types.size(),
                              " arguments but got ", args.size());
     }
-    {
-      DeviceAllocationTypeSet expected_device_type_set;
-      int offending_arg_index = 0;
-      if (ARROW_PREDICT_FALSE(!kernel->signature->MatchesDeviceAllocationTypes(
-              args, &expected_device_type_set, &offending_arg_index))) {
-        return BadDeviceTypeStatus(func_name, expected_device_type_set,
-                                   offending_arg_index, args[offending_arg_index]);
-      }
-    }
     if (!inited) {
       ARROW_RETURN_NOT_OK(Init(NULLPTR, default_exec_context()));
     }
@@ -280,6 +271,15 @@ struct FunctionExecutorImpl : public FunctionExecutor {
         ARROW_ASSIGN_OR_RAISE(arg, Cast(args[i], CastOptions::Safe(in_type), ctx));
       }
       args_with_cast[i] = std::move(arg);
+    }
+    {
+      DeviceAllocationTypeSet expected_device_type_set;
+      int offending_arg_index = 0;
+      if (ARROW_PREDICT_FALSE(!kernel->signature->MatchesDeviceAllocationTypes(
+              args_with_cast, &expected_device_type_set, &offending_arg_index))) {
+        return BadDeviceTypeStatus(func_name, expected_device_type_set,
+                                   offending_arg_index, args[offending_arg_index]);
+      }
     }
 
     detail::DatumAccumulator listener;
