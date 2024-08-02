@@ -83,7 +83,7 @@ public class LargeListViewVector extends BaseLargeRepeatedValueViewVector
 
   public static LargeListViewVector empty(String name, BufferAllocator allocator) {
     return new LargeListViewVector(
-        name, allocator, FieldType.nullable(ArrowType.ListView.INSTANCE), null);
+        name, allocator, FieldType.nullable(ArrowType.LargeListView.INSTANCE), null);
   }
 
   /**
@@ -520,7 +520,7 @@ public class LargeListViewVector extends BaseLargeRepeatedValueViewVector
    */
   @Override
   public MinorType getMinorType() {
-    return MinorType.LISTVIEW;
+    return MinorType.LARGELISTVIEW;
   }
 
   /** Clear the vector data. */
