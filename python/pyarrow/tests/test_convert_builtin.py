@@ -2255,6 +2255,7 @@ def test_roundtrip_nanosecond_resolution_pandas_temporal_objects():
     ]
 
 
+@pytest.mark.numpy
 @h.given(past.all_arrays)
 def test_array_to_pylist_roundtrip(arr):
     seq = arr.to_pylist()
