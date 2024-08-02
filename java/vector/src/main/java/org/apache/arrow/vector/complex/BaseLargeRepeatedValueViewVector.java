@@ -17,6 +17,7 @@
 package org.apache.arrow.vector.complex;
 
 import static org.apache.arrow.memory.util.LargeMemoryUtil.capAtMaxInt;
+import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
 
 import java.util.Collections;
 import java.util.Iterator;
@@ -234,7 +235,7 @@ public abstract class BaseLargeRepeatedValueViewVector extends BaseValueVector
   }
 
   protected int getOffsetBufferValueCapacity() {
-    return capAtMaxInt(offsetBuffer.capacity() / OFFSET_WIDTH);
+    return checkedCastToInt(offsetBuffer.capacity() / OFFSET_WIDTH);
   }
 
   protected int getSizeBufferValueCapacity() {
@@ -263,7 +264,7 @@ public abstract class BaseLargeRepeatedValueViewVector extends BaseValueVector
 
     return (valueCount * OFFSET_WIDTH)
         + (valueCount * SIZE_WIDTH)
-        + vector.getBufferSizeFor(innerVectorValueCount);
+        + vector.getBufferSizeFor(checkedCastToInt(innerVectorValueCount));
   }
 
   @Override
@@ -390,11 +391,11 @@ public abstract class BaseLargeRepeatedValueViewVector extends BaseValueVector
 
     if (index > 0) {
       final int prevOffset = getLengthOfChildVectorByIndex(index);
-      offsetBuffer.setInt(index * OFFSET_WIDTH, prevOffset);
+      offsetBuffer.setInt((long) index * OFFSET_WIDTH, prevOffset);
     }
 
     setValueCount(index + 1);
-    return offsetBuffer.getInt(index * OFFSET_WIDTH);
+    return offsetBuffer.getInt((long) index * OFFSET_WIDTH);
   }
 
   @Override

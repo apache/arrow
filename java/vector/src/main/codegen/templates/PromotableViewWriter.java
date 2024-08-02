@@ -112,8 +112,10 @@ public class PromotableViewWriter extends PromotableWriter {
         v = fixedListVector.addOrGetVector(fieldType).getVector();
       } else if (listViewVector != null) {
         v = listViewVector.addOrGetVector(fieldType).getVector();
-      } else {
+      } else if (largeListVector != null) {
         v = largeListVector.addOrGetVector(fieldType).getVector();
+      } else {
+        v = largeListViewVector.addOrGetVector(fieldType).getVector();
       }
       v.allocateNew();
       setWriter(v);

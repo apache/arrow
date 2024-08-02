@@ -32,6 +32,7 @@ import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.AddOrGetResult;
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.BufferBacked;
@@ -53,6 +54,24 @@ import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.TransferPair;
 
+/**
+ * A list view vector contains lists of a specific type of elements. Its structure contains 3
+ * elements.
+ *
+ * <ol>
+ *   <li>A validity buffer.
+ *   <li>An offset buffer, that denotes lists boundaries.
+ *   <li>A child data vector that contains the elements of lists.
+ * </ol>
+ *
+ * This is the LargeListView variant of listview, it has a 64-bit wide offset
+ *
+ * <p>WARNING: Currently Arrow in Java doesn't support 64-bit vectors. This class follows the
+ * expected behaviour of a LargeList but doesn't actually support allocating a 64-bit vector. It has
+ * little use until 64-bit vectors are supported and should be used with caution. todo review
+ * checkedCastToInt usage in this class. Once int64 indexed vectors are supported these checks
+ * aren't needed.
+ */
 public class LargeListViewVector extends BaseLargeRepeatedValueViewVector
     implements PromotableVector, ValueIterableVector<List<?>> {
 
@@ -422,7 +441,7 @@ public class LargeListViewVector extends BaseLargeRepeatedValueViewVector
     final int start = offsetBuffer.getInt((long) index * OFFSET_WIDTH);
     final int end = sizeBuffer.getInt((long) index * OFFSET_WIDTH);
     for (int i = start; i < end; i++) {
-      hash = ByteFunctionHelpers.combineHash(hash, vector.hashCode(i, hasher));
+      hash = ByteFunctionHelpers.combineHash(hash, vector.hashCode(checkedCastToInt(i), hasher));
     }
     return hash;
   }
@@ -569,7 +588,7 @@ public class LargeListViewVector extends BaseLargeRepeatedValueViewVector
     final int end = start + sizeBuffer.getInt((index) * SIZE_WIDTH);
     final ValueVector vv = getDataVector();
     for (int i = start; i < end; i++) {
-      vals.add(vv.getObject(i));
+      vals.add(vv.getObject(checkedCastToInt(i)));
     }
 
     return vals;
@@ -753,6 +772,14 @@ public class LargeListViewVector extends BaseLargeRepeatedValueViewVector
     }
   }
 
+  /**
+   * Sets the value count for the vector.
+   *
+   * <p>Important note: The underlying vector does not support 64-bit allocations yet. This may
+   * throw if attempting to hold larger than what a 32-bit vector can store.
+   *
+   * @param valueCount value count
+   */
   @Override
   public void setValueCount(int valueCount) {
     this.valueCount = valueCount;
@@ -763,11 +790,16 @@ public class LargeListViewVector extends BaseLargeRepeatedValueViewVector
       }
     }
     /* valueCount for the data vector is the current end offset */
-    final int childValueCount = (valueCount == 0) ? 0 : getLengthOfChildVector();
+    final long childValueCount = (valueCount == 0) ? 0 : getLengthOfChildVector();
     /* set the value count of data vector and this will take care of
      * checking whether data buffer needs to be reallocated.
+     * TODO: revisit when 64-bit vectors are supported
      */
-    vector.setValueCount(childValueCount);
+    Preconditions.checkArgument(
+        childValueCount <= Integer.MAX_VALUE || childValueCount >= Integer.MIN_VALUE,
+        "LargeListVector doesn't yet support 64-bit allocations: %s",
+        childValueCount);
+    vector.setValueCount((int) childValueCount);
   }
 
   @Override
