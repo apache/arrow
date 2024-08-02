@@ -23,6 +23,7 @@
 #include <string_view>
 #include <variant>
 
+#include "arrow/util/float16.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -35,7 +36,7 @@ namespace arrow {
 struct ARROW_EXPORT ArrayStatistics {
   using ValueType =
       std::variant<bool, int8_t, uint8_t, int16_t, uint16_t, int32_t, uint32_t, int64_t,
-                   uint64_t, std::string, std::string_view>;
+                   uint64_t, util::Float16, float, double, std::string, std::string_view>;
 
   ArrayStatistics() = default;
   ~ArrayStatistics() = default;
