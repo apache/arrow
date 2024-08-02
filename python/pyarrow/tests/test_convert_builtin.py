@@ -285,11 +285,14 @@ def test_list_with_non_list(seq):
 
 
 @parametrize_with_sequence_types
+@pytest.mark.parametrize(
+    "inner_seq", SEQUENCE_TYPES
+)
 @pytest.mark.parametrize("factory", [
     pa.list_, pa.large_list, pa.list_view, pa.large_list_view])
-def test_nested_arrays(seq, factory):
-    arr = pa.array(seq([pa.array([], type=pa.int64()),
-                        pa.array([1, 2], type=pa.int64()), None]),
+def test_nested_arrays(seq, inner_seq, factory):
+    arr = pa.array(seq([inner_seq([]),
+                        inner_seq([1, 2]), None]),
                    type=factory(pa.int64()))
     assert len(arr) == 3
     assert arr.null_count == 1
