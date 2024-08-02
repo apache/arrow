@@ -1756,12 +1756,16 @@ def test_bool8_type(pickle_module):
     canonical_bool8_arr = pa.ExtensionArray.from_storage(bool8_type, canonical_storage)
     assert cast_bool8_arr == canonical_bool8_arr
 
-    # zero-copy convert to numpy if non-null
+    # convert to numpy
+    ## cannot zero-copy with nulls
     with pytest.raises(pa.ArrowInvalid, match="Needed to copy 1 chunks with 1 nulls, but zero_copy_only was True"):
         arr.to_numpy()
+    
+    ## nullable conversion possible with a copy, but dest dtype is object
+    assert np.array_equal(arr.to_numpy(zero_copy_only=False), np.array([True, False, True, True, None], dtype=np.object_))
 
-    arr_np_bool = np.array([True, False, True, True], dtype=np.bool_)
+    ## zero-copy possible with non-null array
     arr_no_nulls = pa.ExtensionArray.from_storage(bool8_type, pa.array([-1, 0, 1, 2], storage_type))
     arr_to_np = arr_no_nulls.to_numpy()
-    assert np.array_equal(arr_to_np, arr_np_bool)
-    assert arr_to_np.ctypes.data == arr_no_nulls.buffers()[1].address # zero-copy
+    assert np.array_equal(arr_to_np, np.array([True, False, True, True], dtype=np.bool_))
+    assert arr_to_np.ctypes.data == arr_no_nulls.buffers()[1].address # same underlying buffer

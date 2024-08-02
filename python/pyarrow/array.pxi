@@ -4469,8 +4469,14 @@ cdef class Bool8Array(ExtensionArray):
     ]
     """
 
-    def to_numpy(self):
-        return self.storage.to_numpy().view(np.bool_)
+    def to_numpy(self, zero_copy_only=True, writable=False):
+        try:
+            return self.storage.to_numpy().view(np.bool_)
+        except ArrowInvalid as e:
+            if zero_copy_only:
+                raise e
+
+        return _pc().not_equal(self.storage, 0).to_numpy(zero_copy_only=zero_copy_only, writable=writable)
 
 cdef class OpaqueArray(ExtensionArray):
     """
