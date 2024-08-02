@@ -973,6 +973,17 @@ def test_print_array():
     assert str(carr) == str(arr)
 
 
+@pytest.mark.parametrize("size", [10, 100])
+def test_print_array_host(size):
+    buf = cuda.new_host_buffer(size*8)
+    np_arr = np.frombuffer(buf, dtype=np.int64)
+    np_arr[:] = range(size)
+
+    arr = pa.array(range(size), pa.int64())
+    carr = pa.Array.from_buffers(pa.int64(), size, [None, buf])
+    assert str(carr) == str(arr)
+
+
 def make_chunked_array(n_elements_per_chunk, n_chunks):
     arrs = []
     carrs = []
