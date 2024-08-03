@@ -958,7 +958,7 @@ class FileMetaData::FileMetaDataImpl {
     std::vector<parquet::ColumnOrder> column_orders;
     if (metadata_->__isset.column_orders) {
       column_orders.reserve(metadata_->column_orders.size());
-      for (auto column_order : metadata_->column_orders) {
+      for (auto& column_order : metadata_->column_orders) {
         if (column_order.__isset.TYPE_ORDER) {
           column_orders.push_back(ColumnOrder::type_defined_);
         } else {
@@ -1774,7 +1774,7 @@ void ColumnChunkMetaDataBuilder::SetStatistics(const EncodedStatistics& result) 
 
 void ColumnChunkMetaDataBuilder::SetKeyValueMetadata(
     std::shared_ptr<const KeyValueMetadata> key_value_metadata) {
-  impl_->SetKeyValueMetadata(key_value_metadata);
+  impl_->SetKeyValueMetadata(std::move(key_value_metadata));
 }
 
 int64_t ColumnChunkMetaDataBuilder::total_compressed_size() const {

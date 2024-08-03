@@ -838,6 +838,8 @@ class ColumnWriterImpl {
   void FlushBufferedDataPages();
 
   ColumnChunkMetaDataBuilder* metadata_;
+  // key_value_metadata_ for the column chunk
+  // It would be nullptr if there is no KeyValueMetadata set.
   std::shared_ptr<const KeyValueMetadata> key_value_metadata_;
   const ColumnDescriptor* descr_;
   // scratch buffer if validity bits need to be recalculated.
