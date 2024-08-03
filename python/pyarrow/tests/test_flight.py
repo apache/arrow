@@ -880,7 +880,7 @@ def test_repr():
                      "ticket=<pyarrow.flight.Ticket ticket=b'foo'> "
                      "locations=[] "
                      "expiration_time=2023-04-05 12:34:56+00:00 "
-                     "app_metadata='656e64706f696e7420617070206d65746164617461'>")
+                     "app_metadata=b'endpoint app metadata'>")
     info_repr = (
         "<pyarrow.flight.FlightInfo "
         "schema= "
@@ -888,8 +888,8 @@ def test_repr():
         "endpoints=[] "
         "total_records=1 "
         "total_bytes=42 "
-        "ordered=true "
-        "app_metadata='7465737420617070206d65746164617461'>")
+        "ordered=True "
+        "app_metadata=b'test app metadata'>")
     location_repr = "<pyarrow.flight.Location b'grpc+tcp://localhost:1234'>"
     result_repr = "<pyarrow.flight.Result body=(3 bytes)>"
     schema_result_repr = "<pyarrow.flight.SchemaResult schema=()>"

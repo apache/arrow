@@ -803,7 +803,7 @@ cdef class FlightEndpoint(_Weakrefable):
         return (f"<pyarrow.flight.FlightEndpoint ticket={self.ticket!r} "
                 f"locations={self.locations!r} "
                 f"expiration_time={self.expiration_time} "
-                f"app_metadata='{self.app_metadata.hex()}'>")
+                f"app_metadata={self.app_metadata}>")
 
     def __eq__(self, FlightEndpoint other):
         return self.endpoint == other.endpoint
@@ -877,7 +877,7 @@ cdef class FlightInfo(_Weakrefable):
         return obj
 
     def __init__(self, Schema schema, FlightDescriptor descriptor, endpoints,
-                 total_records=None, total_bytes=None, ordered=False, app_metadata=""):
+                 total_records=-1, total_bytes=-1, ordered=False, app_metadata=""):
         """Create a FlightInfo object from a schema, descriptor, and endpoints.
 
         Parameters
@@ -888,9 +888,9 @@ cdef class FlightInfo(_Weakrefable):
             the descriptor for this flight.
         endpoints : list of FlightEndpoint
             a list of endpoints where this flight is available.
-        total_records : int optional, default None
+        total_records : int optional, default -1
             the total records in this flight, or -1 if unknown.
-        total_bytes : int optional, default None
+        total_bytes : int optional, default -1
             the total bytes in this flight, or -1 if unknown.
         ordered : boolean optional, default False
             Whether endpoints are in the same order as the data.
@@ -1006,8 +1006,8 @@ cdef class FlightInfo(_Weakrefable):
                 f"endpoints={self.endpoints} "
                 f"total_records={self.total_records} "
                 f"total_bytes={self.total_bytes} "
-                f"ordered={'true' if self.ordered else 'false'} "
-                f"app_metadata='{self.app_metadata.hex()}'>")
+                f"ordered={self.ordered} "
+                f"app_metadata={self.app_metadata}>")
 
 
 cdef class FlightStreamChunk(_Weakrefable):
