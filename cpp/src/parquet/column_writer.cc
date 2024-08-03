@@ -353,10 +353,6 @@ class SerializedPageWriter : public PageWriter {
                       total_compressed_size_, total_uncompressed_size_, has_dictionary,
                       fallback, dict_encoding_stats_, data_encoding_stats_,
                       meta_encryptor_);
-
-    // Not write metadata at end of column chunk since we will
-    // write it in the Parquet Thrift Footer.
-    // See: https://github.com/apache/parquet-format/pull/440
   }
 
   /**
@@ -668,10 +664,6 @@ class BufferedPageWriter : public PageWriter {
                       pager_->total_compressed_size(), pager_->total_uncompressed_size(),
                       has_dictionary, fallback, pager_->dict_encoding_stats_,
                       pager_->data_encoding_stats_, pager_->meta_encryptor_);
-
-    // Not write metadata at end of column chunk since we will
-    // write it in the Parquet Thrift Footer.
-    // See: https://github.com/apache/parquet-format/pull/440
 
     // Buffered page writer needs to adjust page offsets.
     pager_->FinishPageIndexes(final_position);

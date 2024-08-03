@@ -1537,9 +1537,8 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
     if (dictionary_page_offset > 0) {
       column_chunk_->meta_data.__set_dictionary_page_offset(dictionary_page_offset);
     }
-    // https://github.com/apache/parquet-format/pull/440
-    // The `file_offset` field is deprecated and should be set to 0 for writer
-    // if the column chunk has not been written outsidethe footer.
+    // The `file_offset` field is deprecated and should be set to 0.
+    // See https://github.com/apache/parquet-format/pull/440 for detail.
     column_chunk_->__set_file_offset(0);
     column_chunk_->__isset.meta_data = true;
     column_chunk_->meta_data.__set_num_values(num_values);

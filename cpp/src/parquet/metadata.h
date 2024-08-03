@@ -148,7 +148,7 @@ class PARQUET_EXPORT ColumnChunkMetaData {
 
   // Byte offset of `ColumnMetaData` in `file_path()`.
   //
-  // Note that the meaning of this field has been inconsistent between implementations
+  // Note that the meaning of this field has been inconsistent among implementations
   // so its use has since been deprecated in the Parquet specification. Moder
   // implementations will set this to `0` to indicate that the `ColumnMetaData` is solely
   // contained in the `ColumnChunk` struct.
