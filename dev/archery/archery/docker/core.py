@@ -340,18 +340,9 @@ class DockerCompose(Command):
         service = self.config.get(service_name)
 
         args = []
-        if user is not None:
-            args.extend(['-u', user])
 
-        if env is not None:
-            for k, v in env.items():
-                args.extend(['-e', '{}={}'.format(k, v)])
-
-        if volumes is not None:
-            for volume in volumes:
-                args.extend(['--volume', volume])
-
-        if self.config.using_docker or service['need_gpu'] or resource_limit:
+        use_docker = self.config.using_docker or service['need_gpu'] or resource_limit
+        if use_docker:
             # use gpus, requires docker>=19.03
             if service['need_gpu']:
                 args.extend(['--gpus', 'all'])
@@ -371,6 +362,10 @@ class DockerCompose(Command):
                     v = "{}:{}".format(v['source'], v['target'])
                 args.extend(['-v', v])
 
+            # append capabilities from the compose conf
+            for c in service.get('cap_add', []):
+                args.extend([f'--cap-add={c}'])
+
             # infer whether an interactive shell is desired or not
             if command in ['cmd.exe', 'bash', 'sh', 'powershell']:
                 args.append('-it')
@@ -388,6 +383,18 @@ class DockerCompose(Command):
                     args.append(f'--memory={memory}')
                     args.append(f'--memory-swap={memory}')
 
+        if user is not None:
+            args.extend(['-u', user])
+
+        if env is not None:
+            for k, v in env.items():
+                args.extend(['-e', '{}={}'.format(k, v)])
+
+        if volumes is not None:
+            for volume in volumes:
+                args.extend(['--volume', volume])
+
+        if use_docker:
             # get the actual docker image name instead of the compose service
             # name which we refer as image in general
             args.append(service['image'])

@@ -67,6 +67,7 @@ jobs:
           ALMALINUX: "8"
         run: |
           archery docker run \
+            -e ARROW_GANDIVA=OFF \
             -e TEST_DEFAULT=0 \
             -e TEST_PYARROW_VERSION={{ arrow.no_rc_version }} \
             -e TEST_PYTHON_VERSIONS={{ python_version }} \

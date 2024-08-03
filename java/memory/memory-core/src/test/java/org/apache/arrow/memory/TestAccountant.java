@@ -14,13 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.memory;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.fail;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class TestAccountant {
 
@@ -46,21 +46,21 @@ public class TestAccountant {
     Thread[] threads = new Thread[numberOfThreads];
 
     for (int i = 0; i < numberOfThreads; i++) {
-      Thread t = new Thread() {
+      Thread t =
+          new Thread() {
 
-        @Override
-        public void run() {
-          try {
-            for (int i = 0; i < loops; i++) {
-              ensureAccurateReservations(parent);
+            @Override
+            public void run() {
+              try {
+                for (int i = 0; i < loops; i++) {
+                  ensureAccurateReservations(parent);
+                }
+              } catch (Exception ex) {
+                ex.printStackTrace();
+                fail(ex.getMessage());
+              }
             }
-          } catch (Exception ex) {
-            ex.printStackTrace();
-            Assert.fail(ex.getMessage());
-          }
-        }
-
-      };
+          };
       threads[i] = t;
       t.start();
     }
@@ -152,7 +152,7 @@ public class TestAccountant {
     assertEquals(2, parent.getAllocatedMemory());
 
     boolean withinLimit = child.forceAllocate(10);
-    assertEquals(false, withinLimit);
+    assertFalse(withinLimit);
 
     // at new limit
     assertEquals(child.getAllocatedMemory(), 11);

@@ -32,7 +32,7 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/bit_stream_utils.h"
+#include "arrow/util/bit_stream_utils_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
@@ -42,7 +42,7 @@
 #include "arrow/util/float16.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/rle_encoding.h"
+#include "arrow/util/rle_encoding_internal.h"
 #include "arrow/util/type_traits.h"
 #include "arrow/visit_array_inline.h"
 #include "parquet/column_page.h"
@@ -304,9 +304,10 @@ class SerializedPageWriter : public PageWriter {
     if (data_encryptor_.get()) {
       UpdateEncryption(encryption::kDictionaryPage);
       PARQUET_THROW_NOT_OK(encryption_buffer_->Resize(
-          data_encryptor_->CiphertextSizeDelta() + output_data_len, false));
-      output_data_len = data_encryptor_->Encrypt(compressed_data->data(), output_data_len,
-                                                 encryption_buffer_->mutable_data());
+          data_encryptor_->CiphertextLength(output_data_len), false));
+      output_data_len =
+          data_encryptor_->Encrypt(compressed_data->span_as<uint8_t>(),
+                                   encryption_buffer_->mutable_span_as<uint8_t>());
       output_data_buffer = encryption_buffer_->data();
     }
 
@@ -380,6 +381,11 @@ class SerializedPageWriter : public PageWriter {
 
   int64_t WriteDataPage(const DataPage& page) override {
     const int64_t uncompressed_size = page.uncompressed_size();
+    if (uncompressed_size > std::numeric_limits<int32_t>::max()) {
+      throw ParquetException("Uncompressed data page size overflows INT32_MAX. Size:",
+                             uncompressed_size);
+    }
+
     std::shared_ptr<Buffer> compressed_data = page.buffer();
     const uint8_t* output_data_buffer = compressed_data->data();
     int64_t output_data_len = compressed_data->size();
@@ -391,20 +397,15 @@ class SerializedPageWriter : public PageWriter {
 
     if (data_encryptor_.get()) {
       PARQUET_THROW_NOT_OK(encryption_buffer_->Resize(
-          data_encryptor_->CiphertextSizeDelta() + output_data_len, false));
+          data_encryptor_->CiphertextLength(output_data_len), false));
       UpdateEncryption(encryption::kDataPage);
-      output_data_len = data_encryptor_->Encrypt(compressed_data->data(),
-                                                 static_cast<int32_t>(output_data_len),
-                                                 encryption_buffer_->mutable_data());
+      output_data_len =
+          data_encryptor_->Encrypt(compressed_data->span_as<uint8_t>(),
+                                   encryption_buffer_->mutable_span_as<uint8_t>());
       output_data_buffer = encryption_buffer_->data();
     }
 
     format::PageHeader page_header;
-
-    if (uncompressed_size > std::numeric_limits<int32_t>::max()) {
-      throw ParquetException("Uncompressed data page size overflows INT32_MAX. Size:",
-                             uncompressed_size);
-    }
     page_header.__set_uncompressed_page_size(static_cast<int32_t>(uncompressed_size));
     page_header.__set_compressed_page_size(static_cast<int32_t>(output_data_len));
 
@@ -1020,13 +1021,13 @@ void ColumnWriterImpl::BuildDataPageV1(int64_t definition_levels_rle_size,
         compressed_data->CopySlice(0, compressed_data->size(), allocator_));
     std::unique_ptr<DataPage> page_ptr = std::make_unique<DataPageV1>(
         compressed_data_copy, num_values, encoding_, Encoding::RLE, Encoding::RLE,
-        uncompressed_size, page_stats, first_row_index);
+        uncompressed_size, std::move(page_stats), first_row_index);
     total_compressed_bytes_ += page_ptr->size() + sizeof(format::PageHeader);
 
     data_pages_.push_back(std::move(page_ptr));
   } else {  // Eagerly write pages
     DataPageV1 page(compressed_data, num_values, encoding_, Encoding::RLE, Encoding::RLE,
-                    uncompressed_size, page_stats, first_row_index);
+                    uncompressed_size, std::move(page_stats), first_row_index);
     WriteDataPage(page);
   }
 }
@@ -1206,10 +1207,6 @@ Status ConvertDictionaryToDense(const ::arrow::Array& array, MemoryPool* pool,
                                                ::arrow::compute::CastOptions(), &ctx));
   *out = cast_output.make_array();
   return Status::OK();
-}
-
-static inline bool IsDictionaryEncoding(Encoding::type encoding) {
-  return encoding == Encoding::PLAIN_DICTIONARY;
 }
 
 template <typename DType>
@@ -1587,7 +1584,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   }
 
   void FallbackToPlainEncoding() {
-    if (IsDictionaryEncoding(current_encoder_->encoding())) {
+    if (IsDictionaryIndexEncoding(current_encoder_->encoding())) {
       WriteDictionaryPage();
       // Serialize the buffered Dictionary Indices
       FlushBufferedDataPages();
@@ -1683,7 +1680,7 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(
                            maybe_parent_nulls);
   };
 
-  if (!IsDictionaryEncoding(current_encoder_->encoding()) ||
+  if (!IsDictionaryIndexEncoding(current_encoder_->encoding()) ||
       !DictionaryDirectWriteSupported(array)) {
     // No longer dictionary-encoding for whatever reason, maybe we never were
     // or we decided to stop. Note that WriteArrow can be invoked multiple

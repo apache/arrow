@@ -19,9 +19,9 @@ package encoding
 import (
 	"fmt"
 
-	"github.com/apache/arrow/go/v17/arrow"
-	"github.com/apache/arrow/go/v17/internal/bitutils"
-	"github.com/apache/arrow/go/v17/parquet"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/internal/bitutils"
+	"github.com/apache/arrow/go/v18/parquet"
 )
 
 // PlainFixedLenByteArrayEncoder writes the raw bytes of the byte array
@@ -73,6 +73,45 @@ func (enc *PlainFixedLenByteArrayEncoder) PutSpaced(in []parquet.FixedLenByteArr
 // Type returns the underlying physical type this encoder works with, Fixed Length byte arrays.
 func (PlainFixedLenByteArrayEncoder) Type() parquet.Type {
 	return parquet.Types.FixedLenByteArray
+}
+
+// ByteStreamSplitFixedLenByteArrayEncoder writes the underlying bytes of the FixedLenByteArray
+// into interlaced streams as defined by the BYTE_STREAM_SPLIT encoding
+type ByteStreamSplitFixedLenByteArrayEncoder struct {
+	PlainFixedLenByteArrayEncoder
+	flushBuffer *PooledBufferWriter
+}
+
+func (enc *ByteStreamSplitFixedLenByteArrayEncoder) FlushValues() (Buffer, error) {
+	in, err := enc.PlainFixedLenByteArrayEncoder.FlushValues()
+	if err != nil {
+		return nil, err
+	}
+
+	if enc.flushBuffer == nil {
+		enc.flushBuffer = NewPooledBufferWriter(in.Len())
+	}
+
+	enc.flushBuffer.buf.ResizeNoShrink(in.Len())
+
+	switch enc.typeLen {
+	case 2:
+		encodeByteStreamSplitWidth2(enc.flushBuffer.Bytes(), in.Bytes())
+	case 4:
+		encodeByteStreamSplitWidth4(enc.flushBuffer.Bytes(), in.Bytes())
+	case 8:
+		encodeByteStreamSplitWidth8(enc.flushBuffer.Bytes(), in.Bytes())
+	default:
+		encodeByteStreamSplit(enc.flushBuffer.Bytes(), in.Bytes(), enc.typeLen)
+	}
+
+	return enc.flushBuffer.Finish(), nil
+}
+
+func (enc *ByteStreamSplitFixedLenByteArrayEncoder) Release() {
+	enc.PlainFixedLenByteArrayEncoder.Release()
+	releaseBufferToPool(enc.flushBuffer)
+	enc.flushBuffer = nil
 }
 
 // WriteDict overrides the embedded WriteDict function to call a specialized function

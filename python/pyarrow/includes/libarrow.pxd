@@ -234,6 +234,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CStatus Validate() const
         CStatus ValidateFull() const
         CResult[shared_ptr[CArray]] View(const shared_ptr[CDataType]& type)
+        CDeviceAllocationType device_type()
 
     shared_ptr[CArray] MakeArray(const shared_ptr[CArrayData]& data)
     CResult[shared_ptr[CArray]] MakeArrayOfNull(
@@ -316,6 +317,38 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CProxyMemoryPool" arrow::ProxyMemoryPool"(CMemoryPool):
         CProxyMemoryPool(CMemoryPool*)
 
+    ctypedef enum CDeviceAllocationType "arrow::DeviceAllocationType":
+        CDeviceAllocationType_kCPU "arrow::DeviceAllocationType::kCPU"
+        CDeviceAllocationType_kCUDA "arrow::DeviceAllocationType::kCUDA"
+        CDeviceAllocationType_kCUDA_HOST "arrow::DeviceAllocationType::kCUDA_HOST"
+        CDeviceAllocationType_kOPENCL "arrow::DeviceAllocationType::kOPENCL"
+        CDeviceAllocationType_kVULKAN "arrow::DeviceAllocationType::kVULKAN"
+        CDeviceAllocationType_kMETAL "arrow::DeviceAllocationType::kMETAL"
+        CDeviceAllocationType_kVPI "arrow::DeviceAllocationType::kVPI"
+        CDeviceAllocationType_kROCM "arrow::DeviceAllocationType::kROCM"
+        CDeviceAllocationType_kROCM_HOST "arrow::DeviceAllocationType::kROCM_HOST"
+        CDeviceAllocationType_kEXT_DEV "arrow::DeviceAllocationType::kEXT_DEV"
+        CDeviceAllocationType_kCUDA_MANAGED "arrow::DeviceAllocationType::kCUDA_MANAGED"
+        CDeviceAllocationType_kONEAPI "arrow::DeviceAllocationType::kONEAPI"
+        CDeviceAllocationType_kWEBGPU "arrow::DeviceAllocationType::kWEBGPU"
+        CDeviceAllocationType_kHEXAGON "arrow::DeviceAllocationType::kHEXAGON"
+
+    cdef cppclass CDevice" arrow::Device":
+        const char* type_name()
+        c_string ToString()
+        c_bool Equals(const CDevice& other)
+        int64_t device_id()
+        c_bool is_cpu() const
+        shared_ptr[CMemoryManager] default_memory_manager()
+        CDeviceAllocationType device_type()
+
+    cdef cppclass CMemoryManager" arrow::MemoryManager":
+        const shared_ptr[CDevice] device()
+        c_bool is_cpu() const
+
+    shared_ptr[CMemoryManager] c_default_cpu_memory_manager \
+        " arrow::default_cpu_memory_manager"()
+
     cdef cppclass CBuffer" arrow::Buffer":
         CBuffer(const uint8_t* data, int64_t size)
         const uint8_t* data()
@@ -328,6 +361,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_bool is_mutable() const
         c_string ToHexString()
         c_bool Equals(const CBuffer& other)
+        shared_ptr[CDevice] device()
+        const shared_ptr[CMemoryManager] memory_manager()
+        CDeviceAllocationType device_type()
 
     CResult[shared_ptr[CBuffer]] SliceBufferSafe(
         const shared_ptr[CBuffer]& buffer, int64_t offset)
@@ -788,7 +824,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
             const shared_ptr[CArray]& offsets,
             const shared_ptr[CArray]& keys,
             const shared_ptr[CArray]& items,
-            CMemoryPool* pool)
+            CMemoryPool* pool,
+            const shared_ptr[CBuffer] null_bitmap,
+        )
 
         @staticmethod
         CResult[shared_ptr[CArray]] FromArraysAndType" FromArrays"(
@@ -796,7 +834,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
             const shared_ptr[CArray]& offsets,
             const shared_ptr[CArray]& keys,
             const shared_ptr[CArray]& items,
-            CMemoryPool* pool)
+            CMemoryPool* pool,
+            const shared_ptr[CBuffer] null_bitmap,
+        )
 
         shared_ptr[CArray] keys()
         shared_ptr[CArray] items()
@@ -975,6 +1015,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         int num_columns()
         int64_t num_rows()
+
+        CDeviceAllocationType device_type()
 
         CStatus Validate() const
         CStatus ValidateFull() const
@@ -2319,9 +2361,10 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CPadOptions \
             "arrow::compute::PadOptions"(CFunctionOptions):
-        CPadOptions(int64_t width, c_string padding)
+        CPadOptions(int64_t width, c_string padding, c_bool lean_left_on_odd_padding)
         int64_t width
         c_string padding
+        c_bool lean_left_on_odd_padding
 
     cdef cppclass CSliceOptions \
             "arrow::compute::SliceOptions"(CFunctionOptions):
@@ -2801,6 +2844,8 @@ cdef extern from "arrow/extension_type.h" namespace "arrow":
     cdef cppclass CExtensionType" arrow::ExtensionType"(CDataType):
         c_string extension_name()
         shared_ptr[CDataType] storage_type()
+        int byte_width()
+        int bit_width()
 
         @staticmethod
         shared_ptr[CArray] WrapArray(shared_ptr[CDataType] ext_type,
@@ -2923,8 +2968,13 @@ cdef extern from "arrow/c/abi.h":
     cdef struct ArrowArrayStream:
         void (*release)(ArrowArrayStream*) noexcept nogil
 
+    ctypedef int32_t ArrowDeviceType
+    cdef ArrowDeviceType ARROW_DEVICE_CUDA
+
     cdef struct ArrowDeviceArray:
-        pass
+        ArrowArray array
+        int64_t device_id
+        int32_t device_type
 
 cdef extern from "arrow/c/bridge.h" namespace "arrow" nogil:
     CStatus ExportType(CDataType&, ArrowSchema* out)

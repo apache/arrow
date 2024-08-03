@@ -14,12 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 import java.math.BigDecimal;
 import java.util.concurrent.TimeUnit;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -36,9 +34,7 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
-/**
- * Benchmarks for {@link DecimalVector}.
- */
+/** Benchmarks for {@link DecimalVector}. */
 @State(Scope.Benchmark)
 public class DecimalVectorBenchmarks {
 
@@ -54,9 +50,7 @@ public class DecimalVectorBenchmarks {
 
   byte[] fromByteArray;
 
-  /**
-   * Setup benchmarks.
-   */
+  /** Setup benchmarks. */
   @Setup
   public void prepare() {
     allocator = new RootAllocator(ALLOCATOR_CAPACITY);
@@ -73,9 +67,7 @@ public class DecimalVectorBenchmarks {
     fromBuf.getBytes(0, fromByteArray);
   }
 
-  /**
-   * Tear down benchmarks.
-   */
+  /** Tear down benchmarks. */
   @TearDown
   public void tearDown() {
     fromBuf.close();
@@ -83,9 +75,7 @@ public class DecimalVectorBenchmarks {
     allocator.close();
   }
 
-  /**
-   * Test writing on {@link DecimalVector} from arrow buf.
-   */
+  /** Test writing on {@link DecimalVector} from arrow buf. */
   @Benchmark
   @BenchmarkMode(Mode.AverageTime)
   @OutputTimeUnit(TimeUnit.MICROSECONDS)
@@ -98,9 +88,7 @@ public class DecimalVectorBenchmarks {
     }
   }
 
-  /**
-   * Test writing on {@link DecimalVector} from byte array.
-   */
+  /** Test writing on {@link DecimalVector} from byte array. */
   @Benchmark
   @BenchmarkMode(Mode.AverageTime)
   @OutputTimeUnit(TimeUnit.MICROSECONDS)
@@ -110,11 +98,12 @@ public class DecimalVectorBenchmarks {
     }
   }
 
-  public static void main(String [] args) throws RunnerException {
-    Options opt = new OptionsBuilder()
-        .include(DecimalVectorBenchmarks.class.getSimpleName())
-        .forks(1)
-        .build();
+  public static void main(String[] args) throws RunnerException {
+    Options opt =
+        new OptionsBuilder()
+            .include(DecimalVectorBenchmarks.class.getSimpleName())
+            .forks(1)
+            .build();
 
     new Runner(opt).run();
   }

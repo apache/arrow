@@ -284,7 +284,7 @@ static const uint8_t kPaddingBytes[8] = {0, 0, 0, 0, 0, 0, 0, 0};
       for (const auto& buffer : ipc_msg.body_buffers) {
         // Buffer may be null when the row length is zero, or when all
         // entries are invalid.
-        if (!buffer) continue;
+        if (!buffer || buffer->size() == 0) continue;
 
         ::grpc::Slice slice;
         auto status = SliceFromBuffer(buffer).Value(&slice);

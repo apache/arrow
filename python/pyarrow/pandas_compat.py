@@ -23,6 +23,7 @@ from concurrent import futures
 # module bug (ARROW-11983)
 import concurrent.futures.thread  # noqa
 from copy import deepcopy
+import decimal
 from itertools import zip_longest
 import json
 import operator
@@ -32,7 +33,7 @@ import warnings
 import numpy as np
 
 import pyarrow as pa
-from pyarrow.lib import _pandas_api, frombytes  # noqa
+from pyarrow.lib import _pandas_api, frombytes, is_threading_enabled  # noqa
 
 
 _logical_type_map = {}
@@ -108,9 +109,10 @@ def get_logical_type_from_numpy(pandas_collection):
     except KeyError:
         if hasattr(pandas_collection.dtype, 'tz'):
             return 'datetimetz'
-        # See https://github.com/pandas-dev/pandas/issues/24739
-        if str(pandas_collection.dtype) == 'datetime64[ns]':
-            return 'datetime64[ns]'
+        # See https://github.com/pandas-dev/pandas/issues/24739 (infer_dtype will
+        # result in "datetime64" without unit, while pandas astype requires a unit)
+        if str(pandas_collection.dtype).startswith('datetime64'):
+            return str(pandas_collection.dtype)
         result = _pandas_api.infer_dtype(pandas_collection)
         if result == 'string':
             return 'unicode'
@@ -579,6 +581,9 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
             nthreads = pa.cpu_count()
         else:
             nthreads = 1
+    # if we don't have threading in libarrow, don't use threading here either
+    if not is_threading_enabled():
+        nthreads = 1
 
     def convert_column(col, field):
         if field is None:
@@ -1027,6 +1032,7 @@ _pandas_logical_type_map = {
     'string': np.str_,
     'integer': np.int64,
     'floating': np.float64,
+    'decimal': np.object_,
     'empty': np.object_,
 }
 
@@ -1105,6 +1111,13 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
             tz = pa.lib.string_to_tzinfo(
                 column_indexes[0]['metadata']['timezone'])
             level = pd.to_datetime(level, utc=True).tz_convert(tz)
+            if _pandas_api.is_ge_v3():
+                # with pandas 3+, to_datetime returns a unit depending on the string
+                # data, so we restore it to the original unit from the metadata
+                level = level.as_unit(np.datetime_data(dtype)[0])
+        # GH-41503: if the column index was decimal, restore to decimal
+        elif pandas_dtype == "decimal":
+            level = _pandas_api.pd.Index([decimal.Decimal(i) for i in level])
         elif level.dtype != dtype:
             level = level.astype(dtype)
         # ARROW-9096: if original DataFrame was upcast we keep that

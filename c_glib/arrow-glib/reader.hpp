@@ -27,42 +27,61 @@
 
 #include <arrow-glib/reader.h>
 
+GARROW_EXTERN
 GArrowRecordBatchReader *
 garrow_record_batch_reader_new_raw(
   std::shared_ptr<arrow::ipc::RecordBatchReader> *arrow_reader, GList *sources);
+
+GARROW_EXTERN
 std::shared_ptr<arrow::ipc::RecordBatchReader>
 garrow_record_batch_reader_get_raw(GArrowRecordBatchReader *reader);
 
+GARROW_EXTERN
 GArrowTableBatchReader *
 garrow_table_batch_reader_new_raw(std::shared_ptr<arrow::TableBatchReader> *arrow_reader,
                                   GArrowTable *table);
+
+GARROW_EXTERN
 std::shared_ptr<arrow::TableBatchReader>
 garrow_table_batch_reader_get_raw(GArrowTableBatchReader *reader);
 
+GARROW_EXTERN
 GArrowRecordBatchStreamReader *
 garrow_record_batch_stream_reader_new_raw(
   std::shared_ptr<arrow::ipc::RecordBatchStreamReader> *arrow_reader);
 
+GARROW_EXTERN
 GArrowRecordBatchFileReader *
 garrow_record_batch_file_reader_new_raw(
   std::shared_ptr<arrow::ipc::RecordBatchFileReader> *arrow_reader);
+
+GARROW_EXTERN
 std::shared_ptr<arrow::ipc::RecordBatchFileReader>
 garrow_record_batch_file_reader_get_raw(GArrowRecordBatchFileReader *reader);
 
+GARROW_EXTERN
 GArrowFeatherFileReader *
 garrow_feather_file_reader_new_raw(
   std::shared_ptr<arrow::ipc::feather::Reader> *arrow_reader);
+
+GARROW_EXTERN
 std::shared_ptr<arrow::ipc::feather::Reader>
 garrow_feather_file_reader_get_raw(GArrowFeatherFileReader *reader);
 
+GARROW_EXTERN
 GArrowCSVReader *
 garrow_csv_reader_new_raw(std::shared_ptr<arrow::csv::TableReader> *arrow_reader,
                           GArrowInputStream *input);
+
+GARROW_EXTERN
 std::shared_ptr<arrow::csv::TableReader>
 garrow_csv_reader_get_raw(GArrowCSVReader *reader);
 
+GARROW_EXTERN
 GArrowJSONReader *
 garrow_json_reader_new_raw(std::shared_ptr<arrow::json::TableReader> *arrow_reader,
                            GArrowInputStream *input);
+
+GARROW_EXTERN
 std::shared_ptr<arrow::json::TableReader>
 garrow_json_reader_get_raw(GArrowJSONReader *reader);

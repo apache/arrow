@@ -21,6 +21,8 @@
 #include <cinttypes>
 #include <memory>
 #include <ostream>
+#include <random>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -29,6 +31,7 @@
 #include "arrow/io/memory.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/pcg_random.h"
 #include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/internal_file_decryptor.h"
 #include "parquet/exception.h"
@@ -639,6 +642,49 @@ std::vector<SortingColumn> RowGroupMetaData::sorting_columns() const {
   return impl_->sorting_columns();
 }
 
+// Replace string data with random-generated uppercase characters
+static void Scrub(std::string* s) {
+  static ::arrow::random::pcg64 rng;
+  std::uniform_int_distribution<> caps(65, 90);
+  for (auto& c : *s) c = caps(rng);
+}
+
+// Replace potentially sensitive metadata with random data
+static void Scrub(format::FileMetaData* md) {
+  for (auto& s : md->schema) {
+    Scrub(&s.name);
+  }
+  for (auto& r : md->row_groups) {
+    for (auto& c : r.columns) {
+      Scrub(&c.file_path);
+      if (c.__isset.meta_data) {
+        auto& m = c.meta_data;
+        for (auto& p : m.path_in_schema) Scrub(&p);
+        for (auto& kv : m.key_value_metadata) {
+          Scrub(&kv.key);
+          Scrub(&kv.value);
+        }
+        Scrub(&m.statistics.max_value);
+        Scrub(&m.statistics.min_value);
+        Scrub(&m.statistics.min);
+        Scrub(&m.statistics.max);
+      }
+
+      if (c.crypto_metadata.__isset.ENCRYPTION_WITH_COLUMN_KEY) {
+        auto& m = c.crypto_metadata.ENCRYPTION_WITH_COLUMN_KEY;
+        for (auto& p : m.path_in_schema) Scrub(&p);
+        Scrub(&m.key_metadata);
+      }
+      Scrub(&c.encrypted_column_metadata);
+    }
+  }
+  for (auto& kv : md->key_value_metadata) {
+    Scrub(&kv.key);
+    Scrub(&kv.value);
+  }
+  Scrub(&md->footer_signing_key_metadata);
+}
+
 // file metadata
 class FileMetaData::FileMetaDataImpl {
  public:
@@ -680,29 +726,28 @@ class FileMetaData::FileMetaDataImpl {
     uint32_t serialized_len = metadata_len_;
     ThriftSerializer serializer;
     serializer.SerializeToBuffer(metadata_.get(), &serialized_len, &serialized_data);
+    ::arrow::util::span<const uint8_t> serialized_data_span(serialized_data,
+                                                            serialized_len);
 
     // encrypt with nonce
-    auto nonce = const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(signature));
-    auto tag = const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(signature)) +
-               encryption::kNonceLength;
+    ::arrow::util::span<const uint8_t> nonce(reinterpret_cast<const uint8_t*>(signature),
+                                             encryption::kNonceLength);
+    auto tag = reinterpret_cast<const uint8_t*>(signature) + encryption::kNonceLength;
 
     std::string key = file_decryptor_->GetFooterKey();
     std::string aad = encryption::CreateFooterAad(file_decryptor_->file_aad());
 
-    auto aes_encryptor = encryption::AesEncryptor::Make(
-        file_decryptor_->algorithm(), static_cast<int>(key.size()), true,
-        false /*write_length*/, nullptr);
+    auto aes_encryptor = encryption::AesEncryptor::Make(file_decryptor_->algorithm(),
+                                                        static_cast<int>(key.size()),
+                                                        true, false /*write_length*/);
 
-    std::shared_ptr<Buffer> encrypted_buffer = std::static_pointer_cast<ResizableBuffer>(
-        AllocateBuffer(file_decryptor_->pool(),
-                       aes_encryptor->CiphertextSizeDelta() + serialized_len));
+    std::shared_ptr<Buffer> encrypted_buffer = AllocateBuffer(
+        file_decryptor_->pool(), aes_encryptor->CiphertextLength(serialized_len));
     uint32_t encrypted_len = aes_encryptor->SignedFooterEncrypt(
-        serialized_data, serialized_len, str2bytes(key), static_cast<int>(key.size()),
-        str2bytes(aad), static_cast<int>(aad.size()), nonce,
-        encrypted_buffer->mutable_data());
+        serialized_data_span, str2span(key), str2span(aad), nonce,
+        encrypted_buffer->mutable_span_as<uint8_t>());
     // Delete AES encryptor object. It was created only to verify the footer signature.
     aes_encryptor->WipeOut();
-    delete aes_encryptor;
     return 0 ==
            memcmp(encrypted_buffer->data() + encrypted_len - encryption::kGcmTagLength,
                   tag, encryption::kGcmTagLength);
@@ -741,12 +786,12 @@ class FileMetaData::FileMetaDataImpl {
       uint8_t* serialized_data;
       uint32_t serialized_len;
       serializer.SerializeToBuffer(metadata_.get(), &serialized_len, &serialized_data);
+      ::arrow::util::span<const uint8_t> serialized_data_span(serialized_data,
+                                                              serialized_len);
 
       // encrypt the footer key
-      std::vector<uint8_t> encrypted_data(encryptor->CiphertextSizeDelta() +
-                                          serialized_len);
-      unsigned encrypted_len =
-          encryptor->Encrypt(serialized_data, serialized_len, encrypted_data.data());
+      std::vector<uint8_t> encrypted_data(encryptor->CiphertextLength(serialized_len));
+      int encrypted_len = encryptor->Encrypt(serialized_data_span, encrypted_data);
 
       // write unencrypted footer
       PARQUET_THROW_NOT_OK(dst->Write(serialized_data, serialized_len));
@@ -862,8 +907,27 @@ class FileMetaData::FileMetaDataImpl {
     return out;
   }
 
+  std::string SerializeUnencrypted(bool scrub, bool debug) const {
+    auto md = *metadata_;
+    if (scrub) Scrub(&md);
+    if (debug) {
+      std::ostringstream ss;
+      md.printTo(ss);
+      return ss.str();
+    } else {
+      ThriftSerializer serializer;
+      std::string out;
+      serializer.SerializeToString(&md, &out);
+      return out;
+    }
+  }
+
   void set_file_decryptor(std::shared_ptr<InternalFileDecryptor> file_decryptor) {
     file_decryptor_ = std::move(file_decryptor);
+  }
+
+  const std::shared_ptr<InternalFileDecryptor>& file_decryptor() const {
+    return file_decryptor_;
   }
 
  private:
@@ -978,6 +1042,10 @@ void FileMetaData::set_file_decryptor(
   impl_->set_file_decryptor(std::move(file_decryptor));
 }
 
+const std::shared_ptr<InternalFileDecryptor>& FileMetaData::file_decryptor() const {
+  return impl_->file_decryptor();
+}
+
 ParquetVersion::type FileMetaData::version() const {
   switch (impl_->version()) {
     case 1:
@@ -1014,6 +1082,10 @@ void FileMetaData::AppendRowGroups(const FileMetaData& other) {
 std::shared_ptr<FileMetaData> FileMetaData::Subset(
     const std::vector<int>& row_groups) const {
   return impl_->Subset(row_groups);
+}
+
+std::string FileMetaData::SerializeUnencrypted(bool scrub, bool debug) const {
+  return impl_->SerializeUnencrypted(scrub, debug);
 }
 
 void FileMetaData::WriteTo(::arrow::io::OutputStream* dst,
@@ -1383,9 +1455,9 @@ class ApplicationVersionParser {
   // For parsing.
   std::string spaces_;
   std::string digits_;
-  size_t version_parsing_position_;
-  size_t version_start_;
-  size_t version_end_;
+  size_t version_parsing_position_{0};
+  size_t version_start_{0};
+  size_t version_end_{0};
   std::string version_string_;
 };
 }  // namespace
@@ -1586,11 +1658,11 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
 
         serializer.SerializeToBuffer(&column_chunk_->meta_data, &serialized_len,
                                      &serialized_data);
+        ::arrow::util::span<const uint8_t> serialized_data_span(serialized_data,
+                                                                serialized_len);
 
-        std::vector<uint8_t> encrypted_data(encryptor->CiphertextSizeDelta() +
-                                            serialized_len);
-        unsigned encrypted_len =
-            encryptor->Encrypt(serialized_data, serialized_len, encrypted_data.data());
+        std::vector<uint8_t> encrypted_data(encryptor->CiphertextLength(serialized_len));
+        int encrypted_len = encryptor->Encrypt(serialized_data_span, encrypted_data);
 
         const char* temp =
             const_cast<const char*>(reinterpret_cast<char*>(encrypted_data.data()));

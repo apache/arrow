@@ -14,23 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.integration.tests;
 
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
-
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 
-/**
- * Scenarios for integration testing.
- */
+/** Scenarios for integration testing. */
 final class Scenarios {
 
   private static Scenarios INSTANCE;
@@ -40,8 +36,10 @@ final class Scenarios {
   private Scenarios() {
     scenarios = new TreeMap<>();
     scenarios.put("auth:basic_proto", AuthBasicProtoScenario::new);
-    scenarios.put("expiration_time:cancel_flight_info", ExpirationTimeCancelFlightInfoScenario::new);
-    scenarios.put("expiration_time:renew_flight_endpoint", ExpirationTimeRenewFlightEndpointScenario::new);
+    scenarios.put(
+        "expiration_time:cancel_flight_info", ExpirationTimeCancelFlightInfoScenario::new);
+    scenarios.put(
+        "expiration_time:renew_flight_endpoint", ExpirationTimeRenewFlightEndpointScenario::new);
     scenarios.put("expiration_time:do_get", ExpirationTimeDoGetScenario::new);
     scenarios.put("expiration_time:list_actions", ExpirationTimeListActionsScenario::new);
     scenarios.put("location:reuse_connection", LocationReuseConnectionScenario::new);
@@ -78,8 +76,8 @@ final class Scenarios {
       System.out.println("Running test scenario: " + entry.getKey());
       final Scenario scenario = entry.getValue().get();
       try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE)) {
-        final FlightServer.Builder builder = FlightServer
-            .builder(allocator, location, scenario.producer(allocator, location));
+        final FlightServer.Builder builder =
+            FlightServer.builder(allocator, location, scenario.producer(allocator, location));
         scenario.buildServer(builder);
         try (final FlightServer server = builder.build()) {
           server.start();

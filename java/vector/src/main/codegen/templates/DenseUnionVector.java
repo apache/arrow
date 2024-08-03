@@ -23,6 +23,7 @@ import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseValueVector;
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.ValueIterableVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.AbstractStructVector;
 import org.apache.arrow.vector.complex.ListVector;
@@ -62,6 +63,7 @@ import org.apache.arrow.vector.complex.impl.ComplexCopier;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.BaseValueVector;
+import org.apache.arrow.vector.ValueIterableVector;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.util.Preconditions;
 
@@ -84,7 +86,7 @@ import static org.apache.arrow.vector.types.UnionMode.Dense;
  * each time the vector is accessed.
  * Source code generated using FreeMarker template ${.template_name}
  */
-public class DenseUnionVector extends AbstractContainerVector implements FieldVector {
+public class DenseUnionVector extends AbstractContainerVector implements FieldVector, ValueIterableVector<Object> {
   int valueCount;
 
   NonNullableStructVector internalStruct;

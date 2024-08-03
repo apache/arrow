@@ -181,7 +181,8 @@ of general type categories:
 
 * "String-like": String, LargeString.
 
-* "List-like": List, LargeList, sometimes also FixedSizeList.
+* "List-like": List, LargeList, ListView, LargeListView, and sometimes also
+  FixedSizeList.
 
 * "Nested": List-likes (including FixedSizeList), Struct, Union, and
   related types like Map.
@@ -514,8 +515,8 @@ Mixed time resolution temporal inputs will be cast to finest input resolution.
   +------------+---------------------------------------------+
 
   It's compatible with Redshift's decimal promotion rules. All decimal digits
-  are preserved for `add`, `subtract` and `multiply` operations. The result
-  precision of `divide` is at least the sum of precisions of both operands with
+  are preserved for ``add``, ``subtract`` and ``multiply`` operations. The result
+  precision of ``divide`` is at least the sum of precisions of both operands with
   enough scale kept. Error is returned if the result precision is beyond the
   decimal value range.
 
@@ -1029,7 +1030,7 @@ These functions trim off characters on both sides (trim), or the left (ltrim) or
 +--------------------------+------------+-------------------------+---------------------+----------------------------------------+---------+
 
 * \(1) Only characters specified in :member:`TrimOptions::characters` will be
-  trimmed off. Both the input string and the `characters` argument are
+  trimmed off. Both the input string and the ``characters`` argument are
   interpreted as ASCII characters.
 
 * \(2) Only trim off ASCII whitespace characters (``'\t'``, ``'\n'``, ``'\v'``,
@@ -1298,8 +1299,8 @@ Structural transforms
 +---------------------+------------+-------------+------------------+------------------------------+--------+
 
 * \(1) Each output element is the length of the corresponding input element
-  (null if input is null).  Output type is Int32 for List and FixedSizeList,
-  Int64 for LargeList.
+  (null if input is null).  Output type is Int32 for List, ListView, and
+  FixedSizeList, Int64 for LargeList and LargeListView.
 
 * \(2) The output struct's field types are the types of its arguments. The
   field names are specified using an instance of :struct:`MakeStructOptions`.
@@ -1413,13 +1414,15 @@ null input value is converted into a null output value.
 +-----------------------------+------------------------------------+---------+
 | Struct                      | Struct                             | \(2)    |
 +-----------------------------+------------------------------------+---------+
-| List-like                   | List-like                          | \(3)    |
+| List-like                   | List-like or (Large)ListView       | \(3)    |
 +-----------------------------+------------------------------------+---------+
-| Map                         | Map or List of two-field struct    | \(4)    |
+| (Large)ListView             | List-like or (Large)ListView       | \(4)    |
++-----------------------------+------------------------------------+---------+
+| Map                         | Map or List of two-field struct    | \(5)    |
 +-----------------------------+------------------------------------+---------+
 | Null                        | Any                                |         |
 +-----------------------------+------------------------------------+---------+
-| Any                         | Extension                          | \(5)    |
+| Any                         | Extension                          | \(6)    |
 +-----------------------------+------------------------------------+---------+
 
 * \(1) The dictionary indices are unchanged, the dictionary values are
@@ -1433,14 +1436,21 @@ null input value is converted into a null output value.
 
 * \(3) The list offsets are unchanged, the list values are cast from the
   input value type to the output value type (if a conversion is
-  available).
+  available). If the output type is (Large)ListView, then sizes are
+  derived from the offsets.
 
-* \(4) Offsets are unchanged, the keys and values are cast from respective input
+* \(4) If output type is list-like, offsets (consequently, the values array)
+  might have to be rebuilt to be sorted and spaced adequately. If output type is
+  a list-view type, the offsets and sizes are unchanged. In any case, the list
+  values are cast from the input value type to the output value type (if a
+  conversion is available).
+
+* \(5) Offsets are unchanged, the keys and values are cast from respective input
   to output types (if a conversion is available). If output type is a list of
   struct, the key field is output as the first field and the value field the
   second field, regardless of field names chosen.
 
-* \(5) Any input type that can be cast to the resulting extension's storage type.
+* \(6) Any input type that can be cast to the resulting extension's storage type.
   This excludes extension types, unless being cast to the same extension type.
 
 Temporal component extraction
@@ -1570,7 +1580,7 @@ is the same, even though the UTC years would be different.
 Timezone handling
 ~~~~~~~~~~~~~~~~~
 
-`assume_timezone` function is meant to be used when an external system produces
+``assume_timezone`` function is meant to be used when an external system produces
 "timezone-naive" timestamps which need to be converted to "timezone-aware"
 timestamps (see for example the `definition
 <https://docs.python.org/3/library/datetime.html#aware-and-naive-objects>`__
@@ -1581,11 +1591,11 @@ Input timestamps are assumed to be relative to the timezone given in
 UTC-relative timestamps with the timezone metadata set to the above value.
 An error is returned if the timestamps already have the timezone metadata set.
 
-`local_timestamp` function converts UTC-relative timestamps to local "timezone-naive"
+``local_timestamp`` function converts UTC-relative timestamps to local "timezone-naive"
 timestamps. The timezone is taken from the timezone metadata of the input
-timestamps. This function is the inverse of `assume_timezone`. Please note:
+timestamps. This function is the inverse of ``assume_timezone``. Please note:
 **all temporal functions already operate on timestamps as if they were in local
-time of the metadata provided timezone**. Using `local_timestamp` is only meant to be
+time of the metadata provided timezone**. Using ``local_timestamp`` is only meant to be
 used when an external system expects local timestamps.
 
 +-----------------+-------+-------------+---------------+---------------------------------+-------+
@@ -1649,8 +1659,8 @@ overflow is detected.
 
 * \(1) CumulativeOptions has two optional parameters. The first parameter
   :member:`CumulativeOptions::start` is a starting value for the running
-  accumulation. It has a default value of 0 for `sum`, 1 for `prod`, min of
-  input type for `max`, and max of input type for `min`. Specified values of
+  accumulation. It has a default value of 0 for ``sum``, 1 for ``prod``, min of
+  input type for ``max``, and max of input type for ``min``. Specified values of
   ``start`` must be castable to the input type. The second parameter
   :member:`CumulativeOptions::skip_nulls` is a boolean. When set to
   false (the default), the first encountered null is propagated. When set to
@@ -1804,8 +1814,10 @@ Structural transforms
   list array are discarded.
 
 * \(3) For each value in the list child array, the index at which it is found
-  in the list array is appended to the output.  Nulls in the parent list array
-  are discarded.
+  in the list-like array is appended to the output. Indices of null lists in the
+  parent array might still be present in the output if they are non-empty null
+  lists. If the parent is a list-view, child array values that are not used by
+  any non-null list-view are null in the output.
 
 * \(4) For each list element, compute the slice of that list element, then
   return another list-like array of those slices. Can return either a

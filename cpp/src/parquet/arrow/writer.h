@@ -143,6 +143,16 @@ class PARQUET_EXPORT FileWriter {
   virtual ~FileWriter();
 
   virtual MemoryPool* memory_pool() const = 0;
+  /// \brief Add key-value metadata to the file.
+  /// \param[in] key_value_metadata the metadata to add.
+  /// \note This will overwrite any existing metadata with the same key.
+  /// \return Error if Close() has been called.
+  ///
+  /// WARNING: If `store_schema` is enabled, `ARROW:schema` would be stored
+  /// in the key-value metadata. Overwriting this key would result in
+  /// `store_schema` being unusable during read.
+  virtual ::arrow::Status AddKeyValueMetadata(
+      const std::shared_ptr<const ::arrow::KeyValueMetadata>& key_value_metadata) = 0;
   /// \brief Return the file metadata, only available after calling Close().
   virtual const std::shared_ptr<FileMetaData> metadata() const = 0;
 };

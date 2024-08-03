@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.validate;
 
 import static org.apache.arrow.vector.validate.ValidateUtil.validateOrThrow;
@@ -35,9 +34,7 @@ import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 
-/**
- * Utility for validating vector data.
- */
+/** Utility for validating vector data. */
 public class ValidateVectorDataVisitor implements VectorVisitor<Void, Void> {
 
   private void validateOffsetBuffer(ValueVector vector, int valueCount) {
@@ -50,10 +47,18 @@ public class ValidateVectorDataVisitor implements VectorVisitor<Void, Void> {
     int prevValue = offsetBuffer.getInt(0);
     for (int i = 1; i <= valueCount; i++) {
       int curValue = offsetBuffer.getInt(i * 4);
-      validateOrThrow(curValue >= 0, "The value at position %s of the offset buffer is negative: %s.", i, curValue);
-      validateOrThrow(curValue >= prevValue,
+      validateOrThrow(
+          curValue >= 0,
+          "The value at position %s of the offset buffer is negative: %s.",
+          i,
+          curValue);
+      validateOrThrow(
+          curValue >= prevValue,
           "The values in positions %s and %s of the offset buffer are decreasing: %s, %s.",
-          i - 1, i, prevValue, curValue);
+          i - 1,
+          i,
+          prevValue,
+          curValue);
       prevValue = curValue;
     }
   }
@@ -68,19 +73,29 @@ public class ValidateVectorDataVisitor implements VectorVisitor<Void, Void> {
     long prevValue = offsetBuffer.getLong(0);
     for (int i = 1; i <= valueCount; i++) {
       long curValue = offsetBuffer.getLong((long) i * 8);
-      validateOrThrow(curValue >= 0L, "The value at position %s of the large offset buffer is negative: %s.",
-          i, curValue);
-      validateOrThrow(curValue >= prevValue,
+      validateOrThrow(
+          curValue >= 0L,
+          "The value at position %s of the large offset buffer is negative: %s.",
+          i,
+          curValue);
+      validateOrThrow(
+          curValue >= prevValue,
           "The values in positions %s and %s of the large offset buffer are decreasing: %s, %s.",
-          i - 1, i, prevValue, curValue);
+          i - 1,
+          i,
+          prevValue,
+          curValue);
       prevValue = curValue;
     }
   }
 
   private void validateTypeBuffer(ArrowBuf typeBuf, int valueCount) {
     for (int i = 0; i < valueCount; i++) {
-      validateOrThrow(typeBuf.getByte(i) >= 0, "The type id at position %s is negative: %s.",
-          i, typeBuf.getByte(i));
+      validateOrThrow(
+          typeBuf.getByte(i) >= 0,
+          "The type id at position %s is negative: %s.",
+          i,
+          typeBuf.getByte(i));
     }
   }
 
@@ -165,9 +180,11 @@ public class ValidateVectorDataVisitor implements VectorVisitor<Void, Void> {
       int offset = vector.getOffset(i);
       byte typeId = vector.getTypeId(i);
       ValueVector subVector = vector.getVectorByType(typeId);
-      validateOrThrow(offset < subVector.getValueCount(),
+      validateOrThrow(
+          offset < subVector.getValueCount(),
           "Dense union vector offset exceeds sub-vector boundary. Vector offset %s, sub vector size %s",
-          offset, subVector.getValueCount());
+          offset,
+          subVector.getValueCount());
     }
 
     for (ValueVector subVector : vector.getChildrenFromFields()) {
@@ -178,7 +195,8 @@ public class ValidateVectorDataVisitor implements VectorVisitor<Void, Void> {
 
   @Override
   public Void visit(NullVector vector, Void value) {
-    ValidateUtil.validateOrThrow(vector.getNullCount() == vector.getValueCount(),
+    ValidateUtil.validateOrThrow(
+        vector.getNullCount() == vector.getValueCount(),
         "NullVector should have only null entries.");
     return null;
   }

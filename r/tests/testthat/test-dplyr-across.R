@@ -116,16 +116,6 @@ test_that("expand_across correctly expands quosures", {
     example_data
   )
 
-  # ellipses (...) are a deprecated argument
-  expect_error(
-    expand_across(
-      as_adq(example_data),
-      quos(across(c(dbl, dbl2), round, digits = -1))
-    ),
-    regexp = "`...` argument to `across()` is deprecated in dplyr and not supported in Arrow",
-    fixed = TRUE
-  )
-
   # alternative ways of specifying .fns - as a list
   expect_across_equal(
     quos(across(1:dbl2, list(round))),
@@ -231,6 +221,15 @@ test_that("expand_across correctly expands quosures", {
       dbl2_2 = base::sqrt(dbl2)
     ),
     example_data
+  )
+
+  skip_if_not_available("dataset")
+  # ellipses (...) are a deprecated argument
+  # abandon_ship message offers multiple suggestions
+  expect_snapshot(
+    InMemoryDataset$create(example_data) %>%
+      mutate(across(c(dbl, dbl2), round, digits = -1)),
+    error = TRUE
   )
 })
 

@@ -22,6 +22,8 @@
 # contains choco and vs2019 preinstalled
 FROM abrarov/msvc-2019:2.11.0
 
+# hadolint shell=cmd.exe
+
 # Add unix tools to path
 RUN setx path "%path%;C:\Program Files\Git\usr\bin"
 
@@ -40,8 +42,8 @@ RUN (if "%python%"=="3.8" setx PYTHON_VERSION "3.8.10" && setx PATH "%PATH%;C:\P
     (if "%python%"=="3.10" setx PYTHON_VERSION "3.10.11" && setx PATH "%PATH%;C:\Python310;C:\Python310\Scripts") & \
     (if "%python%"=="3.11" setx PYTHON_VERSION "3.11.5" && setx PATH "%PATH%;C:\Python311;C:\Python311\Scripts") & \
     (if "%python%"=="3.12" setx PYTHON_VERSION "3.12.0" && setx PATH "%PATH%;C:\Python312;C:\Python312\Scripts")
-RUN choco install -r -y --no-progress python --version=%PYTHON_VERSION%
-RUN python -m pip install -U pip setuptools
 
 # Install archiver to extract xz archives
-RUN choco install --no-progress -r -y archiver
+RUN choco install -r -y --no-progress python --version=%PYTHON_VERSION% & \
+    python -m pip install --no-cache-dir -U pip setuptools & \
+    choco install --no-progress -r -y archiver

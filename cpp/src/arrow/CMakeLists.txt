@@ -200,22 +200,29 @@ function(arrow_add_object_library PREFIX)
   set(SOURCES ${ARGN})
   string(TOLOWER "${PREFIX}" prefix)
   if(WIN32)
-    add_library(${prefix}_shared OBJECT ${SOURCES})
-    add_library(${prefix}_static OBJECT ${SOURCES})
-    set_target_properties(${prefix}_shared PROPERTIES POSITION_INDEPENDENT_CODE ON)
-    set_target_properties(${prefix}_static PROPERTIES POSITION_INDEPENDENT_CODE ON)
-    target_compile_definitions(${prefix}_shared PRIVATE ARROW_EXPORTING)
-    target_compile_definitions(${prefix}_static PRIVATE ARROW_STATIC)
-    target_compile_features(${prefix}_shared PRIVATE cxx_std_17)
-    target_compile_features(${prefix}_static PRIVATE cxx_std_17)
-    set(${PREFIX}_TARGET_SHARED
-        ${prefix}_shared
-        PARENT_SCOPE)
-    set(${PREFIX}_TARGET_STATIC
-        ${prefix}_static
-        PARENT_SCOPE)
+    set(targets)
+    if(ARROW_BUILD_SHARED)
+      add_library(${prefix}_shared OBJECT ${SOURCES})
+      set_target_properties(${prefix}_shared PROPERTIES POSITION_INDEPENDENT_CODE ON)
+      target_compile_definitions(${prefix}_shared PRIVATE ARROW_EXPORTING)
+      target_compile_features(${prefix}_shared PRIVATE cxx_std_17)
+      set(${PREFIX}_TARGET_SHARED
+          ${prefix}_shared
+          PARENT_SCOPE)
+      list(APPEND targets ${prefix}_shared)
+    endif()
+    if(ARROW_BUILD_STATIC)
+      add_library(${prefix}_static OBJECT ${SOURCES})
+      set_target_properties(${prefix}_static PROPERTIES POSITION_INDEPENDENT_CODE ON)
+      target_compile_definitions(${prefix}_static PRIVATE ARROW_STATIC)
+      target_compile_features(${prefix}_static PRIVATE cxx_std_17)
+      set(${PREFIX}_TARGET_STATIC
+          ${prefix}_static
+          PARENT_SCOPE)
+      list(APPEND targets ${prefix}_static)
+    endif()
     set(${PREFIX}_TARGETS
-        ${prefix}_shared ${prefix}_static
+        ${targets}
         PARENT_SCOPE)
   else()
     add_library(${prefix} OBJECT ${SOURCES})
@@ -350,6 +357,12 @@ macro(append_runtime_avx512_src SRCS SRC)
     set_source_files_properties(${SRC} PROPERTIES COMPILE_FLAGS ${ARROW_AVX512_FLAG})
   endif()
 endmacro()
+
+# Write out compile-time configuration constants
+configure_file("util/config.h.cmake" "util/config.h" ESCAPE_QUOTES)
+configure_file("util/config_internal.h.cmake" "util/config_internal.h" ESCAPE_QUOTES)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/util/config.h"
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/util")
 
 set(ARROW_SRCS
     builder.cc
@@ -509,6 +522,7 @@ set(ARROW_UTIL_SRCS
     util/int_util.cc
     util/io_util.cc
     util/list_util.cc
+    util/logger.cc
     util/logging.cc
     util/key_value_metadata.cc
     util/memory.cc
@@ -614,6 +628,17 @@ if(ARROW_WITH_ZSTD)
   endforeach()
 endif()
 
+if(ARROW_WITH_OPENTELEMETRY)
+  arrow_add_object_library(ARROW_TELEMETRY telemetry/logging.cc)
+
+  foreach(ARROW_TELEMETRY_TARGET ${ARROW_TELEMETRY_TARGETS})
+    target_link_libraries(${ARROW_TELEMETRY_TARGET} PRIVATE ${ARROW_OPENTELEMETRY_LIBS})
+  endforeach()
+else()
+  set(ARROW_TELEMETRY_TARGET_SHARED)
+  set(ARROW_TELEMETRY_TARGET_STATIC)
+endif()
+
 set(ARROW_TESTING_SHARED_LINK_LIBS arrow_shared ${ARROW_GTEST_GTEST})
 set(ARROW_TESTING_SHARED_PRIVATE_LINK_LIBS arrow::flatbuffers RapidJSON)
 set(ARROW_TESTING_STATIC_LINK_LIBS arrow::flatbuffers RapidJSON arrow_static
@@ -637,6 +662,7 @@ endif()
 set(ARROW_TESTING_SRCS
     io/test_common.cc
     ipc/test_common.cc
+    testing/fixed_width_test_util.cc
     testing/gtest_util.cc
     testing/random.cc
     testing/generator.cc
@@ -716,7 +742,8 @@ set(ARROW_COMPUTE_SRCS
     compute/row/compare_internal.cc
     compute/row/grouper.cc
     compute/row/row_internal.cc
-    compute/util.cc)
+    compute/util.cc
+    compute/util_internal.cc)
 
 append_runtime_avx2_src(ARROW_COMPUTE_SRCS compute/key_hash_internal_avx2.cc)
 append_runtime_avx2_bmi2_src(ARROW_COMPUTE_SRCS compute/key_map_internal_avx2.cc)
@@ -1001,6 +1028,7 @@ add_arrow_lib(arrow
               ${ARROW_JSON_TARGET_SHARED}
               ${ARROW_MEMORY_POOL_TARGET_SHARED}
               ${ARROW_ORC_TARGET_SHARED}
+              ${ARROW_TELEMETRY_TARGET_SHARED}
               ${ARROW_UTIL_TARGET_SHARED}
               ${ARROW_VENDORED_TARGET_SHARED}
               ${ARROW_SHARED_PRIVATE_LINK_LIBS}
@@ -1016,6 +1044,7 @@ add_arrow_lib(arrow
               ${ARROW_JSON_TARGET_STATIC}
               ${ARROW_MEMORY_POOL_TARGET_STATIC}
               ${ARROW_ORC_TARGET_STATIC}
+              ${ARROW_TELEMETRY_TARGET_STATIC}
               ${ARROW_UTIL_TARGET_STATIC}
               ${ARROW_VENDORED_TARGET_STATIC}
               ${ARROW_SYSTEM_LINK_LIBS}
@@ -1243,6 +1272,10 @@ endif()
 
 if(ARROW_SUBSTRAIT)
   add_subdirectory(engine)
+endif()
+
+if(ARROW_WITH_OPENTELEMETRY)
+  add_subdirectory(telemetry)
 endif()
 
 if(ARROW_TENSORFLOW)

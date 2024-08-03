@@ -29,15 +29,10 @@ disp("Toolbox Folder: " + toolboxFolder);
 disp("Output Folder: " + outputFolder);
 disp("Toolbox Version Raw: " + toolboxVersionRaw);
 
-
-% Note: This string processing heuristic may not be robust to future
-% changes in the Arrow versioning scheme.
-dotIdx = strfind(toolboxVersionRaw, ".");
-numDots = numel(dotIdx);
-if numDots >= 3
-    toolboxVersion = extractBefore(toolboxVersionRaw, dotIdx(3));
-else
-    toolboxVersion = toolboxVersionRaw;
+versionPattern = regexpPattern("^[0-9]+\.[0-9]+\.[0-9]+");
+toolboxVersion = extract(toolboxVersionRaw, versionPattern);
+if isempty(toolboxVersion)
+    error("Unable to extract MAJOR.MINOR.PATCH version string from " + toolboxVersionRaw);
 end
 
 disp("Toolbox Version:" + toolboxVersion);
@@ -68,7 +63,7 @@ currentRelease = matlabRelease.Release;
 opts.MinimumMatlabRelease = currentRelease;
 opts.MaximumMatlabRelease = currentRelease;
 
-opts.OutputFile = fullfile(outputFolder, compose("matlab-arrow-%s.mltbx", toolboxVersionRaw));
+opts.OutputFile = fullfile(outputFolder, compose("matlab-arrow-%s.mltbx", toolboxVersion));
 disp("Output File: " + opts.OutputFile);
 matlab.addons.toolbox.packageToolbox(opts);
 

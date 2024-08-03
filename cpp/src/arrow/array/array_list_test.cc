@@ -1287,7 +1287,7 @@ TEST_F(TestMapArray, ValidateErrorNullKey) {
 }
 
 TEST_F(TestMapArray, FromArrays) {
-  std::shared_ptr<Array> offsets1, offsets2, offsets3, offsets4, keys, items;
+  std::shared_ptr<Array> offsets1, offsets2, offsets3, offsets4, offsets5, keys, items;
 
   std::vector<bool> offsets_is_valid3 = {true, false, true, true};
   std::vector<bool> offsets_is_valid4 = {true, true, false, true};
@@ -1342,6 +1342,20 @@ TEST_F(TestMapArray, FromArrays) {
   // Zero-length offsets
   ASSERT_RAISES(Invalid, MapArray::FromArrays(offsets1->Slice(0, 0), keys, items, pool_));
 
+  // Offseted offsets
+  ASSERT_OK_AND_ASSIGN(auto map5,
+                       MapArray::FromArrays(offsets1->Slice(1), keys, items, pool_));
+  ASSERT_OK(map5->Validate());
+
+  AssertArraysEqual(*expected1.Slice(1), *map5);
+
+  std::vector<MapType::offset_type> offset5_values = {2, 2, 6};
+  ArrayFromVector<OffsetType, offset_type>(offset5_values, &offsets5);
+  ASSERT_OK_AND_ASSIGN(auto map6, MapArray::FromArrays(offsets5, keys, items, pool_));
+  ASSERT_OK(map6->Validate());
+
+  AssertArraysEqual(*map5, *map6);
+
   // Offsets not the right type
   ASSERT_RAISES(TypeError, MapArray::FromArrays(keys, offsets1, items, pool_));
 
@@ -1354,6 +1368,35 @@ TEST_F(TestMapArray, FromArrays) {
   ASSERT_EQ(keys_with_null->length(), tmp_items->length());
   ASSERT_RAISES(Invalid,
                 MapArray::FromArrays(offsets1, keys_with_null, tmp_items, pool_));
+
+  // With null_bitmap and null_count=1
+  auto null_bitmap_1 = ArrayFromJSON(boolean(), "[1, 0, 1]")->data()->buffers[1];
+  ASSERT_OK_AND_ASSIGN(auto map7,
+                       MapArray::FromArrays(offsets1, keys, items, pool_, null_bitmap_1));
+  ASSERT_OK(map7->Validate());
+  MapArray expected7(map_type, length, offsets1->data()->buffers[1], keys, items,
+                     null_bitmap_1, 1);
+  ASSERT_EQ(map7->null_count(), 1);
+  AssertArraysEqual(expected7, *map7);
+
+  // With null_bitmap and null_count=2
+  auto null_bitmap_2 = ArrayFromJSON(boolean(), "[0, 1, 0]")->data()->buffers[1];
+  ASSERT_OK_AND_ASSIGN(auto map8,
+                       MapArray::FromArrays(offsets1, keys, items, pool_, null_bitmap_2));
+  ASSERT_OK(map8->Validate());
+  MapArray expected8(map_type, length, offsets1->data()->buffers[1], keys, items,
+                     null_bitmap_2, 2);
+  ASSERT_EQ(map8->null_count(), 2);
+  AssertArraysEqual(expected8, *map8);
+
+  // Null bitmap and offset with null
+  ASSERT_RAISES(Invalid, MapArray::FromArrays(offsets3, keys, items, pool_,
+                                              offsets3->data()->buffers[0]));
+
+  // Null bitmap and offset with offset
+  ASSERT_RAISES(NotImplemented,
+                MapArray::FromArrays(offsets1->Slice(2), keys, items, pool_,
+                                     offsets3->data()->buffers[0]));
 }
 
 TEST_F(TestMapArray, FromArraysEquality) {

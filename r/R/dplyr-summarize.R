@@ -18,39 +18,18 @@
 # The following S3 methods are registered on load if dplyr is present
 
 summarise.arrow_dplyr_query <- function(.data, ..., .by = NULL, .groups = NULL) {
-  call <- match.call()
-  out <- as_adq(.data)
+  try_arrow_dplyr({
+    out <- as_adq(.data)
 
-  by <- compute_by({{ .by }}, out, by_arg = ".by", data_arg = ".data")
+    by <- compute_by({{ .by }}, out, by_arg = ".by", data_arg = ".data")
+    if (by$from_by) {
+      out$group_by_vars <- by$names
+      .groups <- "drop"
+    }
 
-  if (by$from_by) {
-    out$group_by_vars <- by$names
-    .groups <- "drop"
-  }
-
-  exprs <- expand_across(out, quos(...), exclude_cols = out$group_by_vars)
-
-  # Only retain the columns we need to do our aggregations
-  vars_to_keep <- unique(c(
-    unlist(lapply(exprs, all.vars)), # vars referenced in summarise
-    dplyr::group_vars(out) # vars needed for grouping
-  ))
-  # If exprs rely on the results of previous exprs
-  # (total = sum(x), mean = total / n())
-  # then not all vars will correspond to columns in the data,
-  # so don't try to select() them (use intersect() to exclude them)
-  # Note that this select() isn't useful for the Arrow summarize implementation
-  # because it will effectively project to keep what it needs anyway,
-  # but the data.frame fallback version does benefit from select here
-  out <- dplyr::select(out, intersect(vars_to_keep, names(out)))
-
-  # Try stuff, if successful return()
-  out <- try(do_arrow_summarize(out, !!!exprs, .groups = .groups), silent = TRUE)
-  if (inherits(out, "try-error")) {
-    out <- abandon_ship(call, .data, format(out))
-  }
-
-  out
+    exprs <- expand_across(out, quos(...), exclude_cols = out$group_by_vars)
+    do_arrow_summarize(out, !!!exprs, .groups = .groups)
+  })
 }
 summarise.Dataset <- summarise.ArrowTabular <- summarise.RecordBatchReader <- summarise.arrow_dplyr_query
 
@@ -120,11 +99,10 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
     # the schema of the data after summarize(). Evaulating its type will
     # throw an error if it's invalid.
     tryCatch(post_mutate[[post]]$type(out$.data$schema), error = function(e) {
-      msg <- paste(
-        "Expression", as_label(exprs[[post]]),
-        "is not a valid aggregation expression or is"
+      arrow_not_supported(
+        "Expression is not a valid aggregation expression or is",
+        call = exprs[[post]]
       )
-      arrow_not_supported(msg)
     })
     # If it's valid, add it to the .data object
     out$selected_columns[[post]] <- post_mutate[[post]]
@@ -166,12 +144,18 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
     } else if (.groups == "keep") {
       out$group_by_vars <- .data$group_by_vars
     } else if (.groups == "rowwise") {
-      stop(arrow_not_supported('.groups = "rowwise"'))
+      arrow_not_supported(
+        '.groups = "rowwise"',
+        call = rlang::caller_call()
+      )
     } else if (.groups == "drop") {
       # collapse() preserves groups so remove them
       out <- dplyr::ungroup(out)
     } else {
-      stop(paste("Invalid .groups argument:", .groups))
+      validation_error(
+        paste("Invalid .groups argument:", .groups),
+        call = rlang::caller_call()
+      )
     }
     out$drop_empty_groups <- .data$drop_empty_groups
     if (getOption("arrow.summarise.sort", FALSE)) {
@@ -179,16 +163,6 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
       out$arrange_vars <- .data$selected_columns[.data$group_by_vars]
       out$arrange_desc <- rep(FALSE, length(.data$group_by_vars))
     }
-  }
-  out
-}
-
-arrow_eval_or_stop <- function(expr, mask) {
-  # TODO: change arrow_eval error handling behavior?
-  out <- arrow_eval(expr, mask)
-  if (inherits(out, "try-error")) {
-    msg <- handle_arrow_not_supported(out, format_expr(expr))
-    stop(msg, call. = FALSE)
   }
   out
 }
@@ -271,7 +245,7 @@ summarize_eval <- function(name, quosure, mask) {
     mask[[n]] <- mask$.data[[n]] <- Expression$field_ref(n)
   }
   # Evaluate:
-  value <- arrow_eval_or_stop(quosure, mask)
+  value <- arrow_eval(quosure, mask)
 
   # Handle the result. There are a few different cases.
   if (!inherits(value, "Expression")) {

@@ -16,7 +16,6 @@
 // under the License.
 
 // Middleware for handling Flight SQL Sessions including session cookie handling.
-// Currently experimental.
 
 #pragma once
 

@@ -227,9 +227,9 @@ class EncoderBinaryPair {
 
 class EncoderOffsets {
  public:
-  static void GetRowOffsetsSelected(RowTableImpl* rows,
-                                    const std::vector<KeyColumnArray>& cols,
-                                    uint32_t num_selected, const uint16_t* selection);
+  static Status GetRowOffsetsSelected(RowTableImpl* rows,
+                                      const std::vector<KeyColumnArray>& cols,
+                                      uint32_t num_selected, const uint16_t* selection);
   static void EncodeSelected(RowTableImpl* rows, const std::vector<KeyColumnArray>& cols,
                              uint32_t num_selected, const uint16_t* selection);
 

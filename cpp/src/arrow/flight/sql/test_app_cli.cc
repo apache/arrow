@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/util/config.h"
+
 #include <gflags/gflags.h>
 #define BOOST_NO_CXX98_FUNCTION_BASE  // ARROW-17805
 #include <boost/algorithm/string.hpp>
@@ -25,11 +27,25 @@
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/flight/api.h"
+#include "arrow/flight/client_tracing_middleware.h"
 #include "arrow/flight/sql/api.h"
 #include "arrow/io/memory.h"
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
+
+#ifdef ARROW_WITH_OPENTELEMETRY
+#include "arrow/flight/otel_logging.h"
+#include "arrow/util/tracing_internal.h"
+
+#include <opentelemetry/context/propagation/global_propagator.h>
+#include <opentelemetry/context/propagation/text_map_propagator.h>
+#include <opentelemetry/sdk/trace/processor.h>
+#include <opentelemetry/sdk/trace/tracer_provider.h>
+#include <opentelemetry/trace/propagation/http_trace_context.h>
+#include <opentelemetry/trace/provider.h>
+#include <opentelemetry/trace/scope.h>
+#endif
 
 using arrow::Result;
 using arrow::Schema;
@@ -37,6 +53,7 @@ using arrow::Status;
 using arrow::flight::ClientAuthHandler;
 using arrow::flight::FlightCallOptions;
 using arrow::flight::FlightClient;
+using arrow::flight::FlightClientOptions;
 using arrow::flight::FlightDescriptor;
 using arrow::flight::FlightEndpoint;
 using arrow::flight::FlightInfo;
@@ -57,6 +74,41 @@ DEFINE_string(query, "", "Query");
 DEFINE_string(catalog, "", "Catalog");
 DEFINE_string(schema, "", "Schema");
 DEFINE_string(table, "", "Table");
+
+#ifdef ARROW_WITH_OPENTELEMETRY
+class OtelScope {
+ public:
+  explicit OtelScope(opentelemetry::trace::Scope scope) : scope_(std::move(scope)) {}
+
+  static Result<std::unique_ptr<OtelScope>> Make() {
+    // Implicitly sets up TracerProvider
+    auto tracer = arrow::internal::tracing::GetTracer();
+
+    opentelemetry::context::propagation::GlobalTextMapPropagator::SetGlobalPropagator(
+        opentelemetry::nostd::shared_ptr<
+            opentelemetry::context::propagation::TextMapPropagator>(
+            new opentelemetry::trace::propagation::HttpTraceContext()));
+
+    ARROW_RETURN_NOT_OK(arrow::telemetry::internal::InitializeOtelLoggerProvider());
+
+    auto logging_options = arrow::telemetry::OtelLoggingOptions::Defaults();
+    logging_options.severity_threshold = arrow::telemetry::LogLevel::ARROW_TRACE;
+    // Flush after every log message
+    logging_options.flush_severity = arrow::telemetry::LogLevel::ARROW_TRACE;
+    ARROW_RETURN_NOT_OK(arrow::flight::RegisterFlightOtelLoggers(logging_options));
+
+    opentelemetry::trace::StartSpanOptions span_options;
+    span_options.kind = opentelemetry::trace::SpanKind::kClient;
+    auto span = tracer->StartSpan("flight-sql-test-app", span_options);
+    auto scope = tracer->WithActiveSpan(span);
+
+    return std::make_unique<OtelScope>(std::move(scope));
+  }
+
+ private:
+  opentelemetry::trace::Scope scope_;
+};
+#endif
 
 Status PrintResultsForEndpoint(FlightSqlClient& client,
                                const FlightCallOptions& call_options,
@@ -101,8 +153,15 @@ Status PrintResults(FlightSqlClient& client, const FlightCallOptions& call_optio
 }
 
 Status RunMain() {
+#ifdef ARROW_WITH_OPENTELEMETRY
+  ARROW_ASSIGN_OR_RAISE(auto otel_scope, OtelScope::Make());
+#endif
+
   ARROW_ASSIGN_OR_RAISE(auto location, Location::ForGrpcTcp(FLAGS_host, FLAGS_port));
-  ARROW_ASSIGN_OR_RAISE(auto client, FlightClient::Connect(location));
+  auto client_options = FlightClientOptions::Defaults();
+  client_options.middleware.push_back(
+      arrow::flight::MakeTracingClientMiddlewareFactory());
+  ARROW_ASSIGN_OR_RAISE(auto client, FlightClient::Connect(location, client_options));
 
   FlightCallOptions call_options;
 

@@ -29,7 +29,7 @@ let package = Package(
         // Products define the executables and libraries a package produces, making them visible to other packages.
         .library(
             name: "ArrowFlight",
-            targets: ["ArrowFlight"]),
+            targets: ["ArrowFlight"])
     ],
     dependencies: [
         .package(url: "https://github.com/grpc/grpc-swift.git", from: "1.15.0"),
@@ -45,9 +45,17 @@ let package = Package(
                 .product(name: "Arrow", package: "Arrow"),
                 .product(name: "GRPC", package: "grpc-swift"),
                 .product(name: "SwiftProtobuf", package: "swift-protobuf")
-            ]),
+            ],
+            swiftSettings: [
+                // build: .unsafeFlags(["-warnings-as-errors"])
+            ]
+        ),
         .testTarget(
             name: "ArrowFlightTests",
-            dependencies: ["ArrowFlight"]),
+            dependencies: ["ArrowFlight"],
+            swiftSettings: [
+                // build: .unsafeFlags(["-warnings-as-errors"])
+            ]
+        )
     ]
 )

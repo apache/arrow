@@ -455,6 +455,7 @@ or ``DATA``.
 * ``VARIADIC_DATA_BUFFERS``: a JSON array of data buffers represented as
   hex encoded strings.
 * ``VIEWS``: a JSON array of encoded views, which are JSON objects with:
+
   * ``SIZE``: an integer indicating the size of the view,
   * ``INLINED``: an encoded value (this field will be present if ``SIZE``
     is smaller than 12, otherwise the next three fields will be present),
@@ -501,7 +502,7 @@ integration testing actually tests.
 
 There are two types of integration test cases: the ones populated on the fly
 by the data generator in the Archery utility, and *gold* files that exist
-in the `arrow-testing <https://github.com/apache/arrow-testing/tree/master/data/arrow-ipc-stream/integration>`
+in the `arrow-testing <https://github.com/apache/arrow-testing/tree/master/data/arrow-ipc-stream/integration>`_
 repository.
 
 Data Generator Tests

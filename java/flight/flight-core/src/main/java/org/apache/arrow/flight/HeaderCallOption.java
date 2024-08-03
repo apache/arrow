@@ -14,24 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight;
 
 import io.grpc.Metadata;
 import io.grpc.stub.AbstractStub;
 import io.grpc.stub.MetadataUtils;
 
-/**
- * Method option for supplying headers to method calls.
- */
+/** Method option for supplying headers to method calls. */
 public class HeaderCallOption implements CallOptions.GrpcCallOption {
   private final Metadata propertiesMetadata = new Metadata();
 
   /**
    * Header property constructor.
    *
-   * @param headers the headers that should be sent across. If a header is a string, it should only be valid ASCII
-   *                characters. Binary headers should end in "-bin".
+   * @param headers the headers that should be sent across. If a header is a string, it should only
+   *     be valid ASCII characters. Binary headers should end in "-bin".
    */
   public HeaderCallOption(CallHeaders headers) {
     for (String key : headers.keys()) {

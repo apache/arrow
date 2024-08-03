@@ -397,15 +397,24 @@ class PARQUET_EXPORT FileMetaData {
   /// FileMetaData.
   std::shared_ptr<FileMetaData> Subset(const std::vector<int>& row_groups) const;
 
+  /// \brief Serialize metadata unencrypted as string
+  ///
+  /// \param[in] scrub whether to remove sensitive information from the metadata.
+  /// \param[in] debug whether to serialize the metadata as Thrift (if false) or
+  /// debug text (if true).
+  std::string SerializeUnencrypted(bool scrub, bool debug) const;
+
  private:
   friend FileMetaDataBuilder;
   friend class SerializedFile;
+  friend class SerializedRowGroup;
 
   explicit FileMetaData(const void* serialized_metadata, uint32_t* metadata_len,
                         const ReaderProperties& properties,
                         std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
 
   void set_file_decryptor(std::shared_ptr<InternalFileDecryptor> file_decryptor);
+  const std::shared_ptr<InternalFileDecryptor>& file_decryptor() const;
 
   // PIMPL Idiom
   FileMetaData();

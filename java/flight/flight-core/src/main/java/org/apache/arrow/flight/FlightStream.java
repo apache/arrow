@@ -14,9 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight;
 
+import com.google.common.util.concurrent.SettableFuture;
+import io.grpc.stub.StreamObserver;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -28,7 +29,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
-
 import org.apache.arrow.flight.ArrowMessage.HeaderType;
 import org.apache.arrow.flight.grpc.StatusUtils;
 import org.apache.arrow.memory.ArrowBuf;
@@ -48,27 +48,19 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.DictionaryUtility;
 import org.apache.arrow.vector.validate.MetadataV4UnionChecker;
 
-import com.google.common.util.concurrent.SettableFuture;
-
-import io.grpc.stub.StreamObserver;
-
-/**
- * An adaptor between protobuf streams and flight data streams.
- */
+/** An adaptor between protobuf streams and flight data streams. */
 public class FlightStream implements AutoCloseable {
   // Use AutoCloseable sentinel objects to simplify logic in #close
-  private final AutoCloseable DONE = new AutoCloseable() {
-    @Override
-    public void close() throws Exception {
-
-    }
-  };
-  private final AutoCloseable DONE_EX = new AutoCloseable() {
-    @Override
-    public void close() throws Exception {
-
-    }
-  };
+  private final AutoCloseable DONE =
+      new AutoCloseable() {
+        @Override
+        public void close() throws Exception {}
+      };
+  private final AutoCloseable DONE_EX =
+      new AutoCloseable() {
+        @Override
+        public void close() throws Exception {}
+      };
 
   private final BufferAllocator allocator;
   private final Cancellable cancellable;
@@ -78,10 +70,12 @@ public class FlightStream implements AutoCloseable {
   private final int pendingTarget;
   private final Requestor requestor;
   // The completion flags.
-  // This flag is only updated as the user iterates through the data, i.e. it tracks whether the user has read all the
+  // This flag is only updated as the user iterates through the data, i.e. it tracks whether the
+  // user has read all the
   // data and closed the stream
   final CompletableFuture<Void> completed;
-  // This flag is immediately updated when gRPC signals that the server has ended the call. This is used to make sure
+  // This flag is immediately updated when gRPC signals that the server has ended the call. This is
+  // used to make sure
   // we don't block forever trying to write to a server that has rejected a call.
   final CompletableFuture<Void> cancelled;
 
@@ -91,18 +85,18 @@ public class FlightStream implements AutoCloseable {
   private volatile VectorLoader loader;
   private volatile Throwable ex;
   private volatile ArrowBuf applicationMetadata = null;
-  @VisibleForTesting
-  volatile MetadataVersion metadataVersion = null;
+  @VisibleForTesting volatile MetadataVersion metadataVersion = null;
 
   /**
    * Constructs a new instance.
    *
-   * @param allocator  The allocator to use for creating/reallocating buffers for Vectors.
+   * @param allocator The allocator to use for creating/reallocating buffers for Vectors.
    * @param pendingTarget Target number of messages to receive.
    * @param cancellable Used to cancel mid-stream requests.
    * @param requestor A callback to determine how many pending items there are.
    */
-  public FlightStream(BufferAllocator allocator, int pendingTarget, Cancellable cancellable, Requestor requestor) {
+  public FlightStream(
+      BufferAllocator allocator, int pendingTarget, Cancellable cancellable, Requestor requestor) {
     Objects.requireNonNull(allocator);
     Objects.requireNonNull(requestor);
     this.allocator = allocator;
@@ -114,9 +108,7 @@ public class FlightStream implements AutoCloseable {
     this.cancelled = new CompletableFuture<>();
   }
 
-  /**
-   * Get the schema for this stream. Blocks until the schema is available.
-   */
+  /** Get the schema for this stream. Blocks until the schema is available. */
   public Schema getSchema() {
     return getRoot().getSchema();
   }
@@ -124,9 +116,9 @@ public class FlightStream implements AutoCloseable {
   /**
    * Get the provider for dictionaries in this stream.
    *
-   * <p>Does NOT retain a reference to the underlying dictionaries. Dictionaries may be updated as the stream is read.
-   * This method is intended for stream processing, where the application code will not retain references to values
-   * after the stream is closed.
+   * <p>Does NOT retain a reference to the underlying dictionaries. Dictionaries may be updated as
+   * the stream is read. This method is intended for stream processing, where the application code
+   * will not retain references to values after the stream is closed.
    *
    * @throws IllegalStateException if {@link #takeDictionaryOwnership()} was called
    * @see #takeDictionaryOwnership()
@@ -139,10 +131,11 @@ public class FlightStream implements AutoCloseable {
   }
 
   /**
-   * Get an owned reference to the dictionaries in this stream. Should be called after finishing reading the stream,
-   * but before closing.
+   * Get an owned reference to the dictionaries in this stream. Should be called after finishing
+   * reading the stream, but before closing.
    *
-   * <p>If called, the client is responsible for closing the dictionaries in this provider. Can only be called once.
+   * <p>If called, the client is responsible for closing the dictionaries in this provider. Can only
+   * be called once.
    *
    * @return The dictionary provider for the stream.
    * @throws IllegalStateException if called more than once.
@@ -158,8 +151,8 @@ public class FlightStream implements AutoCloseable {
   }
 
   /**
-   * Get the descriptor for this stream. Only applicable on the server side of a DoPut operation. Will block until the
-   * client sends the descriptor.
+   * Get the descriptor for this stream. Only applicable on the server side of a DoPut operation.
+   * Will block until the client sends the descriptor.
    */
   public FlightDescriptor getDescriptor() {
     // This blocks until the first message from the client is received.
@@ -169,39 +162,46 @@ public class FlightStream implements AutoCloseable {
       Thread.currentThread().interrupt();
       throw CallStatus.INTERNAL.withCause(e).withDescription("Interrupted").toRuntimeException();
     } catch (ExecutionException e) {
-      throw CallStatus.INTERNAL.withCause(e).withDescription("Error getting descriptor").toRuntimeException();
+      throw CallStatus.INTERNAL
+          .withCause(e)
+          .withDescription("Error getting descriptor")
+          .toRuntimeException();
     }
   }
 
   /**
    * Closes the stream (freeing any existing resources).
    *
-   * <p>If the stream isn't complete and is cancellable, this method will cancel and drain the stream first.
+   * <p>If the stream isn't complete and is cancellable, this method will cancel and drain the
+   * stream first.
    */
   @Override
   public void close() throws Exception {
     final List<AutoCloseable> closeables = new ArrayList<>();
     Throwable suppressor = null;
     if (cancellable != null) {
-      // Client-side stream. Cancel the call, to help ensure gRPC doesn't deliver a message after close() ends.
-      // On the server side, we can't rely on draining the stream , because this gRPC bug means the completion callback
+      // Client-side stream. Cancel the call, to help ensure gRPC doesn't deliver a message after
+      // close() ends.
+      // On the server side, we can't rely on draining the stream , because this gRPC bug means the
+      // completion callback
       // may never run https://github.com/grpc/grpc-java/issues/5882
       try {
         synchronized (cancellable) {
           if (!cancelled.isDone()) {
             // Only cancel if the call is not done on the gRPC side
-            cancellable.cancel("Stream closed before end", /* no exception to report */null);
+            cancellable.cancel("Stream closed before end", /* no exception to report */ null);
           }
         }
         // Drain the stream without the lock (as next() implicitly needs the lock)
-        while (next()) {
-        }
+        while (next()) {}
       } catch (FlightRuntimeException e) {
         suppressor = e;
       }
     }
-    // Perform these operations under a lock. This way the observer can't enqueue new messages while we're in the
-    // middle of cleanup. This should only be a concern for server-side streams since client-side streams are drained
+    // Perform these operations under a lock. This way the observer can't enqueue new messages while
+    // we're in the
+    // middle of cleanup. This should only be a concern for server-side streams since client-side
+    // streams are drained
     // by the lambda above.
     synchronized (completed) {
       try {
@@ -211,7 +211,9 @@ public class FlightStream implements AutoCloseable {
         closeables.add(applicationMetadata);
         closeables.addAll(queue);
         if (dictionaries != null) {
-          dictionaries.getDictionaryIds().forEach(id -> closeables.add(dictionaries.lookup(id).getVector()));
+          dictionaries
+              .getDictionaryIds()
+              .forEach(id -> closeables.add(dictionaries.lookup(id).getVector()));
         }
         if (suppressor != null) {
           AutoCloseables.close(suppressor, closeables);
@@ -221,7 +223,8 @@ public class FlightStream implements AutoCloseable {
         // Remove any metadata after closing to prevent negative refcnt
         applicationMetadata = null;
       } finally {
-        // The value of this CompletableFuture is meaningless, only whether it's completed (or has an exception)
+        // The value of this CompletableFuture is meaningless, only whether it's completed (or has
+        // an exception)
         // No-op if already complete
         completed.complete(null);
       }
@@ -230,6 +233,7 @@ public class FlightStream implements AutoCloseable {
 
   /**
    * Blocking request to load next item into list.
+   *
    * @return Whether or not more data was found.
    */
   public boolean next() {
@@ -244,7 +248,8 @@ public class FlightStream implements AutoCloseable {
       Object data = queue.take();
       if (DONE == data) {
         queue.put(DONE);
-        // Other code ignores the value of this CompletableFuture, only whether it's completed (or has an exception)
+        // Other code ignores the value of this CompletableFuture, only whether it's completed (or
+        // has an exception)
         completed.complete(null);
         return false;
       } else if (DONE_EX == data) {
@@ -277,7 +282,8 @@ public class FlightStream implements AutoCloseable {
             try (ArrowDictionaryBatch arb = msg.asDictionaryBatch()) {
               final long id = arb.getDictionaryId();
               if (dictionaries == null) {
-                throw new IllegalStateException("Dictionary ownership was claimed by the application.");
+                throw new IllegalStateException(
+                    "Dictionary ownership was claimed by the application.");
               }
               final Dictionary dictionary = dictionaries.lookup(id);
               if (dictionary == null) {
@@ -285,14 +291,18 @@ public class FlightStream implements AutoCloseable {
               }
 
               final FieldVector vector = dictionary.getVector();
-              final VectorSchemaRoot dictionaryRoot = new VectorSchemaRoot(Collections.singletonList(vector.getField()),
-                  Collections.singletonList(vector), 0);
+              final VectorSchemaRoot dictionaryRoot =
+                  new VectorSchemaRoot(
+                      Collections.singletonList(vector.getField()),
+                      Collections.singletonList(vector),
+                      0);
               final VectorLoader dictionaryLoader = new VectorLoader(dictionaryRoot);
               dictionaryLoader.load(arb.getDictionary());
             }
             return next();
           } else {
-            throw new UnsupportedOperationException("Message type is unsupported: " + msg.getMessageType());
+            throw new UnsupportedOperationException(
+                "Message type is unsupported: " + msg.getMessageType());
           }
           return true;
         }
@@ -322,18 +332,22 @@ public class FlightStream implements AutoCloseable {
     if (msg.asSchemaMessage() == null) {
       return;
     }
-    MetadataVersion receivedVersion = MetadataVersion.fromFlatbufID(msg.asSchemaMessage().getMessage().version());
+    MetadataVersion receivedVersion =
+        MetadataVersion.fromFlatbufID(msg.asSchemaMessage().getMessage().version());
     if (this.metadataVersion != receivedVersion) {
-      throw new IllegalStateException("Metadata version mismatch: stream started as " +
-          this.metadataVersion + " but got message with version " + receivedVersion);
+      throw new IllegalStateException(
+          "Metadata version mismatch: stream started as "
+              + this.metadataVersion
+              + " but got message with version "
+              + receivedVersion);
     }
   }
 
   /**
    * Get the current vector data from the stream.
    *
-   * <p>The data in the root may change at any time. Clients should NOT modify the root, but instead unload the data
-   * into their own root.
+   * <p>The data in the root may change at any time. Clients should NOT modify the root, but instead
+   * unload the data into their own root.
    *
    * @throws FlightRuntimeException if there was an error reading the schema from the stream.
    */
@@ -350,7 +364,7 @@ public class FlightStream implements AutoCloseable {
   /**
    * Check if there is a root (i.e. whether the other end has started sending data).
    *
-   * Updated by calls to {@link #next()}.
+   * <p>Updated by calls to {@link #next()}.
    *
    * @return true if and only if the other end has started sending data.
    */
@@ -359,9 +373,10 @@ public class FlightStream implements AutoCloseable {
   }
 
   /**
-   * Get the most recent metadata sent from the server. This may be cleared by calls to {@link #next()} if the server
-   * sends a message without metadata. This does NOT take ownership of the buffer - call retain() to create a reference
-   * if you need the buffer after a call to {@link #next()}.
+   * Get the most recent metadata sent from the server. This may be cleared by calls to {@link
+   * #next()} if the server sends a message without metadata. This does NOT take ownership of the
+   * buffer - call retain() to create a reference if you need the buffer after a call to {@link
+   * #next()}.
    *
    * @return the application metadata. May be null.
    */
@@ -396,68 +411,75 @@ public class FlightStream implements AutoCloseable {
 
     @Override
     public void onNext(ArrowMessage msg) {
-      // Operations here have to be under a lock so that we don't add a message to the queue while in the middle of
+      // Operations here have to be under a lock so that we don't add a message to the queue while
+      // in the middle of
       // close().
       requestOutstanding();
       switch (msg.getMessageType()) {
-        case NONE: {
-          // No IPC message - pure metadata or descriptor
-          if (msg.getDescriptor() != null) {
-            descriptor.set(new FlightDescriptor(msg.getDescriptor()));
-          }
-          if (msg.getApplicationMetadata() != null) {
-            enqueue(msg);
-          }
-          break;
-        }
-        case SCHEMA: {
-          Schema schema = msg.asSchema();
-          
-          // if there is app metadata in the schema message, make sure
-          // that we don't leak it.
-          ArrowBuf meta = msg.getApplicationMetadata();
-          if (meta != null) {
-            meta.close();
-          }
-
-          final List<Field> fields = new ArrayList<>();
-          final Map<Long, Dictionary> dictionaryMap = new HashMap<>();
-          for (final Field originalField : schema.getFields()) {
-            final Field updatedField = DictionaryUtility.toMemoryFormat(originalField, allocator, dictionaryMap);
-            fields.add(updatedField);
-          }
-          for (final Map.Entry<Long, Dictionary> entry : dictionaryMap.entrySet()) {
-            dictionaries.put(entry.getValue());
-          }
-          schema = new Schema(fields, schema.getCustomMetadata());
-          metadataVersion = MetadataVersion.fromFlatbufID(msg.asSchemaMessage().getMessage().version());
-          try {
-            MetadataV4UnionChecker.checkRead(schema, metadataVersion);
-          } catch (IOException e) {
-            ex = e;
-            enqueue(DONE_EX);
+        case NONE:
+          {
+            // No IPC message - pure metadata or descriptor
+            if (msg.getDescriptor() != null) {
+              descriptor.set(new FlightDescriptor(msg.getDescriptor()));
+            }
+            if (msg.getApplicationMetadata() != null) {
+              enqueue(msg);
+            }
             break;
           }
+        case SCHEMA:
+          {
+            Schema schema = msg.asSchema();
 
-          synchronized (completed) {
-            if (!completed.isDone()) {              
-              fulfilledRoot = VectorSchemaRoot.create(schema, allocator);
-              loader = new VectorLoader(fulfilledRoot);
-              if (msg.getDescriptor() != null) {
-                descriptor.set(new FlightDescriptor(msg.getDescriptor()));
-              }
-              root.set(fulfilledRoot);
+            // if there is app metadata in the schema message, make sure
+            // that we don't leak it.
+            ArrowBuf meta = msg.getApplicationMetadata();
+            if (meta != null) {
+              meta.close();
             }
+
+            final List<Field> fields = new ArrayList<>();
+            final Map<Long, Dictionary> dictionaryMap = new HashMap<>();
+            for (final Field originalField : schema.getFields()) {
+              final Field updatedField =
+                  DictionaryUtility.toMemoryFormat(originalField, allocator, dictionaryMap);
+              fields.add(updatedField);
+            }
+            for (final Map.Entry<Long, Dictionary> entry : dictionaryMap.entrySet()) {
+              dictionaries.put(entry.getValue());
+            }
+            schema = new Schema(fields, schema.getCustomMetadata());
+            metadataVersion =
+                MetadataVersion.fromFlatbufID(msg.asSchemaMessage().getMessage().version());
+            try {
+              MetadataV4UnionChecker.checkRead(schema, metadataVersion);
+            } catch (IOException e) {
+              ex = e;
+              enqueue(DONE_EX);
+              break;
+            }
+
+            synchronized (completed) {
+              if (!completed.isDone()) {
+                fulfilledRoot = VectorSchemaRoot.create(schema, allocator);
+                loader = new VectorLoader(fulfilledRoot);
+                if (msg.getDescriptor() != null) {
+                  descriptor.set(new FlightDescriptor(msg.getDescriptor()));
+                }
+                root.set(fulfilledRoot);
+              }
+            }
+            break;
           }
-          break;
-        }
         case RECORD_BATCH:
         case DICTIONARY_BATCH:
           enqueue(msg);
           break;
         case TENSOR:
         default:
-          ex = new UnsupportedOperationException("Unable to handle message of type: " + msg.getMessageType());
+          ex =
+              new UnsupportedOperationException(
+                  "Unable to handle message of type: " + msg.getMessageType());
           enqueue(DONE_EX);
       }
     }
@@ -481,13 +503,14 @@ public class FlightStream implements AutoCloseable {
   /**
    * Cancels sending the stream to a client.
    *
-   * <p>Callers should drain the stream (with {@link #next()}) to ensure all messages sent before cancellation are
-   * received and to wait for the underlying transport to acknowledge cancellation.
+   * <p>Callers should drain the stream (with {@link #next()}) to ensure all messages sent before
+   * cancellation are received and to wait for the underlying transport to acknowledge cancellation.
    */
   public void cancel(String message, Throwable exception) {
     if (cancellable == null) {
-      throw new UnsupportedOperationException("Streams cannot be cancelled that are produced by client. " +
-          "Instead, server should reject incoming messages.");
+      throw new UnsupportedOperationException(
+          "Streams cannot be cancelled that are produced by client. "
+              + "Instead, server should reject incoming messages.");
     }
     cancellable.cancel(message, exception);
     // Do not mark the stream as completed, as gRPC may still be delivering messages.
@@ -497,22 +520,16 @@ public class FlightStream implements AutoCloseable {
     return new Observer();
   }
 
-  /**
-   * Provides a callback to cancel a process that is in progress.
-   */
+  /** Provides a callback to cancel a process that is in progress. */
   @FunctionalInterface
   public interface Cancellable {
     void cancel(String message, Throwable exception);
   }
 
-  /**
-   * Provides a interface to request more items from a stream producer.
-   */
+  /** Provides a interface to request more items from a stream producer. */
   @FunctionalInterface
   public interface Requestor {
-    /**
-     * Requests <code>count</code> more messages from the instance of this object.
-     */
+    /** Requests <code>count</code> more messages from the instance of this object. */
     void request(int count);
   }
 }

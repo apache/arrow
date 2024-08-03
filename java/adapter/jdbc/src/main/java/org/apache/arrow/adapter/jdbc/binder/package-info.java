@@ -15,8 +15,5 @@
  * limitations under the License.
  */
 
-/**
- * Utilities to bind Arrow data as JDBC prepared statement parameters.
- */
-
+/** Utilities to bind Arrow data as JDBC prepared statement parameters. */
 package org.apache.arrow.adapter.jdbc.binder;

@@ -24,8 +24,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/apache/arrow/go/v17/arrow"
-	"github.com/apache/arrow/go/v17/internal/json"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/internal/json"
 )
 
 // A type which represents an immutable sequence of int64 values.
@@ -307,7 +307,7 @@ func (a *Float64) MarshalJSON() ([]byte, error) {
 		default:
 			vals[i] = f
 		}
-		
+
 	}
 
 	return json.Marshal(vals)

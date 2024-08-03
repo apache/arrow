@@ -21,9 +21,12 @@
 
 #include <glib-object.h>
 
+#include <arrow-glib/version.h>
+
 G_BEGIN_DECLS
 
 #define GARROW_TYPE_MEMORY_POOL (garrow_memory_pool_get_type())
+GARROW_AVAILABLE_IN_ALL
 G_DECLARE_DERIVABLE_TYPE(
   GArrowMemoryPool, garrow_memory_pool, GARROW, MEMORY_POOL, GObject)
 struct _GArrowMemoryPoolClass
@@ -31,12 +34,19 @@ struct _GArrowMemoryPoolClass
   GObjectClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_ALL
 GArrowMemoryPool *
 garrow_memory_pool_default();
+
+GARROW_AVAILABLE_IN_ALL
 gint64
 garrow_memory_pool_get_bytes_allocated(GArrowMemoryPool *memory_pool);
+
+GARROW_AVAILABLE_IN_ALL
 gint64
 garrow_memory_pool_get_max_memory(GArrowMemoryPool *memory_pool);
+
+GARROW_AVAILABLE_IN_ALL
 gchar *
 garrow_memory_pool_get_backend_name(GArrowMemoryPool *memory_pool);
 

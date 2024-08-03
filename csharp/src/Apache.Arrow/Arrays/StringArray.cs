@@ -22,7 +22,7 @@ using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
-    public class StringArray: BinaryArray, IReadOnlyList<string>
+    public class StringArray: BinaryArray, IReadOnlyList<string>, ICollection<string>
     {
         public static readonly Encoding DefaultEncoding = Encoding.UTF8;
 
@@ -164,5 +164,30 @@ namespace Apache.Arrow
         }
 
         IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable<string>)this).GetEnumerator();
+
+        int ICollection<string>.Count => Length;
+        bool ICollection<string>.IsReadOnly => true;
+        void ICollection<string>.Add(string item) => throw new NotSupportedException("Collection is read-only.");
+        bool ICollection<string>.Remove(string item) => throw new NotSupportedException("Collection is read-only.");
+        void ICollection<string>.Clear() => throw new NotSupportedException("Collection is read-only.");
+
+        bool ICollection<string>.Contains(string item)
+        {
+            for (int index = 0; index < Length; index++)
+            {
+                if (GetString(index) == item)
+                    return true;
+            }
+
+            return false;
+        }
+
+        void ICollection<string>.CopyTo(string[] array, int arrayIndex)
+        {
+            for (int srcIndex = 0, destIndex = arrayIndex; srcIndex < Length; srcIndex++, destIndex++)
+            {
+                array[destIndex] = GetString(srcIndex);
+            }
+        }
     }
 }

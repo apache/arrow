@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.client;
 
 import java.net.HttpCookie;
@@ -23,7 +22,6 @@ import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
-
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.CallInfo;
 import org.apache.arrow.flight.CallStatus;
@@ -33,13 +31,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * A client middleware for receiving and sending cookie information.
- * Note that this class will not persist permanent cookies beyond the lifetime
- * of this session.
+ * A client middleware for receiving and sending cookie information. Note that this class will not
+ * persist permanent cookies beyond the lifetime of this session.
  *
- * This middleware will automatically remove cookies that have expired.
- * <b>Note</b>: Negative max-age values currently do not get marked as expired due to
- * a JDK issue. Use max-age=0 to explicitly remove an existing cookie.
+ * <p>This middleware will automatically remove cookies that have expired. <b>Note</b>: Negative
+ * max-age values currently do not get marked as expired due to a JDK issue. Use max-age=0 to
+ * explicitly remove an existing cookie.
  */
 public class ClientCookieMiddleware implements FlightClientMiddleware {
   private static final Logger LOGGER = LoggerFactory.getLogger(ClientCookieMiddleware.class);
@@ -54,9 +51,7 @@ public class ClientCookieMiddleware implements FlightClientMiddleware {
     this.factory = factory;
   }
 
-  /**
-   * Factory used within FlightClient.
-   */
+  /** Factory used within FlightClient. */
   public static class Factory implements FlightClientMiddleware.Factory {
     // Use a map to track the most recent version of a cookie from the server.
     // Note that cookie names are case-sensitive (but header names aren't).
@@ -74,21 +69,24 @@ public class ClientCookieMiddleware implements FlightClientMiddleware {
       // with a different value and the client will use the new value in future requests.
       // The server can also update a cookie to have an Expiry in the past or negative age
       // to signal that the client should stop using the cookie immediately.
-      newCookieHeaderValues.forEach(headerValue -> {
-        try {
-          final List<HttpCookie> parsedCookies = HttpCookie.parse(headerValue);
-          parsedCookies.forEach(parsedCookie -> {
-            final String cookieNameLc = parsedCookie.getName().toLowerCase(Locale.ENGLISH);
-            if (parsedCookie.hasExpired()) {
-              cookies.remove(cookieNameLc);
-            } else {
-              cookies.put(parsedCookie.getName().toLowerCase(Locale.ENGLISH), parsedCookie);
+      newCookieHeaderValues.forEach(
+          headerValue -> {
+            try {
+              final List<HttpCookie> parsedCookies = HttpCookie.parse(headerValue);
+              parsedCookies.forEach(
+                  parsedCookie -> {
+                    final String cookieNameLc = parsedCookie.getName().toLowerCase(Locale.ENGLISH);
+                    if (parsedCookie.hasExpired()) {
+                      cookies.remove(cookieNameLc);
+                    } else {
+                      cookies.put(parsedCookie.getName().toLowerCase(Locale.ENGLISH), parsedCookie);
+                    }
+                  });
+            } catch (IllegalArgumentException ex) {
+              LOGGER.warn(
+                  "Skipping incorrectly formatted Set-Cookie header with value '{}'.", headerValue);
             }
           });
-        } catch (IllegalArgumentException ex) {
-          LOGGER.warn("Skipping incorrectly formatted Set-Cookie header with value '{}'.", headerValue);
-        }
-      });
     }
   }
 
@@ -109,13 +107,9 @@ public class ClientCookieMiddleware implements FlightClientMiddleware {
   }
 
   @Override
-  public void onCallCompleted(CallStatus status) {
+  public void onCallCompleted(CallStatus status) {}
 
-  }
-
-  /**
-   * Discards expired cookies and returns the valid cookies as a String delimited by ';'.
-   */
+  /** Discards expired cookies and returns the valid cookies as a String delimited by ';'. */
   @VisibleForTesting
   String getValidCookiesAsString() {
     // Discard expired cookies.

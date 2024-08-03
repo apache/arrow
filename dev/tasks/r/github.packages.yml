@@ -227,11 +227,20 @@ jobs:
            working-directory: 'arrow'
            extra-packages: cpp11
       - name: Set CRAN like openssl
-        if: contains(matrix.platform.name, 'arm64')
+        if: contains(matrix.platform.name, 'macOS')
+        # The -E forwards the GITHUB_* envvars
+        shell: sudo -E Rscript {0}
         run: |
-          # The arm64 runners contain openssl 1.1.1t in this path that is always included first so we need to override the
-          # default setting of the brew --prefix as root dir to avoid version conflicts.
-          echo "OPENSSL_ROOT_DIR=/opt/R/arm64" >> $GITHUB_ENV
+          # get the mac-recipes version of openssl from CRAN
+          source("https://mac.R-project.org/bin/install.R") 
+          install.libs("openssl")
+
+          # override our cmakes default setting of the brew --prefix as root dir to avoid version conflicts.
+          if (Sys.info()[["machine"]] == "arm64"){
+            cat("OPENSSL_ROOT_DIR=/opt/R/arm64\n", file=Sys.getenv("GITHUB_ENV"), append = TRUE)
+          } else {
+            cat("OPENSSL_ROOT_DIR=/opt/R/x86_64\n", file=Sys.getenv("GITHUB_ENV"), append = TRUE)
+          }
       - name: Build Binary
         id: build
         shell: Rscript {0}
@@ -239,6 +248,7 @@ jobs:
           NOT_CRAN: "false" # actions/setup-r sets this implicitly
           ARROW_R_DEV: "true"
           LIBARROW_BINARY: "true" # has to be set as long as allowlist not updated
+          LIBARROW_BUILD: "false"
           ARROW_R_ENFORCE_CHECKSUM: "true"
           ARROW_R_CHECKSUM_PATH: "{{ '${{ github.workspace }}' }}/repo/libarrow/bin"
         run: |
@@ -299,14 +309,14 @@ jobs:
           # choosing a binary on this OS. If libarrow_binary is TRUE, we're on
           # an OS that is not in the allowlist, so we have to opt-in to use the
           # binary. Other env vars used in r_docker_configure.sh can be added
-          # here (like devtoolset) and wired up in the later steps.
+          # here and wired up in the later steps.
           - {image: "rhub/ubuntu-clang", libarrow_binary: "TRUE"}
           # fedora-clang-devel cannot use binaries bc of libc++ (uncomment to see the error)
           # - {image: "rhub/fedora-clang-devel", libarrow_binary: "TRUE"}
           - {image: "rhub/ubuntu-release"} # currently ubuntu-22.04
           - {image: "rocker/r-ver:4.0.0"} # ubuntu-20.04
-          - {image: "rstudio/r-base:4.1-focal"} # ubuntu-20.04
-          - {image: "rstudio/r-base:4.2-centos7", devtoolset: "8"}
+          - {image: "rstudio/r-base:4.1-focal"}
+          - {image: "rstudio/r-base:4.2-jammy"}
           - {image: "rstudio/r-base:4.3-noble"}
     steps:
       # Get the arrow checkout just for the docker config scripts
@@ -317,7 +327,6 @@ jobs:
       - name: Install system requirements
         env:
           ARROW_R_DEV: "TRUE" # To install curl/openssl in r_docker_configure.sh
-          DEVTOOLSET_VERSION: {{ '${{ matrix.config.devtoolset }}' }}
         shell: bash
         run: |
           # Make sure R is on the path for the R-hub devel versions (where RPREFIX is set in its dockerfile)

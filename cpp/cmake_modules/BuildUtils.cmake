@@ -721,6 +721,11 @@ function(ADD_TEST_CASE REL_TEST_NAME)
                                      "${EXECUTABLE_OUTPUT_PATH};$ENV{CONDA_PREFIX}/lib")
   endif()
 
+  # Ensure using bundled GoogleTest when we use bundled GoogleTest.
+  # ARROW_GTEST_GTEST_HEADERS is defined only when we use bundled
+  # GoogleTest.
+  target_link_libraries(${TEST_NAME} PRIVATE ${ARROW_GTEST_GTEST_HEADERS})
+
   if(ARG_STATIC_LINK_LIBS)
     # Customize link libraries
     target_link_libraries(${TEST_NAME} PRIVATE ${ARG_STATIC_LINK_LIBS})

@@ -21,7 +21,7 @@
 # Requirements
 # - Ruby >= 2.3
 # - Maven >= 3.8.7
-# - JDK >=8
+# - JDK >= 11
 # - gcc >= 4.8
 # - Node.js >= 18
 # - Go >= 1.21
@@ -185,9 +185,7 @@ test_binary() {
 test_apt() {
   show_header "Testing APT packages"
 
-  for target in "debian:bullseye" \
-                "arm64v8/debian:bullseye" \
-                "debian:bookworm" \
+  for target in "debian:bookworm" \
                 "arm64v8/debian:bookworm" \
                 "debian:trixie" \
                 "arm64v8/debian:trixie" \
@@ -758,7 +756,7 @@ test_python() {
   show_header "Build and test Python libraries"
 
   # Build and test Python
-  maybe_setup_virtualenv "cython>=0.29.31" numpy "setuptools_scm<8.0.0" setuptools
+  maybe_setup_virtualenv
   maybe_setup_conda --file ci/conda_env_python.txt
 
   if [ "${USE_CONDA}" -gt 0 ]; then
@@ -790,7 +788,7 @@ test_python() {
   pushd python
 
   # Build pyarrow
-  python setup.py build_ext --inplace
+  python -m pip install -e .
 
   # Check mandatory and optional imports
   python -c "
@@ -1155,7 +1153,7 @@ test_linux_wheels() {
     local pyver=${python/m}
     for platform in ${platform_tags}; do
       show_header "Testing Python ${pyver} wheel for platform ${platform}"
-      CONDA_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda
+      CONDA_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda tzdata
       if ! VENV_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_virtualenv; then
         continue
       fi

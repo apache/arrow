@@ -22,6 +22,7 @@
 #include <type_traits>
 #include <vector>
 
+#include "arrow/array/concatenate.h"
 #include "arrow/array/data.h"
 #include "arrow/buffer_builder.h"
 #include "arrow/chunked_array.h"
@@ -163,7 +164,7 @@ class PrimitiveFilterImpl {
         values_is_valid_(values.buffers[0].data),
         // No offset applied for boolean because it's a bitmap
         values_data_(kIsBoolean ? values.buffers[1].data
-                                : util::OffsetPointerOfFixedWidthValues(values)),
+                                : util::OffsetPointerOfFixedByteWidthValues(values)),
         values_null_count_(values.null_count),
         values_offset_(values.offset),
         values_length_(values.length),
@@ -469,7 +470,7 @@ Status PrimitiveFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult
   // validity bitmap.
   const bool allocate_validity = values.null_count != 0 || !filter_null_count_is_zero;
 
-  DCHECK(util::IsFixedWidthLike(values, /*force_null_count=*/false));
+  DCHECK(util::IsFixedWidthLike(values));
   const int64_t bit_width = util::FixedWidthInBits(*values.type);
   RETURN_NOT_OK(util::internal::PreallocateFixedWidthArrayData(
       ctx, output_length, /*source=*/values, allocate_validity, out_arr));
@@ -928,12 +929,26 @@ Result<std::shared_ptr<RecordBatch>> FilterRecordBatch(const RecordBatch& batch,
     return Status::Invalid("Filter inputs must all be the same length");
   }
 
-  // Convert filter to selection vector/indices and use Take
+  // Fetch filter
   const auto& filter_opts = *static_cast<const FilterOptions*>(options);
-  ARROW_ASSIGN_OR_RAISE(
-      std::shared_ptr<ArrayData> indices,
-      GetTakeIndices(*filter.array(), filter_opts.null_selection_behavior,
-                     ctx->memory_pool()));
+  ArrayData filter_array;
+  switch (filter.kind()) {
+    case Datum::ARRAY:
+      filter_array = *filter.array();
+      break;
+    case Datum::CHUNKED_ARRAY: {
+      ARROW_ASSIGN_OR_RAISE(auto combined, Concatenate(filter.chunked_array()->chunks()));
+      filter_array = *combined->data();
+      break;
+    }
+    default:
+      return Status::TypeError("Filter should be array-like");
+  }
+
+  // Convert filter to selection vector/indices and use Take
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> indices,
+                        GetTakeIndices(filter_array, filter_opts.null_selection_behavior,
+                                       ctx->memory_pool()));
   std::vector<std::shared_ptr<Array>> columns(batch.num_columns());
   for (int i = 0; i < batch.num_columns(); ++i) {
     ARROW_ASSIGN_OR_RAISE(Datum out, Take(batch.column(i)->data(), Datum(indices),
@@ -1042,7 +1057,6 @@ class FilterMetaFunction : public MetaFunction {
     }
 
     if (args[0].kind() == Datum::RECORD_BATCH) {
-      auto values_batch = args[0].record_batch();
       ARROW_ASSIGN_OR_RAISE(
           std::shared_ptr<RecordBatch> out_batch,
           FilterRecordBatch(*args[0].record_batch(), args[1], options, ctx));
@@ -1087,6 +1101,8 @@ void PopulateFilterKernels(std::vector<SelectionKernelData>* out) {
       {InputType(Type::EXTENSION), plain_filter, ExtensionFilterExec},
       {InputType(Type::LIST), plain_filter, ListFilterExec},
       {InputType(Type::LARGE_LIST), plain_filter, LargeListFilterExec},
+      {InputType(Type::LIST_VIEW), plain_filter, ListViewFilterExec},
+      {InputType(Type::LARGE_LIST_VIEW), plain_filter, LargeListViewFilterExec},
       {InputType(Type::FIXED_SIZE_LIST), plain_filter, FSLFilterExec},
       {InputType(Type::DENSE_UNION), plain_filter, DenseUnionFilterExec},
       {InputType(Type::SPARSE_UNION), plain_filter, SparseUnionFilterExec},
@@ -1105,6 +1121,8 @@ void PopulateFilterKernels(std::vector<SelectionKernelData>* out) {
       {InputType(Type::EXTENSION), ree_filter, ExtensionFilterExec},
       {InputType(Type::LIST), ree_filter, ListFilterExec},
       {InputType(Type::LARGE_LIST), ree_filter, LargeListFilterExec},
+      {InputType(Type::LIST_VIEW), ree_filter, ListViewFilterExec},
+      {InputType(Type::LARGE_LIST_VIEW), ree_filter, LargeListViewFilterExec},
       {InputType(Type::FIXED_SIZE_LIST), ree_filter, FSLFilterExec},
       {InputType(Type::DENSE_UNION), ree_filter, DenseUnionFilterExec},
       {InputType(Type::SPARSE_UNION), ree_filter, SparseUnionFilterExec},

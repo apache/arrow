@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc;
 
 import java.sql.Connection;
@@ -23,7 +22,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.concurrent.TimeUnit;
-
 import org.apache.arrow.adapter.jdbc.consumer.BigIntConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.BitConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.IntConsumer;
@@ -50,27 +48,23 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
-/**
- * Benchmarks for Jdbc adapter.
- */
+/** Benchmarks for Jdbc adapter. */
 public class JdbcAdapterBenchmarks {
   // checkstyle:off: MissingJavadocMethod
 
   private static final int VALUE_COUNT = 3000;
 
   private static final String CREATE_STATEMENT =
-          "CREATE TABLE test_table (f0 INT, f1 LONG, f2 VARCHAR, f3 BOOLEAN);";
+      "CREATE TABLE test_table (f0 INT, f1 LONG, f2 VARCHAR, f3 BOOLEAN);";
   private static final String INSERT_STATEMENT =
-          "INSERT INTO test_table (f0, f1, f2, f3) VALUES (?, ?, ?, ?);";
+      "INSERT INTO test_table (f0, f1, f2, f3) VALUES (?, ?, ?, ?);";
   private static final String QUERY = "SELECT f0, f1, f2, f3 FROM test_table;";
   private static final String DROP_STATEMENT = "DROP TABLE test_table;";
 
   private static final String URL = "jdbc:h2:mem:JdbcAdapterBenchmarks";
   private static final String DRIVER = "org.h2.Driver";
 
-  /**
-   * State object for the jdbc e2e benchmark.
-   */
+  /** State object for the jdbc e2e benchmark. */
   @State(Scope.Benchmark)
   public static class JdbcState {
 
@@ -87,7 +81,8 @@ public class JdbcAdapterBenchmarks {
     @Setup(Level.Trial)
     public void prepareState() throws Exception {
       allocator = new RootAllocator(Integer.MAX_VALUE);
-      config = new JdbcToArrowConfigBuilder().setAllocator(allocator).setTargetBatchSize(1024).build();
+      config =
+          new JdbcToArrowConfigBuilder().setAllocator(allocator).setTargetBatchSize(1024).build();
       Class.forName(DRIVER);
       conn = DriverManager.getConnection(URL);
 
@@ -129,9 +124,7 @@ public class JdbcAdapterBenchmarks {
     }
   }
 
-  /**
-   * State object for the consume benchmark.
-   */
+  /** State object for the consume benchmark. */
   @State(Scope.Benchmark)
   public static class ConsumeState {
 
@@ -166,7 +159,8 @@ public class JdbcAdapterBenchmarks {
     @Setup(Level.Trial)
     public void prepare() throws Exception {
       allocator = new RootAllocator(Integer.MAX_VALUE);
-      config = new JdbcToArrowConfigBuilder().setAllocator(allocator).setTargetBatchSize(1024).build();
+      config =
+          new JdbcToArrowConfigBuilder().setAllocator(allocator).setTargetBatchSize(1024).build();
 
       Class.forName(DRIVER);
       conn = DriverManager.getConnection(URL);
@@ -233,9 +227,7 @@ public class JdbcAdapterBenchmarks {
     }
   }
 
-  /**
-   * State object for the jdbc row consume benchmark.
-   */
+  /** State object for the jdbc row consume benchmark. */
   @State(Scope.Benchmark)
   public static class RowConsumeState {
 
@@ -256,7 +248,11 @@ public class JdbcAdapterBenchmarks {
     @Setup(Level.Trial)
     public void prepareState() throws Exception {
       allocator = new RootAllocator(Integer.MAX_VALUE);
-      config = new JdbcToArrowConfigBuilder().setAllocator(allocator).setTargetBatchSize(VALUE_COUNT).build();
+      config =
+          new JdbcToArrowConfigBuilder()
+              .setAllocator(allocator)
+              .setTargetBatchSize(VALUE_COUNT)
+              .build();
       Class.forName(DRIVER);
       conn = DriverManager.getConnection(URL);
 
@@ -305,6 +301,7 @@ public class JdbcAdapterBenchmarks {
 
   /**
    * Test {@link JdbcToArrow#sqlToArrowVectorIterator(ResultSet, JdbcToArrowConfig)}.
+   *
    * @return useless. To avoid DCE by JIT.
    */
   @Benchmark
@@ -312,7 +309,8 @@ public class JdbcAdapterBenchmarks {
   @OutputTimeUnit(TimeUnit.MICROSECONDS)
   public int testJdbcToArrow(JdbcState state) throws Exception {
     int valueCount = 0;
-    try (ArrowVectorIterator iter = JdbcToArrow.sqlToArrowVectorIterator(state.resultSet, state.config)) {
+    try (ArrowVectorIterator iter =
+        JdbcToArrow.sqlToArrowVectorIterator(state.resultSet, state.config)) {
       while (iter.hasNext()) {
         VectorSchemaRoot root = iter.next();
         IntVector intVector = (IntVector) root.getFieldVectors().get(0);
@@ -349,13 +347,10 @@ public class JdbcAdapterBenchmarks {
   }
 
   public static void main(String[] args) throws RunnerException {
-    Options opt = new OptionsBuilder()
-        .include(JdbcAdapterBenchmarks.class.getSimpleName())
-        .forks(1)
-        .build();
+    Options opt =
+        new OptionsBuilder().include(JdbcAdapterBenchmarks.class.getSimpleName()).forks(1).build();
 
     new Runner(opt).run();
   }
   // checkstyle:on: MissingJavadocMethod
 }
-

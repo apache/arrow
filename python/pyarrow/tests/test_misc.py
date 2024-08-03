@@ -56,6 +56,7 @@ def test_io_thread_count():
         pa.set_io_thread_count(n)
 
 
+@pytest.mark.processes
 def test_env_var_io_thread_count():
     # Test that the number of IO threads can be overridden with the
     # ARROW_IO_THREADS environment variable.
@@ -117,6 +118,7 @@ def test_runtime_info():
         subprocess.check_call([sys.executable, "-c", code], env=env)
 
 
+@pytest.mark.processes
 def test_import_at_shutdown():
     # GH-38626: importing PyArrow at interpreter shutdown would crash
     code = """if 1:
@@ -237,11 +239,14 @@ def test_set_timezone_db_path_non_windows():
     pa.StructScalar,
     pa.DictionaryScalar,
     pa.RunEndEncodedScalar,
+    pa.RecordBatchReader,
     pa.ipc.Message,
     pa.ipc.MessageReader,
     pa.MemoryPool,
     pa.LoggingMemoryPool,
     pa.ProxyMemoryPool,
+    pa.Device,
+    pa.MemoryManager,
 ])
 def test_extension_type_constructor_errors(klass):
     # ARROW-2638: prevent calling extension class constructors directly

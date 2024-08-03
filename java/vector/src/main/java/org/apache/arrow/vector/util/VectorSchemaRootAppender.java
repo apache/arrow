@@ -14,25 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.util;
 
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.compare.TypeEqualsVisitor;
 
-/**
- * Utility to append {@link org.apache.arrow.vector.VectorSchemaRoot}s with the same schema.
- */
+/** Utility to append {@link org.apache.arrow.vector.VectorSchemaRoot}s with the same schema. */
 public class VectorSchemaRootAppender {
 
   /**
    * Appends a number of {@link VectorSchemaRoot}s.
+   *
    * @param checkSchema if we need to check schema for the vector schema roots.
    * @param targetRoot the vector schema root to be appended.
    * @param rootsToAppend the vector schema roots to append.
    * @throws IllegalArgumentException throws if we need to check schema, and checking schema fails.
    */
-  public static void append(boolean checkSchema, VectorSchemaRoot targetRoot, VectorSchemaRoot... rootsToAppend) {
+  public static void append(
+      boolean checkSchema, VectorSchemaRoot targetRoot, VectorSchemaRoot... rootsToAppend) {
     // create appenders
     VectorAppender[] appenders = new VectorAppender[targetRoot.getFieldVectors().size()];
     for (int i = 0; i < appenders.length; i++) {
@@ -44,8 +43,9 @@ public class VectorSchemaRootAppender {
     if (checkSchema) {
       typeCheckers = new TypeEqualsVisitor[targetRoot.getFieldVectors().size()];
       for (int i = 0; i < typeCheckers.length; i++) {
-        typeCheckers[i] = new TypeEqualsVisitor(targetRoot.getVector(i),
-            /* check name */ false, /* check meta data */ false);
+        typeCheckers[i] =
+            new TypeEqualsVisitor(
+                targetRoot.getVector(i), /* check name */ false, /* check meta data */ false);
       }
     }
 
@@ -53,7 +53,8 @@ public class VectorSchemaRootAppender {
       // check schema, if necessary
       if (checkSchema) {
         if (delta.getFieldVectors().size() != targetRoot.getFieldVectors().size()) {
-          throw new IllegalArgumentException("Vector schema roots have different numbers of child vectors.");
+          throw new IllegalArgumentException(
+              "Vector schema roots have different numbers of child vectors.");
         }
         for (int i = 0; i < typeCheckers.length; i++) {
           if (!typeCheckers[i].equals(delta.getVector(i))) {
@@ -71,8 +72,9 @@ public class VectorSchemaRootAppender {
   }
 
   /**
-   * Appends a number of {@link VectorSchemaRoot}s.
-   * This method performs schema checking before appending data.
+   * Appends a number of {@link VectorSchemaRoot}s. This method performs schema checking before
+   * appending data.
+   *
    * @param targetRoot the vector schema root to be appended.
    * @param rootsToAppend the vector schema roots to append.
    * @throws IllegalArgumentException throws if we need to check schema, and checking schema fails.

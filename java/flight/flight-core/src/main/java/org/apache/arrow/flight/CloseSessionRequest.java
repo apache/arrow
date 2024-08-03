@@ -14,21 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-
 import org.apache.arrow.flight.impl.Flight;
 
 /** A request to close/invalidate a server session context. */
 public class CloseSessionRequest {
-  public CloseSessionRequest() {
-  }
+  public CloseSessionRequest() {}
 
-  CloseSessionRequest(Flight.CloseSessionRequest proto) {
-  }
+  CloseSessionRequest(Flight.CloseSessionRequest proto) {}
 
   Flight.CloseSessionRequest toProtocol() {
     return Flight.CloseSessionRequest.getDefaultInstance();
@@ -37,7 +33,8 @@ public class CloseSessionRequest {
   /**
    * Get the serialized form of this protocol message.
    *
-   * <p>Intended to help interoperability by allowing non-Flight services to still return Flight types.
+   * <p>Intended to help interoperability by allowing non-Flight services to still return Flight
+   * types.
    */
   public ByteBuffer serialize() {
     return ByteBuffer.wrap(toProtocol().toByteArray());
@@ -46,7 +43,8 @@ public class CloseSessionRequest {
   /**
    * Parse the serialized form of this protocol message.
    *
-   * <p>Intended to help interoperability by allowing Flight clients to obtain stream info from non-Flight services.
+   * <p>Intended to help interoperability by allowing Flight clients to obtain stream info from
+   * non-Flight services.
    *
    * @param serialized The serialized form of the message, as returned by {@link #serialize()}.
    * @return The deserialized message.

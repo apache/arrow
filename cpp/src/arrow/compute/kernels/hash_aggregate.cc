@@ -83,7 +83,8 @@ Result<std::unique_ptr<KernelState>> HashAggregateInit(KernelContext* ctx,
                                                        const KernelInitArgs& args) {
   auto impl = std::make_unique<Impl>();
   RETURN_NOT_OK(impl->Init(ctx->exec_context(), args));
-  return std::move(impl);
+  // R build with openSUSE155 requires an explicit unique_ptr construction
+  return std::unique_ptr<KernelState>(std::move(impl));
 }
 
 Status HashAggregateResize(KernelContext* ctx, int64_t num_groups) {
@@ -813,7 +814,7 @@ struct GroupedMeanImpl
       (*null_count)++;
       bit_util::SetBitTo((*null_bitmap)->mutable_data(), i, false);
     }
-    return std::move(values);
+    return values;
   }
 
   std::shared_ptr<DataType> out_type() const override {
@@ -1114,7 +1115,8 @@ Result<std::unique_ptr<KernelState>> VarStdInit(KernelContext* ctx,
   auto impl = std::make_unique<GroupedVarStdImpl<T>>();
   impl->result_type_ = result_type;
   RETURN_NOT_OK(impl->Init(ctx->exec_context(), args));
-  return std::move(impl);
+  // R build with openSUSE155 requires an explicit unique_ptr construction
+  return std::unique_ptr<KernelState>(std::move(impl));
 }
 
 template <VarOrStd result_type>
@@ -1685,7 +1687,7 @@ Result<std::unique_ptr<KernelState>> MinMaxInit(KernelContext* ctx,
                                                 const KernelInitArgs& args) {
   ARROW_ASSIGN_OR_RAISE(auto impl, HashAggregateInit<GroupedMinMaxImpl<T>>(ctx, args));
   static_cast<GroupedMinMaxImpl<T>*>(impl.get())->type_ = args.inputs[0].GetSharedPtr();
-  return std::move(impl);
+  return impl;
 }
 
 template <MinOrMax min_or_max>
@@ -2188,7 +2190,7 @@ Result<std::unique_ptr<KernelState>> FirstLastInit(KernelContext* ctx,
   ARROW_ASSIGN_OR_RAISE(auto impl, HashAggregateInit<GroupedFirstLastImpl<T>>(ctx, args));
   static_cast<GroupedFirstLastImpl<T>*>(impl.get())->type_ =
       args.inputs[0].GetSharedPtr();
-  return std::move(impl);
+  return impl;
 }
 
 template <FirstOrLast first_or_last>
@@ -2597,7 +2599,7 @@ Result<std::unique_ptr<KernelState>> GroupedDistinctInit(KernelContext* ctx,
   instance->out_type_ = args.inputs[0].GetSharedPtr();
   ARROW_ASSIGN_OR_RAISE(instance->grouper_,
                         Grouper::Make(args.inputs, ctx->exec_context()));
-  return std::move(impl);
+  return impl;
 }
 
 // ----------------------------------------------------------------------
@@ -2839,7 +2841,7 @@ Result<std::unique_ptr<KernelState>> GroupedOneInit(KernelContext* ctx,
   ARROW_ASSIGN_OR_RAISE(auto impl, HashAggregateInit<GroupedOneImpl<T>>(ctx, args));
   auto instance = static_cast<GroupedOneImpl<T>*>(impl.get());
   instance->out_type_ = args.inputs[0].GetSharedPtr();
-  return std::move(impl);
+  return impl;
 }
 
 struct GroupedOneFactory {
@@ -3237,7 +3239,7 @@ Result<std::unique_ptr<KernelState>> GroupedListInit(KernelContext* ctx,
   ARROW_ASSIGN_OR_RAISE(auto impl, HashAggregateInit<GroupedListImpl<T>>(ctx, args));
   auto instance = static_cast<GroupedListImpl<T>*>(impl.get());
   instance->out_type_ = args.inputs[0].GetSharedPtr();
-  return std::move(impl);
+  return impl;
 }
 
 struct GroupedListFactory {

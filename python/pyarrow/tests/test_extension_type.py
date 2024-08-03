@@ -194,6 +194,21 @@ class MyListType(pa.ExtensionType):
         return cls(storage_type)
 
 
+class MyFixedListType(pa.ExtensionType):
+
+    def __init__(self, storage_type):
+        assert isinstance(storage_type, pa.FixedSizeListType)
+        super().__init__(storage_type, 'pyarrow.tests.MyFixedListType')
+
+    def __arrow_ext_serialize__(self):
+        return b''
+
+    @classmethod
+    def __arrow_ext_deserialize__(cls, storage_type, serialized):
+        assert serialized == b''
+        return cls(storage_type)
+
+
 class AnnotatedType(pa.ExtensionType):
     """
     Generic extension type that can store any storage type.
@@ -251,20 +266,46 @@ def test_ext_type_repr():
     assert repr(ty) == "IntegerType(DataType(int64))"
 
 
-def test_ext_type__lifetime():
+def test_ext_type_lifetime():
     ty = UuidType()
     wr = weakref.ref(ty)
     del ty
     assert wr() is None
 
 
-def test_ext_type__storage_type():
+def test_ext_type_storage_type():
     ty = UuidType()
     assert ty.storage_type == pa.binary(16)
     assert ty.__class__ is UuidType
     ty = ParamExtType(5)
     assert ty.storage_type == pa.binary(5)
     assert ty.__class__ is ParamExtType
+
+
+def test_ext_type_byte_width():
+    # Test for fixed-size binary types
+    ty = UuidType()
+    assert ty.byte_width == 16
+    ty = ParamExtType(5)
+    assert ty.byte_width == 5
+
+    # Test for non fixed-size binary types
+    ty = LabelType()
+    with pytest.raises(ValueError, match="Non-fixed width type"):
+        _ = ty.byte_width
+
+
+def test_ext_type_bit_width():
+    # Test for fixed-size binary types
+    ty = UuidType()
+    assert ty.bit_width == 128
+    ty = ParamExtType(5)
+    assert ty.bit_width == 40
+
+    # Test for non fixed-size binary types
+    ty = LabelType()
+    with pytest.raises(ValueError, match="Non-fixed width type"):
+        _ = ty.bit_width
 
 
 def test_ext_type_as_py():
@@ -710,6 +751,36 @@ def test_casting_dict_array_to_extension_type():
     assert isinstance(out, pa.ExtensionArray)
     assert out.to_pylist() == [UUID('30313233-3435-3637-3839-616263646566'),
                                UUID('30313233-3435-3637-3839-616263646566')]
+
+
+def test_cast_to_extension_with_nested_storage():
+    # https://github.com/apache/arrow/issues/37669
+
+    # With fixed-size list
+    array = pa.array([[1, 2], [3, 4], [5, 6]], pa.list_(pa.float64(), 2))
+    result = array.cast(MyFixedListType(pa.list_(pa.float64(), 2)))
+    expected = pa.ExtensionArray.from_storage(MyFixedListType(array.type), array)
+    assert result.equals(expected)
+
+    ext_type = MyFixedListType(pa.list_(pa.float32(), 2))
+    result = array.cast(ext_type)
+    expected = pa.ExtensionArray.from_storage(
+        ext_type, array.cast(ext_type.storage_type)
+    )
+    assert result.equals(expected)
+
+    # With variable-size list
+    array = pa.array([[1, 2], [3], [4, 5, 6]], pa.list_(pa.float64()))
+    result = array.cast(MyListType(pa.list_(pa.float64())))
+    expected = pa.ExtensionArray.from_storage(MyListType(array.type), array)
+    assert result.equals(expected)
+
+    ext_type = MyListType(pa.list_(pa.float32()))
+    result = array.cast(ext_type)
+    expected = pa.ExtensionArray.from_storage(
+        ext_type, array.cast(ext_type.storage_type)
+    )
+    assert result.equals(expected)
 
 
 def test_concat():
@@ -1472,6 +1543,21 @@ def test_tensor_type_equality():
     tensor_type3 = pa.fixed_shape_tensor(pa.uint8(), [2, 2, 3])
     assert tensor_type == tensor_type2
     assert not tensor_type == tensor_type3
+
+
+def test_tensor_type_cast():
+    tensor_type = pa.fixed_shape_tensor(pa.int8(), [2, 3])
+    inner = pa.array(range(18), pa.int8())
+    storage = pa.FixedSizeListArray.from_arrays(inner, 6)
+
+    # cast storage -> extension type
+    result = storage.cast(tensor_type)
+    expected = pa.ExtensionArray.from_storage(tensor_type, storage)
+    assert result.equals(expected)
+
+    # cast extension type -> storage type
+    storage_result = result.cast(storage.type)
+    assert storage_result.equals(storage)
 
 
 @pytest.mark.pandas

@@ -57,6 +57,8 @@ using internal::checked_cast;
 constexpr Type::type NullType::type_id;
 constexpr Type::type ListType::type_id;
 constexpr Type::type LargeListType::type_id;
+constexpr Type::type ListViewType::type_id;
+constexpr Type::type LargeListViewType::type_id;
 
 constexpr Type::type MapType::type_id;
 
@@ -729,7 +731,7 @@ Result<std::shared_ptr<DataType>> MaybeMergeListTypes(
         auto item_field,
         left.item_field()->MergeWith(
             *right.item_field()->WithName(left.item_field()->name()), options));
-    return map(std::move(key_field->type()), std::move(item_field),
+    return map(key_field->type(), std::move(item_field),
                /*keys_sorted=*/left.keys_sorted() && right.keys_sorted());
   } else if (promoted_type->id() == Type::STRUCT && other_type->id() == Type::STRUCT) {
     return MergeStructs(promoted_type, other_type, options);
@@ -1696,7 +1698,7 @@ class NestedSelector {
       }
     }
 
-    return std::move(child_data);
+    return child_data;
   }
 
   static Result<std::shared_ptr<Array>> GetChild(const Array& array, int i,
@@ -3149,20 +3151,20 @@ std::shared_ptr<DataType> time64(TimeUnit::type unit) {
   return std::make_shared<Time64Type>(unit);
 }
 
-std::shared_ptr<DataType> list(const std::shared_ptr<DataType>& value_type) {
-  return std::make_shared<ListType>(value_type);
+std::shared_ptr<DataType> list(std::shared_ptr<DataType> value_type) {
+  return std::make_shared<ListType>(std::move(value_type));
 }
 
-std::shared_ptr<DataType> list(const std::shared_ptr<Field>& value_field) {
-  return std::make_shared<ListType>(value_field);
+std::shared_ptr<DataType> list(std::shared_ptr<Field> value_field) {
+  return std::make_shared<ListType>(std::move(value_field));
 }
 
-std::shared_ptr<DataType> large_list(const std::shared_ptr<DataType>& value_type) {
-  return std::make_shared<LargeListType>(value_type);
+std::shared_ptr<DataType> large_list(std::shared_ptr<DataType> value_type) {
+  return std::make_shared<LargeListType>(std::move(value_type));
 }
 
-std::shared_ptr<DataType> large_list(const std::shared_ptr<Field>& value_field) {
-  return std::make_shared<LargeListType>(value_field);
+std::shared_ptr<DataType> large_list(std::shared_ptr<Field> value_field) {
+  return std::make_shared<LargeListType>(std::move(value_field));
 }
 
 std::shared_ptr<DataType> map(std::shared_ptr<DataType> key_type,
@@ -3183,14 +3185,14 @@ std::shared_ptr<DataType> map(std::shared_ptr<Field> key_field,
                                    keys_sorted);
 }
 
-std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<DataType>& value_type,
+std::shared_ptr<DataType> fixed_size_list(std::shared_ptr<DataType> value_type,
                                           int32_t list_size) {
-  return std::make_shared<FixedSizeListType>(value_type, list_size);
+  return std::make_shared<FixedSizeListType>(std::move(value_type), list_size);
 }
 
-std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<Field>& value_field,
+std::shared_ptr<DataType> fixed_size_list(std::shared_ptr<Field> value_field,
                                           int32_t list_size) {
-  return std::make_shared<FixedSizeListType>(value_field, list_size);
+  return std::make_shared<FixedSizeListType>(std::move(value_field), list_size);
 }
 
 std::shared_ptr<DataType> list_view(std::shared_ptr<DataType> value_type) {

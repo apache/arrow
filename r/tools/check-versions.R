@@ -24,10 +24,10 @@ release_version_supported <- function(r_version, cpp_version) {
   r_version <- package_version(r_version)
   cpp_version <- package_version(cpp_version)
   major <- function(x) as.numeric(x[1, 1])
-  minimum_cpp_version <- package_version("13.0.0")
+  minimum_cpp_version <- package_version("15.0.0")
 
   allow_mismatch <- identical(tolower(Sys.getenv("ARROW_R_ALLOW_CPP_VERSION_MISMATCH", "false")), "true")
-  # If we allow a version mismatch we still need to cover the minimum version (13.0.0 for now)
+  # If we allow a version mismatch we still need to cover the minimum version (15.0.0 for now)
   # we don't allow newer C++ versions as new features without additional feature gates are likely to
   # break the R package
   version_valid <- cpp_version >= minimum_cpp_version && major(cpp_version) <= major(r_version)

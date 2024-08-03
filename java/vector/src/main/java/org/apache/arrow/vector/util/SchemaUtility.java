@@ -14,13 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.util;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.channels.Channels;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.ipc.ReadChannel;
 import org.apache.arrow.vector.ipc.WriteChannel;
@@ -29,21 +27,15 @@ import org.apache.arrow.vector.ipc.message.MessageResult;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.Schema;
 
-/**
- * Schema utility class including serialization and deserialization.
- */
+/** Schema utility class including serialization and deserialization. */
 public class SchemaUtility {
-  private SchemaUtility() {
-  }
+  private SchemaUtility() {}
 
-  /**
-   * Deserialize Arrow schema from byte array.
-   */
+  /** Deserialize Arrow schema from byte array. */
   public static Schema deserialize(byte[] bytes, BufferAllocator allocator) throws IOException {
     try (MessageChannelReader schemaReader =
-             new MessageChannelReader(
-                 new ReadChannel(
-                     new ByteArrayReadableSeekableByteChannel(bytes)), allocator)) {
+        new MessageChannelReader(
+            new ReadChannel(new ByteArrayReadableSeekableByteChannel(bytes)), allocator)) {
 
       MessageResult result = schemaReader.readNext();
       if (result == null) {
@@ -53,9 +45,7 @@ public class SchemaUtility {
     }
   }
 
-  /**
-   * Serialize Arrow schema into byte array.
-   */
+  /** Serialize Arrow schema into byte array. */
   public static byte[] serialize(Schema schema) throws IOException {
     final ByteArrayOutputStream out = new ByteArrayOutputStream();
     MessageSerializer.serialize(new WriteChannel(Channels.newChannel(out)), schema);

@@ -345,6 +345,7 @@ def test_pytz_tzinfo_to_string():
     assert [pa.lib.tzinfo_to_string(i) for i in tz] == expected
 
 
+@pytest.mark.timezone_data
 def test_dateutil_tzinfo_to_string():
     if sys.platform == 'win32':
         # Skip due to new release of python-dateutil
@@ -360,6 +361,7 @@ def test_dateutil_tzinfo_to_string():
     assert pa.lib.tzinfo_to_string(tz) == 'Europe/Paris'
 
 
+@pytest.mark.timezone_data
 def test_zoneinfo_tzinfo_to_string():
     zoneinfo = pytest.importorskip('zoneinfo')
     if sys.platform == 'win32':
@@ -1331,10 +1333,13 @@ def test_schema_import_c_schema_interface():
         def __arrow_c_schema__(self):
             return self.schema.__arrow_c_schema__()
 
-    schema = pa.schema([pa.field("field_name", pa.int32())])
+    schema = pa.schema([pa.field("field_name", pa.int32())], metadata={"a": "b"})
+    assert schema.metadata == {b"a": b"b"}
     wrapped_schema = Wrapper(schema)
 
     assert pa.schema(wrapped_schema) == schema
+    assert pa.schema(wrapped_schema).metadata == {b"a": b"b"}
+    assert pa.schema(wrapped_schema, metadata={"a": "c"}).metadata == {b"a": b"c"}
 
 
 def test_field_import_c_schema_interface():

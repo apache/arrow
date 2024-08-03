@@ -1,0 +1,74 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: Release
+
+on:
+  push:
+    tags:
+      # Trigger workflow when a tag whose name matches the pattern
+      # pattern "apache-arrow-{MAJOR}.{MINOR}.{PATCH}" is pushed.
+      - "apache-arrow-[0-9]+.[0-9]+.[0-9]+"
+
+permissions:
+  contents: write
+
+env:
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  publish:
+    name: Publish 
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Get Tag Name of Latest Release Candidate
+        run: |
+          rc_tag=$(gh release list --repo apache/arrow | \
+                    cut -f3 | \
+                    grep -F "${GITHUB_REF_NAME}-rc" | \
+                    head -n1)
+          echo "Latest Release Candidate Tag: ${rc_tag}"
+          echo "RELEASE_CANDIDATE_TAG_NAME=${rc_tag}" >> ${GITHUB_ENV}
+      - name: Store Version and Release Candidate Number
+        run: |
+          version_with_rc=${RELEASE_CANDIDATE_TAG_NAME#apache-arrow-}
+          version=${version_with_rc%-rc*}
+          rc_num=${version_with_rc#${version}-rc}
+          echo "VERSION_WITH_RC=${version_with_rc}" >> ${GITHUB_ENV}
+          echo "VERSION=${version}" >> ${GITHUB_ENV}
+          echo "RC_NUM=${rc_num}" >> ${GITHUB_ENV}
+      - name: Download Release Candidate Artifacts 
+        run: |
+          mkdir release_candidate_artifacts
+          gh release download ${RELEASE_CANDIDATE_TAG_NAME} --repo apache/arrow --dir release_candidate_artifacts
+      - name: Create Release Title
+        run: |
+          title="Apache Arrow ${VERSION}"
+          echo "RELEASE_TITLE=${title}" >> ${GITHUB_ENV}
+      # Set the release notes to "TODO" temporarily. After the release notes page
+      # (https://arrow.apache.org/release/{VERSION}.html) is published, use 
+      # gh release edit to update the release notes to refer to the newly 
+      # pushed web page. See dev/post/post-05-update-gh-release-notes.sh
+      - name: Create GitHub Release
+        run: |
+          gh release create ${GITHUB_REF_NAME} \
+            --repo apache/arrow \
+            --verify-tag \
+            --title "${RELEASE_TITLE}" \
+            --notes "TODO" \
+            release_candidate_artifacts/*
