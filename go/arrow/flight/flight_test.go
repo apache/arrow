@@ -23,11 +23,13 @@ import (
 	"io"
 	"testing"
 
+	"github.com/apache/arrow/go/v18/arrow"
 	"github.com/apache/arrow/go/v18/arrow/array"
 	"github.com/apache/arrow/go/v18/arrow/flight"
 	"github.com/apache/arrow/go/v18/arrow/internal/arrdata"
 	"github.com/apache/arrow/go/v18/arrow/ipc"
 	"github.com/apache/arrow/go/v18/arrow/memory"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
@@ -449,3 +451,36 @@ func TestReaderError(t *testing.T) {
 		t.Fatal("should have errored")
 	}
 }
+
+func TestWriterInferSchema(t *testing.T) {
+	recs, ok := arrdata.Records["primitives"]
+	require.True(t, ok)
+
+	fs := flightStreamWriter{}
+	w := flight.NewRecordWriter(&fs)
+
+	for _, rec := range recs {
+		require.NoError(t, w.Write(rec))
+	}
+
+	require.NoError(t, w.Close())
+}
+
+func TestWriterInconsistentSchema(t *testing.T) {
+	recs, ok := arrdata.Records["primitives"]
+	require.True(t, ok)
+
+	schema := arrow.NewSchema([]arrow.Field{{Name: "unknown", Type: arrow.PrimitiveTypes.Int8}}, nil)
+	fs := flightStreamWriter{}
+	w := flight.NewRecordWriter(&fs, ipc.WithSchema(schema))
+
+	require.ErrorContains(t, w.Write(recs[0]), "arrow/ipc: tried to write record batch with different schema")
+	require.NoError(t, w.Close())
+}
+
+type flightStreamWriter struct{}
+
+// Send implements flight.DataStreamWriter.
+func (f *flightStreamWriter) Send(data *flight.FlightData) error { return nil }
+
+var _ flight.DataStreamWriter = (*flightStreamWriter)(nil)
