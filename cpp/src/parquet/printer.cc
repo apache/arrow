@@ -64,7 +64,7 @@ void PrintPageEncodingStats(std::ostream& stream,
 // the fixed initial size is just for an example
 #define COL_WIDTH 30
 
-void Put(std::ostream& stream, char c, int n) {
+void PutChars(std::ostream& stream, char c, int n) {
   for (int i = 0; i < n; ++i) {
     stream.put(c);
   }
@@ -74,10 +74,10 @@ void PrintKeyValueMetadata(std::ostream& stream,
                            const KeyValueMetadata& key_value_metadata,
                            int indent_level = 0, int indent_width = 1) {
   const int64_t size_of_key_value_metadata = key_value_metadata.size();
-  Put(stream, ' ', indent_level * indent_width);
+  PutChars(stream, ' ', indent_level * indent_width);
   stream << "Key Value Metadata: " << size_of_key_value_metadata << " entries\n";
   for (int64_t i = 0; i < size_of_key_value_metadata; i++) {
-    Put(stream, ' ', (indent_level + 1) * indent_width);
+    PutChars(stream, ' ', (indent_level + 1) * indent_width);
     stream << "Key nr " << i << " " << key_value_metadata.key(i) << ": "
            << key_value_metadata.value(i) << "\n";
   }

@@ -139,25 +139,30 @@ template <typename Metadata>
 std::shared_ptr<KeyValueMetadata> CopyKeyValueMetadata(const Metadata& source) {
   std::shared_ptr<KeyValueMetadata> metadata = nullptr;
   if (source.__isset.key_value_metadata) {
-    metadata = std::make_shared<KeyValueMetadata>();
+    std::vector<std::string> keys;
+    std::vector<std::string> values;
+    keys.reserve(source.key_value_metadata.size());
+    values.reserve(source.key_value_metadata.size());
     for (const auto& it : source.key_value_metadata) {
-      metadata->Append(it.key, it.value);
+      keys.push_back(it.key);
+      values.push_back(it.value);
     }
+    metadata = std::make_shared<KeyValueMetadata>(std::move(keys), std::move(values));
   }
   return metadata;
 }
 
 template <typename Metadata>
-void ToThriftKeyValueMetadata(Metadata& metadata, const KeyValueMetadata& source) {
+void ToThriftKeyValueMetadata(const KeyValueMetadata& source, Metadata* metadata) {
   std::vector<format::KeyValue> key_value_metadata;
   key_value_metadata.reserve(static_cast<size_t>(source.size()));
   for (int64_t i = 0; i < source.size(); ++i) {
     format::KeyValue kv_pair;
     kv_pair.__set_key(source.key(i));
     kv_pair.__set_value(source.value(i));
-    key_value_metadata.emplace_back(kv_pair);
+    key_value_metadata.emplace_back(std::move(kv_pair));
   }
-  metadata.__set_key_value_metadata(key_value_metadata);
+  metadata->__set_key_value_metadata(std::move(key_value_metadata));
 }
 
 // MetaData Accessor
@@ -1622,7 +1627,7 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
     column_chunk_->meta_data.__set_encoding_stats(std::move(thrift_encoding_stats));
 
     if (key_value_metadata_) {
-      ToThriftKeyValueMetadata(column_chunk_->meta_data, *key_value_metadata_);
+      ToThriftKeyValueMetadata(*key_value_metadata_, &column_chunk_->meta_data);
     }
 
     const auto& encrypt_md =
@@ -1970,7 +1975,7 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
       } else if (key_value_metadata) {
         key_value_metadata_ = key_value_metadata_->Merge(*key_value_metadata);
       }
-      ToThriftKeyValueMetadata(*metadata_, *key_value_metadata_);
+      ToThriftKeyValueMetadata(*key_value_metadata_, metadata_.get());
     }
 
     int32_t file_version = 0;

@@ -1734,9 +1734,9 @@ TEST_F(TestInt32Writer, WriteKeyValueMetadata) {
   writer->Close();
   auto key_value_metadata = metadata_key_value_metadata();
   ASSERT_THAT(key_value_metadata, NotNull());
-  ASSERT_THAT(key_value_metadata->size(), 1);
+  ASSERT_EQ(1, key_value_metadata->size());
   ASSERT_OK_AND_ASSIGN(auto value, key_value_metadata->Get("hello"));
-  ASSERT_THAT(value, "world");
+  ASSERT_EQ("world", value);
 }
 
 TEST_F(TestInt32Writer, ResetKeyValueMetadata) {
@@ -1764,9 +1764,9 @@ TEST_F(TestInt32Writer, WriteKeyValueMetadataEndToEnd) {
   auto key_value_metadata =
       file_reader->metadata()->RowGroup(0)->ColumnChunk(0)->key_value_metadata();
   ASSERT_THAT(key_value_metadata, NotNull());
-  ASSERT_THAT(key_value_metadata->size(), 1);
+  ASSERT_EQ(1U, key_value_metadata->size());
   ASSERT_OK_AND_ASSIGN(auto value, key_value_metadata->Get("foo"));
-  ASSERT_THAT(value, "bar");
+  ASSERT_EQ("bar", value);
 }
 
 }  // namespace test
