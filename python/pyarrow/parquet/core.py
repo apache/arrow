@@ -2234,13 +2234,23 @@ def write_metadata(schema, where, metadata_collector=None, filesystem=None,
     if hasattr(where, "seek"):  # file-like
         cursor_position = where.tell()
 
+    if encryption_properties is not None:
+        kwargs["encryption_properties"] = encryption_properties
+    if "encryption_properties2" in kwargs:
+        encryption_properties2 = kwargs["encryption_properties2"]
+        kwargs.pop("encryption_properties2")
+    if "decryption_properties" in kwargs:
+        decryption_properties = kwargs["decryption_properties"]
+        kwargs.pop("decryption_properties")
+
     writer = ParquetWriter(where, schema, filesystem, **kwargs)
     writer.close()
 
     if metadata_collector is not None:
         # ParquetWriter doesn't expose the metadata until it's written. Write
         # it and read it again.
-        metadata = read_metadata(where, filesystem=filesystem)
+
+        metadata = read_metadata(where, filesystem=filesystem, decryption_properties=decryption_properties)
         if hasattr(where, "seek"):
             where.seek(cursor_position)  # file-like, set cursor back.
 
@@ -2248,7 +2258,7 @@ def write_metadata(schema, where, metadata_collector=None, filesystem=None,
             metadata.append_row_groups(m)
         if filesystem is not None:
             with filesystem.open_output_stream(where) as f:
-                metadata.write_metadata_file(f, encryption_properties)
+                metadata.write_metadata_file(f, encryption_properties2)
         else:
             metadata.write_metadata_file(where, encryption_properties)
 

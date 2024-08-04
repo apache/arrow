@@ -298,6 +298,120 @@ TEST_F(DatasetEncryptionTest, ReadSingleFile) {
   ASSERT_EQ(checked_pointer_cast<Int64Array>(table->column(2)->chunk(0))->GetView(0), 1);
 }
 
+// Write encrypted _metadata file and read the dataset using the metadata.
+TEST_F(DatasetEncryptionTest, ReadDatasetFromEncryptedMetadata) {
+  // Create decryption properties.
+  auto decryption_config =
+      std::make_shared<parquet::encryption::DecryptionConfiguration>();
+  auto parquet_decryption_config = std::make_shared<ParquetDecryptionConfig>();
+  parquet_decryption_config->crypto_factory = crypto_factory_;
+  parquet_decryption_config->kms_connection_config = kms_connection_config_;
+  parquet_decryption_config->decryption_config = std::move(decryption_config);
+
+  // Set scan options.
+  auto parquet_scan_options = std::make_shared<ParquetFragmentScanOptions>();
+  parquet_scan_options->parquet_decryption_config = std::move(parquet_decryption_config);
+
+  auto file_format = std::make_shared<ParquetFileFormat>();
+  file_format->default_fragment_scan_options = std::move(parquet_scan_options);
+
+  // Get FileInfo objects for all files under the base directory
+  fs::FileSelector selector;
+  selector.base_dir = kBaseDir;
+  selector.recursive = true;
+
+  FileSystemFactoryOptions factory_options;
+  factory_options.partitioning = partitioning_;
+  factory_options.partition_base_dir = kBaseDir;
+  ASSERT_OK_AND_ASSIGN(auto dataset_factory,
+                       FileSystemDatasetFactory::Make(file_system_, selector, file_format,
+                                                      factory_options));
+
+  // Create the dataset
+  ASSERT_OK_AND_ASSIGN(auto dataset, dataset_factory->Finish());
+
+  // Read dataset into table
+  ASSERT_OK_AND_ASSIGN(auto scanner_builder, dataset->NewScan());
+  ASSERT_OK_AND_ASSIGN(auto scanner, scanner_builder->Finish());
+  ASSERT_OK_AND_ASSIGN(auto read_table, scanner->ToTable());
+
+  // Verify the data was read correctly
+  ASSERT_OK_AND_ASSIGN(auto combined_table, read_table->CombineChunks());
+  // Validate the table
+  ASSERT_OK(combined_table->ValidateFull());
+  AssertTablesEqual(*combined_table, *table_);
+
+  auto reader_properties = parquet::default_reader_properties();
+  decryption_config = std::make_shared<parquet::encryption::DecryptionConfiguration>();
+  reader_properties.file_decryption_properties(
+      crypto_factory_->GetFileDecryptionProperties(*kms_connection_config_,
+                                                   *decryption_config));
+  auto encryption_config = std::make_shared<parquet::encryption::EncryptionConfiguration>(
+      std::string(kFooterKeyName));
+  encryption_config->column_keys = kColumnKeyMapping;
+
+  std::vector<std::string> paths = {"part=a/part0.parquet", "part=c/part0.parquet",
+                                    "part=e/part0.parquet", "part=g/part0.parquet",
+                                    "part=i/part0.parquet"};
+  std::vector<std::shared_ptr<parquet::FileMetaData>> metadata;
+  for (const auto& path : paths) {
+    ASSERT_OK_AND_ASSIGN(auto input, file_system_->OpenInputFile(path));
+    auto parquet_reader = parquet::ParquetFileReader::Open(input, reader_properties);
+    auto file_metadata = parquet_reader->metadata();
+    // Make sure file_paths are stored in metadata
+    file_metadata->set_file_path(path);
+    metadata.push_back(file_metadata);
+  }
+
+  metadata[0]->AppendRowGroups(*metadata[1]);
+  metadata[0]->AppendRowGroups(*metadata[2]);
+  metadata[0]->AppendRowGroups(*metadata[3]);
+  metadata[0]->AppendRowGroups(*metadata[4]);
+
+  auto file_encryption_properties = crypto_factory_->GetFileEncryptionProperties(
+      *kms_connection_config_, *encryption_config);
+  std::string metadata_path = "_metadata";
+  ASSERT_OK_AND_ASSIGN(auto stream, file_system_->OpenOutputStream(metadata_path));
+  WriteEncryptedMetadataFile(*metadata[0], stream, file_encryption_properties);
+  ARROW_EXPECT_OK(stream->Close());
+
+  // Set scan options.
+  decryption_config = std::make_shared<parquet::encryption::DecryptionConfiguration>();
+  parquet_decryption_config = std::make_shared<ParquetDecryptionConfig>();
+  parquet_decryption_config->crypto_factory = crypto_factory_;
+  parquet_decryption_config->kms_connection_config = kms_connection_config_;
+  parquet_decryption_config->decryption_config = std::move(decryption_config);
+
+  parquet_scan_options = std::make_shared<ParquetFragmentScanOptions>();
+  parquet_scan_options->parquet_decryption_config = std::move(parquet_decryption_config);
+  file_format = std::make_shared<ParquetFileFormat>();
+  file_format->default_fragment_scan_options = std::move(parquet_scan_options);
+
+  ParquetFactoryOptions parquet_factory_options;
+  parquet_factory_options.partitioning = partitioning_;
+  parquet_factory_options.partition_base_dir = kBaseDir;
+
+  ASSERT_OK_AND_ASSIGN(auto parquet_dataset_factory,
+                       ParquetDatasetFactory::Make(metadata_path, file_system_,
+                                                   file_format, parquet_factory_options));
+
+  // Create the dataset
+  ASSERT_OK_AND_ASSIGN(dataset, parquet_dataset_factory->Finish());
+
+  // Read dataset into table
+  ASSERT_OK_AND_ASSIGN(scanner_builder, dataset->NewScan());
+  ASSERT_OK_AND_ASSIGN(scanner, scanner_builder->Finish());
+  ASSERT_OK_AND_ASSIGN(read_table, scanner->ToTable());
+
+  // Verify the data was read correctly
+  ASSERT_OK_AND_ASSIGN(combined_table, read_table->CombineChunks());
+
+  // Validate the table
+  ASSERT_OK(combined_table->ValidateFull());
+  AssertTablesEqual(*table_, *combined_table);
+}
+
+// Write _metadata file and read the dataset using the metadata.
 TEST_F(DatasetTestBase, ReadDatasetFromMetadata) {
   auto reader_properties = parquet::default_reader_properties();
 
@@ -341,88 +455,6 @@ TEST_F(DatasetTestBase, ReadDatasetFromMetadata) {
   // Validate the table
   ASSERT_OK(combined_table->ValidateFull());
   AssertTablesEqual(*combined_table, *table_);
-}
-
-TEST_F(DatasetTestBase, ReadDatasetFromEncryptedMetadata) {
-  auto encryption_config = std::make_shared<parquet::encryption::EncryptionConfiguration>(
-      std::string(kFooterKeyName));
-  encryption_config->column_keys = kColumnKeyMapping;
-  auto crypto_factory_ = std::make_shared<parquet::encryption::CryptoFactory>();
-
-  // Prepare encryption properties.
-  std::unordered_map<std::string, std::string> key_map;
-  key_map.emplace(kColumnMasterKeyId, kColumnMasterKey);
-  key_map.emplace(kFooterKeyMasterKeyId, kFooterKeyMasterKey);
-  auto kms_client_factory =
-      std::make_shared<parquet::encryption::TestOnlyInMemoryKmsClientFactory>(
-          /*wrap_locally=*/true, key_map);
-  crypto_factory_->RegisterKmsClientFactory(std::move(kms_client_factory));
-  auto kms_connection_config_ =
-      std::make_shared<parquet::encryption::KmsConnectionConfig>();
-
-  auto decryption_config =
-      std::make_shared<parquet::encryption::DecryptionConfiguration>();
-  auto parquet_decryption_config = std::make_shared<ParquetDecryptionConfig>();
-  parquet_decryption_config->crypto_factory = crypto_factory_;
-  parquet_decryption_config->kms_connection_config = kms_connection_config_;
-  parquet_decryption_config->decryption_config = decryption_config;
-
-  auto file_encryption_properties = crypto_factory_->GetFileEncryptionProperties(
-      *kms_connection_config_, *encryption_config);
-  auto file_decryption_properties = crypto_factory_->GetFileDecryptionProperties(
-      *kms_connection_config_, *decryption_config);
-
-  auto reader_properties = parquet::default_reader_properties();
-  reader_properties.file_decryption_properties(file_decryption_properties);
-
-  std::vector<std::string> paths = {"part=a/part0.parquet", "part=b/part0.parquet"};
-  std::vector<std::shared_ptr<parquet::FileMetaData>> metadata;
-
-  for (const auto& path : paths) {
-    ASSERT_OK_AND_ASSIGN(auto input, file_system_->OpenInputFile(path));
-    auto parquet_reader = parquet::ParquetFileReader::Open(input, reader_properties);
-    auto file_metadata = parquet_reader->metadata();
-    // Make sure file_paths are stored in metadata
-    file_metadata->set_file_path(path);
-    metadata.push_back(file_metadata);
-  }
-  metadata[0]->AppendRowGroups(*metadata[1]);
-
-  std::string metadata_path = "_metadata";
-  ASSERT_OK_AND_ASSIGN(auto stream, file_system_->OpenOutputStream(metadata_path));
-  WriteEncryptedMetadataFile(*metadata[0], stream, file_encryption_properties);
-  ARROW_EXPECT_OK(stream->Close());
-
-  // Set scan options.
-  auto parquet_scan_options = std::make_shared<ParquetFragmentScanOptions>();
-  parquet_scan_options->parquet_decryption_config = std::move(parquet_decryption_config);
-
-  auto file_format = std::make_shared<ParquetFileFormat>();
-  file_format->default_fragment_scan_options = std::move(parquet_scan_options);
-
-  ParquetFactoryOptions factory_options;
-  factory_options.partitioning = partitioning_;
-  factory_options.partition_base_dir = kBaseDir;
-  ASSERT_OK_AND_ASSIGN(auto dataset_factory,
-                       ParquetDatasetFactory::Make(metadata_path, file_system_,
-                                                   file_format, factory_options));
-
-  // Create the dataset
-  ASSERT_OK_AND_ASSIGN(auto dataset, dataset_factory->Finish());
-
-  // Reuse the dataset above to scan it twice to make sure decryption works correctly.
-  for (size_t i = 0; i < 2; ++i) {
-    // Read dataset into table
-    ASSERT_OK_AND_ASSIGN(auto scanner_builder, dataset->NewScan());
-    ASSERT_OK_AND_ASSIGN(auto scanner, scanner_builder->Finish());
-    ASSERT_OK_AND_ASSIGN(auto read_table, scanner->ToTable());
-
-    // Verify the data was read correctly
-    ASSERT_OK_AND_ASSIGN(auto combined_table, read_table->CombineChunks());
-    // Validate the table
-    ASSERT_OK(combined_table->ValidateFull());
-    AssertTablesEqual(*combined_table, *table_);
-  }
 }
 
 // GH-39444: This test covers the case where parquet dataset scanner crashes when

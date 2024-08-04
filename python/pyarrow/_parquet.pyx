@@ -18,6 +18,7 @@
 # cython: profile=False
 # distutils: language = c++
 
+from __future__ import print_function
 from collections.abc import Sequence
 from textwrap import indent
 import warnings
@@ -1062,9 +1063,6 @@ cdef class FileMetaData(_Weakrefable):
             shared_ptr[COutputStream] sink
             c_string c_where
             shared_ptr[CFileEncryptionProperties] c_properties
-            # Builder* encryption(
-            #     shared_ptr[CFileEncryptionProperties]
-            #     file_encryption_properties)
 
         try:
             where = _stringify_path(where)
@@ -1491,13 +1489,13 @@ cdef class ParquetReader(_Weakrefable):
             properties.set_thrift_container_size_limit(
                 thrift_container_size_limit)
 
-        if decryption_properties is not None:
-            properties.file_decryption_properties(
-                decryption_properties.unwrap())
-
         arrow_props.set_pre_buffer(pre_buffer)
 
         properties.set_page_checksum_verification(page_checksum_verification)
+
+        if decryption_properties is not None:
+            properties.file_decryption_properties(
+                decryption_properties.unwrap())
 
         if coerce_int96_timestamp_unit is None:
             # use the default defined in default_arrow_reader_properties()
