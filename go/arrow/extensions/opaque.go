@@ -35,6 +35,7 @@ type OpaqueType struct {
 	VendorName string `json:"vendor_name"`
 }
 
+// NewOpaqueType creates a new OpaqueType with the provided storage type, type name, and vendor name.
 func NewOpaqueType(storageType arrow.DataType, name, vendorName string) *OpaqueType {
 	return &OpaqueType{ExtensionBase: arrow.ExtensionBase{Storage: storageType},
 		TypeName: name, VendorName: vendorName}
