@@ -70,6 +70,7 @@ import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTableTypes;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTables;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementQuery;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementUpdate;
+import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementIngest;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementQuery;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementUpdate;
 import org.apache.arrow.flight.sql.impl.FlightSql.DoPutUpdateResult;
@@ -361,6 +362,15 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
               format("No consumer found for query: <%s>.", query));
       resultProvider.accept(flightStream, streamListener);
     };
+  }
+
+  @Override
+  public Runnable acceptPutStatementBulkIngest(
+      final CommandStatementIngest commandStatementIngest,
+      final CallContext callContext,
+      final FlightStream flightStream,
+      final StreamListener<PutResult> streamListener) {
+    throw new UnsupportedOperationException();
   }
 
   private boolean validateParameters(

@@ -148,6 +148,17 @@ public class SqlInfoBuilder {
     return withBooleanProvider(SqlInfo.FLIGHT_SQL_SERVER_CANCEL_VALUE, value);
   }
 
+  /** Set a value for bulk ingestion support. */
+  public SqlInfoBuilder withFlightSqlServerBulkIngestion(boolean value) {
+    return withBooleanProvider(SqlInfo.FLIGHT_SQL_SERVER_BULK_INGESTION_VALUE, value);
+  }
+
+  /** Set a value for transaction support for bulk ingestion. */
+  public SqlInfoBuilder withFlightSqlServerBulkIngestionTransaction(boolean value) {
+    return withBooleanProvider(
+        SqlInfo.FLIGHT_SQL_SERVER_INGEST_TRANSACTIONS_SUPPORTED_VALUE, value);
+  }
+
   /** Set a value for statement timeouts. */
   public SqlInfoBuilder withFlightSqlServerStatementTimeout(int value) {
     return withIntProvider(SqlInfo.FLIGHT_SQL_SERVER_STATEMENT_TIMEOUT_VALUE, value);

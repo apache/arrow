@@ -92,6 +92,15 @@ public class NoOpFlightSqlProducer implements FlightSqlProducer {
   }
 
   @Override
+  public Runnable acceptPutStatementBulkIngest(
+      FlightSql.CommandStatementIngest command,
+      CallContext context,
+      FlightStream flightStream,
+      StreamListener<PutResult> ackStream) {
+    throw CallStatus.UNIMPLEMENTED.withDescription("Not implemented.").toRuntimeException();
+  }
+
+  @Override
   public Runnable acceptPutPreparedStatementUpdate(
       FlightSql.CommandPreparedStatementUpdate command,
       CallContext context,
