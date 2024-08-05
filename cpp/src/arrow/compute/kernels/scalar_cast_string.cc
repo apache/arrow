@@ -327,15 +327,20 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
     }
   }
 
-  // XXX: a more efficient implementation that zero-copies the validity bitmap
-  // is possible, but requires a more complex implementation for building the
-  // offsets and data buffers
+  // TODO(GH-43573): A more efficient implementation that copies the validity
+  // bitmap all at once is possible, but would mean we don't delegate all the
+  // building logic to the ArrayBuilder implementation for the output type.
   OutputBuilderType builder(options.to_type.GetSharedPtr(), ctx->memory_pool());
   RETURN_NOT_OK(builder.Resize(input.length));
   arrow::internal::ArraySpanInlineVisitor<I> visitor;
   RETURN_NOT_OK(visitor.VisitStatus(
-      input, [&](std::string_view v) { return builder.Append(v); },
+      input,
+      [&](std::string_view v) {
+        // Append valid string view
+        return builder.Append(v);
+      },
       [&]() {
+        // Append null
         builder.UnsafeAppendNull();
         return Status::OK();
       }));
