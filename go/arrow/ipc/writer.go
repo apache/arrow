@@ -159,15 +159,19 @@ func (w *Writer) Write(rec arrow.Record) (err error) {
 		}
 	}()
 
+	incomingSchema := rec.Schema()
+
 	if !w.started {
+		if w.schema == nil {
+			w.schema = incomingSchema
+		}
 		err := w.start()
 		if err != nil {
 			return err
 		}
 	}
 
-	schema := rec.Schema()
-	if schema == nil || !schema.Equal(w.schema) {
+	if incomingSchema == nil || !incomingSchema.Equal(w.schema) {
 		return errInconsistentSchema
 	}
 

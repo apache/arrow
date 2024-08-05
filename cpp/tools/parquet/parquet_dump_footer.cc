@@ -38,7 +38,7 @@ void AppendLE32(uint32_t v, std::string* out) {
   out->append(reinterpret_cast<const char*>(&v), sizeof(v));
 }
 
-int DoIt(std::string in, bool scrub, bool json, std::string out) {
+int DoIt(std::string in, bool scrub, bool debug, std::string out) {
   std::string path;
   auto fs = ::arrow::fs::FileSystemFromUriOrPath(in, &path).ValueOrDie();
   auto file = fs->OpenInputFile(path).ValueOrDie();
@@ -73,8 +73,8 @@ int DoIt(std::string in, bool scrub, bool json, std::string out) {
     file->ReadAt(file_len - tail_len, tail_len, data).ValueOrDie();
   }
   auto md = FileMetaData::Make(tail.data(), &metadata_len);
-  std::string ser = md->SerializeUnencrypted(scrub, json);
-  if (!json) {
+  std::string ser = md->SerializeUnencrypted(scrub, debug);
+  if (!debug) {
     AppendLE32(static_cast<uint32_t>(ser.size()), &ser);
     ser.append("PAR1", 4);
   }
@@ -107,7 +107,7 @@ static int PrintHelp() {
 
 int main(int argc, char** argv) {
   bool scrub = true;
-  bool json = false;
+  bool debug = false;
   std::string in;
   std::string out;
   for (int i = 1; i < argc; i++) {
@@ -116,8 +116,8 @@ int main(int argc, char** argv) {
       return PrintHelp();
     } else if (!std::strcmp(arg, "--no-scrub")) {
       scrub = false;
-    } else if (!std::strcmp(arg, "--json")) {
-      json = true;
+    } else if (!std::strcmp(arg, "--debug")) {
+      debug = true;
     } else if (!std::strcmp(arg, "--in")) {
       if (i + 1 >= argc) return PrintHelp();
       in = argv[++i];
@@ -131,5 +131,5 @@ int main(int argc, char** argv) {
   }
   if (in.empty()) return PrintHelp();
 
-  return parquet::DoIt(in, scrub, json, out);
+  return parquet::DoIt(in, scrub, debug, out);
 }

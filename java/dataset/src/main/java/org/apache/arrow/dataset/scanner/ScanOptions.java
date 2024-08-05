@@ -27,6 +27,8 @@ public class ScanOptions {
   private final Optional<ByteBuffer> substraitProjection;
   private final Optional<ByteBuffer> substraitFilter;
 
+  private final Optional<FragmentScanOptions> fragmentScanOptions;
+
   /**
    * Constructor.
    *
@@ -65,6 +67,7 @@ public class ScanOptions {
     this.columns = columns;
     this.substraitProjection = Optional.empty();
     this.substraitFilter = Optional.empty();
+    this.fragmentScanOptions = Optional.empty();
   }
 
   public ScanOptions(long batchSize) {
@@ -87,12 +90,17 @@ public class ScanOptions {
     return substraitFilter;
   }
 
+  public Optional<FragmentScanOptions> getFragmentScanOptions() {
+    return fragmentScanOptions;
+  }
+
   /** Builder for Options used during scanning. */
   public static class Builder {
     private final long batchSize;
     private Optional<String[]> columns;
     private ByteBuffer substraitProjection;
     private ByteBuffer substraitFilter;
+    private FragmentScanOptions fragmentScanOptions;
 
     /**
      * Constructor.
@@ -140,6 +148,18 @@ public class ScanOptions {
       return this;
     }
 
+    /**
+     * Set the FragmentScanOptions.
+     *
+     * @param fragmentScanOptions fragment scan options
+     * @return the ScanOptions configured.
+     */
+    public Builder fragmentScanOptions(FragmentScanOptions fragmentScanOptions) {
+      Preconditions.checkNotNull(fragmentScanOptions);
+      this.fragmentScanOptions = fragmentScanOptions;
+      return this;
+    }
+
     public ScanOptions build() {
       return new ScanOptions(this);
     }
@@ -150,5 +170,6 @@ public class ScanOptions {
     columns = builder.columns;
     substraitProjection = Optional.ofNullable(builder.substraitProjection);
     substraitFilter = Optional.ofNullable(builder.substraitFilter);
+    fragmentScanOptions = Optional.ofNullable(builder.fragmentScanOptions);
   }
 }

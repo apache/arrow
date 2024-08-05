@@ -1053,8 +1053,8 @@ std::shared_ptr<FileMetaData> FileMetaData::Subset(
   return impl_->Subset(row_groups);
 }
 
-std::string FileMetaData::SerializeUnencrypted(bool scrub, bool json) const {
-  return impl_->SerializeUnencrypted(scrub, json);
+std::string FileMetaData::SerializeUnencrypted(bool scrub, bool debug) const {
+  return impl_->SerializeUnencrypted(scrub, debug);
 }
 
 void FileMetaData::WriteTo(::arrow::io::OutputStream* dst,

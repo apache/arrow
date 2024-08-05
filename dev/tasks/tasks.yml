@@ -98,6 +98,8 @@ groups:
 
   vcpkg:
     - test-*vcpkg*
+    - wheel-*
+    - java-jars
 
   integration:
     - test-*dask*
@@ -168,6 +170,16 @@ groups:
     - ubuntu-*
     - centos-*
     - conda-*
+    # Can be removed after conda recipes are synced: #42114
+    - ~conda-linux-aarch64-cuda-py3
+    - ~conda-linux-x64-cpu-py3
+    - ~conda-win-x64-cpu-py3
+    - ~conda-win-x64-cuda-py3
+    - ~conda-linux-ppc64le-cuda-py3
+    - ~conda-linux-aarch64-cpu-py3
+    - ~conda-linux-ppc64le-cpu-py3
+    - ~conda-linux-x64-cuda-py3
+    - ~conda-osx-arm64-cpu-py3
     - conan-*
     - java-jars
     - homebrew-cpp
@@ -195,6 +207,7 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       image: conan
+      push: false
 
   conan-maximum:
     ci: github
@@ -212,6 +225,7 @@ tasks:
         -e ARROW_CONAN_WITH_SNAPPY=True
         -e ARROW_CONAN_WITH_ZSTD=True
       image: conan
+      push: false
 
   ########################### Python Minimal ############################
 
@@ -1056,6 +1070,15 @@ tasks:
     params:
       env:
         UBUNTU: 20.04
+      image: ubuntu-cpp-bundled
+
+  test-ubuntu-24.04-cpp-gcc-13-bundled:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        UBUNTU: 24.04
+        GCC_VERSION: 13
       image: ubuntu-cpp-bundled
 
   test-ubuntu-24.04-cpp:

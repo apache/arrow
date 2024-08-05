@@ -57,6 +57,17 @@ def test_Context():
     assert global_context.device_number == 0
     assert global_context1.device_number == cuda.Context.get_num_devices() - 1
 
+    mm = global_context.memory_manager
+    assert not mm.is_cpu
+    assert "<pyarrow.MemoryManager device: CudaDevice" in repr(mm)
+
+    dev = global_context.device
+    assert dev == mm.device
+
+    assert not dev.is_cpu
+    assert dev.device_id == 0
+    assert dev.device_type == pa.DeviceAllocationType.CUDA
+
     with pytest.raises(ValueError,
                        match=("device_number argument must "
                               "be non-negative less than")):
@@ -959,6 +970,17 @@ def test_print_array():
     cbatch = cuda.read_record_batch(cbuf, batch.schema)
     arr = batch["f0"]
     carr = cbatch["f0"]
+    assert str(carr) == str(arr)
+
+
+@pytest.mark.parametrize("size", [10, 100])
+def test_print_array_host(size):
+    buf = cuda.new_host_buffer(size*8)
+    np_arr = np.frombuffer(buf, dtype=np.int64)
+    np_arr[:] = range(size)
+
+    arr = pa.array(range(size), pa.int64())
+    carr = pa.Array.from_buffers(pa.int64(), size, [None, buf])
     assert str(carr) == str(arr)
 
 

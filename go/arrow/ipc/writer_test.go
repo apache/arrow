@@ -235,3 +235,22 @@ func TestWriteWithCompressionAndMinSavings(t *testing.T) {
 		}
 	}
 }
+
+func TestWriterInferSchema(t *testing.T) {
+	bldr := array.NewRecordBuilder(memory.DefaultAllocator, arrow.NewSchema([]arrow.Field{{Name: "col", Type: arrow.PrimitiveTypes.Int8}}, nil))
+	bldr.Field(0).(*array.Int8Builder).AppendValues([]int8{1, 2, 3, 4, 5}, nil)
+	rec := bldr.NewRecord()
+	defer rec.Release()
+
+	var buf bytes.Buffer
+	w := NewWriter(&buf)
+
+	require.NoError(t, w.Write(rec))
+	require.NoError(t, w.Close())
+
+	r, err := NewReader(&buf)
+	require.NoError(t, err)
+	defer r.Release()
+
+	require.True(t, r.Schema().Equal(rec.Schema()))
+}
