@@ -14,13 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.gandiva.evaluator;
 
-/**
- * JNI Adapter used to get supported types and functions
- * from Gandiva.
- */
+/** JNI Adapter used to get supported types and functions from Gandiva. */
 class ExpressionRegistryJniHelper {
 
   native byte[] getGandivaSupportedDataTypes();

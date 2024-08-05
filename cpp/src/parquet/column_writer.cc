@@ -32,7 +32,7 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/bit_stream_utils.h"
+#include "arrow/util/bit_stream_utils_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
@@ -41,7 +41,7 @@
 #include "arrow/util/endian.h"
 #include "arrow/util/float16.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/rle_encoding.h"
+#include "arrow/util/rle_encoding_internal.h"
 #include "arrow/util/type_traits.h"
 #include "arrow/visit_array_inline.h"
 #include "parquet/column_page.h"
@@ -303,9 +303,10 @@ class SerializedPageWriter : public PageWriter {
     if (data_encryptor_.get()) {
       UpdateEncryption(encryption::kDictionaryPage);
       PARQUET_THROW_NOT_OK(encryption_buffer_->Resize(
-          data_encryptor_->CiphertextSizeDelta() + output_data_len, false));
-      output_data_len = data_encryptor_->Encrypt(compressed_data->data(), output_data_len,
-                                                 encryption_buffer_->mutable_data());
+          data_encryptor_->CiphertextLength(output_data_len), false));
+      output_data_len =
+          data_encryptor_->Encrypt(compressed_data->span_as<uint8_t>(),
+                                   encryption_buffer_->mutable_span_as<uint8_t>());
       output_data_buffer = encryption_buffer_->data();
     }
 
@@ -395,11 +396,11 @@ class SerializedPageWriter : public PageWriter {
 
     if (data_encryptor_.get()) {
       PARQUET_THROW_NOT_OK(encryption_buffer_->Resize(
-          data_encryptor_->CiphertextSizeDelta() + output_data_len, false));
+          data_encryptor_->CiphertextLength(output_data_len), false));
       UpdateEncryption(encryption::kDataPage);
-      output_data_len = data_encryptor_->Encrypt(compressed_data->data(),
-                                                 static_cast<int32_t>(output_data_len),
-                                                 encryption_buffer_->mutable_data());
+      output_data_len =
+          data_encryptor_->Encrypt(compressed_data->span_as<uint8_t>(),
+                                   encryption_buffer_->mutable_span_as<uint8_t>());
       output_data_buffer = encryption_buffer_->data();
     }
 
@@ -1205,10 +1206,6 @@ Status ConvertDictionaryToDense(const ::arrow::Array& array, MemoryPool* pool,
   return Status::OK();
 }
 
-static inline bool IsDictionaryEncoding(Encoding::type encoding) {
-  return encoding == Encoding::PLAIN_DICTIONARY;
-}
-
 template <typename DType>
 class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<DType> {
  public:
@@ -1565,7 +1562,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   }
 
   void FallbackToPlainEncoding() {
-    if (IsDictionaryEncoding(current_encoder_->encoding())) {
+    if (IsDictionaryIndexEncoding(current_encoder_->encoding())) {
       WriteDictionaryPage();
       // Serialize the buffered Dictionary Indices
       FlushBufferedDataPages();
@@ -1661,7 +1658,7 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(
                            maybe_parent_nulls);
   };
 
-  if (!IsDictionaryEncoding(current_encoder_->encoding()) ||
+  if (!IsDictionaryIndexEncoding(current_encoder_->encoding()) ||
       !DictionaryDirectWriteSupported(array)) {
     // No longer dictionary-encoding for whatever reason, maybe we never were
     // or we decided to stop. Note that WriteArrow can be invoked multiple

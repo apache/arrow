@@ -14,41 +14,42 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.memory.netty;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import org.apache.arrow.memory.AllocationManager;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.BufferLedger;
 import org.apache.arrow.memory.RootAllocator;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-/**
- * Test cases for {@link NettyAllocationManager}.
- */
+/** Test cases for {@link NettyAllocationManager}. */
 public class TestNettyAllocationManager {
 
   static int CUSTOMIZED_ALLOCATION_CUTOFF_VALUE = 1024;
 
   private RootAllocator createCustomizedAllocator() {
-    return new RootAllocator(RootAllocator.configBuilder()
-        .allocationManagerFactory(new AllocationManager.Factory() {
-          @Override
-          public AllocationManager create(BufferAllocator accountingAllocator, long size) {
-            return new NettyAllocationManager(accountingAllocator, size, CUSTOMIZED_ALLOCATION_CUTOFF_VALUE);
-          }
+    return new RootAllocator(
+        RootAllocator.configBuilder()
+            .allocationManagerFactory(
+                new AllocationManager.Factory() {
+                  @Override
+                  public AllocationManager create(BufferAllocator accountingAllocator, long size) {
+                    return new NettyAllocationManager(
+                        accountingAllocator, size, CUSTOMIZED_ALLOCATION_CUTOFF_VALUE);
+                  }
 
-          @Override
-          public ArrowBuf empty() {
-            return null;
-          }
-        }).build());
+                  @Override
+                  public ArrowBuf empty() {
+                    return null;
+                  }
+                })
+            .build());
   }
 
   private void readWriteArrowBuf(ArrowBuf buffer) {
@@ -64,21 +65,19 @@ public class TestNettyAllocationManager {
     }
   }
 
-  /**
-   * Test the allocation strategy for small buffers..
-   */
+  /** Test the allocation strategy for small buffers.. */
   @Test
   public void testSmallBufferAllocation() {
     final long bufSize = CUSTOMIZED_ALLOCATION_CUTOFF_VALUE - 512L;
     try (RootAllocator allocator = createCustomizedAllocator();
-         ArrowBuf buffer = allocator.buffer(bufSize)) {
+        ArrowBuf buffer = allocator.buffer(bufSize)) {
 
-      assertTrue(buffer.getReferenceManager() instanceof BufferLedger);
+      assertInstanceOf(BufferLedger.class, buffer.getReferenceManager());
       BufferLedger bufferLedger = (BufferLedger) buffer.getReferenceManager();
 
       // make sure we are using netty allocation manager
       AllocationManager allocMgr = bufferLedger.getAllocationManager();
-      assertTrue(allocMgr instanceof NettyAllocationManager);
+      assertInstanceOf(NettyAllocationManager.class, allocMgr);
       NettyAllocationManager nettyMgr = (NettyAllocationManager) allocMgr;
 
       // for the small buffer allocation strategy, the chunk is not null
@@ -88,20 +87,18 @@ public class TestNettyAllocationManager {
     }
   }
 
-  /**
-   * Test the allocation strategy for large buffers..
-   */
+  /** Test the allocation strategy for large buffers.. */
   @Test
   public void testLargeBufferAllocation() {
     final long bufSize = CUSTOMIZED_ALLOCATION_CUTOFF_VALUE + 1024L;
     try (RootAllocator allocator = createCustomizedAllocator();
-         ArrowBuf buffer = allocator.buffer(bufSize)) {
-      assertTrue(buffer.getReferenceManager() instanceof BufferLedger);
+        ArrowBuf buffer = allocator.buffer(bufSize)) {
+      assertInstanceOf(BufferLedger.class, buffer.getReferenceManager());
       BufferLedger bufferLedger = (BufferLedger) buffer.getReferenceManager();
 
       // make sure we are using netty allocation manager
       AllocationManager allocMgr = bufferLedger.getAllocationManager();
-      assertTrue(allocMgr instanceof NettyAllocationManager);
+      assertInstanceOf(NettyAllocationManager.class, allocMgr);
       NettyAllocationManager nettyMgr = (NettyAllocationManager) allocMgr;
 
       // for the large buffer allocation strategy, the chunk is null

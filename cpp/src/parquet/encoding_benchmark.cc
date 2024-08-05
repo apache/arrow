@@ -1233,12 +1233,10 @@ class BenchmarkDecodeArrowByteArray : public BenchmarkDecodeArrowBase<ByteArrayT
     valid_bits_ = input_array_->null_bitmap_data();
     total_size_ = input_array_->data()->buffers[2]->size();
 
-    values_.reserve(num_values_);
+    values_.resize(num_values_);
     const auto& binary_array = static_cast<const ::arrow::BinaryArray&>(*input_array_);
     for (int64_t i = 0; i < binary_array.length(); i++) {
-      auto view = binary_array.GetView(i);
-      values_.emplace_back(static_cast<uint32_t>(view.length()),
-                           reinterpret_cast<const uint8_t*>(view.data()));
+      values_[i] = binary_array.GetView(i);
     }
   }
 
@@ -1431,10 +1429,10 @@ class BenchmarkDecodeArrowBoolean : public BenchmarkDecodeArrowBase<BooleanType>
     // so, we uses this as "total_size" for the benchmark.
     total_size_ = ::arrow::bit_util::BytesForBits(num_values_);
 
-    values_.reserve(num_values_);
+    values_.resize(num_values_);
     const auto& boolean_array = static_cast<const ::arrow::BooleanArray&>(*input_array_);
     for (int64_t i = 0; i < boolean_array.length(); i++) {
-      values_.push_back(boolean_array.Value(i));
+      values_[i] = boolean_array.Value(i);
     }
   }
 

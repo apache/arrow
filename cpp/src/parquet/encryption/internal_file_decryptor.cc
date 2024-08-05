@@ -27,19 +27,23 @@ namespace parquet {
 Decryptor::Decryptor(std::shared_ptr<encryption::AesDecryptor> aes_decryptor,
                      const std::string& key, const std::string& file_aad,
                      const std::string& aad, ::arrow::MemoryPool* pool)
-    : aes_decryptor_(aes_decryptor),
+    : aes_decryptor_(std::move(aes_decryptor)),
       key_(key),
       file_aad_(file_aad),
       aad_(aad),
       pool_(pool) {}
 
-int Decryptor::CiphertextSizeDelta() { return aes_decryptor_->CiphertextSizeDelta(); }
+int Decryptor::PlaintextLength(int ciphertext_len) const {
+  return aes_decryptor_->PlaintextLength(ciphertext_len);
+}
 
-int Decryptor::Decrypt(const uint8_t* ciphertext, int ciphertext_len,
-                       uint8_t* plaintext) {
-  return aes_decryptor_->Decrypt(ciphertext, ciphertext_len, str2bytes(key_),
-                                 static_cast<int>(key_.size()), str2bytes(aad_),
-                                 static_cast<int>(aad_.size()), plaintext);
+int Decryptor::CiphertextLength(int plaintext_len) const {
+  return aes_decryptor_->CiphertextLength(plaintext_len);
+}
+
+int Decryptor::Decrypt(::arrow::util::span<const uint8_t> ciphertext,
+                       ::arrow::util::span<uint8_t> plaintext) {
+  return aes_decryptor_->Decrypt(ciphertext, str2span(key_), str2span(aad_), plaintext);
 }
 
 // InternalFileDecryptor
@@ -152,9 +156,9 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptor(
   }
 
   footer_metadata_decryptor_ = std::make_shared<Decryptor>(
-      aes_metadata_decryptor, footer_key, file_aad_, aad, pool_);
-  footer_data_decryptor_ =
-      std::make_shared<Decryptor>(aes_data_decryptor, footer_key, file_aad_, aad, pool_);
+      std::move(aes_metadata_decryptor), footer_key, file_aad_, aad, pool_);
+  footer_data_decryptor_ = std::make_shared<Decryptor>(std::move(aes_data_decryptor),
+                                                       footer_key, file_aad_, aad, pool_);
 
   if (metadata) return footer_metadata_decryptor_;
   return footer_data_decryptor_;

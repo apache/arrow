@@ -82,6 +82,7 @@ libarrow_dataset_glib = library('arrow-dataset-glib',
                                 implicit_include_directories: false,
                                 include_directories: base_include_directories,
                                 cpp_args: ['-DGADATASET_COMPILATION'],
+                                c_args: ['-DGADATASET_COMPILATION'],
                                 soversion: so_version,
                                 version: library_version)
 arrow_dataset_glib = declare_dependency(link_with: libarrow_dataset_glib,

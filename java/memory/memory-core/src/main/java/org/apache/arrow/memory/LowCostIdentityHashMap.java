@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.memory;
 
 import org.apache.arrow.util.Preconditions;
@@ -24,11 +23,9 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
- * Highly specialized IdentityHashMap that implements only partial
- * Map APIs.
- * It incurs low initial cost (just two elements by default).
- * It assumes Value includes the Key - Implements @ValueWithKeyIncluded iface
- * that provides "getKey" method.
+ * Highly specialized IdentityHashMap that implements only partial Map APIs. It incurs low initial
+ * cost (just two elements by default). It assumes Value includes the Key -
+ * Implements @ValueWithKeyIncluded iface that provides "getKey" method.
  *
  * @param <K> Key type
  * @param <V> Value type
@@ -38,7 +35,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
   /*
    * The internal data structure to hold values.
    */
-  private @Nullable Object [] elementData; // elementData[index] = null;
+  private @Nullable Object[] elementData; // elementData[index] = null;
 
   /* Actual number of values. */
   private int size;
@@ -54,9 +51,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
   /* Default load factor of 0.75; */
   private static final int LOAD_FACTOR = 7500;
 
-  /**
-   * Creates a Map with default expected maximum size.
-   */
+  /** Creates a Map with default expected maximum size. */
   public LowCostIdentityHashMap() {
     this(DEFAULT_MIN_SIZE);
   }
@@ -64,9 +59,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
   /**
    * Creates a Map with the specified maximum size parameter.
    *
-   * @param maxSize
-   *            The estimated maximum number of entries that will be put in
-   *            this map.
+   * @param maxSize The estimated maximum number of entries that will be put in this map.
    */
   public LowCostIdentityHashMap(int maxSize) {
     if (maxSize >= 0) {
@@ -78,8 +71,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
     }
   }
 
-  private int getThreshold(@UnderInitialization LowCostIdentityHashMap<K, V> this,
-                           int maxSize) {
+  private int getThreshold(@UnderInitialization LowCostIdentityHashMap<K, V> this, int maxSize) {
     // assign the threshold to maxSize initially, this will change to a
     // higher value if rehashing occurs.
     return maxSize > 2 ? maxSize : 2;
@@ -95,22 +87,22 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
   /**
    * Create a new element array.
    *
-   * @param s
-   *            the number of elements
+   * @param s the number of elements
    * @return Reference to the element array
    */
-  private Object[] newElementArrayInitialized(@Initialized LowCostIdentityHashMap<K, V> this, int s) {
+  private Object[] newElementArrayInitialized(
+      @Initialized LowCostIdentityHashMap<K, V> this, int s) {
     return new Object[s];
   }
 
   /**
    * Create a new element array.
    *
-   * @param s
-   *            the number of elements
+   * @param s the number of elements
    * @return Reference to the element array
    */
-  private Object[] newElementArrayUnderInitialized(@UnderInitialization LowCostIdentityHashMap<K, V> this, int s) {
+  private Object[] newElementArrayUnderInitialized(
+      @UnderInitialization LowCostIdentityHashMap<K, V> this, int s) {
     return new Object[s];
   }
 
@@ -130,10 +122,8 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
   /**
    * Returns whether this map contains the specified key.
    *
-   * @param key
-   *            the key to search for.
-   * @return {@code true} if this map contains the specified key,
-   *         {@code false} otherwise.
+   * @param key the key to search for.
+   * @return {@code true} if this map contains the specified key, {@code false} otherwise.
    */
   public boolean containsKey(K key) {
     Preconditions.checkNotNull(key);
@@ -145,10 +135,8 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
   /**
    * Returns whether this map contains the specified value.
    *
-   * @param value
-   *            the value to search for.
-   * @return {@code true} if this map contains the specified value,
-   *         {@code false} otherwise.
+   * @param value the value to search for.
+   * @return {@code true} if this map contains the specified value, {@code false} otherwise.
    */
   public boolean containsValue(V value) {
     Preconditions.checkNotNull(value);
@@ -172,13 +160,14 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
 
     int index = findIndex(key, elementData);
 
-    return (elementData[index] == null) ? null :
-      (((V) elementData[index]).getKey() == key) ? (V) elementData[index] : null;
+    return (elementData[index] == null)
+        ? null
+        : (((V) elementData[index]).getKey() == key) ? (V) elementData[index] : null;
   }
 
   /**
-   * Returns the index where the key is found at, or the index of the next
-   * empty spot if the key is not found in this table.
+   * Returns the index where the key is found at, or the index of the next empty spot if the key is
+   * not found in this table.
    */
   @VisibleForTesting
   int findIndex(@Nullable Object key, @Nullable Object[] array) {
@@ -207,8 +196,8 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
    * Maps the specified key to the specified value.
    *
    * @param value the value.
-   * @return the value of any previous mapping with the specified key or
-   *         {@code null} if there was no such mapping.
+   * @return the value of any previous mapping with the specified key or {@code null} if there was
+   *     no such mapping.
    */
   public V put(V value) {
     Preconditions.checkNotNull(value);
@@ -262,8 +251,8 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
    * Removes the mapping with the specified key from this map.
    *
    * @param key the key of the mapping to remove.
-   * @return the value of the removed mapping, or {@code null} if no mapping
-   *         for the specified key was found.
+   * @return the value of the removed mapping, or {@code null} if no mapping for the specified key
+   *     was found.
    */
   public @Nullable V remove(K key) {
     Preconditions.checkNotNull(key);
@@ -312,13 +301,10 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
     return (V) result;
   }
 
-
-
   /**
    * Returns whether this Map has no elements.
    *
-   * @return {@code true} if this Map has no elements,
-   *         {@code false} otherwise.
+   * @return {@code true} if this Map has no elements, {@code false} otherwise.
    * @see #size()
    */
   public boolean isEmpty() {

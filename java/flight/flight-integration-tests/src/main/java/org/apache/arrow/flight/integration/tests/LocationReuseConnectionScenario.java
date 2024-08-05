@@ -14,13 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.integration.tests;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
-
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightEndpoint;
@@ -41,13 +39,13 @@ public class LocationReuseConnectionScenario implements Scenario {
   }
 
   @Override
-  public void buildServer(FlightServer.Builder builder) throws Exception {
-  }
+  public void buildServer(FlightServer.Builder builder) throws Exception {}
 
   @Override
   public void client(BufferAllocator allocator, Location location, FlightClient client)
       throws Exception {
-    final FlightInfo info = client.getInfo(FlightDescriptor.command("reuse".getBytes(StandardCharsets.UTF_8)));
+    final FlightInfo info =
+        client.getInfo(FlightDescriptor.command("reuse".getBytes(StandardCharsets.UTF_8)));
     IntegrationAssertions.assertEquals(1, info.getEndpoints().size());
     IntegrationAssertions.assertEquals(1, info.getEndpoints().get(0).getLocations().size());
     Location actual = info.getEndpoints().get(0).getLocations().get(0);
@@ -57,7 +55,8 @@ public class LocationReuseConnectionScenario implements Scenario {
   private static class ReuseConnectionProducer extends NoOpFlightProducer {
     @Override
     public FlightInfo getFlightInfo(CallContext context, FlightDescriptor descriptor) {
-      List<FlightEndpoint> endpoints = Collections.singletonList(
+      List<FlightEndpoint> endpoints =
+          Collections.singletonList(
               new FlightEndpoint(new Ticket(new byte[0]), Location.reuseConnection()));
       return new FlightInfo(
           new Schema(Collections.emptyList()), descriptor, endpoints, /*bytes*/ -1, /*records*/ -1);

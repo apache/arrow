@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/apache/arrow/go/v17/arrow/memory"
-	"github.com/apache/arrow/go/v17/parquet"
+	"github.com/apache/arrow/go/v18/arrow/memory"
+	"github.com/apache/arrow/go/v18/parquet"
 	"github.com/stretchr/testify/assert"
 )
 

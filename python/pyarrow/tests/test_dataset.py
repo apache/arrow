@@ -37,6 +37,7 @@ import pyarrow.csv
 import pyarrow.feather
 import pyarrow.fs as fs
 import pyarrow.json
+from pyarrow.lib import is_threading_enabled
 from pyarrow.tests.util import (FSProtocolClass, ProxyHandler,
                                 _configure_s3_limited_user, _filesystem_uri,
                                 change_cwd)
@@ -808,29 +809,34 @@ def test_parquet_scan_options():
 
     assert opts1.use_buffered_stream is False
     assert opts1.buffer_size == 2**13
-    assert opts1.pre_buffer is True
+    if is_threading_enabled():  # pre buffering requires threads
+        assert opts1.pre_buffer is True
     assert opts1.thrift_string_size_limit == 100_000_000  # default in C++
     assert opts1.thrift_container_size_limit == 1_000_000  # default in C++
     assert opts1.page_checksum_verification is False
 
     assert opts2.use_buffered_stream is False
     assert opts2.buffer_size == 2**12
-    assert opts2.pre_buffer is True
+    if is_threading_enabled():  # pre buffering requires threads
+        assert opts2.pre_buffer is True
 
     assert opts3.use_buffered_stream is True
     assert opts3.buffer_size == 2**13
-    assert opts3.pre_buffer is True
+    if is_threading_enabled():  # pre buffering requires threads
+        assert opts3.pre_buffer is True
 
     assert opts4.use_buffered_stream is False
     assert opts4.buffer_size == 2**13
-    assert opts4.pre_buffer is False
+    if is_threading_enabled():  # pre buffering requires threads
+        assert opts4.pre_buffer is False
 
     assert opts5.thrift_string_size_limit == 123456
     assert opts5.thrift_container_size_limit == 987654
 
     assert opts6.page_checksum_verification is True
 
-    assert opts7.pre_buffer is True
+    if is_threading_enabled():  # pre buffering requires threads
+        assert opts7.pre_buffer is True
     assert opts7.cache_options == cache_opts
     assert opts7.cache_options != opts1.cache_options
 
@@ -4106,6 +4112,7 @@ def test_write_dataset_with_scanner(tempdir):
 
 
 @pytest.mark.parquet
+@pytest.mark.threading
 def test_write_dataset_with_backpressure(tempdir):
     consumer_gate = threading.Event()
 

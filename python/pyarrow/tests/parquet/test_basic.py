@@ -15,10 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import os
 from collections import OrderedDict
 import io
 import warnings
 from shutil import copytree
+from decimal import Decimal
 
 import numpy as np
 import pytest
@@ -355,6 +357,60 @@ def test_byte_stream_split():
     with pytest.raises(IOError, match='BYTE_STREAM_SPLIT only supports'):
         _check_roundtrip(table, expected=table, use_byte_stream_split=True,
                          use_dictionary=False)
+
+
+def test_store_decimal_as_integer(tempdir):
+    arr_decimal_1_9 = pa.array(list(map(Decimal, range(100))),
+                               type=pa.decimal128(5, 2))
+    arr_decimal_10_18 = pa.array(list(map(Decimal, range(100))),
+                                 type=pa.decimal128(16, 9))
+    arr_decimal_gt18 = pa.array(list(map(Decimal, range(100))),
+                                type=pa.decimal128(22, 2))
+    arr_bool = pa.array([True, False] * 50)
+    data_decimal = [arr_decimal_1_9, arr_decimal_10_18, arr_decimal_gt18]
+    table = pa.Table.from_arrays(data_decimal, names=['a', 'b', 'c'])
+
+    # Check with store_decimal_as_integer.
+    _check_roundtrip(table,
+                     expected=table,
+                     compression="gzip",
+                     use_dictionary=False,
+                     store_decimal_as_integer=True)
+
+    # Check physical type in parquet schema
+    pqtestfile_path = os.path.join(tempdir, 'test.parquet')
+    pq.write_table(table, pqtestfile_path,
+                   compression="gzip",
+                   use_dictionary=False,
+                   store_decimal_as_integer=True)
+
+    pqtestfile = pq.ParquetFile(pqtestfile_path)
+    pqcol_decimal_1_9 = pqtestfile.schema.column(0)
+    pqcol_decimal_10_18 = pqtestfile.schema.column(1)
+
+    assert pqcol_decimal_1_9.physical_type == 'INT32'
+    assert pqcol_decimal_10_18.physical_type == 'INT64'
+
+    # Check with store_decimal_as_integer and delta-int encoding.
+    # DELTA_BINARY_PACKED requires parquet physical type to be INT64 or INT32
+    _check_roundtrip(table,
+                     expected=table,
+                     compression="gzip",
+                     use_dictionary=False,
+                     store_decimal_as_integer=True,
+                     column_encoding={
+                         'a': 'DELTA_BINARY_PACKED',
+                         'b': 'DELTA_BINARY_PACKED'
+                     })
+
+    # Check with mixed column types.
+    mixed_table = pa.Table.from_arrays(
+        [arr_decimal_1_9, arr_decimal_10_18, arr_decimal_gt18, arr_bool],
+        names=['a', 'b', 'c', 'd'])
+    _check_roundtrip(mixed_table,
+                     expected=mixed_table,
+                     use_dictionary=False,
+                     store_decimal_as_integer=True)
 
 
 def test_column_encoding():

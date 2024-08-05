@@ -44,16 +44,28 @@ let package = Package(
     targets: [
         .target(
             name: "ArrowC",
-            path: "Sources/ArrowC"
+            path: "Sources/ArrowC",
+            swiftSettings: [
+                 // build: .unsafeFlags(["-warnings-as-errors"])
+            ]
+
         ),
         .target(
             name: "Arrow",
             dependencies: ["ArrowC",
                 .product(name: "FlatBuffers", package: "flatbuffers"),
                 .product(name: "Atomics", package: "swift-atomics")
-            ]),
+            ],
+            swiftSettings: [
+                 // build: .unsafeFlags(["-warnings-as-errors"])
+            ]
+        ),
         .testTarget(
             name: "ArrowTests",
-            dependencies: ["Arrow", "ArrowC"])
+            dependencies: ["Arrow", "ArrowC"],
+            swiftSettings: [
+                 // build: .unsafeFlags(["-warnings-as-errors"])
+            ]
+        )
     ]
 )

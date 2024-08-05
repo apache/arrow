@@ -16,6 +16,7 @@
 # under the License.
 
 require "cgi/util"
+require "digest/sha1"
 require "digest/sha2"
 require "io/console"
 require "json"
@@ -1894,7 +1895,7 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
                               :docs,
                               "#{rc_dir}/docs/#{full_version}",
                               "#{release_dir}/docs/#{full_version}",
-                              "test-ubuntu-22.04-docs/**/*")
+                              "test-debian-12-docs/**/*")
   end
 
   def define_nuget_tasks

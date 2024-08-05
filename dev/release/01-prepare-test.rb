@@ -254,10 +254,10 @@ class PrepareTest < Test::Unit::TestCase
         ],
       },
       {
-        path: "python/setup.py",
+        path: "python/pyproject.toml",
         hunks: [
-          ["-default_version = '#{@snapshot_version}'",
-           "+default_version = '#{@release_version}'"],
+          ["-fallback_version = '#{@release_version}a0'",
+           "+fallback_version = '#{@release_version}'"],
         ],
       },
       {
@@ -317,6 +317,17 @@ class PrepareTest < Test::Unit::TestCase
       target_lines.each do |line|
         new_line = line.gsub(@snapshot_version) do
           @release_version
+        end
+        hunks << [
+          "-#{line}",
+          "+#{new_line}",
+        ]
+      end
+      tag = "<tag>main</tag>"
+      target_lines = lines.grep(/#{Regexp.escape(tag)}/)
+      target_lines.each do |line|
+        new_line = line.gsub("main") do
+          "apache-arrow-#{@release_version}"
         end
         hunks << [
           "-#{line}",

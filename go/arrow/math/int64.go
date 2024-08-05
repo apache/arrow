@@ -19,7 +19,7 @@
 package math
 
 import (
-	"github.com/apache/arrow/go/v17/arrow/array"
+	"github.com/apache/arrow/go/v18/arrow/array"
 )
 
 type Int64Funcs struct {

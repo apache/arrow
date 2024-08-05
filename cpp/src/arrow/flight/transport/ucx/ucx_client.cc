@@ -97,7 +97,7 @@ class ClientConnection {
       ucp_worker_params_t worker_params;
       std::memset(&worker_params, 0, sizeof(worker_params));
       worker_params.field_mask = UCP_WORKER_PARAM_FIELD_THREAD_MODE;
-      worker_params.thread_mode = UCS_THREAD_MODE_SERIALIZED;
+      worker_params.thread_mode = UCS_THREAD_MODE_MULTI;
 
       ucp_worker_h ucp_worker;
       status = ucp_worker_create(ucp_context->get(), &worker_params, &ucp_worker);
@@ -118,7 +118,7 @@ class ClientConnection {
       params.flags = UCP_EP_PARAMS_FLAGS_CLIENT_SERVER;
       params.name = "UcxClientImpl";
       params.sockaddr.addr = reinterpret_cast<const sockaddr*>(&connect_addr);
-      params.sockaddr.addrlen = addrlen;
+      params.sockaddr.addrlen = static_cast<socklen_t>(addrlen);
 
       auto status = ucp_ep_create(ucp_worker_->get(), &params, &remote_endpoint_);
       RETURN_NOT_OK(FromUcsStatus("ucp_ep_create", status));

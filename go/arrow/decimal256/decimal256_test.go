@@ -23,7 +23,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v17/arrow/decimal256"
+	"github.com/apache/arrow/go/v18/arrow/decimal256"
 	"github.com/stretchr/testify/assert"
 )
 

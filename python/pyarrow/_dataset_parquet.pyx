@@ -27,7 +27,7 @@ import warnings
 
 import pyarrow as pa
 from pyarrow.lib cimport *
-from pyarrow.lib import frombytes, tobytes
+from pyarrow.lib import frombytes, tobytes, is_threading_enabled
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow.includes.libarrow_dataset_parquet cimport *
@@ -613,6 +613,7 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             write_page_index=self._properties["write_page_index"],
             write_page_checksum=self._properties["write_page_checksum"],
             sorting_columns=self._properties["sorting_columns"],
+            store_decimal_as_integer=self._properties["store_decimal_as_integer"],
         )
 
     def _set_arrow_properties(self):
@@ -664,6 +665,7 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             encryption_config=None,
             write_page_checksum=False,
             sorting_columns=None,
+            store_decimal_as_integer=False,
         )
 
         self._set_properties()
@@ -737,6 +739,8 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
             new CParquetFragmentScanOptions()))
         self.use_buffered_stream = use_buffered_stream
         self.buffer_size = buffer_size
+        if pre_buffer and not is_threading_enabled():
+            pre_buffer = False
         self.pre_buffer = pre_buffer
         if cache_options is not None:
             self.cache_options = cache_options
@@ -787,6 +791,8 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
 
     @pre_buffer.setter
     def pre_buffer(self, bint pre_buffer):
+        if pre_buffer and not is_threading_enabled():
+            return
         self.arrow_reader_properties().set_pre_buffer(pre_buffer)
 
     @property

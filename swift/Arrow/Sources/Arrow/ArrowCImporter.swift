@@ -23,7 +23,7 @@ public class ImportArrayHolder: ArrowArrayHolder {
     public var type: ArrowType {self.holder.type}
     public var length: UInt {self.holder.length}
     public var nullCount: UInt {self.holder.nullCount}
-    public var array: Any {self.holder.array}
+    public var array: AnyArray {self.holder.array}
     public var data: ArrowData {self.holder.data}
     public var getBufferData: () -> [Data] {self.holder.getBufferData}
     public var getBufferDataSizes: () -> [Int] {self.holder.getBufferDataSizes}
@@ -153,7 +153,8 @@ public class ArrowCImporter {
             }
         }
 
-        switch makeArrayHolder(arrowField, buffers: arrowBuffers, nullCount: nullCount) {
+        switch makeArrayHolder(arrowField, buffers: arrowBuffers,
+                               nullCount: nullCount, children: nil, rbLength: 0) {
         case .success(let holder):
             return .success(ImportArrayHolder(holder, cArrayPtr: cArrayPtr))
         case .failure(let err):

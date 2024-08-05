@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.avro;
 
 import static org.apache.arrow.vector.types.FloatingPointPrecision.DOUBLE;
@@ -31,7 +30,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-
 import org.apache.arrow.adapter.avro.consumers.AvroArraysConsumer;
 import org.apache.arrow.adapter.avro.consumers.AvroBooleanConsumer;
 import org.apache.arrow.adapter.avro.consumers.AvroBytesConsumer;
@@ -106,36 +104,37 @@ public class AvroToArrowUtils {
   /**
    * Creates a {@link Consumer} from the {@link Schema}
    *
-   <p>This method currently performs following type mapping for Avro data types to corresponding Arrow data types.
+   * <p>This method currently performs following type mapping for Avro data types to corresponding
+   * Arrow data types.
    *
    * <ul>
-   *   <li>STRING --> ArrowType.Utf8</li>
-   *   <li>INT --> ArrowType.Int(32, signed)</li>
-   *   <li>LONG --> ArrowType.Int(64, signed)</li>
-   *   <li>FLOAT --> ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)</li>
-   *   <li>DOUBLE --> ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)</li>
-   *   <li>BOOLEAN --> ArrowType.Bool</li>
-   *   <li>BYTES --> ArrowType.Binary</li>
-   *   <li>ARRAY --> ArrowType.List</li>
-   *   <li>MAP --> ArrowType.Map</li>
-   *   <li>FIXED --> ArrowType.FixedSizeBinary</li>
-   *   <li>RECORD --> ArrowType.Struct</li>
-   *   <li>UNION --> ArrowType.Union</li>
-   *   <li>ENUM--> ArrowType.Int</li>
-   *   <li>DECIMAL --> ArrowType.Decimal</li>
-   *   <li>Date --> ArrowType.Date(DateUnit.DAY)</li>
-   *   <li>TimeMillis --> ArrowType.Time(TimeUnit.MILLISECOND, 32)</li>
-   *   <li>TimeMicros --> ArrowType.Time(TimeUnit.MICROSECOND, 64)</li>
-   *   <li>TimestampMillis --> ArrowType.Timestamp(TimeUnit.MILLISECOND, null)</li>
-   *   <li>TimestampMicros --> ArrowType.Timestamp(TimeUnit.MICROSECOND, null)</li>
+   *   <li>STRING --> ArrowType.Utf8
+   *   <li>INT --> ArrowType.Int(32, signed)
+   *   <li>LONG --> ArrowType.Int(64, signed)
+   *   <li>FLOAT --> ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)
+   *   <li>DOUBLE --> ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)
+   *   <li>BOOLEAN --> ArrowType.Bool
+   *   <li>BYTES --> ArrowType.Binary
+   *   <li>ARRAY --> ArrowType.List
+   *   <li>MAP --> ArrowType.Map
+   *   <li>FIXED --> ArrowType.FixedSizeBinary
+   *   <li>RECORD --> ArrowType.Struct
+   *   <li>UNION --> ArrowType.Union
+   *   <li>ENUM--> ArrowType.Int
+   *   <li>DECIMAL --> ArrowType.Decimal
+   *   <li>Date --> ArrowType.Date(DateUnit.DAY)
+   *   <li>TimeMillis --> ArrowType.Time(TimeUnit.MILLISECOND, 32)
+   *   <li>TimeMicros --> ArrowType.Time(TimeUnit.MICROSECOND, 64)
+   *   <li>TimestampMillis --> ArrowType.Timestamp(TimeUnit.MILLISECOND, null)
+   *   <li>TimestampMicros --> ArrowType.Timestamp(TimeUnit.MICROSECOND, null)
    * </ul>
    */
-
   private static Consumer createConsumer(Schema schema, String name, AvroToArrowConfig config) {
     return createConsumer(schema, name, false, config, null);
   }
 
-  private static Consumer createConsumer(Schema schema, String name, AvroToArrowConfig config, FieldVector vector) {
+  private static Consumer createConsumer(
+      Schema schema, String name, AvroToArrowConfig config, FieldVector vector) {
     return createConsumer(schema, name, false, config, vector);
   }
 
@@ -144,7 +143,8 @@ public class AvroToArrowUtils {
    *
    * @param schema avro schema
    * @param name arrow field name
-   * @param consumerVector vector to keep in consumer, if v == null, will create a new vector via field.
+   * @param consumerVector vector to keep in consumer, if v == null, will create a new vector via
+   *     field.
    * @return consumer
    */
   private static Consumer createConsumer(
@@ -185,7 +185,7 @@ public class AvroToArrowUtils {
         break;
       case STRING:
         arrowType = new ArrowType.Utf8();
-        fieldType = new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
+        fieldType = new FieldType(nullable, arrowType, /*dictionary=*/ null, getMetaData(schema));
         vector = createVector(consumerVector, fieldType, name, allocator);
         consumer = new AvroStringConsumer((VarCharVector) vector);
         break;
@@ -193,12 +193,18 @@ public class AvroToArrowUtils {
         Map<String, String> extProps = createExternalProps(schema);
         if (logicalType instanceof LogicalTypes.Decimal) {
           arrowType = createDecimalArrowType((LogicalTypes.Decimal) logicalType);
-          fieldType = new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema, extProps));
+          fieldType =
+              new FieldType(
+                  nullable, arrowType, /*dictionary=*/ null, getMetaData(schema, extProps));
           vector = createVector(consumerVector, fieldType, name, allocator);
-          consumer = new AvroDecimalConsumer.FixedDecimalConsumer((DecimalVector) vector, schema.getFixedSize());
+          consumer =
+              new AvroDecimalConsumer.FixedDecimalConsumer(
+                  (DecimalVector) vector, schema.getFixedSize());
         } else {
           arrowType = new ArrowType.FixedSizeBinary(schema.getFixedSize());
-          fieldType = new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema, extProps));
+          fieldType =
+              new FieldType(
+                  nullable, arrowType, /*dictionary=*/ null, getMetaData(schema, extProps));
           vector = createVector(consumerVector, fieldType, name, allocator);
           consumer = new AvroFixedConsumer((FixedSizeBinaryVector) vector, schema.getFixedSize());
         }
@@ -206,84 +212,85 @@ public class AvroToArrowUtils {
       case INT:
         if (logicalType instanceof LogicalTypes.Date) {
           arrowType = new ArrowType.Date(DateUnit.DAY);
-          fieldType = new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
+          fieldType = new FieldType(nullable, arrowType, /*dictionary=*/ null, getMetaData(schema));
           vector = createVector(consumerVector, fieldType, name, allocator);
           consumer = new AvroDateConsumer((DateDayVector) vector);
         } else if (logicalType instanceof LogicalTypes.TimeMillis) {
           arrowType = new ArrowType.Time(TimeUnit.MILLISECOND, 32);
-          fieldType = new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
+          fieldType = new FieldType(nullable, arrowType, /*dictionary=*/ null, getMetaData(schema));
           vector = createVector(consumerVector, fieldType, name, allocator);
           consumer = new AvroTimeMillisConsumer((TimeMilliVector) vector);
         } else {
-          arrowType = new ArrowType.Int(32, /*isSigned=*/true);
-          fieldType = new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
+          arrowType = new ArrowType.Int(32, /*isSigned=*/ true);
+          fieldType = new FieldType(nullable, arrowType, /*dictionary=*/ null, getMetaData(schema));
           vector = createVector(consumerVector, fieldType, name, allocator);
           consumer = new AvroIntConsumer((IntVector) vector);
         }
         break;
       case BOOLEAN:
         arrowType = new ArrowType.Bool();
-        fieldType = new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
+        fieldType = new FieldType(nullable, arrowType, /*dictionary=*/ null, getMetaData(schema));
         vector = createVector(consumerVector, fieldType, name, allocator);
         consumer = new AvroBooleanConsumer((BitVector) vector);
         break;
       case LONG:
         if (logicalType instanceof LogicalTypes.TimeMicros) {
           arrowType = new ArrowType.Time(TimeUnit.MICROSECOND, 64);
-          fieldType = new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
+          fieldType = new FieldType(nullable, arrowType, /*dictionary=*/ null, getMetaData(schema));
           vector = createVector(consumerVector, fieldType, name, allocator);
           consumer = new AvroTimeMicroConsumer((TimeMicroVector) vector);
         } else if (logicalType instanceof LogicalTypes.TimestampMillis) {
           arrowType = new ArrowType.Timestamp(TimeUnit.MILLISECOND, null);
-          fieldType = new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
+          fieldType = new FieldType(nullable, arrowType, /*dictionary=*/ null, getMetaData(schema));
           vector = createVector(consumerVector, fieldType, name, allocator);
           consumer = new AvroTimestampMillisConsumer((TimeStampMilliVector) vector);
         } else if (logicalType instanceof LogicalTypes.TimestampMicros) {
           arrowType = new ArrowType.Timestamp(TimeUnit.MICROSECOND, null);
-          fieldType = new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
+          fieldType = new FieldType(nullable, arrowType, /*dictionary=*/ null, getMetaData(schema));
           vector = createVector(consumerVector, fieldType, name, allocator);
           consumer = new AvroTimestampMicrosConsumer((TimeStampMicroVector) vector);
         } else {
-          arrowType = new ArrowType.Int(64, /*isSigned=*/true);
-          fieldType = new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
+          arrowType = new ArrowType.Int(64, /*isSigned=*/ true);
+          fieldType = new FieldType(nullable, arrowType, /*dictionary=*/ null, getMetaData(schema));
           vector = createVector(consumerVector, fieldType, name, allocator);
           consumer = new AvroLongConsumer((BigIntVector) vector);
         }
         break;
       case FLOAT:
         arrowType = new ArrowType.FloatingPoint(SINGLE);
-        fieldType = new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
+        fieldType = new FieldType(nullable, arrowType, /*dictionary=*/ null, getMetaData(schema));
         vector = createVector(consumerVector, fieldType, name, allocator);
         consumer = new AvroFloatConsumer((Float4Vector) vector);
         break;
       case DOUBLE:
         arrowType = new ArrowType.FloatingPoint(DOUBLE);
-        fieldType = new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
+        fieldType = new FieldType(nullable, arrowType, /*dictionary=*/ null, getMetaData(schema));
         vector = createVector(consumerVector, fieldType, name, allocator);
         consumer = new AvroDoubleConsumer((Float8Vector) vector);
         break;
       case BYTES:
         if (logicalType instanceof LogicalTypes.Decimal) {
           arrowType = createDecimalArrowType((LogicalTypes.Decimal) logicalType);
-          fieldType = new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
+          fieldType = new FieldType(nullable, arrowType, /*dictionary=*/ null, getMetaData(schema));
           vector = createVector(consumerVector, fieldType, name, allocator);
           consumer = new AvroDecimalConsumer.BytesDecimalConsumer((DecimalVector) vector);
         } else {
           arrowType = new ArrowType.Binary();
-          fieldType = new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
+          fieldType = new FieldType(nullable, arrowType, /*dictionary=*/ null, getMetaData(schema));
           vector = createVector(consumerVector, fieldType, name, allocator);
           consumer = new AvroBytesConsumer((VarBinaryVector) vector);
         }
         break;
       case NULL:
         arrowType = new ArrowType.Null();
-        fieldType = new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
-        vector = fieldType.createNewSingleVector(name, allocator, /*schemaCallBack=*/null);
+        fieldType = new FieldType(nullable, arrowType, /*dictionary=*/ null, getMetaData(schema));
+        vector = fieldType.createNewSingleVector(name, allocator, /*schemaCallBack=*/ null);
         consumer = new AvroNullConsumer((NullVector) vector);
         break;
       default:
         // no-op, shouldn't get here
-        throw new UnsupportedOperationException("Can't convert avro type %s to arrow type." + type.getName());
+        throw new UnsupportedOperationException(
+            "Can't convert avro type %s to arrow type." + type.getName());
     }
     return consumer;
   }
@@ -291,15 +298,16 @@ public class AvroToArrowUtils {
   private static ArrowType createDecimalArrowType(LogicalTypes.Decimal logicalType) {
     final int scale = logicalType.getScale();
     final int precision = logicalType.getPrecision();
-    Preconditions.checkArgument(precision > 0 && precision <= 38,
-        "Precision must be in range of 1 to 38");
-    Preconditions.checkArgument(scale >= 0 && scale <= 38,
-        "Scale must be in range of 0 to 38.");
-    Preconditions.checkArgument(scale <= precision,
-        "Invalid decimal scale: %s (greater than precision: %s)", scale, precision);
+    Preconditions.checkArgument(
+        precision > 0 && precision <= 38, "Precision must be in range of 1 to 38");
+    Preconditions.checkArgument(scale >= 0 && scale <= 38, "Scale must be in range of 0 to 38.");
+    Preconditions.checkArgument(
+        scale <= precision,
+        "Invalid decimal scale: %s (greater than precision: %s)",
+        scale,
+        precision);
 
     return new ArrowType.Decimal(precision, scale, 128);
-
   }
 
   private static Consumer createSkipConsumer(Schema schema) {
@@ -309,41 +317,46 @@ public class AvroToArrowUtils {
 
     switch (type) {
       case UNION:
-        List<Consumer> unionDelegates = schema.getTypes().stream().map(s ->
-            createSkipConsumer(s)).collect(Collectors.toList());
+        List<Consumer> unionDelegates =
+            schema.getTypes().stream().map(s -> createSkipConsumer(s)).collect(Collectors.toList());
         skipFunction = decoder -> unionDelegates.get(decoder.readInt()).consume(decoder);
 
         break;
       case ARRAY:
         Consumer elementDelegate = createSkipConsumer(schema.getElementType());
-        skipFunction = decoder -> {
-          for (long i = decoder.skipArray(); i != 0; i = decoder.skipArray()) {
-            for (long j = 0; j < i; j++) {
-              elementDelegate.consume(decoder);
-            }
-          }
-        };
+        skipFunction =
+            decoder -> {
+              for (long i = decoder.skipArray(); i != 0; i = decoder.skipArray()) {
+                for (long j = 0; j < i; j++) {
+                  elementDelegate.consume(decoder);
+                }
+              }
+            };
         break;
       case MAP:
         Consumer valueDelegate = createSkipConsumer(schema.getValueType());
-        skipFunction = decoder -> {
-          for (long i = decoder.skipMap(); i != 0; i = decoder.skipMap()) {
-            for (long j = 0; j < i; j++) {
-              decoder.skipString(); // Discard key
-              valueDelegate.consume(decoder);
-            }
-          }
-        };
+        skipFunction =
+            decoder -> {
+              for (long i = decoder.skipMap(); i != 0; i = decoder.skipMap()) {
+                for (long j = 0; j < i; j++) {
+                  decoder.skipString(); // Discard key
+                  valueDelegate.consume(decoder);
+                }
+              }
+            };
         break;
       case RECORD:
-        List<Consumer> delegates = schema.getFields().stream().map(field ->
-            createSkipConsumer(field.schema())).collect(Collectors.toList());
+        List<Consumer> delegates =
+            schema.getFields().stream()
+                .map(field -> createSkipConsumer(field.schema()))
+                .collect(Collectors.toList());
 
-        skipFunction = decoder -> {
-          for (Consumer consumer : delegates) {
-            consumer.consume(decoder);
-          }
-        };
+        skipFunction =
+            decoder -> {
+              for (Consumer consumer : delegates) {
+                consumer.consume(decoder);
+              }
+            };
 
         break;
       case ENUM:
@@ -374,7 +387,7 @@ public class AvroToArrowUtils {
         skipFunction = decoder -> decoder.skipBytes();
         break;
       case NULL:
-        skipFunction = decoder -> { };
+        skipFunction = decoder -> {};
         break;
       default:
         // no-op, shouldn't get here
@@ -384,8 +397,7 @@ public class AvroToArrowUtils {
     return new SkipConsumer(skipFunction);
   }
 
-  static CompositeAvroConsumer createCompositeConsumer(
-      Schema schema, AvroToArrowConfig config) {
+  static CompositeAvroConsumer createCompositeConsumer(Schema schema, AvroToArrowConfig config) {
 
     List<Consumer> consumers = new ArrayList<>();
     final Set<String> skipFieldNames = config.getSkipFieldNames();
@@ -399,7 +411,6 @@ public class AvroToArrowUtils {
           Consumer consumer = createConsumer(field.schema(), field.name(), config);
           consumers.add(consumer);
         }
-
       }
     } else {
       Consumer consumer = createConsumer(schema, "", config);
@@ -409,9 +420,11 @@ public class AvroToArrowUtils {
     return new CompositeAvroConsumer(consumers);
   }
 
-  private static FieldVector createVector(FieldVector consumerVector, FieldType fieldType,
-      String name, BufferAllocator allocator) {
-    return consumerVector != null ? consumerVector : fieldType.createNewSingleVector(name, allocator, null);
+  private static FieldVector createVector(
+      FieldVector consumerVector, FieldType fieldType, String name, BufferAllocator allocator) {
+    return consumerVector != null
+        ? consumerVector
+        : fieldType.createNewSingleVector(name, allocator, null);
   }
 
   private static String getDefaultFieldName(ArrowType type) {
@@ -424,10 +437,7 @@ public class AvroToArrowUtils {
   }
 
   private static Field avroSchemaToField(
-      Schema schema,
-      String name,
-      AvroToArrowConfig config,
-      Map<String, String> externalProps) {
+      Schema schema, String name, AvroToArrowConfig config, Map<String, String> externalProps) {
 
     final Schema.Type type = schema.getType();
     final LogicalType logicalType = schema.getLogicalType();
@@ -441,7 +451,8 @@ public class AvroToArrowUtils {
           // Union child vector should use default name
           children.add(avroSchemaToField(childSchema, null, config));
         }
-        fieldType = createFieldType(new ArrowType.Union(UnionMode.Sparse, null), schema, externalProps);
+        fieldType =
+            createFieldType(new ArrowType.Union(UnionMode.Sparse, null), schema, externalProps);
         break;
       case ARRAY:
         Schema elementSchema = schema.getElementType();
@@ -450,14 +461,18 @@ public class AvroToArrowUtils {
         break;
       case MAP:
         // MapVector internal struct field and key field should be non-nullable
-        FieldType keyFieldType = new FieldType(/*nullable=*/false, new ArrowType.Utf8(), /*dictionary=*/null);
-        Field keyField = new Field("key", keyFieldType, /*children=*/null);
+        FieldType keyFieldType =
+            new FieldType(/*nullable=*/ false, new ArrowType.Utf8(), /*dictionary=*/ null);
+        Field keyField = new Field("key", keyFieldType, /*children=*/ null);
         Field valueField = avroSchemaToField(schema.getValueType(), "value", config);
 
-        FieldType structFieldType = new FieldType(false, new ArrowType.Struct(), /*dictionary=*/null);
-        Field structField = new Field("internal", structFieldType, Arrays.asList(keyField, valueField));
+        FieldType structFieldType =
+            new FieldType(false, new ArrowType.Struct(), /*dictionary=*/ null);
+        Field structField =
+            new Field("internal", structFieldType, Arrays.asList(keyField, valueField));
         children.add(structField);
-        fieldType = createFieldType(new ArrowType.Map(/*keysSorted=*/false), schema, externalProps);
+        fieldType =
+            createFieldType(new ArrowType.Map(/*keysSorted=*/ false), schema, externalProps);
         break;
       case RECORD:
         final Set<String> skipFieldNames = config.getSkipFieldNames();
@@ -486,8 +501,12 @@ public class AvroToArrowUtils {
         int enumCount = schema.getEnumSymbols().size();
         ArrowType.Int indexType = DictionaryEncoder.getIndexType(enumCount);
 
-        fieldType = createFieldType(indexType, schema, externalProps,
-            new DictionaryEncoding(current, /*ordered=*/false, /*indexType=*/indexType));
+        fieldType =
+            createFieldType(
+                indexType,
+                schema,
+                externalProps,
+                new DictionaryEncoding(current, /*ordered=*/ false, /*indexType=*/ indexType));
         break;
 
       case STRING:
@@ -509,7 +528,7 @@ public class AvroToArrowUtils {
         } else if (logicalType instanceof LogicalTypes.TimeMillis) {
           intArrowType = new ArrowType.Time(TimeUnit.MILLISECOND, 32);
         } else {
-          intArrowType = new ArrowType.Int(32, /*isSigned=*/true);
+          intArrowType = new ArrowType.Int(32, /*isSigned=*/ true);
         }
         fieldType = createFieldType(intArrowType, schema, externalProps);
         break;
@@ -525,7 +544,7 @@ public class AvroToArrowUtils {
         } else if (logicalType instanceof LogicalTypes.TimestampMicros) {
           longArrowType = new ArrowType.Timestamp(TimeUnit.MICROSECOND, null);
         } else {
-          longArrowType = new ArrowType.Int(64, /*isSigned=*/true);
+          longArrowType = new ArrowType.Int(64, /*isSigned=*/ true);
         }
         fieldType = createFieldType(longArrowType, schema, externalProps);
         break;
@@ -558,8 +577,8 @@ public class AvroToArrowUtils {
     return new Field(name, fieldType, children.size() == 0 ? null : children);
   }
 
-  private static Consumer createArrayConsumer(Schema schema, String name, AvroToArrowConfig config,
-      FieldVector consumerVector) {
+  private static Consumer createArrayConsumer(
+      Schema schema, String name, AvroToArrowConfig config, FieldVector consumerVector) {
 
     ListVector listVector;
     if (consumerVector == null) {
@@ -578,8 +597,8 @@ public class AvroToArrowUtils {
     return new AvroArraysConsumer(listVector, delegate);
   }
 
-  private static Consumer createStructConsumer(Schema schema, String name, AvroToArrowConfig config,
-      FieldVector consumerVector) {
+  private static Consumer createStructConsumer(
+      Schema schema, String name, AvroToArrowConfig config, FieldVector consumerVector) {
 
     final Set<String> skipFieldNames = config.getSkipFieldNames();
 
@@ -601,19 +620,22 @@ public class AvroToArrowUtils {
       if (skipFieldNames.contains(fullChildName)) {
         delegate = createSkipConsumer(childField.schema());
       } else {
-        delegate = createConsumer(childField.schema(), fullChildName, config,
-            structVector.getChildrenFromFields().get(vectorIndex++));
+        delegate =
+            createConsumer(
+                childField.schema(),
+                fullChildName,
+                config,
+                structVector.getChildrenFromFields().get(vectorIndex++));
       }
 
       delegates[i] = delegate;
     }
 
     return new AvroStructConsumer(structVector, delegates);
-
   }
 
-  private static Consumer createEnumConsumer(Schema schema, String name, AvroToArrowConfig config,
-      FieldVector consumerVector) {
+  private static Consumer createEnumConsumer(
+      Schema schema, String name, AvroToArrowConfig config, FieldVector consumerVector) {
 
     BaseIntVector indexVector;
     if (consumerVector == null) {
@@ -630,16 +652,14 @@ public class AvroToArrowUtils {
     for (int i = 0; i < valueCount; i++) {
       dictVector.set(i, schema.getEnumSymbols().get(i).getBytes(StandardCharsets.UTF_8));
     }
-    Dictionary dictionary =
-        new Dictionary(dictVector, indexVector.getField().getDictionary());
+    Dictionary dictionary = new Dictionary(dictVector, indexVector.getField().getDictionary());
     config.getProvider().put(dictionary);
 
     return new AvroEnumConsumer(indexVector);
-
   }
 
-  private static Consumer createMapConsumer(Schema schema, String name, AvroToArrowConfig config,
-      FieldVector consumerVector) {
+  private static Consumer createMapConsumer(
+      Schema schema, String name, AvroToArrowConfig config, FieldVector consumerVector) {
 
     MapVector mapVector;
     if (consumerVector == null) {
@@ -653,10 +673,14 @@ public class AvroToArrowUtils {
     StructVector structVector = (StructVector) mapVector.getDataVector();
 
     // keys in avro map are always assumed to be strings.
-    Consumer keyConsumer = new AvroStringConsumer(
-        (VarCharVector) structVector.getChildrenFromFields().get(0));
-    Consumer valueConsumer = createConsumer(schema.getValueType(), schema.getValueType().getName(),
-        config, structVector.getChildrenFromFields().get(1));
+    Consumer keyConsumer =
+        new AvroStringConsumer((VarCharVector) structVector.getChildrenFromFields().get(0));
+    Consumer valueConsumer =
+        createConsumer(
+            schema.getValueType(),
+            schema.getValueType().getName(),
+            config,
+            structVector.getChildrenFromFields().get(1));
 
     AvroStructConsumer internalConsumer =
         new AvroStructConsumer(structVector, new Consumer[] {keyConsumer, valueConsumer});
@@ -664,11 +688,12 @@ public class AvroToArrowUtils {
     return new AvroMapConsumer(mapVector, internalConsumer);
   }
 
-  private static Consumer createUnionConsumer(Schema schema, String name, AvroToArrowConfig config,
-      FieldVector consumerVector) {
+  private static Consumer createUnionConsumer(
+      Schema schema, String name, AvroToArrowConfig config, FieldVector consumerVector) {
     final int size = schema.getTypes().size();
 
-    final boolean nullable = schema.getTypes().stream().anyMatch(t -> t.getType() == Schema.Type.NULL);
+    final boolean nullable =
+        schema.getTypes().stream().anyMatch(t -> t.getType() == Schema.Type.NULL);
 
     UnionVector unionVector;
     if (consumerVector == null) {
@@ -695,14 +720,12 @@ public class AvroToArrowUtils {
 
   /**
    * Read data from {@link Decoder} and generate a {@link VectorSchemaRoot}.
+   *
    * @param schema avro schema
    * @param decoder avro decoder to read data from
    */
   static VectorSchemaRoot avroToArrowVectors(
-      Schema schema,
-      Decoder decoder,
-      AvroToArrowConfig config)
-      throws IOException {
+      Schema schema, Decoder decoder, AvroToArrowConfig config) throws IOException {
 
     List<FieldVector> vectors = new ArrayList<>();
     List<Consumer> consumers = new ArrayList<>();
@@ -726,8 +749,8 @@ public class AvroToArrowUtils {
     }
 
     long validConsumerCount = consumers.stream().filter(c -> !c.skippable()).count();
-    Preconditions.checkArgument(vectors.size() == validConsumerCount,
-        "vectors size not equals consumers size.");
+    Preconditions.checkArgument(
+        vectors.size() == validConsumerCount, "vectors size not equals consumers size.");
 
     List<Field> fields = vectors.stream().map(t -> t.getField()).collect(Collectors.toList());
 
@@ -767,9 +790,7 @@ public class AvroToArrowUtils {
     return metadata;
   }
 
-  /**
-   * Parse avro attributes and convert them to metadata.
-   */
+  /** Parse avro attributes and convert them to metadata. */
   private static Map<String, String> createExternalProps(Schema schema) {
     final Map<String, String> extProps = new HashMap<>();
     String doc = schema.getDoc();
@@ -783,8 +804,9 @@ public class AvroToArrowUtils {
     return extProps;
   }
 
-  private static FieldType createFieldType(ArrowType arrowType, Schema schema, Map<String, String> externalProps) {
-    return createFieldType(arrowType, schema, externalProps, /*dictionary=*/null);
+  private static FieldType createFieldType(
+      ArrowType arrowType, Schema schema, Map<String, String> externalProps) {
+    return createFieldType(arrowType, schema, externalProps, /*dictionary=*/ null);
   }
 
   private static FieldType createFieldType(
@@ -793,8 +815,8 @@ public class AvroToArrowUtils {
       Map<String, String> externalProps,
       DictionaryEncoding dictionary) {
 
-    return new FieldType(/*nullable=*/false, arrowType, dictionary,
-        getMetaData(schema, externalProps));
+    return new FieldType(
+        /*nullable=*/ false, arrowType, dictionary, getMetaData(schema, externalProps));
   }
 
   private static String convertAliases(Set<String> aliases) {

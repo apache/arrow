@@ -14,15 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.avro;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
-
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileReader;
 import org.apache.avro.file.DataFileWriter;
@@ -32,23 +30,19 @@ import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.DatumReader;
 import org.apache.avro.io.DatumWriter;
-import org.junit.ClassRule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
-
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 public class TestWriteReadAvroRecord {
 
-  @ClassRule
-  public static final TemporaryFolder TMP = new TemporaryFolder();
+  @TempDir public static File TMP;
 
   @Test
   public void testWriteAndRead() throws Exception {
-
-    File dataFile = TMP.newFile();
+    File dataFile = new File(TMP, "test.avro");
     Schema schema = AvroTestBase.getSchema("test.avsc");
 
-    //write data to disk
+    // write data to disk
     GenericRecord user1 = new GenericData.Record(schema);
     user1.put("name", "Alyssa");
     user1.put("favorite_number", 256);
@@ -59,20 +53,22 @@ public class TestWriteReadAvroRecord {
     user2.put("favorite_color", "red");
 
     DatumWriter<GenericRecord> datumWriter = new GenericDatumWriter<GenericRecord>(schema);
-    DataFileWriter<GenericRecord> dataFileWriter = new DataFileWriter<GenericRecord>(datumWriter);
-    dataFileWriter.create(schema, dataFile);
-    dataFileWriter.append(user1);
-    dataFileWriter.append(user2);
-    dataFileWriter.close();
+    try (DataFileWriter<GenericRecord> dataFileWriter =
+        new DataFileWriter<GenericRecord>(datumWriter)) {
+      dataFileWriter.create(schema, dataFile);
+      dataFileWriter.append(user1);
+      dataFileWriter.append(user2);
+    }
 
-    //read data from disk
+    // read data from disk
     DatumReader<GenericRecord> datumReader = new GenericDatumReader<GenericRecord>(schema);
-    DataFileReader<GenericRecord>
-        dataFileReader = new DataFileReader<GenericRecord>(dataFile, datumReader);
     List<GenericRecord> result = new ArrayList<>();
-    while (dataFileReader.hasNext()) {
-      GenericRecord user = dataFileReader.next();
-      result.add(user);
+    try (DataFileReader<GenericRecord> dataFileReader =
+        new DataFileReader<GenericRecord>(dataFile, datumReader)) {
+      while (dataFileReader.hasNext()) {
+        GenericRecord user = dataFileReader.next();
+        result.add(user);
+      }
     }
 
     assertEquals(2, result.size());
@@ -86,5 +82,4 @@ public class TestWriteReadAvroRecord {
     assertEquals(7, deUser2.get("favorite_number"));
     assertEquals("red", deUser2.get("favorite_color").toString());
   }
-
 }

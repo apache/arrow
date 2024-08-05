@@ -24,22 +24,22 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/apache/arrow/go/v17/arrow"
-	"github.com/apache/arrow/go/v17/arrow/array"
-	"github.com/apache/arrow/go/v17/arrow/bitutil"
-	"github.com/apache/arrow/go/v17/arrow/memory"
-	arrutils "github.com/apache/arrow/go/v17/internal/utils"
-	"github.com/apache/arrow/go/v17/parquet"
-	"github.com/apache/arrow/go/v17/parquet/compress"
-	"github.com/apache/arrow/go/v17/parquet/file"
-	"github.com/apache/arrow/go/v17/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v17/parquet/internal/encryption"
-	format "github.com/apache/arrow/go/v17/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v17/parquet/internal/testutils"
-	"github.com/apache/arrow/go/v17/parquet/internal/utils"
-	"github.com/apache/arrow/go/v17/parquet/metadata"
-	"github.com/apache/arrow/go/v17/parquet/pqarrow"
-	"github.com/apache/arrow/go/v17/parquet/schema"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/array"
+	"github.com/apache/arrow/go/v18/arrow/bitutil"
+	"github.com/apache/arrow/go/v18/arrow/memory"
+	arrutils "github.com/apache/arrow/go/v18/internal/utils"
+	"github.com/apache/arrow/go/v18/parquet"
+	"github.com/apache/arrow/go/v18/parquet/compress"
+	"github.com/apache/arrow/go/v18/parquet/file"
+	"github.com/apache/arrow/go/v18/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v18/parquet/internal/encryption"
+	format "github.com/apache/arrow/go/v18/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v18/parquet/internal/testutils"
+	"github.com/apache/arrow/go/v18/parquet/internal/utils"
+	"github.com/apache/arrow/go/v18/parquet/metadata"
+	"github.com/apache/arrow/go/v18/parquet/pqarrow"
+	"github.com/apache/arrow/go/v18/parquet/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
@@ -457,6 +457,15 @@ func (p *PrimitiveWriterTestSuite) testDictionaryFallbackAndCompressedSize(versi
 
 func (p *PrimitiveWriterTestSuite) TestRequiredPlain() {
 	p.testRequiredWithEncoding(parquet.Encodings.Plain)
+}
+
+func (p *PrimitiveWriterTestSuite) TestRequiredByteStreamSplit() {
+	switch p.Typ {
+	case reflect.TypeOf(float32(0)), reflect.TypeOf(float64(0)), reflect.TypeOf(int32(0)), reflect.TypeOf(int64(0)), reflect.TypeOf(parquet.FixedLenByteArray{}):
+		p.testRequiredWithEncoding(parquet.Encodings.ByteStreamSplit)
+	default:
+		p.Panics(func() { p.testRequiredWithEncoding(parquet.Encodings.ByteStreamSplit) })
+	}
 }
 
 func (p *PrimitiveWriterTestSuite) TestRequiredDictionary() {
