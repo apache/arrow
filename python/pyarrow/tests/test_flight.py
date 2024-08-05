@@ -1150,7 +1150,7 @@ def test_flight_get_info():
         assert info.endpoints[0].app_metadata == b""
         assert info.endpoints[0].locations[0] == flight.Location('grpc://test')
         assert info.endpoints[1].expiration_time == \
-            pa.scalar("2023-04-05T12:34:56.789+00:00").cast(pa.timestamp("us", "UTC"))
+            pa.scalar("2023-04-05T12:34:56.789+00:00").cast(pa.timestamp("ns", "UTC"))
         assert info.endpoints[1].app_metadata == b"endpoint app metadata"
         assert info.endpoints[1].locations[0] == \
             flight.Location.for_grpc_tcp('localhost', 5005)
@@ -1791,7 +1791,7 @@ def test_roundtrip_types():
             flight.FlightEndpoint(
                 b'',
                 [flight.Location.for_grpc_tcp('localhost', 5005)],
-                pa.scalar("2023-04-05T12:34:56").cast(pa.timestamp("ms")),
+                pa.scalar("2023-04-05T12:34:56.789012").cast(pa.timestamp("us")),
                 b'endpoint app metadata'
             ),
         ],
