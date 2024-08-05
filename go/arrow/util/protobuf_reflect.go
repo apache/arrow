@@ -60,6 +60,7 @@ type ProtobufFieldReflection struct {
 	rValue     reflect.Value
 	schemaOptions
 	arrow.Field
+	isListItem bool
 }
 
 func (pfr *ProtobufFieldReflection) isNull() bool {
@@ -103,30 +104,8 @@ func (pfr *ProtobufFieldReflection) name() string {
 	return pfr.fieldNameFormatter(string(pfr.descriptor.Name()))
 }
 
-func (pfr *ProtobufFieldReflection) arrowType() arrow.Type {
-	if pfr.isOneOf() && pfr.schemaOptions.oneOfHandler == OneOfDenseUnion {
-		return arrow.DENSE_UNION
-	}
-	if pfr.isEnum() {
-		switch pfr.enumHandler {
-		case EnumNumber:
-			return arrow.INT32
-		case EnumValue:
-			return arrow.STRING
-		case EnumDictionary:
-			return arrow.DICTIONARY
-		}
-	}
-	if pfr.isStruct() {
-		return arrow.STRUCT
-	}
-	if pfr.isMap() {
-		return arrow.MAP
-	}
-	if pfr.isList() {
-		return arrow.LIST
-	}
-	switch pfr.descriptor.Kind() {
+func arrowTypeByProtoReflectKind(k protoreflect.Kind) arrow.Type {
+	switch k {
 	case protoreflect.Int32Kind:
 		return arrow.INT32
 	case protoreflect.Int64Kind:
@@ -161,6 +140,60 @@ func (pfr *ProtobufFieldReflection) arrowType() arrow.Type {
 	return arrow.NULL
 }
 
+func arrowDataTypeByArrowType(t arrow.Type) arrow.DataType {
+	switch t {
+	case arrow.INT32:
+		return arrow.PrimitiveTypes.Int32
+	case arrow.INT64:
+		return arrow.PrimitiveTypes.Int64
+	case arrow.UINT32:
+		return arrow.PrimitiveTypes.Uint32
+	case arrow.UINT64:
+		return arrow.PrimitiveTypes.Uint64
+	case arrow.FLOAT32:
+		return arrow.PrimitiveTypes.Float32
+	case arrow.FLOAT64:
+		return arrow.PrimitiveTypes.Float64
+	case arrow.STRING:
+		return arrow.BinaryTypes.String
+	case arrow.BINARY:
+		return arrow.BinaryTypes.Binary
+	case arrow.BOOL:
+		return arrow.FixedWidthTypes.Boolean
+	}
+	return nil
+}
+
+func arrowDataTypeByProtoReflectKind(k protoreflect.Kind) arrow.DataType {
+	return arrowDataTypeByArrowType(arrowTypeByProtoReflectKind(k))
+}
+
+func (pfr *ProtobufFieldReflection) arrowType() arrow.Type {
+	if pfr.isOneOf() && pfr.schemaOptions.oneOfHandler == OneOfDenseUnion {
+		return arrow.DENSE_UNION
+	}
+	if pfr.isEnum() {
+		switch pfr.enumHandler {
+		case EnumNumber:
+			return arrow.INT32
+		case EnumValue:
+			return arrow.STRING
+		case EnumDictionary:
+			return arrow.DICTIONARY
+		}
+	}
+	if pfr.isStruct() {
+		return arrow.STRUCT
+	}
+	if pfr.isMap() {
+		return arrow.MAP
+	}
+	if pfr.isList() {
+		return arrow.LIST
+	}
+	return arrowTypeByProtoReflectKind(pfr.descriptor.Kind())
+}
+
 func (pfr *ProtobufFieldReflection) isOneOf() bool {
 	return pfr.descriptor.ContainingOneof() != nil
 }
@@ -170,7 +203,8 @@ func (pfr *ProtobufFieldReflection) isEnum() bool {
 }
 
 func (pfr *ProtobufFieldReflection) isStruct() bool {
-	return pfr.descriptor.Kind() == protoreflect.MessageKind && !pfr.descriptor.IsMap() && pfr.rValue.Kind() != reflect.Slice
+	//return pfr.descriptor.Kind() == protoreflect.MessageKind && !pfr.descriptor.IsMap() && pfr.rValue.Kind() != reflect.Slice
+	return pfr.descriptor.Kind() == protoreflect.MessageKind && !pfr.descriptor.IsMap() && !pfr.isList()
 }
 
 func (pfr *ProtobufFieldReflection) isMap() bool {
@@ -178,7 +212,9 @@ func (pfr *ProtobufFieldReflection) isMap() bool {
 }
 
 func (pfr *ProtobufFieldReflection) isList() bool {
-	return pfr.descriptor.IsList() && pfr.rValue.Kind() == reflect.Slice
+	return pfr.descriptor.IsList() && !pfr.isListItem
+	//&& pfr.rValue.Kind() == reflect.Slice
+	//return pfr.descriptor.IsList()
 }
 
 // ProtobufMessageReflection represents the metadata and values of a protobuf message
@@ -218,11 +254,7 @@ func (psr ProtobufMessageReflection) getArrowFields() []arrow.Field {
 	var fields []arrow.Field
 
 	for pfr := range psr.generateStructFields() {
-		fields = append(fields, arrow.Field{
-			Name:     pfr.name(),
-			Type:     pfr.getDataType(),
-			Nullable: true,
-		})
+		fields = append(fields, pfr.arrowField())
 	}
 
 	return fields
@@ -237,12 +269,10 @@ func (pfr *ProtobufFieldReflection) asList() protobufListReflection {
 }
 
 func (plr protobufListReflection) getDataType() arrow.DataType {
-	for li := range plr.generateListItems() {
-		return arrow.ListOf(li.getDataType())
-	}
 	pfr := ProtobufFieldReflection{
 		descriptor:    plr.descriptor,
 		schemaOptions: plr.schemaOptions,
+		isListItem:    true,
 	}
 	return arrow.ListOf(pfr.getDataType())
 }
@@ -401,24 +431,40 @@ func (pmr protobufMapReflection) generateKeyValuePairs() chan protobufMapKeyValu
 
 	go func() {
 		defer close(out)
-		for _, k := range pmr.rValue.MapKeys() {
+		if !pmr.rValue.IsValid() {
 			kvp := protobufMapKeyValuePairReflection{
 				k: ProtobufFieldReflection{
 					parent:        pmr.parent,
 					descriptor:    pmr.descriptor.MapKey(),
-					prValue:       getMapKey(k),
-					rValue:        k,
 					schemaOptions: pmr.schemaOptions,
 				},
 				v: ProtobufFieldReflection{
 					parent:        pmr.parent,
 					descriptor:    pmr.descriptor.MapValue(),
-					prValue:       pmr.prValue.Map().Get(protoreflect.MapKey(getMapKey(k))),
-					rValue:        pmr.rValue.MapIndex(k),
 					schemaOptions: pmr.schemaOptions,
 				},
 			}
 			out <- kvp
+		} else {
+			for _, k := range pmr.rValue.MapKeys() {
+				kvp := protobufMapKeyValuePairReflection{
+					k: ProtobufFieldReflection{
+						parent:        pmr.parent,
+						descriptor:    pmr.descriptor.MapKey(),
+						prValue:       getMapKey(k),
+						rValue:        k,
+						schemaOptions: pmr.schemaOptions,
+					},
+					v: ProtobufFieldReflection{
+						parent:        pmr.parent,
+						descriptor:    pmr.descriptor.MapValue(),
+						prValue:       pmr.prValue.Map().Get(protoreflect.MapKey(getMapKey(k))),
+						rValue:        pmr.rValue.MapIndex(k),
+						schemaOptions: pmr.schemaOptions,
+					},
+				}
+				out <- kvp
+			}
 		}
 	}()
 
@@ -562,26 +608,8 @@ func (pfr *ProtobufFieldReflection) getDataType() arrow.DataType {
 		return pfr.asMap().getDataType()
 	case arrow.STRUCT:
 		return pfr.asStruct().getDataType()
-	case arrow.INT32:
-		return arrow.PrimitiveTypes.Int32
-	case arrow.INT64:
-		return arrow.PrimitiveTypes.Int64
-	case arrow.UINT32:
-		return arrow.PrimitiveTypes.Uint32
-	case arrow.UINT64:
-		return arrow.PrimitiveTypes.Uint64
-	case arrow.FLOAT32:
-		return arrow.PrimitiveTypes.Float32
-	case arrow.FLOAT64:
-		return arrow.PrimitiveTypes.Float64
-	case arrow.STRING:
-		return arrow.BinaryTypes.String
-	case arrow.BINARY:
-		return arrow.BinaryTypes.Binary
-	case arrow.BOOL:
-		return arrow.FixedWidthTypes.Boolean
 	}
-	return nil
+	return arrowDataTypeByArrowType(pfr.arrowType())
 }
 
 type protobufReflection interface {
@@ -676,7 +704,6 @@ func NewProtobufMessageReflection(msg proto.Message, options ...option) *Protobu
 	}
 
 	var fields []ProtobufMessageFieldReflection
-
 	for pfr := range psr.generateFields() {
 		fields = append(fields, ProtobufMessageFieldReflection{
 			parent:             psr,
@@ -733,7 +760,6 @@ func WithEnumHandler(enumHandler ProtobufTypeHandler) option {
 func (f ProtobufMessageFieldReflection) AppendValueOrNull(b array.Builder, mem memory.Allocator) error {
 	pv := f.protoreflectValue()
 	fd := f.GetDescriptor()
-
 	if f.isNull() {
 		b.AppendNull()
 		return nil
