@@ -796,11 +796,15 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
    * @param ackStream The result data stream.
    * @return A runnable to process the stream.
    */
-  Runnable acceptPutStatementBulkIngest(
+  default Runnable acceptPutStatementBulkIngest(
       CommandStatementIngest command,
       CallContext context,
       FlightStream flightStream,
-      StreamListener<PutResult> ackStream);
+      StreamListener<PutResult> ackStream) {
+    return () -> {
+      ackStream.onError(CallStatus.UNIMPLEMENTED.toRuntimeException());
+    };
+  }
 
   /**
    * Handle a Substrait plan with uploaded data.

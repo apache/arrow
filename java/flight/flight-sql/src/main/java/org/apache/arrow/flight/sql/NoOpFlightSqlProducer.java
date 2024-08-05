@@ -97,7 +97,10 @@ public class NoOpFlightSqlProducer implements FlightSqlProducer {
       CallContext context,
       FlightStream flightStream,
       StreamListener<PutResult> ackStream) {
-    throw CallStatus.UNIMPLEMENTED.withDescription("Not implemented.").toRuntimeException();
+    return () -> {
+      ackStream.onError(
+          CallStatus.UNIMPLEMENTED.withDescription("Not implemented.").toRuntimeException());
+    };
   }
 
   @Override

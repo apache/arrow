@@ -50,7 +50,6 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.nio.channels.Channels;
 import java.util.Arrays;
 import java.util.Collections;
@@ -72,7 +71,6 @@ import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightEndpoint;
 import org.apache.arrow.flight.FlightInfo;
-import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.GetSessionOptionsRequest;
 import org.apache.arrow.flight.GetSessionOptionsResult;
@@ -93,9 +91,7 @@ import org.apache.arrow.flight.sql.util.TableRef;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
-import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.ipc.ArrowStreamReader;
 import org.apache.arrow.vector.ipc.ReadChannel;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
@@ -260,14 +256,8 @@ public class FlightSqlClient implements AutoCloseable {
       final ExecuteIngestOptions ingestOptions,
       Transaction transaction,
       final CallOption... options) {
-    try {
-      return executeIngest(
-          data, ingestOptions, transaction, FlightClient.ClientStreamListener::putNext, options);
-    } catch (FlightRuntimeException e) {
-      throw e;
-    } catch (Exception e) {
-      throw CallStatus.UNKNOWN.withCause(e).toRuntimeException();
-    }
+    return executeIngest(
+        data, ingestOptions, transaction, FlightClient.ClientStreamListener::putNext, options);
   }
 
   /**
@@ -297,15 +287,13 @@ public class FlightSqlClient implements AutoCloseable {
                   break;
                 }
               } catch (IOException e) {
-                throw new UncheckedIOException(e);
+                throw CallStatus.UNKNOWN.withCause(e).toRuntimeException();
               }
               listener.putNext();
             }
           },
           options);
-    } catch (FlightRuntimeException e) {
-      throw e;
-    } catch (Exception e) {
+    } catch (IOException e) {
       throw CallStatus.UNKNOWN.withCause(e).toRuntimeException();
     }
   }
@@ -315,48 +303,8 @@ public class FlightSqlClient implements AutoCloseable {
       final ExecuteIngestOptions ingestOptions,
       final Transaction transaction,
       final Consumer<FlightClient.ClientStreamListener> dataPutter,
-      final CallOption... options)
-      throws Exception {
-    try (FlightStream sqlInfoStream =
-        getStream(
-            getSqlInfo(
-                    SqlInfo.FLIGHT_SQL_SERVER_BULK_INGESTION,
-                    SqlInfo.FLIGHT_SQL_SERVER_INGEST_TRANSACTIONS_SUPPORTED)
-                .getEndpoints()
-                .get(0)
-                .getTicket())) {
-      boolean bulkIngestionSupported = false;
-      boolean transactionSupported = false;
-
-      while (sqlInfoStream.next()) {
-        VectorSchemaRoot sqlInfoRoot = sqlInfoStream.getRoot();
-
-        UInt4Vector infoName = (UInt4Vector) sqlInfoRoot.getVector(0);
-        DenseUnionVector value = (DenseUnionVector) sqlInfoRoot.getVector(1);
-
-        for (int i = 0; i < sqlInfoRoot.getRowCount(); i++) {
-          final int code = infoName.get(i);
-          if (code == SqlInfo.FLIGHT_SQL_SERVER_BULK_INGESTION_VALUE) {
-            bulkIngestionSupported =
-                Boolean.TRUE.equals(
-                    value.getBitVector(value.getTypeId(i)).getObject(value.getOffset(i)));
-          } else if (code == SqlInfo.FLIGHT_SQL_SERVER_INGEST_TRANSACTIONS_SUPPORTED_VALUE) {
-            transactionSupported =
-                Boolean.TRUE.equals(
-                    value.getBitVector(value.getTypeId(i)).getObject(value.getOffset(i)));
-          }
-        }
-      }
-
-      if (!bulkIngestionSupported) {
-        throw new UnsupportedOperationException("Executing bulk ingestion is not supported.");
-      }
-
-      if (!isNull(transaction) && !transactionSupported) {
-        throw new UnsupportedOperationException(
-            "Executing bulk ingestion with-in a transaction is not supported.");
-      }
-
+      final CallOption... options) {
+    try {
       final CommandStatementIngest.Builder builder = CommandStatementIngest.newBuilder();
       if (transaction != null) {
         builder.setTransactionId(ByteString.copyFrom(transaction.getTransactionId()));
@@ -379,10 +327,10 @@ public class FlightSqlClient implements AutoCloseable {
           return doPutUpdateResult.getRecordCount();
         }
       }
-    } catch (final UnsupportedOperationException e) {
-      throw CallStatus.UNIMPLEMENTED.withCause(e).toRuntimeException();
-    } catch (final InterruptedException | ExecutionException e) {
+    } catch (final InterruptedException e) {
       throw CallStatus.CANCELLED.withCause(e).toRuntimeException();
+    } catch (final ExecutionException e) {
+      throw CallStatus.CANCELLED.withCause(e.getCause()).toRuntimeException();
     } catch (final InvalidProtocolBufferException e) {
       throw CallStatus.INTERNAL.withCause(e).toRuntimeException();
     }
@@ -427,8 +375,10 @@ public class FlightSqlClient implements AutoCloseable {
       } finally {
         listener.getResult();
       }
-    } catch (final InterruptedException | ExecutionException e) {
+    } catch (final InterruptedException e) {
       throw CallStatus.CANCELLED.withCause(e).toRuntimeException();
+    } catch (final ExecutionException e) {
+      throw CallStatus.CANCELLED.withCause(e.getCause()).toRuntimeException();
     } catch (final InvalidProtocolBufferException e) {
       throw CallStatus.INTERNAL.withCause(e).toRuntimeException();
     }
@@ -477,8 +427,10 @@ public class FlightSqlClient implements AutoCloseable {
       } finally {
         listener.getResult();
       }
-    } catch (final InterruptedException | ExecutionException e) {
+    } catch (final InterruptedException e) {
       throw CallStatus.CANCELLED.withCause(e).toRuntimeException();
+    } catch (final ExecutionException e) {
+      throw CallStatus.CANCELLED.withCause(e.getCause()).toRuntimeException();
     } catch (final InvalidProtocolBufferException e) {
       throw CallStatus.INTERNAL.withCause(e).toRuntimeException();
     }
@@ -1185,7 +1137,7 @@ public class FlightSqlClient implements AutoCloseable {
     AutoCloseables.close(client);
   }
 
-  /** Class to encapsulateFlight SQL bulk ingest request options. * */
+  /** Class to encapsulate Flight SQL bulk ingest request options. * */
   public static class ExecuteIngestOptions {
     private final String table;
     private final TableDefinitionOptions tableDefinitionOptions;
@@ -1398,10 +1350,12 @@ public class FlightSqlClient implements AutoCloseable {
               }
             }
           }
-        } catch (final InterruptedException | ExecutionException e) {
+        } catch (final InterruptedException e) {
           throw CallStatus.CANCELLED.withCause(e).toRuntimeException();
+        } catch (final ExecutionException e) {
+          throw CallStatus.CANCELLED.withCause(e.getCause()).toRuntimeException();
         } catch (final InvalidProtocolBufferException e) {
-          throw CallStatus.INVALID_ARGUMENT.withCause(e).toRuntimeException();
+          throw CallStatus.INTERNAL.withCause(e).toRuntimeException();
         }
       }
 
@@ -1456,10 +1410,12 @@ public class FlightSqlClient implements AutoCloseable {
               DoPutUpdateResult.parseFrom(metadata.nioBuffer());
           return doPutUpdateResult.getRecordCount();
         }
-      } catch (final InterruptedException | ExecutionException e) {
+      } catch (final InterruptedException e) {
         throw CallStatus.CANCELLED.withCause(e).toRuntimeException();
+      } catch (final ExecutionException e) {
+        throw CallStatus.CANCELLED.withCause(e.getCause()).toRuntimeException();
       } catch (final InvalidProtocolBufferException e) {
-        throw CallStatus.INVALID_ARGUMENT.withCause(e).toRuntimeException();
+        throw CallStatus.INTERNAL.withCause(e).toRuntimeException();
       }
     }
 

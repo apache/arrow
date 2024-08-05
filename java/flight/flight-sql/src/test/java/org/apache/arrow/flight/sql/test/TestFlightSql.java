@@ -603,12 +603,13 @@ public class TestFlightSql {
       keyNamesToBeDeletedVector.allocateNew();
 
       try (PipedInputStream inPipe = new PipedInputStream(1024);
+          PipedOutputStream outPipe = new PipedOutputStream(inPipe);
           ArrowStreamReader reader = new ArrowStreamReader(inPipe, allocator)) {
 
         new Thread(
                 () -> {
-                  try (PipedOutputStream outPipe = new PipedOutputStream(inPipe);
-                      ArrowStreamWriter writer = new ArrowStreamWriter(ingestRoot, null, outPipe)) {
+                  try (ArrowStreamWriter writer =
+                      new ArrowStreamWriter(ingestRoot, null, outPipe)) {
                     writer.start();
                     populateNext10RowsInIngestRootBatch(
                         1,
