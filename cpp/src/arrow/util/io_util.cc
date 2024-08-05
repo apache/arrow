@@ -689,6 +689,7 @@ Result<bool> CreateDirTree(const PlatformFilename& dir_path) {
   return DoCreateDir(dir_path, true);
 }
 
+// TODO(bryce): We should now be able to remove the ifdef
 #ifdef _WIN32
 
 namespace {
@@ -866,37 +867,18 @@ class UnixDirIterator : public DirIterator {
 }
 
 Result<std::vector<PlatformFilename>> ListDir(const PlatformFilename& dir_path) {
-  DIR* dir = opendir(dir_path.ToNative().c_str());
-  if (dir == nullptr) {
-    return IOErrorFromErrno(errno, "Cannot list directory '", dir_path.ToString(), "'");
-  }
-
-  auto dir_deleter = [](DIR* dir) -> void {
-    if (closedir(dir) != 0) {
-      ARROW_LOG(WARNING) << "Cannot close directory handle: " << ErrnoMessage(errno);
-    }
-  };
-  std::unique_ptr<DIR, decltype(dir_deleter)> dir_guard(dir, dir_deleter);
-
   std::vector<PlatformFilename> results;
-  errno = 0;
-  struct dirent* entry = readdir(dir);
-  while (entry != nullptr) {
-    std::string path = entry->d_name;
-    if (path != "." && path != "..") {
-      results.emplace_back(std::move(path));
-    }
-    entry = readdir(dir);
-  }
-  if (errno != 0) {
-    return IOErrorFromErrno(errno, "Cannot list directory '", dir_path.ToString(), "'");
-  }
+  auto status = ListDir(dir_path, false, [&](const ::arrow::internal::DirIterator& dir_entry) {
+    ARROW_ASSIGN_OR_RAISE(PlatformFilename full_fn,
+                      dir_path.Join(dir_entry.name()));
+    results.push_back(std::move(full_fn));
+    return Status::OK();
+  });
+  ARROW_RETURN_NOT_OK(status);
   return results;
 }
 
 #endif
-
-
 
 Result<std::unique_ptr<DirIterator>> DirIterator::Open(const PlatformFilename &path, bool allow_not_found) {
 #ifdef _WIN32
