@@ -140,34 +140,6 @@ func arrowTypeByProtoReflectKind(k protoreflect.Kind) arrow.Type {
 	return arrow.NULL
 }
 
-func arrowDataTypeByArrowType(t arrow.Type) arrow.DataType {
-	switch t {
-	case arrow.INT32:
-		return arrow.PrimitiveTypes.Int32
-	case arrow.INT64:
-		return arrow.PrimitiveTypes.Int64
-	case arrow.UINT32:
-		return arrow.PrimitiveTypes.Uint32
-	case arrow.UINT64:
-		return arrow.PrimitiveTypes.Uint64
-	case arrow.FLOAT32:
-		return arrow.PrimitiveTypes.Float32
-	case arrow.FLOAT64:
-		return arrow.PrimitiveTypes.Float64
-	case arrow.STRING:
-		return arrow.BinaryTypes.String
-	case arrow.BINARY:
-		return arrow.BinaryTypes.Binary
-	case arrow.BOOL:
-		return arrow.FixedWidthTypes.Boolean
-	}
-	return nil
-}
-
-func arrowDataTypeByProtoReflectKind(k protoreflect.Kind) arrow.DataType {
-	return arrowDataTypeByArrowType(arrowTypeByProtoReflectKind(k))
-}
-
 func (pfr *ProtobufFieldReflection) arrowType() arrow.Type {
 	if pfr.isOneOf() && pfr.schemaOptions.oneOfHandler == OneOfDenseUnion {
 		return arrow.DENSE_UNION
@@ -203,7 +175,6 @@ func (pfr *ProtobufFieldReflection) isEnum() bool {
 }
 
 func (pfr *ProtobufFieldReflection) isStruct() bool {
-	//return pfr.descriptor.Kind() == protoreflect.MessageKind && !pfr.descriptor.IsMap() && pfr.rValue.Kind() != reflect.Slice
 	return pfr.descriptor.Kind() == protoreflect.MessageKind && !pfr.descriptor.IsMap() && !pfr.isList()
 }
 
@@ -213,8 +184,6 @@ func (pfr *ProtobufFieldReflection) isMap() bool {
 
 func (pfr *ProtobufFieldReflection) isList() bool {
 	return pfr.descriptor.IsList() && !pfr.isListItem
-	//&& pfr.rValue.Kind() == reflect.Slice
-	//return pfr.descriptor.IsList()
 }
 
 // ProtobufMessageReflection represents the metadata and values of a protobuf message
@@ -608,8 +577,26 @@ func (pfr *ProtobufFieldReflection) getDataType() arrow.DataType {
 		return pfr.asMap().getDataType()
 	case arrow.STRUCT:
 		return pfr.asStruct().getDataType()
+	case arrow.INT32:
+		return arrow.PrimitiveTypes.Int32
+	case arrow.INT64:
+		return arrow.PrimitiveTypes.Int64
+	case arrow.UINT32:
+		return arrow.PrimitiveTypes.Uint32
+	case arrow.UINT64:
+		return arrow.PrimitiveTypes.Uint64
+	case arrow.FLOAT32:
+		return arrow.PrimitiveTypes.Float32
+	case arrow.FLOAT64:
+		return arrow.PrimitiveTypes.Float64
+	case arrow.STRING:
+		return arrow.BinaryTypes.String
+	case arrow.BINARY:
+		return arrow.BinaryTypes.Binary
+	case arrow.BOOL:
+		return arrow.FixedWidthTypes.Boolean
 	}
-	return arrowDataTypeByArrowType(pfr.arrowType())
+	return nil
 }
 
 type protobufReflection interface {
