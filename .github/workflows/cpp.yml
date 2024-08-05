@@ -189,7 +189,7 @@ jobs:
       - name: Run minimal example
         run: |
           cd cpp/examples/minimal_build
-          docker-compose run --rm minimal
+          docker compose run --rm minimal
 
   macos:
     name: ${{ matrix.architecture }} macOS ${{ matrix.macos-version }} C++
