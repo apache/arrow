@@ -738,5 +738,22 @@ test_that("read_csv2_arrow correctly parses comma decimals", {
   tf <- tempfile()
   writeLines("x;y\n1,2;c", con = tf)
   expect_equal(read_csv2_arrow(tf), tibble(x = 1.2, y = "c"))
+})
 
+test_that("altrep columns can roundtrip to table", {
+  tf <- tempfile()
+  on.exit(unlink(tf))
+  write.csv(tbl, tf, row.names = FALSE)
+
+  # read in, some columns will be altrep by default
+  new_df <- read_csv_arrow(tf)
+  expect_equal(tbl, as_tibble(arrow_table(new_df)))
+
+  # but also if we materialize the vector
+  # this could also be accomplished with printing
+  new_df <- read_csv_arrow(tf)
+  test_arrow_altrep_force_materialize(new_df$chr)
+
+  # we should still be able to turn this into a table
+  expect_equal(tbl, as_tibble(arrow_table(new_df)))
 })

@@ -95,20 +95,6 @@ if [ ! "`${R_HOME}/bin/R CMD config CXX17`" ]; then
   exit 1
 fi
 
-# GH-36969: The version of Abseil used in the bundled build won't build on
-# gcc-13. As a workaround for the 13.0.0 release, explicitly set
-# ARROW_WITH_GOOGLE_CLOUD_CPP to OFF (if not already set)
-if [ -z "$ARROW_GCS" ]; then
-  CXX17=`${R_HOME}/bin/R CMD config CXX17`
-  CXX17_VERSION=`$CXX17 --version`
-  if echo "$CXX17_VERSION" | grep -e "g++" > /dev/null ; then
-    if echo "$CXX17_VERSION" | grep -e "13.[0-9]\+.[0-9]\+" > /dev/null ; then
-      echo "*** Disabling Arrow build with GCS on gcc-13."
-      echo "*** Set ARROW_GCS=ON to explicitly enable."
-      export ARROW_GCS="OFF"
-    fi
-  fi
-fi
 
 # Test if pkg-config is available to use
 if ${PKG_CONFIG} --version >/dev/null 2>&1; then

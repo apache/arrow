@@ -66,6 +66,7 @@ RUN \
     libssl-dev \
     libthrift-dev \
     libutf8proc-dev \
+    libxxhash-dev \
     libzstd-dev \
     llvm-dev \
     lsb-release \

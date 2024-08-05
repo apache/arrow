@@ -162,6 +162,8 @@ test_that("Math group generics work on Array objects", {
     Array$create(log(c(0.6, 2.1), base = 2))
   )
   expect_equal(log10(Array$create(c(0.6, 2.1))), Array$create(log10(c(0.6, 2.1))))
+  expect_equal(log2(Array$create(c(0.6, 2.1))), Array$create(log2(c(0.6, 2.1))))
+  expect_equal(log1p(Array$create(c(0.6, 2.1, 0))), Array$create(log1p(c(0.6, 2.1, 0))))
 
   expect_equal(round(Array$create(c(0.6, 2.1))), Array$create(c(1, 2)))
   expect_equal(
@@ -175,6 +177,7 @@ test_that("Math group generics work on Array objects", {
     round(exp(Array$create(c(2L, 1L))), digits = 10),
     Array$create(round(exp(c(2L, 1L)), 10))
   )
+
   expect_as_vector(
     cumsum(Array$create(c(2.3, -1.0, 7.9, NA_real_, 1.0))),
     c(2.3, 1.3, 9.2, NA_real_, NA_real_)
@@ -186,8 +189,56 @@ test_that("Math group generics work on Array objects", {
     c(2L, 9L, 17L, 16L, 18L, 35L, NA_integer_, NA_integer_, NA_integer_)
   )
 
-  expect_error(
-    cumprod(Array$create(c(4L, 1L))),
-    "Unsupported operation on `Array`"
+  expect_as_vector(
+    cumprod(Array$create(c(2.3, -1.0, 7.9, NA_real_, 1.0))),
+    c(2.3, -2.3, -18.17, NA_real_, NA_real_)
   )
+  expect_equal(cumprod(Array$create(-10L)), Array$create(-10L))
+  expect_equal(cumprod(Array$create(NA_integer_)), Array$create(NA_integer_))
+  expect_as_vector(
+    cumprod(ChunkedArray$create(c(2L, 7L, 8L), c(-1L, 2L, 17L, NA_integer_, 3L), 18L)),
+    c(2L, 14L, 112L, -112L, -224L, -3808L, NA_integer_, NA_integer_, NA_integer_)
+  )
+
+  expect_as_vector(
+    cummax(Array$create(c(2.3, -1.0, 7.9, NA_real_, 1.0))),
+    c(2.3, 2.3, 7.9, NA_real_, NA_real_)
+  )
+  expect_equal(cummax(Array$create(-10L)), Array$create(-10L))
+  expect_equal(cummax(Array$create(NA_integer_)), Array$create(NA_integer_))
+  expect_as_vector(
+    cummax(ChunkedArray$create(c(2L, 7L, 8L), c(-1L, 2L, 17L, NA_integer_, 3L), 18L)),
+    c(2L, 7L, 8L, 8L, 8L, 17L, NA_integer_, NA_integer_, NA_integer_)
+  )
+
+  expect_as_vector(
+    cummin(Array$create(c(2.3, -1.0, 7.9, NA_real_, 1.0))),
+    c(2.3, -1, -1, NA_real_, NA_real_)
+  )
+  expect_equal(cummin(Array$create(-10L)), Array$create(-10L))
+  expect_equal(cummin(Array$create(NA_integer_)), Array$create(NA_integer_))
+  expect_as_vector(
+    cummin(ChunkedArray$create(c(2L, 7L, 8L), c(-1L, 2L, 17L, NA_integer_, 3L), 18L)),
+    c(2L, 2L, 2L, -1L, -1L, -1L, NA_integer_, NA_integer_, NA_integer_)
+  )
+
+  expect_error(signif(Array$create(c(4L, 1L))), "Unsupported operation on `Array`")
+  expect_error(expm1(Array$create(c(4L, 1L))), "Unsupported operation on `Array`")
+
+  expect_error(cospi(Array$create(c(4L, 1L))), "Unsupported operation on `Array`")
+  expect_error(sinpi(Array$create(c(4L, 1L))), "Unsupported operation on `Array`")
+  expect_error(tanpi(Array$create(c(4L, 1L))), "Unsupported operation on `Array`")
+
+  expect_error(cosh(Array$create(c(4L, 1L))), "Unsupported operation on `Array`")
+  expect_error(sinh(Array$create(c(4L, 1L))), "Unsupported operation on `Array`")
+  expect_error(tanh(Array$create(c(4L, 1L))), "Unsupported operation on `Array`")
+
+  expect_error(acosh(Array$create(c(4L, 1L))), "Unsupported operation on `Array`")
+  expect_error(asinh(Array$create(c(4L, 1L))), "Unsupported operation on `Array`")
+  expect_error(atanh(Array$create(c(4L, 1L))), "Unsupported operation on `Array`")
+
+  expect_error(lgamma(Array$create(c(4L, 1L))), "Unsupported operation on `Array`")
+  expect_error(gamma(Array$create(c(4L, 1L))), "Unsupported operation on `Array`")
+  expect_error(digamma(Array$create(c(4L, 1L))), "Unsupported operation on `Array`")
+  expect_error(trigamma(Array$create(c(4L, 1L))), "Unsupported operation on `Array`")
 })
