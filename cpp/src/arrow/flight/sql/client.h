@@ -434,7 +434,7 @@ class ARROW_FLIGHT_SQL_EXPORT PreparedStatement {
   PreparedStatement(FlightSqlClient* client, std::string handle,
                     std::shared_ptr<Schema> dataset_schema,
                     std::shared_ptr<Schema> parameter_schema);
-
+                                                                                                                                                                                                                                             
   /// \brief Default destructor for the PreparedStatement class.
   /// The destructor will call the Close method from the class in order,
   /// to send a request to close the PreparedStatement.

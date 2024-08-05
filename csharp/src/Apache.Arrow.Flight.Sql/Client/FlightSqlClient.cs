@@ -1,0 +1,719 @@
+using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using Apache.Arrow.Flight.Client;
+using Grpc.Core;
+using Google.Protobuf;
+using Google.Protobuf.WellKnownTypes;
+using Arrow.Flight.Protocol.Sql;
+
+namespace Apache.Arrow.Flight.Sql.Client;
+
+public class FlightSqlClient
+{
+    private readonly FlightClient _client;
+
+    public FlightSqlClient(FlightClient client)
+    {
+        _client = client ?? throw new ArgumentNullException(nameof(client));
+    }
+
+    public static Transaction NoTransaction() => new(null);
+
+    /// <summary>
+    /// Execute a SQL query on the server.
+    /// </summary>
+    /// <param name="options">RPC-layer hints for this call.</param>
+    /// <param name="query">The UTF8-encoded SQL query to be executed.</param>
+    /// <param name="transaction">A transaction to associate this query with.</param>
+    /// <returns>The FlightInfo describing where to access the dataset.</returns>
+    public async Task<FlightInfo> ExecuteAsync(FlightCallOptions options, string query, Transaction? transaction = null)
+    {
+        // todo: return FlightInfo
+        transaction ??= NoTransaction();
+
+        FlightInfo? flightInfo = null;
+
+        if (options == null)
+        {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        if (string.IsNullOrEmpty(query))
+        {
+            throw new ArgumentException($"Query cannot be null or empty: {nameof(query)}");
+        }
+
+        try
+        {
+            Console.WriteLine($@"Executing query: {query}");
+            var prepareStatementRequest = new ActionCreatePreparedStatementRequest { Query = query };
+            var action = new FlightAction(SqlAction.CreateRequest, prepareStatementRequest.PackAndSerialize());
+            var call = _client.DoAction(action, options.Headers);
+
+            // Process the response
+            await foreach (var result in call.ResponseStream.ReadAllAsync())
+            {
+                var preparedStatementResponse =
+                    FlightSqlUtils.ParseAndUnpack<ActionCreatePreparedStatementResult>(result.Body);
+                var commandSqlCall = new CommandPreparedStatementQuery
+                {
+                    PreparedStatementHandle = preparedStatementResponse.PreparedStatementHandle
+                };
+                byte[] commandSqlCallPackedAndSerialized = commandSqlCall.PackAndSerialize();
+                var descriptor = FlightDescriptor.CreateCommandDescriptor(commandSqlCallPackedAndSerialized);
+                flightInfo = await GetFlightInfoAsync(options, descriptor);
+                var doGetResult = DoGetAsync(options, flightInfo.Endpoints[0].Ticket);
+                await foreach (var recordBatch in doGetResult)
+                {
+                    Console.WriteLine(recordBatch);
+                }
+            }
+
+            return flightInfo!;
+        }
+        catch (RpcException ex)
+        {
+            // Handle gRPC exceptions
+            Console.WriteLine($@"gRPC Error: {ex.Status}");
+            throw new InvalidOperationException("Failed to execute query", ex);
+        }
+        catch (Exception ex)
+        {
+            // Handle other exceptions
+            Console.WriteLine($@"Unexpected Error: {ex.Message}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Executes an update query on the server.
+    /// </summary>
+    /// <param name="options">RPC-layer hints for this call.</param>
+    /// <param name="query">The UTF8-encoded SQL query to be executed.</param>
+    /// <param name="transaction">A transaction to associate this query with. Defaults to no transaction if not provided.</param>
+    /// <returns>The number of rows affected by the operation.</returns>
+    public async Task<long> ExecuteUpdateAsync(FlightCallOptions options, string query, Transaction? transaction = null)
+    {
+        transaction ??= NoTransaction();
+
+        if (options == null)
+        {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        if (string.IsNullOrEmpty(query))
+        {
+            throw new ArgumentException("Query cannot be null or empty", nameof(query));
+        }
+
+        try
+        {
+            // Step 1: Create statement query
+            Console.WriteLine($@"Executing query: {query}");
+            var updateRequestCommand = new ActionCreatePreparedStatementRequest { Query = query };
+            byte[] serializedUpdateRequestCommand = updateRequestCommand.PackAndSerialize();
+            var action = new FlightAction(SqlAction.CreateRequest, serializedUpdateRequestCommand);
+            var call = _client.DoAction(action, options.Headers);
+            long affectedRows = 0;
+            await foreach (var result in call.ResponseStream.ReadAllAsync())
+            {
+                var preparedStatementResponse =
+                    FlightSqlUtils.ParseAndUnpack<ActionCreatePreparedStatementResult>(result.Body);
+
+                var command = new CommandPreparedStatementQuery
+                {
+                    PreparedStatementHandle = preparedStatementResponse.PreparedStatementHandle
+                };
+
+                var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
+                var flightInfo = await GetFlightInfoAsync(options, descriptor);
+
+                var doGetResult = DoGetAsync(options, flightInfo.Endpoints[0].Ticket);
+                await foreach (var recordBatch in doGetResult)
+                {
+                    Console.WriteLine(recordBatch);
+                    Interlocked.Increment(ref affectedRows);
+                }
+            }
+
+            return affectedRows;
+        }
+        catch (RpcException ex)
+        {
+            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
+            throw new InvalidOperationException("Failed to execute update query", ex);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($@"Unexpected Error: {ex.Message}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Asynchronously retrieves flight information for a given flight descriptor.
+    /// </summary>
+    /// <param name="options">RPC-layer hints for this call.</param>
+    /// <param name="descriptor">The descriptor of the dataset request, whether a named dataset or a command.</param>
+    /// <returns>A task that represents the asynchronous operation. The task result contains the FlightInfo describing where to access the dataset.</returns>
+    public async Task<FlightInfo> GetFlightInfoAsync(FlightCallOptions options, FlightDescriptor descriptor)
+    {
+        if (descriptor is null)
+        {
+            throw new ArgumentNullException(nameof(descriptor));
+        }
+
+        try
+        {
+            var flightInfoCall = _client.GetInfo(descriptor, options.Headers);
+            var flightInfo = await flightInfoCall.ResponseAsync.ConfigureAwait(false);
+            return flightInfo;
+        }
+        catch (RpcException ex)
+        {
+            // Handle gRPC exceptions
+            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
+            throw new InvalidOperationException("Failed to get flight info", ex);
+        }
+        catch (Exception ex)
+        {
+            // Handle other exceptions
+            Console.WriteLine($@"Unexpected Error: {ex.Message}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Asynchronously retrieves flight information for a given flight descriptor.
+    /// </summary>
+    /// <param name="descriptor">The descriptor of the dataset request, whether a named dataset or a command.</param>
+    /// <returns>A task that represents the asynchronous operation. The task result contains the FlightInfo describing where to access the dataset.</returns>
+    public Task<FlightInfo> GetFlightInfoAsync(FlightDescriptor descriptor)
+    {
+        var options = new FlightCallOptions();
+        return GetFlightInfoAsync(options, descriptor);
+    }
+
+    /// <summary>
+    /// Perform the indicated action, returning an iterator to the stream of results, if any.
+    /// </summary>
+    /// <param name="options">Per-RPC options</param>
+    /// <param name="action">The action to be performed</param>
+    /// <returns>An async enumerable of results</returns>
+    public async IAsyncEnumerable<FlightResult> DoActionAsync(FlightCallOptions options, FlightAction action)
+    {
+        if (options is null)
+            throw new ArgumentNullException(nameof(options));
+
+        if (action is null)
+            throw new ArgumentNullException(nameof(action));
+
+        var call = _client.DoAction(action, options.Headers);
+
+        await foreach (var result in call.ResponseStream.ReadAllAsync())
+        {
+            yield return result;
+        }
+    }
+
+    /// <summary>
+    /// Perform the indicated action with default options, returning an iterator to the stream of results, if any.
+    /// </summary>
+    /// <param name="action">The action to be performed</param>
+    /// <returns>An async enumerable of results</returns>
+    public async IAsyncEnumerable<FlightResult> DoActionAsync(FlightAction action)
+    {
+        await foreach (var result in DoActionAsync(new FlightCallOptions(), action))
+        {
+            yield return result;
+        }
+    }
+
+    /// <summary>
+    /// Get the result set schema from the server for the given query.
+    /// </summary>
+    /// <param name="options">Per-RPC options</param>
+    /// <param name="query">The UTF8-encoded SQL query</param>
+    /// <param name="transaction">A transaction to associate this query with</param>
+    /// <returns>The SchemaResult describing the schema of the result set</returns>
+    public async Task<Schema> GetExecuteSchemaAsync(FlightCallOptions options, string query,
+        Transaction? transaction = null)
+    {
+        transaction ??= NoTransaction();
+
+        if (options is null)
+            throw new ArgumentNullException(nameof(options));
+
+        if (string.IsNullOrEmpty(query))
+            throw new ArgumentException($"Query cannot be null or empty: {nameof(query)}");
+
+        FlightInfo schemaResult = null!;
+        try
+        {
+            var prepareStatementRequest = new ActionCreatePreparedStatementRequest { Query = query };
+            var action = new FlightAction(SqlAction.CreateRequest, prepareStatementRequest.PackAndSerialize());
+            var call = _client.DoAction(action, options.Headers);
+
+            // Process the response
+            await foreach (var result in call.ResponseStream.ReadAllAsync())
+            {
+                var preparedStatementResponse =
+                    FlightSqlUtils.ParseAndUnpack<ActionCreatePreparedStatementResult>(result.Body);
+                var commandSqlCall = new CommandPreparedStatementQuery
+                {
+                    PreparedStatementHandle = preparedStatementResponse.PreparedStatementHandle
+                };
+                byte[] commandSqlCallPackedAndSerialized = commandSqlCall.PackAndSerialize();
+                var descriptor = FlightDescriptor.CreateCommandDescriptor(commandSqlCallPackedAndSerialized);
+                schemaResult = await GetFlightInfoAsync(options, descriptor);
+            }
+
+            return schemaResult.Schema;
+        }
+        catch (RpcException ex)
+        {
+            // Handle gRPC exceptions
+            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
+            throw new InvalidOperationException("Failed to get execute schema", ex);
+        }
+        catch (Exception ex)
+        {
+            // Handle other exceptions
+            Console.WriteLine($@"Unexpected Error: {ex.Message}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Request a list of catalogs.
+    /// </summary>
+    /// <param name="options">RPC-layer hints for this call.</param>
+    /// <returns>The FlightInfo describing where to access the dataset.</returns>
+    public async Task<FlightInfo> GetCatalogs(FlightCallOptions options)
+    {
+        if (options == null)
+        {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        try
+        {
+            var command = new CommandGetCatalogs();
+            var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
+            var catalogsInfo = await GetFlightInfoAsync(options, descriptor);
+            return catalogsInfo;
+        }
+        catch (RpcException ex)
+        {
+            Console.WriteLine($@"gRPC Error: {ex.Status}");
+            throw new InvalidOperationException("Failed to get catalogs", ex);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($@"Unexpected Error: {ex.Message}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Get the catalogs schema from the server.
+    /// </summary>
+    /// <param name="options">RPC-layer hints for this call.</param>
+    /// <returns>The SchemaResult describing the schema of the catalogs.</returns>
+    public async Task<Schema> GetCatalogsSchema(FlightCallOptions options)
+    {
+        if (options == null)
+        {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        try
+        {
+            var commandGetCatalogsSchema = new CommandGetCatalogs();
+            var descriptor = FlightDescriptor.CreateCommandDescriptor(commandGetCatalogsSchema.PackAndSerialize());
+            var schemaResult = await GetSchemaAsync(options, descriptor);
+            return schemaResult;
+        }
+        catch (RpcException ex)
+        {
+            Console.WriteLine($@"gRPC Error: {ex.Status}");
+            throw new InvalidOperationException("Failed to get catalogs schema", ex);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($@"Unexpected Error: {ex.Message}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Asynchronously retrieves schema information for a given flight descriptor.
+    /// </summary>
+    /// <param name="options">RPC-layer hints for this call.</param>
+    /// <param name="descriptor">The descriptor of the dataset request, whether a named dataset or a command.</param>
+    /// <returns>A task that represents the asynchronous operation. The task result contains the SchemaResult describing the dataset schema.</returns>
+    public async Task<Schema> GetSchemaAsync(FlightCallOptions options, FlightDescriptor descriptor)
+    {
+        if (descriptor is null)
+        {
+            throw new ArgumentNullException(nameof(descriptor));
+        }
+
+        try
+        {
+            var schemaResultCall = _client.GetSchema(descriptor, options.Headers);
+            var schemaResult = await schemaResultCall.ResponseAsync.ConfigureAwait(false);
+            return schemaResult;
+        }
+        catch (RpcException ex)
+        {
+            // Handle gRPC exceptions
+            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
+            throw new InvalidOperationException("Failed to get schema", ex);
+        }
+        catch (Exception ex)
+        {
+            // Handle other exceptions
+            Console.WriteLine($@"Unexpected Error: {ex.Message}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Asynchronously retrieves schema information for a given flight descriptor.
+    /// </summary>
+    /// <param name="descriptor">The descriptor of the dataset request, whether a named dataset or a command.</param>
+    /// <returns>A task that represents the asynchronous operation. The task result contains the SchemaResult describing the dataset schema.</returns>
+    public Task<Schema> GetSchemaAsync(FlightDescriptor descriptor)
+    {
+        var options = new FlightCallOptions();
+        return GetSchemaAsync(options, descriptor);
+    }
+
+    /// <summary>
+    /// Request a list of database schemas.
+    /// </summary>
+    /// <param name="options">RPC-layer hints for this call.</param>
+    /// <param name="catalog">The catalog.</param>
+    /// <param name="dbSchemaFilterPattern">The schema filter pattern.</param>
+    /// <returns>The FlightInfo describing where to access the dataset.</returns>
+    public async Task<FlightInfo> GetDbSchemasAsync(FlightCallOptions options, string? catalog = null,
+        string? dbSchemaFilterPattern = null)
+    {
+        if (options == null)
+        {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        try
+        {
+            var command = new CommandGetDbSchemas();
+
+            if (catalog != null)
+            {
+                command.Catalog = catalog;
+            }
+
+            if (dbSchemaFilterPattern != null)
+            {
+                command.DbSchemaFilterPattern = dbSchemaFilterPattern;
+            }
+
+            byte[] serializedAndPackedCommand = command.PackAndSerialize();
+            var descriptor = FlightDescriptor.CreateCommandDescriptor(serializedAndPackedCommand);
+            var flightInfoCall = GetFlightInfoAsync(options, descriptor);
+            var flightInfo = await flightInfoCall.ConfigureAwait(false);
+
+            return flightInfo;
+        }
+        catch (RpcException ex)
+        {
+            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
+            throw new InvalidOperationException("Failed to get database schemas", ex);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($@"Unexpected Error: {ex.Message}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Get the database schemas schema from the server.
+    /// </summary>
+    /// <param name="options">RPC-layer hints for this call.</param>
+    /// <returns>The SchemaResult describing the schema of the database schemas.</returns>
+    public async Task<Schema> GetDbSchemasSchemaAsync(FlightCallOptions options)
+    {
+        if (options == null)
+        {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        try
+        {
+            var command = new CommandGetDbSchemas();
+            var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
+
+            var schemaResultCall = _client.GetSchema(descriptor, options.Headers);
+            var schemaResult = await schemaResultCall.ResponseAsync.ConfigureAwait(false);
+
+            return schemaResult;
+        }
+        catch (RpcException ex)
+        {
+            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
+            throw new InvalidOperationException("Failed to get database schemas schema", ex);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($@"Unexpected Error: {ex.Message}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Given a flight ticket and schema, request to be sent the stream. Returns record batch stream reader.
+    /// </summary>
+    /// <param name="options">Per-RPC options</param>
+    /// <param name="ticket">The flight ticket to use</param>
+    /// <returns>The returned RecordBatchReader</returns>
+    public async IAsyncEnumerable<RecordBatch> DoGetAsync(FlightCallOptions options, FlightTicket ticket)
+    {
+        if (options == null)
+        {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        if (ticket == null)
+        {
+            throw new ArgumentNullException(nameof(ticket));
+        }
+
+        var call = _client.GetStream(ticket, options.Headers);
+        await foreach (var recordBatch in call.ResponseStream.ReadAllAsync())
+        {
+            yield return recordBatch;
+        }
+    }
+
+    /// <summary>
+    /// Upload data to a Flight described by the given descriptor. The caller must call Close() on the returned stream
+    /// once they are done writing.
+    /// </summary>
+    /// <param name="options">RPC-layer hints for this call.</param>
+    /// <param name="descriptor">The descriptor of the stream.</param>
+    /// <param name="schema">The schema for the data to upload.</param>
+    /// <returns>A Task representing the asynchronous operation. The task result contains a DoPutResult struct holding a reader and a writer.</returns>
+    public Task<DoPutResult> DoPut(FlightCallOptions options, FlightDescriptor descriptor, Schema schema)
+    {
+        if (descriptor is null)
+            throw new ArgumentNullException(nameof(descriptor));
+
+        if (schema is null)
+            throw new ArgumentNullException(nameof(schema));
+        try
+        {
+            var doPutResult = _client.StartPut(descriptor, options.Headers);
+            // Get the writer and reader
+            var writer = doPutResult.RequestStream;
+            var reader = doPutResult.ResponseStream;
+
+            // TODO: After Re-Check it with Jeremy
+            // Create an empty RecordBatch to begin the writer with the schema
+            // var emptyRecordBatch = new RecordBatch(schema, new List<IArrowArray>(), 0);
+            // await writer.WriteAsync(emptyRecordBatch);
+
+            // Begin the writer with the schema
+            return Task.FromResult(new DoPutResult(writer, reader));
+        }
+        catch (RpcException ex)
+        {
+            // Handle gRPC exceptions
+            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
+            throw new InvalidOperationException("Failed to perform DoPut operation", ex);
+        }
+        catch (Exception ex)
+        {
+            // Handle other exceptions
+            Console.WriteLine($@"Unexpected Error: {ex.Message}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Upload data to a Flight described by the given descriptor. The caller must call Close() on the returned stream
+    /// once they are done writing. Uses default options.
+    /// </summary>
+    /// <param name="descriptor">The descriptor of the stream.</param>
+    /// <param name="schema">The schema for the data to upload.</param>
+    /// <returns>A Task representing the asynchronous operation. The task result contains a DoPutResult struct holding a reader and a writer.</returns>
+    public Task<DoPutResult> DoPutAsync(FlightDescriptor descriptor, Schema schema)
+    {
+        return DoPut(new FlightCallOptions(), descriptor, schema);
+    }
+
+    /// <summary>
+    /// Request the primary keys for a table.
+    /// </summary>
+    /// <param name="options">RPC-layer hints for this call.</param>
+    /// <param name="tableRef">The table reference.</param>
+    /// <returns>The FlightInfo describing where to access the dataset.</returns>
+    public async Task<FlightInfo> GetPrimaryKeys(FlightCallOptions options, TableRef tableRef)
+    {
+        if (tableRef == null)
+            throw new ArgumentNullException(nameof(tableRef));
+
+        try
+        {
+            var getPrimaryKeysRequest = new CommandGetPrimaryKeys
+            {
+                Catalog = tableRef.Catalog ?? string.Empty,
+                DbSchema = tableRef.DbSchema,
+                Table = tableRef.Table
+            };
+            var action = new FlightAction("GetPrimaryKeys", getPrimaryKeysRequest.PackAndSerialize());
+            var doActionResult = DoActionAsync(options, action);
+
+            await foreach (var result in doActionResult)
+            {
+                var getPrimaryKeysResponse =
+                    result.Body.ParseAndUnpack<ActionCreatePreparedStatementResult>();
+                var command = new CommandPreparedStatementQuery
+                {
+                    PreparedStatementHandle = getPrimaryKeysResponse.PreparedStatementHandle
+                };
+
+                var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
+                var flightInfo = await GetFlightInfoAsync(options, descriptor);
+                return flightInfo;
+            }
+            throw new InvalidOperationException("Failed to retrieve primary keys information.");
+
+        }
+        catch (RpcException ex)
+        {
+            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
+            throw new InvalidOperationException("Failed to get primary keys", ex);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($@"Unexpected Error: {ex.Message}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Request a list of tables.
+    /// </summary>
+    /// <param name="options">RPC-layer hints for this call.</param>
+    /// <param name="catalog">The catalog.</param>
+    /// <param name="dbSchemaFilterPattern">The schema filter pattern.</param>
+    /// <param name="tableFilterPattern">The table filter pattern.</param>
+    /// <param name="includeSchema">True to include the schema upon return, false to not include the schema.</param>
+    /// <param name="tableTypes">The table types to include.</param>
+    /// <returns>The FlightInfo describing where to access the dataset.</returns>
+    public async Task<IEnumerable<FlightInfo>> GetTablesAsync(FlightCallOptions options,
+        string? catalog = null,
+        string? dbSchemaFilterPattern = null,
+        string? tableFilterPattern = null,
+        bool includeSchema = false,
+        IEnumerable<string>? tableTypes = null)
+    {
+        if (options == null)
+            throw new ArgumentNullException(nameof(options));
+
+        var command = new CommandGetTables
+        {
+            Catalog = catalog ?? string.Empty,
+            DbSchemaFilterPattern = dbSchemaFilterPattern ?? string.Empty,
+            TableNameFilterPattern = tableFilterPattern ?? string.Empty,
+            IncludeSchema = includeSchema
+        };
+        command.TableTypes.AddRange(tableTypes);
+
+        var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
+        var flightInfoCall = GetFlightInfoAsync(options, descriptor);
+        var flightInfo = await flightInfoCall.ConfigureAwait(false);
+        var flightInfos = new List<FlightInfo> { flightInfo };
+
+        return flightInfos;
+    }
+
+
+    /// <summary>
+    /// Execute a bulk ingestion to the server.
+    /// </summary>
+    /// <param name="options">RPC-layer hints for this call.</param>
+    /// <param name="reader">The records to ingest.</param>
+    /// <param name="tableDefinitionOptions">The behavior for handling the table definition.</param>
+    /// <param name="table">The destination table to load into.</param>
+    /// <param name="schema">The DB schema of the destination table.</param>
+    /// <param name="catalog">The catalog of the destination table.</param>
+    /// <param name="temporary">Use a temporary table.</param>
+    /// <param name="transaction">Ingest as part of this transaction.</param>
+    /// <param name="ingestOptions">Additional, backend-specific options.</param>
+    /// <returns>The number of rows ingested to the server.</returns>
+    public async Task<long> ExecuteIngestAsync(FlightCallOptions options, FlightClientRecordBatchStreamReader reader,
+        CommandStatementIngest.Types.TableDefinitionOptions tableDefinitionOptions, string table, string? schema = null,
+        string? catalog = null, bool temporary = false, Transaction? transaction = null,
+        Dictionary<string, string>? ingestOptions = null)
+    {
+        transaction ??= NoTransaction();
+
+        if (options == null)
+        {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        if (reader == null)
+        {
+            throw new ArgumentNullException(nameof(reader));
+        }
+
+        var ingestRequest = new CommandStatementIngest
+        {
+            Table = table,
+            Schema = schema ?? string.Empty,
+            Catalog = catalog ?? string.Empty,
+            Temporary = temporary,
+            // TransactionId = transaction?.TransactionId,
+            TableDefinitionOptions = tableDefinitionOptions,
+        };
+
+        if (ingestOptions != null)
+        {
+            foreach (var option in ingestOptions)
+            {
+                ingestRequest.Options.Add(option.Key, option.Value);
+            }
+        }
+
+        var action = new FlightAction(SqlAction.CreateRequest, ingestRequest.PackAndSerialize());
+        var call = _client.DoAction(action, options.Headers);
+
+        long ingestedRows = 0;
+        await foreach (var result in call.ResponseStream.ReadAllAsync())
+        {
+            var response = result.Body.ParseAndUnpack<ActionCreatePreparedStatementResult>();
+        }
+        return ingestedRows;
+    }
+
+
+}
+
+internal static class FlightDescriptorExtensions
+{
+    public static byte[] PackAndSerialize(this IMessage command)
+    {
+        return Any.Pack(command).Serialize().ToByteArray();
+    }
+
+    public static T ParseAndUnpack<T>(this ByteString body) where T : IMessage<T>, new()
+    {
+        return Any.Parser.ParseFrom(body).Unpack<T>();
+    }
+}

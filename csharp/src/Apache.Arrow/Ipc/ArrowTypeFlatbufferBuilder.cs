@@ -304,7 +304,7 @@ namespace Apache.Arrow.Ipc
                 // type in the DictionaryEncoding metadata in the parent field
                 type.ValueType.Accept(this);
             }
-            
+
             public void Visit(FixedSizeBinaryType type)
             {
                 Result = FieldType.Build(
