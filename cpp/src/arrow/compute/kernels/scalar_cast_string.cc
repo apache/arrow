@@ -470,24 +470,42 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
   auto data_buffer = input.GetBuffer(1);
   const auto* data = data_buffer->data();
 
+  // Check against offset overflow
+  if (total_length > 0) {
+    const int64_t max_data_offset = (total_length - 1) * fixed_size_width;
+    if (ARROW_PREDICT_FALSE(max_data_offset > std::numeric_limits<int32_t>::max())) {
+      // A more complicated loop could work by slicing the data buffer into
+      // more than one variadic buffer, but this is probably overkill for now
+      // before someone hits this problem in practice.
+      return Status::Invalid("Failed casting from ", input.type->ToString(), " to ",
+                             output->type->ToString(),
+                             ": input array too large for efficient conversion.");
+    }
+  }
+
+  // Inline string and non-inline string loops
   if (fixed_size_width <= BinaryViewType::kInlineSize) {
-    for (int64_t i = 0, data_offset = input.offset * fixed_size_width; i < input.length;
-         i++, data_offset += fixed_size_width) {
+    int32_t data_offset = static_cast<int32_t>(input.offset) * fixed_size_width;
+    for (int64_t i = 0; i < input.length; i++) {
       auto& out_view = out_views[i];
       out_view.inlined.size = fixed_size_width;
       memcpy(out_view.inlined.data.data(), data + data_offset, fixed_size_width);
+      data_offset += fixed_size_width;
     }
   } else {
-    for (int64_t i = 0, data_offset = input.offset * fixed_size_width; i < input.length;
-         i++, data_offset += fixed_size_width) {
+    // We share the fixed-size string array data buffer as variadic data
+    // buffer 0 (index=2+0) and set every buffer_index to 0.
+    output->buffers[2] = std::move(data_buffer);
+    int32_t data_offset = static_cast<int32_t>(input.offset) * fixed_size_width;
+    for (int64_t i = 0; i < input.length; i++) {
       auto& out_view = out_views[i];
       out_view.ref.size = fixed_size_width;
       memcpy(out_view.ref.prefix.data(), data + data_offset, BinaryViewType::kPrefixSize);
+      // (buffer_index is 0'd by the memset of the buffer 1 above)
       // out_view.ref.buffer_index = 0;
       out_view.ref.offset = static_cast<int32_t>(data_offset);
-      // TODO(felipecrv): validate data_offsets can't overflow
+      data_offset += fixed_size_width;
     }
-    output->buffers[2] = std::move(data_buffer);
   }
   return Status::OK();
 }
