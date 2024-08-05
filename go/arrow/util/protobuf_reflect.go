@@ -104,8 +104,30 @@ func (pfr *ProtobufFieldReflection) name() string {
 	return pfr.fieldNameFormatter(string(pfr.descriptor.Name()))
 }
 
-func arrowTypeByProtoReflectKind(k protoreflect.Kind) arrow.Type {
-	switch k {
+func (pfr *ProtobufFieldReflection) arrowType() arrow.Type {
+	if pfr.isOneOf() && pfr.schemaOptions.oneOfHandler == OneOfDenseUnion {
+		return arrow.DENSE_UNION
+	}
+	if pfr.isEnum() {
+		switch pfr.enumHandler {
+		case EnumNumber:
+			return arrow.INT32
+		case EnumValue:
+			return arrow.STRING
+		case EnumDictionary:
+			return arrow.DICTIONARY
+		}
+	}
+	if pfr.isStruct() {
+		return arrow.STRUCT
+	}
+	if pfr.isMap() {
+		return arrow.MAP
+	}
+	if pfr.isList() {
+		return arrow.LIST
+	}
+	switch pfr.descriptor.Kind() {
 	case protoreflect.Int32Kind:
 		return arrow.INT32
 	case protoreflect.Int64Kind:
@@ -138,32 +160,6 @@ func arrowTypeByProtoReflectKind(k protoreflect.Kind) arrow.Type {
 		return arrow.BOOL
 	}
 	return arrow.NULL
-}
-
-func (pfr *ProtobufFieldReflection) arrowType() arrow.Type {
-	if pfr.isOneOf() && pfr.schemaOptions.oneOfHandler == OneOfDenseUnion {
-		return arrow.DENSE_UNION
-	}
-	if pfr.isEnum() {
-		switch pfr.enumHandler {
-		case EnumNumber:
-			return arrow.INT32
-		case EnumValue:
-			return arrow.STRING
-		case EnumDictionary:
-			return arrow.DICTIONARY
-		}
-	}
-	if pfr.isStruct() {
-		return arrow.STRUCT
-	}
-	if pfr.isMap() {
-		return arrow.MAP
-	}
-	if pfr.isList() {
-		return arrow.LIST
-	}
-	return arrowTypeByProtoReflectKind(pfr.descriptor.Kind())
 }
 
 func (pfr *ProtobufFieldReflection) isOneOf() bool {
@@ -691,6 +687,7 @@ func NewProtobufMessageReflection(msg proto.Message, options ...option) *Protobu
 	}
 
 	var fields []ProtobufMessageFieldReflection
+
 	for pfr := range psr.generateFields() {
 		fields = append(fields, ProtobufMessageFieldReflection{
 			parent:             psr,
@@ -747,6 +744,7 @@ func WithEnumHandler(enumHandler ProtobufTypeHandler) option {
 func (f ProtobufMessageFieldReflection) AppendValueOrNull(b array.Builder, mem memory.Allocator) error {
 	pv := f.protoreflectValue()
 	fd := f.GetDescriptor()
+
 	if f.isNull() {
 		b.AppendNull()
 		return nil
