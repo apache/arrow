@@ -210,7 +210,7 @@ public abstract class BaseLargeRepeatedValueViewVector extends BaseValueVector
   }
 
   /**
-   * Specialized version of setInitialTotalCapacity() for ListViewVector. This is used by some
+   * Specialized version of setInitialTotalCapacity() for LargeListViewVector. This is used by some
    * callers when they want to explicitly control and be conservative about memory allocated for
    * inner data vector. This is very useful when we are working with memory constraints for a query
    * and have a fixed amount of memory reserved for the record batch. In such cases, we are likely

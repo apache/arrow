@@ -55,12 +55,13 @@ import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.TransferPair;
 
 /**
- * A list view vector contains lists of a specific type of elements. Its structure contains 3
+ * A large list view vector contains lists of a specific type of elements. Its structure contains 3
  * elements.
  *
  * <ol>
  *   <li>A validity buffer.
- *   <li>An offset buffer, that denotes lists boundaries.
+ *   <li>An offset buffer, that denotes lists starting positions.
+ *   <li>A size buffer, that denotes sizes of the lists..
  *   <li>A child data vector that contains the elements of lists.
  * </ol>
  *
@@ -137,21 +138,21 @@ public class LargeListViewVector extends BaseLargeRepeatedValueViewVector
   }
 
   /**
-   * Specialized version of setInitialCapacity() for ListViewVector. This is used by some callers
-   * when they want to explicitly control and be conservative about memory allocated for inner data
-   * vector. This is very useful when we are working with memory constraints for a query and have a
-   * fixed amount of memory reserved for the record batch. In such cases, we are likely to face OOM
-   * or related problems when we reserve memory for a record batch with value count x and do
-   * setInitialCapacity(x) such that each vector allocates only what is necessary and not the
+   * Specialized version of setInitialCapacity() for LargeListViewVector. This is used by some
+   * callers when they want to explicitly control and be conservative about memory allocated for
+   * inner data vector. This is very useful when we are working with memory constraints for a query
+   * and have a fixed amount of memory reserved for the record batch. In such cases, we are likely
+   * to face OOM or related problems when we reserve memory for a record batch with value count x
+   * and do setInitialCapacity(x) such that each vector allocates only what is necessary and not the
    * default amount, but the multiplier forces the memory requirement to go beyond what was needed.
    *
    * @param numRecords value count
-   * @param density density of ListViewVector. Density is the average size of a list per position in
-   *     the ListViewVector. For example, a density value of 10 implies each position in the list
-   *     vector has a list of 10 values. A density value of 0.1 implies out of 10 positions in the
-   *     list vector, 1 position has a list of size 1, and the remaining positions are null (no
-   *     lists) or empty lists. This helps in tightly controlling the memory we provision for inner
-   *     data vector.
+   * @param density density of LargeListViewVector. Density is the average size of a list per
+   *     position in the ListViewVector. For example, a density value of 10 implies each position in
+   *     the list vector has a list of 10 values. A density value of 0.1 implies out of 10 positions
+   *     in the list vector, 1 position has a list of size 1, and the remaining positions are null
+   *     (no lists) or empty lists. This helps in tightly controlling the memory we provision for
+   *     inner data vector.
    */
   @Override
   public void setInitialCapacity(int numRecords, double density) {
@@ -160,7 +161,7 @@ public class LargeListViewVector extends BaseLargeRepeatedValueViewVector
   }
 
   /**
-   * Specialized version of setInitialTotalCapacity() for ListViewVector. This is used by some
+   * Specialized version of setInitialTotalCapacity() for LargeListViewVector. This is used by some
    * callers when they want to explicitly control and be conservative about memory allocated for
    * inner data vector. This is very useful when we are working with memory constraints for a query
    * and have a fixed amount of memory reserved for the record batch. In such cases, we are likely
