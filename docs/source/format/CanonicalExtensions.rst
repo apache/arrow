@@ -413,7 +413,7 @@ better zero-copy compatibility with various systems that also store booleans usi
 
 * Description of the serialization:
 
-  No metadata is required to interpret the type. Any metadata present should be ignored.
+  Metadata is an empty string.
 
 =========================
 Community Extension Types
