@@ -288,7 +288,7 @@ Status CastBinaryToBinaryOffsets<int64_t, int32_t>(KernelContext* ctx,
   }
 }
 
-// Span -> Span
+// Offset String -> Offset String
 template <typename O, typename I>
 enable_if_t<is_base_binary_type<I>::value && is_base_binary_type<O>::value, Status>
 BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
@@ -310,7 +310,7 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
       ctx, input, out->array_data().get());
 }
 
-// View -> Span
+// String View -> Offset String
 template <typename O, typename I>
 enable_if_t<is_binary_view_like_type<I>::value && is_base_binary_type<O>::value, Status>
 BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
@@ -346,7 +346,7 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
   return Status::OK();
 }
 
-// Span -> View
+// Offset String -> String View
 template <typename O, typename I>
 enable_if_t<is_base_binary_type<I>::value && is_binary_view_like_type<O>::value, Status>
 BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
@@ -408,7 +408,7 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
   return Status::OK();
 }
 
-// View -> View
+// String View -> String View
 template <typename O, typename I>
 enable_if_t<is_binary_view_like_type<I>::value && is_binary_view_like_type<O>::value,
             Status>
@@ -428,7 +428,7 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
   return ZeroCopyCastExec(ctx, batch, out);
 }
 
-// Fixed -> View
+// Fixed -> String View
 template <typename O, typename I>
 enable_if_t<std::is_same<I, FixedSizeBinaryType>::value &&
                 is_binary_view_like_type<O>::value,
@@ -487,7 +487,7 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
   return Status::OK();
 }
 
-// Fixed -> Span
+// Fixed -> Offset String
 template <typename O, typename I>
 enable_if_t<std::is_same<I, FixedSizeBinaryType>::value && is_base_binary_type<O>::value,
             Status>
@@ -579,7 +579,7 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
   return ZeroCopyCastExec(ctx, batch, out);
 }
 
-// Span | View -> Fixed
+// Offset String | String View -> Fixed
 template <typename O, typename I>
 enable_if_t<(is_base_binary_type<I>::value || is_binary_view_like_type<I>::value) &&
                 std::is_same<O, FixedSizeBinaryType>::value,
