@@ -3200,6 +3200,14 @@ Result<std::shared_ptr<io::OutputStream>> AzureFileSystem::OpenAppendStream(
 }
 
 Result<std::string> AzureFileSystem::PathFromUri(const std::string& uri_string) const {
+  /// We can not use `internal::PathFromUriHelper` here because for Azure we have to
+  /// support different URI schemes where the authority is handled differently.
+  /// Example (both should yield the same path `container/some/path`):
+  ///   - (1) abfss://storageacc.blob.core.windows.net/container/some/path
+  ///   - (2) abfss://acc:pw@container/some/path
+  /// The authority handling is different with these two URIs. (1) requires no prepending
+  /// of the authority to the path, while (2) requires to preprend the authority to the
+  /// path.
   std::string path;
   Uri uri;
   RETURN_NOT_OK(uri.Parse(uri_string));
