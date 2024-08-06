@@ -32,21 +32,17 @@ std::string Bool8Type::ToString(bool show_metadata) const {
   return ss.str();
 }
 
-std::string Bool8Type::Serialize() const {
-  return "";
-}
+std::string Bool8Type::Serialize() const { return ""; }
 
 Result<std::shared_ptr<DataType>> Bool8Type::Deserialize(
     std::shared_ptr<DataType> storage_type, const std::string& serialized_data) const {
   if (storage_type->id() != Type::INT8) {
-    return Status::Invalid("Expected INT8 storage type, got ",
-                           storage_type->ToString());
+    return Status::Invalid("Expected INT8 storage type, got ", storage_type->ToString());
   }
   return bool8();
 }
 
-std::shared_ptr<Array> Bool8Type::MakeArray(
-    std::shared_ptr<ArrayData> data) const {
+std::shared_ptr<Array> Bool8Type::MakeArray(std::shared_ptr<ArrayData> data) const {
   DCHECK_EQ(data->type->id(), Type::EXTENSION);
   DCHECK_EQ("arrow.bool8",
             internal::checked_cast<const ExtensionType&>(*data->type).extension_name());
@@ -57,8 +53,6 @@ Result<std::shared_ptr<DataType>> Bool8Type::Make() {
   return std::make_shared<Bool8Type>();
 }
 
-std::shared_ptr<DataType> bool8() {
-  return std::make_shared<Bool8Type>();
-}
+std::shared_ptr<DataType> bool8() { return std::make_shared<Bool8Type>(); }
 
 }  // namespace arrow::extension

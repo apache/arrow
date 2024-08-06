@@ -33,8 +33,8 @@ class ARROW_EXPORT Bool8Array : public ExtensionArray {
 /// storage type is int8.
 class ARROW_EXPORT Bool8Type : public ExtensionType {
  public:
- /// \brief Construct a Bool8Type.
-  Bool8Type(): ExtensionType(int8()) {}
+  /// \brief Construct a Bool8Type.
+  Bool8Type() : ExtensionType(int8()) {}
 
   std::string extension_name() const override { return "arrow.bool8"; }
   std::string ToString(bool show_metadata = false) const override;
