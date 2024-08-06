@@ -23,8 +23,7 @@ import weakref
 try:
     import numpy as np
 except ImportError:
-    pytest.skip(reason="Failures on test collection due to numpy NOT enabled",
-                allow_module_level=True)
+    np = None
 
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -44,7 +43,6 @@ import pyarrow.compute as pc
     (1, pa.int64(), pa.Int64Scalar),
     (1, pa.uint64(), pa.UInt64Scalar),
     (1.0, None, pa.DoubleScalar),
-    (np.float16(1.0), pa.float16(), pa.HalfFloatScalar),
     (1.0, pa.float32(), pa.FloatScalar),
     (decimal.Decimal("1.123"), None, pa.Decimal128Scalar),
     (decimal.Decimal("1.1234567890123456789012345678901234567890"),
@@ -74,6 +72,37 @@ import pyarrow.compute as pc
     ([('a', 1), ('b', 2)], pa.map_(pa.string(), pa.int8()), pa.MapScalar),
 ])
 def test_basics(value, ty, klass, pickle_module):
+    s = pa.scalar(value, type=ty)
+    s.validate()
+    s.validate(full=True)
+    assert isinstance(s, klass)
+    assert s.as_py() == value
+    assert s == pa.scalar(value, type=ty)
+    assert s != value
+    assert s != "else"
+    assert hash(s) == hash(s)
+    assert s.is_valid is True
+    assert s != None  # noqa: E711
+
+    s = pa.scalar(None, type=s.type)
+    assert s.is_valid is False
+    assert s.as_py() is None
+    assert s != pa.scalar(value, type=ty)
+
+    # test pickle roundtrip
+    restored = pickle_module.loads(pickle_module.dumps(s))
+    assert s.equals(restored)
+
+    # test that scalars are weak-referenceable
+    wr = weakref.ref(s)
+    assert wr() is not None
+    del s
+    assert wr() is None
+
+
+@pytest.mark.numpy
+def test_basics_np_required(pickle_module):
+    value, ty, klass = (np.float16(1.0), pa.float16(), pa.HalfFloatScalar),
     s = pa.scalar(value, type=ty)
     s.validate()
     s.validate(full=True)
@@ -206,14 +235,15 @@ def test_numerics():
     assert str(s) == "1.5"
     assert s.as_py() == 1.5
 
-    # float16
-    s = pa.scalar(np.float16(0.5), type='float16')
-    assert isinstance(s, pa.HalfFloatScalar)
-    # on numpy2 repr(np.float16(0.5)) == "np.float16(0.5)"
-    # on numpy1 repr(np.float16(0.5)) == "0.5"
-    assert repr(s) == f"<pyarrow.HalfFloatScalar: {np.float16(0.5)!r}>"
-    assert str(s) == "0.5"
-    assert s.as_py() == 0.5
+    if np is not None:
+        # float16
+        s = pa.scalar(np.float16(0.5), type='float16')
+        assert isinstance(s, pa.HalfFloatScalar)
+        # on numpy2 repr(np.float16(0.5)) == "np.float16(0.5)"
+        # on numpy1 repr(np.float16(0.5)) == "0.5"
+        assert repr(s) == f"<pyarrow.HalfFloatScalar: {np.float16(0.5)!r}>"
+        assert str(s) == "0.5"
+        assert s.as_py() == 0.5
 
 
 def test_decimal128():
@@ -438,6 +468,7 @@ def test_timestamp_fixed_offset_print():
     assert str(arr[0]) == "1970-01-01 02:00:00+02:00"
 
 
+@pytest.mark.numpy
 def test_duration():
     arr = np.array([0, 3600000000000], dtype='timedelta64[ns]')
 
@@ -563,6 +594,7 @@ def test_list(ty, klass):
         s[2]
 
 
+@pytest.mark.numpy
 @pytest.mark.parametrize('ty', [
     pa.list_(pa.int64()),
     pa.large_list(pa.int64()),
