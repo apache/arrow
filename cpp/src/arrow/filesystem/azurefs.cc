@@ -1044,6 +1044,10 @@ class ObjectAppendStream final : public io::OutputStream {
     return Status::OK();
   }
 
+  std::shared_ptr<ObjectAppendStream> Self() {
+    return std::dynamic_pointer_cast<ObjectAppendStream>(shared_from_this());
+  }
+
   Status Abort() override {
     if (closed_) {
       return Status::OK();
@@ -1079,7 +1083,10 @@ class ObjectAppendStream final : public io::OutputStream {
       RETURN_NOT_OK(WriteBuffer());
     }
 
-    return FlushAsync();
+    return FlushAsync().Then([self = Self()]() {
+      self->block_blob_client_ = nullptr;
+      self->closed_ = true;
+    });
   }
 
   bool closed() const override { return closed_; }
@@ -1112,18 +1119,37 @@ class ObjectAppendStream final : public io::OutputStream {
       return Status::OK();
     }
 
-    auto fut = FlushAsync();
-    RETURN_NOT_OK(fut.status());
+    Future<> pending_blocks_completed;
+    {
+      std::unique_lock<std::mutex> lock(upload_state_->mutex);
+      pending_blocks_completed = upload_state_->pending_blocks_completed;
+    }
 
+    RETURN_NOT_OK(pending_blocks_completed.status());
     std::unique_lock<std::mutex> lock(upload_state_->mutex);
     return CommitBlockList(block_blob_client_, upload_state_->block_ids,
                            commit_block_list_options_);
   }
 
   Future<> FlushAsync() {
-    // Wait for background writes to finish
-    std::unique_lock<std::mutex> lock(upload_state_->mutex);
-    return upload_state_->pending_blocks_completed;
+    RETURN_NOT_OK(CheckClosed("flushAsync"));
+    if (!initialised_) {
+      // If the stream has not been successfully initialized then there is nothing to
+      // flush. This also avoids some unhandled errors when flushing in the destructor.
+      return Status::OK();
+    }
+
+    Future<> pending_blocks_completed;
+    {
+      std::unique_lock<std::mutex> lock(upload_state_->mutex);
+      pending_blocks_completed = upload_state_->pending_blocks_completed;
+    }
+
+    return pending_blocks_completed.Then([self = Self()] {
+      std::unique_lock<std::mutex> lock(self->upload_state_->mutex);
+      return CommitBlockList(self->block_blob_client_, self->upload_state_->block_ids,
+                             self->commit_block_list_options_);
+    });
   }
 
  private:
