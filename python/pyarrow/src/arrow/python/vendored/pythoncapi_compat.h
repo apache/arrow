@@ -9,6 +9,10 @@
 // Latest version:
 // https://raw.githubusercontent.com/python/pythoncapi_compat/master/pythoncapi_compat.h
 //
+// Vendored from git revision:
+// 39e2663e6acc0b68d5dd75bdaad0af33152552ae
+// https://raw.githubusercontent.com/python/pythoncapi-compat/39e2663e6acc0b68d5dd75bdaad0af33152552ae/pythoncapi_compat.h
+//
 // SPDX-License-Identifier: 0BSD
 
 #ifndef PYTHONCAPI_COMPAT
