@@ -561,7 +561,7 @@ public class LargeListViewVector extends BaseLargeRepeatedValueViewVector
       list.add(validityBuffer);
       list.add(offsetBuffer);
       list.add(sizeBuffer);
-      list.addAll(Arrays.asList(vector.getBuffers(false)));
+      list.addAll(Arrays.asList(vector.getBuffers(clear)));
       buffers = list.toArray(new ArrowBuf[list.size()]);
     }
     if (clear) {
