@@ -1058,8 +1058,65 @@ public class RoundtripTest {
   }
 
   @Test
-  public void testSliceVariableWidthViewVector() {
-    // TODO: complete this test and function
+  public void testSliceViewVarCharVector() {
+    try (final ViewVarCharVector vector = new ViewVarCharVector("vu", allocator);
+        ViewVarCharVector target = new ViewVarCharVector("vu", allocator)) {
+      setVector(
+          vector,
+          "foo",
+          "bar",
+          "baz1",
+          "",
+          "baz1234567890123",
+          null,
+          "12312baz",
+          "baz11",
+          "baz22",
+          "baz33");
+      // slice information
+      final int startIndex = 2;
+      final int length = 6;
+      // create a sliced vector manually to mimic C++ slice behavior
+      try (ViewVarCharVector slicedVector =
+          (ViewVarCharVector) getSlicedVector(vector, startIndex, length)) {
+        vector.splitAndTransferTo(startIndex, length, target);
+        assertTrue(roundtrip(slicedVector, ViewVarCharVector.class));
+        assertTrue(VectorEqualsVisitor.vectorEquals(target, slicedVector));
+      }
+    }
+  }
+
+  @Test
+  public void testSliceViewVarBinaryVector() {
+    try (final ViewVarBinaryVector vector = new ViewVarBinaryVector("vz", allocator);
+        ViewVarBinaryVector target = new ViewVarBinaryVector("vz", allocator)) {
+      setVector(
+          vector,
+          new byte[] {0x66, 0x6F, 0x6F}, // "foo"
+          new byte[] {0x62, 0x61, 0x72}, // "bar"
+          new byte[] {0x62, 0x61, 0x7A, 0x31}, // "baz1"
+          new byte[] {}, // empty
+          new byte[] {
+            0x62, 0x61, 0x7A, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x30, 0x31,
+            0x32, 0x33
+          }, // "baz1234567890123"
+          null, // null
+          new byte[] {0x31, 0x32, 0x33, 0x31, 0x32, 0x62, 0x61, 0x7A}, // "12312baz"
+          new byte[] {0x62, 0x61, 0x7A, 0x31, 0x31}, // "baz11"
+          new byte[] {0x62, 0x61, 0x7A, 0x32, 0x32}, // "baz22"
+          new byte[] {0x62, 0x61, 0x7A, 0x33, 0x33} // "baz33"
+          );
+      // slice information
+      final int startIndex = 2;
+      final int length = 6;
+      // create a sliced vector manually to mimic C++ slice behavior
+      try (ViewVarBinaryVector slicedVector =
+          (ViewVarBinaryVector) getSlicedVector(vector, startIndex, length)) {
+        vector.splitAndTransferTo(startIndex, length, target);
+        assertTrue(roundtrip(slicedVector, ViewVarBinaryVector.class));
+        assertTrue(VectorEqualsVisitor.vectorEquals(target, slicedVector));
+      }
+    }
   }
 
   @Test
