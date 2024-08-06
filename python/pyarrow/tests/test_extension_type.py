@@ -1708,6 +1708,7 @@ def test_opaque_type(pickle_module, storage_type, storage):
     inner = arr.cast(storage_type)
     assert inner == storage
 
+
 def test_bool8_type(pickle_module):
     bool8_type = pa.bool8()
     storage_type = pa.int8()
@@ -1744,6 +1745,7 @@ def test_bool8_type(pickle_module):
     inner = arr.cast(storage_type)
     assert inner == storage
 
+
 def test_bool8_to_bool_conversion():
     bool_arr = pa.array([True, False, True, True, None], pa.bool_())
     bool8_arr = pa.ExtensionArray.from_storage(
@@ -1759,33 +1761,38 @@ def test_bool8_to_bool_conversion():
     canonical_bool8_arr = pa.ExtensionArray.from_storage(pa.bool8(), canonical_storage)
     assert bool_arr.cast(pa.bool8()) == canonical_bool8_arr
 
+
 def test_bool8_to_numpy_conversion():
     arr = pa.ExtensionArray.from_storage(
         pa.bool8(),
         pa.array([-1, 0, 1, 2, None], pa.int8()),
     )
 
-    ## cannot zero-copy with nulls
-    with pytest.raises(pa.ArrowInvalid, match="Needed to copy 1 chunks with 1 nulls, but zero_copy_only was True"):
+    # cannot zero-copy with nulls
+    with pytest.raises(
+        pa.ArrowInvalid,
+        match="Needed to copy 1 chunks with 1 nulls, but zero_copy_only was True",
+    ):
         arr.to_numpy()
-    
-    ## nullable conversion possible with a copy, but dest dtype is object
+
+    # nullable conversion possible with a copy, but dest dtype is object
     assert np.array_equal(
         arr.to_numpy(zero_copy_only=False),
         np.array([True, False, True, True, None], dtype=np.object_),
     )
 
-    ## zero-copy possible with non-null array
+    # zero-copy possible with non-null array
     np_arr_no_nulls = np.array([True, False, True, True], dtype=np.bool_)
     arr_no_nulls = pa.ExtensionArray.from_storage(
         pa.bool8(),
         pa.array([-1, 0, 1, 2], pa.int8()),
     )
 
-
     arr_to_np = arr_no_nulls.to_numpy()
     assert np.array_equal(arr_to_np, np_arr_no_nulls)
-    assert arr_to_np.ctypes.data == arr_no_nulls.buffers()[1].address # same underlying buffer
+
+    # same underlying buffer
+    assert arr_to_np.ctypes.data == arr_no_nulls.buffers()[1].address
 
 
 def test_bool8_from_numpy_conversion():
@@ -1797,15 +1804,28 @@ def test_bool8_from_numpy_conversion():
 
     arr_from_np = pa.Bool8Array.from_numpy(np_arr_no_nulls)
     assert arr_from_np == canonical_bool8_arr_no_nulls
-    assert arr_from_np.buffers()[1].address == np_arr_no_nulls.ctypes.data # same underlying buffer
+
+    # same underlying buffer
+    assert arr_from_np.buffers()[1].address == np_arr_no_nulls.ctypes.data
 
     # conversion only valid for 1-D arrays
-    with pytest.raises(ValueError, match="Cannot convert 2-D array to bool8 array"):
-        pa.Bool8Array.from_numpy(np.array([[True, False], [False, True]], dtype=np.bool_))
+    with pytest.raises(
+        ValueError,
+        match="Cannot convert 2-D array to bool8 array",
+    ):
+        pa.Bool8Array.from_numpy(
+            np.array([[True, False], [False, True]], dtype=np.bool_),
+        )
 
-    with pytest.raises(ValueError, match="Cannot convert 0-D array to bool8 array"):
+    with pytest.raises(
+        ValueError,
+        match="Cannot convert 0-D array to bool8 array",
+    ):
         pa.Bool8Array.from_numpy(np.bool_())
 
     # must use compatible storage type
-    with pytest.raises(TypeError, match="Array dtype float64 incompatible with bool8 storage"):
+    with pytest.raises(
+        TypeError,
+        match="Array dtype float64 incompatible with bool8 storage",
+    ):
         pa.Bool8Array.from_numpy(np.array([1, 2, 3], dtype=np.float64))

@@ -25,10 +25,8 @@
 namespace arrow {
 
 TEST(Bool8Type, Basics) {
-  auto type = internal::checked_pointer_cast<extension::Bool8Type>(
-      extension::bool8());
-  auto type2 = internal::checked_pointer_cast<extension::Bool8Type>(
-      extension::bool8());
+  auto type = internal::checked_pointer_cast<extension::Bool8Type>(extension::bool8());
+  auto type2 = internal::checked_pointer_cast<extension::Bool8Type>(extension::bool8());
   ASSERT_EQ("arrow.bool8", type->extension_name());
   ASSERT_EQ(*type, *type);
   ASSERT_NE(*arrow::null(), *type);
@@ -39,8 +37,7 @@ TEST(Bool8Type, Basics) {
 }
 
 TEST(Bool8Type, CreateFromArray) {
-  auto type = internal::checked_pointer_cast<extension::Bool8Type>(
-      extension::bool8());
+  auto type = internal::checked_pointer_cast<extension::Bool8Type>(extension::bool8());
   auto storage = ArrayFromJSON(int8(), "[-1,0,1,2,null]");
   auto array = ExtensionType::WrapArray(type, storage);
   ASSERT_EQ(5, array->length());
@@ -48,30 +45,26 @@ TEST(Bool8Type, CreateFromArray) {
 }
 
 TEST(Bool8Type, Deserialize) {
-  auto type = internal::checked_pointer_cast<extension::Bool8Type>(
-      extension::bool8());
-  ASSERT_OK_AND_ASSIGN(auto deserialized,
-    type->Deserialize(type->storage_type(), ""));
+  auto type = internal::checked_pointer_cast<extension::Bool8Type>(extension::bool8());
+  ASSERT_OK_AND_ASSIGN(auto deserialized, type->Deserialize(type->storage_type(), ""));
   ASSERT_EQ(*type, *deserialized);
   ASSERT_OK_AND_ASSIGN(deserialized,
-    type->Deserialize(type->storage_type(), "doesn't matter"));
+                       type->Deserialize(type->storage_type(), "doesn't matter"));
   ASSERT_EQ(*type, *deserialized);
   ASSERT_NOT_OK(type->Deserialize(uint8(), ""));
   ASSERT_EQ(*type, *deserialized);
 }
 
 TEST(Bool8Type, MetadataRoundTrip) {
-  auto type = internal::checked_pointer_cast<extension::Bool8Type>(
-      extension::bool8());
+  auto type = internal::checked_pointer_cast<extension::Bool8Type>(extension::bool8());
   std::string serialized = type->Serialize();
   ASSERT_OK_AND_ASSIGN(auto deserialized,
-                          type->Deserialize(type->storage_type(), serialized));
+                       type->Deserialize(type->storage_type(), serialized));
   ASSERT_EQ(*type, *deserialized);
 }
 
 TEST(Bool8Type, BatchRoundTrip) {
-  auto type = internal::checked_pointer_cast<extension::Bool8Type>(
-      extension::bool8());
+  auto type = internal::checked_pointer_cast<extension::Bool8Type>(extension::bool8());
   ExtensionTypeGuard guard(type);
 
   auto storage = ArrayFromJSON(int8(), "[-1,0,1,2,null]");
