@@ -4512,6 +4512,22 @@ cdef class Bool8Array(ExtensionArray):
         return _pc().not_equal(self.storage, 0).to_numpy(zero_copy_only=zero_copy_only, writable=writable)
 
     @staticmethod
+    def from_storage(Int8Array storage):
+        """
+        Construct Bool8Array from Int8Array storage.
+
+        Parameters
+        ----------
+        storage : Int8Array
+            The underlying storage for the result array.
+
+        Returns
+        -------
+        bool8_array : Bool8Array
+        """
+        return ExtensionArray.from_storage(bool8(), storage)
+
+    @staticmethod
     def from_numpy(obj):
         """
         Convert numpy array to a bool8 extension array without making a copy.
@@ -4520,6 +4536,10 @@ cdef class Bool8Array(ExtensionArray):
         Parameters
         ----------
         obj : numpy.ndarray
+
+        Returns
+        -------
+        bool8_array : Bool8Array
 
         Examples
         --------
@@ -4541,8 +4561,8 @@ cdef class Bool8Array(ExtensionArray):
         if obj.dtype not in [np.bool_, np.int8]:
             raise TypeError(f"Array dtype {obj.dtype} incompatible with bool8 storage")
 
-        buf = foreign_buffer(obj.ctypes.data, obj.size)
-        return Array.from_buffers(bool8(), obj.size, [None, buf])
+        storage_arr = array(obj.view(np.int8), type=int8())
+        return Bool8Array.from_storage(storage_arr)
 
 
 cdef dict _array_classes = {
