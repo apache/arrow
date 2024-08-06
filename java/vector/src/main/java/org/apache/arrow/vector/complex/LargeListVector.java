@@ -900,7 +900,7 @@ public class LargeListVector extends BaseValueVector
       List<ArrowBuf> list = new ArrayList<>();
       list.add(offsetBuffer);
       list.add(validityBuffer);
-      list.addAll(Arrays.asList(vector.getBuffers(false)));
+      list.addAll(Arrays.asList(vector.getBuffers(clear)));
       buffers = list.toArray(new ArrowBuf[list.size()]);
     }
     if (clear) {

@@ -387,7 +387,7 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
     final List<ArrowBuf> buffers = new ArrayList<>();
 
     for (final ValueVector vector : vectors.values()) {
-      for (final ArrowBuf buf : vector.getBuffers(false)) {
+      for (final ArrowBuf buf : vector.getBuffers(clear)) {
         buffers.add(buf);
         if (clear) {
           buf.getReferenceManager().retain(1);
