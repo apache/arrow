@@ -327,11 +327,15 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
     }
   }
 
+  const int64_t sum_of_binary_view_sizes = util::SumOfBinaryViewSizes(
+      input.GetValues<BinaryViewType::c_type>(1), input.length);
+
   // TODO(GH-43573): A more efficient implementation that copies the validity
   // bitmap all at once is possible, but would mean we don't delegate all the
   // building logic to the ArrayBuilder implementation for the output type.
   OutputBuilderType builder(options.to_type.GetSharedPtr(), ctx->memory_pool());
   RETURN_NOT_OK(builder.Resize(input.length));
+  RETURN_NOT_OK(builder.ReserveData(sum_of_binary_view_sizes));
   arrow::internal::ArraySpanInlineVisitor<I> visitor;
   RETURN_NOT_OK(visitor.VisitStatus(
       input,
