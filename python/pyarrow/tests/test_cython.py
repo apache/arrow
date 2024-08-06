@@ -80,6 +80,8 @@ def check_cython_example_module(mod):
         mod.cast_scalar(scal, pa.list_(pa.int64()))
 
 
+# NumPy is still a required build dependency. It is present in our
+# headers and is required to build for the cython tests.
 @pytest.mark.numpy
 @pytest.mark.cython
 def test_cython_api(tmpdir):
