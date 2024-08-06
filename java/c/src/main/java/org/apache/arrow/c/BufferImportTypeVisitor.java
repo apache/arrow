@@ -304,8 +304,8 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
         importBuffer(type, variadicSizeBufferIndex, variadicSizeBufferCapacity);
 
     ArrowBuf view =
-        importFixedBytes(type, viewBufferIndex, BaseVariableWidthViewVector.ELEMENT_SIZE);
-    buffers.add(maybeImportBitmap(type));
+        importFixedBytesWithOffset(type, viewBufferIndex, BaseVariableWidthViewVector.ELEMENT_SIZE);
+    buffers.add(maybeImportBitmapWithOffset(type));
     buffers.add(view);
 
     // 0th buffer is validity buffer
