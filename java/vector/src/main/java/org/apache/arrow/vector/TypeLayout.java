@@ -121,7 +121,7 @@ public class TypeLayout {
                 List<BufferLayout> vectors =
                     asList(
                         BufferLayout.validityVector(),
-                        BufferLayout.offsetBuffer(),
+                        BufferLayout.largeOffsetBuffer(),
                         BufferLayout.largeSizeBuffer());
                 return new TypeLayout(vectors);
               }

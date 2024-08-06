@@ -61,7 +61,7 @@ import org.apache.arrow.vector.util.TransferPair;
  * <ol>
  *   <li>A validity buffer.
  *   <li>An offset buffer, that denotes lists starting positions.
- *   <li>A size buffer, that denotes sizes of the lists..
+ *   <li>A size buffer, that denotes sizes of the lists.
  *   <li>A child data vector that contains the elements of lists.
  * </ol>
  *
@@ -797,7 +797,7 @@ public class LargeListViewVector extends BaseLargeRepeatedValueViewVector
      * TODO: revisit when 64-bit vectors are supported
      */
     Preconditions.checkArgument(
-        childValueCount <= Integer.MAX_VALUE || childValueCount >= Integer.MIN_VALUE,
+        childValueCount <= Integer.MAX_VALUE && childValueCount >= 0,
         "LargeListViewVector doesn't yet support 64-bit allocations: %s",
         childValueCount);
     vector.setValueCount((int) childValueCount);
