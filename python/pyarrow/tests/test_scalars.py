@@ -102,7 +102,7 @@ def test_basics(value, ty, klass, pickle_module):
 
 @pytest.mark.numpy
 def test_basics_np_required(pickle_module):
-    value, ty, klass = (np.float16(1.0), pa.float16(), pa.HalfFloatScalar),
+    value, ty, klass = np.float16(1.0), pa.float16(), pa.HalfFloatScalar
     s = pa.scalar(value, type=ty)
     s.validate()
     s.validate(full=True)
