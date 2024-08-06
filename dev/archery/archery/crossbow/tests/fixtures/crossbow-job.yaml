@@ -16,8 +16,8 @@ tasks:
     artifacts: []
     params:
       commands:
-      - docker-compose build cpp-cmake32
-      - docker-compose run cpp-cmake32
+      - docker compose build cpp-cmake32
+      - docker compose run cpp-cmake32
     branch: ursabot-1-circle-docker-cpp-cmake32
     commit: a56b077c8d1b891a7935048e5672bf6fc07599ec
     _status: !TaskStatus

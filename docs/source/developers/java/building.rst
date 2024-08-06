@@ -79,7 +79,7 @@ Docker compose
     $ cd arrow/java
     $ export JAVA_HOME=<absolute path to your java home>
     $ java --version
-    $ docker-compose run java
+    $ docker compose run java
 
 Archery
 ~~~~~~~

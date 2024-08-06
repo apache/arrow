@@ -130,12 +130,12 @@ class ComposeConfig:
                 '`x-hierarchy`'.format(name)
             )
 
-        # trigger docker-compose's own validation
+        # trigger docker compose's own validation
         if self.using_docker:
             compose = Docker()
             args = ['compose']
         else:
-            compose = Command('docker-compose')
+            compose = Command('docker compose')
             args = []
         args += ['--file', str(config_path), 'config']
         result = compose.run(*args, env=self.env, check=False,
