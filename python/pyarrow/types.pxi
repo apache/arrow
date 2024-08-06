@@ -1839,12 +1839,15 @@ cdef class FixedShapeTensorType(BaseExtensionType):
 cdef class Bool8Type(BaseExtensionType):
     """
     Concrete class for bool8 extension type.
+
     Bool8 is an alternate representation for boolean
     arrays using 8 bits instead of 1 bit per value. The underlying
     storage type is int8.
+
     Examples
     --------
     Create an instance of bool8 extension type:
+
     >>> import pyarrow as pa
     >>> pa.bool8()
     Bool8Type(extension<arrow.bool8>)
@@ -5306,17 +5309,23 @@ def fixed_shape_tensor(DataType value_type, shape, dim_names=None, permutation=N
 def bool8():
     """
     Create instance of bool8 extension type.
+
     Examples
     --------
     Create an instance of bool8 extension type:
+
     >>> import pyarrow as pa
     >>> type = pa.bool8()
     >>> type
     Bool8Type(extension<arrow.bool8>)
+
     Inspect the data type:
+
     >>> type.storage_type
     DataType(int8)
+
     Create a table with a bool8 array:
+
     >>> arr = [-1, 0, 1, 2, None]
     >>> storage = pa.array(arr, pa.int8())
     >>> other = pa.ExtensionArray.from_storage(type, storage)
@@ -5325,6 +5334,7 @@ def bool8():
     unknown_col: extension<arrow.bool8>
     ----
     unknown_col: [[True, False, True, True, null]]
+
     Returns
     -------
     type : Bool8Type

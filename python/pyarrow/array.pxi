@@ -4479,12 +4479,16 @@ cdef class OpaqueArray(ExtensionArray):
 cdef class Bool8Array(ExtensionArray):
     """
     Concrete class for bool8 extension arrays.
+
     Examples
     --------
     Define the extension type for an bool8 array
+
     >>> import pyarrow as pa
     >>> bool8_type = pa.bool8()
+
     Create an extension array
+
     >>> arr = [-1, 0, 1, 2, None]
     >>> storage = pa.array(arr, pa.int8())
     >>> pa.ExtensionArray.from_storage(bool8_type, storage)

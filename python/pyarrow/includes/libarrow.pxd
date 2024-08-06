@@ -2896,14 +2896,12 @@ cdef extern from "arrow/extension/opaque.h" namespace "arrow::extension" nogil:
 
 
 cdef extern from "arrow/extension/bool8.h" namespace "arrow::extension" nogil:
-    cdef cppclass CBool8Type \
-            " arrow::extension::Bool8Type"(CExtensionType):
+    cdef cppclass CBool8Type" arrow::extension::Bool8Type"(CExtensionType):
 
         @staticmethod
         CResult[shared_ptr[CDataType]] Make()
 
-    cdef cppclass CBool8Array \
-            " arrow::extension::Bool8Array"(CExtensionArray):
+    cdef cppclass CBool8Array" arrow::extension::Bool8Array"(CExtensionArray):
         pass
 
 cdef extern from "arrow/util/compression.h" namespace "arrow" nogil:
