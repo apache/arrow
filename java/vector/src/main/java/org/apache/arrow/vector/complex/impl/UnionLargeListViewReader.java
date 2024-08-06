@@ -16,6 +16,8 @@
  */
 package org.apache.arrow.vector.complex.impl;
 
+import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
+
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.BaseLargeRepeatedValueViewVector;
 import org.apache.arrow.vector.complex.LargeListViewVector;
@@ -33,7 +35,7 @@ public class UnionLargeListViewReader extends AbstractFieldReader {
   private int size;
 
   /**
-   * Constructor for UnionListViewReader.
+   * Constructor for UnionLargeListViewReader.
    *
    * @param vector the vector to read from
    */
@@ -105,7 +107,7 @@ public class UnionLargeListViewReader extends AbstractFieldReader {
     // And, size keeps track of the elements count in the list, so to make sure we traverse
     // the full list, we need to check if the currentOffset is less than the currentOffset + size
     if (currentOffset < currentOffset + size) {
-      data.getReader().setPosition(currentOffset++);
+      data.getReader().setPosition(checkedCastToInt(currentOffset++));
       return true;
     } else {
       return false;

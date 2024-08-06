@@ -112,6 +112,7 @@ import org.apache.arrow.vector.complex.impl.UInt1WriterImpl;
 import org.apache.arrow.vector.complex.impl.UInt2WriterImpl;
 import org.apache.arrow.vector.complex.impl.UInt4WriterImpl;
 import org.apache.arrow.vector.complex.impl.UInt8WriterImpl;
+import org.apache.arrow.vector.complex.impl.UnionLargeListViewWriter;
 import org.apache.arrow.vector.complex.impl.UnionLargeListWriter;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.complex.impl.UnionWriter;
@@ -657,7 +658,7 @@ public class Types {
 
       @Override
       public FieldWriter getNewFieldWriter(ValueVector vector) {
-        return new UnionLargeListWriter((LargeListVector) vector);
+        return new UnionLargeListViewWriter((LargeListViewVector) vector);
       }
     },
     FIXED_SIZE_LIST(null) {

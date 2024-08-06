@@ -26,9 +26,7 @@ import java.util.List;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.BaseLargeRepeatedValueViewVector;
-import org.apache.arrow.vector.complex.LargeListVector;
 import org.apache.arrow.vector.complex.LargeListViewVector;
-import org.apache.arrow.vector.complex.ListViewVector;
 import org.apache.arrow.vector.complex.impl.UnionLargeListViewWriter;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -287,7 +285,7 @@ public class TestLargeListViewVector {
 
       assertEquals(2, largeListViewVector.getValueCount());
 
-      /* get listVector value at index 0 -- the value itself is a listvector */
+      /* get largeListViewVector value at index 0 -- the value itself is a largeListViewVector */
       Object result = largeListViewVector.getObject(0);
       ArrayList<ArrayList<Long>> resultSet = (ArrayList<ArrayList<Long>>) result;
       ArrayList<Long> list;
@@ -307,7 +305,7 @@ public class TestLargeListViewVector {
       assertEquals(Long.valueOf(150), list.get(2));
       assertEquals(Long.valueOf(175), list.get(3));
 
-      /* get listVector value at index 1 -- the value itself is a listvector */
+      /* get largeListViewVector value at index 1 -- the value itself is a largeListViewVector */
       result = largeListViewVector.getObject(1);
       resultSet = (ArrayList<ArrayList<Long>>) result;
 
@@ -335,7 +333,7 @@ public class TestLargeListViewVector {
       /* check underlying offsets */
       final ArrowBuf offsetBuffer = largeListViewVector.getOffsetBuffer();
 
-      /* listVector has 2 lists at index 0 and 3 lists at index 1 */
+      /* largeListViewVector has 2 lists at index 0 and 3 lists at index 1 */
       assertEquals(0, offsetBuffer.getLong(0 * LargeListViewVector.OFFSET_WIDTH));
       assertEquals(2, offsetBuffer.getLong(1 * LargeListViewVector.OFFSET_WIDTH));
     }
@@ -346,27 +344,27 @@ public class TestLargeListViewVector {
     try (LargeListViewVector largeListViewVector =
         LargeListViewVector.empty("sourceVector", allocator)) {
 
-      MinorType listViewType = MinorType.LISTVIEW;
+      MinorType listViewType = MinorType.LARGELISTVIEW;
       MinorType scalarType = MinorType.BIGINT;
 
       largeListViewVector.addOrGetVector(FieldType.nullable(listViewType.getType()));
 
-      ListViewVector innerList1 = (ListViewVector) largeListViewVector.getDataVector();
+      LargeListViewVector innerList1 = (LargeListViewVector) largeListViewVector.getDataVector();
       innerList1.addOrGetVector(FieldType.nullable(listViewType.getType()));
 
-      ListViewVector innerList2 = (ListViewVector) innerList1.getDataVector();
+      LargeListViewVector innerList2 = (LargeListViewVector) innerList1.getDataVector();
       innerList2.addOrGetVector(FieldType.nullable(listViewType.getType()));
 
-      ListViewVector innerList3 = (ListViewVector) innerList2.getDataVector();
+      LargeListViewVector innerList3 = (LargeListViewVector) innerList2.getDataVector();
       innerList3.addOrGetVector(FieldType.nullable(listViewType.getType()));
 
-      ListViewVector innerList4 = (ListViewVector) innerList3.getDataVector();
+      LargeListViewVector innerList4 = (LargeListViewVector) innerList3.getDataVector();
       innerList4.addOrGetVector(FieldType.nullable(listViewType.getType()));
 
-      ListViewVector innerList5 = (ListViewVector) innerList4.getDataVector();
+      LargeListViewVector innerList5 = (LargeListViewVector) innerList4.getDataVector();
       innerList5.addOrGetVector(FieldType.nullable(listViewType.getType()));
 
-      ListViewVector innerList6 = (ListViewVector) innerList5.getDataVector();
+      LargeListViewVector innerList6 = (LargeListViewVector) innerList5.getDataVector();
       innerList6.addOrGetVector(FieldType.nullable(scalarType.getType()));
 
       largeListViewVector.setInitialCapacity(128);
@@ -420,7 +418,7 @@ public class TestLargeListViewVector {
 
       assertEquals(2, largeListViewVector.getValueCount());
 
-      /* get listVector value at index 0 -- the value itself is a listvector */
+      /* get largeListViewVector value at index 0 -- the value itself is a largeListViewVector */
       Object result = largeListViewVector.getObject(0);
       ArrayList<ArrayList<Long>> resultSet = (ArrayList<ArrayList<Long>>) result;
       ArrayList<Long> list;
@@ -438,7 +436,7 @@ public class TestLargeListViewVector {
       assertEquals(Long.valueOf(75), list.get(0));
       assertEquals(Long.valueOf(125), list.get(1));
 
-      /* get listVector value at index 1 -- the value itself is a listvector */
+      /* get largeListViewVector value at index 1 -- the value itself is a largeListViewVector */
       result = largeListViewVector.getObject(1);
       resultSet = (ArrayList<ArrayList<Long>>) result;
 
@@ -462,7 +460,7 @@ public class TestLargeListViewVector {
       /* check underlying offsets */
       final ArrowBuf offsetBuffer = largeListViewVector.getOffsetBuffer();
 
-      /* listVector has 2 lists at index 0 and 3 lists at index 1 */
+      /* largeListViewVector has 2 lists at index 0 and 3 lists at index 1 */
       assertEquals(0, offsetBuffer.getLong(0 * LargeListViewVector.OFFSET_WIDTH));
       assertEquals(2, offsetBuffer.getLong(1 * LargeListViewVector.OFFSET_WIDTH));
     }
@@ -492,7 +490,7 @@ public class TestLargeListViewVector {
 
       largeListViewVector.setValueCount(2);
 
-      /* check listVector contents */
+      /* check largeListViewVector contents */
       Object result = largeListViewVector.getObject(0);
       ArrayList<Long> resultSet = (ArrayList<Long>) result;
       assertEquals(3, resultSet.size());
@@ -532,7 +530,7 @@ public class TestLargeListViewVector {
 
   /*
    * Setting up the buffers directly needs to be validated with the base method used in
-   * the ListVector class where we use the approach of startListView(),
+   * the LargeListViewVector class where we use the approach of startListView(),
    * write to the child vector and endListView().
    * <p>
    * To support this, we have to consider the following scenarios;
@@ -543,7 +541,7 @@ public class TestLargeListViewVector {
    */
 
   /* Setting up buffers directly would require the following steps to be taken
-   * 0. Allocate buffers in listViewVector by calling `allocateNew` method.
+   * 0. Allocate buffers in largeListViewVector by calling `allocateNew` method.
    * 1. Initialize the child vector using `initializeChildrenFromFields` method.
    * 2. Set values in the child vector.
    * 3. Set validity, offset and size buffers using `setValidity`,
@@ -719,7 +717,7 @@ public class TestLargeListViewVector {
 
       assertEquals(2, largeListViewVector.getValueCount());
 
-      /* get listViewVector value at index 0 -- the value itself is a listViewVector */
+      /* get largeListViewVector value at index 0 -- the value itself is a largeListViewVector */
       Object result = largeListViewVector.getObject(0);
       ArrayList<ArrayList<Long>> resultSet = (ArrayList<ArrayList<Long>>) result;
       ArrayList<Long> list;
@@ -739,7 +737,7 @@ public class TestLargeListViewVector {
       assertEquals(Long.valueOf(150), list.get(2));
       assertEquals(Long.valueOf(175), list.get(3));
 
-      /* get listViewVector value at index 1 -- the value itself is a listViewVector */
+      /* get largeListViewVector value at index 1 -- the value itself is a largeListViewVector */
       result = largeListViewVector.getObject(1);
       resultSet = (ArrayList<ArrayList<Long>>) result;
 
@@ -900,11 +898,11 @@ public class TestLargeListViewVector {
     try (LargeListViewVector largeListViewVector =
         LargeListViewVector.empty("sourceVector", allocator)) {
       String emptyListStr = largeListViewVector.getField().toString();
-      assertTrue(emptyListStr.contains(LargeListVector.DATA_VECTOR_NAME));
+      assertTrue(emptyListStr.contains(LargeListViewVector.DATA_VECTOR_NAME));
 
       largeListViewVector.addOrGetVector(FieldType.nullable(MinorType.INT.getType()));
       String emptyVectorStr = largeListViewVector.getField().toString();
-      assertTrue(emptyVectorStr.contains(LargeListVector.DATA_VECTOR_NAME));
+      assertTrue(emptyVectorStr.contains(LargeListViewVector.DATA_VECTOR_NAME));
     }
   }
 
@@ -1105,7 +1103,7 @@ public class TestLargeListViewVector {
   public void testTotalCapacity() {
     final FieldType type = FieldType.nullable(MinorType.INT.getType());
     try (final LargeListViewVector vector =
-        new LargeListViewVector("largelist", allocator, type, null)) {
+        new LargeListViewVector("largelistview", allocator, type, null)) {
       // Force the child vector to be allocated based on the type
       // (this is a bad API: we have to track and repeat the type twice)
       vector.addOrGetVector(type);

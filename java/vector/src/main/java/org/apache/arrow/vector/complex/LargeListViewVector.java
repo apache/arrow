@@ -148,11 +148,11 @@ public class LargeListViewVector extends BaseLargeRepeatedValueViewVector
    *
    * @param numRecords value count
    * @param density density of LargeListViewVector. Density is the average size of a list per
-   *     position in the ListViewVector. For example, a density value of 10 implies each position in
-   *     the list vector has a list of 10 values. A density value of 0.1 implies out of 10 positions
-   *     in the list vector, 1 position has a list of size 1, and the remaining positions are null
-   *     (no lists) or empty lists. This helps in tightly controlling the memory we provision for
-   *     inner data vector.
+   *     position in the LargeListViewVector. For example, a density value of 10 implies each
+   *     position in the list vector has a list of 10 values. A density value of 0.1 implies out of
+   *     10 positions in the list vector, 1 position has a list of size 1, and the remaining
+   *     positions are null (no lists) or empty lists. This helps in tightly controlling the memory
+   *     we provision for inner data vector.
    */
   @Override
   public void setInitialCapacity(int numRecords, double density) {
@@ -362,19 +362,19 @@ public class LargeListViewVector extends BaseLargeRepeatedValueViewVector
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
     throw new UnsupportedOperationException(
-        "LargeListVector does not support getTransferPair(String, BufferAllocator, CallBack) yet");
+        "LargeListViewVector does not support getTransferPair(String, BufferAllocator, CallBack) yet");
   }
 
   @Override
   public TransferPair getTransferPair(Field field, BufferAllocator allocator, CallBack callBack) {
     throw new UnsupportedOperationException(
-        "LargeListVector does not support getTransferPair(Field, BufferAllocator, CallBack) yet");
+        "LargeListViewVector does not support getTransferPair(Field, BufferAllocator, CallBack) yet");
   }
 
   @Override
   public TransferPair makeTransferPair(ValueVector target) {
     throw new UnsupportedOperationException(
-        "LargeListVector does not support makeTransferPair(ValueVector) yet");
+        "LargeListViewVector does not support makeTransferPair(ValueVector) yet");
   }
 
   @Override
@@ -798,7 +798,7 @@ public class LargeListViewVector extends BaseLargeRepeatedValueViewVector
      */
     Preconditions.checkArgument(
         childValueCount <= Integer.MAX_VALUE || childValueCount >= Integer.MIN_VALUE,
-        "LargeListVector doesn't yet support 64-bit allocations: %s",
+        "LargeListViewVector doesn't yet support 64-bit allocations: %s",
         childValueCount);
     vector.setValueCount((int) childValueCount);
   }
@@ -841,7 +841,7 @@ public class LargeListViewVector extends BaseLargeRepeatedValueViewVector
   }
 
   /**
-   * Get the density of this ListVector.
+   * Get the density of this LargeListViewVector.
    *
    * @return density
    */
@@ -853,7 +853,7 @@ public class LargeListViewVector extends BaseLargeRepeatedValueViewVector
     return totalListSize / valueCount;
   }
 
-  /** Validating ListViewVector creation based on the specification guideline. */
+  /** Validating LargeListViewVector creation based on the specification guideline. */
   @Override
   public void validate() {
     for (int i = 0; i < valueCount; i++) {
