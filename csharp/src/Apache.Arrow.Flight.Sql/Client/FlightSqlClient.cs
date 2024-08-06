@@ -570,9 +570,7 @@ public class FlightSqlClient
         {
             var getPrimaryKeysRequest = new CommandGetPrimaryKeys
             {
-                Catalog = tableRef.Catalog ?? string.Empty,
-                DbSchema = tableRef.DbSchema,
-                Table = tableRef.Table
+                Catalog = tableRef.Catalog ?? string.Empty, DbSchema = tableRef.DbSchema, Table = tableRef.Table
             };
             var action = new FlightAction("GetPrimaryKeys", getPrimaryKeysRequest.PackAndSerialize());
             var doActionResult = DoActionAsync(options, action);
@@ -590,8 +588,8 @@ public class FlightSqlClient
                 var flightInfo = await GetFlightInfoAsync(options, descriptor);
                 return flightInfo;
             }
-            throw new InvalidOperationException("Failed to retrieve primary keys information.");
 
+            throw new InvalidOperationException("Failed to retrieve primary keys information.");
         }
         catch (RpcException ex)
         {
@@ -644,6 +642,459 @@ public class FlightSqlClient
 
 
     /// <summary>
+    /// Retrieves a description about the foreign key columns that reference the primary key columns of the given table.
+    /// </summary>
+    /// <param name="options">RPC-layer hints for this call.</param>
+    /// <param name="tableRef">The table reference.</param>
+    /// <returns>The FlightInfo describing where to access the dataset.</returns>
+    public async Task<FlightInfo> GetExportedKeysAsync(FlightCallOptions options, TableRef tableRef)
+    {
+        if (tableRef == null)
+            throw new ArgumentNullException(nameof(tableRef));
+
+        try
+        {
+            var getExportedKeysRequest = new CommandGetExportedKeys
+            {
+                Catalog = tableRef.Catalog ?? string.Empty, DbSchema = tableRef.DbSchema, Table = tableRef.Table
+            };
+
+            var descriptor = FlightDescriptor.CreateCommandDescriptor(getExportedKeysRequest.PackAndSerialize());
+            var flightInfo = await GetFlightInfoAsync(options, descriptor);
+            return flightInfo;
+        }
+        catch (RpcException ex)
+        {
+            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
+            throw new InvalidOperationException("Failed to get exported keys", ex);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($@"Unexpected Error: {ex.Message}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Get the exported keys schema from the server.
+    /// </summary>
+    /// <param name="options">RPC-layer hints for this call.</param>
+    /// <returns>The SchemaResult describing the schema of the exported keys.</returns>
+    public async Task<Schema> GetExportedKeysSchemaAsync(FlightCallOptions options)
+    {
+        if (options == null)
+        {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        try
+        {
+            var commandGetExportedKeysSchema = new CommandGetExportedKeys();
+            var descriptor = FlightDescriptor.CreateCommandDescriptor(commandGetExportedKeysSchema.PackAndSerialize());
+            var schemaResult = await GetSchemaAsync(options, descriptor);
+            return schemaResult;
+        }
+        catch (RpcException ex)
+        {
+            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
+            throw new InvalidOperationException("Failed to get exported keys schema", ex);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($@"Unexpected Error: {ex.Message}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Retrieves the foreign key columns for the given table.
+    /// </summary>
+    /// <param name="options">RPC-layer hints for this call.</param>
+    /// <param name="tableRef">The table reference.</param>
+    /// <returns>The FlightInfo describing where to access the dataset.</returns>
+    public async Task<FlightInfo> GetImportedKeysAsync(FlightCallOptions options, TableRef tableRef)
+    {
+        if (tableRef == null)
+            throw new ArgumentNullException(nameof(tableRef));
+
+        try
+        {
+            var getImportedKeysRequest = new CommandGetImportedKeys
+            {
+                Catalog = tableRef.Catalog ?? string.Empty, DbSchema = tableRef.DbSchema, Table = tableRef.Table
+            };
+
+            var action =
+                new FlightAction("GetImportedKeys",
+                    getImportedKeysRequest.PackAndSerialize()); // check: whether using SqlAction.Enum
+            var doActionResult = DoActionAsync(options, action);
+
+            await foreach (var result in doActionResult)
+            {
+                var getImportedKeysResponse =
+                    result.Body.ParseAndUnpack<ActionCreatePreparedStatementResult>();
+                var command = new CommandPreparedStatementQuery
+                {
+                    PreparedStatementHandle = getImportedKeysResponse.PreparedStatementHandle
+                };
+
+                var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
+                var flightInfo = await GetFlightInfoAsync(options, descriptor);
+                return flightInfo;
+            }
+
+            throw new InvalidOperationException("Failed to retrieve imported keys information.");
+        }
+        catch (RpcException ex)
+        {
+            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
+            throw new InvalidOperationException("Failed to get imported keys", ex);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($@"Unexpected Error: {ex.Message}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Get the imported keys schema from the server.
+    /// </summary>
+    /// <param name="options">RPC-layer hints for this call.</param>
+    /// <returns>The SchemaResult describing the schema of the imported keys.</returns>
+    public async Task<Schema> GetImportedKeysSchemaAsync(FlightCallOptions options)
+    {
+        if (options == null)
+        {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        try
+        {
+            var commandGetImportedKeysSchema = new CommandGetImportedKeys();
+            var descriptor = FlightDescriptor.CreateCommandDescriptor(commandGetImportedKeysSchema.PackAndSerialize());
+            var schemaResult = await GetSchemaAsync(options, descriptor);
+            return schemaResult;
+        }
+        catch (RpcException ex)
+        {
+            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
+            throw new InvalidOperationException("Failed to get imported keys schema", ex);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($@"Unexpected Error: {ex.Message}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Retrieves a description of the foreign key columns in the given foreign key table that reference the primary key or the columns representing a unique constraint of the parent table.
+    /// </summary>
+    /// <param name="options">RPC-layer hints for this call.</param>
+    /// <param name="pkTableRef">The table reference that exports the key.</param>
+    /// <param name="fkTableRef">The table reference that imports the key.</param>
+    /// <returns>The FlightInfo describing where to access the dataset.</returns>
+    public async Task<FlightInfo> GetCrossReferenceAsync(FlightCallOptions options, TableRef pkTableRef,
+        TableRef fkTableRef)
+    {
+        if (pkTableRef == null)
+            throw new ArgumentNullException(nameof(pkTableRef));
+
+        if (fkTableRef == null)
+            throw new ArgumentNullException(nameof(fkTableRef));
+
+        try
+        {
+            var commandGetCrossReference = new CommandGetCrossReference
+            {
+                PkCatalog = pkTableRef.Catalog ?? string.Empty,
+                PkDbSchema = pkTableRef.DbSchema,
+                PkTable = pkTableRef.Table,
+                FkCatalog = fkTableRef.Catalog ?? string.Empty,
+                FkDbSchema = fkTableRef.DbSchema,
+                FkTable = fkTableRef.Table
+            };
+
+            var descriptor = FlightDescriptor.CreateCommandDescriptor(commandGetCrossReference.PackAndSerialize());
+            var flightInfo = await GetFlightInfoAsync(options, descriptor);
+
+            return flightInfo;
+        }
+        catch (RpcException ex)
+        {
+            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
+            throw new InvalidOperationException("Failed to get cross reference", ex);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($@"Unexpected Error: {ex.Message}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Get the cross-reference schema from the server.
+    /// </summary>
+    /// <param name="options">RPC-layer hints for this call.</param>
+    /// <returns>The SchemaResult describing the schema of the cross-reference.</returns>
+    public async Task<Schema> GetCrossReferenceSchemaAsync(FlightCallOptions options)
+    {
+        if (options == null)
+        {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        try
+        {
+            var commandGetCrossReferenceSchema = new CommandGetCrossReference();
+            var descriptor =
+                FlightDescriptor.CreateCommandDescriptor(commandGetCrossReferenceSchema.PackAndSerialize());
+            var schemaResultCall = GetSchemaAsync(options, descriptor);
+            var schemaResult = await schemaResultCall.ConfigureAwait(false);
+
+            return schemaResult;
+        }
+        catch (RpcException ex)
+        {
+            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
+            throw new InvalidOperationException("Failed to get cross-reference schema", ex);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($@"Unexpected Error: {ex.Message}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Request a list of table types.
+    /// </summary>
+    /// <param name="options">RPC-layer hints for this call.</param>
+    /// <returns>The FlightInfo describing where to access the dataset.</returns>
+    public async Task<FlightInfo> GetTableTypesAsync(FlightCallOptions options)
+    {
+        if (options == null)
+        {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        try
+        {
+            var command = new CommandGetTableTypes();
+            var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
+            var flightInfo = await GetFlightInfoAsync(options, descriptor);
+            return flightInfo;
+        }
+        catch (RpcException ex)
+        {
+            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
+            throw new InvalidOperationException("Failed to get table types", ex);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($@"Unexpected Error: {ex.Message}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Get the table types schema from the server.
+    /// </summary>
+    /// <param name="options">RPC-layer hints for this call.</param>
+    /// <returns>The SchemaResult describing the schema of the table types.</returns>
+    public async Task<Schema> GetTableTypesSchemaAsync(FlightCallOptions options)
+    {
+        if (options == null)
+        {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        try
+        {
+            var command = new CommandGetTableTypes();
+            var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
+            var schemaResult = await GetSchemaAsync(options, descriptor);
+            return schemaResult;
+        }
+        catch (RpcException ex)
+        {
+            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
+            throw new InvalidOperationException("Failed to get table types schema", ex);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($@"Unexpected Error: {ex.Message}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Request the information about all the data types supported with filtering by data type.
+    /// </summary>
+    /// <param name="options">RPC-layer hints for this call.</param>
+    /// <param name="dataType">The data type to search for as filtering.</param>
+    /// <returns>The FlightInfo describing where to access the dataset.</returns>
+    public async Task<FlightInfo> GetXdbcTypeInfoAsync(FlightCallOptions options, int dataType)
+    {
+        if (options == null)
+        {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        try
+        {
+            var command = new CommandGetXdbcTypeInfo { DataType = dataType };
+            var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
+            var flightInfo = await GetFlightInfoAsync(options, descriptor);
+            return flightInfo;
+        }
+        catch (RpcException ex)
+        {
+            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
+            throw new InvalidOperationException("Failed to get XDBC type info", ex);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($@"Unexpected Error: {ex.Message}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Request the information about all the data types supported.
+    /// </summary>
+    /// <param name="options">RPC-layer hints for this call.</param>
+    /// <returns>The FlightInfo describing where to access the dataset.</returns>
+    public async Task<FlightInfo> GetXdbcTypeInfoAsync(FlightCallOptions options)
+    {
+        if (options == null)
+        {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        try
+        {
+            var command = new CommandGetXdbcTypeInfo();
+            var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
+            var flightInfo = await GetFlightInfoAsync(options, descriptor);
+            return flightInfo;
+        }
+        catch (RpcException ex)
+        {
+            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
+            throw new InvalidOperationException("Failed to get XDBC type info", ex);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($@"Unexpected Error: {ex.Message}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Get the type info schema from the server.
+    /// </summary>
+    /// <param name="options">RPC-layer hints for this call.</param>
+    /// <returns>The SchemaResult describing the schema of the type info.</returns>
+    public async Task<Schema> GetXdbcTypeInfoSchemaAsync(FlightCallOptions options)
+    {
+        if (options == null)
+        {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        try
+        {
+            var command = new CommandGetXdbcTypeInfo();
+            var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
+            var schemaResult = await GetSchemaAsync(options, descriptor);
+            return schemaResult;
+        }
+        catch (RpcException ex)
+        {
+            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
+            throw new InvalidOperationException("Failed to get XDBC type info schema", ex);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($@"Unexpected Error: {ex.Message}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Request a list of SQL information.
+    /// </summary>
+    /// <param name="options">RPC-layer hints for this call.</param>
+    /// <param name="sqlInfo">The SQL info required.</param>
+    /// <returns>The FlightInfo describing where to access the dataset.</returns>
+    public async Task<FlightInfo> GetSqlInfoAsync(FlightCallOptions options, List<int> sqlInfo)
+    {
+        if (options == null)
+        {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        if (sqlInfo == null || sqlInfo.Count == 0)
+        {
+            throw new ArgumentException("SQL info list cannot be null or empty", nameof(sqlInfo));
+        }
+
+        try
+        {
+            var command = new CommandGetSqlInfo();
+            command.Info.AddRange(sqlInfo.ConvertAll(item => (uint)item));
+            var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
+            var flightInfo = await GetFlightInfoAsync(options, descriptor);
+            return flightInfo;
+        }
+        catch (RpcException ex)
+        {
+            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
+            throw new InvalidOperationException("Failed to get SQL info", ex);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($@"Unexpected Error: {ex.Message}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Get the SQL information schema from the server.
+    /// </summary>
+    /// <param name="options">RPC-layer hints for this call.</param>
+    /// <returns>The SchemaResult describing the schema of the SQL information.</returns>
+    public async Task<Schema> GetSqlInfoSchemaAsync(FlightCallOptions options)
+    {
+        if (options == null)
+        {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        try
+        {
+            var command = new CommandGetSqlInfo();
+            var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
+            var schemaResultCall = _client.GetSchema(descriptor, options.Headers);
+            var schemaResult = await schemaResultCall.ResponseAsync.ConfigureAwait(false);
+
+            return schemaResult;
+        }
+        catch (RpcException ex)
+        {
+            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
+            throw new InvalidOperationException("Failed to get SQL info schema", ex);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($@"Unexpected Error: {ex.Message}");
+            throw;
+        }
+    }
+
+    /// <summary>
     /// Execute a bulk ingestion to the server.
     /// </summary>
     /// <param name="options">RPC-layer hints for this call.</param>
@@ -656,8 +1107,10 @@ public class FlightSqlClient
     /// <param name="transaction">Ingest as part of this transaction.</param>
     /// <param name="ingestOptions">Additional, backend-specific options.</param>
     /// <returns>The number of rows ingested to the server.</returns>
-    public async Task<long> ExecuteIngestAsync(FlightCallOptions options, FlightClientRecordBatchStreamReader reader,
-        CommandStatementIngest.Types.TableDefinitionOptions tableDefinitionOptions, string table, string? schema = null,
+    public async Task<long> ExecuteIngestAsync(FlightCallOptions options,
+        FlightClientRecordBatchStreamReader reader,
+        CommandStatementIngest.Types.TableDefinitionOptions tableDefinitionOptions, string table,
+        string? schema = null,
         string? catalog = null, bool temporary = false, Transaction? transaction = null,
         Dictionary<string, string>? ingestOptions = null)
     {
@@ -699,10 +1152,9 @@ public class FlightSqlClient
         {
             var response = result.Body.ParseAndUnpack<ActionCreatePreparedStatementResult>();
         }
+
         return ingestedRows;
     }
-
-
 }
 
 internal static class FlightDescriptorExtensions

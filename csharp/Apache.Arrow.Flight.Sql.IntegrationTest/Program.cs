@@ -222,6 +222,7 @@ class Program
 
 
             // Call GetTablesAsync method
+            Console.WriteLine("GetTablesAsync:");
             IEnumerable<FlightInfo> tables = await sqlClient.GetTablesAsync(
                 new FlightCallOptions(),
                 catalog: "",
@@ -229,8 +230,6 @@ class Program
                 tableFilterPattern: "SYSDB",
                 includeSchema: true,
                 tableTypes: new List<string> { "TABLE", "VIEW" });
-
-            // Process and print the results
             foreach (var table in tables)
             {
                 Console.WriteLine($"Table URI: {table.Descriptor.Paths}");
@@ -239,12 +238,103 @@ class Program
                     Console.WriteLine($"Endpoint Ticket: {endpoint.Ticket}");
                 }
             }
+
+            var tableRef = new TableRef { Catalog = "", DbSchema = "SYSDB", Table = "Info" };
+
+            // Get exported keys
+            // Console.WriteLine("GetExportedKeysAsync:");
+            // var tableRef = new TableRef { Catalog = "", DbSchema = "SYSDB", Table = "Info" };
+            // var flightInfoExportedKeys = await sqlClient.GetExportedKeysAsync(new FlightCallOptions(), tableRef);
+            // Console.WriteLine("FlightInfo obtained:");
+            // Console.WriteLine($"  FlightDescriptor: {flightInfoExportedKeys.Descriptor}");
+            // Console.WriteLine($"  Total records: {flightInfoExportedKeys.TotalRecords}");
+            // Console.WriteLine($"  Total bytes: {flightInfoExportedKeys.TotalBytes}");
+
+            // Get exported keys schema
+            // var schema = await sqlClient.GetExportedKeysSchemaAsync(new FlightCallOptions());
+            // Console.WriteLine("Schema obtained:");
+            // Console.WriteLine($"  Fields: {string.Join(", ", schema.FieldsList)}");
+
+            // Get imported keys
+            // Console.WriteLine("GetImportedKeys");
+            // var flightInfoGetImportedKeys = sqlClient.GetImportedKeysAsync(new FlightCallOptions(), tableRef);
+            // Console.WriteLine("FlightInfo obtained:");
+            // Console.WriteLine($@"  Location: {flightInfoGetImportedKeys.Result.Endpoints[0]}");
+
+            // Get imported keys schema
+            // Console.WriteLine("GetImportedKeysSchemaAsync:");
+            // var schema = await sqlClient.GetImportedKeysSchemaAsync(new FlightCallOptions());
+            // Console.WriteLine("Imported Keys Schema obtained:");
+            // Console.WriteLine($"Schema Fields: {string.Join(", ", schema.FieldsList)}");
+
+            // Get cross reference
+            // Console.WriteLine("GetCrossReferenceAsync:");
+            // var flightInfoGetCrossReference = await sqlClient.GetCrossReferenceAsync(new FlightCallOptions(), tableRef, new TableRef
+            // {
+            //     Catalog = "catalog2",
+            //     DbSchema = "schema2",
+            //     Table = "table2"
+            // });
+            // Console.WriteLine("Cross Reference Information obtained:");
+            // Console.WriteLine($"Flight Descriptor: {flightInfoGetCrossReference.Descriptor}");
+            // Console.WriteLine($"Endpoints: {string.Join(", ", flightInfoGetCrossReference.Endpoints)}");
+
+            // Get cross-reference schema
+            // Console.WriteLine("GetCrossReferenceSchemaAsync:");
+            // var schema = await sqlClient.GetCrossReferenceSchemaAsync(new FlightCallOptions());
+            // Console.WriteLine("Cross Reference Schema obtained:");
+            // Console.WriteLine($"Schema: {schema}");
+
+
+            // Get table types
+            // Console.WriteLine("GetTableTypesAsync:");
+            // var tableTypesInfo = await sqlClient.GetTableTypesAsync(new FlightCallOptions());
+            // Console.WriteLine("Table Types Info obtained:");
+            // Console.WriteLine($"FlightInfo: {tableTypesInfo}");
+
+            // Get table types schema
+            // Console.WriteLine("GetTableTypesSchemaAsync:");
+            // var tableTypesSchema = await sqlClient.GetTableTypesSchemaAsync(new FlightCallOptions());
+            // Console.WriteLine("Table Types Schema obtained:");
+            // Console.WriteLine($"Schema: {tableTypesSchema}");
+
+            // Get XDBC type info (with DataType)
+            Console.WriteLine("GetXdbcTypeInfoAsync: (With DataType)");
+            var flightInfoGetXdbcTypeInfoWithoutDataType =
+                await sqlClient.GetXdbcTypeInfoAsync(new FlightCallOptions(), 4);
+            Console.WriteLine("XDBC With DataType Info obtained:");
+            Console.WriteLine($"FlightInfo: {flightInfoGetXdbcTypeInfoWithoutDataType}");
+
+            // Get XDBC type info
+            Console.WriteLine("GetXdbcTypeInfoAsync:");
+            var flightInfoGetXdbcTypeInfo = await sqlClient.GetXdbcTypeInfoAsync(new FlightCallOptions());
+            Console.WriteLine("XDBC Type Info obtained:");
+            Console.WriteLine($"FlightInfo: {flightInfoGetXdbcTypeInfo}");
+
+            // Get XDBC type info schema
+            // Console.WriteLine("GetXdbcTypeInfoSchemaAsync:");
+            // var flightInfoGetXdbcTypeSchemaInfo = await sqlClient.GetXdbcTypeInfoSchemaAsync(new FlightCallOptions());
+            // Console.WriteLine("XDBC Type Info obtained:");
+            // Console.WriteLine($"FlightInfo: {flightInfoGetXdbcTypeSchemaInfo}");
+
+            // Get SQL info
+            Console.WriteLine("GetSqlInfoAsync:");
+            // Define SQL info list
+            var sqlInfo = new List<int> { 1, 2, 3 };
+            var flightInfoGetSqlInfo = sqlClient.GetSqlInfoAsync(new FlightCallOptions(), sqlInfo);
+            Console.WriteLine("SQL Info obtained:");
+            Console.WriteLine($"FlightInfo: {flightInfoGetSqlInfo}");
+
+            // Get SQL info schema
+            Console.WriteLine("GetSqlInfoSchemaAsync:");
+            var schema = await sqlClient.GetSqlInfoSchemaAsync(new FlightCallOptions());
+            Console.WriteLine("SQL Info Schema obtained:");
+            Console.WriteLine($"Schema: {schema}");
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error executing query: {ex.Message}");
         }
-
     }
 
     static async Task PutExample(FlightSqlClient client, string query)
@@ -269,7 +359,8 @@ class Program
             {
                 new("id", Int32Type.Default, nullable: false), new("name", StringType.Default, nullable: false)
             };
-            var metadata = new List<KeyValuePair<string, string>> { new("db_name", "SYSDB"), new("table_name", "Info") };
+            var metadata =
+                new List<KeyValuePair<string, string>> { new("db_name", "SYSDB"), new("table_name", "Info") };
             var schema = new Schema(fields, metadata);
             var doPutResult = await client.DoPut(options, descriptor, schema).ConfigureAwait(false);
 
