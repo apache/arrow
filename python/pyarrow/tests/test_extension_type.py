@@ -1829,3 +1829,10 @@ def test_bool8_from_numpy_conversion():
         match="Array dtype float64 incompatible with bool8 storage",
     ):
         pa.Bool8Array.from_numpy(np.array([1, 2, 3], dtype=np.float64))
+
+def test_bool8_scalar():
+    assert pa.ExtensionScalar.from_storage(pa.bool8(), 0).as_py() == False
+    assert pa.ExtensionScalar.from_storage(pa.bool8(), 1).as_py() == True
+    assert pa.ExtensionScalar.from_storage(pa.bool8(), 2).as_py() == True
+    assert pa.ExtensionScalar.from_storage(pa.bool8(), -1).as_py() == True
+    assert pa.ExtensionScalar.from_storage(pa.bool8(), None).as_py() is None
