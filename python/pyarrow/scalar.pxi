@@ -1089,6 +1089,13 @@ cdef class Bool8Scalar(ExtensionScalar):
     Concrete class for bool8 extension scalar.
     """
 
+    def as_py(self):
+        """
+        Return this scalar as a Python object.
+        """
+        py_val = super().as_py()
+        return None if py_val is None else py_val != 0
+
 cdef dict _scalar_classes = {
     _Type_BOOL: BooleanScalar,
     _Type_UINT8: UInt8Scalar,
