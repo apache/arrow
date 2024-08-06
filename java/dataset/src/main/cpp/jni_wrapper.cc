@@ -368,29 +368,104 @@ std::shared_ptr<arrow::Buffer> LoadArrowBufferFromByteBuffer(JNIEnv* env, jobjec
 
 inline bool ParseBool(const std::string& value) { return value == "true" ? true : false; }
 
+inline bool ParseChar(const std::string& key, const std::string& value) {
+  if (value.size() != 1) {
+    JniThrow("Option " + key + " should be a char, but is " + value);
+  }
+  return value.at(0);
+}
+
 /// \brief Construct FragmentScanOptions from config map
 #ifdef ARROW_CSV
-arrow::Result<std::shared_ptr<arrow::dataset::FragmentScanOptions>>
-ToCsvFragmentScanOptions(const std::unordered_map<std::string, std::string>& configs) {
+
+bool SetCsvConvertOptions(arrow::csv::ConvertOptions& options, const std::string& key,
+                          const std::string& value) {
+  if (key == "column_types") {
+    int64_t schema_address = std::stol(value);
+    ArrowSchema* c_schema = reinterpret_cast<ArrowSchema*>(schema_address);
+    auto schema = JniGetOrThrow(arrow::ImportSchema(c_schema));
+    auto& column_types = options.column_types;
+    for (auto field : schema->fields()) {
+      column_types[field->name()] = field->type();
+    }
+  } else if (key == "strings_can_be_null") {
+    options.strings_can_be_null = ParseBool(value);
+  } else if (key == "check_utf8") {
+    options.check_utf8 = ParseBool(value);
+  } else if (key == "null_values") {
+    options.null_values = {value};
+  } else if (key == "true_values") {
+    options.true_values = {value};
+  } else if (key == "false_values") {
+    options.false_values = {value};
+  } else if (key == "quoted_strings_can_be_null") {
+    options.quoted_strings_can_be_null = ParseBool(value);
+  } else if (key == "auto_dict_encode") {
+    options.auto_dict_encode = ParseBool(value);
+  } else if (key == "auto_dict_max_cardinality") {
+    options.auto_dict_max_cardinality = std::stoi(value);
+  } else if (key == "decimal_point") {
+    options.decimal_point = ParseChar(key, value);
+  } else if (key == "include_missing_columns") {
+    options.include_missing_columns = ParseBool(value);
+  } else {
+    return false;
+  }
+  return true;
+}
+
+bool SetCsvParseOptions(arrow::csv::ParseOptions& options, const std::string& key,
+                        const std::string& value) {
+  if (key == "delimiter") {
+    options.delimiter = ParseChar(key, value);
+  } else if (key == "quoting") {
+    options.quoting = ParseBool(value);
+  } else if (key == "quote_char") {
+    options.quote_char = ParseChar(key, value);
+  } else if (key == "double_quote") {
+    options.double_quote = ParseBool(value);
+  } else if (key == "escaping") {
+    options.escaping = ParseBool(value);
+  } else if (key == "escape_char") {
+    options.escape_char = ParseChar(key, value);
+  } else if (key == "newlines_in_values") {
+    options.newlines_in_values = ParseBool(value);
+  } else if (key == "ignore_empty_lines") {
+    options.ignore_empty_lines = ParseBool(value);
+  } else {
+    return false;
+  }
+  return true;
+}
+
+bool SetCsvReadOptions(arrow::csv::ReadOptions& options, const std::string& key,
+                       const std::string& value) {
+  if (key == "use_threads") {
+    options.use_threads = ParseBool(value);
+  } else if (key == "block_size") {
+    options.block_size = std::stoi(value);
+  } else if (key == "skip_rows") {
+    options.skip_rows = std::stoi(value);
+  } else if (key == "skip_rows_after_names") {
+    options.skip_rows_after_names = std::stoi(value);
+  } else if (key == "autogenerate_column_names") {
+    options.autogenerate_column_names = ParseBool(value);
+  } else {
+    return false;
+  }
+  return true;
+}
+
+std::shared_ptr<arrow::dataset::FragmentScanOptions> ToCsvFragmentScanOptions(
+    const std::unordered_map<std::string, std::string>& configs) {
   std::shared_ptr<arrow::dataset::CsvFragmentScanOptions> options =
       std::make_shared<arrow::dataset::CsvFragmentScanOptions>();
-  for (auto const& [key, value] : configs) {
-    if (key == "delimiter") {
-      options->parse_options.delimiter = value.data()[0];
-    } else if (key == "quoting") {
-      options->parse_options.quoting = ParseBool(value);
-    } else if (key == "column_types") {
-      int64_t schema_address = std::stol(value);
-      ArrowSchema* c_schema = reinterpret_cast<ArrowSchema*>(schema_address);
-      ARROW_ASSIGN_OR_RAISE(auto schema, arrow::ImportSchema(c_schema));
-      auto& column_types = options->convert_options.column_types;
-      for (auto field : schema->fields()) {
-        column_types[field->name()] = field->type();
-      }
-    } else if (key == "strings_can_be_null") {
-      options->convert_options.strings_can_be_null = ParseBool(value);
-    } else {
-      return arrow::Status::Invalid("Config " + key + " is not supported.");
+  for (const auto& [key, value] : configs) {
+    bool setValid = SetCsvParseOptions(options->parse_options, key, value) ||
+                    SetCsvConvertOptions(options->convert_options, key, value) ||
+                    SetCsvReadOptions(options->read_options, key, value);
+    if (!setValid) {
+      JniThrow("Config " + key + " is not supported.");
     }
   }
   return options;
