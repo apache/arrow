@@ -17,7 +17,6 @@
 
 #include "arrow/python/benchmark.h"
 #include "arrow/python/helpers.h"
-#include "arrow/python/common.h"
 
 namespace arrow {
 namespace py {
@@ -30,17 +29,7 @@ void Benchmark_PandasObjectIsNull(PyObject* list) {
   }
   Py_ssize_t i, n = PyList_GET_SIZE(list);
   for (i = 0; i < n; i++) {
-    PyObject *item;
-#ifdef Py_GIL_DISABLED
-    item = PyList_GetItemRef(list, i);
-    if (item == NULL) {
-      return;
-    }
-    OwnedRef itemref(item);
-#else
-    item = PyList_GET_ITEM(list, i);
-#endif
-    internal::PandasObjectIsNull(item);
+    internal::PandasObjectIsNull(PyList_GET_ITEM(list, i));
   }
 }
 
