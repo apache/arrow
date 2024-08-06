@@ -1110,9 +1110,8 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       env:
-        ARCHERY_USE_LEGACY_DOCKER_COMPOSE: 1
         UBUNTU: 20.04
-      flags: -e ARROW_SKYHOOK=ON
+      flags: -e ARROW_SKYHOOK=ON -e ARROW_AZURE=OFF -e ARROW_GCS=OFF -e ARROW_S3=OFF -e ARROW_GANDIVA=OFF
       image: ubuntu-cpp
 
 {% for debian_version in ["12"] %}
