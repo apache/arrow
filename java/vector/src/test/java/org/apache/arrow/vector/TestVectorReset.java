@@ -25,6 +25,7 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.ListViewVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
@@ -187,7 +188,10 @@ public class TestVectorReset {
                 "VarList", allocator, FieldType.nullable(MinorType.INT.getType()), null);
         final FixedSizeListVector fixedList =
             new FixedSizeListVector(
-                "FixedList", allocator, FieldType.nullable(new FixedSizeList(2)), null)) {
+                "FixedList", allocator, FieldType.nullable(new FixedSizeList(2)), null);
+        final ListViewVector variableViewList =
+            new ListViewVector(
+                "VarListView", allocator, FieldType.nullable(MinorType.INT.getType()), null)) {
       // ListVector
       variableList.allocateNewSafe();
       variableList.startNewValue(0);
@@ -201,6 +205,13 @@ public class TestVectorReset {
       fixedList.setNull(0);
       fixedList.setValueCount(1);
       resetVectorAndVerify(fixedList, fixedList.getBuffers(false));
+
+      // ListViewVector
+      variableViewList.allocateNewSafe();
+      variableViewList.startNewValue(0);
+      variableViewList.endValue(0, 0);
+      variableViewList.setValueCount(1);
+      resetVectorAndVerify(variableViewList, variableViewList.getBuffers(false));
     }
   }
 
@@ -211,7 +222,10 @@ public class TestVectorReset {
                 "VarList", allocator, FieldType.nullable(MinorType.INT.getType()), null);
         final FixedSizeListVector fixedList =
             new FixedSizeListVector(
-                "FixedList", allocator, FieldType.nullable(new FixedSizeList(2)), null)) {
+                "FixedList", allocator, FieldType.nullable(new FixedSizeList(2)), null);
+        final ListViewVector variableViewList =
+            new ListViewVector(
+                "VarListView", allocator, FieldType.nullable(MinorType.INT.getType()), null)) {
       // ListVector
       variableList.allocateNewSafe();
       variableList.startNewValue(0);
@@ -225,6 +239,13 @@ public class TestVectorReset {
       fixedList.setNull(0);
       fixedList.setValueCount(1);
       resetClearVectorAndVerify(fixedList, fixedList.getBuffers(true));
+
+      // ListViewVector
+      variableViewList.allocateNewSafe();
+      variableViewList.startNewValue(0);
+      variableViewList.endValue(0, 0);
+      variableViewList.setValueCount(1);
+      resetClearVectorAndVerify(variableViewList, variableViewList.getBuffers(true));
     }
   }
 
