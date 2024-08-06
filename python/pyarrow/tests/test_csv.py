@@ -66,7 +66,8 @@ def split_columns(arr, num_cols, num_rows):
 
 
 def make_random_csv(num_cols=2, num_rows=10, linesep='\r\n', write_names=True):
-    arr = [random.randint(0, 1000) for _ in range(num_cols * num_rows)]
+    rnd = random.Random(42)
+    arr = [rnd.randint(0, 1000) for _ in range(num_cols * num_rows)]
     csv = io.StringIO()
     col_names = list(itertools.islice(generate_col_names(), num_cols))
     if write_names:

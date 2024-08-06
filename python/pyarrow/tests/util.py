@@ -109,8 +109,7 @@ def randdecimal(precision, scale):
 
 
 def random_ascii(length):
-    import numpy as np
-    return bytes(np.random.randint(65, 123, size=length, dtype='i1'))
+    return bytes([random.randint(65, 122) for i in range(length)])
 
 
 def rands(nchars):
