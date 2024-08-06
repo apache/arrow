@@ -756,11 +756,18 @@ cdef class FlightEndpoint(_Weakrefable):
 
     @property
     def locations(self):
+        """Get locations where this flight is available."""
         return [Location.wrap(location)
                 for location in self.endpoint.locations]
 
     @property
     def expiration_time(self):
+        """Get the Expiration time of this stream.
+
+        If present, clients may assume they can retry DoGet requests.
+        Otherwise, clients should avoid retrying DoGet requests.
+
+        """
         cdef:
             int64_t time_since_epoch
             const char* UTC = "UTC"
@@ -775,6 +782,7 @@ cdef class FlightEndpoint(_Weakrefable):
 
     @property
     def app_metadata(self):
+        """Get application-defined opaque metadata."""
         return self.endpoint.app_metadata
 
     def serialize(self):
@@ -939,6 +947,7 @@ cdef class FlightInfo(_Weakrefable):
         There is no inherent or required relationship between this and the app_metadata fields in the FlightEndpoints
         or resulting FlightData messages. Since this metadata is application-defined, a given application could define
         there to be a relationship, but there is none required by the spec.
+
         """
         return self.info.get().app_metadata()
 
