@@ -1206,6 +1206,8 @@ class TestConvertDateTimeLikeTypes:
         [True, False, False, True, False, False],
     ])
     def test_pandas_datetime_to_date64(self, mask):
+        if mask:
+            mask = np.array(mask)
         s = pd.to_datetime([
             '2018-05-10T00:00:00',
             '2018-05-11T00:00:00',

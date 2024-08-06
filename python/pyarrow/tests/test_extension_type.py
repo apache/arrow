@@ -1292,7 +1292,7 @@ def test_empty_take():
 ))
 @pytest.mark.parametrize(
     "into", [
-        pytest.param("numpy", marks=pytest.mark.pandas),
+        pytest.param("to_numpy", marks=pytest.mark.numpy),
         pytest.param("to_pandas", marks=pytest.mark.pandas)
     ]
 )
