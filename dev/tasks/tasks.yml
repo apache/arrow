@@ -1565,7 +1565,7 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       env:
-        ARCHERY_USE_DOCKER_CLI: 0
+        #ARCHERY_USE_DOCKER_CLI: 0
         HDFS: "{{ hdfs_version }}"
         PYTHON: "3.10"
       image: conda-python-hdfs
