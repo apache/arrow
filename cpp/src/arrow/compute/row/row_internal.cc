@@ -293,8 +293,10 @@ Status RowTableImpl::ResizeFixedLengthBuffers(int64_t num_extra_rows) {
 }
 
 Status RowTableImpl::ResizeOptionalVaryingLengthBuffer(int64_t num_extra_bytes) {
+  DCHECK(!metadata_.is_fixed_length);
+
   int64_t num_bytes = offsets()[num_rows_];
-  if (bytes_capacity_ >= num_bytes + num_extra_bytes || metadata_.is_fixed_length) {
+  if (bytes_capacity_ >= num_bytes + num_extra_bytes) {
     return Status::OK();
   }
 
@@ -397,7 +399,9 @@ Status RowTableImpl::AppendSelectionFrom(const RowTableImpl& from,
 Status RowTableImpl::AppendEmpty(uint32_t num_rows_to_append,
                                  uint32_t num_extra_bytes_to_append) {
   RETURN_NOT_OK(ResizeFixedLengthBuffers(num_rows_to_append));
-  RETURN_NOT_OK(ResizeOptionalVaryingLengthBuffer(num_extra_bytes_to_append));
+  if (!metadata_.is_fixed_length) {
+    RETURN_NOT_OK(ResizeOptionalVaryingLengthBuffer(num_extra_bytes_to_append));
+  }
   num_rows_ += num_rows_to_append;
   if (metadata_.row_alignment > 1 || metadata_.string_alignment > 1) {
     memset(rows_->mutable_data(), 0, bytes_capacity_);

@@ -32,6 +32,8 @@ under the License.
 
   <properties>
     <forkCount>1</forkCount>
+    <!-- List of add-opens arg line arguments for this module's tests -->
+    <surefire.add-opens.argLine>--add-reads=org.apache.arrow.flight.sql=org.slf4j --add-reads=org.apache.arrow.flight.core=ALL-UNNAMED --add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED</surefire.add-opens.argLine>
   </properties>
 
   <dependencies>

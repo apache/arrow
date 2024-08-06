@@ -22,6 +22,7 @@ import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
 import static org.apache.arrow.vector.BufferLayout.BufferType.DATA;
 import static org.apache.arrow.vector.BufferLayout.BufferType.OFFSET;
+import static org.apache.arrow.vector.BufferLayout.BufferType.SIZE;
 import static org.apache.arrow.vector.BufferLayout.BufferType.TYPE;
 import static org.apache.arrow.vector.BufferLayout.BufferType.VALIDITY;
 import static org.apache.arrow.vector.BufferLayout.BufferType.VARIADIC_DATA_BUFFERS;
@@ -72,6 +73,7 @@ import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.ArrowType.ListView;
 import org.apache.arrow.vector.types.pojo.ArrowType.Union;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -724,7 +726,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
 
     if (bufferType.equals(VALIDITY)) {
       reader = helper.BIT;
-    } else if (bufferType.equals(OFFSET)) {
+    } else if (bufferType.equals(OFFSET) || bufferType.equals(SIZE)) {
       if (type == MinorType.LARGELIST
           || type == MinorType.LARGEVARCHAR
           || type == MinorType.LARGEVARBINARY) {
@@ -888,8 +890,8 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         BufferType bufferType = vectorTypes.get(v);
         nextFieldIs(bufferType.getName());
         int innerBufferValueCount = valueCount;
-        if (bufferType.equals(OFFSET) && !(type instanceof Union)) {
-          /* offset buffer has 1 additional value capacity except for dense unions */
+        if (bufferType.equals(OFFSET) && !(type instanceof Union) && !(type instanceof ListView)) {
+          /* offset buffer has 1 additional value capacity except for dense unions and ListView */
           innerBufferValueCount = valueCount + 1;
         }
 

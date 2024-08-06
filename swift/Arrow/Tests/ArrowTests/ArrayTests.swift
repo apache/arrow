@@ -279,7 +279,7 @@ final class ArrayTests: XCTestCase { // swiftlint:disable:this type_body_length
                        ArrowBuffer(length: 0, capacity: 0,
                                rawPointer: UnsafeMutableRawPointer.allocate(byteCount: 0, alignment: .zero))]
         let field = ArrowField("", type: checkType, isNullable: true)
-        switch makeArrayHolder(field, buffers: buffers, nullCount: 0) {
+        switch makeArrayHolder(field, buffers: buffers, nullCount: 0, children: nil, rbLength: 0) {
         case .success(let holder):
             XCTAssertEqual(holder.type.id, checkType.id)
         case .failure(let err):

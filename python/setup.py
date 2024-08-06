@@ -24,6 +24,7 @@ from os.path import join as pjoin
 import re
 import shlex
 import sys
+import warnings
 
 if sys.version_info >= (3, 10):
     import sysconfig
@@ -82,6 +83,23 @@ def strtobool(val):
         return 0
     else:
         raise ValueError("invalid truth value %r" % (val,))
+
+
+MSG_DEPR_SETUP_BUILD_FLAGS = """
+  !!
+
+        ***********************************************************************
+        The '{}' flag is being passed to setup.py, but this is
+        deprecated.
+
+        If a certain component is available in Arrow C++, it will automatically
+        be enabled for the PyArrow build as well. If you want to force the
+        build of a certain component, you can still use the
+        PYARROW_WITH_$COMPONENT environment variable.
+        ***********************************************************************
+
+  !!
+"""
 
 
 class build_ext(_build_ext):
@@ -258,9 +276,16 @@ class build_ext(_build_ext):
                     varname, 'on' if value else 'off'))
 
             def append_cmake_component(flag, varname):
-                # only pass this to cmake is the user pass the --with-component
+                # only pass this to cmake if the user pass the --with-component
                 # flag to setup.py build_ext
                 if flag is not None:
+                    flag_name = (
+                        "--with-"
+                        + varname.removeprefix("PYARROW_").lower().replace("_", "-"))
+                    warnings.warn(
+                        MSG_DEPR_SETUP_BUILD_FLAGS.format(flag_name),
+                        UserWarning, stacklevel=2
+                    )
                     append_cmake_bool(flag, varname)
 
             if self.cmake_generator:

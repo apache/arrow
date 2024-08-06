@@ -69,6 +69,9 @@ public class ${mode}StructWriter extends AbstractFieldWriter {
       case LIST:
         list(child.getName());
         break;
+      case LISTVIEW:
+        listView(child.getName());
+        break;
       case MAP: {
         ArrowType.Map arrowType = (ArrowType.Map) child.getType();
         map(child.getName(), arrowType.getKeysSorted());
@@ -195,6 +198,31 @@ public class ${mode}StructWriter extends AbstractFieldWriter {
       if (writer instanceof PromotableWriter) {
         // ensure writers are initialized
         ((PromotableWriter)writer).getWriter(MinorType.LIST);
+      }
+    }
+    return writer;
+  }
+
+  @Override
+  public ListWriter listView(String name) {
+    String finalName = handleCase(name);
+    FieldWriter writer = fields.get(finalName);
+    int vectorCount = container.size();
+    if(writer == null) {
+      FieldType fieldType = new FieldType(addVectorAsNullable, MinorType.LISTVIEW.getType(), null, null);
+      writer = new PromotableViewWriter(container.addOrGet(name, fieldType, ListViewVector.class), container, getNullableStructWriterFactory());
+      if (container.size() > vectorCount) {
+        writer.allocate();
+      }
+      writer.setPosition(idx());
+      fields.put(finalName, writer);
+    } else {
+      if (writer instanceof PromotableViewWriter) {
+        // ensure writers are initialized
+        ((PromotableViewWriter) writer).getWriter(MinorType.LISTVIEW);
+      } else {
+        writer = ((PromotableWriter) writer).toViewWriter();
+        ((PromotableViewWriter) writer).getWriter(MinorType.LISTVIEW);
       }
     }
     return writer;
