@@ -80,6 +80,7 @@ Status SchemaToString(const Schema& schema, std::string* out);
 /// format the implementation desires. A common pattern in Flight implementations
 /// is to wrap a message in a `protobuf::Any` message, which is then serialized
 /// into the string of the `FlightDescriptor.`
+ARROW_FLIGHT_EXPORT
 Status PackProtoCommand(const google::protobuf::Message& command, FlightDescriptor* out);
 
 /// \brief Wraps a protobuf message representing a Flight action.
@@ -88,10 +89,12 @@ Status PackProtoCommand(const google::protobuf::Message& command, FlightDescript
 /// implementation desires. A common pattern in Flight implementations is to
 /// wrap a message in a `protobuf::Any` message, which is then serialized into
 /// the string of the `Action.`
+ARROW_FLIGHT_EXPORT
 Status PackProtoAction(std::string action_type, const google::protobuf::Message& action,
                        Action* out);
 
 /// \brief Unpacks a protobuf message packed by PackProtoAction.
+ARROW_FLIGHT_EXPORT
 Status UnpackProtoAction(const Action& action, google::protobuf::Message* out);
 
 // These functions depend on protobuf types which are not exported in the Flight DLL.
