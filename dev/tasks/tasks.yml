@@ -1110,7 +1110,7 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       env:
-        ARCHERY_USE_DOCKER_CLI: 0
+        ARCHERY_USE_LEGACY_DOCKER_COMPOSE: 1
         UBUNTU: 20.04
       flags: -e ARROW_SKYHOOK=ON
       image: ubuntu-cpp
@@ -1495,7 +1495,7 @@ tasks:
     template: docker-tests/github.cuda.yml
     params:
       env:
-        ARCHERY_USE_DOCKER_CLI: 0
+        ARCHERY_USE_LEGACY_DOCKER_COMPOSE: 1
       image: ubuntu-cuda-cpp
 
   test-cuda-python:
@@ -1503,7 +1503,7 @@ tasks:
     template: docker-tests/github.cuda.yml
     params:
       env:
-        ARCHERY_USE_DOCKER_CLI: 0
+        ARCHERY_USE_LEGACY_DOCKER_COMPOSE: 1
       image: ubuntu-cuda-python
 
   ############################## Fuzz tests #################################
@@ -1565,7 +1565,7 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       env:
-        ARCHERY_USE_DOCKER_CLI: 0
+        ARCHERY_USE_LEGACY_DOCKER_COMPOSE: 1
         HDFS: "{{ hdfs_version }}"
         PYTHON: "3.10"
       image: conda-python-hdfs
