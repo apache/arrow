@@ -2250,7 +2250,8 @@ def write_metadata(schema, where, metadata_collector=None, filesystem=None,
         # ParquetWriter doesn't expose the metadata until it's written. Write
         # it and read it again.
 
-        metadata = read_metadata(where, filesystem=filesystem, decryption_properties=decryption_properties)
+        metadata = read_metadata(where, filesystem=filesystem,
+                                 decryption_properties=decryption_properties)
         if hasattr(where, "seek"):
             where.seek(cursor_position)  # file-like, set cursor back.
 
@@ -2260,7 +2261,7 @@ def write_metadata(schema, where, metadata_collector=None, filesystem=None,
             with filesystem.open_output_stream(where) as f:
                 metadata.write_metadata_file(f, encryption_properties2)
         else:
-            metadata.write_metadata_file(where, encryption_properties)
+            metadata.write_metadata_file(where, encryption_properties2)
 
 
 def read_metadata(where, memory_map=False, decryption_properties=None,

@@ -589,7 +589,7 @@ void WriteEncryptedMetadataFile(
     WriteFileCryptoMetaData(*crypto_metadata, sink.get());
 
     auto footer_encryptor = file_encryptor->GetFooterEncryptor();
-    WriteEncryptedFileMetadata(*footer_metadata, sink.get(), footer_encryptor, true);
+    WriteEncryptedFileMetadata(metadata, sink.get(), footer_encryptor, true);
     PARQUET_ASSIGN_OR_THROW(position, sink->Tell());
     auto footer_and_crypto_len = static_cast<uint32_t>(position - metadata_start);
     PARQUET_THROW_NOT_OK(
@@ -601,7 +601,6 @@ void WriteEncryptedMetadataFile(
     auto footer_signing_encryptor = file_encryptor->GetFooterSigningEncryptor();
     WriteEncryptedFileMetadata(metadata, sink.get(), footer_signing_encryptor, false);
   }
-  PARQUET_THROW_NOT_OK(sink->Close());
 
   file_encryptor->WipeOutEncryptionKeys();
 }

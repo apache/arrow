@@ -317,14 +317,15 @@ def test_dataset_metadata_encryption_decryption(tempdir):
     pformat = pa.dataset.ParquetFileFormat(default_fragment_scan_options=pq_scan_opts)
 
     dataset = ds.dataset(metadata_file, format=pformat, filesystem=mockfs)
+    # TODO: cpp doesn't correctly deserialize row group metadata yet,
+    # seems like file_paths are not being set serialized
     new_table = dataset.to_table()
-    # TODO: cpp doesn't correctly deserialize row group metadata yet
-    # assert table.equals(new_table)
+    assert table.equals(new_table)
 
     metadata = pq.read_metadata(
         metadata_file, decryption_properties=decryption_properties, filesystem=mockfs)
 
     assert metadata.num_columns == 2
-    # assert metadata.num_rows == 6
-    # assert metadata.num_row_groups == 1
+    assert metadata.num_rows == 6
+    assert metadata.num_row_groups == 1
     assert metadata.schema.to_arrow_schema() == subschema

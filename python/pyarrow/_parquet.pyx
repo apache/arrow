@@ -18,7 +18,6 @@
 # cython: profile=False
 # distutils: language = c++
 
-from __future__ import print_function
 from collections.abc import Sequence
 from textwrap import indent
 import warnings

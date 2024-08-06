@@ -1066,8 +1066,6 @@ Result<std::shared_ptr<DatasetFactory>> ParquetDatasetFactory::Make(
   auto scan_options = std::make_shared<ScanOptions>();
   ARROW_ASSIGN_OR_RAISE(auto reader, format->GetReader(metadata_source, scan_options));
   std::shared_ptr<parquet::FileMetaData> metadata = reader->parquet_reader()->metadata();
-//  ARROW_LOG(INFO) << "Reading Parquet metadata from " << metadata_source.path();
-//  ARROW_LOG(INFO) << metadata->SerializeToString();
 
 
   if (metadata->num_columns() == 0) {
