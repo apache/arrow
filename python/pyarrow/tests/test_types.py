@@ -1266,10 +1266,10 @@ def test_field_modified_copies():
     assert f0.equals(f0_)
 
 
-@pytest.mark.numpy
 def test_is_integer_value():
     assert pa.types.is_integer_value(1)
-    assert pa.types.is_integer_value(np.int64(1))
+    if np is not None:
+        assert pa.types.is_integer_value(np.int64(1))
     assert not pa.types.is_integer_value('1')
 
 
