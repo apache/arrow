@@ -17,10 +17,7 @@
 
 import base64
 from datetime import timedelta
-try:
-    import numpy as np
-except ImportError:
-    np = None
+import random
 import pyarrow.fs as fs
 import pyarrow as pa
 
@@ -173,7 +170,6 @@ def test_write_dataset_parquet_without_encryption():
         _ = pformat.make_write_options(encryption_config="some value")
 
 
-@pytest.mark.numpy
 @pytest.mark.skipif(
     encryption_unavailable, reason="Parquet Encryption is not currently enabled"
 )
@@ -191,7 +187,10 @@ def test_large_row_encryption_decryption():
 
     row_count = 2**15 + 1
     table = pa.Table.from_arrays(
-        [pa.array(np.random.rand(row_count), type=pa.float32())], names=["foo"]
+        [pa.array(
+            [random.random() for _ in range(row_count)],
+            type=pa.float32()
+        )], names=["foo"]
     )
 
     kms_config = pe.KmsConnectionConfig()
