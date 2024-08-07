@@ -118,6 +118,7 @@ def make_random_buffer(size, target='host'):
         return arr, dbuf
     raise ValueError('invalid target value')
 
+
 def test_copy_from_buffer():
     arr, buf = make_random_buffer(128)
     cudabuf = global_context.buffer_from_data(buf)
@@ -131,8 +132,6 @@ def test_copy_from_buffer():
     np.testing.assert_equal(arr, arr2)
 
     assert cudabuf2.memory_manager.device == mm2.device
-
-
 
 
 @pytest.mark.parametrize("size", [0, 1, 1000])
