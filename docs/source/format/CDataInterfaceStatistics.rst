@@ -57,8 +57,9 @@ Non-goals
 * Provide a common way to pass statistics that can be used for
   other interfaces such Arrow Flight too.
 
-For example, ADBC has the statistics related APIs. This specification
-doesn't replace them.
+For example, ADBC has `the statistics related APIs
+<https://arrow.apache.org/adbc/current/format/specification.html#statistics>`__.
+This specification doesn't replace them.
 
 .. _c-data-interface-statistics-schema:
 
