@@ -28,6 +28,7 @@ import (
 	"github.com/apache/arrow/go/v18/arrow/array"
 	"github.com/apache/arrow/go/v18/arrow/arrio"
 	"github.com/apache/arrow/go/v18/arrow/memory"
+	"github.com/apache/arrow/go/v18/internal/utils"
 	"github.com/apache/arrow/go/v18/parquet"
 	"github.com/apache/arrow/go/v18/parquet/file"
 	"github.com/apache/arrow/go/v18/parquet/schema"
@@ -331,6 +332,12 @@ func (fr *FileReader) ReadRowGroups(ctx context.Context, indices, rowGroups []in
 	wg.Add(np) // fan-out to np readers
 	for i := 0; i < np; i++ {
 		go func() {
+			defer func() {
+				if pErr := recover(); pErr != nil {
+					err := utils.FormatRecoveredError("panic while reading", pErr)
+					results <- resultPair{err: err}
+				}
+			}()
 			defer wg.Done()
 			for {
 				select {
