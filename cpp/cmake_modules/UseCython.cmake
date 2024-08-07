@@ -184,4 +184,24 @@ function(cython_add_module _name pyx_target_name generated_files)
   add_dependencies(${_name} ${pyx_target_name})
 endfunction()
 
+execute_process(COMMAND ${PYTHON_EXECUTABLE} -m cython --version
+                OUTPUT_VARIABLE CYTHON_version_output
+                ERROR_VARIABLE CYTHON_version_error
+                RESULT_VARIABLE CYTHON_version_result
+                OUTPUT_STRIP_TRAILING_WHITESPACE
+                ERROR_STRIP_TRAILING_WHITESPACE)
+if(NOT ${CYTHON_version_result} EQUAL 0)
+  set(_error_msg "Command \"${PYTHON_EXECUTABLE} -m cython --version\" failed with")
+  set(_error_msg "${_error_msg} output:\n${CYTHON_version_error}")
+  message(SEND_ERROR "${_error_msg}")
+else()
+  if("${CYTHON_version_output}" MATCHES "^[Cc]ython version ([^,]+)")
+    set(CYTHON_VERSION "${CMAKE_MATCH_1}")
+  else()
+    if("${CYTHON_version_error}" MATCHES "^[Cc]ython version ([^,]+)")
+      set(CYTHON_VERSION "${CMAKE_MATCH_1}")
+    endif()
+  endif()
+endif()
+
 include(CMakeParseArguments)
