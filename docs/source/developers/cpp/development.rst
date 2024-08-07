@@ -155,12 +155,12 @@ example::
   -- clang-format found at /home/user/tools/bin/clang-format
   ...snip...
 
-To make linting more reproducible for everyone, we provide a ``docker-compose``
+To make linting more reproducible for everyone, we provide a ``docker compose``
 target that is executable from the root of the repository:
 
 .. code-block::
 
-   $ docker-compose run ubuntu-lint
+   $ docker compose run ubuntu-lint
 
 Alternatively, on an open pull request, the comment bot can format C++ code
 for you (it will push a commit to the branch that can then be pulled). Just
