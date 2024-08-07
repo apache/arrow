@@ -5235,6 +5235,7 @@ def fixed_shape_tensor(DataType value_type, shape, dim_names=None, permutation=N
 
     return out
 
+
 def bool8():
     """
     Create instance of bool8 extension type.
@@ -5277,6 +5278,7 @@ def bool8():
     out.init(c_type)
 
     return out
+
 
 cdef dict _type_aliases = {
     'null': null,
