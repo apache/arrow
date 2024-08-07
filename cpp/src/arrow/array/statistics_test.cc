@@ -40,27 +40,25 @@ TEST(ArrayStatisticsTest, TestDistinctCount) {
 TEST(ArrayStatisticsTest, TestMin) {
   ArrayStatistics statistics;
   ASSERT_FALSE(statistics.min.has_value());
-  ASSERT_FALSE(statistics.is_min_exact.has_value());
+  ASSERT_FALSE(statistics.is_min_exact);
   statistics.min = static_cast<uint64_t>(29);
   statistics.is_min_exact = true;
   ASSERT_TRUE(statistics.min.has_value());
   ASSERT_TRUE(std::holds_alternative<uint64_t>(statistics.min.value()));
   ASSERT_EQ(29, std::get<uint64_t>(statistics.min.value()));
-  ASSERT_TRUE(statistics.is_min_exact.has_value());
-  ASSERT_TRUE(statistics.is_min_exact.value());
+  ASSERT_TRUE(statistics.is_min_exact);
 }
 
 TEST(ArrayStatisticsTest, TestMax) {
   ArrayStatistics statistics;
   ASSERT_FALSE(statistics.max.has_value());
-  ASSERT_FALSE(statistics.is_max_exact.has_value());
+  ASSERT_FALSE(statistics.is_max_exact);
   statistics.max = std::string("hello");
   statistics.is_max_exact = false;
   ASSERT_TRUE(statistics.max.has_value());
   ASSERT_TRUE(std::holds_alternative<std::string>(statistics.max.value()));
   ASSERT_EQ("hello", std::get<std::string>(statistics.max.value()));
-  ASSERT_TRUE(statistics.is_max_exact.has_value());
-  ASSERT_FALSE(statistics.is_max_exact.value());
+  ASSERT_FALSE(statistics.is_max_exact);
 }
 
 TEST(ArrayStatisticsTest, TestEquality) {
@@ -84,9 +82,9 @@ TEST(ArrayStatisticsTest, TestEquality) {
   statistics2.min = std::string("world");
   ASSERT_EQ(statistics1, statistics2);
 
-  statistics1.is_min_exact = false;
+  statistics1.is_min_exact = true;
   ASSERT_NE(statistics1, statistics2);
-  statistics2.is_min_exact = false;
+  statistics2.is_min_exact = true;
   ASSERT_EQ(statistics1, statistics2);
 
   statistics1.max = static_cast<int64_t>(-29);
