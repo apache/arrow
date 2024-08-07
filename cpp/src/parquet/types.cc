@@ -1695,8 +1695,8 @@ std::string LogicalType::Impl::Geometry::ToJSON() const {
     json << R"(, "crs": )" << crs_;
   }
 
-  json << R"(, "edges": )" << geometry_edges_string(edges_);
-  json << R"(, "encoding": )" << geometry_encoding_string(encoding_);
+  json << R"(, "edges": ")" << geometry_edges_string(edges_) << R"(")";
+  json << R"(, "encoding": ")" << geometry_encoding_string(encoding_) << R"(")";
 
   if (metadata_.size() > 0) {
     // TODO(paleolimbot): we'll need to escape the metadata or assume that it's valid JSON
