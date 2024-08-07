@@ -28,16 +28,16 @@ Statistics are useful for fast query processing. Many query engines
 use statistics to optimize their query plan.
 
 Apache Arrow format doesn't have statistics but other formats that can
-be read as Apache Arrow data may have statistics. For example, Apache
-Parquet C++ can read Apache Parquet file as Apache Arrow data and
-Apache Parquet file may have statistics.
+be read as Apache Arrow data may have statistics. For example, the
+Apache Parquet C++ implementation can read an Apache Parquet file as
+Apache Arrow data and the Apache Parquet file may have statistics.
 
 One of the Arrow C data interface use cases is the following:
 
-1. Module A reads Apache Parquet file as Apache Arrow data
+1. Module A reads Apache Parquet file as Apache Arrow data.
 2. Module A passes the read Apache Arrow data to module B through the
-   Arrow C data interface
-3. Module B processes the passed Apache Arrow data
+   Arrow C data interface.
+3. Module B processes the passed Apache Arrow data.
 
 If module A can pass the statistics associated with the Apache Parquet
 file to module B through the Arrow C data interface, module B can use
@@ -46,9 +46,10 @@ the statistics to optimize its query plan.
 Goals
 -----
 
-* Provide the standard way to pass statistics through the Arrow C data
-  interface to avoid reinventing the wheel.
-* The standard way must be easy to use with the Arrow C data interface.
+* Establish a standard way to pass statistics through the Arrow C data
+  interface.
+* Provide this in a manner that enables compatibility and ease of
+  implementation for existing users of the Arrow C data interface.
 
 Non-goals
 ---------
@@ -64,11 +65,11 @@ doesn't replace them.
 Schema
 ======
 
-This specification provides only the schema for statistics. Producers
-passes statistics as a map Arrow array that uses the schema through
-the Arrow C data interface.
+This specification provides only the schema for statistics. The
+producer passes statistics through the Arrow C data interface as an
+Arrow map array that uses this schema.
 
-Here is the schema for a statistics map Arrow Array:
+Here is the schema for a statistics Arrow map array:
 
 .. list-table::
    :header-rows: 1
@@ -80,13 +81,13 @@ Here is the schema for a statistics map Arrow Array:
    * - key
      - ``int32``
      - ``true``
-     - The column index or null if the statistics refer to whole table
-       or record batch.
+     - The zero-based column index, or null if the statistics
+       describe the whole table or record batch.
    * - items
      - ``map``
      - ``false``
      - Statistics for the target column, table or record batch. See
-       the separated table for details.
+       the separate table below for details.
 
 Here is the schema for the statistics map:
 
@@ -102,7 +103,7 @@ Here is the schema for the statistics map:
      - ``false``
      - Statistics key is string. Dictionary is used for
        efficiency. Different keys are assigned for exact value and
-       approximate value. See also the separated description for
+       approximate value. Also see the separate description below for
        statistics key.
    * - items
      - ``dense_union``
@@ -111,8 +112,8 @@ Here is the schema for the statistics map:
        types based on statistics kinds in the keys. For example, you
        need at least ``int64`` and ``float64`` types when you have a
        ``int64`` distinct count statistic and a ``float64`` average
-       byte width statistic. See also the separated description for
-       statistics key.
+       byte width statistic. Also see the separate description below
+       for statistics key.
 
        We don't standardize field names for the dense union because
        consumers can access to proper field by index not name. So
