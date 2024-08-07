@@ -18,6 +18,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/extension/fixed_shape_tensor.h"
 #include "arrow/extension/opaque.h"
 #include "arrow/extension_type.h"
 #include "arrow/io/memory.h"
@@ -61,6 +62,8 @@ TEST(OpaqueType, Equals) {
       extension::opaque(int64(), "type", "vendor"));
   auto type5 = internal::checked_pointer_cast<extension::OpaqueType>(
       extension::opaque(null(), "type", "vendor"));
+  auto type6 = internal::checked_pointer_cast<extension::FixedShapeTensorType>(
+      extension::fixed_shape_tensor(float64(), {1}));
 
   ASSERT_EQ(*type, *type);
   ASSERT_EQ(*type2, *type2);
@@ -73,18 +76,23 @@ TEST(OpaqueType, Equals) {
   ASSERT_NE(*type, *type2);
   ASSERT_NE(*type, *type3);
   ASSERT_NE(*type, *type4);
+  ASSERT_NE(*type, *type6);
 
   ASSERT_NE(*type2, *type);
   ASSERT_NE(*type2, *type3);
   ASSERT_NE(*type2, *type4);
+  ASSERT_NE(*type2, *type6);
 
   ASSERT_NE(*type3, *type);
   ASSERT_NE(*type3, *type2);
   ASSERT_NE(*type3, *type4);
+  ASSERT_NE(*type3, *type6);
 
   ASSERT_NE(*type4, *type);
   ASSERT_NE(*type4, *type2);
   ASSERT_NE(*type4, *type3);
+  ASSERT_NE(*type4, *type6);
+  ASSERT_NE(*type6, *type4);
 }
 
 TEST(OpaqueType, CreateFromArray) {
