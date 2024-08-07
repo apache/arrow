@@ -220,6 +220,31 @@ def nullary_func_fixture():
 
 
 @pytest.fixture(scope="session")
+def ephemeral_nullary_func_fixture():
+    """
+    Register a nullary scalar function with an ephemeral Python function.
+    This stresses that the Python function object is properly kept alive by the
+    registered function.
+    """
+    def nullary_func(context):
+        return pa.array([42] * context.batch_length, type=pa.int64(),
+                        memory_pool=context.memory_pool)
+
+    func_doc = {
+        "summary": "random function",
+        "description": "generates a random value"
+    }
+    func_name = "test_ephemeral_nullary_func"
+    pc.register_scalar_function(nullary_func,
+                                func_name,
+                                func_doc,
+                                {},
+                                pa.int64())
+
+    return func_name
+
+
+@pytest.fixture(scope="session")
 def wrong_output_type_func_fixture():
     """
     Register a scalar function which returns something that is neither
@@ -503,6 +528,12 @@ def test_nullary_function(nullary_func_fixture):
     # so only test with the default value of 1.
     check_scalar_function(nullary_func_fixture, [], run_in_dataset=False,
                           batch_length=1)
+
+
+def test_ephemeral_function(ephemeral_nullary_func_fixture):
+    name = ephemeral_nullary_func_fixture
+    result = pc.call_function(name, [], length=1)
+    assert result.to_pylist() == [42]
 
 
 def test_wrong_output_type(wrong_output_type_func_fixture):
