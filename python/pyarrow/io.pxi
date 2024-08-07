@@ -1466,7 +1466,6 @@ cdef class Buffer(_Weakrefable):
         c_buffer = GetResultValue(self.buffer.get().Copy(self.buffer, mm.unwrap()))
         return pyarrow_wrap_buffer(c_buffer)
 
-
     @property
     def parent(self):
         cdef shared_ptr[CBuffer] parent_buf = self.buffer.get().parent()
