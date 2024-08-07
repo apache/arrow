@@ -32,7 +32,7 @@ be read as Apache Arrow data may have statistics. For example, the
 Apache Parquet C++ implementation can read an Apache Parquet file as
 Apache Arrow data and the Apache Parquet file may have statistics.
 
-One of the Arrow C data interface use cases is the following:
+One of :ref:`c-data-interface` use cases is the following:
 
 1. Module A reads Apache Parquet file as Apache Arrow data.
 2. Module A passes the read Apache Arrow data to module B through the
@@ -60,6 +60,17 @@ Non-goals
 For example, ADBC has `the statistics related APIs
 <https://arrow.apache.org/adbc/current/format/specification.html#statistics>`__.
 This specification doesn't replace them.
+
+This specification may fit some use cases of :ref:`format-ipc` not the
+Arrow data interface. But we don't recommend this specification for
+the Arrow IPC format for now. Because we may be able to define better
+specification for the Arrow IPC format. The Arrow IPC format has some
+different features compared with the Arrow C data interface. For
+example, the Arrow IPC format can have :ref:`ipc-message-format
+metadata for each message`. If you're interested in the specification
+for passing statistics through the Arrow IPC format, please start a
+discussion on the `Arrow development mailing-list
+<https://arrow.apache.org/community/>`__.
 
 .. _c-data-interface-statistics-schema:
 
