@@ -89,9 +89,9 @@ TEST(ArrayStatisticsTest, TestEquality) {
   statistics2.is_min_exact = false;
   ASSERT_EQ(statistics1, statistics2);
 
-  statistics1.max = -29;
+  statistics1.max = static_cast<int64_t>(-29);
   ASSERT_NE(statistics1, statistics2);
-  statistics2.max = -29;
+  statistics2.max = static_cast<int64_t>(-29);
   ASSERT_EQ(statistics1, statistics2);
 
   statistics1.is_max_exact = true;
