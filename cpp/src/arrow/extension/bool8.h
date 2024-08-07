@@ -17,8 +17,7 @@
 
 #include "arrow/extension_type.h"
 
-namespace arrow {
-namespace extension {
+namespace arrow::extension {
 
 /// \brief Bool8 is an alternate representation for boolean
 /// arrays using 8 bits instead of 1 bit per value. The underlying
@@ -56,5 +55,4 @@ class ARROW_EXPORT Bool8Type : public ExtensionType {
 /// \brief Return a Bool8Type instance.
 ARROW_EXPORT std::shared_ptr<DataType> bool8();
 
-}  // namespace extension
-}  // namespace arrow
+}  // namespace arrow::extension

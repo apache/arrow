@@ -48,8 +48,7 @@ TEST(Bool8Type, Deserialize) {
   auto type = internal::checked_pointer_cast<extension::Bool8Type>(extension::bool8());
   ASSERT_OK_AND_ASSIGN(auto deserialized, type->Deserialize(type->storage_type(), ""));
   ASSERT_EQ(*type, *deserialized);
-  ASSERT_OK_AND_ASSIGN(deserialized,
-                       type->Deserialize(type->storage_type(), "doesn't matter"));
+  ASSERT_NOT_OK(type->Deserialize(type->storage_type(), "must be empty"));
   ASSERT_EQ(*type, *deserialized);
   ASSERT_NOT_OK(type->Deserialize(uint8(), ""));
   ASSERT_EQ(*type, *deserialized);
