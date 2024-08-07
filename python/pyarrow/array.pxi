@@ -4557,7 +4557,7 @@ cdef class Bool8Array(ExtensionArray):
 
         if obj.ndim != 1:
             raise ValueError(f"Cannot convert {obj.ndim}-D array to bool8 array")
-        
+
         if obj.dtype not in [np.bool_, np.int8]:
             raise TypeError(f"Array dtype {obj.dtype} incompatible with bool8 storage")
 
