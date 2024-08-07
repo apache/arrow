@@ -1134,7 +1134,7 @@ services:
     command: /arrow/ci/scripts/python_wheel_manylinux_build.sh
 
   python-wheel-manylinux-test-imports:
-    image: ${ARCH}/python:${PYTHON}
+    image: ${ARCH}/python:${PYTHON_IMAGE_TAG}
     shm_size: 2G
     volumes:
       - .:/arrow:delegated

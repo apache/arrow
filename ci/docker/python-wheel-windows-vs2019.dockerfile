@@ -86,7 +86,7 @@ RUN (if "%python%"=="3.8" setx PYTHON_VERSION "3.8.10" && setx PATH "%PATH%;C:\P
     (if "%python%"=="3.11" setx PYTHON_VERSION "3.11.9" && setx PATH "%PATH%;C:\Python311;C:\Python311\Scripts") & \
     (if "%python%"=="3.12" setx PYTHON_VERSION "3.12.4" && setx PATH "%PATH%;C:\Python312;C:\Python312\Scripts") & \
     (if "%python%"=="3.13" setx PYTHON_VERSION "3.13.0-rc1" && setx PATH "%PATH%;C:\Python313;C:\Python313\Scripts")
-RUN choco install -r -y --no-progress python --version=%PYTHON_VERSION%
+RUN choco install -r -y --pre --no-progress python --version=%PYTHON_VERSION%
 RUN python -m pip install -U pip setuptools
 
 COPY python/requirements-wheel-build.txt arrow/python/

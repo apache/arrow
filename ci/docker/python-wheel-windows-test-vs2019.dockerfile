@@ -45,6 +45,6 @@ RUN (if "%python%"=="3.8" setx PYTHON_VERSION "3.8.10" && setx PATH "%PATH%;C:\P
     (if "%python%"=="3.13" setx PYTHON_VERSION "3.13.0-rc1" && setx PATH "%PATH%;C:\Python313;C:\Python313\Scripts")
 
 # Install archiver to extract xz archives
-RUN choco install -r -y --no-progress python --version=%PYTHON_VERSION% & \
+RUN choco install -r -y --pre --no-progress python --version=%PYTHON_VERSION% & \
     python -m pip install --no-cache-dir -U pip setuptools & \
     choco install --no-progress -r -y archiver
