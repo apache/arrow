@@ -39,6 +39,9 @@ Result<std::shared_ptr<DataType>> Bool8Type::Deserialize(
   if (storage_type->id() != Type::INT8) {
     return Status::Invalid("Expected INT8 storage type, got ", storage_type->ToString());
   }
+  if (serialized_data != "") {
+    return Status::Invalid("Serialize data must be empty, got ", serialized_data);
+  }
   return bool8();
 }
 
