@@ -122,7 +122,7 @@ def test_parquet_metadata_api():
         col_meta = rg_meta.column(ncols + 2)
 
     col_meta = rg_meta.column(0)
-    assert col_meta.file_offset > 0
+    assert col_meta.file_offset == 0
     assert col_meta.file_path == ''  # created from BytesIO
     assert col_meta.physical_type == 'BOOLEAN'
     assert col_meta.num_values == 10000

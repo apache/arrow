@@ -3977,12 +3977,12 @@ cdef class StructArray(Array):
 
     @staticmethod
     def from_arrays(arrays, names=None, fields=None, mask=None,
-                    memory_pool=None):
+                    memory_pool=None, type=None):
         """
         Construct StructArray from collection of arrays representing
         each field in the struct.
 
-        Either field names or field instances must be passed.
+        Either field names, field instances or a struct type must be passed.
 
         Parameters
         ----------
@@ -3995,6 +3995,8 @@ cdef class StructArray(Array):
             Indicate which values are null (True) or not null (False).
         memory_pool : MemoryPool (optional)
             For memory allocations, if required, otherwise uses default pool.
+        type : pyarrow.StructType (optional)
+            Struct type for name and type of each child. 
 
         Returns
         -------
@@ -4012,6 +4014,14 @@ cdef class StructArray(Array):
             ssize_t i
             Field py_field
             DataType struct_type
+
+        if fields is not None and type is not None:
+            raise ValueError('Must pass either fields or type, not both')
+
+        if type is not None:
+            fields = []
+            for field in type:
+                fields.append(field)
 
         if names is None and fields is None:
             raise ValueError('Must pass either names or fields')

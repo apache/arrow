@@ -246,7 +246,7 @@ class PARQUET_EXPORT Statistics {
   /// \brief The number of non-null values in the column
   virtual int64_t num_values() const = 0;
 
-  /// \brief Return true if the min and max statistics are set. Obtain
+  /// \brief Return true if both min and max statistics are set. Obtain
   /// with TypedStatistics<T>::min and max
   virtual bool HasMinMax() const = 0;
 

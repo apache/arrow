@@ -142,9 +142,9 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector
   /**
    * Get the offset vector.
    *
+   * @return the underlying offset vector or null if none exists.
    * @deprecated This API will be removed, as the current implementations no longer hold inner
    *     offset vectors.
-   * @return the underlying offset vector or null if none exists.
    */
   @Override
   @Deprecated

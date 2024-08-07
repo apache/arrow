@@ -115,34 +115,34 @@ public class TestBitVectorHelper {
     try (RootAllocator allocator = new RootAllocator(bufferLength);
         ArrowBuf validityBuffer = allocator.buffer(bufferLength)) {
 
-      MemoryUtil.UNSAFE.setMemory(validityBuffer.memoryAddress(), bufferLength, (byte) -1);
+      MemoryUtil.setMemory(validityBuffer.memoryAddress(), bufferLength, (byte) -1);
       int bitLength = 1024;
       assertTrue(BitVectorHelper.checkAllBitsEqualTo(validityBuffer, bitLength, true));
 
       bitLength = 1028;
       assertTrue(BitVectorHelper.checkAllBitsEqualTo(validityBuffer, bitLength, true));
 
-      MemoryUtil.UNSAFE.setMemory(validityBuffer.memoryAddress(), bufferLength, (byte) -1);
+      MemoryUtil.setMemory(validityBuffer.memoryAddress(), bufferLength, (byte) -1);
       bitLength = 1025;
       BitVectorHelper.unsetBit(validityBuffer, 12);
       assertFalse(BitVectorHelper.checkAllBitsEqualTo(validityBuffer, bitLength, true));
 
-      MemoryUtil.UNSAFE.setMemory(validityBuffer.memoryAddress(), bufferLength, (byte) -1);
+      MemoryUtil.setMemory(validityBuffer.memoryAddress(), bufferLength, (byte) -1);
       bitLength = 1025;
       BitVectorHelper.unsetBit(validityBuffer, 1024);
       assertFalse(BitVectorHelper.checkAllBitsEqualTo(validityBuffer, bitLength, true));
 
-      MemoryUtil.UNSAFE.setMemory(validityBuffer.memoryAddress(), bufferLength, (byte) -1);
+      MemoryUtil.setMemory(validityBuffer.memoryAddress(), bufferLength, (byte) -1);
       bitLength = 1026;
       BitVectorHelper.unsetBit(validityBuffer, 1024);
       assertFalse(BitVectorHelper.checkAllBitsEqualTo(validityBuffer, bitLength, true));
 
-      MemoryUtil.UNSAFE.setMemory(validityBuffer.memoryAddress(), bufferLength, (byte) -1);
+      MemoryUtil.setMemory(validityBuffer.memoryAddress(), bufferLength, (byte) -1);
       bitLength = 1027;
       BitVectorHelper.unsetBit(validityBuffer, 1025);
       assertFalse(BitVectorHelper.checkAllBitsEqualTo(validityBuffer, bitLength, true));
 
-      MemoryUtil.UNSAFE.setMemory(validityBuffer.memoryAddress(), bufferLength, (byte) -1);
+      MemoryUtil.setMemory(validityBuffer.memoryAddress(), bufferLength, (byte) -1);
       bitLength = 1031;
       BitVectorHelper.unsetBit(validityBuffer, 1029);
       BitVectorHelper.unsetBit(validityBuffer, 1030);

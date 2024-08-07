@@ -207,6 +207,7 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       image: conan
+      push: false
 
   conan-maximum:
     ci: github
@@ -224,6 +225,7 @@ tasks:
         -e ARROW_CONAN_WITH_SNAPPY=True
         -e ARROW_CONAN_WITH_ZSTD=True
       image: conan
+      push: false
 
   ########################### Python Minimal ############################
 
@@ -1203,6 +1205,14 @@ tasks:
         # PYTEST_ARGS: "-W error -W 'ignore:Setting custom ClientSession:DeprecationWarning'"
       image: conda-python
 {% endfor %}
+
+  test-conda-python-3.12-cpython-debug:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        PYTHON: 3.12
+      image: conda-python-cpython-debug
 
   test-conda-python-emscripten:
     ci: github

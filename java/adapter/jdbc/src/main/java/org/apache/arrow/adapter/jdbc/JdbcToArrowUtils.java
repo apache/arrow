@@ -18,6 +18,7 @@ package org.apache.arrow.adapter.jdbc;
 
 import static org.apache.arrow.vector.types.FloatingPointPrecision.DOUBLE;
 import static org.apache.arrow.vector.types.FloatingPointPrecision.SINGLE;
+import static org.apache.arrow.vector.types.Types.MinorType;
 
 import java.io.IOException;
 import java.math.RoundingMode;
@@ -37,6 +38,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.TimeZone;
+import java.util.function.Function;
 import org.apache.arrow.adapter.jdbc.consumer.ArrayConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.BigIntConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.BinaryConsumer;
@@ -80,6 +82,7 @@ import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
+import org.apache.arrow.vector.extension.OpaqueType;
 import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -216,9 +219,26 @@ public class JdbcToArrowUtils {
       case Types.STRUCT:
         return new ArrowType.Struct();
       default:
-        // no-op, shouldn't get here
         throw new UnsupportedOperationException("Unmapped JDBC type: " + fieldInfo.getJdbcType());
     }
+  }
+
+  /**
+   * Wrap a JDBC to Arrow type converter such that {@link UnsupportedOperationException} becomes
+   * {@link OpaqueType}.
+   *
+   * @param typeConverter The type converter to wrap.
+   * @param vendorName The database name to report as the Opaque type's vendor name.
+   */
+  public static Function<JdbcFieldInfo, ArrowType> reportUnsupportedTypesAsOpaque(
+      Function<JdbcFieldInfo, ArrowType> typeConverter, String vendorName) {
+    return (final JdbcFieldInfo fieldInfo) -> {
+      try {
+        return typeConverter.apply(fieldInfo);
+      } catch (UnsupportedOperationException e) {
+        return new OpaqueType(MinorType.NULL.getType(), fieldInfo.getTypeName(), vendorName);
+      }
+    };
   }
 
   /**

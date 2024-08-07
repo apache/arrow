@@ -1602,5 +1602,30 @@ TEST(TestEncodedStatistics, CopySafe) {
   EXPECT_EQ("abc", encoded_statistics.max());
 }
 
+TEST(TestEncodedStatistics, ApplyStatSizeLimits) {
+  EncodedStatistics encoded_statistics;
+  encoded_statistics.set_min("a");
+  encoded_statistics.has_min = true;
+
+  encoded_statistics.set_max("abc");
+  encoded_statistics.has_max = true;
+
+  encoded_statistics.ApplyStatSizeLimits(2);
+
+  ASSERT_TRUE(encoded_statistics.has_min);
+  ASSERT_EQ("a", encoded_statistics.min());
+  ASSERT_FALSE(encoded_statistics.has_max);
+
+  NodePtr node =
+      PrimitiveNode::Make("StringColumn", Repetition::REQUIRED, Type::BYTE_ARRAY);
+  ColumnDescriptor descr(node, 0, 0);
+  std::shared_ptr<TypedStatistics<::parquet::ByteArrayType>> statistics =
+      std::dynamic_pointer_cast<TypedStatistics<::parquet::ByteArrayType>>(
+          Statistics::Make(&descr, &encoded_statistics,
+                           /*num_values=*/1000));
+  // GH-43382: HasMinMax should be false if one of min/max is not set.
+  EXPECT_FALSE(statistics->HasMinMax());
+}
+
 }  // namespace test
 }  // namespace parquet

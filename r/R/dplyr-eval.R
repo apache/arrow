@@ -201,7 +201,12 @@ try_arrow_dplyr <- function(expr) {
   parent <- caller_env()
   # Make sure that the call is available in the parent environment
   # so that we can use it in abandon_ship, if needed
-  evalq(call <- match.call(), parent)
+  # (but don't error if we're in some weird context where we can't get the call,
+  # which could happen if you're code-generating or something?)
+  try(
+    evalq(call <- match.call(), parent),
+    silent = !getOption("arrow.debug", FALSE)
+  )
 
   tryCatch(
     eval(expr, parent),
@@ -217,7 +222,10 @@ try_arrow_dplyr <- function(expr) {
 # and that the function being called also exists in the dplyr namespace.
 abandon_ship <- function(err, env) {
   .data <- get(".data", envir = env)
-  if (query_on_dataset(.data)) {
+  # If there's no call (see comment in try_arrow_dplyr), we can't eval with
+  # dplyr even if the data is in memory already
+  call <- try(get("call", envir = env), silent = TRUE)
+  if (query_on_dataset(.data) || inherits(call, "try-error")) {
     # Add a note suggesting `collect()` to the error message.
     # If there are other suggestions already there (with the > arrow name),
     # collect() isn't the only suggestion, so message differently
@@ -231,7 +239,6 @@ abandon_ship <- function(err, env) {
   }
 
   # Else, warn, collect(), and run in regular dplyr
-  call <- get("call", envir = env)
   rlang::warn(
     message = paste0("In ", format_expr(err$call), ": "),
     body = c("i" = conditionMessage(err), ">" = "Pulling data into R")
