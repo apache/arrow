@@ -870,7 +870,7 @@ struct NullExtensionTypeMatcher : public TypeMatcher {
 
   bool Matches(const DataType& type) const override {
     return type.id() == Type::EXTENSION &&
-           static_cast<const ExtensionType&>(type).storage_id() == Type::NA;
+           checked_cast<const ExtensionType&>(type).storage_id() == Type::NA;
   }
 
   std::string ToString() const override { return "extension<storage_type: null>"; }
