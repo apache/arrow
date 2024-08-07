@@ -69,7 +69,20 @@ This specification provides only the schema for statistics. The
 producer passes statistics through the Arrow C data interface as an
 Arrow map array that uses this schema.
 
-Here is the schema for a statistics Arrow map array:
+Here is the outline of the schema for statistics::
+
+    map<
+      key: int32,
+      items: map<
+        key: dictionary<
+          indices: int32,
+          dictionary: utf8
+        >,
+        items: dense_union<...all needed types...>,
+      >
+    >
+
+Here is the details of the top-level ``map``:
 
 .. list-table::
    :header-rows: 1
@@ -89,7 +102,8 @@ Here is the schema for a statistics Arrow map array:
      - Statistics for the target column, table or record batch. See
        the separate table below for details.
 
-Here is the schema for the statistics map:
+Here is the details of the nested ``map`` as the items part of the
+above ``map``:
 
 .. list-table::
    :header-rows: 1
@@ -99,7 +113,7 @@ Here is the schema for the statistics map:
      - Nullable
      - Notes
    * - key
-     - ``dictionary<int32, utf8>``
+     - ``dictionary<indices: int32, dictionary: utf8>``
      - ``false``
      - Statistics key is string. Dictionary is used for
        efficiency. Different keys are assigned for exact value and
