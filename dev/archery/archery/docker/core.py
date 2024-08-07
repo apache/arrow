@@ -180,7 +180,7 @@ class DockerCompose(Command):
     def __init__(self, config_path, dotenv_path=None, compose_bin=None,
                  using_docker=False, using_buildx=False, params=None,
                  debug=False):
-        compose_bin = default_bin(compose_bin, 'docker-compose')
+        compose_bin = default_bin(compose_bin, 'docker compose')
         self.config = ComposeConfig(config_path, dotenv_path, compose_bin,
                                     params=params, using_docker=using_docker,
                                     using_buildx=using_buildx, debug=debug)

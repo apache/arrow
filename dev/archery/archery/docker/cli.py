@@ -28,17 +28,17 @@ def _mock_compose_calls(compose):
     from types import MethodType
     from subprocess import CompletedProcess
 
-    def _mock(compose, executable):
+    def _mock(compose, command_tuple):
         def _execute(self, *args, **kwargs):
-            params = ['{}={}'.format(k, v)
+            params = [f'{k}={v}'
                       for k, v in self.config.params.items()]
-            command = ' '.join(params + [executable] + list(args))
+            command = ' '.join(params + command_tuple + args)
             click.echo(command)
             return CompletedProcess([], 0)
         return MethodType(_execute, compose)
 
-    compose._execute_docker = _mock(compose, executable='docker')
-    compose._execute_compose = _mock(compose, executable='docker-compose')
+    compose._execute_docker = _mock(compose, command_tuple=('docker',))
+    compose._execute_compose = _mock(compose, command_tuple=('docker', 'compose'))
 
 
 @click.group()
