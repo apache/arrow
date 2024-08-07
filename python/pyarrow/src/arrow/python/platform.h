@@ -24,7 +24,9 @@
 // to mean Py_ssize_t (defining this to suppress deprecation warning)
 #define PY_SSIZE_T_CLEAN
 
+// clang-format off: Keep pythoncapi_compat include first
 #include "arrow/python/vendored/pythoncapi_compat.h"  // IWYU pragma: export
+// clang-format on
 #include <datetime.h>
 
 // Work around C2528 error

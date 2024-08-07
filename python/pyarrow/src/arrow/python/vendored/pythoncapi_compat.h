@@ -15,6 +15,8 @@
 //
 // SPDX-License-Identifier: 0BSD
 
+/* clang-format off */
+
 #ifndef PYTHONCAPI_COMPAT
 #define PYTHONCAPI_COMPAT
 
