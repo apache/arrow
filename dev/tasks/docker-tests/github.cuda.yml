@@ -35,7 +35,7 @@ jobs:
         shell: bash
         env:
           ARCHERY_USE_LEGACY_DOCKER_COMPOSE: 1
-          {{ macros.github_set_sccache_envvars()|indent(8) }}
+        {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: |
           archery docker run \
             -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" \
