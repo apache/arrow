@@ -1544,6 +1544,11 @@ TEST(TestLogicalTypeOperation, LogicalTypeRepresentation) {
       {LogicalType::BSON(), "BSON", R"({"Type": "BSON"})"},
       {LogicalType::UUID(), "UUID", R"({"Type": "UUID"})"},
       {LogicalType::Float16(), "Float16", R"({"Type": "Float16"})"},
+      {LogicalType::Geometry(), "Geometry(crs=, edges=planar, encoding=wkb, metadata=)",
+       R"({"Type": "Geometry", "edges": "planar", "encoding": "wkb"})"},
+      {LogicalType::Geometry("{}", LogicalType::GeometryEdges::SPHERICAL),
+       "Geometry(crs={}, edges=spherical, encoding=wkb, metadata=)",
+       R"({"Type": "Geometry", "crs": {}, "edges": "spherical", "encoding": "wkb"})"},
       {LogicalType::None(), "None", R"({"Type": "None"})"},
   };
 
