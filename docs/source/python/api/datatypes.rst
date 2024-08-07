@@ -93,6 +93,7 @@ functions above.
 
    DataType
    DictionaryType
+   LargeListType
    ListType
    MapType
    StructType
