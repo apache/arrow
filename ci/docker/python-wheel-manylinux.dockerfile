@@ -103,11 +103,7 @@ RUN vcpkg install \
 # Configure Python for applications running in the bash shell of this Dockerfile
 ARG python=3.8
 ENV PYTHON_VERSION=${python}
-RUN if [[ ${PYTHON_VERSION} == "3.6" || ${PYTHON_VERSION} == "3.7" ]]; then \
-      PYTHON_ROOT=$(find /opt/python -name cp${PYTHON_VERSION/./}-cp${PYTHON_VERSION/./}m); \
-    else \
-      PYTHON_ROOT=$(find /opt/python -name cp${PYTHON_VERSION/./}-cp${PYTHON_VERSION/./}); \
-    fi && \
+RUN PYTHON_ROOT=$(find /opt/python -name cp${PYTHON_VERSION/./}-cp${PYTHON_VERSION/./}); && \
     echo "export PATH=$PYTHON_ROOT/bin:\$PATH" >> /etc/profile.d/python.sh
 
 SHELL ["/bin/bash", "-i", "-c"]
