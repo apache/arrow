@@ -3277,8 +3277,8 @@ void AssertRowCountEq(Declaration source, int64_t expected) {
 
 }  // namespace
 
-// Test that both the key and the payload of the right side (the build side) are fixed
-// length and larger than 4GB, and the 64-bit offset in the hash table can handle it
+// GH-43495: Test that both the key and the payload of the right side (the build side) are
+// fixed length and larger than 4GB, and the 64-bit offset in the hash table can handle it
 // correctly.
 TEST(HashJoin, LARGE_MEMORY_TEST(BuildSideOver4GBFixedLength)) {
   constexpr int64_t k5GB = 5ll * 1024 * 1024 * 1024;
@@ -3362,8 +3362,8 @@ TEST(HashJoin, LARGE_MEMORY_TEST(BuildSideOver4GBFixedLength)) {
                    num_batches_left * num_rows_per_batch_left * num_batches_right);
 }
 
-// Test that both the key and the payload of the right side (the build side) are var
-// length and larger than 4GB, and the 64-bit offset in the hash table can handle it
+// GH-43495: Test that both the key and the payload of the right side (the build side) are
+// var length and larger than 4GB, and the 64-bit offset in the hash table can handle it
 // correctly.
 TEST(HashJoin, LARGE_MEMORY_TEST(BuildSideOver4GBVarLength)) {
   constexpr int64_t k5GB = 5ll * 1024 * 1024 * 1024;
