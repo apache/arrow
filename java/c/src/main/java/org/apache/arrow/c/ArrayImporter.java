@@ -98,7 +98,11 @@ final class ArrayImporter {
         checkState(children[i] != NULL, "ArrowArray struct has NULL child at position %s", i);
         ArrayImporter childImporter =
             new ArrayImporter(allocator, childVectors.get(i), dictionaryProvider);
-        childImporter.importChild(this, ArrowArray.wrap(children[i]));
+        ArrowArray childArray = ArrowArray.wrap(children[i]);
+        ArrowArray.Snapshot childSnapshot = childArray.snapshot();
+        childSnapshot.offset = snapshot.offset;
+        childArray.save(childSnapshot);
+        childImporter.importChild(this, childArray);
       }
     }
 
