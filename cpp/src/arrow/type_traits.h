@@ -1201,6 +1201,21 @@ constexpr bool is_string(Type::type type_id) {
   return false;
 }
 
+/// \brief Check for a binary-view-like type (i.e. string view and binary view)
+///
+/// \param[in] type_id the type-id to check
+/// \return whether type-id is a binary-view-like type one
+constexpr bool is_binary_view_like(Type::type type_id) {
+  switch (type_id) {
+    case Type::STRING_VIEW:
+    case Type::BINARY_VIEW:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
 /// \brief Check for a temporal type
 ///
 /// \param[in] type_id the type-id to check
@@ -1623,6 +1638,16 @@ static inline bool is_binary(const DataType& type) { return is_binary(type.id())
 ///
 /// Convenience for checking using the type's id
 static inline bool is_string(const DataType& type) { return is_string(type.id()); }
+
+/// \brief Check for a binary-view-like type
+///
+/// \param[in] type the type to check
+/// \return whether type is a binary-view-like type
+///
+/// Convenience for checking using the type's id
+static inline bool is_binary_view_like(const DataType& type) {
+  return is_binary_view_like(type.id());
+}
 
 /// \brief Check for a temporal type, including time and timestamps for each unit
 ///

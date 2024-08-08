@@ -99,4 +99,17 @@ bool EqualBinaryView(BinaryViewType::c_type l, BinaryViewType::c_type r,
                 l.size() - BinaryViewType::kPrefixSize) == 0;
 }
 
+/// \brief Compute the total size of a list of binary views including null
+/// views.
+///
+/// This is useful when calculating the necessary memory to store all the string
+/// data from the views.
+inline int64_t SumOfBinaryViewSizes(const BinaryViewType::c_type* views, int64_t length) {
+  int64_t total = 0;
+  for (int64_t i = 0; i < length; ++i) {
+    total += views[i].size();
+  }
+  return total;
+}
+
 }  // namespace arrow::util

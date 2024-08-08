@@ -1307,6 +1307,7 @@ TEST_F(TestUnifySchemas, Binary) {
   options.promote_binary = false;
   CheckUnifyFailsTypeError({utf8(), binary()}, {large_utf8(), large_binary()});
   CheckUnifyFailsTypeError(fixed_size_binary(2), BaseBinaryTypes());
+  CheckUnifyFailsTypeError(fixed_size_binary(2), BinaryViewTypes());
   CheckUnifyFailsTypeError(utf8(), {binary(), large_binary(), fixed_size_binary(2)});
 }
 
@@ -2430,6 +2431,7 @@ TEST(TypesTest, TestMembership) {
   TEST_PREDICATE(all_types, is_large_binary_like);
   TEST_PREDICATE(all_types, is_binary);
   TEST_PREDICATE(all_types, is_string);
+  TEST_PREDICATE(all_types, is_binary_view_like);
   TEST_PREDICATE(all_types, is_temporal);
   TEST_PREDICATE(all_types, is_interval);
   TEST_PREDICATE(all_types, is_dictionary);
