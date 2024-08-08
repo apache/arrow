@@ -395,21 +395,6 @@ class TestGeneric : public ::testing::Test, public GenericFileSystemTest {
   bool have_directory_mtimes() const override { return true; }
   bool have_flaky_directory_tree_deletion() const override { return false; }
   bool have_file_metadata() const override { return true; }
-  // calloc() used in libxml2's xmlNewGlobalState() is detected as a
-  // memory leak like the following. But it's a false positive. It's
-  // used in ListBlobsByHierarchy() for GetFileInfo() and it's freed
-  // in the call. This is detected as a memory leak only with
-  // generator API (GetFileInfoGenerator()) and not detected with
-  // non-generator API (GetFileInfo()). So this is a false positive.
-  //
-  // ==2875409==ERROR: LeakSanitizer: detected memory leaks
-  //
-  // Direct leak of 968 byte(s) in 1 object(s) allocated from:
-  //     #0 0x55d02c967bdc in calloc (build/debug/arrow-azurefs-test+0x17bbdc) (BuildId:
-  //     520690d1b20e860cc1feef665dce8196e64f955e) #1 0x7fa914b1cd1e in xmlNewGlobalState
-  //     builddir/main/../../threads.c:580:10 #2 0x7fa914b1cd1e in xmlGetGlobalState
-  //     builddir/main/../../threads.c:666:31
-  bool have_false_positive_memory_leak_with_generator() const override { return true; }
 
   BaseAzureEnv* env_;
   std::shared_ptr<AzureFileSystem> azure_fs_;
