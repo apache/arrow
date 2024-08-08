@@ -85,19 +85,17 @@ struct SupportedBackend {
 
 const std::vector<SupportedBackend>& SupportedBackends() {
   static std::vector<SupportedBackend> backends = {
-  // ARROW-12316: Apple => mimalloc first, then jemalloc
-  //              non-Apple => jemalloc first, then mimalloc
-#if defined(ARROW_JEMALLOC) && !defined(__APPLE__)
-    {"jemalloc", MemoryPoolBackend::Jemalloc},
-#endif
+  // mimalloc is our preferred allocator for several reasons:
+  // 1) it has good performance
+  // 2) it is well-supported on all our main platforms (Linux, macOS, Windows)
+  // 3) it is easy to configure and has a consistent API.
 #ifdef ARROW_MIMALLOC
-    {"mimalloc", MemoryPoolBackend::Mimalloc},
+      {"mimalloc", MemoryPoolBackend::Mimalloc},
 #endif
-#if defined(ARROW_JEMALLOC) && defined(__APPLE__)
-    {"jemalloc", MemoryPoolBackend::Jemalloc},
+#ifdef ARROW_JEMALLOC
+      {"jemalloc", MemoryPoolBackend::Jemalloc},
 #endif
-    {"system", MemoryPoolBackend::System}
-  };
+      {"system", MemoryPoolBackend::System}};
   return backends;
 }
 

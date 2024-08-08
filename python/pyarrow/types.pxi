@@ -5347,13 +5347,14 @@ def schema(fields, metadata=None):
         Field py_field
         vector[shared_ptr[CField]] c_fields
 
-    if isinstance(fields, Mapping):
-        fields = fields.items()
-    elif hasattr(fields, "__arrow_c_schema__"):
+    if hasattr(fields, "__arrow_c_schema__"):
         result = Schema._import_from_c_capsule(fields.__arrow_c_schema__())
         if metadata is not None:
             result = result.with_metadata(metadata)
         return result
+
+    if isinstance(fields, Mapping):
+        fields = fields.items()
 
     for item in fields:
         if isinstance(item, tuple):
@@ -5542,3 +5543,24 @@ cdef object alloc_c_stream(ArrowArrayStream** c_stream):
     # Ensure the capsule destructor doesn't call a random release pointer
     c_stream[0].release = NULL
     return PyCapsule_New(c_stream[0], 'arrow_array_stream', &pycapsule_stream_deleter)
+
+
+cdef void pycapsule_device_array_deleter(object array_capsule) noexcept:
+    cdef:
+        ArrowDeviceArray* device_array
+    # Do not invoke the deleter on a used/moved capsule
+    device_array = <ArrowDeviceArray*>cpython.PyCapsule_GetPointer(
+        array_capsule, 'arrow_device_array'
+    )
+    if device_array.array.release != NULL:
+        device_array.array.release(&device_array.array)
+
+    free(device_array)
+
+
+cdef object alloc_c_device_array(ArrowDeviceArray** c_array):
+    c_array[0] = <ArrowDeviceArray*> malloc(sizeof(ArrowDeviceArray))
+    # Ensure the capsule destructor doesn't call a random release pointer
+    c_array[0].array.release = NULL
+    return PyCapsule_New(
+        c_array[0], 'arrow_device_array', &pycapsule_device_array_deleter)

@@ -43,7 +43,6 @@ permissions:
 
 env:
   ARCHERY_DEBUG: 1
-  ARCHERY_USE_DOCKER_CLI: 1
 
 jobs:
 
@@ -79,14 +78,14 @@ jobs:
           {
             "arch-label": "ARM64",
             "arch": "arm64v8",
-            "archery-use-docker-cli": "0",
+            "archery-use-legacy-docker-compose": "1",
             "go": "1.21",
             "runs-on": ["self-hosted", "arm", "linux"]
           },
           {
             "arch-label": "ARM64",
             "arch": "arm64v8",
-            "archery-use-docker-cli": "0",
+            "archery-use-legacy-docker-compose": "1",
             "go": "1.22",
             "runs-on": ["self-hosted", "arm", "linux"]
           }
@@ -109,7 +108,7 @@ jobs:
       ARCH: ${{ matrix.arch }}
       # By default, use Docker CLI because docker-compose v1 is obsolete,
       # except where the Docker client version is too old.
-      ARCHERY_USE_DOCKER_CLI: ${{ matrix.archery-use-docker-cli || '1' }}
+      ARCHERY_USE_LEGACY_DOCKER_COMPOSE: ${{ matrix.archery-use-legacy-docker-compose || '0' }}
       GO: ${{ matrix.go }}
     steps:
       - name: Checkout Arrow
@@ -168,8 +167,8 @@ jobs:
           python3 -m pip install benchadapt@git+https://github.com/conbench/conbench.git@main#subdirectory=benchadapt/python
           python3 ci/scripts/go_bench_adapt.py
 
-  build386:
-    name: Go Cross-build for 386
+  build_test_386:
+    name: Go Cross-build and test for 386
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 20
@@ -188,9 +187,12 @@ jobs:
           cache: true
           cache-dependency-path: go/go.sum
       - name: Run build
-        run: |
-          cd go
-          GOARCH=386 go build ./...
+        run: GOARCH=386 go build ./...
+        working-directory: ./go
+      - name: Run test
+        # WIP refactor, only tests in the specified dirs have been fixed
+        run: GOARCH=386 go test ./parquet/file/...
+        working-directory: ./go
 
   docker_cgo:
     name: AMD64 Debian 12 Go ${{ matrix.go }} - CGO
@@ -210,7 +212,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Setup Python
-        uses: actions/setup-python@82c7e631bb3cdc910f68e0081d67478d79c6982d # v5.1.0
+        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
         with:
           python-version: 3.8
       - name: Setup Archery
@@ -250,7 +252,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup Python
-        uses: actions/setup-python@82c7e631bb3cdc910f68e0081d67478d79c6982d # v5.1.0
+        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
         with:
           python-version: 3.8
       - name: Setup Archery
@@ -342,7 +344,7 @@ jobs:
           github.event_name == 'push' &&
           github.repository == 'apache/arrow' &&
           github.ref_name == 'main'
-        uses: actions/setup-python@82c7e631bb3cdc910f68e0081d67478d79c6982d # v5.1.0
+        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
         with:
           python-version: '3.10'
       - name: Run Benchmarks

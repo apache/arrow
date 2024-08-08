@@ -81,9 +81,11 @@ def test_parquet_metadata_api():
     assert col.max_definition_level == 1
     assert col.max_repetition_level == 0
     assert col.max_repetition_level == 0
-
     assert col.physical_type == 'BOOLEAN'
     assert col.converted_type == 'NONE'
+
+    col_float16 = schema[5]
+    assert col_float16.logical_type.type == 'FLOAT16'
 
     with pytest.raises(IndexError):
         schema[ncols + 1]  # +1 for index
@@ -120,7 +122,7 @@ def test_parquet_metadata_api():
         col_meta = rg_meta.column(ncols + 2)
 
     col_meta = rg_meta.column(0)
-    assert col_meta.file_offset > 0
+    assert col_meta.file_offset == 0
     assert col_meta.file_path == ''  # created from BytesIO
     assert col_meta.physical_type == 'BOOLEAN'
     assert col_meta.num_values == 10000

@@ -604,11 +604,11 @@ std::vector<FlightInfo> ExampleFlightInfo() {
   Location location4 = *Location::ForGrpcTcp("foo4.bar.com", 12345);
   Location location5 = *Location::ForGrpcTcp("foo5.bar.com", 12345);
 
-  FlightEndpoint endpoint1({{"ticket-ints-1"}, {location1}, std::nullopt, {}});
-  FlightEndpoint endpoint2({{"ticket-ints-2"}, {location2}, std::nullopt, {}});
-  FlightEndpoint endpoint3({{"ticket-cmd"}, {location3}, std::nullopt, {}});
-  FlightEndpoint endpoint4({{"ticket-dicts-1"}, {location4}, std::nullopt, {}});
-  FlightEndpoint endpoint5({{"ticket-floats-1"}, {location5}, std::nullopt, {}});
+  FlightEndpoint endpoint1({Ticket{"ticket-ints-1"}, {location1}, std::nullopt, {}});
+  FlightEndpoint endpoint2({Ticket{"ticket-ints-2"}, {location2}, std::nullopt, {}});
+  FlightEndpoint endpoint3({Ticket{"ticket-cmd"}, {location3}, std::nullopt, {}});
+  FlightEndpoint endpoint4({Ticket{"ticket-dicts-1"}, {location4}, std::nullopt, {}});
+  FlightEndpoint endpoint5({Ticket{"ticket-floats-1"}, {location5}, std::nullopt, {}});
 
   FlightDescriptor descr1{FlightDescriptor::PATH, "", {"examples", "ints"}};
   FlightDescriptor descr2{FlightDescriptor::CMD, "my_command", {}};

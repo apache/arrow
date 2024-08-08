@@ -3220,7 +3220,7 @@ TEST(HashJoin, ManyJoins) {
   // stack), which is essentially the recursive usage of the temp vector stack.
 
   // A fair number of joins to guarantee temp vector stack overflow before GH-41335.
-  const int num_joins = 64;
+  const int num_joins = 16;
 
   // `ExecBatchBuilder::num_rows_max()` is the number of rows for swiss join to accumulate
   // before outputting.

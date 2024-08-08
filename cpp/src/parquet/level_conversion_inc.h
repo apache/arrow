@@ -296,7 +296,7 @@ template <bool has_repeated_parent>
 int64_t DefLevelsBatchToBitmap(const int16_t* def_levels, const int64_t batch_size,
                                int64_t upper_bound_remaining, LevelInfo level_info,
                                ::arrow::internal::FirstTimeBitmapWriter* writer) {
-  DCHECK_LE(batch_size, kExtractBitsSize);
+  ARROW_DCHECK_LE(batch_size, kExtractBitsSize);
 
   // Greater than level_info.def_level - 1 implies >= the def_level
   auto defined_bitmap = static_cast<extract_bitmap_t>(

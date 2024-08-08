@@ -16,7 +16,7 @@
 # under the License.
 
 if(PARQUET_BUILD_EXECUTABLES)
-  set(PARQUET_TOOLS parquet-dump-schema parquet-reader parquet-scan)
+  set(PARQUET_TOOLS parquet-dump-footer parquet-dump-schema parquet-reader parquet-scan)
 
   foreach(TOOL ${PARQUET_TOOLS})
     string(REGEX REPLACE "-" "_" TOOL_SOURCE ${TOOL})

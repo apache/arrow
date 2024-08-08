@@ -33,7 +33,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_run_reader.h"
-#include "arrow/util/bit_stream_utils.h"
+#include "arrow/util/bit_stream_utils_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/bitmap_writer.h"
@@ -42,7 +42,7 @@
 #include "arrow/util/hashing.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/rle_encoding.h"
+#include "arrow/util/rle_encoding_internal.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/visit_data_inline.h"
 #include "parquet/exception.h"
@@ -2732,7 +2732,6 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
 // ----------------------------------------------------------------------
 // DeltaLengthByteArrayEncoder
 
-template <typename DType>
 class DeltaLengthByteArrayEncoder : public EncoderImpl,
                                     virtual public TypedEncoder<ByteArrayType> {
  public:
@@ -2783,8 +2782,7 @@ class DeltaLengthByteArrayEncoder : public EncoderImpl,
   DeltaBitPackEncoder<Int32Type> length_encoder_;
 };
 
-template <typename DType>
-void DeltaLengthByteArrayEncoder<DType>::Put(const ::arrow::Array& values) {
+void DeltaLengthByteArrayEncoder::Put(const ::arrow::Array& values) {
   AssertBaseBinary(values);
   if (::arrow::is_binary_like(values.type_id())) {
     PutBinaryArray(checked_cast<const ::arrow::BinaryArray&>(values));
@@ -2793,8 +2791,7 @@ void DeltaLengthByteArrayEncoder<DType>::Put(const ::arrow::Array& values) {
   }
 }
 
-template <typename DType>
-void DeltaLengthByteArrayEncoder<DType>::Put(const T* src, int num_values) {
+void DeltaLengthByteArrayEncoder::Put(const T* src, int num_values) {
   if (num_values == 0) {
     return;
   }
@@ -2823,10 +2820,9 @@ void DeltaLengthByteArrayEncoder<DType>::Put(const T* src, int num_values) {
   }
 }
 
-template <typename DType>
-void DeltaLengthByteArrayEncoder<DType>::PutSpaced(const T* src, int num_values,
-                                                   const uint8_t* valid_bits,
-                                                   int64_t valid_bits_offset) {
+void DeltaLengthByteArrayEncoder::PutSpaced(const T* src, int num_values,
+                                            const uint8_t* valid_bits,
+                                            int64_t valid_bits_offset) {
   if (valid_bits != NULLPTR) {
     PARQUET_ASSIGN_OR_THROW(auto buffer, ::arrow::AllocateBuffer(num_values * sizeof(T),
                                                                  this->memory_pool()));
@@ -2839,8 +2835,7 @@ void DeltaLengthByteArrayEncoder<DType>::PutSpaced(const T* src, int num_values,
   }
 }
 
-template <typename DType>
-std::shared_ptr<Buffer> DeltaLengthByteArrayEncoder<DType>::FlushValues() {
+std::shared_ptr<Buffer> DeltaLengthByteArrayEncoder::FlushValues() {
   std::shared_ptr<Buffer> encoded_lengths = length_encoder_.FlushValues();
 
   std::shared_ptr<Buffer> data;
@@ -3366,7 +3361,7 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
 
   ::arrow::BufferBuilder sink_;
   DeltaBitPackEncoder<Int32Type> prefix_length_encoder_;
-  DeltaLengthByteArrayEncoder<ByteArrayType> suffix_encoder_;
+  DeltaLengthByteArrayEncoder suffix_encoder_;
   std::string last_value_;
   const ByteArray empty_;
   std::unique_ptr<ResizableBuffer> buffer_;
@@ -3934,7 +3929,7 @@ std::unique_ptr<Encoder> MakeEncoder(Type::type type_num, Encoding::type encodin
   } else if (encoding == Encoding::DELTA_LENGTH_BYTE_ARRAY) {
     switch (type_num) {
       case Type::BYTE_ARRAY:
-        return std::make_unique<DeltaLengthByteArrayEncoder<ByteArrayType>>(descr, pool);
+        return std::make_unique<DeltaLengthByteArrayEncoder>(descr, pool);
       default:
         throw ParquetException("DELTA_LENGTH_BYTE_ARRAY only supports BYTE_ARRAY");
     }

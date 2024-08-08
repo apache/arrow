@@ -35,9 +35,9 @@ public interface RepeatedValueVector extends ValueVector, DensityAwareVector {
   /**
    * Get the offset vector.
    *
+   * @return the underlying offset vector or null if none exists.
    * @deprecated This API will be removed, as the current implementations no longer hold inner
    *     offset vectors.
-   * @return the underlying offset vector or null if none exists.
    */
   @Deprecated
   UInt4Vector getOffsetVector();

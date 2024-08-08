@@ -234,6 +234,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CStatus Validate() const
         CStatus ValidateFull() const
         CResult[shared_ptr[CArray]] View(const shared_ptr[CDataType]& type)
+        CDeviceAllocationType device_type()
 
     shared_ptr[CArray] MakeArray(const shared_ptr[CArrayData]& data)
     CResult[shared_ptr[CArray]] MakeArrayOfNull(
@@ -1014,6 +1015,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         int num_columns()
         int64_t num_rows()
+
+        CDeviceAllocationType device_type()
 
         CStatus Validate() const
         CStatus ValidateFull() const
@@ -2358,9 +2361,10 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CPadOptions \
             "arrow::compute::PadOptions"(CFunctionOptions):
-        CPadOptions(int64_t width, c_string padding)
+        CPadOptions(int64_t width, c_string padding, c_bool lean_left_on_odd_padding)
         int64_t width
         c_string padding
+        c_bool lean_left_on_odd_padding
 
     cdef cppclass CSliceOptions \
             "arrow::compute::SliceOptions"(CFunctionOptions):

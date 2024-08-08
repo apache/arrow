@@ -69,7 +69,11 @@ public class Union${listName}Writer extends AbstractFieldWriter {
 
   public Union${listName}Writer(${listName}Vector vector, NullableStructWriterFactory nullableStructWriterFactory) {
     this.vector = vector;
+    <#if listName = "ListView">
+    this.writer = new PromotableViewWriter(vector.getDataVector(), vector, nullableStructWriterFactory);
+    <#else>
     this.writer = new PromotableWriter(vector.getDataVector(), vector, nullableStructWriterFactory);
+    </#if>
   }
 
   public Union${listName}Writer(${listName}Vector vector, AbstractFieldWriter parent) {
@@ -155,6 +159,17 @@ public class Union${listName}Writer extends AbstractFieldWriter {
   }
 
   @Override
+  public ListWriter listView() {
+    return writer;
+  }
+
+  @Override
+  public ListWriter listView(String name) {
+    ListWriter listWriter = writer.listView(name);
+    return listWriter;
+  }
+
+  @Override
   public StructWriter struct(String name) {
     StructWriter structWriter = writer.struct(name);
     return structWriter;
@@ -207,6 +222,23 @@ public class Union${listName}Writer extends AbstractFieldWriter {
 
   @Override
   public void endList() {
+    int sizeUptoIdx = 0;
+    for (int i = 0; i < idx(); i++) {
+      sizeUptoIdx += vector.getSizeBuffer().getInt(i * SIZE_WIDTH);
+    }
+    vector.getSizeBuffer().setInt(idx() * SIZE_WIDTH, writer.idx() - sizeUptoIdx);
+    setPosition(idx() + 1);
+    listStarted = false;
+  }
+
+  public void startListView() {
+    vector.startNewValue(idx());
+    writer.setPosition(vector.getOffsetBuffer().getInt((idx()) * OFFSET_WIDTH));
+    listStarted = true;
+  }
+
+  @Override
+  public void endListView() {
     int sizeUptoIdx = 0;
     for (int i = 0; i < idx(); i++) {
       sizeUptoIdx += vector.getSizeBuffer().getInt(i * SIZE_WIDTH);

@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import org.apache.arrow.memory.BufferAllocator;
@@ -240,6 +241,34 @@ public class TestFixedSizeListVector {
         assertFalse(reader.isSet());
         assertNull(reader.readObject());
       }
+    }
+  }
+
+  @Test
+  public void testTransferEmptyVector() throws Exception {
+    // #43320
+    try (FixedSizeListVector src =
+            new FixedSizeListVector(
+                "src", allocator, FieldType.nullable(new ArrowType.FixedSizeList(2)), null);
+        FixedSizeListVector dest =
+            new FixedSizeListVector(
+                "dest", allocator, FieldType.nullable(new ArrowType.FixedSizeList(2)), null)) {
+      src.makeTransferPair(dest).transfer();
+
+      IntVector els =
+          (IntVector) dest.addOrGetVector(FieldType.nullable(MinorType.INT.getType())).getVector();
+
+      dest.allocateNew();
+      dest.startNewValue(0);
+      els.setSafe(0, 1);
+      els.setSafe(1, 2);
+      dest.setValueCount(1);
+
+      List<Integer> expected = new ArrayList<>(2);
+      expected.add(1);
+      expected.add(2);
+
+      assertEquals(expected, dest.getObject(0));
     }
   }
 

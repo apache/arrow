@@ -528,7 +528,7 @@ namespace {
 struct ExportedArrayPrivateData : PoolAllocationMixin<ExportedArrayPrivateData> {
   // The buffers are owned by the ArrayData member
   SmallVector<const void*, 3> buffers_;
-  struct ArrowArray dictionary_;
+  struct ArrowArray dictionary_ {};
   SmallVector<struct ArrowArray, 1> children_;
   SmallVector<struct ArrowArray*, 4> child_pointers_;
 

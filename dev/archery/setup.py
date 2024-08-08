@@ -34,7 +34,7 @@ jinja_req = 'jinja2>=2.11'
 extras = {
     'benchmark': ['pandas'],
     'crossbow': ['github3.py', jinja_req, 'pygit2>=1.14.0', 'requests',
-                 'ruamel.yaml', 'setuptools_scm<8.0.0'],
+                 'ruamel.yaml', 'setuptools_scm>=8.0.0'],
     'crossbow-upload': ['github3.py', jinja_req, 'ruamel.yaml',
                         'setuptools_scm'],
     'docker': ['ruamel.yaml', 'python-dotenv'],

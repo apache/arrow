@@ -286,6 +286,7 @@ cdef class Array(_PandasConvertible):
     cdef void init(self, const shared_ptr[CArray]& sp_array) except *
     cdef getitem(self, int64_t i)
     cdef int64_t length(self)
+    cdef void _assert_cpu(self) except *
 
 
 cdef class Tensor(_Weakrefable):

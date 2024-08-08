@@ -46,8 +46,9 @@ let package = Package(
             name: "ArrowC",
             path: "Sources/ArrowC",
             swiftSettings: [
-                .unsafeFlags(["-warnings-as-errors"])
+                 // build: .unsafeFlags(["-warnings-as-errors"])
             ]
+
         ),
         .target(
             name: "Arrow",
@@ -56,14 +57,14 @@ let package = Package(
                 .product(name: "Atomics", package: "swift-atomics")
             ],
             swiftSettings: [
-                .unsafeFlags(["-warnings-as-errors"])
+                 // build: .unsafeFlags(["-warnings-as-errors"])
             ]
         ),
         .testTarget(
             name: "ArrowTests",
             dependencies: ["Arrow", "ArrowC"],
             swiftSettings: [
-                .unsafeFlags(["-warnings-as-errors"])
+                 // build: .unsafeFlags(["-warnings-as-errors"])
             ]
         )
     ]

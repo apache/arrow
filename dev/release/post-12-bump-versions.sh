@@ -40,6 +40,7 @@ fi
 version=$1
 next_version=$2
 next_version_snapshot="${next_version}-SNAPSHOT"
+current_version_before_bump="$(current_version)"
 
 case "${version}" in
   *.0.0)
@@ -64,7 +65,7 @@ if [ ${BUMP_VERSION_POST_TAG} -gt 0 ]; then
 fi
 
 if [ ${BUMP_DEB_PACKAGE_NAMES} -gt 0 ] && \
-     [ "${next_version}" != "$(current_version)" ]; then
+     [ "${next_version}" != "${current_version_before_bump}" ]; then
   update_deb_package_names "${version}" "${next_version}"
 fi
 

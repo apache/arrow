@@ -34,7 +34,14 @@ repos:
     hooks:
       - id: hadolint-docker
         name: Docker Format
-        exclude: ^dev/.*$
+        # We can enable this after we fix all existing lint failures.
+        # files: (/Dockerfile|\.dockerfile)$
+        files: >-
+          (
+          ?^ci/docker/conda-python-emscripten\.dockerfile$|
+          ?^ci/docker/python-wheel-windows-test-vs2019\.dockerfile$|
+          )
+        types: []
   - repo: https://github.com/pycqa/flake8
     rev: 6.1.0
     hooks:

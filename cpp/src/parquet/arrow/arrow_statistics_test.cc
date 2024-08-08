@@ -156,4 +156,27 @@ INSTANTIATE_TEST_SUITE_P(
             /*expected_min=*/"z",
             /*expected_max=*/"z"}));
 
+TEST(StatisticsTest, TruncateOnlyHalfMinMax) {
+  // GH-43382: Tests when we only have min or max, the `HasMinMax` should be false.
+  std::shared_ptr<::arrow::ResizableBuffer> serialized_data = AllocateBuffer();
+  auto out_stream = std::make_shared<::arrow::io::BufferOutputStream>(serialized_data);
+  auto schema = ::arrow::schema({::arrow::field("a", ::arrow::utf8())});
+  ::parquet::WriterProperties::Builder properties_builder;
+  properties_builder.max_statistics_size(2);
+  ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<FileWriter> writer,
+      FileWriter::Open(*schema, default_memory_pool(), out_stream,
+                       properties_builder.build(), default_arrow_writer_properties()));
+  auto table = Table::Make(schema, {ArrayFromJSON(::arrow::utf8(), R"(["a", "abc"])")});
+  ASSERT_OK(writer->WriteTable(*table, std::numeric_limits<int64_t>::max()));
+  ASSERT_OK(writer->Close());
+  ASSERT_OK(out_stream->Close());
+
+  auto buffer_reader = std::make_shared<::arrow::io::BufferReader>(serialized_data);
+  auto parquet_reader = ParquetFileReader::Open(std::move(buffer_reader));
+  std::shared_ptr<FileMetaData> metadata = parquet_reader->metadata();
+  std::shared_ptr<Statistics> stats = metadata->RowGroup(0)->ColumnChunk(0)->statistics();
+  ASSERT_FALSE(stats->HasMinMax());
+}
+
 }  // namespace parquet::arrow

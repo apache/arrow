@@ -323,6 +323,17 @@ class PrepareTest < Test::Unit::TestCase
           "+#{new_line}",
         ]
       end
+      tag = "<tag>main</tag>"
+      target_lines = lines.grep(/#{Regexp.escape(tag)}/)
+      target_lines.each do |line|
+        new_line = line.gsub("main") do
+          "apache-arrow-#{@release_version}"
+        end
+        hunks << [
+          "-#{line}",
+          "+#{new_line}",
+        ]
+      end
       expected_changes << {hunks: hunks, path: path}
     end
 

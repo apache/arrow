@@ -19,7 +19,7 @@ package arrow_test
 import (
 	"testing"
 
-	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/arrow/go/v18/arrow"
 )
 
 func TestNullType(t *testing.T) {

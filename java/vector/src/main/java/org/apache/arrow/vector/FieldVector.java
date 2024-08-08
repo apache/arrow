@@ -57,6 +57,15 @@ public interface FieldVector extends ValueVector {
   List<ArrowBuf> getFieldBuffers();
 
   /**
+   * Retrieves the export buffer count for the C Data Interface.
+   *
+   * @return the number of variadic buffers
+   */
+  default int getExportedCDataBufferCount() {
+    return getFieldBuffers().size();
+  }
+
+  /**
    * Export a given buffer and its memory address into a list of buffers and a pointer to the list
    * of buffers.
    *
@@ -102,9 +111,9 @@ public interface FieldVector extends ValueVector {
   /**
    * Get the inner vectors.
    *
+   * @return the inner vectors for this field as defined by the TypeLayout
    * @deprecated This API will be removed as the current implementations no longer support inner
    *     vectors.
-   * @return the inner vectors for this field as defined by the TypeLayout
    */
   @Deprecated
   List<BufferBacked> getFieldInnerVectors();

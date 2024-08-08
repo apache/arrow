@@ -32,7 +32,7 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/bit_stream_utils.h"
+#include "arrow/util/bit_stream_utils_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
@@ -41,7 +41,7 @@
 #include "arrow/util/endian.h"
 #include "arrow/util/float16.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/rle_encoding.h"
+#include "arrow/util/rle_encoding_internal.h"
 #include "arrow/util/type_traits.h"
 #include "arrow/visit_array_inline.h"
 #include "parquet/column_page.h"
@@ -303,9 +303,10 @@ class SerializedPageWriter : public PageWriter {
     if (data_encryptor_.get()) {
       UpdateEncryption(encryption::kDictionaryPage);
       PARQUET_THROW_NOT_OK(encryption_buffer_->Resize(
-          data_encryptor_->CiphertextSizeDelta() + output_data_len, false));
-      output_data_len = data_encryptor_->Encrypt(compressed_data->data(), output_data_len,
-                                                 encryption_buffer_->mutable_data());
+          data_encryptor_->CiphertextLength(output_data_len), false));
+      output_data_len =
+          data_encryptor_->Encrypt(compressed_data->span_as<uint8_t>(),
+                                   encryption_buffer_->mutable_span_as<uint8_t>());
       output_data_buffer = encryption_buffer_->data();
     }
 
@@ -352,8 +353,6 @@ class SerializedPageWriter : public PageWriter {
                       total_compressed_size_, total_uncompressed_size_, has_dictionary,
                       fallback, dict_encoding_stats_, data_encoding_stats_,
                       meta_encryptor_);
-    // Write metadata at end of column chunk
-    metadata_->WriteTo(sink_.get());
   }
 
   /**
@@ -395,11 +394,11 @@ class SerializedPageWriter : public PageWriter {
 
     if (data_encryptor_.get()) {
       PARQUET_THROW_NOT_OK(encryption_buffer_->Resize(
-          data_encryptor_->CiphertextSizeDelta() + output_data_len, false));
+          data_encryptor_->CiphertextLength(output_data_len), false));
       UpdateEncryption(encryption::kDataPage);
-      output_data_len = data_encryptor_->Encrypt(compressed_data->data(),
-                                                 static_cast<int32_t>(output_data_len),
-                                                 encryption_buffer_->mutable_data());
+      output_data_len =
+          data_encryptor_->Encrypt(compressed_data->span_as<uint8_t>(),
+                                   encryption_buffer_->mutable_span_as<uint8_t>());
       output_data_buffer = encryption_buffer_->data();
     }
 
@@ -665,9 +664,6 @@ class BufferedPageWriter : public PageWriter {
                       pager_->total_compressed_size(), pager_->total_uncompressed_size(),
                       has_dictionary, fallback, pager_->dict_encoding_stats_,
                       pager_->data_encoding_stats_, pager_->meta_encryptor_);
-
-    // Write metadata at end of column chunk
-    metadata_->WriteTo(in_memory_sink_.get());
 
     // Buffered page writer needs to adjust page offsets.
     pager_->FinishPageIndexes(final_position);

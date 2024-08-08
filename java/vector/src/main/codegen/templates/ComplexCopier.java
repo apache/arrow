@@ -51,6 +51,7 @@ public class ComplexCopier {
       switch (mt) {
 
       case LIST:
+      case LISTVIEW:
       case LARGELIST:
       case FIXED_SIZE_LIST:
         if (reader.isSet()) {
@@ -158,6 +159,8 @@ public class ComplexCopier {
       return (FieldWriter) writer.list(name);
     case MAP:
       return (FieldWriter) writer.map(name);
+    case LISTVIEW:
+      return (FieldWriter) writer.listView(name);
     default:
       throw new UnsupportedOperationException(reader.getMinorType().toString());
     }
@@ -180,6 +183,8 @@ public class ComplexCopier {
     case MAP:
     case NULL:
       return (FieldWriter) writer.list();
+    case LISTVIEW:
+      return (FieldWriter) writer.listView();
     default:
       throw new UnsupportedOperationException(reader.getMinorType().toString());
     }
@@ -201,6 +206,8 @@ public class ComplexCopier {
       case LIST:
       case NULL:
         return (FieldWriter) writer.list();
+      case LISTVIEW:
+        return (FieldWriter) writer.listView();
       case MAP:
         return (FieldWriter) writer.map(false);
       default:
