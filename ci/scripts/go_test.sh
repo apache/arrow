@@ -78,6 +78,7 @@ go test $testargs -tags $TAGS,noasm ./...
 popd
 
 export PARQUET_TEST_DATA=${1}/cpp/submodules/parquet-testing/data
+export PARQUET_TEST_BAD_DATA=${1}/cpp/submodules/parquet-testing/bad_data
 export ARROW_TEST_DATA=${1}/testing/data
 pushd ${source_dir}/parquet
 
