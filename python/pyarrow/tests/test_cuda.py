@@ -553,11 +553,14 @@ def test_buffer_device():
     assert buf.is_cpu
     assert buf.device.is_cpu
     assert buf.device == pa.default_cpu_memory_manager().device
+    # it is not entirely clear if CudaHostBuffer should use the default CPU memory
+    # manager (as it does now), see https://github.com/apache/arrow/pull/42221
     assert buf.memory_manager.is_cpu
 
     _, buf = make_random_buffer(size=10, target='device')
     assert buf.device_type == pa.DeviceAllocationType.CUDA
     assert isinstance(buf.device, pa.Device)
+    assert buf.device == global_context.memory_manager.device
     assert isinstance(buf.memory_manager, pa.MemoryManager)
     assert not buf.is_cpu
     assert not buf.device.is_cpu
