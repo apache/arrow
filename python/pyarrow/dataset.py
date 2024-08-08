@@ -603,7 +603,7 @@ def dataset(source, schema=None, format=None, filesystem=None,
     Parameters
     ----------
     source : path, list of paths, dataset, list of datasets, (list of) \
-RecordBatch or Table, iterable of RecordBatch, RecordBatchReader, or URI
+RecordBatch or Table, iterable of RecordBatch, or URI
         Path pointing to a single file:
             Open a FileSystemDataset from a single file.
         Path pointing to a directory:
@@ -619,11 +619,11 @@ RecordBatch or Table, iterable of RecordBatch, RecordBatchReader, or URI
             A nested UnionDataset gets constructed, it allows arbitrary
             composition of other datasets.
             Note that additional keyword arguments are not allowed.
-        (List of) batches or tables, iterable of batches, or RecordBatchReader:
+        (List of) batches or tables, or iterable of batches:
             Create an InMemoryDataset. If an iterable or empty list is given,
-            a schema must also be given. If an iterable or RecordBatchReader
-            is given, the resulting dataset can only be scanned once; further
-            attempts will raise an error.
+            a schema must also be given. If an iterable is given, the resulting
+            dataset can only be scanned once; further attempts will raise an
+            error.
     schema : Schema, optional
         Optionally provide the Schema for the Dataset, in which case it will
         not be inferred from the source.
