@@ -27,6 +27,7 @@
 #pragma once
 
 #include "arrow/util/bit_util.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/ubsan.h"
 
 namespace arrow {
