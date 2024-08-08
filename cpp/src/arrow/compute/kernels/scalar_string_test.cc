@@ -1880,6 +1880,12 @@ TYPED_TEST(TestBaseBinaryKernels, ReplaceSubstring) {
   this->CheckUnary("replace_substring", R"(["foo", "this foo that foo", null])",
                    this->type(), R"(["bazz", "this bazz that foo", null])", &options);
 
+  options = ReplaceSubstringOptions{"", "invalid"};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("Pattern is empty"),
+      CallFunction("replace_substring",
+                   {Datum(R"(["a", "A", "baaa", null, "", "AaaA"])")}, &options));
+
   Datum input = ArrayFromJSON(this->type(), "[]");
   ASSERT_RAISES(Invalid, CallFunction("replace_substring", {input}));
 }
