@@ -37,6 +37,7 @@
 #include "arrow/array/builder_primitive.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
+#include "arrow/extension/json.h"
 #include "arrow/io/api.h"
 #include "arrow/record_batch.h"
 #include "arrow/scalar.h"
@@ -618,10 +619,15 @@ class ParquetIOTestBase : public ::testing::Test {
     return ParquetFileWriter::Open(sink_, schema);
   }
 
-  void ReaderFromSink(std::unique_ptr<FileReader>* out) {
+  void ReaderFromSink(
+      std::unique_ptr<FileReader>* out,
+      const ArrowReaderProperties& properties = default_arrow_reader_properties()) {
     ASSERT_OK_AND_ASSIGN(auto buffer, sink_->Finish());
-    ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer),
-                                ::arrow::default_memory_pool(), out));
+    FileReaderBuilder builder;
+    ASSERT_OK_NO_THROW(builder.Open(std::make_shared<BufferReader>(buffer)));
+    ASSERT_OK_NO_THROW(builder.memory_pool(::arrow::default_memory_pool())
+                           ->properties(properties)
+                           ->Build(out));
   }
 
   void ReadSingleColumnFile(std::unique_ptr<FileReader> file_reader,
@@ -670,6 +676,7 @@ class ParquetIOTestBase : public ::testing::Test {
   void RoundTripSingleColumn(
       const std::shared_ptr<Array>& values, const std::shared_ptr<Array>& expected,
       const std::shared_ptr<::parquet::ArrowWriterProperties>& arrow_properties,
+      const ArrowReaderProperties& reader_properties = default_arrow_reader_properties(),
       bool nullable = true) {
     std::shared_ptr<Table> table = MakeSimpleTable(values, nullable);
     this->ResetSink();
@@ -679,7 +686,7 @@ class ParquetIOTestBase : public ::testing::Test {
 
     std::shared_ptr<Table> out;
     std::unique_ptr<FileReader> reader;
-    ASSERT_NO_FATAL_FAILURE(this->ReaderFromSink(&reader));
+    ASSERT_NO_FATAL_FAILURE(this->ReaderFromSink(&reader, reader_properties));
     const bool expect_metadata = arrow_properties->store_schema();
     ASSERT_NO_FATAL_FAILURE(
         this->ReadTableFromFile(std::move(reader), expect_metadata, &out));
@@ -1426,6 +1433,43 @@ TEST_F(TestLargeStringParquetIO, Basics) {
   const auto arrow_properties =
       ::parquet::ArrowWriterProperties::Builder().store_schema()->build();
   this->RoundTripSingleColumn(large_array, large_array, arrow_properties);
+}
+
+using TestJsonParquetIO = TestParquetIO<::arrow::extension::JsonExtensionType>;
+
+TEST_F(TestJsonParquetIO, JsonExtension) {
+  const char* json = R"([
+    "null",
+    "1234",
+    "3.14159",
+    "true",
+    "false",
+    "\"a json string\"",
+    "[\"a\", \"json\", \"array\"]",
+    "{\"obj\": \"a simple json object\"}"
+  ])";
+
+  const auto json_type = ::arrow::extension::json();
+  const auto json_string_array = ::arrow::ArrayFromJSON(::arrow::utf8(), json);
+  const auto json_array = ::arrow::ExtensionType::WrapArray(json_type, json_string_array);
+
+  // When the original Arrow schema isn't stored and Arrow extensions are disabled,
+  // LogicalType::JSON is read as Binary.
+  const auto binary_array = ::arrow::ArrayFromJSON(::arrow::binary(), json);
+  this->RoundTripSingleColumn(json_array, binary_array,
+                              default_arrow_writer_properties());
+
+  // When the original Arrow schema isn't stored and Arrow extensions are enabled,
+  // LogicalType::JSON is read as JsonExtensionType.
+  ::parquet::ArrowReaderProperties reader_properties;
+  reader_properties.enable_known_arrow_extensions();
+  this->RoundTripSingleColumn(json_array, json_array, default_arrow_writer_properties(),
+                              reader_properties);
+
+  // When the original Arrow schema is stored, the stored Arrow type is always respected.
+  const auto arrow_properties =
+      ::parquet::ArrowWriterProperties::Builder().store_schema()->build();
+  this->RoundTripSingleColumn(json_array, json_array, arrow_properties);
 }
 
 using TestNullParquetIO = TestParquetIO<::arrow::NullType>;

@@ -211,20 +211,6 @@ TEST_F(TestExtensionType, ExtensionTypeTest) {
   ASSERT_EQ(deserialized->byte_width(), 16);
 }
 
-auto RoundtripBatch = [](const std::shared_ptr<RecordBatch>& batch,
-                         std::shared_ptr<RecordBatch>* out) {
-  ASSERT_OK_AND_ASSIGN(auto out_stream, io::BufferOutputStream::Create());
-  ASSERT_OK(ipc::WriteRecordBatchStream({batch}, ipc::IpcWriteOptions::Defaults(),
-                                        out_stream.get()));
-
-  ASSERT_OK_AND_ASSIGN(auto complete_ipc_stream, out_stream->Finish());
-
-  io::BufferReader reader(complete_ipc_stream);
-  std::shared_ptr<RecordBatchReader> batch_reader;
-  ASSERT_OK_AND_ASSIGN(batch_reader, ipc::RecordBatchStreamReader::Open(&reader));
-  ASSERT_OK(batch_reader->ReadNext(out));
-};
-
 TEST_F(TestExtensionType, IpcRoundtrip) {
   auto ext_arr = ExampleUuid();
   auto batch = RecordBatch::Make(schema({field("f0", uuid())}), 4, {ext_arr});
