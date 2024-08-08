@@ -19,13 +19,13 @@ package metadata
 import (
   "fmt"
 
-  "github.com/apache/arrow/go/v17/arrow"
-  "github.com/apache/arrow/go/v17/parquet"
-  "github.com/apache/arrow/go/v17/parquet/schema"
-  "github.com/apache/arrow/go/v17/parquet/internal/utils"
-  shared_utils "github.com/apache/arrow/go/v17/internal/utils"
-  "github.com/apache/arrow/go/v17/parquet/internal/encoding"
-  "github.com/apache/arrow/go/v17/internal/bitutils"
+  "github.com/apache/arrow/go/v18/arrow"
+  "github.com/apache/arrow/go/v18/parquet"
+  "github.com/apache/arrow/go/v18/parquet/schema"
+  "github.com/apache/arrow/go/v18/parquet/internal/utils"
+  shared_utils "github.com/apache/arrow/go/v18/internal/utils"
+  "github.com/apache/arrow/go/v18/parquet/internal/encoding"
+  "github.com/apache/arrow/go/v18/internal/bitutils"
 )
 
 {{range .In}}
@@ -464,14 +464,7 @@ func (s *{{.Name}}Statistics) EncodeMax() []byte{
 func (s *{{.Name}}Statistics) Encode() (enc EncodedStatistics, err error) {
   defer func() {
     if r := recover(); r != nil {
-      switch r := r.(type) {
-			case error:
-				err = r
-			case string:
-				err = xerrors.New(r)
-			default:
-				err = fmt.Errorf("unknown error type thrown from panic: %v", r)
-			}
+      err = shared_utils.FormatRecoveredError("unknown error type thrown from panic", r)
     }
   }()
   if s.HasMinMax() {

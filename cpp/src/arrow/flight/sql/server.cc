@@ -477,13 +477,11 @@ arrow::Result<Result> PackActionResult(ActionBeginTransactionResult result) {
 }
 
 arrow::Result<Result> PackActionResult(CancelFlightInfoResult result) {
-  ARROW_ASSIGN_OR_RAISE(auto serialized, result.SerializeToString());
-  return Result{Buffer::FromString(std::move(serialized))};
+  return result.SerializeToBuffer();
 }
 
 arrow::Result<Result> PackActionResult(const FlightEndpoint& endpoint) {
-  ARROW_ASSIGN_OR_RAISE(auto serialized, endpoint.SerializeToString());
-  return Result{Buffer::FromString(std::move(serialized))};
+  return endpoint.SerializeToBuffer();
 }
 
 arrow::Result<Result> PackActionResult(CancelResult result) {
@@ -523,21 +521,6 @@ arrow::Result<Result> PackActionResult(ActionCreatePreparedStatementResult resul
   }
 
   return PackActionResult(pb_result);
-}
-
-arrow::Result<Result> PackActionResult(SetSessionOptionsResult result) {
-  ARROW_ASSIGN_OR_RAISE(auto serialized, result.SerializeToString());
-  return Result{Buffer::FromString(std::move(serialized))};
-}
-
-arrow::Result<Result> PackActionResult(GetSessionOptionsResult result) {
-  ARROW_ASSIGN_OR_RAISE(auto serialized, result.SerializeToString());
-  return Result{Buffer::FromString(std::move(serialized))};
-}
-
-arrow::Result<Result> PackActionResult(CloseSessionResult result) {
-  ARROW_ASSIGN_OR_RAISE(auto serialized, result.SerializeToString());
-  return Result{Buffer::FromString(std::move(serialized))};
 }
 
 }  // namespace
@@ -908,23 +891,23 @@ Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
     std::string_view body(*action.body);
     ARROW_ASSIGN_OR_RAISE(auto request, SetSessionOptionsRequest::Deserialize(body));
     ARROW_ASSIGN_OR_RAISE(auto result, SetSessionOptions(context, request));
-    ARROW_ASSIGN_OR_RAISE(auto packed_result, PackActionResult(std::move(result)));
+    ARROW_ASSIGN_OR_RAISE(auto packed_result, result.SerializeToBuffer());
 
-    results.push_back(std::move(packed_result));
+    results.emplace_back(std::move(packed_result));
   } else if (action.type == ActionType::kGetSessionOptions.type) {
     std::string_view body(*action.body);
     ARROW_ASSIGN_OR_RAISE(auto request, GetSessionOptionsRequest::Deserialize(body));
     ARROW_ASSIGN_OR_RAISE(auto result, GetSessionOptions(context, request));
-    ARROW_ASSIGN_OR_RAISE(auto packed_result, PackActionResult(std::move(result)));
+    ARROW_ASSIGN_OR_RAISE(auto packed_result, result.SerializeToBuffer());
 
-    results.push_back(std::move(packed_result));
+    results.emplace_back(std::move(packed_result));
   } else if (action.type == ActionType::kCloseSession.type) {
     std::string_view body(*action.body);
     ARROW_ASSIGN_OR_RAISE(auto request, CloseSessionRequest::Deserialize(body));
     ARROW_ASSIGN_OR_RAISE(auto result, CloseSession(context, request));
-    ARROW_ASSIGN_OR_RAISE(auto packed_result, PackActionResult(std::move(result)));
+    ARROW_ASSIGN_OR_RAISE(auto packed_result, result.SerializeToBuffer());
 
-    results.push_back(std::move(packed_result));
+    results.emplace_back(std::move(packed_result));
   } else {
     google::protobuf::Any any;
     if (!any.ParseFromArray(action.body->data(), static_cast<int>(action.body->size()))) {
@@ -1063,7 +1046,7 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlServerBase::GetFlightInfoSql
   }
 
   std::vector<FlightEndpoint> endpoints{
-      FlightEndpoint{{descriptor.cmd}, {}, std::nullopt, {}}};
+      FlightEndpoint{Ticket{descriptor.cmd}, {}, std::nullopt, {}}};
   ARROW_ASSIGN_OR_RAISE(
       auto result, FlightInfo::Make(*SqlSchema::GetSqlInfoSchema(), descriptor, endpoints,
                                     -1, -1, false))

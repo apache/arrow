@@ -14,13 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.tools;
 
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.Preconditions;
@@ -30,26 +28,20 @@ import org.apache.arrow.vector.ipc.ArrowStreamWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Simple server that echoes back data received.
- */
+/** Simple server that echoes back data received. */
 public class EchoServer {
   private static final Logger LOGGER = LoggerFactory.getLogger(EchoServer.class);
   private final ServerSocket serverSocket;
   private boolean closed = false;
 
-  /**
-   * Constructs a new instance that binds to the given port.
-   */
+  /** Constructs a new instance that binds to the given port. */
   public EchoServer(int port) throws IOException {
     LOGGER.debug("Starting echo server.");
     serverSocket = new ServerSocket(port);
     LOGGER.debug("Running echo server on port: " + port());
   }
 
-  /**
-   * Main method to run the server, the first argument is an optional port number.
-   */
+  /** Main method to run the server, the first argument is an optional port number. */
   public static void main(String[] args) throws Exception {
     int port;
     if (args.length > 0) {
@@ -64,9 +56,7 @@ public class EchoServer {
     return serverSocket.getLocalPort();
   }
 
-  /**
-   * Starts the main server event loop.
-   */
+  /** Starts the main server event loop. */
   public void run() throws IOException {
     try {
       Socket clientSocket = null;
@@ -98,9 +88,7 @@ public class EchoServer {
     serverSocket.close();
   }
 
-  /**
-   * Handler for each client connection to the server.
-   */
+  /** Handler for each client connection to the server. */
   public static class ClientConnection implements AutoCloseable {
     public final Socket socket;
 
@@ -108,9 +96,7 @@ public class EchoServer {
       this.socket = socket;
     }
 
-    /**
-     * Reads a record batch off the socket and writes it back out.
-     */
+    /** Reads a record batch off the socket and writes it back out. */
     public void run() throws IOException {
       // Read the entire input stream and write it back
       try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)) {

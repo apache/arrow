@@ -146,7 +146,12 @@ class PARQUET_EXPORT ColumnChunkMetaData {
 
   bool Equals(const ColumnChunkMetaData& other) const;
 
-  // column chunk
+  // Byte offset of `ColumnMetaData` in `file_path()`.
+  //
+  // Note that the meaning of this field has been inconsistent among implementations
+  // so its use has since been deprecated in the Parquet specification. Modern
+  // implementations will set this to `0` to indicate that the `ColumnMetaData` is solely
+  // contained in the `ColumnChunk` struct.
   int64_t file_offset() const;
 
   // parameter is only used when a dataset is spread across multiple files
@@ -395,6 +400,13 @@ class PARQUET_EXPORT FileMetaData {
   /// \brief Return a FileMetaData containing a subset of the row groups in this
   /// FileMetaData.
   std::shared_ptr<FileMetaData> Subset(const std::vector<int>& row_groups) const;
+
+  /// \brief Serialize metadata unencrypted as string
+  ///
+  /// \param[in] scrub whether to remove sensitive information from the metadata.
+  /// \param[in] debug whether to serialize the metadata as Thrift (if false) or
+  /// debug text (if true).
+  std::string SerializeUnencrypted(bool scrub, bool debug) const;
 
  private:
   friend FileMetaDataBuilder;

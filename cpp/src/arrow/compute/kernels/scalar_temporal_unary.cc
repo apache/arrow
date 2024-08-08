@@ -1741,7 +1741,7 @@ const FunctionDoc millisecond_doc{
 
 const FunctionDoc microsecond_doc{
     "Extract microsecond values",
-    ("Millisecond returns number of microseconds since the last full millisecond.\n"
+    ("Microsecond returns number of microseconds since the last full millisecond.\n"
      "Null values emit null.\n"
      "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database."),

@@ -14,17 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.avro.consumers;
 
 import java.io.IOException;
-
 import org.apache.arrow.vector.FieldVector;
 import org.apache.avro.io.Decoder;
 
-/**
- * Consumer which skip (throw away) data from the decoder.
- */
+/** Consumer which skip (throw away) data from the decoder. */
 public class SkipConsumer implements Consumer {
 
   private final SkipFunction skipFunction;
@@ -39,12 +35,10 @@ public class SkipConsumer implements Consumer {
   }
 
   @Override
-  public void addNull() {
-  }
+  public void addNull() {}
 
   @Override
-  public void setPosition(int index) {
-  }
+  public void setPosition(int index) {}
 
   @Override
   public FieldVector getVector() {
@@ -52,8 +46,7 @@ public class SkipConsumer implements Consumer {
   }
 
   @Override
-  public void close() throws Exception {
-  }
+  public void close() throws Exception {}
 
   @Override
   public boolean resetValueVector(FieldVector vector) {

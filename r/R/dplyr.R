@@ -338,22 +338,6 @@ ensure_arrange_vars <- function(x) {
   x
 }
 
-# Helper to handle unsupported dplyr features
-# * For Table/RecordBatch, we collect() and then call the dplyr method in R
-# * For Dataset, we just error
-abandon_ship <- function(call, .data, msg) {
-  msg <- trimws(msg)
-  dplyr_fun_name <- sub("^(.*?)\\..*", "\\1", as.character(call[[1]]))
-  if (query_on_dataset(.data)) {
-    stop(msg, "\nCall collect() first to pull data into R.", call. = FALSE)
-  }
-  # else, collect and call dplyr method
-  warning(msg, "; pulling data into R", immediate. = TRUE, call. = FALSE)
-  call$.data <- dplyr::collect(.data)
-  call[[1]] <- get(dplyr_fun_name, envir = asNamespace("dplyr"))
-  eval.parent(call, 2)
-}
-
 query_on_dataset <- function(x) {
   any(map_lgl(all_sources(x), ~ inherits(., c("Dataset", "RecordBatchReader"))))
 }

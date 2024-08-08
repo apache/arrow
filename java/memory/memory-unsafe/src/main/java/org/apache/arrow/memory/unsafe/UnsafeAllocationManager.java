@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.memory.unsafe;
 
 import org.apache.arrow.memory.AllocationManager;
@@ -23,28 +22,24 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.ReferenceManager;
 import org.apache.arrow.memory.util.MemoryUtil;
 
-/**
- * Allocation manager based on unsafe API.
- */
+/** Allocation manager based on unsafe API. */
 public final class UnsafeAllocationManager extends AllocationManager {
 
-  private static final ArrowBuf EMPTY = new ArrowBuf(ReferenceManager.NO_OP,
-      null,
-      0,
-      MemoryUtil.UNSAFE.allocateMemory(0)
-  );
+  private static final ArrowBuf EMPTY =
+      new ArrowBuf(ReferenceManager.NO_OP, null, 0, MemoryUtil.allocateMemory(0));
 
-  public static final AllocationManager.Factory FACTORY = new Factory() {
-    @Override
-    public AllocationManager create(BufferAllocator accountingAllocator, long size) {
-      return new UnsafeAllocationManager(accountingAllocator, size);
-    }
+  public static final AllocationManager.Factory FACTORY =
+      new Factory() {
+        @Override
+        public AllocationManager create(BufferAllocator accountingAllocator, long size) {
+          return new UnsafeAllocationManager(accountingAllocator, size);
+        }
 
-    @Override
-    public ArrowBuf empty() {
-      return EMPTY;
-    }
-  };
+        @Override
+        public ArrowBuf empty() {
+          return EMPTY;
+        }
+      };
 
   private final long allocatedSize;
 
@@ -52,7 +47,7 @@ public final class UnsafeAllocationManager extends AllocationManager {
 
   UnsafeAllocationManager(BufferAllocator accountingAllocator, long requestedSize) {
     super(accountingAllocator);
-    allocatedAddress = MemoryUtil.UNSAFE.allocateMemory(requestedSize);
+    allocatedAddress = MemoryUtil.allocateMemory(requestedSize);
     allocatedSize = requestedSize;
   }
 
@@ -68,7 +63,6 @@ public final class UnsafeAllocationManager extends AllocationManager {
 
   @Override
   protected void release0() {
-    MemoryUtil.UNSAFE.freeMemory(allocatedAddress);
+    MemoryUtil.freeMemory(allocatedAddress);
   }
-
 }

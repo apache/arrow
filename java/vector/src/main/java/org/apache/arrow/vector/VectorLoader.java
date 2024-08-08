@@ -14,15 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 import static org.apache.arrow.util.Preconditions.checkArgument;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.util.Collections2;
 import org.apache.arrow.vector.compression.CompressionCodec;
@@ -32,9 +31,7 @@ import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Field;
 
-/**
- * Loads buffers into vectors.
- */
+/** Loads buffers into vectors. */
 public class VectorLoader {
 
   private final VectorSchemaRoot root;
@@ -42,8 +39,8 @@ public class VectorLoader {
   private final CompressionCodec.Factory factory;
 
   /**
-   * A flag indicating if decompression is needed.
-   * This will affect the behavior of releasing buffers.
+   * A flag indicating if decompression is needed. This will affect the behavior of releasing
+   * buffers.
    */
   private boolean decompressionNeeded;
 
@@ -53,7 +50,7 @@ public class VectorLoader {
    * @param root the root to add vectors to based on schema
    */
   public VectorLoader(VectorSchemaRoot root) {
-    this(root, NoCompressionCodec.Factory.INSTANCE);
+    this(root, CompressionCodec.Factory.INSTANCE);
   }
 
   /**
@@ -68,8 +65,7 @@ public class VectorLoader {
   }
 
   /**
-   * Loads the record batch in the vectors.
-   * will not close the record batch
+   * Loads the record batch in the vectors. will not close the record batch
    *
    * @param recordBatch the batch to load
    */
@@ -79,9 +75,12 @@ public class VectorLoader {
     CompressionUtil.CodecType codecType =
         CompressionUtil.CodecType.fromCompressionType(recordBatch.getBodyCompression().getCodec());
     decompressionNeeded = codecType != CompressionUtil.CodecType.NO_COMPRESSION;
-    CompressionCodec codec = decompressionNeeded ? factory.createCodec(codecType) : NoCompressionCodec.INSTANCE;
-    Iterator<Long> variadicBufferCounts = null;
-    if (recordBatch.getVariadicBufferCounts() != null && !recordBatch.getVariadicBufferCounts().isEmpty()) {
+    CompressionCodec codec =
+        decompressionNeeded ? factory.createCodec(codecType) : NoCompressionCodec.INSTANCE;
+    Iterator<Long> variadicBufferCounts = Collections.emptyIterator();
+    ;
+    if (recordBatch.getVariadicBufferCounts() != null
+        && !recordBatch.getVariadicBufferCounts().isEmpty()) {
       variadicBufferCounts = recordBatch.getVariadicBufferCounts().iterator();
     }
 
@@ -89,9 +88,14 @@ public class VectorLoader {
       loadBuffers(fieldVector, fieldVector.getField(), buffers, nodes, codec, variadicBufferCounts);
     }
     root.setRowCount(recordBatch.getLength());
-    if (nodes.hasNext() || buffers.hasNext()) {
-      throw new IllegalArgumentException("not all nodes and buffers were consumed. nodes: " +
-          Collections2.toString(nodes) + " buffers: " + Collections2.toString(buffers));
+    if (nodes.hasNext() || buffers.hasNext() || variadicBufferCounts.hasNext()) {
+      throw new IllegalArgumentException(
+          "not all nodes, buffers and variadicBufferCounts were consumed. nodes: "
+              + Collections2.toString(nodes)
+              + " buffers: "
+              + Collections2.toString(buffers)
+              + " variadicBufferCounts: "
+              + Collections2.toString(variadicBufferCounts));
     }
   }
 
@@ -104,17 +108,24 @@ public class VectorLoader {
       Iterator<Long> variadicBufferCounts) {
     checkArgument(nodes.hasNext(), "no more field nodes for field %s and vector %s", field, vector);
     ArrowFieldNode fieldNode = nodes.next();
-    // variadicBufferLayoutCount will be 0 for vectors of type except BaseVariableWidthViewVector
+    // variadicBufferLayoutCount will be 0 for vectors of a type except BaseVariableWidthViewVector
     long variadicBufferLayoutCount = 0;
-    if (variadicBufferCounts != null) {
-      variadicBufferLayoutCount = variadicBufferCounts.next();
+    if (vector instanceof BaseVariableWidthViewVector) {
+      if (variadicBufferCounts.hasNext()) {
+        variadicBufferLayoutCount = variadicBufferCounts.next();
+      } else {
+        throw new IllegalStateException(
+            "No variadicBufferCounts available for BaseVariableWidthViewVector");
+      }
     }
-    int bufferLayoutCount = (int) (variadicBufferLayoutCount + TypeLayout.getTypeBufferCount(field.getType()));
+    int bufferLayoutCount =
+        (int) (variadicBufferLayoutCount + TypeLayout.getTypeBufferCount(field.getType()));
     List<ArrowBuf> ownBuffers = new ArrayList<>(bufferLayoutCount);
     for (int j = 0; j < bufferLayoutCount; j++) {
       ArrowBuf nextBuf = buffers.next();
       // for vectors without nulls, the buffer is empty, so there is no need to decompress it.
-      ArrowBuf bufferToAdd = nextBuf.writerIndex() > 0 ? codec.decompress(vector.getAllocator(), nextBuf) : nextBuf;
+      ArrowBuf bufferToAdd =
+          nextBuf.writerIndex() > 0 ? codec.decompress(vector.getAllocator(), nextBuf) : nextBuf;
       ownBuffers.add(bufferToAdd);
       if (decompressionNeeded) {
         // decompression performed
@@ -129,15 +140,17 @@ public class VectorLoader {
         }
       }
     } catch (RuntimeException e) {
-      throw new IllegalArgumentException("Could not load buffers for field " +
-          field + ". error message: " + e.getMessage(), e);
+      throw new IllegalArgumentException(
+          "Could not load buffers for field " + field + ". error message: " + e.getMessage(), e);
     }
     List<Field> children = field.getChildren();
     if (children.size() > 0) {
       List<FieldVector> childrenFromFields = vector.getChildrenFromFields();
-      checkArgument(children.size() == childrenFromFields.size(),
+      checkArgument(
+          children.size() == childrenFromFields.size(),
           "should have as many children as in the schema: found %s expected %s",
-          childrenFromFields.size(), children.size());
+          childrenFromFields.size(),
+          children.size());
       for (int i = 0; i < childrenFromFields.size(); i++) {
         Field child = children.get(i);
         FieldVector fieldVector = childrenFromFields.get(i);

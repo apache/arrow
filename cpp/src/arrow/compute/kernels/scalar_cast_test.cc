@@ -1646,6 +1646,10 @@ TEST(Cast, DateToDate) {
         86400000,
        864000000])");
 
+  // Zero copy
+  CheckCast(day_32, day_32);
+  CheckCast(day_64, day_64);
+
   // Multiply promotion
   CheckCast(day_32, day_64);
 
@@ -2281,7 +2285,7 @@ TEST(Cast, ListToPrimitive) {
       Cast(*ArrayFromJSON(list(binary()), R"([["1", "2"], ["3", "4"]])"), utf8()));
 }
 
-using make_list_t = std::shared_ptr<DataType>(const std::shared_ptr<DataType>&);
+using make_list_t = std::shared_ptr<DataType>(std::shared_ptr<DataType>);
 
 static const auto list_factories = std::vector<make_list_t*>{&list, &large_list};
 

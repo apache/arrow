@@ -36,14 +36,14 @@
 #include "arrow/array/builder_primitive.h"
 #include "arrow/chunked_array.h"
 #include "arrow/type.h"
-#include "arrow/util/bit_stream_utils.h"
+#include "arrow/util/bit_stream_utils_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/crc32.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/rle_encoding.h"
+#include "arrow/util/rle_encoding_internal.h"
 #include "arrow/util/unreachable.h"
 #include "parquet/column_page.h"
 #include "parquet/encoding.h"
@@ -512,10 +512,11 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
     // Decrypt it if we need to
     if (crypto_ctx_.data_decryptor != nullptr) {
       PARQUET_THROW_NOT_OK(decryption_buffer_->Resize(
-          compressed_len - crypto_ctx_.data_decryptor->CiphertextSizeDelta(),
+          crypto_ctx_.data_decryptor->PlaintextLength(compressed_len),
           /*shrink_to_fit=*/false));
       compressed_len = crypto_ctx_.data_decryptor->Decrypt(
-          page_buffer->data(), compressed_len, decryption_buffer_->mutable_data());
+          page_buffer->span_as<uint8_t>(),
+          decryption_buffer_->mutable_span_as<uint8_t>());
 
       page_buffer = decryption_buffer_;
     }
@@ -641,12 +642,6 @@ namespace {
 
 // ----------------------------------------------------------------------
 // Impl base class for TypedColumnReader and RecordReader
-
-// PLAIN_DICTIONARY is deprecated but used to be used as a dictionary index
-// encoding.
-static bool IsDictionaryIndexEncoding(const Encoding::type& e) {
-  return e == Encoding::RLE_DICTIONARY || e == Encoding::PLAIN_DICTIONARY;
-}
 
 template <typename DType>
 class ColumnReaderImplBase {
@@ -876,8 +871,9 @@ class ColumnReaderImplBase {
     }
 
     Encoding::type encoding = page.encoding();
-
     if (IsDictionaryIndexEncoding(encoding)) {
+      // Normalizing the PLAIN_DICTIONARY to RLE_DICTIONARY encoding
+      // in decoder.
       encoding = Encoding::RLE_DICTIONARY;
     }
 
@@ -950,7 +946,7 @@ class ColumnReaderImplBase {
 
   /// Flag to signal when a new dictionary has been set, for the benefit of
   /// DictionaryRecordReader
-  bool new_dictionary_;
+  bool new_dictionary_ = false;
 
   // The exposed encoding
   ExposedEncoding exposed_encoding_ = ExposedEncoding::NO_ENCODING;

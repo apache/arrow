@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc.h2;
 
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertBigIntVectorValues;
@@ -33,20 +32,27 @@ import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertTimeVect
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertTinyIntVectorValues;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertVarBinaryVectorValues;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertVarcharVectorValues;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.IOException;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Arrays;
 import java.util.Calendar;
-import java.util.Collection;
-
+import java.util.function.Function;
+import java.util.stream.Stream;
 import org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest;
+import org.apache.arrow.adapter.jdbc.JdbcFieldInfo;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowConfig;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowConfigBuilder;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowUtils;
 import org.apache.arrow.adapter.jdbc.Table;
+import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
@@ -64,17 +70,20 @@ import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.extension.OpaqueType;
+import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameters;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * JUnit Test Class which contains methods to test JDBC to Arrow data conversion functionality with various data types
- * for H2 database using multiple test data files.
+ * JUnit Test Class which contains methods to test JDBC to Arrow data conversion functionality with
+ * various data types for H2 database using multiple test data files.
  */
-@RunWith(Parameterized.class)
 public class JdbcToArrowDataTypesTest extends AbstractJdbcToArrowTest {
 
   private static final String BIGINT = "big_int";
@@ -120,15 +129,6 @@ public class JdbcToArrowDataTypesTest extends AbstractJdbcToArrowTest {
   };
 
   /**
-   * Constructor which populates the table object for each test iteration.
-   *
-   * @param table Table object
-   */
-  public JdbcToArrowDataTypesTest(Table table) {
-    this.table = table;
-  }
-
-  /**
    * Get the test data as a collection of Table objects for each test iteration.
    *
    * @return Collection of Table objects
@@ -136,123 +136,216 @@ public class JdbcToArrowDataTypesTest extends AbstractJdbcToArrowTest {
    * @throws ClassNotFoundException on error
    * @throws IOException on error
    */
-  @Parameters
-  public static Collection<Object[]> getTestData() throws SQLException, ClassNotFoundException, IOException {
-    return Arrays.asList(prepareTestData(testFiles, JdbcToArrowDataTypesTest.class));
+  public static Stream<Arguments> getTestData()
+      throws SQLException, ClassNotFoundException, IOException {
+    return Arrays.stream(prepareTestData(testFiles, JdbcToArrowMapDataTypeTest.class))
+        .map(Arguments::of);
   }
 
-  /**
-   * Test Method to test JdbcToArrow Functionality for various H2 DB based datatypes.
-   */
-  @Test
-  public void testJdbcToArrowValues() throws SQLException, IOException {
-    testDataSets(sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE),
-        Calendar.getInstance()), false);
+  /** Test Method to test JdbcToArrow Functionality for various H2 DB based datatypes. */
+  @ParameterizedTest
+  @MethodSource("getTestData")
+  public void testJdbcToArrowValues(Table table)
+      throws SQLException, IOException, ClassNotFoundException {
+    this.initializeDatabase(table);
+
+    testDataSets(
+        sqlToArrow(
+            conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance()),
+        false);
     testDataSets(sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE)), false);
-    testDataSets(sqlToArrow(conn.createStatement().executeQuery(table.getQuery()),
-        new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance()), false);
+    testDataSets(
+        sqlToArrow(
+            conn.createStatement().executeQuery(table.getQuery()),
+            new RootAllocator(Integer.MAX_VALUE),
+            Calendar.getInstance()),
+        false);
     testDataSets(sqlToArrow(conn.createStatement().executeQuery(table.getQuery())), false);
-    testDataSets(sqlToArrow(conn.createStatement().executeQuery(table.getQuery()),
-        new RootAllocator(Integer.MAX_VALUE)), false);
-    testDataSets(sqlToArrow(conn.createStatement().executeQuery(table.getQuery()), Calendar.getInstance()), false);
-    testDataSets(sqlToArrow(
-        conn.createStatement().executeQuery(table.getQuery()),
-        new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance())
-            .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
-            .build()), false);
-    testDataSets(sqlToArrow(
-        conn,
-        table.getQuery(),
-        new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance())
-            .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
-            .build()), false);
+    testDataSets(
+        sqlToArrow(
+            conn.createStatement().executeQuery(table.getQuery()),
+            new RootAllocator(Integer.MAX_VALUE)),
+        false);
+    testDataSets(
+        sqlToArrow(conn.createStatement().executeQuery(table.getQuery()), Calendar.getInstance()),
+        false);
+    testDataSets(
+        sqlToArrow(
+            conn.createStatement().executeQuery(table.getQuery()),
+            new JdbcToArrowConfigBuilder(
+                    new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance())
+                .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
+                .build()),
+        false);
+    testDataSets(
+        sqlToArrow(
+            conn,
+            table.getQuery(),
+            new JdbcToArrowConfigBuilder(
+                    new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance())
+                .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
+                .build()),
+        false);
   }
 
-  @Test
-  public void testJdbcSchemaMetadata() throws SQLException {
-    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(new RootAllocator(0), Calendar.getInstance(), true)
-        .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
-        .build();
+  @ParameterizedTest
+  @MethodSource("getTestData")
+  public void testJdbcSchemaMetadata(Table table) throws SQLException, ClassNotFoundException {
+    this.initializeDatabase(table);
+
+    JdbcToArrowConfig config =
+        new JdbcToArrowConfigBuilder(new RootAllocator(0), Calendar.getInstance(), true)
+            .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
+            .build();
     ResultSetMetaData rsmd = conn.createStatement().executeQuery(table.getQuery()).getMetaData();
     Schema schema = JdbcToArrowUtils.jdbcToArrowSchema(rsmd, config);
     JdbcToArrowTestHelper.assertFieldMetadataMatchesResultSetMetadata(rsmd, schema);
+  }
+
+  @Test
+  void testOpaqueType() throws SQLException, ClassNotFoundException {
+    try (BufferAllocator allocator = new RootAllocator()) {
+      String url = "jdbc:h2:mem:JdbcToArrowTest";
+      String driver = "org.h2.Driver";
+      Class.forName(driver);
+      conn = DriverManager.getConnection(url);
+      try (Statement stmt = conn.createStatement()) {
+        stmt.executeUpdate("CREATE TABLE unknowntype (a GEOMETRY, b INT)");
+      }
+
+      String query = "SELECT * FROM unknowntype";
+      Calendar calendar = Calendar.getInstance();
+      Function<JdbcFieldInfo, ArrowType> typeConverter =
+          (field) -> JdbcToArrowUtils.getArrowTypeFromJdbcType(field, calendar);
+      JdbcToArrowConfig config =
+          new JdbcToArrowConfigBuilder()
+              .setAllocator(allocator)
+              .setJdbcToArrowTypeConverter(
+                  JdbcToArrowUtils.reportUnsupportedTypesAsOpaque(typeConverter, "H2"))
+              .build();
+      Schema schema;
+      try (Statement stmt = conn.createStatement();
+          ResultSet rs = stmt.executeQuery(query)) {
+        schema =
+            assertDoesNotThrow(() -> JdbcToArrowUtils.jdbcToArrowSchema(rs.getMetaData(), config));
+      }
+
+      Schema expected =
+          new Schema(
+              Arrays.asList(
+                  Field.nullable(
+                      "A", new OpaqueType(Types.MinorType.NULL.getType(), "GEOMETRY", "H2")),
+                  Field.nullable("B", Types.MinorType.INT.getType())));
+      assertEquals(expected, schema);
+    }
   }
 
   /**
    * This method calls the assert methods for various DataSets.
    *
    * @param root VectorSchemaRoot for test
-   * @param isIncludeMapVector is this dataset checks includes map column.
-   *          Jdbc type to 'map' mapping declared in configuration only manually
+   * @param isIncludeMapVector is this dataset checks includes map column. Jdbc type to 'map'
+   *     mapping declared in configuration only manually
    */
+  @Override
   public void testDataSets(VectorSchemaRoot root, boolean isIncludeMapVector) {
     JdbcToArrowTestHelper.assertFieldMetadataIsEmpty(root);
 
     switch (table.getType()) {
       case BIGINT:
-        assertBigIntVectorValues((BigIntVector) root.getVector(table.getVector()), table.getValues().length,
+        assertBigIntVectorValues(
+            (BigIntVector) root.getVector(table.getVector()),
+            table.getValues().length,
             table.getLongValues());
         break;
       case BINARY:
       case BLOB:
-        assertVarBinaryVectorValues((VarBinaryVector) root.getVector(table.getVector()), table.getValues().length,
+        assertVarBinaryVectorValues(
+            (VarBinaryVector) root.getVector(table.getVector()),
+            table.getValues().length,
             table.getBinaryValues());
         break;
       case BIT:
-        assertBitVectorValues((BitVector) root.getVector(table.getVector()), table.getValues().length,
+        assertBitVectorValues(
+            (BitVector) root.getVector(table.getVector()),
+            table.getValues().length,
             table.getIntValues());
         break;
       case BOOL:
-        assertBooleanVectorValues((BitVector) root.getVector(table.getVector()), table.getValues().length,
+        assertBooleanVectorValues(
+            (BitVector) root.getVector(table.getVector()),
+            table.getValues().length,
             table.getBoolValues());
         break;
       case CHAR:
       case VARCHAR:
       case CLOB:
-        assertVarcharVectorValues((VarCharVector) root.getVector(table.getVector()), table.getValues().length,
+        assertVarcharVectorValues(
+            (VarCharVector) root.getVector(table.getVector()),
+            table.getValues().length,
             table.getCharValues());
         break;
       case DATE:
-        assertDateVectorValues((DateDayVector) root.getVector(table.getVector()), table.getValues().length,
+        assertDateVectorValues(
+            (DateDayVector) root.getVector(table.getVector()),
+            table.getValues().length,
             table.getIntValues());
         break;
       case TIME:
-        assertTimeVectorValues((TimeMilliVector) root.getVector(table.getVector()), table.getValues().length,
+        assertTimeVectorValues(
+            (TimeMilliVector) root.getVector(table.getVector()),
+            table.getValues().length,
             table.getLongValues());
         break;
       case TIMESTAMP:
-        assertTimeStampVectorValues((TimeStampVector) root.getVector(table.getVector()), table.getValues().length,
+        assertTimeStampVectorValues(
+            (TimeStampVector) root.getVector(table.getVector()),
+            table.getValues().length,
             table.getLongValues());
         break;
       case DECIMAL:
-        assertDecimalVectorValues((DecimalVector) root.getVector(table.getVector()), table.getValues().length,
+        assertDecimalVectorValues(
+            (DecimalVector) root.getVector(table.getVector()),
+            table.getValues().length,
             table.getBigDecimalValues());
         break;
       case DOUBLE:
-        assertFloat8VectorValues((Float8Vector) root.getVector(table.getVector()), table.getValues().length,
+        assertFloat8VectorValues(
+            (Float8Vector) root.getVector(table.getVector()),
+            table.getValues().length,
             table.getDoubleValues());
         break;
       case INT:
-        assertIntVectorValues((IntVector) root.getVector(table.getVector()), table.getValues().length,
+        assertIntVectorValues(
+            (IntVector) root.getVector(table.getVector()),
+            table.getValues().length,
             table.getIntValues());
         break;
       case SMALLINT:
-        assertSmallIntVectorValues((SmallIntVector) root.getVector(table.getVector()), table.getValues().length,
+        assertSmallIntVectorValues(
+            (SmallIntVector) root.getVector(table.getVector()),
+            table.getValues().length,
             table.getIntValues());
         break;
       case TINYINT:
-        assertTinyIntVectorValues((TinyIntVector) root.getVector(table.getVector()), table.getValues().length,
+        assertTinyIntVectorValues(
+            (TinyIntVector) root.getVector(table.getVector()),
+            table.getValues().length,
             table.getIntValues());
         break;
       case REAL:
-        assertFloat4VectorValues((Float4Vector) root.getVector(table.getVector()), table.getValues().length,
+        assertFloat4VectorValues(
+            (Float4Vector) root.getVector(table.getVector()),
+            table.getValues().length,
             table.getFloatValues());
         break;
       case NULL:
         assertNullVectorValues((NullVector) root.getVector(table.getVector()), table.getRowCount());
         break;
       case LIST:
-        assertListVectorValues((ListVector) root.getVector(table.getVector()), table.getValues().length,
+        assertListVectorValues(
+            (ListVector) root.getVector(table.getVector()),
+            table.getValues().length,
             table.getListValues());
         break;
       default:
@@ -261,4 +354,3 @@ public class JdbcToArrowDataTypesTest extends AbstractJdbcToArrowTest {
     }
   }
 }
-

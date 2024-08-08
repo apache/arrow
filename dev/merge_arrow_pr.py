@@ -44,9 +44,6 @@ import sys
 import requests
 import getpass
 
-from six.moves import input
-import six
-
 try:
     import jira.client
     import jira.exceptions
@@ -99,7 +96,7 @@ def get_json(url, headers=None):
 
 
 def run_cmd(cmd):
-    if isinstance(cmd, six.string_types):
+    if isinstance(cmd, str):
         cmd = cmd.split(' ')
 
     try:
@@ -113,7 +110,7 @@ def run_cmd(cmd):
         print('--------------')
         raise e
 
-    if isinstance(output, six.binary_type):
+    if isinstance(output, bytes):
         output = output.decode('utf-8')
     return output
 

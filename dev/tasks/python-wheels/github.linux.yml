@@ -31,10 +31,9 @@ jobs:
       # archery uses these environment variables
       {% if arch == "amd64" %}
       ARCH: amd64
-      ARCHERY_USE_DOCKER_CLI: 1
       {% else %}
       ARCH: arm64v8
-      ARCHERY_USE_DOCKER_CLI: 0
+      ARCHERY_USE_LEGACY_DOCKER_COMPOSE: 1
       {% endif %}
       PYTHON: "{{ python_version }}"
 
@@ -67,6 +66,7 @@ jobs:
           ALMALINUX: "8"
         run: |
           archery docker run \
+            -e ARROW_GANDIVA=OFF \
             -e TEST_DEFAULT=0 \
             -e TEST_PYARROW_VERSION={{ arrow.no_rc_version }} \
             -e TEST_PYTHON_VERSIONS={{ python_version }} \

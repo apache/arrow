@@ -14,24 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc.consumer;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-
 import org.apache.arrow.vector.BigIntVector;
 
 /**
- * Consumer which consume bigint type values from {@link ResultSet}.
- * Write the data to {@link org.apache.arrow.vector.BigIntVector}.
+ * Consumer which consume bigint type values from {@link ResultSet}. Write the data to {@link
+ * org.apache.arrow.vector.BigIntVector}.
  */
 public class BigIntConsumer {
 
-  /**
-   * Creates a consumer for {@link BigIntVector}.
-   */
-  public static JdbcConsumer<BigIntVector> createConsumer(BigIntVector vector, int index, boolean nullable) {
+  /** Creates a consumer for {@link BigIntVector}. */
+  public static JdbcConsumer<BigIntVector> createConsumer(
+      BigIntVector vector, int index, boolean nullable) {
     if (nullable) {
       return new NullableBigIntConsumer(vector, index);
     } else {
@@ -39,14 +36,10 @@ public class BigIntConsumer {
     }
   }
 
-  /**
-   * Nullable consumer for big int.
-   */
+  /** Nullable consumer for big int. */
   static class NullableBigIntConsumer extends BaseConsumer<BigIntVector> {
 
-    /**
-     * Instantiate a BigIntConsumer.
-     */
+    /** Instantiate a BigIntConsumer. */
     public NullableBigIntConsumer(BigIntVector vector, int index) {
       super(vector, index);
     }
@@ -63,14 +56,10 @@ public class BigIntConsumer {
     }
   }
 
-  /**
-   * Non-nullable consumer for big int.
-   */
+  /** Non-nullable consumer for big int. */
   static class NonNullableBigIntConsumer extends BaseConsumer<BigIntVector> {
 
-    /**
-     * Instantiate a BigIntConsumer.
-     */
+    /** Instantiate a BigIntConsumer. */
     public NonNullableBigIntConsumer(BigIntVector vector, int index) {
       super(vector, index);
     }

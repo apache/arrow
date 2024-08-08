@@ -17,9 +17,9 @@
 package encoding
 
 import (
-	"github.com/apache/arrow/go/v17/arrow/memory"
-	"github.com/apache/arrow/go/v17/internal/utils"
-	"github.com/apache/arrow/go/v17/parquet"
+	"github.com/apache/arrow/go/v18/arrow/memory"
+	"github.com/apache/arrow/go/v18/internal/utils"
+	"github.com/apache/arrow/go/v18/parquet"
 	"golang.org/x/xerrors"
 )
 
@@ -53,11 +53,14 @@ func (enc *DeltaByteArrayEncoder) EstimatedDataEncodedSize() int64 {
 
 func (enc *DeltaByteArrayEncoder) initEncoders() {
 	enc.prefixEncoder = &DeltaBitPackInt32Encoder{
-		deltaBitPackEncoder: &deltaBitPackEncoder{encoder: newEncoderBase(enc.encoding, nil, enc.mem)}}
+		encoder: newEncoderBase(enc.encoding, nil, enc.mem),
+	}
 	enc.suffixEncoder = &DeltaLengthByteArrayEncoder{
 		newEncoderBase(enc.encoding, nil, enc.mem),
 		&DeltaBitPackInt32Encoder{
-			deltaBitPackEncoder: &deltaBitPackEncoder{encoder: newEncoderBase(enc.encoding, nil, enc.mem)}}}
+			encoder: newEncoderBase(enc.encoding, nil, enc.mem),
+		},
+	}
 }
 
 // Type returns the underlying physical type this operates on, in this case ByteArrays only
@@ -160,9 +163,9 @@ func (d *DeltaByteArrayDecoder) Allocator() memory.Allocator { return d.mem }
 // blocks of suffix data in order to initialize the decoder.
 func (d *DeltaByteArrayDecoder) SetData(nvalues int, data []byte) error {
 	prefixLenDec := DeltaBitPackInt32Decoder{
-		deltaBitPackDecoder: &deltaBitPackDecoder{
-			decoder: newDecoderBase(d.encoding, d.descr),
-			mem:     d.mem}}
+		decoder: newDecoderBase(d.encoding, d.descr),
+		mem:     d.mem,
+	}
 
 	if err := prefixLenDec.SetData(nvalues, data); err != nil {
 		return err

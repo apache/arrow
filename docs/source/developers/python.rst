@@ -397,18 +397,14 @@ Now, build pyarrow:
 .. code-block::
 
    $ pushd arrow/python
-   $ export PYARROW_WITH_PARQUET=1
-   $ export PYARROW_WITH_DATASET=1
    $ export PYARROW_PARALLEL=4
    $ python setup.py build_ext --inplace
    $ popd
 
-If you did build one of the optional components (in C++), you need to set the
-corresponding ``PYARROW_WITH_$COMPONENT`` environment variable to 1.
-
-Similarly, if you built with ``PARQUET_REQUIRE_ENCRYPTION`` (in C++), you
-need to set the corresponding ``PYARROW_WITH_PARQUET_ENCRYPTION`` environment
-variable to 1.
+If you did build one of the optional components in C++, the equivalent components
+will be enabled by default for building pyarrow. This default can be overridden
+by setting the corresponding ``PYARROW_WITH_$COMPONENT`` environment variable
+to 0 or 1, see :ref:`python-dev-env-variables` below.
 
 To set the number of threads used to compile PyArrow's C++/Cython components,
 set the ``PYARROW_PARALLEL`` environment variable.
@@ -551,7 +547,6 @@ Now, we can build pyarrow:
 .. code-block::
 
    $ pushd arrow\python
-   $ set PYARROW_WITH_PARQUET=1
    $ set CONDA_DLL_SEARCH_MODIFICATION_ENABLE=1
    $ python setup.py build_ext --inplace
    $ popd
@@ -601,46 +596,12 @@ Then run the unit tests with:
 Caveats
 -------
 
+.. _python-dev-env-variables:
+
 Relevant components and environment variables
 =============================================
 
-List of relevant Arrow CMake flags and corresponding environment variables
-to be used when building PyArrow are:
-
-.. list-table::
-   :widths: 30 30
-   :header-rows: 1
-
-   * - Arrow flags/options
-     - Corresponding environment variables for PyArrow
-   * - ``CMAKE_BUILD_TYPE``
-     - ``PYARROW_BUILD_TYPE`` (release, debug or relwithdebinfo)
-   * - ``ARROW_GCS``
-     - ``PYARROW_WITH_GCS``
-   * - ``ARROW_S3``
-     - ``PYARROW_WITH_S3``
-   * - ``ARROW_HDFS``
-     - ``PYARROW_WITH_HDFS``
-   * - ``ARROW_CUDA``
-     - ``PYARROW_WITH_CUDA``
-   * - ``ARROW_SUBSTRAIT``
-     - ``PYARROW_WITH_SUBSTRAIT``
-   * - ``ARROW_FLIGHT``
-     - ``PYARROW_WITH_FLIGHT``
-   * - ``ARROW_DATASET``
-     - ``PYARROW_WITH_DATASET``
-   * - ``ARROW_PARQUET``
-     - ``PYARROW_WITH_PARQUET``
-   * - ``PARQUET_REQUIRE_ENCRYPTION``
-     - ``PYARROW_WITH_PARQUET_ENCRYPTION``
-   * - ``ARROW_TENSORFLOW``
-     - ``PYARROW_WITH_TENSORFLOW``
-   * - ``ARROW_ORC``
-     - ``PYARROW_WITH_ORC``
-   * - ``ARROW_GANDIVA``
-     - ``PYARROW_WITH_GANDIVA``
-
-List of relevant environment variables that can also be used to build
+List of relevant environment variables that can be used to build
 PyArrow are:
 
 .. list-table::
@@ -650,6 +611,9 @@ PyArrow are:
    * - PyArrow environment variable
      - Description
      - Default value
+   * - ``PYARROW_BUILD_TYPE``
+     - Build type for PyArrow (release, debug or relwithdebinfo), sets ``CMAKE_BUILD_TYPE``
+     - ``release``
    * - ``PYARROW_CMAKE_GENERATOR``
      - Example: ``'Visual Studio 15 2017 Win64'``
      - ``''``
@@ -677,6 +641,45 @@ PyArrow are:
    * - ``PYARROW_PARALLEL``
      - Number of processes used to compile PyArrow’s C++/Cython components
      - ``''``
+
+The components being disabled or enabled when building PyArrrow is by default
+based on how Arrow C++ is build (i.e. it follows the ``ARROW_$COMPONENT`` flags).
+However, the ``PYARROW_WITH_$COMPONENT`` environment variables can still be used
+to override this when building PyArrow (e.g. to disable components, or to enforce
+certain components to be built):
+
+.. list-table::
+   :widths: 30 30
+   :header-rows: 1
+
+   * - Arrow flags/options
+     - Corresponding environment variables for PyArrow
+   * - ``ARROW_GCS``
+     - ``PYARROW_WITH_GCS``
+   * - ``ARROW_S3``
+     - ``PYARROW_WITH_S3``
+   * - ``ARROW_AZURE``
+     - ``PYARROW_WITH_AZURE``
+   * - ``ARROW_HDFS``
+     - ``PYARROW_WITH_HDFS``
+   * - ``ARROW_CUDA``
+     - ``PYARROW_WITH_CUDA``
+   * - ``ARROW_SUBSTRAIT``
+     - ``PYARROW_WITH_SUBSTRAIT``
+   * - ``ARROW_FLIGHT``
+     - ``PYARROW_WITH_FLIGHT``
+   * - ``ARROW_ACERO``
+     - ``PYARROW_WITH_ACERO``
+   * - ``ARROW_DATASET``
+     - ``PYARROW_WITH_DATASET``
+   * - ``ARROW_PARQUET``
+     - ``PYARROW_WITH_PARQUET``
+   * - ``PARQUET_REQUIRE_ENCRYPTION``
+     - ``PYARROW_WITH_PARQUET_ENCRYPTION``
+   * - ``ARROW_ORC``
+     - ``PYARROW_WITH_ORC``
+   * - ``ARROW_GANDIVA``
+     - ``PYARROW_WITH_GANDIVA``
 
 Deleting stale build artifacts
 ==============================

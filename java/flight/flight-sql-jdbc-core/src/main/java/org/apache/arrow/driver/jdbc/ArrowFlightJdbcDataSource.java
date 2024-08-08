@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc;
 
 import static org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty;
@@ -24,25 +23,19 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Properties;
 import java.util.logging.Logger;
-
 import javax.sql.DataSource;
-
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl;
 import org.apache.arrow.util.Preconditions;
 
-/**
- * {@link DataSource} implementation for Arrow Flight JDBC Driver.
- */
+/** {@link DataSource} implementation for Arrow Flight JDBC Driver. */
 public class ArrowFlightJdbcDataSource implements DataSource {
   private final Properties properties;
   private final ArrowFlightConnectionConfigImpl config;
   private PrintWriter logWriter;
 
-  /**
-   * Instantiates a new DataSource.
-   */
-  protected ArrowFlightJdbcDataSource(final Properties properties,
-                                      final ArrowFlightConnectionConfigImpl config) {
+  /** Instantiates a new DataSource. */
+  protected ArrowFlightJdbcDataSource(
+      final Properties properties, final ArrowFlightConnectionConfigImpl config) {
     this.properties = Preconditions.checkNotNull(properties);
     this.config = Preconditions.checkNotNull(config);
   }
@@ -57,8 +50,8 @@ public class ArrowFlightJdbcDataSource implements DataSource {
   }
 
   /**
-   * Gets a copy of the {@link #properties} for this {@link ArrowFlightJdbcDataSource} with
-   * the provided {@code username} and {@code password}.
+   * Gets a copy of the {@link #properties} for this {@link ArrowFlightJdbcDataSource} with the
+   * provided {@code username} and {@code password}.
    *
    * @return the {@link Properties} for this data source.
    */
@@ -81,8 +74,8 @@ public class ArrowFlightJdbcDataSource implements DataSource {
    * @return a new data source.
    */
   public static ArrowFlightJdbcDataSource createNewDataSource(final Properties properties) {
-    return new ArrowFlightJdbcDataSource(properties,
-        new ArrowFlightConnectionConfigImpl(properties));
+    return new ArrowFlightJdbcDataSource(
+        properties, new ArrowFlightConnectionConfigImpl(properties));
   }
 
   @Override

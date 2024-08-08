@@ -14,23 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight;
 
 import java.util.Arrays;
-
 import org.apache.arrow.flight.impl.Flight;
 
-/**
- * A union-like container interface for supported session option value types.
- */
+/** A union-like container interface for supported session option value types. */
 public abstract class SessionOptionValue {
-  SessionOptionValue() {
-  }
+  SessionOptionValue() {}
 
-  /**
-   * Value access via a caller-provided visitor/functor.
-   */
+  /** Value access via a caller-provided visitor/functor. */
   public abstract <T> T acceptVisitor(SessionOptionValueVisitor<T> v);
 
   Flight.SessionOptionValue toProtocol() {

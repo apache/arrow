@@ -251,22 +251,28 @@ Status ToProto(const FlightDescriptor& descriptor, pb::FlightDescriptor* pb_desc
 
 // FlightInfo
 
-arrow::Result<FlightInfo> FromProto(const pb::FlightInfo& pb_info) {
-  FlightInfo::Data info;
-  RETURN_NOT_OK(FromProto(pb_info.flight_descriptor(), &info.descriptor));
+Status FromProto(const pb::FlightInfo& pb_info, FlightInfo::Data* info) {
+  RETURN_NOT_OK(FromProto(pb_info.flight_descriptor(), &info->descriptor));
 
-  info.schema = pb_info.schema();
+  info->schema = pb_info.schema();
 
-  info.endpoints.resize(pb_info.endpoint_size());
+  info->endpoints.resize(pb_info.endpoint_size());
   for (int i = 0; i < pb_info.endpoint_size(); ++i) {
-    RETURN_NOT_OK(FromProto(pb_info.endpoint(i), &info.endpoints[i]));
+    RETURN_NOT_OK(FromProto(pb_info.endpoint(i), &info->endpoints[i]));
   }
 
-  info.total_records = pb_info.total_records();
-  info.total_bytes = pb_info.total_bytes();
-  info.ordered = pb_info.ordered();
-  info.app_metadata = pb_info.app_metadata();
-  return FlightInfo(std::move(info));
+  info->total_records = pb_info.total_records();
+  info->total_bytes = pb_info.total_bytes();
+  info->ordered = pb_info.ordered();
+  info->app_metadata = pb_info.app_metadata();
+  return Status::OK();
+}
+
+Status FromProto(const pb::FlightInfo& pb_info, std::unique_ptr<FlightInfo>* info) {
+  FlightInfo::Data info_data;
+  RETURN_NOT_OK(FromProto(pb_info, &info_data));
+  *info = std::make_unique<FlightInfo>(std::move(info_data));
+  return Status::OK();
 }
 
 Status FromProto(const pb::BasicAuth& pb_basic_auth, BasicAuth* basic_auth) {
@@ -315,8 +321,9 @@ Status ToProto(const FlightInfo& info, pb::FlightInfo* pb_info) {
 
 Status FromProto(const pb::PollInfo& pb_info, PollInfo* info) {
   if (pb_info.has_info()) {
-    ARROW_ASSIGN_OR_RAISE(auto flight_info, FromProto(pb_info.info()));
-    info->info = std::make_unique<FlightInfo>(std::move(flight_info));
+    FlightInfo::Data info_data;
+    RETURN_NOT_OK(FromProto(pb_info.info(), &info_data));
+    info->info = std::make_unique<FlightInfo>(std::move(info_data));
   }
   if (pb_info.has_flight_descriptor()) {
     FlightDescriptor descriptor;
@@ -340,6 +347,13 @@ Status FromProto(const pb::PollInfo& pb_info, PollInfo* info) {
   return Status::OK();
 }
 
+Status FromProto(const pb::PollInfo& pb_info, std::unique_ptr<PollInfo>* info) {
+  PollInfo poll_info;
+  RETURN_NOT_OK(FromProto(pb_info, &poll_info));
+  *info = std::make_unique<PollInfo>(std::move(poll_info));
+  return Status::OK();
+}
+
 Status ToProto(const PollInfo& info, pb::PollInfo* pb_info) {
   if (info.info) {
     RETURN_NOT_OK(ToProto(*info.info, pb_info->mutable_info()));
@@ -360,8 +374,9 @@ Status ToProto(const PollInfo& info, pb::PollInfo* pb_info) {
 
 Status FromProto(const pb::CancelFlightInfoRequest& pb_request,
                  CancelFlightInfoRequest* request) {
-  ARROW_ASSIGN_OR_RAISE(FlightInfo info, FromProto(pb_request.info()));
-  request->info = std::make_unique<FlightInfo>(std::move(info));
+  FlightInfo::Data info_data;
+  RETURN_NOT_OK(FromProto(pb_request.info(), &info_data));
+  request->info = std::make_unique<FlightInfo>(std::move(info_data));
   return Status::OK();
 }
 

@@ -30,7 +30,7 @@ if [ -x "$(command -v git)" ]; then
 fi
 
 # TODO(kszucs): consider to move these to CMake
-if [ ! -z "${CONDA_PREFIX}" ]; then
+if [ ! -z "${CONDA_PREFIX}" ] && [ "${ARROW_EMSCRIPTEN:-OFF}" = "OFF" ]; then
   echo -e "===\n=== Conda environment for build\n==="
   conda list
 
@@ -99,6 +99,10 @@ if [ "${ARROW_EMSCRIPTEN:-OFF}" = "ON" ]; then
   fi
   n_jobs=2 # Emscripten build fails on docker unless this is set really low
   source ~/emsdk/emsdk_env.sh
+  export CMAKE_INSTALL_PREFIX=$(em-config CACHE)/sysroot
+  # conda sets LDFLAGS / CFLAGS etc. which break
+  # emcmake so we unset them
+  unset LDFLAGS CFLAGS CXXFLAGS CPPFLAGS
   emcmake cmake \
     --preset=ninja-${ARROW_BUILD_TYPE:-debug}-emscripten \
     -DCMAKE_VERBOSE_MAKEFILE=${CMAKE_VERBOSE_MAKEFILE:-OFF} \
@@ -137,6 +141,7 @@ else
     -DARROW_C_FLAGS_RELWITHDEBINFO="${ARROW_C_FLAGS_RELWITHDEBINFO:-}" \
     -DARROW_DATASET=${ARROW_DATASET:-OFF} \
     -DARROW_DEPENDENCY_SOURCE=${ARROW_DEPENDENCY_SOURCE:-AUTO} \
+    -DARROW_DEPENDENCY_USE_SHARED=${ARROW_DEPENDENCY_USE_SHARED:-ON} \
     -DARROW_ENABLE_THREADING=${ARROW_ENABLE_THREADING:-ON} \
     -DARROW_ENABLE_TIMING_TESTS=${ARROW_ENABLE_TIMING_TESTS:-ON} \
     -DARROW_EXTRA_ERROR_CONTEXT=${ARROW_EXTRA_ERROR_CONTEXT:-OFF} \

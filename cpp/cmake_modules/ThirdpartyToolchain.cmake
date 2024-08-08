@@ -634,8 +634,10 @@ endif()
 if(DEFINED ENV{ARROW_CARES_URL})
   set(CARES_SOURCE_URL "$ENV{ARROW_CARES_URL}")
 else()
+  string(REPLACE "." "_" ARROW_CARES_BUILD_VERSION_UNDERSCORES
+                 ${ARROW_CARES_BUILD_VERSION})
   set_urls(CARES_SOURCE_URL
-           "https://c-ares.haxx.se/download/c-ares-${ARROW_CARES_BUILD_VERSION}.tar.gz"
+           "https://github.com/c-ares/c-ares/releases/download/cares-${ARROW_CARES_BUILD_VERSION_UNDERSCORES}/c-ares-${ARROW_CARES_BUILD_VERSION}.tar.gz"
            "${THIRDPARTY_MIRROR_URL}/cares-${ARROW_CARES_BUILD_VERSION}.tar.gz")
 endif()
 
@@ -2304,6 +2306,10 @@ function(build_gtest)
   install(DIRECTORY "${googletest_SOURCE_DIR}/googlemock/include/"
                     "${googletest_SOURCE_DIR}/googletest/include/"
           DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
+  add_library(arrow::GTest::gtest_headers INTERFACE IMPORTED)
+  target_include_directories(arrow::GTest::gtest_headers
+                             INTERFACE "${googletest_SOURCE_DIR}/googlemock/include/"
+                                       "${googletest_SOURCE_DIR}/googletest/include/")
   install(TARGETS gmock gmock_main gtest gtest_main
           EXPORT arrow_testing_targets
           RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
@@ -2348,12 +2354,14 @@ if(ARROW_TESTING)
 
       string(APPEND ARROW_TESTING_PC_LIBS " $<TARGET_FILE:GTest::gtest>")
     endif()
+    set(ARROW_GTEST_GTEST_HEADERS)
     set(ARROW_GTEST_GMOCK GTest::gmock)
     set(ARROW_GTEST_GTEST GTest::gtest)
     set(ARROW_GTEST_GTEST_MAIN GTest::gtest_main)
   else()
     string(APPEND ARROW_TESTING_PC_CFLAGS " -I\${includedir}/arrow-gtest")
     string(APPEND ARROW_TESTING_PC_LIBS " -larrow_gtest")
+    set(ARROW_GTEST_GTEST_HEADERS arrow::GTest::gtest_headers)
     set(ARROW_GTEST_GMOCK arrow::GTest::gmock)
     set(ARROW_GTEST_GTEST arrow::GTest::gtest)
     set(ARROW_GTEST_GTEST_MAIN arrow::GTest::gtest_main)
@@ -2530,6 +2538,7 @@ macro(build_zlib)
     set_property(TARGET ZLIB::ZLIB
                  PROPERTY IMPORTED_LOCATION
                           "${EMSCRIPTEN_SYSROOT}/lib/wasm32-emscripten/pic/libz.a")
+    target_include_directories(ZLIB::ZLIB INTERFACE "${EMSCRIPTEN_SYSROOT}/include")
     list(APPEND ARROW_BUNDLED_STATIC_LIBS ZLIB::ZLIB)
   else()
     set(ZLIB_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/zlib_ep/src/zlib_ep-install")
@@ -2819,11 +2828,13 @@ macro(build_utf8proc)
 endmacro()
 
 if(ARROW_WITH_UTF8PROC)
-  resolve_dependency(utf8proc
-                     PC_PACKAGE_NAMES
-                     libutf8proc
-                     REQUIRED_VERSION
-                     "2.2.0")
+  set(utf8proc_resolve_dependency_args utf8proc PC_PACKAGE_NAMES libutf8proc)
+  if(NOT VCPKG_TOOLCHAIN)
+    # utf8proc in vcpkg doesn't provide version information:
+    # https://github.com/microsoft/vcpkg/issues/39176
+    list(APPEND utf8proc_resolve_dependency_args REQUIRED_VERSION "2.2.0")
+  endif()
+  resolve_dependency(${utf8proc_resolve_dependency_args})
 endif()
 
 macro(build_cares)
@@ -2869,33 +2880,6 @@ endmacro()
 # ----------------------------------------------------------------------
 # Dependencies for Arrow Flight RPC
 
-macro(ensure_absl)
-  if(NOT absl_FOUND)
-    if(${absl_SOURCE} STREQUAL "AUTO")
-      # We can't use resolve_dependency(absl 20211102) to use Abseil
-      # 20211102 or later because Abseil's CMake package uses "EXACT"
-      # version match strategy. Our CMake configuration will work with
-      # Abseil LTS 20211102 or later. So we want to accept Abseil LTS
-      # 20211102 or later. We need to update
-      # ARROW_ABSL_REQUIRED_LTS_VERSIONS list when new Abseil LTS is
-      # released.
-      set(ARROW_ABSL_REQUIRED_LTS_VERSIONS 20230125 20220623 20211102)
-      foreach(_VERSION ${ARROW_ABSL_REQUIRED_LTS_VERSIONS})
-        find_package(absl ${_VERSION})
-        if(absl_FOUND)
-          break()
-        endif()
-      endforeach()
-      # If we can't find Abseil LTS 20211102 or later, we use bundled
-      # Abseil.
-      if(NOT absl_FOUND)
-        set(absl_SOURCE "BUNDLED")
-      endif()
-    endif()
-    resolve_dependency(absl)
-  endif()
-endmacro()
-
 macro(build_absl)
   message(STATUS "Building Abseil-cpp from source")
   set(absl_FOUND TRUE)
@@ -2904,6 +2888,10 @@ macro(build_absl)
   set(ABSL_INCLUDE_DIR "${ABSL_PREFIX}/include")
   set(ABSL_CMAKE_ARGS "${EP_COMMON_CMAKE_ARGS}" -DABSL_RUN_TESTS=OFF
                       "-DCMAKE_INSTALL_PREFIX=${ABSL_PREFIX}")
+  if(CMAKE_COMPILER_IS_GNUCC AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 13.0)
+    set(ABSL_CXX_FLAGS "${EP_CXX_FLAGS} -include stdint.h")
+    list(APPEND ABSL_CMAKE_ARGS "-DCMAKE_CXX_FLAGS=${ABSL_CXX_FLAGS}")
+  endif()
   set(ABSL_BUILD_BYPRODUCTS)
   set(ABSL_LIBRARIES)
 
@@ -3840,7 +3828,6 @@ macro(build_grpc)
                      TRUE
                      PC_PACKAGE_NAMES
                      libcares)
-  ensure_absl()
 
   message(STATUS "Building gRPC from source")
 
@@ -4130,12 +4117,40 @@ macro(build_grpc)
   endif()
 endmacro()
 
+if(ARROW_WITH_GOOGLE_CLOUD_CPP OR ARROW_WITH_GRPC)
+  set(ARROW_ABSL_REQUIRED_VERSION 20211102)
+  # Google Cloud C++ SDK and gRPC require Google Abseil
+  if(ARROW_WITH_GOOGLE_CLOUD_CPP)
+    set(ARROW_ABSL_CMAKE_PACKAGE_NAME Arrow)
+    set(ARROW_ABSL_PC_PACKAGE_NAME arrow)
+  else()
+    set(ARROW_ABSL_CMAKE_PACKAGE_NAME ArrowFlight)
+    set(ARROW_ABSL_PC_PACKAGE_NAME arrow-flight)
+  endif()
+  resolve_dependency(absl
+                     ARROW_CMAKE_PACKAGE_NAME
+                     ${ARROW_ABSL_CMAKE_PACKAGE_NAME}
+                     ARROW_PC_PACKAGE_NAME
+                     ${ARROW_ABSL_PC_PACKAGE_NAME}
+                     HAVE_ALT
+                     FALSE
+                     FORCE_ANY_NEWER_VERSION
+                     TRUE
+                     REQUIRED_VERSION
+                     ${ARROW_ABSL_REQUIRED_VERSION})
+endif()
+
 if(ARROW_WITH_GRPC)
   if(NOT ARROW_ENABLE_THREADING)
     message(FATAL_ERROR "Can't use gRPC with ARROW_ENABLE_THREADING=OFF")
   endif()
 
   set(ARROW_GRPC_REQUIRED_VERSION "1.30.0")
+  if(absl_SOURCE STREQUAL "BUNDLED" AND NOT gRPC_SOURCE STREQUAL "BUNDLED")
+    # System gRPC can't be used with bundled Abseil
+    message(STATUS "Forcing gRPC_SOURCE to BUNDLED because absl_SOURCE is BUNDLED")
+    set(gRPC_SOURCE "BUNDLED")
+  endif()
   if(NOT Protobuf_SOURCE STREQUAL gRPC_SOURCE)
     # ARROW-15495: Protobuf/gRPC must come from the same source
     message(STATUS "Forcing gRPC_SOURCE to Protobuf_SOURCE (${Protobuf_SOURCE})")
@@ -4221,7 +4236,8 @@ macro(build_nlohmann_json)
   set(NLOHMANN_JSON_INCLUDE_DIR "${NLOHMANN_JSON_PREFIX}/include")
   set(NLOHMANN_JSON_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>"
-      -DJSON_BuildTests=OFF)
+      # google-cloud-cpp requires JSON_MultipleHeaders=ON
+      -DJSON_BuildTests=OFF -DJSON_MultipleHeaders=ON)
 
   set(NLOHMANN_JSON_BUILD_BYPRODUCTS ${NLOHMANN_JSON_PREFIX}/include/nlohmann/json.hpp)
 
@@ -4253,7 +4269,6 @@ macro(build_google_cloud_cpp_storage)
   message(STATUS "Only building the google-cloud-cpp::storage component")
 
   # List of dependencies taken from https://github.com/googleapis/google-cloud-cpp/blob/main/doc/packaging.md
-  ensure_absl()
   build_crc32c_once()
 
   # Curl is required on all platforms, but building it internally might also trip over S3's copy.
@@ -4290,6 +4305,7 @@ macro(build_google_cloud_cpp_storage)
       # We need this to build with OpenSSL 3.0.
       # See also: https://github.com/googleapis/google-cloud-cpp/issues/8544
       -DGOOGLE_CLOUD_CPP_ENABLE_WERROR=OFF
+      -DGOOGLE_CLOUD_CPP_WITH_MOCKS=OFF
       -DOPENSSL_CRYPTO_LIBRARY=${OPENSSL_CRYPTO_LIBRARY}
       -DOPENSSL_INCLUDE_DIR=${OPENSSL_INCLUDE_DIR}
       -DOPENSSL_SSL_LIBRARY=${OPENSSL_SSL_LIBRARY})
@@ -4376,6 +4392,9 @@ macro(build_google_cloud_cpp_storage)
                                   nlohmann_json::nlohmann_json
                                   OpenSSL::SSL
                                   OpenSSL::Crypto)
+  if(WIN32)
+    target_link_libraries(google-cloud-cpp::rest-internal INTERFACE ws2_32)
+  endif()
 
   add_library(google-cloud-cpp::storage STATIC IMPORTED)
   set_target_properties(google-cloud-cpp::storage
@@ -4481,115 +4500,219 @@ target_include_directories(arrow::hadoop INTERFACE "${HADOOP_HOME}/include")
 # ----------------------------------------------------------------------
 # Apache ORC
 
-macro(build_orc)
+function(build_orc)
   message(STATUS "Building Apache ORC from source")
 
-  set(ORC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/orc_ep-install")
-  set(ORC_HOME "${ORC_PREFIX}")
-  set(ORC_INCLUDE_DIR "${ORC_PREFIX}/include")
-  set(ORC_STATIC_LIB
-      "${ORC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}orc${CMAKE_STATIC_LIBRARY_SUFFIX}")
+  if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.29)
+    fetchcontent_declare(orc
+                         ${FC_DECLARE_COMMON_OPTIONS}
+                         URL ${ORC_SOURCE_URL}
+                         URL_HASH "SHA256=${ARROW_ORC_BUILD_SHA256_CHECKSUM}")
+    prepare_fetchcontent()
 
-  get_target_property(ORC_PROTOBUF_ROOT ${ARROW_PROTOBUF_LIBPROTOBUF}
-                      INTERFACE_INCLUDE_DIRECTORIES)
-  get_filename_component(ORC_PROTOBUF_ROOT "${ORC_PROTOBUF_ROOT}" DIRECTORY)
+    set(CMAKE_UNITY_BUILD FALSE)
 
-  get_target_property(ORC_SNAPPY_INCLUDE_DIR ${Snappy_TARGET}
-                      INTERFACE_INCLUDE_DIRECTORIES)
-  get_filename_component(ORC_SNAPPY_ROOT "${ORC_SNAPPY_INCLUDE_DIR}" DIRECTORY)
-
-  get_target_property(ORC_LZ4_ROOT LZ4::lz4 INTERFACE_INCLUDE_DIRECTORIES)
-  get_filename_component(ORC_LZ4_ROOT "${ORC_LZ4_ROOT}" DIRECTORY)
-
-  get_target_property(ORC_ZSTD_ROOT ${ARROW_ZSTD_LIBZSTD} INTERFACE_INCLUDE_DIRECTORIES)
-  get_filename_component(ORC_ZSTD_ROOT "${ORC_ZSTD_ROOT}" DIRECTORY)
-
-  set(ORC_CMAKE_ARGS
-      ${EP_COMMON_CMAKE_ARGS}
-      "-DCMAKE_INSTALL_PREFIX=${ORC_PREFIX}"
-      -DSTOP_BUILD_ON_WARNING=OFF
-      -DBUILD_LIBHDFSPP=OFF
-      -DBUILD_JAVA=OFF
-      -DBUILD_TOOLS=OFF
-      -DBUILD_CPP_TESTS=OFF
-      -DINSTALL_VENDORED_LIBS=OFF
-      "-DLZ4_HOME=${ORC_LZ4_ROOT}"
-      "-DPROTOBUF_EXECUTABLE=$<TARGET_FILE:${ARROW_PROTOBUF_PROTOC}>"
-      "-DPROTOBUF_HOME=${ORC_PROTOBUF_ROOT}"
-      "-DPROTOBUF_INCLUDE_DIR=$<TARGET_PROPERTY:${ARROW_PROTOBUF_LIBPROTOBUF},INTERFACE_INCLUDE_DIRECTORIES>"
-      "-DPROTOBUF_LIBRARY=$<TARGET_FILE:${ARROW_PROTOBUF_LIBPROTOBUF}>"
-      "-DPROTOC_LIBRARY=$<TARGET_FILE:${ARROW_PROTOBUF_LIBPROTOC}>"
-      "-DSNAPPY_HOME=${ORC_SNAPPY_ROOT}"
-      "-DSNAPPY_LIBRARY=$<TARGET_FILE:${Snappy_TARGET}>"
-      "-DLZ4_LIBRARY=$<TARGET_FILE:LZ4::lz4>"
-      "-DLZ4_STATIC_LIB=$<TARGET_FILE:LZ4::lz4>"
-      "-DLZ4_INCLUDE_DIR=${ORC_LZ4_ROOT}/include"
-      "-DSNAPPY_INCLUDE_DIR=${ORC_SNAPPY_INCLUDE_DIR}"
-      "-DZSTD_HOME=${ORC_ZSTD_ROOT}"
-      "-DZSTD_INCLUDE_DIR=$<TARGET_PROPERTY:${ARROW_ZSTD_LIBZSTD},INTERFACE_INCLUDE_DIRECTORIES>"
-      "-DZSTD_LIBRARY=$<TARGET_FILE:${ARROW_ZSTD_LIBZSTD}>")
-  if(ZLIB_ROOT)
-    set(ORC_CMAKE_ARGS ${ORC_CMAKE_ARGS} "-DZLIB_HOME=${ZLIB_ROOT}")
-  endif()
-
-  # Work around CMake bug
-  file(MAKE_DIRECTORY ${ORC_INCLUDE_DIR})
-
-  externalproject_add(orc_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${ORC_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_ORC_BUILD_SHA256_CHECKSUM}"
-                      BUILD_BYPRODUCTS ${ORC_STATIC_LIB}
-                      CMAKE_ARGS ${ORC_CMAKE_ARGS}
-                      DEPENDS ${ARROW_PROTOBUF_LIBPROTOBUF}
-                              ${ARROW_ZSTD_LIBZSTD}
-                              ${Snappy_TARGET}
-                              LZ4::lz4
-                              ZLIB::ZLIB)
-
-  set(ORC_VENDORED 1)
-
-  add_library(orc::orc STATIC IMPORTED)
-  set_target_properties(orc::orc PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}")
-  target_include_directories(orc::orc BEFORE INTERFACE "${ORC_INCLUDE_DIR}")
-  target_link_libraries(orc::orc INTERFACE LZ4::lz4 ZLIB::ZLIB ${ARROW_ZSTD_LIBZSTD}
-                                           ${Snappy_TARGET})
-  # Protobuf generated files may use ABSL_DCHECK*() and
-  # absl::log_internal_check_op is needed for them.
-  if(TARGET absl::log_internal_check_op)
-    target_link_libraries(orc::orc INTERFACE absl::log_internal_check_op)
-  endif()
-  if(NOT MSVC)
-    if(NOT APPLE AND ARROW_ENABLE_THREADING)
-      target_link_libraries(orc::orc INTERFACE Threads::Threads)
+    set(ORC_PREFER_STATIC_LZ4
+        OFF
+        CACHE BOOL "" FORCE)
+    get_target_property(LZ4_INCLUDE_DIR LZ4::lz4 INTERFACE_INCLUDE_DIRECTORIES)
+    if(NOT LZ4_INCLUDE_DIR)
+      find_path(LZ4_INCLUDE_DIR NAMES lz4.h)
     endif()
-    target_link_libraries(orc::orc INTERFACE ${CMAKE_DL_LIBS})
-  endif()
-  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "9")
-      target_link_libraries(orc::orc INTERFACE stdc++fs)
+    get_filename_component(LZ4_ROOT "${LZ4_INCLUDE_DIR}" DIRECTORY)
+    set(LZ4_HOME
+        "${LZ4_ROOT}"
+        CACHE STRING "" FORCE)
+    set(LZ4_LIBRARY
+        LZ4::lz4
+        CACHE STRING "" FORCE)
+
+    set(ORC_PREFER_STATIC_PROTOBUF
+        OFF
+        CACHE BOOL "" FORCE)
+    get_target_property(PROTOBUF_INCLUDE_DIR ${ARROW_PROTOBUF_LIBPROTOBUF}
+                        INTERFACE_INCLUDE_DIRECTORIES)
+    get_filename_component(Protobuf_ROOT "${PROTOBUF_INCLUDE_DIR}" DIRECTORY)
+    set(PROTOBUF_HOME
+        ${Protobuf_ROOT}
+        CACHE STRING "" FORCE)
+    # ORC uses this.
+    target_include_directories(${ARROW_PROTOBUF_LIBPROTOC}
+                               INTERFACE "${PROTOBUF_INCLUDE_DIR}")
+    set(PROTOBUF_EXECUTABLE ${ARROW_PROTOBUF_PROTOC})
+    set(PROTOBUF_LIBRARY ${ARROW_PROTOBUF_LIBPROTOBUF})
+    set(PROTOC_LIBRARY ${ARROW_PROTOBUF_LIBPROTOC})
+
+    set(ORC_PREFER_STATIC_SNAPPY
+        OFF
+        CACHE BOOL "" FORCE)
+    get_target_property(SNAPPY_INCLUDE_DIR ${Snappy_TARGET} INTERFACE_INCLUDE_DIRECTORIES)
+    get_filename_component(Snappy_ROOT "${SNAPPY_INCLUDE_DIR}" DIRECTORY)
+    set(SNAPPY_HOME
+        ${Snappy_ROOT}
+        CACHE STRING "" FORCE)
+    set(SNAPPY_LIBRARY
+        ${Snappy_TARGET}
+        CACHE STRING "" FORCE)
+
+    set(ORC_PREFER_STATIC_ZLIB
+        OFF
+        CACHE BOOL "" FORCE)
+    get_target_property(ZLIB_INCLUDE_DIR ZLIB::ZLIB INTERFACE_INCLUDE_DIRECTORIES)
+    get_filename_component(ZLIB_ROOT "${ZLIB_INCLUDE_DIR}" DIRECTORY)
+    set(ZLIB_HOME
+        ${ZLIB_ROOT}
+        CACHE STRING "" FORCE)
+    set(ZLIB_LIBRARY
+        ZLIB::ZLIB
+        CACHE STRING "" FORCE)
+
+    set(ORC_PREFER_STATIC_ZSTD
+        OFF
+        CACHE BOOL "" FORCE)
+    get_target_property(ZSTD_INCLUDE_DIR ${ARROW_ZSTD_LIBZSTD}
+                        INTERFACE_INCLUDE_DIRECTORIES)
+    get_filename_component(ZSTD_ROOT "${ZSTD_INCLUDE_DIR}" DIRECTORY)
+    set(ZSTD_HOME
+        ${ZSTD_ROOT}
+        CACHE STRING "" FORCE)
+    set(ZSTD_LIBRARY ${ARROW_ZSTD_LIBZSTD})
+
+    set(BUILD_CPP_TESTS
+        OFF
+        CACHE BOOL "" FORCE)
+    set(BUILD_JAVA
+        OFF
+        CACHE BOOL "" FORCE)
+    set(BUILD_LIBHDFSPP
+        OFF
+        CACHE BOOL "" FORCE)
+    set(BUILD_TOOLS
+        OFF
+        CACHE BOOL "" FORCE)
+    set(INSTALL_VENDORED_LIBS
+        OFF
+        CACHE BOOL "" FORCE)
+    set(STOP_BUILD_ON_WARNING
+        OFF
+        CACHE BOOL "" FORCE)
+
+    # We can remove this with ORC 2.0.2 or later.
+    list(PREPEND CMAKE_MODULE_PATH
+         ${CMAKE_CURRENT_BINARY_DIR}/_deps/orc-src/cmake_modules)
+
+    fetchcontent_makeavailable(orc)
+
+    add_library(orc::orc INTERFACE IMPORTED)
+    target_link_libraries(orc::orc INTERFACE orc)
+    target_include_directories(orc::orc INTERFACE "${orc_BINARY_DIR}/c++/include"
+                                                  "${orc_SOURCE_DIR}/c++/include")
+
+    list(APPEND ARROW_BUNDLED_STATIC_LIBS orc)
+  else()
+    set(ORC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/orc_ep-install")
+    set(ORC_HOME "${ORC_PREFIX}")
+    set(ORC_INCLUDE_DIR "${ORC_PREFIX}/include")
+    set(ORC_STATIC_LIB
+        "${ORC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}orc${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    )
+
+    get_target_property(ORC_PROTOBUF_ROOT ${ARROW_PROTOBUF_LIBPROTOBUF}
+                        INTERFACE_INCLUDE_DIRECTORIES)
+    get_filename_component(ORC_PROTOBUF_ROOT "${ORC_PROTOBUF_ROOT}" DIRECTORY)
+
+    get_target_property(ORC_SNAPPY_INCLUDE_DIR ${Snappy_TARGET}
+                        INTERFACE_INCLUDE_DIRECTORIES)
+    get_filename_component(ORC_SNAPPY_ROOT "${ORC_SNAPPY_INCLUDE_DIR}" DIRECTORY)
+
+    get_target_property(ORC_LZ4_ROOT LZ4::lz4 INTERFACE_INCLUDE_DIRECTORIES)
+    get_filename_component(ORC_LZ4_ROOT "${ORC_LZ4_ROOT}" DIRECTORY)
+
+    get_target_property(ORC_ZSTD_ROOT ${ARROW_ZSTD_LIBZSTD} INTERFACE_INCLUDE_DIRECTORIES)
+    get_filename_component(ORC_ZSTD_ROOT "${ORC_ZSTD_ROOT}" DIRECTORY)
+
+    set(ORC_CMAKE_ARGS
+        ${EP_COMMON_CMAKE_ARGS}
+        "-DCMAKE_INSTALL_PREFIX=${ORC_PREFIX}"
+        -DSTOP_BUILD_ON_WARNING=OFF
+        -DBUILD_LIBHDFSPP=OFF
+        -DBUILD_JAVA=OFF
+        -DBUILD_TOOLS=OFF
+        -DBUILD_CPP_TESTS=OFF
+        -DINSTALL_VENDORED_LIBS=OFF
+        "-DLZ4_HOME=${ORC_LZ4_ROOT}"
+        "-DPROTOBUF_EXECUTABLE=$<TARGET_FILE:${ARROW_PROTOBUF_PROTOC}>"
+        "-DPROTOBUF_HOME=${ORC_PROTOBUF_ROOT}"
+        "-DPROTOBUF_INCLUDE_DIR=$<TARGET_PROPERTY:${ARROW_PROTOBUF_LIBPROTOBUF},INTERFACE_INCLUDE_DIRECTORIES>"
+        "-DPROTOBUF_LIBRARY=$<TARGET_FILE:${ARROW_PROTOBUF_LIBPROTOBUF}>"
+        "-DPROTOC_LIBRARY=$<TARGET_FILE:${ARROW_PROTOBUF_LIBPROTOC}>"
+        "-DSNAPPY_HOME=${ORC_SNAPPY_ROOT}"
+        "-DSNAPPY_LIBRARY=$<TARGET_FILE:${Snappy_TARGET}>"
+        "-DLZ4_LIBRARY=$<TARGET_FILE:LZ4::lz4>"
+        "-DLZ4_STATIC_LIB=$<TARGET_FILE:LZ4::lz4>"
+        "-DLZ4_INCLUDE_DIR=${ORC_LZ4_ROOT}/include"
+        "-DSNAPPY_INCLUDE_DIR=${ORC_SNAPPY_INCLUDE_DIR}"
+        "-DZSTD_HOME=${ORC_ZSTD_ROOT}"
+        "-DZSTD_INCLUDE_DIR=$<TARGET_PROPERTY:${ARROW_ZSTD_LIBZSTD},INTERFACE_INCLUDE_DIRECTORIES>"
+        "-DZSTD_LIBRARY=$<TARGET_FILE:${ARROW_ZSTD_LIBZSTD}>")
+    if(ZLIB_ROOT)
+      set(ORC_CMAKE_ARGS ${ORC_CMAKE_ARGS} "-DZLIB_HOME=${ZLIB_ROOT}")
     endif()
-  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "8")
-      target_link_libraries(orc::orc INTERFACE c++fs)
+
+    # Work around CMake bug
+    file(MAKE_DIRECTORY ${ORC_INCLUDE_DIR})
+
+    externalproject_add(orc_ep
+                        ${EP_COMMON_OPTIONS}
+                        URL ${ORC_SOURCE_URL}
+                        URL_HASH "SHA256=${ARROW_ORC_BUILD_SHA256_CHECKSUM}"
+                        BUILD_BYPRODUCTS ${ORC_STATIC_LIB}
+                        CMAKE_ARGS ${ORC_CMAKE_ARGS}
+                        DEPENDS ${ARROW_PROTOBUF_LIBPROTOBUF}
+                                ${ARROW_PROTOBUF_PROTOC}
+                                ${ARROW_ZSTD_LIBZSTD}
+                                ${Snappy_TARGET}
+                                LZ4::lz4
+                                ZLIB::ZLIB)
+    add_library(orc::orc STATIC IMPORTED)
+    set_target_properties(orc::orc PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}")
+    target_include_directories(orc::orc BEFORE INTERFACE "${ORC_INCLUDE_DIR}")
+    target_link_libraries(orc::orc INTERFACE LZ4::lz4 ZLIB::ZLIB ${ARROW_ZSTD_LIBZSTD}
+                                             ${Snappy_TARGET})
+    # Protobuf generated files may use ABSL_DCHECK*() and
+    # absl::log_internal_check_op is needed for them.
+    if(TARGET absl::log_internal_check_op)
+      target_link_libraries(orc::orc INTERFACE absl::log_internal_check_op)
     endif()
+    if(NOT MSVC)
+      if(NOT APPLE AND ARROW_ENABLE_THREADING)
+        target_link_libraries(orc::orc INTERFACE Threads::Threads)
+      endif()
+      target_link_libraries(orc::orc INTERFACE ${CMAKE_DL_LIBS})
+    endif()
+    target_link_libraries(orc::orc INTERFACE ${ARROW_PROTOBUF_LIBPROTOBUF})
+    add_dependencies(orc::orc orc_ep)
+    list(APPEND ARROW_BUNDLED_STATIC_LIBS orc::orc)
   endif()
 
-  add_dependencies(orc::orc orc_ep)
-
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS orc::orc)
-endmacro()
+  set(ORC_VENDORED
+      TRUE
+      PARENT_SCOPE)
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS}
+      PARENT_SCOPE)
+endfunction()
 
 if(ARROW_ORC)
   resolve_dependency(orc HAVE_ALT TRUE)
-  target_link_libraries(orc::orc INTERFACE ${ARROW_PROTOBUF_LIBPROTOBUF})
   if(ORC_VENDORED)
     set(ARROW_ORC_VERSION ${ARROW_ORC_BUILD_VERSION})
   else()
+    target_link_libraries(orc::orc INTERFACE ${ARROW_PROTOBUF_LIBPROTOBUF})
     set(ARROW_ORC_VERSION ${orcAlt_VERSION})
+    message(STATUS "Found ORC static library: ${ORC_STATIC_LIB}")
+    message(STATUS "Found ORC headers: ${ORC_INCLUDE_DIR}")
   endif()
-  message(STATUS "Found ORC static library: ${ORC_STATIC_LIB}")
-  message(STATUS "Found ORC headers: ${ORC_INCLUDE_DIR}")
 endif()
 
 # ----------------------------------------------------------------------
@@ -4611,8 +4734,11 @@ macro(build_opentelemetry)
   set(_OPENTELEMETRY_LIBS
       common
       http_client_curl
+      logs
+      ostream_log_record_exporter
       ostream_span_exporter
       otlp_http_client
+      otlp_http_log_record_exporter
       otlp_http_exporter
       otlp_recordable
       proto
@@ -4644,6 +4770,14 @@ macro(build_opentelemetry)
     elseif(_OPENTELEMETRY_LIB STREQUAL "otlp_http_exporter")
       set(_OPENTELEMETRY_STATIC_LIBRARY
           "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry_exporter_otlp_http${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+    elseif(_OPENTELEMETRY_LIB STREQUAL "otlp_http_log_record_exporter")
+      set(_OPENTELEMETRY_STATIC_LIBRARY
+          "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry_exporter_otlp_http_log${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+    elseif(_OPENTELEMETRY_LIB STREQUAL "ostream_log_record_exporter")
+      set(_OPENTELEMETRY_STATIC_LIBRARY
+          "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry_exporter_ostream_logs${CMAKE_STATIC_LIBRARY_SUFFIX}"
       )
     else()
       set(_OPENTELEMETRY_STATIC_LIBRARY
@@ -4679,9 +4813,16 @@ macro(build_opentelemetry)
                       IMPORTED_LOCATION)
   list(APPEND
        OPENTELEMETRY_CMAKE_ARGS
-       -DWITH_OTLP=ON
        -DWITH_OTLP_HTTP=ON
        -DWITH_OTLP_GRPC=OFF
+       # Disabled because it seemed to cause linking errors. May be worth a closer look.
+       -DWITH_FUNC_TESTS=OFF
+       # These options are slated for removal in v1.14 and their features are deemed stable
+       # as of v1.13. However, setting their corresponding ENABLE_* macros in headers seems
+       # finicky - resulting in build failures or ABI-related runtime errors during HTTP
+       # client initialization. There may still be a solution, but we disable them for now.
+       -DWITH_OTLP_HTTP_SSL_PREVIEW=OFF
+       -DWITH_OTLP_HTTP_SSL_TLS_PREVIEW=OFF
        "-DProtobuf_INCLUDE_DIR=${OPENTELEMETRY_PROTOBUF_INCLUDE_DIR}"
        "-DProtobuf_LIBRARY=${OPENTELEMETRY_PROTOBUF_INCLUDE_DIR}"
        "-DProtobuf_PROTOC_EXECUTABLE=${OPENTELEMETRY_PROTOC_EXECUTABLE}")
@@ -4755,17 +4896,23 @@ macro(build_opentelemetry)
   target_link_libraries(opentelemetry-cpp::resources INTERFACE opentelemetry-cpp::common)
   target_link_libraries(opentelemetry-cpp::trace INTERFACE opentelemetry-cpp::common
                                                            opentelemetry-cpp::resources)
+  target_link_libraries(opentelemetry-cpp::logs INTERFACE opentelemetry-cpp::common
+                                                          opentelemetry-cpp::resources)
   target_link_libraries(opentelemetry-cpp::http_client_curl
-                        INTERFACE opentelemetry-cpp::ext CURL::libcurl)
+                        INTERFACE opentelemetry-cpp::common opentelemetry-cpp::ext
+                                  CURL::libcurl)
   target_link_libraries(opentelemetry-cpp::proto INTERFACE ${ARROW_PROTOBUF_LIBPROTOBUF})
   target_link_libraries(opentelemetry-cpp::otlp_recordable
-                        INTERFACE opentelemetry-cpp::trace opentelemetry-cpp::resources
-                                  opentelemetry-cpp::proto)
+                        INTERFACE opentelemetry-cpp::logs opentelemetry-cpp::trace
+                                  opentelemetry-cpp::resources opentelemetry-cpp::proto)
   target_link_libraries(opentelemetry-cpp::otlp_http_client
-                        INTERFACE opentelemetry-cpp::sdk opentelemetry-cpp::proto
+                        INTERFACE opentelemetry-cpp::common opentelemetry-cpp::proto
                                   opentelemetry-cpp::http_client_curl
                                   nlohmann_json::nlohmann_json)
   target_link_libraries(opentelemetry-cpp::otlp_http_exporter
+                        INTERFACE opentelemetry-cpp::otlp_recordable
+                                  opentelemetry-cpp::otlp_http_client)
+  target_link_libraries(opentelemetry-cpp::otlp_http_log_record_exporter
                         INTERFACE opentelemetry-cpp::otlp_recordable
                                   opentelemetry-cpp::otlp_http_client)
 
@@ -4789,7 +4936,11 @@ if(ARROW_WITH_OPENTELEMETRY)
   set(opentelemetry-cpp_SOURCE "AUTO")
   resolve_dependency(opentelemetry-cpp)
   set(ARROW_OPENTELEMETRY_LIBS
-      opentelemetry-cpp::trace opentelemetry-cpp::ostream_span_exporter
+      opentelemetry-cpp::trace
+      opentelemetry-cpp::logs
+      opentelemetry-cpp::otlp_http_log_record_exporter
+      opentelemetry-cpp::ostream_log_record_exporter
+      opentelemetry-cpp::ostream_span_exporter
       opentelemetry-cpp::otlp_http_exporter)
   get_target_property(OPENTELEMETRY_INCLUDE_DIR opentelemetry-cpp::api
                       INTERFACE_INCLUDE_DIRECTORIES)

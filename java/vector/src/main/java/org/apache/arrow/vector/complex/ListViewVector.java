@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.complex;
 
 import static java.util.Collections.singletonList;
@@ -26,7 +25,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
@@ -34,15 +32,20 @@ import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.AddOrGetResult;
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.BufferBacked;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.ValueIterableVector;
 import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.compare.VectorVisitor;
-import org.apache.arrow.vector.complex.impl.UnionListReader;
+import org.apache.arrow.vector.complex.impl.ComplexCopier;
+import org.apache.arrow.vector.complex.impl.UnionListViewReader;
 import org.apache.arrow.vector.complex.impl.UnionListViewWriter;
 import org.apache.arrow.vector.complex.reader.FieldReader;
+import org.apache.arrow.vector.complex.writer.FieldWriter;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -54,30 +57,34 @@ import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.TransferPair;
 
 /**
- * A list view vector contains lists of a specific type of elements.
- * Its structure contains four elements.
+ * A list view vector contains lists of a specific type of elements. Its structure contains four
+ * elements.
+ *
  * <ol>
- * <li> A validity buffer. </li>
- * <li> An offset buffer, that denotes lists starts. </li>
- * <li> A size buffer, that denotes lists ends. </li>
- * <li> A child data vector that contains the elements of lists. </li>
+ *   <li>A validity buffer.
+ *   <li>An offset buffer, that denotes lists starts.
+ *   <li>A size buffer, that denotes lists ends.
+ *   <li>A child data vector that contains the elements of lists.
  * </ol>
+ *
  * The latter three are managed by its superclass.
  */
 
 /*
-* TODO: consider merging the functionality in `BaseRepeatedValueVector` into this class.
-*/
-public class ListViewVector extends BaseRepeatedValueViewVector implements PromotableVector {
+ * TODO: consider merging the functionality in `BaseRepeatedValueVector` into this class.
+ */
+public class ListViewVector extends BaseRepeatedValueViewVector
+    implements PromotableVector, ValueIterableVector<List<?>> {
 
   protected ArrowBuf validityBuffer;
-  protected UnionListReader reader;
+  protected UnionListViewReader reader;
   private CallBack callBack;
   protected Field field;
   protected int validityAllocationSizeInBytes;
 
   public static ListViewVector empty(String name, BufferAllocator allocator) {
-    return new ListViewVector(name, allocator, FieldType.nullable(ArrowType.ListView.INSTANCE), null);
+    return new ListViewVector(
+        name, allocator, FieldType.nullable(ArrowType.ListView.INSTANCE), null);
   }
 
   /**
@@ -88,7 +95,8 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
    * @param fieldType The type of this list.
    * @param callBack A schema change callback.
    */
-  public ListViewVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
+  public ListViewVector(
+      String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
     this(new Field(name, fieldType, null), allocator, callBack);
   }
 
@@ -109,12 +117,15 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
 
   @Override
   public void initializeChildrenFromFields(List<Field> children) {
-    checkArgument(children.size() == 1,
-        "ListViews have one child Field. Found: %s", children.isEmpty() ? "none" : children);
+    checkArgument(
+        children.size() == 1,
+        "ListViews have one child Field. Found: %s",
+        children.isEmpty() ? "none" : children);
 
     Field field = children.get(0);
     AddOrGetResult<FieldVector> addOrGetVector = addOrGetVector(field.getFieldType());
-    checkArgument(addOrGetVector.isCreated(), "Child vector already existed: %s", addOrGetVector.getVector());
+    checkArgument(
+        addOrGetVector.isCreated(), "Child vector already existed: %s", addOrGetVector.getVector());
 
     addOrGetVector.getVector().initializeChildrenFromFields(field.getChildren());
     this.field = new Field(this.field.getName(), this.field.getFieldType(), children);
@@ -127,28 +138,21 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
   }
 
   /**
-   * Specialized version of setInitialCapacity() for ListViewVector.
-   * This is used by some callers when they want to explicitly control and be
-   * conservative about memory allocated for inner data vector.
-   * This is very useful when we are working with memory constraints for a query
-   * and have a fixed amount of memory reserved for the record batch.
-   * In such cases, we are likely to face OOM or related problems when
-   * we reserve memory for a record batch with value count x and
-   * do setInitialCapacity(x) such that each vector allocates only
-   * what is necessary and not the default amount, but the multiplier
-   * forces the memory requirement to go beyond what was needed.
+   * Specialized version of setInitialCapacity() for ListViewVector. This is used by some callers
+   * when they want to explicitly control and be conservative about memory allocated for inner data
+   * vector. This is very useful when we are working with memory constraints for a query and have a
+   * fixed amount of memory reserved for the record batch. In such cases, we are likely to face OOM
+   * or related problems when we reserve memory for a record batch with value count x and do
+   * setInitialCapacity(x) such that each vector allocates only what is necessary and not the
+   * default amount, but the multiplier forces the memory requirement to go beyond what was needed.
    *
    * @param numRecords value count
-   * @param density density of ListViewVector.
-   *                Density is the average size of a list per position in the ListViewVector.
-   *                For example, a
-   *                density value of 10 implies each position in the list
-   *                vector has a list of 10 values.
-   *                A density value of 0.1 implies out of 10 positions in
-   *                the list vector, 1 position has a list of size 1, and
-   *                the remaining positions are null (no lists) or empty lists.
-   *                This helps in tightly controlling the memory we provision
-   *                for inner data vector.
+   * @param density density of ListViewVector. Density is the average size of a list per position in
+   *     the ListViewVector. For example, a density value of 10 implies each position in the list
+   *     vector has a list of 10 values. A density value of 0.1 implies out of 10 positions in the
+   *     list vector, 1 position has a list of size 1, and the remaining positions are null (no
+   *     lists) or empty lists. This helps in tightly controlling the memory we provision for inner
+   *     data vector.
    */
   @Override
   public void setInitialCapacity(int numRecords, double density) {
@@ -157,20 +161,17 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
   }
 
   /**
-   * Specialized version of setInitialTotalCapacity() for ListViewVector.
-   * This is used by some callers when they want to explicitly control and be
-   * conservative about memory allocated for inner data vector.
-   * This is very useful when we are working with memory constraints for a query
-   * and have a fixed amount of memory reserved for the record batch.
-   * In such cases, we are likely to face OOM or related problems when
-   * we reserve memory for a record batch with value count x and
-   * do setInitialCapacity(x) such that each vector allocates only
-   * what is necessary and not the default amount, but the multiplier
-   * forces the memory requirement to go beyond what was needed.
+   * Specialized version of setInitialTotalCapacity() for ListViewVector. This is used by some
+   * callers when they want to explicitly control and be conservative about memory allocated for
+   * inner data vector. This is very useful when we are working with memory constraints for a query
+   * and have a fixed amount of memory reserved for the record batch. In such cases, we are likely
+   * to face OOM or related problems when we reserve memory for a record batch with value count x
+   * and do setInitialCapacity(x) such that each vector allocates only what is necessary and not the
+   * default amount, but the multiplier forces the memory requirement to go beyond what was needed.
    *
    * @param numRecords value count
-   * @param totalNumberOfElements the total number of elements to allow
-   *                              for in this vector across all records.
+   * @param totalNumberOfElements the total number of elements to allow for in this vector across
+   *     all records.
    */
   @Override
   public void setInitialTotalCapacity(int numRecords, int totalNumberOfElements) {
@@ -185,14 +186,15 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
 
   /**
    * Load the buffers associated with this Field.
-   * @param fieldNode  the fieldNode
+   *
+   * @param fieldNode the fieldNode
    * @param ownBuffers the buffers for this Field (own buffers only, children not included)
    */
   @Override
   public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
     if (ownBuffers.size() != 3) {
-      throw new IllegalArgumentException("Illegal buffer count, expected " +
-          3 + ", got: " + ownBuffers.size());
+      throw new IllegalArgumentException(
+          "Illegal buffer count, expected " + 3 + ", got: " + ownBuffers.size());
     }
 
     ArrowBuf bitBuffer = ownBuffers.get(0);
@@ -213,9 +215,7 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
     valueCount = fieldNode.getLength();
   }
 
-  /**
-   * Set the reader and writer indexes for the inner buffers.
-   */
+  /** Set the reader and writer indexes for the inner buffers. */
   private void setReaderAndWriterIndex() {
     validityBuffer.readerIndex(0);
     offsetBuffer.readerIndex(0);
@@ -243,13 +243,15 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
   }
 
   /**
-   * Export the buffers of the fields for C Data Interface.
-   * This method traverses the buffers and export buffer and buffer's memory address into a list of
-   * buffers and a pointer to the list of buffers.
+   * Export the buffers of the fields for C Data Interface. This method traverses the buffers and
+   * export buffer and buffer's memory address into a list of buffers and a pointer to the list of
+   * buffers.
    */
   @Override
   public void exportCDataBuffers(List<ArrowBuf> buffers, ArrowBuf buffersPtr, long nullValue) {
-    throw new UnsupportedOperationException("exportCDataBuffers Not implemented yet");
+    exportBuffer(validityBuffer, buffers, buffersPtr, nullValue, true);
+    exportBuffer(offsetBuffer, buffers, buffersPtr, nullValue, true);
+    exportBuffer(sizeBuffer, buffers, buffersPtr, nullValue, true);
   }
 
   @Override
@@ -264,10 +266,10 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
     boolean success = false;
     try {
       /* release the current buffers, hence this is a new allocation
-      * Note that, the `clear` method call below is releasing validityBuffer
-      * calling the superclass clear method which is releasing the associated buffers
-      * (sizeBuffer and offsetBuffer).
-      */
+       * Note that, the `clear` method call below is releasing validityBuffer
+       * calling the superclass clear method which is releasing the associated buffers
+       * (sizeBuffer and offsetBuffer).
+       */
       clear();
       /* allocate validity buffer */
       allocateValidityBuffer(validityAllocationSizeInBytes);
@@ -334,16 +336,22 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
 
   @Override
   public void copyFromSafe(int inIndex, int outIndex, ValueVector from) {
-    // TODO: https://github.com/apache/arrow/issues/41270
-    throw new UnsupportedOperationException(
-        "ListViewVector does not support copyFromSafe operation yet.");
+    copyFrom(inIndex, outIndex, from);
+  }
+
+  @Override
+  public <OUT, IN> OUT accept(VectorVisitor<OUT, IN> visitor, IN value) {
+    return visitor.visit(this, value);
   }
 
   @Override
   public void copyFrom(int inIndex, int outIndex, ValueVector from) {
-    // TODO: https://github.com/apache/arrow/issues/41270
-    throw new UnsupportedOperationException(
-        "ListViewVector does not support copyFrom operation yet.");
+    Preconditions.checkArgument(this.getMinorType() == from.getMinorType());
+    FieldReader in = from.getReader();
+    in.setPosition(inIndex);
+    FieldWriter out = getWriter();
+    out.setPosition(outIndex);
+    ComplexCopier.copy(in, out);
   }
 
   @Override
@@ -363,23 +371,17 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
 
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
-    // TODO: https://github.com/apache/arrow/issues/41269
-    throw new UnsupportedOperationException(
-        "ListVector does not support getTransferPair(String, BufferAllocator, CallBack) yet");
+    return new TransferImpl(ref, allocator, callBack);
   }
 
   @Override
   public TransferPair getTransferPair(Field field, BufferAllocator allocator, CallBack callBack) {
-    // TODO: https://github.com/apache/arrow/issues/41269
-    throw new UnsupportedOperationException(
-        "ListVector does not support getTransferPair(Field, BufferAllocator, CallBack) yet");
+    return new TransferImpl(field, allocator, callBack);
   }
 
   @Override
   public TransferPair makeTransferPair(ValueVector target) {
-    // TODO: https://github.com/apache/arrow/issues/41269
-    throw new UnsupportedOperationException(
-        "ListVector does not support makeTransferPair(ValueVector) yet");
+    return new TransferImpl((ListViewVector) target);
   }
 
   @Override
@@ -422,6 +424,7 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
 
   /**
    * Get the hash code for the element at the given index.
+   *
    * @param index position of the element
    * @return hash code for the element at the given index
    */
@@ -432,6 +435,7 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
 
   /**
    * Get the hash code for the element at the given index.
+   *
    * @param index position of the element
    * @param hasher hasher to use
    * @return hash code for the element at the given index
@@ -450,28 +454,177 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
     return hash;
   }
 
-  @Override
-  public <OUT, IN> OUT accept(VectorVisitor<OUT, IN> visitor, IN value) {
-    throw new UnsupportedOperationException();
+  private class TransferImpl implements TransferPair {
+
+    ListViewVector to;
+    TransferPair dataTransferPair;
+
+    public TransferImpl(String name, BufferAllocator allocator, CallBack callBack) {
+      this(new ListViewVector(name, allocator, field.getFieldType(), callBack));
+    }
+
+    public TransferImpl(Field field, BufferAllocator allocator, CallBack callBack) {
+      this(new ListViewVector(field, allocator, callBack));
+    }
+
+    public TransferImpl(ListViewVector to) {
+      this.to = to;
+      to.addOrGetVector(vector.getField().getFieldType());
+      if (to.getDataVector() instanceof ZeroVector) {
+        to.addOrGetVector(vector.getField().getFieldType());
+      }
+      dataTransferPair = getDataVector().makeTransferPair(to.getDataVector());
+    }
+
+    @Override
+    public void transfer() {
+      to.clear();
+      dataTransferPair.transfer();
+      to.validityBuffer = transferBuffer(validityBuffer, to.allocator);
+      to.offsetBuffer = transferBuffer(offsetBuffer, to.allocator);
+      to.sizeBuffer = transferBuffer(sizeBuffer, to.allocator);
+      if (valueCount > 0) {
+        to.setValueCount(valueCount);
+      }
+      clear();
+    }
+
+    @Override
+    public void splitAndTransfer(int startIndex, int length) {
+      Preconditions.checkArgument(
+          startIndex >= 0 && length >= 0 && startIndex + length <= valueCount,
+          "Invalid parameters startIndex: %s, length: %s for valueCount: %s",
+          startIndex,
+          length,
+          valueCount);
+      to.clear();
+      if (length > 0) {
+        final int startPoint = offsetBuffer.getInt((long) startIndex * OFFSET_WIDTH);
+        // we have to scan by index since there are out-of-order offsets
+        to.offsetBuffer = to.allocateBuffers((long) length * OFFSET_WIDTH);
+        to.sizeBuffer = to.allocateBuffers((long) length * SIZE_WIDTH);
+
+        /* splitAndTransfer the size buffer */
+        int maxOffsetAndSizeSum = -1;
+        int minOffsetValue = -1;
+        for (int i = 0; i < length; i++) {
+          final int offsetValue = offsetBuffer.getInt((long) (startIndex + i) * OFFSET_WIDTH);
+          final int sizeValue = sizeBuffer.getInt((long) (startIndex + i) * SIZE_WIDTH);
+          to.sizeBuffer.setInt((long) i * SIZE_WIDTH, sizeValue);
+          if (maxOffsetAndSizeSum < offsetValue + sizeValue) {
+            maxOffsetAndSizeSum = offsetValue + sizeValue;
+          }
+          if (minOffsetValue == -1 || minOffsetValue > offsetValue) {
+            minOffsetValue = offsetValue;
+          }
+        }
+
+        /* splitAndTransfer the offset buffer */
+        for (int i = 0; i < length; i++) {
+          final int offsetValue = offsetBuffer.getInt((long) (startIndex + i) * OFFSET_WIDTH);
+          final int relativeOffset = offsetValue - minOffsetValue;
+          to.offsetBuffer.setInt((long) i * OFFSET_WIDTH, relativeOffset);
+        }
+
+        /* splitAndTransfer the validity buffer */
+        splitAndTransferValidityBuffer(startIndex, length, to);
+
+        /* splitAndTransfer the data buffer */
+        final int childSliceLength = maxOffsetAndSizeSum - minOffsetValue;
+        dataTransferPair.splitAndTransfer(minOffsetValue, childSliceLength);
+        to.setValueCount(length);
+      }
+    }
+
+    /*
+     * transfer the validity.
+     */
+    private void splitAndTransferValidityBuffer(int startIndex, int length, ListViewVector target) {
+      int firstByteSource = BitVectorHelper.byteIndex(startIndex);
+      int lastByteSource = BitVectorHelper.byteIndex(valueCount - 1);
+      int byteSizeTarget = getValidityBufferSizeFromCount(length);
+      int offset = startIndex % 8;
+
+      if (length > 0) {
+        if (offset == 0) {
+          // slice
+          if (target.validityBuffer != null) {
+            target.validityBuffer.getReferenceManager().release();
+          }
+          target.validityBuffer = validityBuffer.slice(firstByteSource, byteSizeTarget);
+          target.validityBuffer.getReferenceManager().retain(1);
+        } else {
+          /* Copy data
+           * When the first bit starts from the middle of a byte (offset != 0),
+           * copy data from src BitVector.
+           * Each byte in the target is composed by a part in i-th byte,
+           * another part in (i+1)-th byte.
+           */
+          target.allocateValidityBuffer(byteSizeTarget);
+
+          for (int i = 0; i < byteSizeTarget - 1; i++) {
+            byte b1 =
+                BitVectorHelper.getBitsFromCurrentByte(validityBuffer, firstByteSource + i, offset);
+            byte b2 =
+                BitVectorHelper.getBitsFromNextByte(
+                    validityBuffer, firstByteSource + i + 1, offset);
+
+            target.validityBuffer.setByte(i, (b1 + b2));
+          }
+
+          /* Copying the last piece is done in the following manner:
+           * if the source vector has 1 or more bytes remaining, we copy
+           * the last piece as a byte formed by shifting data
+           * from the current byte and the next byte.
+           *
+           * if the source vector has no more bytes remaining
+           * (we are at the last byte), we copy the last piece as a byte
+           * by shifting data from the current byte.
+           */
+          if ((firstByteSource + byteSizeTarget - 1) < lastByteSource) {
+            byte b1 =
+                BitVectorHelper.getBitsFromCurrentByte(
+                    validityBuffer, firstByteSource + byteSizeTarget - 1, offset);
+            byte b2 =
+                BitVectorHelper.getBitsFromNextByte(
+                    validityBuffer, firstByteSource + byteSizeTarget, offset);
+
+            target.validityBuffer.setByte(byteSizeTarget - 1, b1 + b2);
+          } else {
+            byte b1 =
+                BitVectorHelper.getBitsFromCurrentByte(
+                    validityBuffer, firstByteSource + byteSizeTarget - 1, offset);
+            target.validityBuffer.setByte(byteSizeTarget - 1, b1);
+          }
+        }
+      }
+    }
+
+    @Override
+    public ValueVector getTo() {
+      return to;
+    }
+
+    @Override
+    public void copyValueSafe(int from, int to) {
+      this.to.copyFrom(from, to, ListViewVector.this);
+    }
   }
 
   @Override
   protected FieldReader getReaderImpl() {
-    // TODO: https://github.com/apache/arrow/issues/41569
-    throw new UnsupportedOperationException(
-        "ListViewVector does not support getReaderImpl operation yet.");
+    return new UnionListViewReader(this);
   }
 
   @Override
-  public UnionListReader getReader() {
-    // TODO: https://github.com/apache/arrow/issues/41569
-    throw new UnsupportedOperationException(
-        "ListViewVector does not support getReader operation yet.");
+  public UnionListViewReader getReader() {
+    reader = (UnionListViewReader) super.getReader();
+    return reader;
   }
 
   /**
-   * Get the size (number of bytes) of underlying buffers used by this
-   * vector.
+   * Get the size (number of bytes) of underlying buffers used by this vector.
+   *
    * @return size of underlying buffers.
    */
   @Override
@@ -487,6 +640,7 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
 
   /**
    * Get the size (number of bytes) of underlying buffers used by this.
+   *
    * @param valueCount the number of values to assume this vector contains
    * @return size of underlying buffers.
    */
@@ -502,6 +656,7 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
 
   /**
    * Get the field associated with the list view vector.
+   *
    * @return the field
    */
   @Override
@@ -509,12 +664,17 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
     if (field.getChildren().contains(getDataVector().getField())) {
       return field;
     }
-    field = new Field(field.getName(), field.getFieldType(), Collections.singletonList(getDataVector().getField()));
+    field =
+        new Field(
+            field.getName(),
+            field.getFieldType(),
+            Collections.singletonList(getDataVector().getField()));
     return field;
   }
 
   /**
    * Get the minor type for the vector.
+   *
    * @return the minor type
    */
   @Override
@@ -522,9 +682,7 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
     return MinorType.LISTVIEW;
   }
 
-  /**
-  * Clear the vector data.
-  */
+  /** Clear the vector data. */
   @Override
   public void clear() {
     // calling superclass clear method which is releasing the sizeBufer and offsetBuffer
@@ -532,9 +690,7 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
     validityBuffer = releaseBuffer(validityBuffer);
   }
 
-  /**
-  * Release the buffers associated with this vector.
-  */
+  /** Release the buffers associated with this vector. */
   @Override
   public void reset() {
     super.reset();
@@ -542,15 +698,14 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
   }
 
   /**
-   * Return the underlying buffers associated with this vector. Note that this doesn't
-   * impact the reference counts for this buffer, so it only should be used for in-context
-   * access. Also note that this buffer changes regularly, thus
-   * external classes shouldn't hold a reference to it (unless they change it).
+   * Return the underlying buffers associated with this vector. Note that this doesn't impact the
+   * reference counts for this buffer, so it only should be used for in-context access. Also note
+   * that this buffer changes regularly, thus external classes shouldn't hold a reference to it
+   * (unless they change it).
    *
-   * @param clear Whether to clear vector before returning, the buffers will still be refcounted
-   *              but the returned array will be the only reference to them
-   * @return The underlying {@link ArrowBuf buffers} that is used by this
-   *         vector instance.
+   * @param clear Whether to clear vector before returning, the buffers will still be refcounted but
+   *     the returned array will be the only reference to them
+   * @return The underlying {@link ArrowBuf buffers} that is used by this vector instance.
    */
   @Override
   public ArrowBuf[] getBuffers(boolean clear) {
@@ -578,6 +733,7 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
 
   /**
    * Get the element in the list view vector at a particular index.
+   *
    * @param index position of the element
    * @return Object at given position
    */
@@ -610,6 +766,7 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
 
   /**
    * Check if an element at given index is an empty list.
+   *
    * @param index position of an element
    * @return true if an element at given index is an empty list or NULL, false otherwise
    */
@@ -625,7 +782,7 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
   /**
    * Same as {@link #isNull(int)}.
    *
-   * @param index  position of the element
+   * @param index position of the element
    * @return 1 if element at given index is not null, 0 otherwise
    */
   public int isSet(int index) {
@@ -646,9 +803,8 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
   }
 
   /**
-   * Get the value capacity by considering validity and offset capacity.
-   * Note that the size buffer capacity is not considered here since it has
-   * the same capacity as the offset buffer.
+   * Get the value capacity by considering validity and offset capacity. Note that the size buffer
+   * capacity is not considered here since it has the same capacity as the offset buffer.
    *
    * @return the value capacity
    */
@@ -674,6 +830,7 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
 
   /**
    * Set the element at the given index to null.
+   *
    * @param index the value to change
    */
   @Override
@@ -709,9 +866,9 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
   }
 
   /**
-   * Validate the invariants of the offset and size buffers.
-   * 0 <= offsets[i] <= length of the child array
-   * 0 <= offsets[i] + size[i] <= length of the child array
+   * Validate the invariants of the offset and size buffers. 0 <= offsets[i] <= length of the child
+   * array 0 <= offsets[i] + size[i] <= length of the child array
+   *
    * @param offset the offset at a given index
    * @param size the size at a given index
    */
@@ -736,8 +893,9 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
   }
 
   /**
-   * Set the offset at the given index.
-   * Make sure to use this function after updating `field` vector and using `setValidity`
+   * Set the offset at the given index. Make sure to use this function after updating `field` vector
+   * and using `setValidity`
+   *
    * @param index index of the value to set
    * @param value value to set
    */
@@ -748,8 +906,8 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
   }
 
   /**
-   * Set the size at the given index.
-   * Make sure to use this function after using `setOffset`.
+   * Set the size at the given index. Make sure to use this function after using `setOffset`.
+   *
    * @param index index of the value to set
    * @param value value to set
    */
@@ -761,6 +919,7 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
 
   /**
    * Set the validity at the given index.
+   *
    * @param index index of the value to set
    * @param value value to set (0 for unset and 1 for a set)
    */
@@ -838,6 +997,7 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
 
   /**
    * Get the density of this ListVector.
+   *
    * @return density
    */
   public double getDensity() {
@@ -848,9 +1008,7 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
     return totalListSize / valueCount;
   }
 
-  /**
-   * Validating ListViewVector creation based on the specification guideline.
-   */
+  /** Validating ListViewVector creation based on the specification guideline. */
   @Override
   public void validate() {
     for (int i = 0; i < valueCount; i++) {
@@ -864,7 +1022,7 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
    * End the current value.
    *
    * @param index index of the value to end
-   * @param size  number of elements in the list that was written
+   * @param size number of elements in the list that was written
    */
   public void endValue(int index, int size) {
     sizeBuffer.setInt(index * SIZE_WIDTH, size);

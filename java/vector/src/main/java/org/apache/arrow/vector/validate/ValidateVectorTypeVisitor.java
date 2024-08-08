@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.validate;
 
 import static org.apache.arrow.vector.validate.ValidateUtil.validateOrThrow;
@@ -77,92 +76,148 @@ import org.apache.arrow.vector.types.UnionMode;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 
-/**
- * Utility to validate vector type information.
- */
+/** Utility to validate vector type information. */
 public class ValidateVectorTypeVisitor implements VectorVisitor<Void, Void> {
 
-  private void validateVectorCommon(ValueVector vector, Class<? extends ArrowType> expectedArrowType) {
+  private void validateVectorCommon(
+      ValueVector vector, Class<? extends ArrowType> expectedArrowType) {
     validateOrThrow(vector.getField() != null, "Vector field is empty.");
     validateOrThrow(vector.getField().getFieldType() != null, "Vector field type is empty.");
     ArrowType arrowType = vector.getField().getFieldType().getType();
     validateOrThrow(arrowType != null, "Vector arrow type is empty.");
-    validateOrThrow(expectedArrowType == arrowType.getClass(),
+    validateOrThrow(
+        expectedArrowType == arrowType.getClass(),
         "Incorrect arrow type for " + vector.getClass() + " : " + arrowType.toString());
   }
 
   private void validateIntVector(ValueVector vector, int expectedWidth, boolean expectedSigned) {
-    validateOrThrow(vector.getField().getFieldType().getType() instanceof ArrowType.Int,
-        "Vector %s is not an integer vector.", vector.getClass());
+    validateOrThrow(
+        vector.getField().getFieldType().getType() instanceof ArrowType.Int,
+        "Vector %s is not an integer vector.",
+        vector.getClass());
     ArrowType.Int intType = (ArrowType.Int) vector.getField().getFieldType().getType();
-    validateOrThrow(intType.getIsSigned() == expectedSigned,
-        "Expecting bit width %s, actual width %s.", expectedWidth, intType.getBitWidth());
-    validateOrThrow(intType.getBitWidth() == expectedWidth, "Expecting bit width %s, actual bit width %s.",
-        expectedWidth, intType.getBitWidth());
+    validateOrThrow(
+        intType.getIsSigned() == expectedSigned,
+        "Expecting bit width %s, actual width %s.",
+        expectedWidth,
+        intType.getBitWidth());
+    validateOrThrow(
+        intType.getBitWidth() == expectedWidth,
+        "Expecting bit width %s, actual bit width %s.",
+        expectedWidth,
+        intType.getBitWidth());
   }
 
-  private void validateFloatingPointVector(ValueVector vector, FloatingPointPrecision expectedPrecision) {
-    validateOrThrow(vector.getField().getFieldType().getType() instanceof ArrowType.FloatingPoint,
-        "Vector %s is not a floating point vector.", vector.getClass());
-    ArrowType.FloatingPoint floatType = (ArrowType.FloatingPoint) vector.getField().getFieldType().getType();
-    validateOrThrow(floatType.getPrecision() == expectedPrecision, "Expecting precision %s, actual precision %s.",
-        expectedPrecision, floatType.getPrecision());
+  private void validateFloatingPointVector(
+      ValueVector vector, FloatingPointPrecision expectedPrecision) {
+    validateOrThrow(
+        vector.getField().getFieldType().getType() instanceof ArrowType.FloatingPoint,
+        "Vector %s is not a floating point vector.",
+        vector.getClass());
+    ArrowType.FloatingPoint floatType =
+        (ArrowType.FloatingPoint) vector.getField().getFieldType().getType();
+    validateOrThrow(
+        floatType.getPrecision() == expectedPrecision,
+        "Expecting precision %s, actual precision %s.",
+        expectedPrecision,
+        floatType.getPrecision());
   }
 
   private void validateDateVector(ValueVector vector, DateUnit expectedDateUnit) {
-    validateOrThrow(vector.getField().getFieldType().getType() instanceof ArrowType.Date,
-        "Vector %s is not a date vector", vector.getClass());
+    validateOrThrow(
+        vector.getField().getFieldType().getType() instanceof ArrowType.Date,
+        "Vector %s is not a date vector",
+        vector.getClass());
     ArrowType.Date dateType = (ArrowType.Date) vector.getField().getFieldType().getType();
-    validateOrThrow(dateType.getUnit() == expectedDateUnit,
-        "Expecting date unit %s, actual date unit %s.", expectedDateUnit, dateType.getUnit());
+    validateOrThrow(
+        dateType.getUnit() == expectedDateUnit,
+        "Expecting date unit %s, actual date unit %s.",
+        expectedDateUnit,
+        dateType.getUnit());
   }
 
   private void validateDecimalVector(ValueVector vector) {
-    validateOrThrow(vector.getField().getFieldType().getType() instanceof ArrowType.Decimal,
-            "Vector %s is not a decimal vector", vector.getClass());
+    validateOrThrow(
+        vector.getField().getFieldType().getType() instanceof ArrowType.Decimal,
+        "Vector %s is not a decimal vector",
+        vector.getClass());
     ArrowType.Decimal decimalType = (ArrowType.Decimal) vector.getField().getFieldType().getType();
-    validateOrThrow(decimalType.getScale() >= 0, "The scale of decimal %s is negative.", decimalType.getScale());
-    validateOrThrow(decimalType.getScale() <= decimalType.getPrecision(),
-            "The scale of decimal %s is greater than the precision %s.",
-            decimalType.getScale(), decimalType.getPrecision());
+    validateOrThrow(
+        decimalType.getScale() >= 0,
+        "The scale of decimal %s is negative.",
+        decimalType.getScale());
+    validateOrThrow(
+        decimalType.getScale() <= decimalType.getPrecision(),
+        "The scale of decimal %s is greater than the precision %s.",
+        decimalType.getScale(),
+        decimalType.getPrecision());
     switch (decimalType.getBitWidth()) {
       case DecimalVector.TYPE_WIDTH * 8:
-        validateOrThrow(decimalType.getPrecision() >= 1 && decimalType.getPrecision() <= DecimalVector.MAX_PRECISION,
-                "Invalid precision %s for decimal 128.", decimalType.getPrecision());
+        validateOrThrow(
+            decimalType.getPrecision() >= 1
+                && decimalType.getPrecision() <= DecimalVector.MAX_PRECISION,
+            "Invalid precision %s for decimal 128.",
+            decimalType.getPrecision());
         break;
       case Decimal256Vector.TYPE_WIDTH * 8:
-        validateOrThrow(decimalType.getPrecision() >= 1 && decimalType.getPrecision() <= Decimal256Vector.MAX_PRECISION,
-                "Invalid precision %s for decimal 256.", decimalType.getPrecision());
+        validateOrThrow(
+            decimalType.getPrecision() >= 1
+                && decimalType.getPrecision() <= Decimal256Vector.MAX_PRECISION,
+            "Invalid precision %s for decimal 256.",
+            decimalType.getPrecision());
         break;
       default:
-        throw new ValidateUtil.ValidateException("Only decimal 128 or decimal 256 are supported for decimal types");
+        throw new ValidateUtil.ValidateException(
+            "Only decimal 128 or decimal 256 are supported for decimal types");
     }
   }
 
-  private void validateTimeVector(ValueVector vector, TimeUnit expectedTimeUnit, int expectedBitWidth) {
-    validateOrThrow(vector.getField().getFieldType().getType() instanceof ArrowType.Time,
-        "Vector %s is not a time vector.", vector.getClass());
+  private void validateTimeVector(
+      ValueVector vector, TimeUnit expectedTimeUnit, int expectedBitWidth) {
+    validateOrThrow(
+        vector.getField().getFieldType().getType() instanceof ArrowType.Time,
+        "Vector %s is not a time vector.",
+        vector.getClass());
     ArrowType.Time timeType = (ArrowType.Time) vector.getField().getFieldType().getType();
-    validateOrThrow(timeType.getUnit() == expectedTimeUnit,
-        "Expecting time unit %s, actual time unit %s.", expectedTimeUnit, timeType.getUnit());
-    validateOrThrow(timeType.getBitWidth() == expectedBitWidth,
-        "Expecting bit width %s, actual bit width %s.", expectedBitWidth, timeType.getBitWidth());
+    validateOrThrow(
+        timeType.getUnit() == expectedTimeUnit,
+        "Expecting time unit %s, actual time unit %s.",
+        expectedTimeUnit,
+        timeType.getUnit());
+    validateOrThrow(
+        timeType.getBitWidth() == expectedBitWidth,
+        "Expecting bit width %s, actual bit width %s.",
+        expectedBitWidth,
+        timeType.getBitWidth());
   }
 
   private void validateIntervalVector(ValueVector vector, IntervalUnit expectedIntervalUnit) {
-    validateOrThrow(vector.getField().getFieldType().getType() instanceof ArrowType.Interval,
-        "Vector %s is not an interval vector.", vector.getClass());
-    ArrowType.Interval intervalType = (ArrowType.Interval) vector.getField().getFieldType().getType();
-    validateOrThrow(intervalType.getUnit() == expectedIntervalUnit,
-        "Expecting interval unit %s, actual date unit %s.", expectedIntervalUnit, intervalType.getUnit());
+    validateOrThrow(
+        vector.getField().getFieldType().getType() instanceof ArrowType.Interval,
+        "Vector %s is not an interval vector.",
+        vector.getClass());
+    ArrowType.Interval intervalType =
+        (ArrowType.Interval) vector.getField().getFieldType().getType();
+    validateOrThrow(
+        intervalType.getUnit() == expectedIntervalUnit,
+        "Expecting interval unit %s, actual date unit %s.",
+        expectedIntervalUnit,
+        intervalType.getUnit());
   }
 
-  private void validateTimeStampVector(ValueVector vector, TimeUnit expectedTimeUnit, boolean expectTZ) {
-    validateOrThrow(vector.getField().getFieldType().getType() instanceof ArrowType.Timestamp,
-        "Vector %s is not a time stamp vector.", vector.getClass());
-    ArrowType.Timestamp timestampType = (ArrowType.Timestamp) vector.getField().getFieldType().getType();
-    validateOrThrow(timestampType.getUnit() == expectedTimeUnit,
-        "Expecting time stamp unit %s, actual time stamp unit %s.", expectedTimeUnit, timestampType.getUnit());
+  private void validateTimeStampVector(
+      ValueVector vector, TimeUnit expectedTimeUnit, boolean expectTZ) {
+    validateOrThrow(
+        vector.getField().getFieldType().getType() instanceof ArrowType.Timestamp,
+        "Vector %s is not a time stamp vector.",
+        vector.getClass());
+    ArrowType.Timestamp timestampType =
+        (ArrowType.Timestamp) vector.getField().getFieldType().getType();
+    validateOrThrow(
+        timestampType.getUnit() == expectedTimeUnit,
+        "Expecting time stamp unit %s, actual time stamp unit %s.",
+        expectedTimeUnit,
+        timestampType.getUnit());
     if (expectTZ) {
       validateOrThrow(timestampType.getTimezone() != null, "The time zone should not be null");
     } else {
@@ -171,12 +226,18 @@ public class ValidateVectorTypeVisitor implements VectorVisitor<Void, Void> {
   }
 
   private void validateExtensionTypeVector(ExtensionTypeVector<?> vector) {
-    validateOrThrow(vector.getField().getFieldType().getType() instanceof ArrowType.ExtensionType,
-        "Vector %s is not an extension type vector.", vector.getClass());
-    validateOrThrow(vector.getField().getMetadata().containsKey(ArrowType.ExtensionType.EXTENSION_METADATA_KEY_NAME),
-            "Field %s does not have proper extension type metadata: %s",
-            vector.getField().getName(),
-            vector.getField().getMetadata());
+    validateOrThrow(
+        vector.getField().getFieldType().getType() instanceof ArrowType.ExtensionType,
+        "Vector %s is not an extension type vector.",
+        vector.getClass());
+    validateOrThrow(
+        vector
+            .getField()
+            .getMetadata()
+            .containsKey(ArrowType.ExtensionType.EXTENSION_METADATA_KEY_NAME),
+        "Field %s does not have proper extension type metadata: %s",
+        vector.getField().getName(),
+        vector.getField().getMetadata());
     // Validate the storage vector type
     vector.getUnderlyingVector().accept(this, null);
   }
@@ -221,9 +282,11 @@ public class ValidateVectorTypeVisitor implements VectorVisitor<Void, Void> {
     } else if (vector instanceof DurationVector) {
       validateVectorCommon(vector, ArrowType.Duration.class);
       ArrowType.Duration arrowType = (ArrowType.Duration) vector.getField().getType();
-      validateOrThrow(((DurationVector) vector).getUnit() == arrowType.getUnit(),
+      validateOrThrow(
+          ((DurationVector) vector).getUnit() == arrowType.getUnit(),
           "Different duration time unit for vector and arrow type. Vector time unit %s, type time unit %s.",
-          ((DurationVector) vector).getUnit(), arrowType.getUnit());
+          ((DurationVector) vector).getUnit(),
+          arrowType.getUnit());
     } else if (vector instanceof Float4Vector) {
       validateVectorCommon(vector, ArrowType.FloatingPoint.class);
       validateFloatingPointVector(vector, FloatingPointPrecision.SINGLE);
@@ -278,13 +341,18 @@ public class ValidateVectorTypeVisitor implements VectorVisitor<Void, Void> {
     } else if (vector instanceof FixedSizeBinaryVector) {
       validateVectorCommon(vector, ArrowType.FixedSizeBinary.class);
       ArrowType.FixedSizeBinary arrowType = (ArrowType.FixedSizeBinary) vector.getField().getType();
-      validateOrThrow(arrowType.getByteWidth() > 0, "The byte width of a FixedSizeBinaryVector %s is not positive.",
+      validateOrThrow(
+          arrowType.getByteWidth() > 0,
+          "The byte width of a FixedSizeBinaryVector %s is not positive.",
           arrowType.getByteWidth());
-      validateOrThrow(arrowType.getByteWidth() == vector.getTypeWidth(),
+      validateOrThrow(
+          arrowType.getByteWidth() == vector.getTypeWidth(),
           "Type width mismatch for FixedSizeBinaryVector. Vector type width %s, arrow type width %s.",
-          vector.getTypeWidth(), arrowType.getByteWidth());
+          vector.getTypeWidth(),
+          arrowType.getByteWidth());
     } else {
-      throw new IllegalArgumentException("Unknown type for fixed width vector " + vector.getClass());
+      throw new IllegalArgumentException(
+          "Unknown type for fixed width vector " + vector.getClass());
     }
     return null;
   }
@@ -328,10 +396,13 @@ public class ValidateVectorTypeVisitor implements VectorVisitor<Void, Void> {
   public Void visit(FixedSizeListVector vector, Void value) {
     validateVectorCommon(vector, ArrowType.FixedSizeList.class);
     ArrowType.FixedSizeList arrowType = (ArrowType.FixedSizeList) vector.getField().getType();
-    validateOrThrow(arrowType.getListSize() == vector.getListSize(),
+    validateOrThrow(
+        arrowType.getListSize() == vector.getListSize(),
         "Inconsistent list size for FixedSizeListVector. Vector list size %s, arrow type list size %s.",
-        vector.getListSize(), arrowType.getListSize());
-    validateOrThrow(arrowType.getListSize() > 0, "The list size %s is not positive.", arrowType.getListSize());
+        vector.getListSize(),
+        arrowType.getListSize());
+    validateOrThrow(
+        arrowType.getListSize() > 0, "The list size %s is not positive.", arrowType.getListSize());
     ValueVector innerVector = vector.getDataVector();
     if (innerVector != null) {
       innerVector.accept(this, null);
@@ -352,16 +423,21 @@ public class ValidateVectorTypeVisitor implements VectorVisitor<Void, Void> {
   @Override
   public Void visit(NonNullableStructVector vector, Void value) {
     validateVectorCommon(vector, ArrowType.Struct.class);
-    validateOrThrow(vector.getField().getChildren().size() == vector.getChildrenFromFields().size(),
+    validateOrThrow(
+        vector.getField().getChildren().size() == vector.getChildrenFromFields().size(),
         "Child field count and child vector count mismatch. Vector child count %s, field child count %s",
-        vector.getChildrenFromFields().size(), vector.getField().getChildren().size());
+        vector.getChildrenFromFields().size(),
+        vector.getField().getChildren().size());
     for (int i = 0; i < vector.getChildrenFromFields().size(); i++) {
       ValueVector subVector = vector.getChildByOrdinal(i);
       FieldType subType = vector.getField().getChildren().get(i).getFieldType();
 
-      validateOrThrow(subType.equals(subVector.getField().getFieldType()),
-          "Struct vector's field type not equal to the child vector's field type. " +
-              "Struct field type %s, sub-vector field type %s", subType, subVector.getField().getFieldType());
+      validateOrThrow(
+          subType.equals(subVector.getField().getFieldType()),
+          "Struct vector's field type not equal to the child vector's field type. "
+              + "Struct field type %s, sub-vector field type %s",
+          subType,
+          subVector.getField().getFieldType());
       subVector.accept(this, null);
     }
     return null;
@@ -371,7 +447,8 @@ public class ValidateVectorTypeVisitor implements VectorVisitor<Void, Void> {
   public Void visit(UnionVector vector, Void value) {
     validateVectorCommon(vector, ArrowType.Union.class);
     ArrowType.Union arrowType = (ArrowType.Union) vector.getField().getType();
-    validateOrThrow(arrowType.getMode() == UnionMode.Sparse, "The union mode of UnionVector must be sparse");
+    validateOrThrow(
+        arrowType.getMode() == UnionMode.Sparse, "The union mode of UnionVector must be sparse");
     for (ValueVector subVector : vector.getChildrenFromFields()) {
       subVector.accept(this, null);
     }
@@ -382,7 +459,8 @@ public class ValidateVectorTypeVisitor implements VectorVisitor<Void, Void> {
   public Void visit(DenseUnionVector vector, Void value) {
     validateVectorCommon(vector, ArrowType.Union.class);
     ArrowType.Union arrowType = (ArrowType.Union) vector.getField().getType();
-    validateOrThrow(arrowType.getMode() == UnionMode.Dense, "The union mode of DenseUnionVector must be dense");
+    validateOrThrow(
+        arrowType.getMode() == UnionMode.Dense, "The union mode of DenseUnionVector must be dense");
     for (ValueVector subVector : vector.getChildrenFromFields()) {
       subVector.accept(this, null);
     }

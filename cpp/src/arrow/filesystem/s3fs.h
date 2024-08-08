@@ -166,6 +166,27 @@ struct ARROW_EXPORT S3Options {
   /// Whether to allow deletion of buckets
   bool allow_bucket_deletion = false;
 
+  /// Whether to allow pessimistic directory creation in CreateDir function
+  ///
+  /// By default, CreateDir function will try to create the directory without checking its
+  /// existence. It's an optimization to try directory creation and catch the error,
+  /// rather than issue two dependent I/O calls.
+  /// Though for key/value storage like Google Cloud Storage, too many creation calls will
+  /// breach the rate limit for object mutation operations and cause serious consequences.
+  /// It's also possible you don't have creation access for the parent directory. Set it
+  /// to be true to address these scenarios.
+  bool check_directory_existence_before_creation = false;
+
+  /// Whether to allow file-open methods to return before the actual open.
+  ///
+  /// Enabling this may reduce the latency of `OpenInputStream`, `OpenOutputStream`,
+  /// and similar methods, by reducing the number of roundtrips necessary. It may also
+  /// allow usage of more efficient S3 APIs for small files.
+  /// The downside is that failure conditions such as attempting to open a file in a
+  /// non-existing bucket will only be reported when actual I/O is done (at worse,
+  /// when attempting to close the file).
+  bool allow_delayed_open = false;
+
   /// \brief Default metadata for OpenOutputStream.
   ///
   /// This will be ignored if non-empty metadata is passed to OpenOutputStream.

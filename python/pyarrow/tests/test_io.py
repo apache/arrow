@@ -37,7 +37,7 @@ import pyarrow as pa
 
 
 def check_large_seeks(file_factory, expected_error=None):
-    if sys.platform in ('win32', 'darwin'):
+    if sys.platform in ('win32', 'darwin', 'emscripten'):
         pytest.skip("need sparse file support")
     try:
         filename = tempfile.mktemp(prefix='test_io')
@@ -669,6 +669,76 @@ def test_allocate_buffer_resizable():
     assert buf.size == 200
 
 
+def test_non_cpu_buffer(pickle_module):
+    cuda = pytest.importorskip("pyarrow.cuda")
+    ctx = cuda.Context(0)
+
+    data = np.array([b'testing'])
+    cuda_buf = ctx.buffer_from_data(data)
+    arr = pa.FixedSizeBinaryArray.from_buffers(pa.binary(7), 1, [None, cuda_buf])
+    buf_on_gpu = arr.buffers()[1]
+
+    assert buf_on_gpu.size == cuda_buf.size
+    assert buf_on_gpu.address == cuda_buf.address
+    assert buf_on_gpu.is_cpu == cuda_buf.is_cpu
+    assert buf_on_gpu.is_mutable
+
+    repr1 = "<pyarrow.Buffer address="
+    repr2 = "size=7 is_cpu=False is_mutable=True>"
+    assert repr1 in repr(buf_on_gpu)
+    assert repr2 in repr(buf_on_gpu)
+
+    buf_on_gpu_sliced = buf_on_gpu.slice(2)
+    cuda_sliced = cuda.CudaBuffer.from_buffer(buf_on_gpu_sliced)
+    assert cuda_sliced.to_pybytes() == b'sting'
+
+    buf_on_gpu_sliced = buf_on_gpu[2:4]
+    cuda_sliced = cuda.CudaBuffer.from_buffer(buf_on_gpu_sliced)
+    assert cuda_sliced.to_pybytes() == b'st'
+
+    # Sliced buffers with same address
+    assert buf_on_gpu_sliced.equals(cuda_buf[2:4])
+
+    # Buffers on different devices
+    msg_device = "Device on which the data resides differs between buffers"
+    with pytest.raises(ValueError, match=msg_device):
+        buf_on_gpu.equals(pa.py_buffer(data))
+
+    msg = "Implemented only for data on CPU device"
+    # Buffers with different addresses
+    arr_short = np.array([b'sting'])
+    cuda_buf_short = ctx.buffer_from_data(arr_short)
+    with pytest.raises(NotImplementedError, match=msg):
+        buf_on_gpu_sliced.equals(cuda_buf_short)
+    arr_short = pa.FixedSizeBinaryArray.from_buffers(
+        pa.binary(5), 1, [None, cuda_buf_short]
+    )
+    buf_on_gpu_short = arr_short.buffers()[1]
+    with pytest.raises(NotImplementedError, match=msg):
+        buf_on_gpu_sliced.equals(buf_on_gpu_short)
+
+    with pytest.raises(NotImplementedError, match=msg):
+        buf_on_gpu.hex()
+
+    with pytest.raises(NotImplementedError, match=msg):
+        cuda_buf.hex()
+
+    with pytest.raises(NotImplementedError, match=msg):
+        buf_on_gpu[1]
+
+    with pytest.raises(NotImplementedError, match=msg):
+        buf_on_gpu.to_pybytes()
+
+    with pytest.raises(NotImplementedError, match=msg):
+        pickle_module.dumps(buf_on_gpu, protocol=4)
+
+    with pytest.raises(NotImplementedError, match=msg):
+        pickle_module.dumps(cuda_buf, protocol=4)
+
+    with pytest.raises(NotImplementedError, match=msg):
+        memoryview(buf_on_gpu)
+
+
 def test_cache_options():
     opts1 = pa.CacheOptions()
     opts2 = pa.CacheOptions(hole_size_limit=1024)
@@ -1073,6 +1143,8 @@ def _try_delete(path):
 
 
 def test_memory_map_writer(tmpdir):
+    if sys.platform == "emscripten":
+        pytest.xfail("Multiple memory maps to same file don't work on emscripten")
     SIZE = 4096
     arr = np.random.randint(0, 256, size=SIZE).astype('u1')
     data = arr.tobytes()[:SIZE]
@@ -1264,6 +1336,9 @@ def test_native_file_modes(tmpdir):
         assert f.seekable()
 
 
+@pytest.mark.xfail(
+    sys.platform == "emscripten", reason="umask doesn't work on Emscripten"
+)
 def test_native_file_permissions(tmpdir):
     # ARROW-10124: permissions of created files should follow umask
     cur_umask = os.umask(0o002)

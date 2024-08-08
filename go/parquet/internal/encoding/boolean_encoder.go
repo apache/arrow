@@ -19,10 +19,10 @@ package encoding
 import (
 	"encoding/binary"
 
-	"github.com/apache/arrow/go/v17/arrow/bitutil"
-	"github.com/apache/arrow/go/v17/parquet"
-	"github.com/apache/arrow/go/v17/parquet/internal/debug"
-	"github.com/apache/arrow/go/v17/parquet/internal/utils"
+	"github.com/apache/arrow/go/v18/arrow/bitutil"
+	"github.com/apache/arrow/go/v18/parquet"
+	"github.com/apache/arrow/go/v18/parquet/internal/debug"
+	"github.com/apache/arrow/go/v18/parquet/internal/utils"
 )
 
 const (

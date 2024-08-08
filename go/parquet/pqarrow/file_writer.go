@@ -22,12 +22,12 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/apache/arrow/go/v17/arrow"
-	"github.com/apache/arrow/go/v17/arrow/flight"
-	"github.com/apache/arrow/go/v17/internal/utils"
-	"github.com/apache/arrow/go/v17/parquet"
-	"github.com/apache/arrow/go/v17/parquet/file"
-	"github.com/apache/arrow/go/v17/parquet/metadata"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/flight"
+	"github.com/apache/arrow/go/v18/internal/utils"
+	"github.com/apache/arrow/go/v18/parquet"
+	"github.com/apache/arrow/go/v18/parquet/file"
+	"github.com/apache/arrow/go/v18/parquet/metadata"
 	"golang.org/x/xerrors"
 )
 
@@ -246,7 +246,7 @@ func (fw *FileWriter) Write(rec arrow.Record) error {
 		}
 	}
 	fw.colIdx = 0
-	return nil
+	return fw.rgw.Close()
 }
 
 // WriteTable writes an arrow table to the underlying file using chunkSize to determine

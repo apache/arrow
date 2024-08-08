@@ -329,7 +329,8 @@ class TestBufferedInputStream : public FileTestFixture<BufferedInputStream> {
     local_pool_ = MemoryPool::CreateDefault();
   }
 
-  void MakeExample1(int64_t buffer_size, MemoryPool* pool = default_memory_pool()) {
+  void MakeExample1(int64_t buffer_size, MemoryPool* pool = default_memory_pool(),
+                    int64_t raw_read_bound = -1) {
     test_data_ = kExample1;
 
     ASSERT_OK_AND_ASSIGN(auto file_out, FileOutputStream::Open(path_));
@@ -338,7 +339,8 @@ class TestBufferedInputStream : public FileTestFixture<BufferedInputStream> {
 
     ASSERT_OK_AND_ASSIGN(auto file_in, ReadableFile::Open(path_));
     raw_ = file_in;
-    ASSERT_OK_AND_ASSIGN(buffered_, BufferedInputStream::Create(buffer_size, pool, raw_));
+    ASSERT_OK_AND_ASSIGN(
+        buffered_, BufferedInputStream::Create(buffer_size, pool, raw_, raw_read_bound));
   }
 
  protected:
@@ -470,6 +472,23 @@ TEST_F(TestBufferedInputStream, SetBufferSize) {
 
   // Shrinking to exactly number of buffered bytes is ok
   ASSERT_OK(buffered_->SetBufferSize(5));
+}
+
+// GH-43060: Internal buffer should not greater than the
+// bytes could buffer.
+TEST_F(TestBufferedInputStream, BufferSizeLimit) {
+  {
+    // Buffer size should not exceeds raw_read_bound
+    MakeExample1(/*buffer_size=*/100000, default_memory_pool(), /*raw_read_bound=*/15);
+    EXPECT_EQ(15, buffered_->buffer_size());
+  }
+  {
+    // Set a buffer size after read.
+    MakeExample1(/*buffer_size=*/10, default_memory_pool(), /*raw_read_bound=*/15);
+    ASSERT_OK(buffered_->Read(10));
+    ASSERT_OK(buffered_->SetBufferSize(/*new_buffer_size=*/100000));
+    EXPECT_EQ(5, buffered_->buffer_size());
+  }
 }
 
 class TestBufferedInputStreamBound : public ::testing::Test {

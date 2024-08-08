@@ -18,10 +18,11 @@ package encoding
 
 import (
 	"fmt"
-	"github.com/apache/arrow/go/v17/arrow/memory"
-	"github.com/apache/arrow/go/v17/parquet"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/apache/arrow/go/v18/arrow/memory"
+	"github.com/apache/arrow/go/v18/parquet"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestDeltaByteArrayDecoder_SetData(t *testing.T) {

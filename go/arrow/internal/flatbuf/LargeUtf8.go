@@ -22,8 +22,8 @@ import (
 	flatbuffers "github.com/google/flatbuffers/go"
 )
 
-/// Same as Utf8, but with 64-bit offsets, allowing to represent
-/// extremely large data values.
+// / Same as Utf8, but with 64-bit offsets, allowing to represent
+// / extremely large data values.
 type LargeUtf8 struct {
 	_tab flatbuffers.Table
 }

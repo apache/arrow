@@ -317,7 +317,12 @@ test_that("Filtering with unsupported functions", {
       filter(int > 2, pnorm(dbl) > .99) %>%
       collect(),
     tbl,
-    warning = "Expression pnorm\\(dbl\\) > 0.99 not supported in Arrow; pulling data into R"
+    warning = paste(
+      "In pnorm\\(dbl\\) > 0.99: ",
+      "i Expression not supported in Arrow",
+      "> Pulling data into R",
+      sep = "\n"
+    )
   )
   compare_dplyr_binding(
     .input %>%
@@ -329,8 +334,10 @@ test_that("Filtering with unsupported functions", {
       collect(),
     tbl,
     warning = paste(
-      'In nchar\\(chr, type = "bytes", allowNA = TRUE\\) == 1,',
-      "allowNA = TRUE not supported in Arrow; pulling data into R"
+      'In nchar\\(chr, type = "bytes", allowNA = TRUE\\) == 1: ',
+      "i allowNA = TRUE not supported in Arrow",
+      "> Pulling data into R",
+      sep = "\n"
     )
   )
 })
@@ -468,7 +475,12 @@ test_that(".by argument", {
       filter(int > 2, pnorm(dbl) > .99, .by = chr) %>%
       collect(),
     tbl,
-    warning = "Expression pnorm\\(dbl\\) > 0.99 not supported in Arrow; pulling data into R"
+    warning = paste(
+      "In pnorm\\(dbl\\) > 0.99: ",
+      "i Expression not supported in Arrow",
+      "> Pulling data into R",
+      sep = "\n"
+    )
   )
   expect_error(
     tbl %>%
