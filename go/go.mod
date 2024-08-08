@@ -40,7 +40,7 @@ require (
 	golang.org/x/tools v0.23.0
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028
 	gonum.org/v1/gonum v0.15.0
-	google.golang.org/grpc v1.63.2
+	google.golang.org/grpc v1.65.0
 	google.golang.org/protobuf v1.34.2
 	modernc.org/sqlite v1.29.6
 )
@@ -78,7 +78,7 @@ require (
 	golang.org/x/mod v0.19.0 // indirect
 	golang.org/x/net v0.27.0 // indirect
 	golang.org/x/text v0.16.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240227224415-6ceb2ff114de // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240528184218-531527333157 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	modernc.org/gc/v3 v3.0.0-20240107210532-573471604cb6 // indirect
 	modernc.org/libc v1.41.0 // indirect
