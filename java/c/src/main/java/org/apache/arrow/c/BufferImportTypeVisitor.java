@@ -234,7 +234,7 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
 
   @Override
   public List<ArrowBuf> visit(ArrowType.FixedSizeList type) {
-    return Collections.singletonList(maybeImportBitmap(type));
+    return Collections.singletonList(maybeImportBitmapWithOffset(type));
   }
 
   @Override
