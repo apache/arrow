@@ -48,6 +48,7 @@ Classes
    JsonFileFormat
    ParquetFileFormat
    ParquetReadOptions
+   ParquetFileWriteOptions
    ParquetFragmentScanOptions
    ParquetFileFragment
    OrcFileFormat
