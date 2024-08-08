@@ -102,7 +102,7 @@ under the License.
     <dep.jackson-bom.version>2.17.2</dep.jackson-bom.version>
     <dep.hadoop.version>3.4.0</dep.hadoop.version>
     <dep.fbs.version>24.3.25</dep.fbs.version>
-    <dep.avro.version>1.11.3</dep.avro.version>
+    <dep.avro.version>1.12.0</dep.avro.version>
     <arrow.vector.classifier></arrow.vector.classifier>
     <forkCount>2</forkCount>
     <checkstyle.version>10.17.0</checkstyle.version>
