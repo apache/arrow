@@ -69,6 +69,7 @@ Status ExprDecomposer::Visit(const FunctionNode& in_node) {
   const NativeFunction* native_function = registry_.LookupSignature(signature);
   DCHECK(native_function) << "Missing Signature " << signature.ToString();
 
+  used_functions_.emplace(native_function->pc_name());
   // decompose the children.
   std::vector<ValueValidityPairPtr> args;
   for (auto& child : node.children()) {
