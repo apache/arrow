@@ -1054,37 +1054,44 @@ def test_recordbatch_to_tensor_uniform_float_16():
     check_tensors(result, expected, pa.float16(), 27)
 
 
-def test_recordbatch_to_tensor_mixed_type():
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
+def test_to_tensor_mixed_type(cls):
     # uint16 + int16 = int32
     arr1 = [1, 2, 3, 4, 5, 6, 7, 8, 9]
     arr2 = [10, 20, 30, 40, 50, 60, 70, 80, 90]
     arr3 = [100, 200, 300, np.nan, 500, 600, 700, 800, 900]
-    batch = pa.RecordBatch.from_arrays(
+    tabular = cls.from_arrays(
         [
             pa.array(arr1, type=pa.uint16()),
             pa.array(arr2, type=pa.int16()),
         ], ["a", "b"]
     )
 
-    result = batch.to_tensor(row_major=False)
+    result = tabular.to_tensor(row_major=False)
     x = np.column_stack([arr1, arr2]).astype(np.int32, order="F")
     expected = pa.Tensor.from_numpy(x)
     check_tensors(result, expected, pa.int32(), 18)
 
-    result = batch.to_tensor()
+    result = tabular.to_tensor()
     x = np.column_stack([arr1, arr2]).astype(np.int32, order="C")
     expected = pa.Tensor.from_numpy(x)
     check_tensors(result, expected, pa.int32(), 18)
 
     # uint16 + int16 + float32 = float64
-    batch = pa.RecordBatch.from_arrays(
+    tabular = cls.from_arrays(
         [
             pa.array(arr1, type=pa.uint16()),
             pa.array(arr2, type=pa.int16()),
             pa.array(arr3, type=pa.float32()),
         ], ["a", "b", "c"]
     )
-    result = batch.to_tensor(row_major=False)
+    result = tabular.to_tensor(row_major=False)
     x = np.column_stack([arr1, arr2, arr3]).astype(np.float64, order="F")
     expected = pa.Tensor.from_numpy(x)
 
@@ -1094,7 +1101,7 @@ def test_recordbatch_to_tensor_mixed_type():
     assert result.shape == expected.shape
     assert result.strides == expected.strides
 
-    result = batch.to_tensor()
+    result = tabular.to_tensor()
     x = np.column_stack([arr1, arr2, arr3]).astype(np.float64, order="C")
     expected = pa.Tensor.from_numpy(x)
 
@@ -1155,7 +1162,7 @@ def test_recordbatch_to_tensor_null():
     )
     with pytest.raises(
         pa.ArrowTypeError,
-        match="Can only convert a RecordBatch with no nulls."
+        match="Can only convert a Table or RecordBatch with no nulls."
     ):
         batch.to_tensor()
 
@@ -1237,6 +1244,69 @@ def test_recordbatch_to_tensor_unsupported():
         match="DataType is not supported"
     ):
         batch.to_tensor()
+
+
+@pytest.mark.parametrize('typ', [
+    np.uint8, np.uint16, np.uint32, np.uint64,
+    np.int8, np.int16, np.int32, np.int64,
+    np.float32, np.float64,
+])
+def test_table_to_tensor_uniform_type(typ):
+    arr1 = [[1, 2, 3], [4, 5, 6, 7, 8, 9]]
+    arr2 = [[10, 20], [30, 40, 50, 60, 70, 80, 90]]
+    arr3 = [[100, 100, 100, 100, 100, 100], [100, 100, 100]]
+    table = pa.Table.from_arrays(
+        [
+            pa.chunked_array(arr1, type=pa.from_numpy_dtype(typ)),
+            pa.chunked_array(arr2, type=pa.from_numpy_dtype(typ)),
+            pa.chunked_array(arr3, type=pa.from_numpy_dtype(typ)),
+        ], ["a", "b", "c"]
+    )
+
+    arr1_f = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    arr2_f = [10, 20, 30, 40, 50, 60, 70, 80, 90]
+    arr3_f = [100, 100, 100, 100, 100, 100, 100, 100, 100]
+
+    result = table.to_tensor(row_major=False)
+    x = np.column_stack([arr1_f, arr2_f, arr3_f]).astype(typ, order="F")
+    expected = pa.Tensor.from_numpy(x)
+    check_tensors(result, expected, pa.from_numpy_dtype(typ), 27)
+
+    result = table.to_tensor()
+    x = np.column_stack([arr1_f, arr2_f, arr3_f]).astype(typ, order="C")
+    expected = pa.Tensor.from_numpy(x)
+    check_tensors(result, expected, pa.from_numpy_dtype(typ), 27)
+
+    # Test offset
+    table1 = table.slice(1)
+    arr1_f = [2, 3, 4, 5, 6, 7, 8, 9]
+    arr2_f = [20, 30, 40, 50, 60, 70, 80, 90]
+    arr3_f = [100, 100, 100, 100, 100, 100, 100, 100]
+
+    result = table1.to_tensor(row_major=False)
+    x = np.column_stack([arr1_f, arr2_f, arr3_f]).astype(typ, order="F")
+    expected = pa.Tensor.from_numpy(x)
+    check_tensors(result, expected, pa.from_numpy_dtype(typ), 24)
+
+    result = table1.to_tensor()
+    x = np.column_stack([arr1_f, arr2_f, arr3_f]).astype(typ, order="C")
+    expected = pa.Tensor.from_numpy(x)
+    check_tensors(result, expected, pa.from_numpy_dtype(typ), 24)
+
+    table2 = table.slice(1, 5)
+    arr1_f = [2, 3, 4, 5, 6]
+    arr2_f = [20, 30, 40, 50, 60]
+    arr3_f = [100, 100, 100, 100, 100]
+
+    result = table2.to_tensor(row_major=False)
+    x = np.column_stack([arr1_f, arr2_f, arr3_f]).astype(typ, order="F")
+    expected = pa.Tensor.from_numpy(x)
+    check_tensors(result, expected, pa.from_numpy_dtype(typ), 15)
+
+    result = table2.to_tensor()
+    x = np.column_stack([arr1_f, arr2_f, arr3_f]).astype(typ, order="C")
+    expected = pa.Tensor.from_numpy(x)
+    check_tensors(result, expected, pa.from_numpy_dtype(typ), 15)
 
 
 def _table_like_slice_tests(factory):
