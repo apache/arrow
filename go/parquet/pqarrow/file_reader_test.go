@@ -401,16 +401,28 @@ func TestReadParquetFile(t *testing.T) {
 	}()
 
 	arrowRdr, err := pqarrow.NewFileReader(rdr, pqarrow.ArrowReadProperties{
-		Parallel:  false,
+		Parallel:  true,
 		BatchSize: 0,
 	}, mem)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
-	_, err = arrowRdr.ReadTable(ctx)
+	table, err := arrowRdr.ReadTable(ctx)
+	defer table.Release()
 
-	if err == nil {
-		t.Errorf("expected error: %v", err)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	assert.Equal(t, table.NumCols(), int64(1))
+	assert.Equal(t, table.NumRows(), int64(21186))
+
+	for i := 0; i < int(table.NumCols()); i++ {
+		col := table.Column(i)
+		assert.Equal(t, col.Len(), int(table.NumRows()))
+		for j := 0; j < col.Len(); j++ {
+			assert.Equal(t, col.Data().Chunk(0).(*array.Uint16).Value(j), uint16(0))
+		}
 	}
 }

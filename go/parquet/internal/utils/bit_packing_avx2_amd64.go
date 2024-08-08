@@ -39,6 +39,10 @@ func unpack32Avx2(in io.Reader, out []uint32, nbits int) int {
 
 	n := batch * nbits / 8
 
+	if n == 0 {
+		return 0
+	}
+
 	buffer := bufferPool.Get().(*bytes.Buffer)
 	defer bufferPool.Put(buffer)
 	buffer.Reset()
