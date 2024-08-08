@@ -64,7 +64,7 @@ jobs:
           echo "VCPKG_VERSION=$vcpkg_version" >> $GITHUB_ENV
 
       - name: Install Vcpkg
-        run: bash -x arrow/ci/scripts/install_vcpkg.sh $VCPKG_ROOT $VCPKG_VERSION
+        run: arrow/ci/scripts/install_vcpkg.sh $VCPKG_ROOT $VCPKG_VERSION
 
       - name: Add Vcpkg to PATH
         run: echo ${VCPKG_ROOT} >> $GITHUB_PATH
