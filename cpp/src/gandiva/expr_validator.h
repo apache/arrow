@@ -65,6 +65,8 @@ class ExprValidator : public NodeVisitor {
   Status Visit(const InExpressionNode<double>& node) override;
   Status Visit(const InExpressionNode<gandiva::DecimalScalar128>& node) override;
   Status Visit(const InExpressionNode<std::string>& node) override;
+  Status Visit(const PreEvalInExpressionNode& node) override;
+  Status Visit(const ReadProxyNode& node) override;
 
   LLVMTypes* types_;
 
