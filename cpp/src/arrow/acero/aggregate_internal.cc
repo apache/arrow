@@ -58,8 +58,8 @@ namespace aggregate {
 std::vector<TypeHolder> ExtendWithGroupIdType(const std::vector<TypeHolder>& in_types) {
   std::vector<TypeHolder> aggr_in_types;
   aggr_in_types.reserve(in_types.size() + 1);
-  aggr_in_types = in_types;
   aggr_in_types.emplace_back(uint32());
+  aggr_in_types.insert(++aggr_in_types.begin(), in_types.begin(), in_types.end());
   return aggr_in_types;
 }
 
