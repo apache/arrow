@@ -138,7 +138,7 @@ def get_extension_dtype_info(column):
     return physical_dtype, metadata
 
 
-def get_column_metadata(column, name, arrow_type, field_name):
+def get_column_metadata(column, name, arrow_type, field_name, attrs={}):
     """Construct the metadata for a given column
 
     Parameters
@@ -150,6 +150,8 @@ def get_column_metadata(column, name, arrow_type, field_name):
         Equivalent to `name` when `column` is a `Series`, otherwise if `column`
         is a pandas Index then `field_name` will not be the same as `name`.
         This is the name of the field in the arrow Table's schema.
+    attrs : dict, default {}
+        Additional metadata to include with the column attributes
 
     Returns
     -------
@@ -164,6 +166,9 @@ def get_column_metadata(column, name, arrow_type, field_name):
             'scale': arrow_type.scale,
         }
         string_dtype = 'object'
+    # concatenate column metadata into single dictionary
+    # with precedence given to user-provided attributes
+    column_attrs = {**column.attrs, **attrs}
 
     if name is not None and not isinstance(name, str):
         raise TypeError(
@@ -180,6 +185,7 @@ def get_column_metadata(column, name, arrow_type, field_name):
         'pandas_type': logical_type,
         'numpy_type': string_dtype,
         'metadata': extra_metadata,
+        'attrs': column_attrs,
     }
 
 
