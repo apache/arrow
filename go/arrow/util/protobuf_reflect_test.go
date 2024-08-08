@@ -19,7 +19,6 @@ package util
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 	"testing"
 
 	"google.golang.org/protobuf/proto"
@@ -35,10 +34,9 @@ import (
 )
 
 type Fixture struct {
-	msg         proto.Message
-	schema      string
-	jsonStr     string
-	nullJsonStr string
+	msg     proto.Message
+	schema  string
+	jsonStr string
 }
 
 type J map[string]any
@@ -71,7 +69,7 @@ func AllTheTypesFixture() Fixture {
 	}
 	jm, err := json.Marshal(m)
 	if err != nil {
-	  panic(err)
+		panic(err)
 	}
 	jsonString := string(jm)
 
@@ -131,70 +129,14 @@ func AllTheTypesFixture() Fixture {
     - simple_list: type=list<item: utf8, nullable>, nullable
     - complex_list: type=list<item: struct<field1: utf8>, nullable>, nullable`
 
-	nullJsonStr := `
-		{
-			"str":"",
-			"int32":0,
-			"int64":0,
-			"sint32":0,
-			"sin64":0,
-			"uint32":0,
-			"uint64":0,
-			"fixed32":0,
-			"fixed64":0,
-			"sfixed32":0,
-			"bool":false,
-			"bytes":"",
-			"double":0,
-			"enum":"OPTION_0",
-			"message":null,
-			"oneofmessage":{"field1":""},
-			"oneofstring":"",
-			"any":null,
-			"simple_map":[],
-			"complex_map":[],
-			"simple_list":[],
-			"complex_list":[]
-		}
-	`
-
 	return Fixture{
-		msg:         &msg,
-		schema:      schema,
-		jsonStr:     jsonString,
-		nullJsonStr: nullJsonStr,
+		msg:     &msg,
+		schema:  schema,
+		jsonStr: jsonString,
 	}
 }
 
 func AllTheTypesNoAnyFixture() Fixture {
-	e := J{"field1": "Example"}
-
-	m := J{
-		"str":          "Hello",
-		"int32":        10,
-		"int64":        100,
-		"sint32":       -10,
-		"sin64":        -100,
-		"uint32":       10,
-		"uint64":       100,
-		"fixed32":      10,
-		"fixed64":      1000,
-		"sfixed32":     10,
-		"bool":         false,
-		"bytes":        "SGVsbG8sIHdvcmxkIQ==",
-		"double":       1.1,
-		"enum":         "OPTION_1",
-		"message":      e,
-		"oneof":        []any{0, "World"},
-		"any":          J{"field1": "Example"},
-		"simple_map":   []J{{"key": 99, "value": "Hello"}},
-		"complex_map":  []J{{"key": "complex", "value": e}},
-		"simple_list":  []any{"Hello", "World"},
-		"complex_list": []J{e},
-	}
-	jm, _ := json.Marshal(m)
-	jsonString := string(jm)
-
 	exampleMsg := util_message.ExampleMessage{
 		Field1: "Example",
 	}
@@ -248,35 +190,59 @@ func AllTheTypesNoAnyFixture() Fixture {
     - simple_list: type=list<item: utf8, nullable>, nullable
     - complex_list: type=list<item: struct<field1: utf8>, nullable>, nullable`
 
-	nullJsonStr := ` {
-		"str":"",
-		"int32":0,
-		"int64":0,
-		"sint32":0,
-		"sin64":0,
-		"uint32":0,
-		"uint64":0,
-		"fixed32":0,
-		"fixed64":0,
-		"sfixed32":0,
-		"bool":false,
-		"bytes":"",
-		"double":0,
-		"enum":"OPTION_0",
-		"message":null,
-		"oneofmessage":{"field1":""},
-		"oneofstring":"",
-		"simple_map":[],
-		"complex_map":[],
-		"simple_list":[],
-		"complex_list":[]
-	}`
+	jsonStr := `{
+			"str":"Hello",
+			"int32":10,
+			"int64":100,
+			"sint32":-10,
+			"sin64":-100,
+			"uint32":10,
+			"uint64":100,
+			"fixed32":10,
+			"fixed64":1000,
+			"sfixed32":10,
+			"bool":false,
+			"bytes":"SGVsbG8sIHdvcmxkIQ==",
+			"double":1.1,
+			"enum":"OPTION_1",
+			"message":{"field1":"Example"},
+			"oneofmessage": { "field1": null },
+			"oneofstring": "World",
+			"simple_map":[{"key":99,"value":"Hello"}],
+			"complex_map":[{"key":"complex","value":{"field1":"Example"}}],
+			"simple_list":["Hello","World"],
+			"complex_list":[{"field1":"Example"}]
+		}`
+	//[{"all_the_types_no_any_a":[{"bool":false,"bytes":"SGVsbG8sIHdvcmxkIQ==","complex_list":[{"field1":"Example"}],"complex_map":[{"key":"complex","value":{"field1":"Example"}}],"double":1.1,"enum":"OPTION_1","fixed32":10,"fixed64":1000,"int32":10,"int64":100,"message":{"field1":"Example"},"oneofmessage":{"field1":null},"oneofstring":"World","sfixed32":10,"simple_list":["Hello","World"],"simple_map":[{"key":99,"value":"Hello"}],"sin64":-100,"sint32":-10,"str":"Hello","uint32":10,"uint64":100}],"all_the_types_no_any_b":[{"bool":false,"bytes":"SGVsbG8sIHdvcmxkIQ==","complex_list":[{"field1":"Example"}],"complex_map":[{"key":"complex","value":{"field1":"Example"}}],"double":1.1,"enum":"OPTION_1","fixed32":10,"fixed64":1000,"int32":10,"int64":100,"message":{"field1":"Example"},"oneofmessage":{"field1":null},"oneofstring":"World","sfixed32":10,"simple_list":["Hello","World"],"simple_map":[{"key":99,"value":"Hello"}],"sin64":-100,"sint32":-10,"str":"Hello","uint32":10,"uint64":100}]}]
+
+	//nullJsonStr := ` {
+	//	"str":"",
+	//	"int32":0,
+	//	"int64":0,
+	//	"sint32":0,
+	//	"sin64":0,
+	//	"uint32":0,
+	//	"uint64":0,
+	//	"fixed32":0,
+	//	"fixed64":0,
+	//	"sfixed32":0,
+	//	"bool":false,
+	//	"bytes":"",
+	//	"double":0,
+	//	"enum":"OPTION_0",
+	//	"message":null,
+	//	"oneofmessage":{"field1":""},
+	//	"oneofstring":"",
+	//	"simple_map":[],
+	//	"complex_map":[],
+	//	"simple_list":[],
+	//	"complex_list":[]
+	//}`
 
 	return Fixture{
-		msg:         &msg,
-		schema:      schema,
-		jsonStr:     jsonString,
-		nullJsonStr: nullJsonStr,
+		msg:     &msg,
+		schema:  schema,
+		jsonStr: jsonStr,
 	}
 }
 
@@ -286,12 +252,10 @@ func CheckSchema(t *testing.T, pmr *ProtobufMessageReflection, want string) {
 }
 
 func CheckRecord(t *testing.T, pmr *ProtobufMessageReflection, jsonStr string) {
-	schema := pmr.Schema()
-	got := pmr.Record(nil)
-	want, _, err := array.RecordFromJSON(memory.NewGoAllocator(), schema, strings.NewReader(jsonStr))
-
-	require.NoError(t, err)
-	require.EqualExportedValues(t, got, want, "got: %s\nwant: %s", got, want)
+	rec := pmr.Record(nil)
+	got, err := json.Marshal(rec)
+	assert.NoError(t, err)
+	assert.JSONEq(t, jsonStr, string(got), "got: %s\nwant: %s", got, jsonStr)
 }
 
 func TestGetSchema(t *testing.T) {
@@ -410,14 +374,36 @@ func TestRecordFromProtobuf(t *testing.T) {
 	CheckRecord(t, pmr, jsonStr)
 
 	pmr = NewProtobufMessageReflection(f.msg, WithExclusionPolicy(onlyEnum), WithEnumHandler(EnumNumber))
-	jsonStr = `[ { "enum":"1" } ]`
+	jsonStr = `[ { "enum":1 } ]`
 	CheckRecord(t, pmr, jsonStr)
 }
 
 func TestNullRecordFromProtobuf(t *testing.T) {
 	pmr := NewProtobufMessageReflection(&util_message.AllTheTypes{})
-	f := AllTheTypesFixture()
-	CheckRecord(t, pmr, fmt.Sprintf(`[%s]`, f.nullJsonStr))
+	CheckRecord(t, pmr, `[{
+		"str":"",
+		"int32":0,
+		"int64":0,
+		"sint32":0,
+		"sin64":0,
+		"uint32":0,
+		"uint64":0,
+		"fixed32":0,
+		"fixed64":0,
+		"sfixed32":0,
+		"bool":false,
+		"bytes":null,
+		"double":0,
+		"enum":"OPTION_0",
+		"message":null,
+		"oneofmessage":{"field1":""},
+		"oneofstring":"",
+		"any": null,
+		"simple_map":[],
+		"complex_map":[],
+		"simple_list":[],
+		"complex_list":[]
+	}]`)
 }
 
 func TestExcludedNested(t *testing.T) {
@@ -442,13 +428,13 @@ func TestExcludedNested(t *testing.T) {
 	simpleNested = util_message.SimpleNested{
 		SimpleA: []*util_message.ExampleMessage{&msg},
 	}
-	jsonStr = `[{ "simple_a":[{"field1":"Example"}] }]`
+	jsonStr = `[{ "simple_a":[{"field1":"Example"}], "simple_b":[]}]`
 	CheckSchema(t, pmr, schema)
 	CheckRecord(t, pmr, jsonStr)
 
-	//exclude both values
+	////exclude both values
 	simpleNested = util_message.SimpleNested{}
-	jsonStr = `[{ "simple_a":[{}] }]`
+	jsonStr = `[{ "simple_a":[], "simple_b":[] }]`
 	CheckSchema(t, pmr, schema)
 	CheckRecord(t, pmr, jsonStr)
 
@@ -462,7 +448,7 @@ func TestExcludedNested(t *testing.T) {
 		AllTheTypesNoAnyA: []*util_message.AllTheTypesNoAny{f.msg.(*util_message.AllTheTypesNoAny)},
 		AllTheTypesNoAnyB: []*util_message.AllTheTypesNoAny{f.msg.(*util_message.AllTheTypesNoAny)},
 	}
-	jsonStr = fmt.Sprintf(`[{ "all_the_types_a": [%s], "all_the_types_b": [%s] }]`, f.jsonStr, f.jsonStr)
+	jsonStr = fmt.Sprintf(`[{ "all_the_types_no_any_a": [%s], "all_the_types_no_any_b": [%s] }]`, f.jsonStr, f.jsonStr)
 	pmr = NewProtobufMessageReflection(&complexNested)
 	CheckSchema(t, pmr, schema)
 	CheckRecord(t, pmr, jsonStr)
@@ -471,14 +457,14 @@ func TestExcludedNested(t *testing.T) {
 	complexNested = util_message.ComplexNested{
 		AllTheTypesNoAnyB: []*util_message.AllTheTypesNoAny{f.msg.(*util_message.AllTheTypesNoAny)},
 	}
-	jsonStr = fmt.Sprintf(`[{ "all_the_types_a": [%s], "all_the_types_b": [%s] }]`, f.nullJsonStr, f.jsonStr)
+	jsonStr = fmt.Sprintf(`[{ "all_the_types_no_any_a": [], "all_the_types_no_any_b": [%s] }]`, f.jsonStr)
 	pmr = NewProtobufMessageReflection(&complexNested)
 	CheckSchema(t, pmr, schema)
 	CheckRecord(t, pmr, jsonStr)
 
 	// exclude both values
 	complexNested = util_message.ComplexNested{}
-	jsonStr = fmt.Sprintf(`[{ "all_the_types_a": [%s], "all_the_types_b": [%s] }]`, f.nullJsonStr, f.nullJsonStr)
+	jsonStr = `[{ "all_the_types_no_any_a": [], "all_the_types_no_any_b": [] }]`
 	pmr = NewProtobufMessageReflection(&complexNested)
 	CheckSchema(t, pmr, schema)
 	CheckRecord(t, pmr, jsonStr)
@@ -492,20 +478,26 @@ func TestExcludedNested(t *testing.T) {
 		ComplexNested: &complexNested,
 		SimpleNested:  &simpleNested,
 	}
+	jsonStr = `[{ "simple_nested": {"simple_a":[], "simple_b":[]}, "complex_nested": {"all_the_types_no_any_a": [], "all_the_types_no_any_b": []} }]`
 	pmr = NewProtobufMessageReflection(&deepNested)
 	CheckSchema(t, pmr, schema)
+	CheckRecord(t, pmr, jsonStr)
 
 	// exclude one value
 	deepNested = util_message.DeepNested{
 		ComplexNested: &complexNested,
 	}
+	jsonStr = `[{ "simple_nested": null, "complex_nested": {"all_the_types_no_any_a": [], "all_the_types_no_any_b": []} }]`
 	pmr = NewProtobufMessageReflection(&deepNested)
 	CheckSchema(t, pmr, schema)
+	CheckRecord(t, pmr, jsonStr)
 
 	// exclude both values
 	deepNested = util_message.DeepNested{}
 	pmr = NewProtobufMessageReflection(&deepNested)
+	jsonStr = `[{ "simple_nested": null, "complex_nested": null }]`
 	CheckSchema(t, pmr, schema)
+	CheckRecord(t, pmr, jsonStr)
 }
 
 type testProtobufReflection struct {

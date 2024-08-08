@@ -413,24 +413,23 @@ func (pmr protobufMapReflection) generateKeyValuePairs() chan protobufMapKeyValu
 			return
 		}
 		for _, k := range pmr.rValue.MapKeys() {
-				kvp := protobufMapKeyValuePairReflection{
-					k: ProtobufFieldReflection{
-						parent:        pmr.parent,
-						descriptor:    pmr.descriptor.MapKey(),
-						prValue:       getMapKey(k),
-						rValue:        k,
-						schemaOptions: pmr.schemaOptions,
-					},
-					v: ProtobufFieldReflection{
-						parent:        pmr.parent,
-						descriptor:    pmr.descriptor.MapValue(),
-						prValue:       pmr.prValue.Map().Get(protoreflect.MapKey(getMapKey(k))),
-						rValue:        pmr.rValue.MapIndex(k),
-						schemaOptions: pmr.schemaOptions,
-					},
-				}
-				out <- kvp
+			kvp := protobufMapKeyValuePairReflection{
+				k: ProtobufFieldReflection{
+					parent:        pmr.parent,
+					descriptor:    pmr.descriptor.MapKey(),
+					prValue:       getMapKey(k),
+					rValue:        k,
+					schemaOptions: pmr.schemaOptions,
+				},
+				v: ProtobufFieldReflection{
+					parent:        pmr.parent,
+					descriptor:    pmr.descriptor.MapValue(),
+					prValue:       pmr.prValue.Map().Get(protoreflect.MapKey(getMapKey(k))),
+					rValue:        pmr.rValue.MapIndex(k),
+					schemaOptions: pmr.schemaOptions,
+				},
 			}
+			out <- kvp
 		}
 	}()
 
