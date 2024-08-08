@@ -1544,6 +1544,11 @@ TEST(TestLogicalTypeOperation, LogicalTypeRepresentation) {
       {LogicalType::BSON(), "BSON", R"({"Type": "BSON"})"},
       {LogicalType::UUID(), "UUID", R"({"Type": "UUID"})"},
       {LogicalType::Float16(), "Float16", R"({"Type": "Float16"})"},
+      {LogicalType::Geometry(), "Geometry(crs=, edges=planar, encoding=wkb, metadata=)",
+       R"({"Type": "Geometry", "edges": "planar", "encoding": "wkb"})"},
+      {LogicalType::Geometry("{}", LogicalType::GeometryEdges::SPHERICAL),
+       "Geometry(crs={}, edges=spherical, encoding=wkb, metadata=)",
+       R"({"Type": "Geometry", "crs": {}, "edges": "spherical", "encoding": "wkb"})"},
       {LogicalType::None(), "None", R"({"Type": "None"})"},
   };
 
@@ -1594,6 +1599,7 @@ TEST(TestLogicalTypeOperation, LogicalTypeSortOrder) {
       {LogicalType::BSON(), SortOrder::UNSIGNED},
       {LogicalType::UUID(), SortOrder::UNSIGNED},
       {LogicalType::Float16(), SortOrder::SIGNED},
+      {LogicalType::Geometry(), SortOrder::UNKNOWN},
       {LogicalType::None(), SortOrder::UNKNOWN}};
 
   for (const ExpectedSortOrder& c : cases) {
