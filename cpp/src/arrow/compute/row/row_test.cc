@@ -69,9 +69,14 @@ TEST(RowTableMemoryConsumption, Encode) {
   constexpr int64_t num_rows_max = 8192;
   constexpr int64_t padding_for_vectors = 64;
 
-  ASSERT_OK_AND_ASSIGN(
-      auto fixed_length_column,
-      ::arrow::gen::Constant(std::make_shared<UInt32Scalar>(0))->Generate(num_rows_max));
+  std::vector<std::shared_ptr<Array>> fixed_length_columns;
+  for (const auto& dt : {int8(), uint16(), int32(), uint64(), fixed_size_binary(16),
+                         fixed_size_binary(32)}) {
+    ASSERT_OK_AND_ASSIGN(auto fixed_length_column,
+                         ::arrow::gen::Random(dt)->Generate(num_rows_max));
+    fixed_length_columns.push_back(std::move(fixed_length_column));
+  }
+
   ASSERT_OK_AND_ASSIGN(auto var_length_column,
                        ::arrow::gen::Constant(std::make_shared<BinaryScalar>("X"))
                            ->Generate(num_rows_max));
@@ -81,22 +86,26 @@ TEST(RowTableMemoryConsumption, Encode) {
     {
       SCOPED_TRACE("encoding fixed length column of " + std::to_string(num_rows) +
                    " rows");
-      ASSERT_OK_AND_ASSIGN(auto row_table,
-                           MakeRowTableFromColumn(fixed_length_column, num_rows,
-                                                  uint32()->byte_width(), 0));
-      ASSERT_NE(row_table.data(0), NULLPTR);
-      ASSERT_NE(row_table.data(1), NULLPTR);
-      ASSERT_EQ(row_table.data(2), NULLPTR);
+      for (const auto& col : fixed_length_columns) {
+        const auto& dt = col->type();
+        SCOPED_TRACE("encoding fixed length column of type " + dt->ToString());
+        ASSERT_OK_AND_ASSIGN(auto row_table,
+                             MakeRowTableFromColumn(col, num_rows, dt->byte_width(),
+                                                    /*string_alignment=*/0));
+        ASSERT_NE(row_table.data(0), NULLPTR);
+        ASSERT_NE(row_table.data(1), NULLPTR);
+        ASSERT_EQ(row_table.data(2), NULLPTR);
 
-      int64_t actual_null_mask_size =
-          num_rows * row_table.metadata().null_masks_bytes_per_row;
-      ASSERT_LE(actual_null_mask_size, row_table.buffer_size(0) - padding_for_vectors);
-      ASSERT_GT(actual_null_mask_size * 2,
-                row_table.buffer_size(0) - padding_for_vectors);
+        int64_t actual_null_mask_size =
+            num_rows * row_table.metadata().null_masks_bytes_per_row;
+        ASSERT_LE(actual_null_mask_size, row_table.buffer_size(0) - padding_for_vectors);
+        ASSERT_GT(actual_null_mask_size * 2,
+                  row_table.buffer_size(0) - padding_for_vectors);
 
-      int64_t actual_rows_size = num_rows * uint32()->byte_width();
-      ASSERT_LE(actual_rows_size, row_table.buffer_size(1) - padding_for_vectors);
-      ASSERT_GT(actual_rows_size * 2, row_table.buffer_size(1) - padding_for_vectors);
+        int64_t actual_rows_size = num_rows * dt->byte_width();
+        ASSERT_LE(actual_rows_size, row_table.buffer_size(1) - padding_for_vectors);
+        ASSERT_GT(actual_rows_size * 2, row_table.buffer_size(1) - padding_for_vectors);
+      }
     }
 
     // Var length column.

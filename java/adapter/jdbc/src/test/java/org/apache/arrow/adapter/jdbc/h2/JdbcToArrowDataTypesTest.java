@@ -32,19 +32,27 @@ import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertTimeVect
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertTinyIntVectorValues;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertVarBinaryVectorValues;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertVarcharVectorValues;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.IOException;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Arrays;
 import java.util.Calendar;
+import java.util.function.Function;
 import java.util.stream.Stream;
 import org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest;
+import org.apache.arrow.adapter.jdbc.JdbcFieldInfo;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowConfig;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowConfigBuilder;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowUtils;
 import org.apache.arrow.adapter.jdbc.Table;
+import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
@@ -62,7 +70,12 @@ import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.extension.OpaqueType;
+import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -187,6 +200,44 @@ public class JdbcToArrowDataTypesTest extends AbstractJdbcToArrowTest {
     ResultSetMetaData rsmd = conn.createStatement().executeQuery(table.getQuery()).getMetaData();
     Schema schema = JdbcToArrowUtils.jdbcToArrowSchema(rsmd, config);
     JdbcToArrowTestHelper.assertFieldMetadataMatchesResultSetMetadata(rsmd, schema);
+  }
+
+  @Test
+  void testOpaqueType() throws SQLException, ClassNotFoundException {
+    try (BufferAllocator allocator = new RootAllocator()) {
+      String url = "jdbc:h2:mem:JdbcToArrowTest";
+      String driver = "org.h2.Driver";
+      Class.forName(driver);
+      conn = DriverManager.getConnection(url);
+      try (Statement stmt = conn.createStatement()) {
+        stmt.executeUpdate("CREATE TABLE unknowntype (a GEOMETRY, b INT)");
+      }
+
+      String query = "SELECT * FROM unknowntype";
+      Calendar calendar = Calendar.getInstance();
+      Function<JdbcFieldInfo, ArrowType> typeConverter =
+          (field) -> JdbcToArrowUtils.getArrowTypeFromJdbcType(field, calendar);
+      JdbcToArrowConfig config =
+          new JdbcToArrowConfigBuilder()
+              .setAllocator(allocator)
+              .setJdbcToArrowTypeConverter(
+                  JdbcToArrowUtils.reportUnsupportedTypesAsOpaque(typeConverter, "H2"))
+              .build();
+      Schema schema;
+      try (Statement stmt = conn.createStatement();
+          ResultSet rs = stmt.executeQuery(query)) {
+        schema =
+            assertDoesNotThrow(() -> JdbcToArrowUtils.jdbcToArrowSchema(rs.getMetaData(), config));
+      }
+
+      Schema expected =
+          new Schema(
+              Arrays.asList(
+                  Field.nullable(
+                      "A", new OpaqueType(Types.MinorType.NULL.getType(), "GEOMETRY", "H2")),
+                  Field.nullable("B", Types.MinorType.INT.getType())));
+      assertEquals(expected, schema);
+    }
   }
 
   /**

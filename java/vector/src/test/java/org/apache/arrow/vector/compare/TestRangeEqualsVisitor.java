@@ -37,10 +37,12 @@ import org.apache.arrow.vector.compare.util.ValueEpsilonEqualizers;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.ListViewVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.impl.NullableStructWriter;
 import org.apache.arrow.vector.complex.impl.UnionFixedSizeListWriter;
+import org.apache.arrow.vector.complex.impl.UnionListViewWriter;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.holders.NullableBigIntHolder;
 import org.apache.arrow.vector.holders.NullableFloat4Holder;
@@ -202,6 +204,24 @@ public class TestRangeEqualsVisitor {
   }
 
   @Test
+  public void testListViewVectorWithDifferentChild() {
+    try (final ListViewVector vector1 = ListViewVector.empty("listview", allocator);
+        final ListViewVector vector2 = ListViewVector.empty("listview", allocator); ) {
+
+      vector1.allocateNew();
+      vector1.initializeChildrenFromFields(
+          Arrays.asList(Field.nullable("child", new ArrowType.Int(32, true))));
+
+      vector2.allocateNew();
+      vector2.initializeChildrenFromFields(
+          Arrays.asList(Field.nullable("child", new ArrowType.Int(64, true))));
+
+      RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector1, vector2);
+      assertFalse(visitor.rangeEquals(new Range(0, 0, 0)));
+    }
+  }
+
+  @Test
   public void testListVectorRangeEquals() {
     try (final ListVector vector1 = ListVector.empty("list", allocator);
         final ListVector vector2 = ListVector.empty("list", allocator); ) {
@@ -226,6 +246,38 @@ public class TestRangeEqualsVisitor {
       writeListVector(writer2, new int[] {5, 6});
       writeListVector(writer2, new int[] {7, 8});
       writeListVector(writer2, new int[] {0, 0});
+      writer2.setValueCount(5);
+
+      RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector1, vector2);
+      assertTrue(visitor.rangeEquals(new Range(1, 1, 3)));
+    }
+  }
+
+  @Test
+  public void testListViewVectorRangeEquals() {
+    try (final ListViewVector vector1 = ListViewVector.empty("listview", allocator);
+        final ListViewVector vector2 = ListViewVector.empty("listview", allocator); ) {
+
+      UnionListViewWriter writer1 = vector1.getWriter();
+      writer1.allocate();
+
+      // set some values
+      writeListViewVector(writer1, new int[] {1, 2});
+      writeListViewVector(writer1, new int[] {3, 4});
+      writeListViewVector(writer1, new int[] {5, 6});
+      writeListViewVector(writer1, new int[] {7, 8});
+      writeListViewVector(writer1, new int[] {9, 10});
+      writer1.setValueCount(5);
+
+      UnionListViewWriter writer2 = vector2.getWriter();
+      writer2.allocate();
+
+      // set some values
+      writeListViewVector(writer2, new int[] {0, 0});
+      writeListViewVector(writer2, new int[] {3, 4});
+      writeListViewVector(writer2, new int[] {5, 6});
+      writeListViewVector(writer2, new int[] {7, 8});
+      writeListViewVector(writer2, new int[] {0, 0});
       writer2.setValueCount(5);
 
       RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector1, vector2);
@@ -819,6 +871,38 @@ public class TestRangeEqualsVisitor {
     }
   }
 
+  @Test
+  public void testListViewVectorApproxEquals() {
+    try (final ListViewVector right = ListViewVector.empty("listview", allocator);
+        final ListViewVector left1 = ListViewVector.empty("listview", allocator);
+        final ListViewVector left2 = ListViewVector.empty("listview", allocator); ) {
+
+      final float epsilon = 1.0E-6f;
+
+      UnionListViewWriter rightWriter = right.getWriter();
+      rightWriter.allocate();
+      writeListViewVector(rightWriter, new double[] {1, 2});
+      writeListViewVector(rightWriter, new double[] {1.01, 2.02});
+      rightWriter.setValueCount(2);
+
+      UnionListViewWriter leftWriter1 = left1.getWriter();
+      leftWriter1.allocate();
+      writeListViewVector(leftWriter1, new double[] {1, 2});
+      writeListViewVector(leftWriter1, new double[] {1.01 + epsilon / 2, 2.02 - epsilon / 2});
+      leftWriter1.setValueCount(2);
+
+      UnionListViewWriter leftWriter2 = left2.getWriter();
+      leftWriter2.allocate();
+      writeListViewVector(leftWriter2, new double[] {1, 2});
+      writeListViewVector(leftWriter2, new double[] {1.01 + epsilon * 2, 2.02 - epsilon * 2});
+      leftWriter2.setValueCount(2);
+
+      Range range = new Range(0, 0, right.getValueCount());
+      assertTrue(new ApproxEqualsVisitor(left1, right, epsilon, epsilon).rangeEquals(range));
+      assertFalse(new ApproxEqualsVisitor(left2, right, epsilon, epsilon).rangeEquals(range));
+    }
+  }
+
   private void writeStructVector(NullableStructWriter writer, int value1, long value2) {
     writer.start();
     writer.integer("f0").writeInt(value1);
@@ -841,6 +925,14 @@ public class TestRangeEqualsVisitor {
     writer.endList();
   }
 
+  private void writeListViewVector(UnionListViewWriter writer, int[] values) {
+    writer.startListView();
+    for (int v : values) {
+      writer.integer().writeInt(v);
+    }
+    writer.endListView();
+  }
+
   private void writeFixedSizeListVector(UnionFixedSizeListWriter writer, int[] values) {
     writer.startList();
     for (int v : values) {
@@ -855,5 +947,13 @@ public class TestRangeEqualsVisitor {
       writer.float8().writeFloat8(v);
     }
     writer.endList();
+  }
+
+  private void writeListViewVector(UnionListViewWriter writer, double[] values) {
+    writer.startListView();
+    for (double v : values) {
+      writer.float8().writeFloat8(v);
+    }
+    writer.endListView();
   }
 }

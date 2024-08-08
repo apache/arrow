@@ -26,6 +26,7 @@ import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.LargeListVector;
 import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.ListViewVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 
@@ -60,4 +61,8 @@ public interface VectorVisitor<OUT, IN> {
   OUT visit(NullVector left, IN value);
 
   OUT visit(ExtensionTypeVector<?> left, IN value);
+
+  default OUT visit(ListViewVector left, IN value) {
+    throw new UnsupportedOperationException("VectorVisitor for ListViewVector is not supported.");
+  }
 }

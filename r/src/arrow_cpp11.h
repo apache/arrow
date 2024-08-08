@@ -389,7 +389,7 @@ SEXP to_r6(const std::shared_ptr<T>& ptr, const char* r6_class_name) {
 
 // R_existsVarInFrame doesn't exist before R 4.2, so we need to fall back to
 // Rf_findVarInFrame3 if it is not defined.
-#ifdef R_existsVarInFrame
+#if R_VERSION >= R_Version(4, 2, 0)
   if (!R_existsVarInFrame(arrow::r::ns::arrow, r6_class)) {
     cpp11::stop("No arrow R6 class named '%s'", r6_class_name);
   }

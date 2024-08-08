@@ -30,4 +30,4 @@ jobs:
         shell: bash
         run: |
           cd arrow/cpp/examples/{{ type }}
-          docker-compose run --rm {{ run }}
+          docker compose run --rm {{ run }}

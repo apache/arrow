@@ -16,7 +16,7 @@
 # under the License.
 
 from collections import OrderedDict
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from functools import partial
 import datetime
 import sys
@@ -1325,17 +1325,36 @@ def test_types_come_back_with_specific_type():
         assert type(type_back) is type(arrow_type)
 
 
-def test_schema_import_c_schema_interface():
-    class Wrapper:
-        def __init__(self, schema):
-            self.schema = schema
+class SchemaWrapper:
+    def __init__(self, schema):
+        self.schema = schema
 
-        def __arrow_c_schema__(self):
-            return self.schema.__arrow_c_schema__()
+    def __arrow_c_schema__(self):
+        return self.schema.__arrow_c_schema__()
 
+
+class SchemaMapping(Mapping):
+    def __init__(self, schema):
+        self.schema = schema
+
+    def __arrow_c_schema__(self):
+        return self.schema.__arrow_c_schema__()
+
+    def __getitem__(self, key):
+        return self.schema[key]
+
+    def __iter__(self):
+        return iter(self.schema)
+
+    def __len__(self):
+        return len(self.schema)
+
+
+@pytest.mark.parametrize("wrapper_class", [SchemaWrapper, SchemaMapping])
+def test_schema_import_c_schema_interface(wrapper_class):
     schema = pa.schema([pa.field("field_name", pa.int32())], metadata={"a": "b"})
     assert schema.metadata == {b"a": b"b"}
-    wrapped_schema = Wrapper(schema)
+    wrapped_schema = wrapper_class(schema)
 
     assert pa.schema(wrapped_schema) == schema
     assert pa.schema(wrapped_schema).metadata == {b"a": b"b"}
