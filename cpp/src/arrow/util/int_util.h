@@ -133,5 +133,19 @@ UpcastInt(Integer v) {
   return v;
 }
 
+/// \brief Trait to select integer type based on byte width and signedness
+template <int Bytes, bool Signed>
+struct int_type_from_byte_width;
+// clang-format off
+template <> struct int_type_from_byte_width<1, true>  { using type = int8_t; };
+template <> struct int_type_from_byte_width<1, false> { using type = uint8_t; };
+template <> struct int_type_from_byte_width<2, true>  { using type = int16_t; };
+template <> struct int_type_from_byte_width<2, false> { using type = uint16_t; };
+template <> struct int_type_from_byte_width<4, true>  { using type = int32_t; };
+template <> struct int_type_from_byte_width<4, false> { using type = uint32_t; };
+template <> struct int_type_from_byte_width<8, true>  { using type = int64_t; };
+template <> struct int_type_from_byte_width<8, false> { using type = uint64_t; };
+// clang-format on
+
 }  // namespace internal
 }  // namespace arrow
