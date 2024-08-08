@@ -479,15 +479,18 @@ Status MakeEmptyListsArray(int64_t size, std::shared_ptr<Array>* out_array) {
 }
 
 std::shared_ptr<::arrow::Table> MakeSimpleTable(
-    const std::shared_ptr<ChunkedArray>& values, bool nullable) {
-  auto schema = ::arrow::schema({::arrow::field("col", values->type(), nullable)});
+    const std::shared_ptr<ChunkedArray>& values, bool nullable,
+    std::shared_ptr<::arrow::KeyValueMetadata> metadata = nullptr) {
+  auto schema = ::arrow::schema({::arrow::field("col", values->type(), nullable)},
+                                std::move(metadata));
   return ::arrow::Table::Make(schema, {values});
 }
 
-std::shared_ptr<::arrow::Table> MakeSimpleTable(const std::shared_ptr<Array>& values,
-                                                bool nullable) {
+std::shared_ptr<::arrow::Table> MakeSimpleTable(
+    const std::shared_ptr<Array>& values, bool nullable,
+    std::shared_ptr<::arrow::KeyValueMetadata> metadata = nullptr) {
   auto carr = std::make_shared<::arrow::ChunkedArray>(values);
-  return MakeSimpleTable(carr, nullable);
+  return MakeSimpleTable(carr, nullable, std::move(metadata));
 }
 
 template <typename T>
