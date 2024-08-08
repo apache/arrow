@@ -35,9 +35,14 @@ echo "=== Clear output directories and leftovers ==="
 rm -rf ${build_dir}
 
 echo "=== Building Arrow C++ libraries ==="
-devtoolset_version=$(rpm -qa "devtoolset-*-gcc" --queryformat %{VERSION} | \
+devtoolset_version=$(rpm -qa "devtoolset-*-gcc" "gcc-toolset-*-gcc" --queryformat %{VERSION} | \
                        grep -o "^[0-9]*")
-devtoolset_include_cpp="/opt/rh/devtoolset-${devtoolset_version}/root/usr/include/c++/${devtoolset_version}"
+if [ -d "/opt/rh/devtoolset-${devtoolset_version}" ]; then
+  devtoolset_include_cpp="/opt/rh/devtoolset-${devtoolset_version}/root/usr/include/c++/${devtoolset_version}"
+else
+  devtoolset_include_cpp="/opt/rh/gcc-toolset-${devtoolset_version}/root/usr/include/c++/${devtoolset_version}"
+fi
+
 : ${ARROW_ACERO:=ON}
 export ARROW_ACERO
 : ${ARROW_BUILD_TESTS:=ON}

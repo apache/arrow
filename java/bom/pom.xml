@@ -80,7 +80,7 @@ under the License.
   <properties>
     <arrow.vector.classifier></arrow.vector.classifier>
     <!-- org.apache:apache overrides -->
-    <minimalJavaBuildVersion>11</minimalJavaBuildVersion>
+    <minimalJavaBuildVersion>22</minimalJavaBuildVersion>
     <maven.compiler.source>11</maven.compiler.source>
     <maven.compiler.target>11</maven.compiler.target>
     <maven.compiler.release>11</maven.compiler.release>
