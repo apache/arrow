@@ -1702,10 +1702,10 @@ cdef class Array(_PandasConvertible):
         _append_array_buffers(self.sp_array.get().data().get(), res)
         return res
 
-    def copy_to(self, MemoryManager memory_manager):
+    def copy_to(self, destination):
         """
         Construct a copy of the array with all buffers on destination
-        Memory Manager
+        device.
 
         This method recursively copies the array's buffers and those of its
         children onto the destination MemoryManager device and returns the
@@ -1713,7 +1713,7 @@ cdef class Array(_PandasConvertible):
 
         Parameters
         ----------
-        memory_manager : pyarrow.MemoryManager
+        destination : pyarrow.MemoryManager or pyarrow.Device
 
         Returns
         ------
@@ -1721,9 +1721,20 @@ cdef class Array(_PandasConvertible):
         """
         cdef:
             shared_ptr[CArray] c_array
+            shared_ptr[CMemoryManager] c_memory_manager
+
+        if isinstance(destination, Device):
+            c_memory_manager = (<Device>destination).unwrap().get().default_memory_manager()
+        elif isinstance(destination, MemoryManager):
+            c_memory_manager = (<MemoryManager>destination).unwrap()
+        else:
+            raise TypeError(
+                "Argument 'destination' has incorrect type (expected a "
+                f"pyarrow Device or MemoryManager, got {type(destination)})"
+            )
 
         with nogil:
-            c_array = GetResultValue(self.ap.CopyTo(memory_manager.unwrap()))
+            c_array = GetResultValue(self.ap.CopyTo(c_memory_manager))
         return pyarrow_wrap_array(c_array)
 
     def _export_to_c(self, out_ptr, out_schema_ptr=0):

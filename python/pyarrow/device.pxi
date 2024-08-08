@@ -64,6 +64,9 @@ cdef class Device(_Weakrefable):
         self.init(device)
         return self
 
+    cdef inline shared_ptr[CDevice] unwrap(self) nogil:
+        return self.device
+
     def __eq__(self, other):
         if not isinstance(other, Device):
             return False

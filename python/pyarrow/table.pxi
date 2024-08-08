@@ -3569,9 +3569,9 @@ cdef class RecordBatch(_Tabular):
                                                                              row_major, pool))
         return pyarrow_wrap_tensor(c_tensor)
 
-    def copy_to(self, MemoryManager memory_manager):
+    def copy_to(self, destination):
         """
-        Copy the entire RecordBatch to destination MemoryManager.
+        Copy the entire RecordBatch to destination device.
 
         This copies each column of the record batch to create
         a new record batch where all underlying buffers for the columns have
@@ -3579,7 +3579,7 @@ cdef class RecordBatch(_Tabular):
 
         Parameters
         ----------
-        memory_manager : pyarrow.MemoryManager
+        destination : pyarrow.MemoryManager or pyarrow.Device
 
         Returns
         ------
@@ -3587,9 +3587,20 @@ cdef class RecordBatch(_Tabular):
         """
         cdef:
             shared_ptr[CRecordBatch] c_batch
+            shared_ptr[CMemoryManager] c_memory_manager
+
+        if isinstance(destination, Device):
+            c_memory_manager = (<Device>destination).unwrap().get().default_memory_manager()
+        elif isinstance(destination, MemoryManager):
+            c_memory_manager = (<MemoryManager>destination).unwrap()
+        else:
+            raise TypeError(
+                "Argument 'destination' has incorrect type (expected a "
+                f"pyarrow Device or MemoryManager, got {type(destination)})"
+            )
 
         with nogil:
-            c_batch = GetResultValue(self.batch.CopyTo(memory_manager.unwrap()))
+            c_batch = GetResultValue(self.batch.CopyTo(c_memory_manager))
         return pyarrow_wrap_batch(c_batch)
 
     def _export_to_c(self, out_ptr, out_schema_ptr=0):

@@ -534,6 +534,8 @@ cdef class Device(_Weakrefable):
     @staticmethod
     cdef wrap(const shared_ptr[CDevice]& device)
 
+    cdef inline shared_ptr[CDevice] unwrap(self) nogil
+
 
 cdef class MemoryManager(_Weakrefable):
     cdef:

@@ -809,16 +809,25 @@ def test_copy_to():
     _, buf = make_random_buffer(size=10, target='device')
     mm_cuda = buf.memory_manager
 
-    arr = pa.array([0, 1, 2])
-    arr_cuda = arr.copy_to(mm_cuda)
-    assert not arr_cuda.buffers()[1].is_cpu
-    assert arr_cuda.buffers()[1].device_type == pa.DeviceAllocationType.CUDA
+    for dest in [mm_cuda, mm_cuda.device]:
+        arr = pa.array([0, 1, 2])
+        arr_cuda = arr.copy_to(dest)
+        assert not arr_cuda.buffers()[1].is_cpu
+        assert arr_cuda.buffers()[1].device_type == pa.DeviceAllocationType.CUDA
+        assert arr_cuda.buffers()[1].device == mm_cuda.device
 
-    batch = pa.record_batch({"col": arr})
-    batch_cuda = batch.copy_to(mm_cuda)
-    buf_cuda = batch_cuda["col"].buffers()[1]
-    assert not buf_cuda.is_cpu
-    assert buf_cuda.device_type == pa.DeviceAllocationType.CUDA
+        arr_roundtrip = arr_cuda.copy_to(pa.default_cpu_memory_manager())
+        assert arr_roundtrip.equals(arr)
+
+        batch = pa.record_batch({"col": arr})
+        batch_cuda = batch.copy_to(dest)
+        buf_cuda = batch_cuda["col"].buffers()[1]
+        assert not buf_cuda.is_cpu
+        assert buf_cuda.device_type == pa.DeviceAllocationType.CUDA
+        assert buf_cuda.device == mm_cuda.device
+
+        batch_roundtrip = batch_cuda.copy_to(pa.default_cpu_memory_manager())
+        assert batch_roundtrip.equals(batch)
 
 
 def test_device_interface_array():
