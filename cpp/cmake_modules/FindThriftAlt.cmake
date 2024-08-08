@@ -191,6 +191,10 @@ if(ThriftAlt_FOUND)
     # thrift/windows/config.h for Visual C++.
     set_target_properties(thrift::thrift PROPERTIES INTERFACE_LINK_LIBRARIES "ws2_32")
   endif()
+  # Workaround: thrift.pc doesn't have Boost dependency.
+  if(TARGET Boost::headers)
+    target_link_libraries(thrift::thrift INTERFACE Boost::headers)
+  endif()
 
   if(Thrift_COMPILER_FOUND)
     add_executable(thrift::compiler IMPORTED)
