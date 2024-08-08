@@ -178,9 +178,9 @@ TEST(RowTableLarge, LARGE_MEMORY_TEST(Encode)) {
   ASSERT_OK(row_encoder.EncodeSelected(&row_table, static_cast<uint32_t>(num_rows),
                                        row_ids.data()));
 
-  ASSERT_GT(row_table.offsets()[num_rows - 1], std::numeric_limits<uint32_t>::max());
-  ASSERT_GT(row_table.offsets()[num_rows],
-            row_table.offsets()[num_rows - 1] + length_per_binary);
+  auto encoded_row_length = table_metadata.fixed_length + length_per_binary;
+  ASSERT_EQ(row_table.offsets()[num_rows - 1], encoded_row_length * (num_rows - 1));
+  ASSERT_EQ(row_table.offsets()[num_rows], encoded_row_length * num_rows);
 }
 
 // GH-43495: Ensure that we can build a row table with more than 4GB row data.
@@ -234,9 +234,9 @@ TEST(RowTableLarge, LARGE_MEMORY_TEST(AppendFrom)) {
                                             /*source_row_ids=*/NULLPTR));
   }
 
-  ASSERT_GT(row_table.offsets()[num_rows - 1], std::numeric_limits<uint32_t>::max());
-  ASSERT_GT(row_table.offsets()[num_rows],
-            row_table.offsets()[num_rows - 1] + length_per_binary);
+  auto encoded_row_length = table_metadata.fixed_length + length_per_binary;
+  ASSERT_EQ(row_table.offsets()[num_rows - 1], encoded_row_length * (num_rows - 1));
+  ASSERT_EQ(row_table.offsets()[num_rows], encoded_row_length * num_rows);
 }
 
 }  // namespace compute
