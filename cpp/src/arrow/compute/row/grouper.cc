@@ -777,6 +777,9 @@ struct GrouperFastImpl : public Grouper {
       } else {
         ARROW_ASSIGN_OR_RAISE(fixedlen_bufs[i],
                               AllocatePaddedBuffer((num_groups + 1) * sizeof(uint32_t)));
+        // init offset[0] as 0, avoid when num_groups == 0 
+        // fixedlen_bufs won't be initialized
+        reinterpret_cast<uint32_t*>(fixedlen_bufs[i]->mutable_data())[0] = 0;
       }
       cols_[i] =
           KeyColumnArray(col_metadata_[i], num_groups, non_null_bufs[i]->mutable_data(),
