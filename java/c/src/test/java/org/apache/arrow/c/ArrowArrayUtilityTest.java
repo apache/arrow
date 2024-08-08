@@ -58,7 +58,7 @@ class ArrowArrayUtilityTest {
     // Note values are all dummy values here
     try (BufferImportTypeVisitor notEmptyDataVisitor =
         new BufferImportTypeVisitor(
-            allocator, dummyHandle, new ArrowFieldNode(/* length= */ 1, 0), new long[] {0})) {
+            allocator, dummyHandle, new ArrowFieldNode(/* length= */ 1, 0), 0, new long[] {0})) {
 
       // Too few buffers
       assertThrows(
@@ -82,7 +82,7 @@ class ArrowArrayUtilityTest {
 
     try (BufferImportTypeVisitor emptyDataVisitor =
         new BufferImportTypeVisitor(
-            allocator, dummyHandle, new ArrowFieldNode(/* length= */ 0, 0), new long[] {0})) {
+            allocator, dummyHandle, new ArrowFieldNode(/* length= */ 0, 0), 0, new long[] {0})) {
 
       // Too few buffers
       assertThrows(
@@ -106,7 +106,7 @@ class ArrowArrayUtilityTest {
     long address = MemoryUtil.allocateMemory(16);
     try (BufferImportTypeVisitor visitor =
         new BufferImportTypeVisitor(
-            allocator, dummyHandle, new ArrowFieldNode(0, 0), new long[] {address})) {
+            allocator, dummyHandle, new ArrowFieldNode(0, 0), 0, new long[] {address})) {
       // This fails, but only after we've already imported a buffer.
       assertThrows(IllegalStateException.class, () -> visitor.visit(new ArrowType.Int(32, true)));
     } finally {
@@ -123,7 +123,8 @@ class ArrowArrayUtilityTest {
     long baseline = allocator.getAllocatedMemory();
     ArrowFieldNode fieldNode = new ArrowFieldNode(fieldLength, 0);
     try (BufferImportTypeVisitor visitor =
-        new BufferImportTypeVisitor(allocator, dummyHandle, fieldNode, new long[] {0, address})) {
+        new BufferImportTypeVisitor(
+            allocator, dummyHandle, fieldNode, 0, new long[] {0, address})) {
       List<ArrowBuf> buffers = visitor.visit(new ArrowType.Int(32, true));
       assertThat(buffers).hasSize(2);
       assertThat(buffers.get(0)).isNull();
