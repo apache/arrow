@@ -857,7 +857,7 @@ set(CYTHON_FLAGS "${CYTHON_FLAGS}" "--warning-errors")
 set(CYTHON_FLAGS "${CYTHON_FLAGS}" "--no-c-in-traceback")
 
 if(CYTHON_VERSION VERSION_GREATER_EQUAL "3.1.0a0")
-  set(CYTHON_FLAGS "${CYTHON_FLAGS}" "-Xfreethreading_compatible=True")
+  list(APPEND CYTHON_FLAGS "-Xfreethreading_compatible=True")
 endif()
 
 foreach(module ${CYTHON_EXTENSIONS})
