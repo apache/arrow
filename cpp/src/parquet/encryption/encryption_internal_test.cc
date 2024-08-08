@@ -41,22 +41,22 @@ class TestAesEncryption : public ::testing::Test {
         encryptor.CiphertextLength(static_cast<int64_t>(plain_text_.size()));
     std::vector<uint8_t> ciphertext(expected_ciphertext_len, '\0');
 
-    int ciphertext_length = encryptor.Encrypt(str2span(plain_text_), str2span(key_),
-                                              str2span(aad_), ciphertext);
+    int32_t ciphertext_length = encryptor.Encrypt(str2span(plain_text_), str2span(key_),
+                                                  str2span(aad_), ciphertext);
 
     ASSERT_EQ(ciphertext_length, expected_ciphertext_len);
 
     AesDecryptor decryptor(cipher_type, key_length_, metadata, write_length);
 
-    int expected_plaintext_length = decryptor.PlaintextLength(ciphertext_length);
+    int32_t expected_plaintext_length = decryptor.PlaintextLength(ciphertext_length);
     std::vector<uint8_t> decrypted_text(expected_plaintext_length, '\0');
 
-    int plaintext_length =
+    int32_t plaintext_length =
         decryptor.Decrypt(ciphertext, str2span(key_), str2span(aad_), decrypted_text);
 
     std::string decrypted_text_str(decrypted_text.begin(), decrypted_text.end());
 
-    ASSERT_EQ(plaintext_length, static_cast<int>(plain_text_.size()));
+    ASSERT_EQ(plaintext_length, static_cast<int32_t>(plain_text_.size()));
     ASSERT_EQ(plaintext_length, expected_plaintext_length);
     ASSERT_EQ(decrypted_text_str, plain_text_);
   }
@@ -68,10 +68,10 @@ class TestAesEncryption : public ::testing::Test {
     AesDecryptor decryptor(cipher_type, key_length_, metadata, write_length);
 
     // Create ciphertext of all zeros, so the ciphertext length will be read as zero
-    const int ciphertext_length = 100;
+    constexpr int32_t ciphertext_length = 100;
     std::vector<uint8_t> ciphertext(ciphertext_length, '\0');
 
-    int expected_plaintext_length = decryptor.PlaintextLength(ciphertext_length);
+    int32_t expected_plaintext_length = decryptor.PlaintextLength(ciphertext_length);
     std::vector<uint8_t> decrypted_text(expected_plaintext_length, '\0');
 
     EXPECT_THROW(
@@ -89,12 +89,12 @@ class TestAesEncryption : public ::testing::Test {
         encryptor.CiphertextLength(static_cast<int64_t>(plain_text_.size()));
     std::vector<uint8_t> ciphertext(expected_ciphertext_len, '\0');
 
-    int ciphertext_length = encryptor.Encrypt(str2span(plain_text_), str2span(key_),
-                                              str2span(aad_), ciphertext);
+    int32_t ciphertext_length = encryptor.Encrypt(str2span(plain_text_), str2span(key_),
+                                                  str2span(aad_), ciphertext);
 
     AesDecryptor decryptor(cipher_type, key_length_, metadata, write_length);
 
-    int expected_plaintext_length = decryptor.PlaintextLength(ciphertext_length);
+    int32_t expected_plaintext_length = decryptor.PlaintextLength(ciphertext_length);
     std::vector<uint8_t> decrypted_text(expected_plaintext_length, '\0');
 
     ::arrow::util::span<uint8_t> truncated_ciphertext(ciphertext.data(),
@@ -105,7 +105,7 @@ class TestAesEncryption : public ::testing::Test {
   }
 
  private:
-  int key_length_ = 0;
+  int32_t key_length_ = 0;
   std::string key_;
   std::string aad_;
   std::string plain_text_;
