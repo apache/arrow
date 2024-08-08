@@ -307,7 +307,6 @@ namespace internal {
 /// \brief Stateful column reader that delimits semantic records for both flat
 /// and nested columns
 ///
-/// \note API EXPERIMENTAL
 /// \since 1.3.0
 class PARQUET_EXPORT RecordReader {
  public:
