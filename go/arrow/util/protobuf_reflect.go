@@ -410,8 +410,9 @@ func (pmr protobufMapReflection) generateKeyValuePairs() chan protobufMapKeyValu
 				},
 			}
 			out <- kvp
-		} else {
-			for _, k := range pmr.rValue.MapKeys() {
+			return
+		}
+		for _, k := range pmr.rValue.MapKeys() {
 				kvp := protobufMapKeyValuePairReflection{
 					k: ProtobufFieldReflection{
 						parent:        pmr.parent,

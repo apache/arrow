@@ -69,7 +69,10 @@ func AllTheTypesFixture() Fixture {
 		"simple_list":  []any{"Hello", "World"},
 		"complex_list": []J{e},
 	}
-	jm, _ := json.Marshal(m)
+	jm, err := json.Marshal(m)
+	if err != nil {
+	  panic(err)
+	}
 	jsonString := string(jm)
 
 	exampleMsg := util_message.ExampleMessage{
