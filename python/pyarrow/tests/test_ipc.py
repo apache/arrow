@@ -20,11 +20,15 @@ import datetime
 import io
 import pathlib
 import pytest
+import random
 import socket
 import threading
 import weakref
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 
 import pyarrow as pa
 from pyarrow.tests.util import changed_environ, invoke_script
@@ -59,7 +63,7 @@ class IpcFixture:
         batches = []
         for i in range(num_batches):
             batch = pa.record_batch(
-                [np.random.randn(nrows),
+                [[random.random() for _ in range(nrows)],
                  ['foo', None, 'bar', 'bazbaz', 'qux']],
                 schema=schema)
             batches.append(batch)
@@ -422,7 +426,7 @@ def test_stream_simple_roundtrip(stream_fixture, use_legacy_ipc_format):
 @pytest.mark.zstd
 def test_compression_roundtrip():
     sink = io.BytesIO()
-    values = np.random.randint(0, 3, 10000)
+    values = [random.randint(0, 3) for _ in range(10000)]
     table = pa.Table.from_arrays([values], names=["values"])
 
     options = pa.ipc.IpcWriteOptions(compression='zstd')

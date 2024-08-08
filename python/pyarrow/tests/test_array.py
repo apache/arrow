@@ -27,7 +27,10 @@ import subprocess
 import sys
 import weakref
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 
 import pyarrow as pa
 import pyarrow.tests.strategies as past
@@ -157,6 +160,7 @@ def test_binary_total_values_length():
     assert large_arr.slice(1, 3).total_values_length == 11
 
 
+@pytest.mark.numpy
 def test_to_numpy_zero_copy():
     arr = pa.array(range(10))
 
@@ -176,6 +180,7 @@ def test_to_numpy_zero_copy():
     np.testing.assert_array_equal(np_arr, expected)
 
 
+@pytest.mark.numpy
 def test_chunked_array_to_numpy_zero_copy():
     elements = [[2, 2, 4], [4, 5, 100]]
 
@@ -191,6 +196,7 @@ def test_chunked_array_to_numpy_zero_copy():
     np.testing.assert_array_equal(np_arr, expected)
 
 
+@pytest.mark.numpy
 def test_to_numpy_unsupported_types():
     # ARROW-2871: Some primitive types are not yet supported in to_numpy
     bool_arr = pa.array([True, False, True])
@@ -217,6 +223,7 @@ def test_to_numpy_unsupported_types():
         arr.to_numpy()
 
 
+@pytest.mark.numpy
 def test_to_numpy_writable():
     arr = pa.array(range(10))
     np_arr = arr.to_numpy()
@@ -234,6 +241,7 @@ def test_to_numpy_writable():
         arr.to_numpy(zero_copy_only=True, writable=True)
 
 
+@pytest.mark.numpy
 @pytest.mark.parametrize('unit', ['s', 'ms', 'us', 'ns'])
 @pytest.mark.parametrize('tz', [None, "UTC"])
 def test_to_numpy_datetime64(unit, tz):
@@ -243,6 +251,7 @@ def test_to_numpy_datetime64(unit, tz):
     np.testing.assert_array_equal(np_arr, expected)
 
 
+@pytest.mark.numpy
 @pytest.mark.parametrize('unit', ['s', 'ms', 'us', 'ns'])
 def test_to_numpy_timedelta64(unit):
     arr = pa.array([1, 2, 3], pa.duration(unit))
@@ -251,6 +260,7 @@ def test_to_numpy_timedelta64(unit):
     np.testing.assert_array_equal(np_arr, expected)
 
 
+@pytest.mark.numpy
 def test_to_numpy_dictionary():
     # ARROW-7591
     arr = pa.array(["a", "b", "a"]).dictionary_encode()
@@ -427,6 +437,11 @@ def test_array_getitem():
         with pytest.raises(IndexError):
             arr[idx]
 
+
+@pytest.mark.numpy
+def test_array_getitem_numpy_scalars():
+    arr = pa.array(range(10, 15))
+    lst = arr.to_pylist()
     # check that numpy scalars are supported
     for idx in range(-len(arr), len(arr)):
         assert arr[np.int32(idx)].as_py() == lst[idx]
@@ -469,9 +484,11 @@ def test_array_slice():
             res.validate()
             expected = arr.to_pylist()[start:stop]
             assert res.to_pylist() == expected
-            assert res.to_numpy().tolist() == expected
+            if np is not None:
+                assert res.to_numpy().tolist() == expected
 
 
+@pytest.mark.numpy
 def test_array_slice_negative_step():
     # ARROW-2714
     np_arr = np.arange(20)
@@ -542,6 +559,7 @@ def test_struct_array_slice():
                                    {'a': 5, 'b': 6.5}]
 
 
+@pytest.mark.numpy
 def test_array_factory_invalid_type():
 
     class MyObject:
@@ -552,6 +570,7 @@ def test_array_factory_invalid_type():
         pa.array(arr)
 
 
+@pytest.mark.numpy
 def test_array_ref_to_ndarray_base():
     arr = np.array([1, 2, 3])
 
@@ -576,6 +595,7 @@ def test_array_eq():
     assert (arr1 == None) is False  # noqa: E711
 
 
+@pytest.mark.numpy
 def test_array_from_buffers():
     values_buf = pa.py_buffer(np.int16([4, 5, 6, 7]))
     nulls_buf = pa.py_buffer(np.uint8([0b00001101]))
@@ -773,6 +793,7 @@ def test_dictionary_from_buffers(offset):
     assert a[offset:] == b
 
 
+@pytest.mark.numpy
 def test_dictionary_from_numpy():
     indices = np.repeat([0, 1, 2], 2)
     dictionary = np.array(['foo', 'bar', 'baz'], dtype=object)
@@ -795,6 +816,7 @@ def test_dictionary_from_numpy():
             assert d2[i].as_py() == dictionary[indices[i]]
 
 
+@pytest.mark.numpy
 def test_dictionary_to_numpy():
     expected = pa.array(
         ["foo", "bar", None, "foo"]
@@ -865,6 +887,7 @@ def test_dictionary_to_numpy():
     )
 
 
+@pytest.mark.numpy
 def test_dictionary_from_boxed_arrays():
     indices = np.repeat([0, 1, 2], 2)
     dictionary = np.array(['foo', 'bar', 'baz'], dtype=object)
@@ -910,6 +933,7 @@ def test_dictionary_indices():
     arr.indices.validate(full=True)
 
 
+@pytest.mark.numpy
 @pytest.mark.parametrize(('list_array_type', 'list_type_factory'),
                          [(pa.ListArray, pa.list_),
                           (pa.LargeListArray, pa.large_list)])
@@ -1052,6 +1076,7 @@ def test_map_from_dict():
     assert tup_arr.equals(dict_arr)
 
 
+@pytest.mark.numpy
 def test_map_from_arrays():
     offsets_arr = np.array([0, 2, 5, 8], dtype='i4')
     offsets = pa.array(offsets_arr, type='int32')
@@ -1472,6 +1497,7 @@ def _check_cast_case(case, *, safe=True, check_array_construction=True):
         assert in_arr.equals(expected)
 
 
+@pytest.mark.numpy
 def test_cast_integers_safe():
     safe_cases = [
         (np.array([0, 1, 2, 3], dtype='i1'), 'int8',
@@ -1558,6 +1584,7 @@ def test_chunked_array_data_warns():
     assert isinstance(res, pa.ChunkedArray)
 
 
+@pytest.mark.numpy
 def test_cast_integers_unsafe():
     # We let NumPy do the unsafe casting.
     # Note that NEP50 in the NumPy spec no longer allows
@@ -1578,6 +1605,7 @@ def test_cast_integers_unsafe():
         _check_cast_case(case, safe=False)
 
 
+@pytest.mark.numpy
 def test_floating_point_truncate_safe():
     safe_cases = [
         (np.array([1.0, 2.0, 3.0], dtype='float32'), 'float32',
@@ -1591,6 +1619,7 @@ def test_floating_point_truncate_safe():
         _check_cast_case(case, safe=True)
 
 
+@pytest.mark.numpy
 def test_floating_point_truncate_unsafe():
     unsafe_cases = [
         (np.array([1.1, 2.2, 3.3], dtype='float32'), 'float32',
@@ -1635,6 +1664,7 @@ def test_decimal_to_int_safe():
         _check_cast_case(case, safe=True)
 
 
+@pytest.mark.numpy
 def test_decimal_to_int_value_out_of_bounds():
     out_of_bounds_cases = [
         (
@@ -1735,6 +1765,7 @@ def test_decimal_to_decimal():
         result = arr.cast(pa.decimal128(5, 2))
 
 
+@pytest.mark.numpy
 def test_safe_cast_nan_to_int_raises():
     arr = pa.array([np.nan, 1.])
 
@@ -1742,6 +1773,7 @@ def test_safe_cast_nan_to_int_raises():
         arr.cast(pa.int64(), safe=True)
 
 
+@pytest.mark.numpy
 def test_cast_signed_to_unsigned():
     safe_cases = [
         (np.array([0, 1, 2, 3], dtype='i1'), pa.uint8(),
@@ -1992,6 +2024,7 @@ def test_dictionary_decode():
         assert result.equals(expected)
 
 
+@pytest.mark.numpy
 def test_cast_time32_to_int():
     arr = pa.array(np.array([0, 1, 2], dtype='int32'),
                    type=pa.time32('s'))
@@ -2001,6 +2034,7 @@ def test_cast_time32_to_int():
     assert result.equals(expected)
 
 
+@pytest.mark.numpy
 def test_cast_time64_to_int():
     arr = pa.array(np.array([0, 1, 2], dtype='int64'),
                    type=pa.time64('us'))
@@ -2010,6 +2044,7 @@ def test_cast_time64_to_int():
     assert result.equals(expected)
 
 
+@pytest.mark.numpy
 def test_cast_timestamp_to_int():
     arr = pa.array(np.array([0, 1, 2], dtype='int64'),
                    type=pa.timestamp('us'))
@@ -2035,6 +2070,7 @@ def test_cast_date32_to_int():
     assert result2.equals(arr)
 
 
+@pytest.mark.numpy
 def test_cast_duration_to_int():
     arr = pa.array(np.array([0, 1, 2], dtype='int64'),
                    type=pa.duration('us'))
@@ -2044,6 +2080,7 @@ def test_cast_duration_to_int():
     assert result.equals(expected)
 
 
+@pytest.mark.numpy
 def test_cast_binary_to_utf8():
     binary_arr = pa.array([b'foo', b'bar', b'baz'], type=pa.binary())
     utf8_arr = binary_arr.cast(pa.utf8())
@@ -2064,6 +2101,7 @@ def test_cast_binary_to_utf8():
     assert casted.null_count == 1
 
 
+@pytest.mark.numpy
 def test_cast_date64_to_int():
     arr = pa.array(np.array([0, 1, 2], dtype='int64'),
                    type=pa.date64())
@@ -2146,6 +2184,7 @@ def test_array_pickle_dictionary(pickle_module):
         assert array.equals(result)
 
 
+@pytest.mark.numpy
 @h.settings(suppress_health_check=(h.HealthCheck.too_slow,))
 @h.given(
     past.arrays(
@@ -2177,9 +2216,9 @@ def test_array_pickle_protocol5(data, typ, pickle_module):
         assert result_addresses == addresses
 
 
-@pytest.mark.parametrize(
-    'narr',
-    [
+@pytest.mark.numpy
+def test_to_numpy_roundtrip():
+    for narr in [
         np.arange(10, dtype=np.int64),
         np.arange(10, dtype=np.int32),
         np.arange(10, dtype=np.int16),
@@ -2191,23 +2230,23 @@ def test_array_pickle_protocol5(data, typ, pickle_module):
         np.arange(10, dtype=np.float64),
         np.arange(10, dtype=np.float32),
         np.arange(10, dtype=np.float16),
-    ]
-)
-def test_to_numpy_roundtrip(narr):
-    arr = pa.array(narr)
-    assert narr.dtype == arr.to_numpy().dtype
-    np.testing.assert_array_equal(narr, arr.to_numpy())
-    np.testing.assert_array_equal(narr[:6], arr[:6].to_numpy())
-    np.testing.assert_array_equal(narr[2:], arr[2:].to_numpy())
-    np.testing.assert_array_equal(narr[2:6], arr[2:6].to_numpy())
+    ]:
+        arr = pa.array(narr)
+        assert narr.dtype == arr.to_numpy().dtype
+        np.testing.assert_array_equal(narr, arr.to_numpy())
+        np.testing.assert_array_equal(narr[:6], arr[:6].to_numpy())
+        np.testing.assert_array_equal(narr[2:], arr[2:].to_numpy())
+        np.testing.assert_array_equal(narr[2:6], arr[2:6].to_numpy())
 
 
+@pytest.mark.numpy
 def test_array_uint64_from_py_over_range():
     arr = pa.array([2 ** 63], type=pa.uint64())
     expected = pa.array(np.array([2 ** 63], dtype='u8'))
     assert arr.equals(expected)
 
 
+@pytest.mark.numpy
 def test_array_conversions_no_sentinel_values():
     arr = np.array([1, 2, 3, 4], dtype='int8')
     refcount = sys.getrefcount(arr)
@@ -2249,6 +2288,7 @@ def test_time32_time64_from_integer():
     assert result.equals(expected)
 
 
+@pytest.mark.numpy
 def test_binary_string_pandas_null_sentinels():
     # ARROW-6227
     def _check_case(ty):
@@ -2259,6 +2299,7 @@ def test_binary_string_pandas_null_sentinels():
     _check_case('utf8')
 
 
+@pytest.mark.numpy
 def test_pandas_null_sentinels_raise_error():
     # ARROW-6227
     cases = [
@@ -2299,6 +2340,7 @@ def test_pandas_null_sentinels_index():
     assert result.equals(expected)
 
 
+@pytest.mark.numpy
 def test_array_roundtrip_from_numpy_datetimeD():
     arr = np.array([None, datetime.date(2017, 4, 4)], dtype='datetime64[D]')
 
@@ -2319,6 +2361,7 @@ def test_array_from_naive_datetimes():
     assert arr.type == pa.timestamp('us', tz=None)
 
 
+@pytest.mark.numpy
 @pytest.mark.parametrize(('dtype', 'type'), [
     ('datetime64[s]', pa.timestamp('s')),
     ('datetime64[ms]', pa.timestamp('ms')),
@@ -2342,6 +2385,7 @@ def test_array_from_numpy_datetime(dtype, type):
     assert arr.equals(expected)
 
 
+@pytest.mark.numpy
 def test_array_from_different_numpy_datetime_units_raises():
     data = [
         None,
@@ -2356,6 +2400,7 @@ def test_array_from_different_numpy_datetime_units_raises():
         pa.array(data)
 
 
+@pytest.mark.numpy
 @pytest.mark.parametrize('unit', ['ns', 'us', 'ms', 's'])
 def test_array_from_list_of_timestamps(unit):
     n = np.datetime64('NaT', unit)
@@ -2370,6 +2415,7 @@ def test_array_from_list_of_timestamps(unit):
     assert a1[0] == a2[0]
 
 
+@pytest.mark.numpy
 def test_array_from_timestamp_with_generic_unit():
     n = np.datetime64('NaT')
     x = np.datetime64('2017-01-01 01:01:01.111111111')
@@ -2380,6 +2426,7 @@ def test_array_from_timestamp_with_generic_unit():
         pa.array([n, x, y])
 
 
+@pytest.mark.numpy
 @pytest.mark.parametrize(('dtype', 'type'), [
     ('timedelta64[s]', pa.duration('s')),
     ('timedelta64[ms]', pa.duration('ms')),
@@ -2408,6 +2455,7 @@ def test_array_from_numpy_timedelta(dtype, type):
     assert arr.to_pylist() == data
 
 
+@pytest.mark.numpy
 def test_array_from_numpy_timedelta_incorrect_unit():
     # generic (no unit)
     td = np.timedelta64(1)
@@ -2423,6 +2471,7 @@ def test_array_from_numpy_timedelta_incorrect_unit():
             pa.array(data)
 
 
+@pytest.mark.numpy
 def test_array_from_numpy_ascii():
     arr = np.array(['abcde', 'abc', ''], dtype='|S5')
 
@@ -2567,6 +2616,7 @@ def test_interval_array_from_dateoffset():
     assert list(actual_list[0]) == expected_from_pandas
 
 
+@pytest.mark.numpy
 def test_array_from_numpy_unicode():
     dtypes = ['<U5', '>U5']
 
@@ -2599,12 +2649,14 @@ def test_array_from_numpy_unicode():
     assert arrow_arr.equals(expected)
 
 
+@pytest.mark.numpy
 def test_array_string_from_non_string():
     # ARROW-5682 - when converting to string raise on non string-like dtype
     with pytest.raises(TypeError):
         pa.array(np.array([1, 2, 3]), type=pa.string())
 
 
+@pytest.mark.numpy
 def test_array_string_from_all_null():
     # ARROW-5682
     vals = np.array([None, None], dtype=object)
@@ -2619,6 +2671,7 @@ def test_array_string_from_all_null():
     assert arr.null_count == 2
 
 
+@pytest.mark.numpy
 def test_array_from_masked():
     ma = np.ma.array([1, 2, 3, 4], dtype='int64',
                      mask=[False, False, True, False])
@@ -2630,6 +2683,7 @@ def test_array_from_masked():
         pa.array(ma, mask=np.array([True, False, False, False]))
 
 
+@pytest.mark.numpy
 def test_array_from_shrunken_masked():
     ma = np.ma.array([0], dtype='int64')
     result = pa.array(ma)
@@ -2637,6 +2691,7 @@ def test_array_from_shrunken_masked():
     assert expected.equals(result)
 
 
+@pytest.mark.numpy
 def test_array_from_invalid_dim_raises():
     msg = "only handle 1-dimensional arrays"
     arr2d = np.array([[1, 2, 3], [4, 5, 6]])
@@ -2648,6 +2703,7 @@ def test_array_from_invalid_dim_raises():
         pa.array(arr0d)
 
 
+@pytest.mark.numpy
 def test_array_from_strided_bool():
     # ARROW-6325
     arr = np.ones((3, 2), dtype=bool)
@@ -2659,6 +2715,7 @@ def test_array_from_strided_bool():
     assert result.equals(expected)
 
 
+@pytest.mark.numpy
 def test_array_from_strided():
     pydata = [
         ([b"ab", b"cd", b"ef"], (pa.binary(), pa.binary(2))),
@@ -2683,6 +2740,7 @@ def test_boolean_true_count_false_count():
     assert arr.false_count == 1000
 
 
+@pytest.mark.numpy
 def test_buffers_primitive():
     a = pa.array([1, 2, None, 4], type=pa.int16())
     buffers = a.buffers()
@@ -2755,6 +2813,7 @@ def test_buffers_nested():
     assert struct.unpack('4xh', values) == (43,)
 
 
+@pytest.mark.numpy
 def test_total_buffer_size():
     a = pa.array(np.array([4, 5, 6], dtype='int64'))
     assert a.nbytes == 8 * 3
@@ -3153,6 +3212,7 @@ def test_nested_dictionary_array():
     assert dict_arr2.to_pylist() == ['a', 'b', 'a', 'b', 'a']
 
 
+@pytest.mark.numpy
 def test_array_from_numpy_str_utf8():
     # ARROW-3890 -- in Python 3, NPY_UNICODE arrays are produced, but in Python
     # 2 they are NPY_STRING (binary), so we must do UTF-8 validation
@@ -3179,6 +3239,7 @@ def test_array_from_numpy_str_utf8():
         pa.array(vec, pa.string(), mask=np.array([False]))
 
 
+@pytest.mark.numpy
 @pytest.mark.slow
 @pytest.mark.large_memory
 def test_numpy_binary_overflow_to_chunked():
@@ -3237,6 +3298,7 @@ def test_list_child_overflow_to_chunked():
     assert len(arr.chunk(1)) == 1
 
 
+@pytest.mark.numpy
 def test_infer_type_masked():
     # ARROW-5208
     ty = pa.infer_type(['foo', 'bar', None, 2],
@@ -3252,6 +3314,7 @@ def test_infer_type_masked():
     assert pa.infer_type([], mask=[]) == pa.null()
 
 
+@pytest.mark.numpy
 def test_array_masked():
     # ARROW-5208
     arr = pa.array([4, None, 4, 3.],
@@ -3264,6 +3327,7 @@ def test_array_masked():
     assert arr.type == pa.int64()
 
 
+@pytest.mark.numpy
 def test_array_supported_masks():
     # ARROW-13883
     arr = pa.array([4, None, 4, 3.],
@@ -3322,6 +3386,7 @@ def test_array_supported_pandas_masks():
     assert arr.to_pylist() == [None, 1]
 
 
+@pytest.mark.numpy
 def test_binary_array_masked():
     # ARROW-12431
     masked_basic = pa.array([b'\x05'], type=pa.binary(1),
@@ -3354,6 +3419,7 @@ def test_binary_array_masked():
     assert ([b'aaa', b'bbb', b'ccc']*10) == arrow_array.to_pylist()
 
 
+@pytest.mark.numpy
 def test_binary_array_strided():
     # Masked
     nparray = np.array([b"ab", b"cd", b"ef"])
@@ -3367,6 +3433,7 @@ def test_binary_array_strided():
     assert [b"ab", b"ef"] == arrow_array.to_pylist()
 
 
+@pytest.mark.numpy
 def test_array_invalid_mask_raises():
     # ARROW-10742
     cases = [
@@ -3400,6 +3467,7 @@ def test_array_from_large_pyints():
         pa.array([int(2 ** 63)])
 
 
+@pytest.mark.numpy
 def test_numpy_array_protocol():
     # test the __array__ method on pyarrow.Array
     arr = pa.array([1, 2, 3])
@@ -3446,6 +3514,7 @@ def test_numpy_array_protocol():
     assert result.dtype == "float64"
 
 
+@pytest.mark.numpy
 def test_array_protocol():
 
     class MyArray:
@@ -3769,6 +3838,7 @@ def test_run_end_encoded_from_buffers():
                                            1, offset, children)
 
 
+@pytest.mark.numpy
 def test_run_end_encoded_from_array_with_type():
     run_ends = [1, 3, 6]
     values = [1, 2, 3]
@@ -3808,6 +3878,7 @@ def test_run_end_encoded_from_array_with_type():
     assert result.equals(expected)
 
 
+@pytest.mark.numpy
 def test_run_end_encoded_to_numpy():
     arr = [1, 2, 2, 3, 3, 3]
     ree_array = pa.array(arr, pa.run_end_encoded(pa.int32(), pa.int64()))
@@ -4023,6 +4094,7 @@ def test_list_view_slice(list_view_type):
     assert sliced_array[0].as_py() == sliced_array.values[i:j].to_pylist() == [4]
 
 
+@pytest.mark.numpy
 @pytest.mark.parametrize('numpy_native_dtype', ['u2', 'i4', 'f8'])
 def test_swapped_byte_order_fails(numpy_native_dtype):
     # ARROW-39129

@@ -30,13 +30,17 @@ import operator
 import re
 import warnings
 
-import numpy as np
-
+try:
+    import numpy as np
+except ImportError:
+    np = None
 import pyarrow as pa
 from pyarrow.lib import _pandas_api, frombytes, is_threading_enabled  # noqa
 
 
 _logical_type_map = {}
+_numpy_logical_type_map = {}
+_pandas_logical_type_map = {}
 
 
 def get_logical_type_map():
@@ -85,27 +89,32 @@ def get_logical_type(arrow_type):
         return 'object'
 
 
-_numpy_logical_type_map = {
-    np.bool_: 'bool',
-    np.int8: 'int8',
-    np.int16: 'int16',
-    np.int32: 'int32',
-    np.int64: 'int64',
-    np.uint8: 'uint8',
-    np.uint16: 'uint16',
-    np.uint32: 'uint32',
-    np.uint64: 'uint64',
-    np.float32: 'float32',
-    np.float64: 'float64',
-    'datetime64[D]': 'date',
-    np.str_: 'string',
-    np.bytes_: 'bytes',
-}
+def get_numpy_logical_type_map():
+    global _numpy_logical_type_map
+    if not _numpy_logical_type_map:
+        _numpy_logical_type_map.update({
+            np.bool_: 'bool',
+            np.int8: 'int8',
+            np.int16: 'int16',
+            np.int32: 'int32',
+            np.int64: 'int64',
+            np.uint8: 'uint8',
+            np.uint16: 'uint16',
+            np.uint32: 'uint32',
+            np.uint64: 'uint64',
+            np.float32: 'float32',
+            np.float64: 'float64',
+            'datetime64[D]': 'date',
+            np.str_: 'string',
+            np.bytes_: 'bytes',
+        })
+    return _numpy_logical_type_map
 
 
 def get_logical_type_from_numpy(pandas_collection):
+    numpy_logical_type_map = get_numpy_logical_type_map()
     try:
-        return _numpy_logical_type_map[pandas_collection.dtype.type]
+        return numpy_logical_type_map[pandas_collection.dtype.type]
     except KeyError:
         if hasattr(pandas_collection.dtype, 'tz'):
             return 'datetimetz'
@@ -1023,18 +1032,23 @@ def _is_generated_index_name(name):
     return re.match(pattern, name) is not None
 
 
-_pandas_logical_type_map = {
-    'date': 'datetime64[D]',
-    'datetime': 'datetime64[ns]',
-    'datetimetz': 'datetime64[ns]',
-    'unicode': np.str_,
-    'bytes': np.bytes_,
-    'string': np.str_,
-    'integer': np.int64,
-    'floating': np.float64,
-    'decimal': np.object_,
-    'empty': np.object_,
-}
+def get_pandas_logical_type_map():
+    global _pandas_logical_type_map
+
+    if not _pandas_logical_type_map:
+        _pandas_logical_type_map.update({
+            'date': 'datetime64[D]',
+            'datetime': 'datetime64[ns]',
+            'datetimetz': 'datetime64[ns]',
+            'unicode': np.str_,
+            'bytes': np.bytes_,
+            'string': np.str_,
+            'integer': np.int64,
+            'floating': np.float64,
+            'decimal': np.object_,
+            'empty': np.object_,
+        })
+    return _pandas_logical_type_map
 
 
 def _pandas_type_to_numpy_type(pandas_type):
@@ -1050,8 +1064,9 @@ def _pandas_type_to_numpy_type(pandas_type):
     dtype : np.dtype
         The dtype that corresponds to `pandas_type`.
     """
+    pandas_logical_type_map = get_pandas_logical_type_map()
     try:
-        return _pandas_logical_type_map[pandas_type]
+        return pandas_logical_type_map[pandas_type]
     except KeyError:
         if 'mixed' in pandas_type:
             # catching 'mixed', 'mixed-integer' and 'mixed-integer-float'

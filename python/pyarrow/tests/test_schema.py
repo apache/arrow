@@ -20,7 +20,10 @@ import sys
 import weakref
 
 import pytest
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 import pyarrow as pa
 
 import pyarrow.tests.util as test_util
@@ -185,6 +188,7 @@ def test_time_types():
         pa.time64('s')
 
 
+@pytest.mark.numpy
 def test_from_numpy_dtype():
     cases = [
         (np.dtype('bool'), pa.bool_()),

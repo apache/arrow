@@ -25,11 +25,15 @@ import math
 import os
 import pathlib
 import pytest
+import random
 import sys
 import tempfile
 import weakref
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 
 from pyarrow.util import guid
 from pyarrow import Codec
@@ -464,6 +468,7 @@ def test_buffer_hex(val, expected_hex_buffer):
     assert buf.hex() == expected_hex_buffer
 
 
+@pytest.mark.numpy
 def test_buffer_to_numpy():
     # Make sure creating a numpy array from an arrow buffer works
     byte_array = bytearray(20)
@@ -476,6 +481,7 @@ def test_buffer_to_numpy():
     assert array.base == buf
 
 
+@pytest.mark.numpy
 def test_buffer_from_numpy():
     # C-contiguous
     arr = np.arange(12, dtype=np.int8).reshape((3, 4))
@@ -493,6 +499,7 @@ def test_buffer_from_numpy():
         buf = pa.py_buffer(arr.T[::2])
 
 
+@pytest.mark.numpy
 def test_buffer_address():
     b1 = b'some data!'
     b2 = bytearray(b1)
@@ -513,6 +520,7 @@ def test_buffer_address():
     assert buf.address == arr.ctypes.data
 
 
+@pytest.mark.numpy
 def test_buffer_equals():
     # Buffer.equals() returns true iff the buffers have the same contents
     def eq(a, b):
@@ -624,6 +632,7 @@ def test_buffer_hashing():
         hash(pa.py_buffer(b'123'))
 
 
+@pytest.mark.numpy
 def test_buffer_protocol_respects_immutability():
     # ARROW-3228; NumPy's frombuffer ctor determines whether a buffer-like
     # object is mutable by first attempting to get a mutable buffer using
@@ -635,6 +644,7 @@ def test_buffer_protocol_respects_immutability():
     assert not numpy_ref.flags.writeable
 
 
+@pytest.mark.numpy
 def test_foreign_buffer():
     obj = np.array([1, 2], dtype=np.int32)
     addr = obj.__array_interface__["data"][0]
@@ -669,6 +679,7 @@ def test_allocate_buffer_resizable():
     assert buf.size == 200
 
 
+@pytest.mark.numpy
 def test_non_cpu_buffer(pickle_module):
     cuda = pytest.importorskip("pyarrow.cuda")
     ctx = cuda.Context(0)
@@ -798,6 +809,7 @@ def test_cache_options_pickling(pickle_module):
         assert pickle_module.loads(pickle_module.dumps(option)) == option
 
 
+@pytest.mark.numpy
 @pytest.mark.parametrize("compression", [
     pytest.param(
         "bz2", marks=pytest.mark.xfail(raises=pa.lib.ArrowNotImplementedError)
@@ -838,6 +850,7 @@ def test_compress_decompress(compression):
         pa.decompress(compressed_bytes, codec=compression)
 
 
+@pytest.mark.numpy
 @pytest.mark.parametrize("compression", [
     pytest.param(
         "bz2", marks=pytest.mark.xfail(raises=pa.lib.ArrowNotImplementedError)
@@ -996,6 +1009,7 @@ def test_buffer_protocol_ref_counting():
     assert refcount_before == sys.getrefcount(val)
 
 
+@pytest.mark.numpy
 def test_nativefile_write_memoryview():
     f = pa.BufferOutputStream()
     data = b'ok'
@@ -1058,8 +1072,8 @@ def test_mock_output_stream():
 @pytest.fixture
 def sample_disk_data(request, tmpdir):
     SIZE = 4096
-    arr = np.random.randint(0, 256, size=SIZE).astype('u1')
-    data = arr.tobytes()[:SIZE]
+    arr = [random.randint(0, 255) for _ in range(SIZE)]
+    data = bytes(arr[:SIZE])
 
     path = os.path.join(str(tmpdir), guid())
 
@@ -1146,8 +1160,8 @@ def test_memory_map_writer(tmpdir):
     if sys.platform == "emscripten":
         pytest.xfail("Multiple memory maps to same file don't work on emscripten")
     SIZE = 4096
-    arr = np.random.randint(0, 256, size=SIZE).astype('u1')
-    data = arr.tobytes()[:SIZE]
+    arr = [random.randint(0, 255) for _ in range(SIZE)]
+    data = bytes(arr[:SIZE])
 
     path = os.path.join(str(tmpdir), guid())
     with open(path, 'wb') as f:
@@ -1187,9 +1201,9 @@ def test_memory_map_writer(tmpdir):
 
 def test_memory_map_resize(tmpdir):
     SIZE = 4096
-    arr = np.random.randint(0, 256, size=SIZE).astype(np.uint8)
-    data1 = arr.tobytes()[:(SIZE // 2)]
-    data2 = arr.tobytes()[(SIZE // 2):]
+    arr = [random.randint(0, 255) for _ in range(SIZE)]
+    data1 = bytes(arr[:(SIZE // 2)])
+    data2 = bytes(arr[(SIZE // 2):])
 
     path = os.path.join(str(tmpdir), guid())
 
@@ -1202,7 +1216,7 @@ def test_memory_map_resize(tmpdir):
     mmap.close()
 
     with open(path, 'rb') as f:
-        assert f.read() == arr.tobytes()
+        assert f.read() == bytes(arr[:SIZE])
 
 
 def test_memory_zero_length(tmpdir):
@@ -1241,8 +1255,8 @@ def test_memory_map_deref_remove(tmpdir):
 
 def test_os_file_writer(tmpdir):
     SIZE = 4096
-    arr = np.random.randint(0, 256, size=SIZE).astype('u1')
-    data = arr.tobytes()[:SIZE]
+    arr = [random.randint(0, 255) for _ in range(SIZE)]
+    data = bytes(arr[:SIZE])
 
     path = os.path.join(str(tmpdir), guid())
     with open(path, 'wb') as f:
@@ -1523,6 +1537,7 @@ def test_buffered_input_stream_detach_non_seekable():
         raw.seek(2)
 
 
+@pytest.mark.numpy
 def test_buffered_output_stream():
     np_buf = np.zeros(100, dtype=np.int8)  # zero-initialized buffer
     buf = pa.py_buffer(np_buf)
@@ -1540,6 +1555,7 @@ def test_buffered_output_stream():
     assert np_buf[:10].tobytes() == b'123456789\0'
 
 
+@pytest.mark.numpy
 def test_buffered_output_stream_detach():
     np_buf = np.zeros(100, dtype=np.int8)  # zero-initialized buffer
     buf = pa.py_buffer(np_buf)
