@@ -54,7 +54,7 @@ Table into an R \code{tibble}.
 \item \code{\link[dplyr:slice]{slice_min()}}: slicing within groups not supported; \code{with_ties = TRUE} (dplyr default) is not supported; \code{prop} only supported on queries where \code{nrow()} is knowable without evaluating
 \item \code{\link[dplyr:slice]{slice_sample()}}: slicing within groups not supported; \code{replace = TRUE} and the \code{weight_by} argument not supported; \code{n} only supported on queries where \code{nrow()} is knowable without evaluating
 \item \code{\link[dplyr:slice]{slice_tail()}}: slicing within groups not supported; Arrow datasets do not have row order, so tail is non-deterministic; \code{prop} only supported on queries where \code{nrow()} is knowable without evaluating
-\item \code{\link[dplyr:summarise]{summarise()}}: window functions not currently supported; arguments \code{.drop = FALSE} and `.groups = "rowwise" not supported
+\item \code{\link[dplyr:summarise]{summarise()}}: window functions not currently supported; arguments \code{.drop = FALSE} and \code{.groups = "rowwise"} not supported
 \item \code{\link[dplyr:count]{tally()}}
 \item \code{\link[dplyr:transmute]{transmute()}}
 \item \code{\link[dplyr:group_by]{ungroup()}}
