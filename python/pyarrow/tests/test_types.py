@@ -693,6 +693,8 @@ def test_struct_type():
     assert list(ty) == fields
     assert ty[0].name == 'a'
     assert ty[2].type == pa.int32()
+    assert ty.names == [f.name for f in ty]
+    assert ty.fields == list(ty)
     with pytest.raises(IndexError):
         assert ty[3]
 

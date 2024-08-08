@@ -1025,6 +1025,33 @@ cdef class StructType(DataType):
     def __reduce__(self):
         return struct, (list(self),)
 
+    @property
+    def names(self):
+        """
+        Lists the field names.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> struct_type = pa.struct([('a', pa.int64()), ('b', pa.float64()), ('c', pa.string())])
+        >>> struct_type.names
+        ['a', 'b', 'c']
+        """
+        return [f.name for f in self]
+
+    @property
+    def fields(self):
+        """
+        Lists all fields within the StructType.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> struct_type = pa.struct([('a', pa.int64()), ('b', pa.float64()), ('c', pa.string())])
+        >>> struct_type.fields
+        [pyarrow.Field<a: int64>, pyarrow.Field<b: double>, pyarrow.Field<c: string>]
+        """
+        return list(self)
 
 cdef class UnionType(DataType):
     """
