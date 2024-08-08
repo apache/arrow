@@ -17,6 +17,8 @@
 
 import pyarrow as pa
 
+import pytest
+
 
 def test_device_memory_manager():
     mm = pa.default_cpu_memory_manager()
@@ -41,3 +43,27 @@ def test_buffer_device():
     assert buf.device.is_cpu
     assert buf.device == pa.default_cpu_memory_manager().device
     assert buf.memory_manager.is_cpu
+
+
+def test_copy_to():
+    mm = pa.default_cpu_memory_manager()
+
+    arr = pa.array([0, 1, 2])
+    batch = pa.record_batch({"col": arr})
+
+    for dest in [mm, mm.device]:
+        arr_copied = arr.copy_to(dest)
+        assert arr_copied.equals(arr)
+        assert arr_copied.buffers()[1].device == mm.device
+        assert arr_copied.buffers()[1].address != arr.buffers()[1].address
+
+        batch_copied = batch.copy_to(dest)
+        assert batch_copied.equals(batch)
+        assert batch_copied["col"].buffers()[1].device == mm.device
+        assert batch_copied["col"].buffers()[1].address != arr.buffers()[1].address
+
+    with pytest.raises(TypeError, match="Argument 'destination' has incorrect type"):
+        arr.copy_to(mm.device.device_type)
+
+    with pytest.raises(TypeError, match="Argument 'destination' has incorrect type"):
+        batch.copy_to(mm.device.device_type)
