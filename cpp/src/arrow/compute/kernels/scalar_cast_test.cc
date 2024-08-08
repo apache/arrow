@@ -86,8 +86,8 @@ static std::shared_ptr<Array> FixedSizeInvalidUtf8(std::shared_ptr<DataType> typ
 }
 
 static std::vector<std::shared_ptr<DataType>> kNumericTypes = {
-    uint8(), int8(),   uint16(), int16(),   uint32(),
-    int32(), uint64(), int64(),  float32(), float64()};
+    uint8(),  int8(),  uint16(),  int16(),   uint32(), int32(),
+    uint64(), int64(), float16(), float32(), float64()};
 
 static std::vector<std::shared_ptr<DataType>> kIntegerTypes = {
     int8(), uint8(), int16(), uint16(), int32(), uint32(), int64(), uint64()};
@@ -2766,12 +2766,12 @@ static void CheckStructToStructSubsetWithNulls(
   }
 }
 
-TEST(Cast, StructToSameSizedAndNamedStruct) { CheckStructToStruct(NumericTypes()); }
+TEST(Cast, StructToSameSizedAndNamedStruct) { CheckStructToStruct(kNumericTypes); }
 
-TEST(Cast, StructToStructSubset) { CheckStructToStructSubset(NumericTypes()); }
+TEST(Cast, StructToStructSubset) { CheckStructToStructSubset(kNumericTypes); }
 
 TEST(Cast, StructToStructSubsetWithNulls) {
-  CheckStructToStructSubsetWithNulls(NumericTypes());
+  CheckStructToStructSubsetWithNulls(kNumericTypes);
 }
 
 TEST(Cast, StructToSameSizedButDifferentNamedStruct) {
