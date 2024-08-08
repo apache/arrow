@@ -398,7 +398,7 @@ Now, build pyarrow:
 
    $ pushd arrow/python
    $ export PYARROW_PARALLEL=4
-   $ python setup.py build_ext --inplace
+   $ python -m pip install -e .
    $ popd
 
 If you did build one of the optional components in C++, the equivalent components
@@ -414,8 +414,8 @@ to the ``arrow/python`` folder and run ``git clean -Xfd .``.
 
 By default, PyArrow will be built in release mode even if Arrow C++ has been
 built in debug mode. To create a debug build of PyArrow, run
-``export PYARROW_BUILD_TYPE=debug`` prior to running  ``python setup.py
-build_ext --inplace`` above. A ``relwithdebinfo`` build can be created
+``export PYARROW_BUILD_TYPE=debug`` prior to running  ``python -m pip
+install -e .`` above. A ``relwithdebinfo`` build can be created
 similarly.
 
 Now you are ready to install test dependencies and run `Unit Testing`_, as
@@ -427,12 +427,9 @@ libraries), one can set ``--bundle-arrow-cpp``:
 .. code-block::
 
    $ pip install wheel  # if not installed
-   $ python setup.py build_ext --build-type=$ARROW_BUILD_TYPE \
-            --bundle-arrow-cpp bdist_wheel
-
-.. note::
-   To install an editable PyArrow build run ``pip install -e . --no-build-isolation``
-   in the ``arrow/python`` directory.
+   $ python -m pip wheel . \
+            --global-option="--build-type=$ARROW_BUILD_TYPE" \
+            --global-option="--bundle-arrow-cpp"
 
 Docker examples
 ~~~~~~~~~~~~~~~
@@ -548,7 +545,7 @@ Now, we can build pyarrow:
 
    $ pushd arrow\python
    $ set CONDA_DLL_SEARCH_MODIFICATION_ENABLE=1
-   $ python setup.py build_ext --inplace
+   $ python pip install -e .
    $ popd
 
 .. note::
@@ -588,7 +585,7 @@ Then run the unit tests with:
    .. code-block::
 
       $ set PYARROW_BUNDLE_ARROW_CPP=1
-      $ python setup.py build_ext --inplace
+      $ python -m pip install -e .
 
    Note that bundled Arrow C++ libraries will not be automatically
    updated when rebuilding Arrow C++.
