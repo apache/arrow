@@ -1054,7 +1054,7 @@ cdef class FixedShapeTensorScalar(ExtensionScalar):
 
         The resulting ndarray's shape matches the permuted shape of the
         fixed shape tensor scalar.
-        The conversion is zero-copy.
+        The conversion is zero-copy if data is primitive numeric and without nulls.
 
         Returns
         -------
@@ -1076,6 +1076,42 @@ cdef class FixedShapeTensorScalar(ExtensionScalar):
         """
         cdef:
             CFixedShapeTensorType* c_type = static_pointer_cast[CFixedShapeTensorType, CDataType](
+                self.wrapped.get().type).get()
+            shared_ptr[CExtensionScalar] scalar = static_pointer_cast[CExtensionScalar, CScalar](self.wrapped)
+            shared_ptr[CTensor] ctensor
+
+        with nogil:
+            ctensor = GetResultValue(c_type.MakeTensor(scalar))
+        return pyarrow_wrap_tensor(ctensor)
+
+
+cdef class VariableShapeTensorScalar(ExtensionScalar):
+    """
+    Concrete class for variable shape tensor extension scalar.
+    """
+
+    def to_numpy_ndarray(self):
+        """
+        Convert variable shape tensor extension scalar to a numpy array.
+
+        The conversion is zero-copy if data is primitive numeric and without nulls.
+
+        Returns
+        -------
+        numpy.ndarray
+        """
+        return self.to_tensor().to_numpy()
+
+    def to_tensor(self):
+        """
+        Convert variable shape tensor extension scalar to a pyarrow.Tensor.
+
+        Returns
+        -------
+        tensor : pyarrow.Tensor
+        """
+        cdef:
+            CVariableShapeTensorType* c_type = static_pointer_cast[CVariableShapeTensorType, CDataType](
                 self.wrapped.get().type).get()
             shared_ptr[CExtensionScalar] scalar = static_pointer_cast[CExtensionScalar, CScalar](self.wrapped)
             shared_ptr[CTensor] ctensor
