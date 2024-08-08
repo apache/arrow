@@ -55,7 +55,9 @@ pip install \
   --only-binary=:all: \
   --target $PIP_SITE_PACKAGES \
   --platform $PIP_TARGET_PLATFORM \
-  -r ${source_dir}/python/requirements-wheel-build.txt
+  -r ${source_dir}/python/requirements-wheel-build.txt \
+  --pre \
+  --extra-index-url "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple"
 pip install "delocate>=0.10.3"
 
 echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="

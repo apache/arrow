@@ -90,7 +90,8 @@ RUN choco install -r -y --pre --no-progress python --version=%PYTHON_VERSION%
 RUN python -m pip install -U pip setuptools
 
 COPY python/requirements-wheel-build.txt arrow/python/
-RUN python -m pip install -r arrow/python/requirements-wheel-build.txt
+# TODO: Remove --pre and the extra index after NumPy release for 3.13 on PyPI
+RUN python -m pip install -r arrow/python/requirements-wheel-build.txt --pre --extra-index-url "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple"
 
 # ENV CLCACHE_DIR="C:\clcache"
 # ENV CLCACHE_COMPRESS=1

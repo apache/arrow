@@ -17,7 +17,7 @@
 
 ARG arch
 ARG python
-FROM ${arch}/python:${python}
+FROM ${arch}/python:${python_image_tag}
 
 # RUN pip install --upgrade pip
 
