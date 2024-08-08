@@ -986,6 +986,7 @@ Examples
                  write_page_checksum=False,
                  sorting_columns=None,
                  store_decimal_as_integer=False,
+                 time_is_adjusted_to_utc=True,
                  **options):
         if use_deprecated_int96_timestamps is None:
             # Use int96 timestamps for Spark
@@ -1039,6 +1040,7 @@ Examples
             write_page_checksum=write_page_checksum,
             sorting_columns=sorting_columns,
             store_decimal_as_integer=store_decimal_as_integer,
+            time_is_adjusted_to_utc=time_is_adjusted_to_utc,
             **options)
         self.is_open = True
 

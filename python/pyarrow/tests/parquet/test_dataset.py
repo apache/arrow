@@ -18,6 +18,7 @@
 import datetime
 import inspect
 import os
+import json
 import pathlib
 
 import numpy as np
@@ -1285,6 +1286,39 @@ def test_parquet_write_to_dataset_exposed_keywords(tempdir):
     }
     paths_written_set = set(map(pathlib.Path, paths_written))
     assert paths_written_set == expected_paths
+
+
+def test_parquet_write_to_dataset_time_is_adjusted_to_utc_false(tempdir):
+    partition_data = pa.array([1, 2, 3], type=pa.int32())
+    time_data = np.arange(3, dtype='i4')
+    t32 = pa.time32('ms')
+    a32 = pa.array(time_data, type=t32)
+    t64us = pa.time64('us')
+    a64us = pa.array(time_data.astype('int64'), type=t64us)
+    t64ns = pa.time64('ns')
+    a64ns = pa.array(time_data.astype('int64'), type=t64ns)
+
+    table = pa.Table.from_arrays([partition_data, a32, a64us, a64ns],
+                                 ['a', 'time32[ms]', 'time64[us]',
+                                  'time64[ns]'])
+
+    path = tempdir / 'partitioning'
+    paths_written = []
+
+    def file_visitor(written_file):
+        paths_written.append(written_file.path)
+    basename_template = 'part-{i}.parquet'
+    pq.write_to_dataset(table, path, partitioning=["a"],
+                        file_visitor=file_visitor,
+                        basename_template=basename_template,
+                        time_is_adjusted_to_utc=False)
+
+    paths_written_set = set(map(pathlib.Path, paths_written))
+    for filename in paths_written_set:
+        parquet_schema = pq.ParquetFile(filename).schema
+        for i in range(3):
+            type_prop_json = json.loads(parquet_schema.column(i).logical_type.to_json())
+            assert type_prop_json['isAdjustedToUTC'] is False
 
 
 @pytest.mark.parametrize("write_dataset_kwarg", (
