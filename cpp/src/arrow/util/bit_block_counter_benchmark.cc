@@ -264,3 +264,5 @@ BENCHMARK(BinaryBitmapReaderSumWithOffset)->Range(2, 1 << 16);
 
 }  // namespace internal
 }  // namespace arrow
+
+BENCHMARK_MAIN();

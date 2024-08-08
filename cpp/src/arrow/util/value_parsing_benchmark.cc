@@ -301,3 +301,5 @@ BENCHMARK_TEMPLATE(FloatFormatting, DoubleType);
 
 }  // namespace internal
 }  // namespace arrow
+
+BENCHMARK_MAIN();

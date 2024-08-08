@@ -373,3 +373,5 @@ BENCHMARK(ReadStream)->RangeMultiplier(4)->Range(1, 1 << 13)->UseRealTime();
 BENCHMARK(DecodeStream)->RangeMultiplier(4)->Range(1, 1 << 13)->UseRealTime();
 
 }  // namespace arrow
+
+BENCHMARK_MAIN();

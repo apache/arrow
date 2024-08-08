@@ -100,3 +100,5 @@ BENCHMARK(MaxElementWiseArrayScalarString)->Apply(RegressionSetArgs);
 
 }  // namespace compute
 }  // namespace arrow
+
+BENCHMARK_MAIN();

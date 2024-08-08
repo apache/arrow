@@ -308,3 +308,5 @@ BENCHMARK(BinaryBitOp);
 
 }  // namespace Decimal
 }  // namespace arrow
+
+BENCHMARK_MAIN();

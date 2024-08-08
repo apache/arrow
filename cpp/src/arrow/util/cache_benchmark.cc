@@ -144,3 +144,5 @@ BENCHMARK(MemoizeLruCachedThreadUnsafe)->Apply(SetCacheArgs);
 
 }  // namespace internal
 }  // namespace arrow
+
+BENCHMARK_MAIN();

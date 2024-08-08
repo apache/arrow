@@ -57,3 +57,5 @@ BENCHMARK_TEMPLATE(ArrayArrayKernel, KleeneAnd)->Apply(SetArgs);
 
 }  // namespace compute
 }  // namespace arrow
+
+BENCHMARK_MAIN();

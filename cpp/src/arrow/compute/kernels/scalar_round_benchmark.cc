@@ -162,3 +162,5 @@ DECLARE_ROUND_BENCHMARKS(RoundBinaryArrayBenchmark, RoundBinary);
 }  // namespace
 }  // namespace compute
 }  // namespace arrow
+
+BENCHMARK_MAIN();

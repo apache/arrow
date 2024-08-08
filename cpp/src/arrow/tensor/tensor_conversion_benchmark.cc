@@ -229,3 +229,5 @@ BENCHMARK_CONVERT_TENSOR(Tensor, CSF, Double, Int32);
 BENCHMARK_CONVERT_TENSOR(Tensor, CSF, Double, Int64);
 
 }  // namespace arrow
+
+BENCHMARK_MAIN();

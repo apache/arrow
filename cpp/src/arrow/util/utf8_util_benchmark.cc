@@ -148,3 +148,5 @@ BENCHMARK(ValidateLargeNonAscii);
 
 }  // namespace util
 }  // namespace arrow
+
+BENCHMARK_MAIN();
