@@ -38,6 +38,7 @@ import org.apache.arrow.flight.FlightProducer.CallContext;
 import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.flight.FlightServerMiddleware;
 import org.apache.arrow.flight.FlightServerMiddleware.Key;
+import org.apache.arrow.flight.RequestInfo;
 
 /**
  * An adapter between Flight middleware and a gRPC interceptor.
@@ -88,7 +89,9 @@ public class ServerInterceptorAdapter implements ServerInterceptor {
     }
 
     final CallInfo info =
-        new CallInfo(FlightMethod.fromProtocol(call.getMethodDescriptor().getFullMethodName()));
+        new CallInfo(
+            FlightMethod.fromProtocol(call.getMethodDescriptor().getFullMethodName()),
+            RequestInfo.fromCall(call));
     final List<FlightServerMiddleware> middleware = new ArrayList<>();
     // Use LinkedHashMap to preserve insertion order
     final Map<FlightServerMiddleware.Key<?>, FlightServerMiddleware> middlewareMap =
