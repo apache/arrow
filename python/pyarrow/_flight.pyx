@@ -31,7 +31,8 @@ from libcpp cimport bool as c_bool
 from pyarrow.lib cimport *
 from pyarrow.lib import (ArrowCancelled, ArrowException, ArrowInvalid,
                          SignalStopHandler)
-from pyarrow.lib import as_buffer, frombytes, tobytes
+from pyarrow.lib import as_buffer, frombytes, timestamp, tobytes
+from pyarrow.includes.chrono cimport duration_cast, nanoseconds
 from pyarrow.includes.libarrow_flight cimport *
 from pyarrow.ipc import _get_legacy_format_default, _ReadPandasMixin
 import pyarrow.lib as lib
@@ -704,7 +705,7 @@ cdef class FlightEndpoint(_Weakrefable):
     cdef:
         CFlightEndpoint endpoint
 
-    def __init__(self, ticket, locations):
+    def __init__(self, ticket, locations, expiration_time=None, app_metadata=""):
         """Create a FlightEndpoint from a ticket and list of locations.
 
         Parameters
@@ -713,6 +714,12 @@ cdef class FlightEndpoint(_Weakrefable):
             the ticket needed to access this flight
         locations : list of string URIs
             locations where this flight is available
+        expiration_time : TimestampScalar optional, default None
+            Expiration time of this stream. If present, clients may assume
+            they can retry DoGet requests. Otherwise, clients should avoid
+            retrying DoGet requests.
+        app_metadata : bytes or str optional, default ""
+            Application-defined opaque metadata.
 
         Raises
         ------
@@ -736,6 +743,12 @@ cdef class FlightEndpoint(_Weakrefable):
                     CLocation.Parse(tobytes(location)).Value(&c_location))
             self.endpoint.locations.push_back(c_location)
 
+        if expiration_time is not None:
+            self.endpoint.expiration_time = time_point(duration_cast[time_point.duration](
+                nanoseconds(expiration_time.cast(timestamp("ns")).value)))
+
+        self.endpoint.app_metadata = tobytes(app_metadata)
+
     @property
     def ticket(self):
         """Get the ticket in this endpoint."""
@@ -745,6 +758,24 @@ cdef class FlightEndpoint(_Weakrefable):
     def locations(self):
         return [Location.wrap(location)
                 for location in self.endpoint.locations]
+
+    @property
+    def expiration_time(self):
+        cdef:
+            int64_t time_since_epoch
+            const char* UTC = "UTC"
+            shared_ptr[CTimestampType] time_type = make_shared[CTimestampType](TimeUnit.TimeUnit_NANO, UTC)
+            shared_ptr[CTimestampScalar] shared
+        if self.endpoint.expiration_time.has_value():
+            time_since_epoch = duration_cast[nanoseconds](
+                self.endpoint.expiration_time.value().time_since_epoch()).count()
+            shared = make_shared[CTimestampScalar](time_since_epoch, time_type)
+            return Scalar.wrap(<shared_ptr[CScalar]> shared)
+        return None
+
+    @property
+    def app_metadata(self):
+        return self.endpoint.app_metadata
 
     def serialize(self):
         """Get the wire-format representation of this type.
@@ -770,7 +801,9 @@ cdef class FlightEndpoint(_Weakrefable):
 
     def __repr__(self):
         return (f"<pyarrow.flight.FlightEndpoint ticket={self.ticket!r} "
-                f"locations={self.locations!r}>")
+                f"locations={self.locations!r} "
+                f"expiration_time={self.expiration_time} "
+                f"app_metadata={self.app_metadata}>")
 
     def __eq__(self, FlightEndpoint other):
         return self.endpoint == other.endpoint
@@ -844,7 +877,7 @@ cdef class FlightInfo(_Weakrefable):
         return obj
 
     def __init__(self, Schema schema, FlightDescriptor descriptor, endpoints,
-                 total_records, total_bytes):
+                 total_records=-1, total_bytes=-1, ordered=False, app_metadata=""):
         """Create a FlightInfo object from a schema, descriptor, and endpoints.
 
         Parameters
@@ -855,10 +888,14 @@ cdef class FlightInfo(_Weakrefable):
             the descriptor for this flight.
         endpoints : list of FlightEndpoint
             a list of endpoints where this flight is available.
-        total_records : int
-            the total records in this flight, or -1 if unknown
-        total_bytes : int
-            the total bytes in this flight, or -1 if unknown
+        total_records : int optional, default -1
+            the total records in this flight, or -1 if unknown.
+        total_bytes : int optional, default -1
+            the total bytes in this flight, or -1 if unknown.
+        ordered : boolean optional, default False
+            Whether endpoints are in the same order as the data.
+        app_metadata : bytes or str optional, default ""
+            Application-defined opaque metadata.
         """
         cdef:
             shared_ptr[CSchema] c_schema = pyarrow_unwrap_schema(schema)
@@ -874,8 +911,10 @@ cdef class FlightInfo(_Weakrefable):
         check_flight_status(CreateFlightInfo(c_schema,
                                              descriptor.descriptor,
                                              c_endpoints,
-                                             total_records,
-                                             total_bytes, &self.info))
+                                             total_records if total_records is not None else -1,
+                                             total_bytes if total_bytes is not None else -1,
+                                             ordered,
+                                             tobytes(app_metadata), &self.info))
 
     @property
     def total_records(self):
@@ -886,6 +925,22 @@ cdef class FlightInfo(_Weakrefable):
     def total_bytes(self):
         """The size in bytes of the data in this flight, or -1 if unknown."""
         return self.info.get().total_bytes()
+
+    @property
+    def ordered(self):
+        """Whether endpoints are in the same order as the data."""
+        return self.info.get().ordered()
+
+    @property
+    def app_metadata(self):
+        """
+        Application-defined opaque metadata.
+
+        There is no inherent or required relationship between this and the app_metadata fields in the FlightEndpoints
+        or resulting FlightData messages. Since this metadata is application-defined, a given application could define
+        there to be a relationship, but there is none required by the spec.
+        """
+        return self.info.get().app_metadata()
 
     @property
     def schema(self):
@@ -950,7 +1005,9 @@ cdef class FlightInfo(_Weakrefable):
                 f"descriptor={self.descriptor} "
                 f"endpoints={self.endpoints} "
                 f"total_records={self.total_records} "
-                f"total_bytes={self.total_bytes}>")
+                f"total_bytes={self.total_bytes} "
+                f"ordered={self.ordered} "
+                f"app_metadata={self.app_metadata}>")
 
 
 cdef class FlightStreamChunk(_Weakrefable):

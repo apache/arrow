@@ -275,6 +275,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CTimestampType" arrow::TimestampType"(CFixedWidthType):
         CTimestampType(TimeUnit unit)
+        CTimestampType(TimeUnit unit, const c_string& timezone)
         TimeUnit unit()
         const c_string& timezone()
 
