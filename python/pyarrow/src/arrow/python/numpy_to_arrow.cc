@@ -57,6 +57,7 @@
 #include "arrow/python/numpy_internal.h"
 #include "arrow/python/python_to_arrow.h"
 #include "arrow/python/type_traits.h"
+#include "arrow/python/vendored/pythoncapi_compat.h"
 
 namespace arrow {
 

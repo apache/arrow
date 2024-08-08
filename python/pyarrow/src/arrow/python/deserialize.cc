@@ -46,6 +46,7 @@
 #include "arrow/python/numpy_convert.h"
 #include "arrow/python/pyarrow.h"
 #include "arrow/python/serialize.h"
+#include "arrow/python/vendored/pythoncapi_compat.h"
 
 namespace arrow {
 
