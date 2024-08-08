@@ -1110,9 +1110,13 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       env:
-        ARCHERY_USE_DOCKER_CLI: 0
         UBUNTU: 20.04
-      flags: -e ARROW_SKYHOOK=ON
+      flags: >-
+        -e ARROW_AZURE=OFF
+        -e ARROW_GANDIVA=OFF
+        -e ARROW_GCS=OFF
+        -e ARROW_S3=OFF
+        -e ARROW_SKYHOOK=ON
       image: ubuntu-cpp
 
 {% for debian_version in ["12"] %}
@@ -1494,16 +1498,12 @@ tasks:
     ci: github
     template: docker-tests/github.cuda.yml
     params:
-      env:
-        ARCHERY_USE_DOCKER_CLI: 0
       image: ubuntu-cuda-cpp
 
   test-cuda-python:
     ci: github
     template: docker-tests/github.cuda.yml
     params:
-      env:
-        ARCHERY_USE_DOCKER_CLI: 0
       image: ubuntu-cuda-python
 
   ############################## Fuzz tests #################################
@@ -1565,7 +1565,6 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       env:
-        ARCHERY_USE_DOCKER_CLI: 0
         HDFS: "{{ hdfs_version }}"
         PYTHON: "3.10"
       image: conda-python-hdfs
