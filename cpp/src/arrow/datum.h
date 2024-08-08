@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "arrow/array/data.h"
+#include "arrow/chunked_array.h"  // for DeviceAllocationTypeSet
 #include "arrow/scalar.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -294,6 +295,8 @@ struct ARROW_EXPORT Datum {
   ///
   /// \return empty if not arraylike
   ArrayVector chunks() const;
+
+  DeviceAllocationTypeSet DeviceTypeSet() const;
 
   /// \brief True if the two data are equal
   bool Equals(const Datum& other) const;
