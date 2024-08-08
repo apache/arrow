@@ -16,7 +16,7 @@
 # under the License.
 
 ARG arch
-ARG python
+ARG python_image_tag
 FROM ${arch}/python:${python_image_tag}
 
 # RUN pip install --upgrade pip
