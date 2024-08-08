@@ -127,6 +127,8 @@ cmake \
     -DPARQUET_REQUIRE_ENCRYPTION=${PARQUET_REQUIRE_ENCRYPTION} \
     -DVCPKG_MANIFEST_MODE=OFF \
     -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET} \
+    -DCMAKE_C_FLAGS="-fvisibility=hidden" \
+    -DCMAKE_CXX_FLAGS="-fvisibility=hidden" \
     ${ARROW_EXTRA_CMAKE_FLAGS} \
     -G ${CMAKE_GENERATOR} \
     /arrow/cpp
