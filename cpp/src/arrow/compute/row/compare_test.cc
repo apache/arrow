@@ -338,7 +338,7 @@ TEST(KeyCompare, LARGE_MEMORY_TEST(CompareColumnsToRowsOver2GB)) {
   AssertCompareColumnsToRowsAllMatch(columns_left, row_table_right, row_ids_to_compare);
 }
 
-// GH-XXXXX: Compare fixed length columns to rows over 4GB within a row table.
+// GH-43495: Compare fixed length columns to rows over 4GB within a row table.
 TEST(KeyCompare, LARGE_MEMORY_TEST(CompareColumnsToRowsOver4GBFixedLength)) {
   if constexpr (sizeof(void*) == 4) {
     GTEST_SKIP() << "Test only works on 64-bit platforms";
@@ -400,7 +400,7 @@ TEST(KeyCompare, LARGE_MEMORY_TEST(CompareColumnsToRowsOver4GBFixedLength)) {
   AssertCompareColumnsToRowsAllMatch(columns_left, row_table_right, row_ids_to_compare);
 }
 
-// GH-XXXXX: Compare var length columns to rows at offset over 4GB within a row table.
+// GH-43495: Compare var length columns to rows at offset over 4GB within a row table.
 TEST(KeyCompare, LARGE_MEMORY_TEST(CompareColumnsToRowsOver4GBVarLength)) {
   if constexpr (sizeof(void*) == 4) {
     GTEST_SKIP() << "Test only works on 64-bit platforms";

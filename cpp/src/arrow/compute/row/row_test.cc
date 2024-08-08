@@ -134,7 +134,7 @@ TEST(RowTableMemoryConsumption, Encode) {
   }
 }
 
-// GH-XXXXX: Ensure that we can build a row table with more than 4GB row data.
+// GH-43495: Ensure that we can build a row table with more than 4GB row data.
 TEST(RowTableLarge, LARGE_MEMORY_TEST(Encode)) {
   if constexpr (sizeof(void*) == 4) {
     GTEST_SKIP() << "Test only works on 64-bit platforms";
@@ -183,7 +183,7 @@ TEST(RowTableLarge, LARGE_MEMORY_TEST(Encode)) {
             row_table.offsets()[num_rows - 1] + length_per_binary);
 }
 
-// GH-XXXXX: Ensure that we can build a row table with more than 4GB row data.
+// GH-43495: Ensure that we can build a row table with more than 4GB row data.
 TEST(RowTableLarge, LARGE_MEMORY_TEST(AppendFrom)) {
   if constexpr (sizeof(void*) == 4) {
     GTEST_SKIP() << "Test only works on 64-bit platforms";
