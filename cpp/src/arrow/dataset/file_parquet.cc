@@ -1067,6 +1067,7 @@ Result<std::shared_ptr<DatasetFactory>> ParquetDatasetFactory::Make(
   ARROW_ASSIGN_OR_RAISE(auto reader, format->GetReader(metadata_source, scan_options));
   std::shared_ptr<parquet::FileMetaData> metadata = reader->parquet_reader()->metadata();
 
+
   if (metadata->num_columns() == 0) {
     return Status::Invalid(
         "ParquetDatasetFactory must contain a schema with at least one column");

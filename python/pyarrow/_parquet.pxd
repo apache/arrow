@@ -565,6 +565,11 @@ cdef extern from "parquet/arrow/writer.h" namespace "parquet::arrow" nogil:
         const CFileMetaData& file_metadata,
         const COutputStream* sink)
 
+    CStatus WriteEncryptedMetadataFile(
+        const CFileMetaData& file_metadata,
+        shared_ptr[COutputStream] sink,
+        shared_ptr[CFileEncryptionProperties] encryption_properties)
+
 cdef class FileEncryptionProperties:
     """File-level encryption properties for the low-level API"""
     cdef:

@@ -35,6 +35,7 @@ except ImportError:
 try:
     from pyarrow.tests.parquet.encryption import InMemoryKmsClient
     import pyarrow.parquet.encryption as pe
+    from pyarrow._dataset_parquet import ParquetDatasetFactory  # noqa
 except ImportError:
     encryption_unavailable = True
 
@@ -227,3 +228,104 @@ def test_large_row_encryption_decryption():
     dataset = ds.dataset(path, format=file_format, filesystem=mockfs)
     new_table = dataset.to_table()
     assert table == new_table
+
+
+def test_dataset_metadata_encryption_decryption(tempdir):
+    table = create_sample_table()
+
+    encryption_config = create_encryption_config()
+    decryption_config = create_decryption_config()
+    kms_connection_config = create_kms_connection_config()
+
+    crypto_factory = pe.CryptoFactory(kms_factory)
+    parquet_encryption_cfg = ds.ParquetEncryptionConfig(
+        crypto_factory, kms_connection_config, encryption_config
+    )
+    parquet_decryption_cfg = ds.ParquetDecryptionConfig(
+        crypto_factory, kms_connection_config, decryption_config
+    )
+
+    # create write_options with dataset encryption config
+    pformat = pa.dataset.ParquetFileFormat()
+    write_options = pformat.make_write_options(encryption_config=parquet_encryption_cfg)
+
+    path = str(tempdir / "sample_dataset")
+    metadata_file = str(tempdir / "sample_dataset" / "_metadata")
+    mockfs = fs._MockFileSystem()
+    mockfs.create_dir(path)
+
+    partitioning = ds.partitioning(
+        schema=pa.schema([pa.field("year", pa.int64())]),
+        flavor="hive"
+    )
+    subschema = pa.schema([x for x in table.schema if x.name != "year"])
+
+    ds.write_dataset(
+        data=table,
+        base_dir=path,
+        format=pformat,
+        file_options=write_options,
+        filesystem=mockfs,
+    )
+
+    # read without decryption config -> should error is dataset was properly encrypted
+    pformat = pa.dataset.ParquetFileFormat()
+    with pytest.raises(IOError, match=r"no decryption"):
+        ds.dataset(path, format=pformat, filesystem=mockfs)
+
+    # set decryption config for parquet fragment scan options
+    pq_scan_opts = ds.ParquetFragmentScanOptions(
+        decryption_config=parquet_decryption_cfg
+    )
+    pformat = pa.dataset.ParquetFileFormat(default_fragment_scan_options=pq_scan_opts)
+    dataset = ds.dataset(path, format=pformat, filesystem=mockfs)
+
+    assert table.equals(dataset.to_table())
+
+    metadata_collector = []
+
+    pq.write_to_dataset(
+        table,
+        path,
+        partitioning=partitioning,
+        encryption_config=parquet_encryption_cfg,
+        metadata_collector=metadata_collector,
+        filesystem=mockfs
+    )
+
+    encryption_properties = crypto_factory.file_encryption_properties(
+        kms_connection_config, encryption_config)
+    decryption_properties = crypto_factory.file_decryption_properties(
+        kms_connection_config, decryption_config)
+    encryption_properties2 = crypto_factory.file_encryption_properties(
+        kms_connection_config, encryption_config)
+
+    pq.write_metadata(
+        subschema,
+        metadata_file,
+        metadata_collector=metadata_collector,
+        encryption_properties=encryption_properties,
+        encryption_properties2=encryption_properties2,
+        decryption_properties=decryption_properties,
+        filesystem=mockfs,
+    )
+
+    pq_scan_opts = ds.ParquetFragmentScanOptions(
+        decryption_config=parquet_decryption_cfg,
+        decryption_properties=decryption_properties
+    )
+    pformat = pa.dataset.ParquetFileFormat(default_fragment_scan_options=pq_scan_opts)
+
+    dataset = ds.dataset(metadata_file, format=pformat, filesystem=mockfs)
+    # TODO: cpp doesn't correctly deserialize row group metadata yet,
+    # seems like file_paths are not being set serialized
+    new_table = dataset.to_table()
+    assert table.equals(new_table)
+
+    metadata = pq.read_metadata(
+        metadata_file, decryption_properties=decryption_properties, filesystem=mockfs)
+
+    assert metadata.num_columns == 2
+    assert metadata.num_rows == 6
+    assert metadata.num_row_groups == 1
+    assert metadata.schema.to_arrow_schema() == subschema

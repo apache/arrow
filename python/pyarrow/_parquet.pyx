@@ -1046,7 +1046,7 @@ cdef class FileMetaData(_Weakrefable):
         c_metadata = other.sp_metadata
         self._metadata.AppendRowGroups(deref(c_metadata))
 
-    def write_metadata_file(self, where):
+    def write_metadata_file(self, where, encryption_properties=None):
         """
         Write the metadata to a metadata-only Parquet file.
 
@@ -1055,10 +1055,13 @@ cdef class FileMetaData(_Weakrefable):
         where : path or file-like object
             Where to write the metadata.  Should be a writable path on
             the local filesystem, or a writable file-like object.
+        encryption_properties : EncryptionProperties
+            Optional encryption properties to use when encrypting metadata.
         """
         cdef:
             shared_ptr[COutputStream] sink
             c_string c_where
+            shared_ptr[CFileEncryptionProperties] c_properties
 
         try:
             where = _stringify_path(where)
@@ -1069,9 +1072,15 @@ cdef class FileMetaData(_Weakrefable):
             with nogil:
                 sink = GetResultValue(FileOutputStream.Open(c_where))
 
+        if encryption_properties is not None:
+            c_properties = (<FileEncryptionProperties> encryption_properties).unwrap()
+
         with nogil:
-            check_status(
-                WriteMetaDataFile(deref(self._metadata), sink.get()))
+            if encryption_properties is not None:
+                check_status(
+                    WriteEncryptedMetadataFile(deref(self._metadata), sink, c_properties))
+            else:
+                check_status(WriteMetaDataFile(deref(self._metadata), sink.get()))
 
 
 cdef class ParquetSchema(_Weakrefable):
@@ -1479,13 +1488,13 @@ cdef class ParquetReader(_Weakrefable):
             properties.set_thrift_container_size_limit(
                 thrift_container_size_limit)
 
-        if decryption_properties is not None:
-            properties.file_decryption_properties(
-                decryption_properties.unwrap())
-
         arrow_props.set_pre_buffer(pre_buffer)
 
         properties.set_page_checksum_verification(page_checksum_verification)
+
+        if decryption_properties is not None:
+            properties.file_decryption_properties(
+                decryption_properties.unwrap())
 
         if coerce_int96_timestamp_unit is None:
             # use the default defined in default_arrow_reader_properties()
