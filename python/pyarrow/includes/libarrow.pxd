@@ -2806,6 +2806,7 @@ cdef extern from "arrow/compute/expression.h" \
         namespace "arrow::compute" nogil:
 
     cdef cppclass CExpression "arrow::compute::Expression":
+        CExpression()
         c_bool Equals(const CExpression& other) const
         c_string ToString() const
         CResult[CExpression] Bind(const CSchema&)
