@@ -506,6 +506,8 @@ could be used for any device:
         arr->array.release(&arr->array);
     }
 
+.. _c-device-stream-interface:
+
 Device Stream Interface
 =======================
 
@@ -649,6 +651,137 @@ Thread safety
 The stream source is not assumed to be thread-safe. Consumers wanting to
 call ``get_next`` from several threads should ensure those calls are
 serialized.
+
+Async Device Stream Interface
+=============================
+
+The :ref:`C stream interface <_c-device-stream-interface>` provides a synchronous
+API centered around the consumer calling the callback functions to retrieve
+the next record batch. For some bindings, use cases, and interoperability, a more 
+asynchronous, producer-focused interface may be required. These scenarios can utilize
+the ``ArrowAsyncDeviceStreamHandler``.
+
+Semantics
+---------
+
+Rather than the producer providing a structure of callbacks for a consumer to
+call and retrieve records, the Async interface is a consumer allocated structure.
+The consumer allocated struct provides handler callbacks for the producer to call
+when the schema and chunks of data are available, rather than the consumer using
+a blocking pull-style iteration.
+
+Structure Definition
+--------------------
+
+The C device async stream interface is defined with a single ``struct`` definition:
+
+.. code-block:: c
+
+    #ifndef ARROW_C_ASYNC_STREAM_INTERFACE
+    #define ARROW_C_ASYNC_STREAM_INTERFACE
+
+    struct ArrowAsyncDeviceStreamHandler {
+      // handlers
+      int (*on_schema)(struct ArrowAsyncDeviceStreamHandler* self,
+                       struct ArrowSchema* stream_schema, void* extension_param);
+      int (*on_next)(struct ArrowAsyncDeviceStreamHandler* self,
+                     struct ArrowDeviceArray* next, void* extension_param);
+      void (*on_error)(struct ArrowAsyncDeviceStreamHandler* self,
+                       int code, const char* message, const char* metadata);
+      
+      // release callback
+      void (*release)(struct ArrowAsyncDeviceStreamHandler* self);
+
+      // opaque handler-specific data
+      void* private_data;
+    };
+
+    #endif  // ARROW_C_ASYNC_STREAM_INTERFACE
+
+.. note::
+    The canonical guard ``ARROW_C_ASYNC_STREAM_INTERFACE`` is meant to avoid
+    duplicate definitions if two projects copy the C async stream interface 
+    definitions into their own headers, and a third-party project includes
+    from these two projects. It is therefore important that this guard is kept
+    exactly as-is when these definitions are copied.
+
+The ArrowAsyncDeviceStreamHandler structure
+'''''''''''''''''''''''''''''''''''''''''''
+
+The structure has the following fields:
+
+.. c:member:: int (*ArrowAsyncDeviceStreamHandler.on_schema)(struct ArrowAsyncDeviceStreamHandler*, struct ArrowSchema*, void*)
+
+    *Mandatory.* Handler for receiving the schema of the stream. All records should
+    match the provided schema. If successful, the function should return 0, otherwise
+    it should return an ``errno``-compatible error code. 
+
+    The ``void*`` parameter exists for producers to provide any extra contextual information
+    they want, such as the total number of rows in the stream, statistics, or otherwise.
+
+    Unless the ``on_error`` handler is called, this will always get called exactly once.
+
+.. c:member:: int (*ArrowAsyncDeviceStreamHandler.on_next)(struct ArrowAsyncDeviceStreamHandler*, struct ArrowDeviceArray*, void*)
+
+    *Mandatory.* Handler to be called when a new record is available for processing. The
+    schema for each record should be the same as the schema that ``on_schema`` was called with.
+    If successfully handled, the function should return 0, otherwise it should return an
+    ``errno``-compatible error code.
+
+    The ``void*`` parameter exists for producers to provide any extra contextual information
+    they want. 
+
+    Unless the ``on_error`` handler is called, this will always get called at least once. The
+    end of the stream is indicated by it being called with an empty or released ``ArrowDeviceArray``.
+
+.. c:member:: void (*ArrowAsyncDeviceStreamHandler.on_error)(struct ArrowAsyncDeviceStreamHandler, int, const char*, const char*)
+
+    *Mandatory.* Handler to be called when an error is encountered by the producer. After calling
+    this, the ``release`` callback will be called as the last call on this struct. The parameters
+    are an ``errno``-compatible error code and an optional error message and metadata.
+
+    If the message and metadata are not ``NULL``, their lifetime is only valid during the scope
+    of this call. A consumer who wants to maintain these values past the return of this function
+    *MUST* copy the values themselves.
+
+    If the metadata parameter is not ``NULL``, to provide key-value error metadata, then it should 
+    be encoded identically to the way that metadata is encoded in :c:member:`ArrowSchema.metadata`.
+
+.. c:member:: void (*ArrowAsyncDeviceStreamHandler.release)(struct ArrowAsyncDeviceStreamHandler*)
+
+    *Mandatory.* A pointer to a consumer-provided release callback for the handler.
+
+.. c:member:: void* ArrowAsyncDeviceStreamHandler.private_data
+
+    *Optional.* An opaque pointer to consumer-provided private data.
+
+    Producers *MUST NOT* process this member. Lifetime of this member is handled by
+    the consumer, and especially by the release callback.
+
+Result lifetimes
+''''''''''''''''
+
+The ``ArrowSchema`` and ``ArrowDeviceArray`` that are passed to the ``on_schema`` and
+``on_next`` callbacks must be released independently. Their lifetimes are not tied to
+the ``ArrowAsyncDeviceStreamHandler`` or the handler functions. 
+
+The ``const char*`` error ``message`` and ``metadata`` which are passed to ``on_error``
+are only valid within the scope of the ``on_error`` function itself. They must be copied
+if it is necessary for them to exist after it returns.
+
+Stream Handler Lifetime
+'''''''''''''''''''''''
+
+Lifetime of the async stream handler is managed using a release callback with similar
+usage as in :ref:`C data interface <c-data-interface-released>`.
+
+Thread safety
+'''''''''''''
+
+All handler functions should only be called in a serialized manner, but are not guaranteed
+to be called from the same thread every time. A producer should wait for handler callbacks to
+return before calling the next handler callback. As a result, a consumer can manage back-pressure
+simply by sleeping or otherwise waiting to return from the ``on_next`` handler if necessary.
 
 Interoperability with other interchange formats
 ===============================================
