@@ -474,8 +474,8 @@ std::shared_ptr<Array> RandomArrayGenerator::StringWithRepeats(
 }
 
 std::shared_ptr<Array> RandomArrayGenerator::FixedSizeBinary(
-    int64_t size, int32_t byte_width, uint8_t min_byte, uint8_t max_byte,
-    double null_probability, int64_t alignment, MemoryPool* memory_pool) {
+    int64_t size, int32_t byte_width, double null_probability, uint8_t min_byte,
+    uint8_t max_byte, int64_t alignment, MemoryPool* memory_pool) {
   if (null_probability < 0 || null_probability > 1) {
     ABORT_NOT_OK(Status::Invalid("null_probability must be between 0 and 1"));
   }
@@ -1084,9 +1084,10 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
     case Type::type::FIXED_SIZE_BINARY: {
       auto byte_width =
           internal::checked_pointer_cast<FixedSizeBinaryType>(field.type())->byte_width();
-      return *FixedSizeBinary(length, byte_width, /*min_byte=*/static_cast<uint8_t>('A'),
-                              /*min_byte=*/static_cast<uint8_t>('z'), null_probability,
-                              alignment, memory_pool)
+      return *FixedSizeBinary(length, byte_width, null_probability,
+                              /*min_byte=*/static_cast<uint8_t>('A'),
+                              /*min_byte=*/static_cast<uint8_t>('z'), alignment,
+                              memory_pool)
                   ->View(field.type());
     }
 
@@ -1141,10 +1142,10 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
       // type means it's not a (useful) composition of other generators
       GENERATE_INTEGRAL_CASE_VIEW(Int64Type, DayTimeIntervalType);
     case Type::type::INTERVAL_MONTH_DAY_NANO: {
-      return *FixedSizeBinary(length, /*byte_width=*/16,
+      return *FixedSizeBinary(length, /*byte_width=*/16, null_probability,
                               /*min_byte=*/static_cast<uint8_t>('A'),
-                              /*min_byte=*/static_cast<uint8_t>('z'), null_probability,
-                              alignment, memory_pool)
+                              /*min_byte=*/static_cast<uint8_t>('z'), alignment,
+                              memory_pool)
                   ->View(month_day_nano_interval());
     }
 
