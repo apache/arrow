@@ -68,6 +68,15 @@ public class PromotableViewWriter extends PromotableWriter {
     super(v, listViewVector, nullableStructWriterFactory);
   }
 
+  public PromotableViewWriter(ValueVector v, LargeListViewVector largeListViewVector) {
+    super(v, largeListViewVector);
+  }
+
+  public PromotableViewWriter(ValueVector v, LargeListViewVector largeListViewVector,
+      NullableStructWriterFactory nullableStructWriterFactory) {
+    super(v, largeListViewVector, nullableStructWriterFactory);
+  }
+
   public PromotableViewWriter(ValueVector v, AbstractStructVector parentContainer) {
     super(v, parentContainer);
   }
@@ -103,8 +112,10 @@ public class PromotableViewWriter extends PromotableWriter {
         v = fixedListVector.addOrGetVector(fieldType).getVector();
       } else if (listViewVector != null) {
         v = listViewVector.addOrGetVector(fieldType).getVector();
-      } else {
+      } else if (largeListVector != null) {
         v = largeListVector.addOrGetVector(fieldType).getVector();
+      } else {
+        v = largeListViewVector.addOrGetVector(fieldType).getVector();
       }
       v.allocateNew();
       setWriter(v);
