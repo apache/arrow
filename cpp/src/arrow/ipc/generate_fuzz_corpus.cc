@@ -33,11 +33,11 @@
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/testing/extension_type.h"
+#include "arrow/util/compression.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/key_value_metadata.h"
 
-namespace arrow {
-namespace ipc {
+namespace arrow::ipc {
 
 using ::arrow::internal::CreateDir;
 using ::arrow::internal::PlatformFilename;
@@ -88,6 +88,13 @@ Result<std::vector<std::shared_ptr<RecordBatch>>> Batches() {
   batches.push_back(batch);
   RETURN_NOT_OK(test::MakeFixedSizeListRecordBatch(&batch));
   batches.push_back(batch);
+  RETURN_NOT_OK(test::MakeStringTypesRecordBatch(&batch));
+  batches.push_back(batch);
+  RETURN_NOT_OK(test::MakeUuid(&batch));
+  batches.push_back(batch);
+  RETURN_NOT_OK(test::MakeRunEndEncoded(&batch));
+  batches.push_back(batch);
+
   ARROW_ASSIGN_OR_RAISE(batch, MakeExtensionBatch());
   batches.push_back(batch);
   ARROW_ASSIGN_OR_RAISE(batch, MakeMapBatch());
@@ -97,13 +104,14 @@ Result<std::vector<std::shared_ptr<RecordBatch>>> Batches() {
 }
 
 Result<std::shared_ptr<Buffer>> SerializeRecordBatch(
-    const std::shared_ptr<RecordBatch>& batch, bool is_stream_format) {
+    const std::shared_ptr<RecordBatch>& batch, const IpcWriteOptions& options,
+    bool is_stream_format) {
   ARROW_ASSIGN_OR_RAISE(auto sink, io::BufferOutputStream::Create(1024));
   std::shared_ptr<RecordBatchWriter> writer;
   if (is_stream_format) {
-    ARROW_ASSIGN_OR_RAISE(writer, MakeStreamWriter(sink, batch->schema()));
+    ARROW_ASSIGN_OR_RAISE(writer, MakeStreamWriter(sink, batch->schema(), options));
   } else {
-    ARROW_ASSIGN_OR_RAISE(writer, MakeFileWriter(sink, batch->schema()));
+    ARROW_ASSIGN_OR_RAISE(writer, MakeFileWriter(sink, batch->schema(), options));
   }
   RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
   RETURN_NOT_OK(writer->Close());
@@ -119,16 +127,27 @@ Status DoMain(bool is_stream_format, const std::string& out_dir) {
     return "batch-" + std::to_string(sample_num++);
   };
 
+  // codec 0 is uncompressed
+  std::vector<std::shared_ptr<util::Codec>> codecs(3, nullptr);
+  ARROW_ASSIGN_OR_RAISE(codecs[1], util::Codec::Create(Compression::LZ4_FRAME));
+  ARROW_ASSIGN_OR_RAISE(codecs[2], util::Codec::Create(Compression::ZSTD));
+
   ARROW_ASSIGN_OR_RAISE(auto batches, Batches());
 
+  // Emit a separate file for each (batch, codec) pair
   for (const auto& batch : batches) {
     RETURN_NOT_OK(batch->ValidateFull());
-    ARROW_ASSIGN_OR_RAISE(auto buf, SerializeRecordBatch(batch, is_stream_format));
-    ARROW_ASSIGN_OR_RAISE(auto sample_fn, dir_fn.Join(sample_name()));
-    std::cerr << sample_fn.ToString() << std::endl;
-    ARROW_ASSIGN_OR_RAISE(auto file, io::FileOutputStream::Open(sample_fn.ToString()));
-    RETURN_NOT_OK(file->Write(buf));
-    RETURN_NOT_OK(file->Close());
+    for (const auto& codec : codecs) {
+      IpcWriteOptions options = IpcWriteOptions::Defaults();
+      options.codec = codec;
+      ARROW_ASSIGN_OR_RAISE(auto buf,
+                            SerializeRecordBatch(batch, options, is_stream_format));
+      ARROW_ASSIGN_OR_RAISE(auto sample_fn, dir_fn.Join(sample_name()));
+      std::cerr << sample_fn.ToString() << std::endl;
+      ARROW_ASSIGN_OR_RAISE(auto file, io::FileOutputStream::Open(sample_fn.ToString()));
+      RETURN_NOT_OK(file->Write(buf));
+      RETURN_NOT_OK(file->Close());
+    }
   }
   return Status::OK();
 }
@@ -157,7 +176,6 @@ int Main(int argc, char** argv) {
   return 0;
 }
 
-}  // namespace ipc
-}  // namespace arrow
+}  // namespace arrow::ipc
 
 int main(int argc, char** argv) { return arrow::ipc::Main(argc, argv); }
