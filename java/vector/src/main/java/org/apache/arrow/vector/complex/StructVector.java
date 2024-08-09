@@ -413,7 +413,7 @@ public class StructVector extends NonNullableStructVector
     } else {
       List<ArrowBuf> list = new ArrayList<>();
       list.add(validityBuffer);
-      list.addAll(Arrays.asList(super.getBuffers(false)));
+      list.addAll(Arrays.asList(super.getBuffers(clear)));
       buffers = list.toArray(new ArrowBuf[list.size()]);
     }
     if (clear) {

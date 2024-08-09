@@ -279,7 +279,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector
     } else {
       List<ArrowBuf> list = new ArrayList<>();
       list.add(offsetBuffer);
-      list.addAll(Arrays.asList(vector.getBuffers(false)));
+      list.addAll(Arrays.asList(vector.getBuffers(clear)));
       buffers = list.toArray(new ArrowBuf[list.size()]);
     }
     if (clear) {
