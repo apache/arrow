@@ -439,6 +439,7 @@ void RowArray::DebugPrintToFile(const char* filename, bool print_sorted) const {
 
 Status RowArrayMerge::PrepareForMerge(RowArray* target,
                                       const std::vector<RowArray*>& sources,
+                                      bool is_key_data,
                                       std::vector<int64_t>* first_target_row_id,
                                       MemoryPool* pool) {
   ARROW_DCHECK(!sources.empty());
@@ -473,7 +474,7 @@ Status RowArrayMerge::PrepareForMerge(RowArray* target,
     (*first_target_row_id)[sources.size()] = num_rows;
   }
 
-  if (num_bytes > std::numeric_limits<uint32_t>::max()) {
+  if (is_key_data && num_bytes > std::numeric_limits<uint32_t>::max()) {
     return Status::Invalid(
         "There are more than 2^32 bytes of key data.  Acero cannot "
         "process a join of this magnitude");
@@ -1327,7 +1328,8 @@ Status SwissTableForJoinBuild::PreparePrtnMerge() {
   for (int i = 0; i < num_prtns_; ++i) {
     partition_keys[i] = prtn_states_[i].keys.keys();
   }
-  RETURN_NOT_OK(RowArrayMerge::PrepareForMerge(target_->map_.keys(), partition_keys,
+
+  RETURN_NOT_OK(RowArrayMerge::PrepareForMerge(target_->map_.keys(), partition_keys, true,
                                                &partition_keys_first_row_id_, pool_));
 
   // 2. SwissTable:
@@ -1350,7 +1352,7 @@ Status SwissTableForJoinBuild::PreparePrtnMerge() {
       partition_payloads[i] = &prtn_states_[i].payloads;
     }
     RETURN_NOT_OK(RowArrayMerge::PrepareForMerge(&target_->payloads_, partition_payloads,
-                                                 &partition_payloads_first_row_id_,
+                                                 false, &partition_payloads_first_row_id_,
                                                  pool_));
   }
 
