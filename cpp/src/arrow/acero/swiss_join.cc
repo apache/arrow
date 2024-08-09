@@ -587,6 +587,8 @@ void RowArrayMerge::CopyVaryingLength(RowTableImpl* target, const RowTableImpl& 
       const uint64_t* source_row_ptr = reinterpret_cast<const uint64_t*>(
           source.data(2) + source_offsets[source_row_id]);
       int64_t length = source_offsets[source_row_id + 1] - source_offsets[source_row_id];
+      // Though the row offset is 64-bit, the length of a single row must be 32-bit as
+      // required by current row table implementation.
       DCHECK_LE(length, std::numeric_limits<uint32_t>::max());
 
       // Rows should be 64-bit aligned.
