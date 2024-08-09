@@ -112,6 +112,9 @@ struct ARROW_EXPORT AzureOptions {
   /// This will be ignored if non-empty metadata is passed to OpenOutputStream.
   std::shared_ptr<const KeyValueMetadata> default_metadata;
 
+  /// Whether OutputStream writes will be issued in the background, without blocking.
+  bool background_writes = false;
+
  private:
   enum class CredentialKind {
     kDefault,
