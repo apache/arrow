@@ -272,6 +272,8 @@ JSON
   In the future, additional fields may be added, but they are not required
   to interpret the array.
 
+.. _uuid_extension:
+
 UUID
 ====
 
