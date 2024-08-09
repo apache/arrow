@@ -234,19 +234,19 @@ struct ArrowDeviceArrayStream {
 // Similar to ArrowDeviceArrayStream, except designed for an asynchronous
 // style of interaction. While ArrowDeviceArrayStream provides producer
 // defined callbacks, this is intended to be created by the consumer instead.
-// The consumer passes this handler to the producer, which in turn uses the 
+// The consumer passes this handler to the producer, which in turn uses the
 // callbacks to inform the consumer of events in the stream.
 struct ArrowAsyncDeviceStreamHandler {
   // Handler for receiving a schema. The passed in stream_schema should be
   // released or moved by the handler (producer is giving ownership of it to
-  // the handler). 
+  // the handler).
   //
   // The `extension_param` argument can be null or can be used by a producer
   // to pass arbitrary extra information to the consumer (such as total number
   // of rows, context info, or otherwise).
   //
   // Return value: 0 if successful, `errno`-compatible error otherwise
-  int (*on_schema)(struct ArrowAsyncDeviceStreamHandler* self, 
+  int (*on_schema)(struct ArrowAsyncDeviceStreamHandler* self,
                    struct ArrowSchema* stream_schema, void* extension_param);
 
   // Handler for receiving an array/record batch. Always called at least once
@@ -262,18 +262,19 @@ struct ArrowAsyncDeviceStreamHandler {
                  struct ArrowDeviceArray* next, void* extension_param);
 
   // Handler for encountering an error. The producer should call release after
-  // this returns to clean up any resources. 
+  // this returns to clean up any resources.
   //
   // If the message or metadata are non-null, they will only last as long as this
   // function call. The consumer would need to perform a copy of the data if it is
   // it is necessary for them live past the lifetime of this call.
   //
   // Error metadata should be encoded as with metadata in ArrowSchema, defined in
-  // the spec at https://arrow.apache.org/docs/format/CDataInterface.html#c.ArrowSchema.metadata
+  // the spec at
+  // https://arrow.apache.org/docs/format/CDataInterface.html#c.ArrowSchema.metadata
   //
   // After this call, producers should follow-up by calling the release callback.
-  void (*on_error)(struct ArrowAsyncDeviceStreamHandler* self,
-                   int code, const char* message, const char* metadata);
+  void (*on_error)(struct ArrowAsyncDeviceStreamHandler* self, int code,
+                   const char* message, const char* metadata);
 
   // Release callback to release any resources for the handler. Should always be
   // called by a producer when it is done utilizing a handler. No callbacks should
