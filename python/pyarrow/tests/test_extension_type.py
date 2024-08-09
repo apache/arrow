@@ -1832,8 +1832,18 @@ def test_bool8_from_numpy_conversion():
 
 
 def test_bool8_scalar():
+    assert pa.ExtensionScalar.from_storage(pa.bool8(), -1).as_py()
     assert not pa.ExtensionScalar.from_storage(pa.bool8(), 0).as_py()
     assert pa.ExtensionScalar.from_storage(pa.bool8(), 1).as_py()
     assert pa.ExtensionScalar.from_storage(pa.bool8(), 2).as_py()
-    assert pa.ExtensionScalar.from_storage(pa.bool8(), -1).as_py()
     assert pa.ExtensionScalar.from_storage(pa.bool8(), None).as_py() is None
+
+    arr = pa.ExtensionArray.from_storage(
+        pa.bool8(),
+        pa.array([-1, 0, 1, 2, None], pa.int8()),
+    )
+    assert arr[0].as_py()
+    assert not arr[1].as_py()
+    assert arr[2].as_py()
+    assert arr[3].as_py()
+    assert arr[4].as_py() is None
