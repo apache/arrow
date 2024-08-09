@@ -81,6 +81,11 @@ class IntegrationTest {
   }
 
   @Test
+  void flightSqlIngestion() throws Exception {
+    testScenario("flight_sql:ingestion");
+  }
+
+  @Test
   void appMetadataFlightInfoEndpoint() throws Exception {
     testScenario("app_metadata_flight_info_endpoint");
   }

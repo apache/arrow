@@ -645,7 +645,7 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
         Scenario(
             "flight_sql:ingestion",
             description="Ensure Flight SQL ingestion works as expected.",
-            skip_testers={"JS", "C#", "Rust", "Java"}
+            skip_testers={"JS", "C#", "Rust"}
         ),
     ]
 

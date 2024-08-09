@@ -16,8 +16,13 @@
  */
 package org.apache.arrow.flight.integration.tests;
 
+import static java.util.Objects.isNull;
+
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Consumer;
 import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightInfo;
@@ -32,7 +37,10 @@ import org.apache.arrow.flight.sql.FlightSqlProducer;
 import org.apache.arrow.flight.sql.impl.FlightSql;
 import org.apache.arrow.flight.sql.util.TableRef;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.types.pojo.Schema;
 
 /**
@@ -158,7 +166,15 @@ public class FlightSqlScenario implements Scenario {
               FlightSql.SqlInfo.FLIGHT_SQL_SERVER_READ_ONLY
             },
             options),
-        sqlClient);
+        sqlClient,
+        s -> {
+          Map<Integer, Object> infoValues = readSqlInfoStream(s);
+          IntegrationAssertions.assertEquals(
+              Boolean.FALSE, infoValues.get(FlightSql.SqlInfo.FLIGHT_SQL_SERVER_READ_ONLY_VALUE));
+          IntegrationAssertions.assertEquals(
+              FlightSqlScenarioProducer.SERVER_NAME,
+              infoValues.get(FlightSql.SqlInfo.FLIGHT_SQL_SERVER_NAME_VALUE));
+        });
     validateSchema(
         FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA, sqlClient.getSqlInfoSchema(options));
   }
@@ -194,14 +210,64 @@ public class FlightSqlScenario implements Scenario {
 
   protected void validate(Schema expectedSchema, FlightInfo flightInfo, FlightSqlClient sqlClient)
       throws Exception {
+    validate(expectedSchema, flightInfo, sqlClient, null);
+  }
+
+  protected void validate(
+      Schema expectedSchema,
+      FlightInfo flightInfo,
+      FlightSqlClient sqlClient,
+      Consumer<FlightStream> streamConsumer)
+      throws Exception {
     Ticket ticket = flightInfo.getEndpoints().get(0).getTicket();
     try (FlightStream stream = sqlClient.getStream(ticket)) {
       Schema actualSchema = stream.getSchema();
       IntegrationAssertions.assertEquals(expectedSchema, actualSchema);
+      if (!isNull(streamConsumer)) {
+        streamConsumer.accept(stream);
+      }
     }
   }
 
   protected void validateSchema(Schema expected, SchemaResult actual) {
     IntegrationAssertions.assertEquals(expected, actual.getSchema());
+  }
+
+  protected Map<Integer, Object> readSqlInfoStream(FlightStream stream) {
+    Map<Integer, Object> infoValues = new HashMap<>();
+    while (stream.next()) {
+      UInt4Vector infoName = (UInt4Vector) stream.getRoot().getVector(0);
+      DenseUnionVector value = (DenseUnionVector) stream.getRoot().getVector(1);
+
+      for (int i = 0; i < stream.getRoot().getRowCount(); i++) {
+        final int code = infoName.get(i);
+        if (infoValues.containsKey(code)) {
+          throw new AssertionError("Duplicate SqlInfo value: " + code);
+        }
+        Object object;
+        byte typeId = value.getTypeId(i);
+        switch (typeId) {
+          case 0: // string
+            object =
+                Preconditions.checkNotNull(
+                        value.getVarCharVector(typeId).getObject(value.getOffset(i)))
+                    .toString();
+            break;
+          case 1: // bool
+            object = value.getBitVector(typeId).getObject(value.getOffset(i));
+            break;
+          case 2: // int64
+            object = value.getBigIntVector(typeId).getObject(value.getOffset(i));
+            break;
+          case 3: // int32
+            object = value.getIntVector(typeId).getObject(value.getOffset(i));
+            break;
+          default:
+            throw new AssertionError("Decoding SqlInfo of type code " + typeId);
+        }
+        infoValues.put(code, object);
+      }
+    }
+    return infoValues;
   }
 }

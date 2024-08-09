@@ -16,6 +16,7 @@
  */
 package org.apache.arrow.flight.sql;
 
+import static java.util.Objects.isNull;
 import static org.apache.arrow.flight.sql.impl.FlightSql.ActionBeginSavepointRequest;
 import static org.apache.arrow.flight.sql.impl.FlightSql.ActionBeginSavepointResult;
 import static org.apache.arrow.flight.sql.impl.FlightSql.ActionBeginTransactionRequest;
@@ -54,8 +55,10 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.arrow.flight.Action;
 import org.apache.arrow.flight.CallOption;
@@ -82,11 +85,14 @@ import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.flight.sql.impl.FlightSql;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementResult;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementQuery;
+import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementIngest;
+import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementIngest.TableDefinitionOptions;
 import org.apache.arrow.flight.sql.util.TableRef;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.ipc.ArrowStreamReader;
 import org.apache.arrow.vector.ipc.ReadChannel;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -207,6 +213,130 @@ public class FlightSqlClient implements AutoCloseable {
   }
 
   /**
+   * Execute a bulk ingest on the server.
+   *
+   * @param data data to be ingested
+   * @param ingestOptions options for the ingest request.
+   * @param options RPC-layer hints for this call.
+   * @return the number of rows affected.
+   */
+  public long executeIngest(
+      final VectorSchemaRoot data,
+      final ExecuteIngestOptions ingestOptions,
+      final CallOption... options) {
+    return executeIngest(data, ingestOptions, /*transaction*/ null, options);
+  }
+
+  /**
+   * Execute a bulk ingest on the server.
+   *
+   * @param dataReader data stream to be ingested
+   * @param ingestOptions options for the ingest request.
+   * @param options RPC-layer hints for this call.
+   * @return the number of rows affected.
+   */
+  public long executeIngest(
+      final ArrowStreamReader dataReader,
+      final ExecuteIngestOptions ingestOptions,
+      final CallOption... options) {
+    return executeIngest(dataReader, ingestOptions, /*transaction*/ null, options);
+  }
+
+  /**
+   * Execute a bulk ingest on the server.
+   *
+   * @param data data to be ingested
+   * @param ingestOptions options for the ingest request.
+   * @param transaction The transaction that this ingest request is part of.
+   * @param options RPC-layer hints for this call.
+   * @return the number of rows affected.
+   */
+  public long executeIngest(
+      final VectorSchemaRoot data,
+      final ExecuteIngestOptions ingestOptions,
+      Transaction transaction,
+      final CallOption... options) {
+    return executeIngest(
+        data, ingestOptions, transaction, FlightClient.ClientStreamListener::putNext, options);
+  }
+
+  /**
+   * Execute a bulk ingest on the server.
+   *
+   * @param dataReader data stream to be ingested
+   * @param ingestOptions options for the ingest request.
+   * @param transaction The transaction that this ingest request is part of.
+   * @param options RPC-layer hints for this call.
+   * @return the number of rows affected.
+   */
+  public long executeIngest(
+      final ArrowStreamReader dataReader,
+      final ExecuteIngestOptions ingestOptions,
+      Transaction transaction,
+      final CallOption... options) {
+
+    try {
+      return executeIngest(
+          dataReader.getVectorSchemaRoot(),
+          ingestOptions,
+          transaction,
+          listener -> {
+            while (true) {
+              try {
+                if (!dataReader.loadNextBatch()) {
+                  break;
+                }
+              } catch (IOException e) {
+                throw CallStatus.UNKNOWN.withCause(e).toRuntimeException();
+              }
+              listener.putNext();
+            }
+          },
+          options);
+    } catch (IOException e) {
+      throw CallStatus.UNKNOWN.withCause(e).toRuntimeException();
+    }
+  }
+
+  private long executeIngest(
+      final VectorSchemaRoot data,
+      final ExecuteIngestOptions ingestOptions,
+      final Transaction transaction,
+      final Consumer<FlightClient.ClientStreamListener> dataPutter,
+      final CallOption... options) {
+    try {
+      final CommandStatementIngest.Builder builder = CommandStatementIngest.newBuilder();
+      if (transaction != null) {
+        builder.setTransactionId(ByteString.copyFrom(transaction.getTransactionId()));
+      }
+      ingestOptions.updateCommandBuilder(builder);
+
+      final FlightDescriptor descriptor =
+          FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
+      try (final SyncPutListener putListener = new SyncPutListener()) {
+
+        final FlightClient.ClientStreamListener listener =
+            client.startPut(descriptor, data, putListener, options);
+        dataPutter.accept(listener);
+        listener.completed();
+        listener.getResult();
+
+        try (final PutResult result = putListener.read()) {
+          final DoPutUpdateResult doPutUpdateResult =
+              DoPutUpdateResult.parseFrom(result.getApplicationMetadata().nioBuffer());
+          return doPutUpdateResult.getRecordCount();
+        }
+      }
+    } catch (final InterruptedException e) {
+      throw CallStatus.CANCELLED.withCause(e).toRuntimeException();
+    } catch (final ExecutionException e) {
+      throw CallStatus.CANCELLED.withCause(e.getCause()).toRuntimeException();
+    } catch (final InvalidProtocolBufferException e) {
+      throw CallStatus.INTERNAL.withCause(e).toRuntimeException();
+    }
+  }
+
+  /**
    * Execute an update query on the server.
    *
    * @param query The query to execute.
@@ -245,8 +375,10 @@ public class FlightSqlClient implements AutoCloseable {
       } finally {
         listener.getResult();
       }
-    } catch (final InterruptedException | ExecutionException e) {
+    } catch (final InterruptedException e) {
       throw CallStatus.CANCELLED.withCause(e).toRuntimeException();
+    } catch (final ExecutionException e) {
+      throw CallStatus.CANCELLED.withCause(e.getCause()).toRuntimeException();
     } catch (final InvalidProtocolBufferException e) {
       throw CallStatus.INTERNAL.withCause(e).toRuntimeException();
     }
@@ -295,8 +427,10 @@ public class FlightSqlClient implements AutoCloseable {
       } finally {
         listener.getResult();
       }
-    } catch (final InterruptedException | ExecutionException e) {
+    } catch (final InterruptedException e) {
       throw CallStatus.CANCELLED.withCause(e).toRuntimeException();
+    } catch (final ExecutionException e) {
+      throw CallStatus.CANCELLED.withCause(e.getCause()).toRuntimeException();
     } catch (final InvalidProtocolBufferException e) {
       throw CallStatus.INTERNAL.withCause(e).toRuntimeException();
     }
@@ -1003,6 +1137,82 @@ public class FlightSqlClient implements AutoCloseable {
     AutoCloseables.close(client);
   }
 
+  /** Class to encapsulate Flight SQL bulk ingest request options. * */
+  public static class ExecuteIngestOptions {
+    private final String table;
+    private final TableDefinitionOptions tableDefinitionOptions;
+    private final boolean useTemporaryTable;
+    private final String catalog;
+    private final String schema;
+    private final Map<String, String> options;
+
+    /**
+     * Constructor.
+     *
+     * @param table The table to load data into.
+     * @param tableDefinitionOptions The behavior for handling the table definition.
+     * @param catalog The catalog of the destination table to load data into. If null, a
+     *     backend-specific default may be used.
+     * @param schema The schema of the destination table to load data into. If null, a
+     *     backend-specific default may be used.
+     * @param options Backend-specific options. Can be null if there are no options to be set.
+     */
+    public ExecuteIngestOptions(
+        String table,
+        TableDefinitionOptions tableDefinitionOptions,
+        String catalog,
+        String schema,
+        Map<String, String> options) {
+      this(table, tableDefinitionOptions, false, catalog, schema, options);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param table The table to load data into.
+     * @param tableDefinitionOptions The behavior for handling the table definition.
+     * @param useTemporaryTable Use a temporary table for bulk ingestion. Temporary table may get
+     *     placed in a backend-specific schema and/or catalog and gets dropped at the end of the
+     *     session. If backend does not support ingesting using a temporary table or an explicit
+     *     choice of schema or catalog is incompatible with the server's namespacing decision, an
+     *     error is returned as part of {@link #executeIngest} request.
+     * @param catalog The catalog of the destination table to load data into. If null, a
+     *     backend-specific default may be used.
+     * @param schema The schema of the destination table to load data into. If null, a
+     *     backend-specific default may be used.
+     * @param options Backend-specific options. Can be null if there are no options to be set.
+     */
+    public ExecuteIngestOptions(
+        String table,
+        TableDefinitionOptions tableDefinitionOptions,
+        boolean useTemporaryTable,
+        String catalog,
+        String schema,
+        Map<String, String> options) {
+      this.table = table;
+      this.tableDefinitionOptions = tableDefinitionOptions;
+      this.useTemporaryTable = useTemporaryTable;
+      this.catalog = catalog;
+      this.schema = schema;
+      this.options = options;
+    }
+
+    protected void updateCommandBuilder(CommandStatementIngest.Builder builder) {
+      builder.setTable(table);
+      builder.setTableDefinitionOptions(tableDefinitionOptions);
+      builder.setTemporary(useTemporaryTable);
+      if (!isNull(catalog)) {
+        builder.setCatalog(catalog);
+      }
+      if (!isNull(schema)) {
+        builder.setSchema(schema);
+      }
+      if (!isNull(options)) {
+        builder.putAllOptions(options);
+      }
+    }
+  }
+
   /** Helper class to encapsulate Flight SQL prepared statement logic. */
   public static class PreparedStatement implements AutoCloseable {
     private final FlightClient client;
@@ -1140,10 +1350,12 @@ public class FlightSqlClient implements AutoCloseable {
               }
             }
           }
-        } catch (final InterruptedException | ExecutionException e) {
+        } catch (final InterruptedException e) {
           throw CallStatus.CANCELLED.withCause(e).toRuntimeException();
+        } catch (final ExecutionException e) {
+          throw CallStatus.CANCELLED.withCause(e.getCause()).toRuntimeException();
         } catch (final InvalidProtocolBufferException e) {
-          throw CallStatus.INVALID_ARGUMENT.withCause(e).toRuntimeException();
+          throw CallStatus.INTERNAL.withCause(e).toRuntimeException();
         }
       }
 
@@ -1198,10 +1410,12 @@ public class FlightSqlClient implements AutoCloseable {
               DoPutUpdateResult.parseFrom(metadata.nioBuffer());
           return doPutUpdateResult.getRecordCount();
         }
-      } catch (final InterruptedException | ExecutionException e) {
+      } catch (final InterruptedException e) {
         throw CallStatus.CANCELLED.withCause(e).toRuntimeException();
+      } catch (final ExecutionException e) {
+        throw CallStatus.CANCELLED.withCause(e.getCause()).toRuntimeException();
       } catch (final InvalidProtocolBufferException e) {
-        throw CallStatus.INVALID_ARGUMENT.withCause(e).toRuntimeException();
+        throw CallStatus.INTERNAL.withCause(e).toRuntimeException();
       }
     }
 
