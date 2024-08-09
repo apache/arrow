@@ -1661,3 +1661,133 @@ def test_legacy_int_type():
             batch = ipc_read_batch(buf)
             assert isinstance(batch.column(0).type, LegacyIntType)
             assert batch.column(0) == ext_arr
+
+
+def test_bool8_type(pickle_module):
+    bool8_type = pa.bool8()
+    storage_type = pa.int8()
+    assert bool8_type.extension_name == "arrow.bool8"
+    assert bool8_type.storage_type == storage_type
+    assert str(bool8_type) == "extension<arrow.bool8>"
+
+    assert bool8_type == bool8_type
+    assert bool8_type == pa.bool8()
+    assert bool8_type != storage_type
+
+    # Pickle roundtrip
+    result = pickle_module.loads(pickle_module.dumps(bool8_type))
+    assert result == bool8_type
+
+    # IPC roundtrip
+    bool8_arr_class = bool8_type.__arrow_ext_class__()
+    storage = pa.array([-1, 0, 1, 2, None], storage_type)
+    arr = pa.ExtensionArray.from_storage(bool8_type, storage)
+    assert isinstance(arr, bool8_arr_class)
+
+    with registered_extension_type(bool8_type):
+        buf = ipc_write_batch(pa.RecordBatch.from_arrays([arr], ["ext"]))
+        batch = ipc_read_batch(buf)
+
+    assert batch.column(0).type.extension_name == "arrow.bool8"
+    assert isinstance(batch.column(0), bool8_arr_class)
+
+    # cast storage -> extension type
+    result = storage.cast(bool8_type)
+    assert result == arr
+
+    # cast extension type -> storage type
+    inner = arr.cast(storage_type)
+    assert inner == storage
+
+
+def test_bool8_to_bool_conversion():
+    bool_arr = pa.array([True, False, True, True, None], pa.bool_())
+    bool8_arr = pa.ExtensionArray.from_storage(
+        pa.bool8(),
+        pa.array([-1, 0, 1, 2, None], pa.int8()),
+    )
+
+    # cast extension type -> arrow boolean type
+    assert bool8_arr.cast(pa.bool_()) == bool_arr
+
+    # cast arrow boolean type -> extension type, expecting canonical values
+    canonical_storage = pa.array([1, 0, 1, 1, None], pa.int8())
+    canonical_bool8_arr = pa.ExtensionArray.from_storage(pa.bool8(), canonical_storage)
+    assert bool_arr.cast(pa.bool8()) == canonical_bool8_arr
+
+
+def test_bool8_to_numpy_conversion():
+    arr = pa.ExtensionArray.from_storage(
+        pa.bool8(),
+        pa.array([-1, 0, 1, 2, None], pa.int8()),
+    )
+
+    # cannot zero-copy with nulls
+    with pytest.raises(
+        pa.ArrowInvalid,
+        match="Needed to copy 1 chunks with 1 nulls, but zero_copy_only was True",
+    ):
+        arr.to_numpy()
+
+    # nullable conversion possible with a copy, but dest dtype is object
+    assert np.array_equal(
+        arr.to_numpy(zero_copy_only=False),
+        np.array([True, False, True, True, None], dtype=np.object_),
+    )
+
+    # zero-copy possible with non-null array
+    np_arr_no_nulls = np.array([True, False, True, True], dtype=np.bool_)
+    arr_no_nulls = pa.ExtensionArray.from_storage(
+        pa.bool8(),
+        pa.array([-1, 0, 1, 2], pa.int8()),
+    )
+
+    arr_to_np = arr_no_nulls.to_numpy()
+    assert np.array_equal(arr_to_np, np_arr_no_nulls)
+
+    # same underlying buffer
+    assert arr_to_np.ctypes.data == arr_no_nulls.buffers()[1].address
+
+
+def test_bool8_from_numpy_conversion():
+    np_arr_no_nulls = np.array([True, False, True, True], dtype=np.bool_)
+    canonical_bool8_arr_no_nulls = pa.ExtensionArray.from_storage(
+        pa.bool8(),
+        pa.array([1, 0, 1, 1], pa.int8()),
+    )
+
+    arr_from_np = pa.Bool8Array.from_numpy(np_arr_no_nulls)
+    assert arr_from_np == canonical_bool8_arr_no_nulls
+
+    # same underlying buffer
+    assert arr_from_np.buffers()[1].address == np_arr_no_nulls.ctypes.data
+
+    # conversion only valid for 1-D arrays
+    with pytest.raises(
+        ValueError,
+        match="Cannot convert 2-D array to bool8 array",
+    ):
+        pa.Bool8Array.from_numpy(
+            np.array([[True, False], [False, True]], dtype=np.bool_),
+        )
+
+    with pytest.raises(
+        ValueError,
+        match="Cannot convert 0-D array to bool8 array",
+    ):
+        pa.Bool8Array.from_numpy(np.bool_())
+
+    # must use compatible storage type
+    with pytest.raises(
+        TypeError,
+        match="Array dtype float64 incompatible with bool8 storage",
+    ):
+        pa.Bool8Array.from_numpy(np.array([1, 2, 3], dtype=np.float64))
+
+
+def test_bool8_scalar():
+    assert not pa.ExtensionScalar.from_storage(pa.bool8(), 0).as_py()
+    assert pa.ExtensionScalar.from_storage(pa.bool8(), 1).as_py()
+    assert pa.ExtensionScalar.from_storage(pa.bool8(), 2).as_py()
+    assert pa.ExtensionScalar.from_storage(pa.bool8(), -1).as_py()
+    assert pa.ExtensionScalar.from_storage(pa.bool8(), None).as_py() is None

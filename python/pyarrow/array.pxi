@@ -4447,6 +4447,93 @@ cdef class FixedShapeTensorArray(ExtensionArray):
             FixedSizeListArray.from_arrays(values, shape[1:].prod())
         )
 
+cdef class Bool8Array(ExtensionArray):
+    """
+    Concrete class for bool8 extension arrays.
+
+    Examples
+    --------
+    Define the extension type for an bool8 array
+
+    >>> import pyarrow as pa
+    >>> bool8_type = pa.bool8()
+
+    Create an extension array
+
+    >>> arr = [-1, 0, 1, 2, None]
+    >>> storage = pa.array(arr, pa.int8())
+    >>> pa.ExtensionArray.from_storage(bool8_type, storage)
+    <pyarrow.lib.Bool8Array object at ...>
+    [
+      -1,
+      0,
+      1,
+      2,
+      null
+    ]
+    """
+
+    def to_numpy(self, zero_copy_only=True, writable=False):
+        try:
+            return self.storage.to_numpy().view(np.bool_)
+        except ArrowInvalid as e:
+            if zero_copy_only:
+                raise e
+
+        return _pc().not_equal(self.storage, 0).to_numpy(zero_copy_only=zero_copy_only, writable=writable)
+
+    @staticmethod
+    def from_storage(Int8Array storage):
+        """
+        Construct Bool8Array from Int8Array storage.
+
+        Parameters
+        ----------
+        storage : Int8Array
+            The underlying storage for the result array.
+
+        Returns
+        -------
+        bool8_array : Bool8Array
+        """
+        return ExtensionArray.from_storage(bool8(), storage)
+
+    @staticmethod
+    def from_numpy(obj):
+        """
+        Convert numpy array to a bool8 extension array without making a copy.
+        The input array must be 1-dimensional, with either bool_ or int8 dtype.
+
+        Parameters
+        ----------
+        obj : numpy.ndarray
+
+        Returns
+        -------
+        bool8_array : Bool8Array
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import numpy as np
+        >>> arr = np.array([True, False, True], dtype=np.bool_)
+        >>> pa.Bool8Array.from_numpy(arr)
+        <pyarrow.lib.Bool8Array object at ...>
+        [
+          1,
+          0,
+          1
+        ]
+        """
+
+        if obj.ndim != 1:
+            raise ValueError(f"Cannot convert {obj.ndim}-D array to bool8 array")
+
+        if obj.dtype not in [np.bool_, np.int8]:
+            raise TypeError(f"Array dtype {obj.dtype} incompatible with bool8 storage")
+
+        storage_arr = array(obj.view(np.int8), type=int8())
+        return Bool8Array.from_storage(storage_arr)
 
 cdef dict _array_classes = {
     _Type_NA: NullArray,
