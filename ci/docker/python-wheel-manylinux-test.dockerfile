@@ -17,7 +17,8 @@
 
 ARG arch
 ARG python
-FROM ${arch}/python:${python}
+ARG python_image_tag
+FROM ${arch}/python:${python_image_tag}
 
 # RUN pip install --upgrade pip
 
@@ -27,4 +28,5 @@ COPY python/requirements-wheel-test.txt /arrow/python/
 RUN pip install -r /arrow/python/requirements-wheel-test.txt
 
 COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
-RUN PYTHON=python /arrow/ci/scripts/install_gcs_testbench.sh default
+
+RUN PYTHON=${python} /arrow/ci/scripts/install_gcs_testbench.sh default
