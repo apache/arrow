@@ -1616,6 +1616,70 @@ TEST(Expression, SimplifyWithComparisonAndNullableCaveat) {
           true_unless_null(field_ref("i32"))));  // not satisfiable, will drop row group
 }
 
+TEST(Expression, SimplifyIsIn) {
+  auto is_in = [](Expression field, std::shared_ptr<DataType> value_set_type,
+                  std::string json_array) {
+    SetLookupOptions options{ArrayFromJSON(value_set_type, json_array),
+                             SetLookupOptions::MATCH};
+    return call("is_in", {field}, options);
+  };
+
+  Simplify{is_in(field_ref("i32"), int32(), "[]")}
+      .WithGuarantee(greater(field_ref("i32"), literal(2)))
+      .Expect(false);
+
+  Simplify{is_in(field_ref("i32"), int32(), "[null]")}
+      .WithGuarantee(greater(field_ref("i32"), literal(2)))
+      .Expect(false);
+
+  Simplify{is_in(field_ref("i32"), int32(), "[1,3,5,7,9]")}
+      .WithGuarantee(equal(field_ref("i32"), literal(7)))
+      .Expect(true);
+
+  Simplify{is_in(field_ref("i32"), int32(), "[1,3,5,7,9]")}
+      .WithGuarantee(equal(field_ref("i32"), literal(6)))
+      .Expect(false);
+
+  Simplify{is_in(field_ref("i32"), int32(), "[1,3,5,7,9]")}
+      .WithGuarantee(greater(field_ref("i32"), literal(3)))
+      .Expect(is_in(field_ref("i32"), int32(), "[5,7,9]"));
+
+  Simplify{is_in(field_ref("i32"), int32(), "[1,null,3,5,null,7,9]")}
+      .WithGuarantee(greater(field_ref("i32"), literal(3)))
+      .Expect(is_in(field_ref("i32"), int32(), "[5,7,9]"));
+
+  Simplify{is_in(field_ref("i32"), int32(), "[1,3,5,7,9]")}
+      .WithGuarantee(greater(field_ref("i32"), literal(9)))
+      .Expect(false);
+
+  Simplify{is_in(field_ref("i32"), int32(), "[1,3,5,7,9]")}
+      .WithGuarantee(less_equal(field_ref("i32"), literal(0)))
+      .Expect(false);
+
+  Simplify{is_in(field_ref("i32"), int32(), "[1,3,5,7,9]")}
+      .WithGuarantee(greater(field_ref("i32"), literal(0)))
+      .ExpectUnchanged();
+
+  Simplify{is_in(field_ref("i32"), int32(), "[1,3,5,7,9]")}
+      .WithGuarantee(
+          or_(equal(field_ref("i32"), literal(3)), is_null(field_ref("i32"))))
+      .ExpectUnchanged();
+
+  Simplify{is_in(field_ref("i32"), int32(), "[1,3,5,7,9]")}
+      .WithGuarantee(
+          and_(less_equal(field_ref("i32"), literal(7)),
+               greater(field_ref("i32"), literal(4))))
+      .Expect(is_in(field_ref("i32"), int32(), "[5,7]"));
+
+  Simplify{is_in(field_ref("u32"), int8(), "[1,3,5,7,9]")}
+      .WithGuarantee(greater(field_ref("u32"), literal(3)))
+      .Expect(is_in(field_ref("u32"), int32(), "[5,7,9]"));
+
+  Simplify{is_in(field_ref("u32"), int64(), "[1,3,5,7,9]")}
+      .WithGuarantee(greater(field_ref("u32"), literal(3)))
+      .Expect(is_in(field_ref("u32"), int64(), "[5,7,9]"));
+}
+
 TEST(Expression, SimplifyThenExecute) {
   auto filter =
       or_({equal(field_ref("f32"), literal(0)),
