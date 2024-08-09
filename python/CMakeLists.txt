@@ -260,6 +260,7 @@ message(STATUS "Found NumPy version: ${Python3_NumPy_VERSION}")
 message(STATUS "NumPy include dir: ${NUMPY_INCLUDE_DIRS}")
 
 include(UseCython)
+message(STATUS "Found Cython version: ${CYTHON_VERSION}")
 
 # Arrow C++ and set default PyArrow build options
 include(GNUInstallDirs)
@@ -854,6 +855,10 @@ set(CYTHON_FLAGS "${CYTHON_FLAGS}" "--warning-errors")
 # GH-40236: make generated C++ code easier to compile by disabling an
 # undocumented Cython feature.
 set(CYTHON_FLAGS "${CYTHON_FLAGS}" "--no-c-in-traceback")
+
+if(CYTHON_VERSION VERSION_GREATER_EQUAL "3.1.0a0")
+  list(APPEND CYTHON_FLAGS "-Xfreethreading_compatible=True")
+endif()
 
 foreach(module ${CYTHON_EXTENSIONS})
   string(REPLACE "." ";" directories ${module})

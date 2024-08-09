@@ -184,4 +184,13 @@ function(cython_add_module _name pyx_target_name generated_files)
   add_dependencies(${_name} ${pyx_target_name})
 endfunction()
 
+execute_process(COMMAND ${PYTHON_EXECUTABLE} -m cython --version
+                OUTPUT_VARIABLE CYTHON_VERSION_OUTPUT
+                OUTPUT_STRIP_TRAILING_WHITESPACE)
+if(CYTHON_VERSION_OUTPUT MATCHES "^Cython version (.+)")
+  set(CYTHON_VERSION "${CMAKE_MATCH_1}")
+else()
+  set(CYTHON_VERSION "")
+endif()
+
 include(CMakeParseArguments)
