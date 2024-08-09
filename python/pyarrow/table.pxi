@@ -2949,7 +2949,7 @@ cdef class RecordBatch(_Tabular):
             shared_ptr[CRecordBatch] c_batch
             vector[c_string] c_names
 
-        if isinstance(names, list):
+        if isinstance(names, (list, tuple)):
             for name in names:
                 c_names.push_back(tobytes(name))
         elif isinstance(names, dict):
@@ -5374,7 +5374,7 @@ cdef class Table(_Tabular):
             shared_ptr[CTable] c_table
             vector[c_string] c_names
 
-        if isinstance(names, list):
+        if isinstance(names, (list, tuple)):
             for name in names:
                 c_names.push_back(tobytes(name))
         elif isinstance(names, dict):

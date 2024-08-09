@@ -1751,12 +1751,19 @@ def test_table_rename_columns(cls):
     table = cls.from_arrays(data, names=['a', 'b', 'c'])
     assert table.column_names == ['a', 'b', 'c']
 
+    expected = cls.from_arrays(data, names=['eh', 'bee', 'sea'])
+
+    # Testing with list
     t2 = table.rename_columns(['eh', 'bee', 'sea'])
     t2.validate()
     assert t2.column_names == ['eh', 'bee', 'sea']
-
-    expected = cls.from_arrays(data, names=['eh', 'bee', 'sea'])
     assert t2.equals(expected)
+
+    # Testing with tuple
+    t3 = table.rename_columns(('eh', 'bee', 'sea'))
+    t3.validate()
+    assert t3.column_names == ['eh', 'bee', 'sea']
+    assert t3.equals(expected)
 
     message = "names must be a list or dict not <class 'str'>"
     with pytest.raises(TypeError, match=message):
