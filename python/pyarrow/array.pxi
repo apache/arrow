@@ -4503,11 +4503,34 @@ cdef class Bool8Array(ExtensionArray):
     """
 
     def to_numpy(self, zero_copy_only=True, writable=False):
-        try:
-            return self.storage.to_numpy().view(np.bool_)
-        except ArrowInvalid as e:
-            if zero_copy_only:
-                raise e
+        """
+        Return a NumPy bool view or copy of this array (experimental).
+
+        By default, tries to return a view of this array. This is only
+        supported for arrays without any nulls.
+
+        Parameters
+        ----------
+        zero_copy_only : bool, default True
+            If True, an exception will be raised if the conversion to a numpy
+            array would require copying the underlying data (e.g. in presence
+            of nulls).
+        writable : bool, default False
+            For numpy arrays created with zero copy (view on the Arrow data),
+            the resulting array is not writable (Arrow data is immutable).
+            By setting this to True, a copy of the array is made to ensure
+            it is writable.
+
+        Returns
+        -------
+        array : numpy.ndarray
+        """
+        if not writable:
+            try:
+                return self.storage.to_numpy().view(np.bool_)
+            except ArrowInvalid as e:
+                if zero_copy_only:
+                    raise e
 
         return _pc().not_equal(self.storage, 0).to_numpy(zero_copy_only=zero_copy_only, writable=writable)
 
