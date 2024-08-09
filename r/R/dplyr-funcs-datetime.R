@@ -814,7 +814,7 @@ register_bindings_datetime_rounding <- function() {
              week_start = getOption("lubridate.week.start", 7)) {
       opts <- parse_period_unit(unit)
       if (is.null(change_on_boundary)) {
-        change_on_boundary <- ifelse(call_binding("is.Date", x), TRUE, FALSE)
+        change_on_boundary <- call_binding("is.Date", x)
       }
       opts$ceil_is_strictly_greater <- change_on_boundary
 

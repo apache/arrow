@@ -3411,7 +3411,7 @@ check_boundary_with_unit <- function(unit, ...) {
 test_that("ceiling_date() applies change_on_boundary correctly", {
   check_boundary_with_unit(".001 second")
   check_boundary_with_unit("second")
-  check_boundary_with_unit("minute", tolerance = .001) # floating point issue?
+  check_boundary_with_unit("minute", tolerance = 0.001) # floating point issue?
   check_boundary_with_unit("hour")
   check_boundary_with_unit("day")
 })

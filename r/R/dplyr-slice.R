@@ -101,7 +101,7 @@ slice_sample.arrow_dplyr_query <- function(.data,
   # just to make sure we get enough, then head(n)
   sampling_n <- missing(prop)
   if (sampling_n) {
-    prop <- min(n_to_prop(.data, n) + .05, 1)
+    prop <- min(n_to_prop(.data, n) + 0.05, 1)
   }
   validate_prop(prop)
 

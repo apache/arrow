@@ -183,7 +183,7 @@ test_that("RBR methods", {
 x: int32
 y: string"
   )
-  expect_equal(names(reader), c("x", "y"))
+  expect_named(reader, c("x", "y"))
   expect_identical(dim(reader), c(NA_integer_, 2L))
 
   expect_equal(

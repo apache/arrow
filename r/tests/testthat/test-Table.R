@@ -66,7 +66,7 @@ tbl <- tibble::tibble(
 tab <- Table$create(tbl)
 
 test_that("[, [[, $ for Table", {
-  expect_identical(names(tab), names(tbl))
+  expect_named(tab, names(tbl))
 
   expect_equal_data_frame(tab[6:7, ], tbl[6:7, ])
   expect_equal_data_frame(tab[6:7, 2:4], tbl[6:7, 2:4])
@@ -393,9 +393,9 @@ test_that("Table$SelectColumns()", {
 
 test_that("Table name assignment", {
   tab <- Table$create(x = 1:10, y = 1:10)
-  expect_identical(names(tab), c("x", "y"))
+  expect_named(tab, c("x", "y"))
   names(tab) <- c("a", "b")
-  expect_identical(names(tab), c("a", "b"))
+  expect_named(tab, c("a", "b"))
   expect_error(names(tab) <- "f")
   expect_error(names(tab) <- letters)
   expect_error(names(tab) <- character(0))

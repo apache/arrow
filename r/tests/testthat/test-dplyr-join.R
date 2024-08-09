@@ -353,7 +353,7 @@ test_that("suffix and implicit schema", {
   join_op <- inner_join(left_suf, right_suf, by = "key", suffix = c("_left", "_right"))
   output <- collect(join_op)
   impl_schema <- implicit_schema(join_op)
-  expect_equal(names(output), names(implicit_schema(join_op)))
+  expect_named(output, names(implicit_schema(join_op)))
 })
 
 test_that("summarize and join", {
