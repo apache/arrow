@@ -420,8 +420,6 @@ std::vector<std::shared_ptr<Array>> GenRandomRecords(
           break;
         default:
           result.push_back(rag.FixedSizeBinary(num_rows, data_types[i].fixed_length,
-                                               /*min_byte=*/static_cast<uint8_t>('A'),
-                                               /*max_byte=*/static_cast<uint8_t>('z'),
                                                data_types[i].null_probability));
           break;
       }
@@ -3318,8 +3316,8 @@ TEST(HashJoin, LARGE_MEMORY_TEST(BuildSideOver4GBFixedLength)) {
     // 1 value_match.
     auto non_matches = RandomArrayGenerator(kSeedMax).FixedSizeBinary(
         num_rows_per_batch_right - 1, fixed_length,
-        /*min_byte=*/byte_no_match_min, /*max_byte=*/byte_no_match_max,
-        /*null_probability =*/0.01);
+        /*null_probability =*/0.01, /*min_byte=*/byte_no_match_min,
+        /*max_byte=*/byte_no_match_max);
     ASSERT_OK_AND_ASSIGN(auto match, Constant(value_match)->Generate(1));
     ASSERT_OK_AND_ASSIGN(auto column, Concatenate({non_matches, match}));
 
