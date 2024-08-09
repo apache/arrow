@@ -1680,7 +1680,7 @@ class ObjectOutputStream final : public io::OutputStream {
         background_writes_(options.background_writes),
         allow_delayed_open_(options.allow_delayed_open),
         sse_customer_algorithm(options.GetSSECAlgorithm()),
-        sse_customer_key(options.options.GetSSECKey()),
+        sse_customer_key(options.GetSSECKey()),
         sse_customer_key_md5(options.GetSSECKeyMD5()) {}
 
   ~ObjectOutputStream() override {
