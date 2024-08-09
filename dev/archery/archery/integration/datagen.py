@@ -1896,9 +1896,10 @@ def get_generated_json_files(tempdir=None):
         generate_map_case(),
 
         generate_non_canonical_map_case()
-        .skip_tester('Java')  # TODO(ARROW-8715)
+        # .skip_tester('Java')  # TODO(ARROW-8715)
         # Canonical map names are restored on import, so the schemas are unequal
-        .skip_format(SKIP_C_SCHEMA, 'C++'),
+        .skip_format(SKIP_C_SCHEMA, 'C++')
+        .skip_format(SKIP_C_SCHEMA, 'Java'),
 
         generate_nested_case(),
 

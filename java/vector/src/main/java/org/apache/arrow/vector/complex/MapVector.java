@@ -45,8 +45,11 @@ import org.apache.arrow.vector.util.TransferPair;
  */
 public class MapVector extends ListVector {
 
+  /** The default name of the key field in the MapVector. */
   public static final String KEY_NAME = "key";
+  /** The default name of the value field in the MapVector. */
   public static final String VALUE_NAME = "value";
+
   public static final String DATA_VECTOR_NAME = "entries";
 
   /**
@@ -74,6 +77,13 @@ public class MapVector extends ListVector {
     defaultDataVectorName = DATA_VECTOR_NAME;
   }
 
+  /**
+   * Construct a MapVector instance.
+   *
+   * @param field The name of the field.
+   * @param allocator The allocator used for allocating/reallocating buffers.
+   * @param callBack A schema change callback.
+   */
   public MapVector(Field field, BufferAllocator allocator, CallBack callBack) {
     super(field, allocator, callBack);
     defaultDataVectorName = DATA_VECTOR_NAME;
