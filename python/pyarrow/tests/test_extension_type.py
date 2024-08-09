@@ -1730,9 +1730,9 @@ def test_bool8_type(pickle_module):
     arr = pa.ExtensionArray.from_storage(bool8_type, storage)
     assert isinstance(arr, bool8_arr_class)
 
-    with registered_extension_type(bool8_type):
-        buf = ipc_write_batch(pa.RecordBatch.from_arrays([arr], ["ext"]))
-        batch = ipc_read_batch(buf)
+    # extension is registered by default
+    buf = ipc_write_batch(pa.RecordBatch.from_arrays([arr], ["ext"]))
+    batch = ipc_read_batch(buf)
 
     assert batch.column(0).type.extension_name == "arrow.bool8"
     assert isinstance(batch.column(0), bool8_arr_class)

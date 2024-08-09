@@ -64,7 +64,6 @@ TEST(Bool8Type, MetadataRoundTrip) {
 
 TEST(Bool8Type, BatchRoundTrip) {
   auto type = internal::checked_pointer_cast<extension::Bool8Type>(extension::bool8());
-  ExtensionTypeGuard guard(type);
 
   auto storage = ArrayFromJSON(int8(), "[-1,0,1,2,null]");
   auto array = ExtensionType::WrapArray(type, storage);
