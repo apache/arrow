@@ -72,10 +72,11 @@ AsyncGenerator<T> WrapAsyncGenerator(AsyncGenerator<T> wrapped,
   return [=]() mutable -> Future<T> {
     auto span = active_span;
     auto scope = GetTracer()->WithActiveSpan(active_span);
-    auto fut = wrapped();
     if (create_childspan) {
       span = GetTracer()->StartSpan(span_name);
+      scope = GetTracer()->WithActiveSpan(span);
     }
+    auto fut = wrapped();
     fut.AddCallback([span](const Result<T>& result) {
       MarkSpan(result.status(), span.get());
       span->End();
@@ -178,6 +179,9 @@ opentelemetry::trace::StartSpanOptions SpanOptionsWithParent(
 #define EVENT_ON_CURRENT_SPAN(...) \
   ::arrow::internal::tracing::GetTracer()->GetCurrentSpan()->AddEvent(__VA_ARGS__)
 
+#define ATTRIBUTE_ON_CURRENT_SPAN(...) \
+  ::arrow::internal::tracing::GetTracer()->GetCurrentSpan()->SetAttribute(__VA_ARGS__)
+
 #define EVENT(target_span, ...) \
   ::arrow::internal::tracing::UnwrapSpan(target_span.details.get())->AddEvent(__VA_ARGS__)
 
@@ -231,6 +235,7 @@ struct Scope {
 #define MARK_SPAN(target_span, status)
 #define EVENT(target_span, ...)
 #define EVENT_ON_CURRENT_SPAN(...)
+#define ATTRIBUTE_ON_CURRENT_SPAN(...)
 #define END_SPAN(target_span)
 #define END_SPAN_ON_FUTURE_COMPLETION(target_span, target_future)
 #define PROPAGATE_SPAN_TO_GENERATOR(generator)
