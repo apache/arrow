@@ -348,6 +348,10 @@ func fieldToNode(name string, field arrow.Field, props *parquet.WriterProperties
 		typ = parquet.Types.FixedLenByteArray
 		length = arrow.Float16SizeBytes
 		logicalType = schema.Float16LogicalType{}
+	case arrow.INTERVAL_MONTH_DAY_NANO:
+		typ = parquet.Types.FixedLenByteArray
+		length = 12
+		logicalType = schema.IntervalLogicalType{}
 	case arrow.STRUCT:
 		return structToNode(field.Type.(*arrow.StructType), field.Name, field.Nullable, props, arrprops)
 	case arrow.FIXED_SIZE_LIST, arrow.LIST:

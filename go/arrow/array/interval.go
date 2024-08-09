@@ -652,6 +652,7 @@ func NewMonthDayNanoIntervalData(data arrow.ArrayData) *MonthDayNanoInterval {
 	return a
 }
 
+func (a *MonthDayNanoInterval) Values() []arrow.MonthDayNanoInterval { return a.values }
 func (a *MonthDayNanoInterval) Value(i int) arrow.MonthDayNanoInterval { return a.values[i] }
 func (a *MonthDayNanoInterval) ValueStr(i int) string {
 	if a.IsNull(i) {

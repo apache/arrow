@@ -607,6 +607,17 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 				}
 				wr.WriteBatchSpaced(data, defLevels, repLevels, arr.NullBitmapBytes(), int64(arr.Data().Offset()))
 			}
+		case *arrow.MonthDayNanoIntervalType:
+			arr := leafArr.(*array.MonthDayNanoInterval)
+			data := make([]parquet.FixedLenByteArray, arr.Len())
+			for idx, val := range arr.Values() {
+				data[idx] = make(parquet.FixedLenByteArray, 12)
+				binary.LittleEndian.PutUint32(data[idx][:4], uint32(val.Months))
+				binary.LittleEndian.PutUint32(data[idx][4:8], uint32(val.Days))
+				binary.LittleEndian.PutUint32(data[idx][8:], uint32(val.Nanoseconds / 1000000))
+			}
+			_, err = wr.WriteBatch(data, defLevels, repLevels)
+			// TODO: handle Null
 		default:
 			return fmt.Errorf("%w: invalid column type to write to FixedLenByteArray: %s", arrow.ErrInvalid, leafArr.DataType().Name())
 		}
