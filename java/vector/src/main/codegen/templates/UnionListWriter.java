@@ -253,6 +253,24 @@ public class Union${listName}Writer extends AbstractFieldWriter {
   }
   <#elseif listName == "LargeListView">
   @Override
+  public void startList() {
+    vector.startNewValue(idx());
+    writer.setPosition(vector.getOffsetBuffer().getInt((idx()) * OFFSET_WIDTH));
+    listStarted = true;
+  }
+
+  @Override
+  public void endList() {
+    int sizeUptoIdx = 0;
+    for (int i = 0; i < idx(); i++) {
+      sizeUptoIdx += vector.getSizeBuffer().getInt(i * SIZE_WIDTH);
+    }
+    vector.getSizeBuffer().setInt(idx() * SIZE_WIDTH, writer.idx() - sizeUptoIdx);
+    setPosition(idx() + 1);
+    listStarted = false;
+  }
+
+  @Override
   public void startListView() {
     vector.startNewValue(idx());
     writer.setPosition(checkedCastToInt(vector.getOffsetBuffer().getInt((idx()) * OFFSET_WIDTH)));
