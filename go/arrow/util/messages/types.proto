@@ -54,3 +54,49 @@ message AllTheTypes {
     OPTION_1 = 1;
   }
 }
+
+message AllTheTypesNoAny {
+  string str = 1;
+  int32 int32 = 2;
+  int64 int64 = 3;
+  sint32 sint32 = 4;
+  sint64 sin64 = 5;
+  uint32 uint32 = 6;
+  uint64 uint64 = 7;
+  fixed32 fixed32 = 8;
+  fixed64 fixed64 = 9;
+  sfixed32 sfixed32 = 10;
+  bool bool = 11;
+  bytes bytes = 12;
+  double double = 13;
+  ExampleEnum enum = 14;
+  ExampleMessage message = 15;
+  oneof oneof {
+    string oneofstring = 16;
+    ExampleMessage oneofmessage = 17;
+  }
+  map<int32, string> simple_map = 19;
+  map<string, ExampleMessage> complex_map = 20;
+  repeated string simple_list = 21;
+  repeated ExampleMessage complex_list = 22;
+
+  enum ExampleEnum {
+    OPTION_0 = 0;
+    OPTION_1 = 1;
+  }
+}
+
+message SimpleNested {
+  repeated ExampleMessage simple_a = 1;
+  repeated ExampleMessage simple_b = 2;
+}
+
+message ComplexNested {
+  repeated AllTheTypesNoAny all_the_types_no_any_a = 1;
+  repeated AllTheTypesNoAny all_the_types_no_any_b = 2;
+}
+
+message DeepNested {
+  ComplexNested complex_nested = 1;
+  SimpleNested simple_nested = 2;
+}
