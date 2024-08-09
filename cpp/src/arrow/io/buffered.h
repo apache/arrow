@@ -159,6 +159,9 @@ class ARROW_EXPORT BufferedInputStream
   /// expands the buffer size if necessary
   Result<std::string_view> DoPeek(int64_t nbytes) override;
 
+  /// \brief Advance the position of the stream by nbytes.
+  Status DoAdvance(int64_t nbytes) override;
+
   class ARROW_NO_EXPORT Impl;
   std::unique_ptr<Impl> impl_;
 };
