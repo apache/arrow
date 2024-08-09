@@ -257,6 +257,16 @@ struct ARROW_EXPORT S3Options {
                                    std::string* out_path = NULLPTR);
   static Result<S3Options> FromUri(const std::string& uri,
                                    std::string* out_path = NULLPTR);
+  /// Set the SSE-C customized key.
+  void SetSSECKey(const std::string& sse_customer_key);
+  std::string GetSSECKey() const { return sse_customer_key; }
+  std::string GetSSECAlgorithm() const { return sse_customer_algorithm; }
+  std::string GetSSECKeyMD5() const { return sse_customer_key_md5; }
+
+private:
+  std::string sse_customer_algorithm;
+  std::string sse_customer_key;
+  std::string sse_customer_key_md5;
 };
 
 /// S3-backed FileSystem implementation.
