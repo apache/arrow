@@ -31,6 +31,7 @@ import (
 	"github.com/apache/arrow/go/v18/arrow/bitutil"
 	"github.com/apache/arrow/go/v18/arrow/decimal128"
 	"github.com/apache/arrow/go/v18/arrow/decimal256"
+	"github.com/apache/arrow/go/v18/arrow/endian"
 	"github.com/apache/arrow/go/v18/arrow/memory"
 	"github.com/apache/arrow/go/v18/internal/utils"
 	"github.com/apache/arrow/go/v18/parquet"
@@ -525,6 +526,8 @@ func transferColumnData(rdr file.RecordReader, valueType arrow.DataType, descr *
 			return nil, fmt.Errorf("fixed len byte array length for float16 must be %d", len)
 		}
 		return transferBinary(rdr, valueType), nil
+	case arrow.INTERVAL_MONTH_DAY_NANO:
+		return transferInterval(rdr, valueType)
 	default:
 		return nil, fmt.Errorf("no support for reading columns of type: %s", valueType.Name())
 	}
@@ -966,4 +969,44 @@ func transferDictionary(rdr file.RecordReader, logicalValueType arrow.DataType) 
 	chunks := brdr.GetBuilderChunks()
 	defer releaseArrays(chunks)
 	return arrow.NewChunked(logicalValueType, chunks)
+}
+
+func transferInterval(rdr file.RecordReader, dt arrow.DataType) (*arrow.Chunked, error) {
+	convert := func (in arrow.Array) (arrow.Array, error) {
+		length := in.Len()
+		nullCount := in.NullN()
+		data := make([]byte, arrow.Int32Traits.BytesRequired(length * 4))
+
+		for i := 0; i < length; i++ {
+			if (in.IsNull(i)) {
+				continue
+			}
+
+			rec := in.(*array.FixedSizeBinary).Value(i)
+			if len(rec) != 12 {
+				return nil, fmt.Errorf("interval type must contain exactly 12 bytes")
+			}
+			copy(data[i*16 : i*16+4], rec[:4])
+			copy(data[i*16+4 : i*16+8], rec[4:8])
+			endian.Native.PutUint64(data[i*16+8 : i*16+16], uint64(binary.LittleEndian.Uint32(rec[8:])) * 1000000)
+		}
+
+		ret := array.NewData(dt, length, []*memory.Buffer{
+			in.Data().Buffers()[0], memory.NewBufferBytes(data),
+		}, nil, nullCount, 0)
+		defer ret.Release()
+		return array.MakeFromData(ret), nil
+	}
+
+	chunks := rdr.(file.BinaryRecordReader).GetBuilderChunks()
+	var err error
+	for idx, chunk := range chunks {
+		defer chunk.Release()
+		if chunks[idx], err = convert(chunk); err != nil {
+			return nil, err
+		}
+		defer chunks[idx].Release()
+	}
+
+	return arrow.NewChunked(dt, chunks), nil
 }

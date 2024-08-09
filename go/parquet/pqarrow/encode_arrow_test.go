@@ -654,6 +654,8 @@ func getLogicalType(typ arrow.DataType) schema.LogicalType {
 	case arrow.DECIMAL, arrow.DECIMAL256:
 		dec := typ.(arrow.DecimalType)
 		return schema.NewDecimalLogicalType(dec.GetPrecision(), dec.GetScale())
+	case arrow.INTERVAL_MONTH_DAY_NANO:
+		return schema.IntervalLogicalType{}
 	}
 	return schema.NoLogicalType{}
 }
@@ -687,6 +689,8 @@ func getPhysicalType(typ arrow.DataType) parquet.Type {
 		return parquet.Types.Int32
 	case arrow.TIME64, arrow.TIMESTAMP:
 		return parquet.Types.Int64
+	case arrow.INTERVAL_MONTH_DAY_NANO:
+		return parquet.Types.FixedLenByteArray
 	default:
 		return parquet.Types.Int32
 	}
@@ -709,6 +713,9 @@ const (
 	strTestVal    = "Test"
 
 	smallSize = 100
+)
+var (
+	intvlTestVal  = arrow.MonthDayNanoInterval { Months: 23, Days: 11, Nanoseconds: 123000000 }
 )
 
 type ParquetIOTestSuite struct {
@@ -735,6 +742,8 @@ func (ps *ParquetIOTestSuite) makeSimpleSchema(typ arrow.DataType, rep parquet.R
 		byteWidth = pqarrow.DecimalSize(typ.GetPrecision())
 	case *arrow.Float16Type:
 		byteWidth = int32(typ.Bytes())
+	case *arrow.MonthDayNanoIntervalType:
+		byteWidth = 12
 	case *arrow.DictionaryType:
 		valuesType := typ.ValueType
 		switch dt := valuesType.(type) {
@@ -747,7 +756,8 @@ func (ps *ParquetIOTestSuite) makeSimpleSchema(typ arrow.DataType, rep parquet.R
 		}
 	}
 
-	pnode, _ := schema.NewPrimitiveNodeLogical("column1", rep, getLogicalType(typ), getPhysicalType(typ), int(byteWidth), -1)
+	pnode, err := schema.NewPrimitiveNodeLogical("column1", rep, getLogicalType(typ), getPhysicalType(typ), int(byteWidth), -1)
+	ps.NoError(err)
 	return schema.MustGroup(schema.NewGroupNode("schema", parquet.Repetitions.Required, schema.FieldList{pnode}, -1))
 }
 
@@ -828,6 +838,13 @@ func (ps *ParquetIOTestSuite) makePrimitiveTestCol(mem memory.Allocator, size in
 		defer bldr.Release()
 		for i := 0; i < size; i++ {
 			bldr.Append(doubleTestVal)
+		}
+		return bldr.NewArray()
+	case arrow.INTERVAL_MONTH_DAY_NANO:
+		bldr := array.NewMonthDayNanoIntervalBuilder(mem)
+		defer bldr.Release()
+		for i := 0; i < size; i++ {
+			bldr.Append(intvlTestVal)
 		}
 		return bldr.NewArray()
 	}
@@ -1122,6 +1139,7 @@ func (ps *ParquetIOTestSuite) TestSingleColumnRequiredRead() {
 		arrow.PrimitiveTypes.Int64,
 		arrow.PrimitiveTypes.Float32,
 		arrow.PrimitiveTypes.Float64,
+		arrow.FixedWidthTypes.MonthDayNanoInterval,
 	}
 
 	nchunks := []int{1, 4}
@@ -1334,6 +1352,7 @@ var fullTypeList = []arrow.DataType{
 	&arrow.Decimal128Type{Precision: 23, Scale: 22},
 	&arrow.Decimal128Type{Precision: 27, Scale: 26},
 	&arrow.Decimal128Type{Precision: 38, Scale: 37},
+	&arrow.MonthDayNanoIntervalType{},
 }
 
 func (ps *ParquetIOTestSuite) TestSingleColumnRequiredWrite() {

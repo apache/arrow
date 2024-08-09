@@ -348,6 +348,10 @@ func fieldToNode(name string, field arrow.Field, props *parquet.WriterProperties
 		typ = parquet.Types.FixedLenByteArray
 		length = arrow.Float16SizeBytes
 		logicalType = schema.Float16LogicalType{}
+	case arrow.INTERVAL_MONTH_DAY_NANO:
+		typ = parquet.Types.FixedLenByteArray
+		length = 12
+		logicalType = schema.IntervalLogicalType{}
 	case arrow.STRUCT:
 		return structToNode(field.Type.(*arrow.StructType), field.Name, field.Nullable, props, arrprops)
 	case arrow.FIXED_SIZE_LIST, arrow.LIST:
@@ -602,10 +606,12 @@ func arrowFromFLBA(logical schema.LogicalType, length int) (arrow.DataType, erro
 	switch logtype := logical.(type) {
 	case *schema.DecimalLogicalType:
 		return arrowDecimal(logtype), nil
-	case schema.NoLogicalType, schema.IntervalLogicalType, schema.UUIDLogicalType:
+	case schema.NoLogicalType, schema.UUIDLogicalType:
 		return &arrow.FixedSizeBinaryType{ByteWidth: int(length)}, nil
 	case schema.Float16LogicalType:
 		return &arrow.Float16Type{}, nil
+	case schema.IntervalLogicalType:
+		return &arrow.MonthDayNanoIntervalType{}, nil
 	default:
 		return nil, xerrors.New("unhandled logical type " + logical.String() + " for fixed-length byte array")
 	}

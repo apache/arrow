@@ -41,8 +41,8 @@ import (
 
 func (ps *ParquetIOTestSuite) TestSingleColumnOptionalDictionaryWrite() {
 	for _, dt := range fullTypeList {
-		// skip tests for bool as we don't do dictionaries for it
-		if dt.ID() == arrow.BOOL {
+		// skip tests for bool and interval as we don't do dictionaries for them
+		if dt.ID() == arrow.BOOL || dt.ID() == arrow.INTERVAL_MONTH_DAY_NANO {
 			continue
 		}
 

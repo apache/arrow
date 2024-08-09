@@ -190,6 +190,19 @@ func RandomNonNull(mem memory.Allocator, dt arrow.DataType, size int) arrow.Arra
 		FillRandomBooleans(0.5, 0, values)
 		bldr.AppendValues(values, nil)
 		return bldr.NewArray()
+	case arrow.INTERVAL_MONTH_DAY_NANO:
+		bldr := array.NewMonthDayNanoIntervalBuilder(memory.DefaultAllocator)
+		defer bldr.Release()
+
+		for i := 0; i < size; i++ {
+			bldr.Append(arrow.MonthDayNanoInterval{
+				Months: rand.Int31(),
+				Days: rand.Int31(),
+				// parquet interval supports 32-bit milliseconds only -> only generate at 32-bit-millisecond precision
+				Nanoseconds: int64(rand.Int31()) * 1000000,
+			})
+		}
+		return bldr.NewArray()
 	}
 	return nil
 }
@@ -512,6 +525,32 @@ func RandomNullable(dt arrow.DataType, size int, numNulls int) arrow.Array {
 		values := make([]bool, size)
 		FillRandomBooleans(0.5, 0, values)
 		bldr.AppendValues(values, valid)
+		return bldr.NewArray()
+	case arrow.INTERVAL_MONTH_DAY_NANO:
+		bldr := array.NewMonthDayNanoIntervalBuilder(memory.DefaultAllocator)
+		defer bldr.Release()
+
+		valid := make([]bool, size)
+		for idx := range valid {
+			valid[idx] = true
+		}
+		for i := 0; i < numNulls; i++ {
+			valid[i*2] = false
+		}
+
+		for i := 0; i < size; i++ {
+			if !valid[i] {
+				bldr.AppendNull()
+				continue
+			}
+
+			bldr.Append(arrow.MonthDayNanoInterval{
+				Months: rand.Int31(),
+				Days: rand.Int31(),
+				// parquet interval supports 32-bit milliseconds only -> only generate at 32-bit-millisecond precision
+				Nanoseconds: int64(rand.Int31()) * 1000000,
+			})
+		}
 		return bldr.NewArray()
 	}
 	return nil

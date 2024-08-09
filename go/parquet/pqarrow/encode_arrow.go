@@ -607,6 +607,30 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 				}
 				wr.WriteBatchSpaced(data, defLevels, repLevels, arr.NullBitmapBytes(), int64(arr.Data().Offset()))
 			}
+		case *arrow.MonthDayNanoIntervalType:
+			arr := leafArr.(*array.MonthDayNanoInterval)
+			data := make([]parquet.FixedLenByteArray, arr.Len())
+
+			// NOTE: parquet Interval only supports 32-bit milliseconds so we are truncating Nanoseconds to milliseconds
+			if arr.NullN() == 0 {
+				for idx := range data {
+					data[idx] = make(parquet.FixedLenByteArray, 12)
+					binary.LittleEndian.PutUint32(data[idx][:4], uint32(arr.Value(idx).Months))
+					binary.LittleEndian.PutUint32(data[idx][4:8], uint32(arr.Value(idx).Days))
+					binary.LittleEndian.PutUint32(data[idx][8:], uint32(arr.Value(idx).Nanoseconds / 1000000))
+				}
+				_, err = wr.WriteBatch(data, defLevels, repLevels)
+			} else {
+				for idx := range data {
+					if arr.IsValid(idx) {
+						data[idx] = make(parquet.FixedLenByteArray, 12)
+						binary.LittleEndian.PutUint32(data[idx][:4], uint32(arr.Value(idx).Months))
+						binary.LittleEndian.PutUint32(data[idx][4:8], uint32(arr.Value(idx).Days))
+						binary.LittleEndian.PutUint32(data[idx][8:], uint32(arr.Value(idx).Nanoseconds / 1000000))
+					}
+				}
+				wr.WriteBatchSpaced(data, defLevels, repLevels, arr.NullBitmapBytes(), int64(arr.Data().Offset()))
+			}
 		default:
 			return fmt.Errorf("%w: invalid column type to write to FixedLenByteArray: %s", arrow.ErrInvalid, leafArr.DataType().Name())
 		}
