@@ -18,6 +18,7 @@
 -->
 
 # arrow 17.0.0.9000
+* Expose an option `check_directory_existence_before_creation` in `S3FileSystem` which defaults to `FALSE`. If it's set to false, when creating a directory the code will not check if it already exists or not. It's an optimization to try directory creation and catch the error, rather than issue two dependent I/O calls. If set to `TRUE`, when creating a directory the code will only create the directory when necessary at the cost of extra I/O calls. This can be used for key/value cloud storage which has a hard rate limit to number of object mutation operations or scenarios such as the directories already exist and you do not have creation access.
 
 # arrow 17.0.0
 
