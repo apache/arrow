@@ -1661,3 +1661,49 @@ def test_legacy_int_type():
             batch = ipc_read_batch(buf)
             assert isinstance(batch.column(0).type, LegacyIntType)
             assert batch.column(0) == ext_arr
+
+
+@pytest.mark.parametrize("storage_type,storage", [
+    (pa.null(), [None] * 4),
+    (pa.int64(), [1, 2, None, 4]),
+    (pa.binary(), [None, b"foobar"]),
+    (pa.list_(pa.int64()), [[], [1, 2], None, [3, None]]),
+])
+def test_opaque_type(pickle_module, storage_type, storage):
+    opaque_type = pa.opaque(storage_type, "type", "vendor")
+    assert opaque_type.extension_name == "arrow.opaque"
+    assert opaque_type.storage_type == storage_type
+    assert opaque_type.type_name == "type"
+    assert opaque_type.vendor_name == "vendor"
+    assert "arrow.opaque" in str(opaque_type)
+
+    assert opaque_type == opaque_type
+    assert opaque_type != storage_type
+    assert opaque_type != pa.opaque(storage_type, "type2", "vendor")
+    assert opaque_type != pa.opaque(storage_type, "type", "vendor2")
+    assert opaque_type != pa.opaque(pa.decimal128(12, 3), "type", "vendor")
+
+    # Pickle roundtrip
+    result = pickle_module.loads(pickle_module.dumps(opaque_type))
+    assert result == opaque_type
+
+    # IPC roundtrip
+    opaque_arr_class = opaque_type.__arrow_ext_class__()
+    storage = pa.array(storage, storage_type)
+    arr = pa.ExtensionArray.from_storage(opaque_type, storage)
+    assert isinstance(arr, opaque_arr_class)
+
+    with registered_extension_type(opaque_type):
+        buf = ipc_write_batch(pa.RecordBatch.from_arrays([arr], ["ext"]))
+        batch = ipc_read_batch(buf)
+
+    assert batch.column(0).type.extension_name == "arrow.opaque"
+    assert isinstance(batch.column(0), opaque_arr_class)
+
+    # cast storage -> extension type
+    result = storage.cast(opaque_type)
+    assert result == arr
+
+    # cast extension type -> storage type
+    inner = arr.cast(storage_type)
+    assert inner == storage
