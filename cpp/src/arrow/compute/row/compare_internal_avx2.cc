@@ -206,13 +206,19 @@ uint32_t KeyCompare::CompareBinaryColumnToRowHelper_avx2(
             _mm256_loadu_si256(reinterpret_cast<const __m256i*>(left_to_right_map) + i);
       }
 
+      // Widen the 32-bit row ids to 64-bit and store the first/last 4 of them into 2
+      // 256-bit registers.
       __m256i irow_right_lo = _mm256_cvtepi32_epi64(_mm256_castsi256_si128(irow_right));
       __m256i irow_right_hi =
           _mm256_cvtepi32_epi64(_mm256_extracti128_si256(irow_right, 1));
+      // Calculate the lower/higher 4 64-bit row offsets based on the lower/higher 4
+      // 64-bit row ids and the fixed length.
       __m256i offset_right_lo =
           _mm256_mul_epi32(irow_right_lo, _mm256_set1_epi64x(fixed_length));
       __m256i offset_right_hi =
           _mm256_mul_epi32(irow_right_hi, _mm256_set1_epi64x(fixed_length));
+      // Calculate the lower/higher 4 64-bit field offsets based on the lower/higher 4
+      // 64-bit row offsets and field offset within row.
       offset_right_lo =
           _mm256_add_epi64(offset_right_lo, _mm256_set1_epi64x(offset_within_row));
       offset_right_hi =
@@ -247,12 +253,16 @@ uint32_t KeyCompare::CompareBinaryColumnToRowHelper_avx2(
 
       auto offsets_right_i64 =
           reinterpret_cast<const arrow::util::int64_for_gather_t*>(offsets_right);
+      // Gather the lower/higher 4 64-bit row offsets based on the lower/higher 4 32-bit
+      // row ids.
       __m256i offset_right_lo =
           _mm256_i32gather_epi64(offsets_right_i64, _mm256_castsi256_si128(irow_right),
                                  sizeof(RowTableImpl::offset_type));
       __m256i offset_right_hi = _mm256_i32gather_epi64(
           offsets_right_i64, _mm256_extracti128_si256(irow_right, 1),
           sizeof(RowTableImpl::offset_type));
+      // Calculate the lower/higher 4 64-bit field offsets based on the lower/higher 4
+      // 64-bit row offsets and field offset within row.
       offset_right_lo =
           _mm256_add_epi64(offset_right_lo, _mm256_set1_epi64x(offset_within_row));
       offset_right_hi =
