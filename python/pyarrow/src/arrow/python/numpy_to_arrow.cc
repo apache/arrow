@@ -57,6 +57,7 @@
 #include "arrow/python/numpy_internal.h"
 #include "arrow/python/python_to_arrow.h"
 #include "arrow/python/type_traits.h"
+#include "arrow/python/vendored/pythoncapi_compat.h"
 
 namespace arrow {
 
@@ -757,8 +758,10 @@ Status NumPyConverter::Visit(const StructType& type) {
     }
 
     for (auto field : type.fields()) {
-      PyObject* tup =
-          PyDict_GetItemString(PyDataType_FIELDS(dtype_), field->name().c_str());
+      PyObject* tup;
+      PyDict_GetItemStringRef(PyDataType_FIELDS(dtype_), field->name().c_str(), &tup);
+      RETURN_IF_PYERROR();
+      OwnedRef tupref(tup);
       if (tup == NULL) {
         return Status::Invalid("Missing field '", field->name(), "' in struct array");
       }
