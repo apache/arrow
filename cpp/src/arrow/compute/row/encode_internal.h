@@ -173,7 +173,7 @@ class EncoderBinary {
         copy_fn(dst, src, col_width);
       }
     } else {
-      const uint32_t* row_offsets = rows_const->offsets();
+      const RowTableImpl::offset_type* row_offsets = rows_const->offsets();
       for (uint32_t i = 0; i < num_rows; ++i) {
         const uint8_t* src;
         uint8_t* dst;
@@ -267,7 +267,8 @@ class EncoderVarBinary {
     ARROW_DCHECK(!rows_const->metadata().is_fixed_length &&
                  !col_const->metadata().is_fixed_length);
 
-    const uint32_t* row_offsets_for_batch = rows_const->offsets() + start_row;
+    const RowTableImpl::offset_type* row_offsets_for_batch =
+        rows_const->offsets() + start_row;
     const uint32_t* col_offsets = col_const->offsets();
 
     uint32_t col_offset_next = col_offsets[0];
@@ -275,7 +276,7 @@ class EncoderVarBinary {
       uint32_t col_offset = col_offset_next;
       col_offset_next = col_offsets[i + 1];
 
-      uint32_t row_offset = row_offsets_for_batch[i];
+      RowTableImpl::offset_type row_offset = row_offsets_for_batch[i];
       const uint8_t* row = rows_const->data(2) + row_offset;
 
       uint32_t offset_within_row;
