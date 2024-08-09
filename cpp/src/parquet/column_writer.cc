@@ -40,6 +40,7 @@
 #include "arrow/util/crc32.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/float16.h"
+#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle_encoding_internal.h"
 #include "arrow/util/type_traits.h"
@@ -832,6 +833,9 @@ class ColumnWriterImpl {
   void FlushBufferedDataPages();
 
   ColumnChunkMetaDataBuilder* metadata_;
+  // key_value_metadata_ for the column chunk
+  // It would be nullptr if there is no KeyValueMetadata set.
+  std::shared_ptr<const KeyValueMetadata> key_value_metadata_;
   const ColumnDescriptor* descr_;
   // scratch buffer if validity bits need to be recalculated.
   std::shared_ptr<ResizableBuffer> bits_buffer_;
@@ -1100,6 +1104,7 @@ int64_t ColumnWriterImpl::Close() {
     if (rows_written_ > 0 && chunk_statistics.is_set()) {
       metadata_->SetStatistics(chunk_statistics);
     }
+    metadata_->SetKeyValueMetadata(key_value_metadata_);
     pager_->Close(has_dictionary_, fallback_);
   }
 
@@ -1395,6 +1400,25 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
 
   bool pages_change_on_record_boundaries() const {
     return pages_change_on_record_boundaries_;
+  }
+
+  void AddKeyValueMetadata(
+      const std::shared_ptr<const KeyValueMetadata>& key_value_metadata) override {
+    if (closed_) {
+      throw ParquetException("Cannot add key-value metadata to closed column");
+    }
+    if (key_value_metadata_ == nullptr) {
+      key_value_metadata_ = key_value_metadata;
+    } else if (key_value_metadata != nullptr) {
+      key_value_metadata_ = key_value_metadata_->Merge(*key_value_metadata);
+    }
+  }
+
+  void ResetKeyValueMetadata() override {
+    if (closed_) {
+      throw ParquetException("Cannot add key-value metadata to closed column");
+    }
+    key_value_metadata_ = nullptr;
   }
 
  private:
