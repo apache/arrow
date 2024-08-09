@@ -404,7 +404,7 @@ template <typename SlowStreamType>
 void TestSlowInputStream() {
   using clock = std::chrono::high_resolution_clock;
 
-  auto stream = std::make_shared<BufferReader>(std::string_view("abcdefghijkl"));
+  std::shared_ptr<RandomAccessFile> stream = BufferReader::FromString("abcdefghijkl");
   const double latency = 0.6;
   auto slow = std::make_shared<SlowStreamType>(stream, latency);
 
@@ -519,7 +519,7 @@ class TestTransformInputStream : public ::testing::Test {
   TransformInputStream::TransformFunc transform() const { return T(); }
 
   void TestEmptyStream() {
-    auto wrapped = std::make_shared<BufferReader>(std::string_view());
+    std::shared_ptr<InputStream> wrapped = BufferReader::FromString({});
     auto stream = std::make_shared<TransformInputStream>(wrapped, transform());
 
     ASSERT_OK_AND_EQ(0, stream->Tell());
@@ -797,7 +797,7 @@ TEST(RangeReadCache, Basics) {
 TEST(RangeReadCache, Concurrency) {
   std::string data = "abcdefghijklmnopqrstuvwxyz";
 
-  auto file = std::make_shared<BufferReader>(Buffer(data));
+  auto file = std::make_shared<BufferReader>(std::make_shared<Buffer>(data));
   std::vector<ReadRange> ranges{{1, 2},  {3, 2},  {8, 2},  {20, 2},
                                 {25, 0}, {10, 4}, {14, 0}, {15, 4}};
 
