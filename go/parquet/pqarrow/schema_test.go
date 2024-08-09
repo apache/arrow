@@ -207,6 +207,10 @@ func TestConvertArrowFlatPrimitives(t *testing.T) {
 	parquetFields = append(parquetFields, schema.NewFloat64Node("double", parquet.Repetitions.Optional, -1))
 	arrowFields = append(arrowFields, arrow.Field{Name: "double", Type: arrow.PrimitiveTypes.Float64, Nullable: true})
 
+	parquetFields = append(parquetFields, schema.Must(schema.NewPrimitiveNodeLogical("interval", parquet.Repetitions.Optional,
+		schema.IntervalLogicalType{}, parquet.Types.FixedLenByteArray, 12, -1)))
+	arrowFields = append(arrowFields, arrow.Field{Name: "interval", Type: arrow.FixedWidthTypes.MonthDayNanoInterval, Nullable: true})
+
 	parquetFields = append(parquetFields, schema.NewByteArrayNode("binary", parquet.Repetitions.Optional, -1))
 	arrowFields = append(arrowFields, arrow.Field{Name: "binary", Type: arrow.BinaryTypes.Binary, Nullable: true})
 
@@ -440,7 +444,6 @@ func TestUnsupportedTypes(t *testing.T) {
 		{typ: &arrow.DurationType{}},
 		{typ: &arrow.DayTimeIntervalType{}},
 		{typ: &arrow.MonthIntervalType{}},
-		{typ: &arrow.MonthDayNanoIntervalType{}},
 		{typ: &arrow.DenseUnionType{}},
 		{typ: &arrow.SparseUnionType{}},
 	}
