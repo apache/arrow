@@ -58,14 +58,15 @@ libarrow_cuda_glib = library('arrow-cuda-glib',
 arrow_cuda_glib = declare_dependency(link_with: libarrow_cuda_glib,
                                      include_directories: base_include_directories,
                                      dependencies: dependencies)
-
-pkgconfig.generate(libarrow_cuda_glib,
-                   description: 'C API for Apache Arrow CUDA based on GLib',
-                   filebase: 'arrow-cuda-glib',
-                   name: 'Apache Arrow CUDA GLib',
-                   requires: ['arrow-glib', 'arrow-cuda'],
-                   variables: pkgconfig_variables,
-                   version: version)
+if target_machine.system() != 'windows'
+  pkgconfig.generate(libarrow_cuda_glib,
+                     description: 'C API for Apache Arrow CUDA based on GLib',
+                     filebase: 'arrow-cuda-glib',
+                     name: 'Apache Arrow CUDA GLib',
+                     requires: ['arrow-glib', 'arrow-cuda'],
+                     variables: pkgconfig_variables,
+                     version: version)
+endif
 
 if have_gi
   gir_dependencies = [
