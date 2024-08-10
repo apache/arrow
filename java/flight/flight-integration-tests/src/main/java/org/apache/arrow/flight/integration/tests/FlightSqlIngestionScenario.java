@@ -96,7 +96,8 @@ public class FlightSqlIngestionScenario extends FlightSqlScenario {
       ExecuteIngestOptions executeIngestOptions =
           new ExecuteIngestOptions(
               "test_table", tableDefinitionOptions, true, "test_catalog", "test_schema", options);
-      FlightSqlClient.Transaction transaction = new FlightSqlClient.Transaction(TRANSACTION_ID);
+      FlightSqlClient.Transaction transaction =
+          new FlightSqlClient.Transaction(BULK_INGEST_TRANSACTION_ID);
       long updatedRows = sqlClient.executeIngest(data, executeIngestOptions, transaction);
 
       IntegrationAssertions.assertEquals(3L, updatedRows);

@@ -18,6 +18,7 @@ package org.apache.arrow.flight.integration.tests;
 
 import static java.util.Objects.isNull;
 
+import com.google.protobuf.Any;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -34,6 +35,7 @@ import org.apache.arrow.flight.SchemaResult;
 import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.flight.sql.FlightSqlClient;
 import org.apache.arrow.flight.sql.FlightSqlProducer;
+import org.apache.arrow.flight.sql.FlightSqlUtils;
 import org.apache.arrow.flight.sql.impl.FlightSql;
 import org.apache.arrow.flight.sql.util.TableRef;
 import org.apache.arrow.memory.BufferAllocator;
@@ -60,6 +62,7 @@ public class FlightSqlScenario implements Scenario {
   public static final FlightSqlClient.SubstraitPlan SUBSTRAIT_PLAN =
       new FlightSqlClient.SubstraitPlan(SUBSTRAIT_PLAN_TEXT, SUBSTRAIT_VERSION);
   public static final byte[] TRANSACTION_ID = "transaction_id".getBytes(StandardCharsets.UTF_8);
+  public static final byte[] BULK_INGEST_TRANSACTION_ID = "123".getBytes(StandardCharsets.UTF_8);
 
   @Override
   public FlightProducer producer(BufferAllocator allocator, Location location) throws Exception {
@@ -158,23 +161,23 @@ public class FlightSqlScenario implements Scenario {
     validateSchema(
         FlightSqlProducer.Schemas.GET_TYPE_INFO_SCHEMA, sqlClient.getXdbcTypeInfoSchema(options));
 
-    validate(
-        FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA,
+    FlightInfo sqlInfoFlightInfo =
         sqlClient.getSqlInfo(
             new FlightSql.SqlInfo[] {
               FlightSql.SqlInfo.FLIGHT_SQL_SERVER_NAME,
               FlightSql.SqlInfo.FLIGHT_SQL_SERVER_READ_ONLY
             },
-            options),
-        sqlClient,
-        s -> {
-          Map<Integer, Object> infoValues = readSqlInfoStream(s);
-          IntegrationAssertions.assertEquals(
-              Boolean.FALSE, infoValues.get(FlightSql.SqlInfo.FLIGHT_SQL_SERVER_READ_ONLY_VALUE));
-          IntegrationAssertions.assertEquals(
-              FlightSqlScenarioProducer.SERVER_NAME,
-              infoValues.get(FlightSql.SqlInfo.FLIGHT_SQL_SERVER_NAME_VALUE));
-        });
+            options);
+
+    Ticket ticket = sqlInfoFlightInfo.getEndpoints().get(0).getTicket();
+    FlightSql.CommandGetSqlInfo requestSqlInfoCommand =
+        FlightSqlUtils.unpackOrThrow(
+            Any.parseFrom(ticket.getBytes()), FlightSql.CommandGetSqlInfo.class);
+    IntegrationAssertions.assertEquals(
+        requestSqlInfoCommand.getInfo(0), FlightSql.SqlInfo.FLIGHT_SQL_SERVER_NAME_VALUE);
+    IntegrationAssertions.assertEquals(
+        requestSqlInfoCommand.getInfo(1), FlightSql.SqlInfo.FLIGHT_SQL_SERVER_READ_ONLY_VALUE);
+    validate(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA, sqlInfoFlightInfo, sqlClient);
     validateSchema(
         FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA, sqlClient.getSqlInfoSchema(options));
   }

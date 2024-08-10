@@ -560,7 +560,7 @@ public class FlightSqlScenarioProducer implements FlightSqlProducer {
     IntegrationAssertions.assertEquals("test_schema", command.getSchema());
     IntegrationAssertions.assertEquals(true, command.getTemporary());
     IntegrationAssertions.assertEquals(
-        FlightSqlScenario.TRANSACTION_ID, command.getTransactionId().toByteArray());
+        FlightSqlScenario.BULK_INGEST_TRANSACTION_ID, command.getTransactionId().toByteArray());
 
     Map<String, String> expectedOptions =
         new HashMap<>(ImmutableMap.of("key1", "val1", "key2", "val2"));
@@ -652,6 +652,13 @@ public class FlightSqlScenarioProducer implements FlightSqlProducer {
   @Override
   public void getStreamSqlInfo(
       FlightSql.CommandGetSqlInfo command, CallContext context, ServerStreamListener listener) {
+    if (command.getInfoCount() == 2
+        && command.getInfo(0) == FlightSql.SqlInfo.FLIGHT_SQL_SERVER_NAME_VALUE
+        && command.getInfo(1) == FlightSql.SqlInfo.FLIGHT_SQL_SERVER_READ_ONLY_VALUE) {
+      // Integration test for the protocol messages
+      putEmptyBatchToStreamListener(listener, Schemas.GET_SQL_INFO_SCHEMA);
+      return;
+    }
     sqlInfoBuilder.send(command.getInfoList(), listener);
   }
 
