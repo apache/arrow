@@ -90,6 +90,7 @@ jobs:
       with:
         use-public-rspm: true
         install-r: false
+        install-quarto: false
 
     - uses: r-lib/actions/setup-r-dependencies@v2
       with:
