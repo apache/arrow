@@ -71,6 +71,21 @@ test_that("data.table objects roundtrip", {
   # we should still be able to turn this into a table
   expect_equal(DT, DT_read)
 
+  # attributes are the same, aside from the internal selfref pointer
+  expect_mapequal(attributes(DT_read), attributes(DT)[names(attributes(DT)) != ".internal.selfref"])
+
+  # and we can set keys + indices
+  setkey(DT, chr)
+  setindex(DT, dbl)
+
+  # write to parquet
+  pq_tmp_file <- tempfile()
+  write_parquet(DT, pq_tmp_file)
+  DT_read <- read_parquet(pq_tmp_file)
+
+  # we should still be able to turn this into a table
+  expect_equal(DT, DT_read)
+
   # and the attributes are the same, aside from the internal selfref pointer
   expect_mapequal(attributes(DT_read), attributes(DT)[names(attributes(DT)) != ".internal.selfref"])
 })
