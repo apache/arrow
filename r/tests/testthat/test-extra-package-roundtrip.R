@@ -59,7 +59,6 @@ test_that("readr read csvs roundtrip", {
 })
 
 test_that("data.table objects roundtrip", {
-  # indirection to avoid CHECK note and we don't otherwise need to Suggest this
   load_or_skip("data.table")
 
   DT <- as.data.table(example_data)
