@@ -17,6 +17,10 @@
 
 skip_on_cran()
 
+# Any additional pacakge that we test here that is not already in DESCRIPTION should be
+# added to dev/tasks/r/github.linux.extra.packages.yml in the r-lib/actions/setup-r-dependencies@v2
+# step so that they are installed + available in that CI job.
+
 # So that we can force these in CI
 load_or_skip <- function(pkg) {
   if (identical(tolower(Sys.getenv("ARROW_R_FORCE_EXTRA_PACKAGE_TESTS")), "true")) {
