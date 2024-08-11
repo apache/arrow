@@ -1309,6 +1309,10 @@ tasks:
     ci: github
     template: r/github.linux.rchk.yml
 
+  test-r-extra-packages:
+    ci: github
+    template: r/github.linux.extra.packages.yml   
+
   test-r-linux-as-cran:
     ci: github
     template: r/github.linux.cran.yml
