@@ -86,6 +86,7 @@ jobs:
       run: |
         sudo apt-get install devscripts
 
+    # replace the SHA with v2 once INFRA-26031 is resolved
     - uses: r-lib/actions/setup-r@732fb28088814627972f1ccbacc02561178cf391
       with:
         use-public-rspm: true
