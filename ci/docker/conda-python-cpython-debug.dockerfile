@@ -15,20 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-{% import 'macros.jinja' as macros with context %}
+ARG repo
+ARG arch
+ARG python=3.8
+FROM ${repo}:${arch}-conda-python-${python}
 
-{{ macros.github_header() }}
-
-jobs:
-  test:
-    name: |
-      Docker Python Minimal Build {{ flags|default("") }} {{ image }} {{ command|default("") }}
-    runs-on: ubuntu-latest
-{{ macros.github_set_env(env) }}
-    steps:
-      {{ macros.github_checkout_arrow(fetch_depth=0, submodules=false)|indent }}
-
-      - name: Run minimal build example
-        run: |
-          cd arrow/python/examples/{{ type }}
-          docker compose run --rm {{ image }}
+# (Docker oddity: ARG needs to be repeated after FROM)
+ARG python=3.8
+RUN mamba install -y "conda-forge/label/python_debug::python=${python}[build=*_cpython]" && \
+    mamba clean --all
+# Quick check that we do have a debug mode CPython
+RUN python -c "import sys; sys.gettotalrefcount()"
