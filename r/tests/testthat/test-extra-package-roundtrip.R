@@ -42,11 +42,20 @@ test_that("readr read csvs roundtrip", {
 
   # we should still be able to turn this into a table
   new_df <- read_csv(tf, show_col_types = FALSE)
-  expect_equal(tbl, as_tibble(arrow_table(new_df)))    
+  expect_equal(new_df, as_tibble(arrow_table(new_df)))    
 
   # we should still be able to turn this into a table
   new_df <- read_csv(tf, show_col_types = FALSE, lazy = TRUE)
-  expect_equal(tbl, as_tibble(arrow_table(new_df)))    
+  expect_equal(new_df, as_tibble(arrow_table(new_df)))    
+
+  # and can roundtrip to a parquet file
+  pq_tmp_file <- tempfile()
+  write_parquet(new_df, pq_tmp_file)
+  new_df_read <- read_parquet(pq_tmp_file)
+
+  # we should still be able to turn this into a table
+  expect_equal(new_df, new_df_read)
+
 })
 
 test_that("data.table objects roundtrip", {
@@ -55,8 +64,14 @@ test_that("data.table objects roundtrip", {
 
   DT <- as.data.table(example_data)
 
-  # we should still be able to turn this into a table
-  expect_equal(example_data, as_tibble(arrow_table(DT)))    
+  # write to parquet
+  pq_tmp_file <- tempfile()
+  write_parquet(DT, pq_tmp_file)
+  DT_read <- read_parquet(pq_tmp_file)
 
-  # TODO: parquet write?  
+  # we should still be able to turn this into a table
+  expect_equal(DT, DT_read)
+
+  # and the attributes are the same, aside from the internal selfref pointer
+  expect_mapequal(attributes(DT_read), attributes(DT)[names(attributes(DT)) != ".internal.selfref"])
 })
