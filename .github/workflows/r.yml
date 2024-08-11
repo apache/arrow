@@ -86,18 +86,19 @@ jobs:
       run: |
         sudo apt-get install devscripts
 
-    - uses: r-lib/actions/setup-r@v2
+    # replace the SHA with v2 once INFRA-26031 is resolved
+    - uses: r-lib/actions/setup-r@732fb28088814627972f1ccbacc02561178cf391
       with:
         use-public-rspm: true
         install-r: false
 
-    - uses: r-lib/actions/setup-r-dependencies@v2
+    - uses: r-lib/actions/setup-r-dependencies@732fb28088814627972f1ccbacc02561178cf391
       with:
         extra-packages: any::rcmdcheck
         needs: check
         working-directory: src/r
 
-    - uses: r-lib/actions/check-r-package@v2
+    - uses: r-lib/actions/check-r-package@732fb28088814627972f1ccbacc02561178cf391
       with:
         working-directory: src/r
       env:
@@ -337,11 +338,11 @@ jobs:
           cd r/windows
           ls *.zip | xargs -n 1 unzip -uo
           rm -rf *.zip
-      - uses: r-lib/actions/setup-r@v2
+      - uses: r-lib/actions/setup-r@732fb28088814627972f1ccbacc02561178cf391
         with:
           r-version: ${{ matrix.config.rversion }}
           Ncpus: 2
-      - uses: r-lib/actions/setup-r-dependencies@v2
+      - uses: r-lib/actions/setup-r-dependencies@732fb28088814627972f1ccbacc02561178cf391
         env:
           GITHUB_PAT: "${{ github.token }}"
         with:
