@@ -65,6 +65,9 @@ test_that("readr read csvs roundtrip", {
 test_that("data.table objects roundtrip", {
   load_or_skip("data.table")
 
+  # https://rdatatable.gitlab.io/data.table/articles/datatable-importing.html#testing-using-testthat
+  .datatable.aware=TRUE
+
   DT <- as.data.table(example_data)
 
   # write to parquet
@@ -78,9 +81,10 @@ test_that("data.table objects roundtrip", {
   # attributes are the same, aside from the internal selfref pointer
   expect_mapequal(attributes(DT_read), attributes(DT)[names(attributes(DT)) != ".internal.selfref"])
 
-  # and we can set keys + indices
+  # and we can set keys + indices + create new columns
   setkey(DT, chr)
   setindex(DT, dbl)
+  DT[, dblshift := data.table::shift(dbl, 1)]
 
   # write to parquet
   pq_tmp_file <- tempfile()
