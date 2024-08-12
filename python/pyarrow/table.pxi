@@ -3580,6 +3580,7 @@ cdef class RecordBatch(_Tabular):
         Parameters
         ----------
         destination : pyarrow.MemoryManager or pyarrow.Device
+            The destination device to copy the array to.
 
         Returns
         ------
