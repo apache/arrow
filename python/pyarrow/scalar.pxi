@@ -1211,6 +1211,11 @@ def scalar(value, type=None, *, from_pandas=None, MemoryPool memory_pool=None):
     type = ensure_type(type, allow_none=True)
     pool = maybe_unbox_memory_pool(memory_pool)
 
+    extension_type = None
+    if type is not None and type.id == _Type_EXTENSION:
+        extension_type = type
+        type = type.storage_type
+
     if _is_array_like(value):
         value = get_values(value, &is_pandas_object)
 
@@ -1235,4 +1240,8 @@ def scalar(value, type=None, *, from_pandas=None, MemoryPool memory_pool=None):
 
     # retrieve the scalar from the first position
     scalar = GetResultValue(array.get().GetScalar(0))
-    return Scalar.wrap(scalar)
+    result = Scalar.wrap(scalar)
+
+    if extension_type is not None:
+        result = ExtensionScalar.from_storage(extension_type, result)
+    return result

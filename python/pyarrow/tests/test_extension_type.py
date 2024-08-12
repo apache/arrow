@@ -1847,3 +1847,9 @@ def test_bool8_scalar():
     assert arr[2].as_py()
     assert arr[3].as_py()
     assert arr[4].as_py() is None
+
+    assert pa.scalar(-1, type=pa.bool8()).as_py()
+    assert not pa.scalar(0, type=pa.bool8()).as_py()
+    assert pa.scalar(1, type=pa.bool8()).as_py()
+    assert pa.scalar(2, type=pa.bool8()).as_py()
+    assert pa.scalar(None, type=pa.bool8()).as_py() is None
