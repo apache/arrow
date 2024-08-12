@@ -35,7 +35,7 @@ require (
 	github.com/stretchr/testify v1.9.0
 	github.com/zeebo/xxh3 v1.0.2
 	golang.org/x/exp v0.0.0-20240222234643-814bf88cf225
-	golang.org/x/sync v0.7.0
+	golang.org/x/sync v0.8.0
 	golang.org/x/sys v0.22.0
 	golang.org/x/tools v0.23.0
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028
@@ -47,7 +47,7 @@ require (
 
 require (
 	github.com/google/uuid v1.6.0
-	github.com/hamba/avro/v2 v2.23.0
+	github.com/hamba/avro/v2 v2.24.0
 	github.com/huandu/xstrings v1.4.0
 	github.com/substrait-io/substrait-go v0.5.0
 	github.com/tidwall/sjson v1.2.5

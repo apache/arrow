@@ -34,7 +34,6 @@ on:
 env:
   ARCHERY_DEBUG: 1
   ARCHERY_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-  ARCHERY_USE_DOCKER_CLI: 1
 
 concurrency:
   group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}

@@ -60,7 +60,7 @@ jobs:
 
       - name: Retrieve VCPKG version from arrow/.env
         run: |
-          vcpkg_version=$(cat "arrow/.env" | grep "VCPKG" | cut -d "=" -f2 | tr -d '"')
+          vcpkg_version=$(. "arrow/.env" && echo "${VCPKG}")
           echo "VCPKG_VERSION=$vcpkg_version" >> $GITHUB_ENV
 
       - name: Install Vcpkg
