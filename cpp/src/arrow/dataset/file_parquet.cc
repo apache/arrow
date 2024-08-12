@@ -571,8 +571,8 @@ struct CastingGenerator {
 
   Future<std::shared_ptr<RecordBatch>> operator()() {
     return this->source_().Then(
-        [this](const std::shared_ptr<RecordBatch>& next) -> std::shared_ptr<RecordBatch> {
-          if (IsIterationEnd(next)) {
+        [this](const std::shared_ptr<RecordBatch>& next) -> Result<std::shared_ptr<RecordBatch>> {
+          if (IsIterationEnd(next) || this->final_schema_.get() == nullptr) {
             return next;
           }
           std::vector<std::shared_ptr<::arrow::Array>> out_cols;
@@ -581,15 +581,12 @@ struct CastingGenerator {
           bool changed = false;
           for (const auto& field : this->final_schema_->fields()) {
             FieldRef field_ref = FieldRef(field->name());
-            auto column_st = field_ref.GetOneOrNone(*next);
-            std::shared_ptr<Array> column = column_st.ValueUnsafe();
+            ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> column, field_ref.GetOneOrNone(*next));
             if (column) {
               if (!column->type()->Equals(field->type())) {
                 // Referenced field was present but didn't have the expected type.
-                auto converted_st =
-                    compute::Cast(column, field->type(), compute::CastOptions::Safe(),
-                                  this->exec_ctx.get());
-                auto converted = std::move(converted_st.ValueUnsafe());
+                ARROW_ASSIGN_OR_RAISE(auto converted, compute::Cast(column, field->type(), compute::CastOptions::Safe(),
+                                  this->exec_ctx.get()));
                 column = converted.make_array();
                 changed = true;
               }
