@@ -42,7 +42,7 @@ python_command="python${PYTHON:-3}"
 if [[ "${version}" -eq "default" ]]; then
   version="v0.39.0"
   # Latests versions of Testbench require newer setuptools
-  ${PYTHON:-python3} -m pip install --upgrade setuptools
+  ${python_command} -m pip install --upgrade setuptools
 fi
 
 # This script is run with PYTHON undefined in some places,
