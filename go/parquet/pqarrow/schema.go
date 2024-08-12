@@ -249,7 +249,7 @@ func structToNode(typ *arrow.StructType, name string, nullable bool, props *parq
 	return schema.NewGroupNode(name, repFromNullable(nullable), children, -1)
 }
 
-func fieldToNode(name string, field arrow.Field, props *parquet.WriterProperties, arrprops ArrowWriterProperties, customLogicalType *LogicalType) (schema.Node, error) {
+func fieldToNode(name string, field arrow.Field, props *parquet.WriterProperties, arrprops ArrowWriterProperties, customLogicalType schema.LogicalType) (schema.Node, error) {
 	var (
 		logicalType schema.LogicalType = schema.NoLogicalType{}
 		typ         parquet.Type
@@ -407,8 +407,7 @@ func fieldToNode(name string, field arrow.Field, props *parquet.WriterProperties
 	}
 
 	if customLogicalType != nil {
-		logicalType = customLogicalType.Type
-		length = customLogicalType.Length
+		logicalType = customLogicalType
 	}
 
 	return schema.NewPrimitiveNodeLogical(name, repType, logicalType, typ, length, fieldIDFromMeta(field.Metadata))
@@ -447,7 +446,7 @@ func ToParquet(sc *arrow.Schema, props *parquet.WriterProperties, arrprops Arrow
 
 	nodes := make(schema.FieldList, 0, sc.NumFields())
 	for i, f := range sc.Fields() {
-		var logicalType *LogicalType
+		var logicalType schema.LogicalType
 		if arrprops.customLogicalTypes != nil && i < len(arrprops.customLogicalTypes) {
 			logicalType = arrprops.customLogicalTypes[i]
 		}

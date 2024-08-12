@@ -22,6 +22,7 @@ import (
 	"github.com/apache/arrow/go/v18/arrow"
 	"github.com/apache/arrow/go/v18/arrow/memory"
 	"github.com/apache/arrow/go/v18/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v18/parquet/schema"
 )
 
 // ArrowWriterProperties are used to determine how to manipulate the arrow data
@@ -33,8 +34,8 @@ type ArrowWriterProperties struct {
 	coerceTimestampUnit      arrow.TimeUnit
 	allowTruncatedTimestamps bool
 	storeSchema              bool
-	noMapLogicalType         bool            // if true, do not set Logical type for arrow.MAP
-	customLogicalTypes       []*LogicalType  // specify to customize the Logical types of the output parquet schema
+	noMapLogicalType         bool                  // if true, do not set Logical type for arrow.MAP
+	customLogicalTypes       []schema.LogicalType  // specify to customize the Logical types of the output parquet schema
 
 	// compliantNestedTypes     bool
 }
@@ -121,7 +122,7 @@ func WithNoMapLogicalType() WriterOption {
 	}
 }
 
-func WithCustomLogicalTypes(logicalTypes []*LogicalType) WriterOption {
+func WithCustomLogicalTypes(logicalTypes []schema.LogicalType) WriterOption {
 	return func(c *config) {
 		c.props.customLogicalTypes = logicalTypes
 	}

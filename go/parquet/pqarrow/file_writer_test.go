@@ -148,9 +148,9 @@ func TestFileWriterWithLogicalTypes(t *testing.T) {
 		{ "string": null, "json": null }
 	]`
 
-	logicalTypes := []*pqarrow.LogicalType{
+	logicalTypes := []pqschema.LogicalType{
 		nil,
-		{ Type: pqschema.JSONLogicalType{}, Length: -1 },
+		pqschema.JSONLogicalType{},
 	}
 
 	alloc := memory.NewCheckedAllocator(memory.DefaultAllocator)
