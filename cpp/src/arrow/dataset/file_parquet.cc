@@ -26,16 +26,23 @@
 
 #include "arrow/compute/cast.h"
 #include "arrow/compute/exec.h"
+#include "arrow/dataset/dataset.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/parquet_encryption_config.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/filesystem/path_util.h"
+#include "arrow/memory_pool.h"
+#include "arrow/record_batch.h"
+#include "arrow/result.h"
 #include "arrow/table.h"
+#include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/range.h"
+#include "arrow/util/thread_pool.h"
 #include "arrow/util/tracing_internal.h"
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/schema.h"
@@ -555,6 +562,58 @@ Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
       });
 }
 
+struct CastingGenerator {
+  CastingGenerator(RecordBatchGenerator source, std::shared_ptr<Schema> final_schema,
+                   arrow::MemoryPool* pool = arrow::default_memory_pool())
+      : source_(source),
+        final_schema_(final_schema),
+        exec_ctx(std::make_shared<compute::ExecContext>(pool)) {}
+
+  Future<std::shared_ptr<RecordBatch>> operator()() {
+    return this->source_().Then(
+        [this](const std::shared_ptr<RecordBatch>& next) -> std::shared_ptr<RecordBatch> {
+          if (IsIterationEnd(next)) {
+            return next;
+          }
+          std::vector<std::shared_ptr<::arrow::Array>> out_cols;
+          std::vector<std::shared_ptr<arrow::Field>> out_schema_fields;
+
+          bool changed = false;
+          for (const auto& field : this->final_schema_->fields()) {
+            FieldRef field_ref = FieldRef(field->name());
+            auto column_st = field_ref.GetOneOrNone(*next);
+            std::shared_ptr<Array> column = column_st.ValueUnsafe();
+            if (column) {
+              if (!column->type()->Equals(field->type())) {
+                // Referenced field was present but didn't have the expected type.
+                auto converted_st =
+                    compute::Cast(column, field->type(), compute::CastOptions::Safe(),
+                                  this->exec_ctx.get());
+                auto converted = std::move(converted_st.ValueUnsafe());
+                column = converted.make_array();
+                changed = true;
+              }
+              out_cols.emplace_back(std::move(column));
+              out_schema_fields.emplace_back(field->Copy());
+            }
+          }
+
+          if (changed) {
+            return RecordBatch::Make(
+                std::make_shared<Schema>(std::move(out_schema_fields),
+                                         next->schema()->metadata()),
+                next->num_rows(), std::move(out_cols));
+          } else {
+            return next;
+          }
+        });
+  }
+
+  RecordBatchGenerator source_;
+  std::shared_ptr<Schema> final_schema_;
+  std::shared_ptr<compute::ExecContext> exec_ctx;
+};
+
 struct SlicingGenerator {
   SlicingGenerator(RecordBatchGenerator source, int64_t batch_size)
       : state(std::make_shared<State>(source, batch_size)) {}
@@ -617,6 +676,9 @@ Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
       [this, options, parquet_fragment, pre_filtered,
        row_groups](const std::shared_ptr<parquet::arrow::FileReader>& reader) mutable
       -> Result<RecordBatchGenerator> {
+    // Since we already do the batching through the SlicingGenerator, we don't need the
+    // reader to batch its output.
+    reader->set_batch_size(std::numeric_limits<int64_t>::max());
     // Ensure that parquet_fragment has FileMetaData
     RETURN_NOT_OK(parquet_fragment->EnsureCompleteMetadata(reader.get()));
     if (!pre_filtered) {
@@ -637,8 +699,12 @@ Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
                           reader->GetRecordBatchGenerator(
                               reader, row_groups, column_projection,
                               ::arrow::internal::GetCpuThreadPool(), rows_to_readahead));
+    // Casting before slicing is more efficient. Casts on slices might require wasteful
+    // allocations and computation.
+    RecordBatchGenerator casted =
+        CastingGenerator(std::move(generator), options->dataset_schema, options->pool);
     RecordBatchGenerator sliced =
-        SlicingGenerator(std::move(generator), options->batch_size);
+        SlicingGenerator(std::move(casted), options->batch_size);
     if (batch_readahead == 0) {
       return sliced;
     }
