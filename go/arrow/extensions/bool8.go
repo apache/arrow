@@ -116,6 +116,8 @@ func (a *Bool8Array) GetOneForMarshal(i int) interface{} {
 	return a.Value(i)
 }
 
+// boolToInt8 performs the simple scalar conversion of bool to the canonical int8
+// value for the Bool8Type.
 func boolToInt8(v bool) int8 {
 	var res int8
 	if v {
@@ -130,6 +132,8 @@ type Bool8Builder struct {
 	*array.ExtensionBuilder
 }
 
+// NewBool8Builder creates a new Bool8Builder, exposing a convenient and efficient interface
+// for writing boolean values to the underlying int8 storage array.
 func NewBool8Builder(mem memory.Allocator) *Bool8Builder {
 	return &Bool8Builder{ExtensionBuilder: array.NewExtensionBuilder(mem, NewBool8Type())}
 }
@@ -174,6 +178,9 @@ func (b *Bool8Builder) UnmarshalOne(dec *json.Decoder) error {
 		return nil
 	case string:
 		return b.AppendValueFromString(v)
+	case int8:
+		b.ExtensionBuilder.Builder.(*array.Int8Builder).Append(v)
+		return nil
 	case nil:
 		b.AppendNull()
 		return nil
@@ -182,7 +189,7 @@ func (b *Bool8Builder) UnmarshalOne(dec *json.Decoder) error {
 			Value:  fmt.Sprint(t),
 			Type:   reflect.TypeOf([]byte{}),
 			Offset: dec.InputOffset(),
-			Struct: fmt.Sprintf("FixedSizeBinary[%d]", 16),
+			Struct: "Bool8Builder",
 		}
 	}
 }
