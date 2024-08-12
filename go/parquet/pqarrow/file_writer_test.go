@@ -26,7 +26,10 @@ import (
 	"github.com/apache/arrow/go/v18/arrow/array"
 	"github.com/apache/arrow/go/v18/arrow/memory"
 	"github.com/apache/arrow/go/v18/parquet"
+	"github.com/apache/arrow/go/v18/parquet/file"
+	"github.com/apache/arrow/go/v18/parquet/internal/encoding"
 	"github.com/apache/arrow/go/v18/parquet/pqarrow"
+	pqschema "github.com/apache/arrow/go/v18/parquet/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -132,4 +135,57 @@ func TestFileWriterBuffered(t *testing.T) {
 
 	require.NoError(t, writer.Close())
 	assert.Equal(t, 4, writer.NumRows())
+}
+
+func TestFileWriterWithLogicalTypes(t *testing.T) {
+	schema := arrow.NewSchema([]arrow.Field{
+		{Name: "string", Nullable: true, Type: arrow.BinaryTypes.String},
+		{Name: "json", Nullable: true, Type: arrow.BinaryTypes.String},
+	}, nil)
+
+	data := `[
+		{ "string": "{\"key\":\"value\"}", "json": "{\"key\":\"value\"}" },
+		{ "string": null, "json": null }
+	]`
+
+	logicalTypes := []*pqarrow.LogicalType{
+		nil,
+		{ Type: pqschema.JSONLogicalType{}, Length: -1 },
+	}
+
+	alloc := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer alloc.AssertSize(t, 0)
+
+	record, _, err := array.RecordFromJSON(alloc, schema, strings.NewReader(data))
+	require.NoError(t, err)
+	defer record.Release()
+
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+	sink := encoding.NewBufferWriter(0, mem)
+	defer sink.Release()
+
+	writer, err := pqarrow.NewFileWriterWithLogicalTypes(
+		schema,
+		sink,
+		parquet.NewWriterProperties(
+			parquet.WithAllocator(alloc),
+		),
+		pqarrow.NewArrowWriterProperties(
+			pqarrow.WithAllocator(alloc),
+		),
+		logicalTypes,
+	)
+	require.NoError(t, err)
+
+	require.NoError(t, writer.Write(record))
+	require.NoError(t, writer.Close())
+
+	reader, err := file.NewParquetReader(bytes.NewReader(sink.Bytes()))
+	require.NoError(t, err)
+	assert.EqualValues(t, 2, reader.NumRows())
+
+	parquetSchema := reader.MetaData().Schema
+	assert.EqualValues(t, "String", parquetSchema.Column(0).LogicalType().String())
+	assert.EqualValues(t, "JSON", parquetSchema.Column(1).LogicalType().String())
 }

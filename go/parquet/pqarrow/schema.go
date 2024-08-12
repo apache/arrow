@@ -239,7 +239,7 @@ func structToNode(typ *arrow.StructType, name string, nullable bool, props *parq
 
 	children := make(schema.FieldList, 0, typ.NumFields())
 	for _, f := range typ.Fields() {
-		n, err := fieldToNode(f.Name, f, props, arrprops)
+		n, err := fieldToNode(f.Name, f, props, arrprops, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -249,7 +249,7 @@ func structToNode(typ *arrow.StructType, name string, nullable bool, props *parq
 	return schema.NewGroupNode(name, repFromNullable(nullable), children, -1)
 }
 
-func fieldToNode(name string, field arrow.Field, props *parquet.WriterProperties, arrprops ArrowWriterProperties) (schema.Node, error) {
+func fieldToNode(name string, field arrow.Field, props *parquet.WriterProperties, arrprops ArrowWriterProperties, customLogicalType *LogicalType) (schema.Node, error) {
 	var (
 		logicalType schema.LogicalType = schema.NoLogicalType{}
 		typ         parquet.Type
@@ -358,7 +358,7 @@ func fieldToNode(name string, field arrow.Field, props *parquet.WriterProperties
 			elem = field.Type.(*arrow.FixedSizeListType).Elem()
 		}
 
-		child, err := fieldToNode(name, arrow.Field{Name: name, Type: elem, Nullable: true}, props, arrprops)
+		child, err := fieldToNode(name, arrow.Field{Name: name, Type: elem, Nullable: true}, props, arrprops, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -368,7 +368,7 @@ func fieldToNode(name string, field arrow.Field, props *parquet.WriterProperties
 		// parquet has no dictionary type, dictionary is encoding, not schema level
 		dictType := field.Type.(*arrow.DictionaryType)
 		return fieldToNode(name, arrow.Field{Name: name, Type: dictType.ValueType, Nullable: field.Nullable, Metadata: field.Metadata},
-			props, arrprops)
+			props, arrprops, customLogicalType)
 	case arrow.EXTENSION:
 		return fieldToNode(name, arrow.Field{
 			Name:     name,
@@ -378,15 +378,15 @@ func fieldToNode(name string, field arrow.Field, props *parquet.WriterProperties
 				ipc.ExtensionTypeKeyName:     field.Type.(arrow.ExtensionType).ExtensionName(),
 				ipc.ExtensionMetadataKeyName: field.Type.(arrow.ExtensionType).Serialize(),
 			}),
-		}, props, arrprops)
+		}, props, arrprops, customLogicalType)
 	case arrow.MAP:
 		mapType := field.Type.(*arrow.MapType)
-		keyNode, err := fieldToNode("key", mapType.KeyField(), props, arrprops)
+		keyNode, err := fieldToNode("key", mapType.KeyField(), props, arrprops, nil)
 		if err != nil {
 			return nil, err
 		}
 
-		valueNode, err := fieldToNode("value", mapType.ItemField(), props, arrprops)
+		valueNode, err := fieldToNode("value", mapType.ItemField(), props, arrprops, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -404,6 +404,11 @@ func fieldToNode(name string, field arrow.Field, props *parquet.WriterProperties
 		return schema.MapOf(field.Name, keyNode, valueNode, repFromNullable(field.Nullable), -1)
 	default:
 		return nil, fmt.Errorf("%w: support for %s", arrow.ErrNotImplemented, field.Type.ID())
+	}
+
+	if customLogicalType != nil {
+		logicalType = customLogicalType.Type
+		length = customLogicalType.Length
 	}
 
 	return schema.NewPrimitiveNodeLogical(name, repType, logicalType, typ, length, fieldIDFromMeta(field.Metadata))
@@ -436,13 +441,21 @@ func fieldIDFromMeta(m arrow.Metadata) int32 {
 // ToParquet generates a Parquet Schema from an arrow Schema using the given properties to make
 // decisions when determining the logical/physical types of the columns.
 func ToParquet(sc *arrow.Schema, props *parquet.WriterProperties, arrprops ArrowWriterProperties) (*schema.Schema, error) {
+	return ToParquetWithLogicalTypes(sc, props, arrprops, nil)
+}
+
+func ToParquetWithLogicalTypes(sc *arrow.Schema, props *parquet.WriterProperties, arrprops ArrowWriterProperties, logicalTypes []*LogicalType) (*schema.Schema, error) {
 	if props == nil {
 		props = parquet.NewWriterProperties()
 	}
 
 	nodes := make(schema.FieldList, 0, sc.NumFields())
-	for _, f := range sc.Fields() {
-		n, err := fieldToNode(f.Name, f, props, arrprops)
+	for i, f := range sc.Fields() {
+		var logicalType *LogicalType
+		if logicalTypes != nil && i < len(logicalTypes) {
+			logicalType = logicalTypes[i]
+		}
+		n, err := fieldToNode(f.Name, f, props, arrprops, logicalType)
 		if err != nil {
 			return nil, err
 		}
