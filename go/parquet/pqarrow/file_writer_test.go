@@ -165,7 +165,7 @@ func TestFileWriterWithLogicalTypes(t *testing.T) {
 	sink := encoding.NewBufferWriter(0, mem)
 	defer sink.Release()
 
-	writer, err := pqarrow.NewFileWriterWithLogicalTypes(
+	writer, err := pqarrow.NewFileWriter(
 		schema,
 		sink,
 		parquet.NewWriterProperties(
@@ -173,8 +173,8 @@ func TestFileWriterWithLogicalTypes(t *testing.T) {
 		),
 		pqarrow.NewArrowWriterProperties(
 			pqarrow.WithAllocator(alloc),
+			pqarrow.WithCustomLogicalTypes(logicalTypes),
 		),
-		logicalTypes,
 	)
 	require.NoError(t, err)
 

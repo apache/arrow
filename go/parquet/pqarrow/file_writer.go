@@ -63,15 +63,11 @@ type FileWriter struct {
 // the ArrowColumnWriter and WriteArrow functions which allow writing arrow to an existing
 // file.Writer, this will create a new file.Writer based on the schema provided.
 func NewFileWriter(arrschema *arrow.Schema, w io.Writer, props *parquet.WriterProperties, arrprops ArrowWriterProperties) (*FileWriter, error) {
-	return NewFileWriterWithLogicalTypes(arrschema, w, props, arrprops, nil)
-}
-
-func NewFileWriterWithLogicalTypes(arrschema *arrow.Schema, w io.Writer, props *parquet.WriterProperties, arrprops ArrowWriterProperties, logicalTypes []*LogicalType) (*FileWriter, error) {
 	if props == nil {
 		props = parquet.NewWriterProperties()
 	}
 
-	pqschema, err := ToParquetWithLogicalTypes(arrschema, props, arrprops, logicalTypes)
+	pqschema, err := ToParquet(arrschema, props, arrprops)
 	if err != nil {
 		return nil, err
 	}

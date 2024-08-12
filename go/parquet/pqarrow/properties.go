@@ -33,7 +33,9 @@ type ArrowWriterProperties struct {
 	coerceTimestampUnit      arrow.TimeUnit
 	allowTruncatedTimestamps bool
 	storeSchema              bool
-	noMapLogicalType         bool
+	noMapLogicalType         bool            // if true, do not set Logical type for arrow.MAP
+	customLogicalTypes       []*LogicalType  // specify to customize the Logical types of the output parquet schema
+
 	// compliantNestedTypes     bool
 }
 
@@ -116,6 +118,12 @@ func WithStoreSchema() WriterOption {
 func WithNoMapLogicalType() WriterOption {
 	return func(c *config) {
 		c.props.noMapLogicalType = true
+	}
+}
+
+func WithCustomLogicalTypes(logicalTypes []*LogicalType) WriterOption {
+	return func(c *config) {
+		c.props.customLogicalTypes = logicalTypes
 	}
 }
 

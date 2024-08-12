@@ -441,10 +441,6 @@ func fieldIDFromMeta(m arrow.Metadata) int32 {
 // ToParquet generates a Parquet Schema from an arrow Schema using the given properties to make
 // decisions when determining the logical/physical types of the columns.
 func ToParquet(sc *arrow.Schema, props *parquet.WriterProperties, arrprops ArrowWriterProperties) (*schema.Schema, error) {
-	return ToParquetWithLogicalTypes(sc, props, arrprops, nil)
-}
-
-func ToParquetWithLogicalTypes(sc *arrow.Schema, props *parquet.WriterProperties, arrprops ArrowWriterProperties, logicalTypes []*LogicalType) (*schema.Schema, error) {
 	if props == nil {
 		props = parquet.NewWriterProperties()
 	}
@@ -452,8 +448,8 @@ func ToParquetWithLogicalTypes(sc *arrow.Schema, props *parquet.WriterProperties
 	nodes := make(schema.FieldList, 0, sc.NumFields())
 	for i, f := range sc.Fields() {
 		var logicalType *LogicalType
-		if logicalTypes != nil && i < len(logicalTypes) {
-			logicalType = logicalTypes[i]
+		if arrprops.customLogicalTypes != nil && i < len(arrprops.customLogicalTypes) {
+			logicalType = arrprops.customLogicalTypes[i]
 		}
 		n, err := fieldToNode(f.Name, f, props, arrprops, logicalType)
 		if err != nil {
