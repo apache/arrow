@@ -29,4 +29,4 @@ RUN pip install -r /arrow/python/requirements-wheel-test.txt
 
 COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
 
-RUN PYTHON=${python} /arrow/ci/scripts/install_gcs_testbench.sh default
+RUN PYTHON_VERSION=${python} /arrow/ci/scripts/install_gcs_testbench.sh default

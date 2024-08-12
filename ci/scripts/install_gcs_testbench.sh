@@ -38,16 +38,15 @@ esac
 export PIP_BREAK_SYSTEM_PACKAGES=1
 
 version=$1
-python_command="python${PYTHON:-3}"
 if [[ "${version}" -eq "default" ]]; then
   version="v0.39.0"
   # Latests versions of Testbench require newer setuptools
-  ${python_command} -m pip install --upgrade setuptools
+  python3 -m pip install --upgrade setuptools
 fi
 
 # This script is run with PYTHON undefined in some places,
 # but those only use older pythons.
-if [[ -z "${PYTHON}" || "${PYTHON}" != "3.13" ]]; then
-  ${python_command} -m pip install \
+if [[ -z "${PYTHON_VERSION}" || "${PYTHON_VERSION}" != "3.13" ]]; then
+  python3 -m pip install \
     "https://github.com/googleapis/storage-testbench/archive/${version}.tar.gz"
 fi
