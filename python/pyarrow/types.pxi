@@ -5334,7 +5334,7 @@ def bool8():
     pyarrow.Table
     unknown_col: extension<arrow.bool8>
     ----
-    unknown_col: [[True, False, True, True, null]]
+    unknown_col: [[-1, 0, 1, 2, null]]
 
     Returns
     -------
