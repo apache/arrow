@@ -16,8 +16,10 @@
 
 package array
 
-// ExtensionBuilderWrapper is an interface that you need to implement in your custom extension type if you want to provide a customer builder as well.
-// See example in ./arrow/internal/testing/types/extension_types.go
-type ExtensionBuilderWrapper interface {
-	NewBuilder(bldr *ExtensionBuilder) Builder
+import "github.com/apache/arrow/go/v18/arrow/memory"
+
+// CustomExtensionBuilder is an interface that custom extension types may implement to provide a custom builder
+// instead of the underlying storage type's builder when array.NewBuilder is called with that type.
+type CustomExtensionBuilder interface {
+	NewBuilder(memory.Allocator) Builder
 }

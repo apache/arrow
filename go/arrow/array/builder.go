@@ -349,12 +349,13 @@ func NewBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 		typ := dtype.(*arrow.LargeListViewType)
 		return NewLargeListViewBuilderWithField(mem, typ.ElemField())
 	case arrow.EXTENSION:
-		typ := dtype.(arrow.ExtensionType)
-		bldr := NewExtensionBuilder(mem, typ)
-		if custom, ok := typ.(ExtensionBuilderWrapper); ok {
-			return custom.NewBuilder(bldr)
+		if custom, ok := dtype.(CustomExtensionBuilder); ok {
+			return custom.NewBuilder(mem)
 		}
-		return bldr
+		if typ, ok := dtype.(arrow.ExtensionType); ok {
+			return NewExtensionBuilder(mem, typ)
+		}
+		panic(fmt.Errorf("arrow/array: invalid extension type: %T", dtype))
 	case arrow.FIXED_SIZE_LIST:
 		typ := dtype.(*arrow.FixedSizeListType)
 		return NewFixedSizeListBuilderWithField(mem, typ.Len(), typ.ElemField())
