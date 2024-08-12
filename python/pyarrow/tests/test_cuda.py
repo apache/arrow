@@ -124,14 +124,17 @@ def test_copy_from_buffer():
     cudabuf = global_context.buffer_from_data(buf)
 
     mm2 = global_context1.memory_manager
-    buf2 = cudabuf.copy(mm2)
-    cudabuf2 = cuda.CudaBuffer.from_buffer(buf2)
-    cudabuf2.size == cudabuf.size
+    for dest in [mm2, mm2.device]:
+        buf2 = cudabuf.copy(dest)
+        cudabuf2 = cuda.CudaBuffer.from_buffer(buf2)
+        cudabuf2.size == cudabuf.size
+        assert not cudabuf2.is_cpu
+        assert cudabuf2.device_type == pa.DeviceAllocationType.CUDA
 
-    arr2 = np.frombuffer(cudabuf2.copy_to_host(), dtype=np.uint8)
-    np.testing.assert_equal(arr, arr2)
+        arr2 = np.frombuffer(cudabuf2.copy_to_host(), dtype=np.uint8)
+        np.testing.assert_equal(arr, arr2)
 
-    assert cudabuf2.memory_manager.device == mm2.device
+        assert cudabuf2.device == mm2.device
 
 
 @pytest.mark.parametrize("size", [0, 1, 1000])
