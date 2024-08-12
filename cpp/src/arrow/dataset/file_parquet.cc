@@ -564,7 +564,7 @@ Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
 
 struct CastingGenerator {
   CastingGenerator(RecordBatchGenerator source, std::shared_ptr<Schema> final_schema,
-                   arrow::MemoryPool* pool = arrow::default_memory_pool())
+                   MemoryPool* pool = default_memory_pool())
       : source_(source),
         final_schema_(final_schema),
         exec_ctx(std::make_shared<compute::ExecContext>(pool)) {}
@@ -572,11 +572,11 @@ struct CastingGenerator {
   Future<std::shared_ptr<RecordBatch>> operator()() {
     return this->source_().Then([this](const std::shared_ptr<RecordBatch>& next)
                                     -> Result<std::shared_ptr<RecordBatch>> {
-      if (IsIterationEnd(next) || this->final_schema_.get() == nullptr) {
+      if (IsIterationEnd(next) || this->final_schema_ == nullptr) {
         return next;
       }
-      std::vector<std::shared_ptr<::arrow::Array>> out_cols;
-      std::vector<std::shared_ptr<arrow::Field>> out_schema_fields;
+      std::vector<std::shared_ptr<Array>> out_cols;
+      std::vector<std::shared_ptr<Field>> out_schema_fields;
 
       bool changed = false;
       for (const auto& field : this->final_schema_->fields()) {
