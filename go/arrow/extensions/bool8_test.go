@@ -149,6 +149,33 @@ func TestCompareBool8AndBoolean(t *testing.T) {
 	}
 }
 
+func TestReinterpretStorageEqualToValues(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	bool8bldr := extensions.NewBool8Builder(mem)
+	defer bool8bldr.Release()
+
+	inputVals := []bool{true, false, false, false, true}
+	inputValidity := []bool{true, false, true, false, true}
+
+	bool8bldr.AppendValues(inputVals, inputValidity)
+	bool8Arr := bool8bldr.NewExtensionArray().(*extensions.Bool8Array)
+	defer bool8Arr.Release()
+
+	boolValsCopy := make([]bool, bool8Arr.Len())
+	for i := 0; i < bool8Arr.Len(); i++ {
+		boolValsCopy[i] = bool8Arr.Value(i)
+	}
+
+	boolValsZeroCopy := bool8Arr.BoolValues()
+
+	require.Equal(t, len(boolValsZeroCopy), len(boolValsCopy))
+	for i := range boolValsCopy {
+		require.Equal(t, boolValsZeroCopy[i], boolValsCopy[i])
+	}
+}
+
 func TestBool8TypeBatchIPCRoundTrip(t *testing.T) {
 	typ := extensions.NewBool8Type()
 	arrow.RegisterExtensionType(typ)
@@ -233,6 +260,9 @@ func BenchmarkWriteBooleanArray(b *testing.B) {
 	}
 }
 
+// storage benchmark result at package level to prevent compiler from eliminating the function call
+var result []bool
+
 func BenchmarkReadBool8Array(b *testing.B) {
 	bool8bldr := extensions.NewBool8Builder(memory.DefaultAllocator)
 	defer bool8bldr.Release()
@@ -241,7 +271,6 @@ func BenchmarkReadBool8Array(b *testing.B) {
 		b.Run(fmt.Sprintf("len %d", sz), func(b *testing.B) {
 
 			values := make([]bool, sz)
-			output := make([]bool, sz)
 			for idx := range values {
 				values[idx] = true
 			}
@@ -250,13 +279,13 @@ func BenchmarkReadBool8Array(b *testing.B) {
 			bool8Arr := bool8bldr.NewArray().(*extensions.Bool8Array)
 			defer bool8Arr.Release()
 
+			var r []bool
 			b.ResetTimer()
 			b.SetBytes(int64(len(values)))
 			for n := 0; n < b.N; n++ {
-				for i := 0; i < bool8Arr.Len(); i++ {
-					output[i] = bool8Arr.Value(i)
-				}
+				r = bool8Arr.BoolValues()
 			}
+			result = r
 		})
 	}
 }

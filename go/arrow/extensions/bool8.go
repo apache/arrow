@@ -90,6 +90,11 @@ func (a *Bool8Array) Value(i int) bool {
 	return a.Storage().(*array.Int8).Value(i) != 0
 }
 
+func (a *Bool8Array) BoolValues() []bool {
+	int8s := a.Storage().(*array.Int8).Int8Values()
+	return unsafe.Slice((*bool)(unsafe.Pointer(unsafe.SliceData(int8s))), len(int8s))
+}
+
 func (a *Bool8Array) ValueStr(i int) string {
 	switch {
 	case a.IsNull(i):
