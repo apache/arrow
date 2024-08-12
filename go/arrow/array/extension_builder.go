@@ -16,7 +16,7 @@
 
 package array
 
-import "github.com/apache/arrow/go/v17/arrow/memory"
+import "github.com/apache/arrow/go/v18/arrow/memory"
 
 // CustomExtensionBuilder is an interface that custom extension types may implement to provide a custom builder
 // instead of the underlying storage type's builder when array.NewBuilder is called with that type.
