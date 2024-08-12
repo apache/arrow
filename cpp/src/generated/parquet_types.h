@@ -617,8 +617,8 @@ std::ostream& operator<<(std::ostream& out, const SizeStatistics& obj);
 
 /**
  * A custom WKB-encoded polygon or multi-polygon to represent a covering of
- * geometries. For example, it may be a bounding box, or an evelope of geometries
- * when a bounding box cannot be built (e.g. a geometry has spherical edges, or if
+ * geometries. For example, it may be a bounding box or an envelope of geometries
+ * when a bounding box cannot be built (e.g., a geometry has spherical edges, or if
  * an edge of geographic coordinates crosses the antimeridian). In addition, it can
  * also be used to provide vendor-agnostic coverings like S2 or H3 grids.
  */
@@ -630,31 +630,32 @@ class Covering {
   Covering& operator=(const Covering&);
   Covering& operator=(Covering&&) noexcept;
   Covering() noexcept
-           : geometry(),
-             edges(static_cast<Edges::type>(0)) {
+           : kind(),
+             value() {
   }
 
   virtual ~Covering() noexcept;
   /**
-   * Bytes of a WKB-encoded geometry
+   * A type of covering. Currently accepted values: "WKB".
    */
-  std::string geometry;
+  std::string kind;
   /**
-   * Edges of the geometry, which is independent of edges from the logical type
-   *
-   * @see Edges
+   * A payload specific to kind:
+   * - WKB: well-known binary of a POLYGON that completely covers the contents.
+   *   This will be interpreted according to the same CRS and edges defined by
+   *   the logical type.
    */
-  Edges::type edges;
+  std::string value;
 
-  void __set_geometry(const std::string& val);
+  void __set_kind(const std::string& val);
 
-  void __set_edges(const Edges::type val);
+  void __set_value(const std::string& val);
 
   bool operator == (const Covering & rhs) const
   {
-    if (!(geometry == rhs.geometry))
+    if (!(kind == rhs.kind))
       return false;
-    if (!(edges == rhs.edges))
+    if (!(value == rhs.value))
       return false;
     return true;
   }
@@ -781,9 +782,9 @@ void swap(BoundingBox &a, BoundingBox &b);
 std::ostream& operator<<(std::ostream& out, const BoundingBox& obj);
 
 typedef struct _GeometryStatistics__isset {
-  _GeometryStatistics__isset() : bbox(false), covering(false), geometry_types(false) {}
+  _GeometryStatistics__isset() : bbox(false), coverings(false), geometry_types(false) {}
   bool bbox :1;
-  bool covering :1;
+  bool coverings :1;
   bool geometry_types :1;
 } _GeometryStatistics__isset;
 
@@ -806,9 +807,9 @@ class GeometryStatistics {
    */
   BoundingBox bbox;
   /**
-   * A covering polygon of geometries
+   * A list of coverings of geometries
    */
-  Covering covering;
+  std::vector<Covering>  coverings;
   /**
    * The geometry types of all geometries, or an empty array if they are not
    * known. This is borrowed from `geometry_types` column metadata of GeoParquet [1]
@@ -842,7 +843,7 @@ class GeometryStatistics {
 
   void __set_bbox(const BoundingBox& val);
 
-  void __set_covering(const Covering& val);
+  void __set_coverings(const std::vector<Covering> & val);
 
   void __set_geometry_types(const std::vector<int32_t> & val);
 
@@ -852,9 +853,9 @@ class GeometryStatistics {
       return false;
     else if (__isset.bbox && !(bbox == rhs.bbox))
       return false;
-    if (__isset.covering != rhs.__isset.covering)
+    if (__isset.coverings != rhs.__isset.coverings)
       return false;
-    else if (__isset.covering && !(covering == rhs.covering))
+    else if (__isset.coverings && !(coverings == rhs.coverings))
       return false;
     if (__isset.geometry_types != rhs.__isset.geometry_types)
       return false;
@@ -1801,8 +1802,9 @@ void swap(BsonType &a, BsonType &b);
 std::ostream& operator<<(std::ostream& out, const BsonType& obj);
 
 typedef struct _GeometryType__isset {
-  _GeometryType__isset() : crs(false), metadata(false) {}
+  _GeometryType__isset() : crs(false), crs_encoding(false), metadata(false) {}
   bool crs :1;
+  bool crs_encoding :1;
   bool metadata :1;
 } _GeometryType__isset;
 
@@ -1820,6 +1822,7 @@ class GeometryType {
                : encoding(static_cast<GeometryEncoding::type>(0)),
                  edges(static_cast<Edges::type>(0)),
                  crs(),
+                 crs_encoding(),
                  metadata() {
   }
 
@@ -1839,9 +1842,14 @@ class GeometryType {
   Edges::type edges;
   /**
    * Coordinate Reference System, i.e. mapping of how coordinates refer to
-   * precise locations on earth, e.g. OGC:CRS84
+   * precise locations on earth.
    */
   std::string crs;
+  /**
+   * Encoding used in the above crs field.
+   * Currently the only allowed value is "PROJJSON".
+   */
+  std::string crs_encoding;
   /**
    * Additional informative metadata.
    * It can be used by GeoParquet to offload some of the column metadata.
@@ -1856,6 +1864,8 @@ class GeometryType {
 
   void __set_crs(const std::string& val);
 
+  void __set_crs_encoding(const std::string& val);
+
   void __set_metadata(const std::string& val);
 
   bool operator == (const GeometryType & rhs) const
@@ -1867,6 +1877,10 @@ class GeometryType {
     if (__isset.crs != rhs.__isset.crs)
       return false;
     else if (__isset.crs && !(crs == rhs.crs))
+      return false;
+    if (__isset.crs_encoding != rhs.__isset.crs_encoding)
+      return false;
+    else if (__isset.crs_encoding && !(crs_encoding == rhs.crs_encoding))
       return false;
     if (__isset.metadata != rhs.__isset.metadata)
       return false;
@@ -4753,8 +4767,10 @@ class FileCryptoMetaData {
 void swap(FileCryptoMetaData &a, FileCryptoMetaData &b);
 
 std::ostream& operator<<(std::ostream& out, const FileCryptoMetaData& obj);
+
 }
 } // namespace
+
 
 #include "parquet_types.tcc"
 

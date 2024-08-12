@@ -249,16 +249,22 @@ enum Edges {
 
 /**
  * A custom WKB-encoded polygon or multi-polygon to represent a covering of
- * geometries. For example, it may be a bounding box, or an evelope of geometries
- * when a bounding box cannot be built (e.g. a geometry has spherical edges, or if
+ * geometries. For example, it may be a bounding box or an envelope of geometries
+ * when a bounding box cannot be built (e.g., a geometry has spherical edges, or if
  * an edge of geographic coordinates crosses the antimeridian). In addition, it can
  * also be used to provide vendor-agnostic coverings like S2 or H3 grids.
  */
 struct Covering {
-  /** Bytes of a WKB-encoded geometry */
-  1: required binary geometry;
-  /** Edges of the geometry, which is independent of edges from the logical type */
-  2: required Edges edges;
+  /**
+   * A type of covering. Currently accepted values: "WKB".
+   */
+  1: required string kind;
+  /** A payload specific to kind:
+   * - WKB: well-known binary of a POLYGON that completely covers the contents.
+   *   This will be interpreted according to the same CRS and edges defined by
+   *   the logical type.
+   */
+  2: required binary value;
 }
 
 /**
@@ -281,8 +287,8 @@ struct GeometryStatistics {
   /** A bounding box of geometries */
   1: optional BoundingBox bbox;
 
-  /** A covering polygon of geometries */
-  2: optional Covering covering;
+  /** A list of coverings of geometries */
+  2: optional list<Covering> coverings;
 
   /**
    * The geometry types of all geometries, or an empty array if they are not
@@ -488,14 +494,19 @@ struct GeometryType {
   2: required Edges edges;
   /**
    * Coordinate Reference System, i.e. mapping of how coordinates refer to
-   * precise locations on earth, e.g. OGC:CRS84
+   * precise locations on earth.
    */
   3: optional string crs;
+  /**
+   * Encoding used in the above crs field.
+   * Currently the only allowed value is "PROJJSON".
+   */
+  4: optional string crs_encoding;
   /**
    * Additional informative metadata.
    * It can be used by GeoParquet to offload some of the column metadata.
    */
-  4: optional binary metadata;
+  5: optional binary metadata;
 }
 
 /**
