@@ -18,10 +18,10 @@
 ARG base
 FROM ${base}
 
-RUN apt install -y -q --no-install-recommends software-properties-common && \
+RUN apt install -y -q --no-install-recommends software-properties-common gpg-agent && \
     add-apt-repository -y ppa:deadsnakes/ppa && \
     apt update && \
-    apt install -y -q --no-install-recommends python3.13-nogil
+    apt install -y -q --no-install-recommends python3.13-nogil python3.13-dev python3.13-venv
 
 COPY python/requirements-build.txt \
      python/requirements-test.txt \
@@ -33,6 +33,7 @@ RUN python3.13t -m venv ${ARROW_PYTHON_VENV} && \
     pip install -U pip setuptools wheel && \
     pip install \
       --pre \
+      --prefer-binary \
       --extra-index-url "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple" \
       -r arrow/python/requirements-build.txt \
       -r arrow/python/requirements-test.txt
