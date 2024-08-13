@@ -95,10 +95,6 @@ class ARROW_FLIGHT_EXPORT TestServer {
   std::shared_ptr<::boost::process::child> server_process_;
 };
 
-/// \brief Create a simple Flight server for testing
-ARROW_FLIGHT_EXPORT
-std::unique_ptr<FlightServerBase> ExampleTestServer();
-
 // Helper to initialize a server and matching client with callbacks to
 // populate options.
 template <typename T, typename... Args>

@@ -263,6 +263,7 @@ if(ARROW_TESTING)
                 ARROW_FLIGHT_TESTING_LIBRARIES
                 SOURCES
                 test_definitions.cc
+                test_flight_server.cc
                 test_util.cc
                 DEPENDENCIES
                 flight_grpc_gen
