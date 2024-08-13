@@ -13,8 +13,6 @@ import (
 	"github.com/google/uuid"
 )
 
-var UUID = NewUUIDType()
-
 type UUIDBuilder struct {
 	*array.ExtensionBuilder
 }
@@ -230,3 +228,10 @@ func (e *UUIDType) ExtensionEquals(other arrow.ExtensionType) bool {
 func (*UUIDType) NewBuilder(mem memory.Allocator) array.Builder {
 	return NewUUIDBuilder(mem)
 }
+
+var (
+	_ arrow.ExtensionType          = (*UUIDType)(nil)
+	_ array.CustomExtensionBuilder = (*UUIDType)(nil)
+	_ array.ExtensionArray         = (*UUIDArray)(nil)
+	_ array.Builder                = (*UUIDBuilder)(nil)
+)
