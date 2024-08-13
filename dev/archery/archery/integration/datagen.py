@@ -1876,7 +1876,8 @@ def get_generated_json_files(tempdir=None):
 
         generate_null_case([10, 0]),
 
-        generate_null_trivial_case([0, 0]),
+        generate_null_trivial_case([0, 0])
+        .skip_tester('nanoarrow'),
 
         generate_decimal128_case(),
 
@@ -1914,12 +1915,15 @@ def get_generated_json_files(tempdir=None):
         generate_duplicate_fieldnames_case()
         .skip_tester('JS'),
 
-        generate_dictionary_case(),
+        generate_dictionary_case()
+        .skip_tester('nanoarrow'),
 
         generate_dictionary_unsigned_case()
+        .skip_tester('nanoarrow')
         .skip_tester('Java'),  # TODO(ARROW-9377)
 
         generate_nested_dictionary_case()
+        .skip_tester('nanoarrow')
         .skip_tester('Java'),  # TODO(ARROW-7779)
 
         generate_run_end_encoded_case()
@@ -1941,6 +1945,7 @@ def get_generated_json_files(tempdir=None):
         .skip_tester('Rust'),
 
         generate_extension_case()
+        .skip_tester('nanoarrow')
         # TODO: ensure the extension is registered in the C++ entrypoint
         .skip_format(SKIP_C_SCHEMA, 'C++')
         .skip_format(SKIP_C_ARRAY, 'C++'),
