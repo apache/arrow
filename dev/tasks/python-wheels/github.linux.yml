@@ -47,19 +47,20 @@ jobs:
       {{ macros.github_install_archery()|indent }}
       {{ macros.github_login_dockerhub()|indent }}
 
-      # - name: Build wheel
-      #   shell: bash
-      #   run: archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-manylinux-{{ manylinux_version }}
+      - name: Build wheel
+        shell: bash
+        run: archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-manylinux-{{ manylinux_version }}
 
-      # - uses: actions/upload-artifact@v3
-      #   with:
-      #     name: wheel
-      #     path: arrow/python/repaired_wheels/*.whl
+      - uses: actions/upload-artifact@v3
+        with:
+          name: wheel
+          path: arrow/python/repaired_wheels/*.whl
 
       # TODO(kszucs): auditwheel show
       - name: Test wheel
         shell: bash
         run: |
+          archery docker run python-wheel-manylinux-test-imports
           archery docker run python-wheel-manylinux-test-unittests
 
       - name: Test wheel on AlmaLinux 8
