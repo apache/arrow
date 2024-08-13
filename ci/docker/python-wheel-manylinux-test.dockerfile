@@ -24,10 +24,12 @@ FROM ${arch}/python:${python_image_tag}
 
 # pandas doesn't provide wheel for aarch64 yet, so cache the compiled
 # test dependencies in a docker image
-COPY python/requirements-wheel-test.txt /arrow/python/
-RUN pip install -r /arrow/python/requirements-wheel-test.txt
+# COPY python/requirements-wheel-test.txt /arrow/python/
+# RUN pip install -r /arrow/python/requirements-wheel-test.txt
 
 COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
 
-ENV PYTHON_VERSION=${python}
-RUN /arrow/ci/scripts/install_gcs_testbench.sh default
+RUN echo "python: ${python:-notset}"
+RUN echo "python_image_tag: ${python_image_tag:-notset}"
+
+RUN PYTHON_VERSION=${python} /arrow/ci/scripts/install_gcs_testbench.sh default
