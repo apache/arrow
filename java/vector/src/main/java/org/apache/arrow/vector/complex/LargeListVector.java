@@ -882,12 +882,13 @@ public class LargeListVector extends BaseValueVector
 
   /**
    * Return the underlying buffers associated with this vector. Note that this doesn't impact the
-   * reference counts for this buffer so it only should be used for in-context access. Also note
-   * that this buffer changes regularly thus external classes shouldn't hold a reference to it
+   * reference counts for this buffer, so it only should be used for in-context access. Also note
+   * that this buffer changes regularly, thus external classes shouldn't hold a reference to it
    * (unless they change it).
    *
-   * @param clear Whether to clear vector before returning; the buffers will still be refcounted but
-   *     the returned array will be the only reference to them
+   * @param clear Whether to clear vector before returning, the buffers will still be refcounted but
+   *     the returned array will be the only reference to them. Also, this won't clear the child
+   *     buffers.
    * @return The underlying {@link ArrowBuf buffers} that is used by this vector instance.
    */
   @Override
@@ -900,7 +901,7 @@ public class LargeListVector extends BaseValueVector
       List<ArrowBuf> list = new ArrayList<>();
       list.add(offsetBuffer);
       list.add(validityBuffer);
-      list.addAll(Arrays.asList(vector.getBuffers(clear)));
+      list.addAll(Arrays.asList(vector.getBuffers(false)));
       buffers = list.toArray(new ArrowBuf[list.size()]);
     }
     if (clear) {

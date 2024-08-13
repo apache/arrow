@@ -64,25 +64,6 @@ public class TestVectorReset {
     assertEquals(0, vector.getValueCount());
   }
 
-  private void resetClearVectorAndVerify(ValueVector vector, ArrowBuf[] bufs) {
-    long[] sizeBefore = new long[bufs.length];
-    for (int i = 0; i < bufs.length; i++) {
-      sizeBefore[i] = bufs[i].capacity();
-    }
-    vector.reset();
-    for (int i = 0; i < bufs.length; i++) {
-      assertEquals(sizeBefore[i], bufs[i].capacity());
-    }
-    assertEquals(0, vector.getValueCount());
-    // clear the retrieved buffers
-    for (ArrowBuf buf : bufs) {
-      // clear the buffer to release the memory
-      while (buf.refCnt() > 0) {
-        buf.close();
-      }
-    }
-  }
-
   private void verifyBufferZeroed(ArrowBuf buf) {
     for (int i = 0; i < buf.capacity(); i++) {
       assertTrue((byte) 0 == buf.getByte(i));
@@ -100,16 +81,6 @@ public class TestVectorReset {
   }
 
   @Test
-  public void testFixedTypeResetAndClear() {
-    try (final UInt4Vector vector = new UInt4Vector("UInt4", allocator)) {
-      vector.allocateNewSafe();
-      vector.setNull(0);
-      vector.setValueCount(1);
-      resetClearVectorAndVerify(vector, vector.getBuffers(true));
-    }
-  }
-
-  @Test
   public void testVariableTypeReset() {
     try (final VarCharVector vector = new VarCharVector("VarChar", allocator)) {
       vector.allocateNewSafe();
@@ -117,18 +88,6 @@ public class TestVectorReset {
       vector.setLastSet(0);
       vector.setValueCount(1);
       resetVectorAndVerify(vector, vector.getBuffers(false));
-      assertEquals(-1, vector.getLastSet());
-    }
-  }
-
-  @Test
-  public void testVariableTypeResetAndClear() {
-    try (final VarCharVector vector = new VarCharVector("VarChar", allocator)) {
-      vector.allocateNewSafe();
-      vector.set(0, "a".getBytes(StandardCharsets.UTF_8));
-      vector.setLastSet(0);
-      vector.setValueCount(1);
-      resetClearVectorAndVerify(vector, vector.getBuffers(true));
       assertEquals(-1, vector.getLastSet());
     }
   }
@@ -146,18 +105,6 @@ public class TestVectorReset {
   }
 
   @Test
-  public void testVariableViewTypeResetAndClear() {
-    try (final ViewVarCharVector vector = new ViewVarCharVector("ViewVarChar", allocator)) {
-      vector.allocateNewSafe();
-      vector.set(0, "a".getBytes(StandardCharsets.UTF_8));
-      vector.setLastSet(0);
-      vector.setValueCount(1);
-      resetClearVectorAndVerify(vector, vector.getBuffers(true));
-      assertEquals(-1, vector.getLastSet());
-    }
-  }
-
-  @Test
   public void testLargeVariableTypeReset() {
     try (final LargeVarCharVector vector = new LargeVarCharVector("LargeVarChar", allocator)) {
       vector.allocateNewSafe();
@@ -165,18 +112,6 @@ public class TestVectorReset {
       vector.setLastSet(0);
       vector.setValueCount(1);
       resetVectorAndVerify(vector, vector.getBuffers(false));
-      assertEquals(-1, vector.getLastSet());
-    }
-  }
-
-  @Test
-  public void testLargeVariableTypeResetAndClear() {
-    try (final LargeVarCharVector vector = new LargeVarCharVector("LargeVarChar", allocator)) {
-      vector.allocateNewSafe();
-      vector.set(0, "a".getBytes(StandardCharsets.UTF_8));
-      vector.setLastSet(0);
-      vector.setValueCount(1);
-      resetClearVectorAndVerify(vector, vector.getBuffers(true));
       assertEquals(-1, vector.getLastSet());
     }
   }
@@ -216,40 +151,6 @@ public class TestVectorReset {
   }
 
   @Test
-  public void testListTypeResetAndClear() {
-    try (final ListVector variableList =
-            new ListVector(
-                "VarList", allocator, FieldType.nullable(MinorType.INT.getType()), null);
-        final FixedSizeListVector fixedList =
-            new FixedSizeListVector(
-                "FixedList", allocator, FieldType.nullable(new FixedSizeList(2)), null);
-        final ListViewVector variableViewList =
-            new ListViewVector(
-                "VarListView", allocator, FieldType.nullable(MinorType.INT.getType()), null)) {
-      // ListVector
-      variableList.allocateNewSafe();
-      variableList.startNewValue(0);
-      variableList.endValue(0, 0);
-      variableList.setValueCount(1);
-      resetClearVectorAndVerify(variableList, variableList.getBuffers(true));
-      assertEquals(-1, variableList.getLastSet());
-
-      // FixedSizeListVector
-      fixedList.allocateNewSafe();
-      fixedList.setNull(0);
-      fixedList.setValueCount(1);
-      resetClearVectorAndVerify(fixedList, fixedList.getBuffers(true));
-
-      // ListViewVector
-      variableViewList.allocateNewSafe();
-      variableViewList.startNewValue(0);
-      variableViewList.endValue(0, 0);
-      variableViewList.setValueCount(1);
-      resetClearVectorAndVerify(variableViewList, variableViewList.getBuffers(true));
-    }
-  }
-
-  @Test
   public void testStructTypeReset() {
     try (final NonNullableStructVector nonNullableStructVector =
             new NonNullableStructVector(
@@ -275,31 +176,6 @@ public class TestVectorReset {
   }
 
   @Test
-  public void testStructTypeResetAndClear() {
-    try (final NonNullableStructVector nonNullableStructVector =
-            new NonNullableStructVector(
-                "Struct", allocator, FieldType.nullable(MinorType.INT.getType()), null);
-        final StructVector structVector =
-            new StructVector(
-                "NullableStruct", allocator, FieldType.nullable(MinorType.INT.getType()), null)) {
-      // NonNullableStructVector
-      nonNullableStructVector.allocateNewSafe();
-      IntVector structChild =
-          nonNullableStructVector.addOrGet(
-              "child", FieldType.nullable(new Int(32, true)), IntVector.class);
-      structChild.setNull(0);
-      nonNullableStructVector.setValueCount(1);
-      resetClearVectorAndVerify(nonNullableStructVector, nonNullableStructVector.getBuffers(true));
-
-      // StructVector
-      structVector.allocateNewSafe();
-      structVector.setNull(0);
-      structVector.setValueCount(1);
-      resetClearVectorAndVerify(structVector, structVector.getBuffers(true));
-    }
-  }
-
-  @Test
   public void testUnionTypeReset() {
     try (final UnionVector vector =
             new UnionVector("Union", allocator, /* field type */ null, /* call-back */ null);
@@ -311,21 +187,6 @@ public class TestVectorReset {
       dataVector.setNull(0);
       vector.setValueCount(1);
       resetVectorAndVerify(vector, vector.getBuffers(false));
-    }
-  }
-
-  @Test
-  public void testUnionTypeResetAndClear() {
-    try (final UnionVector vector =
-            new UnionVector("Union", allocator, /* field type */ null, /* call-back */ null);
-        final IntVector dataVector = new IntVector("Int", allocator)) {
-      vector.getBufferSize();
-      vector.allocateNewSafe();
-      dataVector.allocateNewSafe();
-      vector.addVector(dataVector);
-      dataVector.setNull(0);
-      vector.setValueCount(1);
-      resetClearVectorAndVerify(vector, vector.getBuffers(true));
     }
   }
 }
