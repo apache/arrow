@@ -229,7 +229,7 @@ public class TestFragmentScanOptions {
       while (reader.loadNextBatch()) {
         final ValueIterableVector<Long> idVector =
             (ValueIterableVector<Long>) reader.getVectorSchemaRoot().getVector("Id");
-        assertThat(idVector.getValueIterable(), IsIterableContainingInOrder.contains(2, 3));
+        assertThat(idVector.getValueIterable(), IsIterableContainingInOrder.contains(2L, 3L));
         rowCount += reader.getVectorSchemaRoot().getRowCount();
       }
       assertEquals(2, rowCount);
