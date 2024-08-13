@@ -15,13 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# Only ARGs before the first build step are available for all build steps.
 ARG arch
 ARG python
 ARG python_image_tag
-FROM ${arch}/python:${python_image_tag}
+ARG PYTHON_VERSION=${python}
 
-# (Docker oddity: ARG needs to be repeated after FROM)
-ARG python
+FROM ${arch}/python:${python_image_tag}
 
 # RUN pip install --upgrade pip
 
@@ -31,4 +31,4 @@ COPY python/requirements-wheel-test.txt /arrow/python/
 RUN pip install -r /arrow/python/requirements-wheel-test.txt
 
 COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
-RUN PYTHON_VERSION=${python} /arrow/ci/scripts/install_gcs_testbench.sh default
+RUN /arrow/ci/scripts/install_gcs_testbench.sh default
