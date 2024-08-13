@@ -196,7 +196,10 @@ public class TestFragmentScanOptions {
   public void testCsvReadParseAndReadOptions() throws Exception {
     final Schema schema =
         new Schema(
-            Collections.singletonList(Field.nullable("Id;Name;Language", new ArrowType.Utf8())),
+            Arrays.asList(
+                Field.nullable("Id", new ArrowType.Int(64, true)),
+                Field.nullable("Name", new ArrowType.Utf8()),
+                Field.nullable("Language", new ArrowType.Utf8())),
             null);
     String path = "file://" + getClass().getResource("/").getPath() + "/data/student.csv";
     BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
@@ -224,12 +227,9 @@ public class TestFragmentScanOptions {
       assertEquals(schema.getFields(), reader.getVectorSchemaRoot().getSchema().getFields());
       int rowCount = 0;
       while (reader.loadNextBatch()) {
-        final ValueIterableVector<Text> idVector =
-            (ValueIterableVector<Text>) reader.getVectorSchemaRoot().getVector("Id;Name;Language");
-        assertThat(
-            idVector.getValueIterable(),
-            IsIterableContainingInOrder.contains(
-                new Text("2;Peter;Python"), new Text("3;Celin;C++")));
+        final ValueIterableVector<Long> idVector =
+            (ValueIterableVector<Long>) reader.getVectorSchemaRoot().getVector("Id");
+        assertThat(idVector.getValueIterable(), IsIterableContainingInOrder.contains(2, 3));
         rowCount += reader.getVectorSchemaRoot().getRowCount();
       }
       assertEquals(2, rowCount);
