@@ -46,7 +46,7 @@ fi
 
 # This script is run with PYTHON undefined in some places,
 # but those only use older pythons.
-if [[ -z "${PYTHON_VERSION}" ]] || [[ ! "${PYTHON_VERSION}" == "*3.13*" ]]; then
+if [[ -z "${PYTHON_VERSION}" ]] || [[ "${PYTHON_VERSION}" != "3.13" ]]; then
   python3 -m pip install \
     "https://github.com/googleapis/storage-testbench/archive/${version}.tar.gz"
 fi
