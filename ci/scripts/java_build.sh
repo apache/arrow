@@ -73,7 +73,7 @@ if [ $ARROW_JAVA_SKIP_GIT_PLUGIN ]; then
 fi
 
 # Use `2 * ncores` threads
-mvn="${mvn} -T 2C"
+# mvn="${mvn} -T 2C"
 
 # https://github.com/apache/arrow/issues/41429
 # TODO: We want to out-of-source build. This is a workaround. We copy
