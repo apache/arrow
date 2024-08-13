@@ -564,9 +564,11 @@ Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
 
 struct CastingGenerator {
   CastingGenerator(RecordBatchGenerator source, std::shared_ptr<Schema> final_schema,
+                   const std::unordered_set<std::string>& cols_to_skip,
                    MemoryPool* pool = default_memory_pool())
       : source_(source),
         final_schema_(final_schema),
+        cols_to_skip_(cols_to_skip),
         exec_ctx(std::make_shared<compute::ExecContext>(pool)) {}
 
   Future<std::shared_ptr<RecordBatch>> operator()() {
@@ -584,6 +586,12 @@ struct CastingGenerator {
         ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> column,
                               field_ref.GetOneOrNone(*next));
         if (column) {
+          if (this->cols_to_skip_.count(field->name())) {
+            out_cols.emplace_back(std::move(column));
+            // Maintain the original input type.
+            out_schema_fields.emplace_back(field->WithType(column->type()));
+            continue;
+          }
           if (!column->type()->Equals(field->type())) {
             // Referenced field was present but didn't have the expected type.
             ARROW_ASSIGN_OR_RAISE(
@@ -610,6 +618,7 @@ struct CastingGenerator {
 
   RecordBatchGenerator source_;
   std::shared_ptr<Schema> final_schema_;
+  const std::unordered_set<std::string>& cols_to_skip_;
   std::shared_ptr<compute::ExecContext> exec_ctx;
 };
 
@@ -698,10 +707,15 @@ Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
                           reader->GetRecordBatchGenerator(
                               reader, row_groups, column_projection,
                               ::arrow::internal::GetCpuThreadPool(), rows_to_readahead));
+    // We need to skip casting the dictionary columns since the dataset_schema doesn't
+    // have the dictionary-encoding information. Parquet reader will return them with the
+    // dictionary type, which is what we eventually want.
+    const std::unordered_set<std::string>& dict_cols =
+        parquet_fragment->parquet_format_.reader_options.dict_columns;
     // Casting before slicing is more efficient. Casts on slices might require wasteful
     // allocations and computation.
-    RecordBatchGenerator casted =
-        CastingGenerator(std::move(generator), options->dataset_schema, options->pool);
+    RecordBatchGenerator casted = CastingGenerator(
+        std::move(generator), options->dataset_schema, dict_cols, options->pool);
     RecordBatchGenerator sliced =
         SlicingGenerator(std::move(casted), options->batch_size);
     if (batch_readahead == 0) {
