@@ -82,6 +82,8 @@ class WriterPropertiesBuilder;
 class ArrowWriterProperties;
 class ArrowWriterPropertiesBuilder;
 
+class BloomFilter;
+
 namespace arrow {
 
 class FileWriter;
