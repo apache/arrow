@@ -18,3 +18,9 @@
 // types as defined in the Arrow specification.
 // https://arrow.apache.org/docs/format/CanonicalExtensions.html
 package extensions
+
+import "github.com/apache/arrow/go/v18/parquet/schema"
+
+type CustomParquetType interface {
+	ParquetLogicalType() schema.LogicalType
+}
