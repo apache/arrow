@@ -262,6 +262,7 @@ if(ARROW_TESTING)
                 OUTPUTS
                 ARROW_FLIGHT_TESTING_LIBRARIES
                 SOURCES
+                test_auth_handlers.cc
                 test_definitions.cc
                 test_flight_server.cc
                 test_util.cc

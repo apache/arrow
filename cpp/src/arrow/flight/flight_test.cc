@@ -52,6 +52,7 @@
 // Include before test_util.h (boost), contains Windows fixes
 #include "arrow/flight/platform.h"
 #include "arrow/flight/serialization_internal.h"
+#include "arrow/flight/test_auth_handlers.h"
 #include "arrow/flight/test_definitions.h"
 #include "arrow/flight/test_flight_server.h"
 #include "arrow/flight/test_util.h"

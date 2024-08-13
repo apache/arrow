@@ -36,6 +36,7 @@
 #include "arrow/flight/sql/server.h"
 #include "arrow/flight/sql/server_session_middleware.h"
 #include "arrow/flight/sql/types.h"
+#include "arrow/flight/test_auth_handlers.h"
 #include "arrow/flight/test_util.h"
 #include "arrow/flight/types.h"
 #include "arrow/ipc/dictionary.h"
