@@ -197,7 +197,7 @@ Status GetBatchForFlight(const Ticket& ticket, std::shared_ptr<RecordBatchReader
   }
 }
 
-class FlightTestServer : public FlightServerBase {
+class TestFlightServer : public FlightServerBase {
   Status ListFlights(const ServerCallContext& context, const Criteria* criteria,
                      std::unique_ptr<FlightListing>* listings) override {
     std::vector<FlightInfo> flights = ExampleFlightInfo();
@@ -526,7 +526,7 @@ class FlightTestServer : public FlightServerBase {
 };
 
 std::unique_ptr<FlightServerBase> ExampleTestServer() {
-  return std::make_unique<FlightTestServer>();
+  return std::make_unique<TestFlightServer>();
 }
 
 FlightInfo MakeFlightInfo(const Schema& schema, const FlightDescriptor& descriptor,
