@@ -30,9 +30,9 @@ import (
 	"github.com/apache/arrow/go/v18/arrow/bitutil"
 	"github.com/apache/arrow/go/v18/arrow/decimal128"
 	"github.com/apache/arrow/go/v18/arrow/decimal256"
+	"github.com/apache/arrow/go/v18/arrow/extensions"
 	"github.com/apache/arrow/go/v18/arrow/ipc"
 	"github.com/apache/arrow/go/v18/arrow/memory"
-	"github.com/apache/arrow/go/v18/internal/types"
 	"github.com/apache/arrow/go/v18/internal/utils"
 	"github.com/apache/arrow/go/v18/parquet"
 	"github.com/apache/arrow/go/v18/parquet/compress"
@@ -716,7 +716,7 @@ type ParquetIOTestSuite struct {
 }
 
 func (ps *ParquetIOTestSuite) SetupTest() {
-	ps.NoError(arrow.RegisterExtensionType(types.NewUUIDType()))
+	ps.NoError(arrow.RegisterExtensionType(extensions.NewUUIDType()))
 }
 
 func (ps *ParquetIOTestSuite) TearDownTest() {
@@ -2053,7 +2053,7 @@ func (ps *ParquetIOTestSuite) TestArrowExtensionTypeRoundTrip() {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(ps.T(), 0)
 
-	builder := types.NewUUIDBuilder(mem)
+	builder := extensions.NewUUIDBuilder(mem)
 	builder.Append(uuid.New())
 	arr := builder.NewArray()
 	defer arr.Release()
@@ -2076,7 +2076,7 @@ func (ps *ParquetIOTestSuite) TestArrowUnknownExtensionTypeRoundTrip() {
 
 	{
 		// Prepare `written` table with the extension type registered.
-		extType := types.NewUUIDType()
+		extType := extensions.NewUUIDType()
 		bldr := array.NewExtensionBuilder(mem, extType)
 		defer bldr.Release()
 
@@ -2163,7 +2163,7 @@ func TestWriteTableMemoryAllocation(t *testing.T) {
 			arrow.Field{Name: "i64", Type: arrow.PrimitiveTypes.Int64, Nullable: true},
 			arrow.Field{Name: "f64", Type: arrow.PrimitiveTypes.Float64, Nullable: true})},
 		{Name: "arr_i64", Type: arrow.ListOf(arrow.PrimitiveTypes.Int64)},
-		{Name: "uuid", Type: types.NewUUIDType(), Nullable: true},
+		{Name: "uuid", Type: extensions.NewUUIDType(), Nullable: true},
 	}, nil)
 
 	bld := array.NewRecordBuilder(mem, sc)
@@ -2176,7 +2176,7 @@ func TestWriteTableMemoryAllocation(t *testing.T) {
 	abld := bld.Field(3).(*array.ListBuilder)
 	abld.Append(true)
 	abld.ValueBuilder().(*array.Int64Builder).Append(2)
-	bld.Field(4).(*types.UUIDBuilder).Append(uuid.MustParse("00000000-0000-0000-0000-000000000001"))
+	bld.Field(4).(*extensions.UUIDBuilder).Append(uuid.MustParse("00000000-0000-0000-0000-000000000001"))
 
 	rec := bld.NewRecord()
 	bld.Release()

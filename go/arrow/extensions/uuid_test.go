@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package types_test
+package extensions_test
 
 import (
 	"bytes"
@@ -22,9 +22,9 @@ import (
 
 	"github.com/apache/arrow/go/v18/arrow"
 	"github.com/apache/arrow/go/v18/arrow/array"
+	"github.com/apache/arrow/go/v18/arrow/extensions"
 	"github.com/apache/arrow/go/v18/arrow/memory"
 	"github.com/apache/arrow/go/v18/internal/json"
-	"github.com/apache/arrow/go/v18/internal/types"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -35,7 +35,7 @@ var testUUID = uuid.New()
 func TestUUIDExtensionBuilder(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(t, 0)
-	builder := types.NewUUIDBuilder(mem)
+	builder := extensions.NewUUIDBuilder(mem)
 	builder.Append(testUUID)
 	arr := builder.NewArray()
 	defer arr.Release()
@@ -44,7 +44,7 @@ func TestUUIDExtensionBuilder(t *testing.T) {
 	jsonStr, err := json.Marshal(arr)
 	assert.NoError(t, err)
 
-	arr1, _, err := array.FromJSON(mem, types.NewUUIDType(), bytes.NewReader(jsonStr))
+	arr1, _, err := array.FromJSON(mem, extensions.NewUUIDType(), bytes.NewReader(jsonStr))
 	defer arr1.Release()
 	assert.NoError(t, err)
 	assert.Equal(t, arr, arr1)
@@ -52,10 +52,10 @@ func TestUUIDExtensionBuilder(t *testing.T) {
 
 func TestUUIDExtensionRecordBuilder(t *testing.T) {
 	schema := arrow.NewSchema([]arrow.Field{
-		{Name: "uuid", Type: types.NewUUIDType()},
+		{Name: "uuid", Type: extensions.NewUUIDType()},
 	}, nil)
 	builder := array.NewRecordBuilder(memory.DefaultAllocator, schema)
-	builder.Field(0).(*types.UUIDBuilder).Append(testUUID)
+	builder.Field(0).(*extensions.UUIDBuilder).Append(testUUID)
 	record := builder.NewRecord()
 	b, err := record.MarshalJSON()
 	require.NoError(t, err)
@@ -70,7 +70,7 @@ func TestUUIDStringRoundTrip(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(t, 0)
 
-	b := types.NewUUIDBuilder(mem)
+	b := extensions.NewUUIDBuilder(mem)
 	b.Append(uuid.Nil)
 	b.AppendNull()
 	b.Append(uuid.NameSpaceURL)
@@ -81,7 +81,7 @@ func TestUUIDStringRoundTrip(t *testing.T) {
 	defer arr.Release()
 
 	// 2. create array via AppendValueFromString
-	b1 := types.NewUUIDBuilder(mem)
+	b1 := extensions.NewUUIDBuilder(mem)
 	defer b1.Release()
 
 	for i := 0; i < arr.Len(); i++ {

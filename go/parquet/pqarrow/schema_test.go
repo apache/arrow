@@ -21,10 +21,10 @@ import (
 	"testing"
 
 	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/extensions"
 	"github.com/apache/arrow/go/v18/arrow/flight"
 	"github.com/apache/arrow/go/v18/arrow/ipc"
 	"github.com/apache/arrow/go/v18/arrow/memory"
-	"github.com/apache/arrow/go/v18/internal/types"
 	"github.com/apache/arrow/go/v18/parquet"
 	"github.com/apache/arrow/go/v18/parquet/metadata"
 	"github.com/apache/arrow/go/v18/parquet/pqarrow"
@@ -34,7 +34,7 @@ import (
 )
 
 func TestGetOriginSchemaBase64(t *testing.T) {
-	uuidType := types.NewUUIDType()
+	uuidType := extensions.NewUUIDType()
 	md := arrow.NewMetadata([]string{"PARQUET:field_id"}, []string{"-1"})
 	extMd := arrow.NewMetadata([]string{ipc.ExtensionMetadataKeyName, ipc.ExtensionTypeKeyName, "PARQUET:field_id"}, []string{uuidType.Serialize(), uuidType.ExtensionName(), "-1"})
 	origArrSc := arrow.NewSchema([]arrow.Field{
@@ -71,7 +71,7 @@ func TestGetOriginSchemaBase64(t *testing.T) {
 }
 
 func TestGetOriginSchemaUnregisteredExtension(t *testing.T) {
-	uuidType := types.NewUUIDType()
+	uuidType := extensions.NewUUIDType()
 	if err := arrow.RegisterExtensionType(uuidType); err != nil {
 		t.Fatal(err)
 	}

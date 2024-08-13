@@ -33,6 +33,7 @@ import (
 
 	"github.com/apache/arrow/go/v18/arrow"
 	"github.com/apache/arrow/go/v18/arrow/array"
+	"github.com/apache/arrow/go/v18/arrow/extensions"
 	"github.com/apache/arrow/go/v18/arrow/flight"
 	"github.com/apache/arrow/go/v18/arrow/flight/flightsql"
 	"github.com/apache/arrow/go/v18/arrow/flight/flightsql/schema_ref"
@@ -40,7 +41,6 @@ import (
 	"github.com/apache/arrow/go/v18/arrow/internal/arrjson"
 	"github.com/apache/arrow/go/v18/arrow/ipc"
 	"github.com/apache/arrow/go/v18/arrow/memory"
-	"github.com/apache/arrow/go/v18/internal/types"
 	"golang.org/x/xerrors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -161,7 +161,7 @@ func (s *defaultIntegrationTester) RunClient(addr string, opts ...grpc.DialOptio
 
 	ctx := context.Background()
 
-	arrow.RegisterExtensionType(types.NewUUIDType())
+	arrow.RegisterExtensionType(extensions.NewUUIDType())
 	defer arrow.UnregisterExtensionType("uuid")
 
 	descr := &flight.FlightDescriptor{

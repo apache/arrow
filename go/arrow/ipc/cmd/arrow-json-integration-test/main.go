@@ -25,9 +25,9 @@ import (
 	"github.com/apache/arrow/go/v18/arrow"
 	"github.com/apache/arrow/go/v18/arrow/array"
 	"github.com/apache/arrow/go/v18/arrow/arrio"
+	"github.com/apache/arrow/go/v18/arrow/extensions"
 	"github.com/apache/arrow/go/v18/arrow/internal/arrjson"
 	"github.com/apache/arrow/go/v18/arrow/ipc"
-	"github.com/apache/arrow/go/v18/internal/types"
 )
 
 func main() {
@@ -50,7 +50,7 @@ func main() {
 }
 
 func runCommand(jsonName, arrowName, mode string, verbose bool) error {
-	arrow.RegisterExtensionType(types.NewUUIDType())
+	arrow.RegisterExtensionType(extensions.NewUUIDType())
 
 	if jsonName == "" {
 		return fmt.Errorf("must specify json file name")

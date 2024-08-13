@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	"github.com/apache/arrow/go/v18/arrow"
-	"github.com/apache/arrow/go/v18/internal/types"
+	"github.com/apache/arrow/go/v18/arrow/extensions"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
@@ -51,7 +51,7 @@ type ExtensionTypeTestSuite struct {
 }
 
 func (e *ExtensionTypeTestSuite) SetupTest() {
-	e.NoError(arrow.RegisterExtensionType(types.NewUUIDType()))
+	e.NoError(arrow.RegisterExtensionType(extensions.NewUUIDType()))
 }
 
 func (e *ExtensionTypeTestSuite) TearDownTest() {
@@ -64,10 +64,10 @@ func (e *ExtensionTypeTestSuite) TestExtensionType() {
 	e.Nil(arrow.GetExtensionType("uuid-unknown"))
 	e.NotNil(arrow.GetExtensionType("uuid"))
 
-	e.Error(arrow.RegisterExtensionType(types.NewUUIDType()))
+	e.Error(arrow.RegisterExtensionType(extensions.NewUUIDType()))
 	e.Error(arrow.UnregisterExtensionType("uuid-unknown"))
 
-	typ := types.NewUUIDType()
+	typ := extensions.NewUUIDType()
 	e.Implements((*arrow.ExtensionType)(nil), typ)
 	e.Equal(arrow.EXTENSION, typ.ID())
 	e.Equal("extension", typ.Name())

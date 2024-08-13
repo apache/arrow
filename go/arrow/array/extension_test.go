@@ -21,6 +21,7 @@ import (
 
 	"github.com/apache/arrow/go/v18/arrow"
 	"github.com/apache/arrow/go/v18/arrow/array"
+	"github.com/apache/arrow/go/v18/arrow/extensions"
 	"github.com/apache/arrow/go/v18/arrow/memory"
 	"github.com/apache/arrow/go/v18/internal/types"
 	"github.com/stretchr/testify/suite"
@@ -31,7 +32,7 @@ type ExtensionTypeTestSuite struct {
 }
 
 func (e *ExtensionTypeTestSuite) SetupTest() {
-	e.NoError(arrow.RegisterExtensionType(types.NewUUIDType()))
+	e.NoError(arrow.RegisterExtensionType(extensions.NewUUIDType()))
 }
 
 func (e *ExtensionTypeTestSuite) TearDownTest() {

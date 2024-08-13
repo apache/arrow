@@ -23,10 +23,10 @@ import (
 
 	"github.com/apache/arrow/go/v18/arrow"
 	"github.com/apache/arrow/go/v18/arrow/array"
+	"github.com/apache/arrow/go/v18/arrow/extensions"
 	"github.com/apache/arrow/go/v18/arrow/internal/dictutils"
 	"github.com/apache/arrow/go/v18/arrow/internal/flatbuf"
 	"github.com/apache/arrow/go/v18/arrow/memory"
-	"github.com/apache/arrow/go/v18/internal/types"
 	flatbuffers "github.com/google/flatbuffers/go"
 	"github.com/stretchr/testify/assert"
 )
@@ -169,7 +169,7 @@ func TestRWFooter(t *testing.T) {
 }
 
 func exampleUUID(mem memory.Allocator) arrow.Array {
-	extType := types.NewUUIDType()
+	extType := extensions.NewUUIDType()
 	bldr := array.NewExtensionBuilder(mem, extType)
 	defer bldr.Release()
 
@@ -185,7 +185,7 @@ func TestUnrecognizedExtensionType(t *testing.T) {
 	defer pool.AssertSize(t, 0)
 
 	// register the uuid type
-	assert.NoError(t, arrow.RegisterExtensionType(types.NewUUIDType()))
+	assert.NoError(t, arrow.RegisterExtensionType(extensions.NewUUIDType()))
 
 	extArr := exampleUUID(pool)
 	defer extArr.Release()

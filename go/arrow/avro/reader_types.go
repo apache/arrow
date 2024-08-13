@@ -27,8 +27,8 @@ import (
 	"github.com/apache/arrow/go/v18/arrow/array"
 	"github.com/apache/arrow/go/v18/arrow/decimal128"
 	"github.com/apache/arrow/go/v18/arrow/decimal256"
+	"github.com/apache/arrow/go/v18/arrow/extensions"
 	"github.com/apache/arrow/go/v18/arrow/memory"
-	"github.com/apache/arrow/go/v18/internal/types"
 )
 
 type dataLoader struct {
@@ -436,7 +436,7 @@ func mapFieldBuilders(b array.Builder, field arrow.Field, parent *fieldPos) {
 			}
 			return nil
 		}
-	case *types.UUIDBuilder:
+	case *extensions.UUIDBuilder:
 		f.appendFunc = func(data interface{}) error {
 			switch dt := data.(type) {
 			case nil:
