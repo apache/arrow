@@ -449,7 +449,7 @@ public class LargeListViewVector extends BaseLargeRepeatedValueViewVector
 
   @Override
   public <OUT, IN> OUT accept(VectorVisitor<OUT, IN> visitor, IN value) {
-    throw new UnsupportedOperationException();
+    return visitor.visit(this, value);
   }
 
   @Override
