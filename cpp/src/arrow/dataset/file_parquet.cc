@@ -587,9 +587,9 @@ struct CastingGenerator {
                               field_ref.GetOneOrNone(*next));
         if (column) {
           if (this->cols_to_skip_.count(field->name())) {
-            out_cols.emplace_back(std::move(column));
             // Maintain the original input type.
             out_schema_fields.emplace_back(field->WithType(column->type()));
+            out_cols.emplace_back(std::move(column));
             continue;
           }
           if (!column->type()->Equals(field->type())) {
@@ -601,8 +601,8 @@ struct CastingGenerator {
             column = converted.make_array();
             changed = true;
           }
-          out_cols.emplace_back(std::move(column));
           out_schema_fields.emplace_back(field->Copy());
+          out_cols.emplace_back(std::move(column));
         }
       }
 
