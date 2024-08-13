@@ -1529,6 +1529,21 @@ class TestAzureFileSystem : public ::testing::Test {
                          buffers[0] + buffers[1] + buffers[2] + buffers[3]);
   }
 
+  void TestOpenOutputStreamCloseAsync() {
+    ASSERT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options_));
+    auto data = SetUpPreexistingData();
+    const std::string path = data.ContainerPath("test-write-object");
+    constexpr auto payload = PreexistingData::kLoremIpsum;
+
+    ASSERT_OK_AND_ASSIGN(auto stream, fs->OpenOutputStream(path));
+    ASSERT_OK(stream->Write(payload));
+    auto close_fut = stream->CloseAsync();
+
+    ASSERT_OK(close_fut.MoveResult());
+
+    AssertObjectContents(fs.get(), path, payload);
+  }
+
   void TestOpenOutputStreamCloseAsyncDestructor() {
     ASSERT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options_));
     auto data = SetUpPreexistingData();
@@ -2872,6 +2887,15 @@ TEST_F(TestAzuriteFileSystem, OpenOutputStreamClosed) {
                                        std::strlen(PreexistingData::kLoremIpsum)));
   ASSERT_RAISES(Invalid, output->Flush());
   ASSERT_RAISES(Invalid, output->Tell());
+}
+
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamCloseAsync) {
+  TestOpenOutputStreamCloseAsync();
+}
+
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamCloseAsyncBackgroundWrites) {
+  options_.background_writes = true;
+  TestOpenOutputStreamCloseAsync();
 }
 
 TEST_F(TestAzuriteFileSystem, OpenOutputStreamAsyncDestructor) {
