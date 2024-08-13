@@ -31,11 +31,13 @@ import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.ExtensionTypeVector;
 import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.complex.BaseLargeRepeatedValueViewVector;
 import org.apache.arrow.vector.complex.BaseRepeatedValueVector;
 import org.apache.arrow.vector.complex.BaseRepeatedValueViewVector;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.LargeListVector;
+import org.apache.arrow.vector.complex.LargeListViewVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.ListViewVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
@@ -242,6 +244,14 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
       return false;
     }
     return compareListViewVectors(range);
+  }
+
+  @Override
+  public Boolean visit(LargeListViewVector left, Range range) {
+    if (!validate(left)) {
+      return false;
+    }
+    return compareLargeListViewVectors(range);
   }
 
   protected RangeEqualsVisitor createInnerVisitor(
@@ -733,6 +743,53 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
 
       int offsetWidth = BaseRepeatedValueViewVector.OFFSET_WIDTH;
       int sizeWidth = BaseRepeatedValueViewVector.SIZE_WIDTH;
+
+      if (!isNull) {
+        final int startIndexLeft =
+            leftVector.getOffsetBuffer().getInt((long) leftIndex * offsetWidth);
+        final int leftSize = leftVector.getSizeBuffer().getInt((long) leftIndex * sizeWidth);
+
+        final int startIndexRight =
+            rightVector.getOffsetBuffer().getInt((long) rightIndex * offsetWidth);
+        final int rightSize = rightVector.getSizeBuffer().getInt((long) rightIndex * sizeWidth);
+
+        if (leftSize != rightSize) {
+          return false;
+        }
+
+        innerRange =
+            innerRange
+                .setRightStart(startIndexRight)
+                .setLeftStart(startIndexLeft)
+                .setLength(leftSize);
+        if (!innerVisitor.rangeEquals(innerRange)) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  protected boolean compareLargeListViewVectors(Range range) {
+    LargeListViewVector leftVector = (LargeListViewVector) left;
+    LargeListViewVector rightVector = (LargeListViewVector) right;
+
+    RangeEqualsVisitor innerVisitor =
+        createInnerVisitor(
+            leftVector.getDataVector(), rightVector.getDataVector(), /*type comparator*/ null);
+    Range innerRange = new Range();
+
+    for (int i = 0; i < range.getLength(); i++) {
+      int leftIndex = range.getLeftStart() + i;
+      int rightIndex = range.getRightStart() + i;
+
+      boolean isNull = leftVector.isNull(leftIndex);
+      if (isNull != rightVector.isNull(rightIndex)) {
+        return false;
+      }
+
+      int offsetWidth = BaseLargeRepeatedValueViewVector.OFFSET_WIDTH;
+      int sizeWidth = BaseLargeRepeatedValueViewVector.SIZE_WIDTH;
 
       if (!isNull) {
         final int startIndexLeft =

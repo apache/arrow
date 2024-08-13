@@ -42,7 +42,7 @@ test_that("RecordBatch", {
   expect_equal(batch$column_name(2), "lgl")
   expect_equal(batch$column_name(3), "chr")
   expect_equal(batch$column_name(4), "fct")
-  expect_equal(names(batch), c("int", "dbl", "lgl", "chr", "fct"))
+  expect_named(batch, c("int", "dbl", "lgl", "chr", "fct"))
 
   # input validation
   expect_error(batch$column_name(NA), "'i' cannot be NA")
@@ -497,9 +497,9 @@ test_that("RecordBatch$Equals(check_metadata)", {
 
 test_that("RecordBatch name assignment", {
   rb <- record_batch(x = 1:10, y = 1:10)
-  expect_identical(names(rb), c("x", "y"))
+  expect_named(rb, c("x", "y"))
   names(rb) <- c("a", "b")
-  expect_identical(names(rb), c("a", "b"))
+  expect_named(rb, c("a", "b"))
   expect_error(names(rb) <- "f")
   expect_error(names(rb) <- letters)
   expect_error(names(rb) <- character(0))

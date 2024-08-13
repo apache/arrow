@@ -146,7 +146,12 @@ class PARQUET_EXPORT ColumnChunkMetaData {
 
   bool Equals(const ColumnChunkMetaData& other) const;
 
-  // column chunk
+  // Byte offset of `ColumnMetaData` in `file_path()`.
+  //
+  // Note that the meaning of this field has been inconsistent among implementations
+  // so its use has since been deprecated in the Parquet specification. Modern
+  // implementations will set this to `0` to indicate that the `ColumnMetaData` is solely
+  // contained in the `ColumnChunk` struct.
   int64_t file_offset() const;
 
   // parameter is only used when a dataset is spread across multiple files

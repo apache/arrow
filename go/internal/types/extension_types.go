@@ -26,6 +26,7 @@ import (
 
 	"github.com/apache/arrow/go/v18/arrow"
 	"github.com/apache/arrow/go/v18/arrow/array"
+	"github.com/apache/arrow/go/v18/arrow/memory"
 	"github.com/apache/arrow/go/v18/internal/json"
 	"github.com/google/uuid"
 	"golang.org/x/xerrors"
@@ -37,8 +38,8 @@ type UUIDBuilder struct {
 	*array.ExtensionBuilder
 }
 
-func NewUUIDBuilder(builder *array.ExtensionBuilder) *UUIDBuilder {
-	return &UUIDBuilder{ExtensionBuilder: builder}
+func NewUUIDBuilder(mem memory.Allocator) *UUIDBuilder {
+	return &UUIDBuilder{ExtensionBuilder: array.NewExtensionBuilder(mem, NewUUIDType())}
 }
 
 func (b *UUIDBuilder) Append(v uuid.UUID) {
@@ -245,8 +246,8 @@ func (e *UUIDType) ExtensionEquals(other arrow.ExtensionType) bool {
 	return e.ExtensionName() == other.ExtensionName()
 }
 
-func (*UUIDType) NewBuilder(bldr *array.ExtensionBuilder) array.Builder {
-	return NewUUIDBuilder(bldr)
+func (*UUIDType) NewBuilder(mem memory.Allocator) array.Builder {
+	return NewUUIDBuilder(mem)
 }
 
 // Parametric1Array is a simple int32 array for use with the Parametric1Type

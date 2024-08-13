@@ -32,7 +32,6 @@ else:
     # Get correct EXT_SUFFIX on Windows (https://bugs.python.org/issue39825)
     from distutils import sysconfig
 
-import pkg_resources
 from setuptools import setup, Extension, Distribution, find_namespace_packages
 
 from Cython.Distutils import build_ext as _build_ext
@@ -106,7 +105,8 @@ class build_ext(_build_ext):
     _found_names = ()
 
     def build_extensions(self):
-        numpy_incl = pkg_resources.resource_filename('numpy', 'core/include')
+        import numpy
+        numpy_incl = numpy.get_include()
 
         self.extensions = [ext for ext in self.extensions
                            if ext.name != '__dummy__']

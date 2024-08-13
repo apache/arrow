@@ -49,7 +49,7 @@ type Table interface {
 // To get strongly typed data from a Column, you need to iterate the
 // chunks and type assert each individual Array. For example:
 //
-//	switch column.DataType().ID {
+//	switch column.DataType().ID() {
 //	case arrow.INT32:
 //		for _, c := range column.Data().Chunks() {
 //			arr := c.(*array.Int32)

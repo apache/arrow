@@ -97,7 +97,7 @@ static std::shared_ptr<Statistics> MakeTypedColumnStats(
         descr, metadata.statistics.min_value, metadata.statistics.max_value,
         metadata.num_values - metadata.statistics.null_count,
         metadata.statistics.null_count, metadata.statistics.distinct_count,
-        metadata.statistics.__isset.max_value || metadata.statistics.__isset.min_value,
+        metadata.statistics.__isset.max_value && metadata.statistics.__isset.min_value,
         metadata.statistics.__isset.null_count,
         metadata.statistics.__isset.distinct_count);
   }
@@ -106,7 +106,7 @@ static std::shared_ptr<Statistics> MakeTypedColumnStats(
       descr, metadata.statistics.min, metadata.statistics.max,
       metadata.num_values - metadata.statistics.null_count,
       metadata.statistics.null_count, metadata.statistics.distinct_count,
-      metadata.statistics.__isset.max || metadata.statistics.__isset.min,
+      metadata.statistics.__isset.max && metadata.statistics.__isset.min,
       metadata.statistics.__isset.null_count, metadata.statistics.__isset.distinct_count);
 }
 
@@ -1572,10 +1572,10 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
               const std::shared_ptr<Encryptor>& encryptor) {
     if (dictionary_page_offset > 0) {
       column_chunk_->meta_data.__set_dictionary_page_offset(dictionary_page_offset);
-      column_chunk_->__set_file_offset(dictionary_page_offset + compressed_size);
-    } else {
-      column_chunk_->__set_file_offset(data_page_offset + compressed_size);
     }
+    // The `file_offset` field is deprecated and should be set to 0.
+    // See https://github.com/apache/parquet-format/pull/440 for detail.
+    column_chunk_->__set_file_offset(0);
     column_chunk_->__isset.meta_data = true;
     column_chunk_->meta_data.__set_num_values(num_values);
     if (index_page_offset >= 0) {
