@@ -2154,6 +2154,39 @@ func (ps *ParquetIOTestSuite) TestArrowUnknownExtensionTypeRoundTrip() {
 	ps.Truef(expectedMd.Equal(tbl.Column(0).Field().Metadata), "expected: %v\ngot: %v", expectedMd, tbl.Column(0).Field().Metadata)
 }
 
+func (ps *ParquetIOTestSuite) TestArrowExtensionTypeLogicalType() {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(ps.T(), 0)
+
+	sch := arrow.NewSchema([]arrow.Field{{Name: "uuid", Type: extensions.NewUUIDType()}}, nil)
+	bldr := array.NewRecordBuilder(mem, sch)
+	defer bldr.Release()
+
+	bldr.Field(0).(*extensions.UUIDBuilder).Append(uuid.New())
+	rec := bldr.NewRecord()
+	defer rec.Release()
+
+	var buf bytes.Buffer
+	wr, err := pqarrow.NewFileWriter(
+		sch,
+		&buf,
+		parquet.NewWriterProperties(),
+		pqarrow.DefaultWriterProps(),
+	)
+	ps.Require().NoError(err)
+
+	ps.Require().NoError(wr.Write(rec))
+	ps.Require().NoError(wr.Close())
+
+	rdr, err := file.NewParquetReader(bytes.NewReader(buf.Bytes()))
+	ps.Require().NoError(err)
+
+	col, err := rdr.RowGroup(0).Column(0)
+	ps.Require().NoError(err)
+
+	ps.Equal(schema.UUIDLogicalType{}, col.Descriptor().LogicalType())
+}
+
 func TestWriteTableMemoryAllocation(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	sc := arrow.NewSchema([]arrow.Field{
