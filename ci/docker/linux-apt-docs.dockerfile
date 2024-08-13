@@ -23,21 +23,18 @@ ARG jdk=11
 
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
-# See R install instructions at https://cloud.r-project.org/bin/linux/
+# See R install instructions at https://cloud.r-project.org/bin/linux/ubuntu
 RUN apt-get update -y && \
     apt-get install -y \
         apt-transport-https \
+        software-properties-common \
         dirmngr \
         gpg \
         lsb-release && \
-    gpg --keyserver keyserver.ubuntu.com \
-        --recv-key 95C0FAF38DB3CCAD0C080A7BDC78B2DDEABC47B7 && \
-    gpg --export 95C0FAF38DB3CCAD0C080A7BDC78B2DDEABC47B7 | \
-        gpg --no-default-keyring \
-            --keyring /usr/share/keyrings/cran.gpg \
-            --import - && \
-    echo "deb [signed-by=/usr/share/keyrings/cran.gpg] https://cloud.r-project.org/bin/linux/$(lsb_release -is | tr 'A-Z' 'a-z') $(lsb_release -cs)-cran40/" | \
-        tee /etc/apt/sources.list.d/cran.list && \
+    wget -qO- https://cloud.r-project.org/bin/linux/ubuntu/marutter_pubkey.asc | \
+        tee -a /etc/apt/trusted.gpg.d/cran_ubuntu_key.asc && \
+    # NOTE: Only R >= 4.0 is available in this repo
+    add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu '$(lsb_release -cs)'-cran40/' && \
     if [ -f /etc/apt/sources.list.d/debian.sources ]; then \
         sed -i \
             -e 's/main$/main contrib non-free non-free-firmware/g' \
@@ -47,8 +44,7 @@ RUN apt-get update -y && \
     apt-get install -y --no-install-recommends \
         autoconf-archive \
         automake \
-        chromium \
-        chromium-sandbox \
+        chromium-browser \
         curl \
         doxygen \
         gi-docgen \
