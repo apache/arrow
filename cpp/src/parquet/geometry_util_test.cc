@@ -101,8 +101,8 @@ struct WKBTestCase {
     std::array<double, 4> mins = {kInf, kInf, kInf, kInf};
     std::array<double, 4> maxes{-kInf, -kInf, -kInf, -kInf};
     for (uint32_t i = 0; i < Dimensions::size(y); i++) {
-      mins[i] = box_values[i * 2];
-      maxes[i] = box_values[i * 2 + 1];
+      mins[i] = box_values[i];
+      maxes[i] = box_values[Dimensions::size(y) + i];
     }
     box = BoundingBox(y, mins, maxes).ToXYZM();
   }
@@ -150,8 +150,8 @@ INSTANTIATE_TEST_SUITE_P(
     TestGeometryUtil, WKBTestFixture,
     ::testing::Values(WKBTestCase(GeometryType::POINT, Dimensions::XY,
                                   {0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
-                                   0x00, 0x00, 0x00, 0x00, 0x62, 0x64, 0x00,
-                                   0x00, 0x00, 0x00, 0x00, 0x00, 0x36, 0x64},
+                                   0x00, 0x00, 0x00, 0x00, 0x3e, 0x40, 0x00,
+                                   0x00, 0x00, 0x00, 0x00, 0x00, 0x24, 0x40},
                                   {30, 10, 30, 10})
                       // foofy
                       ));
