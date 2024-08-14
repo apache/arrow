@@ -506,9 +506,7 @@ public class LargeListViewVector extends BaseLargeRepeatedValueViewVector
           final int offsetValue = offsetBuffer.getInt((long) (startIndex + i) * OFFSET_WIDTH);
           final int sizeValue = sizeBuffer.getInt((long) (startIndex + i) * SIZE_WIDTH);
           to.sizeBuffer.setInt((long) i * SIZE_WIDTH, sizeValue);
-          if (maxOffsetAndSizeSum < offsetValue + sizeValue) {
-            maxOffsetAndSizeSum = offsetValue + sizeValue;
-          }
+          maxOffsetAndSizeSum = Math.max(maxOffsetAndSizeSum, offsetValue + sizeValue);
           minOffsetValue = Math.min(minOffsetValue, offsetValue);
         }
 
