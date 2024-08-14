@@ -72,6 +72,21 @@ struct Dimensions {
     return 4;
   }
 
+  static uint32_t size(dimensions dims) {
+    switch (dims) {
+      case XY:
+        return size<XY>();
+      case XYZ:
+        return size<XYZ>();
+      case XYM:
+        return size<XYM>();
+      case XYZM:
+        return size<XYZM>();
+      default:
+        return 0;
+    }
+  }
+
   // Where to look in a coordinate with this dimension
   // for the X, Y, Z, and M dimensions, respectively.
   static std::array<int, 4> ToXYZM(dimensions dims) {
@@ -242,6 +257,7 @@ struct BoundingBox {
         max{-kInf, -kInf, -kInf, -kInf} {}
 
   BoundingBox(const BoundingBox& other) = default;
+  BoundingBox& operator=(const BoundingBox&) = default;
 
   void Reset() {
     for (int i = 0; i < 4; i++) {
@@ -378,7 +394,7 @@ class WKBGenericSequenceBounder {
         xyzm_swap_(chunk_) {}
 
   void ReadPoint(WKBBuffer* src, Dimensions::dimensions dimensions, bool swap) {
-    if (ARROW_PREDICT_FALSE(swap)) {
+    if (ARROW_PREDICT_TRUE(!swap)) {
       switch (dimensions) {
         case Dimensions::XY:
           xy_.ReadPoint(src);
@@ -412,7 +428,7 @@ class WKBGenericSequenceBounder {
   }
 
   void ReadSequence(WKBBuffer* src, Dimensions::dimensions dimensions, bool swap) {
-    if (ARROW_PREDICT_FALSE(swap)) {
+    if (ARROW_PREDICT_TRUE(!swap)) {
       switch (dimensions) {
         case Dimensions::XY:
           xy_.ReadSequence(src);
@@ -446,7 +462,7 @@ class WKBGenericSequenceBounder {
   }
 
   void ReadRings(WKBBuffer* src, Dimensions::dimensions dimensions, bool swap) {
-    if (ARROW_PREDICT_FALSE(swap)) {
+    if (ARROW_PREDICT_TRUE(!swap)) {
       switch (dimensions) {
         case Dimensions::XY:
           xy_.ReadRings(src);

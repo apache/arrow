@@ -25,10 +25,10 @@
 namespace parquet::geometry {
 
 TEST(TestGeometryUtil, TestDimensions) {
-  EXPECT_EQ(Dimensions::size<Dimensions::XY>(), 2);
-  EXPECT_EQ(Dimensions::size<Dimensions::XYZ>(), 3);
-  EXPECT_EQ(Dimensions::size<Dimensions::XYM>(), 3);
-  EXPECT_EQ(Dimensions::size<Dimensions::XYZM>(), 4);
+  EXPECT_EQ(Dimensions::size(Dimensions::XY), 2);
+  EXPECT_EQ(Dimensions::size(Dimensions::XYZ), 3);
+  EXPECT_EQ(Dimensions::size(Dimensions::XYM), 3);
+  EXPECT_EQ(Dimensions::size(Dimensions::XYZM), 4);
 
   EXPECT_EQ(Dimensions::ToString(Dimensions::XY), "XY");
   EXPECT_EQ(Dimensions::ToString(Dimensions::XYZ), "XYZ");
@@ -92,5 +92,68 @@ TEST(TestGeometryUtil, TestBoundingBox) {
   box_xyzm.Reset();
   EXPECT_EQ(box_xyzm, BoundingBox());
 }
+
+struct WKBTestCase {
+  WKBTestCase() = default;
+  WKBTestCase(GeometryType::geometry_type x, Dimensions::dimensions y,
+              const std::vector<uint8_t>& z, const std::vector<double>& box_values = {})
+      : geometry_type(x), dimensions(y), wkb(z) {
+    std::array<double, 4> mins = {kInf, kInf, kInf, kInf};
+    std::array<double, 4> maxes{-kInf, -kInf, -kInf, -kInf};
+    for (uint32_t i = 0; i < Dimensions::size(y); i++) {
+      mins[i] = box_values[i * 2];
+      maxes[i] = box_values[i * 2 + 1];
+    }
+    box = BoundingBox(y, mins, maxes).ToXYZM();
+  }
+  WKBTestCase(const WKBTestCase& other) = default;
+
+  GeometryType::geometry_type geometry_type;
+  Dimensions::dimensions dimensions;
+  std::vector<uint8_t> wkb;
+  BoundingBox box;
+};
+
+std::ostream& operator<<(std::ostream& os, const WKBTestCase& obj) {
+  os << GeometryType::ToString(obj.geometry_type) << " "
+     << Dimensions::ToString(obj.dimensions);
+  return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const BoundingBox& obj) {
+  os << obj.ToString();
+  return os;
+}
+
+class WKBTestFixture : public ::testing::TestWithParam<WKBTestCase> {
+ protected:
+  WKBTestCase test_case;
+};
+
+TEST_P(WKBTestFixture, TestWKBBounderNonEmpty) {
+  auto item = GetParam();
+
+  BoundingBox box;
+  WKBGeometryBounder bounder;
+  bounder.Finish(&box);
+  EXPECT_EQ(box, BoundingBox());
+
+  WKBBuffer buf(item.wkb.data(), item.wkb.size());
+  bounder.ReadGeometry(&buf);
+  EXPECT_EQ(buf.size(), 0);
+
+  bounder.Finish(&box);
+  EXPECT_EQ(box, item.box);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    TestGeometryUtil, WKBTestFixture,
+    ::testing::Values(WKBTestCase(GeometryType::POINT, Dimensions::XY,
+                                  {0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                   0x00, 0x00, 0x00, 0x00, 0x62, 0x64, 0x00,
+                                   0x00, 0x00, 0x00, 0x00, 0x00, 0x36, 0x64},
+                                  {30, 10, 30, 10})
+                      // foofy
+                      ));
 
 }  // namespace parquet::geometry
