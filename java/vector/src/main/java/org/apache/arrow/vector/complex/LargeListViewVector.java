@@ -509,9 +509,7 @@ public class LargeListViewVector extends BaseLargeRepeatedValueViewVector
           if (maxOffsetAndSizeSum < offsetValue + sizeValue) {
             maxOffsetAndSizeSum = offsetValue + sizeValue;
           }
-          if (minOffsetValue == -1 || minOffsetValue > offsetValue) {
-            minOffsetValue = offsetValue;
-          }
+          minOffsetValue = Math.min(minOffsetValue, offsetValue);
         }
 
         /* splitAndTransfer the offset buffer */
