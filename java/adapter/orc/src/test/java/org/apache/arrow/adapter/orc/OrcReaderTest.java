@@ -38,7 +38,7 @@ import org.apache.orc.OrcFile;
 import org.apache.orc.TypeDescription;
 import org.apache.orc.Writer;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.io.TempDir;
 
 public class OrcReaderTest {
@@ -53,7 +53,7 @@ public class OrcReaderTest {
     allocator = new RootAllocator(MAX_ALLOCATION);
   }
 
-  @Test
+  @RepeatedTest(100)
   public void testOrcJniReader() throws Exception {
     for (int test_no = 0; test_no < 10; test_no++) {
       TypeDescription schema = TypeDescription.fromString("struct<x:int,y:string>");
