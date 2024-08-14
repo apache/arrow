@@ -32,7 +32,7 @@ namespace parquet::geometry {
 constexpr double kInf = std::numeric_limits<double>::infinity();
 
 struct Dimensions {
-  enum dimensions { XY = 1, XYZ = 2, XYM = 3, XYZM = 4 };
+  enum dimensions { XY = 0, XYZ = 1, XYM = 2, XYZM = 3 };
 
   static dimensions FromWKB(uint32_t wkb_geometry_type) {
     switch (wkb_geometry_type / 1000) {
@@ -533,7 +533,7 @@ class WKBGeometryBounder {
  public:
   WKBGeometryBounder() : box_(Dimensions::XYZM) {}
 
-  void ReadGeometry(WKBBuffer* src) {
+  void ReadGeometry(WKBBuffer* src, bool record_wkb_type = true) {
     uint8_t endian = src->ReadUInt8();
 #if defined(ARROW_LITTLE_ENDIAN)
     bool swap = endian != 0x01;
@@ -545,8 +545,10 @@ class WKBGeometryBounder {
     auto geometry_type = GeometryType::FromWKB(wkb_geometry_type);
     auto dimensions = Dimensions::FromWKB(wkb_geometry_type);
 
-    // Keep track of geometry types encountered
-    wkb_types_.insert(wkb_geometry_type);
+    // Keep track of geometry types encountered if at the top level
+    if (record_wkb_type) {
+      wkb_types_.insert(wkb_geometry_type);
+    }
 
     switch (geometry_type) {
       case GeometryType::POINT:
@@ -568,14 +570,29 @@ class WKBGeometryBounder {
       case GeometryType::GEOMETRYCOLLECTION: {
         uint32_t n_parts = src->ReadUInt32(swap);
         for (uint32_t i = 0; i < n_parts; i++) {
-          ReadGeometry(src);
+          ReadGeometry(src, /*record_wkb_type*/ false);
         }
         break;
       }
     }
   }
 
-  void Finish(BoundingBox* out) { bounder_.Finish(out); }
+  const BoundingBox& Bounds() {
+    bounder_.Finish(&box_);
+    return box_;
+  }
+
+  std::vector<uint32_t> WkbTypes() {
+    std::vector<uint32_t> out(wkb_types_.begin(), wkb_types_.end());
+    std::sort(out.begin(), out.end());
+    return out;
+  }
+
+  void Reset() {
+    box_.Reset();
+    bounder_.Reset();
+    wkb_types_.clear();
+  }
 
  private:
   BoundingBox box_;

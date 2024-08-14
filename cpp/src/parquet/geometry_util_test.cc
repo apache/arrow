@@ -133,17 +133,20 @@ class WKBTestFixture : public ::testing::TestWithParam<WKBTestCase> {
 TEST_P(WKBTestFixture, TestWKBBounderNonEmpty) {
   auto item = GetParam();
 
-  BoundingBox box;
   WKBGeometryBounder bounder;
-  bounder.Finish(&box);
-  EXPECT_EQ(box, BoundingBox());
+  EXPECT_EQ(bounder.Bounds(), BoundingBox());
 
   WKBBuffer buf(item.wkb.data(), item.wkb.size());
   bounder.ReadGeometry(&buf);
   EXPECT_EQ(buf.size(), 0);
 
-  bounder.Finish(&box);
-  EXPECT_EQ(box, item.box);
+  EXPECT_EQ(bounder.Bounds(), item.box);
+  uint32_t wkb_type = item.dimensions * 1000 + item.geometry_type;
+  EXPECT_THAT(bounder.WkbTypes(), ::testing::ElementsAre(::testing::Eq(wkb_type)));
+
+  bounder.Reset();
+  EXPECT_EQ(bounder.Bounds(), BoundingBox());
+  EXPECT_TRUE(bounder.WkbTypes().empty());
 }
 
 INSTANTIATE_TEST_SUITE_P(
