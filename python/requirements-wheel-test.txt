@@ -8,7 +8,5 @@ tzdata; sys_platform == 'win32'
 numpy==1.21.3; python_version < "3.11"
 numpy==1.23.5; python_version == "3.11"
 numpy==1.26.4; python_version == "3.12"
-numpy>=2; python_version == "3.13"
 
-pandas; python_version < "3.13"
-pandas>=3.0.0.dev0; python_version == "3.13"
+pandas
