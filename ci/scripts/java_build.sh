@@ -96,7 +96,7 @@ if [ "${ARROW_JAVA_JNI}" = "ON" ]; then
 fi
 
 # Use `2 * ncores` threads
-${mvn} -T 2C clean install
+${mvn} -T 2C clean install -Darrow.memory.debug.allocator=true
 
 if [ "${BUILD_DOCS_JAVA}" == "ON" ]; then
   # HTTP pooling is turned of to avoid download issues https://issues.apache.org/jira/browse/ARROW-11633
