@@ -1936,7 +1936,6 @@ def get_generated_json_files(tempdir=None):
 
         generate_list_view_case()
         .skip_tester('C#')     # Doesn't support large list views
-        .skip_tester('Java')
         .skip_tester('JS')
         .skip_tester('nanoarrow')
         .skip_tester('Rust'),

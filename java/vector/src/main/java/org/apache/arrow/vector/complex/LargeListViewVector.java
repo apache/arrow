@@ -250,7 +250,9 @@ public class LargeListViewVector extends BaseLargeRepeatedValueViewVector
    */
   @Override
   public void exportCDataBuffers(List<ArrowBuf> buffers, ArrowBuf buffersPtr, long nullValue) {
-    throw new UnsupportedOperationException("exportCDataBuffers Not implemented yet");
+    exportBuffer(validityBuffer, buffers, buffersPtr, nullValue, true);
+    exportBuffer(offsetBuffer, buffers, buffersPtr, nullValue, true);
+    exportBuffer(sizeBuffer, buffers, buffersPtr, nullValue, true);
   }
 
   @Override
