@@ -23,6 +23,9 @@
 namespace arrow {
 namespace acero {
 
+// TODO(GH-43693): The functions in this file are not wired anywhere. We may consider
+// actually utilizing them or removing them.
+
 template <class PROCESS_8_VALUES_FN>
 int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int num_rows,
                                  const uint32_t* row_ids,
