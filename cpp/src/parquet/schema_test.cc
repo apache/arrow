@@ -2271,6 +2271,10 @@ TEST(TestLogicalTypeSerialization, Roundtrips) {
       {LogicalType::BSON(), Type::BYTE_ARRAY, -1},
       {LogicalType::UUID(), Type::FIXED_LEN_BYTE_ARRAY, 16},
       {LogicalType::Float16(), Type::FIXED_LEN_BYTE_ARRAY, 2},
+      {LogicalType::Geometry(), Type::BYTE_ARRAY, -1},
+      {LogicalType::Geometry("non-empty crs", LogicalType::GeometryEdges::SPHERICAL,
+                             LogicalType::GeometryEncoding::WKB, "non-empty metadata"),
+       Type::BYTE_ARRAY, -1},
       {LogicalType::None(), Type::BOOLEAN, -1}};
 
   for (const AnnotatedPrimitiveNodeFactoryArguments& c : cases) {
