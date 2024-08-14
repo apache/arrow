@@ -122,12 +122,6 @@ struct GeometryType {
   }
 };
 
-struct WKBGeometryHeader {
-  GeometryType::geometry_type geometry_type;
-  Dimensions::dimensions dimensions;
-  bool swap;
-};
-
 class WKBBuffer {
  public:
   WKBBuffer(const uint8_t* data, int64_t size) : data_(data), size_(size) {}
@@ -206,6 +200,13 @@ struct BoundingBox {
 
   BoundingBox(const BoundingBox& other) = default;
 
+  void Reset() {
+    for (int i = 0; i < 4; i++) {
+      min[i] = kInf;
+      max[i] = -kInf;
+    }
+  }
+
   void Merge(const BoundingBox& other) {
     if (ARROW_PREDICT_TRUE(dimensions == other.dimensions)) {
       for (int i = 0; i < 4; i++) {
@@ -215,13 +216,13 @@ struct BoundingBox {
 
       return;
     } else if (dimensions == Dimensions::XYZM) {
-      Merge(other.Canonicalize());
+      Merge(other.ToXYZM());
     } else {
       ParquetException::NYI();
     }
   }
 
-  BoundingBox Canonicalize() const {
+  BoundingBox ToXYZM() const {
     BoundingBox xyzm(Dimensions::XYZM);
     auto to_xyzm = Dimensions::ToXYZM(dimensions);
     for (int i = 0; i < 4; i++) {
@@ -281,6 +282,8 @@ class WKBSequenceBounder {
       ReadSequence(src);
     }
   }
+
+  void Reset() { box_.Reset(); }
 
   void Finish(BoundingBox* out) { out->Merge(box_); }
 
@@ -423,6 +426,17 @@ class WKBGenericSequenceBounder {
     xyz_swap_.Finish(out);
     xym_swap_.Finish(out);
     xyzm_swap_.Finish(out);
+  }
+
+  void Reset() {
+    xy_.Reset();
+    xyz_.Reset();
+    xym_.Reset();
+    xyzm_.Reset();
+    xy_swap_.Reset();
+    xyz_swap_.Reset();
+    xym_swap_.Reset();
+    xyzm_swap_.Reset();
   }
 
  private:
