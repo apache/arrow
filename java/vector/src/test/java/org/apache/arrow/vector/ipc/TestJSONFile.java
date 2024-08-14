@@ -446,6 +446,10 @@ public class TestJSONFile extends BaseFileTest {
                 FieldType.nullable(ArrowType.LargeList.INSTANCE),
                 Collections.singletonList(Field.nullable("items", new ArrowType.Int(32, true)))),
             new Field(
+                "largelistview",
+                FieldType.nullable(ArrowType.LargeListView.INSTANCE),
+                Collections.singletonList(Field.nullable("items", new ArrowType.Int(32, true)))),
+            new Field(
                 "map",
                 FieldType.nullable(new ArrowType.Map(/*keyssorted*/ false)),
                 Collections.singletonList(
