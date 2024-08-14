@@ -38,9 +38,10 @@ jobs:
         with:
           working-directory: 'arrow/r'
           extra-packages: |
+            any::data.table
             any::rcmdcheck
             any::readr
-            any::data.table
+            any::unites
       - name: Build arrow package
         run: |
           R CMD build --no-build-vignettes arrow/r
