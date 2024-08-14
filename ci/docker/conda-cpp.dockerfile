@@ -36,6 +36,7 @@ RUN mamba install -q -y \
         compilers \
         doxygen \
         libnuma \
+        patch \
         python=${python} \
         ucx \
         ucx-proc=*=cpu \
