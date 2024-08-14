@@ -36,6 +36,11 @@ func init() {
 	}
 }
 
+// CustomParquetType is an interface that Arrow ExtensionTypes may implement
+// to specify the target LogicalType to use when converting to Parquet.
+//
+// The PrimitiveType is not configurable, and is determined by a fixed mapping from
+// the extension's StorageType to a Parquet type (see getParquetType in pqarrow source).
 type CustomParquetType interface {
 	ParquetLogicalType() schema.LogicalType
 }
