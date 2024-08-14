@@ -46,6 +46,7 @@ RUN \
     make \
     openssl-devel \
     openssl11-devel \
+    patch \
     wget \
     which
 
