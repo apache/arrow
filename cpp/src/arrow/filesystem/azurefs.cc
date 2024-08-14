@@ -145,6 +145,9 @@ Status AzureOptions::ExtractFromUriQuery(const Uri& uri) {
         blob_storage_scheme = "http";
         dfs_storage_scheme = "http";
       }
+    } else if (kv.first == "background_writes") {
+      ARROW_ASSIGN_OR_RAISE(background_writes,
+                            ::arrow::internal::ParseBoolean(kv.second));
     } else {
       return Status::Invalid(
           "Unexpected query parameter in Azure Blob File System URI: '", kv.first, "'");
@@ -973,6 +976,10 @@ class ObjectAppendStream final : public io::OutputStream {
  private:
   struct UploadState;
 
+  std::shared_ptr<ObjectAppendStream> Self() {
+    return std::dynamic_pointer_cast<ObjectAppendStream>(shared_from_this());
+  }
+
  public:
   ObjectAppendStream(std::shared_ptr<Blobs::BlockBlobClient> block_blob_client,
                      const io::IOContext& io_context, const AzureLocation& location,
@@ -1042,10 +1049,6 @@ class ObjectAppendStream final : public io::OutputStream {
     }
     initialised_ = true;
     return Status::OK();
-  }
-
-  std::shared_ptr<ObjectAppendStream> Self() {
-    return std::dynamic_pointer_cast<ObjectAppendStream>(shared_from_this());
   }
 
   Status Abort() override {
@@ -1132,7 +1135,7 @@ class ObjectAppendStream final : public io::OutputStream {
   }
 
   Future<> FlushAsync() {
-    RETURN_NOT_OK(CheckClosed("flushAsync"));
+    RETURN_NOT_OK(CheckClosed("flush async"));
     if (!initialised_) {
       // If the stream has not been successfully initialized then there is nothing to
       // flush. This also avoids some unhandled errors when flushing in the destructor.

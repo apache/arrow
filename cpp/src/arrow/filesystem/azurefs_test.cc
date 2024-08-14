@@ -631,6 +631,16 @@ class TestAzureOptions : public ::testing::Test {
     ASSERT_EQ(path, "container/dir/blob");
   }
 
+  void TestFromUriEnableBackgroundWrites() {
+    std::string path;
+    ASSERT_OK_AND_ASSIGN(auto options,
+                         AzureOptions::FromUri(
+                             "abfs://account:password@127.0.0.1:10000/container/dir/blob?"
+                             "background_writes=true",
+                             &path));
+    ASSERT_EQ(options.background_writes, true);
+  }
+
   void TestFromUriCredentialDefault() {
     ASSERT_OK_AND_ASSIGN(
         auto options,
@@ -774,6 +784,9 @@ TEST_F(TestAzureOptions, FromUriDfsStorage) { TestFromUriDfsStorage(); }
 TEST_F(TestAzureOptions, FromUriAbfs) { TestFromUriAbfs(); }
 TEST_F(TestAzureOptions, FromUriAbfss) { TestFromUriAbfss(); }
 TEST_F(TestAzureOptions, FromUriEnableTls) { TestFromUriEnableTls(); }
+TEST_F(TestAzureOptions, FromUriEnableBackgroundWrites) {
+  TestFromUriEnableBackgroundWrites();
+}
 TEST_F(TestAzureOptions, FromUriCredentialDefault) { TestFromUriCredentialDefault(); }
 TEST_F(TestAzureOptions, FromUriCredentialAnonymous) { TestFromUriCredentialAnonymous(); }
 TEST_F(TestAzureOptions, FromUriCredentialStorageSharedKey) {
@@ -1483,7 +1496,6 @@ class TestAzureFileSystem : public ::testing::Test {
     std::shared_ptr<Buffer> buffer;
     do {
       ASSERT_OK_AND_ASSIGN(buffer, input->Read(128 * 1024));
-      ASSERT_TRUE(buffer);
       contents.append(buffer->ToString());
     } while (buffer->size() != 0);
 
