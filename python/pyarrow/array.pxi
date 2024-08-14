@@ -1717,7 +1717,7 @@ cdef class Array(_PandasConvertible):
             The destination device to copy the array to.
 
         Returns
-        ------
+        -------
         Array
         """
         cdef:

@@ -3583,7 +3583,7 @@ cdef class RecordBatch(_Tabular):
             The destination device to copy the array to.
 
         Returns
-        ------
+        -------
         RecordBatch
         """
         cdef:
