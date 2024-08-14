@@ -193,9 +193,6 @@ func TestArraySpan_NumBuffers(t *testing.T) {
 		Children []exec.ArraySpan
 	}
 
-	arrow.RegisterExtensionType(extensions.NewUUIDType())
-	defer arrow.UnregisterExtensionType("uuid")
-
 	tests := []struct {
 		name   string
 		fields fields

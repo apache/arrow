@@ -44,10 +44,6 @@ func TestGetOriginSchemaBase64(t *testing.T) {
 	}, nil)
 
 	arrSerializedSc := flight.SerializeSchema(origArrSc, memory.DefaultAllocator)
-	if err := arrow.RegisterExtensionType(uuidType); err != nil {
-		t.Fatal(err)
-	}
-	defer arrow.UnregisterExtensionType(uuidType.ExtensionName())
 	pqschema, err := pqarrow.ToParquet(origArrSc, nil, pqarrow.DefaultWriterProps())
 	require.NoError(t, err)
 
@@ -72,10 +68,6 @@ func TestGetOriginSchemaBase64(t *testing.T) {
 
 func TestGetOriginSchemaUnregisteredExtension(t *testing.T) {
 	uuidType := extensions.NewUUIDType()
-	if err := arrow.RegisterExtensionType(uuidType); err != nil {
-		t.Fatal(err)
-	}
-
 	md := arrow.NewMetadata([]string{"PARQUET:field_id"}, []string{"-1"})
 	origArrSc := arrow.NewSchema([]arrow.Field{
 		{Name: "f1", Type: arrow.BinaryTypes.String, Metadata: md},
@@ -90,6 +82,7 @@ func TestGetOriginSchemaUnregisteredExtension(t *testing.T) {
 	kv.Append("ARROW:schema", base64.StdEncoding.EncodeToString(arrSerializedSc))
 
 	arrow.UnregisterExtensionType(uuidType.ExtensionName())
+	defer arrow.RegisterExtensionType(uuidType)
 	arrsc, err := pqarrow.FromParquet(pqschema, nil, kv)
 	require.NoError(t, err)
 

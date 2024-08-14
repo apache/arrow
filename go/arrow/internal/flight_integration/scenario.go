@@ -33,7 +33,6 @@ import (
 
 	"github.com/apache/arrow/go/v18/arrow"
 	"github.com/apache/arrow/go/v18/arrow/array"
-	"github.com/apache/arrow/go/v18/arrow/extensions"
 	"github.com/apache/arrow/go/v18/arrow/flight"
 	"github.com/apache/arrow/go/v18/arrow/flight/flightsql"
 	"github.com/apache/arrow/go/v18/arrow/flight/flightsql/schema_ref"
@@ -160,9 +159,6 @@ func (s *defaultIntegrationTester) RunClient(addr string, opts ...grpc.DialOptio
 	defer client.Close()
 
 	ctx := context.Background()
-
-	arrow.RegisterExtensionType(extensions.NewUUIDType())
-	defer arrow.UnregisterExtensionType("uuid")
 
 	descr := &flight.FlightDescriptor{
 		Type: flight.DescriptorPATH,

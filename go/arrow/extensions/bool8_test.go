@@ -178,9 +178,6 @@ func TestReinterpretStorageEqualToValues(t *testing.T) {
 
 func TestBool8TypeBatchIPCRoundTrip(t *testing.T) {
 	typ := extensions.NewBool8Type()
-	arrow.RegisterExtensionType(typ)
-	defer arrow.UnregisterExtensionType(typ.ExtensionName())
-
 	storage, _, err := array.FromJSON(memory.DefaultAllocator, arrow.PrimitiveTypes.Int8,
 		strings.NewReader(`[-1, 0, 1, 2, null]`))
 	require.NoError(t, err)

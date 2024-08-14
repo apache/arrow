@@ -2079,6 +2079,7 @@ func (ps *ParquetIOTestSuite) TestArrowUnknownExtensionTypeRoundTrip() {
 
 		if arrow.GetExtensionType("uuid") != nil {
 			ps.NoError(arrow.UnregisterExtensionType("uuid"))
+			defer arrow.RegisterExtensionType(extType)
 		}
 
 		fld := arrow.Field{Name: "uuid", Type: arr.DataType(), Nullable: true}

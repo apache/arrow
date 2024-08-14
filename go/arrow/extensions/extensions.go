@@ -24,6 +24,7 @@ import (
 var canonicalExtensionTypes = []arrow.ExtensionType{
 	&Bool8Type{},
 	&UUIDType{},
+	&OpaqueType{},
 }
 
 func init() {
