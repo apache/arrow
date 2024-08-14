@@ -304,6 +304,7 @@ Result<EnumeratedRecordBatchGenerator> FragmentToBatches(
                  {"arrow.dataset.fragment.type_name", fragment.value->type_name()},
              });
 #endif
+  // This is the call site.
   ARROW_ASSIGN_OR_RAISE(auto batch_gen, fragment.value->ScanBatchesAsync(options));
   ArrayVector columns;
   for (const auto& field : options->dataset_schema->fields()) {
@@ -329,6 +330,7 @@ Result<EnumeratedRecordBatchGenerator> FragmentToBatches(
 Result<AsyncGenerator<EnumeratedRecordBatchGenerator>> FragmentsToBatches(
     FragmentGenerator fragment_gen, const std::shared_ptr<ScanOptions>& options) {
   auto enumerated_fragment_gen = MakeEnumeratedGenerator(std::move(fragment_gen));
+  // This is the call-site.
   auto batch_gen_gen =
       MakeMappedGenerator(std::move(enumerated_fragment_gen),
                           [=](const Enumerated<std::shared_ptr<Fragment>>& fragment) {
@@ -355,8 +357,10 @@ class OneShotFragment : public Fragment {
     ARROW_ASSIGN_OR_RAISE(
         auto background_gen,
         MakeBackgroundGenerator(std::move(batch_it_), options->io_context.executor()));
-    return MakeTransferredGenerator(std::move(background_gen),
-                                    ::arrow::internal::GetCpuThreadPool());
+    auto cpu_executor = options->exec_context.executor()
+                            ? options->exec_context.executor()
+                            : ::arrow::internal::GetCpuThreadPool();
+    return MakeTransferredGenerator(std::move(background_gen), cpu_executor);
   }
   std::string type_name() const override { return "one-shot"; }
 
@@ -382,7 +386,7 @@ Result<TaggedRecordBatchIterator> AsyncScanner::ScanBatches() {
       [this](::arrow::internal::Executor* executor) {
         return ScanBatchesAsync(executor);
       },
-      scan_options_->use_threads);
+      scan_options_->use_threads, this->async_cpu_executor());
 }
 
 Result<EnumeratedRecordBatchIterator> AsyncScanner::ScanBatchesUnordered() {
@@ -390,7 +394,7 @@ Result<EnumeratedRecordBatchIterator> AsyncScanner::ScanBatchesUnordered() {
       [this](::arrow::internal::Executor* executor) {
         return ScanBatchesUnorderedAsync(executor);
       },
-      scan_options_->use_threads);
+      scan_options_->use_threads, this->async_cpu_executor());
 }
 
 Result<std::shared_ptr<Table>> AsyncScanner::ToTable() {
@@ -400,7 +404,7 @@ Result<std::shared_ptr<Table>> AsyncScanner::ToTable() {
 }
 
 Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync() {
-  return ScanBatchesUnorderedAsync(::arrow::internal::GetCpuThreadPool(),
+  return ScanBatchesUnorderedAsync(this->async_cpu_executor(),
                                    /*sequence_fragments=*/false);
 }
 
@@ -445,6 +449,7 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
                    scan_options_->projection.call()->options.get())
                    ->field_names;
 
+  // This is where the node is added to the plan.
   RETURN_NOT_OK(
       acero::Declaration::Sequence(
           {
@@ -601,11 +606,12 @@ Result<std::shared_ptr<Table>> AsyncScanner::Head(int64_t num_rows) {
 }
 
 Result<TaggedRecordBatchGenerator> AsyncScanner::ScanBatchesAsync() {
-  return ScanBatchesAsync(::arrow::internal::GetCpuThreadPool());
+  return ScanBatchesAsync(this->async_cpu_executor());
 }
 
 Result<TaggedRecordBatchGenerator> AsyncScanner::ScanBatchesAsync(
     Executor* cpu_executor) {
+  // Is this part of the code path?
   ARROW_ASSIGN_OR_RAISE(
       auto unordered, ScanBatchesUnorderedAsync(cpu_executor, /*sequence_fragments=*/true,
                                                 /*use_legacy_batching=*/true));
@@ -778,7 +784,7 @@ Future<int64_t> AsyncScanner::CountRowsAsync(Executor* executor) {
 }
 
 Future<int64_t> AsyncScanner::CountRowsAsync() {
-  return CountRowsAsync(::arrow::internal::GetCpuThreadPool());
+  return CountRowsAsync(this->async_cpu_executor());
 }
 
 Result<int64_t> AsyncScanner::CountRows() {
@@ -1008,6 +1014,7 @@ Result<acero::ExecNode*> MakeScanNode(acero::ExecPlan* plan,
   ARROW_ASSIGN_OR_RAISE(auto fragments_vec, fragments_it.ToVector());
   auto fragment_gen = MakeVectorGenerator(std::move(fragments_vec));
 
+  // This is the call site.
   ARROW_ASSIGN_OR_RAISE(auto batch_gen_gen,
                         FragmentsToBatches(std::move(fragment_gen), scan_options));
 
@@ -1179,6 +1186,7 @@ Result<acero::ExecNode*> MakeOrderedSinkNode(acero::ExecPlan* plan,
 
 namespace internal {
 void InitializeScanner(arrow::acero::ExecFactoryRegistry* registry) {
+  // This is where it's registered.
   DCHECK_OK(registry->AddFactory("scan", MakeScanNode));
   DCHECK_OK(registry->AddFactory("ordered_sink", MakeOrderedSinkNode));
   DCHECK_OK(registry->AddFactory("augmented_project", MakeAugmentedProjectNode));

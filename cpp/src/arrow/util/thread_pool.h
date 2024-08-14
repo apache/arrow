@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <memory>
 #include <queue>
+#include <thread>
 #include <type_traits>
 #include <unordered_set>
 #include <utility>
@@ -591,6 +592,21 @@ typename Fut::SyncType RunSynchronously(FnOnce<Fut(Executor*)> get_future,
   }
 }
 
+template <typename T>
+Iterator<T> IterateSynchronously(
+    FnOnce<Result<std::function<Future<T>()>>(Executor*)> get_gen, bool use_threads,
+    Executor* executor) {
+  if (use_threads) {
+    auto maybe_gen = std::move(get_gen)(executor);
+    if (!maybe_gen.ok()) {
+      return MakeErrorIterator<T>(maybe_gen.status());
+    }
+    return MakeGeneratorIterator(*maybe_gen);
+  } else {
+    return SerialExecutor::IterateGenerator(std::move(get_gen));
+  }
+}
+
 /// \brief Potentially iterate an async generator serially (if use_threads is false)
 /// \see IterateGenerator
 ///
@@ -605,15 +621,7 @@ typename Fut::SyncType RunSynchronously(FnOnce<Fut(Executor*)> get_future,
 template <typename T>
 Iterator<T> IterateSynchronously(
     FnOnce<Result<std::function<Future<T>()>>(Executor*)> get_gen, bool use_threads) {
-  if (use_threads) {
-    auto maybe_gen = std::move(get_gen)(GetCpuThreadPool());
-    if (!maybe_gen.ok()) {
-      return MakeErrorIterator<T>(maybe_gen.status());
-    }
-    return MakeGeneratorIterator(*maybe_gen);
-  } else {
-    return SerialExecutor::IterateGenerator(std::move(get_gen));
-  }
+  return IterateSynchronously(std::move(get_gen), use_threads, GetCpuThreadPool());
 }
 
 }  // namespace internal
