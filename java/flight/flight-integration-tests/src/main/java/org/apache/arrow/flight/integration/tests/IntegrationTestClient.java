@@ -81,6 +81,7 @@ class IntegrationTestClient {
   }
 
   private void run(String[] args) throws Exception {
+    // COMMENT FOR CI
     final CommandLineParser parser = new DefaultParser();
     final CommandLine cmd = parser.parse(options, args, false);
 
