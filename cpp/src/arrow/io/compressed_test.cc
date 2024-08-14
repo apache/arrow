@@ -262,7 +262,7 @@ TEST_P(CompressedOutputStreamTest, RandomData) {
 TEST(TestSnappyInputStream, NotImplemented) {
   std::unique_ptr<Codec> codec;
   ASSERT_OK_AND_ASSIGN(codec, Codec::Create(Compression::SNAPPY));
-  std::shared_ptr<InputStream> stream = std::make_shared<BufferReader>("");
+  std::shared_ptr<InputStream> stream = BufferReader::FromString("");
   ASSERT_RAISES(NotImplemented, CompressedInputStream::Make(codec.get(), stream));
 }
 

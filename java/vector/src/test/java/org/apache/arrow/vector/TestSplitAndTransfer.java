@@ -29,6 +29,7 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
+import org.apache.arrow.vector.complex.LargeListViewVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.StructVector;
@@ -838,6 +839,25 @@ public class TestSplitAndTransfer {
   public void testListVectorZeroStartIndexAndLength() {
     try (final ListVector listVector = ListVector.empty("list", allocator);
         final ListVector newListVector = ListVector.empty("newList", allocator)) {
+
+      listVector.allocateNew();
+      final int valueCount = 0;
+      listVector.setValueCount(valueCount);
+
+      final TransferPair tp = listVector.makeTransferPair(newListVector);
+
+      tp.splitAndTransfer(0, 0);
+      assertEquals(valueCount, newListVector.getValueCount());
+
+      newListVector.clear();
+    }
+  }
+
+  @Test
+  public void testLargeListViewVectorZeroStartIndexAndLength() {
+    try (final LargeListViewVector listVector =
+            LargeListViewVector.empty("largelistview", allocator);
+        final LargeListViewVector newListVector = LargeListViewVector.empty("newList", allocator)) {
 
       listVector.allocateNew();
       final int valueCount = 0;

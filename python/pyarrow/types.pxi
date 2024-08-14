@@ -1837,6 +1837,50 @@ cdef class FixedShapeTensorType(BaseExtensionType):
         return FixedShapeTensorScalar
 
 
+cdef class OpaqueType(BaseExtensionType):
+    """
+    Concrete class for opaque extension type.
+
+    Opaque is a placeholder for a type from an external (often non-Arrow)
+    system that could not be interpreted.
+
+    Examples
+    --------
+    Create an instance of opaque extension type:
+
+    >>> import pyarrow as pa
+    >>> pa.opaque(pa.int32(), "geometry", "postgis")
+    OpaqueType(extension<arrow.opaque[storage_type=int32, type_name=geometry, vendor_name=postgis]>)
+    """
+
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
+        BaseExtensionType.init(self, type)
+        self.opaque_ext_type = <const COpaqueType*> type.get()
+
+    @property
+    def type_name(self):
+        """
+        The name of the type in the external system.
+        """
+        return frombytes(c_string(self.opaque_ext_type.type_name()))
+
+    @property
+    def vendor_name(self):
+        """
+        The name of the external system.
+        """
+        return frombytes(c_string(self.opaque_ext_type.vendor_name()))
+
+    def __arrow_ext_class__(self):
+        return OpaqueArray
+
+    def __reduce__(self):
+        return opaque, (self.storage_type, self.type_name, self.vendor_name)
+
+    def __arrow_ext_scalar_class__(self):
+        return OpaqueScalar
+
+
 _py_extension_type_auto_load = False
 
 
@@ -5231,6 +5275,63 @@ def fixed_shape_tensor(DataType value_type, shape, dim_names=None, permutation=N
 
     out.init(c_tensor_ext_type)
 
+    return out
+
+
+def opaque(DataType storage_type, str type_name not None, str vendor_name not None):
+    """
+    Create instance of opaque extension type.
+
+    Parameters
+    ----------
+    storage_type : DataType
+        The underlying data type.
+    type_name : str
+        The name of the type in the external system.
+    vendor_name : str
+        The name of the external system.
+
+    Examples
+    --------
+    Create an instance of an opaque extension type:
+
+    >>> import pyarrow as pa
+    >>> type = pa.opaque(pa.binary(), "other", "jdbc")
+    >>> type
+    OpaqueType(extension<arrow.opaque[storage_type=binary, type_name=other, vendor_name=jdbc]>)
+
+    Inspect the data type:
+
+    >>> type.storage_type
+    DataType(binary)
+    >>> type.type_name
+    'other'
+    >>> type.vendor_name
+    'jdbc'
+
+    Create a table with an opaque array:
+
+    >>> arr = [None, b"foobar"]
+    >>> storage = pa.array(arr, pa.binary())
+    >>> other = pa.ExtensionArray.from_storage(type, storage)
+    >>> pa.table([other], names=["unknown_col"])
+    pyarrow.Table
+    unknown_col: extension<arrow.opaque[storage_type=binary, type_name=other, vendor_name=jdbc]>
+    ----
+    unknown_col: [[null,666F6F626172]]
+
+    Returns
+    -------
+    type : OpaqueType
+    """
+
+    cdef:
+        c_string c_type_name = tobytes(type_name)
+        c_string c_vendor_name = tobytes(vendor_name)
+        shared_ptr[CDataType] c_type = make_shared[COpaqueType](
+            storage_type.sp_type, c_type_name, c_vendor_name)
+        OpaqueType out = OpaqueType.__new__(OpaqueType)
+    out.init(c_type)
     return out
 
 
