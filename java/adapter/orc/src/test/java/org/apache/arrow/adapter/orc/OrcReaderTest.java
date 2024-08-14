@@ -55,9 +55,9 @@ public class OrcReaderTest {
 
   @RepeatedTest(100)
   public void testOrcJniReader() throws Exception {
-    for (int test_no = 0; test_no < 10; test_no++) {
+    for (int testIteration = 0; testIteration < 10; testIteration++) {
       TypeDescription schema = TypeDescription.fromString("struct<x:int,y:string>");
-      File testFile = new File(testFolder, "test-orc" + test_no);
+      File testFile = new File(testFolder, "test-orc" + testIteration);
 
       Writer writer =
           OrcFile.createWriter(
