@@ -2149,11 +2149,20 @@ func (ps *ParquetIOTestSuite) TestArrowExtensionTypeLogicalType() {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(ps.T(), 0)
 
-	sch := arrow.NewSchema([]arrow.Field{{Name: "uuid", Type: extensions.NewUUIDType()}}, nil)
+	jsonType, err := extensions.NewJSONType(arrow.BinaryTypes.String)
+	ps.NoError(err)
+
+	sch := arrow.NewSchema([]arrow.Field{
+		{Name: "uuid", Type: extensions.NewUUIDType()},
+		{Name: "json", Type: jsonType},
+	},
+		nil,
+	)
 	bldr := array.NewRecordBuilder(mem, sch)
 	defer bldr.Release()
 
 	bldr.Field(0).(*extensions.UUIDBuilder).Append(uuid.New())
+	bldr.Field(1).(*array.ExtensionBuilder).AppendValueFromString(`{"hello": ["world", 2, true], "world": null}`)
 	rec := bldr.NewRecord()
 	defer rec.Release()
 
@@ -2171,11 +2180,11 @@ func (ps *ParquetIOTestSuite) TestArrowExtensionTypeLogicalType() {
 
 	rdr, err := file.NewParquetReader(bytes.NewReader(buf.Bytes()))
 	ps.Require().NoError(err)
+	defer rdr.Close()
 
-	col, err := rdr.RowGroup(0).Column(0)
-	ps.Require().NoError(err)
-
-	ps.Equal(schema.UUIDLogicalType{}, col.Descriptor().LogicalType())
+	pqSchema := rdr.MetaData().Schema
+	ps.True(pqSchema.Column(0).LogicalType().Equals(schema.UUIDLogicalType{}))
+	ps.True(pqSchema.Column(1).LogicalType().Equals(schema.JSONLogicalType{}))
 }
 
 func TestWriteTableMemoryAllocation(t *testing.T) {

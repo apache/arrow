@@ -24,6 +24,7 @@ import (
 	"github.com/apache/arrow/go/v18/arrow"
 	"github.com/apache/arrow/go/v18/arrow/array"
 	"github.com/apache/arrow/go/v18/internal/json"
+	"github.com/apache/arrow/go/v18/parquet/schema"
 )
 
 var jsonSupportedStorageTypes = []arrow.DataType{
@@ -35,6 +36,11 @@ var jsonSupportedStorageTypes = []arrow.DataType{
 // JSONType represents a UTF-8 encoded JSON string as specified in RFC8259.
 type JSONType struct {
 	arrow.ExtensionBase
+}
+
+// ParquetLogicalType implements CustomParquetType.
+func (b *JSONType) ParquetLogicalType() schema.LogicalType {
+	return schema.JSONLogicalType{}
 }
 
 // NewJSONType creates a new JSONType with the specified storage type.
@@ -130,4 +136,5 @@ func (a *JSONArray) GetOneForMarshal(i int) interface{} {
 var (
 	_ arrow.ExtensionType  = (*JSONType)(nil)
 	_ array.ExtensionArray = (*JSONArray)(nil)
+	_ CustomParquetType    = (*JSONType)(nil)
 )
