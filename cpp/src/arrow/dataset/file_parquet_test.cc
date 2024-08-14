@@ -22,6 +22,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/acero/exec_plan.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/parquet_encryption_config.h"
@@ -884,6 +885,54 @@ TEST_F(TestParquetFileFormat, MultithreadedScanRegression) {
       pools.emplace_back(thread_pool);
       options->io_context =
           ::arrow::io::IOContext(::arrow::default_memory_pool(), pools.back().get());
+      auto fragment_scan_options = std::make_shared<ParquetFragmentScanOptions>();
+      fragment_scan_options->arrow_reader_properties->set_pre_buffer(true);
+
+      options->fragment_scan_options = fragment_scan_options;
+      ScannerBuilder builder(ArithmeticDatasetFixture::schema(), fragment, options);
+
+      ASSERT_OK(builder.UseThreads(true));
+      ASSERT_OK(builder.BatchSize(10000));
+      ASSERT_OK_AND_ASSIGN(scanner, builder.Finish());
+    }
+
+    ASSERT_OK_AND_ASSIGN(auto batch, scanner->Head(10000));
+    [[maybe_unused]] auto fut = scanner->ScanBatchesUnorderedAsync();
+    // Random ReadAsync calls, generate some futures to make the state machine
+    // more complex.
+    for (int yy = 0; yy < 16; yy++) {
+      completes.emplace_back(buffer_reader->ReadAsync(::arrow::io::IOContext(), 0, 1001));
+    }
+    scanner = nullptr;
+  }
+
+  for (auto& f : completes) {
+    f.Wait();
+  }
+}
+
+TEST_F(TestParquetFileFormat, MultithreadedComputeRegression) {
+  // GH-43694: Test similar situation as MultithreadedScanRegression but with
+  // the exec context instead
+
+  auto reader = MakeGeneratedRecordBatch(schema({field("utf8", utf8())}), 10000, 100);
+  ASSERT_OK_AND_ASSIGN(auto buffer, ParquetFormatHelper::Write(reader.get()));
+
+  std::vector<Future<>> completes;
+  std::vector<std::shared_ptr<arrow::internal::ThreadPool>> pools;
+
+  for (int idx = 0; idx < 2; ++idx) {
+    auto buffer_reader = std::make_shared<DelayedBufferReader>(buffer);
+    auto source = std::make_shared<FileSource>(buffer_reader, buffer->size());
+    auto fragment = MakeFragment(*source);
+    std::shared_ptr<Scanner> scanner;
+
+    {
+      auto options = std::make_shared<ScanOptions>();
+      ASSERT_OK_AND_ASSIGN(auto thread_pool, arrow::internal::ThreadPool::Make(1));
+      pools.emplace_back(thread_pool);
+      options->exec_context =
+          ::arrow::ExecContext(::arrow::default_memory_pool(), pools.back().get());
       auto fragment_scan_options = std::make_shared<ParquetFragmentScanOptions>();
       fragment_scan_options->arrow_reader_properties->set_pre_buffer(true);
 
