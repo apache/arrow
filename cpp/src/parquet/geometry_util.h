@@ -340,7 +340,7 @@ class WKBSequenceBounder {
 
   void ReadSequence(WKBBuffer* src) {
     constexpr uint32_t coord_size = Dimensions::size<dims>();
-    constexpr uint32_t coords_per_chunk = chunk_size / sizeof(double) / coord_size;
+    constexpr uint32_t coords_per_chunk = chunk_size / coord_size;
 
     uint32_t n_coords = src->ReadUInt32<swap>();
     uint32_t n_chunks = n_coords / coords_per_chunk;
@@ -350,7 +350,7 @@ class WKBSequenceBounder {
     }
 
     uint32_t remaining_coords = n_coords - (n_chunks * coords_per_chunk);
-    src->ReadDoubles<swap>(remaining_coords, chunk_);
+    src->ReadDoubles<swap>(remaining_coords * coord_size, chunk_);
     ReadChunk(remaining_coords);
   }
 
