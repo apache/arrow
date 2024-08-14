@@ -546,7 +546,8 @@ public class LargeListViewVector extends BaseLargeRepeatedValueViewVector
    * (unless they change it).
    *
    * @param clear Whether to clear vector before returning, the buffers will still be refcounted but
-   *     the returned array will be the only reference to them
+   *     the returned array will be the only reference to them. Also, this won't clear the child
+   *     buffers.
    * @return The underlying {@link ArrowBuf buffers} that is used by this vector instance.
    */
   @Override
@@ -561,7 +562,7 @@ public class LargeListViewVector extends BaseLargeRepeatedValueViewVector
       list.add(validityBuffer);
       list.add(offsetBuffer);
       list.add(sizeBuffer);
-      list.addAll(Arrays.asList(vector.getBuffers(clear)));
+      list.addAll(Arrays.asList(vector.getBuffers(false)));
       buffers = list.toArray(new ArrowBuf[list.size()]);
     }
     if (clear) {
