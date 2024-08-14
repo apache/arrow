@@ -114,23 +114,6 @@ class WKBBuffer {
  public:
   WKBBuffer(const uint8_t* data, int64_t size) : data_(data), size_(size) {}
 
-  WKBGeometryHeader ReadGeometryHeader() {
-    WKBGeometryHeader out;
-
-    uint8_t endian = ReadUInt8();
-#if defined(ARROW_LITTLE_ENDIAN)
-    out.swap = endian != 0x01;
-#else
-    out.swap = endian != 0x00;
-#endif
-
-    uint32_t wkb_geometry_type = ReadUInt32(out.swap);
-    out.geometry_type = GeometryType::FromWKB(wkb_geometry_type);
-    out.dimensions = Dimensions::FromWKB(wkb_geometry_type);
-
-    return out;
-  }
-
   uint8_t ReadUInt8() {
     if (size_ < 1) {
       throw ParquetException("Can't read 1 byte from empty WKBBuffer");
@@ -247,7 +230,11 @@ class WKBSequenceBounder {
     }
   }
 
-  void Finish(BoundingBox* out) { ParquetException::NYI(); }
+  void Finish(BoundingBox* out) {
+    // Probably a more elgant way to do this, but we need to map the dimensions
+    // we have to the dimensions of the bounding box.
+    ParquetException::NYI();
+  }
 
  private:
   BoundingBox box_;
@@ -264,6 +251,7 @@ class WKBSequenceBounder {
   }
 };
 
+// We could avoid this madness by not templating the WKBSequenceBounder
 class WKBGenericSequenceBounder {
  public:
   WKBGenericSequenceBounder()
@@ -406,16 +394,26 @@ class WKBGeometryBounder {
   WKBGeometryBounder() : box_(Dimensions::XYZM) {}
 
   void BoundGeometry(WKBBuffer* src) {
-    WKBGeometryHeader header = src->ReadGeometryHeader();
-    switch (header.geometry_type) {
+    uint8_t endian = src->ReadUInt8();
+#if defined(ARROW_LITTLE_ENDIAN)
+    bool swap = endian != 0x01;
+#else
+    bool swap = endian != 0x00;
+#endif
+
+    uint32_t wkb_geometry_type = src->ReadUInt32(swap);
+    auto geometry_type = GeometryType::FromWKB(wkb_geometry_type);
+    auto dimensions = Dimensions::FromWKB(wkb_geometry_type);
+
+    switch (geometry_type) {
       case GeometryType::POINT:
-        bounder_.BoundPoint(src, header.dimensions, header.swap);
+        bounder_.BoundPoint(src, dimensions, swap);
         break;
       case GeometryType::LINESTRING:
-        bounder_.BoundSequence(src, header.dimensions, header.swap);
+        bounder_.BoundSequence(src, dimensions, swap);
         break;
       case GeometryType::POLYGON:
-        bounder_.BoundRings(src, header.dimensions, header.swap);
+        bounder_.BoundRings(src, dimensions, swap);
         break;
 
       // These are all encoded the same in WKB, even though this encoding would
@@ -425,7 +423,7 @@ class WKBGeometryBounder {
       case GeometryType::MULTILINESTRING:
       case GeometryType::MULTIPOLYGON:
       case GeometryType::GEOMETRYCOLLECTION: {
-        uint32_t n_parts = src->ReadUInt32(header.swap);
+        uint32_t n_parts = src->ReadUInt32(swap);
         for (uint32_t i = 0; i < n_parts; i++) {
           BoundGeometry(src);
         }
