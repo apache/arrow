@@ -73,6 +73,7 @@ import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.ArrowType.LargeListView;
 import org.apache.arrow.vector.types.pojo.ArrowType.ListView;
 import org.apache.arrow.vector.types.pojo.ArrowType.Union;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -729,7 +730,8 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     } else if (bufferType.equals(OFFSET) || bufferType.equals(SIZE)) {
       if (type == MinorType.LARGELIST
           || type == MinorType.LARGEVARCHAR
-          || type == MinorType.LARGEVARBINARY) {
+          || type == MinorType.LARGEVARBINARY
+          || type == MinorType.LARGELISTVIEW) {
         reader = helper.INT8;
       } else {
         reader = helper.INT4;
@@ -890,7 +892,10 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         BufferType bufferType = vectorTypes.get(v);
         nextFieldIs(bufferType.getName());
         int innerBufferValueCount = valueCount;
-        if (bufferType.equals(OFFSET) && !(type instanceof Union) && !(type instanceof ListView)) {
+        if (bufferType.equals(OFFSET)
+            && !(type instanceof Union)
+            && !(type instanceof ListView)
+            && !(type instanceof LargeListView)) {
           /* offset buffer has 1 additional value capacity except for dense unions and ListView */
           innerBufferValueCount = valueCount + 1;
         }
