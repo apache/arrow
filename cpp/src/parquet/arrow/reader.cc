@@ -1163,7 +1163,6 @@ class RowGroupGenerator {
       const int row_group, const std::vector<int>& column_indices) {
     // Skips bound checks/pre-buffering, since we've done that already
     const int64_t batch_size = self->properties().batch_size();
-    // This the main location.
     return self->DecodeRowGroups(self, {row_group}, column_indices, cpu_executor)
         .Then([batch_size](const std::shared_ptr<Table>& table)
                   -> ::arrow::Result<RecordBatchGenerator> {
@@ -1201,7 +1200,6 @@ FileReaderImpl::GetRecordBatchGenerator(std::shared_ptr<FileReader> reader,
                        reader_properties_.cache_options());
     END_PARQUET_CATCH_EXCEPTIONS
   }
-  // This is where it's created it seems.
   ::arrow::AsyncGenerator<RowGroupGenerator::RecordBatchGenerator> row_group_generator =
       RowGroupGenerator(::arrow::internal::checked_pointer_cast<FileReaderImpl>(reader),
                         cpu_executor, row_group_indices, column_indices,
@@ -1240,7 +1238,6 @@ Status FileReaderImpl::ReadRowGroups(const std::vector<int>& row_groups,
     END_PARQUET_CATCH_EXCEPTIONS
   }
 
-  // This is another call site (might not be called by our use case).
   auto fut = DecodeRowGroups(/*self=*/nullptr, row_groups, column_indices,
                              /*cpu_executor=*/nullptr);
   ARROW_ASSIGN_OR_RAISE(*out, fut.MoveResult());
@@ -1262,7 +1259,6 @@ Future<std::shared_ptr<Table>> FileReaderImpl::DecodeRowGroups(
                                               std::shared_ptr<ColumnReaderImpl> reader)
       -> ::arrow::Result<std::shared_ptr<::arrow::ChunkedArray>> {
     std::shared_ptr<::arrow::ChunkedArray> column;
-    // This is the most likely place for invocation.
     RETURN_NOT_OK(ReadColumn(static_cast<int>(i), row_groups, reader.get(), &column));
     return column;
   };

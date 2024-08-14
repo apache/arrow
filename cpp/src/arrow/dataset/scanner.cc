@@ -304,7 +304,6 @@ Result<EnumeratedRecordBatchGenerator> FragmentToBatches(
                  {"arrow.dataset.fragment.type_name", fragment.value->type_name()},
              });
 #endif
-  // This is the call site.
   ARROW_ASSIGN_OR_RAISE(auto batch_gen, fragment.value->ScanBatchesAsync(options));
   ArrayVector columns;
   for (const auto& field : options->dataset_schema->fields()) {
@@ -330,7 +329,6 @@ Result<EnumeratedRecordBatchGenerator> FragmentToBatches(
 Result<AsyncGenerator<EnumeratedRecordBatchGenerator>> FragmentsToBatches(
     FragmentGenerator fragment_gen, const std::shared_ptr<ScanOptions>& options) {
   auto enumerated_fragment_gen = MakeEnumeratedGenerator(std::move(fragment_gen));
-  // This is the call-site.
   auto batch_gen_gen =
       MakeMappedGenerator(std::move(enumerated_fragment_gen),
                           [=](const Enumerated<std::shared_ptr<Fragment>>& fragment) {
@@ -1014,7 +1012,6 @@ Result<acero::ExecNode*> MakeScanNode(acero::ExecPlan* plan,
   ARROW_ASSIGN_OR_RAISE(auto fragments_vec, fragments_it.ToVector());
   auto fragment_gen = MakeVectorGenerator(std::move(fragments_vec));
 
-  // This is the call site.
   ARROW_ASSIGN_OR_RAISE(auto batch_gen_gen,
                         FragmentsToBatches(std::move(fragment_gen), scan_options));
 
