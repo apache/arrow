@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <limits>
 #include <string>
 #include <unordered_set>
@@ -87,6 +88,21 @@ struct Dimensions {
         return {-1, -1, -1, -1};
     }
   }
+
+  static std::string ToString(dimensions dims) {
+    switch (dims) {
+      case XY:
+        return "XY";
+      case XYZ:
+        return "XYZ";
+      case XYM:
+        return "XYM";
+      case XYZM:
+        return "XYZM";
+      default:
+        return "";
+    }
+  }
 };
 
 struct GeometryType {
@@ -118,6 +134,27 @@ struct GeometryType {
         return GEOMETRYCOLLECTION;
       default:
         throw ParquetException("Invalid wkb_geometry_type: ", wkb_geometry_type);
+    }
+  }
+
+  static std::string ToString(geometry_type geometry_type) {
+    switch (geometry_type) {
+      case POINT:
+        return "POINT";
+      case LINESTRING:
+        return "LINESTRING";
+      case POLYGON:
+        return "POLYGON";
+      case MULTIPOINT:
+        return "MULTIPOINT";
+      case MULTILINESTRING:
+        return "MULTILINESTRING";
+      case MULTIPOLYGON:
+        return "MULTIPOLYGON";
+      case GEOMETRYCOLLECTION:
+        return "GEOMETRYCOLLECTION";
+      default:
+        return "";
     }
   }
 };
@@ -193,6 +230,12 @@ class WKBBuffer {
 };
 
 struct BoundingBox {
+  BoundingBox(Dimensions::dimensions dimensions, const std::array<double, 4>& mins,
+              const std::array<double, 4>& maxes)
+      : dimensions(dimensions) {
+    std::memcpy(min, mins.data(), sizeof(min));
+    std::memcpy(max, maxes.data(), sizeof(max));
+  }
   explicit BoundingBox(Dimensions::dimensions dimensions = Dimensions::XYZM)
       : dimensions(dimensions),
         min{kInf, kInf, kInf, kInf},
@@ -239,10 +282,27 @@ struct BoundingBox {
     return xyzm;
   }
 
+  std::string ToString() const {
+    std::stringstream ss;
+    ss << "BoundingBox " << Dimensions::ToString(dimensions) << " [" << min[0] << " => "
+       << max[0];
+    for (int i = 1; i < 4; i++) {
+      ss << ", " << min[i] << " => " << max[i];
+    }
+
+    return ss.str();
+  }
+
   Dimensions::dimensions dimensions;
   double min[4];
   double max[4];
 };
+
+bool operator==(const BoundingBox& lhs, const BoundingBox& rhs) {
+  return lhs.dimensions == rhs.dimensions &&
+         std::memcmp(lhs.min, rhs.min, sizeof(lhs.min)) == 0 &&
+         std::memcmp(lhs.max, rhs.max, sizeof(lhs.max)) == 0;
+}
 
 template <Dimensions::dimensions dims, bool swap, uint32_t chunk_size>
 class WKBSequenceBounder {

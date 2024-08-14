@@ -30,6 +30,11 @@ TEST(TestGeometryUtil, TestDimensions) {
   EXPECT_EQ(Dimensions::size<Dimensions::XYM>(), 3);
   EXPECT_EQ(Dimensions::size<Dimensions::XYZM>(), 4);
 
+  EXPECT_EQ(Dimensions::ToString(Dimensions::XY), "XY");
+  EXPECT_EQ(Dimensions::ToString(Dimensions::XYZ), "XYZ");
+  EXPECT_EQ(Dimensions::ToString(Dimensions::XYM), "XYM");
+  EXPECT_EQ(Dimensions::ToString(Dimensions::XYZM), "XYZM");
+
   EXPECT_EQ(Dimensions::FromWKB(1), Dimensions::XY);
   EXPECT_EQ(Dimensions::FromWKB(1001), Dimensions::XYZ);
   EXPECT_EQ(Dimensions::FromWKB(2001), Dimensions::XYM);
@@ -38,6 +43,15 @@ TEST(TestGeometryUtil, TestDimensions) {
 }
 
 TEST(TestGeometryUtil, TestGeometryType) {
+  EXPECT_EQ(GeometryType::ToString(GeometryType::POINT), "POINT");
+  EXPECT_EQ(GeometryType::ToString(GeometryType::LINESTRING), "LINESTRING");
+  EXPECT_EQ(GeometryType::ToString(GeometryType::POLYGON), "POLYGON");
+  EXPECT_EQ(GeometryType::ToString(GeometryType::MULTIPOINT), "MULTIPOINT");
+  EXPECT_EQ(GeometryType::ToString(GeometryType::MULTILINESTRING), "MULTILINESTRING");
+  EXPECT_EQ(GeometryType::ToString(GeometryType::MULTIPOLYGON), "MULTIPOLYGON");
+  EXPECT_EQ(GeometryType::ToString(GeometryType::GEOMETRYCOLLECTION),
+            "GEOMETRYCOLLECTION");
+
   EXPECT_EQ(GeometryType::FromWKB(1), GeometryType::POINT);
   EXPECT_EQ(GeometryType::FromWKB(1001), GeometryType::POINT);
   EXPECT_EQ(GeometryType::FromWKB(1002), GeometryType::LINESTRING);
@@ -46,7 +60,12 @@ TEST(TestGeometryUtil, TestGeometryType) {
   EXPECT_EQ(GeometryType::FromWKB(1005), GeometryType::MULTILINESTRING);
   EXPECT_EQ(GeometryType::FromWKB(1006), GeometryType::MULTIPOLYGON);
   EXPECT_EQ(GeometryType::FromWKB(1007), GeometryType::GEOMETRYCOLLECTION);
-  EXPECT_THROW(GeometryType::FromWKB(4001), ParquetException);
+  EXPECT_THROW(GeometryType::FromWKB(1100), ParquetException);
+}
+
+TEST(TestGeometryUtil, TestBoundingBox) {
+  EXPECT_EQ(BoundingBox(), BoundingBox(Dimensions::XYZM, {kInf, kInf, kInf, kInf},
+                                       {-kInf, -kInf, -kInf, -kInf}));
 }
 
 }  // namespace parquet::geometry
