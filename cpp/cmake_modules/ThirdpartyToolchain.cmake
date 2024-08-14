@@ -1354,12 +1354,8 @@ macro(build_snappy)
       ${EP_COMMON_CMAKE_ARGS} -DSNAPPY_BUILD_TESTS=OFF -DSNAPPY_BUILD_BENCHMARKS=OFF
       "-DCMAKE_INSTALL_PREFIX=${SNAPPY_PREFIX}")
   # See comments in snappy.diff.
-  find_program(PATCH patch)
-  if (NOT ${PATCH} STREQUAL "PATCH-NOTFOUND")
-    set(SNAPPY_PATCH_COMMAND ${PATCH} -p1 -i ${CMAKE_CURRENT_LIST_DIR}/snappy.diff)
-  else()
-    message(WARNING "patch executable not found, building Snappy may fail")
-  endif()
+  find_program(PATCH patch REQUIRED)
+  set(SNAPPY_PATCH_COMMAND ${PATCH} -p1 -i ${CMAKE_CURRENT_LIST_DIR}/snappy.diff)
 
   if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     # ignore linker flag errors, as Snappy sets
