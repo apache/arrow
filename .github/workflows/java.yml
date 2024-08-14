@@ -133,6 +133,7 @@ jobs:
         shell: bash
         env:
           DEVELOCITY_ACCESS_KEY: ${{ secrets.GE_ACCESS_TOKEN }}
+          MAVEN_OPTS: -Darrow.memory.debug.allocator=true
         run: ci/scripts/java_test.sh $(pwd) $(pwd)/build
 
   windows:
