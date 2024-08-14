@@ -1353,26 +1353,9 @@ macro(build_snappy)
   set(SNAPPY_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS} -DSNAPPY_BUILD_TESTS=OFF -DSNAPPY_BUILD_BENCHMARKS=OFF
       "-DCMAKE_INSTALL_PREFIX=${SNAPPY_PREFIX}")
-  # Snappy unconditionally enables -Werror when building with clang this can lead
-  # to build failures by way of new compiler warnings. This adds a flag to disable
-  # Werror to the very end of the invocation to override the snappy internal setting.
-  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    foreach(CONFIG DEBUG MINSIZEREL RELEASE RELWITHDEBINFO)
-      list(APPEND
-           SNAPPY_CMAKE_ARGS
-           "-DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS_${CONFIG}} -Wno-error"
-      )
-    endforeach()
-  endif()
-
-  if(APPLE AND CMAKE_HOST_SYSTEM_VERSION VERSION_LESS 20)
-    # On macOS 10.13 we need to explicitly add <functional> to avoid a missing include error
-    # This can be removed once CRAN no longer checks on macOS 10.13
-    find_program(PATCH patch REQUIRED)
-    set(SNAPPY_PATCH_COMMAND ${PATCH} -p1 -i ${CMAKE_CURRENT_LIST_DIR}/snappy.diff)
-  else()
-    set(SNAPPY_PATCH_COMMAND)
-  endif()
+  # See comments in snappy.diff.
+  find_program(PATCH patch REQUIRED)
+  set(SNAPPY_PATCH_COMMAND ${PATCH} -p1 -i ${CMAKE_CURRENT_LIST_DIR}/snappy.diff)
 
   if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     # ignore linker flag errors, as Snappy sets
