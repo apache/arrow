@@ -290,6 +290,8 @@ struct BoundingBox {
       ss << ", " << min[i] << " => " << max[i];
     }
 
+    ss << "]";
+
     return ss.str();
   }
 

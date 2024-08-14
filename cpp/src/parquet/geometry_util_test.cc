@@ -64,8 +64,33 @@ TEST(TestGeometryUtil, TestGeometryType) {
 }
 
 TEST(TestGeometryUtil, TestBoundingBox) {
-  EXPECT_EQ(BoundingBox(), BoundingBox(Dimensions::XYZM, {kInf, kInf, kInf, kInf},
-                                       {-kInf, -kInf, -kInf, -kInf}));
+  BoundingBox box;
+  EXPECT_EQ(box, BoundingBox(Dimensions::XYZM, {kInf, kInf, kInf, kInf},
+                             {-kInf, -kInf, -kInf, -kInf}));
+  EXPECT_EQ(box.ToString(),
+            "BoundingBox XYZM [inf => -inf, inf => -inf, inf => -inf, inf => -inf]");
+
+  BoundingBox box_xyzm(Dimensions::XYZM, {-1, -2, -3, -4}, {1, 2, 3, 4});
+
+  BoundingBox box_xy(Dimensions::XY, {-10, -20, kInf, kInf}, {10, 20, -kInf, -kInf});
+  BoundingBox box_xyz(Dimensions::XYZ, {kInf, kInf, -30, kInf},
+                      {-kInf, -kInf, 30, -kInf});
+  BoundingBox box_xym(Dimensions::XYM, {kInf, kInf, -40, kInf},
+                      {-kInf, -kInf, 40, -kInf});
+
+  box_xyzm.Merge(box_xy);
+  EXPECT_EQ(box_xyzm, BoundingBox(Dimensions::XYZM, {-10, -20, -3, -4}, {10, 20, 3, 4}));
+
+  box_xyzm.Merge(box_xyz);
+  EXPECT_EQ(box_xyzm,
+            BoundingBox(Dimensions::XYZM, {-10, -20, -30, -4}, {10, 20, 30, 4}));
+
+  box_xyzm.Merge(box_xym);
+  EXPECT_EQ(box_xyzm,
+            BoundingBox(Dimensions::XYZM, {-10, -20, -30, -40}, {10, 20, 30, 40}));
+
+  box_xyzm.Reset();
+  EXPECT_EQ(box_xyzm, BoundingBox());
 }
 
 }  // namespace parquet::geometry
