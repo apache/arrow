@@ -55,46 +55,48 @@ public class OrcReaderTest {
 
   @Test
   public void testOrcJniReader() throws Exception {
-    TypeDescription schema = TypeDescription.fromString("struct<x:int,y:string>");
-    File testFile = new File(testFolder, "test-orc");
+    for (int test_no = 0; test_no < 10; test_no++) {
+      TypeDescription schema = TypeDescription.fromString("struct<x:int,y:string>");
+      File testFile = new File(testFolder, "test-orc" + test_no);
 
-    Writer writer =
-        OrcFile.createWriter(
-            new Path(testFile.getAbsolutePath()),
-            OrcFile.writerOptions(new Configuration()).setSchema(schema));
-    VectorizedRowBatch batch = schema.createRowBatch();
-    LongColumnVector longColumnVector = (LongColumnVector) batch.cols[0];
-    BytesColumnVector bytesColumnVector = (BytesColumnVector) batch.cols[1];
-    for (int r = 0; r < 1024; ++r) {
-      int row = batch.size++;
-      longColumnVector.vector[row] = r;
-      byte[] buffer = ("Last-" + (r * 3)).getBytes(StandardCharsets.UTF_8);
-      bytesColumnVector.setRef(row, buffer, 0, buffer.length);
+      Writer writer =
+          OrcFile.createWriter(
+              new Path(testFile.getAbsolutePath()),
+              OrcFile.writerOptions(new Configuration()).setSchema(schema));
+      VectorizedRowBatch batch = schema.createRowBatch();
+      LongColumnVector longColumnVector = (LongColumnVector) batch.cols[0];
+      BytesColumnVector bytesColumnVector = (BytesColumnVector) batch.cols[1];
+      for (int r = 0; r < 1024; ++r) {
+        int row = batch.size++;
+        longColumnVector.vector[row] = r;
+        byte[] buffer = ("Last-" + (r * 3)).getBytes(StandardCharsets.UTF_8);
+        bytesColumnVector.setRef(row, buffer, 0, buffer.length);
+      }
+      writer.addRowBatch(batch);
+      writer.close();
+
+      OrcReader reader = new OrcReader(testFile.getAbsolutePath(), allocator);
+      assertEquals(1, reader.getNumberOfStripes());
+
+      ArrowReader stripeReader = reader.nextStripeReader(1024);
+      VectorSchemaRoot schemaRoot = stripeReader.getVectorSchemaRoot();
+      stripeReader.loadNextBatch();
+
+      List<FieldVector> fields = schemaRoot.getFieldVectors();
+      assertEquals(2, fields.size());
+
+      IntVector intVector = (IntVector) fields.get(0);
+      VarCharVector varCharVector = (VarCharVector) fields.get(1);
+      for (int i = 0; i < 1024; ++i) {
+        assertEquals(i, intVector.get(i));
+        assertEquals("Last-" + (i * 3), new String(varCharVector.get(i), StandardCharsets.UTF_8));
+      }
+
+      assertFalse(stripeReader.loadNextBatch());
+      assertNull(reader.nextStripeReader(1024));
+
+      stripeReader.close();
+      reader.close();
     }
-    writer.addRowBatch(batch);
-    writer.close();
-
-    OrcReader reader = new OrcReader(testFile.getAbsolutePath(), allocator);
-    assertEquals(1, reader.getNumberOfStripes());
-
-    ArrowReader stripeReader = reader.nextStripeReader(1024);
-    VectorSchemaRoot schemaRoot = stripeReader.getVectorSchemaRoot();
-    stripeReader.loadNextBatch();
-
-    List<FieldVector> fields = schemaRoot.getFieldVectors();
-    assertEquals(2, fields.size());
-
-    IntVector intVector = (IntVector) fields.get(0);
-    VarCharVector varCharVector = (VarCharVector) fields.get(1);
-    for (int i = 0; i < 1024; ++i) {
-      assertEquals(i, intVector.get(i));
-      assertEquals("Last-" + (i * 3), new String(varCharVector.get(i), StandardCharsets.UTF_8));
-    }
-
-    assertFalse(stripeReader.loadNextBatch());
-    assertNull(reader.nextStripeReader(1024));
-
-    stripeReader.close();
-    reader.close();
   }
 }
