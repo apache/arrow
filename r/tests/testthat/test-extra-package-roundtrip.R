@@ -17,7 +17,7 @@
 
 skip_on_cran()
 
-# Any additional pacakge that we test here that is not already in DESCRIPTION should be
+# Any additional package that we test here that is not already in DESCRIPTION should be
 # added to dev/tasks/r/github.linux.extra.packages.yml in the r-lib/actions/setup-r-dependencies@v2
 # step so that they are installed + available in that CI job.
 
@@ -59,13 +59,12 @@ test_that("readr read csvs roundtrip", {
 
   # we should still be able to turn this into a table
   expect_equal(new_df, new_df_read)
-
 })
 
 test_that("data.table objects roundtrip", {
   load_or_skip("data.table")
 
-  # https://rdatatable.gitlab.io/data.table/articles/datatable-importing.html#testing-using-testthat
+  # https://github.com/Rdatatable/data.table/blob/83fd2c05ce2d8555ceb8ba417833956b1b574f7e/R/cedta.R#L25-L27
   .datatable.aware=TRUE
 
   DT <- as.data.table(example_data)
@@ -76,10 +75,8 @@ test_that("data.table objects roundtrip", {
   DT_read <- read_parquet(pq_tmp_file)
 
   # we should still be able to turn this into a table
+  # the .internal.selfref attribute is automatically ignored by testthat/waldo
   expect_equal(DT, DT_read)
-
-  # attributes are the same, aside from the internal selfref pointer
-  expect_mapequal(attributes(DT_read), attributes(DT)[names(attributes(DT)) != ".internal.selfref"])
 
   # and we can set keys + indices + create new columns
   setkey(DT, chr)
@@ -93,7 +90,19 @@ test_that("data.table objects roundtrip", {
 
   # we should still be able to turn this into a table
   expect_equal(DT, DT_read)
+})
 
-  # and the attributes are the same, aside from the internal selfref pointer
-  expect_mapequal(attributes(DT_read), attributes(DT)[names(attributes(DT)) != ".internal.selfref"])
+test_that("units roundtrip", {
+  load_or_skip("units")
+
+  tbl <- example_data
+  units(tbl$dbl) <- "s"
+
+  # and can roundtrip to a parquet file
+  pq_tmp_file <- tempfile()
+  write_parquet(tbl, pq_tmp_file)
+  tbl_read <- read_parquet(pq_tmp_file)
+
+  # we should still be able to turn this into a table
+  expect_equal(tbl, tbl_read)
 })
