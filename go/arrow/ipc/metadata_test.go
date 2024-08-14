@@ -184,9 +184,6 @@ func TestUnrecognizedExtensionType(t *testing.T) {
 	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer pool.AssertSize(t, 0)
 
-	// register the uuid type
-	assert.NoError(t, arrow.RegisterExtensionType(extensions.NewUUIDType()))
-
 	extArr := exampleUUID(pool)
 	defer extArr.Release()
 
@@ -206,6 +203,8 @@ func TestUnrecognizedExtensionType(t *testing.T) {
 	// unregister the uuid type before we read back the buffer so it is
 	// unrecognized when reading back the record batch.
 	assert.NoError(t, arrow.UnregisterExtensionType("uuid"))
+	// re-register once the test is complete
+	defer arrow.RegisterExtensionType(extensions.NewUUIDType())
 	rdr, err := NewReader(&buf, WithAllocator(pool))
 	defer rdr.Release()
 

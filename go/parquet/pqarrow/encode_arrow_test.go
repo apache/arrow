@@ -715,16 +715,6 @@ type ParquetIOTestSuite struct {
 	suite.Suite
 }
 
-func (ps *ParquetIOTestSuite) SetupTest() {
-	ps.NoError(arrow.RegisterExtensionType(extensions.NewUUIDType()))
-}
-
-func (ps *ParquetIOTestSuite) TearDownTest() {
-	if arrow.GetExtensionType("uuid") != nil {
-		ps.NoError(arrow.UnregisterExtensionType("uuid"))
-	}
-}
-
 func (ps *ParquetIOTestSuite) makeSimpleSchema(typ arrow.DataType, rep parquet.Repetition) *schema.GroupNode {
 	byteWidth := int32(-1)
 

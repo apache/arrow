@@ -14,7 +14,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package extensions provides implementations of Arrow canonical extension
-// types as defined in the Arrow specification.
-// https://arrow.apache.org/docs/format/CanonicalExtensions.html
 package extensions
+
+import (
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/parquet/schema"
+)
+
+var canonicalExtensionTypes = []arrow.ExtensionType{
+	&Bool8Type{},
+	&UUIDType{},
+}
+
+func init() {
+	for _, extType := range canonicalExtensionTypes {
+		if err := arrow.RegisterExtensionType(extType); err != nil {
+			panic(err)
+		}
+	}
+}
+
+type CustomParquetType interface {
+	ParquetLogicalType() schema.LogicalType
+}
