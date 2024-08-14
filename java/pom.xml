@@ -125,6 +125,7 @@ under the License.
       is addressed
     -->
     <version.maven-jar-plugin>3.2.2</version.maven-jar-plugin>
+    <version.maven-site-plugin>4.0.0-M16</version.maven-site-plugin>
   </properties>
 
   <dependencyManagement>
