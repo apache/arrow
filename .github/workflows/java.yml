@@ -87,6 +87,7 @@ jobs:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
           DEVELOCITY_ACCESS_KEY: ${{ secrets.GE_ACCESS_TOKEN }}
+          JAVA_TOOL_OPTIONS: -Darrow.memory.debug.allocator=true
         run: |
           archery docker run \
             -e CI=true \
