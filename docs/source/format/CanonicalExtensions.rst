@@ -393,6 +393,28 @@ Examples:
 
     {"type_name": "OTHER", "vendor_name": "JDBC driver name"}
 
+8-bit Boolean
+=============
+
+Bool8 represents a boolean value using 1 byte (8 bits) to store each value instead of only 1 bit as in
+the original Arrow Boolean type. Although less compact than the original representation, Bool8 may have
+better zero-copy compatibility with various systems that also store booleans using 1 byte.
+
+* Extension name: ``arrow.bool8``.
+
+* The storage type of this extension is ``Int8`` where:
+
+  * **false** is denoted by the value ``0``.
+  * **true** can be specified using any non-zero value. Preferably ``1``.
+
+* Extension type parameters:
+
+  This type does not have any parameters.
+
+* Description of the serialization:
+
+  Metadata is an empty string.
+
 =========================
 Community Extension Types
 =========================

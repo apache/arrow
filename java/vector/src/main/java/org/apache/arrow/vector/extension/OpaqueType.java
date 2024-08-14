@@ -389,5 +389,10 @@ public class OpaqueType extends ArrowType.ExtensionType {
     public FieldVector visit(ListView type) {
       throw unsupported(type);
     }
+
+    @Override
+    public FieldVector visit(LargeListView type) {
+      throw unsupported(type);
+    }
   }
 }

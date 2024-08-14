@@ -134,6 +134,11 @@
        name: "ListView",
        fields: [],
        complex: true
+    },
+    {
+       name: "LargeListView",
+       fields: [],
+       complex: true
     }
   ]
 }

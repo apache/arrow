@@ -704,7 +704,8 @@ public class ListViewVector extends BaseRepeatedValueViewVector
    * (unless they change it).
    *
    * @param clear Whether to clear vector before returning, the buffers will still be refcounted but
-   *     the returned array will be the only reference to them
+   *     the returned array will be the only reference to them. Also, this won't clear the child
+   *     buffers.
    * @return The underlying {@link ArrowBuf buffers} that is used by this vector instance.
    */
   @Override

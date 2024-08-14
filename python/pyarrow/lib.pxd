@@ -215,6 +215,11 @@ cdef class FixedShapeTensorType(BaseExtensionType):
         const CFixedShapeTensorType* tensor_ext_type
 
 
+cdef class OpaqueType(BaseExtensionType):
+    cdef:
+        const COpaqueType* opaque_ext_type
+
+
 cdef class PyExtensionType(ExtensionType):
     pass
 

@@ -865,6 +865,25 @@ std::shared_ptr<CastFunction> GetCastToHalfFloat() {
   return func;
 }
 
+struct NullExtensionTypeMatcher : public TypeMatcher {
+  ~NullExtensionTypeMatcher() override = default;
+
+  bool Matches(const DataType& type) const override {
+    return type.id() == Type::EXTENSION &&
+           checked_cast<const ExtensionType&>(type).storage_id() == Type::NA;
+  }
+
+  std::string ToString() const override { return "extension<storage_type: null>"; }
+
+  bool Equals(const TypeMatcher& other) const override {
+    if (this == &other) {
+      return true;
+    }
+    auto casted = dynamic_cast<const NullExtensionTypeMatcher*>(&other);
+    return casted != nullptr;
+  }
+};
+
 }  // namespace
 
 std::vector<std::shared_ptr<CastFunction>> GetNumericCasts() {
@@ -875,6 +894,10 @@ std::vector<std::shared_ptr<CastFunction>> GetNumericCasts() {
   auto cast_null = std::make_shared<CastFunction>("cast_null", Type::NA);
   DCHECK_OK(cast_null->AddKernel(Type::DICTIONARY, {InputType(Type::DICTIONARY)}, null(),
                                  OutputAllNull));
+  // Explicitly allow casting extension type with null backing array to null
+  DCHECK_OK(cast_null->AddKernel(
+      Type::EXTENSION, {InputType(std::make_shared<NullExtensionTypeMatcher>())}, null(),
+      OutputAllNull));
   functions.push_back(cast_null);
 
   functions.push_back(GetCastToInteger<Int8Type>("cast_int8"));

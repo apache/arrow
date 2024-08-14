@@ -47,11 +47,14 @@ endif()
 
 set(ARROW_CUDA_SRCS cuda_arrow_ipc.cc cuda_context.cc cuda_internal.cc cuda_memory.cc)
 
+set(ARROW_CUDA_PKG_CONFIG_NAME_ARGS)
+if(NOT WINDOWS)
+  list(APPEND ARROW_CUDA_PKG_CONFIG_NAME_ARGS PKG_CONFIG_NAME arrow-cuda)
+endif()
 add_arrow_lib(arrow_cuda
               CMAKE_PACKAGE_NAME
               ArrowCUDA
-              PKG_CONFIG_NAME
-              arrow-cuda
+              ${ARROW_CUDA_PKG_CONFIG_NAME_ARGS}
               SOURCES
               ${ARROW_CUDA_SRCS}
               OUTPUTS
