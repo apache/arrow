@@ -90,7 +90,7 @@ test_that("read_csv_arrow parsing options: col_names", {
 
   tab1 <- read_csv_arrow(tf, col_names = names(tbl))
 
-  expect_identical(names(tab1), names(tbl))
+  expect_named(tab1, names(tbl))
   expect_equal(tbl, tab1)
 
   # This errors (correctly) because I haven't given enough names
@@ -114,7 +114,7 @@ test_that("read_csv_arrow parsing options: skip", {
 
   tab1 <- read_csv_arrow(tf, skip = 2)
 
-  expect_identical(names(tab1), names(tbl))
+  expect_named(tab1, names(tbl))
   expect_equal(tbl, tab1)
 })
 

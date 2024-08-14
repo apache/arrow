@@ -25,6 +25,7 @@
 #include <utility>
 
 #include "arrow/buffer.h"
+#include "arrow/flight/protocol_internal.h"
 #include "arrow/flight/serialization_internal.h"
 #include "arrow/flight/types_async.h"
 #include "arrow/io/memory.h"
@@ -203,6 +204,14 @@ arrow::Status BasicAuth::Deserialize(std::string_view serialized, BasicAuth* out
 arrow::Status BasicAuth::SerializeToString(std::string* out) const {
   return SerializeToProtoString<pb::BasicAuth>("BasicAuth", *this, out);
 }
+
+FlightDescriptor::FlightDescriptor() = default;
+
+FlightDescriptor::FlightDescriptor(DescriptorType type, std::string cmd,
+                                   std::vector<std::string> path) noexcept
+    : type(type), cmd(std::move(cmd)), path(std::move(path)) {}
+
+FlightDescriptor::~FlightDescriptor() = default;
 
 std::string FlightDescriptor::ToString() const {
   std::stringstream ss;
@@ -696,6 +705,8 @@ arrow::Status Ticket::Deserialize(std::string_view serialized, Ticket* out) {
 
 Location::Location() { uri_ = std::make_shared<arrow::util::Uri>(); }
 
+Location::~Location() = default;
+
 arrow::Result<Location> Location::Parse(const std::string& uri_string) {
   Location location;
   RETURN_NOT_OK(location.uri_->Parse(uri_string));
@@ -986,10 +997,8 @@ arrow::Status SchemaResult::SerializeToString(std::string* out) const {
 }
 
 arrow::Status SchemaResult::Deserialize(std::string_view serialized, SchemaResult* out) {
-  pb::SchemaResult pb_schema_result;
-  RETURN_NOT_OK(ParseFromString("SchemaResult", serialized, &pb_schema_result));
-  *out = SchemaResult{pb_schema_result.schema()};
-  return Status::OK();
+  return DeserializeProtoString<pb::SchemaResult, SchemaResult>("SchemaResult",
+                                                                serialized, out);
 }
 
 //------------------------------------------------------------
@@ -1001,6 +1010,9 @@ Status ResultStream::Drain() {
   }
   return Status::OK();
 }
+
+FlightStreamChunk::FlightStreamChunk() noexcept = default;
+FlightStreamChunk::~FlightStreamChunk() = default;
 
 arrow::Result<std::vector<std::shared_ptr<RecordBatch>>>
 MetadataRecordBatchReader::ToRecordBatches() {

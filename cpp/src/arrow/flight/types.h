@@ -41,22 +41,16 @@
 
 namespace arrow {
 
-class Buffer;
 class RecordBatch;
 class Schema;
-class Status;
 class Table;
 
 namespace ipc {
-
 class DictionaryMemo;
-
 }  // namespace ipc
 
 namespace util {
-
 class Uri;
-
 }  // namespace util
 
 namespace flight {
@@ -434,10 +428,10 @@ struct ARROW_FLIGHT_EXPORT FlightDescriptor
   /// when type is PATH
   std::vector<std::string> path;
 
-  FlightDescriptor() = default;
-
-  FlightDescriptor(DescriptorType type, std::string cmd, std::vector<std::string> path)
-      : type(type), cmd(std::move(cmd)), path(std::move(path)) {}
+  FlightDescriptor();
+  FlightDescriptor(DescriptorType type, std::string cmd,
+                   std::vector<std::string> path) noexcept;
+  ~FlightDescriptor();
 
   /// \brief Get a human-readable form of this descriptor.
   std::string ToString() const;
@@ -464,12 +458,12 @@ struct ARROW_FLIGHT_EXPORT FlightDescriptor
 
   // Convenience factory functions
 
-  static FlightDescriptor Command(const std::string& c) {
-    return FlightDescriptor{CMD, c, {}};
+  static FlightDescriptor Command(std::string cmd) {
+    return FlightDescriptor{CMD, std::move(cmd), {}};
   }
 
-  static FlightDescriptor Path(const std::vector<std::string>& p) {
-    return FlightDescriptor{PATH, "", p};
+  static FlightDescriptor Path(std::vector<std::string> path) {
+    return FlightDescriptor{PATH, "", std::move(path)};
   }
 };
 
@@ -745,6 +739,8 @@ struct ARROW_FLIGHT_EXPORT Location : public internal::BaseType<Location> {
  public:
   /// \brief Initialize a blank location.
   Location();
+
+  ~Location();
 
   /// \brief Initialize a location by parsing a URI string
   static arrow::Result<Location> Parse(const std::string& uri_string);
@@ -1148,6 +1144,9 @@ class ARROW_FLIGHT_EXPORT ResultStream {
 /// \brief A holder for a RecordBatch with associated Flight metadata.
 struct ARROW_FLIGHT_EXPORT FlightStreamChunk {
  public:
+  FlightStreamChunk() noexcept;
+  ~FlightStreamChunk();
+
   std::shared_ptr<RecordBatch> data;
   std::shared_ptr<Buffer> app_metadata;
 };
