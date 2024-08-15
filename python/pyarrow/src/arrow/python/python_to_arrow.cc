@@ -54,8 +54,8 @@
 #include "arrow/python/iterators.h"
 #include "arrow/python/numpy_convert.h"
 #include "arrow/python/type_traits.h"
-#include "arrow/visit_type_inline.h"
 #include "arrow/python/vendored/pythoncapi_compat.h"
+#include "arrow/visit_type_inline.h"
 
 namespace arrow {
 
