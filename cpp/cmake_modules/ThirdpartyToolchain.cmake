@@ -1358,7 +1358,7 @@ macro(build_snappy)
   # -Werror to the very end of the invocation to override the snappy internal setting.
   set(SNAPPY_ADDITIONAL_CXX_FLAGS "")
   if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    set(SNAPPY_ADDITIONAL_CXX_FLAGS "${SNAPPY_ADDITIONAL_CXX_FLAGS} -Wno-error")
+    string(APPEND SNAPPY_ADDITIONAL_CXX_FLAGS " -Wno-error")
   endif()
   # Snappy unconditionally disables RTTI, which is incompatible with some other
   # build settings (https://github.com/apache/arrow/issues/43688).
