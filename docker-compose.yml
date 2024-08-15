@@ -1889,6 +1889,9 @@ services:
     command: >
       /bin/bash -c "
         git config --global --add safe.directory /arrow &&
+        python3 -m venv /build/pyvenv &&
+        source /build/pyvenv/bin/activate &&
+        pip install -U pip setuptools &&
         pip install arrow/dev/archery[lint] &&
         archery lint --all --no-clang-tidy --no-iwyu --no-numpydoc --src /arrow"
 
