@@ -1366,12 +1366,14 @@ macro(build_snappy)
     set(SNAPPY_ADDITIONAL_CXX_FLAGS "${SNAPPY_ADDITIONAL_CXX_FLAGS} -frtti")
   endif()
 
-  foreach(CONFIG DEBUG MINSIZEREL RELEASE RELWITHDEBINFO)
-    list(APPEND
-         SNAPPY_CMAKE_ARGS
-         "-DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS_${CONFIG}} ${SNAPPY_ADDITIONAL_CXX_FLAGS}"
-    )
-  endforeach()
+  if(NOT MSVC)
+    foreach(CONFIG DEBUG MINSIZEREL RELEASE RELWITHDEBINFO)
+      list(APPEND
+           SNAPPY_CMAKE_ARGS
+           "-DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS_${CONFIG}} ${SNAPPY_ADDITIONAL_CXX_FLAGS}"
+      )
+    endforeach()
+  endif()
 
   if(APPLE AND CMAKE_HOST_SYSTEM_VERSION VERSION_LESS 20)
     # On macOS 10.13 we need to explicitly add <functional> to avoid a missing include error
