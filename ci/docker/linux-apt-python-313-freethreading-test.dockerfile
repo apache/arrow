@@ -18,20 +18,18 @@
 ARG base
 FROM ${base}
 
-RUN apt install -y -q --no-install-recommends software-properties-common gpg-agent && \
-    add-apt-repository -y ppa:deadsnakes/ppa && \
-    apt update && \
-    apt install -y -q --no-install-recommends python3.13-nogil python3.13-dev python3.13-venv
+RUN apt install -y -q --no-install-recommends software-properties-common gpg-agent
+RUN add-apt-repository -y ppa:deadsnakes/ppa && apt update
+RUN apt install -y -q --no-install-recommends python3.13-dev python3.13-nogil python3.13-venv
 
 COPY python/requirements-build.txt \
      python/requirements-test.txt \
      /arrow/python/
 
 ENV ARROW_PYTHON_VENV /arrow-dev
-RUN python3.13t -m venv ${ARROW_PYTHON_VENV} && \
-    . ${ARROW_PYTHON_VENV}/bin/activate && \
-    pip install -U pip setuptools wheel && \
-    pip install \
+RUN python3.13t -m venv ${ARROW_PYTHON_VENV}
+RUN ${ARROW_PYTHON_VENV}/bin/python -m pip install -U pip setuptools wheel
+RUN ${ARROW_PYTHON_VENV}/bin/python -m pip install \
       --pre \
       --prefer-binary \
       --extra-index-url "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple" \
