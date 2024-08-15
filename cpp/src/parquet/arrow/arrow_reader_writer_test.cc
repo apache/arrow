@@ -5298,14 +5298,20 @@ TEST(TestArrowReadWrite, MultithreadedWrite) {
 
 TEST(TestArrowReadWrite, FuzzReader) {
   constexpr size_t kMaxFileSize = 1024 * 1024 * 1;
-  {
-    auto path = test::get_data_file("PARQUET-1481.parquet", /*is_good=*/false);
+  auto check_bad_file = [&](const std::string& file_name) {
+    SCOPED_TRACE(file_name);
+    auto path = test::get_data_file(file_name, /*is_good=*/false);
     PARQUET_ASSIGN_OR_THROW(auto source, ::arrow::io::MemoryMappedFile::Open(
                                              path, ::arrow::io::FileMode::READ));
     PARQUET_ASSIGN_OR_THROW(auto buffer, source->Read(kMaxFileSize));
     auto s = internal::FuzzReader(buffer->data(), buffer->size());
     ASSERT_NOT_OK(s);
-  }
+  };
+  check_bad_file("PARQUET-1481.parquet");
+  check_bad_file("ARROW-GH-41317.parquet");
+  check_bad_file("ARROW-GH-41321.parquet");
+  check_bad_file("ARROW-RS-GH-6229-LEVELS.parquet");
+  check_bad_file("ARROW-RS-GH-6229-DICTHEADER.parquet");
   {
     auto path = test::get_data_file("alltypes_plain.parquet", /*is_good=*/true);
     PARQUET_ASSIGN_OR_THROW(auto source, ::arrow::io::MemoryMappedFile::Open(

@@ -15,16 +15,4 @@
 # specific language governing permissions and limitations
 # under the License.
 
-add_arrow_test(test
-               SOURCES
-               fixed_shape_tensor_test.cc
-               PREFIX
-               "arrow-fixed-shape-tensor")
-
-add_arrow_test(test
-               SOURCES
-               opaque_test.cc
-               PREFIX
-               "arrow-extension-opaque")
-
-arrow_install_all_headers("arrow/extension")
+arrow_install_all_headers("arrow/python/vendored")

@@ -1085,6 +1085,12 @@ cdef class FixedShapeTensorScalar(ExtensionScalar):
         return pyarrow_wrap_tensor(ctensor)
 
 
+cdef class OpaqueScalar(ExtensionScalar):
+    """
+    Concrete class for opaque extension scalar.
+    """
+
+
 cdef dict _scalar_classes = {
     _Type_BOOL: BooleanScalar,
     _Type_UINT8: UInt8Scalar,
