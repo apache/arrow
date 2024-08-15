@@ -257,6 +257,9 @@ struct ArrowAsyncDeviceStreamHandler {
   // The `extension_param` argument can be null or can be used by a producer
   // to pass arbitrary extra information to the consumer.
   //
+  // After this call, the consumer is responsible for releasing the ArrowDeviceArray
+  // which is provided by `next`.
+  //
   // Return value: 0 if successful, `errno`-compatible error otherwise.
   int (*on_next)(struct ArrowAsyncDeviceStreamHandler* self,
                  struct ArrowDeviceArray* next, void* extension_param);

@@ -758,6 +758,20 @@ The structure has the following fields:
     Producers *MUST NOT* process this member. Lifetime of this member is handled by
     the consumer, and especially by the release callback.
 
+Error Handling
+''''''''''''''
+
+Unlike the regular C Stream interface, the Async interface allows for errors to flow in
+both directions. As a result, error handling can be slightly more complex. Thus this spec 
+designates the following rules:
+
+* If the producer encounters an error during processing, it should call the ``on_error``
+callback, and then call ``release`` after it returns.
+
+* If one of the callbacks returns a non-zero integer value, the producer *should not* call
+the ``on_error`` callback, but instead should eventually call ``release`` at some point
+before or after any logging or processing of the error code.
+
 Result lifetimes
 ''''''''''''''''
 
@@ -782,6 +796,9 @@ All handler functions should only be called in a serialized manner, but are not 
 to be called from the same thread every time. A producer should wait for handler callbacks to
 return before calling the next handler callback. As a result, a consumer can manage back-pressure
 simply by sleeping or otherwise waiting to return from the ``on_next`` handler if necessary.
+
+The ``ArrowAsyncDeviceStreamHandler`` object should be able to handle callbacks as soon as
+it is passed to the producer, any initialization should be performed before it is provided.
 
 Interoperability with other interchange formats
 ===============================================
