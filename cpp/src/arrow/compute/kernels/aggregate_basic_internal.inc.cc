@@ -15,46 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
-
-#include <cmath>
-#include <type_traits>
-#include <utility>
-
-#include "arrow/compute/api_aggregate.h"
-#include "arrow/compute/kernels/aggregate_internal.h"
-#include "arrow/compute/kernels/codegen_internal.h"
-#include "arrow/compute/kernels/common_internal.h"
-#include "arrow/compute/kernels/util_internal.h"
-#include "arrow/type.h"
-#include "arrow/type_traits.h"
-#include "arrow/util/align_util.h"
-#include "arrow/util/bit_block_counter.h"
-#include "arrow/util/decimal.h"
+// .inc.cc file to be included in compilation unit where kernels are meant to
+// be compiled auto-vectorized by the compiler with different SIMD levels passed
+// as compiler flags.
+//
+// It contains no includes to avoid double inclusion in the compilation unit
+// that includes this .inc.cc file.
 
 namespace arrow::compute::internal {
-
-void AddBasicAggKernels(KernelInit init,
-                        const std::vector<std::shared_ptr<DataType>>& types,
-                        std::shared_ptr<DataType> out_ty, ScalarAggregateFunction* func,
-                        SimdLevel::type simd_level = SimdLevel::NONE);
-
-void AddMinMaxKernels(KernelInit init,
-                      const std::vector<std::shared_ptr<DataType>>& types,
-                      ScalarAggregateFunction* func,
-                      SimdLevel::type simd_level = SimdLevel::NONE);
-void AddMinMaxKernel(KernelInit init, internal::detail::GetTypeId get_id,
-                     ScalarAggregateFunction* func,
-                     SimdLevel::type simd_level = SimdLevel::NONE);
-
-// SIMD variants for kernels
-void AddSumAvx2AggKernels(ScalarAggregateFunction* func);
-void AddMeanAvx2AggKernels(ScalarAggregateFunction* func);
-void AddMinMaxAvx2AggKernels(ScalarAggregateFunction* func);
-
-void AddSumAvx512AggKernels(ScalarAggregateFunction* func);
-void AddMeanAvx512AggKernels(ScalarAggregateFunction* func);
-void AddMinMaxAvx512AggKernels(ScalarAggregateFunction* func);
+namespace {
 
 // ----------------------------------------------------------------------
 // Sum implementation
@@ -1033,4 +1002,5 @@ struct MinMaxInitState {
   }
 };
 
+}  // namespace
 }  // namespace arrow::compute::internal

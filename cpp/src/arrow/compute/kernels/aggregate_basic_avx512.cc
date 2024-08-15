@@ -15,7 +15,27 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/compute/kernels/aggregate_basic_internal.inc.cc"  // XXX: fix
+#include <cmath>
+#include <type_traits>
+#include <utility>
+
+#include "arrow/compute/api_aggregate.h"
+#include "arrow/compute/kernels/aggregate_basic_internal.h"
+#include "arrow/compute/kernels/aggregate_internal.h"
+#include "arrow/compute/kernels/codegen_internal.h"
+#include "arrow/compute/kernels/common_internal.h"
+#include "arrow/compute/kernels/util_internal.h"
+#include "arrow/type.h"
+#include "arrow/type_traits.h"
+#include "arrow/util/align_util.h"
+#include "arrow/util/bit_block_counter.h"
+#include "arrow/util/cpu_info.h"
+#include "arrow/util/decimal.h"
+#include "arrow/util/hashing.h"
+
+// Include templated definitions for aggregate kernels that must compiled here
+// with the SIMD level configured for this compilation unit in the build.
+#include "arrow/compute/kernels/aggregate_basic_internal.inc.cc"
 
 namespace arrow {
 namespace compute {
