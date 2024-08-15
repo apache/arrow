@@ -496,7 +496,7 @@ class ARROW_EXPORT ThreadPool : public Executor {
  protected:
   FRIEND_TEST(TestThreadPool, SetCapacity);
   FRIEND_TEST(TestGlobalThreadPool, Capacity);
-  ARROW_FRIEND_EXPORT friend ThreadPool* GetCpuThreadPool();
+  friend ThreadPool* GetCpuThreadPool();
 
   ThreadPool();
 
@@ -522,7 +522,7 @@ class ARROW_EXPORT ThreadPool : public Executor {
 // cross-threadpool dependencies will break everything)
 class ARROW_EXPORT ThreadPool : public SerialExecutor {
  public:
-  ARROW_FRIEND_EXPORT friend ThreadPool* GetCpuThreadPool();
+  friend ThreadPool* GetCpuThreadPool();
 
   static Result<std::shared_ptr<ThreadPool>> Make(int threads);
 

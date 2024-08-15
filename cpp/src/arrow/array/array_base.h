@@ -252,7 +252,7 @@ class ARROW_EXPORT Array {
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Array);
 
-  ARROW_FRIEND_EXPORT friend void PrintTo(const Array& x, std::ostream* os);
+  friend void PrintTo(const Array& x, std::ostream* os);
 };
 
 static inline std::ostream& operator<<(std::ostream& os, const Array& x) {

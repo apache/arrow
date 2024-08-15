@@ -153,7 +153,7 @@ class ARROW_EXPORT Float16 {
   }
   friend constexpr bool operator>=(Float16 lhs, Float16 rhs) { return rhs <= lhs; }
 
-  ARROW_FRIEND_EXPORT friend std::ostream& operator<<(std::ostream& os, Float16 arg);
+  friend std::ostream& operator<<(std::ostream& os, Float16 arg);
 
  protected:
   uint16_t bits_;

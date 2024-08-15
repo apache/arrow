@@ -157,8 +157,7 @@ class ARROW_EXPORT Decimal128 : public BasicDecimal128 {
     }
   }
 
-  ARROW_FRIEND_EXPORT friend std::ostream& operator<<(std::ostream& os,
-                                                      const Decimal128& decimal);
+  friend std::ostream& operator<<(std::ostream& os, const Decimal128& decimal);
 
  private:
   /// Converts internal error code to Status
@@ -264,8 +263,7 @@ class ARROW_EXPORT Decimal256 : public BasicDecimal256 {
     }
   }
 
-  ARROW_FRIEND_EXPORT friend std::ostream& operator<<(std::ostream& os,
-                                                      const Decimal256& decimal);
+  friend std::ostream& operator<<(std::ostream& os, const Decimal256& decimal);
 
  private:
   /// Converts internal error code to Status
