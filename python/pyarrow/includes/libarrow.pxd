@@ -2882,6 +2882,19 @@ cdef extern from "arrow/extension/fixed_shape_tensor.h" namespace "arrow::extens
             " arrow::extension::FixedShapeTensorArray"(CExtensionArray):
         const CResult[shared_ptr[CTensor]] ToTensor() const
 
+
+cdef extern from "arrow/extension/opaque.h" namespace "arrow::extension" nogil:
+    cdef cppclass COpaqueType \
+            " arrow::extension::OpaqueType"(CExtensionType):
+
+        c_string type_name()
+        c_string vendor_name()
+
+    cdef cppclass COpaqueArray \
+            " arrow::extension::OpaqueArray"(CExtensionArray):
+        pass
+
+
 cdef extern from "arrow/util/compression.h" namespace "arrow" nogil:
     cdef enum CCompressionType" arrow::Compression::type":
         CCompressionType_UNCOMPRESSED" arrow::Compression::UNCOMPRESSED"
