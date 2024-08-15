@@ -35,9 +35,10 @@ using internal::checked_cast;
 // ----------------------------------------------------------------------
 // Decimal128
 
-Decimal128Array::Decimal128Array(const std::shared_ptr<ArrayData>& data)
-    : FixedSizeBinaryArray(data) {
+Decimal128Array::Decimal128Array(const std::shared_ptr<ArrayData>& data,
+                                 const std::shared_ptr<ArrayStatistics>& statistics) {
   ARROW_CHECK_EQ(data->type->id(), Type::DECIMAL128);
+  Init(data, statistics);
 }
 
 std::string Decimal128Array::FormatValue(int64_t i) const {
@@ -49,9 +50,10 @@ std::string Decimal128Array::FormatValue(int64_t i) const {
 // ----------------------------------------------------------------------
 // Decimal256
 
-Decimal256Array::Decimal256Array(const std::shared_ptr<ArrayData>& data)
-    : FixedSizeBinaryArray(data) {
+Decimal256Array::Decimal256Array(const std::shared_ptr<ArrayData>& data,
+                                 const std::shared_ptr<ArrayStatistics>& statistics) {
   ARROW_CHECK_EQ(data->type->id(), Type::DECIMAL256);
+  Init(data, statistics);
 }
 
 std::string Decimal256Array::FormatValue(int64_t i) const {

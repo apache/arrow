@@ -26,21 +26,6 @@ namespace arrow {
 // ----------------------------------------------------------------------
 // RunEndEncodedArray
 
-RunEndEncodedArray::RunEndEncodedArray(const std::shared_ptr<ArrayData>& data) {
-  this->SetData(data);
-}
-
-RunEndEncodedArray::RunEndEncodedArray(const std::shared_ptr<DataType>& type,
-                                       int64_t length,
-                                       const std::shared_ptr<Array>& run_ends,
-                                       const std::shared_ptr<Array>& values,
-                                       int64_t offset) {
-  this->SetData(ArrayData::Make(type, length,
-                                /*buffers=*/{NULLPTR},
-                                /*child_data=*/{run_ends->data(), values->data()},
-                                /*null_count=*/0, offset));
-}
-
 Result<std::shared_ptr<RunEndEncodedArray>> RunEndEncodedArray::Make(
     const std::shared_ptr<DataType>& type, int64_t logical_length,
     const std::shared_ptr<Array>& run_ends, const std::shared_ptr<Array>& values,

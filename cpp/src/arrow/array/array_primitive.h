@@ -41,11 +41,14 @@ class ARROW_EXPORT BooleanArray : public PrimitiveArray {
   using TypeClass = BooleanType;
   using IteratorType = stl::ArrayIterator<BooleanArray>;
 
-  explicit BooleanArray(const std::shared_ptr<ArrayData>& data);
+  explicit BooleanArray(const std::shared_ptr<ArrayData>& data,
+                        const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR);
 
   BooleanArray(int64_t length, const std::shared_ptr<Buffer>& data,
                const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
-               int64_t null_count = kUnknownNullCount, int64_t offset = 0);
+               int64_t null_count = kUnknownNullCount, int64_t offset = 0)
+      : BooleanArray(ArrayData::Make(boolean(), length, {null_bitmap, data}, null_count,
+                                     offset)) {}
 
   bool Value(int64_t i) const {
     return bit_util::GetBit(reinterpret_cast<const uint8_t*>(raw_values_),
@@ -67,9 +70,6 @@ class ARROW_EXPORT BooleanArray : public PrimitiveArray {
   IteratorType begin() const { return IteratorType(*this); }
 
   IteratorType end() const { return IteratorType(*this, length()); }
-
- protected:
-  using PrimitiveArray::PrimitiveArray;
 };
 
 /// \addtogroup numeric-arrays
@@ -90,7 +90,10 @@ class NumericArray : public PrimitiveArray {
   using value_type = typename TypeClass::c_type;
   using IteratorType = stl::ArrayIterator<NumericArray<TYPE>>;
 
-  explicit NumericArray(const std::shared_ptr<ArrayData>& data) : PrimitiveArray(data) {}
+  explicit NumericArray(const std::shared_ptr<ArrayData>& data,
+                        const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR) {
+    Init(data, statistics);
+  }
 
   // Only enable this constructor without a type argument for types without additional
   // metadata
@@ -99,8 +102,17 @@ class NumericArray : public PrimitiveArray {
                const std::shared_ptr<Buffer>& data,
                const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
                int64_t null_count = kUnknownNullCount, int64_t offset = 0)
-      : PrimitiveArray(TypeTraits<T1>::type_singleton(), length, data, null_bitmap,
-                       null_count, offset) {}
+      : NumericArray(ArrayData::Make(TypeTraits<T1>::type_singleton(), length,
+                                     {null_bitmap, data}, null_count, offset),
+                     NULLPTR) {}
+
+  NumericArray(const std::shared_ptr<DataType>& type, int64_t length,
+               const std::shared_ptr<Buffer>& data,
+               const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
+               int64_t null_count = kUnknownNullCount, int64_t offset = 0)
+      : NumericArray(
+            ArrayData::Make(type, length, {null_bitmap, data}, null_count, offset),
+            NULLPTR) {}
 
   const value_type* raw_values() const {
     return reinterpret_cast<const value_type*>(raw_values_) + data_->offset;
@@ -118,9 +130,6 @@ class NumericArray : public PrimitiveArray {
   IteratorType begin() const { return IteratorType(*this); }
 
   IteratorType end() const { return IteratorType(*this, length()); }
-
- protected:
-  using PrimitiveArray::PrimitiveArray;
 };
 
 /// DayTimeArray
@@ -131,16 +140,24 @@ class ARROW_EXPORT DayTimeIntervalArray : public PrimitiveArray {
   using TypeClass = DayTimeIntervalType;
   using IteratorType = stl::ArrayIterator<DayTimeIntervalArray>;
 
-  explicit DayTimeIntervalArray(const std::shared_ptr<ArrayData>& data);
+  explicit DayTimeIntervalArray(
+      const std::shared_ptr<ArrayData>& data,
+      const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR) {
+    Init(data, statistics);
+  }
 
   DayTimeIntervalArray(const std::shared_ptr<DataType>& type, int64_t length,
                        const std::shared_ptr<Buffer>& data,
                        const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
-                       int64_t null_count = kUnknownNullCount, int64_t offset = 0);
+                       int64_t null_count = kUnknownNullCount, int64_t offset = 0)
+      : DayTimeIntervalArray(
+            ArrayData::Make(type, length, {null_bitmap, data}, null_count, offset)) {}
 
   DayTimeIntervalArray(int64_t length, const std::shared_ptr<Buffer>& data,
                        const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
-                       int64_t null_count = kUnknownNullCount, int64_t offset = 0);
+                       int64_t null_count = kUnknownNullCount, int64_t offset = 0)
+      : DayTimeIntervalArray(ArrayData::Make(day_time_interval(), length,
+                                             {null_bitmap, data}, null_count, offset)) {}
 
   TypeClass::DayMilliseconds GetValue(int64_t i) const;
   TypeClass::DayMilliseconds Value(int64_t i) const { return GetValue(i); }
@@ -167,16 +184,25 @@ class ARROW_EXPORT MonthDayNanoIntervalArray : public PrimitiveArray {
   using TypeClass = MonthDayNanoIntervalType;
   using IteratorType = stl::ArrayIterator<MonthDayNanoIntervalArray>;
 
-  explicit MonthDayNanoIntervalArray(const std::shared_ptr<ArrayData>& data);
+  explicit MonthDayNanoIntervalArray(
+      const std::shared_ptr<ArrayData>& data,
+      const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR) {
+    Init(data, statistics);
+  }
 
   MonthDayNanoIntervalArray(const std::shared_ptr<DataType>& type, int64_t length,
                             const std::shared_ptr<Buffer>& data,
                             const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
-                            int64_t null_count = kUnknownNullCount, int64_t offset = 0);
+                            int64_t null_count = kUnknownNullCount, int64_t offset = 0)
+      : MonthDayNanoIntervalArray(
+            ArrayData::Make(type, length, {null_bitmap, data}, null_count, offset)) {}
 
   MonthDayNanoIntervalArray(int64_t length, const std::shared_ptr<Buffer>& data,
                             const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
-                            int64_t null_count = kUnknownNullCount, int64_t offset = 0);
+                            int64_t null_count = kUnknownNullCount, int64_t offset = 0)
+      : MonthDayNanoIntervalArray(ArrayData::Make(
+            month_day_nano_interval(), length, {null_bitmap, data}, null_count, offset)) {
+  }
 
   TypeClass::MonthDayNanos GetValue(int64_t i) const;
   TypeClass::MonthDayNanos Value(int64_t i) const { return GetValue(i); }

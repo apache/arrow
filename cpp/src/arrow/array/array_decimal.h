@@ -43,7 +43,8 @@ class ARROW_EXPORT Decimal128Array : public FixedSizeBinaryArray {
   using FixedSizeBinaryArray::FixedSizeBinaryArray;
 
   /// \brief Construct Decimal128Array from ArrayData instance
-  explicit Decimal128Array(const std::shared_ptr<ArrayData>& data);
+  explicit Decimal128Array(const std::shared_ptr<ArrayData>& data,
+                           const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR);
 
   std::string FormatValue(int64_t i) const;
 };
@@ -62,7 +63,8 @@ class ARROW_EXPORT Decimal256Array : public FixedSizeBinaryArray {
   using FixedSizeBinaryArray::FixedSizeBinaryArray;
 
   /// \brief Construct Decimal256Array from ArrayData instance
-  explicit Decimal256Array(const std::shared_ptr<ArrayData>& data);
+  explicit Decimal256Array(const std::shared_ptr<ArrayData>& data,
+                           const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR);
 
   std::string FormatValue(int64_t i) const;
 };

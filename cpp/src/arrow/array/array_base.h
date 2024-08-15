@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "arrow/array/data.h"
+#include "arrow/array/statistics.h"
 #include "arrow/buffer.h"
 #include "arrow/compare.h"
 #include "arrow/result.h"
@@ -232,6 +233,11 @@ class ARROW_EXPORT Array {
   /// \return DeviceAllocationType
   DeviceAllocationType device_type() const { return data_->device_type(); }
 
+  /// \brief Return the statistics of this Array
+  ///
+  /// \return const std::shared_ptr<ArrayStatistics>&
+  const std::shared_ptr<ArrayStatistics>& statistics() const { return statistics_; }
+
  protected:
   Array() = default;
   ARROW_DEFAULT_MOVE_AND_ASSIGN(Array);
@@ -239,14 +245,35 @@ class ARROW_EXPORT Array {
   std::shared_ptr<ArrayData> data_;
   const uint8_t* null_bitmap_data_ = NULLPTR;
 
-  /// Protected method for constructors
-  void SetData(const std::shared_ptr<ArrayData>& data) {
+  /// Protected method for constructors. This must be called from each
+  /// array class to call its SetData(). You can't use call this in a
+  /// parent array class.
+  void Init(const std::shared_ptr<ArrayData>& data,
+            const std::shared_ptr<ArrayStatistics>& statistics) {
+    SetData(data);
+    if (statistics) {
+      SetStatistics(statistics);
+    }
+  }
+
+  /// Protected method for constructors. Don't call this method
+  /// directly. This should be called from Init().
+  virtual void SetData(const std::shared_ptr<ArrayData>& data) {
     if (data->buffers.size() > 0) {
       null_bitmap_data_ = data->GetValuesSafe<uint8_t>(0, /*offset=*/0);
     } else {
       null_bitmap_data_ = NULLPTR;
     }
     data_ = data;
+  }
+
+  // The statistics for this Array.
+  std::shared_ptr<ArrayStatistics> statistics_;
+
+  /// Protected method for constructors. Don't call this method
+  /// directly. This should be called from Init().
+  void SetStatistics(const std::shared_ptr<ArrayStatistics>& statistics) {
+    statistics_ = statistics;
   }
 
  private:
@@ -261,31 +288,21 @@ static inline std::ostream& operator<<(std::ostream& os, const Array& x) {
 }
 
 /// Base class for non-nested arrays
-class ARROW_EXPORT FlatArray : public Array {
- protected:
-  using Array::Array;
-};
+class ARROW_EXPORT FlatArray : public Array {};
 
 /// Base class for arrays of fixed-size logical types
 class ARROW_EXPORT PrimitiveArray : public FlatArray {
  public:
-  PrimitiveArray(const std::shared_ptr<DataType>& type, int64_t length,
-                 const std::shared_ptr<Buffer>& data,
-                 const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
-                 int64_t null_count = kUnknownNullCount, int64_t offset = 0);
-
   /// Does not account for any slice offset
   const std::shared_ptr<Buffer>& values() const { return data_->buffers[1]; }
 
  protected:
   PrimitiveArray() : raw_values_(NULLPTR) {}
 
-  void SetData(const std::shared_ptr<ArrayData>& data) {
-    this->Array::SetData(data);
+  void SetData(const std::shared_ptr<ArrayData>& data) override {
+    Array::SetData(data);
     raw_values_ = data->GetValuesSafe<uint8_t>(1, /*offset=*/0);
   }
-
-  explicit PrimitiveArray(const std::shared_ptr<ArrayData>& data) { SetData(data); }
 
   const uint8_t* raw_values_;
 };
@@ -295,11 +312,14 @@ class ARROW_EXPORT NullArray : public FlatArray {
  public:
   using TypeClass = NullType;
 
-  explicit NullArray(const std::shared_ptr<ArrayData>& data) { SetData(data); }
+  explicit NullArray(const std::shared_ptr<ArrayData>& data,
+                     const std::shared_ptr<ArrayStatistics>& statistics = NULLPTR) {
+    Init(data, statistics);
+  }
   explicit NullArray(int64_t length);
 
  private:
-  void SetData(const std::shared_ptr<ArrayData>& data) {
+  void SetData(const std::shared_ptr<ArrayData>& data) override {
     null_bitmap_data_ = NULLPTR;
     data->null_count = data->length;
     data_ = data;

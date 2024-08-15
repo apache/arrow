@@ -518,10 +518,6 @@ Result<std::shared_ptr<Array>> FlattenLogicalListRecursively(const Array& in_arr
 // ----------------------------------------------------------------------
 // ListArray
 
-ListArray::ListArray(std::shared_ptr<ArrayData> data) {
-  ListArray::SetData(std::move(data));
-}
-
 ListArray::ListArray(std::shared_ptr<DataType> type, int64_t length,
                      std::shared_ptr<Buffer> value_offsets, std::shared_ptr<Array> values,
                      std::shared_ptr<Buffer> null_bitmap, int64_t null_count,
@@ -531,7 +527,7 @@ ListArray::ListArray(std::shared_ptr<DataType> type, int64_t length,
       std::move(type), length,
       BufferVector{std::move(null_bitmap), std::move(value_offsets)}, null_count, offset);
   internal_data->child_data.emplace_back(values->data());
-  SetData(std::move(internal_data));
+  Init(std::move(internal_data), nullptr);
 }
 
 void ListArray::SetData(const std::shared_ptr<ArrayData>& data) {
@@ -575,10 +571,6 @@ std::shared_ptr<Array> ListArray::offsets() const { return BoxOffsets(int32(), *
 // ----------------------------------------------------------------------
 // LargeListArray
 
-LargeListArray::LargeListArray(const std::shared_ptr<ArrayData>& data) {
-  LargeListArray::SetData(data);
-}
-
 LargeListArray::LargeListArray(const std::shared_ptr<DataType>& type, int64_t length,
                                const std::shared_ptr<Buffer>& value_offsets,
                                const std::shared_ptr<Array>& values,
@@ -588,7 +580,7 @@ LargeListArray::LargeListArray(const std::shared_ptr<DataType>& type, int64_t le
   auto internal_data =
       ArrayData::Make(type, length, {null_bitmap, value_offsets}, null_count, offset);
   internal_data->child_data.emplace_back(values->data());
-  LargeListArray::SetData(internal_data);
+  Init(std::move(internal_data), nullptr);
 }
 
 void LargeListArray::SetData(const std::shared_ptr<ArrayData>& data) {
@@ -635,22 +627,6 @@ std::shared_ptr<Array> LargeListArray::offsets() const {
 
 // ----------------------------------------------------------------------
 // ListViewArray
-
-ListViewArray::ListViewArray(std::shared_ptr<ArrayData> data) {
-  ListViewArray::SetData(std::move(data));
-}
-
-ListViewArray::ListViewArray(std::shared_ptr<DataType> type, int64_t length,
-                             std::shared_ptr<Buffer> value_offsets,
-                             std::shared_ptr<Buffer> value_sizes,
-                             std::shared_ptr<Array> values,
-                             std::shared_ptr<Buffer> null_bitmap, int64_t null_count,
-                             int64_t offset) {
-  ListViewArray::SetData(ArrayData::Make(
-      std::move(type), length,
-      {std::move(null_bitmap), std::move(value_offsets), std::move(value_sizes)},
-      /*child_data=*/{values->data()}, null_count, offset));
-}
 
 void ListViewArray::SetData(const std::shared_ptr<ArrayData>& data) {
   internal::SetListData(this, data);
@@ -711,22 +687,6 @@ std::shared_ptr<Array> ListViewArray::sizes() const { return BoxSizes(int32(), *
 // ----------------------------------------------------------------------
 // LargeListViewArray
 
-LargeListViewArray::LargeListViewArray(std::shared_ptr<ArrayData> data) {
-  LargeListViewArray::SetData(std::move(data));
-}
-
-LargeListViewArray::LargeListViewArray(std::shared_ptr<DataType> type, int64_t length,
-                                       std::shared_ptr<Buffer> value_offsets,
-                                       std::shared_ptr<Buffer> value_sizes,
-                                       std::shared_ptr<Array> values,
-                                       std::shared_ptr<Buffer> null_bitmap,
-                                       int64_t null_count, int64_t offset) {
-  LargeListViewArray::SetData(ArrayData::Make(
-      type, length,
-      {std::move(null_bitmap), std::move(value_offsets), std::move(value_sizes)},
-      /*child_data=*/{values->data()}, null_count, offset));
-}
-
 void LargeListViewArray::SetData(const std::shared_ptr<ArrayData>& data) {
   internal::SetListData(this, data);
   raw_value_sizes_ = data->GetValuesSafe<LargeListViewType::offset_type>(2, /*offset=*/0);
@@ -774,17 +734,6 @@ std::shared_ptr<Array> LargeListViewArray::sizes() const {
 // ----------------------------------------------------------------------
 // MapArray
 
-MapArray::MapArray(const std::shared_ptr<ArrayData>& data) { SetData(data); }
-
-MapArray::MapArray(const std::shared_ptr<DataType>& type, int64_t length,
-                   const std::shared_ptr<Buffer>& offsets,
-                   const std::shared_ptr<Array>& values,
-                   const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count,
-                   int64_t offset) {
-  SetData(ArrayData::Make(type, length, {null_bitmap, offsets}, {values->data()},
-                          null_count, offset));
-}
-
 MapArray::MapArray(const std::shared_ptr<DataType>& type, int64_t length,
                    BufferVector buffers, const std::shared_ptr<Array>& keys,
                    const std::shared_ptr<Array>& items, int64_t null_count,
@@ -793,16 +742,8 @@ MapArray::MapArray(const std::shared_ptr<DataType>& type, int64_t length,
                                    {nullptr}, {keys->data(), items->data()}, 0);
   auto map_data =
       ArrayData::Make(type, length, std::move(buffers), {pair_data}, null_count, offset);
-  SetData(map_data);
+  Init(map_data, nullptr);
 }
-
-MapArray::MapArray(const std::shared_ptr<DataType>& type, int64_t length,
-                   const std::shared_ptr<Buffer>& offsets,
-                   const std::shared_ptr<Array>& keys,
-                   const std::shared_ptr<Array>& items,
-                   const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count,
-                   int64_t offset)
-    : MapArray(type, length, {null_bitmap, offsets}, keys, items, null_count, offset) {}
 
 Result<std::shared_ptr<Array>> MapArray::FromArraysInternal(
     std::shared_ptr<DataType> type, const std::shared_ptr<Array>& offsets,
@@ -921,10 +862,6 @@ void MapArray::SetData(const std::shared_ptr<ArrayData>& data) {
 // ----------------------------------------------------------------------
 // FixedSizeListArray
 
-FixedSizeListArray::FixedSizeListArray(const std::shared_ptr<ArrayData>& data) {
-  SetData(data);
-}
-
 FixedSizeListArray::FixedSizeListArray(const std::shared_ptr<DataType>& type,
                                        int64_t length,
                                        const std::shared_ptr<Array>& values,
@@ -932,12 +869,12 @@ FixedSizeListArray::FixedSizeListArray(const std::shared_ptr<DataType>& type,
                                        int64_t null_count, int64_t offset) {
   auto internal_data = ArrayData::Make(type, length, {null_bitmap}, null_count, offset);
   internal_data->child_data.emplace_back(values->data());
-  SetData(internal_data);
+  Init(internal_data, nullptr);
 }
 
 void FixedSizeListArray::SetData(const std::shared_ptr<ArrayData>& data) {
   ARROW_CHECK_EQ(data->type->id(), Type::FIXED_SIZE_LIST);
-  this->Array::SetData(data);
+  Array::SetData(data);
 
   ARROW_CHECK_EQ(list_type()->value_type()->id(), data->child_data[0]->type->id());
   DCHECK(list_type()->value_type()->Equals(data->child_data[0]->type));
@@ -1004,9 +941,9 @@ Result<std::shared_ptr<Array>> FixedSizeListArray::Flatten(
 // ----------------------------------------------------------------------
 // Struct
 
-StructArray::StructArray(const std::shared_ptr<ArrayData>& data) {
-  ARROW_CHECK_EQ(data->type->id(), Type::STRUCT);
-  SetData(data);
+StructArray::StructArray(const std::shared_ptr<ArrayData>& data,
+                         const std::shared_ptr<ArrayStatistics>& statistics) {
+  Init(data, statistics);
   boxed_fields_.resize(data->child_data.size());
 }
 
@@ -1015,7 +952,7 @@ StructArray::StructArray(const std::shared_ptr<DataType>& type, int64_t length,
                          std::shared_ptr<Buffer> null_bitmap, int64_t null_count,
                          int64_t offset) {
   ARROW_CHECK_EQ(type->id(), Type::STRUCT);
-  SetData(ArrayData::Make(type, length, {null_bitmap}, null_count, offset));
+  Init(ArrayData::Make(type, length, {null_bitmap}, null_count, offset), nullptr);
   for (const auto& child : children) {
     data_->child_data.push_back(child->data());
   }
@@ -1174,11 +1111,16 @@ Result<std::shared_ptr<Array>> StructArray::GetFlattenedField(int index,
   return MakeArray(flattened_data);
 }
 
+void StructArray::SetData(const std::shared_ptr<ArrayData>& data) {
+  ARROW_CHECK_EQ(data->type->id(), Type::STRUCT);
+  Array::SetData(data);
+}
+
 // ----------------------------------------------------------------------
 // UnionArray
 
-void UnionArray::SetData(std::shared_ptr<ArrayData> data) {
-  this->Array::SetData(std::move(data));
+void UnionArray::SetData(const std::shared_ptr<ArrayData>& data) {
+  Array::SetData(data);
 
   union_type_ = checked_cast<const UnionType*>(data_->type.get());
 
@@ -1187,8 +1129,8 @@ void UnionArray::SetData(std::shared_ptr<ArrayData> data) {
   boxed_fields_.resize(data_->child_data.size());
 }
 
-void SparseUnionArray::SetData(std::shared_ptr<ArrayData> data) {
-  this->UnionArray::SetData(std::move(data));
+void SparseUnionArray::SetData(const std::shared_ptr<ArrayData>& data) {
+  UnionArray::SetData(data);
   ARROW_CHECK_EQ(data_->type->id(), Type::SPARSE_UNION);
   ARROW_CHECK_EQ(data_->buffers.size(), 2);
 
@@ -1197,7 +1139,7 @@ void SparseUnionArray::SetData(std::shared_ptr<ArrayData> data) {
 }
 
 void DenseUnionArray::SetData(const std::shared_ptr<ArrayData>& data) {
-  this->UnionArray::SetData(data);
+  UnionArray::SetData(data);
 
   ARROW_CHECK_EQ(data_->type->id(), Type::DENSE_UNION);
   ARROW_CHECK_EQ(data_->buffers.size(), 3);
@@ -1206,10 +1148,6 @@ void DenseUnionArray::SetData(const std::shared_ptr<ArrayData>& data) {
   ARROW_CHECK_EQ(data_->buffers[0], nullptr);
 
   raw_value_offsets_ = data->GetValuesSafe<int32_t>(2, /*offset=*/0);
-}
-
-SparseUnionArray::SparseUnionArray(std::shared_ptr<ArrayData> data) {
-  SetData(std::move(data));
 }
 
 SparseUnionArray::SparseUnionArray(std::shared_ptr<DataType> type, int64_t length,
@@ -1221,7 +1159,7 @@ SparseUnionArray::SparseUnionArray(std::shared_ptr<DataType> type, int64_t lengt
   for (const auto& child : children) {
     internal_data->child_data.push_back(child->data());
   }
-  SetData(std::move(internal_data));
+  Init(std::move(internal_data), nullptr);
 }
 
 Result<std::shared_ptr<Array>> SparseUnionArray::GetFlattenedField(
@@ -1261,10 +1199,6 @@ Result<std::shared_ptr<Array>> SparseUnionArray::GetFlattenedField(
   return MakeArray(child_data);
 }
 
-DenseUnionArray::DenseUnionArray(const std::shared_ptr<ArrayData>& data) {
-  SetData(data);
-}
-
 DenseUnionArray::DenseUnionArray(std::shared_ptr<DataType> type, int64_t length,
                                  ArrayVector children, std::shared_ptr<Buffer> type_ids,
                                  std::shared_ptr<Buffer> value_offsets, int64_t offset) {
@@ -1275,7 +1209,7 @@ DenseUnionArray::DenseUnionArray(std::shared_ptr<DataType> type, int64_t length,
   for (const auto& child : children) {
     internal_data->child_data.push_back(child->data());
   }
-  SetData(internal_data);
+  Init(std::move(internal_data), nullptr);
 }
 
 Result<std::shared_ptr<Array>> DenseUnionArray::Make(
