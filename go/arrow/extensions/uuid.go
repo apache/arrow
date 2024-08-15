@@ -26,6 +26,7 @@ import (
 	"github.com/apache/arrow/go/v18/arrow/array"
 	"github.com/apache/arrow/go/v18/arrow/memory"
 	"github.com/apache/arrow/go/v18/internal/json"
+	"github.com/apache/arrow/go/v18/parquet/file"
 	"github.com/apache/arrow/go/v18/parquet/schema"
 	"github.com/google/uuid"
 )
@@ -164,6 +165,14 @@ func (a *UUIDArray) Value(i int) uuid.UUID {
 	return uuid.Must(uuid.FromBytes(a.Storage().(*array.FixedSizeBinary).Value(i)))
 }
 
+func (a *UUIDArray) Values() []uuid.UUID {
+	values := make([]uuid.UUID, a.Len())
+	for i := range values {
+		values[i] = a.Value(i)
+	}
+	return values
+}
+
 func (a *UUIDArray) ValueStr(i int) string {
 	switch {
 	case a.IsNull(i):
@@ -174,20 +183,10 @@ func (a *UUIDArray) ValueStr(i int) string {
 }
 
 func (a *UUIDArray) MarshalJSON() ([]byte, error) {
-	arr := a.Storage().(*array.FixedSizeBinary)
-	values := make([]interface{}, a.Len())
-	for i := 0; i < a.Len(); i++ {
-		if a.IsValid(i) {
-			values[i] = uuid.Must(uuid.FromBytes(arr.Value(i))).String()
-		}
-	}
-	return json.Marshal(values)
+	return json.Marshal(a.Values())
 }
 
 func (a *UUIDArray) GetOneForMarshal(i int) interface{} {
-	if a.IsNull(i) {
-		return nil
-	}
 	return a.Value(i)
 }
 
@@ -252,9 +251,9 @@ func (*UUIDType) NewBuilder(mem memory.Allocator) array.Builder {
 }
 
 var (
-	_ arrow.ExtensionType          = (*UUIDType)(nil)
-	_ array.CustomExtensionBuilder = (*UUIDType)(nil)
-	_ array.ExtensionArray         = (*UUIDArray)(nil)
-	_ array.Builder                = (*UUIDBuilder)(nil)
-	_ CustomParquetType            = (*UUIDType)(nil)
+	_ arrow.ExtensionType             = (*UUIDType)(nil)
+	_ array.CustomExtensionBuilder    = (*UUIDType)(nil)
+	_ array.ExtensionArray            = (*UUIDArray)(nil)
+	_ array.Builder                   = (*UUIDBuilder)(nil)
+	_ file.ExtensionCustomParquetType = (*UUIDType)(nil)
 )

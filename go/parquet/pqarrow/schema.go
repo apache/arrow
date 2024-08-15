@@ -24,7 +24,6 @@ import (
 
 	"github.com/apache/arrow/go/v18/arrow"
 	"github.com/apache/arrow/go/v18/arrow/decimal128"
-	"github.com/apache/arrow/go/v18/arrow/extensions"
 	"github.com/apache/arrow/go/v18/arrow/flight"
 	"github.com/apache/arrow/go/v18/arrow/memory"
 	"github.com/apache/arrow/go/v18/parquet"
@@ -583,8 +582,7 @@ func getParquetType(typ arrow.DataType, props *parquet.WriterProperties, arrprop
 	case arrow.EXTENSION:
 		storageType := typ.(arrow.ExtensionType).StorageType()
 		pqType, logicalType, length, err := getParquetType(storageType, props, arrprops)
-		withCustomType, ok := typ.(extensions.CustomParquetType)
-		if ok {
+		if withCustomType, ok := typ.(file.ExtensionCustomParquetType); ok {
 			logicalType = withCustomType.ParquetLogicalType()
 		}
 

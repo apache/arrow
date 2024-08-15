@@ -24,6 +24,7 @@ import (
 	"github.com/apache/arrow/go/v18/arrow"
 	"github.com/apache/arrow/go/v18/arrow/array"
 	"github.com/apache/arrow/go/v18/internal/json"
+	"github.com/apache/arrow/go/v18/parquet/file"
 	"github.com/apache/arrow/go/v18/parquet/schema"
 )
 
@@ -104,23 +105,15 @@ func (a *JSONArray) ValueStr(i int) string {
 		return "null"
 	}
 
-	switch storage := a.Storage().(type) {
-	case *array.String:
-		return storage.Value(i)
-	case *array.LargeString:
-		return storage.Value(i)
-	case *array.StringView:
-		return storage.Value(i)
-	default:
-		panic(fmt.Sprintf("invalid JSON extension array with storage type: %s", storage))
-	}
+	return a.Storage().(array.StringLike).Value(i)
 }
 
 func (a *JSONArray) MarshalJSON() ([]byte, error) {
-	values := make([]interface{}, a.Len())
+	values := make([]json.RawMessage, a.Len())
+	storage := a.Storage().(array.StringLike)
 	for i := 0; i < a.Len(); i++ {
 		if a.IsValid(i) {
-			values[i] = a.Value(i)
+			values[i] = json.RawMessage(storage.Value(i))
 		}
 	}
 	return json.Marshal(values)
@@ -134,7 +127,7 @@ func (a *JSONArray) GetOneForMarshal(i int) interface{} {
 }
 
 var (
-	_ arrow.ExtensionType  = (*JSONType)(nil)
-	_ array.ExtensionArray = (*JSONArray)(nil)
-	_ CustomParquetType    = (*JSONType)(nil)
+	_ arrow.ExtensionType             = (*JSONType)(nil)
+	_ array.ExtensionArray            = (*JSONArray)(nil)
+	_ file.ExtensionCustomParquetType = (*JSONType)(nil)
 )
