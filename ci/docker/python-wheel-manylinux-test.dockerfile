@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Only ARGs before the first build step are available for all build steps.
 ARG arch
 ARG python_image_tag
 FROM ${arch}/python:${python_image_tag}
