@@ -794,7 +794,8 @@ Thread safety
 
 All handler functions should only be called in a serialized manner, but are not guaranteed
 to be called from the same thread every time. A producer should wait for handler callbacks to
-return before calling the next handler callback. As a result, a consumer can manage back-pressure
+return before calling the next handler callback, and before calling the `release` callback.
+As a result, a consumer can manage back-pressure
 simply by sleeping or otherwise waiting to return from the ``on_next`` handler if necessary.
 
 The ``ArrowAsyncDeviceStreamHandler`` object should be able to handle callbacks as soon as
