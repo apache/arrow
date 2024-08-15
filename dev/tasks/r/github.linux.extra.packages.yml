@@ -41,7 +41,7 @@ jobs:
             any::data.table
             any::rcmdcheck
             any::readr
-            any::unites
+            any::units
       - name: Build arrow package
         run: |
           R CMD build --no-build-vignettes arrow/r
