@@ -1730,13 +1730,18 @@ TEST_F(TestInt32Writer, NoWriteKeyValueMetadata) {
 
 TEST_F(TestInt32Writer, WriteKeyValueMetadata) {
   auto writer = this->BuildWriter();
-  writer->AddKeyValueMetadata(KeyValueMetadata::Make({"hello"}, {"world"}));
+  writer->AddKeyValueMetadata(
+      KeyValueMetadata::Make({"hello", "bye"}, {"world", "earth"}));
+  // overwrite the previous value
+  writer->AddKeyValueMetadata(KeyValueMetadata::Make({"bye"}, {"moon"}));
   writer->Close();
   auto key_value_metadata = metadata_key_value_metadata();
   ASSERT_THAT(key_value_metadata, NotNull());
-  ASSERT_EQ(1, key_value_metadata->size());
+  ASSERT_EQ(2, key_value_metadata->size());
   ASSERT_OK_AND_ASSIGN(auto value, key_value_metadata->Get("hello"));
   ASSERT_EQ("world", value);
+  ASSERT_OK_AND_ASSIGN(value, key_value_metadata->Get("bye"));
+  ASSERT_EQ("moon", value);
 }
 
 TEST_F(TestInt32Writer, ResetKeyValueMetadata) {

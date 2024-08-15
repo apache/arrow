@@ -135,8 +135,11 @@ std::shared_ptr<Statistics> MakeColumnStats(const format::ColumnMetaData& meta_d
   throw ParquetException("Can't decode page statistics for selected column type");
 }
 
+// Get KeyValueMetadata from parquet Thrift RowGroup or ColumnChunk metadata.
+//
+// Returns nullptr if the metadata is not set.
 template <typename Metadata>
-std::shared_ptr<KeyValueMetadata> CopyKeyValueMetadata(const Metadata& source) {
+std::shared_ptr<KeyValueMetadata> FromThriftKeyValueMetadata(const Metadata& source) {
   std::shared_ptr<KeyValueMetadata> metadata = nullptr;
   if (source.__isset.key_value_metadata) {
     std::vector<std::string> keys;
@@ -380,7 +383,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
 
  private:
   void InitKeyValueMetadata() {
-    key_value_metadata_ = CopyKeyValueMetadata(*column_metadata_);
+    key_value_metadata_ = FromThriftKeyValueMetadata(*column_metadata_);
   }
 
   mutable std::shared_ptr<Statistics> possible_stats_;
@@ -972,7 +975,9 @@ class FileMetaData::FileMetaDataImpl {
     schema_.updateColumnOrders(column_orders);
   }
 
-  void InitKeyValueMetadata() { key_value_metadata_ = CopyKeyValueMetadata(*metadata_); }
+  void InitKeyValueMetadata() {
+    key_value_metadata_ = FromThriftKeyValueMetadata(*metadata_);
+  }
 };
 
 std::shared_ptr<FileMetaData> FileMetaData::Make(
