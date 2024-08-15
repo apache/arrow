@@ -49,11 +49,6 @@ struct SumImplAvx512 : public SumImpl<ArrowType, SimdLevel::AVX512> {
   using SumImpl<ArrowType, SimdLevel::AVX512>::SumImpl;
 };
 
-template <typename ArrowType>
-struct MeanImplAvx512 : public MeanImpl<ArrowType, SimdLevel::AVX512> {
-  using MeanImpl<ArrowType, SimdLevel::AVX512>::MeanImpl;
-};
-
 Result<std::unique_ptr<KernelState>> SumInitAvx512(KernelContext* ctx,
                                                    const KernelInitArgs& args) {
   SumLikeInit<SumImplAvx512> visitor(
@@ -62,12 +57,32 @@ Result<std::unique_ptr<KernelState>> SumInitAvx512(KernelContext* ctx,
   return visitor.Create();
 }
 
+void AddSumAvx512AggKernels(ScalarAggregateFunction* func) {
+  AddBasicAggKernels(SumInitAvx512, SignedIntTypes(), int64(), func, SimdLevel::AVX512);
+  AddBasicAggKernels(SumInitAvx512, UnsignedIntTypes(), uint64(), func,
+                     SimdLevel::AVX512);
+  AddBasicAggKernels(SumInitAvx512, FloatingPointTypes(), float64(), func,
+                     SimdLevel::AVX512);
+}
+
+// ----------------------------------------------------------------------
+// Mean implementation
+
+template <typename ArrowType>
+struct MeanImplAvx512 : public MeanImpl<ArrowType, SimdLevel::AVX512> {
+  using MeanImpl<ArrowType, SimdLevel::AVX512>::MeanImpl;
+};
+
 Result<std::unique_ptr<KernelState>> MeanInitAvx512(KernelContext* ctx,
                                                     const KernelInitArgs& args) {
   SumLikeInit<MeanImplAvx512> visitor(
       ctx, args.inputs[0].GetSharedPtr(),
       static_cast<const ScalarAggregateOptions&>(*args.options));
   return visitor.Create();
+}
+
+void AddMeanAvx512AggKernels(ScalarAggregateFunction* func) {
+  AddBasicAggKernels(MeanInitAvx512, NumericTypes(), float64(), func, SimdLevel::AVX512);
 }
 
 // ----------------------------------------------------------------------
@@ -81,18 +96,6 @@ Result<std::unique_ptr<KernelState>> MinMaxInitAvx512(KernelContext* ctx,
       ctx, *args.inputs[0], out_type.GetSharedPtr(),
       static_cast<const ScalarAggregateOptions&>(*args.options));
   return visitor.Create();
-}
-
-void AddSumAvx512AggKernels(ScalarAggregateFunction* func) {
-  AddBasicAggKernels(SumInitAvx512, SignedIntTypes(), int64(), func, SimdLevel::AVX512);
-  AddBasicAggKernels(SumInitAvx512, UnsignedIntTypes(), uint64(), func,
-                     SimdLevel::AVX512);
-  AddBasicAggKernels(SumInitAvx512, FloatingPointTypes(), float64(), func,
-                     SimdLevel::AVX512);
-}
-
-void AddMeanAvx512AggKernels(ScalarAggregateFunction* func) {
-  AddBasicAggKernels(MeanInitAvx512, NumericTypes(), float64(), func, SimdLevel::AVX512);
 }
 
 void AddMinMaxAvx512AggKernels(ScalarAggregateFunction* func) {

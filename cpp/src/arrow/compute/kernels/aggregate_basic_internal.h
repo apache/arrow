@@ -27,6 +27,8 @@
 
 namespace arrow::compute::internal {
 
+// aggregate_basic.cc
+
 void AddBasicAggKernels(KernelInit init,
                         const std::vector<std::shared_ptr<DataType>>& types,
                         std::shared_ptr<DataType> out_ty, ScalarAggregateFunction* func,
@@ -40,10 +42,13 @@ void AddMinMaxKernel(KernelInit init, internal::detail::GetTypeId get_id,
                      ScalarAggregateFunction* func,
                      SimdLevel::type simd_level = SimdLevel::NONE);
 
-// SIMD variants for kernels
+// aggregate_basic_avx2.cc
+
 void AddSumAvx2AggKernels(ScalarAggregateFunction* func);
 void AddMeanAvx2AggKernels(ScalarAggregateFunction* func);
 void AddMinMaxAvx2AggKernels(ScalarAggregateFunction* func);
+
+// aggregate_basic_avx512.cc
 
 void AddSumAvx512AggKernels(ScalarAggregateFunction* func);
 void AddMeanAvx512AggKernels(ScalarAggregateFunction* func);

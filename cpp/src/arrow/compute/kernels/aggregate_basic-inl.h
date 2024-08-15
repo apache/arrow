@@ -140,6 +140,56 @@ struct NullSumImpl : public NullImpl<ArrowType> {
   }
 };
 
+template <template <typename> class KernelClass>
+struct SumLikeInit {
+  std::unique_ptr<KernelState> state;
+  KernelContext* ctx;
+  std::shared_ptr<DataType> type;
+  const ScalarAggregateOptions& options;
+
+  SumLikeInit(KernelContext* ctx, std::shared_ptr<DataType> type,
+              const ScalarAggregateOptions& options)
+      : ctx(ctx), type(type), options(options) {}
+
+  Status Visit(const DataType&) { return Status::NotImplemented("No sum implemented"); }
+
+  Status Visit(const HalfFloatType&) {
+    return Status::NotImplemented("No sum implemented");
+  }
+
+  Status Visit(const BooleanType&) {
+    auto ty = TypeTraits<typename KernelClass<BooleanType>::SumType>::type_singleton();
+    state.reset(new KernelClass<BooleanType>(ty, options));
+    return Status::OK();
+  }
+
+  template <typename Type>
+  enable_if_number<Type, Status> Visit(const Type&) {
+    auto ty = TypeTraits<typename KernelClass<Type>::SumType>::type_singleton();
+    state.reset(new KernelClass<Type>(ty, options));
+    return Status::OK();
+  }
+
+  template <typename Type>
+  enable_if_decimal<Type, Status> Visit(const Type&) {
+    state.reset(new KernelClass<Type>(type, options));
+    return Status::OK();
+  }
+
+  virtual Status Visit(const NullType&) {
+    state.reset(new NullSumImpl<Int64Type>(options));
+    return Status::OK();
+  }
+
+  Result<std::unique_ptr<KernelState>> Create() {
+    RETURN_NOT_OK(VisitTypeInline(*type, this));
+    return std::move(state);
+  }
+};
+
+// ----------------------------------------------------------------------
+// Mean implementation
+
 template <typename ArrowType, SimdLevel::type SimdLevel, typename Enable = void>
 struct MeanImpl;
 
@@ -203,53 +253,6 @@ struct MeanImpl<ArrowType, SimdLevel,
 };
 
 template <template <typename> class KernelClass>
-struct SumLikeInit {
-  std::unique_ptr<KernelState> state;
-  KernelContext* ctx;
-  std::shared_ptr<DataType> type;
-  const ScalarAggregateOptions& options;
-
-  SumLikeInit(KernelContext* ctx, std::shared_ptr<DataType> type,
-              const ScalarAggregateOptions& options)
-      : ctx(ctx), type(type), options(options) {}
-
-  Status Visit(const DataType&) { return Status::NotImplemented("No sum implemented"); }
-
-  Status Visit(const HalfFloatType&) {
-    return Status::NotImplemented("No sum implemented");
-  }
-
-  Status Visit(const BooleanType&) {
-    auto ty = TypeTraits<typename KernelClass<BooleanType>::SumType>::type_singleton();
-    state.reset(new KernelClass<BooleanType>(ty, options));
-    return Status::OK();
-  }
-
-  template <typename Type>
-  enable_if_number<Type, Status> Visit(const Type&) {
-    auto ty = TypeTraits<typename KernelClass<Type>::SumType>::type_singleton();
-    state.reset(new KernelClass<Type>(ty, options));
-    return Status::OK();
-  }
-
-  template <typename Type>
-  enable_if_decimal<Type, Status> Visit(const Type&) {
-    state.reset(new KernelClass<Type>(type, options));
-    return Status::OK();
-  }
-
-  virtual Status Visit(const NullType&) {
-    state.reset(new NullSumImpl<Int64Type>(options));
-    return Status::OK();
-  }
-
-  Result<std::unique_ptr<KernelState>> Create() {
-    RETURN_NOT_OK(VisitTypeInline(*type, this));
-    return std::move(state);
-  }
-};
-
-template <template <typename> class KernelClass>
 struct MeanKernelInit : public SumLikeInit<KernelClass> {
   MeanKernelInit(KernelContext* ctx, std::shared_ptr<DataType> type,
                  const ScalarAggregateOptions& options)
@@ -263,6 +266,7 @@ struct MeanKernelInit : public SumLikeInit<KernelClass> {
 
 // ----------------------------------------------------------------------
 // FirstLast implementation
+
 template <typename ArrowType, typename Enable = void>
 struct FirstLastState {};
 
@@ -529,8 +533,66 @@ struct FirstLastImpl : public ScalarAggregator {
   FirstLastState<ArrowType> state;
 };
 
+struct FirstLastInitState {
+  std::unique_ptr<KernelState> state;
+  KernelContext* ctx;
+  const DataType& in_type;
+  std::shared_ptr<DataType> out_type;
+  const ScalarAggregateOptions& options;
+
+  FirstLastInitState(KernelContext* ctx, const DataType& in_type,
+                     const std::shared_ptr<DataType>& out_type,
+                     const ScalarAggregateOptions& options)
+      : ctx(ctx), in_type(in_type), out_type(out_type), options(options) {}
+
+  Status Visit(const DataType& ty) {
+    return Status::NotImplemented("No first/last implemented for ", ty);
+  }
+
+  Status Visit(const HalfFloatType& ty) {
+    return Status::NotImplemented("No first/last implemented for ", ty);
+  }
+
+  Status Visit(const BooleanType&) {
+    state.reset(new FirstLastImpl<BooleanType>(out_type, options));
+    return Status::OK();
+  }
+
+  template <typename Type>
+  enable_if_physical_integer<Type, Status> Visit(const Type&) {
+    using PhysicalType = typename Type::PhysicalType;
+    state.reset(new FirstLastImpl<PhysicalType>(out_type, options));
+    return Status::OK();
+  }
+
+  template <typename Type>
+  enable_if_physical_floating_point<Type, Status> Visit(const Type&) {
+    using PhysicalType = typename Type::PhysicalType;
+    state.reset(new FirstLastImpl<PhysicalType>(out_type, options));
+    return Status::OK();
+  }
+
+  template <typename Type>
+  enable_if_base_binary<Type, Status> Visit(const Type&) {
+    state.reset(new FirstLastImpl<Type>(out_type, options));
+    return Status::OK();
+  }
+
+  template <typename Type>
+  enable_if_t<std::is_same<Type, FixedSizeBinaryType>::value, Status> Visit(const Type&) {
+    state.reset(new FirstLastImpl<Type>(out_type, options));
+    return Status::OK();
+  }
+
+  Result<std::unique_ptr<KernelState>> Create() {
+    RETURN_NOT_OK(VisitTypeInline(in_type, this));
+    return std::move(state);
+  }
+};
+
 // ----------------------------------------------------------------------
 // MinMax implementation
+
 template <typename ArrowType, SimdLevel::type SimdLevel, typename Enable = void>
 struct MinMaxState {};
 
@@ -878,65 +940,6 @@ struct NullMinMaxImpl : public ScalarAggregator {
     out->value = std::make_shared<StructScalar>(
         std::move(values), struct_({field("min", null()), field("max", null())}));
     return Status::OK();
-  }
-};
-
-// First/Last
-
-struct FirstLastInitState {
-  std::unique_ptr<KernelState> state;
-  KernelContext* ctx;
-  const DataType& in_type;
-  std::shared_ptr<DataType> out_type;
-  const ScalarAggregateOptions& options;
-
-  FirstLastInitState(KernelContext* ctx, const DataType& in_type,
-                     const std::shared_ptr<DataType>& out_type,
-                     const ScalarAggregateOptions& options)
-      : ctx(ctx), in_type(in_type), out_type(out_type), options(options) {}
-
-  Status Visit(const DataType& ty) {
-    return Status::NotImplemented("No first/last implemented for ", ty);
-  }
-
-  Status Visit(const HalfFloatType& ty) {
-    return Status::NotImplemented("No first/last implemented for ", ty);
-  }
-
-  Status Visit(const BooleanType&) {
-    state.reset(new FirstLastImpl<BooleanType>(out_type, options));
-    return Status::OK();
-  }
-
-  template <typename Type>
-  enable_if_physical_integer<Type, Status> Visit(const Type&) {
-    using PhysicalType = typename Type::PhysicalType;
-    state.reset(new FirstLastImpl<PhysicalType>(out_type, options));
-    return Status::OK();
-  }
-
-  template <typename Type>
-  enable_if_physical_floating_point<Type, Status> Visit(const Type&) {
-    using PhysicalType = typename Type::PhysicalType;
-    state.reset(new FirstLastImpl<PhysicalType>(out_type, options));
-    return Status::OK();
-  }
-
-  template <typename Type>
-  enable_if_base_binary<Type, Status> Visit(const Type&) {
-    state.reset(new FirstLastImpl<Type>(out_type, options));
-    return Status::OK();
-  }
-
-  template <typename Type>
-  enable_if_t<std::is_same<Type, FixedSizeBinaryType>::value, Status> Visit(const Type&) {
-    state.reset(new FirstLastImpl<Type>(out_type, options));
-    return Status::OK();
-  }
-
-  Result<std::unique_ptr<KernelState>> Create() {
-    RETURN_NOT_OK(VisitTypeInline(in_type, this));
-    return std::move(state);
   }
 };
 
