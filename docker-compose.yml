@@ -1095,7 +1095,6 @@ services:
     #   docker-compose run --rm ubuntu-python-313-freethreading
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   PYARROW_VERSION: The test target pyarrow version such as "3.0.0"
     #   UBUNTU: 20.04, 22.04, 24.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-313-freethreading
     build:
@@ -1110,7 +1109,6 @@ services:
       <<: [*common, *ccache]
       # Bundled build of OpenTelemetry needs a git client
       ARROW_WITH_OPENTELEMETRY: "OFF"
-      PYARROW_VERSION: ${PYARROW_VERSION:-}
     volumes: *ubuntu-volumes
     command: *python-command
 
