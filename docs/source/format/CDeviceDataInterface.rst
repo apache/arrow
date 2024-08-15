@@ -762,7 +762,7 @@ Error Handling
 ''''''''''''''
 
 Unlike the regular C Stream interface, the Async interface allows for errors to flow in
-both directions. As a result, error handling can be slightly more complex. Thus this spec 
+both directions. As a result, error handling can be slightly more complex. Thus this spec
 designates the following rules:
 
 * If the producer encounters an error during processing, it should call the ``on_error``
