@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cassert>
 #include <cmath>
 #include <memory>
 #include <type_traits>

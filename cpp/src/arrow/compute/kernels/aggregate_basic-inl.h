@@ -182,7 +182,7 @@ struct SumLikeInit {
   }
 
   Result<std::unique_ptr<KernelState>> Create() {
-    RETURN_NOT_OK(VisitTypeInline(*type, this));
+    ARROW_RETURN_NOT_OK(VisitTypeInline(*type, this));
     return std::move(state);
   }
 };
@@ -475,7 +475,7 @@ struct FirstLastImpl : public ScalarAggregator {
             break;
           }
         }
-        DCHECK_GE(last_i, first_i);
+        assert(last_i >= first_i);
         this->state.MergeOne(arr.GetView(first_i));
         this->state.MergeOne(arr.GetView(last_i));
       }
@@ -585,7 +585,7 @@ struct FirstLastInitState {
   }
 
   Result<std::unique_ptr<KernelState>> Create() {
-    RETURN_NOT_OK(VisitTypeInline(in_type, this));
+    ARROW_RETURN_NOT_OK(VisitTypeInline(in_type, this));
     return std::move(state);
   }
 };
@@ -1000,7 +1000,7 @@ struct MinMaxInitState {
   }
 
   Result<std::unique_ptr<KernelState>> Create() {
-    RETURN_NOT_OK(VisitTypeInline(in_type, this));
+    ARROW_RETURN_NOT_OK(VisitTypeInline(in_type, this));
     return std::move(state);
   }
 };
