@@ -1363,7 +1363,7 @@ macro(build_snappy)
   # Snappy unconditionally disables RTTI, which is incompatible with some other
   # build settings (https://github.com/apache/arrow/issues/43688).
   if(NOT MSVC)
-    set(SNAPPY_ADDITIONAL_CXX_FLAGS "${SNAPPY_ADDITIONAL_CXX_FLAGS} -frtti")
+    string(APPEND SNAPPY_ADDITIONAL_CXX_FLAGS " -frtti")
   endif()
 
   if(NOT MSVC)
