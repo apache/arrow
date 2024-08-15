@@ -36,7 +36,7 @@
 
 // Include templated definitions for aggregate kernels that must compiled here
 // with the SIMD level configured for this compilation unit in the build.
-#include "arrow/compute/kernels/aggregate_basic_internal.inc.cc"
+#include "arrow/compute/kernels/aggregate_basic-inl.h"
 
 namespace arrow {
 namespace compute {

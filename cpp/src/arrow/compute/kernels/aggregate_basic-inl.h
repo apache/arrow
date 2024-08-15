@@ -15,12 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// .inc.cc file to be included in compilation unit where kernels are meant to
-// be compiled auto-vectorized by the compiler with different SIMD levels passed
+// -inl.h file to be included in compilation unit where kernels are meant to be
+// compiled auto-vectorized by the compiler with different SIMD levels passed
 // as compiler flags.
 //
 // It contains no includes to avoid double inclusion in the compilation unit
-// that includes this .inc.cc file.
+// that includes this -inl.h file.
 
 namespace arrow::compute::internal {
 namespace {
