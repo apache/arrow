@@ -84,7 +84,7 @@ bool IsNullDenseUnion(const ArrayData& data, int64_t i) {
   return data.child_data[child_id]->IsNull(child_offset);
 }
 
-bool IsNullRunEndEncoded(const ArrayData& data, int64_t i) {
+ARROW_EXPORT bool IsNullRunEndEncoded(const ArrayData& data, int64_t i) {
   return ArraySpan(data).IsNullRunEndEncoded(i);
 }
 

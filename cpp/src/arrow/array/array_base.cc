@@ -298,7 +298,7 @@ std::string Array::ToString() const {
   return ss.str();
 }
 
-void PrintTo(const Array& x, std::ostream* os) { *os << x.ToString(); }
+ARROW_EXPORT void PrintTo(const Array& x, std::ostream* os) { *os << x.ToString(); }
 
 Result<std::shared_ptr<Array>> Array::View(
     const std::shared_ptr<DataType>& out_type) const {

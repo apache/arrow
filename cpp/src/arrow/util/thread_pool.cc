@@ -788,7 +788,7 @@ std::shared_ptr<ThreadPool> ThreadPool::MakeCpuThreadPool() {
   return *std::move(maybe_pool);
 }
 
-ThreadPool* GetCpuThreadPool() {
+ARROW_EXPORT ThreadPool* GetCpuThreadPool() {
   // Avoid using a global variable because of initialization order issues (ARROW-18383)
   static std::shared_ptr<ThreadPool> singleton = ThreadPool::MakeCpuThreadPool();
   return singleton.get();
