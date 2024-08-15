@@ -5298,7 +5298,7 @@ TEST(TestArrowReadWrite, MultithreadedWrite) {
 
 TEST(TestArrowReadWrite, FuzzReader) {
   constexpr size_t kMaxFileSize = 1024 * 1024 * 1;
-  auto check_bad_file = [](const std::string& file_name) {
+  auto check_bad_file = [&](const std::string& file_name) {
     SCOPED_TRACE(file_name);
     auto path = test::get_data_file(file_name, /*is_good=*/false);
     PARQUET_ASSIGN_OR_THROW(auto source, ::arrow::io::MemoryMappedFile::Open(
