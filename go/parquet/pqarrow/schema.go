@@ -119,6 +119,15 @@ func (sm *SchemaManifest) GetFieldIndices(indices []int) ([]int, error) {
 	return ret, nil
 }
 
+// ExtensionCustomParquetType is an interface that Arrow ExtensionTypes may implement
+// to specify the target LogicalType to use when converting to Parquet.
+//
+// The PrimitiveType is not configurable, and is determined by a fixed mapping from
+// the extension's StorageType to a Parquet type (see getParquetType in pqarrow source).
+type ExtensionCustomParquetType interface {
+	ParquetLogicalType() schema.LogicalType
+}
+
 func isDictionaryReadSupported(dt arrow.DataType) bool {
 	return arrow.IsBinaryLike(dt.ID())
 }
@@ -582,7 +591,7 @@ func getParquetType(typ arrow.DataType, props *parquet.WriterProperties, arrprop
 	case arrow.EXTENSION:
 		storageType := typ.(arrow.ExtensionType).StorageType()
 		pqType, logicalType, length, err := getParquetType(storageType, props, arrprops)
-		if withCustomType, ok := typ.(file.ExtensionCustomParquetType); ok {
+		if withCustomType, ok := typ.(ExtensionCustomParquetType); ok {
 			logicalType = withCustomType.ParquetLogicalType()
 		}
 

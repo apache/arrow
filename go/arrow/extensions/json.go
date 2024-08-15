@@ -24,7 +24,6 @@ import (
 	"github.com/apache/arrow/go/v18/arrow"
 	"github.com/apache/arrow/go/v18/arrow/array"
 	"github.com/apache/arrow/go/v18/internal/json"
-	"github.com/apache/arrow/go/v18/parquet/file"
 	"github.com/apache/arrow/go/v18/parquet/schema"
 )
 
@@ -127,7 +126,6 @@ func (a *JSONArray) GetOneForMarshal(i int) interface{} {
 }
 
 var (
-	_ arrow.ExtensionType             = (*JSONType)(nil)
-	_ array.ExtensionArray            = (*JSONArray)(nil)
-	_ file.ExtensionCustomParquetType = (*JSONType)(nil)
+	_ arrow.ExtensionType  = (*JSONType)(nil)
+	_ array.ExtensionArray = (*JSONArray)(nil)
 )

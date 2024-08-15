@@ -302,12 +302,3 @@ func writeEncryptedFileMetadata(fileMetadata *metadata.FileMetaData, w io.Writer
 func writeFileCryptoMetadata(crypto *metadata.FileCryptoMetadata, w io.Writer) (int64, error) {
 	return crypto.WriteTo(w)
 }
-
-// ExtensionCustomParquetType is an interface that Arrow ExtensionTypes may implement
-// to specify the target LogicalType to use when converting to Parquet.
-//
-// The PrimitiveType is not configurable, and is determined by a fixed mapping from
-// the extension's StorageType to a Parquet type (see getParquetType in pqarrow source).
-type ExtensionCustomParquetType interface {
-	ParquetLogicalType() schema.LogicalType
-}

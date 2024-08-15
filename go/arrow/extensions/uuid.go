@@ -26,7 +26,6 @@ import (
 	"github.com/apache/arrow/go/v18/arrow/array"
 	"github.com/apache/arrow/go/v18/arrow/memory"
 	"github.com/apache/arrow/go/v18/internal/json"
-	"github.com/apache/arrow/go/v18/parquet/file"
 	"github.com/apache/arrow/go/v18/parquet/schema"
 	"github.com/google/uuid"
 )
@@ -251,9 +250,8 @@ func (*UUIDType) NewBuilder(mem memory.Allocator) array.Builder {
 }
 
 var (
-	_ arrow.ExtensionType             = (*UUIDType)(nil)
-	_ array.CustomExtensionBuilder    = (*UUIDType)(nil)
-	_ array.ExtensionArray            = (*UUIDArray)(nil)
-	_ array.Builder                   = (*UUIDBuilder)(nil)
-	_ file.ExtensionCustomParquetType = (*UUIDType)(nil)
+	_ arrow.ExtensionType          = (*UUIDType)(nil)
+	_ array.CustomExtensionBuilder = (*UUIDType)(nil)
+	_ array.ExtensionArray         = (*UUIDArray)(nil)
+	_ array.Builder                = (*UUIDBuilder)(nil)
 )
