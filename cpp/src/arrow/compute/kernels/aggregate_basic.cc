@@ -285,13 +285,13 @@ void AddCountDistinctKernels(ScalarAggregateFunction* func) {
 // Sum implementation
 
 template <typename ArrowType>
-struct SumImplDefault : public SumImpl<ArrowType, SimdLevel::NONE> {
+struct SumImplNative : public SumImpl<ArrowType, SimdLevel::NONE> {
   using SumImpl<ArrowType, SimdLevel::NONE>::SumImpl;
 };
 
 Result<std::unique_ptr<KernelState>> SumInit(KernelContext* ctx,
                                              const KernelInitArgs& args) {
-  SumLikeInit<SumImplDefault> visitor(
+  SumLikeInit<SumImplNative> visitor(
       ctx, args.inputs[0].GetSharedPtr(),
       static_cast<const ScalarAggregateOptions&>(*args.options));
   return visitor.Create();
@@ -301,13 +301,13 @@ Result<std::unique_ptr<KernelState>> SumInit(KernelContext* ctx,
 // Mean implementation
 
 template <typename ArrowType>
-struct MeanImplDefault : public MeanImpl<ArrowType, SimdLevel::NONE> {
+struct MeanImplNative : public MeanImpl<ArrowType, SimdLevel::NONE> {
   using MeanImpl<ArrowType, SimdLevel::NONE>::MeanImpl;
 };
 
 Result<std::unique_ptr<KernelState>> MeanInit(KernelContext* ctx,
                                               const KernelInitArgs& args) {
-  MeanKernelInit<MeanImplDefault> visitor(
+  MeanKernelInit<MeanImplNative> visitor(
       ctx, args.inputs[0].GetSharedPtr(),
       static_cast<const ScalarAggregateOptions&>(*args.options));
   return visitor.Create();
