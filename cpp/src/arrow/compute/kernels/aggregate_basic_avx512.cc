@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/compute/kernels/aggregate_basic_internal.h"
+#include "arrow/compute/kernels/aggregate_basic_internal.inc.cc"  // XXX: fix
 
 namespace arrow {
 namespace compute {
