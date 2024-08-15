@@ -619,7 +619,8 @@ struct ARROW_EXPORT ArraySpan {
   bool HasVariadicBuffers() const;
 
  private:
-  friend bool internal::IsNullRunEndEncoded(const ArrayData& span, int64_t i);
+  ARROW_FRIEND_EXPORT friend bool internal::IsNullRunEndEncoded(const ArrayData& span,
+                                                                int64_t i);
 
   bool IsNullSparseUnion(int64_t i) const;
   bool IsNullDenseUnion(int64_t i) const;

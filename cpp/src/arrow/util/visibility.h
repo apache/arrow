@@ -41,12 +41,16 @@
 
 #ifdef ARROW_STATIC
 #define ARROW_EXPORT
+#define ARROW_FRIEND_EXPORT
 #define ARROW_TEMPLATE_EXPORT
 #elif defined(ARROW_EXPORTING)
 #define ARROW_EXPORT ARROW_DLLEXPORT
+// For some reason [[gnu::dllexport]] doesn't work well with friend declarations
+#define ARROW_FRIEND_EXPORT __declspec(dllexport)
 #define ARROW_TEMPLATE_EXPORT ARROW_DLLEXPORT
 #else
 #define ARROW_EXPORT ARROW_DLLIMPORT
+#define ARROW_FRIEND_EXPORT __declspec(dllimport)
 #define ARROW_TEMPLATE_EXPORT ARROW_DLLIMPORT
 #endif
 
@@ -73,6 +77,7 @@
 #endif
 #endif
 
+#define ARROW_FRIEND_EXPORT
 #define ARROW_TEMPLATE_EXPORT
 
 // [[gnu::visibility("default")]] even when #included by a non-arrow source
