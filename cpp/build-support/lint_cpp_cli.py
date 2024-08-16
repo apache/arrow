@@ -107,7 +107,9 @@ def lint_files():
 
             # Lint file name, except for pkg-config templates
             if not filename.endswith('.pc.in'):
-                if '-' in filename:
+                # - is not allowed in filenames, except for -inl.{h,cc} files
+                if '-' in filename and not (filename.endswith('-inl.cc') or
+                                            filename.endswith('-inl.h')):
                     why = ("Please use underscores, not hyphens, "
                            "in source file names")
                     yield full_path, why, 0, full_path
