@@ -22,12 +22,11 @@
 jobs:
   extra-packages:
     name: "extra package roundtrip tests"
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
     env:
       ARROW_R_DEV: "FALSE"
-      RSPM: "https://packagemanager.posit.co/cran/__linux__/noble/latest"
       ARROW_R_FORCE_EXTRA_PACKAGE_TESTS: TRUE
     steps:
       {{ macros.github_checkout_arrow()|indent }}

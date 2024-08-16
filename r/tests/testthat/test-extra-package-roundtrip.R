@@ -33,7 +33,7 @@ load_or_skip <- function(pkg) {
   attachNamespace(pkg)
 }
 
-library(tibble)
+library(dplyr)
 
 test_that("readr read csvs roundtrip", {
   load_or_skip("readr")
@@ -69,10 +69,9 @@ test_that("data.table objects roundtrip", {
 
   DT <- as.data.table(example_data)
 
-  # write to parquet
-  pq_tmp_file <- tempfile()
-  write_parquet(DT, pq_tmp_file)
-  DT_read <- read_parquet(pq_tmp_file)
+  # Table -> collect which is what writing + reading to parquet uses under the hood to roundtrip
+  tab <- as_arrow_table(DT)
+  DT_read <- collect(tab)
 
   # we should still be able to turn this into a table
   # the .internal.selfref attribute is automatically ignored by testthat/waldo
@@ -83,10 +82,9 @@ test_that("data.table objects roundtrip", {
   setindex(DT, dbl)
   DT[, dblshift := data.table::shift(dbl, 1)]
 
-  # write to parquet
-  pq_tmp_file <- tempfile()
-  write_parquet(DT, pq_tmp_file)
-  DT_read <- read_parquet(pq_tmp_file)
+  # Table -> collect
+  tab <- as_arrow_table(DT)
+  DT_read <- collect(tab)
 
   # we should still be able to turn this into a table
   expect_equal(DT, DT_read)
@@ -98,10 +96,9 @@ test_that("units roundtrip", {
   tbl <- example_data
   units(tbl$dbl) <- "s"
 
-  # and can roundtrip to a parquet file
-  pq_tmp_file <- tempfile()
-  write_parquet(tbl, pq_tmp_file)
-  tbl_read <- read_parquet(pq_tmp_file)
+   # Table -> collect which is what writing + reading to parquet uses under the hood to roundtrip
+  tab <- as_arrow_table(tbl)
+  tbl_read <- collect(tab)
 
   # we should still be able to turn this into a table
   expect_equal(tbl, tbl_read)
