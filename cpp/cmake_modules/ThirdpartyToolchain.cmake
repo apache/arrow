@@ -1355,15 +1355,23 @@ macro(build_snappy)
       "-DCMAKE_INSTALL_PREFIX=${SNAPPY_PREFIX}")
   # Snappy unconditionally enables -Werror when building with clang this can lead
   # to build failures by way of new compiler warnings. This adds a flag to disable
-  # Werror to the very end of the invocation to override the snappy internal setting.
+  # -Werror to the very end of the invocation to override the snappy internal setting.
+  set(SNAPPY_ADDITIONAL_CXX_FLAGS "")
   if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    foreach(CONFIG DEBUG MINSIZEREL RELEASE RELWITHDEBINFO)
-      list(APPEND
-           SNAPPY_CMAKE_ARGS
-           "-DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS_${CONFIG}} -Wno-error"
-      )
-    endforeach()
+    string(APPEND SNAPPY_ADDITIONAL_CXX_FLAGS " -Wno-error")
   endif()
+  # Snappy unconditionally disables RTTI, which is incompatible with some other
+  # build settings (https://github.com/apache/arrow/issues/43688).
+  if(NOT MSVC)
+    string(APPEND SNAPPY_ADDITIONAL_CXX_FLAGS " -frtti")
+  endif()
+
+  foreach(CONFIG DEBUG MINSIZEREL RELEASE RELWITHDEBINFO)
+    list(APPEND
+         SNAPPY_CMAKE_ARGS
+         "-DCMAKE_CXX_FLAGS_${CONFIG}=${EP_CXX_FLAGS_${CONFIG}} ${SNAPPY_ADDITIONAL_CXX_FLAGS}"
+    )
+  endforeach()
 
   if(APPLE AND CMAKE_HOST_SYSTEM_VERSION VERSION_LESS 20)
     # On macOS 10.13 we need to explicitly add <functional> to avoid a missing include error
