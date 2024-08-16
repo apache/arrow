@@ -1453,9 +1453,9 @@ cdef class Buffer(_Weakrefable):
         This function supports cross-device copies.
 
         Parameters
-        ---------
-        dest
-            pyarrow.MemoryManager or pyarrow.Device used to allocate the new buffer.
+        ----------
+        dest : pyarrow.MemoryManager or pyarrow.Device
+            Used to allocate the new buffer.
 
         Returns
         -------
