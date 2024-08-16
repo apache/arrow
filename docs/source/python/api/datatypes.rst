@@ -93,8 +93,8 @@ functions above.
 
    DataType
    DictionaryType
-   LargeListType
    ListType
+   LargeListType
    MapType
    StructType
    UnionType
