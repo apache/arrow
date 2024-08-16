@@ -337,7 +337,13 @@ void KeyCompare::CompareColumnsToRows(
     const RowTableImpl& rows, bool are_cols_in_encoding_order,
     uint8_t* out_match_bitvector_maybe_null) {
   if (num_rows_to_compare == 0) {
-    *out_num_rows = 0;
+    if (out_match_bitvector_maybe_null) {
+      DCHECK_EQ(out_num_rows, nullptr);
+      DCHECK_EQ(out_sel_left_maybe_same, nullptr);
+      bit_util::ClearBitmap(out_match_bitvector_maybe_null, 0, num_rows_to_compare);
+    } else {
+      *out_num_rows = 0;
+    }
     return;
   }
 
@@ -443,8 +449,8 @@ void KeyCompare::CompareColumnsToRows(
                                 match_bytevector_A, match_bitvector);
 
   if (out_match_bitvector_maybe_null) {
-    ARROW_DCHECK(out_num_rows == nullptr);
-    ARROW_DCHECK(out_sel_left_maybe_same == nullptr);
+    DCHECK_EQ(out_num_rows, nullptr);
+    DCHECK_EQ(out_sel_left_maybe_same, nullptr);
     memcpy(out_match_bitvector_maybe_null, match_bitvector,
            bit_util::BytesForBits(num_rows_to_compare));
   } else {
