@@ -882,7 +882,10 @@ Status CallAAAKernel(ArrayKernelExec take_aaa_exec, KernelContext* ctx,
   ExecSpan exec_span{array_array_batch};
   ExecResult result;
   result.value = out->array();
-  return take_aaa_exec(ctx, exec_span, &result);
+  RETURN_NOT_OK(take_aaa_exec(ctx, exec_span, &result));
+  DCHECK(result.is_array_data());
+  out->value = result.array_data();
+  return Status::OK();
 }
 
 Status CallCAAKernel(VectorKernel::ChunkedExec take_caa_exec, KernelContext* ctx,
