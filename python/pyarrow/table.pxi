@@ -1571,6 +1571,7 @@ cdef class _Tabular(_PandasConvertible):
                         f"one of the `{self.__class__.__name__}.from_*` functions instead.")
 
     def __array__(self, dtype=None, copy=None):
+        self._assert_cpu()
         if copy is False:
             raise ValueError(
                 "Unable to avoid a copy while creating a numpy array as requested "

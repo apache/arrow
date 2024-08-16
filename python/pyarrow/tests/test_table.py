@@ -1276,6 +1276,90 @@ def _table_like_slice_tests(factory):
     assert obj.slice(len(obj) - 4, 2).equals(obj[-4:-2])
 
 
+# def test_recordbatch_non_cpu():
+#     cuda = pytest.importorskip("pyarrow.cuda")
+#     ctx = cuda.Context(0)
+
+#     cpu_data = [
+#         pa.array(range(5), type='int16'),
+#         pa.array([-10, -5, 0, None, 10], type='int32')
+#     ]
+#     cuda_data = [cuda.buffer_from_data(x) for x in cpu_data]
+#     batch = pa.record_batch(cpu_data, ['c0', 'c1'])
+
+#     # Supported
+#     batch.validate()
+#     assert batch.offset == 0
+#     assert batch.buffers() == [None, cuda_data[0], cuda_data[1]]
+#     assert batch.device_type == pa.DeviceAllocationType.CUDA
+#     assert batch.is_cpu is False
+#     assert len(batch) == 4
+#     assert batch.slice(2, 2).offset == 2
+#     assert repr(batch)
+#     assert str(batch)
+
+#     # TODO support DLPack for CUDA
+#     with pytest.raises(NotImplementedError):
+#         batch.__dlpack__()
+#     with pytest.raises(NotImplementedError):
+#         batch.__dlpack_device__()
+
+#     # Not Supported
+#     with pytest.raises(NotImplementedError):
+#         batch.diff(batch)
+#     with pytest.raises(NotImplementedError):
+#         batch.cast(pa.int64())
+#     with pytest.raises(NotImplementedError):
+#         batch.view(pa.int64())
+#     with pytest.raises(NotImplementedError):
+#         batch.sum()
+#     with pytest.raises(NotImplementedError):
+#         batch.unique()
+#     with pytest.raises(NotImplementedError):
+#         batch.dictionary_encode()
+#     with pytest.raises(NotImplementedError):
+#         batch.value_counts()
+#     with pytest.raises(NotImplementedError):
+#         batch.null_count
+#     with pytest.raises(NotImplementedError):
+#         batch.nbytes
+#     with pytest.raises(NotImplementedError):
+#         batch.get_total_buffer_size()
+#     with pytest.raises(NotImplementedError):
+#         [i for i in iter(batch)]
+#     with pytest.raises(NotImplementedError):
+#         batch == batch
+#     with pytest.raises(NotImplementedError):
+#         batch.is_null()
+#     with pytest.raises(NotImplementedError):
+#         batch.is_nan()
+#     with pytest.raises(NotImplementedError):
+#         batch.is_valid()
+#     with pytest.raises(NotImplementedError):
+#         batch.fill_null(0)
+#     with pytest.raises(NotImplementedError):
+#         batch[0]
+#     with pytest.raises(NotImplementedError):
+#         batch.take([0])
+#     with pytest.raises(NotImplementedError):
+#         batch.drop_null()
+#     with pytest.raises(NotImplementedError):
+#         batch.filter([True, True, False, False])
+#     with pytest.raises(NotImplementedError):
+#         batch.index(0)
+#     with pytest.raises(NotImplementedError):
+#         batch.sort()
+#     with pytest.raises(NotImplementedError):
+#         batch.__array__()
+#     with pytest.raises(NotImplementedError):
+#         batch.to_numpy()
+#     with pytest.raises(NotImplementedError):
+#         batch.tolist()
+#     with pytest.raises(NotImplementedError):
+#         batch.validate(full=True)
+
+
+
 def test_recordbatch_slice_getitem():
     return _table_like_slice_tests(pa.RecordBatch.from_arrays)
 
