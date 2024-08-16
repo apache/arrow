@@ -159,6 +159,8 @@ def run_query(plan, *, table_provider=None, use_threads=True):
     reader.reader = c_reader
     return reader
 
+def get_adbc_driver_init_func():
+    return <uintptr_t>&AceroDriverInitFunc
 
 def _parse_json_plan(plan):
     """

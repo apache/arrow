@@ -133,6 +133,7 @@ class AceroStatement : public adbc::common::StatementObjectBase {
     ARROW_ASSIGN_OR_RAISE(auto table, Table::FromRecordBatches(std::move(all_batches)));
     auto reader = std::make_shared<arrow::TableBatchReader>(table);
     ARROW_RETURN_NOT_OK(ExportRecordBatchReader(reader, stream));
+    *rows_affected = table->num_rows();
     return Status::OK();
   }
 };

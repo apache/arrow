@@ -75,3 +75,6 @@ cdef extern from "arrow/engine/substrait/util.h" namespace "arrow::engine" nogil
         c_bool use_threads)
 
     CResult[shared_ptr[CBuffer]] SerializeJsonPlan(const c_string& substrait_json)
+
+cdef extern from "arrow/engine/substrait/driver.h" namespace "arrow::engine" nogil:
+    uint8_t AceroDriverInitFunc(int version, void* raw_driver, void* error)
