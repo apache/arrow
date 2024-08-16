@@ -49,6 +49,9 @@ int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int nu
     int varbinary_column_id = VarbinaryColumnId(rows.metadata(), column_id);
     const uint8_t* row_ptr_base = rows.data(2);
     const RowTableImpl::offset_type* row_offsets = rows.offsets();
+    static_assert(
+        sizeof(RowTableImpl::offset_type) == sizeof(int64_t),
+        "RowArrayAccessor::Visit_avx2 only supports 64-bit RowTableImpl::offset_type");
 
     if (varbinary_column_id == 0) {
       // Case 1: This is the first varbinary column

@@ -251,6 +251,9 @@ uint32_t KeyCompare::CompareBinaryColumnToRowHelper_avx2(
             _mm256_loadu_si256(reinterpret_cast<const __m256i*>(left_to_right_map) + i);
       }
 
+      static_assert(sizeof(RowTableImpl::offset_type) == sizeof(int64_t),
+                    "KeyCompare::CompareBinaryColumnToRowHelper_avx2 only supports "
+                    "64-bit RowTableImpl::offset_type");
       auto offsets_right_i64 =
           reinterpret_cast<const arrow::util::int64_for_gather_t*>(offsets_right);
       // Gather the lower/higher 4 64-bit row offsets based on the lower/higher 4 32-bit
@@ -415,6 +418,9 @@ inline uint64_t Compare8_Binary_avx2(uint32_t length, const uint8_t* left_base,
   if (use_selection) {
     _mm256_storeu_si256(reinterpret_cast<__m256i*>(irow_left_array), irow_left);
   }
+  static_assert(
+      sizeof(RowTableImpl::offset_type) * 4 == sizeof(__m256i),
+      "Unexpected RowTableImpl::offset_type size in KeyCompare::Compare8_Binary_avx2");
   _mm256_storeu_si256(reinterpret_cast<__m256i*>(offset_right_array), offset_right_lo);
   _mm256_storeu_si256(reinterpret_cast<__m256i*>(&offset_right_array[4]),
                       offset_right_hi);
