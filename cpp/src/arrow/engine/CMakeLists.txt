@@ -20,6 +20,7 @@ add_custom_target(arrow_substrait)
 arrow_install_all_headers("arrow/engine")
 
 set(ARROW_SUBSTRAIT_SRCS
+    substrait/driver.cc
     substrait/expression_internal.cc
     substrait/extended_expression_internal.cc
     substrait/extension_set.cc
@@ -73,6 +74,7 @@ endif()
 
 add_arrow_test(substrait_test
                SOURCES
+               substrait/driver_test.cc
                substrait/ext_test.cc
                substrait/function_test.cc
                substrait/serde_test.cc
