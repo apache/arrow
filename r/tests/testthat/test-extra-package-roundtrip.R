@@ -69,7 +69,7 @@ test_that("data.table objects roundtrip", {
 
   DT <- as.data.table(example_data)
 
-  # Table -> collect which is what writing + reading to parquet uses under the hood to roundtrip
+  # Table to collect which is what writing + reading to parquet uses under the hood to roundtrip
   tab <- as_arrow_table(DT)
   DT_read <- collect(tab)
 
@@ -82,7 +82,7 @@ test_that("data.table objects roundtrip", {
   setindex(DT, dbl)
   DT[, dblshift := shift(dbl, 1)]
 
-  # Table -> collect
+  # Table to collect
   tab <- as_arrow_table(DT)
   DT_read <- collect(tab)
 
@@ -96,7 +96,7 @@ test_that("units roundtrip", {
   tbl <- example_data
   units(tbl$dbl) <- "s"
 
-  # Table -> collect which is what writing + reading to parquet uses under the hood to roundtrip
+  # Table to collect which is what writing + reading to parquet uses under the hood to roundtrip
   tab <- as_arrow_table(tbl)
   tbl_read <- collect(tab)
 
