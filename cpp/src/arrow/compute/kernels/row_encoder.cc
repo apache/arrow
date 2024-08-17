@@ -90,11 +90,19 @@ Status BooleanKeyEncoder::Encode(const ExecValue& data, int64_t batch_length,
         });
   } else {
     const auto& scalar = data.scalar_as<BooleanScalar>();
-    bool value = scalar.is_valid && scalar.value;
-    for (int64_t i = 0; i < batch_length; i++) {
-      auto& encoded_ptr = *encoded_bytes++;
-      *encoded_ptr++ = kValidByte;
-      *encoded_ptr++ = value;
+    if (!scalar.is_valid) {
+      for (int64_t i = 0; i < batch_length; i++) {
+        auto& encoded_ptr = *encoded_bytes++;
+        *encoded_ptr++ = kNullByte;
+        *encoded_ptr++ = 0;
+      }
+    } else {
+      const bool value = scalar.value;
+      for (int64_t i = 0; i < batch_length; i++) {
+        auto& encoded_ptr = *encoded_bytes++;
+        *encoded_ptr++ = kValidByte;
+        *encoded_ptr++ = value;
+      }
     }
   }
   return Status::OK();
