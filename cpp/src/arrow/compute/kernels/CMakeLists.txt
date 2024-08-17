@@ -137,5 +137,9 @@ add_arrow_compute_test(aggregate_test
 # ----------------------------------------------------------------------
 # Utilities
 
-add_arrow_compute_test(kernel_utility_test SOURCES codegen_internal_test.cc
-                       row_encoder_internal_test.cc)
+add_arrow_compute_test(kernel_utility_test
+                       SOURCES
+                       codegen_internal_test.cc
+                       row_encoder_internal_test.cc
+                       EXTRA_LINK_LIBS
+                       arrow_compute_kernels_testing)
