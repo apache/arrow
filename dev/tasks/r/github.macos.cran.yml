@@ -63,11 +63,6 @@ jobs:
           _R_CHECK_CRAN_INCOMING_: false
           CXXFLAGS: "-g -O2 -Wall -pedantic -Wconversion -Wno-sign-conversion"
           NOT_CRAN: false
-          # ARROW_USE_PKG_CONFIG: false
-          # FORCE_BUNDLED_BUILD: true
-          # LIBARROW_MINIMAL: false
-          # ARROW_R_DEV: TRUE
-          # LIBARROW_BINARY: false
         run: |
           sccache --start-server || echo 'sccache not found'
           cd arrow/r

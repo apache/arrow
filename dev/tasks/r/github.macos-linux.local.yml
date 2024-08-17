@@ -90,7 +90,6 @@ jobs:
         run: |
           sccache --start-server || echo 'sccache not found'
           cd arrow/r
-          export CXXFLAGS="-g -O2 -Wall -pedantic -Wconversion -Wno-sign-conversion"
           R CMD INSTALL . --install-tests
       - name: Run the tests
         run: R -e 'if(tools::testInstalledPackage("arrow") != 0L) stop("There was a test failure.")'
