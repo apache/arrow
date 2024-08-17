@@ -62,6 +62,7 @@ jobs:
         env:
           _R_CHECK_CRAN_INCOMING_: false
           CXXFLAGS: "-g -O2 -Wall -pedantic -Wconversion -Wno-sign-conversion"
+          NOT_CRAN: false
           # ARROW_USE_PKG_CONFIG: false
           # FORCE_BUNDLED_BUILD: true
           # LIBARROW_MINIMAL: false
