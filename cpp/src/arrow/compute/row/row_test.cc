@@ -156,7 +156,7 @@ TEST(RowTableOffsetOverflow, LARGE_MEMORY_TEST(Encode)) {
       auto value, ::arrow::gen::Constant(
                       std::make_shared<BinaryScalar>(std::string(length_per_binary, 'X')))
                       ->Generate(1));
-  values.push_back(std::move(value));
+  values.emplace_back(std::move(value));
   ExecBatch batch = ExecBatch(std::move(values), 1);
   ASSERT_OK(ColumnArraysFromExecBatch(batch, &columns));
 
