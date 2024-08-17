@@ -2505,6 +2505,28 @@ cdef class Partitioning(_Weakrefable):
         result = self.partitioning.Parse(tobytes(path))
         return Expression.wrap(GetResultValue(result))
 
+    def format(self, expr):
+        """
+        Parse a partition expression into a tuple of directory, path
+
+        Parameters
+        ----------
+        expr : pyarrow.dataset.Expression
+
+        Returns
+        -------
+        tuple[str, str]
+        """
+        cdef:
+            CResult[CPartitionPathFormat] result
+            CPartitionPathFormat result_value
+        result = self.partitioning.Format(
+            Expression.unwrap(expr)
+        )
+        result_value = GetResultValue(result)
+
+        return frombytes(result_value.directory), frombytes(result_value.filename)
+
     @property
     def schema(self):
         """The arrow Schema attached to the partitioning."""
