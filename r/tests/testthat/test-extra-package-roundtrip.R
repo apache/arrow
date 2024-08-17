@@ -80,7 +80,7 @@ test_that("data.table objects roundtrip", {
   # and we can set keys + indices + create new columns
   setkey(DT, chr)
   setindex(DT, dbl)
-  DT[, dblshift := data.table::shift(dbl, 1)]
+  DT[, dblshift := shift(dbl, 1)]
 
   # Table -> collect
   tab <- as_arrow_table(DT)
