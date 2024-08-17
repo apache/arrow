@@ -23,12 +23,6 @@ jobs:
   macos-cran:
     name: "macOS similar to CRAN"
     runs-on: macOS-latest
-  {% if env is defined %}
-    env:
-    {% for key, value in env.items() %}
-      {{ key }}: "{{ value }}"
-    {% endfor %}
-  {% endif %}
     strategy:
       fail-fast: false
 
@@ -73,11 +67,9 @@ jobs:
           # LIBARROW_MINIMAL: false
           # ARROW_R_DEV: TRUE
           # LIBARROW_BINARY: false
-        {{ macros.github_set_sccache_envvars()|indent(8)}}
         run: |
           sccache --start-server || echo 'sccache not found'
           cd arrow/r
-          export 
           R CMD INSTALL . --install-tests
       - name: Run the tests
         run: R -e 'if(tools::testInstalledPackage("arrow") != 0L) stop("There was a test failure.")'
