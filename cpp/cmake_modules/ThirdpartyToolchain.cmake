@@ -4968,7 +4968,7 @@ macro(build_awssdk)
   # The AWS SDK has a few warnings around shortening lengths
   set(AWS_EP_COMMON_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS})
   if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL
-                                                   "Clang")
+                                                    "Clang")
     string(REPLACE "-Wconversion" "-Wconversion -Wno-error=shorten-64-to-32"
                    AWS_EP_COMMON_CMAKE_ARGS "${AWS_EP_COMMON_CMAKE_ARGS}")
   endif()
