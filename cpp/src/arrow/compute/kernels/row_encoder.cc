@@ -75,12 +75,12 @@ void BooleanKeyEncoder::AddLengthNull(int32_t* length) {
 
 Status BooleanKeyEncoder::Encode(const ExecValue& data, int64_t batch_length,
                                  uint8_t** encoded_bytes) {
-  auto handle_next_valid_value = [encoded_bytes](bool value) mutable {
+  auto handle_next_valid_value = [&encoded_bytes](bool value) {
     auto& encoded_ptr = *encoded_bytes++;
     *encoded_ptr++ = kValidByte;
     *encoded_ptr++ = value;
   };
-  auto handle_next_null_value = [encoded_bytes]() mutable {
+  auto handle_next_null_value = [&encoded_bytes]() {
     auto& encoded_ptr = *encoded_bytes++;
     *encoded_ptr++ = kNullByte;
     *encoded_ptr++ = 0;
