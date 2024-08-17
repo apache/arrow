@@ -4965,10 +4965,12 @@ macro(build_awssdk)
   set(AWSSDK_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/awssdk_ep-install")
   set(AWSSDK_INCLUDE_DIR "${AWSSDK_PREFIX}/include")
 
-   set(AWS_EP_COMMON_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS})
+  # The AWS SDK has a few warnings around shortening lengths
+  set(AWS_EP_COMMON_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS})
   if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL
-                                                        "Clang")
-    string(REPLACE "-Wconversion" "-Wconversion -Wno-error=shorten-64-to-32" AWS_EP_COMMON_CMAKE_ARGS "${AWS_EP_COMMON_CMAKE_ARGS}")
+                                                   "Clang")
+    string(REPLACE "-Wconversion" "-Wconversion -Wno-error=shorten-64-to-32"
+                   AWS_EP_COMMON_CMAKE_ARGS "${AWS_EP_COMMON_CMAKE_ARGS}")
   endif()
 
   set(AWSSDK_COMMON_CMAKE_ARGS
