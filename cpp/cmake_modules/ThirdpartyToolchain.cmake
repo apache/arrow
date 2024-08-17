@@ -4970,9 +4970,9 @@ macro(build_awssdk)
   set(AWS_CXX_FLAGS "${EP_CXX_FLAGS}")
   if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL
                                                     "Clang")
-  # Negate warnings that AWS SDK cannot build under
-  string(APPEND AWS_C_FLAGS " -Wno-error=shorten-64-to-32")
-  string(APPEND AWS_CXX_FLAGS " -Wno-error=shorten-64-to-32")
+    # Negate warnings that AWS SDK cannot build under
+    string(APPEND AWS_C_FLAGS " -Wno-error=shorten-64-to-32")
+    string(APPEND AWS_CXX_FLAGS " -Wno-error=shorten-64-to-32")
   endif()
 
   set(AWS_EP_COMMON_CMAKE_ARGS "${EP_COMMON_CMAKE_ARGS}" "-DCMAKE_C_FLAGS=${AWS_C_FLAGS}"
