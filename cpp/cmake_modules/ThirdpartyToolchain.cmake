@@ -4966,24 +4966,17 @@ macro(build_awssdk)
   set(AWSSDK_INCLUDE_DIR "${AWSSDK_PREFIX}/include")
 
   # The AWS SDK has a few warnings around shortening lengths
-  set(AWS_C_FLAGS "${EP_C_FLAGS}") 
-  set(AWS_CXX_FLAGS "${EP_CXX_FLAGS}") 
+  set(AWS_C_FLAGS "${EP_C_FLAGS}")
+  set(AWS_CXX_FLAGS "${EP_CXX_FLAGS}")
   if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL
                                                     "Clang")
-    # Negate warnings that AWS SDK cannot build under 
-    string(APPEND 
-           AWS_C_FLAGS
-           " -Wno-error=shorten-64-to-32") 
-    string(APPEND 
-           AWS_CXX_FLAGS
-           " -Wno-error=shorten-64-to-32") 
-  endif() 
-   
-  set(AWS_EP_COMMON_CMAKE_ARGS 
-      "${EP_COMMON_CMAKE_ARGS}" 
-      "-DCMAKE_C_FLAGS=${AWS_C_FLAGS}" 
-      "-DCMAKE_CXX_FLAGS=${AWS_CXX_FLAGS}" 
-  )
+  # Negate warnings that AWS SDK cannot build under
+  string(APPEND AWS_C_FLAGS " -Wno-error=shorten-64-to-32")
+  string(APPEND AWS_CXX_FLAGS " -Wno-error=shorten-64-to-32")
+  endif()
+
+  set(AWS_EP_COMMON_CMAKE_ARGS "${EP_COMMON_CMAKE_ARGS}" "-DCMAKE_C_FLAGS=${AWS_C_FLAGS}"
+                               "-DCMAKE_CXX_FLAGS=${AWS_CXX_FLAGS}")
 
   set(AWSSDK_COMMON_CMAKE_ARGS
       ${AWS_EP_COMMON_CMAKE_ARGS}
