@@ -36,6 +36,7 @@
 #include "arrow/visit_data_inline.h"
 #include "parquet/encoding.h"
 #include "parquet/exception.h"
+#include "parquet/geometry_util.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
 
@@ -618,6 +619,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   bool HasDistinctCount() const override { return has_distinct_count_; };
   bool HasMinMax() const override { return has_min_max_; }
   bool HasNullCount() const override { return has_null_count_; };
+  bool HasGeometryStatistics() const override { return geometry_statistics_ != nullptr; }
 
   void IncrementNullCount(int64_t n) override {
     statistics_.null_count += n;
@@ -629,6 +631,8 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   static bool IsMeaningfulLogicalType(LogicalType::Type::type type) {
     switch (type) {
       case LogicalType::Type::FLOAT16:
+        return true;
+      case LogicalType::Type::GEOMETRY:
         return true;
       default:
         return false;
@@ -652,6 +656,15 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     if (has_min_max_ != other.has_min_max_) return false;
     if (has_min_max_) {
       if (!MinMaxEqual(other)) return false;
+    }
+
+    if (HasGeometryStatistics() != other.HasGeometryStatistics()) {
+      return false;
+    }
+
+    if (HasGeometryStatistics() &&
+        !geometry_statistics_->Equals(*other.GeometryStatistics())) {
+      return false;
     }
 
     return null_count() == other.null_count() &&
@@ -773,6 +786,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   std::shared_ptr<TypedComparator<DType>> comparator_;
   std::shared_ptr<ResizableBuffer> min_buffer_, max_buffer_;
   LogicalType::Type::type logical_type_ = LogicalType::Type::NONE;
+  std::shared_ptr<GeometryStatistics> geometry_statistics_;
 
   void PlainEncode(const T& src, std::string* dst) const;
   void PlainDecode(const std::string& src, T* dst) const;
@@ -865,6 +879,12 @@ void TypedStatisticsImpl<DType>::Update(const T* values, int64_t num_values,
 
   if (num_values == 0) return;
   SetMinMaxPair(comparator_->GetMinMax(values, num_values));
+
+  if constexpr (std::is_same<T, ByteArray>::value) {
+    if (logical_type_ == LogicalType::Type::GEOMETRY) {
+      geometry_statistics_->Update(values, num_values, null_count);
+    }
+  }
 }
 
 template <typename DType>

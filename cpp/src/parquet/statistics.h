@@ -24,6 +24,7 @@
 #include <string>
 #include <utility>
 
+#include "parquet/geometry_util.h"
 #include "parquet/platform.h"
 #include "parquet/types.h"
 
@@ -113,6 +114,20 @@ template <typename DType>
 std::shared_ptr<TypedComparator<DType>> MakeComparator(const ColumnDescriptor* descr) {
   return std::static_pointer_cast<TypedComparator<DType>>(Comparator::Make(descr));
 }
+
+class GeometryStatistics {
+ public:
+  bool Equals(const GeometryStatistics& other) const { ParquetException::NYI(); }
+
+  void Merge(const GeometryStatistics& other) { ParquetException::NYI(); }
+
+  void Update(const ByteArray* values, int64_t num_values, int64_t null_count) {
+    ParquetException::NYI();
+  }
+
+ private:
+  geometry::WKBGeometryBounder bounder_;
+};
 
 // ----------------------------------------------------------------------
 
@@ -249,6 +264,10 @@ class PARQUET_EXPORT Statistics {
   /// \brief Return true if both min and max statistics are set. Obtain
   /// with TypedStatistics<T>::min and max
   virtual bool HasMinMax() const = 0;
+
+  virtual bool HasGeometryStatistics() const { return false; };
+
+  virtual const GeometryStatistics* GeometryStatistics() const { return nullptr; }
 
   /// \brief Reset state of object to initial (no data observed) state
   virtual void Reset() = 0;

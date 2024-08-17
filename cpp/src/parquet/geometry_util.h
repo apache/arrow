@@ -208,7 +208,7 @@ class WKBBuffer {
     size_ -= sizeof(uint32_t);
 
     if constexpr (swap) {
-      value = arrow::bit_util::ByteSwap(value);
+      value = ::arrow::bit_util::ByteSwap(value);
     }
 
     return value;
@@ -232,7 +232,7 @@ class WKBBuffer {
 
     if constexpr (swap) {
       for (uint32_t i = 0; i < n; i++) {
-        out[i] = arrow::bit_util::ByteSwap(out[i]);
+        out[i] = ::arrow::bit_util::ByteSwap(out[i]);
       }
     }
   }
@@ -316,7 +316,7 @@ struct BoundingBox {
   double max[4];
 };
 
-bool operator==(const BoundingBox& lhs, const BoundingBox& rhs) {
+inline bool operator==(const BoundingBox& lhs, const BoundingBox& rhs) {
   return lhs.dimensions == rhs.dimensions &&
          std::memcmp(lhs.min, rhs.min, sizeof(lhs.min)) == 0 &&
          std::memcmp(lhs.max, rhs.max, sizeof(lhs.max)) == 0;
