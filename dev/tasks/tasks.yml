@@ -1319,6 +1319,10 @@ tasks:
     params:
       MATRIX: {{ "${{ matrix.r_image }}" }}
 
+  test-r-macos-as-cran:
+    ci: github
+    template: r/github.macos.cran.yml
+
   test-r-arrow-backwards-compatibility:
     ci: github
     template: r/github.linux.arrow.version.back.compat.yml
