@@ -35,8 +35,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/apache/arrow/go/v17/parquet"
-	format "github.com/apache/arrow/go/v17/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v18/parquet"
+	format "github.com/apache/arrow/go/v18/parquet/internal/gen-go/parquet"
 	"golang.org/x/xerrors"
 )
 

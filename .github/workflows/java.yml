@@ -46,7 +46,6 @@ permissions:
 
 env:
   ARCHERY_DEBUG: 1
-  ARCHERY_USE_DOCKER_CLI: 1
   DOCKER_VOLUME_PREFIX: ".docker/"
 
 jobs:
@@ -58,7 +57,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        jdk: [8, 11, 17, 21, 22]
+        jdk: [11, 17, 21, 22]
         maven: [3.9.6]
         image: [java]
     env:

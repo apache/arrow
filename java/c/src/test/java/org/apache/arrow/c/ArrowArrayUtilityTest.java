@@ -103,14 +103,14 @@ class ArrowArrayUtilityTest {
   @Test
   void cleanupAfterFailure() throws Exception {
     // Note values are all dummy values here
-    long address = MemoryUtil.UNSAFE.allocateMemory(16);
+    long address = MemoryUtil.allocateMemory(16);
     try (BufferImportTypeVisitor visitor =
         new BufferImportTypeVisitor(
             allocator, dummyHandle, new ArrowFieldNode(0, 0), new long[] {address})) {
       // This fails, but only after we've already imported a buffer.
       assertThrows(IllegalStateException.class, () -> visitor.visit(new ArrowType.Int(32, true)));
     } finally {
-      MemoryUtil.UNSAFE.freeMemory(address);
+      MemoryUtil.freeMemory(address);
     }
   }
 
@@ -119,7 +119,7 @@ class ArrowArrayUtilityTest {
     // Note values are all dummy values here
     final long bufferSize = 16;
     final long fieldLength = bufferSize / IntVector.TYPE_WIDTH;
-    long address = MemoryUtil.UNSAFE.allocateMemory(bufferSize);
+    long address = MemoryUtil.allocateMemory(bufferSize);
     long baseline = allocator.getAllocatedMemory();
     ArrowFieldNode fieldNode = new ArrowFieldNode(fieldLength, 0);
     try (BufferImportTypeVisitor visitor =
@@ -134,7 +134,7 @@ class ArrowArrayUtilityTest {
           .isEqualTo(allocator);
       assertThat(allocator.getAllocatedMemory()).isEqualTo(baseline + bufferSize);
     } finally {
-      MemoryUtil.UNSAFE.freeMemory(address);
+      MemoryUtil.freeMemory(address);
     }
     assertThat(allocator.getAllocatedMemory()).isEqualTo(baseline);
   }
@@ -161,7 +161,7 @@ class ArrowArrayUtilityTest {
   @Test
   void associate() {
     final long bufferSize = 16;
-    final long address = MemoryUtil.UNSAFE.allocateMemory(bufferSize);
+    final long address = MemoryUtil.allocateMemory(bufferSize);
     try {
       ArrowArray array = ArrowArray.allocateNew(allocator);
       ReferenceCountedArrowArray handle = new ReferenceCountedArrowArray(array);
@@ -173,7 +173,7 @@ class ArrowArrayUtilityTest {
       handle.release();
       assertThat(array.isClosed()).isTrue();
     } finally {
-      MemoryUtil.UNSAFE.freeMemory(address);
+      MemoryUtil.freeMemory(address);
     }
   }
 }

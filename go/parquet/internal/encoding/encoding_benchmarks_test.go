@@ -21,14 +21,14 @@ import (
 	"math"
 	"testing"
 
-	"github.com/apache/arrow/go/v17/arrow"
-	"github.com/apache/arrow/go/v17/arrow/array"
-	"github.com/apache/arrow/go/v17/arrow/memory"
-	"github.com/apache/arrow/go/v17/internal/hashing"
-	"github.com/apache/arrow/go/v17/parquet"
-	"github.com/apache/arrow/go/v17/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v17/parquet/internal/testutils"
-	"github.com/apache/arrow/go/v17/parquet/schema"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/array"
+	"github.com/apache/arrow/go/v18/arrow/memory"
+	"github.com/apache/arrow/go/v18/internal/hashing"
+	"github.com/apache/arrow/go/v18/parquet"
+	"github.com/apache/arrow/go/v18/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v18/parquet/internal/testutils"
+	"github.com/apache/arrow/go/v18/parquet/schema"
 )
 
 const (
@@ -630,6 +630,51 @@ func BenchmarkByteStreamSplitDecodingFixedLenByteArray(b *testing.B) {
 			for n := 0; n < b.N; n++ {
 				decoder.SetData(sz, buf.Bytes())
 				decoder.(encoding.FixedLenByteArrayDecoder).Decode(output)
+			}
+		})
+	}
+}
+
+func BenchmarkDeltaBinaryPackedEncodingInt32(b *testing.B) {
+	for sz := MINSIZE; sz < MAXSIZE+1; sz *= 2 {
+		b.Run(fmt.Sprintf("len %d", sz), func(b *testing.B) {
+			values := make([]int32, sz)
+			for idx := range values {
+				values[idx] = 64
+			}
+			encoder := encoding.NewEncoder(parquet.Types.Int32, parquet.Encodings.DeltaBinaryPacked,
+				false, nil, memory.DefaultAllocator).(encoding.Int32Encoder)
+			b.ResetTimer()
+			b.SetBytes(int64(len(values) * arrow.Int32SizeBytes))
+			for n := 0; n < b.N; n++ {
+				encoder.Put(values)
+				buf, _ := encoder.FlushValues()
+				buf.Release()
+			}
+		})
+	}
+}
+
+func BenchmarkDeltaBinaryPackedDecodingInt32(b *testing.B) {
+	for sz := MINSIZE; sz < MAXSIZE+1; sz *= 2 {
+		b.Run(fmt.Sprintf("len %d", sz), func(b *testing.B) {
+			output := make([]int32, sz)
+			values := make([]int32, sz)
+			for idx := range values {
+				values[idx] = 64
+			}
+			encoder := encoding.NewEncoder(parquet.Types.Int32, parquet.Encodings.DeltaBinaryPacked,
+				false, nil, memory.DefaultAllocator).(encoding.Int32Encoder)
+			encoder.Put(values)
+			buf, _ := encoder.FlushValues()
+			defer buf.Release()
+
+			decoder := encoding.NewDecoder(parquet.Types.Int32, parquet.Encodings.DeltaBinaryPacked, nil, memory.DefaultAllocator)
+			b.ResetTimer()
+			b.SetBytes(int64(len(values) * arrow.Int32SizeBytes))
+			for n := 0; n < b.N; n++ {
+				decoder.SetData(sz, buf.Bytes())
+				decoder.(encoding.Int32Decoder).Decode(output)
 			}
 		})
 	}

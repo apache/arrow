@@ -20,7 +20,10 @@
 #include <memory>
 #include <string>
 
+#include <google/protobuf/any.pb.h>
+
 #include "arrow/buffer.h"
+#include "arrow/flight/protocol_internal.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
@@ -38,6 +41,57 @@ overloaded(Ts...)->overloaded<Ts...>;
 namespace arrow {
 namespace flight {
 namespace internal {
+
+namespace {
+
+Status PackToAnyAndSerialize(const google::protobuf::Message& command, std::string* out) {
+  google::protobuf::Any any;
+#if PROTOBUF_VERSION >= 3015000
+  if (!any.PackFrom(command)) {
+    return Status::SerializationError("Failed to pack ", command.GetTypeName());
+  }
+#else
+  any.PackFrom(command);
+#endif
+
+#if PROTOBUF_VERSION >= 3015000
+  if (!any.SerializeToString(out)) {
+    return Status::SerializationError("Failed to serialize ", command.GetTypeName());
+  }
+#else
+  any.SerializeToString(out);
+#endif
+  return Status::OK();
+}
+
+}  // namespace
+
+Status PackProtoCommand(const google::protobuf::Message& command, FlightDescriptor* out) {
+  std::string buf;
+  RETURN_NOT_OK(PackToAnyAndSerialize(command, &buf));
+  *out = FlightDescriptor::Command(std::move(buf));
+  return Status::OK();
+}
+
+Status PackProtoAction(std::string action_type, const google::protobuf::Message& action,
+                       Action* out) {
+  std::string buf;
+  RETURN_NOT_OK(PackToAnyAndSerialize(action, &buf));
+  out->type = std::move(action_type);
+  out->body = Buffer::FromString(std::move(buf));
+  return Status::OK();
+}
+
+Status UnpackProtoAction(const Action& action, google::protobuf::Message* out) {
+  google::protobuf::Any any;
+  if (!any.ParseFromArray(action.body->data(), static_cast<int>(action.body->size()))) {
+    return Status::Invalid("Unable to parse action ", action.type);
+  }
+  if (!any.UnpackTo(out)) {
+    return Status::Invalid("Unable to unpack ", out->GetTypeName());
+  }
+  return Status::OK();
+}
 
 // Timestamp
 
@@ -251,22 +305,28 @@ Status ToProto(const FlightDescriptor& descriptor, pb::FlightDescriptor* pb_desc
 
 // FlightInfo
 
-arrow::Result<FlightInfo> FromProto(const pb::FlightInfo& pb_info) {
-  FlightInfo::Data info;
-  RETURN_NOT_OK(FromProto(pb_info.flight_descriptor(), &info.descriptor));
+Status FromProto(const pb::FlightInfo& pb_info, FlightInfo::Data* info) {
+  RETURN_NOT_OK(FromProto(pb_info.flight_descriptor(), &info->descriptor));
 
-  info.schema = pb_info.schema();
+  info->schema = pb_info.schema();
 
-  info.endpoints.resize(pb_info.endpoint_size());
+  info->endpoints.resize(pb_info.endpoint_size());
   for (int i = 0; i < pb_info.endpoint_size(); ++i) {
-    RETURN_NOT_OK(FromProto(pb_info.endpoint(i), &info.endpoints[i]));
+    RETURN_NOT_OK(FromProto(pb_info.endpoint(i), &info->endpoints[i]));
   }
 
-  info.total_records = pb_info.total_records();
-  info.total_bytes = pb_info.total_bytes();
-  info.ordered = pb_info.ordered();
-  info.app_metadata = pb_info.app_metadata();
-  return FlightInfo(std::move(info));
+  info->total_records = pb_info.total_records();
+  info->total_bytes = pb_info.total_bytes();
+  info->ordered = pb_info.ordered();
+  info->app_metadata = pb_info.app_metadata();
+  return Status::OK();
+}
+
+Status FromProto(const pb::FlightInfo& pb_info, std::unique_ptr<FlightInfo>* info) {
+  FlightInfo::Data info_data;
+  RETURN_NOT_OK(FromProto(pb_info, &info_data));
+  *info = std::make_unique<FlightInfo>(std::move(info_data));
+  return Status::OK();
 }
 
 Status FromProto(const pb::BasicAuth& pb_basic_auth, BasicAuth* basic_auth) {
@@ -276,8 +336,8 @@ Status FromProto(const pb::BasicAuth& pb_basic_auth, BasicAuth* basic_auth) {
   return Status::OK();
 }
 
-Status FromProto(const pb::SchemaResult& pb_result, std::string* result) {
-  *result = pb_result.schema();
+Status FromProto(const pb::SchemaResult& pb_result, SchemaResult* result) {
+  *result = SchemaResult{pb_result.schema()};
   return Status::OK();
 }
 
@@ -315,8 +375,9 @@ Status ToProto(const FlightInfo& info, pb::FlightInfo* pb_info) {
 
 Status FromProto(const pb::PollInfo& pb_info, PollInfo* info) {
   if (pb_info.has_info()) {
-    ARROW_ASSIGN_OR_RAISE(auto flight_info, FromProto(pb_info.info()));
-    info->info = std::make_unique<FlightInfo>(std::move(flight_info));
+    FlightInfo::Data info_data;
+    RETURN_NOT_OK(FromProto(pb_info.info(), &info_data));
+    info->info = std::make_unique<FlightInfo>(std::move(info_data));
   }
   if (pb_info.has_flight_descriptor()) {
     FlightDescriptor descriptor;
@@ -340,6 +401,13 @@ Status FromProto(const pb::PollInfo& pb_info, PollInfo* info) {
   return Status::OK();
 }
 
+Status FromProto(const pb::PollInfo& pb_info, std::unique_ptr<PollInfo>* info) {
+  PollInfo poll_info;
+  RETURN_NOT_OK(FromProto(pb_info, &poll_info));
+  *info = std::make_unique<PollInfo>(std::move(poll_info));
+  return Status::OK();
+}
+
 Status ToProto(const PollInfo& info, pb::PollInfo* pb_info) {
   if (info.info) {
     RETURN_NOT_OK(ToProto(*info.info, pb_info->mutable_info()));
@@ -360,8 +428,9 @@ Status ToProto(const PollInfo& info, pb::PollInfo* pb_info) {
 
 Status FromProto(const pb::CancelFlightInfoRequest& pb_request,
                  CancelFlightInfoRequest* request) {
-  ARROW_ASSIGN_OR_RAISE(FlightInfo info, FromProto(pb_request.info()));
-  request->info = std::make_unique<FlightInfo>(std::move(info));
+  FlightInfo::Data info_data;
+  RETURN_NOT_OK(FromProto(pb_request.info(), &info_data));
+  request->info = std::make_unique<FlightInfo>(std::move(info_data));
   return Status::OK();
 }
 

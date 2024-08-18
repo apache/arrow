@@ -135,9 +135,9 @@ class ComposeConfig:
             compose = Docker()
             args = ['compose']
         else:
-            compose = Command('docker-compose')
+            compose = Command(compose_bin)
             args = []
-        args += ['--file', str(config_path), 'config']
+        args += [f'--file={config_path}', 'config']
         result = compose.run(*args, env=self.env, check=False,
                              stderr=subprocess.PIPE, stdout=subprocess.PIPE)
 
@@ -180,7 +180,7 @@ class DockerCompose(Command):
     def __init__(self, config_path, dotenv_path=None, compose_bin=None,
                  using_docker=False, using_buildx=False, params=None,
                  debug=False):
-        compose_bin = default_bin(compose_bin, 'docker-compose')
+        compose_bin = default_bin(compose_bin, 'docker compose')
         self.config = ComposeConfig(config_path, dotenv_path, compose_bin,
                                     params=params, using_docker=using_docker,
                                     using_buildx=using_buildx, debug=debug)
@@ -193,7 +193,7 @@ class DockerCompose(Command):
     def _execute_compose(self, *args, **kwargs):
         # execute as a docker compose command
         try:
-            result = super().run('--file', str(self.config.path), *args,
+            result = super().run(f'--file={self.config.path}', *args,
                                  env=self.config.env, **kwargs)
             result.check_returncode()
         except subprocess.CalledProcessError as e:

@@ -117,6 +117,16 @@ public class TypeLayout {
               }
 
               @Override
+              public TypeLayout visit(ArrowType.LargeListView type) {
+                List<BufferLayout> vectors =
+                    asList(
+                        BufferLayout.validityVector(),
+                        BufferLayout.largeOffsetBuffer(),
+                        BufferLayout.largeSizeBuffer());
+                return new TypeLayout(vectors);
+              }
+
+              @Override
               public TypeLayout visit(ArrowType.LargeList type) {
                 List<BufferLayout> vectors =
                     asList(BufferLayout.validityVector(), BufferLayout.largeOffsetBuffer());
@@ -338,6 +348,12 @@ public class TypeLayout {
           public Integer visit(ArrowType.LargeList type) {
             // validity buffer + offset buffer
             return 2;
+          }
+
+          @Override
+          public Integer visit(ArrowType.LargeListView type) {
+            // validity buffer + offset buffer + size buffer
+            return 3;
           }
 
           @Override

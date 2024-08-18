@@ -17,6 +17,7 @@
 
 #include "arrow/compute/row/encode_internal.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/int_util_overflow.h"
 
 namespace arrow {
 namespace compute {
@@ -160,8 +161,8 @@ Status RowTableEncoder::EncodeSelected(RowTableImpl* rows, uint32_t num_selected
                         /*num_extra_bytes_to_append=*/static_cast<uint32_t>(0)));
   // Then populate the offsets of the var-length columns, which will be used as the target
   // size of the var-length buffers resizing below.
-  EncoderOffsets::GetRowOffsetsSelected(rows, batch_varbinary_cols_, num_selected,
-                                        selection);
+  RETURN_NOT_OK(EncoderOffsets::GetRowOffsetsSelected(rows, batch_varbinary_cols_,
+                                                      num_selected, selection));
   // Last AppendEmpty with zero rows and zero extra bytes to resize the var-length buffers
   // based on the populated offsets.
   RETURN_NOT_OK(
@@ -667,12 +668,12 @@ void EncoderOffsets::Decode(uint32_t start_row, uint32_t num_rows,
   }
 }
 
-void EncoderOffsets::GetRowOffsetsSelected(RowTableImpl* rows,
-                                           const std::vector<KeyColumnArray>& cols,
-                                           uint32_t num_selected,
-                                           const uint16_t* selection) {
+Status EncoderOffsets::GetRowOffsetsSelected(RowTableImpl* rows,
+                                             const std::vector<KeyColumnArray>& cols,
+                                             uint32_t num_selected,
+                                             const uint16_t* selection) {
   if (rows->metadata().is_fixed_length) {
-    return;
+    return Status::OK();
   }
 
   uint32_t* row_offsets = rows->mutable_offsets();
@@ -713,9 +714,18 @@ void EncoderOffsets::GetRowOffsetsSelected(RowTableImpl* rows,
     uint32_t length = row_offsets[i];
     length += RowTableMetadata::padding_for_alignment(length, row_alignment);
     row_offsets[i] = sum;
-    sum += length;
+    uint32_t sum_maybe_overflow = 0;
+    if (ARROW_PREDICT_FALSE(
+            arrow::internal::AddWithOverflow(sum, length, &sum_maybe_overflow))) {
+      return Status::Invalid(
+          "Offset overflow detected in EncoderOffsets::GetRowOffsetsSelected for row ", i,
+          " of length ", length, " bytes, current length in total is ", sum, " bytes");
+    }
+    sum = sum_maybe_overflow;
   }
   row_offsets[num_selected] = sum;
+
+  return Status::OK();
 }
 
 template <bool has_nulls, bool is_first_varbinary>

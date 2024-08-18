@@ -19,10 +19,15 @@
 
 #pragma once
 
-#include "arrow/flight/protocol_internal.h"  // IWYU pragma: keep
 #include "arrow/flight/transport.h"
+#include "arrow/flight/type_fwd.h"
 #include "arrow/flight/types.h"
-#include "arrow/util/macros.h"
+#include "arrow/flight/visibility.h"
+
+namespace google::protobuf {
+class Message;
+class Timestamp;
+}  // namespace google::protobuf
 
 namespace arrow {
 
@@ -34,6 +39,32 @@ class Message;
 }  // namespace ipc
 
 namespace flight {
+// Protobuf types from Flight.proto
+namespace protocol {
+class Action;
+class ActionType;
+class BasicAuth;
+class CancelFlightInfoRequest;
+class CancelFlightInfoResult;
+class Criteria;
+class FlightData;
+class FlightDescriptor;
+class FlightEndpoint;
+class FlightInfo;
+class GetSessionOptionsRequest;
+class Location;
+class PollInfo;
+class RenewFlightEndpointRequest;
+class Result;
+class SchemaResult;
+class SetSessionOptionsRequest;
+class SetSessionOptionsResult;
+class Ticket;
+class GetSessionOptionsRequest;
+class GetSessionOptionsResult;
+class CloseSessionRequest;
+class CloseSessionResult;
+}  // namespace protocol
 namespace pb = arrow::flight::protocol;
 namespace internal {
 
@@ -42,6 +73,29 @@ static constexpr char kAuthHeader[] = "authorization";
 
 ARROW_FLIGHT_EXPORT
 Status SchemaToString(const Schema& schema, std::string* out);
+
+/// \brief Wraps a protobuf message representing a Flight command in a FlightDescriptor.
+///
+/// A `FlightDescriptor` can carry a string representing a command in any
+/// format the implementation desires. A common pattern in Flight implementations
+/// is to wrap a message in a `protobuf::Any` message, which is then serialized
+/// into the string of the `FlightDescriptor.`
+ARROW_FLIGHT_EXPORT
+Status PackProtoCommand(const google::protobuf::Message& command, FlightDescriptor* out);
+
+/// \brief Wraps a protobuf message representing a Flight action.
+///
+/// A Flight action can carry a string representing an action in any format the
+/// implementation desires. A common pattern in Flight implementations is to
+/// wrap a message in a `protobuf::Any` message, which is then serialized into
+/// the string of the `Action.`
+ARROW_FLIGHT_EXPORT
+Status PackProtoAction(std::string action_type, const google::protobuf::Message& action,
+                       Action* out);
+
+/// \brief Unpacks a protobuf message packed by PackProtoAction.
+ARROW_FLIGHT_EXPORT
+Status UnpackProtoAction(const Action& action, google::protobuf::Message* out);
 
 // These functions depend on protobuf types which are not exported in the Flight DLL.
 
@@ -60,11 +114,13 @@ Status FromProto(const pb::FlightDescriptor& pb_descr, FlightDescriptor* descr);
 Status FromProto(const pb::FlightEndpoint& pb_endpoint, FlightEndpoint* endpoint);
 Status FromProto(const pb::RenewFlightEndpointRequest& pb_request,
                  RenewFlightEndpointRequest* request);
-arrow::Result<FlightInfo> FromProto(const pb::FlightInfo& pb_info);
+Status FromProto(const pb::FlightInfo& pb_info, FlightInfo::Data* info);
+Status FromProto(const pb::FlightInfo& pb_info, std::unique_ptr<FlightInfo>* info);
 Status FromProto(const pb::PollInfo& pb_info, PollInfo* info);
+Status FromProto(const pb::PollInfo& pb_info, std::unique_ptr<PollInfo>* info);
 Status FromProto(const pb::CancelFlightInfoRequest& pb_request,
                  CancelFlightInfoRequest* request);
-Status FromProto(const pb::SchemaResult& pb_result, std::string* result);
+Status FromProto(const pb::SchemaResult& pb_result, SchemaResult* result);
 Status FromProto(const pb::BasicAuth& pb_basic_auth, BasicAuth* info);
 Status FromProto(const pb::SetSessionOptionsRequest& pb_request,
                  SetSessionOptionsRequest* request);
@@ -92,6 +148,7 @@ Status ToProto(const Result& result, pb::Result* pb_result);
 Status ToProto(const CancelFlightInfoResult& result,
                pb::CancelFlightInfoResult* pb_result);
 Status ToProto(const Criteria& criteria, pb::Criteria* pb_criteria);
+Status ToProto(const Location& location, pb::Location* pb_location);
 Status ToProto(const SchemaResult& result, pb::SchemaResult* pb_result);
 Status ToProto(const Ticket& ticket, pb::Ticket* pb_ticket);
 Status ToProto(const BasicAuth& basic_auth, pb::BasicAuth* pb_basic_auth);

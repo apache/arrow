@@ -32,7 +32,7 @@ Arrow Java uses the `Maven <https://maven.apache.org/>`_ build system.
 
 Building requires:
 
-* JDK 8+
+* JDK 11+
 * Maven 3+
 
 .. note::
@@ -321,6 +321,54 @@ Building Java JNI Modules
           -Darrow.c.jni.dist.dir=<absolute path to your arrow folder>/java-dist/lib/ \
           -Parrow-jni clean install
 
+Testing
+=======
+
+By default, Maven uses the same Java version to both build the code and run the tests.
+
+It is also possible to use a different JDK version for the tests. This requires Maven
+toolchains to be configured beforehand, and then a specific test property needs to be set.
+
+Configuring Maven toolchains
+----------------------------
+
+To be able to use a JDK version for testing, it needs to be registered first in Maven ``toolchains.xml``
+configuration file usually located under ``${HOME}/.m2`` with the following snippet added to it:
+
+  .. code-block::
+
+      <?xml version="1.0" encoding="UTF8"?>
+      <toolchains>
+
+        [...]
+
+        <toolchain>
+          <type>jdk</type>
+          <provides>
+            <version>21</version> <!-- Replace with the corresponding JDK version: 11, 17, ... -->
+            <vendor>temurin</vendor> <!-- Replace with the vendor/distribution: temurin, oracle, zulu ... -->
+          </provides>
+          <configuration>
+            <jdkHome>path/to/jdk/home</jdkHome> <!-- Replace with the path to the JDK -->
+          </configuration>
+        </toolchain>
+
+        [...]
+
+      </toolchains>
+
+Testing with a specific JDK
+---------------------------
+
+To run Arrow tests with a specific JDK version, use the ``arrow.test.jdk-version`` property.
+
+For example, to run Arrow tests with JDK 17, use the following snippet:
+
+  .. code-block::
+
+      $ cd arrow/java
+      $ mvn -Darrow.test.jdk-version=17 clean verify
+
 IDE Configuration
 =================
 
@@ -335,7 +383,6 @@ Arrow repository, and update the following settings:
   right click the directory, and select Mark Directory as > Generated Sources
   Root. There is no need to mark other generated sources directories, as only
   the ``vector`` module generates sources.
-* For JDK 8, disable the ``error-prone`` profile to build the project successfully.
 * For JDK 11, due to an `IntelliJ bug
   <https://youtrack.jetbrains.com/issue/IDEA-201168>`__, you must go into
   Settings > Build, Execution, Deployment > Compiler > Java Compiler and disable
@@ -538,3 +585,40 @@ Installing Manually
 
 .. _builds@arrow.apache.org: https://lists.apache.org/list.html?builds@arrow.apache.org
 .. _GitHub Nightly: https://github.com/ursacomputing/crossbow/releases/tag/nightly-packaging-2022-07-30-0-github-java-jars
+
+Installing Staging Packages
+===========================
+
+.. warning::
+    These packages are not official releases. Use them at your own risk.
+
+Arrow staging builds are created when a Release Candidate (RC) is being prepared. This allows users to test the RC in their applications before voting on the release.
+
+
+Installing from Apache Staging
+--------------------------------
+1. Look up the next version number for the Arrow libraries used.
+
+2. Add Apache Staging Repository to the Maven/Gradle project.
+
+   .. code-block:: xml
+
+      <properties>
+         <arrow.version>9.0.0</arrow.version>
+      </properties>
+      ...
+      <repositories>
+         <repository>
+               <id>arrow-apache-staging</id>
+               <url>https://repository.apache.org/content/repositories/staging</url>
+         </repository>
+      </repositories>
+      ...
+      <dependencies>
+         <dependency>
+               <groupId>org.apache.arrow</groupId>
+               <artifactId>arrow-vector</artifactId>
+               <version>${arrow.version}</version>
+         </dependency>
+      </dependencies>
+      ...

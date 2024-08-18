@@ -53,18 +53,24 @@ namespace Apache.Arrow
                     return new StringArray(data);
                 case ArrowTypeId.StringView:
                     return new StringViewArray(data);
+                case ArrowTypeId.LargeString:
+                    return new LargeStringArray(data);
                 case ArrowTypeId.FixedSizedBinary:
                     return new FixedSizeBinaryArray(data);
                 case ArrowTypeId.Binary:
                     return new BinaryArray(data);
                 case ArrowTypeId.BinaryView:
                     return new BinaryViewArray(data);
+                case ArrowTypeId.LargeBinary:
+                    return new LargeBinaryArray(data);
                 case ArrowTypeId.Timestamp:
                     return new TimestampArray(data);
                 case ArrowTypeId.List:
                     return new ListArray(data);
                 case ArrowTypeId.ListView:
                     return new ListViewArray(data);
+                case ArrowTypeId.LargeList:
+                    return new LargeListArray(data);
                 case ArrowTypeId.Map:
                     return new MapArray(data);
                 case ArrowTypeId.Struct:

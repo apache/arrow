@@ -198,7 +198,10 @@ class AzuriteEnv : public AzureEnvImpl<AzuriteEnv> {
                           self->temp_dir_->path().Join("debug.log"));
     auto server_process = bp::child(
         boost::this_process::environment(), exe_path, "--silent", "--location",
-        self->temp_dir_->path().ToString(), "--debug", self->debug_log_path_.ToString());
+        self->temp_dir_->path().ToString(), "--debug", self->debug_log_path_.ToString(),
+        // For old Azurite. We can't install the latest Azurite with
+        // old Node.js on old Ubuntu.
+        "--skipApiVersionCheck");
     if (!server_process.valid() || !server_process.running()) {
       server_process.terminate();
       server_process.wait();
@@ -2957,6 +2960,15 @@ TEST_F(TestAzuriteFileSystem, OpenInputFileClosed) {
   ASSERT_RAISES(Invalid, stream->ReadAt(1, buffer.size(), buffer.data()));
   ASSERT_RAISES(Invalid, stream->ReadAt(1, 1));
   ASSERT_RAISES(Invalid, stream->Seek(2));
+}
+
+TEST_F(TestAzuriteFileSystem, PathFromUri) {
+  ASSERT_EQ(
+      "container/some/path",
+      fs()->PathFromUri("abfss://storageacc.blob.core.windows.net/container/some/path"));
+  ASSERT_EQ("container/some/path",
+            fs()->PathFromUri("abfss://acc:pw@container/some/path"));
+  ASSERT_RAISES(Invalid, fs()->PathFromUri("http://acc:pw@container/some/path"));
 }
 }  // namespace fs
 }  // namespace arrow

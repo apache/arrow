@@ -24,6 +24,7 @@ from os.path import join as pjoin
 import re
 import shlex
 import sys
+import warnings
 
 if sys.version_info >= (3, 10):
     import sysconfig
@@ -31,7 +32,6 @@ else:
     # Get correct EXT_SUFFIX on Windows (https://bugs.python.org/issue39825)
     from distutils import sysconfig
 
-import pkg_resources
 from setuptools import setup, Extension, Distribution, find_namespace_packages
 
 from Cython.Distutils import build_ext as _build_ext
@@ -84,11 +84,29 @@ def strtobool(val):
         raise ValueError("invalid truth value %r" % (val,))
 
 
+MSG_DEPR_SETUP_BUILD_FLAGS = """
+  !!
+
+        ***********************************************************************
+        The '{}' flag is being passed to setup.py, but this is
+        deprecated.
+
+        If a certain component is available in Arrow C++, it will automatically
+        be enabled for the PyArrow build as well. If you want to force the
+        build of a certain component, you can still use the
+        PYARROW_WITH_$COMPONENT environment variable.
+        ***********************************************************************
+
+  !!
+"""
+
+
 class build_ext(_build_ext):
     _found_names = ()
 
     def build_extensions(self):
-        numpy_incl = pkg_resources.resource_filename('numpy', 'core/include')
+        import numpy
+        numpy_incl = numpy.get_include()
 
         self.extensions = [ext for ext in self.extensions
                            if ext.name != '__dummy__']
@@ -258,9 +276,16 @@ class build_ext(_build_ext):
                     varname, 'on' if value else 'off'))
 
             def append_cmake_component(flag, varname):
-                # only pass this to cmake is the user pass the --with-component
+                # only pass this to cmake if the user pass the --with-component
                 # flag to setup.py build_ext
                 if flag is not None:
+                    flag_name = (
+                        "--with-"
+                        + varname.removeprefix("PYARROW_").lower().replace("_", "-"))
+                    warnings.warn(
+                        MSG_DEPR_SETUP_BUILD_FLAGS.format(flag_name),
+                        UserWarning, stacklevel=2
+                    )
                     append_cmake_bool(flag, varname)
 
             if self.cmake_generator:

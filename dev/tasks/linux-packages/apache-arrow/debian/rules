@@ -107,8 +107,10 @@ override_dh_auto_test:
 
 # libarrow.so: avoid failing with "Unknown DWARF DW_OP_172"
 # libgandiva.so: avoid failing with "Unknown DWARF DW_OP_255"
+# libparquet.so: avoid failing with "Unknown DWARF DW_OP_4"
 #   See also: https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=949296
 override_dh_dwz:
 	dh_dwz \
 	  --exclude=libarrow.so \
-	  --exclude=libgandiva.so
+	  --exclude=libgandiva.so \
+	  --exclude=libparquet.so

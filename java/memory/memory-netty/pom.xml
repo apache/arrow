@@ -22,7 +22,7 @@ under the License.
   <parent>
     <groupId>org.apache.arrow</groupId>
     <artifactId>arrow-memory</artifactId>
-    <version>17.0.0-SNAPSHOT</version>
+    <version>18.0.0-SNAPSHOT</version>
   </parent>
 
   <artifactId>arrow-memory-netty</artifactId>
@@ -78,6 +78,7 @@ under the License.
             <artifactId>maven-failsafe-plugin</artifactId>
             <executions>
               <execution>
+                <id>default-it</id>
                 <goals>
                   <goal>integration-test</goal>
                   <goal>verify</goal>

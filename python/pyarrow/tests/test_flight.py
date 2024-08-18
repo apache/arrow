@@ -180,20 +180,16 @@ class MetadataFlightServer(FlightServerBase):
     def do_put(self, context, descriptor, reader, writer):
         counter = 0
         expected_data = [-10, -5, 0, 5, 10]
-        while True:
-            try:
-                batch, buf = reader.read_chunk()
-                assert batch.equals(pa.RecordBatch.from_arrays(
-                    [pa.array([expected_data[counter]])],
-                    ['a']
-                ))
-                assert buf is not None
-                client_counter, = struct.unpack('<i', buf.to_pybytes())
-                assert counter == client_counter
-                writer.write(struct.pack('<i', counter))
-                counter += 1
-            except StopIteration:
-                return
+        for batch, buf in reader:
+            assert batch.equals(pa.RecordBatch.from_arrays(
+                [pa.array([expected_data[counter]])],
+                ['a']
+            ))
+            assert buf is not None
+            client_counter, = struct.unpack('<i', buf.to_pybytes())
+            assert counter == client_counter
+            writer.write(struct.pack('<i', counter))
+            counter += 1
 
     @staticmethod
     def number_batches(table):
@@ -1516,17 +1512,45 @@ def test_flight_do_get_metadata():
             FlightClient(('localhost', server.port)) as client:
         reader = client.do_get(flight.Ticket(b''))
         idx = 0
+        for batch, metadata in reader:
+            batches.append(batch)
+            server_idx, = struct.unpack('<i', metadata.to_pybytes())
+            assert idx == server_idx
+            idx += 1
+        data = pa.Table.from_batches(batches)
+        assert data.equals(table)
+
+
+def test_flight_metadata_record_batch_reader_iterator():
+    """Verify the iterator interface works as expected."""
+    batches1 = []
+    batches2 = []
+
+    with MetadataFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
+        reader = client.do_get(flight.Ticket(b''))
+        idx = 0
         while True:
             try:
                 batch, metadata = reader.read_chunk()
-                batches.append(batch)
+                batches1.append(batch)
                 server_idx, = struct.unpack('<i', metadata.to_pybytes())
                 assert idx == server_idx
                 idx += 1
             except StopIteration:
                 break
-        data = pa.Table.from_batches(batches)
-        assert data.equals(table)
+
+    with MetadataFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
+        reader = client.do_get(flight.Ticket(b''))
+        idx = 0
+        for batch, metadata in reader:
+            batches2.append(batch)
+            server_idx, = struct.unpack('<i', metadata.to_pybytes())
+            assert idx == server_idx
+            idx += 1
+
+    assert batches1 == batches2
 
 
 def test_flight_do_get_metadata_v4():

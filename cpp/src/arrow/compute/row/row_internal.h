@@ -220,7 +220,14 @@ class ARROW_EXPORT RowTableImpl {
   }
 
  private:
+  /// \brief Resize the fixed length buffers to store `num_extra_rows` more rows. The
+  /// fixed length buffers are buffers_[0] for null masks, buffers_[1] for row data if the
+  /// row is fixed length, or for row offsets otherwise.
   Status ResizeFixedLengthBuffers(int64_t num_extra_rows);
+
+  /// \brief Resize the optional varying length buffer to store `num_extra_bytes` more
+  /// bytes.
+  /// \pre !metadata_.is_fixed_length
   Status ResizeOptionalVaryingLengthBuffer(int64_t num_extra_bytes);
 
   // Helper functions to determine the number of bytes needed for each

@@ -46,6 +46,7 @@ def load_version_from_pom():
 _JAVA_OPTS = [
     "-Dio.netty.tryReflectionSetAccessible=true",
     "-Darrow.struct.conflict.policy=CONFLICT_APPEND",
+    "--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED",
     # GH-39113: avoid failures accessing files in `/tmp/hsperfdata_...`
     "-XX:-UsePerfData",
 ]
@@ -88,24 +89,13 @@ def setup_jpype():
     import jpype
     jar_path = f"{_ARROW_TOOLS_JAR}:{_ARROW_C_DATA_JAR}"
     # XXX Didn't manage to tone down the logging level here (DEBUG -> INFO)
-    java_opts = _JAVA_OPTS[:]
-    proc = subprocess.run(
-        ['java', '--add-opens'],
-        stderr=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        text=True)
-    if 'Unrecognized option: --add-opens' not in proc.stderr:
-        # Java 9+
-        java_opts.append(
-            '--add-opens=java.base/java.nio='
-            'org.apache.arrow.memory.core,ALL-UNNAMED')
     jpype.startJVM(jpype.getDefaultJVMPath(),
                    "-Djava.class.path=" + jar_path,
                    # This flag is too heavy for IPC and Flight tests
                    "-Darrow.memory.debug.allocator=true",
                    # Reduce internal use of signals by the JVM
                    "-Xrs",
-                   *java_opts)
+                   *_JAVA_OPTS)
 
 
 class _CDataBase:
@@ -253,20 +243,9 @@ class JavaTester(Tester):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Detect whether we're on Java 8 or Java 9+
         self._java_opts = _JAVA_OPTS[:]
-        proc = subprocess.run(
-            ['java', '--add-opens'],
-            stderr=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            text=True)
-        if 'Unrecognized option: --add-opens' not in proc.stderr:
-            # Java 9+
-            self._java_opts.append(
-                '--add-opens=java.base/java.nio='
-                'org.apache.arrow.memory.core,ALL-UNNAMED')
-            self._java_opts.append(
-                '--add-reads=org.apache.arrow.flight.core=ALL-UNNAMED')
+        self._java_opts.append(
+            '--add-reads=org.apache.arrow.flight.core=ALL-UNNAMED')
 
     def _run(self, arrow_path=None, json_path=None, command='VALIDATE'):
         cmd = (

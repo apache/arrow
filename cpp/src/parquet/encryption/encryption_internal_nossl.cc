@@ -72,14 +72,15 @@ void AesDecryptor::WipeOut() { ThrowOpenSSLRequiredException(); }
 
 AesDecryptor::~AesDecryptor() {}
 
-AesEncryptor* AesEncryptor::Make(ParquetCipher::type alg_id, int key_len, bool metadata,
-                                 std::vector<AesEncryptor*>* all_encryptors) {
+std::unique_ptr<AesEncryptor> AesEncryptor::Make(ParquetCipher::type alg_id, int key_len,
+                                                 bool metadata) {
+  ThrowOpenSSLRequiredException();
   return NULLPTR;
 }
 
-AesEncryptor* AesEncryptor::Make(ParquetCipher::type alg_id, int key_len, bool metadata,
-                                 bool write_length,
-                                 std::vector<AesEncryptor*>* all_encryptors) {
+std::unique_ptr<AesEncryptor> AesEncryptor::Make(ParquetCipher::type alg_id, int key_len,
+                                                 bool metadata, bool write_length) {
+  ThrowOpenSSLRequiredException();
   return NULLPTR;
 }
 
@@ -91,6 +92,7 @@ AesDecryptor::AesDecryptor(ParquetCipher::type alg_id, int key_len, bool metadat
 std::shared_ptr<AesDecryptor> AesDecryptor::Make(
     ParquetCipher::type alg_id, int key_len, bool metadata,
     std::vector<std::weak_ptr<AesDecryptor>>* all_decryptors) {
+  ThrowOpenSSLRequiredException();
   return NULLPTR;
 }
 

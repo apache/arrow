@@ -24,11 +24,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v17/arrow"
-	"github.com/apache/arrow/go/v17/arrow/array"
-	"github.com/apache/arrow/go/v17/arrow/bitutil"
-	"github.com/apache/arrow/go/v17/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v17/arrow/memory"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/array"
+	"github.com/apache/arrow/go/v18/arrow/bitutil"
+	"github.com/apache/arrow/go/v18/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v18/arrow/memory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -234,4 +234,23 @@ func TestWriteWithCompressionAndMinSavings(t *testing.T) {
 			assert.ErrorContains(t, err, "minSpaceSavings not in range [0,1]")
 		}
 	}
+}
+
+func TestWriterInferSchema(t *testing.T) {
+	bldr := array.NewRecordBuilder(memory.DefaultAllocator, arrow.NewSchema([]arrow.Field{{Name: "col", Type: arrow.PrimitiveTypes.Int8}}, nil))
+	bldr.Field(0).(*array.Int8Builder).AppendValues([]int8{1, 2, 3, 4, 5}, nil)
+	rec := bldr.NewRecord()
+	defer rec.Release()
+
+	var buf bytes.Buffer
+	w := NewWriter(&buf)
+
+	require.NoError(t, w.Write(rec))
+	require.NoError(t, w.Close())
+
+	r, err := NewReader(&buf)
+	require.NoError(t, err)
+	defer r.Release()
+
+	require.True(t, r.Schema().Equal(rec.Schema()))
 }

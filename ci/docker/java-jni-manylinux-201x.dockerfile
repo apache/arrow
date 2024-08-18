@@ -33,7 +33,7 @@ RUN vcpkg install \
         --x-feature=s3
 
 # Install Java
-ARG java=1.8.0
+ARG java=11
 ARG maven=3.9.3
 RUN yum install -y java-$java-openjdk-devel && \
       yum clean all && \

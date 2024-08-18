@@ -21,7 +21,7 @@ test_that("Alternate type names are supported", {
     schema(b = double(), c = bool(), d = string(), e = float(), f = halffloat()),
     schema(b = float64(), c = boolean(), d = utf8(), e = float32(), f = float16())
   )
-  expect_equal(names(schema(b = double(), c = bool(), d = string())), c("b", "c", "d"))
+  expect_named(schema(b = double(), c = bool(), d = string()), c("b", "c", "d"))
 })
 
 test_that("Schema print method", {
@@ -279,9 +279,9 @@ test_that("as_schema() works for StructType objects", {
 
 test_that("schema name assignment", {
   schm <- schema(x = int8(), y = string(), z = double())
-  expect_identical(names(schm), c("x", "y", "z"))
+  expect_named(schm, c("x", "y", "z"))
   names(schm) <- c("a", "b", "c")
-  expect_identical(names(schm), c("a", "b", "c"))
+  expect_named(schm, c("a", "b", "c"))
   expect_error(names(schm) <- "f", regexp = "Replacement names must contain same number of items as current names")
   expect_error(names(schm) <- NULL, regexp = "Replacement names must be character vector, not NULL")
 
@@ -289,8 +289,8 @@ test_that("schema name assignment", {
   df <- data.frame(x = 1:3, y = c("a", "b", "c"))
   schm2 <- arrow_table(df)$schema
   names(schm2) <- c("col1", "col2")
-  expect_identical(names(schm2), c("col1", "col2"))
-  expect_identical(names(schm2$r_metadata$columns), c("col1", "col2"))
+  expect_named(schm2, c("col1", "col2"))
+  expect_named(schm2$r_metadata$columns, c("col1", "col2"))
 })
 
 test_that("schema extraction", {

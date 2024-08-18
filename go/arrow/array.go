@@ -19,8 +19,8 @@ package arrow
 import (
 	"fmt"
 
-	"github.com/apache/arrow/go/v17/arrow/memory"
-	"github.com/apache/arrow/go/v17/internal/json"
+	"github.com/apache/arrow/go/v18/arrow/memory"
+	"github.com/apache/arrow/go/v18/internal/json"
 )
 
 // ArrayData is the underlying memory and metadata of an Arrow array, corresponding

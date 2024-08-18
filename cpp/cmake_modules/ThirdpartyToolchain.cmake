@@ -1355,15 +1355,23 @@ macro(build_snappy)
       "-DCMAKE_INSTALL_PREFIX=${SNAPPY_PREFIX}")
   # Snappy unconditionally enables -Werror when building with clang this can lead
   # to build failures by way of new compiler warnings. This adds a flag to disable
-  # Werror to the very end of the invocation to override the snappy internal setting.
+  # -Werror to the very end of the invocation to override the snappy internal setting.
+  set(SNAPPY_ADDITIONAL_CXX_FLAGS "")
   if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    foreach(CONFIG DEBUG MINSIZEREL RELEASE RELWITHDEBINFO)
-      list(APPEND
-           SNAPPY_CMAKE_ARGS
-           "-DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS_${CONFIG}} -Wno-error"
-      )
-    endforeach()
+    string(APPEND SNAPPY_ADDITIONAL_CXX_FLAGS " -Wno-error")
   endif()
+  # Snappy unconditionally disables RTTI, which is incompatible with some other
+  # build settings (https://github.com/apache/arrow/issues/43688).
+  if(NOT MSVC)
+    string(APPEND SNAPPY_ADDITIONAL_CXX_FLAGS " -frtti")
+  endif()
+
+  foreach(CONFIG DEBUG MINSIZEREL RELEASE RELWITHDEBINFO)
+    list(APPEND
+         SNAPPY_CMAKE_ARGS
+         "-DCMAKE_CXX_FLAGS_${CONFIG}=${EP_CXX_FLAGS_${CONFIG}} ${SNAPPY_ADDITIONAL_CXX_FLAGS}"
+    )
+  endforeach()
 
   if(APPLE AND CMAKE_HOST_SYSTEM_VERSION VERSION_LESS 20)
     # On macOS 10.13 we need to explicitly add <functional> to avoid a missing include error
@@ -2306,6 +2314,10 @@ function(build_gtest)
   install(DIRECTORY "${googletest_SOURCE_DIR}/googlemock/include/"
                     "${googletest_SOURCE_DIR}/googletest/include/"
           DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
+  add_library(arrow::GTest::gtest_headers INTERFACE IMPORTED)
+  target_include_directories(arrow::GTest::gtest_headers
+                             INTERFACE "${googletest_SOURCE_DIR}/googlemock/include/"
+                                       "${googletest_SOURCE_DIR}/googletest/include/")
   install(TARGETS gmock gmock_main gtest gtest_main
           EXPORT arrow_testing_targets
           RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
@@ -2350,12 +2362,14 @@ if(ARROW_TESTING)
 
       string(APPEND ARROW_TESTING_PC_LIBS " $<TARGET_FILE:GTest::gtest>")
     endif()
+    set(ARROW_GTEST_GTEST_HEADERS)
     set(ARROW_GTEST_GMOCK GTest::gmock)
     set(ARROW_GTEST_GTEST GTest::gtest)
     set(ARROW_GTEST_GTEST_MAIN GTest::gtest_main)
   else()
     string(APPEND ARROW_TESTING_PC_CFLAGS " -I\${includedir}/arrow-gtest")
     string(APPEND ARROW_TESTING_PC_LIBS " -larrow_gtest")
+    set(ARROW_GTEST_GTEST_HEADERS arrow::GTest::gtest_headers)
     set(ARROW_GTEST_GMOCK arrow::GTest::gmock)
     set(ARROW_GTEST_GTEST arrow::GTest::gtest)
     set(ARROW_GTEST_GTEST_MAIN arrow::GTest::gtest_main)
@@ -2882,6 +2896,10 @@ macro(build_absl)
   set(ABSL_INCLUDE_DIR "${ABSL_PREFIX}/include")
   set(ABSL_CMAKE_ARGS "${EP_COMMON_CMAKE_ARGS}" -DABSL_RUN_TESTS=OFF
                       "-DCMAKE_INSTALL_PREFIX=${ABSL_PREFIX}")
+  if(CMAKE_COMPILER_IS_GNUCC AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 13.0)
+    set(ABSL_CXX_FLAGS "${EP_CXX_FLAGS} -include stdint.h")
+    list(APPEND ABSL_CMAKE_ARGS "-DCMAKE_CXX_FLAGS=${ABSL_CXX_FLAGS}")
+  endif()
   set(ABSL_BUILD_BYPRODUCTS)
   set(ABSL_LIBRARIES)
 
@@ -4506,9 +4524,12 @@ function(build_orc)
         OFF
         CACHE BOOL "" FORCE)
     get_target_property(LZ4_INCLUDE_DIR LZ4::lz4 INTERFACE_INCLUDE_DIRECTORIES)
+    if(NOT LZ4_INCLUDE_DIR)
+      find_path(LZ4_INCLUDE_DIR NAMES lz4.h)
+    endif()
     get_filename_component(LZ4_ROOT "${LZ4_INCLUDE_DIR}" DIRECTORY)
     set(LZ4_HOME
-        ${LZ4_ROOT}
+        "${LZ4_ROOT}"
         CACHE STRING "" FORCE)
     set(LZ4_LIBRARY
         LZ4::lz4
@@ -4944,8 +4965,20 @@ macro(build_awssdk)
   set(AWSSDK_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/awssdk_ep-install")
   set(AWSSDK_INCLUDE_DIR "${AWSSDK_PREFIX}/include")
 
+  # The AWS SDK has a few warnings around shortening lengths
+  set(AWS_C_FLAGS "${EP_C_FLAGS}")
+  set(AWS_CXX_FLAGS "${EP_CXX_FLAGS}")
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL
+                                                    "Clang")
+    # Negate warnings that AWS SDK cannot build under
+    string(APPEND AWS_C_FLAGS " -Wno-error=shorten-64-to-32")
+    string(APPEND AWS_CXX_FLAGS " -Wno-error=shorten-64-to-32")
+  endif()
+
   set(AWSSDK_COMMON_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
+      -DCMAKE_C_FLAGS=${AWS_C_FLAGS}
+      -DCMAKE_CXX_FLAGS=${AWS_CXX_FLAGS}
       -DCPP_STANDARD=${CMAKE_CXX_STANDARD}
       -DCMAKE_INSTALL_PREFIX=${AWSSDK_PREFIX}
       -DCMAKE_PREFIX_PATH=${AWSSDK_PREFIX}

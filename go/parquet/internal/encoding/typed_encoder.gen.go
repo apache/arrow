@@ -22,15 +22,15 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v17/arrow"
-	"github.com/apache/arrow/go/v17/arrow/array"
-	"github.com/apache/arrow/go/v17/arrow/memory"
-	"github.com/apache/arrow/go/v17/internal/bitutils"
-	shared_utils "github.com/apache/arrow/go/v17/internal/utils"
-	"github.com/apache/arrow/go/v17/parquet"
-	format "github.com/apache/arrow/go/v17/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v17/parquet/internal/utils"
-	"github.com/apache/arrow/go/v17/parquet/schema"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/array"
+	"github.com/apache/arrow/go/v18/arrow/memory"
+	"github.com/apache/arrow/go/v18/internal/bitutils"
+	shared_utils "github.com/apache/arrow/go/v18/internal/utils"
+	"github.com/apache/arrow/go/v18/parquet"
+	format "github.com/apache/arrow/go/v18/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v18/parquet/internal/utils"
+	"github.com/apache/arrow/go/v18/parquet/schema"
 	"golang.org/x/xerrors"
 )
 
@@ -86,8 +86,9 @@ func (int32EncoderTraits) Encoder(e format.Encoding, useDict bool, descr *schema
 	case format.Encoding_PLAIN:
 		return &PlainInt32Encoder{encoder: newEncoderBase(e, descr, mem)}
 	case format.Encoding_DELTA_BINARY_PACKED:
-		return DeltaBitPackInt32Encoder{&deltaBitPackEncoder{
-			encoder: newEncoderBase(e, descr, mem)}}
+		return &DeltaBitPackInt32Encoder{
+			encoder: newEncoderBase(e, descr, mem),
+		}
 	case format.Encoding_BYTE_STREAM_SPLIT:
 		return &ByteStreamSplitInt32Encoder{PlainInt32Encoder: PlainInt32Encoder{encoder: newEncoderBase(e, descr, mem)}}
 	default:
@@ -118,10 +119,9 @@ func (int32DecoderTraits) Decoder(e parquet.Encoding, descr *schema.Column, useD
 			mem = memory.DefaultAllocator
 		}
 		return &DeltaBitPackInt32Decoder{
-			deltaBitPackDecoder: &deltaBitPackDecoder{
-				decoder: newDecoderBase(format.Encoding(e), descr),
-				mem:     mem,
-			}}
+			decoder: newDecoderBase(format.Encoding(e), descr),
+			mem:     mem,
+		}
 	case parquet.Encodings.ByteStreamSplit:
 		return &ByteStreamSplitInt32Decoder{decoder: newDecoderBase(format.Encoding(e), descr)}
 	default:
@@ -327,8 +327,9 @@ func (int64EncoderTraits) Encoder(e format.Encoding, useDict bool, descr *schema
 	case format.Encoding_PLAIN:
 		return &PlainInt64Encoder{encoder: newEncoderBase(e, descr, mem)}
 	case format.Encoding_DELTA_BINARY_PACKED:
-		return DeltaBitPackInt64Encoder{&deltaBitPackEncoder{
-			encoder: newEncoderBase(e, descr, mem)}}
+		return &DeltaBitPackInt64Encoder{
+			encoder: newEncoderBase(e, descr, mem),
+		}
 	case format.Encoding_BYTE_STREAM_SPLIT:
 		return &ByteStreamSplitInt64Encoder{PlainInt64Encoder: PlainInt64Encoder{encoder: newEncoderBase(e, descr, mem)}}
 	default:
@@ -359,10 +360,9 @@ func (int64DecoderTraits) Decoder(e parquet.Encoding, descr *schema.Column, useD
 			mem = memory.DefaultAllocator
 		}
 		return &DeltaBitPackInt64Decoder{
-			deltaBitPackDecoder: &deltaBitPackDecoder{
-				decoder: newDecoderBase(format.Encoding(e), descr),
-				mem:     mem,
-			}}
+			decoder: newDecoderBase(format.Encoding(e), descr),
+			mem:     mem,
+		}
 	case parquet.Encodings.ByteStreamSplit:
 		return &ByteStreamSplitInt64Decoder{decoder: newDecoderBase(format.Encoding(e), descr)}
 	default:
@@ -1306,7 +1306,8 @@ func (byteArrayEncoderTraits) Encoder(e format.Encoding, useDict bool, descr *sc
 		return &DeltaLengthByteArrayEncoder{
 			encoder: newEncoderBase(e, descr, mem),
 			lengthEncoder: &DeltaBitPackInt32Encoder{
-				&deltaBitPackEncoder{encoder: newEncoderBase(e, descr, mem)}},
+				encoder: newEncoderBase(e, descr, mem),
+			},
 		}
 	case format.Encoding_DELTA_BYTE_ARRAY:
 		return &DeltaByteArrayEncoder{

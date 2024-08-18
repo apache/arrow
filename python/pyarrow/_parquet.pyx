@@ -508,6 +508,19 @@ cdef class ColumnChunkMetaData(_Weakrefable):
         """Whether the column chunk has a column index"""
         return self.metadata.GetColumnIndexLocation().has_value()
 
+    @property
+    def metadata(self):
+        """Additional metadata as key value pairs (dict[bytes, bytes])."""
+        cdef:
+            unordered_map[c_string, c_string] metadata
+            const CKeyValueMetadata* underlying_metadata
+        underlying_metadata = self.metadata.key_value_metadata().get()
+        if underlying_metadata != NULL:
+            underlying_metadata.ToUnorderedMap(&metadata)
+            return metadata
+        else:
+            return None
+
 
 cdef class SortingColumn:
     """

@@ -50,7 +50,7 @@ public class VectorLoader {
    * @param root the root to add vectors to based on schema
    */
   public VectorLoader(VectorSchemaRoot root) {
-    this(root, NoCompressionCodec.Factory.INSTANCE);
+    this(root, CompressionCodec.Factory.INSTANCE);
   }
 
   /**

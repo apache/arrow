@@ -188,9 +188,9 @@ public class StructVector extends NonNullableStructVector
   /**
    * Get the inner vectors.
    *
+   * @return the inner vectors for this field as defined by the TypeLayout
    * @deprecated This API will be removed as the current implementations no longer support inner
    *     vectors.
-   * @return the inner vectors for this field as defined by the TypeLayout
    */
   @Deprecated
   @Override
@@ -396,12 +396,13 @@ public class StructVector extends NonNullableStructVector
 
   /**
    * Return the underlying buffers associated with this vector. Note that this doesn't impact the
-   * reference counts for this buffer so it only should be used for in-context access. Also note
-   * that this buffer changes regularly thus external classes shouldn't hold a reference to it
+   * reference counts for this buffer, so it only should be used for in-context access. Also note
+   * that this buffer changes regularly, thus external classes shouldn't hold a reference to it
    * (unless they change it).
    *
-   * @param clear Whether to clear vector before returning; the buffers will still be refcounted but
-   *     the returned array will be the only reference to them
+   * @param clear Whether to clear vector before returning, the buffers will still be refcounted but
+   *     the returned array will be the only reference to them. Also, this won't clear the child
+   *     buffers.
    * @return The underlying {@link ArrowBuf buffers} that is used by this vector instance.
    */
   @Override

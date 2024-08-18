@@ -71,6 +71,7 @@ jobs:
     {% if arrow.is_default_branch() %}
       {{ macros.github_login_dockerhub()|indent }}
       - name: Push Docker Image
+        if: {{ push|default("true") }}
         shell: bash
         run: archery docker push {{ image }}
     {% endif %}

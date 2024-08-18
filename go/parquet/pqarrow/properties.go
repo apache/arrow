@@ -19,9 +19,9 @@ package pqarrow
 import (
 	"context"
 
-	"github.com/apache/arrow/go/v17/arrow"
-	"github.com/apache/arrow/go/v17/arrow/memory"
-	"github.com/apache/arrow/go/v17/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/memory"
+	"github.com/apache/arrow/go/v18/parquet/internal/encoding"
 )
 
 // ArrowWriterProperties are used to determine how to manipulate the arrow data
