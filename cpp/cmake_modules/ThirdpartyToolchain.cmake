@@ -4974,12 +4974,11 @@ macro(build_awssdk)
     string(APPEND AWS_C_FLAGS " -Wno-error=shorten-64-to-32")
     string(APPEND AWS_CXX_FLAGS " -Wno-error=shorten-64-to-32")
   endif()
-
-  set(AWS_EP_COMMON_CMAKE_ARGS "${EP_COMMON_CMAKE_ARGS}" "-DCMAKE_C_FLAGS=${AWS_C_FLAGS}"
-                               "-DCMAKE_CXX_FLAGS=${AWS_CXX_FLAGS}")
-
+  
   set(AWSSDK_COMMON_CMAKE_ARGS
-      ${AWS_EP_COMMON_CMAKE_ARGS}
+      ${EP_COMMON_CMAKE_ARGS}
+      -DCMAKE_C_FLAGS=${AWS_C_FLAGS}
+      -DCMAKE_CXX_FLAGS=${AWS_CXX_FLAGS}
       -DCPP_STANDARD=${CMAKE_CXX_STANDARD}
       -DCMAKE_INSTALL_PREFIX=${AWSSDK_PREFIX}
       -DCMAKE_PREFIX_PATH=${AWSSDK_PREFIX}
