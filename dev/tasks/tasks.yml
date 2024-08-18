@@ -1323,7 +1323,6 @@ tasks:
     ci: github
     template: r/github.macos.cran.yml
 
-
   test-r-arrow-backwards-compatibility:
     ci: github
     template: r/github.linux.arrow.version.back.compat.yml
