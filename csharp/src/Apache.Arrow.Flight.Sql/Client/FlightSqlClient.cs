@@ -3,10 +3,10 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Apache.Arrow.Flight.Client;
-using Grpc.Core;
+using Arrow.Flight.Protocol.Sql;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
-using Arrow.Flight.Protocol.Sql;
+using Grpc.Core;
 
 namespace Apache.Arrow.Flight.Sql.Client;
 
@@ -30,7 +30,6 @@ public class FlightSqlClient
     /// <returns>The FlightInfo describing where to access the dataset.</returns>
     public async Task<FlightInfo> ExecuteAsync(FlightCallOptions options, string query, Transaction? transaction = null)
     {
-        // todo: return FlightInfo
         transaction ??= NoTransaction();
 
         FlightInfo? flightInfo = null;
@@ -572,6 +571,7 @@ public class FlightSqlClient
             {
                 Catalog = tableRef.Catalog ?? string.Empty, DbSchema = tableRef.DbSchema, Table = tableRef.Table
             };
+            //TODO: Refactor
             var action = new FlightAction("GetPrimaryKeys", getPrimaryKeysRequest.PackAndSerialize());
             var doActionResult = DoActionAsync(options, action);
 
@@ -1095,24 +1095,231 @@ public class FlightSqlClient
     }
 
     /// <summary>
-    /// Execute a bulk ingestion to the server.
+    /// Explicitly cancel a FlightInfo.
     /// </summary>
     /// <param name="options">RPC-layer hints for this call.</param>
-    /// <param name="reader">The records to ingest.</param>
-    /// <param name="tableDefinitionOptions">The behavior for handling the table definition.</param>
-    /// <param name="table">The destination table to load into.</param>
-    /// <param name="schema">The DB schema of the destination table.</param>
-    /// <param name="catalog">The catalog of the destination table.</param>
-    /// <param name="temporary">Use a temporary table.</param>
-    /// <param name="transaction">Ingest as part of this transaction.</param>
-    /// <param name="ingestOptions">Additional, backend-specific options.</param>
-    /// <returns>The number of rows ingested to the server.</returns>
-    public async Task<long> ExecuteIngestAsync(FlightCallOptions options,
-        FlightClientRecordBatchStreamReader reader,
-        CommandStatementIngest.Types.TableDefinitionOptions tableDefinitionOptions, string table,
-        string? schema = null,
-        string? catalog = null, bool temporary = false, Transaction? transaction = null,
-        Dictionary<string, string>? ingestOptions = null)
+    /// <param name="request">The CancelFlightInfoRequest.</param>
+    /// <returns>A Task representing the asynchronous operation. The task result contains the CancelFlightInfoResult describing the canceled result.</returns>
+    public async Task<CancelFlightInfoResult> CancelFlightInfoAsync(FlightCallOptions options,
+        CancelFlightInfoRequest request)
+    {
+        // TODO: fix the CancelFlightInfoResult missing implementation of MessageDescriptor
+        if (options == null) throw new ArgumentNullException(nameof(options));
+        if (request == null) throw new ArgumentNullException(nameof(request));
+
+        try
+        {
+            var action = new FlightAction("CancelFlightInfo", request.ToByteString());
+            var call = _client.DoAction(action, options.Headers);
+            await foreach (var result in call.ResponseStream.ReadAllAsync())
+            {
+                var cancelResult = FlightSqlUtils.ParseAndUnpack<CancelFlightInfoResult>(result.Body);
+                return cancelResult;
+            }
+
+            throw new InvalidOperationException("No response received for the CancelFlightInfo request.");
+        }
+        catch (RpcException ex)
+        {
+            // Handle gRPC exceptions
+            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
+            throw new InvalidOperationException("Failed to cancel flight info", ex);
+        }
+        catch (Exception ex)
+        {
+            // Handle other exceptions
+            Console.WriteLine($@"Unexpected Error: {ex.Message}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Begin a new transaction.
+    /// </summary>
+    /// <param name="options">RPC-layer hints for this call.</param>
+    /// <returns>A Task representing the asynchronous operation. The task result contains the Transaction object representing the new transaction.</returns>
+    public async Task<Transaction> BeginTransactionAsync(FlightCallOptions options)
+    {
+        if (options == null)
+        {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        try
+        {
+            var actionBeginTransaction = new ActionBeginTransactionRequest();
+            var action = new FlightAction("BeginTransaction", actionBeginTransaction.PackAndSerialize());
+            var responseStream = _client.DoAction(action, options.Headers);
+            await foreach (var result in responseStream.ResponseStream.ReadAllAsync())
+            {
+                var beginTransactionResult =
+                    ActionBeginTransactionResult.Parser.ParseFrom(result.Body.Span);
+
+                var transaction = new Transaction(beginTransactionResult?.TransactionId.ToBase64());
+                return transaction;
+            }
+            throw new InvalidOperationException("Failed to begin transaction: No response received.");
+        }
+        catch (RpcException ex)
+        {
+            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
+            throw new InvalidOperationException("Failed to begin transaction", ex);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($@"Unexpected Error: {ex.Message}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Commit a transaction.
+    /// After this, the transaction and all associated savepoints will be invalidated.
+    /// </summary>
+    /// <param name="options">RPC-layer hints for this call.</param>
+    /// <param name="transaction">The transaction.</param>
+    /// <returns>A Task representing the asynchronous operation.</returns>
+    public async Task CommitAsync(FlightCallOptions options, Transaction transaction)
+    {
+        if (options == null)
+        {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        if (transaction == null)
+        {
+            throw new ArgumentNullException(nameof(transaction));
+        }
+
+        try
+        {
+            var actionCommit = new FlightAction("Commit", transaction.TransactionId);
+            var responseStream = _client.DoAction(actionCommit, options.Headers);
+            await foreach (var result in responseStream.ResponseStream.ReadAllAsync())
+            {
+                Console.WriteLine("Transaction committed successfully.");
+            }
+        }
+        catch (RpcException ex)
+        {
+            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
+            throw new InvalidOperationException("Failed to commit transaction", ex);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($@"Unexpected Error: {ex.Message}");
+            throw;
+        }
+    }
+
+
+    /// <summary>
+    /// Rollback a transaction.
+    /// After this, the transaction and all associated savepoints will be invalidated.
+    /// </summary>
+    /// <param name="options">RPC-layer hints for this call.</param>
+    /// <param name="transaction">The transaction to rollback.</param>
+    /// <returns>A Task representing the asynchronous operation.</returns>
+    public async Task RollbackAsync(FlightCallOptions options, Transaction transaction)
+    {
+        if (options == null)
+        {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        if (transaction == null)
+        {
+            throw new ArgumentNullException(nameof(transaction));
+        }
+
+        try
+        {
+            var actionRollback = new FlightAction("Rollback", transaction.TransactionId);
+            var responseStream = _client.DoAction(actionRollback, options.Headers);
+            await foreach (var result in responseStream.ResponseStream.ReadAllAsync())
+            {
+                Console.WriteLine("Transaction rolled back successfully.");
+            }
+        }
+        catch (RpcException ex)
+        {
+            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
+            throw new InvalidOperationException("Failed to rollback transaction", ex);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($@"Unexpected Error: {ex.Message}");
+            throw;
+        }
+    }
+
+
+    /// <summary>
+    /// Explicitly cancel a query.
+    /// </summary>
+    /// <param name="options">RPC-layer hints for this call.</param>
+    /// <param name="info">The FlightInfo of the query to cancel.</param>
+    /// <returns>A Task representing the asynchronous operation.</returns>
+    public async Task<CancelFlightInfoResult> CancelQueryAsync(FlightCallOptions options, FlightInfo info)
+    {
+        // TODO: Should reconsider more appropriate implementation
+        // TODO: fix the CancelFlightInfoResult missing implementation of MessageDescriptor
+        if (options == null)
+        {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        if (info == null)
+        {
+            throw new ArgumentNullException(nameof(info));
+        }
+        try
+        {
+            var cancelRequest = new CancelFlightInfoRequest(info);
+            var actionCancelFlightInfo = new FlightAction("CancelFlightInfo", cancelRequest.PackAndSerialize());
+            var call = _client.DoAction(actionCancelFlightInfo, options.Headers);
+            await foreach (var result in call.ResponseStream.ReadAllAsync())
+            {
+                var cancelResult = FlightSqlUtils.ParseAndUnpack<CancelFlightInfoResult>(result.Body);
+                return cancelResult;
+            }
+            throw new InvalidOperationException("Failed to cancel query: No response received.");
+        }
+        catch (RpcException ex)
+        {
+            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
+            throw new InvalidOperationException("Failed to cancel query", ex);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($@"Unexpected Error: {ex.Message}");
+            throw;
+        }
+    }
+
+    /*public async Task<SetSessionOptionsResult> SetSessionOptionsAsync(FlightCallOptions options,
+        Dictionary<string, string> sessionOptions)
+    {
+        if (options == null)
+        {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        if (sessionOptions == null)
+        {
+            throw new ArgumentNullException(nameof(sessionOptions));
+        }
+    }*/
+
+    /// <summary>
+    /// Create a prepared statement object.
+    /// </summary>
+    /// <param name="options">RPC-layer hints for this call.</param>
+    /// <param name="query">The query that will be executed.</param>
+    /// <param name="transaction">A transaction to associate this query with.</param>
+    /// <returns>The created prepared statement.</returns>
+    public async Task<PreparedStatement> PrepareAsync(FlightCallOptions options, string query,
+        Transaction? transaction = null)
     {
         transaction ??= NoTransaction();
 
@@ -1121,39 +1328,54 @@ public class FlightSqlClient
             throw new ArgumentNullException(nameof(options));
         }
 
-        if (reader == null)
+        if (string.IsNullOrEmpty(query))
         {
-            throw new ArgumentNullException(nameof(reader));
+            throw new ArgumentException("Query cannot be null or empty", nameof(query));
         }
 
-        var ingestRequest = new CommandStatementIngest
+        try
         {
-            Table = table,
-            Schema = schema ?? string.Empty,
-            Catalog = catalog ?? string.Empty,
-            Temporary = temporary,
-            // TransactionId = transaction?.TransactionId,
-            TableDefinitionOptions = tableDefinitionOptions,
-        };
-
-        if (ingestOptions != null)
-        {
-            foreach (var option in ingestOptions)
+            var preparedStatementRequest = new ActionCreatePreparedStatementRequest
             {
-                ingestRequest.Options.Add(option.Key, option.Value);
+                Query = query,
+                // TransactionId = transaction?.TransactionId
+            };
+
+            var action = new FlightAction(SqlAction.CreateRequest, preparedStatementRequest.PackAndSerialize());
+            var call = _client.DoAction(action, options.Headers);
+
+            await foreach (var result in call.ResponseStream.ReadAllAsync())
+            {
+                var preparedStatementResponse =
+                    FlightSqlUtils.ParseAndUnpack<ActionCreatePreparedStatementResult>(result.Body);
+
+                var commandSqlCall = new CommandPreparedStatementQuery
+                {
+                    PreparedStatementHandle = preparedStatementResponse.PreparedStatementHandle
+                };
+                byte[] commandSqlCallPackedAndSerialized = commandSqlCall.PackAndSerialize();
+                var descriptor = FlightDescriptor.CreateCommandDescriptor(commandSqlCallPackedAndSerialized);
+                var flightInfo = await GetFlightInfoAsync(options, descriptor);
+                await foreach (var recordBatch in DoGetAsync(options, flightInfo.Endpoints[0].Ticket))
+                {
+                    Console.WriteLine(recordBatch);
+                }
+
+                return new PreparedStatement(this, flightInfo, query);
             }
+
+            throw new NullReferenceException($"{nameof(PreparedStatement)} was not able to be created");
         }
-
-        var action = new FlightAction(SqlAction.CreateRequest, ingestRequest.PackAndSerialize());
-        var call = _client.DoAction(action, options.Headers);
-
-        long ingestedRows = 0;
-        await foreach (var result in call.ResponseStream.ReadAllAsync())
+        catch (RpcException ex)
         {
-            var response = result.Body.ParseAndUnpack<ActionCreatePreparedStatementResult>();
+            Console.WriteLine($@"gRPC Error: {ex.Status}");
+            throw new InvalidOperationException("Failed to prepare statement", ex);
         }
-
-        return ingestedRows;
+        catch (Exception ex)
+        {
+            Console.WriteLine($@"Unexpected Error: {ex.Message}");
+            throw;
+        }
     }
 }
 

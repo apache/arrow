@@ -186,7 +186,6 @@ class Program
             // GetCatalogsSchema
             // Console.WriteLine("GetCatalogsSchema:");
             // Schema schemaCatalogResult = await sqlClient.GetCatalogsSchema(new FlightCallOptions());
-            // // Print schema details
             // Console.WriteLine("Catalogs Schema retrieved:");
             // Console.WriteLine(schemaCatalogResult);
 
@@ -197,7 +196,6 @@ class Program
             // // Process the FlightInfoDbSchemas
             // Console.WriteLine("Database schemas retrieved:");
             // Console.WriteLine(flightInfoDbSchemas);
-
 
             // GetDbSchemasSchemaAsync
             // Console.WriteLine("GetDbSchemasSchemaAsync:");
@@ -326,10 +324,44 @@ class Program
             Console.WriteLine($"FlightInfo: {flightInfoGetSqlInfo}");
 
             // Get SQL info schema
-            Console.WriteLine("GetSqlInfoSchemaAsync:");
-            var schema = await sqlClient.GetSqlInfoSchemaAsync(new FlightCallOptions());
-            Console.WriteLine("SQL Info Schema obtained:");
-            Console.WriteLine($"Schema: {schema}");
+            // Console.WriteLine("GetSqlInfoSchemaAsync:");
+            // var schema = await sqlClient.GetSqlInfoSchemaAsync(new FlightCallOptions());
+            // Console.WriteLine("SQL Info Schema obtained:");
+            // Console.WriteLine($"Schema: {schema}");
+
+            // Prepare a SQL statement
+            Console.WriteLine("PrepareAsync:");
+            var preparedStatement = await sqlClient.PrepareAsync(new FlightCallOptions(), query);
+            Console.WriteLine("Prepared statement created successfully.");
+
+
+            // Cancel FlightInfo Request
+            Console.WriteLine("CancelFlightInfoRequest:");
+            var cancelRequest = new CancelFlightInfoRequest(flightInfo);
+            var cancelResult = await sqlClient.CancelFlightInfoAsync(new FlightCallOptions(), cancelRequest);
+            Console.WriteLine($"Cancellation Status: {cancelResult.Status}");
+
+            // Begin Transaction
+            // Console.WriteLine("BeginTransaction:");
+            // Transaction transaction = await sqlClient.BeginTransactionAsync(new FlightCallOptions());
+            // Console.WriteLine($"Transaction started with ID: {transaction.TransactionId}");
+            // FlightInfo flightInfoBeginTransaction =
+            //     await sqlClient.ExecuteAsync(new FlightCallOptions(), query, transaction);
+            // Console.WriteLine("Query executed within transaction");
+            //
+            // // Commit Transaction
+            // Console.WriteLine("CommitTransaction:");
+            // await sqlClient.CommitAsync(new FlightCallOptions(), new Transaction("transaction-id"));
+            // Console.WriteLine("Transaction committed successfully.");
+            //
+            // // Rollback Transaction
+            // Console.WriteLine("RollbackTransaction");
+            // await sqlClient.RollbackAsync(new FlightCallOptions(), new Transaction("transaction-id"));
+            // Console.WriteLine("Transaction rolled back successfully.");
+
+            // Cancel Query
+            // var cancelResult = await sqlClient.CancelQueryAsync(new FlightCallOptions(), flightInfo);
+            // Console.WriteLine($"Cancellation Status: {cancelResult.Status}");
         }
         catch (Exception ex)
         {

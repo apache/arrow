@@ -94,7 +94,7 @@ endif()
 list(APPEND ARROW_FLIGHT_SQL_TEST_LINK_LIBS ${ARROW_FLIGHT_TEST_LINK_LIBS})
 
 # Build test server for unit tests
-if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
+#if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
   find_package(SQLite3Alt REQUIRED)
 
   set(ARROW_FLIGHT_SQL_TEST_SERVER_SRCS
@@ -121,14 +121,14 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
       list(APPEND ARROW_FLIGHT_SQL_TEST_LIBS arrow_substrait_shared)
     endif()
 
-    if(ARROW_BUILD_EXAMPLES)
+    #if(ARROW_BUILD_EXAMPLES)
       add_executable(acero-flight-sql-server ${ARROW_FLIGHT_SQL_ACERO_SRCS}
                                              example/acero_main.cc)
       target_link_libraries(acero-flight-sql-server
                             PRIVATE ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS}
                                     ${ARROW_FLIGHT_SQL_TEST_LIBS} ${GFLAGS_LIBRARIES})
-    endif()
-  endif()
+    #endif()
+  #endif()
 
   add_arrow_test(flight_sql_test
                  SOURCES

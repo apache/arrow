@@ -414,9 +414,9 @@ else()
   endif()
 endif()
 
-if(NOT ARROW_BUILD_EXAMPLES)
-  set(NO_EXAMPLES 1)
-endif()
+#if(NOT ARROW_BUILD_EXAMPLES)
+#  set(NO_EXAMPLES 1)
+#endif()
 
 if(ARROW_FUZZING)
   # Fuzzing builds enable ASAN without setting our home-grown option for it.
@@ -738,10 +738,10 @@ if(ARROW_SKYHOOK)
   add_subdirectory(src/skyhook)
 endif()
 
-if(ARROW_BUILD_EXAMPLES)
+#if(ARROW_BUILD_EXAMPLES)
   add_custom_target(runexample ctest -L example)
   add_subdirectory(examples/arrow)
-endif()
+#endif()
 
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/../LICENSE.txt
               ${CMAKE_CURRENT_SOURCE_DIR}/../NOTICE.txt
