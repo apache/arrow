@@ -24,7 +24,7 @@ skip_on_cran()
 # So that we can force these in CI
 load_or_skip <- function(pkg) {
   if (identical(tolower(Sys.getenv("ARROW_R_FORCE_EXTRA_PACKAGE_TESTS")), "true")) {
-    # because of this indirection on the package name we also avoid a CHECK note and 
+    # because of this indirection on the package name we also avoid a CHECK note and
     # we don't otherwise need to Suggest this
     requireNamespace(pkg, quietly = TRUE)
   } else {
@@ -46,11 +46,11 @@ test_that("readr read csvs roundtrip", {
 
   # we should still be able to turn this into a table
   new_df <- read_csv(tf, show_col_types = FALSE)
-  expect_equal(new_df, as_tibble(arrow_table(new_df)))    
+  expect_equal(new_df, as_tibble(arrow_table(new_df)))
 
   # we should still be able to turn this into a table
   new_df <- read_csv(tf, show_col_types = FALSE, lazy = TRUE)
-  expect_equal(new_df, as_tibble(arrow_table(new_df)))    
+  expect_equal(new_df, as_tibble(arrow_table(new_df)))
 
   # and can roundtrip to a parquet file
   pq_tmp_file <- tempfile()
@@ -65,11 +65,11 @@ test_that("data.table objects roundtrip", {
   load_or_skip("data.table")
 
   # https://github.com/Rdatatable/data.table/blob/83fd2c05ce2d8555ceb8ba417833956b1b574f7e/R/cedta.R#L25-L27
-  .datatable.aware=TRUE
+  .datatable.aware <- TRUE
 
   DT <- as.data.table(example_data)
 
-  # Table -> collect which is what writing + reading to parquet uses under the hood to roundtrip
+  # Table to collect which is what writing + reading to parquet uses under the hood to roundtrip
   tab <- as_arrow_table(DT)
   DT_read <- collect(tab)
 
@@ -80,9 +80,9 @@ test_that("data.table objects roundtrip", {
   # and we can set keys + indices + create new columns
   setkey(DT, chr)
   setindex(DT, dbl)
-  DT[, dblshift := data.table::shift(dbl, 1)]
+  DT[, dblshift := shift(dbl, 1)]
 
-  # Table -> collect
+  # Table to collect
   tab <- as_arrow_table(DT)
   DT_read <- collect(tab)
 
@@ -96,7 +96,7 @@ test_that("units roundtrip", {
   tbl <- example_data
   units(tbl$dbl) <- "s"
 
-   # Table -> collect which is what writing + reading to parquet uses under the hood to roundtrip
+  # Table to collect which is what writing + reading to parquet uses under the hood to roundtrip
   tab <- as_arrow_table(tbl)
   tbl_read <- collect(tab)
 
