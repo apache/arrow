@@ -38,7 +38,7 @@ struct ARROW_EXPORT KeyEncoder {
 
   virtual ~KeyEncoder() = default;
 
-  // Fill the length of the encoded key for the given value to the lengths array.
+  // Increment the length of the encoded key for the given value to the lengths array.
   //
   // Generally if Encoder is for a fixed-width type, the length of the encoded key
   // is ExtraByteForNull + byte_width.
@@ -48,14 +48,22 @@ struct ARROW_EXPORT KeyEncoder {
   virtual void AddLength(const ExecValue& value, int64_t batch_length,
                          int32_t* lengths) = 0;
 
-  // Fill the length of the encoded key for a null value to the length array.
+  // Increment the length for a null value.
   virtual void AddLengthNull(int32_t* length) = 0;
 
+  // Encode the value into the encoded_bytes buffer.
+  //
+  // If value is an array, the array-size should be batch_length.
+  // If value is a scalar, the value would repeat batch_length times.
   virtual Status Encode(const ExecValue&, int64_t batch_length,
                         uint8_t** encoded_bytes) = 0;
 
+  // Add a null byte to the encoded_bytes buffer.
+  //
+  // It's a special case for Encode like `Encode(Null-Scalar, 1, encoded_bytes)`.
   virtual void EncodeNull(uint8_t** encoded_bytes) = 0;
 
+  // Decode the encoded key from `encoded_bytes` buffer to an ArrayData.
   virtual Result<std::shared_ptr<ArrayData>> Decode(uint8_t** encoded_bytes,
                                                     int32_t length, MemoryPool*) = 0;
 
@@ -150,41 +158,33 @@ struct ARROW_EXPORT VarLengthKeyEncoder : KeyEncoder {
 
   Status Encode(const ExecValue& data, int64_t batch_length,
                 uint8_t** encoded_bytes) override {
+    auto handle_next_valid_value = [&encoded_bytes](std::string_view bytes) {
+      auto& encoded_ptr = *encoded_bytes++;
+      *encoded_ptr++ = kValidByte;
+      util::SafeStore(encoded_ptr, static_cast<Offset>(bytes.size()));
+      encoded_ptr += sizeof(Offset);
+      memcpy(encoded_ptr, bytes.data(), bytes.size());
+      encoded_ptr += bytes.size();
+    };
+    auto handle_next_null_value = [&encoded_bytes]() {
+      auto& encoded_ptr = *encoded_bytes++;
+      *encoded_ptr++ = kNullByte;
+      util::SafeStore(encoded_ptr, static_cast<Offset>(0));
+      encoded_ptr += sizeof(Offset);
+    };
     if (data.is_array()) {
-      VisitArraySpanInline<T>(
-          data.array,
-          [&](std::string_view bytes) {
-            auto& encoded_ptr = *encoded_bytes++;
-            *encoded_ptr++ = kValidByte;
-            util::SafeStore(encoded_ptr, static_cast<Offset>(bytes.size()));
-            encoded_ptr += sizeof(Offset);
-            memcpy(encoded_ptr, bytes.data(), bytes.size());
-            encoded_ptr += bytes.size();
-          },
-          [&] {
-            auto& encoded_ptr = *encoded_bytes++;
-            *encoded_ptr++ = kNullByte;
-            util::SafeStore(encoded_ptr, static_cast<Offset>(0));
-            encoded_ptr += sizeof(Offset);
-          });
+      VisitArraySpanInline<T>(data.array, handle_next_valid_value,
+                              handle_next_null_value);
     } else {
       const auto& scalar = data.scalar_as<BaseBinaryScalar>();
       if (scalar.is_valid) {
         const auto& bytes = *scalar.value;
         for (int64_t i = 0; i < batch_length; i++) {
-          auto& encoded_ptr = *encoded_bytes++;
-          *encoded_ptr++ = kValidByte;
-          util::SafeStore(encoded_ptr, static_cast<Offset>(bytes.size()));
-          encoded_ptr += sizeof(Offset);
-          memcpy(encoded_ptr, bytes.data(), bytes.size());
-          encoded_ptr += bytes.size();
+          handle_next_valid_value(bytes);
         }
       } else {
         for (int64_t i = 0; i < batch_length; i++) {
-          auto& encoded_ptr = *encoded_bytes++;
-          *encoded_ptr++ = kNullByte;
-          util::SafeStore(encoded_ptr, static_cast<Offset>(0));
-          encoded_ptr += sizeof(Offset);
+          handle_next_null_value();
         }
       }
     }
@@ -267,6 +267,7 @@ class ARROW_EXPORT RowEncoder {
   Status EncodeAndAppend(const ExecSpan& batch);
   Result<ExecBatch> Decode(int64_t num_rows, const int32_t* row_ids);
 
+  // Return the encoded row at the given index as a string
   inline std::string encoded_row(int32_t i) const {
     if (i == kRowIdForNulls()) {
       return std::string(reinterpret_cast<const char*>(encoded_nulls_.data()),
@@ -278,14 +279,17 @@ class ARROW_EXPORT RowEncoder {
   }
 
   int32_t num_rows() const {
-    return offsets_.size() == 0 ? 0 : static_cast<int32_t>(offsets_.size() - 1);
+    return offsets_.empty() ? 0 : static_cast<int32_t>(offsets_.size() - 1);
   }
 
  private:
   ExecContext* ctx_{nullptr};
   std::vector<std::shared_ptr<KeyEncoder>> encoders_;
+  // The offsets of each row in the encoded bytes.
+  // The size would be num_rows + 1 if there are rows.
   std::vector<int32_t> offsets_;
   std::vector<uint8_t> bytes_;
+  // A fixed nulls buffer for all null rows(kRowIdForNulls).
   std::vector<uint8_t> encoded_nulls_;
   std::vector<std::shared_ptr<ExtensionType>> extension_types_;
 };
