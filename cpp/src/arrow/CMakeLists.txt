@@ -723,7 +723,7 @@ set(ARROW_COMPUTE_SRCS
     compute/ordering.cc
     compute/registry.cc
     compute/kernels/codegen_internal.cc
-    compute/kernels/row_encoder_internal.cc
+    compute/row/row_encoder_internal.cc
     compute/kernels/ree_util_internal.cc
     compute/kernels/scalar_cast_boolean.cc
     compute/kernels/scalar_cast_dictionary.cc

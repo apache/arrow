@@ -274,7 +274,7 @@ class ARROW_EXPORT RowEncoder {
   }
 
  private:
-  ExecContext* ctx_;
+  ExecContext* ctx_{nullptr};
   std::vector<std::shared_ptr<KeyEncoder>> encoders_;
   std::vector<int32_t> offsets_;
   std::vector<uint8_t> bytes_;
