@@ -487,8 +487,8 @@ void AddFirstOrLastAggKernel(ScalarAggregateFunction* func,
 // ----------------------------------------------------------------------
 // MinMax implementation
 
-Result<std::unique_ptr<KernelState>> MinMaxInitNative(KernelContext* ctx,
-                                                      const KernelInitArgs& args) {
+Result<std::unique_ptr<KernelState>> MinMaxInitDefault(KernelContext* ctx,
+                                                       const KernelInitArgs& args) {
   ARROW_ASSIGN_OR_RAISE(TypeHolder out_type,
                         args.kernel->signature->out_type().Resolve(ctx, args.inputs));
   MinMaxInitState<SimdLevel::NONE> visitor(
@@ -1119,14 +1119,14 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   // Add min max function
   func = std::make_shared<ScalarAggregateFunction>("min_max", Arity::Unary(), min_max_doc,
                                                    &default_scalar_aggregate_options);
-  AddMinMaxKernels(MinMaxInitNative, {null(), boolean()}, func.get());
-  AddMinMaxKernels(MinMaxInitNative, NumericTypes(), func.get());
-  AddMinMaxKernels(MinMaxInitNative, TemporalTypes(), func.get());
-  AddMinMaxKernels(MinMaxInitNative, BaseBinaryTypes(), func.get());
-  AddMinMaxKernel(MinMaxInitNative, Type::FIXED_SIZE_BINARY, func.get());
-  AddMinMaxKernel(MinMaxInitNative, Type::INTERVAL_MONTHS, func.get());
-  AddMinMaxKernel(MinMaxInitNative, Type::DECIMAL128, func.get());
-  AddMinMaxKernel(MinMaxInitNative, Type::DECIMAL256, func.get());
+  AddMinMaxKernels(MinMaxInitDefault, {null(), boolean()}, func.get());
+  AddMinMaxKernels(MinMaxInitDefault, NumericTypes(), func.get());
+  AddMinMaxKernels(MinMaxInitDefault, TemporalTypes(), func.get());
+  AddMinMaxKernels(MinMaxInitDefault, BaseBinaryTypes(), func.get());
+  AddMinMaxKernel(MinMaxInitDefault, Type::FIXED_SIZE_BINARY, func.get());
+  AddMinMaxKernel(MinMaxInitDefault, Type::INTERVAL_MONTHS, func.get());
+  AddMinMaxKernel(MinMaxInitDefault, Type::DECIMAL128, func.get());
+  AddMinMaxKernel(MinMaxInitDefault, Type::DECIMAL256, func.get());
   // Add the SIMD variants for min max
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
   if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX2)) {
