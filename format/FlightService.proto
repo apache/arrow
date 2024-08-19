@@ -145,5 +145,3 @@ service FlightService {
    */
   rpc ListActions(Empty) returns (stream ActionType) {}
 }
-
-
