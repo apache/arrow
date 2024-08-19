@@ -82,6 +82,7 @@ class GeometryStatisticsImpl {
     }
 
     bounder_.ReadBox(other.bounder_.Bounds());
+    bounder_.ReadGeometryTypes(other.bounder_.WkbTypes());
   }
 
   void Update(const ByteArray* values, int64_t num_values, int64_t null_count) {
@@ -103,6 +104,66 @@ class GeometryStatisticsImpl {
     }
   }
 
+  EncodedGeometryStatistics Encode() const {
+    const double* mins = bounder_.Bounds().min;
+    const double* maxes = bounder_.Bounds().max;
+
+    EncodedGeometryStatistics out;
+    out.geometry_types = bounder_.WkbTypes();
+
+    out.xmin = mins[0];
+    out.xmax = maxes[0];
+    out.ymin = mins[1];
+    out.ymax = maxes[1];
+    out.zmin = mins[2];
+    out.zmax = maxes[2];
+    out.mmin = mins[3];
+    out.mmax = maxes[3];
+
+    return out;
+  }
+
+  void Update(const EncodedGeometryStatistics& encoded) {
+    if (!is_valid_) {
+      return;
+    }
+
+    geometry::BoundingBox box;
+    box.min[0] = encoded.xmin;
+    box.max[0] = encoded.xmax;
+    box.min[1] = encoded.ymin;
+    box.max[1] = encoded.ymax;
+
+    if (encoded.has_z()) {
+      box.min[2] = encoded.zmin;
+      box.max[2] = encoded.zmax;
+    }
+
+    if (encoded.has_m()) {
+      box.min[3] = encoded.mmin;
+      box.max[3] = encoded.mmax;
+    }
+
+    bounder_.ReadBox(box);
+    bounder_.ReadGeometryTypes(encoded.geometry_types);
+
+    try {
+      for (const auto& covering : encoded.coverings) {
+        if (covering.first == "WKB") {
+          geometry::WKBBuffer buf(
+              reinterpret_cast<const uint8_t*>(covering.second.data()),
+              covering.second.size());
+          bounder_.ReadGeometry(&buf, false);
+        }
+      }
+    } catch (ParquetException& e) {
+      is_valid_ = false;
+      return;
+    }
+  }
+
+  bool is_valid() const { return is_valid_; }
+
  private:
   geometry::WKBGeometryBounder bounder_;
   bool is_valid_{};
@@ -123,6 +184,17 @@ void GeometryStatistics::Merge(const GeometryStatistics& other) {
 void GeometryStatistics::Update(const ByteArray* values, int64_t num_values,
                                 int64_t null_count) {
   impl_->Update(values, num_values, null_count);
+}
+
+bool GeometryStatistics::is_valid() const { return impl_->is_valid(); }
+
+EncodedGeometryStatistics GeometryStatistics::Encode() { return impl_->Encode(); }
+
+std::unique_ptr<GeometryStatistics> GeometryStatistics::Decode(
+    const EncodedGeometryStatistics& encoded) {
+  auto out = std::make_unique<GeometryStatistics>();
+  out->impl_->Update(encoded);
+  return out;
 }
 
 namespace {
@@ -838,6 +910,9 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     }
     if (HasDistinctCount()) {
       s.set_distinct_count(this->distinct_count());
+    }
+    if (HasGeometryStatistics() && geometry_statistics_->is_valid()) {
+      s.set_geometry(geometry_statistics_->Encode());
     }
     return s;
   }

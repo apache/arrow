@@ -585,6 +585,10 @@ class WKBGeometryBounder {
 
   void ReadBox(const BoundingBox& box) { box_.Merge(box); }
 
+  void ReadGeometryTypes(const std::vector<uint32_t>& geometry_types) {
+    wkb_types_.insert(geometry_types.begin(), geometry_types.end());
+  }
+
   const BoundingBox& Bounds() const { return box_; }
 
   std::vector<uint32_t> WkbTypes() const {

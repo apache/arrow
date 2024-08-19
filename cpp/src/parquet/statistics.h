@@ -151,6 +151,12 @@ class PARQUET_EXPORT GeometryStatistics {
 
   void Update(const ByteArray* values, int64_t num_values, int64_t null_count);
 
+  EncodedGeometryStatistics Encode();
+
+  bool is_valid() const;
+
+  static std::unique_ptr<GeometryStatistics> Decode(const EncodedGeometryStatistics& encoded);
+
  private:
   std::unique_ptr<GeometryStatisticsImpl> impl_;
 };
