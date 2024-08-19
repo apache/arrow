@@ -65,12 +65,12 @@ struct ARROW_EXPORT KeyColumnMetadata {
   /// If this is true the column will have a validity buffer and
   /// a data buffer and the third buffer will be unused.
   bool is_fixed_length;
-  /// \brief True if this column is the null type
+  /// \brief True if this column is the null type(NA).
   bool is_null_type;
   /// \brief The number of bytes for each item
   ///
   /// Zero has a special meaning, indicating a bit vector with one bit per value if it
-  /// isn't a null type column.
+  /// isn't a null type column. Generally, this means that the column is a boolean type.
   ///
   /// For a varying-length binary column this represents the number of bytes per offset.
   uint32_t fixed_length;

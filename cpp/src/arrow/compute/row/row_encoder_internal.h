@@ -38,9 +38,17 @@ struct ARROW_EXPORT KeyEncoder {
 
   virtual ~KeyEncoder() = default;
 
+  // Fill the length of the encoded key for the given value to the lengths array.
+  //
+  // Generally if Encoder is for a fixed-width type, the length of the encoded key
+  // is ExtraByteForNull + byte_width.
+  // If Encoder is for a variable-width type, the length would be ExtraByteForNull +
+  // sizeof(Offset) + buffer_size.
+  // If Encoder is null type, the length would be 0.
   virtual void AddLength(const ExecValue& value, int64_t batch_length,
                          int32_t* lengths) = 0;
 
+  // Fill the length of the encoded key for a null value to the length array.
   virtual void AddLengthNull(int32_t* length) = 0;
 
   virtual Status Encode(const ExecValue&, int64_t batch_length,
