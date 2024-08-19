@@ -22,4 +22,4 @@
 // included before either of these files is compiled. Because we don't want to
 // edit the generated C++ files, we include them here and do our gRPC
 // customizations in protocol_grpc_internal.h
-#include "arrow/flight/Flight.grpc.pb.cc"  // NOLINT
+#include "arrow/flight/FlightService.grpc.pb.cc"  // NOLINT

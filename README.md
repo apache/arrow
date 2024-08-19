@@ -35,7 +35,7 @@ Major components of the project include:
  - [The Arrow IPC Format](https://arrow.apache.org/docs/dev/format/Columnar.html#serialization-and-interprocess-communication-ipc):
    an efficient serialization of the Arrow format and associated metadata,
    for communication between processes and heterogeneous environments
- - [The Arrow Flight RPC protocol](https://github.com/apache/arrow/tree/main/format/Flight.proto):
+ - [The Arrow Flight RPC protocol](https://github.com/apache/arrow/tree/main/format/FlightService.proto):
    based on the Arrow IPC format, a building block for remote services exchanging
    Arrow data with application-defined semantics (for example a storage server or a database)
  - [C++ libraries](https://github.com/apache/arrow/tree/main/cpp)

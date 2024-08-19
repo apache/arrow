@@ -24,4 +24,4 @@
 // Need to include this first to get our gRPC customizations
 #include "arrow/flight/transport/grpc/customize_grpc.h"  // IWYU pragma: export
 
-#include "arrow/flight/Flight.grpc.pb.h"  // IWYU pragma: export
+#include "arrow/flight/FlightService.grpc.pb.h"  // IWYU pragma: export
