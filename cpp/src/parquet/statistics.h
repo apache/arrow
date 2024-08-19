@@ -271,8 +271,9 @@ class PARQUET_EXPORT Statistics {
   static std::shared_ptr<Statistics> Make(
       const ColumnDescriptor* descr, const std::string& encoded_min,
       const std::string& encoded_max, int64_t num_values, int64_t null_count,
-      int64_t distinct_count, bool has_min_max, bool has_null_count,
-      bool has_distinct_count,
+      int64_t distinct_count, const EncodedGeometryStatistics& geometry_statistics,
+      bool has_min_max, bool has_null_count, bool has_distinct_count,
+      bool has_geometry_statistics,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
   // Helper function to convert EncodedStatistics to Statistics.
@@ -428,11 +429,14 @@ template <typename DType>
 std::shared_ptr<TypedStatistics<DType>> MakeStatistics(
     const ColumnDescriptor* descr, const std::string& encoded_min,
     const std::string& encoded_max, int64_t num_values, int64_t null_count,
-    int64_t distinct_count, bool has_min_max, bool has_null_count,
-    bool has_distinct_count, ::arrow::MemoryPool* pool = ::arrow::default_memory_pool()) {
-  return std::static_pointer_cast<TypedStatistics<DType>>(Statistics::Make(
-      descr, encoded_min, encoded_max, num_values, null_count, distinct_count,
-      has_min_max, has_null_count, has_distinct_count, pool));
+    int64_t distinct_count, const EncodedGeometryStatistics& geometry_statistics,
+    bool has_min_max, bool has_null_count, bool has_distinct_count,
+    bool has_geometry_statistics,
+    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool()) {
+  return std::static_pointer_cast<TypedStatistics<DType>>(
+      Statistics::Make(descr, encoded_min, encoded_max, num_values, null_count,
+                       distinct_count, geometry_statistics, has_min_max, has_null_count,
+                       has_distinct_count, has_geometry_statistics, pool));
 }
 
 }  // namespace parquet

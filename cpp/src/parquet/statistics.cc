@@ -1132,18 +1132,18 @@ std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,
                                              ::arrow::MemoryPool* pool) {
   DCHECK(encoded_stats != nullptr);
   return Make(descr, encoded_stats->min(), encoded_stats->max(), num_values,
-              encoded_stats->null_count, encoded_stats->distinct_count,
+              encoded_stats->null_count, encoded_stats->distinct_count, {},
               encoded_stats->has_min && encoded_stats->has_max,
-              encoded_stats->has_null_count, encoded_stats->has_distinct_count, pool);
+              encoded_stats->has_null_count, encoded_stats->has_distinct_count, false,
+              pool);
 }
 
-std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,
-                                             const std::string& encoded_min,
-                                             const std::string& encoded_max,
-                                             int64_t num_values, int64_t null_count,
-                                             int64_t distinct_count, bool has_min_max,
-                                             bool has_null_count, bool has_distinct_count,
-                                             ::arrow::MemoryPool* pool) {
+std::shared_ptr<Statistics> Statistics::Make(
+    const ColumnDescriptor* descr, const std::string& encoded_min,
+    const std::string& encoded_max, int64_t num_values, int64_t null_count,
+    int64_t distinct_count, const EncodedGeometryStatistics& geometry_statistics,
+    bool has_min_max, bool has_null_count, bool has_distinct_count,
+    bool has_geometry_statistics, ::arrow::MemoryPool* pool) {
 #define MAKE_STATS(CAP_TYPE, KLASS)                                              \
   case Type::CAP_TYPE:                                                           \
     return std::make_shared<TypedStatisticsImpl<KLASS>>(                         \
