@@ -89,39 +89,47 @@ func (a *JSONArray) String() string {
 }
 
 func (a *JSONArray) Value(i int) any {
-	valString := a.ValueStr(i)
+	val := a.value(i)
 
-	var val any
-	if err := json.Unmarshal([]byte(valString), &val); err != nil {
+	var res any
+	if err := json.Unmarshal(val, &res); err != nil {
 		panic(err)
 	}
 
-	return val
+	return res
 }
 
 func (a *JSONArray) ValueStr(i int) string {
-	if a.IsNull(i) {
-		return "null"
+	return string(a.value(i))
+}
+
+func (a *JSONArray) value(i int) []byte {
+	val := a.ValueJSON(i)
+	b, err := val.MarshalJSON()
+	if err != nil {
+		panic(err)
 	}
 
-	return a.Storage().(array.StringLike).Value(i)
+	return b
+}
+
+func (a *JSONArray) ValueJSON(i int) json.RawMessage {
+	var val json.RawMessage
+	if a.IsValid(i) {
+		val = json.RawMessage(a.Storage().(array.StringLike).Value(i))
+	}
+	return val
 }
 
 func (a *JSONArray) MarshalJSON() ([]byte, error) {
 	values := make([]json.RawMessage, a.Len())
-	storage := a.Storage().(array.StringLike)
 	for i := 0; i < a.Len(); i++ {
-		if a.IsValid(i) {
-			values[i] = json.RawMessage(storage.Value(i))
-		}
+		values[i] = a.ValueJSON(i)
 	}
 	return json.Marshal(values)
 }
 
 func (a *JSONArray) GetOneForMarshal(i int) interface{} {
-	if a.IsNull(i) {
-		return nil
-	}
 	return a.Value(i)
 }
 

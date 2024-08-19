@@ -18,6 +18,7 @@ package extensions_test
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 
 	"github.com/apache/arrow/go/v18/arrow"
@@ -206,6 +207,53 @@ func TestMarshallJSONArray(t *testing.T) {
 			expectedJSON := `["foobar",null,{"foo":"bar"},42,true,[1,true,"3",null,{"five":5}]]`
 			require.Equal(t, expectedJSON, string(b))
 			require.Equal(t, expectedJSON, jsonArr.String())
+		})
+	}
+}
+
+func TestJSONRecordToJSON(t *testing.T) {
+	for _, tc := range jsonTestCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			typ, err := extensions.NewJSONType(tc.StorageType)
+			require.NoError(t, err)
+
+			bldr := tc.StorageBuilder(memory.DefaultAllocator)
+			defer bldr.Release()
+
+			bldr.AppendValueFromString(`"foobar"`)
+			bldr.AppendNull()
+			bldr.AppendValueFromString(`{"foo": "bar"}`)
+			bldr.AppendValueFromString(`42`)
+			bldr.AppendValueFromString(`true`)
+			bldr.AppendValueFromString(`[1, true, "3", null, {"five": 5}]`)
+
+			storage := bldr.NewArray()
+			defer storage.Release()
+
+			arr := array.NewExtensionArrayWithStorage(typ, storage)
+			defer arr.Release()
+
+			assert.Equal(t, 6, arr.Len())
+			assert.Equal(t, 1, arr.NullN())
+
+			jsonArr, ok := arr.(*extensions.JSONArray)
+			require.True(t, ok)
+
+			rec := array.NewRecord(arrow.NewSchema([]arrow.Field{{Name: "json", Type: typ, Nullable: true}}, nil), []arrow.Array{jsonArr}, 6)
+			defer rec.Release()
+
+			buf := bytes.NewBuffer([]byte("\n")) // expected output has leading newline for clearer formatting
+			require.NoError(t, array.RecordToJSON(rec, buf))
+
+			expectedJSON := strings.ReplaceAll(`
+				{"json":"foobar"}
+				{"json":null}
+				{"json":{"foo":"bar"}}
+				{"json":42}
+				{"json":true}
+				{"json":[1,true,"3",null,{"five":5}]}`,
+				"\t", "") + "\n" // strip indentation, add trailing newline
+			require.Equal(t, expectedJSON, buf.String())
 		})
 	}
 }
