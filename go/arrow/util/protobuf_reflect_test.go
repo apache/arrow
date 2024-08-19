@@ -213,31 +213,6 @@ func AllTheTypesNoAnyFixture() Fixture {
 			"simple_list":["Hello","World"],
 			"complex_list":[{"field1":"Example"}]
 		}`
-	//[{"all_the_types_no_any_a":[{"bool":false,"bytes":"SGVsbG8sIHdvcmxkIQ==","complex_list":[{"field1":"Example"}],"complex_map":[{"key":"complex","value":{"field1":"Example"}}],"double":1.1,"enum":"OPTION_1","fixed32":10,"fixed64":1000,"int32":10,"int64":100,"message":{"field1":"Example"},"oneofmessage":{"field1":null},"oneofstring":"World","sfixed32":10,"simple_list":["Hello","World"],"simple_map":[{"key":99,"value":"Hello"}],"sin64":-100,"sint32":-10,"str":"Hello","uint32":10,"uint64":100}],"all_the_types_no_any_b":[{"bool":false,"bytes":"SGVsbG8sIHdvcmxkIQ==","complex_list":[{"field1":"Example"}],"complex_map":[{"key":"complex","value":{"field1":"Example"}}],"double":1.1,"enum":"OPTION_1","fixed32":10,"fixed64":1000,"int32":10,"int64":100,"message":{"field1":"Example"},"oneofmessage":{"field1":null},"oneofstring":"World","sfixed32":10,"simple_list":["Hello","World"],"simple_map":[{"key":99,"value":"Hello"}],"sin64":-100,"sint32":-10,"str":"Hello","uint32":10,"uint64":100}]}]
-
-	//nullJsonStr := ` {
-	//	"str":"",
-	//	"int32":0,
-	//	"int64":0,
-	//	"sint32":0,
-	//	"sin64":0,
-	//	"uint32":0,
-	//	"uint64":0,
-	//	"fixed32":0,
-	//	"fixed64":0,
-	//	"sfixed32":0,
-	//	"bool":false,
-	//	"bytes":"",
-	//	"double":0,
-	//	"enum":"OPTION_0",
-	//	"message":null,
-	//	"oneofmessage":{"field1":""},
-	//	"oneofstring":"",
-	//	"simple_map":[],
-	//	"complex_map":[],
-	//	"simple_list":[],
-	//	"complex_list":[]
-	//}`
 
 	return Fixture{
 		msg:     &msg,
