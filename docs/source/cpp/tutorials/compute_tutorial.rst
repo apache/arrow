@@ -40,7 +40,7 @@ Pre-requisites
 Before continuing, make sure you have:
 
 1. An Arrow installation, which you can set up here: :doc:`/cpp/build_system`.
-   If you're comiling Arrow yourself, be sure you compile with the compute module
+   If you're compiling Arrow yourself, be sure you compile with the compute module
    enabled (i.e., ``-DARROW_COMPUTE=ON``), see :ref:`cpp_build_optional_components`.
 
 2. An understanding of basic Arrow data structures from :doc:`/cpp/tutorials/basic_arrow`
