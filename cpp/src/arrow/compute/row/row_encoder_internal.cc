@@ -87,9 +87,8 @@ Status BooleanKeyEncoder::Encode(const ExecValue& data, int64_t batch_length,
   };
 
   if (data.is_array()) {
-    VisitArraySpanInline<BooleanType>(
-        data.array, [&](bool value) { handle_next_valid_value(value); },
-        [&] { handle_next_null_value(); });
+    VisitArraySpanInline<BooleanType>(data.array, handle_next_valid_value,
+                                      handle_next_null_value);
   } else {
     const auto& scalar = data.scalar_as<BooleanScalar>();
     if (!scalar.is_valid) {
