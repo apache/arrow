@@ -19,6 +19,8 @@
 #include <gtest/gtest.h>
 
 #include "arrow/compute/row/row_encoder_internal.h"
+
+#include "arrow/array/validate.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
@@ -55,6 +57,7 @@ TEST(TestKeyEncoder, BooleanScalar) {
                                             ::arrow::default_memory_pool()));
     ASSERT_EQ(kBatchLength, array_data->length);
     auto boolean_array = std::make_shared<BooleanArray>(array_data);
+    ASSERT_OK(arrow::internal::ValidateArrayFull(*array_data));
     ASSERT_OK_AND_ASSIGN(
         auto expected_array,
         MakeArrayFromScalar(scalar, kBatchLength, ::arrow::default_memory_pool()));
