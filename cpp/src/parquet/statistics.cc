@@ -1207,10 +1207,11 @@ std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,
                                              ::arrow::MemoryPool* pool) {
   DCHECK(encoded_stats != nullptr);
   return Make(descr, encoded_stats->min(), encoded_stats->max(), num_values,
-              encoded_stats->null_count, encoded_stats->distinct_count, {},
+              encoded_stats->null_count, encoded_stats->distinct_count,
+              encoded_stats->geometry_statistics(),
               encoded_stats->has_min && encoded_stats->has_max,
-              encoded_stats->has_null_count, encoded_stats->has_distinct_count, false,
-              pool);
+              encoded_stats->has_null_count, encoded_stats->has_distinct_count,
+              encoded_stats->has_geometry_statistics, pool);
 }
 
 std::shared_ptr<Statistics> Statistics::Make(

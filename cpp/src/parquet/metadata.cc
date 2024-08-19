@@ -88,6 +88,38 @@ std::string ParquetVersionToString(ParquetVersion::type ver) {
   return "UNKNOWN";
 }
 
+static EncodedGeometryStatistics MakeEncodedGeometryStatistics(
+    const format::Statistics& stats) {
+  EncodedGeometryStatistics out;
+
+  if (stats.__isset.geometry_stats) {
+    const format::GeometryStatistics& geom_stats = stats.geometry_stats;
+    out.geometry_types = std::vector<uint32_t>(geom_stats.geometry_types.begin(),
+                                               geom_stats.geometry_types.end());
+
+    out.xmin = geom_stats.bbox.xmin;
+    out.xmax = geom_stats.bbox.xmax;
+    out.ymin = geom_stats.bbox.ymin;
+    out.ymax = geom_stats.bbox.ymax;
+
+    if (geom_stats.bbox.__isset.zmin && geom_stats.bbox.__isset.zmax) {
+      out.zmin = geom_stats.bbox.zmin;
+      out.zmax = geom_stats.bbox.zmax;
+    }
+
+    if (geom_stats.bbox.__isset.mmin && geom_stats.bbox.__isset.mmax) {
+      out.mmin = geom_stats.bbox.mmin;
+      out.mmax = geom_stats.bbox.mmax;
+    }
+
+    for (const auto& covering : geom_stats.coverings) {
+      out.coverings.emplace_back(covering.kind, covering.value);
+    }
+  }
+
+  return out;
+}
+
 template <typename DType>
 static std::shared_ptr<Statistics> MakeTypedColumnStats(
     const format::ColumnMetaData& metadata, const ColumnDescriptor* descr) {
@@ -96,7 +128,8 @@ static std::shared_ptr<Statistics> MakeTypedColumnStats(
     return MakeStatistics<DType>(
         descr, metadata.statistics.min_value, metadata.statistics.max_value,
         metadata.num_values - metadata.statistics.null_count,
-        metadata.statistics.null_count, metadata.statistics.distinct_count, {},
+        metadata.statistics.null_count, metadata.statistics.distinct_count,
+        MakeEncodedGeometryStatistics(metadata.statistics),
         metadata.statistics.__isset.max_value && metadata.statistics.__isset.min_value,
         metadata.statistics.__isset.null_count,
         metadata.statistics.__isset.distinct_count,
@@ -106,7 +139,8 @@ static std::shared_ptr<Statistics> MakeTypedColumnStats(
   return MakeStatistics<DType>(
       descr, metadata.statistics.min, metadata.statistics.max,
       metadata.num_values - metadata.statistics.null_count,
-      metadata.statistics.null_count, metadata.statistics.distinct_count, {},
+      metadata.statistics.null_count, metadata.statistics.distinct_count,
+      MakeEncodedGeometryStatistics(metadata.statistics),
       metadata.statistics.__isset.max && metadata.statistics.__isset.min,
       metadata.statistics.__isset.null_count, metadata.statistics.__isset.distinct_count,
       metadata.statistics.__isset.geometry_stats);
