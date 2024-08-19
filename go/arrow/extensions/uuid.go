@@ -39,6 +39,10 @@ func NewUUIDBuilder(mem memory.Allocator) *UUIDBuilder {
 }
 
 func (b *UUIDBuilder) Append(v uuid.UUID) {
+	b.AppendBytes(v)
+}
+
+func (b *UUIDBuilder) AppendBytes(v [16]byte) {
 	b.ExtensionBuilder.Builder.(*array.FixedSizeBinaryBuilder).Append(v[:])
 }
 
