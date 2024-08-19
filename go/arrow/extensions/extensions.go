@@ -18,7 +18,6 @@ package extensions
 
 import (
 	"github.com/apache/arrow/go/v18/arrow"
-	"github.com/apache/arrow/go/v18/parquet/schema"
 )
 
 var canonicalExtensionTypes = []arrow.ExtensionType{
@@ -34,13 +33,4 @@ func init() {
 			panic(err)
 		}
 	}
-}
-
-// CustomParquetType is an interface that Arrow ExtensionTypes may implement
-// to specify the target LogicalType to use when converting to Parquet.
-//
-// The PrimitiveType is not configurable, and is determined by a fixed mapping from
-// the extension's StorageType to a Parquet type (see getParquetType in pqarrow source).
-type CustomParquetType interface {
-	ParquetLogicalType() schema.LogicalType
 }
