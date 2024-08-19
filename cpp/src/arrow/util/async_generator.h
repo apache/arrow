@@ -742,12 +742,12 @@ template <typename T>
 class ReadaheadGenerator {
  public:
   ReadaheadGenerator(AsyncGenerator<T> source_generator, int max_readahead)
-      : state_(std::make_shared<State>(std::move(source_generator), max_readahead)) {}
+      : state_(std::make_shared<State>(std::move(source_generator), max_readahead)),
+        cleanup_(std::make_shared<Cleanup>(state_.get())) {}
 
   Future<T> AddMarkFinishedContinuation(Future<T> fut) {
-    auto state = state_;
     return fut.Then(
-        [state](const T& result) -> Future<T> {
+        [state = state_](const T& result) -> Future<T> {
           state->MarkFinishedIfDone(result);
           if (state->finished.load()) {
             if (state->num_running.fetch_sub(1) == 1) {
@@ -758,7 +758,7 @@ class ReadaheadGenerator {
           }
           return result;
         },
-        [state](const Status& err) -> Future<T> {
+        [state = state_](const Status& err) -> Future<T> {
           // If there is an error we need to make sure all running
           // tasks finish before we return the error.
           state->finished.store(true);
@@ -776,20 +776,20 @@ class ReadaheadGenerator {
       for (int i = 0; i < state_->max_readahead; i++) {
         auto next = state_->source_generator();
         auto next_after_check = AddMarkFinishedContinuation(std::move(next));
-        state_->readahead_queue.push(std::move(next_after_check));
+        state_->readahead_queue.push_back(std::move(next_after_check));
       }
     }
     // Pop one and add one
     auto result = state_->readahead_queue.front();
-    state_->readahead_queue.pop();
+    state_->readahead_queue.pop_front();
     if (state_->finished.load()) {
-      state_->readahead_queue.push(AsyncGeneratorEnd<T>());
+      state_->readahead_queue.push_back(AsyncGeneratorEnd<T>());
     } else {
       state_->num_running.fetch_add(1);
       auto back_of_queue = state_->source_generator();
       auto back_of_queue_after_check =
           AddMarkFinishedContinuation(std::move(back_of_queue));
-      state_->readahead_queue.push(std::move(back_of_queue_after_check));
+      state_->readahead_queue.push_back(std::move(back_of_queue_after_check));
     }
     return result;
   }
@@ -810,10 +810,29 @@ class ReadaheadGenerator {
     Future<> final_future = Future<>::Make();
     std::atomic<int> num_running{0};
     std::atomic<bool> finished{false};
-    std::queue<Future<T>> readahead_queue;
+    std::deque<Future<T>> readahead_queue;
+  };
+
+  struct Cleanup {
+    explicit Cleanup(State* state) : state(state) {}
+    ~Cleanup() {
+      // Lose our own consumer reference to the wrapped generator.
+      state->source_generator = {};
+      // If the generator was destroyed before finishing, wait for all running
+      // tasks to end. While it adds latency, it also reduces the risk of
+      // shenanigans happening at process shutdown (e.g. GH-43604).
+      for (const auto& fut : state->readahead_queue) {
+        fut.Wait();
+      }
+    }
+
+    State* state;
   };
 
   std::shared_ptr<State> state_;
+  // Unlike State, Cleanup is not held alive by any callbacks and will therefore
+  // trigger finalization when all consumer references to the generator are lost.
+  std::shared_ptr<Cleanup> cleanup_;
 };
 
 /// \brief A generator where the producer pushes items on a queue.
@@ -1745,8 +1764,7 @@ class BackgroundGenerator {
         finish_fut = state->task_finished;
       }
       // Using future as a condition variable here
-      Status st = finish_fut.status();
-      ARROW_UNUSED(st);
+      finish_fut.Wait();
     }
     State* state;
   };
