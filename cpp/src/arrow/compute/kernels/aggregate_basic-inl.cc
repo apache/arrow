@@ -22,6 +22,22 @@
 // It contains no includes to avoid double inclusion in the compilation unit
 // that includes this -inl.cc file.
 
+#include <cassert>
+#include <cmath>
+#include <memory>
+#include <type_traits>
+#include <utility>
+
+#include "arrow/compute/api_aggregate.h"
+#include "arrow/compute/kernels/aggregate_internal.h"
+#include "arrow/compute/kernels/codegen_internal.h"
+#include "arrow/status.h"
+#include "arrow/type.h"
+#include "arrow/type_traits.h"
+#include "arrow/util/align_util.h"
+#include "arrow/util/bit_block_counter.h"
+#include "arrow/util/decimal.h"
+
 namespace arrow::compute::internal {
 namespace {
 
