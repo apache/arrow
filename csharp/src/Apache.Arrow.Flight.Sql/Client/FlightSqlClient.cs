@@ -1103,9 +1103,6 @@ public class FlightSqlClient
     public async Task<CancelFlightInfoResult> CancelFlightInfoAsync(FlightCallOptions options,
         CancelFlightInfoRequest request)
     {
-        // TODO: fix the CancelFlightInfoResult missing implementation of MessageDescriptor
-        // NOTE: I modified the CancelFlightInfoRequest/CancelFlightInfoResult with an Descriptor in the constructor,
-        // NOTE: Can't see any other way to solve the nullified property
         if (options == null) throw new ArgumentNullException(nameof(options));
         if (request == null) throw new ArgumentNullException(nameof(request));
 
@@ -1263,10 +1260,8 @@ public class FlightSqlClient
     /// <param name="options">RPC-layer hints for this call.</param>
     /// <param name="info">The FlightInfo of the query to cancel.</param>
     /// <returns>A Task representing the asynchronous operation.</returns>
-    public Task<CancelFlightInfoResult> CancelQueryAsync(FlightCallOptions options, FlightInfo info)
+    public async Task<CancelStatus> CancelQueryAsync(FlightCallOptions options, FlightInfo info)
     {
-        // TODO: Should reconsider more appropriate implementation
-        // TODO: fix the CancelFlightInfoResult missing implementation of MessageDescriptor
         if (options == null)
         {
             throw new ArgumentNullException(nameof(options));
@@ -1279,14 +1274,23 @@ public class FlightSqlClient
 
         try
         {
-            // var cancelRequest = new CancelFlightInfoRequest(info);
-            // var actionCancelFlightInfo = new FlightAction("CancelFlightInfo", cancelRequest.PackAndSerialize());
-            // var call = _client.DoAction(actionCancelFlightInfo, options.Headers);
-            // await foreach (var result in call.ResponseStream.ReadAllAsync())
-            // {
-            //     var cancelResult = FlightSqlUtils.ParseAndUnpack<CancelFlightInfoResult>(result.Body);
-            //     return cancelResult;
-            // }
+            var cancelRequest = new CancelFlightInfoRequest(info);
+            var action = new FlightAction("CancelFlightInfo", cancelRequest.ToByteString());
+            var call = _client.DoAction(action, options.Headers);
+            await foreach (var result in call.ResponseStream.ReadAllAsync())
+            {
+                var cancelResult = Any.Parser.ParseFrom(result.Body);
+                if (cancelResult.TryUnpack(out CancelFlightInfoResult cancelFlightInfoResult))
+                {
+                    return cancelFlightInfoResult.CancelStatus switch
+                    {
+                        CancelStatus.Cancelled => CancelStatus.Cancelled,
+                        CancelStatus.Cancelling => CancelStatus.Cancelling,
+                        CancelStatus.NotCancellable => CancelStatus.NotCancellable,
+                        _ => CancelStatus.Unspecified
+                    };
+                }
+            }
             throw new InvalidOperationException("Failed to cancel query: No response received.");
         }
         catch (RpcException ex)

@@ -337,10 +337,10 @@ class Program
 
 
             // Cancel FlightInfo Request
-            Console.WriteLine("CancelFlightInfoRequest:");
-            var cancelRequest = new CancelFlightInfoRequest(flightInfo);
-            var cancelResult = await sqlClient.CancelFlightInfoAsync(new FlightCallOptions(), cancelRequest);
-            Console.WriteLine($"Cancellation Status: {cancelResult.CancelStatus}");
+            // Console.WriteLine("CancelFlightInfoRequest:");
+            // var cancelRequest = new CancelFlightInfoRequest(flightInfo);
+            // var cancelResult = await sqlClient.CancelFlightInfoAsync(new FlightCallOptions(), cancelRequest);
+            // Console.WriteLine($"Cancellation Status: {cancelResult.CancelStatus}");
 
             // Begin Transaction
             // Console.WriteLine("BeginTransaction:");
@@ -361,8 +361,9 @@ class Program
             // Console.WriteLine("Transaction rolled back successfully.");
 
             // Cancel Query
-            // var cancelResult = await sqlClient.CancelQueryAsync(new FlightCallOptions(), flightInfo);
-            // Console.WriteLine($"Cancellation Status: {cancelResult.Status}");
+            Console.WriteLine("CancelQuery:");
+            var cancelResult = await sqlClient.CancelQueryAsync(new FlightCallOptions(), flightInfo);
+            Console.WriteLine($"Cancellation Status: {cancelResult}");
         }
         catch (Exception ex)
         {
