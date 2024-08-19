@@ -1,4 +1,3 @@
-using System;
 using Google.Protobuf;
 using Google.Protobuf.Reflection;
 
@@ -15,18 +14,82 @@ public enum CancelStatus
 
 public sealed class CancelFlightInfoResult : IMessage<CancelFlightInfoResult>
 {
-    public CancelStatus CancelStatus { get; }
+    public CancelStatus CancelStatus { get; private set; }
 
-    public void MergeFrom(CancelFlightInfoResult message) => throw new NotImplementedException();
+    // Public parameterless constructor
+    public CancelFlightInfoResult()
+    {
+        CancelStatus = CancelStatus.Unspecified;
+        Descriptor =
+            DescriptorReflection.Descriptor.MessageTypes[0];
+    }
 
-    public void MergeFrom(CodedInputStream input) => throw new NotImplementedException();
+    public void MergeFrom(CancelFlightInfoResult message)
+    {
+        if (message != null)
+        {
+            CancelStatus = message.CancelStatus;
+        }
+    }
 
-    public void WriteTo(CodedOutputStream output) => throw new NotImplementedException();
+    public void MergeFrom(CodedInputStream input)
+    {
+        while (input.ReadTag() != 0)
+        {
+            switch (input.Position)
+            {
+                case 1:
+                    CancelStatus = (CancelStatus)input.ReadEnum();
+                    break;
+                default:
+                    input.SkipLastField();
+                    break;
+            }
+        }
+    }
 
-    public int CalculateSize() => throw new NotImplementedException();
+    public void WriteTo(CodedOutputStream output)
+    {
+        if (CancelStatus != CancelStatus.Unspecified)
+        {
+            output.WriteRawTag(8); // Field number 1, wire type 0 (varint)
+            output.WriteEnum((int)CancelStatus);
+        }
+    }
 
-    public MessageDescriptor Descriptor { get; }
-    public bool Equals(CancelFlightInfoResult other) => throw new NotImplementedException();
+    public int CalculateSize()
+    {
+        int size = 0;
+        if (CancelStatus != CancelStatus.Unspecified)
+        {
+            size += 1 + CodedOutputStream.ComputeEnumSize((int)CancelStatus);
+        }
 
-    public CancelFlightInfoResult Clone() => throw new NotImplementedException();
+        return size;
+    }
+
+    public MessageDescriptor? Descriptor { get; }
+
+
+    public CancelFlightInfoResult Clone() => new() { CancelStatus = CancelStatus };
+
+    public bool Equals(CancelFlightInfoResult other)
+    {
+        if (other == null)
+        {
+            return false;
+        }
+
+        return CancelStatus == other.CancelStatus;
+    }
+
+    public override int GetHashCode()
+    {
+        return CancelStatus.GetHashCode();
+    }
+
+    public override string ToString()
+    {
+        return $"CancelFlightInfoResult {{ CancelStatus = {CancelStatus} }}";
+    }
 }

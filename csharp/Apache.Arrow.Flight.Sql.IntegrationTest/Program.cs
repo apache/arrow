@@ -124,6 +124,7 @@ using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Grpc.Net.Client;
+using Google.Protobuf.Reflection;
 
 namespace Apache.Arrow.Flight.Sql.IntegrationTest;
 
@@ -339,7 +340,7 @@ class Program
             Console.WriteLine("CancelFlightInfoRequest:");
             var cancelRequest = new CancelFlightInfoRequest(flightInfo);
             var cancelResult = await sqlClient.CancelFlightInfoAsync(new FlightCallOptions(), cancelRequest);
-            Console.WriteLine($"Cancellation Status: {cancelResult.Status}");
+            Console.WriteLine($"Cancellation Status: {cancelResult.CancelStatus}");
 
             // Begin Transaction
             // Console.WriteLine("BeginTransaction:");
