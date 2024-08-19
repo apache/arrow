@@ -39,10 +39,9 @@ Pre-requisites
 
 Before continuing, make sure you have:
 
-1. An Arrow installation, which you can set up here: :doc:`/cpp/build_system`
-
-  - Be sure that your arrow installation
-    :doc:`includes the compute kernels. <cpp_build_optional_components>`
+1. An Arrow installation, which you can set up here: :doc:`/cpp/build_system`.
+   If you're comiling Arrow yourself, be sure you compile with the compute module
+   enabled (i.e., ``-DARROW_COMPUTE=ON``), see :ref:`cpp_build_optional_components`.
 
 2. An understanding of basic Arrow data structures from :doc:`/cpp/tutorials/basic_arrow`
 
@@ -52,7 +51,7 @@ Setup
 Before running some computations, we need to fill in a couple gaps:
 
 1. We need to include necessary headers.
-/cpp/building.html#optional-components
+
 2. A ``main()`` is needed to glue things together.
 
 3. We need data to play with.
