@@ -30,35 +30,35 @@ TEST(TestKeyEncoder, BooleanScalar) {
   for (auto scalar : {BooleanScalar{}, BooleanScalar{true}, BooleanScalar{false}}) {
     BooleanKeyEncoder key_encoder;
     SCOPED_TRACE("scalar " + scalar.ToString());
-    constexpr int64_t batch_length = 10;
-    std::array<int32_t, batch_length> lengths{};
-    std::array<std::array<uint8_t, 2>, batch_length> payloads{};
-    key_encoder.AddLength(ExecValue{&scalar}, /*batch_length=*/10, lengths.data());
-    std::array<uint8_t*, batch_length> payload_ptrs{};
-    auto reset_and_get_payload_ptrs = [&]() -> uint8_t** {
-      for (int i = 0; i < batch_length; ++i) {
-        payload_ptrs[i] = payloads[i].data();
-      }
-      return payload_ptrs.data();
-    };
-    auto data_payload = reset_and_get_payload_ptrs();
-    ASSERT_OK(key_encoder.Encode(ExecValue{&scalar}, batch_length, data_payload));
-    data_payload = reset_and_get_payload_ptrs();
-    ASSERT_OK_AND_ASSIGN(
-        auto array_data,
-        key_encoder.Decode(data_payload, batch_length, ::arrow::default_memory_pool()));
-    ASSERT_EQ(batch_length, array_data->length);
-    if (!scalar.is_valid) {
-      ASSERT_EQ(batch_length, array_data->null_count);
-    } else {
-      ASSERT_EQ(0, array_data->null_count);
-      auto boolean_array = std::make_shared<BooleanArray>(array_data);
-      if (scalar.value) {
-        ASSERT_EQ(batch_length, boolean_array->true_count());
-      } else {
-        ASSERT_EQ(batch_length, boolean_array->false_count());
-      }
+    constexpr int64_t kBatchLength = 10;
+    std::array<int32_t, kBatchLength> lengths{};
+    key_encoder.AddLength(ExecValue{&scalar}, kBatchLength, lengths.data());
+    // Check that the lengths are all 2.
+    constexpr int32_t kPayloadWidth =
+        BooleanKeyEncoder::kByteWidth + BooleanKeyEncoder::kExtraByteForNull;
+    for (int i = 0; i < kBatchLength; ++i) {
+      ASSERT_EQ(kPayloadWidth, lengths[i]);
     }
+    std::array<std::array<uint8_t, kPayloadWidth>, kBatchLength> payloads{};
+    std::array<uint8_t*, kBatchLength> payload_ptrs{};
+    // Reset the payload pointers to point to the beginning of each payload.
+    // This is necessary because the key encoder may have modified the pointers.
+    auto reset_payload_ptrs = [&payload_ptrs, &payloads]() {
+      std::transform(payloads.begin(), payloads.end(), payload_ptrs.begin(),
+                     [](auto& payload) -> uint8_t* { return payload.data(); });
+    };
+    reset_payload_ptrs();
+    ASSERT_OK(key_encoder.Encode(ExecValue{&scalar}, kBatchLength, payload_ptrs.data()));
+    reset_payload_ptrs();
+    ASSERT_OK_AND_ASSIGN(auto array_data,
+                         key_encoder.Decode(payload_ptrs.data(), kBatchLength,
+                                            ::arrow::default_memory_pool()));
+    ASSERT_EQ(kBatchLength, array_data->length);
+    auto boolean_array = std::make_shared<BooleanArray>(array_data);
+    ASSERT_OK_AND_ASSIGN(
+        auto expected_array,
+        MakeArrayFromScalar(scalar, kBatchLength, ::arrow::default_memory_pool()));
+    AssertArraysEqual(*expected_array, *boolean_array);
   }
 }
 
