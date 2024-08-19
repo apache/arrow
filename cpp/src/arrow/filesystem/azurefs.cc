@@ -1067,7 +1067,7 @@ class ObjectAppendStream final : public io::OutputStream {
 
     if (current_block_) {
       // Upload remaining buffer
-      RETURN_NOT_OK(WriteBuffer());
+      RETURN_NOT_OK(AppendCurrentBlock());
     }
 
     RETURN_NOT_OK(Flush());
@@ -1083,7 +1083,7 @@ class ObjectAppendStream final : public io::OutputStream {
 
     if (current_block_) {
       // Upload remaining buffer
-      RETURN_NOT_OK(WriteBuffer());
+      RETURN_NOT_OK(AppendCurrentBlock());
     }
 
     return FlushAsync().Then([self = Self()]() {
@@ -1156,7 +1156,7 @@ class ObjectAppendStream final : public io::OutputStream {
   }
 
  private:
-  Status WriteBuffer() {
+  Status AppendCurrentBlock() {
     ARROW_ASSIGN_OR_RAISE(auto buf, current_block_->Finish());
     current_block_.reset();
     current_block_size_ = 0;
@@ -1192,7 +1192,7 @@ class ObjectAppendStream final : public io::OutputStream {
       }
 
       // Upload current buffer
-      RETURN_NOT_OK(WriteBuffer());
+      RETURN_NOT_OK(AppendCurrentBlock());
     }
 
     // We can upload chunks without copying them into a buffer
@@ -1220,10 +1220,6 @@ class ObjectAppendStream final : public io::OutputStream {
     }
 
     return Status::OK();
-  }
-
-  Status AppendBlock(std::shared_ptr<Buffer> buffer) {
-    return AppendBlock(buffer->data(), buffer->size(), buffer);
   }
 
   std::string CreateBlock() {
@@ -1298,6 +1294,10 @@ class ObjectAppendStream final : public io::OutputStream {
     }
 
     return Status::OK();
+  }
+
+  Status AppendBlock(std::shared_ptr<Buffer> buffer) {
+    return AppendBlock(buffer->data(), buffer->size(), buffer);
   }
 
   static void HandleUploadOutcome(const std::shared_ptr<UploadState>& state,

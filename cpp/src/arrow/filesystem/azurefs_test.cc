@@ -46,6 +46,7 @@
 #include <azure/storage/blobs.hpp>
 #include <azure/storage/common/storage_credential.hpp>
 #include <azure/storage/files/datalake.hpp>
+#include <vector>
 
 #include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/test_util.h"
@@ -567,6 +568,7 @@ class TestAzureOptions : public ::testing::Test {
     ASSERT_EQ(options.dfs_storage_scheme, default_options.dfs_storage_scheme);
     ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kDefault);
     ASSERT_EQ(path, "container/dir/blob");
+    ASSERT_EQ(options.background_writes, true);
   }
 
   void TestFromUriDfsStorage() {
@@ -583,6 +585,7 @@ class TestAzureOptions : public ::testing::Test {
     ASSERT_EQ(options.dfs_storage_scheme, default_options.dfs_storage_scheme);
     ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kDefault);
     ASSERT_EQ(path, "file_system/dir/file");
+    ASSERT_EQ(options.background_writes, true);
   }
 
   void TestFromUriAbfs() {
@@ -598,6 +601,7 @@ class TestAzureOptions : public ::testing::Test {
     ASSERT_EQ(options.dfs_storage_scheme, "https");
     ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kStorageSharedKey);
     ASSERT_EQ(path, "container/dir/blob");
+    ASSERT_EQ(options.background_writes, true);
   }
 
   void TestFromUriAbfss() {
@@ -613,6 +617,7 @@ class TestAzureOptions : public ::testing::Test {
     ASSERT_EQ(options.dfs_storage_scheme, "https");
     ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kStorageSharedKey);
     ASSERT_EQ(path, "container/dir/blob");
+    ASSERT_EQ(options.background_writes, true);
   }
 
   void TestFromUriEnableTls() {
@@ -629,16 +634,17 @@ class TestAzureOptions : public ::testing::Test {
     ASSERT_EQ(options.dfs_storage_scheme, "http");
     ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kStorageSharedKey);
     ASSERT_EQ(path, "container/dir/blob");
+    ASSERT_EQ(options.background_writes, true);
   }
 
-  void TestFromUriEnableBackgroundWrites() {
+  void TestFromUriDisableBackgroundWrites() {
     std::string path;
     ASSERT_OK_AND_ASSIGN(auto options,
                          AzureOptions::FromUri(
                              "abfs://account:password@127.0.0.1:10000/container/dir/blob?"
-                             "background_writes=true",
+                             "background_writes=false",
                              &path));
-    ASSERT_EQ(options.background_writes, true);
+    ASSERT_EQ(options.background_writes, false);
   }
 
   void TestFromUriCredentialDefault() {
@@ -784,8 +790,8 @@ TEST_F(TestAzureOptions, FromUriDfsStorage) { TestFromUriDfsStorage(); }
 TEST_F(TestAzureOptions, FromUriAbfs) { TestFromUriAbfs(); }
 TEST_F(TestAzureOptions, FromUriAbfss) { TestFromUriAbfss(); }
 TEST_F(TestAzureOptions, FromUriEnableTls) { TestFromUriEnableTls(); }
-TEST_F(TestAzureOptions, FromUriEnableBackgroundWrites) {
-  TestFromUriEnableBackgroundWrites();
+TEST_F(TestAzureOptions, FromUriDisableBackgroundWrites) {
+  TestFromUriDisableBackgroundWrites();
 }
 TEST_F(TestAzureOptions, FromUriCredentialDefault) { TestFromUriCredentialDefault(); }
 TEST_F(TestAzureOptions, FromUriCredentialAnonymous) { TestFromUriCredentialAnonymous(); }
@@ -1524,11 +1530,15 @@ class TestAzureFileSystem : public ::testing::Test {
     ASSERT_OK_AND_ASSIGN(auto output, fs->OpenOutputStream(path, {}));
 
     // Upload 5 MB, 4 MB und 2 MB and a very small write to test varying sizes
-    std::array<std::int64_t, 4> sizes{5 * 1024 * 1024, 4 * 1024 * 1024, 2 * 1024 * 1024,
-                                      2000};
-    std::array<std::string, 4> buffers{
-        std::string(sizes[0], 'A'), std::string(sizes[1], 'B'),
-        std::string(sizes[2], 'C'), std::string(sizes[3], 'D')};
+    std::vector<std::int64_t> sizes{5 * 1024 * 1024, 4 * 1024 * 1024, 2 * 1024 * 1024,
+                                    2000};
+
+    std::vector<std::string> buffers{};
+    char current_char = 'A';
+    for (const auto size : sizes) {
+      buffers.emplace_back(size, current_char++);
+    }
+
     auto expected_size = std::int64_t{0};
     for (size_t i = 0; i < buffers.size(); ++i) {
       ASSERT_OK(output->Write(buffers[i]));
@@ -2820,15 +2830,15 @@ TEST_F(TestAzuriteFileSystem, WriteMetadataHttpHeaders) {
   ASSERT_EQ("text/plain", content_type);
 }
 
-TEST_F(TestAzuriteFileSystem, OpenOutputStreamSmallBackgroundWrites) {
-  options_.background_writes = true;
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamSmallNoBackgroundWrites) {
+  options_.background_writes = false;
   TestOpenOutputStreamSmall();
 }
 
 TEST_F(TestAzuriteFileSystem, OpenOutputStreamSmall) { TestOpenOutputStreamSmall(); }
 
-TEST_F(TestAzuriteFileSystem, OpenOutputStreamLargeBackgroundWrites) {
-  options_.background_writes = true;
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamLargeNoBackgroundWrites) {
+  options_.background_writes = false;
   TestOpenOutputStreamLarge();
 }
 
@@ -2905,8 +2915,8 @@ TEST_F(TestAzuriteFileSystem, OpenOutputStreamCloseAsync) {
   TestOpenOutputStreamCloseAsync();
 }
 
-TEST_F(TestAzuriteFileSystem, OpenOutputStreamCloseAsyncBackgroundWrites) {
-  options_.background_writes = true;
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamCloseAsyncNoBackgroundWrites) {
+  options_.background_writes = false;
   TestOpenOutputStreamCloseAsync();
 }
 
@@ -2914,8 +2924,8 @@ TEST_F(TestAzuriteFileSystem, OpenOutputStreamAsyncDestructor) {
   TestOpenOutputStreamCloseAsyncDestructor();
 }
 
-TEST_F(TestAzuriteFileSystem, OpenOutputStreamAsyncDestructorBackgroundWrites) {
-  options_.background_writes = true;
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamAsyncDestructorNoBackgroundWrites) {
+  options_.background_writes = false;
   TestOpenOutputStreamCloseAsyncDestructor();
 }
 
@@ -2923,8 +2933,8 @@ TEST_F(TestAzuriteFileSystem, OpenOutputStreamDestructor) {
   TestOpenOutputStreamDestructor();
 }
 
-TEST_F(TestAzuriteFileSystem, OpenOutputStreamDestructorBackgroundWrites) {
-  options_.background_writes = true;
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamDestructorNoBackgroundWrites) {
+  options_.background_writes = false;
   TestOpenOutputStreamDestructor();
 }
 
