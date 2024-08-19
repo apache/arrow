@@ -135,6 +135,39 @@ std::shared_ptr<Statistics> MakeColumnStats(const format::ColumnMetaData& meta_d
   throw ParquetException("Can't decode page statistics for selected column type");
 }
 
+// Get KeyValueMetadata from parquet Thrift RowGroup or ColumnChunk metadata.
+//
+// Returns nullptr if the metadata is not set.
+template <typename Metadata>
+std::shared_ptr<KeyValueMetadata> FromThriftKeyValueMetadata(const Metadata& source) {
+  std::shared_ptr<KeyValueMetadata> metadata = nullptr;
+  if (source.__isset.key_value_metadata) {
+    std::vector<std::string> keys;
+    std::vector<std::string> values;
+    keys.reserve(source.key_value_metadata.size());
+    values.reserve(source.key_value_metadata.size());
+    for (const auto& it : source.key_value_metadata) {
+      keys.push_back(it.key);
+      values.push_back(it.value);
+    }
+    metadata = std::make_shared<KeyValueMetadata>(std::move(keys), std::move(values));
+  }
+  return metadata;
+}
+
+template <typename Metadata>
+void ToThriftKeyValueMetadata(const KeyValueMetadata& source, Metadata* metadata) {
+  std::vector<format::KeyValue> key_value_metadata;
+  key_value_metadata.reserve(static_cast<size_t>(source.size()));
+  for (int64_t i = 0; i < source.size(); ++i) {
+    format::KeyValue kv_pair;
+    kv_pair.__set_key(source.key(i));
+    kv_pair.__set_value(source.value(i));
+    key_value_metadata.emplace_back(std::move(kv_pair));
+  }
+  metadata->__set_key_value_metadata(std::move(key_value_metadata));
+}
+
 // MetaData Accessor
 
 // ColumnCryptoMetaData
@@ -233,6 +266,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
                                  encoding_stats.count});
     }
     possible_stats_ = nullptr;
+    InitKeyValueMetadata();
   }
 
   bool Equals(const ColumnChunkMetaDataImpl& other) const {
@@ -343,7 +377,15 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     return std::nullopt;
   }
 
+  const std::shared_ptr<const KeyValueMetadata>& key_value_metadata() const {
+    return key_value_metadata_;
+  }
+
  private:
+  void InitKeyValueMetadata() {
+    key_value_metadata_ = FromThriftKeyValueMetadata(*column_metadata_);
+  }
+
   mutable std::shared_ptr<Statistics> possible_stats_;
   std::vector<Encoding::type> encodings_;
   std::vector<PageEncodingStats> encoding_stats_;
@@ -353,6 +395,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   const ColumnDescriptor* descr_;
   const ReaderProperties properties_;
   const ApplicationVersion* writer_version_;
+  std::shared_ptr<const KeyValueMetadata> key_value_metadata_;
 };
 
 std::unique_ptr<ColumnChunkMetaData> ColumnChunkMetaData::Make(
@@ -469,6 +512,11 @@ std::optional<IndexLocation> ColumnChunkMetaData::GetOffsetIndexLocation() const
 
 bool ColumnChunkMetaData::Equals(const ColumnChunkMetaData& other) const {
   return impl_->Equals(*other.impl_);
+}
+
+const std::shared_ptr<const KeyValueMetadata>& ColumnChunkMetaData::key_value_metadata()
+    const {
+  return impl_->key_value_metadata();
 }
 
 // row-group metadata
@@ -913,7 +961,7 @@ class FileMetaData::FileMetaDataImpl {
     std::vector<parquet::ColumnOrder> column_orders;
     if (metadata_->__isset.column_orders) {
       column_orders.reserve(metadata_->column_orders.size());
-      for (auto column_order : metadata_->column_orders) {
+      for (auto& column_order : metadata_->column_orders) {
         if (column_order.__isset.TYPE_ORDER) {
           column_orders.push_back(ColumnOrder::type_defined_);
         } else {
@@ -928,14 +976,7 @@ class FileMetaData::FileMetaDataImpl {
   }
 
   void InitKeyValueMetadata() {
-    std::shared_ptr<KeyValueMetadata> metadata = nullptr;
-    if (metadata_->__isset.key_value_metadata) {
-      metadata = std::make_shared<KeyValueMetadata>();
-      for (const auto& it : metadata_->key_value_metadata) {
-        metadata->Append(it.key, it.value);
-      }
-    }
-    key_value_metadata_ = std::move(metadata);
+    key_value_metadata_ = FromThriftKeyValueMetadata(*metadata_);
   }
 };
 
@@ -1590,6 +1631,10 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
     column_chunk_->meta_data.__set_encodings(std::move(thrift_encodings));
     column_chunk_->meta_data.__set_encoding_stats(std::move(thrift_encoding_stats));
 
+    if (key_value_metadata_) {
+      ToThriftKeyValueMetadata(*key_value_metadata_, &column_chunk_->meta_data);
+    }
+
     const auto& encrypt_md =
         properties_->column_encryption_properties(column_->path()->ToDotString());
     // column is encrypted
@@ -1656,6 +1701,10 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
     return column_chunk_->meta_data.total_compressed_size;
   }
 
+  void SetKeyValueMetadata(std::shared_ptr<const KeyValueMetadata> key_value_metadata) {
+    key_value_metadata_ = std::move(key_value_metadata);
+  }
+
  private:
   void Init(format::ColumnChunk* column_chunk) {
     column_chunk_ = column_chunk;
@@ -1670,6 +1719,7 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
   std::unique_ptr<format::ColumnChunk> owned_column_chunk_;
   const std::shared_ptr<WriterProperties> properties_;
   const ColumnDescriptor* column_;
+  std::shared_ptr<const KeyValueMetadata> key_value_metadata_;
 };
 
 std::unique_ptr<ColumnChunkMetaDataBuilder> ColumnChunkMetaDataBuilder::Make(
@@ -1725,6 +1775,11 @@ const ColumnDescriptor* ColumnChunkMetaDataBuilder::descr() const {
 
 void ColumnChunkMetaDataBuilder::SetStatistics(const EncodedStatistics& result) {
   impl_->SetStatistics(result);
+}
+
+void ColumnChunkMetaDataBuilder::SetKeyValueMetadata(
+    std::shared_ptr<const KeyValueMetadata> key_value_metadata) {
+  impl_->SetKeyValueMetadata(std::move(key_value_metadata));
 }
 
 int64_t ColumnChunkMetaDataBuilder::total_compressed_size() const {
@@ -1925,16 +1980,7 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
       } else if (key_value_metadata) {
         key_value_metadata_ = key_value_metadata_->Merge(*key_value_metadata);
       }
-      metadata_->key_value_metadata.clear();
-      metadata_->key_value_metadata.reserve(
-          static_cast<size_t>(key_value_metadata_->size()));
-      for (int64_t i = 0; i < key_value_metadata_->size(); ++i) {
-        format::KeyValue kv_pair;
-        kv_pair.__set_key(key_value_metadata_->key(i));
-        kv_pair.__set_value(key_value_metadata_->value(i));
-        metadata_->key_value_metadata.push_back(std::move(kv_pair));
-      }
-      metadata_->__isset.key_value_metadata = true;
+      ToThriftKeyValueMetadata(*key_value_metadata_, metadata_.get());
     }
 
     int32_t file_version = 0;

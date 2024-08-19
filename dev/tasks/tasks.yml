@@ -1309,11 +1309,19 @@ tasks:
     ci: github
     template: r/github.linux.rchk.yml
 
+  test-r-extra-packages:
+    ci: github
+    template: r/github.linux.extra.packages.yml   
+
   test-r-linux-as-cran:
     ci: github
     template: r/github.linux.cran.yml
     params:
       MATRIX: {{ "${{ matrix.r_image }}" }}
+
+  test-r-macos-as-cran:
+    ci: github
+    template: r/github.macos.cran.yml
 
   test-r-arrow-backwards-compatibility:
     ci: github

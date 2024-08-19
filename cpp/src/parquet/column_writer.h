@@ -21,6 +21,7 @@
 #include <cstring>
 #include <memory>
 
+#include "arrow/type_fwd.h"
 #include "arrow/util/compression.h"
 #include "parquet/exception.h"
 #include "parquet/platform.h"
@@ -180,6 +181,17 @@ class PARQUET_EXPORT ColumnWriter {
 
   /// \brief The file-level writer properties
   virtual const WriterProperties* properties() = 0;
+
+  /// \brief Add key-value metadata to the ColumnChunk.
+  /// \param[in] key_value_metadata the metadata to add.
+  /// \note This will overwrite any existing metadata with the same key.
+  /// \throw ParquetException if Close() has been called.
+  virtual void AddKeyValueMetadata(
+      const std::shared_ptr<const ::arrow::KeyValueMetadata>& key_value_metadata) = 0;
+
+  /// \brief Reset the ColumnChunk key-value metadata.
+  /// \throw ParquetException if Close() has been called.
+  virtual void ResetKeyValueMetadata() = 0;
 
   /// \brief Write Apache Arrow columnar data directly to ColumnWriter. Returns
   /// error status if the array data type is not compatible with the concrete

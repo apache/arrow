@@ -184,6 +184,7 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   std::unique_ptr<ColumnCryptoMetaData> crypto_metadata() const;
   std::optional<IndexLocation> GetColumnIndexLocation() const;
   std::optional<IndexLocation> GetOffsetIndexLocation() const;
+  const std::shared_ptr<const KeyValueMetadata>& key_value_metadata() const;
 
  private:
   explicit ColumnChunkMetaData(
@@ -466,8 +467,12 @@ class PARQUET_EXPORT ColumnChunkMetaDataBuilder {
   // column chunk
   // Used when a dataset is spread across multiple files
   void set_file_path(const std::string& path);
+
   // column metadata
   void SetStatistics(const EncodedStatistics& stats);
+
+  void SetKeyValueMetadata(std::shared_ptr<const KeyValueMetadata> key_value_metadata);
+
   // get the column descriptor
   const ColumnDescriptor* descr() const;
 
