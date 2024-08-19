@@ -17,6 +17,10 @@
   under the License.
 -->
 
+# arrow 17.0.0.1
+
+* Resolve an issue with CRAN's M1 builders and the AWS SDK dependency build process.
+
 # arrow 17.0.0
 
 ## New features
