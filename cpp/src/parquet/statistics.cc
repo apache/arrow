@@ -48,6 +48,81 @@ using arrow::util::SafeCopy;
 using arrow::util::SafeLoad;
 
 namespace parquet {
+
+class GeometryStatisticsImpl {
+ public:
+  bool Equals(const GeometryStatisticsImpl& other) const {
+    if (is_valid_ != other.is_valid_) {
+      return false;
+    }
+
+    if (!is_valid_ && !other.is_valid_) {
+      return true;
+    }
+
+    auto wkb_types = bounder_.WkbTypes();
+    auto other_wkb_types = other.bounder_.WkbTypes();
+    if (wkb_types.size() != other_wkb_types.size()) {
+      return false;
+    }
+
+    for (size_t i = 0; i < wkb_types.size(); i++) {
+      if (wkb_types[i] != other_wkb_types[i]) {
+        return false;
+      }
+    }
+
+    return bounder_.Bounds() == other.bounder_.Bounds();
+  }
+
+  void Merge(const GeometryStatisticsImpl& other) {
+    if (!is_valid_ || !other.is_valid_) {
+      is_valid_ = false;
+      return;
+    }
+
+    bounder_.ReadBox(other.bounder_.Bounds());
+  }
+
+  void Update(const ByteArray* values, int64_t num_values, int64_t null_count) {
+    if (!is_valid_) {
+      return;
+    }
+
+    geometry::WKBBuffer buf;
+    try {
+      for (int64_t i = 0; i < num_values; i++) {
+        const ByteArray& item = values[i];
+        buf.Init(item.ptr, item.len);
+        bounder_.ReadGeometry(&buf);
+      }
+    } catch (ParquetException& e) {
+      is_valid_ = false;
+    }
+  }
+
+ private:
+  geometry::WKBGeometryBounder bounder_;
+  bool is_valid_{};
+};
+
+GeometryStatistics::GeometryStatistics() {
+  impl_ = std::make_unique<GeometryStatisticsImpl>();
+}
+
+bool GeometryStatistics::Equals(const GeometryStatistics& other) const {
+  return impl_->Equals(*other.impl_);
+}
+
+void GeometryStatistics::Merge(const GeometryStatistics& other) {
+  impl_->Merge(*other.impl_);
+}
+
+void GeometryStatistics::Update(const ByteArray* values, int64_t num_values,
+                                int64_t null_count) {
+  impl_->Update(values, num_values, null_count);
+}
+
 namespace {
 
 // ----------------------------------------------------------------------
@@ -554,6 +629,7 @@ LogicalType::Type::type LogicalTypeId(const ColumnDescriptor* descr) {
   }
   return LogicalType::Type::NONE;
 }
+
 LogicalType::Type::type LogicalTypeId(const Statistics& stats) {
   return LogicalTypeId(stats.descr());
 }

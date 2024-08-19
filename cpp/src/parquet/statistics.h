@@ -24,7 +24,6 @@
 #include <string>
 #include <utility>
 
-#include "parquet/geometry_util.h"
 #include "parquet/platform.h"
 #include "parquet/types.h"
 
@@ -115,18 +114,20 @@ std::shared_ptr<TypedComparator<DType>> MakeComparator(const ColumnDescriptor* d
   return std::static_pointer_cast<TypedComparator<DType>>(Comparator::Make(descr));
 }
 
+class GeometryStatisticsImpl;
+
 class GeometryStatistics {
  public:
-  bool Equals(const GeometryStatistics& other) const { ParquetException::NYI(); }
+  GeometryStatistics();
 
-  void Merge(const GeometryStatistics& other) { ParquetException::NYI(); }
+  bool Equals(const GeometryStatistics& other) const;
 
-  void Update(const ByteArray* values, int64_t num_values, int64_t null_count) {
-    ParquetException::NYI();
-  }
+  void Merge(const GeometryStatistics& other);
+
+  void Update(const ByteArray* values, int64_t num_values, int64_t null_count);
 
  private:
-  geometry::WKBGeometryBounder bounder_;
+  std::unique_ptr<GeometryStatisticsImpl> impl_;
 };
 
 // ----------------------------------------------------------------------

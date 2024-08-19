@@ -176,7 +176,13 @@ struct GeometryType {
 
 class WKBBuffer {
  public:
+  WKBBuffer() : data_(nullptr), size_(0) {}
   WKBBuffer(const uint8_t* data, int64_t size) : data_(data), size_(size) {}
+
+  void Init(const uint8_t* data, int64_t size) {
+    data_ = data;
+    size_ = size;
+  }
 
   uint8_t ReadUInt8() {
     if (size_ < 1) {
@@ -577,16 +583,17 @@ class WKBGeometryBounder {
     }
   }
 
-  const BoundingBox& Bounds() {
-    bounder_.Finish(&box_);
-    return box_;
-  }
+  void ReadBox(const BoundingBox& box) { box_.Merge(box); }
 
-  std::vector<uint32_t> WkbTypes() {
+  const BoundingBox& Bounds() const { return box_; }
+
+  std::vector<uint32_t> WkbTypes() const {
     std::vector<uint32_t> out(wkb_types_.begin(), wkb_types_.end());
     std::sort(out.begin(), out.end());
     return out;
   }
+
+  void Flush() { bounder_.Finish(&box_); }
 
   void Reset() {
     box_.Reset();
