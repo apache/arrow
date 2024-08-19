@@ -24,10 +24,10 @@
 #include "arrow/acero/swiss_join_internal.h"
 #include "arrow/acero/util.h"
 #include "arrow/array/util.h"  // MakeArrayFromScalar
-#include "arrow/compute/kernels/row_encoder_internal.h"
 #include "arrow/compute/key_hash_internal.h"
 #include "arrow/compute/row/compare_internal.h"
 #include "arrow/compute/row/encode_internal.h"
+#include "arrow/compute/row/row_encoder_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/tracing_internal.h"
