@@ -118,10 +118,9 @@ Result<KeyColumnMetadata> ColumnMetadataFromDataType(
     const std::shared_ptr<DataType>& type) {
   const bool is_extension = type->id() == Type::EXTENSION;
   const std::shared_ptr<DataType>& typ =
-      is_extension
-          ? arrow::internal::checked_pointer_cast<ExtensionType>(type->GetSharedPtr())
-                ->storage_type()
-          : type;
+      is_extension ? arrow::internal::checked_cast<const ExtensionType*>(type.get())
+                         ->storage_type()
+                   : type;
 
   if (typ->id() == Type::DICTIONARY) {
     auto bit_width =
@@ -323,8 +322,7 @@ Status ResizableArrayData::ResizeFixedLengthBuffers(int num_rows_new) {
 }
 
 Status ResizableArrayData::ResizeVaryingLengthBuffer() {
-  KeyColumnMetadata column_metadata;
-  column_metadata = ColumnMetadataFromDataType(data_type_).ValueOrDie();
+  KeyColumnMetadata column_metadata = ColumnMetadataFromDataType(data_type_).ValueOrDie();
 
   if (!column_metadata.is_fixed_length) {
     int64_t min_new_size = buffers_[kFixedLengthBuffer]->data_as<int32_t>()[num_rows_];
@@ -343,8 +341,7 @@ Status ResizableArrayData::ResizeVaryingLengthBuffer() {
 }
 
 KeyColumnArray ResizableArrayData::column_array() const {
-  KeyColumnMetadata column_metadata;
-  column_metadata = ColumnMetadataFromDataType(data_type_).ValueOrDie();
+  KeyColumnMetadata column_metadata = ColumnMetadataFromDataType(data_type_).ValueOrDie();
   return KeyColumnArray(column_metadata, num_rows_,
                         buffers_[kValidityBuffer]->mutable_data(),
                         buffers_[kFixedLengthBuffer]->mutable_data(),
@@ -352,11 +349,11 @@ KeyColumnArray ResizableArrayData::column_array() const {
 }
 
 std::shared_ptr<ArrayData> ResizableArrayData::array_data() const {
-  KeyColumnMetadata column_metadata;
-  column_metadata = ColumnMetadataFromDataType(data_type_).ValueOrDie();
+  KeyColumnMetadata column_metadata = ColumnMetadataFromDataType(data_type_).ValueOrDie();
 
-  auto valid_count = arrow::internal::CountSetBits(
-      buffers_[kValidityBuffer]->data(), /*offset=*/0, static_cast<int64_t>(num_rows_));
+  auto valid_count =
+      arrow::internal::CountSetBits(buffers_[kValidityBuffer]->data(), /*bit_offset=*/0,
+                                    static_cast<int64_t>(num_rows_));
   int null_count = static_cast<int>(num_rows_) - static_cast<int>(valid_count);
 
   if (column_metadata.is_fixed_length) {
