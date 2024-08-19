@@ -199,7 +199,7 @@ type UUIDType struct {
 	arrow.ExtensionBase
 }
 
-// ParquetLogicalType implements pqarrow.LogicalTypeMapper.
+// ParquetLogicalType implements pqarrow.ExtensionCustomParquetType.
 func (e *UUIDType) ParquetLogicalType() schema.LogicalType {
 	return schema.UUIDLogicalType{}
 }

@@ -38,7 +38,7 @@ type JSONType struct {
 	arrow.ExtensionBase
 }
 
-// ParquetLogicalType implements CustomParquetType.
+// ParquetLogicalType implements pqarrow.ExtensionCustomParquetType.
 func (b *JSONType) ParquetLogicalType() schema.LogicalType {
 	return schema.JSONLogicalType{}
 }
