@@ -483,7 +483,7 @@ std::shared_ptr<const LogicalType> LogicalType::FromThrift(
     }
 
     std::string metadata;
-    if (type.GEOMETRY.__isset.crs) {
+    if (type.GEOMETRY.__isset.metadata) {
       metadata = type.GEOMETRY.metadata;
     }
 
