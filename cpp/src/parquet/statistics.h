@@ -114,9 +114,34 @@ std::shared_ptr<TypedComparator<DType>> MakeComparator(const ColumnDescriptor* d
   return std::static_pointer_cast<TypedComparator<DType>>(Comparator::Make(descr));
 }
 
+class PARQUET_EXPORT EncodedGeometryStatistics {
+ public:
+  static constexpr double kInf = std::numeric_limits<double>::infinity();
+
+  EncodedGeometryStatistics() = default;
+  EncodedGeometryStatistics(const EncodedGeometryStatistics&) = default;
+  EncodedGeometryStatistics(EncodedGeometryStatistics&&) = default;
+  EncodedGeometryStatistics& operator=(const EncodedGeometryStatistics&) = default;
+
+  double xmin{kInf};
+  double xmax{-kInf};
+  double ymin{kInf};
+  double ymax{-kInf};
+  double zmin{kInf};
+  double zmax{-kInf};
+  double mmin{kInf};
+  double mmax{-kInf};
+  std::vector<std::pair<std::string, std::string>> coverings;
+  std::vector<uint32_t> geometry_types;
+
+  bool has_z() const { return (zmax - zmin) > 0; }
+
+  bool has_m() const { return (mmax - mmin) > 0; }
+};
+
 class GeometryStatisticsImpl;
 
-class GeometryStatistics {
+class PARQUET_EXPORT GeometryStatistics {
  public:
   GeometryStatistics();
 
@@ -137,12 +162,16 @@ class GeometryStatistics {
 class PARQUET_EXPORT EncodedStatistics {
   std::string max_, min_;
   bool is_signed_ = false;
+  EncodedGeometryStatistics geometry_statistics_;
 
  public:
   EncodedStatistics() = default;
 
   const std::string& max() const { return max_; }
   const std::string& min() const { return min_; }
+  const EncodedGeometryStatistics& geometry_statistics() const {
+    return geometry_statistics_;
+  }
 
   int64_t null_count = 0;
   int64_t distinct_count = 0;
@@ -151,6 +180,7 @@ class PARQUET_EXPORT EncodedStatistics {
   bool has_max = false;
   bool has_null_count = false;
   bool has_distinct_count = false;
+  bool has_geometry_statistics = false;
 
   // When all values in the statistics are null, it is set to true.
   // Otherwise, at least one value is not null, or we are not sure at all.
@@ -203,6 +233,12 @@ class PARQUET_EXPORT EncodedStatistics {
   EncodedStatistics& set_distinct_count(int64_t value) {
     distinct_count = value;
     has_distinct_count = true;
+    return *this;
+  }
+
+  EncodedStatistics& set_geometry(EncodedGeometryStatistics geometry_statistics) {
+    geometry_statistics_ = std::move(geometry_statistics);
+    has_geometry_statistics = true;
     return *this;
   }
 };

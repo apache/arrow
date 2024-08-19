@@ -96,6 +96,8 @@ class GeometryStatisticsImpl {
         buf.Init(item.ptr, item.len);
         bounder_.ReadGeometry(&buf);
       }
+
+      bounder_.Flush();
     } catch (ParquetException& e) {
       is_valid_ = false;
     }
