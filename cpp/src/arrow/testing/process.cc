@@ -17,6 +17,14 @@
 
 #include "arrow/testing/process.h"
 
+// This boost/asio/io_context.hpp include is needless for no MinGW
+// build.
+//
+// This is for including boost/asio/detail/socket_types.hpp before any
+// "#include <windows.h>". boost/asio/detail/socket_types.hpp doesn't
+// work if windows.h is already included.
+#include <boost/asio/io_context.hpp>
+
 #ifdef BOOST_PROCESS_NEED_SOURCE
 // Workaround for https://github.com/boostorg/process/issues/312
 #define BOOST_PROCESS_V2_SEPARATE_COMPILATION
