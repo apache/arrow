@@ -18,6 +18,7 @@
 #include "parquet/encryption/encryption_internal.h"
 
 #include <openssl/aes.h>
+#include <openssl/err.h>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 
@@ -792,7 +793,15 @@ void RandBytes(unsigned char* buf, size_t num) {
     throw ParquetException(ss.str());
   }
   openssl::EnsureInitialized();
-  RAND_bytes(buf, static_cast<int>(num));
+  int status = RAND_bytes(buf, static_cast<int>(num));
+  if (status != 1) {
+    const auto error_code = ERR_get_error();
+    char buffer[256];
+    ERR_error_string_n(error_code, buffer, sizeof(buffer));
+    std::stringstream ss;
+    ss << "Failed to generate random bytes: " << buffer;
+    throw ParquetException(ss.str());
+  }
 }
 
 void EnsureBackendInitialized() { openssl::EnsureInitialized(); }
