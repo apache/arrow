@@ -17,11 +17,6 @@
 
 #include "arrow/flight/test_util.h"
 
-#ifdef __APPLE__
-#include <limits.h>
-#include <mach-o/dyld.h>
-#endif
-
 #include <algorithm>
 #include <cstdlib>
 #include <fstream>

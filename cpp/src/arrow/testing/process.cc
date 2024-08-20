@@ -26,6 +26,11 @@
 #include <boost/process/v2.hpp>
 #endif
 
+#ifdef __APPLE__
+#include <limits.h>
+#include <mach-o/dyld.h>
+#endif
+
 #include <chrono>
 #include <iostream>
 #include <sstream>
