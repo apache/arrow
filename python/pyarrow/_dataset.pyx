@@ -2507,7 +2507,8 @@ cdef class Partitioning(_Weakrefable):
 
     def format(self, expr):
         """
-        Parse a partition expression into a tuple of directory, path
+        Convert a filter expression into a tuple of (directory, filename) using 
+        the current partitioning scheme
 
         Parameters
         ----------
