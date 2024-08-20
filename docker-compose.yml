@@ -1204,6 +1204,7 @@ services:
       args:
         base: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2014-vcpkg-${VCPKG}
         java: 11
+        # GH-XXX: Gandiva throws error with LLVM 17+
         llvm: 16
       context: .
       dockerfile: ci/docker/java-jni-manylinux-201x.dockerfile

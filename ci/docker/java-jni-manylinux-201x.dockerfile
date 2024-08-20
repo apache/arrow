@@ -18,6 +18,8 @@
 ARG base
 FROM ${base}
 
+ARG llvm=16
+
 # Install the libraries required by the Gandiva to run
 # Use enable llvm[enable-rtti] in the vcpkg.json to avoid link problems in Gandiva
 RUN vcpkg install \
