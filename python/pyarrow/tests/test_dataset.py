@@ -66,6 +66,14 @@ except ImportError:
 pytestmark = pytest.mark.dataset
 
 
+class TableStreamWrapper:
+    def __init__(self, table):
+        self.table = table
+
+    def __arrow_c_stream__(self, requested_schema=None):
+        return self.table.__arrow_c_stream__(requested_schema)
+
+
 def _generate_data(n):
     import datetime
     import itertools
@@ -2543,6 +2551,7 @@ def test_scan_iterator(use_threads):
     for factory, schema in (
             (lambda: pa.RecordBatchReader.from_batches(
                 batch.schema, [batch]), None),
+            (lambda: TableStreamWrapper(table), None),
             (lambda: (batch for _ in range(1)), batch.schema),
     ):
         # Scanning the fragment consumes the underlying iterator
@@ -4682,6 +4691,13 @@ def test_write_iterable(tempdir):
     reader = pa.RecordBatchReader.from_batches(table.schema,
                                                table.to_batches())
     ds.write_dataset(reader, base_dir,
+                     basename_template='dat_{i}.arrow', format="feather")
+    result = ds.dataset(base_dir, format="ipc").to_table()
+    assert result.equals(table)
+
+    base_dir = tempdir / 'inmemory_pycapsule'
+    stream = TableStreamWrapper(table)
+    ds.write_dataset(stream, base_dir,
                      basename_template='dat_{i}.arrow', format="feather")
     result = ds.dataset(base_dir, format="ipc").to_table()
     assert result.equals(table)
