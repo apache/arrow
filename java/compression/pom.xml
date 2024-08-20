@@ -50,7 +50,7 @@ under the License.
     <dependency>
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-compress</artifactId>
-      <version>1.26.2</version>
+      <version>1.27.0</version>
     </dependency>
     <dependency>
       <groupId>com.github.luben</groupId>

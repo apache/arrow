@@ -328,6 +328,7 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         unique_ptr[CColumnCryptoMetaData] crypto_metadata() const
         optional[ParquetIndexLocation] GetColumnIndexLocation() const
         optional[ParquetIndexLocation] GetOffsetIndexLocation() const
+        shared_ptr[const CKeyValueMetadata] key_value_metadata() const
 
     struct CSortingColumn" parquet::SortingColumn":
         int column_idx

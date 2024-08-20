@@ -24,10 +24,10 @@
 #include "arrow/acero/swiss_join_internal.h"
 #include "arrow/acero/util.h"
 #include "arrow/array/util.h"  // MakeArrayFromScalar
-#include "arrow/compute/kernels/row_encoder_internal.h"
 #include "arrow/compute/key_hash_internal.h"
 #include "arrow/compute/row/compare_internal.h"
 #include "arrow/compute/row/encode_internal.h"
+#include "arrow/compute/row/row_encoder_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/tracing_internal.h"
@@ -122,7 +122,7 @@ void RowArrayAccessor::Visit(const RowTableImpl& rows, int column_id, int num_ro
   if (!is_fixed_length_column) {
     int varbinary_column_id = VarbinaryColumnId(rows.metadata(), column_id);
     const uint8_t* row_ptr_base = rows.data(2);
-    const uint32_t* row_offsets = rows.offsets();
+    const RowTableImpl::offset_type* row_offsets = rows.offsets();
     uint32_t field_offset_within_row, field_length;
 
     if (varbinary_column_id == 0) {
@@ -173,7 +173,7 @@ void RowArrayAccessor::Visit(const RowTableImpl& rows, int column_id, int num_ro
       // Case 4: This is a fixed length column in a varying length row
       //
       const uint8_t* row_ptr_base = rows.data(2) + field_offset_within_row;
-      const uint32_t* row_offsets = rows.offsets();
+      const RowTableImpl::offset_type* row_offsets = rows.offsets();
       for (int i = 0; i < num_rows; ++i) {
         uint32_t row_id = row_ids[i];
         const uint8_t* row_ptr = row_ptr_base + row_offsets[row_id];
@@ -473,17 +473,10 @@ Status RowArrayMerge::PrepareForMerge(RowArray* target,
     (*first_target_row_id)[sources.size()] = num_rows;
   }
 
-  if (num_bytes > std::numeric_limits<uint32_t>::max()) {
-    return Status::Invalid(
-        "There are more than 2^32 bytes of key data.  Acero cannot "
-        "process a join of this magnitude");
-  }
-
   // Allocate target memory
   //
   target->rows_.Clean();
-  RETURN_NOT_OK(target->rows_.AppendEmpty(static_cast<uint32_t>(num_rows),
-                                          static_cast<uint32_t>(num_bytes)));
+  RETURN_NOT_OK(target->rows_.AppendEmpty(static_cast<uint32_t>(num_rows), num_bytes));
 
   // In case of varying length rows,
   // initialize the first row offset for each range of rows corresponding to a
@@ -565,15 +558,15 @@ void RowArrayMerge::CopyVaryingLength(RowTableImpl* target, const RowTableImpl& 
                                       int64_t first_target_row_offset,
                                       const int64_t* source_rows_permutation) {
   int64_t num_source_rows = source.length();
-  uint32_t* target_offsets = target->mutable_offsets();
-  const uint32_t* source_offsets = source.offsets();
+  RowTableImpl::offset_type* target_offsets = target->mutable_offsets();
+  const RowTableImpl::offset_type* source_offsets = source.offsets();
 
   // Permutation of source rows is optional.
   //
   if (!source_rows_permutation) {
     int64_t target_row_offset = first_target_row_offset;
     for (int64_t i = 0; i < num_source_rows; ++i) {
-      target_offsets[first_target_row_id + i] = static_cast<uint32_t>(target_row_offset);
+      target_offsets[first_target_row_id + i] = target_row_offset;
       target_row_offset += source_offsets[i + 1] - source_offsets[i];
     }
     // We purposefully skip outputting of N+1 offset, to allow concurrent
@@ -593,7 +586,10 @@ void RowArrayMerge::CopyVaryingLength(RowTableImpl* target, const RowTableImpl& 
       int64_t source_row_id = source_rows_permutation[i];
       const uint64_t* source_row_ptr = reinterpret_cast<const uint64_t*>(
           source.data(2) + source_offsets[source_row_id]);
-      uint32_t length = source_offsets[source_row_id + 1] - source_offsets[source_row_id];
+      int64_t length = source_offsets[source_row_id + 1] - source_offsets[source_row_id];
+      // Though the row offset is 64-bit, the length of a single row must be 32-bit as
+      // required by current row table implementation.
+      DCHECK_LE(length, std::numeric_limits<uint32_t>::max());
 
       // Rows should be 64-bit aligned.
       // In that case we can copy them using a sequence of 64-bit read/writes.
@@ -604,7 +600,7 @@ void RowArrayMerge::CopyVaryingLength(RowTableImpl* target, const RowTableImpl& 
         *target_row_ptr++ = *source_row_ptr++;
       }
 
-      target_offsets[first_target_row_id + i] = static_cast<uint32_t>(target_row_offset);
+      target_offsets[first_target_row_id + i] = target_row_offset;
       target_row_offset += length;
     }
   }

@@ -15,5 +15,4 @@
 # specific language governing permissions and limitations
 # under the License.
 
-arrow_install_all_headers("arrow/python")
-add_subdirectory(vendored)
+arrow_install_all_headers("arrow/python/vendored")

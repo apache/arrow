@@ -102,12 +102,12 @@ under the License.
     <dep.jackson-bom.version>2.17.2</dep.jackson-bom.version>
     <dep.hadoop.version>3.4.0</dep.hadoop.version>
     <dep.fbs.version>24.3.25</dep.fbs.version>
-    <dep.avro.version>1.11.3</dep.avro.version>
+    <dep.avro.version>1.12.0</dep.avro.version>
     <arrow.vector.classifier></arrow.vector.classifier>
     <forkCount>2</forkCount>
     <checkstyle.version>10.17.0</checkstyle.version>
     <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
-    <error_prone_core.version>2.29.2</error_prone_core.version>
+    <error_prone_core.version>2.30.0</error_prone_core.version>
     <mockito.core.version>5.11.0</mockito.core.version>
     <mockito.inline.version>5.2.0</mockito.inline.version>
     <checker.framework.version>3.46.0</checker.framework.version>
