@@ -1725,17 +1725,16 @@ def test_bool8_type(pickle_module):
     assert result == bool8_type
 
     # IPC roundtrip
-    bool8_arr_class = bool8_type.__arrow_ext_class__()
     storage = pa.array([-1, 0, 1, 2, None], storage_type)
     arr = pa.ExtensionArray.from_storage(bool8_type, storage)
-    assert isinstance(arr, bool8_arr_class)
+    assert isinstance(arr, pa.Bool8Array)
 
     # extension is registered by default
     buf = ipc_write_batch(pa.RecordBatch.from_arrays([arr], ["ext"]))
     batch = ipc_read_batch(buf)
 
     assert batch.column(0).type.extension_name == "arrow.bool8"
-    assert isinstance(batch.column(0), bool8_arr_class)
+    assert isinstance(batch.column(0), pa.Bool8Array)
 
     # cast storage -> extension type
     result = storage.cast(bool8_type)
@@ -1794,6 +1793,13 @@ def test_bool8_to_numpy_conversion():
     # same underlying buffer
     assert arr_to_np.ctypes.data == arr_no_nulls.buffers()[1].address
 
+    # if the user requests a writable array, a copy should be performed
+    arr_to_np_writable = arr_no_nulls.to_numpy(zero_copy_only=False, writable=True)
+    assert np.array_equal(arr_to_np_writable, np_arr_no_nulls)
+
+    # different underlying buffer
+    assert arr_to_np_writable.ctypes.data != arr_no_nulls.buffers()[1].address
+
 
 def test_bool8_from_numpy_conversion():
     np_arr_no_nulls = np.array([True, False, True, True], dtype=np.bool_)
@@ -1832,24 +1838,24 @@ def test_bool8_from_numpy_conversion():
 
 
 def test_bool8_scalar():
-    assert pa.ExtensionScalar.from_storage(pa.bool8(), -1).as_py()
-    assert not pa.ExtensionScalar.from_storage(pa.bool8(), 0).as_py()
-    assert pa.ExtensionScalar.from_storage(pa.bool8(), 1).as_py()
-    assert pa.ExtensionScalar.from_storage(pa.bool8(), 2).as_py()
+    assert pa.ExtensionScalar.from_storage(pa.bool8(), -1).as_py() is True
+    assert pa.ExtensionScalar.from_storage(pa.bool8(), 0).as_py() is False
+    assert pa.ExtensionScalar.from_storage(pa.bool8(), 1).as_py() is True
+    assert pa.ExtensionScalar.from_storage(pa.bool8(), 2).as_py() is True
     assert pa.ExtensionScalar.from_storage(pa.bool8(), None).as_py() is None
 
     arr = pa.ExtensionArray.from_storage(
         pa.bool8(),
         pa.array([-1, 0, 1, 2, None], pa.int8()),
     )
-    assert arr[0].as_py()
-    assert not arr[1].as_py()
-    assert arr[2].as_py()
-    assert arr[3].as_py()
+    assert arr[0].as_py() is True
+    assert arr[1].as_py() is False
+    assert arr[2].as_py() is True
+    assert arr[3].as_py() is True
     assert arr[4].as_py() is None
 
-    assert pa.scalar(-1, type=pa.bool8()).as_py()
-    assert not pa.scalar(0, type=pa.bool8()).as_py()
-    assert pa.scalar(1, type=pa.bool8()).as_py()
-    assert pa.scalar(2, type=pa.bool8()).as_py()
+    assert pa.scalar(-1, type=pa.bool8()).as_py() is True
+    assert pa.scalar(0, type=pa.bool8()).as_py() is False
+    assert pa.scalar(1, type=pa.bool8()).as_py() is True
+    assert pa.scalar(2, type=pa.bool8()).as_py() is True
     assert pa.scalar(None, type=pa.bool8()).as_py() is None

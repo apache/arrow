@@ -1581,7 +1581,7 @@ cdef class Array(_PandasConvertible):
 
     def to_numpy(self, zero_copy_only=True, writable=False):
         """
-        Return a NumPy view or copy of this array (experimental).
+        Return a NumPy view or copy of this array.
 
         By default, tries to return a view of this array. This is only
         supported for primitive arrays with the same memory layout as NumPy
@@ -4504,7 +4504,7 @@ cdef class Bool8Array(ExtensionArray):
 
     def to_numpy(self, zero_copy_only=True, writable=False):
         """
-        Return a NumPy bool view or copy of this array (experimental).
+        Return a NumPy bool view or copy of this array.
 
         By default, tries to return a view of this array. This is only
         supported for arrays without any nulls.

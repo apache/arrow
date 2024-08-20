@@ -1836,6 +1836,7 @@ cdef class FixedShapeTensorType(BaseExtensionType):
     def __arrow_ext_scalar_class__(self):
         return FixedShapeTensorScalar
 
+
 cdef class Bool8Type(BaseExtensionType):
     """
     Concrete class for bool8 extension type.
@@ -1865,6 +1866,7 @@ cdef class Bool8Type(BaseExtensionType):
 
     def __arrow_ext_scalar_class__(self):
         return Bool8Scalar
+
 
 cdef class OpaqueType(BaseExtensionType):
     """
@@ -5343,8 +5345,7 @@ def bool8():
 
     cdef Bool8Type out = Bool8Type.__new__(Bool8Type)
 
-    with nogil:
-        c_type = GetResultValue(CBool8Type.Make())
+    c_type = GetResultValue(CBool8Type.Make())
 
     out.init(c_type)
 
