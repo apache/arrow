@@ -3397,7 +3397,8 @@ def test_recordbatch_non_cpu():
     verify_recordbatch_on_cuda_device(batch)
 
     # add_column() test
-    col = pa.Array.from_buffers(pa.int8(), 5, [None, ctx.buffer_from_data(np.array([6, 7, 8, 9, 10], dtype=np.int8))])
+    col = pa.Array.from_buffers(
+        pa.int8(), 5, [None, ctx.buffer_from_data(np.array([6, 7, 8, 9, 10], dtype=np.int8))])
     new_batch = batch.add_column(2, 'c2', col)
     assert len(new_batch.columns) == 3
     for c in new_batch.columns:
@@ -3423,8 +3424,10 @@ def test_recordbatch_non_cpu():
         batch.cast(new_schema)
 
     # drop_null() test
-    validity =  ctx.buffer_from_data(np.array([True, False, True, False, True], dtype=np.bool_))
-    null_col = pa.Array.from_buffers(pa.int32(), 5, [validity, ctx.buffer_from_data(np.array([0] * 5, dtype=np.int32))])
+    validity = ctx.buffer_from_data(
+        np.array([True, False, True, False, True], dtype=np.bool_))
+    null_col = pa.Array.from_buffers(
+        pa.int32(), 5, [validity, ctx.buffer_from_data(np.array([0] * 5, dtype=np.int32))])
     batch_with_nulls = batch.add_column(2, 'c2', null_col)
     with pytest.raises(NotImplementedError):
         batch_with_nulls.drop_null()
