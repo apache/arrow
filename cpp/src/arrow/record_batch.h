@@ -51,6 +51,7 @@ class ARROW_EXPORT RecordBatch {
   static std::shared_ptr<RecordBatch> Make(
       std::shared_ptr<Schema> schema, int64_t num_rows,
       std::vector<std::shared_ptr<Array>> columns,
+      DeviceAllocationType device_type = DeviceAllocationType::kCPU,
       std::shared_ptr<Device::SyncEvent> sync_event = NULLPTR);
 
   /// \brief Construct record batch from vector of internal data structures

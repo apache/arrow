@@ -1571,7 +1571,6 @@ cdef class _Tabular(_PandasConvertible):
                         f"one of the `{self.__class__.__name__}.from_*` functions instead.")
 
     def __array__(self, dtype=None, copy=None):
-        self._assert_cpu()
         if copy is False:
             raise ValueError(
                 "Unable to avoid a copy while creating a numpy array as requested "
@@ -3359,6 +3358,7 @@ cdef class RecordBatch(_Tabular):
         metadata : dict or Mapping, default None
             Optional metadata for the schema (if inferred).
 
+
         Returns
         -------
         pyarrow.RecordBatch
@@ -3413,6 +3413,7 @@ cdef class RecordBatch(_Tabular):
             shared_ptr[CSchema] c_schema
             vector[shared_ptr[CArray]] c_arrays
             int64_t num_rows
+            CDeviceAllocationType c_device_type
 
         if len(arrays) > 0:
             num_rows = len(arrays[0])
@@ -3437,8 +3438,18 @@ cdef class RecordBatch(_Tabular):
                                  '{0} vs {1}'.format(len(arr), num_rows))
             c_arrays.push_back(arr.sp_array)
 
-        result = pyarrow_wrap_batch(CRecordBatch.Make(c_schema, num_rows,
-                                                      c_arrays))
+        if c_arrays.size() > 0:
+            c_device_type = deref(c_arrays[0]).device_type()
+            result = pyarrow_wrap_batch(CRecordBatch.MakeWithDevice(c_schema,
+                                                                    num_rows,
+                                                                    c_arrays,
+                                                                    c_device_type,
+                                                                    <shared_ptr[CSyncEvent]>NULL))
+        else:
+            result = pyarrow_wrap_batch(CRecordBatch.Make(c_schema,
+                                                          num_rows,
+                                                          c_arrays))
+
         result.validate()
         return result
 

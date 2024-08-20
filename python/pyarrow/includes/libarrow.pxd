@@ -992,6 +992,13 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
             const shared_ptr[CSchema]& schema, int64_t num_rows,
             const vector[shared_ptr[CArray]]& columns)
 
+        @staticmethod
+        shared_ptr[CRecordBatch] MakeWithDevice "Make"(
+            const shared_ptr[CSchema]& schema, int64_t num_rows,
+            const vector[shared_ptr[CArray]]& columns,
+            CDeviceAllocationType device_type,
+            shared_ptr[CSyncEvent] sync_event)
+
         CResult[shared_ptr[CStructArray]] ToStructArray() const
 
         @staticmethod

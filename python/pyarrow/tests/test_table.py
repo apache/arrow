@@ -1276,27 +1276,29 @@ def _table_like_slice_tests(factory):
     assert obj.slice(len(obj) - 4, 2).equals(obj[-4:-2])
 
 
-# def test_recordbatch_non_cpu():
-#     cuda = pytest.importorskip("pyarrow.cuda")
-#     ctx = cuda.Context(0)
+def test_recordbatch_non_cpu():
+    cuda = pytest.importorskip("pyarrow.cuda")
+    ctx = cuda.Context(0)
 
-#     cpu_data = [
-#         pa.array(range(5), type='int16'),
-#         pa.array([-10, -5, 0, None, 10], type='int32')
-#     ]
-#     cuda_data = [cuda.buffer_from_data(x) for x in cpu_data]
-#     batch = pa.record_batch(cpu_data, ['c0', 'c1'])
+    cpu_data = [
+        np.array(range(5), dtype=np.int16),
+        np.array([-10, -5, 0, 1, 10], dtype=np.int32)
+    ]
+    cuda_data = [ctx.buffer_from_data(x) for x in cpu_data]
+    cuda_arrays = [
+        pa.Array.from_buffers(pa.int16(), 5, [None, cuda_data[0]]),
+        pa.Array.from_buffers(pa.int32(), 5, [None, cuda_data[1]]),
+    ]
+    batch = pa.record_batch(cuda_arrays, ['c0', 'c1'])
 
-#     # Supported
-#     batch.validate()
-#     assert batch.offset == 0
-#     assert batch.buffers() == [None, cuda_data[0], cuda_data[1]]
-#     assert batch.device_type == pa.DeviceAllocationType.CUDA
-#     assert batch.is_cpu is False
-#     assert len(batch) == 4
-#     assert batch.slice(2, 2).offset == 2
-#     assert repr(batch)
-#     assert str(batch)
+    # Supported
+    batch.validate()
+    assert batch.device_type == pa.DeviceAllocationType.CUDA
+    assert batch.is_cpu is False
+    assert len(batch) == 5
+    assert repr(batch)
+    assert str(batch)
+    #assert batch.slice(2, 2) == 2
 
 #     # TODO support DLPack for CUDA
 #     with pytest.raises(NotImplementedError):
