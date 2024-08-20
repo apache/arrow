@@ -1276,30 +1276,6 @@ def _table_like_slice_tests(factory):
     assert obj.slice(len(obj) - 4, 2).equals(obj[-4:-2])
 
 
-def test_recordbatch_non_cpu():
-    cuda = pytest.importorskip("pyarrow.cuda")
-    ctx = cuda.Context(0)
-
-    cpu_data = [
-        np.array(range(5), dtype=np.int16),
-        np.array([-10, -5, 0, 1, 10], dtype=np.int32)
-    ]
-    cuda_data = [ctx.buffer_from_data(x) for x in cpu_data]
-    cuda_arrays = [
-        pa.Array.from_buffers(pa.int16(), 5, [None, cuda_data[0]]),
-        pa.Array.from_buffers(pa.int32(), 5, [None, cuda_data[1]]),
-    ]
-    batch = pa.record_batch(cuda_arrays, ['c0', 'c1'])
-
-    # Supported
-    batch.validate()
-    assert batch.device_type == pa.DeviceAllocationType.CUDA
-    assert batch.is_cpu is False
-    assert len(batch) == 5
-    assert repr(batch)
-    assert str(batch)
-
-
 def test_recordbatch_slice_getitem():
     return _table_like_slice_tests(pa.RecordBatch.from_arrays)
 
@@ -3381,3 +3357,134 @@ def test_invalid_non_join_column():
     with pytest.raises(pa.lib.ArrowInvalid) as excinfo:
         t2.join(t1, 'id', join_type='inner')
     assert exp_error_msg in str(excinfo.value)
+
+
+def test_recordbatch_non_cpu():
+    cuda = pytest.importorskip("pyarrow.cuda")
+    ctx = cuda.Context(0)
+
+    def create_data_on_cpu_device():
+        return [
+            np.array(range(5), dtype=np.int16),
+            np.array([-10, -5, 0, 1, 10], dtype=np.int32)
+        ]
+
+    def create_arrays_on_cuda_device():
+        cpu_data = create_data_on_cpu_device()
+        cuda_data = [ctx.buffer_from_data(x) for x in cpu_data]
+        cuda_arrays = [
+            pa.Array.from_buffers(pa.int16(), 5, [None, cuda_data[0]]),
+            pa.Array.from_buffers(pa.int32(), 5, [None, cuda_data[1]]),
+        ]
+        return cuda_arrays
+
+    def create_recordbatch_on_cuda_device():
+        cuda_arrays = create_arrays_on_cuda_device()
+        return pa.record_batch(cuda_arrays, ['c0', 'c1'])
+
+    def verify_recordbatch_on_cuda_device(rb, column_names=['c0', 'c1']):
+        rb.validate()
+        assert rb.device_type == pa.DeviceAllocationType.CUDA
+        assert rb.is_cpu is False
+        assert rb.num_columns == 2
+        assert rb.num_rows == 5
+        assert str(rb) in repr(rb)
+        for c in rb.columns:
+            assert c.device_type == pa.DeviceAllocationType.CUDA
+        assert rb.column_names == column_names
+
+    batch = create_recordbatch_on_cuda_device()
+    verify_recordbatch_on_cuda_device(batch)
+
+    # add_column() test
+    col = pa.Array.from_buffers(pa.int8(), 5, [None, ctx.buffer_from_data(np.array([6, 7, 8, 9, 10], dtype=np.int8))])
+    new_batch = batch.add_column(2, 'c2', col)
+    assert len(new_batch.columns) == 3
+    for c in new_batch.columns:
+        assert c.device_type == pa.DeviceAllocationType.CUDA
+    with pytest.raises(NotImplementedError):
+        # Default array conversion builds on CPU only
+        batch.add_column(2, 'c2', [1, 1, 1, 1, 1])
+
+    # remove_column() test
+    new_batch = batch.remove_column(1)
+    assert len(new_batch.columns) == 1
+    assert new_batch.device_type == pa.DeviceAllocationType.CUDA
+    assert new_batch[0].device_type == pa.DeviceAllocationType.CUDA
+
+    # drop_columns() test
+    new_batch = batch.drop_columns(['c0', 'c1'])
+    assert len(new_batch.columns) == 0
+    assert new_batch.device_type == pa.DeviceAllocationType.CUDA
+
+    # cast() test
+    new_schema = pa.schema([pa.field('c0', pa.int64()), pa.field('c1', pa.int64())])
+    with pytest.raises(NotImplementedError):
+        batch.cast(new_schema)
+
+    # drop_null() test
+    validity =  ctx.buffer_from_data(np.array([True, False, True, False, True], dtype=np.bool_))
+    null_col = pa.Array.from_buffers(pa.int32(), 5, [validity, ctx.buffer_from_data(np.array([0] * 5, dtype=np.int32))])
+    batch_with_nulls = batch.add_column(2, 'c2', null_col)
+    with pytest.raises(NotImplementedError):
+        batch_with_nulls.drop_null()
+
+    # filter() test
+    with pytest.raises(NotImplementedError):
+        batch.filter([True] * 5)
+
+    # field() test
+    assert batch.field(0) == pa.field('c0', pa.int16())
+    assert batch.field(1) == pa.field('c1', pa.int32())
+
+    # equals() test
+    new_batch = create_recordbatch_on_cuda_device()
+    with pytest.raises(NotImplementedError):
+        assert batch.equals(new_batch) is True
+
+    new_arrays = create_arrays_on_cuda_device()
+
+    # from_arrays() test
+    new_batch = pa.RecordBatch.from_arrays(new_arrays, ['c0', 'c1'])
+    verify_recordbatch_on_cuda_device(new_batch)
+
+    # from_pydict() test
+    new_batch = pa.RecordBatch.from_pydict({'c0': new_arrays[0], 'c1': new_arrays[1]})
+    verify_recordbatch_on_cuda_device(new_batch)
+
+    # nybtes test
+    cpu_batch = pa.record_batch(create_data_on_cpu_device(), ['c0', 'c1'])
+    assert batch.nbytes == cpu_batch.nbytes
+
+    # to_pydict() test
+    with pytest.raises(NotImplementedError):
+        batch.to_pydict()
+
+    # to_pylist() test
+    with pytest.raises(NotImplementedError):
+        batch.to_pylist()
+
+    # to_pandas() test
+    with pytest.raises(NotImplementedError):
+        batch.to_pandas()
+
+    # to_tensor() test
+    with pytest.raises(NotImplementedError):
+        batch.to_tensor()
+
+    # to_struct_array() test
+    with pytest.raises(NotImplementedError):
+        batch.to_struct_array()
+
+    # serialize() test
+    with pytest.raises(NotImplementedError):
+        batch.serialize()
+
+    # replace_schema_metadata() test
+    new_batch = batch.replace_schema_metadata({b'key': b'value'})
+    verify_recordbatch_on_cuda_device(new_batch)
+    assert new_batch.schema.metadata == {b'key': b'value'}
+
+    # rename_columns() test
+    new_batch = batch.rename_columns(['col0', 'col1'])
+    verify_recordbatch_on_cuda_device(new_batch, column_names=['col0', 'col1'])

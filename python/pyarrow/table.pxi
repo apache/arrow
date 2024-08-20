@@ -1824,6 +1824,7 @@ cdef class _Tabular(_PandasConvertible):
         n_legs: [[4,100]]
         animals: [["Horse","Centipede"]]
         """
+        self._assert_cpu()
         return _pc().drop_null(self)
 
     def field(self, i):
@@ -2085,6 +2086,7 @@ cdef class _Tabular(_PandasConvertible):
         n_legs: [[5,100,4,2,4,2]]
         animal: [["Brittle stars","Centipede","Dog","Flamingo","Horse","Parrot"]]
         """
+        self._assert_cpu()
         if isinstance(sorting, str):
             sorting = [(sorting, "ascending")]
 
@@ -2130,6 +2132,7 @@ cdef class _Tabular(_PandasConvertible):
         n_legs: [[4,100]]
         animals: [["Horse","Centipede"]]
         """
+        self._assert_cpu()
         return _pc().take(self, indices)
 
     def filter(self, mask, object null_selection_behavior="drop"):
@@ -2199,6 +2202,7 @@ cdef class _Tabular(_PandasConvertible):
         n_legs: [[2,4,null]]
         animals: [["Flamingo","Horse",null]]
         """
+        self._assert_cpu()
         if isinstance(mask, _pc().Expression):
             return _pac()._filter_table(self, mask)
         else:
@@ -2398,6 +2402,9 @@ cdef class _Tabular(_PandasConvertible):
         year: [[2021,2022,2019,2021]]
         """
         return self.add_column(self.num_columns, field_, column)
+
+    cdef void _assert_cpu(self) except *:
+        return
 
 
 cdef class RecordBatch(_Tabular):
@@ -2793,6 +2800,7 @@ cdef class RecordBatch(_Tabular):
         if isinstance(column, Array):
             c_arr = column
         else:
+            self._assert_cpu()
             c_arr = array(column)
 
         if isinstance(field_, Field):
@@ -3013,6 +3021,7 @@ cdef class RecordBatch(_Tabular):
         n_legs: [2,2,4,4,5,100]
         animals: ["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]
         """
+        self._assert_cpu()
         cdef shared_ptr[CBuffer] buffer
         cdef CIpcWriteOptions options = CIpcWriteOptions.Defaults()
         options.memory_pool = maybe_unbox_memory_pool(memory_pool)
@@ -3114,6 +3123,7 @@ cdef class RecordBatch(_Tabular):
         >>> batch.equals(batch_1, check_metadata=True)
         False
         """
+        self._assert_cpu()
         cdef:
             CRecordBatch* this_batch = self.batch
             shared_ptr[CRecordBatch] other_batch = pyarrow_unwrap_batch(other)
@@ -3245,6 +3255,7 @@ cdef class RecordBatch(_Tabular):
         return RecordBatch.from_arrays(newcols, schema=target_schema)
 
     def _to_pandas(self, options, **kwargs):
+        self._assert_cpu()
         return Table.from_batches([self])._to_pandas(options, **kwargs)
 
     @classmethod
@@ -3490,6 +3501,7 @@ cdef class RecordBatch(_Tabular):
         """
         Convert to a struct array.
         """
+        self._assert_cpu()
         cdef:
             shared_ptr[CRecordBatch] c_record_batch
             shared_ptr[CArray] c_array
@@ -3568,6 +3580,7 @@ cdef class RecordBatch(_Tabular):
                [ 4., 40.],
                [nan, nan]])
         """
+        self._assert_cpu()
         cdef:
             shared_ptr[CRecordBatch] c_record_batch
             shared_ptr[CTensor] c_tensor
@@ -5729,7 +5742,7 @@ cdef class Table(_Tabular):
         """
         return self.to_reader().__arrow_c_stream__(requested_schema)
 
-    cdef void _assert_cpu(self) noexcept:
+    cdef void _assert_cpu(self) except *:
         return  # TODO GH-43728
 
 
