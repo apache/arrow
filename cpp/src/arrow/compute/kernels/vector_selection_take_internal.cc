@@ -397,8 +397,6 @@ struct ChunkedFixedWidthValuesSpan {
     }
   }
 
-  ~ChunkedFixedWidthValuesSpan() = default;
-
   const int* src_residual_bit_offsets_data() const {
     return src_residual_bit_offsets.empty() ? nullptr : src_residual_bit_offsets.data();
   }
@@ -932,12 +930,12 @@ Status GenericTakeChunkedExec(ArrayKernelExec take_aaa_exec, KernelContext* ctx,
                               const ExecBatch& batch, Datum* out) {
   const auto& args = batch.values;
   if (args[0].kind() == Datum::CHUNKED_ARRAY) {
-    auto& values_chunked = args[0].chunked_array();
+    const auto& values_chunked = args[0].chunked_array();
     ARROW_ASSIGN_OR_RAISE(auto values_array,
                           ChunkedArrayAsArray(values_chunked, ctx->memory_pool()));
     if (args[1].kind() == Datum::ARRAY) {
       // CA->C
-      auto& indices = args[1].array();
+      const auto& indices = args[1].array();
       DCHECK_EQ(values_array->length(), batch.length);
       {
         // AA->A
@@ -952,7 +950,7 @@ Status GenericTakeChunkedExec(ArrayKernelExec take_aaa_exec, KernelContext* ctx,
       std::vector<std::shared_ptr<Array>> new_chunks;
       for (int i = 0; i < indices->num_chunks(); i++) {
         // AA->A
-        auto& indices_chunk = indices->chunk(i)->data();
+        const auto& indices_chunk = indices->chunk(i)->data();
         Datum result = PrepareOutput(batch, values_array->length());
         RETURN_NOT_OK(CallAAAKernel(take_aaa_exec, ctx, values_array->data(),
                                     indices_chunk, &result));
@@ -1010,7 +1008,7 @@ Status SpecialTakeChunkedExec(const ArrayKernelExec take_aaa_exec,
   auto* pool = ctx->memory_pool();
   const auto& args = batch.values;
   if (args[0].kind() == Datum::CHUNKED_ARRAY) {
-    auto& values_chunked = args[0].chunked_array();
+    const auto& values_chunked = args[0].chunked_array();
     std::shared_ptr<Array> single_chunk = nullptr;
     if (values_chunked->num_chunks() == 0 || values_chunked->length() == 0) {
       ARROW_ASSIGN_OR_RAISE(single_chunk,
@@ -1021,7 +1019,7 @@ Status SpecialTakeChunkedExec(const ArrayKernelExec take_aaa_exec,
 
     if (args[1].kind() == Datum::ARRAY) {
       // CA->C
-      auto& indices = args[1].array();
+      const auto& indices = args[1].array();
       if (single_chunk) {
         // AA->A
         DCHECK_EQ(single_chunk->length(), batch.length);
@@ -1044,7 +1042,7 @@ Status SpecialTakeChunkedExec(const ArrayKernelExec take_aaa_exec,
       const auto& indices = args[1].chunked_array();
       std::vector<std::shared_ptr<Array>> new_chunks;
       for (int i = 0; i < indices->num_chunks(); i++) {
-        auto& indices_chunk = indices->chunk(i)->data();
+        const auto& indices_chunk = indices->chunk(i)->data();
         result = PrepareOutput(batch, values_chunked->length());
         if (single_chunk) {
           // If the ChunkedArray was cheaply converted to a single chunk,
