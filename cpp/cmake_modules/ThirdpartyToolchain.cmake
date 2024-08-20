@@ -1182,7 +1182,8 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION
   # boost/container_hash/hash.hpp and support for that was removed in clang 16
   set(ARROW_BOOST_REQUIRED_VERSION "1.81")
 elseif(ARROW_BUILD_TESTS)
-  set(ARROW_BOOST_REQUIRED_VERSION "1.64")
+  # For boost/process/v2
+  set(ARROW_BOOST_REQUIRED_VERSION "1.80")
 else()
   set(ARROW_BOOST_REQUIRED_VERSION "1.58")
 endif()
@@ -1316,14 +1317,17 @@ if(ARROW_USE_BOOST)
     endif()
   endforeach()
 
-  if(WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    # boost/process/detail/windows/handle_workaround.hpp doesn't work
-    # without BOOST_USE_WINDOWS_H with MinGW because MinGW doesn't
-    # provide __kernel_entry without winternl.h.
+  if(NOT TARGET Boost::process)
+    add_library(Boost::process INTERFACE IMPORTED)
+    target_link_libraries(Boost::process INTERFACE Boost::filesystem Boost::system
+                                                   Boost::headers)
+    # Boost < 1.86 has a bug that
+    # boost::process::v2::process_environment::on_setup() isn't
+    # defined. We need to build Boost Process source to define it.
     #
     # See also:
-    # https://github.com/boostorg/process/blob/develop/include/boost/process/detail/windows/handle_workaround.hpp
-    target_compile_definitions(Boost::headers INTERFACE "BOOST_USE_WINDOWS_H=1")
+    # https://github.com/boostorg/process/issues/312
+    target_compile_definitions(Boost::process INTERFACE "BOOST_PROCESS_NEED_SOURCE")
   endif()
 
   message(STATUS "Boost include dir: ${Boost_INCLUDE_DIRS}")
