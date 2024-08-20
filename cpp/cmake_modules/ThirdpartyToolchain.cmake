@@ -1301,7 +1301,9 @@ if(ARROW_USE_BOOST)
                      ${ARROW_BOOST_COMPONENTS}
                      IS_RUNTIME_DEPENDENCY
                      # libarrow.so doesn't depend on libboost*.
-                     FALSE)
+                     FALSE
+                     USE_CONFIG
+                     TRUE)
   if(ARROW_BOOST_USE_SHARED)
     set(BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS_KEEP})
     unset(BUILD_SHARED_LIBS_KEEP)
