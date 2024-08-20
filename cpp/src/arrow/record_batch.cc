@@ -356,7 +356,8 @@ Result<std::shared_ptr<RecordBatch>> RecordBatch::ReplaceSchema(
           ", did not match new schema field type: ", replace_type->ToString());
     }
   }
-  return RecordBatch::Make(std::move(schema), num_rows(), columns(), device_type(), GetSyncEvent());
+  return RecordBatch::Make(std::move(schema), num_rows(), columns(), device_type(),
+                           GetSyncEvent());
 }
 
 std::vector<std::string> RecordBatch::ColumnNames() const {

@@ -3358,7 +3358,6 @@ cdef class RecordBatch(_Tabular):
         metadata : dict or Mapping, default None
             Optional metadata for the schema (if inferred).
 
-
         Returns
         -------
         pyarrow.RecordBatch

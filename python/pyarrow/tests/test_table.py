@@ -1298,68 +1298,6 @@ def test_recordbatch_non_cpu():
     assert len(batch) == 5
     assert repr(batch)
     assert str(batch)
-    #assert batch.slice(2, 2) == 2
-
-#     # TODO support DLPack for CUDA
-#     with pytest.raises(NotImplementedError):
-#         batch.__dlpack__()
-#     with pytest.raises(NotImplementedError):
-#         batch.__dlpack_device__()
-
-#     # Not Supported
-#     with pytest.raises(NotImplementedError):
-#         batch.diff(batch)
-#     with pytest.raises(NotImplementedError):
-#         batch.cast(pa.int64())
-#     with pytest.raises(NotImplementedError):
-#         batch.view(pa.int64())
-#     with pytest.raises(NotImplementedError):
-#         batch.sum()
-#     with pytest.raises(NotImplementedError):
-#         batch.unique()
-#     with pytest.raises(NotImplementedError):
-#         batch.dictionary_encode()
-#     with pytest.raises(NotImplementedError):
-#         batch.value_counts()
-#     with pytest.raises(NotImplementedError):
-#         batch.null_count
-#     with pytest.raises(NotImplementedError):
-#         batch.nbytes
-#     with pytest.raises(NotImplementedError):
-#         batch.get_total_buffer_size()
-#     with pytest.raises(NotImplementedError):
-#         [i for i in iter(batch)]
-#     with pytest.raises(NotImplementedError):
-#         batch == batch
-#     with pytest.raises(NotImplementedError):
-#         batch.is_null()
-#     with pytest.raises(NotImplementedError):
-#         batch.is_nan()
-#     with pytest.raises(NotImplementedError):
-#         batch.is_valid()
-#     with pytest.raises(NotImplementedError):
-#         batch.fill_null(0)
-#     with pytest.raises(NotImplementedError):
-#         batch[0]
-#     with pytest.raises(NotImplementedError):
-#         batch.take([0])
-#     with pytest.raises(NotImplementedError):
-#         batch.drop_null()
-#     with pytest.raises(NotImplementedError):
-#         batch.filter([True, True, False, False])
-#     with pytest.raises(NotImplementedError):
-#         batch.index(0)
-#     with pytest.raises(NotImplementedError):
-#         batch.sort()
-#     with pytest.raises(NotImplementedError):
-#         batch.__array__()
-#     with pytest.raises(NotImplementedError):
-#         batch.to_numpy()
-#     with pytest.raises(NotImplementedError):
-#         batch.tolist()
-#     with pytest.raises(NotImplementedError):
-#         batch.validate(full=True)
-
 
 
 def test_recordbatch_slice_getitem():

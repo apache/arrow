@@ -46,6 +46,8 @@ class ARROW_EXPORT RecordBatch {
   /// \param[in] num_rows length of fields in the record batch. Each array
   /// should have the same length as num_rows
   /// \param[in] columns the record batch fields as vector of arrays
+  /// \param device_type the type of the device that the Arrow columns are
+  /// allocated on
   /// \param[in] sync_event optional synchronization event for non-CPU device
   /// memory used by buffers
   static std::shared_ptr<RecordBatch> Make(
