@@ -628,16 +628,11 @@ int32_t AesDecryptor::AesDecryptorImpl::GcmDecrypt(span<const uint8_t> ciphertex
   }
 
   // Decryption
-  int32_t decryption_length =
+  int decryption_length =
       ciphertext_len - length_buffer_length_ - kNonceLength - kGcmTagLength;
-  if (decryption_length > std::numeric_limits<int>::max()) {
-    std::stringstream ss;
-    ss << "Length of ciphertext for decryption " << decryption_length << " overflows int";
-    throw ParquetException(ss.str());
-  }
   if (!EVP_DecryptUpdate(ctx_, plaintext.data(), &len,
                          ciphertext.data() + length_buffer_length_ + kNonceLength,
-                         static_cast<int>(decryption_length))) {
+                         decryption_length)) {
     throw ParquetException("Failed decryption update");
   }
 
@@ -696,15 +691,10 @@ int32_t AesDecryptor::AesDecryptorImpl::CtrDecrypt(span<const uint8_t> ciphertex
   }
 
   // Decryption
-  int32_t decryption_length = ciphertext_len - length_buffer_length_ - kNonceLength;
-  if (decryption_length > std::numeric_limits<int>::max()) {
-    std::stringstream ss;
-    ss << "Length of ciphertext for decryption " << decryption_length << " overflows int";
-    throw ParquetException(ss.str());
-  }
+  int decryption_length = ciphertext_len - length_buffer_length_ - kNonceLength;
   if (!EVP_DecryptUpdate(ctx_, plaintext.data(), &len,
                          ciphertext.data() + length_buffer_length_ + kNonceLength,
-                         static_cast<int>(decryption_length))) {
+                         decryption_length)) {
     throw ParquetException("Failed decryption update");
   }
 
