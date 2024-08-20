@@ -5328,8 +5328,9 @@ def opaque(DataType storage_type, str type_name not None, str vendor_name not No
     cdef:
         c_string c_type_name = tobytes(type_name)
         c_string c_vendor_name = tobytes(vendor_name)
-        shared_ptr[CDataType] c_type = make_shared[COpaqueType](
+        shared_ptr[COpaqueType] c_opaque_type = make_shared[COpaqueType](
             storage_type.sp_type, c_type_name, c_vendor_name)
+        shared_ptr[CDataType] c_type = static_pointer_cast[CDataType, COpaqueType](c_opaque_type)
         OpaqueType out = OpaqueType.__new__(OpaqueType)
     out.init(c_type)
     return out
