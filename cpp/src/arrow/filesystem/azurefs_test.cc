@@ -1551,6 +1551,23 @@ class TestAzureFileSystem : public ::testing::Test {
                          buffers[0] + buffers[1] + buffers[2] + buffers[3]);
   }
 
+  void TestOpenOutputStreamLargeSingleWrite() {
+    ASSERT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options_));
+
+    auto data = SetUpPreexistingData();
+    const auto path = data.ContainerPath("test-write-object");
+    ASSERT_OK_AND_ASSIGN(auto output, fs->OpenOutputStream(path, {}));
+
+    constexpr std::int64_t size{12 * 1024 * 1024};
+    const std::string large_string(size, 'X');
+
+    ASSERT_OK(output->Write(large_string));
+    ASSERT_EQ(size, output->Tell());
+    ASSERT_OK(output->Close());
+
+    AssertObjectContents(fs.get(), path, large_string);
+  }
+
   void TestOpenOutputStreamCloseAsync() {
     ASSERT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options_));
     auto data = SetUpPreexistingData();
@@ -2843,6 +2860,15 @@ TEST_F(TestAzuriteFileSystem, OpenOutputStreamLargeNoBackgroundWrites) {
 }
 
 TEST_F(TestAzuriteFileSystem, OpenOutputStreamLarge) { TestOpenOutputStreamLarge(); }
+
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamLargeSingleWriteNoBackgroundWrites) {
+  options_.background_writes = false;
+  TestOpenOutputStreamLargeSingleWrite();
+}
+
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamLargeSingleWrite) {
+  TestOpenOutputStreamLargeSingleWrite();
+}
 
 TEST_F(TestAzuriteFileSystem, OpenOutputStreamTruncatesExistingFile) {
   auto data = SetUpPreexistingData();
