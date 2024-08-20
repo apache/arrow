@@ -32,6 +32,7 @@ namespace arrow {
 using compute::ExecBatchBuilder;
 using compute::KeyColumnArray;
 using compute::KeyColumnMetadata;
+using compute::LightContext;
 using compute::ResizableArrayData;
 using compute::RowTableEncoder;
 using compute::RowTableImpl;
@@ -126,8 +127,6 @@ struct RowArray {
                std::vector<KeyColumnArray>& temp_column_arrays,
                uint8_t* out_match_bitvector_maybe_null = NULLPTR);
 
-  // TODO: add AVX2 version
-  //
   Status DecodeSelected(ResizableArrayData* target, int column_id, int num_rows_to_append,
                         const uint32_t* row_ids, MemoryPool* pool) const;
 
@@ -135,10 +134,33 @@ struct RowArray {
 
   int64_t num_rows() const { return is_initialized_ ? rows_.length() : 0; }
 
+  void EnsureHasAnyNullsComputed(const LightContext& ctx) {
+    std::ignore = rows_.has_any_nulls(&ctx);
+  }
+
+ private:
   bool is_initialized_;
   RowTableEncoder encoder_;
   RowTableImpl rows_;
   RowTableImpl rows_temp_;
+
+ private:
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
+  int DecodeFixedLength_avx2(ResizableArrayData* target, int column_id,
+                             int num_rows_to_append, const uint32_t* row_ids,
+                             MemoryPool* pool) const;
+  int DecodeOffsets_avx2(ResizableArrayData* target, int column_id,
+                         int num_rows_to_append, const uint32_t* row_ids,
+                         MemoryPool* pool) const;
+  Status DecodeVarLength_avx2(ResizableArrayData* target, int column_id,
+                              int num_rows_to_append, const uint32_t* row_ids,
+                              MemoryPool* pool) const;
+  Status DecodeNulls_avx2(ResizableArrayData* target, int column_id,
+                          int num_rows_to_append, const uint32_t* row_ids,
+                          MemoryPool* pool) const;
+#endif
+
+  friend class RowArrayMerge;
 };
 
 // Implements concatenating multiple row arrays into a single one, using
