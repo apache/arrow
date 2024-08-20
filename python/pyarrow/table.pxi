@@ -2701,6 +2701,7 @@ cdef class RecordBatch(_Tabular):
         >>> batch.nbytes
         116
         """
+        self._assert_cpu()
         cdef:
             CResult[int64_t] c_res_buffer
 

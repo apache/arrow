@@ -3457,7 +3457,8 @@ def test_recordbatch_non_cpu():
 
     # nybtes test
     cpu_batch = pa.record_batch(create_data_on_cpu_device(), ['c0', 'c1'])
-    assert batch.nbytes == cpu_batch.nbytes
+    with pytest.raises(NotImplementedError):
+        assert batch.nbytes == cpu_batch.nbytes
 
     # to_pydict() test
     with pytest.raises(NotImplementedError):
