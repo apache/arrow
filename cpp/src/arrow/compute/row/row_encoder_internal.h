@@ -41,14 +41,15 @@ struct ARROW_EXPORT KeyEncoder {
   // Increment the length of the encoded key for the given value to the lengths array.
   //
   // Generally if Encoder is for a fixed-width type, the length of the encoded key
-  // is ExtraByteForNull + byte_width.
-  // If Encoder is for a variable-width type, the length would be ExtraByteForNull +
+  // would add ExtraByteForNull + byte_width.
+  // If Encoder is for a variable-width type, the length would add ExtraByteForNull +
   // sizeof(Offset) + buffer_size.
-  // If Encoder is null type, the length would be 0.
+  // If Encoder is null type, the length would add 0.
   virtual void AddLength(const ExecValue& value, int64_t batch_length,
                          int32_t* lengths) = 0;
 
   // Increment the length for a null value.
+  // It's a special case for AddLength like `AddLength(Null-Scalar, 1, lengths)`.
   virtual void AddLengthNull(int32_t* length) = 0;
 
   // Encode the value into the encoded_bytes buffer.
@@ -178,7 +179,7 @@ struct ARROW_EXPORT VarLengthKeyEncoder : KeyEncoder {
     } else {
       const auto& scalar = data.scalar_as<BaseBinaryScalar>();
       if (scalar.is_valid) {
-        const auto& bytes = *scalar.value;
+        const auto bytes = std::string_view{*scalar.value};
         for (int64_t i = 0; i < batch_length; i++) {
           handle_next_valid_value(bytes);
         }

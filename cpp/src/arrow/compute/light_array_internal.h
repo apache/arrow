@@ -403,7 +403,7 @@ class ARROW_EXPORT ExecBatchBuilder {
 
   int num_rows() const { return values_.empty() ? 0 : values_[0].num_rows(); }
 
-  static int num_rows_max() { return 1 << kLogNumRows; }
+  static constexpr int num_rows_max() { return 1 << kLogNumRows; }
 
  private:
   static constexpr int kLogNumRows = 15;
