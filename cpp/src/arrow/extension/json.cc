@@ -18,7 +18,6 @@
 #include "arrow/extension/json.h"
 
 #include <memory>
-#include <mutex>
 #include <string>
 
 #include "arrow/extension_type.h"
@@ -27,8 +26,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/logging.h"
 
-namespace arrow {
-namespace extension {
+namespace arrow::extension {
 
 bool JsonExtensionType::ExtensionEquals(const ExtensionType& other) const {
   const auto& other_ext = static_cast<const ExtensionType&>(other);
@@ -40,11 +38,12 @@ Result<std::shared_ptr<DataType>> JsonExtensionType::Deserialize(
   if (!serialized.empty()) {
     return Status::Invalid("Unexpected serialized metadata: '", serialized, "'");
   }
-  if (!storage_type->Equals(*utf8())) {
+  if (!(storage_type->Equals(*utf8()) || storage_type->Equals(large_utf8()) ||
+        storage_type->Equals(utf8_view()))) {
     return Status::Invalid("Invalid storage type for JsonExtensionType: ",
                            storage_type->ToString());
   }
-  return std::make_shared<JsonExtensionType>();
+  return std::make_shared<JsonExtensionType>(storage_type);
 }
 
 std::string JsonExtensionType::Serialize() const { return ""; }
@@ -57,7 +56,8 @@ std::shared_ptr<Array> JsonExtensionType::MakeArray(
   return std::make_shared<ExtensionArray>(data);
 }
 
-std::shared_ptr<DataType> json() { return std::make_shared<JsonExtensionType>(); }
+std::shared_ptr<DataType> json(const std::shared_ptr<DataType> storage_type) {
+  return std::make_shared<JsonExtensionType>(storage_type);
+}
 
-}  // namespace extension
-}  // namespace arrow
+}  // namespace arrow::extension

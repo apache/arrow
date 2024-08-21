@@ -26,8 +26,8 @@ using extension::json;
 
 class TestJsonExtensionType : public ::testing::Test {};
 
-std::shared_ptr<Array> ExampleJson() {
-  std::shared_ptr<Array> arr = ArrayFromJSON(utf8(), R"([
+std::shared_ptr<Array> ExampleJson(const std::shared_ptr<DataType>& storage_type) {
+  std::shared_ptr<Array> arr = ArrayFromJSON(storage_type, R"([
     "null",
     "1234",
     "3.14159",
@@ -37,16 +37,19 @@ std::shared_ptr<Array> ExampleJson() {
     "[\"a\", \"json\", \"array\"]",
     "{\"obj\": \"a simple json object\"}"
    ])");
-  return ExtensionType::WrapArray(arrow::extension::json(), arr);
+  return ExtensionType::WrapArray(arrow::extension::json(storage_type), arr);
 }
 
 TEST_F(TestJsonExtensionType, JsonRoundtrip) {
-  auto ext_arr = ExampleJson();
+  for (const auto& storage_type : {utf8(), large_utf8(), utf8_view()}) {
+    auto ext_arr = ExampleJson(storage_type);
 
-  auto batch = RecordBatch::Make(schema({field("f0", json())}), 8, {ext_arr});
-  std::shared_ptr<RecordBatch> read_batch;
-  RoundtripBatch(batch, &read_batch);
-  CompareBatch(*batch, *read_batch, false /* compare_metadata */);
+    auto batch =
+        RecordBatch::Make(schema({field("f0", json(storage_type))}), 8, {ext_arr});
+    std::shared_ptr<RecordBatch> read_batch;
+    RoundtripBatch(batch, &read_batch);
+    CompareBatch(*batch, *read_batch, false /* compare_metadata */);
+  }
 }
 
 }  // namespace arrow

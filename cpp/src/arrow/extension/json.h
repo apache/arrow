@@ -26,13 +26,16 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace extension {
+namespace arrow::extension {
 
 /// \brief Concrete type class for variable-size JSON data, utf8-encoded.
 class ARROW_EXPORT JsonExtensionType : public ExtensionType {
  public:
-  JsonExtensionType() : ExtensionType(::arrow::utf8()) {}
+  explicit JsonExtensionType(const std::shared_ptr<DataType>& storage_type)
+      : ExtensionType(storage_type), storage_type_(storage_type) {
+    ARROW_CHECK(storage_type->Equals(utf8()) || storage_type->Equals(large_utf8()) ||
+                storage_type->Equals(utf8_view()));
+  }
 
   static constexpr const char* type_name() { return "arrow.json"; }
 
@@ -51,10 +54,13 @@ class ARROW_EXPORT JsonExtensionType : public ExtensionType {
   std::string Serialize() const override;
 
   std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override;
+
+ private:
+  std::shared_ptr<DataType> storage_type_;
 };
 
 /// \brief Return a JsonExtensionType instance.
-ARROW_EXPORT std::shared_ptr<DataType> json();
+ARROW_EXPORT std::shared_ptr<DataType> json(
+    std::shared_ptr<DataType> storage_type = utf8());
 
-}  // namespace extension
-}  // namespace arrow
+}  // namespace arrow::extension
