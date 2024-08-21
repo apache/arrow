@@ -806,6 +806,7 @@ class UnixDirIterator : public DirIterator {
 
   Status Next() override {
     DCHECK(!Done());
+    errno = 0;
     struct dirent* entry = readdir(directory_);
 
     if (entry == nullptr) {
