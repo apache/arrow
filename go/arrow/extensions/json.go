@@ -129,6 +129,7 @@ func (a *JSONArray) MarshalJSON() ([]byte, error) {
 	return json.Marshal(values)
 }
 
+// GetOneForMarshal implements arrow.Array.
 func (a *JSONArray) GetOneForMarshal(i int) interface{} {
 	return a.Value(i)
 }
