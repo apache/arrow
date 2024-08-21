@@ -234,7 +234,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CStatus Validate() const
         CStatus ValidateFull() const
         CResult[shared_ptr[CArray]] View(const shared_ptr[CDataType]& type)
+
         CDeviceAllocationType device_type()
+        CResult[shared_ptr[CArray]] CopyTo(const shared_ptr[CMemoryManager]& to) const
 
     shared_ptr[CArray] MakeArray(const shared_ptr[CArrayData]& data)
     CResult[shared_ptr[CArray]] MakeArrayOfNull(
@@ -1026,6 +1028,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         shared_ptr[CRecordBatch] Slice(int64_t offset)
         shared_ptr[CRecordBatch] Slice(int64_t offset, int64_t length)
+
+        CResult[shared_ptr[CRecordBatch]] CopyTo(const shared_ptr[CMemoryManager]& to) const
 
         CResult[shared_ptr[CTensor]] ToTensor(c_bool null_to_nan, c_bool row_major,
                                               CMemoryPool* pool) const
