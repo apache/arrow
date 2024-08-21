@@ -310,17 +310,14 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
 
   protected int getLengthOfChildVector() {
     int maxOffsetSizeSum = offsetBuffer.getInt(0) + sizeBuffer.getInt(0);
-    int minOffset = offsetBuffer.getInt(0);
     for (int i = 0; i < valueCount; i++) {
       int currentOffset = offsetBuffer.getInt(i * OFFSET_WIDTH);
       int currentSize = sizeBuffer.getInt(i * SIZE_WIDTH);
       int currentSum = currentOffset + currentSize;
-
       maxOffsetSizeSum = Math.max(maxOffsetSizeSum, currentSum);
-      minOffset = Math.min(minOffset, currentOffset);
     }
 
-    return maxOffsetSizeSum - minOffset;
+    return maxOffsetSizeSum;
   }
 
   protected int getLengthOfChildVectorByIndex(int index) {
