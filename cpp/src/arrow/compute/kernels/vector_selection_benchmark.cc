@@ -230,9 +230,11 @@ struct TakeBenchmark {
       // The alternative is to have the same number of chunks, but with a potentially
       // much smaller (and irrealistic) length.
       std::vector<std::shared_ptr<Array>> indices_chunks;
+      // Make sure there are at least two chunks of indices
+      const auto max_chunk_length = indices->length() / 2 + 1;
       int64_t offset = 0;
       for (int i = 0; i < values->num_chunks(); ++i) {
-        const auto chunk_length = values->chunk(i)->length();
+        const auto chunk_length = std::min(max_chunk_length, values->chunk(i)->length());
         auto chunk = indices->Slice(offset, chunk_length);
         indices_chunks.push_back(std::move(chunk));
         offset += chunk_length;
@@ -242,7 +244,6 @@ struct TakeBenchmark {
       }
       chunked_indices = std::make_shared<ChunkedArray>(std::move(indices_chunks));
       ARROW_CHECK_EQ(chunked_indices->length(), num_indices);
-      // Ensure we're not falling back on the flat case.
       ARROW_CHECK_GT(chunked_indices->num_chunks(), 1);
     }
 
