@@ -778,7 +778,11 @@ class ColumnWriterImpl {
   // Serializes Dictionary Page if enabled
   virtual void WriteDictionaryPage() = 0;
 
-  using StatisticsPair = std::pair<EncodedStatistics, std::shared_ptr<SizeStatistics>>;
+  // A convenience struct to combine the encoded statistics and the size statistics
+  struct StatisticsPair {
+    EncodedStatistics encoded_stats;                  // required
+    std::shared_ptr<SizeStatistics> size_statistics;  // may be null if disabled
+  };
 
   // Plain-encoded statistics of the current page
   virtual StatisticsPair GetPageStatistics() = 0;
@@ -1091,9 +1095,7 @@ int64_t ColumnWriterImpl::Close() {
 
     FlushBufferedDataPages();
 
-    EncodedStatistics chunk_statistics;
-    std::shared_ptr<SizeStatistics> chunk_size_stats;
-    std::tie(chunk_statistics, chunk_size_stats) = GetChunkStatistics();
+    auto [chunk_statistics, chunk_size_stats] = GetChunkStatistics();
     chunk_statistics.ApplyStatSizeLimits(
         properties_->max_statistics_size(descr_->path()));
     chunk_statistics.set_is_signed(SortOrder::SIGNED == descr_->sort_order());
@@ -1372,17 +1374,23 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
 
   StatisticsPair GetPageStatistics() override {
     StatisticsPair result;
-    if (page_statistics_) result.first = page_statistics_->Encode();
+    if (page_statistics_) {
+      result.encoded_stats = page_statistics_->Encode();
+    }
     if (properties_->size_statistics_level() == SizeStatisticsLevel::Page) {
-      result.second = page_size_stats_builder_->Build();
+      result.size_statistics = page_size_stats_builder_->Build();
     }
     return result;
   }
 
   StatisticsPair GetChunkStatistics() override {
     StatisticsPair result;
-    if (chunk_statistics_) result.first = chunk_statistics_->Encode();
-    if (chunk_size_stats_) result.second = chunk_size_stats_;
+    if (chunk_statistics_) {
+      result.encoded_stats = chunk_statistics_->Encode();
+    }
+    if (chunk_size_stats_) {
+      result.size_statistics = chunk_size_stats_;
+    }
     return result;
   }
 
@@ -1602,14 +1610,14 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
       page_size_stats_builder_->AddDefinitionLevels(
           {def_levels, static_cast<size_t>(num_levels)});
     } else {
-      page_size_stats_builder_->AddDefinitionLevel(num_levels, /*def_level=*/0);
+      page_size_stats_builder_->AddRepeatedDefinitionLevels(num_levels, /*def_level=*/0);
     }
 
     if (descr_->max_repetition_level() > 0) {
       page_size_stats_builder_->AddRepetitionLevels(
           {rep_levels, static_cast<size_t>(num_levels)});
     } else {
-      page_size_stats_builder_->AddRepetitionLevel(num_levels, /*rep_level=*/0);
+      page_size_stats_builder_->AddRepeatedRepetitionLevels(num_levels, /*rep_level=*/0);
     }
   }
 

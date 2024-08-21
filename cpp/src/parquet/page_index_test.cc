@@ -486,10 +486,10 @@ std::unique_ptr<SizeStatistics> ConstructFakeSizeStatistics(
     const ColumnDescriptor* descr, const PageLevelHistogram& page_level_histogram) {
   auto builder = SizeStatisticsBuilder::Make(descr);
   for (int16_t level = 0; level <= descr->max_repetition_level(); ++level) {
-    builder->AddRepetitionLevel(page_level_histogram.rep_levels[level], level);
+    builder->AddRepeatedRepetitionLevels(page_level_histogram.rep_levels[level], level);
   }
   for (int16_t level = 0; level <= descr->max_definition_level(); ++level) {
-    builder->AddDefinitionLevel(page_level_histogram.def_levels[level], level);
+    builder->AddRepeatedDefinitionLevels(page_level_histogram.def_levels[level], level);
   }
   return builder->Build();
 }

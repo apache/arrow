@@ -91,11 +91,11 @@ TEST(SizeStatistics, WriteRepeatedLevels) {
   constexpr int64_t kNumRounds = 10;
   for (int64_t round = 1; round <= kNumRounds; round++) {
     for (int16_t def_level = 0; def_level <= kMaxDefLevel; def_level++) {
-      builder->AddDefinitionLevel(/*num_levels=*/round + def_level, def_level);
+      builder->AddRepeatedDefinitionLevels(/*num_levels=*/round + def_level, def_level);
     }
     for (int16_t rep_level = 0; rep_level <= kMaxRepLevel; rep_level++) {
-      builder->AddRepetitionLevel(/*num_levels=*/round + rep_level * rep_level,
-                                  rep_level);
+      builder->AddRepeatedRepetitionLevels(/*num_levels=*/round + rep_level * rep_level,
+                                           rep_level);
     }
   }
 
