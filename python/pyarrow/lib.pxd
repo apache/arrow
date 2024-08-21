@@ -522,7 +522,6 @@ cdef class Table(_Tabular):
         CTable* table
 
     cdef void init(self, const shared_ptr[CTable]& table)
-    cdef void _assert_cpu(self) except *
 
 
 cdef class RecordBatch(_Tabular):

@@ -1571,6 +1571,7 @@ cdef class _Tabular(_PandasConvertible):
                         f"one of the `{self.__class__.__name__}.from_*` functions instead.")
 
     def __array__(self, dtype=None, copy=None):
+        self._assert_cpu()
         if copy is False:
             raise ValueError(
                 "Unable to avoid a copy while creating a numpy array as requested "
@@ -2516,6 +2517,7 @@ cdef class RecordBatch(_Tabular):
         return self.batch != NULL
 
     def __reduce__(self):
+        self._assert_cpu()
         return _reconstruct_record_batch, (self.columns, self.schema)
 
     def validate(self, *, full=False):
@@ -2535,6 +2537,7 @@ cdef class RecordBatch(_Tabular):
         ArrowInvalid
         """
         if full:
+            self._assert_cpu()
             with nogil:
                 check_status(self.batch.ValidateFull())
         else:
@@ -2801,7 +2804,11 @@ cdef class RecordBatch(_Tabular):
         if isinstance(column, Array):
             c_arr = column
         else:
-            self._assert_cpu()
+            if not self.is_cpu:
+                raise RuntimeError("A pa.Array() object is required when "
+                                   "adding columns to a RecordBatch on a "
+                                   f"non-cpu device. Got {type(column)!r} "
+                                   "instead.")
             c_arr = array(column)
 
         if isinstance(field_, Field):
@@ -3424,7 +3431,6 @@ cdef class RecordBatch(_Tabular):
             shared_ptr[CSchema] c_schema
             vector[shared_ptr[CArray]] c_arrays
             int64_t num_rows
-            CDeviceAllocationType c_device_type
 
         if len(arrays) > 0:
             num_rows = len(arrays[0])
@@ -3449,17 +3455,8 @@ cdef class RecordBatch(_Tabular):
                                  '{0} vs {1}'.format(len(arr), num_rows))
             c_arrays.push_back(arr.sp_array)
 
-        if c_arrays.size() > 0:
-            c_device_type = deref(c_arrays[0]).device_type()
-            result = pyarrow_wrap_batch(CRecordBatch.MakeWithDevice(c_schema,
-                                                                    num_rows,
-                                                                    c_arrays,
-                                                                    c_device_type,
-                                                                    <shared_ptr[CSyncEvent]>NULL))
-        else:
-            result = pyarrow_wrap_batch(CRecordBatch.Make(c_schema,
-                                                          num_rows,
-                                                          c_arrays))
+        result = pyarrow_wrap_batch(CRecordBatch.Make(c_schema, num_rows,
+                                                      c_arrays))
 
         result.validate()
         return result
@@ -5742,9 +5739,6 @@ cdef class Table(_Tabular):
         PyCapsule
         """
         return self.to_reader().__arrow_c_stream__(requested_schema)
-
-    cdef void _assert_cpu(self) except *:
-        return  # TODO GH-43728
 
 
 def _reconstruct_table(arrays, schema):

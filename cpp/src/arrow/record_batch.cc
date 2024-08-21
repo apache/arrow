@@ -59,11 +59,10 @@ class SimpleRecordBatch : public RecordBatch {
  public:
   SimpleRecordBatch(std::shared_ptr<Schema> schema, int64_t num_rows,
                     std::vector<std::shared_ptr<Array>> columns,
-                    DeviceAllocationType device_type = DeviceAllocationType::kCPU,
                     std::shared_ptr<Device::SyncEvent> sync_event = nullptr)
       : RecordBatch(std::move(schema), num_rows),
         boxed_columns_(std::move(columns)),
-        device_type_(device_type),
+        device_type_(DeviceAllocationType::kCPU),
         sync_event_(std::move(sync_event)) {
     if (boxed_columns_.size() > 0) {
       device_type_ = boxed_columns_[0]->device_type();
@@ -211,12 +210,11 @@ RecordBatch::RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows
 
 std::shared_ptr<RecordBatch> RecordBatch::Make(
     std::shared_ptr<Schema> schema, int64_t num_rows,
-    std::vector<std::shared_ptr<Array>> columns, DeviceAllocationType device_type,
+    std::vector<std::shared_ptr<Array>> columns,
     std::shared_ptr<Device::SyncEvent> sync_event) {
   DCHECK_EQ(schema->num_fields(), static_cast<int>(columns.size()));
   return std::make_shared<SimpleRecordBatch>(std::move(schema), num_rows,
-                                             std::move(columns), device_type,
-                                             std::move(sync_event));
+                                             std::move(columns), std::move(sync_event));
 }
 
 std::shared_ptr<RecordBatch> RecordBatch::Make(
@@ -356,8 +354,7 @@ Result<std::shared_ptr<RecordBatch>> RecordBatch::ReplaceSchema(
           ", did not match new schema field type: ", replace_type->ToString());
     }
   }
-  return RecordBatch::Make(std::move(schema), num_rows(), columns(), device_type(),
-                           GetSyncEvent());
+  return RecordBatch::Make(std::move(schema), num_rows(), columns(), GetSyncEvent());
 }
 
 std::vector<std::string> RecordBatch::ColumnNames() const {
@@ -386,7 +383,7 @@ Result<std::shared_ptr<RecordBatch>> RecordBatch::RenameColumns(
   }
 
   return RecordBatch::Make(::arrow::schema(std::move(fields)), num_rows(),
-                           std::move(columns), device_type(), GetSyncEvent());
+                           std::move(columns), GetSyncEvent());
 }
 
 Result<std::shared_ptr<RecordBatch>> RecordBatch::SelectColumns(
@@ -408,7 +405,7 @@ Result<std::shared_ptr<RecordBatch>> RecordBatch::SelectColumns(
   auto new_schema =
       std::make_shared<arrow::Schema>(std::move(fields), schema()->metadata());
   return RecordBatch::Make(std::move(new_schema), num_rows(), std::move(columns),
-                           device_type(), GetSyncEvent());
+                           GetSyncEvent());
 }
 
 std::shared_ptr<RecordBatch> RecordBatch::Slice(int64_t offset) const {
