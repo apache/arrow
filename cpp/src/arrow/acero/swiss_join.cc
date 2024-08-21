@@ -197,10 +197,12 @@ void RowArrayAccessor::VisitNulls(const RowTableImpl& rows, int column_id, int n
   }
 }
 
-Status RowArray::InitIfNeeded(MemoryPool* pool, const RowTableMetadata& row_metadata) {
+Status RowArray::InitIfNeeded(MemoryPool* pool, int64_t hardware_flags,
+                              const RowTableMetadata& row_metadata) {
   if (is_initialized_) {
     return Status::OK();
   }
+  hardware_flags_ = hardware_flags;
   encoder_.Init(row_metadata.column_metadatas, sizeof(uint64_t), sizeof(uint64_t));
   RETURN_NOT_OK(rows_temp_.Init(pool, row_metadata));
   RETURN_NOT_OK(rows_.Init(pool, row_metadata));
@@ -208,7 +210,8 @@ Status RowArray::InitIfNeeded(MemoryPool* pool, const RowTableMetadata& row_meta
   return Status::OK();
 }
 
-Status RowArray::InitIfNeeded(MemoryPool* pool, const ExecBatch& batch) {
+Status RowArray::InitIfNeeded(MemoryPool* pool, int64_t hardware_flags,
+                              const ExecBatch& batch) {
   if (is_initialized_) {
     return Status::OK();
   }
@@ -218,14 +221,15 @@ Status RowArray::InitIfNeeded(MemoryPool* pool, const ExecBatch& batch) {
   row_metadata.FromColumnMetadataVector(column_metadatas, sizeof(uint64_t),
                                         sizeof(uint64_t));
 
-  return InitIfNeeded(pool, row_metadata);
+  return InitIfNeeded(pool, hardware_flags, row_metadata);
 }
 
-Status RowArray::AppendBatchSelection(MemoryPool* pool, const ExecBatch& batch,
-                                      int begin_row_id, int end_row_id, int num_row_ids,
+Status RowArray::AppendBatchSelection(MemoryPool* pool, int64_t hardware_flags,
+                                      const ExecBatch& batch, int begin_row_id,
+                                      int end_row_id, int num_row_ids,
                                       const uint16_t* row_ids,
                                       std::vector<KeyColumnArray>& temp_column_arrays) {
-  RETURN_NOT_OK(InitIfNeeded(pool, batch));
+  RETURN_NOT_OK(InitIfNeeded(pool, hardware_flags, batch));
   RETURN_NOT_OK(ColumnArraysFromExecBatch(batch, begin_row_id, end_row_id - begin_row_id,
                                           &temp_column_arrays));
   encoder_.PrepareEncodeSelected(
@@ -238,7 +242,7 @@ Status RowArray::AppendBatchSelection(MemoryPool* pool, const ExecBatch& batch,
 void RowArray::Compare(const ExecBatch& batch, int begin_row_id, int end_row_id,
                        int num_selected, const uint16_t* batch_selection_maybe_null,
                        const uint32_t* array_row_ids, uint32_t* out_num_not_equal,
-                       uint16_t* out_not_equal_selection, int64_t hardware_flags,
+                       uint16_t* out_not_equal_selection,
                        arrow::util::TempVectorStack* temp_stack,
                        std::vector<KeyColumnArray>& temp_column_arrays,
                        uint8_t* out_match_bitvector_maybe_null) {
@@ -247,7 +251,7 @@ void RowArray::Compare(const ExecBatch& batch, int begin_row_id, int end_row_id,
   ARROW_DCHECK(status.ok());
 
   LightContext ctx;
-  ctx.hardware_flags = hardware_flags;
+  ctx.hardware_flags = hardware_flags_;
   ctx.stack = temp_stack;
   KeyCompare::CompareColumnsToRows(
       num_selected, batch_selection_maybe_null, array_row_ids, &ctx, out_num_not_equal,
@@ -273,7 +277,9 @@ Status RowArray::DecodeSelected(ResizableArrayData* output, int column_id,
     uint32_t fixed_length = column_metadata.fixed_length;
 
 #ifdef ARROW_HAVE_RUNTIME_AVX2
-    num_rows_processed = DecodeFixedLength_avx2();
+    if (hardware_flags_ & arrow::internal::CpuInfo::AVX2) {
+      num_rows_processed = DecodeFixedLength_avx2();
+    }
 #endif
 
     int num_rows_to_append_next = num_rows_to_append - num_rows_processed;
@@ -341,7 +347,9 @@ Status RowArray::DecodeSelected(ResizableArrayData* output, int column_id,
     // Process offsets for varying length columns
     //
 #ifdef ARROW_HAVE_RUNTIME_AVX2
-    num_rows_processed = DecodeOffsets_avx2();
+    if (hardware_flags_ & arrow::internal::CpuInfo::AVX2) {
+      num_rows_processed = DecodeOffsets_avx2();
+    }
 #endif
 
     int num_rows_to_append_next = num_rows_to_append - num_rows_processed;
@@ -364,8 +372,10 @@ Status RowArray::DecodeSelected(ResizableArrayData* output, int column_id,
     // Process data for varying length columns
     //
 #ifdef ARROW_HAVE_RUNTIME_AVX2
-    int num_var_length_rows_processed = DecodeVarLength_avx2();
-    DCHECK_EQ(num_var_length_rows_processed, num_rows_processed);
+    if (hardware_flags_ & arrow::internal::CpuInfo::AVX2) {
+      int num_var_length_rows_processed = DecodeVarLength_avx2();
+      DCHECK_EQ(num_var_length_rows_processed, num_rows_processed);
+    }
 #endif
 
     RowArrayAccessor::Visit(
@@ -387,8 +397,10 @@ Status RowArray::DecodeSelected(ResizableArrayData* output, int column_id,
   // Process nulls
   //
 #ifdef ARROW_HAVE_RUNTIME_AVX2
-  int num_null_rows_processed = DecodeNullsSelected_avx2();
-  DCHECK_EQ(num_null_rows_processed, num_rows_processed);
+  if (hardware_flags_ & arrow::internal::CpuInfo::AVX2) {
+    int num_null_rows_processed = DecodeNulls_avx2();
+    DCHECK_EQ(num_null_rows_processed, num_rows_processed);
+  }
 #endif
   num_rows_to_append -= num_rows_processed;
   RowArrayAccessor::VisitNulls(
@@ -478,13 +490,13 @@ void RowArray::DebugPrintToFile(const char* filename, bool print_sorted) const {
 Status RowArrayMerge::PrepareForMerge(RowArray* target,
                                       const std::vector<RowArray*>& sources,
                                       std::vector<int64_t>* first_target_row_id,
-                                      MemoryPool* pool) {
+                                      MemoryPool* pool, int64_t hardware_flags) {
   ARROW_DCHECK(!sources.empty());
 
   ARROW_DCHECK(sources[0]->is_initialized_);
   const RowTableMetadata& metadata = sources[0]->rows_.metadata();
   ARROW_DCHECK(!target->is_initialized_);
-  RETURN_NOT_OK(target->InitIfNeeded(pool, metadata));
+  RETURN_NOT_OK(target->InitIfNeeded(pool, hardware_flags, metadata));
 
   // Sum the number of rows from all input sources and calculate their total
   // size.
@@ -933,8 +945,8 @@ void SwissTableWithKeys::EqualCallback(int num_keys, const uint16_t* selection_m
     uint8_t* match_bitvector = match_bitvector_buf.mutable_data();
 
     keys_.Compare(*in->batch, batch_start_to_use, batch_end_to_use, num_keys,
-                  selection_to_use, group_ids_to_use, nullptr, nullptr, hardware_flags,
-                  in->temp_stack, *in->temp_column_arrays, match_bitvector);
+                  selection_to_use, group_ids_to_use, nullptr, nullptr, in->temp_stack,
+                  *in->temp_column_arrays, match_bitvector);
 
     if (selection_maybe_null) {
       int num_keys_mismatch = 0;
@@ -956,8 +968,7 @@ void SwissTableWithKeys::EqualCallback(int num_keys, const uint16_t* selection_m
     group_ids_to_use = group_ids;
     keys_.Compare(*in->batch, batch_start_to_use, batch_end_to_use, num_keys,
                   selection_to_use, group_ids_to_use, out_num_keys_mismatch,
-                  out_selection_mismatch, hardware_flags, in->temp_stack,
-                  *in->temp_column_arrays);
+                  out_selection_mismatch, in->temp_stack, *in->temp_column_arrays);
   }
 }
 
@@ -982,16 +993,18 @@ Status SwissTableWithKeys::AppendCallback(int num_keys, const uint16_t* selectio
     batch_end_to_use = static_cast<int>(in->batch->length);
     selection_to_use = selection_to_use_buf.mutable_data();
 
-    return keys_.AppendBatchSelection(swiss_table_.pool(), *in->batch, batch_start_to_use,
-                                      batch_end_to_use, num_keys, selection_to_use,
+    return keys_.AppendBatchSelection(swiss_table_.pool(), swiss_table_.hardware_flags(),
+                                      *in->batch, batch_start_to_use, batch_end_to_use,
+                                      num_keys, selection_to_use,
                                       *in->temp_column_arrays);
   } else {
     batch_start_to_use = in->batch_start_row;
     batch_end_to_use = in->batch_end_row;
     selection_to_use = selection;
 
-    return keys_.AppendBatchSelection(swiss_table_.pool(), *in->batch, batch_start_to_use,
-                                      batch_end_to_use, num_keys, selection_to_use,
+    return keys_.AppendBatchSelection(swiss_table_.pool(), swiss_table_.hardware_flags(),
+                                      *in->batch, batch_start_to_use, batch_end_to_use,
+                                      num_keys, selection_to_use,
                                       *in->temp_column_arrays);
   }
 }
@@ -1215,8 +1228,10 @@ Status SwissTableForJoinBuild::Init(SwissTableForJoin* target, int dop, int64_t 
   for (int i = 0; i < num_prtns_; ++i) {
     PartitionState& prtn_state = prtn_states_[i];
     RETURN_NOT_OK(prtn_state.keys.Init(hardware_flags_, pool_));
-    RETURN_NOT_OK(prtn_state.keys.keys()->InitIfNeeded(pool, key_row_metadata));
-    RETURN_NOT_OK(prtn_state.payloads.InitIfNeeded(pool, payload_row_metadata));
+    RETURN_NOT_OK(
+        prtn_state.keys.keys()->InitIfNeeded(pool, hardware_flags, key_row_metadata));
+    RETURN_NOT_OK(
+        prtn_state.payloads.InitIfNeeded(pool, hardware_flags, payload_row_metadata));
   }
 
   target_->dop_ = dop_;
@@ -1332,7 +1347,7 @@ Status SwissTableForJoinBuild::ProcessPartition(int64_t thread_id,
   if (!no_payload_) {
     ARROW_DCHECK(payload_batch_maybe_null);
     RETURN_NOT_OK(prtn_state.payloads.AppendBatchSelection(
-        pool_, *payload_batch_maybe_null, 0,
+        pool_, hardware_flags_, *payload_batch_maybe_null, 0,
         static_cast<int>(payload_batch_maybe_null->length), num_rows_new, row_ids,
         locals.temp_column_arrays));
   }
@@ -1362,7 +1377,8 @@ Status SwissTableForJoinBuild::PreparePrtnMerge() {
     partition_keys[i] = prtn_states_[i].keys.keys();
   }
   RETURN_NOT_OK(RowArrayMerge::PrepareForMerge(target_->map_.keys(), partition_keys,
-                                               &partition_keys_first_row_id_, pool_));
+                                               &partition_keys_first_row_id_, pool_,
+                                               hardware_flags_));
 
   // 2. SwissTable:
   //
@@ -1384,8 +1400,8 @@ Status SwissTableForJoinBuild::PreparePrtnMerge() {
       partition_payloads[i] = &prtn_states_[i].payloads;
     }
     RETURN_NOT_OK(RowArrayMerge::PrepareForMerge(&target_->payloads_, partition_payloads,
-                                                 &partition_payloads_first_row_id_,
-                                                 pool_));
+                                                 &partition_payloads_first_row_id_, pool_,
+                                                 hardware_flags_));
   }
 
   // Check if we have duplicate keys

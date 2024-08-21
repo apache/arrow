@@ -109,13 +109,15 @@ class RowArrayAccessor {
 // can be called by multiple threads concurrently.
 //
 struct RowArray {
-  RowArray() : is_initialized_(false) {}
+  RowArray() : is_initialized_(false), hardware_flags_(0) {}
 
-  Status InitIfNeeded(MemoryPool* pool, const ExecBatch& batch);
-  Status InitIfNeeded(MemoryPool* pool, const RowTableMetadata& row_metadata);
+  Status InitIfNeeded(MemoryPool* pool, int64_t hardware_flags, const ExecBatch& batch);
+  Status InitIfNeeded(MemoryPool* pool, int64_t hardware_flags,
+                      const RowTableMetadata& row_metadata);
 
-  Status AppendBatchSelection(MemoryPool* pool, const ExecBatch& batch, int begin_row_id,
-                              int end_row_id, int num_row_ids, const uint16_t* row_ids,
+  Status AppendBatchSelection(MemoryPool* pool, int64_t hardware_flags,
+                              const ExecBatch& batch, int begin_row_id, int end_row_id,
+                              int num_row_ids, const uint16_t* row_ids,
                               std::vector<KeyColumnArray>& temp_column_arrays);
 
   // This can only be called for a minibatch.
@@ -123,7 +125,7 @@ struct RowArray {
   void Compare(const ExecBatch& batch, int begin_row_id, int end_row_id, int num_selected,
                const uint16_t* batch_selection_maybe_null, const uint32_t* array_row_ids,
                uint32_t* out_num_not_equal, uint16_t* out_not_equal_selection,
-               int64_t hardware_flags, arrow::util::TempVectorStack* temp_stack,
+               arrow::util::TempVectorStack* temp_stack,
                std::vector<KeyColumnArray>& temp_column_arrays,
                uint8_t* out_match_bitvector_maybe_null = NULLPTR);
 
@@ -140,6 +142,8 @@ struct RowArray {
 
  private:
   bool is_initialized_;
+
+  int64_t hardware_flags_;
   RowTableEncoder encoder_;
   RowTableImpl rows_;
   RowTableImpl rows_temp_;
@@ -183,7 +187,7 @@ class RowArrayMerge {
   //
   static Status PrepareForMerge(RowArray* target, const std::vector<RowArray*>& sources,
                                 std::vector<int64_t>* first_target_row_id,
-                                MemoryPool* pool);
+                                MemoryPool* pool, int64_t hardware_flags);
 
   // Copy rows from source array to target array.
   // Both arrays must have the same row metadata.
