@@ -1198,9 +1198,10 @@ class ObjectAppendStream final : public io::OutputStream {
     }
 
     // We can upload chunks without copying them into a buffer
-    while (nbytes >= kMaxBlockSizeBytes) {
-      RETURN_NOT_OK(AppendBlock(data_ptr, kMaxBlockSizeBytes));
-      advance_ptr(kMaxBlockSizeBytes);
+    while (nbytes >= kBlockUploadSizeBytes) {
+      const auto upload_size = std::min(nbytes, kMaxBlockSizeBytes);
+      RETURN_NOT_OK(AppendBlock(data_ptr, upload_size));
+      advance_ptr(upload_size);
     }
 
     // Buffer remaining bytes

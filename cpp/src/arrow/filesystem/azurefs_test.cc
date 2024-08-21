@@ -39,6 +39,7 @@
 #include <memory>
 #include <random>
 #include <string>
+#include <vector>
 
 #include <gmock/gmock-matchers.h>
 #include <gmock/gmock-more-matchers.h>
@@ -46,7 +47,6 @@
 #include <azure/storage/blobs.hpp>
 #include <azure/storage/common/storage_credential.hpp>
 #include <azure/storage/files/datalake.hpp>
-#include <vector>
 
 #include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/test_util.h"
