@@ -149,19 +149,26 @@ struct RowArray {
   RowTableImpl rows_temp_;
 
  private:
+  int DecodeFixedLength(ResizableArrayData* output, int output_start_row, int column_id,
+                        uint32_t fixed_length, int num_rows_to_append,
+                        const uint32_t* row_ids) const;
+  int DecodeOffsets(ResizableArrayData* output, int output_start_row, int column_id,
+                    int num_rows_to_append, const uint32_t* row_ids) const;
+  int DecodeVarLength(ResizableArrayData* output, int output_start_row, int column_id,
+                      int num_rows_to_append, const uint32_t* row_ids) const;
+  int DecodeNulls(ResizableArrayData* output, int output_start_row, int column_id,
+                  int num_rows_to_append, const uint32_t* row_ids) const;
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
-  int DecodeFixedLength_avx2(ResizableArrayData* target, int column_id,
-                             int num_rows_to_append, const uint32_t* row_ids,
-                             MemoryPool* pool) const;
-  int DecodeOffsets_avx2(ResizableArrayData* target, int column_id,
-                         int num_rows_to_append, const uint32_t* row_ids,
-                         MemoryPool* pool) const;
-  Status DecodeVarLength_avx2(ResizableArrayData* target, int column_id,
-                              int num_rows_to_append, const uint32_t* row_ids,
-                              MemoryPool* pool) const;
-  Status DecodeNulls_avx2(ResizableArrayData* target, int column_id,
-                          int num_rows_to_append, const uint32_t* row_ids,
-                          MemoryPool* pool) const;
+  int DecodeFixedLength_avx2(ResizableArrayData* output, int output_start_row,
+                             int column_id, uint32_t fixed_length, int num_rows_to_append,
+                             const uint32_t* row_ids) const;
+  int DecodeOffsets_avx2(ResizableArrayData* output, int output_start_row, int column_id,
+                         int num_rows_to_append, const uint32_t* row_ids) const;
+  int DecodeVarLength_avx2(ResizableArrayData* output, int output_start_row,
+                           int column_id, int num_rows_to_append,
+                           const uint32_t* row_ids) const;
+  int DecodeNulls_avx2(ResizableArrayData* output, int output_start_row, int column_id,
+                       int num_rows_to_append, const uint32_t* row_ids) const;
 #endif
 
   friend class RowArrayMerge;

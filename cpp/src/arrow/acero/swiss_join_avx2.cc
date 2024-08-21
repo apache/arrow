@@ -254,5 +254,116 @@ int RowArrayAccessor::VisitNulls_avx2(const RowTableImpl& rows, int column_id,
   return num_rows - (num_rows % unroll);
 }
 
+int RowArray::DecodeFixedLength_avx2(ResizableArrayData* output, int output_start_row,
+                                     int column_id, uint32_t fixed_length,
+                                     int num_rows_to_append,
+                                     const uint32_t* row_ids) const {
+  switch (fixed_length) {
+    case 0:
+      RowArrayAccessor::Visit(rows_, column_id, num_rows_to_append, row_ids,
+                              [&](int i, const uint8_t* ptr, uint32_t num_bytes) {
+                                bit_util::SetBitTo(output->mutable_data(1),
+                                                   output_start_row + i, *ptr != 0);
+                              });
+      break;
+    case 1:
+      RowArrayAccessor::Visit(rows_, column_id, num_rows_to_append, row_ids,
+                              [&](int i, const uint8_t* ptr, uint32_t num_bytes) {
+                                output->mutable_data(1)[output_start_row + i] = *ptr;
+                              });
+      break;
+    case 2:
+      RowArrayAccessor::Visit(
+          rows_, column_id, num_rows_to_append, row_ids,
+          [&](int i, const uint8_t* ptr, uint32_t num_bytes) {
+            reinterpret_cast<uint16_t*>(output->mutable_data(1))[output_start_row + i] =
+                *reinterpret_cast<const uint16_t*>(ptr);
+          });
+      break;
+    case 4:
+      RowArrayAccessor::Visit(
+          rows_, column_id, num_rows_to_append, row_ids,
+          [&](int i, const uint8_t* ptr, uint32_t num_bytes) {
+            reinterpret_cast<uint32_t*>(output->mutable_data(1))[output_start_row + i] =
+                *reinterpret_cast<const uint32_t*>(ptr);
+          });
+      break;
+    case 8:
+      RowArrayAccessor::Visit(
+          rows_, column_id, num_rows_to_append, row_ids,
+          [&](int i, const uint8_t* ptr, uint32_t num_bytes) {
+            reinterpret_cast<uint64_t*>(output->mutable_data(1))[output_start_row + i] =
+                *reinterpret_cast<const uint64_t*>(ptr);
+          });
+      break;
+    default:
+      RowArrayAccessor::Visit(
+          rows_, column_id, num_rows_to_append, row_ids,
+          [&](int i, const uint8_t* ptr, uint32_t num_bytes) {
+            uint64_t* dst = reinterpret_cast<uint64_t*>(
+                output->mutable_data(1) + num_bytes * (output_start_row + i));
+            const uint64_t* src = reinterpret_cast<const uint64_t*>(ptr);
+            for (uint32_t word_id = 0;
+                 word_id < bit_util::CeilDiv(num_bytes, sizeof(uint64_t)); ++word_id) {
+              arrow::util::SafeStore<uint64_t>(dst + word_id,
+                                               arrow::util::SafeLoad(src + word_id));
+            }
+          });
+      break;
+  }
+
+  return num_rows_to_append;
+}
+
+int RowArray::DecodeOffsets_avx2(ResizableArrayData* output, int output_start_row,
+                                 int column_id, int num_rows_to_append,
+                                 const uint32_t* row_ids) const {
+  uint32_t* offsets =
+      reinterpret_cast<uint32_t*>(output->mutable_data(1)) + output_start_row;
+  uint32_t sum = (output_start_row == 0) ? 0 : offsets[0];
+  RowArrayAccessor::Visit(
+      rows_, column_id, num_rows_to_append, row_ids,
+      [&](int i, const uint8_t* ptr, uint32_t num_bytes) { offsets[i] = num_bytes; });
+  for (int i = 0; i < num_rows_to_append; ++i) {
+    uint32_t length = offsets[i];
+    offsets[i] = sum;
+    sum += length;
+  }
+  offsets[num_rows_to_append] = sum;
+
+  return num_rows_to_append;
+}
+
+int RowArray::DecodeVarLength_avx2(ResizableArrayData* output, int output_start_row,
+                                   int column_id, int num_rows_to_append,
+                                   const uint32_t* row_ids) const {
+  RowArrayAccessor::Visit(
+      rows_, column_id, num_rows_to_append, row_ids,
+      [&](int i, const uint8_t* ptr, uint32_t num_bytes) {
+        uint64_t* dst = reinterpret_cast<uint64_t*>(
+            output->mutable_data(2) + reinterpret_cast<const uint32_t*>(
+                                          output->mutable_data(1))[output_start_row + i]);
+        const uint64_t* src = reinterpret_cast<const uint64_t*>(ptr);
+        for (uint32_t word_id = 0;
+             word_id < bit_util::CeilDiv(num_bytes, sizeof(uint64_t)); ++word_id) {
+          arrow::util::SafeStore<uint64_t>(dst + word_id,
+                                           arrow::util::SafeLoad(src + word_id));
+        }
+      });
+
+  return num_rows_to_append;
+}
+
+int RowArray::DecodeNulls_avx2(ResizableArrayData* output, int output_start_row,
+                               int column_id, int num_rows_to_append,
+                               const uint32_t* row_ids) const {
+  RowArrayAccessor::VisitNulls(
+      rows_, column_id, num_rows_to_append, row_ids, [&](int i, uint8_t value) {
+        bit_util::SetBitTo(output->mutable_data(0), output_start_row + i, value == 0);
+      });
+
+  return num_rows_to_append;
+}
+
 }  // namespace acero
 }  // namespace arrow
