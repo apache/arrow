@@ -52,7 +52,7 @@ type ExtensionTypeTestSuite struct {
 
 func (e *ExtensionTypeTestSuite) TestExtensionType() {
 	e.Nil(arrow.GetExtensionType("uuid-unknown"))
-	e.NotNil(arrow.GetExtensionType("uuid"))
+	e.NotNil(arrow.GetExtensionType("arrow.uuid"))
 
 	e.Error(arrow.RegisterExtensionType(extensions.NewUUIDType()))
 	e.Error(arrow.UnregisterExtensionType("uuid-unknown"))

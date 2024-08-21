@@ -33,6 +33,7 @@ import (
 	"github.com/apache/arrow/go/v18/arrow/extensions"
 	"github.com/apache/arrow/go/v18/arrow/ipc"
 	"github.com/apache/arrow/go/v18/arrow/memory"
+	"github.com/apache/arrow/go/v18/internal/types"
 	"github.com/apache/arrow/go/v18/internal/utils"
 	"github.com/apache/arrow/go/v18/parquet"
 	"github.com/apache/arrow/go/v18/parquet/compress"
@@ -2066,23 +2067,23 @@ func (ps *ParquetIOTestSuite) TestArrowUnknownExtensionTypeRoundTrip() {
 
 	{
 		// Prepare `written` table with the extension type registered.
-		extType := extensions.NewUUIDType()
+		extType := types.NewSmallintType()
 		bldr := array.NewExtensionBuilder(mem, extType)
 		defer bldr.Release()
 
-		bldr.Builder.(*array.FixedSizeBinaryBuilder).AppendValues(
-			[][]byte{nil, []byte("abcdefghijklmno0"), []byte("abcdefghijklmno1"), []byte("abcdefghijklmno2")},
+		bldr.Builder.(*array.Int16Builder).AppendValues(
+			[]int16{0, 0, 1, 2},
 			[]bool{false, true, true, true})
 
 		arr := bldr.NewArray()
 		defer arr.Release()
 
-		if arrow.GetExtensionType("uuid") != nil {
-			ps.NoError(arrow.UnregisterExtensionType("uuid"))
+		if arrow.GetExtensionType("smallint") != nil {
+			ps.NoError(arrow.UnregisterExtensionType("smallint"))
 			defer arrow.RegisterExtensionType(extType)
 		}
 
-		fld := arrow.Field{Name: "uuid", Type: arr.DataType(), Nullable: true}
+		fld := arrow.Field{Name: "smallint", Type: arr.DataType(), Nullable: true}
 		cnk := arrow.NewChunked(arr.DataType(), []arrow.Array{arr})
 		defer arr.Release() // NewChunked
 		written = array.NewTable(arrow.NewSchema([]arrow.Field{fld}, nil), []arrow.Column{*arrow.NewColumn(fld, cnk)}, -1)
@@ -2092,16 +2093,16 @@ func (ps *ParquetIOTestSuite) TestArrowUnknownExtensionTypeRoundTrip() {
 
 	{
 		// Prepare `expected` table with the extension type unregistered in the underlying type.
-		bldr := array.NewFixedSizeBinaryBuilder(mem, &arrow.FixedSizeBinaryType{ByteWidth: 16})
+		bldr := array.NewInt16Builder(mem)
 		defer bldr.Release()
 		bldr.AppendValues(
-			[][]byte{nil, []byte("abcdefghijklmno0"), []byte("abcdefghijklmno1"), []byte("abcdefghijklmno2")},
+			[]int16{0, 0, 1, 2},
 			[]bool{false, true, true, true})
 
 		arr := bldr.NewArray()
 		defer arr.Release()
 
-		fld := arrow.Field{Name: "uuid", Type: arr.DataType(), Nullable: true}
+		fld := arrow.Field{Name: "smallint", Type: arr.DataType(), Nullable: true}
 		cnk := arrow.NewChunked(arr.DataType(), []arrow.Array{arr})
 		defer arr.Release() // NewChunked
 		expected = array.NewTable(arrow.NewSchema([]arrow.Field{fld}, nil), []arrow.Column{*arrow.NewColumn(fld, cnk)}, -1)
@@ -2138,8 +2139,8 @@ func (ps *ParquetIOTestSuite) TestArrowUnknownExtensionTypeRoundTrip() {
 	ps.Truef(array.Equal(exc, tbc), "expected: %T %s\ngot: %T %s", exc, exc, tbc, tbc)
 
 	expectedMd := arrow.MetadataFrom(map[string]string{
-		ipc.ExtensionTypeKeyName:     "uuid",
-		ipc.ExtensionMetadataKeyName: "uuid-serialized",
+		ipc.ExtensionTypeKeyName:     "smallint",
+		ipc.ExtensionMetadataKeyName: "smallint-serialized",
 		"PARQUET:field_id":           "-1",
 	})
 	ps.Truef(expectedMd.Equal(tbl.Column(0).Field().Metadata), "expected: %v\ngot: %v", expectedMd, tbl.Column(0).Field().Metadata)

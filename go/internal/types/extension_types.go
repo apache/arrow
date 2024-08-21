@@ -295,14 +295,14 @@ func (SmallintType) ArrayType() reflect.Type { return reflect.TypeOf(SmallintArr
 
 func (SmallintType) ExtensionName() string { return "smallint" }
 
-func (SmallintType) Serialize() string { return "smallint" }
+func (SmallintType) Serialize() string { return "smallint-serialized" }
 
 func (s *SmallintType) ExtensionEquals(other arrow.ExtensionType) bool {
 	return s.Name() == other.Name()
 }
 
 func (SmallintType) Deserialize(storageType arrow.DataType, data string) (arrow.ExtensionType, error) {
-	if data != "smallint" {
+	if data != "smallint-serialized" {
 		return nil, fmt.Errorf("type identifier did not match: '%s'", data)
 	}
 	if !arrow.TypeEqual(storageType, arrow.PrimitiveTypes.Int16) {

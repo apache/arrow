@@ -202,7 +202,7 @@ func TestUnrecognizedExtensionType(t *testing.T) {
 
 	// unregister the uuid type before we read back the buffer so it is
 	// unrecognized when reading back the record batch.
-	assert.NoError(t, arrow.UnregisterExtensionType("uuid"))
+	assert.NoError(t, arrow.UnregisterExtensionType("arrow.uuid"))
 	// re-register once the test is complete
 	defer arrow.RegisterExtensionType(extensions.NewUUIDType())
 	rdr, err := NewReader(&buf, WithAllocator(pool))

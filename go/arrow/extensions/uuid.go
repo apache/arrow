@@ -186,11 +186,18 @@ func (a *UUIDArray) ValueStr(i int) string {
 }
 
 func (a *UUIDArray) MarshalJSON() ([]byte, error) {
-	return json.Marshal(a.Values())
+	vals := make([]any, a.Len())
+	for i := range vals {
+		vals[i] = a.GetOneForMarshal(i)
+	}
+	return json.Marshal(vals)
 }
 
 func (a *UUIDArray) GetOneForMarshal(i int) interface{} {
-	return a.Value(i)
+	if a.IsValid(i) {
+		return a.Value(i)
+	}
+	return nil
 }
 
 // UUIDType is a simple extension type that represents a FixedSizeBinary(16)
@@ -216,28 +223,23 @@ func (*UUIDType) ArrayType() reflect.Type {
 }
 
 func (*UUIDType) ExtensionName() string {
-	return "uuid"
+	return "arrow.uuid"
 }
 
 func (e *UUIDType) String() string {
-	return fmt.Sprintf("extension_type<storage=%s>", e.Storage)
+	return fmt.Sprintf("extension<%s>", e.ExtensionName())
 }
 
 func (e *UUIDType) MarshalJSON() ([]byte, error) {
 	return []byte(fmt.Sprintf(`{"name":"%s","metadata":%s}`, e.ExtensionName(), e.Serialize())), nil
 }
 
-// Serialize returns "uuid-serialized" for testing proper metadata passing
 func (*UUIDType) Serialize() string {
-	return "uuid-serialized"
+	return ""
 }
 
-// Deserialize expects storageType to be FixedSizeBinaryType{ByteWidth: 16} and the data to be
-// "uuid-serialized" in order to correctly create a UUIDType for testing deserialize.
+// Deserialize expects storageType to be FixedSizeBinaryType{ByteWidth: 16}
 func (*UUIDType) Deserialize(storageType arrow.DataType, data string) (arrow.ExtensionType, error) {
-	if data != "uuid-serialized" {
-		return nil, fmt.Errorf("type identifier did not match: '%s'", data)
-	}
 	if !arrow.TypeEqual(storageType, &arrow.FixedSizeBinaryType{ByteWidth: 16}) {
 		return nil, fmt.Errorf("invalid storage type for UUIDType: %s", storageType.Name())
 	}

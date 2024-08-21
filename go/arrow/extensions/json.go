@@ -89,7 +89,7 @@ func (a *JSONArray) String() string {
 }
 
 func (a *JSONArray) Value(i int) any {
-	val := a.value(i)
+	val := a.ValueBytes(i)
 
 	var res any
 	if err := json.Unmarshal(val, &res); err != nil {
@@ -100,10 +100,10 @@ func (a *JSONArray) Value(i int) any {
 }
 
 func (a *JSONArray) ValueStr(i int) string {
-	return string(a.value(i))
+	return string(a.ValueBytes(i))
 }
 
-func (a *JSONArray) value(i int) []byte {
+func (a *JSONArray) ValueBytes(i int) []byte {
 	val := a.ValueJSON(i)
 	b, err := val.MarshalJSON()
 	if err != nil {
