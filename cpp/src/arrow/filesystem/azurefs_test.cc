@@ -1590,6 +1590,9 @@ class TestAzureFileSystem : public ::testing::Test {
     //
     // TODO perhaps remove this skip once we can rely on
     // https://github.com/Azure/azure-sdk-for-cpp/pull/5767
+    //
+    // Also note that ClickHouse has a workaround for a similar issue:
+    // https://github.com/ClickHouse/ClickHouse/pull/45796
     if (options_.background_writes) {
       GTEST_SKIP() << "False positive memory leak in libxml2 with CloseAsync";
     }
