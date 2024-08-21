@@ -751,7 +751,7 @@ class FileMetaData::FileMetaDataImpl {
 
     std::shared_ptr<Buffer> encrypted_buffer = AllocateBuffer(
         file_decryptor_->pool(), aes_encryptor->CiphertextLength(serialized_len));
-    uint32_t encrypted_len = aes_encryptor->SignedFooterEncrypt(
+    int32_t encrypted_len = aes_encryptor->SignedFooterEncrypt(
         serialized_data_span, str2span(key), str2span(aad), nonce,
         encrypted_buffer->mutable_span_as<uint8_t>());
     // Delete AES encryptor object. It was created only to verify the footer signature.
@@ -799,7 +799,7 @@ class FileMetaData::FileMetaDataImpl {
 
       // encrypt the footer key
       std::vector<uint8_t> encrypted_data(encryptor->CiphertextLength(serialized_len));
-      int encrypted_len = encryptor->Encrypt(serialized_data_span, encrypted_data);
+      int32_t encrypted_len = encryptor->Encrypt(serialized_data_span, encrypted_data);
 
       // write unencrypted footer
       PARQUET_THROW_NOT_OK(dst->Write(serialized_data, serialized_len));
@@ -1672,7 +1672,7 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
                                                                 serialized_len);
 
         std::vector<uint8_t> encrypted_data(encryptor->CiphertextLength(serialized_len));
-        int encrypted_len = encryptor->Encrypt(serialized_data_span, encrypted_data);
+        int32_t encrypted_len = encryptor->Encrypt(serialized_data_span, encrypted_data);
 
         const char* temp =
             const_cast<const char*>(reinterpret_cast<char*>(encrypted_data.data()));
