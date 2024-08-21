@@ -120,26 +120,26 @@ class SizeStatisticsBuilder::Impl {
     }
   }
 
-  void WriteRepetitionLevels(::arrow::util::span<const int16_t> rep_levels) {
+  void AddRepetitionLevels(::arrow::util::span<const int16_t> rep_levels) {
     for (int16_t rep_level : rep_levels) {
       ARROW_DCHECK_LT(rep_level, static_cast<int16_t>(rep_level_histogram_.size()));
-      rep_level_histogram_[rep_level]++;
+      ++rep_level_histogram_[rep_level];
     }
   }
 
-  void WriteDefinitionLevels(::arrow::util::span<const int16_t> def_levels) {
+  void AddDefinitionLevels(::arrow::util::span<const int16_t> def_levels) {
     for (int16_t def_level : def_levels) {
       ARROW_DCHECK_LT(def_level, static_cast<int16_t>(def_level_histogram_.size()));
-      def_level_histogram_[def_level]++;
+      ++def_level_histogram_[def_level];
     }
   }
 
-  void WriteRepetitionLevel(int64_t num_levels, int16_t rep_level) {
+  void AddRepeatedRepetitionLevels(int64_t num_levels, int16_t rep_level) {
     ARROW_DCHECK_LT(rep_level, static_cast<int16_t>(rep_level_histogram_.size()));
     rep_level_histogram_[rep_level] += num_levels;
   }
 
-  void WriteDefinitionLevel(int64_t num_levels, int16_t def_level) {
+  void AddRepeatedDefinitionLevels(int64_t num_levels, int16_t def_level) {
     ARROW_DCHECK_LT(def_level, static_cast<int16_t>(def_level_histogram_.size()));
     def_level_histogram_[def_level] += num_levels;
   }
@@ -218,20 +218,22 @@ class SizeStatisticsBuilder::Impl {
 
 void SizeStatisticsBuilder::AddRepetitionLevels(
     ::arrow::util::span<const int16_t> rep_levels) {
-  impl_->WriteRepetitionLevels(rep_levels);
+  impl_->AddRepetitionLevels(rep_levels);
 }
 
 void SizeStatisticsBuilder::AddDefinitionLevels(
     ::arrow::util::span<const int16_t> def_levels) {
-  impl_->WriteDefinitionLevels(def_levels);
+  impl_->AddDefinitionLevels(def_levels);
 }
 
-void SizeStatisticsBuilder::AddRepetitionLevel(int64_t num_levels, int16_t rep_level) {
-  impl_->WriteRepetitionLevel(num_levels, rep_level);
+void SizeStatisticsBuilder::AddRepeatedRepetitionLevels(int64_t num_levels,
+                                                        int16_t rep_level) {
+  impl_->AddRepeatedRepetitionLevels(num_levels, rep_level);
 }
 
-void SizeStatisticsBuilder::AddDefinitionLevel(int64_t num_levels, int16_t def_level) {
-  impl_->WriteDefinitionLevel(num_levels, def_level);
+void SizeStatisticsBuilder::AddRepeatedDefinitionLevels(int64_t num_levels,
+                                                        int16_t def_level) {
+  impl_->AddRepeatedDefinitionLevels(num_levels, def_level);
 }
 
 void SizeStatisticsBuilder::AddValuesSpaced(const ByteArray* values,

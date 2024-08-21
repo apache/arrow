@@ -574,16 +574,14 @@ class ColumnIndexBuilderImpl final : public ColumnIndexBuilder {
     const int64_t num_pages = column_index_.null_pages.size();
     const int64_t rep_level_hist_size = column_index_.repetition_level_histograms.size();
     const int64_t def_level_hist_size = column_index_.definition_level_histograms.size();
-    if (rep_level_hist_size == (descr_->max_repetition_level() + 1) * num_pages) {
-      column_index_.__isset.repetition_level_histograms = true;
-    } else {
-      column_index_.repetition_level_histograms.clear();
-    }
-    if (def_level_hist_size == (descr_->max_definition_level() + 1) * num_pages) {
-      column_index_.__isset.definition_level_histograms = true;
-    } else {
-      column_index_.definition_level_histograms.clear();
-    }
+    ARROW_CHECK(rep_level_hist_size == 0 ||
+                rep_level_hist_size == (descr_->max_repetition_level() + 1) * num_pages);
+    ARROW_CHECK(def_level_hist_size == 0 ||
+                def_level_hist_size == (descr_->max_definition_level() + 1) * num_pages);
+    column_index_.__isset.repetition_level_histograms =
+        !column_index_.repetition_level_histograms.empty();
+    column_index_.__isset.definition_level_histograms =
+        !column_index_.definition_level_histograms.empty();
   }
 
   void WriteTo(::arrow::io::OutputStream* sink, Encryptor* encryptor) const override {
@@ -692,7 +690,7 @@ class OffsetIndexBuilderImpl final : public OffsetIndexBuilder {
           }
         }
 
-        /// Finalize unencoded_byte_array_data_bytes and make sure page sizes match.
+        // Finalize unencoded_byte_array_data_bytes and make sure page sizes match.
         if (offset_index_.page_locations.size() ==
             offset_index_.unencoded_byte_array_data_bytes.size()) {
           offset_index_.__isset.unencoded_byte_array_data_bytes = true;

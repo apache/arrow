@@ -19,9 +19,9 @@
 
 #include <optional>
 
+#include "arrow/util/span.h"
 #include "parquet/platform.h"
 #include "parquet/type_fwd.h"
-#include "arrow/util/span.h"
 
 namespace parquet {
 
@@ -120,12 +120,12 @@ class PARQUET_EXPORT SizeStatisticsBuilder {
   /// \brief Add repeated repetition level to the histogram.
   /// \param num_levels number of repetition levels to add.
   /// \param rep_level repeated repetition level value.
-  void AddRepetitionLevel(int64_t num_levels, int16_t rep_level);
+  void AddRepeatedRepetitionLevels(int64_t num_levels, int16_t rep_level);
 
   /// \brief Add repeated definition level to the histogram.
   /// \param num_levels number of definition levels to add.
   /// \param def_level repeated definition level value.
-  void AddDefinitionLevel(int64_t num_levels, int16_t def_level);
+  void AddRepeatedDefinitionLevels(int64_t num_levels, int16_t def_level);
 
   /// \brief Add spaced BYTE_ARRAY values.
   /// \param[in] values pointer to values of BYTE_ARRAY type.

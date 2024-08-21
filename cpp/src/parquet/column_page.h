@@ -95,6 +95,7 @@ class DataPage : public Page {
   EncodedStatistics statistics_;
   /// Row ordinal within the row group to the first row in the data page.
   std::optional<int64_t> first_row_index_;
+  /// Size statistics for the data page. It may be null if unavailable.
   std::shared_ptr<SizeStatistics> size_statistics_;
 };
 
