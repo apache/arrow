@@ -17,6 +17,12 @@
 
 add_arrow_test(test
                SOURCES
+               bool8_test.cc
+               PREFIX
+               "arrow-extension-bool8")
+
+add_arrow_test(test
+               SOURCES
                fixed_shape_tensor_test.cc
                PREFIX
                "arrow-fixed-shape-tensor")

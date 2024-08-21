@@ -1837,6 +1837,37 @@ cdef class FixedShapeTensorType(BaseExtensionType):
         return FixedShapeTensorScalar
 
 
+cdef class Bool8Type(BaseExtensionType):
+    """
+    Concrete class for bool8 extension type.
+
+    Bool8 is an alternate representation for boolean
+    arrays using 8 bits instead of 1 bit per value. The underlying
+    storage type is int8.
+
+    Examples
+    --------
+    Create an instance of bool8 extension type:
+
+    >>> import pyarrow as pa
+    >>> pa.bool8()
+    Bool8Type(extension<arrow.bool8>)
+    """
+
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
+        BaseExtensionType.init(self, type)
+        self.bool8_ext_type = <const CBool8Type*> type.get()
+
+    def __arrow_ext_class__(self):
+        return Bool8Array
+
+    def __reduce__(self):
+        return bool8, ()
+
+    def __arrow_ext_scalar_class__(self):
+        return Bool8Scalar
+
+
 cdef class OpaqueType(BaseExtensionType):
     """
     Concrete class for opaque extension type.
@@ -5274,6 +5305,49 @@ def fixed_shape_tensor(DataType value_type, shape, dim_names=None, permutation=N
             value_type.sp_type, c_shape, c_permutation, c_dim_names))
 
     out.init(c_tensor_ext_type)
+
+    return out
+
+
+def bool8():
+    """
+    Create instance of bool8 extension type.
+
+    Examples
+    --------
+    Create an instance of bool8 extension type:
+
+    >>> import pyarrow as pa
+    >>> type = pa.bool8()
+    >>> type
+    Bool8Type(extension<arrow.bool8>)
+
+    Inspect the data type:
+
+    >>> type.storage_type
+    DataType(int8)
+
+    Create a table with a bool8 array:
+
+    >>> arr = [-1, 0, 1, 2, None]
+    >>> storage = pa.array(arr, pa.int8())
+    >>> other = pa.ExtensionArray.from_storage(type, storage)
+    >>> pa.table([other], names=["unknown_col"])
+    pyarrow.Table
+    unknown_col: extension<arrow.bool8>
+    ----
+    unknown_col: [[-1,0,1,2,null]]
+
+    Returns
+    -------
+    type : Bool8Type
+    """
+
+    cdef Bool8Type out = Bool8Type.__new__(Bool8Type)
+
+    c_type = GetResultValue(CBool8Type.Make())
+
+    out.init(c_type)
 
     return out
 
