@@ -2215,6 +2215,17 @@ TEST(Cast, StringToString) {
       if (is_binary_view_like(*from_type) == is_binary_view_like(*to_type)) {
         AssertBinaryZeroCopy(invalid_utf8, strings);
       }
+
+      auto short_input = R"(["foo", null, "bar", "baz", "quu"])";
+      auto long_input = R"(["foofoofoofoofoo", null, "barbarbarbarbarbarbar",
+          "bazbazbazbazbazbazbaz", "quuquuquuquuquuquuquuquuquu"])";
+      auto combine_input = R"(["foo", null, "barbarbarbarbarbarbar", "baz", "quu"])";
+
+      CheckCast(ArrayFromJSON(from_type, short_input),
+                ArrayFromJSON(to_type, short_input));
+      CheckCast(ArrayFromJSON(from_type, long_input), ArrayFromJSON(to_type, long_input));
+      CheckCast(ArrayFromJSON(from_type, combine_input),
+                ArrayFromJSON(to_type, combine_input));
     }
   }
 }

@@ -375,8 +375,6 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
   // Start with a zero-copy cast, then reconfigure the view and data buffers
   RETURN_NOT_OK(ZeroCopyCastExec(ctx, batch, out));
   ArrayData* output = out->array_data().get();
-  auto offsets_buffer = std::move(output->buffers[1]);
-  auto data_buffer = std::move(output->buffers[2]);
 
   const int64_t total_length = input.offset + input.length;
   const auto* validity = input.GetValues<uint8_t>(0, 0);
@@ -389,6 +387,8 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
   memset(output->buffers[1]->mutable_data(), 0, total_length * BinaryViewType::kSize);
   auto* out_views = output->GetMutableValues<BinaryViewType::c_type>(1);
 
+  // If all entries are inline, we can drop the extra data buffer for
+  // large strings in output->buffers[2].
   bool all_entries_are_inline = true;
   VisitSetBitRunsVoid(
       validity, output->offset, output->length,
