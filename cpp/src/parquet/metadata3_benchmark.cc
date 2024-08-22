@@ -40,6 +40,17 @@
 // 5/large-footer2: num-rgs=4 num-cols=2930 thrift=2248476 flatbuf=2801976
 //
 //
+// Remove deprecated ColumnChunk.file_offset
+//
+//
+// 0/amazon_apparel.footer: num-rgs=1182 num-cols=16 thrift=2158995 flatbuf=1292376
+// 1/amazon_movie_tv.footer: num-rgs=3 num-cols=18 thrift=22578 flatbuf=5056
+// 2/amazon_polarity.footer: num-rgs=900 num-cols=4 thrift=1074313 flatbuf=214192
+// 3/amazon_reviews_books.footer: num-rgs=159 num-cols=44 thrift=767840 flatbuf=226112
+// 4/large-footer1: num-rgs=23 num-cols=2001 thrift=3253741 flatbuf=2961808
+// 5/large-footer2: num-rgs=4 num-cols=2930 thrift=2248476 flatbuf=1120360
+//
+//
 
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #pragma GCC diagnostic ignored "-Wunused-function"
@@ -265,7 +276,6 @@ class ThriftConverter {
 
   auto operator()(const format3::ColumnChunk* cc, int rg_idx, int col_idx) {
     format::ColumnChunk out;
-    out.file_offset = cc->file_offset();
     out.__isset.meta_data = true;
     out.meta_data = (*this)(cc->meta_data(), rg_idx, col_idx);
     return out;
@@ -500,7 +510,6 @@ class FlatbufferConverter {
     auto meta_data = (*this)(cc.meta_data, rg_idx, col_idx);
 
     format3::ColumnChunkBuilder b(builder_);
-    b.add_file_offset(cc.file_offset);
     b.add_meta_data(meta_data);
     cc.__isset.crypto_metadata = false;  // TODO
     if (cc.__isset.encrypted_column_metadata) {
