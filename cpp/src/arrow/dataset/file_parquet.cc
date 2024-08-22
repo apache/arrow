@@ -366,10 +366,16 @@ std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpr
     const parquet::Statistics& statistics) {
   auto field_expr = compute::field_ref(field_ref);
 
-  bool may_has_null = !statistics.HasNullCount() || statistics.null_count() != 0;
+  bool may_has_null = !statistics.HasNullCount() || statistics.null_count() > 0;
+  bool must_has_null = statistics.HasNullCount() && statistics.null_count() > 0;
   // Optimize for corner case where all values are nulls
-  if (statistics.num_values() == 0 && may_has_null) {
-    return is_null(std::move(field_expr));
+  if (statistics.num_values() == 0) {
+    if (must_has_null) {
+      return is_null(std::move(field_expr));
+    }
+    // If there are no values and no nulls, it might be empty or contains
+    // only null.
+    return std::nullopt;
   }
 
   std::shared_ptr<Scalar> min, max;
