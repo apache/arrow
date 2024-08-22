@@ -87,6 +87,16 @@
 // 5/large-footer2: num-rgs=4 num-cols=2930 thrift=2248476 flatbuf=2343608
 //
 //
+// Replace encoding stats with is_fully_dict_encoded
+//
+// 0/amazon_apparel.footer: num-rgs=1182 num-cols=16 thrift=2158995 flatbuf=2622520
+// 1/amazon_movie_tv.footer: num-rgs=3 num-cols=18 thrift=22578 flatbuf=6792
+// 2/amazon_polarity.footer: num-rgs=900 num-cols=4 thrift=1074313 flatbuf=1106640
+// 3/amazon_reviews_books.footer: num-rgs=159 num-cols=44 thrift=767840 flatbuf=489016
+// 4/large-footer1: num-rgs=23 num-cols=2001 thrift=3253741 flatbuf=4433656
+// 5/large-footer2: num-rgs=4 num-cols=2930 thrift=2248476 flatbuf=2062584
+//
+//
 
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #pragma GCC diagnostic ignored "-Wunused-function"
@@ -338,7 +348,6 @@ class ThriftConverter {
       out.dictionary_page_offset = *cm->dictionary_page_offset() + off;
     }
     out.statistics = (*this)(cm->statistics(), rg_idx, col_idx);
-    out.encoding_stats = (*this)(cm->encoding_stats(), rg_idx, col_idx);
     if (cm->bloom_filter_offset()) {
       out.__isset.bloom_filter_offset = true;
       out.bloom_filter_offset = *cm->bloom_filter_offset() + off;
@@ -590,7 +599,6 @@ class FlatbufferConverter {
     auto codec = (*this)(cm.codec);
     auto kv_metadata = (*this)(&cm.key_value_metadata);
     auto statistics = (*this)(cm.statistics, rg_idx, col_idx);
-    auto encoding_stats = (*this)(&cm.encoding_stats, rg_idx, col_idx);
 
     // All offsets are relative to the row group.
     const auto& rg = md_->row_groups[rg_idx];
@@ -611,7 +619,18 @@ class FlatbufferConverter {
       b.add_dictionary_page_offset(cm.dictionary_page_offset - off);
     }
     b.add_statistics(statistics);
-    b.add_encoding_stats(encoding_stats);
+    bool is_fully_dict_encoded = true;
+    for (auto&& e : cm.encoding_stats) {
+      if (e.page_type != format::PageType::DATA_PAGE) continue;
+      if (e.page_type != format::PageType::DATA_PAGE_V2) continue;
+      if (e.encoding != format::Encoding::PLAIN_DICTIONARY &&
+          e.encoding != format::Encoding::RLE_DICTIONARY) {
+        is_fully_dict_encoded = false;
+        break;
+      }
+    }
+    b.add_is_fully_dict_encoded(is_fully_dict_encoded);
+
     if (cm.__isset.bloom_filter_offset) b.add_bloom_filter_offset(cm.bloom_filter_offset);
     if (cm.__isset.bloom_filter_length) b.add_bloom_filter_length(cm.bloom_filter_length);
 

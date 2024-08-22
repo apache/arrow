@@ -1193,7 +1193,7 @@ struct ColumnMetadata FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_INDEX_PAGE_OFFSET = 22,
     VT_DICTIONARY_PAGE_OFFSET = 24,
     VT_STATISTICS = 26,
-    VT_ENCODING_STATS = 28,
+    VT_IS_FULLY_DICT_ENCODED = 28,
     VT_BLOOM_FILTER_OFFSET = 30,
     VT_BLOOM_FILTER_LENGTH = 32
   };
@@ -1233,8 +1233,8 @@ struct ColumnMetadata FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const parquet::format3::Statistics *statistics() const {
     return GetPointer<const parquet::format3::Statistics *>(VT_STATISTICS);
   }
-  const ::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::PageEncodingStats>> *encoding_stats() const {
-    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::PageEncodingStats>> *>(VT_ENCODING_STATS);
+  bool is_fully_dict_encoded() const {
+    return GetField<uint8_t>(VT_IS_FULLY_DICT_ENCODED, 0) != 0;
   }
   ::flatbuffers::Optional<int32_t> bloom_filter_offset() const {
     return GetOptional<int32_t, int32_t>(VT_BLOOM_FILTER_OFFSET);
@@ -1262,9 +1262,7 @@ struct ColumnMetadata FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<int32_t>(verifier, VT_DICTIONARY_PAGE_OFFSET, 4) &&
            VerifyOffset(verifier, VT_STATISTICS) &&
            verifier.VerifyTable(statistics()) &&
-           VerifyOffset(verifier, VT_ENCODING_STATS) &&
-           verifier.VerifyVector(encoding_stats()) &&
-           verifier.VerifyVectorOfTables(encoding_stats()) &&
+           VerifyField<uint8_t>(verifier, VT_IS_FULLY_DICT_ENCODED, 1) &&
            VerifyField<int32_t>(verifier, VT_BLOOM_FILTER_OFFSET, 4) &&
            VerifyField<int32_t>(verifier, VT_BLOOM_FILTER_LENGTH, 4) &&
            verifier.EndTable();
@@ -1311,8 +1309,8 @@ struct ColumnMetadataBuilder {
   void add_statistics(::flatbuffers::Offset<parquet::format3::Statistics> statistics) {
     fbb_.AddOffset(ColumnMetadata::VT_STATISTICS, statistics);
   }
-  void add_encoding_stats(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::PageEncodingStats>>> encoding_stats) {
-    fbb_.AddOffset(ColumnMetadata::VT_ENCODING_STATS, encoding_stats);
+  void add_is_fully_dict_encoded(bool is_fully_dict_encoded) {
+    fbb_.AddElement<uint8_t>(ColumnMetadata::VT_IS_FULLY_DICT_ENCODED, static_cast<uint8_t>(is_fully_dict_encoded), 0);
   }
   void add_bloom_filter_offset(int32_t bloom_filter_offset) {
     fbb_.AddElement<int32_t>(ColumnMetadata::VT_BLOOM_FILTER_OFFSET, bloom_filter_offset);
@@ -1345,13 +1343,12 @@ inline ::flatbuffers::Offset<ColumnMetadata> CreateColumnMetadata(
     ::flatbuffers::Optional<int32_t> index_page_offset = ::flatbuffers::nullopt,
     ::flatbuffers::Optional<int32_t> dictionary_page_offset = ::flatbuffers::nullopt,
     ::flatbuffers::Offset<parquet::format3::Statistics> statistics = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::PageEncodingStats>>> encoding_stats = 0,
+    bool is_fully_dict_encoded = false,
     ::flatbuffers::Optional<int32_t> bloom_filter_offset = ::flatbuffers::nullopt,
     ::flatbuffers::Optional<int32_t> bloom_filter_length = ::flatbuffers::nullopt) {
   ColumnMetadataBuilder builder_(_fbb);
   if(bloom_filter_length) { builder_.add_bloom_filter_length(*bloom_filter_length); }
   if(bloom_filter_offset) { builder_.add_bloom_filter_offset(*bloom_filter_offset); }
-  builder_.add_encoding_stats(encoding_stats);
   builder_.add_statistics(statistics);
   if(dictionary_page_offset) { builder_.add_dictionary_page_offset(*dictionary_page_offset); }
   if(index_page_offset) { builder_.add_index_page_offset(*index_page_offset); }
@@ -1362,6 +1359,7 @@ inline ::flatbuffers::Offset<ColumnMetadata> CreateColumnMetadata(
   builder_.add_num_values(num_values);
   builder_.add_path_in_schema(path_in_schema);
   builder_.add_encodings(encodings);
+  builder_.add_is_fully_dict_encoded(is_fully_dict_encoded);
   builder_.add_codec(codec);
   builder_.add_type(type);
   return builder_.Finish();
@@ -1381,13 +1379,12 @@ inline ::flatbuffers::Offset<ColumnMetadata> CreateColumnMetadataDirect(
     ::flatbuffers::Optional<int32_t> index_page_offset = ::flatbuffers::nullopt,
     ::flatbuffers::Optional<int32_t> dictionary_page_offset = ::flatbuffers::nullopt,
     ::flatbuffers::Offset<parquet::format3::Statistics> statistics = 0,
-    const std::vector<::flatbuffers::Offset<parquet::format3::PageEncodingStats>> *encoding_stats = nullptr,
+    bool is_fully_dict_encoded = false,
     ::flatbuffers::Optional<int32_t> bloom_filter_offset = ::flatbuffers::nullopt,
     ::flatbuffers::Optional<int32_t> bloom_filter_length = ::flatbuffers::nullopt) {
   auto encodings__ = encodings ? _fbb.CreateVector<parquet::format3::Encoding>(*encodings) : 0;
   auto path_in_schema__ = path_in_schema ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*path_in_schema) : 0;
   auto key_value_metadata__ = key_value_metadata ? _fbb.CreateVector<::flatbuffers::Offset<parquet::format3::KV>>(*key_value_metadata) : 0;
-  auto encoding_stats__ = encoding_stats ? _fbb.CreateVector<::flatbuffers::Offset<parquet::format3::PageEncodingStats>>(*encoding_stats) : 0;
   return parquet::format3::CreateColumnMetadata(
       _fbb,
       type,
@@ -1402,7 +1399,7 @@ inline ::flatbuffers::Offset<ColumnMetadata> CreateColumnMetadataDirect(
       index_page_offset,
       dictionary_page_offset,
       statistics,
-      encoding_stats__,
+      is_fully_dict_encoded,
       bloom_filter_offset,
       bloom_filter_length);
 }
