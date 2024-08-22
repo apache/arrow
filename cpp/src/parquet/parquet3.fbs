@@ -109,8 +109,19 @@ table Value {
 table Statistics {
   null_count: int = null;
   distinct_count: int = null;
+  // Only one max/min value is stored. For space reasons if the value is of fixed size we store
+  // it in a primitive field:
+  // BOOLEAN: max1/min1
+  // INT32/FLOAT: max4/min4
+  // INT64/DOUBLE: max8/min8
   max_value: [byte];
+  max8: ulong;
+  max4: uint;
+  max1: ubyte;
   min_value: [byte];
+  min8: ulong;
+  min4: uint;
+  min1: ubyte;
   is_max_value_exact: bool;
   is_min_value_exact: bool;
 }
