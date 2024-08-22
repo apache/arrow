@@ -164,16 +164,16 @@ table ColumnMetadata {
   encodings: [Encoding];
   path_in_schema: [string];
   codec: CompressionCodec;
-  num_values: long;
-  total_uncompressed_size: long;
-  total_compressed_size: long;
+  num_values: int;
+  total_uncompressed_size: int;
+  total_compressed_size: int;
   key_value_metadata: [KV];
-  data_page_offset: long;
-  index_page_offset: long = null;
-  dictionary_page_offset: long = null;
+  data_page_offset: int;
+  index_page_offset: int = null;
+  dictionary_page_offset: int = null;
   statistics: Statistics;
   encoding_stats: [PageEncodingStats];
-  bloom_filter_offset: long = null;
+  bloom_filter_offset: int = null;
   bloom_filter_length: int = null;
 }
 
@@ -192,11 +192,11 @@ table SortingColumn {
 
 table RowGroup {
   columns: [ColumnChunk];
-  total_byte_size: long;
-  num_rows: long;
+  total_byte_size: int;
+  num_rows: int;
   sorting_columns: [SortingColumn];
   file_offset: long;
-  total_compressed_size: long;
+  total_compressed_size: int;
   ordinal: short = null;
 }
 

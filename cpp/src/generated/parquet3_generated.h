@@ -1209,26 +1209,26 @@ struct ColumnMetadata FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   parquet::format3::CompressionCodec codec() const {
     return static_cast<parquet::format3::CompressionCodec>(GetField<int8_t>(VT_CODEC, 0));
   }
-  int64_t num_values() const {
-    return GetField<int64_t>(VT_NUM_VALUES, 0);
+  int32_t num_values() const {
+    return GetField<int32_t>(VT_NUM_VALUES, 0);
   }
-  int64_t total_uncompressed_size() const {
-    return GetField<int64_t>(VT_TOTAL_UNCOMPRESSED_SIZE, 0);
+  int32_t total_uncompressed_size() const {
+    return GetField<int32_t>(VT_TOTAL_UNCOMPRESSED_SIZE, 0);
   }
-  int64_t total_compressed_size() const {
-    return GetField<int64_t>(VT_TOTAL_COMPRESSED_SIZE, 0);
+  int32_t total_compressed_size() const {
+    return GetField<int32_t>(VT_TOTAL_COMPRESSED_SIZE, 0);
   }
   const ::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::KV>> *key_value_metadata() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::KV>> *>(VT_KEY_VALUE_METADATA);
   }
-  int64_t data_page_offset() const {
-    return GetField<int64_t>(VT_DATA_PAGE_OFFSET, 0);
+  int32_t data_page_offset() const {
+    return GetField<int32_t>(VT_DATA_PAGE_OFFSET, 0);
   }
-  ::flatbuffers::Optional<int64_t> index_page_offset() const {
-    return GetOptional<int64_t, int64_t>(VT_INDEX_PAGE_OFFSET);
+  ::flatbuffers::Optional<int32_t> index_page_offset() const {
+    return GetOptional<int32_t, int32_t>(VT_INDEX_PAGE_OFFSET);
   }
-  ::flatbuffers::Optional<int64_t> dictionary_page_offset() const {
-    return GetOptional<int64_t, int64_t>(VT_DICTIONARY_PAGE_OFFSET);
+  ::flatbuffers::Optional<int32_t> dictionary_page_offset() const {
+    return GetOptional<int32_t, int32_t>(VT_DICTIONARY_PAGE_OFFSET);
   }
   const parquet::format3::Statistics *statistics() const {
     return GetPointer<const parquet::format3::Statistics *>(VT_STATISTICS);
@@ -1236,8 +1236,8 @@ struct ColumnMetadata FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::PageEncodingStats>> *encoding_stats() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::PageEncodingStats>> *>(VT_ENCODING_STATS);
   }
-  ::flatbuffers::Optional<int64_t> bloom_filter_offset() const {
-    return GetOptional<int64_t, int64_t>(VT_BLOOM_FILTER_OFFSET);
+  ::flatbuffers::Optional<int32_t> bloom_filter_offset() const {
+    return GetOptional<int32_t, int32_t>(VT_BLOOM_FILTER_OFFSET);
   }
   ::flatbuffers::Optional<int32_t> bloom_filter_length() const {
     return GetOptional<int32_t, int32_t>(VT_BLOOM_FILTER_LENGTH);
@@ -1251,21 +1251,21 @@ struct ColumnMetadata FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            verifier.VerifyVector(path_in_schema()) &&
            verifier.VerifyVectorOfStrings(path_in_schema()) &&
            VerifyField<int8_t>(verifier, VT_CODEC, 1) &&
-           VerifyField<int64_t>(verifier, VT_NUM_VALUES, 8) &&
-           VerifyField<int64_t>(verifier, VT_TOTAL_UNCOMPRESSED_SIZE, 8) &&
-           VerifyField<int64_t>(verifier, VT_TOTAL_COMPRESSED_SIZE, 8) &&
+           VerifyField<int32_t>(verifier, VT_NUM_VALUES, 4) &&
+           VerifyField<int32_t>(verifier, VT_TOTAL_UNCOMPRESSED_SIZE, 4) &&
+           VerifyField<int32_t>(verifier, VT_TOTAL_COMPRESSED_SIZE, 4) &&
            VerifyOffset(verifier, VT_KEY_VALUE_METADATA) &&
            verifier.VerifyVector(key_value_metadata()) &&
            verifier.VerifyVectorOfTables(key_value_metadata()) &&
-           VerifyField<int64_t>(verifier, VT_DATA_PAGE_OFFSET, 8) &&
-           VerifyField<int64_t>(verifier, VT_INDEX_PAGE_OFFSET, 8) &&
-           VerifyField<int64_t>(verifier, VT_DICTIONARY_PAGE_OFFSET, 8) &&
+           VerifyField<int32_t>(verifier, VT_DATA_PAGE_OFFSET, 4) &&
+           VerifyField<int32_t>(verifier, VT_INDEX_PAGE_OFFSET, 4) &&
+           VerifyField<int32_t>(verifier, VT_DICTIONARY_PAGE_OFFSET, 4) &&
            VerifyOffset(verifier, VT_STATISTICS) &&
            verifier.VerifyTable(statistics()) &&
            VerifyOffset(verifier, VT_ENCODING_STATS) &&
            verifier.VerifyVector(encoding_stats()) &&
            verifier.VerifyVectorOfTables(encoding_stats()) &&
-           VerifyField<int64_t>(verifier, VT_BLOOM_FILTER_OFFSET, 8) &&
+           VerifyField<int32_t>(verifier, VT_BLOOM_FILTER_OFFSET, 4) &&
            VerifyField<int32_t>(verifier, VT_BLOOM_FILTER_LENGTH, 4) &&
            verifier.EndTable();
   }
@@ -1287,26 +1287,26 @@ struct ColumnMetadataBuilder {
   void add_codec(parquet::format3::CompressionCodec codec) {
     fbb_.AddElement<int8_t>(ColumnMetadata::VT_CODEC, static_cast<int8_t>(codec), 0);
   }
-  void add_num_values(int64_t num_values) {
-    fbb_.AddElement<int64_t>(ColumnMetadata::VT_NUM_VALUES, num_values, 0);
+  void add_num_values(int32_t num_values) {
+    fbb_.AddElement<int32_t>(ColumnMetadata::VT_NUM_VALUES, num_values, 0);
   }
-  void add_total_uncompressed_size(int64_t total_uncompressed_size) {
-    fbb_.AddElement<int64_t>(ColumnMetadata::VT_TOTAL_UNCOMPRESSED_SIZE, total_uncompressed_size, 0);
+  void add_total_uncompressed_size(int32_t total_uncompressed_size) {
+    fbb_.AddElement<int32_t>(ColumnMetadata::VT_TOTAL_UNCOMPRESSED_SIZE, total_uncompressed_size, 0);
   }
-  void add_total_compressed_size(int64_t total_compressed_size) {
-    fbb_.AddElement<int64_t>(ColumnMetadata::VT_TOTAL_COMPRESSED_SIZE, total_compressed_size, 0);
+  void add_total_compressed_size(int32_t total_compressed_size) {
+    fbb_.AddElement<int32_t>(ColumnMetadata::VT_TOTAL_COMPRESSED_SIZE, total_compressed_size, 0);
   }
   void add_key_value_metadata(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::KV>>> key_value_metadata) {
     fbb_.AddOffset(ColumnMetadata::VT_KEY_VALUE_METADATA, key_value_metadata);
   }
-  void add_data_page_offset(int64_t data_page_offset) {
-    fbb_.AddElement<int64_t>(ColumnMetadata::VT_DATA_PAGE_OFFSET, data_page_offset, 0);
+  void add_data_page_offset(int32_t data_page_offset) {
+    fbb_.AddElement<int32_t>(ColumnMetadata::VT_DATA_PAGE_OFFSET, data_page_offset, 0);
   }
-  void add_index_page_offset(int64_t index_page_offset) {
-    fbb_.AddElement<int64_t>(ColumnMetadata::VT_INDEX_PAGE_OFFSET, index_page_offset);
+  void add_index_page_offset(int32_t index_page_offset) {
+    fbb_.AddElement<int32_t>(ColumnMetadata::VT_INDEX_PAGE_OFFSET, index_page_offset);
   }
-  void add_dictionary_page_offset(int64_t dictionary_page_offset) {
-    fbb_.AddElement<int64_t>(ColumnMetadata::VT_DICTIONARY_PAGE_OFFSET, dictionary_page_offset);
+  void add_dictionary_page_offset(int32_t dictionary_page_offset) {
+    fbb_.AddElement<int32_t>(ColumnMetadata::VT_DICTIONARY_PAGE_OFFSET, dictionary_page_offset);
   }
   void add_statistics(::flatbuffers::Offset<parquet::format3::Statistics> statistics) {
     fbb_.AddOffset(ColumnMetadata::VT_STATISTICS, statistics);
@@ -1314,8 +1314,8 @@ struct ColumnMetadataBuilder {
   void add_encoding_stats(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::PageEncodingStats>>> encoding_stats) {
     fbb_.AddOffset(ColumnMetadata::VT_ENCODING_STATS, encoding_stats);
   }
-  void add_bloom_filter_offset(int64_t bloom_filter_offset) {
-    fbb_.AddElement<int64_t>(ColumnMetadata::VT_BLOOM_FILTER_OFFSET, bloom_filter_offset);
+  void add_bloom_filter_offset(int32_t bloom_filter_offset) {
+    fbb_.AddElement<int32_t>(ColumnMetadata::VT_BLOOM_FILTER_OFFSET, bloom_filter_offset);
   }
   void add_bloom_filter_length(int32_t bloom_filter_length) {
     fbb_.AddElement<int32_t>(ColumnMetadata::VT_BLOOM_FILTER_LENGTH, bloom_filter_length);
@@ -1337,29 +1337,29 @@ inline ::flatbuffers::Offset<ColumnMetadata> CreateColumnMetadata(
     ::flatbuffers::Offset<::flatbuffers::Vector<parquet::format3::Encoding>> encodings = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> path_in_schema = 0,
     parquet::format3::CompressionCodec codec = parquet::format3::CompressionCodec::UNCOMPRESSED,
-    int64_t num_values = 0,
-    int64_t total_uncompressed_size = 0,
-    int64_t total_compressed_size = 0,
+    int32_t num_values = 0,
+    int32_t total_uncompressed_size = 0,
+    int32_t total_compressed_size = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::KV>>> key_value_metadata = 0,
-    int64_t data_page_offset = 0,
-    ::flatbuffers::Optional<int64_t> index_page_offset = ::flatbuffers::nullopt,
-    ::flatbuffers::Optional<int64_t> dictionary_page_offset = ::flatbuffers::nullopt,
+    int32_t data_page_offset = 0,
+    ::flatbuffers::Optional<int32_t> index_page_offset = ::flatbuffers::nullopt,
+    ::flatbuffers::Optional<int32_t> dictionary_page_offset = ::flatbuffers::nullopt,
     ::flatbuffers::Offset<parquet::format3::Statistics> statistics = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::PageEncodingStats>>> encoding_stats = 0,
-    ::flatbuffers::Optional<int64_t> bloom_filter_offset = ::flatbuffers::nullopt,
+    ::flatbuffers::Optional<int32_t> bloom_filter_offset = ::flatbuffers::nullopt,
     ::flatbuffers::Optional<int32_t> bloom_filter_length = ::flatbuffers::nullopt) {
   ColumnMetadataBuilder builder_(_fbb);
+  if(bloom_filter_length) { builder_.add_bloom_filter_length(*bloom_filter_length); }
   if(bloom_filter_offset) { builder_.add_bloom_filter_offset(*bloom_filter_offset); }
+  builder_.add_encoding_stats(encoding_stats);
+  builder_.add_statistics(statistics);
   if(dictionary_page_offset) { builder_.add_dictionary_page_offset(*dictionary_page_offset); }
   if(index_page_offset) { builder_.add_index_page_offset(*index_page_offset); }
   builder_.add_data_page_offset(data_page_offset);
+  builder_.add_key_value_metadata(key_value_metadata);
   builder_.add_total_compressed_size(total_compressed_size);
   builder_.add_total_uncompressed_size(total_uncompressed_size);
   builder_.add_num_values(num_values);
-  if(bloom_filter_length) { builder_.add_bloom_filter_length(*bloom_filter_length); }
-  builder_.add_encoding_stats(encoding_stats);
-  builder_.add_statistics(statistics);
-  builder_.add_key_value_metadata(key_value_metadata);
   builder_.add_path_in_schema(path_in_schema);
   builder_.add_encodings(encodings);
   builder_.add_codec(codec);
@@ -1373,16 +1373,16 @@ inline ::flatbuffers::Offset<ColumnMetadata> CreateColumnMetadataDirect(
     const std::vector<parquet::format3::Encoding> *encodings = nullptr,
     const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *path_in_schema = nullptr,
     parquet::format3::CompressionCodec codec = parquet::format3::CompressionCodec::UNCOMPRESSED,
-    int64_t num_values = 0,
-    int64_t total_uncompressed_size = 0,
-    int64_t total_compressed_size = 0,
+    int32_t num_values = 0,
+    int32_t total_uncompressed_size = 0,
+    int32_t total_compressed_size = 0,
     const std::vector<::flatbuffers::Offset<parquet::format3::KV>> *key_value_metadata = nullptr,
-    int64_t data_page_offset = 0,
-    ::flatbuffers::Optional<int64_t> index_page_offset = ::flatbuffers::nullopt,
-    ::flatbuffers::Optional<int64_t> dictionary_page_offset = ::flatbuffers::nullopt,
+    int32_t data_page_offset = 0,
+    ::flatbuffers::Optional<int32_t> index_page_offset = ::flatbuffers::nullopt,
+    ::flatbuffers::Optional<int32_t> dictionary_page_offset = ::flatbuffers::nullopt,
     ::flatbuffers::Offset<parquet::format3::Statistics> statistics = 0,
     const std::vector<::flatbuffers::Offset<parquet::format3::PageEncodingStats>> *encoding_stats = nullptr,
-    ::flatbuffers::Optional<int64_t> bloom_filter_offset = ::flatbuffers::nullopt,
+    ::flatbuffers::Optional<int32_t> bloom_filter_offset = ::flatbuffers::nullopt,
     ::flatbuffers::Optional<int32_t> bloom_filter_length = ::flatbuffers::nullopt) {
   auto encodings__ = encodings ? _fbb.CreateVector<parquet::format3::Encoding>(*encodings) : 0;
   auto path_in_schema__ = path_in_schema ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*path_in_schema) : 0;
@@ -1546,11 +1546,11 @@ struct RowGroup FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::ColumnChunk>> *columns() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::ColumnChunk>> *>(VT_COLUMNS);
   }
-  int64_t total_byte_size() const {
-    return GetField<int64_t>(VT_TOTAL_BYTE_SIZE, 0);
+  int32_t total_byte_size() const {
+    return GetField<int32_t>(VT_TOTAL_BYTE_SIZE, 0);
   }
-  int64_t num_rows() const {
-    return GetField<int64_t>(VT_NUM_ROWS, 0);
+  int32_t num_rows() const {
+    return GetField<int32_t>(VT_NUM_ROWS, 0);
   }
   const ::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::SortingColumn>> *sorting_columns() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::SortingColumn>> *>(VT_SORTING_COLUMNS);
@@ -1558,8 +1558,8 @@ struct RowGroup FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   int64_t file_offset() const {
     return GetField<int64_t>(VT_FILE_OFFSET, 0);
   }
-  int64_t total_compressed_size() const {
-    return GetField<int64_t>(VT_TOTAL_COMPRESSED_SIZE, 0);
+  int32_t total_compressed_size() const {
+    return GetField<int32_t>(VT_TOTAL_COMPRESSED_SIZE, 0);
   }
   ::flatbuffers::Optional<int16_t> ordinal() const {
     return GetOptional<int16_t, int16_t>(VT_ORDINAL);
@@ -1569,13 +1569,13 @@ struct RowGroup FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_COLUMNS) &&
            verifier.VerifyVector(columns()) &&
            verifier.VerifyVectorOfTables(columns()) &&
-           VerifyField<int64_t>(verifier, VT_TOTAL_BYTE_SIZE, 8) &&
-           VerifyField<int64_t>(verifier, VT_NUM_ROWS, 8) &&
+           VerifyField<int32_t>(verifier, VT_TOTAL_BYTE_SIZE, 4) &&
+           VerifyField<int32_t>(verifier, VT_NUM_ROWS, 4) &&
            VerifyOffset(verifier, VT_SORTING_COLUMNS) &&
            verifier.VerifyVector(sorting_columns()) &&
            verifier.VerifyVectorOfTables(sorting_columns()) &&
            VerifyField<int64_t>(verifier, VT_FILE_OFFSET, 8) &&
-           VerifyField<int64_t>(verifier, VT_TOTAL_COMPRESSED_SIZE, 8) &&
+           VerifyField<int32_t>(verifier, VT_TOTAL_COMPRESSED_SIZE, 4) &&
            VerifyField<int16_t>(verifier, VT_ORDINAL, 2) &&
            verifier.EndTable();
   }
@@ -1588,11 +1588,11 @@ struct RowGroupBuilder {
   void add_columns(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::ColumnChunk>>> columns) {
     fbb_.AddOffset(RowGroup::VT_COLUMNS, columns);
   }
-  void add_total_byte_size(int64_t total_byte_size) {
-    fbb_.AddElement<int64_t>(RowGroup::VT_TOTAL_BYTE_SIZE, total_byte_size, 0);
+  void add_total_byte_size(int32_t total_byte_size) {
+    fbb_.AddElement<int32_t>(RowGroup::VT_TOTAL_BYTE_SIZE, total_byte_size, 0);
   }
-  void add_num_rows(int64_t num_rows) {
-    fbb_.AddElement<int64_t>(RowGroup::VT_NUM_ROWS, num_rows, 0);
+  void add_num_rows(int32_t num_rows) {
+    fbb_.AddElement<int32_t>(RowGroup::VT_NUM_ROWS, num_rows, 0);
   }
   void add_sorting_columns(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::SortingColumn>>> sorting_columns) {
     fbb_.AddOffset(RowGroup::VT_SORTING_COLUMNS, sorting_columns);
@@ -1600,8 +1600,8 @@ struct RowGroupBuilder {
   void add_file_offset(int64_t file_offset) {
     fbb_.AddElement<int64_t>(RowGroup::VT_FILE_OFFSET, file_offset, 0);
   }
-  void add_total_compressed_size(int64_t total_compressed_size) {
-    fbb_.AddElement<int64_t>(RowGroup::VT_TOTAL_COMPRESSED_SIZE, total_compressed_size, 0);
+  void add_total_compressed_size(int32_t total_compressed_size) {
+    fbb_.AddElement<int32_t>(RowGroup::VT_TOTAL_COMPRESSED_SIZE, total_compressed_size, 0);
   }
   void add_ordinal(int16_t ordinal) {
     fbb_.AddElement<int16_t>(RowGroup::VT_ORDINAL, ordinal);
@@ -1620,18 +1620,18 @@ struct RowGroupBuilder {
 inline ::flatbuffers::Offset<RowGroup> CreateRowGroup(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::ColumnChunk>>> columns = 0,
-    int64_t total_byte_size = 0,
-    int64_t num_rows = 0,
+    int32_t total_byte_size = 0,
+    int32_t num_rows = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::SortingColumn>>> sorting_columns = 0,
     int64_t file_offset = 0,
-    int64_t total_compressed_size = 0,
+    int32_t total_compressed_size = 0,
     ::flatbuffers::Optional<int16_t> ordinal = ::flatbuffers::nullopt) {
   RowGroupBuilder builder_(_fbb);
-  builder_.add_total_compressed_size(total_compressed_size);
   builder_.add_file_offset(file_offset);
+  builder_.add_total_compressed_size(total_compressed_size);
+  builder_.add_sorting_columns(sorting_columns);
   builder_.add_num_rows(num_rows);
   builder_.add_total_byte_size(total_byte_size);
-  builder_.add_sorting_columns(sorting_columns);
   builder_.add_columns(columns);
   if(ordinal) { builder_.add_ordinal(*ordinal); }
   return builder_.Finish();
@@ -1640,11 +1640,11 @@ inline ::flatbuffers::Offset<RowGroup> CreateRowGroup(
 inline ::flatbuffers::Offset<RowGroup> CreateRowGroupDirect(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     const std::vector<::flatbuffers::Offset<parquet::format3::ColumnChunk>> *columns = nullptr,
-    int64_t total_byte_size = 0,
-    int64_t num_rows = 0,
+    int32_t total_byte_size = 0,
+    int32_t num_rows = 0,
     const std::vector<::flatbuffers::Offset<parquet::format3::SortingColumn>> *sorting_columns = nullptr,
     int64_t file_offset = 0,
-    int64_t total_compressed_size = 0,
+    int32_t total_compressed_size = 0,
     ::flatbuffers::Optional<int16_t> ordinal = ::flatbuffers::nullopt) {
   auto columns__ = columns ? _fbb.CreateVector<::flatbuffers::Offset<parquet::format3::ColumnChunk>>(*columns) : 0;
   auto sorting_columns__ = sorting_columns ? _fbb.CreateVector<::flatbuffers::Offset<parquet::format3::SortingColumn>>(*sorting_columns) : 0;

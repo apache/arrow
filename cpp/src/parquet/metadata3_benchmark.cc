@@ -63,6 +63,19 @@
 // 5/large-footer2: num-rgs=4 num-cols=2930 thrift=2248476 flatbuf=2599152
 //
 //
+// Optimized offsets/num_vals
+//
+// RowGroup size limited to 2^31 and num values to 2^31. ColumnChunk offsets are relative to
+// RowGroup starts which makes then all int32s too.
+//
+// 0/amazon_apparel.footer: num-rgs=1182 num-cols=16 thrift=2158995 flatbuf=3331720
+// 1/amazon_movie_tv.footer: num-rgs=3 num-cols=18 thrift=22578 flatbuf=7560
+// 2/amazon_polarity.footer: num-rgs=900 num-cols=4 thrift=1074313 flatbuf=1214640
+// 3/amazon_reviews_books.footer: num-rgs=159 num-cols=44 thrift=767840 flatbuf=620344
+// 4/large-footer1: num-rgs=23 num-cols=2001 thrift=3253741 flatbuf=4801656
+// 5/large-footer2: num-rgs=4 num-cols=2930 thrift=2248476 flatbuf=2390080
+//
+//
 
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #pragma GCC diagnostic ignored "-Wunused-function"
@@ -293,6 +306,7 @@ class ThriftConverter {
   }
 
   auto operator()(const format3::ColumnMetadata* cm, int rg_idx, int col_idx) {
+    auto off = md_->row_groups()->Get(rg_idx)->file_offset();
     format::ColumnMetaData out;
     out.encodings = (*this)(cm->encodings());
     out.path_in_schema = (*this)(cm->path_in_schema());
@@ -303,21 +317,21 @@ class ThriftConverter {
     out.data_page_offset = cm->data_page_offset();
     if (cm->index_page_offset()) {
       out.__isset.index_page_offset = true;
-      out.index_page_offset = *cm->index_page_offset();
+      out.index_page_offset = *cm->index_page_offset() + off;
     }
     if (cm->dictionary_page_offset()) {
       out.__isset.dictionary_page_offset = true;
-      out.dictionary_page_offset = *cm->dictionary_page_offset();
+      out.dictionary_page_offset = *cm->dictionary_page_offset() + off;
     }
     out.statistics = (*this)(cm->statistics(), rg_idx, col_idx);
     out.encoding_stats = (*this)(cm->encoding_stats(), rg_idx, col_idx);
     if (cm->bloom_filter_offset()) {
       out.__isset.bloom_filter_offset = true;
-      out.bloom_filter_offset = *cm->bloom_filter_offset();
+      out.bloom_filter_offset = *cm->bloom_filter_offset() + off;
     }
     if (cm->bloom_filter_length()) {
       out.__isset.bloom_filter_length = true;
-      out.bloom_filter_length = *cm->bloom_filter_length();
+      out.bloom_filter_length = *cm->bloom_filter_length() + off;
     }
     return out;
   }
@@ -564,6 +578,10 @@ class FlatbufferConverter {
     auto statistics = (*this)(cm.statistics, rg_idx, col_idx);
     auto encoding_stats = (*this)(&cm.encoding_stats, rg_idx, col_idx);
 
+    // All offsets are relative to the row group.
+    const auto& rg = md_->row_groups[rg_idx];
+    auto off = rg.file_offset;
+
     format3::ColumnMetadataBuilder b(builder_);
     b.add_encodings(encodings);
     b.add_path_in_schema(path_in_schema);
@@ -572,11 +590,11 @@ class FlatbufferConverter {
     b.add_total_uncompressed_size(cm.total_uncompressed_size);
     b.add_key_value_metadata(kv_metadata);
     if (cm.data_page_offset != md_->row_groups[rg_idx].columns[col_idx].file_offset) {
-      b.add_data_page_offset(cm.data_page_offset);
+      b.add_data_page_offset(cm.data_page_offset - off);
     }
-    if (cm.__isset.index_page_offset) b.add_index_page_offset(cm.index_page_offset);
+    if (cm.__isset.index_page_offset) b.add_index_page_offset(cm.index_page_offset - off);
     if (cm.__isset.dictionary_page_offset) {
-      b.add_dictionary_page_offset(cm.dictionary_page_offset);
+      b.add_dictionary_page_offset(cm.dictionary_page_offset - off);
     }
     b.add_statistics(statistics);
     b.add_encoding_stats(encoding_stats);
