@@ -147,12 +147,11 @@ static void CreateGlobalRegistry() {
   // Register canonical extension types
 
   g_registry = std::make_shared<ExtensionTypeRegistryImpl>();
-#ifdef ARROW_JSON
-  std::vector<std::shared_ptr<DataType>> ext_types{
-      extension::bool8(), extension::fixed_shape_tensor(int64(), {}),
-      extension::opaque(null(), "", "")};
-#else
   std::vector<std::shared_ptr<DataType>> ext_types{extension::bool8()};
+
+#ifdef ARROW_JSON
+  ext_types.push_back(extension::fixed_shape_tensor(int64(), {}));
+  ext_types.push_back(extension::opaque(null(), "", ""));
 #endif
 
   // Register canonical extension types

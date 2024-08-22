@@ -1693,9 +1693,8 @@ def test_opaque_type(pickle_module, storage_type, storage):
     arr = pa.ExtensionArray.from_storage(opaque_type, storage)
     assert isinstance(arr, opaque_arr_class)
 
-    with registered_extension_type(opaque_type):
-        buf = ipc_write_batch(pa.RecordBatch.from_arrays([arr], ["ext"]))
-        batch = ipc_read_batch(buf)
+    buf = ipc_write_batch(pa.RecordBatch.from_arrays([arr], ["ext"]))
+    batch = ipc_read_batch(buf)
 
     assert batch.column(0).type.extension_name == "arrow.opaque"
     assert isinstance(batch.column(0), opaque_arr_class)

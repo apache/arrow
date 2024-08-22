@@ -22,9 +22,9 @@ if(ARROW_JSON)
 endif()
 
 add_arrow_test(test
-        SOURCES
-        ${CANONICAL_EXTENSION_TESTS}
-        PREFIX
-        "arrow-canonical-extensions")
+               SOURCES
+               ${CANONICAL_EXTENSION_TESTS}
+               PREFIX
+               "arrow-canonical-extensions")
 
 arrow_install_all_headers("arrow/extension")
