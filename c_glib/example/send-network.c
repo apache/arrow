@@ -26,13 +26,12 @@ build_schema(void)
 {
   GList *fields = NULL;
   GArrowBooleanDataType *boolean_data_type = garrow_boolean_data_type_new();
-  fields = g_list_append(fields,
-                         garrow_field_new("boolean",
-                                          GARROW_DATA_TYPE(boolean_data_type)));
+  fields =
+    g_list_append(fields,
+                  garrow_field_new("boolean", GARROW_DATA_TYPE(boolean_data_type)));
   GArrowInt32DataType *int32_data_type = garrow_int32_data_type_new();
-  fields = g_list_append(fields,
-                         garrow_field_new("int32",
-                                          GARROW_DATA_TYPE(int32_data_type)));
+  fields =
+    g_list_append(fields, garrow_field_new("int32", GARROW_DATA_TYPE(int32_data_type)));
   GArrowSchema *schema = garrow_schema_new(fields);
   g_list_free_full(fields, g_object_unref);
 
@@ -47,8 +46,7 @@ build_record_batch(void)
     return NULL;
   }
   GError *error = NULL;
-  GArrowRecordBatchBuilder *builder =
-    garrow_record_batch_builder_new(schema, &error);
+  GArrowRecordBatchBuilder *builder = garrow_record_batch_builder_new(schema, &error);
   g_object_unref(schema);
   if (!builder) {
     g_print("failed to build record batch builder: %s\n", error->message);
@@ -57,9 +55,8 @@ build_record_batch(void)
   }
 
   const gint64 n_records = 3;
-  GArrowBooleanArrayBuilder *boolean_builder =
-    GARROW_BOOLEAN_ARRAY_BUILDER(
-      garrow_record_batch_builder_get_column_builder(builder, 0));
+  GArrowBooleanArrayBuilder *boolean_builder = GARROW_BOOLEAN_ARRAY_BUILDER(
+    garrow_record_batch_builder_get_column_builder(builder, 0));
   gboolean boolean_values[] = {TRUE, TRUE, FALSE};
   gboolean boolean_is_valids[] = {TRUE, FALSE, TRUE};
   if (!garrow_boolean_array_builder_append_values(boolean_builder,
@@ -75,9 +72,8 @@ build_record_batch(void)
     return NULL;
   }
 
-  GArrowInt32ArrayBuilder *int32_builder =
-    GARROW_INT32_ARRAY_BUILDER(
-      garrow_record_batch_builder_get_column_builder(builder, 1));
+  GArrowInt32ArrayBuilder *int32_builder = GARROW_INT32_ARRAY_BUILDER(
+    garrow_record_batch_builder_get_column_builder(builder, 1));
   gint32 int32_values[] = {1, 11, 111};
   gint32 int32_is_valids[] = {FALSE, TRUE, TRUE};
   if (!garrow_int32_array_builder_append_values(int32_builder,
@@ -93,8 +89,7 @@ build_record_batch(void)
     return NULL;
   }
 
-  GArrowRecordBatch *record_batch =
-    garrow_record_batch_builder_flush(builder, &error);
+  GArrowRecordBatch *record_batch = garrow_record_batch_builder_flush(builder, &error);
   if (!record_batch) {
     g_print("failed to build record batch: %s\n", error->message);
     g_error_free(error);
@@ -119,8 +114,7 @@ main(int argc, char **argv)
   guint port = atoi(argv[1]);
 
   GSocketClient *client = g_socket_client_new();
-  GSocketAddress *address = g_inet_socket_address_new_from_string("127.0.0.1",
-                                                                  port);
+  GSocketAddress *address = g_inet_socket_address_new_from_string("127.0.0.1", port);
   GError *error = NULL;
   GSocketConnection *connection =
     g_socket_client_connect(client, G_SOCKET_CONNECTABLE(address), NULL, &error);
@@ -135,12 +129,9 @@ main(int argc, char **argv)
     return EXIT_FAILURE;
   }
   GArrowGIOOutputStream *output =
-    garrow_gio_output_stream_new(
-      g_io_stream_get_output_stream(G_IO_STREAM(connection)));
+    garrow_gio_output_stream_new(g_io_stream_get_output_stream(G_IO_STREAM(connection)));
   GArrowRecordBatchStreamWriter *writer =
-    garrow_record_batch_stream_writer_new(GARROW_OUTPUT_STREAM(output),
-                                          schema,
-                                          &error);
+    garrow_record_batch_stream_writer_new(GARROW_OUTPUT_STREAM(output), schema, &error);
   g_object_unref(schema);
   if (!writer) {
     g_print("failed to create writer: %s\n", error->message);
@@ -163,10 +154,9 @@ main(int argc, char **argv)
       return EXIT_FAILURE;
     }
     gboolean success =
-      garrow_record_batch_writer_write_record_batch(
-        GARROW_RECORD_BATCH_WRITER(writer),
-        record_batch,
-        &error);
+      garrow_record_batch_writer_write_record_batch(GARROW_RECORD_BATCH_WRITER(writer),
+                                                    record_batch,
+                                                    &error);
     g_object_unref(record_batch);
     if (!success) {
       g_print("failed to write record batch: %s\n", error->message);

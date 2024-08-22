@@ -114,8 +114,12 @@ static void AllocateTouchDeallocate(
   state.SetBytesProcessed(state.iterations() * nbytes);
 }
 
-#define BENCHMARK_ALLOCATE_ARGS \
-  ->RangeMultiplier(16)->Range(4096, 16 * 1024 * 1024)->ArgName("size")->UseRealTime()
+#define BENCHMARK_ALLOCATE_ARGS       \
+  ->RangeMultiplier(16)               \
+      ->Range(4096, 16 * 1024 * 1024) \
+      ->ArgName("size")               \
+      ->UseRealTime()                 \
+      ->ThreadRange(1, 32)
 
 #define BENCHMARK_ALLOCATE(benchmark_func, template_param) \
   BENCHMARK_TEMPLATE(benchmark_func, template_param) BENCHMARK_ALLOCATE_ARGS

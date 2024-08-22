@@ -49,6 +49,7 @@ namespace Apache.Arrow.Tests
             {
                 AddField(CreateField(new ListType(Int64Type.Default), i));
                 AddField(CreateField(new ListViewType(Int64Type.Default), i));
+                AddField(CreateField(new LargeListType(Int64Type.Default), i));
                 AddField(CreateField(BooleanType.Default, i));
                 AddField(CreateField(UInt8Type.Default, i));
                 AddField(CreateField(Int8Type.Default, i));
@@ -84,6 +85,8 @@ namespace Apache.Arrow.Tests
                 AddField(CreateField(new UnionType(new[] { CreateField(StringType.Default, i), CreateField(Int32Type.Default, i) }, new[] { 0, 1 }, UnionMode.Sparse), i));
                 AddField(CreateField(new UnionType(new[] { CreateField(StringType.Default, i), CreateField(Int32Type.Default, i) }, new[] { 0, 1 }, UnionMode.Dense), -i));
                 AddField(CreateField(new DictionaryType(Int32Type.Default, StringType.Default, false), i));
+                AddField(CreateField(new LargeBinaryType(), i));
+                AddField(CreateField(new LargeStringType(), i));
             }
 
             Schema schema = builder.Build();
@@ -144,8 +147,10 @@ namespace Apache.Arrow.Tests
             IArrowTypeVisitor<TimestampType>,
             IArrowTypeVisitor<StringType>,
             IArrowTypeVisitor<StringViewType>,
+            IArrowTypeVisitor<LargeStringType>,
             IArrowTypeVisitor<ListType>,
             IArrowTypeVisitor<ListViewType>,
+            IArrowTypeVisitor<LargeListType>,
             IArrowTypeVisitor<FixedSizeListType>,
             IArrowTypeVisitor<StructType>,
             IArrowTypeVisitor<UnionType>,
@@ -154,6 +159,7 @@ namespace Apache.Arrow.Tests
             IArrowTypeVisitor<DictionaryType>,
             IArrowTypeVisitor<BinaryType>,
             IArrowTypeVisitor<BinaryViewType>,
+            IArrowTypeVisitor<LargeBinaryType>,
             IArrowTypeVisitor<FixedSizeBinaryType>,
             IArrowTypeVisitor<MapType>,
             IArrowTypeVisitor<IntervalType>,
@@ -294,7 +300,18 @@ namespace Apache.Arrow.Tests
 
                 for (var i = 0; i < Length; i++)
                 {
-                    builder.Append(str);
+                    switch (i % 3)
+                    {
+                        case 0:
+                            builder.AppendNull();
+                            break;
+                        case 1:
+                            builder.Append(str);
+                            break;
+                        case 2:
+                            builder.Append(str + str);
+                            break;
+                    }
                 }
 
                 Array = builder.Build();
@@ -324,19 +341,64 @@ namespace Apache.Arrow.Tests
                 Array = builder.Build();
             }
 
+            public void Visit(LargeStringType type)
+            {
+                var str = "hello";
+                var valueBuffer = new ArrowBuffer.Builder<byte>();
+                var offsetBuffer = new ArrowBuffer.Builder<long>();
+                var validityBuffer = new ArrowBuffer.BitmapBuilder();
+
+                long offset = 0;
+                offsetBuffer.Append(offset);
+
+                for (var i = 0; i < Length; i++)
+                {
+                    switch (i % 3)
+                    {
+                        case 0:
+                            offsetBuffer.Append(offset);
+                            validityBuffer.Append(false);
+                            break;
+                        case 1:
+                            valueBuffer.Append(LargeStringArray.DefaultEncoding.GetBytes(str));
+                            offset += str.Length;
+                            offsetBuffer.Append(offset);
+                            validityBuffer.Append(true);
+                            break;
+                        case 2:
+                            valueBuffer.Append(LargeStringArray.DefaultEncoding.GetBytes(str + str));
+                            offset += str.Length * 2;
+                            offsetBuffer.Append(offset);
+                            validityBuffer.Append(true);
+                            break;
+                    }
+                }
+
+                var validity = validityBuffer.UnsetBitCount > 0 ? validityBuffer.Build() : ArrowBuffer.Empty;
+                Array = new LargeStringArray(
+                    Length, offsetBuffer.Build(), valueBuffer.Build(), validity,
+                    validityBuffer.UnsetBitCount);
+            }
+
             public void Visit(ListType type)
             {
                 var builder = new ListArray.Builder(type.ValueField).Reserve(Length);
 
-                var valueBuilder = (Int64Array.Builder)builder.ValueBuilder.Reserve(Length + 1);
+                var valueBuilder = (Int64Array.Builder)builder.ValueBuilder.Reserve(Length * 3 / 2);
 
                 for (var i = 0; i < Length; i++)
                 {
-                    builder.Append();
-                    valueBuilder.Append(i);
+                    if (i % 10 == 2)
+                    {
+                        builder.AppendNull();
+                    }
+                    else
+                    {
+                        builder.Append();
+                        var listLength = i % 4;
+                        valueBuilder.AppendRange(Enumerable.Range(i, listLength).Select(x => (long)x));
+                    }
                 }
-                //Add a value to check if Values.Length can exceed ListArray.Length
-                valueBuilder.Append(0);
 
                 Array = builder.Build();
             }
@@ -352,10 +414,45 @@ namespace Apache.Arrow.Tests
                     builder.Append();
                     valueBuilder.Append(i);
                 }
-                //Add a value to check if Values.Length can exceed ListArray.Length
-                valueBuilder.Append(0);
+
+                if (Length > 0)
+                {
+                    // Add a value to check if Values.Length can exceed ListArray.Length
+                    valueBuilder.Append(0);
+                }
 
                 Array = builder.Build();
+            }
+
+            public void Visit(LargeListType type)
+            {
+                var valueBuilder = new Int64Array.Builder().Reserve(Length * 3 / 2);
+                var offsetBuffer = new ArrowBuffer.Builder<long>();
+                var validityBuffer = new ArrowBuffer.BitmapBuilder();
+
+                offsetBuffer.Append(0);
+
+                for (var i = 0; i < Length; i++)
+                {
+                    if (i % 10 == 2)
+                    {
+                        offsetBuffer.Append(valueBuilder.Length);
+                        validityBuffer.Append(false);
+                    }
+                    else
+                    {
+                        var listLength = i % 4;
+                        valueBuilder.AppendRange(Enumerable.Range(i, listLength).Select(x => (long)x));
+                        offsetBuffer.Append(valueBuilder.Length);
+                        validityBuffer.Append(true);
+                    }
+                }
+
+                var validity = validityBuffer.UnsetBitCount > 0 ? validityBuffer.Build() : ArrowBuffer.Empty;
+                Array = new LargeListArray(
+                    new LargeListType(new Int64Type()), Length,
+                    offsetBuffer.Build(), valueBuilder.Build(), validity,
+                    validityBuffer.UnsetBitCount);
             }
 
             public void Visit(FixedSizeListType type)
@@ -533,6 +630,48 @@ namespace Apache.Arrow.Tests
                 Array = builder.Build();
             }
 
+            public void Visit(LargeBinaryType type)
+            {
+                ReadOnlySpan<byte> shortData = new[] { (byte)0, (byte)1, (byte)2, (byte)3, (byte)4, (byte)5, (byte)6, (byte)7, (byte)8, (byte)9 };
+                ReadOnlySpan<byte> longData = new[]
+                {
+                    (byte)0, (byte)1, (byte)2, (byte)3, (byte)4, (byte)5, (byte)6, (byte)7, (byte)8, (byte)9,
+                    (byte)10, (byte)11, (byte)12, (byte)13, (byte)14, (byte)15, (byte)16, (byte)17, (byte)18, (byte)19
+                };
+                var valueBuffer = new ArrowBuffer.Builder<byte>();
+                var offsetBuffer = new ArrowBuffer.Builder<long>();
+                var validityBuffer = new ArrowBuffer.BitmapBuilder();
+
+                offsetBuffer.Append(0L);
+
+                for (var i = 0; i < Length; i++)
+                {
+                    switch (i % 3)
+                    {
+                        case 0:
+                            offsetBuffer.Append(valueBuffer.Length);
+                            validityBuffer.Append(false);
+                            break;
+                        case 1:
+                            valueBuffer.Append(shortData);
+                            offsetBuffer.Append(valueBuffer.Length);
+                            validityBuffer.Append(true);
+                            break;
+                        case 2:
+                            valueBuffer.Append(longData);
+                            offsetBuffer.Append(valueBuffer.Length);
+                            validityBuffer.Append(true);
+                            break;
+                    }
+                }
+
+                var validity = validityBuffer.UnsetBitCount > 0 ? validityBuffer.Build() : ArrowBuffer.Empty;
+                Array = new LargeBinaryArray(
+                    LargeBinaryType.Default, Length,
+                    offsetBuffer.Build(), valueBuffer.Build(), validity,
+                    validityBuffer.UnsetBitCount);
+            }
+
             public void Visit(FixedSizeBinaryType type)
             {
                 ArrowBuffer.Builder<byte> valueBuilder = new ArrowBuffer.Builder<byte>();
@@ -562,9 +701,13 @@ namespace Apache.Arrow.Tests
                     keyBuilder.Append(i.ToString());
                     valueBuilder.Append(i);
                 }
-                //Add a value to check if Values.Length can exceed MapArray.Length
-                keyBuilder.Append("0");
-                valueBuilder.Append(0);
+
+                if (Length > 0)
+                {
+                    // Add a value to check if Values.Length can exceed MapArray.Length
+                    keyBuilder.Append("0");
+                    valueBuilder.Append(0);
+                }
 
                 Array = builder.Build();
             }

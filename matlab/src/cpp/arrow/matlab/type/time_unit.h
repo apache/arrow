@@ -15,16 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/type_fwd.h"
 #include "arrow/result.h"
+#include "arrow/type_fwd.h"
 
 #include <string_view>
 
 namespace arrow::matlab::type {
 
-    arrow::Result<arrow::TimeUnit::type> timeUnitFromString(std::u16string_view unit_str);
+arrow::Result<arrow::TimeUnit::type> timeUnitFromString(std::u16string_view unit_str);
 
-    template <typename TimeType>
-    arrow::Status validateTimeUnit(arrow::TimeUnit::type unit);
+template <typename TimeType>
+arrow::Status validateTimeUnit(arrow::TimeUnit::type unit);
 
-}
+}  // namespace arrow::matlab::type

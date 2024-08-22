@@ -290,7 +290,8 @@ class GrpcServiceHandler final : public FlightService::Service {
 
   // Authenticate the client (if applicable) and construct the call context
   ::grpc::Status CheckAuth(const FlightMethod& method, ServerContext* context,
-                           GrpcServerCallContext& flight_context) {
+                           GrpcServerCallContext& flight_context,
+                           bool skip_headers = false) {
     if (!auth_handler_) {
       const auto auth_context = context->auth_context();
       if (auth_context && auth_context->IsPeerAuthenticated()) {
@@ -320,11 +321,11 @@ class GrpcServiceHandler final : public FlightService::Service {
 
   // Authenticate the client (if applicable) and construct the call context
   ::grpc::Status MakeCallContext(const FlightMethod& method, ServerContext* context,
-                                 GrpcServerCallContext& flight_context) {
+                                 GrpcServerCallContext& flight_context,
+                                 bool skip_headers = false) {
     // Run server middleware
     const CallInfo info{method};
 
-    GrpcAddServerHeaders outgoing_headers(context);
     for (const auto& factory : middleware_) {
       std::shared_ptr<ServerMiddleware> instance;
       Status result = factory.second->StartCall(info, flight_context, &instance);
@@ -336,11 +337,23 @@ class GrpcServiceHandler final : public FlightService::Service {
       if (instance != nullptr) {
         flight_context.middleware_.push_back(instance);
         flight_context.middleware_map_.insert({factory.first, instance});
-        instance->SendingHeaders(&outgoing_headers);
       }
     }
 
+    // TODO factor this out after fixing all streaming and non-streaming handlers
+    if (!skip_headers) {
+      addMiddlewareHeaders(context, flight_context);
+    }
+
     return ::grpc::Status::OK;
+  }
+
+  void addMiddlewareHeaders(ServerContext* context,
+                            GrpcServerCallContext& flight_context) {
+    GrpcAddServerHeaders outgoing_headers(context);
+    for (const std::shared_ptr<ServerMiddleware>& instance : flight_context.middleware_) {
+      instance->SendingHeaders(&outgoing_headers);
+    }
   }
 
   ::grpc::Status Handshake(
@@ -399,8 +412,9 @@ class GrpcServiceHandler final : public FlightService::Service {
     SERVICE_RETURN_NOT_OK(flight_context, internal::FromProto(*request, &descr));
 
     std::unique_ptr<FlightInfo> info;
-    SERVICE_RETURN_NOT_OK(flight_context,
-                          impl_->base()->GetFlightInfo(flight_context, descr, &info));
+    auto res = impl_->base()->GetFlightInfo(flight_context, descr, &info);
+    addMiddlewareHeaders(context, flight_context);
+    SERVICE_RETURN_NOT_OK(flight_context, res);
 
     if (!info) {
       // Treat null listing as no flights available
@@ -561,8 +575,7 @@ class GrpcServerTransport : public internal::ServerTransport {
         new GrpcServerTransport(base, std::move(memory_manager)));
   }
 
-  Status Init(const FlightServerOptions& options,
-              const arrow::internal::Uri& uri) override {
+  Status Init(const FlightServerOptions& options, const arrow::util::Uri& uri) override {
     grpc_service_.reset(
         new GrpcServiceHandler(options.auth_handler, options.middleware, this));
 
@@ -574,7 +587,7 @@ class GrpcServerTransport : public internal::ServerTransport {
     int port = 0;
     if (scheme == kSchemeGrpc || scheme == kSchemeGrpcTcp || scheme == kSchemeGrpcTls) {
       std::stringstream address;
-      address << arrow::internal::UriEncodeHost(uri.host()) << ':' << uri.port_text();
+      address << arrow::util::UriEncodeHost(uri.host()) << ':' << uri.port_text();
 
       std::shared_ptr<::grpc::ServerCredentials> creds;
       if (scheme == kSchemeGrpcTls) {
@@ -621,12 +634,10 @@ class GrpcServerTransport : public internal::ServerTransport {
 
     if (scheme == kSchemeGrpcTls) {
       ARROW_ASSIGN_OR_RAISE(
-          location_,
-          Location::ForGrpcTls(arrow::internal::UriEncodeHost(uri.host()), port));
+          location_, Location::ForGrpcTls(arrow::util::UriEncodeHost(uri.host()), port));
     } else if (scheme == kSchemeGrpc || scheme == kSchemeGrpcTcp) {
       ARROW_ASSIGN_OR_RAISE(
-          location_,
-          Location::ForGrpcTcp(arrow::internal::UriEncodeHost(uri.host()), port));
+          location_, Location::ForGrpcTcp(arrow::util::UriEncodeHost(uri.host()), port));
     }
     return Status::OK();
   }

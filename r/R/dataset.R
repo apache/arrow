@@ -426,7 +426,7 @@ Dataset <- R6Class("Dataset",
     # Start a new scan of the data
     # @return A [ScannerBuilder]
     NewScan = function() dataset___Dataset__NewScan(self),
-    ToString = function() self$schema$ToString(),
+    ToString = function() format_schema(self),
     WithSchema = function(schema) {
       assert_is(schema, "Schema")
       dataset___Dataset__ReplaceSchema(self, schema)

@@ -18,7 +18,8 @@
 ignored:
   - DL3008
   - DL3013
+  - DL3015 # Avoid additional packages by specifying `--no-install-recommends`
   - DL3018
-  - DL3015  # Avoid additional packages by specifying `--no-install-recommends`
-  - DL3028  # Ruby gem version pinning
+  - DL3028 # Ruby gem version pinning
   - DL3007 # r-sanitizer must use latest
+  - DL3041 # Specify version with `dnf install -y <package>-<version>`.

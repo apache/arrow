@@ -1,0 +1,55 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+[library]
+name = "Apache Arrow CUDA GLib"
+version = "@VERSION@"
+browse_url = "https://github.com/apache/arrow/tree/@SOURCE_REFERENCE@/c_glib/arrow-cuda-glib/"
+repository_url = "https://github.com/apache/arrow.git"
+website_url = "https://arrow.apache.org/docs/c_glib/arrow-cuda-glib/"
+authors = "The Apache Software Foundation"
+license = "Apache-2.0"
+description = "Apache Arrow CUDA GLib API"
+dependencies = ["Arrow-1.0"]
+related = ["Gio-2.0", "GObject-2.0"]
+search_index = true
+
+[dependencies."Arrow-1.0"]
+name = "Arrow"
+description = "Apache Arrow GLib API"
+docs_url = "https://arrow.apache.org/docs/c_glib/arrow-glib/"
+
+[related."Gio-2.0"]
+name = "GIO"
+description = "GObject Interfaces and Objects, Networking, IPC, and I/O"
+docs_url = "https://docs.gtk.org/gio/"
+
+[related."GObject-2.0"]
+name = "GObject"
+description = "The base type system library"
+docs_url = "https://docs.gtk.org/gobject/"
+
+[source-location]
+base_url = "https://github.com/apache/arrow/blob/@SOURCE_REFERENCE@/c_glib/arrow-cuda-glib"
+
+[extra]
+content_base_url = "https://github.com/apache/arrow/blob/@SOURCE_REFERENCE@/c_glib/doc/"
+content_files = [
+]
+content_images = [
+]
+urlmap_file = "urlmap.js"

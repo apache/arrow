@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc.converter.impl;
 
 import org.apache.arrow.vector.DateDayVector;
@@ -25,13 +24,10 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.calcite.avatica.AvaticaParameter;
 import org.apache.calcite.avatica.remote.TypedValue;
 
-/**
- * AvaticaParameterConverter for Date Arrow types.
- */
+/** AvaticaParameterConverter for Date Arrow types. */
 public class DateAvaticaParameterConverter extends BaseAvaticaParameterConverter {
 
-  public DateAvaticaParameterConverter(ArrowType.Date type) {
-  }
+  public DateAvaticaParameterConverter(ArrowType.Date type) {}
 
   @Override
   public boolean bindParameter(FieldVector vector, TypedValue typedValue, int index) {

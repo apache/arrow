@@ -199,7 +199,7 @@ class GitRemoteCallbacks(PygitRemoteCallbacks):
             raise CrossbowError(msg)
 
         if (allowed_types &
-                pygit2.credentials.GIT_CREDENTIAL_USERPASS_PLAINTEXT):
+                pygit2.credentials.CredentialType.USERPASS_PLAINTEXT):
             return pygit2.UserPass('x-oauth-basic', self.token)
         else:
             return None
@@ -427,8 +427,14 @@ class Repo:
         return branch
 
     def create_tag(self, tag_name, commit_id, message=''):
+        git_object_commit = (
+            pygit2.GIT_OBJECT_COMMIT
+            if getattr(pygit2, 'GIT_OBJECT_COMMIT')
+            else pygit2.GIT_OBJ_COMMIT
+        )
         tag_id = self.repo.create_tag(tag_name, commit_id,
-                                      pygit2.GIT_OBJ_COMMIT, self.signature,
+                                      git_object_commit,
+                                      self.signature,
                                       message)
 
         # append to the pushable references
@@ -740,12 +746,19 @@ def get_version(root, **kwargs):
     subprojects, e.g. apache-arrow-js-XXX tags.
     """
     from setuptools_scm.git import parse as parse_git_version
+    from setuptools_scm import Configuration
 
     # query the calculated version based on the git tags
     kwargs['describe_command'] = (
         'git describe --dirty --tags --long --match "apache-arrow-[0-9]*.*"'
     )
-    version = parse_git_version(root, **kwargs)
+
+    # Create a Configuration object with necessary parameters
+    config = Configuration(
+        git_describe_command=kwargs['describe_command']
+    )
+
+    version = parse_git_version(root, config=config, **kwargs)
     tag = str(version.tag)
 
     # We may get a development tag for the next version, such as "5.0.0.dev0",

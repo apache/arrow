@@ -14,11 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.avro.consumers;
 
 import java.io.IOException;
-
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.UnionVector;
@@ -26,17 +24,15 @@ import org.apache.arrow.vector.types.Types;
 import org.apache.avro.io.Decoder;
 
 /**
- * Consumer which consume unions type values from avro decoder.
- * Write the data to {@link org.apache.arrow.vector.complex.UnionVector}.
+ * Consumer which consume unions type values from avro decoder. Write the data to {@link
+ * org.apache.arrow.vector.complex.UnionVector}.
  */
 public class AvroUnionsConsumer extends BaseAvroConsumer<UnionVector> {
 
   private Consumer[] delegates;
   private Types.MinorType[] types;
 
-  /**
-   * Instantiate an AvroUnionConsumer.
-   */
+  /** Instantiate an AvroUnionConsumer. */
   public AvroUnionsConsumer(UnionVector vector, Consumer[] delegates, Types.MinorType[] types) {
 
     super(vector);
@@ -53,7 +49,8 @@ public class AvroUnionsConsumer extends BaseAvroConsumer<UnionVector> {
 
     vector.setType(currentIndex, types[fieldIndex]);
     // In UnionVector we need to set sub vector writer position before consume a value
-    // because in the previous iterations we might not have written to the specific union sub vector.
+    // because in the previous iterations we might not have written to the specific union sub
+    // vector.
     delegate.setPosition(currentIndex);
     delegate.consume(decoder);
 

@@ -27,8 +27,8 @@
 
 #include "arrow/acero/hash_join_dict.h"
 #include "arrow/acero/task_util.h"
-#include "arrow/compute/kernels/row_encoder_internal.h"
 #include "arrow/compute/row/encode_internal.h"
+#include "arrow/compute/row/row_encoder_internal.h"
 #include "arrow/util/tracing_internal.h"
 
 namespace arrow {
@@ -791,7 +791,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
 
 Result<std::unique_ptr<HashJoinImpl>> HashJoinImpl::MakeBasic() {
   std::unique_ptr<HashJoinImpl> impl{new HashJoinBasicImpl()};
-  return std::move(impl);
+  return impl;
 }
 
 }  // namespace acero

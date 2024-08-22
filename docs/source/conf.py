@@ -114,6 +114,7 @@ extensions = [
     'breathe',
     'IPython.sphinxext.ipython_console_highlighting',
     'IPython.sphinxext.ipython_directive',
+    'myst_parser',
     'numpydoc',
     'sphinx_design',
     'sphinx_copybutton',
@@ -124,6 +125,7 @@ extensions = [
     'sphinx.ext.intersphinx',
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
+    'sphinxcontrib.mermaid',
 ]
 
 # Show members for classes in .. autosummary
@@ -136,7 +138,9 @@ autodoc_default_options = {
 }
 
 # Breathe configuration
-breathe_projects = {"arrow_cpp": "../../cpp/apidoc/xml"}
+breathe_projects = {
+    "arrow_cpp": os.environ.get("ARROW_CPP_DOXYGEN_XML", "../../cpp/apidoc/xml"),
+}
 breathe_default_project = "arrow_cpp"
 
 # Overridden conditionally below
@@ -149,6 +153,24 @@ copybutton_line_continuation_character = "\\"
 
 # ipython directive options
 ipython_mplbackend = ''
+
+# MyST-Parser configuration
+myst_enable_extensions = [
+    'amsmath',
+    'attrs_inline',
+    # 'colon_fence',
+    'deflist',
+    'dollarmath',
+    'fieldlist',
+    'html_admonition',
+    'html_image',
+    'linkify',
+    # 'replacements',
+    # 'smartquotes',
+    'strikethrough',
+    'substitution',
+    'tasklist',
+]
 
 # numpydoc configuration
 numpydoc_xref_param_type = True
@@ -188,7 +210,16 @@ templates_path = ['_templates']
 # You can specify multiple suffix as a list of string:
 #
 
-source_suffix = ['.rst']
+source_suffix = {
+    # We need to keep "'.rst': 'restructuredtext'" as the first item.
+    # This is a workaround of
+    # https://github.com/sphinx-doc/sphinx/issues/12147 .
+    #
+    # We can sort these items in alphabetical order with Sphinx 7.3.0
+    # or later that will include the fix of this problem.
+    '.rst': 'restructuredtext',
+    '.md': 'markdown',
+}
 
 autosummary_generate = True
 
@@ -318,9 +349,9 @@ html_theme_options = {
             "icon": "fa-brands fa-square-github",
         },
         {
-            "name": "Twitter",
+            "name": "X",
             "url": "https://twitter.com/ApacheArrow",
-            "icon": "fa-brands fa-square-twitter",
+            "icon": "fa-brands fa-square-x-twitter",
         },
     ],
     "show_version_warning_banner": True,
@@ -414,7 +445,7 @@ html_baseurl = "https://arrow.apache.org/docs/"
 
 # If true, links to the reST sources are added to the pages.
 #
-# html_show_sourcelink = True
+html_show_sourcelink = False
 
 # If true, "Created using Sphinx" is shown in the HTML footer. Default is True.
 #
@@ -504,7 +535,7 @@ latex_documents = [
 #
 # latex_appendices = []
 
-# It false, will not define \strong, \code, 	itleref, \crossref ... but only
+# It false, will not define \strong, \code, \titleref, \crossref ... but only
 # \sphinxstrong, ..., \sphinxtitleref, ... To help avoid clash with user added
 # packages.
 #
@@ -556,6 +587,9 @@ texinfo_documents = [
 #
 # texinfo_no_detailmenu = False
 
+# -- Options for mermaid output -------------------------------------------
+
+mermaid_output_format = 'svg'
 
 def setup(app):
     # Use a config value to indicate whether CUDA API docs can be generated.

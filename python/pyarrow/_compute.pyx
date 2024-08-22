@@ -1108,8 +1108,8 @@ class MatchSubstringOptions(_MatchSubstringOptions):
 
 
 cdef class _PadOptions(FunctionOptions):
-    def _set_options(self, width, padding):
-        self.wrapped.reset(new CPadOptions(width, tobytes(padding)))
+    def _set_options(self, width, padding, lean_left_on_odd_padding):
+        self.wrapped.reset(new CPadOptions(width, tobytes(padding), lean_left_on_odd_padding))
 
 
 class PadOptions(_PadOptions):
@@ -1122,10 +1122,14 @@ class PadOptions(_PadOptions):
         Desired string length.
     padding : str, default " "
         What to pad the string with. Should be one byte or codepoint.
+    lean_left_on_odd_padding : bool, default True
+        What to do if there is an odd number of padding characters (in case
+        of centered padding). Defaults to aligning on the left (i.e. adding
+        the extra padding character on the right).
     """
 
-    def __init__(self, width, padding=' '):
-        self._set_options(width, padding)
+    def __init__(self, width, padding=' ', lean_left_on_odd_padding=True):
+        self._set_options(width, padding, lean_left_on_odd_padding)
 
 
 cdef class _TrimOptions(FunctionOptions):
@@ -2033,6 +2037,26 @@ class PairwiseOptions(_PairwiseOptions):
 
     def __init__(self, period=1):
         self._set_options(period)
+
+
+cdef class _ListFlattenOptions(FunctionOptions):
+    def _set_options(self, recursive):
+        self.wrapped.reset(new CListFlattenOptions(recursive))
+
+
+class ListFlattenOptions(_ListFlattenOptions):
+    """
+    Options for `list_flatten` function
+
+    Parameters
+    ----------
+    recursive : bool, default False
+        When True, the list array is flattened recursively until an array
+        of non-list values is formed.
+    """
+
+    def __init__(self, recursive=False):
+        self._set_options(recursive)
 
 
 cdef class _ArraySortOptions(FunctionOptions):

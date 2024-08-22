@@ -211,7 +211,7 @@ Glossary
        its bindings, and Go).
 
        .. image:: ../cpp/tables-versus-record-batches.svg
-          :alt: A graphical representation of an Arrow Table and a 
+          :alt: A graphical representation of an Arrow Table and a
                 Record Batch, with structure as described in text above.
 
        .. seealso:: :term:`chunked array`, :term:`record batch`

@@ -49,7 +49,7 @@ documentation itself, you can search for an issue in GitHub.
 
 Documentation improvements are also a great way to gain some
 experience with our submission and review process without
-requiring a lot of local development environment setup. 
+requiring a lot of local development environment setup.
 
 .. note::
    Many documentation-only changes can be made directly in the
@@ -114,4 +114,3 @@ library. Source folder includes:
 
 **Cookbooks** have their own repository `<https://github.com/apache/arrow-cookbook>`_
 and can be separately cloned and built.
-

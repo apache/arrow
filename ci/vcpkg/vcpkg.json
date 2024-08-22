@@ -17,7 +17,6 @@
     "brotli",
     "bzip2",
     "curl",
-    "flatbuffers",
     "gflags",
     "glog",
     "lz4",

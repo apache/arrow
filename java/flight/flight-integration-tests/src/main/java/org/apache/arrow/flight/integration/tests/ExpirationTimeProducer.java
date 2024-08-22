@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.integration.tests;
 
 import java.io.IOException;
@@ -26,7 +25,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-
 import org.apache.arrow.flight.Action;
 import org.apache.arrow.flight.ActionType;
 import org.apache.arrow.flight.CallStatus;
@@ -49,35 +47,32 @@ import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 
-/** The server used for testing FlightEndpoint.expiration_time.
- * <p>
- * GetFlightInfo() returns a FlightInfo that has the following
- * three FlightEndpoints:
+/**
+ * The server used for testing FlightEndpoint.expiration_time.
+ *
+ * <p>GetFlightInfo() returns a FlightInfo that has the following three FlightEndpoints:
  *
  * <ol>
- * <li>No expiration time</li>
- * <li>5 seconds expiration time</li>
- * <li>6 seconds expiration time</li>
+ *   <li>No expiration time
+ *   <li>5 seconds expiration time
+ *   <li>6 seconds expiration time
  * </ol>
  *
- * The client can't read data from the first endpoint multiple times
- * but can read data from the second and third endpoints. The client
- * can't re-read data from the second endpoint 5 seconds later. The
- * client can't re-read data from the third endpoint 6 seconds
- * later.
- * <p>
- * The client can cancel a returned FlightInfo by pre-defined
- * CancelFlightInfo action. The client can't read data from endpoints
- * even within 6 seconds after the action.
- * <p>
- * The client can extend the expiration time of a FlightEndpoint in
- * a returned FlightInfo by pre-defined RenewFlightEndpoint
- * action. The client can read data from endpoints multiple times
+ * The client can't read data from the first endpoint multiple times but can read data from the
+ * second and third endpoints. The client can't re-read data from the second endpoint 5 seconds
+ * later. The client can't re-read data from the third endpoint 6 seconds later.
+ *
+ * <p>The client can cancel a returned FlightInfo by pre-defined CancelFlightInfo action. The client
+ * can't read data from endpoints even within 6 seconds after the action.
+ *
+ * <p>The client can extend the expiration time of a FlightEndpoint in a returned FlightInfo by
+ * pre-defined RenewFlightEndpoint action. The client can read data from endpoints multiple times
  * within more 10 seconds after the action.
  */
 final class ExpirationTimeProducer extends NoOpFlightProducer {
-  public static final Schema SCHEMA = new Schema(
-      Collections.singletonList(Field.notNullable("number", Types.MinorType.UINT4.getType())));
+  public static final Schema SCHEMA =
+      new Schema(
+          Collections.singletonList(Field.notNullable("number", Types.MinorType.UINT4.getType())));
 
   private final BufferAllocator allocator;
   private final List<EndpointStatus> statuses;
@@ -104,22 +99,28 @@ final class ExpirationTimeProducer extends NoOpFlightProducer {
     int index = parseIndexFromTicket(ticket);
     EndpointStatus status = statuses.get(index);
     if (status.cancelled) {
-      listener.error(CallStatus.NOT_FOUND
-          .withDescription("Invalid flight: cancelled: " +
-                           new String(ticket.getBytes(), StandardCharsets.UTF_8))
-          .toRuntimeException());
+      listener.error(
+          CallStatus.NOT_FOUND
+              .withDescription(
+                  "Invalid flight: cancelled: "
+                      + new String(ticket.getBytes(), StandardCharsets.UTF_8))
+              .toRuntimeException());
       return;
     } else if (status.expirationTime != null && Instant.now().isAfter(status.expirationTime)) {
-      listener.error(CallStatus.NOT_FOUND
-          .withDescription("Invalid flight: expired: " +
-                           new String(ticket.getBytes(), StandardCharsets.UTF_8))
-          .toRuntimeException());
+      listener.error(
+          CallStatus.NOT_FOUND
+              .withDescription(
+                  "Invalid flight: expired: "
+                      + new String(ticket.getBytes(), StandardCharsets.UTF_8))
+              .toRuntimeException());
       return;
     } else if (status.expirationTime == null && status.numGets > 0) {
-      listener.error(CallStatus.NOT_FOUND
-          .withDescription("Invalid flight: can't read multiple times: " +
-                           new String(ticket.getBytes(), StandardCharsets.UTF_8))
-          .toRuntimeException());
+      listener.error(
+          CallStatus.NOT_FOUND
+              .withDescription(
+                  "Invalid flight: can't read multiple times: "
+                      + new String(ticket.getBytes(), StandardCharsets.UTF_8))
+              .toRuntimeException());
       return;
     }
     status.numGets++;
@@ -138,7 +139,8 @@ final class ExpirationTimeProducer extends NoOpFlightProducer {
   public void doAction(CallContext context, Action action, StreamListener<Result> listener) {
     try {
       if (action.getType().equals(FlightConstants.CANCEL_FLIGHT_INFO.getType())) {
-        CancelFlightInfoRequest request = CancelFlightInfoRequest.deserialize(ByteBuffer.wrap(action.getBody()));
+        CancelFlightInfoRequest request =
+            CancelFlightInfoRequest.deserialize(ByteBuffer.wrap(action.getBody()));
         CancelStatus cancelStatus = CancelStatus.UNSPECIFIED;
         for (FlightEndpoint endpoint : request.getInfo().getEndpoints()) {
           int index = parseIndexFromTicket(endpoint.getTicket());
@@ -154,14 +156,16 @@ final class ExpirationTimeProducer extends NoOpFlightProducer {
         }
         listener.onNext(new Result(new CancelFlightInfoResult(cancelStatus).serialize().array()));
       } else if (action.getType().equals(FlightConstants.RENEW_FLIGHT_ENDPOINT.getType())) {
-        RenewFlightEndpointRequest request = RenewFlightEndpointRequest.deserialize(ByteBuffer.wrap(action.getBody()));
+        RenewFlightEndpointRequest request =
+            RenewFlightEndpointRequest.deserialize(ByteBuffer.wrap(action.getBody()));
         FlightEndpoint endpoint = request.getFlightEndpoint();
         int index = parseIndexFromTicket(endpoint.getTicket());
         EndpointStatus status = statuses.get(index);
         if (status.cancelled) {
-          listener.onError(CallStatus.INVALID_ARGUMENT
-              .withDescription("Invalid flight: cancelled: " + index)
-              .toRuntimeException());
+          listener.onError(
+              CallStatus.INVALID_ARGUMENT
+                  .withDescription("Invalid flight: cancelled: " + index)
+                  .toRuntimeException());
           return;
         }
 
@@ -170,17 +174,20 @@ final class ExpirationTimeProducer extends NoOpFlightProducer {
         Ticket ticket = new Ticket(ticketBody.getBytes(StandardCharsets.UTF_8));
         Instant expiration = Instant.now().plus(10, ChronoUnit.SECONDS);
         status.expirationTime = expiration;
-        FlightEndpoint newEndpoint = new FlightEndpoint(
-            ticket, expiration, endpoint.getLocations().toArray(new Location[0]));
+        FlightEndpoint newEndpoint =
+            new FlightEndpoint(
+                ticket, expiration, endpoint.getLocations().toArray(new Location[0]));
         listener.onNext(new Result(newEndpoint.serialize().array()));
       } else {
-        listener.onError(CallStatus.INVALID_ARGUMENT
-            .withDescription("Unknown action: " + action.getType())
-            .toRuntimeException());
+        listener.onError(
+            CallStatus.INVALID_ARGUMENT
+                .withDescription("Unknown action: " + action.getType())
+                .toRuntimeException());
         return;
       }
     } catch (IOException | URISyntaxException e) {
-      listener.onError(CallStatus.INTERNAL.withCause(e).withDescription(e.toString()).toRuntimeException());
+      listener.onError(
+          CallStatus.INTERNAL.withCause(e).withDescription(e.toString()).toRuntimeException());
       return;
     }
     listener.onCompleted();
@@ -194,7 +201,9 @@ final class ExpirationTimeProducer extends NoOpFlightProducer {
   }
 
   private FlightEndpoint addEndpoint(String ticket, Instant expirationTime) {
-    Ticket flightTicket = new Ticket(String.format("%d: %s", statuses.size(), ticket).getBytes(StandardCharsets.UTF_8));
+    Ticket flightTicket =
+        new Ticket(
+            String.format("%d: %s", statuses.size(), ticket).getBytes(StandardCharsets.UTF_8));
     statuses.add(new EndpointStatus(expirationTime));
     return new FlightEndpoint(flightTicket, expirationTime);
   }
@@ -204,8 +213,8 @@ final class ExpirationTimeProducer extends NoOpFlightProducer {
     int index = contents.indexOf(':');
     if (index == -1) {
       throw CallStatus.INVALID_ARGUMENT
-          .withDescription("Invalid ticket: " +
-                           new String(ticket.getBytes(), StandardCharsets.UTF_8))
+          .withDescription(
+              "Invalid ticket: " + new String(ticket.getBytes(), StandardCharsets.UTF_8))
           .toRuntimeException();
     }
     int endpointIndex = Integer.parseInt(contents.substring(0, index));

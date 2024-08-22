@@ -20,16 +20,78 @@
 #include <memory>
 #include <string>
 
+#include <google/protobuf/any.pb.h>
+
 #include "arrow/buffer.h"
+#include "arrow/flight/protocol_internal.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 
+// Lambda helper & CTAD
+template <class... Ts>
+struct overloaded : Ts... {
+  using Ts::operator()...;
+};
+template <class... Ts>  // CTAD will not be needed for >=C++20
+overloaded(Ts...)->overloaded<Ts...>;
+
 namespace arrow {
 namespace flight {
 namespace internal {
+
+namespace {
+
+Status PackToAnyAndSerialize(const google::protobuf::Message& command, std::string* out) {
+  google::protobuf::Any any;
+#if PROTOBUF_VERSION >= 3015000
+  if (!any.PackFrom(command)) {
+    return Status::SerializationError("Failed to pack ", command.GetTypeName());
+  }
+#else
+  any.PackFrom(command);
+#endif
+
+#if PROTOBUF_VERSION >= 3015000
+  if (!any.SerializeToString(out)) {
+    return Status::SerializationError("Failed to serialize ", command.GetTypeName());
+  }
+#else
+  any.SerializeToString(out);
+#endif
+  return Status::OK();
+}
+
+}  // namespace
+
+Status PackProtoCommand(const google::protobuf::Message& command, FlightDescriptor* out) {
+  std::string buf;
+  RETURN_NOT_OK(PackToAnyAndSerialize(command, &buf));
+  *out = FlightDescriptor::Command(std::move(buf));
+  return Status::OK();
+}
+
+Status PackProtoAction(std::string action_type, const google::protobuf::Message& action,
+                       Action* out) {
+  std::string buf;
+  RETURN_NOT_OK(PackToAnyAndSerialize(action, &buf));
+  out->type = std::move(action_type);
+  out->body = Buffer::FromString(std::move(buf));
+  return Status::OK();
+}
+
+Status UnpackProtoAction(const Action& action, google::protobuf::Message* out) {
+  google::protobuf::Any any;
+  if (!any.ParseFromArray(action.body->data(), static_cast<int>(action.body->size()))) {
+    return Status::Invalid("Unable to parse action ", action.type);
+  }
+  if (!any.UnpackTo(out)) {
+    return Status::Invalid("Unable to unpack ", out->GetTypeName());
+  }
+  return Status::OK();
+}
 
 // Timestamp
 
@@ -243,22 +305,28 @@ Status ToProto(const FlightDescriptor& descriptor, pb::FlightDescriptor* pb_desc
 
 // FlightInfo
 
-arrow::Result<FlightInfo> FromProto(const pb::FlightInfo& pb_info) {
-  FlightInfo::Data info;
-  RETURN_NOT_OK(FromProto(pb_info.flight_descriptor(), &info.descriptor));
+Status FromProto(const pb::FlightInfo& pb_info, FlightInfo::Data* info) {
+  RETURN_NOT_OK(FromProto(pb_info.flight_descriptor(), &info->descriptor));
 
-  info.schema = pb_info.schema();
+  info->schema = pb_info.schema();
 
-  info.endpoints.resize(pb_info.endpoint_size());
+  info->endpoints.resize(pb_info.endpoint_size());
   for (int i = 0; i < pb_info.endpoint_size(); ++i) {
-    RETURN_NOT_OK(FromProto(pb_info.endpoint(i), &info.endpoints[i]));
+    RETURN_NOT_OK(FromProto(pb_info.endpoint(i), &info->endpoints[i]));
   }
 
-  info.total_records = pb_info.total_records();
-  info.total_bytes = pb_info.total_bytes();
-  info.ordered = pb_info.ordered();
-  info.app_metadata = pb_info.app_metadata();
-  return FlightInfo(std::move(info));
+  info->total_records = pb_info.total_records();
+  info->total_bytes = pb_info.total_bytes();
+  info->ordered = pb_info.ordered();
+  info->app_metadata = pb_info.app_metadata();
+  return Status::OK();
+}
+
+Status FromProto(const pb::FlightInfo& pb_info, std::unique_ptr<FlightInfo>* info) {
+  FlightInfo::Data info_data;
+  RETURN_NOT_OK(FromProto(pb_info, &info_data));
+  *info = std::make_unique<FlightInfo>(std::move(info_data));
+  return Status::OK();
 }
 
 Status FromProto(const pb::BasicAuth& pb_basic_auth, BasicAuth* basic_auth) {
@@ -268,8 +336,8 @@ Status FromProto(const pb::BasicAuth& pb_basic_auth, BasicAuth* basic_auth) {
   return Status::OK();
 }
 
-Status FromProto(const pb::SchemaResult& pb_result, std::string* result) {
-  *result = pb_result.schema();
+Status FromProto(const pb::SchemaResult& pb_result, SchemaResult* result) {
+  *result = SchemaResult{pb_result.schema()};
   return Status::OK();
 }
 
@@ -307,8 +375,9 @@ Status ToProto(const FlightInfo& info, pb::FlightInfo* pb_info) {
 
 Status FromProto(const pb::PollInfo& pb_info, PollInfo* info) {
   if (pb_info.has_info()) {
-    ARROW_ASSIGN_OR_RAISE(auto flight_info, FromProto(pb_info.info()));
-    info->info = std::make_unique<FlightInfo>(std::move(flight_info));
+    FlightInfo::Data info_data;
+    RETURN_NOT_OK(FromProto(pb_info.info(), &info_data));
+    info->info = std::make_unique<FlightInfo>(std::move(info_data));
   }
   if (pb_info.has_flight_descriptor()) {
     FlightDescriptor descriptor;
@@ -332,6 +401,13 @@ Status FromProto(const pb::PollInfo& pb_info, PollInfo* info) {
   return Status::OK();
 }
 
+Status FromProto(const pb::PollInfo& pb_info, std::unique_ptr<PollInfo>* info) {
+  PollInfo poll_info;
+  RETURN_NOT_OK(FromProto(pb_info, &poll_info));
+  *info = std::make_unique<PollInfo>(std::move(poll_info));
+  return Status::OK();
+}
+
 Status ToProto(const PollInfo& info, pb::PollInfo* pb_info) {
   if (info.info) {
     RETURN_NOT_OK(ToProto(*info.info, pb_info->mutable_info()));
@@ -352,8 +428,9 @@ Status ToProto(const PollInfo& info, pb::PollInfo* pb_info) {
 
 Status FromProto(const pb::CancelFlightInfoRequest& pb_request,
                  CancelFlightInfoRequest* request) {
-  ARROW_ASSIGN_OR_RAISE(FlightInfo info, FromProto(pb_request.info()));
-  request->info = std::make_unique<FlightInfo>(std::move(info));
+  FlightInfo::Data info_data;
+  RETURN_NOT_OK(FromProto(pb_request.info(), &info_data));
+  request->info = std::make_unique<FlightInfo>(std::move(info_data));
   return Status::OK();
 }
 
@@ -377,6 +454,157 @@ Status ToPayload(const FlightDescriptor& descr, std::shared_ptr<Buffer>* out) {
     return Status::UnknownError("Failed to serialize Flight descriptor");
   }
   *out = Buffer::FromString(std::move(str_descr));
+  return Status::OK();
+}
+
+// SessionOptionValue
+
+Status FromProto(const pb::SessionOptionValue& pb_val, SessionOptionValue* val) {
+  switch (pb_val.option_value_case()) {
+    case pb::SessionOptionValue::OPTION_VALUE_NOT_SET:
+      *val = std::monostate{};
+      break;
+    case pb::SessionOptionValue::kStringValue:
+      *val = pb_val.string_value();
+      break;
+    case pb::SessionOptionValue::kBoolValue:
+      *val = pb_val.bool_value();
+      break;
+    case pb::SessionOptionValue::kInt64Value:
+      *val = pb_val.int64_value();
+      break;
+    case pb::SessionOptionValue::kDoubleValue:
+      *val = pb_val.double_value();
+      break;
+    case pb::SessionOptionValue::kStringListValue: {
+      std::vector<std::string> vec;
+      vec.reserve(pb_val.string_list_value().values_size());
+      for (const std::string& s : pb_val.string_list_value().values()) {
+        vec.push_back(s);
+      }
+      (*val).emplace<std::vector<std::string>>(std::move(vec));
+      break;
+    }
+  }
+  return Status::OK();
+}
+
+Status ToProto(const SessionOptionValue& val, pb::SessionOptionValue* pb_val) {
+  std::visit(overloaded{[&](std::monostate v) { pb_val->clear_option_value(); },
+                        [&](std::string v) { pb_val->set_string_value(v); },
+                        [&](bool v) { pb_val->set_bool_value(v); },
+                        [&](int64_t v) { pb_val->set_int64_value(v); },
+                        [&](double v) { pb_val->set_double_value(v); },
+                        [&](std::vector<std::string> v) {
+                          auto* string_list_value = pb_val->mutable_string_list_value();
+                          for (const std::string& s : v) string_list_value->add_values(s);
+                        }},
+             val);
+  return Status::OK();
+}
+
+// map<string, SessionOptionValue>
+
+Status FromProto(const google::protobuf::Map<std::string, pb::SessionOptionValue>& pb_map,
+                 std::map<std::string, SessionOptionValue>* map) {
+  if (pb_map.empty()) {
+    return Status::OK();
+  }
+  for (const auto& [name, pb_val] : pb_map) {
+    RETURN_NOT_OK(FromProto(pb_val, &(*map)[name]));
+  }
+  return Status::OK();
+}
+
+Status ToProto(const std::map<std::string, SessionOptionValue>& map,
+               google::protobuf::Map<std::string, pb::SessionOptionValue>* pb_map) {
+  for (const auto& [name, val] : map) {
+    RETURN_NOT_OK(ToProto(val, &(*pb_map)[name]));
+  }
+  return Status::OK();
+}
+
+// SetSessionOptionsRequest
+
+Status FromProto(const pb::SetSessionOptionsRequest& pb_request,
+                 SetSessionOptionsRequest* request) {
+  RETURN_NOT_OK(FromProto(pb_request.session_options(), &request->session_options));
+  return Status::OK();
+}
+
+Status ToProto(const SetSessionOptionsRequest& request,
+               pb::SetSessionOptionsRequest* pb_request) {
+  RETURN_NOT_OK(ToProto(request.session_options, pb_request->mutable_session_options()));
+  return Status::OK();
+}
+
+// SetSessionOptionsResult
+
+Status FromProto(const pb::SetSessionOptionsResult& pb_result,
+                 SetSessionOptionsResult* result) {
+  for (const auto& [k, pb_v] : pb_result.errors()) {
+    result->errors.insert({k, {static_cast<SetSessionOptionErrorValue>(pb_v.value())}});
+  }
+  return Status::OK();
+}
+
+Status ToProto(const SetSessionOptionsResult& result,
+               pb::SetSessionOptionsResult* pb_result) {
+  auto* pb_errors = pb_result->mutable_errors();
+  for (const auto& [k, v] : result.errors) {
+    pb::SetSessionOptionsResult::Error e;
+    e.set_value(static_cast<pb::SetSessionOptionsResult::ErrorValue>(v.value));
+    (*pb_errors)[k] = std::move(e);
+  }
+  return Status::OK();
+}
+
+// GetSessionOptionsRequest
+
+Status FromProto(const pb::GetSessionOptionsRequest& pb_request,
+                 GetSessionOptionsRequest* request) {
+  return Status::OK();
+}
+
+Status ToProto(const GetSessionOptionsRequest& request,
+               pb::GetSessionOptionsRequest* pb_request) {
+  return Status::OK();
+}
+
+// GetSessionOptionsResult
+
+Status FromProto(const pb::GetSessionOptionsResult& pb_result,
+                 GetSessionOptionsResult* result) {
+  RETURN_NOT_OK(FromProto(pb_result.session_options(), &result->session_options));
+  return Status::OK();
+}
+
+Status ToProto(const GetSessionOptionsResult& result,
+               pb::GetSessionOptionsResult* pb_result) {
+  RETURN_NOT_OK(ToProto(result.session_options, pb_result->mutable_session_options()));
+  return Status::OK();
+}
+
+// CloseSessionRequest
+
+Status FromProto(const pb::CloseSessionRequest& pb_request,
+                 CloseSessionRequest* request) {
+  return Status::OK();
+}
+
+Status ToProto(const CloseSessionRequest& request, pb::CloseSessionRequest* pb_request) {
+  return Status::OK();
+}
+
+// CloseSessionResult
+
+Status FromProto(const pb::CloseSessionResult& pb_result, CloseSessionResult* result) {
+  result->status = static_cast<CloseSessionStatus>(pb_result.status());
+  return Status::OK();
+}
+
+Status ToProto(const CloseSessionResult& result, pb::CloseSessionResult* pb_result) {
+  pb_result->set_status(static_cast<protocol::CloseSessionResult::Status>(result.status));
   return Status::OK();
 }
 

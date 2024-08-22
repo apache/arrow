@@ -31,8 +31,9 @@ on:
 
 permissions:
   contents: read
-  
+
 env:
+  ARCHERY_DEBUG: 1
   ARROW_ENABLE_TIMING_TESTS: OFF
   DOCKER_VOLUME_PREFIX: ".docker/"
 
@@ -57,9 +58,9 @@ jobs:
           key: conda-docs-${{ hashFiles('cpp/**') }}
           restore-keys: conda-docs-
       - name: Setup Python
-        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
+        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
         with:
-          python-version: 3.8
+          python-version: 3.12
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build

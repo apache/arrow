@@ -32,7 +32,7 @@ java_jni_dist_dir=${3}
 if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
   # Since some files for s390_64 are not available at maven central,
   # download pre-build files from Artifactory and install them explicitly
-  mvn_install="mvn install:install-file"
+  mvn_install="mvn clean install:install-file"
   wget="wget"
   artifactory_base_url="https://apache.jfrog.io/artifactory/arrow"
 
@@ -72,10 +72,16 @@ if [ $ARROW_JAVA_SKIP_GIT_PLUGIN ]; then
   mvn="${mvn} -Dmaven.gitcommitid.skip=true"
 fi
 
-# Use `2 * ncores` threads
-mvn="${mvn} -T 2C"
-
-pushd ${source_dir}
+# https://github.com/apache/arrow/issues/41429
+# TODO: We want to out-of-source build. This is a workaround. We copy
+# all needed files to the build directory from the source directory
+# and build in the build directory.
+mkdir -p ${build_dir}
+rm -rf ${build_dir}/format
+cp -aL ${arrow_dir}/format ${build_dir}/
+rm -rf ${build_dir}/java
+cp -aL ${source_dir} ${build_dir}/
+pushd ${build_dir}/java
 
 if [ "${ARROW_JAVA_SHADE_FLATBUFFERS}" == "ON" ]; then
   mvn="${mvn} -Pshade-flatbuffers"
@@ -89,13 +95,15 @@ if [ "${ARROW_JAVA_JNI}" = "ON" ]; then
   mvn="${mvn} -Darrow.cpp.build.dir=${java_jni_dist_dir} -Parrow-jni"
 fi
 
-${mvn} install
+# Use `2 * ncores` threads
+${mvn} -T 2C clean install
 
 if [ "${BUILD_DOCS_JAVA}" == "ON" ]; then
   # HTTP pooling is turned of to avoid download issues https://issues.apache.org/jira/browse/ARROW-11633
+  # GH-43378: Maven site plugins not compatible with multithreading
   mkdir -p ${build_dir}/docs/java/reference
-  ${mvn} -Dcheckstyle.skip=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false install site
-  rsync -a ${arrow_dir}/java/target/site/apidocs/ ${build_dir}/docs/java/reference
+  ${mvn} -Dcheckstyle.skip=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false clean install site
+  rsync -a target/site/apidocs/ ${build_dir}/docs/java/reference
 fi
 
 popd

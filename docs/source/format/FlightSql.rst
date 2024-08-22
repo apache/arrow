@@ -32,9 +32,6 @@ with any database that supports the necessary endpoints. Flight SQL
 clients wrap the underlying Flight client to provide methods for the
 new RPC methods described here.
 
-.. warning:: Flight SQL is **experimental** and changes to the
-             protocol may still be made.
-
 RPC Methods
 ===========
 
@@ -114,6 +111,12 @@ google.protobuf.Any message, then serialized and packed into the
 to the command name (i.e. for ``ActionClosePreparedStatementRequest``,
 the ``type`` should be ``ClosePreparedStatement``).
 
+Commands that execute updates such as ``CommandStatementUpdate`` and
+``CommandStatementIngest`` return a Flight SQL ``DoPutUpdateResult``
+after consuming the entire FlightData stream. This message is encoded
+in the ``app_metadata`` field of the Flight RPC ``PutResult`` returned.
+
+
 ``ActionClosePreparedStatementRequest``
     Close a previously created prepared statement.
 
@@ -141,6 +144,21 @@ the ``type`` should be ``ClosePreparedStatement``).
     Execute a previously created prepared statement and get the results.
 
     When used with DoPut: binds parameter values to the prepared statement.
+    The server may optionally provide an updated handle in the response.
+    Updating the handle allows the client to supply all state required to
+    execute the query in an ActionPreparedStatementExecute message.
+    For example, stateless servers can encode the bound parameter values into
+    the new handle, and the client will send that new handle with parameters
+    back to the server.
+
+    Note that a handle returned from a DoPut call with
+    CommandPreparedStatementQuery can itself be passed to a subsequent DoPut
+    call with CommandPreparedStatementQuery to bind a new set of parameters.
+    The subsequent call itself may return an updated handle which again should
+    be used for subsequent requests.
+
+    The server is responsible for detecting the case where the client does not
+    use the updated handle and should return an error.
 
     When used with GetFlightInfo: execute the prepared statement. The
     prepared statement can be reused after fetching results.
@@ -170,20 +188,68 @@ the ``type`` should be ``ClosePreparedStatement``).
     When used with DoPut: execute the query and return the number of
     affected rows.
 
+``CommandStatementIngest``
+    Execute a bulk ingestion.
+
+    When used with DoPut: load the stream of Arrow record batches into
+    the specified target table and return the number of rows ingested
+    via a ``DoPutUpdateResult`` message.
+
+Flight Server Session Management
+--------------------------------
+
+Flight SQL provides commands to set and update server session variables
+which affect the server behaviour in various ways.  Common options may
+include (depending on the server implementation) ``catalog`` and
+``schema``, indicating the currently-selected catalog and schema for
+queries to be run against.
+
+Clients should prefer, where possible, setting options prior to issuing
+queries and other commands, as some server implementations may require
+these options be set exactly once and prior to any other activity which
+may trigger their implicit setting.
+
+For compatibility with Database Connectivity drivers (JDBC, ODBC, and
+others), it is strongly recommended that server implementations accept
+string representations of all option values which may be provided to the
+driver as part of a server connection string and passed through to the
+server without further conversion.  For ease of use it is also recommended
+to accept and convert other numeric types to the preferred type for an
+option value, however this is not required.
+
+Sessions are persisted between the client and server using an
+implementation-defined mechanism, which is typically RFC 6265 cookies.
+Servers may also combine other connection state opaquely with the
+session token:  Consider that the lifespan and semantics of a session
+should make sense for any additional uses, e.g. CloseSession would also
+invalidate any authentication context persisted via the session context.
+A session may be initiated upon a nonempty (or empty) SetSessionOptions
+call, or at any other time of the server's choosing.
+
+``SetSessionOptions``
+Set server session option(s) by name/value.
+
+``GetSessionOptions``
+Get the current server session options, including those set by the client
+and any defaulted or implicitly set by the server.
+
+``CloseSession``
+Close and invalidate the current session context.
+
 Sequence Diagrams
 =================
 
-.. figure:: ./FlightSql/CommandGetTables.mmd.svg
+.. mermaid:: ./FlightSql/CommandGetTables.mmd
+  :caption: Listing available tables.
 
-   Listing available tables.
+.. mermaid:: ./FlightSql/CommandStatementQuery.mmd
+  :caption: Executing an ad-hoc query.
 
-.. figure:: ./FlightSql/CommandStatementQuery.mmd.svg
+.. mermaid:: ./FlightSql/CommandPreparedStatementQuery.mmd
+  :caption: Creating a prepared statement, then executing it.
 
-   Executing an ad-hoc query.
-
-.. figure:: ./FlightSql/CommandPreparedStatementQuery.mmd.svg
-
-   Creating a prepared statement, then executing it.
+.. mermaid:: ./FlightSql/CommandStatementIngest.mmd
+  :caption: Executing a bulk ingestion.
 
 External Resources
 ==================

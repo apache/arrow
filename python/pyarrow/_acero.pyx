@@ -392,6 +392,85 @@ class HashJoinNodeOptions(_HashJoinNodeOptions):
         )
 
 
+cdef class _AsofJoinNodeOptions(ExecNodeOptions):
+
+    def _set_options(self, left_on, left_by, right_on, right_by, tolerance):
+        cdef:
+            vector[CFieldRef] c_left_by
+            vector[CFieldRef] c_right_by
+            CAsofJoinKeys c_left_keys
+            CAsofJoinKeys c_right_keys
+            vector[CAsofJoinKeys] c_input_keys
+
+        # Prepare left AsofJoinNodeOption::Keys
+        if not isinstance(left_by, (list, tuple)):
+            left_by = [left_by]
+        for key in left_by:
+            c_left_by.push_back(_ensure_field_ref(key))
+
+        c_left_keys.on_key = _ensure_field_ref(left_on)
+        c_left_keys.by_key = c_left_by
+
+        c_input_keys.push_back(c_left_keys)
+
+        # Prepare right AsofJoinNodeOption::Keys
+        if not isinstance(right_by, (list, tuple)):
+            right_by = [right_by]
+        for key in right_by:
+            c_right_by.push_back(_ensure_field_ref(key))
+
+        c_right_keys.on_key = _ensure_field_ref(right_on)
+        c_right_keys.by_key = c_right_by
+
+        c_input_keys.push_back(c_right_keys)
+
+        self.wrapped.reset(
+            new CAsofJoinNodeOptions(
+                c_input_keys,
+                tolerance,
+            )
+        )
+
+
+class AsofJoinNodeOptions(_AsofJoinNodeOptions):
+    """
+    Make a node which implements 'as of join' operation.
+
+    This is the option class for the "asofjoin" node factory.
+
+    Parameters
+    ----------
+    left_on : str, Expression
+        The left key on which the join operation should be performed.
+        Can be a string column name or a field expression.
+
+        An inexact match is used on the "on" key, i.e. a row is considered a
+        match if and only if left_on - tolerance <= right_on <= left_on.
+
+        The input dataset must be sorted by the "on" key. Must be a single
+        field of a common type.
+
+        Currently, the "on" key must be an integer, date, or timestamp type.
+    left_by: str, Expression or list
+        The left keys on which the join operation should be performed.
+        Exact equality is used for each field of the "by" keys.
+        Each key can be a string column name or a field expression,
+        or a list of such field references.
+    right_on : str, Expression
+        The right key on which the join operation should be performed.
+        See `left_on` for details.
+    right_by: str, Expression or list
+        The right keys on which the join operation should be performed.
+        See `left_by` for details.
+    tolerance : int
+        The tolerance to use for the asof join. The tolerance is interpreted in
+        the same units as the "on" key.
+    """
+
+    def __init__(self, left_on, left_by, right_on, right_by, tolerance):
+        self._set_options(left_on, left_by, right_on, right_by, tolerance)
+
+
 cdef class Declaration(_Weakrefable):
     """
     Helper class for declaring the nodes of an ExecPlan.

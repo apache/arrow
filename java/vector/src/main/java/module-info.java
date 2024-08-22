@@ -25,6 +25,7 @@ module org.apache.arrow.vector {
   exports org.apache.arrow.vector.complex.writer;
   exports org.apache.arrow.vector.compression;
   exports org.apache.arrow.vector.dictionary;
+  exports org.apache.arrow.vector.extension;
   exports org.apache.arrow.vector.holders;
   exports org.apache.arrow.vector.ipc;
   exports org.apache.arrow.vector.ipc.message;
@@ -34,7 +35,8 @@ module org.apache.arrow.vector {
   exports org.apache.arrow.vector.util;
   exports org.apache.arrow.vector.validate;
 
-  opens org.apache.arrow.vector.types.pojo to com.fasterxml.jackson.databind;
+  opens org.apache.arrow.vector.types.pojo to
+      com.fasterxml.jackson.databind;
 
   requires com.fasterxml.jackson.annotation;
   requires com.fasterxml.jackson.core;
@@ -45,6 +47,7 @@ module org.apache.arrow.vector {
   requires org.apache.arrow.format;
   requires org.apache.arrow.memory.core;
   requires org.apache.commons.codec;
-  requires org.eclipse.collections.impl;
   requires org.slf4j;
+
+  uses org.apache.arrow.vector.compression.CompressionCodec.Factory;
 }

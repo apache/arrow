@@ -22,14 +22,13 @@
 namespace arrow::matlab::type::proxy {
 
 class DateType : public arrow::matlab::type::proxy::FixedWidthType {
+ public:
+  DateType(std::shared_ptr<arrow::DateType> date_type);
 
-    public:
-        DateType(std::shared_ptr<arrow::DateType> date_type);
+  ~DateType() {}
 
-        ~DateType() {}
-
-    protected:
-        void getDateUnit(libmexclass::proxy::method::Context& context);
+ protected:
+  void getDateUnit(libmexclass::proxy::method::Context& context);
 };
 
-}
+}  // namespace arrow::matlab::type::proxy

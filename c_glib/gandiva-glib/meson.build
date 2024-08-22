@@ -53,14 +53,12 @@ cpp_headers = files(
   'selection-vector.hpp',
 )
 
-version_h_conf = configuration_data()
-version_h_conf.set('GGANDIVA_VERSION_MAJOR', version_major)
-version_h_conf.set('GGANDIVA_VERSION_MINOR', version_minor)
-version_h_conf.set('GGANDIVA_VERSION_MICRO', version_micro)
-version_h_conf.set('GGANDIVA_VERSION_TAG', version_tag)
-version_h = configure_file(input: 'version.h.in',
-                           output: 'version.h',
-                           configuration: version_h_conf)
+version_h = configure_file(
+  input: 'version.h.in',
+  output: 'version.h',
+  command: [python3, generate_version_header_py, '--library', 'GGANDIVA', '--version', version, '--input', '@INPUT@', '--output', '@OUTPUT@'],
+)
+
 c_headers += version_h
 
 enums = gnome.mkenums('enums',
@@ -87,6 +85,8 @@ libgandiva_glib = library('gandiva-glib',
                           dependencies: dependencies,
                           implicit_include_directories: false,
                           include_directories: base_include_directories,
+                          cpp_args: ['-DGGANDIVA_COMPILATION'],
+                          c_args: ['-DGGANDIVA_COMPILATION'],
                           soversion: so_version,
                           version: library_version)
 gandiva_glib = declare_dependency(link_with: libgandiva_glib,
@@ -111,15 +111,13 @@ if have_gi
                          '--warn-all',
                          '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
                        ],
-                       fatal_warnings: gi_fatal_warnings,
                        header: 'gandiva-glib/gandiva-glib.h',
                        identifier_prefix: 'GGandiva',
                        includes: [
                          'Arrow-1.0'
                        ],
-                       install: true,
+                       kwargs: generate_gi_common_args,
                        namespace: 'Gandiva',
-                       nsversion: api_version,
                        sources: sources + c_headers + enums,
                        symbol_prefix: 'ggandiva')
 

@@ -40,26 +40,43 @@ typedef enum {
 } GGandivaResultNullableType;
 
 #define GGANDIVA_TYPE_NATIVE_FUNCTION (ggandiva_native_function_get_type())
-G_DECLARE_DERIVABLE_TYPE(GGandivaNativeFunction,
-                         ggandiva_native_function,
-                         GGANDIVA,
-                         NATIVE_FUNCTION,
-                         GObject)
+GGANDIVA_AVAILABLE_IN_14_0
+G_DECLARE_DERIVABLE_TYPE(
+  GGandivaNativeFunction, ggandiva_native_function, GGANDIVA, NATIVE_FUNCTION, GObject)
 
 struct _GGandivaNativeFunctionClass
 {
   GObjectClass parent_class;
 };
 
+GGANDIVA_AVAILABLE_IN_14_0
 GList *
 ggandiva_native_function_get_signatures(GGandivaNativeFunction *native_function);
+
+GGANDIVA_AVAILABLE_IN_14_0
 gboolean
 ggandiva_native_function_equal(GGandivaNativeFunction *native_function,
                                GGandivaNativeFunction *other_native_function);
-gchar *ggandiva_native_function_to_string(GGandivaNativeFunction *native_function);
-GGandivaResultNullableType ggandiva_native_function_get_result_nullable_type(GGandivaNativeFunction *native_function);
-gboolean ggandiva_native_function_need_context(GGandivaNativeFunction *native_function);
-gboolean ggandiva_native_function_need_function_holder(GGandivaNativeFunction *native_function);
-gboolean ggandiva_native_function_can_return_errors(GGandivaNativeFunction *native_function);
+
+GGANDIVA_AVAILABLE_IN_14_0
+gchar *
+ggandiva_native_function_to_string(GGandivaNativeFunction *native_function);
+
+GGANDIVA_AVAILABLE_IN_14_0
+GGandivaResultNullableType
+ggandiva_native_function_get_result_nullable_type(
+  GGandivaNativeFunction *native_function);
+
+GGANDIVA_AVAILABLE_IN_14_0
+gboolean
+ggandiva_native_function_need_context(GGandivaNativeFunction *native_function);
+
+GGANDIVA_AVAILABLE_IN_14_0
+gboolean
+ggandiva_native_function_need_function_holder(GGandivaNativeFunction *native_function);
+
+GGANDIVA_AVAILABLE_IN_14_0
+gboolean
+ggandiva_native_function_can_return_errors(GGandivaNativeFunction *native_function);
 
 G_END_DECLS

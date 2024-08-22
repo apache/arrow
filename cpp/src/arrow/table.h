@@ -241,6 +241,8 @@ class ARROW_EXPORT Table {
 ///
 /// The conversion is zero-copy: each record batch is a view over a slice
 /// of the table's columns.
+///
+/// The table is expected to be valid prior to using it with the batch reader.
 class ARROW_EXPORT TableBatchReader : public RecordBatchReader {
  public:
   /// \brief Construct a TableBatchReader for the given table
@@ -251,9 +253,9 @@ class ARROW_EXPORT TableBatchReader : public RecordBatchReader {
 
   Status ReadNext(std::shared_ptr<RecordBatch>* out) override;
 
-  /// \brief Set the desired maximum chunk size of record batches
+  /// \brief Set the desired maximum number of rows for record batches
   ///
-  /// The actual chunk size of each record batch may be smaller, depending
+  /// The actual number of rows in each record batch may be smaller, depending
   /// on actual chunking characteristics of each table column.
   void set_chunksize(int64_t chunksize);
 

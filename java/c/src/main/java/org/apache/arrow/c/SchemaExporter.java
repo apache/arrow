@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.c;
 
 import static org.apache.arrow.c.NativeUtil.NULL;
@@ -23,7 +22,6 @@ import static org.apache.arrow.util.Preconditions.checkNotNull;
 
 import java.util.ArrayList;
 import java.util.List;
-
 import org.apache.arrow.c.jni.JniWrapper;
 import org.apache.arrow.c.jni.PrivateData;
 import org.apache.arrow.memory.ArrowBuf;
@@ -33,9 +31,7 @@ import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
 
-/**
- * Exporter for {@link ArrowSchema}.
- */
+/** Exporter for {@link ArrowSchema}. */
 final class SchemaExporter {
   private final BufferAllocator allocator;
 
@@ -43,9 +39,7 @@ final class SchemaExporter {
     this.allocator = allocator;
   }
 
-  /**
-   * Private data structure for exported schemas.
-   */
+  /** Private data structure for exported schemas. */
   static class ExportedSchemaPrivateData implements PrivateData {
     ArrowBuf format;
     ArrowBuf name;

@@ -84,7 +84,7 @@ class RandomAccessObject : public arrow::io::RandomAccessFile {
 
     if (nbytes > 0) {
       std::shared_ptr<ceph::bufferlist> bl = std::make_shared<ceph::bufferlist>();
-      cls_cxx_read(hctx_, position, nbytes, bl.get());
+      cls_cxx_read(hctx_, static_cast<int>(position), static_cast<int>(nbytes), bl.get());
       chunks_.push_back(bl);
       return std::make_shared<arrow::Buffer>((uint8_t*)bl->c_str(), bl->length());
     }
@@ -95,7 +95,7 @@ class RandomAccessObject : public arrow::io::RandomAccessFile {
   arrow::Result<std::shared_ptr<arrow::Buffer>> Read(int64_t nbytes) override {
     ARROW_ASSIGN_OR_RAISE(auto buffer, ReadAt(pos_, nbytes));
     pos_ += buffer->size();
-    return std::move(buffer);
+    return buffer;
   }
 
   /// Read a specified number of bytes from the current position into an output stream.

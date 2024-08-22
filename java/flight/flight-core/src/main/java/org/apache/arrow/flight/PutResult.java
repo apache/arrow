@@ -14,15 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight;
 
+import com.google.protobuf.ByteString;
 import org.apache.arrow.flight.impl.Flight;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.ReferenceManager;
-
-import com.google.protobuf.ByteString;
 
 /**
  * A message from the server during a DoPut operation.
@@ -57,8 +55,8 @@ public class PutResult implements AutoCloseable {
   /**
    * Get the metadata in this message. May be null.
    *
-   * <p>Ownership of the {@link ArrowBuf} is retained by this object. Call {@link ReferenceManager#retain()} to preserve
-   * a reference.
+   * <p>Ownership of the {@link ArrowBuf} is retained by this object. Call {@link
+   * ReferenceManager#retain()} to preserve a reference.
    */
   public ArrowBuf getApplicationMetadata() {
     return applicationMetadata;
@@ -68,22 +66,28 @@ public class PutResult implements AutoCloseable {
     if (applicationMetadata == null) {
       return Flight.PutResult.getDefaultInstance();
     }
-    return Flight.PutResult.newBuilder().setAppMetadata(ByteString.copyFrom(applicationMetadata.nioBuffer())).build();
+    return Flight.PutResult.newBuilder()
+        .setAppMetadata(ByteString.copyFrom(applicationMetadata.nioBuffer()))
+        .build();
   }
 
   /**
    * Construct a PutResult from a Protobuf message.
    *
-   * @param allocator The allocator to use for allocating application metadata memory. The result object owns the
-   *     allocated buffer, if any.
+   * @param allocator The allocator to use for allocating application metadata memory. The result
+   *     object owns the allocated buffer, if any.
    * @param message The gRPC/Protobuf message.
    */
   static PutResult fromProtocol(BufferAllocator allocator, Flight.PutResult message) {
     final ArrowBuf buf = allocator.buffer(message.getAppMetadata().size());
-    message.getAppMetadata().asReadOnlyByteBufferList().forEach(bb -> {
-      buf.setBytes(buf.writerIndex(), bb);
-      buf.writerIndex(buf.writerIndex() + bb.limit());
-    });
+    message
+        .getAppMetadata()
+        .asReadOnlyByteBufferList()
+        .forEach(
+            bb -> {
+              buf.setBytes(buf.writerIndex(), bb);
+              buf.writerIndex(buf.writerIndex() + bb.limit());
+            });
     return new PutResult(buf);
   }
 

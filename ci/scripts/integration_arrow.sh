@@ -40,6 +40,8 @@ if [ "${ARROW_INTEGRATION_JAVA}" == "ON" ]; then
     pip install jpype1
 fi
 
+export ARROW_BUILD_ROOT=${build_dir}
+
 # Get more detailed context on crashes
 export PYTHONFAULTHANDLER=1
 

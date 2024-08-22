@@ -269,7 +269,7 @@ class ARROW_EXPORT Buffer {
 
   /// \brief Return the buffer's mutable data as a span
   template <typename T>
-  util::span<T> mutable_span_as() const {
+  util::span<T> mutable_span_as() {
     return util::span(mutable_data_as<T>(), static_cast<size_t>(size() / sizeof(T)));
   }
 

@@ -14,12 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.c.jni;
 
-/**
- * JniWrapper for C Data Interface API implementation.
- */
+/** JniWrapper for C Data Interface API implementation. */
 public class JniWrapper {
   private static final JniWrapper INSTANCE = new JniWrapper();
 
@@ -41,9 +38,11 @@ public class JniWrapper {
 
   public native void releaseArray(long memoryAddress);
 
-  public native void getNextArrayStream(long streamAddress, long arrayAddress) throws CDataJniException;
+  public native void getNextArrayStream(long streamAddress, long arrayAddress)
+      throws CDataJniException;
 
-  public native void getSchemaArrayStream(long streamAddress, long arrayAddress) throws CDataJniException;
+  public native void getSchemaArrayStream(long streamAddress, long arrayAddress)
+      throws CDataJniException;
 
   public native void releaseArrayStream(long memoryAddress);
 

@@ -47,7 +47,6 @@ from pyarrow._parquet import (ParquetReader, Statistics,  # noqa
                               SortingColumn)
 from pyarrow.fs import (LocalFileSystem, FileSystem, FileType,
                         _resolve_filesystem_and_path, _ensure_filesystem)
-from pyarrow import filesystem as legacyfs
 from pyarrow.util import guid, _is_path_like, _stringify_path, _deprecate_api
 
 
@@ -309,7 +308,7 @@ class ParquetFile:
         self._close_source = getattr(source, 'closed', True)
 
         filesystem, source = _resolve_filesystem_and_path(
-            source, filesystem, memory_map)
+            source, filesystem, memory_map=memory_map)
         if filesystem is not None:
             source = filesystem.open_input_file(source)
             self._close_source = True  # We opened it here, ensure we close it.
@@ -762,9 +761,9 @@ use_deprecated_int96_timestamps : bool, default None
     by flavor argument. This take priority over the coerce_timestamps option.
 coerce_timestamps : str, default None
     Cast timestamps to a particular resolution. If omitted, defaults are chosen
-    depending on `version`. By default, for ``version='1.0'`` (the default)
-    and ``version='2.4'``, nanoseconds are cast to microseconds ('us'), while
-    for other `version` values, they are written natively without loss
+    depending on `version`. For ``version='1.0'`` and ``version='2.4'``,
+    nanoseconds are cast to microseconds ('us'), while for
+    ``version='2.6'`` (the default), they are written natively without loss
     of resolution.  Seconds are always cast to milliseconds ('ms') by default,
     as Parquet does not have any temporal type with seconds resolution.
     If the casting results in loss of data, it will raise an exception
@@ -798,8 +797,9 @@ use_byte_stream_split : bool or list, default False
     Specify if the byte_stream_split encoding should be used in general or
     only for some columns. If both dictionary and byte_stream_stream are
     enabled, then dictionary is preferred.
-    The byte_stream_split encoding is valid only for floating-point data types
-    and should be combined with a compression codec.
+    The byte_stream_split encoding is valid for integer, floating-point
+    and fixed-size binary data types (including decimals); it should be
+    combined with a compression codec so as to achieve size reduction.
 column_encoding : string or dict, default None
     Specify the encoding scheme on a per column basis.
     Can only be used when ``use_dictionary`` is set to False, and
@@ -873,6 +873,23 @@ sorting_columns : Sequence of SortingColumn, default None
     Specify the sort order of the data being written. The writer does not sort
     the data nor does it verify that the data is sorted. The sort order is
     written to the row group metadata, which can then be used by readers.
+store_decimal_as_integer : bool, default False
+    Allow decimals with 1 <= precision <= 18 to be stored as integers.
+    In Parquet, DECIMAL can be stored in any of the following physical types:
+    - int32: for 1 <= precision <= 9.
+    - int64: for 10 <= precision <= 18.
+    - fixed_len_byte_array: precision is limited by the array size.
+      Length n can store <= floor(log_10(2^(8*n - 1) - 1)) base-10 digits.
+    - binary: precision is unlimited. The minimum number of bytes to store the
+      unscaled value is used.
+
+    By default, this is DISABLED and all decimal types annotate fixed_len_byte_array.
+    When enabled, the writer will use the following physical types to store decimals:
+    - int32: for 1 <= precision <= 9.
+    - int64: for 10 <= precision <= 18.
+    - fixed_len_byte_array: for precision > 18.
+
+    As a consequence, decimal columns stored in integer types are more compact.
 """
 
 _parquet_writer_example_doc = """\
@@ -968,6 +985,7 @@ Examples
                  write_page_index=False,
                  write_page_checksum=False,
                  sorting_columns=None,
+                 store_decimal_as_integer=False,
                  **options):
         if use_deprecated_int96_timestamps is None:
             # Use int96 timestamps for Spark
@@ -989,20 +1007,13 @@ Examples
         # sure to close it when `self.close` is called.
         self.file_handle = None
 
-        filesystem, path = _resolve_filesystem_and_path(
-            where, filesystem, allow_legacy_filesystem=True
-        )
+        filesystem, path = _resolve_filesystem_and_path(where, filesystem)
         if filesystem is not None:
-            if isinstance(filesystem, legacyfs.FileSystem):
-                # legacy filesystem (eg custom subclass)
-                # TODO deprecate
-                sink = self.file_handle = filesystem.open(path, 'wb')
-            else:
-                # ARROW-10480: do not auto-detect compression.  While
-                # a filename like foo.parquet.gz is nonconforming, it
-                # shouldn't implicitly apply compression.
-                sink = self.file_handle = filesystem.open_output_stream(
-                    path, compression=None)
+            # ARROW-10480: do not auto-detect compression.  While
+            # a filename like foo.parquet.gz is nonconforming, it
+            # shouldn't implicitly apply compression.
+            sink = self.file_handle = filesystem.open_output_stream(
+                path, compression=None)
         else:
             sink = where
         self._metadata_collector = options.pop('metadata_collector', None)
@@ -1027,6 +1038,7 @@ Examples
             write_page_index=write_page_index,
             write_page_checksum=write_page_checksum,
             sorting_columns=sorting_columns,
+            store_decimal_as_integer=store_decimal_as_integer,
             **options)
         self.is_open = True
 
@@ -1115,6 +1127,19 @@ Examples
         if self.file_handle is not None:
             self.file_handle.close()
 
+    def add_key_value_metadata(self, key_value_metadata):
+        """
+        Add key-value metadata to the file.
+        This will overwrite any existing metadata with the same key.
+
+        Parameters
+        ----------
+        key_value_metadata : dict
+            Keys and values must be string-like / coercible to bytes.
+        """
+        assert self.is_open
+        self.writer.add_key_value_metadata(key_value_metadata)
+
 
 def _get_pandas_index_columns(keyvalues):
     return (json.loads(keyvalues[b'pandas'].decode('utf8'))
@@ -1122,12 +1147,6 @@ def _get_pandas_index_columns(keyvalues):
 
 
 EXCLUDED_PARQUET_PATHS = {'_SUCCESS'}
-
-
-def _is_local_file_system(fs):
-    return isinstance(fs, LocalFileSystem) or isinstance(
-        fs, legacyfs.LocalFileSystem
-    )
 
 
 _read_docstring_common = """\
@@ -1306,14 +1325,14 @@ Examples
         if (
             hasattr(path_or_paths, "__fspath__") and
             filesystem is not None and
-            not _is_local_file_system(filesystem)
+            not isinstance(filesystem, LocalFileSystem)
         ):
             raise TypeError(
                 "Path-like objects with __fspath__ must only be used with "
                 f"local file systems, not {type(filesystem)}"
             )
 
-        # check for single fragment dataset
+        # check for single fragment dataset or dataset directory
         single_file = None
         self._base_dir = None
         if not isinstance(path_or_paths, list):
@@ -1327,8 +1346,6 @@ Examples
                     except ValueError:
                         filesystem = LocalFileSystem(use_mmap=memory_map)
                 finfo = filesystem.get_file_info(path_or_paths)
-                if finfo.is_file:
-                    single_file = path_or_paths
                 if finfo.type == FileType.Directory:
                     self._base_dir = path_or_paths
             else:
@@ -1785,6 +1802,7 @@ def read_table(source, *, columns=None, use_threads=True,
             ignore_prefixes=ignore_prefixes,
             pre_buffer=pre_buffer,
             coerce_int96_timestamp_unit=coerce_int96_timestamp_unit,
+            decryption_properties=decryption_properties,
             thrift_string_size_limit=thrift_string_size_limit,
             thrift_container_size_limit=thrift_container_size_limit,
             page_checksum_verification=page_checksum_verification,
@@ -1874,6 +1892,7 @@ def write_table(table, where, row_group_size=None, version='2.6',
                 write_page_index=False,
                 write_page_checksum=False,
                 sorting_columns=None,
+                store_decimal_as_integer=False,
                 **kwargs):
     # Implementor's note: when adding keywords here / updating defaults, also
     # update it in write_to_dataset and _dataset_parquet.pyx ParquetFileWriteOptions
@@ -1904,6 +1923,7 @@ def write_table(table, where, row_group_size=None, version='2.6',
                 write_page_index=write_page_index,
                 write_page_checksum=write_page_checksum,
                 sorting_columns=sorting_columns,
+                store_decimal_as_integer=store_decimal_as_integer,
                 **kwargs) as writer:
             writer.write_table(table, row_group_size=row_group_size)
     except Exception:

@@ -165,7 +165,7 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   }
 
   /// \brief Return the FileMetaData associated with this fragment.
-  const std::shared_ptr<parquet::FileMetaData>& metadata() const { return metadata_; }
+  std::shared_ptr<parquet::FileMetaData> metadata();
 
   /// \brief Ensure this fragment's FileMetaData is in memory.
   Status EnsureCompleteMetadata(parquet::arrow::FileReader* reader = NULLPTR);

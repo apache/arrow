@@ -50,9 +50,12 @@ class ARROW_EXPORT ExtensionType : public DataType {
 
   DataTypeLayout layout() const override;
 
-  std::string ToString() const override;
+  std::string ToString(bool show_metadata = false) const override;
 
   std::string name() const override { return "extension"; }
+
+  int32_t byte_width() const override { return storage_type_->byte_width(); }
+  int bit_width() const override { return storage_type_->bit_width(); }
 
   /// \brief Unique name of extension type used to identify type for
   /// serialization

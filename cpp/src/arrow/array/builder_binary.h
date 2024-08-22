@@ -500,9 +500,9 @@ class ARROW_EXPORT StringHeapBuilder {
       ARROW_RETURN_NOT_OK(Reserve(length));
     }
 
-    auto v =
-        util::ToBinaryView(value, static_cast<int32_t>(length),
-                           static_cast<int32_t>(blocks_.size() - 1), current_offset_);
+    auto v = util::ToNonInlineBinaryView(value, static_cast<int32_t>(length),
+                                         static_cast<int32_t>(blocks_.size() - 1),
+                                         current_offset_);
 
     memcpy(current_out_buffer_, value, static_cast<size_t>(length));
     current_out_buffer_ += length;

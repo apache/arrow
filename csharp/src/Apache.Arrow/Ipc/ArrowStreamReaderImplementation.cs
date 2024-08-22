@@ -132,7 +132,13 @@ namespace Apache.Arrow.Ipc
 
                 Flatbuf.Message message = Flatbuf.Message.GetRootAsMessage(CreateByteBuffer(messageBuff));
 
-                int bodyLength = checked((int)message.BodyLength);
+                if (message.BodyLength > int.MaxValue)
+                {
+                    throw new OverflowException(
+                        $"Arrow IPC message body length ({message.BodyLength}) is larger than " +
+                        $"the maximum supported message size ({int.MaxValue})");
+                }
+                int bodyLength = (int)message.BodyLength;
 
                 IMemoryOwner<byte> bodyBuffOwner = _allocator.Allocate(bodyLength);
                 Memory<byte> bodyBuff = bodyBuffOwner.Memory.Slice(0, bodyLength);
@@ -146,7 +152,7 @@ namespace Apache.Arrow.Ipc
             return new ReadResult(messageLength, result);
         }
 
-        protected virtual async ValueTask ReadSchemaAsync(CancellationToken cancellationToken = default)
+        public override async ValueTask ReadSchemaAsync(CancellationToken cancellationToken = default)
         {
             if (HasReadSchema)
             {
@@ -164,11 +170,11 @@ namespace Apache.Arrow.Ipc
                 EnsureFullRead(buff, bytesRead);
 
                 Google.FlatBuffers.ByteBuffer schemabb = CreateByteBuffer(buff);
-                Schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemabb), ref _dictionaryMemo);
+                _schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemabb), ref _dictionaryMemo);
             }
         }
 
-        protected virtual void ReadSchema()
+        public override void ReadSchema()
         {
             if (HasReadSchema)
             {
@@ -184,7 +190,7 @@ namespace Apache.Arrow.Ipc
                 EnsureFullRead(buff, bytesRead);
 
                 Google.FlatBuffers.ByteBuffer schemabb = CreateByteBuffer(buff);
-                Schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemabb), ref _dictionaryMemo);
+                _schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemabb), ref _dictionaryMemo);
             }
         }
 

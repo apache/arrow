@@ -16,7 +16,7 @@
 # under the License.
 
 from collections import OrderedDict
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from functools import partial
 import datetime
 import sys
@@ -214,7 +214,10 @@ def test_is_nested_or_struct():
 
     assert types.is_nested(struct_ex)
     assert types.is_nested(pa.list_(pa.int32()))
+    assert types.is_nested(pa.list_(pa.int32(), 3))
     assert types.is_nested(pa.large_list(pa.int32()))
+    assert types.is_nested(pa.list_view(pa.int32()))
+    assert types.is_nested(pa.large_list_view(pa.int32()))
     assert not types.is_nested(pa.int32())
 
 
@@ -342,7 +345,13 @@ def test_pytz_tzinfo_to_string():
     assert [pa.lib.tzinfo_to_string(i) for i in tz] == expected
 
 
+@pytest.mark.timezone_data
 def test_dateutil_tzinfo_to_string():
+    if sys.platform == 'win32':
+        # Skip due to new release of python-dateutil
+        # https://github.com/apache/arrow/issues/40485
+        pytest.skip('Skip on Win due to new release of python-dateutil')
+
     pytest.importorskip("dateutil")
     import dateutil.tz
 
@@ -352,6 +361,7 @@ def test_dateutil_tzinfo_to_string():
     assert pa.lib.tzinfo_to_string(tz) == 'Europe/Paris'
 
 
+@pytest.mark.timezone_data
 def test_zoneinfo_tzinfo_to_string():
     zoneinfo = pytest.importorskip('zoneinfo')
     if sys.platform == 'win32':
@@ -683,6 +693,8 @@ def test_struct_type():
     assert list(ty) == fields
     assert ty[0].name == 'a'
     assert ty[2].type == pa.int32()
+    assert ty.names == [f.name for f in ty]
+    assert ty.fields == list(ty)
     with pytest.raises(IndexError):
         assert ty[3]
 
@@ -942,18 +954,38 @@ def test_type_id():
         assert isinstance(ty.id, int)
 
 
-def test_bit_width():
-    for ty, expected in [(pa.bool_(), 1),
-                         (pa.int8(), 8),
-                         (pa.uint32(), 32),
-                         (pa.float16(), 16),
-                         (pa.decimal128(19, 4), 128),
-                         (pa.decimal256(76, 38), 256),
-                         (pa.binary(42), 42 * 8)]:
-        assert ty.bit_width == expected
-    for ty in [pa.binary(), pa.string(), pa.list_(pa.int16())]:
+def test_bit_and_byte_width():
+    for ty, expected_bit_width, expected_byte_width in [
+        (pa.bool_(), 1, 0),
+        (pa.int8(), 8, 1),
+        (pa.uint32(), 32, 4),
+        (pa.float16(), 16, 2),
+        (pa.timestamp('s'), 64, 8),
+        (pa.date32(), 32, 4),
+        (pa.decimal128(19, 4), 128, 16),
+        (pa.decimal256(76, 38), 256, 32),
+        (pa.binary(42), 42 * 8, 42),
+        (pa.binary(0), 0, 0),
+    ]:
+        assert ty.bit_width == expected_bit_width
+
+        if 0 < expected_bit_width < 8:
+            with pytest.raises(ValueError, match="Less than one byte"):
+                ty.byte_width
+        else:
+            assert ty.byte_width == expected_byte_width
+
+    for ty in [
+        pa.binary(),
+        pa.string(),
+        pa.list_(pa.int16()),
+        pa.map_(pa.string(), pa.int32()),
+        pa.struct([('f1', pa.int32())])
+    ]:
         with pytest.raises(ValueError, match="fixed width"):
             ty.bit_width
+        with pytest.raises(ValueError, match="fixed width"):
+            ty.byte_width
 
 
 def test_fixed_size_binary_byte_width():
@@ -1295,15 +1327,59 @@ def test_types_come_back_with_specific_type():
         assert type(type_back) is type(arrow_type)
 
 
-def test_schema_import_c_schema_interface():
-    class Wrapper:
-        def __init__(self, schema):
-            self.schema = schema
+class SchemaWrapper:
+    def __init__(self, schema):
+        self.schema = schema
 
-        def __arrow_c_schema__(self):
-            return self.schema.__arrow_c_schema__()
+    def __arrow_c_schema__(self):
+        return self.schema.__arrow_c_schema__()
 
-    schema = pa.schema([pa.field("field_name", pa.int32())])
-    wrapped_schema = Wrapper(schema)
+
+class SchemaMapping(Mapping):
+    def __init__(self, schema):
+        self.schema = schema
+
+    def __arrow_c_schema__(self):
+        return self.schema.__arrow_c_schema__()
+
+    def __getitem__(self, key):
+        return self.schema[key]
+
+    def __iter__(self):
+        return iter(self.schema)
+
+    def __len__(self):
+        return len(self.schema)
+
+
+@pytest.mark.parametrize("wrapper_class", [SchemaWrapper, SchemaMapping])
+def test_schema_import_c_schema_interface(wrapper_class):
+    schema = pa.schema([pa.field("field_name", pa.int32())], metadata={"a": "b"})
+    assert schema.metadata == {b"a": b"b"}
+    wrapped_schema = wrapper_class(schema)
 
     assert pa.schema(wrapped_schema) == schema
+    assert pa.schema(wrapped_schema).metadata == {b"a": b"b"}
+    assert pa.schema(wrapped_schema, metadata={"a": "c"}).metadata == {b"a": b"c"}
+
+
+def test_field_import_c_schema_interface():
+    class Wrapper:
+        def __init__(self, field):
+            self.field = field
+
+        def __arrow_c_schema__(self):
+            return self.field.__arrow_c_schema__()
+
+    field = pa.field("field_name", pa.int32(), metadata={"key": "value"})
+    wrapped_field = Wrapper(field)
+
+    assert pa.field(wrapped_field) == field
+
+    with pytest.raises(ValueError, match="cannot specify 'type'"):
+        pa.field(wrapped_field, type=pa.int64())
+
+    # override nullable or metadata
+    assert pa.field(wrapped_field, nullable=False).nullable is False
+    result = pa.field(wrapped_field, metadata={"other": "meta"})
+    assert result.metadata == {b"other": b"meta"}

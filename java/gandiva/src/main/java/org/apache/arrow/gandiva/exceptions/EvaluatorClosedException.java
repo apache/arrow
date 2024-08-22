@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.gandiva.exceptions;
 
 /** Indicates an attempted call to methods on a closed evaluator. */

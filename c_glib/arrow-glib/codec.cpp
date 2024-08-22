@@ -33,7 +33,8 @@ G_BEGIN_DECLS
  * #GArrowCodec is a class for compressing and decompressing data.
  */
 
-typedef struct GArrowCodecPrivate_ {
+typedef struct GArrowCodecPrivate_
+{
   std::shared_ptr<arrow::util::Codec> codec;
 } GArrowCodecPrivate;
 
@@ -43,10 +44,9 @@ enum {
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowCodec, garrow_codec, G_TYPE_OBJECT)
 
-#define GARROW_CODEC_GET_PRIVATE(object)        \
-  static_cast<GArrowCodecPrivate *>(            \
-    garrow_codec_get_instance_private(          \
-      GARROW_CODEC(object)))
+#define GARROW_CODEC_GET_PRIVATE(object)                                                 \
+  static_cast<GArrowCodecPrivate *>(                                                     \
+    garrow_codec_get_instance_private(GARROW_CODEC(object)))
 
 static void
 garrow_codec_finalize(GObject *object)
@@ -94,7 +94,7 @@ static void
 garrow_codec_init(GArrowCodec *object)
 {
   auto priv = GARROW_CODEC_GET_PRIVATE(object);
-  new(&priv->codec) std::shared_ptr<arrow::util::Codec>;
+  new (&priv->codec) std::shared_ptr<arrow::util::Codec>;
 }
 
 static void
@@ -104,15 +104,15 @@ garrow_codec_class_init(GArrowCodecClass *klass)
 
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->finalize     = garrow_codec_finalize;
+  gobject_class->finalize = garrow_codec_finalize;
   gobject_class->set_property = garrow_codec_set_property;
   gobject_class->get_property = garrow_codec_get_property;
 
-  spec = g_param_spec_pointer("codec",
-                              "Codec",
-                              "The raw std::shared_ptr<arrow::util::Codec> *",
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_pointer(
+    "codec",
+    "Codec",
+    "The raw std::shared_ptr<arrow::util::Codec> *",
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_CODEC, spec);
 }
 
@@ -126,14 +126,12 @@ garrow_codec_class_init(GArrowCodecClass *klass)
  * Since: 0.12.0
  */
 GArrowCodec *
-garrow_codec_new(GArrowCompressionType type,
-                 GError **error)
+garrow_codec_new(GArrowCompressionType type, GError **error)
 {
   auto arrow_type = garrow_compression_type_to_raw(type);
   auto arrow_codec = arrow::util::Codec::Create(arrow_type);
   if (garrow::check(error, arrow_codec, "[codec][new]")) {
-    std::shared_ptr<arrow::util::Codec> arrow_codec_shared =
-      std::move(*arrow_codec);
+    std::shared_ptr<arrow::util::Codec> arrow_codec_shared = std::move(*arrow_codec);
     return garrow_codec_new_raw(&arrow_codec_shared);
   } else {
     return NULL;
@@ -249,9 +247,7 @@ garrow_compression_type_to_raw(GArrowCompressionType type)
 GArrowCodec *
 garrow_codec_new_raw(std::shared_ptr<arrow::util::Codec> *arrow_codec)
 {
-  auto codec = GARROW_CODEC(g_object_new(GARROW_TYPE_CODEC,
-                                         "codec", arrow_codec,
-                                         NULL));
+  auto codec = GARROW_CODEC(g_object_new(GARROW_TYPE_CODEC, "codec", arrow_codec, NULL));
   return codec;
 }
 

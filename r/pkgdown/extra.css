@@ -1,0 +1,14 @@
+/* Section text in navbar */
+.navbar-dark, .navbar[data-bs-theme="dark"] {
+  --bs-navbar-color: #d9d9d9;
+}
+
+/* Version number in navbar */
+.nav-text, .text-muted {
+  color: #d9d9d9 !important;
+}
+
+/* Placeholder of search input in navbar */
+#search-input::placeholder {
+  color: #d9d9d9;
+}

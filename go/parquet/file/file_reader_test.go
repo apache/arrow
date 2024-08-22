@@ -18,23 +18,28 @@ package file_test
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"os"
 	"path"
 	"testing"
 
-	"github.com/apache/arrow/go/v16/arrow/memory"
-	"github.com/apache/arrow/go/v16/internal/utils"
-	"github.com/apache/arrow/go/v16/parquet"
-	"github.com/apache/arrow/go/v16/parquet/compress"
-	"github.com/apache/arrow/go/v16/parquet/file"
-	"github.com/apache/arrow/go/v16/parquet/internal/encoding"
-	format "github.com/apache/arrow/go/v16/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v16/parquet/internal/thrift"
-	"github.com/apache/arrow/go/v16/parquet/metadata"
-	"github.com/apache/arrow/go/v16/parquet/schema"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/array"
+	"github.com/apache/arrow/go/v18/arrow/memory"
+	"github.com/apache/arrow/go/v18/internal/utils"
+	"github.com/apache/arrow/go/v18/parquet"
+	"github.com/apache/arrow/go/v18/parquet/compress"
+	"github.com/apache/arrow/go/v18/parquet/file"
+	"github.com/apache/arrow/go/v18/parquet/internal/encoding"
+	format "github.com/apache/arrow/go/v18/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v18/parquet/internal/thrift"
+	"github.com/apache/arrow/go/v18/parquet/metadata"
+	"github.com/apache/arrow/go/v18/parquet/pqarrow"
+	"github.com/apache/arrow/go/v18/parquet/schema"
 	libthrift "github.com/apache/thrift/lib/go/thrift"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -445,4 +450,197 @@ func TestRleBooleanEncodingFileRead(t *testing.T) {
 	}
 
 	assert.Equal(t, expected, values[:len(expected)])
+}
+
+func TestByteStreamSplitEncodingFileRead(t *testing.T) {
+	dir := os.Getenv("PARQUET_TEST_DATA")
+	if dir == "" {
+		t.Skip("no path supplied with PARQUET_TEST_DATA")
+	}
+	require.DirExists(t, dir)
+
+	props := parquet.NewReaderProperties(memory.DefaultAllocator)
+	fileReader, err := file.OpenParquetFile(path.Join(dir, "byte_stream_split_extended.gzip.parquet"),
+		false, file.WithReadProps(props))
+	require.NoError(t, err)
+	defer fileReader.Close()
+
+	nRows := 200
+	nCols := 14
+	require.Equal(t, 1, fileReader.NumRowGroups())
+	rgr := fileReader.RowGroup(0)
+	require.EqualValues(t, nRows, rgr.NumRows())
+	require.EqualValues(t, nCols, rgr.NumColumns())
+
+	// Helper to unpack values from column of a specific type
+	getValues := func(rdr file.ColumnChunkReader, typ parquet.Type) any {
+		var (
+			vals  any
+			total int64
+			read  int
+			err   error
+		)
+
+		switch typ {
+		case parquet.Types.FixedLenByteArray:
+			r, ok := rdr.(*file.FixedLenByteArrayColumnChunkReader)
+			require.True(t, ok)
+
+			values := make([]parquet.FixedLenByteArray, nRows)
+			total, read, err = r.ReadBatch(int64(nRows), values, nil, nil)
+			vals = values
+		case parquet.Types.Float:
+			r, ok := rdr.(*file.Float32ColumnChunkReader)
+			require.True(t, ok)
+
+			values := make([]float32, nRows)
+			total, read, err = r.ReadBatch(int64(nRows), values, nil, nil)
+			vals = values
+		case parquet.Types.Double:
+			r, ok := rdr.(*file.Float64ColumnChunkReader)
+			require.True(t, ok)
+
+			values := make([]float64, nRows)
+			total, read, err = r.ReadBatch(int64(nRows), values, nil, nil)
+			vals = values
+		case parquet.Types.Int32:
+			r, ok := rdr.(*file.Int32ColumnChunkReader)
+			require.True(t, ok)
+
+			values := make([]int32, nRows)
+			total, read, err = r.ReadBatch(int64(nRows), values, nil, nil)
+			vals = values
+		case parquet.Types.Int64:
+			r, ok := rdr.(*file.Int64ColumnChunkReader)
+			require.True(t, ok)
+
+			values := make([]int64, nRows)
+			total, read, err = r.ReadBatch(int64(nRows), values, nil, nil)
+			vals = values
+		default:
+			t.Fatalf("unrecognized parquet type: %s", typ)
+		}
+
+		require.NoError(t, err)
+		require.EqualValues(t, nRows, total)
+		require.EqualValues(t, nRows, read)
+
+		return vals
+	}
+
+	// Test conformance against Parquet reference
+	// Expected structure: https://github.com/apache/parquet-testing/blob/1bf4bd39df2135d132451c281754268f03dc1c0e/data/README.md?plain=1#L358
+	for i, tc := range []struct {
+		PhysicalType parquet.Type
+		LogicalType  schema.LogicalType
+	}{
+		{
+			PhysicalType: parquet.Types.FixedLenByteArray,
+			LogicalType:  schema.Float16LogicalType{},
+		},
+		{
+			PhysicalType: parquet.Types.Float,
+			LogicalType:  schema.NoLogicalType{},
+		},
+		{
+			PhysicalType: parquet.Types.Double,
+			LogicalType:  schema.NoLogicalType{},
+		},
+		{
+			PhysicalType: parquet.Types.Int32,
+			LogicalType:  schema.NoLogicalType{},
+		},
+		{
+			PhysicalType: parquet.Types.Int64,
+			LogicalType:  schema.NoLogicalType{},
+		},
+		{
+			PhysicalType: parquet.Types.FixedLenByteArray,
+			LogicalType:  schema.NoLogicalType{},
+		},
+		{
+			PhysicalType: parquet.Types.FixedLenByteArray,
+			LogicalType:  schema.NewDecimalLogicalType(7, 3),
+		},
+	} {
+		t.Run(fmt.Sprintf("(Physical:%s/Logical:%s)", tc.PhysicalType, tc.LogicalType), func(t *testing.T) {
+			// Iterate through pairs of adjacent columns
+			colIdx := 2 * i
+
+			// Read Plain-encoded column
+			rdrPlain, err := rgr.Column(colIdx)
+			require.NoError(t, err)
+
+			// Read ByteStreamSplit-encoded column
+			rdrByteStreamSplit, err := rgr.Column(colIdx + 1)
+			require.NoError(t, err)
+
+			// Logical types match
+			require.True(t, rdrPlain.Descriptor().LogicalType().Equals(tc.LogicalType))
+			require.True(t, rdrByteStreamSplit.Descriptor().LogicalType().Equals(tc.LogicalType))
+
+			// Decoded values match
+			valuesPlain := getValues(rdrPlain, tc.PhysicalType)
+			valuesByteStreamSplit := getValues(rdrByteStreamSplit, tc.PhysicalType)
+			require.Equal(t, valuesPlain, valuesByteStreamSplit)
+		})
+	}
+}
+
+func TestDeltaBinaryPackedMultipleBatches(t *testing.T) {
+	size := 10
+	batchSize := size / 2 // write 2 batches
+
+	// Define the schema for the test data
+	fields := []arrow.Field{
+		{Name: "int64", Type: arrow.PrimitiveTypes.Int64, Nullable: true},
+	}
+	schema := arrow.NewSchema(fields, nil)
+
+	// Create a record batch with the test data
+	b := array.NewRecordBuilder(memory.DefaultAllocator, schema)
+	defer b.Release()
+
+	for i := 0; i < size; i++ {
+		b.Field(0).(*array.Int64Builder).Append(int64(i))
+	}
+	rec := b.NewRecord()
+	defer rec.Release()
+
+	// Write the data to Parquet using the file writer
+	props := parquet.NewWriterProperties(
+		parquet.WithDictionaryDefault(false),
+		parquet.WithEncoding(parquet.Encodings.DeltaBinaryPacked))
+	writerProps := pqarrow.DefaultWriterProps()
+
+	var buf bytes.Buffer
+	pw, err := pqarrow.NewFileWriter(schema, &buf, props, writerProps)
+	require.NoError(t, err)
+	require.NoError(t, pw.Write(rec))
+	require.NoError(t, pw.Close())
+
+	// Read the data back from the Parquet file
+	reader, err := file.NewParquetReader(bytes.NewReader(buf.Bytes()))
+	require.NoError(t, err)
+	defer reader.Close()
+
+	pr, err := pqarrow.NewFileReader(reader, pqarrow.ArrowReadProperties{BatchSize: int64(batchSize)}, memory.DefaultAllocator)
+	require.NoError(t, err)
+
+	rr, err := pr.GetRecordReader(context.Background(), nil, nil)
+	require.NoError(t, err)
+
+	totalRows := 0
+	for rr.Next() {
+		rec := rr.Record()
+		for i := 0; i < int(rec.NumRows()); i++ {
+			col := rec.Column(0).(*array.Int64)
+
+			val := col.Value(i)
+			require.Equal(t, val, int64(totalRows+i))
+		}
+		totalRows += int(rec.NumRows())
+	}
+
+	require.Equalf(t, size, totalRows, "Expected %d rows, but got %d rows", size, totalRows)
 }

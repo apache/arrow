@@ -145,7 +145,7 @@ cpp_functions_definitions <- arrow_exports %>%
     // {basename(file)}
     {ifdef_wrap(cpp11_wrapped, name, sexp_signature, decoration)}
     ",
-      sep = "\n",
+      sep = "\n"
     )
   }) %>%
   glue_collapse(sep = "\n")
@@ -176,7 +176,7 @@ arrow_exports_cpp <- paste0(
 static const R_CallMethodDef CallEntries[] = {
 ",
   glue::glue_collapse(glue::glue(
-    '\t\t{{ "_{features}_available", (DL_FUNC)& _{features}_available, 0 }},',
+    '\t\t{{ "_{features}_available", (DL_FUNC)& _{features}_available, 0 }},'
   ), sep = "\n"),
   glue::glue("\n
 {cpp_functions_registration}
@@ -217,7 +217,7 @@ r_functions <- arrow_exports %>%
 
     ",
       list_params = glue_collapse_data(args, "{name}"),
-      sep = "\n",
+      sep = "\n"
     )
   }) %>%
   glue_collapse(sep = "\n")

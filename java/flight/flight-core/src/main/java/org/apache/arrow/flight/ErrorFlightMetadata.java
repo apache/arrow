@@ -14,27 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight;
 
+import com.google.common.collect.Iterables;
+import com.google.common.collect.LinkedListMultimap;
+import com.google.common.collect.Multimap;
 import java.nio.charset.StandardCharsets;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
-import com.google.common.collect.Iterables;
-import com.google.common.collect.LinkedListMultimap;
-import com.google.common.collect.Multimap;
-
-/**
- * metadata container specific to the binary metadata held in the grpc trailer.
- */
+/** metadata container specific to the binary metadata held in the grpc trailer. */
 public class ErrorFlightMetadata implements CallHeaders {
   private final Multimap<String, byte[]> metadata = LinkedListMultimap.create();
 
-  public ErrorFlightMetadata() {
-  }
-
+  public ErrorFlightMetadata() {}
 
   @Override
   public String get(String key) {
@@ -48,8 +42,7 @@ public class ErrorFlightMetadata implements CallHeaders {
 
   @Override
   public Iterable<String> getAll(String key) {
-    return StreamSupport.stream(
-        getAllByte(key).spliterator(), false)
+    return StreamSupport.stream(getAllByte(key).spliterator(), false)
         .map(b -> new String(b, StandardCharsets.US_ASCII))
         .collect(Collectors.toList());
   }

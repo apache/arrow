@@ -28,7 +28,7 @@
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-using internal::Uri;
+using util::Uri;
 namespace fs {
 namespace internal {
 

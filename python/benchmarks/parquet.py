@@ -15,18 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import shutil
-import tempfile
-
-from pandas.util.testing import rands
 import numpy as np
-import pandas as pd
 
 import pyarrow as pa
 try:
     import pyarrow.parquet as pq
 except ImportError:
     pq = None
+from pyarrow.tests.util import rands
 
 
 class ParquetWriteBinary(object):

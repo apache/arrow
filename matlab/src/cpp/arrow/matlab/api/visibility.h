@@ -23,6 +23,6 @@
 #else
 #define ARROW_MATLAB_EXPORT __declspec(dllimport)
 #endif
-#else // Not Windows
+#else  // Not Windows
 #define ARROW_MATLAB_EXPORT __attribute__((visibility("default")))
 #endif

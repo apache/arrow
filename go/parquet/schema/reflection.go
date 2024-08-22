@@ -22,10 +22,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/apache/arrow/go/v16/arrow/float16"
-	"github.com/apache/arrow/go/v16/parquet"
-	format "github.com/apache/arrow/go/v16/parquet/internal/gen-go/parquet"
-	"golang.org/x/xerrors"
+	"github.com/apache/arrow/go/v18/arrow/float16"
+	"github.com/apache/arrow/go/v18/internal/utils"
+	"github.com/apache/arrow/go/v18/parquet"
+	format "github.com/apache/arrow/go/v18/parquet/internal/gen-go/parquet"
 )
 
 type taggedInfo struct {
@@ -551,7 +551,7 @@ func typeToNode(name string, typ reflect.Type, repType parquet.Repetition, info 
 // NewSchemaFromStruct generates a schema from an object type via reflection of
 // the type and reading struct tags for "parquet".
 //
-// Rules
+// # Rules
 //
 // Everything defaults to Required repetition, unless otherwise specified.
 // Pointer types become Optional repetition.
@@ -571,7 +571,7 @@ func typeToNode(name string, typ reflect.Type, repType parquet.Repetition, info 
 //
 // maps will become appropriate Map structures in the schema of the defined key and values.
 //
-// Available Tags
+// # Available Tags
 //
 // name: by default the node will have the same name as the field, this tag let's you specify a name
 //
@@ -609,14 +609,7 @@ func NewSchemaFromStruct(obj interface{}) (sc *Schema, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			sc = nil
-			switch x := r.(type) {
-			case string:
-				err = xerrors.New(x)
-			case error:
-				err = x
-			default:
-				err = xerrors.New("unknown panic")
-			}
+			err = utils.FormatRecoveredError("unknown panic", r)
 		}
 	}()
 
@@ -824,14 +817,7 @@ func NewStructFromSchema(sc *Schema) (t reflect.Type, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			t = nil
-			switch x := r.(type) {
-			case string:
-				err = xerrors.New(x)
-			case error:
-				err = x
-			default:
-				err = xerrors.New("unknown panic")
-			}
+			err = utils.FormatRecoveredError("unknown panic", r)
 		}
 	}()
 

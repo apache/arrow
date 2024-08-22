@@ -34,7 +34,7 @@ void KmsConnectionConfig::SetDefaultIfEmpty() {
   if (kms_instance_url.empty()) {
     kms_instance_url = KmsClient::kKmsInstanceUrlDefault;
   }
-  if (refreshable_key_access_token == NULL) {
+  if (refreshable_key_access_token == nullptr) {
     refreshable_key_access_token = std::make_shared<KeyAccessToken>();
   }
 }

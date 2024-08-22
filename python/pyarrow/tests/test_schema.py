@@ -83,6 +83,7 @@ def test_type_to_pandas_dtype():
 
 
 @pytest.mark.pandas
+@pytest.mark.processes
 def test_type_to_pandas_dtype_check_import():
     # ARROW-7980
     test_util.invoke_script('arrow_7980.py')
@@ -681,7 +682,8 @@ def test_schema_sizeof():
         pa.field('bar', pa.string()),
     ])
 
-    assert sys.getsizeof(schema) > 30
+    # Note: pa.schema is twice as large on 64-bit systems
+    assert sys.getsizeof(schema) > (30 if sys.maxsize > 2**32 else 15)
 
     schema2 = schema.with_metadata({"key": "some metadata"})
     assert sys.getsizeof(schema2) > sys.getsizeof(schema)

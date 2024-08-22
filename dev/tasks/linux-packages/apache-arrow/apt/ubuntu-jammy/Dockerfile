@@ -36,8 +36,8 @@ RUN \
     cmake \
     debhelper \
     devscripts \
+    gi-docgen \
     git \
-    gtk-doc-tools \
     libboost-filesystem-dev \
     libboost-system-dev \
     libbrotli-dev \
@@ -58,10 +58,12 @@ RUN \
     libssl-dev \
     libthrift-dev \
     libutf8proc-dev \
+    libxxhash-dev \
     libzstd-dev \
     llvm-dev \
     lsb-release \
     meson \
+    mold \
     ninja-build \
     nlohmann-json3-dev \
     pkg-config \

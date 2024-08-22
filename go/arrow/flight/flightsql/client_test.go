@@ -22,12 +22,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
-	"github.com/apache/arrow/go/v16/arrow/flight"
-	"github.com/apache/arrow/go/v16/arrow/flight/flightsql"
-	pb "github.com/apache/arrow/go/v16/arrow/flight/gen/flight"
-	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/array"
+	"github.com/apache/arrow/go/v18/arrow/flight"
+	"github.com/apache/arrow/go/v18/arrow/flight/flightsql"
+	pb "github.com/apache/arrow/go/v18/arrow/flight/gen/flight"
+	"github.com/apache/arrow/go/v18/arrow/memory"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
@@ -60,14 +60,29 @@ func (m *FlightServiceClientMock) AuthenticateBasicToken(_ context.Context, user
 	return args.Get(0).(context.Context), args.Error(1)
 }
 
-func (m *FlightServiceClientMock) CancelFlightInfo(ctx context.Context, request *flight.CancelFlightInfoRequest, opts ...grpc.CallOption) (flight.CancelFlightInfoResult, error) {
+func (m *FlightServiceClientMock) CancelFlightInfo(ctx context.Context, request *flight.CancelFlightInfoRequest, opts ...grpc.CallOption) (*flight.CancelFlightInfoResult, error) {
 	args := m.Called(request, opts)
-	return args.Get(0).(flight.CancelFlightInfoResult), args.Error(1)
+	return args.Get(0).(*flight.CancelFlightInfoResult), args.Error(1)
 }
 
 func (m *FlightServiceClientMock) RenewFlightEndpoint(ctx context.Context, request *flight.RenewFlightEndpointRequest, opts ...grpc.CallOption) (*flight.FlightEndpoint, error) {
 	args := m.Called(request, opts)
 	return args.Get(0).(*flight.FlightEndpoint), args.Error(1)
+}
+
+func (m *FlightServiceClientMock) SetSessionOptions(ctx context.Context, request *flight.SetSessionOptionsRequest, opts ...grpc.CallOption) (*flight.SetSessionOptionsResult, error) {
+	args := m.Called(request, opts)
+	return args.Get(0).(*flight.SetSessionOptionsResult), args.Error(1)
+}
+
+func (m *FlightServiceClientMock) GetSessionOptions(ctx context.Context, request *flight.GetSessionOptionsRequest, opts ...grpc.CallOption) (*flight.GetSessionOptionsResult, error) {
+	args := m.Called(request, opts)
+	return args.Get(0).(*flight.GetSessionOptionsResult), args.Error(1)
+}
+
+func (m *FlightServiceClientMock) CloseSession(ctx context.Context, request *flight.CloseSessionRequest, opts ...grpc.CallOption) (*flight.CloseSessionResult, error) {
+	args := m.Called(request, opts)
+	return args.Get(0).(*flight.CloseSessionResult), args.Error(1)
 }
 
 func (m *FlightServiceClientMock) Close() error {
@@ -393,24 +408,26 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecute() {
 
 func (s *FlightSqlClientSuite) TestPreparedStatementExecuteParamBinding() {
 	const query = "query"
+	const handle = "handle"
+	const updatedHandle = "updated handle"
 
 	// create and close actions
 	cmd := &pb.ActionCreatePreparedStatementRequest{Query: query}
 	action := getAction(cmd)
 	action.Type = flightsql.CreatePreparedStatementActionType
-	closeAct := getAction(&pb.ActionClosePreparedStatementRequest{PreparedStatementHandle: []byte(query)})
+	closeAct := getAction(&pb.ActionClosePreparedStatementRequest{PreparedStatementHandle: []byte(updatedHandle)})
 	closeAct.Type = flightsql.ClosePreparedStatementActionType
 
 	// results from createprepared statement
-	result := &pb.ActionCreatePreparedStatementResult{
-		PreparedStatementHandle: []byte(query),
+	actionResult := &pb.ActionCreatePreparedStatementResult{
+		PreparedStatementHandle: []byte(handle),
 	}
 	schema := arrow.NewSchema([]arrow.Field{{Name: "id", Type: arrow.PrimitiveTypes.Int64, Nullable: true}}, nil)
-	result.ParameterSchema = flight.SerializeSchema(schema, memory.DefaultAllocator)
+	actionResult.ParameterSchema = flight.SerializeSchema(schema, memory.DefaultAllocator)
 
 	// mocked client stream
 	var out anypb.Any
-	out.MarshalFrom(result)
+	out.MarshalFrom(actionResult)
 	data, _ := proto.Marshal(&out)
 
 	createRsp := &mockDoActionClient{}
@@ -428,7 +445,12 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecuteParamBinding() {
 	s.mockClient.On("DoAction", flightsql.CreatePreparedStatementActionType, action.Body, s.callOpts).Return(createRsp, nil)
 	s.mockClient.On("DoAction", flightsql.ClosePreparedStatementActionType, closeAct.Body, s.callOpts).Return(closeRsp, nil)
 
-	expectedDesc := getDesc(&pb.CommandPreparedStatementQuery{PreparedStatementHandle: []byte(query)})
+	expectedDesc := getDesc(&pb.CommandPreparedStatementQuery{PreparedStatementHandle: []byte(handle)})
+
+	// mocked DoPut result
+	doPutPreparedStatementResult := &pb.DoPutPreparedStatementResult{PreparedStatementHandle: []byte(updatedHandle)}
+	resdata, _ := proto.Marshal(doPutPreparedStatementResult)
+	putResult := &pb.PutResult{AppMetadata: resdata}
 
 	// mocked client stream for DoPut
 	mockedPut := &mockDoPutClient{}
@@ -437,9 +459,9 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecuteParamBinding() {
 		return proto.Equal(expectedDesc, fd.FlightDescriptor)
 	})).Return(nil).Twice() // first sends schema message, second sends data
 	mockedPut.On("CloseSend").Return(nil)
-	mockedPut.On("Recv").Return((*pb.PutResult)(nil), nil)
+	mockedPut.On("Recv").Return(putResult, nil)
 
-	infoCmd := &pb.CommandPreparedStatementQuery{PreparedStatementHandle: []byte(query)}
+	infoCmd := &pb.CommandPreparedStatementQuery{PreparedStatementHandle: []byte(updatedHandle)}
 	desc := getDesc(infoCmd)
 	s.mockClient.On("GetFlightInfo", desc.Type, desc.Cmd, s.callOpts).Return(&emptyFlightInfo, nil)
 
@@ -447,19 +469,20 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecuteParamBinding() {
 	s.NoError(err)
 	defer prepared.Close(context.TODO(), s.callOpts...)
 
-	s.Equal(string(prepared.Handle()), "query")
+	s.Equal(string(prepared.Handle()), handle)
 
 	paramSchema := prepared.ParameterSchema()
 	rec, _, err := array.RecordFromJSON(memory.DefaultAllocator, paramSchema, strings.NewReader(`[{"id": 1}]`))
 	s.NoError(err)
 	defer rec.Release()
 
-	s.Equal(string(prepared.Handle()), "query")
+	s.Equal(string(prepared.Handle()), handle)
 
 	prepared.SetParameters(rec)
 	info, err := prepared.Execute(context.TODO(), s.callOpts...)
 	s.NoError(err)
 	s.Equal(&emptyFlightInfo, info)
+	s.Equal(string(prepared.Handle()), updatedHandle)
 }
 
 func (s *FlightSqlClientSuite) TestPreparedStatementExecuteReaderBinding() {
@@ -501,6 +524,11 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecuteReaderBinding() {
 
 	expectedDesc := getDesc(&pb.CommandPreparedStatementQuery{PreparedStatementHandle: []byte(query)})
 
+	// mocked DoPut result
+	doPutPreparedStatementResult := &pb.DoPutPreparedStatementResult{PreparedStatementHandle: []byte(query)}
+	resdata, _ := proto.Marshal(doPutPreparedStatementResult)
+	putResult := &pb.PutResult{AppMetadata: resdata}
+
 	// mocked client stream for DoPut
 	mockedPut := &mockDoPutClient{}
 	s.mockClient.On("DoPut", s.callOpts).Return(mockedPut, nil)
@@ -513,7 +541,7 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecuteReaderBinding() {
 		return fd.FlightDescriptor == nil
 	})).Return(nil).Times(3)
 	mockedPut.On("CloseSend").Return(nil)
-	mockedPut.On("Recv").Return((*pb.PutResult)(nil), nil)
+	mockedPut.On("Recv").Return(putResult, nil)
 
 	infoCmd := &pb.CommandPreparedStatementQuery{PreparedStatementHandle: []byte(query)}
 	desc := getDesc(infoCmd)
@@ -639,10 +667,10 @@ func (s *FlightSqlClientSuite) TestCancelFlightInfo() {
 	mockedCancelResult := flight.CancelFlightInfoResult{
 		Status: flight.CancelStatusCancelled,
 	}
-	s.mockClient.On("CancelFlightInfo", &request, s.callOpts).Return(mockedCancelResult, nil)
+	s.mockClient.On("CancelFlightInfo", &request, s.callOpts).Return(&mockedCancelResult, nil)
 	cancelResult, err := s.sqlClient.CancelFlightInfo(context.TODO(), &request, s.callOpts...)
 	s.NoError(err)
-	s.Equal(mockedCancelResult, cancelResult)
+	s.Equal(&mockedCancelResult, cancelResult)
 }
 
 func (s *FlightSqlClientSuite) TestRenewFlightEndpoint() {
@@ -671,7 +699,7 @@ func (s *FlightSqlClientSuite) TestPreparedStatementLoadFromResult() {
 	result := &pb.ActionCreatePreparedStatementResult{
 		PreparedStatementHandle: []byte(query),
 	}
-	
+
 	parameterSchemaResult := arrow.NewSchema([]arrow.Field{{Name: "p_id", Type: arrow.PrimitiveTypes.Int64, Nullable: true}}, nil)
 	result.ParameterSchema = flight.SerializeSchema(parameterSchemaResult, memory.DefaultAllocator)
 	datasetSchemaResult := arrow.NewSchema([]arrow.Field{{Name: "ds_id", Type: arrow.PrimitiveTypes.Int64, Nullable: true}}, nil)

@@ -27,6 +27,12 @@ Arrays
    :project: arrow_cpp
    :members:
 
+Factory functions
+=================
+
+.. doxygengroup:: array-factories
+   :content-only:
+
 Concrete array subclasses
 =========================
 

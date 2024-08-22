@@ -19,69 +19,45 @@
 # The following S3 methods are registered on load if dplyr is present
 
 filter.arrow_dplyr_query <- function(.data, ..., .by = NULL, .preserve = FALSE) {
-  # TODO something with the .preserve argument
-  out <- as_adq(.data)
+  try_arrow_dplyr({
+    # TODO something with the .preserve argument
+    out <- as_adq(.data)
 
-  by <- compute_by({{ .by }}, out, by_arg = ".by", data_arg = ".data")
+    by <- compute_by({{ .by }}, out, by_arg = ".by", data_arg = ".data")
 
-  if (by$from_by) {
-    out$group_by_vars <- by$names
-  }
-
-  expanded_filters <- expand_across(out, quos(...))
-  if (length(expanded_filters) == 0) {
-    # Nothing to do
-    return(as_adq(.data))
-  }
-
-  # tidy-eval the filter expressions inside an Arrow data_mask
-  filters <- lapply(expanded_filters, arrow_eval, arrow_mask(out))
-  bad_filters <- map_lgl(filters, ~ inherits(., "try-error"))
-  if (any(bad_filters)) {
-    # This is similar to abandon_ship() except that the filter eval is
-    # vectorized, and we apply filters that _did_ work before abandoning ship
-    # with the rest
-    expr_labs <- map_chr(expanded_filters[bad_filters], format_expr)
-    if (query_on_dataset(out)) {
-      # Abort. We don't want to auto-collect if this is a Dataset because that
-      # could blow up, too big.
-      stop(
-        "Filter expression not supported for Arrow Datasets: ",
-        oxford_paste(expr_labs, quote = FALSE),
-        "\nCall collect() first to pull data into R.",
-        call. = FALSE
-      )
-    } else {
-      arrow_errors <- map2_chr(
-        filters[bad_filters], expr_labs,
-        handle_arrow_not_supported
-      )
-      if (length(arrow_errors) == 1) {
-        msg <- paste0(arrow_errors, "; ")
-      } else {
-        msg <- paste0("* ", arrow_errors, "\n", collapse = "")
-      }
-      warning(
-        msg, "pulling data into R",
-        immediate. = TRUE,
-        call. = FALSE
-      )
-      # Set any valid filters first, then collect and then apply the invalid ones in R
-      out <- dplyr::collect(set_filters(out, filters[!bad_filters]))
-      if (by$from_by) {
-        out <- dplyr::ungroup(out)
-      }
-      return(dplyr::filter(out, !!!expanded_filters[bad_filters], .by = {{ .by }}))
+    if (by$from_by) {
+      out$group_by_vars <- by$names
     }
-  }
 
-  out <- set_filters(out, filters)
+    expanded_filters <- expand_across(out, quos(...))
+    if (length(expanded_filters) == 0) {
+      # Nothing to do
+      return(as_adq(.data))
+    }
 
-  if (by$from_by) {
-    out$group_by_vars <- character()
-  }
+    # tidy-eval the filter expressions inside an Arrow data_mask
+    mask <- arrow_mask(out)
+    for (expr in expanded_filters) {
+      filt <- arrow_eval(expr, mask)
+      if (length(mask$.aggregations)) {
+        # dplyr lets you filter on e.g. x < mean(x), but we haven't implemented it.
+        # But we could, the same way it works in mutate() via join, if someone asks.
+        # Until then, just error.
+        # TODO: add a test for this
+        arrow_not_supported(
+          .actual_msg = "Expression not supported in filter() in Arrow",
+          call = expr
+        )
+      }
+      out <- set_filters(out, filt)
+    }
 
-  out
+    if (by$from_by) {
+      out$group_by_vars <- character()
+    }
+
+    out
+  })
 }
 filter.Dataset <- filter.ArrowTabular <- filter.RecordBatchReader <- filter.arrow_dplyr_query
 

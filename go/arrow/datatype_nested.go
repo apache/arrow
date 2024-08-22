@@ -22,7 +22,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/apache/arrow/go/v16/arrow/internal/debug"
+	"github.com/apache/arrow/go/v18/arrow/internal/debug"
 )
 
 type (
@@ -877,7 +877,7 @@ func DenseUnionFromArrays(children []Array, fields []string, codes []UnionTypeCo
 }
 
 // DenseUnionOf is equivalent to UnionOf(arrow.DenseMode, fields, typeCodes),
-// constructing a SparseUnionType from a list of fields and type codes.
+// constructing a DenseUnionType from a list of fields and type codes.
 //
 // If len(fields) != len(typeCodes) this will panic. They are allowed to be
 // of length 0.

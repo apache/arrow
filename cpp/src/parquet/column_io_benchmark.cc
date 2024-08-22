@@ -20,6 +20,7 @@
 #include "arrow/array.h"
 #include "arrow/io/memory.h"
 #include "arrow/testing/random.h"
+#include "arrow/util/config.h"
 
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
@@ -53,45 +54,57 @@ std::shared_ptr<ColumnDescriptor> Int64Schema(Repetition::type repetition) {
 }
 
 void SetBytesProcessed(::benchmark::State& state, Repetition::type repetition) {
-  int64_t bytes_processed = state.iterations() * state.range(0) * sizeof(int64_t);
+  int64_t num_values = state.iterations() * state.range(0);
+  int64_t bytes_processed = num_values * sizeof(int64_t);
   if (repetition != Repetition::REQUIRED) {
-    bytes_processed += state.iterations() * state.range(0) * sizeof(int16_t);
+    bytes_processed += num_values * sizeof(int16_t);
   }
   if (repetition == Repetition::REPEATED) {
-    bytes_processed += state.iterations() * state.range(0) * sizeof(int16_t);
+    bytes_processed += num_values * sizeof(int16_t);
   }
   state.SetBytesProcessed(bytes_processed);
+  state.SetItemsProcessed(num_values);
 }
 
-template <Repetition::type repetition,
-          Compression::type codec = Compression::UNCOMPRESSED>
-static void BM_WriteInt64Column(::benchmark::State& state) {
+static void BM_WriteInt64Column(::benchmark::State& state, Repetition::type repetition,
+                                Compression::type codec, Encoding::type encoding) {
   format::ColumnChunk thrift_metadata;
 
   ::arrow::random::RandomArrayGenerator rgen(1337);
   auto values = rgen.Int64(state.range(0), 0, 1000000, 0);
-  const auto& i8_values = static_cast<const ::arrow::Int64Array&>(*values);
+  const auto& int64_values = static_cast<const ::arrow::Int64Array&>(*values);
 
   std::vector<int16_t> definition_levels(state.range(0), 1);
   std::vector<int16_t> repetition_levels(state.range(0), 0);
   std::shared_ptr<ColumnDescriptor> schema = Int64Schema(repetition);
   std::shared_ptr<WriterProperties> properties = WriterProperties::Builder()
                                                      .compression(codec)
-                                                     ->encoding(Encoding::PLAIN)
+                                                     ->encoding(encoding)
                                                      ->disable_dictionary()
                                                      ->build();
   auto metadata = ColumnChunkMetaDataBuilder::Make(
       properties, schema.get(), reinterpret_cast<uint8_t*>(&thrift_metadata));
 
-  while (state.KeepRunning()) {
+  int64_t data_size = values->length() * sizeof(int64_t);
+  int64_t stream_size = 0;
+  for (auto _ : state) {
     auto stream = CreateOutputStream();
     std::shared_ptr<Int64Writer> writer = BuildWriter(
         state.range(0), stream, metadata.get(), schema.get(), properties.get(), codec);
-    writer->WriteBatch(i8_values.length(), definition_levels.data(),
-                       repetition_levels.data(), i8_values.raw_values());
+    writer->WriteBatch(int64_values.length(), definition_levels.data(),
+                       repetition_levels.data(), int64_values.raw_values());
     writer->Close();
+    stream_size = stream->Tell().ValueOrDie();
   }
   SetBytesProcessed(state, repetition);
+  state.counters["compression_ratio"] = static_cast<double>(data_size) / stream_size;
+}
+
+template <Repetition::type repetition,
+          Compression::type codec = Compression::UNCOMPRESSED,
+          Encoding::type encoding = Encoding::PLAIN>
+static void BM_WriteInt64Column(::benchmark::State& state) {
+  BM_WriteInt64Column(state, repetition, codec, encoding);
 }
 
 BENCHMARK_TEMPLATE(BM_WriteInt64Column, Repetition::REQUIRED)->Arg(1 << 20);
@@ -105,6 +118,12 @@ BENCHMARK_TEMPLATE(BM_WriteInt64Column, Repetition::OPTIONAL, Compression::SNAPP
     ->Arg(1 << 20);
 BENCHMARK_TEMPLATE(BM_WriteInt64Column, Repetition::REPEATED, Compression::SNAPPY)
     ->Arg(1 << 20);
+BENCHMARK_TEMPLATE(BM_WriteInt64Column, Repetition::REQUIRED, Compression::SNAPPY,
+                   Encoding::BYTE_STREAM_SPLIT)
+    ->Arg(1 << 20);
+BENCHMARK_TEMPLATE(BM_WriteInt64Column, Repetition::OPTIONAL, Compression::SNAPPY,
+                   Encoding::BYTE_STREAM_SPLIT)
+    ->Arg(1 << 20);
 #endif
 
 #ifdef ARROW_WITH_LZ4
@@ -114,6 +133,12 @@ BENCHMARK_TEMPLATE(BM_WriteInt64Column, Repetition::OPTIONAL, Compression::LZ4)
     ->Arg(1 << 20);
 BENCHMARK_TEMPLATE(BM_WriteInt64Column, Repetition::REPEATED, Compression::LZ4)
     ->Arg(1 << 20);
+BENCHMARK_TEMPLATE(BM_WriteInt64Column, Repetition::REQUIRED, Compression::LZ4,
+                   Encoding::BYTE_STREAM_SPLIT)
+    ->Arg(1 << 20);
+BENCHMARK_TEMPLATE(BM_WriteInt64Column, Repetition::OPTIONAL, Compression::LZ4,
+                   Encoding::BYTE_STREAM_SPLIT)
+    ->Arg(1 << 20);
 #endif
 
 #ifdef ARROW_WITH_ZSTD
@@ -122,6 +147,12 @@ BENCHMARK_TEMPLATE(BM_WriteInt64Column, Repetition::REQUIRED, Compression::ZSTD)
 BENCHMARK_TEMPLATE(BM_WriteInt64Column, Repetition::OPTIONAL, Compression::ZSTD)
     ->Arg(1 << 20);
 BENCHMARK_TEMPLATE(BM_WriteInt64Column, Repetition::REPEATED, Compression::ZSTD)
+    ->Arg(1 << 20);
+BENCHMARK_TEMPLATE(BM_WriteInt64Column, Repetition::REQUIRED, Compression::ZSTD,
+                   Encoding::BYTE_STREAM_SPLIT)
+    ->Arg(1 << 20);
+BENCHMARK_TEMPLATE(BM_WriteInt64Column, Repetition::OPTIONAL, Compression::ZSTD,
+                   Encoding::BYTE_STREAM_SPLIT)
     ->Arg(1 << 20);
 #endif
 
@@ -134,17 +165,20 @@ std::shared_ptr<Int64Reader> BuildReader(std::shared_ptr<Buffer>& buffer,
       ColumnReader::Make(schema, std::move(page_reader)));
 }
 
-template <Repetition::type repetition,
-          Compression::type codec = Compression::UNCOMPRESSED>
-static void BM_ReadInt64Column(::benchmark::State& state) {
+static void BM_ReadInt64Column(::benchmark::State& state, Repetition::type repetition,
+                               Compression::type codec, Encoding::type encoding) {
   format::ColumnChunk thrift_metadata;
-  std::vector<int64_t> values(state.range(0), 128);
+
+  ::arrow::random::RandomArrayGenerator rgen(1337);
+  auto values = rgen.Int64(state.range(0), 0, 1000000, 0);
+  const auto& int64_values = static_cast<const ::arrow::Int64Array&>(*values);
+
   std::vector<int16_t> definition_levels(state.range(0), 1);
   std::vector<int16_t> repetition_levels(state.range(0), 0);
   std::shared_ptr<ColumnDescriptor> schema = Int64Schema(repetition);
   std::shared_ptr<WriterProperties> properties = WriterProperties::Builder()
                                                      .compression(codec)
-                                                     ->encoding(Encoding::PLAIN)
+                                                     ->encoding(encoding)
                                                      ->disable_dictionary()
                                                      ->build();
 
@@ -154,11 +188,14 @@ static void BM_ReadInt64Column(::benchmark::State& state) {
   auto stream = CreateOutputStream();
   std::shared_ptr<Int64Writer> writer = BuildWriter(
       state.range(0), stream, metadata.get(), schema.get(), properties.get(), codec);
-  writer->WriteBatch(values.size(), definition_levels.data(), repetition_levels.data(),
-                     values.data());
+  writer->WriteBatch(int64_values.length(), definition_levels.data(),
+                     repetition_levels.data(), int64_values.raw_values());
   writer->Close();
 
   PARQUET_ASSIGN_OR_THROW(auto src, stream->Finish());
+  int64_t stream_size = src->size();
+  int64_t data_size = int64_values.length() * sizeof(int64_t);
+
   std::vector<int64_t> values_out(state.range(1));
   std::vector<int16_t> definition_levels_out(state.range(1));
   std::vector<int16_t> repetition_levels_out(state.range(1));
@@ -166,12 +203,20 @@ static void BM_ReadInt64Column(::benchmark::State& state) {
     std::shared_ptr<Int64Reader> reader =
         BuildReader(src, state.range(1), codec, schema.get());
     int64_t values_read = 0;
-    for (size_t i = 0; i < values.size(); i += values_read) {
+    for (int64_t i = 0; i < int64_values.length(); i += values_read) {
       reader->ReadBatch(values_out.size(), definition_levels_out.data(),
                         repetition_levels_out.data(), values_out.data(), &values_read);
     }
   }
   SetBytesProcessed(state, repetition);
+  state.counters["compression_ratio"] = static_cast<double>(data_size) / stream_size;
+}
+
+template <Repetition::type repetition,
+          Compression::type codec = Compression::UNCOMPRESSED,
+          Encoding::type encoding = Encoding::PLAIN>
+static void BM_ReadInt64Column(::benchmark::State& state) {
+  BM_ReadInt64Column(state, repetition, codec, encoding);
 }
 
 void ReadColumnSetArgs(::benchmark::internal::Benchmark* bench) {
@@ -196,6 +241,13 @@ BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::OPTIONAL, Compression::SNAPPY
     ->Apply(ReadColumnSetArgs);
 BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::REPEATED, Compression::SNAPPY)
     ->Apply(ReadColumnSetArgs);
+
+BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::REQUIRED, Compression::SNAPPY,
+                   Encoding::BYTE_STREAM_SPLIT)
+    ->Apply(ReadColumnSetArgs);
+BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::OPTIONAL, Compression::SNAPPY,
+                   Encoding::BYTE_STREAM_SPLIT)
+    ->Apply(ReadColumnSetArgs);
 #endif
 
 #ifdef ARROW_WITH_LZ4
@@ -205,6 +257,13 @@ BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::OPTIONAL, Compression::LZ4)
     ->Apply(ReadColumnSetArgs);
 BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::REPEATED, Compression::LZ4)
     ->Apply(ReadColumnSetArgs);
+
+BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::REQUIRED, Compression::LZ4,
+                   Encoding::BYTE_STREAM_SPLIT)
+    ->Apply(ReadColumnSetArgs);
+BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::OPTIONAL, Compression::LZ4,
+                   Encoding::BYTE_STREAM_SPLIT)
+    ->Apply(ReadColumnSetArgs);
 #endif
 
 #ifdef ARROW_WITH_ZSTD
@@ -213,6 +272,13 @@ BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::REQUIRED, Compression::ZSTD)
 BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::OPTIONAL, Compression::ZSTD)
     ->Apply(ReadColumnSetArgs);
 BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::REPEATED, Compression::ZSTD)
+    ->Apply(ReadColumnSetArgs);
+
+BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::REQUIRED, Compression::ZSTD,
+                   Encoding::BYTE_STREAM_SPLIT)
+    ->Apply(ReadColumnSetArgs);
+BENCHMARK_TEMPLATE(BM_ReadInt64Column, Repetition::OPTIONAL, Compression::ZSTD,
+                   Encoding::BYTE_STREAM_SPLIT)
     ->Apply(ReadColumnSetArgs);
 #endif
 

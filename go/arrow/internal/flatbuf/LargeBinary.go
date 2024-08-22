@@ -22,8 +22,8 @@ import (
 	flatbuffers "github.com/google/flatbuffers/go"
 )
 
-/// Same as Binary, but with 64-bit offsets, allowing to represent
-/// extremely large data values.
+// / Same as Binary, but with 64-bit offsets, allowing to represent
+// / extremely large data values.
 type LargeBinary struct {
 	_tab flatbuffers.Table
 }

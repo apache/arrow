@@ -14,24 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc.accessor.impl.text;
 
 import static java.nio.charset.StandardCharsets.US_ASCII;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import java.io.ByteArrayInputStream;
 import java.io.CharArrayReader;
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.sql.Date;
 import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.Calendar;
 import java.util.function.IntSupplier;
-
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.driver.jdbc.utils.DateTimeUtils;
@@ -39,14 +37,10 @@ import org.apache.arrow.vector.LargeVarCharVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.util.Text;
 
-/**
- * Accessor for the Arrow types: {@link VarCharVector} and {@link LargeVarCharVector}.
- */
+/** Accessor for the Arrow types: {@link VarCharVector} and {@link LargeVarCharVector}. */
 public class ArrowFlightJdbcVarCharVectorAccessor extends ArrowFlightJdbcAccessor {
 
-  /**
-   * Functional interface to help integrating VarCharVector and LargeVarCharVector.
-   */
+  /** Functional interface to help integrating VarCharVector and LargeVarCharVector. */
   @FunctionalInterface
   interface Getter {
     byte[] get(int index);
@@ -54,21 +48,24 @@ public class ArrowFlightJdbcVarCharVectorAccessor extends ArrowFlightJdbcAccesso
 
   private final Getter getter;
 
-  public ArrowFlightJdbcVarCharVectorAccessor(VarCharVector vector,
-                                              IntSupplier currentRowSupplier,
-                                              ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+  public ArrowFlightJdbcVarCharVectorAccessor(
+      VarCharVector vector,
+      IntSupplier currentRowSupplier,
+      ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
     this(vector::get, currentRowSupplier, setCursorWasNull);
   }
 
-  public ArrowFlightJdbcVarCharVectorAccessor(LargeVarCharVector vector,
-                                              IntSupplier currentRowSupplier,
-                                              ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+  public ArrowFlightJdbcVarCharVectorAccessor(
+      LargeVarCharVector vector,
+      IntSupplier currentRowSupplier,
+      ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
     this(vector::get, currentRowSupplier, setCursorWasNull);
   }
 
-  ArrowFlightJdbcVarCharVectorAccessor(Getter getter,
-                                       IntSupplier currentRowSupplier,
-                                       ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+  ArrowFlightJdbcVarCharVectorAccessor(
+      Getter getter,
+      IntSupplier currentRowSupplier,
+      ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
     super(currentRowSupplier, setCursorWasNull);
     this.getter = getter;
   }
@@ -81,7 +78,7 @@ public class ArrowFlightJdbcVarCharVectorAccessor extends ArrowFlightJdbcAccesso
   @Override
   public String getObject() {
     final byte[] bytes = getBytes();
-    return bytes == null ? null : new String(bytes, UTF_8);
+    return bytes == null ? null : new String(bytes, StandardCharsets.UTF_8);
   }
 
   @Override

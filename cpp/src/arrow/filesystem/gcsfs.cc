@@ -73,7 +73,16 @@ struct GcsPath {
     path.full_path = s;
     path.bucket = s.substr(0, first_sep);
     path.object = s.substr(first_sep + 1);
+    RETURN_NOT_OK(Validate(path));
     return path;
+  }
+
+  static Status Validate(const GcsPath& path) {
+    auto st = internal::ValidateAbstractPath(path.full_path);
+    if (!st.ok()) {
+      return Status::Invalid(st.message(), " in path ", path.full_path);
+    }
+    return Status::OK();
   }
 
   GcsPath parent() const {
@@ -751,7 +760,7 @@ GcsOptions GcsOptions::FromServiceAccountCredentials(const std::string& json_obj
   return options;
 }
 
-Result<GcsOptions> GcsOptions::FromUri(const arrow::internal::Uri& uri,
+Result<GcsOptions> GcsOptions::FromUri(const arrow::util::Uri& uri,
                                        std::string* out_path) {
   const auto bucket = uri.host();
   auto path = uri.path();
@@ -815,7 +824,7 @@ Result<GcsOptions> GcsOptions::FromUri(const arrow::internal::Uri& uri,
 
 Result<GcsOptions> GcsOptions::FromUri(const std::string& uri_string,
                                        std::string* out_path) {
-  arrow::internal::Uri uri;
+  arrow::util::Uri uri;
   RETURN_NOT_OK(uri.Parse(uri_string));
   return FromUri(uri, out_path);
 }

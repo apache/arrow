@@ -90,6 +90,17 @@ public class ArrowTypeTime32: ArrowType {
         self.unit = unit
         super.init(ArrowType.ArrowTime32)
     }
+
+    public override var cDataFormatId: String {
+        get throws {
+            switch self.unit {
+            case .milliseconds:
+                return "ttm"
+            case .seconds:
+                return "tts"
+            }
+        }
+    }
 }
 
 public class ArrowTypeTime64: ArrowType {
@@ -97,6 +108,25 @@ public class ArrowTypeTime64: ArrowType {
     public init(_ unit: ArrowTime64Unit) {
         self.unit = unit
         super.init(ArrowType.ArrowTime64)
+    }
+
+    public override var cDataFormatId: String {
+        get throws {
+            switch self.unit {
+            case .microseconds:
+                return "ttu"
+            case .nanoseconds:
+                return "ttn"
+            }
+        }
+    }
+}
+
+public class ArrowNestedType: ArrowType {
+    let fields: [ArrowField]
+    public init(_ info: ArrowType.Info, fields: [ArrowField]) {
+        self.fields = fields
+        super.init(info)
     }
 }
 
@@ -120,6 +150,7 @@ public class ArrowType {
     public static let ArrowBinary = Info.variableInfo(ArrowTypeId.binary)
     public static let ArrowTime32 = Info.timeInfo(ArrowTypeId.time32)
     public static let ArrowTime64 = Info.timeInfo(ArrowTypeId.time64)
+    public static let ArrowStruct = Info.complexInfo(ArrowTypeId.strct)
 
     public init(_ info: ArrowType.Info) {
         self.info = info
@@ -133,6 +164,8 @@ public class ArrowType {
             return id
         case .variableInfo(let id):
             return id
+        case .complexInfo(let id):
+            return id
         }
     }
 
@@ -140,6 +173,42 @@ public class ArrowType {
         case primitiveInfo(ArrowTypeId)
         case variableInfo(ArrowTypeId)
         case timeInfo(ArrowTypeId)
+        case complexInfo(ArrowTypeId)
+    }
+
+    public static func infoForType( // swiftlint:disable:this cyclomatic_complexity
+        _ type: Any.Type) -> ArrowType.Info {
+        if type == String.self {
+            return ArrowType.ArrowString
+        } else if type == Date.self {
+            return ArrowType.ArrowDate64
+        } else if type == Bool.self {
+            return ArrowType.ArrowBool
+        } else if type == Data.self {
+            return ArrowType.ArrowBinary
+        } else if type == Int8.self {
+            return ArrowType.ArrowInt8
+        } else if type == Int16.self {
+            return ArrowType.ArrowInt16
+        } else if type == Int32.self {
+            return ArrowType.ArrowInt32
+        } else if type == Int64.self {
+            return ArrowType.ArrowInt64
+        } else if type == UInt8.self {
+            return ArrowType.ArrowUInt8
+        } else if type == UInt16.self {
+            return ArrowType.ArrowUInt16
+        } else if type == UInt32.self {
+            return ArrowType.ArrowUInt32
+        } else if type == UInt64.self {
+            return ArrowType.ArrowUInt64
+        } else if type == Float.self {
+            return ArrowType.ArrowFloat
+        } else if type == Double.self {
+            return ArrowType.ArrowDouble
+        } else {
+            return ArrowType.ArrowUnknown
+        }
     }
 
     public static func infoForNumericType<T>(_ type: T.Type) -> ArrowType.Info {
@@ -205,9 +274,105 @@ public class ArrowType {
             return MemoryLayout<Int8>.stride
         case .string:
             return MemoryLayout<Int8>.stride
+        case .strct:
+            return 0
         default:
             fatalError("Stride requested for unknown type: \(self)")
         }
+    }
+
+    public var cDataFormatId: String {
+        get throws {
+            switch self.id {
+            case ArrowTypeId.int8:
+                return "c"
+            case ArrowTypeId.int16:
+                return "s"
+            case ArrowTypeId.int32:
+                return "i"
+            case ArrowTypeId.int64:
+                return "l"
+            case ArrowTypeId.uint8:
+                return "C"
+            case ArrowTypeId.uint16:
+                return "S"
+            case ArrowTypeId.uint32:
+                return "I"
+            case ArrowTypeId.uint64:
+                return "L"
+            case ArrowTypeId.float:
+                return "f"
+            case ArrowTypeId.double:
+                return "g"
+            case ArrowTypeId.boolean:
+                return "b"
+            case ArrowTypeId.date32:
+                return "tdD"
+            case ArrowTypeId.date64:
+                return "tdm"
+            case ArrowTypeId.time32:
+                if let time32 = self as? ArrowTypeTime32 {
+                    return try time32.cDataFormatId
+                }
+                return "tts"
+            case ArrowTypeId.time64:
+                if let time64 = self as? ArrowTypeTime64 {
+                    return try time64.cDataFormatId
+                }
+                return "ttu"
+            case ArrowTypeId.binary:
+                return "z"
+            case ArrowTypeId.string:
+                return "u"
+            default:
+                throw ArrowError.notImplemented
+            }
+        }
+    }
+
+    public static func fromCDataFormatId( // swiftlint:disable:this cyclomatic_complexity
+        _ from: String) throws -> ArrowType {
+        if from == "c" {
+            return ArrowType(ArrowType.ArrowInt8)
+        } else if from == "s" {
+            return ArrowType(ArrowType.ArrowInt16)
+        } else if from == "i" {
+            return ArrowType(ArrowType.ArrowInt32)
+        } else if  from == "l" {
+            return ArrowType(ArrowType.ArrowInt64)
+        } else if  from == "C" {
+            return ArrowType(ArrowType.ArrowUInt8)
+        } else if  from == "S" {
+            return ArrowType(ArrowType.ArrowUInt16)
+        } else if  from == "I" {
+            return ArrowType(ArrowType.ArrowUInt32)
+        } else if  from == "L" {
+            return ArrowType(ArrowType.ArrowUInt64)
+        } else if  from == "f" {
+            return ArrowType(ArrowType.ArrowFloat)
+        } else if  from == "g" {
+            return ArrowType(ArrowType.ArrowDouble)
+        } else if  from == "b" {
+            return ArrowType(ArrowType.ArrowBool)
+        } else if  from == "tdD" {
+            return ArrowType(ArrowType.ArrowDate32)
+        } else if  from == "tdm" {
+            return ArrowType(ArrowType.ArrowDate64)
+        } else if  from == "tts" {
+            return ArrowTypeTime32(.seconds)
+        } else if  from == "ttm" {
+            return ArrowTypeTime32(.milliseconds)
+        } else if  from == "ttu" {
+            return ArrowTypeTime64(.microseconds)
+        } else if  from == "ttn" {
+            return ArrowTypeTime64(.nanoseconds)
+        } else if  from == "z" {
+            return ArrowType(ArrowType.ArrowBinary)
+        } else if  from == "u" {
+            return ArrowType(ArrowType.ArrowString)
+        }
+
+        throw ArrowError.notImplemented
     }
 }
 
@@ -235,3 +400,4 @@ func getBytesFor<T>(_ data: T) -> Data? {
         return nil
     }
 }
+// swiftlint:disable:this file_length

@@ -21,6 +21,10 @@ set -ex
 
 source_dir=${1}/go
 
+if [ -n "${ARROW_PYTHON_VENV:-}" ]; then
+  . "${ARROW_PYTHON_VENV}/bin/activate"
+fi
+
 export GOFLAGS="${GOFLAGS} -gcflags=all=-d=checkptr"
 
 pushd ${source_dir}/arrow/cdata/test

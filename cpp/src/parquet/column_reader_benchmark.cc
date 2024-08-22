@@ -56,6 +56,7 @@ class BenchmarkHelper {
     for (const auto& page : pages_) {
       total_size_ += page->size();
     }
+    total_levels_ = static_cast<int64_t>(num_pages) * levels_per_page;
   }
 
   Int32Reader* ResetColumnReader() {
@@ -80,6 +81,8 @@ class BenchmarkHelper {
 
   int64_t total_size() const { return total_size_; }
 
+  int64_t total_levels() const { return total_levels_; }
+
  private:
   std::vector<std::shared_ptr<Page>> pages_;
   std::unique_ptr<ColumnDescriptor> descr_;
@@ -88,6 +91,7 @@ class BenchmarkHelper {
   // Reader for record reader benchmarks.
   std::shared_ptr<RecordReader> record_reader_;
   int64_t total_size_ = 0;
+  int64_t total_levels_ = 0;
 };
 
 // Benchmarks Skip for ColumnReader with the following parameters in order:
@@ -165,6 +169,7 @@ static void RecordReaderReadRecords(::benchmark::State& state) {
   }
 
   state.SetBytesProcessed(state.iterations() * helper.total_size());
+  state.SetItemsProcessed(state.iterations() * helper.total_levels());
 }
 
 // Benchmarks SkipRecords for RecordReader with the following parameters in order:
@@ -190,6 +195,40 @@ static void RecordReaderSkipRecords(::benchmark::State& state) {
   }
 
   state.SetBytesProcessed(state.iterations() * helper.total_size());
+  state.SetItemsProcessed(state.iterations() * helper.total_levels());
+}
+
+// Benchmarks ReadRecords and SkipRecords for RecordReader with the following parameters
+// in order:
+// - repetition: 0 for REQUIRED, 1 for OPTIONAL, 2 for REPEATED.
+// - batch_size: sets how many values to read/skip at each call.
+// - levels_per_page: sets how many levels to read/skip in total.
+static void RecordReaderReadAndSkipRecords(::benchmark::State& state) {
+  const auto repetition = static_cast<Repetition::type>(state.range(0));
+  const auto batch_size = static_cast<int64_t>(state.range(1));
+  const auto levels_per_page = static_cast<int>(state.range(2));
+
+  BenchmarkHelper helper(repetition, /*num_pages=*/16, levels_per_page);
+
+  // Vectors to read the values into.
+  for (auto _ : state) {
+    state.PauseTiming();
+    // read_dense_for_nullable should not matter for skip.
+    RecordReader* reader = helper.ResetRecordReader(/*read_dense_for_nullable=*/false);
+    int64_t records_read = -1;
+    int64_t records_skipped = -1;
+    state.ResumeTiming();
+    while (records_read != 0 && records_skipped != 0) {
+      // ReadRecords may buffer some levels which will be skipped by the following
+      // SkipRecords.
+      DoNotOptimize(records_read = reader->ReadRecords(batch_size));
+      DoNotOptimize(records_skipped = reader->SkipRecords(batch_size));
+      reader->Reset();
+    }
+  }
+
+  state.SetBytesProcessed(state.iterations() * helper.total_size());
+  state.SetItemsProcessed(state.iterations() * helper.total_levels());
 }
 
 BENCHMARK(ColumnReaderSkipInt32)
@@ -218,6 +257,18 @@ BENCHMARK(RecordReaderReadRecords)
     ->Args({1, 1000, false})
     ->Args({2, 1000, true})
     ->Args({2, 1000, false});
+
+BENCHMARK(RecordReaderReadAndSkipRecords)
+    ->ArgNames({"Repetition", "BatchSize", "LevelsPerPage"})
+    ->Args({0, 10, 80000})
+    ->Args({0, 1000, 80000})
+    ->Args({0, 10000, 1000000})
+    ->Args({1, 10, 80000})
+    ->Args({1, 1000, 80000})
+    ->Args({1, 10000, 1000000})
+    ->Args({2, 10, 80000})
+    ->Args({2, 100, 80000})
+    ->Args({2, 10000, 1000000});
 
 void GenerateLevels(int level_repeats, int max_level, int num_levels,
                     std::vector<int16_t>* levels) {

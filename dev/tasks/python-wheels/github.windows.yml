@@ -33,8 +33,8 @@ jobs:
       # note that we don't run docker build since there wouldn't be a cache hit
       # and rebuilding the dependencies takes a fair amount of time
       REPO: ghcr.io/ursacomputing/arrow
-      # prefer the docker cli over docker-compose
-      ARCHERY_USE_DOCKER_CLI: 1
+      # BuildKit isn't really supported on Windows for now
+      DOCKER_BUILDKIT: 0
 
     steps:
       {{ macros.github_checkout_arrow()|indent }}

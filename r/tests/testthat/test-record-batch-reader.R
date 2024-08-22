@@ -179,10 +179,11 @@ test_that("RBR methods", {
   expect_output(
     print(reader),
     "RecordBatchStreamReader
+2 columns
 x: int32
 y: string"
   )
-  expect_equal(names(reader), c("x", "y"))
+  expect_named(reader, c("x", "y"))
   expect_identical(dim(reader), c(NA_integer_, 2L))
 
   expect_equal(

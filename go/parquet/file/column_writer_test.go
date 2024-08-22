@@ -24,22 +24,22 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
-	"github.com/apache/arrow/go/v16/arrow/bitutil"
-	"github.com/apache/arrow/go/v16/arrow/memory"
-	arrutils "github.com/apache/arrow/go/v16/internal/utils"
-	"github.com/apache/arrow/go/v16/parquet"
-	"github.com/apache/arrow/go/v16/parquet/compress"
-	"github.com/apache/arrow/go/v16/parquet/file"
-	"github.com/apache/arrow/go/v16/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v16/parquet/internal/encryption"
-	format "github.com/apache/arrow/go/v16/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v16/parquet/internal/testutils"
-	"github.com/apache/arrow/go/v16/parquet/internal/utils"
-	"github.com/apache/arrow/go/v16/parquet/metadata"
-	"github.com/apache/arrow/go/v16/parquet/pqarrow"
-	"github.com/apache/arrow/go/v16/parquet/schema"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/array"
+	"github.com/apache/arrow/go/v18/arrow/bitutil"
+	"github.com/apache/arrow/go/v18/arrow/memory"
+	arrutils "github.com/apache/arrow/go/v18/internal/utils"
+	"github.com/apache/arrow/go/v18/parquet"
+	"github.com/apache/arrow/go/v18/parquet/compress"
+	"github.com/apache/arrow/go/v18/parquet/file"
+	"github.com/apache/arrow/go/v18/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v18/parquet/internal/encryption"
+	format "github.com/apache/arrow/go/v18/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v18/parquet/internal/testutils"
+	"github.com/apache/arrow/go/v18/parquet/internal/utils"
+	"github.com/apache/arrow/go/v18/parquet/metadata"
+	"github.com/apache/arrow/go/v18/parquet/pqarrow"
+	"github.com/apache/arrow/go/v18/parquet/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
@@ -430,6 +430,11 @@ func (p *PrimitiveWriterTestSuite) testDictionaryFallbackEncoding(version parque
 }
 
 func (p *PrimitiveWriterTestSuite) testDictionaryFallbackAndCompressedSize(version parquet.Version) {
+	// skip boolean as dictionary encoding is not used
+	if p.Typ.Kind() == reflect.Bool {
+		return
+	}
+
 	p.GenerateData(SmallSize)
 	props := parquet.DefaultColumnProperties()
 	props.DictionaryEnabled = true
@@ -440,17 +445,27 @@ func (p *PrimitiveWriterTestSuite) testDictionaryFallbackAndCompressedSize(versi
 		props.Encoding = parquet.Encodings.RLEDict
 	}
 
-	writer := p.buildWriter(SmallSize, props, parquet.WithVersion(version))
+	writer := p.buildWriter(SmallSize, props, parquet.WithVersion(version), parquet.WithDataPageSize(SmallSize-1))
 	p.WriteBatchValues(writer, nil, nil)
+	p.NotZero(writer.TotalBytesWritten())
 	writer.FallbackToPlain()
-	p.NotEqual(0, writer.TotalCompressedBytes())
+	p.NotZero(writer.TotalCompressedBytes())
 	writer.Close()
-	p.NotEqual(0, writer.TotalCompressedBytes())
-	p.NotEqual(0, writer.TotalBytesWritten())
+	p.NotZero(writer.TotalCompressedBytes())
+	p.NotZero(writer.TotalBytesWritten())
 }
 
 func (p *PrimitiveWriterTestSuite) TestRequiredPlain() {
 	p.testRequiredWithEncoding(parquet.Encodings.Plain)
+}
+
+func (p *PrimitiveWriterTestSuite) TestRequiredByteStreamSplit() {
+	switch p.Typ {
+	case reflect.TypeOf(float32(0)), reflect.TypeOf(float64(0)), reflect.TypeOf(int32(0)), reflect.TypeOf(int64(0)), reflect.TypeOf(parquet.FixedLenByteArray{}):
+		p.testRequiredWithEncoding(parquet.Encodings.ByteStreamSplit)
+	default:
+		p.Panics(func() { p.testRequiredWithEncoding(parquet.Encodings.ByteStreamSplit) })
+	}
 }
 
 func (p *PrimitiveWriterTestSuite) TestRequiredDictionary() {
