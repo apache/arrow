@@ -24,6 +24,7 @@
 
 #include "arrow/acero/test_util_internal.h"
 #include "arrow/compute/api_aggregate.h"
+#include "arrow/compute/api.h"
 #include "arrow/result.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
@@ -42,6 +43,93 @@ Result<std::shared_ptr<Table>> TableGroupBy(
       {{"table_source", TableSourceNodeOptions(std::move(table))},
        {"aggregate", AggregateNodeOptions(std::move(aggregates), std::move(keys))}});
   return DeclarationToTable(std::move(plan), use_threads, memory_pool);
+}
+
+TEST(GroupBy, VarArgKernel) {
+  // test hash aggregate should be able to resolve function with var args inputs
+  // group
+  struct EmptyKernel : compute::KernelState {};
+  auto Init = [](compute::KernelContext *, const compute::KernelInitArgs&) ->
+      arrow::Result<std::unique_ptr<compute::KernelState>> {
+    return std::make_unique<EmptyKernel>();
+  };
+  auto Resize = [](compute::KernelContext*, int64_t) -> Status {
+    return Status::OK();
+  };
+  auto Consume = [](compute::KernelContext*, const compute::ExecSpan&) -> Status {
+    return Status::OK();
+  };
+  auto Merge = [](compute::KernelContext*,compute::KernelState&&,const ArrayData&)
+  -> Status {
+    return Status::OK();
+  };
+  auto Finalize = [](compute::KernelContext*, Datum*) -> Status {
+    return Status::OK();
+  };
+  compute::FunctionDoc doc {"udf_var_arg", "a udf with var arg",
+                           {"group_id", "z", "x..."},
+                           "ScalarAggregateOptions"};
+  auto func = std::make_shared<compute::HashAggregateFunction>(
+      "udf_var_arg",
+      compute::Arity(2,true),
+      std::move(doc)
+      );
+  // add first kernel for args = {bool, i64...}
+  auto sig_i64 = compute::KernelSignature::Make({
+                                                    arrow::uint32(),
+                                                    arrow::uint8(),
+                                                    arrow::int64()},
+                                                arrow::int64(),
+                                                /*var_arg*/true);
+  compute::HashAggregateKernel ker_i64 {std::move(sig_i64), Init, Resize, Consume,
+                                       Merge, Finalize, false};
+  ASSERT_OK(func->AddKernel(std::move(ker_i64)));
+
+  // add second kernel for args = {bool, f64...}
+  auto sig_f64 = compute::KernelSignature::Make({
+                                                    arrow::uint32(),
+                                                    arrow::uint8(),
+                                                 arrow::float64()},
+                                                arrow::float64(),
+                                                /*var_arg*/true);
+  compute::HashAggregateKernel ker_f64 {std::move(sig_f64), Init, Resize, Consume,
+                                       Merge, Finalize, false};
+  ASSERT_OK(func->AddKernel(std::move(ker_f64)));
+  ASSERT_OK(compute::GetFunctionRegistry()->AddFunction(std::move(func)));
+
+  // declare plan and should validate
+  auto input_schema = arrow::schema({field("key", utf8()),
+                                     field("z", uint8()),
+                                     field("i_1", int64()),
+                                     field("i_2", int64()),
+                                     field("f_1", float64())});
+
+  // aggr1, aggr2 should resolve to the same function
+  std::vector<FieldRef> var_arg_i64_input;
+  var_arg_i64_input.emplace_back("z");
+  var_arg_i64_input.emplace_back("i_1");
+  var_arg_i64_input.emplace_back("i_2");
+  Aggregate agg_1 {"udf_var_arg", std::make_shared<compute::ScalarAggregateOptions>(),
+      std::move(var_arg_i64_input), "o_i64"};
+
+  std::vector<FieldRef> var_arg_f64_input;
+  var_arg_f64_input.emplace_back("z");
+  var_arg_f64_input.emplace_back("f_1");
+  Aggregate agg_2 {"udf_var_arg", std::make_shared<compute::ScalarAggregateOptions>(),
+                  std::move(var_arg_f64_input), "o_f64"};
+  std::vector<arrow::FieldRef> gr_keys;
+  gr_keys.emplace_back("key");
+
+  AsyncGenerator<std::optional<compute::ExecBatch>> source_gen, sink_gen;
+  auto decl = acero::Declaration::Sequence({
+      {"source", acero::SourceNodeOptions{input_schema, source_gen}},
+      {"aggregate", acero::AggregateNodeOptions{{agg_1, agg_2}, std::move(gr_keys)}},
+      {"sink", acero::SinkNodeOptions{&sink_gen}}
+  });
+
+  ASSERT_OK_AND_ASSIGN(auto plan, acero::ExecPlan::Make())
+  ASSERT_OK(decl.AddToPlan(plan.get()));
+  ASSERT_OK(plan->Validate());
 }
 
 TEST(GroupByConvenienceFunc, Basic) {
