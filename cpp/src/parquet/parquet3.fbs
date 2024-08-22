@@ -168,7 +168,6 @@ table ColumnMetadata {
 
 table ColumnChunk {
   file_path: string;
-  file_offset: long;
   meta_data: ColumnMetadata;
   // crypto_metadata: ColumnCryptoMetadata;  // TODO
   // encrypted_column_metadata: [byte];  // TODO

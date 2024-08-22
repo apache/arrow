@@ -1339,14 +1339,10 @@ struct ColumnChunk FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef ColumnChunkBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_FILE_PATH = 4,
-    VT_FILE_OFFSET = 6,
-    VT_META_DATA = 8
+    VT_META_DATA = 6
   };
   const ::flatbuffers::String *file_path() const {
     return GetPointer<const ::flatbuffers::String *>(VT_FILE_PATH);
-  }
-  int64_t file_offset() const {
-    return GetField<int64_t>(VT_FILE_OFFSET, 0);
   }
   const parquet::format3::ColumnMetadata *meta_data() const {
     return GetPointer<const parquet::format3::ColumnMetadata *>(VT_META_DATA);
@@ -1355,7 +1351,6 @@ struct ColumnChunk FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_FILE_PATH) &&
            verifier.VerifyString(file_path()) &&
-           VerifyField<int64_t>(verifier, VT_FILE_OFFSET, 8) &&
            VerifyOffset(verifier, VT_META_DATA) &&
            verifier.VerifyTable(meta_data()) &&
            verifier.EndTable();
@@ -1368,9 +1363,6 @@ struct ColumnChunkBuilder {
   ::flatbuffers::uoffset_t start_;
   void add_file_path(::flatbuffers::Offset<::flatbuffers::String> file_path) {
     fbb_.AddOffset(ColumnChunk::VT_FILE_PATH, file_path);
-  }
-  void add_file_offset(int64_t file_offset) {
-    fbb_.AddElement<int64_t>(ColumnChunk::VT_FILE_OFFSET, file_offset, 0);
   }
   void add_meta_data(::flatbuffers::Offset<parquet::format3::ColumnMetadata> meta_data) {
     fbb_.AddOffset(ColumnChunk::VT_META_DATA, meta_data);
@@ -1389,10 +1381,8 @@ struct ColumnChunkBuilder {
 inline ::flatbuffers::Offset<ColumnChunk> CreateColumnChunk(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     ::flatbuffers::Offset<::flatbuffers::String> file_path = 0,
-    int64_t file_offset = 0,
     ::flatbuffers::Offset<parquet::format3::ColumnMetadata> meta_data = 0) {
   ColumnChunkBuilder builder_(_fbb);
-  builder_.add_file_offset(file_offset);
   builder_.add_meta_data(meta_data);
   builder_.add_file_path(file_path);
   return builder_.Finish();
@@ -1401,13 +1391,11 @@ inline ::flatbuffers::Offset<ColumnChunk> CreateColumnChunk(
 inline ::flatbuffers::Offset<ColumnChunk> CreateColumnChunkDirect(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     const char *file_path = nullptr,
-    int64_t file_offset = 0,
     ::flatbuffers::Offset<parquet::format3::ColumnMetadata> meta_data = 0) {
   auto file_path__ = file_path ? _fbb.CreateString(file_path) : 0;
   return parquet::format3::CreateColumnChunk(
       _fbb,
       file_path__,
-      file_offset,
       meta_data);
 }
 
