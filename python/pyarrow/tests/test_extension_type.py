@@ -269,14 +269,14 @@ def test_ext_type_repr():
     assert repr(ty) == "IntegerType(DataType(int64))"
 
 
-def test_ext_type__lifetime():
+def test_ext_type_lifetime():
     ty = ExampleUuidType()
     wr = weakref.ref(ty)
     del ty
     assert wr() is None
 
 
-def test_ext_type__storage_type():
+def test_ext_type_storage_type():
     ty = ExampleUuidType()
     assert ty.storage_type == pa.binary(16)
     assert ty.__class__ is ExampleUuidType
@@ -351,6 +351,16 @@ def test_uuid_type_pickle(pickle_module):
         ty = pickle_module.loads(ser)
         wr = weakref.ref(ty)
         assert ty.extension_name == "pyarrow.tests.ExampleUuidType"
+        del ty
+        assert wr() is None
+
+    for proto in range(0, pickle_module.HIGHEST_PROTOCOL + 1):
+        ty = pa.uuid()
+        ser = pickle_module.dumps(ty, protocol=proto)
+        del ty
+        ty = pickle_module.loads(ser)
+        wr = weakref.ref(ty)
+        assert ty.extension_name == "arrow.uuid"
         del ty
         assert wr() is None
 

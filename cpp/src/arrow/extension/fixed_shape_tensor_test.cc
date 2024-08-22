@@ -23,6 +23,7 @@
 #include "arrow/array/array_primitive.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
+#include "arrow/ipc/test_common.h"
 #include "arrow/record_batch.h"
 #include "arrow/tensor.h"
 #include "arrow/testing/gtest_util.h"
@@ -32,6 +33,7 @@
 namespace arrow {
 
 using FixedShapeTensorType = extension::FixedShapeTensorType;
+using arrow::ipc::test::RoundtripBatch;
 using extension::fixed_shape_tensor;
 using extension::FixedShapeTensorArray;
 

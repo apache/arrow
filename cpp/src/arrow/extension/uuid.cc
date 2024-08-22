@@ -15,13 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <sstream>
+
 #include "arrow/extension_type.h"
 #include "arrow/util/logging.h"
 
 #include "arrow/extension/uuid.h"
 
-namespace arrow {
-namespace extension {
+namespace arrow::extension {
 
 bool UuidType::ExtensionEquals(const ExtensionType& other) const {
   return (other.extension_name() == this->extension_name());
@@ -46,7 +47,12 @@ Result<std::shared_ptr<DataType>> UuidType::Deserialize(
   return std::make_shared<UuidType>();
 }
 
+std::string UuidType::ToString(bool show_metadata) const {
+  std::stringstream ss;
+  ss << "extension<" << this->extension_name() << ">";
+  return ss.str();
+}
+
 std::shared_ptr<DataType> uuid() { return std::make_shared<UuidType>(); }
 
-}  // namespace extension
-}  // namespace arrow
+}  // namespace arrow::extension

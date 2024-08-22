@@ -1774,24 +1774,11 @@ cdef class UuidType(BaseExtensionType):
         BaseExtensionType.init(self, type)
         self.uuid_ext_type = <const CUuidType*> type.get()
 
-    def __arrow_ext_serialize__(self):
-        """
-        Serialized representation of metadata to reconstruct the type object.
-        """
-        return self.uuid_ext_type.Serialize()
-
-    @classmethod
-    def __arrow_ext_deserialize__(self, storage_type, serialized):
-        """
-        Return an UuidType instance from the storage type.
-        """
-        return self.uuid_ext_type.Deserialize(storage_type, serialized)
-
     def __arrow_ext_class__(self):
         return UuidArray
 
     def __reduce__(self):
-        return uuid, (self.value_type,)
+        return uuid, ()
 
     def __arrow_ext_scalar_class__(self):
         return UuidScalar
