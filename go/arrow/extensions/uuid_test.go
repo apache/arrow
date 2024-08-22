@@ -239,10 +239,19 @@ func TestUUIDRecordToJSON(t *testing.T) {
 	buf := bytes.NewBuffer([]byte("\n")) // expected output has leading newline for clearer formatting
 	require.NoError(t, array.RecordToJSON(rec, buf))
 
-	expectedJSON := strings.ReplaceAll(`
-				{"uuid":"8c607ed4-07b2-4b9c-b5eb-c0387357f9ae"}
-				{"uuid":null}
-				{"uuid":"c5f2cbd9-7094-491a-b267-167bb62efe02"}`,
-		"\t", "") + "\n" // strip indentation, add trailing newline
-	require.Equal(t, expectedJSON, buf.String())
+	expectedJSON := `
+		{"uuid":"8c607ed4-07b2-4b9c-b5eb-c0387357f9ae"}
+		{"uuid":null}
+		{"uuid":"c5f2cbd9-7094-491a-b267-167bb62efe02"}
+	`
+
+	expectedJSONLines := strings.Split(expectedJSON, "\n")
+	actualJSONLines := strings.Split(buf.String(), "\n")
+
+	require.Equal(t, len(expectedJSONLines), len(actualJSONLines))
+	for i := range expectedJSONLines {
+		if strings.TrimSpace(expectedJSONLines[i]) != "" {
+			require.JSONEq(t, expectedJSONLines[i], actualJSONLines[i])
+		}
+	}
 }

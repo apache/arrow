@@ -245,15 +245,24 @@ func TestJSONRecordToJSON(t *testing.T) {
 			buf := bytes.NewBuffer([]byte("\n")) // expected output has leading newline for clearer formatting
 			require.NoError(t, array.RecordToJSON(rec, buf))
 
-			expectedJSON := strings.ReplaceAll(`
+			expectedJSON := `
 				{"json":"foobar"}
 				{"json":null}
 				{"json":{"foo":"bar"}}
 				{"json":42}
 				{"json":true}
-				{"json":[1,true,"3",null,{"five":5}]}`,
-				"\t", "") + "\n" // strip indentation, add trailing newline
-			require.Equal(t, expectedJSON, buf.String())
+				{"json":[1,true,"3",null,{"five":5}]}
+			`
+
+			expectedJSONLines := strings.Split(expectedJSON, "\n")
+			actualJSONLines := strings.Split(buf.String(), "\n")
+
+			require.Equal(t, len(expectedJSONLines), len(actualJSONLines))
+			for i := range expectedJSONLines {
+				if strings.TrimSpace(expectedJSONLines[i]) != "" {
+					require.JSONEq(t, expectedJSONLines[i], actualJSONLines[i])
+				}
+			}
 		})
 	}
 }

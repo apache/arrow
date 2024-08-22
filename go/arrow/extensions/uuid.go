@@ -34,6 +34,8 @@ type UUIDBuilder struct {
 	*array.ExtensionBuilder
 }
 
+// NewUUIDBuilder creates a new UUIDBuilder, exposing a convenient and efficient interface
+// for writing uuid.UUID (or [16]byte) values to the underlying FixedSizeBinary storage array.
 func NewUUIDBuilder(mem memory.Allocator) *UUIDBuilder {
 	return &UUIDBuilder{ExtensionBuilder: array.NewExtensionBuilder(mem, NewUUIDType())}
 }
