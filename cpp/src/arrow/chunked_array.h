@@ -194,8 +194,7 @@ class ARROW_EXPORT ChunkedArray {
   /// \brief Return the device_type that this chunked array's data is allocated
   /// on.
   ///
-  /// This just delegates to calling device_type on the underlying ArrayData
-  /// object which backs this Array.
+  /// This just delegates to calling device_type on the underlying chunks.
   ///
   /// \return DeviceAllocationType
   DeviceAllocationType device_type() const { return device_type_; }
