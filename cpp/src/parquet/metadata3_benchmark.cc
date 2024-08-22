@@ -117,18 +117,23 @@
 // 5/large-footer2: num-rgs=4 num-cols=2930 thrift=2248476 flatbuf=1781344
 //
 //
+// Optimize statistics further. Only allow 4/8 byte values. Add common prefix.
+// Remove distinct_count.
+//
+// 0/amazon_apparel.footer: num-rgs=1182 num-cols=16 thrift=2158995 flatbuf=1350760
+// 1/amazon_movie_tv.footer: num-rgs=3 num-cols=18 thrift=22578 flatbuf=5192
+// 2/amazon_polarity.footer: num-rgs=900 num-cols=4 thrift=1074313 flatbuf=235368
+// 3/amazon_reviews_books.footer: num-rgs=159 num-cols=44 thrift=767840 flatbuf=238656
+// 4/large-footer1: num-rgs=23 num-cols=2001 thrift=3253741 flatbuf=3329632
+// 5/large-footer2: num-rgs=4 num-cols=2930 thrift=2248476 flatbuf=1165112
+//
+//
 
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #pragma GCC diagnostic ignored "-Wunused-function"
 
 namespace parquet {
 namespace {
-
-template <typename... T>
-struct Overload : T... {
-  using T::operator()...;
-};
-template <typename... T> Overload(T...) -> Overload<T...>;
 
 class ThriftConverter {
  public:
@@ -149,8 +154,6 @@ class ThriftConverter {
     for (auto&& e : *in) out.push_back((*this)(e, std::forward<Args>(args)..., idx++));
     return out;
   }
-
-  auto operator()(const flatbuffers::String* s, int) { return s->str(); }
 
   auto operator()(format3::TimeUnit t) {
     format::TimeUnit out;
@@ -281,24 +284,30 @@ class ThriftConverter {
 
   auto operator()(const format3::KV* kv, int) {
     format::KeyValue out;
-    if (kv->key()->size() != 0) out.__set_key(kv->key()->str());
-    if (kv->val()->size() != 0) out.__set_value(kv->val()->str());
+    if (kv->key()->size() != 0) out.key = kv->key()->str();
+    if (kv->val()->size() != 0) {
+      out.__isset.value = true;
+      out.value = kv->val()->str();
+    }
     return out;
   }
 
-  auto ToString(const flatbuffers::Vector<signed char>* v) {
-    if (!v) return std::string();
-    return std::string(reinterpret_cast<const char*>(v->data()), v->size());
+  void Append(std::string* out, uint32_t x) {
+    x = ::arrow::bit_util::FromLittleEndian(x);
+    out->append(reinterpret_cast<const char*>(&x), 4);
   }
 
-  auto ToString(uint32_t v) {
-    uint32_t x = ::arrow::bit_util::FromLittleEndian(v);
-    return std::string(reinterpret_cast<const char*>(&x), 4);
+  void Append(std::string* out, uint64_t x) {
+    x = ::arrow::bit_util::FromLittleEndian(x);
+    out->append(reinterpret_cast<const char*>(&x), 8);
   }
 
-  auto ToString(uint64_t v) {
-    uint64_t x = ::arrow::bit_util::FromLittleEndian(v);
-    return std::string(reinterpret_cast<const char*>(&x), 8);
+  void Append(std::string* out, std::string_view prefix, uint64_t x, int len) {
+    x = ::arrow::bit_util::FromBigEndian(x);
+    out->reserve(prefix.size() + 8);
+    out->append(prefix.data(), prefix.size());
+    out->append(reinterpret_cast<char*>(&x), 8);
+    out->erase(prefix.size() + len);
   }
 
   auto operator()(const format3::Statistics* s, int rg_idx, int col_idx) {
@@ -307,34 +316,45 @@ class ThriftConverter {
       out.__isset.null_count = true;
       out.null_count = *s->null_count();
     }
-    if (s->distinct_count()) {
-      out.__isset.distinct_count = true;
-      out.distinct_count = *s->distinct_count();
-    }
     auto type = md_->schema()->Get(col_idx)->type();
     if (type) {
       switch (*type) {
-        case format3::Type::BOOLEAN:
-          out.max_value = std::string(1, s->max1());
-          out.min_value = std::string(1, s->min1());
-          break;
         case format3::Type::INT32:
         case format3::Type::FLOAT:
-          out.max_value = ToString(s->max4());
-          out.min_value = ToString(s->min4());
+          if (s->max4()) {
+            out.__isset.max_value = true;
+            Append(&out.max_value, *s->max4());
+          }
+          if (s->min4()) {
+            out.__isset.min_value = true;
+            Append(&out.min_value, *s->min4());
+          }
           break;
         case format3::Type::INT64:
         case format3::Type::DOUBLE:
-          out.max_value = ToString(s->max8());
-          out.min_value = ToString(s->min8());
+          if (s->max8()) {
+            out.__isset.max_value = true;
+            Append(&out.max_value, *s->max8());
+          }
+          if (s->min8()) {
+            out.__isset.min_value = true;
+            Append(&out.min_value, *s->min8());
+          }
           break;
-        default:
-          out.max_value = ToString(s->max_value());
-          out.min_value = ToString(s->min_value());
+        default: {
+          int min_len = s->lens() & 0xf, max_len = (s->lens() >> 4) & 0xf;
+          auto prefix = flatbuffers::GetStringView(s->prefix());
+          if (prefix.size() + max_len > 0) {
+            out.__isset.max_value = true;
+            Append(&out.max_value, prefix, *s->max8(), max_len);
+          }
+          if (prefix.size() + min_len > 0) {
+            out.__isset.min_value = true;
+            Append(&out.min_value, prefix, *s->min8(), min_len);
+          }
+        }
       }
     }
-    out.is_max_value_exact = s->is_max_value_exact();
-    out.is_min_value_exact = s->is_min_value_exact();
     return out;
   }
 
@@ -551,12 +571,13 @@ class FlatbufferConverter {
   }
 
   auto operator()(format::Statistics& s, int rg_idx, int col_idx) {
-    using Val = std::variant<std::monostate, uint8_t, uint32_t, uint64_t, Binary>;
-    auto to_val = [this](std::string& v, format::Type::type type) -> Val {
+    using Val = std::variant<std::monostate, uint32_t, uint64_t, std::string>;
+    auto to_val = [](std::string& v, format::Type::type type, int len) -> Val {
       if (v.empty()) return std::monostate{};
       switch (type) {
-        case format::Type::BOOLEAN:
-          return static_cast<uint8_t>(v[0]);
+        case format::Type::BOOLEAN:  // useless
+        case format::Type::INT96:    // deprecated        
+          return std::monostate{};
         case format::Type::INT32:
         case format::Type::FLOAT: {
           uint32_t x;
@@ -569,30 +590,52 @@ class FlatbufferConverter {
           memcpy(&x, v.data(), 8);
           return ::arrow::bit_util::ToLittleEndian(x);
         }
-        default:
-          return builder_.CreateVector(reinterpret_cast<const int8_t*>(v.data()),
-                                       v.size());
+        case format::Type::BYTE_ARRAY:
+        case format::Type::FIXED_LEN_BYTE_ARRAY:
+          return v;
       }
+      return std::monostate{};
     };
-    Val max_value = to_val(s.max_value, md_->schema[col_idx].type);
-    Val min_value = to_val(s.min_value, md_->schema[col_idx].type);
+    const auto& col = md_->schema[col_idx];
+    Val max_value = to_val(s.max_value, col.type, col.type_length);
+    Val min_value = to_val(s.min_value, col.type, col.type_length);
+    std::optional<flatbuffers::Offset<flatbuffers::String>> prefix;
+    if (std::get_if<std::string>(&max_value) && std::get_if<std::string>(&min_value)) {
+      auto& max = std::get<std::string>(max_value);
+      auto& min = std::get<std::string>(min_value);
+      auto [e1, e2] = std::mismatch(max.begin(), max.end(), min.begin(), min.end());
+      auto prefix_len = e1 - max.begin();
+      if (prefix_len) {
+        prefix = builder_.CreateString(max.data(), prefix_len);
+        max = max.substr(prefix_len);
+        min = min.substr(prefix_len);
+      }
+    }
 
     format3::StatisticsBuilder b(builder_);
     if (s.__isset.null_count) b.add_null_count(s.null_count);
-    if (s.__isset.distinct_count) b.add_distinct_count(s.distinct_count);
-    std::visit(
-        Overload{[&](Binary v) { b.add_max_value(v); },
-                 [&](uint64_t v) { b.add_max8(v); }, [&](uint32_t v) { b.add_max4(v); },
-                 [&](uint8_t v) { b.add_max1(v); }, [&](std::monostate) {}},
-        max_value);
-    std::visit(
-        Overload{[&](Binary v) { b.add_min_value(v); },
-                 [&](uint64_t v) { b.add_min8(v); }, [&](uint32_t v) { b.add_min4(v); },
-                 [&](uint8_t v) { b.add_min1(v); }, [&](std::monostate) {}},
-        min_value);
-
-    if (s.__isset.is_max_value_exact) b.add_is_max_value_exact(s.is_max_value_exact);
-    if (s.__isset.is_min_value_exact) b.add_is_min_value_exact(s.is_min_value_exact);
+    if (std::get_if<uint32_t>(&max_value) && std::get_if<uint32_t>(&min_value)) {
+      b.add_max4(std::get<uint32_t>(max_value));
+      b.add_min4(std::get<uint32_t>(min_value));
+    } else if (std::get_if<uint64_t>(&max_value) && std::get_if<uint64_t>(&min_value)) {
+      b.add_max8(std::get<uint64_t>(max_value));
+      b.add_min8(std::get<uint64_t>(min_value));
+    } else if (std::get_if<std::string>(&max_value) && std::get_if<std::string>(&min_value)) {
+      auto& max = std::get<std::string>(max_value);
+      auto& min = std::get<std::string>(min_value);
+      if (prefix) b.add_prefix(*prefix);
+      uint8_t max_len = std::min<size_t>(8, max.size());
+      uint8_t min_len = std::min<size_t>(8, min.size());
+      uint64_t x = 0;
+      memcpy(&x, max.data(), max_len);
+      x = ::arrow::bit_util::ToBigEndian(x);
+      b.add_max8(x);
+      x = 0;
+      memcpy(&x, min.data(), min_len);
+      x = ::arrow::bit_util::ToBigEndian(x);
+      b.add_min8(x);
+      b.add_lens(min_len | max_len << 4);
+    }
     return b.Finish();
   }
 

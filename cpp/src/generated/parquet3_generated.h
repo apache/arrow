@@ -660,70 +660,44 @@ struct Statistics FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef StatisticsBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_NULL_COUNT = 4,
-    VT_DISTINCT_COUNT = 6,
-    VT_MAX_VALUE = 8,
+    VT_MAX4 = 6,
+    VT_MIN4 = 8,
     VT_MAX8 = 10,
-    VT_MAX4 = 12,
-    VT_MAX1 = 14,
-    VT_MIN_VALUE = 16,
-    VT_MIN8 = 18,
-    VT_MIN4 = 20,
-    VT_MIN1 = 22,
-    VT_IS_MAX_VALUE_EXACT = 24,
-    VT_IS_MIN_VALUE_EXACT = 26
+    VT_MIN8 = 12,
+    VT_LENS = 14,
+    VT_PREFIX = 16
   };
   ::flatbuffers::Optional<int32_t> null_count() const {
     return GetOptional<int32_t, int32_t>(VT_NULL_COUNT);
   }
-  ::flatbuffers::Optional<int32_t> distinct_count() const {
-    return GetOptional<int32_t, int32_t>(VT_DISTINCT_COUNT);
+  ::flatbuffers::Optional<uint32_t> max4() const {
+    return GetOptional<uint32_t, uint32_t>(VT_MAX4);
   }
-  const ::flatbuffers::Vector<int8_t> *max_value() const {
-    return GetPointer<const ::flatbuffers::Vector<int8_t> *>(VT_MAX_VALUE);
+  ::flatbuffers::Optional<uint32_t> min4() const {
+    return GetOptional<uint32_t, uint32_t>(VT_MIN4);
   }
-  uint64_t max8() const {
-    return GetField<uint64_t>(VT_MAX8, 0);
+  ::flatbuffers::Optional<uint64_t> max8() const {
+    return GetOptional<uint64_t, uint64_t>(VT_MAX8);
   }
-  uint32_t max4() const {
-    return GetField<uint32_t>(VT_MAX4, 0);
+  ::flatbuffers::Optional<uint64_t> min8() const {
+    return GetOptional<uint64_t, uint64_t>(VT_MIN8);
   }
-  uint8_t max1() const {
-    return GetField<uint8_t>(VT_MAX1, 0);
+  int8_t lens() const {
+    return GetField<int8_t>(VT_LENS, 0);
   }
-  const ::flatbuffers::Vector<int8_t> *min_value() const {
-    return GetPointer<const ::flatbuffers::Vector<int8_t> *>(VT_MIN_VALUE);
-  }
-  uint64_t min8() const {
-    return GetField<uint64_t>(VT_MIN8, 0);
-  }
-  uint32_t min4() const {
-    return GetField<uint32_t>(VT_MIN4, 0);
-  }
-  uint8_t min1() const {
-    return GetField<uint8_t>(VT_MIN1, 0);
-  }
-  bool is_max_value_exact() const {
-    return GetField<uint8_t>(VT_IS_MAX_VALUE_EXACT, 0) != 0;
-  }
-  bool is_min_value_exact() const {
-    return GetField<uint8_t>(VT_IS_MIN_VALUE_EXACT, 0) != 0;
+  const ::flatbuffers::String *prefix() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_PREFIX);
   }
   bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<int32_t>(verifier, VT_NULL_COUNT, 4) &&
-           VerifyField<int32_t>(verifier, VT_DISTINCT_COUNT, 4) &&
-           VerifyOffset(verifier, VT_MAX_VALUE) &&
-           verifier.VerifyVector(max_value()) &&
-           VerifyField<uint64_t>(verifier, VT_MAX8, 8) &&
            VerifyField<uint32_t>(verifier, VT_MAX4, 4) &&
-           VerifyField<uint8_t>(verifier, VT_MAX1, 1) &&
-           VerifyOffset(verifier, VT_MIN_VALUE) &&
-           verifier.VerifyVector(min_value()) &&
-           VerifyField<uint64_t>(verifier, VT_MIN8, 8) &&
            VerifyField<uint32_t>(verifier, VT_MIN4, 4) &&
-           VerifyField<uint8_t>(verifier, VT_MIN1, 1) &&
-           VerifyField<uint8_t>(verifier, VT_IS_MAX_VALUE_EXACT, 1) &&
-           VerifyField<uint8_t>(verifier, VT_IS_MIN_VALUE_EXACT, 1) &&
+           VerifyField<uint64_t>(verifier, VT_MAX8, 8) &&
+           VerifyField<uint64_t>(verifier, VT_MIN8, 8) &&
+           VerifyField<int8_t>(verifier, VT_LENS, 1) &&
+           VerifyOffset(verifier, VT_PREFIX) &&
+           verifier.VerifyString(prefix()) &&
            verifier.EndTable();
   }
 };
@@ -735,38 +709,23 @@ struct StatisticsBuilder {
   void add_null_count(int32_t null_count) {
     fbb_.AddElement<int32_t>(Statistics::VT_NULL_COUNT, null_count);
   }
-  void add_distinct_count(int32_t distinct_count) {
-    fbb_.AddElement<int32_t>(Statistics::VT_DISTINCT_COUNT, distinct_count);
-  }
-  void add_max_value(::flatbuffers::Offset<::flatbuffers::Vector<int8_t>> max_value) {
-    fbb_.AddOffset(Statistics::VT_MAX_VALUE, max_value);
-  }
-  void add_max8(uint64_t max8) {
-    fbb_.AddElement<uint64_t>(Statistics::VT_MAX8, max8, 0);
-  }
   void add_max4(uint32_t max4) {
-    fbb_.AddElement<uint32_t>(Statistics::VT_MAX4, max4, 0);
-  }
-  void add_max1(uint8_t max1) {
-    fbb_.AddElement<uint8_t>(Statistics::VT_MAX1, max1, 0);
-  }
-  void add_min_value(::flatbuffers::Offset<::flatbuffers::Vector<int8_t>> min_value) {
-    fbb_.AddOffset(Statistics::VT_MIN_VALUE, min_value);
-  }
-  void add_min8(uint64_t min8) {
-    fbb_.AddElement<uint64_t>(Statistics::VT_MIN8, min8, 0);
+    fbb_.AddElement<uint32_t>(Statistics::VT_MAX4, max4);
   }
   void add_min4(uint32_t min4) {
-    fbb_.AddElement<uint32_t>(Statistics::VT_MIN4, min4, 0);
+    fbb_.AddElement<uint32_t>(Statistics::VT_MIN4, min4);
   }
-  void add_min1(uint8_t min1) {
-    fbb_.AddElement<uint8_t>(Statistics::VT_MIN1, min1, 0);
+  void add_max8(uint64_t max8) {
+    fbb_.AddElement<uint64_t>(Statistics::VT_MAX8, max8);
   }
-  void add_is_max_value_exact(bool is_max_value_exact) {
-    fbb_.AddElement<uint8_t>(Statistics::VT_IS_MAX_VALUE_EXACT, static_cast<uint8_t>(is_max_value_exact), 0);
+  void add_min8(uint64_t min8) {
+    fbb_.AddElement<uint64_t>(Statistics::VT_MIN8, min8);
   }
-  void add_is_min_value_exact(bool is_min_value_exact) {
-    fbb_.AddElement<uint8_t>(Statistics::VT_IS_MIN_VALUE_EXACT, static_cast<uint8_t>(is_min_value_exact), 0);
+  void add_lens(int8_t lens) {
+    fbb_.AddElement<int8_t>(Statistics::VT_LENS, lens, 0);
+  }
+  void add_prefix(::flatbuffers::Offset<::flatbuffers::String> prefix) {
+    fbb_.AddOffset(Statistics::VT_PREFIX, prefix);
   }
   explicit StatisticsBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -782,63 +741,42 @@ struct StatisticsBuilder {
 inline ::flatbuffers::Offset<Statistics> CreateStatistics(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     ::flatbuffers::Optional<int32_t> null_count = ::flatbuffers::nullopt,
-    ::flatbuffers::Optional<int32_t> distinct_count = ::flatbuffers::nullopt,
-    ::flatbuffers::Offset<::flatbuffers::Vector<int8_t>> max_value = 0,
-    uint64_t max8 = 0,
-    uint32_t max4 = 0,
-    uint8_t max1 = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<int8_t>> min_value = 0,
-    uint64_t min8 = 0,
-    uint32_t min4 = 0,
-    uint8_t min1 = 0,
-    bool is_max_value_exact = false,
-    bool is_min_value_exact = false) {
+    ::flatbuffers::Optional<uint32_t> max4 = ::flatbuffers::nullopt,
+    ::flatbuffers::Optional<uint32_t> min4 = ::flatbuffers::nullopt,
+    ::flatbuffers::Optional<uint64_t> max8 = ::flatbuffers::nullopt,
+    ::flatbuffers::Optional<uint64_t> min8 = ::flatbuffers::nullopt,
+    int8_t lens = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> prefix = 0) {
   StatisticsBuilder builder_(_fbb);
-  builder_.add_min8(min8);
-  builder_.add_max8(max8);
-  builder_.add_min4(min4);
-  builder_.add_min_value(min_value);
-  builder_.add_max4(max4);
-  builder_.add_max_value(max_value);
-  if(distinct_count) { builder_.add_distinct_count(*distinct_count); }
+  if(min8) { builder_.add_min8(*min8); }
+  if(max8) { builder_.add_max8(*max8); }
+  builder_.add_prefix(prefix);
+  if(min4) { builder_.add_min4(*min4); }
+  if(max4) { builder_.add_max4(*max4); }
   if(null_count) { builder_.add_null_count(*null_count); }
-  builder_.add_is_min_value_exact(is_min_value_exact);
-  builder_.add_is_max_value_exact(is_max_value_exact);
-  builder_.add_min1(min1);
-  builder_.add_max1(max1);
+  builder_.add_lens(lens);
   return builder_.Finish();
 }
 
 inline ::flatbuffers::Offset<Statistics> CreateStatisticsDirect(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     ::flatbuffers::Optional<int32_t> null_count = ::flatbuffers::nullopt,
-    ::flatbuffers::Optional<int32_t> distinct_count = ::flatbuffers::nullopt,
-    const std::vector<int8_t> *max_value = nullptr,
-    uint64_t max8 = 0,
-    uint32_t max4 = 0,
-    uint8_t max1 = 0,
-    const std::vector<int8_t> *min_value = nullptr,
-    uint64_t min8 = 0,
-    uint32_t min4 = 0,
-    uint8_t min1 = 0,
-    bool is_max_value_exact = false,
-    bool is_min_value_exact = false) {
-  auto max_value__ = max_value ? _fbb.CreateVector<int8_t>(*max_value) : 0;
-  auto min_value__ = min_value ? _fbb.CreateVector<int8_t>(*min_value) : 0;
+    ::flatbuffers::Optional<uint32_t> max4 = ::flatbuffers::nullopt,
+    ::flatbuffers::Optional<uint32_t> min4 = ::flatbuffers::nullopt,
+    ::flatbuffers::Optional<uint64_t> max8 = ::flatbuffers::nullopt,
+    ::flatbuffers::Optional<uint64_t> min8 = ::flatbuffers::nullopt,
+    int8_t lens = 0,
+    const char *prefix = nullptr) {
+  auto prefix__ = prefix ? _fbb.CreateString(prefix) : 0;
   return parquet::format3::CreateStatistics(
       _fbb,
       null_count,
-      distinct_count,
-      max_value__,
-      max8,
       max4,
-      max1,
-      min_value__,
-      min8,
       min4,
-      min1,
-      is_max_value_exact,
-      is_min_value_exact);
+      max8,
+      min8,
+      lens,
+      prefix__);
 }
 
 struct SchemaElement FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
