@@ -162,7 +162,6 @@ table PageEncodingStats {
 table ColumnMetadata {
   type: Type;
   encodings: [Encoding];
-  path_in_schema: [string];
   codec: CompressionCodec;
   num_values: int;  // only present if not equal to rg.num_rows
   total_uncompressed_size: int;
