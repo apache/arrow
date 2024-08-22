@@ -214,6 +214,9 @@ cdef class FixedShapeTensorType(BaseExtensionType):
     cdef:
         const CFixedShapeTensorType* tensor_ext_type
 
+cdef class Bool8Type(BaseExtensionType):
+    cdef:
+        const CBool8Type* bool8_ext_type
 
 cdef class OpaqueType(BaseExtensionType):
     cdef:
@@ -539,6 +542,8 @@ cdef class Device(_Weakrefable):
     @staticmethod
     cdef wrap(const shared_ptr[CDevice]& device)
 
+    cdef inline shared_ptr[CDevice] unwrap(self) nogil
+
 
 cdef class MemoryManager(_Weakrefable):
     cdef:
@@ -548,6 +553,8 @@ cdef class MemoryManager(_Weakrefable):
 
     @staticmethod
     cdef wrap(const shared_ptr[CMemoryManager]& mm)
+
+    cdef inline shared_ptr[CMemoryManager] unwrap(self) nogil
 
 
 cdef class Buffer(_Weakrefable):

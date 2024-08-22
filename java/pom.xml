@@ -97,7 +97,7 @@ under the License.
     <dep.slf4j.version>2.0.13</dep.slf4j.version>
     <dep.guava-bom.version>33.2.1-jre</dep.guava-bom.version>
     <dep.netty-bom.version>4.1.112.Final</dep.netty-bom.version>
-    <dep.grpc-bom.version>1.65.0</dep.grpc-bom.version>
+    <dep.grpc-bom.version>1.66.0</dep.grpc-bom.version>
     <dep.protobuf-bom.version>3.25.4</dep.protobuf-bom.version>
     <dep.jackson-bom.version>2.17.2</dep.jackson-bom.version>
     <dep.hadoop.version>3.4.0</dep.hadoop.version>
@@ -504,7 +504,7 @@ under the License.
         <plugin>
           <groupId>org.codehaus.mojo</groupId>
           <artifactId>exec-maven-plugin</artifactId>
-          <version>3.3.0</version>
+          <version>3.4.1</version>
         </plugin>
         <plugin>
           <groupId>org.codehaus.mojo</groupId>
