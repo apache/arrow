@@ -669,10 +669,11 @@ TEST_F(TestRecordBatch, ToTensorUnsupportedMissing) {
 
   auto batch = RecordBatch::Make(schema, length, {a0, a1});
 
-  ASSERT_RAISES_WITH_MESSAGE(TypeError,
-                             "Type error: Can only convert a RecordBatch with no nulls. "
-                             "Set null_to_nan to true to convert nulls to NaN",
-                             batch->ToTensor());
+  ASSERT_RAISES_WITH_MESSAGE(
+      TypeError,
+      "Type error: Can only convert a Table or RecordBatch with no "
+      "nulls. Set null_to_nan to true to convert nulls to NaN",
+      batch->ToTensor());
 }
 
 TEST_F(TestRecordBatch, ToTensorEmptyBatch) {
@@ -703,10 +704,11 @@ TEST_F(TestRecordBatch, ToTensorEmptyBatch) {
   auto batch_no_columns =
       RecordBatch::Make(::arrow::schema({}), 10, std::vector<std::shared_ptr<Array>>{});
 
-  ASSERT_RAISES_WITH_MESSAGE(TypeError,
-                             "Type error: Conversion to Tensor for RecordBatches without "
-                             "columns/schema is not supported.",
-                             batch_no_columns->ToTensor());
+  ASSERT_RAISES_WITH_MESSAGE(
+      TypeError,
+      "Type error: Conversion to Tensor for Tables or RecordBatches "
+      "without columns/schema is not supported.",
+      batch_no_columns->ToTensor());
 }
 
 template <typename DataType>
