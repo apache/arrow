@@ -107,6 +107,16 @@
 // 5/large-footer2: num-rgs=4 num-cols=2930 thrift=2248476 flatbuf=1922080
 //
 //
+// Remove encodings in ColumnMetadata
+//
+// 0/amazon_apparel.footer: num-rgs=1182 num-cols=16 thrift=2158995 flatbuf=1884920
+// 1/amazon_movie_tv.footer: num-rgs=3 num-cols=18 thrift=22578 flatbuf=5296
+// 2/amazon_polarity.footer: num-rgs=900 num-cols=4 thrift=1074313 flatbuf=1009328
+// 3/amazon_reviews_books.footer: num-rgs=159 num-cols=44 thrift=767840 flatbuf=292560
+// 4/large-footer1: num-rgs=23 num-cols=2001 thrift=3253741 flatbuf=3329648
+// 5/large-footer2: num-rgs=4 num-cols=2930 thrift=2248476 flatbuf=1781344
+//
+//
 
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #pragma GCC diagnostic ignored "-Wunused-function"
@@ -339,7 +349,6 @@ class ThriftConverter {
   auto operator()(const format3::ColumnMetadata* cm, int rg_idx, int col_idx) {
     auto off = md_->row_groups()->Get(rg_idx)->file_offset();
     format::ColumnMetaData out;
-    out.encodings = (*this)(cm->encodings());
     out.codec = (*this)(cm->codec());
     out.num_values =
         flatbuffers::IsFieldPresent(cm, format3::ColumnMetadata::VT_NUM_VALUES)
@@ -603,7 +612,6 @@ class FlatbufferConverter {
   }
 
   auto operator()(format::ColumnMetaData& cm, int rg_idx, int col_idx) {
-    auto encodings = (*this)(&cm.encodings);
     auto codec = (*this)(cm.codec);
     auto kv_metadata = (*this)(&cm.key_value_metadata);
     auto statistics = (*this)(cm.statistics, rg_idx, col_idx);
@@ -613,7 +621,6 @@ class FlatbufferConverter {
     auto off = rg.file_offset;
 
     format3::ColumnMetadataBuilder b(builder_);
-    b.add_encodings(encodings);
     b.add_codec(codec);
     if (rg.num_rows != cm.num_values) b.add_num_values(cm.num_values);
     b.add_total_uncompressed_size(cm.total_uncompressed_size);
