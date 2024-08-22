@@ -125,17 +125,18 @@ class Process::Impl {
       return Status::OK();
     }
 
-    asio::readable_pipe stderr(ctx_);
+    asio::readable_pipe error_output(ctx_);
     // We can't use std::make_unique<process::process>.
     process_ = std::unique_ptr<process::process>(new process::process(
-        ctx_, executable_, args_, env, process::process_stdio{{}, {}, stderr}));
+        ctx_, executable_, args_, env, process::process_stdio{{}, {}, error_output}));
     std::stringstream buffered_output;
     std::array<char, 1024> buffer;
     std::string line;
     std::chrono::time_point<std::chrono::steady_clock> end =
         std::chrono::steady_clock::now() + ready_timeout_;
     while (process_->running() && std::chrono::steady_clock::now() < end) {
-      auto read_bytes = stderr.read_some(asio::buffer(buffer.data(), buffer.size()));
+      auto read_bytes =
+          error_output.read_some(asio::buffer(buffer.data(), buffer.size()));
       if (buffered_output.eof()) {
         // std::getline() in the previous loop may set the EOF
         // bit. If the EOF bit is set, all std::getline() calls are
@@ -167,16 +168,16 @@ class Process::Impl {
       return Status::OK();
     }
 
-    process::ipstream stderr;
-    process_ =
-        std::make_unique<process::child>(executable_, process::args(args_), env_,
-                                         *process_group_, process::std_err > stderr);
+    process::ipstream error_output;
+    process_ = std::make_unique<process::child>(executable_, process::args(args_), env_,
+                                                *process_group_,
+                                                process::std_err > error_output);
     std::string line;
     std::chrono::time_point<std::chrono::steady_clock> end =
         std::chrono::steady_clock::now() + ready_timeout_;
     while (process_->valid() && process_->running() &&
            std::chrono::steady_clock::now() < end) {
-      if (stderr.peek() && std::getline(stderr, line)) {
+      if (error_output.peek() && std::getline(error_output, line)) {
         std::cerr << line << std::endl;
         if (line.find(ready_marker_) != std::string::npos) {
           return Status::OK();
