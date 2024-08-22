@@ -184,9 +184,12 @@ class GANDIVA_EXPORT LLVMGenerator {
     bool has_arena_allocs_;
   };
 
+  arrow::Result<ValueValidityPairPtr> Decompose(const ExpressionPtr& expr);
+
   // Generate the code for one expression for default mode, with the output of
   // the expression going to 'output'.
-  Status Add(const ExpressionPtr expr, const FieldDescriptorPtr output);
+  Status Add(const ExpressionPtr expr, ValueValidityPairPtr value_validity,
+             const FieldDescriptorPtr output);
 
   /// Generate code to load the vector at specified index in the 'arg_addrs' array.
   llvm::Value* LoadVectorAtIndex(llvm::Value* arg_addrs, llvm::Type* type, int idx,
@@ -263,6 +266,7 @@ class GANDIVA_EXPORT LLVMGenerator {
   // used for debug
   bool enable_ir_traces_;
   std::vector<std::string> trace_strings_;
+  std::unordered_set<std::string> functions_in_exprs_;
 };
 
 }  // namespace gandiva
