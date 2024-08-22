@@ -93,6 +93,25 @@ void Annotator::PrepareBuffersForField(const FieldDescriptor& desc,
   }
 }
 
+const Status Annotator::CheckEvalBatchFieldType(
+    const arrow::RecordBatch& record_batch) const {
+  for (int i = 0; i < record_batch.num_columns(); ++i) {
+    const std::string& name = record_batch.column_name(i);
+    auto found = in_name_to_desc_.find(name);
+    if (found == in_name_to_desc_.end()) {
+      // skip columns not involved in the expression.
+      continue;
+    }
+    if (record_batch.column(i)->type_id() != found->second->Type()->id()) {
+      return Status::ExecutionError("Expect field ", name, " type is ",
+                                    found->second->Type()->ToString(), ", input field ",
+                                    name, " type is ",
+                                    record_batch.column(i)->type()->ToString());
+    }
+  }
+  return Status::OK();
+}
+
 EvalBatchPtr Annotator::PrepareEvalBatch(const arrow::RecordBatch& record_batch,
                                          const ArrayDataVector& out_vector) const {
   EvalBatchPtr eval_batch = std::make_shared<EvalBatch>(
