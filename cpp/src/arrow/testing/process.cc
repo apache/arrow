@@ -30,6 +30,9 @@
 #ifdef BOOST_PROCESS_NEED_SOURCE
 // Workaround for https://github.com/boostorg/process/issues/312
 #define BOOST_PROCESS_V2_SEPARATE_COMPILATION
+#ifdef __APPLE__
+#include <sys/sysctl.h>
+#endif
 #include <boost/process/v2.hpp>
 #include <boost/process/v2/src.hpp>
 #else
