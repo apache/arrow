@@ -33,6 +33,7 @@
 #include "arrow/type.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/byte_size.h"
 #include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
@@ -275,13 +276,21 @@ class FileReaderImpl : public FileReader {
     std::string phys_type =
         TypeToString(reader_->metadata()->schema()->Column(i)->physical_type());
     ::arrow::util::tracing::Span span;
-    START_SPAN(span, "parquet::arrow::read_column",
+    START_SPAN(span, "parquet::arrow::ReadColumn",
                {{"parquet.arrow.columnindex", i},
                 {"parquet.arrow.columnname", column_name},
                 {"parquet.arrow.physicaltype", phys_type},
-                {"parquet.arrow.records_to_read", records_to_read}});
-#endif
+                { "parquet.arrow.records_to_read",
+                  records_to_read }});
+
+    auto status = reader->NextBatch(records_to_read, out);
+
+    uint64_t size_bytes = ::arrow::util::TotalBufferSize(*out->get());
+    ATTRIBUTE_ON_CURRENT_SPAN("parquet.arrow.output_batch_size_bytes", size_bytes);
+    return status;
+#else
     return reader->NextBatch(records_to_read, out);
+#endif
     END_PARQUET_CATCH_EXCEPTIONS
   }
 
@@ -1035,7 +1044,11 @@ Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_groups,
 
         RETURN_NOT_OK(::arrow::internal::OptionalParallelFor(
             reader_properties_.use_threads(), static_cast<int>(readers.size()),
-            [&](int i) { return readers[i]->NextBatch(batch_size, &columns[i]); }));
+            [&](int i) {
+              ::arrow::util::tracing::Span span;
+              START_SPAN(span, "parquet::arrow::GetRecordBatchReader::NextBatch");
+              return readers[i]->NextBatch(batch_size, &columns[i]);
+            }));
 
         for (const auto& column : columns) {
           if (column == nullptr || column->length() == 0) {

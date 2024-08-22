@@ -31,6 +31,7 @@
 #define __EXTENSIONS__
 #endif
 
+#include "arrow/util/tracing_internal.h"
 #include "arrow/util/windows_compatibility.h"  // IWYU pragma: keep
 
 #include <algorithm>
