@@ -3404,38 +3404,37 @@ def verify_recordbatch_on_cuda_device(batch, expected_schema):
 
 def test_recordbatch_non_cpu(cuda_context, cpu_recordbatch, cuda_recordbatch,
                              cuda_arrays, schema):
-    batch = cuda_recordbatch
-    verify_recordbatch_on_cuda_device(batch, expected_schema=schema)
-    assert batch.num_rows == 5
+    verify_recordbatch_on_cuda_device(cuda_recordbatch, expected_schema=schema)
+    assert cuda_recordbatch.num_rows == 5
 
     # add_column() test
     col = pa.Array.from_buffers(
         pa.int8(), 5,
         [None, cuda_context.buffer_from_data(np.array([6, 7, 8, 9, 10],
                                              dtype=np.int8))])
-    new_batch = batch.add_column(2, 'c2', col)
+    new_batch = cuda_recordbatch.add_column(2, 'c2', col)
     assert len(new_batch.columns) == 3
     for c in new_batch.columns:
         assert c.device_type == pa.DeviceAllocationType.CUDA
     with pytest.raises(RuntimeError):
         # Default array conversion not allowed for non-cpu record batch
-        batch.add_column(2, 'c2', [1, 1, 1, 1, 1])
+        cuda_recordbatch.add_column(2, 'c2', [1, 1, 1, 1, 1])
 
     # remove_column() test
-    new_batch = batch.remove_column(1)
+    new_batch = cuda_recordbatch.remove_column(1)
     assert len(new_batch.columns) == 1
     assert new_batch.device_type == pa.DeviceAllocationType.CUDA
     assert new_batch[0].device_type == pa.DeviceAllocationType.CUDA
 
     # drop_columns() test
-    new_batch = batch.drop_columns(['c0', 'c1'])
+    new_batch = cuda_recordbatch.drop_columns(['c0', 'c1'])
     assert len(new_batch.columns) == 0
     assert new_batch.device_type == pa.DeviceAllocationType.CUDA
 
     # cast() test
     new_schema = pa.schema([pa.field('c0', pa.int64()), pa.field('c1', pa.int64())])
     with pytest.raises(NotImplementedError):
-        batch.cast(new_schema)
+        cuda_recordbatch.cast(new_schema)
 
     # drop_null() test
     validity = cuda_context.buffer_from_data(
@@ -3443,22 +3442,22 @@ def test_recordbatch_non_cpu(cuda_context, cpu_recordbatch, cuda_recordbatch,
     null_col = pa.Array.from_buffers(
         pa.int32(), 5,
         [validity, cuda_context.buffer_from_data(np.array([0] * 5, dtype=np.int32))])
-    batch_with_nulls = batch.add_column(2, 'c2', null_col)
+    cuda_recordbatch_with_nulls = cuda_recordbatch.add_column(2, 'c2', null_col)
     with pytest.raises(NotImplementedError):
-        batch_with_nulls.drop_null()
+        cuda_recordbatch_with_nulls.drop_null()
 
     # filter() test
     with pytest.raises(NotImplementedError):
-        batch.filter([True] * 5)
+        cuda_recordbatch.filter([True] * 5)
 
     # field() test
-    assert batch.field(0) == pa.field('c0', pa.int16())
-    assert batch.field(1) == pa.field('c1', pa.int32())
+    assert cuda_recordbatch.field(0) == pa.field('c0', pa.int16())
+    assert cuda_recordbatch.field(1) == pa.field('c1', pa.int32())
 
     # equals() test
     new_batch = cpu_recordbatch.copy_to(cuda_context.memory_manager)
     with pytest.raises(NotImplementedError):
-        assert batch.equals(new_batch) is True
+        assert cuda_recordbatch.equals(new_batch) is True
 
     # from_arrays() test
     new_batch = pa.RecordBatch.from_arrays(cuda_arrays, ['c0', 'c1'])
@@ -3470,55 +3469,55 @@ def test_recordbatch_non_cpu(cuda_context, cpu_recordbatch, cuda_recordbatch,
 
     # nybtes test
     with pytest.raises(NotImplementedError):
-        assert batch.nbytes == cpu_recordbatch.nbytes
+        assert cuda_recordbatch.nbytes == cpu_recordbatch.nbytes
 
     # to_pydict() test
     with pytest.raises(NotImplementedError):
-        batch.to_pydict()
+        cuda_recordbatch.to_pydict()
 
     # to_pylist() test
     with pytest.raises(NotImplementedError):
-        batch.to_pylist()
+        cuda_recordbatch.to_pylist()
 
     # to_pandas() test
     with pytest.raises(NotImplementedError):
-        batch.to_pandas()
+        cuda_recordbatch.to_pandas()
 
     # to_tensor() test
     with pytest.raises(NotImplementedError):
-        batch.to_tensor()
+        cuda_recordbatch.to_tensor()
 
     # to_struct_array() test
     with pytest.raises(NotImplementedError):
-        batch.to_struct_array()
+        cuda_recordbatch.to_struct_array()
 
     # serialize() test
     with pytest.raises(NotImplementedError):
-        batch.serialize()
+        cuda_recordbatch.serialize()
 
     # slice() test
-    new_batch = batch.slice(1, 3)
+    new_batch = cuda_recordbatch.slice(1, 3)
     verify_recordbatch_on_cuda_device(new_batch, expected_schema=schema)
     assert new_batch.num_rows == 3
     cpu_batch = new_batch.copy_to(pa.default_cpu_memory_manager())
     assert cpu_batch == cpu_recordbatch.slice(1, 3)
 
     # replace_schema_metadata() test
-    new_batch = batch.replace_schema_metadata({b'key': b'value'})
+    new_batch = cuda_recordbatch.replace_schema_metadata({b'key': b'value'})
     verify_recordbatch_on_cuda_device(new_batch, expected_schema=schema)
     assert new_batch.schema.metadata == {b'key': b'value'}
 
     # rename_columns() test
-    new_batch = batch.rename_columns(['col0', 'col1'])
+    new_batch = cuda_recordbatch.rename_columns(['col0', 'col1'])
     expected_schema = pa.schema(
         [pa.field('col0', pa.int16()), pa.field('col1', pa.int32())])
     verify_recordbatch_on_cuda_device(new_batch, expected_schema=expected_schema)
 
     # validate() test
-    batch.validate()
+    cuda_recordbatch.validate()
     with pytest.raises(NotImplementedError):
-        batch.validate(full=True)
+        cuda_recordbatch.validate(full=True)
 
     # __array__() test
     with pytest.raises(NotImplementedError):
-        batch.__array__()
+        cuda_recordbatch.__array__()
