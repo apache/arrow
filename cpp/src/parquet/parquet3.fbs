@@ -108,22 +108,18 @@ table Value {
 
 table Statistics {
   null_count: int = null;
-  distinct_count: int = null;
-  // Only one max/min value is stored. For space reasons if the value is of fixed size we store
-  // it in a primitive field:
-  // BOOLEAN: max1/min1
-  // INT32/FLOAT: max4/min4
-  // INT64/DOUBLE: max8/min8
-  max_value: [byte];
-  max8: ulong;
-  max4: uint;
-  max1: ubyte;
-  min_value: [byte];
-  min8: ulong;
-  min4: uint;
-  min1: ubyte;
-  is_max_value_exact: bool;
-  is_min_value_exact: bool;
+  // min/max values are stored as 4/8 byte values depending on the physical type of the column.
+  //
+  // For strings, we compute min and max and store it as:
+  // - prefix: the longest common prefix of min/max
+  // - min8/max8: whatever is after min/max after removing the prefix
+  // - lens: the lengths for min8/max8 in the first and second nibble of the byte
+  max4: uint = null;
+  min4: uint = null;
+  max8: ulong = null;
+  min8: ulong = null;
+  lens: byte;
+  prefix: string;
 }
 
 union ColumnOrder {
