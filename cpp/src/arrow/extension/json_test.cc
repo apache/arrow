@@ -17,11 +17,13 @@
 
 #include "arrow/extension/json.h"
 
+#include "arrow/ipc/test_common.h"
 #include "arrow/record_batch.h"
 #include "arrow/testing/gtest_util.h"
 
 namespace arrow {
 
+using arrow::ipc::test::RoundtripBatch;
 using extension::json;
 
 class TestJsonExtensionType : public ::testing::Test {};
