@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/testing/process.h"
+#include "arrow/result.h"
 
 // This boost/asio/io_context.hpp include is needless for no MinGW
 // build.
@@ -58,27 +59,28 @@ class Process::Impl {
   std::unique_ptr<process::process> process_;
   asio::io_context ctx_;
 
-  Status ResolveCurrentExecutable(process::filesystem::path* out) {
+  Result<process::filesystem::path> ResolveCurrentExecutable() {
     // See https://stackoverflow.com/a/1024937/10194 for various
     // platform-specific recipes.
 
+    process::filesystem::path path;
     boost::system::error_code ec;
 
 #if defined(__linux__)
-    *out = process::filesystem::canonical("/proc/self/exe", ec);
+    path = process::filesystem::canonical("/proc/self/exe", ec);
 #elif defined(__APPLE__)
     char buf[PATH_MAX + 1];
     uint32_t bufsize = sizeof(buf);
     if (_NSGetExecutablePath(buf, &bufsize) < 0) {
       return Status::Invalid("Can't resolve current exe: path too large");
     }
-    *out = process::filesystem::canonical(buf, ec);
+    path = process::filesystem::canonical(buf, ec);
 #elif defined(_WIN32)
     char buf[MAX_PATH + 1];
     if (!GetModuleFileNameA(NULL, buf, sizeof(buf))) {
       return Status::Invalid("Can't get executable file path");
     }
-    *out = process::filesystem::canonical(buf, ec);
+    path = process::filesystem::canonical(buf, ec);
 #else
     ARROW_UNUSED(ec);
     return Status::NotImplemented("Not available on this system");
@@ -87,7 +89,7 @@ class Process::Impl {
       // XXX fold this into the Status class?
       return Status::IOError("Can't resolve current exe: ", ec.message());
     } else {
-      return Status::OK();
+      return path;
     }
   }
 
@@ -105,14 +107,11 @@ class Process::Impl {
     executable_ = process::environment::find_executable(name);
     if (executable_.empty()) {
       // Search the current executable directory as fallback.
-      boost::filesystem::path current_exe;
-      auto status = ResolveCurrentExecutable(&current_exe);
-      if (status.ok()) {
-        std::unordered_map<process::environment::key, process::environment::value> env = {
-            {"PATH", current_exe.parent_path().string()},
-        };
-        executable_ = process::environment::find_executable(name, env);
-      }
+      ARROW_ASSIGN_OR_RAISE(auto current_exe, ResolveCurrentExecutable());
+      std::unordered_map<process::environment::key, process::environment::value> env = {
+          {"PATH", current_exe.parent_path().string()},
+      };
+      executable_ = process::environment::find_executable(name, env);
     }
     if (executable_.empty()) {
       return Status::IOError("Failed to find '", name, "' in PATH");
