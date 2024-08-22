@@ -1183,28 +1183,24 @@ struct ColumnMetadata FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_TYPE = 4,
     VT_ENCODINGS = 6,
-    VT_PATH_IN_SCHEMA = 8,
-    VT_CODEC = 10,
-    VT_NUM_VALUES = 12,
-    VT_TOTAL_UNCOMPRESSED_SIZE = 14,
-    VT_TOTAL_COMPRESSED_SIZE = 16,
-    VT_KEY_VALUE_METADATA = 18,
-    VT_DATA_PAGE_OFFSET = 20,
-    VT_INDEX_PAGE_OFFSET = 22,
-    VT_DICTIONARY_PAGE_OFFSET = 24,
-    VT_STATISTICS = 26,
-    VT_IS_FULLY_DICT_ENCODED = 28,
-    VT_BLOOM_FILTER_OFFSET = 30,
-    VT_BLOOM_FILTER_LENGTH = 32
+    VT_CODEC = 8,
+    VT_NUM_VALUES = 10,
+    VT_TOTAL_UNCOMPRESSED_SIZE = 12,
+    VT_TOTAL_COMPRESSED_SIZE = 14,
+    VT_KEY_VALUE_METADATA = 16,
+    VT_DATA_PAGE_OFFSET = 18,
+    VT_INDEX_PAGE_OFFSET = 20,
+    VT_DICTIONARY_PAGE_OFFSET = 22,
+    VT_STATISTICS = 24,
+    VT_IS_FULLY_DICT_ENCODED = 26,
+    VT_BLOOM_FILTER_OFFSET = 28,
+    VT_BLOOM_FILTER_LENGTH = 30
   };
   parquet::format3::Type type() const {
     return static_cast<parquet::format3::Type>(GetField<int8_t>(VT_TYPE, 0));
   }
   const ::flatbuffers::Vector<parquet::format3::Encoding> *encodings() const {
     return GetPointer<const ::flatbuffers::Vector<parquet::format3::Encoding> *>(VT_ENCODINGS);
-  }
-  const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *path_in_schema() const {
-    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>> *>(VT_PATH_IN_SCHEMA);
   }
   parquet::format3::CompressionCodec codec() const {
     return static_cast<parquet::format3::CompressionCodec>(GetField<int8_t>(VT_CODEC, 0));
@@ -1247,9 +1243,6 @@ struct ColumnMetadata FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyField<int8_t>(verifier, VT_TYPE, 1) &&
            VerifyOffset(verifier, VT_ENCODINGS) &&
            verifier.VerifyVector(encodings()) &&
-           VerifyOffset(verifier, VT_PATH_IN_SCHEMA) &&
-           verifier.VerifyVector(path_in_schema()) &&
-           verifier.VerifyVectorOfStrings(path_in_schema()) &&
            VerifyField<int8_t>(verifier, VT_CODEC, 1) &&
            VerifyField<int32_t>(verifier, VT_NUM_VALUES, 4) &&
            VerifyField<int32_t>(verifier, VT_TOTAL_UNCOMPRESSED_SIZE, 4) &&
@@ -1278,9 +1271,6 @@ struct ColumnMetadataBuilder {
   }
   void add_encodings(::flatbuffers::Offset<::flatbuffers::Vector<parquet::format3::Encoding>> encodings) {
     fbb_.AddOffset(ColumnMetadata::VT_ENCODINGS, encodings);
-  }
-  void add_path_in_schema(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> path_in_schema) {
-    fbb_.AddOffset(ColumnMetadata::VT_PATH_IN_SCHEMA, path_in_schema);
   }
   void add_codec(parquet::format3::CompressionCodec codec) {
     fbb_.AddElement<int8_t>(ColumnMetadata::VT_CODEC, static_cast<int8_t>(codec), 0);
@@ -1333,7 +1323,6 @@ inline ::flatbuffers::Offset<ColumnMetadata> CreateColumnMetadata(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     parquet::format3::Type type = parquet::format3::Type::BOOLEAN,
     ::flatbuffers::Offset<::flatbuffers::Vector<parquet::format3::Encoding>> encodings = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<::flatbuffers::String>>> path_in_schema = 0,
     parquet::format3::CompressionCodec codec = parquet::format3::CompressionCodec::UNCOMPRESSED,
     int32_t num_values = 0,
     int32_t total_uncompressed_size = 0,
@@ -1357,7 +1346,6 @@ inline ::flatbuffers::Offset<ColumnMetadata> CreateColumnMetadata(
   builder_.add_total_compressed_size(total_compressed_size);
   builder_.add_total_uncompressed_size(total_uncompressed_size);
   builder_.add_num_values(num_values);
-  builder_.add_path_in_schema(path_in_schema);
   builder_.add_encodings(encodings);
   builder_.add_is_fully_dict_encoded(is_fully_dict_encoded);
   builder_.add_codec(codec);
@@ -1369,7 +1357,6 @@ inline ::flatbuffers::Offset<ColumnMetadata> CreateColumnMetadataDirect(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     parquet::format3::Type type = parquet::format3::Type::BOOLEAN,
     const std::vector<parquet::format3::Encoding> *encodings = nullptr,
-    const std::vector<::flatbuffers::Offset<::flatbuffers::String>> *path_in_schema = nullptr,
     parquet::format3::CompressionCodec codec = parquet::format3::CompressionCodec::UNCOMPRESSED,
     int32_t num_values = 0,
     int32_t total_uncompressed_size = 0,
@@ -1383,13 +1370,11 @@ inline ::flatbuffers::Offset<ColumnMetadata> CreateColumnMetadataDirect(
     ::flatbuffers::Optional<int32_t> bloom_filter_offset = ::flatbuffers::nullopt,
     ::flatbuffers::Optional<int32_t> bloom_filter_length = ::flatbuffers::nullopt) {
   auto encodings__ = encodings ? _fbb.CreateVector<parquet::format3::Encoding>(*encodings) : 0;
-  auto path_in_schema__ = path_in_schema ? _fbb.CreateVector<::flatbuffers::Offset<::flatbuffers::String>>(*path_in_schema) : 0;
   auto key_value_metadata__ = key_value_metadata ? _fbb.CreateVector<::flatbuffers::Offset<parquet::format3::KV>>(*key_value_metadata) : 0;
   return parquet::format3::CreateColumnMetadata(
       _fbb,
       type,
       encodings__,
-      path_in_schema__,
       codec,
       num_values,
       total_uncompressed_size,
