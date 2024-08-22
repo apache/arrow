@@ -1263,30 +1263,29 @@ services:
     # We should extend the list of enabled rules after adding this build to
     # the CI pipeline.
 
-    image: ${REPO}:${ARCH}-conda-python-${PYTHON}-docs
-    build:
-      context: .
-      dockerfile: ci/docker/conda-python-docs.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-conda-python-${PYTHON}-docs
-      args:
-        repo: ${REPO}
-        arch: ${ARCH}
-        python: ${PYTHON}
-        pandas: ${PANDAS}
-    image: ${REPO}:${ARCH}-conda-python-${PYTHON}-pandas-${PANDAS}
-    cap_add:
-      - SYS_ADMIN
+image: ${REPO}:${ARCH}-conda-python-${PYTHON}-pandas-${PANDAS}
+build:
+  context: .
+  dockerfile: ci/docker/conda-python-docs.dockerfile
+  cache_from:
+    - ${REPO}:${ARCH}-conda-python-${PYTHON}-docs
+  args:
+    repo: ${REPO}
+    arch: ${ARCH}
+    python: ${PYTHON}
+    pandas: ${PANDAS}
+cap_add:
+  - SYS_ADMIN
 
-    environment:
-      <<: [*common, *ccache]
-      ARROW_SUBSTRAIT: "ON"
-      LC_ALL: "C.UTF-8"
-      LANG: "C.UTF-8"
-      BUILD_DOCS_CPP: "ON"
-      BUILD_DOCS_PYTHON: "ON"
-      PYTEST_ARGS: "--doctest-modules --doctest-cython"
-    volumes: *conda-volumes
+environment:
+  <<: [*common, *ccache]
+  ARROW_SUBSTRAIT: "ON"
+  LC_ALL: "C.UTF-8"
+  LANG: "C.UTF-8"
+  BUILD_DOCS_CPP: "ON"
+  BUILD_DOCS_PYTHON: "ON"
+  PYTEST_ARGS: "--doctest-modules --doctest-cython"
+volumes: *conda-volumes
     # pytest is installed with an upper pin of 8.0.0 because
     # newer version breaks cython doctesting, see:
     # https://github.com/lgpage/pytest-cython/issues/58
