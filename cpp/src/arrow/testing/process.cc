@@ -151,10 +151,14 @@ class Process::Impl {
       while (process_->running() && std::chrono::steady_clock::now() < end) {
         auto read_bytes = stderr.read_some(asio::buffer(buffer.data(), buffer.size()));
         if (buffered_output.eof()) {
+          // std::getline() in the previous loop may set the EOF
+          // bit. If the EOF bit is set, all std::getline() calls are
+          // failed. So we clear the EOF bit and set the position to
+          // the last so that the next std::getline() can read
+          // unconsumed line.
           buffered_output.clear();
-          auto last = buffered_output.str().size();
-          buffered_output.seekg(last);
-          buffered_output.seekp(last);
+          buffered_output.seekg(0, std::ios_base::end);
+          buffered_output.seekp(0, std::ios_base::end);
         }
         buffered_output.write(buffer.data(), read_bytes);
         while (std::getline(buffered_output, line)) {
