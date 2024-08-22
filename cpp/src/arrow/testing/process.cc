@@ -26,6 +26,7 @@
 // work if windows.h is already included.
 #include <boost/asio/io_context.hpp>
 
+#ifdef BOOST_PROCESS_HAVE_V2
 #ifdef BOOST_PROCESS_NEED_SOURCE
 // Workaround for https://github.com/boostorg/process/issues/312
 #define BOOST_PROCESS_V2_SEPARATE_COMPILATION
@@ -33,6 +34,12 @@
 #include <boost/process/v2/src.hpp>
 #else
 #include <boost/process/v2.hpp>
+#endif
+#else
+// We need BOOST_USE_WINDOWS_H definition with MinGW when we use
+// boost/process.hpp. See BOOST_USE_WINDOWS_H=1 in
+// cpp/cmake_modules/ThirdpartyToolchain.cmake for details.
+#include <boost/process.hpp>
 #endif
 
 #ifdef __APPLE__
@@ -45,8 +52,12 @@
 #include <sstream>
 #include <thread>
 
+#ifdef BOOST_PROCESS_HAVE_V2
 namespace asio = BOOST_PROCESS_V2_ASIO_NAMESPACE;
 namespace process = BOOST_PROCESS_V2_NAMESPACE;
+#else
+namespace process = boost::process;
+#endif
 
 namespace arrow::util {
 
@@ -54,10 +65,19 @@ class Process::Impl {
  private:
   process::filesystem::path executable_;
   std::vector<std::string> args_;
+  std::string ready_marker_;
+  std::chrono::seconds ready_timeout_ = std::chrono::seconds(10);
+#ifdef BOOST_PROCESS_HAVE_V2
   std::unordered_map<process::environment::key, process::environment::value> env_;
-  std::string marker_;
   std::unique_ptr<process::process> process_;
   asio::io_context ctx_;
+  // boost/process/v2/ doesn't support process group yet:
+  // https://github.com/boostorg/process/issues/259
+#else
+  process::environment env_;
+  std::unique_ptr<process::child> process_;
+  std::unique_ptr<process::group> process_group_;
+#endif
 
   Result<process::filesystem::path> ResolveCurrentExecutable() {
     // See https://stackoverflow.com/a/1024937/10194 for various
@@ -93,25 +113,116 @@ class Process::Impl {
     }
   }
 
+#ifdef BOOST_PROCESS_HAVE_V2
+  Status ExecuteV2() {
+    process::process_environment env(env_);
+    if (ready_marker_.empty()) {
+      // We can't use std::make_unique<process::process>.
+      process_ = std::unique_ptr<process::process>(
+          new process::process(ctx_, executable_, args_, env));
+      return Status::OK();
+    }
+
+    asio::readable_pipe stderr(ctx_);
+    // We can't use std::make_unique<process::process>.
+    process_ = std::unique_ptr<process::process>(new process::process(
+        ctx_, executable_, args_, env, process::process_stdio{{}, {}, stderr}));
+    std::stringstream buffered_output;
+    std::array<char, 1024> buffer;
+    std::string line;
+    std::chrono::time_point<std::chrono::steady_clock> end =
+        std::chrono::steady_clock::now() + ready_timeout_;
+    while (process_->running() && std::chrono::steady_clock::now() < end) {
+      auto read_bytes = stderr.read_some(asio::buffer(buffer.data(), buffer.size()));
+      if (buffered_output.eof()) {
+        // std::getline() in the previous loop may set the EOF
+        // bit. If the EOF bit is set, all std::getline() calls are
+        // failed. So we clear the EOF bit and set the position to
+        // the last so that the next std::getline() can read
+        // unconsumed line.
+        buffered_output.clear();
+        buffered_output.seekg(0, std::ios_base::end);
+        buffered_output.seekp(0, std::ios_base::end);
+      }
+      buffered_output.write(buffer.data(), read_bytes);
+      while (std::getline(buffered_output, line)) {
+        std::cerr << line << std::endl;
+        if (line.find(ready_marker_) != std::string::npos) {
+          return Status::OK();
+        }
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+    return Status::IOError("Failed to launch '", executable_, " in ",
+                           ready_timeout_.count(), " seconds");
+  }
+#else
+  Status ExecuteV1() {
+    process_group_ = std::make_unique<process::group>();
+    if (ready_marker_.empty()) {
+      process_ = std::make_unique<process::child>(executable_, process::args(args_), env_,
+                                                  *process_group_);
+      return Status::OK();
+    }
+
+    process::ipstream stderr;
+    process_ =
+        std::make_unique<process::child>(executable_, process::args(args_), env_,
+                                         *process_group_, process::std_err > stderr);
+    std::string line;
+    std::chrono::time_point<std::chrono::steady_clock> end =
+        std::chrono::steady_clock::now() + ready_timeout_;
+    while (process_->valid() && process_->running() &&
+           std::chrono::steady_clock::now() < end) {
+      if (stderr.peek() && std::getline(stderr, line)) {
+        std::cerr << line << std::endl;
+        if (line.find(ready_marker_) != std::string::npos) {
+          return Status::OK();
+        }
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+    return Status::IOError("Failed to launch '", executable_, " in ",
+                           ready_timeout_.count(), " seconds");
+  }
+#endif
+
  public:
   Impl() {
     // Get a copy of the current environment.
+#ifdef BOOST_PROCESS_HAVE_V2
     for (const auto& kv : process::environment::current()) {
       env_[kv.key()] = kv.value().string();
     }
+#else
+    env_ = process::environment(boost::this_process::environment());
+#endif
   }
 
-  ~Impl() { process_ = nullptr; }
+  ~Impl() {
+#ifndef BOOST_PROCESS_HAVE_V2
+    process_group_ = nullptr;
+#endif
+    process_ = nullptr;
+  }
 
   Status SetExecutable(const std::string& name) {
+#ifdef BOOST_PROCESS_HAVE_V2
     executable_ = process::environment::find_executable(name);
+#else
+    executable_ = process::search_path(name);
+#endif
     if (executable_.empty()) {
       // Search the current executable directory as fallback.
       ARROW_ASSIGN_OR_RAISE(auto current_exe, ResolveCurrentExecutable());
+#ifdef BOOST_PROCESS_HAVE_V2
       std::unordered_map<process::environment::key, process::environment::value> env = {
           {"PATH", current_exe.parent_path().string()},
       };
       executable_ = process::environment::find_executable(name, env);
+#else
+      executable_ = process::search_path(name, {current_exe.parent_path()});
+#endif
     }
     if (executable_.empty()) {
       return Status::IOError("Failed to find '", name, "' in PATH");
@@ -126,51 +237,15 @@ class Process::Impl {
     env_[name] = std::string(value);
   }
 
-  void SetReadyErrorMessage(const std::string& marker) { marker_ = marker; }
+  void SetReadyErrorMessage(const std::string& marker) { ready_marker_ = marker; }
 
   Status Execute() {
     try {
-      process::process_environment env(env_);
-      if (marker_.empty()) {
-        // We can't use std::make_unique<process::process>.
-        process_ = std::unique_ptr<process::process>(
-            new process::process(ctx_, executable_, args_, env));
-        return Status::OK();
-      }
-
-      asio::readable_pipe stderr(ctx_);
-      // We can't use std::make_unique<process::process>.
-      process_ = std::unique_ptr<process::process>(new process::process(
-          ctx_, executable_, args_, env, process::process_stdio{{}, {}, stderr}));
-      std::stringstream buffered_output;
-      std::array<char, 1024> buffer;
-      std::string line;
-      auto timeout = std::chrono::seconds(10);
-      std::chrono::time_point<std::chrono::steady_clock> end =
-          std::chrono::steady_clock::now() + timeout;
-      while (process_->running() && std::chrono::steady_clock::now() < end) {
-        auto read_bytes = stderr.read_some(asio::buffer(buffer.data(), buffer.size()));
-        if (buffered_output.eof()) {
-          // std::getline() in the previous loop may set the EOF
-          // bit. If the EOF bit is set, all std::getline() calls are
-          // failed. So we clear the EOF bit and set the position to
-          // the last so that the next std::getline() can read
-          // unconsumed line.
-          buffered_output.clear();
-          buffered_output.seekg(0, std::ios_base::end);
-          buffered_output.seekp(0, std::ios_base::end);
-        }
-        buffered_output.write(buffer.data(), read_bytes);
-        while (std::getline(buffered_output, line)) {
-          std::cerr << line << std::endl;
-          if (line.find(marker_) != std::string::npos) {
-            return Status::OK();
-          }
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(20));
-      }
-      return Status::IOError("Failed to launch '", executable_, " in ", timeout.count(),
-                             " seconds");
+#ifdef BOOST_PROCESS_HAVE_V2
+      return ExecuteV2();
+#else
+      return ExecuteV1();
+#endif
     } catch (const std::exception& e) {
       return Status::IOError("Failed to launch '", executable_, "': ", e.what());
     }

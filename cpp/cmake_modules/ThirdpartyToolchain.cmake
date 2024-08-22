@@ -259,7 +259,7 @@ macro(resolve_dependency DEPENDENCY_NAME)
       IS_RUNTIME_DEPENDENCY
       REQUIRED_VERSION
       USE_CONFIG)
-  set(multi_value_args COMPONENTS PC_PACKAGE_NAMES)
+  set(multi_value_args COMPONENTS OPTIONAL_COMPONENTS PC_PACKAGE_NAMES)
   cmake_parse_arguments(ARG
                         "${options}"
                         "${one_value_args}"
@@ -286,6 +286,9 @@ macro(resolve_dependency DEPENDENCY_NAME)
   endif()
   if(ARG_COMPONENTS)
     list(APPEND FIND_PACKAGE_ARGUMENTS COMPONENTS ${ARG_COMPONENTS})
+  endif()
+  if(ARG_OPTIONAL_COMPONENTS)
+    list(APPEND FIND_PACKAGE_ARGUMENTS OPTIONAL_COMPONENTS ${ARG_OPTIONAL_COMPONENTS})
   endif()
   if(${DEPENDENCY_NAME}_SOURCE STREQUAL "AUTO")
     find_package(${FIND_PACKAGE_ARGUMENTS})
@@ -1182,8 +1185,7 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION
   # boost/container_hash/hash.hpp and support for that was removed in clang 16
   set(ARROW_BOOST_REQUIRED_VERSION "1.81")
 elseif(ARROW_BUILD_TESTS)
-  # For boost/process/v2
-  set(ARROW_BOOST_REQUIRED_VERSION "1.80")
+  set(ARROW_BOOST_REQUIRED_VERSION "1.64")
 else()
   set(ARROW_BOOST_REQUIRED_VERSION "1.58")
 endif()
@@ -1192,57 +1194,6 @@ set(Boost_USE_MULTITHREADED ON)
 if(MSVC AND ARROW_USE_STATIC_CRT)
   set(Boost_USE_STATIC_RUNTIME ON)
 endif()
-set(Boost_ADDITIONAL_VERSIONS
-    "1.84.0"
-    "1.84"
-    "1.83.0"
-    "1.83"
-    "1.82.0"
-    "1.82"
-    "1.81.0"
-    "1.81"
-    "1.80.0"
-    "1.80"
-    "1.79.0"
-    "1.79"
-    "1.78.0"
-    "1.78"
-    "1.77.0"
-    "1.77"
-    "1.76.0"
-    "1.76"
-    "1.75.0"
-    "1.75"
-    "1.74.0"
-    "1.74"
-    "1.73.0"
-    "1.73"
-    "1.72.0"
-    "1.72"
-    "1.71.0"
-    "1.71"
-    "1.70.0"
-    "1.70"
-    "1.69.0"
-    "1.69"
-    "1.68.0"
-    "1.68"
-    "1.67.0"
-    "1.67"
-    "1.66.0"
-    "1.66"
-    "1.65.0"
-    "1.65"
-    "1.64.0"
-    "1.64"
-    "1.63.0"
-    "1.63"
-    "1.62.0"
-    "1.61"
-    "1.61.0"
-    "1.62"
-    "1.60.0"
-    "1.60")
 
 # Compilers that don't support int128_t have a compile-time
 # (header-only) dependency on Boost for int128_t.
@@ -1290,15 +1241,19 @@ if(ARROW_USE_BOOST)
     set(Boost_USE_STATIC_LIBS ON)
   endif()
   if(ARROW_BOOST_REQUIRE_LIBRARY)
-    set(ARROW_BOOST_COMPONENTS filesystem process system)
+    set(ARROW_BOOST_COMPONENTS filesystem system)
+    set(ARROW_BOOST_OPTIONAL_COMPONENTS process)
   else()
     set(ARROW_BOOST_COMPONENTS)
+    set(ARROW_BOOST_OPTIONAL_COMPONENTS)
   endif()
   resolve_dependency(Boost
                      REQUIRED_VERSION
                      ${ARROW_BOOST_REQUIRED_VERSION}
                      COMPONENTS
                      ${ARROW_BOOST_COMPONENTS}
+                     OPTIONAL_COMPONENTS
+                     ${ARROW_BOOST_OPTIONAL_COMPONENTS}
                      IS_RUNTIME_DEPENDENCY
                      # libarrow.so doesn't depend on libboost*.
                      FALSE
@@ -1319,17 +1274,34 @@ if(ARROW_USE_BOOST)
     endif()
   endforeach()
 
-  if(NOT TARGET Boost::process)
+  if(TARGET Boost::process)
+    # Boost >= 1.86
+    target_compile_definitions(Boost::process INTERFACE "BOOST_PROCESS_HAVE_V2")
+  else()
+    # Boost < 1.86
     add_library(Boost::process INTERFACE IMPORTED)
     target_link_libraries(Boost::process INTERFACE Boost::filesystem Boost::system
                                                    Boost::headers)
-    # Boost < 1.86 has a bug that
-    # boost::process::v2::process_environment::on_setup() isn't
-    # defined. We need to build Boost Process source to define it.
-    #
-    # See also:
-    # https://github.com/boostorg/process/issues/312
-    target_compile_definitions(Boost::process INTERFACE "BOOST_PROCESS_NEED_SOURCE")
+    if(Boost_VERSION VERSION_LESS 1.80)
+      if(WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        # boost/process/detail/windows/handle_workaround.hpp doesn't work
+        # without BOOST_USE_WINDOWS_H with MinGW because MinGW doesn't
+        # provide __kernel_entry without winternl.h.
+        #
+        # See also:
+        # https://github.com/boostorg/process/blob/develop/include/boost/process/detail/windows/handle_workaround.hpp
+        target_compile_definitions(Boost::process INTERFACE "BOOST_USE_WINDOWS_H=1")
+      endif()
+    else()
+      target_compile_definitions(Boost::process INTERFACE "BOOST_PROCESS_HAVE_V2")
+      # Boost < 1.86 has a bug that
+      # boost::process::v2::process_environment::on_setup() isn't
+      # defined. We need to build Boost Process source to define it.
+      #
+      # See also:
+      # https://github.com/boostorg/process/issues/312
+      target_compile_definitions(Boost::process INTERFACE "BOOST_PROCESS_NEED_SOURCE")
+    endif()
   endif()
 
   message(STATUS "Boost include dir: ${Boost_INCLUDE_DIRS}")
