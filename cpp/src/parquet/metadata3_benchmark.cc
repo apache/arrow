@@ -76,6 +76,17 @@
 // 5/large-footer2: num-rgs=4 num-cols=2930 thrift=2248476 flatbuf=2390080
 //
 //
+// Optimized num_values when ColumnChunk is dense
+//
+//
+// 0/amazon_apparel.footer: num-rgs=1182 num-cols=16 thrift=2158995 flatbuf=3265192
+// 1/amazon_movie_tv.footer: num-rgs=3 num-cols=18 thrift=22578 flatbuf=7568
+// 2/amazon_polarity.footer: num-rgs=900 num-cols=4 thrift=1074313 flatbuf=1207416
+// 3/amazon_reviews_books.footer: num-rgs=159 num-cols=44 thrift=767840 flatbuf=611720
+// 4/large-footer1: num-rgs=23 num-cols=2001 thrift=3253741 flatbuf=4433832
+// 5/large-footer2: num-rgs=4 num-cols=2930 thrift=2248476 flatbuf=2343608
+//
+//
 
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #pragma GCC diagnostic ignored "-Wunused-function"
@@ -311,7 +322,10 @@ class ThriftConverter {
     out.encodings = (*this)(cm->encodings());
     out.path_in_schema = (*this)(cm->path_in_schema());
     out.codec = (*this)(cm->codec());
-    out.num_values = cm->num_values();
+    out.num_values =
+        flatbuffers::IsFieldPresent(cm, format3::ColumnMetadata::VT_NUM_VALUES)
+            ? cm->num_values()
+            : md_->row_groups()->Get(rg_idx)->num_rows();
     out.total_uncompressed_size = cm->total_uncompressed_size();
     out.key_value_metadata = (*this)(cm->key_value_metadata());
     out.data_page_offset = cm->data_page_offset();
@@ -586,7 +600,7 @@ class FlatbufferConverter {
     b.add_encodings(encodings);
     b.add_path_in_schema(path_in_schema);
     b.add_codec(codec);
-    b.add_num_values(cm.num_values);
+    if (rg.num_rows != cm.num_values) b.add_num_values(cm.num_values);
     b.add_total_uncompressed_size(cm.total_uncompressed_size);
     b.add_key_value_metadata(kv_metadata);
     if (cm.data_page_offset != md_->row_groups[rg_idx].columns[col_idx].file_offset) {
