@@ -951,6 +951,312 @@ public class RoundtripTest {
     }
   }
 
+  private FieldVector getSlicedVector(FieldVector vector, int offset, int length) {
+    // Consumer allocates empty structures
+    try (ArrowSchema consumerArrowSchema = ArrowSchema.allocateNew(allocator);
+        ArrowArray consumerArrowArray = ArrowArray.allocateNew(allocator)) {
+
+      // Producer creates structures from existing memory pointers
+      try (ArrowSchema arrowSchema = ArrowSchema.wrap(consumerArrowSchema.memoryAddress());
+          ArrowArray arrowArray = ArrowArray.wrap(consumerArrowArray.memoryAddress())) {
+        // Producer exports vector into the C Data Interface structures
+        Data.exportVector(allocator, vector, null, arrowArray, arrowSchema);
+      }
+
+      ArrowArray.Snapshot snapshot = consumerArrowArray.snapshot();
+      snapshot.offset = offset;
+      snapshot.length = length;
+      consumerArrowArray.save(snapshot);
+
+      // Consumer imports vector
+      FieldVector imported =
+          Data.importVector(childAllocator, consumerArrowArray, consumerArrowSchema, null);
+      if (!(imported instanceof NullVector)) {
+        assertEquals(childAllocator, imported.getAllocator());
+      }
+
+      // Check whether the transfer works
+      TransferPair pair = imported.getTransferPair(allocator);
+      pair.transfer();
+      return (FieldVector) pair.getTo();
+    }
+  }
+
+  @Test
+  public void testSliceVariableWidthVector() {
+    try (final VarCharVector vector = new VarCharVector("v", allocator);
+        VarCharVector target = new VarCharVector("v", allocator)) {
+      setVector(
+          vector,
+          "foo",
+          "bar",
+          "baz1",
+          "",
+          "baz23445",
+          null,
+          "12312baz",
+          "baz11",
+          "baz22",
+          "baz33");
+      // slice information
+      final int startIndex = 2;
+      final int length = 6;
+      // create a sliced vector manually to mimic C++ slice behavior
+      try (VarCharVector slicedVector =
+          (VarCharVector) getSlicedVector(vector, startIndex, length)) {
+        vector.splitAndTransferTo(startIndex, length, target);
+        assertTrue(roundtrip(slicedVector, VarCharVector.class));
+        assertTrue(VectorEqualsVisitor.vectorEquals(target, slicedVector));
+      }
+    }
+  }
+
+  @Test
+  public void testSliceVarBinaryVector() {
+    try (final VarBinaryVector vector = new VarBinaryVector("v", allocator);
+        VarBinaryVector target = new VarBinaryVector("v", allocator)) {
+      setVector(
+          vector,
+          new byte[] {0x01, 0x02, 0x03},
+          new byte[] {0x04, 0x05},
+          new byte[] {0x06, 0x07, 0x08, 0x09},
+          new byte[] {},
+          new byte[] {0x0A, 0x0B, 0x0C, 0x0D, 0x0E},
+          null,
+          new byte[] {0x0F, 0x10, 0x11},
+          new byte[] {0x12, 0x13},
+          new byte[] {0x14, 0x15, 0x16},
+          new byte[] {0x17, 0x18, 0x19, 0x1A});
+      // slice information
+      final int startIndex = 2;
+      final int length = 6;
+      // create a sliced vector manually to mimic C++ slice behavior
+      try (VarBinaryVector slicedVector =
+          (VarBinaryVector) getSlicedVector(vector, startIndex, length)) {
+        vector.splitAndTransferTo(startIndex, length, target);
+        assertTrue(roundtrip(slicedVector, VarBinaryVector.class));
+        assertTrue(VectorEqualsVisitor.vectorEquals(target, slicedVector));
+      }
+    }
+  }
+
+  @Test
+  public void testSliceFixedWidthVector() {
+    try (final IntVector vector = new IntVector("v", allocator);
+        IntVector target = new IntVector("v", allocator)) {
+      setVector(vector, 1, 2, null, 3, 4, null, 6, 7, 8, 9, 10);
+      // slice information
+      final int startIndex = 2;
+      final int length = 6;
+      // create a sliced vector manually to mimic C++ slice behavior
+      try (IntVector slicedVector = (IntVector) getSlicedVector(vector, startIndex, length)) {
+        vector.splitAndTransferTo(startIndex, length, target);
+        assertTrue(roundtrip(slicedVector, IntVector.class));
+        assertTrue(VectorEqualsVisitor.vectorEquals(target, slicedVector));
+      }
+    }
+  }
+
+  @Test
+  public void testSliceViewVarCharVector() {
+    try (final ViewVarCharVector vector = new ViewVarCharVector("vu", allocator);
+        ViewVarCharVector target = new ViewVarCharVector("vu", allocator)) {
+      setVector(
+          vector,
+          "foo",
+          "bar",
+          "baz1",
+          "",
+          "baz1234567890123",
+          null,
+          "12312baz",
+          "baz11",
+          "baz22",
+          "baz33");
+      // slice information
+      final int startIndex = 2;
+      final int length = 6;
+      // create a sliced vector manually to mimic C++ slice behavior
+      try (ViewVarCharVector slicedVector =
+          (ViewVarCharVector) getSlicedVector(vector, startIndex, length)) {
+        vector.splitAndTransferTo(startIndex, length, target);
+        assertTrue(roundtrip(slicedVector, ViewVarCharVector.class));
+        assertTrue(VectorEqualsVisitor.vectorEquals(target, slicedVector));
+      }
+    }
+  }
+
+  @Test
+  public void testSliceViewVarBinaryVector() {
+    try (final ViewVarBinaryVector vector = new ViewVarBinaryVector("vz", allocator);
+        ViewVarBinaryVector target = new ViewVarBinaryVector("vz", allocator)) {
+      setVector(
+          vector,
+          new byte[] {0x66, 0x6F, 0x6F}, // "foo"
+          new byte[] {0x62, 0x61, 0x72}, // "bar"
+          new byte[] {0x62, 0x61, 0x7A, 0x31}, // "baz1"
+          new byte[] {}, // empty
+          new byte[] {
+            0x62, 0x61, 0x7A, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x30, 0x31,
+            0x32, 0x33
+          }, // "baz1234567890123"
+          null, // null
+          new byte[] {0x31, 0x32, 0x33, 0x31, 0x32, 0x62, 0x61, 0x7A}, // "12312baz"
+          new byte[] {0x62, 0x61, 0x7A, 0x31, 0x31}, // "baz11"
+          new byte[] {0x62, 0x61, 0x7A, 0x32, 0x32}, // "baz22"
+          new byte[] {0x62, 0x61, 0x7A, 0x33, 0x33} // "baz33"
+          );
+      // slice information
+      final int startIndex = 2;
+      final int length = 6;
+      // create a sliced vector manually to mimic C++ slice behavior
+      try (ViewVarBinaryVector slicedVector =
+          (ViewVarBinaryVector) getSlicedVector(vector, startIndex, length)) {
+        vector.splitAndTransferTo(startIndex, length, target);
+        assertTrue(roundtrip(slicedVector, ViewVarBinaryVector.class));
+        assertTrue(VectorEqualsVisitor.vectorEquals(target, slicedVector));
+      }
+    }
+  }
+
+  @Test
+  public void testSliceListVector() {
+    try (final ListVector vector = ListVector.empty("v", allocator);
+        ListVector target = ListVector.empty("v", allocator)) {
+      // Set values in the ListVector
+      setVector(
+          vector,
+          Arrays.asList(1, 2, 3),
+          Arrays.asList(4, 5),
+          Arrays.asList(6, 7, 8, 9),
+          Collections.emptyList(),
+          Arrays.asList(10, 11, 12, 13, 14),
+          null,
+          Arrays.asList(15, 16, 17),
+          Arrays.asList(18, 19),
+          Arrays.asList(20, 21, 22),
+          Arrays.asList(23, 24, 25, 26));
+
+      // Slice information
+      final int startIndex = 2;
+      final int length = 6;
+
+      // Create a sliced vector manually to mimic C++ slice behavior
+      try (ListVector slicedVector = (ListVector) getSlicedVector(vector, startIndex, length)) {
+        vector.splitAndTransferTo(startIndex, length, target);
+        assertTrue(roundtrip(slicedVector, ListVector.class));
+        assertTrue(VectorEqualsVisitor.vectorEquals(target, slicedVector));
+      }
+    }
+  }
+
+  @Test
+  public void testSliceLargeListVector() {
+    try (final LargeListVector vector = LargeListVector.empty("v", allocator);
+        LargeListVector target = LargeListVector.empty("v", allocator)) {
+      // Set values in the LargeListVector
+      setVector(
+          vector,
+          Arrays.asList(1, 2, 3),
+          Arrays.asList(4, 5),
+          Arrays.asList(6, 7, 8, 9),
+          Collections.emptyList(),
+          Arrays.asList(10, 11, 12, 13, 14),
+          null,
+          Arrays.asList(15, 16, 17),
+          Arrays.asList(18, 19),
+          Arrays.asList(20, 21, 22),
+          Arrays.asList(23, 24, 25, 26));
+
+      // Slice information
+      final int startIndex = 2;
+      final int length = 6;
+
+      // Create a sliced vector manually to mimic C++ slice behavior
+      try (LargeListVector slicedVector =
+          (LargeListVector) getSlicedVector(vector, startIndex, length)) {
+        vector.splitAndTransferTo(startIndex, length, target);
+        assertTrue(roundtrip(slicedVector, LargeListVector.class));
+        assertTrue(VectorEqualsVisitor.vectorEquals(target, slicedVector));
+      }
+    }
+  }
+
+  @Test
+  public void testSliceFixedSizeListVector() {
+    // TODO: complete this test and function
+  }
+
+  @Test
+  public void testSliceUnionVector() {
+    // TODO: complete this test and function
+  }
+
+  @Test
+  public void testSliceMapVector() {
+    // TODO: complete this test and function
+  }
+
+  @Test
+  public void testSliceIntVector() {
+    // TODO: complete this test and function
+  }
+
+  @Test
+  public void testSliceFloatingPointVector() {
+    // TODO: complete this test and function
+  }
+
+  @Test
+  public void testSliceLargeUtf8Vector() {
+    // TODO: complete this test and function
+  }
+
+  @Test
+  public void testSliceFixedSizeBinaryVector() {
+    // TODO: complete this test and function
+  }
+
+  @Test
+  public void testSliceBoolVector() {
+    // TODO: complete this test and function
+  }
+
+  @Test
+  public void testSliceDecimalVector() {
+    // TODO: complete this test and function
+  }
+
+  @Test
+  public void testSliceDateVector() {
+    // TODO: complete this test and function
+  }
+
+  @Test
+  public void testSliceTimeVector() {
+    // TODO: complete this test and function
+  }
+
+  @Test
+  public void testSliceTimeStampVector() {
+    // TODO: complete this test and function
+  }
+
+  @Test
+  public void testSliceIntervalVector() {
+    // TODO: complete this test and function
+  }
+
+  @Test
+  public void testSliceDurationVector() {
+    // TODO: complete this test and function
+  }
+
+  @Test
+  public void testSliceListViewVector() {
+    // TODO: complete this test and function
+  }
+
   private VectorSchemaRoot createTestVSR() {
     BitVector bitVector = new BitVector("boolean", allocator);
 

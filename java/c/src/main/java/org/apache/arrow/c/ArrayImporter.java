@@ -98,7 +98,11 @@ final class ArrayImporter {
         checkState(children[i] != NULL, "ArrowArray struct has NULL child at position %s", i);
         ArrayImporter childImporter =
             new ArrayImporter(allocator, childVectors.get(i), dictionaryProvider);
-        childImporter.importChild(this, ArrowArray.wrap(children[i]));
+        ArrowArray childArray = ArrowArray.wrap(children[i]);
+        ArrowArray.Snapshot childSnapshot = childArray.snapshot();
+        childSnapshot.offset = snapshot.offset;
+        childArray.save(childSnapshot);
+        childImporter.importChild(this, childArray);
       }
     }
 
@@ -124,7 +128,8 @@ final class ArrayImporter {
         NativeUtil.toJavaArray(snapshot.buffers, checkedCastToInt(snapshot.n_buffers));
 
     try (final BufferImportTypeVisitor visitor =
-        new BufferImportTypeVisitor(allocator, underlyingAllocation, fieldNode, bufferPointers)) {
+        new BufferImportTypeVisitor(
+            allocator, underlyingAllocation, fieldNode, snapshot.offset, bufferPointers)) {
       final List<ArrowBuf> buffers;
       if (bufferPointers == null || bufferPointers.length == 0) {
         buffers = Collections.emptyList();

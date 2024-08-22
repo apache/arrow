@@ -63,6 +63,7 @@ jobs:
     env:
       JDK: ${{ matrix.jdk }}
       MAVEN: ${{ matrix.maven }}
+      MAVEN_OPTS: -Darrow.memory.debug.allocator=true
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
@@ -86,6 +87,7 @@ jobs:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
           DEVELOCITY_ACCESS_KEY: ${{ secrets.GE_ACCESS_TOKEN }}
+          JAVA_TOOL_OPTIONS: -Darrow.memory.debug.allocator=true
         run: |
           archery docker run \
             -e CI=true \
