@@ -88,6 +88,7 @@ Status MinioTestServer::Start() {
       impl_->server_process_->SetEnv("MINIO_ACCESS_KEY", kMinioAccessKey));
   ARROW_RETURN_NOT_OK(
       impl_->server_process_->SetEnv("MINIO_SECRET_KEY", kMinioSecretKey));
+  // Disable the embedded console (one less listening address to care about)
   ARROW_RETURN_NOT_OK(impl_->server_process_->SetEnv("MINIO_BROWSER", "off"));
   impl_->connect_string_ = GenerateConnectString();
   ARROW_RETURN_NOT_OK(impl_->server_process_->SetExecutable(kMinioExecutableName));
