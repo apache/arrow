@@ -121,7 +121,7 @@ jobs:
           source test-env/bin/activate
           pip install --upgrade pip wheel
           arch -{{ arch }} pip install -r arrow/python/requirements-wheel-test.txt
-          PYTHON=python arch -{{ arch }} arrow/ci/scripts/install_gcs_testbench.sh default
+          PYTHON_VERSION={{ python_version }} arch -{{ arch }} arrow/ci/scripts/install_gcs_testbench.sh default
           arch -{{ arch }} arrow/ci/scripts/python_wheel_unix_test.sh $(pwd)/arrow
 
       {{ macros.github_upload_releases("arrow/python/repaired_wheels/*.whl")|indent }}
