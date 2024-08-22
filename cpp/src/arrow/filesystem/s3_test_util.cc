@@ -84,18 +84,16 @@ Status MinioTestServer::Start() {
   ARROW_ASSIGN_OR_RAISE(impl_->temp_dir_, TemporaryDir::Make("s3fs-test-"));
 
   impl_->server_process_ = std::make_unique<util::Process>();
-  ARROW_RETURN_NOT_OK(
-      impl_->server_process_->SetEnv("MINIO_ACCESS_KEY", kMinioAccessKey));
-  ARROW_RETURN_NOT_OK(
-      impl_->server_process_->SetEnv("MINIO_SECRET_KEY", kMinioSecretKey));
+  impl_->server_process_->SetEnv("MINIO_ACCESS_KEY", kMinioAccessKey);
+  impl_->server_process_->SetEnv("MINIO_SECRET_KEY", kMinioSecretKey);
   // Disable the embedded console (one less listening address to care about)
-  ARROW_RETURN_NOT_OK(impl_->server_process_->SetEnv("MINIO_BROWSER", "off"));
+  impl_->server_process_->SetEnv("MINIO_BROWSER", "off");
   impl_->connect_string_ = GenerateConnectString();
   ARROW_RETURN_NOT_OK(impl_->server_process_->SetExecutable(kMinioExecutableName));
   // NOTE: --quiet makes startup faster by suppressing remote version check
-  ARROW_RETURN_NOT_OK(impl_->server_process_->SetArgs(
-      {"server", "--quiet", "--compat", "--address", impl_->connect_string_,
-       impl_->temp_dir_->path().ToString()}));
+  impl_->server_process_->SetArgs({"server", "--quiet", "--compat", "--address",
+                                   impl_->connect_string_,
+                                   impl_->temp_dir_->path().ToString()});
   ARROW_RETURN_NOT_OK(impl_->server_process_->Execute());
   return Status::OK();
 }

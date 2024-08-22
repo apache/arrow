@@ -53,7 +53,7 @@ Status TestServer::Start(const std::vector<std::string>& extra_args) {
     args.push_back(unix_sock_);
   }
   args.insert(args.end(), extra_args.begin(), extra_args.end());
-  ARROW_RETURN_NOT_OK(server_process_->SetArgs(args));
+  server_process_->SetArgs(args);
   ARROW_RETURN_NOT_OK(server_process_->Execute());
   std::cout << "Server running with pid " << server_process_->id() << std::endl;
   return Status::OK();

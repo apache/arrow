@@ -120,21 +120,14 @@ class Process::Impl {
     return Status::OK();
   }
 
-  Status SetArgs(const std::vector<std::string>& args) {
-    args_ = args;
-    return Status::OK();
-  }
+  void SetArgs(const std::vector<std::string>& args) { args_ = args; }
 
-  Status SetEnv(const std::string& name, const std::string& value) {
+  void SetEnv(const std::string& name, const std::string& value) {
     // Workaround for https://github.com/boostorg/process/issues/365
     env_[name] = std::string(value);
-    return Status::OK();
   }
 
-  Status SetReadyErrorMessage(const std::string& marker) {
-    marker_ = marker;
-    return Status::OK();
-  }
+  void SetReadyErrorMessage(const std::string& marker) { marker_ = marker; }
 
   Status Execute() {
     try {
@@ -198,16 +191,14 @@ Status Process::SetExecutable(const std::string& path) {
   return impl_->SetExecutable(path);
 }
 
-Status Process::SetArgs(const std::vector<std::string>& args) {
-  return impl_->SetArgs(args);
+void Process::SetArgs(const std::vector<std::string>& args) { impl_->SetArgs(args); }
+
+void Process::SetEnv(const std::string& key, const std::string& value) {
+  impl_->SetEnv(key, value);
 }
 
-Status Process::SetEnv(const std::string& key, const std::string& value) {
-  return impl_->SetEnv(key, value);
-}
-
-Status Process::SetReadyErrorMessage(const std::string& marker) {
-  return impl_->SetReadyErrorMessage(marker);
+void Process::SetReadyErrorMessage(const std::string& marker) {
+  impl_->SetReadyErrorMessage(marker);
 }
 
 Status Process::Execute() { return impl_->Execute(); }

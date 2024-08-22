@@ -76,24 +76,8 @@ class GcsTestbench : public ::testing::Environment {
       return;
     }
 
-    status = server_process->SetArgs({"-m", "testbench", "--port", port_});
-    if (!status.ok()) {
-      error += " (failed to set args: ";
-      error += status.ToString();
-      error += ")";
-      error_ = std::move(error);
-      return;
-    }
-
-    status = server_process->SetReadyErrorMessage("* Restarting with");
-    if (!status.ok()) {
-      error += " (failed to set ready error message: ";
-      error += status.ToString();
-      error += ")";
-      error_ = std::move(error);
-      return;
-    }
-
+    server_process->SetArgs({"--port", port_});
+    server_process->SetReadyErrorMessage("* Restarting with");
     status = server_process->Execute();
     if (!status.ok()) {
       error += " (failed to launch: ";

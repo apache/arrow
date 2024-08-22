@@ -32,9 +32,9 @@ class ARROW_TESTING_EXPORT Process {
   ~Process();
 
   Status SetExecutable(const std::string& path);
-  Status SetArgs(const std::vector<std::string>& args);
-  Status SetEnv(const std::string& name, const std::string& value);
-  Status SetReadyErrorMessage(const std::string& marker);
+  void SetArgs(const std::vector<std::string>& args);
+  void SetEnv(const std::string& name, const std::string& value);
+  void SetReadyErrorMessage(const std::string& marker);
   Status Execute();
   bool IsRunning();
   uint64_t id();

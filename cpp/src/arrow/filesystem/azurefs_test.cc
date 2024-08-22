@@ -175,12 +175,12 @@ class AzuriteEnv : public AzureEnvImpl<AzuriteEnv> {
     ARROW_ASSIGN_OR_RAISE(self->temp_dir_, TemporaryDir::Make("azurefs-test-"));
     ARROW_ASSIGN_OR_RAISE(self->debug_log_path_,
                           self->temp_dir_->path().Join("debug.log"));
-    ARROW_RETURN_NOT_OK(self->server_process_->SetArgs(
-        {"--silent", "--location", self->temp_dir_->path().ToString(), "--debug",
-         self->debug_log_path_.ToString(),
-         // For old Azurite. We can't install the latest Azurite with
-         // old Node.js on old Ubuntu.
-         "--skipApiVersionCheck"}));
+    self->server_process_->SetArgs({"--silent", "--location",
+                                    self->temp_dir_->path().ToString(), "--debug",
+                                    self->debug_log_path_.ToString(),
+                                    // For old Azurite. We can't install the latest
+                                    // Azurite with old Node.js on old Ubuntu.
+                                    "--skipApiVersionCheck"});
     ARROW_RETURN_NOT_OK(self->server_process_->Execute());
     return self;
   }
