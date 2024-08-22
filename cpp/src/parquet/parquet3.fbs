@@ -172,7 +172,7 @@ table ColumnMetadata {
   index_page_offset: int = null;
   dictionary_page_offset: int = null;
   statistics: Statistics;
-  encoding_stats: [PageEncodingStats];
+  is_fully_dict_encoded: bool;
   bloom_filter_offset: int = null;
   bloom_filter_length: int = null;
 }
