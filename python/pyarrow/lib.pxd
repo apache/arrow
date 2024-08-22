@@ -513,6 +513,7 @@ cdef class ChunkedArray(_PandasConvertible):
 
     cdef void init(self, const shared_ptr[CChunkedArray]& chunked_array)
     cdef getitem(self, int64_t i)
+    cdef void _assert_cpu(self) except *
 
 
 cdef class _Tabular(_PandasConvertible):

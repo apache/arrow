@@ -26,6 +26,7 @@
 #include "arrow/chunk_resolver.h"
 #include "arrow/compare.h"
 #include "arrow/device_allocation_type_set.h"
+#include "arrow/device.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
@@ -190,11 +191,21 @@ class ARROW_EXPORT ChunkedArray {
   /// \return Status
   Status ValidateFull() const;
 
+  /// \brief Return the device_type that this chunked array's data is allocated
+  /// on.
+  ///
+  /// This just delegates to calling device_type on the underlying ArrayData
+  /// object which backs this Array.
+  ///
+  /// \return DeviceAllocationType
+  DeviceAllocationType device_type() const { return device_type_; }
+
  protected:
   ArrayVector chunks_;
   std::shared_ptr<DataType> type_;
   int64_t length_;
   int64_t null_count_;
+  DeviceAllocationType device_type_;
 
  private:
   template <typename T, typename V>

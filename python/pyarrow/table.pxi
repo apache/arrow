@@ -1410,6 +1410,28 @@ cdef class ChunkedArray(_PandasConvertible):
         self.init(c_chunked_array)
         return self
 
+    @property
+    def device_type(self):
+        """
+        The device type where the chunks in the ChunkedArray reside.
+
+        Returns
+        -------
+        DeviceAllocationType
+        """
+        return _wrap_device_allocation_type(self.sp_chunked_array.get().device_type())
+
+    @property
+    def is_cpu(self):
+        """
+        Whether the ChunkedArrays's chunks are CPU-accessible.
+        """
+        return self.device_type == DeviceAllocationType.CPU
+
+    cdef void _assert_cpu(self) except *:
+        if self.sp_chunked_array.get().device_type() != CDeviceAllocationType_kCPU:
+            raise NotImplementedError("Implemented only for data on CPU device")
+
 
 def chunked_array(arrays, type=None):
     """
