@@ -80,7 +80,6 @@ class RowArrayAccessor {
   static void VisitNulls(const RowTableImpl& rows, int column_id, int num_rows,
                          const uint32_t* row_ids, PROCESS_VALUE_FN process_value_fn);
 
- private:
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
   // This is equivalent to Visit method, but processing 8 rows at a time in a
   // loop.
@@ -149,15 +148,16 @@ struct RowArray {
   RowTableImpl rows_temp_;
 
  private:
-  int DecodeFixedLength(ResizableArrayData* output, int output_start_row, int column_id,
+  void DecodeFixedLength(ResizableArrayData* output, int output_start_row, int column_id,
                         uint32_t fixed_length, int num_rows_to_append,
                         const uint32_t* row_ids) const;
-  int DecodeOffsets(ResizableArrayData* output, int output_start_row, int column_id,
+  void DecodeOffsets(ResizableArrayData* output, int output_start_row, int column_id,
                     int num_rows_to_append, const uint32_t* row_ids) const;
-  int DecodeVarLength(ResizableArrayData* output, int output_start_row, int column_id,
+  void DecodeVarLength(ResizableArrayData* output, int output_start_row, int column_id,
                       int num_rows_to_append, const uint32_t* row_ids) const;
-  int DecodeNulls(ResizableArrayData* output, int output_start_row, int column_id,
+  void DecodeNulls(ResizableArrayData* output, int output_start_row, int column_id,
                   int num_rows_to_append, const uint32_t* row_ids) const;
+
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
   int DecodeFixedLength_avx2(ResizableArrayData* output, int output_start_row,
                              int column_id, uint32_t fixed_length, int num_rows_to_append,

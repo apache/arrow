@@ -280,33 +280,33 @@ Status RowArray::DecodeSelected(ResizableArrayData* output, int column_id,
     // Process fixed length columns
     //
     if (hardware_flags_ & arrow::internal::CpuInfo::AVX2) {
+      // Process some beginning rows to assure AVX2 version see 8-row aligned output
+      // address.
+      int num_rows_to_append_head = std::min(num_rows_to_append, 8 - num_rows_before % 8);
+      DecodeFixedLength(output, num_rows_before, column_id, fixed_length,
+                        num_rows_to_append_head, row_ids);
       num_rows_processed =
-          DecodeFixedLength_avx2(output, num_rows_before, column_id, fixed_length,
-                                 num_rows_to_append / 2, row_ids + num_rows_processed);
+          num_rows_to_append_head +
+          DecodeFixedLength_avx2(output, num_rows_before + num_rows_to_append_head,
+                                 column_id, fixed_length,
+                                 num_rows_to_append - num_rows_to_append_head,
+                                 row_ids + num_rows_to_append_head);
     }
-#else
-    num_rows_processed =
-        DecodeFixedLength(output, num_rows_before, column_id, fixed_length,
-                          num_rows_to_append / 2, row_ids + num_rows_processed);
 #endif
-    std::ignore = DecodeFixedLength(
-        output, num_rows_before + num_rows_processed, column_id, fixed_length,
-        num_rows_to_append - num_rows_processed, row_ids + num_rows_processed);
+    DecodeFixedLength(output, num_rows_before + num_rows_processed, column_id,
+                      fixed_length, num_rows_to_append - num_rows_processed,
+                      row_ids + num_rows_processed);
   } else {
     // Process offsets for varying length columns
     //
 #ifdef ARROW_HAVE_RUNTIME_AVX2
     if (hardware_flags_ & arrow::internal::CpuInfo::AVX2) {
       num_rows_processed = DecodeOffsets_avx2(output, num_rows_before, column_id,
-                                              num_rows_to_append / 2, row_ids);
+                                              num_rows_to_append, row_ids);
     }
-#else
-    num_rows_processed = DecodeOffsets(output, num_rows_before, column_id,
-                                       num_rows_to_append / 2, row_ids);
 #endif
-    std::ignore = DecodeOffsets(output, num_rows_before + num_rows_processed, column_id,
-                                num_rows_to_append - num_rows_processed,
-                                row_ids + num_rows_processed);
+    DecodeOffsets(output, num_rows_before + num_rows_processed, column_id,
+                  num_rows_to_append - num_rows_processed, row_ids + num_rows_processed);
 
     RETURN_NOT_OK(output->ResizeVaryingLengthBuffer());
 
@@ -315,35 +315,26 @@ Status RowArray::DecodeSelected(ResizableArrayData* output, int column_id,
 #ifdef ARROW_HAVE_RUNTIME_AVX2
     if (hardware_flags_ & arrow::internal::CpuInfo::AVX2) {
       int num_var_length_rows_processed = DecodeVarLength_avx2(
-          output, num_rows_before, column_id, num_rows_to_append / 2, row_ids);
+          output, num_rows_before, column_id, num_rows_to_append, row_ids);
       DCHECK_EQ(num_var_length_rows_processed, num_rows_processed);
     }
-#else
-    int num_var_length_rows_processed = DecodeVarLength(
-        output, num_rows_before, column_id, num_rows_to_append / 2, row_ids);
-    DCHECK_EQ(num_var_length_rows_processed, num_rows_processed);
 #endif
-    std::ignore = DecodeVarLength(output, num_rows_before + num_rows_processed, column_id,
-                                  num_rows_to_append - num_rows_processed,
-                                  row_ids + num_rows_processed);
+    DecodeVarLength(output, num_rows_before + num_rows_processed, column_id,
+                    num_rows_to_append - num_rows_processed,
+                    row_ids + num_rows_processed);
   }
 
-  // Process nulls
-  //
+// Process nulls
+//
 #ifdef ARROW_HAVE_RUNTIME_AVX2
   if (hardware_flags_ & arrow::internal::CpuInfo::AVX2) {
-    int num_null_rows_processed = DecodeNulls_avx2(output, num_rows_before, column_id,
-                                                   num_rows_to_append / 2, row_ids);
+    int num_null_rows_processed =
+        DecodeNulls_avx2(output, num_rows_before, column_id, num_rows_to_append, row_ids);
     DCHECK_EQ(num_null_rows_processed, num_rows_processed);
   }
-#else
-  int num_null_rows_processed =
-      DecodeNulls(output, num_rows_before, column_id, num_rows_to_append / 2, row_ids);
-  DCHECK_EQ(num_null_rows_processed, num_rows_processed);
 #endif
-  std::ignore =
-      DecodeNulls(output, num_rows_before + num_rows_processed, column_id,
-                  num_rows_to_append - num_rows_processed, row_ids + num_rows_processed);
+  DecodeNulls(output, num_rows_before + num_rows_processed, column_id,
+              num_rows_to_append - num_rows_processed, row_ids + num_rows_processed);
 
   return Status::OK();
 }
@@ -422,9 +413,9 @@ void RowArray::DebugPrintToFile(const char* filename, bool print_sorted) const {
   }
 }
 
-int RowArray::DecodeFixedLength(ResizableArrayData* output, int output_start_row,
-                                int column_id, uint32_t fixed_length,
-                                int num_rows_to_append, const uint32_t* row_ids) const {
+void RowArray::DecodeFixedLength(ResizableArrayData* output, int output_start_row,
+                                 int column_id, uint32_t fixed_length,
+                                 int num_rows_to_append, const uint32_t* row_ids) const {
   switch (fixed_length) {
     case 0:
       RowArrayAccessor::Visit(rows_, column_id, num_rows_to_append, row_ids,
@@ -478,13 +469,11 @@ int RowArray::DecodeFixedLength(ResizableArrayData* output, int output_start_row
           });
       break;
   }
-
-  return num_rows_to_append;
 }
 
-int RowArray::DecodeOffsets(ResizableArrayData* output, int output_start_row,
-                            int column_id, int num_rows_to_append,
-                            const uint32_t* row_ids) const {
+void RowArray::DecodeOffsets(ResizableArrayData* output, int output_start_row,
+                             int column_id, int num_rows_to_append,
+                             const uint32_t* row_ids) const {
   uint32_t* offsets =
       reinterpret_cast<uint32_t*>(output->mutable_data(1)) + output_start_row;
   uint32_t sum = (output_start_row == 0) ? 0 : offsets[0];
@@ -497,13 +486,11 @@ int RowArray::DecodeOffsets(ResizableArrayData* output, int output_start_row,
     sum += length;
   }
   offsets[num_rows_to_append] = sum;
-
-  return num_rows_to_append;
 }
 
-int RowArray::DecodeVarLength(ResizableArrayData* output, int output_start_row,
-                              int column_id, int num_rows_to_append,
-                              const uint32_t* row_ids) const {
+void RowArray::DecodeVarLength(ResizableArrayData* output, int output_start_row,
+                               int column_id, int num_rows_to_append,
+                               const uint32_t* row_ids) const {
   RowArrayAccessor::Visit(
       rows_, column_id, num_rows_to_append, row_ids,
       [&](int i, const uint8_t* ptr, uint32_t num_bytes) {
@@ -517,18 +504,15 @@ int RowArray::DecodeVarLength(ResizableArrayData* output, int output_start_row,
                                            arrow::util::SafeLoad(src + word_id));
         }
       });
-
-  return num_rows_to_append;
 }
 
-int RowArray::DecodeNulls(ResizableArrayData* output, int output_start_row, int column_id,
-                          int num_rows_to_append, const uint32_t* row_ids) const {
+void RowArray::DecodeNulls(ResizableArrayData* output, int output_start_row,
+                           int column_id, int num_rows_to_append,
+                           const uint32_t* row_ids) const {
   RowArrayAccessor::VisitNulls(
       rows_, column_id, num_rows_to_append, row_ids, [&](int i, uint8_t value) {
         bit_util::SetBitTo(output->mutable_data(0), output_start_row + i, value == 0);
       });
-
-  return num_rows_to_append;
 }
 
 Status RowArrayMerge::PrepareForMerge(RowArray* target,
