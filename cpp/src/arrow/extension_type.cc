@@ -27,9 +27,10 @@
 #include "arrow/array/util.h"
 #include "arrow/chunked_array.h"
 #include "arrow/config.h"
-#ifdef ARROW_JSON
 #include "arrow/extension/bool8.h"
+#ifdef ARROW_JSON
 #include "arrow/extension/fixed_shape_tensor.h"
+#include "arrow/extension/opaque.h"
 #endif
 #include "arrow/status.h"
 #include "arrow/type.h"
@@ -143,17 +144,21 @@ static std::once_flag registry_initialized;
 namespace internal {
 
 static void CreateGlobalRegistry() {
+  // Register canonical extension types
+
   g_registry = std::make_shared<ExtensionTypeRegistryImpl>();
+  std::vector<std::shared_ptr<DataType>> ext_types{extension::bool8()};
 
 #ifdef ARROW_JSON
-  // Register canonical extension types
-  auto fst_ext_type =
-      checked_pointer_cast<ExtensionType>(extension::fixed_shape_tensor(int64(), {}));
-  ARROW_CHECK_OK(g_registry->RegisterType(fst_ext_type));
-
-  auto bool8_ext_type = checked_pointer_cast<ExtensionType>(extension::bool8());
-  ARROW_CHECK_OK(g_registry->RegisterType(bool8_ext_type));
+  ext_types.push_back(extension::fixed_shape_tensor(int64(), {}));
+  ext_types.push_back(extension::opaque(null(), "", ""));
 #endif
+
+  // Register canonical extension types
+  for (const auto& ext_type : ext_types) {
+    ARROW_CHECK_OK(
+        g_registry->RegisterType(checked_pointer_cast<ExtensionType>(ext_type)));
+  }
 }
 
 }  // namespace internal
