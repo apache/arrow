@@ -55,15 +55,17 @@
 #ifdef BOOST_PROCESS_HAVE_V2
 namespace asio = BOOST_PROCESS_V2_ASIO_NAMESPACE;
 namespace process = BOOST_PROCESS_V2_NAMESPACE;
+namespace filesystem = process::filesystem;
 #else
 namespace process = boost::process;
+namespace filesystem = boost::filesystem;
 #endif
 
 namespace arrow::util {
 
 class Process::Impl {
  private:
-  process::filesystem::path executable_;
+  filesystem::path executable_;
   std::vector<std::string> args_;
   std::string ready_marker_;
   std::chrono::seconds ready_timeout_ = std::chrono::seconds(10);
@@ -79,28 +81,28 @@ class Process::Impl {
   std::unique_ptr<process::group> process_group_;
 #endif
 
-  Result<process::filesystem::path> ResolveCurrentExecutable() {
+  Result<filesystem::path> ResolveCurrentExecutable() {
     // See https://stackoverflow.com/a/1024937/10194 for various
     // platform-specific recipes.
 
-    process::filesystem::path path;
+    filesystem::path path;
     boost::system::error_code ec;
 
 #if defined(__linux__)
-    path = process::filesystem::canonical("/proc/self/exe", ec);
+    path = filesystem::canonical("/proc/self/exe", ec);
 #elif defined(__APPLE__)
     char buf[PATH_MAX + 1];
     uint32_t bufsize = sizeof(buf);
     if (_NSGetExecutablePath(buf, &bufsize) < 0) {
       return Status::Invalid("Can't resolve current exe: path too large");
     }
-    path = process::filesystem::canonical(buf, ec);
+    path = filesystem::canonical(buf, ec);
 #elif defined(_WIN32)
     char buf[MAX_PATH + 1];
     if (!GetModuleFileNameA(NULL, buf, sizeof(buf))) {
       return Status::Invalid("Can't get executable file path");
     }
-    path = process::filesystem::canonical(buf, ec);
+    path = filesystem::canonical(buf, ec);
 #else
     ARROW_UNUSED(ec);
     return Status::NotImplemented("Not available on this system");
