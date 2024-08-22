@@ -104,7 +104,10 @@ func (a *JSONArray) ValueStr(i int) string {
 }
 
 func (a *JSONArray) ValueBytes(i int) []byte {
+	// convert to json.RawMessage, set to nil if elem isNull.
 	val := a.ValueJSON(i)
+
+	// simply returns wrapped bytes, or null if val is nil.
 	b, err := val.MarshalJSON()
 	if err != nil {
 		panic(err)
@@ -113,6 +116,8 @@ func (a *JSONArray) ValueBytes(i int) []byte {
 	return b
 }
 
+// ValueJSON wraps the underlying string value as a json.RawMessage,
+// or returns nil if the array value is null.
 func (a *JSONArray) ValueJSON(i int) json.RawMessage {
 	var val json.RawMessage
 	if a.IsValid(i) {
@@ -121,6 +126,9 @@ func (a *JSONArray) ValueJSON(i int) json.RawMessage {
 	return val
 }
 
+// MarshalJSON implements json.Marshaler.
+// Marshaling json.RawMessage is a no-op, except that nil values will
+// be marshaled as a JSON null.
 func (a *JSONArray) MarshalJSON() ([]byte, error) {
 	values := make([]json.RawMessage, a.Len())
 	for i := 0; i < a.Len(); i++ {
