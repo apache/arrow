@@ -89,30 +89,30 @@ class Process::Impl {
     // platform-specific recipes.
 
     filesystem::path path;
-    boost::system::error_code ec;
+    boost::system::error_code error_code;
 
 #if defined(__linux__)
-    path = filesystem::canonical("/proc/self/exe", ec);
+    path = filesystem::canonical("/proc/self/exe", error_code);
 #elif defined(__APPLE__)
     char buf[PATH_MAX + 1];
     uint32_t bufsize = sizeof(buf);
     if (_NSGetExecutablePath(buf, &bufsize) < 0) {
       return Status::Invalid("Can't resolve current exe: path too large");
     }
-    path = filesystem::canonical(buf, ec);
+    path = filesystem::canonical(buf, error_code);
 #elif defined(_WIN32)
     char buf[MAX_PATH + 1];
     if (!GetModuleFileNameA(NULL, buf, sizeof(buf))) {
       return Status::Invalid("Can't get executable file path");
     }
-    path = filesystem::canonical(buf, ec);
+    path = filesystem::canonical(buf, error_code);
 #else
-    ARROW_UNUSED(ec);
+    ARROW_UNUSED(error_code);
     return Status::NotImplemented("Not available on this system");
 #endif
-    if (ec) {
+    if (error_code) {
       // XXX fold this into the Status class?
-      return Status::IOError("Can't resolve current exe: ", ec.message());
+      return Status::IOError("Can't resolve current exe: ", error_code.message());
     } else {
       return path;
     }
@@ -206,7 +206,25 @@ class Process::Impl {
   }
 
   ~Impl() {
-#ifndef BOOST_PROCESS_HAVE_V2
+#ifdef BOOST_PROCESS_HAVE_V2
+    // V2 doesn't provide process group support yet:
+    // https://github.com/boostorg/process/issues/259
+    //
+    // So we try graceful shutdown (SIGTERM + waitpid()) before
+    // immediate shutdown (SIGTERM). This assumes that the target
+    // executable such as "python3 -m testbench" terminates all related
+    // processes by graceful shutdown.
+    boost::system::error_code error_code;
+    if (process_ && process_->running(error_code)) {
+      process_->request_exit(error_code);
+      auto timeout = std::chrono::seconds(10);
+      std::chrono::time_point<std::chrono::steady_clock> end =
+          std::chrono::steady_clock::now() + timeout;
+      while (process_->running(error_code) && std::chrono::steady_clock::now() < end) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+      }
+    }
+#else
     process_group_ = nullptr;
 #endif
     process_ = nullptr;
@@ -257,7 +275,10 @@ class Process::Impl {
     }
   }
 
-  bool IsRunning() { return process_ && process_->running(); }
+  bool IsRunning() {
+    boost::system::error_code error_code;
+    return process_ && process_->running(error_code);
+  }
 
   uint64_t id() {
     if (!process_) {
