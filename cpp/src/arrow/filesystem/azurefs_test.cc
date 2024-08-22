@@ -50,7 +50,6 @@ namespace arrow {
 using internal::TemporaryDir;
 namespace fs {
 using internal::ConcatAbstractPath;
-// namespace bp = BOOST_PROCESS_V2_NAMESPACE;
 
 using ::testing::IsEmpty;
 using ::testing::Not;

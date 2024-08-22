@@ -87,8 +87,6 @@ Status MinioTestServer::Start() {
   ARROW_RETURN_NOT_OK(
       impl_->server_process_->SetEnv("MINIO_ACCESS_KEY", kMinioAccessKey));
   ARROW_RETURN_NOT_OK(
-      impl_->server_process_->SetEnv("MINIO_ACCESS_KEY", kMinioAccessKey));
-  ARROW_RETURN_NOT_OK(
       impl_->server_process_->SetEnv("MINIO_SECRET_KEY", kMinioSecretKey));
   ARROW_RETURN_NOT_OK(impl_->server_process_->SetEnv("MINIO_BROWSER", "off"));
   impl_->connect_string_ = GenerateConnectString();
