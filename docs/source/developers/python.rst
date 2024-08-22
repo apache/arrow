@@ -267,7 +267,7 @@ On Debian/Ubuntu, you need the following minimal set of dependencies:
 
 .. code-block::
 
-   $ sudo apt-get install build-essential cmake python3-dev
+   $ sudo apt-get install build-essential ninja-build cmake python3-dev
 
 Now, let's create a Python virtual environment with all Python dependencies
 in the same folder as the repositories, and a target installation folder:

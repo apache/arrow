@@ -35,7 +35,7 @@ set PYARROW_TEST_TENSORFLOW=ON
 @REM set PYARROW_TEST_PANDAS=ON
 
 set ARROW_TEST_DATA=C:\arrow\testing\data
-set PARQUET_TEST_DATA=C:\arrow\submodules\parquet-testing\data
+set PARQUET_TEST_DATA=C:\arrow\cpp\submodules\parquet-testing\data
 
 @REM Install testing dependencies
 pip install -r C:\arrow\python\requirements-wheel-test.txt || exit /B 1

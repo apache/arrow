@@ -1091,6 +1091,18 @@ cdef class OpaqueScalar(ExtensionScalar):
     """
 
 
+cdef class Bool8Scalar(ExtensionScalar):
+    """
+    Concrete class for bool8 extension scalar.
+    """
+
+    def as_py(self):
+        """
+        Return this scalar as a Python object.
+        """
+        py_val = super().as_py()
+        return None if py_val is None else py_val != 0
+
 cdef dict _scalar_classes = {
     _Type_BOOL: BooleanScalar,
     _Type_UINT8: UInt8Scalar,
@@ -1199,6 +1211,11 @@ def scalar(value, type=None, *, from_pandas=None, MemoryPool memory_pool=None):
     type = ensure_type(type, allow_none=True)
     pool = maybe_unbox_memory_pool(memory_pool)
 
+    extension_type = None
+    if type is not None and type.id == _Type_EXTENSION:
+        extension_type = type
+        type = type.storage_type
+
     if _is_array_like(value):
         value = get_values(value, &is_pandas_object)
 
@@ -1223,4 +1240,8 @@ def scalar(value, type=None, *, from_pandas=None, MemoryPool memory_pool=None):
 
     # retrieve the scalar from the first position
     scalar = GetResultValue(array.get().GetScalar(0))
-    return Scalar.wrap(scalar)
+    result = Scalar.wrap(scalar)
+
+    if extension_type is not None:
+        result = ExtensionScalar.from_storage(extension_type, result)
+    return result
