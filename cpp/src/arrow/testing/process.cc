@@ -129,6 +129,14 @@ class Process::Impl {
       return Status::OK();
     }
 
+    if (!ready_marker_.empty()) {
+      // We can't use std::make_unique<process::process>.
+      process_ = std::unique_ptr<process::process>(
+          new process::process(ctx_, executable_, args_, env));
+      std::this_thread::sleep_for(std::chrono::seconds(5));
+      return Status::OK();
+    }
+
     asio::readable_pipe error_output(ctx_);
     // We can't use std::make_unique<process::process>.
     process_ = std::unique_ptr<process::process>(new process::process(
