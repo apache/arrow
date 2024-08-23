@@ -406,7 +406,10 @@ jobs:
             -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json"
       - name: Build C++ vcpkg dependencies
         run: |
-          vcpkg\vcpkg.exe install --triplet $env:VCPKG_TRIPLET --x-manifest-root cpp --x-install-root build\cpp\vcpkg_installed
+          vcpkg\vcpkg.exe install `
+            --triplet $env:VCPKG_TRIPLET `
+            --x-manifest-root cpp `
+            --x-install-root build\cpp\vcpkg_installed
       - name: Build C++
         shell: cmd
         run: |
