@@ -3459,7 +3459,7 @@ def test_chunked_array_non_cpu(cuda_context, cpu_chunked_array, cuda_chunked_arr
 
     # get_total_buffer_size() test
     assert (cpu_and_cuda_chunked_array.get_total_buffer_size() ==
-           (cuda_chunked_array.get_total_buffer_size() +
+            (cuda_chunked_array.get_total_buffer_size() +
             cpu_chunked_array.get_total_buffer_size()))
 
     # getitem() test

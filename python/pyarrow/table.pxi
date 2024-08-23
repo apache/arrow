@@ -1450,7 +1450,6 @@ cdef class ChunkedArray(_PandasConvertible):
             raise NotImplementedError("Implemented only for data on CPU device")
 
 
-
 def chunked_array(arrays, type=None):
     """
     Construct chunked array from list of array-like objects
