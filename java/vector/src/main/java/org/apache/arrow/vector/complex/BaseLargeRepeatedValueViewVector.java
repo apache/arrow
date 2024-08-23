@@ -305,11 +305,17 @@ public abstract class BaseLargeRepeatedValueViewVector extends BaseValueVector
     while (valueCount > getOffsetBufferValueCapacity()) {
       reallocateBuffers();
     }
-    final int childValueCount = valueCount == 0 ? 0 : getLengthOfChildVector();
+    final int childValueCount = valueCount == 0 ? 0 : getMaxViewEndChildVector();
     vector.setValueCount(childValueCount);
   }
 
-  protected int getLengthOfChildVector() {
+  /**
+   * Get the maximum view length of child vector This method deduces the length by considering the
+   * condition i.e., 0 <= offsets[i] + size[i] <= length of the child array.
+   *
+   * @return the maximum view length of the child vector
+   */
+  protected int getMaxViewEndChildVector() {
     int maxOffsetSizeSum = offsetBuffer.getInt(0) + sizeBuffer.getInt(0);
     for (int i = 0; i < valueCount; i++) {
       int currentOffset = offsetBuffer.getInt((long) i * OFFSET_WIDTH);
@@ -321,19 +327,21 @@ public abstract class BaseLargeRepeatedValueViewVector extends BaseValueVector
     return maxOffsetSizeSum;
   }
 
-  protected int getLengthOfChildVectorByIndex(int index) {
+  /**
+   * Get the maximum view length of the child vector by index.
+   *
+   * @return the maximum view length of the child vector by index
+   */
+  protected int getMaxViewEndChildVectorByIndex(int index) {
     int maxOffsetSizeSum = offsetBuffer.getInt(0) + sizeBuffer.getInt(0);
-    int minOffset = offsetBuffer.getInt(0);
     for (int i = 0; i < index; i++) {
       int currentOffset = offsetBuffer.getInt((long) i * OFFSET_WIDTH);
       int currentSize = sizeBuffer.getInt((long) i * SIZE_WIDTH);
       int currentSum = currentOffset + currentSize;
-
       maxOffsetSizeSum = Math.max(maxOffsetSizeSum, currentSum);
-      minOffset = Math.min(minOffset, currentOffset);
     }
 
-    return maxOffsetSizeSum - minOffset;
+    return maxOffsetSizeSum;
   }
 
   /**
@@ -387,7 +395,7 @@ public abstract class BaseLargeRepeatedValueViewVector extends BaseValueVector
     }
 
     if (index > 0) {
-      final int prevOffset = getLengthOfChildVectorByIndex(index);
+      final int prevOffset = getMaxViewEndChildVectorByIndex(index);
       offsetBuffer.setInt((long) index * OFFSET_WIDTH, prevOffset);
     }
 
