@@ -385,6 +385,23 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
   ARROW_ASSIGN_OR_RAISE(output->buffers[1],
                         ctx->Allocate(total_length * BinaryViewType::kSize));
   memset(output->buffers[1]->mutable_data(), 0, total_length * BinaryViewType::kSize);
+
+  // Check against offset overflow
+  if (total_length > 0) {
+    // Offsets must be monotonically increasing, that is offsets[j+1] >= offsets[j] for
+    // 0 <= j < length, even for null slots. This property ensures the location for all
+    // values is valid and well defined.
+    const int64_t max_data_offset = input_offsets[input.length];
+    if (ARROW_PREDICT_FALSE(max_data_offset > std::numeric_limits<int32_t>::max())) {
+      // A more complicated loop could work by slicing the data buffer into
+      // more than one variadic buffer, but this is probably overkill for now
+      // before someone hits this problem in practice.
+      return Status::Invalid("Failed casting from ", input.type->ToString(), " to ",
+                             output->type->ToString(),
+                             ": input array too large for efficient conversion.");
+    }
+  }
+
   auto* out_views = output->GetMutableValues<BinaryViewType::c_type>(1);
 
   // If all entries are inline, we can drop the extra data buffer for
@@ -404,9 +421,9 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
             out_view.ref.size = static_cast<int32_t>(data_length);
             memcpy(out_view.ref.prefix.data(), input_data + data_offset,
                    BinaryViewType::kPrefixSize);
+            // (buffer_index is 0'd by the memset of the buffer 1 above)
             // out_view.ref.buffer_index = 0;
             out_view.ref.offset = static_cast<int32_t>(data_offset);
-            // TODO(felipecrv): validate data_offsets can't overflow
             all_entries_are_inline = false;
           }
         }
