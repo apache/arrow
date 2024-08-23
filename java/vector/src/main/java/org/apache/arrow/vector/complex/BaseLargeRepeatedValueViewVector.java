@@ -310,10 +310,10 @@ public abstract class BaseLargeRepeatedValueViewVector extends BaseValueVector
   }
 
   /**
-   * Get the maximum view length of child vector This method deduces the length by considering the
-   * condition i.e., 0 <= offsets[i] + size[i] <= length of the child array.
+   * Get the end of the child vector via the maximum view length. This method deduces the length by
+   * considering the condition i.e., argmax_i(offsets[i] + size[i]).
    *
-   * @return the maximum view length of the child vector
+   * @return the end of the child vector.
    */
   protected int getMaxViewEndChildVector() {
     int maxOffsetSizeSum = offsetBuffer.getInt(0) + sizeBuffer.getInt(0);
@@ -328,9 +328,9 @@ public abstract class BaseLargeRepeatedValueViewVector extends BaseValueVector
   }
 
   /**
-   * Get the maximum view length of the child vector by index.
+   * Get the end of the child vector via the maximum view length of the child vector by index.
    *
-   * @return the maximum view length of the child vector by index
+   * @return the end of the child vector by index
    */
   protected int getMaxViewEndChildVectorByIndex(int index) {
     int maxOffsetSizeSum = offsetBuffer.getInt(0) + sizeBuffer.getInt(0);
