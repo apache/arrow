@@ -38,6 +38,7 @@
 #else
 #include <boost/process/v2.hpp>
 #endif
+#include <unordered_map>
 #else
 // We need BOOST_USE_WINDOWS_H definition with MinGW when we use
 // boost/process.hpp. See BOOST_USE_WINDOWS_H=1 in
