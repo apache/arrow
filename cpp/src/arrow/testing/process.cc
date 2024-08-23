@@ -199,7 +199,7 @@ class Process::Impl {
     // Get a copy of the current environment.
 #ifdef BOOST_PROCESS_HAVE_V2
     for (const auto& kv : process::environment::current()) {
-      env_[kv.key()] = kv.value().string();
+      env_[kv.key()] = process::environment::value(kv.value());
     }
 #else
     env_ = process::environment(boost::this_process::environment());
@@ -258,8 +258,7 @@ class Process::Impl {
   void SetArgs(const std::vector<std::string>& args) { args_ = args; }
 
   void SetEnv(const std::string& name, const std::string& value) {
-    // Workaround for https://github.com/boostorg/process/issues/365
-    env_[name] = std::string(value);
+    env_[name] = process::environment::value(value);
   }
 
   void SetReadyErrorMessage(const std::string& marker) { ready_marker_ = marker; }
@@ -277,8 +276,12 @@ class Process::Impl {
   }
 
   bool IsRunning() {
+#ifdef BOOST_PROCESS_HAVE_V2
     boost::system::error_code error_code;
     return process_ && process_->running(error_code);
+#else
+    return process_ && process_->running();
+#endif
   }
 
   uint64_t id() {
