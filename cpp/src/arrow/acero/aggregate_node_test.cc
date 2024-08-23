@@ -210,7 +210,7 @@ TEST(GroupByNode, NoSkipNulls) {
   AssertExecBatchesEqualIgnoringOrder(out_schema, {expected_batch}, out_batches.batches);
 }
 
-TEST(GroupByNode, AnyAndOr) {
+TEST(ScalarAggregateNode, AnyAll) {
   // GH-43768: boolean_any and boolean_all with constant input should work well
   // when min_count != 0.
   std::shared_ptr<Schema> in_schema = schema({field("not_used", int32())});
