@@ -229,6 +229,9 @@ class Process::Impl {
         }
         if (process_->running(error_code)) {
           std::cerr << "(failed graceful shutdown)" << std::endl;
+          std::cerr << "(start terminate)" << std::endl;
+          process_->terminate(error_code);
+          std::cerr << "(finished terminate)" << std::endl;
         }
       }
     }
