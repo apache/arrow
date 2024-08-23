@@ -219,9 +219,9 @@ class Process::Impl {
     if (process_ && process_->running(error_code)) {
       process_->request_exit(error_code);
       if (!error_code) {
-        auto timeout = std::chrono::seconds(10);
+        auto timeout = std::chrono::seconds(3);
         std::chrono::time_point<std::chrono::steady_clock> end =
-          std::chrono::steady_clock::now() + timeout;
+            std::chrono::steady_clock::now() + timeout;
         int i = 0;
         while (process_->running(error_code) && std::chrono::steady_clock::now() < end) {
           std::cerr << "(waiting terminated: " << i++ << ")" << std::endl;
