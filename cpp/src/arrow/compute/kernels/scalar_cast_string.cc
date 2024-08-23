@@ -387,18 +387,19 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
   memset(output->buffers[1]->mutable_data(), 0, total_length * BinaryViewType::kSize);
 
   // Check against offset overflow
-  if (total_length > 0) {
-    // Offsets must be monotonically increasing, that is offsets[j+1] >= offsets[j] for
-    // 0 <= j < length, even for null slots. This property ensures the location for all
-    // values is valid and well defined.
-    const int64_t max_data_offset = input_offsets[input.length];
-    if (ARROW_PREDICT_FALSE(max_data_offset > std::numeric_limits<int32_t>::max())) {
-      // A more complicated loop could work by slicing the data buffer into
-      // more than one variadic buffer, but this is probably overkill for now
-      // before someone hits this problem in practice.
-      return Status::Invalid("Failed casting from ", input.type->ToString(), " to ",
-                             output->type->ToString(),
-                             ": input array too large for efficient conversion.");
+  if constexpr (sizeof(offset_type) > 4) {
+    if (total_length > 0) {
+      // Offsets are monotonically increasing, that is, offsets[j] <= offsets[j+1] for
+      // 0 <= j < length, even for null slots. So we only need to check the last offset.
+      const int64_t max_data_offset = input_offsets[input.length];
+      if (ARROW_PREDICT_FALSE(max_data_offset > std::numeric_limits<int32_t>::max())) {
+        // A more complicated loop could work by slicing the data buffer into
+        // more than one variadic buffer, but this is probably overkill for now
+        // before someone hits this problem in practice.
+        return Status::Invalid("Failed casting from ", input.type->ToString(), " to ",
+                               output->type->ToString(),
+                               ": input array too large for efficient conversion.");
+      }
     }
   }
 
