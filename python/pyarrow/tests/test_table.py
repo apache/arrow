@@ -3433,12 +3433,15 @@ def cuda_recordbatch(cuda_context, cpu_recordbatch):
 def test_chunked_array_non_cpu(cuda_context, cpu_chunked_array, cuda_chunked_array,
                                cpu_and_cuda_chunked_array):
     # type test
-    assert cuda_chunked_array.type == pa.int32()
+    assert cuda_chunked_array.type == cpu_chunked_array.type
 
     # length() test
-    assert cuda_chunked_array.length() == 10
+    assert cuda_chunked_array.length() == cpu_chunked_array.length()
 
-    # str(), repr() test
+    # str() test
+    assert str(cuda_chunked_array) == str(cpu_chunked_array)
+
+    # repr() test
     assert str(cuda_chunked_array) in repr(cuda_chunked_array)
 
     # validate() test
