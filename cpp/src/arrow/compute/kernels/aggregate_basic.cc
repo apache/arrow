@@ -609,7 +609,7 @@ struct BooleanAllImpl : public ScalarAggregator {
       return Status::OK();
     }
     const ArraySpan& data = batch[0].array;
-    this->has_nulls = data.GetNullCount() > 0;
+    this->has_nulls |= data.GetNullCount() > 0;
     this->count += data.length - data.GetNullCount();
     arrow::internal::OptionalBinaryBitBlockCounter counter(
         data.buffers[1].data, data.offset, data.buffers[0].data, data.offset,
