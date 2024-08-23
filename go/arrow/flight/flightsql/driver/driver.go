@@ -266,13 +266,14 @@ func (s *Stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driv
 		return nil, err
 	}
 
+	execCtx := ctx
 	if _, set := ctx.Deadline(); !set && s.timeout > 0 {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, s.timeout)
+		execCtx, cancel = context.WithTimeout(ctx, s.timeout)
 		defer cancel()
 	}
 
-	info, err := s.stmt.Execute(ctx)
+	info, err := s.stmt.Execute(execCtx)
 	if err != nil {
 		return nil, err
 	}
