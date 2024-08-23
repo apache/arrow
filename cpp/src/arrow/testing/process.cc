@@ -217,7 +217,7 @@ class Process::Impl {
     // processes by graceful shutdown.
     boost::system::error_code error_code;
     if (process_ && process_->running(error_code)) {
-      process_->request_exit(error_code);
+      process_->interrupt(error_code);
       if (!error_code) {
         auto timeout = std::chrono::seconds(3);
         std::chrono::time_point<std::chrono::steady_clock> end =
