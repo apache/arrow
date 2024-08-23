@@ -232,4 +232,36 @@ GAFLIGHT_AVAILABLE_IN_6_0
 GArrowTable *
 gaflight_record_batch_reader_read_all(GAFlightRecordBatchReader *reader, GError **error);
 
+#define GAFLIGHT_TYPE_RECORD_BATCH_WRITER (gaflight_record_batch_writer_get_type())
+GAFLIGHT_AVAILABLE_IN_18_0
+G_DECLARE_DERIVABLE_TYPE(GAFlightRecordBatchWriter,
+                         gaflight_record_batch_writer,
+                         GAFLIGHT,
+                         RECORD_BATCH_WRITER,
+                         GArrowRecordBatchWriter)
+struct _GAFlightRecordBatchWriterClass
+{
+  GArrowRecordBatchWriterClass parent_class;
+};
+
+GAFLIGHT_AVAILABLE_IN_18_0
+gboolean
+gaflight_record_batch_writer_begin(GAFlightRecordBatchWriter *writer,
+                                   GArrowSchema *schema,
+                                   GArrowWriteOptions *options,
+                                   GError **error);
+
+GAFLIGHT_AVAILABLE_IN_18_0
+gboolean
+gaflight_record_batch_writer_write_metadata(GAFlightRecordBatchWriter *writer,
+                                            GArrowBuffer *metadata,
+                                            GError **error);
+
+GAFLIGHT_AVAILABLE_IN_18_0
+gboolean
+gaflight_record_batch_writer_write(GAFlightRecordBatchWriter *writer,
+                                   GArrowRecordBatch *record_batch,
+                                   GArrowBuffer *metadata,
+                                   GError **error);
+
 G_END_DECLS
