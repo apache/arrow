@@ -258,7 +258,11 @@ class Process::Impl {
   void SetArgs(const std::vector<std::string>& args) { args_ = args; }
 
   void SetEnv(const std::string& name, const std::string& value) {
+#ifdef BOOST_PROCESS_HAVE_V2
     env_[name] = process::environment::value(value);
+#else
+    env_[name] = value;
+#endif
   }
 
   void SetReadyErrorMessage(const std::string& marker) { ready_marker_ = marker; }
