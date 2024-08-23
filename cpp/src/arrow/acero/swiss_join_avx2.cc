@@ -256,8 +256,8 @@ int RowArrayAccessor::VisitNulls_avx2(const RowTableImpl& rows, int column_id,
 
 namespace {
 
-void Decode8FixedLength0_avx2(uint8_t* output, const uint8_t* row_ptr_base,
-                              __m256i offset_lo, __m256i offset_hi) {
+inline void Decode8FixedLength0_avx2(uint8_t* output, const uint8_t* row_ptr_base,
+                                     __m256i offset_lo, __m256i offset_hi) {
   // Gather the lower/higher 4 32-bit (only lower 8 bits interesting) rows based on the
   // lower/higher 4 64-bit row offsets.
   __m128i row_lo = _mm256_i64gather_epi32((const int*)row_ptr_base, offset_lo, 1);
@@ -273,8 +273,8 @@ void Decode8FixedLength0_avx2(uint8_t* output, const uint8_t* row_ptr_base,
   *output = static_cast<uint8_t>(bits);
 }
 
-void Decode8FixedLength1_avx2(uint8_t* output, const uint8_t* row_ptr_base,
-                              __m256i offset_lo, __m256i offset_hi) {
+inline void Decode8FixedLength1_avx2(uint8_t* output, const uint8_t* row_ptr_base,
+                                     __m256i offset_lo, __m256i offset_hi) {
   // Gather the lower/higher 4 32-bit (only lower 8 bits interesting) rows based on the
   // lower/higher 4 64-bit row offsets.
   __m128i row_lo = _mm256_i64gather_epi32((const int*)row_ptr_base, offset_lo, 1);
@@ -286,8 +286,8 @@ void Decode8FixedLength1_avx2(uint8_t* output, const uint8_t* row_ptr_base,
   _mm_storel_epi64(reinterpret_cast<__m128i*>(output), row);
 }
 
-void Decode8FixedLength2_avx2(uint16_t* output, const uint8_t* row_ptr_base,
-                              __m256i offset_lo, __m256i offset_hi) {
+inline void Decode8FixedLength2_avx2(uint16_t* output, const uint8_t* row_ptr_base,
+                                     __m256i offset_lo, __m256i offset_hi) {
   // Gather the lower/higher 4 32-bit (only lower 16 bits interesting) rows based on the
   // lower/higher 4 64-bit row offsets.
   __m128i row_lo = _mm256_i64gather_epi32((const int*)row_ptr_base, offset_lo, 1);
@@ -297,8 +297,8 @@ void Decode8FixedLength2_avx2(uint16_t* output, const uint8_t* row_ptr_base,
   _mm_storeu_si128(reinterpret_cast<__m128i*>(output), row);
 }
 
-void Decode8FixedLength4_avx2(uint32_t* output, const uint8_t* row_ptr_base,
-                              __m256i offset_lo, __m256i offset_hi) {
+inline void Decode8FixedLength4_avx2(uint32_t* output, const uint8_t* row_ptr_base,
+                                     __m256i offset_lo, __m256i offset_hi) {
   // Gather the lower/higher 4 32-bit rows based on the lower/higher 4 64-bit row offsets.
   __m128i row_lo = _mm256_i64gather_epi32((const int*)row_ptr_base, offset_lo, 1);
   __m128i row_hi = _mm256_i64gather_epi32((const int*)row_ptr_base, offset_hi, 1);
@@ -306,8 +306,8 @@ void Decode8FixedLength4_avx2(uint32_t* output, const uint8_t* row_ptr_base,
   _mm256_storeu_si256(reinterpret_cast<__m256i*>(output), row);
 }
 
-void Decode8FixedLength8_avx2(uint64_t* output, const uint8_t* row_ptr_base,
-                              __m256i offset_lo, __m256i offset_hi) {
+inline void Decode8FixedLength8_avx2(uint64_t* output, const uint8_t* row_ptr_base,
+                                     __m256i offset_lo, __m256i offset_hi) {
   auto row_ptr_base_i64 =
       reinterpret_cast<const arrow::util::int64_for_gather_t*>(row_ptr_base);
   // Gather the lower/higher 4 64-bit rows based on the lower/higher 4 64-bit row offsets.
@@ -315,6 +315,16 @@ void Decode8FixedLength8_avx2(uint64_t* output, const uint8_t* row_ptr_base,
   __m256i row_hi = _mm256_i64gather_epi64(row_ptr_base_i64, offset_hi, 1);
   _mm256_storeu_si256(reinterpret_cast<__m256i*>(output), row_lo);
   _mm256_storeu_si256(reinterpret_cast<__m256i*>(output + 4), row_hi);
+}
+
+inline void Decode1_avx2(uint8_t* output, const uint8_t* row_ptr, uint32_t num_bytes) {
+  // Copy 32 bytes at a time.
+  __m256i* output_i256 = reinterpret_cast<__m256i*>(output);
+  const __m256i* row_ptr_i256 = reinterpret_cast<const __m256i*>(row_ptr);
+  for (int istripe = 0; istripe < bit_util::CeilDiv(num_bytes, 32); ++istripe) {
+    _mm256_storeu_si256(output_i256 + istripe,
+                        _mm256_loadu_si256(row_ptr_i256 + istripe));
+  }
 }
 
 }  // namespace
@@ -379,21 +389,13 @@ int RowArray::DecodeFixedLength_avx2(ResizableArrayData* output, int output_star
           });
       break;
     default:
-      num_rows_processed = RowArrayAccessor::Visit_avx2(
+      RowArrayAccessor::Visit(
           rows_, column_id, num_rows_to_append, row_ids,
-          [&](int i, const uint8_t* row_ptr_base, __m256i offset_lo, __m256i offset_hi,
-              __m256i num_bytes) {
-            // uint64_t* dst = reinterpret_cast<uint64_t*>(
-            //     output->mutable_data(1) + num_bytes * (output_start_row + i));
-            // const uint64_t* src = reinterpret_cast<const uint64_t*>(ptr);
-            // for (uint32_t word_id = 0;
-            //      word_id < bit_util::CeilDiv(num_bytes, sizeof(uint64_t));
-            //      ++word_id) {
-            //   arrow::util::SafeStore<uint64_t>(dst + word_id,
-            //                                    arrow::util::SafeLoad(src +
-            //                                    word_id));
-            // }
+          [&](int i, const uint8_t* row_ptr, uint32_t num_bytes) {
+            Decode1_avx2(output->mutable_data(1) + num_bytes * (output_start_row + i),
+                         row_ptr, num_bytes);
           });
+      num_rows_processed = num_rows_to_append;
       break;
   }
 
@@ -410,6 +412,9 @@ int RowArray::DecodeOffsets_avx2(ResizableArrayData* output, int output_start_ro
       rows_, column_id, num_rows_to_append, row_ids,
       [&](int i, const uint8_t* row_ptr_base, __m256i offset_lo, __m256i offset_hi,
           __m256i num_bytes) {
+        Decode8FixedLength4_avx2(
+            reinterpret_cast<uint32_t*>(output->mutable_data(1)) + output_start_row + i,
+            row_ptr_base, offset_lo, offset_hi);
         // offsets[i] = num_bytes;
       });
   for (int i = 0; i < num_rows_processed; ++i) {
@@ -425,37 +430,24 @@ int RowArray::DecodeOffsets_avx2(ResizableArrayData* output, int output_start_ro
 int RowArray::DecodeVarLength_avx2(ResizableArrayData* output, int output_start_row,
                                    int column_id, int num_rows_to_append,
                                    const uint32_t* row_ids) const {
-  int num_rows_processed = RowArrayAccessor::Visit_avx2(
+  RowArrayAccessor::Visit(
       rows_, column_id, num_rows_to_append, row_ids,
-      [&](int i, const uint8_t* row_ptr_base, __m256i offset_lo, __m256i offset_hi,
-          __m256i num_bytes) {
-        // uint64_t* dst = reinterpret_cast<uint64_t*>(
-        //     output->mutable_data(2) + reinterpret_cast<const
-        //     uint32_t*>(
-        //                                   output->mutable_data(1))[output_start_row
-        //                                   + i]);
-        // const uint64_t* src = reinterpret_cast<const
-        // uint64_t*>(ptr); for (uint32_t word_id = 0;
-        //      word_id < bit_util::CeilDiv(num_bytes,
-        //      sizeof(uint64_t)); ++word_id) {
-        //   arrow::util::SafeStore<uint64_t>(dst + word_id,
-        //                                    arrow::util::SafeLoad(src
-        //                                    + word_id));
-        // }
+      [&](int i, const uint8_t* row_ptr, uint32_t num_bytes) {
+        Decode1_avx2(output->mutable_data(1) + num_bytes * (output_start_row + i),
+                     row_ptr, num_bytes);
       });
-
-  return num_rows_processed;
+  return num_rows_to_append;
 }
 
 int RowArray::DecodeNulls_avx2(ResizableArrayData* output, int output_start_row,
                                int column_id, int num_rows_to_append,
                                const uint32_t* row_ids) const {
-  int num_rows_processed = RowArrayAccessor::VisitNulls_avx2(
-      rows_, column_id, num_rows_to_append, row_ids, [&](int i, uint8_t value) {
-        bit_util::SetBitTo(output->mutable_data(0), output_start_row + i, value == 0);
-      });
+  DCHECK_EQ(output_start_row % 8, 0);
 
-  return num_rows_processed;
+  return RowArrayAccessor::VisitNulls_avx2(
+      rows_, column_id, num_rows_to_append, row_ids, [&](int i, uint8_t value) {
+        *(output->mutable_data(0) + (output_start_row + i) / 8) = value;
+      });
 }
 
 }  // namespace acero
