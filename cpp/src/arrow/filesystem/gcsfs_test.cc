@@ -92,7 +92,11 @@ class GcsTestbench : public ::testing::Environment {
 
   bool running() { return server_process_ && server_process_->IsRunning(); }
 
-  ~GcsTestbench() override { server_process_ = nullptr; }
+  ~GcsTestbench() override {
+    std::cerr << "~GcsTestBench(): start" << std::endl;
+    server_process_ = nullptr;
+    std::cerr << "~GcsTestBench(): end" << std::endl;
+  }
 
   const std::string& port() const { return port_; }
   const std::string& error() const { return error_; }
