@@ -27,6 +27,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/array/builder_primitive.h"
 #include "arrow/compute/expression_internal.h"
 #include "arrow/compute/function_internal.h"
 #include "arrow/compute/registry.h"
@@ -1648,7 +1649,7 @@ TEST(Expression, SimplifyIsIn) {
         .Expect(is_in(field_ref("i32"), int32(), "[5,7,9]", null_matching_behavior));
 
     Simplify{
-        is_in(field_ref("i32"), int32(), "[1,null,3,5,null,7,9]", null_matching_behavior)
+        is_in(field_ref("i32"), int32(), "[1,null,3,5,null,7,9]", null_matching_behavior),
     }
         .WithGuarantee(greater(field_ref("i32"), literal(3)))
         .Expect(is_in(field_ref("i32"), int32(), "[5,7,9]", null_matching_behavior));
@@ -1671,9 +1672,8 @@ TEST(Expression, SimplifyIsIn) {
         .ExpectUnchanged();
 
     Simplify{is_in(field_ref("i32"), int32(), "[1,3,5,7,9]", null_matching_behavior)}
-        .WithGuarantee(
-            and_(less_equal(field_ref("i32"), literal(7)),
-                 greater(field_ref("i32"), literal(4))))
+        .WithGuarantee(and_(less_equal(field_ref("i32"), literal(7)),
+                            greater(field_ref("i32"), literal(4))))
         .Expect(is_in(field_ref("i32"), int32(), "[5,7]", null_matching_behavior));
 
     Simplify{is_in(field_ref("u32"), int8(), "[1,3,5,7,9]", null_matching_behavior)}
@@ -1686,7 +1686,7 @@ TEST(Expression, SimplifyIsIn) {
   }
 
   Simplify{
-      is_in(field_ref("i32"), int32(), "[1,3,5,7,9]", SetLookupOptions::INCONCLUSIVE)
+      is_in(field_ref("i32"), int32(), "[1,3,5,7,9]", SetLookupOptions::INCONCLUSIVE),
   }
       .WithGuarantee(greater(field_ref("i32"), literal(3)))
       .ExpectUnchanged();
@@ -1717,6 +1717,44 @@ TEST(Expression, SimplifyThenExecute) {
   ExpectExecute(filter, input, &evaluated);
   ExpectExecute(simplified, input, &simplified_evaluated);
   AssertDatumsEqual(evaluated, simplified_evaluated, /*verbose=*/true);
+}
+
+TEST(Expression, SimplifyIsInThenExecute) {
+  auto input = RecordBatchFromJSON(kBoringSchema, R"([
+      {"i64": 2, "i32": 5},
+      {"i64": 5, "i32": 6},
+      {"i64": 3, "i32": 6},
+      {"i64": 3, "i32": 5},
+      {"i64": 4, "i32": 5},
+      {"i64": 2, "i32": 7},
+      {"i64": 5, "i32": 5}
+  ])");
+
+  std::vector<Expression> guarantees{
+      greater(field_ref("i64"), literal(1)),
+      greater_equal(field_ref("i32"), literal(5)),
+      less_equal(field_ref("i64"), literal(5))};
+
+  for (const Expression& guarantee : guarantees) {
+    auto filter = call(
+        "is_in", {guarantee.call()->arguments[0]},
+        compute::SetLookupOptions{ArrayFromJSON(int32(), "[1,2,3]"), true});
+    ASSERT_OK_AND_ASSIGN(filter, filter.Bind(*kBoringSchema));
+    ASSERT_OK_AND_ASSIGN(auto simplified, SimplifyWithGuarantee(filter, guarantee));
+
+    Datum evaluated, simplified_evaluated;
+    ExpectExecute(filter, input, &evaluated);
+    ExpectExecute(simplified, input, &simplified_evaluated);
+    if (simplified_evaluated.is_scalar()) {
+      ASSERT_EQ(evaluated.kind(), Datum::ARRAY);
+      ASSERT_EQ(simplified_evaluated.type()->id(), Type::BOOL);
+      BooleanBuilder builder;
+      ASSERT_OK(builder.AppendValues(
+          evaluated.length(), simplified_evaluated.scalar_as<BooleanScalar>().value));
+      ASSERT_OK_AND_ASSIGN(simplified_evaluated, builder.Finish());
+    }
+    AssertDatumsEqual(evaluated, simplified_evaluated, /*verbose=*/true);
+  }
 }
 
 TEST(Expression, Filter) {
