@@ -49,7 +49,6 @@ ChunkedArray::ChunkedArray(ArrayVector chunks, std::shared_ptr<DataType> type)
       type_(std::move(type)),
       length_(0),
       null_count_(0),
-      device_type_(DeviceAllocationType::kCPU),
       chunk_resolver_{chunks_} {
   if (type_ == nullptr) {
     ARROW_CHECK_GT(chunks_.size(), 0)
@@ -57,14 +56,9 @@ ChunkedArray::ChunkedArray(ArrayVector chunks, std::shared_ptr<DataType> type)
     type_ = chunks_[0]->type();
   }
 
-  if (chunks_.size() > 0) {
-    device_type_ = chunks[0]->device_type();
-  }
-
   for (const auto& chunk : chunks_) {
     length_ += chunk->length();
     null_count_ += chunk->null_count();
-    DCHECK_EQ(device_type_, chunk->device_type());
   }
 }
 
@@ -110,9 +104,6 @@ bool ChunkedArray::Equals(const ChunkedArray& other, const EqualOptions& opts) c
     return false;
   }
   if (null_count_ != other.null_count()) {
-    return false;
-  }
-  if (device_type_ != other.device_type()) {
     return false;
   }
   // We cannot toggle check_metadata here yet, so we don't check it
@@ -168,9 +159,6 @@ bool ChunkedArray::ApproxEquals(const ChunkedArray& other,
     return false;
   }
   if (null_count_ != other.null_count()) {
-    return false;
-  }
-  if (device_type_ != other.device_type()) {
     return false;
   }
   // We cannot toggle check_metadata here yet, so we don't check it

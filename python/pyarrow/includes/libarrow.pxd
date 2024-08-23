@@ -983,8 +983,6 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         CResult[vector[shared_ptr[CChunkedArray]]] Flatten(CMemoryPool* pool)
 
-        CDeviceAllocationType device_type()
-
         CStatus Validate() const
         CStatus ValidateFull() const
 
