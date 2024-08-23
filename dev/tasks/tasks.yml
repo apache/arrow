@@ -1487,7 +1487,7 @@ tasks:
       image: debian-go
   {% endfor %}
 
-  # be sure to update binary-task.rb when upgrading ubuntu
+  # be sure to update binary-task.rb when upgrading Debian
   test-debian-12-docs:
     ci: github
     template: docs/github.linux.yml
@@ -1495,7 +1495,6 @@ tasks:
       env:
         JDK: 17
       pr_number: Unset
-      flags: "-v $PWD/build/:/build/"
       image: debian-docs
       publish: false
     artifacts:
@@ -1621,6 +1620,5 @@ tasks:
       env:
         JDK: 17
       pr_number: Unset
-      flags: "-v $PWD/build/:/build/"
       image: debian-docs
       publish: true
