@@ -218,11 +218,18 @@ class Process::Impl {
     boost::system::error_code error_code;
     if (process_ && process_->running(error_code)) {
       process_->request_exit(error_code);
-      auto timeout = std::chrono::seconds(10);
-      std::chrono::time_point<std::chrono::steady_clock> end =
+      if (!error_code) {
+        auto timeout = std::chrono::seconds(10);
+        std::chrono::time_point<std::chrono::steady_clock> end =
           std::chrono::steady_clock::now() + timeout;
-      while (process_->running(error_code) && std::chrono::steady_clock::now() < end) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        int i = 0;
+        while (process_->running(error_code) && std::chrono::steady_clock::now() < end) {
+          std::cerr << "(waiting terminated: " << i++ << ")" << std::endl;
+          std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        }
+        if (!process_->running(error_code)) {
+          std::cerr << "(failed graceful shutdown)" << std::endl;
+        }
       }
     }
 #else
