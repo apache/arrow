@@ -3390,8 +3390,8 @@ def schema():
 
 @pytest.fixture
 def cpu_arrays():
-    return [pa.array([1, 2, 3, 4, 5], pa.int16()),
-            pa.array([-10, -5, 0, 1, 10], pa.int32())]
+    return [pa.array([1, 2, 3, 4, 5], pa.int32()),
+            pa.array([-10, -5, 0, None, 10], pa.int32())]
 
 
 @pytest.fixture
@@ -3400,13 +3400,24 @@ def cuda_arrays(cuda_context, cpu_arrays):
 
 
 @pytest.fixture
-def cuda_chunked_arrays(cuda_arrays):
-    return pa.chunked_array(cuda_arrays)
+def cpu_chunked_array(cpu_arrays):
+    chunked_array = pa.chunked_array(cpu_arrays)
+    assert chunked_array.is_cpu() is True
+    return chunked_array
 
 
 @pytest.fixture
-def cpu_chunked_arrays(cpu_arrays):
-    return pa.chunked_array(cpu_arrays)
+def cuda_chunked_array(cuda_arrays):
+    chunked_array = pa.chunked_array(cuda_arrays)
+    assert chunked_array.is_cpu() is False
+    return chunked_array
+
+
+@pytest.fixture
+def cpu_and_cuda_chunked_array(cpu_arrays, cuda_arrays):
+    chunked_array = pa.chunked_array(cpu_arrays + cuda_arrays)
+    assert chunked_array.is_cpu() is False
+    return chunked_array
 
 
 @pytest.fixture
@@ -3419,9 +3430,136 @@ def cuda_recordbatch(cuda_context, cpu_recordbatch):
     return cpu_recordbatch.copy_to(cuda_context.memory_manager)
 
 
-def test_chunked_array_non_cpu(cuda_context, cpu_chunked_arrays, cuda_chunked_arrays):
-    assert cpu_chunked_arrays.is_cpu() is True
-    assert cuda_chunked_arrays.is_cpu() is False
+def test_chunked_array_non_cpu(cuda_context, cpu_chunked_array, cuda_chunked_array,
+                               cpu_and_cuda_chunked_array):
+    # type test
+    assert cuda_chunked_array.type == pa.int32()
+
+    # length() test
+    assert cuda_chunked_array.length() == 10
+
+    # str(), repr() test
+    assert str(cuda_chunked_array) in repr(cuda_chunked_array)
+
+    # validate() test
+    cuda_chunked_array.validate()
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.validate(full=True)
+
+    # null_count test
+    assert cuda_chunked_array.null_count == cpu_chunked_array.null_count
+
+    # nbytes() test
+    assert cuda_chunked_array.nbytes == cpu_chunked_array.nbytes
+    assert (cpu_and_cuda_chunked_array.nbytes == (cpu_chunked_array.nbytes +
+                                                  cuda_chunked_array.nbytes))
+
+    # get_total_buffer_size() test
+    assert (cpu_and_cuda_chunked_array.get_total_buffer_size() ==
+           (cuda_chunked_array.get_total_buffer_size() +
+            cpu_chunked_array.get_total_buffer_size()))
+
+    # getitem() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array[0]
+
+    # is_null() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.is_null()
+
+    # is_nan() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.is_nan()
+
+    # is_valid() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.is_valid()
+
+    # fill_null() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.fill_null(0)
+
+    # equals() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array == cuda_chunked_array
+
+    # to_pandas() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.to_pandas()
+
+    # to_numpy() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.to_numpy()
+
+    # __array__() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.__array__()
+
+    # cast() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.cast()
+
+    # dictionary_encode() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.dictionary_encode()
+
+    # flatten() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.flatten()
+
+    # combine_chunks() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.combine_chunks()
+
+    # unique() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.unique()
+
+    # value_counts() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.value_counts()
+
+    # filter() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.filter([True, False, True, False, True])
+
+    # index() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.index(5)
+
+    # slice() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.slice(2, 2)
+
+    # take() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.take([1])
+
+    # drop_null() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.drop_null()
+
+    # sort() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.sort()
+
+    # unify_dictionaries() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.unify_dictionaries()
+
+    # num_chunks test
+    assert cuda_chunked_array.num_chunks == cpu_chunked_array.num_chunks
+
+    # chunks test
+    assert len(cuda_chunked_array.chunks) == len(cpu_chunked_array.chunks)
+
+    # to_pylist() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.to_pylist()
+
+    # __arrow_c_stream__() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.__arrow_c_stream__()
 
 
 def verify_cuda_recordbatch(batch, expected_schema):
