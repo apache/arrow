@@ -235,7 +235,9 @@ class Process::Impl {
 #else
     process_group_ = nullptr;
 #endif
+    std::cerr << "(start immediate shutdown)" << std::endl;
     process_ = nullptr;
+    std::cerr << "(finished immediate shutdown)" << std::endl;
   }
 
   Status SetExecutable(const std::string& name) {
