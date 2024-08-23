@@ -210,5 +210,36 @@ TEST(GroupByNode, NoSkipNulls) {
   AssertExecBatchesEqualIgnoringOrder(out_schema, {expected_batch}, out_batches.batches);
 }
 
+TEST(GroupByNode, AnyAndOr) {
+  // GH-43768: boolean_any and boolean_all with constant input should work well
+  // when min_count != 0.
+  std::shared_ptr<Schema> in_schema = schema({field("not_used", int32())});
+  std::shared_ptr<Schema> out_schema = schema({field("agg_out", boolean())});
+  std::vector<ExecBatch> batches{
+      ExecBatchFromJSON({int32()}, "[[42], [42], [42], [42]]")};
+  for (auto& func_name : {"any", "all"}) {
+    SCOPED_TRACE(func_name);
+    std::vector<Aggregate> aggregates = {
+        Aggregate(func_name,
+                  std::make_shared<compute::ScalarAggregateOptions>(/*skip_nulls=*/false,
+                                                                    /*min_count=*/2),
+                  FieldRef("literal_true"))};
+
+    // And a projection to make the input including a Scalar Boolean
+    Declaration plan = Declaration::Sequence(
+        {{"exec_batch_source", ExecBatchSourceNodeOptions(in_schema, batches)},
+         {"project", ProjectNodeOptions({literal(true)}, {"literal_true"})},
+         {"aggregate", AggregateNodeOptions(aggregates)}});
+
+    ASSERT_OK_AND_ASSIGN(BatchesWithCommonSchema out_batches,
+                         DeclarationToExecBatches(plan));
+
+    ExecBatch expected_batch = ExecBatchFromJSON({boolean()}, "[[true]]");
+
+    AssertExecBatchesEqualIgnoringOrder(out_schema, {expected_batch},
+                                        out_batches.batches);
+  }
+}
+
 }  // namespace acero
 }  // namespace arrow
