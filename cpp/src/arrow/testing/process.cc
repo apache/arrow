@@ -227,7 +227,7 @@ class Process::Impl {
           std::cerr << "(waiting terminated: " << i++ << ")" << std::endl;
           std::this_thread::sleep_for(std::chrono::milliseconds(20));
         }
-        if (!process_->running(error_code)) {
+        if (process_->running(error_code)) {
           std::cerr << "(failed graceful shutdown)" << std::endl;
         }
       }
