@@ -1301,6 +1301,9 @@ if(ARROW_USE_BOOST)
       # See also:
       # https://github.com/boostorg/process/issues/312
       target_compile_definitions(Boost::process INTERFACE "BOOST_PROCESS_NEED_SOURCE")
+      if(WIN32)
+        target_link_libraries(Boost::process INTERFACE ntdll)
+      endif()
     endif()
   endif()
 
