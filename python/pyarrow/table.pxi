@@ -1410,6 +1410,15 @@ cdef class ChunkedArray(_PandasConvertible):
         self.init(c_chunked_array)
         return self
 
+    def is_cpu(self):
+        """
+        Whether all chunks in the ChunkedArray are CPU-accessible.
+        """
+        cdef c_bool result
+        with nogil:
+            result = self.chunked_array.IsCpu()
+        return result
+
 
 def chunked_array(arrays, type=None):
     """

@@ -191,6 +191,9 @@ class ARROW_EXPORT ChunkedArray {
   /// \return Status
   Status ValidateFull() const;
 
+  /// \brief Determine if all chunks are located on the CPU
+  bool IsCpu() const;
+
  protected:
   ArrayVector chunks_;
   std::shared_ptr<DataType> type_;

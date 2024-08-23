@@ -28,6 +28,7 @@
 #include "arrow/array/util.h"
 #include "arrow/array/validate.h"
 #include "arrow/device_allocation_type_set.h"
+#include "arrow/device.h"
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
@@ -297,6 +298,15 @@ Status ChunkedArray::Validate() const {
 
 Status ChunkedArray::ValidateFull() const {
   return ValidateChunks(chunks_, /*full_validation=*/true);
+}
+
+bool ChunkedArray::IsCpu() const {
+  for (const auto& chunk : chunks_) {
+    if (chunk->device_type() != DeviceAllocationType::kCPU) {
+      return false;
+    }
+  }
+  return true;
 }
 
 namespace internal {

@@ -3400,6 +3400,16 @@ def cuda_arrays(cuda_context, cpu_arrays):
 
 
 @pytest.fixture
+def cuda_chunked_arrays(cuda_arrays):
+    return pa.chunked_array(cuda_arrays)
+
+
+@pytest.fixture
+def cpu_chunked_arrays(cpu_arrays):
+    return pa.chunked_array(cpu_arrays)
+
+
+@pytest.fixture
 def cpu_recordbatch(cpu_arrays, schema):
     return pa.record_batch(cpu_arrays, schema=schema)
 
@@ -3407,6 +3417,11 @@ def cpu_recordbatch(cpu_arrays, schema):
 @pytest.fixture
 def cuda_recordbatch(cuda_context, cpu_recordbatch):
     return cpu_recordbatch.copy_to(cuda_context.memory_manager)
+
+
+def test_chunked_array_non_cpu(cuda_context, cpu_chunked_arrays, cuda_chunked_arrays):
+    assert cpu_chunked_arrays.is_cpu() is True
+    assert cuda_chunked_arrays.is_cpu() is False
 
 
 def verify_cuda_recordbatch(batch, expected_schema):
