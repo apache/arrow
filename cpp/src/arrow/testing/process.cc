@@ -248,9 +248,11 @@ class Process::Impl {
       // Search the current executable directory as fallback.
       ARROW_ASSIGN_OR_RAISE(auto current_exe, ResolveCurrentExecutable());
 #ifdef BOOST_PROCESS_HAVE_V2
-      std::unordered_map<process::environment::key, process::environment::value> env = {
-          {"PATH", current_exe.parent_path().string()},
-      };
+      std::unordered_map<process::environment::key, process::environment::value> env;
+      for (const auto& kv : process::environment::current()) {
+        env[kv.key()] = process::environment::value(kv.value());
+      }
+      env["PATH"] = process::environment::value(current_exe.parent_path());
       executable_ = process::environment::find_executable(name, env);
 #else
       executable_ = process::search_path(name, {current_exe.parent_path()});
