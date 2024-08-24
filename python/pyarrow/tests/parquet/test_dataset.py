@@ -19,22 +19,28 @@ import datetime
 import inspect
 import os
 import pathlib
-
+import unittest.mock as mock
+import pyarrow.dataset as ds
 import numpy as np
 import pytest
-import unittest.mock as mock
 
 import pyarrow as pa
 import pyarrow.compute as pc
-from pyarrow.fs import (FileSelector, FileSystem, LocalFileSystem,
-                        PyFileSystem, SubTreeFileSystem, FSSpecHandler)
+from pyarrow.fs import (
+    FileSelector,
+    FileSystem,
+    FSSpecHandler,
+    LocalFileSystem,
+    PyFileSystem,
+    SubTreeFileSystem,
+)
+from pyarrow.lib import ArrowInvalid
 from pyarrow.tests import util
 from pyarrow.util import guid
 
 try:
     import pyarrow.parquet as pq
-    from pyarrow.tests.parquet.common import (
-        _read_table, _test_dataframe, _write_table)
+    from pyarrow.tests.parquet.common import _read_table, _test_dataframe, _write_table
 except ImportError:
     pq = None
 
@@ -1213,7 +1219,6 @@ def test_read_table_duplicate_column_selection(tempdir):
 
 
 def test_dataset_partitioning(tempdir):
-    import pyarrow.dataset as ds
 
     # create small dataset with directory partitioning
     root_path = tempdir / "test_partitioning"
@@ -1234,6 +1239,57 @@ def test_dataset_partitioning(tempdir):
     result = pq.ParquetDataset(
         str(root_path), partitioning=part).read()
     assert result.column_names == ["a", "year", "month", "day"]
+
+
+@pytest.mark.parametrize(
+    "flavor, expected_defined_partition, expected_undefined_partition",
+    [
+        (ds.HivePartitioning, ("foo=A/bar=B", ""), ("", "")),
+        (ds.DirectoryPartitioning, ("A/B", ""), ("", "")),
+        (ds.FilenamePartitioning, ("", "A_B_"), ("", "_")),
+    ],
+)
+def test_dataset_partitioning_format(
+    flavor: ds.Partitioning,
+    expected_defined_partition: tuple,
+    expected_undefined_partition: tuple,
+):
+
+    partitioning_schema = pa.schema([("foo", pa.string()), ("bar", pa.string())])
+
+    partitioning = flavor(schema=partitioning_schema)
+
+    assert (
+        partitioning.format((pc.field("bar") == "B") & (pc.field("foo") == "A"))
+        == expected_defined_partition
+    )
+
+    assert (
+        partitioning.format(
+            ((pc.field("bar") == "B") & (pc.field("foo") == "A"))
+            & ((pc.field("bar") == "B") & (pc.field("foo") == "A"))
+        )
+        == expected_defined_partition
+    )
+
+    assert (
+        partitioning.format(
+            ((pc.field("bar") == "B") & (pc.field("foo") == "A"))
+            | ((pc.field("bar") == "B") & (pc.field("foo") == "A"))
+        )
+        == expected_undefined_partition
+    )
+
+    if flavor != ds.HivePartitioning:
+        with pytest.raises(ArrowInvalid) as raised:
+            partitioning.format(((pc.field("bar") == "B")))
+        assert raised.type is ArrowInvalid
+        assert raised.value.args == (
+            "No partition key for foo but a key was provided subsequently for bar.",
+        )
+    else:
+        # Hive partitioning allows this to pass
+        assert partitioning.format(((pc.field("bar") == "B"))) == ("bar=B", "")
 
 
 def test_parquet_dataset_new_filesystem(tempdir):
