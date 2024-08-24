@@ -1244,9 +1244,9 @@ def test_dataset_partitioning(tempdir):
 @pytest.mark.parametrize(
     "flavor, expected_defined_partition, expected_undefined_partition",
     [
-        (ds.HivePartitioning, ("foo=A/bar=B", ""), ("", "")),
-        (ds.DirectoryPartitioning, ("A/B", ""), ("", "")),
-        (ds.FilenamePartitioning, ("", "A_B_"), ("", "_")),
+        (ds.HivePartitioning, (r"foo=A/bar=ant%20bee", ""), ("", "")),
+        (ds.DirectoryPartitioning, (r"A/ant bee", ""), ("", "")),
+        (ds.FilenamePartitioning, ("", r"A_ant bee_"), ("", "_")),
     ],
 )
 def test_dataset_partitioning_format(
@@ -1261,20 +1261,20 @@ def test_dataset_partitioning_format(
 
     # test forward transformation (format)
     assert (
-        partitioning.format((pc.field("bar") == "B") & (pc.field("foo") == "A"))
+        partitioning.format((pc.field("bar") == "ant bee") & (pc.field("foo") == "A"))
         == expected_defined_partition
     )
 
     # test backward transformation (parse)
     assert partitioning.parse("/".join(expected_defined_partition)).equals(
-        (pc.field("foo") == "A") & (pc.field("bar") == "B")
+        (pc.field("foo") == "A") & (pc.field("bar") == "ant bee")
     )
 
     # test complex expression can still be parsed into useful directory/path
     assert (
         partitioning.format(
-            ((pc.field("bar") == "B") & (pc.field("foo") == "A"))
-            & ((pc.field("bar") == "B") & (pc.field("foo") == "A"))
+            ((pc.field("bar") == "ant bee") & (pc.field("foo") == "A"))
+            & ((pc.field("bar") == "ant bee") & (pc.field("foo") == "A"))
         )
         == expected_defined_partition
     )
@@ -1283,8 +1283,8 @@ def test_dataset_partitioning_format(
     # and just returns the same value as if no filter were applied.
     assert (
         partitioning.format(
-            ((pc.field("bar") == "B") & (pc.field("foo") == "A"))
-            | ((pc.field("bar") == "B") & (pc.field("foo") == "A"))
+            ((pc.field("bar") == "ant bee") & (pc.field("foo") == "A"))
+            | ((pc.field("bar") == "ant bee") & (pc.field("foo") == "A"))
         )
         == expected_undefined_partition
     )
@@ -1293,14 +1293,17 @@ def test_dataset_partitioning_format(
         # Raises error upon filtering for lower level partition without filtering for
         # higher level partition
         with pytest.raises(ArrowInvalid) as raised:
-            partitioning.format(((pc.field("bar") == "B")))
+            partitioning.format(((pc.field("bar") == "ant bee")))
         assert raised.type is ArrowInvalid
         assert raised.value.args == (
             "No partition key for foo but a key was provided subsequently for bar.",
         )
     else:
         # Hive partitioning allows this to pass
-        assert partitioning.format(((pc.field("bar") == "B"))) == ("bar=B", "")
+        assert partitioning.format(((pc.field("bar") == "ant bee"))) == (
+            r"bar=ant%20bee",
+            "",
+        )
 
 
 def test_parquet_dataset_new_filesystem(tempdir):
