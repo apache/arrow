@@ -48,16 +48,6 @@ class RowArrayAccessor {
   //
   static int VarbinaryColumnId(const RowTableMetadata& row_metadata, int column_id);
 
-  // Calculate how many rows to skip from the tail of the
-  // sequence of selected rows, such that the total size of skipped rows is at
-  // least equal to the size specified by the caller. Skipping of the tail rows
-  // is used to allow for faster processing by the caller of remaining rows
-  // without checking buffer bounds (useful with SIMD or fixed size memory loads
-  // and stores).
-  //
-  // static int NumRowsToSkip(const RowTableImpl& rows, int column_id, int num_rows,
-  //                          const uint32_t* row_ids, int num_tail_bytes_to_skip);
-
   // The supplied lambda will be called for each row in the given list of rows.
   // The arguments given to it will be:
   // - index of a row (within the set of selected rows),
