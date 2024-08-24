@@ -2517,6 +2517,20 @@ cdef class Partitioning(_Weakrefable):
         Returns
         -------
         tuple[str, str]
+
+        Examples
+        --------
+
+        Specify the Schema for paths like "/2009/June":
+
+        >>> import pyarrow as pa
+        >>> import pyarrow.dataset as ds
+        >>> import pyarrow.compute as pc
+        >>> part = ds.partitioning(pa.schema([("year", pa.int16()),
+        ...                                   ("month", pa.string())]))
+        >>> part.format(
+        ...     (pc.field("year") == 1862) & (pc.field("month") == "Jan")
+        ... )
         """
         cdef:
             CResult[CPartitionPathFormat] result
