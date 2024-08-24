@@ -1259,11 +1259,18 @@ def test_dataset_partitioning_format(
 
     partitioning = flavor(schema=partitioning_schema)
 
+    # test forward transformation (format)
     assert (
         partitioning.format((pc.field("bar") == "B") & (pc.field("foo") == "A"))
         == expected_defined_partition
     )
 
+    # test backward transformation (parse)
+    assert partitioning.parse("/".join(expected_defined_partition)).equals(
+        (pc.field("foo") == "A") & (pc.field("bar") == "B")
+    )
+
+    # test complex expression can still be parsed into useful directory/path
     assert (
         partitioning.format(
             ((pc.field("bar") == "B") & (pc.field("foo") == "A"))
@@ -1272,6 +1279,8 @@ def test_dataset_partitioning_format(
         == expected_defined_partition
     )
 
+    # test a different complex expression cannot be parsed into directory/path
+    # and just returns the same value as if no filter were applied.
     assert (
         partitioning.format(
             ((pc.field("bar") == "B") & (pc.field("foo") == "A"))
@@ -1281,6 +1290,8 @@ def test_dataset_partitioning_format(
     )
 
     if flavor != ds.HivePartitioning:
+        # Raises error upon filtering for lower level partition without filtering for
+        # higher level partition
         with pytest.raises(ArrowInvalid) as raised:
             partitioning.format(((pc.field("bar") == "B")))
         assert raised.type is ArrowInvalid
