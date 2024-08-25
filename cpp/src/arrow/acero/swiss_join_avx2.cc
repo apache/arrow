@@ -159,8 +159,14 @@ int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int nu
     __m256i field_offset_within_row =
         _mm256_set1_epi64x(rows.metadata().encoded_field_offset(
             rows.metadata().pos_after_encoding(column_id)));
-    __m256i field_length =
-        _mm256_set1_epi32(rows.metadata().column_metadatas[column_id].fixed_length);
+    uint32_t actual_field_length =
+        rows.metadata().column_metadatas[column_id].fixed_length;
+    // Bit column is encoded as a single byte
+    if (actual_field_length == 0) {
+      actual_field_length = 1;
+    }
+    __m256i field_length = _mm256_set1_epi32(actual_field_length);
+    __m256i row_length = _mm256_set1_epi64x(rows.metadata().fixed_length);
 
     bool is_fixed_length_row = rows.metadata().is_fixed_length;
     if (is_fixed_length_row) {
@@ -177,8 +183,8 @@ int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int nu
         __m256i row_id_hi = _mm256_cvtepi32_epi64(_mm256_extracti128_si256(row_id, 1));
         // Calculate the lower/higher 4 64-bit row offsets based on the lower/higher 4
         // 64-bit row ids and the fixed field length.
-        __m256i row_offset_lo = _mm256_mul_epi32(row_id_lo, field_length);
-        __m256i row_offset_hi = _mm256_mul_epi32(row_id_hi, field_length);
+        __m256i row_offset_lo = _mm256_mul_epi32(row_id_lo, row_length);
+        __m256i row_offset_hi = _mm256_mul_epi32(row_id_hi, row_length);
         // Calculate the lower/higher 4 64-bit field offsets based on the lower/higher 4
         // 64-bit row offsets and field offset within row.
         __m256i field_offset_lo =
@@ -232,10 +238,13 @@ int RowArrayAccessor::VisitNulls_avx2(const RowTableImpl& rows, int column_id,
   const uint8_t* null_masks = rows.null_masks();
   __m256i null_bits_per_row =
       _mm256_set1_epi32(8 * rows.metadata().null_masks_bytes_per_row);
+  __m256i pos_after_encoding =
+      _mm256_set1_epi32(rows.metadata().pos_after_encoding(column_id));
   for (int i = 0; i < num_rows / unroll; ++i) {
     __m256i row_id = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(row_ids) + i);
     __m256i bit_id = _mm256_mullo_epi32(row_id, null_bits_per_row);
-    bit_id = _mm256_add_epi32(bit_id, _mm256_set1_epi32(column_id));
+    // bit_id = _mm256_add_epi32(bit_id, _mm256_set1_epi32(column_id));
+    bit_id = _mm256_add_epi32(bit_id, pos_after_encoding);
     __m256i bytes = _mm256_i32gather_epi32(reinterpret_cast<const int*>(null_masks),
                                            _mm256_srli_epi32(bit_id, 3), 1);
     __m256i bit_in_word = _mm256_sllv_epi32(
@@ -376,9 +385,6 @@ int RowArray::DecodeFixedLength_avx2(ResizableArrayData* output, int output_star
           });
       break;
     case 4:
-      DecodeFixedLength(output, output_start_row, column_id, fixed_length,
-                        num_rows_to_append, row_ids);
-      return num_rows_to_append;
       num_rows_processed = RowArrayAccessor::Visit_avx2(
           rows_, column_id, num_rows_to_append, row_ids,
           [&](int i, const uint8_t* row_ptr_base, __m256i offset_lo, __m256i offset_hi,
@@ -390,9 +396,6 @@ int RowArray::DecodeFixedLength_avx2(ResizableArrayData* output, int output_star
           });
       break;
     case 8:
-      DecodeFixedLength(output, output_start_row, column_id, fixed_length,
-                        num_rows_to_append, row_ids);
-      return num_rows_to_append;
       num_rows_processed = RowArrayAccessor::Visit_avx2(
           rows_, column_id, num_rows_to_append, row_ids,
           [&](int i, const uint8_t* row_ptr_base, __m256i offset_lo, __m256i offset_hi,
@@ -447,8 +450,10 @@ int RowArray::DecodeNulls_avx2(ResizableArrayData* output, int output_start_row,
   DCHECK_EQ(output_start_row % 8, 0);
 
   return RowArrayAccessor::VisitNulls_avx2(
-      rows_, column_id, num_rows_to_append, row_ids, [&](int i, uint8_t value) {
-        *(output->mutable_data(0) + (output_start_row + i) / 8) = value;
+      rows_, column_id, num_rows_to_append, row_ids, [&](int i, uint64_t null_bytes) {
+        uint8_t null_byte =
+            static_cast<uint8_t>(_mm_movemask_epi8(_mm_set1_epi64x(null_bytes)));
+        *(output->mutable_data(0) + (output_start_row + i) / 8) = ~null_byte;
       });
 }
 
