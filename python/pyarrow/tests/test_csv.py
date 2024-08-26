@@ -62,7 +62,7 @@ def split_rows(arr, num_cols, num_rows):
 def split_columns(arr, num_cols, num_rows):
     # Split a num_cols x num_rows array into columns
     for i in range(0, num_cols):
-        yield list(itertools.islice(arr, i, num_cols * num_rows, num_cols))
+        yield arr[i::num_cols]
 
 
 def make_random_csv(num_cols=2, num_rows=10, linesep='\r\n', write_names=True):
