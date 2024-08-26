@@ -290,11 +290,20 @@ inline void Decode8FixedLength1_avx2(uint8_t* output, const uint8_t* row_ptr_bas
   // lower/higher 4 64-bit row offsets.
   __m128i row_lo = _mm256_i64gather_epi32((const int*)row_ptr_base, offset_lo, 1);
   __m128i row_hi = _mm256_i64gather_epi32((const int*)row_ptr_base, offset_hi, 1);
-  // Pack the lower/higher 4 32-bit rows into 8 16-bit rows.
-  __m128i row = _mm_packs_epi32(row_lo, row_hi);
-  // Pack the 8 16-bit rows into 8 8-bit rows.
-  row = _mm_packs_epi16(row, _mm_setzero_si128());
-  _mm_storel_epi64(reinterpret_cast<__m128i*>(output), row);
+  __m256i row = _mm256_set_m128i(row_hi, row_lo);
+  // Shuffle the lower 8 bits of each 32-bit rows to the lower 32 bits of each 128-bit
+  // lane.
+  constexpr uint64_t kByteSequence_0_4_8_12 = 0x0c080400ULL;
+  const __m256i shuffle_const =
+      _mm256_setr_epi64x(kByteSequence_0_4_8_12, 0, kByteSequence_0_4_8_12, 0);
+  row = _mm256_shuffle_epi8(row, shuffle_const);
+  // Get the lower 32-bits (4 8-bit rows) from each 128-bit lane.
+  // NB: Be careful about sign-extension when casting the return value of
+  // _mm256_extract_epi32 (signed 32-bit) to unsigned 64-bit, which will pollute the
+  // higher bits of the following OR.
+  uint32_t compact_row_lo = static_cast<uint32_t>(_mm256_extract_epi32(row, 0));
+  uint64_t compact_row_hi = static_cast<uint64_t>(_mm256_extract_epi32(row, 4)) << 32;
+  *reinterpret_cast<uint64_t*>(output) = compact_row_lo | compact_row_hi;
 }
 
 inline void Decode8FixedLength2_avx2(uint16_t* output, const uint8_t* row_ptr_base,
@@ -303,9 +312,16 @@ inline void Decode8FixedLength2_avx2(uint16_t* output, const uint8_t* row_ptr_ba
   // lower/higher 4 64-bit row offsets.
   __m128i row_lo = _mm256_i64gather_epi32((const int*)row_ptr_base, offset_lo, 1);
   __m128i row_hi = _mm256_i64gather_epi32((const int*)row_ptr_base, offset_hi, 1);
-  // Pack the lower/higher 4 32-bit rows into 8 16-bit rows.
-  __m128i row = _mm_packs_epi32(row_lo, row_hi);
-  _mm_storeu_si128(reinterpret_cast<__m128i*>(output), row);
+  __m256i row = _mm256_set_m128i(row_hi, row_lo);
+  // Shuffle the lower 16 bits of each 32-bit rows to the lower 64 bits of each 128-bit
+  // lane.
+  constexpr uint64_t kByteSequence_0_1_4_5_8_9_12_13 = 0x0d0c090805040100ULL;
+  const __m256i shuffle_const = _mm256_setr_epi64x(kByteSequence_0_1_4_5_8_9_12_13, 0,
+                                                   kByteSequence_0_1_4_5_8_9_12_13, 0);
+  row = _mm256_shuffle_epi8(row, shuffle_const);
+  // Swap the second and the third 64-bit lane.
+  row = _mm256_permute4x64_epi64(row, 0xd8);
+  _mm_storeu_si128(reinterpret_cast<__m128i*>(output), _mm256_castsi256_si128(row));
 }
 
 inline void Decode8FixedLength4_avx2(uint32_t* output, const uint8_t* row_ptr_base,
@@ -367,9 +383,6 @@ int RowArray::DecodeFixedLength_avx2(ResizableArrayData* output, int output_star
           });
       break;
     case 1:
-      DecodeFixedLength(output, output_start_row, column_id, fixed_length,
-                        num_rows_to_append, row_ids);
-      return num_rows_to_append;
       num_rows_processed = RowArrayAccessor::Visit_avx2(
           rows_, column_id, num_rows_to_append, row_ids,
           [&](int i, const uint8_t* row_ptr_base, __m256i offset_lo, __m256i offset_hi,
@@ -379,9 +392,6 @@ int RowArray::DecodeFixedLength_avx2(ResizableArrayData* output, int output_star
           });
       break;
     case 2:
-      DecodeFixedLength(output, output_start_row, column_id, fixed_length,
-                        num_rows_to_append, row_ids);
-      return num_rows_to_append;
       num_rows_processed = RowArrayAccessor::Visit_avx2(
           rows_, column_id, num_rows_to_append, row_ids,
           [&](int i, const uint8_t* row_ptr_base, __m256i offset_lo, __m256i offset_hi,
