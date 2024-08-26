@@ -21,7 +21,20 @@ using Grpc.Core;
 
 namespace Apache.Arrow.Flight.Client
 {
-    public class FlightClient
+    public interface IFlightClient
+    {
+        AsyncServerStreamingCall<FlightInfo> ListFlights(FlightCriteria criteria = null, Metadata headers = null);
+        AsyncServerStreamingCall<FlightActionType> ListActions(Metadata headers = null);
+        FlightRecordBatchStreamingCall GetStream(FlightTicket ticket, Metadata headers = null);
+        AsyncUnaryCall<FlightInfo> GetInfo(FlightDescriptor flightDescriptor, Metadata headers = null);
+        FlightRecordBatchDuplexStreamingCall StartPut(FlightDescriptor flightDescriptor, Metadata headers = null);
+        AsyncDuplexStreamingCall<FlightHandshakeRequest, FlightHandshakeResponse> Handshake(Metadata headers = null);
+        FlightRecordBatchExchangeCall DoExchange(FlightDescriptor flightDescriptor, Metadata headers = null);
+        AsyncServerStreamingCall<FlightResult> DoAction(FlightAction action, Metadata headers = null);
+        AsyncUnaryCall<Schema> GetSchema(FlightDescriptor flightDescriptor, Metadata headers = null);
+    }
+
+    public class FlightClient : IFlightClient
     {
         internal static readonly Empty EmptyInstance = new Empty();
 
@@ -34,30 +47,36 @@ namespace Apache.Arrow.Flight.Client
 
         public AsyncServerStreamingCall<FlightInfo> ListFlights(FlightCriteria criteria = null, Metadata headers = null)
         {
-            if(criteria == null)
+            if (criteria == null)
             {
                 criteria = FlightCriteria.Empty;
             }
-            
-            var response = _client.ListFlights(criteria.ToProtocol(), headers);
-            var convertStream = new StreamReader<Protocol.FlightInfo, FlightInfo>(response.ResponseStream, inFlight => new FlightInfo(inFlight));
 
-            return new AsyncServerStreamingCall<FlightInfo>(convertStream, response.ResponseHeadersAsync, response.GetStatus, response.GetTrailers, response.Dispose);
+            var response = _client.ListFlights(criteria.ToProtocol(), headers);
+            var convertStream =
+                new StreamReader<Protocol.FlightInfo, FlightInfo>(response.ResponseStream,
+                    inFlight => new FlightInfo(inFlight));
+
+            return new AsyncServerStreamingCall<FlightInfo>(convertStream, response.ResponseHeadersAsync,
+                response.GetStatus, response.GetTrailers, response.Dispose);
         }
 
         public AsyncServerStreamingCall<FlightActionType> ListActions(Metadata headers = null)
         {
             var response = _client.ListActions(EmptyInstance, headers);
-            var convertStream = new StreamReader<Protocol.ActionType, FlightActionType>(response.ResponseStream, actionType => new FlightActionType(actionType));
+            var convertStream = new StreamReader<Protocol.ActionType, FlightActionType>(response.ResponseStream,
+                actionType => new FlightActionType(actionType));
 
-            return new AsyncServerStreamingCall<FlightActionType>(convertStream, response.ResponseHeadersAsync, response.GetStatus, response.GetTrailers, response.Dispose);
+            return new AsyncServerStreamingCall<FlightActionType>(convertStream, response.ResponseHeadersAsync,
+                response.GetStatus, response.GetTrailers, response.Dispose);
         }
 
         public FlightRecordBatchStreamingCall GetStream(FlightTicket ticket, Metadata headers = null)
         {
-            var stream = _client.DoGet(ticket.ToProtocol(),  headers);
+            var stream = _client.DoGet(ticket.ToProtocol(), headers);
             var responseStream = new FlightClientRecordBatchStreamReader(stream.ResponseStream);
-            return new FlightRecordBatchStreamingCall(responseStream, stream.ResponseHeadersAsync, stream.GetStatus, stream.GetTrailers, stream.Dispose);
+            return new FlightRecordBatchStreamingCall(responseStream, stream.ResponseHeadersAsync, stream.GetStatus,
+                stream.GetTrailers, stream.Dispose);
         }
 
         public AsyncUnaryCall<FlightInfo> GetInfo(FlightDescriptor flightDescriptor, Metadata headers = null)
@@ -81,7 +100,8 @@ namespace Apache.Arrow.Flight.Client
         {
             var channels = _client.DoPut(headers);
             var requestStream = new FlightClientRecordBatchStreamWriter(channels.RequestStream, flightDescriptor);
-            var readStream = new StreamReader<Protocol.PutResult, FlightPutResult>(channels.ResponseStream, putResult => new FlightPutResult(putResult));
+            var readStream = new StreamReader<Protocol.PutResult, FlightPutResult>(channels.ResponseStream,
+                putResult => new FlightPutResult(putResult));
             return new FlightRecordBatchDuplexStreamingCall(
                 requestStream,
                 readStream,
@@ -91,10 +111,12 @@ namespace Apache.Arrow.Flight.Client
                 channels.Dispose);
         }
 
-        public AsyncDuplexStreamingCall<FlightHandshakeRequest, FlightHandshakeResponse> Handshake(Metadata headers = null)
+        public AsyncDuplexStreamingCall<FlightHandshakeRequest, FlightHandshakeResponse> Handshake(
+            Metadata headers = null)
         {
             var channel = _client.Handshake(headers);
-            var readStream = new StreamReader<HandshakeResponse, FlightHandshakeResponse>(channel.ResponseStream, response => new FlightHandshakeResponse(response));
+            var readStream = new StreamReader<HandshakeResponse, FlightHandshakeResponse>(channel.ResponseStream,
+                response => new FlightHandshakeResponse(response));
             var writeStream = new FlightHandshakeStreamWriterAdapter(channel.RequestStream);
             var call = new AsyncDuplexStreamingCall<FlightHandshakeRequest, FlightHandshakeResponse>(
                 writeStream,
@@ -126,8 +148,11 @@ namespace Apache.Arrow.Flight.Client
         public AsyncServerStreamingCall<FlightResult> DoAction(FlightAction action, Metadata headers = null)
         {
             var stream = _client.DoAction(action.ToProtocol(), headers);
-            var streamReader = new StreamReader<Protocol.Result, FlightResult>(stream.ResponseStream, result => new FlightResult(result));
-            return new AsyncServerStreamingCall<FlightResult>(streamReader, stream.ResponseHeadersAsync, stream.GetStatus, stream.GetTrailers, stream.Dispose);
+            var streamReader =
+                new StreamReader<Protocol.Result, FlightResult>(stream.ResponseStream,
+                    result => new FlightResult(result));
+            return new AsyncServerStreamingCall<FlightResult>(streamReader, stream.ResponseHeadersAsync,
+                stream.GetStatus, stream.GetTrailers, stream.Dispose);
         }
 
         public AsyncUnaryCall<Schema> GetSchema(FlightDescriptor flightDescriptor, Metadata headers = null)
@@ -136,7 +161,9 @@ namespace Apache.Arrow.Flight.Client
 
             var schema = schemaResult
                 .ResponseAsync
-                .ContinueWith(async schema => FlightMessageSerializer.DecodeSchema((await schemaResult.ResponseAsync.ConfigureAwait(false)).Schema.Memory))
+                .ContinueWith(async schema =>
+                    FlightMessageSerializer.DecodeSchema((await schemaResult.ResponseAsync.ConfigureAwait(false)).Schema
+                        .Memory))
                 .Unwrap();
 
             return new AsyncUnaryCall<Schema>(

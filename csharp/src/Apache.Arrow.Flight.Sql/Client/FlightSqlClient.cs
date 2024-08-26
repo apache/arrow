@@ -12,9 +12,9 @@ namespace Apache.Arrow.Flight.Sql.Client;
 
 public class FlightSqlClient
 {
-    private readonly FlightClient _client;
+    private readonly IFlightClient _client;
 
-    public FlightSqlClient(FlightClient client)
+    public FlightSqlClient(IFlightClient client)
     {
         _client = client ?? throw new ArgumentNullException(nameof(client));
     }
@@ -571,10 +571,8 @@ public class FlightSqlClient
             {
                 Catalog = tableRef.Catalog ?? string.Empty, DbSchema = tableRef.DbSchema, Table = tableRef.Table
             };
-            //TODO: Refactor
             var action = new FlightAction("GetPrimaryKeys", getPrimaryKeysRequest.PackAndSerialize());
             var doActionResult = DoActionAsync(options, action);
-
             await foreach (var result in doActionResult)
             {
                 var getPrimaryKeysResponse =
@@ -1153,7 +1151,6 @@ public class FlightSqlClient
             {
                 var beginTransactionResult =
                     ActionBeginTransactionResult.Parser.ParseFrom(result.Body.Span);
-
                 var transaction = new Transaction(beginTransactionResult?.TransactionId.ToBase64());
                 return transaction;
             }
@@ -1211,7 +1208,6 @@ public class FlightSqlClient
             throw;
         }
     }
-
 
     /// <summary>
     /// Rollback a transaction.
@@ -1304,20 +1300,6 @@ public class FlightSqlClient
             throw;
         }
     }
-
-    /*public async Task<SetSessionOptionsResult> SetSessionOptionsAsync(FlightCallOptions options,
-        Dictionary<string, string> sessionOptions)
-    {
-        if (options == null)
-        {
-            throw new ArgumentNullException(nameof(options));
-        }
-
-        if (sessionOptions == null)
-        {
-            throw new ArgumentNullException(nameof(sessionOptions));
-        }
-    }*/
 
     /// <summary>
     /// Create a prepared statement object.
