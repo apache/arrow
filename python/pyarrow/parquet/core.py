@@ -1163,13 +1163,13 @@ memory_map : bool, default False
 buffer_size : int, default 0
     If positive, perform read buffering when deserializing individual
     column chunks. Otherwise IO calls are unbuffered.
-partitioning : pyarrow.dataset.Partitioning or str or list of str, \
+partitioning : :py:class:`pyarrow.dataset.Partitioning` or str or list of str, \
 default "hive"
     The partitioning scheme for a partitioned dataset. The default of "hive"
     assumes directory names with key=value pairs like "/year=2009/month=11".
     In addition, a scheme like "/2009/11" is also supported, in which case
     you need to specify the field names or a full schema. See the
-    ``pyarrow.dataset.partitioning()`` function for more details."""
+    :py:func:`pyarrow.dataset.partitioning()` function for more details."""
 
 
 _parquet_dataset_example = """\
@@ -2000,19 +2000,19 @@ def write_to_dataset(table, root_path, partition_cols=None,
     Parquet format by partitions.
     For each combination of partition columns and values,
     a subdirectories are created in the following
-    manner:
+    manner::
 
-    root_dir/
-      group1=value1
-        group2=value1
-          <uuid>.parquet
-        group2=value2
-          <uuid>.parquet
-      group1=valueN
-        group2=value1
-          <uuid>.parquet
-        group2=valueN
-          <uuid>.parquet
+        root_dir/
+          group1=value1
+            group2=value1
+              <uuid>.parquet
+            group2=value2
+              <uuid>.parquet
+          group1=valueN
+            group2=value1
+              <uuid>.parquet
+            group2=valueN
+              <uuid>.parquet
 
     Parameters
     ----------
@@ -2030,16 +2030,16 @@ def write_to_dataset(table, root_path, partition_cols=None,
         Deprecated and has no effect from PyArrow version 15.0.0.
     schema : Schema, optional
         This Schema of the dataset.
-    partitioning : Partitioning or list[str], optional
+    partitioning : :py:class:`pyarrow.dataset.Partitioning` or list[str], optional
         The partitioning scheme specified with the
-        ``pyarrow.dataset.partitioning()`` function or a list of field names.
+        :py:func:`pyarrow.dataset.partitioning()` function or a list of field names.
         When providing a list of field names, you can use
         ``partitioning_flavor`` to drive which partitioning type should be
         used.
     basename_template : str, optional
         A template string used to generate basenames of written data files.
         The token '{i}' will be replaced with an automatically incremented
-        integer. If not specified, it defaults to "guid-{i}.parquet".
+        integer. If not specified, it defaults to "uuid-{i}.parquet".
     use_threads : bool, default True
         Write files in parallel. If enabled, then maximum parallelism will be
         used determined by the number of available CPU cores.
@@ -2081,11 +2081,11 @@ def write_to_dataset(table, root_path, partition_cols=None,
         the entire directory will be deleted.  This allows you to overwrite
         old partitions completely.
     **kwargs : dict,
-        Used as additional kwargs for :func:`pyarrow.dataset.write_dataset`
+        Used as additional kwargs for :py:func:`pyarrow.dataset.write_dataset`
         function for matching kwargs, and remainder to
-        :func:`pyarrow.dataset.ParquetFileFormat.make_write_options`.
-        See the docstring of :func:`write_table` and
-        :func:`pyarrow.dataset.write_dataset` for the available options.
+        :py:func:`pyarrow.dataset.ParquetFileFormat.make_write_options`.
+        See the docstring of :py:func:`write_table` and
+        :py:func:`pyarrow.dataset.write_dataset` for the available options.
         Using `metadata_collector` in kwargs allows one to collect the
         file metadata instances of dataset pieces. The file paths in the
         ColumnChunkMetaData will be set relative to `root_path`.
@@ -2184,7 +2184,7 @@ def write_metadata(schema, where, metadata_collector=None, filesystem=None,
                    **kwargs):
     """
     Write metadata-only Parquet file from schema. This can be used with
-    `write_to_dataset` to generate `_common_metadata` and `_metadata` sidecar
+    :py:func:`write_to_dataset` to generate `_common_metadata` and `_metadata` sidecar
     files.
 
     Parameters
