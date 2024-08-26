@@ -361,6 +361,25 @@ inline void Decode1_avx2(uint8_t* output, const uint8_t* row_ptr, uint32_t num_b
   }
 }
 
+inline uint32_t Decode8Offset_avx2(uint32_t* output, uint32_t current_length,
+                                   __m256i num_bytes) {
+  uint32_t num_bytes_last = static_cast<uint32_t>(_mm256_extract_epi32(num_bytes, 7));
+  // Init every offset with the current length.
+  __m256i offsets = _mm256_set1_epi32(current_length);
+  // We keep right-shifting the length and accumulate the offset by adding the length.
+  __m256i length =
+      _mm256_permutevar8x32_epi32(num_bytes, _mm256_setr_epi32(7, 0, 1, 2, 3, 4, 5, 6));
+  length = _mm256_insert_epi32(length, 0, 0);
+  for (int i = 0; i < 7; ++i) {
+    offsets = _mm256_add_epi32(offsets, length);
+    length =
+        _mm256_permutevar8x32_epi32(length, _mm256_setr_epi32(7, 0, 1, 2, 3, 4, 5, 6));
+    length = _mm256_insert_epi32(length, 0, 0);
+  }
+  _mm256_storeu_si256(reinterpret_cast<__m256i*>(output), offsets);
+  return _mm256_extract_epi32(offsets, 7) + num_bytes_last;
+}
+
 inline void Decode8Null_avx2(uint8_t* output, uint64_t null_bytes) {
   uint8_t null_bits =
       static_cast<uint8_t>(_mm256_movemask_epi8(_mm256_set1_epi64x(null_bytes)));
@@ -445,8 +464,17 @@ int RowArray::DecodeFixedLength_avx2(ResizableArrayData* output, int output_star
 int RowArray::DecodeOffsets_avx2(ResizableArrayData* output, int output_start_row,
                                  int column_id, int num_rows_to_append,
                                  const uint32_t* row_ids) const {
-  DecodeOffsets(output, output_start_row, column_id, num_rows_to_append, row_ids);
-  return num_rows_to_append;
+  uint32_t* offsets =
+      reinterpret_cast<uint32_t*>(output->mutable_data(1)) + output_start_row;
+  uint32_t current_length = (output_start_row == 0) ? 0 : offsets[0];
+  int num_rows_processed = RowArrayAccessor::Visit_avx2(
+      rows_, column_id, num_rows_to_append, row_ids,
+      [&](int i, const uint8_t* row_ptr_base, __m256i offset_lo, __m256i offset_hi,
+          __m256i num_bytes) {
+        current_length = Decode8Offset_avx2(offsets + i, current_length, num_bytes);
+      });
+  offsets[num_rows_processed] = current_length;
+  return num_rows_processed;
 }
 
 int RowArray::DecodeVarLength_avx2(ResizableArrayData* output, int output_start_row,
