@@ -124,6 +124,20 @@ static Status ConvertArrowToJson(const std::string& arrow_path,
   return out_file->Write(std::string_view(json_data));
 }
 
+static Status CompareSchemas(std::string actual_name, const Schema& actual,
+                             std::string expected_name, const Schema& expected) {
+  if (actual.Equals(expected)) return Status::OK();
+
+  if (FLAGS_verbose) {
+    std::cout << actual_name << " schema: \n"
+              << actual.ToString(/* show_metadata = */ true) << "\n\n"
+              << expected_name << " schema: \n"
+              << expected.ToString(/* show_metadata = */ true) << "\n"
+              << std::endl;
+  }
+  return Status::Invalid(actual_name, " schema did not match ", expected_name, " schema");
+}
+
 // Validate the batch, accounting for the -validate_decimals , -validate_date64, and
 // -validate_times flags
 static Status ValidateFull(const RecordBatch& batch) {
@@ -149,7 +163,8 @@ static Status ValidateFull(const RecordBatch& batch) {
 }
 
 static Status ValidateEmbeddedStream(
-    const std::shared_ptr<io::RandomAccessFile>& arrow_file) {
+    const std::shared_ptr<io::RandomAccessFile>& arrow_file,
+    const Schema& footer_schema) {
   // Many validations are skipped here since they will already
   // have been handled by RecordBatchFileReader.
   // For example we already know that the magic is in place.
@@ -163,8 +178,21 @@ static Status ValidateEmbeddedStream(
   ARROW_ASSIGN_OR_RAISE(auto stream,
                         io::RandomAccessFile::GetStream(arrow_file, 8, file_size - 8));
   ARROW_ASSIGN_OR_RAISE(auto arrow_reader, ipc::RecordBatchStreamReader::Open(stream));
+
+  RETURN_NOT_OK(CompareSchemas("Embedded stream", *arrow_reader->schema(),  //
+                               "Footer", footer_schema));
+
+  int i = 0;
   for (auto maybe_batch : *arrow_reader) {
-    RETURN_NOT_OK(maybe_batch.status());
+    ARROW_ASSIGN_OR_RAISE(auto batch, maybe_batch);
+    // Theoretically the Footer could fail to include a Block pointing to some
+    // Message in the embedded stream, so we validate batches again here.
+    Status valid_st = ValidateFull(*batch);
+    if (!valid_st.ok()) {
+      return Status::Invalid("Embedded stream record batch ", i, " did not validate:\n",
+                             valid_st.ToString());
+    }
+    ++i;
   }
   ARROW_ASSIGN_OR_RAISE(int64_t stream_size, stream->Tell());
 
@@ -192,21 +220,8 @@ static Status ValidateArrowVsJson(const std::string& arrow_path,
   std::shared_ptr<ipc::RecordBatchFileReader> arrow_reader;
   ARROW_ASSIGN_OR_RAISE(arrow_reader, ipc::RecordBatchFileReader::Open(arrow_file.get()));
 
-  auto json_schema = json_reader->schema();
-  auto arrow_schema = arrow_reader->schema();
-
-  if (!json_schema->Equals(*arrow_schema)) {
-    std::stringstream ss;
-    ss << "JSON schema: \n"
-       << json_schema->ToString(/* show_metadata = */ true) << "\n\n"
-       << "Arrow schema: \n"
-       << arrow_schema->ToString(/* show_metadata = */ true) << "\n";
-
-    if (FLAGS_verbose) {
-      std::cout << ss.str() << std::endl;
-    }
-    return Status::Invalid("Schemas did not match");
-  }
+  RETURN_NOT_OK(CompareSchemas("Arrow", *arrow_reader->schema(),  //
+                               "JSON", *json_reader->schema()));
 
   const int json_nbatches = json_reader->num_record_batches();
   const int arrow_nbatches = arrow_reader->num_record_batches();
@@ -245,7 +260,7 @@ static Status ValidateArrowVsJson(const std::string& arrow_path,
     }
   }
 
-  RETURN_NOT_OK(ValidateEmbeddedStream(arrow_file));
+  RETURN_NOT_OK(ValidateEmbeddedStream(arrow_file, *arrow_reader->schema()));
   return Status::OK();
 }
 
