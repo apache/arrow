@@ -148,6 +148,34 @@ static Status ValidateFull(const RecordBatch& batch) {
   return Status::OK();
 }
 
+static Status ValidateEmbeddedStream(
+    const std::shared_ptr<io::RandomAccessFile>& arrow_file) {
+  // Many validations are skipped here since they will already
+  // have been handled by RecordBatchFileReader.
+  // For example we already know that the magic is in place.
+  ARROW_ASSIGN_OR_RAISE(int64_t file_size, arrow_file->GetSize());
+  ARROW_ASSIGN_OR_RAISE(auto footer_cookie, arrow_file->ReadAt(file_size - 10, 10));
+  auto footer_size =
+      bit_util::FromLittleEndian(util::SafeLoadAs<int32_t>(footer_cookie->data()));
+  int64_t footer_offset = 8 + file_size - footer_size - 10;
+
+  // Get a read stream past the padded magic at the start of the file
+  ARROW_ASSIGN_OR_RAISE(auto stream,
+                        io::RandomAccessFile::GetStream(arrow_file, 8, file_size - 8));
+  ARROW_ASSIGN_OR_RAISE(auto arrow_reader, ipc::RecordBatchStreamReader::Open(stream));
+  for (auto maybe_batch : *arrow_reader) {
+    RETURN_NOT_OK(maybe_batch.status());
+  }
+  ARROW_ASSIGN_OR_RAISE(int64_t stream_size, stream->Tell());
+
+  if (footer_offset <= stream_size) {
+    return Status::Invalid("Embedded stream (", stream_size,
+                           " bytes long) overlaps with the file's footer (at offset ",
+                           footer_offset, ")");
+  }
+  return Status::OK();
+}
+
 static Status ValidateArrowVsJson(const std::string& arrow_path,
                                   const std::string& json_path) {
   // Construct JSON reader
@@ -217,6 +245,7 @@ static Status ValidateArrowVsJson(const std::string& arrow_path,
     }
   }
 
+  RETURN_NOT_OK(ValidateEmbeddedStream(arrow_file));
   return Status::OK();
 }
 
