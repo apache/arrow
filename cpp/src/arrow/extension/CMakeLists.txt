@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set(CANONICAL_EXTENSION_TESTS bool8_test.cc)
+set(CANONICAL_EXTENSION_TESTS bool8_test.cc uuid_test.cc)
 
 if(ARROW_JSON)
   list(APPEND CANONICAL_EXTENSION_TESTS fixed_shape_tensor_test.cc opaque_test.cc)
