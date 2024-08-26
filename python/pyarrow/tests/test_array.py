@@ -4113,6 +4113,8 @@ def test_non_cpu_array():
     with pytest.raises(NotImplementedError):
         arr[0]
     with pytest.raises(NotImplementedError):
+        arr[1:2]
+    with pytest.raises(NotImplementedError):
         arr.take([0])
     with pytest.raises(NotImplementedError):
         arr.drop_null()
