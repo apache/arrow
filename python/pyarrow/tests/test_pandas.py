@@ -2938,10 +2938,10 @@ class TestConvertMisc:
         ("float64", pa.float64()),
         # XXX unsupported
         # (np.dtype([('a', 'i2')]), pa.struct([pa.field('a', pa.int16())])),
-        ("object_", pa.string()),
-        ("object_", pa.binary()),
-        ("object_", pa.binary(10)),
-        ("object_", pa.list_(pa.int64())),
+        ("object", pa.string()),
+        ("object", pa.binary()),
+        ("object", pa.binary(10)),
+        ("object", pa.list_(pa.int64())),
     ]
 
     def test_all_none_objects(self):
