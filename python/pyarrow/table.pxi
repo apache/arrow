@@ -274,6 +274,7 @@ cdef class ChunkedArray(_PandasConvertible):
         >>> n_legs.get_total_buffer_size()
         49
         """
+        self._assert_cpu()
         cdef:
             int64_t total_buffer_size
 
