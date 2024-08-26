@@ -66,8 +66,8 @@ func TestCompressDataOneShot(t *testing.T) {
 		{compress.Codecs.Gzip},
 		{compress.Codecs.Brotli},
 		{compress.Codecs.Zstd},
+		{compress.Codecs.Lz4Raw},
 		// {compress.Codecs.Lzo},
-		// {compress.Codecs.Lz4},
 	}
 
 	for _, tt := range tests {
@@ -107,9 +107,11 @@ func TestCompressReaderWriter(t *testing.T) {
 			var buf bytes.Buffer
 			codec, err := compress.GetCodec(tt.c)
 			assert.NoError(t, err)
+			streamingCodec, ok := codec.(compress.StreamingCodec)
+			assert.True(t, ok)
 			data := makeRandomData(RandomDataSize)
 
-			wr := codec.NewWriter(&buf)
+			wr := streamingCodec.NewWriter(&buf)
 
 			const chunkSize = 1111
 			input := data
@@ -129,7 +131,7 @@ func TestCompressReaderWriter(t *testing.T) {
 			}
 			wr.Close()
 
-			rdr := codec.NewReader(&buf)
+			rdr := streamingCodec.NewReader(&buf)
 			out, err := io.ReadAll(rdr)
 			assert.NoError(t, err)
 			assert.Exactly(t, data, out)
