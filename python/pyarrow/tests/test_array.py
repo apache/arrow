@@ -4060,6 +4060,7 @@ def test_non_cpu_array():
     arr2 = pa.Array.from_buffers(pa.int32(), 4, [None, cuda_data_buf])
     arr_with_nulls = pa.Array.from_buffers(
         pa.int32(), 4, [cuda_validity_buf, cuda_data_buf])
+    arr_bool = pa.Array.from_buffers(pa.bool_(), 4, [None, cuda_validity_buf])
 
     # Supported
     arr.validate()
@@ -4130,12 +4131,16 @@ def test_non_cpu_array():
         arr[0]
     with pytest.raises(NotImplementedError):
         arr[1:2]
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(NotImplementedError, match=bad_device_msg("take", 0)):
         arr.take([0])
+    with pytest.raises(NotImplementedError, match=bad_device_msg("take", 1)):
+        pa.array([0, 1]).take(arr)
     with pytest.raises(NotImplementedError):
         arr.drop_null()
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(NotImplementedError, match=bad_device_msg("filter", 0)):
         arr.filter([True, True, False, False])
+    with pytest.raises(NotImplementedError, match=bad_device_msg("filter", 1)):
+        pa.array([0, 1]).filter(arr_bool)
     with pytest.raises(NotImplementedError):
         arr.index(0)
     with pytest.raises(NotImplementedError):

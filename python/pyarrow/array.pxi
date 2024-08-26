@@ -1464,7 +1464,6 @@ cdef class Array(_PandasConvertible):
         taken : Array
             An array with the same datatype, containing the taken values.
         """
-        self._assert_cpu()
         return _pc().take(self, indices)
 
     def drop_null(self):
@@ -1493,7 +1492,6 @@ cdef class Array(_PandasConvertible):
             An array of the same type, with only the elements selected by
             the boolean mask.
         """
-        self._assert_cpu()
         return _pc().filter(self, mask,
                             null_selection_behavior=null_selection_behavior)
 
