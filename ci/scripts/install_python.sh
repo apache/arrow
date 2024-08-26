@@ -28,8 +28,9 @@ declare -A versions
 versions=([3.8]=3.8.10
           [3.9]=3.9.13
           [3.10]=3.10.11
-          [3.11]=3.11.5
-          [3.12]=3.12.0)
+          [3.11]=3.11.9
+          [3.12]=3.12.4
+          [3.13]=3.13.0)
 
 if [ "$#" -ne 2 ]; then
   echo "Usage: $0 <platform> <version>"
@@ -46,7 +47,14 @@ full_version=${versions[$2]}
 if [ $platform = "macOS" ]; then
     echo "Downloading Python installer..."
 
-    if [ "$(uname -m)" = "arm64" ] || [ "$version" = "3.10" ] || [ "$version" = "3.11" ] || [ "$version" = "3.12" ]; then
+    if [ "$version" = "3.13" ];
+    then
+        fname="python-${full_version}rc1-macos11.pkg"
+    elif [ "$(uname -m)" = "arm64" ] || \
+         [ "$version" = "3.10" ] || \
+         [ "$version" = "3.11" ] || \
+         [ "$version" = "3.12" ];
+    then
         fname="python-${full_version}-macos11.pkg"
     else
         fname="python-${full_version}-macosx10.9.pkg"

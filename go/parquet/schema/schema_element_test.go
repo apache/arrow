@@ -192,7 +192,7 @@ func (s *SchemaElementConstructionSuite) TestSimple() {
 
 func (s *SchemaElementConstructionSuite) reconstructDecimal(c schemaElementConstructArgs) *decimalSchemaElementConstruction {
 	ret := s.reconstruct(c)
-	dec := c.logical.(*DecimalLogicalType)
+	dec := c.logical.(DecimalLogicalType)
 	return &decimalSchemaElementConstruction{*ret, int(dec.Precision()), int(dec.Scale())}
 }
 
@@ -359,7 +359,7 @@ func (s *SchemaElementConstructionSuite) TestTemporal() {
 
 func (s *SchemaElementConstructionSuite) reconstructInteger(c schemaElementConstructArgs) *intSchemaElementConstruction {
 	base := s.reconstruct(c)
-	l := c.logical.(*IntLogicalType)
+	l := c.logical.(IntLogicalType)
 	return &intSchemaElementConstruction{
 		*base,
 		l.BitWidth(),

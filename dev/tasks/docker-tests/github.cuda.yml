@@ -26,6 +26,8 @@ jobs:
     runs-on: ['self-hosted', 'cuda']
 {{ macros.github_set_env(env) }}
     timeout-minutes: {{ timeout|default(60) }}
+    env:
+      ARCHERY_USE_LEGACY_DOCKER_COMPOSE: 1
     steps:
       {{ macros.github_checkout_arrow(fetch_depth=fetch_depth|default(1))|indent }}
       # python 3.8 is installed on the runner, no need to install
@@ -34,7 +36,6 @@ jobs:
       - name: Execute Docker Build
         shell: bash
         env:
-          ARCHERY_USE_LEGACY_DOCKER_COMPOSE: 1
         {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: |
           archery docker run \

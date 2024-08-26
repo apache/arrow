@@ -263,6 +263,9 @@ def azure_server(tmpdir_factory):
     tmpdir = tmpdir_factory.getbasetemp()
     # We only need blob service emulator, not queue or table.
     args = ['azurite-blob', "--location", tmpdir, "--blobPort", str(port)]
+    # For old Azurite. We can't install the latest Azurite with old
+    # Node.js on old Ubuntu.
+    args += ["--skipApiVersionCheck"]
     proc = None
     try:
         proc = subprocess.Popen(args, env=env)

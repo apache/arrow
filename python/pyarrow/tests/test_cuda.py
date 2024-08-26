@@ -827,21 +827,29 @@ def test_IPC(size):
     assert p.exitcode == 0
 
 
-def _arr_copy_to_host(carr):
-    # TODO replace below with copy to device when exposed in python
-    buffers = []
-    for cbuf in carr.buffers():
-        if cbuf is None:
-            buffers.append(None)
-        else:
-            buf = global_context.foreign_buffer(
-                cbuf.address, cbuf.size, cbuf
-            ).copy_to_host()
-            buffers.append(buf)
+def test_copy_to():
+    _, buf = make_random_buffer(size=10, target='device')
+    mm_cuda = buf.memory_manager
 
-    child = pa.Array.from_buffers(carr.type.value_type, 3, buffers[2:])
-    new = pa.Array.from_buffers(carr.type, 2, buffers[:2], children=[child])
-    return new
+    for dest in [mm_cuda, mm_cuda.device]:
+        arr = pa.array([0, 1, 2])
+        arr_cuda = arr.copy_to(dest)
+        assert not arr_cuda.buffers()[1].is_cpu
+        assert arr_cuda.buffers()[1].device_type == pa.DeviceAllocationType.CUDA
+        assert arr_cuda.buffers()[1].device == mm_cuda.device
+
+        arr_roundtrip = arr_cuda.copy_to(pa.default_cpu_memory_manager())
+        assert arr_roundtrip.equals(arr)
+
+        batch = pa.record_batch({"col": arr})
+        batch_cuda = batch.copy_to(dest)
+        buf_cuda = batch_cuda["col"].buffers()[1]
+        assert not buf_cuda.is_cpu
+        assert buf_cuda.device_type == pa.DeviceAllocationType.CUDA
+        assert buf_cuda.device == mm_cuda.device
+
+        batch_roundtrip = batch_cuda.copy_to(pa.default_cpu_memory_manager())
+        assert batch_roundtrip.equals(batch)
 
 
 def test_device_interface_array():
@@ -856,19 +864,10 @@ def test_device_interface_array():
     typ = pa.list_(pa.int32())
     arr = pa.array([[1], [2, 42]], type=typ)
 
-    # TODO replace below with copy to device when exposed in python
-    cbuffers = []
-    for buf in arr.buffers():
-        if buf is None:
-            cbuffers.append(None)
-        else:
-            cbuf = global_context.new_buffer(buf.size)
-            cbuf.copy_from_host(buf, position=0, nbytes=buf.size)
-            cbuffers.append(cbuf)
-
-    carr = pa.Array.from_buffers(typ, 2, cbuffers[:2], children=[
-        pa.Array.from_buffers(typ.value_type, 3, cbuffers[2:])
-    ])
+    # copy to device
+    _, buf = make_random_buffer(size=10, target='device')
+    mm_cuda = buf.memory_manager
+    carr = arr.copy_to(mm_cuda)
 
     # Type is known up front
     carr._export_to_c_device(ptr_array)
@@ -882,7 +881,7 @@ def test_device_interface_array():
     del carr
     carr_new = pa.Array._import_from_c_device(ptr_array, typ)
     assert carr_new.type == pa.list_(pa.int32())
-    arr_new = _arr_copy_to_host(carr_new)
+    arr_new = carr_new.copy_to(pa.default_cpu_memory_manager())
     assert arr_new.equals(arr)
 
     del carr_new
@@ -891,36 +890,19 @@ def test_device_interface_array():
         pa.Array._import_from_c_device(ptr_array, typ)
 
     # Schema is exported and imported at the same time
-    carr = pa.Array.from_buffers(typ, 2, cbuffers[:2], children=[
-        pa.Array.from_buffers(typ.value_type, 3, cbuffers[2:])
-    ])
+    carr = arr.copy_to(mm_cuda)
     carr._export_to_c_device(ptr_array, ptr_schema)
     # Delete and recreate C++ objects from exported pointers
     del carr
     carr_new = pa.Array._import_from_c_device(ptr_array, ptr_schema)
     assert carr_new.type == pa.list_(pa.int32())
-    arr_new = _arr_copy_to_host(carr_new)
+    arr_new = carr_new.copy_to(pa.default_cpu_memory_manager())
     assert arr_new.equals(arr)
 
     del carr_new
     # Now released
     with pytest.raises(ValueError, match="Cannot import released ArrowSchema"):
         pa.Array._import_from_c_device(ptr_array, ptr_schema)
-
-
-def _batch_copy_to_host(cbatch):
-    # TODO replace below with copy to device when exposed in python
-    arrs = []
-    for col in cbatch.columns:
-        buffers = [
-            global_context.foreign_buffer(buf.address, buf.size, buf).copy_to_host()
-            if buf is not None else None
-            for buf in col.buffers()
-        ]
-        new = pa.Array.from_buffers(col.type, len(col), buffers)
-        arrs.append(new)
-
-    return pa.RecordBatch.from_arrays(arrs, schema=cbatch.schema)
 
 
 def test_device_interface_batch_array():
@@ -949,7 +931,7 @@ def test_device_interface_batch_array():
     del cbatch
     cbatch_new = pa.RecordBatch._import_from_c_device(ptr_array, schema)
     assert cbatch_new.schema == schema
-    batch_new = _batch_copy_to_host(cbatch_new)
+    batch_new = cbatch_new.copy_to(pa.default_cpu_memory_manager())
     assert batch_new.equals(batch)
 
     del cbatch_new
@@ -964,7 +946,7 @@ def test_device_interface_batch_array():
     del cbatch
     cbatch_new = pa.RecordBatch._import_from_c_device(ptr_array, ptr_schema)
     assert cbatch_new.schema == schema
-    batch_new = _batch_copy_to_host(cbatch_new)
+    batch_new = cbatch_new.copy_to(pa.default_cpu_memory_manager())
     assert batch_new.equals(batch)
 
     del cbatch_new

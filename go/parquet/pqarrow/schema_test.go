@@ -21,10 +21,10 @@ import (
 	"testing"
 
 	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/extensions"
 	"github.com/apache/arrow/go/v18/arrow/flight"
 	"github.com/apache/arrow/go/v18/arrow/ipc"
 	"github.com/apache/arrow/go/v18/arrow/memory"
-	"github.com/apache/arrow/go/v18/internal/types"
 	"github.com/apache/arrow/go/v18/parquet"
 	"github.com/apache/arrow/go/v18/parquet/metadata"
 	"github.com/apache/arrow/go/v18/parquet/pqarrow"
@@ -34,7 +34,7 @@ import (
 )
 
 func TestGetOriginSchemaBase64(t *testing.T) {
-	uuidType := types.NewUUIDType()
+	uuidType := extensions.NewUUIDType()
 	md := arrow.NewMetadata([]string{"PARQUET:field_id"}, []string{"-1"})
 	extMd := arrow.NewMetadata([]string{ipc.ExtensionMetadataKeyName, ipc.ExtensionTypeKeyName, "PARQUET:field_id"}, []string{uuidType.Serialize(), uuidType.ExtensionName(), "-1"})
 	origArrSc := arrow.NewSchema([]arrow.Field{
@@ -44,10 +44,6 @@ func TestGetOriginSchemaBase64(t *testing.T) {
 	}, nil)
 
 	arrSerializedSc := flight.SerializeSchema(origArrSc, memory.DefaultAllocator)
-	if err := arrow.RegisterExtensionType(uuidType); err != nil {
-		t.Fatal(err)
-	}
-	defer arrow.UnregisterExtensionType(uuidType.ExtensionName())
 	pqschema, err := pqarrow.ToParquet(origArrSc, nil, pqarrow.DefaultWriterProps())
 	require.NoError(t, err)
 
@@ -71,11 +67,7 @@ func TestGetOriginSchemaBase64(t *testing.T) {
 }
 
 func TestGetOriginSchemaUnregisteredExtension(t *testing.T) {
-	uuidType := types.NewUUIDType()
-	if err := arrow.RegisterExtensionType(uuidType); err != nil {
-		t.Fatal(err)
-	}
-
+	uuidType := extensions.NewUUIDType()
 	md := arrow.NewMetadata([]string{"PARQUET:field_id"}, []string{"-1"})
 	origArrSc := arrow.NewSchema([]arrow.Field{
 		{Name: "f1", Type: arrow.BinaryTypes.String, Metadata: md},
@@ -90,6 +82,7 @@ func TestGetOriginSchemaUnregisteredExtension(t *testing.T) {
 	kv.Append("ARROW:schema", base64.StdEncoding.EncodeToString(arrSerializedSc))
 
 	arrow.UnregisterExtensionType(uuidType.ExtensionName())
+	defer arrow.RegisterExtensionType(uuidType)
 	arrsc, err := pqarrow.FromParquet(pqschema, nil, kv)
 	require.NoError(t, err)
 

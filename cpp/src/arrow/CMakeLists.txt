@@ -374,6 +374,8 @@ set(ARROW_SRCS
     datum.cc
     device.cc
     extension_type.cc
+    extension/bool8.cc
+    extension/uuid.cc
     pretty_print.cc
     record_batch.cc
     result.cc
@@ -723,7 +725,6 @@ set(ARROW_COMPUTE_SRCS
     compute/ordering.cc
     compute/registry.cc
     compute/kernels/codegen_internal.cc
-    compute/kernels/row_encoder.cc
     compute/kernels/ree_util_internal.cc
     compute/kernels/scalar_cast_boolean.cc
     compute/kernels/scalar_cast_dictionary.cc
@@ -742,6 +743,7 @@ set(ARROW_COMPUTE_SRCS
     compute/row/encode_internal.cc
     compute/row/compare_internal.cc
     compute/row/grouper.cc
+    compute/row/row_encoder_internal.cc
     compute/row/row_internal.cc
     compute/util.cc
     compute/util_internal.cc)
@@ -1224,6 +1226,7 @@ add_subdirectory(testing)
 add_subdirectory(array)
 add_subdirectory(c)
 add_subdirectory(compute)
+add_subdirectory(extension)
 add_subdirectory(io)
 add_subdirectory(tensor)
 add_subdirectory(util)
@@ -1266,7 +1269,6 @@ endif()
 
 if(ARROW_JSON)
   add_subdirectory(json)
-  add_subdirectory(extension)
 endif()
 
 if(ARROW_ORC)
