@@ -1644,7 +1644,6 @@ cdef class Array(_PandasConvertible):
         -------
         lst : list
         """
-        self._assert_cpu()
         return [x.as_py() for x in self]
 
     def tolist(self):
