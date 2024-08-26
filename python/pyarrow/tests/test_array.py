@@ -22,6 +22,7 @@ import hypothesis as h
 import hypothesis.strategies as st
 import itertools
 import pytest
+import re
 import struct
 import subprocess
 import sys
@@ -4077,6 +4078,20 @@ def test_non_cpu_array():
     with pytest.raises(NotImplementedError):
         arr.__dlpack_device__()
 
+    def bad_device_msg(func_name, arg_index=0):
+        if arg_index == 0:
+            ordinal = "1st"
+        elif arg_index == 1:
+            ordinal = "2nd"
+        elif arg_index == 2:
+            ordinal = "3rd"
+        else:
+            ordinal = (arg_index + 1) + "th"
+        pattern = f"'(array_)?{func_name}(_.+)?'"
+        pattern += re.escape(f" expects {ordinal} argument's device allocation "
+                             f"types(s) to be in {'{CPU}'} but got {'{CUDA}'}.")
+        return pattern
+
     # Not Supported
     with pytest.raises(NotImplementedError):
         arr.diff(arr2)
@@ -4084,13 +4099,14 @@ def test_non_cpu_array():
         arr.cast(pa.int64())
     with pytest.raises(NotImplementedError):
         arr.view(pa.int64())
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(NotImplementedError, match=bad_device_msg("sum")):
         arr.sum()
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(NotImplementedError, match=bad_device_msg("unique")):
         arr.unique()
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(NotImplementedError,
+                       match=bad_device_msg("dictionary_encode")):
         arr.dictionary_encode()
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(NotImplementedError, match=bad_device_msg("value_counts")):
         arr.value_counts()
     with pytest.raises(NotImplementedError):
         arr_with_nulls.null_count

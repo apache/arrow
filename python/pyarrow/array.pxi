@@ -1038,7 +1038,6 @@ cdef class Array(_PandasConvertible):
         sum : Scalar
             A scalar containing the sum value.
         """
-        self._assert_cpu()
         options = _pc().ScalarAggregateOptions(**kwargs)
         return _pc().call_function('sum', [self], options)
 
@@ -1051,7 +1050,6 @@ cdef class Array(_PandasConvertible):
         unique : Array
             An array of the same data type, with deduplicated elements.
         """
-        self._assert_cpu()
         return _pc().call_function('unique', [self])
 
     def dictionary_encode(self, null_encoding='mask'):
@@ -1070,7 +1068,6 @@ cdef class Array(_PandasConvertible):
         encoded : DictionaryArray
             A dictionary-encoded version of this array.
         """
-        self._assert_cpu()
         options = _pc().DictionaryEncodeOptions(null_encoding)
         return _pc().call_function('dictionary_encode', [self], options)
 
@@ -1083,7 +1080,6 @@ cdef class Array(_PandasConvertible):
         StructArray
             An array of  <input type "Values", int64 "Counts"> structs
         """
-        self._assert_cpu()
         return _pc().call_function('value_counts', [self])
 
     @staticmethod
