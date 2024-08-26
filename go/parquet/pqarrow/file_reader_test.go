@@ -381,7 +381,7 @@ func TestReadParquetFile(t *testing.T) {
 		t.Skip("no path supplied with PARQUET_TEST_BAD_DATA")
 	}
 	assert.DirExists(t, dir)
-	filename := path.Join(dir, "GH_43605.parquet")
+	filename := path.Join(dir, "ARROW-GH-43605.parquet")
 	ctx := context.TODO()
 
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
