@@ -1555,8 +1555,6 @@ cdef class Array(_PandasConvertible):
         return _array_like_to_pandas(self, options, types_mapper=types_mapper)
 
     def __array__(self, dtype=None, copy=None):
-        self._assert_cpu()
-
         if copy is False:
             try:
                 values = self.to_numpy(zero_copy_only=True)
