@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/compute/kernels/row_encoder_internal.h"
+#include "arrow/compute/row/row_encoder_internal.h"
 
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/logging.h"
@@ -75,26 +75,31 @@ void BooleanKeyEncoder::AddLengthNull(int32_t* length) {
 
 Status BooleanKeyEncoder::Encode(const ExecValue& data, int64_t batch_length,
                                  uint8_t** encoded_bytes) {
+  auto handle_next_valid_value = [&encoded_bytes](bool value) {
+    auto& encoded_ptr = *encoded_bytes++;
+    *encoded_ptr++ = kValidByte;
+    *encoded_ptr++ = value;
+  };
+  auto handle_next_null_value = [&encoded_bytes]() {
+    auto& encoded_ptr = *encoded_bytes++;
+    *encoded_ptr++ = kNullByte;
+    *encoded_ptr++ = 0;
+  };
+
   if (data.is_array()) {
-    VisitArraySpanInline<BooleanType>(
-        data.array,
-        [&](bool value) {
-          auto& encoded_ptr = *encoded_bytes++;
-          *encoded_ptr++ = kValidByte;
-          *encoded_ptr++ = value;
-        },
-        [&] {
-          auto& encoded_ptr = *encoded_bytes++;
-          *encoded_ptr++ = kNullByte;
-          *encoded_ptr++ = 0;
-        });
+    VisitArraySpanInline<BooleanType>(data.array, handle_next_valid_value,
+                                      handle_next_null_value);
   } else {
     const auto& scalar = data.scalar_as<BooleanScalar>();
-    bool value = scalar.is_valid && scalar.value;
-    for (int64_t i = 0; i < batch_length; i++) {
-      auto& encoded_ptr = *encoded_bytes++;
-      *encoded_ptr++ = kValidByte;
-      *encoded_ptr++ = value;
+    if (!scalar.is_valid) {
+      for (int64_t i = 0; i < batch_length; i++) {
+        handle_next_null_value();
+      }
+    } else {
+      const bool value = scalar.value;
+      for (int64_t i = 0; i < batch_length; i++) {
+        handle_next_valid_value(value);
+      }
     }
   }
   return Status::OK();

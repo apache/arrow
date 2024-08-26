@@ -39,6 +39,7 @@
 #include <memory>
 #include <random>
 #include <string>
+#include <vector>
 
 #include <gmock/gmock-matchers.h>
 #include <gmock/gmock-more-matchers.h>
@@ -53,6 +54,7 @@
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/future.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
@@ -566,6 +568,7 @@ class TestAzureOptions : public ::testing::Test {
     ASSERT_EQ(options.dfs_storage_scheme, default_options.dfs_storage_scheme);
     ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kDefault);
     ASSERT_EQ(path, "container/dir/blob");
+    ASSERT_EQ(options.background_writes, true);
   }
 
   void TestFromUriDfsStorage() {
@@ -582,6 +585,7 @@ class TestAzureOptions : public ::testing::Test {
     ASSERT_EQ(options.dfs_storage_scheme, default_options.dfs_storage_scheme);
     ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kDefault);
     ASSERT_EQ(path, "file_system/dir/file");
+    ASSERT_EQ(options.background_writes, true);
   }
 
   void TestFromUriAbfs() {
@@ -597,6 +601,7 @@ class TestAzureOptions : public ::testing::Test {
     ASSERT_EQ(options.dfs_storage_scheme, "https");
     ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kStorageSharedKey);
     ASSERT_EQ(path, "container/dir/blob");
+    ASSERT_EQ(options.background_writes, true);
   }
 
   void TestFromUriAbfss() {
@@ -612,6 +617,7 @@ class TestAzureOptions : public ::testing::Test {
     ASSERT_EQ(options.dfs_storage_scheme, "https");
     ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kStorageSharedKey);
     ASSERT_EQ(path, "container/dir/blob");
+    ASSERT_EQ(options.background_writes, true);
   }
 
   void TestFromUriEnableTls() {
@@ -628,6 +634,17 @@ class TestAzureOptions : public ::testing::Test {
     ASSERT_EQ(options.dfs_storage_scheme, "http");
     ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kStorageSharedKey);
     ASSERT_EQ(path, "container/dir/blob");
+    ASSERT_EQ(options.background_writes, true);
+  }
+
+  void TestFromUriDisableBackgroundWrites() {
+    std::string path;
+    ASSERT_OK_AND_ASSIGN(auto options,
+                         AzureOptions::FromUri(
+                             "abfs://account:password@127.0.0.1:10000/container/dir/blob?"
+                             "background_writes=false",
+                             &path));
+    ASSERT_EQ(options.background_writes, false);
   }
 
   void TestFromUriCredentialDefault() {
@@ -773,6 +790,9 @@ TEST_F(TestAzureOptions, FromUriDfsStorage) { TestFromUriDfsStorage(); }
 TEST_F(TestAzureOptions, FromUriAbfs) { TestFromUriAbfs(); }
 TEST_F(TestAzureOptions, FromUriAbfss) { TestFromUriAbfss(); }
 TEST_F(TestAzureOptions, FromUriEnableTls) { TestFromUriEnableTls(); }
+TEST_F(TestAzureOptions, FromUriDisableBackgroundWrites) {
+  TestFromUriDisableBackgroundWrites();
+}
 TEST_F(TestAzureOptions, FromUriCredentialDefault) { TestFromUriCredentialDefault(); }
 TEST_F(TestAzureOptions, FromUriCredentialAnonymous) { TestFromUriCredentialAnonymous(); }
 TEST_F(TestAzureOptions, FromUriCredentialStorageSharedKey) {
@@ -929,8 +949,9 @@ class TestAzureFileSystem : public ::testing::Test {
   void UploadLines(const std::vector<std::string>& lines, const std::string& path,
                    int total_size) {
     ASSERT_OK_AND_ASSIGN(auto output, fs()->OpenOutputStream(path, {}));
-    const auto all_lines = std::accumulate(lines.begin(), lines.end(), std::string(""));
-    ASSERT_OK(output->Write(all_lines));
+    for (auto const& line : lines) {
+      ASSERT_OK(output->Write(line.data(), line.size()));
+    }
     ASSERT_OK(output->Close());
   }
 
@@ -1472,6 +1493,162 @@ class TestAzureFileSystem : public ::testing::Test {
         ::testing::HasSubstr("Not a directory: '" + data.Path("dir/file0/") + "'"),
         fs()->DeleteFile(data.Path("dir/file0/")));
     arrow::fs::AssertFileInfo(fs(), data.Path("dir/file0"), FileType::File);
+  }
+
+  void AssertObjectContents(AzureFileSystem* fs, std::string_view path,
+                            std::string_view expected) {
+    ASSERT_OK_AND_ASSIGN(auto input, fs->OpenInputStream(std::string{path}));
+    std::string contents;
+    std::shared_ptr<Buffer> buffer;
+    do {
+      ASSERT_OK_AND_ASSIGN(buffer, input->Read(128 * 1024));
+      contents.append(buffer->ToString());
+    } while (buffer->size() != 0);
+
+    EXPECT_EQ(expected, contents);
+  }
+
+  void TestOpenOutputStreamSmall() {
+    ASSERT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options_));
+
+    auto data = SetUpPreexistingData();
+    const auto path = data.ContainerPath("test-write-object");
+    ASSERT_OK_AND_ASSIGN(auto output, fs->OpenOutputStream(path, {}));
+    const std::string_view expected(PreexistingData::kLoremIpsum);
+    ASSERT_OK(output->Write(expected));
+    ASSERT_OK(output->Close());
+
+    // Verify we can read the object back.
+    AssertObjectContents(fs.get(), path, expected);
+  }
+
+  void TestOpenOutputStreamLarge() {
+    ASSERT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options_));
+
+    auto data = SetUpPreexistingData();
+    const auto path = data.ContainerPath("test-write-object");
+    ASSERT_OK_AND_ASSIGN(auto output, fs->OpenOutputStream(path, {}));
+
+    // Upload 5 MB, 4 MB und 2 MB and a very small write to test varying sizes
+    std::vector<std::int64_t> sizes{5 * 1024 * 1024, 4 * 1024 * 1024, 2 * 1024 * 1024,
+                                    2000};
+
+    std::vector<std::string> buffers{};
+    char current_char = 'A';
+    for (const auto size : sizes) {
+      buffers.emplace_back(size, current_char++);
+    }
+
+    auto expected_size = std::int64_t{0};
+    for (size_t i = 0; i < buffers.size(); ++i) {
+      ASSERT_OK(output->Write(buffers[i]));
+      expected_size += sizes[i];
+      ASSERT_EQ(expected_size, output->Tell());
+    }
+    ASSERT_OK(output->Close());
+
+    AssertObjectContents(fs.get(), path,
+                         buffers[0] + buffers[1] + buffers[2] + buffers[3]);
+  }
+
+  void TestOpenOutputStreamLargeSingleWrite() {
+    ASSERT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options_));
+
+    auto data = SetUpPreexistingData();
+    const auto path = data.ContainerPath("test-write-object");
+    ASSERT_OK_AND_ASSIGN(auto output, fs->OpenOutputStream(path, {}));
+
+    constexpr std::int64_t size{12 * 1024 * 1024};
+    const std::string large_string(size, 'X');
+
+    ASSERT_OK(output->Write(large_string));
+    ASSERT_EQ(size, output->Tell());
+    ASSERT_OK(output->Close());
+
+    AssertObjectContents(fs.get(), path, large_string);
+  }
+
+  void TestOpenOutputStreamCloseAsync() {
+#if defined(ADDRESS_SANITIZER) || defined(ARROW_VALGRIND)
+    // This false positive leak is similar to the one pinpointed in the
+    // have_false_positive_memory_leak_with_generator() comments above,
+    // though the stack trace is different. It happens when a block list
+    // is committed from a background thread.
+    //
+    // clang-format off
+    // Direct leak of 968 byte(s) in 1 object(s) allocated from:
+    //   #0 calloc
+    //   #1 (/lib/x86_64-linux-gnu/libxml2.so.2+0xe25a4)
+    //   #2 __xmlDefaultBufferSize
+    //   #3 xmlBufferCreate
+    //   #4 Azure::Storage::_internal::XmlWriter::XmlWriter()
+    //   #5 Azure::Storage::Blobs::_detail::BlockBlobClient::CommitBlockList
+    //   #6 Azure::Storage::Blobs::BlockBlobClient::CommitBlockList
+    //   #7 arrow::fs::(anonymous namespace)::CommitBlockList
+    //   #8 arrow::fs::(anonymous namespace)::ObjectAppendStream::FlushAsync()::'lambda'
+    // clang-format on
+    //
+    // TODO perhaps remove this skip once we can rely on
+    // https://github.com/Azure/azure-sdk-for-cpp/pull/5767
+    //
+    // Also note that ClickHouse has a workaround for a similar issue:
+    // https://github.com/ClickHouse/ClickHouse/pull/45796
+    if (options_.background_writes) {
+      GTEST_SKIP() << "False positive memory leak in libxml2 with CloseAsync";
+    }
+#endif
+    ASSERT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options_));
+    auto data = SetUpPreexistingData();
+    const std::string path = data.ContainerPath("test-write-object");
+    constexpr auto payload = PreexistingData::kLoremIpsum;
+
+    ASSERT_OK_AND_ASSIGN(auto stream, fs->OpenOutputStream(path));
+    ASSERT_OK(stream->Write(payload));
+    auto close_fut = stream->CloseAsync();
+
+    ASSERT_OK(close_fut.MoveResult());
+
+    AssertObjectContents(fs.get(), path, payload);
+  }
+
+  void TestOpenOutputStreamCloseAsyncDestructor() {
+#if defined(ADDRESS_SANITIZER) || defined(ARROW_VALGRIND)
+    // See above.
+    if (options_.background_writes) {
+      GTEST_SKIP() << "False positive memory leak in libxml2 with CloseAsync";
+    }
+#endif
+    ASSERT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options_));
+    auto data = SetUpPreexistingData();
+    const std::string path = data.ContainerPath("test-write-object");
+    constexpr auto payload = PreexistingData::kLoremIpsum;
+
+    ASSERT_OK_AND_ASSIGN(auto stream, fs->OpenOutputStream(path));
+    ASSERT_OK(stream->Write(payload));
+    // Destructor implicitly closes stream and completes the upload.
+    // Testing it doesn't matter whether flush is triggered asynchronously
+    // after CloseAsync or synchronously after stream.reset() since we're just
+    // checking that the future keeps the stream alive until completion
+    // rather than segfaulting on a dangling stream.
+    auto close_fut = stream->CloseAsync();
+    stream.reset();
+    ASSERT_OK(close_fut.MoveResult());
+
+    AssertObjectContents(fs.get(), path, payload);
+  }
+
+  void TestOpenOutputStreamDestructor() {
+    ASSERT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options_));
+    constexpr auto* payload = "new data";
+    auto data = SetUpPreexistingData();
+    const std::string path = data.ContainerPath("test-write-object");
+
+    ASSERT_OK_AND_ASSIGN(auto stream, fs->OpenOutputStream(path));
+    ASSERT_OK(stream->Write(payload));
+    // Destructor implicitly closes stream and completes the multipart upload.
+    stream.reset();
+
+    AssertObjectContents(fs.get(), path, payload);
   }
 
  private:
@@ -2704,53 +2881,27 @@ TEST_F(TestAzuriteFileSystem, WriteMetadataHttpHeaders) {
   ASSERT_EQ("text/plain", content_type);
 }
 
-TEST_F(TestAzuriteFileSystem, OpenOutputStreamSmall) {
-  auto data = SetUpPreexistingData();
-  const auto path = data.ContainerPath("test-write-object");
-  ASSERT_OK_AND_ASSIGN(auto output, fs()->OpenOutputStream(path, {}));
-  const std::string_view expected(PreexistingData::kLoremIpsum);
-  ASSERT_OK(output->Write(expected));
-  ASSERT_OK(output->Close());
-
-  // Verify we can read the object back.
-  ASSERT_OK_AND_ASSIGN(auto input, fs()->OpenInputStream(path));
-
-  std::array<char, 1024> inbuf{};
-  ASSERT_OK_AND_ASSIGN(auto size, input->Read(inbuf.size(), inbuf.data()));
-
-  EXPECT_EQ(expected, std::string_view(inbuf.data(), size));
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamSmallNoBackgroundWrites) {
+  options_.background_writes = false;
+  TestOpenOutputStreamSmall();
 }
 
-TEST_F(TestAzuriteFileSystem, OpenOutputStreamLarge) {
-  auto data = SetUpPreexistingData();
-  const auto path = data.ContainerPath("test-write-object");
-  ASSERT_OK_AND_ASSIGN(auto output, fs()->OpenOutputStream(path, {}));
-  std::array<std::int64_t, 3> sizes{257 * 1024, 258 * 1024, 259 * 1024};
-  std::array<std::string, 3> buffers{
-      std::string(sizes[0], 'A'),
-      std::string(sizes[1], 'B'),
-      std::string(sizes[2], 'C'),
-  };
-  auto expected = std::int64_t{0};
-  for (auto i = 0; i != 3; ++i) {
-    ASSERT_OK(output->Write(buffers[i]));
-    expected += sizes[i];
-    ASSERT_EQ(expected, output->Tell());
-  }
-  ASSERT_OK(output->Close());
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamSmall) { TestOpenOutputStreamSmall(); }
 
-  // Verify we can read the object back.
-  ASSERT_OK_AND_ASSIGN(auto input, fs()->OpenInputStream(path));
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamLargeNoBackgroundWrites) {
+  options_.background_writes = false;
+  TestOpenOutputStreamLarge();
+}
 
-  std::string contents;
-  std::shared_ptr<Buffer> buffer;
-  do {
-    ASSERT_OK_AND_ASSIGN(buffer, input->Read(128 * 1024));
-    ASSERT_TRUE(buffer);
-    contents.append(buffer->ToString());
-  } while (buffer->size() != 0);
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamLarge) { TestOpenOutputStreamLarge(); }
 
-  EXPECT_EQ(contents, buffers[0] + buffers[1] + buffers[2]);
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamLargeSingleWriteNoBackgroundWrites) {
+  options_.background_writes = false;
+  TestOpenOutputStreamLargeSingleWrite();
+}
+
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamLargeSingleWrite) {
+  TestOpenOutputStreamLargeSingleWrite();
 }
 
 TEST_F(TestAzuriteFileSystem, OpenOutputStreamTruncatesExistingFile) {
@@ -2818,6 +2969,33 @@ TEST_F(TestAzuriteFileSystem, OpenOutputStreamClosed) {
                                        std::strlen(PreexistingData::kLoremIpsum)));
   ASSERT_RAISES(Invalid, output->Flush());
   ASSERT_RAISES(Invalid, output->Tell());
+}
+
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamCloseAsync) {
+  TestOpenOutputStreamCloseAsync();
+}
+
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamCloseAsyncNoBackgroundWrites) {
+  options_.background_writes = false;
+  TestOpenOutputStreamCloseAsync();
+}
+
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamAsyncDestructor) {
+  TestOpenOutputStreamCloseAsyncDestructor();
+}
+
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamAsyncDestructorNoBackgroundWrites) {
+  options_.background_writes = false;
+  TestOpenOutputStreamCloseAsyncDestructor();
+}
+
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamDestructor) {
+  TestOpenOutputStreamDestructor();
+}
+
+TEST_F(TestAzuriteFileSystem, OpenOutputStreamDestructorNoBackgroundWrites) {
+  options_.background_writes = false;
+  TestOpenOutputStreamDestructor();
 }
 
 TEST_F(TestAzuriteFileSystem, OpenOutputStreamUri) {

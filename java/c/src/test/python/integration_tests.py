@@ -352,6 +352,53 @@ class TestPythonIntegration(unittest.TestCase):
         ]
         self.round_trip_reader(schema, data)
 
+    def test_listview_array(self):
+        self.round_trip_array(lambda: pa.array(
+            [[], [0], [1, 2], [4, 5, 6]], pa.list_view(pa.int64())
+            # disabled check_metadata since in Java API the listview
+            # internal field name ("item") is not preserved 
+            # during round trips (it becomes "$data$").
+        ), check_metadata=False)
+
+    def test_empty_listview_array(self):
+        with pa.BufferOutputStream() as bos:
+            schema = pa.schema([pa.field("f0", pa.list_view(pa.int32()), True)])
+            with ipc.new_stream(bos, schema) as writer:
+                src = pa.RecordBatch.from_arrays(
+                    [pa.array([[]], pa.list_view(pa.int32()))], schema=schema)
+                writer.write(src)
+        data_bytes = bos.getvalue()
+
+        def recreate_batch():
+            with pa.input_stream(data_bytes) as ios:
+                with ipc.open_stream(ios) as reader:
+                    return reader.read_next_batch()
+
+        self.round_trip_record_batch(recreate_batch)
+
+    def test_largelistview_array(self):
+        self.round_trip_array(lambda: pa.array(
+            [[], [0], [1, 2], [4, 5, 6]], pa.large_list_view(pa.int64())
+            # disabled check_metadata since in Java API the listview
+            # internal field name ("item") is not preserved
+            # during round trips (it becomes "$data$").
+        ), check_metadata=False)
+
+    def test_empty_largelistview_array(self):
+        with pa.BufferOutputStream() as bos:
+            schema = pa.schema([pa.field("f0", pa.large_list_view(pa.int32()), True)])
+            with ipc.new_stream(bos, schema) as writer:
+                src = pa.RecordBatch.from_arrays(
+                    [pa.array([[]], pa.large_list_view(pa.int32()))], schema=schema)
+                writer.write(src)
+        data_bytes = bos.getvalue()
+
+        def recreate_batch():
+            with pa.input_stream(data_bytes) as ios:
+                with ipc.open_stream(ios) as reader:
+                    return reader.read_next_batch()
+
+        self.round_trip_record_batch(recreate_batch)
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

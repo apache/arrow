@@ -36,6 +36,11 @@ jobs:
       ARCHERY_USE_LEGACY_DOCKER_COMPOSE: 1
       {% endif %}
       PYTHON: "{{ python_version }}"
+      {% if python_version == "3.13" %}
+      PYTHON_IMAGE_TAG: "3.13-rc"
+      {% else %}
+      PYTHON_IMAGE_TAG: "{{ python_version }}"
+      {% endif %}
 
     steps:
       {{ macros.github_checkout_arrow()|indent }}

@@ -2636,7 +2636,7 @@ func (c *CastSuite) TestStructToDifferentNullabilityStruct() {
 		defer dest3Nullable.Release()
 		checkCast(c.T(), srcNonNull, dest3Nullable, *compute.DefaultCastOptions(true))
 	})
-	c.Run("non-nullable to nullable", func() {
+	c.Run("nullable to non-nullable", func() {
 		fieldsSrcNullable := []arrow.Field{
 			{Name: "a", Type: arrow.PrimitiveTypes.Int8, Nullable: true},
 			{Name: "b", Type: arrow.PrimitiveTypes.Int8, Nullable: true},

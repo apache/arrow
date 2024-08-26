@@ -626,7 +626,6 @@ func (s *SqlTestSuite) TestRowsPrematureCloseDuringNextLoop() {
 	rows, err := db.QueryContext(context.TODO(), sqlSelectAll)
 	require.NoError(t, err)
 	require.NotNil(t, rows)
-	require.NoError(t, rows.Err())
 
 	const closeAfterNRows = 10
 	var (
@@ -645,6 +644,7 @@ func (s *SqlTestSuite) TestRowsPrematureCloseDuringNextLoop() {
 			require.NoError(t, rows.Close())
 		}
 	}
+	require.NoError(t, rows.Err())
 
 	require.Equal(t, closeAfterNRows, i)
 

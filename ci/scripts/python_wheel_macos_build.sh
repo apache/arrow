@@ -48,13 +48,11 @@ fi
 
 echo "=== (${PYTHON_VERSION}) Install Python build dependencies ==="
 export PIP_SITE_PACKAGES=$(python -c 'import site; print(site.getsitepackages()[0])')
-export PIP_TARGET_PLATFORM="macosx_${MACOSX_DEPLOYMENT_TARGET//./_}_${arch}"
 
 pip install \
   --upgrade \
   --only-binary=:all: \
   --target $PIP_SITE_PACKAGES \
-  --platform $PIP_TARGET_PLATFORM \
   -r ${source_dir}/python/requirements-wheel-build.txt
 pip install "delocate>=0.10.3"
 
