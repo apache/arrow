@@ -1826,6 +1826,7 @@ def test_bool8_to_bool_conversion():
     assert bool_arr.cast(pa.bool8()) == canonical_bool8_arr
 
 
+@pytest.mark.numpy
 def test_bool8_to_numpy_conversion():
     arr = pa.ExtensionArray.from_storage(
         pa.bool8(),
@@ -1866,6 +1867,7 @@ def test_bool8_to_numpy_conversion():
     assert arr_to_np_writable.ctypes.data != arr_no_nulls.buffers()[1].address
 
 
+@pytest.mark.numpy
 def test_bool8_from_numpy_conversion():
     np_arr_no_nulls = np.array([True, False, True, True], dtype=np.bool_)
     canonical_bool8_arr_no_nulls = pa.ExtensionArray.from_storage(
