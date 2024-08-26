@@ -4135,8 +4135,8 @@ def test_non_cpu_array():
         arr.take([0])
     with pytest.raises(NotImplementedError, match=bad_device_msg("take", 1)):
         pa.array([0, 1]).take(arr)
-    with pytest.raises(NotImplementedError):
-        arr.drop_null()
+    with pytest.raises(NotImplementedError, match=bad_device_msg("filter", 0)):
+        arr_with_nulls.drop_null()
     with pytest.raises(NotImplementedError, match=bad_device_msg("filter", 0)):
         arr.filter([True, True, False, False])
     with pytest.raises(NotImplementedError, match=bad_device_msg("filter", 1)):

@@ -1465,7 +1465,6 @@ cdef class Array(_PandasConvertible):
         """
         Remove missing values from an array.
         """
-        self._assert_cpu()
         return _pc().drop_null(self)
 
     def filter(self, object mask, *, null_selection_behavior='drop'):
