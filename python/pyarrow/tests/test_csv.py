@@ -55,8 +55,8 @@ def generate_col_names():
 
 def split_rows(arr, num_cols, num_rows):
     # Split a num_cols x num_rows array into rows
-    for i in range(0, num_rows*num_cols, num_cols):
-        yield list(itertools.islice(arr, i, i + num_cols))
+    for i in range(0, num_rows * num_cols, num_cols):
+        yield arr[i:i + num_cols]
 
 
 def split_columns(arr, num_cols, num_rows):
