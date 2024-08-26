@@ -222,6 +222,9 @@ cdef class OpaqueType(BaseExtensionType):
     cdef:
         const COpaqueType* opaque_ext_type
 
+cdef class UuidType(BaseExtensionType):
+    cdef:
+        const CUuidType* uuid_ext_type
 
 cdef class PyExtensionType(ExtensionType):
     pass

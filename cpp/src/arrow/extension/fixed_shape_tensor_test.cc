@@ -23,7 +23,7 @@
 #include "arrow/array/array_primitive.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
-#include "arrow/ipc/writer.h"
+#include "arrow/ipc/test_common.h"
 #include "arrow/record_batch.h"
 #include "arrow/tensor.h"
 #include "arrow/testing/gtest_util.h"
@@ -33,6 +33,7 @@
 namespace arrow {
 
 using FixedShapeTensorType = extension::FixedShapeTensorType;
+using arrow::ipc::test::RoundtripBatch;
 using extension::fixed_shape_tensor;
 using extension::FixedShapeTensorArray;
 
@@ -69,20 +70,6 @@ class TestExtensionType : public ::testing::Test {
   std::vector<int64_t> tensor_strides_;
   std::vector<int64_t> element_strides_;
   std::string serialized_;
-};
-
-auto RoundtripBatch = [](const std::shared_ptr<RecordBatch>& batch,
-                         std::shared_ptr<RecordBatch>* out) {
-  ASSERT_OK_AND_ASSIGN(auto out_stream, io::BufferOutputStream::Create());
-  ASSERT_OK(ipc::WriteRecordBatchStream({batch}, ipc::IpcWriteOptions::Defaults(),
-                                        out_stream.get()));
-
-  ASSERT_OK_AND_ASSIGN(auto complete_ipc_stream, out_stream->Finish());
-
-  io::BufferReader reader(complete_ipc_stream);
-  std::shared_ptr<RecordBatchReader> batch_reader;
-  ASSERT_OK_AND_ASSIGN(batch_reader, ipc::RecordBatchStreamReader::Open(&reader));
-  ASSERT_OK(batch_reader->ReadNext(out));
 };
 
 TEST_F(TestExtensionType, CheckDummyRegistration) {

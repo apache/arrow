@@ -49,9 +49,13 @@
 #include "arrow/buffer.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/datum.h"
+#include "arrow/io/memory.h"
 #include "arrow/ipc/json_simple.h"
+#include "arrow/ipc/reader.h"
+#include "arrow/ipc/writer.h"
 #include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
 #include "arrow/pretty_print.h"
+#include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/tensor.h"
@@ -847,17 +851,17 @@ Future<> SleepABitAsync() {
 ///////////////////////////////////////////////////////////////////////////
 // Extension types
 
-bool UuidType::ExtensionEquals(const ExtensionType& other) const {
+bool ExampleUuidType::ExtensionEquals(const ExtensionType& other) const {
   return (other.extension_name() == this->extension_name());
 }
 
-std::shared_ptr<Array> UuidType::MakeArray(std::shared_ptr<ArrayData> data) const {
+std::shared_ptr<Array> ExampleUuidType::MakeArray(std::shared_ptr<ArrayData> data) const {
   DCHECK_EQ(data->type->id(), Type::EXTENSION);
   DCHECK_EQ("uuid", static_cast<const ExtensionType&>(*data->type).extension_name());
-  return std::make_shared<UuidArray>(data);
+  return std::make_shared<ExampleUuidArray>(data);
 }
 
-Result<std::shared_ptr<DataType>> UuidType::Deserialize(
+Result<std::shared_ptr<DataType>> ExampleUuidType::Deserialize(
     std::shared_ptr<DataType> storage_type, const std::string& serialized) const {
   if (serialized != "uuid-serialized") {
     return Status::Invalid("Type identifier did not match: '", serialized, "'");
@@ -866,7 +870,7 @@ Result<std::shared_ptr<DataType>> UuidType::Deserialize(
     return Status::Invalid("Invalid storage type for UuidType: ",
                            storage_type->ToString());
   }
-  return std::make_shared<UuidType>();
+  return std::make_shared<ExampleUuidType>();
 }
 
 bool SmallintType::ExtensionEquals(const ExtensionType& other) const {
@@ -982,7 +986,7 @@ Result<std::shared_ptr<DataType>> Complex128Type::Deserialize(
   return std::make_shared<Complex128Type>();
 }
 
-std::shared_ptr<DataType> uuid() { return std::make_shared<UuidType>(); }
+std::shared_ptr<DataType> uuid() { return std::make_shared<ExampleUuidType>(); }
 
 std::shared_ptr<DataType> smallint() { return std::make_shared<SmallintType>(); }
 

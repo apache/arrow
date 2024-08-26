@@ -27,14 +27,14 @@
 
 namespace arrow {
 
-class ARROW_TESTING_EXPORT UuidArray : public ExtensionArray {
+class ARROW_TESTING_EXPORT ExampleUuidArray : public ExtensionArray {
  public:
   using ExtensionArray::ExtensionArray;
 };
 
-class ARROW_TESTING_EXPORT UuidType : public ExtensionType {
+class ARROW_TESTING_EXPORT ExampleUuidType : public ExtensionType {
  public:
-  UuidType() : ExtensionType(fixed_size_binary(16)) {}
+  ExampleUuidType() : ExtensionType(fixed_size_binary(16)) {}
 
   std::string extension_name() const override { return "uuid"; }
 
