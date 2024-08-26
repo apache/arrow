@@ -17,7 +17,6 @@
 
 #pragma once
 
-#include <memory>
 #include <string>
 
 #include "arrow/extension_type.h"

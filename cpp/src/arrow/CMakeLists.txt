@@ -378,7 +378,6 @@ set(ARROW_SRCS
     extension/bool8.cc
     extension/json.cc
     extension/uuid.cc
-    memory_pool.cc
     pretty_print.cc
     record_batch.cc
     result.cc

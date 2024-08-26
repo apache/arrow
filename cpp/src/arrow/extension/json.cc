@@ -17,7 +17,6 @@
 
 #include "arrow/extension/json.h"
 
-#include <memory>
 #include <string>
 
 #include "arrow/extension_type.h"
