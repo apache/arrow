@@ -996,7 +996,6 @@ cdef class Array(_PandasConvertible):
         -------
         cast : Array
         """
-        self._assert_cpu()
         return _pc().cast(self, target_type, safe=safe,
                           options=options, memory_pool=memory_pool)
 
@@ -1354,7 +1353,6 @@ cdef class Array(_PandasConvertible):
         -------
         array : boolean Array
         """
-        self._assert_cpu()
         options = _pc().NullOptions(nan_is_null=nan_is_null)
         return _pc().call_function('is_null', [self], options)
 
@@ -1366,14 +1364,12 @@ cdef class Array(_PandasConvertible):
         -------
         array : boolean Array
         """
-        self._assert_cpu()
         return _pc().call_function('is_nan', [self])
 
     def is_valid(self):
         """
         Return BooleanArray indicating the non-null values.
         """
-        self._assert_cpu()
         return _pc().is_valid(self)
 
     def fill_null(self, fill_value):
@@ -1390,7 +1386,6 @@ cdef class Array(_PandasConvertible):
         result : Array
             A new array with nulls replaced by the given value.
         """
-        self._assert_cpu()
         return _pc().fill_null(self, fill_value)
 
     def __getitem__(self, key):
@@ -1517,7 +1512,6 @@ cdef class Array(_PandasConvertible):
         index : Int64Scalar
             The index of the value in the array (-1 if not found).
         """
-        self._assert_cpu()
         return _pc().index(self, value, start, end, memory_pool=memory_pool)
 
     def sort(self, order="ascending", **kwargs):
@@ -1537,7 +1531,6 @@ cdef class Array(_PandasConvertible):
         -------
         result : Array
         """
-        self._assert_cpu()
         indices = _pc().sort_indices(
             self,
             options=_pc().SortOptions(sort_keys=[("", order)], **kwargs)

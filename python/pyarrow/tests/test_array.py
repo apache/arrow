@@ -4096,7 +4096,7 @@ def test_non_cpu_array():
     # Not Supported
     with pytest.raises(NotImplementedError):
         arr.diff(arr2)
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(NotImplementedError, match=bad_device_msg("cast")):
         arr.cast(pa.int64())
     with pytest.raises(NotImplementedError):
         arr.view(pa.int64())
@@ -4119,13 +4119,13 @@ def test_non_cpu_array():
         [i for i in iter(arr)]
     with pytest.raises(NotImplementedError):
         arr == arr2
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(NotImplementedError, match=bad_device_msg("is_null", 0)):
         arr.is_null()
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(NotImplementedError, match=bad_device_msg("is_nan", 0)):
         arr.is_nan()
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(NotImplementedError, match=bad_device_msg("is_valid", 0)):
         arr.is_valid()
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(NotImplementedError, match=bad_device_msg("coalesce", 0)):
         arr.fill_null(0)
     with pytest.raises(NotImplementedError):
         arr[0]
@@ -4141,9 +4141,10 @@ def test_non_cpu_array():
         arr.filter([True, True, False, False])
     with pytest.raises(NotImplementedError, match=bad_device_msg("filter", 1)):
         pa.array([0, 1]).filter(arr_bool)
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(NotImplementedError, match="index"):
         arr.index(0)
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(NotImplementedError,
+                       match=bad_device_msg("sort_indices", 0)):
         arr.sort()
     with pytest.raises(NotImplementedError):
         arr.__array__()
