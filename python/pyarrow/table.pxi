@@ -247,6 +247,7 @@ cdef class ChunkedArray(_PandasConvertible):
         >>> n_legs.nbytes
         49
         """
+        self._assert_cpu()
         cdef:
             CResult[int64_t] c_res_buffer
 

@@ -3453,9 +3453,8 @@ def test_chunked_array_non_cpu(cuda_context, cpu_chunked_array, cuda_chunked_arr
     assert cuda_chunked_array.null_count == cpu_chunked_array.null_count
 
     # nbytes() test
-    assert cuda_chunked_array.nbytes == cpu_chunked_array.nbytes
-    assert (cpu_and_cuda_chunked_array.nbytes == (cpu_chunked_array.nbytes +
-                                                  cuda_chunked_array.nbytes))
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.nbytes
 
     # get_total_buffer_size() test
     assert (cpu_and_cuda_chunked_array.get_total_buffer_size() ==
