@@ -100,6 +100,9 @@ def test_basics(value, ty, klass, pickle_module):
     assert wr() is None
 
 
+# This test is a copy of test_basics but only for float16 (HalfFloatScalar)
+# which currently requires a numpy scalar to create it. The test collection
+# fails if numpy is used on the parametrization when not present.
 @pytest.mark.numpy
 def test_basics_np_required(pickle_module):
     value, ty, klass = np.float16(1.0), pa.float16(), pa.HalfFloatScalar
