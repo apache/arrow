@@ -54,6 +54,7 @@ using internal::BitBlockCounter;
 using internal::CheckIndexBounds;
 using internal::CopyBitmap;
 using internal::CountSetBits;
+using internal::may_have_validity_bitmap;
 using internal::OptionalBitBlockCounter;
 using internal::OptionalBitIndexer;
 
@@ -68,21 +69,35 @@ using TakeState = OptionsWrapper<TakeOptions>;
 // ----------------------------------------------------------------------
 // DropNull Implementation
 
+/// \pre values.MayHaveNulls()
+/// \pre may_have_validity_bitmap(values_type_id)
 std::shared_ptr<arrow::BooleanArray> MakeDropNullFilter(const Array& values) {
+  DCHECK(may_have_validity_bitmap(values.type()->id()));
   auto& bitmap_buffer = values.null_bitmap();
+  DCHECK(bitmap_buffer);
   return std::make_shared<BooleanArray>(values.length(), bitmap_buffer, nullptr, 0,
                                         values.offset());
 }
 
 Result<Datum> DropNullArray(const std::shared_ptr<Array>& values, ExecContext* ctx) {
-  if (values->null_count() == 0) {
+  if (!values->data()->MayHaveLogicalNulls()) {
     return values;
   }
-  if (values->null_count() == values->length()) {
-    return MakeEmptyArray(values->type(), ctx->memory_pool());
-  }
-  if (values->type()->id() == Type::type::NA) {
+  if (ARROW_PREDICT_FALSE(values->type()->id() == Type::type::NA)) {
     return std::make_shared<NullArray>(0);
+  }
+  if (values->device_type() == DeviceAllocationType::kCPU) {
+    const auto null_count = values->null_count();
+    if (null_count == 0) {
+      return values;
+    }
+    if (null_count == values->length()) {
+      return MakeEmptyArray(values->type(), ctx->memory_pool());
+    }
+  }
+  // TODO(GH-43851): Handle logical nulls in REE and Unions arrays correctly
+  if (!may_have_validity_bitmap(values->type()->id())) {
+    return values;
   }
   auto drop_null_filter = Datum{MakeDropNullFilter(*values)};
   return Filter(values, drop_null_filter, FilterOptions::Defaults(), ctx);
@@ -90,10 +105,14 @@ Result<Datum> DropNullArray(const std::shared_ptr<Array>& values, ExecContext* c
 
 Result<Datum> DropNullChunkedArray(const std::shared_ptr<ChunkedArray>& values,
                                    ExecContext* ctx) {
-  if (values->null_count() == 0) {
+  // The null count in a chunked array is calculated by summing the null counts
+  // of all chunks, so by this point it's safe to access it without triggering
+  // access to potentially non-CPU data.
+  auto null_count = values->null_count();
+  if (null_count == 0) {
     return values;
   }
-  if (values->null_count() == values->length()) {
+  if (null_count == values->length()) {
     return ChunkedArray::MakeEmpty(values->type(), ctx->memory_pool());
   }
   std::vector<std::shared_ptr<Array>> new_chunks;
