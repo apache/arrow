@@ -243,7 +243,6 @@ int RowArrayAccessor::VisitNulls_avx2(const RowTableImpl& rows, int column_id,
   for (int i = 0; i < num_rows / unroll; ++i) {
     __m256i row_id = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(row_ids) + i);
     __m256i bit_id = _mm256_mullo_epi32(row_id, null_bits_per_row);
-    // bit_id = _mm256_add_epi32(bit_id, _mm256_set1_epi32(column_id));
     bit_id = _mm256_add_epi32(bit_id, pos_after_encoding);
     __m256i bytes = _mm256_i32gather_epi32(reinterpret_cast<const int*>(null_masks),
                                            _mm256_srli_epi32(bit_id, 3), 1);
@@ -251,11 +250,14 @@ int RowArrayAccessor::VisitNulls_avx2(const RowTableImpl& rows, int column_id,
         _mm256_set1_epi32(1), _mm256_and_si256(bit_id, _mm256_set1_epi32(7)));
     __m256i result =
         _mm256_cmpeq_epi32(_mm256_and_si256(bytes, bit_in_word), bit_in_word);
-    uint64_t null_bytes = static_cast<uint64_t>(
+    // NB: Be careful about sign-extension when casting the return value of
+    // _mm256_movemask_epi8 (signed 32-bit) to unsigned 64-bit, which will pollute the
+    // higher bits of the following OR.
+    uint32_t null_bytes_lo = static_cast<uint32_t>(
         _mm256_movemask_epi8(_mm256_cvtepi32_epi64(_mm256_castsi256_si128(result))));
-    null_bytes |= static_cast<uint64_t>(_mm256_movemask_epi8(
-                      _mm256_cvtepi32_epi64(_mm256_extracti128_si256(result, 1))))
-                  << 32;
+    uint64_t null_bytes_hi =
+        _mm256_movemask_epi8(_mm256_cvtepi32_epi64(_mm256_extracti128_si256(result, 1)));
+    uint64_t null_bytes = null_bytes_lo | (null_bytes_hi << 32);
 
     process_8_values_fn(i * unroll, null_bytes);
   }
@@ -334,6 +336,12 @@ inline void Decode1_avx2(uint8_t* output, const uint8_t* row_ptr, uint32_t num_b
     _mm256_storeu_si256(output_i256 + istripe,
                         _mm256_loadu_si256(row_ptr_i256 + istripe));
   }
+}
+
+inline void Decode8Null_avx2(uint8_t* output, uint64_t null_bytes) {
+  uint8_t null_bits =
+      static_cast<uint8_t>(_mm256_movemask_epi8(_mm256_set1_epi64x(null_bytes)));
+  *output = ~null_bits;
 }
 
 }  // namespace
@@ -444,16 +452,12 @@ int RowArray::DecodeVarLength_avx2(ResizableArrayData* output, int output_start_
 int RowArray::DecodeNulls_avx2(ResizableArrayData* output, int output_start_row,
                                int column_id, int num_rows_to_append,
                                const uint32_t* row_ids) const {
-  DecodeNulls(output, output_start_row, column_id, num_rows_to_append, row_ids);
-  return num_rows_to_append;
-
   DCHECK_EQ(output_start_row % 8, 0);
 
   return RowArrayAccessor::VisitNulls_avx2(
       rows_, column_id, num_rows_to_append, row_ids, [&](int i, uint64_t null_bytes) {
-        uint8_t null_byte =
-            static_cast<uint8_t>(_mm_movemask_epi8(_mm_set1_epi64x(null_bytes)));
-        *(output->mutable_data(0) + (output_start_row + i) / 8) = ~null_byte;
+        Decode8Null_avx2(output->mutable_data(0) + (output_start_row + i) / 8,
+                         null_bytes);
       });
 }
 
