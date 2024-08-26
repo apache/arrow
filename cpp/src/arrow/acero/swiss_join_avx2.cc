@@ -273,15 +273,22 @@ inline void Decode8FixedLength0_avx2(uint8_t* output, const uint8_t* row_ptr_bas
   // lower/higher 4 64-bit row offsets.
   __m128i row_lo = _mm256_i64gather_epi32((const int*)row_ptr_base, offset_lo, 1);
   __m128i row_hi = _mm256_i64gather_epi32((const int*)row_ptr_base, offset_hi, 1);
-  // Pack the lower/higher 4 32-bit rows into 8 16-bit rows.
-  __m128i row = _mm_packs_epi32(row_lo, row_hi);
-  // Shift left by 7 bits to move the LSB into the MSB for each 16-bit row.
-  row = _mm_slli_epi32(row, 7);
-  // Pack the 8 16-bit rows into 8 8-bit rows.
-  row = _mm_packs_epi16(row, _mm_setzero_si128());
-  // Get the MSB for each 8-bit row.
-  int bits = _mm_movemask_epi8(row);
-  *output = static_cast<uint8_t>(bits);
+  // Extend to 64-bit.
+  __m256i row_lo_64 = _mm256_cvtepi32_epi64(row_lo);
+  __m256i row_hi_64 = _mm256_cvtepi32_epi64(row_hi);
+  // Keep the first 8 bits in each 64-bit row.
+  row_lo_64 = _mm256_and_si256(row_lo_64, _mm256_set1_epi64x(0xFF));
+  row_hi_64 = _mm256_and_si256(row_hi_64, _mm256_set1_epi64x(0xFF));
+  // If the 64-bit is zero, then we get 64 st bits.
+  __m256i is_zero_lo_64 = _mm256_cmpeq_epi64(row_lo_64, _mm256_setzero_si256());
+  __m256i is_zero_hi_64 = _mm256_cmpeq_epi64(row_hi_64, _mm256_setzero_si256());
+  // 64 set bits to 8 set bits.
+  int is_zero_lo_8 = _mm256_movemask_epi8(is_zero_lo_64);
+  int is_zero_hi_8 = _mm256_movemask_epi8(is_zero_hi_64);
+  // 8 set bits to 1 set bit.
+  uint8_t is_zero = static_cast<uint8_t>(
+      _mm_movemask_epi8(_mm_set_epi32(0, 0, is_zero_hi_8, is_zero_lo_8)));
+  *output = static_cast<uint8_t>(~is_zero);
 }
 
 inline void Decode8FixedLength1_avx2(uint8_t* output, const uint8_t* row_ptr_base,
@@ -295,7 +302,7 @@ inline void Decode8FixedLength1_avx2(uint8_t* output, const uint8_t* row_ptr_bas
   // lane.
   constexpr uint64_t kByteSequence_0_4_8_12 = 0x0c080400ULL;
   const __m256i shuffle_const =
-      _mm256_setr_epi64x(kByteSequence_0_4_8_12, 0, kByteSequence_0_4_8_12, 0);
+      _mm256_setr_epi64x(kByteSequence_0_4_8_12, -1, kByteSequence_0_4_8_12, -1);
   row = _mm256_shuffle_epi8(row, shuffle_const);
   // Get the lower 32-bits (4 8-bit rows) from each 128-bit lane.
   // NB: Be careful about sign-extension when casting the return value of
@@ -316,8 +323,8 @@ inline void Decode8FixedLength2_avx2(uint16_t* output, const uint8_t* row_ptr_ba
   // Shuffle the lower 16 bits of each 32-bit rows to the lower 64 bits of each 128-bit
   // lane.
   constexpr uint64_t kByteSequence_0_1_4_5_8_9_12_13 = 0x0d0c090805040100ULL;
-  const __m256i shuffle_const = _mm256_setr_epi64x(kByteSequence_0_1_4_5_8_9_12_13, 0,
-                                                   kByteSequence_0_1_4_5_8_9_12_13, 0);
+  const __m256i shuffle_const = _mm256_setr_epi64x(kByteSequence_0_1_4_5_8_9_12_13, -1,
+                                                   kByteSequence_0_1_4_5_8_9_12_13, -1);
   row = _mm256_shuffle_epi8(row, shuffle_const);
   // Swap the second and the third 64-bit lane.
   row = _mm256_permute4x64_epi64(row, 0xd8);
@@ -371,9 +378,6 @@ int RowArray::DecodeFixedLength_avx2(ResizableArrayData* output, int output_star
   int num_rows_processed = 0;
   switch (fixed_length) {
     case 0:
-      DecodeFixedLength(output, output_start_row, column_id, fixed_length,
-                        num_rows_to_append, row_ids);
-      return num_rows_to_append;
       num_rows_processed = RowArrayAccessor::Visit_avx2(
           rows_, column_id, num_rows_to_append, row_ids,
           [&](int i, const uint8_t* row_ptr_base, __m256i offset_lo, __m256i offset_hi,
