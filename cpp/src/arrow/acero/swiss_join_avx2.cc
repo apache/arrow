@@ -279,7 +279,7 @@ inline void Decode8FixedLength0_avx2(uint8_t* output, const uint8_t* row_ptr_bas
   // Keep the first 8 bits in each 64-bit row.
   row_lo_64 = _mm256_and_si256(row_lo_64, _mm256_set1_epi64x(0xFF));
   row_hi_64 = _mm256_and_si256(row_hi_64, _mm256_set1_epi64x(0xFF));
-  // If the 64-bit is zero, then we get 64 st bits.
+  // If the 64-bit is zero, then we get 64 set bits.
   __m256i is_zero_lo_64 = _mm256_cmpeq_epi64(row_lo_64, _mm256_setzero_si256());
   __m256i is_zero_hi_64 = _mm256_cmpeq_epi64(row_hi_64, _mm256_setzero_si256());
   // 64 set bits to 8 set bits.
