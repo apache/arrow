@@ -30,9 +30,9 @@ jobs:
       ARCHERY_USE_LEGACY_DOCKER_COMPOSE: 1
     steps:
       {{ macros.github_checkout_arrow(fetch_depth=fetch_depth|default(1))|indent }}
-      # python 3.8 is installed on the runner, no need to install
+      # python 3.10 is installed on the runner, no need to install
       - name: Install archery
-        run: python -m pip install -e arrow/dev/archery[docker]
+        run: python3 -m pip install -e arrow/dev/archery[docker]
       - name: Execute Docker Build
         shell: bash
         env:
