@@ -29,12 +29,28 @@ gaflight_stream_reader_new_raw(arrow::flight::FlightStreamReader *flight_reader,
                                gboolean is_owner);
 
 GAFLIGHT_EXTERN
+GAFlightStreamWriter *
+gaflight_stream_writer_new_raw(arrow::flight::FlightStreamWriter *flight_writer);
+
+GAFLIGHT_EXTERN
+GAFlightMetadataReader *
+gaflight_metadata_reader_new_raw(arrow::flight::FlightMetadataReader *flight_reader);
+
+GAFLIGHT_EXTERN
+arrow::flight::FlightMetadataReader *
+gaflight_metadata_reader_get_raw(GAFlightMetadataReader *reader);
+
+GAFLIGHT_EXTERN
 arrow::flight::FlightCallOptions *
 gaflight_call_options_get_raw(GAFlightCallOptions *options);
 
 GAFLIGHT_EXTERN
 arrow::flight::FlightClientOptions *
 gaflight_client_options_get_raw(GAFlightClientOptions *options);
+
+GAFLIGHT_EXTERN
+GAFlightDoPutResult *
+gaflight_do_put_result_new_raw(arrow::flight::FlightClient::DoPutResult *flight_result);
 
 GAFLIGHT_EXTERN
 std::shared_ptr<arrow::flight::FlightClient>
