@@ -413,7 +413,7 @@ tasks:
 
 {############################## Wheel macOS ####################################}
 
-{% for macos_version, macos_codename in [("12.0", "monterey")] %}
+{% for macos_version, macos_codename in [("10.15", "catalina")] %}
   {% set platform_tag = "macosx_{}_x86_64".format(macos_version.replace('.', '_')) %}
 
   wheel-macos-{{ macos_codename }}-{{ python_tag }}-amd64:
@@ -431,7 +431,7 @@ tasks:
 
 {% endfor %}
 
-  wheel-macos-monterey-{{ python_tag }}-arm64:
+  wheel-macos-big-sur-{{ python_tag }}-arm64:
     ci: github
     template: python-wheels/github.osx.yml
     params:
