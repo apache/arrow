@@ -52,8 +52,5 @@ if [[ -z "${PYTHON_VERSION}" ]] || [[ "${PYTHON_VERSION}" != "3.13" ]]; then
     # Install globally as /root/.local/bin is typically not in $PATH
     pipx_flags="${pipx_flags} --global"
   fi
-  if [[ ! -z "${PIPX_PYTHON}" ]]; then
-    pipx_flags="${pipx_flags} --python ${PIPX_PYTHON}"
-  fi
   ${PIPX_PYTHON} -m pipx install ${pipx_flags} "https://github.com/googleapis/storage-testbench/archive/${version}.tar.gz"
 fi
