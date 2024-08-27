@@ -366,7 +366,7 @@ function(ADD_ARROW_LIB LIB_NAME)
       #
       # When running with the Emscripten Compiler, we need not worry about
       # python, and the Emscripten Compiler does not support this option.
-      set(ARG_SHARED_LINK_FLAGS "-undefined dynamic_lookup ${ARG_SHARED_LINK_FLAGS}")
+      set(ARG_SHARED_LINK_FLAGS "-undefined dynamic_lookup -no_fixup_chains ${ARG_SHARED_LINK_FLAGS}")
     endif()
 
     set_target_properties(${LIB_NAME}_shared

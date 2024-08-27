@@ -26,9 +26,6 @@ endif()
 if(WIN32)
   list(APPEND ARROW_FLIGHT_LINK_LIBS ws2_32.lib)
 endif()
-if(ARROW_USE_OPENSSL)
-  list(APPEND ARROW_FLIGHT_SHARED_PRIVATE_LINK_LIBS ${ARROW_OPENSSL_LIBS})
-endif()
 
 set(ARROW_FLIGHT_TEST_LINKAGE "${ARROW_TEST_LINKAGE}")
 if(Protobuf_USE_STATIC_LIBS)
@@ -191,8 +188,6 @@ add_arrow_lib(arrow_flight
               flight_grpc_gen
               SHARED_LINK_FLAGS
               ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
-              SHARED_PRIVATE_LINK_LIBS
-              ${ARROW_FLIGHT_SHARED_PRIVATE_LINK_LIBS}
               SHARED_LINK_LIBS
               # We must use gRPC::grpc++ first. If gRPC::grpc++
               # depends on bundled Abseil, bundled Abseil and system
