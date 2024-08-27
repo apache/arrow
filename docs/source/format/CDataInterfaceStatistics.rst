@@ -83,39 +83,36 @@ Arrow map array that uses this schema.
 
 Here is the outline of the schema for statistics::
 
-    map<
-      key: int32,
-      items: map<
-        key: dictionary<
-          indices: int32,
-          dictionary: utf8
-        >,
-        items: dense_union<...all needed types...>,
-      >
+    column: int32,
+    values: map<
+      key: dictionary<
+        indices: int32,
+        dictionary: utf8
+      >,
+      items: dense_union<...all needed types...>,
     >
 
-Here is the details of the top-level ``map``:
+Here is the details of top-level columns:
 
 .. list-table::
    :header-rows: 1
 
-   * - Key or items
+   * - Name
      - Data type
      - Nullable
      - Notes
-   * - key
+   * - ``column``
      - ``int32``
      - ``true``
      - The zero-based column index, or null if the statistics
        describe the whole table or record batch.
-   * - items
+   * - ``values``
      - ``map``
      - ``false``
      - Statistics for the target column, table or record batch. See
        the separate table below for details.
 
-Here is the details of the nested ``map`` as the items part of the
-above ``map``:
+Here is the details of the ``map`` of the ``values``:
 
 .. list-table::
    :header-rows: 1
