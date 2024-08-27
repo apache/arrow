@@ -18,7 +18,7 @@
 #pragma once
 
 #include "arrow/result.h"
-#include "parquet/properties.h"
+#include "arrow/type_fwd.h"
 #include "parquet/schema.h"
 
 namespace arrow {

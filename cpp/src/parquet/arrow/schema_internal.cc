@@ -122,7 +122,7 @@ Result<std::shared_ptr<ArrowType>> FromByteArray(
     case LogicalType::Type::BSON:
       return ::arrow::binary();
     case LogicalType::Type::JSON:
-      if (reader_properties.known_arrow_extensions_enabled()) {
+      if (reader_properties.get_arrow_extensions_enabled()) {
         return ::arrow::extension::json(::arrow::utf8());
       }
       return ::arrow::binary();

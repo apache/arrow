@@ -51,7 +51,7 @@ TEST_F(TestJsonExtensionType, JsonRoundtrip) {
     std::shared_ptr<RecordBatch> read_batch;
     RoundtripBatch(batch, &read_batch);
     ASSERT_OK(read_batch->ValidateFull());
-    CompareBatch(*batch, *read_batch, false /* compare_metadata */);
+    CompareBatch(*batch, *read_batch, /*compare_metadata*/ true);
   }
 }
 

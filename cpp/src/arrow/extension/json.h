@@ -17,12 +17,12 @@
 
 #pragma once
 
+#include <stdexcept>
 #include <string>
 
 #include "arrow/extension_type.h"
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
-#include "arrow/util/logging.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow::extension {
@@ -32,13 +32,14 @@ class ARROW_EXPORT JsonExtensionType : public ExtensionType {
  public:
   explicit JsonExtensionType(const std::shared_ptr<DataType>& storage_type)
       : ExtensionType(storage_type), storage_type_(storage_type) {
-    ARROW_CHECK(storage_type->Equals(utf8()) || storage_type->Equals(large_utf8()) ||
-                storage_type->Equals(utf8_view()));
+    if (storage_type->id() != Type::STRING && storage_type->id() != Type::STRING_VIEW &&
+        storage_type->id() != Type::LARGE_STRING) {
+      throw std::invalid_argument("Invalid storage type for JsonExtensionType: " +
+                                  storage_type->ToString());
+    }
   }
 
-  static constexpr const char* type_name() { return "arrow.json"; }
-
-  std::string extension_name() const override { return type_name(); }
+  std::string extension_name() const override { return "arrow.json"; }
 
   std::string ToString(bool show_metadata = false) const override {
     return "extension<json>";

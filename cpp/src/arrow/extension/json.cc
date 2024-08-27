@@ -37,8 +37,8 @@ Result<std::shared_ptr<DataType>> JsonExtensionType::Deserialize(
   if (!serialized.empty()) {
     return Status::Invalid("Unexpected serialized metadata: '", serialized, "'");
   }
-  if (!(storage_type->Equals(*utf8()) || storage_type->Equals(large_utf8()) ||
-        storage_type->Equals(utf8_view()))) {
+  if (storage_type->id() != Type::STRING && storage_type->id() != Type::STRING_VIEW &&
+      storage_type->id() != Type::LARGE_STRING) {
     return Status::Invalid("Invalid storage type for JsonExtensionType: ",
                            storage_type->ToString());
   }
