@@ -26,8 +26,6 @@ jobs:
     runs-on: ['self-hosted', 'cuda']
 {{ macros.github_set_env(env) }}
     timeout-minutes: {{ timeout|default(60) }}
-    env:
-      ARCHERY_USE_LEGACY_DOCKER_COMPOSE: 1
     steps:
       {{ macros.github_checkout_arrow(fetch_depth=fetch_depth|default(1))|indent }}
       # python 3.10 is installed on the runner, no need to install
