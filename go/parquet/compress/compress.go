@@ -20,14 +20,11 @@ package compress
 
 import (
 	"compress/flate"
-	"errors"
 	"fmt"
 	"io"
 
 	"github.com/apache/arrow/go/v18/parquet/internal/gen-go/parquet"
 )
-
-var ErrUnsupportedCodec = errors.New("compress: unsupported codec")
 
 // Compression is an alias to the thrift compression codec enum type for easy use
 type Compression parquet.CompressionCodec
@@ -99,13 +96,7 @@ type StreamingCodec interface {
 	NewWriterLevel(io.Writer, int) (io.WriteCloser, error)
 }
 
-var (
-	codecs        = map[Compression]Codec{}
-	invalidCodecs = map[Compression]string{
-		Codecs.Lz4: "LZ4 (hadoop-format) is deprecated, consider using newer LZ4_RAW codec",
-		Codecs.Lzo: "LZO is unsupported in this library since LZO license is incompatible with Apache License",
-	}
-)
+var codecs = map[Compression]Codec{}
 
 // RegisterCodec adds or overrides a codec implementation for a given compression algorithm.
 // The intended use case is within the init() section of a package. For example,
@@ -182,10 +173,6 @@ func init() {
 
 // GetCodec returns a Codec interface for the requested Compression type
 func GetCodec(typ Compression) (Codec, error) {
-	msg, ok := invalidCodecs[typ]
-	if ok {
-		return nil, fmt.Errorf("%w: %s", ErrUnsupportedCodec, msg)
-	}
 	ret, ok := codecs[typ]
 	if !ok {
 		return nil, fmt.Errorf("compression for %s unimplemented", typ.String())

@@ -138,30 +138,3 @@ func TestCompressReaderWriter(t *testing.T) {
 		})
 	}
 }
-
-func TestCompressGetSupportedCodecs(t *testing.T) {
-	tests := []struct {
-		c           compress.Compression
-		unsupported bool
-	}{
-		{c: compress.Codecs.Uncompressed},
-		{c: compress.Codecs.Snappy},
-		{c: compress.Codecs.Gzip},
-		{c: compress.Codecs.Brotli},
-		{c: compress.Codecs.Zstd},
-		{c: compress.Codecs.Lz4Raw},
-		{c: compress.Codecs.Lz4, unsupported: true},
-		{c: compress.Codecs.Lzo, unsupported: true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.c.String(), func(t *testing.T) {
-			_, err := compress.GetCodec(tt.c)
-			if tt.unsupported {
-				assert.ErrorIs(t, err, compress.ErrUnsupportedCodec)
-			} else {
-				assert.NoError(t, err)
-			}
-		})
-	}
-}
