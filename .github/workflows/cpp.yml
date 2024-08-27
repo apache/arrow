@@ -471,6 +471,7 @@ jobs:
         shell: bash
         run: |
           ci/scripts/install_gcs_testbench.sh default
+          pipx ensurepath
           echo "TESTBENCH_BIN_DIR=$(cygpath --windows $(dirname $(which storage-testbench.exe)))" >> $GITHUB_ENV
       - name: Test
         shell: msys2 {0}

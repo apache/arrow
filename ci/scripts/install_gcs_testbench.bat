@@ -19,7 +19,7 @@
 
 set GCS_TESTBENCH_VERSION="v0.40.0"
 
-python3 -m pip install pipx || exit /B 1
+python -m pip install pipx || exit /B 1
 
 pipx ensurepath || exit /B 1
 
