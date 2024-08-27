@@ -37,11 +37,13 @@ esac
 # On newer pythons install into the system will fail, so override that
 export PIP_BREAK_SYSTEM_PACKAGES=1
 
+# Upgrade pip for latest manylinux compatibility, setuptools for recent
+# versions of testbench.
+python3 -m pip install --upgrade pip setuptools
+
 version=$1
 if [[ "${version}" -eq "default" ]]; then
   version="v0.39.0"
-  # Latests versions of Testbench require newer setuptools
-  python3 -m pip install --upgrade setuptools
 fi
 
 # This script is run with PYTHON undefined in some places,
