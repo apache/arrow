@@ -2807,7 +2807,8 @@ cdef class RecordBatch(_Tabular):
             c_arr = column
         else:
             if device_type != CDeviceAllocationType_kCPU:
-                cpu_device_type = _wrap_device_allocation_type(CDeviceAllocationType_kCPU)
+                cpu_device_type = _wrap_device_allocation_type(
+                    CDeviceAllocationType_kCPU)
                 raise TypeError("The column must be allocated on the same "
                                 "device as the RecordBatch. Got column on "
                                 f"device {cpu_device_type!r}, but expected "
@@ -2913,7 +2914,8 @@ cdef class RecordBatch(_Tabular):
             c_arr = column
         else:
             if device_type != CDeviceAllocationType_kCPU:
-                cpu_device_type = _wrap_device_allocation_type(CDeviceAllocationType_kCPU)
+                cpu_device_type = _wrap_device_allocation_type(
+                    CDeviceAllocationType_kCPU)
                 raise TypeError("The column must be allocated on the same "
                                 "device as the RecordBatch. Got column on "
                                 f"device {cpu_device_type!r}, but expected "
