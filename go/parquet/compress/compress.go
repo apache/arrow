@@ -49,8 +49,9 @@ var Codecs = struct {
 	Brotli Compression
 	// LZ4 unsupported in this library due to problematic issues between the Hadoop LZ4 spec vs regular lz4
 	// see: http://mail-archives.apache.org/mod_mbox/arrow-dev/202007.mbox/%3CCAAri41v24xuA8MGHLDvgSnE+7AAgOhiEukemW_oPNHMvfMmrWw@mail.gmail.com%3E
-	Lz4  Compression
-	Zstd Compression
+	Lz4    Compression
+	Zstd   Compression
+	Lz4Raw Compression
 }{
 	Uncompressed: Compression(parquet.CompressionCodec_UNCOMPRESSED),
 	Snappy:       Compression(parquet.CompressionCodec_SNAPPY),
@@ -59,17 +60,12 @@ var Codecs = struct {
 	Brotli:       Compression(parquet.CompressionCodec_BROTLI),
 	Lz4:          Compression(parquet.CompressionCodec_LZ4),
 	Zstd:         Compression(parquet.CompressionCodec_ZSTD),
+	Lz4Raw:       Compression(parquet.CompressionCodec_LZ4_RAW),
 }
 
 // Codec is an interface which is implemented for each compression type in order to make the interactions easy to
 // implement. Most consumers won't be calling GetCodec directly.
 type Codec interface {
-	// NewReader provides a reader that wraps a stream with compressed data to stream the uncompressed data
-	NewReader(io.Reader) io.ReadCloser
-	// NewWriter provides a wrapper around a write stream to compress data before writing it.
-	NewWriter(io.Writer) io.WriteCloser
-	// NewWriterLevel is like NewWriter but allows specifying the compression level
-	NewWriterLevel(io.Writer, int) (io.WriteCloser, error)
 	// Encode encodes a block of data given by src and returns the compressed block. dst should be either nil
 	// or sized large enough to fit the compressed block (use CompressBound to allocate). dst and src should not
 	// overlap since some of the compression types don't allow it.
@@ -88,6 +84,16 @@ type Codec interface {
 	//
 	// the returned slice *might* be a slice of dst.
 	Decode(dst, src []byte) []byte
+}
+
+// StreamingCodec is an interface that may be implemented for compression codecs that expose a streaming API.
+type StreamingCodec interface {
+	// NewReader provides a reader that wraps a stream with compressed data to stream the uncompressed data
+	NewReader(io.Reader) io.ReadCloser
+	// NewWriter provides a wrapper around a write stream to compress data before writing it.
+	NewWriter(io.Writer) io.WriteCloser
+	// NewWriterLevel is like NewWriter but allows specifying the compression level
+	NewWriterLevel(io.Writer, int) (io.WriteCloser, error)
 }
 
 var codecs = map[Compression]Codec{}
