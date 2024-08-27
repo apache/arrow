@@ -22,7 +22,6 @@
 #include <memory>
 #include <string>
 
-#include "arrow/device_allocation_type.h"
 #include "arrow/io/type_fwd.h"
 #include "arrow/result.h"
 #include "arrow/status.h"

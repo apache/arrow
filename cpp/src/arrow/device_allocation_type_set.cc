@@ -17,8 +17,8 @@
 
 #include <string>
 
-#include "arrow/device_allocation_type.h"
 #include "arrow/device_allocation_type_set.h"
+#include "arrow/type_fwd.h"
 
 namespace arrow {
 

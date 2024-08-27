@@ -24,7 +24,6 @@
 
 #include "arrow/compare.h"
 #include "arrow/device.h"
-#include "arrow/device_allocation_type.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"

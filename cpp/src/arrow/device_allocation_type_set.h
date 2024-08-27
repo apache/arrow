@@ -20,7 +20,7 @@
 #include <bitset>
 #include <string>
 
-#include "arrow/device_allocation_type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
