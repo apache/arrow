@@ -41,6 +41,7 @@ set PARQUET_TEST_DATA=C:\arrow\cpp\submodules\parquet-testing\data
 pip install -r C:\arrow\python\requirements-wheel-test.txt || exit /B 1
 
 @REM Install GCS testbench
+set PIPX_BIN_DIR=C:\Windows\
 call "C:\arrow\ci\scripts\install_gcs_testbench.bat"
 storage-testbench -h || exit /B 1
 
