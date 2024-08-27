@@ -28,6 +28,7 @@
 #include "arrow/array.h"
 #include "arrow/array/concatenate.h"
 #include "arrow/array/validate.h"
+#include "arrow/device_allocation_type.h"
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/table.h"

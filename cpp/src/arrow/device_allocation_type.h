@@ -38,38 +38,4 @@ enum class DeviceAllocationType : char {
 };
 constexpr int kDeviceAllocationTypeMax = 16;
 
-inline const char* DeviceAllocationTypeToCStr(DeviceAllocationType type) {
-  switch (type) {
-    case DeviceAllocationType::kCPU:
-      return "CPU";
-    case DeviceAllocationType::kCUDA:
-      return "CUDA";
-    case DeviceAllocationType::kCUDA_HOST:
-      return "CUDA_HOST";
-    case DeviceAllocationType::kOPENCL:
-      return "OPENCL";
-    case DeviceAllocationType::kVULKAN:
-      return "VULKAN";
-    case DeviceAllocationType::kMETAL:
-      return "METAL";
-    case DeviceAllocationType::kVPI:
-      return "VPI";
-    case DeviceAllocationType::kROCM:
-      return "ROCM";
-    case DeviceAllocationType::kROCM_HOST:
-      return "ROCM_HOST";
-    case DeviceAllocationType::kEXT_DEV:
-      return "EXT_DEV";
-    case DeviceAllocationType::kCUDA_MANAGED:
-      return "CUDA_MANAGED";
-    case DeviceAllocationType::kONEAPI:
-      return "ONEAPI";
-    case DeviceAllocationType::kWEBGPU:
-      return "WEBGPU";
-    case DeviceAllocationType::kHEXAGON:
-      return "HEXAGON";
-  }
-  return "<UNKNOWN>";
-}
-
 }  // namespace arrow

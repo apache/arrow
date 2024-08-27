@@ -26,7 +26,7 @@
 #include <vector>
 
 #include "arrow/array/data.h"
-#include "arrow/chunked_array.h"  // for DeviceAllocationTypeSet
+#include "arrow/device_allocation_type_set.h"
 #include "arrow/scalar.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"

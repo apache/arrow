@@ -26,6 +26,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/device_allocation_type.h"
 #include "arrow/gpu/cuda_internal.h"
 #include "arrow/gpu/cuda_memory.h"
 #include "arrow/util/checked_cast.h"

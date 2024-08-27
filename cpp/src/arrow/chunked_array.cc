@@ -27,6 +27,7 @@
 #include "arrow/array/array_nested.h"
 #include "arrow/array/util.h"
 #include "arrow/array/validate.h"
+#include "arrow/device_allocation_type_set.h"
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/type.h"

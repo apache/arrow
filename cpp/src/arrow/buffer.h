@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "arrow/device.h"
+#include "arrow/device_allocation_type.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"

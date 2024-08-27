@@ -24,6 +24,7 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
+#include "arrow/device_allocation_type.h"
 #include "arrow/io/memory.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
