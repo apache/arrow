@@ -398,7 +398,7 @@ would be represented::
       "name" : "name_of_the_field",
       "nullable" : /* boolean */,
       "type" : {
-        "name" : "struct",
+        "name" : "struct"
       },
       "children" : [
         {
@@ -407,7 +407,7 @@ would be represented::
             "name": "int",
             "bitWidth": 32,
             "isSigned": true
-          },
+          }
         },
         {
           "name": "denom",
@@ -416,7 +416,7 @@ would be represented::
             "bitWidth": 32,
             "isSigned": true
           }
-        },
+        }
       ],
       "metadata" : [
          {"key": "ARROW:extension:name", "value": "rational"},
