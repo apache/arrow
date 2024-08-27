@@ -743,4 +743,6 @@ enum class DeviceAllocationType : char {
 };
 constexpr int kDeviceAllocationTypeMax = 16;
 
+class DeviceAllocationTypeSet;
+
 }  // namespace arrow
