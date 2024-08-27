@@ -47,6 +47,7 @@ set ARROW_CXXFLAGS=/WX /MP
 
 @rem Install GCS testbench
 call %CD%\ci\scripts\install_gcs_testbench.bat
+storage-testbench -h || exit /B
 
 @rem
 @rem Build and test Arrow C++ libraries (including Parquet)
