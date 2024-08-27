@@ -27,6 +27,7 @@ import io.grpc.stub.ServerCallStreamObserver;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.Optional;
+import java.util.Random;
 import org.apache.arrow.flight.impl.Flight;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -151,5 +152,77 @@ public class TestFlightService {
               FlightRuntimeException.class, () -> client.getSchema(FlightDescriptor.path("test")));
       assertEquals("No schema is present in FlightInfo", e.getMessage());
     }
+  }
+
+  /**
+   * Test for GH-41584 where flight defaults for header size was not in sync b\w client and server.
+   */
+  @Test
+  public void testHeaderSizeExchangeInService() throws Exception {
+    final FlightProducer producer =
+        new NoOpFlightProducer() {
+          @Override
+          public FlightInfo getFlightInfo(CallContext context, FlightDescriptor descriptor) {
+            String longHeader =
+                context.getMiddleware(FlightConstants.HEADER_KEY).headers().get("long-header");
+            return new FlightInfo(
+                null,
+                descriptor,
+                Collections.emptyList(),
+                0,
+                0,
+                false,
+                IpcOption.DEFAULT,
+                longHeader.getBytes(StandardCharsets.UTF_8));
+          }
+        };
+
+    String headerVal = generateRandom(1024 * 10);
+    FlightCallHeaders callHeaders = new FlightCallHeaders();
+    callHeaders.insert("long-header", headerVal);
+    // sever with default header limit same as client
+    try (final FlightServer s =
+            FlightServer.builder(allocator, forGrpcInsecure(LOCALHOST, 0), producer)
+                .build()
+                .start();
+        final FlightClient client = FlightClient.builder(allocator, s.getLocation()).build()) {
+      FlightInfo flightInfo =
+          client.getInfo(FlightDescriptor.path("test"), new HeaderCallOption(callHeaders));
+      assertEquals(Optional.empty(), flightInfo.getSchemaOptional());
+      assertEquals(new Schema(Collections.emptyList()), flightInfo.getSchema());
+      assertArrayEquals(flightInfo.getAppMetadata(), headerVal.getBytes(StandardCharsets.UTF_8));
+    }
+    // server with 15kb header limit
+    try (final FlightServer s =
+            FlightServer.builder(allocator, forGrpcInsecure(LOCALHOST, 0), producer)
+                .setMaxHeaderListSize(1024 * 15)
+                .build()
+                .start();
+        final FlightClient client = FlightClient.builder(allocator, s.getLocation()).build()) {
+      FlightInfo flightInfo =
+          client.getInfo(FlightDescriptor.path("test"), new HeaderCallOption(callHeaders));
+      assertEquals(Optional.empty(), flightInfo.getSchemaOptional());
+      assertEquals(new Schema(Collections.emptyList()), flightInfo.getSchema());
+      assertArrayEquals(flightInfo.getAppMetadata(), headerVal.getBytes(StandardCharsets.UTF_8));
+
+      callHeaders.insert("another-header", headerVal + headerVal);
+      FlightRuntimeException e =
+          assertThrows(
+              FlightRuntimeException.class,
+              () ->
+                  client.getInfo(FlightDescriptor.path("test"), new HeaderCallOption(callHeaders)));
+      assertEquals("http2 exception", e.getMessage());
+    }
+  }
+
+  private static String generateRandom(int size) {
+    String aToZ = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
+    Random random = new Random();
+    StringBuilder res = new StringBuilder();
+    for (int i = 0; i < size; i++) {
+      int randIndex = random.nextInt(aToZ.length());
+      res.append(aToZ.charAt(randIndex));
+    }
+    return res.toString();
   }
 }
