@@ -530,9 +530,9 @@ enum {
 
 G_DEFINE_TYPE_WITH_PRIVATE(GAFlightDoPutResult, gaflight_do_put_result, G_TYPE_OBJECT)
 
-#define GAFLIGHT_DO_PUT_RESULT_GET_PRIVATE(obj)                                          \
+#define GAFLIGHT_DO_PUT_RESULT_GET_PRIVATE(object)                                       \
   static_cast<GAFlightDoPutResultPrivate *>(                                             \
-    gaflight_do_put_result_get_instance_private(GAFLIGHT_DO_PUT_RESULT(obj)))
+    gaflight_do_put_result_get_instance_private(GAFLIGHT_DO_PUT_RESULT(object)))
 
 static void
 gaflight_do_put_result_dispose(GObject *object)
@@ -920,7 +920,7 @@ gaflight_client_do_get(GAFlightClient *client,
     return nullptr;
   }
   auto flight_reader = std::move(*result);
-  return gaflight_stream_reader_new_raw(flight_reader.release(), TRUE);
+  return gaflight_stream_reader_new_raw(flight_reader.get(), TRUE);
 }
 
 /**
@@ -953,7 +953,7 @@ gaflight_client_do_put(GAFlightClient *client,
                        GError **error)
 {
   auto flight_client = gaflight_client_get_raw(client);
-  const auto flight_descriptor = gaflight_descriptor_get_raw(descriptor);
+  auto flight_descriptor = gaflight_descriptor_get_raw(descriptor);
   auto arrow_schema = garrow_schema_get_raw(schema);
   arrow::flight::FlightCallOptions flight_default_options;
   auto flight_options = &flight_default_options;
