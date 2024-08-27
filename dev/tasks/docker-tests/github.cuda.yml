@@ -31,6 +31,8 @@ jobs:
     steps:
       {{ macros.github_checkout_arrow(fetch_depth=fetch_depth|default(1))|indent }}
       # python 3.10 is installed on the runner, no need to install
+      - name: Install pip
+        run: sudo apt update && sudo apt install python3-pip -y
       - name: Install archery
         run: python3 -m pip install -e arrow/dev/archery[docker]
       - name: Execute Docker Build
