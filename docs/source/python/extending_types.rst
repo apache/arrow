@@ -131,50 +131,72 @@ and serialization mechanism. The extension name and serialized metadata
 can potentially be recognized by other (non-Python) Arrow implementations
 such as PySpark.
 
-For example, we could define a custom UUID type for 128-bit numbers which can
-be represented as ``FixedSizeBinary`` type with 16 bytes::
+For example, we could define a custom rational type for fractions which can
+be represented as a pair of integers::
 
-    class UuidType(pa.ExtensionType):
+    import pyarrow.types as pt
+
+    class RationalType(pa.ExtensionType):
 
         def __init__(self):
-            super().__init__(pa.binary(16), "my_package.uuid")
 
-        def __arrow_ext_serialize__(self):
-            # Since we don't have a parameterized type, we don't need extra
-            # metadata to be deserialized
-            return b''
+            super().__init__(
+                pa.struct(
+                    [
+                        ("numer", pa.int64()),
+                        ("denom", pa.int64()),
+                    ],
+                ),
+                "my_package.rational",
+            )
+
+        def __arrow_ext_serialize__(self) -> bytes:
+            # No serialized metadata necessary
+            return b""
 
         @classmethod
-        def __arrow_ext_deserialize__(cls, storage_type, serialized):
+        def __arrow_ext_deserialize__(self, storage_type, serialized):
             # Sanity checks, not required but illustrate the method signature.
-            assert storage_type == pa.binary(16)
+            assert pt.is_int32(storage_type)
             assert serialized == b''
-            # Return an instance of this subclass given the serialized
-            # metadata.
-            return UuidType()
+
+            # return an instance of this subclass given the serialized
+            # metadata
+            return RationalType()
+
 
 The special methods ``__arrow_ext_serialize__`` and ``__arrow_ext_deserialize__``
-define the serialization of an extension type instance. For non-parametric
-types such as the above, the serialization payload can be left empty.
+define the serialization of an extension type instance.
 
 This can now be used to create arrays and tables holding the extension type::
 
-    >>> uuid_type = UuidType()
-    >>> uuid_type.extension_name
-    'my_package.uuid'
-    >>> uuid_type.storage_type
-    FixedSizeBinaryType(fixed_size_binary[16])
+    >>> rational_type = RationalType()
+    >>> rational_type.extension_name
+    'my_package.rational'
+    >>> rational_type.storage_type
+    StructType(struct<numer: int32, denom: int32>)
 
-    >>> import uuid
-    >>> storage_array = pa.array([uuid.uuid4().bytes for _ in range(4)], pa.binary(16))
-    >>> arr = pa.ExtensionArray.from_storage(uuid_type, storage_array)
+    >>> storage_array = pa.array(
+    ... [
+    ...     {"numer": 10, "denom": 17},
+    ...     {"numer": 20, "denom": 13},
+    ... ],
+    ... type=rational_type.storage_type
+    ... )
+    >>> arr = rational_type.wrap_array(storage_array)
+    >>> arr = pa.ExtensionArray.from_storage(rational_type, storage_array)
     >>> arr
-    <pyarrow.lib.ExtensionArray object at 0x7f75c2f300a0>
+    <pyarrow.lib.ExtensionArray object at 0x1067f5420>
+    -- is_valid: all not null
+    -- child 0 type: int32
     [
-      A6861959108644B797664AEEE686B682,
-      718747F48E5F4058A7261E2B6B228BE8,
-      7FE201227D624D96A5CD8639DEF2A68B,
-      C6CA8C7F95744BFD9462A40B3F57A86C
+        10,
+        20
+    ]
+    -- child 1 type: int32
+    [
+        17,
+        13
     ]
 
 This array can be included in RecordBatches, sent over IPC and received in
@@ -182,7 +204,7 @@ another Python process. The receiving process must explicitly register the
 extension type for deserialization, otherwise it will fall back to the
 storage type::
 
-    >>> pa.register_extension_type(UuidType())
+    >>> pa.register_extension_type(RationalType())
 
 For example, creating a RecordBatch and writing it to a stream using the
 IPC protocol::
@@ -198,10 +220,10 @@ and then reading it back yields the proper type::
     >>> with pa.ipc.open_stream(buf) as reader:
     ...    result = reader.read_all()
     >>> result.column('ext').type
-    UuidType(FixedSizeBinaryType(fixed_size_binary[16]))
+    RationalType(StructType(struct<numer: int32, denom: int32>))
 
 The receiving application doesn't need to be Python but can still recognize
-the extension type as a "my_package.uuid" type, if it has implemented its own
+the extension type as a "my_package.rational" type, if it has implemented its own
 extension type to receive it. If the type is not registered in the receiving
 application, it will fall back to the storage type.
 

@@ -1618,59 +1618,79 @@ cdef class ExtensionType(BaseExtensionType):
 
     Examples
     --------
-    Define a UuidType extension type subclassing ExtensionType:
+    Define a RationalType extension type subclassing ExtensionType:
 
     >>> import pyarrow as pa
-    >>> class UuidType(pa.ExtensionType):
-    ...    def __init__(self):
-    ...       pa.ExtensionType.__init__(self, pa.binary(16), "my_package.uuid")
-    ...    def __arrow_ext_serialize__(self):
-    ...       # since we don't have a parameterized type, we don't need extra
-    ...       # metadata to be deserialized
-    ...       return b''
-    ...    @classmethod
-    ...    def __arrow_ext_deserialize__(self, storage_type, serialized):
-    ...       # return an instance of this subclass given the serialized
-    ...       # metadata.
-    ...       return UuidType()
-    ...
+    >>> import pyarrow.types as pt
+    >>> class RationalType(pa.ExtensionType):
+    ...     def __init__(self, data_type: pa.DataType):
+    ...         if not pt.is_integer(data_type):
+    ...             raise TypeError(f"data_type must be an integer type not {data_type}")
+    ...         super().__init__(
+    ...             pa.struct(
+    ...                 [
+    ...                     ("numer", data_type),
+    ...                     ("denom", data_type),
+    ...                 ],
+    ...             ),
+    ...             # N.B. This name does _not_ reference `data_type` so deserialization
+    ...             # will work for _any_ integer `data_type` after registration
+    ...             "my_package.rational",
+    ...         )
+    ...     def __arrow_ext_serialize__(self) -> bytes:
+    ...         # No serialized metadata necessary
+    ...         return b""
+    ...     @classmethod
+    ...     def __arrow_ext_deserialize__(self, storage_type, serialized):
+    ...         # return an instance of this subclass given the serialized
+    ...         # metadata
+    ...         return RationalType(storage_type[0].type)
 
     Register the extension type:
 
-    >>> pa.register_extension_type(UuidType())
+    >>> pa.register_extension_type(RationalType(pa.int64()))
 
-    Create an instance of UuidType extension type:
+    Create an instance of RationalType extension type:
 
-    >>> uuid_type = UuidType()
+    >>> rational_type = RationalType(pa.int32())
 
     Inspect the extension type:
 
-    >>> uuid_type.extension_name
-    'my_package.uuid'
-    >>> uuid_type.storage_type
-    FixedSizeBinaryType(fixed_size_binary[16])
+    >>> rational_type.extension_name
+    'my_package.rational'
+    >>> rational_type.storage_type
+    StructType(struct<numer: int32, denom: int32>)
 
     Wrap an array as an extension array:
 
-    >>> import uuid
-    >>> storage_array = pa.array([uuid.uuid4().bytes for _ in range(4)], pa.binary(16))
-    >>> uuid_type.wrap_array(storage_array)
+    >>> storage_array = pa.array(
+    ...     [
+    ...         {"numer": 10, "denom": 17},
+    ...         {"numer": 20, "denom": 13},
+    ...     ],
+    ...     type=rational_type.storage_type
+    ... )
+    >>> ratoinal_type.wrap_array(storage_array)
     <pyarrow.lib.ExtensionArray object at ...>
-    [
+    -- is_valid: all not null
       ...
-    ]
 
     Or do the same with creating an ExtensionArray:
 
-    >>> pa.ExtensionArray.from_storage(uuid_type, storage_array)
+    >>> pa.ExtensionArray.from_storage(rational_type, storage_array)
     <pyarrow.lib.ExtensionArray object at ...>
-    [
+    -- is_valid: all not null
       ...
-    ]
 
     Unregister the extension type:
 
-    >>> pa.unregister_extension_type("my_package.uuid")
+    >>> pa.unregister_extension_type("my_package.rational")
+
+    Note that even though we registered the concrete type
+    ``RationalType(pa.int64())``, pyarrow will be able to deserialize
+    ``RationalType(integer_type)`` for any ``integer_type`` as the deserializer
+    will reference the name ``my_package.rational`` and the ``@classmethod``
+    ``__arrow_ext_deserialize__``.
     """
 
     def __cinit__(self):
@@ -2039,30 +2059,41 @@ def register_extension_type(ext_type):
 
     Examples
     --------
-    Define a UuidType extension type subclassing ExtensionType:
+    Define a RationalType extension type subclassing ExtensionType:
 
     >>> import pyarrow as pa
-    >>> class UuidType(pa.ExtensionType):
-    ...    def __init__(self):
-    ...       pa.ExtensionType.__init__(self, pa.binary(16), "my_package.uuid")
-    ...    def __arrow_ext_serialize__(self):
-    ...       # since we don't have a parameterized type, we don't need extra
-    ...       # metadata to be deserialized
-    ...       return b''
-    ...    @classmethod
-    ...    def __arrow_ext_deserialize__(self, storage_type, serialized):
-    ...       # return an instance of this subclass given the serialized
-    ...       # metadata.
-    ...       return UuidType()
-    ...
+    >>> import pyarrow.types as pt
+    >>> class RationalType(pa.ExtensionType):
+    ...     def __init__(self, data_type: pa.DataType):
+    ...         if not pt.is_integer(data_type):
+    ...             raise TypeError(f"data_type must be an integer type not {data_type}")
+    ...         super().__init__(
+    ...             pa.struct(
+    ...                 [
+    ...                     ("numer", data_type),
+    ...                     ("denom", data_type),
+    ...                 ],
+    ...             ),
+    ...             # N.B. This name does _not_ reference `data_type` so deserialization
+    ...             # will work for _any_ integer `data_type` after registration
+    ...             "my_package.rational",
+    ...         )
+    ...     def __arrow_ext_serialize__(self) -> bytes:
+    ...         # No serialized metadata necessary
+    ...         return b""
+    ...     @classmethod
+    ...     def __arrow_ext_deserialize__(self, storage_type, serialized):
+    ...         # return an instance of this subclass given the serialized
+    ...         # metadata
+    ...         return RationalType(storage_type[0].type)
 
     Register the extension type:
 
-    >>> pa.register_extension_type(UuidType())
+    >>> pa.register_extension_type(RationalType(pa.int64()))
 
     Unregister the extension type:
 
-    >>> pa.unregister_extension_type("my_package.uuid")
+    >>> pa.unregister_extension_type("my_package.rational")
     """
     cdef:
         DataType _type = ensure_type(ext_type, allow_none=False)
@@ -2089,30 +2120,41 @@ def unregister_extension_type(type_name):
 
     Examples
     --------
-    Define a UuidType extension type subclassing ExtensionType:
+    Define a RationalType extension type subclassing ExtensionType:
 
     >>> import pyarrow as pa
-    >>> class UuidType(pa.ExtensionType):
-    ...    def __init__(self):
-    ...       pa.ExtensionType.__init__(self, pa.binary(16), "my_package.uuid")
-    ...    def __arrow_ext_serialize__(self):
-    ...       # since we don't have a parameterized type, we don't need extra
-    ...       # metadata to be deserialized
-    ...       return b''
-    ...    @classmethod
-    ...    def __arrow_ext_deserialize__(self, storage_type, serialized):
-    ...       # return an instance of this subclass given the serialized
-    ...       # metadata.
-    ...       return UuidType()
-    ...
+    >>> import pyarrow.types as pt
+    >>> class RationalType(pa.ExtensionType):
+    ...     def __init__(self, data_type: pa.DataType):
+    ...         if not pt.is_integer(data_type):
+    ...             raise TypeError(f"data_type must be an integer type not {data_type}")
+    ...         super().__init__(
+    ...             pa.struct(
+    ...                 [
+    ...                     ("numer", data_type),
+    ...                     ("denom", data_type),
+    ...                 ],
+    ...             ),
+    ...             # N.B. This name does _not_ reference `data_type` so deserialization
+    ...             # will work for _any_ integer `data_type` after registration
+    ...             "my_package.rational",
+    ...         )
+    ...     def __arrow_ext_serialize__(self) -> bytes:
+    ...         # No serialized metadata necessary
+    ...         return b""
+    ...     @classmethod
+    ...     def __arrow_ext_deserialize__(self, storage_type, serialized):
+    ...         # return an instance of this subclass given the serialized
+    ...         # metadata
+    ...         return RationalType(storage_type[0].type)
 
     Register the extension type:
 
-    >>> pa.register_extension_type(UuidType())
+    >>> pa.register_extension_type(RationalType(pa.int64()))
 
     Unregister the extension type:
 
-    >>> pa.unregister_extension_type("my_package.uuid")
+    >>> pa.unregister_extension_type("my_package.rational")
     """
     cdef:
         c_string c_type_name = tobytes(type_name)
