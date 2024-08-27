@@ -281,5 +281,11 @@ public class AvaticaParameterBinder {
     public Boolean visit(ArrowType.LargeListView type) {
       throw new UnsupportedOperationException("Binding is not yet supported for type " + type);
     }
+
+    @Override
+    public Boolean visit(ArrowType.RunEndEncoded type) {
+      throw new UnsupportedOperationException(
+          "No Avatica parameter binder implemented for type " + type);
+    }
   }
 }

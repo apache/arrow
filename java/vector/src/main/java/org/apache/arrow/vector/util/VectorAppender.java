@@ -37,6 +37,7 @@ import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.LargeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
+import org.apache.arrow.vector.complex.RunEndEncodedVector;
 import org.apache.arrow.vector.complex.UnionVector;
 
 /** Utility to append two vectors together. */
@@ -638,5 +639,10 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
     VectorAppender underlyingAppender = new VectorAppender(targetUnderlying);
     deltaVector.getUnderlyingVector().accept(underlyingAppender, null);
     return targetVector;
+  }
+
+  @Override
+  public ValueVector visit(RunEndEncodedVector deltaVector, Void value) {
+    return targetVector; // TODO
   }
 }

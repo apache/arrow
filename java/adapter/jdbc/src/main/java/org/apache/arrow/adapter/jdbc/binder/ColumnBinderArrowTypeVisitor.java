@@ -97,6 +97,11 @@ public class ColumnBinderArrowTypeVisitor implements ArrowType.ArrowTypeVisitor<
   }
 
   @Override
+  public ColumnBinder visit(ArrowType.RunEndEncoded type) {
+    throw new UnsupportedOperationException("No column binder implemented for type " + type);
+  }
+
+  @Override
   public ColumnBinder visit(ArrowType.Map type) {
     return new MapBinder((MapVector) vector);
   }
