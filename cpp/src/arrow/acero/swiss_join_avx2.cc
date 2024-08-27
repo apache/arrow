@@ -36,8 +36,6 @@ int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int nu
 
   bool is_fixed_length_column =
       rows.metadata().column_metadatas[column_id].is_fixed_length;
-  auto offsets_right_i64 =
-      reinterpret_cast<const arrow::util::int64_for_gather_t*>(offsets_right);
 
   // There are 4 cases, each requiring different steps:
   // 1. Varying length column that is the first varying length column in a row
@@ -50,6 +48,8 @@ int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int nu
     int varbinary_column_id = VarbinaryColumnId(rows.metadata(), column_id);
     const uint8_t* row_ptr_base = rows.data(2);
     const RowTableImpl::offset_type* row_offsets = rows.offsets();
+    auto row_offsets_i64 =
+        reinterpret_cast<const arrow::util::int64_for_gather_t*>(row_offsets);
     static_assert(
         sizeof(RowTableImpl::offset_type) == sizeof(int64_t),
         "RowArrayAccessor::Visit_avx2 only supports 64-bit RowTableImpl::offset_type");
@@ -201,6 +201,8 @@ int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int nu
       //
       const uint8_t* row_ptr_base = rows.data(2);
       const RowTableImpl::offset_type* row_offsets = rows.offsets();
+      auto row_offsets_i64 =
+          reinterpret_cast<const arrow::util::int64_for_gather_t*>(row_offsets);
       for (int i = 0; i < num_rows / unroll; ++i) {
         // Load 8 32-bit row ids.
         __m256i row_id =
