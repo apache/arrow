@@ -17,7 +17,6 @@
 
 #pragma once
 
-#include <bitset>
 #include <cstdint>
 #include <memory>
 #include <string>
