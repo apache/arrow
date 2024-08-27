@@ -17,6 +17,7 @@ Testing/
 *.cpp
 pyarrow/lib.h
 pyarrow/*_api.h
+pyarrow/_cuda.h
 pyarrow/_generated_version.py
 cython_debug
 

@@ -2734,6 +2734,7 @@ cdef class RecordBatch(_Tabular):
         >>> batch.get_total_buffer_size()
         120
         """
+        self._assert_cpu()
         cdef:
             int64_t total_buffer_size
 
@@ -2800,16 +2801,24 @@ cdef class RecordBatch(_Tabular):
             shared_ptr[CRecordBatch] c_batch
             Field c_field
             Array c_arr
+            CDeviceAllocationType device_type = self.sp_batch.get().device_type()
 
         if isinstance(column, Array):
             c_arr = column
         else:
-            if not self.is_cpu:
-                raise RuntimeError("A pa.Array() object is required when "
-                                   "adding columns to a RecordBatch on a "
-                                   f"non-cpu device. Got {type(column)!r} "
-                                   "instead.")
+            if device_type != CDeviceAllocationType_kCPU:
+                cpu_device_type = _wrap_device_allocation_type(CDeviceAllocationType_kCPU)
+                raise TypeError("The column must be allocated on the same "
+                                "device as the RecordBatch. Got column on "
+                                f"device {cpu_device_type!r}, but expected "
+                                f"{self.device_type!r}.")
             c_arr = array(column)
+
+        if device_type != c_arr.sp_array.get().device_type():
+            raise TypeError("The column must be allocated on the same "
+                            "device as the RecordBatch. Got column on "
+                            f"device {c_arr.device_type!r}, but expected "
+                            f"{self.device_type!r}.")
 
         if isinstance(field_, Field):
             c_field = field_
@@ -2898,11 +2907,24 @@ cdef class RecordBatch(_Tabular):
             shared_ptr[CRecordBatch] c_batch
             Field c_field
             Array c_arr
+            CDeviceAllocationType device_type = self.sp_batch.get().device_type()
 
         if isinstance(column, Array):
             c_arr = column
         else:
+            if device_type != CDeviceAllocationType_kCPU:
+                cpu_device_type = _wrap_device_allocation_type(CDeviceAllocationType_kCPU)
+                raise TypeError("The column must be allocated on the same "
+                                "device as the RecordBatch. Got column on "
+                                f"device {cpu_device_type!r}, but expected "
+                                f"{self.device_type!r}.")
             c_arr = array(column)
+
+        if device_type != c_arr.sp_array.get().device_type():
+            raise TypeError("The column must be allocated on the same "
+                            "device as the RecordBatch. Got column on "
+                            f"device {c_arr.device_type!r}, but expected "
+                            f"{self.device_type!r}.")
 
         if isinstance(field_, Field):
             c_field = field_
@@ -3457,7 +3479,6 @@ cdef class RecordBatch(_Tabular):
 
         result = pyarrow_wrap_batch(CRecordBatch.Make(c_schema, num_rows,
                                                       c_arrays))
-
         result.validate()
         return result
 
@@ -3490,6 +3511,8 @@ cdef class RecordBatch(_Tabular):
         """
         cdef:
             shared_ptr[CRecordBatch] c_record_batch
+        if struct_array.sp_array.get().device_type() != CDeviceAllocationType_kCPU:
+            raise NotImplementedError("Implemented only for data on CPU device")
         with nogil:
             c_record_batch = GetResultValue(
                 CRecordBatch.FromStructArray(struct_array.sp_array))
@@ -3705,6 +3728,7 @@ cdef class RecordBatch(_Tabular):
             A pair of PyCapsules containing a C ArrowSchema and ArrowArray,
             respectively.
         """
+        self._assert_cpu()
         cdef:
             ArrowArray* c_array
             ArrowSchema* c_schema
@@ -3750,6 +3774,7 @@ cdef class RecordBatch(_Tabular):
         -------
         PyCapsule
         """
+        self._assert_cpu()
         return Table.from_batches([self]).__arrow_c_stream__(requested_schema)
 
     @staticmethod
