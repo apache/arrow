@@ -36,6 +36,8 @@ int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int nu
 
   bool is_fixed_length_column =
       rows.metadata().column_metadatas[column_id].is_fixed_length;
+  auto offsets_right_i64 =
+      reinterpret_cast<const arrow::util::int64_for_gather_t*>(offsets_right);
 
   // There are 4 cases, each requiring different steps:
   // 1. Varying length column that is the first varying length column in a row
@@ -65,10 +67,10 @@ int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int nu
         // Gather the lower/higher 4 64-bit row offsets based on the lower/higher 4 32-bit
         // row ids.
         __m256i row_offset_lo =
-            _mm256_i32gather_epi64(row_offsets, _mm256_castsi256_si128(row_id),
+            _mm256_i32gather_epi64(row_offsets_i64, _mm256_castsi256_si128(row_id),
                                    sizeof(RowTableImpl::offset_type));
         __m256i row_offset_hi =
-            _mm256_i32gather_epi64(row_offsets, _mm256_extracti128_si256(row_id, 1),
+            _mm256_i32gather_epi64(row_offsets_i64, _mm256_extracti128_si256(row_id, 1),
                                    sizeof(RowTableImpl::offset_type));
         // Gather the lower/higher 4 32-bit field lengths based on the lower/higher 4
         // 64-bit row offsets.
@@ -101,12 +103,12 @@ int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int nu
         // Gather the lower/higher 4 64-bit row offsets based on the lower/higher 4 32-bit
         // row ids.
         __m256i row_offset_lo =
-            _mm256_i32gather_epi64(row_offsets, _mm256_castsi256_si128(row_id),
+            _mm256_i32gather_epi64(row_offsets_i64, _mm256_castsi256_si128(row_id),
                                    sizeof(RowTableImpl::offset_type));
         // Gather the lower/higher 4 32-bit field lengths based on the lower/higher 4
         // 64-bit row offsets.
         __m256i row_offset_hi =
-            _mm256_i32gather_epi64(row_offsets, _mm256_extracti128_si256(row_id, 1),
+            _mm256_i32gather_epi64(row_offsets_i64, _mm256_extracti128_si256(row_id, 1),
                                    sizeof(RowTableImpl::offset_type));
         // Prepare the lower/higher 4 64-bit end array offsets based on the lower/higher 4
         // 64-bit row offsets.
@@ -127,8 +129,8 @@ int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int nu
         __m256i field_offset_within_row = _mm256_blend_epi32(
             field_offset_within_row_A, field_offset_within_row_B, 0xf0);
 
-        __m256i alignment_padding =
-            _mm256_andnot_si256(field_offset_within_row, _mm256_set1_epi8(0xff));
+        __m256i alignment_padding = _mm256_andnot_si256(
+            field_offset_within_row, _mm256_set1_epi8(static_cast<char>(0xff)));
         alignment_padding = _mm256_add_epi32(alignment_padding, _mm256_set1_epi32(1));
         alignment_padding = _mm256_and_si256(
             alignment_padding, _mm256_set1_epi32(rows.metadata().string_alignment - 1));
@@ -206,10 +208,10 @@ int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int nu
         // Gather the lower/higher 4 64-bit row offsets based on the lower/higher 4 32-bit
         // row ids.
         __m256i row_offset_lo =
-            _mm256_i32gather_epi64(row_offsets, _mm256_castsi256_si128(row_id),
+            _mm256_i32gather_epi64(row_offsets_i64, _mm256_castsi256_si128(row_id),
                                    sizeof(RowTableImpl::offset_type));
         __m256i row_offset_hi =
-            _mm256_i32gather_epi64(row_offsets, _mm256_extracti128_si256(row_id, 1),
+            _mm256_i32gather_epi64(row_offsets_i64, _mm256_extracti128_si256(row_id, 1),
                                    sizeof(RowTableImpl::offset_type));
         // Calculate the lower/higher 4 64-bit field offsets based on the lower/higher 4
         // 64-bit row offsets and field offset within row.
