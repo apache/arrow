@@ -19,11 +19,11 @@
 
 set GCS_TESTBENCH_VERSION="v0.40.0"
 
-python -m pip install pipx || exit /B 1
+python -m pip install -U pipx || exit /B 1
 
 @REM Install GCS testbench %GCS_TESTBENCH_VERSION%
-pipx install --global --verbose ^
+pipx install --verbose ^
         "https://github.com/googleapis/storage-testbench/archive/%GCS_TESTBENCH_VERSION%.tar.gz" ^
         || exit /B 1
 
-pipx list --global --verbose
+pipx list --verbose

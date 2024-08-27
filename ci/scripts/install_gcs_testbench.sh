@@ -17,7 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
+set -ex
 
 if [ "$#" -ne 1 ]; then
   echo "Usage: $0 <storage-testbench version>"
@@ -39,8 +39,10 @@ if [[ "${version}" -eq "default" ]]; then
   version="v0.39.0"
 fi
 
+: ${PIPX_PYTHON:=$(which python3)}
+
 export PIP_BREAK_SYSTEM_PACKAGES=1
-python3 -m pip install pipx
+${PIPX_PYTHON} -m pip install -U pipx
 
 # This script is run with PYTHON undefined in some places,
 # but those only use older pythons.
@@ -53,5 +55,5 @@ if [[ -z "${PYTHON_VERSION}" ]] || [[ "${PYTHON_VERSION}" != "3.13" ]]; then
   if [[ ! -z "${PIPX_PYTHON}" ]]; then
     pipx_flags="${pipx_flags} --python ${PIPX_PYTHON}"
   fi
-  pipx install ${pipx_flags} "https://github.com/googleapis/storage-testbench/archive/${version}.tar.gz"
+  ${PIPX_PYTHON} -m pipx install ${pipx_flags} "https://github.com/googleapis/storage-testbench/archive/${version}.tar.gz"
 fi
