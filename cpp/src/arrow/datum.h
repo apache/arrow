@@ -296,7 +296,7 @@ struct ARROW_EXPORT Datum {
   /// \return empty if not arraylike
   ArrayVector chunks() const;
 
-  DeviceAllocationTypeSet DeviceTypeSet() const;
+  DeviceAllocationTypeSet device_types() const;
 
   /// \brief True if the two data are equal
   bool Equals(const Datum& other) const;

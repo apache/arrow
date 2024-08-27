@@ -157,6 +157,45 @@ ArrayVector Datum::chunks() const {
   return this->chunked_array()->chunks();
 }
 
+DeviceAllocationTypeSet Datum::device_types() const {
+  switch (kind()) {
+    case NONE:
+      break;
+    case SCALAR:
+      // Scalars are asssumed as always residing in CPU memory for now.
+      return DeviceAllocationTypeSet::CpuOnly();
+    case ARRAY:
+      return DeviceAllocationTypeSet{array()->device_type()};
+    case CHUNKED_ARRAY:
+      return chunked_array()->device_types();
+    case RECORD_BATCH: {
+      auto& columns = record_batch()->columns();
+      if (columns.empty()) {
+        // An empty RecordBatch is considered to be CPU-only.
+        return DeviceAllocationTypeSet::CpuOnly();
+      }
+      DeviceAllocationTypeSet set;
+      for (const auto& column : columns) {
+        set.add(column->device_type());
+      }
+      return set;
+    }
+    case TABLE: {
+      auto& columns = table()->columns();
+      if (columns.empty()) {
+        // An empty Table is considered to be CPU-only.
+        return DeviceAllocationTypeSet::CpuOnly();
+      }
+      DeviceAllocationTypeSet set;
+      for (const auto& column : columns) {
+        set.Add(column->device_types());
+      }
+      return set;
+    }
+  }
+  return {};
+}
+
 bool Datum::Equals(const Datum& other) const {
   if (this->kind() != other.kind()) return false;
 

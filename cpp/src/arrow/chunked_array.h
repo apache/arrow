@@ -120,7 +120,7 @@ class ARROW_EXPORT ChunkedArray {
 
   /// \return The set of device allocation types used by the chunks in this
   /// chunked array.
-  DeviceAllocationTypeSet DeviceTypeSet() const;
+  DeviceAllocationTypeSet device_types() const;
 
   /// \brief Construct a zero-copy slice of the chunked array with the
   /// indicated offset and length
