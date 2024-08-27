@@ -920,7 +920,7 @@ gaflight_client_do_get(GAFlightClient *client,
     return nullptr;
   }
   auto flight_reader = std::move(*result);
-  return gaflight_stream_reader_new_raw(flight_reader.get(), TRUE);
+  return gaflight_stream_reader_new_raw(flight_reader.release(), TRUE);
 }
 
 /**
