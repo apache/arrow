@@ -99,7 +99,6 @@ jobs:
             cat <<JSON >> "$GITHUB_OUTPUT"
           {
             "arch": "arm64v8",
-            "archery-use-legacy-docker-compose": "1",
             "clang-tools": "10",
             "image": "ubuntu-cpp",
             "llvm": "10",
@@ -124,9 +123,6 @@ jobs:
         include: ${{ fromJson(needs.docker-targets.outputs.targets) }}
     env:
       ARCH: ${{ matrix.arch }}
-      # By default, use `docker compose` because docker-compose v1 is obsolete,
-      # except where the Docker client version is too old.
-      ARCHERY_USE_LEGACY_DOCKER_COMPOSE: ${{ matrix.archery-use-legacy-docker-compose || '0' }}
       ARROW_SIMD_LEVEL: ${{ matrix.simd-level }}
       CLANG_TOOLS: ${{ matrix.clang-tools }}
       LLVM: ${{ matrix.llvm }}
@@ -147,6 +143,7 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y --no-install-recommends python3 python3-dev python3-pip
+          python3 -m pip install -U pip
       - name: Setup Archery
         run: python3 -m pip install -e dev/archery[docker]
       - name: Execute Docker Build
