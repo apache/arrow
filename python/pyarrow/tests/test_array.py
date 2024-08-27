@@ -4053,14 +4053,22 @@ def test_non_cpu_array():
     ctx = cuda.Context(0)
 
     data = np.arange(4, dtype=np.int32)
-    validity = np.array([True, False, True, False], dtype=np.bool_)
+    validity_data = np.array([True, False, True, False], dtype=np.bool_)
+    bool_data = np.array([True, False, True, False], dtype=np.bool_)
+
     cuda_data_buf = ctx.buffer_from_data(data)
-    cuda_validity_buf = ctx.buffer_from_data(validity)
+    cuda_validity_buf = ctx.buffer_from_data(validity_data)
+    cuda_bool_buf = ctx.buffer_from_data(bool_data)
+
     arr = pa.Array.from_buffers(pa.int32(), 4, [None, cuda_data_buf])
     arr2 = pa.Array.from_buffers(pa.int32(), 4, [None, cuda_data_buf])
+
     arr_with_nulls = pa.Array.from_buffers(
         pa.int32(), 4, [cuda_validity_buf, cuda_data_buf])
-    arr_bool = pa.Array.from_buffers(pa.bool_(), 4, [None, cuda_validity_buf])
+    arr_bool = pa.Array.from_buffers(pa.bool_(), 4, [cuda_validity_buf, cuda_bool_buf])
+    # REE array using arr as run-ends and arr_bool as values
+    arr_ree = pa.Array.from_buffers(pa.run_end_encoded(pa.int32(), pa.bool_()), 6,
+                                    [None], 0, 0, [arr, arr_bool])
 
     # Supported
     arr.validate()
@@ -4137,6 +4145,10 @@ def test_non_cpu_array():
         pa.array([0, 1]).take(arr)
     with pytest.raises(NotImplementedError, match=bad_device_msg("filter", 0)):
         arr_with_nulls.drop_null()
+    # TODO(GH-11399): drop_null currently does nothing on union and REE arrays.
+    # This invocation here guarantees that once that issue is fixed, this test
+    # will crash unless the code is careful to not access CUDA memory from CPU.
+    arr_ree.drop_null()
     with pytest.raises(NotImplementedError, match=bad_device_msg("filter", 0)):
         arr.filter([True, True, False, False])
     with pytest.raises(NotImplementedError, match=bad_device_msg("filter", 1)):
