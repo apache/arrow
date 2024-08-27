@@ -1525,6 +1525,9 @@ tasks:
     ci: github
     template: docker-tests/github.cuda.yml
     params:
+      env:
+        UBUNTU: 22.04
+        CUDA: 11.8.0
       image: ubuntu-cuda-python
 
   ############################## Fuzz tests #################################
