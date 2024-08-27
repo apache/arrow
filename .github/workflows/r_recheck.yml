@@ -25,6 +25,9 @@ on:
           - strong
           - most
 
+permissions:
+  contents: read
+
 name: R Reverse Dependency Check
 
 jobs:
