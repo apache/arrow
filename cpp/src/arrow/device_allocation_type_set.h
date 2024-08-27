@@ -68,6 +68,11 @@ class ARROW_EXPORT DeviceAllocationTypeSet {
     device_type_bitset_.reset(static_cast<int>(device_type));
   }
 
+  /// \brief Return true iff the set only contains the CPU device type.
+  bool is_cpu_only() const {
+    return device_type_bitset_ == CpuOnly().device_type_bitset_;
+  }
+
   /// \brief Return true if the set of accepted device types includes the
   /// device type.
   bool contains(DeviceAllocationType device_type) const {

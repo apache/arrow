@@ -121,6 +121,9 @@ class ARROW_EXPORT ChunkedArray {
   /// chunked array.
   DeviceAllocationTypeSet device_types() const;
 
+  /// \return true if all chunks are allocated on CPU-accessible memory.
+  bool is_cpu() const { return device_types().is_cpu_only(); }
+
   /// \brief Construct a zero-copy slice of the chunked array with the
   /// indicated offset and length
   ///

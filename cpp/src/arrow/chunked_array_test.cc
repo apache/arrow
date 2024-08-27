@@ -61,12 +61,17 @@ TEST_F(TestChunkedArray, Make) {
                        ChunkedArray::Make({}, int64()));
   AssertTypeEqual(*int64(), *result->type());
   ASSERT_EQ(result->num_chunks(), 0);
+  // Empty chunked arrays are treated as CPU-allocated.
+  ASSERT_TRUE(result->is_cpu());
 
   auto chunk0 = ArrayFromJSON(int8(), "[0, 1, 2]");
   auto chunk1 = ArrayFromJSON(int16(), "[3, 4, 5]");
 
   ASSERT_OK_AND_ASSIGN(result, ChunkedArray::Make({chunk0, chunk0}));
   ASSERT_OK_AND_ASSIGN(auto result2, ChunkedArray::Make({chunk0, chunk0}, int8()));
+  // All chunks are CPU-accessible.
+  ASSERT_TRUE(result->is_cpu());
+  ASSERT_TRUE(result2->is_cpu());
   AssertChunkedEqual(*result, *result2);
 
   ASSERT_RAISES(TypeError, ChunkedArray::Make({chunk0, chunk1}));
