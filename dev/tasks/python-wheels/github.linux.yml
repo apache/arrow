@@ -33,7 +33,6 @@ jobs:
       ARCH: amd64
       {% else %}
       ARCH: arm64v8
-      ARCHERY_USE_LEGACY_DOCKER_COMPOSE: 1
       {% endif %}
       PYTHON: "{{ python_version }}"
       {% if python_version == "3.13" %}
