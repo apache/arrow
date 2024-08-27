@@ -992,7 +992,7 @@ Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* infer
   bool modified = false;
 
   auto& origin_type = origin_field.type();
-  auto inferred_type = inferred->field->type();
+  const auto& inferred_type = inferred->field->type();
 
   if (origin_type->id() == ::arrow::Type::EXTENSION) {
     const auto& ex_type = checked_cast<const ::arrow::ExtensionType&>(*origin_type);
