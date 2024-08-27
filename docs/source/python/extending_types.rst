@@ -134,6 +134,7 @@ such as PySpark.
 For example, we could define a custom rational type for fractions which can
 be represented as a pair of integers::
 
+    import pyarrow as pa
     import pyarrow.types as pt
 
     class RationalType(pa.ExtensionType):
@@ -143,8 +144,8 @@ be represented as a pair of integers::
             super().__init__(
                 pa.struct(
                     [
-                        ("numer", pa.int64()),
-                        ("denom", pa.int64()),
+                        ("numer", pa.int32()),
+                        ("denom", pa.int32()),
                     ],
                 ),
                 "my_package.rational",
@@ -157,7 +158,8 @@ be represented as a pair of integers::
         @classmethod
         def __arrow_ext_deserialize__(self, storage_type, serialized):
             # Sanity checks, not required but illustrate the method signature.
-            assert pt.is_int32(storage_type)
+            assert pt.is_struct(storage_type)
+            assert pt.is_int32(storage_type[0].type)
             assert serialized == b''
 
             # return an instance of this subclass given the serialized
