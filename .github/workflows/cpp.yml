@@ -471,9 +471,9 @@ jobs:
         shell: bash
         run: |
           ci/scripts/install_gcs_testbench.sh default
-          echo "PYTHON_BIN_DIR=$(cygpath --windows $(dirname $(which python3.exe)))" >> $GITHUB_ENV
+          echo "TESTBENCH_BIN_DIR=$(cygpath --windows $(dirname $(which storage-testbench)))" >> $GITHUB_ENV
       - name: Test
         shell: msys2 {0}
         run: |
-          PATH="$(cygpath --unix ${PYTHON_BIN_DIR}):${PATH}"
+          PATH="$(cygpath --unix ${TESTBENCH_BIN_DIR}):${PATH}"
           ci/scripts/cpp_test.sh "$(pwd)" "$(pwd)/build"
