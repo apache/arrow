@@ -36,6 +36,9 @@
 namespace arrow {
 
 namespace internal {
+
+ARROW_EXPORT void AdjustNonNullable(ArrayData* array_data);
+
 // ----------------------------------------------------------------------
 // Null handling for types without a validity bitmap and the dictionary type
 
@@ -342,6 +345,17 @@ struct ARROW_EXPORT ArrayData {
   ///       ...
   ///     }
   bool MayHaveLogicalNulls() const {
+    if (ARROW_PREDICT_FALSE(device_type() != DeviceAllocationType::kCPU)) {
+      // Some arrays are malformed in that they have kUnknownNullCount, but no
+      // validity bitmap and that makes MayHaveLogicalNulls() return true when
+      // it should return false.
+      //
+      // Not a problem if we're on the CPU because ArrayData::GetNullCount()
+      // will eventually return 0. But it's a problem if we're trying to make
+      // cheap decisions without fully calculating the null count and want to
+      // defer the processing of the bitmap to later.
+      internal::AdjustNonNullable(const_cast<ArrayData*>(this));
+    }
     if (buffers[0] != NULLPTR) {
       return null_count.load() != 0;
     }
