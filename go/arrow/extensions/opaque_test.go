@@ -161,9 +161,6 @@ func TestOpaqueTypeMetadataRoundTrip(t *testing.T) {
 
 func TestOpaqueTypeBatchRoundTrip(t *testing.T) {
 	typ := extensions.NewOpaqueType(arrow.BinaryTypes.String, "geometry", "adbc.postgresql")
-	arrow.RegisterExtensionType(typ)
-	defer arrow.UnregisterExtensionType(typ.ExtensionName())
-
 	storage, _, err := array.FromJSON(memory.DefaultAllocator, arrow.BinaryTypes.String,
 		strings.NewReader(`["foobar", null]`))
 	require.NoError(t, err)

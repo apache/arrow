@@ -23,7 +23,7 @@
 #include "arrow/acero/test_util_internal.h"
 #include "arrow/acero/util.h"
 #include "arrow/api.h"
-#include "arrow/compute/kernels/row_encoder_internal.h"
+#include "arrow/compute/row/row_encoder_internal.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/thread_pool.h"
 

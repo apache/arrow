@@ -96,6 +96,7 @@ functions above.
    DataType
    DictionaryType
    ListType
+   LargeListType
    MapType
    StructType
    UnionType

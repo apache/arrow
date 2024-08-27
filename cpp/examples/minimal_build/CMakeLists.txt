@@ -30,7 +30,7 @@ endif()
 # We require a C++17 compliant compiler
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-if(NOT DEFINED CMAKE_BUILD_TYPE)
+if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 

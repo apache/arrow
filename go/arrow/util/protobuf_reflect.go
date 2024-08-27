@@ -60,6 +60,7 @@ type ProtobufFieldReflection struct {
 	rValue     reflect.Value
 	schemaOptions
 	arrow.Field
+	isListItem bool
 }
 
 func (pfr *ProtobufFieldReflection) isNull() bool {
@@ -170,7 +171,7 @@ func (pfr *ProtobufFieldReflection) isEnum() bool {
 }
 
 func (pfr *ProtobufFieldReflection) isStruct() bool {
-	return pfr.descriptor.Kind() == protoreflect.MessageKind && !pfr.descriptor.IsMap() && pfr.rValue.Kind() != reflect.Slice
+	return pfr.descriptor.Kind() == protoreflect.MessageKind && !pfr.descriptor.IsMap() && !pfr.isList()
 }
 
 func (pfr *ProtobufFieldReflection) isMap() bool {
@@ -178,7 +179,7 @@ func (pfr *ProtobufFieldReflection) isMap() bool {
 }
 
 func (pfr *ProtobufFieldReflection) isList() bool {
-	return pfr.descriptor.IsList() && pfr.rValue.Kind() == reflect.Slice
+	return pfr.descriptor.IsList() && !pfr.isListItem
 }
 
 // ProtobufMessageReflection represents the metadata and values of a protobuf message
@@ -218,11 +219,7 @@ func (psr ProtobufMessageReflection) getArrowFields() []arrow.Field {
 	var fields []arrow.Field
 
 	for pfr := range psr.generateStructFields() {
-		fields = append(fields, arrow.Field{
-			Name:     pfr.name(),
-			Type:     pfr.getDataType(),
-			Nullable: true,
-		})
+		fields = append(fields, pfr.arrowField())
 	}
 
 	return fields
@@ -237,12 +234,10 @@ func (pfr *ProtobufFieldReflection) asList() protobufListReflection {
 }
 
 func (plr protobufListReflection) getDataType() arrow.DataType {
-	for li := range plr.generateListItems() {
-		return arrow.ListOf(li.getDataType())
-	}
 	pfr := ProtobufFieldReflection{
 		descriptor:    plr.descriptor,
 		schemaOptions: plr.schemaOptions,
+		isListItem:    true,
 	}
 	return arrow.ListOf(pfr.getDataType())
 }
@@ -401,6 +396,22 @@ func (pmr protobufMapReflection) generateKeyValuePairs() chan protobufMapKeyValu
 
 	go func() {
 		defer close(out)
+		if !pmr.rValue.IsValid() {
+			kvp := protobufMapKeyValuePairReflection{
+				k: ProtobufFieldReflection{
+					parent:        pmr.parent,
+					descriptor:    pmr.descriptor.MapKey(),
+					schemaOptions: pmr.schemaOptions,
+				},
+				v: ProtobufFieldReflection{
+					parent:        pmr.parent,
+					descriptor:    pmr.descriptor.MapValue(),
+					schemaOptions: pmr.schemaOptions,
+				},
+			}
+			out <- kvp
+			return
+		}
 		for _, k := range pmr.rValue.MapKeys() {
 			kvp := protobufMapKeyValuePairReflection{
 				k: ProtobufFieldReflection{

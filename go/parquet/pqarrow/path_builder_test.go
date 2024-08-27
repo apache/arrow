@@ -22,8 +22,8 @@ import (
 
 	"github.com/apache/arrow/go/v18/arrow"
 	"github.com/apache/arrow/go/v18/arrow/array"
+	"github.com/apache/arrow/go/v18/arrow/extensions"
 	"github.com/apache/arrow/go/v18/arrow/memory"
-	"github.com/apache/arrow/go/v18/internal/types"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -364,12 +364,12 @@ func TestNestedExtensionListsWithSomeNulls(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(t, 0)
 
-	listType := arrow.ListOf(types.NewUUIDType())
+	listType := arrow.ListOf(extensions.NewUUIDType())
 	bldr := array.NewListBuilder(mem, listType)
 	defer bldr.Release()
 
 	nestedBldr := bldr.ValueBuilder().(*array.ListBuilder)
-	vb := nestedBldr.ValueBuilder().(*types.UUIDBuilder)
+	vb := nestedBldr.ValueBuilder().(*extensions.UUIDBuilder)
 
 	uuid1 := uuid.New()
 	uuid3 := uuid.New()

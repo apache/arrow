@@ -1,0 +1,53 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+{% import 'macros.jinja' as macros with context %}
+
+{{ macros.github_header() }}
+
+jobs:
+  extra-packages:
+    name: "extra package roundtrip tests"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    env:
+      ARROW_R_DEV: "FALSE"
+      ARROW_R_FORCE_EXTRA_PACKAGE_TESTS: TRUE
+    steps:
+      {{ macros.github_checkout_arrow()|indent }}
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+      - uses: r-lib/actions/setup-pandoc@v2
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          working-directory: 'arrow/r'
+          extra-packages: |
+            any::data.table
+            any::rcmdcheck
+            any::readr
+            any::units
+      - name: Build arrow package
+        run: |
+          R CMD build --no-build-vignettes arrow/r
+          R CMD INSTALL --install-tests --no-test-load --no-byte-compile arrow_*.tar.gz
+      - name: run tests
+        run: |
+          testthat::test_package("arrow", filter = "extra-package-roundtrip")
+        shell: Rscript {0}

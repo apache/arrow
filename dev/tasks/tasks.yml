@@ -389,7 +389,8 @@ tasks:
                                                ("3.9", "cp39", "cp39"),
                                                ("3.10", "cp310", "cp310"),
                                                ("3.11", "cp311", "cp311"),
-                                               ("3.12", "cp312", "cp312")] %}
+                                               ("3.12", "cp312", "cp312"),
+                                               ("3.13", "cp313", "cp313")] %}
 
 {############################## Wheel Linux ##################################}
 
@@ -1309,11 +1310,19 @@ tasks:
     ci: github
     template: r/github.linux.rchk.yml
 
+  test-r-extra-packages:
+    ci: github
+    template: r/github.linux.extra.packages.yml   
+
   test-r-linux-as-cran:
     ci: github
     template: r/github.linux.cran.yml
     params:
       MATRIX: {{ "${{ matrix.r_image }}" }}
+
+  test-r-macos-as-cran:
+    ci: github
+    template: r/github.macos.cran.yml
 
   test-r-arrow-backwards-compatibility:
     ci: github
@@ -1478,7 +1487,7 @@ tasks:
       image: debian-go
   {% endfor %}
 
-  # be sure to update binary-task.rb when upgrading ubuntu
+  # be sure to update binary-task.rb when upgrading Debian
   test-debian-12-docs:
     ci: github
     template: docs/github.linux.yml
@@ -1486,7 +1495,6 @@ tasks:
       env:
         JDK: 17
       pr_number: Unset
-      flags: "-v $PWD/build/:/build/"
       image: debian-docs
       publish: false
     artifacts:
@@ -1612,6 +1620,5 @@ tasks:
       env:
         JDK: 17
       pr_number: Unset
-      flags: "-v $PWD/build/:/build/"
       image: debian-docs
       publish: true

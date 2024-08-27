@@ -29,7 +29,7 @@ using internal::checked_cast;
 namespace compute {
 namespace internal {
 
-struct KeyEncoder {
+struct ARROW_EXPORT KeyEncoder {
   // the first byte of an encoded key is used to indicate nullity
   static constexpr bool kExtraByteForNull = true;
 
@@ -60,7 +60,7 @@ struct KeyEncoder {
   }
 };
 
-struct BooleanKeyEncoder : KeyEncoder {
+struct ARROW_EXPORT BooleanKeyEncoder : KeyEncoder {
   static constexpr int kByteWidth = 1;
 
   void AddLength(const ExecValue& data, int64_t batch_length, int32_t* lengths) override;
@@ -76,7 +76,7 @@ struct BooleanKeyEncoder : KeyEncoder {
                                             MemoryPool* pool) override;
 };
 
-struct FixedWidthKeyEncoder : KeyEncoder {
+struct ARROW_EXPORT FixedWidthKeyEncoder : KeyEncoder {
   explicit FixedWidthKeyEncoder(std::shared_ptr<DataType> type)
       : type_(std::move(type)),
         byte_width_(checked_cast<const FixedWidthType&>(*type_).bit_width() / 8) {}
@@ -97,7 +97,7 @@ struct FixedWidthKeyEncoder : KeyEncoder {
   int byte_width_;
 };
 
-struct DictionaryKeyEncoder : FixedWidthKeyEncoder {
+struct ARROW_EXPORT DictionaryKeyEncoder : FixedWidthKeyEncoder {
   DictionaryKeyEncoder(std::shared_ptr<DataType> type, MemoryPool* pool)
       : FixedWidthKeyEncoder(std::move(type)), pool_(pool) {}
 
@@ -112,7 +112,7 @@ struct DictionaryKeyEncoder : FixedWidthKeyEncoder {
 };
 
 template <typename T>
-struct VarLengthKeyEncoder : KeyEncoder {
+struct ARROW_EXPORT VarLengthKeyEncoder : KeyEncoder {
   using Offset = typename T::offset_type;
 
   void AddLength(const ExecValue& data, int64_t batch_length, int32_t* lengths) override {
@@ -232,7 +232,7 @@ struct VarLengthKeyEncoder : KeyEncoder {
   std::shared_ptr<DataType> type_;
 };
 
-struct NullKeyEncoder : KeyEncoder {
+struct ARROW_EXPORT NullKeyEncoder : KeyEncoder {
   void AddLength(const ExecValue&, int64_t batch_length, int32_t* lengths) override {}
 
   void AddLengthNull(int32_t* length) override {}
@@ -274,7 +274,7 @@ class ARROW_EXPORT RowEncoder {
   }
 
  private:
-  ExecContext* ctx_;
+  ExecContext* ctx_{nullptr};
   std::vector<std::shared_ptr<KeyEncoder>> encoders_;
   std::vector<int32_t> offsets_;
   std::vector<uint8_t> bytes_;

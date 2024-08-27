@@ -40,7 +40,7 @@ import (
 )
 
 func main() {
-	dsn := "uri=grpc://localhost:12345;username=mickeymouse;password=p@55w0RD"
+    dsn := "uri=grpc://localhost:12345;username=mickeymouse;password=p@55w0RD"
     db, err := sql.Open("flightsql", dsn)
     ...
 }

@@ -43,14 +43,14 @@ struct ARROW_EXPORT ArrayStatistics {
   /// \brief The minimum value, may not be set
   std::optional<ValueType> min = std::nullopt;
 
-  /// \brief Whether the minimum value is exact or not, may not be set
-  std::optional<bool> is_min_exact = std::nullopt;
+  /// \brief Whether the minimum value is exact or not
+  bool is_min_exact = false;
 
   /// \brief The maximum value, may not be set
   std::optional<ValueType> max = std::nullopt;
 
-  /// \brief Whether the maximum value is exact or not, may not be set
-  std::optional<bool> is_max_exact = std::nullopt;
+  /// \brief Whether the maximum value is exact or not
+  bool is_max_exact = false;
 
   /// \brief Check two statistics for equality
   bool Equals(const ArrayStatistics& other) const {

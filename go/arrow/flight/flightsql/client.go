@@ -1102,6 +1102,15 @@ type PreparedStatement struct {
 	closed        bool
 }
 
+// NewPreparedStatement creates a prepared statement object bound to the provided
+// client using the given handle. In general, it should be sufficient to use the
+// Prepare function a client and this wouldn't be needed. But this can be used
+// to propagate a prepared statement from one client to another if needed or if
+// proxying requests.
+func NewPreparedStatement(client *Client, handle []byte) *PreparedStatement {
+	return &PreparedStatement{client: client, handle: handle}
+}
+
 // Execute executes the prepared statement on the server and returns a FlightInfo
 // indicating where to retrieve the response. If SetParameters has been called
 // then the parameter bindings will be sent before execution.

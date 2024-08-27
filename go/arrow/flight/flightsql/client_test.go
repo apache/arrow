@@ -378,8 +378,10 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecute() {
 	createRsp := &mockDoActionClient{}
 	defer createRsp.AssertExpectations(s.T())
 	createRsp.On("Recv").Return(&pb.Result{Body: data}, nil).Once()
-	createRsp.On("Recv").Return(&pb.Result{}, io.EOF)
-	createRsp.On("CloseSend").Return(nil)
+	createRsp.On("Recv").Return(&pb.Result{}, io.EOF).Once()
+	createRsp.On("Recv").Return(&pb.Result{Body: data}, nil).Once()
+	createRsp.On("Recv").Return(&pb.Result{}, io.EOF).Once()
+	createRsp.On("CloseSend").Return(nil).Twice()
 
 	closeRsp := &mockDoActionClient{}
 	defer closeRsp.AssertExpectations(s.T())
@@ -387,13 +389,13 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecute() {
 	closeRsp.On("CloseSend").Return(nil)
 
 	s.mockClient.On("DoAction", flightsql.CreatePreparedStatementActionType, action.Body, s.callOpts).
-		Return(createRsp, nil)
+		Return(createRsp, nil).Twice()
 	s.mockClient.On("DoAction", flightsql.ClosePreparedStatementActionType, closeAct.Body, s.callOpts).
 		Return(closeRsp, nil)
 
 	infoCmd := &pb.CommandPreparedStatementQuery{PreparedStatementHandle: []byte(query)}
 	desc := getDesc(infoCmd)
-	s.mockClient.On("GetFlightInfo", desc.Type, desc.Cmd, s.callOpts).Return(&emptyFlightInfo, nil)
+	s.mockClient.On("GetFlightInfo", desc.Type, desc.Cmd, s.callOpts).Return(&emptyFlightInfo, nil).Twice()
 
 	prepared, err := s.sqlClient.Prepare(context.TODO(), query, s.callOpts...)
 	s.NoError(err)
@@ -402,6 +404,17 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecute() {
 	s.Equal(string(prepared.Handle()), "query")
 
 	info, err := prepared.Execute(context.TODO(), s.callOpts...)
+	s.NoError(err)
+	s.Equal(&emptyFlightInfo, info)
+
+	prepared, err = s.sqlClient.Prepare(context.TODO(), query, s.callOpts...)
+	s.NoError(err)
+
+	secondPrepare := flightsql.NewPreparedStatement(&s.sqlClient, prepared.Handle())
+	s.Equal(string(secondPrepare.Handle()), "query")
+	defer secondPrepare.Close(context.TODO(), s.callOpts...)
+
+	info, err = secondPrepare.Execute(context.TODO(), s.callOpts...)
 	s.NoError(err)
 	s.Equal(&emptyFlightInfo, info)
 }

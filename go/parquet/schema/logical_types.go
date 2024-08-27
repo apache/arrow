@@ -45,21 +45,21 @@ func getLogicalType(l *format.LogicalType) LogicalType {
 	case l.IsSetENUM():
 		return EnumLogicalType{}
 	case l.IsSetDECIMAL():
-		return &DecimalLogicalType{typ: l.DECIMAL}
+		return DecimalLogicalType{typ: l.DECIMAL}
 	case l.IsSetDATE():
 		return DateLogicalType{}
 	case l.IsSetTIME():
 		if timeUnitFromThrift(l.TIME.Unit) == TimeUnitUnknown {
 			panic("parquet: TimeUnit must be one of MILLIS, MICROS, or NANOS for Time logical type")
 		}
-		return &TimeLogicalType{typ: l.TIME}
+		return TimeLogicalType{typ: l.TIME}
 	case l.IsSetTIMESTAMP():
 		if timeUnitFromThrift(l.TIMESTAMP.Unit) == TimeUnitUnknown {
 			panic("parquet: TimeUnit must be one of MILLIS, MICROS, or NANOS for Timestamp logical type")
 		}
-		return &TimestampLogicalType{typ: l.TIMESTAMP}
+		return TimestampLogicalType{typ: l.TIMESTAMP}
 	case l.IsSetINTEGER():
-		return &IntLogicalType{typ: l.INTEGER}
+		return IntLogicalType{typ: l.INTEGER}
 	case l.IsSetUNKNOWN():
 		return NullLogicalType{}
 	case l.IsSetJSON():
@@ -344,7 +344,7 @@ func NewDecimalLogicalType(precision int32, scale int32) LogicalType {
 	if scale < 0 || scale > precision {
 		panic("parquet: scale must be a non-negative integer that does not exceed precision for decimal logical type")
 	}
-	return &DecimalLogicalType{typ: &format.DecimalType{Precision: precision, Scale: scale}}
+	return DecimalLogicalType{typ: &format.DecimalType{Precision: precision, Scale: scale}}
 }
 
 // DecimalLogicalType is used to represent a decimal value of a given
@@ -405,7 +405,7 @@ func (t DecimalLogicalType) toThrift() *format.LogicalType {
 }
 
 func (t DecimalLogicalType) Equals(rhs LogicalType) bool {
-	other, ok := rhs.(*DecimalLogicalType)
+	other, ok := rhs.(DecimalLogicalType)
 	if !ok {
 		return false
 	}
@@ -509,7 +509,7 @@ func createTimeUnit(unit TimeUnitType) *format.TimeUnit {
 
 // NewTimeLogicalType returns a time type of the given unit.
 func NewTimeLogicalType(isAdjustedToUTC bool, unit TimeUnitType) LogicalType {
-	return &TimeLogicalType{typ: &format.TimeType{
+	return TimeLogicalType{typ: &format.TimeType{
 		IsAdjustedToUTC: isAdjustedToUTC,
 		Unit:            createTimeUnit(unit),
 	}}
@@ -584,7 +584,7 @@ func (t TimeLogicalType) toThrift() *format.LogicalType {
 }
 
 func (t TimeLogicalType) Equals(rhs LogicalType) bool {
-	other, ok := rhs.(*TimeLogicalType)
+	other, ok := rhs.(TimeLogicalType)
 	if !ok {
 		return false
 	}
@@ -595,7 +595,7 @@ func (t TimeLogicalType) Equals(rhs LogicalType) bool {
 // NewTimestampLogicalType returns a logical timestamp type with "forceConverted"
 // set to false
 func NewTimestampLogicalType(isAdjustedToUTC bool, unit TimeUnitType) LogicalType {
-	return &TimestampLogicalType{
+	return TimestampLogicalType{
 		typ: &format.TimestampType{
 			IsAdjustedToUTC: isAdjustedToUTC,
 			Unit:            createTimeUnit(unit),
@@ -608,7 +608,7 @@ func NewTimestampLogicalType(isAdjustedToUTC bool, unit TimeUnitType) LogicalTyp
 // NewTimestampLogicalTypeForce returns a timestamp logical type with
 // "forceConverted" set to true
 func NewTimestampLogicalTypeForce(isAdjustedToUTC bool, unit TimeUnitType) LogicalType {
-	return &TimestampLogicalType{
+	return TimestampLogicalType{
 		typ: &format.TimestampType{
 			IsAdjustedToUTC: isAdjustedToUTC,
 			Unit:            createTimeUnit(unit),
@@ -654,14 +654,14 @@ func WithTSFromConverted() TimestampOpt {
 //
 // TimestampType Unit defaults to milliseconds (TimeUnitMillis)
 func NewTimestampLogicalTypeWithOpts(opts ...TimestampOpt) LogicalType {
-	ts := &TimestampLogicalType{
+	ts := TimestampLogicalType{
 		typ: &format.TimestampType{
 			Unit: createTimeUnit(TimeUnitMillis), // default to milliseconds
 		},
 	}
 
 	for _, o := range opts {
-		o(ts)
+		o(&ts)
 	}
 
 	return ts
@@ -760,7 +760,7 @@ func (t TimestampLogicalType) toThrift() *format.LogicalType {
 }
 
 func (t TimestampLogicalType) Equals(rhs LogicalType) bool {
-	other, ok := rhs.(*TimestampLogicalType)
+	other, ok := rhs.(TimestampLogicalType)
 	if !ok {
 		return false
 	}
@@ -778,7 +778,7 @@ func NewIntLogicalType(bitWidth int8, signed bool) LogicalType {
 	default:
 		panic("parquet: bit width must be exactly 8, 16, 32, or 64 for Int logical type")
 	}
-	return &IntLogicalType{
+	return IntLogicalType{
 		typ: &format.IntType{
 			BitWidth: bitWidth,
 			IsSigned: signed,
@@ -864,7 +864,7 @@ func (t IntLogicalType) toThrift() *format.LogicalType {
 }
 
 func (t IntLogicalType) Equals(rhs LogicalType) bool {
-	other, ok := rhs.(*IntLogicalType)
+	other, ok := rhs.(IntLogicalType)
 	if !ok {
 		return false
 	}
