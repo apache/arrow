@@ -257,6 +257,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   public static boolean removeDerbyDatabaseIfExists(final String dbName) {
     boolean wasSuccess;
     final Path path = Paths.get("target" + File.separator + dbName);
+    System.out.println("Db path: " + path.toAbsolutePath());
 
     try (final Stream<Path> walk = Files.walk(path)) {
       /*
@@ -282,6 +283,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       if (!(wasSuccess = e instanceof NoSuchFileException)) {
         LOGGER.error(format("Failed attempt to clear DerbyDB: <%s>", e.getMessage()), e);
       }
+      System.out.println("Derby Exception: " + e.getMessage());
     }
 
     return wasSuccess;
