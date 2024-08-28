@@ -116,7 +116,7 @@ test_that("GcsFileSystem$create() can read json_credentials", {
 })
 
 skip_on_cran()
-skip_if_not(system('storage-testbench -h') == 0, message = "googleapis-storage-testbench is not installed.")
+skip_if_not(system("storage-testbench -h") == 0, message = "googleapis-storage-testbench is not installed.")
 library(dplyr)
 
 testbench_port <- Sys.getenv("TESTBENCH_PORT", "9001")
