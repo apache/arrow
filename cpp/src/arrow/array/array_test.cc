@@ -3721,11 +3721,12 @@ class TestArrayDataStatistics : public ::testing::Test {
     values_buffer_ = Buffer::FromVector(values_);
     data_ = ArrayData::Make(int32(), values_.size(), {null_buffer_, values_buffer_},
                             null_count_);
-    data_->statistics.null_count = null_count_;
-    data_->statistics.min = min_;
-    data_->statistics.is_min_exact = true;
-    data_->statistics.max = max_;
-    data_->statistics.is_max_exact = true;
+    data_->statistics = std::make_shared<ArrayStatistics>();
+    data_->statistics->null_count = null_count_;
+    data_->statistics->min = min_;
+    data_->statistics->is_min_exact = true;
+    data_->statistics->max = max_;
+    data_->statistics->is_max_exact = true;
   }
 
  protected:
@@ -3743,35 +3744,35 @@ TEST_F(TestArrayDataStatistics, MoveConstructor) {
   ArrayData copied_data(*data_);
   ArrayData moved_data(std::move(copied_data));
 
-  ASSERT_TRUE(moved_data.statistics.null_count.has_value());
-  ASSERT_EQ(null_count_, moved_data.statistics.null_count.value());
+  ASSERT_TRUE(moved_data.statistics->null_count.has_value());
+  ASSERT_EQ(null_count_, moved_data.statistics->null_count.value());
 
-  ASSERT_TRUE(moved_data.statistics.min.has_value());
-  ASSERT_TRUE(std::holds_alternative<int64_t>(moved_data.statistics.min.value()));
-  ASSERT_EQ(min_, std::get<int64_t>(moved_data.statistics.min.value()));
-  ASSERT_TRUE(moved_data.statistics.is_min_exact);
+  ASSERT_TRUE(moved_data.statistics->min.has_value());
+  ASSERT_TRUE(std::holds_alternative<int64_t>(moved_data.statistics->min.value()));
+  ASSERT_EQ(min_, std::get<int64_t>(moved_data.statistics->min.value()));
+  ASSERT_TRUE(moved_data.statistics->is_min_exact);
 
-  ASSERT_TRUE(moved_data.statistics.max.has_value());
-  ASSERT_TRUE(std::holds_alternative<int64_t>(moved_data.statistics.max.value()));
-  ASSERT_EQ(max_, std::get<int64_t>(moved_data.statistics.max.value()));
-  ASSERT_TRUE(moved_data.statistics.is_max_exact);
+  ASSERT_TRUE(moved_data.statistics->max.has_value());
+  ASSERT_TRUE(std::holds_alternative<int64_t>(moved_data.statistics->max.value()));
+  ASSERT_EQ(max_, std::get<int64_t>(moved_data.statistics->max.value()));
+  ASSERT_TRUE(moved_data.statistics->is_max_exact);
 }
 
 TEST_F(TestArrayDataStatistics, CopyConstructor) {
   ArrayData copied_data(*data_);
 
-  ASSERT_TRUE(copied_data.statistics.null_count.has_value());
-  ASSERT_EQ(null_count_, copied_data.statistics.null_count.value());
+  ASSERT_TRUE(copied_data.statistics->null_count.has_value());
+  ASSERT_EQ(null_count_, copied_data.statistics->null_count.value());
 
-  ASSERT_TRUE(copied_data.statistics.min.has_value());
-  ASSERT_TRUE(std::holds_alternative<int64_t>(copied_data.statistics.min.value()));
-  ASSERT_EQ(min_, std::get<int64_t>(copied_data.statistics.min.value()));
-  ASSERT_TRUE(copied_data.statistics.is_min_exact);
+  ASSERT_TRUE(copied_data.statistics->min.has_value());
+  ASSERT_TRUE(std::holds_alternative<int64_t>(copied_data.statistics->min.value()));
+  ASSERT_EQ(min_, std::get<int64_t>(copied_data.statistics->min.value()));
+  ASSERT_TRUE(copied_data.statistics->is_min_exact);
 
-  ASSERT_TRUE(copied_data.statistics.max.has_value());
-  ASSERT_TRUE(std::holds_alternative<int64_t>(copied_data.statistics.max.value()));
-  ASSERT_EQ(max_, std::get<int64_t>(copied_data.statistics.max.value()));
-  ASSERT_TRUE(copied_data.statistics.is_max_exact);
+  ASSERT_TRUE(copied_data.statistics->max.has_value());
+  ASSERT_TRUE(std::holds_alternative<int64_t>(copied_data.statistics->max.value()));
+  ASSERT_EQ(max_, std::get<int64_t>(copied_data.statistics->max.value()));
+  ASSERT_TRUE(copied_data.statistics->is_max_exact);
 }
 
 TEST_F(TestArrayDataStatistics, MoveAssignment) {
@@ -3779,36 +3780,36 @@ TEST_F(TestArrayDataStatistics, MoveAssignment) {
   ArrayData moved_data;
   moved_data = std::move(copied_data);
 
-  ASSERT_TRUE(moved_data.statistics.null_count.has_value());
-  ASSERT_EQ(null_count_, moved_data.statistics.null_count.value());
+  ASSERT_TRUE(moved_data.statistics->null_count.has_value());
+  ASSERT_EQ(null_count_, moved_data.statistics->null_count.value());
 
-  ASSERT_TRUE(moved_data.statistics.min.has_value());
-  ASSERT_TRUE(std::holds_alternative<int64_t>(moved_data.statistics.min.value()));
-  ASSERT_EQ(min_, std::get<int64_t>(moved_data.statistics.min.value()));
-  ASSERT_TRUE(moved_data.statistics.is_min_exact);
+  ASSERT_TRUE(moved_data.statistics->min.has_value());
+  ASSERT_TRUE(std::holds_alternative<int64_t>(moved_data.statistics->min.value()));
+  ASSERT_EQ(min_, std::get<int64_t>(moved_data.statistics->min.value()));
+  ASSERT_TRUE(moved_data.statistics->is_min_exact);
 
-  ASSERT_TRUE(moved_data.statistics.max.has_value());
-  ASSERT_TRUE(std::holds_alternative<int64_t>(moved_data.statistics.max.value()));
-  ASSERT_EQ(max_, std::get<int64_t>(moved_data.statistics.max.value()));
-  ASSERT_TRUE(moved_data.statistics.is_max_exact);
+  ASSERT_TRUE(moved_data.statistics->max.has_value());
+  ASSERT_TRUE(std::holds_alternative<int64_t>(moved_data.statistics->max.value()));
+  ASSERT_EQ(max_, std::get<int64_t>(moved_data.statistics->max.value()));
+  ASSERT_TRUE(moved_data.statistics->is_max_exact);
 }
 
 TEST_F(TestArrayDataStatistics, CopyAssignment) {
   ArrayData copied_data;
   copied_data = *data_;
 
-  ASSERT_TRUE(copied_data.statistics.null_count.has_value());
-  ASSERT_EQ(null_count_, copied_data.statistics.null_count.value());
+  ASSERT_TRUE(copied_data.statistics->null_count.has_value());
+  ASSERT_EQ(null_count_, copied_data.statistics->null_count.value());
 
-  ASSERT_TRUE(copied_data.statistics.min.has_value());
-  ASSERT_TRUE(std::holds_alternative<int64_t>(copied_data.statistics.min.value()));
-  ASSERT_EQ(min_, std::get<int64_t>(copied_data.statistics.min.value()));
-  ASSERT_TRUE(copied_data.statistics.is_min_exact);
+  ASSERT_TRUE(copied_data.statistics->min.has_value());
+  ASSERT_TRUE(std::holds_alternative<int64_t>(copied_data.statistics->min.value()));
+  ASSERT_EQ(min_, std::get<int64_t>(copied_data.statistics->min.value()));
+  ASSERT_TRUE(copied_data.statistics->is_min_exact);
 
-  ASSERT_TRUE(copied_data.statistics.max.has_value());
-  ASSERT_TRUE(std::holds_alternative<int64_t>(copied_data.statistics.max.value()));
-  ASSERT_EQ(max_, std::get<int64_t>(copied_data.statistics.max.value()));
-  ASSERT_TRUE(copied_data.statistics.is_max_exact);
+  ASSERT_TRUE(copied_data.statistics->max.has_value());
+  ASSERT_TRUE(std::holds_alternative<int64_t>(copied_data.statistics->max.value()));
+  ASSERT_EQ(max_, std::get<int64_t>(copied_data.statistics->max.value()));
+  ASSERT_TRUE(copied_data.statistics->is_max_exact);
 }
 
 template <typename PType>

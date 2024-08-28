@@ -238,7 +238,7 @@ class ARROW_EXPORT Array {
   /// object which backs this Array.
   ///
   /// \return const ArrayStatistics&
-  const ArrayStatistics& statistics() const { return data_->statistics; }
+  std::shared_ptr<ArrayStatistics> statistics() const { return data_->statistics; }
 
  protected:
   Array() = default;

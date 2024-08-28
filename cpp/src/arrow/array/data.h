@@ -397,7 +397,7 @@ struct ARROW_EXPORT ArrayData {
   std::shared_ptr<ArrayData> dictionary;
 
   // The statistics for this Array.
-  ArrayStatistics statistics{};
+  std::shared_ptr<ArrayStatistics> statistics;
 };
 
 /// \brief A non-owning Buffer reference
