@@ -1746,12 +1746,8 @@ TEST(Expression, SimplifyIsInThenExecute) {
     ExpectExecute(filter, input, &evaluated);
     ExpectExecute(simplified, input, &simplified_evaluated);
     if (simplified_evaluated.is_scalar()) {
-      ASSERT_EQ(evaluated.kind(), Datum::ARRAY);
-      ASSERT_EQ(simplified_evaluated.type()->id(), Type::BOOL);
-      BooleanBuilder builder;
-      ASSERT_OK(builder.AppendValues(
-          evaluated.length(), simplified_evaluated.scalar_as<BooleanScalar>().value));
-      ASSERT_OK_AND_ASSIGN(simplified_evaluated, builder.Finish());
+      ASSERT_OK_AND_ASSIGN(simplified_evaluated,
+          MakeArrayFromScalar(*simplified_evaluated.scalar(), expected->length()));
     }
     AssertDatumsEqual(evaluated, simplified_evaluated, /*verbose=*/true);
   }
