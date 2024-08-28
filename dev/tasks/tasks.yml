@@ -442,7 +442,7 @@ tasks:
       runs_on: "macos-14"
       vcpkg_arch: "arm64"
     artifacts:
-      - pyarrow-{no_rc_version}-{{ python_tag }}-{{ python_tag }}-macosx_11_0_arm64.whl
+      - pyarrow-{no_rc_version}-{{ python_tag }}-{{ python_tag }}-macosx_12_0_arm64.whl
 
 {############################## Wheel Windows ################################}
 
