@@ -41,6 +41,12 @@ jobs:
       {{ macros.github_login_ghcr()|indent }}
       {{ macros.github_install_archery()|indent }}
 
+      - name: Build test image
+        shell: cmd
+        run: |
+          cd arrow
+          archery docker build python-wheel-windows-test
+
       - name: Build wheel
         shell: cmd
         run: |
