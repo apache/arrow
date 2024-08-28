@@ -184,6 +184,10 @@ env:
 {% endmacro %}
 
 {%- macro github_upload_wheel_scientific_python(pattern) -%}
+  - name: Install conda to upload wheel to scientific-python
+    shell: bash
+    run: |
+      arrow/ci/scripts/install_conda.sh mambaforge latest /opt/conda
   - name: Upload wheel to Anaconda scientific-python
     shell: bash
     run: |
