@@ -274,6 +274,10 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
               .map(File::delete)
               .reduce(Boolean::logicalAnd)
               .orElseThrow(IOException::new);
+    } catch (NoSuchFileException e) {
+      // Database does not exist, which is fine
+      wasSuccess = true;
+      System.out.println("No existing Derby database to delete.");
     } catch (IOException e) {
       /*
        * The only acceptable scenario for an `IOException` to be thrown here is if
