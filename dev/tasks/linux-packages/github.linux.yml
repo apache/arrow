@@ -29,7 +29,6 @@ jobs:
     {% endif %}
     env:
       ARCHITECTURE: {{ architecture }}
-      ARCHERY_USE_LEGACY_DOCKER_COMPOSE: {{ '1' if architecture == 'arm64' else '0' }}
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_login_dockerhub()|indent }}
