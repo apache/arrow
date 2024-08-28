@@ -181,9 +181,11 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
 
   public FlightSqlExample(final Location location, final String dbName) {
     // TODO Constructor should not be doing work.
-    checkState(
-        removeDerbyDatabaseIfExists(dbName) && populateDerbyDatabase(dbName),
-        "Failed to reset Derby database!");
+    // checkState(
+    //    removeDerbyDatabaseIfExists(dbName) && populateDerbyDatabase(dbName),
+    //    "Failed to reset Derby database!");
+    checkState(removeDerbyDatabaseIfExists(dbName), "Failed to clear Derby database!");
+    checkState(populateDerbyDatabase(dbName), "Failed to populate Derby database!");
     databaseUri = "jdbc:derby:target/" + dbName;
     final ConnectionFactory connectionFactory =
         new DriverManagerConnectionFactory(databaseUri, new Properties());
