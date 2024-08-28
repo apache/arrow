@@ -274,6 +274,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
               .map(File::delete)
               .reduce(Boolean::logicalAnd)
               .orElseThrow(IOException::new);
+      System.out.println("WasSuccess in try: " + wasSuccess);
     } catch (NoSuchFileException e) {
       /*
        * The only acceptable scenario for an `IOException` to be thrown here is if
