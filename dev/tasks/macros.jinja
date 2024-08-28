@@ -185,7 +185,8 @@ env:
 
 {%- macro github_upload_wheel_scientific_python(pattern) -%}
   - name: Upload wheel to Anaconda scientific-python
-    bash: |
+    shell: bash
+    run: |
       conda create -y -n upload_wheel_scientific_python -c conda-forge anaconda-client
       source activate upload_wheel_scientific_python
       anaconda -t ${CROSSBOW_SCIENTIFIC_PYTHON_UPLOAD_TOKEN} upload --force -u scientific-python-nightly-wheels --label dev {{ pattern }}
