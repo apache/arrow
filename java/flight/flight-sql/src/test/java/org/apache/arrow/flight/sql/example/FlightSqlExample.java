@@ -288,6 +288,10 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       wasSuccess = false;
       LOGGER.error(format("Failed attempt to clear DerbyDB: <%s>", e.getMessage()), e);
       System.out.println("Derby Exception: " + e.getMessage());
+    } catch (Exception e) {
+      wasSuccess = false;
+      LOGGER.error(format("Failed2 attempt to clear DerbyDB: <%s>", e.getMessage()), e);
+      System.out.println("Other Exception: " + e.getMessage());
     }
     System.out.println("Boolean Status: " + wasSuccess);
     return wasSuccess;
