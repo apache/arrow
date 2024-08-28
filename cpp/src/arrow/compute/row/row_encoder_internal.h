@@ -259,6 +259,51 @@ struct ARROW_EXPORT NullKeyEncoder : KeyEncoder {
   }
 };
 
+/// RowEncoder encodes ExecSpan to a variable length byte sequence
+/// created by concatenating the encoded form of each column. The encoding
+/// for each column depends on its datatype.
+///
+/// This is used to encode rows for grouping and joining operations.
+///
+/// Unlike DuckDB and arrow-rs, currently this row format can not help
+/// sortings because the row-format is uncomparable.
+///
+/// The row format is composed of the the KeyColumn encodings for each,
+/// and the column is encoded as follows:
+/// 1. A null byte for each column, indicating whether the column is null.
+///    "1" for null, "0" for non-null.
+/// 2. The "fixed width" encoding for the column, it would exists whether
+///    the column is null or not.
+/// 3. The "variable width" encoding for the column, it would exists only
+///    for non-null string/binary columns.
+///
+/// ## Null Type
+///
+/// Null Type is a special case, it doesn't occupy any space in the encoded row.
+///
+/// ## Fixed Width Type
+///
+/// Fixed Width Type is encoded as a fixed-width byte sequence. For example:
+/// ```
+/// Int8: [5, null, 6]
+/// ```
+/// Would be encoded as [0 5 1 0 0 6].
+///
+/// ### Dictionary Type
+///
+/// Dictionary Type is encoded as a fixed-width byte sequence using dictionary
+/// indices, the dictionary should be same for all rows.
+///
+/// ## Variable Width Type
+///
+/// Variable Width Type is encoded as:
+/// [null byte, variable-byte length, variable bytes]. For example:
+///
+/// String "abc" Would be encoded as:
+/// [0 0 0 0 3 'a' 'b' 'c']
+///
+/// String null Would be encoded as:
+/// [1 0 0 0 0]
 class ARROW_EXPORT RowEncoder {
  public:
   static constexpr int kRowIdForNulls() { return -1; }
