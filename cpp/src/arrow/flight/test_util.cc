@@ -51,7 +51,6 @@
 
 namespace arrow::flight {
 
-namespace bp = boost::process;
 namespace fs = boost::filesystem;
 
 namespace {
@@ -109,13 +108,13 @@ void TestServer::Start(const std::vector<std::string>& extra_args) {
 
   try {
     if (unix_sock_.empty()) {
-      server_process_ =
-          std::make_shared<bp::child>(bp::search_path(executable_name_, search_path),
-                                      "-port", str_port, bp::args(extra_args));
+      server_process_ = std::make_shared<boost::process::child>(
+          boost::process::search_path(executable_name_, search_path), "-port", str_port,
+          boost::process::args(extra_args));
     } else {
-      server_process_ =
-          std::make_shared<bp::child>(bp::search_path(executable_name_, search_path),
-                                      "-server_unix", unix_sock_, bp::args(extra_args));
+      server_process_ = std::make_shared<boost::process::child>(
+          boost::process::search_path(executable_name_, search_path), "-server_unix",
+          unix_sock_, boost::process::args(extra_args));
     }
   } catch (...) {
     std::stringstream ss;
