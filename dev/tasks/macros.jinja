@@ -184,13 +184,15 @@ env:
 {% endmacro %}
 
 {%- macro github_upload_wheel_scientific_python(pattern) -%}
-  - uses: conda-incubator/setup-miniconda@v3
-    with:
-      activate-environment: upload_wheel_scientific_python
+    - uses: mamba-org/setup-micromamba@f8b8a1e23a26f60a44c853292711bacfd3eac822
+      with:
+        init-shell: bash
+        environment-name: upload_wheel_scientific_python
+        create-args: >-
+          anaconda-client
   - name: Upload wheel to Anaconda scientific-python
     shell: bash
     run: |
-      conda install -y -c conda-forge anaconda-client
       anaconda -t ${CROSSBOW_SCIENTIFIC_PYTHON_UPLOAD_TOKEN} upload --force -u scientific-python-nightly-wheels --label dev {{ pattern }}
     env:
       CROSSBOW_SCIENTIFIC_PYTHON_UPLOAD_TOKEN: {{ '${{ secrets.CROSSBOW_SCIENTIFIC_PYTHON_UPLOAD_TOKEN }}' }}
