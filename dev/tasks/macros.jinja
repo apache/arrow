@@ -184,12 +184,12 @@ env:
 {% endmacro %}
 
 {%- macro github_upload_wheel_scientific_python(pattern) -%}
-    - uses: mamba-org/setup-micromamba@f8b8a1e23a26f60a44c853292711bacfd3eac822
-      with:
-        init-shell: bash
-        environment-name: upload_wheel_scientific_python
-        create-args: >-
-          anaconda-client
+  - uses: mamba-org/setup-micromamba@f8b8a1e23a26f60a44c853292711bacfd3eac822
+    with:
+      init-shell: bash
+      environment-name: upload_wheel_scientific_python
+      create-args: >-
+        anaconda-client
   - name: Upload wheel to Anaconda scientific-python
     shell: bash
     run: |
