@@ -46,15 +46,16 @@ RUN call "C:\arrow\ci\scripts\install_gcs_testbench.bat" && \
     storage-testbench -h
 
 # Define the full version number otherwise choco falls back to patch number 0 (3.8 => 3.8.0)
-# Also make sure the newly installed Python is first in PATH.
 ARG python=3.8
-RUN (if "%python%"=="3.8" setx PYTHON_VERSION "3.8.10" && setx PATH "C:\Python38;C:\Python38\Scripts;%PATH%") & \
-    (if "%python%"=="3.9" setx PYTHON_VERSION "3.9.13" && setx PATH "C:\Python39;C:\Python39\Scripts;%PATH%") & \
-    (if "%python%"=="3.10" setx PYTHON_VERSION "3.10.11" && setx PATH "C:\Python310;C:\Python310\Scripts;%PATH%") & \
-    (if "%python%"=="3.11" setx PYTHON_VERSION "3.11.9" && setx PATH "C:\Python311;C:\Python311\Scripts;%PATH%") & \
-    (if "%python%"=="3.12" setx PYTHON_VERSION "3.12.4" && setx PATH "C:\Python312;C:\Python312\Scripts;%PATH%") & \
-    (if "%python%"=="3.13" setx PYTHON_VERSION "3.13.0-rc1" && setx PATH "C:\Python313;C:\Python313\Scripts;%PATH%")
+RUN (if "%python%"=="3.8" setx PYTHON_VERSION "3.8.10") & \
+    (if "%python%"=="3.9" setx PYTHON_VERSION "3.9.13") & \
+    (if "%python%"=="3.10" setx PYTHON_VERSION "3.10.11") & \
+    (if "%python%"=="3.11" setx PYTHON_VERSION "3.11.9") & \
+    (if "%python%"=="3.12" setx PYTHON_VERSION "3.12.4") & \
+    (if "%python%"=="3.13" setx PYTHON_VERSION "3.13.0-rc1")
 
 # Install archiver to extract xz archives
 RUN choco install -r -y --pre --no-progress --force python --version=%PYTHON_VERSION% && \
     choco install --no-progress -r -y archiver
+
+ENV PYTHON=$python
