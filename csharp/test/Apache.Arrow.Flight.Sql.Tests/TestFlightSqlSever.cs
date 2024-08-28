@@ -19,25 +19,12 @@ using System.Threading.Tasks;
 using Apache.Arrow.Flight.Server;
 using Apache.Arrow.Types;
 using Arrow.Flight.Protocol.Sql;
-using Google.Protobuf;
 using Grpc.Core;
 
 namespace Apache.Arrow.Flight.Sql.Tests;
 
 public class TestFlightSqlSever : FlightSqlServer
 {
-    public override async Task DoAction(FlightAction action, IAsyncStreamWriter<FlightResult> responseStream, ServerCallContext context)
-    {
-        if (action.Type == "Commit")
-        {
-            await responseStream.WriteAsync(new FlightResult(ByteString.CopyFromUtf8("Transaction committed successfully.")));
-        }
-        else
-        {
-            await base.DoAction(action, responseStream, context);
-        }
-    }
-
     protected override Task<FlightInfo> GetStatementQueryFlightInfo(CommandStatementQuery commandStatementQuery, FlightDescriptor flightDescriptor, ServerCallContext serverCallContext) => Task.FromResult(new FlightInfo(null, FlightDescriptor.CreatePathDescriptor(MethodBase.GetCurrentMethod().Name), System.Array.Empty<FlightEndpoint>()));
 
     protected override Task<FlightInfo> GetPreparedStatementQueryFlightInfo(CommandPreparedStatementQuery preparedStatementQuery, FlightDescriptor flightDescriptor, ServerCallContext serverCallContext) => Task.FromResult(new FlightInfo(null, FlightDescriptor.CreatePathDescriptor(MethodBase.GetCurrentMethod().Name), System.Array.Empty<FlightEndpoint>()));

@@ -12,9 +12,9 @@ namespace Apache.Arrow.Flight.Sql.Client;
 
 public class FlightSqlClient
 {
-    private readonly IFlightClient _client;
+    private readonly FlightClient _client;
 
-    public FlightSqlClient(IFlightClient client)
+    public FlightSqlClient(FlightClient client)
     {
         _client = client ?? throw new ArgumentNullException(nameof(client));
     }
@@ -1176,7 +1176,7 @@ public class FlightSqlClient
     /// <param name="options">RPC-layer hints for this call.</param>
     /// <param name="transaction">The transaction.</param>
     /// <returns>A Task representing the asynchronous operation.</returns>
-    public async Task CommitAsync(FlightCallOptions options, Transaction transaction)
+    public AsyncServerStreamingCall<FlightResult> CommitAsync(FlightCallOptions options, Transaction transaction)
     {
         if (options == null)
         {
@@ -1191,11 +1191,7 @@ public class FlightSqlClient
         try
         {
             var actionCommit = new FlightAction("Commit", transaction.TransactionId);
-            var responseStream = _client.DoAction(actionCommit, options.Headers);
-            await foreach (var result in responseStream.ResponseStream.ReadAllAsync())
-            {
-                Console.WriteLine("Transaction committed successfully.");
-            }
+            return _client.DoAction(actionCommit, options.Headers);
         }
         catch (RpcException ex)
         {
@@ -1287,6 +1283,7 @@ public class FlightSqlClient
                     };
                 }
             }
+
             throw new InvalidOperationException("Failed to cancel query: No response received.");
         }
         catch (RpcException ex)

@@ -187,7 +187,7 @@ namespace Apache.Arrow.Flight.Tests
 
             var getStream = _flightClient.GetStream(endpoint.Ticket);
 
-            List<ByteString> actualMetadata = new List<ByteString>(); 
+            List<ByteString> actualMetadata = new List<ByteString>();
             while(await getStream.ResponseStream.MoveNext(default))
             {
                 actualMetadata.AddRange(getStream.ResponseStream.ApplicationMetadata);

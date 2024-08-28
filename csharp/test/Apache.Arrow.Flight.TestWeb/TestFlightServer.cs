@@ -40,6 +40,12 @@ namespace Apache.Arrow.Flight.TestWeb
                 case "test":
                     await responseStream.WriteAsync(new FlightResult("test data"));
                     break;
+                case "Commit":
+                    await responseStream.WriteAsync(new FlightResult(ByteString.CopyFromUtf8("Transaction committed successfully.")));
+                    break;
+                case "Rollback":
+                    await responseStream.WriteAsync(new FlightResult(ByteString.CopyFromUtf8("Transaction rolled back successfully.")));
+                    break;
                 default:
                     throw new NotImplementedException();
             }
@@ -53,7 +59,7 @@ namespace Apache.Arrow.Flight.TestWeb
             {
                 var batches = flightHolder.GetRecordBatches();
 
-                
+
                 foreach(var batch in batches)
                 {
                     await responseStream.WriteAsync(batch.RecordBatch, batch.Metadata);
@@ -117,6 +123,8 @@ namespace Apache.Arrow.Flight.TestWeb
             await responseStream.WriteAsync(new FlightActionType("put", "add a flight"));
             await responseStream.WriteAsync(new FlightActionType("delete", "delete a flight"));
             await responseStream.WriteAsync(new FlightActionType("test", "test action"));
+            await responseStream.WriteAsync(new FlightActionType("commit", "commit a transaction"));
+            await responseStream.WriteAsync(new FlightActionType("rollback", "rollback a transaction"));
         }
 
         public override async Task ListFlights(FlightCriteria request, IAsyncStreamWriter<FlightInfo> responseStream, ServerCallContext context)
