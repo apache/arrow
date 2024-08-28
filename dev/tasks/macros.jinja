@@ -189,7 +189,7 @@ env:
     shell: bash
     run: |
       conda create -y -n upload_wheel_scientific_python -c conda-forge anaconda-client
-      source activate upload_wheel_scientific_python
+      conda activate upload_wheel_scientific_python
       anaconda -t ${CROSSBOW_SCIENTIFIC_PYTHON_UPLOAD_TOKEN} upload --force -u scientific-python-nightly-wheels --label dev {{ pattern }}
     env:
       CROSSBOW_SCIENTIFIC_PYTHON_UPLOAD_TOKEN: {{ '${{ secrets.CROSSBOW_SCIENTIFIC_PYTHON_UPLOAD_TOKEN }}' }}
