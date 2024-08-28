@@ -19,7 +19,7 @@
 
 // Include templated definitions for aggregate kernels that must compiled here
 // with the SIMD level configured for this compilation unit in the build.
-#include "arrow/compute/kernels/aggregate_basic.inc.cc"
+#include "arrow/compute/kernels/aggregate_basic.inc.cc"  // NONLINT
 
 namespace arrow {
 namespace compute {
