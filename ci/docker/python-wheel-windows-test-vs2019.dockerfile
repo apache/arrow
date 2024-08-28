@@ -57,5 +57,4 @@ RUN (if "%python%"=="3.8" setx PYTHON_VERSION "3.8.10" && setx PATH "C:\Python38
 
 # Install archiver to extract xz archives
 RUN choco install -r -y --pre --no-progress --force python --version=%PYTHON_VERSION% && \
-    python -m pip install --no-cache-dir -U pip setuptools && \
     choco install --no-progress -r -y archiver

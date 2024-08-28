@@ -37,8 +37,10 @@ set PYARROW_TEST_TENSORFLOW=ON
 set ARROW_TEST_DATA=C:\arrow\testing\data
 set PARQUET_TEST_DATA=C:\arrow\cpp\submodules\parquet-testing\data
 
+python -m pip install -U pip setuptools
+
 @REM Install testing dependencies
-pip install -r C:\arrow\python\requirements-wheel-test.txt || exit /B 1
+python -m pip install -r C:\arrow\python\requirements-wheel-test.txt || exit /B 1
 
 @REM Install the built wheels
 python -m pip install --no-index --find-links=C:\arrow\python\dist\ pyarrow || exit /B 1 
@@ -64,4 +66,4 @@ arc unarchive tzdata.tar.xz %USERPROFILE%\Downloads\test\tzdata
 set TZDIR=%USERPROFILE%\Downloads\test\tzdata\usr\share\zoneinfo
 
 @REM Execute unittest
-pytest -r s --pyargs pyarrow || exit /B 1
+python -m pytest -r s --pyargs pyarrow || exit /B 1
