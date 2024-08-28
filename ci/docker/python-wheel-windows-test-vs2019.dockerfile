@@ -41,7 +41,7 @@ RUN wmic product where "name like 'python%%'" call uninstall /nointeractive && \
 RUN choco install -r -y --pre --no-progress python --version=3.11.9
 ENV PIPX_BIN_DIR=C:\\Windows\\
 ENV PIPX_PYTHON="C:\Python311\python.exe"
-RUN call "C:\arrow\ci\scripts\install_gcs_testbench.bat" & \
+RUN call "C:\arrow\ci\scripts\install_gcs_testbench.bat" && \
     storage-testbench -h
 
 # Define the full version number otherwise choco falls back to patch number 0 (3.8 => 3.8.0)
