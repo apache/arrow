@@ -1626,69 +1626,132 @@ TEST(Expression, SimplifyIsIn) {
     return call("is_in", {field}, options);
   };
 
-  for (SetLookupOptions::NullMatchingBehavior null_matching_behavior :
-       {SetLookupOptions::MATCH, SetLookupOptions::SKIP, SetLookupOptions::EMIT_NULL}) {
-    Simplify{is_in(field_ref("i32"), int32(), "[]", null_matching_behavior)}
+  for (SetLookupOptions::NullMatchingBehavior null_matching : {
+           SetLookupOptions::MATCH,
+           SetLookupOptions::SKIP,
+           SetLookupOptions::EMIT_NULL,
+           SetLookupOptions::INCONCLUSIVE,
+       }) {
+    Simplify{is_in(field_ref("i32"), int32(), "[]", null_matching)}
         .WithGuarantee(greater(field_ref("i32"), literal(2)))
         .Expect(false);
 
-    Simplify{is_in(field_ref("i32"), int32(), "[null]", null_matching_behavior)}
-        .WithGuarantee(greater(field_ref("i32"), literal(2)))
-        .Expect(false);
-
-    Simplify{is_in(field_ref("i32"), int32(), "[1,3,5,7,9]", null_matching_behavior)}
-        .WithGuarantee(equal(field_ref("i32"), literal(7)))
-        .Expect(true);
-
-    Simplify{is_in(field_ref("i32"), int32(), "[1,3,5,7,9]", null_matching_behavior)}
+    Simplify{is_in(field_ref("i32"), int32(), "[1,3,5,7,9]", null_matching)}
         .WithGuarantee(equal(field_ref("i32"), literal(6)))
         .Expect(false);
 
-    Simplify{is_in(field_ref("i32"), int32(), "[1,3,5,7,9]", null_matching_behavior)}
+    Simplify{is_in(field_ref("i32"), int32(), "[1,3,5,7,9]", null_matching)}
         .WithGuarantee(greater(field_ref("i32"), literal(3)))
-        .Expect(is_in(field_ref("i32"), int32(), "[5,7,9]", null_matching_behavior));
+        .Expect(is_in(field_ref("i32"), int32(), "[5,7,9]", null_matching));
 
-    Simplify{
-        is_in(field_ref("i32"), int32(), "[1,null,3,5,null,7,9]", null_matching_behavior),
-    }
-        .WithGuarantee(greater(field_ref("i32"), literal(3)))
-        .Expect(is_in(field_ref("i32"), int32(), "[5,7,9]", null_matching_behavior));
-
-    Simplify{is_in(field_ref("i32"), int32(), "[1,3,5,7,9]", null_matching_behavior)}
+    Simplify{is_in(field_ref("i32"), int32(), "[1,3,5,7,9]", null_matching)}
         .WithGuarantee(greater(field_ref("i32"), literal(9)))
         .Expect(false);
 
-    Simplify{is_in(field_ref("i32"), int32(), "[1,3,5,7,9]", null_matching_behavior)}
+    Simplify{is_in(field_ref("i32"), int32(), "[1,3,5,7,9]", null_matching)}
         .WithGuarantee(less_equal(field_ref("i32"), literal(0)))
         .Expect(false);
 
-    Simplify{is_in(field_ref("i32"), int32(), "[1,3,5,7,9]", null_matching_behavior)}
+    Simplify{is_in(field_ref("i32"), int32(), "[1,3,5,7,9]", null_matching)}
         .WithGuarantee(greater(field_ref("i32"), literal(0)))
         .ExpectUnchanged();
 
-    Simplify{is_in(field_ref("i32"), int32(), "[1,3,5,7,9]", null_matching_behavior)}
-        .WithGuarantee(
-            or_(equal(field_ref("i32"), literal(3)), is_null(field_ref("i32"))))
+    Simplify{is_in(field_ref("i32"), int32(), "[1,3,5,7,9]", null_matching)}
+        .WithGuarantee(less_equal(field_ref("i32"), literal(9)))
         .ExpectUnchanged();
 
-    Simplify{is_in(field_ref("i32"), int32(), "[1,3,5,7,9]", null_matching_behavior)}
+    Simplify{is_in(field_ref("i32"), int32(), "[1,3,5,7,9]", null_matching)}
         .WithGuarantee(and_(less_equal(field_ref("i32"), literal(7)),
                             greater(field_ref("i32"), literal(4))))
-        .Expect(is_in(field_ref("i32"), int32(), "[5,7]", null_matching_behavior));
+        .Expect(is_in(field_ref("i32"), int32(), "[5,7]", null_matching));
 
-    Simplify{is_in(field_ref("u32"), int8(), "[1,3,5,7,9]", null_matching_behavior)}
+    Simplify{is_in(field_ref("u32"), int8(), "[1,3,5,7,9]", null_matching)}
         .WithGuarantee(greater(field_ref("u32"), literal(3)))
-        .Expect(is_in(field_ref("u32"), int8(), "[5,7,9]", null_matching_behavior));
+        .Expect(is_in(field_ref("u32"), int8(), "[5,7,9]", null_matching));
 
-    Simplify{is_in(field_ref("u32"), int64(), "[1,3,5,7,9]", null_matching_behavior)}
+    Simplify{is_in(field_ref("u32"), int64(), "[1,3,5,7,9]", null_matching)}
         .WithGuarantee(greater(field_ref("u32"), literal(3)))
-        .Expect(is_in(field_ref("u32"), int64(), "[5,7,9]", null_matching_behavior));
+        .Expect(is_in(field_ref("u32"), int64(), "[5,7,9]", null_matching));
   }
 
   Simplify{
-      is_in(field_ref("i32"), int32(), "[1,3,5,7,9]", SetLookupOptions::INCONCLUSIVE),
+      is_in(field_ref("i32"), int32(), "[1,2,3]", SetLookupOptions::MATCH),
   }
-      .WithGuarantee(greater(field_ref("i32"), literal(3)))
+      .WithGuarantee(
+          or_(greater(field_ref("i32"), literal(2)), is_null(field_ref("i32"))))
+      .Expect(is_in(field_ref("i32"), int32(), "[3]", SetLookupOptions::MATCH));
+
+  Simplify{
+      is_in(field_ref("i32"), int32(), "[1,2,3,null]", SetLookupOptions::MATCH),
+  }
+      .WithGuarantee(greater(field_ref("i32"), literal(2)))
+      .Expect(is_in(field_ref("i32"), int32(), "[3]", SetLookupOptions::MATCH));
+
+  Simplify{
+      is_in(field_ref("i32"), int32(), "[1,2,3,null]", SetLookupOptions::MATCH),
+  }
+      .WithGuarantee(
+          or_(greater(field_ref("i32"), literal(2)), is_null(field_ref("i32"))))
+      .Expect(is_in(field_ref("i32"), int32(), "[3,null]", SetLookupOptions::MATCH));
+
+  Simplify{
+      is_in(field_ref("i32"), int32(), "[1,2,3]", SetLookupOptions::SKIP),
+  }
+      .WithGuarantee(
+          or_(greater(field_ref("i32"), literal(2)), is_null(field_ref("i32"))))
+      .Expect(is_in(field_ref("i32"), int32(), "[3]", SetLookupOptions::SKIP));
+
+  Simplify{
+      is_in(field_ref("i32"), int32(), "[1,2,3,null]", SetLookupOptions::SKIP),
+  }
+      .WithGuarantee(greater(field_ref("i32"), literal(2)))
+      .Expect(is_in(field_ref("i32"), int32(), "[3]", SetLookupOptions::SKIP));
+
+  Simplify{
+      is_in(field_ref("i32"), int32(), "[1,2,3,null]", SetLookupOptions::SKIP),
+  }
+      .WithGuarantee(
+          or_(greater(field_ref("i32"), literal(2)), is_null(field_ref("i32"))))
+      .Expect(is_in(field_ref("i32"), int32(), "[3]", SetLookupOptions::SKIP));
+
+  Simplify{
+      is_in(field_ref("i32"), int32(), "[1,2,3]", SetLookupOptions::EMIT_NULL),
+  }
+      .WithGuarantee(
+          or_(greater(field_ref("i32"), literal(2)), is_null(field_ref("i32"))))
+      .ExpectUnchanged();
+
+  Simplify{
+      is_in(field_ref("i32"), int32(), "[1,2,3,null]", SetLookupOptions::EMIT_NULL),
+  }
+      .WithGuarantee(greater(field_ref("i32"), literal(2)))
+      .Expect(is_in(field_ref("i32"), int32(), "[3]", SetLookupOptions::EMIT_NULL));
+
+  Simplify{
+      is_in(field_ref("i32"), int32(), "[1,2,3,null]", SetLookupOptions::EMIT_NULL),
+  }
+      .WithGuarantee(
+          or_(greater(field_ref("i32"), literal(2)), is_null(field_ref("i32"))))
+      .ExpectUnchanged();
+
+  Simplify{
+      is_in(field_ref("i32"), int32(), "[1,2,3]", SetLookupOptions::INCONCLUSIVE),
+  }
+      .WithGuarantee(
+          or_(greater(field_ref("i32"), literal(2)), is_null(field_ref("i32"))))
+      .ExpectUnchanged();
+
+  Simplify{
+      is_in(field_ref("i32"), int32(), "[1,2,3,null]", SetLookupOptions::INCONCLUSIVE),
+  }
+      .WithGuarantee(greater(field_ref("i32"), literal(2)))
+      .ExpectUnchanged();
+
+  Simplify{
+      is_in(field_ref("i32"), int32(), "[1,2,3,null]", SetLookupOptions::INCONCLUSIVE),
+  }
+      .WithGuarantee(
+          or_(greater(field_ref("i32"), literal(2)), is_null(field_ref("i32"))))
       .ExpectUnchanged();
 }
 
@@ -1730,15 +1793,14 @@ TEST(Expression, SimplifyIsInThenExecute) {
       {"i64": 5, "i32": 5}
   ])");
 
-  std::vector<Expression> guarantees{
-      greater(field_ref("i64"), literal(1)),
-      greater_equal(field_ref("i32"), literal(5)),
-      less_equal(field_ref("i64"), literal(5))};
+  std::vector<Expression> guarantees{greater(field_ref("i64"), literal(1)),
+                                     greater_equal(field_ref("i32"), literal(5)),
+                                     less_equal(field_ref("i64"), literal(5))};
 
   for (const Expression& guarantee : guarantees) {
-    auto filter = call(
-        "is_in", {guarantee.call()->arguments[0]},
-        compute::SetLookupOptions{ArrayFromJSON(int32(), "[1,2,3]"), true});
+    auto filter =
+        call("is_in", {guarantee.call()->arguments[0]},
+             compute::SetLookupOptions{ArrayFromJSON(int32(), "[1,2,3]"), true});
     ASSERT_OK_AND_ASSIGN(filter, filter.Bind(*kBoringSchema));
     ASSERT_OK_AND_ASSIGN(auto simplified, SimplifyWithGuarantee(filter, guarantee));
 
@@ -1746,8 +1808,9 @@ TEST(Expression, SimplifyIsInThenExecute) {
     ExpectExecute(filter, input, &evaluated);
     ExpectExecute(simplified, input, &simplified_evaluated);
     if (simplified_evaluated.is_scalar()) {
-      ASSERT_OK_AND_ASSIGN(simplified_evaluated,
-          MakeArrayFromScalar(*simplified_evaluated.scalar(), expected->length()));
+      ASSERT_OK_AND_ASSIGN(
+          simplified_evaluated,
+          MakeArrayFromScalar(*simplified_evaluated.scalar(), evaluated.length()));
     }
     AssertDatumsEqual(evaluated, simplified_evaluated, /*verbose=*/true);
   }
