@@ -35,6 +35,15 @@ RUN setx path "%path%;C:\Program Files\Git\usr\bin"
 RUN wmic product where "name like 'python%%'" call uninstall /nointeractive && \
     rm -rf Python*
 
+# Install the GCS testbench using a well-known Python version.
+# NOTE: cannot use pipx's `--fetch-missing-python` because of
+# https://github.com/pypa/pipx/issues/1521, therefore download Python ourselves.
+RUN choco install -r -y --pre --no-progress python --version=3.11.9
+ENV PIPX_BIN_DIR=C:\\Windows\\
+ENV PIPX_PYTHON="C:\Python311\python.exe"
+RUN call "C:\arrow\ci\scripts\install_gcs_testbench.bat" & \
+    storage-testbench -h
+
 # Define the full version number otherwise choco falls back to patch number 0 (3.8 => 3.8.0)
 ARG python=3.8
 RUN (if "%python%"=="3.8" setx PYTHON_VERSION "3.8.10" && setx PATH "%PATH%;C:\Python38;C:\Python38\Scripts") & \

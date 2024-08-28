@@ -40,12 +40,6 @@ set PARQUET_TEST_DATA=C:\arrow\cpp\submodules\parquet-testing\data
 @REM Install testing dependencies
 pip install -r C:\arrow\python\requirements-wheel-test.txt || exit /B 1
 
-@REM Install GCS testbench using a well-known version of Python
-set PIPX_BIN_DIR=C:\Windows\
-set PIPX_PYTHON=3.11
-call "C:\arrow\ci\scripts\install_gcs_testbench.bat"
-storage-testbench -h || exit /B 1
-
 @REM Install the built wheels
 python -m pip install --no-index --find-links=C:\arrow\python\dist\ pyarrow || exit /B 1 
 

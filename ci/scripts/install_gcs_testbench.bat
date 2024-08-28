@@ -21,7 +21,7 @@ set GCS_TESTBENCH_VERSION="v0.40.0"
 
 set PIPX_FLAGS=--verbose
 if NOT "%PIPX_PYTHON%"=="" (
-  set PIPX_FLAGS=--python %PIPX_PYTHON% --fetch-missing-python %PIPX_FLAGS%
+  set PIPX_FLAGS=--python %PIPX_PYTHON% %PIPX_FLAGS%
 )
 
 python -m pip install -U pipx || exit /B 1
