@@ -259,9 +259,9 @@ gaflight_record_batch_writer_write_metadata(GAFlightRecordBatchWriter *writer,
 
 GAFLIGHT_AVAILABLE_IN_18_0
 gboolean
-gaflight_record_batch_writer_write(GAFlightRecordBatchWriter *writer,
-                                   GArrowRecordBatch *record_batch,
-                                   GArrowBuffer *metadata,
-                                   GError **error);
+gaflight_record_batch_writer_write_record_batch(GAFlightRecordBatchWriter *writer,
+                                                GArrowRecordBatch *record_batch,
+                                                GArrowBuffer *metadata,
+                                                GError **error);
 
 G_END_DECLS
