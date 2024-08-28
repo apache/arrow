@@ -498,7 +498,7 @@ func TestBadReader(t *testing.T) {
 	assert.NoError(t, err)
 
 	_, err = columnReader.NextBatch(1)
-	assert.Error(t, err) // Expect an error to occur.
+	assert.ErrorContains(t, err, "mock error") // Expect an error to occur.
 }
 
 func TestByteStreamSplitEncodingFileRead(t *testing.T) {
