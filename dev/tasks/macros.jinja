@@ -185,11 +185,10 @@ env:
 
 {%- macro github_upload_wheel_scientific_python(pattern) -%}
   - name: Upload wheel to Anaconda scientific-python
-    uses: scientific-python/upload-nightly-action@b67d7fcc0396e1128a474d1ab2b48aa94680f9fc # 0.5.0
-    with:
-      artifacts_path: {{ pattern }}
-      anaconda_nightly_upload_token: {{ '${{secrets.CROSSBOW_SCIENTIFIC_PYTHON_UPLOAD_TOKEN}}' }}
-      anaconda_nightly_upload_labels: dev
+    bash: |
+      conda create -y -n upload_wheel_scientific_python -c conda-forge anaconda-client
+      source activate upload_wheel_scientific_python
+      anaconda -t $(CROSSBOW_SCIENTIFIC_PYTHON_UPLOAD_TOKEN) upload --force -u scientific-python-nightly-wheels --label dev {{ pattern }}
 {% endmacro %}
 
 {%- macro azure_checkout_arrow() -%}
