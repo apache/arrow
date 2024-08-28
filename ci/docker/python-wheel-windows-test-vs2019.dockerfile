@@ -41,7 +41,7 @@ RUN wmic product where "name like 'python%%'" call uninstall /nointeractive && \
 RUN choco install -r -y --pre --no-progress python --version=3.11.9
 ENV PIPX_BIN_DIR=C:\\Windows\\
 ENV PIPX_PYTHON="C:\Python311\python.exe"
-COPY ci/scripts/install_gcs_testbench.bat arrow/ci/scripts/
+COPY ci/scripts/install_gcs_testbench.bat C:/arrow/ci/scripts/
 RUN call "C:\arrow\ci\scripts\install_gcs_testbench.bat" && \
     storage-testbench -h
 
