@@ -373,6 +373,7 @@ set(ARROW_SRCS
     config.cc
     datum.cc
     device.cc
+    device_allocation_type_set.cc
     extension_type.cc
     extension/bool8.cc
     extension/uuid.cc
