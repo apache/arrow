@@ -134,9 +134,6 @@ such as PySpark.
 For example, we could define a custom rational type for fractions which can
 be represented as a pair of integers::
 
-    import pyarrow as pa
-    import pyarrow.types as pt
-
     class RationalType(pa.ExtensionType):
 
         def __init__(self):
@@ -158,9 +155,9 @@ be represented as a pair of integers::
         @classmethod
         def __arrow_ext_deserialize__(cls, storage_type, serialized):
             # Sanity checks, not required but illustrate the method signature.
-            assert pt.is_struct(storage_type)
-            assert pt.is_int32(storage_type[0].type)
-            assert pt.is_int32(storage_type[1].type)
+            assert pa.types.is_struct(storage_type)
+            assert pa.types.is_int32(storage_type[0].type)
+            assert pa.types.is_int32(storage_type[1].type)
             assert serialized == b''
 
             # return an instance of this subclass given the serialized
@@ -180,13 +177,14 @@ This can now be used to create arrays and tables holding the extension type::
     StructType(struct<numer: int32, denom: int32>)
 
     >>> storage_array = pa.array(
-    ... [
-    ...     {"numer": 10, "denom": 17},
-    ...     {"numer": 20, "denom": 13},
-    ... ],
-    ... type=rational_type.storage_type
+    ...     [
+    ...         {"numer": 10, "denom": 17},
+    ...         {"numer": 20, "denom": 13},
+    ...     ],
+    ...     type=rational_type.storage_type,
     ... )
     >>> arr = rational_type.wrap_array(storage_array)
+    >>> # or equivalently
     >>> arr = pa.ExtensionArray.from_storage(rational_type, storage_array)
     >>> arr
     <pyarrow.lib.ExtensionArray object at 0x1067f5420>

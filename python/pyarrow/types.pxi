@@ -1620,8 +1620,6 @@ cdef class ExtensionType(BaseExtensionType):
     --------
     Define a RationalType extension type subclassing ExtensionType:
 
-    >>> import pyarrow as pa
-    >>> import pyarrow.types as pt
     >>> class RationalType(pa.ExtensionType):
     ...     def __init__(self, data_type: pa.DataType):
     ...         if not pt.is_integer(data_type):
@@ -1641,7 +1639,7 @@ cdef class ExtensionType(BaseExtensionType):
     ...         # No serialized metadata necessary
     ...         return b""
     ...     @classmethod
-    ...     def __arrow_ext_deserialize__(self, storage_type, serialized):
+    ...     def __arrow_ext_deserialize__(cls, storage_type, serialized):
     ...         # return an instance of this subclass given the serialized
     ...         # metadata
     ...         return RationalType(storage_type[0].type)
@@ -1670,14 +1668,16 @@ cdef class ExtensionType(BaseExtensionType):
     ...     ],
     ...     type=rational_type.storage_type
     ... )
-    >>> ratoinal_type.wrap_array(storage_array)
+    >>> rational_array = rational_type.wrap_array(storage_array)
+    >>> rational_array
     <pyarrow.lib.ExtensionArray object at ...>
     -- is_valid: all not null
       ...
 
     Or do the same with creating an ExtensionArray:
 
-    >>> pa.ExtensionArray.from_storage(rational_type, storage_array)
+    >>> rational_array = pa.ExtensionArray.from_storage(rational_type, storage_array)
+    >>> rational_array
     <pyarrow.lib.ExtensionArray object at ...>
     -- is_valid: all not null
       ...
@@ -1750,7 +1750,7 @@ cdef class ExtensionType(BaseExtensionType):
         return NotImplementedError
 
     @classmethod
-    def __arrow_ext_deserialize__(self, storage_type, serialized):
+    def __arrow_ext_deserialize__(cls, storage_type, serialized):
         """
         Return an extension type instance from the storage type and serialized
         metadata.
@@ -2061,8 +2061,6 @@ def register_extension_type(ext_type):
     --------
     Define a RationalType extension type subclassing ExtensionType:
 
-    >>> import pyarrow as pa
-    >>> import pyarrow.types as pt
     >>> class RationalType(pa.ExtensionType):
     ...     def __init__(self, data_type: pa.DataType):
     ...         if not pt.is_integer(data_type):
@@ -2082,7 +2080,7 @@ def register_extension_type(ext_type):
     ...         # No serialized metadata necessary
     ...         return b""
     ...     @classmethod
-    ...     def __arrow_ext_deserialize__(self, storage_type, serialized):
+    ...     def __arrow_ext_deserialize__(cls, storage_type, serialized):
     ...         # return an instance of this subclass given the serialized
     ...         # metadata
     ...         return RationalType(storage_type[0].type)
@@ -2122,8 +2120,6 @@ def unregister_extension_type(type_name):
     --------
     Define a RationalType extension type subclassing ExtensionType:
 
-    >>> import pyarrow as pa
-    >>> import pyarrow.types as pt
     >>> class RationalType(pa.ExtensionType):
     ...     def __init__(self, data_type: pa.DataType):
     ...         if not pt.is_integer(data_type):
@@ -2143,7 +2139,7 @@ def unregister_extension_type(type_name):
     ...         # No serialized metadata necessary
     ...         return b""
     ...     @classmethod
-    ...     def __arrow_ext_deserialize__(self, storage_type, serialized):
+    ...     def __arrow_ext_deserialize__(cls, storage_type, serialized):
     ...         # return an instance of this subclass given the serialized
     ...         # metadata
     ...         return RationalType(storage_type[0].type)
