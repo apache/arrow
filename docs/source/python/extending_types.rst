@@ -156,7 +156,7 @@ be represented as a pair of integers::
             return b""
 
         @classmethod
-        def __arrow_ext_deserialize__(self, storage_type, serialized):
+        def __arrow_ext_deserialize__(cls, storage_type, serialized):
             # Sanity checks, not required but illustrate the method signature.
             assert pt.is_struct(storage_type)
             assert pt.is_int32(storage_type[0].type)
