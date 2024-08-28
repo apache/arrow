@@ -185,11 +185,12 @@ env:
 
 {%- macro github_upload_wheel_scientific_python(pattern) -%}
   - uses: conda-incubator/setup-miniconda@v3
+    with:
+      activate-environment: upload_wheel_scientific_python
   - name: Upload wheel to Anaconda scientific-python
     shell: bash
     run: |
-      conda create -y -n upload_wheel_scientific_python -c conda-forge anaconda-client
-      conda activate upload_wheel_scientific_python
+      conda install -y -c conda-forge anaconda-client
       anaconda -t ${CROSSBOW_SCIENTIFIC_PYTHON_UPLOAD_TOKEN} upload --force -u scientific-python-nightly-wheels --label dev {{ pattern }}
     env:
       CROSSBOW_SCIENTIFIC_PYTHON_UPLOAD_TOKEN: {{ '${{ secrets.CROSSBOW_SCIENTIFIC_PYTHON_UPLOAD_TOKEN }}' }}
