@@ -431,7 +431,7 @@ tasks:
 
 {% endfor %}
 
-  wheel-macos-big-sur-{{ python_tag }}-arm64:
+  wheel-macos-monterey-{{ python_tag }}-arm64:
     ci: github
     template: python-wheels/github.osx.yml
     params:
