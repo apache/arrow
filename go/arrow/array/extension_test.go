@@ -30,16 +30,6 @@ type ExtensionTypeTestSuite struct {
 	suite.Suite
 }
 
-func (e *ExtensionTypeTestSuite) SetupTest() {
-	e.NoError(arrow.RegisterExtensionType(types.NewUUIDType()))
-}
-
-func (e *ExtensionTypeTestSuite) TearDownTest() {
-	if arrow.GetExtensionType("uuid") != nil {
-		e.NoError(arrow.UnregisterExtensionType("uuid"))
-	}
-}
-
 func (e *ExtensionTypeTestSuite) TestParametricEquals() {
 	p1Type := types.NewParametric1Type(6)
 	p2Type := types.NewParametric1Type(6)

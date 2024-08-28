@@ -78,14 +78,12 @@ jobs:
           {
             "arch-label": "ARM64",
             "arch": "arm64v8",
-            "archery-use-legacy-docker-compose": "1",
             "go": "1.21",
             "runs-on": ["self-hosted", "arm", "linux"]
           },
           {
             "arch-label": "ARM64",
             "arch": "arm64v8",
-            "archery-use-legacy-docker-compose": "1",
             "go": "1.22",
             "runs-on": ["self-hosted", "arm", "linux"]
           }
@@ -106,9 +104,6 @@ jobs:
         include: ${{ fromJson(needs.docker-targets.outputs.targets) }}
     env:
       ARCH: ${{ matrix.arch }}
-      # By default, use Docker CLI because docker-compose v1 is obsolete,
-      # except where the Docker client version is too old.
-      ARCHERY_USE_LEGACY_DOCKER_COMPOSE: ${{ matrix.archery-use-legacy-docker-compose || '0' }}
       GO: ${{ matrix.go }}
     steps:
       - name: Checkout Arrow

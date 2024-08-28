@@ -82,7 +82,15 @@ public final class FlightSqlUtils {
               + "Response Message: N/A");
 
   public static final List<ActionType> FLIGHT_SQL_ACTIONS =
-      ImmutableList.of(FLIGHT_SQL_CREATE_PREPARED_STATEMENT, FLIGHT_SQL_CLOSE_PREPARED_STATEMENT);
+      ImmutableList.of(
+          FLIGHT_SQL_BEGIN_SAVEPOINT,
+          FLIGHT_SQL_BEGIN_TRANSACTION,
+          FLIGHT_SQL_CREATE_PREPARED_STATEMENT,
+          FLIGHT_SQL_CLOSE_PREPARED_STATEMENT,
+          FLIGHT_SQL_CREATE_PREPARED_SUBSTRAIT_PLAN,
+          FLIGHT_SQL_CANCEL_QUERY,
+          FLIGHT_SQL_END_SAVEPOINT,
+          FLIGHT_SQL_END_TRANSACTION);
 
   /**
    * Helper to parse {@link com.google.protobuf.Any} objects to the specific protobuf object.
