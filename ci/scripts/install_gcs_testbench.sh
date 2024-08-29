@@ -39,10 +39,13 @@ if [[ "${version}" -eq "default" ]]; then
   version="v0.39.0"
 fi
 
-: ${PIPX_PYTHON:=$(which python3)}
+# The Python to install pipx with
+: ${PIPX_BASE_PYTHON:=$(which python3)}
+# The Python to install the GCS testbench with
+: ${PIPX_PYTHON:=${PIPX_BASE_PYTHON:-$(which python3)}}
 
 export PIP_BREAK_SYSTEM_PACKAGES=1
-python3 -m pip install -U pipx
+${PIPX_BASE_PYTHON} -m pip install -U pipx
 
 pipx_flags="--verbose --python ${PIPX_PYTHON}"
 if [[ $(id -un) == "root" ]]; then
@@ -52,4 +55,5 @@ fi
 if [[ ! -z "${PIPX_PIP_ARGS}" ]]; then
   pipx_flags="${pipx_flags} --pip-args '${PIPX_PIP_ARGS}'"
 fi
-python3 -m pipx install ${pipx_flags} "https://github.com/googleapis/storage-testbench/archive/${version}.tar.gz"
+${PIPX_BASE_PYTHON} -m pipx install ${pipx_flags} \
+  "https://github.com/googleapis/storage-testbench/archive/${version}.tar.gz"
