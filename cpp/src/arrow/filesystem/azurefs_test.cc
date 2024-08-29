@@ -163,7 +163,7 @@ class AzuriteEnv : public AzureEnvImpl<AzuriteEnv> {
  public:
   static const AzureBackend kBackend = AzureBackend::kAzurite;
 
-  ~AzuriteEnv() override { server_process_ = nullptr; }
+  ~AzuriteEnv() = default;
 
   static Result<std::unique_ptr<AzureEnvImpl>> Make() {
     auto self = std::unique_ptr<AzuriteEnv>(
