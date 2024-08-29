@@ -26,6 +26,12 @@ endif()
 if(WIN32)
   list(APPEND ARROW_FLIGHT_LINK_LIBS ws2_32.lib)
 endif()
+# Updating the MACOSX_DEPLOYMENT_TARGET to 12 required us to explicitly
+# link Flight with OpenSSL on macOS. Read this comment for more details:
+# https://github.com/apache/arrow/pull/43137#pullrequestreview-2267476893
+if(APPLE AND ARROW_USE_OPENSSL)
+  list(APPEND ARROW_FLIGHT_LINK_LIBS ${ARROW_OPENSSL_LIBS})
+endif()
 
 set(ARROW_FLIGHT_TEST_LINKAGE "${ARROW_TEST_LINKAGE}")
 if(Protobuf_USE_STATIC_LIBS)
