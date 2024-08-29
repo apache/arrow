@@ -373,7 +373,10 @@ set(ARROW_SRCS
     config.cc
     datum.cc
     device.cc
+    device_allocation_type_set.cc
     extension_type.cc
+    extension/bool8.cc
+    extension/uuid.cc
     pretty_print.cc
     record_batch.cc
     result.cc
@@ -906,7 +909,6 @@ endif()
 
 if(ARROW_JSON)
   arrow_add_object_library(ARROW_JSON
-                           extension/bool8.cc
                            extension/fixed_shape_tensor.cc
                            extension/opaque.cc
                            json/options.cc
@@ -1225,6 +1227,7 @@ add_subdirectory(testing)
 add_subdirectory(array)
 add_subdirectory(c)
 add_subdirectory(compute)
+add_subdirectory(extension)
 add_subdirectory(io)
 add_subdirectory(tensor)
 add_subdirectory(util)
@@ -1267,7 +1270,6 @@ endif()
 
 if(ARROW_JSON)
   add_subdirectory(json)
-  add_subdirectory(extension)
 endif()
 
 if(ARROW_ORC)

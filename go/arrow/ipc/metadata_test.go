@@ -23,10 +23,10 @@ import (
 
 	"github.com/apache/arrow/go/v18/arrow"
 	"github.com/apache/arrow/go/v18/arrow/array"
+	"github.com/apache/arrow/go/v18/arrow/extensions"
 	"github.com/apache/arrow/go/v18/arrow/internal/dictutils"
 	"github.com/apache/arrow/go/v18/arrow/internal/flatbuf"
 	"github.com/apache/arrow/go/v18/arrow/memory"
-	"github.com/apache/arrow/go/v18/internal/types"
 	flatbuffers "github.com/google/flatbuffers/go"
 	"github.com/stretchr/testify/assert"
 )
@@ -169,7 +169,7 @@ func TestRWFooter(t *testing.T) {
 }
 
 func exampleUUID(mem memory.Allocator) arrow.Array {
-	extType := types.NewUUIDType()
+	extType := extensions.NewUUIDType()
 	bldr := array.NewExtensionBuilder(mem, extType)
 	defer bldr.Release()
 
@@ -183,9 +183,6 @@ func exampleUUID(mem memory.Allocator) arrow.Array {
 func TestUnrecognizedExtensionType(t *testing.T) {
 	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer pool.AssertSize(t, 0)
-
-	// register the uuid type
-	assert.NoError(t, arrow.RegisterExtensionType(types.NewUUIDType()))
 
 	extArr := exampleUUID(pool)
 	defer extArr.Release()
@@ -205,7 +202,9 @@ func TestUnrecognizedExtensionType(t *testing.T) {
 
 	// unregister the uuid type before we read back the buffer so it is
 	// unrecognized when reading back the record batch.
-	assert.NoError(t, arrow.UnregisterExtensionType("uuid"))
+	assert.NoError(t, arrow.UnregisterExtensionType("arrow.uuid"))
+	// re-register once the test is complete
+	defer arrow.RegisterExtensionType(extensions.NewUUIDType())
 	rdr, err := NewReader(&buf, WithAllocator(pool))
 	defer rdr.Release()
 

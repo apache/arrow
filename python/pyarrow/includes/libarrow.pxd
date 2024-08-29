@@ -2865,6 +2865,16 @@ cdef extern from "arrow/extension_type.h" namespace "arrow":
         shared_ptr[CArray] storage()
 
 
+cdef extern from "arrow/extension/uuid.h" namespace "arrow::extension" nogil:
+    cdef cppclass CUuidType" arrow::extension::UuidType"(CExtensionType):
+
+        @staticmethod
+        CResult[shared_ptr[CDataType]] Make()
+
+    cdef cppclass CUuidArray" arrow::extension::UuidArray"(CExtensionArray):
+        pass
+
+
 cdef extern from "arrow/extension/fixed_shape_tensor.h" namespace "arrow::extension" nogil:
     cdef cppclass CFixedShapeTensorType \
             " arrow::extension::FixedShapeTensorType"(CExtensionType):

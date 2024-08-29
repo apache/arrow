@@ -31,6 +31,7 @@
 #include "arrow/buffer.h"
 #include "arrow/compute/exec.h"
 #include "arrow/datum.h"
+#include "arrow/device_allocation_type_set.h"
 #include "arrow/memory_pool.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
