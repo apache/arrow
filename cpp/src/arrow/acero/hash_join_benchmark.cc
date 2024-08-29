@@ -20,6 +20,7 @@
 #include "arrow/acero/hash_join.h"
 #include "arrow/acero/hash_join_node.h"
 #include "arrow/acero/options.h"
+#include "arrow/acero/swiss_join_internal.h"
 #include "arrow/acero/test_util_internal.h"
 #include "arrow/acero/util.h"
 #include "arrow/api.h"
@@ -365,6 +366,21 @@ static void BM_HashJoinBasic_ComplexResidualFilter(benchmark::State& st,
 
   HashJoinBasicBenchmarkImpl(st, settings);
 }
+
+static void BM_HashJoinBasic_HeavyBuildPayload(benchmark::State& st) {
+  BenchmarkSettings settings;
+  settings.build_payload_types = {boolean(), fixed_size_binary(64), utf8(),
+                                  boolean(), fixed_size_binary(64), utf8()};
+  settings.probe_payload_types = {int32()};
+  settings.null_percentage = 0.5;
+  settings.cardinality = 1.0 / 16.0;
+  settings.num_build_batches = static_cast<int>(st.range(0));
+  settings.num_probe_batches = settings.num_build_batches;
+  settings.var_length_min = 64;
+  settings.var_length_max = 128;
+
+  HashJoinBasicBenchmarkImpl(st, settings);
+}
 #endif
 
 std::vector<int64_t> hashtable_krows = benchmark::CreateRange(1, 4096, 8);
@@ -622,6 +638,10 @@ BENCHMARK_CAPTURE(BM_HashJoinBasic_ComplexResidualFilter, "Full Outer",
                   JoinType::FULL_OUTER)
     ->ArgNames(complex_residual_filter_argnames)
     ->ArgsProduct(complex_residual_filter_args);
+
+BENCHMARK(BM_HashJoinBasic_HeavyBuildPayload)
+    ->ArgNames({"HashTable krows"})
+    ->ArgsProduct({hashtable_krows});
 #else
 
 BENCHMARK_CAPTURE(BM_HashJoinBasic_KeyTypes, "{int32}", {int32()})
@@ -639,6 +659,109 @@ BENCHMARK(BM_HashJoinBasic_ProbeParallelism)
     ->MeasureProcessCPUTime();
 
 #endif  // ARROW_BUILD_DETAILED_BENCHMARKS
+
+void RowArrayDecodeBenchmark(benchmark::State& st, const std::shared_ptr<Schema>& schema,
+                             int column_to_decode) {
+  auto batches = MakeRandomBatches(schema, 1, std::numeric_limits<uint16_t>::max());
+  const auto& batch = batches.batches[0];
+  RowArray rows;
+  std::vector<uint16_t> row_ids_encode(batch.length);
+  std::iota(row_ids_encode.begin(), row_ids_encode.end(), 0);
+  std::vector<KeyColumnArray> temp_column_arrays;
+  DCHECK_OK(rows.AppendBatchSelection(
+      default_memory_pool(), internal::CpuInfo::GetInstance()->hardware_flags(), batch, 0,
+      static_cast<int>(batch.length), static_cast<int>(batch.length),
+      row_ids_encode.data(), temp_column_arrays));
+  std::vector<uint32_t> row_ids_decode(batch.length);
+  std::iota(row_ids_decode.begin(), row_ids_decode.end(), 0);
+
+  uint64_t total_rows = 0;
+  for (auto _ : st) {
+    st.PauseTiming();
+    ResizableArrayData column;
+    // Allocate at least 8 rows for the convenience of SIMD decoding.
+    int log_num_rows_min = std::max(3, bit_util::Log2(batch.length));
+    column.Init(batch[column_to_decode].type(), default_memory_pool(), log_num_rows_min);
+    st.ResumeTiming();
+    DCHECK_OK(rows.DecodeSelected(&column, column_to_decode,
+                                  static_cast<int>(batch.length), row_ids_decode.data(),
+                                  default_memory_pool()));
+    st.PauseTiming();
+    total_rows += batch.length;
+    st.ResumeTiming();
+  }
+  st.counters["rows/sec"] = benchmark::Counter(total_rows, benchmark::Counter::kIsRate);
+}
+
+template <typename... Args>
+static void BM_RowArray_Decode(benchmark::State& st,
+                               const std::shared_ptr<DataType>& type, Args&&...) {
+  SchemaBuilder schema_builder;
+  DCHECK_OK(schema_builder.AddField(field("", type)));
+  auto schema = *schema_builder.Finish();
+  RowArrayDecodeBenchmark(st, schema, 0);
+}
+
+BENCHMARK_CAPTURE(BM_RowArray_Decode, "boolean", boolean());
+BENCHMARK_CAPTURE(BM_RowArray_Decode, "int8", int8());
+BENCHMARK_CAPTURE(BM_RowArray_Decode, "int16", int16());
+BENCHMARK_CAPTURE(BM_RowArray_Decode, "int32", int32());
+BENCHMARK_CAPTURE(BM_RowArray_Decode, "int64", int64());
+
+static void BM_RowArray_DecodeFixedSizeBinary(benchmark::State& st) {
+  int fixed_size = static_cast<int>(st.range(0));
+  SchemaBuilder schema_builder;
+  DCHECK_OK(schema_builder.AddField(field("", fixed_size_binary(fixed_size))));
+  auto schema = *schema_builder.Finish();
+  RowArrayDecodeBenchmark(st, schema, 0);
+}
+
+BENCHMARK(BM_RowArray_DecodeFixedSizeBinary)
+    ->ArgNames({"fixed_size"})
+    ->ArgsProduct({{3, 5, 6, 7, 9, 16, 42}});
+
+static void BM_RowArray_DecodeBinary(benchmark::State& st) {
+  int max_length = static_cast<int>(st.range(0));
+  std::unordered_map<std::string, std::string> metadata;
+  metadata["max_length"] = std::to_string(max_length);
+  SchemaBuilder schema_builder;
+  DCHECK_OK(schema_builder.AddField(field("", utf8(), key_value_metadata(metadata))));
+  auto schema = *schema_builder.Finish();
+  RowArrayDecodeBenchmark(st, schema, 0);
+}
+
+BENCHMARK(BM_RowArray_DecodeBinary)
+    ->ArgNames({"max_length"})
+    ->ArgsProduct({{32, 64, 128}});
+
+template <typename... Args>
+static void BM_RowArray_DecodeOneOfColumns(benchmark::State& st,
+                                           std::vector<std::shared_ptr<DataType>> types) {
+  SchemaBuilder schema_builder;
+  for (const auto& type : types) {
+    DCHECK_OK(schema_builder.AddField(field("", type)));
+  }
+  auto schema = *schema_builder.Finish();
+  int column_to_decode = static_cast<int>(st.range(0));
+  RowArrayDecodeBenchmark(st, schema, column_to_decode);
+}
+
+const std::vector<std::shared_ptr<DataType>> fixed_length_row_column_types{
+    boolean(), int32(), fixed_size_binary(64)};
+BENCHMARK_CAPTURE(BM_RowArray_DecodeOneOfColumns,
+                  "fixed_length_row:{boolean,int32,fixed_size_binary(64)}",
+                  fixed_length_row_column_types)
+    ->ArgNames({"column"})
+    ->ArgsProduct(
+        {benchmark::CreateDenseRange(0, fixed_length_row_column_types.size() - 1, 1)});
+
+const std::vector<std::shared_ptr<DataType>> var_length_row_column_types{
+    boolean(), int32(), utf8(), utf8()};
+BENCHMARK_CAPTURE(BM_RowArray_DecodeOneOfColumns,
+                  "var_length_row:{boolean,int32,utf8,utf8}", var_length_row_column_types)
+    ->ArgNames({"column"})
+    ->ArgsProduct({benchmark::CreateDenseRange(0, var_length_row_column_types.size() - 1,
+                                               1)});
 
 }  // namespace acero
 }  // namespace arrow
