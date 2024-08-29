@@ -6223,9 +6223,16 @@ def _from_pylist(cls, mapping, schema, metadata):
         return cls.from_arrays(arrays, names, metadata=metadata)
     else:
         if isinstance(schema, Schema):
-            for n in schema.names:
-                v = [row[n] if n in row else None for row in mapping]
-                arrays.append(v)
+            if any(isinstance(row, (list, tuple)) for row in mapping):
+                for i in range(len(schema)):
+                    v = [row[i] if i < len(row) else None for row in mapping]
+                    arrays.append(v)
+            else if any(isinstance(row, dict) for row in mapping):
+                for n in schema.names:
+                    v = [row[n] if n in row else None for row in mapping]
+                    arrays.append(v)
+            else:
+                raise TypeError("pylist elements should be the same type")
             # Will raise if metadata is not None
             return cls.from_arrays(arrays, schema=schema, metadata=metadata)
         else:

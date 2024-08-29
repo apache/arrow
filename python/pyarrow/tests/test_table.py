@@ -2392,6 +2392,19 @@ def test_table_from_pylist(cls):
     assert table.num_rows == 3
     assert table.to_pylist() == data2
 
+    # Pass list of (list, tuple) with explicit schema
+    schema = pa.schema([('strs', pa.utf8()), ('floats', pa.float64())])
+    data = [['foo', 4.0], ['bar', 3]]
+    table = cls.from_pylist(data, schema=schema)
+    assert table.num_columns == 2
+    assert table.num_rows == 2
+    assert table.to_pylist() == data
+
+    
+
+    # Elements in py list have different type
+    data = [{'strs': ''}, ['a string']]
+
 
 @pytest.mark.pandas
 def test_table_from_pandas_schema():
