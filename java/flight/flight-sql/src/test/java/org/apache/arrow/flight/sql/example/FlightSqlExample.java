@@ -263,11 +263,12 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
        * If for whatever reason the resulting `Stream<Boolean>` is empty, throw an `IOException`;
        * this not expected.
        */
-      return walk.sorted(Comparator.reverseOrder())
-          .map(Path::toFile)
-          .map(File::delete)
-          .reduce(Boolean::logicalAnd)
-          .orElseThrow(IOException::new);
+      boolean unused =
+          walk.sorted(Comparator.reverseOrder())
+              .map(Path::toFile)
+              .map(File::delete)
+              .reduce(Boolean::logicalAnd)
+              .orElseThrow(IOException::new);
     } catch (NoSuchFileException e) {
       /*
        * The only acceptable scenario for an `IOException` to be thrown here is if
@@ -277,9 +278,10 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       LOGGER.error(format("No existing Derby database to delete.: <%s>", e.getMessage()), e);
       return true;
     } catch (Exception e) {
-      LOGGER.error(format("Failed attempt to clear DerbyDB: <%s>", e.getMessage()), e);
+      LOGGER.error(format("Failed attempt to clear DerbyDB.: <%s>", e.getMessage()), e);
       return false;
     }
+    return true;
   }
 
   private static boolean populateDerbyDatabase(final String dbName) {
