@@ -1950,7 +1950,7 @@ cdef class _Tabular(_PandasConvertible):
         >>> pylist = [{'n_legs': 2, 'animals': 'Flamingo'},
         ...           {'n_legs': 4, 'animals': 'Dog'}]
 
-        Construct a Table from a list of rows:
+        Construct a Table from a list of dict rows:
 
         >>> pa.Table.from_pylist(pylist)
         pyarrow.Table
@@ -1960,7 +1960,7 @@ cdef class _Tabular(_PandasConvertible):
         n_legs: [[2,4]]
         animals: [["Flamingo","Dog"]]
 
-        Construct a Table from a list of dict values with metadata:
+        Construct a Table from a list of dict rows with metadata:
 
         >>> my_metadata={"n_legs": "Number of legs per animal"}
         >>> pa.Table.from_pylist(pylist, metadata=my_metadata).schema
@@ -1969,7 +1969,7 @@ cdef class _Tabular(_PandasConvertible):
         -- schema metadata --
         n_legs: 'Number of legs per animal'
 
-        Construct a Table from a list of rows with pyarrow schema:
+        Construct a Table from a list of dict rows with pyarrow schema:
 
         >>> my_schema = pa.schema([
         ...     pa.field('n_legs', pa.int64()),
@@ -1981,7 +1981,7 @@ cdef class _Tabular(_PandasConvertible):
         -- schema metadata --
         n_legs: 'Number of legs per animal'
 
-        Construct a Table from a list of list value with schema
+        Construct a Table from a list of list rows with schema
         >>> pylist = [[ 2, 'Flamingo'], [4, 'Dog']]
         >>> pa.Table.from_pylist(pylist, schema=my_schema)
         pyarrow.Table
