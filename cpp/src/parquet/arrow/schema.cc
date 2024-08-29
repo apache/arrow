@@ -1003,7 +1003,7 @@ Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* infer
       // inferred_type is ::arrow::binary()
       //
       // Origin type is restored as Arrow should be considered the source of truth.
-      DCHECK_EQ(inferred_type->id(), ::arrow::Type::BINARY);
+      DCHECK_EQ(inferred_type->id(), ::arrow::Type::STRING);
       inferred->field = inferred->field->WithType(origin_type);
       RETURN_NOT_OK(ApplyOriginalStorageMetadata(origin_field, inferred));
     } else {
@@ -1027,11 +1027,11 @@ Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* infer
         // Schema mismatch.
         //
         // Arrow extensions are ENABLED in Parquet.
-        // origin_type is ::arrow::binary()
+        // origin_type is ::arrow::utf8()
         // inferred_type is ::arrow::extension::json()
         //
         // Origin type is restored as Arrow should be considered the source of truth.
-        DCHECK_EQ(origin_type->id(), ::arrow::Type::BINARY);
+        DCHECK_EQ(origin_type->id(), ::arrow::Type::STRING);
         inferred->field = inferred->field->WithType(origin_type);
       }
     }

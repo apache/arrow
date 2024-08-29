@@ -233,7 +233,7 @@ TEST_F(TestConvertParquetSchema, ParquetAnnotatedFields) {
        ::arrow::uint64()},
       {"int(64, true)", LogicalType::Int(64, true), ParquetType::INT64, -1,
        ::arrow::int64()},
-      {"json", LogicalType::JSON(), ParquetType::BYTE_ARRAY, -1, ::arrow::binary()},
+      {"json", LogicalType::JSON(), ParquetType::BYTE_ARRAY, -1, ::arrow::utf8()},
       {"bson", LogicalType::BSON(), ParquetType::BYTE_ARRAY, -1, ::arrow::binary()},
       {"interval", LogicalType::Interval(), ParquetType::FIXED_LEN_BYTE_ARRAY, 12,
        ::arrow::fixed_size_binary(12)},
@@ -736,9 +736,9 @@ TEST_F(TestConvertParquetSchema, ParquetSchemaArrowExtensions) {
 
   {
     // Parquet file does not contain Arrow schema.
-    // By default both fields should be treated as binary() fields in Arrow.
+    // By default, both fields should be treated as utf8() fields in Arrow.
     auto arrow_schema = ::arrow::schema(
-        {::arrow::field("json_1", BINARY, true), ::arrow::field("json_2", BINARY, true)});
+        {::arrow::field("json_1", UTF8, true), ::arrow::field("json_2", UTF8, true)});
     std::shared_ptr<KeyValueMetadata> metadata = ::arrow::key_value_metadata({}, {});
     ASSERT_OK(ConvertSchema(parquet_fields, metadata));
     CheckFlatSchema(arrow_schema);
@@ -766,7 +766,7 @@ TEST_F(TestConvertParquetSchema, ParquetSchemaArrowExtensions) {
         ::arrow::key_value_metadata({"foo", "bar"}, {"biz", "baz"});
     auto arrow_schema = ::arrow::schema(
         {::arrow::field("json_1", ::arrow::extension::json(), true, field_metadata),
-         ::arrow::field("json_2", BINARY, true)});
+         ::arrow::field("json_2", UTF8, true)});
 
     ASSERT_OK_AND_ASSIGN(
         std::shared_ptr<Buffer> serialized,
@@ -783,15 +783,15 @@ TEST_F(TestConvertParquetSchema, ParquetSchemaArrowExtensions) {
   {
     // Parquet file contains Arrow schema.
     // A contrived example. Parquet believes both columns are JSON. Arrow believes json_1
-    // is a JSON column and json_2 is a binary column. json_2 should be treated as a
-    // binary column even if get_arrow_extensions_enabled is true.
+    // is a JSON column and json_2 is a utf8 column. json_2 should be treated as a
+    // utf8 column even if the get_arrow_extensions_enabled is true.
     ArrowReaderProperties props;
     props.get_arrow_extensions_enabled();
     std::shared_ptr<KeyValueMetadata> field_metadata =
         ::arrow::key_value_metadata({"foo", "bar"}, {"biz", "baz"});
     auto arrow_schema = ::arrow::schema(
         {::arrow::field("json_1", ::arrow::extension::json(), true, field_metadata),
-         ::arrow::field("json_2", BINARY, true)});
+         ::arrow::field("json_2", UTF8, true)});
 
     ASSERT_OK_AND_ASSIGN(
         std::shared_ptr<Buffer> serialized,

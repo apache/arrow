@@ -1394,8 +1394,8 @@ using TestLargeBinaryParquetIO = TestParquetIO<::arrow::LargeBinaryType>;
 TEST_F(TestLargeBinaryParquetIO, Basics) {
   const char* json = "[\"foo\", \"\", null, \"\xff\"]";
 
-  const auto large_type = ::arrow::large_binary();
-  const auto narrow_type = ::arrow::binary();
+  const auto large_type = ::arrow::large_utf8();
+  const auto narrow_type = ::arrow::utf8();
   const auto large_array = ::arrow::ArrayFromJSON(large_type, json);
   const auto narrow_array = ::arrow::ArrayFromJSON(narrow_type, json);
 
@@ -1417,8 +1417,8 @@ using TestLargeStringParquetIO = TestParquetIO<::arrow::LargeStringType>;
 TEST_F(TestLargeStringParquetIO, Basics) {
   const char* json = R"(["foo", "", null, "bar"])";
 
-  const auto large_type = ::arrow::large_utf8();
-  const auto narrow_type = ::arrow::utf8();
+  const auto large_type = ::arrow::large_binary();
+  const auto narrow_type = ::arrow::binary();
   const auto large_array = ::arrow::ArrayFromJSON(large_type, json);
   const auto narrow_array = ::arrow::ArrayFromJSON(narrow_type, json);
 
@@ -1454,10 +1454,9 @@ TEST_F(TestJsonParquetIO, JsonExtension) {
   const auto json_array = ::arrow::ExtensionType::WrapArray(json_type, json_string_array);
 
   // When the original Arrow schema isn't stored and Arrow extensions are disabled,
-  // LogicalType::JSON is read as Binary.
-  const auto binary_array = ::arrow::ArrayFromJSON(::arrow::binary(), json);
-  this->RoundTripSingleColumn(json_array, binary_array,
-                              default_arrow_writer_properties());
+  // LogicalType::JSON is read as utf8.
+  const auto utf8_array = ::arrow::ArrayFromJSON(::arrow::utf8(), json);
+  this->RoundTripSingleColumn(json_array, utf8_array, default_arrow_writer_properties());
 
   // When the original Arrow schema isn't stored and Arrow extensions are enabled,
   // LogicalType::JSON is read as JsonExtensionType.

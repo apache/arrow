@@ -125,7 +125,9 @@ Result<std::shared_ptr<ArrowType>> FromByteArray(
       if (reader_properties.get_arrow_extensions_enabled()) {
         return ::arrow::extension::json(::arrow::utf8());
       }
-      return ::arrow::binary();
+      // When the original Arrow schema isn't stored and Arrow extensions are disabled,
+      // LogicalType::JSON is read as utf8().
+      return ::arrow::utf8();
     default:
       return Status::NotImplemented("Unhandled logical logical_type ",
                                     logical_type.ToString(), " for binary array");
