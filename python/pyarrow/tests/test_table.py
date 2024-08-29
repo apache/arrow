@@ -3450,7 +3450,8 @@ def test_chunked_array_non_cpu(cuda_context, cpu_chunked_array, cuda_chunked_arr
         cuda_chunked_array.validate(full=True)
 
     # null_count test
-    assert cuda_chunked_array.null_count == cpu_chunked_array.null_count
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.null_count
 
     # nbytes() test
     with pytest.raises(NotImplementedError):
@@ -3529,8 +3530,7 @@ def test_chunked_array_non_cpu(cuda_context, cpu_chunked_array, cuda_chunked_arr
         cuda_chunked_array.index(5)
 
     # slice() test
-    with pytest.raises(NotImplementedError):
-        cuda_chunked_array.slice(2, 2)
+    cuda_chunked_array.slice(2, 2)
 
     # take() test
     with pytest.raises(NotImplementedError):
@@ -3554,6 +3554,10 @@ def test_chunked_array_non_cpu(cuda_context, cpu_chunked_array, cuda_chunked_arr
     # chunks test
     assert len(cuda_chunked_array.chunks) == len(cpu_chunked_array.chunks)
 
+    # chunk() test
+    chunk = cuda_chunked_array.chunk(0)
+    assert chunk.device_type == pa.DeviceAllocationType.CUDA
+
     # to_pylist() test
     with pytest.raises(NotImplementedError):
         cuda_chunked_array.to_pylist()
@@ -3561,6 +3565,10 @@ def test_chunked_array_non_cpu(cuda_context, cpu_chunked_array, cuda_chunked_arr
     # __arrow_c_stream__() test
     with pytest.raises(NotImplementedError):
         cuda_chunked_array.__arrow_c_stream__()
+
+    # __reduce__() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.__reduce__()
 
 
 def verify_cuda_recordbatch(batch, expected_schema):

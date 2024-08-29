@@ -222,6 +222,7 @@ cdef class ChunkedArray(_PandasConvertible):
         >>> n_legs.null_count
         1
         """
+        self._assert_cpu()
         return self.chunked_array.null_count()
 
     @property
@@ -903,7 +904,6 @@ cdef class ChunkedArray(_PandasConvertible):
           ]
         ]
         """
-        self._assert_cpu()
         cdef shared_ptr[CChunkedArray] result
 
         if offset < 0:
