@@ -284,17 +284,20 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       wasSuccess = true;
       LOGGER.error(format("No existing Derby database to delete.: <%s>", e.getMessage()), e);
       System.out.println("No existing Derby database to delete: " + e.getMessage());
+      return true;
     } catch (IOException e) {
       wasSuccess = false;
       LOGGER.error(format("Failed attempt to clear DerbyDB: <%s>", e.getMessage()), e);
       System.out.println("Derby Exception: " + e.getMessage());
+      return false;
     } catch (Exception e) {
       wasSuccess = false;
       LOGGER.error(format("Failed2 attempt to clear DerbyDB: <%s>", e.getMessage()), e);
       System.out.println("Other Exception: " + e.getMessage());
+      return false;
     }
     System.out.println("Boolean Status: " + wasSuccess);
-    return wasSuccess;
+    return true;
   }
 
   private static boolean populateDerbyDatabase(final String dbName) {
