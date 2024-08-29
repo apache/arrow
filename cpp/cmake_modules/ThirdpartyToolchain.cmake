@@ -1330,8 +1330,15 @@ if(ARROW_USE_BOOST)
   else()
     # Boost < 1.86
     add_library(Boost::process INTERFACE IMPORTED)
-    target_link_libraries(Boost::process INTERFACE Boost::filesystem Boost::system
-                                                   Boost::headers)
+    if(TARGET Boost::filesystem)
+      target_link_libraries(Boost::process INTERFACE Boost::filesystem)
+    endif()
+    if(TARGET Boost::system)
+      target_link_libraries(Boost::process INTERFACE Boost::system)
+    endif()
+    if(TARGET Boost::headers)
+      target_link_libraries(Boost::process INTERFACE Boost::headers)
+    endif()
     if(Boost_VERSION VERSION_GREATER_EQUAL 1.80)
       target_compile_definitions(Boost::process INTERFACE "BOOST_PROCESS_HAVE_V2")
       # Boost < 1.86 has a bug that
