@@ -61,30 +61,30 @@ Result<std::vector<FieldRef>> HashJoinSchema::ComputePayload(
     const std::vector<FieldRef>& filter, const std::vector<FieldRef>& keys) {
   // payload = (output + filter) - keys, with no duplicates
   std::unordered_set<int> payload_fields;
-  for (auto ref : output) {
+  for (const auto& ref : output) {
     ARROW_ASSIGN_OR_RAISE(auto match, ref.FindOne(schema));
     payload_fields.insert(match[0]);
   }
 
-  for (auto ref : filter) {
+  for (const auto& ref : filter) {
     ARROW_ASSIGN_OR_RAISE(auto match, ref.FindOne(schema));
     payload_fields.insert(match[0]);
   }
 
-  for (auto ref : keys) {
+  for (const auto& ref : keys) {
     ARROW_ASSIGN_OR_RAISE(auto match, ref.FindOne(schema));
     payload_fields.erase(match[0]);
   }
 
   std::vector<FieldRef> payload_refs;
-  for (auto ref : output) {
+  for (const auto& ref : output) {
     ARROW_ASSIGN_OR_RAISE(auto match, ref.FindOne(schema));
     if (payload_fields.find(match[0]) != payload_fields.end()) {
       payload_refs.push_back(ref);
       payload_fields.erase(match[0]);
     }
   }
-  for (auto ref : filter) {
+  for (const auto& ref : filter) {
     ARROW_ASSIGN_OR_RAISE(auto match, ref.FindOne(schema));
     if (payload_fields.find(match[0]) != payload_fields.end()) {
       payload_refs.push_back(ref);
@@ -198,7 +198,7 @@ Status HashJoinSchema::ValidateSchemas(JoinType join_type, const Schema& left_sc
     return Status::Invalid("Different number of key fields on left (", left_keys.size(),
                            ") and right (", right_keys.size(), ") side of the join");
   }
-  if (left_keys.size() < 1) {
+  if (left_keys.empty()) {
     return Status::Invalid("Join key cannot be empty");
   }
   for (size_t i = 0; i < left_keys.size() + right_keys.size(); ++i) {
@@ -432,7 +432,7 @@ Status HashJoinSchema::CollectFilterColumns(std::vector<FieldRef>& left_filter,
         indices[0] -= left_schema.num_fields();
         FieldPath corrected_path(std::move(indices));
         if (right_seen_paths.find(*path) == right_seen_paths.end()) {
-          right_filter.push_back(corrected_path);
+          right_filter.emplace_back(corrected_path);
           right_seen_paths.emplace(std::move(corrected_path));
         }
       } else if (left_seen_paths.find(*path) == left_seen_paths.end()) {
@@ -698,7 +698,7 @@ class HashJoinNode : public ExecNode, public TracedNode {
                std::shared_ptr<Schema> output_schema,
                std::unique_ptr<HashJoinSchema> schema_mgr, Expression filter,
                std::unique_ptr<HashJoinImpl> impl)
-      : ExecNode(plan, inputs, {"left", "right"},
+      : ExecNode(plan, std::move(inputs), {"left", "right"},
                  /*output_schema=*/std::move(output_schema)),
         TracedNode(this),
         join_type_(join_options.join_type),
