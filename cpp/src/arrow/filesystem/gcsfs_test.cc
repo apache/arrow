@@ -71,7 +71,7 @@ class GcsTestbench : public ::testing::Environment {
     auto server_process = std::make_unique<util::Process>();
     auto status = server_process->SetExecutable("storage-testbench");
     if (!status.ok()) {
-      error += " (exe not found)";
+      error += ": " + status.ToString();
       error_ = std::move(error);
       return;
     }
