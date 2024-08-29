@@ -567,7 +567,7 @@ struct CastingGenerator {
                    const std::unordered_set<std::string>& cols_to_skip,
                    MemoryPool* pool = default_memory_pool())
       : source_(source),
-        final_schema_(final_schema),
+        final_schema_(std::move(final_schema)),
         cols_to_skip_(cols_to_skip),
         exec_ctx(std::make_shared<compute::ExecContext>(pool)) {}
 
