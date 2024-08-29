@@ -339,8 +339,6 @@ jobs:
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
-      # TODO: We want to use boost-cmake with more newer vcpkg
-      BOOST_SOURCE: BUNDLED
       CMAKE_CXX_STANDARD: "17"
       CMAKE_GENERATOR: Ninja
       CMAKE_INSTALL_PREFIX: "${{ github.workspace }}/dist"
