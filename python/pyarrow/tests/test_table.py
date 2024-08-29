@@ -2392,7 +2392,6 @@ def test_table_from_pylist(cls):
     assert table.num_rows == 3
     assert table.to_pylist() == data2
 
-
     # Pass list of list or tuple with explicit schema
     schema = pa.schema([('strs', pa.utf8()), ('floats', pa.float64())])
     data = [['foo', 4.0], ['bar', 3]]
