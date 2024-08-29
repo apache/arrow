@@ -38,20 +38,19 @@ class TestMemoryPoolBase : public ::testing::Test {
     auto pool = memory_pool();
 
     uint8_t* data;
-    const auto old_bytes_allocated = pool->bytes_allocated();
     ASSERT_OK(pool->Allocate(100, &data));
     EXPECT_EQ(static_cast<uint64_t>(0), reinterpret_cast<uint64_t>(data) % 64);
-    ASSERT_EQ(old_bytes_allocated + 100, pool->bytes_allocated());
+    ASSERT_EQ(100, pool->bytes_allocated());
 
     uint8_t* data2;
     ASSERT_OK(pool->Allocate(27, &data2));
     EXPECT_EQ(static_cast<uint64_t>(0), reinterpret_cast<uint64_t>(data2) % 64);
-    ASSERT_EQ(old_bytes_allocated + 127, pool->bytes_allocated());
+    ASSERT_EQ(127, pool->bytes_allocated());
 
     pool->Free(data, 100);
-    ASSERT_EQ(old_bytes_allocated + 27, pool->bytes_allocated());
+    ASSERT_EQ(27, pool->bytes_allocated());
     pool->Free(data2, 27);
-    ASSERT_EQ(old_bytes_allocated, pool->bytes_allocated());
+    ASSERT_EQ(0, pool->bytes_allocated());
   }
 
   void TestOOM() {

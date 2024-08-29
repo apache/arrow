@@ -21,7 +21,6 @@
 #include <string>
 #include <vector>
 
-#include "arrow/util/span.h"
 #include "parquet/properties.h"
 #include "parquet/types.h"
 
@@ -29,8 +28,8 @@ using parquet::ParquetCipher;
 
 namespace parquet::encryption {
 
-constexpr int32_t kGcmTagLength = 16;
-constexpr int32_t kNonceLength = 12;
+constexpr int kGcmTagLength = 16;
+constexpr int kNonceLength = 12;
 
 // Module types
 constexpr int8_t kFooter = 0;
@@ -45,37 +44,34 @@ constexpr int8_t kBloomFilterHeader = 8;
 constexpr int8_t kBloomFilterBitset = 9;
 
 /// Performs AES encryption operations with GCM or CTR ciphers.
-class PARQUET_EXPORT AesEncryptor {
+class AesEncryptor {
  public:
   /// Can serve one key length only. Possible values: 16, 24, 32 bytes.
   /// If write_length is true, prepend ciphertext length to the ciphertext
-  explicit AesEncryptor(ParquetCipher::type alg_id, int32_t key_len, bool metadata,
+  explicit AesEncryptor(ParquetCipher::type alg_id, int key_len, bool metadata,
                         bool write_length = true);
 
-  static std::unique_ptr<AesEncryptor> Make(ParquetCipher::type alg_id, int32_t key_len,
-                                            bool metadata);
+  static AesEncryptor* Make(ParquetCipher::type alg_id, int key_len, bool metadata,
+                            std::vector<AesEncryptor*>* all_encryptors);
 
-  static std::unique_ptr<AesEncryptor> Make(ParquetCipher::type alg_id, int32_t key_len,
-                                            bool metadata, bool write_length);
+  static AesEncryptor* Make(ParquetCipher::type alg_id, int key_len, bool metadata,
+                            bool write_length,
+                            std::vector<AesEncryptor*>* all_encryptors);
 
   ~AesEncryptor();
 
-  /// The size of the ciphertext, for this cipher and the specified plaintext length.
-  [[nodiscard]] int32_t CiphertextLength(int64_t plaintext_len) const;
+  /// Size difference between plaintext and ciphertext, for this cipher.
+  int CiphertextSizeDelta();
 
   /// Encrypts plaintext with the key and aad. Key length is passed only for validation.
   /// If different from value in constructor, exception will be thrown.
-  int32_t Encrypt(::arrow::util::span<const uint8_t> plaintext,
-                  ::arrow::util::span<const uint8_t> key,
-                  ::arrow::util::span<const uint8_t> aad,
-                  ::arrow::util::span<uint8_t> ciphertext);
+  int Encrypt(const uint8_t* plaintext, int plaintext_len, const uint8_t* key,
+              int key_len, const uint8_t* aad, int aad_len, uint8_t* ciphertext);
 
   /// Encrypts plaintext footer, in order to compute footer signature (tag).
-  int32_t SignedFooterEncrypt(::arrow::util::span<const uint8_t> footer,
-                              ::arrow::util::span<const uint8_t> key,
-                              ::arrow::util::span<const uint8_t> aad,
-                              ::arrow::util::span<const uint8_t> nonce,
-                              ::arrow::util::span<uint8_t> encrypted_footer);
+  int SignedFooterEncrypt(const uint8_t* footer, int footer_len, const uint8_t* key,
+                          int key_len, const uint8_t* aad, int aad_len,
+                          const uint8_t* nonce, uint8_t* encrypted_footer);
 
   void WipeOut();
 
@@ -86,11 +82,11 @@ class PARQUET_EXPORT AesEncryptor {
 };
 
 /// Performs AES decryption operations with GCM or CTR ciphers.
-class PARQUET_EXPORT AesDecryptor {
+class AesDecryptor {
  public:
   /// Can serve one key length only. Possible values: 16, 24, 32 bytes.
   /// If contains_length is true, expect ciphertext length prepended to the ciphertext
-  explicit AesDecryptor(ParquetCipher::type alg_id, int32_t key_len, bool metadata,
+  explicit AesDecryptor(ParquetCipher::type alg_id, int key_len, bool metadata,
                         bool contains_length = true);
 
   /// \brief Factory function to create an AesDecryptor
@@ -102,26 +98,19 @@ class PARQUET_EXPORT AesDecryptor {
   /// out when decryption is finished
   /// \return shared pointer to a new AesDecryptor
   static std::shared_ptr<AesDecryptor> Make(
-      ParquetCipher::type alg_id, int32_t key_len, bool metadata,
+      ParquetCipher::type alg_id, int key_len, bool metadata,
       std::vector<std::weak_ptr<AesDecryptor>>* all_decryptors);
 
   ~AesDecryptor();
   void WipeOut();
 
-  /// The size of the plaintext, for this cipher and the specified ciphertext length.
-  [[nodiscard]] int32_t PlaintextLength(int32_t ciphertext_len) const;
-
-  /// The size of the ciphertext, for this cipher and the specified plaintext length.
-  [[nodiscard]] int32_t CiphertextLength(int32_t plaintext_len) const;
+  /// Size difference between plaintext and ciphertext, for this cipher.
+  int CiphertextSizeDelta();
 
   /// Decrypts ciphertext with the key and aad. Key length is passed only for
   /// validation. If different from value in constructor, exception will be thrown.
-  /// The caller is responsible for ensuring that the plaintext buffer is at least as
-  /// large as PlaintextLength(ciphertext_len).
-  int32_t Decrypt(::arrow::util::span<const uint8_t> ciphertext,
-                  ::arrow::util::span<const uint8_t> key,
-                  ::arrow::util::span<const uint8_t> aad,
-                  ::arrow::util::span<uint8_t> plaintext);
+  int Decrypt(const uint8_t* ciphertext, int ciphertext_len, const uint8_t* key,
+              int key_len, const uint8_t* aad, int aad_len, uint8_t* plaintext);
 
  private:
   // PIMPL Idiom
@@ -139,7 +128,7 @@ std::string CreateFooterAad(const std::string& aad_prefix_bytes);
 void QuickUpdatePageAad(int32_t new_page_ordinal, std::string* AAD);
 
 // Wraps OpenSSL RAND_bytes function
-void RandBytes(unsigned char* buf, size_t num);
+void RandBytes(unsigned char* buf, int num);
 
 // Ensure OpenSSL is initialized.
 //

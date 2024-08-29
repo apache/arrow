@@ -229,14 +229,6 @@ class ARROW_EXPORT Function {
 
   virtual Status Validate() const;
 
-  /// \brief Returns the pure property for this function.
-  ///
-  /// Impure functions are those that may return different results for the same
-  /// input arguments. For example, a function that returns a random number is
-  /// not pure. An expression containing only pure functions can be simplified by
-  /// pre-evaluating any sub-expressions that have constant arguments.
-  virtual bool is_pure() const { return true; }
-
  protected:
   Function(std::string name, Function::Kind kind, const Arity& arity, FunctionDoc doc,
            const FunctionOptions* default_options)
@@ -299,10 +291,9 @@ class ARROW_EXPORT ScalarFunction : public detail::FunctionImpl<ScalarKernel> {
   using KernelType = ScalarKernel;
 
   ScalarFunction(std::string name, const Arity& arity, FunctionDoc doc,
-                 const FunctionOptions* default_options = NULLPTR, bool is_pure = true)
+                 const FunctionOptions* default_options = NULLPTR)
       : detail::FunctionImpl<ScalarKernel>(std::move(name), Function::SCALAR, arity,
-                                           std::move(doc), default_options),
-        is_pure_(is_pure) {}
+                                           std::move(doc), default_options) {}
 
   /// \brief Add a kernel with given input/output types, no required state
   /// initialization, preallocation for fixed-width types, and default null
@@ -313,12 +304,6 @@ class ARROW_EXPORT ScalarFunction : public detail::FunctionImpl<ScalarKernel> {
   /// \brief Add a kernel (function implementation). Returns error if the
   /// kernel's signature does not match the function's arity.
   Status AddKernel(ScalarKernel kernel);
-
-  /// \brief Returns the pure property for this function.
-  bool is_pure() const override { return is_pure_; }
-
- private:
-  const bool is_pure_;
 };
 
 /// \brief A function that executes general array operations that may yield

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight.auth;
 
 import io.grpc.CallOptions;
@@ -24,7 +25,9 @@ import io.grpc.ForwardingClientCall.SimpleForwardingClientCall;
 import io.grpc.Metadata;
 import io.grpc.MethodDescriptor;
 
-/** GRPC client intercepter that handles authentication with the server. */
+/**
+ * GRPC client intercepter that handles authentication with the server.
+ */
 public class ClientAuthInterceptor implements ClientInterceptor {
   private volatile ClientAuthHandler authHandler = null;
 
@@ -32,15 +35,16 @@ public class ClientAuthInterceptor implements ClientInterceptor {
     this.authHandler = authHandler;
   }
 
-  public ClientAuthInterceptor() {}
+  public ClientAuthInterceptor() {
+  }
 
   public boolean hasAuthHandler() {
     return authHandler != null;
   }
 
   @Override
-  public <ReqT, RespT> ClientCall<ReqT, RespT> interceptCall(
-      MethodDescriptor<ReqT, RespT> methodDescriptor, CallOptions callOptions, Channel next) {
+  public <ReqT, RespT> ClientCall<ReqT, RespT> interceptCall(MethodDescriptor<ReqT, RespT> methodDescriptor,
+      CallOptions callOptions, Channel next) {
     ClientCall<ReqT, RespT> call = next.newCall(methodDescriptor, callOptions);
 
     // once we have an auth header, add that to the calls.
@@ -51,8 +55,7 @@ public class ClientAuthInterceptor implements ClientInterceptor {
     return call;
   }
 
-  private final class HeaderAttachingClientCall<ReqT, RespT>
-      extends SimpleForwardingClientCall<ReqT, RespT> {
+  private final class HeaderAttachingClientCall<ReqT, RespT> extends SimpleForwardingClientCall<ReqT, RespT> {
 
     private HeaderAttachingClientCall(ClientCall<ReqT, RespT> call) {
       super(call);
@@ -66,4 +69,5 @@ public class ClientAuthInterceptor implements ClientInterceptor {
       super.start(responseListener, headers);
     }
   }
+
 }

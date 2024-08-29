@@ -25,7 +25,6 @@
 #include "arrow/testing/random.h"
 #include "arrow/util/benchmark_util.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/config.h"
 
 namespace arrow {
 

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.memory;
 
 import java.util.Optional;
@@ -21,14 +22,14 @@ import java.util.Optional;
 /**
  * Indicates memory could not be allocated for Arrow buffers.
  *
- * <p>This is different from {@linkplain OutOfMemoryError} which indicates the JVM is out of memory.
- * This error indicates that static limit of one of Arrow's allocators (e.g. {@linkplain
- * BaseAllocator}) has been exceeded.
+ * <p>This is different from {@linkplain OutOfMemoryError} which indicates the JVM
+ * is out of memory.  This error indicates that static limit of one of Arrow's
+ * allocators (e.g. {@linkplain BaseAllocator}) has been exceeded.
  */
 public class OutOfMemoryException extends RuntimeException {
 
-  static final org.slf4j.Logger logger =
-      org.slf4j.LoggerFactory.getLogger(OutOfMemoryException.class);
+  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(OutOfMemoryException
+      .class);
   private static final long serialVersionUID = -6858052345185793382L;
   private Optional<AllocationOutcomeDetails> outcomeDetails = Optional.empty();
 
@@ -36,13 +37,14 @@ public class OutOfMemoryException extends RuntimeException {
     super();
   }
 
-  public OutOfMemoryException(
-      String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
+  public OutOfMemoryException(String message, Throwable cause, boolean enableSuppression, boolean
+      writableStackTrace) {
     super(message, cause, enableSuppression, writableStackTrace);
   }
 
   public OutOfMemoryException(String message, Throwable cause) {
     super(message, cause);
+
   }
 
   public OutOfMemoryException(String message) {
@@ -56,6 +58,7 @@ public class OutOfMemoryException extends RuntimeException {
 
   public OutOfMemoryException(Throwable cause) {
     super(cause);
+
   }
 
   public Optional<AllocationOutcomeDetails> getOutcomeDetails() {

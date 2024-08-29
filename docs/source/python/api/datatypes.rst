@@ -58,7 +58,6 @@ These should be used to create Arrow data types and schemas.
    binary_view
    string_view
    decimal128
-   decimal256
    list_
    large_list
    list_view
@@ -67,8 +66,6 @@ These should be used to create Arrow data types and schemas.
    struct
    dictionary
    run_end_encoded
-   fixed_shape_tensor
-   opaque
    field
    schema
    from_numpy_dtype
@@ -96,7 +93,6 @@ functions above.
    DataType
    DictionaryType
    ListType
-   LargeListType
    MapType
    StructType
    UnionType
@@ -105,7 +101,6 @@ functions above.
    Time64Type
    FixedSizeBinaryType
    Decimal128Type
-   Decimal256Type
    Field
    Schema
    RunEndEncodedType
@@ -120,14 +115,6 @@ Specific classes and functions for extension types.
    register_extension_type
    unregister_extension_type
 
-:doc:`Canonical extension types <../../format/CanonicalExtensions>`
-implemented by PyArrow.
-
-.. autosummary::
-   :toctree: ../generated/
-
-   FixedShapeTensorType
-   OpaqueType
 
 .. _api.types.checking:
 .. currentmodule:: pyarrow.types

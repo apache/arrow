@@ -14,15 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight;
 
-/** Constants representing well-known URI schemes for Flight services. */
+/**
+ * Constants representing well-known URI schemes for Flight services.
+ */
 public final class LocationSchemes {
   public static final String GRPC = "grpc";
   public static final String GRPC_INSECURE = "grpc+tcp";
   public static final String GRPC_DOMAIN_SOCKET = "grpc+unix";
   public static final String GRPC_TLS = "grpc+tls";
-  public static final String REUSE_CONNECTION = "arrow-flight-reuse-connection";
 
   private LocationSchemes() {
     throw new AssertionError("Do not instantiate this class.");

@@ -33,11 +33,18 @@ namespace arrow {
 
 class Status;
 
-namespace io::internal {
+namespace io {
+namespace internal {
+
+#ifndef _WIN32
+typedef void* LibraryHandle;
+#else
+typedef HINSTANCE LibraryHandle;
+#endif
 
 // NOTE(wesm): cpplint does not like use of short and other imprecise C types
 struct LibHdfsShim {
-  void* handle;
+  LibraryHandle handle;
 
   hdfsBuilder* (*hdfsNewBuilder)(void);
   void (*hdfsBuilderSetNameNode)(hdfsBuilder* bld, const char* nn);
@@ -210,5 +217,6 @@ struct LibHdfsShim {
 // TODO(wesm): Remove these exports when we are linking statically
 ARROW_EXPORT Status ConnectLibHdfs(LibHdfsShim** driver);
 
-}  // namespace io::internal
+}  // namespace internal
+}  // namespace io
 }  // namespace arrow

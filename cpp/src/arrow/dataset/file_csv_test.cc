@@ -36,7 +36,6 @@
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
-#include "arrow/util/config.h"
 
 namespace arrow {
 namespace dataset {

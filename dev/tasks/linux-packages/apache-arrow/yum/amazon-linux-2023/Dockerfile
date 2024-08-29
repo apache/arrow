@@ -38,6 +38,7 @@ RUN \
     gobject-introspection-devel \
     grpc-devel \
     grpc-plugins \
+    gtk-doc \
     libzstd-devel \
     llvm-devel \
     lz4-devel \
@@ -48,7 +49,6 @@ RUN \
     pkg-config \
     protobuf-compiler \
     protobuf-devel \
-    python3-pip \
     rapidjson-devel \
     re2-devel \
     rpmdevtools \
@@ -56,6 +56,5 @@ RUN \
     tar \
     utf8proc-devel \
     vala \
-    which \
     zlib-devel && \
   dnf clean ${quiet} all

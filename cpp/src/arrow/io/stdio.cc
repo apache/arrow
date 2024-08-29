@@ -85,8 +85,7 @@ Result<std::shared_ptr<Buffer>> StdinStream::Read(int64_t nbytes) {
   ARROW_ASSIGN_OR_RAISE(int64_t bytes_read, Read(nbytes, buffer->mutable_data()));
   ARROW_RETURN_NOT_OK(buffer->Resize(bytes_read, false));
   buffer->ZeroPadding();
-  // R build with openSUSE155 requires an explicit shared_ptr construction
-  return std::shared_ptr<Buffer>(std::move(buffer));
+  return std::move(buffer);
 }
 
 }  // namespace io

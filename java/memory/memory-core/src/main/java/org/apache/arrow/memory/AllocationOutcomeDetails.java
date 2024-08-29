@@ -14,13 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.memory;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+
 import org.checkerframework.checker.nullness.qual.Nullable;
 
-/** Captures details of allocation for each accountant in the hierarchical chain. */
+
+/**
+ * Captures details of allocation for each accountant in the hierarchical chain.
+ */
 public class AllocationOutcomeDetails {
   Deque<Entry> allocEntries;
 
@@ -28,12 +33,8 @@ public class AllocationOutcomeDetails {
     allocEntries = new ArrayDeque<>();
   }
 
-  void pushEntry(
-      Accountant accountant,
-      long totalUsedBeforeAllocation,
-      long requestedSize,
-      long allocatedSize,
-      boolean allocationFailed) {
+  void pushEntry(Accountant accountant, long totalUsedBeforeAllocation, long requestedSize,
+      long allocatedSize, boolean allocationFailed) {
 
     Entry top = allocEntries.peekLast();
     if (top != null && top.allocationFailed) {
@@ -41,14 +42,12 @@ public class AllocationOutcomeDetails {
       return;
     }
 
-    allocEntries.addLast(
-        new Entry(
-            accountant, totalUsedBeforeAllocation, requestedSize, allocatedSize, allocationFailed));
+    allocEntries.addLast(new Entry(accountant, totalUsedBeforeAllocation, requestedSize,
+        allocatedSize, allocationFailed));
   }
 
   /**
    * Get the allocator that caused the failure.
-   *
    * @return the allocator that caused failure, null if there was no failure.
    */
   public @Nullable BufferAllocator getFailedAllocator() {
@@ -68,7 +67,9 @@ public class AllocationOutcomeDetails {
     return sb.toString();
   }
 
-  /** Outcome of the allocation request at one accountant in the hierarchy. */
+  /**
+   * Outcome of the allocation request at one accountant in the hierarchy.
+   */
   public static class Entry {
     private final Accountant accountant;
 
@@ -81,12 +82,8 @@ public class AllocationOutcomeDetails {
     private final long allocatedSize;
     private final boolean allocationFailed;
 
-    Entry(
-        Accountant accountant,
-        long totalUsedBeforeAllocation,
-        long requestedSize,
-        long allocatedSize,
-        boolean allocationFailed) {
+    Entry(Accountant accountant, long totalUsedBeforeAllocation, long requestedSize,
+        long allocatedSize, boolean allocationFailed) {
       this.accountant = accountant;
       this.limit = accountant.getLimit();
       this.used = totalUsedBeforeAllocation;
@@ -122,22 +119,17 @@ public class AllocationOutcomeDetails {
 
     @Override
     public String toString() {
-      return "allocator["
-          + accountant.getName()
-          + "]"
-          + " reservation: "
-          + accountant.getInitReservation()
-          + " limit: "
-          + limit
-          + " used: "
-          + used
-          + " requestedSize: "
-          + requestedSize
-          + " allocatedSize: "
-          + allocatedSize
-          + " localAllocationStatus: "
-          + (allocationFailed ? "fail" : "success")
-          + "\n";
+      return new StringBuilder()
+          .append("allocator[" + accountant.getName() + "]")
+          .append(" reservation: " + accountant.getInitReservation())
+          .append(" limit: " + limit)
+          .append(" used: " + used)
+          .append(" requestedSize: " + requestedSize)
+          .append(" allocatedSize: " + allocatedSize)
+          .append(" localAllocationStatus: " + (allocationFailed ? "fail" : "success"))
+          .append("\n")
+          .toString();
     }
   }
+
 }

@@ -14,21 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.arrow.memory;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+package org.apache.arrow.memory;
 
 import java.lang.reflect.Field;
 import java.net.URLClassLoader;
-import org.junit.jupiter.api.Test;
 
-/** Test cases for evaluating the value of {@link BoundsChecking#BOUNDS_CHECKING_ENABLED}. */
+import org.junit.Assert;
+import org.junit.Test;
+
+/**
+ * Test cases for evaluating the value of {@link BoundsChecking#BOUNDS_CHECKING_ENABLED}.
+ */
 public class TestBoundaryChecking {
 
   /**
    * Get a copy of the current class loader.
-   *
    * @return the newly created class loader.
    */
   private ClassLoader copyClassLoader() {
@@ -43,8 +44,7 @@ public class TestBoundaryChecking {
   }
 
   /**
-   * Get the value of flag {@link BoundsChecking#BOUNDS_CHECKING_ENABLED}.
-   *
+   * Get the value of flag  {@link BoundsChecking#BOUNDS_CHECKING_ENABLED}.
    * @param classLoader the class loader from which to get the flag value.
    * @return value of the flag.
    */
@@ -55,21 +55,20 @@ public class TestBoundaryChecking {
   }
 
   /**
-   * Ensure the flag for bounds checking is enabled by default. This will protect users from JVM
-   * crashes.
+   * Ensure the flag for bounds checking is enabled by default.
+   * This will protect users from JVM crashes.
    */
   @Test
   public void testDefaultValue() throws Exception {
     ClassLoader classLoader = copyClassLoader();
     if (classLoader != null) {
       boolean boundsCheckingEnabled = getFlagValue(classLoader);
-      assertTrue(boundsCheckingEnabled);
+      Assert.assertTrue(boundsCheckingEnabled);
     }
   }
 
   /**
    * Test setting the bounds checking flag by the old property.
-   *
    * @throws Exception if loading class {@link BoundsChecking#BOUNDS_CHECKING_ENABLED} fails.
    */
   @Test
@@ -80,7 +79,7 @@ public class TestBoundaryChecking {
     ClassLoader classLoader = copyClassLoader();
     if (classLoader != null) {
       boolean boundsCheckingEnabled = getFlagValue(classLoader);
-      assertFalse(boundsCheckingEnabled);
+      Assert.assertFalse(boundsCheckingEnabled);
     }
 
     // restore system property
@@ -93,7 +92,6 @@ public class TestBoundaryChecking {
 
   /**
    * Test setting the bounds checking flag by the new property.
-   *
    * @throws Exception if loading class {@link BoundsChecking#BOUNDS_CHECKING_ENABLED} fails.
    */
   @Test
@@ -105,7 +103,7 @@ public class TestBoundaryChecking {
     ClassLoader classLoader = copyClassLoader();
     if (classLoader != null) {
       boolean boundsCheckingEnabled = getFlagValue(classLoader);
-      assertFalse(boundsCheckingEnabled);
+      Assert.assertFalse(boundsCheckingEnabled);
     }
 
     // restore system property
@@ -117,9 +115,8 @@ public class TestBoundaryChecking {
   }
 
   /**
-   * Test setting the bounds checking flag by both old and new properties. In this case, the new
-   * property should take precedence.
-   *
+   * Test setting the bounds checking flag by both old and new properties.
+   * In this case, the new property should take precedence.
    * @throws Exception if loading class {@link BoundsChecking#BOUNDS_CHECKING_ENABLED} fails.
    */
   @Test
@@ -134,7 +131,7 @@ public class TestBoundaryChecking {
     ClassLoader classLoader = copyClassLoader();
     if (classLoader != null) {
       boolean boundsCheckingEnabled = getFlagValue(classLoader);
-      assertFalse(boundsCheckingEnabled);
+      Assert.assertFalse(boundsCheckingEnabled);
     }
 
     // restore system property

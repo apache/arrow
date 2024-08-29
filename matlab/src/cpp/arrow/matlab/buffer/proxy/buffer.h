@@ -24,24 +24,23 @@
 namespace arrow::matlab::buffer::proxy {
 
 class Buffer : public libmexclass::proxy::Proxy {
- public:
-  Buffer(std::shared_ptr<arrow::Buffer> buffer);
+    public:
+        Buffer(std::shared_ptr<arrow::Buffer> buffer);
+    
+        ~Buffer() {}
 
-  ~Buffer() {}
+        std::shared_ptr<arrow::Buffer> unwrap();
 
-  std::shared_ptr<arrow::Buffer> unwrap();
+        static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
 
-  static libmexclass::proxy::MakeResult make(
-      const libmexclass::proxy::FunctionArguments& constructor_arguments);
+    protected:
+        void getNumBytes(libmexclass::proxy::method::Context& context);
 
- protected:
-  void getNumBytes(libmexclass::proxy::method::Context& context);
+        void toMATLAB(libmexclass::proxy::method::Context& context);
 
-  void toMATLAB(libmexclass::proxy::method::Context& context);
+        void isEqual(libmexclass::proxy::method::Context& context);
 
-  void isEqual(libmexclass::proxy::method::Context& context);
-
-  std::shared_ptr<arrow::Buffer> buffer;
+        std::shared_ptr<arrow::Buffer> buffer;
 };
 
-}  // namespace arrow::matlab::buffer::proxy
+}

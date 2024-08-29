@@ -41,7 +41,6 @@ permissions:
   contents: read
 
 env:
-  ARCHERY_DEBUG: 1
   DOCKER_VOLUME_PREFIX: ".docker/"
 
 jobs:

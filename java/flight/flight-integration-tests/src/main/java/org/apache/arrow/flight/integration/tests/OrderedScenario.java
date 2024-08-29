@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight.integration.tests;
 
 import java.nio.charset.StandardCharsets;
@@ -21,6 +22,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightDescriptor;
@@ -53,7 +55,8 @@ public class OrderedScenario implements Scenario {
   }
 
   @Override
-  public void buildServer(FlightServer.Builder builder) throws Exception {}
+  public void buildServer(FlightServer.Builder builder) throws Exception {
+  }
 
   @Override
   public void client(BufferAllocator allocator, Location location, FlightClient client)
@@ -122,8 +125,7 @@ public class OrderedScenario implements Scenario {
           listener.error(
               CallStatus.INVALID_ARGUMENT
                   .withDescription(
-                      "Could not find flight: "
-                          + new String(ticket.getBytes(), StandardCharsets.UTF_8))
+                      "Could not find flight: " + new String(ticket.getBytes(), StandardCharsets.UTF_8))
                   .toRuntimeException());
           return;
         }

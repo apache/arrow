@@ -14,9 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector;
 
-/** Interface for setting a specific index values as defined/valid on a vector. */
+/**
+ * Interface for setting a specific index values as defined/valid on a vector.
+ */
 public interface VectorDefinitionSetter {
 
   void setIndexDefined(int index);

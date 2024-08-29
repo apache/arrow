@@ -25,15 +25,14 @@
 
 namespace arrow::matlab::array::proxy {
 
-class StringArray : public arrow::matlab::array::proxy::Array {
- public:
-  StringArray(const std::shared_ptr<arrow::StringArray> string_array);
+    class StringArray : public arrow::matlab::array::proxy::Array {
+        public:
+            StringArray(const std::shared_ptr<arrow::StringArray> string_array);
+                
+            static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
 
-  static libmexclass::proxy::MakeResult make(
-      const libmexclass::proxy::FunctionArguments& constructor_arguments);
+        protected:
+            void toMATLAB(libmexclass::proxy::method::Context& context);
+    };
 
- protected:
-  void toMATLAB(libmexclass::proxy::method::Context& context);
-};
-
-}  // namespace arrow::matlab::array::proxy
+}

@@ -23,7 +23,6 @@ from concurrent import futures
 # module bug (ARROW-11983)
 import concurrent.futures.thread  # noqa
 from copy import deepcopy
-import decimal
 from itertools import zip_longest
 import json
 import operator
@@ -33,7 +32,7 @@ import warnings
 import numpy as np
 
 import pyarrow as pa
-from pyarrow.lib import _pandas_api, frombytes, is_threading_enabled  # noqa
+from pyarrow.lib import _pandas_api, frombytes  # noqa
 
 
 _logical_type_map = {}
@@ -109,10 +108,9 @@ def get_logical_type_from_numpy(pandas_collection):
     except KeyError:
         if hasattr(pandas_collection.dtype, 'tz'):
             return 'datetimetz'
-        # See https://github.com/pandas-dev/pandas/issues/24739 (infer_dtype will
-        # result in "datetime64" without unit, while pandas astype requires a unit)
-        if str(pandas_collection.dtype).startswith('datetime64'):
-            return str(pandas_collection.dtype)
+        # See https://github.com/pandas-dev/pandas/issues/24739
+        if str(pandas_collection.dtype) == 'datetime64[ns]':
+            return 'datetime64[ns]'
         result = _pandas_api.infer_dtype(pandas_collection)
         if result == 'string':
             return 'unicode'
@@ -581,9 +579,6 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
             nthreads = pa.cpu_count()
         else:
             nthreads = 1
-    # if we don't have threading in libarrow, don't use threading here either
-    if not is_threading_enabled():
-        nthreads = 1
 
     def convert_column(col, field):
         if field is None:
@@ -681,7 +676,7 @@ def get_datetimetz_type(values, dtype, type_):
 # Converting pyarrow.Table efficiently to pandas.DataFrame
 
 
-def _reconstruct_block(item, columns=None, extension_columns=None, return_block=True):
+def _reconstruct_block(item, columns=None, extension_columns=None):
     """
     Construct a pandas Block from the `item` dictionary coming from pyarrow's
     serialization or returned by arrow::python::ConvertTableToPandas.
@@ -714,23 +709,22 @@ def _reconstruct_block(item, columns=None, extension_columns=None, return_block=
     block_arr = item.get('block', None)
     placement = item['placement']
     if 'dictionary' in item:
-        arr = _pandas_api.categorical_type.from_codes(
+        cat = _pandas_api.categorical_type.from_codes(
             block_arr, categories=item['dictionary'],
             ordered=item['ordered'])
+        block = _int.make_block(cat, placement=placement)
     elif 'timezone' in item:
         unit, _ = np.datetime_data(block_arr.dtype)
         dtype = make_datetimetz(unit, item['timezone'])
         if _pandas_api.is_ge_v21():
-            arr = _pandas_api.pd.array(
+            pd_arr = _pandas_api.pd.array(
                 block_arr.view("int64"), dtype=dtype, copy=False
             )
+            block = _int.make_block(pd_arr, placement=placement)
         else:
-            arr = block_arr
-            if return_block:
-                block = _int.make_block(block_arr, placement=placement,
-                                        klass=_int.DatetimeTZBlock,
-                                        dtype=dtype)
-                return block
+            block = _int.make_block(block_arr, placement=placement,
+                                    klass=_int.DatetimeTZBlock,
+                                    dtype=dtype)
     elif 'py_array' in item:
         # create ExtensionBlock
         arr = item['py_array']
@@ -740,14 +734,12 @@ def _reconstruct_block(item, columns=None, extension_columns=None, return_block=
         if not hasattr(pandas_dtype, '__from_arrow__'):
             raise ValueError("This column does not support to be converted "
                              "to a pandas ExtensionArray")
-        arr = pandas_dtype.__from_arrow__(arr)
+        pd_ext_arr = pandas_dtype.__from_arrow__(arr)
+        block = _int.make_block(pd_ext_arr, placement=placement)
     else:
-        arr = block_arr
+        block = _int.make_block(block_arr, placement=placement)
 
-    if return_block:
-        return _int.make_block(arr, placement=placement)
-    else:
-        return arr, placement
+    return block
 
 
 def make_datetimetz(unit, tz):
@@ -760,6 +752,9 @@ def make_datetimetz(unit, tz):
 def table_to_dataframe(
     options, table, categories=None, ignore_metadata=False, types_mapper=None
 ):
+    from pandas.core.internals import BlockManager
+    from pandas import DataFrame
+
     all_columns = []
     column_indexes = []
     pandas_metadata = table.schema.pandas_metadata
@@ -779,35 +774,15 @@ def table_to_dataframe(
 
     _check_data_column_metadata_consistency(all_columns)
     columns = _deserialize_column_index(table, all_columns, column_indexes)
+    blocks = _table_to_blocks(options, table, categories, ext_columns_dtypes)
 
-    column_names = table.column_names
-    result = pa.lib.table_to_blocks(options, table, categories,
-                                    list(ext_columns_dtypes.keys()))
-    if _pandas_api.is_ge_v3():
-        from pandas.api.internals import create_dataframe_from_blocks
-
-        blocks = [
-            _reconstruct_block(
-                item, column_names, ext_columns_dtypes, return_block=False)
-            for item in result
-        ]
-        df = create_dataframe_from_blocks(blocks, index=index, columns=columns)
-        return df
+    axes = [columns, index]
+    mgr = BlockManager(blocks, axes)
+    if _pandas_api.is_ge_v21():
+        df = DataFrame._from_mgr(mgr, mgr.axes)
     else:
-        from pandas.core.internals import BlockManager
-        from pandas import DataFrame
-
-        blocks = [
-            _reconstruct_block(item, column_names, ext_columns_dtypes)
-            for item in result
-        ]
-        axes = [columns, index]
-        mgr = BlockManager(blocks, axes)
-        if _pandas_api.is_ge_v21():
-            df = DataFrame._from_mgr(mgr, mgr.axes)
-        else:
-            df = DataFrame(mgr)
-        return df
+        df = DataFrame(mgr)
+    return df
 
 
 # Set of the string repr of all numpy dtypes that can be stored in a pandas
@@ -889,34 +864,41 @@ def _check_data_column_metadata_consistency(all_columns):
 
 
 def _deserialize_column_index(block_table, all_columns, column_indexes):
+    column_strings = [frombytes(x) if isinstance(x, bytes) else x
+                      for x in block_table.column_names]
     if all_columns:
         columns_name_dict = {
             c.get('field_name', _column_name_to_strings(c['name'])): c['name']
             for c in all_columns
         }
         columns_values = [
-            columns_name_dict.get(name, name) for name in block_table.column_names
+            columns_name_dict.get(name, name) for name in column_strings
         ]
     else:
-        columns_values = block_table.column_names
+        columns_values = column_strings
+
+    # If we're passed multiple column indexes then evaluate with
+    # ast.literal_eval, since the column index values show up as a list of
+    # tuples
+    to_pair = ast.literal_eval if len(column_indexes) > 1 else lambda x: (x,)
+
+    # Create the column index
 
     # Construct the base index
-    if len(column_indexes) > 1:
-        # If we're passed multiple column indexes then evaluate with
-        # ast.literal_eval, since the column index values show up as a list of
-        # tuples
-        columns = _pandas_api.pd.MultiIndex.from_tuples(
-            list(map(ast.literal_eval, columns_values)),
-            names=[col_index['name'] for col_index in column_indexes],
-        )
+    if not columns_values:
+        columns = _pandas_api.pd.Index(columns_values)
     else:
-        columns = _pandas_api.pd.Index(
-            columns_values, name=column_indexes[0]["name"] if column_indexes else None
+        columns = _pandas_api.pd.MultiIndex.from_tuples(
+            list(map(to_pair, columns_values)),
+            names=[col_index['name'] for col_index in column_indexes] or None,
         )
 
     # if we're reconstructing the index
     if len(column_indexes) > 0:
         columns = _reconstruct_columns_from_metadata(columns, column_indexes)
+
+    # ARROW-1751: flatten a single level column MultiIndex for pandas 0.21.0
+    columns = _flatten_single_level_multiindex(columns)
 
     return columns
 
@@ -1032,7 +1014,6 @@ _pandas_logical_type_map = {
     'string': np.str_,
     'integer': np.int64,
     'floating': np.float64,
-    'decimal': np.object_,
     'empty': np.object_,
 }
 
@@ -1057,6 +1038,13 @@ def _pandas_type_to_numpy_type(pandas_type):
             # catching 'mixed', 'mixed-integer' and 'mixed-integer-float'
             return np.object_
         return np.dtype(pandas_type)
+
+
+def _get_multiindex_codes(mi):
+    if isinstance(mi, _pandas_api.pd.MultiIndex):
+        return mi.codes
+    else:
+        return None
 
 
 def _reconstruct_columns_from_metadata(columns, column_indexes):
@@ -1085,7 +1073,9 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
     # Get levels and labels, and provide sane defaults if the index has a
     # single level to avoid if/else spaghetti.
     levels = getattr(columns, 'levels', None) or [columns]
-    labels = getattr(columns, 'codes', None) or [None]
+    labels = _get_multiindex_codes(columns) or [
+        pd.RangeIndex(len(level)) for level in levels
+    ]
 
     # Convert each level to the dtype provided in the metadata
     levels_dtypes = [
@@ -1111,13 +1101,6 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
             tz = pa.lib.string_to_tzinfo(
                 column_indexes[0]['metadata']['timezone'])
             level = pd.to_datetime(level, utc=True).tz_convert(tz)
-            if _pandas_api.is_ge_v3():
-                # with pandas 3+, to_datetime returns a unit depending on the string
-                # data, so we restore it to the original unit from the metadata
-                level = level.as_unit(np.datetime_data(dtype)[0])
-        # GH-41503: if the column index was decimal, restore to decimal
-        elif pandas_dtype == "decimal":
-            level = _pandas_api.pd.Index([decimal.Decimal(i) for i in level])
         elif level.dtype != dtype:
             level = level.astype(dtype)
         # ARROW-9096: if original DataFrame was upcast we keep that
@@ -1126,10 +1109,38 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
 
         new_levels.append(level)
 
-    if len(new_levels) > 1:
-        return pd.MultiIndex(new_levels, labels, names=columns.names)
-    else:
-        return pd.Index(new_levels[0], dtype=new_levels[0].dtype, name=columns.name)
+    return pd.MultiIndex(new_levels, labels, names=columns.names)
+
+
+def _table_to_blocks(options, block_table, categories, extension_columns):
+    # Part of table_to_blockmanager
+
+    # Convert an arrow table to Block from the internal pandas API
+    columns = block_table.column_names
+    result = pa.lib.table_to_blocks(options, block_table, categories,
+                                    list(extension_columns.keys()))
+    return [_reconstruct_block(item, columns, extension_columns)
+            for item in result]
+
+
+def _flatten_single_level_multiindex(index):
+    pd = _pandas_api.pd
+    if isinstance(index, pd.MultiIndex) and index.nlevels == 1:
+        levels, = index.levels
+        labels, = _get_multiindex_codes(index)
+        # ARROW-9096: use levels.dtype to match cast with original DataFrame
+        dtype = levels.dtype
+
+        # Cheaply check that we do not somehow have duplicate column names
+        if not index.is_unique:
+            raise ValueError('Found non-unique column index')
+
+        return pd.Index(
+            [levels[_label] if _label != -1 else None for _label in labels],
+            dtype=dtype,
+            name=index.names[0]
+        )
+    return index
 
 
 def _add_any_metadata(table, pandas_metadata):

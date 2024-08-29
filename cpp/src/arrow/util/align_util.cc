@@ -159,10 +159,9 @@ Result<std::shared_ptr<Buffer>> EnsureAlignment(std::shared_ptr<Buffer> buffer,
         auto new_buffer,
         AllocateBuffer(buffer->size(), minimum_desired_alignment, memory_pool));
     std::memcpy(new_buffer->mutable_data(), buffer->data(), buffer->size());
-    // R build with openSUSE155 requires an explicit shared_ptr construction
-    return std::shared_ptr<Buffer>(std::move(new_buffer));
+    return std::move(new_buffer);
   } else {
-    return buffer;
+    return std::move(buffer);
   }
 }
 
@@ -198,9 +197,9 @@ Result<std::shared_ptr<ArrayData>> EnsureAlignment(std::shared_ptr<ArrayData> ar
     auto new_array_data = ArrayData::Make(
         array_data->type, array_data->length, std::move(buffers), array_data->child_data,
         array_data->dictionary, array_data->GetNullCount(), array_data->offset);
-    return new_array_data;
+    return std::move(new_array_data);
   } else {
-    return array_data;
+    return std::move(array_data);
   }
 }
 
@@ -211,7 +210,7 @@ Result<std::shared_ptr<Array>> EnsureAlignment(std::shared_ptr<Array> array,
                         EnsureAlignment(array->data(), alignment, memory_pool));
 
   if (new_array_data.get() == array->data().get()) {
-    return array;
+    return std::move(array);
   } else {
     return MakeArray(std::move(new_array_data));
   }
@@ -231,7 +230,7 @@ Result<std::shared_ptr<ChunkedArray>> EnsureAlignment(std::shared_ptr<ChunkedArr
     }
     return ChunkedArray::Make(std::move(chunks_), array->type());
   } else {
-    return array;
+    return std::move(array);
   }
 }
 
@@ -249,7 +248,7 @@ Result<std::shared_ptr<RecordBatch>> EnsureAlignment(std::shared_ptr<RecordBatch
     }
     return RecordBatch::Make(batch->schema(), batch->num_rows(), std::move(columns_));
   } else {
-    return batch;
+    return std::move(batch);
   }
 }
 
@@ -276,7 +275,7 @@ Result<std::shared_ptr<Table>> EnsureAlignment(std::shared_ptr<Table> table,
     }
     return Table::Make(table->schema(), std::move(columns_), table->num_rows());
   } else {
-    return table;
+    return std::move(table);
   }
 }
 

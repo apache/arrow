@@ -466,7 +466,7 @@ typedef struct _SizeStatistics__isset {
  * in this structure can help determine the number of nulls at a particular
  * nesting level and maximum length of lists).
  */
-class SizeStatistics {
+class SizeStatistics : public virtual ::apache::thrift::TBase {
  public:
 
   SizeStatistics(const SizeStatistics&);
@@ -546,10 +546,8 @@ class SizeStatistics {
 
   bool operator < (const SizeStatistics & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -574,7 +572,7 @@ typedef struct _Statistics__isset {
  * Statistics per row group and per page
  * All fields are optional.
  */
-class Statistics {
+class Statistics : public virtual ::apache::thrift::TBase {
  public:
 
   Statistics(const Statistics&);
@@ -699,10 +697,8 @@ class Statistics {
 
   bool operator < (const Statistics & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -715,7 +711,7 @@ std::ostream& operator<<(std::ostream& out, const Statistics& obj);
 /**
  * Empty structs to use as logical type annotations
  */
-class StringType {
+class StringType : public virtual ::apache::thrift::TBase {
  public:
 
   StringType(const StringType&) noexcept;
@@ -737,10 +733,8 @@ class StringType {
 
   bool operator < (const StringType & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -750,7 +744,7 @@ void swap(StringType &a, StringType &b);
 std::ostream& operator<<(std::ostream& out, const StringType& obj);
 
 
-class UUIDType {
+class UUIDType : public virtual ::apache::thrift::TBase {
  public:
 
   UUIDType(const UUIDType&) noexcept;
@@ -772,10 +766,8 @@ class UUIDType {
 
   bool operator < (const UUIDType & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -785,7 +777,7 @@ void swap(UUIDType &a, UUIDType &b);
 std::ostream& operator<<(std::ostream& out, const UUIDType& obj);
 
 
-class MapType {
+class MapType : public virtual ::apache::thrift::TBase {
  public:
 
   MapType(const MapType&) noexcept;
@@ -807,10 +799,8 @@ class MapType {
 
   bool operator < (const MapType & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -820,7 +810,7 @@ void swap(MapType &a, MapType &b);
 std::ostream& operator<<(std::ostream& out, const MapType& obj);
 
 
-class ListType {
+class ListType : public virtual ::apache::thrift::TBase {
  public:
 
   ListType(const ListType&) noexcept;
@@ -842,10 +832,8 @@ class ListType {
 
   bool operator < (const ListType & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -855,7 +843,7 @@ void swap(ListType &a, ListType &b);
 std::ostream& operator<<(std::ostream& out, const ListType& obj);
 
 
-class EnumType {
+class EnumType : public virtual ::apache::thrift::TBase {
  public:
 
   EnumType(const EnumType&) noexcept;
@@ -877,10 +865,8 @@ class EnumType {
 
   bool operator < (const EnumType & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -890,7 +876,7 @@ void swap(EnumType &a, EnumType &b);
 std::ostream& operator<<(std::ostream& out, const EnumType& obj);
 
 
-class DateType {
+class DateType : public virtual ::apache::thrift::TBase {
  public:
 
   DateType(const DateType&) noexcept;
@@ -912,10 +898,8 @@ class DateType {
 
   bool operator < (const DateType & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -925,7 +909,7 @@ void swap(DateType &a, DateType &b);
 std::ostream& operator<<(std::ostream& out, const DateType& obj);
 
 
-class Float16Type {
+class Float16Type : public virtual ::apache::thrift::TBase {
  public:
 
   Float16Type(const Float16Type&) noexcept;
@@ -947,10 +931,8 @@ class Float16Type {
 
   bool operator < (const Float16Type & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -967,7 +949,7 @@ std::ostream& operator<<(std::ostream& out, const Float16Type& obj);
  * null and the physical type can't be determined. This annotation signals
  * the case where the physical type was guessed from all null values.
  */
-class NullType {
+class NullType : public virtual ::apache::thrift::TBase {
  public:
 
   NullType(const NullType&) noexcept;
@@ -989,10 +971,8 @@ class NullType {
 
   bool operator < (const NullType & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -1013,7 +993,7 @@ std::ostream& operator<<(std::ostream& out, const NullType& obj);
  * 
  * Allowed for physical types: INT32, INT64, FIXED, and BINARY
  */
-class DecimalType {
+class DecimalType : public virtual ::apache::thrift::TBase {
  public:
 
   DecimalType(const DecimalType&) noexcept;
@@ -1047,10 +1027,8 @@ class DecimalType {
 
   bool operator < (const DecimalType & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -1063,7 +1041,7 @@ std::ostream& operator<<(std::ostream& out, const DecimalType& obj);
 /**
  * Time units for logical types
  */
-class MilliSeconds {
+class MilliSeconds : public virtual ::apache::thrift::TBase {
  public:
 
   MilliSeconds(const MilliSeconds&) noexcept;
@@ -1085,10 +1063,8 @@ class MilliSeconds {
 
   bool operator < (const MilliSeconds & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -1098,7 +1074,7 @@ void swap(MilliSeconds &a, MilliSeconds &b);
 std::ostream& operator<<(std::ostream& out, const MilliSeconds& obj);
 
 
-class MicroSeconds {
+class MicroSeconds : public virtual ::apache::thrift::TBase {
  public:
 
   MicroSeconds(const MicroSeconds&) noexcept;
@@ -1120,10 +1096,8 @@ class MicroSeconds {
 
   bool operator < (const MicroSeconds & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -1133,7 +1107,7 @@ void swap(MicroSeconds &a, MicroSeconds &b);
 std::ostream& operator<<(std::ostream& out, const MicroSeconds& obj);
 
 
-class NanoSeconds {
+class NanoSeconds : public virtual ::apache::thrift::TBase {
  public:
 
   NanoSeconds(const NanoSeconds&) noexcept;
@@ -1155,10 +1129,8 @@ class NanoSeconds {
 
   bool operator < (const NanoSeconds & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -1174,7 +1146,7 @@ typedef struct _TimeUnit__isset {
   bool NANOS :1;
 } _TimeUnit__isset;
 
-class TimeUnit {
+class TimeUnit : public virtual ::apache::thrift::TBase {
  public:
 
   TimeUnit(const TimeUnit&) noexcept;
@@ -1219,10 +1191,8 @@ class TimeUnit {
 
   bool operator < (const TimeUnit & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -1237,7 +1207,7 @@ std::ostream& operator<<(std::ostream& out, const TimeUnit& obj);
  * 
  * Allowed for physical types: INT64
  */
-class TimestampType {
+class TimestampType : public virtual ::apache::thrift::TBase {
  public:
 
   TimestampType(const TimestampType&) noexcept;
@@ -1270,10 +1240,8 @@ class TimestampType {
 
   bool operator < (const TimestampType & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -1288,7 +1256,7 @@ std::ostream& operator<<(std::ostream& out, const TimestampType& obj);
  * 
  * Allowed for physical types: INT32 (millis), INT64 (micros, nanos)
  */
-class TimeType {
+class TimeType : public virtual ::apache::thrift::TBase {
  public:
 
   TimeType(const TimeType&) noexcept;
@@ -1321,10 +1289,8 @@ class TimeType {
 
   bool operator < (const TimeType & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -1341,7 +1307,7 @@ std::ostream& operator<<(std::ostream& out, const TimeType& obj);
  * 
  * Allowed for physical types: INT32, INT64
  */
-class IntType {
+class IntType : public virtual ::apache::thrift::TBase {
  public:
 
   IntType(const IntType&) noexcept;
@@ -1375,10 +1341,8 @@ class IntType {
 
   bool operator < (const IntType & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -1393,7 +1357,7 @@ std::ostream& operator<<(std::ostream& out, const IntType& obj);
  * 
  * Allowed for physical types: BINARY
  */
-class JsonType {
+class JsonType : public virtual ::apache::thrift::TBase {
  public:
 
   JsonType(const JsonType&) noexcept;
@@ -1415,10 +1379,8 @@ class JsonType {
 
   bool operator < (const JsonType & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -1433,7 +1395,7 @@ std::ostream& operator<<(std::ostream& out, const JsonType& obj);
  * 
  * Allowed for physical types: BINARY
  */
-class BsonType {
+class BsonType : public virtual ::apache::thrift::TBase {
  public:
 
   BsonType(const BsonType&) noexcept;
@@ -1455,10 +1417,8 @@ class BsonType {
 
   bool operator < (const BsonType & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -1492,7 +1452,7 @@ typedef struct _LogicalType__isset {
  * SchemaElement must also set the corresponding ConvertedType (if any)
  * from the following table.
  */
-class LogicalType {
+class LogicalType : public virtual ::apache::thrift::TBase {
  public:
 
   LogicalType(const LogicalType&) noexcept;
@@ -1614,10 +1574,8 @@ class LogicalType {
 
   bool operator < (const LogicalType & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -1645,7 +1603,7 @@ typedef struct _SchemaElement__isset {
  *  - if it is a primitive type (leaf) then type is defined and num_children is undefined
  * the nodes are listed in depth first traversal order.
  */
-class SchemaElement {
+class SchemaElement : public virtual ::apache::thrift::TBase {
  public:
 
   SchemaElement(const SchemaElement&);
@@ -1796,10 +1754,8 @@ class SchemaElement {
 
   bool operator < (const SchemaElement & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -1816,7 +1772,7 @@ typedef struct _DataPageHeader__isset {
 /**
  * Data page header
  */
-class DataPageHeader {
+class DataPageHeader : public virtual ::apache::thrift::TBase {
  public:
 
   DataPageHeader(const DataPageHeader&);
@@ -1892,10 +1848,8 @@ class DataPageHeader {
 
   bool operator < (const DataPageHeader & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -1905,7 +1859,7 @@ void swap(DataPageHeader &a, DataPageHeader &b);
 std::ostream& operator<<(std::ostream& out, const DataPageHeader& obj);
 
 
-class IndexPageHeader {
+class IndexPageHeader : public virtual ::apache::thrift::TBase {
  public:
 
   IndexPageHeader(const IndexPageHeader&) noexcept;
@@ -1927,10 +1881,8 @@ class IndexPageHeader {
 
   bool operator < (const IndexPageHeader & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -1950,7 +1902,7 @@ typedef struct _DictionaryPageHeader__isset {
  * can be placed in a column chunk.
  * 
  */
-class DictionaryPageHeader {
+class DictionaryPageHeader : public virtual ::apache::thrift::TBase {
  public:
 
   DictionaryPageHeader(const DictionaryPageHeader&) noexcept;
@@ -2005,10 +1957,8 @@ class DictionaryPageHeader {
 
   bool operator < (const DictionaryPageHeader & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -2029,7 +1979,7 @@ typedef struct _DataPageHeaderV2__isset {
  * The remaining section containing the data is compressed if is_compressed is true
  * 
  */
-class DataPageHeaderV2 {
+class DataPageHeaderV2 : public virtual ::apache::thrift::TBase {
  public:
 
   DataPageHeaderV2(const DataPageHeaderV2&);
@@ -2135,10 +2085,8 @@ class DataPageHeaderV2 {
 
   bool operator < (const DataPageHeaderV2 & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -2151,7 +2099,7 @@ std::ostream& operator<<(std::ostream& out, const DataPageHeaderV2& obj);
 /**
  * Block-based algorithm type annotation. *
  */
-class SplitBlockAlgorithm {
+class SplitBlockAlgorithm : public virtual ::apache::thrift::TBase {
  public:
 
   SplitBlockAlgorithm(const SplitBlockAlgorithm&) noexcept;
@@ -2173,10 +2121,8 @@ class SplitBlockAlgorithm {
 
   bool operator < (const SplitBlockAlgorithm & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -2193,7 +2139,7 @@ typedef struct _BloomFilterAlgorithm__isset {
 /**
  * The algorithm used in Bloom filter. *
  */
-class BloomFilterAlgorithm {
+class BloomFilterAlgorithm : public virtual ::apache::thrift::TBase {
  public:
 
   BloomFilterAlgorithm(const BloomFilterAlgorithm&) noexcept;
@@ -2227,10 +2173,8 @@ class BloomFilterAlgorithm {
 
   bool operator < (const BloomFilterAlgorithm & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -2245,7 +2189,7 @@ std::ostream& operator<<(std::ostream& out, const BloomFilterAlgorithm& obj);
  * algorithm. It uses 64 bits version of xxHash.
  * 
  */
-class XxHash {
+class XxHash : public virtual ::apache::thrift::TBase {
  public:
 
   XxHash(const XxHash&) noexcept;
@@ -2267,10 +2211,8 @@ class XxHash {
 
   bool operator < (const XxHash & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -2289,7 +2231,7 @@ typedef struct _BloomFilterHash__isset {
  * using plain encoding.
  * 
  */
-class BloomFilterHash {
+class BloomFilterHash : public virtual ::apache::thrift::TBase {
  public:
 
   BloomFilterHash(const BloomFilterHash&) noexcept;
@@ -2323,10 +2265,8 @@ class BloomFilterHash {
 
   bool operator < (const BloomFilterHash & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -2340,7 +2280,7 @@ std::ostream& operator<<(std::ostream& out, const BloomFilterHash& obj);
  * The compression used in the Bloom filter.
  * 
  */
-class Uncompressed {
+class Uncompressed : public virtual ::apache::thrift::TBase {
  public:
 
   Uncompressed(const Uncompressed&) noexcept;
@@ -2362,10 +2302,8 @@ class Uncompressed {
 
   bool operator < (const Uncompressed & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -2379,7 +2317,7 @@ typedef struct _BloomFilterCompression__isset {
   bool UNCOMPRESSED :1;
 } _BloomFilterCompression__isset;
 
-class BloomFilterCompression {
+class BloomFilterCompression : public virtual ::apache::thrift::TBase {
  public:
 
   BloomFilterCompression(const BloomFilterCompression&) noexcept;
@@ -2410,10 +2348,8 @@ class BloomFilterCompression {
 
   bool operator < (const BloomFilterCompression & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -2428,7 +2364,7 @@ std::ostream& operator<<(std::ostream& out, const BloomFilterCompression& obj);
  * and followed by its bitset.
  * 
  */
-class BloomFilterHeader {
+class BloomFilterHeader : public virtual ::apache::thrift::TBase {
  public:
 
   BloomFilterHeader(const BloomFilterHeader&) noexcept;
@@ -2483,10 +2419,8 @@ class BloomFilterHeader {
 
   bool operator < (const BloomFilterHeader & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -2504,7 +2438,7 @@ typedef struct _PageHeader__isset {
   bool data_page_header_v2 :1;
 } _PageHeader__isset;
 
-class PageHeader {
+class PageHeader : public virtual ::apache::thrift::TBase {
  public:
 
   PageHeader(const PageHeader&);
@@ -2611,10 +2545,8 @@ class PageHeader {
 
   bool operator < (const PageHeader & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -2631,7 +2563,7 @@ typedef struct _KeyValue__isset {
 /**
  * Wrapper struct to store key values
  */
-class KeyValue {
+class KeyValue : public virtual ::apache::thrift::TBase {
  public:
 
   KeyValue(const KeyValue&);
@@ -2669,10 +2601,8 @@ class KeyValue {
 
   bool operator < (const KeyValue & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -2685,7 +2615,7 @@ std::ostream& operator<<(std::ostream& out, const KeyValue& obj);
 /**
  * Wrapper struct to specify sort order
  */
-class SortingColumn {
+class SortingColumn : public virtual ::apache::thrift::TBase {
  public:
 
   SortingColumn(const SortingColumn&) noexcept;
@@ -2735,10 +2665,8 @@ class SortingColumn {
 
   bool operator < (const SortingColumn & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -2751,7 +2679,7 @@ std::ostream& operator<<(std::ostream& out, const SortingColumn& obj);
 /**
  * statistics of a given page type and encoding
  */
-class PageEncodingStats {
+class PageEncodingStats : public virtual ::apache::thrift::TBase {
  public:
 
   PageEncodingStats(const PageEncodingStats&) noexcept;
@@ -2804,10 +2732,8 @@ class PageEncodingStats {
 
   bool operator < (const PageEncodingStats & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -2831,7 +2757,7 @@ typedef struct _ColumnMetaData__isset {
 /**
  * Description for column metadata
  */
-class ColumnMetaData {
+class ColumnMetaData : public virtual ::apache::thrift::TBase {
  public:
 
   ColumnMetaData(const ColumnMetaData&);
@@ -3024,10 +2950,8 @@ class ColumnMetaData {
 
   bool operator < (const ColumnMetaData & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -3037,7 +2961,7 @@ void swap(ColumnMetaData &a, ColumnMetaData &b);
 std::ostream& operator<<(std::ostream& out, const ColumnMetaData& obj);
 
 
-class EncryptionWithFooterKey {
+class EncryptionWithFooterKey : public virtual ::apache::thrift::TBase {
  public:
 
   EncryptionWithFooterKey(const EncryptionWithFooterKey&) noexcept;
@@ -3059,10 +2983,8 @@ class EncryptionWithFooterKey {
 
   bool operator < (const EncryptionWithFooterKey & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -3076,7 +2998,7 @@ typedef struct _EncryptionWithColumnKey__isset {
   bool key_metadata :1;
 } _EncryptionWithColumnKey__isset;
 
-class EncryptionWithColumnKey {
+class EncryptionWithColumnKey : public virtual ::apache::thrift::TBase {
  public:
 
   EncryptionWithColumnKey(const EncryptionWithColumnKey&);
@@ -3119,10 +3041,8 @@ class EncryptionWithColumnKey {
 
   bool operator < (const EncryptionWithColumnKey & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -3137,7 +3057,7 @@ typedef struct _ColumnCryptoMetaData__isset {
   bool ENCRYPTION_WITH_COLUMN_KEY :1;
 } _ColumnCryptoMetaData__isset;
 
-class ColumnCryptoMetaData {
+class ColumnCryptoMetaData : public virtual ::apache::thrift::TBase {
  public:
 
   ColumnCryptoMetaData(const ColumnCryptoMetaData&);
@@ -3175,10 +3095,8 @@ class ColumnCryptoMetaData {
 
   bool operator < (const ColumnCryptoMetaData & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -3199,7 +3117,7 @@ typedef struct _ColumnChunk__isset {
   bool encrypted_column_metadata :1;
 } _ColumnChunk__isset;
 
-class ColumnChunk {
+class ColumnChunk : public virtual ::apache::thrift::TBase {
  public:
 
   ColumnChunk(const ColumnChunk&);
@@ -3323,10 +3241,8 @@ class ColumnChunk {
 
   bool operator < (const ColumnChunk & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -3343,7 +3259,7 @@ typedef struct _RowGroup__isset {
   bool ordinal :1;
 } _RowGroup__isset;
 
-class RowGroup {
+class RowGroup : public virtual ::apache::thrift::TBase {
  public:
 
   RowGroup(const RowGroup&);
@@ -3441,10 +3357,8 @@ class RowGroup {
 
   bool operator < (const RowGroup & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -3457,7 +3371,7 @@ std::ostream& operator<<(std::ostream& out, const RowGroup& obj);
 /**
  * Empty struct to signal the order defined by the physical or logical type
  */
-class TypeDefinedOrder {
+class TypeDefinedOrder : public virtual ::apache::thrift::TBase {
  public:
 
   TypeDefinedOrder(const TypeDefinedOrder&) noexcept;
@@ -3479,10 +3393,8 @@ class TypeDefinedOrder {
 
   bool operator < (const TypeDefinedOrder & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -3508,7 +3420,7 @@ typedef struct _ColumnOrder__isset {
  * If the reader does not support the value of this union, min and max stats
  * for this column should be ignored.
  */
-class ColumnOrder {
+class ColumnOrder : public virtual ::apache::thrift::TBase {
  public:
 
   ColumnOrder(const ColumnOrder&) noexcept;
@@ -3589,10 +3501,8 @@ class ColumnOrder {
 
   bool operator < (const ColumnOrder & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -3602,7 +3512,7 @@ void swap(ColumnOrder &a, ColumnOrder &b);
 std::ostream& operator<<(std::ostream& out, const ColumnOrder& obj);
 
 
-class PageLocation {
+class PageLocation : public virtual ::apache::thrift::TBase {
  public:
 
   PageLocation(const PageLocation&) noexcept;
@@ -3653,10 +3563,8 @@ class PageLocation {
 
   bool operator < (const PageLocation & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -3670,7 +3578,7 @@ typedef struct _OffsetIndex__isset {
   bool unencoded_byte_array_data_bytes :1;
 } _OffsetIndex__isset;
 
-class OffsetIndex {
+class OffsetIndex : public virtual ::apache::thrift::TBase {
  public:
 
   OffsetIndex(const OffsetIndex&);
@@ -3716,10 +3624,8 @@ class OffsetIndex {
 
   bool operator < (const OffsetIndex & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -3739,7 +3645,7 @@ typedef struct _ColumnIndex__isset {
  * Description for ColumnIndex.
  * Each <array-field>[i] refers to the page at OffsetIndex.page_locations[i]
  */
-class ColumnIndex {
+class ColumnIndex : public virtual ::apache::thrift::TBase {
  public:
 
   ColumnIndex(const ColumnIndex&);
@@ -3850,10 +3756,8 @@ class ColumnIndex {
 
   bool operator < (const ColumnIndex & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -3869,7 +3773,7 @@ typedef struct _AesGcmV1__isset {
   bool supply_aad_prefix :1;
 } _AesGcmV1__isset;
 
-class AesGcmV1 {
+class AesGcmV1 : public virtual ::apache::thrift::TBase {
  public:
 
   AesGcmV1(const AesGcmV1&);
@@ -3927,10 +3831,8 @@ class AesGcmV1 {
 
   bool operator < (const AesGcmV1 & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -3946,7 +3848,7 @@ typedef struct _AesGcmCtrV1__isset {
   bool supply_aad_prefix :1;
 } _AesGcmCtrV1__isset;
 
-class AesGcmCtrV1 {
+class AesGcmCtrV1 : public virtual ::apache::thrift::TBase {
  public:
 
   AesGcmCtrV1(const AesGcmCtrV1&);
@@ -4004,10 +3906,8 @@ class AesGcmCtrV1 {
 
   bool operator < (const AesGcmCtrV1 & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -4022,7 +3922,7 @@ typedef struct _EncryptionAlgorithm__isset {
   bool AES_GCM_CTR_V1 :1;
 } _EncryptionAlgorithm__isset;
 
-class EncryptionAlgorithm {
+class EncryptionAlgorithm : public virtual ::apache::thrift::TBase {
  public:
 
   EncryptionAlgorithm(const EncryptionAlgorithm&);
@@ -4060,10 +3960,8 @@ class EncryptionAlgorithm {
 
   bool operator < (const EncryptionAlgorithm & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -4084,7 +3982,7 @@ typedef struct _FileMetaData__isset {
 /**
  * Description for file metadata
  */
-class FileMetaData {
+class FileMetaData : public virtual ::apache::thrift::TBase {
  public:
 
   FileMetaData(const FileMetaData&);
@@ -4218,10 +4116,8 @@ class FileMetaData {
 
   bool operator < (const FileMetaData & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -4238,7 +4134,7 @@ typedef struct _FileCryptoMetaData__isset {
 /**
  * Crypto metadata for files with encrypted footer *
  */
-class FileCryptoMetaData {
+class FileCryptoMetaData : public virtual ::apache::thrift::TBase {
  public:
 
   FileCryptoMetaData(const FileCryptoMetaData&);
@@ -4284,10 +4180,8 @@ class FileCryptoMetaData {
 
   bool operator < (const FileCryptoMetaData & ) const;
 
-  template <class Protocol_>
-  uint32_t read(Protocol_* iprot);
-  template <class Protocol_>
-  uint32_t write(Protocol_* oprot) const;
+  uint32_t read(::apache::thrift::protocol::TProtocol* iprot) override;
+  uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const override;
 
   virtual void printTo(std::ostream& out) const;
 };
@@ -4297,7 +4191,5 @@ void swap(FileCryptoMetaData &a, FileCryptoMetaData &b);
 std::ostream& operator<<(std::ostream& out, const FileCryptoMetaData& obj);
 
 }} // namespace
-
-#include "parquet_types.tcc"
 
 #endif

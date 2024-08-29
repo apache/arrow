@@ -68,10 +68,12 @@ using TakeState = OptionsWrapper<TakeOptions>;
 // ----------------------------------------------------------------------
 // DropNull Implementation
 
-std::shared_ptr<arrow::BooleanArray> MakeDropNullFilter(const Array& values) {
-  auto& bitmap_buffer = values.null_bitmap();
-  return std::make_shared<BooleanArray>(values.length(), bitmap_buffer, nullptr, 0,
-                                        values.offset());
+Result<std::shared_ptr<arrow::BooleanArray>> GetDropNullFilter(const Array& values,
+                                                               MemoryPool* memory_pool) {
+  auto bitmap_buffer = values.null_bitmap();
+  std::shared_ptr<arrow::BooleanArray> out_array = std::make_shared<BooleanArray>(
+      values.length(), bitmap_buffer, nullptr, 0, values.offset());
+  return out_array;
 }
 
 Result<Datum> DropNullArray(const std::shared_ptr<Array>& values, ExecContext* ctx) {
@@ -84,7 +86,8 @@ Result<Datum> DropNullArray(const std::shared_ptr<Array>& values, ExecContext* c
   if (values->type()->id() == Type::type::NA) {
     return std::make_shared<NullArray>(0);
   }
-  auto drop_null_filter = Datum{MakeDropNullFilter(*values)};
+  ARROW_ASSIGN_OR_RAISE(auto drop_null_filter,
+                        GetDropNullFilter(*values, ctx->memory_pool()));
   return Filter(values, drop_null_filter, FilterOptions::Defaults(), ctx);
 }
 
@@ -182,16 +185,19 @@ class DropNullMetaFunction : public MetaFunction {
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
                             ExecContext* ctx) const override {
-    auto& values = args[0];
-    switch (values.kind()) {
-      case Datum::ARRAY:
-        return DropNullArray(values.make_array(), ctx);
-      case Datum::CHUNKED_ARRAY:
-        return DropNullChunkedArray(values.chunked_array(), ctx);
-      case Datum::RECORD_BATCH:
-        return DropNullRecordBatch(values.record_batch(), ctx);
-      case Datum::TABLE:
-        return DropNullTable(values.table(), ctx);
+    switch (args[0].kind()) {
+      case Datum::ARRAY: {
+        return DropNullArray(args[0].make_array(), ctx);
+      } break;
+      case Datum::CHUNKED_ARRAY: {
+        return DropNullChunkedArray(args[0].chunked_array(), ctx);
+      } break;
+      case Datum::RECORD_BATCH: {
+        return DropNullRecordBatch(args[0].record_batch(), ctx);
+      } break;
+      case Datum::TABLE: {
+        return DropNullTable(args[0].table(), ctx);
+      } break;
       default:
         break;
     }

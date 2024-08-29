@@ -21,16 +21,16 @@
 
 namespace arrow::matlab::type::proxy {
 
-class ListType : public arrow::matlab::type::proxy::Type {
- public:
-  ListType(std::shared_ptr<arrow::ListType> list_type);
+    class ListType : public arrow::matlab::type::proxy::Type {
 
-  ~ListType() {}
+    public:
+        ListType(std::shared_ptr<arrow::ListType> list_type);
 
-  void getValueType(libmexclass::proxy::method::Context& context);
+        ~ListType() {}
 
-  static libmexclass::proxy::MakeResult make(
-      const libmexclass::proxy::FunctionArguments& constructor_arguments);
-};
+        void getValueType(libmexclass::proxy::method::Context& context);
 
-}  // namespace arrow::matlab::type::proxy
+        static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
+    };
+
+}

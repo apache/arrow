@@ -26,17 +26,14 @@ import merge_arrow_pr
 
 FakeIssue = namedtuple('issue', ['fields'])
 FakeFields = namedtuple('fields', ['status', 'summary', 'assignee',
-                                   'components', 'fixVersions', 'milestone'])
+                                   'components', 'fixVersions'])
 FakeAssignee = namedtuple('assignee', ['displayName'])
 FakeStatus = namedtuple('status', ['name'])
 FakeComponent = namedtuple('component', ['name'])
 FakeVersion = namedtuple('version', ['name', 'raw'])
-FakeMilestone = namedtuple('milestone', ['state'])
 
 RAW_VERSION_JSON = [
     {'name': 'JS-0.4.0', 'released': False},
-    {'name': '1.0.0', 'released': False},
-    {'name': '2.0.0', 'released': False},
     {'name': '0.9.0', 'released': False},
     {'name': '0.10.0', 'released': False},
     {'name': '0.8.0', 'released': True},
@@ -53,7 +50,7 @@ jira_id = 'ARROW-1234'
 status = FakeStatus('In Progress')
 fields = FakeFields(status, 'issue summary', FakeAssignee('groundhog'),
                     [FakeComponent('C++'), FakeComponent('Format')],
-                    [], FakeMilestone('closed')._asdict())
+                    [])
 FAKE_ISSUE_1 = FakeIssue(fields)
 
 
@@ -87,35 +84,6 @@ class FakeJIRA:
             v for v in all_versions if not v.raw.get("released")
         ] + ['0.11.0']
 
-    @property
-    def current_fix_versions(self):
-        return 'JS-0.4.0'
-
-    def project_versions(self, project):
-        return self._project_versions
-
-
-class FakeGitHub:
-
-    def __init__(self, issue=None, project_versions=None):
-        self._issue = issue
-        self._project_versions = project_versions
-
-    @property
-    def issue(self):
-        return self._issue.fields._asdict()
-
-    @property
-    def current_versions(self):
-        all_versions = self._project_versions or SOURCE_VERSIONS
-        return [
-            v for v in all_versions if not v.raw.get("released")
-        ] + ['0.11.0']
-
-    @property
-    def current_fix_versions(self):
-        return 'JS-0.4.0'
-
     def project_versions(self, project):
         return self._project_versions
 
@@ -143,11 +111,11 @@ def test_jira_fix_versions():
     fix_version = merge_arrow_pr.get_candidate_fix_version(
         issue.current_versions
     )
-    assert fix_version == '1.0.0'
+    assert fix_version == '0.9.0'
 
 
 def test_jira_fix_versions_filters_maintenance():
-    maintenance_branches = ["maint-1.0.0"]
+    maintenance_branches = ["maint-0.9.0"]
     jira = FakeJIRA(project_versions=SOURCE_VERSIONS,
                     transitions=TRANSITIONS)
 
@@ -156,14 +124,13 @@ def test_jira_fix_versions_filters_maintenance():
         issue.current_versions,
         maintenance_branches=maintenance_branches
     )
-    assert fix_version == '2.0.0'
+    assert fix_version == '0.10.0'
 
 
-def test_jira_only_suggest_major_release():
+def test_jira_no_suggest_patch_release():
     versions_json = [
         {'name': '0.9.1', 'released': False},
         {'name': '0.10.0', 'released': False},
-        {'name': '1.0.0', 'released': False},
     ]
 
     versions = [FakeVersion(raw['name'], raw) for raw in versions_json]
@@ -173,7 +140,7 @@ def test_jira_only_suggest_major_release():
     fix_version = merge_arrow_pr.get_candidate_fix_version(
         issue.current_versions
     )
-    assert fix_version == '1.0.0'
+    assert fix_version == '0.10.0'
 
 
 def test_jira_parquet_no_suggest_non_cpp():
@@ -182,10 +149,8 @@ def test_jira_parquet_no_suggest_non_cpp():
         {'name': 'cpp-1.5.0', 'released': True},
         {'name': 'cpp-1.6.0', 'released': False},
         {'name': 'cpp-1.7.0', 'released': False},
-        {'name': 'cpp-2.0.0', 'released': False},
         {'name': '1.11.0', 'released': False},
-        {'name': '1.12.0', 'released': False},
-        {'name': '2.0.0', 'released': False}
+        {'name': '1.12.0', 'released': False}
     ]
 
     versions = [FakeVersion(raw['name'], raw)
@@ -197,7 +162,7 @@ def test_jira_parquet_no_suggest_non_cpp():
     fix_version = merge_arrow_pr.get_candidate_fix_version(
         issue.current_versions
     )
-    assert fix_version == 'cpp-2.0.0'
+    assert fix_version == 'cpp-1.6.0'
 
 
 def test_jira_invalid_issue():
@@ -250,12 +215,13 @@ def test_jira_resolve_non_mainline():
 
 def test_jira_resolve_released_fix_version():
     # ARROW-5083
-    jira = FakeGitHub(issue=FAKE_ISSUE_1,
-                      project_versions=SOURCE_VERSIONS)
+    jira = FakeJIRA(issue=FAKE_ISSUE_1,
+                    project_versions=SOURCE_VERSIONS,
+                    transitions=TRANSITIONS)
 
-    cmd = FakeCLI(responses=['1.0.0'])
+    cmd = FakeCLI(responses=['0.7.0'])
     fix_versions_json = merge_arrow_pr.prompt_for_fix_version(cmd, jira)
-    assert fix_versions_json == "1.0.0"
+    assert fix_versions_json == "0.7.0"
 
 
 def test_multiple_authors_bad_input():
@@ -286,7 +252,7 @@ def test_multiple_authors_bad_input():
 def test_jira_already_resolved():
     status = FakeStatus('Resolved')
     fields = FakeFields(status, 'issue summary', FakeAssignee('groundhog'),
-                        [FakeComponent('Java')], [], None)
+                        [FakeComponent('Java')], [])
     issue = FakeIssue(fields)
 
     jira = FakeJIRA(issue=issue,
@@ -317,7 +283,7 @@ def test_no_unset_point_release_fix_version():
     fields = FakeFields(status, 'summary', FakeAssignee('someone'),
                         [FakeComponent('Java')],
                         [FakeVersion(v, versions_json[v])
-                         for v in ['0.17.0', '0.15.1', '0.14.2']], None)
+                         for v in ['0.17.0', '0.15.1', '0.14.2']])
     issue = FakeIssue(fields)
 
     jira = FakeJIRA(

@@ -386,7 +386,9 @@ distro <- function() {
   out$id <- tolower(out$id)
   # debian unstable & testing lsb_release `version` don't include numbers but we can map from pretty name
   if (is.null(out$version) || out$version %in% c("testing", "unstable")) {
-    if (grepl("bookworm", out$codename)) {
+    if (grepl("bullseye", out$codename)) {
+      out$short_version <- "11"
+    } else if (grepl("bookworm", out$codename)) {
       out$short_version <- "12"
     }
   } else if (out$id == "ubuntu") {
@@ -536,7 +538,7 @@ build_libarrow <- function(src_dir, dst_dir) {
   }
   cleanup(build_dir)
 
-  env_var_list <- list(
+  env_var_list <- c(
     SOURCE_DIR = src_dir,
     BUILD_DIR = build_dir,
     DEST_DIR = dst_dir,
@@ -574,14 +576,6 @@ build_libarrow <- function(src_dir, dst_dir) {
         env_var_list <- c(env_var_list, setNames("BUNDLED", env_var))
       }
     }
-    # We also _do_ want to enable S3 and ZSTD by default
-    # so that binaries built on CRAN from source are fully featured
-    # but defer to the env vars if those are set
-    env_var_list <- c(
-      env_var_list,
-      ARROW_S3 = Sys.getenv("ARROW_S3", "ON"),
-      ARROW_WITH_ZSTD = Sys.getenv("ARROW_WITH_ZSTD", "ON")
-    )
   }
 
   env_var_list <- with_cloud_support(env_var_list)
@@ -822,16 +816,8 @@ set_thirdparty_urls <- function(env_var_list) {
   env_var_list
 }
 
-# this is generally about features that people asked for via environment variables, but
-# for some cases (like S3 when we override it in this script) we might find those in
-# env_var_list
-is_feature_requested <- function(env_varname, env_var_list, default = env_is("LIBARROW_MINIMAL", "false")) {
-  # look in the environment first, but then use the env_var_list if nothing is found
-  env_var_list_value <- env_var_list[[env_varname]]
-  if (is.null(env_var_list_value)) {
-    env_var_list_value <- ""
-  }
-  env_value <- tolower(Sys.getenv(env_varname, env_var_list_value))
+is_feature_requested <- function(env_varname, default = env_is("LIBARROW_MINIMAL", "false")) {
+  env_value <- tolower(Sys.getenv(env_varname))
   if (identical(env_value, "off")) {
     # If e.g. ARROW_MIMALLOC=OFF explicitly, override default
     requested <- FALSE
@@ -844,8 +830,8 @@ is_feature_requested <- function(env_varname, env_var_list, default = env_is("LI
 }
 
 with_cloud_support <- function(env_var_list) {
-  arrow_s3 <- is_feature_requested("ARROW_S3", env_var_list)
-  arrow_gcs <- is_feature_requested("ARROW_GCS", env_var_list)
+  arrow_s3 <- is_feature_requested("ARROW_S3")
+  arrow_gcs <- is_feature_requested("ARROW_GCS")
 
   if (arrow_s3 || arrow_gcs) {
     # User wants S3 or GCS support.

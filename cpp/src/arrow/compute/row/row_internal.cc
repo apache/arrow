@@ -66,8 +66,7 @@ void RowTableMetadata::FromColumnMetadataVector(
   //
   // Columns are sorted based on the size in bytes of their fixed-length part.
   // For the varying-length column, the fixed-length part is the 32-bit field storing
-  // cumulative length of varying-length fields. This is to make the memory access of
-  // each individual column within the encoded row alignment-friendly.
+  // cumulative length of varying-length fields.
   //
   // The rules are:
   //
@@ -127,8 +126,8 @@ void RowTableMetadata::FromColumnMetadataVector(
     const KeyColumnMetadata& col = cols[column_order[i]];
     if (col.is_fixed_length && col.fixed_length != 0 &&
         ARROW_POPCOUNT64(col.fixed_length) != 1) {
-      offset_within_row += RowTableMetadata::padding_for_alignment_within_row(
-          offset_within_row, string_alignment, col);
+      offset_within_row += RowTableMetadata::padding_for_alignment(offset_within_row,
+                                                                   string_alignment, col);
     }
     column_offsets[i] = offset_within_row;
     if (!col.is_fixed_length) {
@@ -154,7 +153,7 @@ void RowTableMetadata::FromColumnMetadataVector(
   is_fixed_length = (num_varbinary_cols == 0);
   fixed_length =
       offset_within_row +
-      RowTableMetadata::padding_for_alignment_within_row(
+      RowTableMetadata::padding_for_alignment(
           offset_within_row, num_varbinary_cols == 0 ? row_alignment : string_alignment);
 
   // We set the number of bytes per row storing null masks of individual key columns
@@ -190,7 +189,7 @@ Status RowTableImpl::Init(MemoryPool* pool, const RowTableMetadata& metadata) {
         auto offsets, AllocateResizableBuffer(size_offsets(kInitialRowsCapacity), pool_));
     offsets_ = std::move(offsets);
     memset(offsets_->mutable_data(), 0, size_offsets(kInitialRowsCapacity));
-    reinterpret_cast<offset_type*>(offsets_->mutable_data())[0] = 0;
+    reinterpret_cast<uint32_t*>(offsets_->mutable_data())[0] = 0;
 
     ARROW_ASSIGN_OR_RAISE(
         auto rows,
@@ -225,7 +224,7 @@ void RowTableImpl::Clean() {
   has_any_nulls_ = false;
 
   if (!metadata_.is_fixed_length) {
-    reinterpret_cast<offset_type*>(offsets_->mutable_data())[0] = 0;
+    reinterpret_cast<uint32_t*>(offsets_->mutable_data())[0] = 0;
   }
 }
 
@@ -234,7 +233,7 @@ int64_t RowTableImpl::size_null_masks(int64_t num_rows) const {
 }
 
 int64_t RowTableImpl::size_offsets(int64_t num_rows) const {
-  return (num_rows + 1) * sizeof(offset_type) + kPaddingForVectors;
+  return (num_rows + 1) * sizeof(uint32_t) + kPaddingForVectors;
 }
 
 int64_t RowTableImpl::size_rows_fixed_length(int64_t num_rows) const {
@@ -246,13 +245,13 @@ int64_t RowTableImpl::size_rows_varying_length(int64_t num_bytes) const {
 }
 
 void RowTableImpl::UpdateBufferPointers() {
-  buffers_[0] = null_masks_.get();
+  buffers_[0] = null_masks_->mutable_data();
   if (metadata_.is_fixed_length) {
-    buffers_[1] = rows_.get();
+    buffers_[1] = rows_->mutable_data();
     buffers_[2] = nullptr;
   } else {
-    buffers_[1] = offsets_.get();
-    buffers_[2] = rows_.get();
+    buffers_[1] = offsets_->mutable_data();
+    buffers_[2] = rows_->mutable_data();
   }
 }
 
@@ -292,10 +291,8 @@ Status RowTableImpl::ResizeFixedLengthBuffers(int64_t num_extra_rows) {
 }
 
 Status RowTableImpl::ResizeOptionalVaryingLengthBuffer(int64_t num_extra_bytes) {
-  DCHECK(!metadata_.is_fixed_length);
-
   int64_t num_bytes = offsets()[num_rows_];
-  if (bytes_capacity_ >= num_bytes + num_extra_bytes) {
+  if (bytes_capacity_ >= num_bytes + num_extra_bytes || metadata_.is_fixed_length) {
     return Status::OK();
   }
 
@@ -325,13 +322,13 @@ Status RowTableImpl::AppendSelectionFrom(const RowTableImpl& from,
 
   if (!metadata_.is_fixed_length) {
     // Varying-length rows
-    auto from_offsets = reinterpret_cast<const offset_type*>(from.offsets_->data());
-    auto to_offsets = reinterpret_cast<offset_type*>(offsets_->mutable_data());
-    offset_type total_length = to_offsets[num_rows_];
-    int64_t total_length_to_append = 0;
+    auto from_offsets = reinterpret_cast<const uint32_t*>(from.offsets_->data());
+    auto to_offsets = reinterpret_cast<uint32_t*>(offsets_->mutable_data());
+    uint32_t total_length = to_offsets[num_rows_];
+    uint32_t total_length_to_append = 0;
     for (uint32_t i = 0; i < num_rows_to_append; ++i) {
       uint16_t row_id = source_row_ids ? source_row_ids[i] : i;
-      int64_t length = from_offsets[row_id + 1] - from_offsets[row_id];
+      uint32_t length = from_offsets[row_id + 1] - from_offsets[row_id];
       total_length_to_append += length;
       to_offsets[num_rows_ + i + 1] = total_length + total_length_to_append;
     }
@@ -342,8 +339,7 @@ Status RowTableImpl::AppendSelectionFrom(const RowTableImpl& from,
     uint8_t* dst = rows_->mutable_data() + total_length;
     for (uint32_t i = 0; i < num_rows_to_append; ++i) {
       uint16_t row_id = source_row_ids ? source_row_ids[i] : i;
-      int64_t length = from_offsets[row_id + 1] - from_offsets[row_id];
-      DCHECK_LE(length, std::numeric_limits<uint32_t>::max());
+      uint32_t length = from_offsets[row_id + 1] - from_offsets[row_id];
       auto src64 = reinterpret_cast<const uint64_t*>(src + from_offsets[row_id]);
       auto dst64 = reinterpret_cast<uint64_t*>(dst);
       for (uint32_t j = 0; j < bit_util::CeilDiv(length, 8); ++j) {
@@ -389,11 +385,9 @@ Status RowTableImpl::AppendSelectionFrom(const RowTableImpl& from,
 }
 
 Status RowTableImpl::AppendEmpty(uint32_t num_rows_to_append,
-                                 int64_t num_extra_bytes_to_append) {
+                                 uint32_t num_extra_bytes_to_append) {
   RETURN_NOT_OK(ResizeFixedLengthBuffers(num_rows_to_append));
-  if (!metadata_.is_fixed_length) {
-    RETURN_NOT_OK(ResizeOptionalVaryingLengthBuffer(num_extra_bytes_to_append));
-  }
+  RETURN_NOT_OK(ResizeOptionalVaryingLengthBuffer(num_extra_bytes_to_append));
   num_rows_ += num_rows_to_append;
   if (metadata_.row_alignment > 1 || metadata_.string_alignment > 1) {
     memset(rows_->mutable_data(), 0, bytes_capacity_);

@@ -14,7 +14,6 @@
 // limitations under the License.
 
 #nullable enable
-
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -66,7 +65,7 @@ public class FlightSqlServerTests
         var streamWriter = new MockServerStreamWriter<FlightActionType>();
 
         //When
-        await producer.ListActions(streamWriter, new MockServerCallContext());
+        await producer.ListActions(streamWriter, new MockServerCallContext()).ConfigureAwait(false);
         var actions = streamWriter.Messages.ToArray();
 
         Assert.Equal(FlightSqlUtils.FlightSqlActions, actions);
@@ -116,7 +115,7 @@ public class FlightSqlServerTests
     [InlineData(typeof(CommandGetImportedKeys), "GetImportedKeysFlightInfo")]
     [InlineData(typeof(CommandGetCrossReference), "GetCrossReferenceFlightInfo")]
     [InlineData(typeof(CommandGetXdbcTypeInfo), "GetXdbcTypeFlightInfo")]
-    public async Task EnsureGetFlightInfoIsCorrectlyRoutedForCommand(Type commandType, string expectedResult)
+    public async void EnsureGetFlightInfoIsCorrectlyRoutedForCommand(Type commandType, string expectedResult)
     {
         //Given
         var command = (IMessage) Activator.CreateInstance(commandType)!;
@@ -132,7 +131,7 @@ public class FlightSqlServerTests
 
 
     [Fact]
-    public async Task EnsureAnInvalidOperationExceptionIsThrownWhenACommandIsNotSupportedAndHasNoDescriptor()
+    public async void EnsureAnInvalidOperationExceptionIsThrownWhenACommandIsNotSupportedAndHasNoDescriptor()
     {
         //Given
         var producer = new TestFlightSqlSever();
@@ -146,7 +145,7 @@ public class FlightSqlServerTests
     }
 
     [Fact]
-    public async Task EnsureAnInvalidOperationExceptionIsThrownWhenACommandIsNotSupported()
+    public async void EnsureAnInvalidOperationExceptionIsThrownWhenACommandIsNotSupported()
     {
         //Given
         var producer = new TestFlightSqlSever();
@@ -176,7 +175,7 @@ public class FlightSqlServerTests
     [InlineData(typeof(CommandGetImportedKeys), "DoGetImportedKeys")]
     [InlineData(typeof(CommandGetCrossReference), "DoGetCrossReference")]
     [InlineData(typeof(CommandGetXdbcTypeInfo), "DoGetXbdcTypeInfo")]
-    public async Task EnsureDoGetIsCorrectlyRoutedForADoGetCommand(Type commandType, string expectedResult)
+    public async void EnsureDoGetIsCorrectlyRoutedForADoGetCommand(Type commandType, string expectedResult)
     {
         //Given
         var producer = new TestFlightSqlSever();
@@ -193,7 +192,7 @@ public class FlightSqlServerTests
     }
 
     [Fact]
-    public async Task EnsureAnInvalidOperationExceptionIsThrownWhenADoGetCommandIsNotSupported()
+    public async void EnsureAnInvalidOperationExceptionIsThrownWhenADoGetCommandIsNotSupported()
     {
         //Given
         var producer = new TestFlightSqlSever();
@@ -214,7 +213,7 @@ public class FlightSqlServerTests
     [InlineData(SqlAction.CloseRequest, typeof(ActionClosePreparedStatementRequest), "ClosePreparedStatement")]
     [InlineData(SqlAction.CreateRequest, typeof(ActionCreatePreparedStatementRequest), "CreatePreparedStatement")]
     [InlineData("BadCommand", typeof(ActionCreatePreparedStatementRequest), "Action type BadCommand not supported", true)]
-    public async Task EnsureDoActionIsCorrectlyRoutedForAnActionRequest(string actionType, Type actionBodyType, string expectedResponse, bool isException = false)
+    public async void EnsureDoActionIsCorrectlyRoutedForAnActionRequest(string actionType, Type actionBodyType, string expectedResponse, bool isException = false)
     {
         //Given
         var producer = new TestFlightSqlSever();
@@ -238,19 +237,19 @@ public class FlightSqlServerTests
     [InlineData(typeof(CommandPreparedStatementQuery), "PutPreparedStatementQuery")]
     [InlineData(typeof(CommandPreparedStatementUpdate), "PutPreparedStatementUpdate")]
     [InlineData(typeof(CommandGetXdbcTypeInfo), "Command CommandGetXdbcTypeInfo not supported", true)]
-    public async Task EnsureDoPutIsCorrectlyRoutedForTheCommand(Type commandType, string expectedResponse, bool isException = false)
+    public async void EnsureDoPutIsCorrectlyRoutedForTheCommand(Type commandType, string expectedResponse, bool isException = false)
     {
         //Given
         var command = (IMessage) Activator.CreateInstance(commandType)!;
         var producer = new TestFlightSqlSever();
         var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize().ToArray());
         var recordBatch = new RecordBatch(new Schema(new List<Field>(), null), System.Array.Empty<Int8Array>(), 0);
-        var reader = new MockStreamReader<FlightData>(await recordBatch.ToFlightData(descriptor));
+        var reader = new MockStreamReader<FlightData>(await recordBatch.ToFlightData(descriptor).ConfigureAwait(false));
         var batchReader = new FlightServerRecordBatchStreamReader(reader);
         var mockStreamWriter = new MockServerStreamWriter<FlightPutResult>();
 
         //When
-        async Task Act() => await producer.DoPut(batchReader, mockStreamWriter, new MockServerCallContext());
+        async Task Act() => await producer.DoPut(batchReader, mockStreamWriter, new MockServerCallContext()).ConfigureAwait(false);
         var exception = await Record.ExceptionAsync(Act);
         string? actualMessage = isException ? exception?.Message : mockStreamWriter.Messages[0].ApplicationMetadata.ToStringUtf8();
 
@@ -272,7 +271,7 @@ public class FlightSqlServerTests
         protected override CancellationToken CancellationTokenCore => default;
         protected override Metadata ResponseTrailersCore => new();
         protected override Status StatusCore { get; set; }
-        protected override WriteOptions? WriteOptionsCore { get; set; } = WriteOptions.Default;
+        protected override WriteOptions WriteOptionsCore { get; set; } = WriteOptions.Default;
         protected override AuthContext AuthContextCore => new("", new Dictionary<string, List<AuthProperty>>());
     }
 }
@@ -326,7 +325,7 @@ internal static class MockStreamReaderWriterExtensions
     public static async Task<IEnumerable<FlightData>> ToFlightData(this RecordBatch recordBatch, FlightDescriptor? descriptor = null)
     {
         var responseStream = new MockFlightServerRecordBatchStreamWriter();
-        await responseStream.WriteRecordBatchAsync(recordBatch);
+        await responseStream.WriteRecordBatchAsync(recordBatch).ConfigureAwait(false);
         if (descriptor == null)
         {
             return responseStream.FlightData;

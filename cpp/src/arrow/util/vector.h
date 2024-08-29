@@ -31,8 +31,8 @@ namespace internal {
 
 template <typename T>
 std::vector<T> DeleteVectorElement(const std::vector<T>& values, size_t index) {
-  ARROW_DCHECK(!values.empty());
-  ARROW_DCHECK_LT(index, values.size());
+  DCHECK(!values.empty());
+  DCHECK_LT(index, values.size());
   std::vector<T> out;
   out.reserve(values.size() - 1);
   for (size_t i = 0; i < index; ++i) {
@@ -47,7 +47,7 @@ std::vector<T> DeleteVectorElement(const std::vector<T>& values, size_t index) {
 template <typename T>
 std::vector<T> AddVectorElement(const std::vector<T>& values, size_t index,
                                 T new_element) {
-  ARROW_DCHECK_LE(index, values.size());
+  DCHECK_LE(index, values.size());
   std::vector<T> out;
   out.reserve(values.size() + 1);
   for (size_t i = 0; i < index; ++i) {
@@ -63,7 +63,7 @@ std::vector<T> AddVectorElement(const std::vector<T>& values, size_t index,
 template <typename T>
 std::vector<T> ReplaceVectorElement(const std::vector<T>& values, size_t index,
                                     T new_element) {
-  ARROW_DCHECK_LE(index, values.size());
+  DCHECK_LE(index, values.size());
   std::vector<T> out;
   out.reserve(values.size());
   for (size_t i = 0; i < index; ++i) {
@@ -113,7 +113,7 @@ Result<std::vector<To>> MaybeMapVector(Fn&& map, const std::vector<From>& source
   out.reserve(source.size());
   ARROW_RETURN_NOT_OK(MaybeTransform(source.begin(), source.end(),
                                      std::back_inserter(out), std::forward<Fn>(map)));
-  return out;
+  return std::move(out);
 }
 
 template <typename Fn, typename From = internal::call_traits::argument_type<0, Fn>,
@@ -152,7 +152,7 @@ Result<std::vector<T>> UnwrapOrRaise(std::vector<Result<T>>&& results) {
     }
     out.push_back(it->MoveValueUnsafe());
   }
-  return out;
+  return std::move(out);
 }
 
 template <typename T>
@@ -165,7 +165,7 @@ Result<std::vector<T>> UnwrapOrRaise(const std::vector<Result<T>>& results) {
     }
     out.push_back(result.ValueUnsafe());
   }
-  return out;
+  return std::move(out);
 }
 
 }  // namespace internal

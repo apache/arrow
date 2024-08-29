@@ -35,16 +35,6 @@ namespace Apache.Arrow.Tests
         }
 
         [Fact]
-        public void TestConcatenateSlices()
-        {
-            foreach ((List<IArrowArray> testTargetArrayList, IArrowArray expectedArray) in GenerateTestData(slicedArrays: true))
-            {
-                IArrowArray actualArray = ArrowArrayConcatenator.Concatenate(testTargetArrayList);
-                ArrowReaderVerifier.CompareArrays(expectedArray, actualArray, strictCompare: false);
-            }
-        }
-
-        [Fact]
         public void TestNullOrEmpty()
         {
             Assert.Null(ArrowArrayConcatenator.Concatenate(null));
@@ -59,7 +49,7 @@ namespace Apache.Arrow.Tests
             ArrowReaderVerifier.CompareArrays(array, actualArray);
         }
 
-        private static IEnumerable<Tuple<List<IArrowArray>, IArrowArray>> GenerateTestData(bool slicedArrays = false)
+        private static IEnumerable<Tuple<List<IArrowArray>, IArrowArray>> GenerateTestData()
         {
             var targetTypes = new List<IArrowType>() {
                     BooleanType.Default,
@@ -88,7 +78,7 @@ namespace Apache.Arrow.Tests
                         new Field.Builder().Name("Strings").DataType(StringType.Default).Nullable(true).Build(),
                         new Field.Builder().Name("Ints").DataType(Int32Type.Default).Nullable(true).Build()
                     }),
-                    new FixedSizeListType(Int32Type.Default, 2),
+                    new FixedSizeListType(Int32Type.Default, 1),
                     new UnionType(
                         new List<Field>{
                             new Field.Builder().Name("Strings").DataType(StringType.Default).Nullable(true).Build(),
@@ -116,7 +106,7 @@ namespace Apache.Arrow.Tests
 
             foreach (IArrowType type in targetTypes)
             {
-                var creator = new TestDataGenerator(slicedArrays);
+                var creator = new TestDataGenerator();
                 type.Accept(creator);
                 yield return Tuple.Create(creator.TestTargetArrayList, creator.ExpectedArray);
             }
@@ -152,44 +142,26 @@ namespace Apache.Arrow.Tests
             IArrowTypeVisitor<UnionType>,
             IArrowTypeVisitor<MapType>
         {
-            private readonly List<List<int?>> _baseData;
 
-            private readonly int _baseDataListCount;
+            private List<List<int?>> _baseData;
 
-            private readonly int _resultTotalElementCount;
+            private int _baseDataListCount;
 
-            private readonly List<(int Offset, int Length)> _sliceParameters = null;
+            private int _baseDataTotalElementCount;
 
             public List<IArrowArray> TestTargetArrayList { get; }
             public IArrowArray ExpectedArray { get; private set; }
 
-            public TestDataGenerator(bool slicedArrays)
+            public TestDataGenerator()
             {
                 _baseData = new List<List<int?>> {
-                    new List<int?> { 1, 2, 3, 4, 5, 6 },
-                    new List<int?> { 100, 101, null, 102, null, 103 },
-                    new List<int?> { null, null },
-                    new List<int?> { },
-                    new List<int?> { 11, null, 12, 13, 14 },
+                    new List<int?> { 1, 2, 3 },
+                    new List<int?> { 100, 101, null },
+                    new List<int?> { 11, null, 12 },
                 };
 
-                if (slicedArrays)
-                {
-                    _sliceParameters = new List<(int, int)>
-                    {
-                        (2, 3),
-                        (0, 5),
-                        (0, 2),
-                        (0, 0),
-                        (1, 4),
-                    };
-                }
-
                 _baseDataListCount = _baseData.Count;
-                _resultTotalElementCount = slicedArrays
-                    ? _sliceParameters.Sum(p => p.Length)
-                    : _baseData.Sum(baseList => baseList.Count);
-
+                _baseDataTotalElementCount = _baseData.Sum(_ => _.Count);
                 TestTargetArrayList = new List<IArrowArray>(_baseDataListCount);
             }
 
@@ -207,35 +179,166 @@ namespace Apache.Arrow.Tests
             public void Visit(Date32Type type) => GenerateTestData<DateTime, Date32Array, Date32Array.Builder>(type, x => DateTime.MinValue.AddDays(x));
             public void Visit(Date64Type type) => GenerateTestData<DateTime, Date64Array, Date64Array.Builder>(type, x => DateTime.MinValue.AddDays(x));
 
-            public void Visit(Decimal128Type type) => GenerateTestData<Decimal128Array, Decimal128Array.Builder>(type, (builder, x) => builder.Append(x));
+            public void Visit(Decimal128Type type)
+            {
+                Decimal128Array.Builder resultBuilder = new Decimal128Array.Builder(type).Reserve(_baseDataTotalElementCount);
 
-            public void Visit(Decimal256Type type) => GenerateTestData<Decimal256Array, Decimal256Array.Builder>(type, (builder, x) => builder.Append(x));
+                for (int i = 0; i < _baseDataListCount; i++)
+                {
+                    List<int?> dataList = _baseData[i];
+                    Decimal128Array.Builder builder = new Decimal128Array.Builder(type).Reserve(dataList.Count);
+                    foreach (decimal? value in dataList)
+                    {
+                        if (value.HasValue)
+                        {
+                            builder.Append(value.Value);
+                            resultBuilder.Append(value.Value);
+                        }
+                        else
+                        {
+                            builder.AppendNull();
+                            resultBuilder.AppendNull();
+                        }
+                    }
+                    TestTargetArrayList.Add(builder.Build());
+                }
+
+                ExpectedArray = resultBuilder.Build();
+            }
+
+            public void Visit(Decimal256Type type)
+            {
+                Decimal256Array.Builder resultBuilder = new Decimal256Array.Builder(type).Reserve(_baseDataTotalElementCount);
+
+                for (int i = 0; i < _baseDataListCount; i++)
+                {
+                    List<int?> dataList = _baseData[i];
+                    Decimal256Array.Builder builder = new Decimal256Array.Builder(type).Reserve(dataList.Count);
+                    foreach (decimal? value in dataList)
+                    {
+                        if (value.HasValue)
+                        {
+                            builder.Append(value.Value);
+                            resultBuilder.Append(value.Value);
+                        }
+                        else
+                        {
+                            builder.AppendNull();
+                            resultBuilder.AppendNull();
+                        }
+                    }
+                    TestTargetArrayList.Add(builder.Build());
+                }
+
+                ExpectedArray = resultBuilder.Build();
+            }
 
             public void Visit(TimestampType type)
             {
+                TimestampArray.Builder resultBuilder = new TimestampArray.Builder().Reserve(_baseDataTotalElementCount);
                 DateTimeOffset basis = DateTimeOffset.UtcNow;
-                GenerateTestData<TimestampArray, TimestampArray.Builder>(type, (builder, x) => builder.Append(basis.AddMilliseconds(x)));
+
+                for (int i = 0; i < _baseDataListCount; i++)
+                {
+                    List<int?> dataList = _baseData[i];
+                    TimestampArray.Builder builder = new TimestampArray.Builder().Reserve(dataList.Count);
+                    foreach (int? value in dataList)
+                    {
+                        if (value.HasValue)
+                        {
+                            DateTimeOffset dateValue = basis.AddMilliseconds(value.Value);
+                            builder.Append(dateValue);
+                            resultBuilder.Append(dateValue);
+                        }
+                        else
+                        {
+                            builder.AppendNull();
+                            resultBuilder.AppendNull();
+                        }
+                    }
+                    TestTargetArrayList.Add(builder.Build());
+                }
+
+                ExpectedArray = resultBuilder.Build();
             }
 
-            public void Visit(DurationType type) => GenerateTestData<long, DurationArray, DurationArray.Builder>(type, x => (long)x);
+            public void Visit(DurationType type)
+            {
+                DurationArray.Builder resultBuilder = new DurationArray.Builder(type).Reserve(_baseDataTotalElementCount);
+
+                for (int i = 0; i < _baseDataListCount; i++)
+                {
+                    List<int?> dataList = _baseData[i];
+                    DurationArray.Builder builder = new DurationArray.Builder(type).Reserve(dataList.Count);
+                    foreach (int? value in dataList)
+                    {
+                        if (value.HasValue)
+                        {
+                            builder.Append(value.Value);
+                            resultBuilder.Append(value.Value);
+                        }
+                        else
+                        {
+                            builder.AppendNull();
+                            resultBuilder.AppendNull();
+                        }
+                    }
+                    TestTargetArrayList.Add(builder.Build());
+                }
+
+                ExpectedArray = resultBuilder.Build();
+            }
 
             public void Visit(IntervalType type)
             {
                 switch (type.Unit)
                 {
                     case IntervalUnit.YearMonth:
-                        GenerateTestData<YearMonthInterval, YearMonthIntervalArray, YearMonthIntervalArray.Builder>(
-                            type, x => new YearMonthInterval(x));
+                        YearMonthIntervalArray.Builder yearMonthBuilder = new YearMonthIntervalArray.Builder().Reserve(_baseDataTotalElementCount);
+                        foreach (List<int?> dataList in _baseData)
+                        {
+                            YearMonthIntervalArray.Builder yearMonthBuilder1 = new YearMonthIntervalArray.Builder().Reserve(dataList.Count);
+                            foreach (int? value in dataList)
+                            {
+                                YearMonthInterval? ymi = value != null ? new YearMonthInterval(value.Value) : null;
+                                yearMonthBuilder.Append(ymi);
+                                yearMonthBuilder1.Append(ymi);
+                            }
+                            TestTargetArrayList.Add(yearMonthBuilder1.Build());
+                        }
+                        ExpectedArray = yearMonthBuilder.Build();
                         break;
 
                     case IntervalUnit.DayTime:
-                        GenerateTestData<DayTimeInterval, DayTimeIntervalArray, DayTimeIntervalArray.Builder>(
-                            type, x => new DayTimeInterval(100 - 50 * x, 100 * x));
+                        DayTimeIntervalArray.Builder dayTimeBuilder = new DayTimeIntervalArray.Builder().Reserve(_baseDataTotalElementCount);
+                        foreach (List<int?> dataList in _baseData)
+                        {
+                            DayTimeIntervalArray.Builder dayTimeBuilder1 = new DayTimeIntervalArray.Builder().Reserve(dataList.Count);
+                            foreach (int? value in dataList)
+                            {
+                                DayTimeInterval? dti = value != null ? new DayTimeInterval(100 - 50 * value.Value, 100 * value.Value) : null;
+                                dayTimeBuilder.Append(dti);
+                                dayTimeBuilder1.Append(dti);
+                            }
+                            TestTargetArrayList.Add(dayTimeBuilder1.Build());
+                        }
+                        ExpectedArray = dayTimeBuilder.Build();
                         break;
 
                     case IntervalUnit.MonthDayNanosecond:
-                        GenerateTestData<MonthDayNanosecondInterval, MonthDayNanosecondIntervalArray, MonthDayNanosecondIntervalArray.Builder>(
-                            type, x => new MonthDayNanosecondInterval(x, 5 - x, 100 * x));
+                        MonthDayNanosecondIntervalArray.Builder monthDayNanoBuilder = new MonthDayNanosecondIntervalArray.Builder().Reserve(_baseDataTotalElementCount);
+                        foreach (List<int?> dataList in _baseData)
+                        {
+                            MonthDayNanosecondIntervalArray.Builder monthDayNanoBuilder1 = new MonthDayNanosecondIntervalArray.Builder().Reserve(dataList.Count);
+                            foreach (int? value in dataList)
+                            {
+                                MonthDayNanosecondInterval? mdni = value != null ? new MonthDayNanosecondInterval(value.Value, 5 - value.Value, 100 * value.Value) : null;
+                                monthDayNanoBuilder.Append(mdni);
+                                monthDayNanoBuilder1.Append(mdni);
+                            }
+                            TestTargetArrayList.Add(monthDayNanoBuilder1.Build());
+                        }
+                        ExpectedArray = monthDayNanoBuilder.Build();
                         break;
 
                     default:
@@ -243,154 +346,245 @@ namespace Apache.Arrow.Tests
                 }
             }
 
-            public void Visit(BinaryType type) =>
-                GenerateTestData<BinaryArray, BinaryArray.Builder>(type, (builder, x) =>
+            public void Visit(BinaryType type)
+            {
+                BinaryArray.Builder resultBuilder = new BinaryArray.Builder().Reserve(_baseDataTotalElementCount);
+
+                for (int i = 0; i < _baseDataListCount; i++)
                 {
-                    if (x % 2 == 0)
+                    List<int?> dataList = _baseData[i];
+                    BinaryArray.Builder builder = new BinaryArray.Builder().Reserve(dataList.Count);
+
+                    foreach (byte? value in dataList)
                     {
-                        builder.Append((byte)x);
+                        if (value.HasValue)
+                        {
+                            builder.Append(value.Value);
+                            resultBuilder.Append(value.Value);
+                        }
+                        else
+                        {
+                            builder.AppendNull();
+                            resultBuilder.AppendNull();
+                        }
                     }
-                    else
+                    TestTargetArrayList.Add(builder.Build());
+                }
+
+                ExpectedArray = resultBuilder.Build();
+            }
+
+            public void Visit(BinaryViewType type)
+            {
+                BinaryViewArray.Builder resultBuilder = new BinaryViewArray.Builder().Reserve(_baseDataTotalElementCount);
+
+                for (int i = 0; i < _baseDataListCount; i++)
+                {
+                    List<int?> dataList = _baseData[i];
+                    BinaryViewArray.Builder builder = new BinaryViewArray.Builder().Reserve(dataList.Count);
+
+                    foreach (byte? value in dataList)
                     {
-                        builder.Append(new byte[] {(byte)x, (byte)(x + 1)}.AsSpan());
+                        if (value.HasValue)
+                        {
+                            builder.Append(value.Value);
+                            resultBuilder.Append(value.Value);
+                        }
+                        else
+                        {
+                            builder.AppendNull();
+                            resultBuilder.AppendNull();
+                        }
                     }
-                });
+                    TestTargetArrayList.Add(builder.Build());
+                }
 
-            public void Visit(BinaryViewType type) =>
-                GenerateTestData<BinaryViewArray, BinaryViewArray.Builder>(type, (builder, x) =>
+                ExpectedArray = resultBuilder.Build();
+            }
+
+            public void Visit(StringType type)
+            {
+                StringArray.Builder resultBuilder = new StringArray.Builder().Reserve(_baseDataTotalElementCount);
+
+                for (int i = 0; i < _baseDataListCount; i++)
                 {
-                    if (x % 2 == 0)
+                    List<int?> dataList = _baseData[i];
+                    StringArray.Builder builder = new StringArray.Builder().Reserve(dataList.Count);
+
+                    foreach (string value in dataList.Select(_ => _.ToString() ?? null))
                     {
-                        builder.Append((byte)x);
+                        builder.Append(value);
+                        resultBuilder.Append(value);
                     }
-                    else
+                    TestTargetArrayList.Add(builder.Build());
+                }
+
+                ExpectedArray = resultBuilder.Build();
+            }
+
+            public void Visit(StringViewType type)
+            {
+                StringViewArray.Builder resultBuilder = new StringViewArray.Builder().Reserve(_baseDataTotalElementCount);
+
+                for (int i = 0; i < _baseDataListCount; i++)
+                {
+                    List<int?> dataList = _baseData[i];
+                    StringViewArray.Builder builder = new StringViewArray.Builder().Reserve(dataList.Count);
+
+                    foreach (string value in dataList.Select(_ => _.ToString() ?? null))
                     {
-                        builder.Append(new byte[] {(byte)x, (byte)(x + 1)}.AsSpan());
+                        builder.Append(value);
+                        resultBuilder.Append(value);
                     }
-                });
+                    TestTargetArrayList.Add(builder.Build());
+                }
 
-            public void Visit(StringType type) =>
-                GenerateTestData<StringArray, StringArray.Builder>(type, (builder, x) => builder.Append(x.ToString()));
+                ExpectedArray = resultBuilder.Build();
+            }
 
-            public void Visit(StringViewType type) =>
-                GenerateTestData<StringViewArray, StringViewArray.Builder>(type, (builder, x) => builder.Append(x.ToString()));
+            public void Visit(ListType type)
+            {
+                ListArray.Builder resultBuilder = new ListArray.Builder(type.ValueDataType).Reserve(_baseDataTotalElementCount);
+                Int64Array.Builder resultValueBuilder = (Int64Array.Builder)resultBuilder.ValueBuilder.Reserve(_baseDataTotalElementCount);
 
-            public void Visit(ListType type) =>
-                GenerateTestData<ListArray, ListArray.Builder>(type, (builder, x) =>
+                for (int i = 0; i < _baseDataListCount; i++)
                 {
-                    builder.Append();
-                    ((Int64Array.Builder)builder.ValueBuilder).Append(x);
-                }, initAction: (builder, length) =>
-                {
-                    builder.Reserve(length);
-                    builder.ValueBuilder.Reserve(length);
-                });
+                    List<int?> dataList = _baseData[i];
 
-            public void Visit(ListViewType type) =>
-                GenerateTestData<ListViewArray, ListViewArray.Builder>(type, (builder, x) =>
-                {
-                    builder.Append();
-                    ((Int64Array.Builder)builder.ValueBuilder).Append(x);
-                }, initAction: (builder, length) =>
-                {
-                    builder.Reserve(length);
-                    builder.ValueBuilder.Reserve(length);
-                });
+                    ListArray.Builder builder = new ListArray.Builder(type.ValueField).Reserve(dataList.Count);
+                    Int64Array.Builder valueBuilder = (Int64Array.Builder)builder.ValueBuilder.Reserve(dataList.Count);
 
-            public void Visit(FixedSizeListType type) =>
-                GenerateTestData<FixedSizeListArray, FixedSizeListArray.Builder>(type, (builder, x) =>
-                {
-                    builder.Append();
-                    var valueBuilder = (Int32Array.Builder)builder.ValueBuilder;
-                    for (int i = 0; i < type.ListSize; ++i)
+                    foreach (long? value in dataList)
                     {
-                        valueBuilder.Append(x);
+                        if (value.HasValue)
+                        {
+                            builder.Append();
+                            resultBuilder.Append();
+
+                            valueBuilder.Append(value.Value);
+                            resultValueBuilder.Append(value.Value);
+                        }
+                        else
+                        {
+                            builder.AppendNull();
+                            resultBuilder.AppendNull();
+                        }
                     }
-                }, initAction: (builder, length) =>
+
+                    TestTargetArrayList.Add(builder.Build());
+                }
+
+                ExpectedArray = resultBuilder.Build();
+            }
+
+            public void Visit(ListViewType type)
+            {
+                ListViewArray.Builder resultBuilder = new ListViewArray.Builder(type.ValueDataType).Reserve(_baseDataTotalElementCount);
+                Int64Array.Builder resultValueBuilder = (Int64Array.Builder)resultBuilder.ValueBuilder.Reserve(_baseDataTotalElementCount);
+
+                for (int i = 0; i < _baseDataListCount; i++)
                 {
-                    builder.Reserve(length);
-                    builder.ValueBuilder.Reserve(length * type.ListSize);
-                });
+                    List<int?> dataList = _baseData[i];
+
+                    ListViewArray.Builder builder = new ListViewArray.Builder(type.ValueField).Reserve(dataList.Count);
+                    Int64Array.Builder valueBuilder = (Int64Array.Builder)builder.ValueBuilder.Reserve(dataList.Count);
+
+                    foreach (long? value in dataList)
+                    {
+                        if (value.HasValue)
+                        {
+                            builder.Append();
+                            resultBuilder.Append();
+
+                            valueBuilder.Append(value.Value);
+                            resultValueBuilder.Append(value.Value);
+                        }
+                        else
+                        {
+                            builder.AppendNull();
+                            resultBuilder.AppendNull();
+                        }
+                    }
+
+                    TestTargetArrayList.Add(builder.Build());
+                }
+
+                ExpectedArray = resultBuilder.Build();
+            }
+
+            public void Visit(FixedSizeListType type)
+            {
+                FixedSizeListArray.Builder resultBuilder = new FixedSizeListArray.Builder(type.ValueDataType, type.ListSize).Reserve(_baseDataTotalElementCount);
+                Int32Array.Builder resultValueBuilder = (Int32Array.Builder)resultBuilder.ValueBuilder.Reserve(_baseDataTotalElementCount);
+
+                for (int i = 0; i < _baseDataListCount; i++)
+                {
+                    List<int?> dataList = _baseData[i];
+
+                    FixedSizeListArray.Builder builder = new FixedSizeListArray.Builder(type.ValueField, type.ListSize).Reserve(dataList.Count);
+                    Int32Array.Builder valueBuilder = (Int32Array.Builder)builder.ValueBuilder.Reserve(dataList.Count);
+
+                    foreach (int? value in dataList)
+                    {
+                        if (value.HasValue)
+                        {
+                            builder.Append();
+                            resultBuilder.Append();
+
+                            valueBuilder.Append(value.Value);
+                            resultValueBuilder.Append(value.Value);
+                        }
+                        else
+                        {
+                            builder.AppendNull();
+                            resultBuilder.AppendNull();
+                        }
+                    }
+
+                    TestTargetArrayList.Add(builder.Build());
+                }
+
+                ExpectedArray = resultBuilder.Build();
+            }
 
             public void Visit(StructType type)
             {
                 // TODO: Make data from type fields.
 
                 // The following can be improved with a Builder class for StructArray.
-                StringArray.Builder resultStringBuilder = new StringArray.Builder().Reserve(_resultTotalElementCount);
-                Int32Array.Builder resultInt32Builder = new Int32Array.Builder().Reserve(_resultTotalElementCount);
-                ArrowBuffer.BitmapBuilder resultNullBitmapBuilder = new ArrowBuffer.BitmapBuilder().Reserve(_resultTotalElementCount);
-                int resultNullCount = 0;
+                StringArray.Builder resultStringBuilder = new StringArray.Builder();
+                Int32Array.Builder resultInt32Builder = new Int32Array.Builder();
+                ArrowBuffer nullBitmapBuffer = new ArrowBuffer.BitmapBuilder().Append(true).Append(true).Append(false).Build();
 
-                for (int i = 0; i < _baseData.Count; i++)
+                for (int i = 0; i < 3; i++)
                 {
-                    List<int?> dataList = _baseData[i];
-                    StringArray.Builder stringBuilder = new StringArray.Builder().Reserve(dataList.Count);
-                    Int32Array.Builder int32Builder = new Int32Array.Builder().Reserve(dataList.Count);
-                    ArrowBuffer.BitmapBuilder nullBitmapBuilder = new ArrowBuffer.BitmapBuilder().Reserve(dataList.Count);
-                    int nullCount = 0;
-
-                    for (int j = 0; j < dataList.Count; ++j)
+                    resultStringBuilder.Append("joe").AppendNull().AppendNull().Append("mark");
+                    resultInt32Builder.Append(1).Append(2).AppendNull().Append(4);
+                    StringArray stringArray = new StringArray.Builder().Append("joe").AppendNull().AppendNull().Append("mark").Build();
+                    Int32Array intArray = new Int32Array.Builder().Append(1).Append(2).AppendNull().Append(4).Build();
+                    List<Array> arrays = new List<Array>
                     {
-                        var value = dataList[j];
-                        if (value.HasValue)
-                        {
-                            nullBitmapBuilder.Append(true);
-                            stringBuilder.Append(value.Value.ToString());
-                            int32Builder.Append(value.Value);
-
-                            if (IncludeInResult(i, j))
-                            {
-                                resultNullBitmapBuilder.Append(true);
-                                resultStringBuilder.Append(value.Value.ToString());
-                                resultInt32Builder.Append(value.Value);
-                            }
-                        }
-                        else
-                        {
-                            nullCount++;
-                            nullBitmapBuilder.Append(false);
-                            stringBuilder.Append("");
-                            int32Builder.Append(0);
-
-                            if (IncludeInResult(i, j))
-                            {
-                                resultNullCount++;
-                                resultNullBitmapBuilder.Append(false);
-                                resultStringBuilder.Append("");
-                                resultInt32Builder.Append(0);
-                            }
-                        }
-                    }
-
-                    var arrays = new List<Array>
-                    {
-                        stringBuilder.Build(),
-                        int32Builder.Build(),
+                        stringArray,
+                        intArray
                     };
 
-                    TestTargetArrayList.Add(SliceTargetArray(
-                        new StructArray(type, dataList.Count, arrays, nullBitmapBuilder.Build(), nullCount), i));
+                    TestTargetArrayList.Add(new StructArray(type, 3, arrays, nullBitmapBuffer, 1));
                 }
 
-                var resultArrays = new List<Array>
-                {
-                    resultStringBuilder.Build(),
-                    resultInt32Builder.Build(),
-                };
+                StringArray resultStringArray = resultStringBuilder.Build();
+                Int32Array resultInt32Array = resultInt32Builder.Build();
 
-                ExpectedArray = new StructArray(
-                    type, _resultTotalElementCount, resultArrays, resultNullBitmapBuilder.Build(), resultNullCount);
+                ExpectedArray = new StructArray(type, 9, new List<Array> { resultStringArray, resultInt32Array }, nullBitmapBuffer, 3);
             }
 
             public void Visit(UnionType type)
             {
                 bool isDense = type.Mode == UnionMode.Dense;
 
-                StringArray.Builder stringResultBuilder = new StringArray.Builder().Reserve(_resultTotalElementCount);
-                Int32Array.Builder intResultBuilder = new Int32Array.Builder().Reserve(_resultTotalElementCount);
-                ArrowBuffer.Builder<byte> typeResultBuilder = new ArrowBuffer.Builder<byte>().Reserve(_resultTotalElementCount);
-                ArrowBuffer.Builder<int> offsetResultBuilder = new ArrowBuffer.Builder<int>().Reserve(_resultTotalElementCount);
+                StringArray.Builder stringResultBuilder = new StringArray.Builder().Reserve(_baseDataTotalElementCount);
+                Int32Array.Builder intResultBuilder = new Int32Array.Builder().Reserve(_baseDataTotalElementCount);
+                ArrowBuffer.Builder<byte> typeResultBuilder = new ArrowBuffer.Builder<byte>().Reserve(_baseDataTotalElementCount);
+                ArrowBuffer.Builder<int> offsetResultBuilder = new ArrowBuffer.Builder<int>().Reserve(_baseDataTotalElementCount);
                 int resultNullCount = 0;
 
                 for (int i = 0; i < _baseDataListCount; i++)
@@ -404,59 +598,40 @@ namespace Apache.Arrow.Tests
 
                     for (int j = 0; j < dataList.Count; j++)
                     {
-                        bool includeInResult = IncludeInResult(i, j);
-                        byte index = (byte)Math.Min(j % 3, 1);
+                        byte index = (byte)Math.Max(j % 3, 1);
                         int? intValue = (index == 1) ? dataList[j] : null;
                         string stringValue = (index == 1) ? null : dataList[j]?.ToString();
                         typeBuilder.Append(index);
-                        if (includeInResult)
-                        {
-                            typeResultBuilder.Append(index);
-                        }
 
                         if (isDense)
                         {
                             if (index == 0)
                             {
                                 offsetBuilder.Append(stringBuilder.Length);
+                                offsetResultBuilder.Append(stringResultBuilder.Length);
                                 stringBuilder.Append(stringValue);
-                                if (includeInResult)
-                                {
-                                    offsetResultBuilder.Append(stringResultBuilder.Length);
-                                }
-                                // For dense mode, concatenation doesn't slice the child arrays, so always
-                                // add the value to the result.
                                 stringResultBuilder.Append(stringValue);
                             }
                             else
                             {
                                 offsetBuilder.Append(intBuilder.Length);
+                                offsetResultBuilder.Append(intResultBuilder.Length);
                                 intBuilder.Append(intValue);
-                                if (includeInResult)
-                                {
-                                    offsetResultBuilder.Append(intResultBuilder.Length);
-                                }
                                 intResultBuilder.Append(intValue);
                             }
                         }
                         else
                         {
                             stringBuilder.Append(stringValue);
+                            stringResultBuilder.Append(stringValue);
                             intBuilder.Append(intValue);
-                            if (includeInResult)
-                            {
-                                stringResultBuilder.Append(stringValue);
-                                intResultBuilder.Append(intValue);
-                            }
+                            intResultBuilder.Append(intValue);
                         }
 
                         if (dataList[j] == null)
                         {
                             nullCount++;
-                            if (includeInResult)
-                            {
-                                resultNullCount++;
-                            }
+                            resultNullCount++;
                         }
                     }
 
@@ -469,11 +644,9 @@ namespace Apache.Arrow.Tests
                     {
                         buffers = new[] { typeBuilder.Build() };
                     }
-
-                    var unionArray = UnionArray.Create(new ArrayData(
+                    TestTargetArrayList.Add(UnionArray.Create(new ArrayData(
                         type, dataList.Count, nullCount, 0, buffers,
-                        new[] { stringBuilder.Build().Data, intBuilder.Build().Data }));
-                    TestTargetArrayList.Add(SliceTargetArray(unionArray, i));
+                        new[] { stringBuilder.Build().Data, intBuilder.Build().Data })));
                 }
 
                 ArrowBuffer[] resultBuffers;
@@ -485,27 +658,50 @@ namespace Apache.Arrow.Tests
                 {
                     resultBuffers = new[] { typeResultBuilder.Build() };
                 }
-
                 ExpectedArray = UnionArray.Create(new ArrayData(
-                    type, _resultTotalElementCount, resultNullCount, 0, resultBuffers,
+                    type, _baseDataTotalElementCount, resultNullCount, 0, resultBuffers,
                         new[] { stringResultBuilder.Build().Data, intResultBuilder.Build().Data }));
             }
 
-            public void Visit(MapType type) =>
-                GenerateTestData<MapArray, MapArray.Builder>(type, (builder, x) =>
-                {
-                    var keyBuilder = (StringArray.Builder)builder.KeyBuilder;
-                    var valueBuilder = (Int32Array.Builder)builder.ValueBuilder;
+            public void Visit(MapType type)
+            {
+                MapArray.Builder resultBuilder = new MapArray.Builder(type).Reserve(_baseDataTotalElementCount);
+                StringArray.Builder resultKeyBuilder = (StringArray.Builder)resultBuilder.KeyBuilder.Reserve(_baseDataTotalElementCount);
+                Int32Array.Builder resultValueBuilder = (Int32Array.Builder)resultBuilder.ValueBuilder.Reserve(_baseDataTotalElementCount);
+                ArrowBuffer nullBitmapBuilder = new ArrowBuffer.BitmapBuilder().Append(true).Append(true).Append(false).Build();
 
-                    builder.Append();
-                    keyBuilder.Append(x.ToString());
-                    valueBuilder.Append(x);
-                }, initAction: (builder, length) =>
+                for (int i = 0; i < _baseData.Count; i++)
                 {
-                    builder.Reserve(length);
-                    builder.KeyBuilder.Reserve(length);
-                    builder.ValueBuilder.Reserve(length);
-                });
+                    List<int?> dataList = _baseData[i];
+
+                    MapArray.Builder builder = new MapArray.Builder(type).Reserve(dataList.Count);
+                    StringArray.Builder keyBuilder = (StringArray.Builder)builder.KeyBuilder.Reserve(dataList.Count);
+                    Int32Array.Builder valueBuilder = (Int32Array.Builder)builder.ValueBuilder.Reserve(dataList.Count);
+
+                    foreach (int? value in dataList)
+                    {
+                        if (value.HasValue)
+                        {
+                            builder.Append();
+                            resultBuilder.Append();
+
+                            keyBuilder.Append(value.Value.ToString());
+                            valueBuilder.Append(value.Value);
+                            resultKeyBuilder.Append(value.Value.ToString());
+                            resultValueBuilder.Append(value.Value);
+                        }
+                        else
+                        {
+                            builder.AppendNull();
+                            resultBuilder.AppendNull();
+                        }
+                    }
+
+                    TestTargetArrayList.Add(builder.Build());
+                }
+
+                ExpectedArray = resultBuilder.Build();
+            }
 
             public void Visit(IArrowType type)
             {
@@ -516,86 +712,32 @@ namespace Apache.Arrow.Tests
                 where TArrayBuilder : IArrowArrayBuilder<T, TArray, TArrayBuilder>
                 where TArray : IArrowArray
             {
-                GenerateTestData<TArray, TArrayBuilder>(type, (builder, x) => builder.Append(generator(x)));
-            }
-
-            private void GenerateTestData<TArray, TArrayBuilder>(
-                IArrowType type, Action<TArrayBuilder, int> buildAction, Action<TArrayBuilder, int> initAction=null)
-                where TArrayBuilder : IArrowArrayBuilder<TArray, TArrayBuilder>
-                where TArray : IArrowArray
-            {
-                var resultBuilder = (TArrayBuilder)ArrowArrayBuilderFactory.Build(type);
-                if (initAction != null)
-                {
-                    initAction(resultBuilder, _resultTotalElementCount);
-                }
-                else
-                {
-                    resultBuilder.Reserve(_resultTotalElementCount);
-                }
+                var resultBuilder = (IArrowArrayBuilder<T, TArray, TArrayBuilder>)ArrayArrayBuilderFactoryReflector.InvokeBuild(type);
+                resultBuilder.Reserve(_baseDataTotalElementCount);
 
                 for (int i = 0; i < _baseDataListCount; i++)
                 {
                     List<int?> dataList = _baseData[i];
-                    var builder = (TArrayBuilder)ArrowArrayBuilderFactory.Build(type);
-                    if (initAction != null)
-                    {
-                        initAction(builder, dataList.Count);
-                    }
-                    else
-                    {
-                        builder.Reserve(dataList.Count);
-                    }
+                    var builder = (IArrowArrayBuilder<T, TArray, TArrayBuilder>)ArrayArrayBuilderFactoryReflector.InvokeBuild(type);
+                    builder.Reserve(dataList.Count);
 
-                    for (int j = 0; j < dataList.Count; ++j)
+                    foreach (int? value in dataList)
                     {
-                        var value = dataList[j];
                         if (value.HasValue)
                         {
-                            buildAction(builder, value.Value);
-                            if (IncludeInResult(i, j))
-                            {
-                                buildAction(resultBuilder, value.Value);
-                            }
+                            builder.Append(generator(value.Value));
+                            resultBuilder.Append(generator(value.Value));
                         }
                         else
                         {
                             builder.AppendNull();
-                            if (IncludeInResult(i, j))
-                            {
-                                resultBuilder.AppendNull();
-                            }
+                            resultBuilder.AppendNull();
                         }
                     }
-
-                    TestTargetArrayList.Add(SliceTargetArray(builder.Build(default), i));
+                    TestTargetArrayList.Add(builder.Build(default));
                 }
 
                 ExpectedArray = resultBuilder.Build(default);
-            }
-
-            private bool IncludeInResult(int listIndex, int itemIndex)
-            {
-                if (_sliceParameters == null)
-                {
-                    // Unsliced arrays, all values are expected in the result
-                    return true;
-                }
-
-                var sliceParameters = _sliceParameters[listIndex];
-                return itemIndex >= sliceParameters.Offset &&
-                       itemIndex < (sliceParameters.Offset + sliceParameters.Length);
-            }
-
-            private IArrowArray SliceTargetArray(IArrowArray array, int targetIndex)
-            {
-                if (_sliceParameters == null)
-                {
-                    return array;
-                }
-
-                return ArrowArrayFactory.Slice(
-                    array, _sliceParameters[targetIndex].Offset, _sliceParameters[targetIndex].Length);
             }
         }
     }

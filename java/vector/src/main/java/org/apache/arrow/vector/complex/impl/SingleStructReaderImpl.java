@@ -14,10 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.complex.impl;
+
 
 import java.util.HashMap;
 import java.util.Map;
+
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -104,4 +107,7 @@ public class SingleStructReaderImpl extends AbstractFieldReader {
     SingleStructWriter impl = (SingleStructWriter) writer.struct(name);
     impl.container.copyFromSafe(idx(), impl.idx(), vector);
   }
+
+
 }
+

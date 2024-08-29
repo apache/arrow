@@ -1,0 +1,128 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Prerequisites on the host:
+# - brew install bash bison coreutils ninja cmake
+# - sudo arrow/ci/scripts/install_python.sh macos 3.9
+
+{% import 'macros.jinja' as macros with context %}
+
+{{ macros.github_header() }}
+
+env:
+  ARROW_JEMALLOC: OFF
+  CC: "clang"
+  CMAKE_BUILD_TYPE: release
+  CMAKE_CXX_COMPILER_LAUNCHER: "ccache"
+  CXX: "clang++"
+  MACOSX_DEPLOYMENT_TARGET: "{{ macos_deployment_target }}"
+  PYARROW_BUILD_VERBOSE: 1
+  PYARROW_VERSION: "{{ arrow.no_rc_version }}"
+  PYTHON_VERSION: "{{ python_version }}"
+  PYTHON: "/Library/Frameworks/Python.framework/Versions/{{ python_version }}/bin/python{{ python_version }}"
+  VCPKG_FEATURE_FLAGS: "manifests"
+  VCPKG_OVERLAY_TRIPLETS: {{ "${{ github.workspace }}/arrow/ci/vcpkg" }}
+  VCPKG_ROOT: {{ "${{ github.workspace }}/vcpkg" }}
+
+jobs:
+  build:
+    name: Build wheel for Python {{ python_version }} on macOS
+    runs-on: ["self-hosted", "macOS", "arm64"]
+    steps:
+      - name: Cleanup
+        run: rm -rf arrow vcpkg build crossbow-env build-*-env test-*-env
+
+      {{ macros.github_checkout_arrow()|indent }}
+
+      - name: Add Brew's Bison to PATH
+        run: echo "/opt/homebrew/opt/bison/bin" >> $GITHUB_PATH
+
+      - name: Retrieve VCPKG version from arrow/.env
+        run: |
+          vcpkg_version=$(cat "arrow/.env" | grep "VCPKG" | cut -d "=" -f2 | tr -d '"')
+          echo "VCPKG_VERSION=$vcpkg_version" >> $GITHUB_ENV
+
+      - name: Install Vcpkg
+        env:
+          MACOSX_DEPLOYMENT_TARGET: "11.0"
+        run:  arrow/ci/scripts/install_vcpkg.sh $VCPKG_ROOT $VCPKG_VERSION
+
+      - name: Add Vcpkg to PATH
+        run: echo ${VCPKG_ROOT} >> $GITHUB_PATH
+
+      - name: Install ARM64 Packages
+        env:
+          VCPKG_DEFAULT_TRIPLET: arm64-osx-static-release
+        run: |
+          vcpkg install \
+            --clean-after-build \
+            --x-install-root=${VCPKG_ROOT}/installed \
+            --x-manifest-root=arrow/ci/vcpkg \
+            --x-feature=azure \
+            --x-feature=flight \
+            --x-feature=gcs \
+            --x-feature=json \
+            --x-feature=parquet \
+            --x-feature=s3
+
+      - name: Build ARM64 Wheel
+        env:
+          ARROW_SIMD_LEVEL: "DEFAULT"
+          VCPKG_DEFAULT_TRIPLET: arm64-osx-static-release
+        run: |
+          $PYTHON -m venv build-arm64-env
+          source build-arm64-env/bin/activate
+          pip install --upgrade pip wheel
+          arrow/ci/scripts/python_wheel_macos_build.sh arm64 $(pwd)/arrow $(pwd)/build
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: wheel
+          path: arrow/python/repaired_wheels/*.whl
+
+      - name: Test Wheel on ARM64
+        shell: bash
+        env:
+          PYTEST_ADDOPTS: "-k 'not test_cancellation'"
+        run: |
+          $PYTHON -m venv test-arm64-env
+          source test-arm64-env/bin/activate
+          pip install --upgrade pip wheel
+          # libffi has to be installed on the m1 runner which causes issues with 
+          # the cffi wheel. We build cffi with the flags pointing to the correct libffi location.
+          LDFLAGS=-L$(brew --prefix libffi)/lib CFLAGS=-I$(brew --prefix libffi)/include \
+             pip install cffi --no-binary :all:
+          pip install -r arrow/python/requirements-wheel-test.txt
+          PYTHON=python  arrow/ci/scripts/install_gcs_testbench.sh default
+          arrow/ci/scripts/python_wheel_unix_test.sh $(pwd)/arrow
+
+      - name: Upload artifacts
+        shell: bash
+        run: |
+          $PYTHON -m venv crossbow-env
+          source crossbow-env/bin/activate
+          arch -x86_64 pip install -e arrow/dev/archery[crossbow-upload]
+          arch -x86_64 archery crossbow \
+            --queue-path $(pwd) \
+            --queue-remote {{ queue_remote_url }} \
+            upload-artifacts \
+            --sha {{ task.branch }} \
+            --tag {{ task.tag }} \
+            "arrow/python/repaired_wheels/*.whl"
+        env:
+          CROSSBOW_GITHUB_TOKEN: {{ "${{ secrets.CROSSBOW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}" }}
+
+      {{ macros.github_upload_gemfury("arrow/python/repaired_wheels/*.whl")|indent }}

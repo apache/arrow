@@ -20,10 +20,7 @@ class TestParquetArrowFileWriter < Test::Unit::TestCase
 
   def setup
     omit("Parquet is required") unless defined?(::Parquet)
-    Tempfile.create(["data", ".parquet"]) do |file|
-      @file = file
-      yield
-    end
+    @file = Tempfile.open(["data", ".parquet"])
   end
 
   def test_write
@@ -36,18 +33,14 @@ class TestParquetArrowFileWriter < Test::Unit::TestCase
     writer.close
 
     reader = Parquet::ArrowFileReader.new(@file.path)
-    begin
-      reader.use_threads = true
-      assert_equal([
-                     enabled_values.length / chunk_size,
-                     true,
-                   ],
-                   [
-                     reader.n_row_groups,
-                     table.equal_metadata(reader.read_table, false),
-                   ])
-    ensure
-      reader.unref
-    end
+    reader.use_threads = true
+    assert_equal([
+                   enabled_values.length / chunk_size,
+                   true,
+                 ],
+                 [
+                   reader.n_row_groups,
+                   table.equal_metadata(reader.read_table, false),
+                 ])
   end
 end

@@ -22,32 +22,21 @@ public class ArrowBuffer {
     static let maxLength = UInt.max
     fileprivate(set) var length: UInt
     let capacity: UInt
-    public let rawPointer: UnsafeMutableRawPointer
-    let isMemoryOwner: Bool
+    let rawPointer: UnsafeMutableRawPointer
 
-    init(length: UInt, capacity: UInt, rawPointer: UnsafeMutableRawPointer, isMemoryOwner: Bool = true) {
+    init(length: UInt, capacity: UInt, rawPointer: UnsafeMutableRawPointer) {
         self.length = length
         self.capacity = capacity
         self.rawPointer = rawPointer
-        self.isMemoryOwner = isMemoryOwner
     }
 
     deinit {
-        if isMemoryOwner {
-            self.rawPointer.deallocate()
-        }
+        self.rawPointer.deallocate()
     }
 
     func append(to data: inout Data) {
         let ptr  = UnsafePointer(rawPointer.assumingMemoryBound(to: UInt8.self))
         data.append(ptr, count: Int(capacity))
-    }
-
-    static func createEmptyBuffer() -> ArrowBuffer {
-        return ArrowBuffer(
-            length: 0,
-            capacity: 0,
-            rawPointer: UnsafeMutableRawPointer.allocate(byteCount: 0, alignment: .zero))
     }
 
     static func createBuffer(_ data: [UInt8], length: UInt) -> ArrowBuffer {

@@ -24,7 +24,7 @@ set PYARROW_TEST_FLIGHT=ON
 set PYARROW_TEST_GANDIVA=OFF
 set PYARROW_TEST_GCS=ON
 set PYARROW_TEST_HDFS=ON
-set PYARROW_TEST_ORC=ON
+set PYARROW_TEST_ORC=OFF
 set PYARROW_TEST_PARQUET=ON
 set PYARROW_TEST_PARQUET_ENCRYPTION=ON
 set PYARROW_TEST_SUBSTRAIT=ON
@@ -35,7 +35,7 @@ set PYARROW_TEST_TENSORFLOW=ON
 @REM set PYARROW_TEST_PANDAS=ON
 
 set ARROW_TEST_DATA=C:\arrow\testing\data
-set PARQUET_TEST_DATA=C:\arrow\cpp\submodules\parquet-testing\data
+set PARQUET_TEST_DATA=C:\arrow\submodules\parquet-testing\data
 
 @REM Install testing dependencies
 pip install -r C:\arrow\python\requirements-wheel-test.txt || exit /B 1
@@ -56,15 +56,8 @@ python -c "import pyarrow.dataset" || exit /B 1
 python -c "import pyarrow.flight" || exit /B 1
 python -c "import pyarrow.fs" || exit /B 1
 python -c "import pyarrow.json" || exit /B 1
-python -c "import pyarrow.orc" || exit /B 1
 python -c "import pyarrow.parquet" || exit /B 1
 python -c "import pyarrow.substrait" || exit /B 1
-
-@rem Download IANA Timezone Database for ORC C++
-curl https://cygwin.osuosl.org/noarch/release/tzdata/tzdata-2024a-1.tar.xz --output tzdata.tar.xz || exit /B
-mkdir %USERPROFILE%\Downloads\test\tzdata
-arc unarchive tzdata.tar.xz %USERPROFILE%\Downloads\test\tzdata
-set TZDIR=%USERPROFILE%\Downloads\test\tzdata\usr\share\zoneinfo
 
 @REM Execute unittest
 pytest -r s --pyargs pyarrow || exit /B 1

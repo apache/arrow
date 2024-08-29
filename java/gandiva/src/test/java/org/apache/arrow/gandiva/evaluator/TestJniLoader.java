@@ -14,53 +14,40 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.gandiva.evaluator;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import org.junit.jupiter.api.Test;
+import org.junit.Assert;
+import org.junit.Test;
 
 public class TestJniLoader {
 
   @Test
   public void testDefaultConfiguration() throws Exception {
     long configId = JniLoader.getConfiguration(ConfigurationBuilder.ConfigOptions.getDefault());
-    assertEquals(configId, JniLoader.getDefaultConfiguration());
-    assertEquals(
-        configId, JniLoader.getConfiguration(ConfigurationBuilder.ConfigOptions.getDefault()));
+    Assert.assertEquals(configId, JniLoader.getDefaultConfiguration());
+    Assert.assertEquals(configId, JniLoader.getConfiguration(ConfigurationBuilder.ConfigOptions.getDefault()));
 
-    long configId2 =
-        JniLoader.getConfiguration(new ConfigurationBuilder.ConfigOptions().withOptimize(false));
-    long configId3 =
-        JniLoader.getConfiguration(new ConfigurationBuilder.ConfigOptions().withTargetCPU(false));
-    long configId4 =
-        JniLoader.getConfiguration(
-            new ConfigurationBuilder.ConfigOptions().withOptimize(false).withTargetCPU(false));
+    long configId2 = JniLoader.getConfiguration(new ConfigurationBuilder.ConfigOptions().withOptimize(false));
+    long configId3 = JniLoader.getConfiguration(new ConfigurationBuilder.ConfigOptions().withTargetCPU(false));
+    long configId4 = JniLoader.getConfiguration(new ConfigurationBuilder.ConfigOptions().withOptimize(false)
+        .withTargetCPU(false));
 
-    assertTrue(configId != configId2 && configId2 != configId3 && configId3 != configId4);
+    Assert.assertTrue(configId != configId2 && configId2 != configId3 && configId3 != configId4);
 
-    assertEquals(
-        configId2,
-        JniLoader.getConfiguration(new ConfigurationBuilder.ConfigOptions().withOptimize(false)));
-    assertEquals(
-        configId3,
-        JniLoader.getConfiguration(new ConfigurationBuilder.ConfigOptions().withTargetCPU(false)));
-    assertEquals(
-        configId4,
-        JniLoader.getConfiguration(
-            new ConfigurationBuilder.ConfigOptions().withOptimize(false).withTargetCPU(false)));
+    Assert.assertEquals(configId2, JniLoader.getConfiguration(new ConfigurationBuilder.ConfigOptions()
+        .withOptimize(false)));
+    Assert.assertEquals(configId3, JniLoader.getConfiguration(new ConfigurationBuilder.ConfigOptions()
+        .withTargetCPU(false)));
+    Assert.assertEquals(configId4, JniLoader.getConfiguration(new ConfigurationBuilder.ConfigOptions()
+        .withOptimize(false).withTargetCPU(false)));
 
     JniLoader.removeConfiguration(new ConfigurationBuilder.ConfigOptions().withOptimize(false));
-    // configids are monotonically updated. after a config is removed, new one is assigned with
-    // higher id
-    assertNotEquals(
-        configId2,
-        JniLoader.getConfiguration(new ConfigurationBuilder.ConfigOptions().withOptimize(false)));
+    // configids are monotonically updated. after a config is removed, new one is assigned with higher id
+    Assert.assertNotEquals(configId2, JniLoader.getConfiguration(new ConfigurationBuilder.ConfigOptions()
+        .withOptimize(false)));
 
     JniLoader.removeConfiguration(new ConfigurationBuilder.ConfigOptions());
-    assertNotEquals(
-        configId, JniLoader.getConfiguration(ConfigurationBuilder.ConfigOptions.getDefault()));
+    Assert.assertNotEquals(configId, JniLoader.getConfiguration(ConfigurationBuilder.ConfigOptions.getDefault()));
   }
 }

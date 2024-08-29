@@ -14,69 +14,73 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.driver.jdbc.utils;
 
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.nullValue;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.Mockito.mock;
 
 import java.util.concurrent.CompletionService;
-import org.apache.arrow.driver.jdbc.client.CloseableEndpointStreamPair;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 
-/** Tests for {@link FlightEndpointDataQueue}. */
-@ExtendWith(MockitoExtension.class)
+import org.apache.arrow.driver.jdbc.client.CloseableEndpointStreamPair;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.ErrorCollector;
+import org.junit.runner.RunWith;
+import org.mockito.Mock;
+import org.mockito.junit.MockitoJUnitRunner;
+
+/**
+ * Tests for {@link FlightEndpointDataQueue}.
+ */
+@RunWith(MockitoJUnitRunner.class)
 public class FlightEndpointDataQueueTest {
 
-  @Mock private CompletionService<CloseableEndpointStreamPair> mockedService;
+  @Rule
+  public final ErrorCollector collector = new ErrorCollector();
+  @Mock
+  private CompletionService<CloseableEndpointStreamPair> mockedService;
   private FlightEndpointDataQueue queue;
 
-  @BeforeEach
+  @Before
   public void setUp() {
     queue = new FlightEndpointDataQueue(mockedService);
   }
 
   @Test
   public void testNextShouldRetrieveNullIfEmpty() throws Exception {
-    assertThat(queue.next(), is(nullValue()));
+    collector.checkThat(queue.next(), is(nullValue()));
   }
 
   @Test
   public void testNextShouldThrowExceptionUponClose() throws Exception {
     queue.close();
-    ThrowableAssertionUtils.simpleAssertThrowableClass(
-        IllegalStateException.class, () -> queue.next());
+    ThrowableAssertionUtils.simpleAssertThrowableClass(IllegalStateException.class, () -> queue.next());
   }
 
   @Test
   public void testEnqueueShouldThrowExceptionUponClose() throws Exception {
     queue.close();
-    ThrowableAssertionUtils.simpleAssertThrowableClass(
-        IllegalStateException.class, () -> queue.enqueue(mock(CloseableEndpointStreamPair.class)));
+    ThrowableAssertionUtils.simpleAssertThrowableClass(IllegalStateException.class,
+        () -> queue.enqueue(mock(CloseableEndpointStreamPair.class)));
   }
 
   @Test
   public void testCheckOpen() throws Exception {
-    assertDoesNotThrow(
-        () -> {
-          queue.checkOpen();
-          return true;
-        });
+    collector.checkSucceeds(() -> {
+      queue.checkOpen();
+      return true;
+    });
     queue.close();
-    ThrowableAssertionUtils.simpleAssertThrowableClass(
-        IllegalStateException.class, () -> queue.checkOpen());
+    ThrowableAssertionUtils.simpleAssertThrowableClass(IllegalStateException.class, () -> queue.checkOpen());
   }
 
   @Test
   public void testShouldCloseQueue() throws Exception {
-    assertThat(queue.isClosed(), is(false));
+    collector.checkThat(queue.isClosed(), is(false));
     queue.close();
-    assertThat(queue.isClosed(), is(true));
+    collector.checkThat(queue.isClosed(), is(true));
   }
 }

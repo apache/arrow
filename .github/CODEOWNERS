@@ -37,10 +37,10 @@
 /go/ @zeroshade
 /java/ @lidavidm
 /js/ @domoritz @trxcllnt
-/matlab/ @kevingurney @kou @sgilmore10
+/matlab/ @kevingurney @kou
 /python/pyarrow/_flight.pyx @lidavidm
 /python/pyarrow/**/*gandiva* @wjones127
-/r/ @jonkeane @thisisnic
+/r/ @paleolimbot @thisisnic
 /ruby/ @kou
 /swift/ @kou
 
@@ -53,7 +53,7 @@
 # *.txt
 
 # PR CI and repository files
-/.github/ @assignUser @jonkeane @kou @raulcd
+/.github/ @assignUser @kou @raulcd
 .asf.yaml @assignUser @kou @raulcd
 .pre-commit-config.yaml @raulcd
 .travis.yml @assignUser @kou @raulcd
@@ -61,11 +61,11 @@ appveyor.yml @assignUser @kou @raulcd
 # .git*
 
 # release scripts, archery etc.
-/ci/ @assignUser @jonkeane @kou @raulcd
-/dev/ @assignUser @jonkeane @kou @raulcd
+/ci/ @assignUser @kou @raulcd
+/dev/ @assignUser @kou @raulcd
 .dockerignore @raulcd
-.env @assignUser @jonkeane @kou @raulcd
-docker-compose.yml @assignUser @jonkeane @kou @raulcd
+.env @assignUser @kou @raulcd
+docker-compose.yml @assignUser @kou @raulcd
 
 # R specific packaging tooling
 /r/configure* @assignUser

@@ -18,10 +18,10 @@
 check_time_locale <- function(locale = Sys.getlocale("LC_TIME")) {
   if (tolower(Sys.info()[["sysname"]]) == "windows" && locale != "C") {
     # MingW C++ std::locale only supports "C" and "POSIX"
-    arrow_not_supported(
-      "On Windows, time locales other than 'C'",
-      body = c(">" = "Consider setting `Sys.setlocale('LC_TIME', 'C')`")
-    )
+    stop(paste0(
+      "On Windows, time locales other than 'C' are not supported in Arrow. ",
+      "Consider setting `Sys.setlocale('LC_TIME', 'C')`"
+    ))
   }
   locale
 }
@@ -55,16 +55,14 @@ duration_from_chunks <- function(chunks) {
   accepted_chunks <- c("second", "minute", "hour", "day", "week")
   matched_chunks <- accepted_chunks[pmatch(names(chunks), accepted_chunks, duplicates.ok = TRUE)]
 
-  if (anyNA(matched_chunks)) {
-    arrow_not_supported(
-      paste(
-        "named `difftime` units other than:",
-        oxford_paste(accepted_chunks, quote_symbol = "`")
-      ),
-      body = c(i = paste(
-        "Invalid `difftime` parts:",
+  if (any(is.na(matched_chunks))) {
+    abort(
+      paste0(
+        "named `difftime` units other than: ",
+        oxford_paste(accepted_chunks, quote_symbol = "`"),
+        " not supported in Arrow. \nInvalid `difftime` parts: ",
         oxford_paste(names(chunks[is.na(matched_chunks)]), quote_symbol = "`")
-      ))
+      )
     )
   }
 
@@ -116,6 +114,7 @@ binding_as_date_character <- function(x,
 }
 
 binding_as_date_numeric <- function(x, origin = "1970-01-01") {
+
   # Arrow does not support direct casting from double to date32(), but for
   # integer-like values we can go via int32()
   # TODO: revisit after ARROW-15798
@@ -442,8 +441,8 @@ parse_period_unit <- function(x) {
   str_unit_start <- substr(str_unit, 1, 3)
   unit <- as.integer(pmatch(str_unit_start, known_units)) - 1L
 
-  if (anyNA(unit)) {
-    validation_error(
+  if (any(is.na(unit))) {
+    abort(
       sprintf(
         "Invalid period name: '%s'",
         str_unit,
@@ -485,13 +484,13 @@ parse_period_unit <- function(x) {
   # more special cases: lubridate imposes sensible maximum
   # values on the number of seconds, minutes and hours
   if (unit == 3L && multiple > 60) {
-    validation_error("Rounding with second > 60 is not supported")
+    abort("Rounding with second > 60 is not supported")
   }
   if (unit == 4L && multiple > 60) {
-    validation_error("Rounding with minute > 60 is not supported")
+    abort("Rounding with minute > 60 is not supported")
   }
   if (unit == 5L && multiple > 24) {
-    validation_error("Rounding with hour > 24 is not supported")
+    abort("Rounding with hour > 24 is not supported")
   }
 
   list(unit = unit, multiple = multiple)

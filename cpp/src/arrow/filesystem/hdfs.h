@@ -25,7 +25,8 @@
 #include "arrow/io/hdfs.h"
 #include "arrow/util/uri.h"
 
-namespace arrow::fs {
+namespace arrow {
+namespace fs {
 
 /// Options for the HDFS implementation.
 struct ARROW_EXPORT HdfsOptions {
@@ -50,7 +51,7 @@ struct ARROW_EXPORT HdfsOptions {
 
   bool Equals(const HdfsOptions& other) const;
 
-  static Result<HdfsOptions> FromUri(const ::arrow::util::Uri& uri);
+  static Result<HdfsOptions> FromUri(const ::arrow::internal::Uri& uri);
   static Result<HdfsOptions> FromUri(const std::string& uri);
 };
 
@@ -68,21 +69,16 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
   Result<std::string> PathFromUri(const std::string& uri_string) const override;
 
   /// \cond FALSE
-  using FileSystem::CreateDir;
-  using FileSystem::DeleteDirContents;
   using FileSystem::GetFileInfo;
-  using FileSystem::OpenAppendStream;
-  using FileSystem::OpenOutputStream;
   /// \endcond
-
   Result<FileInfo> GetFileInfo(const std::string& path) override;
   Result<std::vector<FileInfo>> GetFileInfo(const FileSelector& select) override;
 
-  Status CreateDir(const std::string& path, bool recursive) override;
+  Status CreateDir(const std::string& path, bool recursive = true) override;
 
   Status DeleteDir(const std::string& path) override;
 
-  Status DeleteDirContents(const std::string& path, bool missing_dir_ok) override;
+  Status DeleteDirContents(const std::string& path, bool missing_dir_ok = false) override;
 
   Status DeleteRootDirContents() override;
 
@@ -98,10 +94,10 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
       const std::string& path) override;
   Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
       const std::string& path,
-      const std::shared_ptr<const KeyValueMetadata>& metadata) override;
+      const std::shared_ptr<const KeyValueMetadata>& metadata = {}) override;
   Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
       const std::string& path,
-      const std::shared_ptr<const KeyValueMetadata>& metadata) override;
+      const std::shared_ptr<const KeyValueMetadata>& metadata = {}) override;
 
   /// Create a HdfsFileSystem instance from the given options.
   static Result<std::shared_ptr<HadoopFileSystem>> Make(
@@ -114,4 +110,5 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
   std::unique_ptr<Impl> impl_;
 };
 
-}  // namespace arrow::fs
+}  // namespace fs
+}  // namespace arrow

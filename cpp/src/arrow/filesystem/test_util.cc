@@ -252,7 +252,8 @@ void GenericFileSystemTest::TestCreateDir(FileSystem* fs) {
 }
 
 void GenericFileSystemTest::TestDeleteDir(FileSystem* fs) {
-  if (have_flaky_directory_tree_deletion()) GTEST_SKIP() << "Flaky directory deletion";
+  if (have_flaky_directory_tree_deletion())
+    GTEST_SKIP() << "Flaky directory deletion on Windows";
 
   ASSERT_OK(fs->CreateDir("AB/CD/EF"));
   ASSERT_OK(fs->CreateDir("AB/GH/IJ"));
@@ -280,7 +281,8 @@ void GenericFileSystemTest::TestDeleteDir(FileSystem* fs) {
 }
 
 void GenericFileSystemTest::TestDeleteDirContents(FileSystem* fs) {
-  if (have_flaky_directory_tree_deletion()) GTEST_SKIP() << "Flaky directory deletion";
+  if (have_flaky_directory_tree_deletion())
+    GTEST_SKIP() << "Flaky directory deletion on Windows";
 
   ASSERT_OK(fs->CreateDir("AB/CD/EF"));
   ASSERT_OK(fs->CreateDir("AB/GH/IJ"));
@@ -311,8 +313,6 @@ void GenericFileSystemTest::TestDeleteDirContents(FileSystem* fs) {
 }
 
 void GenericFileSystemTest::TestDeleteRootDirContents(FileSystem* fs) {
-  if (have_flaky_directory_tree_deletion()) GTEST_SKIP() << "Flaky directory deletion";
-
   ASSERT_OK(fs->CreateDir("AB/CD"));
   CreateFile(fs, "AB/abc", "");
 
@@ -323,7 +323,9 @@ void GenericFileSystemTest::TestDeleteRootDirContents(FileSystem* fs) {
     AssertAllDirs(fs, {"AB", "AB/CD"});
     AssertAllFiles(fs, {"AB/abc"});
   } else {
-    AssertAllDirs(fs, {});
+    if (!have_flaky_directory_tree_deletion()) {
+      AssertAllDirs(fs, {});
+    }
     AssertAllFiles(fs, {});
   }
 }
@@ -383,10 +385,6 @@ void GenericFileSystemTest::TestDeleteFiles(FileSystem* fs) {
 }
 
 void GenericFileSystemTest::TestMoveFile(FileSystem* fs) {
-  if (!allow_move_file()) {
-    GTEST_SKIP() << "Filesystem doesn't allow moving files";
-  }
-
   ASSERT_OK(fs->CreateDir("AB/CD"));
   ASSERT_OK(fs->CreateDir("EF"));
   CreateFile(fs, "abc", "data");
@@ -752,12 +750,6 @@ void GenericFileSystemTest::TestGetFileInfoSelector(FileSystem* fs) {
 }
 
 void GenericFileSystemTest::TestGetFileInfoGenerator(FileSystem* fs) {
-#if defined(ADDRESS_SANITIZER) || defined(ARROW_VALGRIND)
-  if (have_false_positive_memory_leak_with_generator()) {
-    GTEST_SKIP() << "Filesystem have false positive memory leak with generator";
-  }
-#endif
-
   ASSERT_OK(fs->CreateDir("AB/CD"));
   CreateFile(fs, "abc", "data");
   CreateFile(fs, "AB/def", "some data");
@@ -1185,12 +1177,8 @@ void GenericFileSystemTest::TestSpecialChars(FileSystem* fs) {
   AssertFileContents(fs, "Special and%different.txt", "data");
 
   ASSERT_OK(fs->DeleteFile("Special and%different.txt"));
-  if (have_flaky_directory_tree_deletion()) {
-    ASSERT_OK(fs->DeleteFile("Blank Char/Special%Char.txt"));
-  } else {
-    ASSERT_OK(fs->DeleteDir("Blank Char"));
-    AssertAllDirs(fs, {});
-  }
+  ASSERT_OK(fs->DeleteDir("Blank Char"));
+  AssertAllDirs(fs, {});
   AssertAllFiles(fs, {});
 }
 

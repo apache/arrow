@@ -33,7 +33,6 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/compression.h"
-#include "arrow/util/config.h"
 
 namespace arrow {
 namespace io {
@@ -77,7 +76,7 @@ std::shared_ptr<Buffer> CompressDataOneShot(Codec* codec,
   compressed_len = *codec->Compress(data.size(), data.data(), max_compressed_len,
                                     compressed->mutable_data());
   ABORT_NOT_OK(compressed->Resize(compressed_len));
-  return compressed;
+  return std::move(compressed);
 }
 
 Status RunCompressedInputStream(Codec* codec, std::shared_ptr<Buffer> compressed,
@@ -262,7 +261,7 @@ TEST_P(CompressedOutputStreamTest, RandomData) {
 TEST(TestSnappyInputStream, NotImplemented) {
   std::unique_ptr<Codec> codec;
   ASSERT_OK_AND_ASSIGN(codec, Codec::Create(Compression::SNAPPY));
-  std::shared_ptr<InputStream> stream = BufferReader::FromString("");
+  std::shared_ptr<InputStream> stream = std::make_shared<BufferReader>("");
   ASSERT_RAISES(NotImplemented, CompressedInputStream::Make(codec.get(), stream));
 }
 

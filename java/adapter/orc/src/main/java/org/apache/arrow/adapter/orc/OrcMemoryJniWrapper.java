@@ -14,9 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.adapter.orc;
 
-/** Wrapper for orc memory allocated by native code. */
+/**
+ * Wrapper for orc memory allocated by native code.
+ */
 class OrcMemoryJniWrapper implements AutoCloseable {
 
   private final long nativeInstanceId;
@@ -29,7 +32,6 @@ class OrcMemoryJniWrapper implements AutoCloseable {
 
   /**
    * Construct a new instance.
-   *
    * @param nativeInstanceId unique id of the underlying memory.
    * @param memoryAddress starting memory address of the underlying memory.
    * @param size size of the valid data.
@@ -44,7 +46,6 @@ class OrcMemoryJniWrapper implements AutoCloseable {
 
   /**
    * Return the size of underlying chunk of memory that has valid data.
-   *
    * @return valid data size
    */
   long getSize() {
@@ -53,7 +54,6 @@ class OrcMemoryJniWrapper implements AutoCloseable {
 
   /**
    * Return the size of underlying chunk of memory managed by this OrcMemoryJniWrapper.
-   *
    * @return underlying memory size
    */
   long getCapacity() {
@@ -62,7 +62,6 @@ class OrcMemoryJniWrapper implements AutoCloseable {
 
   /**
    * Return the memory address of underlying chunk of memory.
-   *
    * @return memory address
    */
   long getMemoryAddress() {

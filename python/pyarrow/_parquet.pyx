@@ -29,10 +29,9 @@ from pyarrow.includes.libarrow_python cimport *
 from pyarrow.lib cimport (_Weakrefable, Buffer, Schema,
                           check_status,
                           MemoryPool, maybe_unbox_memory_pool,
-                          Table, KeyValueMetadata,
+                          Table, NativeFile,
                           pyarrow_wrap_chunked_array,
                           pyarrow_wrap_schema,
-                          pyarrow_unwrap_metadata,
                           pyarrow_unwrap_schema,
                           pyarrow_wrap_table,
                           pyarrow_wrap_batch,
@@ -42,7 +41,7 @@ from pyarrow.lib cimport (_Weakrefable, Buffer, Schema,
 
 from pyarrow.lib import (ArrowException, NativeFile, BufferOutputStream,
                          _stringify_path,
-                         tobytes, frombytes, is_threading_enabled)
+                         tobytes, frombytes)
 
 cimport cpython as cp
 
@@ -508,19 +507,6 @@ cdef class ColumnChunkMetaData(_Weakrefable):
         """Whether the column chunk has a column index"""
         return self.metadata.GetColumnIndexLocation().has_value()
 
-    @property
-    def metadata(self):
-        """Additional metadata as key value pairs (dict[bytes, bytes])."""
-        cdef:
-            unordered_map[c_string, c_string] metadata
-            const CKeyValueMetadata* underlying_metadata
-        underlying_metadata = self.metadata.key_value_metadata().get()
-        if underlying_metadata != NULL:
-            underlying_metadata.ToUnorderedMap(&metadata)
-            return metadata
-        else:
-            return None
-
 
 cdef class SortingColumn:
     """
@@ -718,22 +704,6 @@ cdef class SortingColumn:
     def nulls_first(self):
         """Whether null values appear before valid values (bool)."""
         return self.nulls_first
-
-    def to_dict(self):
-        """
-        Get dictionary representation of the SortingColumn.
-
-        Returns
-        -------
-        dict
-            Dictionary with a key for each attribute of this class.
-        """
-        d = dict(
-            column_index=self.column_index,
-            descending=self.descending,
-            nulls_first=self.nulls_first
-        )
-        return d
 
 
 cdef class RowGroupMetaData(_Weakrefable):
@@ -1312,7 +1282,6 @@ cdef logical_type_name_from_enum(ParquetLogicalTypeId type_):
         ParquetLogicalType_TIME: 'TIME',
         ParquetLogicalType_TIMESTAMP: 'TIMESTAMP',
         ParquetLogicalType_INT: 'INT',
-        ParquetLogicalType_FLOAT16: 'FLOAT16',
         ParquetLogicalType_JSON: 'JSON',
         ParquetLogicalType_BSON: 'BSON',
         ParquetLogicalType_UUID: 'UUID',
@@ -1466,9 +1435,6 @@ cdef class ParquetReader(_Weakrefable):
                 default_arrow_reader_properties())
             FileReaderBuilder builder
 
-        if pre_buffer and not is_threading_enabled():
-            pre_buffer = False
-
         if metadata is not None:
             c_metadata = metadata.sp_metadata
 
@@ -1571,10 +1537,7 @@ cdef class ParquetReader(_Weakrefable):
         ----------
         use_threads : bool
         """
-        if is_threading_enabled():
-            self.reader.get().set_use_threads(use_threads)
-        else:
-            self.reader.get().set_use_threads(False)
+        self.reader.get().set_use_threads(use_threads)
 
     def set_batch_size(self, int64_t batch_size):
         """
@@ -1850,9 +1813,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         dictionary_pagesize_limit=None,
         write_page_index=False,
         write_page_checksum=False,
-        sorting_columns=None,
-        store_decimal_as_integer=False) except *:
-
+        sorting_columns=None) except *:
     """General writer properties"""
     cdef:
         shared_ptr[WriterProperties] properties
@@ -1962,16 +1923,6 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
                 raise ValueError(
                     "'use_byte_stream_split' cannot be passed"
                     "together with 'column_encoding'")
-
-    # store_decimal_as_integer
-
-    if isinstance(store_decimal_as_integer, bool):
-        if store_decimal_as_integer:
-            props.enable_store_decimal_as_integer()
-        else:
-            props.disable_store_decimal_as_integer()
-    else:
-        raise TypeError("'store_decimal_as_integer' must be a boolean")
 
     # column_encoding
     # encoding map - encode individual columns
@@ -2146,7 +2097,6 @@ cdef class ParquetWriter(_Weakrefable):
         int64_t write_batch_size
         int64_t dictionary_pagesize_limit
         object store_schema
-        object store_decimal_as_integer
 
     def __cinit__(self, where, Schema schema not None, use_dictionary=None,
                   compression=None, version=None,
@@ -2168,8 +2118,7 @@ cdef class ParquetWriter(_Weakrefable):
                   store_schema=True,
                   write_page_index=False,
                   write_page_checksum=False,
-                  sorting_columns=None,
-                  store_decimal_as_integer=False):
+                  sorting_columns=None):
         cdef:
             shared_ptr[WriterProperties] properties
             shared_ptr[ArrowWriterProperties] arrow_properties
@@ -2203,7 +2152,6 @@ cdef class ParquetWriter(_Weakrefable):
             write_page_index=write_page_index,
             write_page_checksum=write_page_checksum,
             sorting_columns=sorting_columns,
-            store_decimal_as_integer=store_decimal_as_integer,
         )
         arrow_properties = _create_arrow_writer_properties(
             use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,
@@ -2241,15 +2189,6 @@ cdef class ParquetWriter(_Weakrefable):
         with nogil:
             check_status(self.writer.get()
                          .WriteTable(deref(ctable), c_row_group_size))
-
-    def add_key_value_metadata(self, key_value_metadata):
-        cdef:
-            shared_ptr[const CKeyValueMetadata] c_metadata
-
-        c_metadata = pyarrow_unwrap_metadata(KeyValueMetadata(key_value_metadata))
-        with nogil:
-            check_status(self.writer.get()
-                         .AddKeyValueMetadata(c_metadata))
 
     @property
     def metadata(self):

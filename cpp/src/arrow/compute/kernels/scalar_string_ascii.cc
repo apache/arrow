@@ -21,17 +21,16 @@
 #include <memory>
 #include <string>
 
-#include "arrow/array/builder_nested.h"
-#include "arrow/compute/kernels/scalar_string_internal.h"
-#include "arrow/result.h"
-#include "arrow/util/config.h"
-#include "arrow/util/macros.h"
-#include "arrow/util/string.h"
-#include "arrow/util/value_parsing.h"
-
 #ifdef ARROW_WITH_RE2
 #include <re2/re2.h>
 #endif
+
+#include "arrow/array/builder_nested.h"
+#include "arrow/compute/kernels/scalar_string_internal.h"
+#include "arrow/result.h"
+#include "arrow/util/macros.h"
+#include "arrow/util/string.h"
+#include "arrow/util/value_parsing.h"
 
 namespace arrow {
 
@@ -1142,13 +1141,9 @@ struct AsciiPadTransform : public StringTransformBase {
     int64_t left = 0;
     int64_t right = 0;
     if (PadLeft && PadRight) {
-      if (options_.lean_left_on_odd_padding) {
-        left = spaces / 2;
-        right = spaces - left;
-      } else {
-        right = spaces / 2;
-        left = spaces - right;
-      }
+      // If odd number of spaces, put the extra space on the right
+      left = spaces / 2;
+      right = spaces - left;
     } else if (PadLeft) {
       left = spaces;
     } else if (PadRight) {
@@ -1319,7 +1314,7 @@ struct RegexSubstringMatcher {
       const MatchSubstringOptions& options, bool is_utf8 = true, bool literal = false) {
     auto matcher = std::make_unique<RegexSubstringMatcher>(options, is_utf8, literal);
     RETURN_NOT_OK(RegexStatus(matcher->regex_match_));
-    return matcher;
+    return std::move(matcher);
   }
 
   explicit RegexSubstringMatcher(const MatchSubstringOptions& options,
@@ -1689,7 +1684,7 @@ struct FindSubstringRegex {
                                          bool is_utf8 = true, bool literal = false) {
     auto matcher = FindSubstringRegex(options, is_utf8, literal);
     RETURN_NOT_OK(RegexStatus(*matcher.regex_match_));
-    return matcher;
+    return std::move(matcher);
   }
 
   explicit FindSubstringRegex(const MatchSubstringOptions& options, bool is_utf8 = true,
@@ -1836,7 +1831,7 @@ struct CountSubstringRegex {
                                           bool is_utf8 = true, bool literal = false) {
     CountSubstringRegex counter(options, is_utf8, literal);
     RETURN_NOT_OK(RegexStatus(*counter.regex_match_));
-    return counter;
+    return std::move(counter);
   }
 
   template <typename OutValue, typename... Ignored>
@@ -2059,7 +2054,7 @@ struct RegexSubstringReplacer {
                              std::move(replacement_error));
     }
 
-    return replacer;
+    return std::move(replacer);
   }
 
   // Using RE2::FindAndConsume we can only find the pattern if it is a group, therefore
@@ -2207,7 +2202,7 @@ struct ExtractRegexData {
       }
       data.group_names.emplace_back(item->second);
     }
-    return data;
+    return std::move(data);
   }
 
   Result<TypeHolder> ResolveOutputType(const std::vector<TypeHolder>& types) const {

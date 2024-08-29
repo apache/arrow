@@ -14,23 +14,45 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.netty.buffer;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import static org.junit.Assert.assertEquals;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
-import org.junit.jupiter.api.Test;
+
+import org.junit.Test;
+
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.LargeBuffer;
+import io.netty.buffer.Unpooled;
+import io.netty.buffer.UnsafeDirectLittleEndian;
 
 public class TestUnsafeDirectLittleEndian {
+  private static final boolean LITTLE_ENDIAN = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN;
 
   @Test
-  @SuppressWarnings("CatchAndPrintStackTrace")
   public void testPrimitiveGetSet() {
     ByteBuf byteBuf = Unpooled.directBuffer(64);
-    UnsafeDirectLittleEndian unsafeDirect = getUnsafeDirectLittleEndian(byteBuf);
+    UnsafeDirectLittleEndian unsafeDirect = new UnsafeDirectLittleEndian(new LargeBuffer(byteBuf));
+
+    unsafeDirect.setByte(0, Byte.MAX_VALUE);
+    unsafeDirect.setByte(1, -1); // 0xFF
+    unsafeDirect.setShort(2, Short.MAX_VALUE);
+    unsafeDirect.setShort(4, -2); // 0xFFFE
+    unsafeDirect.setInt(8, Integer.MAX_VALUE);
+    unsafeDirect.setInt(12, -66052); // 0xFFFE FDFC
+    unsafeDirect.setLong(16, Long.MAX_VALUE);
+    unsafeDirect.setLong(24, -4295098372L); // 0xFFFF FFFE FFFD FFFC
+    unsafeDirect.setFloat(32, 1.23F);
+    unsafeDirect.setFloat(36, -1.23F);
+    unsafeDirect.setDouble(40, 1.234567D);
+    unsafeDirect.setDouble(48, -1.234567D);
 
     assertEquals(Byte.MAX_VALUE, unsafeDirect.getByte(0));
     assertEquals(-1, unsafeDirect.getByte(1));
@@ -49,30 +71,12 @@ public class TestUnsafeDirectLittleEndian {
 
     byte[] inBytes = "1234567".getBytes(StandardCharsets.UTF_8);
     try (ByteArrayInputStream bais = new ByteArrayInputStream(inBytes);
-        ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+         ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
       assertEquals(5, unsafeDirect.setBytes(56, bais, 5));
       unsafeDirect.getBytes(56, baos, 5);
       assertEquals("12345", new String(baos.toByteArray(), StandardCharsets.UTF_8));
     } catch (IOException e) {
       e.printStackTrace();
     }
-  }
-
-  private static UnsafeDirectLittleEndian getUnsafeDirectLittleEndian(ByteBuf byteBuf) {
-    UnsafeDirectLittleEndian unsafeDirect = new UnsafeDirectLittleEndian(new LargeBuffer(byteBuf));
-
-    unsafeDirect.setByte(0, Byte.MAX_VALUE);
-    unsafeDirect.setByte(1, -1); // 0xFF
-    unsafeDirect.setShort(2, Short.MAX_VALUE);
-    unsafeDirect.setShort(4, -2); // 0xFFFE
-    unsafeDirect.setInt(8, Integer.MAX_VALUE);
-    unsafeDirect.setInt(12, -66052); // 0xFFFE FDFC
-    unsafeDirect.setLong(16, Long.MAX_VALUE);
-    unsafeDirect.setLong(24, -4295098372L); // 0xFFFF FFFE FFFD FFFC
-    unsafeDirect.setFloat(32, 1.23F);
-    unsafeDirect.setFloat(36, -1.23F);
-    unsafeDirect.setDouble(40, 1.234567D);
-    unsafeDirect.setDouble(48, -1.234567D);
-    return unsafeDirect;
   }
 }

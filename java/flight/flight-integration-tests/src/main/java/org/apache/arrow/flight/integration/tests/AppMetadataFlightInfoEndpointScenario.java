@@ -14,11 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight.integration.tests;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
+
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightEndpoint;
@@ -41,11 +43,11 @@ final class AppMetadataFlightInfoEndpointScenario implements Scenario {
   }
 
   @Override
-  public void buildServer(FlightServer.Builder builder) throws Exception {}
+  public void buildServer(FlightServer.Builder builder) throws Exception {
+  }
 
   @Override
-  public void client(BufferAllocator allocator, Location location, FlightClient client)
-      throws Exception {
+  public void client(BufferAllocator allocator, Location location, FlightClient client) throws Exception {
     byte[] cmd = "foobar".getBytes(StandardCharsets.UTF_8);
     FlightInfo info = client.getInfo(FlightDescriptor.command(cmd));
     IntegrationAssertions.assertEquals(info.getAppMetadata(), cmd);
@@ -58,19 +60,17 @@ final class AppMetadataFlightInfoEndpointScenario implements Scenario {
     @Override
     public FlightInfo getFlightInfo(CallContext context, FlightDescriptor descriptor) {
       byte[] cmd = descriptor.getCommand();
+      
+      Schema schema = new Schema(
+              Collections.singletonList(Field.notNullable("number", Types.MinorType.UINT4.getType())));
 
-      Schema schema =
-          new Schema(
-              Collections.singletonList(
-                  Field.notNullable("number", Types.MinorType.UINT4.getType())));
-
-      List<FlightEndpoint> endpoints =
-          Collections.singletonList(
-              FlightEndpoint.builder(new Ticket("".getBytes(StandardCharsets.UTF_8)))
-                  .setAppMetadata(cmd)
-                  .build());
+      List<FlightEndpoint> endpoints = Collections.singletonList(
+              FlightEndpoint.builder(
+                      new Ticket("".getBytes(StandardCharsets.UTF_8))).setAppMetadata(cmd).build());
 
       return FlightInfo.builder(schema, descriptor, endpoints).setAppMetadata(cmd).build();
     }
   }
 }
+
+

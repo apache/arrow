@@ -14,11 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.gandiva.evaluator;
 
 import java.util.Objects;
 
-/** Used to construct gandiva configuration objects. */
+/**
+ * Used to construct gandiva configuration objects.
+ */
 public class ConfigurationBuilder {
 
   public long buildConfigInstance(ConfigOptions configOptions) {
@@ -29,7 +32,9 @@ public class ConfigurationBuilder {
 
   public native void releaseConfigInstance(long configId);
 
-  /** ConfigOptions contains the configuration parameters to provide to gandiva. */
+  /**
+   * ConfigOptions contains the configuration parameters to provide to gandiva.
+   */
   public static class ConfigOptions {
     private boolean optimize = true;
     private boolean targetCPU = true;
@@ -38,7 +43,8 @@ public class ConfigurationBuilder {
       return new ConfigOptions();
     }
 
-    public ConfigOptions() {}
+    public ConfigOptions() {
+    }
 
     public ConfigOptions withOptimize(boolean optimize) {
       this.optimize = optimize;
@@ -60,8 +66,8 @@ public class ConfigurationBuilder {
       if (!(obj instanceof ConfigOptions)) {
         return false;
       }
-      return this.optimize == ((ConfigOptions) obj).optimize
-          && this.targetCPU == ((ConfigOptions) obj).targetCPU;
+      return this.optimize == ((ConfigOptions) obj).optimize &&
+              this.targetCPU == ((ConfigOptions) obj).targetCPU;
     }
   }
 }

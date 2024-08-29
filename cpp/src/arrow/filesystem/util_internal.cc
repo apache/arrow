@@ -30,7 +30,7 @@
 namespace arrow {
 
 using internal::StatusDetailFromErrno;
-using util::Uri;
+using internal::Uri;
 
 namespace fs {
 namespace internal {
@@ -103,7 +103,7 @@ Result<Uri> ParseFileSystemUri(const std::string& uri_string) {
     return status;
 #endif
   }
-  return uri;
+  return std::move(uri);
 }
 
 #ifdef _WIN32

@@ -21,9 +21,8 @@ package utils
 import (
 	"os"
 	"strings"
-
-	"golang.org/x/sys/cpu"
 )
+import "golang.org/x/sys/cpu"
 
 func init() {
 	// Added ability to enable extension via environment:

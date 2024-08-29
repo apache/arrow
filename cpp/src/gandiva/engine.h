@@ -67,7 +67,7 @@ class GANDIVA_EXPORT Engine {
   /// Add the function to the list of IR functions that need to be compiled.
   /// Compiling only the functions that are used by the module saves time.
   void AddFunctionToCompile(const std::string& fname) {
-    ARROW_DCHECK(!module_finalized_);
+    DCHECK(!module_finalized_);
     functions_to_compile_.push_back(fname);
   }
 

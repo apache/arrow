@@ -16,8 +16,7 @@
  */
 
 module org.apache.arrow.memory.unsafe {
-  exports org.apache.arrow.memory.unsafe to
-      org.apache.arrow.memory.core;
-
+  exports org.apache.arrow.memory.unsafe to org.apache.arrow.memory.core;
+  
   requires org.apache.arrow.memory.core;
 }

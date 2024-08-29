@@ -67,7 +67,7 @@ namespace arrow {
 using internal::checked_cast;
 using internal::StartsWith;
 using internal::ToChars;
-using util::UriFromAbsolutePath;
+using internal::UriFromAbsolutePath;
 
 namespace engine {
 
@@ -91,7 +91,7 @@ Result<EmitInfo> GetEmitInfo(const RelMessage& rel,
   }
   emit_info.expressions = std::move(proj_field_refs);
   emit_info.schema = schema(std::move(emit_fields));
-  return emit_info;
+  return std::move(emit_info);
 }
 
 Result<DeclarationInfo> ProcessEmitProject(
@@ -393,7 +393,6 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
 
       auto scan_options = std::make_shared<dataset::ScanOptions>();
       scan_options->use_threads = true;
-      scan_options->add_augmented_fields = false;
 
       if (read.has_filter()) {
         ARROW_ASSIGN_OR_RAISE(scan_options->filter,
@@ -464,7 +463,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
         }
 
         // Extract and parse the read relation's source URI
-        ::arrow::util::Uri item_uri;
+        ::arrow::internal::Uri item_uri;
         switch (item.path_type_case()) {
           case substrait::ReadRel::LocalFiles::FileOrFiles::kUriPath:
             RETURN_NOT_OK(item_uri.Parse(item.uri_path()));
@@ -1024,7 +1023,7 @@ Result<std::unique_ptr<substrait::ReadRel>> NamedTableRelationConverter(
   }
   read_rel->set_allocated_named_table(read_rel_tn.release());
 
-  return read_rel;
+  return std::move(read_rel);
 }
 
 Result<std::unique_ptr<substrait::ReadRel>> ScanRelationConverter(
@@ -1068,7 +1067,7 @@ Result<std::unique_ptr<substrait::ReadRel>> ScanRelationConverter(
     read_rel_lfs->mutable_items()->AddAllocated(read_rel_lfs_ffs.release());
   }
   read_rel->set_allocated_local_files(read_rel_lfs.release());
-  return read_rel;
+  return std::move(read_rel);
 }
 
 Result<std::unique_ptr<substrait::FilterRel>> FilterRelationConverter(
@@ -1097,7 +1096,7 @@ Result<std::unique_ptr<substrait::FilterRel>> FilterRelationConverter(
   ARROW_ASSIGN_OR_RAISE(auto subs_expr,
                         ToProto(bound_expression, ext_set, conversion_options));
   filter_rel->set_allocated_condition(subs_expr.release());
-  return filter_rel;
+  return std::move(filter_rel);
 }
 
 }  // namespace
@@ -1146,7 +1145,7 @@ Result<std::unique_ptr<substrait::Rel>> ToProto(
     const ConversionOptions& conversion_options) {
   auto rel = std::make_unique<substrait::Rel>();
   RETURN_NOT_OK(SerializeAndCombineRelations(declr, ext_set, &rel, conversion_options));
-  return rel;
+  return std::move(rel);
 }
 
 }  // namespace engine

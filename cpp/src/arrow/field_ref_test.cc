@@ -199,7 +199,7 @@ struct FieldPathTestCase {
         Table::Make(out.schema, {out.v0.chunked_array, out.v1.chunked_array}, kNumRows);
     ARROW_RETURN_NOT_OK(out.table->ValidateFull());
 
-    return out;
+    return std::move(out);
   }
 
  private:

@@ -337,12 +337,10 @@ function testAndValidateVector<T extends Int | Float>(vector: Vector<T>, typed: 
 function gets_expected_values<T extends Int | Float>(vector: Vector<T>, typed: T['TArray'], values: any[] = [...typed]) {
     test(`gets expected values`, () => {
         expect.hasAssertions();
-        let i = -1;
+        let i = -1, n = vector.length;
         try {
-            while (++i < vector.length) {
+            while (++i < n) {
                 expect(vector.get(i)).toEqual(values[i]);
-                expect(vector.at(i)).toEqual(values.at(i));
-                expect(vector.at(-i)).toEqual(values.at(-i));
             }
         } catch (e) { throw new Error(`${i}: ${e}`); }
     });

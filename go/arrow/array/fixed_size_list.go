@@ -22,11 +22,11 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v18/arrow"
-	"github.com/apache/arrow/go/v18/arrow/bitutil"
-	"github.com/apache/arrow/go/v18/arrow/internal/debug"
-	"github.com/apache/arrow/go/v18/arrow/memory"
-	"github.com/apache/arrow/go/v18/internal/json"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/bitutil"
+	"github.com/apache/arrow/go/v16/arrow/internal/debug"
+	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v16/internal/json"
 )
 
 // FixedSizeList represents an immutable sequence of N array values.
@@ -162,38 +162,25 @@ func (a *FixedSizeList) MarshalJSON() ([]byte, error) {
 }
 
 type FixedSizeListBuilder struct {
-	baseListBuilder
-	n int32 // number of elements in the fixed-size list.
+	builder
+
+	etype  arrow.DataType // data type of the list's elements.
+	n      int32          // number of elements in the fixed-size list.
+	values Builder        // value builder for the list's elements.
 }
 
 // NewFixedSizeListBuilder returns a builder, using the provided memory allocator.
 // The created list builder will create a list whose elements will be of type etype.
 func NewFixedSizeListBuilder(mem memory.Allocator, n int32, etype arrow.DataType) *FixedSizeListBuilder {
 	return &FixedSizeListBuilder{
-		baseListBuilder{
-			builder: builder{refCount: 1, mem: mem},
-			values:  NewBuilder(mem, etype),
-			dt:      arrow.FixedSizeListOf(n, etype),
-		},
-		n,
+		builder: builder{refCount: 1, mem: mem},
+		etype:   etype,
+		n:       n,
+		values:  NewBuilder(mem, etype),
 	}
 }
 
-// NewFixedSizeListBuilderWithField returns a builder similarly to
-// NewFixedSizeListBuilder, but it accepts a child rather than just a datatype
-// to ensure nullability context is preserved.
-func NewFixedSizeListBuilderWithField(mem memory.Allocator, n int32, field arrow.Field) *FixedSizeListBuilder {
-	return &FixedSizeListBuilder{
-		baseListBuilder{
-			builder: builder{refCount: 1, mem: mem},
-			values:  NewBuilder(mem, field.Type),
-			dt:      arrow.FixedSizeListOfField(n, field),
-		},
-		n,
-	}
-}
-
-func (b *FixedSizeListBuilder) Type() arrow.DataType { return b.dt }
+func (b *FixedSizeListBuilder) Type() arrow.DataType { return arrow.FixedSizeListOf(b.n, b.etype) }
 
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
@@ -309,7 +296,7 @@ func (b *FixedSizeListBuilder) newData() (data *Data) {
 	defer values.Release()
 
 	data = NewData(
-		b.dt, b.length,
+		arrow.FixedSizeListOf(b.n, b.etype), b.length,
 		[]*memory.Buffer{b.nullBitmap},
 		[]arrow.ArrayData{values.Data()},
 		b.nulls,
@@ -349,7 +336,7 @@ func (b *FixedSizeListBuilder) UnmarshalOne(dec *json.Decoder) error {
 	default:
 		return &json.UnmarshalTypeError{
 			Value:  fmt.Sprint(t),
-			Struct: b.dt.String(),
+			Struct: arrow.FixedSizeListOf(b.n, b.etype).String(),
 		}
 	}
 

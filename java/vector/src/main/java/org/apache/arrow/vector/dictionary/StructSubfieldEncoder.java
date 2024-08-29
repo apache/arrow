@@ -14,12 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.dictionary;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.memory.util.hash.SimpleHasher;
@@ -35,8 +37,8 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
 /**
- * Sub fields encoder/decoder for Dictionary encoded {@link StructVector}. Notes that child vectors
- * within struct vector can either be dictionary encodable or not.
+ * Sub fields encoder/decoder for Dictionary encoded {@link StructVector}.
+ * Notes that child vectors within struct vector can either be dictionary encodable or not.
  */
 public class StructSubfieldEncoder {
 
@@ -45,13 +47,16 @@ public class StructSubfieldEncoder {
   private final DictionaryProvider.MapDictionaryProvider provider;
   private final Map<Long, DictionaryHashTable> dictionaryIdToHashTable;
 
-  /** Construct an instance. */
-  public StructSubfieldEncoder(
-      BufferAllocator allocator, DictionaryProvider.MapDictionaryProvider provider) {
-    this(allocator, provider, SimpleHasher.INSTANCE);
+  /**
+   * Construct an instance.
+   */
+  public StructSubfieldEncoder(BufferAllocator allocator, DictionaryProvider.MapDictionaryProvider provider) {
+    this (allocator, provider, SimpleHasher.INSTANCE);
   }
 
-  /** Construct an instance. */
+  /**
+   * Construct an instance.
+   */
   public StructSubfieldEncoder(
       BufferAllocator allocator,
       DictionaryProvider.MapDictionaryProvider provider,
@@ -62,12 +67,8 @@ public class StructSubfieldEncoder {
 
     this.dictionaryIdToHashTable = new HashMap<>();
 
-    provider
-        .getDictionaryIds()
-        .forEach(
-            id ->
-                dictionaryIdToHashTable.put(
-                    id, new DictionaryHashTable(provider.lookup(id).getVector(), hasher)));
+    provider.getDictionaryIds().forEach(id ->
+        dictionaryIdToHashTable.put(id, new DictionaryHashTable(provider.lookup(id).getVector(), hasher)));
   }
 
   private static FieldVector getChildVector(StructVector vector, int index) {
@@ -77,25 +78,21 @@ public class StructSubfieldEncoder {
   private static StructVector cloneVector(StructVector vector, BufferAllocator allocator) {
 
     final FieldType fieldType = vector.getField().getFieldType();
-    StructVector cloned =
-        (StructVector)
-            fieldType.createNewSingleVector(
-                vector.getField().getName(), allocator, /*schemaCallback=*/ null);
+    StructVector cloned = (StructVector) fieldType.createNewSingleVector(
+        vector.getField().getName(), allocator, /*schemaCallback=*/null);
 
-    final ArrowFieldNode fieldNode =
-        new ArrowFieldNode(vector.getValueCount(), vector.getNullCount());
+    final ArrowFieldNode fieldNode = new ArrowFieldNode(vector.getValueCount(), vector.getNullCount());
     cloned.loadFieldBuffers(fieldNode, vector.getFieldBuffers());
 
     return cloned;
   }
 
   /**
-   * Dictionary encodes subfields for complex vector with a provided dictionary. The dictionary must
-   * contain all values in the sub fields vector.
-   *
+   * Dictionary encodes subfields for complex vector with a provided dictionary.
+   * The dictionary must contain all values in the sub fields vector.
    * @param vector vector to encode
-   * @param columnToDictionaryId the mappings between child vector index and dictionary id. A null
-   *     dictionary id indicates the child vector is not encodable.
+   * @param columnToDictionaryId the mappings between child vector index and dictionary id. A null dictionary
+   *        id indicates the child vector is not encodable.
    * @return dictionary encoded vector
    */
   public StructVector encode(StructVector vector, Map<Integer, Long> columnToDictionaryId) {
@@ -114,13 +111,9 @@ public class StructSubfieldEncoder {
       } else {
         Dictionary dictionary = provider.lookup(dictionaryId);
         Preconditions.checkNotNull(dictionary, "Dictionary not found with id:" + dictionaryId);
-        FieldType indexFieldType =
-            new FieldType(
-                childVector.getField().isNullable(),
-                dictionary.getEncoding().getIndexType(),
-                dictionary.getEncoding());
-        childrenFields.add(
-            new Field(childVector.getField().getName(), indexFieldType, /*children=*/ null));
+        FieldType indexFieldType = new FieldType(childVector.getField().isNullable(),
+            dictionary.getEncoding().getIndexType(), dictionary.getEncoding());
+        childrenFields.add(new Field(childVector.getField().getName(), indexFieldType, /*children=*/null));
       }
     }
 
@@ -136,8 +129,8 @@ public class StructSubfieldEncoder {
         Long dictionaryId = columnToDictionaryId.get(index);
         if (dictionaryId != null) {
           BaseIntVector indices = (BaseIntVector) encodedChildVector;
-          DictionaryEncoder.buildIndexVector(
-              childVector, indices, dictionaryIdToHashTable.get(dictionaryId), 0, valueCount);
+          DictionaryEncoder.buildIndexVector(childVector, indices, dictionaryIdToHashTable.get(dictionaryId),
+                  0, valueCount);
         } else {
           childVector.makeTransferPair(encodedChildVector).splitAndTransfer(0, valueCount);
         }
@@ -153,9 +146,9 @@ public class StructSubfieldEncoder {
   /**
    * Decodes a dictionary subfields encoded vector using the provided dictionary.
    *
-   * <p>{@link StructSubfieldEncoder#decode(StructVector, DictionaryProvider.MapDictionaryProvider,
-   * BufferAllocator)} should be used instead if only decoding is required as it can avoid building
-   * the {@link DictionaryHashTable} which only makes sense when encoding.
+   * {@link StructSubfieldEncoder#decode(StructVector, DictionaryProvider.MapDictionaryProvider, BufferAllocator)}
+   * should be used instead if only decoding is required as it can avoid building the {@link DictionaryHashTable}
+   * which only makes sense when encoding.
    *
    * @param vector dictionary encoded vector, its child vector must be int type
    * @return vector with values restored from dictionary
@@ -168,14 +161,13 @@ public class StructSubfieldEncoder {
    * Decodes a dictionary subfields encoded vector using the provided dictionary.
    *
    * @param vector dictionary encoded vector, its data vector must be int type
-   * @param provider dictionary provider used to decode the values
+   * @param provider  dictionary provider used to decode the values
    * @param allocator allocator the decoded values use
    * @return vector with values restored from dictionary
    */
-  public static StructVector decode(
-      StructVector vector,
-      DictionaryProvider.MapDictionaryProvider provider,
-      BufferAllocator allocator) {
+  public static StructVector decode(StructVector vector,
+                                    DictionaryProvider.MapDictionaryProvider provider,
+                                    BufferAllocator allocator) {
     final int valueCount = vector.getValueCount();
     final int childCount = vector.getChildrenFromFields().size();
 
@@ -218,9 +210,11 @@ public class StructSubfieldEncoder {
     }
   }
 
-  /** Get the child vector dictionary, return null if not dictionary encoded. */
-  private static Dictionary getChildVectorDictionary(
-      FieldVector childVector, DictionaryProvider.MapDictionaryProvider provider) {
+  /**
+   * Get the child vector dictionary, return null if not dictionary encoded.
+   */
+  private static Dictionary getChildVectorDictionary(FieldVector childVector,
+                                                     DictionaryProvider.MapDictionaryProvider provider) {
     DictionaryEncoding dictionaryEncoding = childVector.getField().getDictionary();
     if (dictionaryEncoding != null) {
       Dictionary dictionary = provider.lookup(dictionaryEncoding.getId());

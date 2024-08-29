@@ -26,7 +26,6 @@ import os
 import signal
 import threading
 
-from pyarrow.lib import is_threading_enabled
 from pyarrow.util import _break_traceback_cycle_from_frame
 
 
@@ -218,9 +217,7 @@ cdef class SignalStopHandler:
                 maybe_source.status().Warn()
             else:
                 self._stop_token.init(deref(maybe_source).token())
-                # signals don't work on Emscripten without threads.
-                # and possibly other single-thread environments.
-                self._enabled = is_threading_enabled()
+                self._enabled = True
 
     def _init_signals(self):
         if (signal_handlers_enabled and

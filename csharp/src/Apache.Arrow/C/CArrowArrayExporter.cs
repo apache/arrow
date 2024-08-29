@@ -115,7 +115,7 @@ namespace Apache.Arrow.C
         {
             cArray->length = array.Length;
             cArray->offset = array.Offset;
-            cArray->null_count = array.NullCount; // The C Data interface allows the null count to be -1
+            cArray->null_count = array.NullCount;
             cArray->release = ReleaseArrayPtr;
             cArray->private_data = MakePrivateData(sharedOwner);
 

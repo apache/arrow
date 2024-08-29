@@ -24,27 +24,29 @@
 G_BEGIN_DECLS
 
 #define GGANDIVA_TYPE_PROJECTOR (ggandiva_projector_get_type())
-GGANDIVA_AVAILABLE_IN_0_12
-G_DECLARE_DERIVABLE_TYPE(
-  GGandivaProjector, ggandiva_projector, GGANDIVA, PROJECTOR, GObject)
+G_DECLARE_DERIVABLE_TYPE(GGandivaProjector,
+                         ggandiva_projector,
+                         GGANDIVA,
+                         PROJECTOR,
+                         GObject)
 
 struct _GGandivaProjectorClass
 {
   GObjectClass parent_class;
 };
 
-GGANDIVA_AVAILABLE_IN_0_12
 GGandivaProjector *
-ggandiva_projector_new(GArrowSchema *schema, GList *expressions, GError **error);
-
-GGANDIVA_AVAILABLE_IN_0_12
+ggandiva_projector_new(GArrowSchema *schema,
+                       GList *expressions,
+                       GError **error);
 GList *
 ggandiva_projector_evaluate(GGandivaProjector *projector,
                             GArrowRecordBatch *record_batch,
                             GError **error);
 
-#define GGANDIVA_TYPE_SELECTABLE_PROJECTOR (ggandiva_selectable_projector_get_type())
-GGANDIVA_AVAILABLE_IN_4_0
+
+#define GGANDIVA_TYPE_SELECTABLE_PROJECTOR      \
+  (ggandiva_selectable_projector_get_type())
 G_DECLARE_DERIVABLE_TYPE(GGandivaSelectableProjector,
                          ggandiva_selectable_projector,
                          GGANDIVA,
@@ -68,5 +70,6 @@ ggandiva_selectable_projector_evaluate(GGandivaSelectableProjector *projector,
                                        GArrowRecordBatch *record_batch,
                                        GGandivaSelectionVector *selection_vector,
                                        GError **error);
+
 
 G_END_DECLS

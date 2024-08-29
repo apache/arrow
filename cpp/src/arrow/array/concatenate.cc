@@ -75,31 +75,6 @@ struct Bitmap {
   bool AllSet() const { return data == nullptr; }
 };
 
-enum class OffsetBufferOpOutcome {
-  kOk,
-  kOffsetOverflow,
-};
-
-Status OffsetOverflowStatus() {
-  return Status::Invalid("offset overflow while concatenating arrays");
-}
-
-#define RETURN_IF_NOT_OK_OUTCOME(outcome)        \
-  switch (outcome) {                             \
-    case OffsetBufferOpOutcome::kOk:             \
-      break;                                     \
-    case OffsetBufferOpOutcome::kOffsetOverflow: \
-      return OffsetOverflowStatus();             \
-  }
-
-struct ErrorHints {
-  /// \brief Suggested cast to avoid overflow during concatenation.
-  ///
-  /// If the concatenation of offsets overflows, this field might be set to the
-  /// a type that uses larger offsets (e.g. large_utf8, large_list).
-  std::shared_ptr<DataType> suggested_cast;
-};
-
 // Allocate a buffer and concatenate bitmaps into it.
 Status ConcatenateBitmaps(const std::vector<Bitmap>& bitmaps, MemoryPool* pool,
                           std::shared_ptr<Buffer>* out) {
@@ -137,16 +112,15 @@ int64_t SumBufferSizesInBytes(const BufferVector& buffers) {
 // Write offsets in src into dst, adjusting them such that first_offset
 // will be the first offset written.
 template <typename Offset>
-Result<OffsetBufferOpOutcome> PutOffsets(const Buffer& src, Offset first_offset,
-                                         Offset* dst, Range* values_range);
+Status PutOffsets(const Buffer& src, Offset first_offset, Offset* dst,
+                  Range* values_range);
 
 // Concatenate buffers holding offsets into a single buffer of offsets,
 // also computing the ranges of values spanned by each buffer of offsets.
 template <typename Offset>
-Result<OffsetBufferOpOutcome> ConcatenateOffsets(const BufferVector& buffers,
-                                                 MemoryPool* pool,
-                                                 std::shared_ptr<Buffer>* out,
-                                                 std::vector<Range>* values_ranges) {
+Status ConcatenateOffsets(const BufferVector& buffers, MemoryPool* pool,
+                          std::shared_ptr<Buffer>* out,
+                          std::vector<Range>* values_ranges) {
   values_ranges->resize(buffers.size());
 
   // allocate output buffer
@@ -159,30 +133,26 @@ Result<OffsetBufferOpOutcome> ConcatenateOffsets(const BufferVector& buffers,
   for (size_t i = 0; i < buffers.size(); ++i) {
     // the first offset from buffers[i] will be adjusted to values_length
     // (the cumulative length of values spanned by offsets in previous buffers)
-    ARROW_ASSIGN_OR_RAISE(auto outcome, PutOffsets<Offset>(*buffers[i], values_length,
-                                                           out_data + elements_length,
-                                                           &(*values_ranges)[i]));
-    if (ARROW_PREDICT_FALSE(outcome != OffsetBufferOpOutcome::kOk)) {
-      return outcome;
-    }
+    RETURN_NOT_OK(PutOffsets<Offset>(*buffers[i], values_length,
+                                     out_data + elements_length, &(*values_ranges)[i]));
     elements_length += buffers[i]->size() / sizeof(Offset);
     values_length += static_cast<Offset>((*values_ranges)[i].length);
   }
 
   // the final element in out_data is the length of all values spanned by the offsets
   out_data[out_size_in_bytes / sizeof(Offset)] = values_length;
-  return OffsetBufferOpOutcome::kOk;
+  return Status::OK();
 }
 
 template <typename Offset>
-Result<OffsetBufferOpOutcome> PutOffsets(const Buffer& src, Offset first_offset,
-                                         Offset* dst, Range* values_range) {
+Status PutOffsets(const Buffer& src, Offset first_offset, Offset* dst,
+                  Range* values_range) {
   if (src.size() == 0) {
     // It's allowed to have an empty offsets buffer for a 0-length array
     // (see Array::Validate)
     values_range->offset = 0;
     values_range->length = 0;
-    return OffsetBufferOpOutcome::kOk;
+    return Status::OK();
   }
 
   // Get the range of offsets to transfer from src
@@ -192,9 +162,8 @@ Result<OffsetBufferOpOutcome> PutOffsets(const Buffer& src, Offset first_offset,
   // Compute the range of values which is spanned by this range of offsets
   values_range->offset = src_begin[0];
   values_range->length = *src_end - values_range->offset;
-  if (ARROW_PREDICT_FALSE(first_offset >
-                          std::numeric_limits<Offset>::max() - values_range->length)) {
-    return OffsetBufferOpOutcome::kOffsetOverflow;
+  if (first_offset > std::numeric_limits<Offset>::max() - values_range->length) {
+    return Status::Invalid("offset overflow while concatenating arrays");
   }
 
   // Write offsets into dst, ensuring that the first offset written is
@@ -206,14 +175,12 @@ Result<OffsetBufferOpOutcome> PutOffsets(const Buffer& src, Offset first_offset,
   std::transform(src_begin, src_end, dst, [displacement](Offset offset) {
     return SafeSignedAdd(offset, displacement);
   });
-  return OffsetBufferOpOutcome::kOk;
+  return Status::OK();
 }
 
 template <typename offset_type>
-Result<OffsetBufferOpOutcome> PutListViewOffsets(const ArrayData& input,
-                                                 offset_type* sizes, const Buffer& src,
-                                                 offset_type displacement,
-                                                 offset_type* dst);
+Status PutListViewOffsets(const ArrayData& input, offset_type* sizes, const Buffer& src,
+                          offset_type displacement, offset_type* dst);
 
 // Concatenate buffers holding list-view offsets into a single buffer of offsets
 //
@@ -231,10 +198,10 @@ Result<OffsetBufferOpOutcome> PutListViewOffsets(const ArrayData& input,
 // \param[in] in The child arrays
 // \param[in,out] sizes The concatenated sizes buffer
 template <typename offset_type>
-Result<OffsetBufferOpOutcome> ConcatenateListViewOffsets(
-    const ArrayDataVector& in, offset_type* sizes, const BufferVector& offset_buffers,
-    const std::vector<Range>& value_ranges, MemoryPool* pool,
-    std::shared_ptr<Buffer>* out) {
+Status ConcatenateListViewOffsets(const ArrayDataVector& in, offset_type* sizes,
+                                  const BufferVector& offset_buffers,
+                                  const std::vector<Range>& value_ranges,
+                                  MemoryPool* pool, std::shared_ptr<Buffer>* out) {
   DCHECK_EQ(offset_buffers.size(), value_ranges.size());
 
   // Allocate resulting offsets buffer and initialize it with zeros
@@ -249,32 +216,26 @@ Result<OffsetBufferOpOutcome> ConcatenateListViewOffsets(
   for (size_t i = 0; i < offset_buffers.size(); ++i) {
     const auto displacement =
         static_cast<offset_type>(num_child_values - value_ranges[i].offset);
-    ARROW_ASSIGN_OR_RAISE(auto outcome,
-                          PutListViewOffsets(*in[i], /*sizes=*/sizes + elements_length,
-                                             /*src=*/*offset_buffers[i], displacement,
-                                             /*dst=*/out_offsets + elements_length));
-    if (ARROW_PREDICT_FALSE(outcome != OffsetBufferOpOutcome::kOk)) {
-      return outcome;
-    }
+    RETURN_NOT_OK(PutListViewOffsets(*in[i], /*sizes=*/sizes + elements_length,
+                                     /*src=*/*offset_buffers[i], displacement,
+                                     /*dst=*/out_offsets + elements_length));
     elements_length += offset_buffers[i]->size() / sizeof(offset_type);
     num_child_values += value_ranges[i].length;
     if (num_child_values > std::numeric_limits<offset_type>::max()) {
-      return OffsetBufferOpOutcome::kOffsetOverflow;
+      return Status::Invalid("offset overflow while concatenating arrays");
     }
   }
   DCHECK_EQ(elements_length,
             static_cast<int64_t>(out_size_in_bytes / sizeof(offset_type)));
 
-  return OffsetBufferOpOutcome::kOk;
+  return Status::OK();
 }
 
 template <typename offset_type>
-Result<OffsetBufferOpOutcome> PutListViewOffsets(const ArrayData& input,
-                                                 offset_type* sizes, const Buffer& src,
-                                                 offset_type displacement,
-                                                 offset_type* dst) {
+Status PutListViewOffsets(const ArrayData& input, offset_type* sizes, const Buffer& src,
+                          offset_type displacement, offset_type* dst) {
   if (src.size() == 0) {
-    return OffsetBufferOpOutcome::kOk;
+    return Status::OK();
   }
   const auto& validity_buffer = input.buffers[0];
   if (validity_buffer) {
@@ -330,7 +291,7 @@ Result<OffsetBufferOpOutcome> PutListViewOffsets(const ArrayData& input,
       }
     }
   }
-  return OffsetBufferOpOutcome::kOk;
+  return Status::OK();
 }
 
 class ConcatenateImpl {
@@ -355,17 +316,11 @@ class ConcatenateImpl {
     }
   }
 
-  Status Concatenate(std::shared_ptr<ArrayData>* out, ErrorHints* out_hints) && {
-    if (out_->null_count != 0 && internal::may_have_validity_bitmap(out_->type->id())) {
+  Status Concatenate(std::shared_ptr<ArrayData>* out) && {
+    if (out_->null_count != 0 && internal::HasValidityBitmap(out_->type->id())) {
       RETURN_NOT_OK(ConcatenateBitmaps(Bitmaps(0), pool_, &out_->buffers[0]));
     }
-    auto status = VisitTypeInline(*out_->type, this);
-    if (!status.ok()) {
-      if (out_hints) {
-        out_hints->suggested_cast = std::move(suggested_cast_);
-      }
-      return status;
-    }
+    RETURN_NOT_OK(VisitTypeInline(*out_->type, this));
     *out = std::move(out_);
     return Status::OK();
   }
@@ -382,29 +337,11 @@ class ConcatenateImpl {
     return ConcatenateBuffers(buffers, pool_).Value(&out_->buffers[1]);
   }
 
-  Status Visit(const BinaryType& input_type) {
+  Status Visit(const BinaryType&) {
     std::vector<Range> value_ranges;
     ARROW_ASSIGN_OR_RAISE(auto index_buffers, Buffers(1, sizeof(int32_t)));
-    ARROW_ASSIGN_OR_RAISE(
-        auto outcome, ConcatenateOffsets<int32_t>(index_buffers, pool_, &out_->buffers[1],
-                                                  &value_ranges));
-    switch (outcome) {
-      case OffsetBufferOpOutcome::kOk:
-        break;
-      case OffsetBufferOpOutcome::kOffsetOverflow:
-        switch (input_type.id()) {
-          case Type::BINARY:
-            suggested_cast_ = large_binary();
-            break;
-          case Type::STRING:
-            suggested_cast_ = large_utf8();
-            break;
-          default:
-            DCHECK(false) << "unexpected type id from BinaryType: " << input_type;
-            break;
-        }
-        return OffsetOverflowStatus();
-    }
+    RETURN_NOT_OK(ConcatenateOffsets<int32_t>(index_buffers, pool_, &out_->buffers[1],
+                                              &value_ranges));
     ARROW_ASSIGN_OR_RAISE(auto value_buffers, Buffers(2, value_ranges));
     return ConcatenateBuffers(value_buffers, pool_).Value(&out_->buffers[2]);
   }
@@ -412,10 +349,8 @@ class ConcatenateImpl {
   Status Visit(const LargeBinaryType&) {
     std::vector<Range> value_ranges;
     ARROW_ASSIGN_OR_RAISE(auto index_buffers, Buffers(1, sizeof(int64_t)));
-    ARROW_ASSIGN_OR_RAISE(
-        auto outcome, ConcatenateOffsets<int64_t>(index_buffers, pool_, &out_->buffers[1],
-                                                  &value_ranges));
-    RETURN_IF_NOT_OK_OUTCOME(outcome);
+    RETURN_NOT_OK(ConcatenateOffsets<int64_t>(index_buffers, pool_, &out_->buffers[1],
+                                              &value_ranges));
     ARROW_ASSIGN_OR_RAISE(auto value_buffers, Buffers(2, value_ranges));
     return ConcatenateBuffers(value_buffers, pool_).Value(&out_->buffers[2]);
   }
@@ -459,44 +394,22 @@ class ConcatenateImpl {
     return Status::OK();
   }
 
-  Status Visit(const ListType& input_type) {
+  Status Visit(const ListType&) {
     std::vector<Range> value_ranges;
     ARROW_ASSIGN_OR_RAISE(auto index_buffers, Buffers(1, sizeof(int32_t)));
-    ARROW_ASSIGN_OR_RAISE(auto offsets_outcome,
-                          ConcatenateOffsets<int32_t>(index_buffers, pool_,
-                                                      &out_->buffers[1], &value_ranges));
-    switch (offsets_outcome) {
-      case OffsetBufferOpOutcome::kOk:
-        break;
-      case OffsetBufferOpOutcome::kOffsetOverflow:
-        suggested_cast_ = large_list(input_type.value_type());
-        return OffsetOverflowStatus();
-    }
+    RETURN_NOT_OK(ConcatenateOffsets<int32_t>(index_buffers, pool_, &out_->buffers[1],
+                                              &value_ranges));
     ARROW_ASSIGN_OR_RAISE(auto child_data, ChildData(0, value_ranges));
-    ErrorHints child_error_hints;
-    auto status = ConcatenateImpl(child_data, pool_)
-                      .Concatenate(&out_->child_data[0], &child_error_hints);
-    if (!status.ok() && child_error_hints.suggested_cast) {
-      suggested_cast_ = list(std::move(child_error_hints.suggested_cast));
-    }
-    return status;
+    return ConcatenateImpl(child_data, pool_).Concatenate(&out_->child_data[0]);
   }
 
   Status Visit(const LargeListType&) {
     std::vector<Range> value_ranges;
     ARROW_ASSIGN_OR_RAISE(auto index_buffers, Buffers(1, sizeof(int64_t)));
-    ARROW_ASSIGN_OR_RAISE(
-        auto outcome, ConcatenateOffsets<int64_t>(index_buffers, pool_, &out_->buffers[1],
-                                                  &value_ranges));
-    RETURN_IF_NOT_OK_OUTCOME(outcome);
+    RETURN_NOT_OK(ConcatenateOffsets<int64_t>(index_buffers, pool_, &out_->buffers[1],
+                                              &value_ranges));
     ARROW_ASSIGN_OR_RAISE(auto child_data, ChildData(0, value_ranges));
-    ErrorHints child_error_hints;
-    auto status = ConcatenateImpl(child_data, pool_)
-                      .Concatenate(&out_->child_data[0], &child_error_hints);
-    if (!status.ok() && child_error_hints.suggested_cast) {
-      suggested_cast_ = large_list(std::move(child_error_hints.suggested_cast));
-    }
-    return status;
+    return ConcatenateImpl(child_data, pool_).Concatenate(&out_->child_data[0]);
   }
 
   template <typename T>
@@ -517,17 +430,8 @@ class ConcatenateImpl {
     }
 
     // Concatenate the values
-    ErrorHints child_error_hints;
     ARROW_ASSIGN_OR_RAISE(ArrayDataVector value_data, ChildData(0, value_ranges));
-    auto values_status = ConcatenateImpl(value_data, pool_)
-                             .Concatenate(&out_->child_data[0], &child_error_hints);
-    if (!values_status.ok()) {
-      if (child_error_hints.suggested_cast) {
-        suggested_cast_ = std::make_shared<std::remove_reference_t<T>>(
-            std::move(child_error_hints.suggested_cast));
-      }
-      return values_status;
-    }
+    RETURN_NOT_OK(ConcatenateImpl(value_data, pool_).Concatenate(&out_->child_data[0]));
     out_->child_data[0]->type = type.value_type();
 
     // Concatenate the sizes first
@@ -536,39 +440,22 @@ class ConcatenateImpl {
 
     // Concatenate the offsets
     ARROW_ASSIGN_OR_RAISE(auto offset_buffers, Buffers(1, sizeof(offset_type)));
-    ARROW_ASSIGN_OR_RAISE(
-        auto outcome, ConcatenateListViewOffsets<offset_type>(
-                          in_, /*sizes=*/out_->buffers[2]->mutable_data_as<offset_type>(),
-                          offset_buffers, value_ranges, pool_, &out_->buffers[1]));
-    switch (outcome) {
-      case OffsetBufferOpOutcome::kOk:
-        break;
-      case OffsetBufferOpOutcome::kOffsetOverflow:
-        if constexpr (T::type_id == Type::LIST_VIEW) {
-          suggested_cast_ = large_list_view(type.value_type());
-        }
-        return OffsetOverflowStatus();
-    }
+    RETURN_NOT_OK(ConcatenateListViewOffsets<offset_type>(
+        in_, /*sizes=*/out_->buffers[2]->mutable_data_as<offset_type>(), offset_buffers,
+        value_ranges, pool_, &out_->buffers[1]));
+
     return Status::OK();
   }
 
-  Status Visit(const FixedSizeListType& fsl_type) {
-    ARROW_ASSIGN_OR_RAISE(auto child_data, ChildData(0, fsl_type.list_size()));
-    ErrorHints hints;
-    auto status =
-        ConcatenateImpl(child_data, pool_).Concatenate(&out_->child_data[0], &hints);
-    if (!status.ok() && hints.suggested_cast) {
-      suggested_cast_ =
-          fixed_size_list(std::move(hints.suggested_cast), fsl_type.list_size());
-    }
-    return status;
+  Status Visit(const FixedSizeListType& fixed_size_list) {
+    ARROW_ASSIGN_OR_RAISE(auto child_data, ChildData(0, fixed_size_list.list_size()));
+    return ConcatenateImpl(child_data, pool_).Concatenate(&out_->child_data[0]);
   }
 
   Status Visit(const StructType& s) {
     for (int i = 0; i < s.num_fields(); ++i) {
       ARROW_ASSIGN_OR_RAISE(auto child_data, ChildData(i));
-      RETURN_NOT_OK(ConcatenateImpl(child_data, pool_)
-                        .Concatenate(&out_->child_data[i], /*hints=*/nullptr));
+      RETURN_NOT_OK(ConcatenateImpl(child_data, pool_).Concatenate(&out_->child_data[i]));
     }
     return Status::OK();
   }
@@ -635,8 +522,7 @@ class ConcatenateImpl {
       }
       out_data += data->length * index_width;
     }
-    // R build with openSUSE155 requires an explicit shared_ptr construction
-    return std::shared_ptr<Buffer>(std::move(out));
+    return std::move(out);
   }
 
   Status Visit(const DictionaryType& d) {
@@ -683,8 +569,8 @@ class ConcatenateImpl {
       case UnionMode::SPARSE: {
         for (int i = 0; i < u.num_fields(); i++) {
           ARROW_ASSIGN_OR_RAISE(auto child_data, ChildData(i));
-          RETURN_NOT_OK(ConcatenateImpl(child_data, pool_)
-                            .Concatenate(&out_->child_data[i], /*hints=*/nullptr));
+          RETURN_NOT_OK(
+              ConcatenateImpl(child_data, pool_).Concatenate(&out_->child_data[i]));
         }
         break;
       }
@@ -694,8 +580,8 @@ class ConcatenateImpl {
           for (size_t j = 0; j < in_.size(); j++) {
             child_data[j] = in_[j]->child_data[i];
           }
-          RETURN_NOT_OK(ConcatenateImpl(child_data, pool_)
-                            .Concatenate(&out_->child_data[i], /*hints=*/nullptr));
+          RETURN_NOT_OK(
+              ConcatenateImpl(child_data, pool_).Concatenate(&out_->child_data[i]));
         }
         break;
       }
@@ -779,8 +665,7 @@ class ConcatenateImpl {
       storage_data[i]->type = e.storage_type();
     }
     std::shared_ptr<ArrayData> out_storage;
-    RETURN_NOT_OK(ConcatenateImpl(storage_data, pool_)
-                      .Concatenate(&out_storage, /*hints=*/nullptr));
+    RETURN_NOT_OK(ConcatenateImpl(storage_data, pool_).Concatenate(&out_storage));
     out_storage->type = in_[0]->type;
     out_ = std::move(out_storage);
     return Status::OK();
@@ -911,18 +796,11 @@ class ConcatenateImpl {
   const ArrayDataVector& in_;
   MemoryPool* pool_;
   std::shared_ptr<ArrayData> out_;
-  std::shared_ptr<DataType> suggested_cast_;
 };
 
 }  // namespace
 
-namespace internal {
-
-Result<std::shared_ptr<Array>> Concatenate(
-    const ArrayVector& arrays, MemoryPool* pool,
-    std::shared_ptr<DataType>* out_suggested_cast) {
-  DCHECK(out_suggested_cast);
-  *out_suggested_cast = nullptr;
+Result<std::shared_ptr<Array>> Concatenate(const ArrayVector& arrays, MemoryPool* pool) {
   if (arrays.size() == 0) {
     return Status::Invalid("Must pass at least one array");
   }
@@ -939,31 +817,8 @@ Result<std::shared_ptr<Array>> Concatenate(
   }
 
   std::shared_ptr<ArrayData> out_data;
-  ErrorHints hints;
-  auto status = ConcatenateImpl(data, pool).Concatenate(&out_data, &hints);
-  if (!status.ok()) {
-    if (hints.suggested_cast) {
-      DCHECK(status.IsInvalid());
-      *out_suggested_cast = std::move(hints.suggested_cast);
-    }
-    return status;
-  }
+  RETURN_NOT_OK(ConcatenateImpl(data, pool).Concatenate(&out_data));
   return MakeArray(std::move(out_data));
 }
-
-}  // namespace internal
-
-Result<std::shared_ptr<Array>> Concatenate(const ArrayVector& arrays, MemoryPool* pool) {
-  std::shared_ptr<DataType> suggested_cast;
-  auto result = internal::Concatenate(arrays, pool, &suggested_cast);
-  if (!result.ok() && suggested_cast && arrays.size() > 0) {
-    DCHECK(result.status().IsInvalid());
-    return Status::Invalid(result.status().message(), ", consider casting input from `",
-                           *arrays[0]->type(), "` to `", *suggested_cast, "` first.");
-  }
-  return result;
-}
-
-#undef RETURN_IF_NOT_OK_OUTCOME
 
 }  // namespace arrow

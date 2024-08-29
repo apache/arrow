@@ -16,7 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -ex
+set -e
 
 #----------------------------------------------------------------------
 # Change this to whatever makes sense for your system
@@ -35,7 +35,6 @@ source $WORKDIR/venv/bin/activate
 git config --global --add safe.directory $ARROW_ROOT
 
 pip install -r $ARROW_ROOT/python/requirements-build.txt
-pip install wheel
 
 #----------------------------------------------------------------------
 # Build C++ library
@@ -69,11 +68,11 @@ export CMAKE_PREFIX_PATH=${ARROW_HOME}${CMAKE_PREFIX_PATH:+:${CMAKE_PREFIX_PATH}
 export PYARROW_BUILD_TYPE=Debug
 export PYARROW_CMAKE_GENERATOR=Ninja
 
-# Use the same command that we use on python_build.sh
-python -m pip install --no-deps --no-build-isolation -vv .
+# You can run either "develop" or "build_ext --inplace". Your pick
 
-popd
+# python setup.py build_ext --inplace
+python setup.py develop
 
 pip install -r $ARROW_ROOT/python/requirements-test.txt
 
-pytest -vv -r s ${PYTEST_ARGS} --pyargs pyarrow
+py.test pyarrow

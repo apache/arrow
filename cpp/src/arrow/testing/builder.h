@@ -195,7 +195,7 @@ Result<std::shared_ptr<Array>> ArrayFromBuilderVisitor(
 
   std::shared_ptr<Array> out;
   RETURN_NOT_OK(builder->Finish(&out));
-  return out;
+  return std::move(out);
 }
 
 template <typename Fn>

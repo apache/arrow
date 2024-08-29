@@ -17,12 +17,11 @@
 
 import streamAdapters from './adapters.js';
 
-export type { FileHandle } from 'node:fs/promises';
-import type { ReadableOptions, Readable as StreamReadable } from 'node:stream';
-
 /** @ignore */
 export const ITERATOR_DONE: any = Object.freeze({ done: true, value: void (0) });
 
+/** @ignore */
+export type FileHandle = import('fs').promises.FileHandle;
 /** @ignore */
 export type ArrowJSONLike = { schema: any; batches?: any[]; dictionaries?: any[] };
 /** @ignore */
@@ -61,14 +60,14 @@ export interface Writable<T> {
 export interface ReadableWritable<TReadable, TWritable> extends Readable<TReadable>, Writable<TWritable> {
     [Symbol.asyncIterator](): AsyncIterableIterator<TReadable>;
     toDOMStream(options?: ReadableDOMStreamOptions): ReadableStream<TReadable>;
-    toNodeStream(options?: ReadableOptions): StreamReadable;
+    toNodeStream(options?: import('stream').ReadableOptions): import('stream').Readable;
 }
 
 /** @ignore */
 export abstract class ReadableInterop<T> {
 
     public abstract toDOMStream(options?: ReadableDOMStreamOptions): ReadableStream<T>;
-    public abstract toNodeStream(options?: ReadableOptions): StreamReadable;
+    public abstract toNodeStream(options?: import('stream').ReadableOptions): import('stream').Readable;
 
     public tee(): [ReadableStream<T>, ReadableStream<T>] {
         return this._getDOMStream().tee();
@@ -86,7 +85,7 @@ export abstract class ReadableInterop<T> {
         return this._DOMStream || (this._DOMStream = this.toDOMStream());
     }
 
-    protected _nodeStream?: StreamReadable;
+    protected _nodeStream?: import('stream').Readable;
     private _getNodeStream() {
         return this._nodeStream || (this._nodeStream = this.toNodeStream());
     }
@@ -145,7 +144,7 @@ export class AsyncQueue<TReadable = Uint8Array, TWritable = TReadable> extends R
                 : (this._values as any) as Iterable<TReadable>,
             options);
     }
-    public toNodeStream(options?: ReadableOptions) {
+    public toNodeStream(options?: import('stream').ReadableOptions) {
         return streamAdapters.toNodeStream(
             (this._closedPromiseResolve || this._error)
                 ? (this as AsyncIterable<TReadable>)

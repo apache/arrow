@@ -24,7 +24,6 @@
 
 namespace arrow::matlab::array::proxy {
 
-arrow::Result<std::shared_ptr<proxy::Array>> wrap(
-    const std::shared_ptr<arrow::Array>& array);
+    arrow::Result<std::shared_ptr<proxy::Array>> wrap(const std::shared_ptr<arrow::Array>& array);
 
 }

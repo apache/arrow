@@ -31,10 +31,6 @@
 
 namespace arrow {
 
-/// \defgroup array-factories Array factory functions
-///
-/// @{
-
 /// \brief Create a strongly-typed Array instance from generic ArrayData
 /// \param[in] data the array contents
 /// \return the resulting Array instance
@@ -68,8 +64,6 @@ Result<std::shared_ptr<Array>> MakeArrayFromScalar(
 ARROW_EXPORT
 Result<std::shared_ptr<Array>> MakeEmptyArray(std::shared_ptr<DataType> type,
                                               MemoryPool* pool = default_memory_pool());
-
-/// @}
 
 namespace internal {
 

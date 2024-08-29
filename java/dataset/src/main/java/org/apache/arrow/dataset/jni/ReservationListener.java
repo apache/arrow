@@ -14,9 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.dataset.jni;
 
-/** Listener of buffer memory reservation. Used by native datasets. */
+/**
+ * Listener of buffer memory reservation. Used by native datasets.
+ */
 public interface ReservationListener {
 
   /**
@@ -26,6 +29,8 @@ public interface ReservationListener {
    */
   void reserve(long size);
 
-  /** Unreserve bytes. */
+  /**
+   * Unreserve bytes.
+   */
   void unreserve(long size);
 }

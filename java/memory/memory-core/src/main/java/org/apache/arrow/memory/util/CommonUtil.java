@@ -14,14 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.memory.util;
 
 import java.util.Arrays;
 
-/** Utilities and static methods needed for arrow-memory. */
+/**
+ * Utilities and static methods needed for arrow-memory.
+ */
 public final class CommonUtil {
 
-  private CommonUtil() {}
+  private CommonUtil() {
+  }
 
   /**
    * Rounds up the provided value to the nearest power of two.
@@ -73,3 +77,4 @@ public final class CommonUtil {
     return sb;
   }
 }
+

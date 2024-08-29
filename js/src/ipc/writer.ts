@@ -35,8 +35,6 @@ import { RecordBatch, _InternalEmptyPlaceholderRecordBatch } from '../recordbatc
 import { Writable, ReadableInterop, ReadableDOMStreamOptions } from '../io/interfaces.js';
 import { isPromise, isAsyncIterable, isWritableDOMStream, isWritableNodeStream, isIterable, isObject } from '../util/compat.js';
 
-import type { DuplexOptions, Duplex, ReadableOptions } from 'node:stream';
-
 export interface RecordBatchStreamWriterOptions {
     /**
      *
@@ -55,7 +53,7 @@ export class RecordBatchWriter<T extends TypeMap = any> extends ReadableInterop<
 
     /** @nocollapse */
     // @ts-ignore
-    public static throughNode(options?: DuplexOptions & { autoDestroy: boolean }): Duplex {
+    public static throughNode(options?: import('stream').DuplexOptions & { autoDestroy: boolean }): import('stream').Duplex {
         throw new Error(`"throughNode" not available in this environment`);
     }
     /** @nocollapse */
@@ -84,7 +82,6 @@ export class RecordBatchWriter<T extends TypeMap = any> extends ReadableInterop<
     protected _schema: Schema | null = null;
     protected _dictionaryBlocks: FileBlock[] = [];
     protected _recordBatchBlocks: FileBlock[] = [];
-    protected _seenDictionaries = new Map<number, Vector>();
     protected _dictionaryDeltaOffsets = new Map<number, number>();
 
     public toString(sync: true): string;
@@ -114,7 +111,7 @@ export class RecordBatchWriter<T extends TypeMap = any> extends ReadableInterop<
     public get closed() { return this._sink.closed; }
     public [Symbol.asyncIterator]() { return this._sink[Symbol.asyncIterator](); }
     public toDOMStream(options?: ReadableDOMStreamOptions) { return this._sink.toDOMStream(options); }
-    public toNodeStream(options?: ReadableOptions) { return this._sink.toNodeStream(options); }
+    public toNodeStream(options?: import('stream').ReadableOptions) { return this._sink.toNodeStream(options); }
 
     public close() {
         return this.reset()._sink.close();
@@ -145,7 +142,6 @@ export class RecordBatchWriter<T extends TypeMap = any> extends ReadableInterop<
         this._started = false;
         this._dictionaryBlocks = [];
         this._recordBatchBlocks = [];
-        this._seenDictionaries = new Map();
         this._dictionaryDeltaOffsets = new Map();
 
         if (!schema || !(compareSchemas(schema, this._schema))) {
@@ -261,6 +257,7 @@ export class RecordBatchWriter<T extends TypeMap = any> extends ReadableInterop<
     }
 
     protected _writeDictionaryBatch(dictionary: Data, id: number, isDelta = false) {
+        this._dictionaryDeltaOffsets.set(id, dictionary.length + (this._dictionaryDeltaOffsets.get(id) || 0));
         const { byteLength, nodes, bufferRegions, buffers } = VectorAssembler.assemble(new Vector([dictionary]));
         const recordBatch = new metadata.RecordBatch(dictionary.length, nodes, bufferRegions);
         const dictionaryBatch = new metadata.DictionaryBatch(recordBatch, id, isDelta);
@@ -285,21 +282,14 @@ export class RecordBatchWriter<T extends TypeMap = any> extends ReadableInterop<
     }
 
     protected _writeDictionaries(batch: RecordBatch<T>) {
-        for (const [id, dictionary] of batch.dictionaries) {
-            const chunks = dictionary?.data ?? [];
-            const prevDictionary = this._seenDictionaries.get(id);
-            const offset = this._dictionaryDeltaOffsets.get(id) ?? 0;
-            // * If no previous dictionary was written, write an initial DictionaryMessage.
-            // * If the current dictionary does not share chunks with the previous dictionary, write a replacement DictionaryMessage.
-            if (!prevDictionary || prevDictionary.data[0] !== chunks[0]) {
-                // * If `index > 0`, then `isDelta` is true.
-                // * If `index = 0`, then `isDelta` is false, because this is either the initial or a replacement DictionaryMessage.
-                for (const [index, chunk] of chunks.entries()) this._writeDictionaryBatch(chunk, id, index > 0);
-            } else if (offset < chunks.length) {
-                for (const chunk of chunks.slice(offset)) this._writeDictionaryBatch(chunk, id, true);
+        for (let [id, dictionary] of batch.dictionaries) {
+            let offset = this._dictionaryDeltaOffsets.get(id) || 0;
+            if (offset === 0 || (dictionary = dictionary?.slice(offset)).length > 0) {
+                for (const data of dictionary.data) {
+                    this._writeDictionaryBatch(data, id, offset > 0);
+                    offset += data.length;
+                }
             }
-            this._seenDictionaries.set(id, dictionary);
-            this._dictionaryDeltaOffsets.set(id, chunks.length);
         }
         return this;
     }
@@ -350,13 +340,6 @@ export class RecordBatchFileWriter<T extends TypeMap = any> extends RecordBatchW
         return this._writeMagic()._writePadding(2);
     }
 
-    protected _writeDictionaryBatch(dictionary: Data, id: number, isDelta = false) {
-        if (!isDelta && this._seenDictionaries.has(id)) {
-            throw new Error('The Arrow File format does not support replacement dictionaries. ');
-        }
-        return super._writeDictionaryBatch(dictionary, id, isDelta);
-    }
-
     protected _writeFooter(schema: Schema<T>) {
         const buffer = Footer.encode(new Footer(
             schema, MetadataVersion.V5,
@@ -384,13 +367,13 @@ export class RecordBatchJSONWriter<T extends TypeMap = any> extends RecordBatchW
     }
 
     private _recordBatches: RecordBatch[];
-    private _recordBatchesWithDictionaries: RecordBatch[];
+    private _dictionaries: RecordBatch[];
 
     constructor() {
         super();
         this._autoDestroy = true;
         this._recordBatches = [];
-        this._recordBatchesWithDictionaries = [];
+        this._dictionaries = [];
     }
 
     protected _writeMessage() { return this; }
@@ -401,11 +384,12 @@ export class RecordBatchJSONWriter<T extends TypeMap = any> extends RecordBatchW
     }
     protected _writeDictionaries(batch: RecordBatch<T>) {
         if (batch.dictionaries.size > 0) {
-            this._recordBatchesWithDictionaries.push(batch);
+            this._dictionaries.push(batch);
         }
         return this;
     }
     protected _writeDictionaryBatch(dictionary: Data, id: number, isDelta = false) {
+        this._dictionaryDeltaOffsets.set(id, dictionary.length + (this._dictionaryDeltaOffsets.get(id) || 0));
         this._write(this._dictionaryBlocks.length === 0 ? `    ` : `,\n    `);
         this._write(dictionaryBatchToJSON(dictionary, id, isDelta));
         this._dictionaryBlocks.push(new FileBlock(0, 0, 0));
@@ -417,9 +401,9 @@ export class RecordBatchJSONWriter<T extends TypeMap = any> extends RecordBatchW
         return this;
     }
     public close() {
-        if (this._recordBatchesWithDictionaries.length > 0) {
+        if (this._dictionaries.length > 0) {
             this._write(`,\n  "dictionaries": [\n`);
-            for (const batch of this._recordBatchesWithDictionaries) {
+            for (const batch of this._dictionaries) {
                 super._writeDictionaries(batch);
             }
             this._write(`\n  ]`);
@@ -438,7 +422,7 @@ export class RecordBatchJSONWriter<T extends TypeMap = any> extends RecordBatchW
             this._write(`\n}`);
         }
 
-        this._recordBatchesWithDictionaries = [];
+        this._dictionaries = [];
         this._recordBatches = [];
 
         return super.close();

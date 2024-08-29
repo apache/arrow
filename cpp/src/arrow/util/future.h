@@ -871,7 +871,7 @@ Future<T> ToFuture(Result<T> maybe_value) {
 
 template <typename T>
 Future<T> ToFuture(Future<T> fut) {
-  return fut;
+  return std::move(fut);
 }
 
 template <typename T>

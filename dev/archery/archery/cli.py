@@ -44,7 +44,6 @@ BOOL = ArrowBool()
 
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
 @click.option("--debug", type=BOOL, is_flag=True, default=False,
-              envvar='ARCHERY_DEBUG',
               help="Increase logging with debugging output.")
 @click.option("--pdb", type=BOOL, is_flag=True, default=False,
               help="Invoke pdb on uncaught exception.")
@@ -261,7 +260,6 @@ lint_checks = [
               "Check all sources files for license texts via Apache RAT."),
     LintCheck('r', "Lint R files."),
     LintCheck('docker', "Lint Dockerfiles with hadolint."),
-    LintCheck('docs', "Lint docs with sphinx-lint."),
 ]
 
 
@@ -286,10 +284,9 @@ def decorate_lint_command(cmd):
               help="Run IWYU on all C++ files if enabled")
 @click.option("-a", "--all", is_flag=True, default=False,
               help="Enable all checks.")
-@click.argument("path", required=False)
 @decorate_lint_command
 @click.pass_context
-def lint(ctx, src, fix, iwyu_all, path, **checks):
+def lint(ctx, src, fix, iwyu_all, **checks):
     if checks.pop('all'):
         # "--all" is given => enable all non-selected checks
         for k, v in checks.items():
@@ -299,7 +296,7 @@ def lint(ctx, src, fix, iwyu_all, path, **checks):
         raise click.UsageError(
             "Need to enable at least one lint check (try --help)")
     try:
-        linter(src, fix, iwyu_all=iwyu_all, path=path, **checks)
+        linter(src, fix, iwyu_all=iwyu_all, **checks)
     except LintValidationException:
         sys.exit(1)
 
@@ -738,9 +735,6 @@ def _set_default(opt, default):
               help='Include JavaScript in integration tests')
 @click.option('--with-go', type=bool, default=False,
               help='Include Go in integration tests')
-@click.option('--with-nanoarrow', type=bool, default=False,
-              help='Include nanoarrow in integration tests',
-              envvar="ARCHERY_INTEGRATION_WITH_NANOARROW")
 @click.option('--with-rust', type=bool, default=False,
               help='Include Rust in integration tests',
               envvar="ARCHERY_INTEGRATION_WITH_RUST")
@@ -779,7 +773,7 @@ def integration(with_all=False, random_seed=12345, **args):
 
     gen_path = args['write_generated_json']
 
-    languages = ['cpp', 'csharp', 'java', 'js', 'go', 'nanoarrow', 'rust']
+    languages = ['cpp', 'csharp', 'java', 'js', 'go', 'rust']
     formats = ['ipc', 'flight', 'c_data']
 
     enabled_languages = 0

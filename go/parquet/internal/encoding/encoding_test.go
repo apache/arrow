@@ -26,13 +26,13 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v18/arrow"
-	"github.com/apache/arrow/go/v18/arrow/bitutil"
-	"github.com/apache/arrow/go/v18/arrow/memory"
-	"github.com/apache/arrow/go/v18/parquet"
-	"github.com/apache/arrow/go/v18/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v18/parquet/internal/testutils"
-	"github.com/apache/arrow/go/v18/parquet/schema"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/bitutil"
+	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v16/parquet"
+	"github.com/apache/arrow/go/v16/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v16/parquet/internal/testutils"
+	"github.com/apache/arrow/go/v16/parquet/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -403,17 +403,6 @@ func (b *BaseEncodingTestSuite) TestDeltaByteArrayRoundTrip() {
 		b.checkRoundTrip(parquet.Encodings.DeltaByteArray)
 	default:
 		b.Panics(func() { b.checkRoundTrip(parquet.Encodings.DeltaLengthByteArray) })
-	}
-}
-
-func (b *BaseEncodingTestSuite) TestByteStreamSplitRoundTrip() {
-	b.initData(10000, 1)
-
-	switch b.typ {
-	case reflect.TypeOf(float32(0)), reflect.TypeOf(float64(0)), reflect.TypeOf(int32(0)), reflect.TypeOf(int64(0)), reflect.TypeOf(parquet.FixedLenByteArray{}):
-		b.checkRoundTrip(parquet.Encodings.ByteStreamSplit)
-	default:
-		b.Panics(func() { b.checkRoundTrip(parquet.Encodings.ByteStreamSplit) })
 	}
 }
 

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.ipc;
 
 import java.io.IOException;
@@ -23,11 +24,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.compression.CompressionCodec;
+import org.apache.arrow.vector.compression.NoCompressionCodec;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
@@ -37,7 +40,10 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.DictionaryUtility;
 import org.apache.arrow.vector.util.VectorBatchAppender;
 
-/** Abstract class to read Schema and ArrowRecordBatches. */
+/**
+ * Abstract class to read Schema and ArrowRecordBatches.
+ *
+ */
 public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
 
   protected final BufferAllocator allocator;
@@ -49,7 +55,7 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
   private final CompressionCodec.Factory compressionFactory;
 
   protected ArrowReader(BufferAllocator allocator) {
-    this(allocator, CompressionCodec.Factory.INSTANCE);
+    this(allocator, NoCompressionCodec.Factory.INSTANCE);
   }
 
   protected ArrowReader(BufferAllocator allocator, CompressionCodec.Factory compressionFactory) {
@@ -58,8 +64,7 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
   }
 
   /**
-   * Returns the vector schema root. This will be loaded with new values on every call to
-   * loadNextBatch.
+   * Returns the vector schema root. This will be loaded with new values on every call to loadNextBatch.
    *
    * @return the vector schema root
    * @throws IOException if reading of schema fails
@@ -116,8 +121,8 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
   public abstract long bytesRead();
 
   /**
-   * Close resources, including vector schema root and dictionary vectors, and the underlying read
-   * source.
+   * Close resources, including vector schema root and dictionary vectors, and the
+   * underlying read source.
    *
    * @throws IOException on error
    */
@@ -173,7 +178,9 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
     }
   }
 
-  /** Reads the schema and initializes the vectors. */
+  /**
+   * Reads the schema and initializes the vectors.
+   */
   protected void initialize() throws IOException {
     Schema originalSchema = readSchema();
     List<Field> fields = new ArrayList<>(originalSchema.getFields().size());
@@ -241,9 +248,9 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
   }
 
   private void load(ArrowDictionaryBatch dictionaryBatch, FieldVector vector) {
-    VectorSchemaRoot root =
-        new VectorSchemaRoot(
-            Collections.singletonList(vector.getField()), Collections.singletonList(vector), 0);
+    VectorSchemaRoot root = new VectorSchemaRoot(
+        Collections.singletonList(vector.getField()),
+        Collections.singletonList(vector), 0);
     VectorLoader loader = new VectorLoader(root, this.compressionFactory);
     try {
       loader.load(dictionaryBatch.getDictionary());

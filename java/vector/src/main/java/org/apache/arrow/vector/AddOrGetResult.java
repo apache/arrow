@@ -14,12 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector;
 
 import org.apache.arrow.util.Preconditions;
 
 /**
- * Tuple class containing a vector and whether it was created.
+ * Tuple class containing a vector and whether is was created.
  *
  * @param <V> The type of vector the result is for.
  */

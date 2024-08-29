@@ -24,7 +24,6 @@
 #include <atomic>
 #endif
 
-#include "arrow/util/config.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -36,12 +35,9 @@ struct Mutex::Impl {
 
 Mutex::Guard::Guard(Mutex* locked)
     : locked_(locked, [](Mutex* locked) {
-#ifdef ARROW_ENABLE_THREADING
         DCHECK(!locked->impl_->mutex_.try_lock());
-#endif
         locked->impl_->mutex_.unlock();
-      }) {
-}
+      }) {}
 
 Mutex::Guard Mutex::TryLock() {
   DCHECK_NE(impl_, nullptr);

@@ -333,47 +333,23 @@ export class Decimal extends DataType<Type.Decimal> {
 /** @ignore */
 export type Dates = Type.Date | Type.DateDay | Type.DateMillisecond;
 /** @ignore */
-type DateType = {
-    [Type.Date]: { TArray: Int32Array | BigInt64Array };
-    [Type.DateDay]: { TArray: Int32Array };
-    [Type.DateMillisecond]: { TArray: BigInt64Array };
-};
-/** @ignore */
-export interface Date_<T extends Dates = Dates> extends DataType<T> {
-    TArray: DateType[T]['TArray'];
-    TValue: number;
-}
+export interface Date_<T extends Dates = Dates> extends DataType<T> { TArray: Int32Array; TValue: Date; ArrayType: TypedArrayConstructor<Int32Array> }
 /** @ignore */
 export class Date_<T extends Dates = Dates> extends DataType<T> {
     constructor(public readonly unit: DateUnit) {
         super(Type.Date as T);
     }
     public toString() { return `Date${(this.unit + 1) * 32}<${DateUnit[this.unit]}>`; }
-
-    public get ArrayType() {
-        return this.unit === DateUnit.DAY ? Int32Array : BigInt64Array;
-    }
     protected static [Symbol.toStringTag] = ((proto: Date_) => {
         (<any>proto).unit = null;
+        (<any>proto).ArrayType = Int32Array;
         return proto[Symbol.toStringTag] = 'Date';
     })(Date_.prototype);
 }
 
 /** @ignore */
 export class DateDay extends Date_<Type.DateDay> { constructor() { super(DateUnit.DAY); } }
-/**
- * A signed 64-bit date representing the elapsed time since UNIX epoch (1970-01-01) in milliseconds.
- * According to the specification, this should be treated as the number of days, in milliseconds,  since the UNIX epoch.
- * Therefore, values must be evenly divisible by `86_400_000` (the number of milliseconds in a standard day).
- *
- * Practically, validation that values of this type are evenly divisible by `86_400_000` is not enforced by this library
- * for performance and usability reasons.
- *
- * Users should prefer to use {@link DateDay} to cleanly represent the number of days. For JS dates,
- * {@link TimestampMillisecond} is the preferred type.
- *
- * @ignore
- */
+/** @ignore */
 export class DateMillisecond extends Date_<Type.DateMillisecond> { constructor() { super(DateUnit.MILLISECOND); } }
 
 /** @ignore */
@@ -429,9 +405,9 @@ export class TimeNanosecond extends Time_<Type.TimeNanosecond> { constructor() {
 type Timestamps = Type.Timestamp | Type.TimestampSecond | Type.TimestampMillisecond | Type.TimestampMicrosecond | Type.TimestampNanosecond;
 /** @ignore */
 interface Timestamp_<T extends Timestamps = Timestamps> extends DataType<T> {
-    TArray: BigInt64Array;
+    TArray: Int32Array;
     TValue: number;
-    ArrayType: BigIntArrayConstructor<BigInt64Array>;
+    ArrayType: TypedArrayConstructor<Int32Array>;
 }
 
 /** @ignore */
@@ -444,7 +420,7 @@ class Timestamp_<T extends Timestamps = Timestamps> extends DataType<T> {
     protected static [Symbol.toStringTag] = ((proto: Timestamp_) => {
         (<any>proto).unit = null;
         (<any>proto).timezone = null;
-        (<any>proto).ArrayType = BigInt64Array;
+        (<any>proto).ArrayType = Int32Array;
         return proto[Symbol.toStringTag] = 'Timestamp';
     })(Timestamp_.prototype);
 }
@@ -495,7 +471,7 @@ type Durations = Type.Duration | Type.DurationSecond | Type.DurationMillisecond 
 export interface Duration<T extends Durations = Durations> extends DataType<T> {
     TArray: BigInt64Array;
     TValue: bigint;
-    ArrayType: BigIntArrayConstructor<BigInt64Array>;
+    ArrayType: BigInt64Array;
 }
 
 /** @ignore */
@@ -749,6 +725,8 @@ export function strideForType(type: DataType) {
     const t: any = type;
     switch (type.typeId) {
         case Type.Decimal: return (type as Decimal).bitWidth / 32;
+        case Type.Timestamp: return 2;
+        case Type.Date: return 1 + (t as Date_).unit;
         case Type.Interval: return 1 + (t as Interval_).unit;
         // case Type.Int: return 1 + +((t as Int_).bitWidth > 32);
         // case Type.Time: return 1 + +((t as Time_).bitWidth > 32);

@@ -91,7 +91,6 @@
       Cannot glimpse() data from a RecordBatchReader because it can only be read one time; call `as_arrow_table()` to consume it first.
     Output
       RecordBatchReader
-      7 columns
       int: int32
       dbl: double
       dbl2: double

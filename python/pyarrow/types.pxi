@@ -258,28 +258,6 @@ cdef class DataType(_Weakrefable):
         return ty.bit_width()
 
     @property
-    def byte_width(self):
-        """
-        Byte width for fixed width type.
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> pa.int64()
-        DataType(int64)
-        >>> pa.int64().byte_width
-        8
-        """
-        cdef _CFixedWidthTypePtr ty
-        ty = dynamic_cast[_CFixedWidthTypePtr](self.type)
-        if ty == nullptr:
-            raise ValueError("Non-fixed width type")
-        byte_width = ty.byte_width()
-        if byte_width == 0 and self.bit_width != 0:
-            raise ValueError("Less than one byte")
-        return byte_width
-
-    @property
     def num_fields(self):
         """
         The number of child fields.
@@ -1025,33 +1003,6 @@ cdef class StructType(DataType):
     def __reduce__(self):
         return struct, (list(self),)
 
-    @property
-    def names(self):
-        """
-        Lists the field names.
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> struct_type = pa.struct([('a', pa.int64()), ('b', pa.float64()), ('c', pa.string())])
-        >>> struct_type.names
-        ['a', 'b', 'c']
-        """
-        return [f.name for f in self]
-
-    @property
-    def fields(self):
-        """
-        Lists all fields within the StructType.
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> struct_type = pa.struct([('a', pa.int64()), ('b', pa.float64()), ('c', pa.string())])
-        >>> struct_type.fields
-        [pyarrow.Field<a: int64>, pyarrow.Field<b: double>, pyarrow.Field<c: string>]
-        """
-        return list(self)
 
 cdef class UnionType(DataType):
     """
@@ -1391,6 +1342,20 @@ cdef class FixedSizeBinaryType(DataType):
     def __reduce__(self):
         return binary, (self.byte_width,)
 
+    @property
+    def byte_width(self):
+        """
+        The binary size in bytes.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> t = pa.binary(3)
+        >>> t.byte_width
+        3
+        """
+        return self.fixed_size_binary_type.byte_width()
+
 
 cdef class Decimal128Type(FixedSizeBinaryType):
     """
@@ -1545,24 +1510,6 @@ cdef class BaseExtensionType(DataType):
         The underlying storage type.
         """
         return pyarrow_wrap_data_type(self.ext_type.storage_type())
-
-    @property
-    def byte_width(self):
-        """
-        The byte width of the extension type.
-        """
-        if self.ext_type.byte_width() == -1:
-            raise ValueError("Non-fixed width type")
-        return self.ext_type.byte_width()
-
-    @property
-    def bit_width(self):
-        """
-        The bit width of the extension type.
-        """
-        if self.ext_type.bit_width() == -1:
-            raise ValueError("Non-fixed width type")
-        return self.ext_type.bit_width()
 
     def wrap_array(self, storage):
         """
@@ -1835,81 +1782,6 @@ cdef class FixedShapeTensorType(BaseExtensionType):
 
     def __arrow_ext_scalar_class__(self):
         return FixedShapeTensorScalar
-
-
-cdef class Bool8Type(BaseExtensionType):
-    """
-    Concrete class for bool8 extension type.
-
-    Bool8 is an alternate representation for boolean
-    arrays using 8 bits instead of 1 bit per value. The underlying
-    storage type is int8.
-
-    Examples
-    --------
-    Create an instance of bool8 extension type:
-
-    >>> import pyarrow as pa
-    >>> pa.bool8()
-    Bool8Type(extension<arrow.bool8>)
-    """
-
-    cdef void init(self, const shared_ptr[CDataType]& type) except *:
-        BaseExtensionType.init(self, type)
-        self.bool8_ext_type = <const CBool8Type*> type.get()
-
-    def __arrow_ext_class__(self):
-        return Bool8Array
-
-    def __reduce__(self):
-        return bool8, ()
-
-    def __arrow_ext_scalar_class__(self):
-        return Bool8Scalar
-
-
-cdef class OpaqueType(BaseExtensionType):
-    """
-    Concrete class for opaque extension type.
-
-    Opaque is a placeholder for a type from an external (often non-Arrow)
-    system that could not be interpreted.
-
-    Examples
-    --------
-    Create an instance of opaque extension type:
-
-    >>> import pyarrow as pa
-    >>> pa.opaque(pa.int32(), "geometry", "postgis")
-    OpaqueType(extension<arrow.opaque[storage_type=int32, type_name=geometry, vendor_name=postgis]>)
-    """
-
-    cdef void init(self, const shared_ptr[CDataType]& type) except *:
-        BaseExtensionType.init(self, type)
-        self.opaque_ext_type = <const COpaqueType*> type.get()
-
-    @property
-    def type_name(self):
-        """
-        The name of the type in the external system.
-        """
-        return frombytes(c_string(self.opaque_ext_type.type_name()))
-
-    @property
-    def vendor_name(self):
-        """
-        The name of the external system.
-        """
-        return frombytes(c_string(self.opaque_ext_type.vendor_name()))
-
-    def __arrow_ext_class__(self):
-        return OpaqueArray
-
-    def __reduce__(self):
-        return opaque, (self.storage_type, self.type_name, self.vendor_name)
-
-    def __arrow_ext_scalar_class__(self):
-        return OpaqueScalar
 
 
 _py_extension_type_auto_load = False
@@ -3582,7 +3454,7 @@ cdef DataType primitive_type(Type type):
 # Type factory functions
 
 
-def field(name, type=None, nullable=None, metadata=None):
+def field(name, type, bint nullable=True, metadata=None):
     """
     Create a pyarrow.Field instance.
 
@@ -3590,8 +3462,6 @@ def field(name, type=None, nullable=None, metadata=None):
     ----------
     name : str or bytes
         Name of the field.
-        Alternatively, you can also pass an object that implements the Arrow
-        PyCapsule Protocol for schemas (has an ``__arrow_c_schema__`` method).
     type : pyarrow.DataType
         Arrow datatype of the field.
     nullable : bool, default True
@@ -3626,24 +3496,10 @@ def field(name, type=None, nullable=None, metadata=None):
     >>> pa.struct([field])
     StructType(struct<key: int32>)
     """
-    if hasattr(name, "__arrow_c_schema__"):
-        if type is not None:
-            raise ValueError(
-                "cannot specify 'type' when creating a Field from an ArrowSchema"
-            )
-        field = Field._import_from_c_capsule(name.__arrow_c_schema__())
-        if metadata is not None:
-            field = field.with_metadata(metadata)
-        if nullable is not None:
-            field = field.with_nullable(nullable)
-        return field
-
     cdef:
         Field result = Field.__new__(Field)
         DataType _type = ensure_type(type, allow_none=False)
         shared_ptr[const CKeyValueMetadata] c_meta
-
-    nullable = True if nullable is None else nullable
 
     metadata = ensure_metadata(metadata, allow_none=True)
     c_meta = pyarrow_unwrap_metadata(metadata)
@@ -4291,7 +4147,7 @@ def float16():
       32256
     ]
     >>> a.to_pylist()
-    [np.float16(1.5), np.float16(nan)]
+    [1.5, nan]
     """
     return primitive_type(_Type_HALF_FLOAT)
 
@@ -5309,107 +5165,6 @@ def fixed_shape_tensor(DataType value_type, shape, dim_names=None, permutation=N
     return out
 
 
-def bool8():
-    """
-    Create instance of bool8 extension type.
-
-    Examples
-    --------
-    Create an instance of bool8 extension type:
-
-    >>> import pyarrow as pa
-    >>> type = pa.bool8()
-    >>> type
-    Bool8Type(extension<arrow.bool8>)
-
-    Inspect the data type:
-
-    >>> type.storage_type
-    DataType(int8)
-
-    Create a table with a bool8 array:
-
-    >>> arr = [-1, 0, 1, 2, None]
-    >>> storage = pa.array(arr, pa.int8())
-    >>> other = pa.ExtensionArray.from_storage(type, storage)
-    >>> pa.table([other], names=["unknown_col"])
-    pyarrow.Table
-    unknown_col: extension<arrow.bool8>
-    ----
-    unknown_col: [[-1,0,1,2,null]]
-
-    Returns
-    -------
-    type : Bool8Type
-    """
-
-    cdef Bool8Type out = Bool8Type.__new__(Bool8Type)
-
-    c_type = GetResultValue(CBool8Type.Make())
-
-    out.init(c_type)
-
-    return out
-
-
-def opaque(DataType storage_type, str type_name not None, str vendor_name not None):
-    """
-    Create instance of opaque extension type.
-
-    Parameters
-    ----------
-    storage_type : DataType
-        The underlying data type.
-    type_name : str
-        The name of the type in the external system.
-    vendor_name : str
-        The name of the external system.
-
-    Examples
-    --------
-    Create an instance of an opaque extension type:
-
-    >>> import pyarrow as pa
-    >>> type = pa.opaque(pa.binary(), "other", "jdbc")
-    >>> type
-    OpaqueType(extension<arrow.opaque[storage_type=binary, type_name=other, vendor_name=jdbc]>)
-
-    Inspect the data type:
-
-    >>> type.storage_type
-    DataType(binary)
-    >>> type.type_name
-    'other'
-    >>> type.vendor_name
-    'jdbc'
-
-    Create a table with an opaque array:
-
-    >>> arr = [None, b"foobar"]
-    >>> storage = pa.array(arr, pa.binary())
-    >>> other = pa.ExtensionArray.from_storage(type, storage)
-    >>> pa.table([other], names=["unknown_col"])
-    pyarrow.Table
-    unknown_col: extension<arrow.opaque[storage_type=binary, type_name=other, vendor_name=jdbc]>
-    ----
-    unknown_col: [[null,666F6F626172]]
-
-    Returns
-    -------
-    type : OpaqueType
-    """
-
-    cdef:
-        c_string c_type_name = tobytes(type_name)
-        c_string c_vendor_name = tobytes(vendor_name)
-        shared_ptr[COpaqueType] c_opaque_type = make_shared[COpaqueType](
-            storage_type.sp_type, c_type_name, c_vendor_name)
-        shared_ptr[CDataType] c_type = static_pointer_cast[CDataType, COpaqueType](c_opaque_type)
-        OpaqueType out = OpaqueType.__new__(OpaqueType)
-    out.init(c_type)
-    return out
-
-
 cdef dict _type_aliases = {
     'null': null,
     'bool': bool_,
@@ -5550,14 +5305,10 @@ def schema(fields, metadata=None):
         Field py_field
         vector[shared_ptr[CField]] c_fields
 
-    if hasattr(fields, "__arrow_c_schema__"):
-        result = Schema._import_from_c_capsule(fields.__arrow_c_schema__())
-        if metadata is not None:
-            result = result.with_metadata(metadata)
-        return result
-
     if isinstance(fields, Mapping):
         fields = fields.items()
+    elif hasattr(fields, "__arrow_c_schema__"):
+        return Schema._import_from_c_capsule(fields.__arrow_c_schema__())
 
     for item in fields:
         if isinstance(item, tuple):
@@ -5703,7 +5454,7 @@ cdef void pycapsule_schema_deleter(object schema_capsule) noexcept:
 
     free(schema)
 
-cdef object alloc_c_schema(ArrowSchema** c_schema):
+cdef object alloc_c_schema(ArrowSchema** c_schema) noexcept:
     c_schema[0] = <ArrowSchema*> malloc(sizeof(ArrowSchema))
     # Ensure the capsule destructor doesn't call a random release pointer
     c_schema[0].release = NULL
@@ -5722,7 +5473,7 @@ cdef void pycapsule_array_deleter(object array_capsule) noexcept:
 
     free(array)
 
-cdef object alloc_c_array(ArrowArray** c_array):
+cdef object alloc_c_array(ArrowArray** c_array) noexcept:
     c_array[0] = <ArrowArray*> malloc(sizeof(ArrowArray))
     # Ensure the capsule destructor doesn't call a random release pointer
     c_array[0].release = NULL
@@ -5741,29 +5492,8 @@ cdef void pycapsule_stream_deleter(object stream_capsule) noexcept:
 
     free(stream)
 
-cdef object alloc_c_stream(ArrowArrayStream** c_stream):
+cdef object alloc_c_stream(ArrowArrayStream** c_stream) noexcept:
     c_stream[0] = <ArrowArrayStream*> malloc(sizeof(ArrowArrayStream))
     # Ensure the capsule destructor doesn't call a random release pointer
     c_stream[0].release = NULL
     return PyCapsule_New(c_stream[0], 'arrow_array_stream', &pycapsule_stream_deleter)
-
-
-cdef void pycapsule_device_array_deleter(object array_capsule) noexcept:
-    cdef:
-        ArrowDeviceArray* device_array
-    # Do not invoke the deleter on a used/moved capsule
-    device_array = <ArrowDeviceArray*>cpython.PyCapsule_GetPointer(
-        array_capsule, 'arrow_device_array'
-    )
-    if device_array.array.release != NULL:
-        device_array.array.release(&device_array.array)
-
-    free(device_array)
-
-
-cdef object alloc_c_device_array(ArrowDeviceArray** c_array):
-    c_array[0] = <ArrowDeviceArray*> malloc(sizeof(ArrowDeviceArray))
-    # Ensure the capsule destructor doesn't call a random release pointer
-    c_array[0].array.release = NULL
-    return PyCapsule_New(
-        c_array[0], 'arrow_device_array', &pycapsule_device_array_deleter)

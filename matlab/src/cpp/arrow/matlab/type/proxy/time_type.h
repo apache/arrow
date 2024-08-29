@@ -22,17 +22,18 @@
 namespace arrow::matlab::type::proxy {
 
 class TimeType : public arrow::matlab::type::proxy::FixedWidthType {
- public:
-  TimeType(std::shared_ptr<arrow::TimeType> time_type);
 
-  ~TimeType() {}
+    public:
+        TimeType(std::shared_ptr<arrow::TimeType> time_type);
 
- protected:
-  void getTimeUnit(libmexclass::proxy::method::Context& context);
+        ~TimeType() {}
+
+    protected:
+        void getTimeUnit(libmexclass::proxy::method::Context& context);
 };
 
 template <typename ArrowType>
-libmexclass::proxy::MakeResult make_time_type(
-    const libmexclass::proxy::FunctionArguments& constructor_arguments);
+libmexclass::proxy::MakeResult make_time_type(const libmexclass::proxy::FunctionArguments& constructor_arguments);
 
-}  // namespace arrow::matlab::type::proxy
+
+}

@@ -22,7 +22,6 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
-#include <future>
 #include <limits>
 #include <memory>
 #include <numeric>
@@ -478,7 +477,6 @@ TEST_F(TestArray, TestMakeArrayOfNull) {
       ASSERT_EQ(array->type(), type);
       ASSERT_OK(array->ValidateFull());
       ASSERT_EQ(array->length(), length);
-      ASSERT_EQ(array->device_type(), DeviceAllocationType::kCPU);
       if (is_union(type->id())) {
         ASSERT_EQ(array->null_count(), 0);
         ASSERT_EQ(array->ComputeLogicalNullCount(), length);
@@ -605,11 +603,11 @@ void AssertAppendScalar(MemoryPool* pool, const std::shared_ptr<Scalar>& scalar)
   ASSERT_EQ(out->length(), 9);
 
   auto out_type_id = out->type()->id();
-  const bool can_check_nulls = internal::may_have_validity_bitmap(out_type_id);
+  const bool has_validity = internal::HasValidityBitmap(out_type_id);
   // For a dictionary builder, the output dictionary won't necessarily be the same
   const bool can_check_values = !is_dictionary(out_type_id);
 
-  if (can_check_nulls) {
+  if (has_validity) {
     ASSERT_EQ(out->null_count(), 4);
   } else {
     ASSERT_EQ(out->null_count(), 0);
@@ -720,7 +718,6 @@ TEST_F(TestArray, TestMakeArrayFromScalar) {
       ASSERT_OK(array->ValidateFull());
       ASSERT_EQ(array->length(), length);
       ASSERT_EQ(array->null_count(), 0);
-      ASSERT_EQ(array->device_type(), DeviceAllocationType::kCPU);
 
       // test case for ARROW-13321
       for (int64_t i : {int64_t{0}, length / 2, length - 1}) {
@@ -746,7 +743,6 @@ TEST_F(TestArray, TestMakeArrayFromScalarSliced) {
     auto sliced = array->Slice(1, 4);
     ASSERT_EQ(sliced->length(), 4);
     ASSERT_EQ(sliced->null_count(), 0);
-    ASSERT_EQ(array->device_type(), DeviceAllocationType::kCPU);
     ARROW_EXPECT_OK(sliced->ValidateFull());
   }
 }
@@ -761,7 +757,6 @@ TEST_F(TestArray, TestMakeArrayFromDictionaryScalar) {
   ASSERT_OK(array->ValidateFull());
   ASSERT_EQ(array->length(), 4);
   ASSERT_EQ(array->null_count(), 0);
-  ASSERT_EQ(array->device_type(), DeviceAllocationType::kCPU);
 
   for (int i = 0; i < 4; i++) {
     ASSERT_OK_AND_ASSIGN(auto item, array->GetScalar(i));
@@ -801,7 +796,6 @@ TEST_F(TestArray, TestMakeEmptyArray) {
     ASSERT_OK_AND_ASSIGN(auto array, MakeEmptyArray(type));
     ASSERT_OK(array->ValidateFull());
     ASSERT_EQ(array->length(), 0);
-
     CheckSpanRoundTrip(*array);
   }
 }
@@ -825,44 +819,6 @@ TEST_F(TestArray, TestFillFromScalar) {
       AssertArraysEqual(*array, *roundtripped_array);
       ASSERT_OK_AND_ASSIGN(auto roundtripped_scalar, roundtripped_array->GetScalar(0));
       AssertScalarsEqual(*scalar, *roundtripped_scalar);
-    }
-  }
-}
-
-// GH-40069: Data-race when concurrent calling ArraySpan::FillFromScalar of the same
-// scalar instance.
-TEST_F(TestArray, TestConcurrentFillFromScalar) {
-#ifndef ARROW_ENABLE_THREADING
-  GTEST_SKIP() << "Test requires threading support";
-#endif
-  for (auto type : TestArrayUtilitiesAgainstTheseTypes()) {
-    ARROW_SCOPED_TRACE("type = ", type->ToString());
-    for (auto seed : {0u, 0xdeadbeef, 42u}) {
-      ARROW_SCOPED_TRACE("seed = ", seed);
-
-      Field field("", type, /*nullable=*/true,
-                  key_value_metadata({{"extension_allow_random_storage", "true"}}));
-      auto array = random::GenerateArray(field, 1, seed);
-
-      ASSERT_OK_AND_ASSIGN(auto scalar, array->GetScalar(0));
-
-      // Lambda to create fill an ArraySpan with the scalar and use the ArraySpan a bit.
-      auto array_span_from_scalar = [&]() {
-        ArraySpan span(*scalar);
-        auto roundtripped_array = span.ToArray();
-        ASSERT_OK(roundtripped_array->ValidateFull());
-
-        AssertArraysEqual(*array, *roundtripped_array);
-        ASSERT_OK_AND_ASSIGN(auto roundtripped_scalar, roundtripped_array->GetScalar(0));
-        AssertScalarsEqual(*scalar, *roundtripped_scalar);
-      };
-
-      // Two concurrent calls to the lambda are just enough for TSAN to detect a race
-      // condition.
-      auto fut1 = std::async(std::launch::async, array_span_from_scalar);
-      auto fut2 = std::async(std::launch::async, array_span_from_scalar);
-      fut1.get();
-      fut2.get();
     }
   }
 }
@@ -899,8 +855,7 @@ TEST_F(TestArray, TestAppendArraySlice) {
     span.SetMembers(*nulls->data());
     ASSERT_OK(builder->AppendArraySlice(span, 0, 4));
     ASSERT_EQ(12, builder->length());
-    const bool has_validity_bitmap =
-        internal::may_have_validity_bitmap(scalar->type->id());
+    const bool has_validity_bitmap = internal::HasValidityBitmap(scalar->type->id());
     if (has_validity_bitmap) {
       ASSERT_EQ(4, builder->null_count());
     }
@@ -1352,13 +1307,6 @@ TEST(TestBooleanArray, TrueCountFalseCount) {
   CheckArray(checked_cast<const BooleanArray&>(*arr));
   CheckArray(checked_cast<const BooleanArray&>(*arr->Slice(5)));
   CheckArray(checked_cast<const BooleanArray&>(*arr->Slice(0, 0)));
-
-  // GH-41016 true_count() with array without validity buffer with null_count of -1
-  auto arr_unknown_null_count = ArrayFromJSON(boolean(), "[true, false, true]");
-  arr_unknown_null_count->data()->null_count = kUnknownNullCount;
-  ASSERT_EQ(arr_unknown_null_count->data()->null_count.load(), -1);
-  ASSERT_EQ(arr_unknown_null_count->null_bitmap(), nullptr);
-  ASSERT_EQ(checked_pointer_cast<BooleanArray>(arr_unknown_null_count)->true_count(), 2);
 }
 
 TEST(TestPrimitiveAdHoc, TestType) {

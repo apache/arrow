@@ -52,7 +52,7 @@ namespace Apache.Arrow.Ipc
             return _footer.RecordBatchCount;
         }
 
-        public override async ValueTask ReadSchemaAsync(CancellationToken cancellationToken = default)
+        protected override async ValueTask ReadSchemaAsync(CancellationToken cancellationToken = default)
         {
             if (HasReadSchema)
             {
@@ -85,7 +85,7 @@ namespace Apache.Arrow.Ipc
             }
         }
 
-        public override void ReadSchema()
+        protected override void ReadSchema()
         {
             if (HasReadSchema)
             {
@@ -139,7 +139,7 @@ namespace Apache.Arrow.Ipc
             // Deserialize the footer from the footer flatbuffer
             _footer = new ArrowFooter(Flatbuf.Footer.GetRootAsFooter(CreateByteBuffer(buffer)), ref _dictionaryMemo);
 
-            _schema = _footer.Schema;
+            Schema = _footer.Schema;
         }
 
         public async ValueTask<RecordBatch> ReadRecordBatchAsync(int index, CancellationToken cancellationToken)

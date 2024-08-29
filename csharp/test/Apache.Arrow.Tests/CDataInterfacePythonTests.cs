@@ -31,18 +31,23 @@ namespace Apache.Arrow.Tests
 {
     public class CDataSchemaPythonTest : IClassFixture<CDataSchemaPythonTest.PythonNet>
     {
-        public class PythonNet : IDisposable
+        class PythonNet : IDisposable
         {
-            public bool Initialized { get; }
-
             public PythonNet()
             {
+                bool inCIJob = Environment.GetEnvironmentVariable("GITHUB_ACTIONS") == "true";
+                bool inVerificationJob = Environment.GetEnvironmentVariable("TEST_CSHARP") == "1";
                 bool pythonSet = Environment.GetEnvironmentVariable("PYTHONNET_PYDLL") != null;
-                if (!pythonSet)
+                // We only skip if this is not in CI
+                if (inCIJob && !inVerificationJob && !pythonSet)
                 {
-                    Initialized = false;
-                    return;
+                    throw new Exception("PYTHONNET_PYDLL not set; skipping C Data Interface tests.");
                 }
+                else
+                {
+                    Skip.If(!pythonSet, "PYTHONNET_PYDLL not set; skipping C Data Interface tests.");
+                }
+
 
                 PythonEngine.Initialize();
 
@@ -52,28 +57,11 @@ namespace Apache.Arrow.Tests
                     dynamic sys = Py.Import("sys");
                     sys.path.append(Path.Combine(Path.GetDirectoryName(Environment.GetEnvironmentVariable("PYTHONNET_PYDLL")), "DLLs"));
                 }
-
-                Initialized = true;
             }
 
             public void Dispose()
             {
                 PythonEngine.Shutdown();
-            }
-        }
-
-        public CDataSchemaPythonTest(PythonNet pythonNet)
-        {
-            if (!pythonNet.Initialized)
-            {
-                bool inCIJob = Environment.GetEnvironmentVariable("GITHUB_ACTIONS") == "true";
-                bool inVerificationJob = Environment.GetEnvironmentVariable("TEST_CSHARP") == "1";
-
-                // Skip these tests if this is not in CI or is a verification job and PythonNet couldn't be initialized
-                Skip.If(inVerificationJob || !inCIJob, "PYTHONNET_PYDLL not set; skipping C Data Interface tests.");
-
-                // Otherwise throw
-                throw new Exception("PYTHONNET_PYDLL not set; cannot run C Data Interface tests.");
             }
         }
 

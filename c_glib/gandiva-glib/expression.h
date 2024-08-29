@@ -26,27 +26,29 @@
 G_BEGIN_DECLS
 
 #define GGANDIVA_TYPE_EXPRESSION (ggandiva_expression_get_type())
-GGANDIVA_AVAILABLE_IN_0_12
-G_DECLARE_DERIVABLE_TYPE(
-  GGandivaExpression, ggandiva_expression, GGANDIVA, EXPRESSION, GObject)
+G_DECLARE_DERIVABLE_TYPE(GGandivaExpression,
+                         ggandiva_expression,
+                         GGANDIVA,
+                         EXPRESSION,
+                         GObject)
 
 struct _GGandivaExpressionClass
 {
   GObjectClass parent_class;
 };
 
-GGANDIVA_AVAILABLE_IN_0_12
 GGandivaExpression *
-ggandiva_expression_new(GGandivaNode *root_node, GArrowField *result_field);
+ggandiva_expression_new(GGandivaNode *root_node,
+                        GArrowField *result_field);
+gchar *ggandiva_expression_to_string(GGandivaExpression *expression);
 
-GGANDIVA_AVAILABLE_IN_0_12
-gchar *
-ggandiva_expression_to_string(GGandivaExpression *expression);
 
 #define GGANDIVA_TYPE_CONDITION (ggandiva_condition_get_type())
-GGANDIVA_AVAILABLE_IN_4_0
-G_DECLARE_DERIVABLE_TYPE(
-  GGandivaCondition, ggandiva_condition, GGANDIVA, CONDITION, GGandivaExpression)
+G_DECLARE_DERIVABLE_TYPE(GGandivaCondition,
+                         ggandiva_condition,
+                         GGANDIVA,
+                         CONDITION,
+                         GGandivaExpression)
 
 struct _GGandivaConditionClass
 {
@@ -56,5 +58,6 @@ struct _GGandivaConditionClass
 GGANDIVA_AVAILABLE_IN_4_0
 GGandivaCondition *
 ggandiva_condition_new(GGandivaNode *root_node);
+
 
 G_END_DECLS

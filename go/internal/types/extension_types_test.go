@@ -20,11 +20,11 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/apache/arrow/go/v18/arrow"
-	"github.com/apache/arrow/go/v18/arrow/array"
-	"github.com/apache/arrow/go/v18/arrow/memory"
-	"github.com/apache/arrow/go/v18/internal/json"
-	"github.com/apache/arrow/go/v18/internal/types"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v16/internal/json"
+	"github.com/apache/arrow/go/v16/internal/types"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -32,10 +32,12 @@ import (
 
 var testUUID = uuid.New()
 
-func TestUUIDExtensionBuilder(t *testing.T) {
+func TestExtensionBuilder(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(t, 0)
-	builder := types.NewUUIDBuilder(mem)
+	extBuilder := array.NewExtensionBuilder(mem, types.NewUUIDType())
+	defer extBuilder.Release()
+	builder := types.NewUUIDBuilder(extBuilder)
 	builder.Append(testUUID)
 	arr := builder.NewArray()
 	defer arr.Release()
@@ -50,7 +52,7 @@ func TestUUIDExtensionBuilder(t *testing.T) {
 	assert.Equal(t, arr, arr1)
 }
 
-func TestUUIDExtensionRecordBuilder(t *testing.T) {
+func TestExtensionRecordBuilder(t *testing.T) {
 	schema := arrow.NewSchema([]arrow.Field{
 		{Name: "uuid", Type: types.NewUUIDType()},
 	}, nil)
@@ -70,7 +72,9 @@ func TestUUIDStringRoundTrip(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(t, 0)
 
-	b := types.NewUUIDBuilder(mem)
+	extBuilder := array.NewExtensionBuilder(mem, types.NewUUIDType())
+	defer extBuilder.Release()
+	b := types.NewUUIDBuilder(extBuilder)
 	b.Append(uuid.Nil)
 	b.AppendNull()
 	b.Append(uuid.NameSpaceURL)
@@ -81,7 +85,9 @@ func TestUUIDStringRoundTrip(t *testing.T) {
 	defer arr.Release()
 
 	// 2. create array via AppendValueFromString
-	b1 := types.NewUUIDBuilder(mem)
+	extBuilder1 := array.NewExtensionBuilder(mem, types.NewUUIDType())
+	defer extBuilder1.Release()
+	b1 := types.NewUUIDBuilder(extBuilder1)
 	defer b1.Release()
 
 	for i := 0; i < arr.Len(); i++ {

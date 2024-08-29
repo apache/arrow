@@ -22,10 +22,8 @@ class SourceTest < Test::Unit::TestCase
   def setup
     @current_commit = git_current_commit
     detect_versions
-    @tag_name_no_rc = "apache-arrow-#{@release_version}"
-    @archive_name = "apache-arrow-#{@release_version}.tar.gz"
+    @tag_name = "apache-arrow-#{@release_version}"
     @script = File.expand_path("dev/release/02-source.sh")
-    @tarball_script = File.expand_path("dev/release/utils-create-release-tarball.sh")
 
     Dir.mktmpdir do |dir|
       Dir.chdir(dir) do
@@ -42,15 +40,14 @@ class SourceTest < Test::Unit::TestCase
     targets.each do |target|
       env["SOURCE_#{target}"] = "1"
     end
-    sh(env, @tarball_script, @release_version, "0") 
     output = sh(env, @script, @release_version, "0")
-    sh("tar", "xf", @archive_name)
+    sh("tar", "xf", "#{@tag_name}.tar.gz")
     output
   end
 
   def test_symbolic_links
     source
-    Dir.chdir(@tag_name_no_rc) do
+    Dir.chdir(@tag_name) do
       assert_equal([],
                    Find.find(".").find_all {|path| File.symlink?(path)})
     end
@@ -58,7 +55,7 @@ class SourceTest < Test::Unit::TestCase
 
   def test_csharp_git_commit_information
     source
-    Dir.chdir("#{@tag_name_no_rc}/csharp") do
+    Dir.chdir("#{@tag_name}/csharp") do
       FileUtils.mv("dummy.git", "../.git")
       sh("dotnet", "pack", "-c", "Release")
       FileUtils.mv("../.git", "dummy.git")
@@ -83,7 +80,7 @@ class SourceTest < Test::Unit::TestCase
 
   def test_python_version
     source
-    Dir.chdir("#{@tag_name_no_rc}/python") do
+    Dir.chdir("#{@tag_name}/python") do
       sh("python3", "setup.py", "sdist")
       if on_release_branch?
         pyarrow_source_archive = "dist/pyarrow-#{@release_version}.tar.gz"
@@ -169,7 +166,7 @@ The vote will be open for at least 72 hours.
 [10]: https://apache.jfrog.io/artifactory/arrow/python-rc/#{@release_version}-rc0
 [11]: https://apache.jfrog.io/artifactory/arrow/ubuntu-rc/
 [12]: https://github.com/apache/arrow/blob/#{@current_commit}/CHANGELOG.md
-[13]: https://arrow.apache.org/docs/developers/release_verification.html
+[13]: https://cwiki.apache.org/confluence/display/ARROW/How+to+Verify+Release+Candidates
 [14]: #{verify_pr_url || "null"}
     VOTE
   end

@@ -57,5 +57,5 @@ func (s snappyCodec) NewWriterLevel(w io.Writer, _ int) (io.WriteCloser, error) 
 }
 
 func init() {
-	RegisterCodec(Codecs.Snappy, snappyCodec{})
+	codecs[Codecs.Snappy] = snappyCodec{}
 }

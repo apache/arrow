@@ -491,9 +491,8 @@ template <typename OutType, typename Op>
 struct ScalarMinMax {
   using OutValue = typename GetOutputType<OutType>::T;
 
-  static Result<std::shared_ptr<Scalar>> ExecScalar(
-      const ExecSpan& batch, const ElementWiseAggregateOptions& options,
-      std::shared_ptr<DataType> type) {
+  static void ExecScalar(const ExecSpan& batch,
+                         const ElementWiseAggregateOptions& options, Scalar* out) {
     // All arguments are scalar
     OutValue value{};
     bool valid = false;
@@ -503,8 +502,8 @@ struct ScalarMinMax {
       const Scalar& scalar = *arg.scalar;
       if (!scalar.is_valid) {
         if (options.skip_nulls) continue;
-        valid = false;
-        break;
+        out->is_valid = false;
+        return;
       }
       if (!valid) {
         value = UnboxScalar<OutType>::Unbox(scalar);
@@ -514,10 +513,9 @@ struct ScalarMinMax {
             value, UnboxScalar<OutType>::Unbox(scalar));
       }
     }
+    out->is_valid = valid;
     if (valid) {
-      return MakeScalar(std::move(type), std::move(value));
-    } else {
-      return MakeNullScalar(std::move(type));
+      BoxScalar<OutType>::Box(value, out);
     }
   }
 
@@ -539,7 +537,8 @@ struct ScalarMinMax {
     bool initialize_output = true;
     if (scalar_count > 0) {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> temp_scalar,
-                            ExecScalar(batch, options, out->type()->GetSharedPtr()));
+                            MakeScalar(out->type()->GetSharedPtr(), 0));
+      ExecScalar(batch, options, temp_scalar.get());
       if (temp_scalar->is_valid) {
         const auto value = UnboxScalar<OutType>::Unbox(*temp_scalar);
         initialize_output = false;

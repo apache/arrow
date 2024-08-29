@@ -14,21 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.util;
 
+import static org.junit.Assert.fail;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-import org.junit.jupiter.api.Test;
 
-/** Tests for {@code Collections2} class. */
+import org.junit.Test;
+
+/**
+ * Tests for {@code Collections2} class.
+ */
 public class TestCollections2 {
+
 
   @Test
   public void testToImmutableListFromIterable() {
@@ -62,6 +66,7 @@ public class TestCollections2 {
     assertEquals(3, copy.size());
   }
 
+
   @Test
   public void testStringFromEmptyIterator() {
     assertEquals("[]", Collections2.toString(Collections.emptyIterator()));
@@ -73,6 +78,6 @@ public class TestCollections2 {
     iterator.next();
 
     assertEquals("[bar, baz]", Collections2.toString(iterator));
-    assertFalse(iterator.hasNext());
+    assertEquals(false, iterator.hasNext());
   }
 }

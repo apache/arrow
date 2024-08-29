@@ -64,25 +64,6 @@ void PrintPageEncodingStats(std::ostream& stream,
 // the fixed initial size is just for an example
 #define COL_WIDTH 30
 
-void PutChars(std::ostream& stream, char c, int n) {
-  for (int i = 0; i < n; ++i) {
-    stream.put(c);
-  }
-}
-
-void PrintKeyValueMetadata(std::ostream& stream,
-                           const KeyValueMetadata& key_value_metadata,
-                           int indent_level = 0, int indent_width = 1) {
-  const int64_t size_of_key_value_metadata = key_value_metadata.size();
-  PutChars(stream, ' ', indent_level * indent_width);
-  stream << "Key Value Metadata: " << size_of_key_value_metadata << " entries\n";
-  for (int64_t i = 0; i < size_of_key_value_metadata; i++) {
-    PutChars(stream, ' ', (indent_level + 1) * indent_width);
-    stream << "Key nr " << i << " " << key_value_metadata.key(i) << ": "
-           << key_value_metadata.value(i) << "\n";
-  }
-}
-
 void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selected_columns,
                                     bool print_values, bool format_dump,
                                     bool print_key_value_metadata, const char* filename) {
@@ -95,7 +76,12 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
 
   if (print_key_value_metadata && file_metadata->key_value_metadata()) {
     auto key_value_metadata = file_metadata->key_value_metadata();
-    PrintKeyValueMetadata(stream, *key_value_metadata);
+    int64_t size_of_key_value_metadata = key_value_metadata->size();
+    stream << "Key Value File Metadata: " << size_of_key_value_metadata << " entries\n";
+    for (int64_t i = 0; i < size_of_key_value_metadata; i++) {
+      stream << " Key nr " << i << " " << key_value_metadata->key(i) << ": "
+             << key_value_metadata->value(i) << "\n";
+    }
   }
 
   stream << "Number of RowGroups: " << file_metadata->num_row_groups() << "\n";
@@ -150,11 +136,7 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
       std::shared_ptr<Statistics> stats = column_chunk->statistics();
 
       const ColumnDescriptor* descr = file_metadata->schema()->Column(i);
-      stream << "Column " << i << std::endl;
-      if (print_key_value_metadata && column_chunk->key_value_metadata()) {
-        PrintKeyValueMetadata(stream, *column_chunk->key_value_metadata(), 1, 2);
-      }
-      stream << "  Values: " << column_chunk->num_values();
+      stream << "Column " << i << std::endl << "  Values: " << column_chunk->num_values();
       if (column_chunk->is_stats_set()) {
         std::string min = stats->EncodeMin(), max = stats->EncodeMax();
         stream << ", Null Values: " << stats->null_count()
@@ -264,8 +246,7 @@ void ParquetFilePrinter::JSONPrint(std::ostream& stream, std::list<int> selected
     const ColumnDescriptor* descr = file_metadata->schema()->Column(i);
     stream << "     { \"Id\": \"" << i << "\","
            << " \"Name\": \"" << descr->path()->ToDotString() << "\","
-           << " \"PhysicalType\": \""
-           << TypeToString(descr->physical_type(), descr->type_length()) << "\","
+           << " \"PhysicalType\": \"" << TypeToString(descr->physical_type()) << "\","
            << " \"ConvertedType\": \"" << ConvertedTypeToString(descr->converted_type())
            << "\","
            << " \"LogicalType\": " << (descr->logical_type())->ToJSON() << " }";

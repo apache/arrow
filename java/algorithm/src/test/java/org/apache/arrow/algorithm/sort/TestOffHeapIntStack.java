@@ -14,28 +14,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.algorithm.sort;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static junit.framework.TestCase.assertEquals;
+import static junit.framework.TestCase.assertTrue;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
 
-/** Test cases for {@link OffHeapIntStack}. */
+/**
+ * Test cases for {@link OffHeapIntStack}.
+ */
 public class TestOffHeapIntStack {
 
   private BufferAllocator allocator;
 
-  @BeforeEach
+  @Before
   public void prepare() {
     allocator = new RootAllocator(1024 * 1024);
   }
 
-  @AfterEach
+  @After
   public void shutdown() {
     allocator.close();
   }

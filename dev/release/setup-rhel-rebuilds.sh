@@ -35,7 +35,7 @@ dnf -y install \
   cmake \
   git \
   gobject-introspection-devel \
-  java-11-openjdk-devel \
+  java-1.8.0-openjdk-devel \
   libcurl-devel \
   llvm-devel \
   llvm-toolset \
@@ -55,5 +55,3 @@ npm install -g yarn
 
 python3 -m ensurepip --upgrade
 alternatives --set python /usr/bin/python3
-alternatives --set java java-11-openjdk.$(uname -i)
-alternatives --set javac java-11-openjdk.$(uname -i)

@@ -14,13 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.algorithm.sort;
 
+import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.stream.IntStream;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BaseFixedWidthVector;
@@ -31,35 +32,38 @@ import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.After;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
 
-/** Test cases for {@link FixedWidthOutOfPlaceVectorSorter}. */
+/**
+ * Test cases for {@link FixedWidthOutOfPlaceVectorSorter}.
+ */
 public class TestFixedWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVectorSorter {
 
   private BufferAllocator allocator;
 
-  <V extends BaseFixedWidthVector> OutOfPlaceVectorSorter<V> getSorter(boolean generalSorter) {
-    return generalSorter
-        ? new GeneralOutOfPlaceVectorSorter<>()
-        : new FixedWidthOutOfPlaceVectorSorter<>();
+  public TestFixedWidthOutOfPlaceVectorSorter(boolean generalSorter) {
+    super(generalSorter);
   }
 
-  @BeforeEach
+  <V extends BaseFixedWidthVector> OutOfPlaceVectorSorter<V> getSorter() {
+    return generalSorter ? new GeneralOutOfPlaceVectorSorter<>() : new FixedWidthOutOfPlaceVectorSorter<>();
+  }
+
+  @Before
   public void prepare() {
     allocator = new RootAllocator(1024 * 1024);
   }
 
-  @AfterEach
+  @After
   public void shutdown() {
     allocator.close();
   }
 
-  @ParameterizedTest
-  @MethodSource("getParameter")
-  public void testSortByte(boolean generalSorter) {
+  @Test
+  public void testSortByte() {
     try (TinyIntVector vec = new TinyIntVector("", allocator)) {
       vec.allocateNew(10);
       vec.setValueCount(10);
@@ -77,38 +81,36 @@ public class TestFixedWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVectorSo
       vec.set(9, 2);
 
       // sort the vector
-      OutOfPlaceVectorSorter<TinyIntVector> sorter = getSorter(generalSorter);
-      VectorValueComparator<TinyIntVector> comparator =
-          DefaultVectorComparators.createDefaultComparator(vec);
+      OutOfPlaceVectorSorter<TinyIntVector> sorter = getSorter();
+      VectorValueComparator<TinyIntVector> comparator = DefaultVectorComparators.createDefaultComparator(vec);
 
       TinyIntVector sortedVec =
-          (TinyIntVector) vec.getField().getFieldType().createNewSingleVector("", allocator, null);
+              (TinyIntVector) vec.getField().getFieldType().createNewSingleVector("", allocator, null);
       sortedVec.allocateNew(vec.getValueCount());
       sortedVec.setValueCount(vec.getValueCount());
 
       sorter.sortOutOfPlace(vec, sortedVec, comparator);
 
       // verify results
-      assertEquals(vec.getValueCount(), sortedVec.getValueCount());
+      Assert.assertEquals(vec.getValueCount(), sortedVec.getValueCount());
 
       assertTrue(sortedVec.isNull(0));
       assertTrue(sortedVec.isNull(1));
-      assertEquals((byte) 2, sortedVec.get(2));
-      assertEquals((byte) 8, sortedVec.get(3));
-      assertEquals((byte) 10, sortedVec.get(4));
-      assertEquals((byte) 10, sortedVec.get(5));
-      assertEquals((byte) 12, sortedVec.get(6));
-      assertEquals((byte) 17, sortedVec.get(7));
-      assertEquals((byte) 23, sortedVec.get(8));
-      assertEquals((byte) 35, sortedVec.get(9));
+      Assert.assertEquals((byte) 2, sortedVec.get(2));
+      Assert.assertEquals((byte) 8, sortedVec.get(3));
+      Assert.assertEquals((byte) 10, sortedVec.get(4));
+      Assert.assertEquals((byte) 10, sortedVec.get(5));
+      Assert.assertEquals((byte) 12, sortedVec.get(6));
+      Assert.assertEquals((byte) 17, sortedVec.get(7));
+      Assert.assertEquals((byte) 23, sortedVec.get(8));
+      Assert.assertEquals((byte) 35, sortedVec.get(9));
 
       sortedVec.close();
     }
   }
 
-  @ParameterizedTest
-  @MethodSource("getParameter")
-  public void testSortShort(boolean generalSorter) {
+  @Test
+  public void testSortShort() {
     try (SmallIntVector vec = new SmallIntVector("", allocator)) {
       vec.allocateNew(10);
       vec.setValueCount(10);
@@ -126,38 +128,36 @@ public class TestFixedWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVectorSo
       vec.set(9, 2);
 
       // sort the vector
-      OutOfPlaceVectorSorter<SmallIntVector> sorter = getSorter(generalSorter);
-      VectorValueComparator<SmallIntVector> comparator =
-          DefaultVectorComparators.createDefaultComparator(vec);
+      OutOfPlaceVectorSorter<SmallIntVector> sorter = getSorter();
+      VectorValueComparator<SmallIntVector> comparator = DefaultVectorComparators.createDefaultComparator(vec);
 
       SmallIntVector sortedVec =
-          (SmallIntVector) vec.getField().getFieldType().createNewSingleVector("", allocator, null);
+              (SmallIntVector) vec.getField().getFieldType().createNewSingleVector("", allocator, null);
       sortedVec.allocateNew(vec.getValueCount());
       sortedVec.setValueCount(vec.getValueCount());
 
       sorter.sortOutOfPlace(vec, sortedVec, comparator);
 
       // verify results
-      assertEquals(vec.getValueCount(), sortedVec.getValueCount());
+      Assert.assertEquals(vec.getValueCount(), sortedVec.getValueCount());
 
       assertTrue(sortedVec.isNull(0));
       assertTrue(sortedVec.isNull(1));
-      assertEquals((short) 2, sortedVec.get(2));
-      assertEquals((short) 8, sortedVec.get(3));
-      assertEquals((short) 10, sortedVec.get(4));
-      assertEquals((short) 10, sortedVec.get(5));
-      assertEquals((short) 12, sortedVec.get(6));
-      assertEquals((short) 17, sortedVec.get(7));
-      assertEquals((short) 23, sortedVec.get(8));
-      assertEquals((short) 35, sortedVec.get(9));
+      Assert.assertEquals((short) 2, sortedVec.get(2));
+      Assert.assertEquals((short) 8, sortedVec.get(3));
+      Assert.assertEquals((short) 10, sortedVec.get(4));
+      Assert.assertEquals((short) 10, sortedVec.get(5));
+      Assert.assertEquals((short) 12, sortedVec.get(6));
+      Assert.assertEquals((short) 17, sortedVec.get(7));
+      Assert.assertEquals((short) 23, sortedVec.get(8));
+      Assert.assertEquals((short) 35, sortedVec.get(9));
 
       sortedVec.close();
     }
   }
 
-  @ParameterizedTest
-  @MethodSource("getParameter")
-  public void testSortInt(boolean generalSorter) {
+  @Test
+  public void testSortInt() {
     try (IntVector vec = new IntVector("", allocator)) {
       vec.allocateNew(10);
       vec.setValueCount(10);
@@ -175,38 +175,35 @@ public class TestFixedWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVectorSo
       vec.set(9, 2);
 
       // sort the vector
-      OutOfPlaceVectorSorter<IntVector> sorter = getSorter(generalSorter);
-      VectorValueComparator<IntVector> comparator =
-          DefaultVectorComparators.createDefaultComparator(vec);
+      OutOfPlaceVectorSorter<IntVector> sorter = getSorter();
+      VectorValueComparator<IntVector> comparator = DefaultVectorComparators.createDefaultComparator(vec);
 
-      IntVector sortedVec =
-          (IntVector) vec.getField().getFieldType().createNewSingleVector("", allocator, null);
+      IntVector sortedVec = (IntVector) vec.getField().getFieldType().createNewSingleVector("", allocator, null);
       sortedVec.allocateNew(vec.getValueCount());
       sortedVec.setValueCount(vec.getValueCount());
 
       sorter.sortOutOfPlace(vec, sortedVec, comparator);
 
       // verify results
-      assertEquals(vec.getValueCount(), sortedVec.getValueCount());
+      Assert.assertEquals(vec.getValueCount(), sortedVec.getValueCount());
 
       assertTrue(sortedVec.isNull(0));
       assertTrue(sortedVec.isNull(1));
-      assertEquals(2, sortedVec.get(2));
-      assertEquals(8, sortedVec.get(3));
-      assertEquals(10, sortedVec.get(4));
-      assertEquals(10, sortedVec.get(5));
-      assertEquals(12, sortedVec.get(6));
-      assertEquals(17, sortedVec.get(7));
-      assertEquals(23, sortedVec.get(8));
-      assertEquals(35, sortedVec.get(9));
+      Assert.assertEquals(2, sortedVec.get(2));
+      Assert.assertEquals(8, sortedVec.get(3));
+      Assert.assertEquals(10, sortedVec.get(4));
+      Assert.assertEquals(10, sortedVec.get(5));
+      Assert.assertEquals(12, sortedVec.get(6));
+      Assert.assertEquals(17, sortedVec.get(7));
+      Assert.assertEquals(23, sortedVec.get(8));
+      Assert.assertEquals(35, sortedVec.get(9));
 
       sortedVec.close();
     }
   }
 
-  @ParameterizedTest
-  @MethodSource("getParameter")
-  public void testSortLong(boolean generalSorter) {
+  @Test
+  public void testSortLong() {
     try (BigIntVector vec = new BigIntVector("", allocator)) {
       vec.allocateNew(10);
       vec.setValueCount(10);
@@ -224,38 +221,35 @@ public class TestFixedWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVectorSo
       vec.set(9, 2L);
 
       // sort the vector
-      OutOfPlaceVectorSorter<BigIntVector> sorter = getSorter(generalSorter);
-      VectorValueComparator<BigIntVector> comparator =
-          DefaultVectorComparators.createDefaultComparator(vec);
+      OutOfPlaceVectorSorter<BigIntVector> sorter = getSorter();
+      VectorValueComparator<BigIntVector> comparator = DefaultVectorComparators.createDefaultComparator(vec);
 
-      BigIntVector sortedVec =
-          (BigIntVector) vec.getField().getFieldType().createNewSingleVector("", allocator, null);
+      BigIntVector sortedVec = (BigIntVector) vec.getField().getFieldType().createNewSingleVector("", allocator, null);
       sortedVec.allocateNew(vec.getValueCount());
       sortedVec.setValueCount(vec.getValueCount());
 
       sorter.sortOutOfPlace(vec, sortedVec, comparator);
 
       // verify results
-      assertEquals(vec.getValueCount(), sortedVec.getValueCount());
+      Assert.assertEquals(vec.getValueCount(), sortedVec.getValueCount());
 
       assertTrue(sortedVec.isNull(0));
       assertTrue(sortedVec.isNull(1));
-      assertEquals(2L, sortedVec.get(2));
-      assertEquals(8L, sortedVec.get(3));
-      assertEquals(10L, sortedVec.get(4));
-      assertEquals(10L, sortedVec.get(5));
-      assertEquals(12L, sortedVec.get(6));
-      assertEquals(17L, sortedVec.get(7));
-      assertEquals(23L, sortedVec.get(8));
-      assertEquals(1L << 35L, sortedVec.get(9));
+      Assert.assertEquals(2L, sortedVec.get(2));
+      Assert.assertEquals(8L, sortedVec.get(3));
+      Assert.assertEquals(10L, sortedVec.get(4));
+      Assert.assertEquals(10L, sortedVec.get(5));
+      Assert.assertEquals(12L, sortedVec.get(6));
+      Assert.assertEquals(17L, sortedVec.get(7));
+      Assert.assertEquals(23L, sortedVec.get(8));
+      Assert.assertEquals(1L << 35L, sortedVec.get(9));
 
       sortedVec.close();
     }
   }
 
-  @ParameterizedTest
-  @MethodSource("getParameter")
-  public void testSortFloat(boolean generalSorter) {
+  @Test
+  public void testSortFloat() {
     try (Float4Vector vec = new Float4Vector("", allocator)) {
       vec.allocateNew(10);
       vec.setValueCount(10);
@@ -273,38 +267,35 @@ public class TestFixedWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVectorSo
       vec.set(9, 2f);
 
       // sort the vector
-      OutOfPlaceVectorSorter<Float4Vector> sorter = getSorter(generalSorter);
-      VectorValueComparator<Float4Vector> comparator =
-          DefaultVectorComparators.createDefaultComparator(vec);
+      OutOfPlaceVectorSorter<Float4Vector> sorter = getSorter();
+      VectorValueComparator<Float4Vector> comparator = DefaultVectorComparators.createDefaultComparator(vec);
 
-      Float4Vector sortedVec =
-          (Float4Vector) vec.getField().getFieldType().createNewSingleVector("", allocator, null);
+      Float4Vector sortedVec = (Float4Vector) vec.getField().getFieldType().createNewSingleVector("", allocator, null);
       sortedVec.allocateNew(vec.getValueCount());
       sortedVec.setValueCount(vec.getValueCount());
 
       sorter.sortOutOfPlace(vec, sortedVec, comparator);
 
       // verify results
-      assertEquals(vec.getValueCount(), sortedVec.getValueCount());
+      Assert.assertEquals(vec.getValueCount(), sortedVec.getValueCount());
 
       assertTrue(sortedVec.isNull(0));
       assertTrue(sortedVec.isNull(1));
-      assertEquals(2f, sortedVec.get(2), 0f);
-      assertEquals(8f, sortedVec.get(3), 0f);
-      assertEquals(10f, sortedVec.get(4), 0f);
-      assertEquals(10f, sortedVec.get(5), 0f);
-      assertEquals(12f, sortedVec.get(6), 0f);
-      assertEquals(17f, sortedVec.get(7), 0f);
-      assertEquals(23f, sortedVec.get(8), 0f);
-      assertEquals(Float.NaN, sortedVec.get(9), 0f);
+      Assert.assertEquals(2f, sortedVec.get(2), 0f);
+      Assert.assertEquals(8f, sortedVec.get(3), 0f);
+      Assert.assertEquals(10f, sortedVec.get(4), 0f);
+      Assert.assertEquals(10f, sortedVec.get(5), 0f);
+      Assert.assertEquals(12f, sortedVec.get(6), 0f);
+      Assert.assertEquals(17f, sortedVec.get(7), 0f);
+      Assert.assertEquals(23f, sortedVec.get(8), 0f);
+      Assert.assertEquals(Float.NaN, sortedVec.get(9), 0f);
 
       sortedVec.close();
     }
   }
 
-  @ParameterizedTest
-  @MethodSource("getParameter")
-  public void testSortDouble(boolean generalSorter) {
+  @Test
+  public void testSortDouble() {
     try (Float8Vector vec = new Float8Vector("", allocator)) {
       vec.allocateNew(10);
       vec.setValueCount(10);
@@ -322,50 +313,47 @@ public class TestFixedWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVectorSo
       vec.set(9, 2);
 
       // sort the vector
-      OutOfPlaceVectorSorter<Float8Vector> sorter = getSorter(generalSorter);
-      VectorValueComparator<Float8Vector> comparator =
-          DefaultVectorComparators.createDefaultComparator(vec);
+      OutOfPlaceVectorSorter<Float8Vector> sorter = getSorter();
+      VectorValueComparator<Float8Vector> comparator = DefaultVectorComparators.createDefaultComparator(vec);
 
-      Float8Vector sortedVec =
-          (Float8Vector) vec.getField().getFieldType().createNewSingleVector("", allocator, null);
+      Float8Vector sortedVec = (Float8Vector) vec.getField().getFieldType().createNewSingleVector("", allocator, null);
       sortedVec.allocateNew(vec.getValueCount());
       sortedVec.setValueCount(vec.getValueCount());
 
       sorter.sortOutOfPlace(vec, sortedVec, comparator);
 
       // verify results
-      assertEquals(vec.getValueCount(), sortedVec.getValueCount());
+      Assert.assertEquals(vec.getValueCount(), sortedVec.getValueCount());
 
       assertTrue(sortedVec.isNull(0));
       assertTrue(sortedVec.isNull(1));
-      assertEquals(2, sortedVec.get(2), 0);
-      assertEquals(8, sortedVec.get(3), 0);
-      assertEquals(10, sortedVec.get(4), 0);
-      assertEquals(10, sortedVec.get(5), 0);
-      assertEquals(12, sortedVec.get(6), 0);
-      assertEquals(17, sortedVec.get(7), 0);
-      assertEquals(35, sortedVec.get(8), 0);
-      assertEquals(Double.NaN, sortedVec.get(9), 0);
+      Assert.assertEquals(2, sortedVec.get(2), 0);
+      Assert.assertEquals(8, sortedVec.get(3), 0);
+      Assert.assertEquals(10, sortedVec.get(4), 0);
+      Assert.assertEquals(10, sortedVec.get(5), 0);
+      Assert.assertEquals(12, sortedVec.get(6), 0);
+      Assert.assertEquals(17, sortedVec.get(7), 0);
+      Assert.assertEquals(35, sortedVec.get(8), 0);
+      Assert.assertEquals(Double.NaN, sortedVec.get(9), 0);
 
       sortedVec.close();
     }
   }
 
-  @ParameterizedTest
-  @MethodSource("getParameter")
-  public void testSortInt2(boolean generalSorter) {
+  @Test
+  public void testSortInt2() {
     try (IntVector vec = new IntVector("", allocator)) {
-      ValueVectorDataPopulator.setVector(
-          vec, 0, 1, 2, 3, 4, 5, 30, 31, 32, 33, 34, 35, 60, 61, 62, 63, 64, 65, 6, 7, 8, 9, 10, 11,
-          36, 37, 38, 39, 40, 41, 66, 67, 68, 69, 70, 71);
+      ValueVectorDataPopulator.setVector(vec,
+          0, 1, 2, 3, 4, 5, 30, 31, 32, 33,
+          34, 35, 60, 61, 62, 63, 64, 65, 6, 7,
+          8, 9, 10, 11, 36, 37, 38, 39, 40, 41,
+          66, 67, 68, 69, 70, 71);
 
       // sort the vector
-      OutOfPlaceVectorSorter<IntVector> sorter = getSorter(generalSorter);
-      VectorValueComparator<IntVector> comparator =
-          DefaultVectorComparators.createDefaultComparator(vec);
+      OutOfPlaceVectorSorter<IntVector> sorter = getSorter();
+      VectorValueComparator<IntVector> comparator = DefaultVectorComparators.createDefaultComparator(vec);
 
-      try (IntVector sortedVec =
-          (IntVector) vec.getField().getFieldType().createNewSingleVector("", allocator, null)) {
+      try (IntVector sortedVec = (IntVector) vec.getField().getFieldType().createNewSingleVector("", allocator, null)) {
         sortedVec.allocateNew(vec.getValueCount());
         sortedVec.setValueCount(vec.getValueCount());
 
@@ -373,14 +361,13 @@ public class TestFixedWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVectorSo
 
         // verify results
         int[] actual = new int[sortedVec.getValueCount()];
-        IntStream.range(0, sortedVec.getValueCount()).forEach(i -> actual[i] = sortedVec.get(i));
+        IntStream.range(0, sortedVec.getValueCount()).forEach(
+            i -> actual[i] = sortedVec.get(i));
 
         assertArrayEquals(
-            new int[] {
-              0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41,
-              60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71
-            },
-            actual);
+            new int[]{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+                11, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
+                40, 41, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71}, actual);
       }
     }
   }

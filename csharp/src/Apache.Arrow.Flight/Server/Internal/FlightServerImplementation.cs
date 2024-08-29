@@ -84,9 +84,8 @@ namespace Apache.Arrow.Flight.Server.Internal
 
         public override Task DoExchange(IAsyncStreamReader<Protocol.FlightData> requestStream, IServerStreamWriter<Protocol.FlightData> responseStream, ServerCallContext context)
         {
-            var readStream = new FlightServerRecordBatchStreamReader(requestStream);
-            var writeStream = new FlightServerRecordBatchStreamWriter(responseStream);
-            return _flightServer.DoExchange(readStream, writeStream, context);
+            //Exchange is not yet implemented
+            throw new NotImplementedException();
         }
 
         public override Task Handshake(IAsyncStreamReader<HandshakeRequest> requestStream, IServerStreamWriter<HandshakeResponse> responseStream, ServerCallContext context)

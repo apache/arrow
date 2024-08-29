@@ -214,14 +214,6 @@ cdef class FixedShapeTensorType(BaseExtensionType):
     cdef:
         const CFixedShapeTensorType* tensor_ext_type
 
-cdef class Bool8Type(BaseExtensionType):
-    cdef:
-        const CBool8Type* bool8_ext_type
-
-cdef class OpaqueType(BaseExtensionType):
-    cdef:
-        const COpaqueType* opaque_ext_type
-
 
 cdef class PyExtensionType(ExtensionType):
     pass
@@ -294,7 +286,6 @@ cdef class Array(_PandasConvertible):
     cdef void init(self, const shared_ptr[CArray]& sp_array) except *
     cdef getitem(self, int64_t i)
     cdef int64_t length(self)
-    cdef void _assert_cpu(self) except *
 
 
 cdef class Tensor(_Weakrefable):
@@ -304,8 +295,6 @@ cdef class Tensor(_Weakrefable):
 
     cdef readonly:
         DataType type
-        bytes _ssize_t_shape
-        bytes _ssize_t_strides
 
     cdef void init(self, const shared_ptr[CTensor]& sp_tensor)
 
@@ -446,11 +435,11 @@ cdef class LargeListArray(BaseListArray):
     pass
 
 
-cdef class ListViewArray(BaseListArray):
+cdef class ListViewArray(Array):
     pass
 
 
-cdef class LargeListViewArray(BaseListArray):
+cdef class LargeListViewArray(Array):
     pass
 
 
@@ -531,30 +520,6 @@ cdef class RecordBatch(_Tabular):
         Schema _schema
 
     cdef void init(self, const shared_ptr[CRecordBatch]& table)
-
-
-cdef class Device(_Weakrefable):
-    cdef:
-        shared_ptr[CDevice] device
-
-    cdef void init(self, const shared_ptr[CDevice]& device)
-
-    @staticmethod
-    cdef wrap(const shared_ptr[CDevice]& device)
-
-    cdef inline shared_ptr[CDevice] unwrap(self) nogil
-
-
-cdef class MemoryManager(_Weakrefable):
-    cdef:
-        shared_ptr[CMemoryManager] memory_manager
-
-    cdef void init(self, const shared_ptr[CMemoryManager]& memory_manager)
-
-    @staticmethod
-    cdef wrap(const shared_ptr[CMemoryManager]& mm)
-
-    cdef inline shared_ptr[CMemoryManager] unwrap(self) nogil
 
 
 cdef class Buffer(_Weakrefable):

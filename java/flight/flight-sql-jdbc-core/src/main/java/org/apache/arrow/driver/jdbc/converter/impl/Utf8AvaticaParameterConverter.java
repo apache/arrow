@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.driver.jdbc.converter.impl;
 
 import org.apache.arrow.vector.FieldVector;
@@ -24,10 +25,13 @@ import org.apache.arrow.vector.util.Text;
 import org.apache.calcite.avatica.AvaticaParameter;
 import org.apache.calcite.avatica.remote.TypedValue;
 
-/** AvaticaParameterConverter for Utf8 Arrow types. */
+/**
+ * AvaticaParameterConverter for Utf8 Arrow types.
+ */
 public class Utf8AvaticaParameterConverter extends BaseAvaticaParameterConverter {
 
-  public Utf8AvaticaParameterConverter(ArrowType.Utf8 type) {}
+  public Utf8AvaticaParameterConverter(ArrowType.Utf8 type) {
+  }
 
   @Override
   public boolean bindParameter(FieldVector vector, TypedValue typedValue, int index) {

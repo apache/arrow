@@ -17,13 +17,14 @@
 
 #pragma once
 
-#include "arrow/result.h"
 #include "arrow/type.h"
+#include "arrow/result.h"
 
 #include "arrow/matlab/type/proxy/type.h"
 
 namespace arrow::matlab::type::proxy {
 
 arrow::Result<std::shared_ptr<Type>> wrap(const std::shared_ptr<arrow::DataType>& type);
+
 
 }

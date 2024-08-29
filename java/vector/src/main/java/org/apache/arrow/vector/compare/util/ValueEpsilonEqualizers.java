@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.compare.util;
 
 import org.apache.arrow.vector.Float4Vector;
@@ -22,16 +23,19 @@ import org.apache.arrow.vector.FloatingPointVector;
 import org.apache.arrow.vector.compare.VectorValueEqualizer;
 
 /**
- * Vector value equalizers that regard values as equal if their difference is within a small
- * threshold (epsilon).
+ * Vector value equalizers that regard values as equal if their difference
+ * is within a small threshold (epsilon).
  */
 public class ValueEpsilonEqualizers {
 
-  private ValueEpsilonEqualizers() {}
+  private ValueEpsilonEqualizers() {
 
-  /** Difference function for floating point values. */
-  public static class FloatingPointEpsilonEqualizer
-      implements VectorValueEqualizer<FloatingPointVector> {
+  }
+
+  /**
+   * Difference function for floating point values.
+   */
+  public static class FloatingPointEpsilonEqualizer implements VectorValueEqualizer<FloatingPointVector> {
     private final double epsilon;
 
     public FloatingPointEpsilonEqualizer(double epsilon) {
@@ -40,7 +44,7 @@ public class ValueEpsilonEqualizers {
 
     @Override
     public final boolean valuesEqual(
-        FloatingPointVector vector1, int index1, FloatingPointVector vector2, int index2) {
+            FloatingPointVector vector1, int index1, FloatingPointVector vector2, int index2) {
       boolean isNull1 = vector1.isNull(index1);
       boolean isNull2 = vector2.isNull(index2);
 
@@ -67,7 +71,9 @@ public class ValueEpsilonEqualizers {
     }
   }
 
-  /** Difference function for float values. */
+  /**
+   * Difference function for float values.
+   */
   public static class Float4EpsilonEqualizer implements VectorValueEqualizer<Float4Vector> {
     private final float epsilon;
 
@@ -76,8 +82,7 @@ public class ValueEpsilonEqualizers {
     }
 
     @Override
-    public final boolean valuesEqual(
-        Float4Vector vector1, int index1, Float4Vector vector2, int index2) {
+    public final boolean valuesEqual(Float4Vector vector1, int index1, Float4Vector vector2, int index2) {
       boolean isNull1 = vector1.isNull(index1);
       boolean isNull2 = vector2.isNull(index2);
 
@@ -104,7 +109,9 @@ public class ValueEpsilonEqualizers {
     }
   }
 
-  /** Difference function for double values. */
+  /**
+   * Difference function for double values.
+   */
   public static class Float8EpsilonEqualizer implements VectorValueEqualizer<Float8Vector> {
     private final double epsilon;
 
@@ -113,8 +120,7 @@ public class ValueEpsilonEqualizers {
     }
 
     @Override
-    public final boolean valuesEqual(
-        Float8Vector vector1, int index1, Float8Vector vector2, int index2) {
+    public final boolean valuesEqual(Float8Vector vector1, int index1, Float8Vector vector2, int index2) {
       boolean isNull1 = vector1.isNull(index1);
       boolean isNull2 = vector2.isNull(index2);
 

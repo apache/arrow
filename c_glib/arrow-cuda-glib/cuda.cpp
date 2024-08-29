@@ -70,7 +70,9 @@ G_BEGIN_DECLS
  * #GArrowCUDABuffer.
  */
 
-G_DEFINE_TYPE(GArrowCUDADeviceManager, garrow_cuda_device_manager, G_TYPE_OBJECT)
+G_DEFINE_TYPE(GArrowCUDADeviceManager,
+              garrow_cuda_device_manager,
+              G_TYPE_OBJECT)
 
 static void
 garrow_cuda_device_manager_init(GArrowCUDADeviceManager *object)
@@ -96,7 +98,8 @@ garrow_cuda_device_manager_new(GError **error)
 {
   auto arrow_manager = arrow::cuda::CudaDeviceManager::Instance();
   if (garrow::check(error, arrow_manager, "[cuda][device-manager][new]")) {
-    auto manager = g_object_new(GARROW_CUDA_TYPE_DEVICE_MANAGER, NULL);
+    auto manager = g_object_new(GARROW_CUDA_TYPE_DEVICE_MANAGER,
+                                NULL);
     return GARROW_CUDA_DEVICE_MANAGER(manager);
   } else {
     return NULL;
@@ -122,7 +125,8 @@ garrow_cuda_device_manager_get_context(GArrowCUDADeviceManager *manager,
 {
   auto arrow_manager = arrow::cuda::CudaDeviceManager::Instance();
   auto arrow_cuda_context = (*arrow_manager)->GetContext(gpu_number);
-  if (garrow::check(error, arrow_cuda_context, "[cuda][device-manager][get-context]]")) {
+  if (garrow::check(error, arrow_cuda_context,
+                    "[cuda][device-manager][get-context]]")) {
     return garrow_cuda_context_new_raw(&(*arrow_cuda_context));
   } else {
     return NULL;
@@ -144,8 +148,8 @@ garrow_cuda_device_manager_get_n_devices(GArrowCUDADeviceManager *manager)
   return (*arrow_manager)->num_devices();
 }
 
-typedef struct GArrowCUDAContextPrivate_
-{
+
+typedef struct GArrowCUDAContextPrivate_ {
   std::shared_ptr<arrow::cuda::CudaContext> context;
 } GArrowCUDAContextPrivate;
 
@@ -153,11 +157,14 @@ enum {
   PROP_CONTEXT = 1
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE(GArrowCUDAContext, garrow_cuda_context, G_TYPE_OBJECT)
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowCUDAContext,
+                           garrow_cuda_context,
+                           G_TYPE_OBJECT)
 
-#define GARROW_CUDA_CONTEXT_GET_PRIVATE(object)                                          \
-  static_cast<GArrowCUDAContextPrivate *>(                                               \
-    garrow_cuda_context_get_instance_private(GARROW_CUDA_CONTEXT(object)))
+#define GARROW_CUDA_CONTEXT_GET_PRIVATE(object) \
+  static_cast<GArrowCUDAContextPrivate *>(      \
+    garrow_cuda_context_get_instance_private(   \
+      GARROW_CUDA_CONTEXT(object)))
 
 static void
 garrow_cuda_context_finalize(GObject *object)
@@ -179,8 +186,8 @@ garrow_cuda_context_set_property(GObject *object,
 
   switch (prop_id) {
   case PROP_CONTEXT:
-    priv->context = *static_cast<std::shared_ptr<arrow::cuda::CudaContext> *>(
-      g_value_get_pointer(value));
+    priv->context =
+      *static_cast<std::shared_ptr<arrow::cuda::CudaContext> *>(g_value_get_pointer(value));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -205,7 +212,7 @@ static void
 garrow_cuda_context_init(GArrowCUDAContext *object)
 {
   auto priv = GARROW_CUDA_CONTEXT_GET_PRIVATE(object);
-  new (&priv->context) std::shared_ptr<arrow::cuda::CudaContext>;
+  new(&priv->context) std::shared_ptr<arrow::cuda::CudaContext>;
 }
 
 static void
@@ -215,7 +222,7 @@ garrow_cuda_context_class_init(GArrowCUDAContextClass *klass)
 
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->finalize = garrow_cuda_context_finalize;
+  gobject_class->finalize     = garrow_cuda_context_finalize;
   gobject_class->set_property = garrow_cuda_context_set_property;
   gobject_class->get_property = garrow_cuda_context_get_property;
 
@@ -224,11 +231,11 @@ garrow_cuda_context_class_init(GArrowCUDAContextClass *klass)
    *
    * Since: 0.8.0
    */
-  spec = g_param_spec_pointer(
-    "context",
-    "Context",
-    "The raw std::shared_ptr<arrow::cuda::CudaContext>",
-    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_pointer("context",
+                              "Context",
+                              "The raw std::shared_ptr<arrow::cuda::CudaContext>",
+                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
+                                                       G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_CONTEXT, spec);
 }
 
@@ -247,7 +254,10 @@ garrow_cuda_context_get_allocated_size(GArrowCUDAContext *context)
   return arrow_context->bytes_allocated();
 }
 
-G_DEFINE_TYPE(GArrowCUDABuffer, garrow_cuda_buffer, GARROW_TYPE_BUFFER)
+
+G_DEFINE_TYPE(GArrowCUDABuffer,
+              garrow_cuda_buffer,
+              GARROW_TYPE_BUFFER)
 
 static void
 garrow_cuda_buffer_init(GArrowCUDABuffer *object)
@@ -271,13 +281,15 @@ garrow_cuda_buffer_class_init(GArrowCUDABufferClass *klass)
  * Since: 0.8.0
  */
 GArrowCUDABuffer *
-garrow_cuda_buffer_new(GArrowCUDAContext *context, gint64 size, GError **error)
+garrow_cuda_buffer_new(GArrowCUDAContext *context,
+                       gint64 size,
+                       GError **error)
 {
   auto arrow_context = garrow_cuda_context_get_raw(context);
   auto arrow_buffer_result = arrow_context->Allocate(size);
   if (garrow::check(error, arrow_buffer_result, "[cuda][buffer][new]")) {
     std::shared_ptr<arrow::cuda::CudaBuffer> arrow_buffer =
-      std::move(*arrow_buffer_result);
+        std::move(*arrow_buffer_result);
     return garrow_cuda_buffer_new_raw(&arrow_buffer);
   } else {
     return NULL;
@@ -329,8 +341,8 @@ garrow_cuda_buffer_new_record_batch(GArrowCUDAContext *context,
 {
   auto arrow_context = garrow_cuda_context_get_raw(context);
   auto arrow_record_batch = garrow_record_batch_get_raw(record_batch);
-  auto arrow_buffer =
-    arrow::cuda::SerializeRecordBatch(*arrow_record_batch, arrow_context.get());
+  auto arrow_buffer = arrow::cuda::SerializeRecordBatch(*arrow_record_batch,
+                                                        arrow_context.get());
   if (garrow::check(error, arrow_buffer, "[cuda][buffer][new-record-batch]")) {
     return garrow_cuda_buffer_new_raw(&(*arrow_buffer));
   } else {
@@ -386,7 +398,9 @@ garrow_cuda_buffer_copy_from_host(GArrowCUDABuffer *buffer,
 {
   auto arrow_buffer = garrow_cuda_buffer_get_raw(buffer);
   auto status = arrow_buffer->CopyFromHost(0, data, size);
-  return garrow_error_check(error, status, "[cuda][buffer][copy-from-host]");
+  return garrow_error_check(error,
+                            status,
+                            "[cuda][buffer][copy-from-host]");
 }
 
 /**
@@ -452,12 +466,15 @@ garrow_cuda_buffer_read_record_batch(GArrowCUDABuffer *buffer,
 
   if (options) {
     auto arrow_options = garrow_read_options_get_raw(options);
-    auto arrow_dictionary_memo = garrow_read_options_get_dictionary_memo_raw(options);
-    auto arrow_record_batch = arrow::cuda::ReadRecordBatch(arrow_schema,
-                                                           arrow_dictionary_memo,
-                                                           arrow_buffer,
-                                                           arrow_options->memory_pool);
-    if (garrow::check(error, arrow_record_batch, "[cuda][buffer][read-record-batch]")) {
+    auto arrow_dictionary_memo =
+      garrow_read_options_get_dictionary_memo_raw(options);
+    auto arrow_record_batch =
+      arrow::cuda::ReadRecordBatch(arrow_schema,
+                                   arrow_dictionary_memo,
+                                   arrow_buffer,
+                                   arrow_options->memory_pool);
+    if (garrow::check(error, arrow_record_batch,
+                      "[cuda][buffer][read-record-batch]")) {
       return garrow_record_batch_new_raw(&(*arrow_record_batch));
     } else {
       return NULL;
@@ -465,8 +482,12 @@ garrow_cuda_buffer_read_record_batch(GArrowCUDABuffer *buffer,
   } else {
     auto arrow_pool = arrow::default_memory_pool();
     auto arrow_record_batch =
-      arrow::cuda::ReadRecordBatch(arrow_schema, nullptr, arrow_buffer, arrow_pool);
-    if (garrow::check(error, arrow_record_batch, "[cuda][buffer][read-record-batch]")) {
+      arrow::cuda::ReadRecordBatch(arrow_schema,
+                                   nullptr,
+                                   arrow_buffer,
+                                   arrow_pool);
+    if (garrow::check(error, arrow_record_batch,
+                      "[cuda][buffer][read-record-batch]")) {
       return garrow_record_batch_new_raw(&(*arrow_record_batch));
     } else {
       return NULL;
@@ -474,7 +495,10 @@ garrow_cuda_buffer_read_record_batch(GArrowCUDABuffer *buffer,
   }
 }
 
-G_DEFINE_TYPE(GArrowCUDAHostBuffer, garrow_cuda_host_buffer, GARROW_TYPE_MUTABLE_BUFFER)
+
+G_DEFINE_TYPE(GArrowCUDAHostBuffer,
+              garrow_cuda_host_buffer,
+              GARROW_TYPE_MUTABLE_BUFFER)
 
 static void
 garrow_cuda_host_buffer_init(GArrowCUDAHostBuffer *object)
@@ -510,8 +534,8 @@ garrow_cuda_host_buffer_new(gint gpu_number, gint64 size, GError **error)
   }
 }
 
-typedef struct GArrowCUDAIPCMemoryHandlePrivate_
-{
+
+typedef struct GArrowCUDAIPCMemoryHandlePrivate_ {
   std::shared_ptr<arrow::cuda::CudaIpcMemHandle> ipc_memory_handle;
 } GArrowCUDAIPCMemoryHandlePrivate;
 
@@ -523,9 +547,9 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowCUDAIPCMemoryHandle,
                            garrow_cuda_ipc_memory_handle,
                            G_TYPE_OBJECT)
 
-#define GARROW_CUDA_IPC_MEMORY_HANDLE_GET_PRIVATE(object)                                \
-  static_cast<GArrowCUDAIPCMemoryHandlePrivate *>(                                       \
-    garrow_cuda_ipc_memory_handle_get_instance_private(                                  \
+#define GARROW_CUDA_IPC_MEMORY_HANDLE_GET_PRIVATE(object)       \
+  static_cast<GArrowCUDAIPCMemoryHandlePrivate *>(              \
+    garrow_cuda_ipc_memory_handle_get_instance_private(         \
       GARROW_CUDA_IPC_MEMORY_HANDLE(object)))
 
 static void
@@ -549,8 +573,7 @@ garrow_cuda_ipc_memory_handle_set_property(GObject *object,
   switch (prop_id) {
   case PROP_IPC_MEMORY_HANDLE:
     priv->ipc_memory_handle =
-      *static_cast<std::shared_ptr<arrow::cuda::CudaIpcMemHandle> *>(
-        g_value_get_pointer(value));
+      *static_cast<std::shared_ptr<arrow::cuda::CudaIpcMemHandle> *>(g_value_get_pointer(value));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -583,7 +606,7 @@ garrow_cuda_ipc_memory_handle_class_init(GArrowCUDAIPCMemoryHandleClass *klass)
 
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->finalize = garrow_cuda_ipc_memory_handle_finalize;
+  gobject_class->finalize     = garrow_cuda_ipc_memory_handle_finalize;
   gobject_class->set_property = garrow_cuda_ipc_memory_handle_set_property;
   gobject_class->get_property = garrow_cuda_ipc_memory_handle_get_property;
 
@@ -592,11 +615,11 @@ garrow_cuda_ipc_memory_handle_class_init(GArrowCUDAIPCMemoryHandleClass *klass)
    *
    * Since: 0.8.0
    */
-  spec = g_param_spec_pointer(
-    "ipc-memory-handle",
-    "IPC Memory Handle",
-    "The raw std::shared_ptr<arrow::cuda::CudaIpcMemHandle>",
-    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_pointer("ipc-memory-handle",
+                              "IPC Memory Handle",
+                              "The raw std::shared_ptr<arrow::cuda::CudaIpcMemHandle>",
+                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
+                                                       G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_IPC_MEMORY_HANDLE, spec);
 }
 
@@ -612,7 +635,9 @@ garrow_cuda_ipc_memory_handle_class_init(GArrowCUDAIPCMemoryHandleClass *klass)
  * Since: 0.8.0
  */
 GArrowCUDAIPCMemoryHandle *
-garrow_cuda_ipc_memory_handle_new(const guint8 *data, gsize size, GError **error)
+garrow_cuda_ipc_memory_handle_new(const guint8 *data,
+                                  gsize size,
+                                  GError **error)
 {
   auto arrow_handle = arrow::cuda::CudaIpcMemHandle::FromBuffer(data);
   if (garrow::check(error, arrow_handle, "[cuda][ipc-memory-handle][new]")) {
@@ -635,11 +660,13 @@ garrow_cuda_ipc_memory_handle_new(const guint8 *data, gsize size, GError **error
  * Since: 0.8.0
  */
 GArrowBuffer *
-garrow_cuda_ipc_memory_handle_serialize(GArrowCUDAIPCMemoryHandle *handle, GError **error)
+garrow_cuda_ipc_memory_handle_serialize(GArrowCUDAIPCMemoryHandle *handle,
+                                        GError **error)
 {
   auto arrow_handle = garrow_cuda_ipc_memory_handle_get_raw(handle);
   auto arrow_buffer = arrow_handle->Serialize(arrow::default_memory_pool());
-  if (garrow::check(error, arrow_buffer, "[cuda][ipc-memory-handle][serialize]")) {
+  if (garrow::check(error, arrow_buffer,
+                    "[cuda][ipc-memory-handle][serialize]")) {
     return garrow_buffer_new_raw(&(*arrow_buffer));
   } else {
     return NULL;
@@ -647,8 +674,7 @@ garrow_cuda_ipc_memory_handle_serialize(GArrowCUDAIPCMemoryHandle *handle, GErro
 }
 
 static GArrowBuffer *
-garrow_cuda_buffer_input_stream_buffer_new_raw_readable_interface(
-  std::shared_ptr<arrow::Buffer> *arrow_buffer)
+garrow_cuda_buffer_input_stream_buffer_new_raw_readable_interface(std::shared_ptr<arrow::Buffer> *arrow_buffer)
 {
   auto arrow_cuda_buffer =
     reinterpret_cast<std::shared_ptr<arrow::cuda::CudaBuffer> *>(arrow_buffer);
@@ -669,15 +695,17 @@ garrow_cuda_buffer_input_stream_readable_interface_init(GArrowReadableInterface 
 {
   iface->buffer_new_raw =
     garrow_cuda_buffer_input_stream_buffer_new_raw_readable_interface;
-  iface->get_raw = garrow_cuda_buffer_input_stream_get_raw_readable_interface;
+  iface->get_raw =
+    garrow_cuda_buffer_input_stream_get_raw_readable_interface;
 }
 
 G_DEFINE_TYPE_WITH_CODE(
   GArrowCUDABufferInputStream,
   garrow_cuda_buffer_input_stream,
   GARROW_TYPE_BUFFER_INPUT_STREAM,
-  G_IMPLEMENT_INTERFACE(GARROW_TYPE_READABLE,
-                        garrow_cuda_buffer_input_stream_readable_interface_init))
+  G_IMPLEMENT_INTERFACE(
+    GARROW_TYPE_READABLE,
+    garrow_cuda_buffer_input_stream_readable_interface_init))
 
 static void
 garrow_cuda_buffer_input_stream_init(GArrowCUDABufferInputStream *object)
@@ -702,9 +730,11 @@ GArrowCUDABufferInputStream *
 garrow_cuda_buffer_input_stream_new(GArrowCUDABuffer *buffer)
 {
   auto arrow_buffer = garrow_cuda_buffer_get_raw(buffer);
-  auto arrow_reader = std::make_shared<arrow::cuda::CudaBufferReader>(arrow_buffer);
+  auto arrow_reader =
+    std::make_shared<arrow::cuda::CudaBufferReader>(arrow_buffer);
   return garrow_cuda_buffer_input_stream_new_raw(&arrow_reader);
 }
+
 
 G_DEFINE_TYPE(GArrowCUDABufferOutputStream,
               garrow_cuda_buffer_output_stream,
@@ -733,7 +763,8 @@ GArrowCUDABufferOutputStream *
 garrow_cuda_buffer_output_stream_new(GArrowCUDABuffer *buffer)
 {
   auto arrow_buffer = garrow_cuda_buffer_get_raw(buffer);
-  auto arrow_writer = std::make_shared<arrow::cuda::CudaBufferWriter>(arrow_buffer);
+  auto arrow_writer =
+    std::make_shared<arrow::cuda::CudaBufferWriter>(arrow_buffer);
   return garrow_cuda_buffer_output_stream_new_raw(&arrow_writer);
 }
 
@@ -797,13 +828,15 @@ garrow_cuda_buffer_output_stream_get_buffered_size(GArrowCUDABufferOutputStream 
   return arrow_stream->num_bytes_buffered();
 }
 
+
 G_END_DECLS
 
 GArrowCUDAContext *
 garrow_cuda_context_new_raw(std::shared_ptr<arrow::cuda::CudaContext> *arrow_context)
 {
-  return GARROW_CUDA_CONTEXT(
-    g_object_new(GARROW_CUDA_TYPE_CONTEXT, "context", arrow_context, NULL));
+  return GARROW_CUDA_CONTEXT(g_object_new(GARROW_CUDA_TYPE_CONTEXT,
+                                          "context", arrow_context,
+                                          NULL));
 }
 
 std::shared_ptr<arrow::cuda::CudaContext>
@@ -817,12 +850,10 @@ garrow_cuda_context_get_raw(GArrowCUDAContext *context)
 }
 
 GArrowCUDAIPCMemoryHandle *
-garrow_cuda_ipc_memory_handle_new_raw(
-  std::shared_ptr<arrow::cuda::CudaIpcMemHandle> *arrow_handle)
+garrow_cuda_ipc_memory_handle_new_raw(std::shared_ptr<arrow::cuda::CudaIpcMemHandle> *arrow_handle)
 {
   auto handle = g_object_new(GARROW_CUDA_TYPE_IPC_MEMORY_HANDLE,
-                             "ipc-memory-handle",
-                             arrow_handle,
+                             "ipc-memory-handle", arrow_handle,
                              NULL);
   return GARROW_CUDA_IPC_MEMORY_HANDLE(handle);
 }
@@ -840,8 +871,9 @@ garrow_cuda_ipc_memory_handle_get_raw(GArrowCUDAIPCMemoryHandle *handle)
 GArrowCUDABuffer *
 garrow_cuda_buffer_new_raw(std::shared_ptr<arrow::cuda::CudaBuffer> *arrow_buffer)
 {
-  return GARROW_CUDA_BUFFER(
-    g_object_new(GARROW_CUDA_TYPE_BUFFER, "buffer", arrow_buffer, NULL));
+  return GARROW_CUDA_BUFFER(g_object_new(GARROW_CUDA_TYPE_BUFFER,
+                                         "buffer", arrow_buffer,
+                                         NULL));
 }
 
 std::shared_ptr<arrow::cuda::CudaBuffer>
@@ -855,10 +887,11 @@ garrow_cuda_buffer_get_raw(GArrowCUDABuffer *buffer)
 }
 
 GArrowCUDAHostBuffer *
-garrow_cuda_host_buffer_new_raw(
-  std::shared_ptr<arrow::cuda::CudaHostBuffer> *arrow_buffer)
+garrow_cuda_host_buffer_new_raw(std::shared_ptr<arrow::cuda::CudaHostBuffer> *arrow_buffer)
 {
-  auto buffer = g_object_new(GARROW_CUDA_TYPE_HOST_BUFFER, "buffer", arrow_buffer, NULL);
+  auto buffer = g_object_new(GARROW_CUDA_TYPE_HOST_BUFFER,
+                             "buffer", arrow_buffer,
+                             NULL);
   return GARROW_CUDA_HOST_BUFFER(buffer);
 }
 
@@ -873,12 +906,10 @@ garrow_cuda_host_buffer_get_raw(GArrowCUDAHostBuffer *buffer)
 }
 
 GArrowCUDABufferInputStream *
-garrow_cuda_buffer_input_stream_new_raw(
-  std::shared_ptr<arrow::cuda::CudaBufferReader> *arrow_reader)
+garrow_cuda_buffer_input_stream_new_raw(std::shared_ptr<arrow::cuda::CudaBufferReader> *arrow_reader)
 {
   auto input_stream = g_object_new(GARROW_CUDA_TYPE_BUFFER_INPUT_STREAM,
-                                   "input-stream",
-                                   arrow_reader,
+                                   "input-stream", arrow_reader,
                                    NULL);
   return GARROW_CUDA_BUFFER_INPUT_STREAM(input_stream);
 }
@@ -889,17 +920,16 @@ garrow_cuda_buffer_input_stream_get_raw(GArrowCUDABufferInputStream *input_strea
   if (!input_stream)
     return nullptr;
 
-  auto arrow_reader = garrow_input_stream_get_raw(GARROW_INPUT_STREAM(input_stream));
+  auto arrow_reader =
+    garrow_input_stream_get_raw(GARROW_INPUT_STREAM(input_stream));
   return std::static_pointer_cast<arrow::cuda::CudaBufferReader>(arrow_reader);
 }
 
 GArrowCUDABufferOutputStream *
-garrow_cuda_buffer_output_stream_new_raw(
-  std::shared_ptr<arrow::cuda::CudaBufferWriter> *arrow_writer)
+garrow_cuda_buffer_output_stream_new_raw(std::shared_ptr<arrow::cuda::CudaBufferWriter> *arrow_writer)
 {
   auto output_stream = g_object_new(GARROW_CUDA_TYPE_BUFFER_OUTPUT_STREAM,
-                                    "output-stream",
-                                    arrow_writer,
+                                    "output-stream", arrow_writer,
                                     NULL);
   return GARROW_CUDA_BUFFER_OUTPUT_STREAM(output_stream);
 }
@@ -910,6 +940,7 @@ garrow_cuda_buffer_output_stream_get_raw(GArrowCUDABufferOutputStream *output_st
   if (!output_stream)
     return nullptr;
 
-  auto arrow_writer = garrow_output_stream_get_raw(GARROW_OUTPUT_STREAM(output_stream));
+  auto arrow_writer =
+    garrow_output_stream_get_raw(GARROW_OUTPUT_STREAM(output_stream));
   return std::static_pointer_cast<arrow::cuda::CudaBufferWriter>(arrow_writer);
 }

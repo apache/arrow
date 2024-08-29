@@ -19,6 +19,8 @@
 /// Internal (but not private) interface for implementing
 /// alternate network transports in Flight.
 ///
+/// \warning EXPERIMENTAL. Subject to change.
+///
 /// To implement a transport, implement ServerTransport and
 /// ClientTransport, and register the desired URI schemes with
 /// TransportRegistry. Flight takes care of most of the per-RPC
@@ -166,7 +168,7 @@ class ARROW_FLIGHT_EXPORT ClientTransport {
 
   /// Initialize the client.
   virtual Status Init(const FlightClientOptions& options, const Location& location,
-                      const arrow::util::Uri& uri) = 0;
+                      const arrow::internal::Uri& uri) = 0;
   /// Close the client. Once this returns, the client is no longer usable.
   virtual Status Close() = 0;
 
@@ -246,6 +248,8 @@ TransportRegistry* GetDefaultTransportRegistry();
 /// Transport implementations may subclass this to store their own
 /// state, and stash an instance in a user-supplied AsyncListener via
 /// ClientTransport::GetAsyncRpc and ClientTransport::SetAsyncRpc.
+///
+/// This API is EXPERIMENTAL.
 class ARROW_FLIGHT_EXPORT AsyncRpc {
  public:
   virtual ~AsyncRpc() = default;

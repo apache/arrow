@@ -87,7 +87,6 @@ test_that("pull", {
     .input %>%
       filter(int > 4) %>%
       rename(strng = chr) %>%
-      group_by(dbl) %>%
       pull(strng) %>%
       as.vector(),
     tbl

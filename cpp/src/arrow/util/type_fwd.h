@@ -64,7 +64,6 @@ class AsyncTaskScheduler;
 class Compressor;
 class Decompressor;
 class Codec;
-class Uri;
 }  // namespace util
 
 }  // namespace arrow

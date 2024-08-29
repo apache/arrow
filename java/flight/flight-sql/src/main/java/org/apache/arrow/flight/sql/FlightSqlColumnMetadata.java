@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight.sql;
 
 import java.util.Collections;
@@ -23,16 +24,14 @@ import java.util.Map;
 /**
  * Metadata for a column in a Flight SQL query.
  *
- * <p>This can be used with FlightSqlClient to access column's metadata contained in schemas
- * returned by GetTables and query execution as follows:
- *
+ * This can be used with FlightSqlClient to access column's metadata contained in schemas returned
+ * by GetTables and query execution as follows:
  * <pre>
  *   FlightSqlColumnMetadata metadata = new FlightSqlColumnMetadata(field.getMetadata());
  *   Integer precision = metadata.getPrecision();
  * </pre>
  *
  * FlightSqlProducer can use this to set metadata on a column in a schema as follows:
- *
  * <pre>
  *   FlightSqlColumnMetadata metadata = new FlightSqlColumnMetadata.Builder()
  *         .precision(10)
@@ -59,14 +58,15 @@ public class FlightSqlColumnMetadata {
 
   private final Map<String, String> metadataMap;
 
-  /** Creates a new instance of FlightSqlColumnMetadata. */
+  /**
+   * Creates a new instance of FlightSqlColumnMetadata.
+   */
   public FlightSqlColumnMetadata(Map<String, String> metadataMap) {
     this.metadataMap = new HashMap<>(metadataMap);
   }
 
   /**
    * Returns the metadata map.
-   *
    * @return The metadata map.
    */
   public Map<String, String> getMetadataMap() {
@@ -75,7 +75,6 @@ public class FlightSqlColumnMetadata {
 
   /**
    * Returns the catalog name.
-   *
    * @return The catalog name.
    */
   public String getCatalogName() {
@@ -84,7 +83,6 @@ public class FlightSqlColumnMetadata {
 
   /**
    * Returns the schema name.
-   *
    * @return The schema name.
    */
   public String getSchemaName() {
@@ -93,7 +91,6 @@ public class FlightSqlColumnMetadata {
 
   /**
    * Returns the table name.
-   *
    * @return The table name.
    */
   public String getTableName() {
@@ -102,7 +99,6 @@ public class FlightSqlColumnMetadata {
 
   /**
    * Returns the type name.
-   *
    * @return The type name.
    */
   public String getTypeName() {
@@ -111,7 +107,6 @@ public class FlightSqlColumnMetadata {
 
   /**
    * Returns the precision / column size.
-   *
    * @return The precision / column size.
    */
   public Integer getPrecision() {
@@ -125,7 +120,6 @@ public class FlightSqlColumnMetadata {
 
   /**
    * Returns the scale / decimal digits.
-   *
    * @return The scale / decimal digits.
    */
   public Integer getScale() {
@@ -139,7 +133,6 @@ public class FlightSqlColumnMetadata {
 
   /**
    * Returns if the column is auto incremented.
-   *
    * @return True if the column is auto incremented, false otherwise.
    */
   public Boolean isAutoIncrement() {
@@ -153,7 +146,6 @@ public class FlightSqlColumnMetadata {
 
   /**
    * Returns if the column is case-sensitive.
-   *
    * @return True if the column is case-sensitive, false otherwise.
    */
   public Boolean isCaseSensitive() {
@@ -167,7 +159,6 @@ public class FlightSqlColumnMetadata {
 
   /**
    * Returns if the column is read only.
-   *
    * @return True if the column is read only, false otherwise.
    */
   public Boolean isReadOnly() {
@@ -181,7 +172,6 @@ public class FlightSqlColumnMetadata {
 
   /**
    * Returns if the column is searchable.
-   *
    * @return True if the column is searchable, false otherwise.
    */
   public Boolean isSearchable() {
@@ -193,18 +183,21 @@ public class FlightSqlColumnMetadata {
     return stringToBoolean(value);
   }
 
-  /** Builder of FlightSqlColumnMetadata, used on FlightSqlProducer implementations. */
+  /**
+   * Builder of FlightSqlColumnMetadata, used on FlightSqlProducer implementations.
+   */
   public static class Builder {
     private final Map<String, String> metadataMap;
 
-    /** Creates a new instance of FlightSqlColumnMetadata.Builder. */
+    /**
+     * Creates a new instance of FlightSqlColumnMetadata.Builder.
+     */
     public Builder() {
       this.metadataMap = new HashMap<>();
     }
 
     /**
      * Sets the catalog name.
-     *
      * @param catalogName the catalog name.
      * @return This builder.
      */
@@ -215,7 +208,6 @@ public class FlightSqlColumnMetadata {
 
     /**
      * Sets the schema name.
-     *
      * @param schemaName The schema name.
      * @return This builder.
      */
@@ -226,7 +218,6 @@ public class FlightSqlColumnMetadata {
 
     /**
      * Sets the table name.
-     *
      * @param tableName The table name.
      * @return This builder.
      */
@@ -237,7 +228,6 @@ public class FlightSqlColumnMetadata {
 
     /**
      * Sets the type name.
-     *
      * @param typeName The type name.
      * @return This builder.
      */
@@ -248,7 +238,6 @@ public class FlightSqlColumnMetadata {
 
     /**
      * Sets the precision / column size.
-     *
      * @param precision The precision / column size.
      * @return This builder.
      */
@@ -259,7 +248,6 @@ public class FlightSqlColumnMetadata {
 
     /**
      * Sets the scale / decimal digits.
-     *
      * @param scale The scale / decimal digits.
      * @return This builder.
      */
@@ -270,7 +258,6 @@ public class FlightSqlColumnMetadata {
 
     /**
      * Sets if the column is auto incremented.
-     *
      * @param isAutoIncrement True if the column is auto incremented.
      * @return This builder.
      */
@@ -281,7 +268,6 @@ public class FlightSqlColumnMetadata {
 
     /**
      * Sets if the column is case-sensitive.
-     *
      * @param isCaseSensitive If the column is case-sensitive.
      * @return This builder.
      */
@@ -292,7 +278,6 @@ public class FlightSqlColumnMetadata {
 
     /**
      * Sets if the column is read only.
-     *
      * @param isReadOnly If the column is read only.
      * @return This builder.
      */
@@ -303,7 +288,6 @@ public class FlightSqlColumnMetadata {
 
     /**
      * Sets if the column is searchable.
-     *
      * @param isSearchable If the column is searchable.
      * @return This builder.
      */
@@ -314,7 +298,6 @@ public class FlightSqlColumnMetadata {
 
     /**
      * Builds a new instance of FlightSqlColumnMetadata.
-     *
      * @return A new instance of FlightSqlColumnMetadata.
      */
     public FlightSqlColumnMetadata build() {

@@ -21,14 +21,14 @@
 
 namespace arrow::matlab::type::proxy {
 
-class StructType : public arrow::matlab::type::proxy::Type {
- public:
-  StructType(std::shared_ptr<arrow::StructType> struct_type);
+    class StructType : public arrow::matlab::type::proxy::Type {
 
-  ~StructType() {}
+    public:
+        StructType(std::shared_ptr<arrow::StructType> struct_type);
 
-  static libmexclass::proxy::MakeResult make(
-      const libmexclass::proxy::FunctionArguments& constructor_arguments);
-};
+        ~StructType() {}
 
-}  // namespace arrow::matlab::type::proxy
+        static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
+    };
+
+}

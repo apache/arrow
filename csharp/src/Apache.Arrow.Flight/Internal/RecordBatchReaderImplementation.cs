@@ -48,33 +48,19 @@ namespace Apache.Arrow.Flight.Internal
         {
             if (!HasReadSchema)
             {
-                await ReadSchemaAsync(CancellationToken.None).ConfigureAwait(false);
+                await ReadSchema().ConfigureAwait(false);
             }
             return _flightDescriptor;
         }
 
-        public async ValueTask<Schema> GetSchemaAsync()
-        {
-            if (!HasReadSchema)
-            {
-                await ReadSchemaAsync(CancellationToken.None).ConfigureAwait(false);
-            }
-            return _schema;
-        }
-
-        public override void ReadSchema()
-        {
-            ReadSchemaAsync(CancellationToken.None).AsTask().Wait();
-        }
-
-        public override async ValueTask ReadSchemaAsync(CancellationToken cancellationToken)
+        public async ValueTask<Schema> ReadSchema()
         {
             if (HasReadSchema)
             {
-                return;
+                return Schema;
             }
 
-            var moveNextResult = await _flightDataStream.MoveNext(cancellationToken).ConfigureAwait(false);
+            var moveNextResult = await _flightDataStream.MoveNext().ConfigureAwait(false);
 
             if (!moveNextResult)
             {
@@ -101,11 +87,12 @@ namespace Apache.Arrow.Flight.Internal
             switch (message.HeaderType)
             {
                 case MessageHeader.Schema:
-                    _schema = FlightMessageSerializer.DecodeSchema(message.ByteBuffer);
+                    Schema = FlightMessageSerializer.DecodeSchema(message.ByteBuffer);
                     break;
                 default:
                     throw new Exception($"Expected schema as the first message, but got: {message.HeaderType.ToString()}");
             }
+            return Schema;
         }
 
         public override async ValueTask<RecordBatch> ReadNextRecordBatchAsync(CancellationToken cancellationToken)
@@ -114,7 +101,7 @@ namespace Apache.Arrow.Flight.Internal
 
             if (!HasReadSchema)
             {
-                await ReadSchemaAsync(cancellationToken).ConfigureAwait(false);
+                await ReadSchema().ConfigureAwait(false);
             }
             var moveNextResult = await _flightDataStream.MoveNext().ConfigureAwait(false);
             if (moveNextResult)

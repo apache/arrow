@@ -31,7 +31,7 @@ namespace Apache.Arrow
 
         public int Offset => Data.Offset;
 
-        public int NullCount => Data.GetNullCount();
+        public int NullCount => Data.NullCount;
 
         public ArrowBuffer NullBitmapBuffer => Data.Buffers[0];
 

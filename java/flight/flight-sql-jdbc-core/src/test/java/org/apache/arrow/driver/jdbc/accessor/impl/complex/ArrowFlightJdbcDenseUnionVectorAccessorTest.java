@@ -14,52 +14,55 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.driver.jdbc.accessor.impl.complex;
 
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
-import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.sql.Timestamp;
 import java.util.Arrays;
 import java.util.List;
+
 import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils;
-import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestExtension;
+import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.holders.NullableBigIntHolder;
 import org.apache.arrow.vector.holders.NullableFloat8Holder;
 import org.apache.arrow.vector.holders.NullableTimeStampMilliHolder;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.Field;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.ClassRule;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.ErrorCollector;
 
 public class ArrowFlightJdbcDenseUnionVectorAccessorTest {
 
-  @RegisterExtension
-  public static RootAllocatorTestExtension rootAllocatorTestExtension =
-      new RootAllocatorTestExtension();
+  @ClassRule
+  public static RootAllocatorTestRule rootAllocatorTestRule = new RootAllocatorTestRule();
+
+  @Rule
+  public final ErrorCollector collector = new ErrorCollector();
 
   private DenseUnionVector vector;
 
   private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcDenseUnionVectorAccessor>
       accessorSupplier =
-          (vector, getCurrentRow) ->
-              new ArrowFlightJdbcDenseUnionVectorAccessor(
-                  (DenseUnionVector) vector,
-                  getCurrentRow,
-                  (boolean wasNull) -> {
-                    // No Operation
-                  });
+          (vector, getCurrentRow) -> new ArrowFlightJdbcDenseUnionVectorAccessor(
+              (DenseUnionVector) vector, getCurrentRow, (boolean wasNull) -> {
+            //No Operation
+          });
 
   private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcDenseUnionVectorAccessor>
-      accessorIterator = new AccessorTestUtils.AccessorIterator<>(accessorSupplier);
+      accessorIterator =
+      new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
 
-  @BeforeEach
+  @Before
   public void setup() throws Exception {
-    this.vector = DenseUnionVector.empty("", rootAllocatorTestExtension.getRootAllocator());
+    this.vector = DenseUnionVector.empty("", rootAllocatorTestRule.getRootAllocator());
     this.vector.allocateNew();
 
     // write some data
@@ -95,7 +98,7 @@ public class ArrowFlightJdbcDenseUnionVectorAccessorTest {
     this.vector.setValueCount(5);
   }
 
-  @AfterEach
+  @After
   public void tearDown() {
     this.vector.close();
   }
@@ -103,17 +106,21 @@ public class ArrowFlightJdbcDenseUnionVectorAccessorTest {
   @Test
   public void getObject() throws Exception {
     List<Object> result = accessorIterator.toList(vector);
-    List<Object> expected =
-        Arrays.asList(Long.MAX_VALUE, Math.PI, new Timestamp(1625702400000L), null, null);
+    List<Object> expected = Arrays.asList(
+        Long.MAX_VALUE,
+        Math.PI,
+        new Timestamp(1625702400000L),
+        null,
+        null);
 
-    assertThat(result, is(expected));
+    collector.checkThat(result, is(expected));
   }
 
   @Test
   public void getObjectForNull() throws Exception {
     vector.reset();
     vector.setValueCount(5);
-    accessorIterator.assertAccessorGetter(
-        vector, AbstractArrowFlightJdbcUnionVectorAccessor::getObject, equalTo(null));
+    accessorIterator.assertAccessorGetter(vector,
+        AbstractArrowFlightJdbcUnionVectorAccessor::getObject, equalTo(null));
   }
 }

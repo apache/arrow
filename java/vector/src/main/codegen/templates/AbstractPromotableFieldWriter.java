@@ -77,17 +77,6 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
   }
 
   @Override
-  public void startListView() {
-    getWriter(MinorType.LISTVIEW).startListView();
-  }
-
-  @Override
-  public void endListView() {
-    getWriter(MinorType.LISTVIEW).endListView();
-    setPosition(idx() + 1);
-  }
-
-  @Override
   public void startMap() {
     getWriter(MinorType.MAP).startMap();
   }
@@ -279,11 +268,6 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
   }
 
   @Override
-  public ListWriter listView() {
-    return getWriter(MinorType.LISTVIEW).listView();
-  }
-
-  @Override
   public MapWriter map() {
     return getWriter(MinorType.LIST).map();
   }
@@ -304,11 +288,6 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
   }
 
   @Override
-  public ListWriter listView(String name) {
-    return getWriter(MinorType.STRUCT).listView(name);
-  }
-
-  @Override
   public MapWriter map(String name) {
     return getWriter(MinorType.STRUCT).map(name);
   }
@@ -317,7 +296,6 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
   public MapWriter map(String name, boolean keysSorted) {
     return getWriter(MinorType.STRUCT).map(name, keysSorted);
   }
-
   <#list vv.types as type><#list type.minor as minor>
   <#assign lowerName = minor.class?uncap_first />
   <#if lowerName == "int" ><#assign lowerName = "integer" /></#if>

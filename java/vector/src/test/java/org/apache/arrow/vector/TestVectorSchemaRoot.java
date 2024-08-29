@@ -14,18 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static junit.framework.TestCase.assertTrue;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.complex.ListVector;
@@ -34,20 +35,20 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
 
 public class TestVectorSchemaRoot {
 
   private BufferAllocator allocator;
 
-  @BeforeEach
+  @Before
   public void init() {
     allocator = new RootAllocator(Long.MAX_VALUE);
   }
 
-  @AfterEach
+  @After
   public void terminate() {
     allocator.close();
   }
@@ -56,7 +57,7 @@ public class TestVectorSchemaRoot {
   public void testResetRowCount() {
     final int size = 20;
     try (final BitVector vec1 = new BitVector("bit", allocator);
-        final IntVector vec2 = new IntVector("int", allocator)) {
+         final IntVector vec2 = new IntVector("int", allocator)) {
       VectorSchemaRoot vsr = VectorSchemaRoot.of(vec1, vec2);
 
       vsr.allocateNew();
@@ -91,8 +92,8 @@ public class TestVectorSchemaRoot {
   }
 
   private VectorSchemaRoot createBatch() {
-    FieldType varCharType = new FieldType(true, new ArrowType.Utf8(), /*dictionary=*/ null);
-    FieldType listType = new FieldType(true, new ArrowType.List(), /*dictionary=*/ null);
+    FieldType varCharType = new FieldType(true, new ArrowType.Utf8(), /*dictionary=*/null);
+    FieldType listType = new FieldType(true, new ArrowType.List(), /*dictionary=*/null);
 
     // create the schema
     List<Field> schemaFields = new ArrayList<>();
@@ -156,8 +157,8 @@ public class TestVectorSchemaRoot {
   @Test
   public void testAddVector() {
     try (final IntVector intVector1 = new IntVector("intVector1", allocator);
-        final IntVector intVector2 = new IntVector("intVector2", allocator);
-        final IntVector intVector3 = new IntVector("intVector3", allocator); ) {
+         final IntVector intVector2 = new IntVector("intVector2", allocator);
+         final IntVector intVector3 = new IntVector("intVector3", allocator);) {
 
       VectorSchemaRoot original = new VectorSchemaRoot(Arrays.asList(intVector1, intVector2));
       assertEquals(2, original.getFieldVectors().size());
@@ -175,7 +176,7 @@ public class TestVectorSchemaRoot {
   public void testRemoveVector() {
     try (final IntVector intVector1 = new IntVector("intVector1", allocator);
         final IntVector intVector2 = new IntVector("intVector2", allocator);
-        final IntVector intVector3 = new IntVector("intVector3", allocator); ) {
+        final IntVector intVector3 = new IntVector("intVector3", allocator);) {
 
       VectorSchemaRoot original =
           new VectorSchemaRoot(Arrays.asList(intVector1, intVector2, intVector3));
@@ -194,7 +195,7 @@ public class TestVectorSchemaRoot {
   @Test
   public void testSlice() {
     try (final IntVector intVector = new IntVector("intVector", allocator);
-        final Float4Vector float4Vector = new Float4Vector("float4Vector", allocator)) {
+         final Float4Vector float4Vector = new Float4Vector("float4Vector", allocator)) {
       final int numRows = 10;
       intVector.setValueCount(numRows);
       float4Vector.setValueCount(numRows);
@@ -203,8 +204,7 @@ public class TestVectorSchemaRoot {
         float4Vector.setSafe(i, i + 0.1f);
       }
 
-      final VectorSchemaRoot original =
-          new VectorSchemaRoot(Arrays.asList(intVector, float4Vector));
+      final VectorSchemaRoot original = new VectorSchemaRoot(Arrays.asList(intVector, float4Vector));
 
       for (int sliceIndex = 0; sliceIndex < numRows; sliceIndex++) {
         for (int sliceLength = 0; sliceIndex + sliceLength <= numRows; sliceLength++) {
@@ -226,32 +226,27 @@ public class TestVectorSchemaRoot {
     }
   }
 
-  @Test
+  @Test(expected = IllegalArgumentException.class)
   public void testSliceWithInvalidParam() {
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> {
-          try (final IntVector intVector = new IntVector("intVector", allocator);
-              final Float4Vector float4Vector = new Float4Vector("float4Vector", allocator)) {
-            intVector.setValueCount(10);
-            float4Vector.setValueCount(10);
-            for (int i = 0; i < 10; i++) {
-              intVector.setSafe(i, i);
-              float4Vector.setSafe(i, i + 0.1f);
-            }
-            final VectorSchemaRoot original =
-                new VectorSchemaRoot(Arrays.asList(intVector, float4Vector));
+    try (final IntVector intVector = new IntVector("intVector", allocator);
+         final Float4Vector float4Vector = new Float4Vector("float4Vector", allocator)) {
+      intVector.setValueCount(10);
+      float4Vector.setValueCount(10);
+      for (int i = 0; i < 10; i++) {
+        intVector.setSafe(i, i);
+        float4Vector.setSafe(i, i + 0.1f);
+      }
+      final VectorSchemaRoot original = new VectorSchemaRoot(Arrays.asList(intVector, float4Vector));
 
-            original.slice(0, 20);
-          }
-        });
+      original.slice(0, 20);
+    }
   }
 
   @Test
   public void testEquals() {
     try (final IntVector intVector1 = new IntVector("intVector1", allocator);
-        final IntVector intVector2 = new IntVector("intVector2", allocator);
-        final IntVector intVector3 = new IntVector("intVector3", allocator); ) {
+         final IntVector intVector2 = new IntVector("intVector2", allocator);
+         final IntVector intVector3 = new IntVector("intVector3", allocator);) {
 
       intVector1.setValueCount(5);
       for (int i = 0; i < 5; i++) {
@@ -261,7 +256,8 @@ public class TestVectorSchemaRoot {
       VectorSchemaRoot root1 =
           new VectorSchemaRoot(Arrays.asList(intVector1, intVector2, intVector3));
 
-      VectorSchemaRoot root2 = new VectorSchemaRoot(Arrays.asList(intVector1, intVector2));
+      VectorSchemaRoot root2 =
+          new VectorSchemaRoot(Arrays.asList(intVector1, intVector2));
 
       VectorSchemaRoot root3 =
           new VectorSchemaRoot(Arrays.asList(intVector1, intVector2, intVector3));
@@ -278,8 +274,8 @@ public class TestVectorSchemaRoot {
   @Test
   public void testApproxEquals() {
     try (final Float4Vector float4Vector1 = new Float4Vector("floatVector", allocator);
-        final Float4Vector float4Vector2 = new Float4Vector("floatVector", allocator);
-        final Float4Vector float4Vector3 = new Float4Vector("floatVector", allocator); ) {
+         final Float4Vector float4Vector2 = new Float4Vector("floatVector", allocator);
+         final Float4Vector float4Vector3 = new Float4Vector("floatVector", allocator);) {
 
       float4Vector1.setValueCount(5);
       float4Vector2.setValueCount(5);
@@ -291,11 +287,14 @@ public class TestVectorSchemaRoot {
         float4Vector3.set(i, i + epsilon / 2);
       }
 
-      VectorSchemaRoot root1 = new VectorSchemaRoot(Arrays.asList(float4Vector1));
+      VectorSchemaRoot root1 =
+          new VectorSchemaRoot(Arrays.asList(float4Vector1));
 
-      VectorSchemaRoot root2 = new VectorSchemaRoot(Arrays.asList(float4Vector2));
+      VectorSchemaRoot root2 =
+          new VectorSchemaRoot(Arrays.asList(float4Vector2));
 
-      VectorSchemaRoot root3 = new VectorSchemaRoot(Arrays.asList(float4Vector3));
+      VectorSchemaRoot root3 =
+          new VectorSchemaRoot(Arrays.asList(float4Vector3));
 
       assertFalse(root1.approxEquals(root2));
       assertTrue(root1.approxEquals(root3));
@@ -308,13 +307,10 @@ public class TestVectorSchemaRoot {
 
   @Test
   public void testSchemaSync() {
-    // create vector schema root
+    //create vector schema root
     try (VectorSchemaRoot schemaRoot = createBatch()) {
-      Schema newSchema =
-          new Schema(
-              schemaRoot.getFieldVectors().stream()
-                  .map(vec -> vec.getField())
-                  .collect(Collectors.toList()));
+      Schema newSchema = new Schema(
+              schemaRoot.getFieldVectors().stream().map(vec -> vec.getField()).collect(Collectors.toList()));
 
       assertNotEquals(newSchema, schemaRoot.getSchema());
       assertTrue(schemaRoot.syncSchema());

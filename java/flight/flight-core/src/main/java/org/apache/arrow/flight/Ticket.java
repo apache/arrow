@@ -14,15 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight;
 
-import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+
 import org.apache.arrow.flight.impl.Flight;
 
-/** Endpoint for a particular stream. */
+import com.google.protobuf.ByteString;
+
+/**
+ * Endpoint for a particular stream.
+ */
 public class Ticket {
   private final byte[] bytes;
 
@@ -40,14 +45,15 @@ public class Ticket {
   }
 
   Flight.Ticket toProtocol() {
-    return Flight.Ticket.newBuilder().setTicket(ByteString.copyFrom(bytes)).build();
+    return Flight.Ticket.newBuilder()
+        .setTicket(ByteString.copyFrom(bytes))
+        .build();
   }
 
   /**
    * Get the serialized form of this protocol message.
    *
-   * <p>Intended to help interoperability by allowing non-Flight services to still return Flight
-   * types.
+   * <p>Intended to help interoperability by allowing non-Flight services to still return Flight types.
    */
   public ByteBuffer serialize() {
     return ByteBuffer.wrap(toProtocol().toByteArray());
@@ -56,8 +62,7 @@ public class Ticket {
   /**
    * Parse the serialized form of this protocol message.
    *
-   * <p>Intended to help interoperability by allowing Flight clients to obtain stream info from
-   * non-Flight services.
+   * <p>Intended to help interoperability by allowing Flight clients to obtain stream info from non-Flight services.
    *
    * @param serialized The serialized form of the Ticket, as returned by {@link #serialize()}.
    * @return The deserialized Ticket.
@@ -92,4 +97,6 @@ public class Ticket {
     }
     return true;
   }
+
+
 }

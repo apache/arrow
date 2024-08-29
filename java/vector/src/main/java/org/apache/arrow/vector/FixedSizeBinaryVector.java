@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
@@ -34,17 +35,18 @@ import org.apache.arrow.vector.util.TransferPair;
 import org.apache.arrow.vector.validate.ValidateUtil;
 
 /**
- * FixedSizeBinaryVector implements a fixed width vector of binary values which could be null. A
- * validity buffer (bit vector) is maintained to track which elements in the vector are null.
+ * FixedSizeBinaryVector implements a fixed width vector of
+ * binary values which could be null. A validity buffer (bit vector) is
+ * maintained to track which elements in the vector are null.
  */
-public class FixedSizeBinaryVector extends BaseFixedWidthVector
-    implements ValueIterableVector<byte[]> {
+public class FixedSizeBinaryVector extends BaseFixedWidthVector {
   private final int byteWidth;
 
   /**
-   * Instantiate a FixedSizeBinaryVector. This doesn't allocate any memory for the data in vector.
+   * Instantiate a FixedSizeBinaryVector. This doesn't allocate any memory for
+   * the data in vector.
    *
-   * @param name name of the vector
+   * @param name      name of the vector
    * @param allocator allocator for memory management.
    * @param byteWidth byte width of the binary values
    */
@@ -53,9 +55,10 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector
   }
 
   /**
-   * Instantiate a FixedSizeBinaryVector. This doesn't allocate any memory for the data in vector.
+   * Instantiate a FixedSizeBinaryVector. This doesn't allocate any memory for
+   * the data in vector.
    *
-   * @param name name of the vector
+   * @param name      name of the vector
    * @param fieldType type of Field materialized by this vector
    * @param allocator allocator for memory management.
    */
@@ -64,7 +67,8 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector
   }
 
   /**
-   * Instantiate a FixedSizeBinaryVector. This doesn't allocate any memory for the data in vector.
+   * Instantiate a FixedSizeBinaryVector. This doesn't allocate any memory for
+   * the data in vector.
    *
    * @param field field materialized by this vector
    * @param allocator allocator for memory management.
@@ -80,7 +84,8 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector
   }
 
   /**
-   * Get minor type for this vector. The vector holds values belonging to a particular type.
+   * Get minor type for this vector. The vector holds values belonging
+   * to a particular type.
    *
    * @return {@link org.apache.arrow.vector.types.Types.MinorType}
    */
@@ -89,11 +94,12 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector
     return MinorType.FIXEDSIZEBINARY;
   }
 
+
   /*----------------------------------------------------------------*
-  |                                                                |
-  |          vector value retrieval methods                        |
-  |                                                                |
-  *----------------------------------------------------------------*/
+   |                                                                |
+   |          vector value retrieval methods                        |
+   |                                                                |
+   *----------------------------------------------------------------*/
 
   /**
    * Get the element at the given index from the vector.
@@ -112,8 +118,8 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector
   }
 
   /**
-   * Read the value at the given position to the given output buffer. The caller is responsible for
-   * checking for nullity first.
+   * Read the value at the given position to the given output buffer.
+   * The caller is responsible for checking for nullity first.
    *
    * @param index position of element.
    * @param buffer the buffer to write into.
@@ -124,8 +130,9 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector
   }
 
   /**
-   * Get the element at the given index from the vector and sets the state in holder. If element at
-   * given index is null, holder.isSet will be zero.
+   * Get the element at the given index from the vector and
+   * sets the state in holder. If element at given index
+   * is null, holder.isSet will be zero.
    *
    * @param index position of element
    * @param holder nullable holder to carry the buffer
@@ -156,11 +163,12 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector
     return byteWidth;
   }
 
+
   /*----------------------------------------------------------------*
-  |                                                                |
-  |          vector value setter methods                           |
-  |                                                                |
-  *----------------------------------------------------------------*/
+   |                                                                |
+   |          vector value setter methods                           |
+   |                                                                |
+   *----------------------------------------------------------------*/
 
   /** Sets the value at index to the provided one. */
   public void set(int index, byte[] value) {
@@ -172,15 +180,17 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector
   }
 
   /**
-   * Same as {@link #set(int, byte[])} but reallocates if <code>index</code> is larger than
-   * capacity.
+   * Same as {@link #set(int, byte[])} but reallocates if <code>index</code>
+   * is larger than capacity.
    */
   public void setSafe(int index, byte[] value) {
     handleSafe(index);
     set(index, value);
   }
 
-  /** Sets the value if isSet is positive, otherwise sets the index to null/invalid. */
+  /**
+   * Sets the value if isSet is positive, otherwise sets the index to null/invalid.
+   */
   public void set(int index, int isSet, byte[] value) {
     if (isSet > 0) {
       set(index, value);
@@ -197,7 +207,7 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector
   /**
    * Set the element at the given index to the given value.
    *
-   * @param index position of element
+   * @param index  position of element
    * @param buffer ArrowBuf containing binary value.
    */
   public void set(int index, ArrowBuf buffer) {
@@ -208,10 +218,11 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector
   }
 
   /**
-   * Same as {@link #set(int, ArrowBuf)} except that it handles the case when index is greater than
-   * or equal to existing value capacity {@link #getValueCapacity()}.
+   * Same as {@link #set(int, ArrowBuf)} except that it handles the
+   * case when index is greater than or equal to existing
+   * value capacity {@link #getValueCapacity()}.
    *
-   * @param index position of element
+   * @param index  position of element
    * @param buffer ArrowBuf containing binary value.
    */
   public void setSafe(int index, ArrowBuf buffer) {
@@ -222,7 +233,7 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector
   /**
    * Set the element at the given index to the given value.
    *
-   * @param index position of element
+   * @param index  position of element
    * @param buffer ArrowBuf containing binary value.
    */
   public void set(int index, int isSet, ArrowBuf buffer) {
@@ -234,10 +245,11 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector
   }
 
   /**
-   * Same as {@link #set(int, ArrowBuf)} except that it handles the case when index is greater than
-   * or equal to existing value capacity {@link #getValueCapacity()}.
+   * Same as {@link #set(int, ArrowBuf)} except that it handles the
+   * case when index is greater than or equal to existing
+   * value capacity {@link #getValueCapacity()}.
    *
-   * @param index position of element
+   * @param index  position of element
    * @param buffer ArrowBuf containing binary value.
    */
   public void setSafe(int index, int isSet, ArrowBuf buffer) {
@@ -246,28 +258,27 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector
   }
 
   /**
-   * Set the variable length element at the specified index to the data buffer supplied in the
-   * holder.
+   * Set the variable length element at the specified index to the data
+   * buffer supplied in the holder.
    *
-   * @param index position of the element to set
-   * @param holder holder that carries data buffer.
+   * @param index   position of the element to set
+   * @param holder  holder that carries data buffer.
    */
   public void set(int index, FixedSizeBinaryHolder holder) {
     if (this.byteWidth != holder.byteWidth) {
       throw new IllegalArgumentException(
-          String.format(
-              "holder.byteWidth: %d not equal to vector byteWidth: %d",
-              holder.byteWidth, this.byteWidth));
+          String.format("holder.byteWidth: %d not equal to vector byteWidth: %d", holder.byteWidth, this.byteWidth));
     }
     set(index, holder.buffer);
   }
 
   /**
-   * Same as {@link #set(int, FixedSizeBinaryHolder)} except that it handles the case where index
-   * and length of new element are beyond the existing capacity of the vector.
+   * Same as {@link #set(int, FixedSizeBinaryHolder)} except that it handles the
+   * case where index and length of new element are beyond the existing
+   * capacity of the vector.
    *
-   * @param index position of the element to set
-   * @param holder holder that carries data buffer.
+   * @param index   position of the element to set
+   * @param holder  holder that carries data buffer.
    */
   public void setSafe(int index, FixedSizeBinaryHolder holder) {
     handleSafe(index);
@@ -275,20 +286,18 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector
   }
 
   /**
-   * Set the variable length element at the specified index to the data buffer supplied in the
-   * holder.
+   * Set the variable length element at the specified index to the data
+   * buffer supplied in the holder.
    *
-   * @param index position of the element to set
-   * @param holder holder that carries data buffer.
+   * @param index   position of the element to set
+   * @param holder  holder that carries data buffer.
    */
   public void set(int index, NullableFixedSizeBinaryHolder holder) {
     if (holder.isSet < 0) {
       throw new IllegalArgumentException("holder has a negative isSet value");
     } else if (this.byteWidth != holder.byteWidth) {
       throw new IllegalArgumentException(
-          String.format(
-              "holder.byteWidth: %d not equal to vector byteWidth: %d",
-              holder.byteWidth, this.byteWidth));
+          String.format("holder.byteWidth: %d not equal to vector byteWidth: %d", holder.byteWidth, this.byteWidth));
     } else if (holder.isSet > 0) {
       set(index, holder.buffer);
     } else {
@@ -297,11 +306,12 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector
   }
 
   /**
-   * Same as {@link #set(int, NullableFixedSizeBinaryHolder)} except that it handles the case where
-   * index and length of new element are beyond the existing capacity of the vector.
+   * Same as {@link #set(int, NullableFixedSizeBinaryHolder)} except that it handles the
+   * case where index and length of new element are beyond the existing
+   * capacity of the vector.
    *
-   * @param index position of the element to set
-   * @param holder holder that carries data buffer.
+   * @param index   position of the element to set
+   * @param holder  holder that carries data buffer.
    */
   public void setSafe(int index, NullableFixedSizeBinaryHolder holder) {
     handleSafe(index);
@@ -309,7 +319,8 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector
   }
 
   /**
-   * Given a data buffer, get the value stored at a particular position in the vector.
+   * Given a data buffer, get the value stored at a particular position
+   * in the vector.
    *
    * <p>This method should not be used externally.
    *
@@ -328,29 +339,25 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector
     for (int i = 0; i < getValueCount(); ++i) {
       byte[] value = get(i);
       if (value != null) {
-        ValidateUtil.validateOrThrow(
-            value.length == byteWidth,
-            "Invalid value for FixedSizeBinaryVector at position "
-                + i
-                + ". The length was "
-                + value.length
-                + " but the length of each element should be "
-                + byteWidth
-                + ".");
+        ValidateUtil.validateOrThrow(value.length == byteWidth,
+            "Invalid value for FixedSizeBinaryVector at position " + i + ". The length was " +
+                value.length + " but the length of each element should be " + byteWidth + ".");
       }
     }
   }
 
   /*----------------------------------------------------------------*
-  |                                                                |
-  |                      vector transfer                           |
-  |                                                                |
-  *----------------------------------------------------------------*/
+   |                                                                |
+   |                      vector transfer                           |
+   |                                                                |
+   *----------------------------------------------------------------*/
+
 
   /**
-   * Construct a TransferPair comprising this and a target vector of the same type.
+   * Construct a TransferPair comprising this and a target vector of
+   * the same type.
    *
-   * @param ref name of the target vector
+   * @param ref       name of the target vector
    * @param allocator allocator for the target vector
    * @return {@link TransferPair}
    */
@@ -360,7 +367,8 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector
   }
 
   /**
-   * Construct a TransferPair comprising this and a target vector of the same type.
+   * Construct a TransferPair comprising this and a target vector of
+   * the same type.
    *
    * @param field Field object used by the target vector
    * @param allocator allocator for the target vector

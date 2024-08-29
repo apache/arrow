@@ -78,8 +78,7 @@ cmake --build . --target INSTALL --config Release || exit /B 1
 
 @rem Test Arrow C++ library
 
-ctest --build-config Release ^
-      --output-on-failure ^
+ctest --output-on-failure ^
       --parallel %NUMBER_OF_PROCESSORS% ^
       --timeout 300 || exit /B 1
 

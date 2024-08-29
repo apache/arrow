@@ -27,10 +27,8 @@
 #include "arrow/array/util.h"
 #include "arrow/chunked_array.h"
 #include "arrow/config.h"
-#include "arrow/extension/bool8.h"
 #ifdef ARROW_JSON
 #include "arrow/extension/fixed_shape_tensor.h"
-#include "arrow/extension/opaque.h"
 #endif
 #include "arrow/status.h"
 #include "arrow/type.h"
@@ -43,7 +41,7 @@ using internal::checked_cast;
 
 DataTypeLayout ExtensionType::layout() const { return storage_type_->layout(); }
 
-std::string ExtensionType::ToString(bool show_metadata) const {
+std::string ExtensionType::ToString() const {
   std::stringstream ss;
   ss << "extension<" << this->extension_name() << ">";
   return ss.str();
@@ -144,21 +142,15 @@ static std::once_flag registry_initialized;
 namespace internal {
 
 static void CreateGlobalRegistry() {
-  // Register canonical extension types
-
   g_registry = std::make_shared<ExtensionTypeRegistryImpl>();
-  std::vector<std::shared_ptr<DataType>> ext_types{extension::bool8()};
 
 #ifdef ARROW_JSON
-  ext_types.push_back(extension::fixed_shape_tensor(int64(), {}));
-  ext_types.push_back(extension::opaque(null(), "", ""));
-#endif
-
   // Register canonical extension types
-  for (const auto& ext_type : ext_types) {
-    ARROW_CHECK_OK(
-        g_registry->RegisterType(checked_pointer_cast<ExtensionType>(ext_type)));
-  }
+  auto ext_type =
+      checked_pointer_cast<ExtensionType>(extension::fixed_shape_tensor(int64(), {}));
+
+  ARROW_CHECK_OK(g_registry->RegisterType(ext_type));
+#endif
 }
 
 }  // namespace internal

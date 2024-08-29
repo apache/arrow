@@ -14,10 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.gandiva.evaluator;
 
 import java.util.ArrayList;
 import java.util.List;
+
 import org.apache.arrow.gandiva.exceptions.EvaluatorClosedException;
 import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.expression.ArrowTypeHelper;
@@ -57,7 +59,7 @@ public class Filter {
    * Filter::Evaluate() against a RecordBatch to evaluate the filter on this record batch
    *
    * @param schema Table schema. The field names in the schema should match the fields used to
-   *     create the TreeNodes
+   *               create the TreeNodes
    * @param condition condition to be evaluated against data
    * @return A native filter object that can be used to invoke on a RecordBatch
    */
@@ -70,14 +72,13 @@ public class Filter {
    * Filter::Evaluate() against a RecordBatch to evaluate the filter on this record batch
    *
    * @param schema Table schema. The field names in the schema should match the fields used to
-   *     create the TreeNodes
+   *               create the TreeNodes
    * @param condition condition to be evaluated against data
    * @param configOptions ConfigOptions parameter
    * @return A native filter object that can be used to invoke on a RecordBatch
    */
-  public static Filter make(
-      Schema schema, Condition condition, ConfigurationBuilder.ConfigOptions configOptions)
-      throws GandivaException {
+  public static Filter make(Schema schema, Condition condition, ConfigurationBuilder.ConfigOptions configOptions)
+          throws GandivaException {
     return make(schema, condition, JniLoader.getConfiguration(configOptions));
   }
 
@@ -86,19 +87,15 @@ public class Filter {
    * Filter::Evaluate() against a RecordBatch to evaluate the filter on this record batch
    *
    * @param schema Table schema. The field names in the schema should match the fields used to
-   *     create the TreeNodes
+   *               create the TreeNodes
    * @param condition condition to be evaluated against data
    * @param optimize Flag to choose if the generated llvm code is to be optimized
    * @return A native filter object that can be used to invoke on a RecordBatch
    */
   @Deprecated
-  public static Filter make(Schema schema, Condition condition, boolean optimize)
-      throws GandivaException {
-    return make(
-        schema,
-        condition,
-        JniLoader.getConfiguration(
-            (new ConfigurationBuilder.ConfigOptions()).withOptimize(optimize)));
+  public static Filter make(Schema schema, Condition condition, boolean optimize) throws GandivaException {
+    return make(schema, condition, JniLoader.getConfiguration((new ConfigurationBuilder.ConfigOptions())
+            .withOptimize(optimize)));
   }
 
   /**
@@ -106,7 +103,7 @@ public class Filter {
    * Filter::Evaluate() against a RecordBatch to evaluate the filter on this record batch
    *
    * @param schema Table schema. The field names in the schema should match the fields used to
-   *     create the TreeNodes
+   *               create the TreeNodes
    * @param condition condition to be evaluated against data
    * @param configurationId Custom configuration created through config builder.
    * @return A native evaluator object that can be used to invoke these projections on a RecordBatch
@@ -117,8 +114,8 @@ public class Filter {
     GandivaTypes.Condition conditionBuf = condition.toProtobuf();
     GandivaTypes.Schema schemaBuf = ArrowTypeHelper.arrowSchemaToProtobuf(schema);
     JniWrapper wrapper = JniLoader.getInstance().getWrapper();
-    long moduleId =
-        wrapper.buildFilter(schemaBuf.toByteArray(), conditionBuf.toByteArray(), configurationId);
+    long moduleId = wrapper.buildFilter(schemaBuf.toByteArray(),
+        conditionBuf.toByteArray(), configurationId);
     logger.debug("Created module for the filter with id {}", moduleId);
     return new Filter(wrapper, moduleId, schema);
   }
@@ -131,10 +128,7 @@ public class Filter {
    */
   public void evaluate(ArrowRecordBatch recordBatch, SelectionVector selectionVector)
       throws GandivaException {
-    evaluate(
-        recordBatch.getLength(),
-        recordBatch.getBuffers(),
-        recordBatch.getBuffersLayout(),
+    evaluate(recordBatch.getLength(), recordBatch.getBuffers(), recordBatch.getBuffersLayout(),
         selectionVector);
   }
 
@@ -146,8 +140,8 @@ public class Filter {
    * @param buffers List of input arrow buffers
    * @param selectionVector Result of applying the filter on the data
    */
-  public void evaluate(int numRows, List<ArrowBuf> buffers, SelectionVector selectionVector)
-      throws GandivaException {
+  public void evaluate(int numRows, List<ArrowBuf> buffers,
+      SelectionVector selectionVector) throws GandivaException {
     List<ArrowBuffer> buffersLayout = new ArrayList<>();
     long offset = 0;
     for (ArrowBuf arrowBuf : buffers) {
@@ -158,21 +152,14 @@ public class Filter {
     evaluate(numRows, buffers, buffersLayout, selectionVector);
   }
 
-  private void evaluate(
-      int numRows,
-      List<ArrowBuf> buffers,
-      List<ArrowBuffer> buffersLayout,
-      SelectionVector selectionVector)
-      throws GandivaException {
+  private void evaluate(int numRows, List<ArrowBuf> buffers, List<ArrowBuffer> buffersLayout,
+      SelectionVector selectionVector) throws GandivaException {
     if (this.closed) {
       throw new EvaluatorClosedException();
     }
     if (selectionVector.getMaxRecords() < numRows) {
-      logger.error(
-          "selectionVector has capacity for "
-              + selectionVector.getMaxRecords()
-              + " rows, minimum required "
-              + numRows);
+      logger.error("selectionVector has capacity for " + selectionVector.getMaxRecords() +
+          " rows, minimum required " + numRows);
       throw new GandivaException("SelectionVector too small");
     }
 
@@ -189,21 +176,18 @@ public class Filter {
       bufSizes[idx++] = bufLayout.getSize();
     }
 
-    int numRecords =
-        wrapper.evaluateFilter(
-            this.moduleId,
-            numRows,
-            bufAddrs,
-            bufSizes,
-            selectionVector.getType().getNumber(),
-            selectionVector.getBuffer().memoryAddress(),
-            selectionVector.getBuffer().capacity());
+    int numRecords = wrapper.evaluateFilter(this.moduleId, numRows,
+        bufAddrs, bufSizes,
+        selectionVector.getType().getNumber(),
+        selectionVector.getBuffer().memoryAddress(), selectionVector.getBuffer().capacity());
     if (numRecords >= 0) {
       selectionVector.setRecordCount(numRecords);
     }
   }
 
-  /** Closes the LLVM module representing this filter. */
+  /**
+   * Closes the LLVM module representing this filter.
+   */
   public void close() throws GandivaException {
     if (this.closed) {
       return;

@@ -14,28 +14,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.memory;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import org.apache.arrow.memory.AllocationListener;
+import org.apache.arrow.memory.AllocationOutcome;
+import org.apache.arrow.memory.ArrowBuf;
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.ForeignAllocation;
+import org.apache.arrow.memory.OutOfMemoryException;
+import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.memory.util.MemoryUtil;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
 
 public class TestForeignAllocation {
   BufferAllocator allocator;
 
-  @BeforeEach
+  @Before
   public void before() {
     allocator = new RootAllocator();
   }
 
-  @AfterEach
+  @After
   public void after() {
     allocator.close();
   }
@@ -83,28 +91,25 @@ public class TestForeignAllocation {
     assertEquals(16, listener.getTotalMem());
   }
 
-  @Test
+  @Test(expected = OutOfMemoryException.class)
   public void wrapForeignAllocationFailedWithAllocationListener() {
-    assertThrows(
-        OutOfMemoryException.class,
-        () -> {
-          final long bufferSize = 16;
-          final long limit = bufferSize - 1;
-          final CountingAllocationListener listener = new CountingAllocationListener();
-          try (BufferAllocator listenedAllocator =
-              allocator.newChildAllocator("child", listener, 0L, limit)) {
-            UnsafeForeignAllocation allocation = new UnsafeForeignAllocation(bufferSize);
-            try {
-              assertEquals(0, listenedAllocator.getAllocatedMemory());
-              ArrowBuf buf = listenedAllocator.wrapForeignAllocation(allocation);
-              assertEquals(bufferSize, buf.capacity());
-              buf.close();
-              assertTrue(allocation.released);
-            } finally {
-              allocation.release0();
-            }
-          }
-        });
+    final long bufferSize = 16;
+    final long limit = bufferSize - 1;
+
+    final CountingAllocationListener listener = new CountingAllocationListener();
+    try (BufferAllocator listenedAllocator =
+        allocator.newChildAllocator("child", listener, 0L, limit)) {
+      UnsafeForeignAllocation allocation = new UnsafeForeignAllocation(bufferSize);
+      try {
+        assertEquals(0, listenedAllocator.getAllocatedMemory());
+        ArrowBuf buf = listenedAllocator.wrapForeignAllocation(allocation);
+        assertEquals(bufferSize, buf.capacity());
+        buf.close();
+        assertTrue(allocation.released);
+      } finally {
+        allocation.release0();
+      }
+    }
   }
 
   @Test
@@ -113,14 +118,13 @@ public class TestForeignAllocation {
     final long limit = 2 * bufferSize - 1;
 
     final List<ArrowBuf> buffersToBeFreed = new ArrayList<>();
-    final AllocationListener listener =
-        new AllocationListener() {
-          @Override
-          public boolean onFailedAllocation(long size, AllocationOutcome outcome) {
-            buffersToBeFreed.forEach(ArrowBuf::close);
-            return true;
-          }
-        };
+    final AllocationListener listener = new AllocationListener() {
+      @Override
+      public boolean onFailedAllocation(long size, AllocationOutcome outcome) {
+        buffersToBeFreed.forEach(ArrowBuf::close);
+        return true;
+      }
+    };
 
     try (BufferAllocator listenedAllocator =
         allocator.newChildAllocator("child", listener, 0L, limit)) {
@@ -129,8 +133,7 @@ public class TestForeignAllocation {
       UnsafeForeignAllocation allocation = new UnsafeForeignAllocation(bufferSize);
       try (final ArrowBuf buffer2 = listenedAllocator.wrapForeignAllocation(allocation)) {
         assertEquals(bufferSize, buffer2.capacity());
-        assertEquals(
-            0, buffer1.getReferenceManager().getRefCount()); // buffer1 was closed by listener
+        assertEquals(0, buffer1.getReferenceManager().getRefCount()); // buffer1 was closed by listener
       }
     }
   }
@@ -139,13 +142,13 @@ public class TestForeignAllocation {
     boolean released = false;
 
     public UnsafeForeignAllocation(long bufferSize) {
-      super(bufferSize, MemoryUtil.allocateMemory(bufferSize));
+      super(bufferSize, MemoryUtil.UNSAFE.allocateMemory(bufferSize));
     }
 
     @Override
     protected void release0() {
       if (!released) {
-        MemoryUtil.freeMemory(memoryAddress());
+        MemoryUtil.UNSAFE.freeMemory(memoryAddress());
         released = true;
       }
     }

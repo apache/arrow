@@ -1,0 +1,67 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+{% import 'macros.jinja' as macros with context %}
+
+jobs:
+- job: linux
+  pool:
+    vmImage: ubuntu-latest
+  timeoutInMinutes: 360
+  {% if env is defined %}
+  variables:
+  {% for key, value in env.items() %}
+    {{ key }}: {{ value }}
+  {% endfor %}
+  {% endif %}
+
+  steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.8'
+
+  - script: |
+      git clone --no-checkout {{ arrow.remote }} arrow
+      git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
+      git -C arrow checkout FETCH_HEAD
+      git -C arrow submodule update --init --recursive
+      git -C arrow remote add upstream https://github.com/apache/arrow.git
+    displayName: Clone arrow
+
+  - script: pip install -e arrow/dev/archery[docker]
+    displayName: Setup Archery
+
+  - script: |
+      archery docker run \
+        -e ARROW_DOCS_VERSION="{{ arrow.no_rc_version }}" \
+        -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" \
+        {{ flags|default("") }} \
+        {{ image }} \
+        {{ command|default("") }}
+    displayName: Execute Docker Build
+    env:
+    {{ macros.azure_set_sccache_envvars()|indent(4) }}
+
+  {% if post_script is defined %}
+  - script: |
+      {{ post_script|indent(6) }}
+    displayName: Post Script
+  {% endif %}
+
+  {% if artifacts is defined %}
+  {{ macros.azure_upload_releases(artifacts) }}
+  {% endif %}

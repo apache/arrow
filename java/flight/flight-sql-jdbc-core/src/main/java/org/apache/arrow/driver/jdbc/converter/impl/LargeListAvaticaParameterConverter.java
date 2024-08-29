@@ -14,9 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.driver.jdbc.converter.impl;
 
 import java.util.List;
+
 import org.apache.arrow.driver.jdbc.utils.AvaticaParameterBinder;
 import org.apache.arrow.memory.util.LargeMemoryUtil;
 import org.apache.arrow.vector.FieldVector;
@@ -26,10 +28,13 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.calcite.avatica.AvaticaParameter;
 import org.apache.calcite.avatica.remote.TypedValue;
 
-/** AvaticaParameterConverter for LargeList Arrow types. */
+/**
+ * AvaticaParameterConverter for LargeList Arrow types.
+ */
 public class LargeListAvaticaParameterConverter extends BaseAvaticaParameterConverter {
 
-  public LargeListAvaticaParameterConverter(ArrowType.LargeList type) {}
+  public LargeListAvaticaParameterConverter(ArrowType.LargeList type) {
+  }
 
   @Override
   public boolean bindParameter(FieldVector vector, TypedValue typedValue, int index) {
@@ -50,12 +55,9 @@ public class LargeListAvaticaParameterConverter extends BaseAvaticaParameterConv
             throw new UnsupportedOperationException("Can't set null on non-nullable child list");
           }
         } else {
-          childVector
-              .getField()
-              .getType()
-              .accept(
+          childVector.getField().getType().accept(
                   new AvaticaParameterBinder.BinderVisitor(
-                      childVector, TypedValue.ofSerial(typedValue.componentType, val), childIndex));
+                          childVector, TypedValue.ofSerial(typedValue.componentType, val), childIndex));
         }
       }
       listVector.endValue(index, values.size());

@@ -5,14 +5,24 @@
   "version": "0.2.0",
   "inputs": [
     {
-      "type": "command",
+      "type": "pickString",
+      "default": "src",
       "id": "TEST_TARGET",
-      "command": "shellCommand.execute",
-      "args": {
-        "cwd": "${workspaceFolder}",
-        "description": "The JS version + Module format combination to test (or src to test source files)",
-        "command": "echo \"src\napache-arrow\nts\nes5.cjs\nes5.esm\nes5.umd\nes2015.cjs\nes2015.esm\nes2015.umd\nesnext.cjs\nesnext.esm\nesnext.umd\""
-      }
+      "options": [
+        "src",
+        "apache-arrow",
+        "ts",
+        "es5.cjs",
+        "es5.esm",
+        "es5.umd",
+        "es2015.cjs",
+        "es2015.esm",
+        "es2015.umd",
+        "esnext.cjs",
+        "esnext.esm",
+        "esnext.umd",
+      ],
+      "description": "The JS version + Module format combination to test (or src to test source files)",
     },
     {
       "type": "command",
@@ -40,7 +50,7 @@
       "command": "shellCommand.execute",
       "args": {
         "useSingleResult": "true",
-        "command": "case \"${input:TEST_TARGET}\" in *cjs | *umd) echo '--no-warnings';; *) echo '--experimental-vm-modules';; esac"
+        "command": "case \"${input:TEST_TARGET}\" in *cjs | *umd | apache-arrow) echo '';; *) echo '--experimental-vm-modules';; esac"
       }
     },
   ],

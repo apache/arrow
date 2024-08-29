@@ -23,14 +23,13 @@ import (
 	"io"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v18/arrow"
-	"github.com/apache/arrow/go/v18/arrow/array"
-	"github.com/apache/arrow/go/v18/arrow/endian"
-	"github.com/apache/arrow/go/v18/arrow/internal/debug"
-	"github.com/apache/arrow/go/v18/arrow/internal/dictutils"
-	"github.com/apache/arrow/go/v18/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v18/arrow/memory"
-	"github.com/apache/arrow/go/v18/internal/utils"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/endian"
+	"github.com/apache/arrow/go/v16/arrow/internal/debug"
+	"github.com/apache/arrow/go/v16/arrow/internal/dictutils"
+	"github.com/apache/arrow/go/v16/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v16/arrow/memory"
 )
 
 // Reader reads records from an io.Reader.
@@ -61,7 +60,7 @@ type Reader struct {
 func NewReaderFromMessageReader(r MessageReader, opts ...Option) (reader *Reader, err error) {
 	defer func() {
 		if pErr := recover(); pErr != nil {
-			err = utils.FormatRecoveredError("arrow/ipc: unknown error while reading", pErr)
+			err = fmt.Errorf("arrow/ipc: unknown error while reading: %v", pErr)
 		}
 	}()
 	cfg := newConfig()
@@ -214,7 +213,7 @@ func (r *Reader) getInitialDicts() bool {
 func (r *Reader) next() bool {
 	defer func() {
 		if pErr := recover(); pErr != nil {
-			r.err = utils.FormatRecoveredError("arrow/ipc: unknown error while reading", pErr)
+			r.err = fmt.Errorf("arrow/ipc: unknown error while reading: %v", pErr)
 		}
 	}()
 	if r.schema == nil {

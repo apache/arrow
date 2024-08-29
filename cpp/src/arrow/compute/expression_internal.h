@@ -278,12 +278,9 @@ struct FlattenedAssociativeChain {
 
 inline Result<std::shared_ptr<compute::Function>> GetFunction(
     const Expression::Call& call, compute::ExecContext* exec_context) {
-  ARROW_ASSIGN_OR_RAISE(auto function,
-                        exec_context->func_registry()->GetFunction(call.function_name));
-  if (function.get() != exec_context->func_registry()->cast_function()) {
-    return function;
+  if (call.function_name != "cast") {
+    return exec_context->func_registry()->GetFunction(call.function_name);
   }
-
   // XXX this special case is strange; why not make "cast" a ScalarFunction?
   const TypeHolder& to_type =
       ::arrow::internal::checked_cast<const compute::CastOptions&>(*call.options).to_type;

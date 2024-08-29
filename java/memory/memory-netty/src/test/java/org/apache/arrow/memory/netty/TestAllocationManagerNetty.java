@@ -14,15 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.memory.netty;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.Assert.assertEquals;
 
 import org.apache.arrow.memory.AllocationManager;
 import org.apache.arrow.memory.DefaultAllocationManagerOption;
-import org.junit.jupiter.api.Test;
+import org.junit.Test;
 
-/** Test cases for {@link AllocationManager}. */
+/**
+ * Test cases for {@link AllocationManager}.
+ */
 public class TestAllocationManagerNetty {
 
   @Test

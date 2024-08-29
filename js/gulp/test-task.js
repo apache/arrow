@@ -16,14 +16,14 @@
 // under the License.
 
 import { deleteAsync as del } from 'del';
-import path from 'node:path';
+import path from 'path';
 import { mkdirp } from 'mkdirp';
 import { argv } from './argv.js';
-import { promisify } from 'node:util';
+import { promisify } from 'util';
 import { glob } from 'glob';
-import child_process from 'node:child_process';
+import child_process from 'child_process';
 import { memoizeTask } from './memoize-task.js';
-import fs from 'node:fs';
+import fs from 'fs';
 const readFile = promisify(fs.readFile);
 import asyncDoneSync from 'async-done';
 const asyncDone = promisify(asyncDoneSync);
@@ -31,11 +31,24 @@ const exec = promisify(child_process.exec);
 import xml2js from 'xml2js';
 const parseXML = promisify(xml2js.parseString);
 import { targetAndModuleCombinations, npmPkgName } from './util.js';
-import { createRequire } from 'node:module';
+import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
 
 const jestArgv = [];
+const testFiles = [
+    `test/unit/`,
+    // `test/unit/bit-tests.ts`,
+    // `test/unit/int-tests.ts`,
+    // `test/unit/bn-tests.ts`,
+    // `test/unit/math-tests.ts`,
+    // `test/unit/table-tests.ts`,
+    // `test/unit/generated-data-tests.ts`,
+    // `test/unit/builders/`,
+    // `test/unit/recordbatch/`,
+    // `test/unit/table/`,
+    // `test/unit/ipc/`,
+];
 
 if (argv.verbose) {
     jestArgv.push(`--verbose`);
@@ -67,10 +80,8 @@ export const testTask = ((cache, execArgv, testOptions) => memoizeTask(cache, fu
         args.push(`-c`, `jestconfigs/jest.coverage.config.js`);
     } else {
         const cfgname = [target, format].filter(Boolean).join('.');
-        args.push(`-c`, `jestconfigs/jest.${cfgname}.config.js`);
+        args.push(`-c`, `jestconfigs/jest.${cfgname}.config.js`, ...testFiles);
     }
-    args.push(...(argv._unknown || []).filter((x) => x !== 'test'));
-    args.push(...argv.tests);
     opts.env = {
         ...opts.env,
         TEST_TARGET: target,

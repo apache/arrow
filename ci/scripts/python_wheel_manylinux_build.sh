@@ -123,6 +123,7 @@ cmake \
     -DCMAKE_INSTALL_LIBDIR=lib \
     -DCMAKE_INSTALL_PREFIX=/tmp/arrow-dist \
     -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD} \
+    -DORC_PROTOBUF_EXECUTABLE=${VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/tools/protobuf/protoc \
     -DORC_SOURCE=BUNDLED \
     -DPARQUET_REQUIRE_ENCRYPTION=${PARQUET_REQUIRE_ENCRYPTION} \
     -DVCPKG_MANIFEST_MODE=OFF \
@@ -159,26 +160,6 @@ export CMAKE_PREFIX_PATH=/tmp/arrow-dist
 
 pushd /arrow/python
 python setup.py bdist_wheel
-
-echo "=== Strip symbols from wheel ==="
-mkdir -p dist/temp-fix-wheel
-mv dist/pyarrow-*.whl dist/temp-fix-wheel
-
-pushd dist/temp-fix-wheel
-wheel_name=$(ls pyarrow-*.whl)
-# Unzip and remove old wheel
-unzip $wheel_name
-rm $wheel_name
-for filename in $(ls pyarrow/*.so pyarrow/*.so.*); do
-    echo "Stripping debug symbols from: $filename";
-    strip --strip-debug $filename
-done
-# Zip wheel again after stripping symbols
-zip -r $wheel_name .
-mv $wheel_name ..
-popd
-
-rm -rf dist/temp-fix-wheel
 
 echo "=== (${PYTHON_VERSION}) Tag the wheel with manylinux${MANYLINUX_VERSION} ==="
 auditwheel repair -L . dist/pyarrow-*.whl -w repaired_wheels

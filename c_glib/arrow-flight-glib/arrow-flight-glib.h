@@ -19,8 +19,6 @@
 
 #pragma once
 
-#include <arrow-flight-glib/version.h>
-
 #include <arrow-flight-glib/client.h>
 #include <arrow-flight-glib/common.h>
 #include <arrow-flight-glib/server.h>

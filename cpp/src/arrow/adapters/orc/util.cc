@@ -37,7 +37,6 @@
 
 #include "orc/MemoryPool.hh"
 #include "orc/OrcFile.hh"
-#include "orc/orc-config.hh"
 
 // alias to not interfere with nested orc namespace
 namespace liborc = orc;
@@ -1026,7 +1025,7 @@ Result<std::unique_ptr<liborc::Type>> GetOrcType(const DataType& type) {
         SetAttributes(*it, orc_subtype.get());
         out_type->addStructField(field_name, std::move(orc_subtype));
       }
-      return out_type;
+      return std::move(out_type);
     }
     case Type::type::MAP: {
       const auto& key_field = checked_cast<const MapType&>(type).key_field();
@@ -1048,7 +1047,7 @@ Result<std::unique_ptr<liborc::Type>> GetOrcType(const DataType& type) {
         SetAttributes(arrow_field, orc_subtype.get());
         out_type->addUnionChild(std::move(orc_subtype));
       }
-      return out_type;
+      return std::move(out_type);
     }
     default: {
       return Status::NotImplemented("Unknown or unsupported Arrow type: ",
@@ -1195,7 +1194,7 @@ Result<std::unique_ptr<liborc::Type>> GetOrcType(const Schema& schema) {
     SetAttributes(field, orc_subtype.get());
     out_type->addStructField(field->name(), std::move(orc_subtype));
   }
-  return out_type;
+  return std::move(out_type);
 }
 
 Result<std::shared_ptr<const KeyValueMetadata>> GetFieldMetadata(
@@ -1219,13 +1218,6 @@ Result<std::shared_ptr<Field>> GetArrowField(const std::string& name,
   ARROW_ASSIGN_OR_RAISE(auto arrow_type, GetArrowType(type));
   ARROW_ASSIGN_OR_RAISE(auto metadata, GetFieldMetadata(type));
   return field(name, std::move(arrow_type), nullable, std::move(metadata));
-}
-
-int GetOrcMajorVersion() {
-  std::stringstream orc_version(ORC_VERSION);
-  std::string major_version;
-  std::getline(orc_version, major_version, '.');
-  return std::stoi(major_version);
 }
 
 }  // namespace orc

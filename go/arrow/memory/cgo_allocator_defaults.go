@@ -14,8 +14,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build cgo && ccalloc && !cclog
-// +build cgo,ccalloc,!cclog
+// +build cgo
+// +build ccalloc
+// +build !cclog
 
 package memory
 

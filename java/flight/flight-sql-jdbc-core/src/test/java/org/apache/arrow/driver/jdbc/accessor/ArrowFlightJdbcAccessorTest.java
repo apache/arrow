@@ -14,11 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.driver.jdbc.accessor;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -27,18 +25,21 @@ import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 
-@ExtendWith(MockitoExtension.class)
+import org.junit.Assert;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.Mock;
+import org.mockito.junit.MockitoJUnitRunner;
+
+@RunWith(MockitoJUnitRunner.class)
 public class ArrowFlightJdbcAccessorTest {
 
   static class MockedArrowFlightJdbcAccessor extends ArrowFlightJdbcAccessor {
 
     protected MockedArrowFlightJdbcAccessor() {
-      super(() -> 0, (boolean wasNull) -> {});
+      super(() -> 0, (boolean wasNull) -> {
+      });
     }
 
     @Override
@@ -47,7 +48,8 @@ public class ArrowFlightJdbcAccessorTest {
     }
   }
 
-  @Mock MockedArrowFlightJdbcAccessor accessor;
+  @Mock
+  MockedArrowFlightJdbcAccessor accessor;
 
   @Test
   public void testShouldGetObjectWithByteClassReturnGetByte() throws SQLException {
@@ -56,7 +58,7 @@ public class ArrowFlightJdbcAccessorTest {
 
     when(accessor.getObject(Byte.class)).thenCallRealMethod();
 
-    assertEquals(accessor.getObject(Byte.class), (Object) expected);
+    Assert.assertEquals(accessor.getObject(Byte.class), (Object) expected);
     verify(accessor).getByte();
   }
 
@@ -67,7 +69,7 @@ public class ArrowFlightJdbcAccessorTest {
 
     when(accessor.getObject(Short.class)).thenCallRealMethod();
 
-    assertEquals(accessor.getObject(Short.class), (Object) expected);
+    Assert.assertEquals(accessor.getObject(Short.class), (Object) expected);
     verify(accessor).getShort();
   }
 
@@ -78,7 +80,7 @@ public class ArrowFlightJdbcAccessorTest {
 
     when(accessor.getObject(Integer.class)).thenCallRealMethod();
 
-    assertEquals(accessor.getObject(Integer.class), (Object) expected);
+    Assert.assertEquals(accessor.getObject(Integer.class), (Object) expected);
     verify(accessor).getInt();
   }
 
@@ -89,7 +91,7 @@ public class ArrowFlightJdbcAccessorTest {
 
     when(accessor.getObject(Long.class)).thenCallRealMethod();
 
-    assertEquals(accessor.getObject(Long.class), (Object) expected);
+    Assert.assertEquals(accessor.getObject(Long.class), (Object) expected);
     verify(accessor).getLong();
   }
 
@@ -100,7 +102,7 @@ public class ArrowFlightJdbcAccessorTest {
 
     when(accessor.getObject(Float.class)).thenCallRealMethod();
 
-    assertEquals(accessor.getObject(Float.class), (Object) expected);
+    Assert.assertEquals(accessor.getObject(Float.class), (Object) expected);
     verify(accessor).getFloat();
   }
 
@@ -111,7 +113,7 @@ public class ArrowFlightJdbcAccessorTest {
 
     when(accessor.getObject(Double.class)).thenCallRealMethod();
 
-    assertEquals(accessor.getObject(Double.class), (Object) expected);
+    Assert.assertEquals(accessor.getObject(Double.class), (Object) expected);
     verify(accessor).getDouble();
   }
 
@@ -121,7 +123,7 @@ public class ArrowFlightJdbcAccessorTest {
 
     when(accessor.getObject(Boolean.class)).thenCallRealMethod();
 
-    assertEquals(true, accessor.getObject(Boolean.class));
+    Assert.assertEquals(true, accessor.getObject(Boolean.class));
     verify(accessor).getBoolean();
   }
 
@@ -132,7 +134,7 @@ public class ArrowFlightJdbcAccessorTest {
 
     when(accessor.getObject(BigDecimal.class)).thenCallRealMethod();
 
-    assertEquals(expected, accessor.getObject(BigDecimal.class));
+    Assert.assertEquals(expected, accessor.getObject(BigDecimal.class));
     verify(accessor).getBigDecimal();
   }
 
@@ -143,7 +145,7 @@ public class ArrowFlightJdbcAccessorTest {
 
     when(accessor.getObject(String.class)).thenCallRealMethod();
 
-    assertEquals(expected, accessor.getObject(String.class));
+    Assert.assertEquals(expected, accessor.getObject(String.class));
     verify(accessor).getString();
   }
 
@@ -154,7 +156,7 @@ public class ArrowFlightJdbcAccessorTest {
 
     when(accessor.getObject(byte[].class)).thenCallRealMethod();
 
-    assertArrayEquals(accessor.getObject(byte[].class), expected);
+    Assert.assertArrayEquals(accessor.getObject(byte[].class), expected);
     verify(accessor).getBytes();
   }
 
@@ -165,7 +167,7 @@ public class ArrowFlightJdbcAccessorTest {
 
     when(accessor.getObject(Object.class)).thenCallRealMethod();
 
-    assertEquals(expected, accessor.getObject(Object.class));
+    Assert.assertEquals(expected, accessor.getObject(Object.class));
     verify(accessor).getObject();
   }
 
@@ -179,178 +181,178 @@ public class ArrowFlightJdbcAccessorTest {
     verify(accessor).getObject(objectClass);
   }
 
-  @Test
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetBoolean() throws SQLException {
     when(accessor.getBoolean()).thenCallRealMethod();
-    assertThrows(SQLException.class, () -> accessor.getBoolean());
+    accessor.getBoolean();
   }
 
-  @Test
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetByte() throws SQLException {
     when(accessor.getByte()).thenCallRealMethod();
-    assertThrows(SQLException.class, () -> accessor.getByte());
+    accessor.getByte();
   }
 
-  @Test
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetShort() throws SQLException {
     when(accessor.getShort()).thenCallRealMethod();
-    assertThrows(SQLException.class, () -> accessor.getShort());
+    accessor.getShort();
   }
 
-  @Test
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetInt() throws SQLException {
     when(accessor.getInt()).thenCallRealMethod();
-    assertThrows(SQLException.class, () -> accessor.getInt());
+    accessor.getInt();
   }
 
-  @Test
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetLong() throws SQLException {
     when(accessor.getLong()).thenCallRealMethod();
-    assertThrows(SQLException.class, () -> accessor.getLong());
+    accessor.getLong();
   }
 
-  @Test
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetFloat() throws SQLException {
     when(accessor.getFloat()).thenCallRealMethod();
-    assertThrows(SQLException.class, () -> accessor.getFloat());
+    accessor.getFloat();
   }
 
-  @Test
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetDouble() throws SQLException {
     when(accessor.getDouble()).thenCallRealMethod();
-    assertThrows(SQLException.class, () -> accessor.getDouble());
+    accessor.getDouble();
   }
 
-  @Test
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetBigDecimal() throws SQLException {
     when(accessor.getBigDecimal()).thenCallRealMethod();
-    assertThrows(SQLException.class, () -> accessor.getBigDecimal());
+    accessor.getBigDecimal();
   }
 
-  @Test
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetBytes() throws SQLException {
     when(accessor.getBytes()).thenCallRealMethod();
-    assertThrows(SQLException.class, () -> accessor.getBytes());
+    accessor.getBytes();
   }
 
-  @Test
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetAsciiStream() throws SQLException {
     when(accessor.getAsciiStream()).thenCallRealMethod();
-    assertThrows(SQLException.class, () -> accessor.getAsciiStream());
+    accessor.getAsciiStream();
   }
 
-  @Test
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetUnicodeStream() throws SQLException {
     when(accessor.getUnicodeStream()).thenCallRealMethod();
-    assertThrows(SQLException.class, () -> accessor.getUnicodeStream());
+    accessor.getUnicodeStream();
   }
 
-  @Test
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetBinaryStream() throws SQLException {
     when(accessor.getBinaryStream()).thenCallRealMethod();
-    assertThrows(SQLException.class, () -> accessor.getBinaryStream());
+    accessor.getBinaryStream();
   }
 
-  @Test
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetObject() throws SQLException {
     when(accessor.getObject()).thenCallRealMethod();
-    assertThrows(SQLException.class, () -> accessor.getObject());
+    accessor.getObject();
   }
 
-  @Test
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetObjectMap() throws SQLException {
     Map<String, Class<?>> map = new HashMap<>();
     when(accessor.getObject(map)).thenCallRealMethod();
-    assertThrows(SQLException.class, () -> accessor.getObject(map));
+    accessor.getObject(map);
   }
 
-  @Test
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetCharacterStream() throws SQLException {
     when(accessor.getCharacterStream()).thenCallRealMethod();
-    assertThrows(SQLException.class, () -> accessor.getCharacterStream());
+    accessor.getCharacterStream();
   }
 
-  @Test
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetRef() throws SQLException {
     when(accessor.getRef()).thenCallRealMethod();
-    assertThrows(SQLException.class, () -> accessor.getRef());
+    accessor.getRef();
   }
 
-  @Test
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetBlob() throws SQLException {
     when(accessor.getBlob()).thenCallRealMethod();
-    assertThrows(SQLException.class, () -> accessor.getBlob());
+    accessor.getBlob();
   }
 
-  @Test
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetClob() throws SQLException {
     when(accessor.getClob()).thenCallRealMethod();
-    assertThrows(SQLException.class, () -> accessor.getClob());
+    accessor.getClob();
   }
 
-  @Test
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetArray() throws SQLException {
     when(accessor.getArray()).thenCallRealMethod();
-    assertThrows(SQLException.class, () -> accessor.getArray());
+    accessor.getArray();
   }
 
-  @Test
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetStruct() throws SQLException {
     when(accessor.getStruct()).thenCallRealMethod();
-    assertThrows(SQLException.class, () -> accessor.getStruct());
+    accessor.getStruct();
   }
 
-  @Test
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetURL() throws SQLException {
     when(accessor.getURL()).thenCallRealMethod();
-    assertThrows(SQLException.class, () -> accessor.getURL());
+    accessor.getURL();
   }
 
-  @Test
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetNClob() throws SQLException {
     when(accessor.getNClob()).thenCallRealMethod();
-    assertThrows(SQLException.class, () -> accessor.getNClob());
+    accessor.getNClob();
   }
 
-  @Test
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetSQLXML() throws SQLException {
     when(accessor.getSQLXML()).thenCallRealMethod();
-    assertThrows(SQLException.class, () -> accessor.getSQLXML());
+    accessor.getSQLXML();
   }
 
-  @Test
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetNString() throws SQLException {
     when(accessor.getNString()).thenCallRealMethod();
-    assertThrows(SQLException.class, () -> accessor.getNString());
+    accessor.getNString();
   }
 
-  @Test
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetNCharacterStream() throws SQLException {
     when(accessor.getNCharacterStream()).thenCallRealMethod();
-    assertThrows(SQLException.class, () -> accessor.getNCharacterStream());
+    accessor.getNCharacterStream();
   }
 
-  @Test
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetDate() throws SQLException {
     when(accessor.getDate(null)).thenCallRealMethod();
-    assertThrows(SQLException.class, () -> accessor.getDate(null));
+    accessor.getDate(null);
   }
 
-  @Test
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetTime() throws SQLException {
     when(accessor.getTime(null)).thenCallRealMethod();
-    assertThrows(SQLException.class, () -> accessor.getTime(null));
+    accessor.getTime(null);
   }
 
-  @Test
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetTimestamp() throws SQLException {
     when(accessor.getTimestamp(null)).thenCallRealMethod();
-    assertThrows(SQLException.class, () -> accessor.getTimestamp(null));
+    accessor.getTimestamp(null);
   }
 
-  @Test
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetBigDecimalWithValue() throws SQLException {
     when(accessor.getBigDecimal(0)).thenCallRealMethod();
-    assertThrows(SQLException.class, () -> accessor.getBigDecimal(0));
+    accessor.getBigDecimal(0);
   }
 }

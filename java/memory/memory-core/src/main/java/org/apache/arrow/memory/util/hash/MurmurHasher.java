@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.memory.util.hash;
 
 import org.apache.arrow.memory.ArrowBuf;
@@ -21,28 +22,32 @@ import org.apache.arrow.memory.util.MemoryUtil;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
- * Implementation of the Murmur hashing algorithm. Details of the algorithm can be found in
+ * Implementation of the Murmur hashing algorithm.
+ * Details of the algorithm can be found in
  * https://en.wikipedia.org/wiki/MurmurHash
- *
- * <p>Murmur hashing is computationally expensive, as it involves several integer multiplications.
- * However, the produced hash codes have good quality in the sense that they are uniformly
- * distributed in the universe.
- *
- * <p>Therefore, this algorithm is suitable for scenarios where uniform hashing is desired (e.g. in
- * an open addressing hash table/hash set).
+ * <p>
+ *   Murmur hashing is computationally expensive, as it involves several
+ *   integer multiplications. However, the produced hash codes have
+ *   good quality in the sense that they are uniformly distributed in the universe.
+ * </p>
+ * <p>
+ *   Therefore, this algorithm is suitable for scenarios where uniform hashing
+ *   is desired (e.g. in an open addressing hash table/hash set).
+ * </p>
  */
 public class MurmurHasher implements ArrowBufHasher {
 
   private final int seed;
 
-  /** Creates a default Murmur hasher, with seed 0. */
+  /**
+   * Creates a default Murmur hasher, with seed 0.
+   */
   public MurmurHasher() {
     this(0);
   }
 
   /**
    * Creates a Murmur hasher.
-   *
    * @param seed the seed for the hasher.
    */
   public MurmurHasher(int seed) {
@@ -62,7 +67,6 @@ public class MurmurHasher implements ArrowBufHasher {
 
   /**
    * Calculates the hash code for a memory region.
-   *
    * @param buf the buffer for the memory region.
    * @param offset offset within the buffer for the memory region.
    * @param length length of the memory region.
@@ -76,7 +80,6 @@ public class MurmurHasher implements ArrowBufHasher {
 
   /**
    * Calculates the hash code for a memory region.
-   *
    * @param address start address of the memory region.
    * @param length length of the memory region.
    * @param seed the seed.
@@ -86,7 +89,7 @@ public class MurmurHasher implements ArrowBufHasher {
     int index = 0;
     int hash = seed;
     while (index + 4 <= length) {
-      int intValue = MemoryUtil.getInt(address + index);
+      int intValue = MemoryUtil.UNSAFE.getInt(address + index);
       hash = combineHashCode(hash, intValue);
       index += 4;
     }
@@ -96,7 +99,7 @@ public class MurmurHasher implements ArrowBufHasher {
       int intValue = 0;
       for (long i = length - 1; i >= index; i--) {
         intValue <<= 8;
-        intValue |= (MemoryUtil.getByte(address + i) & 0x000000ff);
+        intValue |= (MemoryUtil.UNSAFE.getByte(address + i) & 0x000000ff);
         index += 1;
       }
       hash = combineHashCode(hash, intValue);
@@ -105,8 +108,8 @@ public class MurmurHasher implements ArrowBufHasher {
   }
 
   /**
-   * Combine the current hash code and a new int value to calculate a new hash code.
-   *
+   * Combine the current hash code and a new int value to calculate
+   * a new hash code.
    * @param currentHashCode the current hash code.
    * @param intValue the new int value.
    * @return the new hah code.
@@ -134,7 +137,6 @@ public class MurmurHasher implements ArrowBufHasher {
 
   /**
    * Finalizing the hash code.
-   *
    * @param hashCode the current hash code.
    * @param length the length of the memory region.
    * @return the finalized hash code.
@@ -160,7 +162,7 @@ public class MurmurHasher implements ArrowBufHasher {
     if (this == o) {
       return true;
     }
-    if (!(o instanceof MurmurHasher)) {
+    if (o == null || getClass() != o.getClass()) {
       return false;
     }
     MurmurHasher that = (MurmurHasher) o;

@@ -14,10 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector;
 
 import java.util.Iterator;
 import java.util.List;
+
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
@@ -32,18 +34,16 @@ import org.apache.arrow.vector.util.TransferPair;
 
 /**
  * A vector that wraps an underlying vector, used to help implement extension types.
- *
  * @param <T> The wrapped vector type.
  */
-public abstract class ExtensionTypeVector<T extends ValueVector & FieldVector>
-    extends BaseValueVector implements FieldVector {
+public abstract class ExtensionTypeVector<T extends ValueVector & FieldVector> extends BaseValueVector implements
+    FieldVector {
 
   private final T underlyingVector;
   private final String name;
 
   /**
    * Instantiate an extension type vector.
-   *
    * @param name name of the vector
    * @param allocator allocator for memory management
    * @param underlyingVector underlying filed vector
@@ -57,7 +57,6 @@ public abstract class ExtensionTypeVector<T extends ValueVector & FieldVector>
 
   /**
    * Instantiate an extension type vector.
-   *
    * @param field field materialized by this vector.
    * @param allocator allocator for memory management
    * @param underlyingVector underlying filed vector
@@ -189,8 +188,8 @@ public abstract class ExtensionTypeVector<T extends ValueVector & FieldVector>
   /**
    * Get the extension object at the specified index.
    *
-   * <p>Generally, this should access the underlying vector and construct the corresponding Java
-   * object from the raw data.
+   * <p>Generally, this should access the underlying vector and construct the corresponding Java object from the raw
+   * data.
    */
   @Override
   public abstract Object getObject(int index);
@@ -233,9 +232,9 @@ public abstract class ExtensionTypeVector<T extends ValueVector & FieldVector>
   /**
    * Get the inner vectors.
    *
+   * @deprecated This API will be removed as the current implementations no longer support inner vectors.
+   *
    * @return the inner vectors for this field as defined by the TypeLayout
-   * @deprecated This API will be removed as the current implementations no longer support inner
-   *     vectors.
    */
   @Deprecated
   @Override

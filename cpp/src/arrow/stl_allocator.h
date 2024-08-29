@@ -110,7 +110,7 @@ class STLMemoryPool : public MemoryPool {
     } catch (std::bad_alloc& e) {
       return Status::OutOfMemory(e.what());
     }
-    stats_.DidAllocateBytes(size);
+    stats_.UpdateAllocatedBytes(size);
     return Status::OK();
   }
 
@@ -124,13 +124,13 @@ class STLMemoryPool : public MemoryPool {
     }
     memcpy(*ptr, old_ptr, std::min(old_size, new_size));
     alloc_.deallocate(old_ptr, old_size);
-    stats_.DidReallocateBytes(old_size, new_size);
+    stats_.UpdateAllocatedBytes(new_size - old_size);
     return Status::OK();
   }
 
   void Free(uint8_t* buffer, int64_t size, int64_t /*alignment*/) override {
     alloc_.deallocate(buffer, size);
-    stats_.DidFreeBytes(size);
+    stats_.UpdateAllocatedBytes(-size, /*is_free=*/true);
   }
 
   int64_t bytes_allocated() const override { return stats_.bytes_allocated(); }

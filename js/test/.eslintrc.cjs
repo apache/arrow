@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-/** @type {import('eslint').Linter.Config} */
 module.exports = {
     rules: {
         "@typescript-eslint/no-require-imports": "off",

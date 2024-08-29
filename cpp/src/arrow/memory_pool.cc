@@ -85,17 +85,19 @@ struct SupportedBackend {
 
 const std::vector<SupportedBackend>& SupportedBackends() {
   static std::vector<SupportedBackend> backends = {
-  // mimalloc is our preferred allocator for several reasons:
-  // 1) it has good performance
-  // 2) it is well-supported on all our main platforms (Linux, macOS, Windows)
-  // 3) it is easy to configure and has a consistent API.
+  // ARROW-12316: Apple => mimalloc first, then jemalloc
+  //              non-Apple => jemalloc first, then mimalloc
+#if defined(ARROW_JEMALLOC) && !defined(__APPLE__)
+    {"jemalloc", MemoryPoolBackend::Jemalloc},
+#endif
 #ifdef ARROW_MIMALLOC
-      {"mimalloc", MemoryPoolBackend::Mimalloc},
+    {"mimalloc", MemoryPoolBackend::Mimalloc},
 #endif
-#ifdef ARROW_JEMALLOC
-      {"jemalloc", MemoryPoolBackend::Jemalloc},
+#if defined(ARROW_JEMALLOC) && defined(__APPLE__)
+    {"jemalloc", MemoryPoolBackend::Jemalloc},
 #endif
-      {"system", MemoryPoolBackend::System}};
+    {"system", MemoryPoolBackend::System}
+  };
   return backends;
 }
 
@@ -470,7 +472,7 @@ class BaseMemoryPoolImpl : public MemoryPool {
     }
 #endif
 
-    stats_.DidAllocateBytes(size);
+    stats_.UpdateAllocatedBytes(size);
     return Status::OK();
   }
 
@@ -492,7 +494,7 @@ class BaseMemoryPoolImpl : public MemoryPool {
     }
 #endif
 
-    stats_.DidReallocateBytes(old_size, new_size);
+    stats_.UpdateAllocatedBytes(new_size - old_size);
     return Status::OK();
   }
 
@@ -507,7 +509,7 @@ class BaseMemoryPoolImpl : public MemoryPool {
 #endif
     Allocator::DeallocateAligned(buffer, size, alignment);
 
-    stats_.DidFreeBytes(size);
+    stats_.UpdateAllocatedBytes(-size, /*is_free*/ true);
   }
 
   void ReleaseUnused() override { Allocator::ReleaseUnused(); }
@@ -759,20 +761,20 @@ class ProxyMemoryPool::ProxyMemoryPoolImpl {
 
   Status Allocate(int64_t size, int64_t alignment, uint8_t** out) {
     RETURN_NOT_OK(pool_->Allocate(size, alignment, out));
-    stats_.DidAllocateBytes(size);
+    stats_.UpdateAllocatedBytes(size);
     return Status::OK();
   }
 
   Status Reallocate(int64_t old_size, int64_t new_size, int64_t alignment,
                     uint8_t** ptr) {
     RETURN_NOT_OK(pool_->Reallocate(old_size, new_size, alignment, ptr));
-    stats_.DidReallocateBytes(old_size, new_size);
+    stats_.UpdateAllocatedBytes(new_size - old_size);
     return Status::OK();
   }
 
   void Free(uint8_t* buffer, int64_t size, int64_t alignment) {
     pool_->Free(buffer, size, alignment);
-    stats_.DidFreeBytes(size);
+    stats_.UpdateAllocatedBytes(-size, /*is_free=*/true);
   }
 
   int64_t bytes_allocated() const { return stats_.bytes_allocated(); }

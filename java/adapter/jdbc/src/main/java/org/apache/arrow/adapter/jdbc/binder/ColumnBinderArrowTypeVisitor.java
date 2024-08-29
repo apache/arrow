@@ -14,12 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.adapter.jdbc.binder;
 
 import java.sql.Types;
 import java.time.ZoneId;
 import java.util.Calendar;
 import java.util.TimeZone;
+
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.DateDayVector;
@@ -48,8 +50,8 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 
 /**
  * Visitor to create the base ColumnBinder for a vector.
- *
- * <p>To handle null values, wrap the returned binder in a {@link NullableColumnBinder}.
+ * <p>
+ * To handle null values, wrap the returned binder in a {@link NullableColumnBinder}.
  */
 public class ColumnBinderArrowTypeVisitor implements ArrowType.ArrowTypeVisitor<ColumnBinder> {
   private final FieldVector vector;
@@ -109,21 +111,17 @@ public class ColumnBinderArrowTypeVisitor implements ArrowType.ArrowTypeVisitor<
     }
     switch (type.getBitWidth()) {
       case 8:
-        return jdbcType == null
-            ? new TinyIntBinder((TinyIntVector) vector)
-            : new TinyIntBinder((TinyIntVector) vector, jdbcType);
+        return jdbcType == null ? new TinyIntBinder((TinyIntVector) vector) :
+            new TinyIntBinder((TinyIntVector) vector, jdbcType);
       case 16:
-        return jdbcType == null
-            ? new SmallIntBinder((SmallIntVector) vector)
-            : new SmallIntBinder((SmallIntVector) vector, jdbcType);
+        return jdbcType == null ? new SmallIntBinder((SmallIntVector) vector) :
+            new SmallIntBinder((SmallIntVector) vector, jdbcType);
       case 32:
-        return jdbcType == null
-            ? new IntBinder((IntVector) vector)
-            : new IntBinder((IntVector) vector, jdbcType);
+        return jdbcType == null ? new IntBinder((IntVector) vector) :
+            new IntBinder((IntVector) vector, jdbcType);
       case 64:
-        return jdbcType == null
-            ? new BigIntBinder((BigIntVector) vector)
-            : new BigIntBinder((BigIntVector) vector, jdbcType);
+        return jdbcType == null ? new BigIntBinder((BigIntVector) vector) :
+            new BigIntBinder((BigIntVector) vector, jdbcType);
       default:
         throw new UnsupportedOperationException("No column binder implemented for type " + type);
     }
@@ -133,13 +131,11 @@ public class ColumnBinderArrowTypeVisitor implements ArrowType.ArrowTypeVisitor<
   public ColumnBinder visit(ArrowType.FloatingPoint type) {
     switch (type.getPrecision()) {
       case SINGLE:
-        return jdbcType == null
-            ? new Float4Binder((Float4Vector) vector)
-            : new Float4Binder((Float4Vector) vector, jdbcType);
+        return jdbcType == null ? new Float4Binder((Float4Vector) vector) :
+            new Float4Binder((Float4Vector) vector, jdbcType);
       case DOUBLE:
-        return jdbcType == null
-            ? new Float8Binder((Float8Vector) vector)
-            : new Float8Binder((Float8Vector) vector, jdbcType);
+        return jdbcType == null ? new Float8Binder((Float8Vector) vector) :
+            new Float8Binder((Float8Vector) vector, jdbcType);
       default:
         throw new UnsupportedOperationException("No column binder implemented for type " + type);
     }
@@ -148,74 +144,51 @@ public class ColumnBinderArrowTypeVisitor implements ArrowType.ArrowTypeVisitor<
   @Override
   public ColumnBinder visit(ArrowType.Utf8 type) {
     VarCharVector varChar = (VarCharVector) vector;
-    return jdbcType == null
-        ? new VarCharBinder<>(varChar, Types.VARCHAR)
-        : new VarCharBinder<>(varChar, jdbcType);
-  }
-
-  @Override
-  public ColumnBinder visit(ArrowType.Utf8View type) {
-    throw new UnsupportedOperationException(
-        "Column binder implemented for type " + type + " is not supported");
+    return jdbcType == null ? new VarCharBinder<>(varChar, Types.VARCHAR) :
+        new VarCharBinder<>(varChar, jdbcType);
   }
 
   @Override
   public ColumnBinder visit(ArrowType.LargeUtf8 type) {
     LargeVarCharVector varChar = (LargeVarCharVector) vector;
-    return jdbcType == null
-        ? new VarCharBinder<>(varChar, Types.LONGVARCHAR)
-        : new VarCharBinder<>(varChar, jdbcType);
+    return jdbcType == null ? new VarCharBinder<>(varChar, Types.LONGVARCHAR) :
+        new VarCharBinder<>(varChar, jdbcType);
   }
 
   @Override
   public ColumnBinder visit(ArrowType.Binary type) {
     VarBinaryVector varBinary = (VarBinaryVector) vector;
-    return jdbcType == null
-        ? new VarBinaryBinder<>(varBinary, Types.VARBINARY)
-        : new VarBinaryBinder<>(varBinary, jdbcType);
-  }
-
-  @Override
-  public ColumnBinder visit(ArrowType.BinaryView type) {
-    throw new UnsupportedOperationException(
-        "Column binder implemented for type " + type + " is not supported");
+    return jdbcType == null ? new VarBinaryBinder<>(varBinary, Types.VARBINARY) :
+        new VarBinaryBinder<>(varBinary, jdbcType);
   }
 
   @Override
   public ColumnBinder visit(ArrowType.LargeBinary type) {
     LargeVarBinaryVector varBinary = (LargeVarBinaryVector) vector;
-    return jdbcType == null
-        ? new VarBinaryBinder<>(varBinary, Types.LONGVARBINARY)
-        : new VarBinaryBinder<>(varBinary, jdbcType);
+    return jdbcType == null ? new VarBinaryBinder<>(varBinary, Types.LONGVARBINARY) :
+        new VarBinaryBinder<>(varBinary, jdbcType);
   }
 
   @Override
   public ColumnBinder visit(ArrowType.FixedSizeBinary type) {
     FixedSizeBinaryVector binary = (FixedSizeBinaryVector) vector;
-    return jdbcType == null
-        ? new FixedSizeBinaryBinder(binary, Types.BINARY)
-        : new FixedSizeBinaryBinder(binary, jdbcType);
+    return jdbcType == null ? new FixedSizeBinaryBinder(binary, Types.BINARY) :
+        new FixedSizeBinaryBinder(binary, jdbcType);
   }
 
   @Override
   public ColumnBinder visit(ArrowType.Bool type) {
-    return jdbcType == null
-        ? new BitBinder((BitVector) vector)
-        : new BitBinder((BitVector) vector, jdbcType);
+    return jdbcType == null ? new BitBinder((BitVector) vector) : new BitBinder((BitVector) vector, jdbcType);
   }
 
   @Override
   public ColumnBinder visit(ArrowType.Decimal type) {
     if (type.getBitWidth() == 128) {
       DecimalVector decimalVector = (DecimalVector) vector;
-      return jdbcType == null
-          ? new Decimal128Binder(decimalVector)
-          : new Decimal128Binder(decimalVector, jdbcType);
+      return jdbcType == null ? new Decimal128Binder(decimalVector) : new Decimal128Binder(decimalVector, jdbcType);
     } else if (type.getBitWidth() == 256) {
       Decimal256Vector decimalVector = (Decimal256Vector) vector;
-      return jdbcType == null
-          ? new Decimal256Binder(decimalVector)
-          : new Decimal256Binder(decimalVector, jdbcType);
+      return jdbcType == null ? new Decimal256Binder(decimalVector) : new Decimal256Binder(decimalVector, jdbcType);
     }
     throw new UnsupportedOperationException("No column binder implemented for type " + type);
   }
@@ -224,13 +197,11 @@ public class ColumnBinderArrowTypeVisitor implements ArrowType.ArrowTypeVisitor<
   public ColumnBinder visit(ArrowType.Date type) {
     switch (type.getUnit()) {
       case DAY:
-        return jdbcType == null
-            ? new DateDayBinder((DateDayVector) vector)
-            : new DateDayBinder((DateDayVector) vector, /*calendar*/ null, jdbcType);
+        return jdbcType == null ? new DateDayBinder((DateDayVector) vector) :
+            new DateDayBinder((DateDayVector) vector, /*calendar*/null, jdbcType);
       case MILLISECOND:
-        return jdbcType == null
-            ? new DateMilliBinder((DateMilliVector) vector)
-            : new DateMilliBinder((DateMilliVector) vector, /*calendar*/ null, jdbcType);
+        return jdbcType == null ? new DateMilliBinder((DateMilliVector) vector) :
+            new DateMilliBinder((DateMilliVector) vector, /*calendar*/null, jdbcType);
       default:
         throw new UnsupportedOperationException("No column binder implemented for type " + type);
     }
@@ -240,21 +211,17 @@ public class ColumnBinderArrowTypeVisitor implements ArrowType.ArrowTypeVisitor<
   public ColumnBinder visit(ArrowType.Time type) {
     switch (type.getUnit()) {
       case SECOND:
-        return jdbcType == null
-            ? new Time32Binder((TimeSecVector) vector)
-            : new Time32Binder((TimeSecVector) vector, jdbcType);
+        return jdbcType == null ? new Time32Binder((TimeSecVector) vector) :
+            new Time32Binder((TimeSecVector) vector, jdbcType);
       case MILLISECOND:
-        return jdbcType == null
-            ? new Time32Binder((TimeMilliVector) vector)
-            : new Time32Binder((TimeMilliVector) vector, jdbcType);
+        return jdbcType == null ? new Time32Binder((TimeMilliVector) vector) :
+            new Time32Binder((TimeMilliVector) vector, jdbcType);
       case MICROSECOND:
-        return jdbcType == null
-            ? new Time64Binder((TimeMicroVector) vector)
-            : new Time64Binder((TimeMicroVector) vector, jdbcType);
+        return jdbcType == null ? new Time64Binder((TimeMicroVector) vector) :
+            new Time64Binder((TimeMicroVector) vector, jdbcType);
       case NANOSECOND:
-        return jdbcType == null
-            ? new Time64Binder((TimeNanoVector) vector)
-            : new Time64Binder((TimeNanoVector) vector, jdbcType);
+        return jdbcType == null ? new Time64Binder((TimeNanoVector) vector) :
+            new Time64Binder((TimeNanoVector) vector, jdbcType);
       default:
         throw new UnsupportedOperationException("No column binder implemented for type " + type);
     }
@@ -277,16 +244,6 @@ public class ColumnBinderArrowTypeVisitor implements ArrowType.ArrowTypeVisitor<
 
   @Override
   public ColumnBinder visit(ArrowType.Duration type) {
-    throw new UnsupportedOperationException("No column binder implemented for type " + type);
-  }
-
-  @Override
-  public ColumnBinder visit(ArrowType.ListView type) {
-    throw new UnsupportedOperationException("No column binder implemented for type " + type);
-  }
-
-  @Override
-  public ColumnBinder visit(ArrowType.LargeListView type) {
     throw new UnsupportedOperationException("No column binder implemented for type " + type);
   }
 }

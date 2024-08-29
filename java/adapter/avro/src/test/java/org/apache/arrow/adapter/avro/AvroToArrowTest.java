@@ -14,9 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.adapter.avro;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.Assert.assertEquals;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -25,6 +26,7 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -34,7 +36,7 @@ import org.apache.arrow.vector.complex.StructVector;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
-import org.junit.jupiter.api.Test;
+import org.junit.Test;
 
 public class AvroToArrowTest extends AvroTestBase {
 
@@ -85,8 +87,10 @@ public class AvroToArrowTest extends AvroTestBase {
     Schema schema = getSchema("attrs/test_fixed_attr.avsc");
 
     List<GenericData.Fixed> data = new ArrayList<>();
+    List<byte[]> expected = new ArrayList<>();
     for (int i = 0; i < 5; i++) {
       byte[] value = ("value" + i).getBytes(StandardCharsets.UTF_8);
+      expected.add(value);
       GenericData.Fixed fixed = new GenericData.Fixed(schema);
       fixed.bytes(value);
       data.add(fixed);
@@ -103,13 +107,12 @@ public class AvroToArrowTest extends AvroTestBase {
   @Test
   public void testEnumAttributes() throws Exception {
     Schema schema = getSchema("attrs/test_enum_attrs.avsc");
-    List<GenericData.EnumSymbol> data =
-        Arrays.asList(
-            new GenericData.EnumSymbol(schema, "SPADES"),
-            new GenericData.EnumSymbol(schema, "HEARTS"),
-            new GenericData.EnumSymbol(schema, "DIAMONDS"),
-            new GenericData.EnumSymbol(schema, "CLUBS"),
-            new GenericData.EnumSymbol(schema, "SPADES"));
+    List<GenericData.EnumSymbol> data = Arrays.asList(
+        new GenericData.EnumSymbol(schema, "SPADES"),
+        new GenericData.EnumSymbol(schema, "HEARTS"),
+        new GenericData.EnumSymbol(schema, "DIAMONDS"),
+        new GenericData.EnumSymbol(schema, "CLUBS"),
+        new GenericData.EnumSymbol(schema, "SPADES"));
 
     VectorSchemaRoot root = writeAndRead(schema, data);
     FieldVector vector = root.getFieldVectors().get(0);
@@ -171,13 +174,12 @@ public class AvroToArrowTest extends AvroTestBase {
   @Test
   public void testEnumType() throws Exception {
     Schema schema = getSchema("test_primitive_enum.avsc");
-    List<GenericData.EnumSymbol> data =
-        Arrays.asList(
-            new GenericData.EnumSymbol(schema, "SPADES"),
-            new GenericData.EnumSymbol(schema, "HEARTS"),
-            new GenericData.EnumSymbol(schema, "DIAMONDS"),
-            new GenericData.EnumSymbol(schema, "CLUBS"),
-            new GenericData.EnumSymbol(schema, "SPADES"));
+    List<GenericData.EnumSymbol> data = Arrays.asList(
+        new GenericData.EnumSymbol(schema, "SPADES"),
+        new GenericData.EnumSymbol(schema, "HEARTS"),
+        new GenericData.EnumSymbol(schema, "DIAMONDS"),
+        new GenericData.EnumSymbol(schema, "CLUBS"),
+        new GenericData.EnumSymbol(schema, "SPADES"));
 
     List<Integer> expectedIndices = Arrays.asList(0, 1, 2, 3, 0);
 
@@ -302,13 +304,12 @@ public class AvroToArrowTest extends AvroTestBase {
   @Test
   public void testBytesType() throws Exception {
     Schema schema = getSchema("test_primitive_bytes.avsc");
-    List<ByteBuffer> data =
-        Arrays.asList(
-            ByteBuffer.wrap("value1".getBytes(StandardCharsets.UTF_8)),
-            ByteBuffer.wrap("value2".getBytes(StandardCharsets.UTF_8)),
-            ByteBuffer.wrap("value3".getBytes(StandardCharsets.UTF_8)),
-            ByteBuffer.wrap("value4".getBytes(StandardCharsets.UTF_8)),
-            ByteBuffer.wrap("value5".getBytes(StandardCharsets.UTF_8)));
+    List<ByteBuffer> data = Arrays.asList(
+        ByteBuffer.wrap("value1".getBytes(StandardCharsets.UTF_8)),
+        ByteBuffer.wrap("value2".getBytes(StandardCharsets.UTF_8)),
+        ByteBuffer.wrap("value3".getBytes(StandardCharsets.UTF_8)),
+        ByteBuffer.wrap("value4".getBytes(StandardCharsets.UTF_8)),
+        ByteBuffer.wrap("value5".getBytes(StandardCharsets.UTF_8)));
 
     VectorSchemaRoot root = writeAndRead(schema, data);
     FieldVector vector = root.getFieldVectors().get(0);
@@ -323,8 +324,7 @@ public class AvroToArrowTest extends AvroTestBase {
     ArrayList<GenericRecord> data = new ArrayList<>();
     for (int i = 0; i < 5; i++) {
       GenericRecord record = new GenericData.Record(schema);
-      record.put(
-          0, i % 2 == 0 ? ByteBuffer.wrap(("test" + i).getBytes(StandardCharsets.UTF_8)) : null);
+      record.put(0, i % 2 == 0 ? ByteBuffer.wrap(("test" + i).getBytes(StandardCharsets.UTF_8)) : null);
       data.add(record);
     }
 
@@ -361,13 +361,12 @@ public class AvroToArrowTest extends AvroTestBase {
   @Test
   public void testArrayType() throws Exception {
     Schema schema = getSchema("test_array.avsc");
-    List<List<?>> data =
-        Arrays.asList(
-            Arrays.asList("11", "222", "999"),
-            Arrays.asList("12222", "2333", "1000"),
-            Arrays.asList("1rrr", "2ggg"),
-            Arrays.asList("1vvv", "2bbb"),
-            Arrays.asList("1fff", "2"));
+    List<List<?>> data = Arrays.asList(
+        Arrays.asList("11", "222", "999"),
+        Arrays.asList("12222", "2333", "1000"),
+        Arrays.asList("1rrr", "2ggg"),
+        Arrays.asList("1vvv", "2bbb"),
+        Arrays.asList("1fff", "2"));
 
     VectorSchemaRoot root = writeAndRead(schema, data);
     FieldVector vector = root.getFieldVectors().get(0);
@@ -474,4 +473,5 @@ public class AvroToArrowTest extends AvroTestBase {
 
     checkPrimitiveResult(expected, vector);
   }
+
 }

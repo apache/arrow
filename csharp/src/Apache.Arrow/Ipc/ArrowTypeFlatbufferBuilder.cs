@@ -57,7 +57,6 @@ namespace Apache.Arrow.Ipc
             IArrowTypeVisitor<DoubleType>,
             IArrowTypeVisitor<StringType>,
             IArrowTypeVisitor<StringViewType>,
-            IArrowTypeVisitor<LargeStringType>,
             IArrowTypeVisitor<Date32Type>,
             IArrowTypeVisitor<Date64Type>,
             IArrowTypeVisitor<Time32Type>,
@@ -66,11 +65,9 @@ namespace Apache.Arrow.Ipc
             IArrowTypeVisitor<IntervalType>,
             IArrowTypeVisitor<BinaryType>,
             IArrowTypeVisitor<BinaryViewType>,
-            IArrowTypeVisitor<LargeBinaryType>,
             IArrowTypeVisitor<TimestampType>,
             IArrowTypeVisitor<ListType>,
             IArrowTypeVisitor<ListViewType>,
-            IArrowTypeVisitor<LargeListType>,
             IArrowTypeVisitor<FixedSizeListType>,
             IArrowTypeVisitor<UnionType>,
             IArrowTypeVisitor<StructType>,
@@ -123,14 +120,6 @@ namespace Apache.Arrow.Ipc
                     Flatbuf.Type.BinaryView, offset);
             }
 
-            public void Visit(LargeBinaryType type)
-            {
-                Flatbuf.LargeBinary.StartLargeBinary(Builder);
-                Offset<LargeBinary> offset = Flatbuf.LargeBinary.EndLargeBinary(Builder);
-                Result = FieldType.Build(
-                    Flatbuf.Type.LargeBinary, offset);
-            }
-
             public void Visit(ListType type)
             {
                 Flatbuf.List.StartList(Builder);
@@ -145,14 +134,6 @@ namespace Apache.Arrow.Ipc
                 Result = FieldType.Build(
                     Flatbuf.Type.ListView,
                     Flatbuf.ListView.EndListView(Builder));
-            }
-
-            public void Visit(LargeListType type)
-            {
-                Flatbuf.LargeList.StartLargeList(Builder);
-                Result = FieldType.Build(
-                    Flatbuf.Type.LargeList,
-                    Flatbuf.LargeList.EndLargeList(Builder));
             }
 
             public void Visit(FixedSizeListType type)
@@ -183,14 +164,6 @@ namespace Apache.Arrow.Ipc
                 Offset<Utf8View> offset = Flatbuf.Utf8View.EndUtf8View(Builder);
                 Result = FieldType.Build(
                     Flatbuf.Type.Utf8View, offset);
-            }
-
-            public void Visit(LargeStringType type)
-            {
-                Flatbuf.LargeUtf8.StartLargeUtf8(Builder);
-                Offset<LargeUtf8> offset = Flatbuf.LargeUtf8.EndLargeUtf8(Builder);
-                Result = FieldType.Build(
-                    Flatbuf.Type.LargeUtf8, offset);
             }
 
             public void Visit(TimestampType type)
@@ -390,7 +363,7 @@ namespace Apache.Arrow.Ipc
                 Types.IntervalUnit.DayTime => Flatbuf.IntervalUnit.DAY_TIME,
                 Types.IntervalUnit.MonthDayNanosecond => Flatbuf.IntervalUnit.MONTH_DAY_NANO,
                 _ => throw new ArgumentException($"unsupported interval unit <{unit}>", nameof(unit))
-            };
+            }; ;
         }
     }
 }

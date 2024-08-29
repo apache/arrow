@@ -14,21 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.arrow.vector;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+package org.apache.arrow.vector;
 
 import java.lang.reflect.Field;
 import java.net.URLClassLoader;
-import org.junit.jupiter.api.Test;
 
-/** Test cases for {@link NullCheckingForGet}. */
+import org.junit.Assert;
+import org.junit.Test;
+
+/**
+ * Test cases for {@link NullCheckingForGet}.
+ */
 public class TestNullCheckingForGet {
 
   /**
    * Get a copy of the current class loader.
-   *
    * @return the newly created class loader.
    */
   private ClassLoader copyClassLoader() {
@@ -43,8 +44,7 @@ public class TestNullCheckingForGet {
   }
 
   /**
-   * Get the value of flag {@link NullCheckingForGet#NULL_CHECKING_ENABLED}.
-   *
+   * Get the value of flag  {@link NullCheckingForGet#NULL_CHECKING_ENABLED}.
    * @param classLoader the class loader from which to get the flag value.
    * @return value of the flag.
    */
@@ -55,21 +55,20 @@ public class TestNullCheckingForGet {
   }
 
   /**
-   * Ensure the flag for null checking is enabled by default. This will protect users from JVM
-   * crashes.
+   * Ensure the flag for null checking is enabled by default.
+   * This will protect users from JVM crashes.
    */
   @Test
   public void testDefaultValue() throws Exception {
     ClassLoader classLoader = copyClassLoader();
     if (classLoader != null) {
       boolean nullCheckingEnabled = getFlagValue(classLoader);
-      assertTrue(nullCheckingEnabled);
+      Assert.assertTrue(nullCheckingEnabled);
     }
   }
 
   /**
    * Test setting the null checking flag by the system property.
-   *
    * @throws Exception if loading class {@link NullCheckingForGet#NULL_CHECKING_ENABLED} fails.
    */
   @Test
@@ -80,7 +79,7 @@ public class TestNullCheckingForGet {
     ClassLoader classLoader = copyClassLoader();
     if (classLoader != null) {
       boolean nullCheckingEnabled = getFlagValue(classLoader);
-      assertFalse(nullCheckingEnabled);
+      Assert.assertFalse(nullCheckingEnabled);
     }
 
     // restore system property

@@ -14,18 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 import java.util.Map;
+
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.MapVector;
@@ -37,24 +37,23 @@ import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
-import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.TransferPair;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
 
 public class TestMapVector {
 
   private BufferAllocator allocator;
 
-  @BeforeEach
+  @Before
   public void init() {
     allocator = new DirtyRootAllocator(Long.MAX_VALUE, (byte) 100);
   }
 
-  @AfterEach
+  @After
   public void terminate() throws Exception {
     allocator.close();
   }
@@ -91,7 +90,7 @@ public class TestMapVector {
         mapReader.setPosition(i);
         for (int j = 0; j < i + 1; j++) {
           mapReader.next();
-          assertEquals(j, mapReader.key().readLong().longValue(), "record: " + i);
+          assertEquals("record: " + i, j, mapReader.key().readLong().longValue());
           assertEquals(j, mapReader.value().readInteger().intValue());
         }
       }
@@ -137,7 +136,7 @@ public class TestMapVector {
           } else {
             for (int j = 0; j < i + 1; j++) {
               mapReader.next();
-              assertEquals(j, mapReader.key().readLong().longValue(), "record: " + i);
+              assertEquals("record: " + i, j, mapReader.key().readLong().longValue());
               if (i == 5) {
                 assertFalse(mapReader.value().isSet());
               } else {
@@ -153,7 +152,7 @@ public class TestMapVector {
   @Test
   public void testCopyFrom() throws Exception {
     try (MapVector inVector = MapVector.empty("input", allocator, false);
-        MapVector outVector = MapVector.empty("output", allocator, false)) {
+         MapVector outVector = MapVector.empty("output", allocator, false)) {
       UnionMapWriter writer = inVector.getWriter();
       writer.allocate();
 
@@ -195,11 +194,12 @@ public class TestMapVector {
 
       // assert the output vector is correct
       FieldReader reader = outVector.getReader();
-      assertTrue(reader.isSet(), "shouldn't be null");
+      assertTrue("shouldn't be null", reader.isSet());
       reader.setPosition(1);
-      assertFalse(reader.isSet(), "should be null");
+      assertFalse("should be null", reader.isSet());
       reader.setPosition(2);
-      assertTrue(reader.isSet(), "shouldn't be null");
+      assertTrue("shouldn't be null", reader.isSet());
+
 
       /* index 0 */
       Object result = outVector.getObject(0);
@@ -455,26 +455,20 @@ public class TestMapVector {
           StructVector dataVector1 = (StructVector) toVector.getDataVector();
 
           for (int i = 0; i < splitLength; i++) {
-            dataLength1 =
-                offsetBuffer.getInt((start + i + 1) * MapVector.OFFSET_WIDTH)
-                    - offsetBuffer.getInt((start + i) * MapVector.OFFSET_WIDTH);
-            dataLength2 =
-                toOffsetBuffer.getInt((i + 1) * MapVector.OFFSET_WIDTH)
-                    - toOffsetBuffer.getInt(i * MapVector.OFFSET_WIDTH);
+            dataLength1 = offsetBuffer.getInt((start + i + 1) * MapVector.OFFSET_WIDTH) -
+                    offsetBuffer.getInt((start + i) * MapVector.OFFSET_WIDTH);
+            dataLength2 = toOffsetBuffer.getInt((i + 1) * MapVector.OFFSET_WIDTH) -
+                    toOffsetBuffer.getInt(i * MapVector.OFFSET_WIDTH);
 
-            assertEquals(
-                dataLength1,
-                dataLength2,
-                "Different data lengths at index: " + i + " and start: " + start);
+            assertEquals("Different data lengths at index: " + i + " and start: " + start,
+                    dataLength1, dataLength2);
 
             offset1 = offsetBuffer.getInt((start + i) * MapVector.OFFSET_WIDTH);
             offset2 = toOffsetBuffer.getInt(i * MapVector.OFFSET_WIDTH);
 
             for (int j = 0; j < dataLength1; j++) {
-              assertEquals(
-                  dataVector.getObject(offset1),
-                  dataVector1.getObject(offset2),
-                  "Different data at indexes: " + offset1 + " and " + offset2);
+              assertEquals("Different data at indexes: " + offset1 + " and " + offset2,
+                      dataVector.getObject(offset1), dataVector1.getObject(offset2));
 
               offset1++;
               offset2++;
@@ -812,8 +806,7 @@ public class TestMapVector {
       // populate map vector with the following two records
       // [
       //    [[5: 10, 20: 40]:[50: 100, 200: 400], [50: 100]:[75: 175, 150: 250]],
-      //    [[1: 2]:[10: 20], [30: 40]:[15: 20], [50: 60, 70: null]:[25: 30, 35: null], [5: null]:
-      // null]
+      //    [[1: 2]:[10: 20], [30: 40]:[15: 20], [50: 60, 70: null]:[25: 30, 35: null], [5: null]: null]
       // ]
 
       mapWriter.setPosition(0);
@@ -1184,24 +1177,5 @@ public class TestMapVector {
       assertSame(toVector.getField(), mapVector.getField());
       toVector.clear();
     }
-  }
-
-  @Test
-  public void testMakeTransferPairPreserveNullability() {
-    Field intField = new Field("int", FieldType.notNullable(MinorType.INT.getType()), null);
-    List<Field> fields = Collections.singletonList(intField);
-    Field structField =
-        new Field("struct", FieldType.notNullable(ArrowType.Struct.INSTANCE), fields);
-    Field structField2 =
-        new Field("struct", FieldType.notNullable(ArrowType.Struct.INSTANCE), fields);
-    FieldVector vec = structField.createVector(allocator);
-
-    TransferPair tp = vec.getTransferPair(structField2, allocator);
-    tp.transfer();
-
-    FieldVector res = (FieldVector) tp.getTo();
-
-    assertEquals(intField, vec.getField().getChildren().get(0));
-    assertEquals(intField, res.getField().getChildren().get(0));
   }
 }

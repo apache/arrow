@@ -1,0 +1,72 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+{% import 'macros.jinja' as macros with context %}
+
+{{ macros.github_header() }}
+
+{% set use_conda = use_conda|default(False) %}
+
+env:
+  # Current oldest supported version according to https://endoflife.date/macos
+  MACOSX_DEPLOYMENT_TARGET: "10.15"
+
+jobs:
+  verify:
+    name: "Verify release candidate on macOS"
+    runs-on: {{ github_runner|default("macos-latest") }}
+    {% if env is defined %}
+    env:
+    {% for key, value in env.items() %}
+      {{ key }}: {{ value }}
+    {% endfor %}
+    {% endif %}
+
+    steps:
+      {{ macros.github_checkout_arrow(fetch_depth=0)|indent }}
+
+      {% if not use_conda %}
+      - name: Install System Dependencies
+        shell: bash
+        run: |
+          brew bundle --file=arrow/cpp/Brewfile
+          brew bundle --file=arrow/c_glib/Brewfile
+      {% endif %}
+
+      - uses: actions/setup-java@v2
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+
+      - uses: actions/setup-dotnet@v2
+        with:
+          dotnet-version: '7.0.x'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Run verification
+        shell: bash
+        env:
+          TEST_DEFAULT: 0
+          TEST_{{ target|upper }}: 1
+        {% if use_conda %}
+          USE_CONDA: 1
+        {% endif %}
+        run: |
+          arrow/dev/release/verify-release-candidate.sh {{ release|default("") }} {{ rc|default("") }}

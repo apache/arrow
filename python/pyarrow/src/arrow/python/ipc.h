@@ -48,25 +48,5 @@ class ARROW_PYTHON_EXPORT PyRecordBatchReader : public RecordBatchReader {
   OwnedRefNoGIL iterator_;
 };
 
-class ARROW_PYTHON_EXPORT CastingRecordBatchReader : public RecordBatchReader {
- public:
-  std::shared_ptr<Schema> schema() const override;
-
-  Status ReadNext(std::shared_ptr<RecordBatch>* batch) override;
-
-  static Result<std::shared_ptr<RecordBatchReader>> Make(
-      std::shared_ptr<RecordBatchReader> parent, std::shared_ptr<Schema> schema);
-
-  Status Close() override;
-
- protected:
-  CastingRecordBatchReader();
-
-  Status Init(std::shared_ptr<RecordBatchReader> parent, std::shared_ptr<Schema> schema);
-
-  std::shared_ptr<RecordBatchReader> parent_;
-  std::shared_ptr<Schema> schema_;
-};
-
 }  // namespace py
 }  // namespace arrow

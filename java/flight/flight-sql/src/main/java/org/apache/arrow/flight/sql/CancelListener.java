@@ -14,12 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.flight.sql;
 
-import com.google.protobuf.Any;
 import org.apache.arrow.flight.FlightProducer;
 import org.apache.arrow.flight.Result;
 import org.apache.arrow.flight.sql.impl.FlightSql;
+
+import com.google.protobuf.Any;
 
 /** Typed StreamListener for cancelQuery. */
 @SuppressWarnings("deprecation")
@@ -32,8 +34,9 @@ class CancelListener implements FlightProducer.StreamListener<CancelResult> {
 
   @Override
   public void onNext(CancelResult val) {
-    FlightSql.ActionCancelQueryResult result =
-        FlightSql.ActionCancelQueryResult.newBuilder().setResult(val.toProtocol()).build();
+    FlightSql.ActionCancelQueryResult result = FlightSql.ActionCancelQueryResult.newBuilder()
+        .setResult(val.toProtocol())
+        .build();
     listener.onNext(new Result(Any.pack(result).toByteArray()));
   }
 

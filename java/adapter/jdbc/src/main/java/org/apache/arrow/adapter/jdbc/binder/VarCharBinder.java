@@ -14,11 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.adapter.jdbc.binder;
 
 import java.nio.charset.StandardCharsets;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+
 import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VariableWidthVector;
@@ -28,14 +30,13 @@ import org.apache.arrow.vector.VariableWidthVector;
  *
  * @param <T> The text vector.
  */
-public class VarCharBinder<T extends FieldVector & VariableWidthVector>
-    extends BaseColumnBinder<T> {
+public class VarCharBinder<T extends FieldVector & VariableWidthVector> extends BaseColumnBinder<T> {
   private final ArrowBufPointer element;
 
   /**
    * Create a binder for the given vector using the given JDBC type for null values.
    *
-   * @param vector The vector to draw values from.
+   * @param vector   The vector to draw values from.
    * @param jdbcType The JDBC type code.
    */
   public VarCharBinder(T vector, int jdbcType) {
@@ -44,18 +45,15 @@ public class VarCharBinder<T extends FieldVector & VariableWidthVector>
   }
 
   @Override
-  public void bind(PreparedStatement statement, int parameterIndex, int rowIndex)
-      throws SQLException {
+  public void bind(PreparedStatement statement, int parameterIndex, int rowIndex) throws SQLException {
     vector.getDataPointer(rowIndex, element);
     if (element.getBuf() == null) {
       statement.setNull(parameterIndex, jdbcType);
       return;
     }
     if (element.getLength() > (long) Integer.MAX_VALUE) {
-      final String message =
-          String.format(
-              "Length of value at index %d (%d) exceeds Integer.MAX_VALUE",
-              rowIndex, element.getLength());
+      final String message = String.format("Length of value at index %d (%d) exceeds Integer.MAX_VALUE",
+          rowIndex, element.getLength());
       throw new RuntimeException(message);
     }
     byte[] utf8Bytes = new byte[(int) element.getLength()];

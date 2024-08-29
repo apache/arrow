@@ -50,8 +50,7 @@ G_BEGIN_DECLS
  * Since: 3.0.0
  */
 
-typedef struct GADatasetFileWriteOptionsPrivate_
-{
+typedef struct GADatasetFileWriteOptionsPrivate_ {
   std::shared_ptr<arrow::dataset::FileWriteOptions> options;
 } GADatasetFileWriteOptionsPrivate;
 
@@ -63,9 +62,9 @@ G_DEFINE_TYPE_WITH_PRIVATE(GADatasetFileWriteOptions,
                            gadataset_file_write_options,
                            G_TYPE_OBJECT)
 
-#define GADATASET_FILE_WRITE_OPTIONS_GET_PRIVATE(obj)                                    \
-  static_cast<GADatasetFileWriteOptionsPrivate *>(                                       \
-    gadataset_file_write_options_get_instance_private(                                   \
+#define GADATASET_FILE_WRITE_OPTIONS_GET_PRIVATE(obj)       \
+  static_cast<GADatasetFileWriteOptionsPrivate *>(          \
+    gadataset_file_write_options_get_instance_private(      \
       GADATASET_FILE_WRITE_OPTIONS(obj)))
 
 static void
@@ -86,8 +85,9 @@ gadataset_file_write_options_set_property(GObject *object,
 
   switch (prop_id) {
   case PROP_OPTIONS:
-    priv->options = *static_cast<std::shared_ptr<arrow::dataset::FileWriteOptions> *>(
-      g_value_get_pointer(value));
+    priv->options =
+      *static_cast<std::shared_ptr<arrow::dataset::FileWriteOptions> *>(
+        g_value_get_pointer(value));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -99,7 +99,7 @@ static void
 gadataset_file_write_options_init(GADatasetFileWriteOptions *object)
 {
   auto priv = GADATASET_FILE_WRITE_OPTIONS_GET_PRIVATE(object);
-  new (&priv->options) std::shared_ptr<arrow::dataset::FileWriteOptions>;
+  new(&priv->options) std::shared_ptr<arrow::dataset::FileWriteOptions>;
 }
 
 static void
@@ -107,21 +107,21 @@ gadataset_file_write_options_class_init(GADatasetFileWriteOptionsClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->finalize = gadataset_file_write_options_finalize;
+  gobject_class->finalize     = gadataset_file_write_options_finalize;
   gobject_class->set_property = gadataset_file_write_options_set_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_pointer(
-    "options",
-    "Options",
-    "The raw "
-    "std::shared<arrow::dataset::FileWriteOptions> *",
-    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_pointer("options",
+                              "Options",
+                              "The raw "
+                              "std::shared<arrow::dataset::FileWriteOptions> *",
+                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
+                                                       G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_OPTIONS, spec);
 }
 
-typedef struct GADatasetFileWriterPrivate_
-{
+
+typedef struct GADatasetFileWriterPrivate_ {
   std::shared_ptr<arrow::dataset::FileWriter> writer;
 } GADatasetFileWriterPrivate;
 
@@ -129,11 +129,14 @@ enum {
   PROP_WRITER = 1,
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE(GADatasetFileWriter, gadataset_file_writer, G_TYPE_OBJECT)
+G_DEFINE_TYPE_WITH_PRIVATE(GADatasetFileWriter,
+                           gadataset_file_writer,
+                           G_TYPE_OBJECT)
 
-#define GADATASET_FILE_WRITER_GET_PRIVATE(obj)                                           \
-  static_cast<GADatasetFileWriterPrivate *>(                                             \
-    gadataset_file_writer_get_instance_private(GADATASET_FILE_WRITER(obj)))
+#define GADATASET_FILE_WRITER_GET_PRIVATE(obj)              \
+  static_cast<GADatasetFileWriterPrivate *>(                \
+    gadataset_file_writer_get_instance_private(             \
+      GADATASET_FILE_WRITER(obj)))
 
 static void
 gadataset_file_writer_finalize(GObject *object)
@@ -153,8 +156,9 @@ gadataset_file_writer_set_property(GObject *object,
 
   switch (prop_id) {
   case PROP_WRITER:
-    priv->writer = *static_cast<std::shared_ptr<arrow::dataset::FileWriter> *>(
-      g_value_get_pointer(value));
+    priv->writer =
+      *static_cast<std::shared_ptr<arrow::dataset::FileWriter> *>(
+        g_value_get_pointer(value));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -166,7 +170,7 @@ static void
 gadataset_file_writer_init(GADatasetFileWriter *object)
 {
   auto priv = GADATASET_FILE_WRITER_GET_PRIVATE(object);
-  new (&(priv->writer)) std::shared_ptr<arrow::dataset::FileWriter>;
+  new(&(priv->writer)) std::shared_ptr<arrow::dataset::FileWriter>;
 }
 
 static void
@@ -174,16 +178,16 @@ gadataset_file_writer_class_init(GADatasetFileWriterClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->finalize = gadataset_file_writer_finalize;
+  gobject_class->finalize     = gadataset_file_writer_finalize;
   gobject_class->set_property = gadataset_file_writer_set_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_pointer(
-    "writer",
-    "Writer",
-    "The raw "
-    "std::shared<arrow::dataset::FileWriter> *",
-    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_pointer("writer",
+                              "Writer",
+                              "The raw "
+                              "std::shared<arrow::dataset::FileWriter> *",
+                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
+                                                       G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_WRITER, spec);
 }
 
@@ -226,7 +230,9 @@ gadataset_file_writer_write_record_batch_reader(GADatasetFileWriter *writer,
   const auto arrow_writer = gadataset_file_writer_get_raw(writer);
   auto arrow_reader = garrow_record_batch_reader_get_raw(reader);
   auto status = arrow_writer->Write(arrow_reader.get());
-  return garrow::check(error, status, "[file-writer][write-record-batch-reader]");
+  return garrow::check(error,
+                       status,
+                       "[file-writer][write-record-batch-reader]");
 }
 
 /**
@@ -239,15 +245,18 @@ gadataset_file_writer_write_record_batch_reader(GADatasetFileWriter *writer,
  * Since: 6.0.0
  */
 gboolean
-gadataset_file_writer_finish(GADatasetFileWriter *writer, GError **error)
+gadataset_file_writer_finish(GADatasetFileWriter *writer,
+                             GError **error)
 {
   const auto arrow_writer = gadataset_file_writer_get_raw(writer);
   auto status = arrow_writer->Finish().status();
-  return garrow::check(error, status, "[file-writer][finish]");
+  return garrow::check(error,
+                       status,
+                       "[file-writer][finish]");
 }
 
-typedef struct GADatasetFileFormatPrivate_
-{
+
+typedef struct GADatasetFileFormatPrivate_ {
   std::shared_ptr<arrow::dataset::FileFormat> format;
 } GADatasetFileFormatPrivate;
 
@@ -255,11 +264,14 @@ enum {
   PROP_FORMAT = 1,
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE(GADatasetFileFormat, gadataset_file_format, G_TYPE_OBJECT)
+G_DEFINE_TYPE_WITH_PRIVATE(GADatasetFileFormat,
+                           gadataset_file_format,
+                           G_TYPE_OBJECT)
 
-#define GADATASET_FILE_FORMAT_GET_PRIVATE(obj)                                           \
-  static_cast<GADatasetFileFormatPrivate *>(                                             \
-    gadataset_file_format_get_instance_private(GADATASET_FILE_FORMAT(obj)))
+#define GADATASET_FILE_FORMAT_GET_PRIVATE(obj)        \
+  static_cast<GADatasetFileFormatPrivate *>(          \
+    gadataset_file_format_get_instance_private(       \
+      GADATASET_FILE_FORMAT(obj)))
 
 static void
 gadataset_file_format_finalize(GObject *object)
@@ -279,8 +291,9 @@ gadataset_file_format_set_property(GObject *object,
 
   switch (prop_id) {
   case PROP_FORMAT:
-    priv->format = *static_cast<std::shared_ptr<arrow::dataset::FileFormat> *>(
-      g_value_get_pointer(value));
+    priv->format =
+      *static_cast<std::shared_ptr<arrow::dataset::FileFormat> *>(
+        g_value_get_pointer(value));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -292,7 +305,7 @@ static void
 gadataset_file_format_init(GADatasetFileFormat *object)
 {
   auto priv = GADATASET_FILE_FORMAT_GET_PRIVATE(object);
-  new (&priv->format) std::shared_ptr<arrow::dataset::FileFormat>;
+  new(&priv->format) std::shared_ptr<arrow::dataset::FileFormat>;
 }
 
 static void
@@ -300,15 +313,15 @@ gadataset_file_format_class_init(GADatasetFileFormatClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->finalize = gadataset_file_format_finalize;
+  gobject_class->finalize     = gadataset_file_format_finalize;
   gobject_class->set_property = gadataset_file_format_set_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_pointer(
-    "format",
-    "Format",
-    "The raw std::shared<arrow::dataset::FileFormat> *",
-    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_pointer("format",
+                              "Format",
+                              "The raw std::shared<arrow::dataset::FileFormat> *",
+                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
+                                                       G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_FORMAT, spec);
 }
 
@@ -375,10 +388,11 @@ gadataset_file_format_open_writer(GADatasetFileFormat *format,
   auto arrow_file_system = garrow_file_system_get_raw(file_system);
   auto arrow_schema = garrow_schema_get_raw(schema);
   auto arrow_options = gadataset_file_write_options_get_raw(options);
-  auto arrow_writer_result = arrow_format->MakeWriter(arrow_destination,
-                                                      arrow_schema,
-                                                      arrow_options,
-                                                      {arrow_file_system, path});
+  auto arrow_writer_result =
+    arrow_format->MakeWriter(arrow_destination,
+                             arrow_schema,
+                             arrow_options,
+                             {arrow_file_system, path});
   if (garrow::check(error, arrow_writer_result, "[file-format][open-writer]")) {
     auto arrow_writer = *arrow_writer_result;
     return gadataset_file_writer_new_raw(&arrow_writer);
@@ -404,6 +418,7 @@ gadataset_file_format_equal(GADatasetFileFormat *format,
   const auto arrow_other_format = gadataset_file_format_get_raw(other_format);
   return arrow_format->Equals(*arrow_other_format);
 }
+
 
 G_DEFINE_TYPE(GADatasetCSVFileFormat,
               gadataset_csv_file_format,
@@ -434,6 +449,7 @@ gadataset_csv_file_format_new(void)
   return GADATASET_CSV_FILE_FORMAT(gadataset_file_format_new_raw(&arrow_format));
 }
 
+
 G_DEFINE_TYPE(GADatasetIPCFileFormat,
               gadataset_ipc_file_format,
               GADATASET_TYPE_FILE_FORMAT)
@@ -463,6 +479,7 @@ gadataset_ipc_file_format_new(void)
   return GADATASET_IPC_FILE_FORMAT(gadataset_file_format_new_raw(&arrow_format));
 }
 
+
 G_DEFINE_TYPE(GADatasetParquetFileFormat,
               gadataset_parquet_file_format,
               GADATASET_TYPE_FILE_FORMAT)
@@ -489,8 +506,10 @@ gadataset_parquet_file_format_new(void)
 {
   std::shared_ptr<arrow::dataset::FileFormat> arrow_format =
     std::make_shared<arrow::dataset::ParquetFileFormat>();
-  return GADATASET_PARQUET_FILE_FORMAT(gadataset_file_format_new_raw(&arrow_format));
+  return GADATASET_PARQUET_FILE_FORMAT(
+    gadataset_file_format_new_raw(&arrow_format));
 }
+
 
 G_END_DECLS
 
@@ -499,7 +518,9 @@ gadataset_file_write_options_new_raw(
   std::shared_ptr<arrow::dataset::FileWriteOptions> *arrow_options)
 {
   return GADATASET_FILE_WRITE_OPTIONS(
-    g_object_new(GADATASET_TYPE_FILE_WRITE_OPTIONS, "options", arrow_options, NULL));
+    g_object_new(GADATASET_TYPE_FILE_WRITE_OPTIONS,
+                 "options", arrow_options,
+                 NULL));
 }
 
 std::shared_ptr<arrow::dataset::FileWriteOptions>
@@ -509,11 +530,14 @@ gadataset_file_write_options_get_raw(GADatasetFileWriteOptions *options)
   return priv->options;
 }
 
+
 GADatasetFileWriter *
-gadataset_file_writer_new_raw(std::shared_ptr<arrow::dataset::FileWriter> *arrow_writer)
+gadataset_file_writer_new_raw(
+  std::shared_ptr<arrow::dataset::FileWriter> *arrow_writer)
 {
-  return GADATASET_FILE_WRITER(
-    g_object_new(GADATASET_TYPE_FILE_WRITER, "writer", arrow_writer, NULL));
+  return GADATASET_FILE_WRITER(g_object_new(GADATASET_TYPE_FILE_WRITER,
+                                            "writer", arrow_writer,
+                                            NULL));
 }
 
 std::shared_ptr<arrow::dataset::FileWriter>
@@ -523,8 +547,10 @@ gadataset_file_writer_get_raw(GADatasetFileWriter *writer)
   return priv->writer;
 }
 
+
 GADatasetFileFormat *
-gadataset_file_format_new_raw(std::shared_ptr<arrow::dataset::FileFormat> *arrow_format)
+gadataset_file_format_new_raw(
+  std::shared_ptr<arrow::dataset::FileFormat> *arrow_format)
 {
   GType type = GADATASET_TYPE_FILE_FORMAT;
   const auto &type_name = (*arrow_format)->type_name();
@@ -535,7 +561,9 @@ gadataset_file_format_new_raw(std::shared_ptr<arrow::dataset::FileFormat> *arrow
   } else if (type_name == "parquet") {
     type = GADATASET_TYPE_PARQUET_FILE_FORMAT;
   }
-  return GADATASET_FILE_FORMAT(g_object_new(type, "format", arrow_format, NULL));
+  return GADATASET_FILE_FORMAT(g_object_new(type,
+                                            "format", arrow_format,
+                                            NULL));
 }
 
 std::shared_ptr<arrow::dataset::FileFormat>

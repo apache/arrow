@@ -14,13 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.adapter.jdbc;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 
-/** POJO to handle the YAML data from the test YAML file. */
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
+/**
+ * POJO to handle the YAML data from the test YAML file.
+ */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class Table {
   private String name;
@@ -35,7 +39,8 @@ public class Table {
   private String[] vectors;
   private int rowCount;
 
-  public Table() {}
+  public Table() {
+  }
 
   public String getName() {
     return name;

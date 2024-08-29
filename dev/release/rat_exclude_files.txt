@@ -63,7 +63,6 @@ go.work.sum
 go/go.sum
 go/arrow/Gopkg.lock
 go/arrow/flight/gen/flight/*.pb.go
-go/arrow/util/util_message/*.pb.go
 go/arrow/internal/cpu/*
 go/arrow/type_string.go
 go/arrow/cdata/test/go.sum
@@ -81,8 +80,6 @@ go/parquet/internal/gen-go/parquet/GoUnusedProtection__.go
 go/parquet/internal/gen-go/parquet/parquet-consts.go
 go/parquet/internal/gen-go/parquet/parquet.go
 go/parquet/version_string.go
-java/vector/src/main/java/org/apache/arrow/vector/util/IntObjectMap.java
-java/vector/src/main/java/org/apache/arrow/vector/util/IntObjectHashMap.java
 js/.npmignore
 js/closure-compiler-scripts/*
 js/src/fb/*.ts
@@ -95,7 +92,6 @@ python/manylinux1/.dockerignore
 python/pyarrow/includes/__init__.pxd
 python/pyarrow/tests/__init__.py
 python/pyarrow/vendored/*
-python/pyarrow/src/arrow/python/vendored/*
 python/requirements*.txt
 pax_global_header
 MANIFEST.in
@@ -152,4 +148,3 @@ r/tools/nixlibs-allowlist.txt
 ruby/red-arrow/.yardopts
 .github/pull_request_template.md
 swift/data-generator/swift-datagen/go.sum
-swift/CDataWGo/go.sum

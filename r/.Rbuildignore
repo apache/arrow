@@ -30,4 +30,3 @@ STYLE.md
 ^vignettes$
 ^PACKAGING\.md$
 ^inst/__pycache__$
-^bootstrap.R$

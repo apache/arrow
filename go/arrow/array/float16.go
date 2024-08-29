@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/apache/arrow/go/v18/arrow"
-	"github.com/apache/arrow/go/v18/arrow/float16"
-	"github.com/apache/arrow/go/v18/internal/json"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/float16"
+	"github.com/apache/arrow/go/v16/internal/json"
 )
 
 // A type which represents an immutable sequence of Float16 values.
@@ -87,20 +87,10 @@ func (a *Float16) GetOneForMarshal(i int) interface{} {
 func (a *Float16) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i, v := range a.values {
-		if !a.IsValid(i) {
-			vals[i] = nil
-			continue
-		}
-
-		switch {
-		case v.IsNaN():
-			vals[i] = "NaN"
-		case v.IsInf() && !v.Signbit():
-			vals[i] = "+Inf"
-		case v.IsInf() && v.Signbit():
-			vals[i] = "-Inf"
-		default:
+		if a.IsValid(i) {
 			vals[i] = v.Float32()
+		} else {
+			vals[i] = nil
 		}
 	}
 	return json.Marshal(vals)

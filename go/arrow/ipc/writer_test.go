@@ -24,11 +24,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v18/arrow"
-	"github.com/apache/arrow/go/v18/arrow/array"
-	"github.com/apache/arrow/go/v18/arrow/bitutil"
-	"github.com/apache/arrow/go/v18/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v18/arrow/memory"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/bitutil"
+	"github.com/apache/arrow/go/v16/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v16/arrow/memory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -193,8 +193,7 @@ func TestWriteWithCompressionAndMinSavings(t *testing.T) {
 	}
 
 	for _, codec := range []flatbuf.CompressionType{flatbuf.CompressionTypeLZ4_FRAME, flatbuf.CompressionTypeZSTD} {
-		compressors := []compressor{getCompressor(codec)}
-		enc := newRecordEncoder(mem, 0, 5, true, codec, 1, nil, compressors)
+		enc := newRecordEncoder(mem, 0, 5, true, codec, 1, nil)
 		var payload Payload
 		require.NoError(t, enc.encode(&payload, batch))
 		assert.Len(t, payload.body, 2)
@@ -206,7 +205,7 @@ func TestWriteWithCompressionAndMinSavings(t *testing.T) {
 		assert.Greater(t, compressedSize, int64(0))
 		expectedSavings := 1.0 - float64(compressedSize)/float64(uncompressedSize)
 
-		compressEncoder := newRecordEncoder(mem, 0, 5, true, codec, 1, &expectedSavings, compressors)
+		compressEncoder := newRecordEncoder(mem, 0, 5, true, codec, 1, &expectedSavings)
 		payload.Release()
 		payload.body = payload.body[:0]
 		require.NoError(t, compressEncoder.encode(&payload, batch))
@@ -234,23 +233,4 @@ func TestWriteWithCompressionAndMinSavings(t *testing.T) {
 			assert.ErrorContains(t, err, "minSpaceSavings not in range [0,1]")
 		}
 	}
-}
-
-func TestWriterInferSchema(t *testing.T) {
-	bldr := array.NewRecordBuilder(memory.DefaultAllocator, arrow.NewSchema([]arrow.Field{{Name: "col", Type: arrow.PrimitiveTypes.Int8}}, nil))
-	bldr.Field(0).(*array.Int8Builder).AppendValues([]int8{1, 2, 3, 4, 5}, nil)
-	rec := bldr.NewRecord()
-	defer rec.Release()
-
-	var buf bytes.Buffer
-	w := NewWriter(&buf)
-
-	require.NoError(t, w.Write(rec))
-	require.NoError(t, w.Close())
-
-	r, err := NewReader(&buf)
-	require.NoError(t, err)
-	defer r.Release()
-
-	require.True(t, r.Schema().Equal(rec.Schema()))
 }

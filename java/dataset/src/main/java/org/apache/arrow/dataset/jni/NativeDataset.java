@@ -14,13 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.dataset.jni;
 
-import org.apache.arrow.dataset.scanner.FragmentScanOptions;
 import org.apache.arrow.dataset.scanner.ScanOptions;
 import org.apache.arrow.dataset.source.Dataset;
 
-/** Native implementation of {@link Dataset}. */
+/**
+ * Native implementation of {@link Dataset}.
+ */
 public class NativeDataset implements Dataset {
 
   private final NativeContext context;
@@ -38,24 +40,11 @@ public class NativeDataset implements Dataset {
     if (closed) {
       throw new NativeInstanceReleasedException();
     }
-    int fileFormatId = -1;
-    String[] serialized = null;
-    if (options.getFragmentScanOptions().isPresent()) {
-      FragmentScanOptions fragmentScanOptions = options.getFragmentScanOptions().get();
-      fileFormatId = fragmentScanOptions.fileFormat().id();
-      serialized = fragmentScanOptions.serialize();
-    }
-    long scannerId =
-        JniWrapper.get()
-            .createScanner(
-                datasetId,
-                options.getColumns().orElse(null),
-                options.getSubstraitProjection().orElse(null),
-                options.getSubstraitFilter().orElse(null),
-                options.getBatchSize(),
-                fileFormatId,
-                serialized,
-                context.getMemoryPool().getNativeInstanceId());
+
+    long scannerId = JniWrapper.get().createScanner(datasetId, options.getColumns().orElse(null),
+        options.getSubstraitProjection().orElse(null),
+        options.getSubstraitFilter().orElse(null),
+        options.getBatchSize(), context.getMemoryPool().getNativeInstanceId());
 
     return new NativeScanner(context, scannerId);
   }

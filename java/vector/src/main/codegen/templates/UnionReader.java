@@ -39,7 +39,7 @@ package org.apache.arrow.vector.complex.impl;
 @SuppressWarnings("unused")
 public class UnionReader extends AbstractFieldReader {
 
-  private static final int NUM_SUPPORTED_TYPES = 50;
+  private static final int NUM_SUPPORTED_TYPES = 46;
 
   private BaseReader[] readers = new BaseReader[NUM_SUPPORTED_TYPES];
   public UnionVector data;
@@ -91,8 +91,6 @@ public class UnionReader extends AbstractFieldReader {
       return (FieldReader) getStruct();
     case LIST:
       return (FieldReader) getList();
-    case LISTVIEW:
-      return (FieldReader) getListView();
     case MAP:
       return (FieldReader) getMap();
     <#list vv.types as type>
@@ -130,17 +128,6 @@ public class UnionReader extends AbstractFieldReader {
       readers[MinorType.LIST.ordinal()] = listReader;
     }
     return listReader;
-  }
-
-  private UnionListViewReader listViewReader;
-
-  private FieldReader getListView() {
-    if (listViewReader == null) {
-      listViewReader = new UnionListViewReader(data.getListView());
-      listViewReader.setPosition(idx());
-      readers[MinorType.LISTVIEW.ordinal()] = listViewReader;
-    }
-    return listViewReader;
   }
 
   private UnionMapReader mapReader;

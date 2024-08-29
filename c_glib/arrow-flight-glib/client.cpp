@@ -56,16 +56,18 @@ gaflight_stream_reader_class_init(GAFlightStreamReaderClass *klass)
 {
 }
 
-typedef struct GAFlightCallOptionsPrivate_
-{
+typedef struct GAFlightCallOptionsPrivate_ {
   arrow::flight::FlightCallOptions options;
 } GAFlightCallOptionsPrivate;
 
-G_DEFINE_TYPE_WITH_PRIVATE(GAFlightCallOptions, gaflight_call_options, G_TYPE_OBJECT)
+G_DEFINE_TYPE_WITH_PRIVATE(GAFlightCallOptions,
+                           gaflight_call_options,
+                           G_TYPE_OBJECT)
 
-#define GAFLIGHT_CALL_OPTIONS_GET_PRIVATE(obj)                                           \
-  static_cast<GAFlightCallOptionsPrivate *>(                                             \
-    gaflight_call_options_get_instance_private(GAFLIGHT_CALL_OPTIONS(obj)))
+#define GAFLIGHT_CALL_OPTIONS_GET_PRIVATE(obj)        \
+  static_cast<GAFlightCallOptionsPrivate *>(          \
+    gaflight_call_options_get_instance_private(       \
+      GAFLIGHT_CALL_OPTIONS(obj)))
 
 static void
 gaflight_call_options_finalize(GObject *object)
@@ -81,7 +83,7 @@ static void
 gaflight_call_options_init(GAFlightCallOptions *object)
 {
   auto priv = GAFLIGHT_CALL_OPTIONS_GET_PRIVATE(object);
-  new (&priv->options) arrow::flight::FlightCallOptions;
+  new(&priv->options) arrow::flight::FlightCallOptions;
 }
 
 static void
@@ -163,8 +165,8 @@ gaflight_call_options_foreach_header(GAFlightCallOptions *options,
   }
 }
 
-struct GAFlightClientOptionsPrivate
-{
+
+struct GAFlightClientOptionsPrivate {
   arrow::flight::FlightClientOptions options;
 };
 
@@ -177,11 +179,14 @@ enum {
   PROP_DISABLE_SERVER_VERIFICATION,
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE(GAFlightClientOptions, gaflight_client_options, G_TYPE_OBJECT)
+G_DEFINE_TYPE_WITH_PRIVATE(GAFlightClientOptions,
+                           gaflight_client_options,
+                           G_TYPE_OBJECT)
 
-#define GAFLIGHT_CLIENT_OPTIONS_GET_PRIVATE(obj)                                         \
-  static_cast<GAFlightClientOptionsPrivate *>(                                           \
-    gaflight_client_options_get_instance_private(GAFLIGHT_CLIENT_OPTIONS(obj)))
+#define GAFLIGHT_CLIENT_OPTIONS_GET_PRIVATE(obj)        \
+  static_cast<GAFlightClientOptionsPrivate *>(          \
+    gaflight_client_options_get_instance_private(       \
+      GAFLIGHT_CLIENT_OPTIONS(obj)))
 
 static void
 gaflight_client_options_finalize(GObject *object)
@@ -263,7 +268,7 @@ static void
 gaflight_client_options_init(GAFlightClientOptions *object)
 {
   auto priv = GAFLIGHT_CLIENT_OPTIONS_GET_PRIVATE(object);
-  new (&(priv->options)) arrow::flight::FlightClientOptions;
+  new(&(priv->options)) arrow::flight::FlightClientOptions;
   priv->options = arrow::flight::FlightClientOptions::Defaults();
 }
 
@@ -290,7 +295,9 @@ gaflight_client_options_class_init(GAFlightClientOptionsClass *klass)
                              nullptr,
                              options.tls_root_certs.c_str(),
                              static_cast<GParamFlags>(G_PARAM_READWRITE));
-  g_object_class_install_property(gobject_class, PROP_TLS_ROOT_CERTIFICATES, spec);
+  g_object_class_install_property(gobject_class,
+                                  PROP_TLS_ROOT_CERTIFICATES,
+                                  spec);
 
   /**
    * GAFlightClientOptions:override-host-name:
@@ -304,7 +311,9 @@ gaflight_client_options_class_init(GAFlightClientOptionsClass *klass)
                              nullptr,
                              options.override_hostname.c_str(),
                              static_cast<GParamFlags>(G_PARAM_READWRITE));
-  g_object_class_install_property(gobject_class, PROP_OVERRIDE_HOST_NAME, spec);
+  g_object_class_install_property(gobject_class,
+                                  PROP_OVERRIDE_HOST_NAME,
+                                  spec);
 
   /**
    * GAFlightClientOptions:certificate-chain:
@@ -318,7 +327,9 @@ gaflight_client_options_class_init(GAFlightClientOptionsClass *klass)
                              nullptr,
                              options.cert_chain.c_str(),
                              static_cast<GParamFlags>(G_PARAM_READWRITE));
-  g_object_class_install_property(gobject_class, PROP_CERTIFICATE_CHAIN, spec);
+  g_object_class_install_property(gobject_class,
+                                  PROP_CERTIFICATE_CHAIN,
+                                  spec);
 
   /**
    * GAFlightClientOptions:private-key:
@@ -333,7 +344,9 @@ gaflight_client_options_class_init(GAFlightClientOptionsClass *klass)
                              nullptr,
                              options.private_key.c_str(),
                              static_cast<GParamFlags>(G_PARAM_READWRITE));
-  g_object_class_install_property(gobject_class, PROP_PRIVATE_KEY, spec);
+  g_object_class_install_property(gobject_class,
+                                  PROP_PRIVATE_KEY,
+                                  spec);
 
   /**
    * GAFlightClientOptions:write-size-limit-bytes:
@@ -353,7 +366,9 @@ gaflight_client_options_class_init(GAFlightClientOptionsClass *klass)
                             INT64_MAX,
                             options.write_size_limit_bytes,
                             static_cast<GParamFlags>(G_PARAM_READWRITE));
-  g_object_class_install_property(gobject_class, PROP_WRITE_SIZE_LIMIT_BYTES, spec);
+  g_object_class_install_property(gobject_class,
+                                  PROP_WRITE_SIZE_LIMIT_BYTES,
+                                  spec);
 
   /**
    * GAFlightClientOptions:disable-server-verification:
@@ -368,7 +383,9 @@ gaflight_client_options_class_init(GAFlightClientOptionsClass *klass)
                               NULL,
                               options.disable_server_verification,
                               static_cast<GParamFlags>(G_PARAM_READWRITE));
-  g_object_class_install_property(gobject_class, PROP_DISABLE_SERVER_VERIFICATION, spec);
+  g_object_class_install_property(gobject_class,
+                                  PROP_DISABLE_SERVER_VERIFICATION,
+                                  spec);
 }
 
 /**
@@ -385,8 +402,8 @@ gaflight_client_options_new(void)
     g_object_new(GAFLIGHT_TYPE_CLIENT_OPTIONS, NULL));
 }
 
-struct GAFlightClientPrivate
-{
+
+struct GAFlightClientPrivate {
   std::shared_ptr<arrow::flight::FlightClient> client;
 };
 
@@ -394,11 +411,14 @@ enum {
   PROP_CLIENT = 1,
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE(GAFlightClient, gaflight_client, G_TYPE_OBJECT)
+G_DEFINE_TYPE_WITH_PRIVATE(GAFlightClient,
+                           gaflight_client,
+                           G_TYPE_OBJECT)
 
-#define GAFLIGHT_CLIENT_GET_PRIVATE(obj)                                                 \
-  static_cast<GAFlightClientPrivate *>(                                                  \
-    gaflight_client_get_instance_private(GAFLIGHT_CLIENT(obj)))
+#define GAFLIGHT_CLIENT_GET_PRIVATE(obj)         \
+  static_cast<GAFlightClientPrivate *>(          \
+    gaflight_client_get_instance_private(        \
+      GAFLIGHT_CLIENT(obj)))
 
 static void
 gaflight_client_finalize(GObject *object)
@@ -420,8 +440,9 @@ gaflight_client_set_property(GObject *object,
 
   switch (prop_id) {
   case PROP_CLIENT:
-    priv->client = *(static_cast<std::shared_ptr<arrow::flight::FlightClient> *>(
-      g_value_get_pointer(value)));
+    priv->client =
+      *(static_cast<std::shared_ptr<arrow::flight::FlightClient> *>(
+          g_value_get_pointer(value)));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -433,7 +454,7 @@ static void
 gaflight_client_init(GAFlightClient *object)
 {
   auto priv = GAFLIGHT_CLIENT_GET_PRIVATE(object);
-  new (&priv->client) std::shared_ptr<arrow::flight::FlightClient>;
+  new(&priv->client) std::shared_ptr<arrow::flight::FlightClient>;
 }
 
 static void
@@ -445,11 +466,11 @@ gaflight_client_class_init(GAFlightClientClass *klass)
   gobject_class->set_property = gaflight_client_set_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_pointer(
-    "client",
-    "Client",
-    "The raw std::shared_ptr<arrow::flight::FlightClient>",
-    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_pointer("client",
+                              "Client",
+                              "The raw std::shared_ptr<arrow::flight::FlightClient>",
+                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
+                                                       G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_CLIENT, spec);
 }
 
@@ -477,7 +498,8 @@ gaflight_client_new(GAFlightLocation *location,
     result = arrow::flight::FlightClient::Connect(*flight_location);
   }
   if (garrow::check(error, result, "[flight-client][new]")) {
-    std::shared_ptr<arrow::flight::FlightClient> flight_client = std::move(*result);
+    std::shared_ptr<arrow::flight::FlightClient> flight_client =
+      std::move(*result);
     return gaflight_client_new_raw(&flight_client);
   } else {
     return NULL;
@@ -494,11 +516,14 @@ gaflight_client_new(GAFlightLocation *location,
  * Since: 8.0.0
  */
 gboolean
-gaflight_client_close(GAFlightClient *client, GError **error)
+gaflight_client_close(GAFlightClient *client,
+                      GError **error)
 {
   auto flight_client = gaflight_client_get_raw(client);
   auto status = flight_client->Close();
-  return garrow::check(error, status, "[flight-client][close]");
+  return garrow::check(error,
+                       status,
+                       "[flight-client][close]");
 }
 
 /**
@@ -532,13 +557,19 @@ gaflight_client_authenticate_basic_token(GAFlightClient *client,
   if (options) {
     flight_options = gaflight_call_options_get_raw(options);
   }
-  auto result = flight_client->AuthenticateBasicToken(*flight_options, user, password);
-  if (!garrow::check(error, result, "[flight-client][authenticate-basic-token]")) {
+  auto result = flight_client->AuthenticateBasicToken(*flight_options,
+                                                      user,
+                                                      password);
+  if (!garrow::check(error,
+                     result,
+                     "[flight-client][authenticate-basic-token]")) {
     return FALSE;
   }
   auto bearer_token = *result;
-  *bearer_name = g_strndup(bearer_token.first.data(), bearer_token.first.size());
-  *bearer_value = g_strndup(bearer_token.second.data(), bearer_token.second.size());
+  *bearer_name = g_strndup(bearer_token.first.data(),
+                           bearer_token.first.size());
+  *bearer_value = g_strndup(bearer_token.second.data(),
+                            bearer_token.second.size());
   return TRUE;
 }
 
@@ -574,14 +605,18 @@ gaflight_client_list_flights(GAFlightClient *client,
   std::unique_ptr<arrow::flight::FlightListing> flight_listing;
   auto result = flight_client->ListFlights(*flight_options, *flight_criteria);
   auto status = std::move(result).Value(&flight_listing);
-  if (!garrow::check(error, status, "[flight-client][list-flights]")) {
+  if (!garrow::check(error,
+                     status,
+                     "[flight-client][list-flights]")) {
     return NULL;
   }
   GList *listing = NULL;
   std::unique_ptr<arrow::flight::FlightInfo> flight_info;
   while (true) {
     status = flight_listing->Next().Value(&flight_info);
-    if (!garrow::check(error, status, "[flight-client][list-flights]")) {
+    if (!garrow::check(error,
+                       status,
+                       "[flight-client][list-flights]")) {
       g_list_free_full(listing, g_object_unref);
       return NULL;
     }
@@ -619,7 +654,8 @@ gaflight_client_get_flight_info(GAFlightClient *client,
   if (options) {
     flight_options = gaflight_call_options_get_raw(options);
   }
-  auto result = flight_client->GetFlightInfo(*flight_options, *flight_descriptor);
+  auto result = flight_client->GetFlightInfo(*flight_options,
+                                             *flight_descriptor);
   if (!garrow::check(error, result, "[flight-client][get-flight-info]")) {
     return NULL;
   }
@@ -654,25 +690,29 @@ gaflight_client_do_get(GAFlightClient *client,
     flight_options = gaflight_call_options_get_raw(options);
   }
   auto result = flight_client->DoGet(*flight_options, *flight_ticket);
-  if (!garrow::check(error, result, "[flight-client][do-get]")) {
+  if (!garrow::check(error,
+                     result,
+                     "[flight-client][do-get]")) {
     return nullptr;
   }
   auto flight_reader = std::move(*result);
   return gaflight_stream_reader_new_raw(flight_reader.release(), TRUE);
 }
 
+
 G_END_DECLS
 
+
 GAFlightStreamReader *
-gaflight_stream_reader_new_raw(arrow::flight::FlightStreamReader *flight_reader,
-                               gboolean is_owner)
+gaflight_stream_reader_new_raw(
+  arrow::flight::FlightStreamReader *flight_reader,
+  gboolean is_owner)
 {
-  return GAFLIGHT_STREAM_READER(g_object_new(GAFLIGHT_TYPE_STREAM_READER,
-                                             "reader",
-                                             flight_reader,
-                                             "is-owner",
-                                             is_owner,
-                                             NULL));
+  return GAFLIGHT_STREAM_READER(
+    g_object_new(GAFLIGHT_TYPE_STREAM_READER,
+                 "reader", flight_reader,
+                 "is-owner", is_owner,
+                 NULL));
 }
 
 arrow::flight::FlightCallOptions *
@@ -697,8 +737,10 @@ gaflight_client_get_raw(GAFlightClient *client)
 }
 
 GAFlightClient *
-gaflight_client_new_raw(std::shared_ptr<arrow::flight::FlightClient> *flight_client)
+gaflight_client_new_raw(
+  std::shared_ptr<arrow::flight::FlightClient> *flight_client)
 {
-  return GAFLIGHT_CLIENT(
-    g_object_new(GAFLIGHT_TYPE_CLIENT, "client", flight_client, NULL));
+  return GAFLIGHT_CLIENT(g_object_new(GAFLIGHT_TYPE_CLIENT,
+                                      "client", flight_client,
+                                      NULL));
 }

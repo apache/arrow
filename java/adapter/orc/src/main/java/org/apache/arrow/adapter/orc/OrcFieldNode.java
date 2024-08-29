@@ -14,9 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.adapter.orc;
 
-/** Metadata about Vectors/Arrays that is passed via JNI interface. */
+/**
+ * Metadata about Vectors/Arrays that is passed via JNI interface.
+ */
 class OrcFieldNode {
 
   private final int length;
@@ -24,7 +27,6 @@ class OrcFieldNode {
 
   /**
    * Construct a new instance.
-   *
    * @param length the number of values written.
    * @param nullCount the number of null values.
    */

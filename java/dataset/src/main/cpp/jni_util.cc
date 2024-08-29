@@ -28,7 +28,7 @@ namespace arrow {
 namespace dataset {
 namespace jni {
 
-jint JNI_VERSION = JNI_VERSION_10;
+jint JNI_VERSION = JNI_VERSION_1_6;
 
 class ReservationListenableMemoryPool::Impl {
  public:
@@ -97,11 +97,7 @@ class ReservationListenableMemoryPool::Impl {
 
   int64_t Reserve(int64_t diff) {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (diff > 0) {
-      stats_.DidAllocateBytes(diff);
-    } else if (diff < 0) {
-      stats_.DidFreeBytes(-diff);
-    }
+    stats_.UpdateAllocatedBytes(diff);
     int64_t new_block_count;
     int64_t bytes_reserved = stats_.bytes_allocated();
     if (bytes_reserved == 0) {

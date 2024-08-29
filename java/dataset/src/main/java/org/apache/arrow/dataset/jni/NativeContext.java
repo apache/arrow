@@ -14,11 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.dataset.jni;
 
 import org.apache.arrow.memory.BufferAllocator;
 
-/** Context for relevant classes of NativeDataset. */
+/**
+ * Context for relevant classes of NativeDataset.
+ */
 public class NativeContext {
   private final BufferAllocator allocator;
   private final NativeMemoryPool memoryPool;
@@ -34,12 +37,16 @@ public class NativeContext {
     this.memoryPool = memoryPool;
   }
 
-  /** Returns the allocator which is in use. */
+  /**
+   * Returns the allocator which is in use.
+   */
   public BufferAllocator getAllocator() {
     return allocator;
   }
 
-  /** Returns the native memory pool. */
+  /**
+   * Returns the native memory pool.
+   */
   public NativeMemoryPool getMemoryPool() {
     return memoryPool;
   }

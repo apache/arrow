@@ -27,7 +27,6 @@ RUN dnf update -y && \
         make \
         cmake \
         ninja-build \
-        python3-devel && \
-    dnf clean all
+        python3-devel
 
-RUN pip3 install --no-cache-dir -U pip setuptools
+RUN pip3 install -U pip setuptools

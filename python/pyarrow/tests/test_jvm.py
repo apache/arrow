@@ -26,8 +26,6 @@ import xml.etree.ElementTree as ET
 
 jpype = pytest.importorskip("jpype")
 
-pytestmark = pytest.mark.processes
-
 
 @pytest.fixture(scope="session")
 def root_allocator():

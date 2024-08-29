@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
@@ -30,14 +31,15 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
 /**
- * VarBinaryVector implements a variable width vector of binary values which could be NULL. A
- * validity buffer (bit vector) is maintained to track which elements in the vector are null.
+ * VarBinaryVector implements a variable width vector of binary
+ * values which could be NULL. A validity buffer (bit vector) is maintained
+ * to track which elements in the vector are null.
  */
-public final class VarBinaryVector extends BaseVariableWidthVector
-    implements ValueIterableVector<byte[]> {
+public final class VarBinaryVector extends BaseVariableWidthVector {
 
   /**
-   * Instantiate a VarBinaryVector. This doesn't allocate any memory for the data in vector.
+   * Instantiate a VarBinaryVector. This doesn't allocate any memory for
+   * the data in vector.
    *
    * @param name name of the vector
    * @param allocator allocator for memory management.
@@ -47,7 +49,8 @@ public final class VarBinaryVector extends BaseVariableWidthVector
   }
 
   /**
-   * Instantiate a VarBinaryVector. This doesn't allocate any memory for the data in vector.
+   * Instantiate a VarBinaryVector. This doesn't allocate any memory for
+   * the data in vector.
    *
    * @param name name of the vector
    * @param fieldType type of Field materialized by this vector
@@ -58,7 +61,8 @@ public final class VarBinaryVector extends BaseVariableWidthVector
   }
 
   /**
-   * Instantiate a VarBinaryVector. This doesn't allocate any memory for the data in vector.
+   * Instantiate a VarBinaryVector. This doesn't allocate any memory for
+   * the data in vector.
    *
    * @param field field materialized by this vector
    * @param allocator allocator for memory management.
@@ -73,7 +77,8 @@ public final class VarBinaryVector extends BaseVariableWidthVector
   }
 
   /**
-   * Get minor type for this vector. The vector holds values belonging to a particular type.
+   * Get minor type for this vector. The vector holds values belonging
+   * to a particular type.
    *
    * @return {@link org.apache.arrow.vector.types.Types.MinorType}
    */
@@ -82,16 +87,18 @@ public final class VarBinaryVector extends BaseVariableWidthVector
     return MinorType.VARBINARY;
   }
 
+
   /*----------------------------------------------------------------*
-  |                                                                |
-  |          vector value retrieval methods                        |
-  |                                                                |
-  *----------------------------------------------------------------*/
+   |                                                                |
+   |          vector value retrieval methods                        |
+   |                                                                |
+   *----------------------------------------------------------------*/
+
 
   /**
    * Get the variable length element at specified index as byte array.
    *
-   * @param index position of element to get
+   * @param index   position of element to get
    * @return array of bytes for non-null element, null otherwise
    */
   public byte[] get(int index) {
@@ -107,13 +114,12 @@ public final class VarBinaryVector extends BaseVariableWidthVector
   }
 
   /**
-   * Read the value at the given position to the given output buffer. The caller is responsible for
-   * checking for nullity first.
+   * Read the value at the given position to the given output buffer.
+   * The caller is responsible for checking for nullity first.
    *
    * @param index position of element.
    * @param buffer the buffer to write into.
    */
-  @Override
   public void read(int index, ReusableBuffer<?> buffer) {
     final int startOffset = getStartOffset(index);
     final int dataLength = getEndOffset(index) - startOffset;
@@ -123,7 +129,7 @@ public final class VarBinaryVector extends BaseVariableWidthVector
   /**
    * Get the variable length element at specified index as Text.
    *
-   * @param index position of element to get
+   * @param index   position of element to get
    * @return byte array for non-null element, null otherwise
    */
   @Override
@@ -132,10 +138,11 @@ public final class VarBinaryVector extends BaseVariableWidthVector
   }
 
   /**
-   * Get the variable length element at specified index and sets the state in provided holder.
+   * Get the variable length element at specified index and sets the state
+   * in provided holder.
    *
-   * @param index position of element to get
-   * @param holder data holder to be populated by this function
+   * @param index   position of element to get
+   * @param holder  data holder to be populated by this function
    */
   public void get(int index, NullableVarBinaryHolder holder) {
     assert index >= 0;
@@ -149,18 +156,20 @@ public final class VarBinaryVector extends BaseVariableWidthVector
     holder.buffer = valueBuffer;
   }
 
+
   /*----------------------------------------------------------------*
-  |                                                                |
-  |          vector value setter methods                           |
-  |                                                                |
-  *----------------------------------------------------------------*/
+   |                                                                |
+   |          vector value setter methods                           |
+   |                                                                |
+   *----------------------------------------------------------------*/
+
 
   /**
-   * Set the variable length element at the specified index to the data buffer supplied in the
-   * holder.
+   * Set the variable length element at the specified index to the data
+   * buffer supplied in the holder.
    *
-   * @param index position of the element to set
-   * @param holder holder that carries data buffer.
+   * @param index   position of the element to set
+   * @param holder  holder that carries data buffer.
    */
   public void set(int index, VarBinaryHolder holder) {
     assert index >= 0;
@@ -174,11 +183,12 @@ public final class VarBinaryVector extends BaseVariableWidthVector
   }
 
   /**
-   * Same as {@link #set(int, VarBinaryHolder)} except that it handles the case where index and
-   * length of new element are beyond the existing capacity of the vector.
+   * Same as {@link #set(int, VarBinaryHolder)} except that it handles the
+   * case where index and length of new element are beyond the existing
+   * capacity of the vector.
    *
-   * @param index position of the element to set
-   * @param holder holder that carries data buffer.
+   * @param index   position of the element to set
+   * @param holder  holder that carries data buffer.
    */
   public void setSafe(int index, VarBinaryHolder holder) {
     assert index >= 0;
@@ -193,11 +203,11 @@ public final class VarBinaryVector extends BaseVariableWidthVector
   }
 
   /**
-   * Set the variable length element at the specified index to the data buffer supplied in the
-   * holder.
+   * Set the variable length element at the specified index to the data
+   * buffer supplied in the holder.
    *
-   * @param index position of the element to set
-   * @param holder holder that carries data buffer.
+   * @param index   position of the element to set
+   * @param holder  holder that carries data buffer.
    */
   public void set(int index, NullableVarBinaryHolder holder) {
     assert index >= 0;
@@ -215,11 +225,12 @@ public final class VarBinaryVector extends BaseVariableWidthVector
   }
 
   /**
-   * Same as {@link #set(int, NullableVarBinaryHolder)} except that it handles the case where index
-   * and length of new element are beyond the existing capacity of the vector.
+   * Same as {@link #set(int, NullableVarBinaryHolder)} except that it handles the
+   * case where index and length of new element are beyond the existing
+   * capacity of the vector.
    *
-   * @param index position of the element to set
-   * @param holder holder that carries data buffer.
+   * @param index   position of the element to set
+   * @param holder  holder that carries data buffer.
    */
   public void setSafe(int index, NullableVarBinaryHolder holder) {
     assert index >= 0;
@@ -237,14 +248,16 @@ public final class VarBinaryVector extends BaseVariableWidthVector
     lastSet = index;
   }
 
+
   /*----------------------------------------------------------------*
-  |                                                                |
-  |                      vector transfer                           |
-  |                                                                |
-  *----------------------------------------------------------------*/
+   |                                                                |
+   |                      vector transfer                           |
+   |                                                                |
+   *----------------------------------------------------------------*/
 
   /**
-   * Construct a TransferPair comprising of this and a target vector of the same type.
+   * Construct a TransferPair comprising of this and a target vector of
+   * the same type.
    *
    * @param ref name of the target vector
    * @param allocator allocator for the target vector

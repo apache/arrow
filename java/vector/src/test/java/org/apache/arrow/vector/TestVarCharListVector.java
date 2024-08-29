@@ -14,31 +14,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
 import java.nio.charset.StandardCharsets;
+
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.FieldType;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.After;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
 
 public class TestVarCharListVector {
 
   private BufferAllocator allocator;
 
-  @BeforeEach
+  @Before
   public void init() {
     allocator = new DirtyRootAllocator(Long.MAX_VALUE, (byte) 100);
   }
 
-  @AfterEach
+  @After
   public void terminate() throws Exception {
     allocator.close();
   }
@@ -46,10 +47,9 @@ public class TestVarCharListVector {
   @Test
   public void testVarCharListWithNulls() {
     byte[] bytes = "a".getBytes(StandardCharsets.UTF_8);
-    try (ListVector vector =
-            new ListVector(
-                "VarList", allocator, FieldType.nullable(Types.MinorType.VARCHAR.getType()), null);
-        ArrowBuf tempBuf = allocator.buffer(bytes.length)) {
+    try (ListVector vector = new ListVector("VarList", allocator, FieldType.nullable(Types
+            .MinorType.VARCHAR.getType()), null);
+         ArrowBuf tempBuf = allocator.buffer(bytes.length)) {
       UnionListWriter writer = vector.getWriter();
       writer.allocate();
 
@@ -72,8 +72,8 @@ public class TestVarCharListVector {
 
       writer.setValueCount(2);
 
-      assertEquals(2, vector.getValueCount());
-      assertEquals(2, vector.getDataVector().getValueCount());
+      Assert.assertEquals(2, vector.getValueCount());
+      Assert.assertEquals(2, vector.getDataVector().getValueCount());
     }
   }
 }

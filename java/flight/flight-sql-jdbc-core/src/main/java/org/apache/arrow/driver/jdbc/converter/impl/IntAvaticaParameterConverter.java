@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.driver.jdbc.converter.impl;
 
 import org.apache.arrow.vector.BigIntVector;
@@ -30,7 +31,9 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.calcite.avatica.AvaticaParameter;
 import org.apache.calcite.avatica.remote.TypedValue;
 
-/** AvaticaParameterConverter for Int Arrow types. */
+/**
+ * AvaticaParameterConverter for Int Arrow types.
+ */
 public class IntAvaticaParameterConverter extends BaseAvaticaParameterConverter {
   private final ArrowType.Int type;
 

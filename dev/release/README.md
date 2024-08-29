@@ -19,6 +19,8 @@
 
 ## Release management scripts
 
-To learn more, see the project documentation:
+To learn more, see the project wiki:
 
-https://arrow.apache.org/docs/developers/release.html
+https://cwiki.apache.org/confluence/display/ARROW/Release+Management+Guide
+
+and [VERIFY.md](VERIFY.md)

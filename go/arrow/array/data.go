@@ -22,9 +22,9 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v18/arrow"
-	"github.com/apache/arrow/go/v18/arrow/internal/debug"
-	"github.com/apache/arrow/go/v18/arrow/memory"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/internal/debug"
+	"github.com/apache/arrow/go/v16/arrow/memory"
 )
 
 // Data represents the memory and metadata of an Arrow array.
@@ -201,9 +201,7 @@ func (d *Data) SizeInBytes() uint64 {
 	}
 
 	for _, b := range d.Buffers() {
-		if b != nil {
-			size += uint64(b.Len())
-		}
+		size += uint64(b.Len())
 	}
 	for _, c := range d.Children() {
 		size += c.SizeInBytes()

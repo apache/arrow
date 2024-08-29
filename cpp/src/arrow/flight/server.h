@@ -15,7 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Interfaces to use for defining Flight RPC servers.
+// Interfaces to use for defining Flight RPC servers. API should be considered
+// experimental for now
 
 #pragma once
 

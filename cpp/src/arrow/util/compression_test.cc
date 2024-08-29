@@ -30,7 +30,6 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/compression.h"
-#include "arrow/util/config.h"
 
 namespace arrow {
 namespace util {
@@ -730,7 +729,7 @@ INSTANTIATE_TEST_SUITE_P(TestLZ4Frame, CodecTest,
 INSTANTIATE_TEST_SUITE_P(TestBrotli, CodecTest, ::testing::Values(Compression::BROTLI));
 #endif
 
-#ifdef ARROW_WITH_BZ2
+#if ARROW_WITH_BZ2
 INSTANTIATE_TEST_SUITE_P(TestBZ2, CodecTest, ::testing::Values(Compression::BZ2));
 #endif
 

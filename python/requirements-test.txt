@@ -1,5 +1,5 @@
 cffi
 hypothesis
 pandas
-pytest
+pytest<8
 pytz

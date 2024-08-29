@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.gandiva.evaluator;
 
 import static org.apache.arrow.memory.util.LargeMemoryUtil.capAtMaxInt;
@@ -23,7 +24,8 @@ import org.apache.arrow.memory.ArrowBuf;
 
 /**
  * A selection vector contains the indexes of "selected" records in a row batch. It is backed by an
- * arrow buffer. Client manages the lifecycle of the arrow buffer - to release the reference.
+ * arrow buffer.
+ * Client manages the lifecycle of the arrow buffer - to release the reference.
  */
 public abstract class SelectionVector {
   private int recordCount;
@@ -56,13 +58,9 @@ public abstract class SelectionVector {
    */
   final void setRecordCount(int recordCount) {
     if (recordCount * getRecordSize() > buffer.capacity()) {
-      throw new IllegalArgumentException(
-          "recordCount "
-              + recordCount
-              + " of size "
-              + getRecordSize()
-              + " exceeds buffer capacity "
-              + buffer.capacity());
+      throw new IllegalArgumentException("recordCount " + recordCount +
+          " of size " + getRecordSize() +
+          " exceeds buffer capacity " + buffer.capacity());
     }
 
     this.recordCount = recordCount;
@@ -85,4 +83,5 @@ public abstract class SelectionVector {
       throw new IllegalArgumentException("index " + index + " is >= recordCount " + recordCount);
     }
   }
+
 }

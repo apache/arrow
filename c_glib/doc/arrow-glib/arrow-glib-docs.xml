@@ -1,0 +1,313 @@
+<?xml version="1.0"?>
+<!--
+  Licensed to the Apache Software Foundation (ASF) under one
+  or more contributor license agreements.  See the NOTICE file
+  distributed with this work for additional information
+  regarding copyright ownership.  The ASF licenses this file
+  to you under the Apache License, Version 2.0 (the
+  "License"); you may not use this file except in compliance
+  with the License.  You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing,
+  software distributed under the License is distributed on an
+  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+  KIND, either express or implied.  See the License for the
+  specific language governing permissions and limitations
+  under the License.
+-->
+<!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook XML V4.3//EN"
+               "http://www.oasis-open.org/docbook/xml/4.3/docbookx.dtd"
+[
+  <!ENTITY % local.common.attrib "xmlns:xi  CDATA  #FIXED 'http://www.w3.org/2003/XInclude'">
+  <!ENTITY % gtkdocentities SYSTEM "entities.xml">
+  %gtkdocentities;
+]>
+<book id="index" xmlns:xi="http://www.w3.org/2003/XInclude">
+  <bookinfo>
+    <title>&package_name; Reference Manual</title>
+    <releaseinfo>
+      for &package_string;.
+      <!--
+      The latest version of this documentation can be found on-line at
+      <ulink role="online-location" url="http://[SERVER]/&package_name;/">http://[SERVER]/&package_name;/</ulink>.
+      -->
+    </releaseinfo>
+  </bookinfo>
+
+  <part id="data">
+    <title>Data</title>
+    <chapter id="array">
+      <title>Array</title>
+      <xi:include href="xml/basic-array.xml"/>
+      <xi:include href="xml/composite-array.xml"/>
+    </chapter>
+    <chapter id="array-builder">
+      <title>Array builder</title>
+      <xi:include href="xml/array-builder.xml"/>
+    </chapter>
+    <chapter id="tensor">
+      <title>Tensor</title>
+      <xi:include href="xml/tensor.xml"/>
+    </chapter>
+    <chapter id="value">
+      <title>Value</title>
+      <xi:include href="xml/decimal.xml"/>
+      <xi:include href="xml/interval.xml"/>
+    </chapter>
+    <chapter id="scalar">
+      <title>Scalar</title>
+      <xi:include href="xml/scalar.xml"/>
+    </chapter>
+    <chapter id="type">
+      <title>Type</title>
+      <xi:include href="xml/type.xml"/>
+      <xi:include href="xml/basic-data-type.xml"/>
+      <xi:include href="xml/composite-data-type.xml"/>
+    </chapter>
+    <chapter id="schema">
+      <title>Schema</title>
+      <xi:include href="xml/field.xml"/>
+      <xi:include href="xml/schema.xml"/>
+    </chapter>
+    <chapter id="table">
+      <title>Table</title>
+      <xi:include href="xml/table.xml"/>
+      <xi:include href="xml/record-batch.xml"/>
+      <xi:include href="xml/chunked-array.xml"/>
+    </chapter>
+    <chapter id="table-builder">
+      <title>Table builder</title>
+      <xi:include href="xml/table-builder.xml"/>
+    </chapter>
+    <chapter id="computation">
+      <title>Computation</title>
+      <xi:include href="xml/compute.xml"/>
+      <xi:include href="xml/datum.xml"/>
+      <xi:include href="xml/expression.xml"/>
+    </chapter>
+    <chapter id="buffer">
+      <title>Buffer</title>
+      <xi:include href="xml/buffer.xml"/>
+    </chapter>
+    <chapter id="codec">
+      <title>Codec</title>
+      <xi:include href="xml/codec.xml"/>
+    </chapter>
+    <chapter id="error">
+      <title>Error</title>
+      <xi:include href="xml/error.xml"/>
+    </chapter>
+  </part>
+
+  <part id="file-system-api">
+    <title>File system API</title>
+    <chapter id="file-system">
+      <title>File system</title>
+      <xi:include href="xml/file-system.xml"/>
+    </chapter>
+    <chapter id="local-file-system">
+      <title>Local file system</title>
+      <xi:include href="xml/local-file-system.xml"/>
+    </chapter>
+  </part>
+
+  <part id="io">
+    <title>IO</title>
+    <chapter id="mode">
+      <title>Mode</title>
+      <xi:include href="xml/file-mode.xml"/>
+    </chapter>
+    <chapter id="input">
+      <title>Input</title>
+      <xi:include href="xml/readable.xml"/>
+      <xi:include href="xml/input-stream.xml"/>
+    </chapter>
+    <chapter id="output">
+      <title>Output</title>
+      <xi:include href="xml/writable.xml"/>
+      <xi:include href="xml/writable-file.xml"/>
+      <xi:include href="xml/output-stream.xml"/>
+    </chapter>
+    <chapter id="input-output">
+      <title>Input and output</title>
+      <xi:include href="xml/file.xml"/>
+    </chapter>
+  </part>
+
+  <part id="ipc">
+    <title>IPC</title>
+    <chapter id="metadata">
+      <title>Metadata</title>
+      <xi:include href="xml/metadata-version.xml"/>
+    </chapter>
+    <chapter id="ipc-options">
+      <title>Options</title>
+      <xi:include href="xml/ipc-options.xml"/>
+    </chapter>
+    <chapter id="reader">
+      <title>Reader</title>
+      <xi:include href="xml/reader.xml"/>
+      <xi:include href="xml/orc-file-reader.xml"><xi:fallback /></xi:include>
+    </chapter>
+    <chapter id="writer">
+      <title>Writer</title>
+      <xi:include href="xml/writer.xml"/>
+    </chapter>
+  </part>
+
+  <part id="gpu">
+    <title>GPU</title>
+    <chapter id="cuda">
+      <title>CUDA</title>
+      <xi:include href="xml/cuda.xml"><xi:fallback /></xi:include>
+    </chapter>
+  </part>
+
+  <part id="memory">
+    <title>Memory</title>
+    <chapter id="memory-pool">
+      <title>Memory pool</title>
+      <xi:include href="xml/memory-pool.xml"><xi:fallback /></xi:include>
+    </chapter>
+  </part>
+
+  <part id="misc">
+    <title>Misc</title>
+    <chapter id="version">
+      <title>Version</title>
+      <xi:include href="xml/version.xml"></xi:include>
+    </chapter>
+  </part>
+
+  <chapter id="object-tree">
+    <title>Object Hierarchy</title>
+    <xi:include href="xml/tree_index.sgml"/>
+  </chapter>
+  <index id="api-index-full">
+    <title>API Index</title>
+    <xi:include href="xml/api-index-full.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="deprecated-api-index" role="deprecated">
+    <title>Index of deprecated API</title>
+    <xi:include href="xml/api-index-deprecated.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-16-0-0" role="16.0.0">
+    <title>Index of new symbols in 16.0.0</title>
+    <xi:include href="xml/api-index-16.0.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-13-0-0" role="13.0.0">
+    <title>Index of new symbols in 13.0.0</title>
+    <xi:include href="xml/api-index-13.0.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-12-0-0" role="12.0.0">
+    <title>Index of new symbols in 12.0.0</title>
+    <xi:include href="xml/api-index-12.0.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-11-0-0" role="11.0.0">
+    <title>Index of new symbols in 11.0.0</title>
+    <xi:include href="xml/api-index-11.0.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-10-0-0" role="10.0.0">
+    <title>Index of new symbols in 10.0.0</title>
+    <xi:include href="xml/api-index-10.0.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-9-0-0" role="9.0.0">
+    <title>Index of new symbols in 9.0.0</title>
+    <xi:include href="xml/api-index-9.0.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-8-0-0" role="8.0.0">
+    <title>Index of new symbols in 8.0.0</title>
+    <xi:include href="xml/api-index-8.0.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-7-0-0" role="7.0.0">
+    <title>Index of new symbols in 7.0.0</title>
+    <xi:include href="xml/api-index-7.0.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-6-0-0" role="6.0.0">
+    <title>Index of new symbols in 6.0.0</title>
+    <xi:include href="xml/api-index-6.0.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-5-0-0" role="5.0.0">
+    <title>Index of new symbols in 5.0.0</title>
+    <xi:include href="xml/api-index-5.0.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-4-0-0" role="4.0.0">
+    <title>Index of new symbols in 4.0.0</title>
+    <xi:include href="xml/api-index-4.0.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-3-0-0" role="3.0.0">
+    <title>Index of new symbols in 3.0.0</title>
+    <xi:include href="xml/api-index-3.0.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-2-0-0" role="2.0.0">
+    <title>Index of new symbols in 2.0.0</title>
+    <xi:include href="xml/api-index-2.0.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-1-0-0" role="1.0.0">
+    <title>Index of new symbols in 1.0.0</title>
+    <xi:include href="xml/api-index-1.0.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-0-17-0" role="0.17.0">
+    <title>Index of new symbols in 0.17.0</title>
+    <xi:include href="xml/api-index-0.17.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-0-16-0" role="0.16.0">
+    <title>Index of new symbols in 0.16.0</title>
+    <xi:include href="xml/api-index-0.16.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-0-15-0" role="0.15.0">
+    <title>Index of new symbols in 0.15.0</title>
+    <xi:include href="xml/api-index-0.15.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-0-14-0" role="0.14.0">
+    <title>Index of new symbols in 0.14.0</title>
+    <xi:include href="xml/api-index-0.14.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-0-13-0" role="0.13.0">
+    <title>Index of new symbols in 0.13.0</title>
+    <xi:include href="xml/api-index-0.13.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-0-12-0" role="0.12.0">
+    <title>Index of new symbols in 0.12.0</title>
+    <xi:include href="xml/api-index-0.12.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-0-11-0" role="0.11.0">
+    <title>Index of new symbols in 0.11.0</title>
+    <xi:include href="xml/api-index-0.11.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-0-10-0" role="0.10.0">
+    <title>Index of new symbols in 0.10.0</title>
+    <xi:include href="xml/api-index-0.10.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-0-9-0" role="0.9.0">
+    <title>Index of new symbols in 0.9.0</title>
+    <xi:include href="xml/api-index-0.9.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-0-8-0" role="0.8.0">
+    <title>Index of new symbols in 0.8.0</title>
+    <xi:include href="xml/api-index-0.8.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-0-7-0" role="0.7.0">
+    <title>Index of new symbols in 0.7.0</title>
+    <xi:include href="xml/api-index-0.7.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-0-6-0" role="0.6.0">
+    <title>Index of new symbols in 0.6.0</title>
+    <xi:include href="xml/api-index-0.6.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-0-5-0" role="0.5.0">
+    <title>Index of new symbols in 0.5.0</title>
+    <xi:include href="xml/api-index-0.5.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-0-4-0" role="0.4.0">
+    <title>Index of new symbols in 0.4.0</title>
+    <xi:include href="xml/api-index-0.4.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-0-3-0" role="0.3.0">
+    <title>Index of new symbols in 0.3.0</title>
+    <xi:include href="xml/api-index-0.3.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <xi:include href="xml/annotation-glossary.xml"><xi:fallback /></xi:include>
+</book>

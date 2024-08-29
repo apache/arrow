@@ -25,29 +25,28 @@
 namespace arrow::matlab::array::proxy {
 
 class Array : public libmexclass::proxy::Proxy {
- public:
-  Array(std::shared_ptr<arrow::Array> array);
+    public:
+        Array(std::shared_ptr<arrow::Array> array);
+    
+        virtual ~Array() {}
 
-  virtual ~Array() {}
+        std::shared_ptr<arrow::Array> unwrap();
 
-  std::shared_ptr<arrow::Array> unwrap();
+    protected:
 
- protected:
-  void toString(libmexclass::proxy::method::Context& context);
+        void toString(libmexclass::proxy::method::Context& context);
 
-  void getNumElements(libmexclass::proxy::method::Context& context);
+        void getNumElements(libmexclass::proxy::method::Context& context);
 
-  void getValid(libmexclass::proxy::method::Context& context);
+        void getValid(libmexclass::proxy::method::Context& context);
 
-  void getType(libmexclass::proxy::method::Context& context);
+        void getType(libmexclass::proxy::method::Context& context);
 
-  void isEqual(libmexclass::proxy::method::Context& context);
+        void isEqual(libmexclass::proxy::method::Context& context);
 
-  void slice(libmexclass::proxy::method::Context& context);
+        void slice(libmexclass::proxy::method::Context& context);
 
-  void exportToC(libmexclass::proxy::method::Context& context);
-
-  std::shared_ptr<arrow::Array> array;
+        std::shared_ptr<arrow::Array> array;
 };
 
-}  // namespace arrow::matlab::array::proxy
+}

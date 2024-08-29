@@ -32,6 +32,7 @@ RUN dnf update -y && \
         cmake \
         curl \
         curl-devel \
+        flatbuffers-devel \
         gcc \
         gcc-c++ \
         gflags-devel \
@@ -77,8 +78,8 @@ RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 
 # PYARROW_TEST_GANDIVA=OFF: GH-39695: We need to make LLVM symbols visible in
 # Python process explicitly if we use LLVM 17 or later.
-ENV ARROW_ACERO=ON \
-    ARROW_AZURE=OFF \
+ENV absl_SOURCE=BUNDLED \
+    ARROW_ACERO=ON \
     ARROW_BUILD_TESTS=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_DATASET=ON \

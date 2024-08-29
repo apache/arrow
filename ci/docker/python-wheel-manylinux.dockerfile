@@ -25,18 +25,6 @@ ARG manylinux
 ENV MANYLINUX_VERSION=${manylinux}
 
 # Ensure dnf is installed, especially for the manylinux2014 base
-RUN if [ "${MANYLINUX_VERSION}" = "2014" ]; then \
-      sed -i \
-        -e 's/^mirrorlist/#mirrorlist/' \
-        -e 's/^#baseurl/baseurl/' \
-        -e 's/mirror\.centos\.org/vault.centos.org/' \
-        /etc/yum.repos.d/*.repo; \
-      if [ "${arch}" != "amd64" ]; then \
-        sed -i \
-          -e 's,vault\.centos\.org/centos,vault.centos.org/altarch,' \
-          /etc/yum.repos.d/CentOS-SCLo-scl-rh.repo; \
-      fi; \
-    fi
 RUN yum install -y dnf
 
 # Install basic dependencies
@@ -51,7 +39,8 @@ ENV CPYTHON_VERSION=cp38
 ENV PATH=/opt/python/${CPYTHON_VERSION}-${CPYTHON_VERSION}/bin:${PATH}
 
 # Install CMake
-ARG cmake=3.29.2
+# AWS SDK doesn't work with CMake=3.22 due to https://gitlab.kitware.com/cmake/cmake/-/issues/22524
+ARG cmake=3.21.4
 COPY ci/scripts/install_cmake.sh arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_cmake.sh ${arch} linux ${cmake} /usr/local
 
@@ -110,4 +99,5 @@ SHELL ["/bin/bash", "-i", "-c"]
 ENTRYPOINT ["/bin/bash", "-i", "-c"]
 
 COPY python/requirements-wheel-build.txt /arrow/python/
-RUN pip install -r /arrow/python/requirements-wheel-build.txt
+# TODO(GH-39848) Remove the `--pre --extra-index-url` for numpy nightly again before the 16.0 release 
+RUN pip install -r /arrow/python/requirements-wheel-build.txt --pre --extra-index-url "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple"

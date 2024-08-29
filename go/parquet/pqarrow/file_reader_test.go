@@ -26,14 +26,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v18/arrow"
-	"github.com/apache/arrow/go/v18/arrow/array"
-	"github.com/apache/arrow/go/v18/arrow/decimal128"
-	"github.com/apache/arrow/go/v18/arrow/float16"
-	"github.com/apache/arrow/go/v18/arrow/memory"
-	"github.com/apache/arrow/go/v18/parquet"
-	"github.com/apache/arrow/go/v18/parquet/file"
-	"github.com/apache/arrow/go/v18/parquet/pqarrow"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/decimal128"
+	"github.com/apache/arrow/go/v16/arrow/float16"
+	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v16/parquet"
+	"github.com/apache/arrow/go/v16/parquet/file"
+	"github.com/apache/arrow/go/v16/parquet/pqarrow"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -165,29 +165,6 @@ func TestArrowReaderAdHocReadFloat16s(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestArrowReaderCanceledContext(t *testing.T) {
-	dataDir := getDataDir()
-
-	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
-	defer mem.AssertSize(t, 0)
-
-	filename := filepath.Join(dataDir, "int32_decimal.parquet")
-	require.FileExists(t, filename)
-
-	rdr, err := file.OpenParquetFile(filename, false, file.WithReadProps(parquet.NewReaderProperties(mem)))
-	require.NoError(t, err)
-	defer rdr.Close()
-	arrowRdr, err := pqarrow.NewFileReader(rdr, pqarrow.ArrowReadProperties{}, mem)
-	require.NoError(t, err)
-
-	// create a canceled context
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-
-	_, err = arrowRdr.ReadTable(ctx)
-	require.ErrorIs(t, err, context.Canceled)
 }
 
 func TestRecordReaderParallel(t *testing.T) {

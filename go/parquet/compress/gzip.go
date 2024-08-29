@@ -93,5 +93,5 @@ func (gzipCodec) NewWriterLevel(w io.Writer, level int) (io.WriteCloser, error) 
 }
 
 func init() {
-	RegisterCodec(Codecs.Gzip, gzipCodec{})
+	codecs[Codecs.Gzip] = gzipCodec{}
 }

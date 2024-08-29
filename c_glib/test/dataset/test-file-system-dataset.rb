@@ -56,22 +56,6 @@ class TestDatasetFileSystemDataset < Test::Unit::TestCase
   end
 
   def test_read_write
-    dataset, expected_table = create_dataset
-    assert_equal(expected_table, dataset.to_table)
-  end
-
-  def test_to_record_batch_reader
-    dataset, expected_table = create_dataset
-    reader = dataset.to_record_batch_reader
-    begin
-      assert_equal(expected_table, reader.read_all)
-    ensure
-      # Unref to ensure the reader closes files and we can delete the temp directory
-      reader.unref
-    end
-  end
-
-  def create_dataset
     table = build_table(label: build_string_array(["a", "a", "b", "c"]),
                         count: build_int32_array([1, 10, 2, 3]))
     table_reader = Arrow::TableBatchReader.new(table)
@@ -89,8 +73,7 @@ class TestDatasetFileSystemDataset < Test::Unit::TestCase
     end
     @factory.partition_base_dir = @dir
     dataset = @factory.finish
-
-    expected_table = build_table(count: [
+    assert_equal(build_table(count: [
                                build_int32_array([1, 10]),
                                build_int32_array([2]),
                                build_int32_array([3]),
@@ -99,8 +82,7 @@ class TestDatasetFileSystemDataset < Test::Unit::TestCase
                                build_string_array(["a", "a"]),
                                build_string_array(["b"]),
                                build_string_array(["c"]),
-                             ])
-
-    return dataset, expected_table
+                             ]),
+                 dataset.to_table)
   end
 end

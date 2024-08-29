@@ -40,3 +40,4 @@ arrow::MonthDayNanoIntervalType::MonthDayNanos *
 garrow_month_day_nano_get_raw(GArrowMonthDayNano *month_day_nano);
 const arrow::MonthDayNanoIntervalType::MonthDayNanos *
 garrow_month_day_nano_get_raw(const GArrowMonthDayNano *month_day_nano);
+

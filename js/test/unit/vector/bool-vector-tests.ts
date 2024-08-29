@@ -25,10 +25,9 @@ describe(`BoolVector`, () => {
     const n = values.length;
     const vector = newBoolVector(n, new Uint8Array([27, 0, 0, 0, 0, 0, 0, 0]));
     test(`gets expected values`, () => {
-        for (let i = 0; i < values.length; i++) {
+        let i = -1;
+        while (++i < n) {
             expect(vector.get(i)).toEqual(values[i]);
-            expect(vector.at(i)).toEqual(values.at(i));
-            expect(vector.at(-i)).toEqual(values.at(-i));
         }
     });
     test(`iterates expected values`, () => {
@@ -54,7 +53,7 @@ describe(`BoolVector`, () => {
         const expected2 = [true, true, true, true, true, false, false, false];
         const expected3 = [true, true, false, false, false, false, true, true];
         function validate(expected: boolean[]) {
-            for (let i = 0; i < n; i++) {
+            for (let i = -1; ++i < n;) {
                 expect(v.get(i)).toEqual(expected[i]);
             }
         }

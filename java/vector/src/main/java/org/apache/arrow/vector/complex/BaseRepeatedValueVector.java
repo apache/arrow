@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.complex;
 
 import static org.apache.arrow.memory.util.LargeMemoryUtil.capAtMaxInt;
@@ -23,6 +24,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.util.CommonUtil;
@@ -44,8 +46,7 @@ import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.SchemaChangeRuntimeException;
 
 /** Base class for Vectors that contain repeated values. */
-public abstract class BaseRepeatedValueVector extends BaseValueVector
-    implements RepeatedValueVector, BaseListVector {
+public abstract class BaseRepeatedValueVector extends BaseValueVector implements RepeatedValueVector, BaseListVector {
 
   public static final FieldVector DEFAULT_DATA_VECTOR = ZeroVector.INSTANCE;
   public static final String DATA_VECTOR_NAME = "$data$";
@@ -64,8 +65,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector
     this(name, allocator, DEFAULT_DATA_VECTOR, callBack);
   }
 
-  protected BaseRepeatedValueVector(
-      String name, BufferAllocator allocator, FieldVector vector, CallBack callBack) {
+  protected BaseRepeatedValueVector(String name, BufferAllocator allocator, FieldVector vector, CallBack callBack) {
     super(allocator);
     this.name = name;
     this.offsetBuffer = allocator.getEmpty();
@@ -83,7 +83,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector
   public boolean allocateNewSafe() {
     boolean dataAlloc = false;
     try {
-      offsetBuffer = allocateOffsetBuffer(offsetAllocationSizeInBytes);
+      allocateOffsetBuffer(offsetAllocationSizeInBytes);
       dataAlloc = vector.allocateNewSafe();
     } catch (Exception e) {
       e.printStackTrace();
@@ -97,13 +97,12 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector
     return dataAlloc;
   }
 
-  protected ArrowBuf allocateOffsetBuffer(final long size) {
+  protected void allocateOffsetBuffer(final long size) {
     final int curSize = (int) size;
-    ArrowBuf offsetBuffer = allocator.buffer(curSize);
+    offsetBuffer = allocator.buffer(curSize);
     offsetBuffer.readerIndex(0);
     offsetAllocationSizeInBytes = curSize;
     offsetBuffer.setZero(0, offsetBuffer.capacity());
-    return offsetBuffer;
   }
 
   @Override
@@ -141,10 +140,9 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector
 
   /**
    * Get the offset vector.
+   * @deprecated This API will be removed, as the current implementations no longer hold inner offset vectors.
    *
    * @return the underlying offset vector or null if none exists.
-   * @deprecated This API will be removed, as the current implementations no longer hold inner
-   *     offset vectors.
    */
   @Override
   @Deprecated
@@ -168,21 +166,27 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector
   }
 
   /**
-   * Specialized version of setInitialCapacity() for ListVector. This is used by some callers when
-   * they want to explicitly control and be conservative about memory allocated for inner data
-   * vector. This is very useful when we are working with memory constraints for a query and have a
-   * fixed amount of memory reserved for the record batch. In such cases, we are likely to face OOM
-   * or related problems when we reserve memory for a record batch with value count x and do
-   * setInitialCapacity(x) such that each vector allocates only what is necessary and not the
-   * default amount but the multiplier forces the memory requirement to go beyond what was needed.
+   * Specialized version of setInitialCapacity() for ListVector. This is
+   * used by some callers when they want to explicitly control and be
+   * conservative about memory allocated for inner data vector. This is
+   * very useful when we are working with memory constraints for a query
+   * and have a fixed amount of memory reserved for the record batch. In
+   * such cases, we are likely to face OOM or related problems when
+   * we reserve memory for a record batch with value count x and
+   * do setInitialCapacity(x) such that each vector allocates only
+   * what is necessary and not the default amount but the multiplier
+   * forces the memory requirement to go beyond what was needed.
    *
    * @param numRecords value count
-   * @param density density of ListVector. Density is the average size of list per position in the
-   *     List vector. For example, a density value of 10 implies each position in the list vector
-   *     has a list of 10 values. A density value of 0.1 implies out of 10 positions in the list
-   *     vector, 1 position has a list of size 1 and remaining positions are null (no lists) or
-   *     empty lists. This helps in tightly controlling the memory we provision for inner data
-   *     vector.
+   * @param density density of ListVector. Density is the average size of
+   *                list per position in the List vector. For example, a
+   *                density value of 10 implies each position in the list
+   *                vector has a list of 10 values.
+   *                A density value of 0.1 implies out of 10 positions in
+   *                the list vector, 1 position has a list of size 1 and
+   *                remaining positions are null (no lists) or empty lists.
+   *                This helps in tightly controlling the memory we provision
+   *                for inner data vector.
    */
   @Override
   public void setInitialCapacity(int numRecords, double density) {
@@ -202,17 +206,20 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector
   }
 
   /**
-   * Specialized version of setInitialTotalCapacity() for ListVector. This is used by some callers
-   * when they want to explicitly control and be conservative about memory allocated for inner data
-   * vector. This is very useful when we are working with memory constraints for a query and have a
-   * fixed amount of memory reserved for the record batch. In such cases, we are likely to face OOM
-   * or related problems when we reserve memory for a record batch with value count x and do
-   * setInitialCapacity(x) such that each vector allocates only what is necessary and not the
-   * default amount but the multiplier forces the memory requirement to go beyond what was needed.
+   * Specialized version of setInitialTotalCapacity() for ListVector. This is
+   * used by some callers when they want to explicitly control and be
+   * conservative about memory allocated for inner data vector. This is
+   * very useful when we are working with memory constraints for a query
+   * and have a fixed amount of memory reserved for the record batch. In
+   * such cases, we are likely to face OOM or related problems when
+   * we reserve memory for a record batch with value count x and
+   * do setInitialCapacity(x) such that each vector allocates only
+   * what is necessary and not the default amount but the multiplier
+   * forces the memory requirement to go beyond what was needed.
    *
    * @param numRecords value count
-   * @param totalNumberOfElements the total number of elements to to allow for in this vector across
-   *     all records.
+   * @param totalNumberOfElements the total number of elements to to allow
+   *                              for in this vector across all records.
    */
   public void setInitialTotalCapacity(int numRecords, int totalNumberOfElements) {
     offsetAllocationSizeInBytes = (numRecords + 1L) * OFFSET_WIDTH;
@@ -271,17 +278,6 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector
     valueCount = 0;
   }
 
-  /**
-   * Return the underlying buffers associated with this vector. Note that this doesn't impact the
-   * reference counts for this buffer, so it only should be used for in-context access. Also note
-   * that this buffer changes regularly, thus external classes shouldn't hold a reference to it
-   * (unless they change it).
-   *
-   * @param clear Whether to clear vector before returning, the buffers will still be refcounted but
-   *     the returned array will be the only reference to them. Also, this won't clear the child
-   *     buffers.
-   * @return The underlying {@link ArrowBuf buffers} that is used by this vector instance.
-   */
   @Override
   public ArrowBuf[] getBuffers(boolean clear) {
     final ArrowBuf[] buffers;
@@ -304,7 +300,6 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector
 
   /**
    * Get value indicating if inner vector is set.
-   *
    * @return 1 if inner vector is explicitly set via #addOrGetVector else 0
    */
   public int size() {
@@ -312,8 +307,8 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector
   }
 
   /**
-   * Initialize the data vector (and execute callback) if it hasn't already been done, returns the
-   * data vector.
+   * Initialize the data vector (and execute callback) if it hasn't already been done,
+   * returns the data vector.
    */
   public <T extends ValueVector> AddOrGetResult<T> addOrGetVector(FieldType fieldType) {
     boolean created = false;
@@ -321,18 +316,15 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector
       vector = fieldType.createNewSingleVector(defaultDataVectorName, allocator, repeatedCallBack);
       // returned vector must have the same field
       created = true;
-      if (repeatedCallBack != null
-          &&
-          // not a schema change if changing from ZeroVector to ZeroVector
-          (fieldType.getType().getTypeID() != ArrowTypeID.Null)) {
+      if (repeatedCallBack != null &&
+              // not a schema change if changing from ZeroVector to ZeroVector
+              (fieldType.getType().getTypeID() != ArrowTypeID.Null)) {
         repeatedCallBack.doWork();
       }
     }
 
     if (vector.getField().getType().getTypeID() != fieldType.getType().getTypeID()) {
-      final String msg =
-          String.format(
-              "Inner vector type mismatch. Requested type: [%s], actual type: [%s]",
+      final String msg = String.format("Inner vector type mismatch. Requested type: [%s], actual type: [%s]",
               fieldType.getType().getTypeID(), vector.getField().getType().getTypeID());
       throw new SchemaChangeRuntimeException(msg);
     }
@@ -355,14 +347,23 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector
     return vector.getValueCount();
   }
 
+
   /** Returns the value count for inner data vector at a particular index. */
   public int getInnerValueCountAt(int index) {
-    return offsetBuffer.getInt((index + 1) * OFFSET_WIDTH)
-        - offsetBuffer.getInt(index * OFFSET_WIDTH);
+    return offsetBuffer.getInt((index + 1) * OFFSET_WIDTH) -
+            offsetBuffer.getInt(index * OFFSET_WIDTH);
   }
 
-  /** Return if value at index is empty. */
-  public abstract boolean isEmpty(int index);
+  /** Return if value at index is null (this implementation is always false). */
+  @Override
+  public boolean isNull(int index) {
+    return false;
+  }
+
+  /** Return if value at index is empty (this implementation is always false). */
+  public boolean isEmpty(int index) {
+    return false;
+  }
 
   /** Starts a new repeated value. */
   public int startNewValue(int index) {
@@ -382,8 +383,8 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector
     while (valueCount > getOffsetBufferValueCapacity()) {
       reallocOffsetBuffer();
     }
-    final int childValueCount =
-        valueCount == 0 ? 0 : offsetBuffer.getInt(valueCount * OFFSET_WIDTH);
+    final int childValueCount = valueCount == 0 ? 0 :
+            offsetBuffer.getInt(valueCount * OFFSET_WIDTH);
     vector.setValueCount(childValueCount);
   }
 }

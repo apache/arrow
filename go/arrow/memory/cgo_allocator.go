@@ -14,15 +14,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build cgo && ccalloc
-// +build cgo,ccalloc
+// +build cgo
+// +build ccalloc
 
 package memory
 
 import (
 	"runtime"
 
-	cga "github.com/apache/arrow/go/v18/arrow/memory/internal/cgoalloc"
+	cga "github.com/apache/arrow/go/v16/arrow/memory/internal/cgoalloc"
 )
 
 // CgoArrowAllocator is an allocator which exposes the C++ memory pool class

@@ -33,6 +33,7 @@
 #endif
 
 #include <winsock2.h>
+#include <windows.h>
 
 #include "arrow/util/windows_fixup.h"
 

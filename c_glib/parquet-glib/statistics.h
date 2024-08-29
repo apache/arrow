@@ -21,44 +21,47 @@
 
 #include <arrow-glib/arrow-glib.h>
 
-#include <parquet-glib/version.h>
-
 G_BEGIN_DECLS
 
-#define GPARQUET_TYPE_STATISTICS (gparquet_statistics_get_type())
-GPARQUET_AVAILABLE_IN_8_0
-G_DECLARE_DERIVABLE_TYPE(
-  GParquetStatistics, gparquet_statistics, GPARQUET, STATISTICS, GObject)
+
+#define GPARQUET_TYPE_STATISTICS                \
+  (gparquet_statistics_get_type())
+G_DECLARE_DERIVABLE_TYPE(GParquetStatistics,
+                         gparquet_statistics,
+                         GPARQUET,
+                         STATISTICS,
+                         GObject)
 struct _GParquetStatisticsClass
 {
   GObjectClass parent_class;
 };
 
-GPARQUET_AVAILABLE_IN_8_0
+GARROW_AVAILABLE_IN_8_0
 gboolean
 gparquet_statistics_equal(GParquetStatistics *statistics,
                           GParquetStatistics *other_statistics);
-GPARQUET_AVAILABLE_IN_8_0
+GARROW_AVAILABLE_IN_8_0
 gboolean
 gparquet_statistics_has_n_nulls(GParquetStatistics *statistics);
-GPARQUET_AVAILABLE_IN_8_0
+GARROW_AVAILABLE_IN_8_0
 gint64
 gparquet_statistics_get_n_nulls(GParquetStatistics *statistics);
-GPARQUET_AVAILABLE_IN_8_0
+GARROW_AVAILABLE_IN_8_0
 gboolean
 gparquet_statistics_has_n_distinct_values(GParquetStatistics *statistics);
-GPARQUET_AVAILABLE_IN_8_0
+GARROW_AVAILABLE_IN_8_0
 gint64
 gparquet_statistics_get_n_distinct_values(GParquetStatistics *statistics);
-GPARQUET_AVAILABLE_IN_8_0
+GARROW_AVAILABLE_IN_8_0
 gint64
 gparquet_statistics_get_n_values(GParquetStatistics *statistics);
-GPARQUET_AVAILABLE_IN_8_0
+GARROW_AVAILABLE_IN_8_0
 gboolean
 gparquet_statistics_has_min_max(GParquetStatistics *statistics);
 
-#define GPARQUET_TYPE_BOOLEAN_STATISTICS (gparquet_boolean_statistics_get_type())
-GPARQUET_AVAILABLE_IN_8_0
+
+#define GPARQUET_TYPE_BOOLEAN_STATISTICS        \
+  (gparquet_boolean_statistics_get_type())
 G_DECLARE_DERIVABLE_TYPE(GParquetBooleanStatistics,
                          gparquet_boolean_statistics,
                          GPARQUET,
@@ -69,15 +72,16 @@ struct _GParquetBooleanStatisticsClass
   GParquetStatisticsClass parent_class;
 };
 
-GPARQUET_AVAILABLE_IN_8_0
+GARROW_AVAILABLE_IN_8_0
 gboolean
 gparquet_boolean_statistics_get_min(GParquetBooleanStatistics *statistics);
-GPARQUET_AVAILABLE_IN_8_0
+GARROW_AVAILABLE_IN_8_0
 gboolean
 gparquet_boolean_statistics_get_max(GParquetBooleanStatistics *statistics);
 
-#define GPARQUET_TYPE_INT32_STATISTICS (gparquet_int32_statistics_get_type())
-GPARQUET_AVAILABLE_IN_8_0
+
+#define GPARQUET_TYPE_INT32_STATISTICS          \
+  (gparquet_int32_statistics_get_type())
 G_DECLARE_DERIVABLE_TYPE(GParquetInt32Statistics,
                          gparquet_int32_statistics,
                          GPARQUET,
@@ -88,15 +92,16 @@ struct _GParquetInt32StatisticsClass
   GParquetStatisticsClass parent_class;
 };
 
-GPARQUET_AVAILABLE_IN_8_0
+GARROW_AVAILABLE_IN_8_0
 gint32
 gparquet_int32_statistics_get_min(GParquetInt32Statistics *statistics);
-GPARQUET_AVAILABLE_IN_8_0
+GARROW_AVAILABLE_IN_8_0
 gint32
 gparquet_int32_statistics_get_max(GParquetInt32Statistics *statistics);
 
-#define GPARQUET_TYPE_INT64_STATISTICS (gparquet_int64_statistics_get_type())
-GPARQUET_AVAILABLE_IN_8_0
+
+#define GPARQUET_TYPE_INT64_STATISTICS          \
+  (gparquet_int64_statistics_get_type())
 G_DECLARE_DERIVABLE_TYPE(GParquetInt64Statistics,
                          gparquet_int64_statistics,
                          GPARQUET,
@@ -107,15 +112,16 @@ struct _GParquetInt64StatisticsClass
   GParquetStatisticsClass parent_class;
 };
 
-GPARQUET_AVAILABLE_IN_8_0
+GARROW_AVAILABLE_IN_8_0
 gint64
 gparquet_int64_statistics_get_min(GParquetInt64Statistics *statistics);
-GPARQUET_AVAILABLE_IN_8_0
+GARROW_AVAILABLE_IN_8_0
 gint64
 gparquet_int64_statistics_get_max(GParquetInt64Statistics *statistics);
 
-#define GPARQUET_TYPE_FLOAT_STATISTICS (gparquet_float_statistics_get_type())
-GPARQUET_AVAILABLE_IN_8_0
+
+#define GPARQUET_TYPE_FLOAT_STATISTICS          \
+  (gparquet_float_statistics_get_type())
 G_DECLARE_DERIVABLE_TYPE(GParquetFloatStatistics,
                          gparquet_float_statistics,
                          GPARQUET,
@@ -126,15 +132,16 @@ struct _GParquetFloatStatisticsClass
   GParquetStatisticsClass parent_class;
 };
 
-GPARQUET_AVAILABLE_IN_8_0
+GARROW_AVAILABLE_IN_8_0
 gfloat
 gparquet_float_statistics_get_min(GParquetFloatStatistics *statistics);
-GPARQUET_AVAILABLE_IN_8_0
+GARROW_AVAILABLE_IN_8_0
 gfloat
 gparquet_float_statistics_get_max(GParquetFloatStatistics *statistics);
 
-#define GPARQUET_TYPE_DOUBLE_STATISTICS (gparquet_double_statistics_get_type())
-GPARQUET_AVAILABLE_IN_8_0
+
+#define GPARQUET_TYPE_DOUBLE_STATISTICS          \
+  (gparquet_double_statistics_get_type())
 G_DECLARE_DERIVABLE_TYPE(GParquetDoubleStatistics,
                          gparquet_double_statistics,
                          GPARQUET,
@@ -145,15 +152,16 @@ struct _GParquetDoubleStatisticsClass
   GParquetStatisticsClass parent_class;
 };
 
-GPARQUET_AVAILABLE_IN_8_0
+GARROW_AVAILABLE_IN_8_0
 gdouble
 gparquet_double_statistics_get_min(GParquetDoubleStatistics *statistics);
-GPARQUET_AVAILABLE_IN_8_0
+GARROW_AVAILABLE_IN_8_0
 gdouble
 gparquet_double_statistics_get_max(GParquetDoubleStatistics *statistics);
 
-#define GPARQUET_TYPE_BYTE_ARRAY_STATISTICS (gparquet_byte_array_statistics_get_type())
-GPARQUET_AVAILABLE_IN_8_0
+
+#define GPARQUET_TYPE_BYTE_ARRAY_STATISTICS          \
+  (gparquet_byte_array_statistics_get_type())
 G_DECLARE_DERIVABLE_TYPE(GParquetByteArrayStatistics,
                          gparquet_byte_array_statistics,
                          GPARQUET,
@@ -164,16 +172,16 @@ struct _GParquetByteArrayStatisticsClass
   GParquetStatisticsClass parent_class;
 };
 
-GPARQUET_AVAILABLE_IN_8_0
+GARROW_AVAILABLE_IN_8_0
 GBytes *
 gparquet_byte_array_statistics_get_min(GParquetByteArrayStatistics *statistics);
-GPARQUET_AVAILABLE_IN_8_0
+GARROW_AVAILABLE_IN_8_0
 GBytes *
 gparquet_byte_array_statistics_get_max(GParquetByteArrayStatistics *statistics);
 
-#define GPARQUET_TYPE_FIXED_LENGTH_BYTE_ARRAY_STATISTICS                                 \
+
+#define GPARQUET_TYPE_FIXED_LENGTH_BYTE_ARRAY_STATISTICS        \
   (gparquet_fixed_length_byte_array_statistics_get_type())
-GPARQUET_AVAILABLE_IN_8_0
 G_DECLARE_DERIVABLE_TYPE(GParquetFixedLengthByteArrayStatistics,
                          gparquet_fixed_length_byte_array_statistics,
                          GPARQUET,
@@ -184,13 +192,14 @@ struct _GParquetFixedLengthByteArrayStatisticsClass
   GParquetStatisticsClass parent_class;
 };
 
-GPARQUET_AVAILABLE_IN_8_0
+GARROW_AVAILABLE_IN_8_0
 GBytes *
 gparquet_fixed_length_byte_array_statistics_get_min(
   GParquetFixedLengthByteArrayStatistics *statistics);
-GPARQUET_AVAILABLE_IN_8_0
+GARROW_AVAILABLE_IN_8_0
 GBytes *
 gparquet_fixed_length_byte_array_statistics_get_max(
   GParquetFixedLengthByteArrayStatistics *statistics);
+
 
 G_END_DECLS

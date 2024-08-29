@@ -71,7 +71,7 @@ namespace Apache.Arrow
                 foreach (ArrayData arrayData in _arrayDataList)
                 {
                     _totalLength += arrayData.Length;
-                    _totalNullCount += arrayData.GetNullCount();
+                    _totalNullCount += arrayData.NullCount;
                 }
             }
 
@@ -107,76 +107,38 @@ namespace Apache.Arrow
             {
                 CheckData(type, 3);
                 ArrowBuffer validityBuffer = ConcatenateValidityBuffer();
-                ArrowBuffer sizesBuffer = ConcatenateFixedWidthTypeValueBuffer(2, Int32Type.Default);
 
-                var children = new List<ArrayData>(_arrayDataList.Count);
                 var offsetsBuilder = new ArrowBuffer.Builder<int>(_totalLength);
                 int baseOffset = 0;
 
                 foreach (ArrayData arrayData in _arrayDataList)
                 {
-                    if (arrayData.Length == 0)
+                    if (arrayData.Length > 0)
                     {
-                        continue;
+                        ReadOnlySpan<int> span = arrayData.Buffers[1].Span.CastTo<int>().Slice(0, arrayData.Length);
+                        foreach (int offset in span)
+                        {
+                            offsetsBuilder.Append(baseOffset + offset);
+                        }
                     }
 
-                    var child = arrayData.Children[0];
-                    ReadOnlySpan<int> offsets = arrayData.Buffers[1].Span.CastTo<int>().Slice(arrayData.Offset, arrayData.Length);
-                    ReadOnlySpan<int> sizes = arrayData.Buffers[2].Span.CastTo<int>().Slice(arrayData.Offset, arrayData.Length);
-                    var minOffset = offsets[0];
-                    var maxEnd = 0;
-
-                    for (int i = 0; i < arrayData.Length; ++i)
-                    {
-                        minOffset = Math.Min(minOffset, offsets[i]);
-                        maxEnd = Math.Max(maxEnd, offsets[i] + sizes[i]);
-                    }
-
-                    foreach (int offset in offsets)
-                    {
-                        offsetsBuilder.Append(baseOffset + offset - minOffset);
-                    }
-
-                    var childLength = maxEnd - minOffset;
-                    if (minOffset != 0 || childLength != child.Length)
-                    {
-                        child = child.Slice(minOffset, childLength);
-                    }
-
-                    baseOffset += childLength;
-                    children.Add(child);
+                    baseOffset += arrayData.Children[0].Length;
                 }
 
                 ArrowBuffer offsetBuffer = offsetsBuilder.Build(_allocator);
-                ArrayData combinedChild = Concatenate(children, _allocator);
+                ArrowBuffer sizesBuffer = ConcatenateFixedWidthTypeValueBuffer(2, Int32Type.Default);
+                ArrayData child = Concatenate(SelectChildren(0), _allocator);
 
-                Result = new ArrayData(type, _totalLength, _totalNullCount, 0, new ArrowBuffer[] { validityBuffer, offsetBuffer, sizesBuffer }, new[] { combinedChild });
+                Result = new ArrayData(type, _totalLength, _totalNullCount, 0, new ArrowBuffer[] { validityBuffer, offsetBuffer, sizesBuffer }, new[] { child });
             }
 
             public void Visit(FixedSizeListType type)
             {
                 CheckData(type, 1);
-                var listSize = type.ListSize;
                 ArrowBuffer validityBuffer = ConcatenateValidityBuffer();
+                ArrayData child = Concatenate(SelectChildren(0), _allocator);
 
-                var children = new List<ArrayData>(_arrayDataList.Count);
-
-                foreach (ArrayData arrayData in _arrayDataList)
-                {
-                    var offset = arrayData.Offset;
-                    var length = arrayData.Length;
-                    var child = arrayData.Children[0];
-                    if (offset != 0 || child.Length != length * listSize)
-                    {
-                        child = child.Slice(offset * listSize, length * listSize);
-                    }
-
-                    children.Add(child);
-                }
-
-                ArrayData combinedChild = Concatenate(children, _allocator);
-
-                Result = new ArrayData(type, _totalLength, _totalNullCount, 0, new ArrowBuffer[] { validityBuffer }, new[] { combinedChild });
+                Result = new ArrayData(type, _totalLength, _totalNullCount, 0, new ArrowBuffer[] { validityBuffer }, new[] { child });
             }
 
             public void Visit(StructType type)
@@ -187,7 +149,7 @@ namespace Apache.Arrow
 
                 for (int i = 0; i < type.Fields.Count; i++)
                 {
-                    children.Add(Concatenate(SelectSlicedChildren(i), _allocator));
+                    children.Add(Concatenate(SelectChildren(i), _allocator));
                 }
 
                 Result = new ArrayData(type, _totalLength, _totalNullCount, 0, new ArrowBuffer[] { validityBuffer }, children);
@@ -207,11 +169,7 @@ namespace Apache.Arrow
 
                 for (int i = 0; i < type.Fields.Count; i++)
                 {
-                    // For dense mode, the offsets aren't adjusted so are into the non-sliced child arrays
-                    var fieldChildren = type.Mode == UnionMode.Sparse
-                        ? SelectSlicedChildren(i)
-                        : SelectChildren(i);
-                    children.Add(Concatenate(fieldChildren, _allocator));
+                    children.Add(Concatenate(SelectChildren(i), _allocator));
                 }
 
                 ArrowBuffer[] buffers = new ArrowBuffer[bufferCount];
@@ -284,30 +242,9 @@ namespace Apache.Arrow
                 CheckData(type, 2);
                 ArrowBuffer validityBuffer = ConcatenateValidityBuffer();
                 ArrowBuffer offsetBuffer = ConcatenateOffsetBuffer();
+                ArrayData child = Concatenate(SelectChildren(0), _allocator);
 
-                var children = new List<ArrayData>(_arrayDataList.Count);
-                foreach (ArrayData arrayData in _arrayDataList)
-                {
-                    if (arrayData.Length == 0)
-                    {
-                        continue;
-                    }
-
-                    var child = arrayData.Children[0];
-                    ReadOnlySpan<int> offsets = arrayData.Buffers[1].Span.CastTo<int>().Slice(arrayData.Offset, arrayData.Length + 1);
-                    var firstOffset = offsets[0];
-                    var lastOffset = offsets[arrayData.Length];
-                    if (firstOffset != 0 || lastOffset != child.Length)
-                    {
-                        child = child.Slice(firstOffset, lastOffset - firstOffset);
-                    }
-
-                    children.Add(child);
-                }
-
-                ArrayData combinedChild = Concatenate(children, _allocator);
-
-                Result = new ArrayData(type, _totalLength, _totalNullCount, 0, new ArrowBuffer[] { validityBuffer, offsetBuffer }, new[] { combinedChild });
+                Result = new ArrayData(type, _totalLength, _totalNullCount, 0, new ArrowBuffer[] { validityBuffer, offsetBuffer }, new[] { child });
             }
 
             private ArrowBuffer ConcatenateValidityBuffer()
@@ -317,43 +254,7 @@ namespace Apache.Arrow
                     return ArrowBuffer.Empty;
                 }
 
-                var builder = new ArrowBuffer.BitmapBuilder(_totalLength);
-
-                foreach (ArrayData arrayData in _arrayDataList)
-                {
-                    int length = arrayData.Length;
-                    int offset = arrayData.Offset;
-                    ReadOnlySpan<byte> span = arrayData.Buffers[0].Span;
-
-                    if (length > 0 && span.Length == 0)
-                    {
-                        if (arrayData.NullCount == 0)
-                        {
-                            builder.AppendRange(true , length);
-                        }
-                        else if (arrayData.NullCount == length)
-                        {
-                            builder.AppendRange(false , length);
-                        }
-                        else
-                        {
-                            throw new Exception("Array has no validity buffer and null count != 0 or length");
-                        }
-                    }
-                    else if (offset == 0)
-                    {
-                        builder.Append(span, length);
-                    }
-                    else
-                    {
-                        for (int i = 0; i < length; ++i)
-                        {
-                            builder.Append(BitUtility.GetBit(span, offset + i));
-                        }
-                    }
-                }
-
-                return builder.Build(_allocator);
+                return ConcatenateBitmapBuffer(0);
             }
 
             private ArrowBuffer ConcatenateBitmapBuffer(int bufferIndex)
@@ -363,20 +264,9 @@ namespace Apache.Arrow
                 foreach (ArrayData arrayData in _arrayDataList)
                 {
                     int length = arrayData.Length;
-                    int offset = arrayData.Offset;
                     ReadOnlySpan<byte> span = arrayData.Buffers[bufferIndex].Span;
 
-                    if (offset == 0)
-                    {
-                        builder.Append(span, length);
-                    }
-                    else
-                    {
-                        for (int i = 0; i < length; ++i)
-                        {
-                            builder.Append(BitUtility.GetBit(span, offset + i));
-                        }
-                    }
+                    builder.Append(span, length);
                 }
 
                 return builder.Build(_allocator);
@@ -389,10 +279,10 @@ namespace Apache.Arrow
 
                 foreach (ArrayData arrayData in _arrayDataList)
                 {
-                    int byteLength = arrayData.Length * typeByteWidth;
-                    int byteOffset = arrayData.Offset * typeByteWidth;
+                    int length = arrayData.Length;
+                    int byteLength = length * typeByteWidth;
 
-                    builder.Append(arrayData.Buffers[bufferIndex].Span.Slice(byteOffset, byteLength));
+                    builder.Append(arrayData.Buffers[bufferIndex].Span.Slice(0, byteLength));
                 }
 
                 return builder.Build(_allocator);
@@ -404,10 +294,8 @@ namespace Apache.Arrow
 
                 foreach (ArrayData arrayData in _arrayDataList)
                 {
-                    var offsets = arrayData.Buffers[1].Span.CastTo<int>().Slice(arrayData.Offset, arrayData.Length + 1);
-                    var firstOffset = offsets[0];
-                    var lastOffset = offsets[arrayData.Length];
-                    builder.Append(arrayData.Buffers[2].Span.Slice(firstOffset, lastOffset - firstOffset));
+                    int lastOffset = arrayData.Buffers[1].Span.CastTo<int>()[arrayData.Length];
+                    builder.Append(arrayData.Buffers[2].Span.Slice(0, lastOffset));
                 }
 
                 return builder.Build(_allocator);
@@ -418,6 +306,8 @@ namespace Apache.Arrow
                 var builder = new ArrowBuffer.Builder<int>(_totalLength + 1);
                 int baseOffset = 0;
 
+                builder.Append(0);
+
                 foreach (ArrayData arrayData in _arrayDataList)
                 {
                     if (arrayData.Length == 0)
@@ -425,19 +315,18 @@ namespace Apache.Arrow
                         continue;
                     }
 
-                    ReadOnlySpan<int> span = arrayData.Buffers[1].Span.CastTo<int>().Slice(arrayData.Offset, arrayData.Length + 1);
-                    // First offset may be non-zero for sliced arrays
-                    var firstOffset = span[0];
+                    // The first offset is always 0.
+                    // It should be skipped because it duplicate to the last offset of builder.
+                    ReadOnlySpan<int> span = arrayData.Buffers[1].Span.CastTo<int>().Slice(1, arrayData.Length);
 
-                    foreach (int offset in span.Slice(0, arrayData.Length))
+                    foreach (int offset in span)
                     {
-                        builder.Append(baseOffset + offset - firstOffset);
+                        builder.Append(baseOffset + offset);
                     }
 
-                    baseOffset += span[arrayData.Length] - firstOffset;
+                    // The next offset must start from the current last offset.
+                    baseOffset += span[arrayData.Length - 1];
                 }
-
-                builder.Append(baseOffset);
 
                 return builder.Build(_allocator);
             }
@@ -453,7 +342,7 @@ namespace Apache.Arrow
                         continue;
                     }
 
-                    ReadOnlySpan<BinaryView> span = arrayData.Buffers[1].Span.CastTo<BinaryView>().Slice(arrayData.Offset, arrayData.Length);
+                    ReadOnlySpan<BinaryView> span = arrayData.Buffers[1].Span.CastTo<BinaryView>().Slice(0, arrayData.Length);
                     foreach (BinaryView view in span)
                     {
                         if (view.Length > BinaryView.MaxInlineLength)
@@ -478,7 +367,7 @@ namespace Apache.Arrow
 
                 foreach (ArrayData arrayData in _arrayDataList)
                 {
-                    builder.Append(arrayData.Buffers[0].Span.Slice(arrayData.Offset, arrayData.Length));
+                    builder.Append(arrayData.Buffers[0]);
                 }
 
                 return builder.Build(_allocator);
@@ -487,26 +376,18 @@ namespace Apache.Arrow
             private ArrowBuffer ConcatenateUnionOffsetBuffer()
             {
                 var builder = new ArrowBuffer.Builder<int>(_totalLength);
-                var typeCount = _arrayDataList.Count > 0 ? _arrayDataList[0].Children.Length : 0;
-                var baseOffsets = new int[typeCount];
+                int baseOffset = 0;
 
                 foreach (ArrayData arrayData in _arrayDataList)
                 {
-                    ReadOnlySpan<byte> typeSpan = arrayData.Buffers[0].Span.Slice(arrayData.Offset, arrayData.Length);
-                    ReadOnlySpan<int> offsetSpan = arrayData.Buffers[1].Span.CastTo<int>().Slice(arrayData.Offset, arrayData.Length);
-                    for (int i = 0; i < arrayData.Length; ++i)
+                    ReadOnlySpan<int> span = arrayData.Buffers[1].Span.CastTo<int>();
+                    foreach (int offset in span)
                     {
-                        var typeId = typeSpan[i];
-                        builder.Append(checked(baseOffsets[typeId] + offsetSpan[i]));
+                        builder.Append(baseOffset + offset);
                     }
 
-                    for (int i = 0; i < typeCount; ++i)
-                    {
-                        checked
-                        {
-                            baseOffsets[i] += arrayData.Children[i].Length;
-                        }
-                    }
+                    // The next offset must start from the current last offset.
+                    baseOffset += span[arrayData.Length];
                 }
 
                 return builder.Build(_allocator);
@@ -519,26 +400,6 @@ namespace Apache.Arrow
                 foreach (ArrayData arrayData in _arrayDataList)
                 {
                     children.Add(arrayData.Children[index]);
-                }
-
-                return children;
-            }
-
-            private List<ArrayData> SelectSlicedChildren(int index)
-            {
-                var children = new List<ArrayData>(_arrayDataList.Count);
-
-                foreach (ArrayData arrayData in _arrayDataList)
-                {
-                    var offset = arrayData.Offset;
-                    var length = arrayData.Length;
-                    var child = arrayData.Children[index];
-                    if (offset != 0 || child.Length != length)
-                    {
-                        child = child.Slice(offset, length);
-                    }
-
-                    children.Add(child);
                 }
 
                 return children;

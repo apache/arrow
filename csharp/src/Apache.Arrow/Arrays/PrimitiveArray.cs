@@ -20,8 +20,8 @@ using System.Runtime.CompilerServices;
 
 namespace Apache.Arrow
 {
-    public abstract class PrimitiveArray<T> : Array, IReadOnlyList<T?>, ICollection<T?>
-        where T : struct, IEquatable<T>
+    public abstract class PrimitiveArray<T> : Array, IReadOnlyList<T?>
+        where T : struct
     {
         protected PrimitiveArray(ArrayData data)
             : base(data)
@@ -40,7 +40,7 @@ namespace Apache.Arrow
             {
                 throw new ArgumentOutOfRangeException(nameof(index));
             }
-            return IsValid(index) ? Values[index] : null;
+            return IsValid(index) ? Values[index] : (T?)null;
         }
 
         public IList<T?> ToList(bool includeNulls = false)
@@ -84,37 +84,6 @@ namespace Apache.Arrow
             for (int index = 0; index < Length; index++)
             {
                 yield return IsValid(index) ? Values[index] : null;
-            }
-        }
-
-        int ICollection<T?>.Count => Length;
-        bool ICollection<T?>.IsReadOnly => true;
-        void ICollection<T?>.Add(T? item) => throw new NotSupportedException("Collection is read-only.");
-        bool ICollection<T?>.Remove(T? item) => throw new NotSupportedException("Collection is read-only.");
-        void ICollection<T?>.Clear() => throw new NotSupportedException("Collection is read-only.");
-
-        bool ICollection<T?>.Contains(T? item)
-        {
-            if (item == null)
-            {
-                return NullCount > 0;
-            }
-
-            ReadOnlySpan<T> values = Values;
-            while (values.Length > 0)
-            {
-                int index = Values.IndexOf(item.Value);
-                if (index < 0 || IsValid(index)) { return index >= 0; }
-                values = values.Slice(index + 1);
-            }
-            return false;
-        }
-
-        void ICollection<T?>.CopyTo(T?[] array, int arrayIndex)
-        {
-            for (int srcIndex = 0, destIndex = arrayIndex; srcIndex < Length; srcIndex++, destIndex++)
-            {
-                array[destIndex] = GetValue(srcIndex);
             }
         }
     }

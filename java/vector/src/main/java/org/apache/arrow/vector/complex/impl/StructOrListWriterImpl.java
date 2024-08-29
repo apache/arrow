@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.complex.impl;
 
 import org.apache.arrow.vector.complex.writer.BaseWriter;
@@ -26,15 +27,17 @@ import org.apache.arrow.vector.complex.writer.IntWriter;
 import org.apache.arrow.vector.complex.writer.VarBinaryWriter;
 import org.apache.arrow.vector.complex.writer.VarCharWriter;
 
-/** Concrete implementation of {@link StructOrListWriter}. */
+/**
+ * Concrete implementation of {@link StructOrListWriter}.
+ */
 public class StructOrListWriterImpl implements StructOrListWriter {
 
   public final BaseWriter.StructWriter struct;
   public final BaseWriter.ListWriter list;
 
   /**
-   * Constructs a new instance using a {@link BaseWriter.StructWriter} (instead of an {@link
-   * BaseWriter.ListWriter}).
+   * Constructs a new instance using a {@link BaseWriter.StructWriter}
+   * (instead of an {@link BaseWriter.ListWriter}).
    */
   public StructOrListWriterImpl(final BaseWriter.StructWriter writer) {
     this.struct = writer;
@@ -42,15 +45,17 @@ public class StructOrListWriterImpl implements StructOrListWriter {
   }
 
   /**
-   * Constructs a new instance using a {@link BaseWriter.ListWriter} (instead of a {@link
-   * BaseWriter.StructWriter}).
+   * Constructs a new instance using a {@link BaseWriter.ListWriter}
+   * (instead of a {@link BaseWriter.StructWriter}).
    */
   public StructOrListWriterImpl(final BaseWriter.ListWriter writer) {
     this.struct = null;
     this.list = writer;
   }
 
-  /** Start writing to either the list or the struct. */
+  /**
+   * Start writing to either the list or the struct.
+   */
   public void start() {
     if (struct != null) {
       struct.start();
@@ -59,7 +64,9 @@ public class StructOrListWriterImpl implements StructOrListWriter {
     }
   }
 
-  /** Finish writing to the list or struct. */
+  /**
+   * Finish writing to the list or struct.
+   */
   public void end() {
     if (struct != null) {
       struct.end();
@@ -68,7 +75,9 @@ public class StructOrListWriterImpl implements StructOrListWriter {
     }
   }
 
-  /** Creates a new writer for a struct with the given name. */
+  /**
+   * Creates a new writer for a struct with the given name.
+   */
   public StructOrListWriter struct(final String name) {
     assert struct != null;
     return new StructOrListWriterImpl(struct.struct(name));
@@ -78,6 +87,7 @@ public class StructOrListWriterImpl implements StructOrListWriter {
    * Creates a new writer for a list of structs.
    *
    * @param name Unused.
+   *
    * @deprecated use {@link #listOfStruct(String)} instead.
    */
   @Deprecated
@@ -135,4 +145,5 @@ public class StructOrListWriterImpl implements StructOrListWriter {
   public VarBinaryWriter binary(final String name) {
     return (struct != null) ? struct.varBinary(name) : list.varBinary();
   }
+
 }

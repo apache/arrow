@@ -25,11 +25,10 @@ import (
 	"runtime"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v18/arrow/array"
-	"github.com/apache/arrow/go/v18/arrow/cdata"
-	"github.com/apache/arrow/go/v18/arrow/internal/arrjson"
-	"github.com/apache/arrow/go/v18/arrow/memory"
-	"github.com/apache/arrow/go/v18/internal/utils"
+	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/cdata"
+	"github.com/apache/arrow/go/v16/arrow/internal/arrjson"
+	"github.com/apache/arrow/go/v16/arrow/memory"
 )
 
 // #include <stdint.h>
@@ -60,7 +59,7 @@ func ArrowGo_FreeError(cError *C.char) {
 func handlePanic(err *error) {
 	if e := recover(); e != nil {
 		// Add a prefix while wrapping the panic-error
-		*err = utils.FormatRecoveredError("panic", e)
+		*err = fmt.Errorf("panic: %w", e.(error))
 	}
 }
 

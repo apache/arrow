@@ -14,12 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.adapter.jdbc;
 
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
+
 import org.apache.arrow.adapter.jdbc.binder.ColumnBinder;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -27,8 +29,8 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 /**
  * A binder binds JDBC prepared statement parameters to rows of Arrow data from a VectorSchemaRoot.
  *
- * <p>Each row of the VectorSchemaRoot will be bound to the configured parameters of the
- * PreparedStatement. One row of data is bound at a time.
+ * Each row of the VectorSchemaRoot will be bound to the configured parameters of the PreparedStatement.
+ * One row of data is bound at a time.
  */
 public class JdbcParameterBinder {
   private final PreparedStatement statement;
@@ -42,10 +44,8 @@ public class JdbcParameterBinder {
    *
    * @param statement The statement to bind parameters to.
    * @param root The VectorSchemaRoot to pull data from.
-   * @param binders Column binders to translate from Arrow data to JDBC parameters, one per
-   *     parameter.
-   * @param parameterIndices For each binder in <tt>binders</tt>, the index of the parameter to bind
-   *     to.
+   * @param binders Column binders to translate from Arrow data to JDBC parameters, one per parameter.
+   * @param parameterIndices For each binder in <tt>binders</tt>, the index of the parameter to bind to.
    */
   private JdbcParameterBinder(
       final PreparedStatement statement,
@@ -55,8 +55,7 @@ public class JdbcParameterBinder {
     Preconditions.checkArgument(
         binders.length == parameterIndices.length,
         "Number of column binders (%s) must equal number of parameter indices (%s)",
-        binders.length,
-        parameterIndices.length);
+        binders.length, parameterIndices.length);
     this.statement = statement;
     this.root = root;
     this.binders = binders;
@@ -67,10 +66,9 @@ public class JdbcParameterBinder {
   /**
    * Initialize a binder with a builder.
    *
-   * @param statement The statement to bind to. The binder does not maintain ownership of the
-   *     statement.
-   * @param root The {@link VectorSchemaRoot} to pull data from. The binder does not maintain
-   *     ownership of the vector schema root.
+   * @param statement The statement to bind to. The binder does not maintain ownership of the statement.
+   * @param root The {@link VectorSchemaRoot} to pull data from. The binder does not maintain ownership
+   *             of the vector schema root.
    */
   public static Builder builder(final PreparedStatement statement, final VectorSchemaRoot root) {
     return new Builder(statement, root);
@@ -84,8 +82,8 @@ public class JdbcParameterBinder {
   /**
    * Bind the next row of data to the parameters of the statement.
    *
-   * <p>After this, the application should call the desired method on the prepared statement, such
-   * as {@link PreparedStatement#executeUpdate()}, or {@link PreparedStatement#addBatch()}.
+   * After this, the application should call the desired method on the prepared statement,
+   * such as {@link PreparedStatement#executeUpdate()}, or {@link PreparedStatement#addBatch()}.
    *
    * @return true if a row was bound, false if rows were exhausted
    */
@@ -101,7 +99,9 @@ public class JdbcParameterBinder {
     return true;
   }
 
-  /** A builder for a {@link JdbcParameterBinder}. */
+  /**
+   * A builder for a {@link JdbcParameterBinder}.
+   */
   public static class Builder {
     private final PreparedStatement statement;
     private final VectorSchemaRoot root;
@@ -123,7 +123,9 @@ public class JdbcParameterBinder {
 
     /** Bind the given parameter to the given column using the default binder. */
     public Builder bind(int parameterIndex, int columnIndex) {
-      return bind(parameterIndex, ColumnBinder.forVector(root.getVector(columnIndex)));
+      return bind(
+          parameterIndex,
+          ColumnBinder.forVector(root.getVector(columnIndex)));
     }
 
     /** Bind the given parameter using the given binder. */

@@ -19,7 +19,5 @@
 
 #pragma once
 
-#include <arrow-flight-sql-glib/version.h>
-
 #include <arrow-flight-sql-glib/client.h>
 #include <arrow-flight-sql-glib/server.h>

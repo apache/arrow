@@ -20,18 +20,11 @@ import Foundation
 public class ArrowData {
     public let type: ArrowType
     public let buffers: [ArrowBuffer]
-    public let children: [ArrowData]
     public let nullCount: UInt
     public let length: UInt
     public let stride: Int
 
-    convenience init(_ arrowType: ArrowType, buffers: [ArrowBuffer], nullCount: UInt) throws {
-        try self.init(arrowType, buffers: buffers,
-                      children: [ArrowData](), nullCount: nullCount,
-                      length: buffers[1].length)
-    }
-
-    init(_ arrowType: ArrowType, buffers: [ArrowBuffer], children: [ArrowData], nullCount: UInt, length: UInt) throws {
+    init(_ arrowType: ArrowType, buffers: [ArrowBuffer], nullCount: UInt) throws {
         let infoType = arrowType.info
         switch infoType {
         case let .primitiveInfo(typeId):
@@ -46,17 +39,12 @@ public class ArrowData {
             if typeId == ArrowTypeId.unknown {
                 throw ArrowError.unknownType("Unknown time type for data")
             }
-        case let .complexInfo(typeId):
-            if typeId == ArrowTypeId.unknown {
-                throw ArrowError.unknownType("Unknown complex type for data")
-            }
         }
 
         self.type = arrowType
         self.buffers = buffers
-        self.children = children
         self.nullCount = nullCount
-        self.length = length
+        self.length = buffers[1].length
         self.stride = arrowType.getStride()
     }
 

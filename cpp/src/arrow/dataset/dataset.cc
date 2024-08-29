@@ -402,7 +402,7 @@ class BasicFragmentEvolution : public FragmentEvolutionStrategy {
             }
             return compute::field_ref(FieldRef(std::move(modified_indices)));
           }
-          return expr;
+          return std::move(expr);
         },
         [](compute::Expression expr, compute::Expression* old_expr) { return expr; });
   };

@@ -21,7 +21,7 @@ import (
 	"io"
 	"log"
 
-	"github.com/apache/arrow/go/v18/arrow/bitutil"
+	"github.com/apache/arrow/go/v16/arrow/bitutil"
 )
 
 // WriterAtBuffer is a convenience struct for providing a WriteAt function
@@ -75,7 +75,6 @@ type BitWriter struct {
 	byteoffset int
 	bitoffset  uint
 	raw        [8]byte
-	buf        [binary.MaxVarintLen64]byte
 }
 
 // NewBitWriter initializes a new bit writer to write to the passed in interface
@@ -164,8 +163,9 @@ func (b *BitWriter) WriteAligned(val uint64, nbytes int) bool {
 // without buffering.
 func (b *BitWriter) WriteVlqInt(v uint64) bool {
 	b.Flush(true)
-	nbytes := binary.PutUvarint(b.buf[:], v)
-	if _, err := b.wr.WriteAt(b.buf[:nbytes], int64(b.byteoffset)); err != nil {
+	var buf [binary.MaxVarintLen64]byte
+	nbytes := binary.PutUvarint(buf[:], v)
+	if _, err := b.wr.WriteAt(buf[:nbytes], int64(b.byteoffset)); err != nil {
 		log.Println(err)
 		return false
 	}

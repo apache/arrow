@@ -26,7 +26,9 @@
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/util/windows_fixup.h"
 
-namespace arrow::fs::internal {
+namespace arrow {
+namespace fs {
+namespace internal {
 
 struct MockDirInfo {
   std::string full_path;
@@ -66,21 +68,16 @@ class ARROW_EXPORT MockFileSystem : public FileSystem {
   bool Equals(const FileSystem& other) const override;
   Result<std::string> PathFromUri(const std::string& uri_string) const override;
 
-  /// \cond FALSE
-  using FileSystem::CreateDir;
-  using FileSystem::DeleteDirContents;
+  // XXX It's not very practical to have to explicitly declare inheritance
+  // of default overrides.
   using FileSystem::GetFileInfo;
-  using FileSystem::OpenAppendStream;
-  using FileSystem::OpenOutputStream;
-  /// \endcond
-
   Result<FileInfo> GetFileInfo(const std::string& path) override;
   Result<std::vector<FileInfo>> GetFileInfo(const FileSelector& select) override;
 
-  Status CreateDir(const std::string& path, bool recursive) override;
+  Status CreateDir(const std::string& path, bool recursive = true) override;
 
   Status DeleteDir(const std::string& path) override;
-  Status DeleteDirContents(const std::string& path, bool missing_dir_ok) override;
+  Status DeleteDirContents(const std::string& path, bool missing_dir_ok = false) override;
   Status DeleteRootDirContents() override;
 
   Status DeleteFile(const std::string& path) override;
@@ -95,10 +92,10 @@ class ARROW_EXPORT MockFileSystem : public FileSystem {
       const std::string& path) override;
   Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
       const std::string& path,
-      const std::shared_ptr<const KeyValueMetadata>& metadata) override;
+      const std::shared_ptr<const KeyValueMetadata>& metadata = {}) override;
   Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
       const std::string& path,
-      const std::shared_ptr<const KeyValueMetadata>& metadata) override;
+      const std::shared_ptr<const KeyValueMetadata>& metadata = {}) override;
 
   // Contents-dumping helpers to ease testing.
   // Output is lexicographically-ordered by full path.
@@ -131,4 +128,6 @@ class ARROW_EXPORT MockAsyncFileSystem : public MockFileSystem {
   FileInfoGenerator GetFileInfoGenerator(const FileSelector& select) override;
 };
 
-}  // namespace arrow::fs::internal
+}  // namespace internal
+}  // namespace fs
+}  // namespace arrow

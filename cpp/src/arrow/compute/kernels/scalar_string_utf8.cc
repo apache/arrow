@@ -19,13 +19,12 @@
 #include <mutex>
 #include <string>
 
-#include "arrow/compute/kernels/scalar_string_internal.h"
-#include "arrow/util/config.h"
-#include "arrow/util/utf8_internal.h"
-
 #ifdef ARROW_WITH_UTF8PROC
 #include <utf8proc.h>
 #endif
+
+#include "arrow/compute/kernels/scalar_string_internal.h"
+#include "arrow/util/utf8_internal.h"
 
 namespace arrow {
 namespace compute {
@@ -930,13 +929,9 @@ struct Utf8PadTransform : public StringTransformBase {
     int64_t left = 0;
     int64_t right = 0;
     if (PadLeft && PadRight) {
-      if (options_.lean_left_on_odd_padding) {
-        left = spaces / 2;
-        right = spaces - left;
-      } else {
-        right = spaces / 2;
-        left = spaces - right;
-      }
+      // If odd number of spaces, put the extra space on the right
+      left = spaces / 2;
+      right = spaces - left;
     } else if (PadLeft) {
       left = spaces;
     } else if (PadRight) {

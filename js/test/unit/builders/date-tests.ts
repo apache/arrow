@@ -17,8 +17,10 @@
 
 import 'web-streams-polyfill';
 import {
-    dateNoNulls,
-    dateWithNulls,
+    date32sNoNulls,
+    date32sWithNulls,
+    date64sNoNulls,
+    date64sWithNulls,
     encodeAll,
     encodeEach,
     encodeEachDOM,
@@ -39,14 +41,14 @@ describe('DateDayBuilder', () => {
     testDOMStreams && runTestsWithEncoder('encodeEachDOM: 25', encodeEachDOM(() => new DateDay(), 25));
     testNodeStreams && runTestsWithEncoder('encodeEachNode: 25', encodeEachNode(() => new DateDay(), 25));
 
-    function runTestsWithEncoder(name: string, encode: (vals: (number | null)[], nullVals?: any[]) => Promise<Vector<DateDay>>) {
+    function runTestsWithEncoder(name: string, encode: (vals: (Date | null)[], nullVals?: any[]) => Promise<Vector<DateDay>>) {
         describe(`${encode.name} ${name}`, () => {
             it(`encodes dates no nulls`, async () => {
-                const vals = dateNoNulls(20);
+                const vals = date32sNoNulls(20);
                 validateVector(vals, await encode(vals, []), []);
             });
             it(`encodes dates with nulls`, async () => {
-                const vals = dateWithNulls(20);
+                const vals = date32sWithNulls(20);
                 validateVector(vals, await encode(vals, [null]), [null]);
             });
         });
@@ -61,14 +63,14 @@ describe('DateMillisecondBuilder', () => {
     testDOMStreams && runTestsWithEncoder('encodeEachDOM: 25', encodeEachDOM(() => new DateMillisecond(), 25));
     testNodeStreams && runTestsWithEncoder('encodeEachNode: 25', encodeEachNode(() => new DateMillisecond(), 25));
 
-    function runTestsWithEncoder(name: string, encode: (vals: (number | null)[], nullVals?: any[]) => Promise<Vector<DateMillisecond>>) {
+    function runTestsWithEncoder(name: string, encode: (vals: (Date | null)[], nullVals?: any[]) => Promise<Vector<DateMillisecond>>) {
         describe(`${encode.name} ${name}`, () => {
             it(`encodes dates no nulls`, async () => {
-                const vals = dateNoNulls(20);
+                const vals = date64sNoNulls(20);
                 validateVector(vals, await encode(vals, []), []);
             });
             it(`encodes dates with nulls`, async () => {
-                const vals = dateWithNulls(20);
+                const vals = date64sWithNulls(20);
                 validateVector(vals, await encode(vals, [null]), [null]);
             });
         });
@@ -98,7 +100,7 @@ describe('DateMillisecondBuilder with nulls', () => {
         '2019-03-10T21:15:32.237Z',
         '2019-03-21T07:25:34.864Z',
         null
-    ].map((x) => x === null ? x : new Date(x).getTime());
+    ].map((x) => x === null ? x : new Date(x));
     it(`encodes dates with nulls`, async () => {
         const vals = dates.slice();
         validateVector(vals, await encode(vals, [null]), [null]);

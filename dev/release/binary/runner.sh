@@ -19,8 +19,7 @@
 
 set -u
 
-export LANG=C.UTF-8
-export LC_ALL=C.UTF-8
+export LANG=C
 
 target_dir=/host/binary/tmp
 original_owner=$(stat --format=%u ${target_dir})

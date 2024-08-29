@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.adapter.jdbc.h2;
 
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getBinaryValues;
@@ -25,11 +26,11 @@ import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getFloatValues
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getIntValues;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getListValues;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getLongValues;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -41,6 +42,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.List;
+
 import org.apache.arrow.adapter.jdbc.ArrowVectorIterator;
 import org.apache.arrow.adapter.jdbc.JdbcToArrow;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowConfig;
@@ -69,59 +71,62 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.pojo.ArrowType;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
+@RunWith(Parameterized.class)
 public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
 
-  @ParameterizedTest
-  @MethodSource("getTestData")
-  public void testJdbcToArrowValues(Table table)
-      throws SQLException, IOException, ClassNotFoundException {
-    this.initializeDatabase(table);
+  /**
+   * Constructor which populates the table object for each test iteration.
+   *
+   * @param table Table object
+   * @param reuseVectorSchemaRoot A flag indicating if we should reuse vector schema roots.
+   */
+  public JdbcToArrowVectorIteratorTest(Table table, boolean reuseVectorSchemaRoot) {
+    super(table, reuseVectorSchemaRoot);
+  }
 
-    JdbcToArrowConfig config =
-        new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance())
-            .setTargetBatchSize(3)
-            .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
-            .build();
+  @Test
+  @Override
+  public void testJdbcToArrowValues() throws SQLException, IOException {
+    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE),
+        Calendar.getInstance())
+        .setTargetBatchSize(3)
+        .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
+        .build();
 
     ArrowVectorIterator iterator =
-        JdbcToArrow.sqlToArrowVectorIterator(
-            conn.createStatement().executeQuery(table.getQuery()), config);
+        JdbcToArrow.sqlToArrowVectorIterator(conn.createStatement().executeQuery(table.getQuery()), config);
 
     validate(iterator);
   }
 
-  @ParameterizedTest
-  @MethodSource("getTestData")
-  public void testVectorSchemaRootReuse(Table table, boolean reuseVectorSchemaRoot)
-      throws SQLException, IOException, ClassNotFoundException {
-    this.initializeDatabase(table);
-
+  @Test
+  public void testVectorSchemaRootReuse() throws SQLException, IOException {
     Integer[][] intValues = {
-      {101, 102, 103},
-      {104, null, null},
-      {107, 108, 109},
-      {110}
+            {101, 102, 103},
+            {104, null, null},
+            {107, 108, 109},
+            {110}
     };
     Integer[][][] listValues = {
-      {{1, 2, 3}, {1, 2}, {1}},
-      {{2, 3, 4}, {2, 3}, {2}},
-      {{3, 4, 5}, {3, 4}, {3}},
-      {{}}
+            {{1, 2, 3}, {1, 2}, {1}},
+            {{2, 3, 4}, {2, 3}, {2}},
+            {{3, 4, 5}, {3, 4}, {3}},
+            {{}}
     };
 
-    JdbcToArrowConfig config =
-        new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance())
-            .setTargetBatchSize(3)
-            .setReuseVectorSchemaRoot(reuseVectorSchemaRoot)
-            .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
-            .build();
+    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE),
+        Calendar.getInstance())
+        .setTargetBatchSize(3)
+        .setReuseVectorSchemaRoot(reuseVectorSchemaRoot)
+        .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
+        .build();
 
     ArrowVectorIterator iterator =
-        JdbcToArrow.sqlToArrowVectorIterator(
-            conn.createStatement().executeQuery(table.getQuery()), config);
+        JdbcToArrow.sqlToArrowVectorIterator(conn.createStatement().executeQuery(table.getQuery()), config);
 
     int batchCount = 0;
     VectorSchemaRoot prev = null;
@@ -170,40 +175,32 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
     assertTrue(batchCount > 1);
   }
 
-  @ParameterizedTest
-  @MethodSource("getTestData")
-  public void testJdbcToArrowValuesNoLimit(Table table)
-      throws SQLException, IOException, ClassNotFoundException {
-    this.initializeDatabase(table);
+  @Test
+  public void testJdbcToArrowValuesNoLimit() throws SQLException, IOException {
 
-    JdbcToArrowConfig config =
-        new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance())
-            .setTargetBatchSize(JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE)
-            .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
-            .build();
+    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE),
+        Calendar.getInstance())
+        .setTargetBatchSize(JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE)
+        .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
+        .build();
 
     ArrowVectorIterator iterator =
-        JdbcToArrow.sqlToArrowVectorIterator(
-            conn.createStatement().executeQuery(table.getQuery()), config);
+        JdbcToArrow.sqlToArrowVectorIterator(conn.createStatement().executeQuery(table.getQuery()), config);
 
     validate(iterator);
   }
 
-  @ParameterizedTest
-  @MethodSource("getTestData")
-  public void testTimeStampConsumer(Table table, boolean reuseVectorSchemaRoot)
-      throws SQLException, IOException, ClassNotFoundException {
-    this.initializeDatabase(table);
-
+  @Test
+  public void testTimeStampConsumer() throws SQLException, IOException {
     final String sql = "select timestamp_field11 from table1";
 
     // first experiment, with calendar and time zone.
-    JdbcToArrowConfig config =
-        new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance())
-            .setTargetBatchSize(3)
-            .setReuseVectorSchemaRoot(reuseVectorSchemaRoot)
-            .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
-            .build();
+    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE),
+        Calendar.getInstance())
+        .setTargetBatchSize(3)
+        .setReuseVectorSchemaRoot(reuseVectorSchemaRoot)
+        .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
+        .build();
     assertNotNull(config.getCalendar());
 
     try (ArrowVectorIterator iterator =
@@ -216,16 +213,16 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
     }
 
     // second experiment, without calendar and time zone.
-    config =
-        new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE), null)
-            .setTargetBatchSize(3)
-            .setReuseVectorSchemaRoot(reuseVectorSchemaRoot)
-            .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
-            .build();
+    config = new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE),
+        null)
+        .setTargetBatchSize(3)
+        .setReuseVectorSchemaRoot(reuseVectorSchemaRoot)
+        .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
+        .build();
     assertNull(config.getCalendar());
 
     try (ArrowVectorIterator iterator =
-        JdbcToArrow.sqlToArrowVectorIterator(conn.createStatement().executeQuery(sql), config)) {
+             JdbcToArrow.sqlToArrowVectorIterator(conn.createStatement().executeQuery(sql), config)) {
       VectorSchemaRoot root = iterator.next();
       assertEquals(1, root.getFieldVectors().size());
 
@@ -281,40 +278,24 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
       float8Vectors.add((Float8Vector) root.getVector(DOUBLE));
       listVectors.add((ListVector) root.getVector(LIST));
     }
-    assertBigIntVectorValues(
-        bigIntVectors, table.getRowCount(), getLongValues(table.getValues(), BIGINT));
-    assertTinyIntVectorValues(
-        tinyIntVectors, table.getRowCount(), getIntValues(table.getValues(), TINYINT));
+    assertBigIntVectorValues(bigIntVectors, table.getRowCount(), getLongValues(table.getValues(), BIGINT));
+    assertTinyIntVectorValues(tinyIntVectors, table.getRowCount(), getIntValues(table.getValues(), TINYINT));
     assertIntVectorValues(intVectors, table.getRowCount(), getIntValues(table.getValues(), INT));
-    assertSmallIntVectorValues(
-        smallIntVectors, table.getRowCount(), getIntValues(table.getValues(), SMALLINT));
-    assertBinaryVectorValues(
-        vectorsForBinary, table.getRowCount(), getBinaryValues(table.getValues(), BINARY));
-    assertBinaryVectorValues(
-        vectorsForBlob, table.getRowCount(), getBinaryValues(table.getValues(), BLOB));
-    assertVarCharVectorValues(
-        vectorsForClob, table.getRowCount(), getCharArray(table.getValues(), CLOB));
-    assertVarCharVectorValues(
-        vectorsForVarChar, table.getRowCount(), getCharArray(table.getValues(), VARCHAR));
-    assertVarCharVectorValues(
-        vectorsForChar, table.getRowCount(), getCharArray(table.getValues(), CHAR));
+    assertSmallIntVectorValues(smallIntVectors, table.getRowCount(), getIntValues(table.getValues(), SMALLINT));
+    assertBinaryVectorValues(vectorsForBinary, table.getRowCount(), getBinaryValues(table.getValues(), BINARY));
+    assertBinaryVectorValues(vectorsForBlob, table.getRowCount(), getBinaryValues(table.getValues(), BLOB));
+    assertVarCharVectorValues(vectorsForClob, table.getRowCount(), getCharArray(table.getValues(), CLOB));
+    assertVarCharVectorValues(vectorsForVarChar, table.getRowCount(), getCharArray(table.getValues(), VARCHAR));
+    assertVarCharVectorValues(vectorsForChar, table.getRowCount(), getCharArray(table.getValues(), CHAR));
     assertBitVectorValues(vectorsForBit, table.getRowCount(), getIntValues(table.getValues(), BIT));
-    assertBooleanVectorValues(
-        vectorsForBool, table.getRowCount(), getBooleanValues(table.getValues(), BOOL));
-    assertDateDayVectorValues(
-        dateDayVectors, table.getRowCount(), getLongValues(table.getValues(), DATE));
-    assertTimeMilliVectorValues(
-        timeMilliVectors, table.getRowCount(), getLongValues(table.getValues(), TIME));
-    assertTimeStampVectorValues(
-        timeStampVectors, table.getRowCount(), getLongValues(table.getValues(), TIMESTAMP));
-    assertDecimalVectorValues(
-        decimalVectors, table.getRowCount(), getDecimalValues(table.getValues(), DECIMAL));
-    assertFloat4VectorValues(
-        float4Vectors, table.getRowCount(), getFloatValues(table.getValues(), REAL));
-    assertFloat8VectorValues(
-        float8Vectors, table.getRowCount(), getDoubleValues(table.getValues(), DOUBLE));
-    assertListVectorValues(
-        listVectors, table.getRowCount(), getListValues(table.getValues(), LIST));
+    assertBooleanVectorValues(vectorsForBool, table.getRowCount(), getBooleanValues(table.getValues(), BOOL));
+    assertDateDayVectorValues(dateDayVectors, table.getRowCount(), getLongValues(table.getValues(), DATE));
+    assertTimeMilliVectorValues(timeMilliVectors, table.getRowCount(), getLongValues(table.getValues(), TIME));
+    assertTimeStampVectorValues(timeStampVectors, table.getRowCount(), getLongValues(table.getValues(), TIMESTAMP));
+    assertDecimalVectorValues(decimalVectors, table.getRowCount(), getDecimalValues(table.getValues(), DECIMAL));
+    assertFloat4VectorValues(float4Vectors, table.getRowCount(), getFloatValues(table.getValues(), REAL));
+    assertFloat8VectorValues(float8Vectors, table.getRowCount(), getDoubleValues(table.getValues(), DOUBLE));
+    assertListVectorValues(listVectors, table.getRowCount(), getListValues(table.getValues(), LIST));
 
     roots.forEach(root -> root.close());
   }
@@ -343,8 +324,7 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
     }
   }
 
-  private void assertDecimalVectorValues(
-      List<DecimalVector> vectors, int rowCount, BigDecimal[] values) {
+  private void assertDecimalVectorValues(List<DecimalVector> vectors, int rowCount, BigDecimal[] values) {
     int valueCount = vectors.stream().mapToInt(ValueVector::getValueCount).sum();
     assertEquals(rowCount, valueCount);
 
@@ -357,8 +337,7 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
     }
   }
 
-  private void assertTimeStampVectorValues(
-      List<TimeStampVector> vectors, int rowCount, Long[] values) {
+  private void assertTimeStampVectorValues(List<TimeStampVector> vectors, int rowCount, Long[] values) {
     int valueCount = vectors.stream().mapToInt(ValueVector::getValueCount).sum();
     assertEquals(rowCount, valueCount);
 
@@ -370,8 +349,7 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
     }
   }
 
-  private void assertTimeMilliVectorValues(
-      List<TimeMilliVector> vectors, int rowCount, Long[] values) {
+  private void assertTimeMilliVectorValues(List<TimeMilliVector> vectors, int rowCount, Long[] values) {
     int valueCount = vectors.stream().mapToInt(ValueVector::getValueCount).sum();
     assertEquals(rowCount, valueCount);
 
@@ -419,8 +397,7 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
     }
   }
 
-  private void assertVarCharVectorValues(
-      List<VarCharVector> vectors, int rowCount, byte[][] values) {
+  private void assertVarCharVectorValues(List<VarCharVector> vectors, int rowCount, byte[][] values) {
     int valueCount = vectors.stream().mapToInt(ValueVector::getValueCount).sum();
     assertEquals(rowCount, valueCount);
 
@@ -432,8 +409,7 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
     }
   }
 
-  private void assertBinaryVectorValues(
-      List<VarBinaryVector> vectors, int rowCount, byte[][] values) {
+  private void assertBinaryVectorValues(List<VarBinaryVector> vectors, int rowCount, byte[][] values) {
     int valueCount = vectors.stream().mapToInt(ValueVector::getValueCount).sum();
     assertEquals(rowCount, valueCount);
 
@@ -445,8 +421,7 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
     }
   }
 
-  private void assertSmallIntVectorValues(
-      List<SmallIntVector> vectors, int rowCount, Integer[] values) {
+  private void assertSmallIntVectorValues(List<SmallIntVector> vectors, int rowCount, Integer[] values) {
     int valueCount = vectors.stream().mapToInt(ValueVector::getValueCount).sum();
     assertEquals(rowCount, valueCount);
 
@@ -458,8 +433,7 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
     }
   }
 
-  private void assertTinyIntVectorValues(
-      List<TinyIntVector> vectors, int rowCount, Integer[] values) {
+  private void assertTinyIntVectorValues(List<TinyIntVector> vectors, int rowCount, Integer[] values) {
     int valueCount = vectors.stream().mapToInt(ValueVector::getValueCount).sum();
     assertEquals(rowCount, valueCount);
 
@@ -500,8 +474,7 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
     }
   }
 
-  public static void assertListVectorValues(
-      List<ListVector> vectors, int rowCount, Integer[][] values) {
+  public static void assertListVectorValues(List<ListVector> vectors, int rowCount, Integer[][] values) {
     int valueCount = vectors.stream().mapToInt(ValueVector::getValueCount).sum();
     assertEquals(rowCount, valueCount);
 
@@ -519,11 +492,12 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
     }
   }
 
-  /** Runs a simple query, and encapsulates the result into a field vector. */
+  /**
+   * Runs a simple query, and encapsulates the result into a field vector.
+   */
   private FieldVector getQueryResult(JdbcToArrowConfig config) throws SQLException, IOException {
-    ArrowVectorIterator iterator =
-        JdbcToArrow.sqlToArrowVectorIterator(
-            conn.createStatement().executeQuery("select real_field8 from table1"), config);
+    ArrowVectorIterator iterator = JdbcToArrow.sqlToArrowVectorIterator(
+        conn.createStatement().executeQuery("select real_field8 from table1"), config);
 
     VectorSchemaRoot root = iterator.next();
 
@@ -537,17 +511,12 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
     return result;
   }
 
-  @ParameterizedTest
-  @MethodSource("getTestData")
-  public void testJdbcToArrowCustomTypeConversion(Table table, boolean reuseVectorSchemaRoot)
-      throws SQLException, IOException, ClassNotFoundException {
-    this.initializeDatabase(table);
-
-    JdbcToArrowConfigBuilder builder =
-        new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance())
-            .setTargetBatchSize(JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE)
-            .setReuseVectorSchemaRoot(reuseVectorSchemaRoot)
-            .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP);
+  @Test
+  public void testJdbcToArrowCustomTypeConversion() throws SQLException, IOException {
+    JdbcToArrowConfigBuilder builder = new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE),
+        Calendar.getInstance()).setTargetBatchSize(JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE)
+        .setReuseVectorSchemaRoot(reuseVectorSchemaRoot)
+        .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP);
 
     // first experiment, using default type converter
     JdbcToArrowConfig config = builder.build();
@@ -558,16 +527,15 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
     }
 
     // second experiment, using customized type converter
-    builder.setJdbcToArrowTypeConverter(
-        (fieldInfo) -> {
-          switch (fieldInfo.getJdbcType()) {
-            case Types.REAL:
-              // this is different from the default type converter
-              return new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE);
-            default:
-              return null;
-          }
-        });
+    builder.setJdbcToArrowTypeConverter((fieldInfo) -> {
+      switch (fieldInfo.getJdbcType()) {
+        case Types.REAL:
+          // this is different from the default type converter
+          return new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE);
+        default:
+          return null;
+      }
+    });
     config = builder.build();
 
     try (FieldVector vector = getQueryResult(config)) {

@@ -14,47 +14,53 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.driver.jdbc.accessor.impl.complex;
 
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
-import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.sql.Timestamp;
 import java.util.Arrays;
 import java.util.List;
+
 import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils;
-import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestExtension;
+import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.holders.NullableBigIntHolder;
 import org.apache.arrow.vector.holders.NullableFloat8Holder;
 import org.apache.arrow.vector.holders.NullableTimeStampMilliHolder;
 import org.apache.arrow.vector.types.Types;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.ClassRule;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.ErrorCollector;
 
 public class ArrowFlightJdbcUnionVectorAccessorTest {
 
-  @RegisterExtension
-  public static RootAllocatorTestExtension rootAllocatorTestExtension =
-      new RootAllocatorTestExtension();
+  @ClassRule
+  public static RootAllocatorTestRule rootAllocatorTestRule = new RootAllocatorTestRule();
+
+  @Rule
+  public final ErrorCollector collector = new ErrorCollector();
 
   private UnionVector vector;
 
   private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcUnionVectorAccessor>
       accessorSupplier =
-          (vector, getCurrentRow) ->
-              new ArrowFlightJdbcUnionVectorAccessor(
-                  (UnionVector) vector, getCurrentRow, (boolean wasNull) -> {});
+          (vector, getCurrentRow) -> new ArrowFlightJdbcUnionVectorAccessor((UnionVector) vector,
+              getCurrentRow, (boolean wasNull) -> {
+          });
 
   private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcUnionVectorAccessor>
-      accessorIterator = new AccessorTestUtils.AccessorIterator<>(accessorSupplier);
+      accessorIterator =
+      new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
 
-  @BeforeEach
+  @Before
   public void setup() {
-    this.vector = UnionVector.empty("", rootAllocatorTestExtension.getRootAllocator());
+    this.vector = UnionVector.empty("", rootAllocatorTestRule.getRootAllocator());
     this.vector.allocateNew();
 
     NullableBigIntHolder nullableBigIntHolder = new NullableBigIntHolder();
@@ -82,7 +88,7 @@ public class ArrowFlightJdbcUnionVectorAccessorTest {
     this.vector.setValueCount(5);
   }
 
-  @AfterEach
+  @After
   public void tearDown() {
     this.vector.close();
   }
@@ -90,10 +96,14 @@ public class ArrowFlightJdbcUnionVectorAccessorTest {
   @Test
   public void getObject() throws Exception {
     List<Object> result = accessorIterator.toList(vector);
-    List<Object> expected =
-        Arrays.asList(Long.MAX_VALUE, Math.PI, new Timestamp(1625702400000L), null, null);
+    List<Object> expected = Arrays.asList(
+        Long.MAX_VALUE,
+        Math.PI,
+        new Timestamp(1625702400000L),
+        null,
+        null);
 
-    assertThat(result, is(expected));
+    collector.checkThat(result, is(expected));
   }
 
   @Test
@@ -101,7 +111,8 @@ public class ArrowFlightJdbcUnionVectorAccessorTest {
     vector.reset();
     vector.setValueCount(5);
 
-    accessorIterator.assertAccessorGetter(
-        vector, AbstractArrowFlightJdbcUnionVectorAccessor::getObject, equalTo(null));
+    accessorIterator.assertAccessorGetter(vector,
+        AbstractArrowFlightJdbcUnionVectorAccessor::getObject,
+        equalTo(null));
   }
 }

@@ -17,13 +17,13 @@
 
 #pragma once
 
-#include <cassert>
 #include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
 
-#include "arrow/type.h"  // for DataType, FieldRef, Field and Schema
+#include "arrow/compute/light_array.h"  // for KeyColumnMetadata
+#include "arrow/type.h"                 // for DataType, FieldRef, Field and Schema
 
 namespace arrow {
 
@@ -47,8 +47,8 @@ struct SchemaProjectionMap {
   const int* source_to_base;
   const int* base_to_target;
   inline int get(int i) const {
-    assert(i >= 0 && i < num_cols);
-    assert(source_to_base[i] != kMissingField);
+    ARROW_DCHECK(i >= 0 && i < num_cols);
+    ARROW_DCHECK(source_to_base[i] != kMissingField);
     return base_to_target[source_to_base[i]];
   }
 };
@@ -66,7 +66,7 @@ class SchemaProjectionMaps {
   Status Init(ProjectionIdEnum full_schema_handle, const Schema& schema,
               const std::vector<ProjectionIdEnum>& projection_handles,
               const std::vector<const std::vector<FieldRef>*>& projections) {
-    assert(projection_handles.size() == projections.size());
+    ARROW_DCHECK(projection_handles.size() == projections.size());
     ARROW_RETURN_NOT_OK(RegisterSchema(full_schema_handle, schema));
     for (size_t i = 0; i < projections.size(); ++i) {
       ARROW_RETURN_NOT_OK(
@@ -174,7 +174,7 @@ class SchemaProjectionMaps {
       }
     }
     // We should never get here
-    assert(false);
+    ARROW_DCHECK(false);
     return -1;
   }
 
@@ -207,7 +207,7 @@ class SchemaProjectionMaps {
             break;
           }
         }
-        assert(field_id != SchemaProjectionMap::kMissingField);
+        ARROW_DCHECK(field_id != SchemaProjectionMap::kMissingField);
         mapping[i] = field_id;
         inverse_mapping[field_id] = i;
       }

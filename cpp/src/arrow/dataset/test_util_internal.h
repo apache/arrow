@@ -386,8 +386,7 @@ class DatasetFixtureMixin : public ::testing::Test {
     options_ = std::make_shared<ScanOptions>();
     options_->dataset_schema = schema_;
     ASSERT_OK_AND_ASSIGN(auto projection,
-                         ProjectionDescr::FromNames(schema_->field_names(), *schema_,
-                                                    options_->add_augmented_fields));
+                         ProjectionDescr::FromNames(schema_->field_names(), *schema_));
     SetProjection(options_.get(), std::move(projection));
     SetFilter(literal(true));
   }
@@ -399,8 +398,7 @@ class DatasetFixtureMixin : public ::testing::Test {
   void SetProjectedColumns(std::vector<std::string> column_names) {
     ASSERT_OK_AND_ASSIGN(
         auto projection,
-        ProjectionDescr::FromNames(std::move(column_names), *options_->dataset_schema,
-                                   /*add_augmented_fields=*/true));
+        ProjectionDescr::FromNames(std::move(column_names), *options_->dataset_schema));
     SetProjection(options_.get(), std::move(projection));
   }
 
@@ -504,8 +502,7 @@ class FileFormatFixtureMixin : public ::testing::Test {
   void SetSchema(std::vector<std::shared_ptr<Field>> fields) {
     opts_->dataset_schema = schema(std::move(fields));
     ASSERT_OK_AND_ASSIGN(auto projection,
-                         ProjectionDescr::Default(*opts_->dataset_schema,
-                                                  /*add_augmented_fields=*/true));
+                         ProjectionDescr::Default(*opts_->dataset_schema));
     SetProjection(opts_.get(), std::move(projection));
   }
 
@@ -515,8 +512,7 @@ class FileFormatFixtureMixin : public ::testing::Test {
 
   void Project(std::vector<std::string> names) {
     ASSERT_OK_AND_ASSIGN(auto projection, ProjectionDescr::FromNames(
-                                              std::move(names), *opts_->dataset_schema,
-                                              /*add_augmented_fields=*/true));
+                                              std::move(names), *opts_->dataset_schema));
     SetProjection(opts_.get(), std::move(projection));
   }
 
@@ -997,8 +993,7 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
     auto i64 = field("i64", int64());
     this->opts_->dataset_schema = schema({i32, i32, i64});
     ASSERT_RAISES(Invalid,
-                  ProjectionDescr::FromNames({"i32"}, *this->opts_->dataset_schema,
-                                             /*add_augmented_fields=*/true));
+                  ProjectionDescr::FromNames({"i32"}, *this->opts_->dataset_schema));
   }
   void TestScanWithPushdownNulls() {
     // Regression test for ARROW-15312
@@ -1938,8 +1933,7 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
     scan_options_->dataset_schema = dataset_->schema();
     ASSERT_OK_AND_ASSIGN(
         auto projection,
-        ProjectionDescr::FromNames(source_schema_->field_names(), *dataset_->schema(),
-                                   scan_options_->add_augmented_fields));
+        ProjectionDescr::FromNames(source_schema_->field_names(), *dataset_->schema()));
     SetProjection(scan_options_.get(), std::move(projection));
   }
 

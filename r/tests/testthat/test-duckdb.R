@@ -259,8 +259,6 @@ test_that("to_duckdb with a table", {
 })
 
 test_that("to_duckdb passing a connection", {
-  skip_if_not_installed("stringr")
-
   ds <- InMemoryDataset$create(example_data)
 
   con_separate <- dbConnect(duckdb::duckdb())
@@ -280,10 +278,13 @@ test_that("to_duckdb passing a connection", {
     select(int, lgl, dbl) %>%
     to_duckdb(con = con_separate, auto_disconnect = FALSE)
 
-  # Generates a query like SELECT * FROM arrow_xxx
-  table_four_query <- paste(dbplyr::sql_build(table_four), collapse = "\n")
-  table_four_name <- stringr::str_extract(table_four_query, "arrow_[0-9]{3}")
-  expect_false(is.na(table_four_name))
+  # dbplyr 2.3.0 renamed this internal attribute to lazy_query;
+  # and 2.4.0 reserved $... for internal use + changed the identifier class
+  if (packageVersion("dbplyr") < "2.4.0") {
+    table_four_name <- unclass(table_four)$lazy_query$x
+  } else {
+    table_four_name <- unclass(unclass(table_four)$lazy_query$x)$table
+  }
 
   result <- DBI::dbGetQuery(
     con_separate,

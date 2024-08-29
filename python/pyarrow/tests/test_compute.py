@@ -38,6 +38,7 @@ except ImportError:
 import pyarrow as pa
 import pyarrow.compute as pc
 from pyarrow.lib import ArrowNotImplementedError
+from pyarrow.tests import util
 
 try:
     import pyarrow.substrait as pas
@@ -136,7 +137,7 @@ def test_exported_option_classes():
 @pytest.mark.filterwarnings(
     "ignore:pyarrow.CumulativeSumOptions is deprecated as of 14.0"
 )
-def test_option_class_equality(request):
+def test_option_class_equality():
     options = [
         pc.ArraySortOptions(),
         pc.AssumeTimezoneOptions("UTC"),
@@ -151,7 +152,6 @@ def test_option_class_equality(request):
         pc.IndexOptions(pa.scalar(1)),
         pc.JoinOptions(),
         pc.ListSliceOptions(0, -1, 1, True),
-        pc.ListFlattenOptions(recursive=False),
         pc.MakeStructOptions(["field", "names"],
                              field_nullability=[True, True],
                              field_metadata=[pa.KeyValueMetadata({"a": "1"}),
@@ -192,17 +192,17 @@ def test_option_class_equality(request):
         pc.WeekOptions(week_starts_monday=True, count_from_zero=False,
                        first_week_is_fully_in_year=False),
     ]
-    # Timezone database might not be installed on Windows or Emscripten
-    if request.config.pyarrow.is_enabled["timezone_data"]:
+    # Timezone database might not be installed on Windows
+    if sys.platform != "win32" or util.windows_has_tzdata():
         options.append(pc.AssumeTimezoneOptions("Europe/Ljubljana"))
 
     classes = {type(option) for option in options}
 
     for cls in exported_option_classes:
-        # Timezone database might not be installed on Windows or Emscripten
+        # Timezone database might not be installed on Windows
         if (
             cls not in classes
-            and (request.config.pyarrow.is_enabled["timezone_data"])
+            and (sys.platform != "win32" or util.windows_has_tzdata())
             and cls != pc.AssumeTimezoneOptions
         ):
             try:
@@ -1304,12 +1304,6 @@ def test_filter(ty, values):
     result.validate()
     assert result.equals(pa.array([values[0], values[3], None], type=ty))
 
-    # same test with different array type
-    mask = np.array([True, False, False, True, None])
-    result = arr.filter(mask, null_selection_behavior='drop')
-    result.validate()
-    assert result.equals(pa.array([values[0], values[3]], type=ty))
-
     # non-boolean dtype
     mask = pa.array([0, 1, 0, 1, 0])
     with pytest.raises(NotImplementedError):
@@ -1348,11 +1342,6 @@ def test_filter_record_batch():
     mask = pa.array([True, False, None, False, True])
     result = batch.filter(mask)
     expected = pa.record_batch([pa.array(["a", "e"])], names=["a'"])
-    assert result.equals(expected)
-
-    # GH-38770: mask is chunked array
-    chunked_mask = pa.chunked_array([[True, False], [None], [False, True]])
-    result = batch.filter(chunked_mask)
     assert result.equals(expected)
 
     result = batch.filter(mask, null_selection_behavior="emit_null")
@@ -1842,14 +1831,6 @@ def test_cast():
     assert pc.cast(arr, expected.type) == expected
 
 
-@pytest.mark.parametrize('value_type', [pa.date32(), pa.date64()])
-def test_identity_cast_dates(value_type):
-    dt = datetime.date(1990, 3, 1)
-
-    arr = pa.array([dt], type=value_type)
-    assert pc.cast(arr, value_type) == arr
-
-
 @pytest.mark.parametrize('value_type', numerical_arrow_types)
 def test_fsl_to_fsl_cast(value_type):
     # Different field name and different type.
@@ -2092,7 +2073,8 @@ def test_strptime():
 
 
 @pytest.mark.pandas
-@pytest.mark.timezone_data
+@pytest.mark.skipif(sys.platform == "win32" and not util.windows_has_tzdata(),
+                    reason="Timezone database is not installed on Windows")
 def test_strftime():
     times = ["2018-03-10 09:00", "2038-01-31 12:23", None]
     timezones = ["CET", "UTC", "Europe/Ljubljana"]
@@ -2251,7 +2233,7 @@ def _check_datetime_components(timestamps, timezone=None):
 
 
 @pytest.mark.pandas
-def test_extract_datetime_components(request):
+def test_extract_datetime_components():
     timestamps = ["1970-01-01T00:00:59.123456789",
                   "2000-02-29T23:23:23.999999999",
                   "2033-05-18T03:33:20.000000000",
@@ -2274,7 +2256,7 @@ def test_extract_datetime_components(request):
     _check_datetime_components(timestamps)
 
     # Test timezone aware timestamp array
-    if not request.config.pyarrow.is_enabled["timezone_data"]:
+    if sys.platform == "win32" and not util.windows_has_tzdata():
         pytest.skip('Timezone database is not installed on Windows')
     else:
         for timezone in timezones:
@@ -2295,7 +2277,8 @@ def test_iso_calendar_longer_array(unit):
 
 
 @pytest.mark.pandas
-@pytest.mark.timezone_data
+@pytest.mark.skipif(sys.platform == "win32" and not util.windows_has_tzdata(),
+                    reason="Timezone database is not installed on Windows")
 def test_assume_timezone():
     ts_type = pa.timestamp("ns")
     timestamps = pd.to_datetime(["1970-01-01T00:00:59.123456789",
@@ -2490,7 +2473,8 @@ def _check_temporal_rounding(ts, values, unit):
         np.testing.assert_array_equal(result, expected)
 
 
-@pytest.mark.timezone_data
+@pytest.mark.skipif(sys.platform == "win32" and not util.windows_has_tzdata(),
+                    reason="Timezone database is not installed on Windows")
 @pytest.mark.parametrize('unit', ("nanosecond", "microsecond", "millisecond",
                                   "second", "minute", "hour", "day"))
 @pytest.mark.pandas
@@ -3230,7 +3214,8 @@ def test_list_element():
 
 
 def test_count_distinct():
-    samples = [datetime.datetime(year=y, month=1, day=1) for y in range(1992, 2092)]
+    seed = datetime.datetime.now()
+    samples = [seed.replace(year=y) for y in range(1992, 2092)]
     arr = pa.array(samples, pa.timestamp("ns"))
     assert pc.count_distinct(arr) == pa.scalar(len(samples), type=pa.int64())
 
@@ -3574,7 +3559,7 @@ def test_list_slice_output_fixed(start, stop, step, expected, value_type,
     if stop is None and list_type != "fixed":
         msg = ("Unable to produce FixedSizeListArray from "
                "non-FixedSizeListArray without `stop` being set.")
-        with pytest.raises(pa.ArrowInvalid, match=msg):
+        with pytest.raises(pa.ArrowNotImplementedError, match=msg):
             pc.list_slice(*args)
     else:
         result = pc.list_slice(*args)

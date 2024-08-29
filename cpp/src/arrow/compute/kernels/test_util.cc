@@ -31,7 +31,6 @@
 #include "arrow/datum.h"
 #include "arrow/result.h"
 #include "arrow/table.h"
-#include "arrow/testing/fixed_width_test_util.h"
 #include "arrow/testing/gtest_util.h"
 
 namespace arrow {

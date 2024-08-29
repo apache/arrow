@@ -14,26 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.memory.unsafe;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import org.apache.arrow.memory.AllocationManager;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.BufferLedger;
 import org.apache.arrow.memory.RootAllocator;
-import org.junit.jupiter.api.Test;
+import org.junit.Test;
 
-/** Test cases for {@link UnsafeAllocationManager}. */
+/**
+ * Test cases for {@link UnsafeAllocationManager}.
+ */
 public class TestUnsafeAllocationManager {
 
   private BufferAllocator createUnsafeAllocator() {
-    return new RootAllocator(
-        RootAllocator.configBuilder()
-            .allocationManagerFactory(UnsafeAllocationManager.FACTORY)
-            .build());
+    return new RootAllocator(RootAllocator.configBuilder().allocationManagerFactory(UnsafeAllocationManager.FACTORY)
+        .build());
   }
 
   private void readWriteArrowBuf(ArrowBuf buffer) {
@@ -49,18 +50,20 @@ public class TestUnsafeAllocationManager {
     }
   }
 
-  /** Test the memory allocation for {@link UnsafeAllocationManager}. */
+  /**
+   * Test the memory allocation for {@link UnsafeAllocationManager}.
+   */
   @Test
   public void testBufferAllocation() {
     final long bufSize = 4096L;
     try (BufferAllocator allocator = createUnsafeAllocator();
-        ArrowBuf buffer = allocator.buffer(bufSize)) {
-      assertInstanceOf(BufferLedger.class, buffer.getReferenceManager());
+         ArrowBuf buffer = allocator.buffer(bufSize)) {
+      assertTrue(buffer.getReferenceManager() instanceof BufferLedger);
       BufferLedger bufferLedger = (BufferLedger) buffer.getReferenceManager();
 
       // make sure we are using unsafe allocation manager
       AllocationManager allocMgr = bufferLedger.getAllocationManager();
-      assertInstanceOf(UnsafeAllocationManager.class, allocMgr);
+      assertTrue(allocMgr instanceof UnsafeAllocationManager);
       UnsafeAllocationManager unsafeMgr = (UnsafeAllocationManager) allocMgr;
 
       assertEquals(bufSize, unsafeMgr.getSize());

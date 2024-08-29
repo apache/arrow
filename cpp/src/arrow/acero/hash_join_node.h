@@ -17,7 +17,6 @@
 
 #pragma once
 
-#include <cassert>
 #include <vector>
 
 #include "arrow/acero/options.h"
@@ -89,7 +88,7 @@ class ARROW_ACERO_EXPORT HashJoinSchema {
                                             const Expression& filter);
 
   bool PayloadIsEmpty(int side) {
-    assert(side == 0 || side == 1);
+    ARROW_DCHECK(side == 0 || side == 1);
     return proj_maps[side].num_cols(HashJoinProjection::PAYLOAD) == 0;
   }
 

@@ -30,7 +30,6 @@ jobs:
       ARCH: {{ '${{ matrix.platform.archery_arch }}' }}
       ARCH_ALIAS: {{ '${{ matrix.platform.archery_arch_alias }}' }}
       ARCH_SHORT: {{ '${{ matrix.platform.archery_arch_short }}' }}
-      ARCHERY_USE_LEGACY_DOCKER_COMPOSE: {{ "${{matrix.platform.archery_use_legacy_docker_compose || '0'}}" }}
     strategy:
       fail-fast: false
       matrix:
@@ -45,7 +44,6 @@ jobs:
             archery_arch: "arm64v8"
             archery_arch_alias: "aarch64"
             archery_arch_short: "arm64"
-            archery_use_legacy_docker_compose: "1"
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_free_space()|indent }}
@@ -80,17 +78,19 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          - { runs_on: ["macos-13"], arch: "x86_64"}
-          - { runs_on: ["macos-14"], arch: "aarch_64" }
+          - { runs_on: ["macos-latest"], arch: "x86_64"}
+          - { runs_on: ["self-hosted", "macOS", "arm64", "devops-managed"], arch: "aarch_64" }
     env:
-      MACOSX_DEPLOYMENT_TARGET: "14.0"
+      MACOSX_DEPLOYMENT_TARGET: "10.15"
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       - name: Set up Python
+        if: |
+          !contains(matrix.platform.runs_on, 'self-hosted')
         uses: actions/setup-python@v4
         with:
           cache: 'pip'
-          python-version: 3.12
+          python-version: 3.8
       - name: Install Archery
         shell: bash
         run: pip install -e arrow/dev/archery[all]
@@ -107,18 +107,6 @@ jobs:
           # If llvm is installed, Apache Arrow C++ uses llvm rather than
           # llvm@14 because llvm is newer than llvm@14.
           brew uninstall llvm || :
-
-          # Ensure updating python@XXX with the "--overwrite" option.
-          # If python@XXX is updated without "--overwrite", it causes
-          # a conflict error. Because Python 3 installed not by
-          # Homebrew exists in /usr/local on GitHub Actions. If
-          # Homebrew's python@XXX is updated without "--overwrite", it
-          # tries to replace /usr/local/bin/2to3 and so on and causes
-          # a conflict error.
-          brew update
-          for python_package in $(brew list | grep python@); do
-            brew install --overwrite ${python_package}
-          done
 
           brew bundle --file=arrow/cpp/Brewfile
           # We want to link aws-sdk-cpp statically but Homebrew's
@@ -146,7 +134,9 @@ jobs:
         run: |
           set -e
           # make brew Java available to CMake
-          export JAVA_HOME=$(brew --prefix openjdk@11)/libexec/openjdk.jdk/Contents/Home
+          if [ "{{ arch }}" = "aarch_64" ]; then
+            export JAVA_HOME=$(brew --prefix openjdk@11)/libexec/openjdk.jdk/Contents/Home
+          fi
           arrow/ci/scripts/java_jni_macos_build.sh \
             $GITHUB_WORKSPACE/arrow \
             $GITHUB_WORKSPACE/arrow/cpp-build \
@@ -242,14 +232,12 @@ jobs:
           test -f arrow/java-dist/arrow_dataset_jni/x86_64/arrow_dataset_jni.dll
           test -f arrow/java-dist/arrow_orc_jni/x86_64/arrow_orc_jni.dll
       - name: Build bundled jar
-        env:
-          MAVEN_ARGS: >-
-            --no-transfer-progress
         run: |
           set -e
           pushd arrow/java
           mvn versions:set -DnewVersion={{ arrow.no_rc_snapshot_version }}
           mvn versions:set -DnewVersion={{ arrow.no_rc_snapshot_version }} -f bom
+          mvn versions:set -DnewVersion={{ arrow.no_rc_snapshot_version }} -f maven
           popd
           arrow/ci/scripts/java_full_build.sh \
             $GITHUB_WORKSPACE/arrow \

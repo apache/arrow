@@ -14,31 +14,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.memory.netty;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.Assert.assertEquals;
 
-import io.netty.buffer.PooledByteBufAllocatorL;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.ReferenceManager;
 import org.apache.arrow.memory.RootAllocator;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.Test;
+
+import io.netty.buffer.PooledByteBufAllocatorL;
 
 public class TestEmptyArrowBuf {
 
   private static final int MAX_ALLOCATION = 8 * 1024;
   private static RootAllocator allocator;
 
-  @BeforeAll
+  @BeforeClass
   public static void beforeClass() {
     allocator = new RootAllocator(MAX_ALLOCATION);
   }
-
+  
   /** Ensure the allocator is closed. */
-  @AfterAll
+  @AfterClass
   public static void afterClass() {
     if (allocator != null) {
       allocator.close();
@@ -47,22 +48,16 @@ public class TestEmptyArrowBuf {
 
   @Test
   public void testZeroBuf() {
-    // Exercise the historical log inside the empty ArrowBuf. This is initialized statically, and
-    // there is a circular
-    // dependency between ArrowBuf and BaseAllocator, so if the initialization happens in the wrong
-    // order, the
+    // Exercise the historical log inside the empty ArrowBuf. This is initialized statically, and there is a circular
+    // dependency between ArrowBuf and BaseAllocator, so if the initialization happens in the wrong order, the
     // historical log will be null even though RootAllocator.DEBUG is true.
     allocator.getEmpty().print(new StringBuilder(), 0, RootAllocator.Verbosity.LOG_WITH_STACKTRACE);
   }
 
   @Test
   public void testEmptyArrowBuf() {
-    ArrowBuf buf =
-        new ArrowBuf(
-            ReferenceManager.NO_OP,
-            null,
-            1024,
-            new PooledByteBufAllocatorL().empty.memoryAddress());
+    ArrowBuf buf = new ArrowBuf(ReferenceManager.NO_OP, null,
+        1024, new PooledByteBufAllocatorL().empty.memoryAddress());
 
     buf.getReferenceManager().retain();
     buf.getReferenceManager().retain(8);
@@ -76,11 +71,10 @@ public class TestEmptyArrowBuf {
     assertEquals(0, buf.getActualMemoryConsumed());
     assertEquals(0, buf.getReferenceManager().getSize());
     assertEquals(0, buf.getReferenceManager().getAccountedSize());
-    assertFalse(buf.getReferenceManager().release());
-    assertFalse(buf.getReferenceManager().release(2));
+    assertEquals(false, buf.getReferenceManager().release());
+    assertEquals(false, buf.getReferenceManager().release(2));
     assertEquals(0, buf.getReferenceManager().getAllocator().getLimit());
-    assertEquals(
-        buf, buf.getReferenceManager().transferOwnership(buf, allocator).getTransferredBuffer());
+    assertEquals(buf, buf.getReferenceManager().transferOwnership(buf, allocator).getTransferredBuffer());
     assertEquals(0, buf.readerIndex());
     assertEquals(0, buf.writerIndex());
     assertEquals(1, buf.refCnt());
@@ -91,5 +85,7 @@ public class TestEmptyArrowBuf {
     assertEquals(1, derive.refCnt());
 
     buf.close();
+
   }
+
 }

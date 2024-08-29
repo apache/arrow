@@ -143,7 +143,7 @@ Result<std::unique_ptr<substrait::ExpressionReference>> CreateExpressionReferenc
   ARROW_ASSIGN_OR_RAISE(std::unique_ptr<substrait::Expression> expression,
                         ToProto(expr, ext_set, conversion_options));
   expr_ref->set_allocated_expression(expression.release());
-  return expr_ref;
+  return std::move(expr_ref);
 }
 
 }  // namespace
@@ -178,7 +178,7 @@ Result<BoundExpressions> FromProto(const substrait::ExtendedExpression& expressi
     *ext_set_out = std::move(ext_set);
   }
 
-  return bound_expressions;
+  return std::move(bound_expressions);
 }
 
 Result<std::unique_ptr<substrait::ExtendedExpression>> ToProto(
@@ -203,7 +203,7 @@ Result<std::unique_ptr<substrait::ExtendedExpression>> ToProto(
     expression->mutable_referred_expr()->AddAllocated(expr_ref.release());
   }
   RETURN_NOT_OK(AddExtensionSetToExtendedExpression(*ext_set, expression.get()));
-  return expression;
+  return std::move(expression);
 }
 
 }  // namespace engine

@@ -238,8 +238,7 @@ static inline Result<std::shared_ptr<Buffer>> WriteFlatbufferBuilder(
 
   uint8_t* dst = result->mutable_data();
   memcpy(dst, fbb.GetBufferPointer(), size);
-  // R build with openSUSE155 requires an explicit shared_ptr construction
-  return std::shared_ptr<Buffer>(std::move(result));
+  return std::move(result);
 }
 
 ARROW_EXPORT

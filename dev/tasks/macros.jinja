@@ -23,9 +23,6 @@ on:
   push:
     branches:
       - "*-github-*"
-
-env:
-  ARCHERY_DEBUG: 1
 {% endmacro %}
 
 {%- macro github_checkout_arrow(fetch_depth=1, submodules="recursive", action_v="4") -%}
@@ -58,12 +55,11 @@ env:
 
 {%- macro github_install_archery() -%}
   - name: Set up Python by actions/setup-python
-    if: |
-      !(runner.os == 'Linux' && runner.arch != 'X64')
+    if: runner.arch == 'X64'
     uses: actions/setup-python@v4
     with:
       cache: 'pip'
-      python-version: 3.12
+      python-version: 3.8
   - name: Set up Python by apt
     if: runner.os == 'Linux' && runner.arch != 'X64'
     run: |
@@ -86,11 +82,10 @@ env:
 
 {%- macro github_upload_releases(pattern) -%}
   - name: Set up Python by actions/setup-python
-    if: |
-      !(runner.os == 'Linux' && runner.arch != 'X64')
+    if: runner.arch == 'X64'
     uses: actions/setup-python@v4
     with:
-      python-version: 3.12
+      python-version: 3.8
   - name: Set up Python by apt
     if: runner.os == 'Linux' && runner.arch != 'X64'
     run: |
@@ -219,12 +214,15 @@ env:
 
 {%- macro azure_upload_anaconda(pattern) -%}
   {%- if arrow.is_default_branch() -%}
-  - bash: |
-      conda create -y -n azure_upload_anaconda -c conda-forge anaconda-client
-      source activate azure_upload_anaconda
+  - task: CondaEnvironment@1
+    inputs:
+      packageSpecs: 'anaconda-client'
+      installOptions: '-c conda-forge'
+      updateConda: no
+  - script: |
+      conda install -y anaconda-client
       anaconda -t $(CROSSBOW_ANACONDA_TOKEN) upload --force {{ pattern }}
     displayName: Upload packages to Anaconda
-
   {% endif %}
 {% endmacro %}
 
@@ -241,7 +239,7 @@ env:
       # The GHA runners install of python > 3.10 is incompatible with brew so we
       # have to force overwriting of the symlinks
       # see https://github.com/actions/runner-images/issues/6868
-      brew install --overwrite python@3.12 python@3.11 python@3.10
+      brew install --overwrite python@3.11 python@3.10
 
       set -x
       ARROW_GLIB_FORMULA=$(echo ${ARROW_FORMULA} | sed -e 's/\.rb/-glib.rb/')
@@ -403,3 +401,4 @@ env:
   {{ key }}: "{{ value }}"
   {% endfor %}
 {% endmacro %}
+

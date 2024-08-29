@@ -32,7 +32,8 @@ GArrowExtensionDataTypeRegistry *
 garrow_extension_data_type_registry_new_raw(
   std::shared_ptr<arrow::ExtensionTypeRegistry> *arrow_registry);
 std::shared_ptr<arrow::ExtensionTypeRegistry>
-garrow_extension_data_type_registry_get_raw(GArrowExtensionDataTypeRegistry *registry);
+garrow_extension_data_type_registry_get_raw(
+  GArrowExtensionDataTypeRegistry *registry);
 
 namespace garrow {
   class GExtensionType : public arrow::ExtensionType {
@@ -46,18 +47,16 @@ namespace garrow {
     GType
     array_gtype() const;
 
-    std::string
-    extension_name() const override;
+    std::string extension_name() const override;
 
-    bool
-    ExtensionEquals(const arrow::ExtensionType &other) const override;
+    bool ExtensionEquals(const arrow::ExtensionType& other) const override;
 
     std::shared_ptr<arrow::Array>
     MakeArray(std::shared_ptr<arrow::ArrayData> data) const override;
 
     arrow::Result<std::shared_ptr<arrow::DataType>>
     Deserialize(std::shared_ptr<arrow::DataType> storage_data_type,
-                const std::string &serialized_data) const override;
+                const std::string& serialized_data) const override;
 
     std::string
     Serialize() const override;
@@ -65,4 +64,4 @@ namespace garrow {
   private:
     GArrowExtensionDataType *garrow_data_type_;
   };
-} // namespace garrow
+}

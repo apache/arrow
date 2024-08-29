@@ -22,6 +22,7 @@
 
 #include <gandiva-glib/selection-vector.hpp>
 
+
 G_BEGIN_DECLS
 
 /**
@@ -44,8 +45,7 @@ G_BEGIN_DECLS
  * Since: 4.0.0
  */
 
-typedef struct GGandivaSelectionVectorPrivate_
-{
+typedef struct GGandivaSelectionVectorPrivate_ {
   std::shared_ptr<gandiva::SelectionVector> selection_vector;
 } GGandivaSelectionVectorPrivate;
 
@@ -57,9 +57,10 @@ G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GGandivaSelectionVector,
                                     ggandiva_selection_vector,
                                     G_TYPE_OBJECT)
 
-#define GGANDIVA_SELECTION_VECTOR_GET_PRIVATE(object)                                    \
-  static_cast<GGandivaSelectionVectorPrivate *>(                                         \
-    ggandiva_selection_vector_get_instance_private(GGANDIVA_SELECTION_VECTOR(object)))
+#define GGANDIVA_SELECTION_VECTOR_GET_PRIVATE(object)           \
+  static_cast<GGandivaSelectionVectorPrivate *>(                \
+    ggandiva_selection_vector_get_instance_private(             \
+      GGANDIVA_SELECTION_VECTOR(object)))
 
 static void
 ggandiva_selection_vector_finalize(GObject *object)
@@ -81,8 +82,9 @@ ggandiva_selection_vector_set_property(GObject *object,
 
   switch (prop_id) {
   case PROP_SELECTION_VECTOR:
-    priv->selection_vector = *static_cast<std::shared_ptr<gandiva::SelectionVector> *>(
-      g_value_get_pointer(value));
+    priv->selection_vector =
+      *static_cast<std::shared_ptr<gandiva::SelectionVector> *>(
+        g_value_get_pointer(value));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -94,7 +96,7 @@ static void
 ggandiva_selection_vector_init(GGandivaSelectionVector *object)
 {
   auto priv = GGANDIVA_SELECTION_VECTOR_GET_PRIVATE(object);
-  new (&priv->selection_vector) std::shared_ptr<gandiva::SelectionVector>;
+  new(&priv->selection_vector) std::shared_ptr<gandiva::SelectionVector>;
 }
 
 static void
@@ -102,15 +104,15 @@ ggandiva_selection_vector_class_init(GGandivaSelectionVectorClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->finalize = ggandiva_selection_vector_finalize;
+  gobject_class->finalize     = ggandiva_selection_vector_finalize;
   gobject_class->set_property = ggandiva_selection_vector_set_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_pointer(
-    "selection-vector",
-    "Selection vector",
-    "The raw std::shared<gandiva::SelectionVector> *",
-    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_pointer("selection-vector",
+                              "Selection vector",
+                              "The raw std::shared<gandiva::SelectionVector> *",
+                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
+                                                       G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_SELECTION_VECTOR, spec);
 }
 
@@ -125,7 +127,8 @@ ggandiva_selection_vector_class_init(GGandivaSelectionVectorClass *klass)
 GGandivaSelectionVectorMode
 ggandiva_selection_vector_get_mode(GGandivaSelectionVector *selection_vector)
 {
-  auto gandiva_selection_vector = ggandiva_selection_vector_get_raw(selection_vector);
+  auto gandiva_selection_vector =
+    ggandiva_selection_vector_get_raw(selection_vector);
   auto gandiva_mode = gandiva_selection_vector->GetMode();
   return static_cast<GGandivaSelectionVectorMode>(gandiva_mode);
 }
@@ -142,22 +145,26 @@ ggandiva_selection_vector_get_mode(GGandivaSelectionVector *selection_vector)
 GArrowArray *
 ggandiva_selection_vector_to_array(GGandivaSelectionVector *selection_vector)
 {
-  auto gandiva_selection_vector = ggandiva_selection_vector_get_raw(selection_vector);
+  auto gandiva_selection_vector =
+    ggandiva_selection_vector_get_raw(selection_vector);
   auto arrow_array = gandiva_selection_vector->ToArray();
   return garrow_array_new_raw(&arrow_array);
 }
+
 
 G_DEFINE_TYPE(GGandivaUInt16SelectionVector,
               ggandiva_uint16_selection_vector,
               GGANDIVA_TYPE_SELECTION_VECTOR)
 
 static void
-ggandiva_uint16_selection_vector_init(GGandivaUInt16SelectionVector *selection_vector)
+ggandiva_uint16_selection_vector_init(
+  GGandivaUInt16SelectionVector *selection_vector)
 {
 }
 
 static void
-ggandiva_uint16_selection_vector_class_init(GGandivaUInt16SelectionVectorClass *klass)
+ggandiva_uint16_selection_vector_class_init(
+  GGandivaUInt16SelectionVectorClass *klass)
 {
 }
 
@@ -171,14 +178,17 @@ ggandiva_uint16_selection_vector_class_init(GGandivaUInt16SelectionVectorClass *
  * Since: 4.0.0
  */
 GGandivaUInt16SelectionVector *
-ggandiva_uint16_selection_vector_new(gint64 max_slots, GError **error)
+ggandiva_uint16_selection_vector_new(gint64 max_slots,
+                                     GError **error)
 {
   auto memory_pool = arrow::default_memory_pool();
   std::shared_ptr<gandiva::SelectionVector> gandiva_selection_vector;
   auto status = gandiva::SelectionVector::MakeInt16(max_slots,
                                                     memory_pool,
                                                     &gandiva_selection_vector);
-  if (garrow_error_check(error, status, "[gandiva][uint16-selection-vector][new]")) {
+  if (garrow_error_check(error,
+                         status,
+                         "[gandiva][uint16-selection-vector][new]")) {
     return GGANDIVA_UINT16_SELECTION_VECTOR(
       ggandiva_selection_vector_new_raw(&gandiva_selection_vector));
   } else {
@@ -186,17 +196,20 @@ ggandiva_uint16_selection_vector_new(gint64 max_slots, GError **error)
   }
 }
 
+
 G_DEFINE_TYPE(GGandivaUInt32SelectionVector,
               ggandiva_uint32_selection_vector,
               GGANDIVA_TYPE_SELECTION_VECTOR)
 
 static void
-ggandiva_uint32_selection_vector_init(GGandivaUInt32SelectionVector *selection_vector)
+ggandiva_uint32_selection_vector_init(
+  GGandivaUInt32SelectionVector *selection_vector)
 {
 }
 
 static void
-ggandiva_uint32_selection_vector_class_init(GGandivaUInt32SelectionVectorClass *klass)
+ggandiva_uint32_selection_vector_class_init(
+  GGandivaUInt32SelectionVectorClass *klass)
 {
 }
 
@@ -210,14 +223,17 @@ ggandiva_uint32_selection_vector_class_init(GGandivaUInt32SelectionVectorClass *
  * Since: 4.0.0
  */
 GGandivaUInt32SelectionVector *
-ggandiva_uint32_selection_vector_new(gint64 max_slots, GError **error)
+ggandiva_uint32_selection_vector_new(gint64 max_slots,
+                                     GError **error)
 {
   auto memory_pool = arrow::default_memory_pool();
   std::shared_ptr<gandiva::SelectionVector> gandiva_selection_vector;
   auto status = gandiva::SelectionVector::MakeInt32(max_slots,
                                                     memory_pool,
                                                     &gandiva_selection_vector);
-  if (garrow_error_check(error, status, "[gandiva][uint32-selection-vector][new]")) {
+  if (garrow_error_check(error,
+                         status,
+                         "[gandiva][uint32-selection-vector][new]")) {
     return GGANDIVA_UINT32_SELECTION_VECTOR(
       ggandiva_selection_vector_new_raw(&gandiva_selection_vector));
   } else {
@@ -225,17 +241,20 @@ ggandiva_uint32_selection_vector_new(gint64 max_slots, GError **error)
   }
 }
 
+
 G_DEFINE_TYPE(GGandivaUInt64SelectionVector,
               ggandiva_uint64_selection_vector,
               GGANDIVA_TYPE_SELECTION_VECTOR)
 
 static void
-ggandiva_uint64_selection_vector_init(GGandivaUInt64SelectionVector *selection_vector)
+ggandiva_uint64_selection_vector_init(
+  GGandivaUInt64SelectionVector *selection_vector)
 {
 }
 
 static void
-ggandiva_uint64_selection_vector_class_init(GGandivaUInt64SelectionVectorClass *klass)
+ggandiva_uint64_selection_vector_class_init(
+  GGandivaUInt64SelectionVectorClass *klass)
 {
 }
 
@@ -249,14 +268,17 @@ ggandiva_uint64_selection_vector_class_init(GGandivaUInt64SelectionVectorClass *
  * Since: 4.0.0
  */
 GGandivaUInt64SelectionVector *
-ggandiva_uint64_selection_vector_new(gint64 max_slots, GError **error)
+ggandiva_uint64_selection_vector_new(gint64 max_slots,
+                                     GError **error)
 {
   auto memory_pool = arrow::default_memory_pool();
   std::shared_ptr<gandiva::SelectionVector> gandiva_selection_vector;
   auto status = gandiva::SelectionVector::MakeInt64(max_slots,
                                                     memory_pool,
                                                     &gandiva_selection_vector);
-  if (garrow_error_check(error, status, "[gandiva][uint64-selection-vector][new]")) {
+  if (garrow_error_check(error,
+                         status,
+                         "[gandiva][uint64-selection-vector][new]")) {
     return GGANDIVA_UINT64_SELECTION_VECTOR(
       ggandiva_selection_vector_new_raw(&gandiva_selection_vector));
   } else {
@@ -264,7 +286,9 @@ ggandiva_uint64_selection_vector_new(gint64 max_slots, GError **error)
   }
 }
 
+
 G_END_DECLS
+
 
 GGandivaSelectionVector *
 ggandiva_selection_vector_new_raw(
@@ -285,7 +309,9 @@ ggandiva_selection_vector_new_raw(
     break;
   }
   auto selection_vector =
-    g_object_new(type, "selection-vector", gandiva_selection_vector, NULL);
+    g_object_new(type,
+                 "selection-vector", gandiva_selection_vector,
+                 NULL);
   return GGANDIVA_SELECTION_VECTOR(selection_vector);
 }
 

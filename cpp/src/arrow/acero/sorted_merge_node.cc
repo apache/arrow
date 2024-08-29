@@ -28,7 +28,7 @@
 #include "arrow/acero/options.h"
 #include "arrow/acero/query_context.h"
 #include "arrow/acero/time_series_util.h"
-#include "arrow/acero/unmaterialized_table_internal.h"
+#include "arrow/acero/unmaterialized_table.h"
 #include "arrow/acero/util.h"
 #include "arrow/array/builder_base.h"
 #include "arrow/result.h"
@@ -262,22 +262,19 @@ class SortedMergeNode : public ExecNode {
       : ExecNode(plan, inputs, GetInputLabels(inputs), std::move(output_schema)),
         ordering_(std::move(new_ordering)),
         input_counter(inputs_.size()),
-        output_counter(inputs_.size())
-#ifdef ARROW_ENABLE_THREADING
-        ,
-        process_thread()
-#endif
-  {
+        output_counter(inputs_.size()),
+        process_thread() {
     SetLabel("sorted_merge");
   }
 
   ~SortedMergeNode() override {
-    PushTask(kPoisonPill);
-#ifdef ARROW_ENABLE_THREADING
+    process_queue.Push(
+        kPoisonPill);  // poison pill
+                       // We might create a temporary (such as to inspect the output
+                       // schema), in which case there isn't anything  to join
     if (process_thread.joinable()) {
       process_thread.join();
     }
-#endif
   }
 
   static arrow::Result<arrow::acero::ExecNode*> Make(
@@ -358,23 +355,8 @@ class SortedMergeNode : public ExecNode {
     // InputState's ConcurrentQueue manages locking
     input_counter[index] += rb->num_rows();
     ARROW_RETURN_NOT_OK(state[index]->Push(rb));
-    PushTask(kNewTask);
+    process_queue.Push(kNewTask);
     return Status::OK();
-  }
-
-  void PushTask(bool ok) {
-#ifdef ARROW_ENABLE_THREADING
-    process_queue.Push(ok);
-#else
-    if (process_task.is_finished()) {
-      return;
-    }
-    if (ok == kNewTask) {
-      PollOnce();
-    } else {
-      EndFromProcessThread();
-    }
-#endif
   }
 
   arrow::Status InputFinished(arrow::acero::ExecNode* input, int total_batches) override {
@@ -386,8 +368,7 @@ class SortedMergeNode : public ExecNode {
       state.at(k)->set_total_batches(total_batches);
     }
     // Trigger a final process call for stragglers
-    PushTask(kNewTask);
-
+    process_queue.Push(kNewTask);
     return Status::OK();
   }
 
@@ -398,17 +379,13 @@ class SortedMergeNode : public ExecNode {
       // Plan has already aborted.  Do not start process thread
       return Status::OK();
     }
-#ifdef ARROW_ENABLE_THREADING
     process_thread = std::thread(&SortedMergeNode::StartPoller, this);
-#endif
     return Status::OK();
   }
 
   arrow::Status StopProducingImpl() override {
-#ifdef ARROW_ENABLE_THREADING
     process_queue.Clear();
-#endif
-    PushTask(kPoisonPill);
+    process_queue.Push(kPoisonPill);
     return Status::OK();
   }
 
@@ -431,7 +408,6 @@ class SortedMergeNode : public ExecNode {
           << input_counter[i] << " != " << output_counter[i];
     }
 
-#ifdef ARROW_ENABLE_THREADING
     ARROW_UNUSED(
         plan_->query_context()->executor()->Spawn([this, st = std::move(st)]() mutable {
           Defer cleanup([this, &st]() { process_task.MarkFinished(st); });
@@ -439,12 +415,6 @@ class SortedMergeNode : public ExecNode {
             st = output_->InputFinished(this, batches_produced);
           }
         }));
-#else
-    process_task.MarkFinished(st);
-    if (st.ok()) {
-      st = output_->InputFinished(this, batches_produced);
-    }
-#endif
   }
 
   bool CheckEnded() {
@@ -582,7 +552,6 @@ class SortedMergeNode : public ExecNode {
     return true;
   }
 
-#ifdef ARROW_ENABLE_THREADING
   void EmitBatches() {
     while (true) {
       // Implementation note: If the queue is empty, we will block here
@@ -598,7 +567,6 @@ class SortedMergeNode : public ExecNode {
 
   /// The entry point for processThread
   static void StartPoller(SortedMergeNode* node) { node->EmitBatches(); }
-#endif
 
   arrow::Ordering ordering_;
 
@@ -615,13 +583,11 @@ class SortedMergeNode : public ExecNode {
 
   std::atomic<int32_t> batches_produced{0};
 
-#ifdef ARROW_ENABLE_THREADING
   // Queue to trigger processing of a given input. False acts as a poison pill
   ConcurrentQueue<bool> process_queue;
   // Once StartProducing is called, we initialize this thread to poll the
   // input states and emit batches
   std::thread process_thread;
-#endif
   arrow::Future<> process_task;
 
   // Map arg index --> completion counter

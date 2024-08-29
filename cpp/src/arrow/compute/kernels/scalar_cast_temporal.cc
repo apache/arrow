@@ -510,11 +510,8 @@ void AddCrossUnitCastNoPreallocate(CastFunction* func) {
 
 std::shared_ptr<CastFunction> GetDate32Cast() {
   auto func = std::make_shared<CastFunction>("cast_date32", Type::DATE32);
-  const auto& out_ty = date32();
+  auto out_ty = date32();
   AddCommonCasts(Type::DATE32, out_ty, func.get());
-
-  // date32 -> date32
-  AddZeroCopyCast(Type::DATE32, date32(), date32(), func.get());
 
   // int32 -> date32
   AddZeroCopyCast(Type::INT32, int32(), date32(), func.get());
@@ -535,11 +532,8 @@ std::shared_ptr<CastFunction> GetDate32Cast() {
 
 std::shared_ptr<CastFunction> GetDate64Cast() {
   auto func = std::make_shared<CastFunction>("cast_date64", Type::DATE64);
-  const auto& out_ty = date64();
+  auto out_ty = date64();
   AddCommonCasts(Type::DATE64, out_ty, func.get());
-
-  // date64 -> date64
-  AddZeroCopyCast(Type::DATE64, date64(), date64(), func.get());
 
   // int64 -> date64
   AddZeroCopyCast(Type::INT64, int64(), date64(), func.get());

@@ -146,12 +146,7 @@ class PARQUET_EXPORT ColumnChunkMetaData {
 
   bool Equals(const ColumnChunkMetaData& other) const;
 
-  // Byte offset of `ColumnMetaData` in `file_path()`.
-  //
-  // Note that the meaning of this field has been inconsistent among implementations
-  // so its use has since been deprecated in the Parquet specification. Modern
-  // implementations will set this to `0` to indicate that the `ColumnMetaData` is solely
-  // contained in the `ColumnChunk` struct.
+  // column chunk
   int64_t file_offset() const;
 
   // parameter is only used when a dataset is spread across multiple files
@@ -184,7 +179,6 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   std::unique_ptr<ColumnCryptoMetaData> crypto_metadata() const;
   std::optional<IndexLocation> GetColumnIndexLocation() const;
   std::optional<IndexLocation> GetOffsetIndexLocation() const;
-  const std::shared_ptr<const KeyValueMetadata>& key_value_metadata() const;
 
  private:
   explicit ColumnChunkMetaData(
@@ -402,24 +396,15 @@ class PARQUET_EXPORT FileMetaData {
   /// FileMetaData.
   std::shared_ptr<FileMetaData> Subset(const std::vector<int>& row_groups) const;
 
-  /// \brief Serialize metadata unencrypted as string
-  ///
-  /// \param[in] scrub whether to remove sensitive information from the metadata.
-  /// \param[in] debug whether to serialize the metadata as Thrift (if false) or
-  /// debug text (if true).
-  std::string SerializeUnencrypted(bool scrub, bool debug) const;
-
  private:
   friend FileMetaDataBuilder;
   friend class SerializedFile;
-  friend class SerializedRowGroup;
 
   explicit FileMetaData(const void* serialized_metadata, uint32_t* metadata_len,
                         const ReaderProperties& properties,
                         std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
 
   void set_file_decryptor(std::shared_ptr<InternalFileDecryptor> file_decryptor);
-  const std::shared_ptr<InternalFileDecryptor>& file_decryptor() const;
 
   // PIMPL Idiom
   FileMetaData();
@@ -467,12 +452,8 @@ class PARQUET_EXPORT ColumnChunkMetaDataBuilder {
   // column chunk
   // Used when a dataset is spread across multiple files
   void set_file_path(const std::string& path);
-
   // column metadata
   void SetStatistics(const EncodedStatistics& stats);
-
-  void SetKeyValueMetadata(std::shared_ptr<const KeyValueMetadata> key_value_metadata);
-
   // get the column descriptor
   const ColumnDescriptor* descr() const;
 

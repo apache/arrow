@@ -38,7 +38,7 @@ class ARROW_ACERO_EXPORT QueryContext {
   QueryContext(QueryOptions opts = {},
                ExecContext exec_context = *default_exec_context());
 
-  Status Init(arrow::util::AsyncTaskScheduler* scheduler);
+  Status Init(size_t max_num_threads, arrow::util::AsyncTaskScheduler* scheduler);
 
   const ::arrow::internal::CpuInfo* cpu_info() const;
   int64_t hardware_flags() const;
@@ -52,6 +52,7 @@ class ARROW_ACERO_EXPORT QueryContext {
 
   size_t GetThreadIndex();
   size_t max_concurrency() const;
+  Result<arrow::util::TempVectorStack*> GetTempStack(size_t thread_index);
 
   /// \brief Start an external task
   ///
@@ -144,6 +145,11 @@ class ARROW_ACERO_EXPORT QueryContext {
   std::unique_ptr<TaskScheduler> task_scheduler_ = TaskScheduler::Make();
 
   ThreadIndexer thread_indexer_;
+  struct ThreadLocalData {
+    bool is_init = false;
+    arrow::util::TempVectorStack stack;
+  };
+  std::vector<ThreadLocalData> tld_;
 
   std::atomic<size_t> in_flight_bytes_to_disk_{0};
 };

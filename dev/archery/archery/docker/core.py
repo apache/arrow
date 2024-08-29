@@ -58,21 +58,12 @@ class UndefinedImage(Exception):
 
 class ComposeConfig:
 
-    def __init__(self, config_path, dotenv_path, compose_bin,
-                 using_docker=False, using_buildx=False,
-                 params=None, debug=False):
-        self.using_docker = using_docker
-        self.using_buildx = using_buildx
-        self.debug = debug
+    def __init__(self, config_path, dotenv_path, compose_bin, params=None):
         config_path = _ensure_path(config_path)
         if dotenv_path:
             dotenv_path = _ensure_path(dotenv_path)
         else:
             dotenv_path = config_path.parent / '.env'
-        if self.debug:
-            # Log docker version
-            Docker().run('version')
-
         self._read_env(dotenv_path, params)
         self._read_config(config_path, compose_bin)
 
@@ -131,13 +122,8 @@ class ComposeConfig:
             )
 
         # trigger docker-compose's own validation
-        if self.using_docker:
-            compose = Docker()
-            args = ['compose']
-        else:
-            compose = Command(compose_bin)
-            args = []
-        args += [f'--file={config_path}', 'config']
+        compose = Command('docker-compose')
+        args = ['--file', str(config_path), 'config']
         result = compose.run(*args, env=self.env, check=False,
                              stderr=subprocess.PIPE, stdout=subprocess.PIPE)
 
@@ -178,13 +164,12 @@ class Docker(Command):
 class DockerCompose(Command):
 
     def __init__(self, config_path, dotenv_path=None, compose_bin=None,
-                 using_docker=False, using_buildx=False, params=None,
-                 debug=False):
-        compose_bin = default_bin(compose_bin, 'docker compose')
+                 params=None, debug=False):
+        compose_bin = default_bin(compose_bin, 'docker-compose')
         self.config = ComposeConfig(config_path, dotenv_path, compose_bin,
-                                    params=params, using_docker=using_docker,
-                                    using_buildx=using_buildx, debug=debug)
+                                    params)
         self.bin = compose_bin
+        self.debug = debug
         self.pull_memory = set()
 
     def clear_pull_memory(self):
@@ -193,7 +178,7 @@ class DockerCompose(Command):
     def _execute_compose(self, *args, **kwargs):
         # execute as a docker compose command
         try:
-            result = super().run(f'--file={self.config.path}', *args,
+            result = super().run('--file', str(self.config.path), *args,
                                  env=self.config.env, **kwargs)
             result.check_returncode()
         except subprocess.CalledProcessError as e:
@@ -230,13 +215,14 @@ class DockerCompose(Command):
                 )
             )
 
-    def pull(self, service_name, pull_leaf=True, ignore_pull_failures=True):
+    def pull(self, service_name, pull_leaf=True, using_docker=False,
+             ignore_pull_failures=True):
         def _pull(service):
             args = ['pull']
             if service['image'] in self.pull_memory:
                 return
 
-            if self.config.using_docker:
+            if using_docker:
                 try:
                     self._execute_docker(*args, service['image'])
                 except Exception as e:
@@ -259,7 +245,7 @@ class DockerCompose(Command):
             _pull(service)
 
     def build(self, service_name, use_cache=True, use_leaf_cache=True,
-              pull_parents=True):
+              using_docker=False, using_buildx=False, pull_parents=True):
         def _build(service, use_cache):
             if 'build' not in service:
                 # nothing to do
@@ -287,7 +273,7 @@ class DockerCompose(Command):
             if self.config.env.get('BUILDKIT_INLINE_CACHE') == '1':
                 args.extend(['--build-arg', 'BUILDKIT_INLINE_CACHE=1'])
 
-            if self.config.using_buildx:
+            if using_buildx:
                 for k, v in service['build'].get('args', {}).items():
                     args.extend(['--build-arg', '{}={}'.format(k, v)])
 
@@ -309,9 +295,9 @@ class DockerCompose(Command):
                     service['build'].get('context', '.')
                 ])
                 self._execute_docker("buildx", "build", *args)
-            elif self.config.using_docker:
+            elif using_docker:
                 # better for caching
-                if self.config.debug and os.name != "nt":
+                if self.debug:
                     args.append("--progress=plain")
                 for k, v in service['build'].get('args', {}).items():
                     args.extend(['--build-arg', '{}={}'.format(k, v)])
@@ -324,7 +310,7 @@ class DockerCompose(Command):
                 ])
                 self._execute_docker("build", *args)
             else:
-                if self.config.debug and os.name != "nt":
+                if self.debug:
                     args.append("--progress=plain")
                 self._execute_compose("build", *args, service['name'])
 
@@ -336,13 +322,22 @@ class DockerCompose(Command):
         _build(service, use_cache=use_cache and use_leaf_cache)
 
     def run(self, service_name, command=None, *, env=None, volumes=None,
-            user=None, resource_limit=None):
+            user=None, using_docker=False, resource_limit=None):
         service = self.config.get(service_name)
 
         args = []
+        if user is not None:
+            args.extend(['-u', user])
 
-        use_docker = self.config.using_docker or service['need_gpu'] or resource_limit
-        if use_docker:
+        if env is not None:
+            for k, v in env.items():
+                args.extend(['-e', '{}={}'.format(k, v)])
+
+        if volumes is not None:
+            for volume in volumes:
+                args.extend(['--volume', volume])
+
+        if using_docker or service['need_gpu'] or resource_limit:
             # use gpus, requires docker>=19.03
             if service['need_gpu']:
                 args.extend(['--gpus', 'all'])
@@ -362,10 +357,6 @@ class DockerCompose(Command):
                     v = "{}:{}".format(v['source'], v['target'])
                 args.extend(['-v', v])
 
-            # append capabilities from the compose conf
-            for c in service.get('cap_add', []):
-                args.extend([f'--cap-add={c}'])
-
             # infer whether an interactive shell is desired or not
             if command in ['cmd.exe', 'bash', 'sh', 'powershell']:
                 args.append('-it')
@@ -383,18 +374,6 @@ class DockerCompose(Command):
                     args.append(f'--memory={memory}')
                     args.append(f'--memory-swap={memory}')
 
-        if user is not None:
-            args.extend(['-u', user])
-
-        if env is not None:
-            for k, v in env.items():
-                args.extend(['-e', '{}={}'.format(k, v)])
-
-        if volumes is not None:
-            for volume in volumes:
-                args.extend(['--volume', volume])
-
-        if use_docker:
             # get the actual docker image name instead of the compose service
             # name which we refer as image in general
             args.append(service['image'])
@@ -409,10 +388,6 @@ class DockerCompose(Command):
                     # on the docker-compose yaml file.
                     if isinstance(cmd, list):
                         cmd = shlex.join(cmd)
-                    # Match behaviour from docker compose
-                    # to interpolate environment variables
-                    # https://docs.docker.com/compose/compose-file/12-interpolation/
-                    cmd = cmd.replace("$$", "$")
                     args.extend(shlex.split(cmd))
 
             # execute as a plain docker cli command
@@ -424,9 +399,9 @@ class DockerCompose(Command):
                 args.append(command)
             self._execute_compose('run', '--rm', *args)
 
-    def push(self, service_name, user=None, password=None):
+    def push(self, service_name, user=None, password=None, using_docker=False):
         def _push(service):
-            if self.config.using_docker:
+            if using_docker:
                 return self._execute_docker('push', service['image'])
             else:
                 return self._execute_compose('push', service['name'])

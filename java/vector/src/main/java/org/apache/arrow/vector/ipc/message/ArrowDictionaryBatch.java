@@ -14,11 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.ipc.message;
 
-import com.google.flatbuffers.FlatBufferBuilder;
 import org.apache.arrow.flatbuf.DictionaryBatch;
 import org.apache.arrow.flatbuf.MessageHeader;
+
+import com.google.flatbuffers.FlatBufferBuilder;
 
 /**
  * POJO wrapper around a Dictionary Batch IPC messages
@@ -32,10 +34,12 @@ public class ArrowDictionaryBatch implements ArrowMessage {
 
   @Deprecated
   public ArrowDictionaryBatch(long dictionaryId, ArrowRecordBatch dictionary) {
-    this(dictionaryId, dictionary, false);
+    this (dictionaryId, dictionary, false);
   }
 
-  /** Constructs new instance. */
+  /**
+   * Constructs new instance.
+   */
   public ArrowDictionaryBatch(long dictionaryId, ArrowRecordBatch dictionary, boolean isDelta) {
     this.dictionaryId = dictionaryId;
     this.dictionary = dictionary;
@@ -80,11 +84,7 @@ public class ArrowDictionaryBatch implements ArrowMessage {
 
   @Override
   public String toString() {
-    return "ArrowDictionaryBatch [dictionaryId="
-        + dictionaryId
-        + ", dictionary="
-        + dictionary
-        + "]";
+    return "ArrowDictionaryBatch [dictionaryId=" + dictionaryId + ", dictionary=" + dictionary + "]";
   }
 
   @Override

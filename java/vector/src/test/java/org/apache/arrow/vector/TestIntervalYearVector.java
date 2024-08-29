@@ -14,30 +14,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertSame;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.types.IntervalUnit;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.util.TransferPair;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
 
 public class TestIntervalYearVector {
 
   private BufferAllocator allocator;
 
-  @BeforeEach
+  @Before
   public void init() {
     allocator = new DirtyRootAllocator(Long.MAX_VALUE, (byte) 100);
   }
 
-  @AfterEach
+  @After
   public void terminate() throws Exception {
     allocator.close();
   }
@@ -70,8 +71,7 @@ public class TestIntervalYearVector {
     final IntervalYearVector fromVector = new IntervalYearVector("", allocator);
     final TransferPair transferPair = fromVector.getTransferPair(fromVector.getField(), allocator);
     final IntervalYearVector toVector = (IntervalYearVector) transferPair.getTo();
-    // Field inside a new vector created by reusing a field should be the same in memory as the
-    // original field.
+    // Field inside a new vector created by reusing a field should be the same in memory as the original field.
     assertSame(fromVector.getField(), toVector.getField());
   }
 }

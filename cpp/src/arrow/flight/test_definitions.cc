@@ -27,7 +27,6 @@
 #include "arrow/array/util.h"
 #include "arrow/flight/api.h"
 #include "arrow/flight/client_middleware.h"
-#include "arrow/flight/test_flight_server.h"
 #include "arrow/flight/test_util.h"
 #include "arrow/flight/types.h"
 #include "arrow/flight/types_async.h"
@@ -54,7 +53,7 @@ using arrow::internal::checked_cast;
 // Tests of initialization/shutdown
 
 void ConnectivityTest::TestGetPort() {
-  std::unique_ptr<FlightServerBase> server = TestFlightServer::Make();
+  std::unique_ptr<FlightServerBase> server = ExampleTestServer();
 
   ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
   FlightServerOptions options(location);
@@ -62,7 +61,7 @@ void ConnectivityTest::TestGetPort() {
   ASSERT_GT(server->port(), 0);
 }
 void ConnectivityTest::TestBuilderHook() {
-  std::unique_ptr<FlightServerBase> server = TestFlightServer::Make();
+  std::unique_ptr<FlightServerBase> server = ExampleTestServer();
 
   ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
   FlightServerOptions options(location);
@@ -81,7 +80,7 @@ void ConnectivityTest::TestShutdown() {
   constexpr int kIterations = 10;
   ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
   for (int i = 0; i < kIterations; i++) {
-    std::unique_ptr<FlightServerBase> server = TestFlightServer::Make();
+    std::unique_ptr<FlightServerBase> server = ExampleTestServer();
 
     FlightServerOptions options(location);
     ASSERT_OK(server->Init(options));
@@ -93,7 +92,7 @@ void ConnectivityTest::TestShutdown() {
   }
 }
 void ConnectivityTest::TestShutdownWithDeadline() {
-  std::unique_ptr<FlightServerBase> server = TestFlightServer::Make();
+  std::unique_ptr<FlightServerBase> server = ExampleTestServer();
 
   ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
   FlightServerOptions options(location);
@@ -106,7 +105,7 @@ void ConnectivityTest::TestShutdownWithDeadline() {
   ASSERT_OK(server->Wait());
 }
 void ConnectivityTest::TestBrokenConnection() {
-  std::unique_ptr<FlightServerBase> server = TestFlightServer::Make();
+  std::unique_ptr<FlightServerBase> server = ExampleTestServer();
   ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
   FlightServerOptions options(location);
   ASSERT_OK(server->Init(options));
@@ -152,7 +151,7 @@ class GetFlightInfoListener : public AsyncListener<FlightInfo> {
 }  // namespace
 
 void DataTest::SetUpTest() {
-  server_ = TestFlightServer::Make();
+  server_ = ExampleTestServer();
 
   ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
   FlightServerOptions options(location);
@@ -1823,7 +1822,7 @@ void AsyncClientTest::SetUpTest() {
 
   ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
 
-  server_ = TestFlightServer::Make();
+  server_ = ExampleTestServer();
   FlightServerOptions server_options(location);
   ASSERT_OK(server_->Init(server_options));
 

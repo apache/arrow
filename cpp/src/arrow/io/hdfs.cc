@@ -172,8 +172,7 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
       RETURN_NOT_OK(buffer->Resize(bytes_read));
       buffer->ZeroPadding();
     }
-    // R build with openSUSE155 requires an explicit shared_ptr construction
-    return std::shared_ptr<Buffer>(std::move(buffer));
+    return std::move(buffer);
   }
 
   Result<int64_t> Read(int64_t nbytes, void* buffer) {
@@ -201,8 +200,7 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
     if (bytes_read < nbytes) {
       RETURN_NOT_OK(buffer->Resize(bytes_read));
     }
-    // R build with openSUSE155 requires an explicit shared_ptr construction
-    return std::shared_ptr<Buffer>(std::move(buffer));
+    return std::move(buffer);
   }
 
   Result<int64_t> GetSize() {

@@ -14,11 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.adapter.jdbc.binder;
 
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Types;
+
 import org.apache.arrow.vector.IntVector;
 
 /** A column binder for 32-bit integers. */
@@ -32,8 +34,7 @@ public class IntBinder extends BaseColumnBinder<IntVector> {
   }
 
   @Override
-  public void bind(PreparedStatement statement, int parameterIndex, int rowIndex)
-      throws SQLException {
+  public void bind(PreparedStatement statement, int parameterIndex, int rowIndex) throws SQLException {
     final int value = vector.getDataBuffer().getInt((long) rowIndex * IntVector.TYPE_WIDTH);
     statement.setInt(parameterIndex, value);
   }

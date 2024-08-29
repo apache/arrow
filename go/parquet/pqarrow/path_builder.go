@@ -21,12 +21,11 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v18/arrow"
-	"github.com/apache/arrow/go/v18/arrow/array"
-	"github.com/apache/arrow/go/v18/arrow/memory"
-	"github.com/apache/arrow/go/v18/internal/bitutils"
-	"github.com/apache/arrow/go/v18/internal/utils"
-	"github.com/apache/arrow/go/v18/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v16/internal/bitutils"
+	"github.com/apache/arrow/go/v16/parquet/internal/encoding"
 	"golang.org/x/xerrors"
 )
 
@@ -302,15 +301,15 @@ type pathBuilder struct {
 	paths            []pathInfo
 	nullableInParent bool
 
-	refCount *atomic.Int64
+	refCount int64
 }
 
 func (p *pathBuilder) Retain() {
-	p.refCount.Add(1)
+	atomic.AddInt64(&p.refCount, 1)
 }
 
 func (p *pathBuilder) Release() {
-	if p.refCount.Add(-1) == 0 {
+	if atomic.AddInt64(&p.refCount, -1) == 0 {
 		for idx := range p.paths {
 			p.paths[idx].primitiveArr.Release()
 			p.paths[idx].primitiveArr = nil
@@ -499,15 +498,15 @@ type multipathLevelBuilder struct {
 	data      arrow.ArrayData
 	builder   pathBuilder
 
-	refCount *atomic.Int64
+	refCount int64
 }
 
 func (m *multipathLevelBuilder) Retain() {
-	m.refCount.Add(1)
+	atomic.AddInt64(&m.refCount, 1)
 }
 
 func (m *multipathLevelBuilder) Release() {
-	if m.refCount.Add(-1) == 0 {
+	if atomic.AddInt64(&m.refCount, -1) == 0 {
 		m.data.Release()
 		m.data = nil
 		m.builder.Release()
@@ -517,10 +516,10 @@ func (m *multipathLevelBuilder) Release() {
 
 func newMultipathLevelBuilder(arr arrow.Array, fieldNullable bool) (*multipathLevelBuilder, error) {
 	ret := &multipathLevelBuilder{
-		refCount:  utils.NewRefCount(1),
+		refCount:  1,
 		rootRange: elemRange{int64(0), int64(arr.Data().Len())},
 		data:      arr.Data(),
-		builder:   pathBuilder{nullableInParent: fieldNullable, paths: make([]pathInfo, 0), refCount: utils.NewRefCount(1)},
+		builder:   pathBuilder{nullableInParent: fieldNullable, paths: make([]pathInfo, 0), refCount: 1},
 	}
 	if err := ret.builder.Visit(arr); err != nil {
 		return nil, err

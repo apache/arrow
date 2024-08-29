@@ -26,6 +26,7 @@ import numpy as np
 
 import pyarrow as pa
 
+
 KILOBYTE = 1 << 10
 MEGABYTE = KILOBYTE * KILOBYTE
 

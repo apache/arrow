@@ -411,21 +411,17 @@ class ThriftDeserializer {
       // thrift message is encrypted
       uint32_t clen;
       clen = *len;
-      if (clen > static_cast<uint32_t>(std::numeric_limits<int32_t>::max())) {
-        std::stringstream ss;
-        ss << "Cannot decrypt buffer with length " << clen << ", which overflows int32\n";
-        throw ParquetException(ss.str());
-      }
       // decrypt
-      auto decrypted_buffer = AllocateBuffer(
-          decryptor->pool(), decryptor->PlaintextLength(static_cast<int32_t>(clen)));
-      ::arrow::util::span<const uint8_t> cipher_buf(buf, clen);
+      auto decrypted_buffer = std::static_pointer_cast<ResizableBuffer>(
+          AllocateBuffer(decryptor->pool(),
+                         static_cast<int64_t>(clen - decryptor->CiphertextSizeDelta())));
+      const uint8_t* cipher_buf = buf;
       uint32_t decrypted_buffer_len =
-          decryptor->Decrypt(cipher_buf, decrypted_buffer->mutable_span_as<uint8_t>());
+          decryptor->Decrypt(cipher_buf, 0, decrypted_buffer->mutable_data());
       if (decrypted_buffer_len <= 0) {
         throw ParquetException("Couldn't decrypt buffer\n");
       }
-      *len = decryptor->CiphertextLength(static_cast<int32_t>(decrypted_buffer_len));
+      *len = decrypted_buffer_len + decryptor->CiphertextSizeDelta();
       DeserializeUnencryptedMessage(decrypted_buffer->data(), &decrypted_buffer_len,
                                     deserialized_msg);
     }
@@ -450,12 +446,13 @@ class ThriftDeserializer {
                                      T* deserialized_msg) {
     // Deserialize msg bytes into c++ thrift msg using memory transport.
     auto tmem_transport = CreateReadOnlyMemoryBuffer(const_cast<uint8_t*>(buf), *len);
-    auto tproto = apache::thrift::protocol::TCompactProtocolT<ThriftBuffer>(
-        tmem_transport, string_size_limit_, container_size_limit_);
+    apache::thrift::protocol::TCompactProtocolFactoryT<ThriftBuffer> tproto_factory;
+    // Protect against CPU and memory bombs
+    tproto_factory.setStringSizeLimit(string_size_limit_);
+    tproto_factory.setContainerSizeLimit(container_size_limit_);
+    auto tproto = tproto_factory.getProtocol(tmem_transport);
     try {
-      deserialized_msg
-          ->template read<apache::thrift::protocol::TCompactProtocolT<ThriftBuffer>>(
-              &tproto);
+      deserialized_msg->read(tproto.get());
     } catch (std::exception& e) {
       std::stringstream ss;
       ss << "Couldn't deserialize thrift: " << e.what() << "\n";
@@ -525,13 +522,13 @@ class ThriftSerializer {
     }
   }
 
-  int64_t SerializeEncryptedObj(ArrowOutputStream* out, const uint8_t* out_buffer,
+  int64_t SerializeEncryptedObj(ArrowOutputStream* out, uint8_t* out_buffer,
                                 uint32_t out_length, Encryptor* encryptor) {
-    auto cipher_buffer =
-        AllocateBuffer(encryptor->pool(), encryptor->CiphertextLength(out_length));
-    ::arrow::util::span<const uint8_t> out_span(out_buffer, out_length);
-    int32_t cipher_buffer_len =
-        encryptor->Encrypt(out_span, cipher_buffer->mutable_span_as<uint8_t>());
+    auto cipher_buffer = std::static_pointer_cast<ResizableBuffer>(AllocateBuffer(
+        encryptor->pool(),
+        static_cast<int64_t>(encryptor->CiphertextSizeDelta() + out_length)));
+    int cipher_buffer_len =
+        encryptor->Encrypt(out_buffer, out_length, cipher_buffer->mutable_data());
 
     PARQUET_THROW_NOT_OK(out->Write(cipher_buffer->data(), cipher_buffer_len));
     return static_cast<int64_t>(cipher_buffer_len);

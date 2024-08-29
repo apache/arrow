@@ -29,7 +29,6 @@
 #include "arrow/python/decimal.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/config.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -466,14 +465,6 @@ Status IntegerScalarToFloat32Safe(PyObject* obj, float* out) {
 void DebugPrint(PyObject* obj) {
   std::string repr = PyObject_StdStringRepr(obj);
   PySys_WriteStderr("%s\n", repr.c_str());
-}
-
-bool IsThreadingEnabled() {
-#ifdef ARROW_ENABLE_THREADING
-  return true;
-#else
-  return false;
-#endif
 }
 
 }  // namespace internal

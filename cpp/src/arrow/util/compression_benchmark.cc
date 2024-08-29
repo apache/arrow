@@ -27,7 +27,6 @@
 
 #include "arrow/result.h"
 #include "arrow/util/compression.h"
-#include "arrow/util/config.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 

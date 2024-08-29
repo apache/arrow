@@ -18,12 +18,14 @@
 import datetime
 import decimal
 import pytest
+import sys
 import weakref
 
 import numpy as np
 
 import pyarrow as pa
 import pyarrow.compute as pc
+from pyarrow.tests import util
 
 
 @pytest.mark.parametrize(['value', 'ty', 'klass'], [
@@ -55,8 +57,9 @@ import pyarrow.compute as pc
     ([1, 2, 3], None, pa.ListScalar),
     ([1, 2, 3, 4], pa.large_list(pa.int8()), pa.LargeListScalar),
     ([1, 2, 3, 4, 5], pa.list_(pa.int8(), 5), pa.FixedSizeListScalar),
-    ([1, 2, 3], pa.list_view(pa.int8()), pa.ListViewScalar),
-    ([1, 2, 3, 4], pa.large_list_view(pa.int8()), pa.LargeListViewScalar),
+    # TODO GH-39855
+    # ([1, 2, 3], pa.list_view(pa.int8()), pa.ListViewScalar),
+    # ([1, 2, 3, 4], pa.large_list_view(pa.int8()), pa.LargeListViewScalar),
     (datetime.date.today(), None, pa.Date32Scalar),
     (datetime.date.today(), pa.date64(), pa.Date64Scalar),
     (datetime.datetime.now(), None, pa.TimestampScalar),
@@ -155,7 +158,8 @@ def test_hashing_struct_scalar():
     assert hash1 == hash2
 
 
-@pytest.mark.timezone_data
+@pytest.mark.skipif(sys.platform == "win32" and not util.windows_has_tzdata(),
+                    reason="Timezone database is not installed on Windows")
 def test_timestamp_scalar():
     a = repr(pa.scalar("0000-01-01").cast(pa.timestamp("s")))
     assert a == "<pyarrow.TimestampScalar: '0000-01-01T00:00:00'>"
@@ -322,7 +326,8 @@ def test_cast():
         pa.scalar('foo').cast('int32')
 
 
-@pytest.mark.timezone_data
+@pytest.mark.skipif(sys.platform == "win32" and not util.windows_has_tzdata(),
+                    reason="Timezone database is not installed on Windows")
 def test_cast_timestamp_to_string():
     # GH-35370
     pytest.importorskip("pytz")
@@ -536,8 +541,9 @@ def test_fixed_size_binary():
 @pytest.mark.parametrize(('ty', 'klass'), [
     (pa.list_(pa.string()), pa.ListScalar),
     (pa.large_list(pa.string()), pa.LargeListScalar),
-    (pa.list_view(pa.string()), pa.ListViewScalar),
-    (pa.large_list_view(pa.string()), pa.LargeListViewScalar)
+    # TODO GH-39855
+    # (pa.list_view(pa.string()), pa.ListViewScalar),
+    # (pa.large_list_view(pa.string()), pa.LargeListViewScalar)
 ])
 def test_list(ty, klass):
     v = ['foo', None]
@@ -559,29 +565,14 @@ def test_list(ty, klass):
         s[2]
 
 
-@pytest.mark.parametrize('ty', [
-    pa.list_(pa.int64()),
-    pa.large_list(pa.int64()),
-    pa.list_view(pa.int64()),
-    pa.large_list_view(pa.int64()),
-    None
-])
-def test_list_from_numpy(ty):
-    s = pa.scalar(np.array([1, 2, 3], dtype=np.int64()), type=ty)
-    if ty is None:
-        ty = pa.list_(pa.int64())  # expected inferred type
-    assert s.type == ty
+def test_list_from_numpy():
+    s = pa.scalar(np.array([1, 2, 3], dtype=np.int64()))
+    assert s.type == pa.list_(pa.int64())
     assert s.as_py() == [1, 2, 3]
 
 
 @pytest.mark.pandas
-@pytest.mark.parametrize('factory', [
-    pa.list_,
-    pa.large_list,
-    pa.list_view,
-    pa.large_list_view
-])
-def test_list_from_pandas(factory):
+def test_list_from_pandas():
     import pandas as pd
 
     s = pa.scalar(pd.Series([1, 2, 3]))
@@ -589,11 +580,11 @@ def test_list_from_pandas(factory):
 
     cases = [
         (np.nan, 'null'),
-        (['string', np.nan], factory(pa.binary())),
-        (['string', np.nan], factory(pa.utf8())),
-        ([b'string', np.nan], factory(pa.binary(6))),
-        ([True, np.nan], factory(pa.bool_())),
-        ([decimal.Decimal('0'), np.nan], factory(pa.decimal128(12, 2))),
+        (['string', np.nan], pa.list_(pa.binary())),
+        (['string', np.nan], pa.list_(pa.utf8())),
+        ([b'string', np.nan], pa.list_(pa.binary(6))),
+        ([True, np.nan], pa.list_(pa.bool_())),
+        ([decimal.Decimal('0'), np.nan], pa.list_(pa.decimal128(12, 2))),
     ]
     for case, ty in cases:
         # Both types of exceptions are raised. May want to clean that up

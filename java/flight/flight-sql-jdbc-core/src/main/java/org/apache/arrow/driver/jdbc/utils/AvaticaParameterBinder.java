@@ -14,9 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.driver.jdbc.utils;
 
 import java.util.List;
+
 import org.apache.arrow.driver.jdbc.client.ArrowFlightSqlClientHandler.PreparedStatement;
 import org.apache.arrow.driver.jdbc.converter.impl.BinaryAvaticaParameterConverter;
 import org.apache.arrow.driver.jdbc.converter.impl.BoolAvaticaParameterConverter;
@@ -46,31 +48,22 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.calcite.avatica.remote.TypedValue;
 
 /**
- * Convert Avatica PreparedStatement parameters from a list of TypedValue to Arrow and bind them to
- * the VectorSchemaRoot representing the PreparedStatement parameters.
- *
- * <p>NOTE: Make sure to close the parameters VectorSchemaRoot once we're done with them.
+ * Convert Avatica PreparedStatement parameters from a list of TypedValue to Arrow and bind them to the
+ * VectorSchemaRoot representing the PreparedStatement parameters.
+ * <p>
+ * NOTE: Make sure to close the parameters VectorSchemaRoot once we're done with them.
  */
 public class AvaticaParameterBinder {
   private final PreparedStatement preparedStatement;
   private final VectorSchemaRoot parameters;
 
-  /**
-   * Instantiate a new AvaticaParameterBinder.
-   *
-   * @param preparedStatement The PreparedStatement to bind parameters to.
-   * @param bufferAllocator The BufferAllocator to use for allocating memory.
-   */
-  public AvaticaParameterBinder(
-      PreparedStatement preparedStatement, BufferAllocator bufferAllocator) {
-    this.parameters =
-        VectorSchemaRoot.create(preparedStatement.getParameterSchema(), bufferAllocator);
+  public AvaticaParameterBinder(PreparedStatement preparedStatement, BufferAllocator bufferAllocator) {
+    this.parameters = VectorSchemaRoot.create(preparedStatement.getParameterSchema(), bufferAllocator);
     this.preparedStatement = preparedStatement;
   }
 
   /**
    * Bind the given Avatica values to the prepared statement.
-   *
    * @param typedValues The parameter values.
    */
   public void bind(List<TypedValue> typedValues) {
@@ -79,16 +72,15 @@ public class AvaticaParameterBinder {
 
   /**
    * Bind the given Avatica values to the prepared statement at the given index.
-   *
    * @param typedValues The parameter values.
    * @param index index for parameter.
    */
   public void bind(List<TypedValue> typedValues, int index) {
     if (preparedStatement.getParameterSchema().getFields().size() != typedValues.size()) {
       throw new IllegalStateException(
-          String.format(
-              "Prepared statement has %s parameters, but only received %s",
-              preparedStatement.getParameterSchema().getFields().size(), typedValues.size()));
+          String.format("Prepared statement has %s parameters, but only received %s",
+              preparedStatement.getParameterSchema().getFields().size(),
+              typedValues.size()));
     }
 
     for (int i = 0; i < typedValues.size(); i++) {
@@ -104,9 +96,9 @@ public class AvaticaParameterBinder {
   /**
    * Bind a TypedValue to the given index on the FieldVector.
    *
-   * @param vector FieldVector to bind to.
+   * @param vector     FieldVector to bind to.
    * @param typedValue TypedValue to bind to the vector.
-   * @param index Vector index to bind the value at.
+   * @param index      Vector index to bind the value at.
    */
   private void bind(FieldVector vector, TypedValue typedValue, int index) {
     try {
@@ -116,24 +108,19 @@ public class AvaticaParameterBinder {
         } else {
           throw new UnsupportedOperationException("Can't set null on non-nullable parameter");
         }
-      } else if (!vector
-          .getField()
-          .getType()
-          .accept(new BinderVisitor(vector, typedValue, index))) {
+      } else if (!vector.getField().getType().accept(new BinderVisitor(vector, typedValue, index))) {
         throw new UnsupportedOperationException(
-            String.format("Binding to vector type %s is not yet supported", vector.getClass()));
+                String.format("Binding to vector type %s is not yet supported", vector.getClass()));
       }
     } catch (ClassCastException e) {
       throw new UnsupportedOperationException(
-          String.format(
-              "Binding value of type %s is not yet supported for expected Arrow type %s",
-              typedValue.type, vector.getField().getType()));
+              String.format("Binding value of type %s is not yet supported for expected Arrow type %s",
+                      typedValue.type, vector.getField().getType()));
     }
   }
 
   /**
-   * ArrowTypeVisitor that binds Avatica TypedValues to the given FieldVector at the specified
-   * index.
+   * ArrowTypeVisitor that binds Avatica TypedValues to the given FieldVector at the specified index.
    */
   public static class BinderVisitor implements ArrowType.ArrowTypeVisitor<Boolean> {
     private final FieldVector vector;
@@ -175,8 +162,7 @@ public class AvaticaParameterBinder {
 
     @Override
     public Boolean visit(ArrowType.FixedSizeList type) {
-      return new FixedSizeListAvaticaParameterConverter(type)
-          .bindParameter(vector, typedValue, index);
+      return new FixedSizeListAvaticaParameterConverter(type).bindParameter(vector, typedValue, index);
     }
 
     @Override
@@ -196,18 +182,12 @@ public class AvaticaParameterBinder {
 
     @Override
     public Boolean visit(ArrowType.FloatingPoint type) {
-      return new FloatingPointAvaticaParameterConverter(type)
-          .bindParameter(vector, typedValue, index);
+      return new FloatingPointAvaticaParameterConverter(type).bindParameter(vector, typedValue, index);
     }
 
     @Override
     public Boolean visit(ArrowType.Utf8 type) {
       return new Utf8AvaticaParameterConverter(type).bindParameter(vector, typedValue, index);
-    }
-
-    @Override
-    public Boolean visit(ArrowType.Utf8View type) {
-      throw new UnsupportedOperationException("Utf8View is unsupported");
     }
 
     @Override
@@ -221,20 +201,13 @@ public class AvaticaParameterBinder {
     }
 
     @Override
-    public Boolean visit(ArrowType.BinaryView type) {
-      throw new UnsupportedOperationException("BinaryView is unsupported");
-    }
-
-    @Override
     public Boolean visit(ArrowType.LargeBinary type) {
-      return new LargeBinaryAvaticaParameterConverter(type)
-          .bindParameter(vector, typedValue, index);
+      return new LargeBinaryAvaticaParameterConverter(type).bindParameter(vector, typedValue, index);
     }
 
     @Override
     public Boolean visit(ArrowType.FixedSizeBinary type) {
-      return new FixedSizeBinaryAvaticaParameterConverter(type)
-          .bindParameter(vector, typedValue, index);
+      return new FixedSizeBinaryAvaticaParameterConverter(type).bindParameter(vector, typedValue, index);
     }
 
     @Override
@@ -271,15 +244,6 @@ public class AvaticaParameterBinder {
     public Boolean visit(ArrowType.Duration type) {
       return new DurationAvaticaParameterConverter(type).bindParameter(vector, typedValue, index);
     }
-
-    @Override
-    public Boolean visit(ArrowType.ListView type) {
-      throw new UnsupportedOperationException("Binding is not yet supported for type " + type);
-    }
-
-    @Override
-    public Boolean visit(ArrowType.LargeListView type) {
-      throw new UnsupportedOperationException("Binding is not yet supported for type " + type);
-    }
   }
+
 }

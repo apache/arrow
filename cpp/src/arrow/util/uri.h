@@ -27,7 +27,8 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow::util {
+namespace arrow {
+namespace internal {
 
 /// \brief A parsed URI
 class ARROW_EXPORT Uri {
@@ -85,9 +86,6 @@ class ARROW_EXPORT Uri {
   /// Factory function to parse a URI from its string representation.
   Status Parse(const std::string& uri_string);
 
-  /// Factory function to parse a URI from its string representation.
-  static Result<Uri> FromString(const std::string& uri_string);
-
  private:
   struct Impl;
   std::unique_ptr<Impl> impl_;
@@ -116,4 +114,5 @@ bool IsValidUriScheme(std::string_view s);
 ARROW_EXPORT
 Result<std::string> UriFromAbsolutePath(std::string_view path);
 
-}  // namespace arrow::util
+}  // namespace internal
+}  // namespace arrow

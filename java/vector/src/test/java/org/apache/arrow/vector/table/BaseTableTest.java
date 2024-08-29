@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.table;
 
 import static org.apache.arrow.vector.table.TestUtils.INT_VECTOR_NAME;
@@ -31,6 +32,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.FieldVector;
@@ -174,7 +176,8 @@ class BaseTableTest {
     List<FieldVector> vectorList = twoIntColumns(allocator);
     try (Table t = new Table(vectorList)) {
       assertNotNull(t.getVector(INT_VECTOR_NAME_1));
-      assertThrows(IllegalArgumentException.class, () -> t.getVector("wrong name"));
+      assertThrows(IllegalArgumentException.class,
+          () -> t.getVector("wrong name"));
     }
   }
 
@@ -194,7 +197,8 @@ class BaseTableTest {
           assertEquals(original.getObject(i), copy.getObject(i));
         }
       }
-      assertThrows(IllegalArgumentException.class, () -> t.getVector("wrong name"));
+      assertThrows(IllegalArgumentException.class,
+          () -> t.getVector("wrong name"));
     }
   }
 
@@ -213,7 +217,8 @@ class BaseTableTest {
           assertEquals(original.getObject(i), copy.getObject(i));
         }
       }
-      assertThrows(IllegalArgumentException.class, () -> t.getVector("wrong name"));
+      assertThrows(IllegalArgumentException.class,
+          () -> t.getVector("wrong name"));
     }
   }
 

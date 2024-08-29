@@ -23,9 +23,8 @@
 TESTING <- TRUE
 # The functions use `on_macos` from the env they were sourced in, so we need tool
 # explicitly set it in that environment.
-# We capture.output for a cleaner testthat output.
 nixlibs_env <- environment()
-capture.output(source("nixlibs.R", local = nixlibs_env))
+source("nixlibs.R", local = nixlibs_env)
 
 test_that("identify_binary() based on LIBARROW_BINARY", {
   expect_null(identify_binary("FALSE"))

@@ -14,12 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.ipc;
 
 import static java.nio.channels.Channels.newChannel;
 import static org.apache.arrow.vector.TestUtils.newVarCharVector;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -30,6 +31,7 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Collections2;
 import org.apache.arrow.vector.FieldVector;
@@ -37,7 +39,7 @@ import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.types.pojo.Field;
-import org.junit.jupiter.api.Test;
+import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,8 +50,8 @@ public class TestArrowFile extends BaseFileTest {
   public void testWrite() throws IOException {
     File file = new File("target/mytest_write.arrow");
     int count = COUNT;
-    try (BufferAllocator vectorAllocator =
-            allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+    try (
+        BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
         StructVector parent = StructVector.empty("parent", vectorAllocator)) {
       writeData(count, parent);
       write(parent.getChild("root"), file, new ByteArrayOutputStream());
@@ -60,8 +62,8 @@ public class TestArrowFile extends BaseFileTest {
   public void testWriteComplex() throws IOException {
     File file = new File("target/mytest_write_complex.arrow");
     int count = COUNT;
-    try (BufferAllocator vectorAllocator =
-            allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
+    try (
+        BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
         StructVector parent = StructVector.empty("parent", vectorAllocator)) {
       writeComplexData(count, parent);
       FieldVector root = parent.getChild("root");
@@ -71,15 +73,14 @@ public class TestArrowFile extends BaseFileTest {
   }
 
   /**
-   * Writes the contents of parents to file. If outStream is non-null, also writes it to outStream
-   * in the streaming serialized format.
+   * Writes the contents of parents to file. If outStream is non-null, also writes it
+   * to outStream in the streaming serialized format.
    */
   private void write(FieldVector parent, File file, OutputStream outStream) throws IOException {
     VectorSchemaRoot root = new VectorSchemaRoot(parent);
 
     try (FileOutputStream fileOutputStream = new FileOutputStream(file);
-        ArrowFileWriter arrowWriter =
-            new ArrowFileWriter(root, null, fileOutputStream.getChannel()); ) {
+         ArrowFileWriter arrowWriter = new ArrowFileWriter(root, null, fileOutputStream.getChannel());) {
       LOGGER.debug("writing schema: " + root.getSchema());
       arrowWriter.start();
       arrowWriter.writeBatch();
@@ -123,8 +124,7 @@ public class TestArrowFile extends BaseFileTest {
       byte[] bytesWithoutMagic = new byte[bytes.length - 8];
       System.arraycopy(bytes, 8, bytesWithoutMagic, 0, bytesWithoutMagic.length);
 
-      try (ArrowStreamReader reader =
-          new ArrowStreamReader(new ByteArrayInputStream(bytesWithoutMagic), allocator)) {
+      try (ArrowStreamReader reader = new ArrowStreamReader(new ByteArrayInputStream(bytesWithoutMagic), allocator)) {
         assertTrue(reader.loadNextBatch());
         // here will throw exception if read footer instead of eos.
         assertFalse(reader.loadNextBatch());

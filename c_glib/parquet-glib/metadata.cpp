@@ -36,8 +36,7 @@ G_BEGIN_DECLS
  * #GParquetFileMetadata is a class for file level metadata.
  */
 
-struct GParquetColumnChunkMetadataPrivate
-{
+struct GParquetColumnChunkMetadataPrivate {
   parquet::ColumnChunkMetaData *metadata;
   GParquetRowGroupMetadata *owner;
 };
@@ -51,9 +50,9 @@ G_DEFINE_TYPE_WITH_PRIVATE(GParquetColumnChunkMetadata,
                            gparquet_column_chunk_metadata,
                            G_TYPE_OBJECT)
 
-#define GPARQUET_COLUMN_CHUNK_METADATA_GET_PRIVATE(object)                               \
-  static_cast<GParquetColumnChunkMetadataPrivate *>(                                     \
-    gparquet_column_chunk_metadata_get_instance_private(                                 \
+#define GPARQUET_COLUMN_CHUNK_METADATA_GET_PRIVATE(object)      \
+  static_cast<GParquetColumnChunkMetadataPrivate *>(            \
+    gparquet_column_chunk_metadata_get_instance_private(        \
       GPARQUET_COLUMN_CHUNK_METADATA(object)))
 
 static void
@@ -95,26 +94,27 @@ gparquet_column_chunk_metadata_init(GParquetColumnChunkMetadata *object)
 }
 
 static void
-gparquet_column_chunk_metadata_class_init(GParquetColumnChunkMetadataClass *klass)
+gparquet_column_chunk_metadata_class_init(
+  GParquetColumnChunkMetadataClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
   gobject_class->dispose = gparquet_column_chunk_metadata_dispose;
   gobject_class->set_property = gparquet_column_chunk_metadata_set_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_pointer(
-    "metadata",
-    "Metadata",
-    "The raw parquet::ColumnChunkMetaData *",
-    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_pointer("metadata",
+                              "Metadata",
+                              "The raw parquet::ColumnChunkMetaData *",
+                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
+                                                       G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_METADATA, spec);
 
-  spec = g_param_spec_object(
-    "owner",
-    "Owner",
-    "The row group metadata that owns this metadata",
-    GPARQUET_TYPE_ROW_GROUP_METADATA,
-    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_object("owner",
+                             "Owner",
+                             "The row group metadata that owns this metadata",
+                             GPARQUET_TYPE_ROW_GROUP_METADATA,
+                             static_cast<GParamFlags>(G_PARAM_WRITABLE |
+                                                      G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_OWNER, spec);
 }
 
@@ -133,7 +133,8 @@ gparquet_column_chunk_metadata_equal(GParquetColumnChunkMetadata *metadata,
                                      GParquetColumnChunkMetadata *other_metadata)
 {
   auto parquet_metadata = gparquet_column_chunk_metadata_get_raw(metadata);
-  auto parquet_other_metadata = gparquet_column_chunk_metadata_get_raw(other_metadata);
+  auto parquet_other_metadata =
+    gparquet_column_chunk_metadata_get_raw(other_metadata);
   return parquet_metadata->Equals(*parquet_other_metadata);
 }
 
@@ -180,7 +181,8 @@ gparquet_column_chunk_metadata_get_total_compressed_size(
  * Since: 8.0.0
  */
 gint64
-gparquet_column_chunk_metadata_get_file_offset(GParquetColumnChunkMetadata *metadata)
+gparquet_column_chunk_metadata_get_file_offset(
+  GParquetColumnChunkMetadata *metadata)
 {
   auto parquet_metadata = gparquet_column_chunk_metadata_get_raw(metadata);
   return parquet_metadata->file_offset();
@@ -196,7 +198,8 @@ gparquet_column_chunk_metadata_get_file_offset(GParquetColumnChunkMetadata *meta
  * Since: 8.0.0
  */
 gboolean
-gparquet_column_chunk_metadata_can_decompress(GParquetColumnChunkMetadata *metadata)
+gparquet_column_chunk_metadata_can_decompress(
+  GParquetColumnChunkMetadata *metadata)
 {
   auto parquet_metadata = gparquet_column_chunk_metadata_get_raw(metadata);
   return parquet_metadata->can_decompress();
@@ -212,7 +215,8 @@ gparquet_column_chunk_metadata_can_decompress(GParquetColumnChunkMetadata *metad
  * Since: 8.0.0
  */
 GParquetStatistics *
-gparquet_column_chunk_metadata_get_statistics(GParquetColumnChunkMetadata *metadata)
+gparquet_column_chunk_metadata_get_statistics(
+  GParquetColumnChunkMetadata *metadata)
 {
   auto parquet_metadata = gparquet_column_chunk_metadata_get_raw(metadata);
   auto parquet_statistics = parquet_metadata->statistics();
@@ -223,8 +227,8 @@ gparquet_column_chunk_metadata_get_statistics(GParquetColumnChunkMetadata *metad
   }
 }
 
-struct GParquetRowGroupMetadataPrivate
-{
+
+struct GParquetRowGroupMetadataPrivate {
   parquet::RowGroupMetaData *metadata;
   GParquetFileMetadata *owner;
 };
@@ -233,9 +237,9 @@ G_DEFINE_TYPE_WITH_PRIVATE(GParquetRowGroupMetadata,
                            gparquet_row_group_metadata,
                            G_TYPE_OBJECT)
 
-#define GPARQUET_ROW_GROUP_METADATA_GET_PRIVATE(object)                                  \
-  static_cast<GParquetRowGroupMetadataPrivate *>(                                        \
-    gparquet_row_group_metadata_get_instance_private(                                    \
+#define GPARQUET_ROW_GROUP_METADATA_GET_PRIVATE(object)      \
+  static_cast<GParquetRowGroupMetadataPrivate *>(            \
+    gparquet_row_group_metadata_get_instance_private(        \
       GPARQUET_ROW_GROUP_METADATA(object)))
 
 static void
@@ -259,7 +263,8 @@ gparquet_row_group_metadata_set_property(GObject *object,
 
   switch (prop_id) {
   case PROP_METADATA:
-    priv->metadata = static_cast<parquet::RowGroupMetaData *>(g_value_get_pointer(value));
+    priv->metadata =
+      static_cast<parquet::RowGroupMetaData *>(g_value_get_pointer(value));
     break;
   case PROP_OWNER:
     priv->owner = GPARQUET_FILE_METADATA(g_value_dup_object(value));
@@ -283,19 +288,18 @@ gparquet_row_group_metadata_class_init(GParquetRowGroupMetadataClass *klass)
   gobject_class->set_property = gparquet_row_group_metadata_set_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_pointer(
-    "metadata",
-    "Metadata",
-    "The raw parquet::RowGroupMetaData *",
-    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_pointer("metadata", "Metadata",
+                              "The raw parquet::RowGroupMetaData *",
+                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
+                                                       G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_METADATA, spec);
 
-  spec = g_param_spec_object(
-    "owner",
-    "Owner",
-    "The file group metadata that owns this metadata",
-    GPARQUET_TYPE_FILE_METADATA,
-    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_object("owner",
+                             "Owner",
+                             "The file group metadata that owns this metadata",
+                             GPARQUET_TYPE_FILE_METADATA,
+                             static_cast<GParamFlags>(G_PARAM_WRITABLE |
+                                                      G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_OWNER, spec);
 }
 
@@ -314,7 +318,8 @@ gparquet_row_group_metadata_equal(GParquetRowGroupMetadata *metadata,
                                   GParquetRowGroupMetadata *other_metadata)
 {
   auto parquet_metadata = gparquet_row_group_metadata_get_raw(metadata);
-  auto parquet_other_metadata = gparquet_row_group_metadata_get_raw(other_metadata);
+  auto parquet_other_metadata =
+    gparquet_row_group_metadata_get_raw(other_metadata);
   return parquet_metadata->Equals(*parquet_other_metadata);
 }
 
@@ -358,9 +363,12 @@ gparquet_row_group_metadata_get_column_chunk(GParquetRowGroupMetadata *metadata,
     return arrow::Status::OK();
     END_PARQUET_CATCH_EXCEPTIONS
   })();
-  if (garrow::check(error, status, "[parquet][row-group-metadata][get-column-chunk]")) {
-    return gparquet_column_chunk_metadata_new_raw(parquet_column_chunk_metadata.release(),
-                                                  metadata);
+  if (garrow::check(error,
+                    status,
+                    "[parquet][row-group-metadata][get-column-chunk]")) {
+    return gparquet_column_chunk_metadata_new_raw(
+      parquet_column_chunk_metadata.release(),
+      metadata);
   } else {
     return NULL;
   }
@@ -407,7 +415,8 @@ gparquet_row_group_metadata_get_total_size(GParquetRowGroupMetadata *metadata)
  * Since: 8.0.0
  */
 gint64
-gparquet_row_group_metadata_get_total_compressed_size(GParquetRowGroupMetadata *metadata)
+gparquet_row_group_metadata_get_total_compressed_size(
+  GParquetRowGroupMetadata *metadata)
 {
   auto parquet_metadata = gparquet_row_group_metadata_get_raw(metadata);
   return parquet_metadata->total_compressed_size();
@@ -449,16 +458,19 @@ gparquet_row_group_metadata_can_decompress(GParquetRowGroupMetadata *metadata)
   return parquet_metadata->can_decompress();
 }
 
-struct GParquetFileMetadataPrivate
-{
+
+struct GParquetFileMetadataPrivate {
   std::shared_ptr<parquet::FileMetaData> metadata;
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE(GParquetFileMetadata, gparquet_file_metadata, G_TYPE_OBJECT)
+G_DEFINE_TYPE_WITH_PRIVATE(GParquetFileMetadata,
+                           gparquet_file_metadata,
+                           G_TYPE_OBJECT)
 
-#define GPARQUET_FILE_METADATA_GET_PRIVATE(object)                                       \
-  static_cast<GParquetFileMetadataPrivate *>(                                            \
-    gparquet_file_metadata_get_instance_private(GPARQUET_FILE_METADATA(object)))
+#define GPARQUET_FILE_METADATA_GET_PRIVATE(object)      \
+  static_cast<GParquetFileMetadataPrivate *>(           \
+    gparquet_file_metadata_get_instance_private(        \
+      GPARQUET_FILE_METADATA(object)))
 
 static void
 gparquet_file_metadata_finalize(GObject *object)
@@ -479,7 +491,8 @@ gparquet_file_metadata_set_property(GObject *object,
   switch (prop_id) {
   case PROP_METADATA:
     priv->metadata =
-      *static_cast<std::shared_ptr<parquet::FileMetaData> *>(g_value_get_pointer(value));
+      *static_cast<std::shared_ptr<parquet::FileMetaData> *>(
+        g_value_get_pointer(value));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -491,7 +504,7 @@ static void
 gparquet_file_metadata_init(GParquetFileMetadata *object)
 {
   auto priv = GPARQUET_FILE_METADATA_GET_PRIVATE(object);
-  new (&priv->metadata) std::shared_ptr<parquet::FileMetaData>;
+  new(&priv->metadata) std::shared_ptr<parquet::FileMetaData>;
 }
 
 static void
@@ -502,11 +515,11 @@ gparquet_file_metadata_class_init(GParquetFileMetadataClass *klass)
   gobject_class->set_property = gparquet_file_metadata_set_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_pointer(
-    "metadata",
-    "Metadata",
-    "The raw std::shared_ptr<parquet::FileMetaData>",
-    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_pointer("metadata",
+                              "Metadata",
+                              "The raw std::shared_ptr<parquet::FileMetaData>",
+                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
+                                                       G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_METADATA, spec);
 }
 
@@ -679,19 +692,21 @@ gparquet_file_metadata_can_decompress(GParquetFileMetadata *metadata)
   return parquet_metadata->can_decompress();
 }
 
+
 G_END_DECLS
 
+
 GParquetColumnChunkMetadata *
-gparquet_column_chunk_metadata_new_raw(parquet::ColumnChunkMetaData *parquet_metadata,
-                                       GParquetRowGroupMetadata *owner)
+gparquet_column_chunk_metadata_new_raw(
+  parquet::ColumnChunkMetaData *parquet_metadata,
+  GParquetRowGroupMetadata *owner)
 {
   auto metadata =
-    GPARQUET_COLUMN_CHUNK_METADATA(g_object_new(GPARQUET_TYPE_COLUMN_CHUNK_METADATA,
-                                                "metadata",
-                                                parquet_metadata,
-                                                "owner",
-                                                owner,
-                                                NULL));
+    GPARQUET_COLUMN_CHUNK_METADATA(
+      g_object_new(GPARQUET_TYPE_COLUMN_CHUNK_METADATA,
+                   "metadata", parquet_metadata,
+                   "owner", owner,
+                   NULL));
   return metadata;
 }
 
@@ -702,16 +717,15 @@ gparquet_column_chunk_metadata_get_raw(GParquetColumnChunkMetadata *metadata)
   return priv->metadata;
 }
 
+
 GParquetRowGroupMetadata *
 gparquet_row_group_metadata_new_raw(parquet::RowGroupMetaData *parquet_metadata,
                                     GParquetFileMetadata *owner)
 {
   auto metadata =
     GPARQUET_ROW_GROUP_METADATA(g_object_new(GPARQUET_TYPE_ROW_GROUP_METADATA,
-                                             "metadata",
-                                             parquet_metadata,
-                                             "owner",
-                                             owner,
+                                             "metadata", parquet_metadata,
+                                             "owner", owner,
                                              NULL));
   return metadata;
 }
@@ -723,11 +737,15 @@ gparquet_row_group_metadata_get_raw(GParquetRowGroupMetadata *metadata)
   return priv->metadata;
 }
 
+
 GParquetFileMetadata *
-gparquet_file_metadata_new_raw(std::shared_ptr<parquet::FileMetaData> *parquet_metadata)
+gparquet_file_metadata_new_raw(
+  std::shared_ptr<parquet::FileMetaData> *parquet_metadata)
 {
-  auto metadata = GPARQUET_FILE_METADATA(
-    g_object_new(GPARQUET_TYPE_FILE_METADATA, "metadata", parquet_metadata, NULL));
+  auto metadata =
+    GPARQUET_FILE_METADATA(g_object_new(GPARQUET_TYPE_FILE_METADATA,
+                                        "metadata", parquet_metadata,
+                                        NULL));
   return metadata;
 }
 

@@ -123,8 +123,6 @@ class CppBenchmarkRunner(BenchmarkRunner):
             with_csv=True,
             with_dataset=True,
             with_json=True,
-            with_jemalloc=True,
-            with_mimalloc=True,
             with_parquet=True,
             with_python=False,
             with_brotli=True,

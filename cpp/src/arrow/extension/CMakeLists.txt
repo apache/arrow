@@ -15,16 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set(CANONICAL_EXTENSION_TESTS bool8_test.cc)
-
-if(ARROW_JSON)
-  list(APPEND CANONICAL_EXTENSION_TESTS fixed_shape_tensor_test.cc opaque_test.cc)
-endif()
-
 add_arrow_test(test
                SOURCES
-               ${CANONICAL_EXTENSION_TESTS}
+               fixed_shape_tensor_test.cc
                PREFIX
-               "arrow-canonical-extensions")
+               "arrow-fixed-shape-tensor")
 
 arrow_install_all_headers("arrow/extension")

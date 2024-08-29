@@ -19,8 +19,6 @@
 Filesystems
 ===========
 
-.. _cpp-api-filesystems:
-
 Interface
 =========
 
@@ -35,20 +33,10 @@ Interface
 .. doxygenclass:: arrow::fs::FileSystem
    :members:
 
-.. doxygenfunction:: arrow::fs::EnsureFinalized()
-
-.. _filesystem-factory-functions:
-
-High-level factory functions
-============================
+High-level factory function
+===========================
 
 .. doxygengroup:: filesystem-factories
-   :content-only:
-
-Factory registration functions
-==============================
-
-.. doxygengroup:: filesystem-factory-registration
    :content-only:
 
 Concrete implementations
@@ -96,13 +84,4 @@ Google Cloud Storage filesystem
    :members:
 
 .. doxygenclass:: arrow::fs::GcsFileSystem
-   :members:
-
-Azure filesystem
-----------------
-
-.. doxygenstruct:: arrow::fs::AzureOptions
-   :members:
-
-.. doxygenclass:: arrow::fs::AzureFileSystem
    :members:

@@ -14,14 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.adapter.jdbc.h2;
 
 import static org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest.sqlToArrow;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 
-import java.nio.charset.StandardCharsets;
 import java.sql.Array;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -33,6 +33,7 @@ import java.sql.Statement;
 import java.sql.Types;
 import java.util.HashMap;
 import java.util.Map;
+
 import org.apache.arrow.adapter.jdbc.JdbcFieldInfo;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowConfig;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowConfigBuilder;
@@ -44,20 +45,19 @@ import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
 
 public class JdbcToArrowArrayTest {
   private Connection conn = null;
 
   private static final String CREATE_STATEMENT =
-      "CREATE TABLE array_table (id INTEGER, int_array INTEGER ARRAY, float_array REAL ARRAY, "
-          + "string_array VARCHAR ARRAY);";
+      "CREATE TABLE array_table (id INTEGER, int_array INTEGER ARRAY, float_array REAL ARRAY, " +
+          "string_array VARCHAR ARRAY);";
   private static final String INSERT_STATEMENT =
       "INSERT INTO array_table (id, int_array, float_array, string_array) VALUES (?, ?, ?, ?);";
-  private static final String QUERY =
-      "SELECT int_array, float_array, string_array FROM array_table ORDER BY id;";
+  private static final String QUERY = "SELECT int_array, float_array, string_array FROM array_table ORDER BY id;";
   private static final String DROP_STATEMENT = "DROP TABLE array_table;";
 
   private static Map<String, JdbcFieldInfo> arrayFieldMapping;
@@ -66,7 +66,7 @@ public class JdbcToArrowArrayTest {
   private static final String FLOAT_ARRAY_FIELD_NAME = "FLOAT_ARRAY";
   private static final String STRING_ARRAY_FIELD_NAME = "STRING_ARRAY";
 
-  @BeforeEach
+  @Before
   public void setUp() throws Exception {
     String url = "jdbc:h2:mem:JdbcToArrowTest";
     String driver = "org.h2.Driver";
@@ -157,8 +157,7 @@ public class JdbcToArrowArrayTest {
     insertRows(rowCount, intArrays, floatArrays, strArrays);
 
     final JdbcToArrowConfigBuilder builder =
-        new JdbcToArrowConfigBuilder(
-            new RootAllocator(Integer.MAX_VALUE), JdbcToArrowUtils.getUtcCalendar(), false);
+        new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE), JdbcToArrowUtils.getUtcCalendar(), false);
     builder.setArraySubTypeByColumnNameMap(arrayFieldMapping);
 
     final JdbcToArrowConfig config = builder.build();
@@ -168,12 +167,9 @@ public class JdbcToArrowArrayTest {
 
       assertEquals(rowCount, vector.getRowCount());
 
-      assertIntegerVectorEquals(
-          (ListVector) vector.getVector(INT_ARRAY_FIELD_NAME), rowCount, intArrays);
-      assertFloatVectorEquals(
-          (ListVector) vector.getVector(FLOAT_ARRAY_FIELD_NAME), rowCount, floatArrays);
-      assertStringVectorEquals(
-          (ListVector) vector.getVector(STRING_ARRAY_FIELD_NAME), rowCount, strArrays);
+      assertIntegerVectorEquals((ListVector) vector.getVector(INT_ARRAY_FIELD_NAME), rowCount, intArrays);
+      assertFloatVectorEquals((ListVector) vector.getVector(FLOAT_ARRAY_FIELD_NAME), rowCount, floatArrays);
+      assertStringVectorEquals((ListVector) vector.getVector(STRING_ARRAY_FIELD_NAME), rowCount, strArrays);
     }
   }
 
@@ -182,22 +178,30 @@ public class JdbcToArrowArrayTest {
     int rowCount = 4;
 
     Integer[][] intArrays = {
-      null, {0}, {1}, {},
+        null,
+        {0},
+        {1},
+        {},
     };
 
     Float[][] floatArrays = {
-      {2.0f}, null, {3.0f}, {},
+        { 2.0f },
+        null,
+        { 3.0f },
+        {},
     };
 
     String[][] stringArrays = {
-      {"4"}, null, {"5"}, {},
+        {"4"},
+        null,
+        {"5"},
+        {},
     };
 
     insertRows(rowCount, intArrays, floatArrays, stringArrays);
 
     final JdbcToArrowConfigBuilder builder =
-        new JdbcToArrowConfigBuilder(
-            new RootAllocator(Integer.MAX_VALUE), JdbcToArrowUtils.getUtcCalendar(), false);
+        new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE), JdbcToArrowUtils.getUtcCalendar(), false);
     builder.setArraySubTypeByColumnNameMap(arrayFieldMapping);
 
     final JdbcToArrowConfig config = builder.build();
@@ -207,17 +211,13 @@ public class JdbcToArrowArrayTest {
 
       assertEquals(rowCount, vector.getRowCount());
 
-      assertIntegerVectorEquals(
-          (ListVector) vector.getVector(INT_ARRAY_FIELD_NAME), rowCount, intArrays);
-      assertFloatVectorEquals(
-          (ListVector) vector.getVector(FLOAT_ARRAY_FIELD_NAME), rowCount, floatArrays);
-      assertStringVectorEquals(
-          (ListVector) vector.getVector(STRING_ARRAY_FIELD_NAME), rowCount, stringArrays);
+      assertIntegerVectorEquals((ListVector) vector.getVector(INT_ARRAY_FIELD_NAME), rowCount, intArrays);
+      assertFloatVectorEquals((ListVector) vector.getVector(FLOAT_ARRAY_FIELD_NAME), rowCount, floatArrays);
+      assertStringVectorEquals((ListVector) vector.getVector(STRING_ARRAY_FIELD_NAME), rowCount, stringArrays);
     }
   }
 
-  private void assertIntegerVectorEquals(
-      ListVector listVector, int rowCount, Integer[][] expectedValues) {
+  private void assertIntegerVectorEquals(ListVector listVector, int rowCount, Integer[][] expectedValues) {
     IntVector vector = (IntVector) listVector.getDataVector();
     ArrowBuf offsetBuffer = listVector.getOffsetBuffer();
 
@@ -242,8 +242,7 @@ public class JdbcToArrowArrayTest {
     }
   }
 
-  private void assertFloatVectorEquals(
-      ListVector listVector, int rowCount, Float[][] expectedValues) {
+  private void assertFloatVectorEquals(ListVector listVector, int rowCount, Float[][] expectedValues) {
     Float4Vector vector = (Float4Vector) listVector.getDataVector();
     ArrowBuf offsetBuffer = listVector.getOffsetBuffer();
 
@@ -268,8 +267,7 @@ public class JdbcToArrowArrayTest {
     }
   }
 
-  private void assertStringVectorEquals(
-      ListVector listVector, int rowCount, String[][] expectedValues) {
+  private void assertStringVectorEquals(ListVector listVector, int rowCount, String[][] expectedValues) {
     VarCharVector vector = (VarCharVector) listVector.getDataVector();
     ArrowBuf offsetBuffer = listVector.getOffsetBuffer();
 
@@ -286,15 +284,14 @@ public class JdbcToArrowArrayTest {
       assertEquals(1, listVector.isSet(row));
       assertEquals(expectedValues[row].length, offset - prevOffset);
       for (int i = prevOffset; i < offset; ++i) {
-        assertArrayEquals(
-            expectedValues[row][i - prevOffset].getBytes(StandardCharsets.UTF_8), vector.get(i));
+        assertArrayEquals(expectedValues[row][i - prevOffset].getBytes(), vector.get(i));
       }
 
       prevOffset = offset;
     }
   }
 
-  @AfterEach
+  @After
   public void tearDown() throws SQLException {
     try (Statement stmt = conn.createStatement()) {
       stmt.executeUpdate(DROP_STATEMENT);
@@ -311,7 +308,7 @@ public class JdbcToArrowArrayTest {
 
     for (int i = 0; i < numRows; ++i) {
       int val = i * 4;
-      result[i] = new Integer[] {val, val + 1, val + 2, val + 3};
+      result[i] = new Integer[]{val, val + 1, val + 2, val + 3};
     }
 
     return result;
@@ -319,10 +316,10 @@ public class JdbcToArrowArrayTest {
 
   private Float[][] generateFloatArrayField(int numRows) {
     Float[][] result = new Float[numRows][];
-
+  
     for (int i = 0; i < numRows; ++i) {
       int val = i * 4;
-      result[i] = new Float[] {(float) val, (float) val + 1, (float) val + 2, (float) val + 3};
+      result[i] = new Float[]{(float) val, (float) val + 1, (float) val + 2, (float) val + 3};
     }
 
     return result;
@@ -333,21 +330,22 @@ public class JdbcToArrowArrayTest {
 
     for (int i = 0; i < numRows; ++i) {
       int val = i * 4;
-      result[i] =
-          new String[] {
-            String.valueOf(val),
-            String.valueOf(val + 1),
-            String.valueOf(val + 2),
-            String.valueOf(val + 3)
-          };
+      result[i] = new String[]{
+          String.valueOf(val),
+          String.valueOf(val + 1),
+          String.valueOf(val + 2),
+          String.valueOf(val + 3) };
     }
 
     return result;
   }
 
   private void insertRows(
-      int numRows, Integer[][] integerArrays, Float[][] floatArrays, String[][] strArrays)
-      throws SQLException {
+      int numRows,
+      Integer[][] integerArrays,
+      Float[][] floatArrays,
+      String[][] strArrays)
+          throws SQLException {
 
     // Insert 4 Rows
     try (PreparedStatement stmt = conn.prepareStatement(INSERT_STATEMENT)) {

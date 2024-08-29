@@ -36,5 +36,4 @@ struct _GArrowReadableInterface
   std::shared_ptr<arrow::io::Readable> (*get_raw)(GArrowReadable *file);
 };
 
-std::shared_ptr<arrow::io::Readable>
-garrow_readable_get_raw(GArrowReadable *readable);
+std::shared_ptr<arrow::io::Readable> garrow_readable_get_raw(GArrowReadable *readable);

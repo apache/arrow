@@ -32,10 +32,9 @@ namespace arrow {
 class ARROW_EXPORT NullBuilder : public ArrayBuilder {
  public:
   explicit NullBuilder(MemoryPool* pool = default_memory_pool(),
-                       int64_t ARROW_ARG_UNUSED(alignment) = kDefaultBufferAlignment)
+                       int64_t alignment = kDefaultBufferAlignment)
       : ArrayBuilder(pool) {}
-
-  explicit NullBuilder(const std::shared_ptr<DataType>& ARROW_ARG_UNUSED(type),
+  explicit NullBuilder(const std::shared_ptr<DataType>& type,
                        MemoryPool* pool = default_memory_pool(),
                        int64_t alignment = kDefaultBufferAlignment)
       : NullBuilder(pool, alignment) {}

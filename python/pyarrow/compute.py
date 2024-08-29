@@ -44,7 +44,6 @@ from pyarrow._compute import (  # noqa
     IndexOptions,
     JoinOptions,
     ListSliceOptions,
-    ListFlattenOptions,
     MakeStructOptions,
     MapLookupOptions,
     MatchSubstringOptions,

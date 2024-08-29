@@ -1251,7 +1251,7 @@ LValuePtr LLVMGenerator::Visitor::BuildFunctionCall(const NativeFunction* func,
     // Make the function call
     auto out = decimalIR.CallDecimalFunction(func->pc_name(), llvm_return_type, *params);
     ret_lvalue->set_data(out);
-    return ret_lvalue;
+    return std::move(ret_lvalue);
   } else {
     bool isDecimalFunction = false;
     for (auto& arg : *params) {

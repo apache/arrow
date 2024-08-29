@@ -648,10 +648,10 @@ class UnaryUnaryAsyncCall : public ::grpc::ClientUnaryReactor, public internal::
 
   void OnDone(const ::grpc::Status& status) override {
     if (status.ok()) {
-      FlightInfo::Data info_data;
-      client_status = internal::FromProto(pb_response, &info_data);
+      auto result = internal::FromProto(pb_response);
+      client_status = result.status();
       if (client_status.ok()) {
-        listener->OnNext(FlightInfo{std::move(info_data)});
+        listener->OnNext(std::move(result).MoveValueUnsafe());
       }
     }
     Finish(status);
@@ -684,13 +684,13 @@ class GrpcClientImpl : public internal::ClientTransport {
   }
 
   Status Init(const FlightClientOptions& options, const Location& location,
-              const arrow::util::Uri& uri) override {
+              const arrow::internal::Uri& uri) override {
     const std::string& scheme = location.scheme();
 
     std::stringstream grpc_uri;
     std::shared_ptr<::grpc::ChannelCredentials> creds;
     if (scheme == kSchemeGrpc || scheme == kSchemeGrpcTcp || scheme == kSchemeGrpcTls) {
-      grpc_uri << arrow::util::UriEncodeHost(uri.host()) << ':' << uri.port_text();
+      grpc_uri << arrow::internal::UriEncodeHost(uri.host()) << ':' << uri.port_text();
 
       if (scheme == kSchemeGrpcTls) {
         if (options.disable_server_verification) {
@@ -889,8 +889,7 @@ class GrpcClientImpl : public internal::ClientTransport {
 
     pb::FlightInfo pb_info;
     while (!options.stop_token.IsStopRequested() && stream->Read(&pb_info)) {
-      FlightInfo::Data info_data;
-      RETURN_NOT_OK(internal::FromProto(pb_info, &info_data));
+      ARROW_ASSIGN_OR_RAISE(FlightInfo info_data, internal::FromProto(pb_info));
       flights.emplace_back(std::move(info_data));
     }
     if (options.stop_token.IsStopRequested()) rpc.context.TryCancel();
@@ -940,8 +939,7 @@ class GrpcClientImpl : public internal::ClientTransport {
         stub_->GetFlightInfo(&rpc.context, pb_descriptor, &pb_response), &rpc.context);
     RETURN_NOT_OK(s);
 
-    FlightInfo::Data info_data;
-    RETURN_NOT_OK(internal::FromProto(pb_response, &info_data));
+    ARROW_ASSIGN_OR_RAISE(auto info_data, internal::FromProto(pb_response));
     *info = std::make_unique<FlightInfo>(std::move(info_data));
     return Status::OK();
   }
@@ -978,9 +976,9 @@ class GrpcClientImpl : public internal::ClientTransport {
                               &rpc.context);
     RETURN_NOT_OK(s);
 
-    auto schema_result = std::make_unique<SchemaResult>();
-    RETURN_NOT_OK(internal::FromProto(pb_response, schema_result.get()));
-    return schema_result;
+    std::string str;
+    RETURN_NOT_OK(internal::FromProto(pb_response, &str));
+    return std::make_unique<SchemaResult>(std::move(str));
   }
 
   Status DoGet(const FlightCallOptions& options, const Ticket& ticket,

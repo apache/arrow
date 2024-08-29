@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-import org.apache.arrow.vector.compression.CompressionCodec;
-
 module org.apache.arrow.compression {
   exports org.apache.arrow.compression;
 
@@ -24,8 +22,4 @@ module org.apache.arrow.compression {
   requires org.apache.arrow.memory.core;
   requires org.apache.arrow.vector;
   requires org.apache.commons.compress;
-
-  // Also defined under META-INF/services to support non-modular applications
-  provides CompressionCodec.Factory with
-      org.apache.arrow.compression.CommonsCompressionFactory;
 }

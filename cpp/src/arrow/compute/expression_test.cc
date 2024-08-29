@@ -604,31 +604,6 @@ TEST(Expression, BindCall) {
                 add(cast(field_ref("i32"), float32()), literal(3.5F)));
 }
 
-TEST(Expression, BindWithAliasCasts) {
-  auto fm = GetFunctionRegistry();
-  EXPECT_OK(fm->AddAlias("alias_cast", "cast"));
-
-  auto expr = call("alias_cast", {field_ref("f1")}, CastOptions::Unsafe(arrow::int32()));
-  EXPECT_FALSE(expr.IsBound());
-
-  auto schema = arrow::schema({field("f1", decimal128(30, 3))});
-  ExpectBindsTo(expr, no_change, &expr, *schema);
-}
-
-TEST(Expression, BindWithDecimalArithmeticOps) {
-  for (std::string arith_op : {"add", "subtract", "multiply", "divide"}) {
-    auto expr = call(arith_op, {field_ref("d1"), field_ref("d2")});
-    EXPECT_FALSE(expr.IsBound());
-
-    static const std::vector<std::pair<int, int>> scales = {{3, 9}, {6, 6}, {9, 3}};
-    for (auto s : scales) {
-      auto schema = arrow::schema(
-          {field("d1", decimal256(30, s.first)), field("d2", decimal256(20, s.second))});
-      ExpectBindsTo(expr, no_change, &expr, *schema);
-    }
-  }
-}
-
 TEST(Expression, BindWithImplicitCasts) {
   for (auto cmp : {equal, not_equal, less, less_equal, greater, greater_equal}) {
     // cast arguments to common numeric type
@@ -895,10 +870,8 @@ TEST(Expression, ExecuteCallWithNoArguments) {
 
   Expression random_expr = call("random", {}, random_options);
   ASSERT_OK_AND_ASSIGN(random_expr, random_expr.Bind(float64()));
-  ASSERT_OK_AND_ASSIGN(auto simplify_expr,
-                       SimplifyWithGuarantee(random_expr, input.guarantee));
 
-  ASSERT_OK_AND_ASSIGN(Datum actual, ExecuteScalarExpression(simplify_expr, input));
+  ASSERT_OK_AND_ASSIGN(Datum actual, ExecuteScalarExpression(random_expr, input));
   compute::ExecContext* exec_context = default_exec_context();
   ASSERT_OK_AND_ASSIGN(auto function,
                        exec_context->func_registry()->GetFunction("random"));
@@ -907,41 +880,6 @@ TEST(Expression, ExecuteCallWithNoArguments) {
   AssertDatumsEqual(actual, expected, /*verbose=*/true);
 
   EXPECT_EQ(actual.length(), kCount);
-}
-
-TEST(Expression, ExecuteChunkedArray) {
-  // GH-41923: compute should generate the right result if input
-  // ExecBatch is `chunked_array`.
-  auto input_schema = struct_({field("a", struct_({
-                                              field("a", float64()),
-                                              field("b", float64()),
-                                          }))});
-
-  auto chunked_array_input = ChunkedArrayFromJSON(input_schema, {R"([
-    {"a": {"a": 6.125, "b": 3.375}},
-    {"a": {"a": 0.0,   "b": 1}}
-  ])",
-                                                                 R"([
-    {"a": {"a": -1,    "b": 4.75}}
-  ])"});
-
-  ASSERT_OK_AND_ASSIGN(auto table_input,
-                       Table::FromChunkedStructArray(chunked_array_input));
-
-  auto expr = add(field_ref(FieldRef("a", "a")), field_ref(FieldRef("a", "b")));
-
-  ASSERT_OK_AND_ASSIGN(expr, expr.Bind(input_schema));
-  std::vector<Datum> inputs{table_input->column(0)};
-  ExecBatch batch{inputs, 3};
-
-  ASSERT_OK_AND_ASSIGN(Datum res, ExecuteScalarExpression(expr, batch));
-
-  AssertDatumsEqual(res, ArrayFromJSON(float64(),
-                                       R"([
-    9.5,
-    1,
-    3.75
-  ])"));
 }
 
 TEST(Expression, ExecuteDictionaryTransparent) {
@@ -1431,36 +1369,6 @@ TEST(Expression, SingleComparisonGuarantees) {
       }
     }
   }
-}
-
-static Status RegisterMyRandom() {
-  const std::string name = "my_random";
-  auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), FunctionDoc::Empty(),
-                                               nullptr, /*is_pure=*/false);
-
-  auto func_exec = [](KernelContext* /*ctx*/, const ExecSpan& /*batch*/,
-                      ExecResult* /*out*/) -> Status { return Status::OK(); };
-
-  ScalarKernel kernel({int32()}, float64(), func_exec);
-  ARROW_RETURN_NOT_OK(func->AddKernel(kernel));
-
-  auto registry = GetFunctionRegistry();
-  ARROW_RETURN_NOT_OK(registry->AddFunction(std::move(func)));
-
-  return Status::OK();
-}
-
-TEST(Expression, SimplifyImpureFunctionCall) {
-  // skip simplification for impure function with no arguments
-  auto impure_expr = call("random", {});
-  Simplify{impure_expr}.WithGuarantee(literal("")).Expect(impure_expr);
-
-  // simplify impure function's arguments
-  ASSERT_OK(RegisterMyRandom());
-  auto pure_expr = call("add", {field_ref("i32"), literal(3)});
-  Simplify{call("my_random", {pure_expr})}
-      .WithGuarantee(equal(field_ref("i32"), literal(1)))
-      .Expect(call("my_random", {literal(4)}));
 }
 
 TEST(Expression, SimplifyWithGuarantee) {

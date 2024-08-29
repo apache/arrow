@@ -22,8 +22,8 @@
 #include <vector>
 
 #include "arrow/array/data.h"
-#include "arrow/compute/key_map_internal.h"
-#include "arrow/compute/light_array_internal.h"
+#include "arrow/compute/key_map.h"
+#include "arrow/compute/light_array.h"
 #include "arrow/compute/row/row_internal.h"
 #include "arrow/compute/util.h"
 #include "arrow/memory_pool.h"
@@ -173,7 +173,7 @@ class EncoderBinary {
         copy_fn(dst, src, col_width);
       }
     } else {
-      const RowTableImpl::offset_type* row_offsets = rows_const->offsets();
+      const uint32_t* row_offsets = rows_const->offsets();
       for (uint32_t i = 0; i < num_rows; ++i) {
         const uint8_t* src;
         uint8_t* dst;
@@ -227,9 +227,9 @@ class EncoderBinaryPair {
 
 class EncoderOffsets {
  public:
-  static Status GetRowOffsetsSelected(RowTableImpl* rows,
-                                      const std::vector<KeyColumnArray>& cols,
-                                      uint32_t num_selected, const uint16_t* selection);
+  static void GetRowOffsetsSelected(RowTableImpl* rows,
+                                    const std::vector<KeyColumnArray>& cols,
+                                    uint32_t num_selected, const uint16_t* selection);
   static void EncodeSelected(RowTableImpl* rows, const std::vector<KeyColumnArray>& cols,
                              uint32_t num_selected, const uint16_t* selection);
 
@@ -267,8 +267,7 @@ class EncoderVarBinary {
     ARROW_DCHECK(!rows_const->metadata().is_fixed_length &&
                  !col_const->metadata().is_fixed_length);
 
-    const RowTableImpl::offset_type* row_offsets_for_batch =
-        rows_const->offsets() + start_row;
+    const uint32_t* row_offsets_for_batch = rows_const->offsets() + start_row;
     const uint32_t* col_offsets = col_const->offsets();
 
     uint32_t col_offset_next = col_offsets[0];
@@ -276,7 +275,7 @@ class EncoderVarBinary {
       uint32_t col_offset = col_offset_next;
       col_offset_next = col_offsets[i + 1];
 
-      RowTableImpl::offset_type row_offset = row_offsets_for_batch[i];
+      uint32_t row_offset = row_offsets_for_batch[i];
       const uint8_t* row = rows_const->data(2) + row_offset;
 
       uint32_t offset_within_row;

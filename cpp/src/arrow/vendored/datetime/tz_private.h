@@ -291,7 +291,8 @@ struct transition
     std::ostream&
     operator<<(std::ostream& os, const transition& t)
     {
-        date::operator<<(os, t.timepoint) << "Z ";
+        using date::operator<<;
+        os << t.timepoint << "Z ";
         if (t.info->offset >= std::chrono::seconds{0})
             os << '+';
         os << make_time(t.info->offset);

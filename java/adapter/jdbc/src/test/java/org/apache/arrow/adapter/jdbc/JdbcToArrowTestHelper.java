@@ -14,19 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.adapter.jdbc;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.AbstractMap;
@@ -34,6 +31,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
 import org.apache.arrow.vector.BaseValueVector;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
@@ -59,9 +57,12 @@ import org.apache.arrow.vector.util.JsonStringHashMap;
 import org.apache.arrow.vector.util.ObjectMapperFactory;
 import org.apache.arrow.vector.util.Text;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 /**
- * This is a Helper class which has functionalities to read and assert the values from the given
- * FieldVector object.
+ * This is a Helper class which has functionalities to read and assert the values from the given FieldVector object.
  */
 public class JdbcToArrowTestHelper {
 
@@ -77,8 +78,7 @@ public class JdbcToArrowTestHelper {
     }
   }
 
-  public static void assertBooleanVectorValues(
-      BitVector bitVector, int rowCount, Boolean[] values) {
+  public static void assertBooleanVectorValues(BitVector bitVector, int rowCount, Boolean[] values) {
     assertEquals(rowCount, bitVector.getValueCount());
 
     for (int j = 0; j < bitVector.getValueCount(); j++) {
@@ -102,8 +102,7 @@ public class JdbcToArrowTestHelper {
     }
   }
 
-  public static void assertTinyIntVectorValues(
-      TinyIntVector tinyIntVector, int rowCount, Integer[] values) {
+  public static void assertTinyIntVectorValues(TinyIntVector tinyIntVector, int rowCount, Integer[] values) {
     assertEquals(rowCount, tinyIntVector.getValueCount());
 
     for (int j = 0; j < tinyIntVector.getValueCount(); j++) {
@@ -115,8 +114,7 @@ public class JdbcToArrowTestHelper {
     }
   }
 
-  public static void assertSmallIntVectorValues(
-      SmallIntVector smallIntVector, int rowCount, Integer[] values) {
+  public static void assertSmallIntVectorValues(SmallIntVector smallIntVector, int rowCount, Integer[] values) {
     assertEquals(rowCount, smallIntVector.getValueCount());
 
     for (int j = 0; j < smallIntVector.getValueCount(); j++) {
@@ -128,8 +126,7 @@ public class JdbcToArrowTestHelper {
     }
   }
 
-  public static void assertBigIntVectorValues(
-      BigIntVector bigIntVector, int rowCount, Long[] values) {
+  public static void assertBigIntVectorValues(BigIntVector bigIntVector, int rowCount, Long[] values) {
     assertEquals(rowCount, bigIntVector.getValueCount());
 
     for (int j = 0; j < bigIntVector.getValueCount(); j++) {
@@ -141,8 +138,7 @@ public class JdbcToArrowTestHelper {
     }
   }
 
-  public static void assertDecimalVectorValues(
-      DecimalVector decimalVector, int rowCount, BigDecimal[] values) {
+  public static void assertDecimalVectorValues(DecimalVector decimalVector, int rowCount, BigDecimal[] values) {
     assertEquals(rowCount, decimalVector.getValueCount());
 
     for (int j = 0; j < decimalVector.getValueCount(); j++) {
@@ -154,8 +150,7 @@ public class JdbcToArrowTestHelper {
     }
   }
 
-  public static void assertFloat8VectorValues(
-      Float8Vector float8Vector, int rowCount, Double[] values) {
+  public static void assertFloat8VectorValues(Float8Vector float8Vector, int rowCount, Double[] values) {
     assertEquals(rowCount, float8Vector.getValueCount());
 
     for (int j = 0; j < float8Vector.getValueCount(); j++) {
@@ -167,8 +162,7 @@ public class JdbcToArrowTestHelper {
     }
   }
 
-  public static void assertFloat4VectorValues(
-      Float4Vector float4Vector, int rowCount, Float[] values) {
+  public static void assertFloat4VectorValues(Float4Vector float4Vector, int rowCount, Float[] values) {
     assertEquals(rowCount, float4Vector.getValueCount());
 
     for (int j = 0; j < float4Vector.getValueCount(); j++) {
@@ -180,8 +174,7 @@ public class JdbcToArrowTestHelper {
     }
   }
 
-  public static void assertTimeVectorValues(
-      TimeMilliVector timeMilliVector, int rowCount, Long[] values) {
+  public static void assertTimeVectorValues(TimeMilliVector timeMilliVector, int rowCount, Long[] values) {
     assertEquals(rowCount, timeMilliVector.getValueCount());
 
     for (int j = 0; j < timeMilliVector.getValueCount(); j++) {
@@ -193,8 +186,7 @@ public class JdbcToArrowTestHelper {
     }
   }
 
-  public static void assertDateVectorValues(
-      DateDayVector dateDayVector, int rowCount, Integer[] values) {
+  public static void assertDateVectorValues(DateDayVector dateDayVector, int rowCount, Integer[] values) {
     assertEquals(rowCount, dateDayVector.getValueCount());
 
     for (int j = 0; j < dateDayVector.getValueCount(); j++) {
@@ -206,8 +198,7 @@ public class JdbcToArrowTestHelper {
     }
   }
 
-  public static void assertTimeStampVectorValues(
-      TimeStampVector timeStampVector, int rowCount, Long[] values) {
+  public static void assertTimeStampVectorValues(TimeStampVector timeStampVector, int rowCount, Long[] values) {
     assertEquals(rowCount, timeStampVector.getValueCount());
 
     for (int j = 0; j < timeStampVector.getValueCount(); j++) {
@@ -219,8 +210,7 @@ public class JdbcToArrowTestHelper {
     }
   }
 
-  public static void assertVarBinaryVectorValues(
-      VarBinaryVector varBinaryVector, int rowCount, byte[][] values) {
+  public static void assertVarBinaryVectorValues(VarBinaryVector varBinaryVector, int rowCount, byte[][] values) {
     assertEquals(rowCount, varBinaryVector.getValueCount());
 
     for (int j = 0; j < varBinaryVector.getValueCount(); j++) {
@@ -232,8 +222,7 @@ public class JdbcToArrowTestHelper {
     }
   }
 
-  public static void assertVarcharVectorValues(
-      VarCharVector varCharVector, int rowCount, byte[][] values) {
+  public static void assertVarcharVectorValues(VarCharVector varCharVector, int rowCount, byte[][] values) {
     assertEquals(rowCount, varCharVector.getValueCount());
 
     for (int j = 0; j < varCharVector.getValueCount(); j++) {
@@ -249,8 +238,7 @@ public class JdbcToArrowTestHelper {
     assertEquals(rowCount, vector.getValueCount());
   }
 
-  public static void assertListVectorValues(
-      ListVector listVector, int rowCount, Integer[][] values) {
+  public static void assertListVectorValues(ListVector listVector, int rowCount, Integer[][] values) {
     assertEquals(rowCount, listVector.getValueCount());
 
     for (int j = 0; j < listVector.getValueCount(); j++) {
@@ -263,8 +251,7 @@ public class JdbcToArrowTestHelper {
     }
   }
 
-  public static void assertMapVectorValues(
-      MapVector mapVector, int rowCount, Map<String, String>[] values) {
+  public static void assertMapVectorValues(MapVector mapVector, int rowCount, Map<String, String>[] values) {
     assertEquals(rowCount, mapVector.getValueCount());
 
     for (int j = 0; j < mapVector.getValueCount(); j++) {
@@ -275,17 +262,10 @@ public class JdbcToArrowTestHelper {
             (JsonStringArrayList<JsonStringHashMap<String, Text>>) mapVector.getObject(j);
         Map<String, String> actualMap = null;
         if (actualSource != null && !actualSource.isEmpty()) {
-          actualMap =
-              actualSource.stream()
-                  .map(
-                      entry ->
-                          new AbstractMap.SimpleEntry<>(
-                              entry.get("key").toString(),
-                              entry.get("value") != null ? entry.get("value").toString() : null))
-                  .collect(
-                      HashMap::new,
-                      (collector, val) -> collector.put(val.getKey(), val.getValue()),
-                      HashMap::putAll);
+          actualMap = actualSource.stream().map(entry ->
+            new AbstractMap.SimpleEntry<>(entry.get("key").toString(),
+                    entry.get("value") != null ? entry.get("value").toString() : null))
+          .collect(HashMap::new, (collector, val) -> collector.put(val.getKey(), val.getValue()), HashMap::putAll);
         }
         assertEquals(values[j], actualMap);
       }
@@ -329,8 +309,8 @@ public class JdbcToArrowTestHelper {
     }
   }
 
-  public static void assertFieldMetadataMatchesResultSetMetadata(
-      ResultSetMetaData rsmd, Schema schema) throws SQLException {
+  public static void assertFieldMetadataMatchesResultSetMetadata(ResultSetMetaData rsmd, Schema schema)
+      throws SQLException {
     assertNotNull(schema);
     assertNotNull(schema.getFields());
     assertNotNull(rsmd);
@@ -419,14 +399,12 @@ public class JdbcToArrowTestHelper {
     byte[][] valueArr = new byte[dataArr.length][];
     int i = 0;
     for (String data : dataArr) {
-      valueArr[i++] =
-          "null".equals(data.trim()) ? null : data.trim().getBytes(StandardCharsets.UTF_8);
+      valueArr[i++] = "null".equals(data.trim()) ? null : data.trim().getBytes();
     }
     return valueArr;
   }
 
-  public static byte[][] getCharArrayWithCharSet(
-      String[] values, String dataType, Charset charSet) {
+  public static byte[][] getCharArrayWithCharSet(String[] values, String dataType, Charset charSet) {
     String[] dataArr = getValues(values, dataType);
     byte[][] valueArr = new byte[dataArr.length][];
     int i = 0;
@@ -441,13 +419,11 @@ public class JdbcToArrowTestHelper {
     byte[][] valueArr = new byte[dataArr.length][];
     int i = 0;
     for (String data : dataArr) {
-      valueArr[i++] =
-          "null".equals(data.trim()) ? null : data.trim().getBytes(StandardCharsets.UTF_8);
+      valueArr[i++] = "null".equals(data.trim()) ? null : data.trim().getBytes();
     }
     return valueArr;
   }
 
-  @SuppressWarnings("StringSplitter")
   public static String[] getValues(String[] values, String dataType) {
     String value = "";
     for (String val : values) {
@@ -464,7 +440,6 @@ public class JdbcToArrowTestHelper {
     return getListValues(dataArr);
   }
 
-  @SuppressWarnings("StringSplitter")
   public static Integer[][] getListValues(String[] dataArr) {
     Integer[][] valueArr = new Integer[dataArr.length][];
     int i = 0;

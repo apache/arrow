@@ -24,36 +24,40 @@
 G_BEGIN_DECLS
 
 #define GADATASET_TYPE_FINISH_OPTIONS (gadataset_finish_options_get_type())
-GADATASET_AVAILABLE_IN_11_0
-G_DECLARE_DERIVABLE_TYPE(
-  GADatasetFinishOptions, gadataset_finish_options, GADATASET, FINISH_OPTIONS, GObject)
+G_DECLARE_DERIVABLE_TYPE(GADatasetFinishOptions,
+                         gadataset_finish_options,
+                         GADATASET,
+                         FINISH_OPTIONS,
+                         GObject)
 struct _GADatasetFinishOptionsClass
 {
   GObjectClass parent_class;
 };
 
-GADATASET_AVAILABLE_IN_11_0
+GARROW_AVAILABLE_IN_11_0
 GADatasetFinishOptions *
 gadataset_finish_options_new(void);
 
 #define GADATASET_TYPE_DATASET_FACTORY (gadataset_dataset_factory_get_type())
-GADATASET_AVAILABLE_IN_5_0
-G_DECLARE_DERIVABLE_TYPE(
-  GADatasetDatasetFactory, gadataset_dataset_factory, GADATASET, DATASET_FACTORY, GObject)
+G_DECLARE_DERIVABLE_TYPE(GADatasetDatasetFactory,
+                         gadataset_dataset_factory,
+                         GADATASET,
+                         DATASET_FACTORY,
+                         GObject)
 struct _GADatasetDatasetFactoryClass
 {
   GObjectClass parent_class;
 };
 
-GADATASET_AVAILABLE_IN_5_0
+GARROW_AVAILABLE_IN_5_0
 GADatasetDataset *
 gadataset_dataset_factory_finish(GADatasetDatasetFactory *factory,
                                  GADatasetFinishOptions *options,
                                  GError **error);
 
-#define GADATASET_TYPE_FILE_SYSTEM_DATASET_FACTORY                                       \
+
+#define GADATASET_TYPE_FILE_SYSTEM_DATASET_FACTORY      \
   (gadataset_file_system_dataset_factory_get_type())
-GADATASET_AVAILABLE_IN_5_0
 G_DECLARE_DERIVABLE_TYPE(GADatasetFileSystemDatasetFactory,
                          gadataset_file_system_dataset_factory,
                          GADATASET,
@@ -64,44 +68,48 @@ struct _GADatasetFileSystemDatasetFactoryClass
   GADatasetDatasetFactoryClass parent_class;
 };
 
-GADATASET_AVAILABLE_IN_5_0
+GARROW_AVAILABLE_IN_5_0
 GADatasetFileSystemDatasetFactory *
 gadataset_file_system_dataset_factory_new(GADatasetFileFormat *file_format);
-GADATASET_AVAILABLE_IN_5_0
+GARROW_AVAILABLE_IN_5_0
 gboolean
 gadataset_file_system_dataset_factory_set_file_system(
   GADatasetFileSystemDatasetFactory *factory,
   GArrowFileSystem *file_system,
   GError **error);
-GADATASET_AVAILABLE_IN_5_0
 gboolean
 gadataset_file_system_dataset_factory_set_file_system_uri(
-  GADatasetFileSystemDatasetFactory *factory, const gchar *uri, GError **error);
+  GADatasetFileSystemDatasetFactory *factory,
+  const gchar *uri,
+  GError **error);
 
-GADATASET_AVAILABLE_IN_5_0
+GARROW_AVAILABLE_IN_5_0
 gboolean
-gadataset_file_system_dataset_factory_add_path(GADatasetFileSystemDatasetFactory *factory,
-                                               const gchar *path,
-                                               GError **error);
+gadataset_file_system_dataset_factory_add_path(
+  GADatasetFileSystemDatasetFactory *factory,
+  const gchar *path,
+  GError **error);
 /*
-GADATASET_AVAILABLE_IN_5_0
+GARROW_AVAILABLE_IN_5_0
 gboolean
 gadataset_file_system_dataset_factory_add_file(
   GADatasetFileSystemDatasetFactory *factory,
   GArrowFileInfo *file,
   GError **error);
-GADATASET_AVAILABLE_IN_5_0
+GARROW_AVAILABLE_IN_5_0
 gboolean
 gadataset_file_system_dataset_factory_add_selector(
   GADatasetFileSystemDatasetFactory *factory,
-  GArrowFileSelector *selector,
+  GArrorFileSelector *selector,
   GError **error);
 */
 
-GADATASET_AVAILABLE_IN_5_0
+GARROW_AVAILABLE_IN_5_0
 GADatasetFileSystemDataset *
-gadataset_file_system_dataset_factory_finish(GADatasetFileSystemDatasetFactory *factory,
-                                             GADatasetFinishOptions *options,
-                                             GError **error);
+gadataset_file_system_dataset_factory_finish(
+  GADatasetFileSystemDatasetFactory *factory,
+  GADatasetFinishOptions *options,
+  GError **error);
+
 
 G_END_DECLS

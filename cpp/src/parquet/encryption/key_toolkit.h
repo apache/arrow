@@ -62,10 +62,10 @@ class PARQUET_EXPORT KeyToolkit {
   void RemoveCacheEntriesForAllTokens();
 
   void RegisterKmsClientFactory(std::shared_ptr<KmsClientFactory> kms_client_factory) {
-    if (kms_client_factory_ != NULLPTR) {
+    if (kms_client_factory_ != NULL) {
       throw ParquetException("KMS client factory has already been registered.");
     }
-    kms_client_factory_ = std::move(kms_client_factory);
+    kms_client_factory_ = kms_client_factory;
   }
 
   /// Key rotation. In the single wrapping mode, decrypts data keys with old master keys,

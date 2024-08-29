@@ -21,10 +21,7 @@ set -e
 
 declare -A archs
 archs=([amd64]=x86_64
-       [arch64]=aarch64
-       [arm64]=aarch64
-       [arm64v8]=aarch64
-       [x86_64]=x86_64)
+       [arm64v8]=aarch64)
 
 declare -A platforms
 platforms=([linux]=linux
@@ -41,25 +38,5 @@ platform=${platforms[$2]}
 version=$3
 prefix=$4
 
-mkdir -p ${prefix}
-url="https://github.com/Kitware/CMake/releases/download/v${version}/cmake-${version}-${platform}-"
-case ${platform} in
-  macos)
-    url+="universal.tar.gz"
-    curl -L ${url} | tar -xzf - --directory ${prefix} --strip-components=1
-    ln -s CMake.app/Contents/bin ${prefix}/bin
-    ;;
-  windows)
-    url+="${arch}.zip"
-    archive_name=$(basename ${url})
-    curl -L -o ${archive_name} ${url}
-    unzip ${archive_name}
-    base_name=$(basename ${archive_name} .zip)
-    mv ${base_name}/* ${prefix}
-    rm -rf ${base_name} ${archive_name}
-    ;;
-  *)
-    url+="${arch}.tar.gz"
-    curl -L ${url} | tar -xzf - --directory ${prefix} --strip-components=1
-    ;;
-esac
+url="https://github.com/Kitware/CMake/releases/download/v${version}/cmake-${version}-${platform}-${arch}.tar.gz"
+wget -q ${url} -O - | tar -xzf - --directory ${prefix} --strip-components=1

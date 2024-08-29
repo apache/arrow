@@ -29,13 +29,13 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/apache/arrow/go/v18/arrow"
-	"github.com/apache/arrow/go/v18/arrow/array"
-	"github.com/apache/arrow/go/v18/arrow/decimal128"
-	"github.com/apache/arrow/go/v18/arrow/decimal256"
-	"github.com/apache/arrow/go/v18/arrow/float16"
-	"github.com/apache/arrow/go/v18/arrow/internal/debug"
-	"github.com/apache/arrow/go/v18/arrow/memory"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/decimal128"
+	"github.com/apache/arrow/go/v16/arrow/decimal256"
+	"github.com/apache/arrow/go/v16/arrow/float16"
+	"github.com/apache/arrow/go/v16/arrow/internal/debug"
+	"github.com/apache/arrow/go/v16/arrow/memory"
 )
 
 // Reader wraps encoding/csv.Reader and creates array.Records from a schema.
@@ -474,10 +474,6 @@ func (r *Reader) initFieldConverter(bldr array.Builder) func(string) {
 		return func(str string) {
 			r.parseDate32(bldr, str)
 		}
-	case *arrow.Date64Type:
-		return func(str string) {
-			r.parseDate64(bldr, str)
-		}
 	case *arrow.Time32Type:
 		return func(str string) {
 			r.parseTime32(bldr, str, dt.Unit)
@@ -490,13 +486,17 @@ func (r *Reader) initFieldConverter(bldr array.Builder) func(string) {
 		return func(str string) {
 			r.parseDecimal256(bldr, str, dt.Precision, dt.Scale)
 		}
+	case *arrow.ListType:
+		return func(s string) {
+			r.parseList(bldr, s)
+		}
+	case *arrow.LargeListType:
+		return func(s string) {
+			r.parseLargeList(bldr, s)
+		}
 	case *arrow.FixedSizeListType:
 		return func(s string) {
-			r.parseFixedSizeList(bldr.(*array.FixedSizeListBuilder), s, int(dt.Len()))
-		}
-	case arrow.ListLikeType:
-		return func(s string) {
-			r.parseListLike(bldr.(array.ListLikeBuilder), s)
+			r.parseFixedSizeList(bldr, s, int(dt.Len()))
 		}
 	case *arrow.BinaryType:
 		return func(s string) {
@@ -740,21 +740,6 @@ func (r *Reader) parseDate32(field array.Builder, str string) {
 	field.(*array.Date32Builder).Append(arrow.Date32FromTime(tm))
 }
 
-func (r *Reader) parseDate64(field array.Builder, str string) {
-	if r.isNull(str) {
-		field.AppendNull()
-		return
-	}
-
-	tm, err := time.Parse("2006-01-02", str)
-	if err != nil && r.err == nil {
-		r.err = err
-		field.AppendNull()
-		return
-	}
-	field.(*array.Date64Builder).Append(arrow.Date64FromTime(tm))
-}
-
 func (r *Reader) parseTime32(field array.Builder, str string, unit arrow.TimeUnit) {
 	if r.isNull(str) {
 		field.AppendNull()
@@ -800,7 +785,7 @@ func (r *Reader) parseDecimal256(field array.Builder, str string, prec, scale in
 	field.(*array.Decimal256Builder).Append(val)
 }
 
-func (r *Reader) parseListLike(field array.ListLikeBuilder, str string) {
+func (r *Reader) parseList(field array.Builder, str string) {
 	if r.isNull(str) {
 		field.AppendNull()
 		return
@@ -810,13 +795,14 @@ func (r *Reader) parseListLike(field array.ListLikeBuilder, str string) {
 		return
 	}
 	str = strings.Trim(str, "{}")
-	field.Append(true)
+	listBldr := field.(*array.ListBuilder)
+	listBldr.Append(true)
 	if len(str) == 0 {
 		// we don't want to create the csv reader if we already know the
 		// string is empty
 		return
 	}
-	valueBldr := field.ValueBuilder()
+	valueBldr := listBldr.ValueBuilder()
 	reader := csv.NewReader(strings.NewReader(str))
 	items, err := reader.Read()
 	if err != nil {
@@ -828,7 +814,7 @@ func (r *Reader) parseListLike(field array.ListLikeBuilder, str string) {
 	}
 }
 
-func (r *Reader) parseFixedSizeList(field *array.FixedSizeListBuilder, str string, n int) {
+func (r *Reader) parseLargeList(field array.Builder, str string) {
 	if r.isNull(str) {
 		field.AppendNull()
 		return
@@ -838,13 +824,43 @@ func (r *Reader) parseFixedSizeList(field *array.FixedSizeListBuilder, str strin
 		return
 	}
 	str = strings.Trim(str, "{}")
-	field.Append(true)
+	largeListBldr := field.(*array.LargeListBuilder)
+	largeListBldr.Append(true)
 	if len(str) == 0 {
 		// we don't want to create the csv reader if we already know the
 		// string is empty
 		return
 	}
-	valueBldr := field.ValueBuilder()
+	valueBldr := largeListBldr.ValueBuilder()
+	reader := csv.NewReader(strings.NewReader(str))
+	items, err := reader.Read()
+	if err != nil {
+		r.err = err
+		return
+	}
+	for _, str := range items {
+		r.initFieldConverter(valueBldr)(str)
+	}
+}
+
+func (r *Reader) parseFixedSizeList(field array.Builder, str string, n int) {
+	if r.isNull(str) {
+		field.AppendNull()
+		return
+	}
+	if !(strings.HasPrefix(str, "{") && strings.HasSuffix(str, "}")) {
+		r.err = errors.New("invalid list format. should start with '{' and end with '}'")
+		return
+	}
+	str = strings.Trim(str, "{}")
+	fixedSizeListBldr := field.(*array.FixedSizeListBuilder)
+	fixedSizeListBldr.Append(true)
+	if len(str) == 0 {
+		// we don't want to create the csv reader if we already know the
+		// string is empty
+		return
+	}
+	valueBldr := fixedSizeListBldr.ValueBuilder()
 	reader := csv.NewReader(strings.NewReader(str))
 	items, err := reader.Read()
 	if err != nil {

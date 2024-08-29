@@ -19,8 +19,7 @@
 
 #pragma once
 
-#include <glib-object.h>
-
+#include <arrow-glib/gobject-type.h>
 #include <arrow-glib/version.h>
 
 G_BEGIN_DECLS
@@ -49,26 +48,25 @@ typedef enum {
   GARROW_COMPRESSION_TYPE_BZ2
 } GArrowCompressionType;
 
+
 #define GARROW_TYPE_CODEC (garrow_codec_get_type())
-GARROW_AVAILABLE_IN_ALL
-G_DECLARE_DERIVABLE_TYPE(GArrowCodec, garrow_codec, GARROW, CODEC, GObject)
+G_DECLARE_DERIVABLE_TYPE(GArrowCodec,
+                         garrow_codec,
+                         GARROW,
+                         CODEC,
+                         GObject)
 struct _GArrowCodecClass
 {
   GObjectClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_ALL
-GArrowCodec *
-garrow_codec_new(GArrowCompressionType type, GError **error);
+GArrowCodec *garrow_codec_new(GArrowCompressionType type,
+                              GError **error);
 
-GARROW_AVAILABLE_IN_ALL
-const gchar *
-garrow_codec_get_name(GArrowCodec *codec);
-
+const gchar *garrow_codec_get_name(GArrowCodec *codec);
 GARROW_AVAILABLE_IN_2_0
 GArrowCompressionType
 garrow_codec_get_compression_type(GArrowCodec *codec);
-
 GARROW_AVAILABLE_IN_2_0
 gint
 garrow_codec_get_compression_level(GArrowCodec *codec);

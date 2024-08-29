@@ -24,8 +24,8 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v18/arrow"
-	format "github.com/apache/arrow/go/v18/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v16/arrow"
+	format "github.com/apache/arrow/go/v16/parquet/internal/gen-go/parquet"
 )
 
 const (
@@ -95,13 +95,27 @@ type int96Traits struct{}
 func (int96Traits) BytesRequired(n int) int { return Int96SizeBytes * n }
 
 func (int96Traits) CastFromBytes(b []byte) []Int96 {
-	return unsafe.Slice((*Int96)(unsafe.Pointer(unsafe.SliceData(b))),
-		len(b)/Int96SizeBytes)
+	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
+
+	var res []Int96
+	s := (*reflect.SliceHeader)(unsafe.Pointer(&res))
+	s.Data = h.Data
+	s.Len = h.Len / Int96SizeBytes
+	s.Cap = h.Cap / Int96SizeBytes
+
+	return res
 }
 
 func (int96Traits) CastToBytes(b []Int96) []byte {
-	return unsafe.Slice((*byte)(unsafe.Pointer(unsafe.SliceData(b))),
-		len(b)*Int96SizeBytes)
+	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
+
+	var res []byte
+	s := (*reflect.SliceHeader)(unsafe.Pointer(&res))
+	s.Data = h.Data
+	s.Len = h.Len * Int96SizeBytes
+	s.Cap = h.Cap * Int96SizeBytes
+
+	return res
 }
 
 // ByteArray is a type to be utilized for representing the Parquet ByteArray physical type, represented as a byte slice
@@ -128,8 +142,15 @@ func (byteArrayTraits) BytesRequired(n int) int {
 }
 
 func (byteArrayTraits) CastFromBytes(b []byte) []ByteArray {
-	return unsafe.Slice((*ByteArray)(unsafe.Pointer(unsafe.SliceData(b))),
-		len(b)/ByteArraySizeBytes)
+	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
+
+	var res []ByteArray
+	s := (*reflect.SliceHeader)(unsafe.Pointer(&res))
+	s.Data = h.Data
+	s.Len = h.Len / ByteArraySizeBytes
+	s.Cap = h.Cap / ByteArraySizeBytes
+
+	return res
 }
 
 // FixedLenByteArray is a go type to represent a FixedLengthByteArray as a byte slice
@@ -156,8 +177,15 @@ func (fixedLenByteArrayTraits) BytesRequired(n int) int {
 }
 
 func (fixedLenByteArrayTraits) CastFromBytes(b []byte) []FixedLenByteArray {
-	return unsafe.Slice((*FixedLenByteArray)(unsafe.Pointer(unsafe.SliceData(b))),
-		len(b)/FixedLenByteArraySizeBytes)
+	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
+
+	var res []FixedLenByteArray
+	s := (*reflect.SliceHeader)(unsafe.Pointer(&res))
+	s.Data = h.Data
+	s.Len = h.Len / FixedLenByteArraySizeBytes
+	s.Cap = h.Cap / FixedLenByteArraySizeBytes
+
+	return res
 }
 
 // Creating our own enums allows avoiding the transitive dependency on the
@@ -296,7 +324,6 @@ var (
 		DeltaByteArray       Encoding
 		DeltaBinaryPacked    Encoding
 		DeltaLengthByteArray Encoding
-		ByteStreamSplit      Encoding
 	}{
 		Plain:                Encoding(format.Encoding_PLAIN),
 		PlainDict:            Encoding(format.Encoding_PLAIN_DICTIONARY),
@@ -306,7 +333,6 @@ var (
 		DeltaByteArray:       Encoding(format.Encoding_DELTA_BYTE_ARRAY),
 		DeltaBinaryPacked:    Encoding(format.Encoding_DELTA_BINARY_PACKED),
 		DeltaLengthByteArray: Encoding(format.Encoding_DELTA_LENGTH_BYTE_ARRAY),
-		ByteStreamSplit:      Encoding(format.Encoding_BYTE_STREAM_SPLIT),
 	}
 
 	// ColumnOrders contains constants for the Column Ordering fields

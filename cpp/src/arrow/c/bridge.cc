@@ -528,7 +528,7 @@ namespace {
 struct ExportedArrayPrivateData : PoolAllocationMixin<ExportedArrayPrivateData> {
   // The buffers are owned by the ArrayData member
   SmallVector<const void*, 3> buffers_;
-  struct ArrowArray dictionary_ {};
+  struct ArrowArray dictionary_;
   SmallVector<struct ArrowArray, 1> children_;
   SmallVector<struct ArrowArray*, 4> child_pointers_;
 
@@ -565,9 +565,6 @@ void ReleaseExportedArray(struct ArrowArray* array) {
 }
 
 struct ArrayExporter {
-  explicit ArrayExporter(bool device_interface = false)
-      : device_interface_(device_interface) {}
-
   Status Export(const std::shared_ptr<ArrayData>& data) {
     // Force computing null count.
     // This is because ARROW-9037 is in version 0.17 and 0.17.1, and they are
@@ -576,7 +573,7 @@ struct ArrayExporter {
     // Store buffer pointers
     size_t n_buffers = data->buffers.size();
     auto buffers_begin = data->buffers.begin();
-    if (n_buffers > 0 && !internal::may_have_validity_bitmap(data->type->id())) {
+    if (n_buffers > 0 && !internal::HasValidityBitmap(data->type->id())) {
       --n_buffers;
       ++buffers_begin;
     }
@@ -589,12 +586,8 @@ struct ArrayExporter {
 
     export_.buffers_.resize(n_buffers);
     std::transform(buffers_begin, data->buffers.end(), export_.buffers_.begin(),
-                   [this](const std::shared_ptr<Buffer>& buffer) -> const void* {
-                     return buffer
-                                ? (device_interface_
-                                       ? reinterpret_cast<const void*>(buffer->address())
-                                       : buffer->data())
-                                : nullptr;
+                   [](const std::shared_ptr<Buffer>& buffer) -> const void* {
+                     return buffer ? buffer->data() : nullptr;
                    });
 
     if (need_variadic_buffer_sizes) {
@@ -609,16 +602,15 @@ struct ArrayExporter {
 
     // Export dictionary
     if (data->dictionary != nullptr) {
-      dict_exporter_ = std::make_unique<ArrayExporter>(device_interface_);
+      dict_exporter_ = std::make_unique<ArrayExporter>();
       RETURN_NOT_OK(dict_exporter_->Export(data->dictionary));
     }
 
     // Export children
     export_.children_.resize(data->child_data.size());
-    child_exporters_.reserve(data->child_data.size());
-    for (const auto& child : data->child_data) {
-      child_exporters_.emplace_back(ArrayExporter{device_interface_});
-      RETURN_NOT_OK(child_exporters_.back().Export(child));
+    child_exporters_.resize(data->child_data.size());
+    for (size_t i = 0; i < data->child_data.size(); ++i) {
+      RETURN_NOT_OK(child_exporters_[i].Export(data->child_data[i]));
     }
 
     // Store owning pointer to ArrayData
@@ -670,7 +662,6 @@ struct ArrayExporter {
   ExportedArrayPrivateData export_;
   std::unique_ptr<ArrayExporter> dict_exporter_;
   std::vector<ArrayExporter> child_exporters_;
-  bool device_interface_ = false;
 };
 
 }  // namespace
@@ -765,7 +756,7 @@ Status ExportDeviceArray(const Array& array, std::shared_ptr<Device::SyncEvent> 
   }
   out->device_id = device_info.second;
 
-  ArrayExporter exporter(/*device_interface*/ true);
+  ArrayExporter exporter;
   RETURN_NOT_OK(exporter.Export(array.data()));
   exporter.Finish(&out->array);
 
@@ -803,7 +794,7 @@ Status ExportDeviceRecordBatch(const RecordBatch& batch,
   }
   out->device_id = device_info.second;
 
-  ArrayExporter exporter(/*device_interface*/ true);
+  ArrayExporter exporter;
   RETURN_NOT_OK(exporter.Export(array->data()));
   exporter.Finish(&out->array);
 
@@ -1059,14 +1050,8 @@ struct SchemaImporter {
         ARROW_ASSIGN_OR_RAISE(
             type_, registered_ext_type->Deserialize(std::move(type_),
                                                     metadata_.extension_serialized));
-        // If metadata is present, delete both metadata keys (otherwise, just remove
-        // the extension name key)
-        if (metadata_.extension_serialized_index >= 0) {
-          RETURN_NOT_OK(metadata_.metadata->DeleteMany(
-              {metadata_.extension_name_index, metadata_.extension_serialized_index}));
-        } else {
-          RETURN_NOT_OK(metadata_.metadata->Delete(metadata_.extension_name_index));
-        }
+        RETURN_NOT_OK(metadata_.metadata->DeleteMany(
+            {metadata_.extension_name_index, metadata_.extension_serialized_index}));
       }
     }
 
@@ -1454,7 +1439,6 @@ namespace {
 // The ArrowArray is released on destruction.
 struct ImportedArrayData {
   struct ArrowArray array_;
-  DeviceAllocationType device_type_;
   std::shared_ptr<Device::SyncEvent> device_sync_;
 
   ImportedArrayData() {
@@ -1521,7 +1505,6 @@ struct ArrayImporter {
     recursion_level_ = 0;
     import_ = std::make_shared<ImportedArrayData>();
     c_struct_ = &import_->array_;
-    import_->device_type_ = device_type_;
     ArrowArrayMove(src, c_struct_);
     return DoImport();
   }
@@ -1549,8 +1532,7 @@ struct ArrayImporter {
           "cannot be imported as RecordBatch");
     }
     return RecordBatch::Make(std::move(schema), data_->length,
-                             std::move(data_->child_data), import_->device_type_,
-                             import_->device_sync_);
+                             std::move(data_->child_data));
   }
 
   Status ImportChild(const ArrayImporter* parent, struct ArrowArray* src) {
@@ -1877,17 +1859,24 @@ struct ArrayImporter {
   template <typename OffsetType>
   Status ImportStringValuesBuffer(int32_t offsets_buffer_id, int32_t buffer_id,
                                   int64_t byte_width = 1) {
-    int64_t buffer_size = 0;
-    if (c_struct_->length > 0) {
-      int64_t last_offset_value_offset =
-          (c_struct_->length + c_struct_->offset) * sizeof(OffsetType);
-      OffsetType last_offset_value;
-      RETURN_NOT_OK(MemoryManager::CopyBufferSliceToCPU(
-          data_->buffers[offsets_buffer_id], last_offset_value_offset, sizeof(OffsetType),
-          reinterpret_cast<uint8_t*>(&last_offset_value)));
+    if (device_type_ == DeviceAllocationType::kCPU) {
+      auto offsets = data_->GetValues<OffsetType>(offsets_buffer_id);
       // Compute visible size of buffer
-      buffer_size = byte_width * last_offset_value;
+      int64_t buffer_size =
+          (c_struct_->length > 0) ? byte_width * offsets[c_struct_->length] : 0;
+      return ImportBuffer(buffer_id, buffer_size);
     }
+
+    // we only need the value of the last offset so let's just copy that
+    // one value from device to host.
+    auto single_value_buf =
+        SliceBuffer(data_->buffers[offsets_buffer_id],
+                    c_struct_->length * sizeof(OffsetType), sizeof(OffsetType));
+    ARROW_ASSIGN_OR_RAISE(
+        auto cpubuf, Buffer::ViewOrCopy(single_value_buf, default_cpu_memory_manager()));
+    auto offsets = cpubuf->data_as<OffsetType>();
+    // Compute visible size of buffer
+    int64_t buffer_size = (c_struct_->length > 0) ? byte_width * offsets[0] : 0;
 
     return ImportBuffer(buffer_id, buffer_size);
   }
@@ -1969,13 +1958,6 @@ Result<std::shared_ptr<RecordBatch>> ImportRecordBatch(struct ArrowArray* array,
   return ImportRecordBatch(array, *maybe_schema);
 }
 
-Result<std::shared_ptr<MemoryManager>> DefaultDeviceMemoryMapper(
-    ArrowDeviceType device_type, int64_t device_id) {
-  ARROW_ASSIGN_OR_RAISE(auto mapper,
-                        GetDeviceMapper(static_cast<DeviceAllocationType>(device_type)));
-  return mapper(device_id);
-}
-
 Result<std::shared_ptr<Array>> ImportDeviceArray(struct ArrowDeviceArray* array,
                                                  std::shared_ptr<DataType> type,
                                                  const DeviceMemoryMapper& mapper) {
@@ -2043,23 +2025,6 @@ Status ExportStreamNext(const std::shared_ptr<RecordBatchReader>& src, int64_t i
   }
 }
 
-// the int64_t i input here is unused, but exists simply to allow utilizing the
-// overload of this with the version for ChunkedArrays. If we removed the int64_t
-// from the signature despite it being unused, we wouldn't be able to leverage the
-// overloading in the templated exporters.
-Status ExportStreamNext(const std::shared_ptr<RecordBatchReader>& src, int64_t i,
-                        struct ArrowDeviceArray* out_array) {
-  std::shared_ptr<RecordBatch> batch;
-  RETURN_NOT_OK(src->ReadNext(&batch));
-  if (batch == nullptr) {
-    // End of stream
-    ArrowArrayMarkReleased(&out_array->array);
-    return Status::OK();
-  } else {
-    return ExportDeviceRecordBatch(*batch, batch->GetSyncEvent(), out_array);
-  }
-}
-
 Status ExportStreamNext(const std::shared_ptr<ChunkedArray>& src, int64_t i,
                         struct ArrowArray* out_array) {
   if (i >= src->num_chunks()) {
@@ -2071,27 +2036,8 @@ Status ExportStreamNext(const std::shared_ptr<ChunkedArray>& src, int64_t i,
   }
 }
 
-Status ExportStreamNext(const std::shared_ptr<ChunkedArray>& src, int64_t i,
-                        struct ArrowDeviceArray* out_array) {
-  if (i >= src->num_chunks()) {
-    // End of stream
-    ArrowArrayMarkReleased(&out_array->array);
-    return Status::OK();
-  } else {
-    return ExportDeviceArray(*src->chunk(static_cast<int>(i)), nullptr, out_array);
-  }
-}
-
-template <typename T, bool IsDevice>
+template <typename T>
 class ExportedArrayStream {
-  using StreamTraits =
-      std::conditional_t<IsDevice, internal::ArrayDeviceStreamExportTraits,
-                         internal::ArrayStreamExportTraits>;
-  using StreamType = typename StreamTraits::CType;
-  using ArrayTraits = std::conditional_t<IsDevice, internal::ArrayDeviceExportTraits,
-                                         internal::ArrayExportTraits>;
-  using ArrayType = typename ArrayTraits::CType;
-
  public:
   struct PrivateData {
     explicit PrivateData(std::shared_ptr<T> reader)
@@ -2105,13 +2051,13 @@ class ExportedArrayStream {
     ARROW_DISALLOW_COPY_AND_ASSIGN(PrivateData);
   };
 
-  explicit ExportedArrayStream(StreamType* stream) : stream_(stream) {}
+  explicit ExportedArrayStream(struct ArrowArrayStream* stream) : stream_(stream) {}
 
   Status GetSchema(struct ArrowSchema* out_schema) {
     return ExportStreamSchema(reader(), out_schema);
   }
 
-  Status GetNext(ArrayType* out_array) {
+  Status GetNext(struct ArrowArray* out_array) {
     return ExportStreamNext(reader(), next_batch_num(), out_array);
   }
 
@@ -2121,35 +2067,38 @@ class ExportedArrayStream {
   }
 
   void Release() {
-    if (StreamTraits::IsReleasedFunc(stream_)) {
+    if (ArrowArrayStreamIsReleased(stream_)) {
       return;
     }
-
     DCHECK_NE(private_data(), nullptr);
     delete private_data();
 
-    StreamTraits::MarkReleased(stream_);
+    ArrowArrayStreamMarkReleased(stream_);
   }
 
   // C-compatible callbacks
 
-  static int StaticGetSchema(StreamType* stream, struct ArrowSchema* out_schema) {
+  static int StaticGetSchema(struct ArrowArrayStream* stream,
+                             struct ArrowSchema* out_schema) {
     ExportedArrayStream self{stream};
     return self.ToCError(self.GetSchema(out_schema));
   }
 
-  static int StaticGetNext(StreamType* stream, ArrayType* out_array) {
+  static int StaticGetNext(struct ArrowArrayStream* stream,
+                           struct ArrowArray* out_array) {
     ExportedArrayStream self{stream};
     return self.ToCError(self.GetNext(out_array));
   }
 
-  static void StaticRelease(StreamType* stream) { ExportedArrayStream{stream}.Release(); }
+  static void StaticRelease(struct ArrowArrayStream* stream) {
+    ExportedArrayStream{stream}.Release();
+  }
 
-  static const char* StaticGetLastError(StreamType* stream) {
+  static const char* StaticGetLastError(struct ArrowArrayStream* stream) {
     return ExportedArrayStream{stream}.GetLastError();
   }
 
-  static Status Make(std::shared_ptr<T> reader, StreamType* out) {
+  static Status Make(std::shared_ptr<T> reader, struct ArrowArrayStream* out) {
     out->get_schema = ExportedArrayStream::StaticGetSchema;
     out->get_next = ExportedArrayStream::StaticGetNext;
     out->get_last_error = ExportedArrayStream::StaticGetLastError;
@@ -2185,36 +2134,19 @@ class ExportedArrayStream {
 
   int64_t next_batch_num() { return private_data()->batch_num_++; }
 
-  StreamType* stream_;
+  struct ArrowArrayStream* stream_;
 };
 
 }  // namespace
 
 Status ExportRecordBatchReader(std::shared_ptr<RecordBatchReader> reader,
                                struct ArrowArrayStream* out) {
-  memset(out, 0, sizeof(struct ArrowArrayStream));
-  return ExportedArrayStream<RecordBatchReader, false>::Make(std::move(reader), out);
+  return ExportedArrayStream<RecordBatchReader>::Make(std::move(reader), out);
 }
 
 Status ExportChunkedArray(std::shared_ptr<ChunkedArray> chunked_array,
                           struct ArrowArrayStream* out) {
-  memset(out, 0, sizeof(struct ArrowArrayStream));
-  return ExportedArrayStream<ChunkedArray, false>::Make(std::move(chunked_array), out);
-}
-
-Status ExportDeviceRecordBatchReader(std::shared_ptr<RecordBatchReader> reader,
-                                     struct ArrowDeviceArrayStream* out) {
-  memset(out, 0, sizeof(struct ArrowDeviceArrayStream));
-  out->device_type = static_cast<ArrowDeviceType>(reader->device_type());
-  return ExportedArrayStream<RecordBatchReader, true>::Make(std::move(reader), out);
-}
-
-Status ExportDeviceChunkedArray(std::shared_ptr<ChunkedArray> chunked_array,
-                                DeviceAllocationType device_type,
-                                struct ArrowDeviceArrayStream* out) {
-  memset(out, 0, sizeof(struct ArrowDeviceArrayStream));
-  out->device_type = static_cast<ArrowDeviceType>(device_type);
-  return ExportedArrayStream<ChunkedArray, true>::Make(std::move(chunked_array), out);
+  return ExportedArrayStream<ChunkedArray>::Make(std::move(chunked_array), out);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -2222,63 +2154,31 @@ Status ExportDeviceChunkedArray(std::shared_ptr<ChunkedArray> chunked_array,
 
 namespace {
 
-template <bool IsDevice>
 class ArrayStreamReader {
- protected:
-  using StreamTraits =
-      std::conditional_t<IsDevice, internal::ArrayDeviceStreamExportTraits,
-                         internal::ArrayStreamExportTraits>;
-  using StreamType = typename StreamTraits::CType;
-  using ArrayTraits = std::conditional_t<IsDevice, internal::ArrayDeviceExportTraits,
-                                         internal::ArrayExportTraits>;
-  using ArrayType = typename ArrayTraits::CType;
-
  public:
-  explicit ArrayStreamReader(StreamType* stream,
-                             const DeviceMemoryMapper mapper = DefaultDeviceMemoryMapper)
-      : mapper_{std::move(mapper)} {
-    StreamTraits::MoveFunc(stream, &stream_);
-    DCHECK(!StreamTraits::IsReleasedFunc(&stream_));
+  explicit ArrayStreamReader(struct ArrowArrayStream* stream) {
+    ArrowArrayStreamMove(stream, &stream_);
+    DCHECK(!ArrowArrayStreamIsReleased(&stream_));
   }
 
   ~ArrayStreamReader() { ReleaseStream(); }
 
   void ReleaseStream() {
-    // all our trait release funcs check IsReleased so we don't
-    // need to repeat it here
-    StreamTraits::ReleaseFunc(&stream_);
-    DCHECK(StreamTraits::IsReleasedFunc(&stream_));
+    if (!ArrowArrayStreamIsReleased(&stream_)) {
+      ArrowArrayStreamRelease(&stream_);
+    }
+    DCHECK(ArrowArrayStreamIsReleased(&stream_));
   }
 
  protected:
-  Status ReadNextArrayInternal(ArrayType* array) {
-    ArrayTraits::MarkReleased(array);
+  Status ReadNextArrayInternal(struct ArrowArray* array) {
+    ArrowArrayMarkReleased(array);
     Status status = StatusFromCError(stream_.get_next(&stream_, array));
-    if (!status.ok()) {
-      ArrayTraits::ReleaseFunc(array);
+    if (!status.ok() && !ArrowArrayIsReleased(array)) {
+      ArrowArrayRelease(array);
     }
 
     return status;
-  }
-
-  Result<std::shared_ptr<RecordBatch>> ImportRecordBatchInternal(
-      struct ArrowArray* array, std::shared_ptr<Schema> schema) {
-    return ImportRecordBatch(array, schema);
-  }
-
-  Result<std::shared_ptr<RecordBatch>> ImportRecordBatchInternal(
-      struct ArrowDeviceArray* array, std::shared_ptr<Schema> schema) {
-    return ImportDeviceRecordBatch(array, schema, mapper_);
-  }
-
-  Result<std::shared_ptr<Array>> ImportArrayInternal(
-      struct ArrowArray* array, std::shared_ptr<arrow::DataType> type) {
-    return ImportArray(array, type);
-  }
-
-  Result<std::shared_ptr<Array>> ImportArrayInternal(
-      struct ArrowDeviceArray* array, std::shared_ptr<arrow::DataType> type) {
-    return ImportDeviceArray(array, type, mapper_);
   }
 
   Result<std::shared_ptr<Schema>> ReadSchema() {
@@ -2298,19 +2198,19 @@ class ArrayStreamReader {
   }
 
   Status CheckNotReleased() {
-    if (StreamTraits::IsReleasedFunc(&stream_)) {
+    if (ArrowArrayStreamIsReleased(&stream_)) {
       return Status::Invalid(
           "Attempt to read from a stream that has already been closed");
+    } else {
+      return Status::OK();
     }
-
-    return Status::OK();
   }
 
   Status StatusFromCError(int errno_like) const {
     return StatusFromCError(&stream_, errno_like);
   }
 
-  static Status StatusFromCError(StreamType* stream, int errno_like) {
+  static Status StatusFromCError(struct ArrowArrayStream* stream, int errno_like) {
     if (ARROW_PREDICT_TRUE(errno_like == 0)) {
       return Status::OK();
     }
@@ -2334,102 +2234,70 @@ class ArrayStreamReader {
     return {code, last_error ? std::string(last_error) : ""};
   }
 
-  DeviceAllocationType get_device_type() const {
-    if constexpr (IsDevice) {
-      return static_cast<DeviceAllocationType>(stream_.device_type);
-    } else {
-      return DeviceAllocationType::kCPU;
-    }
-  }
-
  private:
-  mutable StreamType stream_;
-  const DeviceMemoryMapper mapper_;
+  mutable struct ArrowArrayStream stream_;
 };
 
-template <bool IsDevice>
-class ArrayStreamBatchReader : public RecordBatchReader,
-                               public ArrayStreamReader<IsDevice> {
-  using StreamTraits =
-      std::conditional_t<IsDevice, internal::ArrayDeviceStreamExportTraits,
-                         internal::ArrayStreamExportTraits>;
-  using StreamType = typename StreamTraits::CType;
-  using ArrayTraits = std::conditional_t<IsDevice, internal::ArrayDeviceExportTraits,
-                                         internal::ArrayExportTraits>;
-  using ArrayType = typename ArrayTraits::CType;
-
+class ArrayStreamBatchReader : public RecordBatchReader, public ArrayStreamReader {
  public:
-  explicit ArrayStreamBatchReader(
-      StreamType* stream, const DeviceMemoryMapper& mapper = DefaultDeviceMemoryMapper)
-      : ArrayStreamReader<IsDevice>(stream, mapper) {}
+  explicit ArrayStreamBatchReader(struct ArrowArrayStream* stream)
+      : ArrayStreamReader(stream) {}
 
   Status Init() {
-    ARROW_ASSIGN_OR_RAISE(schema_, this->ReadSchema());
+    ARROW_ASSIGN_OR_RAISE(schema_, ReadSchema());
     return Status::OK();
   }
 
   std::shared_ptr<Schema> schema() const override { return schema_; }
 
   Status ReadNext(std::shared_ptr<RecordBatch>* batch) override {
-    ARROW_RETURN_NOT_OK(this->CheckNotReleased());
+    ARROW_RETURN_NOT_OK(CheckNotReleased());
 
-    ArrayType c_array;
-    ARROW_RETURN_NOT_OK(this->ReadNextArrayInternal(&c_array));
+    struct ArrowArray c_array;
+    ARROW_RETURN_NOT_OK(ReadNextArrayInternal(&c_array));
 
-    if (ArrayTraits::IsReleasedFunc(&c_array)) {
+    if (ArrowArrayIsReleased(&c_array)) {
       // End of stream
       batch->reset();
       return Status::OK();
     } else {
-      return this->ImportRecordBatchInternal(&c_array, schema_).Value(batch);
+      return ImportRecordBatch(&c_array, schema_).Value(batch);
     }
   }
 
   Status Close() override {
-    this->ReleaseStream();
+    ReleaseStream();
     return Status::OK();
   }
-
-  DeviceAllocationType device_type() const override { return this->get_device_type(); }
 
  private:
   std::shared_ptr<Schema> schema_;
 };
 
-template <bool IsDevice>
-class ArrayStreamArrayReader : public ArrayStreamReader<IsDevice> {
-  using StreamTraits =
-      std::conditional_t<IsDevice, internal::ArrayDeviceStreamExportTraits,
-                         internal::ArrayStreamExportTraits>;
-  using StreamType = typename StreamTraits::CType;
-  using ArrayTraits = std::conditional_t<IsDevice, internal::ArrayDeviceExportTraits,
-                                         internal::ArrayExportTraits>;
-  using ArrayType = typename ArrayTraits::CType;
-
+class ArrayStreamArrayReader : public ArrayStreamReader {
  public:
-  explicit ArrayStreamArrayReader(
-      StreamType* stream, const DeviceMemoryMapper& mapper = DefaultDeviceMemoryMapper)
-      : ArrayStreamReader<IsDevice>(stream, mapper) {}
+  explicit ArrayStreamArrayReader(struct ArrowArrayStream* stream)
+      : ArrayStreamReader(stream) {}
 
   Status Init() {
-    ARROW_ASSIGN_OR_RAISE(field_, this->ReadField());
+    ARROW_ASSIGN_OR_RAISE(field_, ReadField());
     return Status::OK();
   }
 
   std::shared_ptr<DataType> data_type() const { return field_->type(); }
 
   Status ReadNext(std::shared_ptr<Array>* array) {
-    ARROW_RETURN_NOT_OK(this->CheckNotReleased());
+    ARROW_RETURN_NOT_OK(CheckNotReleased());
 
-    ArrayType c_array;
-    ARROW_RETURN_NOT_OK(this->ReadNextArrayInternal(&c_array));
+    struct ArrowArray c_array;
+    ARROW_RETURN_NOT_OK(ReadNextArrayInternal(&c_array));
 
-    if (ArrayTraits::IsReleasedFunc(&c_array)) {
+    if (ArrowArrayIsReleased(&c_array)) {
       // End of stream
       array->reset();
       return Status::OK();
     } else {
-      return this->ImportArrayInternal(&c_array, field_->type()).Value(array);
+      return ImportArray(&c_array, field_->type()).Value(array);
     }
   }
 
@@ -2437,35 +2305,30 @@ class ArrayStreamArrayReader : public ArrayStreamReader<IsDevice> {
   std::shared_ptr<Field> field_;
 };
 
-template <bool IsDevice, typename StreamTraits = std::conditional_t<
-                             IsDevice, internal::ArrayDeviceStreamExportTraits,
-                             internal::ArrayStreamExportTraits>>
-Result<std::shared_ptr<RecordBatchReader>> ImportReader(
-    typename StreamTraits::CType* stream,
-    const DeviceMemoryMapper& mapper = DefaultDeviceMemoryMapper) {
-  if (StreamTraits::IsReleasedFunc(stream)) {
-    return Status::Invalid("Cannot import released Arrow Stream");
+}  // namespace
+
+Result<std::shared_ptr<RecordBatchReader>> ImportRecordBatchReader(
+    struct ArrowArrayStream* stream) {
+  if (ArrowArrayStreamIsReleased(stream)) {
+    return Status::Invalid("Cannot import released ArrowArrayStream");
   }
 
-  auto reader = std::make_shared<ArrayStreamBatchReader<IsDevice>>(stream, mapper);
+  auto reader = std::make_shared<ArrayStreamBatchReader>(stream);
   ARROW_RETURN_NOT_OK(reader->Init());
   return reader;
 }
 
-template <bool IsDevice, typename StreamTraits = std::conditional_t<
-                             IsDevice, internal::ArrayDeviceStreamExportTraits,
-                             internal::ArrayStreamExportTraits>>
-Result<std::shared_ptr<ChunkedArray>> ImportChunked(
-    typename StreamTraits::CType* stream,
-    const DeviceMemoryMapper& mapper = DefaultDeviceMemoryMapper) {
-  if (StreamTraits::IsReleasedFunc(stream)) {
-    return Status::Invalid("Cannot import released Arrow Stream");
+Result<std::shared_ptr<ChunkedArray>> ImportChunkedArray(
+    struct ArrowArrayStream* stream) {
+  if (ArrowArrayStreamIsReleased(stream)) {
+    return Status::Invalid("Cannot import released ArrowArrayStream");
   }
 
-  auto reader = std::make_shared<ArrayStreamArrayReader<IsDevice>>(stream, mapper);
+  auto reader = std::make_shared<ArrayStreamArrayReader>(stream);
   ARROW_RETURN_NOT_OK(reader->Init());
 
-  auto data_type = reader->data_type();
+  std::shared_ptr<DataType> data_type = reader->data_type();
+
   ArrayVector chunks;
   std::shared_ptr<Array> chunk;
   while (true) {
@@ -2479,28 +2342,6 @@ Result<std::shared_ptr<ChunkedArray>> ImportChunked(
 
   reader->ReleaseStream();
   return ChunkedArray::Make(std::move(chunks), std::move(data_type));
-}
-
-}  // namespace
-
-Result<std::shared_ptr<RecordBatchReader>> ImportRecordBatchReader(
-    struct ArrowArrayStream* stream) {
-  return ImportReader</*IsDevice=*/false>(stream);
-}
-
-Result<std::shared_ptr<RecordBatchReader>> ImportDeviceRecordBatchReader(
-    struct ArrowDeviceArrayStream* stream, const DeviceMemoryMapper& mapper) {
-  return ImportReader</*IsDevice=*/true>(stream, mapper);
-}
-
-Result<std::shared_ptr<ChunkedArray>> ImportChunkedArray(
-    struct ArrowArrayStream* stream) {
-  return ImportChunked</*IsDevice=*/false>(stream);
-}
-
-Result<std::shared_ptr<ChunkedArray>> ImportDeviceChunkedArray(
-    struct ArrowDeviceArrayStream* stream, const DeviceMemoryMapper& mapper) {
-  return ImportChunked</*IsDevice=*/true>(stream, mapper);
 }
 
 }  // namespace arrow

@@ -14,15 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.validate;
 
 import static org.apache.arrow.vector.testing.ValueVectorDataPopulator.setVector;
 import static org.apache.arrow.vector.util.ValueVectorUtility.validate;
+import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.Charset;
 import java.util.Arrays;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
@@ -42,15 +44,15 @@ import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
 
 public class TestValidateVector {
 
   private BufferAllocator allocator;
 
-  @BeforeEach
+  @Before
   public void init() {
     allocator = new RootAllocator(Long.MAX_VALUE);
   }
@@ -60,7 +62,7 @@ public class TestValidateVector {
   private static final byte[] STR2 = "BBBBBBBBB2".getBytes(utf8Charset);
   private static final byte[] STR3 = "CCCC3".getBytes(utf8Charset);
 
-  @AfterEach
+  @After
   public void terminate() throws Exception {
     allocator.close();
   }
@@ -73,8 +75,8 @@ public class TestValidateVector {
       validate(vector);
 
       vector.getDataBuffer().capacity(0);
-      ValidateUtil.ValidateException e =
-          assertThrows(ValidateUtil.ValidateException.class, () -> validate(vector));
+      ValidateUtil.ValidateException e = assertThrows(ValidateUtil.ValidateException.class,
+          () -> validate(vector));
       assertTrue(e.getMessage().contains("Not enough capacity for fixed width data buffer"));
     }
   }
@@ -87,8 +89,8 @@ public class TestValidateVector {
       validate(vector);
 
       vector.getDataBuffer().capacity(0);
-      ValidateUtil.ValidateException e =
-          assertThrows(ValidateUtil.ValidateException.class, () -> validate(vector));
+      ValidateUtil.ValidateException e = assertThrows(ValidateUtil.ValidateException.class,
+          () -> validate(vector));
       assertTrue(e.getMessage().contains("Not enough capacity for data buffer"));
     }
   }
@@ -101,8 +103,8 @@ public class TestValidateVector {
       validate(vector);
 
       vector.getDataBuffer().capacity(0);
-      ValidateUtil.ValidateException e =
-          assertThrows(ValidateUtil.ValidateException.class, () -> validate(vector));
+      ValidateUtil.ValidateException e = assertThrows(ValidateUtil.ValidateException.class,
+          () -> validate(vector));
       assertTrue(e.getMessage().contains("Not enough capacity for data buffer"));
     }
   }
@@ -115,8 +117,8 @@ public class TestValidateVector {
       validate(vector);
 
       vector.getDataVector().setValueCount(3);
-      ValidateUtil.ValidateException e =
-          assertThrows(ValidateUtil.ValidateException.class, () -> validate(vector));
+      ValidateUtil.ValidateException e = assertThrows(ValidateUtil.ValidateException.class,
+          () -> validate(vector));
       assertTrue(e.getMessage().contains("Inner vector does not contain enough elements."));
     }
   }
@@ -129,8 +131,8 @@ public class TestValidateVector {
       validate(vector);
 
       vector.getDataVector().setValueCount(4);
-      ValidateUtil.ValidateException e =
-          assertThrows(ValidateUtil.ValidateException.class, () -> validate(vector));
+      ValidateUtil.ValidateException e = assertThrows(ValidateUtil.ValidateException.class,
+          () -> validate(vector));
       assertTrue(e.getMessage().contains("Inner vector does not contain enough elements."));
     }
   }
@@ -143,8 +145,8 @@ public class TestValidateVector {
       validate(vector);
 
       vector.getDataVector().setValueCount(3);
-      ValidateUtil.ValidateException e =
-          assertThrows(ValidateUtil.ValidateException.class, () -> validate(vector));
+      ValidateUtil.ValidateException e = assertThrows(ValidateUtil.ValidateException.class,
+          () -> validate(vector));
       assertTrue(e.getMessage().contains("Inner vector does not contain enough elements."));
     }
   }
@@ -168,16 +170,16 @@ public class TestValidateVector {
       writer.setValueCount(5);
 
       vector.getChild("f0").setValueCount(2);
-      ValidateUtil.ValidateException e =
-          assertThrows(ValidateUtil.ValidateException.class, () -> validate(vector));
+      ValidateUtil.ValidateException e = assertThrows(ValidateUtil.ValidateException.class,
+          () -> validate(vector));
       assertTrue(e.getMessage().contains("Struct vector length not equal to child vector length"));
 
       vector.getChild("f0").setValueCount(5);
       validate(vector);
 
       vector.getChild("f0").getDataBuffer().capacity(0);
-      ValidateUtil.ValidateException e2 =
-          assertThrows(ValidateUtil.ValidateException.class, () -> validate(vector));
+      ValidateUtil.ValidateException e2 = assertThrows(ValidateUtil.ValidateException.class,
+          () -> validate(vector));
       assertTrue(e2.getMessage().contains("Not enough capacity for fixed width data buffer"));
     }
   }
@@ -204,16 +206,16 @@ public class TestValidateVector {
       validate(vector);
 
       vector.getChildrenFromFields().get(0).setValueCount(1);
-      ValidateUtil.ValidateException e1 =
-          assertThrows(ValidateUtil.ValidateException.class, () -> validate(vector));
+      ValidateUtil.ValidateException e1 = assertThrows(ValidateUtil.ValidateException.class,
+          () -> validate(vector));
       assertTrue(e1.getMessage().contains("Union vector length not equal to child vector length"));
 
       vector.getChildrenFromFields().get(0).setValueCount(2);
       validate(vector);
 
       vector.getChildrenFromFields().get(0).getDataBuffer().capacity(0);
-      ValidateUtil.ValidateException e2 =
-          assertThrows(ValidateUtil.ValidateException.class, () -> validate(vector));
+      ValidateUtil.ValidateException e2 = assertThrows(ValidateUtil.ValidateException.class,
+          () -> validate(vector));
       assertTrue(e2.getMessage().contains("Not enough capacity for fixed width data buffer"));
     }
   }
@@ -231,10 +233,8 @@ public class TestValidateVector {
       float8Holder.value = 2.02f;
       float8Holder.isSet = 1;
 
-      byte float4TypeId =
-          vector.registerNewTypeId(Field.nullable("", Types.MinorType.FLOAT4.getType()));
-      byte float8TypeId =
-          vector.registerNewTypeId(Field.nullable("", Types.MinorType.FLOAT8.getType()));
+      byte float4TypeId = vector.registerNewTypeId(Field.nullable("", Types.MinorType.FLOAT4.getType()));
+      byte float8TypeId = vector.registerNewTypeId(Field.nullable("", Types.MinorType.FLOAT8.getType()));
 
       vector.setTypeId(0, float4TypeId);
       vector.setSafe(0, float4Holder);
@@ -245,8 +245,8 @@ public class TestValidateVector {
       validate(vector);
 
       vector.getChildrenFromFields().get(0).getDataBuffer().capacity(0);
-      ValidateUtil.ValidateException e =
-          assertThrows(ValidateUtil.ValidateException.class, () -> validate(vector));
+      ValidateUtil.ValidateException e = assertThrows(ValidateUtil.ValidateException.class,
+          () -> validate(vector));
       assertTrue(e.getMessage().contains("Not enough capacity for fixed width data buffer"));
     }
   }
@@ -259,8 +259,8 @@ public class TestValidateVector {
       vector.validate();
 
       vector.getDataBuffer().capacity(0);
-      ValidateUtil.ValidateException e =
-          assertThrows(ValidateUtil.ValidateException.class, () -> vector.validate());
+      ValidateUtil.ValidateException e = assertThrows(ValidateUtil.ValidateException.class,
+          () -> vector.validate());
       assertTrue(e.getMessage().contains("Not enough capacity for fixed width data buffer"));
     }
   }

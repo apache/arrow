@@ -14,25 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.driver.jdbc.accessor.impl;
 
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import org.junit.jupiter.api.Test;
+import org.junit.Assert;
+import org.junit.Test;
 
 public class ArrowFlightJdbcNullVectorAccessorTest {
 
   ArrowFlightJdbcNullVectorAccessor accessor =
-      new ArrowFlightJdbcNullVectorAccessor((boolean wasNull) -> {});
+      new ArrowFlightJdbcNullVectorAccessor((boolean wasNull) -> {
+      });
 
   @Test
   public void testShouldWasNullReturnTrue() {
-    assertTrue(accessor.wasNull());
+    Assert.assertTrue(accessor.wasNull());
   }
 
   @Test
   public void testShouldGetObjectReturnNull() {
-    assertNull(accessor.getObject());
+    Assert.assertNull(accessor.getObject());
   }
 }

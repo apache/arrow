@@ -26,15 +26,15 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v18/arrow"
-	"github.com/apache/arrow/go/v18/arrow/array"
-	"github.com/apache/arrow/go/v18/arrow/bitutil"
-	"github.com/apache/arrow/go/v18/arrow/internal"
-	"github.com/apache/arrow/go/v18/arrow/internal/debug"
-	"github.com/apache/arrow/go/v18/arrow/internal/dictutils"
-	"github.com/apache/arrow/go/v18/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v18/arrow/memory"
-	"github.com/apache/arrow/go/v18/internal/utils"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/bitutil"
+	"github.com/apache/arrow/go/v16/arrow/internal"
+	"github.com/apache/arrow/go/v16/arrow/internal/debug"
+	"github.com/apache/arrow/go/v16/arrow/internal/dictutils"
+	"github.com/apache/arrow/go/v16/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v16/internal/utils"
 )
 
 type swriter struct {
@@ -86,7 +86,6 @@ type Writer struct {
 	mapper          dictutils.Mapper
 	codec           flatbuf.CompressionType
 	compressNP      int
-	compressors     []compressor
 	minSpaceSavings *float64
 
 	// map of the last written dictionaries by id
@@ -108,7 +107,6 @@ func NewWriterWithPayloadWriter(pw PayloadWriter, opts ...Option) *Writer {
 		compressNP:      cfg.compressNP,
 		minSpaceSavings: cfg.minSpaceSavings,
 		emitDictDeltas:  cfg.emitDictDeltas,
-		compressors:     make([]compressor, cfg.compressNP),
 	}
 }
 
@@ -122,8 +120,6 @@ func NewWriter(w io.Writer, opts ...Option) *Writer {
 		schema:         cfg.schema,
 		codec:          cfg.codec,
 		emitDictDeltas: cfg.emitDictDeltas,
-		compressNP:     cfg.compressNP,
-		compressors:    make([]compressor, cfg.compressNP),
 	}
 }
 
@@ -155,39 +151,26 @@ func (w *Writer) Close() error {
 func (w *Writer) Write(rec arrow.Record) (err error) {
 	defer func() {
 		if pErr := recover(); pErr != nil {
-			err = utils.FormatRecoveredError("arrow/ipc: unknown error while writing", pErr)
+			err = fmt.Errorf("arrow/ipc: unknown error while writing: %v", pErr)
 		}
 	}()
 
-	incomingSchema := rec.Schema()
-
 	if !w.started {
-		if w.schema == nil {
-			w.schema = incomingSchema
-		}
 		err := w.start()
 		if err != nil {
 			return err
 		}
 	}
 
-	if incomingSchema == nil || !incomingSchema.Equal(w.schema) {
+	schema := rec.Schema()
+	if schema == nil || !schema.Equal(w.schema) {
 		return errInconsistentSchema
 	}
 
 	const allow64b = true
 	var (
 		data = Payload{msg: MessageRecordBatch}
-		enc  = newRecordEncoder(
-			w.mem,
-			0,
-			kMaxNestingDepth,
-			allow64b,
-			w.codec,
-			w.compressNP,
-			w.minSpaceSavings,
-			w.compressors,
-		)
+		enc  = newRecordEncoder(w.mem, 0, kMaxNestingDepth, allow64b, w.codec, w.compressNP, w.minSpaceSavings)
 	)
 	defer data.Release()
 
@@ -327,20 +310,10 @@ type recordEncoder struct {
 	allow64b        bool
 	codec           flatbuf.CompressionType
 	compressNP      int
-	compressors     []compressor
 	minSpaceSavings *float64
 }
 
-func newRecordEncoder(
-	mem memory.Allocator,
-	startOffset,
-	maxDepth int64,
-	allow64b bool,
-	codec flatbuf.CompressionType,
-	compressNP int,
-	minSpaceSavings *float64,
-	compressors []compressor,
-) *recordEncoder {
+func newRecordEncoder(mem memory.Allocator, startOffset, maxDepth int64, allow64b bool, codec flatbuf.CompressionType, compressNP int, minSpaceSavings *float64) *recordEncoder {
 	return &recordEncoder{
 		mem:             mem,
 		start:           startOffset,
@@ -348,7 +321,6 @@ func newRecordEncoder(
 		allow64b:        allow64b,
 		codec:           codec,
 		compressNP:      compressNP,
-		compressors:     compressors,
 		minSpaceSavings: minSpaceSavings,
 	}
 }
@@ -366,13 +338,6 @@ func (w *recordEncoder) shouldCompress(uncompressed, compressed int) bool {
 func (w *recordEncoder) reset() {
 	w.start = 0
 	w.fields = make([]fieldMetadata, 0)
-}
-
-func (w *recordEncoder) getCompressor(id int) compressor {
-	if w.compressors[id] == nil {
-		w.compressors[id] = getCompressor(w.codec)
-	}
-	return w.compressors[id]
 }
 
 func (w *recordEncoder) compressBodyBuffers(p *Payload) error {
@@ -413,7 +378,7 @@ func (w *recordEncoder) compressBodyBuffers(p *Payload) error {
 	}
 
 	if w.compressNP <= 1 {
-		codec := w.getCompressor(0)
+		codec := getCompressor(w.codec)
 		for idx := range p.body {
 			if err := compress(idx, codec); err != nil {
 				return err
@@ -430,11 +395,11 @@ func (w *recordEncoder) compressBodyBuffers(p *Payload) error {
 	)
 	defer cancel()
 
-	for workerID := 0; workerID < w.compressNP; workerID++ {
+	for i := 0; i < w.compressNP; i++ {
 		wg.Add(1)
-		go func(id int) {
+		go func() {
 			defer wg.Done()
-			codec := w.getCompressor(id)
+			codec := getCompressor(w.codec)
 			for {
 				select {
 				case idx, ok := <-ch:
@@ -453,7 +418,7 @@ func (w *recordEncoder) compressBodyBuffers(p *Payload) error {
 					return
 				}
 			}
-		}(workerID)
+		}()
 	}
 
 	for idx := range p.body {
@@ -857,35 +822,19 @@ func (w *recordEncoder) getZeroBasedValueOffsets(arr arrow.Array) *memory.Buffer
 		return nil
 	}
 
-	dataTypeWidth := arr.DataType().Layout().Buffers[1].ByteWidth
-
 	// if we have a non-zero offset, then the value offsets do not start at
 	// zero. we must a) create a new offsets array with shifted offsets and
 	// b) slice the values array accordingly
-	hasNonZeroOffset := data.Offset() != 0
-
+	//
 	// or if there are more value offsets than values (the array has been sliced)
 	// we need to trim off the trailing offsets
-	hasMoreOffsetsThanValues := offsetBytesNeeded < voffsets.Len()
-
-	// or if the offsets do not start from the zero index, we need to shift them
-	// and slice the values array
-	var firstOffset int64
-	if dataTypeWidth == 8 {
-		firstOffset = arrow.Int64Traits.CastFromBytes(voffsets.Bytes())[0]
-	} else {
-		firstOffset = int64(arrow.Int32Traits.CastFromBytes(voffsets.Bytes())[0])
-	}
-	offsetsDoNotStartFromZero := firstOffset != 0
-
-	// determine whether the offsets array should be shifted
-	needsTruncateAndShift := hasNonZeroOffset || hasMoreOffsetsThanValues || offsetsDoNotStartFromZero
+	needsTruncateAndShift := data.Offset() != 0 || offsetBytesNeeded < voffsets.Len()
 
 	if needsTruncateAndShift {
 		shiftedOffsets := memory.NewResizableBuffer(w.mem)
 		shiftedOffsets.Resize(offsetBytesNeeded)
 
-		switch dataTypeWidth {
+		switch arr.DataType().Layout().Buffers[1].ByteWidth {
 		case 8:
 			dest := arrow.Int64Traits.CastFromBytes(shiftedOffsets.Bytes())
 			offsets := arrow.Int64Traits.CastFromBytes(voffsets.Bytes())[data.Offset() : data.Offset()+data.Len()+1]

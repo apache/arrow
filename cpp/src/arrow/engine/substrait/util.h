@@ -70,7 +70,7 @@ ARROW_ENGINE_EXPORT const std::string& default_extension_types_uri();
 
 // TODO(ARROW-18145) Populate these from cmake files
 constexpr uint32_t kSubstraitMajorVersion = 0;
-constexpr uint32_t kSubstraitMinorVersion = 44;
+constexpr uint32_t kSubstraitMinorVersion = 27;
 constexpr uint32_t kSubstraitPatchVersion = 0;
 
 constexpr uint32_t kSubstraitMinimumMajorVersion = 0;

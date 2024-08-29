@@ -391,15 +391,7 @@ class ArrayPrinter : public PrettyPrinter {
   }
 
   Status Print(const Array& array) {
-    if (array.device_type() != DeviceAllocationType::kCPU) {
-      // GH-43055: ideally we only copy start/end slices from non-CPU memory
-      // based on the window size that is being printed
-      ARROW_ASSIGN_OR_RAISE(auto array_cpu,
-                            array.ViewOrCopyTo(default_cpu_memory_manager()));
-      RETURN_NOT_OK(VisitArrayInline(*array_cpu, this));
-    } else {
-      RETURN_NOT_OK(VisitArrayInline(array, this));
-    }
+    RETURN_NOT_OK(VisitArrayInline(array, this));
     Flush();
     return Status::OK();
   }

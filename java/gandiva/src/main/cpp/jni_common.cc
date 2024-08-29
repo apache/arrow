@@ -67,7 +67,7 @@ using gandiva::ProjectorHolder;
 // forward declarations
 NodePtr ProtoTypeToNode(const gandiva::types::TreeNode& node);
 
-static jint JNI_VERSION = JNI_VERSION_10;
+static jint JNI_VERSION = JNI_VERSION_1_6;
 
 // extern refs - initialized for other modules.
 jclass configuration_builder_class_;

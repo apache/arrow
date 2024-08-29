@@ -22,10 +22,6 @@ set -ex
 arrow_dir=${1}
 test_dir=${1}/python/build/dist
 
-if [ -n "${ARROW_PYTHON_VENV:-}" ]; then
-  . "${ARROW_PYTHON_VENV}/bin/activate"
-fi
-
 export ARROW_SOURCE_DIR=${arrow_dir}
 export ARROW_TEST_DATA=${arrow_dir}/testing/data
 export PARQUET_TEST_DATA=${arrow_dir}/cpp/submodules/parquet-testing/data
@@ -56,7 +52,6 @@ fi
 : ${PYARROW_TEST_S3:=${ARROW_S3:-ON}}
 
 export PYARROW_TEST_ACERO
-export PYARROW_TEST_AZURE
 export PYARROW_TEST_CUDA
 export PYARROW_TEST_DATASET
 export PYARROW_TEST_FLIGHT

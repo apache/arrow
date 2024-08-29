@@ -56,7 +56,7 @@ class ARROW_EXPORT TDigest {
   // this function is intensively called and performance critical
   // call it only if you are sure no NAN exists in input data
   void Add(double value) {
-    ARROW_DCHECK(!std::isnan(value)) << "cannot add NAN";
+    DCHECK(!std::isnan(value)) << "cannot add NAN";
     if (ARROW_PREDICT_FALSE(input_.size() == input_.capacity())) {
       MergeInput();
     }

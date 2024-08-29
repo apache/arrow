@@ -284,11 +284,8 @@ static void CaseWhenBench(benchmark::State& state) {
   state.SetItemsProcessed(state.iterations() * (len - offset));
 }
 
-template <typename Type>
-static void CaseWhenBenchList(benchmark::State& state,
-                              const std::shared_ptr<DataType>& type) {
-  using ArrayType = typename TypeTraits<Type>::ArrayType;
-
+static void CaseWhenBenchList(benchmark::State& state) {
+  auto type = list(int64());
   auto fld = field("", type);
 
   int64_t len = state.range(0);
@@ -298,17 +295,17 @@ static void CaseWhenBenchList(benchmark::State& state,
 
   auto cond_field =
       field("cond", boolean(), key_value_metadata({{"null_probability", "0.01"}}));
-  auto cond = std::static_pointer_cast<BooleanArray>(
-                  rand.ArrayOf(*field("", struct_({cond_field, cond_field, cond_field}),
-                                      key_value_metadata({{"null_probability", "0.0"}})),
-                               len))
-                  ->Slice(offset);
-  auto val1 = std::static_pointer_cast<ArrayType>(rand.ArrayOf(*fld, len))->Slice(offset);
-  auto val2 = std::static_pointer_cast<ArrayType>(rand.ArrayOf(*fld, len))->Slice(offset);
-  auto val3 = std::static_pointer_cast<ArrayType>(rand.ArrayOf(*fld, len))->Slice(offset);
-  auto val4 = std::static_pointer_cast<ArrayType>(rand.ArrayOf(*fld, len))->Slice(offset);
+  auto cond = rand.ArrayOf(*field("", struct_({cond_field, cond_field, cond_field}),
+                                  key_value_metadata({{"null_probability", "0.0"}})),
+                           len);
+  auto val1 = rand.ArrayOf(*fld, len);
+  auto val2 = rand.ArrayOf(*fld, len);
+  auto val3 = rand.ArrayOf(*fld, len);
+  auto val4 = rand.ArrayOf(*fld, len);
   for (auto _ : state) {
-    ABORT_NOT_OK(CaseWhen(cond, {val1, val2, val3, val4}));
+    ABORT_NOT_OK(
+        CaseWhen(cond->Slice(offset), {val1->Slice(offset), val2->Slice(offset),
+                                       val3->Slice(offset), val4->Slice(offset)}));
   }
 
   // Set bytes processed to ~length of output
@@ -373,21 +370,6 @@ static void CaseWhenBenchString(benchmark::State& state) {
 
 static void CaseWhenBenchStringContiguous(benchmark::State& state) {
   return CaseWhenBenchContiguous<StringType>(state);
-}
-
-template <typename ListType, typename ValueType>
-static void CaseWhenBenchVarLengthListLike(benchmark::State& state) {
-  auto value_type = TypeTraits<ValueType>::type_singleton();
-  auto list_type = std::make_shared<ListType>(value_type);
-  return CaseWhenBenchList<ListType>(state, list_type);
-}
-
-static void CaseWhenBenchListInt64(benchmark::State& state) {
-  return CaseWhenBenchVarLengthListLike<ListType, Int64Type>(state);
-}
-
-static void CaseWhenBenchListViewInt64(benchmark::State& state) {
-  CaseWhenBenchVarLengthListLike<ListViewType, Int64Type>(state);
 }
 
 struct CoalesceParams {
@@ -551,11 +533,9 @@ BENCHMARK(CaseWhenBench64)->Args({kNumItems, 99});
 BENCHMARK(CaseWhenBench64Contiguous)->Args({kNumItems, 0});
 BENCHMARK(CaseWhenBench64Contiguous)->Args({kNumItems, 99});
 
-// CaseWhen: List-like types
-BENCHMARK(CaseWhenBenchListInt64)->Args({kFewItems, 0});
-BENCHMARK(CaseWhenBenchListInt64)->Args({kFewItems, 99});
-BENCHMARK(CaseWhenBenchListViewInt64)->Args({kFewItems, 0});
-BENCHMARK(CaseWhenBenchListViewInt64)->Args({kFewItems, 99});
+// CaseWhen: Lists
+BENCHMARK(CaseWhenBenchList)->Args({kFewItems, 0});
+BENCHMARK(CaseWhenBenchList)->Args({kFewItems, 99});
 
 // CaseWhen: Strings
 BENCHMARK(CaseWhenBenchString)->Args({kFewItems, 0});

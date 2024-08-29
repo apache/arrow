@@ -33,7 +33,7 @@ class ARROW_PYTHON_EXPORT PyExtensionType : public ExtensionType {
   // Implement extensionType API
   std::string extension_name() const override { return extension_name_; }
 
-  std::string ToString(bool show_metadata = false) const override;
+  std::string ToString() const override;
 
   bool ExtensionEquals(const ExtensionType& other) const override;
 

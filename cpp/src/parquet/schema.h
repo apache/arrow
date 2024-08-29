@@ -175,7 +175,7 @@ class PARQUET_EXPORT Node {
   Node::type type_;
   std::string name_;
   Repetition::type repetition_;
-  ConvertedType::type converted_type_{ConvertedType::NONE};
+  ConvertedType::type converted_type_;
   std::shared_ptr<const LogicalType> logical_type_;
   int field_id_;
   // Nodes should not be shared, they have a single parent.
@@ -280,8 +280,7 @@ class PARQUET_EXPORT GroupNode : public Node {
                              const NodeVector& fields,
                              std::shared_ptr<const LogicalType> logical_type,
                              int field_id = -1) {
-    return NodePtr(
-        new GroupNode(name, repetition, fields, std::move(logical_type), field_id));
+    return NodePtr(new GroupNode(name, repetition, fields, logical_type, field_id));
   }
 
   bool Equals(const Node* other) const override;
@@ -377,7 +376,7 @@ class PARQUET_EXPORT ColumnDescriptor {
   ColumnOrder column_order() const { return primitive_node_->column_order(); }
 
   SortOrder::type sort_order() const {
-    const auto& la = logical_type();
+    auto la = logical_type();
     auto pt = physical_type();
     return la ? GetSortOrder(la, pt) : GetSortOrder(converted_type(), pt);
   }
@@ -417,8 +416,8 @@ class PARQUET_EXPORT ColumnDescriptor {
 // TODO(wesm): this object can be recomputed from a Schema
 class PARQUET_EXPORT SchemaDescriptor {
  public:
-  SchemaDescriptor() = default;
-  ~SchemaDescriptor() = default;
+  SchemaDescriptor() {}
+  ~SchemaDescriptor() {}
 
   // Analyze the schema
   void Init(std::unique_ptr<schema::Node> schema);
@@ -465,7 +464,6 @@ class PARQUET_EXPORT SchemaDescriptor {
   // Root Node
   schema::NodePtr schema_;
   // Root Node
-  // Would never be NULLPTR.
   const schema::GroupNode* group_node_;
 
   void BuildTree(const schema::NodePtr& node, int16_t max_def_level,

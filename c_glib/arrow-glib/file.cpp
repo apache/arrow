@@ -33,7 +33,9 @@ G_BEGIN_DECLS
  * #GArrowFile is an interface for file.
  */
 
-G_DEFINE_INTERFACE(GArrowFile, garrow_file, G_TYPE_OBJECT)
+G_DEFINE_INTERFACE(GArrowFile,
+                   garrow_file,
+                   G_TYPE_OBJECT)
 
 static void
 garrow_file_default_init(GArrowFileInterface *iface)
@@ -48,7 +50,8 @@ garrow_file_default_init(GArrowFileInterface *iface)
  * Returns: %TRUE on success, %FALSE if there was an error.
  */
 gboolean
-garrow_file_close(GArrowFile *file, GError **error)
+garrow_file_close(GArrowFile *file,
+                  GError **error)
 {
   auto arrow_file = garrow_file_get_raw(file);
 
@@ -79,7 +82,8 @@ garrow_file_is_closed(GArrowFile *file)
  * Returns: The current offset on success, -1 if there was an error.
  */
 gint64
-garrow_file_tell(GArrowFile *file, GError **error)
+garrow_file_tell(GArrowFile *file,
+                    GError **error)
 {
   auto arrow_file = garrow_file_get_raw(file);
 

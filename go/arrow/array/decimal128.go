@@ -19,17 +19,18 @@ package array
 import (
 	"bytes"
 	"fmt"
+	"math"
 	"math/big"
 	"reflect"
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v18/arrow"
-	"github.com/apache/arrow/go/v18/arrow/bitutil"
-	"github.com/apache/arrow/go/v18/arrow/decimal128"
-	"github.com/apache/arrow/go/v18/arrow/internal/debug"
-	"github.com/apache/arrow/go/v18/arrow/memory"
-	"github.com/apache/arrow/go/v18/internal/json"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/bitutil"
+	"github.com/apache/arrow/go/v16/arrow/decimal128"
+	"github.com/apache/arrow/go/v16/arrow/internal/debug"
+	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v16/internal/json"
 )
 
 // A type which represents an immutable sequence of 128-bit decimal values.
@@ -85,19 +86,15 @@ func (a *Decimal128) setData(data *Data) {
 		a.values = a.values[beg:end]
 	}
 }
+
 func (a *Decimal128) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
 	}
+
 	typ := a.DataType().(*arrow.Decimal128Type)
-	n := a.Value(i)
-	scale := typ.Scale
-	f := (&big.Float{}).SetInt(n.BigInt())
-	if scale < 0 {
-		f.SetPrec(128).Mul(f, (&big.Float{}).SetInt(decimal128.GetScaleMultiplier(int(-scale)).BigInt()))
-	} else {
-		f.SetPrec(128).Quo(f, (&big.Float{}).SetInt(decimal128.GetScaleMultiplier(int(scale)).BigInt()))
-	}
+	f := (&big.Float{}).SetInt(a.Value(i).BigInt())
+	f.Quo(f, big.NewFloat(math.Pow10(int(typ.Scale))))
 	return f.Text('g', int(typ.Precision))
 }
 

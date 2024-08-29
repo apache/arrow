@@ -14,16 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.gandiva.evaluator;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-
-import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
 import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.IntStream;
+
 import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.expression.Condition;
 import org.apache.arrow.gandiva.expression.TreeBuilder;
@@ -34,8 +32,11 @@ import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
+import org.junit.Assert;
+import org.junit.Test;
+
+import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 
 public class FilterTest extends BaseEvaluatorTest {
 
@@ -73,7 +74,6 @@ public class FilterTest extends BaseEvaluatorTest {
   }
 
   @Test
-  @Disabled("GH-43576 - Fix and enable this test")
   public void testSimpleInString() throws GandivaException, Exception {
     Field c1 = Field.nullable("c1", new ArrowType.Utf8());
     TreeNode l1 = TreeBuilder.makeLiteral(1L);
@@ -83,7 +83,7 @@ public class FilterTest extends BaseEvaluatorTest {
     List<TreeNode> args = Lists.newArrayList(TreeBuilder.makeField(c1), l1, l2);
     TreeNode substr = TreeBuilder.makeFunction("substr", args, new ArrowType.Utf8());
     TreeNode inExpr =
-        TreeBuilder.makeInExpressionString(substr, Sets.newHashSet("one", "two", "thr", "fou"));
+            TreeBuilder.makeInExpressionString(substr, Sets.newHashSet("one", "two", "thr", "fou"));
 
     Condition condition = TreeBuilder.makeCondition(inExpr);
 
@@ -93,25 +93,9 @@ public class FilterTest extends BaseEvaluatorTest {
     int numRows = 16;
     byte[] validity = new byte[] {(byte) 255, 0};
     // second half is "undefined"
-    String[] c1Values =
-        new String[] {
-          "one",
-          "two",
-          "three",
-          "four",
-          "five",
-          "six",
-          "seven",
-          "eight",
-          "nine",
-          "ten",
-          "eleven",
-          "twelve",
-          "thirteen",
-          "fourteen",
-          "fifteen",
-          "sixteen"
-        };
+    String[] c1Values = new String[]{"one", "two", "three", "four", "five", "six", "seven",
+      "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen",
+      "sixteen"};
     int[] expected = {0, 1, 2, 3};
     ArrowBuf c1Validity = buf(validity);
     ArrowBuf c2Validity = buf(validity);
@@ -119,10 +103,10 @@ public class FilterTest extends BaseEvaluatorTest {
 
     ArrowFieldNode fieldNode = new ArrowFieldNode(numRows, 0);
     ArrowRecordBatch batch =
-        new ArrowRecordBatch(
-            numRows,
-            Lists.newArrayList(fieldNode),
-            Lists.newArrayList(c1Validity, dataBufsX.get(0), dataBufsX.get(1), c2Validity));
+            new ArrowRecordBatch(
+                    numRows,
+                    Lists.newArrayList(fieldNode),
+                    Lists.newArrayList(c1Validity, dataBufsX.get(0), dataBufsX.get(1), c2Validity));
 
     ArrowBuf selectionBuffer = buf(numRows * 2);
     SelectionVectorInt16 selectionVector = new SelectionVectorInt16(selectionBuffer);
@@ -133,17 +117,16 @@ public class FilterTest extends BaseEvaluatorTest {
     releaseRecordBatch(batch);
     selectionBuffer.close();
     filter.close();
-    assertArrayEquals(expected, actual);
+    Assert.assertArrayEquals(expected, actual);
   }
 
   @Test
-  @Disabled("GH-43576 - Fix and enable this test")
   public void testSimpleInInt() throws GandivaException, Exception {
     Field c1 = Field.nullable("c1", int32);
 
     List<Field> argsSchema = Lists.newArrayList(c1);
     TreeNode inExpr =
-        TreeBuilder.makeInExpressionInt32(TreeBuilder.makeField(c1), Sets.newHashSet(1, 2, 3, 4));
+            TreeBuilder.makeInExpressionInt32(TreeBuilder.makeField(c1), Sets.newHashSet(1, 2, 3, 4));
 
     Condition condition = TreeBuilder.makeCondition(inExpr);
 
@@ -162,10 +145,10 @@ public class FilterTest extends BaseEvaluatorTest {
 
     ArrowFieldNode fieldNode = new ArrowFieldNode(numRows, 0);
     ArrowRecordBatch batch =
-        new ArrowRecordBatch(
-            numRows,
-            Lists.newArrayList(fieldNode),
-            Lists.newArrayList(validitya, valuesa, validityb));
+            new ArrowRecordBatch(
+                    numRows,
+                    Lists.newArrayList(fieldNode),
+                    Lists.newArrayList(validitya, valuesa, validityb));
 
     ArrowBuf selectionBuffer = buf(numRows * 2);
     SelectionVectorInt16 selectionVector = new SelectionVectorInt16(selectionBuffer);
@@ -177,11 +160,10 @@ public class FilterTest extends BaseEvaluatorTest {
     releaseRecordBatch(batch);
     selectionBuffer.close();
     filter.close();
-    assertArrayEquals(expected, actual);
+    Assert.assertArrayEquals(expected, actual);
   }
 
   @Test
-  @Disabled("GH-43576 - Fix and enable this test")
   public void testSimpleSV16() throws GandivaException, Exception {
     Field a = Field.nullable("a", int32);
     Field b = Field.nullable("b", int32);
@@ -203,7 +185,6 @@ public class FilterTest extends BaseEvaluatorTest {
   }
 
   @Test
-  @Disabled("GH-43576 - Fix and enable this test")
   public void testSimpleSV16_AllMatched() throws GandivaException, Exception {
     Field a = Field.nullable("a", int32);
     Field b = Field.nullable("b", int32);
@@ -233,7 +214,6 @@ public class FilterTest extends BaseEvaluatorTest {
   }
 
   @Test
-  @Disabled("GH-43576 - Fix and enable this test")
   public void testSimpleSV16_GreaterThan64Recs() throws GandivaException, Exception {
     Field a = Field.nullable("a", int32);
     Field b = Field.nullable("b", int32);
@@ -265,7 +245,6 @@ public class FilterTest extends BaseEvaluatorTest {
   }
 
   @Test
-  @Disabled("GH-43576 - Fix and enable this test")
   public void testSimpleSV32() throws GandivaException, Exception {
     Field a = Field.nullable("a", int32);
     Field b = Field.nullable("b", int32);
@@ -287,7 +266,6 @@ public class FilterTest extends BaseEvaluatorTest {
   }
 
   @Test
-  @Disabled("GH-43576 - Fix and enable this test")
   public void testSimpleFilterWithNoOptimisation() throws GandivaException, Exception {
     Field a = Field.nullable("a", int32);
     Field b = Field.nullable("b", int32);
@@ -332,6 +310,6 @@ public class FilterTest extends BaseEvaluatorTest {
     selectionBuffer.close();
     filter.close();
 
-    assertArrayEquals(expected, actual);
+    Assert.assertArrayEquals(expected, actual);
   }
 }

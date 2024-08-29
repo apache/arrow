@@ -38,13 +38,10 @@ concurrency:
 permissions:
   contents: read
 
-env:
-  ARCHERY_DEBUG: 1
-
 jobs:
 
   docker:
-    name: AMD64 Debian 12 NodeJS 18
+    name: AMD64 Debian 11 NodeJS 18
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
@@ -54,7 +51,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup Python
-        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
+        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
         with:
           python-version: 3.8
       - name: Setup Archery
@@ -80,10 +77,10 @@ jobs:
         run: archery docker push debian-js
 
   macos:
-    name: AMD64 macOS 12 NodeJS ${{ matrix.node }}
-    runs-on: macos-12
-    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 30
+    name: AMD64 macOS 11 NodeJS ${{ matrix.node }}
+    runs-on: macos-latest
+    if: github.event_name == 'push'
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -105,16 +102,15 @@ jobs:
           node-version: ${{ matrix.node }}
       - name: Build
         shell: bash
-        run: ci/scripts/js_build.sh $(pwd) build
+        run: ci/scripts/js_build.sh $(pwd)
       - name: Test
         shell: bash
-        run: ci/scripts/js_test.sh $(pwd) build
+        run: ci/scripts/js_test.sh $(pwd)
 
   windows:
     name: AMD64 Windows NodeJS ${{ matrix.node }}
     runs-on: windows-latest
-    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 45
+    if: github.event_name == 'push'
     strategy:
       fail-fast: false
       matrix:
@@ -136,7 +132,7 @@ jobs:
           node-version: ${{ matrix.node }}
       - name: Build
         shell: bash
-        run: ci/scripts/js_build.sh $(pwd) build
+        run: ci/scripts/js_build.sh $(pwd)
       - name: Test
         shell: bash
-        run: ci/scripts/js_test.sh $(pwd) build
+        run: ci/scripts/js_test.sh $(pwd)

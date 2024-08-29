@@ -14,15 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.gandiva.evaluator;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import com.google.common.collect.Lists;
 import java.util.Set;
+
 import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.vector.types.pojo.ArrowType;
-import org.junit.jupiter.api.Test;
+import org.junit.Assert;
+import org.junit.Test;
+
+import com.google.common.collect.Lists;
 
 public class ExpressionRegistryTest {
 
@@ -30,7 +32,7 @@ public class ExpressionRegistryTest {
   public void testTypes() throws GandivaException {
     Set<ArrowType> types = ExpressionRegistry.getInstance().getSupportedTypes();
     ArrowType.Int uint8 = new ArrowType.Int(8, false);
-    assertTrue(types.contains(uint8));
+    Assert.assertTrue(types.contains(uint8));
   }
 
   @Test
@@ -39,7 +41,7 @@ public class ExpressionRegistryTest {
     FunctionSignature signature =
         new FunctionSignature("add", uint8, Lists.newArrayList(uint8, uint8));
     Set<FunctionSignature> functions = ExpressionRegistry.getInstance().getSupportedFunctions();
-    assertTrue(functions.contains(signature));
+    Assert.assertTrue(functions.contains(signature));
   }
 
   @Test
@@ -48,7 +50,7 @@ public class ExpressionRegistryTest {
     FunctionSignature signature =
         new FunctionSignature("modulo", int64, Lists.newArrayList(int64, int64));
     Set<FunctionSignature> functions = ExpressionRegistry.getInstance().getSupportedFunctions();
-    assertTrue(functions.contains(signature));
+    Assert.assertTrue(functions.contains(signature));
   }
 
   @Test
@@ -58,6 +60,6 @@ public class ExpressionRegistryTest {
     FunctionSignature signature =
         new FunctionSignature("castvarchar", utf8, Lists.newArrayList(utf8, int64));
     Set<FunctionSignature> functions = ExpressionRegistry.getInstance().getSupportedFunctions();
-    assertTrue(functions.contains(signature));
+    Assert.assertTrue(functions.contains(signature));
   }
 }

@@ -45,7 +45,6 @@ Classes
    CsvFileFormat
    CsvFragmentScanOptions
    IpcFileFormat
-   JsonFileFormat
    ParquetFileFormat
    ParquetReadOptions
    ParquetFragmentScanOptions

@@ -22,17 +22,18 @@
 namespace arrow::matlab::array::proxy {
 
 class ListArray : public arrow::matlab::array::proxy::Array {
- public:
-  ListArray(std::shared_ptr<arrow::ListArray> list_array);
-  ~ListArray() {}
 
-  static libmexclass::proxy::MakeResult make(
-      const libmexclass::proxy::FunctionArguments& constructor_arguments);
+    public:
+        ListArray(std::shared_ptr<arrow::ListArray> list_array);
+        ~ListArray() {}
 
- protected:
-  void getValues(libmexclass::proxy::method::Context& context);
-  void getOffsets(libmexclass::proxy::method::Context& context);
-  void validate(libmexclass::proxy::method::Context& context);
-};
+        static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
 
-}  // namespace arrow::matlab::array::proxy
+    protected:
+        void getValues(libmexclass::proxy::method::Context& context);
+        void getOffsets(libmexclass::proxy::method::Context& context);
+        void validate(libmexclass::proxy::method::Context& context);
+
+    };
+
+}

@@ -14,9 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.memory;
 
-/** The result of transferring an {@link ArrowBuf} between {@linkplain BufferAllocator}s. */
+/**
+ * The result of transferring an {@link ArrowBuf} between {@linkplain BufferAllocator}s.
+ */
 public interface OwnershipTransferResult {
 
   boolean getAllocationFit();

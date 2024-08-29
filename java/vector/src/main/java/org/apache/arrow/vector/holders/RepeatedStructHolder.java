@@ -14,9 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector.holders;
 
-/** {@link ValueHolder} for a list of structs. */
+/**
+ * {@link ValueHolder} for a list of structs.
+ */
 public final class RepeatedStructHolder implements ValueHolder {
   public int start;
   public int end;

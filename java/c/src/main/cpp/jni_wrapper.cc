@@ -43,7 +43,7 @@ jmethodID kPrivateDataGetNextMethod;
 jmethodID kPrivateDataGetSchemaMethod;
 jmethodID kCDataExceptionConstructor;
 
-jint JNI_VERSION = JNI_VERSION_10;
+jint JNI_VERSION = JNI_VERSION_1_6;
 
 class JniPendingException : public std::runtime_error {
  public:

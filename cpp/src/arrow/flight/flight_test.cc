@@ -52,9 +52,7 @@
 // Include before test_util.h (boost), contains Windows fixes
 #include "arrow/flight/platform.h"
 #include "arrow/flight/serialization_internal.h"
-#include "arrow/flight/test_auth_handlers.h"
 #include "arrow/flight/test_definitions.h"
-#include "arrow/flight/test_flight_server.h"
 #include "arrow/flight/test_util.h"
 // OTel includes must come after any gRPC includes, and
 // client_header_internal.h includes gRPC. See:
@@ -73,7 +71,6 @@
 #ifdef ARROW_WITH_OPENTELEMETRY
 #include <opentelemetry/context/propagation/global_propagator.h>
 #include <opentelemetry/context/propagation/text_map_propagator.h>
-#include <opentelemetry/sdk/trace/processor.h>
 #include <opentelemetry/sdk/trace/tracer_provider.h>
 #include <opentelemetry/trace/propagation/http_trace_context.h>
 #endif
@@ -249,7 +246,7 @@ TEST(TestFlight, ConnectUriUnix) {
 
 // CI environments don't have an IPv6 interface configured
 TEST(TestFlight, DISABLED_IpV6Port) {
-  std::unique_ptr<FlightServerBase> server = TestFlightServer::Make();
+  std::unique_ptr<FlightServerBase> server = ExampleTestServer();
 
   ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("[::1]", 0));
   FlightServerOptions options(location);
@@ -263,7 +260,7 @@ TEST(TestFlight, DISABLED_IpV6Port) {
 }
 
 TEST(TestFlight, ServerCallContextIncomingHeaders) {
-  auto server = TestFlightServer::Make();
+  auto server = ExampleTestServer();
   ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("localhost", 0));
   FlightServerOptions options(location);
   ASSERT_OK(server->Init(options));
@@ -292,7 +289,7 @@ TEST(TestFlight, ServerCallContextIncomingHeaders) {
 class TestFlightClient : public ::testing::Test {
  public:
   void SetUp() {
-    server_ = TestFlightServer::Make();
+    server_ = ExampleTestServer();
 
     ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("localhost", 0));
     FlightServerOptions options(location);
@@ -1000,8 +997,7 @@ TEST_F(TestFlightClient, ListFlights) {
 }
 
 TEST_F(TestFlightClient, ListFlightsWithCriteria) {
-  ASSERT_OK_AND_ASSIGN(auto listing,
-                       client_->ListFlights(FlightCallOptions{}, Criteria{"foo"}));
+  ASSERT_OK_AND_ASSIGN(auto listing, client_->ListFlights(FlightCallOptions(), {"foo"}));
   std::unique_ptr<FlightInfo> info;
   ASSERT_OK_AND_ASSIGN(info, listing->Next());
   ASSERT_TRUE(info == nullptr);

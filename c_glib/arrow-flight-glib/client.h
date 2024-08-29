@@ -23,8 +23,9 @@
 
 G_BEGIN_DECLS
 
-#define GAFLIGHT_TYPE_STREAM_READER (gaflight_stream_reader_get_type())
-GAFLIGHT_AVAILABLE_IN_6_0
+
+#define GAFLIGHT_TYPE_STREAM_READER       \
+  (gaflight_stream_reader_get_type())
 G_DECLARE_DERIVABLE_TYPE(GAFlightStreamReader,
                          gaflight_stream_reader,
                          GAFLIGHT,
@@ -35,65 +36,76 @@ struct _GAFlightStreamReaderClass
   GAFlightRecordBatchReaderClass parent_class;
 };
 
+
 #define GAFLIGHT_TYPE_CALL_OPTIONS (gaflight_call_options_get_type())
-GAFLIGHT_AVAILABLE_IN_5_0
-G_DECLARE_DERIVABLE_TYPE(
-  GAFlightCallOptions, gaflight_call_options, GAFLIGHT, CALL_OPTIONS, GObject)
+G_DECLARE_DERIVABLE_TYPE(GAFlightCallOptions,
+                         gaflight_call_options,
+                         GAFLIGHT,
+                         CALL_OPTIONS,
+                         GObject)
 struct _GAFlightCallOptionsClass
 {
   GObjectClass parent_class;
 };
 
-GAFLIGHT_AVAILABLE_IN_5_0
+GARROW_AVAILABLE_IN_5_0
 GAFlightCallOptions *
 gaflight_call_options_new(void);
 
-GAFLIGHT_AVAILABLE_IN_9_0
+GARROW_AVAILABLE_IN_9_0
 void
 gaflight_call_options_add_header(GAFlightCallOptions *options,
                                  const gchar *name,
                                  const gchar *value);
-GAFLIGHT_AVAILABLE_IN_9_0
+GARROW_AVAILABLE_IN_9_0
 void
 gaflight_call_options_clear_headers(GAFlightCallOptions *options);
-GAFLIGHT_AVAILABLE_IN_9_0
+GARROW_AVAILABLE_IN_9_0
 void
 gaflight_call_options_foreach_header(GAFlightCallOptions *options,
                                      GAFlightHeaderFunc func,
                                      gpointer user_data);
 
+
 #define GAFLIGHT_TYPE_CLIENT_OPTIONS (gaflight_client_options_get_type())
-GAFLIGHT_AVAILABLE_IN_5_0
-G_DECLARE_DERIVABLE_TYPE(
-  GAFlightClientOptions, gaflight_client_options, GAFLIGHT, CLIENT_OPTIONS, GObject)
+G_DECLARE_DERIVABLE_TYPE(GAFlightClientOptions,
+                         gaflight_client_options,
+                         GAFLIGHT,
+                         CLIENT_OPTIONS,
+                         GObject)
 struct _GAFlightClientOptionsClass
 {
   GObjectClass parent_class;
 };
 
-GAFLIGHT_AVAILABLE_IN_5_0
+GARROW_AVAILABLE_IN_5_0
 GAFlightClientOptions *
 gaflight_client_options_new(void);
 
+
 #define GAFLIGHT_TYPE_CLIENT (gaflight_client_get_type())
-GAFLIGHT_AVAILABLE_IN_5_0
-G_DECLARE_DERIVABLE_TYPE(GAFlightClient, gaflight_client, GAFLIGHT, CLIENT, GObject)
+G_DECLARE_DERIVABLE_TYPE(GAFlightClient,
+                         gaflight_client,
+                         GAFLIGHT,
+                         CLIENT,
+                         GObject)
 struct _GAFlightClientClass
 {
   GObjectClass parent_class;
 };
 
-GAFLIGHT_AVAILABLE_IN_5_0
+GARROW_AVAILABLE_IN_5_0
 GAFlightClient *
 gaflight_client_new(GAFlightLocation *location,
                     GAFlightClientOptions *options,
                     GError **error);
 
-GAFLIGHT_AVAILABLE_IN_8_0
+GARROW_AVAILABLE_IN_8_0
 gboolean
-gaflight_client_close(GAFlightClient *client, GError **error);
+gaflight_client_close(GAFlightClient *client,
+                      GError **error);
 
-GAFLIGHT_AVAILABLE_IN_12_0
+GARROW_AVAILABLE_IN_12_0
 gboolean
 gaflight_client_authenticate_basic_token(GAFlightClient *client,
                                          const gchar *user,
@@ -103,25 +115,26 @@ gaflight_client_authenticate_basic_token(GAFlightClient *client,
                                          gchar **bearer_value,
                                          GError **error);
 
-GAFLIGHT_AVAILABLE_IN_5_0
+GARROW_AVAILABLE_IN_5_0
 GList *
 gaflight_client_list_flights(GAFlightClient *client,
                              GAFlightCriteria *criteria,
                              GAFlightCallOptions *options,
                              GError **error);
 
-GAFLIGHT_AVAILABLE_IN_9_0
+GARROW_AVAILABLE_IN_9_0
 GAFlightInfo *
 gaflight_client_get_flight_info(GAFlightClient *client,
                                 GAFlightDescriptor *descriptor,
                                 GAFlightCallOptions *options,
                                 GError **error);
 
-GAFLIGHT_AVAILABLE_IN_6_0
+GARROW_AVAILABLE_IN_6_0
 GAFlightStreamReader *
 gaflight_client_do_get(GAFlightClient *client,
                        GAFlightTicket *ticket,
                        GAFlightCallOptions *options,
                        GError **error);
+
 
 G_END_DECLS

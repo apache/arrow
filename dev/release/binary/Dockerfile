@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM debian:bookworm
+FROM debian:bullseye
 
 ENV DEBIAN_FRONTEND noninteractive
 

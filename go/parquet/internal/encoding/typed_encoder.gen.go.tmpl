@@ -17,13 +17,13 @@
 package encoding
 
 import (
-  "github.com/apache/arrow/go/v18/parquet"
-  "github.com/apache/arrow/go/v18/parquet/schema"
-  format "github.com/apache/arrow/go/v18/parquet/internal/gen-go/parquet"
-  "github.com/apache/arrow/go/v18/arrow"
-  "github.com/apache/arrow/go/v18/parquet/internal/utils"
-  shared_utils "github.com/apache/arrow/go/v18/internal/utils"
-  "github.com/apache/arrow/go/v18/internal/bitutils"
+  "github.com/apache/arrow/go/v16/parquet"
+  "github.com/apache/arrow/go/v16/parquet/schema"
+  format "github.com/apache/arrow/go/v16/parquet/internal/gen-go/parquet"
+  "github.com/apache/arrow/go/v16/arrow"
+  "github.com/apache/arrow/go/v16/parquet/internal/utils"
+  shared_utils "github.com/apache/arrow/go/v16/internal/utils"
+  "github.com/apache/arrow/go/v16/internal/bitutils"
 )
 
 // fully typed encoder interfaces to enable writing against encoder/decoders
@@ -79,26 +79,20 @@ func ({{.lower}}EncoderTraits) Encoder(e format.Encoding, useDict bool, descr *s
 {{- end}}
 {{- if or (eq .Name "Int32") (eq .Name "Int64")}}
   case format.Encoding_DELTA_BINARY_PACKED:
-    return &DeltaBitPack{{.Name}}Encoder{
-      encoder: newEncoderBase(e, descr, mem),
-    }
+    return DeltaBitPack{{.Name}}Encoder{&deltaBitPackEncoder{
+      encoder: newEncoderBase(e, descr, mem)}}
 {{- end}}
 {{- if eq .Name "ByteArray"}}
   case format.Encoding_DELTA_LENGTH_BYTE_ARRAY:
     return &DeltaLengthByteArrayEncoder{
       encoder: newEncoderBase(e, descr, mem),
       lengthEncoder: &DeltaBitPackInt32Encoder{
-        encoder: newEncoderBase(e, descr, mem),
-      },
+        &deltaBitPackEncoder{encoder: newEncoderBase(e, descr, mem)}},
     }
   case format.Encoding_DELTA_BYTE_ARRAY:
     return &DeltaByteArrayEncoder{
       encoder: newEncoderBase(e, descr, mem),
     }
-{{- end}}
-{{- if or (eq .Name "FixedLenByteArray") (eq .Name "Float32") (eq .Name "Float64") (eq .Name "Int32") (eq .Name "Int64")}}
-  case format.Encoding_BYTE_STREAM_SPLIT:
-    return &ByteStreamSplit{{.Name}}Encoder{Plain{{.Name}}Encoder: Plain{{.Name}}Encoder{encoder: newEncoderBase(e,descr,mem)}}
 {{- end}}
   default:
     panic("unimplemented encoding type")
@@ -137,9 +131,10 @@ func ({{.lower}}DecoderTraits) Decoder(e parquet.Encoding, descr *schema.Column,
       mem = memory.DefaultAllocator
     }
     return &DeltaBitPack{{.Name}}Decoder{
-      decoder: newDecoderBase(format.Encoding(e), descr),
-      mem:     mem,
-    }
+      deltaBitPackDecoder: &deltaBitPackDecoder{
+        decoder: newDecoderBase(format.Encoding(e), descr),
+        mem:     mem,
+      }}
 {{- end}}
 {{- if eq .Name "ByteArray"}}
   case parquet.Encodings.DeltaLengthByteArray:
@@ -159,10 +154,6 @@ func ({{.lower}}DecoderTraits) Decoder(e parquet.Encoding, descr *schema.Column,
         decoder: newDecoderBase(format.Encoding(e), descr),
         mem: mem,
       }}
-{{- end}}
-{{- if or (eq .Name "FixedLenByteArray") (eq .Name "Float32") (eq .Name "Float64") (eq .Name "Int32") (eq .Name "Int64")}}
-  case parquet.Encodings.ByteStreamSplit:
-    return &ByteStreamSplit{{.Name}}Decoder{decoder: newDecoderBase(format.Encoding(e), descr)}
 {{- end}}
   default:
     panic("unimplemented encoding type")

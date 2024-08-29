@@ -166,7 +166,7 @@ class ScanNode : public acero::ExecNode, public acero::TracedNode {
       return Status::Invalid("A scan filter must be a boolean expression");
     }
 
-    return normalized;
+    return std::move(normalized);
   }
 
   static Result<acero::ExecNode*> Make(acero::ExecPlan* plan,
@@ -334,7 +334,7 @@ class ScanNode : public acero::ExecNode, public acero::TracedNode {
           extracted.known_values.push_back({i, *maybe_casted});
         }
       }
-      return extracted;
+      return std::move(extracted);
     }
 
     Future<> BeginScan(const std::shared_ptr<InspectedFragment>& inspected_fragment) {
@@ -427,7 +427,7 @@ class ScanNode : public acero::ExecNode, public acero::TracedNode {
             /*queue=*/nullptr,
             [this]() { return output_->InputFinished(this, num_batches_.load()); });
     fragment_tasks->AddAsyncGenerator<std::shared_ptr<Fragment>>(
-        frag_gen,
+        std::move(frag_gen),
         [this, fragment_tasks =
                    std::move(fragment_tasks)](const std::shared_ptr<Fragment>& fragment) {
           fragment_tasks->AddTask(std::make_unique<ListFragmentTask>(this, fragment));

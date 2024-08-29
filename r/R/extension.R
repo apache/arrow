@@ -429,8 +429,7 @@ VctrsExtensionType <- R6Class("VctrsExtensionType",
       paste0(capture.output(print(self$ptype())), collapse = "\n")
     },
     deserialize_instance = function() {
-      private$.ptype <- safe_unserialize(self$extension_metadata())
-      attributes(private$.ptype) <- safe_r_metadata(attributes(private$.ptype))
+      private$.ptype <- unserialize(self$extension_metadata())
     },
     ExtensionEquals = function(other) {
       inherits(other, "VctrsExtensionType") && identical(self$ptype(), other$ptype())
@@ -511,13 +510,11 @@ vctrs_extension_array <- function(x, ptype = vctrs::vec_ptype(x),
 vctrs_extension_type <- function(x,
                                  storage_type = infer_type(vctrs::vec_data(x))) {
   ptype <- vctrs::vec_ptype(x)
-  # Make sure there are no unsupported objects buried in there
-  attributes(ptype) <- safe_r_metadata(attributes(ptype))
 
   new_extension_type(
     storage_type = storage_type,
     extension_name = "arrow.r.vctrs",
-    extension_metadata = serialize(ptype, NULL, ascii = TRUE),
+    extension_metadata = serialize(ptype, NULL),
     type_class = VctrsExtensionType
   )
 }

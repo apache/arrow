@@ -45,12 +45,12 @@ namespace Apache.Arrow.Flight
             _arrowReaderImplementation = new RecordBatchReaderImplementation(flightDataStream);
         }
 
-        public ValueTask<Schema> Schema => _arrowReaderImplementation.GetSchemaAsync();
+        public ValueTask<Schema> Schema => _arrowReaderImplementation.ReadSchema();
 
         internal ValueTask<FlightDescriptor> GetFlightDescriptor()
         {
             return _arrowReaderImplementation.ReadFlightDescriptor();
-        }
+        }        
 
         /// <summary>
         /// Get the application metadata from the latest received record batch

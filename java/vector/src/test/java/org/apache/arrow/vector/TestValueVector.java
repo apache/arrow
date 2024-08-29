@@ -14,19 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.TestUtils.newVarBinaryVector;
 import static org.apache.arrow.vector.TestUtils.newVarCharVector;
 import static org.apache.arrow.vector.TestUtils.newVector;
 import static org.apache.arrow.vector.testing.ValueVectorDataPopulator.setVector;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
@@ -35,6 +35,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -46,14 +47,10 @@ import org.apache.arrow.vector.compare.RangeEqualsVisitor;
 import org.apache.arrow.vector.compare.VectorEqualsVisitor;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
-import org.apache.arrow.vector.complex.LargeListViewVector;
 import org.apache.arrow.vector.complex.ListVector;
-import org.apache.arrow.vector.complex.ListViewVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.impl.NullableStructWriter;
-import org.apache.arrow.vector.complex.impl.UnionLargeListViewWriter;
-import org.apache.arrow.vector.complex.impl.UnionListViewWriter;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.holders.NullableIntHolder;
 import org.apache.arrow.vector.holders.NullableUInt4Holder;
@@ -63,7 +60,6 @@ import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.Types.MinorType;
-import org.apache.arrow.vector.types.UnionMode;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -72,9 +68,9 @@ import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.ReusableByteArray;
 import org.apache.arrow.vector.util.Text;
 import org.apache.arrow.vector.util.TransferPair;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
 
 public class TestValueVector {
 
@@ -82,7 +78,7 @@ public class TestValueVector {
 
   private BufferAllocator allocator;
 
-  @BeforeEach
+  @Before
   public void init() {
     allocator = new RootAllocator(Long.MAX_VALUE);
   }
@@ -98,7 +94,7 @@ public class TestValueVector {
       (int) (Integer.getInteger("arrow.vector.max_allocation_bytes", Integer.MAX_VALUE) / 7);
   private static final int MAX_VALUE_COUNT_8BYTE = (int) (MAX_VALUE_COUNT / 2);
 
-  @AfterEach
+  @After
   public void terminate() throws Exception {
     allocator.close();
   }
@@ -191,7 +187,7 @@ public class TestValueVector {
       /* vector data should have been zeroed out */
       for (int i = 0; i < capacityBeforeReset; i++) {
         // TODO: test vector.get(i) is 0 after unsafe get added
-        assertTrue(vector.isNull(i), "non-zero data not expected at index: " + i);
+        assertEquals("non-zero data not expected at index: " + i, true, vector.isNull(i));
       }
     }
   }
@@ -199,10 +195,10 @@ public class TestValueVector {
   @Test
   public void testNoOverFlowWithUINT() {
     try (final UInt8Vector uInt8Vector = new UInt8Vector("uint8", allocator);
-        final UInt4Vector uInt4Vector = new UInt4Vector("uint4", allocator);
-        final UInt1Vector uInt1Vector = new UInt1Vector("uint1", allocator)) {
+         final UInt4Vector uInt4Vector = new UInt4Vector("uint4", allocator);
+         final UInt1Vector uInt1Vector = new UInt1Vector("uint1", allocator)) {
 
-      long[] longValues = new long[] {Long.MIN_VALUE, Long.MAX_VALUE, -1L};
+      long[] longValues = new long[]{Long.MIN_VALUE, Long.MAX_VALUE, -1L};
       uInt8Vector.allocateNew(3);
       uInt8Vector.setValueCount(3);
       for (int i = 0; i < longValues.length; i++) {
@@ -211,7 +207,7 @@ public class TestValueVector {
         assertEquals(readValue, longValues[i]);
       }
 
-      int[] intValues = new int[] {Integer.MIN_VALUE, Integer.MAX_VALUE, -1};
+      int[] intValues = new int[]{Integer.MIN_VALUE, Integer.MAX_VALUE, -1};
       uInt4Vector.allocateNew(3);
       uInt4Vector.setValueCount(3);
       for (int i = 0; i < intValues.length; i++) {
@@ -220,7 +216,7 @@ public class TestValueVector {
         assertEquals(intValues[i], actualValue);
       }
 
-      byte[] byteValues = new byte[] {Byte.MIN_VALUE, Byte.MAX_VALUE, -1};
+      byte[] byteValues = new byte[]{Byte.MIN_VALUE, Byte.MAX_VALUE, -1};
       uInt1Vector.allocateNew(3);
       uInt1Vector.setValueCount(3);
       for (int i = 0; i < byteValues.length; i++) {
@@ -279,7 +275,7 @@ public class TestValueVector {
       /* check vector contents */
       j = 1;
       for (int i = 0; i < initialCapacity; i += 2) {
-        assertEquals(j, intVector.get(i), "unexpected value at index: " + i);
+        assertEquals("unexpected value at index: " + i, j, intVector.get(i));
         j++;
       }
 
@@ -301,7 +297,7 @@ public class TestValueVector {
       /* vector data should still be intact after realloc */
       j = 1;
       for (int i = 0; i <= initialCapacity; i += 2) {
-        assertEquals(j, intVector.get(i), "unexpected value at index: " + i);
+        assertEquals("unexpected value at index: " + i, j, intVector.get(i));
         j++;
       }
 
@@ -314,7 +310,7 @@ public class TestValueVector {
 
       /* vector data should have been zeroed out */
       for (int i = 0; i < capacityBeforeRealloc; i++) {
-        assertTrue(intVector.isNull(i), "non-zero data not expected at index: " + i);
+        assertEquals("non-zero data not expected at index: " + i, true, intVector.isNull(i));
       }
     }
   }
@@ -430,7 +426,7 @@ public class TestValueVector {
 
       /* vector data should be zeroed out */
       for (int i = 0; i < capacityBeforeReset; i++) {
-        assertTrue(floatVector.isNull(i), "non-zero data not expected at index: " + i);
+        assertTrue("non-zero data not expected at index: " + i, floatVector.isNull(i));
       }
     }
   }
@@ -477,8 +473,7 @@ public class TestValueVector {
       floatVector.setWithPossibleTruncate(14, 32784.0f); // in f32=32784.000000, out f16=32768
 
       try {
-        floatVector.setWithPossibleTruncate(
-            initialCapacity, 1.618034f); // in f32=1.618034, out f16=1.6181641
+        floatVector.setWithPossibleTruncate(initialCapacity, 1.618034f); // in f32=1.618034, out f16=1.6181641
       } catch (IndexOutOfBoundsException ie) {
         error = true;
       } finally {
@@ -505,8 +500,7 @@ public class TestValueVector {
       }
 
       /* this should trigger a realloc() */
-      floatVector.setSafeWithPossibleTruncate(
-          initialCapacity, 1.618034f); // in f32=1.618034, out f16=1.6181641
+      floatVector.setSafeWithPossibleTruncate(initialCapacity, 1.618034f); // in f32=1.618034, out f16=1.6181641
 
       /* underlying buffer should now be able to store double the number of values */
       assertTrue(floatVector.getValueCapacity() >= initialCapacity * 2);
@@ -531,7 +525,7 @@ public class TestValueVector {
 
       /* vector data should be zeroed out */
       for (int i = 0; i < capacityBeforeReset; i++) {
-        assertTrue(floatVector.isNull(i), "non-zero data not expected at index: " + i);
+        assertTrue("non-zero data not expected at index: " + i, floatVector.isNull(i));
       }
     }
   }
@@ -631,7 +625,7 @@ public class TestValueVector {
 
       /* vector data should be zeroed out */
       for (int i = 0; i < capacityBeforeReset; i++) {
-        assertTrue(floatVector.isNull(i), "non-zero data not expected at index: " + i);
+        assertEquals("non-zero data not expected at index: " + i, true, floatVector.isNull(i));
       }
     }
   }
@@ -729,7 +723,7 @@ public class TestValueVector {
 
       /* vector data should be zeroed out */
       for (int i = 0; i < capacityBeforeReset; i++) {
-        assertTrue(floatVector.isNull(i), "non-zero data not expected at index: " + i);
+        assertEquals("non-zero data not expected at index: " + i, true, floatVector.isNull(i));
       }
     }
   }
@@ -738,9 +732,8 @@ public class TestValueVector {
   public void testNullableFixedType1() {
 
     // Create a new value vector for 1024 integers.
-    try (final UInt4Vector vector =
-        newVector(
-            UInt4Vector.class, EMPTY_SCHEMA_PATH, new ArrowType.Int(32, false), allocator); ) {
+    try (final UInt4Vector vector = newVector(UInt4Vector.class, EMPTY_SCHEMA_PATH, new ArrowType.Int(32, false),
+        allocator);) {
       boolean error = false;
       int initialCapacity = 1024;
 
@@ -827,7 +820,7 @@ public class TestValueVector {
 
       /* vector data should be zeroed out */
       for (int i = 0; i < capacityBeforeReset; i++) {
-        assertTrue(vector.isNull(i), "non-null data not expected at index: " + i);
+        assertTrue("non-null data not expected at index: " + i, vector.isNull(i));
       }
     }
   }
@@ -835,8 +828,7 @@ public class TestValueVector {
   @Test /* Float4Vector */
   public void testNullableFixedType2() {
     // Create a new value vector for 1024 integers
-    try (final Float4Vector vector =
-        newVector(Float4Vector.class, EMPTY_SCHEMA_PATH, MinorType.FLOAT4, allocator); ) {
+    try (final Float4Vector vector = newVector(Float4Vector.class, EMPTY_SCHEMA_PATH, MinorType.FLOAT4, allocator);) {
       boolean error = false;
       int initialCapacity = 16;
 
@@ -927,7 +919,7 @@ public class TestValueVector {
 
       /* vector data should be zeroed out */
       for (int i = 0; i < capacityBeforeReset; i++) {
-        assertTrue(vector.isNull(i), "non-null data not expected at index: " + i);
+        assertTrue("non-null data not expected at index: " + i, vector.isNull(i));
       }
     }
   }
@@ -935,8 +927,7 @@ public class TestValueVector {
   @Test /* IntVector */
   public void testNullableFixedType3() {
     // Create a new value vector for 1024 integers
-    try (final IntVector vector =
-        newVector(IntVector.class, EMPTY_SCHEMA_PATH, MinorType.INT, allocator)) {
+    try (final IntVector vector = newVector(IntVector.class, EMPTY_SCHEMA_PATH, MinorType.INT, allocator)) {
       int initialCapacity = 1024;
 
       /* no memory allocation has happened yet so capacity of underlying buffer should be 0 */
@@ -957,10 +948,10 @@ public class TestValueVector {
       int j = 1;
       for (int i = 0; i <= 1023; i++) {
         if ((i >= 2 && i <= 99) || (i >= 101 && i <= 1021)) {
-          assertTrue(vector.isNull(i), "non-null data not expected at index: " + i);
+          assertTrue("non-null data not expected at index: " + i, vector.isNull(i));
         } else {
-          assertFalse(vector.isNull(i), "null data not expected at index: " + i);
-          assertEquals(j, vector.get(i), "unexpected value at index: " + i);
+          assertFalse("null data not expected at index: " + i, vector.isNull(i));
+          assertEquals("unexpected value at index: " + i, j, vector.get(i));
           j++;
         }
       }
@@ -995,10 +986,10 @@ public class TestValueVector {
       j = 1;
       for (int i = 0; i < (initialCapacity * 2); i++) {
         if ((i > 1023 && i != initialCapacity) || (i >= 2 && i <= 99) || (i >= 101 && i <= 1021)) {
-          assertTrue(vector.isNull(i), "non-null data not expected at index: " + i);
+          assertTrue("non-null data not expected at index: " + i, vector.isNull(i));
         } else {
-          assertFalse(vector.isNull(i), "null data not expected at index: " + i);
-          assertEquals(j, vector.get(i), "unexpected value at index: " + i);
+          assertFalse("null data not expected at index: " + i, vector.isNull(i));
+          assertEquals("unexpected value at index: " + i, j, vector.get(i));
           j++;
         }
       }
@@ -1012,21 +1003,20 @@ public class TestValueVector {
 
       /* vector data should have been zeroed out */
       for (int i = 0; i < capacityBeforeReset; i++) {
-        assertTrue(vector.isNull(i), "non-null data not expected at index: " + i);
+        assertTrue("non-null data not expected at index: " + i, vector.isNull(i));
       }
 
       vector.allocateNew(initialCapacity * 4);
       // vector has been erased
       for (int i = 0; i < initialCapacity * 4; i++) {
-        assertTrue(vector.isNull(i), "non-null data not expected at index: " + i);
+        assertTrue("non-null data not expected at index: " + i, vector.isNull(i));
       }
     }
   }
 
   @Test /* IntVector */
   public void testNullableFixedType4() {
-    try (final IntVector vector =
-        newVector(IntVector.class, EMPTY_SCHEMA_PATH, MinorType.INT, allocator)) {
+    try (final IntVector vector = newVector(IntVector.class, EMPTY_SCHEMA_PATH, MinorType.INT, allocator)) {
 
       /* no memory allocation has happened yet */
       assertEquals(0, vector.getValueCapacity());
@@ -1045,10 +1035,10 @@ public class TestValueVector {
 
       for (int i = 0; i < valueCapacity; i++) {
         if ((i & 1) == 1) {
-          assertFalse(vector.isNull(i), "unexpected null value at index: " + i);
-          assertEquals((baseValue + i), vector.get(i), "unexpected value at index: " + i);
+          assertFalse("unexpected null value at index: " + i, vector.isNull(i));
+          assertEquals("unexpected value at index: " + i, (baseValue + i), vector.get(i));
         } else {
-          assertTrue(vector.isNull(i), "unexpected non-null value at index: " + i);
+          assertTrue("unexpected non-null value at index: " + i, vector.isNull(i));
         }
       }
 
@@ -1057,15 +1047,15 @@ public class TestValueVector {
 
       for (int i = 0; i < vector.getValueCapacity(); i++) {
         if (i == valueCapacity) {
-          assertFalse(vector.isNull(i), "unexpected null value at index: " + i);
-          assertEquals(20000000, vector.get(i), "unexpected value at index: " + i);
+          assertFalse("unexpected null value at index: " + i, vector.isNull(i));
+          assertEquals("unexpected value at index: " + i, 20000000, vector.get(i));
         } else if (i < valueCapacity) {
           if ((i & 1) == 1) {
-            assertFalse(vector.isNull(i), "unexpected null value at index: " + i);
-            assertEquals((baseValue + i), vector.get(i), "unexpected value at index: " + i);
+            assertFalse("unexpected null value at index: " + i, vector.isNull(i));
+            assertEquals("unexpected value at index: " + i, (baseValue + i), vector.get(i));
           }
         } else {
-          assertTrue(vector.isNull(i), "unexpected non-null value at index: " + i);
+          assertTrue("unexpected non-null value at index: " + i, vector.isNull(i));
         }
       }
 
@@ -1077,10 +1067,10 @@ public class TestValueVector {
 
       for (int i = 0; i < vector.getValueCapacity(); i++) {
         if (i % 2 == 0) {
-          assertFalse(vector.isNull(i), "unexpected null value at index: " + i);
-          assertEquals((baseValue + i), vector.get(i), "unexpected value at index: " + i);
+          assertFalse("unexpected null value at index: " + i, vector.isNull(i));
+          assertEquals("unexpected value at index: " + i, (baseValue + i), vector.get(i));
         } else {
-          assertTrue(vector.isNull(i), "unexpected non-null value at index: " + i);
+          assertTrue("unexpected non-null value at index: " + i, vector.isNull(i));
         }
       }
 
@@ -1090,13 +1080,13 @@ public class TestValueVector {
 
       for (int i = 0; i < vector.getValueCapacity(); i++) {
         if (i == (valueCapacityBeforeRealloc + 1000)) {
-          assertFalse(vector.isNull(i), "unexpected null value at index: " + i);
-          assertEquals(400000000, vector.get(i), "unexpected value at index: " + i);
+          assertFalse("unexpected null value at index: " + i, vector.isNull(i));
+          assertEquals("unexpected value at index: " + i, 400000000, vector.get(i));
         } else if (i < valueCapacityBeforeRealloc && (i % 2) == 0) {
-          assertFalse(vector.isNull(i), "unexpected null value at index: " + i);
-          assertEquals(baseValue + i, vector.get(i), "unexpected value at index: " + i);
+          assertFalse("unexpected null value at index: " + i, vector.isNull(i));
+          assertEquals("unexpected value at index: " + i, baseValue + i, vector.get(i));
         } else {
-          assertTrue(vector.isNull(i), "unexpected non-null value at index: " + i);
+          assertTrue("unexpected non-null value at index: " + i, vector.isNull(i));
         }
       }
 
@@ -1109,7 +1099,7 @@ public class TestValueVector {
 
       /* vector data should be zeroed out */
       for (int i = 0; i < valueCapacityBeforeReset; i++) {
-        assertTrue(vector.isNull(i), "non-null data not expected at index: " + i);
+        assertTrue("non-null data not expected at index: " + i, vector.isNull(i));
       }
     }
   }
@@ -1129,8 +1119,7 @@ public class TestValueVector {
    */
 
   /**
-   * ARROW-7831: this checks that a slice taken off a buffer is still readable after that buffer's
-   * allocator is closed.
+   * ARROW-7831: this checks that a slice taken off a buffer is still readable after that buffer's allocator is closed.
    */
   @Test /* VarCharVector */
   public void testSplitAndTransfer1() {
@@ -1148,14 +1137,11 @@ public class TestValueVector {
         final int offsetRefCnt = sourceVector.getOffsetBuffer().refCnt();
         final int dataRefCnt = sourceVector.getDataBuffer().refCnt();
 
-        // split and transfer with slice starting at the beginning: this should not allocate
-        // anything new
+        // split and transfer with slice starting at the beginning: this should not allocate anything new
         sourceVector.splitAndTransferTo(0, 2, targetVector);
         assertEquals(allocatedMem, allocator.getAllocatedMemory());
-        // The validity and offset buffers are sliced from a same buffer.See
-        // BaseFixedWidthVector#allocateBytes.
-        // Therefore, the refcnt of the validity buffer is increased once since the startIndex is 0.
-        // The refcnt of the
+        // The validity and offset buffers are sliced from a same buffer.See BaseFixedWidthVector#allocateBytes.
+        // Therefore, the refcnt of the validity buffer is increased once since the startIndex is 0. The refcnt of the
         // offset buffer is increased as well for the same reason. This amounts to a total of 2.
         assertEquals(validityRefCnt + 2, sourceVector.getValidityBuffer().refCnt());
         assertEquals(offsetRefCnt + 2, sourceVector.getOffsetBuffer().refCnt());
@@ -1167,8 +1153,7 @@ public class TestValueVector {
   }
 
   /**
-   * ARROW-7831: this checks that a vector that got sliced is still readable after the slice's
-   * allocator got closed.
+   * ARROW-7831: this checks that a vector that got sliced is still readable after the slice's allocator got closed.
    */
   @Test /* VarCharVector */
   public void testSplitAndTransfer2() {
@@ -1186,14 +1171,11 @@ public class TestValueVector {
         final int offsetRefCnt = sourceVector.getOffsetBuffer().refCnt();
         final int dataRefCnt = sourceVector.getDataBuffer().refCnt();
 
-        // split and transfer with slice starting at the beginning: this should not allocate
-        // anything new
+        // split and transfer with slice starting at the beginning: this should not allocate anything new
         sourceVector.splitAndTransferTo(0, 2, targetVector);
         assertEquals(allocatedMem, allocator.getAllocatedMemory());
-        // The validity and offset buffers are sliced from a same buffer.See
-        // BaseFixedWidthVector#allocateBytes.
-        // Therefore, the refcnt of the validity buffer is increased once since the startIndex is 0.
-        // The refcnt of the
+        // The validity and offset buffers are sliced from a same buffer.See BaseFixedWidthVector#allocateBytes.
+        // Therefore, the refcnt of the validity buffer is increased once since the startIndex is 0. The refcnt of the
         // offset buffer is increased as well for the same reason. This amounts to a total of 2.
         assertEquals(validityRefCnt + 2, sourceVector.getValidityBuffer().refCnt());
         assertEquals(offsetRefCnt + 2, sourceVector.getOffsetBuffer().refCnt());
@@ -1206,13 +1188,13 @@ public class TestValueVector {
   }
 
   /**
-   * ARROW-7831: this checks an offset splitting optimization, in the case where all the values up
-   * to the start of the slice are null/empty, which avoids allocation for the offset buffer.
+   * ARROW-7831: this checks an offset splitting optimization, in the case where all the values up to the start of the
+   * slice are null/empty, which avoids allocation for the offset buffer.
    */
   @Test /* VarCharVector */
   public void testSplitAndTransfer3() {
     try (final VarCharVector targetVector = newVarCharVector("split-target", allocator);
-        final VarCharVector sourceVector = newVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
+         final VarCharVector sourceVector = newVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
       sourceVector.allocateNew(1024 * 10, 1024);
 
       sourceVector.set(0, new byte[0]);
@@ -1228,17 +1210,14 @@ public class TestValueVector {
       final int dataRefCnt = sourceVector.getDataBuffer().refCnt();
 
       sourceVector.splitAndTransferTo(2, 2, targetVector);
-      // because the offset starts at 0 since the first 2 values are empty/null, the allocation only
-      // consists in
+      // because the offset starts at 0 since the first 2 values are empty/null, the allocation only consists in
       // the size needed for the validity buffer
       final long validitySize =
           DefaultRoundingPolicy.DEFAULT_ROUNDING_POLICY.getRoundedSize(
               BaseValueVector.getValidityBufferSizeFromCount(2));
       assertEquals(allocatedMem + validitySize, allocator.getAllocatedMemory());
-      // The validity and offset buffers are sliced from a same buffer.See
-      // BaseFixedWidthVector#allocateBytes.
-      // Since values up to the startIndex are empty/null, the offset buffer doesn't need to be
-      // reallocated and
+      // The validity and offset buffers are sliced from a same buffer.See BaseFixedWidthVector#allocateBytes.
+      // Since values up to the startIndex are empty/null, the offset buffer doesn't need to be reallocated and
       // therefore its refcnt is increased by 1.
       assertEquals(validityRefCnt + 1, sourceVector.getValidityBuffer().refCnt());
       assertEquals(offsetRefCnt + 1, sourceVector.getOffsetBuffer().refCnt());
@@ -1250,17 +1229,14 @@ public class TestValueVector {
   }
 
   /**
-   * ARROW-7831: ensures that data is transferred from one allocator to another in case of 0-index
-   * start special cases.
+   * ARROW-7831: ensures that data is transferred from one allocator to another in case of 0-index start special cases.
    */
   @Test /* VarCharVector */
   public void testSplitAndTransfer4() {
-    try (final BufferAllocator targetAllocator =
-            allocator.newChildAllocator("target-alloc", 256, 256);
-        final VarCharVector targetVector = newVarCharVector("split-target", targetAllocator)) {
-      try (final BufferAllocator sourceAllocator =
-              allocator.newChildAllocator("source-alloc", 256, 256);
-          final VarCharVector sourceVector = newVarCharVector(EMPTY_SCHEMA_PATH, sourceAllocator)) {
+    try (final BufferAllocator targetAllocator = allocator.newChildAllocator("target-alloc", 256, 256);
+         final VarCharVector targetVector = newVarCharVector("split-target", targetAllocator)) {
+      try (final BufferAllocator sourceAllocator = allocator.newChildAllocator("source-alloc", 256, 256);
+           final VarCharVector sourceVector = newVarCharVector(EMPTY_SCHEMA_PATH, sourceAllocator)) {
         sourceVector.allocateNew(50, 3);
 
         sourceVector.set(0, STR1);
@@ -1273,12 +1249,10 @@ public class TestValueVector {
         final int offsetRefCnt = sourceVector.getOffsetBuffer().refCnt();
         final int dataRefCnt = sourceVector.getDataBuffer().refCnt();
 
-        // split and transfer with slice starting at the beginning: this should not allocate
-        // anything new
+        // split and transfer with slice starting at the beginning: this should not allocate anything new
         sourceVector.splitAndTransferTo(0, 2, targetVector);
         assertEquals(allocatedMem, allocator.getAllocatedMemory());
-        // Unlike testSplitAndTransfer1 where the buffers originated from the same allocator, the
-        // refcnts of each
+        // Unlike testSplitAndTransfer1 where the buffers originated from the same allocator, the refcnts of each
         // buffers for this test should be the same as what the source allocator ended up with.
         assertEquals(validityRefCnt, sourceVector.getValidityBuffer().refCnt());
         assertEquals(offsetRefCnt, sourceVector.getOffsetBuffer().refCnt());
@@ -1372,26 +1346,23 @@ public class TestValueVector {
     }
   }
 
-  @Test
+  @Test(expected = OversizedAllocationException.class)
   public void testReallocateCheckSuccess() {
-    assertThrows(
-        OversizedAllocationException.class,
-        () -> {
-          // Create a new value vector for 1024 integers.
-          try (final VarBinaryVector vector = newVarBinaryVector(EMPTY_SCHEMA_PATH, allocator)) {
-            vector.allocateNew(1024 * 10, 1024);
 
-            vector.set(0, STR1);
-            // Check the sample strings.
-            assertArrayEquals(STR1, vector.get(0));
+    // Create a new value vector for 1024 integers.
+    try (final VarBinaryVector vector = newVarBinaryVector(EMPTY_SCHEMA_PATH, allocator)) {
+      vector.allocateNew(1024 * 10, 1024);
 
-            // update the index offset to a larger one
-            ArrowBuf offsetBuf = vector.getOffsetBuffer();
-            offsetBuf.setInt(VarBinaryVector.OFFSET_WIDTH, Integer.MAX_VALUE - 5);
+      vector.set(0, STR1);
+      // Check the sample strings.
+      assertArrayEquals(STR1, vector.get(0));
 
-            vector.setValueLengthSafe(1, 6);
-          }
-        });
+      // update the index offset to a larger one
+      ArrowBuf offsetBuf = vector.getOffsetBuffer();
+      offsetBuf.setInt(VarBinaryVector.OFFSET_WIDTH, Integer.MAX_VALUE - 5);
+
+      vector.setValueLengthSafe(1, 6);
+    }
   }
 
   @Test
@@ -1407,17 +1378,13 @@ public class TestValueVector {
       // verify results
       ReusableByteArray reusableByteArray = new ReusableByteArray();
       vector.read(0, reusableByteArray);
-      assertArrayEquals(
-          str.getBytes(StandardCharsets.UTF_8),
-          Arrays.copyOfRange(
-              reusableByteArray.getBuffer(), 0, (int) reusableByteArray.getLength()));
+      assertArrayEquals(str.getBytes(StandardCharsets.UTF_8), Arrays.copyOfRange(reusableByteArray.getBuffer(),
+          0, (int) reusableByteArray.getLength()));
       byte[] oldBuffer = reusableByteArray.getBuffer();
 
       vector.read(1, reusableByteArray);
-      assertArrayEquals(
-          str2.getBytes(StandardCharsets.UTF_8),
-          Arrays.copyOfRange(
-              reusableByteArray.getBuffer(), 0, (int) reusableByteArray.getLength()));
+      assertArrayEquals(str2.getBytes(StandardCharsets.UTF_8), Arrays.copyOfRange(reusableByteArray.getBuffer(),
+          0, (int) reusableByteArray.getLength()));
 
       // There should not have been any reallocation since the newer value is smaller in length.
       assertSame(oldBuffer, reusableByteArray.getBuffer());
@@ -1583,9 +1550,9 @@ public class TestValueVector {
 
       /* check toVector contents before realloc */
       for (int i = 0; i < toVector.getValueCapacity(); i++) {
-        assertFalse(toVector.isNull(i), "unexpected null value at index: " + i);
+        assertFalse("unexpected null value at index: " + i, toVector.isNull(i));
         double value = toVector.get(i);
-        assertEquals(baseValue + (double) i, value, 0, "unexpected value at index: " + i);
+        assertEquals("unexpected value at index: " + i, baseValue + (double) i, value, 0);
       }
 
       /* now let's realloc the toVector and check contents again */
@@ -1594,11 +1561,11 @@ public class TestValueVector {
 
       for (int i = 0; i < toVector.getValueCapacity(); i++) {
         if (i < capacityAfterRealloc2) {
-          assertFalse(toVector.isNull(i), "unexpected null value at index: " + i);
+          assertFalse("unexpected null value at index: " + i, toVector.isNull(i));
           double value = toVector.get(i);
-          assertEquals(baseValue + (double) i, value, 0, "unexpected value at index: " + i);
+          assertEquals("unexpected value at index: " + i, baseValue + (double) i, value, 0);
         } else {
-          assertTrue(toVector.isNull(i), "unexpected non-null value at index: " + i);
+          assertTrue("unexpected non-null value at index: " + i, toVector.isNull(i));
         }
       }
 
@@ -1799,8 +1766,7 @@ public class TestValueVector {
   @Test
   public void testReAllocFixedWidthVector() {
     // Create a new value vector for 1024 integers
-    try (final Float4Vector vector =
-        newVector(Float4Vector.class, EMPTY_SCHEMA_PATH, MinorType.FLOAT4, allocator)) {
+    try (final Float4Vector vector = newVector(Float4Vector.class, EMPTY_SCHEMA_PATH, MinorType.FLOAT4, allocator)) {
       vector.allocateNew(1024);
 
       assertTrue(vector.getValueCapacity() >= 1024);
@@ -1822,10 +1788,8 @@ public class TestValueVector {
       assertEquals(104.5f, vector.get(1023), 0);
       assertEquals(105.5f, vector.get(2000), 0);
 
-      // Set the valueCount to be more than valueCapacity of current allocation. This is possible
-      // for ValueVectors
-      // as we don't call setSafe for null values, but we do call setValueCount when all values are
-      // inserted into the
+      // Set the valueCount to be more than valueCapacity of current allocation. This is possible for ValueVectors
+      // as we don't call setSafe for null values, but we do call setValueCount when all values are inserted into the
       // vector
       vector.setValueCount(vector.getValueCapacity() + 200);
     }
@@ -1833,8 +1797,7 @@ public class TestValueVector {
 
   @Test
   public void testReAllocVariableWidthVector() {
-    try (final VarCharVector vector =
-        newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
+    try (final VarCharVector vector = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
       vector.setInitialCapacity(4095);
       vector.allocateNew();
 
@@ -1858,18 +1821,15 @@ public class TestValueVector {
       assertArrayEquals(STR2, vector.get(initialCapacity - 1));
       assertArrayEquals(STR3, vector.get(initialCapacity + 200));
 
-      // Set the valueCount to be more than valueCapacity of current allocation. This is possible
-      // for ValueVectors
-      // as we don't call setSafe for null values, but we do call setValueCount when the current
-      // batch is processed.
+      // Set the valueCount to be more than valueCapacity of current allocation. This is possible for ValueVectors
+      // as we don't call setSafe for null values, but we do call setValueCount when the current batch is processed.
       vector.setValueCount(vector.getValueCapacity() + 200);
     }
   }
 
   @Test
   public void testFillEmptiesNotOverfill() {
-    try (final VarCharVector vector =
-        newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
+    try (final VarCharVector vector = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
       vector.setInitialCapacity(4095);
       vector.allocateNew();
 
@@ -1894,10 +1854,11 @@ public class TestValueVector {
     final int valueBytesLength = valueBytes.length;
     final int isSet = 1;
 
-    try (final VarCharVector fromVector =
-            newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator);
-        final VarCharVector toVector =
-            newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
+    try (
+        final VarCharVector fromVector = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH,
+            MinorType.VARCHAR, allocator);
+        final VarCharVector toVector = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH,
+            MinorType.VARCHAR, allocator)) {
       /*
        * Populate the from vector with 'numValues' with byte-arrays, each of size 'valueBytesLength'.
        */
@@ -1933,10 +1894,9 @@ public class TestValueVector {
 
   @Test
   public void testCopyFromWithNulls() {
-    try (final VarCharVector vector =
-            newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator);
-        final VarCharVector vector2 =
-            newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
+    try (final VarCharVector vector = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator);
+         final VarCharVector vector2 =
+             newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
 
       vector.setInitialCapacity(4095);
       vector.allocateNew();
@@ -1960,10 +1920,7 @@ public class TestValueVector {
         if (i % 3 == 0) {
           assertNull(vector.getObject(i));
         } else {
-          assertEquals(
-              Integer.toString(i),
-              vector.getObject(i).toString(),
-              "unexpected value at index: " + i);
+          assertEquals("unexpected value at index: " + i, Integer.toString(i), vector.getObject(i).toString());
         }
       }
 
@@ -1977,10 +1934,7 @@ public class TestValueVector {
         if (i % 3 == 0) {
           assertNull(vector2.getObject(i));
         } else {
-          assertEquals(
-              Integer.toString(i),
-              vector2.getObject(i).toString(),
-              "unexpected value at index: " + i);
+          assertEquals("unexpected value at index: " + i, Integer.toString(i), vector2.getObject(i).toString());
         }
       }
 
@@ -1993,10 +1947,7 @@ public class TestValueVector {
         if (i % 3 == 0) {
           assertNull(vector2.getObject(i));
         } else {
-          assertEquals(
-              Integer.toString(i),
-              vector2.getObject(i).toString(),
-              "unexpected value at index: " + i);
+          assertEquals("unexpected value at index: " + i, Integer.toString(i), vector2.getObject(i).toString());
         }
       }
     }
@@ -2004,10 +1955,9 @@ public class TestValueVector {
 
   @Test
   public void testCopyFromWithNulls1() {
-    try (final VarCharVector vector =
-            newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator);
-        final VarCharVector vector2 =
-            newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
+    try (final VarCharVector vector = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator);
+         final VarCharVector vector2 =
+             newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
 
       vector.setInitialCapacity(4095);
       vector.allocateNew();
@@ -2031,10 +1981,7 @@ public class TestValueVector {
         if (i % 3 == 0) {
           assertNull(vector.getObject(i));
         } else {
-          assertEquals(
-              Integer.toString(i),
-              vector.getObject(i).toString(),
-              "unexpected value at index: " + i);
+          assertEquals("unexpected value at index: " + i, Integer.toString(i), vector.getObject(i).toString());
         }
       }
 
@@ -2052,10 +1999,7 @@ public class TestValueVector {
         if (i % 3 == 0) {
           assertNull(vector2.getObject(i));
         } else {
-          assertEquals(
-              Integer.toString(i),
-              vector2.getObject(i).toString(),
-              "unexpected value at index: " + i);
+          assertEquals("unexpected value at index: " + i, Integer.toString(i), vector2.getObject(i).toString());
         }
       }
 
@@ -2068,10 +2012,7 @@ public class TestValueVector {
         if (i % 3 == 0) {
           assertNull(vector2.getObject(i));
         } else {
-          assertEquals(
-              Integer.toString(i),
-              vector2.getObject(i).toString(),
-              "unexpected value at index: " + i);
+          assertEquals("unexpected value at index: " + i, Integer.toString(i), vector2.getObject(i).toString());
         }
       }
     }
@@ -2155,7 +2096,7 @@ public class TestValueVector {
       assertEquals(40, vector.offsetBuffer.getInt(17 * BaseVariableWidthVector.OFFSET_WIDTH));
       assertEquals(40, vector.offsetBuffer.getInt(18 * BaseVariableWidthVector.OFFSET_WIDTH));
       assertEquals(40, vector.offsetBuffer.getInt(19 * BaseVariableWidthVector.OFFSET_WIDTH));
-
+      
       vector.set(19, STR6);
       assertArrayEquals(STR6, vector.get(19));
       assertEquals(40, vector.offsetBuffer.getInt(19 * BaseVariableWidthVector.OFFSET_WIDTH));
@@ -2193,14 +2134,14 @@ public class TestValueVector {
 
       Schema schema = new Schema(fields);
 
-      VectorSchemaRoot schemaRoot1 =
-          new VectorSchemaRoot(schema, fieldVectors, vector1.getValueCount());
+      VectorSchemaRoot schemaRoot1 = new VectorSchemaRoot(schema, fieldVectors, vector1.getValueCount());
       VectorUnloader vectorUnloader = new VectorUnloader(schemaRoot1);
 
-      try (ArrowRecordBatch recordBatch = vectorUnloader.getRecordBatch();
-          BufferAllocator finalVectorsAllocator =
-              allocator.newChildAllocator("new vector", 0, Long.MAX_VALUE);
-          VectorSchemaRoot schemaRoot2 = VectorSchemaRoot.create(schema, finalVectorsAllocator); ) {
+      try (
+          ArrowRecordBatch recordBatch = vectorUnloader.getRecordBatch();
+          BufferAllocator finalVectorsAllocator = allocator.newChildAllocator("new vector", 0, Long.MAX_VALUE);
+          VectorSchemaRoot schemaRoot2 = VectorSchemaRoot.create(schema, finalVectorsAllocator);
+      ) {
 
         VectorLoader vectorLoader = new VectorLoader(schemaRoot2);
         vectorLoader.load(recordBatch);
@@ -2296,25 +2237,41 @@ public class TestValueVector {
       assertEquals(0, vector.getValueLength(14));
 
       /* Check offsets */
-      assertEquals(0, vector.offsetBuffer.getInt(0 * BaseVariableWidthVector.OFFSET_WIDTH));
-      assertEquals(6, vector.offsetBuffer.getInt(1 * BaseVariableWidthVector.OFFSET_WIDTH));
-      assertEquals(16, vector.offsetBuffer.getInt(2 * BaseVariableWidthVector.OFFSET_WIDTH));
-      assertEquals(21, vector.offsetBuffer.getInt(3 * BaseVariableWidthVector.OFFSET_WIDTH));
-      assertEquals(30, vector.offsetBuffer.getInt(4 * BaseVariableWidthVector.OFFSET_WIDTH));
-      assertEquals(34, vector.offsetBuffer.getInt(5 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(0,
+              vector.offsetBuffer.getInt(0 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(6,
+              vector.offsetBuffer.getInt(1 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(16,
+              vector.offsetBuffer.getInt(2 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(21,
+              vector.offsetBuffer.getInt(3 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(30,
+              vector.offsetBuffer.getInt(4 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(34,
+              vector.offsetBuffer.getInt(5 * BaseVariableWidthVector.OFFSET_WIDTH));
 
-      assertEquals(40, vector.offsetBuffer.getInt(6 * BaseVariableWidthVector.OFFSET_WIDTH));
-      assertEquals(40, vector.offsetBuffer.getInt(7 * BaseVariableWidthVector.OFFSET_WIDTH));
-      assertEquals(40, vector.offsetBuffer.getInt(8 * BaseVariableWidthVector.OFFSET_WIDTH));
-      assertEquals(40, vector.offsetBuffer.getInt(9 * BaseVariableWidthVector.OFFSET_WIDTH));
-      assertEquals(40, vector.offsetBuffer.getInt(10 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(40,
+              vector.offsetBuffer.getInt(6 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(40,
+              vector.offsetBuffer.getInt(7 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(40,
+              vector.offsetBuffer.getInt(8 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(40,
+              vector.offsetBuffer.getInt(9 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(40,
+              vector.offsetBuffer.getInt(10 * BaseVariableWidthVector.OFFSET_WIDTH));
 
-      assertEquals(46, vector.offsetBuffer.getInt(11 * BaseVariableWidthVector.OFFSET_WIDTH));
-      assertEquals(56, vector.offsetBuffer.getInt(12 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(46,
+              vector.offsetBuffer.getInt(11 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(56,
+              vector.offsetBuffer.getInt(12 * BaseVariableWidthVector.OFFSET_WIDTH));
 
-      assertEquals(56, vector.offsetBuffer.getInt(13 * BaseVariableWidthVector.OFFSET_WIDTH));
-      assertEquals(56, vector.offsetBuffer.getInt(14 * BaseVariableWidthVector.OFFSET_WIDTH));
-      assertEquals(56, vector.offsetBuffer.getInt(15 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(56,
+              vector.offsetBuffer.getInt(13 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(56,
+              vector.offsetBuffer.getInt(14 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(56,
+              vector.offsetBuffer.getInt(15 * BaseVariableWidthVector.OFFSET_WIDTH));
     }
   }
 
@@ -2382,10 +2339,8 @@ public class TestValueVector {
 
   @Test
   public void testMultipleClose() {
-    BufferAllocator vectorAllocator =
-        allocator.newChildAllocator("vector_allocator", 0, Long.MAX_VALUE);
-    IntVector vector =
-        newVector(IntVector.class, EMPTY_SCHEMA_PATH, MinorType.INT, vectorAllocator);
+    BufferAllocator vectorAllocator = allocator.newChildAllocator("vector_allocator", 0, Long.MAX_VALUE);
+    IntVector vector = newVector(IntVector.class, EMPTY_SCHEMA_PATH, MinorType.INT, vectorAllocator);
     vector.close();
     vectorAllocator.close();
     vector.close();
@@ -2397,12 +2352,10 @@ public class TestValueVector {
    * in a way that lastSet is not set automatically.
    */
   public static void setBytes(int index, byte[] bytes, VarCharVector vector) {
-    final int currentOffset =
-        vector.offsetBuffer.getInt(index * BaseVariableWidthVector.OFFSET_WIDTH);
+    final int currentOffset = vector.offsetBuffer.getInt(index * BaseVariableWidthVector.OFFSET_WIDTH);
 
     BitVectorHelper.setBit(vector.validityBuffer, index);
-    vector.offsetBuffer.setInt(
-        (index + 1) * BaseVariableWidthVector.OFFSET_WIDTH, currentOffset + bytes.length);
+    vector.offsetBuffer.setInt((index + 1) * BaseVariableWidthVector.OFFSET_WIDTH, currentOffset + bytes.length);
     vector.valueBuffer.setBytes(currentOffset, bytes, 0, bytes.length);
   }
 
@@ -2415,8 +2368,7 @@ public class TestValueVector {
       vector.setInitialCapacity(defaultCapacity);
       vector.allocateNew();
       assertEquals(defaultCapacity, vector.getValueCapacity());
-      assertEquals(
-          CommonUtil.nextPowerOfTwo(defaultCapacity * 8), vector.getDataBuffer().capacity());
+      assertEquals(CommonUtil.nextPowerOfTwo(defaultCapacity * 8), vector.getDataBuffer().capacity());
 
       vector.setInitialCapacity(defaultCapacity, 1);
       vector.allocateNew();
@@ -2426,16 +2378,12 @@ public class TestValueVector {
       vector.setInitialCapacity(defaultCapacity, 0.1);
       vector.allocateNew();
       assertEquals(defaultCapacity, vector.getValueCapacity());
-      assertEquals(
-          CommonUtil.nextPowerOfTwo((int) (defaultCapacity * 0.1)),
-          vector.getDataBuffer().capacity());
+      assertEquals(CommonUtil.nextPowerOfTwo((int) (defaultCapacity * 0.1)), vector.getDataBuffer().capacity());
 
       vector.setInitialCapacity(defaultCapacity, 0.01);
       vector.allocateNew();
       assertEquals(defaultCapacity, vector.getValueCapacity());
-      assertEquals(
-          CommonUtil.nextPowerOfTwo((int) (defaultCapacity * 0.01)),
-          vector.getDataBuffer().capacity());
+      assertEquals(CommonUtil.nextPowerOfTwo((int) (defaultCapacity * 0.01)), vector.getDataBuffer().capacity());
 
       vector.setInitialCapacity(5, 0.01);
       vector.allocateNew();
@@ -2449,40 +2397,35 @@ public class TestValueVector {
     int defaultCapacity = BaseValueVector.INITIAL_VALUE_ALLOCATION;
     int expectedSize;
     long beforeSize;
-    try (BufferAllocator childAllocator =
-            allocator.newChildAllocator("defaultAllocs", 0, Long.MAX_VALUE);
+    try (BufferAllocator childAllocator = allocator.newChildAllocator("defaultAllocs", 0, Long.MAX_VALUE);
         final IntVector intVector = new IntVector(EMPTY_SCHEMA_PATH, childAllocator);
         final BigIntVector bigIntVector = new BigIntVector(EMPTY_SCHEMA_PATH, childAllocator);
         final BitVector bitVector = new BitVector(EMPTY_SCHEMA_PATH, childAllocator);
-        final DecimalVector decimalVector =
-            new DecimalVector(EMPTY_SCHEMA_PATH, childAllocator, 38, 6);
+        final DecimalVector decimalVector = new DecimalVector(EMPTY_SCHEMA_PATH, childAllocator, 38, 6);
         final VarCharVector varCharVector = new VarCharVector(EMPTY_SCHEMA_PATH, childAllocator)) {
 
       // verify that the wastage is within bounds for IntVector.
       beforeSize = childAllocator.getAllocatedMemory();
       intVector.allocateNew();
       assertTrue(intVector.getValueCapacity() >= defaultCapacity);
-      expectedSize =
-          (defaultCapacity * IntVector.TYPE_WIDTH)
-              + BaseFixedWidthVector.getValidityBufferSizeFromCount(defaultCapacity);
+      expectedSize = (defaultCapacity * IntVector.TYPE_WIDTH) +
+          BaseFixedWidthVector.getValidityBufferSizeFromCount(defaultCapacity);
       assertTrue(childAllocator.getAllocatedMemory() - beforeSize <= expectedSize * 1.05);
 
       // verify that the wastage is within bounds for BigIntVector.
       beforeSize = childAllocator.getAllocatedMemory();
       bigIntVector.allocateNew();
       assertTrue(bigIntVector.getValueCapacity() >= defaultCapacity);
-      expectedSize =
-          (defaultCapacity * bigIntVector.TYPE_WIDTH)
-              + BaseFixedWidthVector.getValidityBufferSizeFromCount(defaultCapacity);
+      expectedSize = (defaultCapacity * bigIntVector.TYPE_WIDTH) +
+          BaseFixedWidthVector.getValidityBufferSizeFromCount(defaultCapacity);
       assertTrue(childAllocator.getAllocatedMemory() - beforeSize <= expectedSize * 1.05);
 
       // verify that the wastage is within bounds for DecimalVector.
       beforeSize = childAllocator.getAllocatedMemory();
       decimalVector.allocateNew();
       assertTrue(decimalVector.getValueCapacity() >= defaultCapacity);
-      expectedSize =
-          (defaultCapacity * decimalVector.TYPE_WIDTH)
-              + BaseFixedWidthVector.getValidityBufferSizeFromCount(defaultCapacity);
+      expectedSize = (defaultCapacity * decimalVector.TYPE_WIDTH) +
+          BaseFixedWidthVector.getValidityBufferSizeFromCount(defaultCapacity);
       assertTrue(childAllocator.getAllocatedMemory() - beforeSize <= expectedSize * 1.05);
 
       // verify that the wastage is within bounds for VarCharVector.
@@ -2490,10 +2433,9 @@ public class TestValueVector {
       beforeSize = childAllocator.getAllocatedMemory();
       varCharVector.allocateNew();
       assertTrue(varCharVector.getValueCapacity() >= defaultCapacity - 1);
-      expectedSize =
-          (defaultCapacity * VarCharVector.OFFSET_WIDTH)
-              + BaseFixedWidthVector.getValidityBufferSizeFromCount(defaultCapacity)
-              + defaultCapacity * 8;
+      expectedSize = (defaultCapacity * VarCharVector.OFFSET_WIDTH) +
+          BaseFixedWidthVector.getValidityBufferSizeFromCount(defaultCapacity) +
+          defaultCapacity * 8;
       // wastage should be less than 5%.
       assertTrue(childAllocator.getAllocatedMemory() - beforeSize <= expectedSize * 1.05);
 
@@ -2503,6 +2445,7 @@ public class TestValueVector {
       assertTrue(bitVector.getValueCapacity() >= defaultCapacity);
       expectedSize = BaseFixedWidthVector.getValidityBufferSizeFromCount(defaultCapacity) * 2;
       assertTrue(childAllocator.getAllocatedMemory() - beforeSize <= expectedSize * 1.05);
+
     }
   }
 
@@ -2630,7 +2573,7 @@ public class TestValueVector {
   public void testGetPointerFixedWidth() {
     final int vectorLength = 100;
     try (IntVector vec1 = new IntVector("vec1", allocator);
-        IntVector vec2 = new IntVector("vec2", allocator)) {
+         IntVector vec2 = new IntVector("vec2", allocator)) {
       vec1.allocateNew(vectorLength);
       vec2.allocateNew(vectorLength);
 
@@ -2664,11 +2607,11 @@ public class TestValueVector {
 
   @Test
   public void testGetPointerVariableWidth() {
-    final String[] sampleData =
-        new String[] {"abc", "123", "def", null, "hello", "aaaaa", "world", "2019", null, "0717"};
+    final String[] sampleData = new String[]{
+      "abc", "123", "def", null, "hello", "aaaaa", "world", "2019", null, "0717"};
 
     try (VarCharVector vec1 = new VarCharVector("vec1", allocator);
-        VarCharVector vec2 = new VarCharVector("vec2", allocator)) {
+         VarCharVector vec2 = new VarCharVector("vec2", allocator)) {
       vec1.allocateNew(sampleData.length * 10, sampleData.length);
       vec2.allocateNew(sampleData.length * 10, sampleData.length);
 
@@ -2699,7 +2642,7 @@ public class TestValueVector {
   @Test
   public void testGetNullFromVariableWidthVector() {
     try (final VarCharVector varCharVector = new VarCharVector("varcharvec", allocator);
-        final VarBinaryVector varBinaryVector = new VarBinaryVector("varbinary", allocator)) {
+         final VarBinaryVector varBinaryVector = new VarBinaryVector("varbinary", allocator)) {
       varCharVector.allocateNew(10, 1);
       varBinaryVector.allocateNew(10, 1);
 
@@ -2759,7 +2702,7 @@ public class TestValueVector {
   @Test
   public void testIntVectorEqualsWithNull() {
     try (final IntVector vector1 = new IntVector("int", allocator);
-        final IntVector vector2 = new IntVector("int", allocator)) {
+         final IntVector vector2 = new IntVector("int", allocator)) {
 
       setVector(vector1, 1, 2);
       setVector(vector2, 1, null);
@@ -2773,7 +2716,7 @@ public class TestValueVector {
   @Test
   public void testIntVectorEquals() {
     try (final IntVector vector1 = new IntVector("int", allocator);
-        final IntVector vector2 = new IntVector("int", allocator)) {
+         final IntVector vector2 = new IntVector("int", allocator)) {
 
       setVector(vector1, 1, 2, 3);
       setVector(vector2, 1, 2, null);
@@ -2794,8 +2737,8 @@ public class TestValueVector {
   @Test
   public void testDecimalVectorEquals() {
     try (final DecimalVector vector1 = new DecimalVector("decimal", allocator, 3, 3);
-        final DecimalVector vector2 = new DecimalVector("decimal", allocator, 3, 3);
-        final DecimalVector vector3 = new DecimalVector("decimal", allocator, 3, 2)) {
+         final DecimalVector vector2 = new DecimalVector("decimal", allocator, 3, 3);
+         final DecimalVector vector3 = new DecimalVector("decimal", allocator, 3, 2)) {
 
       setVector(vector1, 100L, 200L);
       setVector(vector2, 100L, 200L);
@@ -2812,7 +2755,7 @@ public class TestValueVector {
   @Test
   public void testVarcharVectorEqualsWithNull() {
     try (final VarCharVector vector1 = new VarCharVector("varchar", allocator);
-        final VarCharVector vector2 = new VarCharVector("varchar", allocator)) {
+         final VarCharVector vector2 = new VarCharVector("varchar", allocator)) {
 
       setVector(vector1, STR1, STR2);
       setVector(vector2, STR1, null);
@@ -2825,7 +2768,7 @@ public class TestValueVector {
   @Test
   public void testVarcharVectorEquals() {
     try (final VarCharVector vector1 = new VarCharVector("varchar", allocator);
-        final VarCharVector vector2 = new VarCharVector("varchar", allocator)) {
+         final VarCharVector vector2 = new VarCharVector("varchar", allocator)) {
 
       setVector(vector1, STR1, STR2, STR3);
       setVector(vector2, STR1, STR2);
@@ -2842,7 +2785,7 @@ public class TestValueVector {
   @Test
   public void testVarBinaryVectorEquals() {
     try (final VarBinaryVector vector1 = new VarBinaryVector("binary", allocator);
-        final VarBinaryVector vector2 = new VarBinaryVector("binary", allocator)) {
+         final VarBinaryVector vector2 = new VarBinaryVector("binary", allocator)) {
 
       setVector(vector1, STR1, STR2, STR3);
       setVector(vector2, STR1, STR2);
@@ -2859,12 +2802,12 @@ public class TestValueVector {
   @Test
   public void testListVectorEqualsWithNull() {
     try (final ListVector vector1 = ListVector.empty("list", allocator);
-        final ListVector vector2 = ListVector.empty("list", allocator); ) {
+        final ListVector vector2 = ListVector.empty("list", allocator);) {
 
       UnionListWriter writer1 = vector1.getWriter();
       writer1.allocate();
 
-      // set some values
+      //set some values
       writeListVector(writer1, new int[] {1, 2});
       writeListVector(writer1, new int[] {3, 4});
       writeListVector(writer1, new int[] {});
@@ -2873,7 +2816,7 @@ public class TestValueVector {
       UnionListWriter writer2 = vector2.getWriter();
       writer2.allocate();
 
-      // set some values
+      //set some values
       writeListVector(writer2, new int[] {1, 2});
       writeListVector(writer2, new int[] {3, 4});
       writer2.setValueCount(3);
@@ -2885,71 +2828,14 @@ public class TestValueVector {
   }
 
   @Test
-  public void testListViewVectorEqualsWithNull() {
-    try (final ListViewVector vector1 = ListViewVector.empty("listview", allocator);
-        final ListViewVector vector2 = ListViewVector.empty("listview", allocator); ) {
-
-      UnionListViewWriter writer1 = vector1.getWriter();
-      writer1.allocate();
-
-      // set some values
-      writeListViewVector(writer1, new int[] {1, 2});
-      writeListViewVector(writer1, new int[] {3, 4});
-      writeListViewVector(writer1, new int[] {});
-      writer1.setValueCount(3);
-
-      UnionListViewWriter writer2 = vector2.getWriter();
-      writer2.allocate();
-
-      // set some values
-      writeListViewVector(writer2, new int[] {1, 2});
-      writeListViewVector(writer2, new int[] {3, 4});
-      writer2.setValueCount(3);
-
-      VectorEqualsVisitor visitor = new VectorEqualsVisitor();
-
-      assertFalse(visitor.vectorEquals(vector1, vector2));
-    }
-  }
-
-  @Test
-  public void testLargeListViewVectorEqualsWithNull() {
-    try (final LargeListViewVector vector1 = LargeListViewVector.empty("largelistview", allocator);
-        final LargeListViewVector vector2 =
-            LargeListViewVector.empty("largelistview", allocator); ) {
-
-      UnionLargeListViewWriter writer1 = vector1.getWriter();
-      writer1.allocate();
-
-      // set some values
-      writeLargeListViewVector(writer1, new int[] {1, 2});
-      writeLargeListViewVector(writer1, new int[] {3, 4});
-      writeLargeListViewVector(writer1, new int[] {});
-      writer1.setValueCount(3);
-
-      UnionLargeListViewWriter writer2 = vector2.getWriter();
-      writer2.allocate();
-
-      // set some values
-      writeLargeListViewVector(writer2, new int[] {1, 2});
-      writeLargeListViewVector(writer2, new int[] {3, 4});
-      writer2.setValueCount(3);
-
-      VectorEqualsVisitor visitor = new VectorEqualsVisitor();
-
-      assertFalse(visitor.vectorEquals(vector1, vector2));
-    }
-  }
-
-  @Test
   public void testListVectorEquals() {
     try (final ListVector vector1 = ListVector.empty("list", allocator);
-        final ListVector vector2 = ListVector.empty("list", allocator); ) {
+        final ListVector vector2 = ListVector.empty("list", allocator);) {
 
       UnionListWriter writer1 = vector1.getWriter();
       writer1.allocate();
 
-      // set some values
+      //set some values
       writeListVector(writer1, new int[] {1, 2});
       writeListVector(writer1, new int[] {3, 4});
       writeListVector(writer1, new int[] {5, 6});
@@ -2958,7 +2844,7 @@ public class TestValueVector {
       UnionListWriter writer2 = vector2.getWriter();
       writer2.allocate();
 
-      // set some values
+      //set some values
       writeListVector(writer2, new int[] {1, 2});
       writeListVector(writer2, new int[] {3, 4});
       writer2.setValueCount(2);
@@ -2974,144 +2860,10 @@ public class TestValueVector {
   }
 
   @Test
-  public void testListViewVectorEquals() {
-    try (final ListViewVector vector1 = ListViewVector.empty("listview", allocator);
-        final ListViewVector vector2 = ListViewVector.empty("listview", allocator); ) {
-
-      UnionListViewWriter writer1 = vector1.getWriter();
-      writer1.allocate();
-
-      // set some values
-      writeListViewVector(writer1, new int[] {1, 2});
-      writeListViewVector(writer1, new int[] {3, 4});
-      writeListViewVector(writer1, new int[] {5, 6});
-      writer1.setValueCount(3);
-
-      UnionListViewWriter writer2 = vector2.getWriter();
-      writer2.allocate();
-
-      // set some values
-      writeListViewVector(writer2, new int[] {1, 2});
-      writeListViewVector(writer2, new int[] {3, 4});
-      writer2.setValueCount(2);
-
-      VectorEqualsVisitor visitor = new VectorEqualsVisitor();
-      assertFalse(visitor.vectorEquals(vector1, vector2));
-
-      writeListViewVector(writer2, new int[] {5, 6});
-      writer2.setValueCount(3);
-
-      assertTrue(visitor.vectorEquals(vector1, vector2));
-    }
-  }
-
-  @Test
-  public void testLargeListViewVectorEquals() {
-    try (final LargeListViewVector vector1 = LargeListViewVector.empty("largelistview", allocator);
-        final LargeListViewVector vector2 =
-            LargeListViewVector.empty("largelistview", allocator); ) {
-
-      UnionLargeListViewWriter writer1 = vector1.getWriter();
-      writer1.allocate();
-
-      // set some values
-      writeLargeListViewVector(writer1, new int[] {1, 2});
-      writeLargeListViewVector(writer1, new int[] {3, 4});
-      writeLargeListViewVector(writer1, new int[] {5, 6});
-      writer1.setValueCount(3);
-
-      UnionLargeListViewWriter writer2 = vector2.getWriter();
-      writer2.allocate();
-
-      // set some values
-      writeLargeListViewVector(writer2, new int[] {1, 2});
-      writeLargeListViewVector(writer2, new int[] {3, 4});
-      writer2.setValueCount(2);
-
-      VectorEqualsVisitor visitor = new VectorEqualsVisitor();
-      assertFalse(visitor.vectorEquals(vector1, vector2));
-
-      writeLargeListViewVector(writer2, new int[] {5, 6});
-      writer2.setValueCount(3);
-
-      assertTrue(visitor.vectorEquals(vector1, vector2));
-    }
-  }
-
-  @Test
-  public void testListVectorSetNull() {
-    try (final ListVector vector = ListVector.empty("list", allocator)) {
-      UnionListWriter writer = vector.getWriter();
-      writer.allocate();
-
-      writeListVector(writer, new int[] {1, 2});
-      writeListVector(writer, new int[] {3, 4});
-      writeListVector(writer, new int[] {5, 6});
-      vector.setNull(3);
-      vector.setNull(4);
-      vector.setNull(5);
-      writer.setValueCount(6);
-
-      assertEquals(vector.getObject(0), Arrays.asList(1, 2));
-      assertEquals(vector.getObject(1), Arrays.asList(3, 4));
-      assertEquals(vector.getObject(2), Arrays.asList(5, 6));
-      assertTrue(vector.isNull(3));
-      assertTrue(vector.isNull(4));
-      assertTrue(vector.isNull(5));
-    }
-  }
-
-  @Test
-  public void testListViewVectorSetNull() {
-    try (final ListViewVector vector = ListViewVector.empty("listview", allocator)) {
-      UnionListViewWriter writer = vector.getWriter();
-      writer.allocate();
-
-      writeListViewVector(writer, new int[] {1, 2});
-      writeListViewVector(writer, new int[] {3, 4});
-      writeListViewVector(writer, new int[] {5, 6});
-      vector.setNull(3);
-      vector.setNull(4);
-      vector.setNull(5);
-      writer.setValueCount(6);
-
-      assertEquals(vector.getObject(0), Arrays.asList(1, 2));
-      assertEquals(vector.getObject(1), Arrays.asList(3, 4));
-      assertEquals(vector.getObject(2), Arrays.asList(5, 6));
-      assertTrue(vector.isNull(3));
-      assertTrue(vector.isNull(4));
-      assertTrue(vector.isNull(5));
-    }
-  }
-
-  @Test
-  public void testLargeListViewVectorSetNull() {
-    try (final LargeListViewVector vector = LargeListViewVector.empty("largelistview", allocator)) {
-      UnionLargeListViewWriter writer = vector.getWriter();
-      writer.allocate();
-
-      writeLargeListViewVector(writer, new int[] {1, 2});
-      writeLargeListViewVector(writer, new int[] {3, 4});
-      writeLargeListViewVector(writer, new int[] {5, 6});
-      vector.setNull(3);
-      vector.setNull(4);
-      vector.setNull(5);
-      writer.setValueCount(6);
-
-      assertEquals(vector.getObject(0), Arrays.asList(1, 2));
-      assertEquals(vector.getObject(1), Arrays.asList(3, 4));
-      assertEquals(vector.getObject(2), Arrays.asList(5, 6));
-      assertTrue(vector.isNull(3));
-      assertTrue(vector.isNull(4));
-      assertTrue(vector.isNull(5));
-    }
-  }
-
-  @Test
   public void testStructVectorEqualsWithNull() {
 
     try (final StructVector vector1 = StructVector.empty("struct", allocator);
-        final StructVector vector2 = StructVector.empty("struct", allocator); ) {
+        final StructVector vector2 = StructVector.empty("struct", allocator);) {
       vector1.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
       vector1.addOrGet("f1", FieldType.nullable(new ArrowType.Int(64, true)), BigIntVector.class);
       vector2.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
@@ -3140,7 +2892,7 @@ public class TestValueVector {
   @Test
   public void testStructVectorEquals() {
     try (final StructVector vector1 = StructVector.empty("struct", allocator);
-        final StructVector vector2 = StructVector.empty("struct", allocator); ) {
+        final StructVector vector2 = StructVector.empty("struct", allocator);) {
       vector1.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
       vector1.addOrGet("f1", FieldType.nullable(new ArrowType.Int(64, true)), BigIntVector.class);
       vector2.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
@@ -3174,7 +2926,7 @@ public class TestValueVector {
   @Test
   public void testStructVectorEqualsWithDiffChild() {
     try (final StructVector vector1 = StructVector.empty("struct", allocator);
-        final StructVector vector2 = StructVector.empty("struct", allocator); ) {
+        final StructVector vector2 = StructVector.empty("struct", allocator);) {
       vector1.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
       vector1.addOrGet("f1", FieldType.nullable(new ArrowType.Int(64, true)), BigIntVector.class);
       vector2.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
@@ -3200,29 +2952,9 @@ public class TestValueVector {
   }
 
   @Test
-  public void testStructVectorAcceptsDenseUnionChild() {
-    Field childField =
-        new Field(
-            "child",
-            FieldType.notNullable(new ArrowType.Union(UnionMode.Dense, new int[] {})),
-            Collections.emptyList());
-    Field structField =
-        new Field(
-            "struct",
-            FieldType.notNullable(ArrowType.Struct.INSTANCE),
-            Collections.singletonList(childField));
-
-    try (FieldVector structVec = structField.createVector(allocator)) {
-      assertEquals(structField, structVec.getField());
-    }
-  }
-
-  @Test
   public void testUnionVectorEquals() {
-    try (final UnionVector vector1 =
-            new UnionVector("union", allocator, /* field type */ null, /* call-back */ null);
-        final UnionVector vector2 =
-            new UnionVector("union", allocator, /* field type */ null, /* call-back */ null); ) {
+    try (final UnionVector vector1 = new UnionVector("union", allocator, /* field type */ null, /* call-back */ null);
+        final UnionVector vector2 = new UnionVector("union", allocator, /* field type */ null, /* call-back */ null);) {
 
       final NullableUInt4Holder uInt4Holder = new NullableUInt4Holder();
       uInt4Holder.value = 10;
@@ -3251,20 +2983,16 @@ public class TestValueVector {
     }
   }
 
-  @Test
+  @Test(expected = IllegalArgumentException.class)
   public void testEqualsWithIndexOutOfRange() {
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> {
-          try (final IntVector vector1 = new IntVector("int", allocator);
-              final IntVector vector2 = new IntVector("int", allocator)) {
+    try (final IntVector vector1 = new IntVector("int", allocator);
+         final IntVector vector2 = new IntVector("int", allocator)) {
 
-            setVector(vector1, 1, 2);
-            setVector(vector2, 1, 2);
+      setVector(vector1, 1, 2);
+      setVector(vector2, 1, 2);
 
-            assertTrue(new RangeEqualsVisitor(vector1, vector2).rangeEquals(new Range(2, 3, 1)));
-          }
-        });
+      assertTrue(new RangeEqualsVisitor(vector1, vector2).rangeEquals(new Range(2, 3, 1)));
+    }
   }
 
   @Test
@@ -3296,8 +3024,7 @@ public class TestValueVector {
   @Test
   public void testUnionNullHashCode() {
     try (UnionVector srcVector =
-        new UnionVector(
-            EMPTY_SCHEMA_PATH, allocator, /* field type */ null, /* call-back */ null)) {
+             new UnionVector(EMPTY_SCHEMA_PATH, allocator, /* field type */ null, /* call-back */ null)) {
       srcVector.allocateNew();
 
       final NullableIntHolder holder = new NullableIntHolder();
@@ -3314,8 +3041,8 @@ public class TestValueVector {
   @Test
   public void testToString() {
     try (final IntVector intVector = new IntVector("intVector", allocator);
-        final ListVector listVector = ListVector.empty("listVector", allocator);
-        final StructVector structVector = StructVector.empty("structVector", allocator)) {
+         final ListVector listVector = ListVector.empty("listVector", allocator);
+         final StructVector structVector = StructVector.empty("structVector", allocator)) {
 
       // validate intVector toString
       assertEquals("[]", intVector.toString());
@@ -3330,8 +3057,7 @@ public class TestValueVector {
       for (int i = 0; i < 100; i++) {
         intVector.setSafe(i, i);
       }
-      assertEquals(
-          "[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, ... 90, 91, 92, 93, 94, 95, 96, 97, 98, 99]",
+      assertEquals("[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, ... 90, 91, 92, 93, 94, 95, 96, 97, 98, 99]",
           intVector.toString());
 
       // validate listVector toString
@@ -3355,8 +3081,7 @@ public class TestValueVector {
 
       // validate structVector toString
       structVector.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
-      structVector.addOrGet(
-          "f1", FieldType.nullable(new ArrowType.Int(64, true)), BigIntVector.class);
+      structVector.addOrGet("f1", FieldType.nullable(new ArrowType.Int(64, true)), BigIntVector.class);
 
       NullableStructWriter structWriter = structVector.getWriter();
       structWriter.allocate();
@@ -3432,32 +3157,16 @@ public class TestValueVector {
 
   private void writeListVector(UnionListWriter writer, int[] values) {
     writer.startList();
-    for (int v : values) {
+    for (int v: values) {
       writer.integer().writeInt(v);
     }
     writer.endList();
   }
 
-  private void writeListViewVector(UnionListViewWriter writer, int[] values) {
-    writer.startListView();
-    for (int v : values) {
-      writer.integer().writeInt(v);
-    }
-    writer.endListView();
-  }
-
-  private void writeLargeListViewVector(UnionLargeListViewWriter writer, int[] values) {
-    writer.startListView();
-    for (int v : values) {
-      writer.integer().writeInt(v);
-    }
-    writer.endListView();
-  }
-
   @Test
   public void testVariableVectorGetEndOffset() {
     try (final VarCharVector vector1 = new VarCharVector("v1", allocator);
-        final VarBinaryVector vector2 = new VarBinaryVector("v2", allocator)) {
+         final VarBinaryVector vector2 = new VarBinaryVector("v2", allocator)) {
 
       setVector(vector1, STR1, null, STR2);
       setVector(vector2, STR1, STR2, STR3);
@@ -3649,101 +3358,6 @@ public class TestValueVector {
       long expected = UInt4Vector.MAX_UINT4 & UInt4Vector.PROMOTION_MASK;
       assertEquals(expected, vector.getValueAsLong(0));
       assertEquals(expected, vector.getValueAsLong(1));
-    }
-  }
-
-  @Test
-  public void testSplitAndTransferFixedWithVector1() {
-    RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-    try (BufferAllocator child = allocator.newChildAllocator("child", 0, Long.MAX_VALUE)) {
-      try (IntVector vector = new IntVector("vector", child)) {
-        vector.setSafe(0, 1);
-        vector.setSafe(1, 2);
-        vector.setSafe(2, 3);
-        vector.setValueCount(3);
-
-        TransferPair transferPair = vector.getTransferPair(allocator);
-        transferPair.splitAndTransfer(0, 1);
-        try (IntVector target = (IntVector) transferPair.getTo()) {
-          // no-op try-with-resource
-          assertEquals(1, target.get(0));
-        }
-      }
-    }
-  }
-
-  @Test
-  public void testSplitAndTransferFixedWithVector2() {
-    IntVector target;
-    try (BufferAllocator child = allocator.newChildAllocator("child", 0, Long.MAX_VALUE)) {
-      try (IntVector vector = new IntVector("source", child)) {
-        vector.setSafe(0, 1);
-        vector.setSafe(1, 2);
-        vector.setSafe(2, 3);
-        vector.setValueCount(3);
-
-        TransferPair transferPair = vector.getTransferPair(allocator);
-        transferPair.splitAndTransfer(0, 1);
-        target = (IntVector) transferPair.getTo();
-        assertEquals(1, target.get(0));
-      }
-    }
-    target.close();
-  }
-
-  @Test
-  public void testVectorLoadUnloadOnNonVariadicVectors() {
-
-    try (final IntVector vector1 = new IntVector("myvector", allocator)) {
-
-      setVector(vector1, 1, 2, 3, 4, 5, 6);
-      vector1.setValueCount(15);
-
-      /* Check the vector output */
-      assertEquals(1, vector1.get(0));
-      assertEquals(2, vector1.get(1));
-      assertEquals(3, vector1.get(2));
-      assertEquals(4, vector1.get(3));
-      assertEquals(5, vector1.get(4));
-      assertEquals(6, vector1.get(5));
-
-      Field field = vector1.getField();
-      String fieldName = field.getName();
-
-      List<Field> fields = new ArrayList<>();
-      List<FieldVector> fieldVectors = new ArrayList<>();
-
-      fields.add(field);
-      fieldVectors.add(vector1);
-
-      Schema schema = new Schema(fields);
-
-      VectorSchemaRoot schemaRoot1 =
-          new VectorSchemaRoot(schema, fieldVectors, vector1.getValueCount());
-      VectorUnloader vectorUnloader = new VectorUnloader(schemaRoot1);
-
-      try (ArrowRecordBatch recordBatch = vectorUnloader.getRecordBatch();
-          BufferAllocator finalVectorsAllocator =
-              allocator.newChildAllocator("new vector", 0, Long.MAX_VALUE);
-          VectorSchemaRoot schemaRoot2 = VectorSchemaRoot.create(schema, finalVectorsAllocator); ) {
-
-        // validating recordBatch doesn't contain an output for variadicBufferCounts
-        assertTrue(recordBatch.getVariadicBufferCounts().isEmpty());
-
-        VectorLoader vectorLoader = new VectorLoader(schemaRoot2);
-        vectorLoader.load(recordBatch);
-
-        IntVector vector2 = (IntVector) schemaRoot2.getVector(fieldName);
-        vector2.setValueCount(25);
-
-        /* Check the vector output */
-        assertEquals(1, vector2.get(0));
-        assertEquals(2, vector2.get(1));
-        assertEquals(3, vector2.get(2));
-        assertEquals(4, vector2.get(3));
-        assertEquals(5, vector2.get(4));
-        assertEquals(6, vector2.get(5));
-      }
     }
   }
 }

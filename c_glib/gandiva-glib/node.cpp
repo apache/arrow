@@ -27,8 +27,8 @@ template <typename Type>
 const Type &
 ggandiva_literal_node_get(GGandivaLiteralNode *node)
 {
-  auto gandiva_literal_node = std::static_pointer_cast<gandiva::LiteralNode>(
-    ggandiva_node_get_raw(GGANDIVA_NODE(node)));
+  auto gandiva_literal_node =
+    std::static_pointer_cast<gandiva::LiteralNode>(ggandiva_node_get_raw(GGANDIVA_NODE(node)));
   return std::get<Type>(gandiva_literal_node->holder());
 }
 
@@ -42,11 +42,9 @@ G_BEGIN_DECLS
  *
  * #GGandivaNode is a base class for a node in the expression tree.
  *
- * #GGandivaFieldNode is a class for a node in the expression tree, representing an Arrow
- * field.
+ * #GGandivaFieldNode is a class for a node in the expression tree, representing an Arrow field.
  *
- * #GGandivaFunctionNode is a class for a node in the expression tree, representing a
- * function.
+ * #GGandivaFunctionNode is a class for a node in the expression tree, representing a function.
  *
  * #GGandivaLiteralNode is a base class for a node in the expression tree,
  * representing a literal.
@@ -95,8 +93,7 @@ G_BEGIN_DECLS
  *
  * #GGandivaIfNode is a class for a node in the expression tree, representing an if-else.
  *
- * #GGandivaBooleanNode is a class for a node in the expression tree, representing a
- * boolean.
+ * #GGandivaBooleanNode is a class for a node in the expression tree, representing a boolean.
  *
  * #GGandivaAndNode is a class for a node in the expression tree, representing an AND.
  *
@@ -105,8 +102,7 @@ G_BEGIN_DECLS
  * Since: 0.12.0
  */
 
-typedef struct GGandivaNodePrivate_
-{
+typedef struct GGandivaNodePrivate_ {
   std::shared_ptr<gandiva::Node> node;
   GArrowDataType *return_type;
 } GGandivaNodePrivate;
@@ -116,11 +112,14 @@ enum {
   PROP_RETURN_TYPE
 };
 
-G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GGandivaNode, ggandiva_node, G_TYPE_OBJECT)
+G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GGandivaNode,
+                                    ggandiva_node,
+                                    G_TYPE_OBJECT)
 
-#define GGANDIVA_NODE_GET_PRIVATE(object)                                                \
-  static_cast<GGandivaNodePrivate *>(                                                    \
-    ggandiva_node_get_instance_private(GGANDIVA_NODE(object)))
+#define GGANDIVA_NODE_GET_PRIVATE(object)                       \
+  static_cast<GGandivaNodePrivate *>(                           \
+    ggandiva_node_get_instance_private(                         \
+      GGANDIVA_NODE(object)))
 
 static void
 ggandiva_node_dispose(GObject *object)
@@ -189,7 +188,7 @@ static void
 ggandiva_node_init(GGandivaNode *object)
 {
   auto priv = GGANDIVA_NODE_GET_PRIVATE(object);
-  new (&priv->node) std::shared_ptr<gandiva::Node>;
+  new(&priv->node) std::shared_ptr<gandiva::Node>;
 }
 
 static void
@@ -197,25 +196,25 @@ ggandiva_node_class_init(GGandivaNodeClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->dispose = ggandiva_node_dispose;
-  gobject_class->finalize = ggandiva_node_finalize;
+  gobject_class->dispose      = ggandiva_node_dispose;
+  gobject_class->finalize     = ggandiva_node_finalize;
   gobject_class->set_property = ggandiva_node_set_property;
   gobject_class->get_property = ggandiva_node_get_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_pointer(
-    "node",
-    "Node",
-    "The raw std::shared<gandiva::Node> *",
-    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_pointer("node",
+                              "Node",
+                              "The raw std::shared<gandiva::Node> *",
+                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
+                                                       G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_NODE, spec);
 
-  spec = g_param_spec_object(
-    "return-type",
-    "Return type",
-    "The return type",
-    GARROW_TYPE_DATA_TYPE,
-    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_object("return-type",
+                             "Return type",
+                             "The return type",
+                             GARROW_TYPE_DATA_TYPE,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                      G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_RETURN_TYPE, spec);
 }
 
@@ -237,8 +236,7 @@ ggandiva_node_to_string(GGandivaNode *node)
   return g_strndup(string.data(), string.size());
 }
 
-typedef struct GGandivaFieldNodePrivate_
-{
+typedef struct GGandivaFieldNodePrivate_ {
   GArrowField *field;
 } GGandivaFieldNodePrivate;
 
@@ -246,11 +244,14 @@ enum {
   PROP_FIELD = 1
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE(GGandivaFieldNode, ggandiva_field_node, GGANDIVA_TYPE_NODE)
+G_DEFINE_TYPE_WITH_PRIVATE(GGandivaFieldNode,
+                           ggandiva_field_node,
+                           GGANDIVA_TYPE_NODE)
 
-#define GGANDIVA_FIELD_NODE_GET_PRIVATE(object)                                          \
-  static_cast<GGandivaFieldNodePrivate *>(                                               \
-    ggandiva_field_node_get_instance_private(GGANDIVA_FIELD_NODE(object)))
+#define GGANDIVA_FIELD_NODE_GET_PRIVATE(object)                 \
+  static_cast<GGandivaFieldNodePrivate *>(                      \
+    ggandiva_field_node_get_instance_private(                   \
+      GGANDIVA_FIELD_NODE(object)))
 
 static void
 ggandiva_field_node_dispose(GObject *object)
@@ -311,17 +312,17 @@ ggandiva_field_node_class_init(GGandivaFieldNodeClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->dispose = ggandiva_field_node_dispose;
+  gobject_class->dispose      = ggandiva_field_node_dispose;
   gobject_class->set_property = ggandiva_field_node_set_property;
   gobject_class->get_property = ggandiva_field_node_get_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_object(
-    "field",
-    "Field",
-    "The field",
-    GARROW_TYPE_FIELD,
-    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_object("field",
+                             "Field",
+                             "The field",
+                             GARROW_TYPE_FIELD,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                      G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_FIELD, spec);
 }
 
@@ -341,8 +342,8 @@ ggandiva_field_node_new(GArrowField *field)
   return ggandiva_field_node_new_raw(&gandiva_node, field);
 }
 
-typedef struct GGandivaFunctionNodePrivate_
-{
+
+typedef struct GGandivaFunctionNodePrivate_ {
   gchar *name;
   GList *parameters;
 } GGandivaFunctionNodePrivate;
@@ -355,9 +356,10 @@ G_DEFINE_TYPE_WITH_PRIVATE(GGandivaFunctionNode,
                            ggandiva_function_node,
                            GGANDIVA_TYPE_NODE)
 
-#define GGANDIVA_FUNCTION_NODE_GET_PRIVATE(object)                                       \
-  static_cast<GGandivaFunctionNodePrivate *>(                                            \
-    ggandiva_function_node_get_instance_private(GGANDIVA_FUNCTION_NODE(object)))
+#define GGANDIVA_FUNCTION_NODE_GET_PRIVATE(object)      \
+  static_cast<GGandivaFunctionNodePrivate *>(           \
+    ggandiva_function_node_get_instance_private(        \
+      GGANDIVA_FUNCTION_NODE(object)))                  \
 
 static void
 ggandiva_function_node_dispose(GObject *object)
@@ -434,18 +436,18 @@ ggandiva_function_node_class_init(GGandivaFunctionNodeClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->dispose = ggandiva_function_node_dispose;
-  gobject_class->finalize = ggandiva_function_node_finalize;
+  gobject_class->dispose      = ggandiva_function_node_dispose;
+  gobject_class->finalize     = ggandiva_function_node_finalize;
   gobject_class->set_property = ggandiva_function_node_set_property;
   gobject_class->get_property = ggandiva_function_node_get_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_string(
-    "name",
-    "Name",
-    "The name of the function",
-    nullptr,
-    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_string("name",
+                             "Name",
+                             "The name of the function",
+                             nullptr,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                      G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_NAME, spec);
 }
 
@@ -470,9 +472,13 @@ ggandiva_function_node_new(const gchar *name,
     gandiva_nodes.push_back(gandiva_node);
   }
   auto arrow_return_type = garrow_data_type_get_raw(return_type);
-  auto gandiva_node =
-    gandiva::TreeExprBuilder::MakeFunction(name, gandiva_nodes, arrow_return_type);
-  return ggandiva_function_node_new_raw(&gandiva_node, name, parameters, return_type);
+  auto gandiva_node = gandiva::TreeExprBuilder::MakeFunction(name,
+                                                             gandiva_nodes,
+                                                             arrow_return_type);
+  return ggandiva_function_node_new_raw(&gandiva_node,
+                                        name,
+                                        parameters,
+                                        return_type);
 }
 
 /**
@@ -491,7 +497,10 @@ ggandiva_function_node_get_parameters(GGandivaFunctionNode *node)
   return priv->parameters;
 }
 
-G_DEFINE_TYPE(GGandivaLiteralNode, ggandiva_literal_node, GGANDIVA_TYPE_NODE)
+
+G_DEFINE_TYPE(GGandivaLiteralNode,
+              ggandiva_literal_node,
+              GGANDIVA_TYPE_NODE)
 
 static void
 ggandiva_literal_node_init(GGandivaLiteralNode *literal_node)
@@ -502,6 +511,7 @@ static void
 ggandiva_literal_node_class_init(GGandivaLiteralNodeClass *klass)
 {
 }
+
 
 G_DEFINE_TYPE(GGandivaNullLiteralNode,
               ggandiva_null_literal_node,
@@ -528,7 +538,8 @@ ggandiva_null_literal_node_class_init(GGandivaNullLiteralNodeClass *klass)
  * Since: 0.12.0
  */
 GGandivaNullLiteralNode *
-ggandiva_null_literal_node_new(GArrowDataType *return_type, GError **error)
+ggandiva_null_literal_node_new(GArrowDataType *return_type,
+                               GError **error)
 {
   auto arrow_return_type = garrow_data_type_get_raw(return_type);
   auto gandiva_node = gandiva::TreeExprBuilder::MakeNull(arrow_return_type);
@@ -541,9 +552,10 @@ ggandiva_null_literal_node_new(GArrowDataType *return_type, GError **error)
                 arrow_return_type->ToString().c_str());
     return NULL;
   }
-  return GGANDIVA_NULL_LITERAL_NODE(
-    ggandiva_literal_node_new_raw(&gandiva_node, return_type));
+  return GGANDIVA_NULL_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node,
+                                                                  return_type));
 }
+
 
 G_DEFINE_TYPE(GGandivaBooleanLiteralNode,
               ggandiva_boolean_literal_node,
@@ -571,8 +583,8 @@ GGandivaBooleanLiteralNode *
 ggandiva_boolean_literal_node_new(gboolean value)
 {
   auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(static_cast<bool>(value));
-  return GGANDIVA_BOOLEAN_LITERAL_NODE(
-    ggandiva_literal_node_new_raw(&gandiva_node, NULL));
+  return GGANDIVA_BOOLEAN_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node,
+                                                                     NULL));
 }
 
 /**
@@ -589,6 +601,7 @@ ggandiva_boolean_literal_node_get_value(GGandivaBooleanLiteralNode *node)
   auto value = ggandiva_literal_node_get<bool>(GGANDIVA_LITERAL_NODE(node));
   return static_cast<gboolean>(value);
 }
+
 
 G_DEFINE_TYPE(GGandivaInt8LiteralNode,
               ggandiva_int8_literal_node,
@@ -616,7 +629,8 @@ GGandivaInt8LiteralNode *
 ggandiva_int8_literal_node_new(gint8 value)
 {
   auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
-  return GGANDIVA_INT8_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node, NULL));
+  return GGANDIVA_INT8_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node,
+                                                                  NULL));
 }
 
 /**
@@ -632,6 +646,7 @@ ggandiva_int8_literal_node_get_value(GGandivaInt8LiteralNode *node)
 {
   return ggandiva_literal_node_get<int8_t>(GGANDIVA_LITERAL_NODE(node));
 }
+
 
 G_DEFINE_TYPE(GGandivaUInt8LiteralNode,
               ggandiva_uint8_literal_node,
@@ -659,7 +674,8 @@ GGandivaUInt8LiteralNode *
 ggandiva_uint8_literal_node_new(guint8 value)
 {
   auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
-  return GGANDIVA_UINT8_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node, NULL));
+  return GGANDIVA_UINT8_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node,
+                                                                   NULL));
 }
 
 /**
@@ -675,6 +691,7 @@ ggandiva_uint8_literal_node_get_value(GGandivaUInt8LiteralNode *node)
 {
   return ggandiva_literal_node_get<uint8_t>(GGANDIVA_LITERAL_NODE(node));
 }
+
 
 G_DEFINE_TYPE(GGandivaInt16LiteralNode,
               ggandiva_int16_literal_node,
@@ -702,7 +719,8 @@ GGandivaInt16LiteralNode *
 ggandiva_int16_literal_node_new(gint16 value)
 {
   auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
-  return GGANDIVA_INT16_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node, NULL));
+  return GGANDIVA_INT16_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node,
+                                                                   NULL));
 }
 
 /**
@@ -718,6 +736,7 @@ ggandiva_int16_literal_node_get_value(GGandivaInt16LiteralNode *node)
 {
   return ggandiva_literal_node_get<int16_t>(GGANDIVA_LITERAL_NODE(node));
 }
+
 
 G_DEFINE_TYPE(GGandivaUInt16LiteralNode,
               ggandiva_uint16_literal_node,
@@ -745,7 +764,8 @@ GGandivaUInt16LiteralNode *
 ggandiva_uint16_literal_node_new(guint16 value)
 {
   auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
-  return GGANDIVA_UINT16_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node, NULL));
+  return GGANDIVA_UINT16_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node,
+                                                                    NULL));
 }
 
 /**
@@ -761,6 +781,7 @@ ggandiva_uint16_literal_node_get_value(GGandivaUInt16LiteralNode *node)
 {
   return ggandiva_literal_node_get<uint16_t>(GGANDIVA_LITERAL_NODE(node));
 }
+
 
 G_DEFINE_TYPE(GGandivaInt32LiteralNode,
               ggandiva_int32_literal_node,
@@ -788,7 +809,8 @@ GGandivaInt32LiteralNode *
 ggandiva_int32_literal_node_new(gint32 value)
 {
   auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
-  return GGANDIVA_INT32_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node, NULL));
+  return GGANDIVA_INT32_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node,
+                                                                   NULL));
 }
 
 /**
@@ -804,6 +826,7 @@ ggandiva_int32_literal_node_get_value(GGandivaInt32LiteralNode *node)
 {
   return ggandiva_literal_node_get<int32_t>(GGANDIVA_LITERAL_NODE(node));
 }
+
 
 G_DEFINE_TYPE(GGandivaUInt32LiteralNode,
               ggandiva_uint32_literal_node,
@@ -831,7 +854,8 @@ GGandivaUInt32LiteralNode *
 ggandiva_uint32_literal_node_new(guint32 value)
 {
   auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
-  return GGANDIVA_UINT32_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node, NULL));
+  return GGANDIVA_UINT32_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node,
+                                                                    NULL));
 }
 
 /**
@@ -847,6 +871,7 @@ ggandiva_uint32_literal_node_get_value(GGandivaUInt32LiteralNode *node)
 {
   return ggandiva_literal_node_get<uint32_t>(GGANDIVA_LITERAL_NODE(node));
 }
+
 
 G_DEFINE_TYPE(GGandivaInt64LiteralNode,
               ggandiva_int64_literal_node,
@@ -873,9 +898,9 @@ ggandiva_int64_literal_node_class_init(GGandivaInt64LiteralNodeClass *klass)
 GGandivaInt64LiteralNode *
 ggandiva_int64_literal_node_new(gint64 value)
 {
-  auto int64_t_value = static_cast<int64_t>(value);
-  auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(int64_t_value);
-  return GGANDIVA_INT64_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node, NULL));
+  auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
+  return GGANDIVA_INT64_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node,
+                                                                   NULL));
 }
 
 /**
@@ -891,6 +916,7 @@ ggandiva_int64_literal_node_get_value(GGandivaInt64LiteralNode *node)
 {
   return ggandiva_literal_node_get<int64_t>(GGANDIVA_LITERAL_NODE(node));
 }
+
 
 G_DEFINE_TYPE(GGandivaUInt64LiteralNode,
               ggandiva_uint64_literal_node,
@@ -917,9 +943,9 @@ ggandiva_uint64_literal_node_class_init(GGandivaUInt64LiteralNodeClass *klass)
 GGandivaUInt64LiteralNode *
 ggandiva_uint64_literal_node_new(guint64 value)
 {
-  auto uint64_t_value = static_cast<uint64_t>(value);
-  auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(uint64_t_value);
-  return GGANDIVA_UINT64_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node, NULL));
+  auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
+  return GGANDIVA_UINT64_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node,
+                                                                    NULL));
 }
 
 /**
@@ -935,6 +961,7 @@ ggandiva_uint64_literal_node_get_value(GGandivaUInt64LiteralNode *node)
 {
   return ggandiva_literal_node_get<uint64_t>(GGANDIVA_LITERAL_NODE(node));
 }
+
 
 G_DEFINE_TYPE(GGandivaFloatLiteralNode,
               ggandiva_float_literal_node,
@@ -962,7 +989,8 @@ GGandivaFloatLiteralNode *
 ggandiva_float_literal_node_new(gfloat value)
 {
   auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
-  return GGANDIVA_FLOAT_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node, NULL));
+  return GGANDIVA_FLOAT_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node,
+                                                                   NULL));
 }
 
 /**
@@ -978,6 +1006,7 @@ ggandiva_float_literal_node_get_value(GGandivaFloatLiteralNode *node)
 {
   return ggandiva_literal_node_get<float>(GGANDIVA_LITERAL_NODE(node));
 }
+
 
 G_DEFINE_TYPE(GGandivaDoubleLiteralNode,
               ggandiva_double_literal_node,
@@ -1005,7 +1034,8 @@ GGandivaDoubleLiteralNode *
 ggandiva_double_literal_node_new(gdouble value)
 {
   auto gandiva_node = gandiva::TreeExprBuilder::MakeLiteral(value);
-  return GGANDIVA_DOUBLE_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node, NULL));
+  return GGANDIVA_DOUBLE_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node,
+                                                                    NULL));
 }
 
 /**
@@ -1022,8 +1052,8 @@ ggandiva_double_literal_node_get_value(GGandivaDoubleLiteralNode *node)
   return ggandiva_literal_node_get<double>(GGANDIVA_LITERAL_NODE(node));
 }
 
-typedef struct GGandivaBinaryLiteralNodePrivate_
-{
+
+typedef struct GGandivaBinaryLiteralNodePrivate_ {
   GBytes *value;
 } GGandivaBinaryLiteralNodePrivate;
 
@@ -1031,9 +1061,9 @@ G_DEFINE_TYPE_WITH_PRIVATE(GGandivaBinaryLiteralNode,
                            ggandiva_binary_literal_node,
                            GGANDIVA_TYPE_LITERAL_NODE)
 
-#define GGANDIVA_BINARY_LITERAL_NODE_GET_PRIVATE(object)                                 \
-  static_cast<GGandivaBinaryLiteralNodePrivate *>(                                       \
-    ggandiva_binary_literal_node_get_instance_private(                                   \
+#define GGANDIVA_BINARY_LITERAL_NODE_GET_PRIVATE(object)                \
+  static_cast<GGandivaBinaryLiteralNodePrivate *>(                      \
+    ggandiva_binary_literal_node_get_instance_private(                  \
       GGANDIVA_BINARY_LITERAL_NODE(object)))
 
 static void
@@ -1072,11 +1102,14 @@ ggandiva_binary_literal_node_class_init(GGandivaBinaryLiteralNodeClass *klass)
  * Since: 0.12.0
  */
 GGandivaBinaryLiteralNode *
-ggandiva_binary_literal_node_new(const guint8 *value, gsize size)
+ggandiva_binary_literal_node_new(const guint8 *value,
+                                 gsize size)
 {
-  auto gandiva_node = gandiva::TreeExprBuilder::MakeBinaryLiteral(
-    std::string(reinterpret_cast<const char *>(value), size));
-  return GGANDIVA_BINARY_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node, NULL));
+  auto gandiva_node =
+    gandiva::TreeExprBuilder::MakeBinaryLiteral(std::string(reinterpret_cast<const char *>(value),
+                                                            size));
+  return GGANDIVA_BINARY_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node,
+                                                                    NULL));
 }
 
 /**
@@ -1092,9 +1125,12 @@ ggandiva_binary_literal_node_new_bytes(GBytes *value)
 {
   size_t value_size;
   auto raw_value = g_bytes_get_data(value, &value_size);
-  auto gandiva_node = gandiva::TreeExprBuilder::MakeBinaryLiteral(
-    std::string(reinterpret_cast<const char *>(raw_value), value_size));
-  auto literal_node = ggandiva_literal_node_new_raw(&gandiva_node, NULL);
+  auto gandiva_node =
+    gandiva::TreeExprBuilder::MakeBinaryLiteral(
+      std::string(reinterpret_cast<const char *>(raw_value),
+                  value_size));
+  auto literal_node = ggandiva_literal_node_new_raw(&gandiva_node,
+                                                    NULL);
   auto priv = GGANDIVA_BINARY_LITERAL_NODE_GET_PRIVATE(literal_node);
   priv->value = value;
   g_bytes_ref(priv->value);
@@ -1120,6 +1156,7 @@ ggandiva_binary_literal_node_get_value(GGandivaBinaryLiteralNode *node)
 
   return priv->value;
 }
+
 
 G_DEFINE_TYPE(GGandivaStringLiteralNode,
               ggandiva_string_literal_node,
@@ -1147,7 +1184,8 @@ GGandivaStringLiteralNode *
 ggandiva_string_literal_node_new(const gchar *value)
 {
   auto gandiva_node = gandiva::TreeExprBuilder::MakeStringLiteral(value);
-  return GGANDIVA_STRING_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node, NULL));
+  return GGANDIVA_STRING_LITERAL_NODE(ggandiva_literal_node_new_raw(&gandiva_node,
+                                                                    NULL));
 }
 
 /**
@@ -1165,8 +1203,8 @@ ggandiva_string_literal_node_get_value(GGandivaStringLiteralNode *node)
   return value.c_str();
 }
 
-typedef struct GGandivaIfNodePrivate_
-{
+
+typedef struct GGandivaIfNodePrivate_ {
   GGandivaNode *condition_node;
   GGandivaNode *then_node;
   GGandivaNode *else_node;
@@ -1178,11 +1216,14 @@ enum {
   PROP_ELSE_NODE,
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE(GGandivaIfNode, ggandiva_if_node, GGANDIVA_TYPE_NODE)
+G_DEFINE_TYPE_WITH_PRIVATE(GGandivaIfNode,
+                           ggandiva_if_node,
+                           GGANDIVA_TYPE_NODE)
 
-#define GGANDIVA_IF_NODE_GET_PRIVATE(object)                                             \
-  static_cast<GGandivaIfNodePrivate *>(                                                  \
-    ggandiva_if_node_get_instance_private(GGANDIVA_IF_NODE(object)))
+#define GGANDIVA_IF_NODE_GET_PRIVATE(object)                 \
+  static_cast<GGandivaIfNodePrivate *>(                      \
+    ggandiva_if_node_get_instance_private(                   \
+      GGANDIVA_IF_NODE(object)))
 
 static void
 ggandiva_if_node_dispose(GObject *object)
@@ -1265,33 +1306,33 @@ ggandiva_if_node_class_init(GGandivaIfNodeClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->dispose = ggandiva_if_node_dispose;
+  gobject_class->dispose      = ggandiva_if_node_dispose;
   gobject_class->set_property = ggandiva_if_node_set_property;
   gobject_class->get_property = ggandiva_if_node_get_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_object(
-    "condition-node",
-    "Condition node",
-    "The condition node",
-    GGANDIVA_TYPE_NODE,
-    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_object("condition-node",
+                             "Condition node",
+                             "The condition node",
+                             GGANDIVA_TYPE_NODE,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                      G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_CONDITION_NODE, spec);
 
-  spec = g_param_spec_object(
-    "then-node",
-    "Then node",
-    "The then node",
-    GGANDIVA_TYPE_NODE,
-    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_object("then-node",
+                             "Then node",
+                             "The then node",
+                             GGANDIVA_TYPE_NODE,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                      G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_THEN_NODE, spec);
 
-  spec = g_param_spec_object(
-    "else-node",
-    "Else node",
-    "The else node",
-    GGANDIVA_TYPE_NODE,
-    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_object("else-node",
+                             "Else node",
+                             "The else node",
+                             GGANDIVA_TYPE_NODE,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                      G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_ELSE_NODE, spec);
 }
 
@@ -1350,16 +1391,19 @@ ggandiva_if_node_new(GGandivaNode *condition_node,
                                   return_type);
 }
 
-typedef struct GGandivaBooleanNodePrivate_
-{
+
+typedef struct GGandivaBooleanNodePrivate_ {
   GList *children;
 } GGandivaBooleanNodePrivate;
 
-G_DEFINE_TYPE_WITH_PRIVATE(GGandivaBooleanNode, ggandiva_boolean_node, GGANDIVA_TYPE_NODE)
+G_DEFINE_TYPE_WITH_PRIVATE(GGandivaBooleanNode,
+                           ggandiva_boolean_node,
+                           GGANDIVA_TYPE_NODE)
 
-#define GGANDIVA_BOOLEAN_NODE_GET_PRIVATE(object)                                        \
-  static_cast<GGandivaBooleanNodePrivate *>(                                             \
-    ggandiva_boolean_node_get_instance_private(GGANDIVA_BOOLEAN_NODE(object)))
+#define GGANDIVA_BOOLEAN_NODE_GET_PRIVATE(object)      \
+  static_cast<GGandivaBooleanNodePrivate *>(           \
+    ggandiva_boolean_node_get_instance_private(        \
+      GGANDIVA_BOOLEAN_NODE(object)))                  \
 
 static void
 ggandiva_boolean_node_dispose(GObject *object)
@@ -1405,7 +1449,10 @@ ggandiva_boolean_node_get_children(GGandivaBooleanNode *node)
   return priv->children;
 }
 
-G_DEFINE_TYPE(GGandivaAndNode, ggandiva_and_node, GGANDIVA_TYPE_BOOLEAN_NODE)
+
+G_DEFINE_TYPE(GGandivaAndNode,
+              ggandiva_and_node,
+              GGANDIVA_TYPE_BOOLEAN_NODE)
 
 static void
 ggandiva_and_node_init(GGandivaAndNode *and_node)
@@ -1434,10 +1481,14 @@ ggandiva_and_node_new(GList *children)
     gandiva_nodes.push_back(gandiva_node);
   }
   auto gandiva_node = gandiva::TreeExprBuilder::MakeAnd(gandiva_nodes);
-  return GGANDIVA_AND_NODE(ggandiva_boolean_node_new_raw(&gandiva_node, children));
+  return GGANDIVA_AND_NODE(ggandiva_boolean_node_new_raw(&gandiva_node,
+                                                         children));
 }
 
-G_DEFINE_TYPE(GGandivaOrNode, ggandiva_or_node, GGANDIVA_TYPE_BOOLEAN_NODE)
+
+G_DEFINE_TYPE(GGandivaOrNode,
+              ggandiva_or_node,
+              GGANDIVA_TYPE_BOOLEAN_NODE)
 
 static void
 ggandiva_or_node_init(GGandivaOrNode *or_node)
@@ -1466,7 +1517,8 @@ ggandiva_or_node_new(GList *children)
     gandiva_nodes.push_back(gandiva_node);
   }
   auto gandiva_node = gandiva::TreeExprBuilder::MakeOr(gandiva_nodes);
-  return GGANDIVA_OR_NODE(ggandiva_boolean_node_new_raw(&gandiva_node, children));
+  return GGANDIVA_OR_NODE(ggandiva_boolean_node_new_raw(&gandiva_node,
+                                                        children));
 }
 
 G_END_DECLS
@@ -1485,12 +1537,9 @@ ggandiva_field_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
   auto arrow_return_type = (*gandiva_node)->return_type();
   auto return_type = garrow_field_get_data_type(field);
   auto field_node = g_object_new(GGANDIVA_TYPE_FIELD_NODE,
-                                 "node",
-                                 gandiva_node,
-                                 "field",
-                                 field,
-                                 "return-type",
-                                 return_type,
+                                 "node", gandiva_node,
+                                 "field", field,
+                                 "return-type", return_type,
                                  NULL);
   return GGANDIVA_FIELD_NODE(field_node);
 }
@@ -1502,12 +1551,9 @@ ggandiva_function_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
                                GArrowDataType *return_type)
 {
   auto function_node = g_object_new(GGANDIVA_TYPE_FUNCTION_NODE,
-                                    "node",
-                                    gandiva_node,
-                                    "name",
-                                    name,
-                                    "return-type",
-                                    return_type,
+                                    "node", gandiva_node,
+                                    "name", name,
+                                    "return-type", return_type,
                                     NULL);
   auto priv = GGANDIVA_FUNCTION_NODE_GET_PRIVATE(function_node);
   for (auto node = parameters; node; node = g_list_next(node)) {
@@ -1527,12 +1573,11 @@ ggandiva_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
 
   GGandivaLiteralNode *literal_node;
   if (gandiva_literal_node->is_null()) {
-    literal_node = GGANDIVA_LITERAL_NODE(g_object_new(GGANDIVA_TYPE_NULL_LITERAL_NODE,
-                                                      "node",
-                                                      gandiva_node,
-                                                      "return-type",
-                                                      return_type,
-                                                      NULL));
+    literal_node =
+      GGANDIVA_LITERAL_NODE(g_object_new(GGANDIVA_TYPE_NULL_LITERAL_NODE,
+                                         "node", gandiva_node,
+                                         "return-type", return_type,
+                                         NULL));
   } else {
     GType type;
 
@@ -1583,12 +1628,18 @@ ggandiva_literal_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
     }
 
     if (return_type) {
-      literal_node = GGANDIVA_LITERAL_NODE(
-        g_object_new(type, "node", gandiva_node, "return-type", return_type, NULL));
+      literal_node =
+        GGANDIVA_LITERAL_NODE(g_object_new(type,
+                                           "node", gandiva_node,
+                                           "return-type", return_type,
+                                           NULL));
     } else {
       return_type = garrow_data_type_new_raw(&arrow_return_type);
-      literal_node = GGANDIVA_LITERAL_NODE(
-        g_object_new(type, "node", gandiva_node, "return-type", return_type, NULL));
+      literal_node =
+        GGANDIVA_LITERAL_NODE(g_object_new(type,
+                                           "node", gandiva_node,
+                                           "return-type", return_type,
+                                           NULL));
       g_object_unref(return_type);
     }
   }
@@ -1604,16 +1655,11 @@ ggandiva_if_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
                          GArrowDataType *return_type)
 {
   auto if_node = g_object_new(GGANDIVA_TYPE_IF_NODE,
-                              "node",
-                              gandiva_node,
-                              "condition-node",
-                              condition_node,
-                              "then-node",
-                              then_node,
-                              "else-node",
-                              else_node,
-                              "return-type",
-                              return_type,
+                              "node", gandiva_node,
+                              "condition-node", condition_node,
+                              "then-node", then_node,
+                              "else-node", else_node,
+                              "return-type", return_type,
                               NULL);
   return GGANDIVA_IF_NODE(if_node);
 }
@@ -1631,9 +1677,12 @@ ggandiva_boolean_node_new_raw(std::shared_ptr<gandiva::Node> *gandiva_node,
   } else {
     type = GGANDIVA_TYPE_OR_NODE;
   }
-  auto boolean_node = g_object_new(type, "node", gandiva_node, NULL);
+  auto boolean_node = g_object_new(type,
+                                   "node", gandiva_node,
+                                   NULL);
   auto priv = GGANDIVA_BOOLEAN_NODE_GET_PRIVATE(boolean_node);
-  priv->children =
-    g_list_copy_deep(children, reinterpret_cast<GCopyFunc>(g_object_ref), NULL);
+  priv->children = g_list_copy_deep(children,
+                                    reinterpret_cast<GCopyFunc>(g_object_ref),
+                                    NULL);
   return GGANDIVA_BOOLEAN_NODE(boolean_node);
 }

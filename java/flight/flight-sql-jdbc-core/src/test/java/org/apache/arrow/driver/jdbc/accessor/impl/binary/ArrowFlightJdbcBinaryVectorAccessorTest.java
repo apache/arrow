@@ -14,113 +14,116 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.driver.jdbc.accessor.impl.binary;
 
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.hamcrest.CoreMatchers.is;
-import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.io.InputStream;
 import java.io.Reader;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.function.Supplier;
-import java.util.stream.Stream;
+
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils;
-import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestExtension;
+import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.LargeVarBinaryVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.commons.io.IOUtils;
 import org.hamcrest.CoreMatchers;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.extension.RegisterExtension;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.ClassRule;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.ErrorCollector;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
+@RunWith(Parameterized.class)
 public class ArrowFlightJdbcBinaryVectorAccessorTest {
 
-  @RegisterExtension
-  public static RootAllocatorTestExtension rootAllocatorTestExtension =
-      new RootAllocatorTestExtension();
+  @ClassRule
+  public static RootAllocatorTestRule rootAllocatorTestRule = new RootAllocatorTestRule();
+
+  @Rule
+  public final ErrorCollector collector = new ErrorCollector();
 
   private ValueVector vector;
+  private final Supplier<ValueVector> vectorSupplier;
 
   private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcBinaryVectorAccessor>
-      accessorSupplier =
-          (vector, getCurrentRow) -> {
-            ArrowFlightJdbcAccessorFactory.WasNullConsumer noOpWasNullConsumer =
-                (boolean wasNull) -> {};
-            if (vector instanceof VarBinaryVector) {
-              return new ArrowFlightJdbcBinaryVectorAccessor(
-                  ((VarBinaryVector) vector), getCurrentRow, noOpWasNullConsumer);
-            } else if (vector instanceof LargeVarBinaryVector) {
-              return new ArrowFlightJdbcBinaryVectorAccessor(
-                  ((LargeVarBinaryVector) vector), getCurrentRow, noOpWasNullConsumer);
-            } else if (vector instanceof FixedSizeBinaryVector) {
-              return new ArrowFlightJdbcBinaryVectorAccessor(
-                  ((FixedSizeBinaryVector) vector), getCurrentRow, noOpWasNullConsumer);
-            }
-            return null;
-          };
+      accessorSupplier = (vector, getCurrentRow) -> {
+        ArrowFlightJdbcAccessorFactory.WasNullConsumer noOpWasNullConsumer = (boolean wasNull) -> {
+        };
+        if (vector instanceof VarBinaryVector) {
+          return new ArrowFlightJdbcBinaryVectorAccessor(((VarBinaryVector) vector), getCurrentRow,
+              noOpWasNullConsumer);
+        } else if (vector instanceof LargeVarBinaryVector) {
+          return new ArrowFlightJdbcBinaryVectorAccessor(((LargeVarBinaryVector) vector),
+              getCurrentRow, noOpWasNullConsumer);
+        } else if (vector instanceof FixedSizeBinaryVector) {
+          return new ArrowFlightJdbcBinaryVectorAccessor(((FixedSizeBinaryVector) vector),
+              getCurrentRow, noOpWasNullConsumer);
+        }
+        return null;
+      };
 
   private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcBinaryVectorAccessor>
-      accessorIterator = new AccessorTestUtils.AccessorIterator<>(accessorSupplier);
+      accessorIterator =
+      new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
 
-  public static Stream<Arguments> data() {
-    return Stream.of(
-        Arguments.of(
-            (Supplier<ValueVector>) () -> rootAllocatorTestExtension.createVarBinaryVector(),
-            "VarBinaryVector"),
-        Arguments.of(
-            (Supplier<ValueVector>) () -> rootAllocatorTestExtension.createLargeVarBinaryVector(),
-            "LargeVarBinaryVector"),
-        Arguments.of(
-            (Supplier<ValueVector>) () -> rootAllocatorTestExtension.createFixedSizeBinaryVector(),
-            "FixedSizeBinaryVector"));
+  @Parameterized.Parameters(name = "{1}")
+  public static Collection<Object[]> data() {
+    return Arrays.asList(new Object[][] {
+        {(Supplier<ValueVector>) () -> rootAllocatorTestRule.createVarBinaryVector(),
+            "VarBinaryVector"},
+        {(Supplier<ValueVector>) () -> rootAllocatorTestRule.createLargeVarBinaryVector(),
+            "LargeVarBinaryVector"},
+        {(Supplier<ValueVector>) () -> rootAllocatorTestRule.createFixedSizeBinaryVector(),
+            "FixedSizeBinaryVector"},
+    });
   }
 
-  public void setup(Supplier<ValueVector> vectorSupplier) {
+  public ArrowFlightJdbcBinaryVectorAccessorTest(Supplier<ValueVector> vectorSupplier,
+                                                 String vectorType) {
+    this.vectorSupplier = vectorSupplier;
+  }
+
+  @Before
+  public void setup() {
     this.vector = vectorSupplier.get();
   }
 
-  @AfterEach
+  @After
   public void tearDown() {
     this.vector.close();
   }
 
-  @ParameterizedTest
-  @MethodSource("data")
-  public void testShouldGetStringReturnExpectedString(Supplier<ValueVector> vectorSupplier)
-      throws Exception {
-    setup(vectorSupplier);
-    accessorIterator.assertAccessorGetter(
-        vector,
-        ArrowFlightJdbcBinaryVectorAccessor::getString,
+  @Test
+  public void testShouldGetStringReturnExpectedString() throws Exception {
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcBinaryVectorAccessor::getString,
         (accessor) -> is(new String(accessor.getBytes(), UTF_8)));
   }
 
-  @ParameterizedTest
-  @MethodSource("data")
-  public void testShouldGetStringReturnNull(Supplier<ValueVector> vectorSupplier) throws Exception {
-    setup(vectorSupplier);
+  @Test
+  public void testShouldGetStringReturnNull() throws Exception {
     vector.reset();
     vector.setValueCount(5);
 
-    accessorIterator.assertAccessorGetter(
-        vector, ArrowFlightJdbcBinaryVectorAccessor::getString, CoreMatchers.nullValue());
+    accessorIterator
+        .assertAccessorGetter(vector, ArrowFlightJdbcBinaryVectorAccessor::getString,
+            CoreMatchers.nullValue());
   }
 
-  @ParameterizedTest
-  @MethodSource("data")
-  public void testShouldGetBytesReturnExpectedByteArray(Supplier<ValueVector> vectorSupplier)
-      throws Exception {
-    setup(vectorSupplier);
-    accessorIterator.assertAccessorGetter(
-        vector,
-        ArrowFlightJdbcBinaryVectorAccessor::getBytes,
+  @Test
+  public void testShouldGetBytesReturnExpectedByteArray() throws Exception {
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcBinaryVectorAccessor::getBytes,
         (accessor, currentRow) -> {
           if (vector instanceof VarBinaryVector) {
             return is(((VarBinaryVector) vector).get(currentRow));
@@ -133,146 +136,109 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
         });
   }
 
-  @ParameterizedTest
-  @MethodSource("data")
-  public void testShouldGetBytesReturnNull(Supplier<ValueVector> vectorSupplier) {
-    setup(vectorSupplier);
+  @Test
+  public void testShouldGetBytesReturnNull() throws Exception {
     vector.reset();
     vector.setValueCount(5);
 
     ArrowFlightJdbcBinaryVectorAccessor accessor = accessorSupplier.supply(vector, () -> 0);
-    assertThat(accessor.getBytes(), CoreMatchers.equalTo(null));
-    assertThat(accessor.wasNull(), is(true));
+    collector.checkThat(accessor.getBytes(), CoreMatchers.equalTo(null));
+    collector.checkThat(accessor.wasNull(), is(true));
   }
 
-  @ParameterizedTest
-  @MethodSource("data")
-  public void testShouldGetObjectReturnAsGetBytes(Supplier<ValueVector> vectorSupplier)
-      throws Exception {
-    setup(vectorSupplier);
-    accessorIterator.assertAccessorGetter(
-        vector,
-        ArrowFlightJdbcBinaryVectorAccessor::getObject,
+  @Test
+  public void testShouldGetObjectReturnAsGetBytes() throws Exception {
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcBinaryVectorAccessor::getObject,
         (accessor) -> is(accessor.getBytes()));
   }
 
-  @ParameterizedTest
-  @MethodSource("data")
-  public void testShouldGetObjectReturnNull(Supplier<ValueVector> vectorSupplier) {
-    setup(vectorSupplier);
+  @Test
+  public void testShouldGetObjectReturnNull() {
     vector.reset();
     vector.setValueCount(5);
 
     ArrowFlightJdbcBinaryVectorAccessor accessor = accessorSupplier.supply(vector, () -> 0);
-    assertThat(accessor.getObject(), CoreMatchers.equalTo(null));
-    assertThat(accessor.wasNull(), is(true));
+    collector.checkThat(accessor.getObject(), CoreMatchers.equalTo(null));
+    collector.checkThat(accessor.wasNull(), is(true));
   }
 
-  @ParameterizedTest
-  @MethodSource("data")
-  public void testShouldGetUnicodeStreamReturnCorrectInputStream(
-      Supplier<ValueVector> vectorSupplier) throws Exception {
-    setup(vectorSupplier);
-    accessorIterator.iterate(
-        vector,
-        (accessor, currentRow) -> {
-          InputStream inputStream = accessor.getUnicodeStream();
-          String actualString = IOUtils.toString(inputStream, UTF_8);
-          assertThat(accessor.wasNull(), is(false));
-          assertThat(actualString, is(accessor.getString()));
-        });
+  @Test
+  public void testShouldGetUnicodeStreamReturnCorrectInputStream() throws Exception {
+    accessorIterator.iterate(vector, (accessor, currentRow) -> {
+      InputStream inputStream = accessor.getUnicodeStream();
+      String actualString = IOUtils.toString(inputStream, UTF_8);
+      collector.checkThat(accessor.wasNull(), is(false));
+      collector.checkThat(actualString, is(accessor.getString()));
+    });
   }
 
-  @ParameterizedTest
-  @MethodSource("data")
-  public void testShouldGetUnicodeStreamReturnNull(Supplier<ValueVector> vectorSupplier) {
-    setup(vectorSupplier);
+  @Test
+  public void testShouldGetUnicodeStreamReturnNull() throws Exception {
     vector.reset();
     vector.setValueCount(5);
 
     ArrowFlightJdbcBinaryVectorAccessor accessor = accessorSupplier.supply(vector, () -> 0);
-    assertThat(accessor.getUnicodeStream(), CoreMatchers.equalTo(null));
-    assertThat(accessor.wasNull(), is(true));
+    collector.checkThat(accessor.getUnicodeStream(), CoreMatchers.equalTo(null));
+    collector.checkThat(accessor.wasNull(), is(true));
   }
 
-  @ParameterizedTest
-  @MethodSource("data")
-  public void testShouldGetAsciiStreamReturnCorrectInputStream(Supplier<ValueVector> vectorSupplier)
-      throws Exception {
-    setup(vectorSupplier);
-    accessorIterator.iterate(
-        vector,
-        (accessor, currentRow) -> {
-          InputStream inputStream = accessor.getAsciiStream();
-          String actualString = IOUtils.toString(inputStream, US_ASCII);
-          assertThat(accessor.wasNull(), is(false));
-          assertThat(actualString, is(accessor.getString()));
-        });
+  @Test
+  public void testShouldGetAsciiStreamReturnCorrectInputStream() throws Exception {
+    accessorIterator.iterate(vector, (accessor, currentRow) -> {
+      InputStream inputStream = accessor.getAsciiStream();
+      String actualString = IOUtils.toString(inputStream, US_ASCII);
+      collector.checkThat(accessor.wasNull(), is(false));
+      collector.checkThat(actualString, is(accessor.getString()));
+    });
   }
 
-  @ParameterizedTest
-  @MethodSource("data")
-  public void testShouldGetAsciiStreamReturnNull(Supplier<ValueVector> vectorSupplier) {
-    setup(vectorSupplier);
+  @Test
+  public void testShouldGetAsciiStreamReturnNull() throws Exception {
     vector.reset();
     vector.setValueCount(5);
 
     ArrowFlightJdbcBinaryVectorAccessor accessor = accessorSupplier.supply(vector, () -> 0);
-    assertThat(accessor.getAsciiStream(), CoreMatchers.equalTo(null));
-    assertThat(accessor.wasNull(), is(true));
+    collector.checkThat(accessor.getAsciiStream(), CoreMatchers.equalTo(null));
+    collector.checkThat(accessor.wasNull(), is(true));
   }
 
-  @ParameterizedTest
-  @MethodSource("data")
-  public void testShouldGetBinaryStreamReturnCurrentInputStream(
-      Supplier<ValueVector> vectorSupplier) throws Exception {
-    setup(vectorSupplier);
-    accessorIterator.iterate(
-        vector,
-        (accessor, currentRow) -> {
-          InputStream inputStream = accessor.getBinaryStream();
-          String actualString = IOUtils.toString(inputStream, UTF_8);
-          assertThat(accessor.wasNull(), is(false));
-          assertThat(actualString, is(accessor.getString()));
-        });
+  @Test
+  public void testShouldGetBinaryStreamReturnCurrentInputStream() throws Exception {
+    accessorIterator.iterate(vector, (accessor, currentRow) -> {
+      InputStream inputStream = accessor.getBinaryStream();
+      String actualString = IOUtils.toString(inputStream, UTF_8);
+      collector.checkThat(accessor.wasNull(), is(false));
+      collector.checkThat(actualString, is(accessor.getString()));
+    });
   }
 
-  @ParameterizedTest
-  @MethodSource("data")
-  public void testShouldGetBinaryStreamReturnNull(Supplier<ValueVector> vectorSupplier) {
-    setup(vectorSupplier);
+  @Test
+  public void testShouldGetBinaryStreamReturnNull() throws Exception {
     vector.reset();
     vector.setValueCount(5);
 
     ArrowFlightJdbcBinaryVectorAccessor accessor = accessorSupplier.supply(vector, () -> 0);
-    assertThat(accessor.getBinaryStream(), CoreMatchers.equalTo(null));
-    assertThat(accessor.wasNull(), is(true));
+    collector.checkThat(accessor.getBinaryStream(), CoreMatchers.equalTo(null));
+    collector.checkThat(accessor.wasNull(), is(true));
   }
 
-  @ParameterizedTest
-  @MethodSource("data")
-  public void testShouldGetCharacterStreamReturnCorrectReader(Supplier<ValueVector> vectorSupplier)
-      throws Exception {
-    setup(vectorSupplier);
-    accessorIterator.iterate(
-        vector,
-        (accessor, currentRow) -> {
-          Reader characterStream = accessor.getCharacterStream();
-          String actualString = IOUtils.toString(characterStream);
-          assertThat(accessor.wasNull(), is(false));
-          assertThat(actualString, is(accessor.getString()));
-        });
+  @Test
+  public void testShouldGetCharacterStreamReturnCorrectReader() throws Exception {
+    accessorIterator.iterate(vector, (accessor, currentRow) -> {
+      Reader characterStream = accessor.getCharacterStream();
+      String actualString = IOUtils.toString(characterStream);
+      collector.checkThat(accessor.wasNull(), is(false));
+      collector.checkThat(actualString, is(accessor.getString()));
+    });
   }
 
-  @ParameterizedTest
-  @MethodSource("data")
-  public void testShouldGetCharacterStreamReturnNull(Supplier<ValueVector> vectorSupplier) {
-    setup(vectorSupplier);
+  @Test
+  public void testShouldGetCharacterStreamReturnNull() throws Exception {
     vector.reset();
     vector.setValueCount(5);
 
     ArrowFlightJdbcBinaryVectorAccessor accessor = accessorSupplier.supply(vector, () -> 0);
-    assertThat(accessor.getCharacterStream(), CoreMatchers.equalTo(null));
-    assertThat(accessor.wasNull(), is(true));
+    collector.checkThat(accessor.getCharacterStream(), CoreMatchers.equalTo(null));
+    collector.checkThat(accessor.wasNull(), is(true));
   }
 }

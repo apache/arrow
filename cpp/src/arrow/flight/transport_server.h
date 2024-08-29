@@ -69,7 +69,7 @@ class ARROW_FLIGHT_EXPORT ServerTransport {
   /// This method should launch the server in a background thread, i.e. it
   /// should not block. Once this returns, the server should be active.
   virtual Status Init(const FlightServerOptions& options,
-                      const arrow::util::Uri& uri) = 0;
+                      const arrow::internal::Uri& uri) = 0;
   /// \brief Shutdown the server.
   ///
   /// This should wait for active RPCs to finish. Once this returns, the

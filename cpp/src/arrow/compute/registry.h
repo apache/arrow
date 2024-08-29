@@ -107,11 +107,6 @@ class ARROW_EXPORT FunctionRegistry {
   /// \brief The number of currently registered functions.
   int num_functions() const;
 
-  /// \brief The cast function object registered in AddFunction.
-  ///
-  /// Helpful for get cast function as needed.
-  const Function* cast_function() const;
-
  private:
   FunctionRegistry();
 

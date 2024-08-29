@@ -56,16 +56,6 @@ std::shared_ptr<DataType> interval_year();
 ARROW_ENGINE_EXPORT
 std::shared_ptr<DataType> interval_day();
 
-/// constructs the appropriate timestamp type given the precision
-/// no time zone
-ARROW_ENGINE_EXPORT
-Result<std::shared_ptr<DataType>> precision_timestamp(int precision);
-
-/// constructs the appropriate timestamp type given the precision
-/// and the UTC time zone
-ARROW_ENGINE_EXPORT
-Result<std::shared_ptr<DataType>> precision_timestamp_tz(int precision);
-
 /// Return true if t is Uuid, otherwise false
 ARROW_ENGINE_EXPORT
 bool UnwrapUuid(const DataType&);

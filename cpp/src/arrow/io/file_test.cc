@@ -42,7 +42,6 @@
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
-#include "arrow/util/config.h"
 #include "arrow/util/future.h"
 #include "arrow/util/io_util.h"
 
@@ -487,10 +486,6 @@ TEST_F(TestReadableFile, CustomMemoryPool) {
 }
 
 TEST_F(TestReadableFile, ThreadSafety) {
-#ifndef ARROW_ENABLE_THREADING
-  GTEST_SKIP() << "Test requires threading support";
-#endif
-
   std::string data = "foobar";
   {
     std::ofstream stream;
@@ -545,9 +540,6 @@ class TestPipeIO : public ::testing::Test {
 };
 
 TEST_F(TestPipeIO, TestWrite) {
-#ifdef __EMSCRIPTEN__
-  GTEST_SKIP() << "Pipes not supported on Emscripten";
-#endif
   std::string data1 = "test", data2 = "data!";
   std::shared_ptr<FileOutputStream> file;
   uint8_t buffer[10];
@@ -578,9 +570,6 @@ TEST_F(TestPipeIO, TestWrite) {
 }
 
 TEST_F(TestPipeIO, ReadableFileFails) {
-#ifdef __EMSCRIPTEN__
-  GTEST_SKIP() << "Pipes not supported on Emscripten";
-#endif
   // ReadableFile fails on non-seekable fd
   ASSERT_RAISES(IOError, ReadableFile::Open(pipe_.rfd.fd()));
 }
@@ -1059,10 +1048,6 @@ TEST_F(TestMemoryMappedFile, CastableToFileInterface) {
 }
 
 TEST_F(TestMemoryMappedFile, ThreadSafety) {
-#ifndef ARROW_ENABLE_THREADING
-  GTEST_SKIP() << "Test requires threading support";
-#endif
-
   std::string data = "foobar";
   std::string path = TempFile("ipc-multithreading-test");
   CreateFile(path, static_cast<int>(data.size()));

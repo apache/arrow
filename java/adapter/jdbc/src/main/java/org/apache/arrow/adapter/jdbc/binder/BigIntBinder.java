@@ -14,11 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.adapter.jdbc.binder;
 
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Types;
+
 import org.apache.arrow.vector.BigIntVector;
 
 /** A column binder for 8-bit integers. */
@@ -32,8 +34,7 @@ public class BigIntBinder extends BaseColumnBinder<BigIntVector> {
   }
 
   @Override
-  public void bind(PreparedStatement statement, int parameterIndex, int rowIndex)
-      throws SQLException {
+  public void bind(PreparedStatement statement, int parameterIndex, int rowIndex) throws SQLException {
     final long value = vector.getDataBuffer().getLong((long) rowIndex * BigIntVector.TYPE_WIDTH);
     statement.setLong(parameterIndex, value);
   }

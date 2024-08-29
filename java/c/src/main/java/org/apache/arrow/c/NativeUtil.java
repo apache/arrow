@@ -14,26 +14,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.c;
 
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
+
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.util.MemoryUtil;
 
-/** Utility functions for working with native memory. */
+/**
+ * Utility functions for working with native memory.
+ */
 public final class NativeUtil {
   public static final byte NULL = 0;
   static final int MAX_STRING_LENGTH = Short.MAX_VALUE;
 
-  private NativeUtil() {}
+  private NativeUtil() {
+  }
 
   /**
    * Convert a pointer to a null terminated string into a Java String.
-   *
+   * 
    * @param cstringPtr pointer to C string
    * @return Converted string
    */
@@ -41,8 +46,7 @@ public final class NativeUtil {
     if (cstringPtr == NULL) {
       return null;
     }
-    ByteBuffer reader =
-        MemoryUtil.directBuffer(cstringPtr, MAX_STRING_LENGTH).order(ByteOrder.nativeOrder());
+    ByteBuffer reader = MemoryUtil.directBuffer(cstringPtr, MAX_STRING_LENGTH).order(ByteOrder.nativeOrder());
 
     int length = 0;
     while (reader.get() != NULL) {
@@ -56,9 +60,9 @@ public final class NativeUtil {
 
   /**
    * Convert a native array pointer (void**) to Java array of pointers.
-   *
+   * 
    * @param arrayPtr Array pointer
-   * @param size Array size
+   * @param size     Array size
    * @return Array of pointer values as longs
    */
   public static long[] toJavaArray(long arrayPtr, int size) {
@@ -70,8 +74,7 @@ public final class NativeUtil {
     }
 
     long[] result = new long[size];
-    ByteBuffer reader =
-        MemoryUtil.directBuffer(arrayPtr, Long.BYTES * size).order(ByteOrder.nativeOrder());
+    ByteBuffer reader = MemoryUtil.directBuffer(arrayPtr, Long.BYTES * size).order(ByteOrder.nativeOrder());
     for (int i = 0; i < size; i++) {
       result[i] = reader.getLong();
     }
@@ -80,9 +83,9 @@ public final class NativeUtil {
 
   /**
    * Convert Java string to a null terminated string.
-   *
+   * 
    * @param allocator Buffer allocator for allocating the native string
-   * @param string Input String to convert
+   * @param string    Input String to convert
    * @return Buffer with a null terminated string or null if the input is null
    */
   public static ArrowBuf toNativeString(BufferAllocator allocator, String string) {
@@ -99,7 +102,7 @@ public final class NativeUtil {
 
   /**
    * Close a buffer if it's not null.
-   *
+   * 
    * @param buf Buffer to close
    */
   public static void closeBuffer(ArrowBuf buf) {
@@ -110,7 +113,7 @@ public final class NativeUtil {
 
   /**
    * Get the address of a buffer or {@value #NULL} if the input buffer is null.
-   *
+   * 
    * @param buf Buffer to get the address of
    * @return Memory address or {@value #NULL}
    */
@@ -122,8 +125,9 @@ public final class NativeUtil {
   }
 
   /**
-   * Get the address of a C Data Interface struct or {@value #NULL} if the input struct is null.
-   *
+   * Get the address of a C Data Interface struct or {@value #NULL} if the input
+   * struct is null.
+   * 
    * @param struct C Data Interface struct to get the address of
    * @return Memory address or {@value #NULL}
    */
@@ -133,4 +137,5 @@ public final class NativeUtil {
     }
     return struct.memoryAddress();
   }
+
 }

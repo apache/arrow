@@ -16,5 +16,7 @@
 # under the License.
 
 brew "gobject-introspection"
+brew "gtk-doc"
+brew "libtool"
 brew "meson"
 brew "vala"

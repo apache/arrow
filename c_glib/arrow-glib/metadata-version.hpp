@@ -23,7 +23,5 @@
 
 #include <arrow-glib/metadata-version.h>
 
-GArrowMetadataVersion
-garrow_metadata_version_from_raw(arrow::ipc::MetadataVersion version);
-arrow::ipc::MetadataVersion
-garrow_metadata_version_to_raw(GArrowMetadataVersion version);
+GArrowMetadataVersion garrow_metadata_version_from_raw(arrow::ipc::MetadataVersion version);
+arrow::ipc::MetadataVersion garrow_metadata_version_to_raw(GArrowMetadataVersion version);

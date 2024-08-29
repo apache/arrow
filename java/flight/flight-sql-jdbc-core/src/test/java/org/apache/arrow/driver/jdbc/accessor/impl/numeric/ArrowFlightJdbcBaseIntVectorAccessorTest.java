@@ -14,15 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.driver.jdbc.accessor.impl.numeric;
 
 import static org.hamcrest.CoreMatchers.equalTo;
 
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.function.Supplier;
-import java.util.stream.Stream;
+
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils;
-import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestExtension;
+import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
 import org.apache.arrow.vector.BaseIntVector;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.IntVector;
@@ -32,166 +35,137 @@ import org.apache.arrow.vector.UInt1Vector;
 import org.apache.arrow.vector.UInt2Vector;
 import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.UInt8Vector;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.extension.RegisterExtension;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.ClassRule;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.ErrorCollector;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
+
+@RunWith(Parameterized.class)
 public class ArrowFlightJdbcBaseIntVectorAccessorTest {
 
-  @RegisterExtension
-  public static RootAllocatorTestExtension rootAllocatorTestExtension =
-      new RootAllocatorTestExtension();
+  @ClassRule
+  public static RootAllocatorTestRule rootAllocatorTestRule = new RootAllocatorTestRule();
+
+  @Rule
+  public final ErrorCollector collector = new ErrorCollector();
 
   private BaseIntVector vector;
+  private final Supplier<BaseIntVector> vectorSupplier;
 
   private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcBaseIntVectorAccessor>
-      accessorSupplier =
-          (vector, getCurrentRow) -> {
-            ArrowFlightJdbcAccessorFactory.WasNullConsumer noOpWasNullConsumer =
-                (boolean wasNull) -> {};
-            if (vector instanceof UInt1Vector) {
-              return new ArrowFlightJdbcBaseIntVectorAccessor(
-                  (UInt1Vector) vector, getCurrentRow, noOpWasNullConsumer);
-            } else if (vector instanceof UInt2Vector) {
-              return new ArrowFlightJdbcBaseIntVectorAccessor(
-                  (UInt2Vector) vector, getCurrentRow, noOpWasNullConsumer);
-            } else {
-              if (vector instanceof UInt4Vector) {
-                return new ArrowFlightJdbcBaseIntVectorAccessor(
-                    (UInt4Vector) vector, getCurrentRow, noOpWasNullConsumer);
-              } else if (vector instanceof UInt8Vector) {
-                return new ArrowFlightJdbcBaseIntVectorAccessor(
-                    (UInt8Vector) vector, getCurrentRow, noOpWasNullConsumer);
-              } else if (vector instanceof TinyIntVector) {
-                return new ArrowFlightJdbcBaseIntVectorAccessor(
-                    (TinyIntVector) vector, getCurrentRow, noOpWasNullConsumer);
-              } else if (vector instanceof SmallIntVector) {
-                return new ArrowFlightJdbcBaseIntVectorAccessor(
-                    (SmallIntVector) vector, getCurrentRow, noOpWasNullConsumer);
-              } else if (vector instanceof IntVector) {
-                return new ArrowFlightJdbcBaseIntVectorAccessor(
-                    (IntVector) vector, getCurrentRow, noOpWasNullConsumer);
-              } else if (vector instanceof BigIntVector) {
-                return new ArrowFlightJdbcBaseIntVectorAccessor(
-                    (BigIntVector) vector, getCurrentRow, noOpWasNullConsumer);
-              }
-            }
-            throw new UnsupportedOperationException();
-          };
+      accessorSupplier = (vector, getCurrentRow) -> {
+        ArrowFlightJdbcAccessorFactory.WasNullConsumer noOpWasNullConsumer = (boolean wasNull) -> {
+        };
+        if (vector instanceof UInt1Vector) {
+          return new ArrowFlightJdbcBaseIntVectorAccessor((UInt1Vector) vector, getCurrentRow,
+              noOpWasNullConsumer);
+        } else if (vector instanceof UInt2Vector) {
+          return new ArrowFlightJdbcBaseIntVectorAccessor((UInt2Vector) vector, getCurrentRow,
+              noOpWasNullConsumer);
+        } else {
+          if (vector instanceof UInt4Vector) {
+            return new ArrowFlightJdbcBaseIntVectorAccessor((UInt4Vector) vector, getCurrentRow,
+                noOpWasNullConsumer);
+          } else if (vector instanceof UInt8Vector) {
+            return new ArrowFlightJdbcBaseIntVectorAccessor((UInt8Vector) vector, getCurrentRow,
+                noOpWasNullConsumer);
+          } else if (vector instanceof TinyIntVector) {
+            return new ArrowFlightJdbcBaseIntVectorAccessor((TinyIntVector) vector, getCurrentRow,
+                noOpWasNullConsumer);
+          } else if (vector instanceof SmallIntVector) {
+            return new ArrowFlightJdbcBaseIntVectorAccessor((SmallIntVector) vector, getCurrentRow,
+                noOpWasNullConsumer);
+          } else if (vector instanceof IntVector) {
+            return new ArrowFlightJdbcBaseIntVectorAccessor((IntVector) vector, getCurrentRow,
+                noOpWasNullConsumer);
+          } else if (vector instanceof BigIntVector) {
+            return new ArrowFlightJdbcBaseIntVectorAccessor((BigIntVector) vector, getCurrentRow,
+                noOpWasNullConsumer);
+          }
+        }
+        throw new UnsupportedOperationException();
+      };
 
   private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcBaseIntVectorAccessor>
-      accessorIterator = new AccessorTestUtils.AccessorIterator<>(accessorSupplier);
+      accessorIterator = new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
 
-  public static Stream<Arguments> data() {
-    return Stream.of(
-        Arguments.of(
-            (Supplier<BaseIntVector>) () -> rootAllocatorTestExtension.createIntVector(),
-            "IntVector"),
-        Arguments.of(
-            (Supplier<BaseIntVector>) () -> rootAllocatorTestExtension.createSmallIntVector(),
-            "SmallIntVector"),
-        Arguments.of(
-            (Supplier<BaseIntVector>) () -> rootAllocatorTestExtension.createTinyIntVector(),
-            "TinyIntVector"),
-        Arguments.of(
-            (Supplier<BaseIntVector>) () -> rootAllocatorTestExtension.createBigIntVector(),
-            "BigIntVector"),
-        Arguments.of(
-            (Supplier<BaseIntVector>) () -> rootAllocatorTestExtension.createUInt1Vector(),
-            "UInt1Vector"),
-        Arguments.of(
-            (Supplier<BaseIntVector>) () -> rootAllocatorTestExtension.createUInt2Vector(),
-            "UInt2Vector"),
-        Arguments.of(
-            (Supplier<BaseIntVector>) () -> rootAllocatorTestExtension.createUInt4Vector(),
-            "UInt4Vector"),
-        Arguments.of(
-            (Supplier<BaseIntVector>) () -> rootAllocatorTestExtension.createUInt8Vector(),
-            "UInt8Vector"));
+  @Parameterized.Parameters(name = "{1}")
+  public static Collection<Object[]> data() {
+    return Arrays.asList(new Object[][] {
+        {(Supplier<BaseIntVector>) () -> rootAllocatorTestRule.createIntVector(), "IntVector"},
+        {(Supplier<BaseIntVector>) () -> rootAllocatorTestRule.createSmallIntVector(),
+            "SmallIntVector"},
+        {(Supplier<BaseIntVector>) () -> rootAllocatorTestRule.createTinyIntVector(),
+            "TinyIntVector"},
+        {(Supplier<BaseIntVector>) () -> rootAllocatorTestRule.createBigIntVector(),
+            "BigIntVector"},
+        {(Supplier<BaseIntVector>) () -> rootAllocatorTestRule.createUInt1Vector(), "UInt1Vector"},
+        {(Supplier<BaseIntVector>) () -> rootAllocatorTestRule.createUInt2Vector(), "UInt2Vector"},
+        {(Supplier<BaseIntVector>) () -> rootAllocatorTestRule.createUInt4Vector(), "UInt4Vector"},
+        {(Supplier<BaseIntVector>) () -> rootAllocatorTestRule.createUInt8Vector(), "UInt8Vector"}
+    });
   }
 
-  public void setup(Supplier<BaseIntVector> vectorSupplier) {
+  public ArrowFlightJdbcBaseIntVectorAccessorTest(Supplier<BaseIntVector> vectorSupplier,
+                                                  String vectorType) {
+    this.vectorSupplier = vectorSupplier;
+  }
+
+  @Before
+  public void setup() {
     this.vector = vectorSupplier.get();
   }
 
-  @AfterEach
+  @After
   public void tearDown() {
     this.vector.close();
   }
 
-  @ParameterizedTest
-  @MethodSource("data")
-  public void testShouldConvertToByteMethodFromBaseIntVector(Supplier<BaseIntVector> vectorSupplier)
-      throws Exception {
-    setup(vectorSupplier);
-    accessorIterator.assertAccessorGetter(
-        vector,
-        ArrowFlightJdbcBaseIntVectorAccessor::getByte,
+  @Test
+  public void testShouldConvertToByteMethodFromBaseIntVector() throws Exception {
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcBaseIntVectorAccessor::getByte,
         (accessor, currentRow) -> equalTo((byte) accessor.getLong()));
   }
 
-  @ParameterizedTest
-  @MethodSource("data")
-  public void testShouldConvertToShortMethodFromBaseIntVector(
-      Supplier<BaseIntVector> vectorSupplier) throws Exception {
-    setup(vectorSupplier);
-    accessorIterator.assertAccessorGetter(
-        vector,
-        ArrowFlightJdbcBaseIntVectorAccessor::getShort,
+  @Test
+  public void testShouldConvertToShortMethodFromBaseIntVector() throws Exception {
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcBaseIntVectorAccessor::getShort,
         (accessor, currentRow) -> equalTo((short) accessor.getLong()));
   }
 
-  @ParameterizedTest
-  @MethodSource("data")
-  public void testShouldConvertToIntegerMethodFromBaseIntVector(
-      Supplier<BaseIntVector> vectorSupplier) throws Exception {
-    setup(vectorSupplier);
-    accessorIterator.assertAccessorGetter(
-        vector,
-        ArrowFlightJdbcBaseIntVectorAccessor::getInt,
+  @Test
+  public void testShouldConvertToIntegerMethodFromBaseIntVector() throws Exception {
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcBaseIntVectorAccessor::getInt,
         (accessor, currentRow) -> equalTo((int) accessor.getLong()));
   }
 
-  @ParameterizedTest
-  @MethodSource("data")
-  public void testShouldConvertToFloatMethodFromBaseIntVector(
-      Supplier<BaseIntVector> vectorSupplier) throws Exception {
-    setup(vectorSupplier);
-    accessorIterator.assertAccessorGetter(
-        vector,
-        ArrowFlightJdbcBaseIntVectorAccessor::getFloat,
+  @Test
+  public void testShouldConvertToFloatMethodFromBaseIntVector() throws Exception {
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcBaseIntVectorAccessor::getFloat,
         (accessor, currentRow) -> equalTo((float) accessor.getLong()));
   }
 
-  @ParameterizedTest
-  @MethodSource("data")
-  public void testShouldConvertToDoubleMethodFromBaseIntVector(
-      Supplier<BaseIntVector> vectorSupplier) throws Exception {
-    setup(vectorSupplier);
-    accessorIterator.assertAccessorGetter(
-        vector,
-        ArrowFlightJdbcBaseIntVectorAccessor::getDouble,
+  @Test
+  public void testShouldConvertToDoubleMethodFromBaseIntVector() throws Exception {
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcBaseIntVectorAccessor::getDouble,
         (accessor, currentRow) -> equalTo((double) accessor.getLong()));
   }
 
-  @ParameterizedTest
-  @MethodSource("data")
-  public void testShouldConvertToBooleanMethodFromBaseIntVector(
-      Supplier<BaseIntVector> vectorSupplier) throws Exception {
-    setup(vectorSupplier);
-    accessorIterator.assertAccessorGetter(
-        vector,
-        ArrowFlightJdbcBaseIntVectorAccessor::getBoolean,
+  @Test
+  public void testShouldConvertToBooleanMethodFromBaseIntVector() throws Exception {
+    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcBaseIntVectorAccessor::getBoolean,
         (accessor, currentRow) -> equalTo(accessor.getLong() != 0L));
   }
 
-  @ParameterizedTest
-  @MethodSource("data")
-  public void testShouldGetObjectClass(Supplier<BaseIntVector> vectorSupplier) throws Exception {
-    setup(vectorSupplier);
-    accessorIterator.assertAccessorGetter(
-        vector, ArrowFlightJdbcBaseIntVectorAccessor::getObjectClass, equalTo(Long.class));
+  @Test
+  public void testShouldGetObjectClass() throws Exception {
+    accessorIterator.assertAccessorGetter(vector,
+        ArrowFlightJdbcBaseIntVectorAccessor::getObjectClass,
+        equalTo(Long.class));
   }
 }

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.dataset.file;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -22,37 +23,26 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.apache.arrow.dataset.jni.NativeMemoryPool;
 import org.apache.arrow.memory.RootAllocator;
-import org.junit.jupiter.api.Test;
+import org.junit.Test;
 
 public class TestFileSystemDatasetFactory {
 
   @Test
   public void testErrorHandling() {
-    RuntimeException e =
-        assertThrows(
-            RuntimeException.class,
-            () -> {
-              new FileSystemDatasetFactory(
-                  new RootAllocator(Long.MAX_VALUE),
-                  NativeMemoryPool.getDefault(),
-                  FileFormat.NONE,
-                  "file:///NON_EXIST_FILE");
-            });
+    RuntimeException e = assertThrows(RuntimeException.class, () -> {
+      new FileSystemDatasetFactory(new RootAllocator(Long.MAX_VALUE), NativeMemoryPool.getDefault(),
+          FileFormat.NONE, "file:///NON_EXIST_FILE");
+    });
     assertEquals("illegal file format id: -1", e.getMessage());
   }
 
   @Test
   public void testCloseAgain() {
-    assertDoesNotThrow(
-        () -> {
-          FileSystemDatasetFactory factory =
-              new FileSystemDatasetFactory(
-                  new RootAllocator(Long.MAX_VALUE),
-                  NativeMemoryPool.getDefault(),
-                  FileFormat.PARQUET,
-                  "file:///NON_EXIST_FILE");
-          factory.close();
-          factory.close();
-        });
+    assertDoesNotThrow(() -> {
+      FileSystemDatasetFactory factory = new FileSystemDatasetFactory(new RootAllocator(Long.MAX_VALUE),
+          NativeMemoryPool.getDefault(), FileFormat.PARQUET, "file:///NON_EXIST_FILE");
+      factory.close();
+      factory.close();
+    });
   }
 }

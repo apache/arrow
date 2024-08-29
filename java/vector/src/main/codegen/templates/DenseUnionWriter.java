@@ -83,18 +83,6 @@ public class DenseUnionWriter extends AbstractFieldWriter implements FieldWriter
     getListWriter(typeId).endList();
   }
 
-  @Override
-  public void startListView() {
-    byte typeId = data.getTypeId(idx());
-    getListViewWriter(typeId).startList();
-  }
-
-  @Override
-  public void endListView() {
-    byte typeId = data.getTypeId(idx());
-    getListViewWriter(typeId).endList();
-  }
-
   private StructWriter getStructWriter(byte typeId) {
     StructWriter structWriter = (StructWriter) writers[typeId];
     if (structWriter == null) {
@@ -113,15 +101,6 @@ public class DenseUnionWriter extends AbstractFieldWriter implements FieldWriter
     ListWriter listWriter = (ListWriter) writers[typeId];
     if (listWriter == null) {
       listWriter = new UnionListWriter((ListVector) data.getVectorByType(typeId), nullableStructWriterFactory);
-      writers[typeId] = listWriter;
-    }
-    return listWriter;
-  }
-
-  private ListWriter getListViewWriter(byte typeId) {
-    ListWriter listWriter = (ListWriter) writers[typeId];
-    if (listWriter == null) {
-      listWriter = new UnionListViewWriter((ListViewVector) data.getVectorByType(typeId), nullableStructWriterFactory);
       writers[typeId] = listWriter;
     }
     return listWriter;

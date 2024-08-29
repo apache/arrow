@@ -14,14 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.driver.jdbc.utils;
 
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
 import org.apache.arrow.driver.jdbc.converter.impl.BinaryAvaticaParameterConverter;
-import org.apache.arrow.driver.jdbc.converter.impl.BinaryViewAvaticaParameterConverter;
 import org.apache.arrow.driver.jdbc.converter.impl.BoolAvaticaParameterConverter;
 import org.apache.arrow.driver.jdbc.converter.impl.DateAvaticaParameterConverter;
 import org.apache.arrow.driver.jdbc.converter.impl.DecimalAvaticaParameterConverter;
@@ -42,7 +43,6 @@ import org.apache.arrow.driver.jdbc.converter.impl.TimeAvaticaParameterConverter
 import org.apache.arrow.driver.jdbc.converter.impl.TimestampAvaticaParameterConverter;
 import org.apache.arrow.driver.jdbc.converter.impl.UnionAvaticaParameterConverter;
 import org.apache.arrow.driver.jdbc.converter.impl.Utf8AvaticaParameterConverter;
-import org.apache.arrow.driver.jdbc.converter.impl.Utf8ViewAvaticaParameterConverter;
 import org.apache.arrow.flight.sql.FlightSqlColumnMetadata;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -50,10 +50,13 @@ import org.apache.calcite.avatica.AvaticaParameter;
 import org.apache.calcite.avatica.ColumnMetaData;
 import org.apache.calcite.avatica.proto.Common;
 
-/** Convert objects between Arrow and Avatica. */
+/**
+ * Convert objects between Arrow and Avatica.
+ */
 public final class ConvertUtils {
 
-  private ConvertUtils() {}
+  private ConvertUtils() {
+  }
 
   /**
    * Convert Fields To Column MetaData List functions.
@@ -61,42 +64,36 @@ public final class ConvertUtils {
    * @param fields list of {@link Field}.
    * @return list of {@link ColumnMetaData}.
    */
-  public static List<ColumnMetaData> convertArrowFieldsToColumnMetaDataList(
-      final List<Field> fields) {
-    return Stream.iterate(0, Math::incrementExact)
-        .limit(fields.size())
-        .map(
-            index -> {
-              final Field field = fields.get(index);
-              final ArrowType fieldType = field.getType();
+  public static List<ColumnMetaData> convertArrowFieldsToColumnMetaDataList(final List<Field> fields) {
+    return Stream.iterate(0, Math::incrementExact).limit(fields.size())
+        .map(index -> {
+          final Field field = fields.get(index);
+          final ArrowType fieldType = field.getType();
 
-              final Common.ColumnMetaData.Builder builder =
-                  Common.ColumnMetaData.newBuilder()
-                      .setOrdinal(index)
-                      .setColumnName(field.getName())
-                      .setLabel(field.getName());
+          final Common.ColumnMetaData.Builder builder = Common.ColumnMetaData.newBuilder()
+              .setOrdinal(index)
+              .setColumnName(field.getName())
+              .setLabel(field.getName());
 
-              setOnColumnMetaDataBuilder(builder, field.getMetadata());
+          setOnColumnMetaDataBuilder(builder, field.getMetadata());
 
-              builder.setType(
-                  Common.AvaticaType.newBuilder()
-                      .setId(SqlTypes.getSqlTypeIdFromArrowType(fieldType))
-                      .setName(SqlTypes.getSqlTypeNameFromArrowType(fieldType))
-                      .build());
+          builder.setType(Common.AvaticaType.newBuilder()
+              .setId(SqlTypes.getSqlTypeIdFromArrowType(fieldType))
+              .setName(SqlTypes.getSqlTypeNameFromArrowType(fieldType))
+              .build());
 
-              return ColumnMetaData.fromProto(builder.build());
-            })
-        .collect(Collectors.toList());
+          return ColumnMetaData.fromProto(builder.build());
+        }).collect(Collectors.toList());
   }
 
   /**
    * Set on Column MetaData Builder.
    *
-   * @param builder {@link Common.ColumnMetaData.Builder}
+   * @param builder     {@link Common.ColumnMetaData.Builder}
    * @param metadataMap {@link Map}
    */
-  public static void setOnColumnMetaDataBuilder(
-      final Common.ColumnMetaData.Builder builder, final Map<String, String> metadataMap) {
+  public static void setOnColumnMetaDataBuilder(final Common.ColumnMetaData.Builder builder,
+                                                final Map<String, String> metadataMap) {
     final FlightSqlColumnMetadata columnMetadata = new FlightSqlColumnMetadata(metadataMap);
     final String catalogName = columnMetadata.getCatalogName();
     if (catalogName != null) {
@@ -144,11 +141,10 @@ public final class ConvertUtils {
    * @param fields list of {@link Field}.
    * @return list of {@link AvaticaParameter}.
    */
-  public static List<AvaticaParameter> convertArrowFieldsToAvaticaParameters(
-      final List<Field> fields) {
+  public static List<AvaticaParameter> convertArrowFieldsToAvaticaParameters(final List<Field> fields) {
     return fields.stream()
-        .map(field -> field.getType().accept(new ConverterVisitor(field)))
-        .collect(Collectors.toList());
+            .map(field -> field.getType().accept(new ConverterVisitor(field)))
+            .collect(Collectors.toList());
   }
 
   private static class ConverterVisitor implements ArrowType.ArrowTypeVisitor<AvaticaParameter> {
@@ -171,21 +167,25 @@ public final class ConvertUtils {
     @Override
     public AvaticaParameter visit(ArrowType.List type) {
       return new ListAvaticaParameterConverter(type).createParameter(field);
+
     }
 
     @Override
     public AvaticaParameter visit(ArrowType.LargeList type) {
       return new LargeListAvaticaParameterConverter(type).createParameter(field);
+
     }
 
     @Override
     public AvaticaParameter visit(ArrowType.FixedSizeList type) {
       return new FixedSizeListAvaticaParameterConverter(type).createParameter(field);
+
     }
 
     @Override
     public AvaticaParameter visit(ArrowType.Union type) {
       return new UnionAvaticaParameterConverter(type).createParameter(field);
+
     }
 
     @Override
@@ -209,11 +209,6 @@ public final class ConvertUtils {
     }
 
     @Override
-    public AvaticaParameter visit(ArrowType.Utf8View type) {
-      return new Utf8ViewAvaticaParameterConverter(type).createParameter(field);
-    }
-
-    @Override
     public AvaticaParameter visit(ArrowType.LargeUtf8 type) {
       return new LargeUtf8AvaticaParameterConverter(type).createParameter(field);
     }
@@ -221,11 +216,6 @@ public final class ConvertUtils {
     @Override
     public AvaticaParameter visit(ArrowType.Binary type) {
       return new BinaryAvaticaParameterConverter(type).createParameter(field);
-    }
-
-    @Override
-    public AvaticaParameter visit(ArrowType.BinaryView type) {
-      return new BinaryViewAvaticaParameterConverter(type).createParameter(field);
     }
 
     @Override
@@ -272,17 +262,6 @@ public final class ConvertUtils {
     public AvaticaParameter visit(ArrowType.Duration type) {
       return new DurationAvaticaParameterConverter(type).createParameter(field);
     }
-
-    @Override
-    public AvaticaParameter visit(ArrowType.ListView type) {
-      throw new UnsupportedOperationException(
-          "AvaticaParameter not yet supported for type " + type);
-    }
-
-    @Override
-    public AvaticaParameter visit(ArrowType.LargeListView type) {
-      throw new UnsupportedOperationException(
-          "AvaticaParameter not yet supported for type " + type);
-    }
   }
+
 }

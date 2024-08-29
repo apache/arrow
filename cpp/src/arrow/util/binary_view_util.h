@@ -26,7 +26,6 @@
 namespace arrow::util {
 
 inline BinaryViewType::c_type ToInlineBinaryView(const void* data, int32_t size) {
-  assert(size <= BinaryViewType::kInlineSize);
   // Small string: inlined. Bytes beyond size are zeroed
   BinaryViewType::c_type out;
   out.inlined = {size, {}};
@@ -35,18 +34,7 @@ inline BinaryViewType::c_type ToInlineBinaryView(const void* data, int32_t size)
 }
 
 inline BinaryViewType::c_type ToInlineBinaryView(std::string_view v) {
-  assert(v.size() <= BinaryViewType::kInlineSize);
   return ToInlineBinaryView(v.data(), static_cast<int32_t>(v.size()));
-}
-
-inline BinaryViewType::c_type ToNonInlineBinaryView(const void* data, int32_t size,
-                                                    int32_t buffer_index,
-                                                    int32_t offset) {
-  // Large string: store index/offset.
-  BinaryViewType::c_type out;
-  out.ref = {size, {}, buffer_index, offset};
-  memcpy(&out.ref.prefix, data, sizeof(out.ref.prefix));
-  return out;
 }
 
 inline BinaryViewType::c_type ToBinaryView(const void* data, int32_t size,
@@ -54,7 +42,12 @@ inline BinaryViewType::c_type ToBinaryView(const void* data, int32_t size,
   if (size <= BinaryViewType::kInlineSize) {
     return ToInlineBinaryView(data, size);
   }
-  return ToNonInlineBinaryView(data, size, buffer_index, offset);
+
+  // Large string: store index/offset.
+  BinaryViewType::c_type out;
+  out.ref = {size, {}, buffer_index, offset};
+  memcpy(&out.ref.prefix, data, sizeof(out.ref.prefix));
+  return out;
 }
 
 inline BinaryViewType::c_type ToBinaryView(std::string_view v, int32_t buffer_index,

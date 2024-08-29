@@ -75,7 +75,7 @@ Result<std::unique_ptr<KernelState>> ScalarAggregateKernel::MergeAll(
   for (auto& state : states) {
     RETURN_NOT_OK(kernel->merge(ctx, std::move(*state), out.get()));
   }
-  return out;
+  return std::move(out);
 }
 
 // ----------------------------------------------------------------------
@@ -361,8 +361,7 @@ size_t InputType::Hash() const {
     case InputType::EXACT_TYPE:
       hash_combine(result, type_->Hash());
       break;
-    case InputType::ANY_TYPE:
-    case InputType::USE_TYPE_MATCHER:
+    default:
       break;
   }
   return result;
@@ -379,8 +378,10 @@ std::string InputType::ToString() const {
       break;
     case InputType::USE_TYPE_MATCHER: {
       ss << type_matcher_->ToString();
+    } break;
+    default:
+      DCHECK(false);
       break;
-    }
   }
   return ss.str();
 }
@@ -399,8 +400,9 @@ bool InputType::Equals(const InputType& other) const {
       return type_->Equals(*other.type_);
     case InputType::USE_TYPE_MATCHER:
       return type_matcher_->Equals(*other.type_matcher_);
+    default:
+      return false;
   }
-  return false;
 }
 
 bool InputType::Matches(const DataType& type) const {
@@ -409,23 +411,21 @@ bool InputType::Matches(const DataType& type) const {
       return type_->Equals(type);
     case InputType::USE_TYPE_MATCHER:
       return type_matcher_->Matches(type);
-    case InputType::ANY_TYPE:
+    default:
+      // ANY_TYPE
       return true;
   }
-  return false;
 }
 
 bool InputType::Matches(const Datum& value) const {
   switch (value.kind()) {
-    case Datum::NONE:
-    case Datum::RECORD_BATCH:
-    case Datum::TABLE:
-      DCHECK(false) << "Matches expects ARRAY, CHUNKED_ARRAY or SCALAR";
-      return false;
     case Datum::ARRAY:
     case Datum::CHUNKED_ARRAY:
     case Datum::SCALAR:
       break;
+    default:
+      DCHECK(false);
+      return false;
   }
   return Matches(*value.type());
 }
@@ -445,13 +445,11 @@ const TypeMatcher& InputType::type_matcher() const {
 
 Result<TypeHolder> OutputType::Resolve(KernelContext* ctx,
                                        const std::vector<TypeHolder>& types) const {
-  switch (kind_) {
-    case OutputType::FIXED:
-      return type_;
-    case OutputType::COMPUTED:
-      break;
+  if (kind_ == OutputType::FIXED) {
+    return type_.get();
+  } else {
+    return resolver_(ctx, types);
   }
-  return resolver_(ctx, types);
 }
 
 const std::shared_ptr<DataType>& OutputType::type() const {
@@ -465,13 +463,11 @@ const OutputType::Resolver& OutputType::resolver() const {
 }
 
 std::string OutputType::ToString() const {
-  switch (kind_) {
-    case OutputType::FIXED:
-      return type_->ToString();
-    case OutputType::COMPUTED:
-      break;
+  if (kind_ == OutputType::FIXED) {
+    return type_->ToString();
+  } else {
+    return "computed";
   }
-  return "computed";
 }
 
 // ----------------------------------------------------------------------

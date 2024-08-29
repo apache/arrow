@@ -97,7 +97,7 @@ class GANDIVA_EXPORT LLVMTypes {
     } else if (type->isFloatingPointTy()) {
       return llvm::ConstantFP::get(type, 0);
     } else {
-      ARROW_DCHECK(type->isPointerTy());
+      DCHECK(type->isPointerTy());
       return llvm::ConstantPointerNull::getNullValue(type);
     }
   }
