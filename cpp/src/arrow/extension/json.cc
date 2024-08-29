@@ -34,9 +34,6 @@ bool JsonExtensionType::ExtensionEquals(const ExtensionType& other) const {
 
 Result<std::shared_ptr<DataType>> JsonExtensionType::Deserialize(
     std::shared_ptr<DataType> storage_type, const std::string& serialized) const {
-  if (!serialized.empty()) {
-    return Status::Invalid("Unexpected serialized metadata: '", serialized, "'");
-  }
   if (storage_type->id() != Type::STRING && storage_type->id() != Type::STRING_VIEW &&
       storage_type->id() != Type::LARGE_STRING) {
     return Status::Invalid("Invalid storage type for JsonExtensionType: ",
