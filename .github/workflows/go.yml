@@ -62,13 +62,13 @@ jobs:
           {
             "arch-label": "AMD64",
             "arch": "amd64",
-            "go": "1.21",
+            "go": "1.22",
             "runs-on": "ubuntu-latest"
           },
           {
             "arch-label": "AMD64",
             "arch": "amd64",
-            "go": "1.22",
+            "go": "1.23",
             "runs-on": "ubuntu-latest"
           }
           JSON
@@ -78,13 +78,13 @@ jobs:
           {
             "arch-label": "ARM64",
             "arch": "arm64v8",
-            "go": "1.21",
+            "go": "1.22",
             "runs-on": ["self-hosted", "arm", "linux"]
           },
           {
             "arch-label": "ARM64",
             "arch": "arm64v8",
-            "go": "1.22",
+            "go": "1.23",
             "runs-on": ["self-hosted", "arm", "linux"]
           }
           JSON
@@ -197,7 +197,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: ['1.21', '1.22']
+        go: ['1.22', '1.23']
     env:
       GO: ${{ matrix.go }}
     steps:
@@ -238,7 +238,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: ['1.21', '1.22']
+        go: ['1.22', '1.23']
     env:
       GO: ${{ matrix.go }}
     steps:
@@ -277,7 +277,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: ['1.21', '1.22']
+        go: ['1.22', '1.23']
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
@@ -310,7 +310,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: ['1.21', '1.22']
+        go: ['1.22', '1.23']
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
@@ -323,7 +323,7 @@ jobs:
           go-version: ${{ matrix.go }}
           cache: true
           cache-dependency-path: go/go.sum
-      - name: Install staticcheck      
+      - name: Install staticcheck
         run: |
           . .env
           go install honnef.co/go/tools/cmd/staticcheck@${STATICCHECK}
@@ -368,7 +368,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: ['1.21', '1.22']
+        go: ['1.22', '1.23']
     env:
       ARROW_GO_TESTCGO: "1"
     steps:
@@ -439,7 +439,7 @@ jobs:
           ci/scripts/msys2_setup.sh cgo
       - name: Get required Go version
         run: |
-          (. .env && echo "GO_VERSION=${GO}") >> $GITHUB_ENV  
+          (. .env && echo "GO_VERSION=${GO}") >> $GITHUB_ENV
       - name: Update CGO Env vars
         shell: msys2 {0}
         run: |
