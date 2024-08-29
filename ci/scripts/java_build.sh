@@ -45,7 +45,7 @@ if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
   # target=${artifact}-${ver}-${classifier}.${extension}
   target=${artifact}
   ${wget} ${artifactory_base_url}/${artifactory_dir}/${ver}/${target}
-  ${mvn_install} -DgroupId=${group} -DartifactId=${artifact} -Dversion=${ver} -Dclassifier=${classifier} -Dpackaging=${extension} -Dfile=$(pwd)/${target}
+  ${mvn_install} -DgroupId=${group} -DartifactId=${artifact} -Dversion=${ver} -Dclassifier=${classifier} -Dpackaging=${extension} -Dfile=$(pwd)/${target} -Darrow.memory.debug.allocator=true
   # protoc requires libprotoc.so.* libprotobuf.so.*
   libver="32"
   ${wget} ${artifactory_base_url}/${artifactory_dir}/${ver}/libprotoc.so.${libver}
@@ -63,10 +63,10 @@ if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
   # target=${artifact}-${ver}-${classifier}.${extension}
   target=${artifact}
   ${wget} ${artifactory_base_url}/${artifactory_dir}/${ver}/${target}
-  ${mvn_install} -DgroupId=${group} -DartifactId=${artifact} -Dversion=${ver} -Dclassifier=${classifier} -Dpackaging=${extension} -Dfile=$(pwd)/${target}
+  ${mvn_install} -DgroupId=${group} -DartifactId=${artifact} -Dversion=${ver} -Dclassifier=${classifier} -Dpackaging=${extension} -Dfile=$(pwd)/${target} -Darrow.memory.debug.allocator=true
 fi
 
-mvn="mvn -B -DskipTests -Drat.skip=true -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn"
+mvn="mvn -B -DskipTests -Drat.skip=true -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -Darrow.memory.debug.allocator=true"
 
 if [ $ARROW_JAVA_SKIP_GIT_PLUGIN ]; then
   mvn="${mvn} -Dmaven.gitcommitid.skip=true"
