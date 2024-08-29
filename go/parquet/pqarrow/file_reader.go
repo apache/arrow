@@ -332,13 +332,13 @@ func (fr *FileReader) ReadRowGroups(ctx context.Context, indices, rowGroups []in
 	wg.Add(np) // fan-out to np readers
 	for i := 0; i < np; i++ {
 		go func() {
+			defer wg.Done()
 			defer func() {
 				if pErr := recover(); pErr != nil {
 					err := utils.FormatRecoveredError("panic while reading", pErr)
 					results <- resultPair{err: err}
 				}
 			}()
-			defer wg.Done()
 			for {
 				select {
 				case r, ok := <-ch:
