@@ -391,9 +391,7 @@ func TestReadParquetFile(t *testing.T) {
 		false,
 		file.WithReadProps(parquet.NewReaderProperties(mem)),
 	)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 	defer func() {
 		if err2 := rdr.Close(); err2 != nil {
 			t.Errorf("unexpected error: %v", err2)
@@ -404,13 +402,9 @@ func TestReadParquetFile(t *testing.T) {
 		Parallel:  false,
 		BatchSize: 0,
 	}, mem)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
 	_, err = arrowRdr.ReadTable(ctx)
 
-	if err == nil {
-		t.Errorf("expected error: %v", err)
-	}
+	assert.Error(t, err)
 }
