@@ -29,6 +29,10 @@ java_jni_dist_dir=${3}
 
 : ${BUILD_DOCS_JAVA:=OFF}
 
+# enable the memory debug logs by setting to true.
+# default set to false.
+export ARROW_MEMORY_DEBUG_ALLOCATOR=true
+
 if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
   # Since some files for s390_64 are not available at maven central,
   # download pre-build files from Artifactory and install them explicitly
@@ -45,7 +49,7 @@ if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
   # target=${artifact}-${ver}-${classifier}.${extension}
   target=${artifact}
   ${wget} ${artifactory_base_url}/${artifactory_dir}/${ver}/${target}
-  ${mvn_install} -DgroupId=${group} -DartifactId=${artifact} -Dversion=${ver} -Dclassifier=${classifier} -Dpackaging=${extension} -Dfile=$(pwd)/${target} -Darrow.memory.debug.allocator=true
+  ${mvn_install} -DgroupId=${group} -DartifactId=${artifact} -Dversion=${ver} -Dclassifier=${classifier} -Dpackaging=${extension} -Dfile=$(pwd)/${target}
   # protoc requires libprotoc.so.* libprotobuf.so.*
   libver="32"
   ${wget} ${artifactory_base_url}/${artifactory_dir}/${ver}/libprotoc.so.${libver}
@@ -63,7 +67,7 @@ if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
   # target=${artifact}-${ver}-${classifier}.${extension}
   target=${artifact}
   ${wget} ${artifactory_base_url}/${artifactory_dir}/${ver}/${target}
-  ${mvn_install} -DgroupId=${group} -DartifactId=${artifact} -Dversion=${ver} -Dclassifier=${classifier} -Dpackaging=${extension} -Dfile=$(pwd)/${target} -Darrow.memory.debug.allocator=true
+  ${mvn_install} -DgroupId=${group} -DartifactId=${artifact} -Dversion=${ver} -Dclassifier=${classifier} -Dpackaging=${extension} -Dfile=$(pwd)/${target}
 fi
 
 mvn="mvn -B -DskipTests -Drat.skip=true -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn"
@@ -96,7 +100,7 @@ if [ "${ARROW_JAVA_JNI}" = "ON" ]; then
 fi
 
 # Use `2 * ncores` threads
-${mvn} -T 2C clean install -Darrow.memory.debug.allocator=true
+${mvn} -T 2C clean install
 
 if [ "${BUILD_DOCS_JAVA}" == "ON" ]; then
   # HTTP pooling is turned of to avoid download issues https://issues.apache.org/jira/browse/ARROW-11633

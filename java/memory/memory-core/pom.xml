@@ -33,6 +33,7 @@ under the License.
   <properties>
     <!-- List of add-opens arg line arguments for this module's tests -->
     <surefire.add-opens.argLine>--add-reads=org.apache.arrow.memory.core=ch.qos.logback.classic --add-opens=java.base/java.lang.reflect=org.apache.arrow.memory.core --add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED</surefire.add-opens.argLine>
+    <arrow.memory.debug.allocator>${env.ARROW_MEMORY_DEBUG_ALLOCATOR}</arrow.memory.debug.allocator>
   </properties>
 
   <dependencies>
@@ -89,6 +90,9 @@ under the License.
             <!-- Test is only useful when NOT running with add-opens -->
             <exclude>**/TestOpens.java</exclude>
           </excludes>
+          <systemPropertyVariables>
+            <arrow.memory.debug.allocator>${arrow.memory.debug.allocator}</arrow.memory.debug.allocator>
+          </systemPropertyVariables>
         </configuration>
         <executions>
           <execution>
