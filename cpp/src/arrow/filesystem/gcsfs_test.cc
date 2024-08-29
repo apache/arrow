@@ -80,9 +80,7 @@ class GcsTestbench : public ::testing::Environment {
     server_process->IgnoreStderr();
     status = server_process->Execute();
     if (!status.ok()) {
-      error += " (failed to launch: ";
-      error += status.ToString();
-      error += ")";
+      error += ": " + status.ToString();
       error_ = std::move(error);
       return;
     }
