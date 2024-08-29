@@ -129,7 +129,7 @@ func checkScalarWithScalars(t *testing.T, funcName string, inputs []scalar.Scala
 			fmt.Fprintf(&b, " (types differed: %s vs %s)",
 				out.(*compute.ScalarDatum).Type(), expected.DataType())
 		}
-		t.Fatalf(b.String())
+		t.Fatal(b.String())
 	}
 }
 
