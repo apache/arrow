@@ -18,7 +18,9 @@
 module Arrow
   class Decimal128Array
     def get_value(i)
-      BigDecimal(format_value(i))
+      string = format_value(i)
+      string.sub!(".E", ".0E") if string.include?(".E")
+      BigDecimal(string)
     end
   end
 end
