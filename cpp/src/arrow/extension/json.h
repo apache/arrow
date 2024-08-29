@@ -31,13 +31,7 @@ namespace arrow::extension {
 class ARROW_EXPORT JsonExtensionType : public ExtensionType {
  public:
   explicit JsonExtensionType(const std::shared_ptr<DataType>& storage_type)
-      : ExtensionType(storage_type), storage_type_(storage_type) {
-    if (storage_type->id() != Type::STRING && storage_type->id() != Type::STRING_VIEW &&
-        storage_type->id() != Type::LARGE_STRING) {
-      throw std::invalid_argument("Invalid storage type for JsonExtensionType: " +
-                                  storage_type->ToString());
-    }
-  }
+      : ExtensionType(storage_type), storage_type_(storage_type) {}
 
   std::string extension_name() const override { return "arrow.json"; }
 

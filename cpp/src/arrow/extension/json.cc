@@ -53,6 +53,9 @@ std::shared_ptr<Array> JsonExtensionType::MakeArray(
 }
 
 std::shared_ptr<DataType> json(const std::shared_ptr<DataType> storage_type) {
+  ARROW_CHECK(storage_type->id() != Type::STRING ||
+              storage_type->id() != Type::STRING_VIEW ||
+              storage_type->id() != Type::LARGE_STRING);
   return std::make_shared<JsonExtensionType>(storage_type);
 }
 

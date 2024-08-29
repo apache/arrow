@@ -985,22 +985,21 @@ Status ValidateArrayFull(const Array& array) { return ValidateArrayFull(*array.d
 
 ARROW_EXPORT
 Status ValidateUTF8(const ArrayData& data) {
+  const auto& storage_type =
+      (data.type->id() == Type::EXTENSION)
+          ? checked_cast<const ExtensionType&>(*data.type).storage_type()
+          : data.type;
+  DCHECK(storage_type->id() == Type::STRING || storage_type->id() == Type::STRING_VIEW ||
+         storage_type->id() == Type::LARGE_STRING);
+
   if (data.type->id() == Type::EXTENSION) {
-    const auto& storage_type =
-        checked_cast<const ExtensionType&>(*data.type).storage_type();
-    DCHECK(storage_type->id() == Type::STRING ||
-           storage_type->id() == Type::STRING_VIEW ||
-           storage_type->id() == Type::LARGE_STRING);
-    auto ext_array_data =
-        std::make_shared<ArrayData>(storage_type, data.length, data.buffers,
-                                    data.child_data, data.null_count, data.offset);
-    UTF8DataValidator validator{*ext_array_data};
+    const auto& ext_data = std::make_shared<ArrayData>(data);
+    ext_data->type = storage_type;
+    UTF8DataValidator validator{*ext_data};
     return VisitTypeInline(*storage_type, &validator);
   } else {
     UTF8DataValidator validator{data};
-    DCHECK(data.type->id() == Type::STRING || data.type->id() == Type::STRING_VIEW ||
-           data.type->id() == Type::LARGE_STRING);
-    return VisitTypeInline(*data.type, &validator);
+    return VisitTypeInline(*storage_type, &validator);
   }
 }
 

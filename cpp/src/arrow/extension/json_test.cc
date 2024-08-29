@@ -17,6 +17,7 @@
 
 #include "arrow/extension/json.h"
 
+#include "arrow/array/validate.h"
 #include "arrow/ipc/test_common.h"
 #include "arrow/record_batch.h"
 #include "arrow/testing/gtest_util.h"
@@ -52,6 +53,10 @@ TEST_F(TestJsonExtensionType, JsonRoundtrip) {
     RoundtripBatch(batch, &read_batch);
     ASSERT_OK(read_batch->ValidateFull());
     CompareBatch(*batch, *read_batch, /*compare_metadata*/ true);
+
+    auto read_ext_arr = read_batch->column(0);
+    ASSERT_OK(internal::ValidateUTF8(*read_ext_arr));
+    ASSERT_OK(read_ext_arr->ValidateFull());
   }
 }
 

@@ -727,6 +727,17 @@ TEST_F(TestConvertParquetSchema, ParquetRepeatedNestedSchema) {
   ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(arrow_schema));
 }
 
+Status ArrowSchemaToParquetMetadata(std::shared_ptr<::arrow::Schema>& arrow_schema,
+                                    std::shared_ptr<KeyValueMetadata>& metadata) {
+  ARROW_ASSIGN_OR_RAISE(
+      std::shared_ptr<Buffer> serialized,
+      ::arrow::ipc::SerializeSchema(*arrow_schema, ::arrow::default_memory_pool()));
+  std::string schema_as_string = serialized->ToString();
+  std::string schema_base64 = ::arrow::util::base64_encode(schema_as_string);
+  metadata = ::arrow::key_value_metadata({"ARROW:schema"}, {schema_base64});
+  return Status::OK();
+}
+
 TEST_F(TestConvertParquetSchema, ParquetSchemaArrowExtensions) {
   std::vector<NodePtr> parquet_fields;
   parquet_fields.push_back(PrimitiveNode::Make(
@@ -739,7 +750,8 @@ TEST_F(TestConvertParquetSchema, ParquetSchemaArrowExtensions) {
     // By default, both fields should be treated as utf8() fields in Arrow.
     auto arrow_schema = ::arrow::schema(
         {::arrow::field("json_1", UTF8, true), ::arrow::field("json_2", UTF8, true)});
-    std::shared_ptr<KeyValueMetadata> metadata = ::arrow::key_value_metadata({}, {});
+    std::shared_ptr<KeyValueMetadata> metadata;
+    ASSERT_OK(ArrowSchemaToParquetMetadata(arrow_schema, metadata));
     ASSERT_OK(ConvertSchema(parquet_fields, metadata));
     CheckFlatSchema(arrow_schema);
   }
@@ -749,11 +761,12 @@ TEST_F(TestConvertParquetSchema, ParquetSchemaArrowExtensions) {
     // If Arrow extensions are enabled, both fields should be treated as json() extension
     // fields.
     ArrowReaderProperties props;
-    props.set_arrow_extensions_enabled();
+    props.set_arrow_extensions_enabled(true);
     auto arrow_schema =
         ::arrow::schema({::arrow::field("json_1", ::arrow::extension::json(), true),
                          ::arrow::field("json_2", ::arrow::extension::json(), true)});
-    std::shared_ptr<KeyValueMetadata> metadata = ::arrow::key_value_metadata({}, {});
+    std::shared_ptr<KeyValueMetadata> metadata;
+    ASSERT_OK(ArrowSchemaToParquetMetadata(arrow_schema, metadata));
     ASSERT_OK(ConvertSchema(parquet_fields, metadata, props));
     CheckFlatSchema(arrow_schema);
   }
@@ -768,14 +781,8 @@ TEST_F(TestConvertParquetSchema, ParquetSchemaArrowExtensions) {
         {::arrow::field("json_1", ::arrow::extension::json(), true, field_metadata),
          ::arrow::field("json_2", UTF8, true)});
 
-    ASSERT_OK_AND_ASSIGN(
-        std::shared_ptr<Buffer> serialized,
-        ::arrow::ipc::SerializeSchema(*arrow_schema, ::arrow::default_memory_pool()));
-    std::string schema_as_string = serialized->ToString();
-    std::string schema_base64 = ::arrow::util::base64_encode(schema_as_string);
-    std::shared_ptr<KeyValueMetadata> metadata =
-        ::arrow::key_value_metadata({"ARROW:schema"}, {schema_base64});
-
+    std::shared_ptr<KeyValueMetadata> metadata;
+    ASSERT_OK(ArrowSchemaToParquetMetadata(arrow_schema, metadata));
     ASSERT_OK(ConvertSchema(parquet_fields, metadata));
     CheckFlatSchema(arrow_schema, true /* check_metadata */);
   }
@@ -784,23 +791,17 @@ TEST_F(TestConvertParquetSchema, ParquetSchemaArrowExtensions) {
     // Parquet file contains Arrow schema.
     // A contrived example. Parquet believes both columns are JSON. Arrow believes json_1
     // is a JSON column and json_2 is a utf8 column. json_2 should be treated as a
-    // utf8 column even if the get_arrow_extensions_enabled is true.
+    // utf8 column even if arrow extensions are enabled.
     ArrowReaderProperties props;
-    props.get_arrow_extensions_enabled();
+    props.set_arrow_extensions_enabled(true);
     std::shared_ptr<KeyValueMetadata> field_metadata =
         ::arrow::key_value_metadata({"foo", "bar"}, {"biz", "baz"});
     auto arrow_schema = ::arrow::schema(
         {::arrow::field("json_1", ::arrow::extension::json(), true, field_metadata),
          ::arrow::field("json_2", UTF8, true)});
 
-    ASSERT_OK_AND_ASSIGN(
-        std::shared_ptr<Buffer> serialized,
-        ::arrow::ipc::SerializeSchema(*arrow_schema, ::arrow::default_memory_pool()));
-    std::string schema_as_string = serialized->ToString();
-    std::string schema_base64 = ::arrow::util::base64_encode(schema_as_string);
-    std::shared_ptr<KeyValueMetadata> metadata =
-        ::arrow::key_value_metadata({"ARROW:schema"}, {schema_base64});
-
+    std::shared_ptr<KeyValueMetadata> metadata;
+    ASSERT_OK(ArrowSchemaToParquetMetadata(arrow_schema, metadata));
     ASSERT_OK(ConvertSchema(parquet_fields, metadata, props));
     CheckFlatSchema(arrow_schema, true /* check_metadata */);
   }

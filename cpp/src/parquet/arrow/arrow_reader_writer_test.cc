@@ -1461,14 +1461,14 @@ TEST_F(TestJsonParquetIO, JsonExtension) {
   // When the original Arrow schema isn't stored and Arrow extensions are enabled,
   // LogicalType::JSON is read as JsonExtensionType.
   ::parquet::ArrowReaderProperties reader_properties;
-  reader_properties.set_arrow_extensions_enabled();
+  reader_properties.set_arrow_extensions_enabled(true);
   this->RoundTripSingleColumn(json_array, json_array, default_arrow_writer_properties(),
                               reader_properties);
 
   // When the original Arrow schema is stored, the stored Arrow type is always respected.
-  const auto arrow_properties =
+  const auto writer_properties =
       ::parquet::ArrowWriterProperties::Builder().store_schema()->build();
-  this->RoundTripSingleColumn(json_array, json_array, arrow_properties);
+  this->RoundTripSingleColumn(json_array, json_array, writer_properties);
 }
 
 using TestNullParquetIO = TestParquetIO<::arrow::NullType>;

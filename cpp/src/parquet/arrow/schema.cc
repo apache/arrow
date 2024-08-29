@@ -432,7 +432,6 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
       if (ext_type->extension_name() == std::string("arrow.json")) {
         type = ParquetType::BYTE_ARRAY;
         logical_type = LogicalType::JSON();
-        break;
       }
       std::shared_ptr<::arrow::Field> storage_field = ::arrow::field(
           name, ext_type->storage_type(), field->nullable(), field->metadata());
@@ -995,6 +994,7 @@ Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* infer
   if (origin_type->id() == ::arrow::Type::EXTENSION) {
     const auto& ex_type = checked_cast<const ::arrow::ExtensionType&>(*origin_type);
     if (inferred_type->id() != ::arrow::Type::EXTENSION &&
+        inferred_type->id() == ::arrow::Type::STRING &&
         ex_type.extension_name() == std::string("arrow.json")) {
       // Schema mismatch.
       //
@@ -1003,7 +1003,6 @@ Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* infer
       // inferred_type is ::arrow::utf8()
       //
       // Origin type is restored as Arrow should be considered the source of truth.
-      DCHECK_EQ(inferred_type->id(), ::arrow::Type::STRING);
       inferred->field = inferred->field->WithType(origin_type);
       RETURN_NOT_OK(ApplyOriginalStorageMetadata(origin_field, inferred));
     } else {
