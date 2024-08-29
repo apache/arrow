@@ -681,7 +681,8 @@ void RowArrayDecodeBenchmark(benchmark::State& st, const std::shared_ptr<Schema>
     ResizableArrayData column;
     // Allocate at least 8 rows for the convenience of SIMD decoding.
     int log_num_rows_min = std::max(3, bit_util::Log2(batch.length));
-    column.Init(batch[column_to_decode].type(), default_memory_pool(), log_num_rows_min);
+    DCHECK_OK(column.Init(batch[column_to_decode].type(), default_memory_pool(),
+                          log_num_rows_min));
     st.ResumeTiming();
     DCHECK_OK(rows.DecodeSelected(&column, column_to_decode,
                                   static_cast<int>(batch.length), row_ids_decode.data(),
