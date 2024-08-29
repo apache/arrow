@@ -26,7 +26,6 @@
 #include "arrow/chunk_resolver.h"
 #include "arrow/compare.h"
 #include "arrow/device_allocation_type_set.h"
-#include "arrow/device.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
@@ -190,9 +189,6 @@ class ARROW_EXPORT ChunkedArray {
   ///
   /// \return Status
   Status ValidateFull() const;
-
-  /// \brief Determine if all chunks are located on the CPU
-  bool IsCpu() const;
 
  protected:
   ArrayVector chunks_;

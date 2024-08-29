@@ -1438,17 +1438,18 @@ cdef class ChunkedArray(_PandasConvertible):
         self.init(c_chunked_array)
         return self
 
+    @property
     def is_cpu(self):
         """
         Whether all chunks in the ChunkedArray are CPU-accessible.
         """
         cdef c_bool result
         with nogil:
-            result = self.chunked_array.IsCpu()
+            result = self.chunked_array.is_cpu()
         return result
 
     def _assert_cpu(self):
-        if not self.is_cpu():
+        if not self.is_cpu:
             raise NotImplementedError("Implemented only for data on CPU device")
 
 

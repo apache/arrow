@@ -3402,21 +3402,21 @@ def cuda_arrays(cuda_context, cpu_arrays):
 @pytest.fixture
 def cpu_chunked_array(cpu_arrays):
     chunked_array = pa.chunked_array(cpu_arrays)
-    assert chunked_array.is_cpu() is True
+    assert chunked_array.is_cpu is True
     return chunked_array
 
 
 @pytest.fixture
 def cuda_chunked_array(cuda_arrays):
     chunked_array = pa.chunked_array(cuda_arrays)
-    assert chunked_array.is_cpu() is False
+    assert chunked_array.is_cpu is False
     return chunked_array
 
 
 @pytest.fixture
 def cpu_and_cuda_chunked_array(cpu_arrays, cuda_arrays):
     chunked_array = pa.chunked_array(cpu_arrays + cuda_arrays)
-    assert chunked_array.is_cpu() is False
+    assert chunked_array.is_cpu is False
     return chunked_array
 
 

@@ -300,15 +300,6 @@ Status ChunkedArray::ValidateFull() const {
   return ValidateChunks(chunks_, /*full_validation=*/true);
 }
 
-bool ChunkedArray::IsCpu() const {
-  for (const auto& chunk : chunks_) {
-    if (chunk->device_type() != DeviceAllocationType::kCPU) {
-      return false;
-    }
-  }
-  return true;
-}
-
 namespace internal {
 
 bool MultipleChunkIterator::Next(std::shared_ptr<Array>* next_left,
