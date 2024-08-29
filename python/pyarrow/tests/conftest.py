@@ -233,17 +233,16 @@ def s3_server(s3_connection, tmpdir_factory):
 def gcs_server():
     port = find_free_port()
     env = os.environ.copy()
-    args = [sys.executable, '-m', 'testbench', '--port', str(port)]
+    exe = 'storage-testbench'
+    args = [exe, '--port', str(port)]
     proc = None
     try:
-        # check first if testbench module is available
-        import testbench  # noqa:F401
         # start server
         proc = subprocess.Popen(args, env=env)
         # Make sure the server is alive.
         if proc.poll() is not None:
             pytest.skip(f"Command {args} did not start server successfully!")
-    except (ModuleNotFoundError, OSError) as e:
+    except OSError as e:
         pytest.skip(f"Command {args} failed to execute: {e}")
     else:
         yield {

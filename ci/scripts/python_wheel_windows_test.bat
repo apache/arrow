@@ -37,28 +37,32 @@ set PYARROW_TEST_TENSORFLOW=ON
 set ARROW_TEST_DATA=C:\arrow\testing\data
 set PARQUET_TEST_DATA=C:\arrow\cpp\submodules\parquet-testing\data
 
-@REM Install testing dependencies
-pip install -r C:\arrow\python\requirements-wheel-test.txt || exit /B 1
+@REM List installed Pythons
+py -0p
 
-@REM Install GCS testbench
-call "C:\arrow\ci\scripts\install_gcs_testbench.bat"
+set PYTHON_CMD=py -%PYTHON%
+
+%PYTHON_CMD% -m pip install -U pip setuptools || exit /B 1
+
+@REM Install testing dependencies
+%PYTHON_CMD% -m pip install -r C:\arrow\python\requirements-wheel-test.txt || exit /B 1
 
 @REM Install the built wheels
-python -m pip install --no-index --find-links=C:\arrow\python\dist\ pyarrow || exit /B 1 
+%PYTHON_CMD% -m pip install --no-index --find-links=C:\arrow\python\dist\ pyarrow || exit /B 1
 
 @REM Test that the modules are importable
-python -c "import pyarrow" || exit /B 1
-python -c "import pyarrow._gcsfs" || exit /B 1
-python -c "import pyarrow._hdfs" || exit /B 1 
-python -c "import pyarrow._s3fs" || exit /B 1
-python -c "import pyarrow.csv" || exit /B 1
-python -c "import pyarrow.dataset" || exit /B 1
-python -c "import pyarrow.flight" || exit /B 1
-python -c "import pyarrow.fs" || exit /B 1
-python -c "import pyarrow.json" || exit /B 1
-python -c "import pyarrow.orc" || exit /B 1
-python -c "import pyarrow.parquet" || exit /B 1
-python -c "import pyarrow.substrait" || exit /B 1
+%PYTHON_CMD% -c "import pyarrow" || exit /B 1
+%PYTHON_CMD% -c "import pyarrow._gcsfs" || exit /B 1
+%PYTHON_CMD% -c "import pyarrow._hdfs" || exit /B 1
+%PYTHON_CMD% -c "import pyarrow._s3fs" || exit /B 1
+%PYTHON_CMD% -c "import pyarrow.csv" || exit /B 1
+%PYTHON_CMD% -c "import pyarrow.dataset" || exit /B 1
+%PYTHON_CMD% -c "import pyarrow.flight" || exit /B 1
+%PYTHON_CMD% -c "import pyarrow.fs" || exit /B 1
+%PYTHON_CMD% -c "import pyarrow.json" || exit /B 1
+%PYTHON_CMD% -c "import pyarrow.orc" || exit /B 1
+%PYTHON_CMD% -c "import pyarrow.parquet" || exit /B 1
+%PYTHON_CMD% -c "import pyarrow.substrait" || exit /B 1
 
 @rem Download IANA Timezone Database for ORC C++
 curl https://cygwin.osuosl.org/noarch/release/tzdata/tzdata-2024a-1.tar.xz --output tzdata.tar.xz || exit /B
@@ -67,4 +71,4 @@ arc unarchive tzdata.tar.xz %USERPROFILE%\Downloads\test\tzdata
 set TZDIR=%USERPROFILE%\Downloads\test\tzdata\usr\share\zoneinfo
 
 @REM Execute unittest
-pytest -r s --pyargs pyarrow || exit /B 1
+%PYTHON_CMD% -m pytest -r s --pyargs pyarrow || exit /B 1
