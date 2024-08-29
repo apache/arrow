@@ -255,49 +255,34 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   }
 
   public static boolean removeDerbyDatabaseIfExists(final String dbName) {
-    boolean wasSuccess;
     final Path path = Paths.get("target" + File.separator + dbName);
-    System.out.println("Db path: " + path.toAbsolutePath());
 
     try (final Stream<Path> walk = Files.walk(path)) {
       /*
        * Iterate over all paths to delete, mapping each path to the outcome of its own
-       * deletion as a boolean representing whether or not each individual operation was
+       * deletion as a boolean representing whether each individual operation was
        * successful; then reduce all booleans into a single answer, and store that into
        * `wasSuccess`, which will later be returned by this method.
        * If for whatever reason the resulting `Stream<Boolean>` is empty, throw an `IOException`;
        * this not expected.
        */
-      wasSuccess =
-          walk.sorted(Comparator.reverseOrder())
-              .map(Path::toFile)
-              .map(File::delete)
-              .reduce(Boolean::logicalAnd)
-              .orElseThrow(IOException::new);
-      System.out.println("WasSuccess in try: " + wasSuccess);
+      return walk.sorted(Comparator.reverseOrder())
+          .map(Path::toFile)
+          .map(File::delete)
+          .reduce(Boolean::logicalAnd)
+          .orElseThrow(IOException::new);
     } catch (NoSuchFileException e) {
       /*
        * The only acceptable scenario for an `IOException` to be thrown here is if
        * an attempt to delete an non-existing file takes place -- which should be
        * alright, since they would be deleted anyway.
        */
-      wasSuccess = true;
       LOGGER.error(format("No existing Derby database to delete.: <%s>", e.getMessage()), e);
-      System.out.println("No existing Derby database to delete: " + e.getMessage());
       return true;
-    } catch (IOException e) {
-      wasSuccess = false;
-      LOGGER.error(format("Failed attempt to clear DerbyDB: <%s>", e.getMessage()), e);
-      System.out.println("Derby Exception: " + e.getMessage());
-      return false;
     } catch (Exception e) {
-      wasSuccess = false;
-      LOGGER.error(format("Failed2 attempt to clear DerbyDB: <%s>", e.getMessage()), e);
-      System.out.println("Other Exception: " + e.getMessage());
+      LOGGER.error(format("Failed attempt to clear DerbyDB: <%s>", e.getMessage()), e);
       return false;
     }
-    System.out.println("Boolean Status: " + wasSuccess);
-    return true;
   }
 
   private static boolean populateDerbyDatabase(final String dbName) {
