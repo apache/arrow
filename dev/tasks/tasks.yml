@@ -29,6 +29,7 @@ groups:
 
   wheel:
     - wheel-*
+    - python-sdist
 
   linux:
     - almalinux-*
