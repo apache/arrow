@@ -95,81 +95,6 @@ namespace filesystem = boost::filesystem;
 namespace arrow::util {
 
 class Process::Impl {
- private:
-  filesystem::path executable_;
-  std::vector<std::string> args_;
-  bool keep_stderr_ = true;
-#ifdef BOOST_PROCESS_USE_V2
-  std::unordered_map<process::environment::key, process::environment::value> env_;
-  std::unique_ptr<process::process> process_;
-  asio::io_context ctx_;
-  // boost/process/v2/ doesn't support process group yet:
-  // https://github.com/boostorg/process/issues/259
-#else
-  process::environment env_;
-  std::unique_ptr<process::child> process_;
-  std::unique_ptr<process::group> process_group_;
-#endif
-
-  Result<filesystem::path> ResolveCurrentExecutable() {
-    // See https://stackoverflow.com/a/1024937/10194 for various
-    // platform-specific recipes.
-
-    filesystem::path path;
-    boost::system::error_code error_code;
-
-#if defined(__linux__)
-    path = filesystem::canonical("/proc/self/exe", error_code);
-#elif defined(__APPLE__)
-    char buf[PATH_MAX + 1];
-    uint32_t bufsize = sizeof(buf);
-    if (_NSGetExecutablePath(buf, &bufsize) < 0) {
-      return Status::Invalid("Can't resolve current exe: path too large");
-    }
-    path = filesystem::canonical(buf, error_code);
-#elif defined(_WIN32)
-    char buf[MAX_PATH + 1];
-    if (!GetModuleFileNameA(NULL, buf, sizeof(buf))) {
-      return Status::Invalid("Can't get executable file path");
-    }
-    path = filesystem::canonical(buf, error_code);
-#else
-    ARROW_UNUSED(error_code);
-    return Status::NotImplemented("Not available on this system");
-#endif
-    if (error_code) {
-      // XXX fold this into the Status class?
-      return Status::IOError("Can't resolve current exe: ", error_code.message());
-    } else {
-      return path;
-    }
-  }
-
-#ifdef BOOST_PROCESS_USE_V2
-  Status ExecuteV2() {
-    process::process_environment env(env_);
-    // We can't use std::make_unique<process::process>.
-    process_ = std::unique_ptr<process::process>(
-        new process::process(ctx_, executable_, args_, env,
-                             keep_stderr_ ? process::process_stdio{{}, {}, {}}
-                                          : process::process_stdio{{}, {}, nullptr}));
-    return Status::OK();
-  }
-#else
-  Status ExecuteV1() {
-    process_group_ = std::make_unique<process::group>();
-    if (keep_stderr_) {
-      process_ = std::make_unique<process::child>(executable_, process::args(args_), env_,
-                                                  *process_group_);
-    } else {
-      process_ = std::make_unique<process::child>(executable_, process::args(args_), env_,
-                                                  *process_group_,
-                                                  process::std_err > process::null);
-    }
-    return Status::OK();
-  }
-#endif
-
  public:
   Impl() {
     // Get a copy of the current environment.
@@ -274,6 +199,81 @@ class Process::Impl {
     }
     return process_->id();
   }
+
+ private:
+  filesystem::path executable_;
+  std::vector<std::string> args_;
+  bool keep_stderr_ = true;
+#ifdef BOOST_PROCESS_USE_V2
+  std::unordered_map<process::environment::key, process::environment::value> env_;
+  std::unique_ptr<process::process> process_;
+  asio::io_context ctx_;
+  // boost/process/v2/ doesn't support process group yet:
+  // https://github.com/boostorg/process/issues/259
+#else
+  process::environment env_;
+  std::unique_ptr<process::child> process_;
+  std::unique_ptr<process::group> process_group_;
+#endif
+
+  Result<filesystem::path> ResolveCurrentExecutable() {
+    // See https://stackoverflow.com/a/1024937/10194 for various
+    // platform-specific recipes.
+
+    filesystem::path path;
+    boost::system::error_code error_code;
+
+#if defined(__linux__)
+    path = filesystem::canonical("/proc/self/exe", error_code);
+#elif defined(__APPLE__)
+    char buf[PATH_MAX + 1];
+    uint32_t bufsize = sizeof(buf);
+    if (_NSGetExecutablePath(buf, &bufsize) < 0) {
+      return Status::Invalid("Can't resolve current exe: path too large");
+    }
+    path = filesystem::canonical(buf, error_code);
+#elif defined(_WIN32)
+    char buf[MAX_PATH + 1];
+    if (!GetModuleFileNameA(NULL, buf, sizeof(buf))) {
+      return Status::Invalid("Can't get executable file path");
+    }
+    path = filesystem::canonical(buf, error_code);
+#else
+    ARROW_UNUSED(error_code);
+    return Status::NotImplemented("Not available on this system");
+#endif
+    if (error_code) {
+      // XXX fold this into the Status class?
+      return Status::IOError("Can't resolve current exe: ", error_code.message());
+    } else {
+      return path;
+    }
+  }
+
+#ifdef BOOST_PROCESS_USE_V2
+  Status ExecuteV2() {
+    process::process_environment env(env_);
+    // We can't use std::make_unique<process::process>.
+    process_ = std::unique_ptr<process::process>(
+        new process::process(ctx_, executable_, args_, env,
+                             keep_stderr_ ? process::process_stdio{{}, {}, {}}
+                                          : process::process_stdio{{}, {}, nullptr}));
+    return Status::OK();
+  }
+#else
+  Status ExecuteV1() {
+    process_group_ = std::make_unique<process::group>();
+    if (keep_stderr_) {
+      process_ = std::make_unique<process::child>(executable_, process::args(args_), env_,
+                                                  *process_group_);
+    } else {
+      process_ = std::make_unique<process::child>(executable_, process::args(args_), env_,
+                                                  *process_group_,
+                                                  process::std_err > process::null);
+    }
+    return Status::OK();
+  }
+#endif
 };
 
 Process::Process() : impl_(new Impl()) {}
