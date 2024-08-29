@@ -32,9 +32,7 @@
 //
 // [1] https://github.com/boostorg/process/issues/259
 // [2] https://github.com/googleapis/storage-testbench/issues/669
-#ifdef _WIN32
-#define BOOST_PROCESS_FORCE_V1
-#else
+#ifndef _WIN32
 #define BOOST_PROCESS_USE_V2
 #endif
 #endif
@@ -63,7 +61,7 @@
 #ifdef __MINGW32__
 #define BOOST_USE_WINDOWS_H = 1
 #endif
-#ifdef BOOST_PROCESS_FORCE_V1
+#ifdef BOOST_PROCESS_HAVE_V1
 #include <boost/process/v1.hpp>
 #else
 #include <boost/process.hpp>
@@ -85,7 +83,7 @@ namespace asio = BOOST_PROCESS_V2_ASIO_NAMESPACE;
 namespace process = BOOST_PROCESS_V2_NAMESPACE;
 namespace filesystem = process::filesystem;
 #else
-#ifdef BOOST_PROCESS_FORCE_V1
+#ifdef BOOST_PROCESS_HAVE_V1
 namespace process = boost::process::v1;
 namespace filesystem = boost::process::v1::filesystem;
 #else

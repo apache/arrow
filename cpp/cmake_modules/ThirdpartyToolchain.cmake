@@ -1325,6 +1325,7 @@ if(ARROW_USE_BOOST)
 
   if(TARGET Boost::process)
     # Boost >= 1.86
+    target_compile_definitions(Boost::process INTERFACE "BOOST_PROCESS_HAVE_V1")
     target_compile_definitions(Boost::process INTERFACE "BOOST_PROCESS_HAVE_V2")
   else()
     # Boost < 1.86
