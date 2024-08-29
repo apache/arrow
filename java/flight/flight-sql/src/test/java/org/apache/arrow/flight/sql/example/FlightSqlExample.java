@@ -258,8 +258,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       /*
        * Iterate over all paths to delete, mapping each path to the outcome of its own
        * deletion as a boolean representing whether each individual operation was
-       * successful; then reduce all booleans into a single answer, and store that into
-       * `wasSuccess`, which will later be returned by this method.
+       * successful; then reduce all booleans into a single answer.
        * If for whatever reason the resulting `Stream<Boolean>` is empty, throw an `IOException`;
        * this not expected.
        */
