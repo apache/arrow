@@ -216,6 +216,7 @@ Status ResizableArrayData::Init(const std::shared_ptr<DataType>& data_type,
                  metadata_before.fixed_length == metadata_after.fixed_length);
   }
 #endif
+  ARROW_DCHECK(data_type != nullptr);
   ARROW_ASSIGN_OR_RAISE(column_metadata_, ColumnMetadataFromDataType(data_type));
   Clear(/*release_buffers=*/false);
   log_num_rows_min_ = log_num_rows_min;
