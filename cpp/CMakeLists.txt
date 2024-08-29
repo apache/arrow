@@ -71,14 +71,6 @@ if(POLICY CMP0135)
   cmake_policy(SET CMP0135 NEW)
 endif()
 
-# https://cmake.org/cmake/help/latest/policy/CMP0167.html
-#
-# Use BoostConfig.cmake provided by Boost instead of
-# FindBoost.cmake provided by CMake.
-if(POLICY CMP0167)
-  cmake_policy(SET CMP0167 NEW)
-endif()
-
 # https://cmake.org/cmake/help/latest/policy/CMP0170.html
 #
 # CMP0170 is for enforcing dependency populations by users with
