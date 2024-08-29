@@ -26,12 +26,20 @@
 // work if windows.h is already included.
 #include <boost/asio/io_context.hpp>
 
+#ifdef BOOST_PROCESS_HAVE_V2
 // We can't use v2 API on Windows because v2 API doesn't support
 // process group [1] and GCS testbench uses multiple processes [2].
 //
 // [1] https://github.com/boostorg/process/issues/259
 // [2] https://github.com/googleapis/storage-testbench/issues/669
-#if defined(BOOST_PROCESS_HAVE_V2) && !defined(_WIN32)
+#ifdef _WIN32
+#define BOOST_PROCESS_FORCE_V1
+#else
+#define BOOST_PROCESS_USE_V2
+#endif
+#endif
+
+#ifdef BOOST_PROCESS_USE_V2
 #ifdef BOOST_PROCESS_NEED_SOURCE
 // Workaround for https://github.com/boostorg/process/issues/312
 #define BOOST_PROCESS_V2_SEPARATE_COMPILATION
@@ -55,7 +63,11 @@
 #ifdef __MINGW32__
 #define BOOST_USE_WINDOWS_H = 1
 #endif
+#ifdef BOOST_PROCESS_FORCE_V1
+#include <boost/process/v1.hpp>
+#else
 #include <boost/process.hpp>
+#endif
 #endif
 
 #ifdef __APPLE__
@@ -68,13 +80,18 @@
 #include <sstream>
 #include <thread>
 
-#ifdef BOOST_PROCESS_HAVE_V2
+#ifdef BOOST_PROCESS_USE_V2
 namespace asio = BOOST_PROCESS_V2_ASIO_NAMESPACE;
 namespace process = BOOST_PROCESS_V2_NAMESPACE;
 namespace filesystem = process::filesystem;
 #else
+#ifdef BOOST_PROCESS_FORCE_V1
+namespace process = boost::process::v1;
+namespace filesystem = boost::process::v1::filesystem;
+#else
 namespace process = boost::process;
 namespace filesystem = boost::filesystem;
+#endif
 #endif
 
 namespace arrow::util {
@@ -84,7 +101,7 @@ class Process::Impl {
   filesystem::path executable_;
   std::vector<std::string> args_;
   bool keep_stderr_ = true;
-#ifdef BOOST_PROCESS_HAVE_V2
+#ifdef BOOST_PROCESS_USE_V2
   std::unordered_map<process::environment::key, process::environment::value> env_;
   std::unique_ptr<process::process> process_;
   asio::io_context ctx_;
@@ -130,7 +147,7 @@ class Process::Impl {
     }
   }
 
-#ifdef BOOST_PROCESS_HAVE_V2
+#ifdef BOOST_PROCESS_USE_V2
   Status ExecuteV2() {
     process::process_environment env(env_);
     // We can't use std::make_unique<process::process>.
@@ -158,7 +175,7 @@ class Process::Impl {
  public:
   Impl() {
     // Get a copy of the current environment.
-#ifdef BOOST_PROCESS_HAVE_V2
+#ifdef BOOST_PROCESS_USE_V2
     for (const auto& kv : process::environment::current()) {
       env_[kv.key()] = process::environment::value(kv.value());
     }
@@ -168,7 +185,7 @@ class Process::Impl {
   }
 
   ~Impl() {
-#ifdef BOOST_PROCESS_HAVE_V2
+#ifdef BOOST_PROCESS_USE_V2
     // V2 doesn't provide process group support yet:
     // https://github.com/boostorg/process/issues/259
     //
@@ -195,7 +212,7 @@ class Process::Impl {
   }
 
   Status SetExecutable(const std::string& name) {
-#ifdef BOOST_PROCESS_HAVE_V2
+#ifdef BOOST_PROCESS_USE_V2
     executable_ = process::environment::find_executable(name);
 #else
     executable_ = process::search_path(name);
@@ -203,7 +220,7 @@ class Process::Impl {
     if (executable_.empty()) {
       // Search the current executable directory as fallback.
       ARROW_ASSIGN_OR_RAISE(auto current_exe, ResolveCurrentExecutable());
-#ifdef BOOST_PROCESS_HAVE_V2
+#ifdef BOOST_PROCESS_USE_V2
       std::unordered_map<process::environment::key, process::environment::value> env;
       for (const auto& kv : process::environment::current()) {
         env[kv.key()] = process::environment::value(kv.value());
@@ -223,7 +240,7 @@ class Process::Impl {
   void SetArgs(const std::vector<std::string>& args) { args_ = args; }
 
   void SetEnv(const std::string& name, const std::string& value) {
-#ifdef BOOST_PROCESS_HAVE_V2
+#ifdef BOOST_PROCESS_USE_V2
     env_[name] = process::environment::value(value);
 #else
     env_[name] = value;
@@ -234,7 +251,7 @@ class Process::Impl {
 
   Status Execute() {
     try {
-#ifdef BOOST_PROCESS_HAVE_V2
+#ifdef BOOST_PROCESS_USE_V2
       return ExecuteV2();
 #else
       return ExecuteV1();
@@ -245,7 +262,7 @@ class Process::Impl {
   }
 
   bool IsRunning() {
-#ifdef BOOST_PROCESS_HAVE_V2
+#ifdef BOOST_PROCESS_USE_V2
     boost::system::error_code error_code;
     return process_ && process_->running(error_code);
 #else
