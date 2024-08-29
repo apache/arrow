@@ -1475,7 +1475,7 @@ tasks:
         R_PRUNE_DEPS: TRUE
       image: r-clang-sanitizer
 
-  {% for go_version, staticcheck in [("1.21", "v0.4.7"), ("1.22", "latest")] %}
+  {% for go_version, staticcheck in [("1.22", "v0.5.1"), ("1.23", "latest")] %}
   test-debian-12-go-{{ go_version }}:
     ci: github
     template: docker-tests/github.linux.yml
