@@ -686,9 +686,7 @@ void RowArrayDecodeBenchmark(benchmark::State& st, const std::shared_ptr<Schema>
     DCHECK_OK(rows.DecodeSelected(&column, column_to_decode,
                                   static_cast<int>(batch.length), row_ids_decode.data(),
                                   default_memory_pool()));
-    st.PauseTiming();
     total_rows += batch.length;
-    st.ResumeTiming();
   }
   st.counters["rows/sec"] = benchmark::Counter(total_rows, benchmark::Counter::kIsRate);
 }
