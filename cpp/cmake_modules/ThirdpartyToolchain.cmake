@@ -1194,6 +1194,57 @@ set(Boost_USE_MULTITHREADED ON)
 if(MSVC AND ARROW_USE_STATIC_CRT)
   set(Boost_USE_STATIC_RUNTIME ON)
 endif()
+set(Boost_ADDITIONAL_VERSIONS
+    "1.84.0"
+    "1.84"
+    "1.83.0"
+    "1.83"
+    "1.82.0"
+    "1.82"
+    "1.81.0"
+    "1.81"
+    "1.80.0"
+    "1.80"
+    "1.79.0"
+    "1.79"
+    "1.78.0"
+    "1.78"
+    "1.77.0"
+    "1.77"
+    "1.76.0"
+    "1.76"
+    "1.75.0"
+    "1.75"
+    "1.74.0"
+    "1.74"
+    "1.73.0"
+    "1.73"
+    "1.72.0"
+    "1.72"
+    "1.71.0"
+    "1.71"
+    "1.70.0"
+    "1.70"
+    "1.69.0"
+    "1.69"
+    "1.68.0"
+    "1.68"
+    "1.67.0"
+    "1.67"
+    "1.66.0"
+    "1.66"
+    "1.65.0"
+    "1.65"
+    "1.64.0"
+    "1.64"
+    "1.63.0"
+    "1.63"
+    "1.62.0"
+    "1.61"
+    "1.61.0"
+    "1.62"
+    "1.60.0"
+    "1.60")
 
 # Compilers that don't support int128_t have a compile-time
 # (header-only) dependency on Boost for int128_t.
@@ -1256,9 +1307,7 @@ if(ARROW_USE_BOOST)
                      ${ARROW_BOOST_OPTIONAL_COMPONENTS}
                      IS_RUNTIME_DEPENDENCY
                      # libarrow.so doesn't depend on libboost*.
-                     FALSE
-                     USE_CONFIG
-                     TRUE)
+                     FALSE)
   if(ARROW_BOOST_USE_SHARED)
     set(BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS_KEEP})
     unset(BUILD_SHARED_LIBS_KEEP)
@@ -1282,17 +1331,7 @@ if(ARROW_USE_BOOST)
     add_library(Boost::process INTERFACE IMPORTED)
     target_link_libraries(Boost::process INTERFACE Boost::filesystem Boost::system
                                                    Boost::headers)
-    if(Boost_VERSION VERSION_LESS 1.80)
-      if(WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-        # boost/process/detail/windows/handle_workaround.hpp doesn't work
-        # without BOOST_USE_WINDOWS_H with MinGW because MinGW doesn't
-        # provide __kernel_entry without winternl.h.
-        #
-        # See also:
-        # https://github.com/boostorg/process/blob/develop/include/boost/process/detail/windows/handle_workaround.hpp
-        target_compile_definitions(Boost::process INTERFACE "BOOST_USE_WINDOWS_H=1")
-      endif()
-    else()
+    if(Boost_VERSION VERSION_GREATER_EQUAL 1.80)
       target_compile_definitions(Boost::process INTERFACE "BOOST_PROCESS_HAVE_V2")
       # Boost < 1.86 has a bug that
       # boost::process::v2::process_environment::on_setup() isn't

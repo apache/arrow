@@ -77,7 +77,7 @@ class GcsTestbench : public ::testing::Environment {
     }
 
     server_process->SetArgs({"--port", port_});
-    server_process->SetReadyErrorMessage("* Restarting with");
+    server_process->IgnoreStderr();
     status = server_process->Execute();
     if (!status.ok()) {
       error += " (failed to launch: ";
@@ -87,16 +87,37 @@ class GcsTestbench : public ::testing::Environment {
       return;
     }
 
+    auto testbench_is_running = [&server_process, this]() {
+      auto ready_timeout = std::chrono::seconds(10);
+      std::chrono::time_point<std::chrono::steady_clock> end =
+          std::chrono::steady_clock::now() + ready_timeout;
+      while (server_process->IsRunning() && std::chrono::steady_clock::now() < end) {
+        auto client = gcs::Client(
+            google::cloud::Options{}
+                .set<gcs::RestEndpointOption>("http://127.0.0.1:" + port_)
+                .set<gc::UnifiedCredentialsOption>(gc::MakeInsecureCredentials())
+                .set<gcs::RetryPolicyOption>(
+                    gcs::LimitedTimeRetryPolicy(ready_timeout).clone()));
+        auto metadata = client.GetBucketMetadata("nonexistent");
+        if (metadata.status().code() == google::cloud::StatusCode::kNotFound) {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    if (!testbench_is_running()) {
+      error += " (failed to listen)";
+      error_ = std::move(error);
+      return;
+    }
+
     server_process_ = std::move(server_process);
   }
 
   bool running() { return server_process_ && server_process_->IsRunning(); }
 
-  ~GcsTestbench() override {
-    std::cerr << "~GcsTestBench(): start" << std::endl;
-    server_process_ = nullptr;
-    std::cerr << "~GcsTestBench(): end" << std::endl;
-  }
+  ~GcsTestbench() override { server_process_ = nullptr; }
 
   const std::string& port() const { return port_; }
   const std::string& error() const { return error_; }

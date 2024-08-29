@@ -95,7 +95,6 @@ ctest \
     --parallel ${n_jobs} \
     --repeat until-pass:3 \
     --timeout ${ARROW_CTEST_TIMEOUT:-300} \
-    --verbose \
     "${ctest_options[@]}" \
     "$@"
 
