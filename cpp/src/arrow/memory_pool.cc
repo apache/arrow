@@ -916,7 +916,7 @@ class PoolBuffer final : public ResizableBuffer {
   }
 
  private:
-  Result<int64_t> RoundCapacity(int64_t capacity) {
+  static Result<int64_t> RoundCapacity(int64_t capacity) {
     if (capacity > std::numeric_limits<int64_t>::max() - 63) {
       return Status::OutOfMemory("capacity too large");
     }
