@@ -116,12 +116,12 @@ test_that("GcsFileSystem$create() can read json_credentials", {
 })
 
 skip_on_cran()
-skip_if_not(system('python -c "import testbench"') == 0, message = "googleapis-storage-testbench is not installed.")
+skip_if_not(system("storage-testbench -h") == 0, message = "googleapis-storage-testbench is not installed.")
 library(dplyr)
 
 testbench_port <- Sys.getenv("TESTBENCH_PORT", "9001")
 
-pid_minio <- sys::exec_background("python", c("-m", "testbench", "--port", testbench_port),
+pid_minio <- sys::exec_background("storage-testbench", c("--port", testbench_port),
   std_out = FALSE,
   std_err = FALSE # TODO: is there a good place to send output?
 )

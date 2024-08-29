@@ -17,7 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
+set -ex
 
 if [ "$#" -ne 1 ]; then
   echo "Usage: $0 <storage-testbench version>"
@@ -34,19 +34,23 @@ case "$(uname -m)" in
     ;;
 esac
 
-# On newer pythons install into the system will fail, so override that
-export PIP_BREAK_SYSTEM_PACKAGES=1
-
 version=$1
 if [[ "${version}" -eq "default" ]]; then
   version="v0.39.0"
-  # Latests versions of Testbench require newer setuptools
-  python3 -m pip install --upgrade setuptools
 fi
+
+: ${PIPX_PYTHON:=$(which python3)}
+
+export PIP_BREAK_SYSTEM_PACKAGES=1
+${PIPX_PYTHON} -m pip install -U pipx
 
 # This script is run with PYTHON undefined in some places,
 # but those only use older pythons.
 if [[ -z "${PYTHON_VERSION}" ]] || [[ "${PYTHON_VERSION}" != "3.13" ]]; then
-  python3 -m pip install \
-    "https://github.com/googleapis/storage-testbench/archive/${version}.tar.gz"
+  pipx_flags=--verbose
+  if [[ $(id -un) == "root" ]]; then
+    # Install globally as /root/.local/bin is typically not in $PATH
+    pipx_flags="${pipx_flags} --global"
+  fi
+  ${PIPX_PYTHON} -m pipx install ${pipx_flags} "https://github.com/googleapis/storage-testbench/archive/${version}.tar.gz"
 fi
