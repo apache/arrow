@@ -268,7 +268,7 @@ class Process::Impl {
 #endif
   }
 
-  uint64_t id() {
+  uint64_t pid() {
     if (!process_) {
       return 0;
     }
@@ -296,5 +296,5 @@ Status Process::Execute() { return impl_->Execute(); }
 
 bool Process::IsRunning() { return impl_->IsRunning(); }
 
-uint64_t Process::id() { return impl_->id(); }
+uint64_t Process::pid() { return impl_->pid(); }
 }  // namespace arrow::util

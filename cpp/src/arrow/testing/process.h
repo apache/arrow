@@ -37,7 +37,7 @@ class ARROW_TESTING_EXPORT Process {
   void IgnoreStderr();
   Status Execute();
   bool IsRunning();
-  uint64_t id();
+  uint64_t pid();
 
  private:
   class Impl;

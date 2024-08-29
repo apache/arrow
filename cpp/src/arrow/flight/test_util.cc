@@ -55,7 +55,7 @@ Status TestServer::Start(const std::vector<std::string>& extra_args) {
   args.insert(args.end(), extra_args.begin(), extra_args.end());
   server_process_->SetArgs(args);
   ARROW_RETURN_NOT_OK(server_process_->Execute());
-  std::cout << "Server running with pid " << server_process_->id() << std::endl;
+  std::cout << "Server running with pid " << server_process_->pid() << std::endl;
   return Status::OK();
 }
 
