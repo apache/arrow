@@ -66,7 +66,7 @@ if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
   ${mvn_install} -DgroupId=${group} -DartifactId=${artifact} -Dversion=${ver} -Dclassifier=${classifier} -Dpackaging=${extension} -Dfile=$(pwd)/${target} -Darrow.memory.debug.allocator=true
 fi
 
-mvn="mvn -B -DskipTests -Drat.skip=true -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -Darrow.memory.debug.allocator=true"
+mvn="mvn -B -DskipTests -Drat.skip=true -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn"
 
 if [ $ARROW_JAVA_SKIP_GIT_PLUGIN ]; then
   mvn="${mvn} -Dmaven.gitcommitid.skip=true"
@@ -96,7 +96,7 @@ if [ "${ARROW_JAVA_JNI}" = "ON" ]; then
 fi
 
 # Use `2 * ncores` threads
-${mvn} -T 2C clean install
+${mvn} -T 2C clean install -Darrow.memory.debug.allocator=true
 
 if [ "${BUILD_DOCS_JAVA}" == "ON" ]; then
   # HTTP pooling is turned of to avoid download issues https://issues.apache.org/jira/browse/ARROW-11633
