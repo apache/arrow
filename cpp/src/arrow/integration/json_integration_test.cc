@@ -35,6 +35,7 @@
 #include "arrow/integration/json_internal.h"
 #include "arrow/io/file.h"
 #include "arrow/ipc/dictionary.h"
+#include "arrow/ipc/metadata_internal.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/test_common.h"
 #include "arrow/ipc/writer.h"
@@ -172,11 +173,14 @@ static Status ValidateEmbeddedStream(
   ARROW_ASSIGN_OR_RAISE(auto footer_cookie, arrow_file->ReadAt(file_size - 10, 10));
   auto footer_size =
       bit_util::FromLittleEndian(util::SafeLoadAs<int32_t>(footer_cookie->data()));
-  int64_t footer_offset = 8 + file_size - footer_size - 10;
+  int64_t footer_offset = file_size - footer_size - footer_cookie->size();
 
   // Get a read stream past the padded magic at the start of the file
+  const auto kInitialMagicSize =
+      bit_util::RoundUpToMultipleOf8(strlen(ipc::internal::kArrowMagicBytes));
   ARROW_ASSIGN_OR_RAISE(auto stream,
-                        io::RandomAccessFile::GetStream(arrow_file, 8, file_size - 8));
+                        io::RandomAccessFile::GetStream(arrow_file, kInitialMagicSize,
+                                                        file_size - kInitialMagicSize));
   ARROW_ASSIGN_OR_RAISE(auto arrow_reader, ipc::RecordBatchStreamReader::Open(stream));
 
   RETURN_NOT_OK(CompareSchemas("Embedded stream", *arrow_reader->schema(),  //
@@ -196,7 +200,7 @@ static Status ValidateEmbeddedStream(
   }
   ARROW_ASSIGN_OR_RAISE(int64_t stream_size, stream->Tell());
 
-  if (footer_offset <= stream_size) {
+  if (footer_offset < kInitialMagicSize + stream_size) {
     return Status::Invalid("Embedded stream (", stream_size,
                            " bytes long) overlaps with the file's footer (at offset ",
                            footer_offset, ")");
