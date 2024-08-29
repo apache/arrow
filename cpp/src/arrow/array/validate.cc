@@ -987,7 +987,7 @@ ARROW_EXPORT
 Status ValidateUTF8(const ArrayData& data) {
   if (data.type->id() == Type::EXTENSION) {
     const auto& storage_type =
-        checked_pointer_cast<ExtensionType>(data.type)->storage_type();
+        checked_cast<const ExtensionType&>(*data.type).storage_type();
     DCHECK(storage_type->id() == Type::STRING ||
            storage_type->id() == Type::STRING_VIEW ||
            storage_type->id() == Type::LARGE_STRING);

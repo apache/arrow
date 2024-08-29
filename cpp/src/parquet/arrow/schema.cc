@@ -1000,7 +1000,7 @@ Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* infer
       //
       // Arrow extensions are DISABLED in Parquet.
       // origin_type is ::arrow::extension::json()
-      // inferred_type is ::arrow::binary()
+      // inferred_type is ::arrow::utf8()
       //
       // Origin type is restored as Arrow should be considered the source of truth.
       DCHECK_EQ(inferred_type->id(), ::arrow::Type::STRING);
