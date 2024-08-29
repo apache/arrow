@@ -295,8 +295,8 @@ class ARROW_EXPORT ResizableArrayData {
   /// \param pool The pool to make allocations on
   /// \param log_num_rows_min All resize operations will allocate at least enough
   ///                         space for (1 << log_num_rows_min) rows
-  void Init(const std::shared_ptr<DataType>& data_type, MemoryPool* pool,
-            int log_num_rows_min);
+  Status Init(const std::shared_ptr<DataType>& data_type, MemoryPool* pool,
+              int log_num_rows_min);
 
   /// \brief Resets the array back to an empty state
   /// \param release_buffers If true then allocated memory is released and the
@@ -351,6 +351,8 @@ class ARROW_EXPORT ResizableArrayData {
   static constexpr int64_t kNumPaddingBytes = 64;
   int log_num_rows_min_;
   std::shared_ptr<DataType> data_type_;
+  // Would be valid if data_type_ != NULLPTR.
+  KeyColumnMetadata column_metadata_{};
   MemoryPool* pool_;
   int num_rows_;
   int num_rows_allocated_;
