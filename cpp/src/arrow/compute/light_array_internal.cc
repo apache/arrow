@@ -238,7 +238,6 @@ void ResizableArrayData::Clear(bool release_buffers) {
 
 Status ResizableArrayData::ResizeFixedLengthBuffers(int num_rows_new) {
   ARROW_DCHECK(num_rows_new >= 0);
-  ARROW_DCHECK(data_type_ != nullptr);
   if (num_rows_new <= num_rows_allocated_) {
     num_rows_ = num_rows_new;
     return Status::OK();
@@ -324,8 +323,6 @@ Status ResizableArrayData::ResizeFixedLengthBuffers(int num_rows_new) {
 }
 
 Status ResizableArrayData::ResizeVaryingLengthBuffer() {
-  ARROW_DCHECK(data_type_ != nullptr);
-
   if (!column_metadata_.is_fixed_length) {
     int64_t min_new_size = buffers_[kFixedLengthBuffer]->data_as<int32_t>()[num_rows_];
     ARROW_DCHECK(var_len_buf_size_ > 0);
@@ -343,7 +340,6 @@ Status ResizableArrayData::ResizeVaryingLengthBuffer() {
 }
 
 KeyColumnArray ResizableArrayData::column_array() const {
-  ARROW_DCHECK(data_type_ != nullptr);
   return KeyColumnArray(column_metadata_, num_rows_,
                         buffers_[kValidityBuffer]->mutable_data(),
                         buffers_[kFixedLengthBuffer]->mutable_data(),
@@ -351,7 +347,6 @@ KeyColumnArray ResizableArrayData::column_array() const {
 }
 
 std::shared_ptr<ArrayData> ResizableArrayData::array_data() const {
-  ARROW_DCHECK(data_type_ != nullptr);
   auto valid_count =
       arrow::internal::CountSetBits(buffers_[kValidityBuffer]->data(), /*bit_offset=*/0,
                                     static_cast<int64_t>(num_rows_));
