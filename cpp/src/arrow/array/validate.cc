@@ -993,9 +993,9 @@ Status ValidateUTF8(const ArrayData& data) {
          storage_type->id() == Type::LARGE_STRING);
 
   if (data.type->id() == Type::EXTENSION) {
-    const auto& ext_data = std::make_shared<ArrayData>(data);
-    ext_data->type = storage_type;
-    UTF8DataValidator validator{*ext_data};
+    ArrayData ext_data(data);
+    ext_data.type = storage_type;
+    UTF8DataValidator validator{ext_data};
     return VisitTypeInline(*storage_type, &validator);
   } else {
     UTF8DataValidator validator{data};

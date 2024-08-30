@@ -80,7 +80,6 @@ TEST_F(TestJsonExtensionType, InvalidUTF8) {
     std::shared_ptr<Array> ext_arr = ExampleJsonInvalidUTF8(storage_type);
     auto batch =
         RecordBatch::Make(schema({field("f0", json(storage_type))}), 8, {ext_arr});
-    ;
 
     std::shared_ptr<RecordBatch> read_batch;
     ASSERT_RAISES_WITH_MESSAGE(IOError,
