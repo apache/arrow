@@ -673,7 +673,12 @@ void RowArrayDecodeBenchmark(benchmark::State& st, const std::shared_ptr<Schema>
       static_cast<int>(batch.length), static_cast<int>(batch.length),
       row_ids_encode.data(), temp_column_arrays));
   std::vector<uint32_t> row_ids_decode(batch.length);
-  std::iota(row_ids_decode.begin(), row_ids_decode.end(), 0);
+  // Create a random access pattern to simulate hash join.
+  std::default_random_engine gen(42);
+  std::uniform_int_distribution<uint32_t> dist(0,
+                                               static_cast<uint32_t>(batch.length - 1));
+  std::transform(row_ids_decode.begin(), row_ids_decode.end(), row_ids_decode.begin(),
+                 [&](uint32_t) { return dist(gen); });
 
   uint64_t total_rows = 0;
   for (auto _ : st) {
