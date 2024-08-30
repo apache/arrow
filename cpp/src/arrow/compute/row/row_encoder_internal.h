@@ -272,8 +272,8 @@ struct ARROW_EXPORT NullKeyEncoder : KeyEncoder {
 /// created by concatenating the encoded form of each column. The encoding
 /// for each column depends on its data type.
 ///
-/// This is used to encode columns into row-major format, which will be beneficial for
-/// grouping and joining operations.
+/// This is used to encode columns into row-major format, which will be
+/// beneficial for grouping and joining operations.
 ///
 /// Unlike DuckDB and arrow-rs, currently this row format can not help
 /// sortings because the row-format is uncomparable.
@@ -294,7 +294,8 @@ struct ARROW_EXPORT NullKeyEncoder : KeyEncoder {
 ///
 /// ## Null Type
 ///
-/// Null Type is a special case, it doesn't occupy any space in the encoded row.
+/// Null Type is a special case, it doesn't occupy any space in the
+/// encoded row.
 ///
 /// ## Fixed Width Type
 ///
@@ -306,8 +307,9 @@ struct ARROW_EXPORT NullKeyEncoder : KeyEncoder {
 ///
 /// ### Dictionary Type
 ///
-/// Dictionary Type is encoded as a fixed-width byte sequence using dictionary
-/// indices, the dictionary should be identical for all rows.
+/// Dictionary Type is encoded as a fixed-width byte sequence using
+/// dictionary  indices, the dictionary should be identical for all
+/// rows.
 ///
 /// ## Variable Width Type
 ///
@@ -319,6 +321,10 @@ struct ARROW_EXPORT NullKeyEncoder : KeyEncoder {
 ///
 /// String null Would be encoded as:
 /// [1 0 0 0 0]
+///
+/// # Row Encoding
+///
+/// The row format is the concatenation of the encodings of each column.
 class ARROW_EXPORT RowEncoder {
  public:
   static constexpr int kRowIdForNulls() { return -1; }
@@ -328,7 +334,9 @@ class ARROW_EXPORT RowEncoder {
   Status EncodeAndAppend(const ExecSpan& batch);
   Result<ExecBatch> Decode(int64_t num_rows, const int32_t* row_ids);
 
-  // Return the encoded row at the given index as a string
+  // Returns the encoded representation of the row at index i.
+  // If i is kRowIdForNulls, it returns the pre-encoded all-nulls
+  // row.
   inline std::string encoded_row(int32_t i) const {
     if (i == kRowIdForNulls()) {
       return std::string(reinterpret_cast<const char*>(encoded_nulls_.data()),
@@ -346,13 +354,17 @@ class ARROW_EXPORT RowEncoder {
  private:
   ExecContext* ctx_{nullptr};
   std::vector<std::shared_ptr<KeyEncoder>> encoders_;
-  // The offsets of each row in the encoded bytes.
-  // The size would be num_rows + 1 if not empty.
+  // offsets_ vector stores the starting position (offset) of each encoded row
+  // within the bytes_ vector. This allows for quick access to individual rows.
+  //
+  // The size would be num_rows + 1 if not empty, the last element is the total
+  // length of the bytes_ vector.
   std::vector<int32_t> offsets_;
   // The encoded bytes of all "non kRowIdForNulls" rows.
   std::vector<uint8_t> bytes_;
-  // A constant row with all its columns encoded as null. Useful when the caller is
-  // certain that an entire row is null and then uses kRowIdForNulls to refer to it.
+  // A pre-computed constant row with all its columns encoded as null. Useful when
+  // the caller is certain that an entire row is null and then uses kRowIdForNulls
+  // to refer to it.
   //
   // EncodeAndAppend would never append this row, but encoded_row and Decode would
   // return this row when kRowIdForNulls is passed.
