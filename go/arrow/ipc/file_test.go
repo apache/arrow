@@ -17,13 +17,17 @@
 package ipc_test
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"testing"
 
+	"github.com/apache/arrow/go/v18/arrow/array"
 	"github.com/apache/arrow/go/v18/arrow/internal/arrdata"
 	"github.com/apache/arrow/go/v18/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v18/arrow/ipc"
 	"github.com/apache/arrow/go/v18/arrow/memory"
+	"github.com/stretchr/testify/require"
 )
 
 func TestFile(t *testing.T) {
@@ -74,4 +78,40 @@ func TestFileCompressed(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestFileEmbedsStream(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	recs := arrdata.Records["primitives"]
+	schema := recs[0].Schema()
+
+	var buf bytes.Buffer
+	w, err := ipc.NewFileWriter(&buf, ipc.WithSchema(schema), ipc.WithAllocator(mem))
+	require.NoError(t, err)
+	defer w.Close()
+
+	for _, rec := range recs {
+		require.NoError(t, w.Write(rec))
+	}
+
+	require.NoError(t, w.Close())
+
+	// we should be able to read a valid ipc stream within the ipc file
+
+	// create an ipc stream reader, skipping the file magic+padding bytes
+	rdr, err := ipc.NewReader(bytes.NewReader(buf.Bytes()[8:]), ipc.WithSchema(schema), ipc.WithAllocator(mem))
+	require.NoError(t, err)
+	defer rdr.Release()
+
+	// the stream reader should know to stop before the footer if the EOS indicator is properly written
+	var i int
+	for rdr.Next() {
+		rec := rdr.Record()
+		require.Truef(t, array.RecordEqual(rec, recs[i]), "records[%d] differ", i)
+		i++
+	}
+
+	require.NoError(t, rdr.Err())
 }

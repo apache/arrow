@@ -37,18 +37,18 @@ import (
 	"github.com/apache/arrow/go/v18/internal/utils"
 )
 
-type swriter struct {
+type streamWriter struct {
 	w   io.Writer
 	pos int64
 }
 
-func (w *swriter) Start() error { return nil }
-func (w *swriter) Close() error {
+func (w *streamWriter) Start() error { return nil }
+func (w *streamWriter) Close() error {
 	_, err := w.Write(kEOS[:])
 	return err
 }
 
-func (w *swriter) WritePayload(p Payload) error {
+func (w *streamWriter) WritePayload(p Payload) error {
 	_, err := writeIPCPayload(w, p)
 	if err != nil {
 		return err
@@ -56,7 +56,7 @@ func (w *swriter) WritePayload(p Payload) error {
 	return nil
 }
 
-func (w *swriter) Write(p []byte) (int, error) {
+func (w *streamWriter) Write(p []byte) (int, error) {
 	n, err := w.w.Write(p)
 	w.pos += int64(n)
 	return n, err
@@ -118,7 +118,7 @@ func NewWriter(w io.Writer, opts ...Option) *Writer {
 	return &Writer{
 		w:              w,
 		mem:            cfg.alloc,
-		pw:             &swriter{w: w},
+		pw:             &streamWriter{w: w},
 		schema:         cfg.schema,
 		codec:          cfg.codec,
 		emitDictDeltas: cfg.emitDictDeltas,

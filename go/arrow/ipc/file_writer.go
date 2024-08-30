@@ -37,22 +37,16 @@ type PayloadWriter interface {
 	Close() error
 }
 
-type pwriter struct {
-	w   io.WriteSeeker
-	pos int64
+type fileWriter struct {
+	streamWriter
 
 	schema *arrow.Schema
 	dicts  []fileBlock
 	recs   []fileBlock
 }
 
-func (w *pwriter) Start() error {
+func (w *fileWriter) Start() error {
 	var err error
-
-	err = w.updatePos()
-	if err != nil {
-		return fmt.Errorf("arrow/ipc: could not update position while in start: %w", err)
-	}
 
 	// only necessary to align to 8-byte boundary at the start of the file
 	_, err = w.Write(Magic)
@@ -65,10 +59,10 @@ func (w *pwriter) Start() error {
 		return fmt.Errorf("arrow/ipc: could not align start block: %w", err)
 	}
 
-	return err
+	return w.streamWriter.Start()
 }
 
-func (w *pwriter) WritePayload(p Payload) error {
+func (w *fileWriter) WritePayload(p Payload) error {
 	blk := fileBlock{Offset: w.pos, Meta: 0, Body: p.size}
 	n, err := writeIPCPayload(w, p)
 	if err != nil {
@@ -76,11 +70,6 @@ func (w *pwriter) WritePayload(p Payload) error {
 	}
 
 	blk.Meta = int32(n)
-
-	err = w.updatePos()
-	if err != nil {
-		return fmt.Errorf("arrow/ipc: could not update position while in write-payload: %w", err)
-	}
 
 	switch flatbuf.MessageHeader(p.msg) {
 	case flatbuf.MessageHeaderDictionaryBatch:
@@ -92,25 +81,16 @@ func (w *pwriter) WritePayload(p Payload) error {
 	return nil
 }
 
-func (w *pwriter) Close() error {
+func (w *fileWriter) Close() error {
 	var err error
 
-	// write file footer
-	err = w.updatePos()
-	if err != nil {
-		return fmt.Errorf("arrow/ipc: could not update position while in close: %w", err)
+	if err = w.streamWriter.Close(); err != nil {
+		return err
 	}
 
 	pos := w.pos
-	err = writeFileFooter(w.schema, w.dicts, w.recs, w)
-	if err != nil {
+	if err = writeFileFooter(w.schema, w.dicts, w.recs, w); err != nil {
 		return fmt.Errorf("arrow/ipc: could not write file footer: %w", err)
-	}
-
-	// write file footer length
-	err = w.updatePos() // not strictly needed as we passed w to writeFileFooter...
-	if err != nil {
-		return fmt.Errorf("arrow/ipc: could not compute file footer length: %w", err)
 	}
 
 	size := w.pos - pos
@@ -133,13 +113,7 @@ func (w *pwriter) Close() error {
 	return nil
 }
 
-func (w *pwriter) updatePos() error {
-	var err error
-	w.pos, err = w.w.Seek(0, io.SeekCurrent)
-	return err
-}
-
-func (w *pwriter) align(align int32) error {
+func (w *fileWriter) align(align int32) error {
 	remainder := paddedLength(w.pos, align) - w.pos
 	if remainder == 0 {
 		return nil
@@ -147,12 +121,6 @@ func (w *pwriter) align(align int32) error {
 
 	_, err := w.Write(paddingBytes[:int(remainder)])
 	return err
-}
-
-func (w *pwriter) Write(p []byte) (int, error) {
-	n, err := w.w.Write(p)
-	w.pos += int64(n)
-	return n, err
 }
 
 func writeIPCPayload(w io.Writer, p Payload) (int, error) {
@@ -259,18 +227,12 @@ func (ps payloads) Release() {
 
 // FileWriter is an Arrow file writer.
 type FileWriter struct {
-	w io.WriteSeeker
+	w io.Writer
 
 	mem memory.Allocator
 
-	header struct {
-		started bool
-		offset  int64
-	}
-
-	footer struct {
-		written bool
-	}
+	headerStarted bool
+	footerWritten bool
 
 	pw PayloadWriter
 
@@ -289,7 +251,7 @@ type FileWriter struct {
 }
 
 // NewFileWriter opens an Arrow file using the provided writer w.
-func NewFileWriter(w io.WriteSeeker, opts ...Option) (*FileWriter, error) {
+func NewFileWriter(w io.Writer, opts ...Option) (*FileWriter, error) {
 	var (
 		cfg = newConfig(opts...)
 		err error
@@ -297,7 +259,7 @@ func NewFileWriter(w io.WriteSeeker, opts ...Option) (*FileWriter, error) {
 
 	f := FileWriter{
 		w:               w,
-		pw:              &pwriter{w: w, schema: cfg.schema, pos: -1},
+		pw:              &fileWriter{streamWriter: streamWriter{w: w}, schema: cfg.schema},
 		mem:             cfg.alloc,
 		schema:          cfg.schema,
 		codec:           cfg.codec,
@@ -305,12 +267,6 @@ func NewFileWriter(w io.WriteSeeker, opts ...Option) (*FileWriter, error) {
 		minSpaceSavings: cfg.minSpaceSavings,
 		compressors:     make([]compressor, cfg.compressNP),
 	}
-
-	pos, err := f.w.Seek(0, io.SeekCurrent)
-	if err != nil {
-		return nil, fmt.Errorf("arrow/ipc: could not seek current position: %w", err)
-	}
-	f.header.offset = pos
 
 	return &f, err
 }
@@ -321,7 +277,7 @@ func (f *FileWriter) Close() error {
 		return fmt.Errorf("arrow/ipc: could not write empty file: %w", err)
 	}
 
-	if f.footer.written {
+	if f.footerWritten {
 		return nil
 	}
 
@@ -329,7 +285,7 @@ func (f *FileWriter) Close() error {
 	if err != nil {
 		return fmt.Errorf("arrow/ipc: could not close payload writer: %w", err)
 	}
-	f.footer.written = true
+	f.footerWritten = true
 
 	return nil
 }
@@ -367,14 +323,14 @@ func (f *FileWriter) Write(rec arrow.Record) error {
 }
 
 func (f *FileWriter) checkStarted() error {
-	if !f.header.started {
+	if !f.headerStarted {
 		return f.start()
 	}
 	return nil
 }
 
 func (f *FileWriter) start() error {
-	f.header.started = true
+	f.headerStarted = true
 	err := f.pw.Start()
 	if err != nil {
 		return err
