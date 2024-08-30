@@ -1876,8 +1876,7 @@ def get_generated_json_files(tempdir=None):
 
         generate_null_case([10, 0]),
 
-        generate_null_trivial_case([0, 0])
-        .skip_tester('nanoarrow'),
+        generate_null_trivial_case([0, 0]),
 
         generate_decimal128_case(),
 
