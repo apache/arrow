@@ -55,6 +55,41 @@ inline std::vector<int64_t> MakeChunksOffsets(const std::vector<T>& chunks) {
   return offsets;
 }
 
+template <typename IndexType>
+inline TypedChunkLocation<IndexType> ResolveOneInline(size_t num_offsets,
+                                                      const uint64_t* offsets,
+                                                      IndexType typed_logical_index,
+                                                      IndexType num_chunks,
+                                                      IndexType chunk_hint) {
+  const auto index = static_cast<uint64_t>(typed_logical_index);
+  // use or update chunk_hint
+  if (index >= offsets[chunk_hint] &&
+      (chunk_hint == num_chunks || index < offsets[chunk_hint + 1])) {
+    // hint is correct!
+  } else {
+    // lo < hi is guaranteed by `num_offsets = chunks.size() + 1`
+    auto chunk_index =
+        ChunkResolver::Bisect(index, offsets, /*lo=*/0, /*hi=*/num_offsets);
+    chunk_hint = static_cast<IndexType>(chunk_index);
+  }
+  // chunk_index is in [0, chunks.size()] no matter what the value
+  // of logical_index is, so it's always safe to dereference offsets
+  // as it contains chunks.size()+1 values.
+  auto loc = TypedChunkLocation<IndexType>(
+      /*chunk_index=*/chunk_hint,
+      /*index_in_chunk=*/typed_logical_index -
+          static_cast<IndexType>(offsets[chunk_hint]));
+#if defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER)
+  // Make it more likely that Valgrind/ASAN can catch an invalid memory
+  // access by poisoning the index-in-chunk value when the logical
+  // index is out-of-bounds.
+  if (loc.chunk_index == num_chunks) {
+    loc.index_in_chunk = std::numeric_limits<IndexType>::max();
+  }
+#endif
+  return loc;
+}
+
 /// \pre all the pre-conditions of ChunkResolver::ResolveMany()
 /// \pre num_offsets - 1 <= std::numeric_limits<IndexType>::max()
 template <typename IndexType>
@@ -66,32 +101,11 @@ void ResolveManyInline(size_t num_offsets, const int64_t* signed_offsets,
   const auto num_chunks = static_cast<IndexType>(num_offsets - 1);
   // chunk_hint in [0, num_offsets) per the precondition.
   for (int64_t i = 0; i < n_indices; i++) {
-    auto typed_logical_index = logical_index_vec[i];
-    const auto index = static_cast<uint64_t>(typed_logical_index);
-    // use or update chunk_hint
-    if (index >= offsets[chunk_hint] &&
-        (chunk_hint == num_chunks || index < offsets[chunk_hint + 1])) {
-      // hint is correct!
-    } else {
-      // lo < hi is guaranteed by `num_offsets = chunks.size() + 1`
-      auto chunk_index =
-          ChunkResolver::Bisect(index, offsets, /*lo=*/0, /*hi=*/num_offsets);
-      chunk_hint = static_cast<IndexType>(chunk_index);
-    }
-    out_chunk_location_vec[i].chunk_index = chunk_hint;
-    // chunk_index is in [0, chunks.size()] no matter what the
-    // value of logical_index is, so it's always safe to dereference
-    // offset_ as it contains chunks.size()+1 values.
-    out_chunk_location_vec[i].index_in_chunk =
-        typed_logical_index - static_cast<IndexType>(offsets[chunk_hint]);
-#if defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER)
-    // Make it more likely that Valgrind/ASAN can catch an invalid memory
-    // access by poisoning the index-in-chunk value when the logical
-    // index is out-of-bounds.
-    if (chunk_hint == num_chunks) {
-      out_chunk_location_vec[i].index_in_chunk = std::numeric_limits<IndexType>::max();
-    }
-#endif
+    const auto typed_logical_index = logical_index_vec[i];
+    const auto loc = ResolveOneInline(num_offsets, offsets, typed_logical_index,
+                                      num_chunks, chunk_hint);
+    out_chunk_location_vec[i] = loc;
+    chunk_hint = loc.chunk_index;
   }
 }
 
