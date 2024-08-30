@@ -38,33 +38,37 @@ struct ARROW_EXPORT KeyEncoder {
 
   virtual ~KeyEncoder() = default;
 
-  // Increment the length of the encoded key for the given value to the lengths array.
+  // Increment the values in the lengths array by the length of the encoded key for the corresponding value in the given column.
   //
   // Generally if Encoder is for a fixed-width type, the length of the encoded key
   // would add ExtraByteForNull + byte_width.
   // If Encoder is for a variable-width type, the length would add ExtraByteForNull +
   // sizeof(Offset) + buffer_size.
-  // If Encoder is null type, the length would add 0.
+  // If Encoder is for null type, the length would add 0.
   virtual void AddLength(const ExecValue& value, int64_t batch_length,
                          int32_t* lengths) = 0;
 
-  // Increment the length for a null value.
+  // Increment the length by the length of an encoded null value.
   // It's a special case for AddLength like `AddLength(Null-Scalar, 1, lengths)`.
   virtual void AddLengthNull(int32_t* length) = 0;
 
-  // Encode the value into the encoded_bytes buffer.
+  // Encode the column into the encoded_bytes, which is an array of pointers to each row buffer.
   //
   // If value is an array, the array-size should be batch_length.
   // If value is a scalar, the value would repeat batch_length times.
+  // NB: The pointers in the encoded_bytes will be advanced as values being encoded into.
   virtual Status Encode(const ExecValue&, int64_t batch_length,
                         uint8_t** encoded_bytes) = 0;
 
-  // Add a null byte to the encoded_bytes buffer.
+  // Encode a null value into the encoded_bytes, which is an array of pointers to each row buffer.
   //
   // It's a special case for Encode like `Encode(Null-Scalar, 1, encoded_bytes)`.
+  // NB: The pointers in the encoded_bytes will be advanced as values being encoded into.
   virtual void EncodeNull(uint8_t** encoded_bytes) = 0;
 
-  // Decode the encoded key from `encoded_bytes` buffer to an ArrayData.
+  // Decode the encoded key from the encoded_bytes, which is an array of pointers to each row buffer, into an ArrayData.
+  //
+  // NB: The pointers in the encoded_bytes will be advanced as values being decoded from.
   virtual Result<std::shared_ptr<ArrayData>> Decode(uint8_t** encoded_bytes,
                                                     int32_t length, MemoryPool*) = 0;
 
@@ -261,9 +265,9 @@ struct ARROW_EXPORT NullKeyEncoder : KeyEncoder {
 
 /// RowEncoder encodes ExecSpan to a variable length byte sequence
 /// created by concatenating the encoded form of each column. The encoding
-/// for each column depends on its datatype.
+/// for each column depends on its data type.
 ///
-/// This is used to encode rows for grouping and joining operations.
+/// This is used to encode columns into row-major format, which will be beneficial for grouping and joining operations.
 ///
 /// Unlike DuckDB and arrow-rs, currently this row format can not help
 /// sortings because the row-format is uncomparable.
@@ -292,7 +296,7 @@ struct ARROW_EXPORT NullKeyEncoder : KeyEncoder {
 /// ### Dictionary Type
 ///
 /// Dictionary Type is encoded as a fixed-width byte sequence using dictionary
-/// indices, the dictionary should be same for all rows.
+/// indices, the dictionary should be identical for all rows.
 ///
 /// ## Variable Width Type
 ///
@@ -335,7 +339,7 @@ class ARROW_EXPORT RowEncoder {
   // The size would be num_rows + 1 if there are rows.
   std::vector<int32_t> offsets_;
   std::vector<uint8_t> bytes_;
-  // A fixed nulls buffer for all null rows(kRowIdForNulls).
+  // A constant row with all its columns encoded as null, referred as kRowIdForNulls.
   std::vector<uint8_t> encoded_nulls_;
   std::vector<std::shared_ptr<ExtensionType>> extension_types_;
 };
