@@ -942,11 +942,13 @@ class PARQUET_EXPORT ArrowReaderProperties {
     return coerce_int96_timestamp_unit_;
   }
 
-  /// Enable Parquet supported Arrow Extension Types.
+  /// Enable Parquet supported Arrow ExtensionTypes.
   ///
-  /// When enabled, Parquet will use supported Arrow ExtensionTypes in mapping to Arrow
-  /// schema. Currently only arrow::extension::json() extension type is supported. This
-  /// will be used for utf8 columns whose LogicalType is JSON.
+  /// When enabled, Parquet will use supported Arrow ExtensionTypes by mapping correctly
+  /// mapping them to Arrow types at read time. Currently only arrow::extension::json()
+  /// extension type is supported. Columns whose LogicalType is JSON will be interpreted
+  /// as arrow::extension::json() ExtensionType with storage type utf8, large_utf8 or
+  /// utf8_view at parquet read time.
   void set_arrow_extensions_enabled(bool extensions_enabled) {
     arrow_extensions_enabled_ = extensions_enabled;
   }

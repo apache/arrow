@@ -994,8 +994,10 @@ Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* infer
   if (origin_type->id() == ::arrow::Type::EXTENSION) {
     const auto& ex_type = checked_cast<const ::arrow::ExtensionType&>(*origin_type);
     if (inferred_type->id() != ::arrow::Type::EXTENSION &&
-        inferred_type->id() == ::arrow::Type::STRING &&
-        ex_type.extension_name() == std::string("arrow.json")) {
+        ex_type.extension_name() == ::arrow::extension::JsonExtensionType::type_name() &&
+        (inferred_type->id() == ::arrow::Type::STRING ||
+         inferred_type->id() == ::arrow::Type::LARGE_STRING ||
+         inferred_type->id() == ::arrow::Type::STRING_VIEW)) {
       // Schema mismatch.
       //
       // Arrow extensions are DISABLED in Parquet.
