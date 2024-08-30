@@ -3812,6 +3812,11 @@ TEST_F(TestArrayDataStatistics, CopyAssignment) {
   ASSERT_TRUE(copied_data.statistics->is_max_exact);
 }
 
+TEST_F(TestArrayDataStatistics, Slice) {
+  auto sliced_data = data_->Slice(0, 1);
+  ASSERT_FALSE(sliced_data->statistics);
+}
+
 template <typename PType>
 class TestPrimitiveArray : public ::testing::Test {
  public:

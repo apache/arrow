@@ -195,6 +195,7 @@ std::shared_ptr<ArrayData> ArrayData::Slice(int64_t off, int64_t len) const {
   } else {
     copy->null_count = null_count != 0 ? kUnknownNullCount : 0;
   }
+  copy->statistics = nullptr;
   return copy;
 }
 
