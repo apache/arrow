@@ -159,6 +159,8 @@ Status FixedWidthKeyEncoder::Encode(const ExecValue& data, int64_t batch_length,
   };
   if (data.is_array()) {
     ArraySpan viewed = data.array;
+    // The original type might not FixedSizeBinaryType, but it would
+    // treat the input asbinary data.
     auto view_ty = fixed_size_binary(byte_width_);
     viewed.type = view_ty.get();
     VisitArraySpanInline<FixedSizeBinaryType>(viewed, handle_next_valid_value,
@@ -166,10 +168,10 @@ Status FixedWidthKeyEncoder::Encode(const ExecValue& data, int64_t batch_length,
   } else {
     const auto& scalar = data.scalar_as<arrow::internal::PrimitiveScalarBase>();
     if (scalar.is_valid) {
-      const std::string_view data = scalar.view();
-      DCHECK_EQ(data.size(), static_cast<size_t>(byte_width_));
+      const std::string_view scalar_data = scalar.view();
+      DCHECK_EQ(scalar_data.size(), static_cast<size_t>(byte_width_));
       for (int64_t i = 0; i < batch_length; i++) {
-        handle_next_valid_value(data);
+        handle_next_valid_value(scalar_data);
       }
     } else {
       for (int64_t i = 0; i < batch_length; i++) {

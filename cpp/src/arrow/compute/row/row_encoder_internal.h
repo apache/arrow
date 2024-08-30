@@ -38,7 +38,8 @@ struct ARROW_EXPORT KeyEncoder {
 
   virtual ~KeyEncoder() = default;
 
-  // Increment the values in the lengths array by the length of the encoded key for the corresponding value in the given column.
+  // Increment the values in the lengths array by the length of the encoded key for the
+  // corresponding value in the given column.
   //
   // Generally if Encoder is for a fixed-width type, the length of the encoded key
   // would add ExtraByteForNull + byte_width.
@@ -52,7 +53,8 @@ struct ARROW_EXPORT KeyEncoder {
   // It's a special case for AddLength like `AddLength(Null-Scalar, 1, lengths)`.
   virtual void AddLengthNull(int32_t* length) = 0;
 
-  // Encode the column into the encoded_bytes, which is an array of pointers to each row buffer.
+  // Encode the column into the encoded_bytes, which is an array of pointers to each row
+  // buffer.
   //
   // If value is an array, the array-size should be batch_length.
   // If value is a scalar, the value would repeat batch_length times.
@@ -60,13 +62,15 @@ struct ARROW_EXPORT KeyEncoder {
   virtual Status Encode(const ExecValue&, int64_t batch_length,
                         uint8_t** encoded_bytes) = 0;
 
-  // Encode a null value into the encoded_bytes, which is an array of pointers to each row buffer.
+  // Encode a null value into the encoded_bytes, which is an array of pointers to each row
+  // buffer.
   //
   // It's a special case for Encode like `Encode(Null-Scalar, 1, encoded_bytes)`.
   // NB: The pointers in the encoded_bytes will be advanced as values being encoded into.
   virtual void EncodeNull(uint8_t** encoded_bytes) = 0;
 
-  // Decode the encoded key from the encoded_bytes, which is an array of pointers to each row buffer, into an ArrayData.
+  // Decode the encoded key from the encoded_bytes, which is an array of pointers to each
+  // row buffer, into an ArrayData.
   //
   // NB: The pointers in the encoded_bytes will be advanced as values being decoded from.
   virtual Result<std::shared_ptr<ArrayData>> Decode(uint8_t** encoded_bytes,
@@ -178,6 +182,7 @@ struct ARROW_EXPORT VarLengthKeyEncoder : KeyEncoder {
       encoded_ptr += sizeof(Offset);
     };
     if (data.is_array()) {
+      DCHECK_EQ(data.length(), batch_length);
       VisitArraySpanInline<T>(data.array, handle_next_valid_value,
                               handle_next_null_value);
     } else {
@@ -267,10 +272,13 @@ struct ARROW_EXPORT NullKeyEncoder : KeyEncoder {
 /// created by concatenating the encoded form of each column. The encoding
 /// for each column depends on its data type.
 ///
-/// This is used to encode columns into row-major format, which will be beneficial for grouping and joining operations.
+/// This is used to encode columns into row-major format, which will be beneficial for
+/// grouping and joining operations.
 ///
 /// Unlike DuckDB and arrow-rs, currently this row format can not help
 /// sortings because the row-format is uncomparable.
+///
+/// # Key Column Encoding
 ///
 /// The row format is composed of the the KeyColumn encodings for each,
 /// and the column is encoded as follows:
@@ -280,7 +288,9 @@ struct ARROW_EXPORT NullKeyEncoder : KeyEncoder {
 ///    the column is null or not.
 /// 3. The "variable width" encoding for the column, it would exists only
 ///    for non-null string/binary columns.
-/// 4. Specially, if all columns in a row are null, the caller may decide to refer to kRowIdForNulls instead of actually encoding/decoding it. See the comment for encoded_nulls_.
+/// 4. Specially, if all columns in a row are null, the caller may decide
+///    to refer to kRowIdForNulls instead of actually encoding/decoding
+///    it using any KeyEncoder. See the comment for encoded_nulls_.
 ///
 /// ## Null Type
 ///
@@ -290,9 +300,9 @@ struct ARROW_EXPORT NullKeyEncoder : KeyEncoder {
 ///
 /// Fixed Width Type is encoded as a fixed-width byte sequence. For example:
 /// ```
-/// Int8: [5, null, 6]
+/// Int8: 5, null, 6
 /// ```
-/// Would be encoded as [0 5 1 0 0 6].
+/// Would be encoded as [0 5], [1 0], [0 6].
 ///
 /// ### Dictionary Type
 ///
@@ -339,8 +349,13 @@ class ARROW_EXPORT RowEncoder {
   // The offsets of each row in the encoded bytes.
   // The size would be num_rows + 1 if not empty.
   std::vector<int32_t> offsets_;
+  // The encoded bytes of all "non kRowIdForNulls" rows.
   std::vector<uint8_t> bytes_;
-  // A constant row with all its columns encoded as null. Useful when the caller is certain that an entire row is null and then uses kRowIdForNulls to refer to it.
+  // A constant row with all its columns encoded as null. Useful when the caller is
+  // certain that an entire row is null and then uses kRowIdForNulls to refer to it.
+  //
+  // EncodeAndAppend would never append this row, but encoded_row and Decode would
+  // return this row when kRowIdForNulls is passed.
   std::vector<uint8_t> encoded_nulls_;
   std::vector<std::shared_ptr<ExtensionType>> extension_types_;
 };
