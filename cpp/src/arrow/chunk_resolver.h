@@ -31,27 +31,33 @@ namespace arrow::internal {
 
 struct ChunkResolver;
 
-struct ChunkLocation {
+template <typename IndexType>
+struct TypedChunkLocation {
   /// \brief Index of the chunk in the array of chunks
   ///
   /// The value is always in the range `[0, chunks.size()]`. `chunks.size()` is used
   /// to represent out-of-bounds locations.
-  int64_t chunk_index = 0;
+  IndexType chunk_index = 0;
 
   /// \brief Index of the value in the chunk
   ///
   /// The value is UNDEFINED if chunk_index >= chunks.size()
-  int64_t index_in_chunk = 0;
+  IndexType index_in_chunk = 0;
 
-  ChunkLocation() = default;
+  TypedChunkLocation() = default;
 
-  ChunkLocation(int64_t chunk_index, int64_t index_in_chunk)
-      : chunk_index(chunk_index), index_in_chunk(index_in_chunk) {}
+  TypedChunkLocation(IndexType chunk_index, IndexType index_in_chunk)
+      : chunk_index(chunk_index), index_in_chunk(index_in_chunk) {
+    static_assert(sizeof(TypedChunkLocation<IndexType>) == 2 * sizeof(IndexType));
+    static_assert(alignof(TypedChunkLocation<IndexType>) == alignof(IndexType));
+  }
 
-  bool operator==(ChunkLocation other) const {
+  bool operator==(TypedChunkLocation other) const {
     return chunk_index == other.chunk_index && index_in_chunk == other.index_in_chunk;
   }
 };
+
+using ChunkLocation = TypedChunkLocation<int64_t>;
 
 /// \brief An utility that incrementally resolves logical indices into
 /// physical indices in a chunked array.
