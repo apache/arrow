@@ -32,7 +32,6 @@ from pyarrow.lib cimport *
 from pyarrow.lib import (ArrowCancelled, ArrowException, ArrowInvalid,
                          SignalStopHandler)
 from pyarrow.lib import as_buffer, frombytes, timestamp, tobytes
-from pyarrow.includes.chrono cimport duration_cast, nanoseconds
 from pyarrow.includes.libarrow_flight cimport *
 from pyarrow.ipc import _get_legacy_format_default, _ReadPandasMixin
 import pyarrow.lib as lib
