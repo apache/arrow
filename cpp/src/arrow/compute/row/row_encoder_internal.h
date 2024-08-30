@@ -276,10 +276,11 @@ struct ARROW_EXPORT NullKeyEncoder : KeyEncoder {
 /// and the column is encoded as follows:
 /// 1. A null byte for each column, indicating whether the column is null.
 ///    "1" for null, "0" for non-null.
-/// 2. The "fixed width" encoding for the column, it would exists whether
+/// 2. The "fixed width" encoding for the column, it would exist whether
 ///    the column is null or not.
 /// 3. The "variable width" encoding for the column, it would exists only
 ///    for non-null string/binary columns.
+/// 4. Specially, if all columns in a row are null, the caller may decide to refer to kRowIdForNulls instead of actually encoding/decoding it. See the comment for encoded_nulls_.
 ///
 /// ## Null Type
 ///
@@ -336,10 +337,10 @@ class ARROW_EXPORT RowEncoder {
   ExecContext* ctx_{nullptr};
   std::vector<std::shared_ptr<KeyEncoder>> encoders_;
   // The offsets of each row in the encoded bytes.
-  // The size would be num_rows + 1 if there are rows.
+  // The size would be num_rows + 1 if not empty.
   std::vector<int32_t> offsets_;
   std::vector<uint8_t> bytes_;
-  // A constant row with all its columns encoded as null, referred as kRowIdForNulls.
+  // A constant row with all its columns encoded as null. Useful when the caller is certain that an entire row is null and then uses kRowIdForNulls to refer to it.
   std::vector<uint8_t> encoded_nulls_;
   std::vector<std::shared_ptr<ExtensionType>> extension_types_;
 };
