@@ -1019,6 +1019,24 @@ def test_eq():
         assert lhs1 != rhs1
 
 
+def test_flight_info_defaults():
+    fi1 = flight.FlightInfo(pa.schema([]), flight.FlightDescriptor.for_path(), [])
+    fi2 = flight.FlightInfo(
+        pa.schema([]),
+        flight.FlightDescriptor.for_path(), [], total_records=-1, total_bytes=-1)
+    fi3 = flight.FlightInfo(
+        pa.schema([]),
+        flight.FlightDescriptor.for_path(), [], total_records=None, total_bytes=None)
+
+    assert fi1.total_records == -1
+    assert fi2.total_records == -1
+    assert fi3.total_records == -1
+
+    assert fi1.total_bytes == -1
+    assert fi2.total_bytes == -1
+    assert fi3.total_bytes == -1
+
+
 def test_flight_server_location_argument():
     locations = [
         None,

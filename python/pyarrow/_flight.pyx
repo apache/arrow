@@ -885,7 +885,7 @@ cdef class FlightInfo(_Weakrefable):
         return obj
 
     def __init__(self, Schema schema, FlightDescriptor descriptor, endpoints,
-                 total_records=-1, total_bytes=-1, ordered=False, app_metadata=""):
+                 total_records=None, total_bytes=None, ordered=False, app_metadata=""):
         """Create a FlightInfo object from a schema, descriptor, and endpoints.
 
         Parameters
@@ -896,10 +896,10 @@ cdef class FlightInfo(_Weakrefable):
             the descriptor for this flight.
         endpoints : list of FlightEndpoint
             a list of endpoints where this flight is available.
-        total_records : int optional, default -1
-            the total records in this flight, or -1 if unknown.
-        total_bytes : int optional, default -1
-            the total bytes in this flight, or -1 if unknown.
+        total_records : int optional, default None
+            the total records in this flight, -1 or None if unknown.
+        total_bytes : int optional, default None
+            the total bytes in this flight, -1 or None if unknown.
         ordered : boolean optional, default False
             Whether endpoints are in the same order as the data.
         app_metadata : bytes or str optional, default ""
