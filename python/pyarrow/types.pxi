@@ -1784,6 +1784,99 @@ cdef class UuidType(BaseExtensionType):
         return UuidScalar
 
 
+cdef class VariableShapeTensorType(BaseExtensionType):
+    """
+    Concrete class for variable shape tensor extension type.
+
+    Examples
+    --------
+    Create an instance of variable shape tensor extension type:
+
+    >>> import pyarrow as pa
+    >>> pa.variable_shape_tensor(pa.int32(), 2)
+    VariableShapeTensorType(extension<arrow.variable_shape_tensor[value_type=int32, ndim=2]>)
+
+    Create an instance of variable shape tensor extension type with
+    permutation:
+
+    >>> tensor_type = pa.variable_shape_tensor(pa.int8(), 3,
+    ...                                     permutation=[0, 2, 1])
+    >>> tensor_type.permutation
+    [0, 2, 1]
+    """
+
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
+        BaseExtensionType.init(self, type)
+        self.tensor_ext_type = <const CVariableShapeTensorType*> type.get()
+
+    @property
+    def value_type(self):
+        """
+        Data type of an individual tensor.
+        """
+        return pyarrow_wrap_data_type(self.tensor_ext_type.value_type())
+
+    @property
+    def ndim(self):
+        """
+        Number of dimensions of the tensors.
+        """
+        return self.tensor_ext_type.ndim()
+
+    @property
+    def dim_names(self):
+        """
+        Explicit names of the dimensions.
+        """
+        list_of_bytes = self.tensor_ext_type.dim_names()
+        if len(list_of_bytes) != 0:
+            return [frombytes(x) for x in list_of_bytes]
+        else:
+            return None
+
+    @property
+    def permutation(self):
+        """
+        Indices of the dimensions ordering.
+        """
+        indices = self.tensor_ext_type.permutation()
+        if len(indices) != 0:
+            return indices
+        else:
+            return None
+
+    @property
+    def uniform_shape(self):
+        """
+        Shape over dimensions that are guaranteed to be constant.
+        """
+        cdef:
+            vector[optional[int64_t]] c_uniform_shape = self.tensor_ext_type.uniform_shape()
+            length = c_uniform_shape.size()
+
+        if length == 0:
+            return None
+
+        uniform_shape = []
+        for i in range(length):
+            if c_uniform_shape[i].has_value():
+                uniform_shape.append(c_uniform_shape[i].value())
+            else:
+                uniform_shape.append(None)
+
+        return uniform_shape
+
+    def __arrow_ext_class__(self):
+        return VariableShapeTensorArray
+
+    def __reduce__(self):
+        return variable_shape_tensor, (self.value_type, self.ndim,
+                                       self.permutation, self.dim_names, self.uniform_shape)
+
+    def __arrow_ext_scalar_class__(self):
+        return VariableShapeTensorScalar
+
+
 cdef class FixedShapeTensorType(BaseExtensionType):
     """
     Concrete class for fixed shape tensor extension type.
@@ -5441,6 +5534,121 @@ def opaque(DataType storage_type, str type_name not None, str vendor_name not No
         shared_ptr[CDataType] c_type = static_pointer_cast[CDataType, COpaqueType](c_opaque_type)
         OpaqueType out = OpaqueType.__new__(OpaqueType)
     out.init(c_type)
+    return out
+
+
+def variable_shape_tensor(DataType value_type, ndim, dim_names=None, permutation=None,
+                          uniform_shape=None):
+    """
+    Create instance of variable shape tensor extension type with number of
+    dimensions and optional names of tensor dimensions and indices of the
+    desired logical ordering of dimensions.
+
+    Parameters
+    ----------
+    value_type : DataType
+        Data type of individual tensor elements.
+    ndim : integer
+        The number of dimensions of the contained tensors.
+    dim_names : tuple or list of strings, default None
+        Explicit names to tensor dimensions.
+    permutation : tuple or list integers, default None
+        Indices of the desired ordering of the original dimensions.
+        The indices contain a permutation of the values ``[0, 1, .., N-1]`` where
+        N is the number of dimensions. The permutation indicates which dimension
+        of the logical layout corresponds to which dimension of the physical tensor.
+        For more information on this parameter see
+        :ref:`variable_shape_tensor_extension`.
+    uniform_shape : tuple or list of integers, default None
+        Shape of dimensions that are guaranteed to stay constant over all tensors
+        in the array if all their non-uniform sizes were replaced by None.
+
+    Examples
+    --------
+    Create an instance of variable shape tensor extension type:
+
+    >>> import pyarrow as pa
+    >>> tensor_type = pa.variable_shape_tensor(pa.int32(), 2)
+    >>> tensor_type
+    VariableShapeTensorType(extension<arrow.variable_shape_tensor[value_type=int32, ndim=2]>)
+
+    Inspect the data type:
+
+    >>> tensor_type.value_type
+    DataType(int32)
+    >>> tensor_type.ndim
+    2
+
+    Create a table with variable shape tensor extension array:
+
+    >>> fields = [pa.field("data", pa.list_(pa.int32())), pa.field("shape", pa.list_(pa.int32(), 2))]
+    >>> storage = pa.array([([1, 2, 3, 4, 5, 6], [2, 3]), ([7, 8], [1, 2])], type=pa.struct(fields))
+    >>> tensor = pa.ExtensionArray.from_storage(tensor_type, storage)
+    >>> pa.table([tensor], names=["tensor_array"])
+    pyarrow.Table
+    tensor_array: extension<arrow.variable_shape_tensor[value_type=int32, ndim=2]>
+    ----
+    tensor_array: [  -- is_valid: all not null
+      -- child 0 type: list<item: int32>
+    [[1,2,3,4,5,6],[7,8]]
+      -- child 1 type: fixed_size_list<item: int32>[2]
+    [[2,3],[1,2]]]
+
+    Create an instance of variable shape tensor extension type with names
+    of tensor dimensions:
+
+    >>> tensor_type = pa.variable_shape_tensor(pa.int8(), 3,
+    ...                                        dim_names=['C', 'H', 'W'])
+    >>> tensor_type.dim_names
+    ['C', 'H', 'W']
+
+    Create an instance of variable shape tensor extension type with
+    permutation:
+
+    >>> tensor_type = pa.variable_shape_tensor(pa.int8(), 3,
+    ...                                        permutation=[0, 2, 1])
+    >>> tensor_type.permutation
+    [0, 2, 1]
+
+    Returns
+    -------
+    type : VariableShapeTensorType
+    """
+
+    cdef:
+        int32_t c_ndim
+        vector[int64_t] c_permutation
+        vector[c_string] c_dim_names
+        vector[optional[int64_t]] c_uniform_shape
+        shared_ptr[CDataType] c_tensor_ext_type
+
+    assert value_type is not None
+    assert ndim is not None
+
+    c_ndim = ndim
+
+    if permutation is not None:
+        for i in permutation:
+            c_permutation.push_back(i)
+
+    if dim_names is not None:
+        for x in dim_names:
+            c_dim_names.push_back(tobytes(x))
+
+    if uniform_shape is not None:
+        for x in uniform_shape:
+            if x is None:
+                c_uniform_shape.push_back(<optional[int64_t]>nullopt)
+            else:
+                c_uniform_shape.push_back(<optional[int64_t]>(<int64_t>x))
+
+    cdef VariableShapeTensorType out = VariableShapeTensorType.__new__(VariableShapeTensorType)
+
+    with nogil:
+        c_tensor_ext_type = GetResultValue(CVariableShapeTensorType.Make(
+            value_type.sp_type, c_ndim, c_permutation, c_dim_names, c_uniform_shape))
+
+    out.init(c_tensor_ext_type)
     return out
 
 

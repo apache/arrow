@@ -29,8 +29,6 @@
 
 namespace arrow {
 
-using arrow::ipc::test::RoundtripBatch;
-
 TEST(TestUuuidExtensionType, ExtensionTypeTest) {
   auto type = uuid();
   ASSERT_EQ(type->id(), Type::EXTENSION);

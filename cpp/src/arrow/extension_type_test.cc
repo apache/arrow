@@ -42,8 +42,6 @@
 
 namespace arrow {
 
-using arrow::ipc::test::RoundtripBatch;
-
 class Parametric1Array : public ExtensionArray {
  public:
   using ExtensionArray::ExtensionArray;

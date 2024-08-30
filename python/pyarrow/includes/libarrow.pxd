@@ -840,6 +840,14 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
             const shared_ptr[CBuffer] null_bitmap,
         )
 
+        @staticmethod
+        CResult[shared_ptr[CArray]] FromArraysAndType" FromArrays"(
+            shared_ptr[CDataType],
+            const shared_ptr[CArray]& offsets,
+            const shared_ptr[CArray]& keys,
+            const shared_ptr[CArray]& items,
+            CMemoryPool* pool)
+
         shared_ptr[CArray] keys()
         shared_ptr[CArray] items()
         CMapType* map_type()
@@ -1114,6 +1122,11 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         void set_chunksize(int64_t chunksize)
 
     cdef cppclass CTensor" arrow::Tensor":
+        CTensor(const shared_ptr[CDataType]& type,
+                const shared_ptr[CBuffer]& data,
+                const vector[int64_t]& shape,
+                const vector[int64_t]& strides,
+                const vector[c_string]& dim_names)
         shared_ptr[CDataType] type()
         shared_ptr[CBuffer] data()
 
@@ -2864,6 +2877,24 @@ cdef extern from "arrow/extension_type.h" namespace "arrow":
 
         shared_ptr[CArray] storage()
 
+cdef extern from "arrow/extension/variable_shape_tensor.h" namespace "arrow::extension" nogil:
+    cdef cppclass CVariableShapeTensorType \
+            " arrow::extension::VariableShapeTensorType"(CExtensionType):
+
+        CResult[shared_ptr[CTensor]] MakeTensor(const shared_ptr[CExtensionScalar]& scalar) const
+
+        @staticmethod
+        CResult[shared_ptr[CDataType]] Make(const shared_ptr[CDataType]& value_type,
+                                            const int32_t ndim,
+                                            const vector[int64_t] permutation,
+                                            const vector[c_string] dim_names,
+                                            const vector[optional[int64_t]] uniform_shape)
+
+        const shared_ptr[CDataType] value_type()
+        const int32_t ndim()
+        const vector[int64_t] permutation()
+        const vector[c_string] dim_names()
+        const vector[optional[int64_t]] uniform_shape()
 
 cdef extern from "arrow/extension/uuid.h" namespace "arrow::extension" nogil:
     cdef cppclass CUuidType" arrow::extension::UuidType"(CExtensionType):
@@ -2877,7 +2908,7 @@ cdef extern from "arrow/extension/uuid.h" namespace "arrow::extension" nogil:
 
 cdef extern from "arrow/extension/fixed_shape_tensor.h" namespace "arrow::extension" nogil:
     cdef cppclass CFixedShapeTensorType \
-            " arrow::extension::FixedShapeTensorType"(CExtensionType):
+            " arrow::extension::FixedShapeTensorType"(CExtensionType) nogil:
 
         CResult[shared_ptr[CTensor]] MakeTensor(const shared_ptr[CExtensionScalar]& scalar) const
 
