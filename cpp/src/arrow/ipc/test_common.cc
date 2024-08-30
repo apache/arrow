@@ -1236,18 +1236,19 @@ Status MakeRandomTensor(const std::shared_ptr<DataType>& type,
   return Tensor::Make(type, buf, shape, strides).Value(out);
 }
 
-void RoundtripBatch(const std::shared_ptr<RecordBatch>& batch,
-                    std::shared_ptr<RecordBatch>* out) {
-  ASSERT_OK_AND_ASSIGN(auto out_stream, io::BufferOutputStream::Create());
-  ASSERT_OK(ipc::WriteRecordBatchStream({batch}, ipc::IpcWriteOptions::Defaults(),
-                                        out_stream.get()));
+Status RoundtripBatch(const std::shared_ptr<RecordBatch>& batch,
+                      std::shared_ptr<RecordBatch>* out) {
+  ARROW_ASSIGN_OR_RAISE(auto out_stream, io::BufferOutputStream::Create());
+  RETURN_NOT_OK(ipc::WriteRecordBatchStream({batch}, ipc::IpcWriteOptions::Defaults(),
+                                            out_stream.get()));
 
-  ASSERT_OK_AND_ASSIGN(auto complete_ipc_stream, out_stream->Finish());
+  ARROW_ASSIGN_OR_RAISE(auto complete_ipc_stream, out_stream->Finish());
 
   io::BufferReader reader(complete_ipc_stream);
   std::shared_ptr<RecordBatchReader> batch_reader;
-  ASSERT_OK_AND_ASSIGN(batch_reader, ipc::RecordBatchStreamReader::Open(&reader));
-  ASSERT_OK(batch_reader->ReadNext(out));
+  ARROW_ASSIGN_OR_RAISE(batch_reader, ipc::RecordBatchStreamReader::Open(&reader));
+  RETURN_NOT_OK(batch_reader->ReadNext(out));
+  return Status::OK();
 }
 
 }  // namespace test

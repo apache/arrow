@@ -430,8 +430,10 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
       auto ext_type = std::static_pointer_cast<::arrow::ExtensionType>(field->type());
       // Built-in JSON extension is handled differently.
       if (ext_type->extension_name() == std::string("arrow.json")) {
+        // Set physical and logical types and instantiate primitive node.
         type = ParquetType::BYTE_ARRAY;
         logical_type = LogicalType::JSON();
+        break;
       }
       std::shared_ptr<::arrow::Field> storage_field = ::arrow::field(
           name, ext_type->storage_type(), field->nullable(), field->metadata());
@@ -994,7 +996,7 @@ Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* infer
   if (origin_type->id() == ::arrow::Type::EXTENSION) {
     const auto& ex_type = checked_cast<const ::arrow::ExtensionType&>(*origin_type);
     if (inferred_type->id() != ::arrow::Type::EXTENSION &&
-        ex_type.extension_name() == ::arrow::extension::JsonExtensionType::type_name() &&
+        ex_type.extension_name() == std::string("arrow.json") &&
         (inferred_type->id() == ::arrow::Type::STRING ||
          inferred_type->id() == ::arrow::Type::LARGE_STRING ||
          inferred_type->id() == ::arrow::Type::STRING_VIEW)) {
@@ -1023,8 +1025,7 @@ Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* infer
   } else {
     if (inferred_type->id() == ::arrow::Type::EXTENSION) {
       const auto& ex_type = checked_cast<const ::arrow::ExtensionType&>(*inferred_type);
-      if (ex_type.extension_name() ==
-          ::arrow::extension::JsonExtensionType::type_name()) {
+      if (ex_type.extension_name() == std::string("arrow.json")) {
         // Schema mismatch.
         //
         // Arrow extensions are ENABLED in Parquet.

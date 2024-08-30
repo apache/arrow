@@ -783,7 +783,7 @@ TEST_F(TestConvertParquetSchema, ParquetSchemaArrowExtensions) {
 
     std::shared_ptr<KeyValueMetadata> metadata;
     ASSERT_OK(ArrowSchemaToParquetMetadata(arrow_schema, metadata));
-    ASSERT_OK(ConvertSchema(parquet_fields, metadata));
+    ASSERT_OK(ConvertSchema(parquet_fields, metadata, props));
     CheckFlatSchema(arrow_schema, true /* check_metadata */);
   }
 
@@ -803,8 +803,7 @@ TEST_F(TestConvertParquetSchema, ParquetSchemaArrowExtensions) {
     std::shared_ptr<KeyValueMetadata> metadata;
     ASSERT_OK(ArrowSchemaToParquetMetadata(arrow_schema, metadata));
     ASSERT_OK(ConvertSchema(parquet_fields, metadata, props));
-    // TODO
-    //    CheckFlatSchema(arrow_schema, true /* check_metadata */);
+    CheckFlatSchema(arrow_schema, true /* check_metadata */);
   }
 }
 

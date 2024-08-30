@@ -21,6 +21,7 @@
 #include "arrow/ipc/test_common.h"
 #include "arrow/record_batch.h"
 #include "arrow/testing/gtest_util.h"
+#include "parquet/exception.h"
 
 namespace arrow {
 
@@ -43,20 +44,48 @@ std::shared_ptr<Array> ExampleJson(const std::shared_ptr<DataType>& storage_type
   return ExtensionType::WrapArray(arrow::extension::json(storage_type), arr);
 }
 
+static std::shared_ptr<Array> ExampleJsonInvalidUTF8(
+    const std::shared_ptr<DataType>& storage_type) {
+  return ArrayFromJSON(storage_type,
+                       "["
+                       R"(
+                       "Hi",
+                       "olá mundo",
+                       "你好世界",
+                       "",
+                       )"
+                       "\"\xa0\xa1\""
+                       "]");
+}
+
 TEST_F(TestJsonExtensionType, JsonRoundtrip) {
   for (const auto& storage_type : {utf8(), large_utf8(), utf8_view()}) {
-    auto ext_arr = ExampleJson(storage_type);
-
+    std::shared_ptr<Array> ext_arr = ExampleJson(storage_type);
     auto batch =
         RecordBatch::Make(schema({field("f0", json(storage_type))}), 8, {ext_arr});
+
     std::shared_ptr<RecordBatch> read_batch;
-    RoundtripBatch(batch, &read_batch);
+    ASSERT_OK(RoundtripBatch(batch, &read_batch));
     ASSERT_OK(read_batch->ValidateFull());
     CompareBatch(*batch, *read_batch, /*compare_metadata*/ true);
 
     auto read_ext_arr = read_batch->column(0);
     ASSERT_OK(internal::ValidateUTF8(*read_ext_arr));
     ASSERT_OK(read_ext_arr->ValidateFull());
+  }
+}
+
+TEST_F(TestJsonExtensionType, InvalidUTF8) {
+  for (const auto& storage_type : {utf8(), large_utf8(), utf8_view()}) {
+    std::shared_ptr<Array> ext_arr = ExampleJsonInvalidUTF8(storage_type);
+    auto batch =
+        RecordBatch::Make(schema({field("f0", json(storage_type))}), 8, {ext_arr});
+    ;
+
+    std::shared_ptr<RecordBatch> read_batch;
+    ASSERT_RAISES_WITH_MESSAGE(IOError,
+                               "IOError: Array length did not match record batch length",
+                               RoundtripBatch(batch, &read_batch));
   }
 }
 
