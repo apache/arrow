@@ -107,7 +107,9 @@ safe_r_metadata <- function(metadata, on_save = FALSE) {
   # and mutate the `types_removed` variable outside of it.
   check_r_metadata_types_recursive <- function(x) {
     allowed_types <- c("character", "double", "integer", "logical", "complex", "list", "NULL")
-    if (is.list(x)) {
+    # Add special handling for numeric_version, which is list but its
+    # [[ method leads to infinite recursion
+    if (is.list(x) && !inherits(x, "numeric_version")) {
       types <- map_chr(x, typeof)
       x[types == "list"] <- map(x[types == "list"], check_r_metadata_types_recursive)
       ok <- types %in% allowed_types

@@ -149,6 +149,15 @@ arbitrary\040code\040was\040just\040executed
   )
 })
 
+test_that("R metadata processing doesn't choke on packageVersion() output", {
+  metadata <- list(version = packageVersion("base"))
+  expect_identical(safe_r_metadata(metadata), metadata)
+
+  df <- example_data[1:6]
+  attr(df, "version") <- packageVersion("base")
+  expect_equal_data_frame(Table$create(df), df)
+})
+
 test_that("Complex or unsafe attributes are pruned from R metadata, if they exist", {
   tab <- Table$create(example_data[1:6])
   bad <- new.env()
