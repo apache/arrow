@@ -1622,7 +1622,7 @@ cdef class ExtensionType(BaseExtensionType):
 
     >>> class RationalType(pa.ExtensionType):
     ...     def __init__(self, data_type: pa.DataType):
-    ...         if not pt.is_integer(data_type):
+    ...         if not pa.types.is_integer(data_type):
     ...             raise TypeError(f"data_type must be an integer type not {data_type}")
     ...         super().__init__(
     ...             pa.struct(
@@ -1636,12 +1636,11 @@ cdef class ExtensionType(BaseExtensionType):
     ...             "my_package.rational",
     ...         )
     ...     def __arrow_ext_serialize__(self) -> bytes:
-    ...         # No serialized metadata necessary
+    ...         # No parameters are necessary
     ...         return b""
     ...     @classmethod
     ...     def __arrow_ext_deserialize__(cls, storage_type, serialized):
-    ...         # return an instance of this subclass given the serialized
-    ...         # metadata
+    ...         # return an instance of this subclass
     ...         return RationalType(storage_type[0].type)
 
     Register the extension type:
@@ -2063,7 +2062,7 @@ def register_extension_type(ext_type):
 
     >>> class RationalType(pa.ExtensionType):
     ...     def __init__(self, data_type: pa.DataType):
-    ...         if not pt.is_integer(data_type):
+    ...         if not pa.types.is_integer(data_type):
     ...             raise TypeError(f"data_type must be an integer type not {data_type}")
     ...         super().__init__(
     ...             pa.struct(
@@ -2077,12 +2076,11 @@ def register_extension_type(ext_type):
     ...             "my_package.rational",
     ...         )
     ...     def __arrow_ext_serialize__(self) -> bytes:
-    ...         # No serialized metadata necessary
+    ...         # No parameters are necessary
     ...         return b""
     ...     @classmethod
     ...     def __arrow_ext_deserialize__(cls, storage_type, serialized):
-    ...         # return an instance of this subclass given the serialized
-    ...         # metadata
+    ...         # return an instance of this subclass
     ...         return RationalType(storage_type[0].type)
 
     Register the extension type:
@@ -2122,7 +2120,7 @@ def unregister_extension_type(type_name):
 
     >>> class RationalType(pa.ExtensionType):
     ...     def __init__(self, data_type: pa.DataType):
-    ...         if not pt.is_integer(data_type):
+    ...         if not pa.types.is_integer(data_type):
     ...             raise TypeError(f"data_type must be an integer type not {data_type}")
     ...         super().__init__(
     ...             pa.struct(
@@ -2136,12 +2134,11 @@ def unregister_extension_type(type_name):
     ...             "my_package.rational",
     ...         )
     ...     def __arrow_ext_serialize__(self) -> bytes:
-    ...         # No serialized metadata necessary
+    ...         # No parameters are necessary
     ...         return b""
     ...     @classmethod
     ...     def __arrow_ext_deserialize__(cls, storage_type, serialized):
-    ...         # return an instance of this subclass given the serialized
-    ...         # metadata
+    ...         # return an instance of this subclass
     ...         return RationalType(storage_type[0].type)
 
     Register the extension type:
