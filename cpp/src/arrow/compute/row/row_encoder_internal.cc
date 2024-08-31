@@ -160,7 +160,7 @@ Status FixedWidthKeyEncoder::Encode(const ExecValue& data, int64_t batch_length,
   if (data.is_array()) {
     ArraySpan viewed = data.array;
     // The original type might not FixedSizeBinaryType, but it would
-    // treat the input asbinary data.
+    // treat the input as binary data.
     auto view_ty = fixed_size_binary(byte_width_);
     viewed.type = view_ty.get();
     VisitArraySpanInline<FixedSizeBinaryType>(viewed, handle_next_valid_value,

@@ -119,7 +119,7 @@ struct ARROW_EXPORT FixedWidthKeyEncoder : KeyEncoder {
                                             MemoryPool* pool) override;
 
   std::shared_ptr<DataType> type_;
-  int byte_width_;
+  const int byte_width_;
 };
 
 struct ARROW_EXPORT DictionaryKeyEncoder : FixedWidthKeyEncoder {
@@ -286,7 +286,7 @@ struct ARROW_EXPORT NullKeyEncoder : KeyEncoder {
 ///    "1" for null, "0" for non-null.
 /// 2. The "fixed width" encoding for the column, it would exist whether
 ///    the column is null or not.
-/// 3. The "variable width" encoding for the column, it would exists only
+/// 3. The "variable payload" encoding for the column, it would exists only
 ///    for non-null string/binary columns.
 /// 4. Specially, if all columns in a row are null, the caller may decide
 ///    to refer to kRowIdForNulls instead of actually encoding/decoding
