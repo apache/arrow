@@ -279,6 +279,18 @@ struct ARROW_EXPORT ArrayData {
   }
 
   /// \brief Construct a zero-copy slice of the data with the given offset and length
+  ///
+  /// The associated `ArrayStatistics` is always discarded in a sliced
+  /// `ArrayData`. Because `ArrayStatistics` in the original
+  /// `ArrayData` may be invalid in a sliced `ArrayData`. If you want
+  /// to reuse statistics in the original `ArrayData`, you need to do
+  /// it by yourself.
+  ///
+  /// If the specified slice range has the same range as the original
+  /// `ArrayData`, we can reuse statistics in the original
+  /// `ArrayData`. Because it has the same data as the original
+  /// `ArrayData`. But the associated `ArrayStatistics` is discarded
+  /// in this case too. Use `Copy()` instead for the case.
   std::shared_ptr<ArrayData> Slice(int64_t offset, int64_t length) const;
 
   /// \brief Input-checking variant of Slice
