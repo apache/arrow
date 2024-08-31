@@ -143,6 +143,7 @@ struct ARROW_EXPORT VarLengthKeyEncoder : KeyEncoder {
   void AddLength(const ExecValue& data, int64_t batch_length, int32_t* lengths) override {
     if (data.is_array()) {
       int64_t i = 0;
+      ARROW_DCHECK_EQ(data.array.length, batch_length);
       VisitArraySpanInline<T>(
           data.array,
           [&](std::string_view bytes) {
@@ -288,9 +289,14 @@ struct ARROW_EXPORT NullKeyEncoder : KeyEncoder {
 ///    the column is null or not.
 /// 3. The "variable payload" encoding for the column, it would exists only
 ///    for non-null string/binary columns.
+///    For string/binary columns, the length of the payload is in
+///    "fixed width" part, and the binary contents are in the
+///    "variable payload" part.
 /// 4. Specially, if all columns in a row are null, the caller may decide
 ///    to refer to kRowIdForNulls instead of actually encoding/decoding
 ///    it using any KeyEncoder. See the comment for encoded_nulls_.
+///
+/// The endianness of the encoded bytes is platform-dependent.
 ///
 /// ## Null Type
 ///
