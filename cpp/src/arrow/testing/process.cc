@@ -82,14 +82,12 @@
 namespace asio = BOOST_PROCESS_V2_ASIO_NAMESPACE;
 namespace process = BOOST_PROCESS_V2_NAMESPACE;
 namespace filesystem = process::filesystem;
-#else
-#ifdef BOOST_PROCESS_HAVE_V1
+#elif defined(BOOST_PROCESS_HAVE_V1)
 namespace process = boost::process::v1;
 namespace filesystem = boost::process::v1::filesystem;
 #else
 namespace process = boost::process;
 namespace filesystem = boost::filesystem;
-#endif
 #endif
 
 namespace arrow::util {
