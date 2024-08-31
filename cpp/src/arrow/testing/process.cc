@@ -113,7 +113,7 @@ class Process::Impl {
     // https://github.com/boostorg/process/issues/259
     //
     // So we try graceful shutdown (SIGTERM + waitpid()) before
-    // immediate shutdown (SIGTERM). This assumes that the target
+    // immediate shutdown (SIGKILL). This assumes that the target
     // executable such as "python3 -m testbench" terminates all related
     // processes by graceful shutdown.
     boost::system::error_code error_code;
