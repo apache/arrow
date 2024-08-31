@@ -360,9 +360,9 @@ class ARROW_EXPORT RowEncoder {
   // The size would be num_rows + 1 if not empty, the last element is the total
   // length of the bytes_ vector.
   std::vector<int32_t> offsets_;
-  // The encoded bytes of all "non kRowIdForNulls" rows.
+  // The encoded bytes of all non "kRowIdForNulls" rows.
   std::vector<uint8_t> bytes_;
-  // A pre-computed constant row with all its columns encoded as null. Useful when
+  // A pre-encoded constant row with all its columns being null. Useful when
   // the caller is certain that an entire row is null and then uses kRowIdForNulls
   // to refer to it.
   //
