@@ -333,6 +333,7 @@ class ValuesSpan {
  private:
   const std::shared_ptr<ChunkedArray> chunked_ = nullptr;
   const ArraySpan chunk0_;  // first chunk or the whole array
+  mutable std::optional<ChunkResolver> chunk_resolver_;
 
  public:
   explicit ValuesSpan(const std::shared_ptr<ChunkedArray> values)
@@ -344,11 +345,25 @@ class ValuesSpan {
   explicit ValuesSpan(const ArraySpan& values)  // NOLINT(modernize-pass-by-value)
       : chunk0_(values) {}
 
+  explicit ValuesSpan(const ArrayData& values) : chunk0_{ArraySpan{values}} {}
+
   bool is_chunked() const { return chunked_ != nullptr; }
 
   const ChunkedArray& chunked_array() const {
     DCHECK(is_chunked());
     return *chunked_;
+  }
+
+  /// \brief Lazily builds a ChunkResolver from the underlying chunked array.
+  ///
+  /// \note This method is not thread-safe.
+  /// \pre is_chunked()
+  const ChunkResolver& chunk_resolver() const {
+    DCHECK(is_chunked());
+    if (!chunk_resolver_.has_value()) {
+      chunk_resolver_.emplace(chunked_->chunks());
+    }
+    return *chunk_resolver_;
   }
 
   const ArraySpan& chunk0() const { return chunk0_; }
@@ -506,9 +521,8 @@ struct FixedWidthTakeImpl {
            (factor > 0 && kValueWidthInBits == 8 &&  // factors are used with bytes
             static_cast<int64_t>(factor * kValueWidthInBits) == bit_width));
 #endif
-    return values.is_chunked()
-               ? ChunkedExec(ctx, values.chunked_array(), indices, out_arr, factor)
-               : Exec(ctx, values.array(), indices, out_arr, factor);
+    return values.is_chunked() ? ChunkedExec(ctx, values, indices, out_arr, factor)
+                               : Exec(ctx, values.array(), indices, out_arr, factor);
   }
 
   static Status Exec(KernelContext* ctx, const ArraySpan& values,
@@ -543,7 +557,7 @@ struct FixedWidthTakeImpl {
     return Status::OK();
   }
 
-  static Status ChunkedExec(KernelContext* ctx, const ChunkedArray& values,
+  static Status ChunkedExec(KernelContext* ctx, const ValuesSpan& values,
                             const ArraySpan& indices, ArrayData* out_arr,
                             int64_t factor) {
     constexpr int64_t kIndexBlockCapacityInBytes = 16 * 1024;
@@ -553,28 +567,28 @@ struct FixedWidthTakeImpl {
         kIndexBlockCapacityInBytes / sizeof(IndexCType);
     static_assert((kIndexBlockCapacity * kValueWidthInBits) % 8 == 0);
 
-    ChunkedFixedWidthValuesSpan chunked_values{values};
-    ChunkResolver chunk_resolver{values.chunks()};
+    ChunkedFixedWidthValuesSpan chunked_values{values.chunked_array()};
     BoundedLocationBuffer location_buffer;
     // TODO(felipecrv): find a way to share the buffer on TakeCC kernel
     RETURN_NOT_OK(location_buffer.InitWithCapacity<IndexCType>(
         /*n_locations=*/std::min(kIndexBlockCapacity, indices.length),
         ctx->memory_pool()));
 
-    return DoChunkedExec(ctx, values, chunked_values, chunk_resolver, indices,
-                         &location_buffer, out_arr, factor);
+    return DoChunkedExec(ctx, values, chunked_values, indices, &location_buffer, out_arr,
+                         factor);
   }
 
   // \pre location_buffer is initialized
   // \pre location_buffer->Capacity() is a multiple of 8
-  static Status DoChunkedExec(KernelContext* ctx, const ChunkedArray& values,
+  static Status DoChunkedExec(KernelContext* ctx, const ValuesSpan& values,
                               const ChunkedFixedWidthValuesSpan& chunked_values,
-                              const ChunkResolver& chunk_resolver,
                               const ArraySpan& indices,
                               BoundedLocationBuffer* location_buffer, ArrayData* out_arr,
                               int64_t factor) {
-    const bool out_has_validity = values.null_count() > 0 || indices.MayHaveNulls();
+    const bool out_has_validity =
+        values.chunked_array().null_count() > 0 || indices.MayHaveNulls();
 
+    const auto& chunk_resolver = values.chunk_resolver();
     const auto location_buffer_capacity = location_buffer->Capacity<IndexCType>();
     const auto* idx = indices.GetValues<IndexCType>(1);
     uint8_t* out = util::MutableFixedWidthValuesPointer(out_arr);
@@ -601,7 +615,8 @@ struct FixedWidthTakeImpl {
         auto out_is_valid = out_arr->GetMutableValues<uint8_t>(0);
         memset(out_is_valid, 0, bit_util::BytesForBits(out_arr->length));
         valid_count += gather.template Execute<OutputIsZeroInitialized::value>(
-            /*src_validity=*/values, /*idx_validity=*/indices, out_is_valid);
+            /*src_validity=*/values.chunked_array(), /*idx_validity=*/indices,
+            out_is_valid);
       } else {
         valid_count += gather.Execute();
       }
