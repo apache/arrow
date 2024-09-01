@@ -19,6 +19,7 @@
 #include <limits>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "arrow/array/array_binary.h"
@@ -199,14 +200,28 @@ struct Selection {
   ArrayData* out;
   TypedBufferBuilder<bool> validity_builder;
 
+  Selection(KernelContext* ctx, ArraySpan values, ArraySpan selection,
+            int64_t output_length, ArrayData* out)
+      : ctx(ctx),
+        values(std::move(values)),
+        selection(std::move(selection)),
+        output_length(output_length),
+        out(out),
+        validity_builder(ctx->memory_pool()) {
+    // If the selection is an array of indices, the output length should
+    // match the number of indices in the selection array.
+    DCHECK(!is_integer(selection.type->id()) || output_length == selection.length);
+  }
+
   Selection(KernelContext* ctx, const ExecSpan& batch, int64_t output_length,
             ExecResult* out)
-      : ctx(ctx),
-        values(batch[0].array),
-        selection(batch[1].array),
-        output_length(output_length),
-        out(out->array_data().get()),
-        validity_builder(ctx->memory_pool()) {}
+      : Selection(ctx, batch[0].array, batch[1].array, output_length,
+                  out->array_data().get()) {}
+
+  Selection(KernelContext* ctx, const ValuesSpan& values, const ArraySpan& indices,
+            std::shared_ptr<ArrayData>* out)
+      : Selection(ctx, values.array(), indices, /*output_length=*/indices.length,
+                  out->get()) {}
 
   virtual ~Selection() = default;
 
@@ -484,9 +499,9 @@ struct VarBinarySelectionImpl : public Selection<VarBinarySelectionImpl<Type>, T
 
   static constexpr int64_t kOffsetLimit = std::numeric_limits<offset_type>::max() - 1;
 
-  VarBinarySelectionImpl(KernelContext* ctx, const ExecSpan& batch, int64_t output_length,
-                         ExecResult* out)
-      : Base(ctx, batch, output_length, out),
+  template <typename... Args>
+  explicit VarBinarySelectionImpl(KernelContext* ctx, Args... args)
+      : Base(ctx, std::forward<Args>(args)...),
         offset_builder(ctx->memory_pool()),
         data_builder(ctx->memory_pool()) {}
 
@@ -558,9 +573,9 @@ struct ListSelectionImpl : public Selection<ListSelectionImpl<Type>, Type> {
   TypedBufferBuilder<offset_type> offset_builder;
   typename TypeTraits<Type>::OffsetBuilderType child_index_builder;
 
-  ListSelectionImpl(KernelContext* ctx, const ExecSpan& batch, int64_t output_length,
-                    ExecResult* out)
-      : Base(ctx, batch, output_length, out),
+  template <typename... Args>
+  explicit ListSelectionImpl(KernelContext* ctx, Args... args)
+      : Base(ctx, std::forward<Args>(args)...),
         offset_builder(ctx->memory_pool()),
         child_index_builder(ctx->memory_pool()) {}
 
@@ -623,9 +638,9 @@ struct ListViewSelectionImpl : public Selection<ListViewSelectionImpl<Type>, Typ
   TypedBufferBuilder<offset_type> offsets_builder;
   TypedBufferBuilder<offset_type> sizes_builder;
 
-  ListViewSelectionImpl(KernelContext* ctx, const ExecSpan& batch, int64_t output_length,
-                        ExecResult* out)
-      : Base(ctx, batch, output_length, out),
+  template <typename... Args>
+  explicit ListViewSelectionImpl(KernelContext* ctx, Args... args)
+      : Base(ctx, std::forward<Args>(args)...),
         offsets_builder(ctx->memory_pool()),
         sizes_builder(ctx->memory_pool()) {}
 
@@ -680,9 +695,9 @@ struct DenseUnionSelectionImpl
   std::vector<int8_t> type_codes_;
   std::vector<Int32Builder> child_indices_builders_;
 
-  DenseUnionSelectionImpl(KernelContext* ctx, const ExecSpan& batch,
-                          int64_t output_length, ExecResult* out)
-      : Base(ctx, batch, output_length, out),
+  template <typename... Args>
+  explicit DenseUnionSelectionImpl(KernelContext* ctx, Args... args)
+      : Base(ctx, std::forward<Args>(args)...),
         value_offset_buffer_builder_(ctx->memory_pool()),
         child_id_buffer_builder_(ctx->memory_pool()),
         type_codes_(checked_cast<const UnionType&>(*this->values.type).type_codes()),
@@ -761,9 +776,9 @@ struct SparseUnionSelectionImpl
   TypedBufferBuilder<int8_t> child_id_buffer_builder_;
   const int8_t type_code_for_null_;
 
-  SparseUnionSelectionImpl(KernelContext* ctx, const ExecSpan& batch,
-                           int64_t output_length, ExecResult* out)
-      : Base(ctx, batch, output_length, out),
+  template <typename... Args>
+  explicit SparseUnionSelectionImpl(KernelContext* ctx, Args... args)
+      : Base(ctx, std::forward<Args>(args)...),
         child_id_buffer_builder_(ctx->memory_pool()),
         type_code_for_null_(
             checked_cast<const UnionType&>(*this->values.type).type_codes()[0]) {}
@@ -812,9 +827,9 @@ struct FSLSelectionImpl : public Selection<FSLSelectionImpl, FixedSizeListType> 
   using Base = Selection<FSLSelectionImpl, FixedSizeListType>;
   LIFT_BASE_MEMBERS();
 
-  FSLSelectionImpl(KernelContext* ctx, const ExecSpan& batch, int64_t output_length,
-                   ExecResult* out)
-      : Base(ctx, batch, output_length, out), child_index_builder(ctx->memory_pool()) {}
+  template <typename... Args>
+  explicit FSLSelectionImpl(KernelContext* ctx, Args... args)
+      : Base(ctx, std::forward<Args>(args)...), child_index_builder(ctx->memory_pool()) {}
 
   template <typename Adapter>
   Status GenerateOutput() {
