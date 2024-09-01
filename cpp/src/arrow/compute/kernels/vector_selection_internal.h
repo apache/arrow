@@ -100,6 +100,20 @@ class ValuesSpan {
   }
 };
 
+/// \brief Type for a single "array_take" kernel function.
+///
+/// Instead of implementing both `ArrayKernelExec` and `ChunkedExec` typed
+/// functions for each configurations of `array_take` parameters, we use
+/// templates wrapping `TakeKernelExec` functions to expose exec functions
+/// that can be registered in the kernel registry.
+///
+/// A `TakeKernelExec` always returns a single array, which is the result of
+/// taking values from a single array (AA->A) or multiple arrays (CA->A). The
+/// wrappers take care of converting the output of a CA call to C or calling
+/// the kernel multiple times to process a CC call.
+using TakeKernelExec = Status (*)(KernelContext*, const ValuesSpan&, const ArraySpan&,
+                                  std::shared_ptr<ArrayData>*);
+
 struct SelectionKernelData {
   SelectionKernelData(InputType value_type, InputType selection_type,
                       ArrayKernelExec exec,
@@ -149,19 +163,33 @@ Status FSLFilterExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status DenseUnionFilterExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status MapFilterExec(KernelContext*, const ExecSpan&, ExecResult*);
 
-Status VarBinaryTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
-Status LargeVarBinaryTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
-Status FixedWidthTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
-Status FixedWidthTakeChunkedExec(KernelContext*, const ExecBatch&, Datum*);
-Status ListTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
-Status LargeListTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
-Status ListViewTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
-Status LargeListViewTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
-Status FSLTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
-Status DenseUnionTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
-Status SparseUnionTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
-Status StructTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
-Status MapTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
+// Take kernels compatible with the TakeKernelExec signature
+Status VarBinaryTakeExec(KernelContext*, const ValuesSpan&, const ArraySpan&,
+                         std::shared_ptr<ArrayData>*);
+Status LargeVarBinaryTakeExec(KernelContext*, const ValuesSpan&, const ArraySpan&,
+                              std::shared_ptr<ArrayData>*);
+Status FixedWidthTakeExec(KernelContext*, const ValuesSpan&, const ArraySpan&,
+                          std::shared_ptr<ArrayData>*);
+Status FixedWidthTakeChunkedExec(KernelContext*, const ValuesSpan&, const ArraySpan&,
+                                 std::shared_ptr<ArrayData>*);
+Status ListTakeExec(KernelContext*, const ValuesSpan&, const ArraySpan&,
+                    std::shared_ptr<ArrayData>*);
+Status LargeListTakeExec(KernelContext*, const ValuesSpan&, const ArraySpan&,
+                         std::shared_ptr<ArrayData>*);
+Status ListViewTakeExec(KernelContext*, const ValuesSpan&, const ArraySpan&,
+                        std::shared_ptr<ArrayData>*);
+Status LargeListViewTakeExec(KernelContext*, const ValuesSpan&, const ArraySpan&,
+                             std::shared_ptr<ArrayData>*);
+Status FSLTakeExec(KernelContext*, const ValuesSpan&, const ArraySpan&,
+                   std::shared_ptr<ArrayData>*);
+Status DenseUnionTakeExec(KernelContext*, const ValuesSpan&, const ArraySpan&,
+                          std::shared_ptr<ArrayData>*);
+Status SparseUnionTakeExec(KernelContext*, const ValuesSpan&, const ArraySpan&,
+                           std::shared_ptr<ArrayData>*);
+Status StructTakeExec(KernelContext*, const ValuesSpan&, const ArraySpan&,
+                      std::shared_ptr<ArrayData>*);
+Status MapTakeExec(KernelContext*, const ValuesSpan&, const ArraySpan&,
+                   std::shared_ptr<ArrayData>*);
 
 }  // namespace compute::internal
 }  // namespace arrow

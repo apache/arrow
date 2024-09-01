@@ -968,69 +968,80 @@ Status MapFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out)
 
 namespace {
 
-template <typename Impl>
-Status TakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+template <typename SelectionImpl>
+Status TakeAAAExec(KernelContext* ctx, const ValuesSpan& values, const ArraySpan& indices,
+                   std::shared_ptr<ArrayData>* out) {
+  DCHECK(!values.is_chunked())
+      << "TakeAAAExec kernels can't be called with chunked array values";
   if (TakeState::Get(ctx).boundscheck) {
-    RETURN_NOT_OK(CheckIndexBounds(batch[1].array, batch[0].length()));
+    RETURN_NOT_OK(CheckIndexBounds(indices, values.length()));
   }
-  Impl kernel(ctx, batch, /*output_length=*/batch[1].length(), out);
+  SelectionImpl kernel(ctx, values, indices, out);
   return kernel.ExecTake();
 }
 
 }  // namespace
 
-Status VarBinaryTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  return TakeExec<VarBinarySelectionImpl<BinaryType>>(ctx, batch, out);
+Status VarBinaryTakeExec(KernelContext* ctx, const ValuesSpan& values,
+                         const ArraySpan& indices, std::shared_ptr<ArrayData>* out) {
+  return TakeAAAExec<VarBinarySelectionImpl<BinaryType>>(ctx, values, indices, out);
 }
 
-Status LargeVarBinaryTakeExec(KernelContext* ctx, const ExecSpan& batch,
-                              ExecResult* out) {
-  return TakeExec<VarBinarySelectionImpl<LargeBinaryType>>(ctx, batch, out);
+Status LargeVarBinaryTakeExec(KernelContext* ctx, const ValuesSpan& values,
+                              const ArraySpan& indices, std::shared_ptr<ArrayData>* out) {
+  return TakeAAAExec<VarBinarySelectionImpl<LargeBinaryType>>(ctx, values, indices, out);
 }
 
-Status ListTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  return TakeExec<ListSelectionImpl<ListType>>(ctx, batch, out);
+Status ListTakeExec(KernelContext* ctx, const ValuesSpan& values,
+                    const ArraySpan& indices, std::shared_ptr<ArrayData>* out) {
+  return TakeAAAExec<ListSelectionImpl<ListType>>(ctx, values, indices, out);
 }
 
-Status LargeListTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  return TakeExec<ListSelectionImpl<LargeListType>>(ctx, batch, out);
+Status LargeListTakeExec(KernelContext* ctx, const ValuesSpan& values,
+                         const ArraySpan& indices, std::shared_ptr<ArrayData>* out) {
+  return TakeAAAExec<ListSelectionImpl<LargeListType>>(ctx, values, indices, out);
 }
 
-Status ListViewTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  return TakeExec<ListViewSelectionImpl<ListViewType>>(ctx, batch, out);
+Status ListViewTakeExec(KernelContext* ctx, const ValuesSpan& values,
+                        const ArraySpan& indices, std::shared_ptr<ArrayData>* out) {
+  return TakeAAAExec<ListViewSelectionImpl<ListViewType>>(ctx, values, indices, out);
 }
 
-Status LargeListViewTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  return TakeExec<ListViewSelectionImpl<LargeListViewType>>(ctx, batch, out);
+Status LargeListViewTakeExec(KernelContext* ctx, const ValuesSpan& values,
+                             const ArraySpan& indices, std::shared_ptr<ArrayData>* out) {
+  return TakeAAAExec<ListViewSelectionImpl<LargeListViewType>>(ctx, values, indices, out);
 }
 
-Status FSLTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  const ArraySpan& values = batch[0].array;
-
+Status FSLTakeExec(KernelContext* ctx, const ValuesSpan& values, const ArraySpan& indices,
+                   std::shared_ptr<ArrayData>* out) {
   // If a FixedSizeList wraps a fixed-width type we can, in some cases, use
   // FixedWidthTakeExec for a fixed-size list array.
-  if (util::IsFixedWidthLike(values,
+  if (util::IsFixedWidthLike(values.array(),
                              /*force_null_count=*/true,
                              /*exclude_bool_and_dictionary=*/true)) {
-    return FixedWidthTakeExec(ctx, batch, out);
+    return FixedWidthTakeExec(ctx, values, indices, out);
   }
-  return TakeExec<FSLSelectionImpl>(ctx, batch, out);
+  return TakeAAAExec<FSLSelectionImpl>(ctx, values, indices, out);
 }
 
-Status DenseUnionTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  return TakeExec<DenseUnionSelectionImpl>(ctx, batch, out);
+Status DenseUnionTakeExec(KernelContext* ctx, const ValuesSpan& values,
+                          const ArraySpan& indices, std::shared_ptr<ArrayData>* out) {
+  return TakeAAAExec<DenseUnionSelectionImpl>(ctx, values, indices, out);
 }
 
-Status SparseUnionTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  return TakeExec<SparseUnionSelectionImpl>(ctx, batch, out);
+Status SparseUnionTakeExec(KernelContext* ctx, const ValuesSpan& values,
+                           const ArraySpan& indices, std::shared_ptr<ArrayData>* out) {
+  return TakeAAAExec<SparseUnionSelectionImpl>(ctx, values, indices, out);
 }
 
-Status StructTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  return TakeExec<StructSelectionImpl>(ctx, batch, out);
+Status StructTakeExec(KernelContext* ctx, const ValuesSpan& values,
+                      const ArraySpan& indices, std::shared_ptr<ArrayData>* out) {
+  return TakeAAAExec<StructSelectionImpl>(ctx, values, indices, out);
 }
 
-Status MapTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  return TakeExec<ListSelectionImpl<MapType>>(ctx, batch, out);
+Status MapTakeExec(KernelContext* ctx, const ValuesSpan& values, const ArraySpan& indices,
+                   std::shared_ptr<ArrayData>* out) {
+  return TakeAAAExec<ListSelectionImpl<MapType>>(ctx, values, indices, out);
 }
 
 }  // namespace compute::internal

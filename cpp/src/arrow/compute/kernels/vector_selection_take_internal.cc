@@ -605,8 +605,10 @@ Status TakeIndexDispatch(KernelContext* ctx, const ValuesSpan& values,
   }
 }
 
-Status FixedWidthTakeExecImpl(KernelContext* ctx, const ValuesSpan& values,
-                              const ArraySpan& indices, ArrayData* out_arr) {
+}  // namespace
+
+Status FixedWidthTakeExec(KernelContext* ctx, const ValuesSpan& values,
+                          const ArraySpan& indices, std::shared_ptr<ArrayData>* out_arr) {
   if (TakeState::Get(ctx).boundscheck) {
     RETURN_NOT_OK(CheckIndexBounds(indices, values.length()));
   }
@@ -616,42 +618,43 @@ Status FixedWidthTakeExecImpl(KernelContext* ctx, const ValuesSpan& values,
   // allocating the validity bitmap altogether and save time and space.
   const bool allocate_validity = values.MayHaveNulls() || indices.MayHaveNulls();
   RETURN_NOT_OK(util::internal::PreallocateFixedWidthArrayData(
-      ctx, indices.length, /*source=*/values.chunk0(), allocate_validity, out_arr));
+      ctx, indices.length, /*source=*/values.chunk0(), allocate_validity,
+      out_arr->get()));
   switch (util::FixedWidthInBits(*values.type())) {
     case 0:
       DCHECK(values.type()->id() == Type::FIXED_SIZE_BINARY ||
              values.type()->id() == Type::FIXED_SIZE_LIST);
       return TakeIndexDispatch<FixedWidthTakeImpl, std::integral_constant<int, 0>>(
-          ctx, values, indices, out_arr);
+          ctx, values, indices, out_arr->get());
     case 1:
       // Zero-initialize the data buffer for the output array when the bit-width is 1
       // (e.g. Boolean array) to avoid having to ClearBit on every null element.
       // This might be profitable for other types as well, but we take the most
       // conservative approach for now.
-      memset(out_arr->buffers[1]->mutable_data(), 0, out_arr->buffers[1]->size());
+      memset((*out_arr)->buffers[1]->mutable_data(), 0, (*out_arr)->buffers[1]->size());
       return TakeIndexDispatch<
           FixedWidthTakeImpl, std::integral_constant<int, 1>, /*OutputIsZeroInitialized=*/
-          std::true_type>(ctx, values, indices, out_arr);
+          std::true_type>(ctx, values, indices, out_arr->get());
     case 8:
       return TakeIndexDispatch<FixedWidthTakeImpl, std::integral_constant<int, 8>>(
-          ctx, values, indices, out_arr);
+          ctx, values, indices, out_arr->get());
     case 16:
       return TakeIndexDispatch<FixedWidthTakeImpl, std::integral_constant<int, 16>>(
-          ctx, values, indices, out_arr);
+          ctx, values, indices, out_arr->get());
     case 32:
       return TakeIndexDispatch<FixedWidthTakeImpl, std::integral_constant<int, 32>>(
-          ctx, values, indices, out_arr);
+          ctx, values, indices, out_arr->get());
     case 64:
       return TakeIndexDispatch<FixedWidthTakeImpl, std::integral_constant<int, 64>>(
-          ctx, values, indices, out_arr);
+          ctx, values, indices, out_arr->get());
     case 128:
       // For INTERVAL_MONTH_DAY_NANO, DECIMAL128
       return TakeIndexDispatch<FixedWidthTakeImpl, std::integral_constant<int, 128>>(
-          ctx, values, indices, out_arr);
+          ctx, values, indices, out_arr->get());
     case 256:
       // For DECIMAL256
       return TakeIndexDispatch<FixedWidthTakeImpl, std::integral_constant<int, 256>>(
-          ctx, values, indices, out_arr);
+          ctx, values, indices, out_arr->get());
   }
   if (ARROW_PREDICT_TRUE(values.type()->id() == Type::FIXED_SIZE_BINARY ||
                          values.type()->id() == Type::FIXED_SIZE_LIST)) {
@@ -661,25 +664,11 @@ Status FixedWidthTakeExecImpl(KernelContext* ctx, const ValuesSpan& values,
     return TakeIndexDispatch<FixedWidthTakeImpl,
                              /*ValueBitWidth=*/std::integral_constant<int, 8>,
                              /*OutputIsZeroInitialized=*/std::false_type,
-                             /*WithFactor=*/std::true_type>(ctx, values, indices, out_arr,
+                             /*WithFactor=*/std::true_type>(ctx, values, indices,
+                                                            out_arr->get(),
                                                             /*factor=*/byte_width);
   }
   return Status::NotImplemented("Unsupported primitive type for take: ", *values.type());
-}
-
-}  // namespace
-
-Status FixedWidthTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  ValuesSpan values{batch[0].array};
-  auto* out_arr = out->array_data().get();
-  return FixedWidthTakeExecImpl(ctx, values, batch[1].array, out_arr);
-}
-
-Status FixedWidthTakeChunkedExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  ValuesSpan values{batch[0].chunked_array()};
-  auto& indices = batch[1].array();
-  auto* out_arr = out->mutable_array();
-  return FixedWidthTakeExecImpl(ctx, values, *indices, out_arr);
 }
 
 namespace {
@@ -687,41 +676,45 @@ namespace {
 // ----------------------------------------------------------------------
 // Null take
 
-Status NullTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+Status NullTakeExec(KernelContext* ctx, const ValuesSpan& values,
+                    const ArraySpan& indices, std::shared_ptr<ArrayData>* out) {
   if (TakeState::Get(ctx).boundscheck) {
-    RETURN_NOT_OK(CheckIndexBounds(batch[1].array, batch[0].length()));
+    RETURN_NOT_OK(CheckIndexBounds(indices, values.length()));
   }
   // batch.length doesn't take into account the take indices
-  auto new_length = batch[1].array.length;
-  out->value = std::make_shared<NullArray>(new_length)->data();
+  auto new_length = indices.length;
+  *out = NullArray{new_length}.data();
   return Status::OK();
 }
 
 // ----------------------------------------------------------------------
 // Dictionary take
 
-Status DictionaryTake(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  DictionaryArray values(batch[0].array.ToArrayData());
+Status DictionaryTake(KernelContext* ctx, const ValuesSpan& values,
+                      const ArraySpan& indices, std::shared_ptr<ArrayData>* out) {
+  DictionaryArray values_dict(values.array().ToArrayData());
   Datum result;
-  RETURN_NOT_OK(Take(Datum(values.indices()), batch[1].array.ToArrayData(),
+  RETURN_NOT_OK(Take(Datum(values_dict.indices()), indices.ToArrayData(),
                      TakeState::Get(ctx), ctx->exec_context())
                     .Value(&result));
-  DictionaryArray taken_values(values.type(), result.make_array(), values.dictionary());
-  out->value = taken_values.data();
+  DictionaryArray taken_values(values_dict.type(), result.make_array(),
+                               values_dict.dictionary());
+  *out = taken_values.data();
   return Status::OK();
 }
 
 // ----------------------------------------------------------------------
 // Extension take
 
-Status ExtensionTake(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  ExtensionArray values(batch[0].array.ToArrayData());
+Status ExtensionTake(KernelContext* ctx, const ValuesSpan& values,
+                     const ArraySpan& indices, std::shared_ptr<ArrayData>* out) {
+  ExtensionArray values_data(values.array().ToArrayData());
   Datum result;
-  RETURN_NOT_OK(Take(Datum(values.storage()), batch[1].array.ToArrayData(),
+  RETURN_NOT_OK(Take(Datum(values_data.storage()), indices.ToArrayData(),
                      TakeState::Get(ctx), ctx->exec_context())
                     .Value(&result));
-  ExtensionArray taken_values(values.type(), result.make_array());
-  out->value = taken_values.data();
+  ExtensionArray taken_values(values_data.type(), result.make_array());
+  *out = taken_values.data();
   return Status::OK();
 }
 
@@ -900,48 +893,50 @@ Result<std::shared_ptr<Array>> ChunkedArrayAsArray(
   }
 }
 
-Status CallAAAKernel(ArrayKernelExec take_aaa_exec, KernelContext* ctx,
-                     std::shared_ptr<ArrayData> values,
-                     std::shared_ptr<ArrayData> indices, Datum* out) {
-  int64_t batch_length = values->length;
-  std::vector<Datum> args = {std::move(values), std::move(indices)};
-  ExecBatch array_array_batch(std::move(args), batch_length);
+Status CallXAAKernel(TakeKernelExec take_xaa_exec, KernelContext* ctx,
+                     const ValuesSpan& values, const ArraySpan& indices, Datum* out) {
   DCHECK_EQ(out->kind(), Datum::ARRAY);
-  ExecSpan exec_span{array_array_batch};
-  ExecResult result;
-  result.value = out->array();
-  RETURN_NOT_OK(take_aaa_exec(ctx, exec_span, &result));
-  DCHECK(result.is_array_data());
-  out->value = result.array_data();
+  auto out_arr = out->array();
+  RETURN_NOT_OK(take_xaa_exec(ctx, values, indices, &out_arr));
+  out->value = std::move(out_arr);
   return Status::OK();
 }
 
-Status CallCAAKernel(VectorKernel::ChunkedExec take_caa_exec, KernelContext* ctx,
-                     std::shared_ptr<ChunkedArray> values,
-                     std::shared_ptr<ArrayData> indices, Datum* out) {
-  int64_t batch_length = values->length();
-  std::vector<Datum> args = {std::move(values), std::move(indices)};
-  ExecBatch chunked_array_array_batch(std::move(args), batch_length);
-  DCHECK_EQ(out->kind(), Datum::ARRAY);
-  return take_caa_exec(ctx, chunked_array_array_batch, out);
-}
-
-Status TakeACCChunkedExec(ArrayKernelExec take_aaa_exec, KernelContext* ctx,
+Status TakeACCChunkedExec(TakeKernelExec take_aaa_exec, KernelContext* ctx,
                           const ExecBatch& batch, Datum* out) {
-  auto& values = batch.values[0].array();
+  ValuesSpan values{*batch.values[0].array()};
   auto& indices = batch.values[1].chunked_array();
   auto num_chunks = indices->num_chunks();
   std::vector<std::shared_ptr<Array>> new_chunks(num_chunks);
   for (int i = 0; i < num_chunks; i++) {
     // Take with that indices chunk
-    auto& indices_chunk = indices->chunk(i)->data();
-    Datum result = PrepareOutput(batch, values->length);
-    RETURN_NOT_OK(CallAAAKernel(take_aaa_exec, ctx, values, indices_chunk, &result));
+    auto& indices_chunk_data = indices->chunk(i)->data();
+    ArraySpan indices_chunk{*indices_chunk_data};
+    Datum result = PrepareOutput(batch, values.length());
+    RETURN_NOT_OK(CallXAAKernel(take_aaa_exec, ctx, values, indices_chunk, &result));
     new_chunks[i] = MakeArray(result.array());
   }
-  out->value = std::make_shared<ChunkedArray>(std::move(new_chunks), values->type);
+  out->value = std::make_shared<ChunkedArray>(std::move(new_chunks),
+                                              values.type()->GetSharedPtr());
   return Status::OK();
 }
+
+Status ArrayTakeExec(TakeKernelExec take_aaa_exec, KernelContext* ctx,
+                     const ExecSpan& span, ExecResult* out) {
+  ValuesSpan values{span[0].array};
+  auto& indices = span[1].array;
+  std::shared_ptr<ArrayData> out_arr = out->array_data();
+  RETURN_NOT_OK(take_aaa_exec(ctx, values, indices, &out_arr));
+  out->value = std::move(out_arr);
+  return Status::OK();
+}
+
+template <TakeKernelExec kTakeAAAExec>
+struct ArrayTakeExecFunctor {
+  static Status Exec(KernelContext* ctx, const ExecSpan& span, ExecResult* out) {
+    return ArrayTakeExec(kTakeAAAExec, ctx, span, out);
+  }
+};
 
 /// \brief Generic (slower) VectorKernel::exec_chunked (`CA->C`, `CC->C`, and `AC->C`).
 ///
@@ -956,34 +951,34 @@ Status TakeACCChunkedExec(ArrayKernelExec take_aaa_exec, KernelContext* ctx,
 /// `AC->C` cases are trivially delegated to TakeACCChunkedExec without any concatenation.
 ///
 /// \param take_aaa_exec The `AA->A` take kernel to use.
-Status GenericTakeChunkedExec(ArrayKernelExec take_aaa_exec, KernelContext* ctx,
+Status GenericTakeChunkedExec(TakeKernelExec take_aaa_exec, KernelContext* ctx,
                               const ExecBatch& batch, Datum* out) {
   const auto& args = batch.values;
   if (args[0].kind() == Datum::CHUNKED_ARRAY) {
     const auto& values_chunked = args[0].chunked_array();
     ARROW_ASSIGN_OR_RAISE(auto values_array,
                           ChunkedArrayAsArray(values_chunked, ctx->memory_pool()));
+    const ValuesSpan values(*values_array->data());
     if (args[1].kind() == Datum::ARRAY) {
       // CA->C
-      const auto& indices = args[1].array();
+      const auto& indices_data = args[1].array();
+      const ArraySpan indices(*indices_data);
       DCHECK_EQ(values_array->length(), batch.length);
       {
         // AA->A
-        RETURN_NOT_OK(
-            CallAAAKernel(take_aaa_exec, ctx, values_array->data(), indices, out));
+        RETURN_NOT_OK(CallXAAKernel(take_aaa_exec, ctx, values, indices, out));
         out->value = std::make_shared<ChunkedArray>(MakeArray(out->array()));
       }
       return Status::OK();
     } else if (args[1].kind() == Datum::CHUNKED_ARRAY) {
       // CC->C
-      const auto& indices = args[1].chunked_array();
+      const auto& chunked_indices = args[1].chunked_array();
       std::vector<std::shared_ptr<Array>> new_chunks;
-      for (int i = 0; i < indices->num_chunks(); i++) {
+      for (int i = 0; i < chunked_indices->num_chunks(); i++) {
         // AA->A
-        const auto& indices_chunk = indices->chunk(i)->data();
+        const ArraySpan indices_chunk{*chunked_indices->chunk(i)->data()};
         Datum result = PrepareOutput(batch, values_array->length());
-        RETURN_NOT_OK(CallAAAKernel(take_aaa_exec, ctx, values_array->data(),
-                                    indices_chunk, &result));
+        RETURN_NOT_OK(CallXAAKernel(take_aaa_exec, ctx, values, indices_chunk, &result));
         new_chunks.push_back(MakeArray(result.array()));
       }
       DCHECK(out->is_array());
@@ -1009,7 +1004,7 @@ Status GenericTakeChunkedExec(ArrayKernelExec take_aaa_exec, KernelContext* ctx,
       args[0].ToString(), ", indices=", args[1].ToString());
 }
 
-template <ArrayKernelExec kTakeAAAExec>
+template <TakeKernelExec kTakeAAAExec>
 struct GenericTakeChunkedExecFunctor {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     return GenericTakeChunkedExec(kTakeAAAExec, ctx, batch, out);
@@ -1030,11 +1025,9 @@ struct GenericTakeChunkedExecFunctor {
 ///
 /// `AC->C` cases are trivially delegated to TakeACCChunkedExec.
 ///
-/// \param take_aaa_exec The `AA->A` take kernel to use.
-Status SpecialTakeChunkedExec(const ArrayKernelExec take_aaa_exec,
-                              VectorKernel::ChunkedExec take_caa_exec, KernelContext* ctx,
+/// \param take_xaa_exec The `AA->A` and `CA->A` take kernel to use.
+Status SpecialTakeChunkedExec(TakeKernelExec take_xaa_exec, KernelContext* ctx,
                               const ExecBatch& batch, Datum* out) {
-  Datum result = PrepareOutput(batch, batch.length);
   auto* pool = ctx->memory_pool();
   const auto& args = batch.values;
   if (args[0].kind() == Datum::CHUNKED_ARRAY) {
@@ -1049,14 +1042,15 @@ Status SpecialTakeChunkedExec(const ArrayKernelExec take_aaa_exec,
 
     if (args[1].kind() == Datum::ARRAY) {
       // CA->C
-      const auto& indices = args[1].array();
+      ArraySpan indices(*args[1].array());
       if (single_chunk) {
         // AA->A
         DCHECK_EQ(single_chunk->length(), batch.length);
+        ValuesSpan single_chunk_values(*single_chunk->data());
         // If the ChunkedArray was cheaply converted to a single chunk,
         // we can use the AA->A take kernel directly.
         RETURN_NOT_OK(
-            CallAAAKernel(take_aaa_exec, ctx, single_chunk->data(), indices, out));
+            CallXAAKernel(take_xaa_exec, ctx, single_chunk_values, indices, out));
         out->value = std::make_shared<ChunkedArray>(MakeArray(out->array()));
         return Status::OK();
       }
@@ -1064,24 +1058,29 @@ Status SpecialTakeChunkedExec(const ArrayKernelExec take_aaa_exec,
       // which has a more efficient implementation for this case. At this point,
       // that implementation doesn't have to care about empty or single-chunk
       // ChunkedArrays.
-      RETURN_NOT_OK(take_caa_exec(ctx, batch, &result));
-      out->value = std::make_shared<ChunkedArray>(MakeArray(result.array()));
+      ValuesSpan values(values_chunked);
+      auto out_arr = out->array();
+      RETURN_NOT_OK(take_xaa_exec(ctx, values, indices, &out_arr));
+      out->value = std::make_shared<ChunkedArray>(MakeArray(std::move(out_arr)));
       return Status::OK();
     } else {
+      Datum result;
       // CC->C
       const auto& indices = args[1].chunked_array();
       std::vector<std::shared_ptr<Array>> new_chunks;
       for (int i = 0; i < indices->num_chunks(); i++) {
-        const auto& indices_chunk = indices->chunk(i)->data();
+        const ArraySpan indices_chunk{*indices->chunk(i)->data()};
         result = PrepareOutput(batch, values_chunked->length());
         if (single_chunk) {
+          ValuesSpan single_chunk_values(*single_chunk->data());
           // If the ChunkedArray was cheaply converted to a single chunk,
           // we can use the AA->A take kernel directly.
-          RETURN_NOT_OK(CallAAAKernel(take_aaa_exec, ctx, single_chunk->data(),
+          RETURN_NOT_OK(CallXAAKernel(take_xaa_exec, ctx, single_chunk_values,
                                       indices_chunk, &result));
         } else {
+          ValuesSpan values(values_chunked);
           RETURN_NOT_OK(
-              CallCAAKernel(take_caa_exec, ctx, values_chunked, indices_chunk, &result));
+              CallXAAKernel(take_xaa_exec, ctx, values, indices_chunk, &result));
         }
         new_chunks.push_back(MakeArray(result.array()));
       }
@@ -1096,7 +1095,7 @@ Status SpecialTakeChunkedExec(const ArrayKernelExec take_aaa_exec,
     // everything is wired up correctly.
     if (args[1].kind() == Datum::CHUNKED_ARRAY) {
       // AC->C
-      return TakeACCChunkedExec(take_aaa_exec, ctx, batch, out);
+      return TakeACCChunkedExec(take_xaa_exec, ctx, batch, out);
     } else {
       DCHECK(false) << "Unexpected kind for array_take's exec_chunked kernel: values="
                     << args[0].ToString() << ", indices=" << args[1].ToString();
@@ -1108,10 +1107,10 @@ Status SpecialTakeChunkedExec(const ArrayKernelExec take_aaa_exec,
       args[0].ToString(), ", indices=", args[1].ToString());
 }
 
-template <ArrayKernelExec kTakeAAAExec, VectorKernel::ChunkedExec kTakeCAAExec>
+template <TakeKernelExec kTakeXAAExec>
 struct SpecialTakeChunkedExecFunctor {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    return SpecialTakeChunkedExec(kTakeAAAExec, kTakeCAAExec, ctx, batch, out);
+    return SpecialTakeChunkedExec(kTakeXAAExec, ctx, batch, out);
   }
 };
 
@@ -1130,40 +1129,54 @@ void PopulateTakeKernels(std::vector<SelectionKernelData>* out) {
   auto take_indices = match::Integer();
 
   *out = {
-      {InputType(match::Primitive()), take_indices, FixedWidthTakeExec,
-       SpecialTakeChunkedExecFunctor<FixedWidthTakeExec,
-                                     FixedWidthTakeChunkedExec>::Exec},
-      {InputType(match::BinaryLike()), take_indices, VarBinaryTakeExec,
-       GenericTakeChunkedExecFunctor<VarBinaryTakeExec>::Exec},
-      {InputType(match::LargeBinaryLike()), take_indices, LargeVarBinaryTakeExec,
-       GenericTakeChunkedExecFunctor<LargeVarBinaryTakeExec>::Exec},
-      {InputType(match::FixedSizeBinaryLike()), take_indices, FixedWidthTakeExec,
-       SpecialTakeChunkedExecFunctor<FixedWidthTakeExec,
-                                     FixedWidthTakeChunkedExec>::Exec},
-      {InputType(null()), take_indices, NullTakeExec,
-       GenericTakeChunkedExecFunctor<NullTakeExec>::Exec},
-      {InputType(Type::DICTIONARY), take_indices, DictionaryTake,
-       GenericTakeChunkedExecFunctor<DictionaryTake>::Exec},
-      {InputType(Type::EXTENSION), take_indices, ExtensionTake,
-       GenericTakeChunkedExecFunctor<ExtensionTake>::Exec},
-      {InputType(Type::LIST), take_indices, ListTakeExec,
-       GenericTakeChunkedExecFunctor<ListTakeExec>::Exec},
-      {InputType(Type::LARGE_LIST), take_indices, LargeListTakeExec,
-       GenericTakeChunkedExecFunctor<LargeListTakeExec>::Exec},
-      {InputType(Type::LIST_VIEW), take_indices, ListViewTakeExec,
-       GenericTakeChunkedExecFunctor<ListViewTakeExec>::Exec},
-      {InputType(Type::LARGE_LIST_VIEW), take_indices, LargeListViewTakeExec,
-       GenericTakeChunkedExecFunctor<LargeListViewTakeExec>::Exec},
-      {InputType(Type::FIXED_SIZE_LIST), take_indices, FSLTakeExec,
-       GenericTakeChunkedExecFunctor<FSLTakeExec>::Exec},
-      {InputType(Type::DENSE_UNION), take_indices, DenseUnionTakeExec,
-       GenericTakeChunkedExecFunctor<DenseUnionTakeExec>::Exec},
-      {InputType(Type::SPARSE_UNION), take_indices, SparseUnionTakeExec,
-       GenericTakeChunkedExecFunctor<SparseUnionTakeExec>::Exec},
-      {InputType(Type::STRUCT), take_indices, StructTakeExec,
-       GenericTakeChunkedExecFunctor<StructTakeExec>::Exec},
-      {InputType(Type::MAP), take_indices, MapTakeExec,
-       GenericTakeChunkedExecFunctor<MapTakeExec>::Exec},
+      SelectionKernelData{InputType(match::Primitive()), take_indices,
+                          ArrayTakeExecFunctor<FixedWidthTakeExec>::Exec,
+                          SpecialTakeChunkedExecFunctor<FixedWidthTakeExec>::Exec},
+      SelectionKernelData{InputType(match::BinaryLike()), take_indices,
+                          ArrayTakeExecFunctor<VarBinaryTakeExec>::Exec,
+                          GenericTakeChunkedExecFunctor<VarBinaryTakeExec>::Exec},
+      SelectionKernelData{InputType(match::LargeBinaryLike()), take_indices,
+                          ArrayTakeExecFunctor<LargeVarBinaryTakeExec>::Exec,
+                          GenericTakeChunkedExecFunctor<LargeVarBinaryTakeExec>::Exec},
+      SelectionKernelData{InputType(match::FixedSizeBinaryLike()), take_indices,
+                          ArrayTakeExecFunctor<FixedWidthTakeExec>::Exec,
+                          SpecialTakeChunkedExecFunctor<FixedWidthTakeExec>::Exec},
+      SelectionKernelData{InputType(null()), take_indices,
+                          ArrayTakeExecFunctor<NullTakeExec>::Exec,
+                          GenericTakeChunkedExecFunctor<NullTakeExec>::Exec},
+      SelectionKernelData{InputType(Type::DICTIONARY), take_indices,
+                          ArrayTakeExecFunctor<DictionaryTake>::Exec,
+                          GenericTakeChunkedExecFunctor<DictionaryTake>::Exec},
+      SelectionKernelData{InputType(Type::EXTENSION), take_indices,
+                          ArrayTakeExecFunctor<ExtensionTake>::Exec,
+                          GenericTakeChunkedExecFunctor<ExtensionTake>::Exec},
+      SelectionKernelData{InputType(Type::LIST), take_indices,
+                          ArrayTakeExecFunctor<ListTakeExec>::Exec,
+                          GenericTakeChunkedExecFunctor<ListTakeExec>::Exec},
+      SelectionKernelData{InputType(Type::LARGE_LIST), take_indices,
+                          ArrayTakeExecFunctor<LargeListTakeExec>::Exec,
+                          GenericTakeChunkedExecFunctor<LargeListTakeExec>::Exec},
+      SelectionKernelData{InputType(Type::LIST_VIEW), take_indices,
+                          ArrayTakeExecFunctor<ListViewTakeExec>::Exec,
+                          GenericTakeChunkedExecFunctor<ListViewTakeExec>::Exec},
+      SelectionKernelData{InputType(Type::LARGE_LIST_VIEW), take_indices,
+                          ArrayTakeExecFunctor<LargeListViewTakeExec>::Exec,
+                          GenericTakeChunkedExecFunctor<LargeListViewTakeExec>::Exec},
+      SelectionKernelData{InputType(Type::FIXED_SIZE_LIST), take_indices,
+                          ArrayTakeExecFunctor<FSLTakeExec>::Exec,
+                          GenericTakeChunkedExecFunctor<FSLTakeExec>::Exec},
+      SelectionKernelData{InputType(Type::DENSE_UNION), take_indices,
+                          ArrayTakeExecFunctor<DenseUnionTakeExec>::Exec,
+                          GenericTakeChunkedExecFunctor<DenseUnionTakeExec>::Exec},
+      SelectionKernelData{InputType(Type::SPARSE_UNION), take_indices,
+                          ArrayTakeExecFunctor<SparseUnionTakeExec>::Exec,
+                          GenericTakeChunkedExecFunctor<SparseUnionTakeExec>::Exec},
+      SelectionKernelData{InputType(Type::STRUCT), take_indices,
+                          ArrayTakeExecFunctor<StructTakeExec>::Exec,
+                          GenericTakeChunkedExecFunctor<StructTakeExec>::Exec},
+      SelectionKernelData{InputType(Type::MAP), take_indices,
+                          ArrayTakeExecFunctor<MapTakeExec>::Exec,
+                          GenericTakeChunkedExecFunctor<MapTakeExec>::Exec},
   };
 }
 

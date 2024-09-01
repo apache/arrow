@@ -895,18 +895,23 @@ Status ExtensionFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult
 }
 
 // Transform filter to selection indices and then use Take.
-Status FilterWithTakeExec(const ArrayKernelExec& take_exec, KernelContext* ctx,
+Status FilterWithTakeExec(TakeKernelExec take_aaa_exec, KernelContext* ctx,
                           const ExecSpan& batch, ExecResult* out) {
-  std::shared_ptr<ArrayData> indices;
+  std::shared_ptr<ArrayData> indices_data;
   RETURN_NOT_OK(GetTakeIndices(batch[1].array,
                                FilterState::Get(ctx).null_selection_behavior,
                                ctx->memory_pool())
-                    .Value(&indices));
+                    .Value(&indices_data));
+
   KernelContext take_ctx(*ctx);
   TakeState state{TakeOptions::NoBoundsCheck()};
   take_ctx.SetState(&state);
-  ExecSpan take_batch({batch[0], ArraySpan(*indices)}, batch.length);
-  return take_exec(&take_ctx, take_batch, out);
+
+  ValuesSpan values(batch[0].array);
+  std::shared_ptr<ArrayData> out_data = out->array_data();
+  RETURN_NOT_OK(take_aaa_exec(&take_ctx, values, *indices_data, &out_data));
+  out->value = std::move(out_data);
+  return Status::OK();
 }
 
 // Due to the special treatment with their Take kernels, we filter Struct and SparseUnion
