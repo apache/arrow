@@ -329,59 +329,6 @@ namespace {
 
 using TakeState = OptionsWrapper<TakeOptions>;
 
-class ValuesSpan {
- private:
-  const std::shared_ptr<ChunkedArray> chunked_ = nullptr;
-  const ArraySpan chunk0_;  // first chunk or the whole array
-  mutable std::optional<ChunkResolver> chunk_resolver_;
-
- public:
-  explicit ValuesSpan(const std::shared_ptr<ChunkedArray> values)
-      : chunked_(std::move(values)), chunk0_{*values->chunk(0)->data()} {
-    DCHECK(chunked_);
-    DCHECK_GT(chunked_->num_chunks(), 0);
-  }
-
-  explicit ValuesSpan(const ArraySpan& values)  // NOLINT(modernize-pass-by-value)
-      : chunk0_(values) {}
-
-  explicit ValuesSpan(const ArrayData& values) : chunk0_{ArraySpan{values}} {}
-
-  bool is_chunked() const { return chunked_ != nullptr; }
-
-  const ChunkedArray& chunked_array() const {
-    DCHECK(is_chunked());
-    return *chunked_;
-  }
-
-  /// \brief Lazily builds a ChunkResolver from the underlying chunked array.
-  ///
-  /// \note This method is not thread-safe.
-  /// \pre is_chunked()
-  const ChunkResolver& chunk_resolver() const {
-    DCHECK(is_chunked());
-    if (!chunk_resolver_.has_value()) {
-      chunk_resolver_.emplace(chunked_->chunks());
-    }
-    return *chunk_resolver_;
-  }
-
-  const ArraySpan& chunk0() const { return chunk0_; }
-
-  const ArraySpan& array() const {
-    DCHECK(!is_chunked());
-    return chunk0_;
-  }
-
-  const DataType* type() const { return chunk0_.type; }
-
-  int64_t length() const { return is_chunked() ? chunked_->length() : array().length; }
-
-  bool MayHaveNulls() const {
-    return is_chunked() ? chunked_->null_count() != 0 : array().MayHaveNulls();
-  }
-};
-
 struct ChunkedFixedWidthValuesSpan {
  private:
   // src_residual_bit_offsets_[i] is used to store the bit offset of the first byte (0-7)

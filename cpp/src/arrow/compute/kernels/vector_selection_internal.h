@@ -17,22 +17,88 @@
 
 #pragma once
 
+#include <cassert>
 #include <cstdint>
+#include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "arrow/array/data.h"
+#include "arrow/chunk_resolver.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/function.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 
-namespace arrow::compute::internal {
+namespace arrow {
+
+using internal::ChunkResolver;
+
+namespace compute::internal {
 
 using FilterState = OptionsWrapper<FilterOptions>;
 using TakeState = OptionsWrapper<TakeOptions>;
+
+/// \brief A class used to represent the values argument in take kernels.
+///
+/// It can represent either a chunked array or a single array. When the values
+/// are chunked, the class provides a ChunkResolver to resolve the target array
+/// and index in the chunked array.
+class ValuesSpan {
+ private:
+  const std::shared_ptr<ChunkedArray> chunked_ = nullptr;
+  const ArraySpan chunk0_;  // first chunk or the whole array
+  mutable std::optional<ChunkResolver> chunk_resolver_;
+
+ public:
+  explicit ValuesSpan(const std::shared_ptr<ChunkedArray> values)
+      : chunked_(std::move(values)), chunk0_{*chunked_->chunk(0)->data()} {
+    assert(chunked_);
+    assert(chunked_->num_chunks() > 0);
+  }
+
+  explicit ValuesSpan(const ArraySpan& values)  // NOLINT(modernize-pass-by-value)
+      : chunk0_(values) {}
+
+  explicit ValuesSpan(const ArrayData& values) : chunk0_{ArraySpan{values}} {}
+
+  bool is_chunked() const { return chunked_ != nullptr; }
+
+  const ChunkedArray& chunked_array() const {
+    assert(is_chunked());
+    return *chunked_;
+  }
+
+  /// \brief Lazily builds a ChunkResolver from the underlying chunked array.
+  ///
+  /// \note This method is not thread-safe.
+  /// \pre is_chunked()
+  const ChunkResolver& chunk_resolver() const {
+    assert(is_chunked());
+    if (!chunk_resolver_.has_value()) {
+      chunk_resolver_.emplace(chunked_->chunks());
+    }
+    return *chunk_resolver_;
+  }
+
+  const ArraySpan& chunk0() const { return chunk0_; }
+
+  const ArraySpan& array() const {
+    assert(!is_chunked());
+    return chunk0_;
+  }
+
+  const DataType* type() const { return chunk0_.type; }
+
+  int64_t length() const { return is_chunked() ? chunked_->length() : array().length; }
+
+  bool MayHaveNulls() const {
+    return is_chunked() ? chunked_->null_count() != 0 : array().MayHaveNulls();
+  }
+};
 
 struct SelectionKernelData {
   SelectionKernelData(InputType value_type, InputType selection_type,
@@ -97,4 +163,5 @@ Status SparseUnionTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status StructTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status MapTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
 
-}  // namespace arrow::compute::internal
+}  // namespace compute::internal
+}  // namespace arrow
