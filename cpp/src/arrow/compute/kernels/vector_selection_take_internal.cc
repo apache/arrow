@@ -341,7 +341,8 @@ class ValuesSpan {
     DCHECK_GT(chunked_->num_chunks(), 0);
   }
 
-  explicit ValuesSpan(const ArraySpan& values) : chunk0_(values) {}
+  explicit ValuesSpan(const ArraySpan& values)  // NOLINT(modernize-pass-by-value)
+      : chunk0_(values) {}
 
   bool is_chunked() const { return chunked_ != nullptr; }
 
@@ -404,32 +405,45 @@ struct ChunkedFixedWidthValuesSpan {
   const uint8_t* const* src_chunks_data() const { return src_chunks.data(); }
 };
 
-/// \brief Logical indices resolved against a chunked array.
-struct ResolvedIndicesState {
+/// \brief Buffer for chunk locations resolved against a chunked array.
+struct BoundedLocationBuffer {
  private:
   std::unique_ptr<Buffer> chunk_location_buffer = NULLPTR;
 
-  Status AllocateBuffers(int64_t n_indices, int64_t sizeof_index_type, MemoryPool* pool) {
+  Status Allocate(int64_t n_locations, int64_t sizeof_location, MemoryPool* pool) {
     ARROW_ASSIGN_OR_RAISE(chunk_location_buffer,
-                          AllocateBuffer(2 * n_indices * sizeof_index_type, pool));
+                          AllocateBuffer(n_locations * sizeof_location, pool));
     return Status::OK();
   }
 
  public:
-  ~ResolvedIndicesState() = default;
+  ~BoundedLocationBuffer() = default;
 
   template <typename IndexCType>
-  Status InitWithIndices(const ArrayVector& chunks, int64_t idx_length,
-                         const IndexCType* idx, MemoryPool* pool) {
-    RETURN_NOT_OK(AllocateBuffers(idx_length, sizeof(IndexCType), pool));
-    auto* chunk_location_vec =
-        chunk_location_buffer->mutable_data_as<TypedChunkLocation<IndexCType>>();
+  Status InitWithCapacity(int64_t n_locations, MemoryPool* pool) {
+    RETURN_NOT_OK(Allocate(n_locations, sizeof(TypedChunkLocation<IndexCType>), pool));
+    return Status::OK();
+  }
+
+  /// \brief The capacity in terms of number of resolved chunk locations.
+  ///
+  /// One location is needed for each index.
+  template <typename IndexCType>
+  int64_t Capacity() const {
+    return chunk_location_buffer->size() / sizeof(TypedChunkLocation<IndexCType>);
+  }
+
+  /// \pre idx_length <= Capacity<IndexCType>()
+  template <typename IndexCType>
+  Status ResolveIndices(const ChunkResolver& chunk_resolver, int64_t idx_length,
+                        const IndexCType* idx, IndexCType chunk_hint) {
+    DCHECK_LE(idx_length, Capacity<IndexCType>());
+    auto* chunk_location_vec = mutable_chunk_location_vec<IndexCType>();
     // All indices are resolved in one go without checking the validity bitmap.
     // This is OK as long the output corresponding to the invalid indices is not used.
-    ChunkResolver resolver(chunks);
-    bool enough_precision = resolver.ResolveMany<IndexCType>(
+    bool enough_precision = chunk_resolver.ResolveMany<IndexCType>(
         /*n_indices=*/idx_length, /*logical_index_vec=*/idx, chunk_location_vec,
-        /*chunk_hint=*/static_cast<IndexCType>(0));
+        chunk_hint);
     if (ARROW_PREDICT_FALSE(!enough_precision)) {
       return Status::IndexError("IndexCType is too small");
     }
@@ -437,8 +451,18 @@ struct ResolvedIndicesState {
   }
 
   template <typename IndexCType>
+  TypedChunkLocation<IndexCType>* mutable_chunk_location_vec() {
+    return chunk_location_buffer->mutable_data_as<TypedChunkLocation<IndexCType>>();
+  }
+
+  template <typename IndexCType>
   const TypedChunkLocation<IndexCType>* chunk_location_vec() const {
     return chunk_location_buffer->data_as<TypedChunkLocation<IndexCType>>();
+  }
+
+  template <typename IndexCType>
+  IndexCType chunk_index(int64_t position) const {
+    return chunk_location_vec<IndexCType>()[position].chunk_index;
   }
 };
 
@@ -522,32 +546,76 @@ struct FixedWidthTakeImpl {
   static Status ChunkedExec(KernelContext* ctx, const ChunkedArray& values,
                             const ArraySpan& indices, ArrayData* out_arr,
                             int64_t factor) {
-    const bool out_has_validity = values.null_count() > 0 || indices.MayHaveNulls();
+    constexpr int64_t kIndexBlockCapacityInBytes = 16 * 1024;
+    // Must be a multiple of 8 so `GatherFromChunks` can always be
+    // constructed with byte-aligned output pointers in the loop.
+    constexpr int64_t kIndexBlockCapacity =
+        kIndexBlockCapacityInBytes / sizeof(IndexCType);
+    static_assert((kIndexBlockCapacity * kValueWidthInBits) % 8 == 0);
 
     ChunkedFixedWidthValuesSpan chunked_values{values};
-    ResolvedIndicesState resolved_idx;
-    RETURN_NOT_OK(resolved_idx.InitWithIndices<IndexCType>(
-        /*chunks=*/values.chunks(), /*idx_length=*/indices.length,
-        /*idx=*/indices.GetValues<IndexCType>(1), ctx->memory_pool()));
+    ChunkResolver chunk_resolver{values.chunks()};
+    BoundedLocationBuffer location_buffer;
+    // TODO(felipecrv): find a way to share the buffer on TakeCC kernel
+    RETURN_NOT_OK(location_buffer.InitWithCapacity<IndexCType>(
+        /*n_locations=*/std::min(kIndexBlockCapacity, indices.length),
+        ctx->memory_pool()));
 
+    return DoChunkedExec(ctx, values, chunked_values, chunk_resolver, indices,
+                         &location_buffer, out_arr, factor);
+  }
+
+  // \pre location_buffer is initialized
+  // \pre location_buffer->Capacity() is a multiple of 8
+  static Status DoChunkedExec(KernelContext* ctx, const ChunkedArray& values,
+                              const ChunkedFixedWidthValuesSpan& chunked_values,
+                              const ChunkResolver& chunk_resolver,
+                              const ArraySpan& indices,
+                              BoundedLocationBuffer* location_buffer, ArrayData* out_arr,
+                              int64_t factor) {
+    const bool out_has_validity = values.null_count() > 0 || indices.MayHaveNulls();
+
+    const auto location_buffer_capacity = location_buffer->Capacity<IndexCType>();
+    const auto* idx = indices.GetValues<IndexCType>(1);
+    uint8_t* out = util::MutableFixedWidthValuesPointer(out_arr);
     int64_t valid_count = 0;
-    arrow::internal::GatherFromChunks<kValueWidthInBits, IndexCType, WithFactor::value>
-        gather{chunked_values.src_residual_bit_offsets_data(),
-               chunked_values.src_chunks_data(),
-               indices.length,
-               resolved_idx.chunk_location_vec<IndexCType>(),
-               /*out=*/util::MutableFixedWidthValuesPointer(out_arr),
-               factor};
-    if (out_has_validity) {
-      DCHECK_EQ(out_arr->offset, 0);
-      // out_is_valid must be zero-initiliazed, because Gather::Execute
-      // saves time by not having to ClearBit on every null element.
-      auto out_is_valid = out_arr->GetMutableValues<uint8_t>(0);
-      memset(out_is_valid, 0, bit_util::BytesForBits(out_arr->length));
-      valid_count = gather.template Execute<OutputIsZeroInitialized::value>(
-          /*src_validity=*/values, /*idx_validity=*/indices, out_is_valid);
-    } else {
-      valid_count = gather.Execute();
+    IndexCType chunk_hint = 0;
+    int64_t idx_offset = 0;
+    while (idx_offset < indices.length) {
+      const int64_t block_length =
+          std::min(location_buffer_capacity, indices.length - idx_offset);
+
+      RETURN_NOT_OK(location_buffer->ResolveIndices<IndexCType>(
+          chunk_resolver, /*idx_length=*/block_length, idx, chunk_hint));
+      arrow::internal::GatherFromChunks<kValueWidthInBits, IndexCType, WithFactor::value>
+          gather{chunked_values.src_residual_bit_offsets_data(),
+                 chunked_values.src_chunks_data(),
+                 /*idx_length=*/block_length,
+                 location_buffer->chunk_location_vec<IndexCType>(),
+                 out,
+                 factor};
+      if (out_has_validity) {
+        DCHECK_EQ(out_arr->offset, 0);
+        // out_is_valid must be zero-initiliazed, because Gather::Execute
+        // saves time by not having to ClearBit on every null element.
+        auto out_is_valid = out_arr->GetMutableValues<uint8_t>(0);
+        memset(out_is_valid, 0, bit_util::BytesForBits(out_arr->length));
+        valid_count += gather.template Execute<OutputIsZeroInitialized::value>(
+            /*src_validity=*/values, /*idx_validity=*/indices, out_is_valid);
+      } else {
+        valid_count += gather.Execute();
+      }
+      // Prepare for the next iteration
+      chunk_hint = location_buffer->chunk_index<IndexCType>(block_length - 1);
+      idx_offset += block_length;
+      if constexpr (WithFactor::value) {
+        static_assert(kValueWidthInBits == 8);
+        out += block_length * factor;
+      } else {
+        out += (block_length * kValueWidthInBits) / 8;
+        // The last `out` produced in this loop might not be byte-aligned,
+        // but that is not a poblem because no value is written to it.
+      }
     }
     out_arr->null_count = out_arr->length - valid_count;
     return Status::OK();
