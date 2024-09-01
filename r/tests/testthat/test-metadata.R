@@ -170,18 +170,24 @@ i Type: \"environment\"
 > If you trust the source, you can set `options(arrow.unsafe_metadata = TRUE)` to preserve them.",
     fixed = TRUE
   )
+  # Try hiding it even further, in attributes
+  bad_meta <- list(attributes = structure(list(), hidden_attr = bad))
+  tab$metadata <- list(r = rawToChar(serialize(bad_meta, NULL, ascii = TRUE)))
+  expect_warning(
+    as.data.frame(tab),
+    "Potentially unsafe or invalid elements have been discarded from R metadata.
+i Type: \"environment\"
+> If you trust the source, you can set `options(arrow.unsafe_metadata = TRUE)` to preserve them.",
+    fixed = TRUE
+  )
+
   # You can set an option to allow them through.
   # It still warns, just differently, and it doesn't prune the attributes
   withr::local_options(list("arrow.unsafe_metadata" = TRUE))
   expect_warning(
-    expect_warning(
-      as.data.frame(tab),
-      "R metadata may have unsafe or invalid elements
+    as.data.frame(tab),
+    "R metadata may have unsafe or invalid elements
 i Type: \"environment\""
-    ),
-    # This particular example ultimately fails because it's not a list
-    "Invalid metadata$r",
-    fixed = TRUE
   )
 })
 
