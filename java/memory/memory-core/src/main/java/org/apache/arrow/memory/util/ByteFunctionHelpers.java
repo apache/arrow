@@ -309,7 +309,7 @@ public class ByteFunctionHelpers {
       hasher = SimpleHasher.INSTANCE;
     }
 
-    return hasher.hashCode(buf, start, end - start);
+    return (int) hasher.hashCode(buf, start, end - start);
   }
 
   /** Generate a new hashCode with the given current hashCode and new hashCode. */

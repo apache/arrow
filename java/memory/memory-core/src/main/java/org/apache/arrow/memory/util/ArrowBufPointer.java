@@ -157,7 +157,7 @@ public final class ArrowBufPointer implements Comparable<ArrowBufPointer> {
     if (buf == null) {
       hashCode = NULL_HASH_CODE;
     } else {
-      hashCode = hasher.hashCode(buf, offset, length);
+      hashCode = (int) hasher.hashCode(buf, offset, length);
     }
 
     hashCodeChanged = false;
