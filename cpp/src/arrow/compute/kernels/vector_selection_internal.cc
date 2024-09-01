@@ -193,8 +193,8 @@ struct Selection {
   };
 
   KernelContext* ctx;
-  const ArraySpan& values;
-  const ArraySpan& selection;
+  const ArraySpan values;
+  const ArraySpan selection;
   int64_t output_length;
   ArrayData* out;
   TypedBufferBuilder<bool> validity_builder;
