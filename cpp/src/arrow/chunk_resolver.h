@@ -150,26 +150,25 @@ struct ARROW_EXPORT ChunkResolver {
   ///
   /// \pre 0 <= logical_index_vec[i] < logical_array_length()
   ///      (for well-defined and valid chunk index results)
-  /// \pre out_chunk_index_vec has space for `n_indices`
+  /// \pre out_chunk_location_vec has space for `n_indices` locations
   /// \pre chunk_hint in [0, chunks.size()]
-  /// \post out_chunk_index_vec[i] in [0, chunks.size()] for i in [0, n)
+  /// \post out_chunk_location_vec[i].chunk_index in [0, chunks.size()] for i in [0, n)
   /// \post if logical_index_vec[i] >= chunked_array.length(), then
-  ///       out_chunk_index_vec[i] == chunks.size()
-  ///       and out_index_in_chunk_vec[i] is UNDEFINED (can be out-of-bounds)
-  /// \post if logical_index_vec[i] < 0, then both out_chunk_index_vec[i] and
-  ///       out_index_in_chunk_vec[i] are UNDEFINED
+  ///       out_chunk_location_vec[i].chunk_index == chunks.size()
+  ///       and out_chunk_location_vec[i].index_in_chunk is UNDEFINED (can be
+  ///       out-of-bounds)
+  /// \post if logical_index_vec[i] < 0, then both values in out_chunk_index_vec[i]
+  ///       are UNDEFINED
   ///
   /// \param n_indices The number of logical indices to resolve
   /// \param logical_index_vec The logical indices to resolve
-  /// \param out_chunk_index_vec The output array where the chunk indices will be written
+  /// \param out_chunk_location_vec The output array where the locations will be written
   /// \param chunk_hint 0 or the last chunk_index produced by ResolveMany
-  /// \param out_index_in_chunk_vec If not NULLPTR, the output array where the
-  ///                               within-chunk indices will be written
   /// \return false iff chunks.size() > std::numeric_limits<IndexType>::max()
   template <typename IndexType>
   [[nodiscard]] bool ResolveMany(int64_t n_indices, const IndexType* logical_index_vec,
-                                 IndexType* out_chunk_index_vec, IndexType chunk_hint = 0,
-                                 IndexType* out_index_in_chunk_vec = NULLPTR) const {
+                                 TypedChunkLocation<IndexType>* out_chunk_location_vec,
+                                 IndexType chunk_hint = 0) const {
     if constexpr (sizeof(IndexType) < sizeof(uint64_t)) {
       // The max value returned by Bisect is `offsets.size() - 1` (= chunks.size()).
       constexpr uint64_t kMaxIndexTypeValue = std::numeric_limits<IndexType>::max();
@@ -194,13 +193,11 @@ struct ARROW_EXPORT ChunkResolver {
       // logical index in the chunked array.
       using U = std::make_unsigned_t<IndexType>;
       ResolveManyImpl(n_indices, reinterpret_cast<const U*>(logical_index_vec),
-                      reinterpret_cast<U*>(out_chunk_index_vec),
-                      static_cast<U>(chunk_hint),
-                      reinterpret_cast<U*>(out_index_in_chunk_vec));
+                      reinterpret_cast<TypedChunkLocation<U>*>(out_chunk_location_vec),
+                      static_cast<U>(chunk_hint));
     } else {
       static_assert(std::is_unsigned_v<IndexType>);
-      ResolveManyImpl(n_indices, logical_index_vec, out_chunk_index_vec, chunk_hint,
-                      out_index_in_chunk_vec);
+      ResolveManyImpl(n_indices, logical_index_vec, out_chunk_location_vec, chunk_hint);
     }
     return true;
   }
@@ -232,10 +229,14 @@ struct ARROW_EXPORT ChunkResolver {
 
   /// \pre all the pre-conditions of ChunkResolver::ResolveMany()
   /// \pre num_offsets - 1 <= std::numeric_limits<IndexType>::max()
-  void ResolveManyImpl(int64_t, const uint8_t*, uint8_t*, uint8_t, uint8_t*) const;
-  void ResolveManyImpl(int64_t, const uint16_t*, uint16_t*, uint16_t, uint16_t*) const;
-  void ResolveManyImpl(int64_t, const uint32_t*, uint32_t*, uint32_t, uint32_t*) const;
-  void ResolveManyImpl(int64_t, const uint64_t*, uint64_t*, uint64_t, uint64_t*) const;
+  void ResolveManyImpl(int64_t, const uint8_t*, TypedChunkLocation<uint8_t>*,
+                       uint8_t) const;
+  void ResolveManyImpl(int64_t, const uint16_t*, TypedChunkLocation<uint16_t>*,
+                       uint16_t) const;
+  void ResolveManyImpl(int64_t, const uint32_t*, TypedChunkLocation<uint32_t>*,
+                       uint32_t) const;
+  void ResolveManyImpl(int64_t, const uint64_t*, TypedChunkLocation<uint64_t>*,
+                       uint64_t) const;
 
  public:
   /// \brief Find the index of the chunk that contains the logical index.
