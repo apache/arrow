@@ -145,41 +145,37 @@ void FixedWidthKeyEncoder::AddLengthNull(int32_t* length) {
 
 Status FixedWidthKeyEncoder::Encode(const ExecValue& data, int64_t batch_length,
                                     uint8_t** encoded_bytes) {
+  auto handle_next_valid_value = [&](std::string_view bytes) {
+    auto& encoded_ptr = *encoded_bytes++;
+    *encoded_ptr++ = kValidByte;
+    memcpy(encoded_ptr, bytes.data(), byte_width_);
+    encoded_ptr += byte_width_;
+  };
+  auto handle_next_null_value = [&] {
+    auto& encoded_ptr = *encoded_bytes++;
+    *encoded_ptr++ = kNullByte;
+    memset(encoded_ptr, 0, byte_width_);
+    encoded_ptr += byte_width_;
+  };
   if (data.is_array()) {
     ArraySpan viewed = data.array;
+    // The original type might not be FixedSizeBinaryType, but it would
+    // treat the input as binary data.
     auto view_ty = fixed_size_binary(byte_width_);
     viewed.type = view_ty.get();
-    VisitArraySpanInline<FixedSizeBinaryType>(
-        viewed,
-        [&](std::string_view bytes) {
-          auto& encoded_ptr = *encoded_bytes++;
-          *encoded_ptr++ = kValidByte;
-          memcpy(encoded_ptr, bytes.data(), byte_width_);
-          encoded_ptr += byte_width_;
-        },
-        [&] {
-          auto& encoded_ptr = *encoded_bytes++;
-          *encoded_ptr++ = kNullByte;
-          memset(encoded_ptr, 0, byte_width_);
-          encoded_ptr += byte_width_;
-        });
+    VisitArraySpanInline<FixedSizeBinaryType>(viewed, handle_next_valid_value,
+                                              handle_next_null_value);
   } else {
     const auto& scalar = data.scalar_as<arrow::internal::PrimitiveScalarBase>();
     if (scalar.is_valid) {
-      const std::string_view data = scalar.view();
-      DCHECK_EQ(data.size(), static_cast<size_t>(byte_width_));
+      const std::string_view scalar_data = scalar.view();
+      DCHECK_EQ(scalar_data.size(), static_cast<size_t>(byte_width_));
       for (int64_t i = 0; i < batch_length; i++) {
-        auto& encoded_ptr = *encoded_bytes++;
-        *encoded_ptr++ = kValidByte;
-        memcpy(encoded_ptr, data.data(), data.size());
-        encoded_ptr += byte_width_;
+        handle_next_valid_value(scalar_data);
       }
     } else {
       for (int64_t i = 0; i < batch_length; i++) {
-        auto& encoded_ptr = *encoded_bytes++;
-        *encoded_ptr++ = kNullByte;
-        memset(encoded_ptr, 0, byte_width_);
-        encoded_ptr += byte_width_;
+        handle_next_null_value();
       }
     }
   }
@@ -267,11 +263,11 @@ void RowEncoder::Init(const std::vector<TypeHolder>& column_types, ExecContext* 
 
   for (size_t i = 0; i < column_types.size(); ++i) {
     const bool is_extension = column_types[i].id() == Type::EXTENSION;
-    const TypeHolder& type = is_extension
-                                 ? arrow::internal::checked_pointer_cast<ExtensionType>(
-                                       column_types[i].GetSharedPtr())
-                                       ->storage_type()
-                                 : column_types[i];
+    const TypeHolder& type =
+        is_extension
+            ? arrow::internal::checked_cast<const ExtensionType*>(column_types[i].type)
+                  ->storage_type()
+            : column_types[i];
 
     if (is_extension) {
       extension_types_[i] = arrow::internal::checked_pointer_cast<ExtensionType>(
@@ -379,7 +375,7 @@ Result<ExecBatch> RowEncoder::Decode(int64_t num_rows, const int32_t* row_ids) {
       ARROW_ASSIGN_OR_RAISE(out.values[i], ::arrow::internal::GetArrayView(
                                                column_array_data, extension_types_[i]))
     } else {
-      out.values[i] = column_array_data;
+      out.values[i] = std::move(column_array_data);
     }
   }
 
