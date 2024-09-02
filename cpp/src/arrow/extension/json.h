@@ -35,10 +35,6 @@ class ARROW_EXPORT JsonExtensionType : public ExtensionType {
 
   std::string extension_name() const override { return "arrow.json"; }
 
-  std::string ToString(bool show_metadata = false) const override {
-    return "extension<json>";
-  };
-
   bool ExtensionEquals(const ExtensionType& other) const override;
 
   Result<std::shared_ptr<DataType>> Deserialize(

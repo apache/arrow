@@ -22,8 +22,6 @@
 
 #include <gtest/gtest.h>
 
-#include "arrow/array/validate.h"
-#include "arrow/extension/json.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/string.h"
 #include "arrow/util/utf8_internal.h"
@@ -562,31 +560,6 @@ TEST(UTF8Length, Basics) {
   ASSERT_EQ(length("\xe3\x81\x81"), 1);
   // raised hands emoji (4 bytes)
   ASSERT_EQ(length("\xf0\x9f\x99\x8c"), 1);
-}
-
-class UTF8ExtensionArrayTest : public ::testing::Test {
- public:
-  static std::shared_ptr<Array> ExampleJson(
-      const std::shared_ptr<DataType>& storage_type) {
-    std::shared_ptr<Array> arr = ArrayFromJSON(storage_type, R"([
-    "null",
-    "1234",
-    "3.14159",
-    "true",
-    "false",
-    "\"a json string\"",
-    "[\"a\", \"json\", \"array\"]",
-    "{\"obj\": \"a simple json object\"}"
-   ])");
-    return ExtensionType::WrapArray(arrow::extension::json(storage_type), arr);
-  }
-};
-
-TEST_F(UTF8ExtensionArrayTest, JSONExtensionType) {
-  for (const auto& storage_type : {utf8(), large_utf8(), utf8_view()}) {
-    const auto ext_arr = ExampleJson(storage_type);
-    ASSERT_OK(arrow::internal::ValidateUTF8(*ext_arr));
-  }
 }
 
 }  // namespace util

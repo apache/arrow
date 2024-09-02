@@ -44,20 +44,6 @@ std::shared_ptr<Array> ExampleJson(const std::shared_ptr<DataType>& storage_type
   return ExtensionType::WrapArray(arrow::extension::json(storage_type), arr);
 }
 
-static std::shared_ptr<Array> ExampleJsonInvalidUTF8(
-    const std::shared_ptr<DataType>& storage_type) {
-  return ArrayFromJSON(storage_type,
-                       "["
-                       R"(
-                       "Hi",
-                       "olá mundo",
-                       "你好世界",
-                       "",
-                       )"
-                       "\"\xa0\xa1\""
-                       "]");
-}
-
 TEST_F(TestJsonExtensionType, JsonRoundtrip) {
   for (const auto& storage_type : {utf8(), large_utf8(), utf8_view()}) {
     std::shared_ptr<Array> ext_arr = ExampleJson(storage_type);
@@ -77,14 +63,46 @@ TEST_F(TestJsonExtensionType, JsonRoundtrip) {
 
 TEST_F(TestJsonExtensionType, InvalidUTF8) {
   for (const auto& storage_type : {utf8(), large_utf8(), utf8_view()}) {
-    std::shared_ptr<Array> ext_arr = ExampleJsonInvalidUTF8(storage_type);
-    auto batch =
-        RecordBatch::Make(schema({field("f0", json(storage_type))}), 8, {ext_arr});
+    auto json_type = json(storage_type);
+    auto invalid_input = ArrayFromJSON(storage_type, "[\"Ⱥa\xFFⱭ\", \"Ɽ\xe1\xbdⱤaA\"]");
+    auto ext_arr =
+        ExtensionType::WrapArray(arrow::extension::json(storage_type), invalid_input);
 
+    ASSERT_RAISES_WITH_MESSAGE(Invalid,
+                               "Invalid: Invalid UTF8 sequence at string index 0",
+                               ext_arr->ValidateFull());
+    ASSERT_RAISES_WITH_MESSAGE(Invalid,
+                               "Invalid: Invalid UTF8 sequence at string index 0",
+                               arrow::internal::ValidateUTF8(*ext_arr));
+
+    auto batch = RecordBatch::Make(schema({field("f0", json_type)}), 2, {ext_arr});
     std::shared_ptr<RecordBatch> read_batch;
-    ASSERT_RAISES_WITH_MESSAGE(IOError,
-                               "IOError: Array length did not match record batch length",
-                               RoundtripBatch(batch, &read_batch));
+    ASSERT_OK(RoundtripBatch(batch, &read_batch));
+  }
+}
+
+class UTF8ExtensionArrayTest : public ::testing::Test {
+ public:
+  static std::shared_ptr<Array> ExampleJson(
+      const std::shared_ptr<DataType>& storage_type) {
+    std::shared_ptr<Array> arr = ArrayFromJSON(storage_type, R"([
+    "null",
+    "1234",
+    "3.14159",
+    "true",
+    "false",
+    "\"a json string\"",
+    "[\"a\", \"json\", \"array\"]",
+    "{\"obj\": \"a simple json object\"}"
+   ])");
+    return ExtensionType::WrapArray(arrow::extension::json(storage_type), arr);
+  }
+};
+
+TEST_F(UTF8ExtensionArrayTest, JSONExtensionType) {
+  for (const auto& storage_type : {utf8(), large_utf8(), utf8_view()}) {
+    const auto ext_arr = ExampleJson(storage_type);
+    ASSERT_OK(arrow::internal::ValidateUTF8(*ext_arr));
   }
 }
 
