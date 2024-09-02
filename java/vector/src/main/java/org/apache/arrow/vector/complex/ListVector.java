@@ -488,7 +488,7 @@ public class ListVector extends BaseRepeatedValueVector
     final int start = offsetBuffer.getInt(index * OFFSET_WIDTH);
     final int end = offsetBuffer.getInt((index + 1) * OFFSET_WIDTH);
     for (int i = start; i < end; i++) {
-      hash = ByteFunctionHelpers.combineHash(hash, vector.hashCode(i, hasher));
+      hash = (int) ByteFunctionHelpers.combineHash(hash, vector.hashCode(i, hasher));
     }
     return hash;
   }

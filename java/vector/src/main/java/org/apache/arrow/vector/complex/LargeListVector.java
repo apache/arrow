@@ -588,7 +588,8 @@ public class LargeListVector extends BaseValueVector
     final long start = offsetBuffer.getLong((long) index * OFFSET_WIDTH);
     final long end = offsetBuffer.getLong(((long) index + 1L) * OFFSET_WIDTH);
     for (long i = start; i < end; i++) {
-      hash = ByteFunctionHelpers.combineHash(hash, vector.hashCode(checkedCastToInt(i), hasher));
+      hash =
+          (int) ByteFunctionHelpers.combineHash(hash, vector.hashCode(checkedCastToInt(i), hasher));
     }
     return hash;
   }
