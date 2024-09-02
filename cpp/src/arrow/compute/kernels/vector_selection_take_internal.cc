@@ -53,6 +53,7 @@ using internal::BitBlockCounter;
 using internal::CheckIndexBounds;
 using internal::ChunkResolver;
 using internal::OptionalBitBlockCounter;
+using internal::TypedChunkLocation;
 
 namespace compute {
 namespace internal {
@@ -410,15 +411,12 @@ struct ChunkedFixedWidthValuesSpan {
 /// \brief Logical indices resolved against a chunked array.
 struct ResolvedIndicesState {
  private:
-  std::unique_ptr<Buffer> chunk_index_vec_buffer = NULLPTR;
-  std::unique_ptr<Buffer> index_in_chunk_vec_buffer = NULLPTR;
+  std::unique_ptr<Buffer> chunk_location_buffer = NULLPTR;
 
   ARROW_NOINLINE
   Status AllocateBuffers(int64_t n_indices, int64_t sizeof_index_type, MemoryPool* pool) {
-    ARROW_ASSIGN_OR_RAISE(chunk_index_vec_buffer,
-                          AllocateBuffer(n_indices * sizeof_index_type, pool));
-    ARROW_ASSIGN_OR_RAISE(index_in_chunk_vec_buffer,
-                          AllocateBuffer(n_indices * sizeof_index_type, pool));
+    ARROW_ASSIGN_OR_RAISE(chunk_location_buffer,
+                          AllocateBuffer(2 * n_indices * sizeof_index_type, pool));
     return Status::OK();
   }
 
@@ -430,14 +428,14 @@ struct ResolvedIndicesState {
   Status InitWithIndices(const ArrayVector& chunks, int64_t idx_length,
                          const IndexCType* idx, MemoryPool* pool) {
     RETURN_NOT_OK(AllocateBuffers(idx_length, sizeof(IndexCType), pool));
-    auto* chunk_index_vec = chunk_index_vec_buffer->mutable_data_as<IndexCType>();
-    auto* index_in_chunk_vec = index_in_chunk_vec_buffer->mutable_data_as<IndexCType>();
+    auto* chunk_location_vec =
+        chunk_location_buffer->mutable_data_as<TypedChunkLocation<IndexCType>>();
     // All indices are resolved in one go without checking the validity bitmap.
     // This is OK as long the output corresponding to the invalid indices is not used.
     ChunkResolver resolver(chunks);
     bool enough_precision = resolver.ResolveMany<IndexCType>(
-        /*n_indices=*/idx_length, /*logical_index_vec=*/idx, chunk_index_vec,
-        /*chunk_hint=*/static_cast<IndexCType>(0), index_in_chunk_vec);
+        /*n_indices=*/idx_length, /*logical_index_vec=*/idx, chunk_location_vec,
+        /*chunk_hint=*/static_cast<IndexCType>(0));
     if (ARROW_PREDICT_FALSE(!enough_precision)) {
       return Status::IndexError("IndexCType is too small");
     }
@@ -445,13 +443,8 @@ struct ResolvedIndicesState {
   }
 
   template <typename IndexCType>
-  const IndexCType* chunk_index_vec() const {
-    return chunk_index_vec_buffer->data_as<IndexCType>();
-  }
-
-  template <typename IndexCType>
-  const IndexCType* index_in_chunk_vec() const {
-    return index_in_chunk_vec_buffer->data_as<IndexCType>();
+  const TypedChunkLocation<IndexCType>* chunk_location_vec() const {
+    return chunk_location_buffer->data_as<TypedChunkLocation<IndexCType>>();
   }
 };
 
@@ -548,8 +541,7 @@ struct FixedWidthTakeImpl {
         gather{chunked_values.src_residual_bit_offsets_data(),
                chunked_values.src_chunks_data(),
                indices.length,
-               resolved_idx.chunk_index_vec<IndexCType>(),
-               resolved_idx.index_in_chunk_vec<IndexCType>(),
+               resolved_idx.chunk_location_vec<IndexCType>(),
                /*out=*/util::MutableFixedWidthValuesPointer(out_arr),
                factor};
     if (out_has_validity) {

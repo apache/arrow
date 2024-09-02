@@ -319,24 +319,21 @@ class Gather</*kValueWidthInBits=*/1, IndexCType, /*kWithFactor=*/false>
 template <typename IndexCType>
 struct ChunkedValiditySpan {
   const ChunkedArray& chunks_validity;
-  const IndexCType* chunk_index_vec;
-  const IndexCType* index_in_chunk_vec;
+  const TypedChunkLocation<IndexCType>* chunk_location_vec;
   const bool may_have_nulls;
 
   ChunkedValiditySpan(const ChunkedArray& chunks_validity,
-                      const IndexCType* chunk_index_vec,
-                      const IndexCType* index_in_chunk_vec)
+                      const TypedChunkLocation<IndexCType>* chunk_location_vec)
       : chunks_validity(chunks_validity),
-        chunk_index_vec(chunk_index_vec),
-        index_in_chunk_vec(index_in_chunk_vec),
+        chunk_location_vec(chunk_location_vec),
         may_have_nulls(chunks_validity.null_count() > 0) {}
 
   bool MayHaveNulls() const { return may_have_nulls; }
 
   bool IsValid(int64_t position) const {
-    auto chunk_index = chunk_index_vec[position];
-    auto index_in_chunk = index_in_chunk_vec[position];
-    return chunks_validity.chunk(static_cast<int>(chunk_index))->IsValid(index_in_chunk);
+    auto loc = chunk_location_vec[position];
+    return chunks_validity.chunk(static_cast<int>(loc.chunk_index))
+        ->IsValid(loc.index_in_chunk);
   }
 };
 
@@ -356,29 +353,27 @@ class GatherFromChunks
   const int* src_residual_bit_offsets_ = NULLPTR;
   // Pre-computed pointers to the start of the values in each chunk.
   const uint8_t* const* src_chunks_;
-  // Number indices resolved in chunk_index_vec_/index_in_chunk_vec_
+  // Number indices resolved in chunk_location_vec_.
   const int64_t idx_length_;
-  const IndexCType* chunk_index_vec_;
-  const IndexCType* index_in_chunk_vec_;
+  const TypedChunkLocation<IndexCType>* chunk_location_vec_;
 
   uint8_t* out_;
   int64_t factor_;
 
  public:
   void WriteValue(int64_t position) {
-    auto chunk_index = chunk_index_vec_[position];
-    auto index_in_chunk = index_in_chunk_vec_[position];
-    auto* chunk = src_chunks_[chunk_index];
+    auto loc = chunk_location_vec_[position];
+    auto* chunk = src_chunks_[loc.chunk_index];
     if constexpr (kValueWidthInBits == 1) {
-      auto src_offset = src_residual_bit_offsets_[chunk_index];
+      auto src_offset = src_residual_bit_offsets_[loc.chunk_index];
       bit_util::SetBitTo(out_, position,
-                         bit_util::GetBit(chunk, src_offset + index_in_chunk));
+                         bit_util::GetBit(chunk, src_offset + loc.index_in_chunk));
     } else if constexpr (kWithFactor) {
       const int64_t scaled_factor = kValueWidth * factor_;
-      memcpy(out_ + position * scaled_factor, chunk + index_in_chunk * scaled_factor,
+      memcpy(out_ + position * scaled_factor, chunk + loc.index_in_chunk * scaled_factor,
              scaled_factor);
     } else {
-      memcpy(out_ + position * kValueWidth, chunk + index_in_chunk * kValueWidth,
+      memcpy(out_ + position * kValueWidth, chunk + loc.index_in_chunk * kValueWidth,
              kValueWidth);
     }
   }
@@ -412,16 +407,16 @@ class GatherFromChunks
 
  public:
   GatherFromChunks(const int* src_residual_bit_offsets, const uint8_t* const* src_chunks,
-                   const int64_t idx_length, const IndexCType* chunk_index_vec,
-                   const IndexCType* index_in_chunk_vec, uint8_t* out, int64_t factor = 1)
+                   const int64_t idx_length,
+                   const TypedChunkLocation<IndexCType>* chunk_location_vec, uint8_t* out,
+                   int64_t factor = 1)
       : src_residual_bit_offsets_(src_residual_bit_offsets),
         src_chunks_(src_chunks),
         idx_length_(idx_length),
-        chunk_index_vec_(chunk_index_vec),
-        index_in_chunk_vec_(index_in_chunk_vec),
+        chunk_location_vec_(chunk_location_vec),
         out_(out),
         factor_(factor) {
-    assert(src_chunks && chunk_index_vec && index_in_chunk_vec && out);
+    assert(src_chunks && chunk_location_vec_ && out);
     if constexpr (kValueWidthInBits == 1) {
       assert(src_residual_bit_offsets);
     }
@@ -445,8 +440,7 @@ class GatherFromChunks
     assert(idx_length_ == idx_validity.length);
     assert(out_is_valid);
     assert(idx_validity.type->byte_width() == sizeof(IndexCType));
-    ChunkedValiditySpan src_validity_span{src_validity, chunk_index_vec_,
-                                          index_in_chunk_vec_};
+    ChunkedValiditySpan src_validity_span{src_validity, chunk_location_vec_};
     assert(src_validity_span.MayHaveNulls() || idx_validity.MayHaveNulls());
     // idx=NULLPTR because when it's passed to IsSrcValid() defined above, it's not used.
     return this->template ExecuteWithNulls<kOutputIsZeroInitialized, IndexCType>(
