@@ -4381,10 +4381,10 @@ istextorbinary@^3.0.0:
     binaryextensions "^2.2.0"
     textextensions "^3.2.0"
 
-ix@6.0.0:
-  version "6.0.0"
-  resolved "https://registry.yarnpkg.com/ix/-/ix-6.0.0.tgz#c1875523f8090c7146dc3ac3412a763663887f27"
-  integrity sha512-B/KeYkHtOWbr3ttckqWT9uha2ixw9fGVDxX+DwVXhO+P5eOhyCadt+aC30hRBvG+do+tbI3xbYDMYN6dp1C4Vw==
+ix@7.0.0:
+  version "7.0.0"
+  resolved "https://registry.yarnpkg.com/ix/-/ix-7.0.0.tgz#df4c9a242614178f0836aa3cd1965441fae301d1"
+  integrity sha512-hgVnphYh+ytIEsmjeym5wP2GPaM3+RZf7zCrZXE7gjwwmpIBEg0t6GRX7BbdXzTosXCstEAzdPxpyplGBYnIbw==
   dependencies:
     "@types/node" ">=13.7.4"
     tslib "^2.6.2"
