@@ -43,3 +43,4 @@ jobs:
 
       {{ macros.github_upload_releases("arrow/python/dist/*.tar.gz")|indent }}
       {{ macros.github_upload_gemfury("arrow/python/dist/*.tar.gz")|indent }}
+      {{ macros.github_upload_wheel_scientific_python("arrow/python/dist/*.tar.gz")|indent }}
