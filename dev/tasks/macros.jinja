@@ -183,6 +183,18 @@ env:
   {% endif %}
 {% endmacro %}
 
+{%- macro github_upload_wheel_scientific_python(pattern) -%}
+  {%- if arrow.is_default_branch() -%}
+  - name: Upload wheel to Anaconda scientific-python
+    shell: bash
+    run: |
+      python3 -m pip install git+https://github.com/Anaconda-Platform/anaconda-client.git@1.12.3
+      anaconda -t ${CROSSBOW_SCIENTIFIC_PYTHON_UPLOAD_TOKEN} upload --force -u scientific-python-nightly-wheels --label dev {{ pattern }}
+    env:
+      CROSSBOW_SCIENTIFIC_PYTHON_UPLOAD_TOKEN: {{ '${{ secrets.CROSSBOW_SCIENTIFIC_PYTHON_UPLOAD_TOKEN }}' }}
+  {% endif %}
+{% endmacro %}
+
 {%- macro azure_checkout_arrow() -%}
   - script: |
       git clone --no-checkout --branch {{ arrow.branch }} {{ arrow.remote }} arrow
