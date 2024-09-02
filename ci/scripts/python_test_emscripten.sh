@@ -22,8 +22,11 @@
 
 set -ex
 
-build_dir=${1}/python
-pyodide_dist_dir=${2}
+arrow_dir=${1}
+build_dir=${2}/python
+pyodide_dist_dir=${3}
+
+export PARQUET_TEST_DATA=${arrow_dir}/cpp/submodules/parquet-testing/data
 
 cd ${build_dir}
 
