@@ -339,17 +339,17 @@ set(PYARROW_CPP_SRCS
     ${PYARROW_CPP_SOURCE_DIR}/gdb.cc
     ${PYARROW_CPP_SOURCE_DIR}/helpers.cc
     ${PYARROW_CPP_SOURCE_DIR}/inference.cc
-    ${PYARROW_CPP_SOURCE_DIR}/init.cc
     ${PYARROW_CPP_SOURCE_DIR}/io.cc
     ${PYARROW_CPP_SOURCE_DIR}/ipc.cc
     ${PYARROW_CPP_SOURCE_DIR}/numpy_convert.cc
+    ${PYARROW_CPP_SOURCE_DIR}/numpy_init.cc
     ${PYARROW_CPP_SOURCE_DIR}/numpy_to_arrow.cc
     ${PYARROW_CPP_SOURCE_DIR}/python_test.cc
     ${PYARROW_CPP_SOURCE_DIR}/python_to_arrow.cc
     ${PYARROW_CPP_SOURCE_DIR}/pyarrow.cc
     ${PYARROW_CPP_SOURCE_DIR}/serialize.cc
     ${PYARROW_CPP_SOURCE_DIR}/udf.cc)
-set_source_files_properties(${PYARROW_CPP_SOURCE_DIR}/init.cc
+set_source_files_properties(${PYARROW_CPP_SOURCE_DIR}/numpy_init.cc
                             PROPERTIES SKIP_PRECOMPILE_HEADERS ON
                                        SKIP_UNITY_BUILD_INCLUSION ON)
 

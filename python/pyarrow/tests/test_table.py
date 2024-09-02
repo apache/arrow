@@ -20,7 +20,10 @@ from collections.abc import Iterable
 import sys
 import weakref
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 import pytest
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -125,6 +128,7 @@ def test_chunked_array_can_combine_chunks_with_no_chunks():
     ).combine_chunks() == pa.array([], type=pa.bool_())
 
 
+@pytest.mark.numpy
 def test_chunked_array_to_numpy():
     data = pa.chunked_array([
         [1, 2, 3],
@@ -173,6 +177,7 @@ def test_chunked_array_str():
 ]"""
 
 
+@pytest.mark.numpy
 def test_chunked_array_getitem():
     data = [
         pa.array([1, 2, 3]),
@@ -972,12 +977,14 @@ def check_tensors(tensor, expected_tensor, type, size):
     assert tensor.strides == expected_tensor.strides
 
 
-@pytest.mark.parametrize('typ', [
-    np.uint8, np.uint16, np.uint32, np.uint64,
-    np.int8, np.int16, np.int32, np.int64,
-    np.float32, np.float64,
+@pytest.mark.numpy
+@pytest.mark.parametrize('typ_str', [
+    "uint8", "uint16", "uint32", "uint64",
+    "int8", "int16", "int32", "int64",
+    "float32", "float64",
 ])
-def test_recordbatch_to_tensor_uniform_type(typ):
+def test_recordbatch_to_tensor_uniform_type(typ_str):
+    typ = np.dtype(typ_str)
     arr1 = [1, 2, 3, 4, 5, 6, 7, 8, 9]
     arr2 = [10, 20, 30, 40, 50, 60, 70, 80, 90]
     arr3 = [100, 100, 100, 100, 100, 100, 100, 100, 100]
@@ -1031,6 +1038,7 @@ def test_recordbatch_to_tensor_uniform_type(typ):
     check_tensors(result, expected, pa.from_numpy_dtype(typ), 15)
 
 
+@pytest.mark.numpy
 def test_recordbatch_to_tensor_uniform_float_16():
     arr1 = [1, 2, 3, 4, 5, 6, 7, 8, 9]
     arr2 = [10, 20, 30, 40, 50, 60, 70, 80, 90]
@@ -1054,6 +1062,7 @@ def test_recordbatch_to_tensor_uniform_float_16():
     check_tensors(result, expected, pa.float16(), 27)
 
 
+@pytest.mark.numpy
 def test_recordbatch_to_tensor_mixed_type():
     # uint16 + int16 = int32
     arr1 = [1, 2, 3, 4, 5, 6, 7, 8, 9]
@@ -1105,6 +1114,7 @@ def test_recordbatch_to_tensor_mixed_type():
     assert result.strides == expected.strides
 
 
+@pytest.mark.numpy
 def test_recordbatch_to_tensor_unsupported_mixed_type_with_float16():
     arr1 = [1, 2, 3, 4, 5, 6, 7, 8, 9]
     arr2 = [10, 20, 30, 40, 50, 60, 70, 80, 90]
@@ -1124,6 +1134,7 @@ def test_recordbatch_to_tensor_unsupported_mixed_type_with_float16():
         batch.to_tensor()
 
 
+@pytest.mark.numpy
 def test_recordbatch_to_tensor_nan():
     arr1 = [1, 2, 3, 4, np.nan, 6, 7, 8, 9]
     arr2 = [10, 20, 30, 40, 50, 60, 70, np.nan, 90]
@@ -1144,6 +1155,7 @@ def test_recordbatch_to_tensor_nan():
     assert result.strides == expected.strides
 
 
+@pytest.mark.numpy
 def test_recordbatch_to_tensor_null():
     arr1 = [1, 2, 3, 4, None, 6, 7, 8, 9]
     arr2 = [10, 20, 30, 40, 50, 60, 70, None, 90]
@@ -1204,6 +1216,7 @@ def test_recordbatch_to_tensor_null():
     assert result.strides == expected.strides
 
 
+@pytest.mark.numpy
 def test_recordbatch_to_tensor_empty():
     batch = pa.RecordBatch.from_arrays(
         [
@@ -1295,6 +1308,7 @@ def test_slice_zero_length_table():
     table.to_pandas()
 
 
+@pytest.mark.numpy
 def test_recordbatchlist_schema_equals():
     a1 = np.array([1], dtype='uint32')
     a2 = np.array([4.0, 5.0], dtype='float64')
@@ -2130,6 +2144,7 @@ def test_table_unsafe_casting(cls):
     assert casted_table.equals(expected_table)
 
 
+@pytest.mark.numpy
 def test_invalid_table_construct():
     array = np.array([0, 1], dtype=np.uint8)
     u8 = pa.uint8()
@@ -3287,6 +3302,7 @@ def test_table_sort_by(cls):
     assert sorted_tab_dict["b"] == ["foo", "car", "bar", "foobar"]
 
 
+@pytest.mark.numpy
 @pytest.mark.parametrize("constructor", [pa.table, pa.record_batch])
 def test_numpy_asarray(constructor):
     table = constructor([[1, 2, 3], [4.0, 5.0, 6.0]], names=["a", "b"])
@@ -3319,6 +3335,7 @@ def test_numpy_asarray(constructor):
     assert result.dtype == "int32"
 
 
+@pytest.mark.numpy
 @pytest.mark.parametrize("constructor", [pa.table, pa.record_batch])
 def test_numpy_array_protocol(constructor):
     table = constructor([[1, 2, 3], [4.0, 5.0, 6.0]], names=["a", "b"])

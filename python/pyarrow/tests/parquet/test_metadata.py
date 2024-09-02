@@ -20,7 +20,10 @@ import decimal
 from collections import OrderedDict
 import io
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 import pytest
 
 import pyarrow as pa
@@ -584,7 +587,7 @@ def test_table_large_metadata():
     my_schema = pa.schema([pa.field('f0', 'double')],
                           metadata={'large': 'x' * 10000000})
 
-    table = pa.table([np.arange(10)], schema=my_schema)
+    table = pa.table([range(10)], schema=my_schema)
     _check_roundtrip(table)
 
 
