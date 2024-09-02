@@ -27,22 +27,6 @@ R tutorials
 ***********
 
 
-Writing Bindings Walkthrough
-============================
-
-The first R package tutorial to be included in the New Contributor's
-guide is a **Walkthrough** added in the **Writing Bindings**
-vignette. With time we will try to include additional tutorials
-directly into this guide.
-
-This tutorial will show how to do a binding of a C++ function
-`starts_with() <https://arrow.apache.org/docs/cpp/compute.html#containment-tests>`_
-to the (base) R function ``startsWith()``.
-
-To view the tutorial follow the
-`Walkthrough section of the Writing Bindings article <https://arrow.apache.org/docs/r/articles/developers/bindings.html#walkthrough>`_.
-
-
 R tutorial on adding a lubridate binding
 ========================================
 
@@ -55,11 +39,6 @@ some information you may find is missing here.
 The binding will be added to the ``expression.R`` file in the
 R package. But you can also follow these steps in case you are
 adding a binding that will live somewhere else.
-
-.. seealso::
-
-   To read more about the philosophy behind R bindings, refer to the
-   `Writing Bindings article <https://arrow.apache.org/docs/r/articles/developers/bindings.html>`_.
 
 This tutorial is different from the :ref:`step_by_step` as we
 will be working on a specific case. This tutorial is not meant
@@ -169,13 +148,6 @@ We can see that lubridate and Arrow functions operate on and return
 equivalent data types. lubridate's ``mday()`` function has no additional
 arguments and there are also no option classes associated with Arrow C++
 function ``day()``.
-
-.. note::
-
-   To see what to do if there is an option class associated with the
-   function you are binding, refer to
-   `Examining the C++ function <https://arrow.apache.org/docs/r/articles/developers/bindings.html#examining-the-c-function>`_ from the Writing Bindings
-   article.
 
 Looking at the code in ``expressions.R`` we can see the day function
 is already specified/mapped on the R package side:

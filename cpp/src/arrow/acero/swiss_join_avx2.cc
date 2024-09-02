@@ -23,6 +23,9 @@
 namespace arrow {
 namespace acero {
 
+// TODO(GH-43693): The functions in this file are not wired anywhere. We may consider
+// actually utilizing them or removing them.
+
 template <class PROCESS_8_VALUES_FN>
 int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int num_rows,
                                  const uint32_t* row_ids,
@@ -45,48 +48,78 @@ int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int nu
   if (!is_fixed_length_column) {
     int varbinary_column_id = VarbinaryColumnId(rows.metadata(), column_id);
     const uint8_t* row_ptr_base = rows.data(2);
-    const uint32_t* row_offsets = rows.offsets();
+    const RowTableImpl::offset_type* row_offsets = rows.offsets();
+    static_assert(
+        sizeof(RowTableImpl::offset_type) == sizeof(int64_t),
+        "RowArrayAccessor::Visit_avx2 only supports 64-bit RowTableImpl::offset_type");
 
     if (varbinary_column_id == 0) {
       // Case 1: This is the first varbinary column
       //
       __m256i field_offset_within_row = _mm256_set1_epi32(rows.metadata().fixed_length);
       __m256i varbinary_end_array_offset =
-          _mm256_set1_epi32(rows.metadata().varbinary_end_array_offset);
+          _mm256_set1_epi64x(rows.metadata().varbinary_end_array_offset);
       for (int i = 0; i < num_rows / unroll; ++i) {
+        // Load 8 32-bit row ids.
         __m256i row_id =
             _mm256_loadu_si256(reinterpret_cast<const __m256i*>(row_ids) + i);
-        __m256i row_offset = _mm256_i32gather_epi32(
-            reinterpret_cast<const int*>(row_offsets), row_id, sizeof(uint32_t));
+        // Gather the lower/higher 4 64-bit row offsets based on the lower/higher 4 32-bit
+        // row ids.
+        __m256i row_offset_lo =
+            _mm256_i32gather_epi64(row_offsets, _mm256_castsi256_si128(row_id),
+                                   sizeof(RowTableImpl::offset_type));
+        __m256i row_offset_hi =
+            _mm256_i32gather_epi64(row_offsets, _mm256_extracti128_si256(row_id, 1),
+                                   sizeof(RowTableImpl::offset_type));
+        // Gather the lower/higher 4 32-bit field lengths based on the lower/higher 4
+        // 64-bit row offsets.
+        __m128i field_length_lo = _mm256_i64gather_epi32(
+            reinterpret_cast<const int*>(row_ptr_base),
+            _mm256_add_epi64(row_offset_lo, varbinary_end_array_offset), 1);
+        __m128i field_length_hi = _mm256_i64gather_epi32(
+            reinterpret_cast<const int*>(row_ptr_base),
+            _mm256_add_epi64(row_offset_hi, varbinary_end_array_offset), 1);
+        // The final 8 32-bit field lengths, subtracting the field offset within row.
         __m256i field_length = _mm256_sub_epi32(
-            _mm256_i32gather_epi32(
-                reinterpret_cast<const int*>(row_ptr_base),
-                _mm256_add_epi32(row_offset, varbinary_end_array_offset), 1),
-            field_offset_within_row);
+            _mm256_set_m128i(field_length_hi, field_length_lo), field_offset_within_row);
         process_8_values_fn(i * unroll, row_ptr_base,
-                            _mm256_add_epi32(row_offset, field_offset_within_row),
+                            _mm256_add_epi64(row_offset_lo, field_offset_within_row),
+                            _mm256_add_epi64(row_offset_hi, field_offset_within_row),
                             field_length);
       }
     } else {
       // Case 2: This is second or later varbinary column
       //
       __m256i varbinary_end_array_offset =
-          _mm256_set1_epi32(rows.metadata().varbinary_end_array_offset +
-                            sizeof(uint32_t) * (varbinary_column_id - 1));
+          _mm256_set1_epi64x(rows.metadata().varbinary_end_array_offset +
+                             sizeof(uint32_t) * (varbinary_column_id - 1));
       auto row_ptr_base_i64 =
           reinterpret_cast<const arrow::util::int64_for_gather_t*>(row_ptr_base);
       for (int i = 0; i < num_rows / unroll; ++i) {
+        // Load 8 32-bit row ids.
         __m256i row_id =
             _mm256_loadu_si256(reinterpret_cast<const __m256i*>(row_ids) + i);
-        __m256i row_offset = _mm256_i32gather_epi32(
-            reinterpret_cast<const int*>(row_offsets), row_id, sizeof(uint32_t));
-        __m256i end_array_offset =
-            _mm256_add_epi32(row_offset, varbinary_end_array_offset);
+        // Gather the lower/higher 4 64-bit row offsets based on the lower/higher 4 32-bit
+        // row ids.
+        __m256i row_offset_lo =
+            _mm256_i32gather_epi64(row_offsets, _mm256_castsi256_si128(row_id),
+                                   sizeof(RowTableImpl::offset_type));
+        // Gather the lower/higher 4 32-bit field lengths based on the lower/higher 4
+        // 64-bit row offsets.
+        __m256i row_offset_hi =
+            _mm256_i32gather_epi64(row_offsets, _mm256_extracti128_si256(row_id, 1),
+                                   sizeof(RowTableImpl::offset_type));
+        // Prepare the lower/higher 4 64-bit end array offsets based on the lower/higher 4
+        // 64-bit row offsets.
+        __m256i end_array_offset_lo =
+            _mm256_add_epi64(row_offset_lo, varbinary_end_array_offset);
+        __m256i end_array_offset_hi =
+            _mm256_add_epi64(row_offset_hi, varbinary_end_array_offset);
 
-        __m256i field_offset_within_row_A = _mm256_i32gather_epi64(
-            row_ptr_base_i64, _mm256_castsi256_si128(end_array_offset), 1);
-        __m256i field_offset_within_row_B = _mm256_i32gather_epi64(
-            row_ptr_base_i64, _mm256_extracti128_si256(end_array_offset, 1), 1);
+        __m256i field_offset_within_row_A =
+            _mm256_i64gather_epi64(row_ptr_base_i64, end_array_offset_lo, 1);
+        __m256i field_offset_within_row_B =
+            _mm256_i64gather_epi64(row_ptr_base_i64, end_array_offset_hi, 1);
         field_offset_within_row_A = _mm256_permutevar8x32_epi32(
             field_offset_within_row_A, _mm256_setr_epi32(0, 2, 4, 6, 1, 3, 5, 7));
         field_offset_within_row_B = _mm256_permutevar8x32_epi32(
@@ -110,8 +143,14 @@ int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int nu
                                                 0x4e);  // Swapping low and high 128-bits
         field_length = _mm256_sub_epi32(field_length, field_offset_within_row);
 
+        field_offset_within_row_A =
+            _mm256_add_epi32(field_offset_within_row_A, alignment_padding);
+        field_offset_within_row_B =
+            _mm256_add_epi32(field_offset_within_row_B, alignment_padding);
+
         process_8_values_fn(i * unroll, row_ptr_base,
-                            _mm256_add_epi32(row_offset, field_offset_within_row),
+                            _mm256_add_epi64(row_offset_lo, field_offset_within_row_A),
+                            _mm256_add_epi64(row_offset_hi, field_offset_within_row_B),
                             field_length);
       }
     }
@@ -119,7 +158,7 @@ int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int nu
 
   if (is_fixed_length_column) {
     __m256i field_offset_within_row =
-        _mm256_set1_epi32(rows.metadata().encoded_field_offset(
+        _mm256_set1_epi64x(rows.metadata().encoded_field_offset(
             rows.metadata().pos_after_encoding(column_id)));
     __m256i field_length =
         _mm256_set1_epi32(rows.metadata().column_metadatas[column_id].fixed_length);
@@ -130,24 +169,51 @@ int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int nu
       //
       const uint8_t* row_ptr_base = rows.data(1);
       for (int i = 0; i < num_rows / unroll; ++i) {
+        // Load 8 32-bit row ids.
         __m256i row_id =
             _mm256_loadu_si256(reinterpret_cast<const __m256i*>(row_ids) + i);
-        __m256i row_offset = _mm256_mullo_epi32(row_id, field_length);
-        __m256i field_offset = _mm256_add_epi32(row_offset, field_offset_within_row);
-        process_8_values_fn(i * unroll, row_ptr_base, field_offset, field_length);
+        // Widen the 32-bit row ids to 64-bit and store the lower/higher 4 of them into 2
+        // 256-bit registers.
+        __m256i row_id_lo = _mm256_cvtepi32_epi64(_mm256_castsi256_si128(row_id));
+        __m256i row_id_hi = _mm256_cvtepi32_epi64(_mm256_extracti128_si256(row_id, 1));
+        // Calculate the lower/higher 4 64-bit row offsets based on the lower/higher 4
+        // 64-bit row ids and the fixed field length.
+        __m256i row_offset_lo = _mm256_mul_epi32(row_id_lo, field_length);
+        __m256i row_offset_hi = _mm256_mul_epi32(row_id_hi, field_length);
+        // Calculate the lower/higher 4 64-bit field offsets based on the lower/higher 4
+        // 64-bit row offsets and field offset within row.
+        __m256i field_offset_lo =
+            _mm256_add_epi64(row_offset_lo, field_offset_within_row);
+        __m256i field_offset_hi =
+            _mm256_add_epi64(row_offset_hi, field_offset_within_row);
+        process_8_values_fn(i * unroll, row_ptr_base, field_offset_lo, field_offset_hi,
+                            field_length);
       }
     } else {
       // Case 4: This is a fixed length column in varying length row
       //
       const uint8_t* row_ptr_base = rows.data(2);
-      const uint32_t* row_offsets = rows.offsets();
+      const RowTableImpl::offset_type* row_offsets = rows.offsets();
       for (int i = 0; i < num_rows / unroll; ++i) {
+        // Load 8 32-bit row ids.
         __m256i row_id =
             _mm256_loadu_si256(reinterpret_cast<const __m256i*>(row_ids) + i);
-        __m256i row_offset = _mm256_i32gather_epi32(
-            reinterpret_cast<const int*>(row_offsets), row_id, sizeof(uint32_t));
-        __m256i field_offset = _mm256_add_epi32(row_offset, field_offset_within_row);
-        process_8_values_fn(i * unroll, row_ptr_base, field_offset, field_length);
+        // Gather the lower/higher 4 64-bit row offsets based on the lower/higher 4 32-bit
+        // row ids.
+        __m256i row_offset_lo =
+            _mm256_i32gather_epi64(row_offsets, _mm256_castsi256_si128(row_id),
+                                   sizeof(RowTableImpl::offset_type));
+        __m256i row_offset_hi =
+            _mm256_i32gather_epi64(row_offsets, _mm256_extracti128_si256(row_id, 1),
+                                   sizeof(RowTableImpl::offset_type));
+        // Calculate the lower/higher 4 64-bit field offsets based on the lower/higher 4
+        // 64-bit row offsets and field offset within row.
+        __m256i field_offset_lo =
+            _mm256_add_epi64(row_offset_lo, field_offset_within_row);
+        __m256i field_offset_hi =
+            _mm256_add_epi64(row_offset_hi, field_offset_within_row);
+        process_8_values_fn(i * unroll, row_ptr_base, field_offset_lo, field_offset_hi,
+                            field_length);
       }
     }
   }

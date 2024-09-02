@@ -95,44 +95,41 @@ class GcsTestbench : public ::testing::Environment {
     if (const auto* env = std::getenv("PYTHON")) {
       names = {env};
     }
-    auto error = std::string(
-        "Could not start GCS emulator."
-        " Used the following list of python interpreter names:");
-    for (const auto& interpreter : names) {
-      auto exe_path = bp::search_path(interpreter);
-      error += " " + interpreter;
-      if (exe_path.empty()) {
-        error += " (exe not found)";
-        continue;
-      }
+    auto error = std::string("Could not start GCS emulator 'storage-testbench'");
 
-      bp::ipstream output;
-      server_process_ = bp::child(exe_path, "-m", "testbench", "--port", port_, group_,
-                                  bp::std_err > output);
+    auto testbench_is_running = [](bp::child& process, bp::ipstream& output) {
       // Wait for message: "* Restarting with"
-      auto testbench_is_running = [&output, this](bp::child& process) {
-        std::string line;
-        std::chrono::time_point<std::chrono::steady_clock> end =
-            std::chrono::steady_clock::now() + std::chrono::seconds(10);
-        while (server_process_.valid() && server_process_.running() &&
-               std::chrono::steady_clock::now() < end) {
-          if (output.peek() && std::getline(output, line)) {
-            std::cerr << line << std::endl;
-            if (line.find("* Restarting with") != std::string::npos) return true;
-          } else {
-            std::this_thread::sleep_for(std::chrono::milliseconds(20));
-          }
+      std::string line;
+      std::chrono::time_point<std::chrono::steady_clock> end =
+          std::chrono::steady_clock::now() + std::chrono::seconds(10);
+      while (process.valid() && process.running() &&
+             std::chrono::steady_clock::now() < end) {
+        if (output.peek() && std::getline(output, line)) {
+          std::cerr << line << std::endl;
+          if (line.find("* Restarting with") != std::string::npos) return true;
+        } else {
+          std::this_thread::sleep_for(std::chrono::milliseconds(20));
         }
-        return false;
-      };
+      }
+      return false;
+    };
 
-      if (testbench_is_running(server_process_)) break;
-      error += " (failed to start)";
-      server_process_.terminate();
-      server_process_.wait();
+    auto exe_path = bp::search_path("storage-testbench");
+    if (!exe_path.empty()) {
+      bp::ipstream output;
+      server_process_ =
+          bp::child(exe_path, "--port", port_, group_, bp::std_err > output);
+      if (!testbench_is_running(server_process_, output)) {
+        error += " (failed to start)";
+        server_process_.terminate();
+        server_process_.wait();
+      }
+    } else {
+      error += " (exe not found)";
     }
-    if (server_process_.valid() && server_process_.valid()) return;
-    error_ = std::move(error);
+    if (!server_process_.valid()) {
+      error_ = std::move(error);
+    }
   }
 
   bool running() { return server_process_.running(); }
@@ -140,7 +137,10 @@ class GcsTestbench : public ::testing::Environment {
   ~GcsTestbench() override {
     // Brutal shutdown, kill the full process group because the GCS testbench may launch
     // additional children.
-    group_.terminate();
+    try {
+      group_.terminate();
+    } catch (bp::process_error&) {
+    }
     if (server_process_.valid()) {
       server_process_.wait();
     }

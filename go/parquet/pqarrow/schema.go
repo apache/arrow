@@ -25,7 +25,6 @@ import (
 	"github.com/apache/arrow/go/v18/arrow"
 	"github.com/apache/arrow/go/v18/arrow/decimal128"
 	"github.com/apache/arrow/go/v18/arrow/flight"
-	"github.com/apache/arrow/go/v18/arrow/ipc"
 	"github.com/apache/arrow/go/v18/arrow/memory"
 	"github.com/apache/arrow/go/v18/parquet"
 	"github.com/apache/arrow/go/v18/parquet/file"
@@ -118,6 +117,15 @@ func (sm *SchemaManifest) GetFieldIndices(indices []int) ([]int, error) {
 		}
 	}
 	return ret, nil
+}
+
+// ExtensionCustomParquetType is an interface that Arrow ExtensionTypes may implement
+// to specify the target LogicalType to use when converting to Parquet.
+//
+// The PrimitiveType is not configurable, and is determined by a fixed mapping from
+// the extension's StorageType to a Parquet type (see getParquetType in pqarrow source).
+type ExtensionCustomParquetType interface {
+	ParquetLogicalType() schema.LogicalType
 }
 
 func isDictionaryReadSupported(dt arrow.DataType) bool {
@@ -250,104 +258,14 @@ func structToNode(typ *arrow.StructType, name string, nullable bool, props *parq
 }
 
 func fieldToNode(name string, field arrow.Field, props *parquet.WriterProperties, arrprops ArrowWriterProperties) (schema.Node, error) {
-	var (
-		logicalType schema.LogicalType = schema.NoLogicalType{}
-		typ         parquet.Type
-		repType     = repFromNullable(field.Nullable)
-		length      = -1
-		precision   = -1
-		scale       = -1
-		err         error
-	)
+	repType := repFromNullable(field.Nullable)
 
+	// Handle complex types i.e. GroupNodes
 	switch field.Type.ID() {
 	case arrow.NULL:
-		typ = parquet.Types.Int32
-		logicalType = &schema.NullLogicalType{}
 		if repType != parquet.Repetitions.Optional {
 			return nil, xerrors.New("nulltype arrow field must be nullable")
 		}
-	case arrow.BOOL:
-		typ = parquet.Types.Boolean
-	case arrow.UINT8:
-		typ = parquet.Types.Int32
-		logicalType = schema.NewIntLogicalType(8, false)
-	case arrow.INT8:
-		typ = parquet.Types.Int32
-		logicalType = schema.NewIntLogicalType(8, true)
-	case arrow.UINT16:
-		typ = parquet.Types.Int32
-		logicalType = schema.NewIntLogicalType(16, false)
-	case arrow.INT16:
-		typ = parquet.Types.Int32
-		logicalType = schema.NewIntLogicalType(16, true)
-	case arrow.UINT32:
-		typ = parquet.Types.Int32
-		logicalType = schema.NewIntLogicalType(32, false)
-	case arrow.INT32:
-		typ = parquet.Types.Int32
-		logicalType = schema.NewIntLogicalType(32, true)
-	case arrow.UINT64:
-		typ = parquet.Types.Int64
-		logicalType = schema.NewIntLogicalType(64, false)
-	case arrow.INT64:
-		typ = parquet.Types.Int64
-		logicalType = schema.NewIntLogicalType(64, true)
-	case arrow.FLOAT32:
-		typ = parquet.Types.Float
-	case arrow.FLOAT64:
-		typ = parquet.Types.Double
-	case arrow.STRING, arrow.LARGE_STRING:
-		logicalType = schema.StringLogicalType{}
-		fallthrough
-	case arrow.BINARY, arrow.LARGE_BINARY:
-		typ = parquet.Types.ByteArray
-	case arrow.FIXED_SIZE_BINARY:
-		typ = parquet.Types.FixedLenByteArray
-		length = field.Type.(*arrow.FixedSizeBinaryType).ByteWidth
-	case arrow.DECIMAL, arrow.DECIMAL256:
-		dectype := field.Type.(arrow.DecimalType)
-		precision = int(dectype.GetPrecision())
-		scale = int(dectype.GetScale())
-
-		if props.StoreDecimalAsInteger() && 1 <= precision && precision <= 18 {
-			if precision <= 9 {
-				typ = parquet.Types.Int32
-			} else {
-				typ = parquet.Types.Int64
-			}
-		} else {
-			typ = parquet.Types.FixedLenByteArray
-			length = int(DecimalSize(int32(precision)))
-		}
-
-		logicalType = schema.NewDecimalLogicalType(int32(precision), int32(scale))
-	case arrow.DATE32:
-		typ = parquet.Types.Int32
-		logicalType = schema.DateLogicalType{}
-	case arrow.DATE64:
-		typ = parquet.Types.Int32
-		logicalType = schema.DateLogicalType{}
-	case arrow.TIMESTAMP:
-		typ, logicalType, err = getTimestampMeta(field.Type.(*arrow.TimestampType), props, arrprops)
-		if err != nil {
-			return nil, err
-		}
-	case arrow.TIME32:
-		typ = parquet.Types.Int32
-		logicalType = schema.NewTimeLogicalType(true, schema.TimeUnitMillis)
-	case arrow.TIME64:
-		typ = parquet.Types.Int64
-		timeType := field.Type.(*arrow.Time64Type)
-		if timeType.Unit == arrow.Nanosecond {
-			logicalType = schema.NewTimeLogicalType(true, schema.TimeUnitNanos)
-		} else {
-			logicalType = schema.NewTimeLogicalType(true, schema.TimeUnitMicros)
-		}
-	case arrow.FLOAT16:
-		typ = parquet.Types.FixedLenByteArray
-		length = arrow.Float16SizeBytes
-		logicalType = schema.Float16LogicalType{}
 	case arrow.STRUCT:
 		return structToNode(field.Type.(*arrow.StructType), field.Name, field.Nullable, props, arrprops)
 	case arrow.FIXED_SIZE_LIST, arrow.LIST:
@@ -369,16 +287,6 @@ func fieldToNode(name string, field arrow.Field, props *parquet.WriterProperties
 		dictType := field.Type.(*arrow.DictionaryType)
 		return fieldToNode(name, arrow.Field{Name: name, Type: dictType.ValueType, Nullable: field.Nullable, Metadata: field.Metadata},
 			props, arrprops)
-	case arrow.EXTENSION:
-		return fieldToNode(name, arrow.Field{
-			Name:     name,
-			Type:     field.Type.(arrow.ExtensionType).StorageType(),
-			Nullable: field.Nullable,
-			Metadata: arrow.MetadataFrom(map[string]string{
-				ipc.ExtensionTypeKeyName:     field.Type.(arrow.ExtensionType).ExtensionName(),
-				ipc.ExtensionMetadataKeyName: field.Type.(arrow.ExtensionType).Serialize(),
-			}),
-		}, props, arrprops)
 	case arrow.MAP:
 		mapType := field.Type.(*arrow.MapType)
 		keyNode, err := fieldToNode("key", mapType.KeyField(), props, arrprops)
@@ -402,8 +310,12 @@ func fieldToNode(name string, field arrow.Field, props *parquet.WriterProperties
 			}, -1)
 		}
 		return schema.MapOf(field.Name, keyNode, valueNode, repFromNullable(field.Nullable), -1)
-	default:
-		return nil, fmt.Errorf("%w: support for %s", arrow.ErrNotImplemented, field.Type.ID())
+	}
+
+	// Not a GroupNode
+	typ, logicalType, length, err := getParquetType(field.Type, props, arrprops)
+	if err != nil {
+		return nil, err
 	}
 
 	return schema.NewPrimitiveNodeLogical(name, repType, logicalType, typ, length, fieldIDFromMeta(field.Metadata))
@@ -472,7 +384,7 @@ func (s schemaTree) RecordLeaf(leaf *SchemaField) {
 	s.manifest.ColIndexToField[leaf.ColIndex] = leaf
 }
 
-func arrowInt(log *schema.IntLogicalType) (arrow.DataType, error) {
+func arrowInt(log schema.IntLogicalType) (arrow.DataType, error) {
 	switch log.BitWidth() {
 	case 8:
 		if log.IsSigned() {
@@ -499,7 +411,7 @@ func arrowInt(log *schema.IntLogicalType) (arrow.DataType, error) {
 	}
 }
 
-func arrowTime32(logical *schema.TimeLogicalType) (arrow.DataType, error) {
+func arrowTime32(logical schema.TimeLogicalType) (arrow.DataType, error) {
 	if logical.TimeUnit() == schema.TimeUnitMillis {
 		return arrow.FixedWidthTypes.Time32ms, nil
 	}
@@ -507,7 +419,7 @@ func arrowTime32(logical *schema.TimeLogicalType) (arrow.DataType, error) {
 	return nil, xerrors.New(logical.String() + " cannot annotate a time32")
 }
 
-func arrowTime64(logical *schema.TimeLogicalType) (arrow.DataType, error) {
+func arrowTime64(logical schema.TimeLogicalType) (arrow.DataType, error) {
 	switch logical.TimeUnit() {
 	case schema.TimeUnitMicros:
 		return arrow.FixedWidthTypes.Time64us, nil
@@ -518,7 +430,7 @@ func arrowTime64(logical *schema.TimeLogicalType) (arrow.DataType, error) {
 	}
 }
 
-func arrowTimestamp(logical *schema.TimestampLogicalType) (arrow.DataType, error) {
+func arrowTimestamp(logical schema.TimestampLogicalType) (arrow.DataType, error) {
 	tz := ""
 
 	// ConvertedTypes are adjusted to UTC per backward compatibility guidelines
@@ -539,7 +451,7 @@ func arrowTimestamp(logical *schema.TimestampLogicalType) (arrow.DataType, error
 	}
 }
 
-func arrowDecimal(logical *schema.DecimalLogicalType) arrow.DataType {
+func arrowDecimal(logical schema.DecimalLogicalType) arrow.DataType {
 	if logical.Precision() <= decimal128.MaxPrecision {
 		return &arrow.Decimal128Type{Precision: logical.Precision(), Scale: logical.Scale()}
 	}
@@ -550,11 +462,11 @@ func arrowFromInt32(logical schema.LogicalType) (arrow.DataType, error) {
 	switch logtype := logical.(type) {
 	case schema.NoLogicalType:
 		return arrow.PrimitiveTypes.Int32, nil
-	case *schema.TimeLogicalType:
+	case schema.TimeLogicalType:
 		return arrowTime32(logtype)
-	case *schema.DecimalLogicalType:
+	case schema.DecimalLogicalType:
 		return arrowDecimal(logtype), nil
-	case *schema.IntLogicalType:
+	case schema.IntLogicalType:
 		return arrowInt(logtype)
 	case schema.DateLogicalType:
 		return arrow.FixedWidthTypes.Date32, nil
@@ -569,13 +481,13 @@ func arrowFromInt64(logical schema.LogicalType) (arrow.DataType, error) {
 	}
 
 	switch logtype := logical.(type) {
-	case *schema.IntLogicalType:
+	case schema.IntLogicalType:
 		return arrowInt(logtype)
-	case *schema.DecimalLogicalType:
+	case schema.DecimalLogicalType:
 		return arrowDecimal(logtype), nil
-	case *schema.TimeLogicalType:
+	case schema.TimeLogicalType:
 		return arrowTime64(logtype)
-	case *schema.TimestampLogicalType:
+	case schema.TimestampLogicalType:
 		return arrowTimestamp(logtype)
 	default:
 		return nil, xerrors.New(logical.String() + " cannot annotate int64")
@@ -586,7 +498,7 @@ func arrowFromByteArray(logical schema.LogicalType) (arrow.DataType, error) {
 	switch logtype := logical.(type) {
 	case schema.StringLogicalType:
 		return arrow.BinaryTypes.String, nil
-	case *schema.DecimalLogicalType:
+	case schema.DecimalLogicalType:
 		return arrowDecimal(logtype), nil
 	case schema.NoLogicalType,
 		schema.EnumLogicalType,
@@ -600,7 +512,7 @@ func arrowFromByteArray(logical schema.LogicalType) (arrow.DataType, error) {
 
 func arrowFromFLBA(logical schema.LogicalType, length int) (arrow.DataType, error) {
 	switch logtype := logical.(type) {
-	case *schema.DecimalLogicalType:
+	case schema.DecimalLogicalType:
 		return arrowDecimal(logtype), nil
 	case schema.NoLogicalType, schema.IntervalLogicalType, schema.UUIDLogicalType:
 		return &arrow.FixedSizeBinaryType{ByteWidth: int(length)}, nil
@@ -608,6 +520,84 @@ func arrowFromFLBA(logical schema.LogicalType, length int) (arrow.DataType, erro
 		return &arrow.Float16Type{}, nil
 	default:
 		return nil, xerrors.New("unhandled logical type " + logical.String() + " for fixed-length byte array")
+	}
+}
+
+func getParquetType(typ arrow.DataType, props *parquet.WriterProperties, arrprops ArrowWriterProperties) (parquet.Type, schema.LogicalType, int, error) {
+	switch typ.ID() {
+	case arrow.NULL:
+		return parquet.Types.Int32, schema.NullLogicalType{}, -1, nil
+	case arrow.BOOL:
+		return parquet.Types.Boolean, schema.NoLogicalType{}, -1, nil
+	case arrow.UINT8:
+		return parquet.Types.Int32, schema.NewIntLogicalType(8, false), -1, nil
+	case arrow.INT8:
+		return parquet.Types.Int32, schema.NewIntLogicalType(8, true), -1, nil
+	case arrow.UINT16:
+		return parquet.Types.Int32, schema.NewIntLogicalType(16, false), -1, nil
+	case arrow.INT16:
+		return parquet.Types.Int32, schema.NewIntLogicalType(16, true), -1, nil
+	case arrow.UINT32:
+		return parquet.Types.Int32, schema.NewIntLogicalType(32, false), -1, nil
+	case arrow.INT32:
+		return parquet.Types.Int32, schema.NewIntLogicalType(32, true), -1, nil
+	case arrow.UINT64:
+		return parquet.Types.Int64, schema.NewIntLogicalType(64, false), -1, nil
+	case arrow.INT64:
+		return parquet.Types.Int64, schema.NewIntLogicalType(64, true), -1, nil
+	case arrow.FLOAT32:
+		return parquet.Types.Float, schema.NoLogicalType{}, -1, nil
+	case arrow.FLOAT64:
+		return parquet.Types.Double, schema.NoLogicalType{}, -1, nil
+	case arrow.STRING, arrow.LARGE_STRING:
+		return parquet.Types.ByteArray, schema.StringLogicalType{}, -1, nil
+	case arrow.BINARY, arrow.LARGE_BINARY:
+		return parquet.Types.ByteArray, schema.NoLogicalType{}, -1, nil
+	case arrow.FIXED_SIZE_BINARY:
+		return parquet.Types.FixedLenByteArray, schema.NoLogicalType{}, typ.(*arrow.FixedSizeBinaryType).ByteWidth, nil
+	case arrow.DECIMAL, arrow.DECIMAL256:
+		dectype := typ.(arrow.DecimalType)
+		precision := int(dectype.GetPrecision())
+		scale := int(dectype.GetScale())
+
+		if !props.StoreDecimalAsInteger() || precision > 18 {
+			return parquet.Types.FixedLenByteArray, schema.NewDecimalLogicalType(int32(precision), int32(scale)), int(DecimalSize(int32(precision))), nil
+		}
+
+		pqType := parquet.Types.Int32
+		if precision > 9 {
+			pqType = parquet.Types.Int64
+		}
+
+		return pqType, schema.NoLogicalType{}, -1, nil
+	case arrow.DATE32:
+		return parquet.Types.Int32, schema.DateLogicalType{}, -1, nil
+	case arrow.DATE64:
+		return parquet.Types.Int32, schema.DateLogicalType{}, -1, nil
+	case arrow.TIMESTAMP:
+		pqType, logicalType, err := getTimestampMeta(typ.(*arrow.TimestampType), props, arrprops)
+		return pqType, logicalType, -1, err
+	case arrow.TIME32:
+		return parquet.Types.Int32, schema.NewTimeLogicalType(true, schema.TimeUnitMillis), -1, nil
+	case arrow.TIME64:
+		pqTimeUnit := schema.TimeUnitMicros
+		if typ.(*arrow.Time64Type).Unit == arrow.Nanosecond {
+			pqTimeUnit = schema.TimeUnitNanos
+		}
+
+		return parquet.Types.Int64, schema.NewTimeLogicalType(true, pqTimeUnit), -1, nil
+	case arrow.FLOAT16:
+		return parquet.Types.FixedLenByteArray, schema.Float16LogicalType{}, arrow.Float16SizeBytes, nil
+	case arrow.EXTENSION:
+		storageType := typ.(arrow.ExtensionType).StorageType()
+		pqType, logicalType, length, err := getParquetType(storageType, props, arrprops)
+		if withCustomType, ok := typ.(ExtensionCustomParquetType); ok {
+			logicalType = withCustomType.ParquetLogicalType()
+		}
+
+		return pqType, logicalType, length, err
+	default:
+		return parquet.Type(0), nil, 0, fmt.Errorf("%w: support for %s", arrow.ErrNotImplemented, typ.ID())
 	}
 }
 

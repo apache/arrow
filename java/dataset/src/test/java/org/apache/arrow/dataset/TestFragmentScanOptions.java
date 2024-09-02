@@ -51,6 +51,16 @@ import org.junit.jupiter.api.Test;
 
 public class TestFragmentScanOptions {
 
+  private CsvFragmentScanOptions create(
+      ArrowSchema cSchema,
+      Map<String, String> convertOptionsMap,
+      Map<String, String> readOptions,
+      Map<String, String> parseOptions) {
+    CsvConvertOptions convertOptions = new CsvConvertOptions(convertOptionsMap);
+    convertOptions.setArrowSchema(cSchema);
+    return new CsvFragmentScanOptions(convertOptions, readOptions, parseOptions);
+  }
+
   @Test
   public void testCsvConvertOptions() throws Exception {
     final Schema schema =
@@ -63,24 +73,29 @@ public class TestFragmentScanOptions {
     String path = "file://" + getClass().getResource("/").getPath() + "/data/student.csv";
     BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
     try (ArrowSchema cSchema = ArrowSchema.allocateNew(allocator);
+        ArrowSchema cSchema2 = ArrowSchema.allocateNew(allocator);
         CDataDictionaryProvider provider = new CDataDictionaryProvider()) {
       Data.exportSchema(allocator, schema, provider, cSchema);
-      CsvConvertOptions convertOptions = new CsvConvertOptions(ImmutableMap.of("delimiter", ";"));
-      convertOptions.setArrowSchema(cSchema);
-      CsvFragmentScanOptions fragmentScanOptions =
-          new CsvFragmentScanOptions(convertOptions, ImmutableMap.of(), ImmutableMap.of());
+      Data.exportSchema(allocator, schema, provider, cSchema2);
+      CsvFragmentScanOptions fragmentScanOptions1 =
+          create(cSchema, ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of("delimiter", ";"));
+      CsvFragmentScanOptions fragmentScanOptions2 =
+          create(cSchema2, ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of("delimiter", ";"));
       ScanOptions options =
           new ScanOptions.Builder(/*batchSize*/ 32768)
               .columns(Optional.empty())
-              .fragmentScanOptions(fragmentScanOptions)
+              .fragmentScanOptions(fragmentScanOptions1)
               .build();
       try (DatasetFactory datasetFactory =
               new FileSystemDatasetFactory(
-                  allocator, NativeMemoryPool.getDefault(), FileFormat.CSV, path);
+                  allocator,
+                  NativeMemoryPool.getDefault(),
+                  FileFormat.CSV,
+                  path,
+                  Optional.of(fragmentScanOptions2));
           Dataset dataset = datasetFactory.finish();
           Scanner scanner = dataset.newScan(options);
           ArrowReader reader = scanner.scanBatches()) {
-
         assertEquals(schema.getFields(), reader.getVectorSchemaRoot().getSchema().getFields());
         int rowCount = 0;
         while (reader.loadNextBatch()) {
@@ -106,30 +121,38 @@ public class TestFragmentScanOptions {
     String path = "file://" + getClass().getResource("/").getPath() + "/data/student.csv";
     BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
     try (ArrowSchema cSchema = ArrowSchema.allocateNew(allocator);
+        ArrowSchema cSchema2 = ArrowSchema.allocateNew(allocator);
         CDataDictionaryProvider provider = new CDataDictionaryProvider()) {
       Data.exportSchema(allocator, schema, provider, cSchema);
-      CsvConvertOptions convertOptions = new CsvConvertOptions(ImmutableMap.of());
-      convertOptions.setArrowSchema(cSchema);
-      CsvFragmentScanOptions fragmentScanOptions =
-          new CsvFragmentScanOptions(convertOptions, ImmutableMap.of(), ImmutableMap.of());
+      Data.exportSchema(allocator, schema, provider, cSchema2);
+      CsvFragmentScanOptions fragmentScanOptions1 =
+          create(cSchema, ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of());
+      CsvFragmentScanOptions fragmentScanOptions2 =
+          create(cSchema2, ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of());
       ScanOptions options =
           new ScanOptions.Builder(/*batchSize*/ 32768)
               .columns(Optional.empty())
-              .fragmentScanOptions(fragmentScanOptions)
+              .fragmentScanOptions(fragmentScanOptions1)
               .build();
       try (DatasetFactory datasetFactory =
               new FileSystemDatasetFactory(
-                  allocator, NativeMemoryPool.getDefault(), FileFormat.CSV, path);
+                  allocator,
+                  NativeMemoryPool.getDefault(),
+                  FileFormat.CSV,
+                  path,
+                  Optional.of(fragmentScanOptions2));
           Dataset dataset = datasetFactory.finish();
           Scanner scanner = dataset.newScan(options);
           ArrowReader reader = scanner.scanBatches()) {
-
-        assertEquals(schema.getFields(), reader.getVectorSchemaRoot().getSchema().getFields());
         int rowCount = 0;
         while (reader.loadNextBatch()) {
-          final ValueIterableVector<Integer> idVector =
-              (ValueIterableVector<Integer>) reader.getVectorSchemaRoot().getVector("Id");
-          assertThat(idVector.getValueIterable(), IsIterableContainingInOrder.contains(1, 2, 3));
+          final ValueIterableVector<Text> idVector =
+              (ValueIterableVector<Text>)
+                  reader.getVectorSchemaRoot().getVector("Id;Name;Language");
+          assertThat(
+              idVector.getValueIterable(),
+              IsIterableContainingInOrder.contains(
+                  new Text("1;Juno;Java"), new Text("2;Peter;Python"), new Text("3;Celin;C++")));
           rowCount += reader.getVectorSchemaRoot().getRowCount();
         }
         assertEquals(3, rowCount);
@@ -157,13 +180,12 @@ public class TestFragmentScanOptions {
       assertEquals(schema.getFields(), reader.getVectorSchemaRoot().getSchema().getFields());
       int rowCount = 0;
       while (reader.loadNextBatch()) {
-        final ValueIterableVector<String> idVector =
-            (ValueIterableVector<String>)
-                reader.getVectorSchemaRoot().getVector("Id;Name;Language");
+        final ValueIterableVector<Text> idVector =
+            (ValueIterableVector<Text>) reader.getVectorSchemaRoot().getVector("Id;Name;Language");
         assertThat(
             idVector.getValueIterable(),
             IsIterableContainingInOrder.contains(
-                "1;Juno;Java\n" + "2;Peter;Python\n" + "3;Celin;C++"));
+                new Text("1;Juno;Java"), new Text("2;Peter;Python"), new Text("3;Celin;C++")));
         rowCount += reader.getVectorSchemaRoot().getRowCount();
       }
       assertEquals(3, rowCount);
@@ -174,7 +196,10 @@ public class TestFragmentScanOptions {
   public void testCsvReadParseAndReadOptions() throws Exception {
     final Schema schema =
         new Schema(
-            Collections.singletonList(Field.nullable("Id;Name;Language", new ArrowType.Utf8())),
+            Arrays.asList(
+                Field.nullable("Id", new ArrowType.Int(64, true)),
+                Field.nullable("Name", new ArrowType.Utf8()),
+                Field.nullable("Language", new ArrowType.Utf8())),
             null);
     String path = "file://" + getClass().getResource("/").getPath() + "/data/student.csv";
     BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
@@ -202,12 +227,9 @@ public class TestFragmentScanOptions {
       assertEquals(schema.getFields(), reader.getVectorSchemaRoot().getSchema().getFields());
       int rowCount = 0;
       while (reader.loadNextBatch()) {
-        final ValueIterableVector<Text> idVector =
-            (ValueIterableVector<Text>) reader.getVectorSchemaRoot().getVector("Id;Name;Language");
-        assertThat(
-            idVector.getValueIterable(),
-            IsIterableContainingInOrder.contains(
-                new Text("2;Peter;Python"), new Text("3;Celin;C++")));
+        final ValueIterableVector<Long> idVector =
+            (ValueIterableVector<Long>) reader.getVectorSchemaRoot().getVector("Id");
+        assertThat(idVector.getValueIterable(), IsIterableContainingInOrder.contains(2L, 3L));
         rowCount += reader.getVectorSchemaRoot().getRowCount();
       }
       assertEquals(2, rowCount);

@@ -234,7 +234,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CStatus Validate() const
         CStatus ValidateFull() const
         CResult[shared_ptr[CArray]] View(const shared_ptr[CDataType]& type)
+
         CDeviceAllocationType device_type()
+        CResult[shared_ptr[CArray]] CopyTo(const shared_ptr[CMemoryManager]& to) const
 
     shared_ptr[CArray] MakeArray(const shared_ptr[CArrayData]& data)
     CResult[shared_ptr[CArray]] MakeArrayOfNull(
@@ -1026,6 +1028,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         shared_ptr[CRecordBatch] Slice(int64_t offset)
         shared_ptr[CRecordBatch] Slice(int64_t offset, int64_t length)
+
+        CResult[shared_ptr[CRecordBatch]] CopyTo(const shared_ptr[CMemoryManager]& to) const
 
         CResult[shared_ptr[CTensor]] ToTensor(c_bool null_to_nan, c_bool row_major,
                                               CMemoryPool* pool) const
@@ -2861,6 +2865,16 @@ cdef extern from "arrow/extension_type.h" namespace "arrow":
         shared_ptr[CArray] storage()
 
 
+cdef extern from "arrow/extension/uuid.h" namespace "arrow::extension" nogil:
+    cdef cppclass CUuidType" arrow::extension::UuidType"(CExtensionType):
+
+        @staticmethod
+        CResult[shared_ptr[CDataType]] Make()
+
+    cdef cppclass CUuidArray" arrow::extension::UuidArray"(CExtensionArray):
+        pass
+
+
 cdef extern from "arrow/extension/fixed_shape_tensor.h" namespace "arrow::extension" nogil:
     cdef cppclass CFixedShapeTensorType \
             " arrow::extension::FixedShapeTensorType"(CExtensionType):
@@ -2894,6 +2908,15 @@ cdef extern from "arrow/extension/opaque.h" namespace "arrow::extension" nogil:
             " arrow::extension::OpaqueArray"(CExtensionArray):
         pass
 
+
+cdef extern from "arrow/extension/bool8.h" namespace "arrow::extension" nogil:
+    cdef cppclass CBool8Type" arrow::extension::Bool8Type"(CExtensionType):
+
+        @staticmethod
+        CResult[shared_ptr[CDataType]] Make()
+
+    cdef cppclass CBool8Array" arrow::extension::Bool8Array"(CExtensionArray):
+        pass
 
 cdef extern from "arrow/util/compression.h" namespace "arrow" nogil:
     cdef enum CCompressionType" arrow::Compression::type":

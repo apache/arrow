@@ -29,11 +29,11 @@ class AesEncryptor::AesEncryptorImpl {};
 
 AesEncryptor::~AesEncryptor() {}
 
-int AesEncryptor::SignedFooterEncrypt(::arrow::util::span<const uint8_t> footer,
-                                      ::arrow::util::span<const uint8_t> key,
-                                      ::arrow::util::span<const uint8_t> aad,
-                                      ::arrow::util::span<const uint8_t> nonce,
-                                      ::arrow::util::span<uint8_t> encrypted_footer) {
+int32_t AesEncryptor::SignedFooterEncrypt(::arrow::util::span<const uint8_t> footer,
+                                          ::arrow::util::span<const uint8_t> key,
+                                          ::arrow::util::span<const uint8_t> aad,
+                                          ::arrow::util::span<const uint8_t> nonce,
+                                          ::arrow::util::span<uint8_t> encrypted_footer) {
   ThrowOpenSSLRequiredException();
   return -1;
 }
@@ -45,25 +45,25 @@ int32_t AesEncryptor::CiphertextLength(int64_t plaintext_len) const {
   return -1;
 }
 
-int AesEncryptor::Encrypt(::arrow::util::span<const uint8_t> plaintext,
-                          ::arrow::util::span<const uint8_t> key,
-                          ::arrow::util::span<const uint8_t> aad,
-                          ::arrow::util::span<uint8_t> ciphertext) {
+int32_t AesEncryptor::Encrypt(::arrow::util::span<const uint8_t> plaintext,
+                              ::arrow::util::span<const uint8_t> key,
+                              ::arrow::util::span<const uint8_t> aad,
+                              ::arrow::util::span<uint8_t> ciphertext) {
   ThrowOpenSSLRequiredException();
   return -1;
 }
 
-AesEncryptor::AesEncryptor(ParquetCipher::type alg_id, int key_len, bool metadata,
+AesEncryptor::AesEncryptor(ParquetCipher::type alg_id, int32_t key_len, bool metadata,
                            bool write_length) {
   ThrowOpenSSLRequiredException();
 }
 
 class AesDecryptor::AesDecryptorImpl {};
 
-int AesDecryptor::Decrypt(::arrow::util::span<const uint8_t> ciphertext,
-                          ::arrow::util::span<const uint8_t> key,
-                          ::arrow::util::span<const uint8_t> aad,
-                          ::arrow::util::span<uint8_t> plaintext) {
+int32_t AesDecryptor::Decrypt(::arrow::util::span<const uint8_t> ciphertext,
+                              ::arrow::util::span<const uint8_t> key,
+                              ::arrow::util::span<const uint8_t> aad,
+                              ::arrow::util::span<uint8_t> plaintext) {
   ThrowOpenSSLRequiredException();
   return -1;
 }
@@ -72,36 +72,37 @@ void AesDecryptor::WipeOut() { ThrowOpenSSLRequiredException(); }
 
 AesDecryptor::~AesDecryptor() {}
 
-std::unique_ptr<AesEncryptor> AesEncryptor::Make(ParquetCipher::type alg_id, int key_len,
-                                                 bool metadata) {
+std::unique_ptr<AesEncryptor> AesEncryptor::Make(ParquetCipher::type alg_id,
+                                                 int32_t key_len, bool metadata) {
   ThrowOpenSSLRequiredException();
   return NULLPTR;
 }
 
-std::unique_ptr<AesEncryptor> AesEncryptor::Make(ParquetCipher::type alg_id, int key_len,
-                                                 bool metadata, bool write_length) {
+std::unique_ptr<AesEncryptor> AesEncryptor::Make(ParquetCipher::type alg_id,
+                                                 int32_t key_len, bool metadata,
+                                                 bool write_length) {
   ThrowOpenSSLRequiredException();
   return NULLPTR;
 }
 
-AesDecryptor::AesDecryptor(ParquetCipher::type alg_id, int key_len, bool metadata,
+AesDecryptor::AesDecryptor(ParquetCipher::type alg_id, int32_t key_len, bool metadata,
                            bool contains_length) {
   ThrowOpenSSLRequiredException();
 }
 
 std::shared_ptr<AesDecryptor> AesDecryptor::Make(
-    ParquetCipher::type alg_id, int key_len, bool metadata,
+    ParquetCipher::type alg_id, int32_t key_len, bool metadata,
     std::vector<std::weak_ptr<AesDecryptor>>* all_decryptors) {
   ThrowOpenSSLRequiredException();
   return NULLPTR;
 }
 
-int AesDecryptor::PlaintextLength(int ciphertext_len) const {
+int32_t AesDecryptor::PlaintextLength(int32_t ciphertext_len) const {
   ThrowOpenSSLRequiredException();
   return -1;
 }
 
-int AesDecryptor::CiphertextLength(int plaintext_len) const {
+int32_t AesDecryptor::CiphertextLength(int32_t plaintext_len) const {
   ThrowOpenSSLRequiredException();
   return -1;
 }
@@ -122,7 +123,7 @@ void QuickUpdatePageAad(int32_t new_page_ordinal, std::string* AAD) {
   ThrowOpenSSLRequiredException();
 }
 
-void RandBytes(unsigned char* buf, int num) { ThrowOpenSSLRequiredException(); }
+void RandBytes(unsigned char* buf, size_t num) { ThrowOpenSSLRequiredException(); }
 
 void EnsureBackendInitialized() {}
 

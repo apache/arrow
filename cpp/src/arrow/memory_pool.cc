@@ -858,7 +858,7 @@ class PoolBuffer final : public ResizableBuffer {
     }
     uint8_t* ptr = mutable_data();
     if (!ptr || capacity > capacity_) {
-      int64_t new_capacity = bit_util::RoundUpToMultipleOf64(capacity);
+      ARROW_ASSIGN_OR_RAISE(int64_t new_capacity, RoundCapacity(capacity));
       if (ptr) {
         RETURN_NOT_OK(pool_->Reallocate(capacity_, new_capacity, alignment_, &ptr));
       } else {
@@ -878,7 +878,7 @@ class PoolBuffer final : public ResizableBuffer {
     if (ptr && shrink_to_fit && new_size <= size_) {
       // Buffer is non-null and is not growing, so shrink to the requested size without
       // excess space.
-      int64_t new_capacity = bit_util::RoundUpToMultipleOf64(new_size);
+      ARROW_ASSIGN_OR_RAISE(int64_t new_capacity, RoundCapacity(new_size));
       if (capacity_ != new_capacity) {
         // Buffer hasn't got yet the requested size.
         RETURN_NOT_OK(pool_->Reallocate(capacity_, new_capacity, alignment_, &ptr));
@@ -916,6 +916,13 @@ class PoolBuffer final : public ResizableBuffer {
   }
 
  private:
+  static Result<int64_t> RoundCapacity(int64_t capacity) {
+    if (capacity > std::numeric_limits<int64_t>::max() - 63) {
+      return Status::OutOfMemory("capacity too large");
+    }
+    return bit_util::RoundUpToMultipleOf64(capacity);
+  }
+
   MemoryPool* pool_;
   int64_t alignment_;
 };

@@ -21,7 +21,10 @@ import os
 import pathlib
 import unittest.mock as mock
 import pyarrow.dataset as ds
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 import pytest
 
 import pyarrow as pa

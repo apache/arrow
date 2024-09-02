@@ -84,7 +84,7 @@ set(CMAKE_MACOSX_RPATH 1)
 if(DEFINED ENV{MACOSX_DEPLOYMENT_TARGET})
   set(CMAKE_OSX_DEPLOYMENT_TARGET $ENV{MACOSX_DEPLOYMENT_TARGET})
 else()
-  set(CMAKE_OSX_DEPLOYMENT_TARGET 10.15)
+  set(CMAKE_OSX_DEPLOYMENT_TARGET 12.0)
 endif()
 
 # Generate a Clang compile_commands.json "compilation database" file for use
@@ -339,17 +339,17 @@ set(PYARROW_CPP_SRCS
     ${PYARROW_CPP_SOURCE_DIR}/gdb.cc
     ${PYARROW_CPP_SOURCE_DIR}/helpers.cc
     ${PYARROW_CPP_SOURCE_DIR}/inference.cc
-    ${PYARROW_CPP_SOURCE_DIR}/init.cc
     ${PYARROW_CPP_SOURCE_DIR}/io.cc
     ${PYARROW_CPP_SOURCE_DIR}/ipc.cc
     ${PYARROW_CPP_SOURCE_DIR}/numpy_convert.cc
+    ${PYARROW_CPP_SOURCE_DIR}/numpy_init.cc
     ${PYARROW_CPP_SOURCE_DIR}/numpy_to_arrow.cc
     ${PYARROW_CPP_SOURCE_DIR}/python_test.cc
     ${PYARROW_CPP_SOURCE_DIR}/python_to_arrow.cc
     ${PYARROW_CPP_SOURCE_DIR}/pyarrow.cc
     ${PYARROW_CPP_SOURCE_DIR}/serialize.cc
     ${PYARROW_CPP_SOURCE_DIR}/udf.cc)
-set_source_files_properties(${PYARROW_CPP_SOURCE_DIR}/init.cc
+set_source_files_properties(${PYARROW_CPP_SOURCE_DIR}/numpy_init.cc
                             PROPERTIES SKIP_PRECOMPILE_HEADERS ON
                                        SKIP_UNITY_BUILD_INCLUSION ON)
 

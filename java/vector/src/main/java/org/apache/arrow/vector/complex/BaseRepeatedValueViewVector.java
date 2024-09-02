@@ -304,38 +304,44 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
     while (valueCount > getOffsetBufferValueCapacity()) {
       reallocateBuffers();
     }
-    final int childValueCount = valueCount == 0 ? 0 : getLengthOfChildVector();
+    final int childValueCount = valueCount == 0 ? 0 : getMaxViewEndChildVector();
     vector.setValueCount(childValueCount);
   }
 
-  protected int getLengthOfChildVector() {
+  /**
+   * Get the end of the child vector via the maximum view length. This method deduces the length by
+   * considering the condition i.e., argmax_i(offsets[i] + size[i]).
+   *
+   * @return the end of the child vector.
+   */
+  protected int getMaxViewEndChildVector() {
     int maxOffsetSizeSum = offsetBuffer.getInt(0) + sizeBuffer.getInt(0);
-    int minOffset = offsetBuffer.getInt(0);
     for (int i = 0; i < valueCount; i++) {
       int currentOffset = offsetBuffer.getInt(i * OFFSET_WIDTH);
       int currentSize = sizeBuffer.getInt(i * SIZE_WIDTH);
       int currentSum = currentOffset + currentSize;
-
       maxOffsetSizeSum = Math.max(maxOffsetSizeSum, currentSum);
-      minOffset = Math.min(minOffset, currentOffset);
     }
 
-    return maxOffsetSizeSum - minOffset;
+    return maxOffsetSizeSum;
   }
 
-  protected int getLengthOfChildVectorByIndex(int index) {
+  /**
+   * Get the end of the child vector via the maximum view length of the child vector by index.
+   *
+   * @return the end of the child vector by index
+   */
+  protected int getMaxViewEndChildVectorByIndex(int index) {
     int maxOffsetSizeSum = offsetBuffer.getInt(0) + sizeBuffer.getInt(0);
-    int minOffset = offsetBuffer.getInt(0);
+    // int minOffset = offsetBuffer.getInt(0);
     for (int i = 0; i < index; i++) {
       int currentOffset = offsetBuffer.getInt(i * OFFSET_WIDTH);
       int currentSize = sizeBuffer.getInt(i * SIZE_WIDTH);
       int currentSum = currentOffset + currentSize;
-
       maxOffsetSizeSum = Math.max(maxOffsetSizeSum, currentSum);
-      minOffset = Math.min(minOffset, currentOffset);
     }
 
-    return maxOffsetSizeSum - minOffset;
+    return maxOffsetSizeSum;
   }
 
   /**
@@ -389,7 +395,7 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
     }
 
     if (index > 0) {
-      final int prevOffset = getLengthOfChildVectorByIndex(index);
+      final int prevOffset = getMaxViewEndChildVectorByIndex(index);
       offsetBuffer.setInt(index * OFFSET_WIDTH, prevOffset);
     }
 

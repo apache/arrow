@@ -93,8 +93,8 @@ under the License.
   <properties>
     <target.gen.source.path>${project.build.directory}/generated-sources</target.gen.source.path>
     <dep.junit.platform.version>1.9.0</dep.junit.platform.version>
-    <dep.junit.jupiter.version>5.10.3</dep.junit.jupiter.version>
-    <dep.slf4j.version>2.0.13</dep.slf4j.version>
+    <dep.junit.jupiter.version>5.11.0</dep.junit.jupiter.version>
+    <dep.slf4j.version>2.0.16</dep.slf4j.version>
     <dep.guava-bom.version>33.2.1-jre</dep.guava-bom.version>
     <dep.netty-bom.version>4.1.112.Final</dep.netty-bom.version>
     <dep.grpc-bom.version>1.65.0</dep.grpc-bom.version>
@@ -102,15 +102,16 @@ under the License.
     <dep.jackson-bom.version>2.17.2</dep.jackson-bom.version>
     <dep.hadoop.version>3.4.0</dep.hadoop.version>
     <dep.fbs.version>24.3.25</dep.fbs.version>
-    <dep.avro.version>1.11.3</dep.avro.version>
+    <dep.avro.version>1.12.0</dep.avro.version>
     <arrow.vector.classifier></arrow.vector.classifier>
     <forkCount>2</forkCount>
     <checkstyle.version>10.17.0</checkstyle.version>
     <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
-    <error_prone_core.version>2.29.2</error_prone_core.version>
+    <error_prone_core.version>2.30.0</error_prone_core.version>
     <mockito.core.version>5.11.0</mockito.core.version>
     <mockito.inline.version>5.2.0</mockito.inline.version>
     <checker.framework.version>3.46.0</checker.framework.version>
+    <logback.version>1.5.7</logback.version>
     <doclint>none</doclint>
     <additionalparam>-Xdoclint:none</additionalparam>
     <!-- List of add-opens arg line arguments for tests -->
@@ -221,6 +222,16 @@ under the License.
         <type>pom</type>
         <scope>import</scope>
       </dependency>
+      <dependency>
+        <groupId>ch.qos.logback</groupId>
+        <artifactId>logback-classic</artifactId>
+        <version>${logback.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>ch.qos.logback</groupId>
+        <artifactId>logback-core</artifactId>
+        <version>${logback.version}</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 
@@ -274,7 +285,7 @@ under the License.
     <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
-      <version>1.4.14</version>
+      <version>${logback.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -504,7 +515,7 @@ under the License.
         <plugin>
           <groupId>org.codehaus.mojo</groupId>
           <artifactId>exec-maven-plugin</artifactId>
-          <version>3.3.0</version>
+          <version>3.4.1</version>
         </plugin>
         <plugin>
           <groupId>org.codehaus.mojo</groupId>

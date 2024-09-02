@@ -25,9 +25,9 @@ import (
 
 	"github.com/apache/arrow/go/v18/arrow"
 	"github.com/apache/arrow/go/v18/arrow/array"
+	"github.com/apache/arrow/go/v18/arrow/extensions"
 	"github.com/apache/arrow/go/v18/arrow/memory"
 	"github.com/apache/arrow/go/v18/internal/json"
-	"github.com/apache/arrow/go/v18/internal/types"
 )
 
 type diffTestCase struct {
@@ -861,7 +861,7 @@ func TestEdits_UnifiedDiff(t *testing.T) {
 		},
 		{
 			name:       "extensions",
-			dataType:   types.NewUUIDType(),
+			dataType:   extensions.NewUUIDType(),
 			baseJSON:   `["00000000-0000-0000-0000-000000000000", "00000000-0000-0000-0000-000000000001"]`,
 			targetJSON: `["00000000-0000-0000-0000-000000000001", "00000000-0000-0000-0000-000000000002"]`,
 			want: `@@ -0, +0 @@

@@ -72,8 +72,7 @@ std::shared_ptr<FileEncryptionProperties> CryptoFactory::GetFileEncryptionProper
   int dek_length = dek_length_bits / 8;
 
   std::string footer_key(dek_length, '\0');
-  RandBytes(reinterpret_cast<uint8_t*>(&footer_key[0]),
-            static_cast<int>(footer_key.size()));
+  RandBytes(reinterpret_cast<uint8_t*>(footer_key.data()), footer_key.size());
 
   std::string footer_key_metadata =
       key_wrapper.GetEncryptionKeyMetadata(footer_key, footer_key_id, true);
@@ -148,8 +147,7 @@ ColumnPathToEncryptionPropertiesMap CryptoFactory::GetColumnEncryptionProperties
       }
 
       std::string column_key(dek_length, '\0');
-      RandBytes(reinterpret_cast<uint8_t*>(&column_key[0]),
-                static_cast<int>(column_key.size()));
+      RandBytes(reinterpret_cast<uint8_t*>(column_key.data()), column_key.size());
       std::string column_key_key_metadata =
           key_wrapper->GetEncryptionKeyMetadata(column_key, column_key_id, false);
 

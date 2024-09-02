@@ -33,42 +33,50 @@ from cython import sizeof
 
 # These are imprecise because the type (in pandas 0.x) depends on the presence
 # of nulls
-cdef dict _pandas_type_map = {
-    _Type_NA: np.object_,  # NaNs
-    _Type_BOOL: np.bool_,
-    _Type_INT8: np.int8,
-    _Type_INT16: np.int16,
-    _Type_INT32: np.int32,
-    _Type_INT64: np.int64,
-    _Type_UINT8: np.uint8,
-    _Type_UINT16: np.uint16,
-    _Type_UINT32: np.uint32,
-    _Type_UINT64: np.uint64,
-    _Type_HALF_FLOAT: np.float16,
-    _Type_FLOAT: np.float32,
-    _Type_DOUBLE: np.float64,
-    # Pandas does not support [D]ay, so default to [ms] for date32
-    _Type_DATE32: np.dtype('datetime64[ms]'),
-    _Type_DATE64: np.dtype('datetime64[ms]'),
-    _Type_TIMESTAMP: {
-        's': np.dtype('datetime64[s]'),
-        'ms': np.dtype('datetime64[ms]'),
-        'us': np.dtype('datetime64[us]'),
-        'ns': np.dtype('datetime64[ns]'),
-    },
-    _Type_DURATION: {
-        's': np.dtype('timedelta64[s]'),
-        'ms': np.dtype('timedelta64[ms]'),
-        'us': np.dtype('timedelta64[us]'),
-        'ns': np.dtype('timedelta64[ns]'),
-    },
-    _Type_BINARY: np.object_,
-    _Type_FIXED_SIZE_BINARY: np.object_,
-    _Type_STRING: np.object_,
-    _Type_LIST: np.object_,
-    _Type_MAP: np.object_,
-    _Type_DECIMAL128: np.object_,
-}
+cdef dict _pandas_type_map = {}
+
+
+def _get_pandas_type_map():
+    global _pandas_type_map
+    if not _pandas_type_map:
+        _pandas_type_map.update({
+            _Type_NA: np.object_,  # NaNs
+            _Type_BOOL: np.bool_,
+            _Type_INT8: np.int8,
+            _Type_INT16: np.int16,
+            _Type_INT32: np.int32,
+            _Type_INT64: np.int64,
+            _Type_UINT8: np.uint8,
+            _Type_UINT16: np.uint16,
+            _Type_UINT32: np.uint32,
+            _Type_UINT64: np.uint64,
+            _Type_HALF_FLOAT: np.float16,
+            _Type_FLOAT: np.float32,
+            _Type_DOUBLE: np.float64,
+            # Pandas does not support [D]ay, so default to [ms] for date32
+            _Type_DATE32: np.dtype('datetime64[ms]'),
+            _Type_DATE64: np.dtype('datetime64[ms]'),
+            _Type_TIMESTAMP: {
+                's': np.dtype('datetime64[s]'),
+                'ms': np.dtype('datetime64[ms]'),
+                'us': np.dtype('datetime64[us]'),
+                'ns': np.dtype('datetime64[ns]'),
+            },
+            _Type_DURATION: {
+                's': np.dtype('timedelta64[s]'),
+                'ms': np.dtype('timedelta64[ms]'),
+                'us': np.dtype('timedelta64[us]'),
+                'ns': np.dtype('timedelta64[ns]'),
+            },
+            _Type_BINARY: np.object_,
+            _Type_FIXED_SIZE_BINARY: np.object_,
+            _Type_STRING: np.object_,
+            _Type_LIST: np.object_,
+            _Type_MAP: np.object_,
+            _Type_DECIMAL128: np.object_,
+        })
+    return _pandas_type_map
+
 
 cdef dict _pep3118_type_map = {
     _Type_INT8: b'b',
@@ -149,14 +157,15 @@ def _is_primitive(Type type):
 
 def _get_pandas_type(arrow_type, coerce_to_ns=False):
     cdef Type type_id = arrow_type.id
-    if type_id not in _pandas_type_map:
+    cdef dict pandas_type_map = _get_pandas_type_map()
+    if type_id not in pandas_type_map:
         return None
     if coerce_to_ns:
         # ARROW-3789: Coerce date/timestamp types to datetime64[ns]
         if type_id == _Type_DURATION:
             return np.dtype('timedelta64[ns]')
         return np.dtype('datetime64[ns]')
-    pandas_type = _pandas_type_map[type_id]
+    pandas_type = pandas_type_map[type_id]
     if isinstance(pandas_type, dict):
         unit = getattr(arrow_type, 'unit', None)
         pandas_type = pandas_type.get(unit, None)
@@ -1765,6 +1774,25 @@ cdef class ExtensionType(BaseExtensionType):
         return ExtensionScalar
 
 
+cdef class UuidType(BaseExtensionType):
+    """
+    Concrete class for UUID extension type.
+    """
+
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
+        BaseExtensionType.init(self, type)
+        self.uuid_ext_type = <const CUuidType*> type.get()
+
+    def __arrow_ext_class__(self):
+        return UuidArray
+
+    def __reduce__(self):
+        return uuid, ()
+
+    def __arrow_ext_scalar_class__(self):
+        return UuidScalar
+
+
 cdef class FixedShapeTensorType(BaseExtensionType):
     """
     Concrete class for fixed shape tensor extension type.
@@ -1835,6 +1863,37 @@ cdef class FixedShapeTensorType(BaseExtensionType):
 
     def __arrow_ext_scalar_class__(self):
         return FixedShapeTensorScalar
+
+
+cdef class Bool8Type(BaseExtensionType):
+    """
+    Concrete class for bool8 extension type.
+
+    Bool8 is an alternate representation for boolean
+    arrays using 8 bits instead of 1 bit per value. The underlying
+    storage type is int8.
+
+    Examples
+    --------
+    Create an instance of bool8 extension type:
+
+    >>> import pyarrow as pa
+    >>> pa.bool8()
+    Bool8Type(extension<arrow.bool8>)
+    """
+
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
+        BaseExtensionType.init(self, type)
+        self.bool8_ext_type = <const CBool8Type*> type.get()
+
+    def __arrow_ext_class__(self):
+        return Bool8Array
+
+    def __reduce__(self):
+        return bool8, ()
+
+    def __arrow_ext_scalar_class__(self):
+        return Bool8Scalar
 
 
 cdef class OpaqueType(BaseExtensionType):
@@ -5177,6 +5236,21 @@ def run_end_encoded(run_end_type, value_type):
     return pyarrow_wrap_data_type(ree_type)
 
 
+def uuid():
+    """
+    Create UuidType instance.
+
+    Returns
+    -------
+    type : UuidType
+    """
+
+    cdef UuidType out = UuidType.__new__(UuidType)
+    c_uuid_ext_type = GetResultValue(CUuidType.Make())
+    out.init(c_uuid_ext_type)
+    return out
+
+
 def fixed_shape_tensor(DataType value_type, shape, dim_names=None, permutation=None):
     """
     Create instance of fixed shape tensor extension type with shape and optional
@@ -5278,6 +5352,49 @@ def fixed_shape_tensor(DataType value_type, shape, dim_names=None, permutation=N
     return out
 
 
+def bool8():
+    """
+    Create instance of bool8 extension type.
+
+    Examples
+    --------
+    Create an instance of bool8 extension type:
+
+    >>> import pyarrow as pa
+    >>> type = pa.bool8()
+    >>> type
+    Bool8Type(extension<arrow.bool8>)
+
+    Inspect the data type:
+
+    >>> type.storage_type
+    DataType(int8)
+
+    Create a table with a bool8 array:
+
+    >>> arr = [-1, 0, 1, 2, None]
+    >>> storage = pa.array(arr, pa.int8())
+    >>> other = pa.ExtensionArray.from_storage(type, storage)
+    >>> pa.table([other], names=["unknown_col"])
+    pyarrow.Table
+    unknown_col: extension<arrow.bool8>
+    ----
+    unknown_col: [[-1,0,1,2,null]]
+
+    Returns
+    -------
+    type : Bool8Type
+    """
+
+    cdef Bool8Type out = Bool8Type.__new__(Bool8Type)
+
+    c_type = GetResultValue(CBool8Type.Make())
+
+    out.init(c_type)
+
+    return out
+
+
 def opaque(DataType storage_type, str type_name not None, str vendor_name not None):
     """
     Create instance of opaque extension type.
@@ -5328,8 +5445,9 @@ def opaque(DataType storage_type, str type_name not None, str vendor_name not No
     cdef:
         c_string c_type_name = tobytes(type_name)
         c_string c_vendor_name = tobytes(vendor_name)
-        shared_ptr[CDataType] c_type = make_shared[COpaqueType](
+        shared_ptr[COpaqueType] c_opaque_type = make_shared[COpaqueType](
             storage_type.sp_type, c_type_name, c_vendor_name)
+        shared_ptr[CDataType] c_type = static_pointer_cast[CDataType, COpaqueType](c_opaque_type)
         OpaqueType out = OpaqueType.__new__(OpaqueType)
     out.init(c_type)
     return out
