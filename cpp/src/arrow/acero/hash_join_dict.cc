@@ -231,7 +231,7 @@ Status HashJoinDictBuild::Init(ExecContext* ctx, std::shared_ptr<Array> dictiona
   // Initialize encoder
   RowEncoder encoder;
   std::vector<TypeHolder> encoder_types{value_type_};
-  encoder.Init(encoder_types, ctx);
+  RETURN_NOT_OK(encoder.Init(encoder_types, ctx));
 
   // Encode all dictionary values
   int64_t length = dictionary_->data()->length;
@@ -291,7 +291,7 @@ Result<std::shared_ptr<ArrayData>> HashJoinDictBuild::RemapInputValues(
   //
   RowEncoder encoder;
   std::vector<TypeHolder> encoder_types = {value_type_};
-  encoder.Init(encoder_types, ctx);
+  RETURN_NOT_OK(encoder.Init(encoder_types, ctx));
 
   // Encode all
   //
@@ -427,7 +427,7 @@ Result<std::shared_ptr<ArrayData>> HashJoinDictProbe::RemapInput(
             opt_build_side->RemapInputValues(ctx, Datum(dict->data()), dict->length()));
       } else {
         std::vector<TypeHolder> encoder_types = {dict_type.value_type()};
-        encoder_.Init(encoder_types, ctx);
+        RETURN_NOT_OK(encoder_.Init(encoder_types, ctx));
         RETURN_NOT_OK(
             encoder_.EncodeAndAppend(ExecSpan({*dict->data()}, dict->length())));
       }
@@ -515,7 +515,7 @@ Status HashJoinDictBuildMulti::Init(
   return Status::OK();
 }
 
-void HashJoinDictBuildMulti::InitEncoder(
+Status HashJoinDictBuildMulti::InitEncoder(
     const SchemaProjectionMaps<HashJoinProjection>& proj_map, RowEncoder* encoder,
     ExecContext* ctx) {
   int num_cols = proj_map.num_cols(HashJoinProjection::KEY);
@@ -526,9 +526,9 @@ void HashJoinDictBuildMulti::InitEncoder(
     if (HashJoinDictBuild::KeyNeedsProcessing(data_type)) {
       data_type = HashJoinDictBuild::DataTypeAfterRemapping();
     }
-    data_types[icol] = data_type;
+    data_types[icol] = std::move(data_type);
   }
-  encoder->Init(data_types, ctx);
+  return encoder->Init(data_types, ctx);
 }
 
 Status HashJoinDictBuildMulti::EncodeBatch(
@@ -569,20 +569,21 @@ Status HashJoinDictBuildMulti::PostDecode(
 
 void HashJoinDictProbeMulti::Init(size_t num_threads) {
   local_states_.resize(num_threads);
-  for (size_t i = 0; i < local_states_.size(); ++i) {
-    local_states_[i].is_initialized = false;
+  for (auto& local_state : local_states_) {
+    local_state.is_initialized = false;
   }
 }
 
-bool HashJoinDictProbeMulti::BatchRemapNeeded(
+Result<bool> HashJoinDictProbeMulti::BatchRemapNeeded(
     size_t thread_index, const SchemaProjectionMaps<HashJoinProjection>& proj_map_probe,
     const SchemaProjectionMaps<HashJoinProjection>& proj_map_build, ExecContext* ctx) {
-  InitLocalStateIfNeeded(thread_index, proj_map_probe, proj_map_build, ctx);
+  RETURN_NOT_OK(
+      InitLocalStateIfNeeded(thread_index, proj_map_probe, proj_map_build, ctx));
   DCHECK_LT(thread_index, local_states_.size());
   return local_states_[thread_index].any_needs_remap;
 }
 
-void HashJoinDictProbeMulti::InitLocalStateIfNeeded(
+Status HashJoinDictProbeMulti::InitLocalStateIfNeeded(
     size_t thread_index, const SchemaProjectionMaps<HashJoinProjection>& proj_map_probe,
     const SchemaProjectionMaps<HashJoinProjection>& proj_map_build, ExecContext* ctx) {
   ThreadLocalState& local_state = local_states_[thread_index];
@@ -604,11 +605,13 @@ void HashJoinDictProbeMulti::InitLocalStateIfNeeded(
   }
 
   if (local_state.any_needs_remap) {
-    InitEncoder(proj_map_probe, proj_map_build, &local_state.post_remap_encoder, ctx);
+    RETURN_NOT_OK(InitEncoder(proj_map_probe, proj_map_build,
+                              &local_state.post_remap_encoder, ctx));
   }
+  return Status::OK();
 }
 
-void HashJoinDictProbeMulti::InitEncoder(
+Status HashJoinDictProbeMulti::InitEncoder(
     const SchemaProjectionMaps<HashJoinProjection>& proj_map_probe,
     const SchemaProjectionMaps<HashJoinProjection>& proj_map_build, RowEncoder* encoder,
     ExecContext* ctx) {
@@ -617,14 +620,14 @@ void HashJoinDictProbeMulti::InitEncoder(
   for (int icol = 0; icol < num_cols; ++icol) {
     std::shared_ptr<DataType> data_type =
         proj_map_probe.data_type(HashJoinProjection::KEY, icol);
-    std::shared_ptr<DataType> build_data_type =
+    const std::shared_ptr<DataType>& build_data_type =
         proj_map_build.data_type(HashJoinProjection::KEY, icol);
     if (HashJoinDictProbe::KeyNeedsProcessing(data_type, build_data_type)) {
       data_type = HashJoinDictProbe::DataTypeAfterRemapping(build_data_type);
     }
     data_types[icol] = data_type;
   }
-  encoder->Init(data_types, ctx);
+  return encoder->Init(data_types, ctx);
 }
 
 Status HashJoinDictProbeMulti::EncodeBatch(
@@ -633,7 +636,8 @@ Status HashJoinDictProbeMulti::EncodeBatch(
     const HashJoinDictBuildMulti& dict_build, const ExecBatch& batch,
     RowEncoder** out_encoder, ExecBatch* opt_out_key_batch, ExecContext* ctx) {
   ThreadLocalState& local_state = local_states_[thread_index];
-  InitLocalStateIfNeeded(thread_index, proj_map_probe, proj_map_build, ctx);
+  RETURN_NOT_OK(
+      InitLocalStateIfNeeded(thread_index, proj_map_probe, proj_map_build, ctx));
 
   ExecBatch projected({}, batch.length);
   int num_cols = proj_map_probe.num_cols(HashJoinProjection::KEY);

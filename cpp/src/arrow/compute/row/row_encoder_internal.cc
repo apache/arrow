@@ -62,7 +62,8 @@ Result<std::shared_ptr<KeyEncoder>> MakeKeyEncoder(const TypeHolder& column_type
   }
 
   if (is_list(type.id())) {
-    auto element_type = ::arrow::checked_cast<BaseListType*>(type.type)->value_type();
+    auto element_type =
+        ::arrow::checked_cast<const BaseListType*>(type.type)->value_type();
     if (is_nested(element_type->id())) {
       return Status::NotImplemented("Unsupported nested type in List for row encoder", type.ToString());
     }
