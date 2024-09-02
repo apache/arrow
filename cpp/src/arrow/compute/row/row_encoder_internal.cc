@@ -29,6 +29,51 @@ using internal::FirstTimeBitmapWriter;
 namespace compute {
 namespace internal {
 
+Result<std::shared_ptr<KeyEncoder>> MakeKeyEncoder(const TypeHolder& column_type, std::shared_ptr<ExtensionType>* extension_type, MemoryPool* pool) {
+  const bool is_extension = column_type.id() == Type::EXTENSION;
+  const TypeHolder& type =
+      is_extension
+          ? arrow::internal::checked_cast<const ExtensionType*>(column_type.type)
+                ->storage_type()
+          : column_type;
+
+  if (is_extension) {
+    *extension_type = arrow::internal::checked_pointer_cast<ExtensionType>(
+        column_type.GetSharedPtr());
+  }
+  if (type.id() == Type::BOOL) {
+    return std::make_shared<BooleanKeyEncoder>();
+  }
+
+  if (type.id() == Type::DICTIONARY) {
+    return std::make_shared<DictionaryKeyEncoder>(type.GetSharedPtr(), pool);
+  }
+
+  if (is_fixed_width(type.id())) {
+    return std::make_shared<FixedWidthKeyEncoder>(type.GetSharedPtr());
+  }
+
+  if (is_binary_like(type.id())) {
+    return std::make_shared<VarLengthKeyEncoder<BinaryType>>(type.GetSharedPtr());
+  }
+
+  if (is_large_binary_like(type.id())) {
+    return std::make_shared<VarLengthKeyEncoder<LargeBinaryType>>(type.GetSharedPtr());
+  }
+
+  if (is_list(type.id())) {
+    auto element_type = ::arrow::checked_cast<BaseListType*>(type.type)->value_type();
+    if (is_nested(element_type->id())) {
+      return Status::NotImplemented("Unsupported nested type in List for row encoder", type.ToString());
+    }
+    std::shared_ptr<ExtensionType> element_extension_type;
+    ARROW_ASSIGN_OR_RAISE(auto element_encoder, MakeKeyEncoder(element_type, &element_extension_type, pool));
+    return std::make_shared<ListKeyEncoder>(std::move(element_type), std::move(element_encoder));
+  }
+
+  return Status::NotImplemented("Unsupported type for row encoder", type.ToString());
+}
+
 // extract the null bitmap from the leading nullity bytes of encoded keys
 Status KeyEncoder::DecodeNulls(MemoryPool* pool, int32_t length, uint8_t** encoded_bytes,
                                std::shared_ptr<Buffer>* null_bitmap,
@@ -256,53 +301,32 @@ Result<std::shared_ptr<ArrayData>> DictionaryKeyEncoder::Decode(uint8_t** encode
   return data;
 }
 
-void RowEncoder::Init(const std::vector<TypeHolder>& column_types, ExecContext* ctx) {
+ListKeyEncoder::ListKeyEncoder(std::shared_ptr<DataType> element_type, std::shared_ptr<KeyEncoder> element_encoder)
+    : element_type_(std::move(element_type)), element_encoder_(std::move(element_encoder)) {}
+
+void ListKeyEncoder::AddLength(const ExecValue& exec_value, int64_t batch_length, int32_t* lengths) {}
+
+void ListKeyEncoder::AddLengthNull(int32_t* length) {}
+
+Status ListKeyEncoder::Encode(const ExecValue& data, int64_t batch_length,
+              uint8_t** encoded_bytes) {
+  return Status::NotImplemented("ListKeyEncoder::Encode");
+}
+
+void ListKeyEncoder::EncodeNull(uint8_t** encoded_bytes) {}
+
+Result<std::shared_ptr<ArrayData>> ListKeyEncoder::Decode(uint8_t** encoded_bytes, int32_t length,
+                                          MemoryPool* pool) {
+  return std::shared_ptr<ArrayData>(nullptr);
+}
+
+Status RowEncoder::Init(const std::vector<TypeHolder>& column_types, ExecContext* ctx) {
   ctx_ = ctx;
   encoders_.resize(column_types.size());
   extension_types_.resize(column_types.size());
 
   for (size_t i = 0; i < column_types.size(); ++i) {
-    const bool is_extension = column_types[i].id() == Type::EXTENSION;
-    const TypeHolder& type =
-        is_extension
-            ? arrow::internal::checked_cast<const ExtensionType*>(column_types[i].type)
-                  ->storage_type()
-            : column_types[i];
-
-    if (is_extension) {
-      extension_types_[i] = arrow::internal::checked_pointer_cast<ExtensionType>(
-          column_types[i].GetSharedPtr());
-    }
-    if (type.id() == Type::BOOL) {
-      encoders_[i] = std::make_shared<BooleanKeyEncoder>();
-      continue;
-    }
-
-    if (type.id() == Type::DICTIONARY) {
-      encoders_[i] =
-          std::make_shared<DictionaryKeyEncoder>(type.GetSharedPtr(), ctx->memory_pool());
-      continue;
-    }
-
-    if (is_fixed_width(type.id())) {
-      encoders_[i] = std::make_shared<FixedWidthKeyEncoder>(type.GetSharedPtr());
-      continue;
-    }
-
-    if (is_binary_like(type.id())) {
-      encoders_[i] =
-          std::make_shared<VarLengthKeyEncoder<BinaryType>>(type.GetSharedPtr());
-      continue;
-    }
-
-    if (is_large_binary_like(type.id())) {
-      encoders_[i] =
-          std::make_shared<VarLengthKeyEncoder<LargeBinaryType>>(type.GetSharedPtr());
-      continue;
-    }
-
-    // We should not get here
-    ARROW_DCHECK(false);
+    ARROW_ASSIGN_OR_RAISE(encoders_[i], MakeKeyEncoder(column_types[i], &extension_types_[i], ctx->memory_pool()));
   }
 
   int32_t total_length = 0;
@@ -314,6 +338,7 @@ void RowEncoder::Init(const std::vector<TypeHolder>& column_types, ExecContext* 
   for (size_t i = 0; i < column_types.size(); ++i) {
     encoders_[i]->EncodeNull(&buf_ptr);
   }
+  return Status::OK();
 }
 
 void RowEncoder::Clear() {

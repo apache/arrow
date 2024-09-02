@@ -270,6 +270,28 @@ struct ARROW_COMPUTE_EXPORT NullKeyEncoder : KeyEncoder {
   }
 };
 
+struct ARROW_EXPORT ListKeyEncoder : KeyEncoder {
+  explicit ListKeyEncoder(std::shared_ptr<DataType> element_type, std::shared_ptr<KeyEncoder> element_encoder);
+
+  void AddLength(const ExecValue&, int64_t batch_length, int32_t* lengths) override;
+
+  void AddLengthNull(int32_t* length) override;
+
+  Status Encode(const ExecValue& data, int64_t batch_length,
+                uint8_t** encoded_bytes) override;
+
+  void EncodeNull(uint8_t** encoded_bytes) override;
+
+  Result<std::shared_ptr<ArrayData>> Decode(uint8_t** encoded_bytes, int32_t length,
+                                            MemoryPool* pool) override;
+
+  std::shared_ptr<DataType> element_type_;
+  std::shared_ptr<KeyEncoder> element_encoder_;
+  // extension_type_ is used to store the extension type of the list element.
+  // It would be nullptr if the list element is not an extension type.
+  std::shared_ptr<ExtensionType> extension_type_;
+};
+
 /// RowEncoder encodes ExecSpan to a variable length byte sequence
 /// created by concatenating the encoded form of each column. The encoding
 /// for each column depends on its data type.
@@ -329,6 +351,15 @@ struct ARROW_COMPUTE_EXPORT NullKeyEncoder : KeyEncoder {
 /// Null string Would be encoded as:
 /// 1 ( 1 byte for null) + 0 ( 4 bytes for length )
 ///
+/// ## List Type
+///
+/// List Type is encoded as:
+/// [null byte, list element count, [element 1, element 2, ...]]
+/// Element count uses 4 bytes.
+///
+/// Currently, we only support encoding of primitive types, dictionary types
+/// in the list, the nested list is not supported.
+///
 /// # Row Encoding
 ///
 /// The row format is the concatenation of the encodings of each column.
@@ -336,7 +367,7 @@ class ARROW_COMPUTE_EXPORT RowEncoder {
  public:
   static constexpr int kRowIdForNulls() { return -1; }
 
-  void Init(const std::vector<TypeHolder>& column_types, ExecContext* ctx);
+  Status Init(const std::vector<TypeHolder>& column_types, ExecContext* ctx);
   void Clear();
   Status EncodeAndAppend(const ExecSpan& batch);
   Result<ExecBatch> Decode(int64_t num_rows, const int32_t* row_ids);
