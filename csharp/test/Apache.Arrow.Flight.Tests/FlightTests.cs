@@ -24,6 +24,7 @@ using Apache.Arrow.Tests;
 using Google.Protobuf;
 using Grpc.Core;
 using Grpc.Core.Utils;
+using Python.Runtime;
 using Xunit;
 
 namespace Apache.Arrow.Flight.Tests
@@ -419,7 +420,7 @@ namespace Apache.Arrow.Flight.Tests
         }
 
         [Fact]
-        public async Task TestExchangeRaiseDeadlineExceeded()
+        public async Task EnsureCallRaiseDeadlineExceeded()
         {
             var flightDescriptor = FlightDescriptor.CreatePathDescriptor("raise_deadline");
             var deadline = DateTime.UtcNow;
@@ -447,14 +448,14 @@ namespace Apache.Arrow.Flight.Tests
         }
 
         [Fact]
-        public async Task TestExchangeRaiseRequestCancelled()
+        public async Task EnsureCallRaiseRequestCancelled()
         {
-            var flightDescriptor = FlightDescriptor.CreatePathDescriptor("raise_cancelled");
-            var batch = CreateTestBatch(0, 100);
             var cts = new CancellationTokenSource();
-            
             cts.CancelAfter(1);
-
+            
+            var batch = CreateTestBatch(0, 100);
+            var flightDescriptor = FlightDescriptor.CreatePathDescriptor("raise_cancelled");
+            await Task.Delay(5);
             RpcException exception = null;
 
             var duplexStreamingCall = _flightClient.DoExchange(flightDescriptor, null, null, cts.Token);
