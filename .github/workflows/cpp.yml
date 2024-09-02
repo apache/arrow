@@ -472,7 +472,7 @@ jobs:
         shell: msys2 {0}
         env:
           PIPX_BIN_DIR: /usr/local/bin
-          PIPX_PYTHON: ${{ steps.python-install.outputs.python-path }}
+          PIPX_BASE_PYTHON: ${{ steps.python-install.outputs.python-path }}
         run: |
           ci/scripts/install_gcs_testbench.sh default
       - name: Test

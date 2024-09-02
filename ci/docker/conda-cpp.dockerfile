@@ -44,7 +44,7 @@ RUN mamba install -q -y \
 
 # We want to install the GCS testbench using the Conda base environment's Python,
 # because the test environment's Python may later change.
-ENV PIPX_PYTHON=/opt/conda/bin/python3
+ENV PIPX_BASE_PYTHON=/opt/conda/bin/python3
 COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts
 RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 
