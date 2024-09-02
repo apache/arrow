@@ -93,7 +93,7 @@ public class SimpleHasher implements ArrowBufHasher {
     return currentHashCode * 37 + newHashCode;
   }
 
-  protected int getLongHashCode(long longValue) {
+  protected long getLongHashCode(long longValue) {
     return Long.hashCode(longValue);
   }
 
