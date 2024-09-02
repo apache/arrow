@@ -25,6 +25,7 @@
 
 #include "arrow/chunk_resolver.h"
 #include "arrow/compare.h"
+#include "arrow/device_allocation_type_set.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
@@ -115,6 +116,13 @@ class ARROW_EXPORT ChunkedArray {
 
   /// \return an ArrayVector of chunks
   const ArrayVector& chunks() const { return chunks_; }
+
+  /// \return The set of device allocation types used by the chunks in this
+  /// chunked array.
+  DeviceAllocationTypeSet device_types() const;
+
+  /// \return true if all chunks are allocated on CPU-accessible memory.
+  bool is_cpu() const { return device_types().is_cpu_only(); }
 
   /// \brief Construct a zero-copy slice of the chunked array with the
   /// indicated offset and length

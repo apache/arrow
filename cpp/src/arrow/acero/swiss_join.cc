@@ -1667,7 +1667,7 @@ Result<std::shared_ptr<ArrayData>> JoinResultMaterialize::FlushBuildColumn(
     const std::shared_ptr<DataType>& data_type, const RowArray* row_array, int column_id,
     uint32_t* row_ids) {
   ResizableArrayData output;
-  output.Init(data_type, pool_, bit_util::Log2(num_rows_));
+  RETURN_NOT_OK(output.Init(data_type, pool_, bit_util::Log2(num_rows_)));
 
   for (size_t i = 0; i <= null_ranges_.size(); ++i) {
     int row_id_begin =
@@ -2247,8 +2247,9 @@ Result<ExecBatch> JoinResidualFilter::MaterializeFilterInput(
         build_schemas_->map(HashJoinProjection::FILTER, HashJoinProjection::PAYLOAD);
     for (int i = 0; i < num_build_cols; ++i) {
       ResizableArrayData column_data;
-      column_data.Init(build_schemas_->data_type(HashJoinProjection::FILTER, i), pool_,
-                       bit_util::Log2(num_batch_rows));
+      RETURN_NOT_OK(
+          column_data.Init(build_schemas_->data_type(HashJoinProjection::FILTER, i),
+                           pool_, bit_util::Log2(num_batch_rows)));
       if (auto idx = to_key.get(i); idx != SchemaProjectionMap::kMissingField) {
         RETURN_NOT_OK(build_keys_->DecodeSelected(&column_data, idx, num_batch_rows,
                                                   key_ids_maybe_null, pool_));

@@ -465,15 +465,17 @@ jobs:
           chmod +x /usr/local/bin/minio.exe
       - name: Set up Python
         uses: actions/setup-python@v5.1.1
+        id: python-install
         with:
           python-version: 3.9
       - name: Install Google Cloud Storage Testbench
-        shell: bash
+        shell: msys2 {0}
+        env:
+          PIPX_BIN_DIR: /usr/local/bin
+          PIPX_PYTHON: ${{ steps.python-install.outputs.python-path }}
         run: |
           ci/scripts/install_gcs_testbench.sh default
-          echo "PYTHON_BIN_DIR=$(cygpath --windows $(dirname $(which python3.exe)))" >> $GITHUB_ENV
       - name: Test
         shell: msys2 {0}
         run: |
-          PATH="$(cygpath --unix ${PYTHON_BIN_DIR}):${PATH}"
           ci/scripts/cpp_test.sh "$(pwd)" "$(pwd)/build"

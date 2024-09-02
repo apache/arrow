@@ -24,7 +24,7 @@
 # - JDK >= 11
 # - gcc >= 4.8
 # - Node.js >= 18
-# - Go >= 1.21
+# - Go >= 1.22
 # - Docker
 #
 # If using a non-system Boost, set BOOST_ROOT and add Boost libraries to
@@ -403,7 +403,7 @@ install_go() {
     return 0
   fi
 
-  local version=1.21.8
+  local version=1.22.6
   show_info "Installing go version ${version}..."
 
   local arch="$(uname -m)"
@@ -512,7 +512,7 @@ install_maven() {
     show_info "System Maven version ${SYSTEM_MAVEN_VERSION} matches required Maven version ${MAVEN_VERSION}. Skipping installation."
   else
     # Append pipe character to make preview release versions like "X.Y.Z-beta-1" sort
-    # as older than their corresponding release version "X.Y.Z". This works because 
+    # as older than their corresponding release version "X.Y.Z". This works because
     # `sort -V` orders the pipe character lower than any version number character.
     older_version=$(printf '%s\n%s\n' "$SYSTEM_MAVEN_VERSION" "$MAVEN_VERSION" | sed 's/$/|/' | sort -V | sed 's/|$//' | head -n1)
     if [[ "$older_version" == "$SYSTEM_MAVEN_VERSION" ]]; then
@@ -953,7 +953,7 @@ test_go() {
   show_header "Build and test Go libraries"
 
   maybe_setup_go
-  maybe_setup_conda compilers go=1.21
+  maybe_setup_conda compilers go=1.22
 
   pushd go
   go get -v ./...

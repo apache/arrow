@@ -413,7 +413,7 @@ tasks:
 
 {############################## Wheel macOS ####################################}
 
-{% for macos_version, macos_codename in [("10.15", "catalina")] %}
+{% for macos_version, macos_codename in [("12.0", "monterey")] %}
   {% set platform_tag = "macosx_{}_x86_64".format(macos_version.replace('.', '_')) %}
 
   wheel-macos-{{ macos_codename }}-{{ python_tag }}-amd64:
@@ -424,25 +424,25 @@ tasks:
       arrow_jemalloc: "ON"
       python_version: "{{ python_version }}"
       macos_deployment_target: "{{ macos_version }}"
-      runs_on: "macos-13"
+      runs_on: "macos-12"
       vcpkg_arch: "amd64"
     artifacts:
       - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-{{ platform_tag }}.whl
 
 {% endfor %}
 
-  wheel-macos-big-sur-{{ python_tag }}-arm64:
+  wheel-macos-monterey-{{ python_tag }}-arm64:
     ci: github
     template: python-wheels/github.osx.yml
     params:
       arch: "arm64"
       arrow_jemalloc: "OFF"
       python_version: "{{ python_version }}"
-      macos_deployment_target: "11.0"
+      macos_deployment_target: "12.0"
       runs_on: "macos-14"
       vcpkg_arch: "arm64"
     artifacts:
-      - pyarrow-{no_rc_version}-{{ python_tag }}-{{ python_tag }}-macosx_11_0_arm64.whl
+      - pyarrow-{no_rc_version}-{{ python_tag }}-{{ python_tag }}-macosx_12_0_arm64.whl
 
 {############################## Wheel Windows ################################}
 
@@ -1475,7 +1475,7 @@ tasks:
         R_PRUNE_DEPS: TRUE
       image: r-clang-sanitizer
 
-  {% for go_version, staticcheck in [("1.21", "v0.4.7"), ("1.22", "latest")] %}
+  {% for go_version, staticcheck in [("1.22", "v0.5.1"), ("1.23", "latest")] %}
   test-debian-12-go-{{ go_version }}:
     ci: github
     template: docker-tests/github.linux.yml
