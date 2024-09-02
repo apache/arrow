@@ -955,6 +955,44 @@ test_that("Summarize with 0 arguments", {
   )
 })
 
+test_that("Printing aggregation expressions", {
+  q <- tbl |>
+    arrow_table() |>
+    summarize(
+      total = sum(int, na.rm = TRUE),
+      prod = prod(int, na.rm = TRUE),
+      any = any(lgl, na.rm = TRUE),
+      all = all(lgl, na.rm = TRUE),
+      mean = mean(int, na.rm = TRUE),
+      sd = sd(int, na.rm = TRUE),
+      var = var(int, na.rm = TRUE),
+      n_distinct = n_distinct(chr),
+      min = min(int, na.rm = TRUE),
+      max = max(int, na.rm = TRUE)
+    )
+  expect_output(
+    print(q$.data),
+    "Table (query)
+int: int32
+lgl: bool
+chr: string
+
+* Aggregations:
+total: sum(int, {skip_nulls=true, min_count=0})
+prod: product(int, {skip_nulls=true, min_count=0})
+any: any(lgl, {skip_nulls=true, min_count=0})
+all: all(lgl, {skip_nulls=true, min_count=0})
+mean: mean(int, {skip_nulls=true, min_count=0})
+sd: stddev(int, {ddof=1, skip_nulls=true, min_count=0})
+var: variance(int, {ddof=1, skip_nulls=true, min_count=0})
+n_distinct: count_distinct(chr, {mode=ALL})
+min: min(int, {skip_nulls=true, min_count=0})
+max: max(int, {skip_nulls=true, min_count=0})
+See $.data for the source Arrow object",
+    fixed = TRUE
+  )
+})
+
 test_that("Not supported: window functions", {
   compare_dplyr_binding(
     .input %>%
