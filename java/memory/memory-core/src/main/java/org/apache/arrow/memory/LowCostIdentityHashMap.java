@@ -38,18 +38,18 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
   private @Nullable Object[] elementData; // elementData[index] = null;
 
   /* Actual number of values. */
-  private int size;
+  private long size;
 
   /*
    * maximum number of elements that can be put in this map before having to
    * rehash.
    */
-  private int threshold;
+  private long threshold;
 
-  private static final int DEFAULT_MIN_SIZE = 1;
+  private static final long DEFAULT_MIN_SIZE = 1;
 
   /* Default load factor of 0.75; */
-  private static final int LOAD_FACTOR = 7500;
+  private static final long LOAD_FACTOR = 7500;
 
   /** Creates a Map with default expected maximum size. */
   public LowCostIdentityHashMap() {
@@ -61,24 +61,24 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
    *
    * @param maxSize The estimated maximum number of entries that will be put in this map.
    */
-  public LowCostIdentityHashMap(int maxSize) {
+  public LowCostIdentityHashMap(long maxSize) {
     if (maxSize >= 0) {
       this.size = 0;
       threshold = getThreshold(maxSize);
-      elementData = newElementArrayUnderInitialized(computeElementArraySize());
+      elementData = newElementArrayUnderInitialized((int) computeElementArraySize());
     } else {
       throw new IllegalArgumentException();
     }
   }
 
-  private int getThreshold(@UnderInitialization LowCostIdentityHashMap<K, V> this, int maxSize) {
+  private long getThreshold(@UnderInitialization LowCostIdentityHashMap<K, V> this, long maxSize) {
     // assign the threshold to maxSize initially, this will change to a
     // higher value if rehashing occurs.
     return maxSize > 2 ? maxSize : 2;
   }
 
-  private int computeElementArraySize(@UnderInitialization LowCostIdentityHashMap<K, V> this) {
-    int arraySize = (int) (((long) threshold * 10000) / LOAD_FACTOR);
+  private long computeElementArraySize(@UnderInitialization LowCostIdentityHashMap<K, V> this) {
+    long arraySize = (threshold * 10000) / LOAD_FACTOR;
     // ensure arraySize is positive, the above cast from long to int type
     // leads to overflow and negative arraySize if threshold is too big
     return arraySize < 0 ? -arraySize : arraySize;
@@ -317,7 +317,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
    * @return the number of mappings in this Map.
    */
   public int size() {
-    return size;
+    return (int) size;
   }
 
   /**

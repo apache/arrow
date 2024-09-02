@@ -889,7 +889,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
     }
 
     @Override
-    public boolean add(final int nBytes) {
+    public boolean add(final long nBytes) {
       assertOpen();
 
       Preconditions.checkArgument(nBytes >= 0, "nBytes(%d) < 0", nBytes);
@@ -906,7 +906,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
       // modifying this behavior so that we maintain what we reserve and what the user asked for
       // and make sure to only
       // round to power of two as necessary.
-      final int nBytesTwo = CommonUtil.nextPowerOfTwo(nBytes);
+      final int nBytesTwo = (int) CommonUtil.nextPowerOfTwo(nBytes);
       if (!reserve(nBytesTwo)) {
         return false;
       }
@@ -928,7 +928,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
     }
 
     @Override
-    public int getSize() {
+    public long getSize() {
       return nBytes;
     }
 
@@ -979,7 +979,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
     }
 
     @Override
-    public boolean reserve(int nBytes) {
+    public boolean reserve(long nBytes) {
       assertOpen();
 
       final AllocationOutcome outcome = BaseAllocator.this.allocateBytes(nBytes);
