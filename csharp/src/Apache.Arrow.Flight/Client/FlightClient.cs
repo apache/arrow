@@ -32,35 +32,35 @@ namespace Apache.Arrow.Flight.Client
             _client = new FlightService.FlightServiceClient(grpcChannel);
         }
 
-        public AsyncServerStreamingCall<FlightInfo> ListFlights(FlightCriteria criteria = null, Metadata headers = null)
+        public AsyncServerStreamingCall<FlightInfo> ListFlights(FlightCriteria criteria = null, Metadata headers = null, System.DateTime? deadline = null, System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
         {
-            if(criteria == null)
+            if (criteria == null)
             {
                 criteria = FlightCriteria.Empty;
             }
-            
-            var response = _client.ListFlights(criteria.ToProtocol(), headers);
+
+            var response = _client.ListFlights(criteria.ToProtocol(), headers, deadline, cancellationToken);
             var convertStream = new StreamReader<Protocol.FlightInfo, FlightInfo>(response.ResponseStream, inFlight => new FlightInfo(inFlight));
 
             return new AsyncServerStreamingCall<FlightInfo>(convertStream, response.ResponseHeadersAsync, response.GetStatus, response.GetTrailers, response.Dispose);
         }
 
-        public AsyncServerStreamingCall<FlightActionType> ListActions(Metadata headers = null)
+        public AsyncServerStreamingCall<FlightActionType> ListActions(Metadata headers = null, System.DateTime? deadline = null, System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
         {
-            var response = _client.ListActions(EmptyInstance, headers);
+            var response = _client.ListActions(EmptyInstance, headers, deadline, cancellationToken);
             var convertStream = new StreamReader<Protocol.ActionType, FlightActionType>(response.ResponseStream, actionType => new FlightActionType(actionType));
 
             return new AsyncServerStreamingCall<FlightActionType>(convertStream, response.ResponseHeadersAsync, response.GetStatus, response.GetTrailers, response.Dispose);
         }
 
-        public FlightRecordBatchStreamingCall GetStream(FlightTicket ticket, Metadata headers = null)
+        public FlightRecordBatchStreamingCall GetStream(FlightTicket ticket, Metadata headers = null, System.DateTime? deadline = null, System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
         {
-            var stream = _client.DoGet(ticket.ToProtocol(),  headers);
+            var stream = _client.DoGet(ticket.ToProtocol(), headers, deadline, cancellationToken);
             var responseStream = new FlightClientRecordBatchStreamReader(stream.ResponseStream);
             return new FlightRecordBatchStreamingCall(responseStream, stream.ResponseHeadersAsync, stream.GetStatus, stream.GetTrailers, stream.Dispose);
         }
 
-        public AsyncUnaryCall<FlightInfo> GetInfo(FlightDescriptor flightDescriptor, Metadata headers = null)
+        public AsyncUnaryCall<FlightInfo> GetInfo(FlightDescriptor flightDescriptor, Metadata headers = null, System.DateTime? deadline = null, System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
         {
             var flightInfoResult = _client.GetFlightInfoAsync(flightDescriptor.ToProtocol(), headers);
 
@@ -77,9 +77,9 @@ namespace Apache.Arrow.Flight.Client
                 flightInfoResult.Dispose);
         }
 
-        public FlightRecordBatchDuplexStreamingCall StartPut(FlightDescriptor flightDescriptor, Metadata headers = null)
+        public FlightRecordBatchDuplexStreamingCall StartPut(FlightDescriptor flightDescriptor, Metadata headers = null, System.DateTime? deadline = null, System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
         {
-            var channels = _client.DoPut(headers);
+            var channels = _client.DoPut(headers, deadline, cancellationToken);
             var requestStream = new FlightClientRecordBatchStreamWriter(channels.RequestStream, flightDescriptor);
             var readStream = new StreamReader<Protocol.PutResult, FlightPutResult>(channels.ResponseStream, putResult => new FlightPutResult(putResult));
             return new FlightRecordBatchDuplexStreamingCall(
@@ -91,9 +91,9 @@ namespace Apache.Arrow.Flight.Client
                 channels.Dispose);
         }
 
-        public AsyncDuplexStreamingCall<FlightHandshakeRequest, FlightHandshakeResponse> Handshake(Metadata headers = null)
+        public AsyncDuplexStreamingCall<FlightHandshakeRequest, FlightHandshakeResponse> Handshake(Metadata headers = null, System.DateTime? deadline = null, System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
         {
-            var channel = _client.Handshake(headers);
+            var channel = _client.Handshake(headers, deadline, cancellationToken);
             var readStream = new StreamReader<HandshakeResponse, FlightHandshakeResponse>(channel.ResponseStream, response => new FlightHandshakeResponse(response));
             var writeStream = new FlightHandshakeStreamWriterAdapter(channel.RequestStream);
             var call = new AsyncDuplexStreamingCall<FlightHandshakeRequest, FlightHandshakeResponse>(
@@ -107,9 +107,9 @@ namespace Apache.Arrow.Flight.Client
             return call;
         }
 
-        public FlightRecordBatchExchangeCall DoExchange(FlightDescriptor flightDescriptor, Metadata headers = null)
+        public FlightRecordBatchExchangeCall DoExchange(FlightDescriptor flightDescriptor, Metadata headers = null, System.DateTime? deadline = null, System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
         {
-            var channel = _client.DoExchange(headers);
+            var channel = _client.DoExchange(headers, deadline, cancellationToken);
             var requestStream = new FlightClientRecordBatchStreamWriter(channel.RequestStream, flightDescriptor);
             var responseStream = new FlightClientRecordBatchStreamReader(channel.ResponseStream);
             var call = new FlightRecordBatchExchangeCall(
@@ -123,16 +123,16 @@ namespace Apache.Arrow.Flight.Client
             return call;
         }
 
-        public AsyncServerStreamingCall<FlightResult> DoAction(FlightAction action, Metadata headers = null)
+        public AsyncServerStreamingCall<FlightResult> DoAction(FlightAction action, Metadata headers = null, System.DateTime? deadline = null, System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
         {
             var stream = _client.DoAction(action.ToProtocol(), headers);
             var streamReader = new StreamReader<Protocol.Result, FlightResult>(stream.ResponseStream, result => new FlightResult(result));
             return new AsyncServerStreamingCall<FlightResult>(streamReader, stream.ResponseHeadersAsync, stream.GetStatus, stream.GetTrailers, stream.Dispose);
         }
 
-        public AsyncUnaryCall<Schema> GetSchema(FlightDescriptor flightDescriptor, Metadata headers = null)
+        public AsyncUnaryCall<Schema> GetSchema(FlightDescriptor flightDescriptor, Metadata headers = null, System.DateTime? deadline = null, System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
         {
-            var schemaResult = _client.GetSchemaAsync(flightDescriptor.ToProtocol(), headers);
+            var schemaResult = _client.GetSchemaAsync(flightDescriptor.ToProtocol(), headers, deadline, cancellationToken);
 
             var schema = schemaResult
                 .ResponseAsync
