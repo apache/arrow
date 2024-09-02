@@ -49,11 +49,11 @@ public class SimpleHasher implements ArrowBufHasher {
    */
   @Override
   public long hashCode(long address, long length) {
-    int hashValue = 0;
+    long hashValue = 0;
     int index = 0;
     while (index + 8 <= length) {
       long longValue = MemoryUtil.getLong(address + index);
-      int longHash = getLongHashCode(longValue);
+      long longHash = getLongHashCode(longValue);
       hashValue = combineHashCode(hashValue, longHash);
       index += 8;
     }
@@ -89,7 +89,7 @@ public class SimpleHasher implements ArrowBufHasher {
     return hashCode(buf.memoryAddress() + offset, length);
   }
 
-  protected int combineHashCode(int currentHashCode, int newHashCode) {
+  protected long combineHashCode(long currentHashCode, long newHashCode) {
     return currentHashCode * 37 + newHashCode;
   }
 
@@ -97,7 +97,7 @@ public class SimpleHasher implements ArrowBufHasher {
     return Long.hashCode(longValue);
   }
 
-  protected int finalizeHashCode(int hashCode) {
+  protected long finalizeHashCode(long hashCode) {
     return hashCode;
   }
 
