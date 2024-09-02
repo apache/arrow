@@ -38,7 +38,7 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
 
   private final ArrowBuf arrowBuf;
   private final ArrowByteBufAllocator arrowByteBufAllocator;
-  private int length;
+  private long length;
   private final long address;
 
   /**
@@ -49,8 +49,8 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
    * @param length The length of this buffer.
    */
   public NettyArrowBuf(
-      final ArrowBuf arrowBuf, final BufferAllocator bufferAllocator, final int length) {
-    super(length);
+      final ArrowBuf arrowBuf, final BufferAllocator bufferAllocator, final long length) {
+    super((int) length);
     this.arrowBuf = arrowBuf;
     this.arrowByteBufAllocator = new ArrowByteBufAllocator(bufferAllocator);
     this.length = length;
