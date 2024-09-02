@@ -30,7 +30,7 @@ namespace Apache.Arrow.Flight.TestWeb
 
         //Not thread safe, but only used in tests
         private readonly List<RecordBatchWithMetadata> _recordBatches = new List<RecordBatchWithMetadata>();
-        
+
         public FlightHolder(FlightDescriptor flightDescriptor, Schema schema, string location)
         {
             _flightDescriptor = flightDescriptor;
@@ -52,13 +52,31 @@ namespace Apache.Arrow.Flight.TestWeb
         public FlightInfo GetFlightInfo()
         {
             int batchArrayLength = _recordBatches.Sum(rb => rb.RecordBatch.Length);
-            int batchBytes = _recordBatches.Sum(rb => rb.RecordBatch.Arrays.Sum(arr => arr.Data.Buffers.Sum(b=>b.Length)));
-            return new FlightInfo(_schema, _flightDescriptor, new List<FlightEndpoint>()
+            int batchBytes =
+                _recordBatches.Sum(rb => rb.RecordBatch.Arrays.Sum(arr => arr.Data.Buffers.Sum(b => b.Length)));
+
+            if (!_flightDescriptor.Paths.Any())
             {
-                new FlightEndpoint(new FlightTicket(_flightDescriptor.Paths.FirstOrDefault()), new List<FlightLocation>(){
-                    new FlightLocation(_location)
-                })
-            }, batchArrayLength, batchBytes);
+                return GetFlightInfoWithCommand();
+            }
+
+            var flightInfo = new FlightInfo(_schema, _flightDescriptor,
+                new List<FlightEndpoint>()
+                {
+                    new FlightEndpoint(new FlightTicket(_flightDescriptor.Paths.FirstOrDefault()),
+                        new List<FlightLocation>() { new FlightLocation(_location) })
+                }, batchArrayLength, batchBytes);
+            return flightInfo;
+        }
+
+        public FlightInfo GetFlightInfoWithCommand()
+        {
+            if (!_flightDescriptor.Paths.Any())
+            {
+                return new FlightInfo(_schema, _flightDescriptor, new List<FlightEndpoint>(), 0, 0);
+            }
+
+            return null;
         }
     }
 }

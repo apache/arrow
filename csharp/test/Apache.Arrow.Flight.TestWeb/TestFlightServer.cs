@@ -40,11 +40,14 @@ namespace Apache.Arrow.Flight.TestWeb
                 case "test":
                     await responseStream.WriteAsync(new FlightResult("test data"));
                     break;
+                case "BeginTransaction":
                 case "Commit":
-                    await responseStream.WriteAsync(new FlightResult(ByteString.CopyFromUtf8("Transaction committed successfully.")));
-                    break;
                 case "Rollback":
-                    await responseStream.WriteAsync(new FlightResult(ByteString.CopyFromUtf8("Transaction rolled back successfully.")));
+                    await responseStream.WriteAsync(new FlightResult(ByteString.CopyFromUtf8("sample-transaction-id")));
+                    break;
+                case "CreatePreparedStatement":
+                case "ClosePreparedStatement":
+                    await responseStream.WriteAsync(new FlightResult("test data"));
                     break;
                 default:
                     throw new NotImplementedException();
@@ -90,8 +93,10 @@ namespace Apache.Arrow.Flight.TestWeb
             {
                 return Task.FromResult(flightHolder.GetFlightInfo());
             }
+
             throw new RpcException(new Status(StatusCode.NotFound, "Flight not found"));
         }
+
 
         public override async Task Handshake(IAsyncStreamReader<FlightHandshakeRequest> requestStream, IAsyncStreamWriter<FlightHandshakeResponse> responseStream, ServerCallContext context)
         {

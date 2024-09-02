@@ -32,8 +32,6 @@ public class FlightSqlClient
     {
         transaction ??= NoTransaction();
 
-        FlightInfo? flightInfo = null;
-
         if (options == null)
         {
             throw new ArgumentNullException(nameof(options));
@@ -46,12 +44,10 @@ public class FlightSqlClient
 
         try
         {
-            Console.WriteLine($@"Executing query: {query}");
             var prepareStatementRequest = new ActionCreatePreparedStatementRequest { Query = query };
             var action = new FlightAction(SqlAction.CreateRequest, prepareStatementRequest.PackAndSerialize());
             var call = _client.DoAction(action, options.Headers);
 
-            // Process the response
             await foreach (var result in call.ResponseStream.ReadAllAsync())
             {
                 var preparedStatementResponse =
@@ -60,29 +56,16 @@ public class FlightSqlClient
                 {
                     PreparedStatementHandle = preparedStatementResponse.PreparedStatementHandle
                 };
+
                 byte[] commandSqlCallPackedAndSerialized = commandSqlCall.PackAndSerialize();
                 var descriptor = FlightDescriptor.CreateCommandDescriptor(commandSqlCallPackedAndSerialized);
-                flightInfo = await GetFlightInfoAsync(options, descriptor);
-                var doGetResult = DoGetAsync(options, flightInfo.Endpoints[0].Ticket);
-                await foreach (var recordBatch in doGetResult)
-                {
-                    Console.WriteLine(recordBatch);
-                }
+                return await GetFlightInfoAsync(options, descriptor);
             }
-
-            return flightInfo!;
+            throw new InvalidOperationException("No results returned from the query.");
         }
         catch (RpcException ex)
         {
-            // Handle gRPC exceptions
-            Console.WriteLine($@"gRPC Error: {ex.Status}");
             throw new InvalidOperationException("Failed to execute query", ex);
-        }
-        catch (Exception ex)
-        {
-            // Handle other exceptions
-            Console.WriteLine($@"Unexpected Error: {ex.Message}");
-            throw;
         }
     }
 
@@ -172,15 +155,7 @@ public class FlightSqlClient
         }
         catch (RpcException ex)
         {
-            // Handle gRPC exceptions
-            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
             throw new InvalidOperationException("Failed to get flight info", ex);
-        }
-        catch (Exception ex)
-        {
-            // Handle other exceptions
-            Console.WriteLine($@"Unexpected Error: {ex.Message}");
-            throw;
         }
     }
 
@@ -1147,25 +1122,18 @@ public class FlightSqlClient
             var actionBeginTransaction = new ActionBeginTransactionRequest();
             var action = new FlightAction("BeginTransaction", actionBeginTransaction.PackAndSerialize());
             var responseStream = _client.DoAction(action, options.Headers);
+
             await foreach (var result in responseStream.ResponseStream.ReadAllAsync())
             {
-                var beginTransactionResult =
-                    ActionBeginTransactionResult.Parser.ParseFrom(result.Body.Span);
-                var transaction = new Transaction(beginTransactionResult?.TransactionId.ToBase64());
-                return transaction;
+                string? beginTransactionResult = result.Body.ToStringUtf8();
+                return new Transaction(beginTransactionResult);
             }
 
             throw new InvalidOperationException("Failed to begin transaction: No response received.");
         }
         catch (RpcException ex)
         {
-            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
             throw new InvalidOperationException("Failed to begin transaction", ex);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($@"Unexpected Error: {ex.Message}");
-            throw;
         }
     }
 
@@ -1212,7 +1180,7 @@ public class FlightSqlClient
     /// <param name="options">RPC-layer hints for this call.</param>
     /// <param name="transaction">The transaction to rollback.</param>
     /// <returns>A Task representing the asynchronous operation.</returns>
-    public async Task RollbackAsync(FlightCallOptions options, Transaction transaction)
+    public AsyncServerStreamingCall<FlightResult> RollbackAsync(FlightCallOptions options, Transaction transaction)
     {
         if (options == null)
         {
@@ -1227,21 +1195,11 @@ public class FlightSqlClient
         try
         {
             var actionRollback = new FlightAction("Rollback", transaction.TransactionId);
-            var responseStream = _client.DoAction(actionRollback, options.Headers);
-            await foreach (var result in responseStream.ResponseStream.ReadAllAsync())
-            {
-                Console.WriteLine("Transaction rolled back successfully.");
-            }
+            return _client.DoAction(actionRollback, options.Headers);
         }
         catch (RpcException ex)
         {
-            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
             throw new InvalidOperationException("Failed to rollback transaction", ex);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($@"Unexpected Error: {ex.Message}");
-            throw;
         }
     }
 
@@ -1325,7 +1283,9 @@ public class FlightSqlClient
             var preparedStatementRequest = new ActionCreatePreparedStatementRequest
             {
                 Query = query,
-                // TransactionId = transaction?.TransactionId
+                TransactionId = transaction is null
+                    ? ByteString.CopyFromUtf8(transaction?.TransactionId)
+                    : ByteString.Empty
             };
 
             var action = new FlightAction(SqlAction.CreateRequest, preparedStatementRequest.PackAndSerialize());
@@ -1334,7 +1294,7 @@ public class FlightSqlClient
             await foreach (var result in call.ResponseStream.ReadAllAsync())
             {
                 var preparedStatementResponse =
-                    FlightSqlUtils.ParseAndUnpack<ActionCreatePreparedStatementResult>(result.Body);
+                    FlightSqlUtils.ParseAndUnpack<ActionClosePreparedStatementRequest>(result.Body);
 
                 var commandSqlCall = new CommandPreparedStatementQuery
                 {
@@ -1343,11 +1303,6 @@ public class FlightSqlClient
                 byte[] commandSqlCallPackedAndSerialized = commandSqlCall.PackAndSerialize();
                 var descriptor = FlightDescriptor.CreateCommandDescriptor(commandSqlCallPackedAndSerialized);
                 var flightInfo = await GetFlightInfoAsync(options, descriptor);
-                await foreach (var recordBatch in DoGetAsync(options, flightInfo.Endpoints[0].Ticket))
-                {
-                    Console.WriteLine(recordBatch);
-                }
-
                 return new PreparedStatement(this, flightInfo, query);
             }
 
@@ -1355,13 +1310,7 @@ public class FlightSqlClient
         }
         catch (RpcException ex)
         {
-            Console.WriteLine($@"gRPC Error: {ex.Status}");
             throw new InvalidOperationException("Failed to prepare statement", ex);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($@"Unexpected Error: {ex.Message}");
-            throw;
         }
     }
 }
