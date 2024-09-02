@@ -33,42 +33,50 @@ from cython import sizeof
 
 # These are imprecise because the type (in pandas 0.x) depends on the presence
 # of nulls
-cdef dict _pandas_type_map = {
-    _Type_NA: np.object_,  # NaNs
-    _Type_BOOL: np.bool_,
-    _Type_INT8: np.int8,
-    _Type_INT16: np.int16,
-    _Type_INT32: np.int32,
-    _Type_INT64: np.int64,
-    _Type_UINT8: np.uint8,
-    _Type_UINT16: np.uint16,
-    _Type_UINT32: np.uint32,
-    _Type_UINT64: np.uint64,
-    _Type_HALF_FLOAT: np.float16,
-    _Type_FLOAT: np.float32,
-    _Type_DOUBLE: np.float64,
-    # Pandas does not support [D]ay, so default to [ms] for date32
-    _Type_DATE32: np.dtype('datetime64[ms]'),
-    _Type_DATE64: np.dtype('datetime64[ms]'),
-    _Type_TIMESTAMP: {
-        's': np.dtype('datetime64[s]'),
-        'ms': np.dtype('datetime64[ms]'),
-        'us': np.dtype('datetime64[us]'),
-        'ns': np.dtype('datetime64[ns]'),
-    },
-    _Type_DURATION: {
-        's': np.dtype('timedelta64[s]'),
-        'ms': np.dtype('timedelta64[ms]'),
-        'us': np.dtype('timedelta64[us]'),
-        'ns': np.dtype('timedelta64[ns]'),
-    },
-    _Type_BINARY: np.object_,
-    _Type_FIXED_SIZE_BINARY: np.object_,
-    _Type_STRING: np.object_,
-    _Type_LIST: np.object_,
-    _Type_MAP: np.object_,
-    _Type_DECIMAL128: np.object_,
-}
+cdef dict _pandas_type_map = {}
+
+
+def _get_pandas_type_map():
+    global _pandas_type_map
+    if not _pandas_type_map:
+        _pandas_type_map.update({
+            _Type_NA: np.object_,  # NaNs
+            _Type_BOOL: np.bool_,
+            _Type_INT8: np.int8,
+            _Type_INT16: np.int16,
+            _Type_INT32: np.int32,
+            _Type_INT64: np.int64,
+            _Type_UINT8: np.uint8,
+            _Type_UINT16: np.uint16,
+            _Type_UINT32: np.uint32,
+            _Type_UINT64: np.uint64,
+            _Type_HALF_FLOAT: np.float16,
+            _Type_FLOAT: np.float32,
+            _Type_DOUBLE: np.float64,
+            # Pandas does not support [D]ay, so default to [ms] for date32
+            _Type_DATE32: np.dtype('datetime64[ms]'),
+            _Type_DATE64: np.dtype('datetime64[ms]'),
+            _Type_TIMESTAMP: {
+                's': np.dtype('datetime64[s]'),
+                'ms': np.dtype('datetime64[ms]'),
+                'us': np.dtype('datetime64[us]'),
+                'ns': np.dtype('datetime64[ns]'),
+            },
+            _Type_DURATION: {
+                's': np.dtype('timedelta64[s]'),
+                'ms': np.dtype('timedelta64[ms]'),
+                'us': np.dtype('timedelta64[us]'),
+                'ns': np.dtype('timedelta64[ns]'),
+            },
+            _Type_BINARY: np.object_,
+            _Type_FIXED_SIZE_BINARY: np.object_,
+            _Type_STRING: np.object_,
+            _Type_LIST: np.object_,
+            _Type_MAP: np.object_,
+            _Type_DECIMAL128: np.object_,
+        })
+    return _pandas_type_map
+
 
 cdef dict _pep3118_type_map = {
     _Type_INT8: b'b',
@@ -149,14 +157,15 @@ def _is_primitive(Type type):
 
 def _get_pandas_type(arrow_type, coerce_to_ns=False):
     cdef Type type_id = arrow_type.id
-    if type_id not in _pandas_type_map:
+    cdef dict pandas_type_map = _get_pandas_type_map()
+    if type_id not in pandas_type_map:
         return None
     if coerce_to_ns:
         # ARROW-3789: Coerce date/timestamp types to datetime64[ns]
         if type_id == _Type_DURATION:
             return np.dtype('timedelta64[ns]')
         return np.dtype('datetime64[ns]')
-    pandas_type = _pandas_type_map[type_id]
+    pandas_type = pandas_type_map[type_id]
     if isinstance(pandas_type, dict):
         unit = getattr(arrow_type, 'unit', None)
         pandas_type = pandas_type.get(unit, None)
