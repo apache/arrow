@@ -92,6 +92,7 @@ struct ARROW_EXPORT ChunkResolver {
     for (size_t i = 1; i < offsets_.size(); i++) {
       assert(offsets_[i] >= offsets_[i - 1]);
     }
+    assert(offsets_.size() - 1 <= std::numeric_limits<int32_t>::max());
 #endif
   }
 
@@ -102,7 +103,7 @@ struct ARROW_EXPORT ChunkResolver {
   ChunkResolver& operator=(const ChunkResolver& other) noexcept;
 
   int64_t logical_array_length() const { return offsets_.back(); }
-  int64_t num_chunks() const { return static_cast<int64_t>(offsets_.size()) - 1; }
+  int32_t num_chunks() const { return static_cast<int32_t>(offsets_.size() - 1); }
 
   int64_t chunk_length(int64_t chunk_index) const {
     return offsets_[chunk_index + 1] - offsets_[chunk_index];
@@ -169,13 +170,12 @@ struct ARROW_EXPORT ChunkResolver {
   [[nodiscard]] bool ResolveMany(int64_t n_indices, const IndexType* logical_index_vec,
                                  TypedChunkLocation<IndexType>* out_chunk_location_vec,
                                  IndexType chunk_hint = 0) const {
-    if constexpr (sizeof(IndexType) < sizeof(uint64_t)) {
+    if constexpr (sizeof(IndexType) < sizeof(uint32_t)) {
       // The max value returned by Bisect is `offsets.size() - 1` (= chunks.size()).
-      constexpr uint64_t kMaxIndexTypeValue = std::numeric_limits<IndexType>::max();
+      constexpr int64_t kMaxIndexTypeValue = std::numeric_limits<IndexType>::max();
       // A ChunkedArray with enough empty chunks can make the index of a chunk
       // exceed the logical index and thus the maximum value of IndexType.
-      const bool chunk_index_fits_on_type =
-          static_cast<uint64_t>(offsets_.size() - 1) <= kMaxIndexTypeValue;
+      const bool chunk_index_fits_on_type = num_chunks() <= kMaxIndexTypeValue;
       if (ARROW_PREDICT_FALSE(!chunk_index_fits_on_type)) {
         return false;
       }
