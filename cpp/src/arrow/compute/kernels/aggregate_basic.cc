@@ -532,13 +532,13 @@ struct BooleanAnyImpl : public ScalarAggregator {
     }
     if (batch[0].is_scalar()) {
       const Scalar& scalar = *batch[0].scalar;
-      this->has_nulls = !scalar.is_valid;
-      this->any = scalar.is_valid && checked_cast<const BooleanScalar&>(scalar).value;
-      this->count += scalar.is_valid;
+      this->has_nulls |= !scalar.is_valid;
+      this->any |= scalar.is_valid && checked_cast<const BooleanScalar&>(scalar).value;
+      this->count += scalar.is_valid * batch.length;
       return Status::OK();
     }
     const ArraySpan& data = batch[0].array;
-    this->has_nulls = data.GetNullCount() > 0;
+    this->has_nulls |= data.GetNullCount() > 0;
     this->count += data.length - data.GetNullCount();
     arrow::internal::OptionalBinaryBitBlockCounter counter(
         data.buffers[0].data, data.offset, data.buffers[1].data, data.offset,
@@ -603,13 +603,13 @@ struct BooleanAllImpl : public ScalarAggregator {
     }
     if (batch[0].is_scalar()) {
       const Scalar& scalar = *batch[0].scalar;
-      this->has_nulls = !scalar.is_valid;
-      this->count += scalar.is_valid;
-      this->all = !scalar.is_valid || checked_cast<const BooleanScalar&>(scalar).value;
+      this->has_nulls |= !scalar.is_valid;
+      this->count += scalar.is_valid * batch.length;
+      this->all &= !scalar.is_valid || checked_cast<const BooleanScalar&>(scalar).value;
       return Status::OK();
     }
     const ArraySpan& data = batch[0].array;
-    this->has_nulls = data.GetNullCount() > 0;
+    this->has_nulls |= data.GetNullCount() > 0;
     this->count += data.length - data.GetNullCount();
     arrow::internal::OptionalBinaryBitBlockCounter counter(
         data.buffers[1].data, data.offset, data.buffers[0].data, data.offset,
