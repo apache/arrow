@@ -323,10 +323,10 @@ struct ARROW_EXPORT NullKeyEncoder : KeyEncoder {
 /// [null byte, variable-byte length, variable bytes]. For example:
 ///
 /// String "abc" Would be encoded as:
-/// [0 0 0 0 3 'a' 'b' 'c']
+/// 0 ( 1 byte for not null) + 3 ( 4 bytes for length ) + "abc" (payload)
 ///
 /// Null string Would be encoded as:
-/// [1 0 0 0 0]
+/// 1 ( 1 byte for null) + 0 ( 4 bytes for length )
 ///
 /// # Row Encoding
 ///
