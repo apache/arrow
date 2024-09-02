@@ -47,13 +47,13 @@ fi
 export PIP_BREAK_SYSTEM_PACKAGES=1
 ${PIPX_BASE_PYTHON} -m pip install -U pipx
 
-pipx_flags="--verbose --python ${PIPX_PYTHON}"
+pipx_flags=(--verbose --python ${PIPX_PYTHON})
 if [[ $(id -un) == "root" ]]; then
   # Install globally as /root/.local/bin is typically not in $PATH
-  pipx_flags="${pipx_flags} --global"
+  pipx_flags+=(--global)
 fi
-if [[ ! -z "${PIPX_PIP_ARGS}" ]]; then
-  pipx_flags="${pipx_flags} --pip-args '${PIPX_PIP_ARGS}'"
+if [[ -n "${PIPX_PIP_ARGS}" ]]; then
+  pipx_flags+=(--pip-args "'${PIPX_PIP_ARGS}'")
 fi
-${PIPX_BASE_PYTHON} -m pipx install ${pipx_flags} \
+${PIPX_BASE_PYTHON} -m pipx install ${pipx_flags[@]} \
   "https://github.com/googleapis/storage-testbench/archive/${version}.tar.gz"
