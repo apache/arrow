@@ -325,7 +325,7 @@ struct ARROW_EXPORT NullKeyEncoder : KeyEncoder {
 /// String "abc" Would be encoded as:
 /// [0 0 0 0 3 'a' 'b' 'c']
 ///
-/// String null Would be encoded as:
+/// Null string Would be encoded as:
 /// [1 0 0 0 0]
 ///
 /// # Row Encoding
