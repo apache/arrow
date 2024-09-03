@@ -405,13 +405,18 @@ int _kGeometryEncodingValues[] = {
   /**
    * Allowed for physical type: BYTE_ARRAY.
    *
-   * Well-known binary (WKB) representations of geometries. It supports 2D or
-   * 3D geometries of the standard geometry types (Point, LineString, Polygon,
-   * MultiPoint, MultiLineString, MultiPolygon, and GeometryCollection). This
-   * is the preferred option for maximum portability.
+   * Well-known binary (WKB) representations of geometries.
    *
-   * This encoding enables GeometryStatistics to be set in the column chunk
-   * and page index.
+   * To be clear, we follow the same rule of WKB and coordinate axis order from
+   * GeoParquet [1][2]. It is the ISO WKB supporting XY, XYZ, XYM, XYZM and the
+   * standard geometry types (Point, LineString, Polygon, MultiPoint,
+   * MultiLineString, MultiPolygon, and GeometryCollection).
+   *
+   * This is the preferred encoding for maximum portability. It also supports
+   * GeometryStatistics to be set in the column chunk and page index.
+   *
+   * [1] https://github.com/opengeospatial/geoparquet/blob/v1.1.0/format-specs/geoparquet.md?plain=1#L92
+   * [2] https://github.com/opengeospatial/geoparquet/blob/v1.1.0/format-specs/geoparquet.md?plain=1#L155
    */
   GeometryEncoding::WKB
 };
@@ -419,13 +424,18 @@ const char* _kGeometryEncodingNames[] = {
   /**
    * Allowed for physical type: BYTE_ARRAY.
    *
-   * Well-known binary (WKB) representations of geometries. It supports 2D or
-   * 3D geometries of the standard geometry types (Point, LineString, Polygon,
-   * MultiPoint, MultiLineString, MultiPolygon, and GeometryCollection). This
-   * is the preferred option for maximum portability.
+   * Well-known binary (WKB) representations of geometries.
    *
-   * This encoding enables GeometryStatistics to be set in the column chunk
-   * and page index.
+   * To be clear, we follow the same rule of WKB and coordinate axis order from
+   * GeoParquet [1][2]. It is the ISO WKB supporting XY, XYZ, XYM, XYZM and the
+   * standard geometry types (Point, LineString, Polygon, MultiPoint,
+   * MultiLineString, MultiPolygon, and GeometryCollection).
+   *
+   * This is the preferred encoding for maximum portability. It also supports
+   * GeometryStatistics to be set in the column chunk and page index.
+   *
+   * [1] https://github.com/opengeospatial/geoparquet/blob/v1.1.0/format-specs/geoparquet.md?plain=1#L92
+   * [2] https://github.com/opengeospatial/geoparquet/blob/v1.1.0/format-specs/geoparquet.md?plain=1#L155
    */
   "WKB"
 };
@@ -4568,5 +4578,5 @@ void FileCryptoMetaData::printTo(std::ostream& out) const {
   out << ", " << "key_metadata="; (__isset.key_metadata ? (out << to_string(key_metadata)) : (out << "<null>"));
   out << ")";
 }
-}
-} // namespace
+
+}} // namespace

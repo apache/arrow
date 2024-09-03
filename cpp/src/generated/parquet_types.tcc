@@ -1619,7 +1619,7 @@ uint32_t GeometryType::read(Protocol_* iprot) {
         break;
       case 5:
         if (ftype == ::apache::thrift::protocol::T_STRING) {
-          xfer += iprot->readBinary(this->metadata);
+          xfer += iprot->readString(this->metadata);
           this->__isset.metadata = true;
         } else {
           xfer += iprot->skip(ftype);
@@ -1667,7 +1667,7 @@ uint32_t GeometryType::write(Protocol_* oprot) const {
   }
   if (this->__isset.metadata) {
     xfer += oprot->writeFieldBegin("metadata", ::apache::thrift::protocol::T_STRING, 5);
-    xfer += oprot->writeBinary(this->metadata);
+    xfer += oprot->writeString(this->metadata);
     xfer += oprot->writeFieldEnd();
   }
   xfer += oprot->writeFieldStop();
@@ -5395,7 +5395,6 @@ uint32_t FileCryptoMetaData::write(Protocol_* oprot) const {
   return xfer;
 }
 
-}
-} // namespace
+}} // namespace
 
 #endif

@@ -20,7 +20,8 @@
 /**
  * File format description for the parquet file format
  */
-namespace cpp parquet
+cpp_include "parquet/windows_compatibility.h"
+namespace cpp parquet.format
 namespace java org.apache.parquet.format
 
 /**
@@ -240,7 +241,7 @@ struct SizeStatistics {
 /**
  * Interpretation for edges of GEOMETRY logical type, i.e. whether the edge
  * between points represent a straight cartesian line or the shortest line on
- * the sphere. Please note that it only applies to polygons.
+ * the sphere. It applies to all non-point geometry objects.
  */
 enum Edges {
   PLANAR = 0;
@@ -248,9 +249,9 @@ enum Edges {
 }
 
 /**
- * A custom WKB-encoded polygon or multi-polygon to represent a covering of
+ * A custom binary-encoded polygon or multi-polygon to represent a covering of
  * geometries. For example, it may be a bounding box or an envelope of geometries
- * when a bounding box cannot be built (e.g., a geometry has spherical edges, or if
+ * when a bounding box cannot be built (e.g. a geometry has spherical edges, or if
  * an edge of geographic coordinates crosses the antimeridian). In addition, it can
  * also be used to provide vendor-agnostic coverings like S2 or H3 grids.
  */
@@ -259,10 +260,11 @@ struct Covering {
    * A type of covering. Currently accepted values: "WKB".
    */
   1: required string kind;
-  /** A payload specific to kind:
-   * - WKB: well-known binary of a POLYGON that completely covers the contents.
-   *   This will be interpreted according to the same CRS and edges defined by
-   *   the logical type.
+  /**
+   * A payload specific to kind. Below are the supported values:
+   * - WKB: well-known binary of a POLYGON or MULTI-POLYGON that completely
+   *   covers the contents. This will be interpreted according to the same CRS
+   *   and edges defined by the logical type.
    */
   2: required binary value;
 }
@@ -270,6 +272,9 @@ struct Covering {
 /**
  * Bounding box of geometries in the representation of min/max value pair of
  * coordinates from each axis. Values of Z and M are omitted for 2D geometries.
+ * Filter pushdown on geometries are only safe for planar spatial predicate
+ * but it is recommended that the writer always generates bounding box statistics,
+ * regardless of whether the geometries are planar or spherical.
  */
 struct BoundingBox {
   1: required double xmin;
@@ -287,7 +292,12 @@ struct GeometryStatistics {
   /** A bounding box of geometries */
   1: optional BoundingBox bbox;
 
-  /** A list of coverings of geometries */
+  /**
+   * A list of coverings of geometries.
+   * Note that It is allowed to have more than one covering of the same kind and
+   * implementation is free to use any of them. It is recommended to have at most
+   * one covering for each kind.
+   */
   2: optional list<Covering> coverings;
 
   /**
@@ -315,7 +325,7 @@ struct GeometryStatistics {
    *
    * Please refer to links below for more detail:
    * [1] https://en.wikipedia.org/wiki/Well-known_text_representation_of_geometry#Well-known_binary
-   * [2] https://github.com/opengeospatial/geoparquet/blob/v1.0.0/format-specs/geoparquet.md?plain=1#L91
+   * [2] https://github.com/opengeospatial/geoparquet/blob/v1.1.0/format-specs/geoparquet.md?plain=1#L159
    */
   3: optional list<i32> geometry_types;
 }
@@ -466,17 +476,20 @@ enum GeometryEncoding {
   /**
    * Allowed for physical type: BYTE_ARRAY.
    *
-   * Well-known binary (WKB) representations of geometries. It supports 2D or
-   * 3D geometries of the standard geometry types (Point, LineString, Polygon,
-   * MultiPoint, MultiLineString, MultiPolygon, and GeometryCollection). This
-   * is the preferred option for maximum portability.
+   * Well-known binary (WKB) representations of geometries.
    *
-   * This encoding enables GeometryStatistics to be set in the column chunk
-   * and page index.
+   * To be clear, we follow the same rule of WKB and coordinate axis order from
+   * GeoParquet [1][2]. It is the ISO WKB supporting XY, XYZ, XYM, XYZM and the
+   * standard geometry types (Point, LineString, Polygon, MultiPoint,
+   * MultiLineString, MultiPolygon, and GeometryCollection).
+   *
+   * This is the preferred encoding for maximum portability. It also supports
+   * GeometryStatistics to be set in the column chunk and page index.
+   *
+   * [1] https://github.com/opengeospatial/geoparquet/blob/v1.1.0/format-specs/geoparquet.md?plain=1#L92
+   * [2] https://github.com/opengeospatial/geoparquet/blob/v1.1.0/format-specs/geoparquet.md?plain=1#L155
    */
   WKB = 0;
-
-  // TODO: add native encoding from GeoParquet/GeoArrow
 }
 
 /**
@@ -484,29 +497,68 @@ enum GeometryEncoding {
  */
 struct GeometryType {
   /**
-   * Physical type and encoding for the geometry type. Please refer to the
-   * definition of GeometryEncoding for more detail.
+   * Physical type and encoding for the geometry type.
+   * Please refer to the definition of GeometryEncoding for more detail.
    */
   1: required GeometryEncoding encoding;
   /**
-   * Edges of polygon.
+   * Edges of geometry type.
+   * Please refer to the definition of Edges for more detail.
    */
   2: required Edges edges;
   /**
    * Coordinate Reference System, i.e. mapping of how coordinates refer to
-   * precise locations on earth.
+   * precise locations on earth. Writers are not required to set this field.
+   * Once crs is set, crs_encoding field below MUST be set together.
+   * For example, "OGC:CRS84" can be set in the form of PROJJSON as below:
+   * {
+   *     "$schema": "https://proj.org/schemas/v0.5/projjson.schema.json",
+   *     "type": "GeographicCRS",
+   *     "name": "WGS 84 longitude-latitude",
+   *     "datum": {
+   *         "type": "GeodeticReferenceFrame",
+   *         "name": "World Geodetic System 1984",
+   *         "ellipsoid": {
+   *             "name": "WGS 84",
+   *             "semi_major_axis": 6378137,
+   *             "inverse_flattening": 298.257223563
+   *         }
+   *     },
+   *     "coordinate_system": {
+   *         "subtype": "ellipsoidal",
+   *         "axis": [
+   *         {
+   *             "name": "Geodetic longitude",
+   *             "abbreviation": "Lon",
+   *             "direction": "east",
+   *             "unit": "degree"
+   *         },
+   *         {
+   *             "name": "Geodetic latitude",
+   *             "abbreviation": "Lat",
+   *             "direction": "north",
+   *             "unit": "degree"
+   *         }
+   *         ]
+   *     },
+   *     "id": {
+   *         "authority": "OGC",
+   *         "code": "CRS84"
+   *     }
+   * }
    */
   3: optional string crs;
   /**
-   * Encoding used in the above crs field.
+   * Encoding used in the above crs field. It MUST be set if crs field is set.
    * Currently the only allowed value is "PROJJSON".
    */
   4: optional string crs_encoding;
   /**
    * Additional informative metadata.
-   * It can be used by GeoParquet to offload some of the column metadata.
+   * GeoParquet could offload its column metadata in a JSON-encoded UTF-8 string:
+   * https://github.com/opengeospatial/geoparquet/blob/v1.1.0/format-specs/geoparquet.md?plain=1#L46
    */
-  5: optional binary metadata;
+  5: optional string metadata;
 }
 
 /**
@@ -1331,4 +1383,3 @@ struct FileCryptoMetaData {
    *  and (possibly) columns **/
   2: optional binary key_metadata
 }
-
