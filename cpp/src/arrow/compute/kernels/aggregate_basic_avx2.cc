@@ -19,7 +19,7 @@
 
 // Include templated definitions for aggregate kernels that must compiled here
 // with the SIMD level configured for this compilation unit in the build.
-#include "arrow/compute/kernels/aggregate_basic.inc.cc"  // NONLINT
+#include "arrow/compute/kernels/aggregate_basic.inc.cc"  // NOLINT(build/include)
 
 namespace arrow {
 namespace compute {
@@ -27,6 +27,8 @@ namespace internal {
 
 // ----------------------------------------------------------------------
 // Sum implementation
+
+namespace {
 
 template <typename ArrowType>
 struct SumImplAvx2 : public SumImpl<ArrowType, SimdLevel::AVX2> {
@@ -41,6 +43,8 @@ Result<std::unique_ptr<KernelState>> SumInitAvx2(KernelContext* ctx,
   return visitor.Create();
 }
 
+}  // namespace
+
 void AddSumAvx2AggKernels(ScalarAggregateFunction* func) {
   AddBasicAggKernels(SumInitAvx2, SignedIntTypes(), int64(), func, SimdLevel::AVX2);
   AddBasicAggKernels(SumInitAvx2, UnsignedIntTypes(), uint64(), func, SimdLevel::AVX2);
@@ -49,6 +53,8 @@ void AddSumAvx2AggKernels(ScalarAggregateFunction* func) {
 
 // ----------------------------------------------------------------------
 // Mean implementation
+
+namespace {
 
 template <typename ArrowType>
 struct MeanImplAvx2 : public MeanImpl<ArrowType, SimdLevel::AVX2> {
@@ -63,12 +69,16 @@ Result<std::unique_ptr<KernelState>> MeanInitAvx2(KernelContext* ctx,
   return visitor.Create();
 }
 
+}  // namespace
+
 void AddMeanAvx2AggKernels(ScalarAggregateFunction* func) {
   AddBasicAggKernels(MeanInitAvx2, NumericTypes(), float64(), func, SimdLevel::AVX2);
 }
 
 // ----------------------------------------------------------------------
 // MinMax implementation
+
+namespace {
 
 Result<std::unique_ptr<KernelState>> MinMaxInitAvx2(KernelContext* ctx,
                                                     const KernelInitArgs& args) {
@@ -79,6 +89,8 @@ Result<std::unique_ptr<KernelState>> MinMaxInitAvx2(KernelContext* ctx,
       static_cast<const ScalarAggregateOptions&>(*args.options));
   return visitor.Create();
 }
+
+}  // namespace
 
 void AddMinMaxAvx2AggKernels(ScalarAggregateFunction* func) {
   // Enable int types for AVX2 variants.

@@ -19,7 +19,7 @@
 
 // Include templated definitions for aggregate kernels that must compiled here
 // with the SIMD level configured for this compilation unit in the build.
-#include "arrow/compute/kernels/aggregate_basic.inc.cc"  // NONLINT
+#include "arrow/compute/kernels/aggregate_basic.inc.cc"  // NOLINT(build/include)
 
 namespace arrow {
 namespace compute {
@@ -27,6 +27,8 @@ namespace internal {
 
 // ----------------------------------------------------------------------
 // Sum implementation
+
+namespace {
 
 template <typename ArrowType>
 struct SumImplAvx512 : public SumImpl<ArrowType, SimdLevel::AVX512> {
@@ -41,6 +43,8 @@ Result<std::unique_ptr<KernelState>> SumInitAvx512(KernelContext* ctx,
   return visitor.Create();
 }
 
+}  // namespace
+
 void AddSumAvx512AggKernels(ScalarAggregateFunction* func) {
   AddBasicAggKernels(SumInitAvx512, SignedIntTypes(), int64(), func, SimdLevel::AVX512);
   AddBasicAggKernels(SumInitAvx512, UnsignedIntTypes(), uint64(), func,
@@ -51,6 +55,8 @@ void AddSumAvx512AggKernels(ScalarAggregateFunction* func) {
 
 // ----------------------------------------------------------------------
 // Mean implementation
+
+namespace {
 
 template <typename ArrowType>
 struct MeanImplAvx512 : public MeanImpl<ArrowType, SimdLevel::AVX512> {
@@ -65,12 +71,16 @@ Result<std::unique_ptr<KernelState>> MeanInitAvx512(KernelContext* ctx,
   return visitor.Create();
 }
 
+}  // namespace
+
 void AddMeanAvx512AggKernels(ScalarAggregateFunction* func) {
   AddBasicAggKernels(MeanInitAvx512, NumericTypes(), float64(), func, SimdLevel::AVX512);
 }
 
 // ----------------------------------------------------------------------
 // MinMax implementation
+
+namespace {
 
 Result<std::unique_ptr<KernelState>> MinMaxInitAvx512(KernelContext* ctx,
                                                       const KernelInitArgs& args) {
@@ -81,6 +91,8 @@ Result<std::unique_ptr<KernelState>> MinMaxInitAvx512(KernelContext* ctx,
       static_cast<const ScalarAggregateOptions&>(*args.options));
   return visitor.Create();
 }
+
+}  // namespace
 
 void AddMinMaxAvx512AggKernels(ScalarAggregateFunction* func) {
   // Enable 32/64 int types for avx512 variants, no advantage on 8/16 int.
