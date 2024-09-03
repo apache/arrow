@@ -44,7 +44,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
    * maximum number of elements that can be put in this map before having to
    * rehash.
    */
-  private long threshold;
+  private int threshold;
 
   private static final int DEFAULT_MIN_SIZE = 1;
 
@@ -71,7 +71,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
     }
   }
 
-  private long getThreshold(@UnderInitialization LowCostIdentityHashMap<K, V> this, long maxSize) {
+  private int getThreshold(@UnderInitialization LowCostIdentityHashMap<K, V> this, int maxSize) {
     // assign the threshold to maxSize initially, this will change to a
     // higher value if rehashing occurs.
     return maxSize > 2 ? maxSize : 2;
