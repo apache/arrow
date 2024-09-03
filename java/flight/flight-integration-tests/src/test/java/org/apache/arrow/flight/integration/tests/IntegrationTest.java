@@ -96,7 +96,8 @@ class IntegrationTest {
   }
 
   void testScenario(String scenarioName) throws Exception {
-    try (final BufferAllocator allocator = new RootAllocator()) {
+    TestBufferAllocationListener listener = new TestBufferAllocationListener();
+    try (final BufferAllocator allocator = new RootAllocator(listener, Long.MAX_VALUE)) {
       final FlightServer.Builder builder =
           FlightServer.builder()
               .allocator(allocator)
@@ -113,6 +114,9 @@ class IntegrationTest {
           scenario.client(allocator, location, client);
         }
       }
+    } catch (IllegalStateException e) {
+      // this could be due to Allocator detecting memory leak. Add allocation trail to help debug
+      listener.reThrowWithAddedAllocatorInfo(e);
     }
   }
 }
