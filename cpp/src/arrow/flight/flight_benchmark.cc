@@ -491,7 +491,7 @@ int main(int argc, char** argv) {
         if (FLAGS_cuda && FLAGS_test_put) {
           server_args.push_back("-cuda");
         }
-        server->Start(server_args);
+        ABORT_NOT_OK(server->Start(server_args));
       }
       std::cout << "Server host: " << FLAGS_server_host << std::endl
                 << "Server port: " << FLAGS_server_port << std::endl;

@@ -29,20 +29,13 @@
 
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/process.h"
 #include "arrow/testing/util.h"
 
 #include "arrow/flight/client.h"
 #include "arrow/flight/server.h"
 #include "arrow/flight/types.h"
 #include "arrow/flight/visibility.h"
-
-namespace boost {
-namespace process {
-
-class child;
-
-}  // namespace process
-}  // namespace boost
 
 namespace arrow {
 namespace flight {
@@ -76,10 +69,10 @@ class ARROW_FLIGHT_EXPORT TestServer {
   TestServer(const std::string& executable_name, const std::string& unix_sock)
       : executable_name_(executable_name), unix_sock_(unix_sock) {}
 
-  void Start(const std::vector<std::string>& extra_args);
-  void Start() { Start({}); }
+  Status Start(const std::vector<std::string>& extra_args);
+  Status Start() { return Start({}); }
 
-  int Stop();
+  void Stop();
 
   bool IsRunning();
 
@@ -90,7 +83,7 @@ class ARROW_FLIGHT_EXPORT TestServer {
   std::string executable_name_;
   int port_;
   std::string unix_sock_;
-  std::shared_ptr<::boost::process::child> server_process_;
+  std::unique_ptr<util::Process> server_process_;
 };
 
 // Helper to initialize a server and matching client with callbacks to
