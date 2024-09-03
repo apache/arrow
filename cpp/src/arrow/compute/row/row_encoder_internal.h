@@ -377,7 +377,7 @@ class ARROW_EXPORT RowEncoder {
     int32_t row_offset = 0;
     if (fixed_width_length_ != kInvalidFixedWidthOffset) {
       row_length = fixed_width_length_;
-      row_offset = fixed_with_row_count_ * i;
+      row_offset = fixed_with_row_count_ * i * fixed_width_length_;
     } else {
       row_length = offsets_[i + 1] - offsets_[i];
       row_offset = offsets_[i];
