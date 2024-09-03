@@ -3422,11 +3422,7 @@ def test_recordbatch_non_cpu(cuda_context, cpu_recordbatch, cuda_recordbatch,
         err_msg = ("Got column on device <DeviceAllocationType.CPU: 1>, "
                    "but expected <DeviceAllocationType.CUDA: 2>.")
         with pytest.raises(TypeError, match=err_msg):
-            # Default array conversion not allowed for non-cpu record batch
             fn(2, 'c2', [1, 1, 1, 1, 1])
-        with pytest.raises(TypeError, match=err_msg):
-            # CPU array can't be added to CUDA record batch
-            fn(2, 'c2', pa.array([1, 1, 1, 1, 1]))
 
     # remove_column() test
     new_batch = cuda_recordbatch.remove_column(1)
