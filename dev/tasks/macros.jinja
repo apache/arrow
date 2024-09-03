@@ -184,6 +184,7 @@ env:
 {% endmacro %}
 
 {%- macro github_upload_wheel_scientific_python(pattern) -%}
+  {%- if arrow.is_default_branch() -%}
   - name: Upload wheel to Anaconda scientific-python
     shell: bash
     run: |
@@ -191,6 +192,7 @@ env:
       anaconda -t ${CROSSBOW_SCIENTIFIC_PYTHON_UPLOAD_TOKEN} upload --force -u scientific-python-nightly-wheels --label main {{ pattern }}
     env:
       CROSSBOW_SCIENTIFIC_PYTHON_UPLOAD_TOKEN: {{ '${{ secrets.CROSSBOW_SCIENTIFIC_PYTHON_UPLOAD_TOKEN }}' }}
+  {% endif %}
 {% endmacro %}
 
 {%- macro azure_checkout_arrow() -%}
