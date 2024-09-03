@@ -860,7 +860,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
   public class Reservation implements AllocationReservation {
 
     private final @Nullable HistoricalLog historicalLog;
-    private int nBytes = 0;
+    private long nBytes = 0;
     private boolean used = false;
     private boolean closed = false;
 
@@ -888,8 +888,9 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
       }
     }
 
+    @Deprecated
     @Override
-    public boolean add(final long nBytes) {
+    public boolean add(final int nBytes) {
       assertOpen();
 
       Preconditions.checkArgument(nBytes >= 0, "nBytes(%d) < 0", nBytes);
@@ -906,7 +907,34 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
       // modifying this behavior so that we maintain what we reserve and what the user asked for
       // and make sure to only
       // round to power of two as necessary.
-      final int nBytesTwo = (int) CommonUtil.nextPowerOfTwo(nBytes);
+      final int nBytesTwo = CommonUtil.nextPowerOfTwo(nBytes);
+      if (!reserve(nBytesTwo)) {
+        return false;
+      }
+
+      this.nBytes += nBytesTwo;
+      return true;
+    }
+
+    @Override
+    public boolean add(long nBytes) {
+      assertOpen();
+
+      Preconditions.checkArgument(nBytes >= 0, "nBytes(%d) < 0", nBytes);
+      Preconditions.checkState(
+          !closed, "Attempt to increase reservation after reservation has been closed");
+      Preconditions.checkState(
+          !used, "Attempt to increase reservation after reservation has been used");
+
+      // we round up to next power of two since all reservations are done in powers of two. This
+      // may overestimate the
+      // preallocation since someone may perceive additions to be power of two. If this becomes a
+      // problem, we can look
+      // at
+      // modifying this behavior so that we maintain what we reserve and what the user asked for
+      // and make sure to only
+      // round to power of two as necessary.
+      final long nBytesTwo = CommonUtil.nextPowerOfTwo(nBytes);
       if (!reserve(nBytesTwo)) {
         return false;
       }
@@ -927,8 +955,14 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
       return arrowBuf;
     }
 
+    @Deprecated
     @Override
-    public long getSize() {
+    public int getSize() {
+      return (int) nBytes;
+    }
+
+    @Override
+    public long getLongSize() {
       return nBytes;
     }
 
@@ -978,6 +1012,20 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
       closed = true;
     }
 
+    @Deprecated
+    @Override
+    public boolean reserve(int nBytes) {
+      assertOpen();
+
+      final AllocationOutcome outcome = BaseAllocator.this.allocateBytes(nBytes);
+
+      if (historicalLog != null) {
+        historicalLog.recordEvent("reserve(%d) => %s", nBytes, Boolean.toString(outcome.isOk()));
+      }
+
+      return outcome.isOk();
+    }
+
     @Override
     public boolean reserve(long nBytes) {
       assertOpen();
@@ -999,7 +1047,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
      * @param nBytes the size of the buffer requested
      * @return the buffer, or null, if the request cannot be satisfied
      */
-    private ArrowBuf allocate(int nBytes) {
+    private ArrowBuf allocate(long nBytes) {
       assertOpen();
 
       boolean success = false;
@@ -1033,7 +1081,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
      *
      * @param nBytes the size of the reservation
      */
-    private void releaseReservation(int nBytes) {
+    private void releaseReservation(long nBytes) {
       assertOpen();
 
       releaseBytes(nBytes);

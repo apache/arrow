@@ -82,7 +82,6 @@ public class TestArrowBufHasher {
       int length2) {
     int hashCode1 = hasher.hashCode(buf1, offset1, length1);
     int hashCode2 = hasher.hashCode(buf2, offset2, length2);
-
     assertEquals(hashCode1, hashCode2);
   }
 

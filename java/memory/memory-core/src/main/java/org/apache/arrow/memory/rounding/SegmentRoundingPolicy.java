@@ -36,6 +36,25 @@ public class SegmentRoundingPolicy implements RoundingPolicy {
    * @param segmentSize the segment size.
    * @throws IllegalArgumentException if the segment size is smaller than {@link
    *     SegmentRoundingPolicy#MIN_SEGMENT_SIZE}, or is not a power of 2.
+   * @deprecated use {@link SegmentRoundingPolicy#SegmentRoundingPolicy(long)} instead.
+   */
+  @Deprecated
+  public SegmentRoundingPolicy(int segmentSize) {
+    Preconditions.checkArgument(
+        segmentSize >= MIN_SEGMENT_SIZE,
+        "The segment size cannot be smaller than %s",
+        MIN_SEGMENT_SIZE);
+    Preconditions.checkArgument(
+        (segmentSize & (segmentSize - 1)) == 0, "The segment size must be a power of 2");
+    this.segmentSize = segmentSize;
+  }
+
+  /**
+   * Constructor for the segment rounding policy.
+   *
+   * @param segmentSize the segment size.
+   * @throws IllegalArgumentException if the segment size is smaller than {@link
+   *     SegmentRoundingPolicy#MIN_SEGMENT_SIZE}, or is not a power of 2.
    */
   public SegmentRoundingPolicy(long segmentSize) {
     Preconditions.checkArgument(

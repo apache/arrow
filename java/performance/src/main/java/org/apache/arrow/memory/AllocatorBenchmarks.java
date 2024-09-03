@@ -59,7 +59,7 @@ public class AllocatorBenchmarks {
   public void segmentRoundingPolicyBenchmark() {
     final int bufferSize = 1024;
     final int numBuffers = 1024;
-    final int segmentSize = 1024;
+    final long segmentSize = 1024L;
 
     RoundingPolicy policy = new SegmentRoundingPolicy(segmentSize);
     try (RootAllocator allocator =

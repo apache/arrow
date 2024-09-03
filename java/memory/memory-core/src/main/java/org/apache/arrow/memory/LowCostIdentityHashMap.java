@@ -60,6 +60,23 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
    * Creates a Map with the specified maximum size parameter.
    *
    * @param maxSize The estimated maximum number of entries that will be put in this map.
+   * @deprecated Use {@link #LowCostIdentityHashMap(long)} instead.
+   */
+  @Deprecated
+  public LowCostIdentityHashMap(int maxSize) {
+    if (maxSize >= 0) {
+      this.size = 0;
+      threshold = getThreshold(maxSize);
+      elementData = newElementArrayUnderInitialized((int) computeElementArraySize());
+    } else {
+      throw new IllegalArgumentException();
+    }
+  }
+
+  /**
+   * Creates a Map with the specified maximum size parameter.
+   *
+   * @param maxSize The estimated maximum number of entries that will be put in this map.
    */
   public LowCostIdentityHashMap(long maxSize) {
     if (maxSize >= 0) {
