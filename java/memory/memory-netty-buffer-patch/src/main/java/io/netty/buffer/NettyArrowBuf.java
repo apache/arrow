@@ -49,7 +49,7 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
    * @param length The length of this buffer.
    * @deprecated Use {@link #NettyArrowBuf(ArrowBuf, BufferAllocator, long)} instead.
    */
-  @Deprecated
+  @Deprecated(forRemoval = true)
   public NettyArrowBuf(
       final ArrowBuf arrowBuf, final BufferAllocator bufferAllocator, final int length) {
     this(arrowBuf, bufferAllocator, (long) length);
