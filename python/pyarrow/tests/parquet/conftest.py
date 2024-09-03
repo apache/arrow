@@ -15,6 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import os
+import pathlib
+
 import pytest
 
 from pyarrow.util import guid
@@ -23,6 +26,15 @@ from pyarrow.util import guid
 @pytest.fixture(scope='module')
 def datadir(base_datadir):
     return base_datadir / 'parquet'
+
+
+@pytest.fixture(scope='module')
+def parquet_test_datadir():
+    result = os.environ.get('PARQUET_TEST_DATA')
+    if not result:
+        raise RuntimeError('Please point the PARQUET_TEST_DATA environment '
+                           'variable to the test data directory')
+    return pathlib.Path(result)
 
 
 @pytest.fixture

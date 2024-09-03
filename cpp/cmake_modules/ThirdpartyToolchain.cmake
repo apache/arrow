@@ -259,7 +259,7 @@ macro(resolve_dependency DEPENDENCY_NAME)
       IS_RUNTIME_DEPENDENCY
       REQUIRED_VERSION
       USE_CONFIG)
-  set(multi_value_args COMPONENTS PC_PACKAGE_NAMES)
+  set(multi_value_args COMPONENTS OPTIONAL_COMPONENTS PC_PACKAGE_NAMES)
   cmake_parse_arguments(ARG
                         "${options}"
                         "${one_value_args}"
@@ -286,6 +286,9 @@ macro(resolve_dependency DEPENDENCY_NAME)
   endif()
   if(ARG_COMPONENTS)
     list(APPEND FIND_PACKAGE_ARGUMENTS COMPONENTS ${ARG_COMPONENTS})
+  endif()
+  if(ARG_OPTIONAL_COMPONENTS)
+    list(APPEND FIND_PACKAGE_ARGUMENTS OPTIONAL_COMPONENTS ${ARG_OPTIONAL_COMPONENTS})
   endif()
   if(${DEPENDENCY_NAME}_SOURCE STREQUAL "AUTO")
     find_package(${FIND_PACKAGE_ARGUMENTS})
@@ -1289,15 +1292,19 @@ if(ARROW_USE_BOOST)
     set(Boost_USE_STATIC_LIBS ON)
   endif()
   if(ARROW_BOOST_REQUIRE_LIBRARY)
-    set(ARROW_BOOST_COMPONENTS system filesystem)
+    set(ARROW_BOOST_COMPONENTS filesystem system)
+    set(ARROW_BOOST_OPTIONAL_COMPONENTS process)
   else()
     set(ARROW_BOOST_COMPONENTS)
+    set(ARROW_BOOST_OPTIONAL_COMPONENTS)
   endif()
   resolve_dependency(Boost
                      REQUIRED_VERSION
                      ${ARROW_BOOST_REQUIRED_VERSION}
                      COMPONENTS
                      ${ARROW_BOOST_COMPONENTS}
+                     OPTIONAL_COMPONENTS
+                     ${ARROW_BOOST_OPTIONAL_COMPONENTS}
                      IS_RUNTIME_DEPENDENCY
                      # libarrow.so doesn't depend on libboost*.
                      FALSE)
@@ -1316,14 +1323,35 @@ if(ARROW_USE_BOOST)
     endif()
   endforeach()
 
-  if(WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    # boost/process/detail/windows/handle_workaround.hpp doesn't work
-    # without BOOST_USE_WINDOWS_H with MinGW because MinGW doesn't
-    # provide __kernel_entry without winternl.h.
-    #
-    # See also:
-    # https://github.com/boostorg/process/blob/develop/include/boost/process/detail/windows/handle_workaround.hpp
-    target_compile_definitions(Boost::headers INTERFACE "BOOST_USE_WINDOWS_H=1")
+  if(TARGET Boost::process)
+    # Boost >= 1.86
+    target_compile_definitions(Boost::process INTERFACE "BOOST_PROCESS_HAVE_V1")
+    target_compile_definitions(Boost::process INTERFACE "BOOST_PROCESS_HAVE_V2")
+  else()
+    # Boost < 1.86
+    add_library(Boost::process INTERFACE IMPORTED)
+    if(TARGET Boost::filesystem)
+      target_link_libraries(Boost::process INTERFACE Boost::filesystem)
+    endif()
+    if(TARGET Boost::system)
+      target_link_libraries(Boost::process INTERFACE Boost::system)
+    endif()
+    if(TARGET Boost::headers)
+      target_link_libraries(Boost::process INTERFACE Boost::headers)
+    endif()
+    if(Boost_VERSION VERSION_GREATER_EQUAL 1.80)
+      target_compile_definitions(Boost::process INTERFACE "BOOST_PROCESS_HAVE_V2")
+      # Boost < 1.86 has a bug that
+      # boost::process::v2::process_environment::on_setup() isn't
+      # defined. We need to build Boost Process source to define it.
+      #
+      # See also:
+      # https://github.com/boostorg/process/issues/312
+      target_compile_definitions(Boost::process INTERFACE "BOOST_PROCESS_NEED_SOURCE")
+      if(WIN32)
+        target_link_libraries(Boost::process INTERFACE bcrypt ntdll)
+      endif()
+    endif()
   endif()
 
   message(STATUS "Boost include dir: ${Boost_INCLUDE_DIRS}")
@@ -1355,15 +1383,23 @@ macro(build_snappy)
       "-DCMAKE_INSTALL_PREFIX=${SNAPPY_PREFIX}")
   # Snappy unconditionally enables -Werror when building with clang this can lead
   # to build failures by way of new compiler warnings. This adds a flag to disable
-  # Werror to the very end of the invocation to override the snappy internal setting.
+  # -Werror to the very end of the invocation to override the snappy internal setting.
+  set(SNAPPY_ADDITIONAL_CXX_FLAGS "")
   if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    foreach(CONFIG DEBUG MINSIZEREL RELEASE RELWITHDEBINFO)
-      list(APPEND
-           SNAPPY_CMAKE_ARGS
-           "-DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS_${CONFIG}} -Wno-error"
-      )
-    endforeach()
+    string(APPEND SNAPPY_ADDITIONAL_CXX_FLAGS " -Wno-error")
   endif()
+  # Snappy unconditionally disables RTTI, which is incompatible with some other
+  # build settings (https://github.com/apache/arrow/issues/43688).
+  if(NOT MSVC)
+    string(APPEND SNAPPY_ADDITIONAL_CXX_FLAGS " -frtti")
+  endif()
+
+  foreach(CONFIG DEBUG MINSIZEREL RELEASE RELWITHDEBINFO)
+    list(APPEND
+         SNAPPY_CMAKE_ARGS
+         "-DCMAKE_CXX_FLAGS_${CONFIG}=${EP_CXX_FLAGS_${CONFIG}} ${SNAPPY_ADDITIONAL_CXX_FLAGS}"
+    )
+  endforeach()
 
   if(APPLE AND CMAKE_HOST_SYSTEM_VERSION VERSION_LESS 20)
     # On macOS 10.13 we need to explicitly add <functional> to avoid a missing include error
@@ -4957,8 +4993,20 @@ macro(build_awssdk)
   set(AWSSDK_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/awssdk_ep-install")
   set(AWSSDK_INCLUDE_DIR "${AWSSDK_PREFIX}/include")
 
+  # The AWS SDK has a few warnings around shortening lengths
+  set(AWS_C_FLAGS "${EP_C_FLAGS}")
+  set(AWS_CXX_FLAGS "${EP_CXX_FLAGS}")
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL
+                                                    "Clang")
+    # Negate warnings that AWS SDK cannot build under
+    string(APPEND AWS_C_FLAGS " -Wno-error=shorten-64-to-32")
+    string(APPEND AWS_CXX_FLAGS " -Wno-error=shorten-64-to-32")
+  endif()
+
   set(AWSSDK_COMMON_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
+      -DCMAKE_C_FLAGS=${AWS_C_FLAGS}
+      -DCMAKE_CXX_FLAGS=${AWS_CXX_FLAGS}
       -DCPP_STANDARD=${CMAKE_CXX_STANDARD}
       -DCMAKE_INSTALL_PREFIX=${AWSSDK_PREFIX}
       -DCMAKE_PREFIX_PATH=${AWSSDK_PREFIX}

@@ -43,6 +43,15 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
     hash = length(.data$group_by_vars) > 0
   )
 
+  # Do a projection here to keep only the columns we need in summarize().
+  # If possible, this will push down the column selection into the SourceNode,
+  # saving lots of wasted processing for columns we don't need. (GH-43627)
+  vars_to_keep <- unique(c(
+    unlist(lapply(exprs, all.vars)), # vars referenced in summarize
+    dplyr::group_vars(.data) # vars needed for grouping
+  ))
+  .data <- dplyr::select(.data, intersect(vars_to_keep, names(.data)))
+
   # nolint start
   # summarize() is complicated because you can do a mixture of scalar operations
   # and aggregations, but that's not how Acero works. For example, for us to do
@@ -232,7 +241,7 @@ group_types <- function(.data, schema = NULL) {
 }
 
 format_aggregation <- function(x) {
-  paste0(x$fun, "(", paste(map(x$data, ~ .$ToString()), collapse = ","), ")")
+  Expression$create(x$fun, args = x$data, options = x$options)$ToString()
 }
 
 # This function evaluates an expression and returns the post-summarize

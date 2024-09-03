@@ -54,7 +54,7 @@ export PYARROW_TEST_S3=${ARROW_S3}
 export PYARROW_TEST_TENSORFLOW=ON
 
 export ARROW_TEST_DATA=${source_dir}/testing/data
-export PARQUET_TEST_DATA=${source_dir}/submodules/parquet-testing/data
+export PARQUET_TEST_DATA=${source_dir}/cpp/submodules/parquet-testing/data
 
 if [ "${INSTALL_PYARROW}" == "ON" ]; then
   # Install the built wheels

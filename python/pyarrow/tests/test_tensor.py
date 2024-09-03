@@ -21,7 +21,10 @@ import pytest
 import warnings
 import weakref
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    pytestmark = pytest.mark.numpy
 import pyarrow as pa
 
 

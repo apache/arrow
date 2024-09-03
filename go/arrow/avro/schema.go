@@ -24,7 +24,7 @@ import (
 
 	"github.com/apache/arrow/go/v18/arrow"
 	"github.com/apache/arrow/go/v18/arrow/decimal128"
-	"github.com/apache/arrow/go/v18/internal/types"
+	"github.com/apache/arrow/go/v18/arrow/extensions"
 	"github.com/apache/arrow/go/v18/internal/utils"
 	avro "github.com/hamba/avro/v2"
 )
@@ -349,7 +349,7 @@ func avroLogicalToArrowField(n *schemaNode) {
 		// The uuid logical type represents a random generated universally unique identifier (UUID).
 		// A uuid logical type annotates an Avro string. The string has to conform with RFC-4122
 	case "uuid":
-		dt = types.NewUUIDType()
+		dt = extensions.NewUUIDType()
 
 	// The date logical type represents a date within the calendar, with no reference to a particular
 	// time zone or time of day.

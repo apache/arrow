@@ -47,7 +47,9 @@ import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.LargeListVector;
+import org.apache.arrow.vector.complex.LargeListViewVector;
 import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.ListViewVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
@@ -400,13 +402,17 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
 
   @Override
   public List<ArrowBuf> visit(ArrowType.ListView type) {
-    throw new UnsupportedOperationException(
-        "Importing buffers for view type: " + type + " not supported");
+    return Arrays.asList(
+        maybeImportBitmap(type),
+        importFixedBytes(type, 1, ListViewVector.OFFSET_WIDTH),
+        importFixedBytes(type, 2, ListViewVector.SIZE_WIDTH));
   }
 
   @Override
   public List<ArrowBuf> visit(ArrowType.LargeListView type) {
-    throw new UnsupportedOperationException(
-        "Importing buffers for view type: " + type + " not supported");
+    return Arrays.asList(
+        maybeImportBitmap(type),
+        importFixedBytes(type, 1, LargeListViewVector.OFFSET_WIDTH),
+        importFixedBytes(type, 2, LargeListViewVector.SIZE_WIDTH));
   }
 }

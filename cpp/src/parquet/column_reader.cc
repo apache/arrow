@@ -468,8 +468,8 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
     // Advance the stream offset
     PARQUET_THROW_NOT_OK(stream_->Advance(header_size));
 
-    int compressed_len = current_page_header_.compressed_page_size;
-    int uncompressed_len = current_page_header_.uncompressed_page_size;
+    int32_t compressed_len = current_page_header_.compressed_page_size;
+    int32_t uncompressed_len = current_page_header_.uncompressed_page_size;
     if (compressed_len < 0 || uncompressed_len < 0) {
       throw ParquetException("Invalid page header");
     }

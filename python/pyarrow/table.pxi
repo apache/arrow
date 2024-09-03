@@ -495,6 +495,9 @@ cdef class ChunkedArray(_PandasConvertible):
         >>> n_legs.to_numpy()
         array([  2,   2,   4,   4,   5, 100])
         """
+        if np is None:
+            raise ImportError(
+                "Cannot return a numpy.ndarray if NumPy is not present")
         if zero_copy_only:
             raise ValueError(
                 "zero_copy_only must be False for pyarrow.ChunkedArray.to_numpy"
@@ -2949,7 +2952,7 @@ cdef class RecordBatch(_Tabular):
             shared_ptr[CRecordBatch] c_batch
             vector[c_string] c_names
 
-        if isinstance(names, list):
+        if isinstance(names, (list, tuple)):
             for name in names:
                 c_names.push_back(tobytes(name))
         elif isinstance(names, dict):
@@ -3568,6 +3571,41 @@ cdef class RecordBatch(_Tabular):
                 <CResult[shared_ptr[CTensor]]>deref(c_record_batch).ToTensor(null_to_nan,
                                                                              row_major, pool))
         return pyarrow_wrap_tensor(c_tensor)
+
+    def copy_to(self, destination):
+        """
+        Copy the entire RecordBatch to destination device.
+
+        This copies each column of the record batch to create
+        a new record batch where all underlying buffers for the columns have
+        been copied to the destination MemoryManager.
+
+        Parameters
+        ----------
+        destination : pyarrow.MemoryManager or pyarrow.Device
+            The destination device to copy the array to.
+
+        Returns
+        -------
+        RecordBatch
+        """
+        cdef:
+            shared_ptr[CRecordBatch] c_batch
+            shared_ptr[CMemoryManager] c_memory_manager
+
+        if isinstance(destination, Device):
+            c_memory_manager = (<Device>destination).unwrap().get().default_memory_manager()
+        elif isinstance(destination, MemoryManager):
+            c_memory_manager = (<MemoryManager>destination).unwrap()
+        else:
+            raise TypeError(
+                "Argument 'destination' has incorrect type (expected a "
+                f"pyarrow Device or MemoryManager, got {type(destination)})"
+            )
+
+        with nogil:
+            c_batch = GetResultValue(self.batch.CopyTo(c_memory_manager))
+        return pyarrow_wrap_batch(c_batch)
 
     def _export_to_c(self, out_ptr, out_schema_ptr=0):
         """
@@ -5374,7 +5412,7 @@ cdef class Table(_Tabular):
             shared_ptr[CTable] c_table
             vector[c_string] c_names
 
-        if isinstance(names, list):
+        if isinstance(names, (list, tuple)):
             for name in names:
                 c_names.push_back(tobytes(name))
         elif isinstance(names, dict):

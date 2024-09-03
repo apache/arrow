@@ -19,7 +19,9 @@ module Arrow
   class Decimal256Array
     # @since 3.0.0
     def get_value(i)
-      BigDecimal(format_value(i))
+      string = format_value(i)
+      string.sub!(".E", ".0E") if string.include?(".E")
+      BigDecimal(string)
     end
   end
 end

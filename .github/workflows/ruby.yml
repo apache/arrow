@@ -83,7 +83,7 @@ jobs:
           key: ubuntu-${{ matrix.ubuntu }}-ruby-${{ hashFiles('cpp/**') }}
           restore-keys: ubuntu-${{ matrix.ubuntu }}-ruby-
       - name: Setup Python
-        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
+        uses: actions/setup-python@f677139bbe7f9c59b41e40162b753c062f5d49a3 # v5.2.0
         with:
           python-version: 3.8
       - name: Setup Archery
@@ -406,7 +406,10 @@ jobs:
             -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json"
       - name: Build C++ vcpkg dependencies
         run: |
-          vcpkg\vcpkg.exe install --triplet $env:VCPKG_TRIPLET --x-manifest-root cpp --x-install-root build\cpp\vcpkg_installed
+          vcpkg\vcpkg.exe install `
+            --triplet $env:VCPKG_TRIPLET `
+            --x-manifest-root cpp `
+            --x-install-root build\cpp\vcpkg_installed
       - name: Build C++
         shell: cmd
         run: |

@@ -19,6 +19,8 @@ package pqarrow_test
 import (
 	"bytes"
 	"context"
+	"fmt"
+	"math"
 	"testing"
 	"unsafe"
 
@@ -26,8 +28,10 @@ import (
 	"github.com/apache/arrow/go/v18/arrow/array"
 	"github.com/apache/arrow/go/v18/arrow/memory"
 	"github.com/apache/arrow/go/v18/parquet"
+	"github.com/apache/arrow/go/v18/parquet/compress"
 	"github.com/apache/arrow/go/v18/parquet/file"
 	"github.com/apache/arrow/go/v18/parquet/pqarrow"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/rand"
 	"gonum.org/v1/gonum/stat/distuv"
 )
@@ -273,5 +277,112 @@ func BenchmarkReadColumnFloat64(b *testing.B) {
 		values := randomInt32(SIZELEN, tt.fvPct, [2]int32{127, 128}, 500)
 		tbl := tableFromVec(arrow.PrimitiveTypes.Int32, SIZELEN, values, tt.nullable, tt.nullPct)
 		benchReadTable(b, tt.name, tbl, int64(arrow.Int32Traits.BytesRequired(SIZELEN)))
+	}
+}
+
+var compressTestCases = []struct {
+	c compress.Compression
+}{
+	{compress.Codecs.Uncompressed},
+	{compress.Codecs.Snappy},
+	{compress.Codecs.Gzip},
+	{compress.Codecs.Brotli},
+	{compress.Codecs.Zstd},
+	{compress.Codecs.Lz4Raw},
+	// {compress.Codecs.Lzo},
+}
+
+func buildTableForTest(mem memory.Allocator) arrow.Table {
+	schema := arrow.NewSchema(
+		[]arrow.Field{
+			{Name: "int64s", Type: arrow.PrimitiveTypes.Int64},
+			{Name: "strings", Type: arrow.BinaryTypes.String},
+			{Name: "bools", Type: arrow.FixedWidthTypes.Boolean},
+			{Name: "repeated_int64s", Type: arrow.PrimitiveTypes.Int64},
+			{Name: "repeated_strings", Type: arrow.BinaryTypes.String},
+			{Name: "repeated_bools", Type: arrow.FixedWidthTypes.Boolean},
+		},
+		nil,
+	)
+	bldr := array.NewRecordBuilder(mem, schema)
+	defer bldr.Release()
+
+	for i := 0; i < SIZELEN; i++ {
+		bldr.Field(0).(*array.Int64Builder).Append(int64(i))
+		bldr.Field(1).(*array.StringBuilder).Append(fmt.Sprint(i))
+		bldr.Field(2).(*array.BooleanBuilder).Append(i%2 == 0)
+		bldr.Field(3).(*array.Int64Builder).Append(0)
+		bldr.Field(4).(*array.StringBuilder).Append("the string is the same")
+		bldr.Field(5).(*array.BooleanBuilder).Append(true)
+	}
+
+	rec := bldr.NewRecord()
+	return array.NewTableFromRecords(schema, []arrow.Record{rec})
+}
+
+func BenchmarkWriteTableCompressed(b *testing.B) {
+	mem := memory.DefaultAllocator
+	table := buildTableForTest(mem)
+	defer table.Release()
+
+	var uncompressedSize uint64
+	for idxCol := 0; int64(idxCol) < table.NumCols(); idxCol++ {
+		column := table.Column(idxCol)
+		for _, chunk := range column.Data().Chunks() {
+			uncompressedSize += chunk.Data().SizeInBytes()
+		}
+	}
+
+	var buf bytes.Buffer
+	buf.Grow(int(uncompressedSize))
+	for _, tc := range compressTestCases {
+		b.Run(fmt.Sprintf("codec=%s", tc.c), func(b *testing.B) {
+			buf.Reset()
+			b.ResetTimer()
+			b.SetBytes(int64(uncompressedSize))
+			for n := 0; n < b.N; n++ {
+				require.NoError(b,
+					pqarrow.WriteTable(
+						table,
+						&buf,
+						math.MaxInt64,
+						parquet.NewWriterProperties(parquet.WithAllocator(mem), parquet.WithCompression(tc.c)),
+						pqarrow.DefaultWriterProps(),
+					),
+				)
+			}
+		})
+	}
+}
+
+func BenchmarkReadTableCompressed(b *testing.B) {
+	ctx := context.Background()
+	mem := memory.DefaultAllocator
+	table := buildTableForTest(mem)
+	defer table.Release()
+
+	for _, tc := range compressTestCases {
+		b.Run(fmt.Sprintf("codec=%s", tc.c), func(b *testing.B) {
+			var buf bytes.Buffer
+			err := pqarrow.WriteTable(
+				table,
+				&buf,
+				math.MaxInt64,
+				parquet.NewWriterProperties(parquet.WithAllocator(mem), parquet.WithCompression(tc.c)),
+				pqarrow.DefaultWriterProps(),
+			)
+			require.NoError(b, err)
+
+			compressedBytes := buf.Len()
+			rdr := bytes.NewReader(buf.Bytes())
+
+			b.ResetTimer()
+			b.SetBytes(int64(compressedBytes))
+			for n := 0; n < b.N; n++ {
+				tab, err := pqarrow.ReadTable(ctx, rdr, nil, pqarrow.ArrowReadProperties{}, mem)
+				require.NoError(b, err)
+				defer tab.Release()
+			}
+		})
 	}
 }

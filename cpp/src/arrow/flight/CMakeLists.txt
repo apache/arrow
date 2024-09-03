@@ -26,6 +26,12 @@ endif()
 if(WIN32)
   list(APPEND ARROW_FLIGHT_LINK_LIBS ws2_32.lib)
 endif()
+# Updating the MACOSX_DEPLOYMENT_TARGET to 12 required us to explicitly
+# link Flight with OpenSSL on macOS. Read this comment for more details:
+# https://github.com/apache/arrow/pull/43137#pullrequestreview-2267476893
+if(APPLE AND ARROW_USE_OPENSSL)
+  list(APPEND ARROW_FLIGHT_LINK_LIBS ${ARROW_OPENSSL_LIBS})
+endif()
 
 set(ARROW_FLIGHT_TEST_LINKAGE "${ARROW_TEST_LINKAGE}")
 if(Protobuf_USE_STATIC_LIBS)
@@ -64,11 +70,6 @@ if(ARROW_BUILD_BENCHMARKS
     endif()
   endif()
 endif()
-list(APPEND
-     ARROW_FLIGHT_TEST_INTERFACE_LIBS
-     Boost::headers
-     Boost::filesystem
-     Boost::system)
 list(APPEND ARROW_FLIGHT_TEST_LINK_LIBS gRPC::grpc++)
 
 # TODO(wesm): Protobuf shared vs static linking
@@ -262,7 +263,9 @@ if(ARROW_TESTING)
                 OUTPUTS
                 ARROW_FLIGHT_TESTING_LIBRARIES
                 SOURCES
+                test_auth_handlers.cc
                 test_definitions.cc
+                test_flight_server.cc
                 test_util.cc
                 DEPENDENCIES
                 flight_grpc_gen

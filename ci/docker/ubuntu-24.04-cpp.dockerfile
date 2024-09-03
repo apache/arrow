@@ -57,6 +57,7 @@ RUN latest_system_llvm=18 && \
         clang-${llvm} \
         clang-format-${clang_tools} \
         clang-tidy-${clang_tools} \
+        libclang-rt-${llvm}-dev \
         llvm-${llvm}-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
