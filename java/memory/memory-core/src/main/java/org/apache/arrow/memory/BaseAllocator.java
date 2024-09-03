@@ -955,15 +955,9 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
       return arrowBuf;
     }
 
-    @Deprecated
     @Override
     public int getSize() {
       return (int) nBytes;
-    }
-
-    @Override
-    public long getLongSize() {
-      return nBytes;
     }
 
     @Override

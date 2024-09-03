@@ -38,7 +38,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
   private @Nullable Object[] elementData; // elementData[index] = null;
 
   /* Actual number of values. */
-  private long size;
+  private int size;
 
   /*
    * maximum number of elements that can be put in this map before having to
@@ -46,10 +46,10 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
    */
   private long threshold;
 
-  private static final long DEFAULT_MIN_SIZE = 1;
+  private static final int DEFAULT_MIN_SIZE = 1;
 
   /* Default load factor of 0.75; */
-  private static final long LOAD_FACTOR = 7500;
+  private static final int LOAD_FACTOR = 7500;
 
   /** Creates a Map with default expected maximum size. */
   public LowCostIdentityHashMap() {
@@ -60,25 +60,8 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
    * Creates a Map with the specified maximum size parameter.
    *
    * @param maxSize The estimated maximum number of entries that will be put in this map.
-   * @deprecated Use {@link #LowCostIdentityHashMap(long)} instead.
    */
-  @Deprecated
   public LowCostIdentityHashMap(int maxSize) {
-    if (maxSize >= 0) {
-      this.size = 0;
-      threshold = getThreshold(maxSize);
-      elementData = newElementArrayUnderInitialized((int) computeElementArraySize());
-    } else {
-      throw new IllegalArgumentException();
-    }
-  }
-
-  /**
-   * Creates a Map with the specified maximum size parameter.
-   *
-   * @param maxSize The estimated maximum number of entries that will be put in this map.
-   */
-  public LowCostIdentityHashMap(long maxSize) {
     if (maxSize >= 0) {
       this.size = 0;
       threshold = getThreshold(maxSize);
@@ -334,7 +317,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
    * @return the number of mappings in this Map.
    */
   public int size() {
-    return (int) size;
+    return size;
   }
 
   /**
