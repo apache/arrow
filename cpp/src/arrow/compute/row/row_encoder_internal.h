@@ -375,9 +375,9 @@ class ARROW_EXPORT RowEncoder {
     }
     int32_t row_length = 0;
     int32_t row_offset = 0;
-    if (fixed_width_length_ != kInvalidFixedWidthOffset) {
+    if (IsFixedWidth()) {
       row_length = fixed_width_length_;
-      row_offset = fixed_with_row_count_ * i * fixed_width_length_;
+      row_offset = i * fixed_width_length_;
     } else {
       row_length = offsets_[i + 1] - offsets_[i];
       row_offset = offsets_[i];
@@ -387,7 +387,7 @@ class ARROW_EXPORT RowEncoder {
   }
 
   int32_t num_rows() const {
-    if (kInvalidFixedWidthOffset == fixed_width_length_) {
+    if (IsFixedWidth()) {
       return fixed_with_row_count_;
     }
     return offsets_.empty() ? 0 : offsets_[0];
@@ -395,6 +395,9 @@ class ARROW_EXPORT RowEncoder {
 
  private:
   Status EncodeAndAppendForFixedWidth(const ExecSpan& batch);
+  bool IsFixedWidth() const noexcept {
+    return fixed_width_length_ != kInvalidFixedWidthOffset;
+  }
 
  private:
   static constexpr int32_t kInvalidFixedWidthOffset = 1;
