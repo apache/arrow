@@ -19,7 +19,6 @@
 import argparse
 import contextlib
 import http.server
-import json
 import os
 import queue
 import shutil
