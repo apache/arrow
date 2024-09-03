@@ -366,11 +366,11 @@ std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpr
     const parquet::Statistics& statistics) {
   auto field_expr = compute::field_ref(field_ref);
 
-  bool may_has_null = !statistics.HasNullCount() || statistics.null_count() > 0;
-  bool must_has_null = statistics.HasNullCount() && statistics.null_count() > 0;
+  bool may_have_null = !statistics.HasNullCount() || statistics.null_count() > 0;
+  bool has_null = statistics.HasNullCount() && statistics.null_count() > 0;
   // Optimize for corner case where all values are nulls
   if (statistics.num_values() == 0) {
-    if (must_has_null) {
+    if (has_null) {
       return is_null(std::move(field_expr));
     }
     // If there are no values and no nulls, it might be empty or contains
@@ -392,7 +392,7 @@ std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpr
     if (min->Equals(*max)) {
       auto single_value = compute::equal(field_expr, compute::literal(std::move(min)));
 
-      if (!may_has_null) {
+      if (!may_have_null) {
         return single_value;
       }
       return compute::or_(std::move(single_value), is_null(std::move(field_expr)));
@@ -418,7 +418,7 @@ std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpr
     } else {
       in_range = compute::and_(std::move(lower_bound), std::move(upper_bound));
     }
-    if (may_has_null) {
+    if (may_have_nulll) {
       return compute::or_(std::move(in_range), compute::is_null(std::move(field_expr)));
     }
     return in_range;
@@ -428,7 +428,7 @@ std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpr
 
 std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpression(
     const Field& field, const parquet::Statistics& statistics) {
-  const auto field_name = field.name();
+  auto field_name = field.name();
   return EvaluateStatisticsAsExpression(field, FieldRef(std::move(field_name)),
                                         statistics);
 }
