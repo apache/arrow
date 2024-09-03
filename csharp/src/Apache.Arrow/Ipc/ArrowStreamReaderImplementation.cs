@@ -55,6 +55,9 @@ namespace Apache.Arrow.Ipc
 
         protected async ValueTask<RecordBatch> ReadRecordBatchAsync(CancellationToken cancellationToken = default)
         {
+            if (BaseStream.Length == 0)
+                return null;
+
             await ReadSchemaAsync().ConfigureAwait(false);
 
             ReadResult result = default;
@@ -103,6 +106,9 @@ namespace Apache.Arrow.Ipc
 
         protected RecordBatch ReadRecordBatch()
         {
+            if (BaseStream.Length == 0)
+                return null;
+
             ReadSchema();
 
             ReadResult result = default;
