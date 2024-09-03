@@ -65,7 +65,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
     if (maxSize >= 0) {
       this.size = 0;
       threshold = getThreshold(maxSize);
-      elementData = newElementArrayUnderInitialized((int) computeElementArraySize());
+      elementData = newElementArrayUnderInitialized(computeElementArraySize());
     } else {
       throw new IllegalArgumentException();
     }
@@ -77,8 +77,8 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
     return maxSize > 2 ? maxSize : 2;
   }
 
-  private long computeElementArraySize(@UnderInitialization LowCostIdentityHashMap<K, V> this) {
-    long arraySize = (threshold * 10000) / LOAD_FACTOR;
+  private int computeElementArraySize(@UnderInitialization LowCostIdentityHashMap<K, V> this) {
+    int arraySize = (int) (((long) threshold * 10000) / LOAD_FACTOR);
     // ensure arraySize is positive, the above cast from long to int type
     // leads to overflow and negative arraySize if threshold is too big
     return arraySize < 0 ? -arraySize : arraySize;
