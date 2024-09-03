@@ -32,7 +32,7 @@ public class HistoricalLog {
 
   private final Deque<Event> history = new ArrayDeque<>();
   private final String idString; // the formatted id string
-  private final long limit; // the limit on the number of events kept
+  private final int limit; // the limit on the number of events kept
   private @Nullable Event firstEvent; // the first stack trace recorded
 
   /**
@@ -67,8 +67,7 @@ public class HistoricalLog {
    * @param args for the format string, or nothing if none are required
    */
   @FormatMethod
-  public HistoricalLog(
-      final long limit, @FormatString final String idStringFormat, Object... args) {
+  public HistoricalLog(final int limit, @FormatString final String idStringFormat, Object... args) {
     this.limit = limit;
     this.idString = String.format(idStringFormat, args);
     this.firstEvent = null;

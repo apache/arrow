@@ -950,7 +950,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
     }
     long start = (long) typeWidth * index;
     long end = (long) typeWidth * (index + 1);
-    return (int) ByteFunctionHelpers.hash(hasher, this.getDataBuffer(), start, end);
+    return ByteFunctionHelpers.hash(hasher, this.getDataBuffer(), start, end);
   }
 
   @Override

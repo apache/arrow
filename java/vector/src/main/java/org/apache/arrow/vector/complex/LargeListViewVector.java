@@ -442,8 +442,7 @@ public class LargeListViewVector extends BaseLargeRepeatedValueViewVector
     final int start = offsetBuffer.getInt((long) index * OFFSET_WIDTH);
     final int end = sizeBuffer.getInt((long) index * OFFSET_WIDTH);
     for (int i = start; i < end; i++) {
-      hash =
-          (int) ByteFunctionHelpers.combineHash(hash, vector.hashCode(checkedCastToInt(i), hasher));
+      hash = ByteFunctionHelpers.combineHash(hash, vector.hashCode(checkedCastToInt(i), hasher));
     }
     return hash;
   }

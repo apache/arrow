@@ -190,13 +190,13 @@ public class TestArrowBufPointer {
     protected int counter = 0;
 
     @Override
-    public long hashCode(long address, long length) {
+    public int hashCode(long address, long length) {
       counter += 1;
       return SimpleHasher.INSTANCE.hashCode(address, length);
     }
 
     @Override
-    public long hashCode(ArrowBuf buf, long offset, long length) {
+    public int hashCode(ArrowBuf buf, long offset, long length) {
       counter += 1;
       return SimpleHasher.INSTANCE.hashCode(buf, offset, length);
     }

@@ -1485,7 +1485,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     }
     final int start = getStartOffset(index);
     final int end = getEndOffset(index);
-    return (int) ByteFunctionHelpers.hash(hasher, this.getDataBuffer(), start, end);
+    return ByteFunctionHelpers.hash(hasher, this.getDataBuffer(), start, end);
   }
 
   @Override

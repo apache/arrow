@@ -1600,7 +1600,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
     final int length = getValueLength(index);
     if (length < INLINE_SIZE) {
       int start = index * ELEMENT_SIZE + LENGTH_WIDTH;
-      return (int) ByteFunctionHelpers.hash(hasher, this.getDataBuffer(), start, start + length);
+      return ByteFunctionHelpers.hash(hasher, this.getDataBuffer(), start, start + length);
     } else {
       final int bufIndex =
           viewBuffer.getInt(((long) index * ELEMENT_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH);
@@ -1608,7 +1608,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
           viewBuffer.getInt(
               ((long) index * ELEMENT_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH + BUF_INDEX_WIDTH);
       ArrowBuf dataBuf = dataBuffers.get(bufIndex);
-      return (int) ByteFunctionHelpers.hash(hasher, dataBuf, dataOffset, dataOffset + length);
+      return ByteFunctionHelpers.hash(hasher, dataBuf, dataOffset, dataOffset + length);
     }
   }
 

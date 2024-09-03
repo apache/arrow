@@ -50,12 +50,12 @@ public class MurmurHasher implements ArrowBufHasher {
   }
 
   @Override
-  public long hashCode(long address, long length) {
+  public int hashCode(long address, long length) {
     return hashCode(address, length, seed);
   }
 
   @Override
-  public long hashCode(ArrowBuf buf, long offset, long length) {
+  public int hashCode(ArrowBuf buf, long offset, long length) {
     buf.checkBytes(offset, offset + length);
     return hashCode(buf.memoryAddress() + offset, length);
   }
@@ -69,7 +69,7 @@ public class MurmurHasher implements ArrowBufHasher {
    * @param seed the seed.
    * @return the hash code.
    */
-  public static long hashCode(ArrowBuf buf, long offset, long length, int seed) {
+  public static int hashCode(ArrowBuf buf, long offset, long length, int seed) {
     buf.checkBytes(offset, offset + length);
     return hashCode(buf.memoryAddress() + offset, length, seed);
   }
@@ -82,7 +82,7 @@ public class MurmurHasher implements ArrowBufHasher {
    * @param seed the seed.
    * @return the hash code.
    */
-  public static long hashCode(long address, long length, int seed) {
+  public static int hashCode(long address, long length, int seed) {
     int index = 0;
     int hash = seed;
     while (index + 4 <= length) {

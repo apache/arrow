@@ -295,7 +295,7 @@ public class ByteFunctionHelpers {
   }
 
   /** Compute hashCode with the given {@link ArrowBuf} and start/end index. */
-  public static long hash(final ArrowBuf buf, long start, long end) {
+  public static int hash(final ArrowBuf buf, long start, long end) {
 
     return hash(SimpleHasher.INSTANCE, buf, start, end);
   }
@@ -303,17 +303,17 @@ public class ByteFunctionHelpers {
   /**
    * Compute hashCode with the given {@link ArrowBufHasher}, {@link ArrowBuf} and start/end index.
    */
-  public static final long hash(ArrowBufHasher hasher, final ArrowBuf buf, long start, long end) {
+  public static final int hash(ArrowBufHasher hasher, final ArrowBuf buf, long start, long end) {
 
     if (hasher == null) {
       hasher = SimpleHasher.INSTANCE;
     }
 
-    return (int) hasher.hashCode(buf, start, end - start);
+    return hasher.hashCode(buf, start, end - start);
   }
 
   /** Generate a new hashCode with the given current hashCode and new hashCode. */
-  public static long combineHash(long currentHash, long newHash) {
+  public static int combineHash(int currentHash, int newHash) {
     return currentHash * 31 + newHash;
   }
 }

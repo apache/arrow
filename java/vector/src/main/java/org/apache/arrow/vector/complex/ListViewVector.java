@@ -449,7 +449,7 @@ public class ListViewVector extends BaseRepeatedValueViewVector
     final int start = offsetBuffer.getInt(index * OFFSET_WIDTH);
     final int end = sizeBuffer.getInt(index * OFFSET_WIDTH);
     for (int i = start; i < end; i++) {
-      hash = (int) ByteFunctionHelpers.combineHash(hash, vector.hashCode(i, hasher));
+      hash = ByteFunctionHelpers.combineHash(hash, vector.hashCode(i, hasher));
     }
     return hash;
   }

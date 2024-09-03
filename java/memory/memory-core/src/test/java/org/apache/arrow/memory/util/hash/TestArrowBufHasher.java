@@ -75,13 +75,13 @@ public class TestArrowBufHasher {
   private void verifyHashCodesEqual(
       ArrowBufHasher hasher,
       ArrowBuf buf1,
-      long offset1,
-      long length1,
+      int offset1,
+      int length1,
       ArrowBuf buf2,
-      long offset2,
-      long length2) {
-    long hashCode1 = hasher.hashCode(buf1, offset1, length1);
-    long hashCode2 = hasher.hashCode(buf2, offset2, length2);
+      int offset2,
+      int length2) {
+    int hashCode1 = hasher.hashCode(buf1, offset1, length1);
+    int hashCode2 = hasher.hashCode(buf2, offset2, length2);
 
     assertEquals(hashCode1, hashCode2);
   }
@@ -119,8 +119,8 @@ public class TestArrowBufHasher {
 
   private void verifyHashCodeNotEqual(
       ArrowBufHasher hasher, ArrowBuf buf1, int length1, ArrowBuf buf2, int length2) {
-    long hashCode1 = hasher.hashCode(buf1, 0, length1);
-    long hashCode2 = hasher.hashCode(buf2, 0, length2);
+    int hashCode1 = hasher.hashCode(buf1, 0, length1);
+    int hashCode2 = hasher.hashCode(buf2, 0, length2);
     assertNotEquals(hashCode1, hashCode2);
   }
 
