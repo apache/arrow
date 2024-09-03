@@ -3378,7 +3378,7 @@ def test_invalid_non_join_column():
 
 
 def test_is_cpu():
-    chunked_array = pa.chunked_array([1, 2, 3])
+    chunked_array = pa.chunked_array([])
     assert chunked_array._init_is_cpu is False
     assert chunked_array.is_cpu() is True
     assert chunked_array._init_is_cpu is True
