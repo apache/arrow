@@ -47,7 +47,7 @@ public class DefaultRoundingPolicy implements RoundingPolicy {
       defaultPageSize = 8192;
     }
 
-    long defaultMaxOrder = Long.getLong("org.apache.memory.allocator.maxOrder", 11);
+    int defaultMaxOrder = Integer.getInteger("org.apache.memory.allocator.maxOrder", 11);
     try {
       validateAndCalculateChunkSize(defaultPageSize, defaultMaxOrder);
     } catch (Throwable t) {
@@ -74,7 +74,7 @@ public class DefaultRoundingPolicy implements RoundingPolicy {
     return Long.SIZE - 1 - Long.numberOfLeadingZeros(pageSize);
   }
 
-  private static long validateAndCalculateChunkSize(long pageSize, long maxOrder) {
+  private static long validateAndCalculateChunkSize(long pageSize, int maxOrder) {
     if (maxOrder > 14) {
       throw new IllegalArgumentException("maxOrder: " + maxOrder + " (expected: 0-14)");
     }

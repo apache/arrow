@@ -16,6 +16,7 @@
  */
 package org.apache.arrow.memory.rounding;
 
+import org.apache.arrow.memory.util.LargeMemoryUtil;
 import org.apache.arrow.util.Preconditions;
 
 /** The rounding policy that each buffer size must a multiple of the segment size. */
@@ -38,15 +39,9 @@ public class SegmentRoundingPolicy implements RoundingPolicy {
    *     SegmentRoundingPolicy#MIN_SEGMENT_SIZE}, or is not a power of 2.
    * @deprecated use {@link SegmentRoundingPolicy#SegmentRoundingPolicy(long)} instead.
    */
-  @Deprecated
+  @Deprecated(forRemoval = true)
   public SegmentRoundingPolicy(int segmentSize) {
-    Preconditions.checkArgument(
-        segmentSize >= MIN_SEGMENT_SIZE,
-        "The segment size cannot be smaller than %s",
-        MIN_SEGMENT_SIZE);
-    Preconditions.checkArgument(
-        (segmentSize & (segmentSize - 1)) == 0, "The segment size must be a power of 2");
-    this.segmentSize = segmentSize;
+    this((long) segmentSize);
   }
 
   /**
@@ -71,7 +66,11 @@ public class SegmentRoundingPolicy implements RoundingPolicy {
     return (requestSize + (segmentSize - 1)) / segmentSize * segmentSize;
   }
 
-  public long getSegmentSize() {
+  public int getSegmentSize() {
+    return LargeMemoryUtil.checkedCastToInt(segmentSize);
+  }
+
+  public long getSegmentSizeAsLong() {
     return segmentSize;
   }
 }

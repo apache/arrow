@@ -52,11 +52,7 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
   @Deprecated
   public NettyArrowBuf(
       final ArrowBuf arrowBuf, final BufferAllocator bufferAllocator, final int length) {
-    super(length);
-    this.arrowBuf = arrowBuf;
-    this.arrowByteBufAllocator = new ArrowByteBufAllocator(bufferAllocator);
-    this.length = length;
-    this.address = arrowBuf.memoryAddress();
+    this(arrowBuf, bufferAllocator, (long) length);
   }
 
   /**

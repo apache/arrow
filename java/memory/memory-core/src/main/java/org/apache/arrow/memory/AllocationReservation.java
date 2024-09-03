@@ -36,7 +36,7 @@ public interface AllocationReservation extends AutoCloseable {
    * @throws IllegalStateException if called after buffer() is used to allocate the reservation
    * @deprecated use {@link #add(long)} instead
    */
-  @Deprecated
+  @Deprecated(forRemoval = true)
   boolean add(int nBytes);
 
   /**
@@ -59,7 +59,7 @@ public interface AllocationReservation extends AutoCloseable {
    * @return true if the reservation can be satisfied, false otherwise
    * @deprecated use {@link #reserve(long)} instead
    */
-  @Deprecated
+  @Deprecated(forRemoval = true)
   boolean reserve(int nBytes);
 
   /**
@@ -84,8 +84,7 @@ public interface AllocationReservation extends AutoCloseable {
   ArrowBuf allocateBuffer();
 
   /**
-   * Get the current size of the reservation (the sum of all the add()s). Int version is deprecated,
-   * use getLongSize instead.
+   * Get the current size of the reservation (the sum of all the add()s).
    *
    * @return size of the current reservation
    */

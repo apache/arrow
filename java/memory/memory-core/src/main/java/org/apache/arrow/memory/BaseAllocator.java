@@ -29,6 +29,7 @@ import org.apache.arrow.memory.rounding.RoundingPolicy;
 import org.apache.arrow.memory.util.AssertionUtil;
 import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.arrow.memory.util.HistoricalLog;
+import org.apache.arrow.memory.util.LargeMemoryUtil;
 import org.apache.arrow.util.Preconditions;
 import org.checkerframework.checker.initialization.qual.Initialized;
 import org.checkerframework.checker.nullness.qual.KeyFor;
@@ -888,36 +889,14 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
       }
     }
 
-    @Deprecated
+    @Deprecated(forRemoval = true)
     @Override
     public boolean add(final int nBytes) {
-      assertOpen();
-
-      Preconditions.checkArgument(nBytes >= 0, "nBytes(%d) < 0", nBytes);
-      Preconditions.checkState(
-          !closed, "Attempt to increase reservation after reservation has been closed");
-      Preconditions.checkState(
-          !used, "Attempt to increase reservation after reservation has been used");
-
-      // we round up to next power of two since all reservations are done in powers of two. This
-      // may overestimate the
-      // preallocation since someone may perceive additions to be power of two. If this becomes a
-      // problem, we can look
-      // at
-      // modifying this behavior so that we maintain what we reserve and what the user asked for
-      // and make sure to only
-      // round to power of two as necessary.
-      final int nBytesTwo = CommonUtil.nextPowerOfTwo(nBytes);
-      if (!reserve(nBytesTwo)) {
-        return false;
-      }
-
-      this.nBytes += nBytesTwo;
-      return true;
+      return add((long) nBytes);
     }
 
     @Override
-    public boolean add(long nBytes) {
+    public boolean add(final long nBytes) {
       assertOpen();
 
       Preconditions.checkArgument(nBytes >= 0, "nBytes(%d) < 0", nBytes);
@@ -957,7 +936,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
 
     @Override
     public int getSize() {
-      return (int) nBytes;
+      return LargeMemoryUtil.checkedCastToInt(nBytes);
     }
 
     @Override
@@ -1009,15 +988,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
     @Deprecated
     @Override
     public boolean reserve(int nBytes) {
-      assertOpen();
-
-      final AllocationOutcome outcome = BaseAllocator.this.allocateBytes(nBytes);
-
-      if (historicalLog != null) {
-        historicalLog.recordEvent("reserve(%d) => %s", nBytes, Boolean.toString(outcome.isOk()));
-      }
-
-      return outcome.isOk();
+      return reserve((long) nBytes);
     }
 
     @Override
