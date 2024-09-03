@@ -985,7 +985,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
       closed = true;
     }
 
-    @Deprecated
+    @Deprecated(forRemoval = true)
     @Override
     public boolean reserve(int nBytes) {
       return reserve((long) nBytes);
