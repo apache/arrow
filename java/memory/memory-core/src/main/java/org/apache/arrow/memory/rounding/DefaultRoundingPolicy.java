@@ -36,7 +36,7 @@ public class DefaultRoundingPolicy implements RoundingPolicy {
    */
   private static final long MIN_PAGE_SIZE = 4096;
 
-  private static final long MAX_CHUNK_SIZE = Long.MAX_VALUE / 2;
+  private static final long MAX_CHUNK_SIZE = ((long) Integer.MAX_VALUE + 1) / 2;
   private static final long DEFAULT_CHUNK_SIZE;
 
   static {

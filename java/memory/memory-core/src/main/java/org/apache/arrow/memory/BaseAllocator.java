@@ -940,6 +940,11 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
     }
 
     @Override
+    public long getSizeLong() {
+      return nBytes;
+    }
+
+    @Override
     public boolean isUsed() {
       return used;
     }

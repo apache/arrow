@@ -91,6 +91,13 @@ public interface AllocationReservation extends AutoCloseable {
   int getSize();
 
   /**
+   * Get the current size of the reservation (the sum of all the add()s) as a long value.
+   *
+   * @return size of the current reservation
+   */
+  long getSizeLong();
+
+  /**
    * Return whether or not the reservation has been used.
    *
    * @return whether or not the reservation has been used
