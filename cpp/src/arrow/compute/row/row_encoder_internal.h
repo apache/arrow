@@ -403,9 +403,9 @@ class ARROW_EXPORT RowEncoder {
   static constexpr int32_t kInvalidFixedWidthOffset = 1;
   ExecContext* ctx_{nullptr};
   std::vector<std::shared_ptr<KeyEncoder>> encoders_;
-  // When all columns in a row are Fixed-width or NA, the encoded row
-  // doesn't need to maintain the column offsets. In this case, the
-  // offsets_.size() would be also be empty.
+  // When all columns in a row are fixed-width or NA, the encoded row
+  // doesn't need to maintain the row offsets. In this case, the
+  // offsets_.size() would be also empty.
   int32_t fixed_width_length_{kInvalidFixedWidthOffset};
   int32_t fixed_with_row_count_{0};
   // offsets_ vector stores the starting position (offset) of each encoded row
@@ -414,7 +414,7 @@ class ARROW_EXPORT RowEncoder {
   // The size would be num_rows + 1 if not empty, the last element is the total
   // length of the bytes_ vector.
   //
-  // When all columns in a row are Fixed-width or NA, the offsets_ can be
+  // When all columns in a row are fixed-width or NA, the offsets_ can be
   // eliminated, and the encoded row can be accessed by fixed_width_length_.
   std::vector<int32_t> offsets_;
   // The encoded bytes of all non "kRowIdForNulls" rows.
