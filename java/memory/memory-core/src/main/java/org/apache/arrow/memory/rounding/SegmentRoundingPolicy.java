@@ -66,6 +66,7 @@ public class SegmentRoundingPolicy implements RoundingPolicy {
     return (requestSize + (segmentSize - 1)) / segmentSize * segmentSize;
   }
 
+  @Deprecated(forRemoval = true)
   public int getSegmentSize() {
     return LargeMemoryUtil.checkedCastToInt(segmentSize);
   }
