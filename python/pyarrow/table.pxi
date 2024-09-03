@@ -59,6 +59,7 @@ cdef class ChunkedArray(_PandasConvertible):
 
     def __cinit__(self):
         self.chunked_array = NULL
+        self._init_is_cpu = False
 
     def __init__(self):
         raise TypeError("Do not call ChunkedArray's constructor directly, use "
@@ -1443,10 +1444,10 @@ cdef class ChunkedArray(_PandasConvertible):
         """
         Whether all chunks in the ChunkedArray are CPU-accessible.
         """
-        cdef c_bool result
-        with nogil:
-            result = self.chunked_array.is_cpu()
-        return result
+        if self._init_is_cpu == False:
+            self._is_cpu = self.chunked_array.is_cpu()
+            self._init_is_cpu = True
+        return self._is_cpu
 
     def _assert_cpu(self):
         if not self.is_cpu:
