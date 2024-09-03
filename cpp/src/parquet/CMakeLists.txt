@@ -171,6 +171,7 @@ set(PARQUET_SRCS
     exception.cc
     file_reader.cc
     file_writer.cc
+    geometry_statistics.cc
     level_comparison.cc
     level_conversion.cc
     metadata.cc
@@ -372,12 +373,11 @@ add_parquet_test(internals-test
                  statistics_test.cc
                  encoding_test.cc
                  metadata_test.cc
+                 geometry_util_internal_test.cc
                  page_index_test.cc
                  public_api_test.cc
                  size_statistics_test.cc
                  types_test.cc)
-
-add_parquet_test(geometry-test SOURCES geometry_util_test.cc)
 
 set_source_files_properties(public_api_test.cc PROPERTIES SKIP_PRECOMPILE_HEADERS ON
                                                           SKIP_UNITY_BUILD_INCLUSION ON)

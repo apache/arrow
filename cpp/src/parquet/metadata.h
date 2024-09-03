@@ -31,6 +31,20 @@
 
 namespace parquet {
 
+class ColumnDescriptor;
+class EncodedStatistics;
+class EncodedGeometryStatistics;
+class FileCryptoMetaData;
+class Statistics;
+class GeometryStatistics;
+class SchemaDescriptor;
+
+namespace schema {
+
+class ColumnPath;
+
+}  // namespace schema
+
 using KeyValueMetadata = ::arrow::KeyValueMetadata;
 
 class PARQUET_EXPORT ApplicationVersion {
@@ -141,8 +155,10 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   int64_t num_values() const;
   std::shared_ptr<schema::ColumnPath> path_in_schema() const;
   bool is_stats_set() const;
+  bool is_geometry_stats_set() const;
   std::shared_ptr<Statistics> statistics() const;
   std::shared_ptr<SizeStatistics> size_statistics() const;
+  std::shared_ptr<GeometryStatistics> geometry_statistics() const;
 
   Compression::type compression() const;
   // Indicate if the ColumnChunk compression is supported by the current
@@ -439,6 +455,9 @@ class PARQUET_EXPORT ColumnChunkMetaDataBuilder {
   // column metadata
   void SetStatistics(const EncodedStatistics& stats);
   void SetSizeStatistics(const SizeStatistics& size_stats);
+
+  // column geometry statistics
+  void SetGeometryStatistics(const EncodedGeometryStatistics& geometry_stats);
 
   void SetKeyValueMetadata(std::shared_ptr<const KeyValueMetadata> key_value_metadata);
 

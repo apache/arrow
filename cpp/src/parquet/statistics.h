@@ -114,53 +114,6 @@ std::shared_ptr<TypedComparator<DType>> MakeComparator(const ColumnDescriptor* d
   return std::static_pointer_cast<TypedComparator<DType>>(Comparator::Make(descr));
 }
 
-class PARQUET_EXPORT EncodedGeometryStatistics {
- public:
-  static constexpr double kInf = std::numeric_limits<double>::infinity();
-
-  EncodedGeometryStatistics() = default;
-  EncodedGeometryStatistics(const EncodedGeometryStatistics&) = default;
-  EncodedGeometryStatistics(EncodedGeometryStatistics&&) = default;
-  EncodedGeometryStatistics& operator=(const EncodedGeometryStatistics&) = default;
-
-  double xmin{kInf};
-  double xmax{-kInf};
-  double ymin{kInf};
-  double ymax{-kInf};
-  double zmin{kInf};
-  double zmax{-kInf};
-  double mmin{kInf};
-  double mmax{-kInf};
-  std::vector<std::pair<std::string, std::string>> coverings;
-  std::vector<uint32_t> geometry_types;
-
-  bool has_z() const { return (zmax - zmin) > 0; }
-
-  bool has_m() const { return (mmax - mmin) > 0; }
-};
-
-class GeometryStatisticsImpl;
-
-class PARQUET_EXPORT GeometryStatistics {
- public:
-  GeometryStatistics();
-
-  bool Equals(const GeometryStatistics& other) const;
-
-  void Merge(const GeometryStatistics& other);
-
-  void Update(const ByteArray* values, int64_t num_values, int64_t null_count);
-
-  EncodedGeometryStatistics Encode();
-
-  bool is_valid() const;
-
-  static std::unique_ptr<GeometryStatistics> Decode(const EncodedGeometryStatistics& encoded);
-
- private:
-  std::unique_ptr<GeometryStatisticsImpl> impl_;
-};
-
 // ----------------------------------------------------------------------
 
 /// \brief Structure represented encoded statistics to be written to
@@ -168,16 +121,12 @@ class PARQUET_EXPORT GeometryStatistics {
 class PARQUET_EXPORT EncodedStatistics {
   std::string max_, min_;
   bool is_signed_ = false;
-  EncodedGeometryStatistics geometry_statistics_;
 
  public:
   EncodedStatistics() = default;
 
   const std::string& max() const { return max_; }
   const std::string& min() const { return min_; }
-  const EncodedGeometryStatistics& geometry_statistics() const {
-    return geometry_statistics_;
-  }
 
   int64_t null_count = 0;
   int64_t distinct_count = 0;
@@ -186,7 +135,6 @@ class PARQUET_EXPORT EncodedStatistics {
   bool has_max = false;
   bool has_null_count = false;
   bool has_distinct_count = false;
-  bool has_geometry_statistics = false;
 
   // When all values in the statistics are null, it is set to true.
   // Otherwise, at least one value is not null, or we are not sure at all.
@@ -241,12 +189,6 @@ class PARQUET_EXPORT EncodedStatistics {
     has_distinct_count = true;
     return *this;
   }
-
-  EncodedStatistics& set_geometry(EncodedGeometryStatistics geometry_statistics) {
-    geometry_statistics_ = std::move(geometry_statistics);
-    has_geometry_statistics = true;
-    return *this;
-  }
 };
 
 /// \brief Base type for computing column statistics while writing a file
@@ -277,9 +219,8 @@ class PARQUET_EXPORT Statistics {
   static std::shared_ptr<Statistics> Make(
       const ColumnDescriptor* descr, const std::string& encoded_min,
       const std::string& encoded_max, int64_t num_values, int64_t null_count,
-      int64_t distinct_count, const EncodedGeometryStatistics& geometry_statistics,
-      bool has_min_max, bool has_null_count, bool has_distinct_count,
-      bool has_geometry_statistics,
+      int64_t distinct_count, bool has_min_max, bool has_null_count,
+      bool has_distinct_count,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
   // Helper function to convert EncodedStatistics to Statistics.
@@ -308,10 +249,6 @@ class PARQUET_EXPORT Statistics {
   /// \brief Return true if both min and max statistics are set. Obtain
   /// with TypedStatistics<T>::min and max
   virtual bool HasMinMax() const = 0;
-
-  virtual bool HasGeometryStatistics() const { return false; };
-
-  virtual const GeometryStatistics* GeometryStatistics() const { return nullptr; }
 
   /// \brief Reset state of object to initial (no data observed) state
   virtual void Reset() = 0;
@@ -435,14 +372,11 @@ template <typename DType>
 std::shared_ptr<TypedStatistics<DType>> MakeStatistics(
     const ColumnDescriptor* descr, const std::string& encoded_min,
     const std::string& encoded_max, int64_t num_values, int64_t null_count,
-    int64_t distinct_count, const EncodedGeometryStatistics& geometry_statistics,
-    bool has_min_max, bool has_null_count, bool has_distinct_count,
-    bool has_geometry_statistics,
-    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool()) {
-  return std::static_pointer_cast<TypedStatistics<DType>>(
-      Statistics::Make(descr, encoded_min, encoded_max, num_values, null_count,
-                       distinct_count, geometry_statistics, has_min_max, has_null_count,
-                       has_distinct_count, has_geometry_statistics, pool));
+    int64_t distinct_count, bool has_min_max, bool has_null_count,
+    bool has_distinct_count, ::arrow::MemoryPool* pool = ::arrow::default_memory_pool()) {
+  return std::static_pointer_cast<TypedStatistics<DType>>(Statistics::Make(
+      descr, encoded_min, encoded_max, num_values, null_count, distinct_count,
+      has_min_max, has_null_count, has_distinct_count, pool));
 }
 
 }  // namespace parquet

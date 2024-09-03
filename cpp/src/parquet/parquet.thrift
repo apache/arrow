@@ -20,7 +20,8 @@
 /**
  * File format description for the parquet file format
  */
-namespace cpp parquet
+cpp_include "parquet/windows_compatibility.h"
+namespace cpp parquet.format
 namespace java org.apache.parquet.format
 
 /**
@@ -60,14 +61,14 @@ enum ConvertedType {
    * values */
   LIST = 3;
 
-  /** an enum is converted into a binary field */
+  /** an enum is converted into a BYTE_ARRAY field */
   ENUM = 4;
 
   /**
    * A decimal value.
    *
-   * This may be used to annotate binary or fixed primitive types. The
-   * underlying byte array stores the unscaled value encoded as two's
+   * This may be used to annotate BYTE_ARRAY or FIXED_LEN_BYTE_ARRAY primitive
+   * types. The underlying byte array stores the unscaled value encoded as two's
    * complement using big-endian byte order (the most significant byte is the
    * zeroth element). The value of the decimal is the value * 10^{-scale}.
    *
@@ -158,7 +159,7 @@ enum ConvertedType {
   /**
    * An embedded BSON document
    *
-   * A BSON document embedded within a single BINARY column.
+   * A BSON document embedded within a single BYTE_ARRAY column.
    */
   BSON = 20;
 
@@ -181,10 +182,10 @@ enum ConvertedType {
  * Representation of Schemas
  */
 enum FieldRepetitionType {
-  /** This field is required (can not be null) and each record has exactly 1 value. */
+  /** This field is required (can not be null) and each row has exactly 1 value. */
   REQUIRED = 0;
 
-  /** The field is optional (can be null) and each record has 0 or 1 values. */
+  /** The field is optional (can be null) and each row has 0 or 1 values. */
   OPTIONAL = 1;
 
   /** The field is repeated and can contain 0 or more values */
@@ -238,47 +239,25 @@ struct SizeStatistics {
 }
 
 /**
- * Interpretation for edges of GEOMETRY logical type, i.e. whether the edge
- * between points represent a straight cartesian line or the shortest line on
- * the sphere. Please note that it only applies to polygons.
- */
-enum Edges {
-  PLANAR = 0;
-  SPHERICAL = 1;
-}
-
-/**
- * A custom WKB-encoded polygon or multi-polygon to represent a covering of
- * geometries. For example, it may be a bounding box or an envelope of geometries
- * when a bounding box cannot be built (e.g., a geometry has spherical edges, or if
- * an edge of geographic coordinates crosses the antimeridian). In addition, it can
- * also be used to provide vendor-agnostic coverings like S2 or H3 grids.
- */
-struct Covering {
-  /**
-   * A type of covering. Currently accepted values: "WKB".
-   */
-  1: required string kind;
-  /** A payload specific to kind:
-   * - WKB: well-known binary of a POLYGON that completely covers the contents.
-   *   This will be interpreted according to the same CRS and edges defined by
-   *   the logical type.
-   */
-  2: required binary value;
-}
-
-/**
  * Bounding box of geometries in the representation of min/max value pair of
- * coordinates from each axis. Values of Z and M are omitted for 2D geometries.
+ * coordinates from each axis.
  */
 struct BoundingBox {
+  /** Min X value when edges = PLANAR, westmost value if edges = SPHERICAL */
   1: required double xmin;
+  /** Max X value when edges = PLANAR, eastmost value if edges = SPHERICAL */
   2: required double xmax;
+  /** Min Y value when edges = PLANAR, southmost value if edges = SPHERICAL */
   3: required double ymin;
+  /** Max Y value when edges = PLANAR, northmost value if edges = SPHERICAL */
   4: required double ymax;
+  /** Min Z value if the axis exists */
   5: optional double zmin;
+  /** Max Z value if the axis exists */
   6: optional double zmax;
+  /** Min M value if the axis exists */
   7: optional double mmin;
+  /** Max M value if the axis exists */
   8: optional double mmax;
 }
 
@@ -286,38 +265,8 @@ struct BoundingBox {
 struct GeometryStatistics {
   /** A bounding box of geometries */
   1: optional BoundingBox bbox;
-
-  /** A list of coverings of geometries */
-  2: optional list<Covering> coverings;
-
-  /**
-   * The geometry types of all geometries, or an empty array if they are not
-   * known. This is borrowed from `geometry_types` column metadata of GeoParquet [1]
-   * except that values in the list are WKB (ISO variant) integer codes [2]. Table
-   * below shows the most common geometry types and their codes:
-   *
-   * | Type               | XY   | XYZ  | XYM  | XYZM |
-   * | :----------------- | :--- | :--- | :--- | :--: |
-   * | Point              | 0001 | 1001 | 2001 | 3001 |
-   * | LineString         | 0002 | 1002 | 2002 | 3002 |
-   * | Polygon            | 0003 | 1003 | 2003 | 3003 |
-   * | MultiPoint         | 0004 | 1004 | 2004 | 3004 |
-   * | MultiLineString    | 0005 | 1005 | 2005 | 3005 |
-   * | MultiPolygon       | 0006 | 1006 | 2006 | 3006 |
-   * | GeometryCollection | 0007 | 1007 | 2007 | 3007 |
-   *
-   * In addition, the following rules are used:
-   * - A list of multiple values indicates that multiple geometry types are
-   *   present (e.g. `[0003, 0006]`).
-   * - An empty array explicitly signals that the geometry types are not known.
-   * - The geometry types in the list must be unique (e.g. `[0001, 0001]`
-   *   is not valid).
-   *
-   * Please refer to links below for more detail:
-   * [1] https://en.wikipedia.org/wiki/Well-known_text_representation_of_geometry#Well-known_binary
-   * [2] https://github.com/opengeospatial/geoparquet/blob/v1.0.0/format-specs/geoparquet.md?plain=1#L91
-   */
-  3: optional list<i32> geometry_types;
+  /** Geometry type codes of all geometries, or an empty list if not known */
+  2: optional list<i32> geometry_types;
 }
 
 /**
@@ -340,7 +289,14 @@ struct Statistics {
     */
    1: optional binary max;
    2: optional binary min;
-   /** count of null value in the column */
+   /**
+    * Count of null values in the column.
+    *
+    * Writers SHOULD always write this field even if it is zero (i.e. no null value)
+    * or the column is not nullable.
+    * Readers MUST distinguish between null_count not being present and null_count == 0.
+    * If null_count is not present, readers MUST NOT assume null_count == 0.
+    */
    3: optional i64 null_count;
    /** count of distinct values occurring */
    4: optional i64 distinct_count;
@@ -362,17 +318,14 @@ struct Statistics {
    7: optional bool is_max_value_exact;
    /** If true, min_value is the actual minimum value for a column */
    8: optional bool is_min_value_exact;
-
-   /** statistics specific to geometry logical type */
-   9: optional GeometryStatistics geometry_stats;
 }
 
 /** Empty structs to use as logical type annotations */
-struct StringType {}  // allowed for BINARY, must be encoded with UTF-8
+struct StringType {}  // allowed for BYTE_ARRAY, must be encoded with UTF-8
 struct UUIDType {}    // allowed for FIXED[16], must encoded raw UUID bytes
 struct MapType {}     // see LogicalTypes.md
 struct ListType {}    // see LogicalTypes.md
-struct EnumType {}    // allowed for BINARY, must be encoded with UTF-8
+struct EnumType {}    // allowed for BYTE_ARRAY, must be encoded with UTF-8
 struct DateType {}    // allowed for INT32
 struct Float16Type {} // allowed for FIXED[2], must encoded raw FLOAT16 bytes
 
@@ -394,7 +347,7 @@ struct NullType {}    // allowed for any physical type, only null values stored
  * To maintain forward-compatibility in v1, implementations using this logical
  * type must also set scale and precision on the annotated SchemaElement.
  *
- * Allowed for physical types: INT32, INT64, FIXED, and BINARY
+ * Allowed for physical types: INT32, INT64, FIXED_LEN_BYTE_ARRAY, and BYTE_ARRAY.
  */
 struct DecimalType {
   1: required i32 scale
@@ -446,7 +399,7 @@ struct IntType {
 /**
  * Embedded JSON logical type annotation
  *
- * Allowed for physical types: BINARY
+ * Allowed for physical types: BYTE_ARRAY
  */
 struct JsonType {
 }
@@ -454,59 +407,43 @@ struct JsonType {
 /**
  * Embedded BSON logical type annotation
  *
- * Allowed for physical types: BINARY
+ * Allowed for physical types: BYTE_ARRAY
  */
 struct BsonType {
 }
 
-/**
- * Physical type and encoding for the geometry type.
- */
+/** Physical type and encoding for the geometry type */
 enum GeometryEncoding {
   /**
    * Allowed for physical type: BYTE_ARRAY.
    *
-   * Well-known binary (WKB) representations of geometries. It supports 2D or
-   * 3D geometries of the standard geometry types (Point, LineString, Polygon,
-   * MultiPoint, MultiLineString, MultiPolygon, and GeometryCollection). This
-   * is the preferred option for maximum portability.
-   *
-   * This encoding enables GeometryStatistics to be set in the column chunk
-   * and page index.
+   * Well-known binary (WKB) representations of geometries.
    */
   WKB = 0;
+}
 
-  // TODO: add native encoding from GeoParquet/GeoArrow
+/** Interpretation for edges of elements of a GEOMETRY type */
+enum Edges {
+  PLANAR = 0;
+  SPHERICAL = 1;
 }
 
 /**
- * Geometry logical type annotation (added in 2.11.0)
+ * GEOMETRY logical type annotation (added in 2.11.0)
+ *
+ * GeometryEncoding and Edges are required. In order to correctly interpret
+ * geometry data, writer implementations SHOULD always them, and reader
+ * implementations SHOULD fail for unknown values.
+ *
+ * CRS is optional. Once CRS is set, it MUST be a key to an entry in the
+ * `key_value_metadata` field of `FileMetaData`.
+ *
+ * See LogicalTypes.md for detail.
  */
 struct GeometryType {
-  /**
-   * Physical type and encoding for the geometry type. Please refer to the
-   * definition of GeometryEncoding for more detail.
-   */
   1: required GeometryEncoding encoding;
-  /**
-   * Edges of polygon.
-   */
   2: required Edges edges;
-  /**
-   * Coordinate Reference System, i.e. mapping of how coordinates refer to
-   * precise locations on earth.
-   */
   3: optional string crs;
-  /**
-   * Encoding used in the above crs field.
-   * Currently the only allowed value is "PROJJSON".
-   */
-  4: optional string crs_encoding;
-  /**
-   * Additional informative metadata.
-   * It can be used by GeoParquet to offload some of the column metadata.
-   */
-  5: optional binary metadata;
 }
 
 /**
@@ -715,7 +652,13 @@ enum BoundaryOrder {
 
 /** Data page header */
 struct DataPageHeader {
-  /** Number of values, including NULLs, in this data page. **/
+  /**
+   * Number of values, including NULLs, in this data page.
+   *
+   * If a OffsetIndex is present, a page must begin at a row
+   * boundary (repetition_level = 0). Otherwise, pages may begin
+   * within a row (repetition_level > 0).
+   **/
   1: required i32 num_values
 
   /** Encoding used for this data page **/
@@ -762,7 +705,11 @@ struct DataPageHeaderV2 {
   /** Number of NULL values, in this data page.
       Number of non-null = num_values - num_nulls which is also the number of values in the data section **/
   2: required i32 num_nulls
-  /** Number of rows in this data page. which means pages change on record boundaries (r = 0) **/
+  /**
+   * Number of rows in this data page. Every page must begin at a
+   * row boundary (repetition_level = 0): rows must **not** be
+   * split across page boundaries when using V2 data pages.
+   **/
   3: required i32 num_rows
   /** Encoding used for data in this page **/
   4: required Encoding encoding
@@ -970,6 +917,9 @@ struct ColumnMetaData {
    * filter pushdown.
    */
   16: optional SizeStatistics size_statistics;
+
+  /** Optional statistics specific to GEOMETRY logical type */
+  17: optional GeometryStatistics geometry_stats;
 }
 
 struct EncryptionWithFooterKey {
@@ -994,12 +944,21 @@ struct ColumnChunk {
     **/
   1: optional string file_path
 
-  /** Byte offset in file_path to the ColumnMetaData **/
-  2: required i64 file_offset
+  /** Deprecated: Byte offset in file_path to the ColumnMetaData
+   *
+   * Past use of this field has been inconsistent, with some implementations
+   * using it to point to the ColumnMetaData and some using it to point to
+   * the first page in the column chunk. In many cases, the ColumnMetaData at this
+   * location is wrong. This field is now deprecated and should not be used.
+   * Writers should set this field to 0 if no ColumnMetaData has been written outside
+   * the footer.
+   */
+  2: required i64 file_offset = 0
 
-  /** Column metadata for this chunk. This is the same content as what is at
-   * file_path/file_offset.  Having it here has it replicated in the file
-   * metadata.
+  /** Column metadata for this chunk. Some writers may also replicate this at the
+   * location pointed to by file_path/file_offset.
+   * Note: while marked as optional, this field is in fact required by most major
+   * Parquet implementations. As such, writers MUST populate this field.
    **/
   3: optional ColumnMetaData meta_data
 
@@ -1091,7 +1050,7 @@ union ColumnOrder {
    *   ENUM - unsigned byte-wise comparison
    *   LIST - undefined
    *   MAP - undefined
-   *   GEOMETRY - undefined, use GeometryStatistics instead.
+   *   GEOMETRY - undefined
    *
    * In the absence of logical types, the sort order is determined by the physical type:
    *   BOOLEAN - false, true
@@ -1133,8 +1092,9 @@ struct PageLocation {
   2: required i32 compressed_page_size
 
   /**
-   * Index within the RowGroup of the first row of the page; this means pages
-   * change on record boundaries (r = 0).
+   * Index within the RowGroup of the first row of the page. When an
+   * OffsetIndex is present, pages must begin on row boundaries
+   * (repetition_level = 0).
    */
   3: required i64 first_row_index
 }
@@ -1202,7 +1162,16 @@ struct ColumnIndex {
    */
   4: required BoundaryOrder boundary_order
 
-  /** A list containing the number of null values for each page **/
+  /**
+   * A list containing the number of null values for each page
+   *
+   * Writers SHOULD always write this field even if no null values
+   * are present or the column is not nullable.
+   * Readers MUST distinguish between null_counts not being present
+   * and null_count being 0.
+   * If null_counts are not present, readers MUST NOT assume all
+   * null counts are 0.
+   */
   5: optional list<i64> null_counts
 
   /**
@@ -1222,9 +1191,6 @@ struct ColumnIndex {
     * Same as repetition_level_histograms except for definitions levels.
     **/
    7: optional list<i64> definition_level_histograms;
-
-   /** A list containing statistics of GEOMETRY logical type for each page */
-   8: optional list<GeometryStatistics> geometry_stats;
 }
 
 struct AesGcmV1 {
@@ -1331,4 +1297,3 @@ struct FileCryptoMetaData {
    *  and (possibly) columns **/
   2: optional binary key_metadata
 }
-

@@ -39,6 +39,7 @@
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
 #include "parquet/encoding.h"
+#include "parquet/geometry_util_internal.h"
 #include "parquet/platform.h"
 
 // https://github.com/google/googletest/pull/2904 might not be available
@@ -660,7 +661,7 @@ class PrimitiveTypedTest : public ::testing::Test {
  public:
   using c_type = typename TestType::c_type;
 
-  void SetUpSchema(Repetition::type repetition, int num_columns = 1) {
+  virtual void SetUpSchema(Repetition::type repetition, int num_columns) {
     std::vector<schema::NodePtr> fields;
 
     for (int i = 0; i < num_columns; ++i) {
@@ -671,6 +672,8 @@ class PrimitiveTypedTest : public ::testing::Test {
     node_ = schema::GroupNode::Make("schema", Repetition::REQUIRED, fields);
     schema_.Init(node_);
   }
+
+  void SetUpSchema(Repetition::type repetition) { this->SetUpSchema(repetition, 1); }
 
   void GenerateData(int64_t num_values, uint32_t seed = 0);
   void SetupValuesOut(int64_t num_values);
@@ -828,6 +831,42 @@ inline void GenerateData<FLBA>(int num_values, FLBA* out, std::vector<uint8_t>* 
   heap->resize(num_values * kGenerateDataFLBALength);
   // seed the prng so failure is deterministic
   random_fixed_byte_array(num_values, 0, heap->data(), kGenerateDataFLBALength, out);
+}
+
+// ----------------------------------------------------------------------
+// Test utility functions for geometry
+
+#if defined(ARROW_LITTLE_ENDIAN)
+static constexpr int kWkbNativeEndianness = geometry::WKBBuffer::WKB_LITTLE_ENDIAN;
+#else
+static constexpr int kWkbNativeEndianness = geometry::WKBBuffer::WKB_BIG_ENDIAN;
+#endif
+
+static constexpr int kWkbPointSize = 21;  // 1:endianness + 4:type + 8:x + 8:y
+
+inline void GenerateWKBPoint(uint8_t* ptr, double x, double y) {
+  double xyzm[] = {x, y, geometry::kInf, geometry::kInf};
+  std::string wkb = geometry::MakeWKBPoint(xyzm, false, false);
+  memcpy(ptr, wkb.data(), kWkbPointSize);
+}
+
+inline bool GetWKBPointCoordinate(const ByteArray& value, double* out_x, double* out_y) {
+  if (value.len != kWkbPointSize) {
+    return false;
+  }
+  if (value.ptr[0] != kWkbNativeEndianness) {
+    return false;
+  }
+  uint32_t expected_geom_type = geometry::GeometryType::ToWKB(
+      geometry::GeometryType::geometry_type::POINT, false, false);
+  uint32_t geom_type = 0;
+  memcpy(&geom_type, &value.ptr[1], 4);
+  if (geom_type != expected_geom_type) {
+    return false;
+  }
+  memcpy(out_x, &value.ptr[5], 8);
+  memcpy(out_y, &value.ptr[13], 8);
+  return true;
 }
 
 }  // namespace test

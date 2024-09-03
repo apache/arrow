@@ -38,6 +38,7 @@
 #include "parquet/schema.h"
 #include "parquet/schema_internal.h"
 #include "parquet/size_statistics.h"
+#include "parquet/statistics.h"
 #include "parquet/thrift_internal.h"
 
 namespace parquet {
@@ -89,38 +90,6 @@ std::string ParquetVersionToString(ParquetVersion::type ver) {
   return "UNKNOWN";
 }
 
-static EncodedGeometryStatistics MakeEncodedGeometryStatistics(
-    const format::Statistics& stats) {
-  EncodedGeometryStatistics out;
-
-  if (stats.__isset.geometry_stats) {
-    const format::GeometryStatistics& geom_stats = stats.geometry_stats;
-    out.geometry_types = std::vector<uint32_t>(geom_stats.geometry_types.begin(),
-                                               geom_stats.geometry_types.end());
-
-    out.xmin = geom_stats.bbox.xmin;
-    out.xmax = geom_stats.bbox.xmax;
-    out.ymin = geom_stats.bbox.ymin;
-    out.ymax = geom_stats.bbox.ymax;
-
-    if (geom_stats.bbox.__isset.zmin && geom_stats.bbox.__isset.zmax) {
-      out.zmin = geom_stats.bbox.zmin;
-      out.zmax = geom_stats.bbox.zmax;
-    }
-
-    if (geom_stats.bbox.__isset.mmin && geom_stats.bbox.__isset.mmax) {
-      out.mmin = geom_stats.bbox.mmin;
-      out.mmax = geom_stats.bbox.mmax;
-    }
-
-    for (const auto& covering : geom_stats.coverings) {
-      out.coverings.emplace_back(covering.kind, covering.value);
-    }
-  }
-
-  return out;
-}
-
 template <typename DType>
 static std::shared_ptr<Statistics> MakeTypedColumnStats(
     const format::ColumnMetaData& metadata, const ColumnDescriptor* descr) {
@@ -130,21 +99,28 @@ static std::shared_ptr<Statistics> MakeTypedColumnStats(
         descr, metadata.statistics.min_value, metadata.statistics.max_value,
         metadata.num_values - metadata.statistics.null_count,
         metadata.statistics.null_count, metadata.statistics.distinct_count,
-        MakeEncodedGeometryStatistics(metadata.statistics),
         metadata.statistics.__isset.max_value && metadata.statistics.__isset.min_value,
         metadata.statistics.__isset.null_count,
-        metadata.statistics.__isset.distinct_count,
-        metadata.statistics.__isset.geometry_stats);
+        metadata.statistics.__isset.distinct_count);
   }
   // Default behavior
   return MakeStatistics<DType>(
       descr, metadata.statistics.min, metadata.statistics.max,
       metadata.num_values - metadata.statistics.null_count,
       metadata.statistics.null_count, metadata.statistics.distinct_count,
-      MakeEncodedGeometryStatistics(metadata.statistics),
       metadata.statistics.__isset.max && metadata.statistics.__isset.min,
-      metadata.statistics.__isset.null_count, metadata.statistics.__isset.distinct_count,
-      metadata.statistics.__isset.geometry_stats);
+      metadata.statistics.__isset.null_count, metadata.statistics.__isset.distinct_count);
+}
+
+static std::shared_ptr<GeometryStatistics> MakeColumnGeometryStats(
+    const format::ColumnMetaData& metadata, const ColumnDescriptor* descr) {
+  if (metadata.__isset.geometry_stats) {
+    EncodedGeometryStatistics encoded_geometry_stats =
+        FromThrift(metadata.geometry_stats);
+    return std::make_shared<GeometryStatistics>(encoded_geometry_stats);
+  } else {
+    return nullptr;
+  }
 }
 
 std::shared_ptr<Statistics> MakeColumnStats(const format::ColumnMetaData& meta_data,
@@ -307,6 +283,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
       size_statistics_->Validate(descr_);
     }
     possible_stats_ = nullptr;
+    possible_geometry_stats_ = nullptr;
     InitKeyValueMetadata();
   }
 
@@ -345,12 +322,24 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
                                                  descr_->sort_order());
   }
 
+  inline bool is_geometry_stats_set() const {
+    DCHECK(writer_version_ != nullptr);
+    if (possible_geometry_stats_ == nullptr && column_metadata_->__isset.geometry_stats) {
+      possible_geometry_stats_ = MakeColumnGeometryStats(*column_metadata_, descr_);
+    }
+    return possible_geometry_stats_ != nullptr && possible_geometry_stats_->is_valid();
+  }
+
   inline std::shared_ptr<Statistics> statistics() const {
     return is_stats_set() ? possible_stats_ : nullptr;
   }
 
   inline std::shared_ptr<SizeStatistics> size_statistics() const {
     return size_statistics_;
+  }
+
+  inline std::shared_ptr<GeometryStatistics> geometry_statistics() const {
+    return is_geometry_stats_set() ? possible_geometry_stats_ : nullptr;
   }
 
   inline Compression::type compression() const {
@@ -432,6 +421,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   }
 
   mutable std::shared_ptr<Statistics> possible_stats_;
+  mutable std::shared_ptr<GeometryStatistics> possible_geometry_stats_;
   std::vector<Encoding::type> encodings_;
   std::vector<PageEncodingStats> encoding_stats_;
   const format::ColumnChunk* column_;
@@ -483,10 +473,18 @@ std::shared_ptr<Statistics> ColumnChunkMetaData::statistics() const {
   return impl_->statistics();
 }
 
+std::shared_ptr<GeometryStatistics> ColumnChunkMetaData::geometry_statistics() const {
+  return impl_->geometry_statistics();
+}
+
 bool ColumnChunkMetaData::is_stats_set() const { return impl_->is_stats_set(); }
 
 std::shared_ptr<SizeStatistics> ColumnChunkMetaData::size_statistics() const {
   return impl_->size_statistics();
+}
+
+bool ColumnChunkMetaData::is_geometry_stats_set() const {
+  return impl_->is_geometry_stats_set();
 }
 
 std::optional<int64_t> ColumnChunkMetaData::bloom_filter_offset() const {
@@ -1599,6 +1597,10 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
     column_chunk_->meta_data.__set_size_statistics(ToThrift(size_stats));
   }
 
+  void SetGeometryStatistics(const EncodedGeometryStatistics& val) {
+    column_chunk_->meta_data.__set_geometry_stats(ToThrift(val));
+  }
+
   void Finish(int64_t num_values, int64_t dictionary_page_offset,
               int64_t index_page_offset, int64_t data_page_offset,
               int64_t compressed_size, int64_t uncompressed_size, bool has_dictionary,
@@ -1810,6 +1812,11 @@ void ColumnChunkMetaDataBuilder::SetStatistics(const EncodedStatistics& result) 
 
 void ColumnChunkMetaDataBuilder::SetSizeStatistics(const SizeStatistics& size_stats) {
   impl_->SetSizeStatistics(size_stats);
+}
+
+void ColumnChunkMetaDataBuilder::SetGeometryStatistics(
+    const EncodedGeometryStatistics& result) {
+  impl_->SetGeometryStatistics(result);
 }
 
 void ColumnChunkMetaDataBuilder::SetKeyValueMetadata(

@@ -512,6 +512,7 @@ void TestWriteTypedColumnIndex(schema::NodePtr node,
   }
   auto descr = std::make_unique<ColumnDescriptor>(node, max_definition_level,
                                                   max_repetition_level);
+
   auto builder = ColumnIndexBuilder::Make(descr.get());
   for (size_t i = 0; i < page_stats.size(); ++i) {
     auto size_stats = build_size_stats
@@ -551,11 +552,28 @@ void TestWriteTypedColumnIndex(schema::NodePtr node,
       if (has_null_counts) {
         ASSERT_EQ(page_stats[i].null_count, column_index->null_counts()[i]);
       }
+
       if (build_size_stats) {
         ASSERT_NO_FATAL_FAILURE(VerifyPageLevelHistogram(
             i, page_levels[i].def_levels, column_index->definition_level_histograms()));
         ASSERT_NO_FATAL_FAILURE(VerifyPageLevelHistogram(
             i, page_levels[i].rep_levels, column_index->repetition_level_histograms()));
+      }
+
+      if (page_stats[i].has_geometry_statistics) {
+        const auto& expected_stats = page_stats[i].geometry_statistics();
+        const auto* byte_array_column_index =
+            static_cast<ByteArrayColumnIndex*>(column_index.get());
+        const auto& actual_stats = byte_array_column_index->geometry_statistics()[i];
+        ASSERT_EQ(expected_stats.geometry_types, actual_stats.GetGeometryTypes());
+        ASSERT_DOUBLE_EQ(expected_stats.xmin, actual_stats.GetXMin());
+        ASSERT_DOUBLE_EQ(expected_stats.xmax, actual_stats.GetXMax());
+        ASSERT_DOUBLE_EQ(expected_stats.ymin, actual_stats.GetYMin());
+        ASSERT_DOUBLE_EQ(expected_stats.ymax, actual_stats.GetYMax());
+        ASSERT_DOUBLE_EQ(expected_stats.zmin, actual_stats.GetZMin());
+        ASSERT_DOUBLE_EQ(expected_stats.zmax, actual_stats.GetZMax());
+        ASSERT_DOUBLE_EQ(expected_stats.mmin, actual_stats.GetMMin());
+        ASSERT_DOUBLE_EQ(expected_stats.mmax, actual_stats.GetMMax());
       }
     }
   }

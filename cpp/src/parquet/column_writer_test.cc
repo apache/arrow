@@ -35,6 +35,7 @@
 #include "parquet/column_writer.h"
 #include "parquet/file_reader.h"
 #include "parquet/file_writer.h"
+#include "parquet/geometry_util_internal.h"
 #include "parquet/metadata.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
@@ -397,6 +398,28 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     auto metadata_accessor =
         ColumnChunkMetaData::Make(metadata_->contents(), this->descr_);
     return metadata_accessor->key_value_metadata();
+  }
+
+  std::unique_ptr<ColumnChunkMetaData> metadata_accessor() {
+    // Metadata accessor must be created lazily.
+    // This is because the ColumnChunkMetaData semantics dictate the metadata object is
+    // complete (no changes to the metadata buffer can be made after instantiation)
+    return ColumnChunkMetaData::Make(metadata_->contents(), this->descr_);
+  }
+
+  EncodedStatistics metadata_encoded_stats() {
+    return metadata_stats()->Encode();
+  }
+
+  std::shared_ptr<Statistics> metadata_stats() {
+    return metadata_accessor()->statistics();
+  }
+
+  std::shared_ptr<GeometryStatistics> metadata_geometry_stats() {
+    ApplicationVersion app_version(this->writer_properties_->created_by());
+    auto metadata_accessor = ColumnChunkMetaData::Make(
+        metadata_->contents(), this->descr_, default_reader_properties(), &app_version);
+    return metadata_accessor->geometry_statistics();
   }
 
  protected:
@@ -1808,7 +1831,6 @@ TEST_F(TestValuesWriterInt32Type, AllNullsCompressionInPageV2) {
 }
 
 #ifdef ARROW_WITH_ZSTD
-
 TEST_F(TestValuesWriterInt32Type, AvoidCompressedInDataPageV2) {
   Compression::type compression = Compression::ZSTD;
   auto verify_only_one_uncompressed_page = [&](int total_num_values) {
@@ -1849,8 +1871,188 @@ TEST_F(TestValuesWriterInt32Type, AvoidCompressedInDataPageV2) {
     verify_only_one_uncompressed_page(/*total_num_values=*/1);
   }
 }
-
 #endif
+
+// Test writing and reading geometry columns
+class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
+ public:
+  void SetUpSchema(Repetition::type repetition, int num_columns) override {
+    std::vector<schema::NodePtr> fields;
+
+    for (int i = 0; i < num_columns; ++i) {
+      std::string name = TestColumnName(i);
+      std::shared_ptr<const LogicalType> logical_type =
+          GeometryLogicalType::Make("OGC:CRS84", LogicalType::GeometryEdges::PLANAR,
+                                    LogicalType::GeometryEncoding::WKB);
+      fields.push_back(schema::PrimitiveNode::Make(name, repetition, logical_type,
+                                                   ByteArrayType::type_num));
+    }
+    node_ = schema::GroupNode::Make("schema", Repetition::REQUIRED, fields);
+    schema_.Init(node_);
+  }
+
+  void GenerateData(int64_t num_values, uint32_t seed = 0) {
+    values_.resize(num_values);
+
+    buffer_.resize(num_values * kWkbPointSize);
+    uint8_t* ptr = buffer_.data();
+    for (int k = 0; k < num_values; k++) {
+      GenerateWKBPoint(ptr, k, k + 1);
+      values_[k].len = kWkbPointSize;
+      values_[k].ptr = ptr;
+      ptr += kWkbPointSize;
+    }
+
+    values_ptr_ = values_.data();
+  }
+
+  void TestWriteAndRead(ParquetVersion::type version,
+                        ParquetDataPageVersion data_page_version) {
+    this->SetUpSchema(Repetition::REQUIRED, 1);
+    this->GenerateData(SMALL_SIZE);
+    size_t num_values = this->values_.size();
+    auto writer =
+        this->BuildWriter(num_values, ColumnProperties(), version, data_page_version,
+                          /*enable_checksum*/ false);
+    writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_.data());
+
+    writer->Close();
+    this->ReadColumn();
+    for (size_t i = 0; i < num_values; i++) {
+      const ByteArray& value = this->values_out_[i];
+      double x = 0;
+      double y = 0;
+      EXPECT_TRUE(GetWKBPointCoordinate(value, &x, &y));
+      auto expected_x = static_cast<double>(i);
+      auto expected_y = static_cast<double>(i + 1);
+      EXPECT_DOUBLE_EQ(expected_x, x);
+      EXPECT_DOUBLE_EQ(expected_y, y);
+    }
+
+    auto metadata_accessor = this->metadata_accessor();
+    // auto statistics = metadata_accessor->statistics();
+
+    // auto metadata_encodings = this->metadata_encodings();
+    // std::set<Encoding::type> metadata_encodings_set{metadata_encodings.begin(),
+    //                                                 metadata_encodings.end()};
+    // EXPECT_EQ(expected_encodings, metadata_encodings_set);
+
+    auto encoded_statistics = metadata_encoded_stats();
+    EXPECT_TRUE(encoded_statistics.has_geometry_statistics);
+    auto geometry_statistics = encoded_statistics.geometry_statistics();
+    EXPECT_EQ(1, geometry_statistics.geometry_types.size());
+    EXPECT_EQ(1, geometry_statistics.geometry_types[0]);
+    EXPECT_DOUBLE_EQ(0, geometry_statistics.xmin);
+    EXPECT_DOUBLE_EQ(1, geometry_statistics.ymin);
+    EXPECT_DOUBLE_EQ(99, geometry_statistics.xmax);
+    EXPECT_DOUBLE_EQ(100, geometry_statistics.ymax);
+    std::shared_ptr<Statistics> statistics = metadata_stats();
+    EXPECT_TRUE(statistics->HasMinMax());
+    EXPECT_TRUE(statistics->HasGeometryStatistics());
+    const GeometryStatistics* geometry_statistics = statistics->geometry_statistics();
+    std::shared_ptr<GeometryStatistics> geometry_statistics = metadata_geometry_stats();
+    ASSERT_TRUE(geometry_statistics != nullptr);
+    std::vector<int32_t> geometry_types = geometry_statistics->GetGeometryTypes();
+    EXPECT_EQ(1, geometry_types.size());
+    EXPECT_EQ(1, geometry_types[0]);
+    EXPECT_DOUBLE_EQ(0, geometry_statistics->GetXMin());
+    EXPECT_DOUBLE_EQ(1, geometry_statistics->GetYMin());
+    EXPECT_DOUBLE_EQ(99, geometry_statistics->GetXMax());
+    EXPECT_DOUBLE_EQ(100, geometry_statistics->GetYMax());
+    EXPECT_FALSE(geometry_statistics->HasZ());
+    EXPECT_FALSE(geometry_statistics->HasM());
+  }
+
+  void TestWriteAndReadSpaced(ParquetVersion::type version,
+                              ParquetDataPageVersion data_page_version) {
+    this->SetUpSchema(Repetition::OPTIONAL, 1);
+    this->GenerateData(SMALL_SIZE);
+    size_t num_values = this->values_.size();
+
+    std::vector<int16_t> definition_levels(num_values, 1);
+    std::vector<int16_t> repetition_levels(num_values, 0);
+    std::vector<size_t> non_null_indices;
+
+    // Replace some of the generated data with NULL
+    for (size_t i = 0; i < num_values; i++) {
+      if (i % 3 == 0) {
+        definition_levels[i] = 0;
+      } else {
+        non_null_indices.push_back(i);
+      }
+    }
+
+    // Construct valid bits using definition levels
+    std::vector<uint8_t> valid_bytes(num_values);
+    std::transform(definition_levels.begin(), definition_levels.end(),
+                   valid_bytes.begin(),
+                   [&](int64_t level) { return static_cast<uint8_t>(level); });
+    std::shared_ptr<Buffer> valid_bits;
+    ASSERT_OK_AND_ASSIGN(valid_bits, ::arrow::internal::BytesToBits(valid_bytes));
+
+    auto writer =
+        this->BuildWriter(num_values, ColumnProperties(), version, data_page_version,
+                          /*enable_checksum*/ false);
+    writer->WriteBatchSpaced(this->values_.size(), definition_levels.data(),
+                             repetition_levels.data(), valid_bits->data(), 0,
+                             this->values_.data());
+
+    writer->Close();
+    this->ReadColumn();
+    size_t expected_values_read = non_null_indices.size();
+    EXPECT_EQ(expected_values_read, values_read_);
+    for (int64_t i = 0; i < values_read_; i++) {
+      const ByteArray& value = this->values_out_[i];
+      double x = 0;
+      double y = 0;
+      EXPECT_TRUE(GetWKBPointCoordinate(value, &x, &y));
+      auto expected_x = static_cast<double>(non_null_indices[i]);
+      auto expected_y = static_cast<double>(non_null_indices[i] + 1);
+      EXPECT_DOUBLE_EQ(expected_x, x);
+      EXPECT_DOUBLE_EQ(expected_y, y);
+    }
+
+    std::shared_ptr<GeometryStatistics> geometry_statistics = metadata_geometry_stats();
+    ASSERT_TRUE(geometry_statistics != nullptr);
+    std::vector<int32_t> geometry_types = geometry_statistics->GetGeometryTypes();
+    EXPECT_EQ(1, geometry_types.size());
+    EXPECT_EQ(1, geometry_types[0]);
+    EXPECT_DOUBLE_EQ(1, geometry_statistics->GetXMin());
+    EXPECT_DOUBLE_EQ(2, geometry_statistics->GetYMin());
+    EXPECT_DOUBLE_EQ(98, geometry_statistics->GetXMax());
+    EXPECT_DOUBLE_EQ(99, geometry_statistics->GetYMax());
+    EXPECT_FALSE(geometry_statistics->HasZ());
+    EXPECT_FALSE(geometry_statistics->HasM());
+  }
+};
+
+TEST_F(TestGeometryValuesWriter, TestWriteAndReadV1) {
+  for (auto data_page_version :
+       {ParquetDataPageVersion::V1, ParquetDataPageVersion::V2}) {
+    TestWriteAndRead(ParquetVersion::PARQUET_1_0, data_page_version);
+  }
+}
+
+TEST_F(TestGeometryValuesWriter, TestWriteAndReadV2) {
+  for (auto data_page_version :
+       {ParquetDataPageVersion::V1, ParquetDataPageVersion::V2}) {
+    TestWriteAndRead(ParquetVersion::PARQUET_2_4, data_page_version);
+  }
+}
+
+TEST_F(TestGeometryValuesWriter, TestWriteAndReadV1Spaced) {
+  for (auto data_page_version :
+       {ParquetDataPageVersion::V1, ParquetDataPageVersion::V2}) {
+    TestWriteAndReadSpaced(ParquetVersion::PARQUET_1_0, data_page_version);
+  }
+}
+
+TEST_F(TestGeometryValuesWriter, TestWriteAndReadV2Spaced) {
+  for (auto data_page_version :
+       {ParquetDataPageVersion::V1, ParquetDataPageVersion::V2}) {
+    TestWriteAndReadSpaced(ParquetVersion::PARQUET_2_4, data_page_version);
+  }
+}
 
 }  // namespace test
 }  // namespace parquet
