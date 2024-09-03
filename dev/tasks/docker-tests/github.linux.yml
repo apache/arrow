@@ -27,8 +27,12 @@ jobs:
 {{ macros.github_set_env(env) }}
     timeout-minutes: {{ timeout|default(60) }}
     steps:
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+        with:
+          detached: true
+
       {{ macros.github_checkout_arrow(fetch_depth=fetch_depth|default(1))|indent }}
-      {{ macros.github_free_space()|indent }}
       {{ macros.github_install_archery()|indent }}
 
       - name: Execute Docker Build
@@ -38,6 +42,8 @@ jobs:
         run: |
           # GH-40558: reduce ASLR to avoid TSAN crashing
           sudo sysctl -w vm.mmap_rnd_bits=28
+          sudo sysctl -w kernel.core_pattern="/tmp/core.%e.%p"
+          ulimit -c unlimited
           archery docker run \
             -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" \
             {{ flags|default("") }} \

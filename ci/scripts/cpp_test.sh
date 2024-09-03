@@ -89,6 +89,9 @@ pushd ${build_dir}
 if [ -z "${PYTHON}" ] && ! which python > /dev/null 2>&1; then
   export PYTHON="${PYTHON:-python3}"
 fi
+
+ulimit -c unlimited
+
 ctest \
     --label-regex unittest \
     --output-on-failure \
@@ -96,7 +99,7 @@ ctest \
     --repeat until-pass:3 \
     --timeout ${ARROW_CTEST_TIMEOUT:-300} \
     "${ctest_options[@]}" \
-    "$@"
+    "$@" || sleep 3600
 
 if [ "${ARROW_BUILD_EXAMPLES}" == "ON" ]; then
     examples=$(find ${binary_output_dir} -executable -name "*example")
