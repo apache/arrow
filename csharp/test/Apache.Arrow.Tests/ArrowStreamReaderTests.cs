@@ -136,11 +136,9 @@ namespace Apache.Arrow.Tests
         {
             using (MemoryStream stream = new())
             {
-                ArrowStreamReader reader = new ArrowStreamReader(stream);
+                ArrowStreamReader reader = new(stream);
                 RecordBatch readBatch = reader.ReadNextRecordBatch();
                 Assert.Null(readBatch);
-
-                //ArrowReaderVerifier.VerifyReader(reader, originalBatch: null);
             }
         }
 
@@ -163,12 +161,9 @@ namespace Apache.Arrow.Tests
         {
             using (MemoryStream stream = new())
             {
-                ArrowStreamReader reader = new ArrowStreamReader(stream);
-
+                ArrowStreamReader reader = new(stream);
                 RecordBatch readBatch = await reader.ReadNextRecordBatchAsync();
                 Assert.Null(readBatch);
-
-                //await ArrowReaderVerifier.VerifyReaderAsync(reader, originalBatch: null);
             }
         }
 
