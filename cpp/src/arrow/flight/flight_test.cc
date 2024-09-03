@@ -204,7 +204,7 @@ ARROW_FLIGHT_TEST_ASYNC_CLIENT(GrpcAsyncClientTest);
 
 TEST(TestFlight, ConnectUri) {
   TestServer server("flight-test-server");
-  server.Start();
+  ASSERT_OK(server.Start());
   ASSERT_TRUE(server.IsRunning());
 
   std::stringstream ss;
@@ -230,7 +230,7 @@ TEST(TestFlight, InvalidUriScheme) {
 #ifndef _WIN32
 TEST(TestFlight, ConnectUriUnix) {
   TestServer server("flight-test-server", "/tmp/flight-test.sock");
-  server.Start();
+  ASSERT_OK(server.Start());
   ASSERT_TRUE(server.IsRunning());
 
   std::stringstream ss;

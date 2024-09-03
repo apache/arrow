@@ -644,9 +644,13 @@ else()
 endif()
 
 set(ARROW_TESTING_SHARED_LINK_LIBS arrow_shared ${ARROW_GTEST_GTEST})
-set(ARROW_TESTING_SHARED_PRIVATE_LINK_LIBS arrow::flatbuffers RapidJSON)
-set(ARROW_TESTING_STATIC_LINK_LIBS arrow::flatbuffers RapidJSON arrow_static
-                                   ${ARROW_GTEST_GTEST})
+set(ARROW_TESTING_SHARED_PRIVATE_LINK_LIBS arrow::flatbuffers RapidJSON Boost::process)
+set(ARROW_TESTING_STATIC_LINK_LIBS
+    arrow::flatbuffers
+    RapidJSON
+    Boost::process
+    arrow_static
+    ${ARROW_GTEST_GTEST})
 set(ARROW_TESTING_SHARED_INSTALL_INTERFACE_LIBS Arrow::arrow_shared)
 set(ARROW_TESTING_STATIC_INSTALL_INTERFACE_LIBS Arrow::arrow_static)
 # that depend on gtest
@@ -667,9 +671,10 @@ set(ARROW_TESTING_SRCS
     io/test_common.cc
     ipc/test_common.cc
     testing/fixed_width_test_util.cc
-    testing/gtest_util.cc
-    testing/random.cc
     testing/generator.cc
+    testing/gtest_util.cc
+    testing/process.cc
+    testing/random.cc
     testing/util.cc)
 
 #

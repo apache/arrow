@@ -409,12 +409,10 @@ jobs:
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
-      # Don't use preinstalled Boost by empty BOOST_ROOT and
-      # -DBoost_NO_BOOST_CMAKE=ON
+      # Don't use preinstalled Boost by empty BOOST_ROOT
       BOOST_ROOT: ""
       ARROW_CMAKE_ARGS: >-
         -DARROW_PACKAGE_PREFIX=/${{ matrix.msystem_lower}}
-        -DBoost_NO_BOOST_CMAKE=ON
         -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=ON
       # We can't use unity build because we don't have enough memory on
       # GitHub Actions.
