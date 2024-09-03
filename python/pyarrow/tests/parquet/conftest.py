@@ -31,7 +31,7 @@ def datadir(base_datadir):
 
 @pytest.fixture(scope='module')
 def parquet_test_datadir():
-    if sys.platform in ('emscripten', ):
+    if sys.platform == 'emscripten':
         pytest.skip("needs PARQUET_TEST_DATA files access")
     result = os.environ.get('PARQUET_TEST_DATA')
     if not result:
