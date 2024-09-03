@@ -420,13 +420,28 @@ namespace Apache.Arrow.Flight.Tests
         }
 
         [Fact]
-        public async Task EnsureCallRaiseDeadlineExceeded()
+        public async Task EnsureCallRaisesDeadlineExceeded()
         {
             var flightDescriptor = FlightDescriptor.CreatePathDescriptor("raise_deadline");
             var deadline = DateTime.UtcNow;
             var batch = CreateTestBatch(0, 100);
 
             RpcException exception = null;
+
+            var asyncServerStreamingCallFlights = _flightClient.ListFlights(null, null, deadline);
+            Assert.Equal(StatusCode.DeadlineExceeded, asyncServerStreamingCallFlights.GetStatus().StatusCode);
+
+            var asyncServerStreamingCallActions = _flightClient.ListActions(null, deadline);
+            Assert.Equal(StatusCode.DeadlineExceeded, asyncServerStreamingCallFlights.GetStatus().StatusCode);
+
+            GivenStoreBatches(flightDescriptor, new RecordBatchWithMetadata(batch));
+            exception = await Assert.ThrowsAsync<RpcException>(async () => await _flightClient.GetInfo(flightDescriptor, null, deadline));
+            Assert.Equal(StatusCode.DeadlineExceeded, exception.StatusCode);
+
+            var flightInfo = await _flightClient.GetInfo(flightDescriptor);
+            var endpoint = flightInfo.Endpoints.FirstOrDefault();
+            var getStream = _flightClient.GetStream(endpoint.Ticket, null, deadline);
+            Assert.Equal(StatusCode.DeadlineExceeded, getStream.GetStatus().StatusCode);
 
             var duplexStreamingCall = _flightClient.DoExchange(flightDescriptor, null, deadline);
             exception = await Assert.ThrowsAsync<RpcException>(async () => await duplexStreamingCall.RequestStream.WriteAsync(batch));
@@ -442,24 +457,36 @@ namespace Apache.Arrow.Flight.Tests
             var handshakeStreamingCall = _flightClient.Handshake(null, deadline);
             exception = await Assert.ThrowsAsync<RpcException>(async () => await handshakeStreamingCall.RequestStream.WriteAsync(new FlightHandshakeRequest(ByteString.Empty)));
             Assert.Equal(StatusCode.DeadlineExceeded, exception.StatusCode);
-
-            var asyncServerStreamingCallFlights = _flightClient.ListFlights(null, null, deadline);
-            Assert.Equal(StatusCode.DeadlineExceeded, asyncServerStreamingCallFlights.GetStatus().StatusCode);
         }
 
         [Fact]
-        public async Task EnsureCallRaiseRequestCancelled()
+        public async Task EnsureCallRaisesRequestCancelled()
         {
             var cts = new CancellationTokenSource();
             cts.CancelAfter(1);
             
             var batch = CreateTestBatch(0, 100);
+            var metadata = new Metadata();
             var flightDescriptor = FlightDescriptor.CreatePathDescriptor("raise_cancelled");
             await Task.Delay(5);
             RpcException exception = null;
 
+            var asyncServerStreamingCallFlights = _flightClient.ListFlights(null, null, null, cts.Token);
+            Assert.Equal(StatusCode.Cancelled, asyncServerStreamingCallFlights.GetStatus().StatusCode);
+
+            var asyncServerStreamingCallActions = _flightClient.ListActions(null, null, cts.Token);
+            Assert.Equal(StatusCode.Cancelled, asyncServerStreamingCallFlights.GetStatus().StatusCode);
+
+            GivenStoreBatches(flightDescriptor, new RecordBatchWithMetadata(batch));
+            exception = await Assert.ThrowsAsync<RpcException>(async () => await _flightClient.GetInfo(flightDescriptor, null, null, cts.Token));
+            Assert.Equal(StatusCode.Cancelled, exception.StatusCode);
+
+            var flightInfo = await _flightClient.GetInfo(flightDescriptor);
+            var endpoint = flightInfo.Endpoints.FirstOrDefault();
+            var getStream = _flightClient.GetStream(endpoint.Ticket, null, null, cts.Token);
+            Assert.Equal(StatusCode.Cancelled, getStream.GetStatus().StatusCode);
+
             var duplexStreamingCall = _flightClient.DoExchange(flightDescriptor, null, null, cts.Token);
-            duplexStreamingCall = _flightClient.DoExchange(flightDescriptor, null, null, cts.Token);
             exception = await Assert.ThrowsAsync<RpcException>(async () => await duplexStreamingCall.RequestStream.WriteAsync(batch));
             Assert.Equal(StatusCode.Cancelled, exception.StatusCode);
 
@@ -473,9 +500,6 @@ namespace Apache.Arrow.Flight.Tests
             var handshakeStreamingCall = _flightClient.Handshake(null, null, cts.Token);
             exception = await Assert.ThrowsAsync<RpcException>(async () => await handshakeStreamingCall.RequestStream.WriteAsync(new FlightHandshakeRequest(ByteString.Empty)));
             Assert.Equal(StatusCode.Cancelled, exception.StatusCode);
-
-            var asyncServerStreamingCallFlights = _flightClient.ListFlights(null, null, null, cts.Token);
-            Assert.Equal(StatusCode.Cancelled, asyncServerStreamingCallFlights.GetStatus().StatusCode);
 
         }
     }
