@@ -388,7 +388,7 @@ class ARROW_EXPORT RowEncoder {
 
   int32_t num_rows() const {
     if (IsFixedWidth()) {
-      return fixed_with_row_count_;
+      return fixed_width_row_count_;
     }
     return offsets_.empty() ? 0 : static_cast<int32_t>(offsets_.size() - 1);
   }
@@ -407,7 +407,7 @@ class ARROW_EXPORT RowEncoder {
   // doesn't need to maintain the row offsets. In this case, the
   // offsets_.size() would be also empty.
   int32_t fixed_width_length_{kInvalidFixedWidthOffset};
-  int32_t fixed_with_row_count_{0};
+  int32_t fixed_width_row_count_{0};
   // offsets_ vector stores the starting position (offset) of each encoded row
   // within the bytes_ vector. This allows for quick access to individual rows.
   //

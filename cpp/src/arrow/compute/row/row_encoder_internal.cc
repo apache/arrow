@@ -331,12 +331,12 @@ void RowEncoder::Init(const std::vector<TypeHolder>& column_types, ExecContext* 
 void RowEncoder::Clear() {
   offsets_.clear();
   bytes_.clear();
-  fixed_with_row_count_ = 0;
+  fixed_width_row_count_ = 0;
 }
 
 Status RowEncoder::EncodeAndAppendForFixedWidth(const ExecSpan& batch) {
   size_t length_before =
-      static_cast<size_t>(this->fixed_width_length_) * this->fixed_with_row_count_;
+      static_cast<size_t>(this->fixed_width_length_) * this->fixed_width_row_count_;
   ARROW_CHECK_EQ(length_before, bytes_.size());
 #ifndef NDEBUG
   {
@@ -356,7 +356,7 @@ Status RowEncoder::EncodeAndAppendForFixedWidth(const ExecSpan& batch) {
   for (int64_t i = 0; i < batch.length; ++i) {
     buf_ptrs[i] = bytes_.data() + length_before + i * fixed_width_length_;
   }
-  fixed_with_row_count_ += batch.length;
+  fixed_width_row_count_ += batch.length;
   for (int i = 0; i < batch.num_values(); ++i) {
     RETURN_NOT_OK(encoders_[i]->Encode(batch[i], batch.length, buf_ptrs.data()));
   }
