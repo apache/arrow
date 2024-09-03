@@ -418,7 +418,7 @@ std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpr
     } else {
       in_range = compute::and_(std::move(lower_bound), std::move(upper_bound));
     }
-    if (may_have_nulll) {
+    if (may_have_null) {
       return compute::or_(std::move(in_range), compute::is_null(std::move(field_expr)));
     }
     return in_range;
