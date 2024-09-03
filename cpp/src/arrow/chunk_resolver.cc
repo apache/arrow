@@ -146,15 +146,15 @@ void ChunkResolver::ResolveManyImpl(int64_t n_indices, const uint8_t* logical_in
                     logical_index_vec, out_chunk_location_vec, chunk_hint);
 }
 
-void ChunkResolver::ResolveManyImpl(int64_t n_indices, const uint32_t* logical_index_vec,
-                                    TypedChunkLocation<uint32_t>* out_chunk_location_vec,
+void ChunkResolver::ResolveManyImpl(int64_t n_indices, const uint16_t* logical_index_vec,
+                                    TypedChunkLocation<uint16_t>* out_chunk_location_vec,
                                     int32_t chunk_hint) const {
   ResolveManyInline(static_cast<uint32_t>(offsets_.size()), offsets_.data(), n_indices,
                     logical_index_vec, out_chunk_location_vec, chunk_hint);
 }
 
-void ChunkResolver::ResolveManyImpl(int64_t n_indices, const uint16_t* logical_index_vec,
-                                    TypedChunkLocation<uint16_t>* out_chunk_location_vec,
+void ChunkResolver::ResolveManyImpl(int64_t n_indices, const uint32_t* logical_index_vec,
+                                    TypedChunkLocation<uint32_t>* out_chunk_location_vec,
                                     int32_t chunk_hint) const {
   ResolveManyInline(static_cast<uint32_t>(offsets_.size()), offsets_.data(), n_indices,
                     logical_index_vec, out_chunk_location_vec, chunk_hint);
