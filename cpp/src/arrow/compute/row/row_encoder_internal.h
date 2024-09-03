@@ -390,7 +390,7 @@ class ARROW_EXPORT RowEncoder {
     if (IsFixedWidth()) {
       return fixed_with_row_count_;
     }
-    return offsets_.empty() ? 0 : offsets_[0];
+    return offsets_.empty() ? 0 : static_cast<int32_t>(offsets_.size() - 1);
   }
 
  private:
@@ -413,6 +413,9 @@ class ARROW_EXPORT RowEncoder {
   //
   // The size would be num_rows + 1 if not empty, the last element is the total
   // length of the bytes_ vector.
+  //
+  // When all columns in a row are Fixed-width or NA, the offsets_ can be
+  // eliminated, and the encoded row can be accessed by fixed_width_length_.
   std::vector<int32_t> offsets_;
   // The encoded bytes of all non "kRowIdForNulls" rows.
   std::vector<uint8_t> bytes_;
