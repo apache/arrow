@@ -19,6 +19,7 @@
 #include <utility>
 #include <vector>
 
+#include <_types/_uint32_t.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -383,6 +384,10 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     auto metadata_accessor =
         ColumnChunkMetaData::Make(metadata_->contents(), this->descr_);
     return metadata_accessor->encoding_stats();
+  }
+
+  std::unique_ptr<ColumnChunkMetaData> metadata_accessor() {
+    return ColumnChunkMetaData::Make(metadata_->contents(), this->descr_);
   }
 
  protected:
@@ -1703,6 +1708,113 @@ TEST(TestColumnWriter, WriteDataPageV2HeaderNullCount) {
     EXPECT_EQ(num_rows, num_rows_read);
     EXPECT_EQ(num_rows, num_values_read);
   }
+}
+
+// Test writing and reading geometry columns
+class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
+ public:
+  static const char *CRS;
+  static const char* METADATA;
+
+  void SetUpSchema(Repetition::type repetition, int num_columns) override {
+    std::vector<schema::NodePtr> fields;
+
+    for (int i = 0; i < num_columns; ++i) {
+      std::string name = TestColumnName(i);
+      std::shared_ptr<const LogicalType> logical_type = GeometryLogicalType::Make(
+          CRS, LogicalType::GeometryEdges::PLANAR, LogicalType::GeometryEncoding::WKB, METADATA);
+      fields.push_back(schema::PrimitiveNode::Make(name, repetition, logical_type,
+                                                   ByteArrayType::type_num));
+    }
+    node_ = schema::GroupNode::Make("schema", Repetition::REQUIRED, fields);
+    schema_.Init(node_);
+  }
+
+  void GenerateData(int64_t num_values, uint32_t seed = 0) {
+    def_levels_.resize(num_values);
+    values_.resize(num_values);
+
+    uint32_t point_wkb_size = 21;
+    buffer_.resize(num_values * point_wkb_size);
+    uint8_t *ptr = buffer_.data();
+    for (int k = 0; k < num_values; k++) {
+      // Point with coordinates (k, k + 1), encoded as WKB
+      ptr[0] = 0x01;  // 1: little endian
+      uint32_t geom_type = 1;  // 1: POINT (2D)
+      memcpy(&ptr[1], &geom_type, 4);
+      double x = k;
+      double y = k + 1;
+      memcpy(&ptr[5], &x, 8);
+      memcpy(&ptr[13], &y, 8);
+
+      // Set this WKB value to values_[k]
+      values_[k].len = point_wkb_size;
+      values_[k].ptr = ptr;
+      ptr += point_wkb_size;
+    }
+    
+    values_ptr_ = values_.data();
+
+    std::fill(def_levels_.begin(), def_levels_.end(), 1);
+  }
+
+  void TestWriteAndRead(ParquetVersion::type version,
+                        ParquetDataPageVersion data_page_version) {
+    this->SetUpSchema(Repetition::REQUIRED, 1);
+    this->GenerateData(SMALL_SIZE);
+    size_t num_values = this->values_.size();
+    auto writer =
+        this->BuildWriter(num_values, ColumnProperties(), version, data_page_version,
+                          /*enable_checksum*/ false);
+    std::vector<int16_t> definition_levels(num_values, 0);
+    std::vector<int16_t> repetition_levels(num_values, 0);    
+    writer->WriteBatch(this->values_.size(), definition_levels.data(),
+                       repetition_levels.data(), this->values_.data());
+    
+    writer->Close();
+    this->ReadColumn();
+    for (size_t i = 0; i < num_values; i++) {
+      // ASSERT_EQ((i % 2 == 0) ? true : false, this->values_out_[i]) << i;
+      const ByteArray &value = this->values_out_[i];
+      EXPECT_EQ(21, value.len);
+      EXPECT_EQ(1, value.ptr[0]);      
+      uint32_t geom_type = 0;
+      double x = 0;
+      double y = 0;
+      memcpy(&geom_type, &value.ptr[1], 4);
+      memcpy(&x, &value.ptr[5], 8);
+      memcpy(&y, &value.ptr[13], 8);
+      EXPECT_EQ(1, geom_type);
+      EXPECT_DOUBLE_EQ(i, x);
+      EXPECT_DOUBLE_EQ(i + 1, y);
+    }
+
+    auto metadata_accessor = this->metadata_accessor();
+    // auto statistics = metadata_accessor->statistics();
+    
+    // auto metadata_encodings = this->metadata_encodings();
+    // std::set<Encoding::type> metadata_encodings_set{metadata_encodings.begin(),
+    //                                                 metadata_encodings.end()};
+    // EXPECT_EQ(expected_encodings, metadata_encodings_set);
+  }  
+};
+
+const char* TestGeometryValuesWriter::CRS = R"({"id": {"authority": "OGC", "code": "CRS84"}})";
+const char* TestGeometryValuesWriter::METADATA = "test_metadata";
+
+
+TEST_F(TestGeometryValuesWriter, TestWriteAndReadV1) {
+  for (auto data_page_version :
+       {ParquetDataPageVersion::V1, ParquetDataPageVersion::V2}) {
+    TestWriteAndRead(ParquetVersion::PARQUET_1_0, data_page_version);
+  }
+}
+
+TEST_F(TestGeometryValuesWriter, TestWriteAndReadV2) {
+  for (auto data_page_version :
+       {ParquetDataPageVersion::V1, ParquetDataPageVersion::V2}) {
+    TestWriteAndRead(ParquetVersion::PARQUET_2_4, data_page_version);
+  }  
 }
 
 }  // namespace test

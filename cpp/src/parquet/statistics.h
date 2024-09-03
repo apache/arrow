@@ -144,6 +144,7 @@ class GeometryStatisticsImpl;
 class PARQUET_EXPORT GeometryStatistics {
  public:
   GeometryStatistics();
+  explicit GeometryStatistics(std::unique_ptr<GeometryStatisticsImpl> impl);
 
   bool Equals(const GeometryStatistics& other) const;
 
@@ -154,6 +155,8 @@ class PARQUET_EXPORT GeometryStatistics {
   EncodedGeometryStatistics Encode();
 
   bool is_valid() const;
+
+  std::shared_ptr<GeometryStatistics> clone() const;
 
   static std::unique_ptr<GeometryStatistics> Decode(const EncodedGeometryStatistics& encoded);
 
@@ -311,7 +314,7 @@ class PARQUET_EXPORT Statistics {
 
   virtual bool HasGeometryStatistics() const { return false; };
 
-  virtual const GeometryStatistics* GeometryStatistics() const { return nullptr; }
+  virtual const GeometryStatistics* geometry_statistics() const { return nullptr; }
 
   /// \brief Reset state of object to initial (no data observed) state
   virtual void Reset() = 0;

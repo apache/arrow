@@ -1219,8 +1219,11 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     // Will be null if not using dictionary, but that's ok
     current_dict_encoder_ = dynamic_cast<DictEncoder<DType>*>(current_encoder_.get());
 
+    bool is_geometry =
+        (descr_->logical_type() != nullptr && descr_->logical_type()->is_geometry());
+    bool has_sort_order = SortOrder::UNKNOWN != descr_->sort_order();
     if (properties->statistics_enabled(descr_->path()) &&
-        (SortOrder::UNKNOWN != descr_->sort_order())) {
+        (is_geometry || has_sort_order)) {
       page_statistics_ = MakeStatistics<DType>(descr_, allocator_);
       chunk_statistics_ = MakeStatistics<DType>(descr_, allocator_);
     }

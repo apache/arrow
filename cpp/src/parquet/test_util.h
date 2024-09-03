@@ -660,7 +660,7 @@ class PrimitiveTypedTest : public ::testing::Test {
  public:
   using c_type = typename TestType::c_type;
 
-  void SetUpSchema(Repetition::type repetition, int num_columns = 1) {
+  virtual void SetUpSchema(Repetition::type repetition, int num_columns) {
     std::vector<schema::NodePtr> fields;
 
     for (int i = 0; i < num_columns; ++i) {
@@ -670,6 +670,10 @@ class PrimitiveTypedTest : public ::testing::Test {
     }
     node_ = schema::GroupNode::Make("schema", Repetition::REQUIRED, fields);
     schema_.Init(node_);
+  }
+
+  void SetUpSchema(Repetition::type repetition) {
+    this->SetUpSchema(repetition, 1);
   }
 
   void GenerateData(int64_t num_values, uint32_t seed = 0);

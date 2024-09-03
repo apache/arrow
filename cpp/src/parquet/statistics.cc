@@ -21,6 +21,7 @@
 #include <cmath>
 #include <cstring>
 #include <limits>
+#include <memory>
 #include <optional>
 #include <type_traits>
 #include <utility>
@@ -39,6 +40,7 @@
 #include "parquet/geometry_util.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
+#include "parquet/types.h"
 
 using arrow::default_memory_pool;
 using arrow::MemoryPool;
@@ -51,6 +53,9 @@ namespace parquet {
 
 class GeometryStatisticsImpl {
  public:
+  GeometryStatisticsImpl() = default;  
+  GeometryStatisticsImpl(const GeometryStatisticsImpl&) = default;
+  
   bool Equals(const GeometryStatisticsImpl& other) const {
     if (is_valid_ != other.is_valid_) {
       return false;
@@ -166,11 +171,15 @@ class GeometryStatisticsImpl {
 
  private:
   geometry::WKBGeometryBounder bounder_;
-  bool is_valid_{};
+  bool is_valid_ = true;
 };
 
 GeometryStatistics::GeometryStatistics() {
   impl_ = std::make_unique<GeometryStatisticsImpl>();
+}
+
+GeometryStatistics::GeometryStatistics(std::unique_ptr<GeometryStatisticsImpl> impl)
+    : impl_(std::move(impl)) {
 }
 
 bool GeometryStatistics::Equals(const GeometryStatistics& other) const {
@@ -195,6 +204,11 @@ std::unique_ptr<GeometryStatistics> GeometryStatistics::Decode(
   auto out = std::make_unique<GeometryStatistics>();
   out->impl_->Update(encoded);
   return out;
+}
+
+std::shared_ptr<GeometryStatistics> GeometryStatistics::clone() const {
+  std::unique_ptr<GeometryStatisticsImpl> impl = std::make_unique<GeometryStatisticsImpl>(*impl_);
+  return std::make_shared<GeometryStatistics>(std::move(impl));
 }
 
 namespace {
@@ -770,6 +784,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   bool HasMinMax() const override { return has_min_max_; }
   bool HasNullCount() const override { return has_null_count_; };
   bool HasGeometryStatistics() const override { return geometry_statistics_ != nullptr; }
+  const GeometryStatistics* geometry_statistics() const override { return geometry_statistics_.get(); }
 
   void IncrementNullCount(int64_t n) override {
     statistics_.null_count += n;
@@ -813,7 +828,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     }
 
     if (HasGeometryStatistics() &&
-        !geometry_statistics_->Equals(*other.GeometryStatistics())) {
+        !geometry_statistics_->Equals(*other.geometry_statistics())) {
       return false;
     }
 
@@ -856,6 +871,12 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     // its values are null and/or NaN.
     if (other.HasMinMax()) {
       SetMinMax(other.min(), other.max());
+    }
+
+    if (this->HasGeometryStatistics() && other.HasGeometryStatistics()) {
+      this->geometry_statistics_->Merge(*other.geometry_statistics());
+    } else if (other.HasGeometryStatistics()) {
+      this->geometry_statistics_ = other.geometry_statistics()->clone();
     }
   }
 
@@ -1035,6 +1056,9 @@ void TypedStatisticsImpl<DType>::Update(const T* values, int64_t num_values,
 
   if constexpr (std::is_same<T, ByteArray>::value) {
     if (logical_type_ == LogicalType::Type::GEOMETRY) {
+      if (geometry_statistics_ == nullptr) {
+        geometry_statistics_ = std::make_unique<GeometryStatistics>();
+      }
       geometry_statistics_->Update(values, num_values, null_count);
     }
   }
@@ -1131,7 +1155,12 @@ std::shared_ptr<Comparator> DoMakeComparator(Type::type physical_type,
         ParquetException::NYI("Unsigned Compare not implemented");
     }
   } else {
-    throw ParquetException("UNKNOWN Sort Order");
+    if (logical_type == LogicalType::Type::GEOMETRY &&
+        physical_type == Type::BYTE_ARRAY) {
+      return std::make_shared<TypedComparatorImpl<false, ByteArrayType>>();
+    } else {
+      throw ParquetException("UNKNOWN Sort Order");      
+    }
   }
   return nullptr;
 }
