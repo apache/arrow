@@ -154,7 +154,7 @@ class NodeDriver:
         self.execute_js(
             f"""
         const {{ loadPyodide }} = require('{dist_dir}/pyodide.js');
-        let pyodide = await loadPyodide({json.dumps({"env": {"PARQUET_TEST_DATA": os.environ.get("PARQUET_TEST_DATA")}})});
+        let pyodide = await loadPyodide();
         """
         )
 
