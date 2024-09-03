@@ -305,6 +305,18 @@ void RowEncoder::Init(const std::vector<TypeHolder>& column_types, ExecContext* 
     ARROW_DCHECK(false);
   }
 
+  int32_t fixed_length_accum = 0;
+  for (size_t i = 0; i < column_types.size(); ++i) {
+    auto encoder_info = encoders_[i]->GetEncoderInfo();
+    if (!encoder_info.is_fixed_width) {
+      fixed_length_accum = kInvalidFixedWidthOffset;
+      break;
+    } else {
+      fixed_length_accum += encoder_info.fixed_width;
+    }
+  }
+  this->fixed_width_length_ = fixed_length_accum;
+
   int32_t total_length = 0;
   for (size_t i = 0; i < column_types.size(); ++i) {
     encoders_[i]->AddLengthNull(&total_length);
@@ -321,7 +333,26 @@ void RowEncoder::Clear() {
   bytes_.clear();
 }
 
+Status RowEncoder::EncodeAndAppendForFixedWidth(const ExecSpan& batch) {
+  // TODO(mwish): debug check AddLength accumulates the fixed_width_length_ correctly.
+  size_t length_before =
+      static_cast<size_t>(this->fixed_width_length_) * this->fixed_with_row_count_;
+  bytes_.resize(length_before + batch.length * this->fixed_width_length_);
+  std::vector<uint8_t*> buf_ptrs(batch.length);
+  for (int64_t i = 0; i < batch.length; ++i) {
+    buf_ptrs[i] = bytes_.data() + length_before + i * fixed_width_length_;
+  }
+  fixed_with_row_count_ += batch.length;
+  for (int i = 0; i < batch.num_values(); ++i) {
+    RETURN_NOT_OK(encoders_[i]->Encode(batch[i], batch.length, buf_ptrs.data()));
+  }
+  return Status::OK();
+}
+
 Status RowEncoder::EncodeAndAppend(const ExecSpan& batch) {
+  if (fixed_width_length_ != kInvalidFixedWidthOffset) {
+    return EncodeAndAppendForFixedWidth(batch);
+  }
   if (offsets_.empty()) {
     offsets_.resize(1);
     offsets_[0] = 0;

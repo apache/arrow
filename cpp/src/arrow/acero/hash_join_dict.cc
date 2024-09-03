@@ -266,7 +266,7 @@ Status HashJoinDictBuild::Init(ExecContext* ctx, std::shared_ptr<Array> dictiona
 
     auto iter = hash_table_.find(str);
     if (iter == hash_table_.end()) {
-      hash_table_.insert(std::make_pair(str, num_entries));
+      hash_table_.insert(std::make_pair(std::move(str), num_entries));
       ids[i] = num_entries;
       entries_to_take.push_back(static_cast<int32_t>(i));
       ++num_entries;
