@@ -26,11 +26,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/apache/arrow/go/v17/arrow"
-	"github.com/apache/arrow/go/v17/arrow/array"
-	"github.com/apache/arrow/go/v17/arrow/flight"
-	"github.com/apache/arrow/go/v17/arrow/flight/flightsql"
-	"github.com/apache/arrow/go/v17/arrow/memory"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/array"
+	"github.com/apache/arrow/go/v18/arrow/flight"
+	"github.com/apache/arrow/go/v18/arrow/flight/flightsql"
+	"github.com/apache/arrow/go/v18/arrow/memory"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -266,13 +266,14 @@ func (s *Stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driv
 		return nil, err
 	}
 
+	execCtx := ctx
 	if _, set := ctx.Deadline(); !set && s.timeout > 0 {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, s.timeout)
+		execCtx, cancel = context.WithTimeout(ctx, s.timeout)
 		defer cancel()
 	}
 
-	info, err := s.stmt.Execute(ctx)
+	info, err := s.stmt.Execute(execCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -497,13 +498,14 @@ func (c *Connection) QueryContext(ctx context.Context, query string, args []driv
 		return nil, driver.ErrSkip
 	}
 
+	execCtx := ctx
 	if _, set := ctx.Deadline(); !set && c.timeout > 0 {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, c.timeout)
+		execCtx, cancel = context.WithTimeout(ctx, c.timeout)
 		defer cancel()
 	}
 
-	info, err := c.client.Execute(ctx, query)
+	info, err := c.client.Execute(execCtx, query)
 	if err != nil {
 		return nil, err
 	}

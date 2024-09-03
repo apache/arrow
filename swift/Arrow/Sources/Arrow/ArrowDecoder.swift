@@ -96,11 +96,7 @@ public class ArrowDecoder: Decoder {
             throw ArrowError.invalid("Column for key \"\(name)\" not found")
         }
 
-        guard let anyArray = col.array as? AnyArray else {
-            throw ArrowError.invalid("Unable to convert array to AnyArray")
-        }
-
-        return anyArray
+        return col.array
     }
 
     func getCol(_ index: Int) throws -> AnyArray {
@@ -108,11 +104,7 @@ public class ArrowDecoder: Decoder {
             throw ArrowError.outOfBounds(index: Int64(index))
         }
 
-        guard let anyArray = self.columns[index].array as? AnyArray else {
-            throw ArrowError.invalid("Unable to convert array to AnyArray")
-        }
-
-        return anyArray
+        return self.columns[index].array
     }
 
     func doDecode<T>(_ key: CodingKey) throws -> T? {

@@ -26,16 +26,16 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v17/arrow"
-	"github.com/apache/arrow/go/v17/arrow/array"
-	"github.com/apache/arrow/go/v17/arrow/bitutil"
-	"github.com/apache/arrow/go/v17/arrow/compute"
-	"github.com/apache/arrow/go/v17/arrow/decimal128"
-	"github.com/apache/arrow/go/v17/arrow/decimal256"
-	"github.com/apache/arrow/go/v17/arrow/internal/testing/gen"
-	"github.com/apache/arrow/go/v17/arrow/memory"
-	"github.com/apache/arrow/go/v17/arrow/scalar"
-	"github.com/apache/arrow/go/v17/internal/types"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/array"
+	"github.com/apache/arrow/go/v18/arrow/bitutil"
+	"github.com/apache/arrow/go/v18/arrow/compute"
+	"github.com/apache/arrow/go/v18/arrow/decimal128"
+	"github.com/apache/arrow/go/v18/arrow/decimal256"
+	"github.com/apache/arrow/go/v18/arrow/internal/testing/gen"
+	"github.com/apache/arrow/go/v18/arrow/memory"
+	"github.com/apache/arrow/go/v18/arrow/scalar"
+	"github.com/apache/arrow/go/v18/internal/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -129,7 +129,7 @@ func checkScalarWithScalars(t *testing.T, funcName string, inputs []scalar.Scala
 			fmt.Fprintf(&b, " (types differed: %s vs %s)",
 				out.(*compute.ScalarDatum).Type(), expected.DataType())
 		}
-		t.Fatalf(b.String())
+		t.Fatal(b.String())
 	}
 }
 
@@ -2636,7 +2636,7 @@ func (c *CastSuite) TestStructToDifferentNullabilityStruct() {
 		defer dest3Nullable.Release()
 		checkCast(c.T(), srcNonNull, dest3Nullable, *compute.DefaultCastOptions(true))
 	})
-	c.Run("non-nullable to nullable", func() {
+	c.Run("nullable to non-nullable", func() {
 		fieldsSrcNullable := []arrow.Field{
 			{Name: "a", Type: arrow.PrimitiveTypes.Int8, Nullable: true},
 			{Name: "b", Type: arrow.PrimitiveTypes.Int8, Nullable: true},

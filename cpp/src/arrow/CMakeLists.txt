@@ -373,7 +373,10 @@ set(ARROW_SRCS
     config.cc
     datum.cc
     device.cc
+    device_allocation_type_set.cc
     extension_type.cc
+    extension/bool8.cc
+    extension/uuid.cc
     pretty_print.cc
     record_batch.cc
     result.cc
@@ -412,6 +415,7 @@ arrow_add_object_library(ARROW_ARRAY
                          array/concatenate.cc
                          array/data.cc
                          array/diff.cc
+                         array/statistics.cc
                          array/util.cc
                          array/validate.cc)
 
@@ -640,9 +644,13 @@ else()
 endif()
 
 set(ARROW_TESTING_SHARED_LINK_LIBS arrow_shared ${ARROW_GTEST_GTEST})
-set(ARROW_TESTING_SHARED_PRIVATE_LINK_LIBS arrow::flatbuffers RapidJSON)
-set(ARROW_TESTING_STATIC_LINK_LIBS arrow::flatbuffers RapidJSON arrow_static
-                                   ${ARROW_GTEST_GTEST})
+set(ARROW_TESTING_SHARED_PRIVATE_LINK_LIBS arrow::flatbuffers RapidJSON Boost::process)
+set(ARROW_TESTING_STATIC_LINK_LIBS
+    arrow::flatbuffers
+    RapidJSON
+    Boost::process
+    arrow_static
+    ${ARROW_GTEST_GTEST})
 set(ARROW_TESTING_SHARED_INSTALL_INTERFACE_LIBS Arrow::arrow_shared)
 set(ARROW_TESTING_STATIC_INSTALL_INTERFACE_LIBS Arrow::arrow_static)
 # that depend on gtest
@@ -663,9 +671,10 @@ set(ARROW_TESTING_SRCS
     io/test_common.cc
     ipc/test_common.cc
     testing/fixed_width_test_util.cc
-    testing/gtest_util.cc
-    testing/random.cc
     testing/generator.cc
+    testing/gtest_util.cc
+    testing/process.cc
+    testing/random.cc
     testing/util.cc)
 
 #
@@ -722,7 +731,6 @@ set(ARROW_COMPUTE_SRCS
     compute/ordering.cc
     compute/registry.cc
     compute/kernels/codegen_internal.cc
-    compute/kernels/row_encoder.cc
     compute/kernels/ree_util_internal.cc
     compute/kernels/scalar_cast_boolean.cc
     compute/kernels/scalar_cast_dictionary.cc
@@ -741,6 +749,7 @@ set(ARROW_COMPUTE_SRCS
     compute/row/encode_internal.cc
     compute/row/compare_internal.cc
     compute/row/grouper.cc
+    compute/row/row_encoder_internal.cc
     compute/row/row_internal.cc
     compute/util.cc
     compute/util_internal.cc)
@@ -906,6 +915,7 @@ endif()
 if(ARROW_JSON)
   arrow_add_object_library(ARROW_JSON
                            extension/fixed_shape_tensor.cc
+                           extension/opaque.cc
                            json/options.cc
                            json/chunked_builder.cc
                            json/chunker.cc
@@ -1168,6 +1178,7 @@ add_arrow_test(array_test
                array/array_struct_test.cc
                array/array_union_test.cc
                array/array_view_test.cc
+               array/statistics_test.cc
                PRECOMPILED_HEADERS
                "$<$<COMPILE_LANGUAGE:CXX>:arrow/testing/pch.h>")
 
@@ -1221,6 +1232,7 @@ add_subdirectory(testing)
 add_subdirectory(array)
 add_subdirectory(c)
 add_subdirectory(compute)
+add_subdirectory(extension)
 add_subdirectory(io)
 add_subdirectory(tensor)
 add_subdirectory(util)
@@ -1263,7 +1275,6 @@ endif()
 
 if(ARROW_JSON)
   add_subdirectory(json)
-  add_subdirectory(extension)
 endif()
 
 if(ARROW_ORC)

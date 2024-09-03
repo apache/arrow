@@ -53,8 +53,6 @@
 #
 # See more in cpp/build-support/run-test.sh::print_coredumps
 
-version: '3.5'
-
 x-common: &common
   GITHUB_ACTIONS:
 
@@ -119,12 +117,14 @@ x-hierarchy:
       - conda-python:
         - conda-python-pandas:
           - conda-python-docs
+        - conda-python-cpython-debug
         - conda-python-cython2
         - conda-python-dask
         - conda-python-emscripten
         - conda-python-hdfs
         - conda-python-java-integration
         - conda-python-jpype
+        - conda-python-no-numpy
         - conda-python-spark
         - conda-python-substrait
   - conda-verify-rc
@@ -1095,9 +1095,10 @@ services:
       args:
         arch: ${ARCH}
         arch_short: ${ARCH_SHORT}
-        base: quay.io/pypa/manylinux2014_${ARCH_ALIAS}:2024-02-04-ea37246
+        base: quay.io/pypa/manylinux2014_${ARCH_ALIAS}:2024-08-03-32dfa47
         vcpkg: ${VCPKG}
         python: ${PYTHON}
+        python_image_tag: ${PYTHON_IMAGE_TAG}
         manylinux: 2014
       context: .
       dockerfile: ci/docker/python-wheel-manylinux.dockerfile
@@ -1118,9 +1119,10 @@ services:
       args:
         arch: ${ARCH}
         arch_short: ${ARCH_SHORT}
-        base: quay.io/pypa/manylinux_2_28_${ARCH_ALIAS}:2024-02-04-ea37246
+        base: quay.io/pypa/manylinux_2_28_${ARCH_ALIAS}:2024-08-03-32dfa47
         vcpkg: ${VCPKG}
         python: ${PYTHON}
+        python_image_tag: ${PYTHON_IMAGE_TAG}
         manylinux: 2_28
       context: .
       dockerfile: ci/docker/python-wheel-manylinux.dockerfile
@@ -1134,7 +1136,7 @@ services:
     command: /arrow/ci/scripts/python_wheel_manylinux_build.sh
 
   python-wheel-manylinux-test-imports:
-    image: ${ARCH}/python:${PYTHON}
+    image: ${ARCH}/python:${PYTHON_IMAGE_TAG}
     shm_size: 2G
     volumes:
       - .:/arrow:delegated
@@ -1150,6 +1152,7 @@ services:
       args:
         arch: ${ARCH}
         python: ${PYTHON}
+        python_image_tag: ${PYTHON_IMAGE_TAG}
       context: .
       dockerfile: ci/docker/python-wheel-manylinux-test.dockerfile
       cache_from:
@@ -1202,7 +1205,7 @@ services:
     build:
       args:
         base: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2014-vcpkg-${VCPKG}
-        java: 1.8.0
+        java: 11
       context: .
       dockerfile: ci/docker/java-jni-manylinux-201x.dockerfile
       cache_from:
@@ -1253,6 +1256,37 @@ services:
       PYARROW_TEST_HYPOTHESIS:  # inherit
     volumes: *conda-volumes
     command: *python-conda-command
+
+  conda-python-no-numpy:
+    # Usage:
+    #   docker-compose build conda
+    #   docker-compose build conda-cpp
+    #   docker-compose build conda-python
+    #   docker-compose build conda-python-no-numpy
+    #   docker-compose run --rm conda-python-no-numpy
+    image: ${REPO}:${ARCH}-conda-python-${PYTHON}-no-numpy
+    build:
+      context: .
+      dockerfile: ci/docker/conda-python.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-conda-python-${PYTHON}
+      args:
+        repo: ${REPO}
+        arch: ${ARCH}
+        python: ${PYTHON}
+    shm_size: *shm-size
+    environment:
+      <<: [*common, *ccache, *sccache]
+      PARQUET_REQUIRE_ENCRYPTION:  # inherit
+      HYPOTHESIS_PROFILE:  # inherit
+      PYARROW_TEST_HYPOTHESIS:  # inherit
+    volumes: *conda-volumes
+    command:
+      ["
+        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/python_build.sh /arrow /build &&
+        mamba uninstall -y numpy &&
+        /arrow/ci/scripts/python_test.sh /arrow"]
 
   conda-python-docs:
     # Usage:
@@ -1429,6 +1463,30 @@ services:
       dockerfile: ci/docker/conda-python-cython2.dockerfile
       cache_from:
         - ${REPO}:${ARCH}-conda-python-${PYTHON}-cython2
+      args:
+        repo: ${REPO}
+        arch: ${ARCH}
+        python: ${PYTHON}
+    shm_size: *shm-size
+    environment:
+      <<: [*common, *ccache]
+      PYTEST_ARGS:  # inherit
+    volumes: *conda-volumes
+    command: *python-conda-command
+
+  conda-python-cpython-debug:
+    # Usage:
+    #   docker-compose build conda
+    #   docker-compose build conda-cpp
+    #   docker-compose build conda-python
+    #   docker-compose build conda-python-cpython-debug
+    #   docker-compose run --rm conda-python-cpython-debug
+    image: ${REPO}:${ARCH}-conda-python-${PYTHON}-cpython-debug
+    build:
+      context: .
+      dockerfile: ci/docker/conda-python-cpython-debug.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-conda-python-${PYTHON}-cpython-debug
       args:
         repo: ${REPO}
         arch: ${ARCH}
@@ -1747,7 +1805,7 @@ services:
     #   docker-compose run java
     # Parameters:
     #   MAVEN: 3.9.5
-    #   JDK: 8, 11, 17, 21
+    #   JDK: 11, 17, 21
     image: ${ARCH}/maven:${MAVEN}-eclipse-temurin-${JDK}
     shm_size: *shm-size
     volumes: &java-volumes
@@ -1864,6 +1922,9 @@ services:
     command: >
       /bin/bash -c "
         git config --global --add safe.directory /arrow &&
+        python3 -m venv /build/pyvenv &&
+        source /build/pyvenv/bin/activate &&
+        pip install -U pip setuptools &&
         pip install arrow/dev/archery[lint] &&
         archery lint --all --no-clang-tidy --no-iwyu --no-numpydoc --src /arrow"
 

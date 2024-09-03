@@ -91,7 +91,7 @@ public class VariableWidthOutOfPlaceVectorSorter<V extends BaseVariableWidthVect
           int valueLength =
               srcOffsetBuffer.getInt((srcIndex + 1) * ((long) BaseVariableWidthVector.OFFSET_WIDTH))
                   - srcOffset;
-          MemoryUtil.UNSAFE.copyMemory(
+          MemoryUtil.copyMemory(
               srcValueBuffer.memoryAddress() + srcOffset,
               dstValueBuffer.memoryAddress() + dstOffset,
               valueLength);

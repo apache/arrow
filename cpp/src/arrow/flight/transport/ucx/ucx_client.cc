@@ -118,7 +118,7 @@ class ClientConnection {
       params.flags = UCP_EP_PARAMS_FLAGS_CLIENT_SERVER;
       params.name = "UcxClientImpl";
       params.sockaddr.addr = reinterpret_cast<const sockaddr*>(&connect_addr);
-      params.sockaddr.addrlen = addrlen;
+      params.sockaddr.addrlen = static_cast<socklen_t>(addrlen);
 
       auto status = ucp_ep_create(ucp_worker_->get(), &params, &remote_endpoint_);
       RETURN_NOT_OK(FromUcsStatus("ucp_ep_create", status));

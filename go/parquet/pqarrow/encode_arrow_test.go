@@ -25,22 +25,23 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v17/arrow"
-	"github.com/apache/arrow/go/v17/arrow/array"
-	"github.com/apache/arrow/go/v17/arrow/bitutil"
-	"github.com/apache/arrow/go/v17/arrow/decimal128"
-	"github.com/apache/arrow/go/v17/arrow/decimal256"
-	"github.com/apache/arrow/go/v17/arrow/ipc"
-	"github.com/apache/arrow/go/v17/arrow/memory"
-	"github.com/apache/arrow/go/v17/internal/types"
-	"github.com/apache/arrow/go/v17/internal/utils"
-	"github.com/apache/arrow/go/v17/parquet"
-	"github.com/apache/arrow/go/v17/parquet/compress"
-	"github.com/apache/arrow/go/v17/parquet/file"
-	"github.com/apache/arrow/go/v17/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v17/parquet/internal/testutils"
-	"github.com/apache/arrow/go/v17/parquet/pqarrow"
-	"github.com/apache/arrow/go/v17/parquet/schema"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/array"
+	"github.com/apache/arrow/go/v18/arrow/bitutil"
+	"github.com/apache/arrow/go/v18/arrow/decimal128"
+	"github.com/apache/arrow/go/v18/arrow/decimal256"
+	"github.com/apache/arrow/go/v18/arrow/extensions"
+	"github.com/apache/arrow/go/v18/arrow/ipc"
+	"github.com/apache/arrow/go/v18/arrow/memory"
+	"github.com/apache/arrow/go/v18/internal/types"
+	"github.com/apache/arrow/go/v18/internal/utils"
+	"github.com/apache/arrow/go/v18/parquet"
+	"github.com/apache/arrow/go/v18/parquet/compress"
+	"github.com/apache/arrow/go/v18/parquet/file"
+	"github.com/apache/arrow/go/v18/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v18/parquet/internal/testutils"
+	"github.com/apache/arrow/go/v18/parquet/pqarrow"
+	"github.com/apache/arrow/go/v18/parquet/schema"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -713,16 +714,6 @@ const (
 
 type ParquetIOTestSuite struct {
 	suite.Suite
-}
-
-func (ps *ParquetIOTestSuite) SetupTest() {
-	ps.NoError(arrow.RegisterExtensionType(types.NewUUIDType()))
-}
-
-func (ps *ParquetIOTestSuite) TearDownTest() {
-	if arrow.GetExtensionType("uuid") != nil {
-		ps.NoError(arrow.UnregisterExtensionType("uuid"))
-	}
 }
 
 func (ps *ParquetIOTestSuite) makeSimpleSchema(typ arrow.DataType, rep parquet.Repetition) *schema.GroupNode {
@@ -2053,9 +2044,7 @@ func (ps *ParquetIOTestSuite) TestArrowExtensionTypeRoundTrip() {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(ps.T(), 0)
 
-	extBuilder := array.NewExtensionBuilder(mem, types.NewUUIDType())
-	defer extBuilder.Release()
-	builder := types.NewUUIDBuilder(extBuilder)
+	builder := extensions.NewUUIDBuilder(mem)
 	builder.Append(uuid.New())
 	arr := builder.NewArray()
 	defer arr.Release()
@@ -2078,22 +2067,23 @@ func (ps *ParquetIOTestSuite) TestArrowUnknownExtensionTypeRoundTrip() {
 
 	{
 		// Prepare `written` table with the extension type registered.
-		extType := types.NewUUIDType()
+		extType := types.NewSmallintType()
 		bldr := array.NewExtensionBuilder(mem, extType)
 		defer bldr.Release()
 
-		bldr.Builder.(*array.FixedSizeBinaryBuilder).AppendValues(
-			[][]byte{nil, []byte("abcdefghijklmno0"), []byte("abcdefghijklmno1"), []byte("abcdefghijklmno2")},
+		bldr.Builder.(*array.Int16Builder).AppendValues(
+			[]int16{0, 0, 1, 2},
 			[]bool{false, true, true, true})
 
 		arr := bldr.NewArray()
 		defer arr.Release()
 
-		if arrow.GetExtensionType("uuid") != nil {
-			ps.NoError(arrow.UnregisterExtensionType("uuid"))
+		if arrow.GetExtensionType("smallint") != nil {
+			ps.NoError(arrow.UnregisterExtensionType("smallint"))
+			defer arrow.RegisterExtensionType(extType)
 		}
 
-		fld := arrow.Field{Name: "uuid", Type: arr.DataType(), Nullable: true}
+		fld := arrow.Field{Name: "smallint", Type: arr.DataType(), Nullable: true}
 		cnk := arrow.NewChunked(arr.DataType(), []arrow.Array{arr})
 		defer arr.Release() // NewChunked
 		written = array.NewTable(arrow.NewSchema([]arrow.Field{fld}, nil), []arrow.Column{*arrow.NewColumn(fld, cnk)}, -1)
@@ -2103,16 +2093,16 @@ func (ps *ParquetIOTestSuite) TestArrowUnknownExtensionTypeRoundTrip() {
 
 	{
 		// Prepare `expected` table with the extension type unregistered in the underlying type.
-		bldr := array.NewFixedSizeBinaryBuilder(mem, &arrow.FixedSizeBinaryType{ByteWidth: 16})
+		bldr := array.NewInt16Builder(mem)
 		defer bldr.Release()
 		bldr.AppendValues(
-			[][]byte{nil, []byte("abcdefghijklmno0"), []byte("abcdefghijklmno1"), []byte("abcdefghijklmno2")},
+			[]int16{0, 0, 1, 2},
 			[]bool{false, true, true, true})
 
 		arr := bldr.NewArray()
 		defer arr.Release()
 
-		fld := arrow.Field{Name: "uuid", Type: arr.DataType(), Nullable: true}
+		fld := arrow.Field{Name: "smallint", Type: arr.DataType(), Nullable: true}
 		cnk := arrow.NewChunked(arr.DataType(), []arrow.Array{arr})
 		defer arr.Release() // NewChunked
 		expected = array.NewTable(arrow.NewSchema([]arrow.Field{fld}, nil), []arrow.Column{*arrow.NewColumn(fld, cnk)}, -1)
@@ -2149,11 +2139,53 @@ func (ps *ParquetIOTestSuite) TestArrowUnknownExtensionTypeRoundTrip() {
 	ps.Truef(array.Equal(exc, tbc), "expected: %T %s\ngot: %T %s", exc, exc, tbc, tbc)
 
 	expectedMd := arrow.MetadataFrom(map[string]string{
-		ipc.ExtensionTypeKeyName:     "uuid",
-		ipc.ExtensionMetadataKeyName: "uuid-serialized",
+		ipc.ExtensionTypeKeyName:     "smallint",
+		ipc.ExtensionMetadataKeyName: "smallint-serialized",
 		"PARQUET:field_id":           "-1",
 	})
 	ps.Truef(expectedMd.Equal(tbl.Column(0).Field().Metadata), "expected: %v\ngot: %v", expectedMd, tbl.Column(0).Field().Metadata)
+}
+
+func (ps *ParquetIOTestSuite) TestArrowExtensionTypeLogicalType() {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(ps.T(), 0)
+
+	jsonType, err := extensions.NewJSONType(arrow.BinaryTypes.String)
+	ps.NoError(err)
+
+	sch := arrow.NewSchema([]arrow.Field{
+		{Name: "uuid", Type: extensions.NewUUIDType()},
+		{Name: "json", Type: jsonType},
+	},
+		nil,
+	)
+	bldr := array.NewRecordBuilder(mem, sch)
+	defer bldr.Release()
+
+	bldr.Field(0).(*extensions.UUIDBuilder).Append(uuid.New())
+	bldr.Field(1).(*array.ExtensionBuilder).AppendValueFromString(`{"hello": ["world", 2, true], "world": null}`)
+	rec := bldr.NewRecord()
+	defer rec.Release()
+
+	var buf bytes.Buffer
+	wr, err := pqarrow.NewFileWriter(
+		sch,
+		&buf,
+		parquet.NewWriterProperties(),
+		pqarrow.DefaultWriterProps(),
+	)
+	ps.Require().NoError(err)
+
+	ps.Require().NoError(wr.Write(rec))
+	ps.Require().NoError(wr.Close())
+
+	rdr, err := file.NewParquetReader(bytes.NewReader(buf.Bytes()))
+	ps.Require().NoError(err)
+	defer rdr.Close()
+
+	pqSchema := rdr.MetaData().Schema
+	ps.True(pqSchema.Column(0).LogicalType().Equals(schema.UUIDLogicalType{}))
+	ps.True(pqSchema.Column(1).LogicalType().Equals(schema.JSONLogicalType{}))
 }
 
 func TestWriteTableMemoryAllocation(t *testing.T) {
@@ -2165,7 +2197,7 @@ func TestWriteTableMemoryAllocation(t *testing.T) {
 			arrow.Field{Name: "i64", Type: arrow.PrimitiveTypes.Int64, Nullable: true},
 			arrow.Field{Name: "f64", Type: arrow.PrimitiveTypes.Float64, Nullable: true})},
 		{Name: "arr_i64", Type: arrow.ListOf(arrow.PrimitiveTypes.Int64)},
-		{Name: "uuid", Type: types.NewUUIDType(), Nullable: true},
+		{Name: "uuid", Type: extensions.NewUUIDType(), Nullable: true},
 	}, nil)
 
 	bld := array.NewRecordBuilder(mem, sc)
@@ -2178,7 +2210,7 @@ func TestWriteTableMemoryAllocation(t *testing.T) {
 	abld := bld.Field(3).(*array.ListBuilder)
 	abld.Append(true)
 	abld.ValueBuilder().(*array.Int64Builder).Append(2)
-	bld.Field(4).(*types.UUIDBuilder).Append(uuid.MustParse("00000000-0000-0000-0000-000000000001"))
+	bld.Field(4).(*extensions.UUIDBuilder).Append(uuid.MustParse("00000000-0000-0000-0000-000000000001"))
 
 	rec := bld.NewRecord()
 	bld.Release()

@@ -17,11 +17,6 @@
 
 #include "arrow/flight/test_util.h"
 
-#ifdef __APPLE__
-#include <limits.h>
-#include <mach-o/dyld.h>
-#endif
-
 #include <algorithm>
 #include <cstdlib>
 #include <fstream>
@@ -31,503 +26,46 @@
 #include "arrow/util/windows_compatibility.h"
 
 #include <gtest/gtest.h>
-#include <boost/filesystem.hpp>
-#define BOOST_NO_CXX98_FUNCTION_BASE  // ARROW-17805
-// We need BOOST_USE_WINDOWS_H definition with MinGW when we use
-// boost/process.hpp. See BOOST_USE_WINDOWS_H=1 in
-// cpp/cmake_modules/ThirdpartyToolchain.cmake for details.
-#include <boost/process.hpp>
 
 #include "arrow/array.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/ipc/test_common.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/process.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/logging.h"
 
 #include "arrow/flight/api.h"
 #include "arrow/flight/serialization_internal.h"
 
-namespace arrow {
-namespace flight {
+namespace arrow::flight {
 
-namespace bp = boost::process;
-namespace fs = boost::filesystem;
-
-namespace {
-
-Status ResolveCurrentExecutable(fs::path* out) {
-  // See https://stackoverflow.com/a/1024937/10194 for various
-  // platform-specific recipes.
-
-  boost::system::error_code ec;
-
-#if defined(__linux__)
-  *out = fs::canonical("/proc/self/exe", ec);
-#elif defined(__APPLE__)
-  char buf[PATH_MAX + 1];
-  uint32_t bufsize = sizeof(buf);
-  if (_NSGetExecutablePath(buf, &bufsize) < 0) {
-    return Status::Invalid("Can't resolve current exe: path too large");
-  }
-  *out = fs::canonical(buf, ec);
-#elif defined(_WIN32)
-  char buf[MAX_PATH + 1];
-  if (!GetModuleFileNameA(NULL, buf, sizeof(buf))) {
-    return Status::Invalid("Can't get executable file path");
-  }
-  *out = fs::canonical(buf, ec);
-#else
-  ARROW_UNUSED(ec);
-  return Status::NotImplemented("Not available on this system");
-#endif
-  if (ec) {
-    // XXX fold this into the Status class?
-    return Status::IOError("Can't resolve current exe: ", ec.message());
+Status TestServer::Start(const std::vector<std::string>& extra_args) {
+  server_process_ = std::make_unique<util::Process>();
+  ARROW_RETURN_NOT_OK(server_process_->SetExecutable(executable_name_));
+  std::vector<std::string> args = {};
+  if (unix_sock_.empty()) {
+    args.push_back("-port");
+    args.push_back(std::to_string(port_));
   } else {
-    return Status::OK();
+    args.push_back("-server_unix");
+    args.push_back(unix_sock_);
   }
+  args.insert(args.end(), extra_args.begin(), extra_args.end());
+  server_process_->SetArgs(args);
+  ARROW_RETURN_NOT_OK(server_process_->Execute());
+  std::cout << "Server running with pid " << server_process_->pid() << std::endl;
+  return Status::OK();
 }
 
-class ErrorRecordBatchReader : public RecordBatchReader {
- public:
-  ErrorRecordBatchReader() : schema_(arrow::schema({})) {}
+void TestServer::Stop() { server_process_ = nullptr; }
 
-  std::shared_ptr<Schema> schema() const override { return schema_; }
-
-  Status ReadNext(std::shared_ptr<RecordBatch>* out) override {
-    *out = nullptr;
-    return Status::OK();
-  }
-
-  Status Close() override {
-    // This should be propagated over DoGet to the client
-    return Status::IOError("Expected error");
-  }
-
- private:
-  std::shared_ptr<Schema> schema_;
-};
-}  // namespace
-
-void TestServer::Start(const std::vector<std::string>& extra_args) {
-  namespace fs = boost::filesystem;
-
-  std::string str_port = std::to_string(port_);
-  std::vector<fs::path> search_path = ::boost::this_process::path();
-  // If possible, prepend current executable directory to search path,
-  // since it's likely that the test server executable is located in
-  // the same directory as the running unit test.
-  fs::path current_exe;
-  Status st = ResolveCurrentExecutable(&current_exe);
-  if (st.ok()) {
-    search_path.insert(search_path.begin(), current_exe.parent_path());
-  } else if (st.IsNotImplemented()) {
-    ARROW_CHECK(st.IsNotImplemented()) << st.ToString();
-  }
-
-  try {
-    if (unix_sock_.empty()) {
-      server_process_ =
-          std::make_shared<bp::child>(bp::search_path(executable_name_, search_path),
-                                      "-port", str_port, bp::args(extra_args));
-    } else {
-      server_process_ =
-          std::make_shared<bp::child>(bp::search_path(executable_name_, search_path),
-                                      "-server_unix", unix_sock_, bp::args(extra_args));
-    }
-  } catch (...) {
-    std::stringstream ss;
-    ss << "Failed to launch test server '" << executable_name_ << "', looked in ";
-    for (const auto& path : search_path) {
-      ss << path << " : ";
-    }
-    ARROW_LOG(FATAL) << ss.str();
-    throw;
-  }
-  std::cout << "Server running with pid " << server_process_->id() << std::endl;
-}
-
-int TestServer::Stop() {
-  if (server_process_ && server_process_->valid()) {
-#ifndef _WIN32
-    kill(server_process_->id(), SIGTERM);
-#else
-    // This would use SIGKILL on POSIX, which is more brutal than SIGTERM
-    server_process_->terminate();
-#endif
-    server_process_->wait();
-    return server_process_->exit_code();
-  } else {
-    // Presumably the server wasn't able to start
-    return -1;
-  }
-}
-
-bool TestServer::IsRunning() { return server_process_->running(); }
+bool TestServer::IsRunning() { return server_process_->IsRunning(); }
 
 int TestServer::port() const { return port_; }
 
 const std::string& TestServer::unix_sock() const { return unix_sock_; }
-
-Status GetBatchForFlight(const Ticket& ticket, std::shared_ptr<RecordBatchReader>* out) {
-  if (ticket.ticket == "ticket-ints-1") {
-    RecordBatchVector batches;
-    RETURN_NOT_OK(ExampleIntBatches(&batches));
-    ARROW_ASSIGN_OR_RAISE(*out, RecordBatchReader::Make(batches));
-    return Status::OK();
-  } else if (ticket.ticket == "ticket-floats-1") {
-    RecordBatchVector batches;
-    RETURN_NOT_OK(ExampleFloatBatches(&batches));
-    ARROW_ASSIGN_OR_RAISE(*out, RecordBatchReader::Make(batches));
-    return Status::OK();
-  } else if (ticket.ticket == "ticket-dicts-1") {
-    RecordBatchVector batches;
-    RETURN_NOT_OK(ExampleDictBatches(&batches));
-    ARROW_ASSIGN_OR_RAISE(*out, RecordBatchReader::Make(batches));
-    return Status::OK();
-  } else if (ticket.ticket == "ticket-large-batch-1") {
-    RecordBatchVector batches;
-    RETURN_NOT_OK(ExampleLargeBatches(&batches));
-    ARROW_ASSIGN_OR_RAISE(*out, RecordBatchReader::Make(batches));
-    return Status::OK();
-  } else {
-    return Status::NotImplemented("no stream implemented for ticket: " + ticket.ticket);
-  }
-}
-
-class FlightTestServer : public FlightServerBase {
-  Status ListFlights(const ServerCallContext& context, const Criteria* criteria,
-                     std::unique_ptr<FlightListing>* listings) override {
-    std::vector<FlightInfo> flights = ExampleFlightInfo();
-    if (criteria && criteria->expression != "") {
-      // For test purposes, if we get criteria, return no results
-      flights.clear();
-    }
-    *listings = std::make_unique<SimpleFlightListing>(flights);
-    return Status::OK();
-  }
-
-  Status GetFlightInfo(const ServerCallContext& context, const FlightDescriptor& request,
-                       std::unique_ptr<FlightInfo>* out) override {
-    // Test that Arrow-C++ status codes make it through the transport
-    if (request.type == FlightDescriptor::DescriptorType::CMD &&
-        request.cmd == "status-outofmemory") {
-      return Status::OutOfMemory("Sentinel");
-    }
-
-    std::vector<FlightInfo> flights = ExampleFlightInfo();
-
-    for (const auto& info : flights) {
-      if (info.descriptor().Equals(request)) {
-        *out = std::make_unique<FlightInfo>(info);
-        return Status::OK();
-      }
-    }
-    return Status::Invalid("Flight not found: ", request.ToString());
-  }
-
-  Status DoGet(const ServerCallContext& context, const Ticket& request,
-               std::unique_ptr<FlightDataStream>* data_stream) override {
-    // Test for ARROW-5095
-    if (request.ticket == "ARROW-5095-fail") {
-      return Status::UnknownError("Server-side error");
-    }
-    if (request.ticket == "ARROW-5095-success") {
-      return Status::OK();
-    }
-    if (request.ticket == "ARROW-13253-DoGet-Batch") {
-      // Make batch > 2GiB in size
-      ARROW_ASSIGN_OR_RAISE(auto batch, VeryLargeBatch());
-      ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchReader::Make({batch}));
-      *data_stream = std::make_unique<RecordBatchStream>(std::move(reader));
-      return Status::OK();
-    }
-    if (request.ticket == "ticket-stream-error") {
-      auto reader = std::make_shared<ErrorRecordBatchReader>();
-      *data_stream = std::make_unique<RecordBatchStream>(std::move(reader));
-      return Status::OK();
-    }
-
-    std::shared_ptr<RecordBatchReader> batch_reader;
-    RETURN_NOT_OK(GetBatchForFlight(request, &batch_reader));
-
-    *data_stream = std::make_unique<RecordBatchStream>(batch_reader);
-    return Status::OK();
-  }
-
-  Status DoPut(const ServerCallContext&, std::unique_ptr<FlightMessageReader> reader,
-               std::unique_ptr<FlightMetadataWriter> writer) override {
-    return reader->ToRecordBatches().status();
-  }
-
-  Status DoExchange(const ServerCallContext& context,
-                    std::unique_ptr<FlightMessageReader> reader,
-                    std::unique_ptr<FlightMessageWriter> writer) override {
-    // Test various scenarios for a DoExchange
-    if (reader->descriptor().type != FlightDescriptor::DescriptorType::CMD) {
-      return Status::Invalid("Must provide a command descriptor");
-    }
-
-    const std::string& cmd = reader->descriptor().cmd;
-    if (cmd == "error") {
-      // Immediately return an error to the client.
-      return Status::NotImplemented("Expected error");
-    } else if (cmd == "get") {
-      return RunExchangeGet(std::move(reader), std::move(writer));
-    } else if (cmd == "put") {
-      return RunExchangePut(std::move(reader), std::move(writer));
-    } else if (cmd == "counter") {
-      return RunExchangeCounter(std::move(reader), std::move(writer));
-    } else if (cmd == "total") {
-      return RunExchangeTotal(std::move(reader), std::move(writer));
-    } else if (cmd == "echo") {
-      return RunExchangeEcho(std::move(reader), std::move(writer));
-    } else if (cmd == "large_batch") {
-      return RunExchangeLargeBatch(std::move(reader), std::move(writer));
-    } else if (cmd == "TestUndrained") {
-      ARROW_ASSIGN_OR_RAISE(auto schema, reader->GetSchema());
-      return Status::OK();
-    } else {
-      return Status::NotImplemented("Scenario not implemented: ", cmd);
-    }
-  }
-
-  // A simple example - act like DoGet.
-  Status RunExchangeGet(std::unique_ptr<FlightMessageReader> reader,
-                        std::unique_ptr<FlightMessageWriter> writer) {
-    RETURN_NOT_OK(writer->Begin(ExampleIntSchema()));
-    RecordBatchVector batches;
-    RETURN_NOT_OK(ExampleIntBatches(&batches));
-    for (const auto& batch : batches) {
-      RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
-    }
-    return Status::OK();
-  }
-
-  // A simple example - act like DoPut
-  Status RunExchangePut(std::unique_ptr<FlightMessageReader> reader,
-                        std::unique_ptr<FlightMessageWriter> writer) {
-    ARROW_ASSIGN_OR_RAISE(auto schema, reader->GetSchema());
-    if (!schema->Equals(ExampleIntSchema(), false)) {
-      return Status::Invalid("Schema is not as expected");
-    }
-    RecordBatchVector batches;
-    RETURN_NOT_OK(ExampleIntBatches(&batches));
-    FlightStreamChunk chunk;
-    for (const auto& batch : batches) {
-      ARROW_ASSIGN_OR_RAISE(chunk, reader->Next());
-      if (!chunk.data) {
-        return Status::Invalid("Expected another batch");
-      }
-      if (!batch->Equals(*chunk.data)) {
-        return Status::Invalid("Batch does not match");
-      }
-    }
-    ARROW_ASSIGN_OR_RAISE(chunk, reader->Next());
-    if (chunk.data || chunk.app_metadata) {
-      return Status::Invalid("Too many batches");
-    }
-
-    RETURN_NOT_OK(writer->WriteMetadata(Buffer::FromString("done")));
-    return Status::OK();
-  }
-
-  // Read some number of record batches from the client, send a
-  // metadata message back with the count, then echo the batches back.
-  Status RunExchangeCounter(std::unique_ptr<FlightMessageReader> reader,
-                            std::unique_ptr<FlightMessageWriter> writer) {
-    std::vector<std::shared_ptr<RecordBatch>> batches;
-    FlightStreamChunk chunk;
-    int chunks = 0;
-    while (true) {
-      ARROW_ASSIGN_OR_RAISE(chunk, reader->Next());
-      if (!chunk.data && !chunk.app_metadata) {
-        break;
-      }
-      if (chunk.data) {
-        batches.push_back(chunk.data);
-        chunks++;
-      }
-    }
-
-    // Echo back the number of record batches read.
-    std::shared_ptr<Buffer> buf = Buffer::FromString(std::to_string(chunks));
-    RETURN_NOT_OK(writer->WriteMetadata(buf));
-    // Echo the record batches themselves.
-    if (chunks > 0) {
-      ARROW_ASSIGN_OR_RAISE(auto schema, reader->GetSchema());
-      RETURN_NOT_OK(writer->Begin(schema));
-
-      for (const auto& batch : batches) {
-        RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
-      }
-    }
-
-    return Status::OK();
-  }
-
-  // Read int64 batches from the client, each time sending back a
-  // batch with a running sum of columns.
-  Status RunExchangeTotal(std::unique_ptr<FlightMessageReader> reader,
-                          std::unique_ptr<FlightMessageWriter> writer) {
-    FlightStreamChunk chunk{};
-    ARROW_ASSIGN_OR_RAISE(auto schema, reader->GetSchema());
-    // Ensure the schema contains only int64 columns
-    for (const auto& field : schema->fields()) {
-      if (field->type()->id() != Type::type::INT64) {
-        return Status::Invalid("Field is not INT64: ", field->name());
-      }
-    }
-    std::vector<int64_t> sums(schema->num_fields());
-    std::vector<std::shared_ptr<Array>> columns(schema->num_fields());
-    RETURN_NOT_OK(writer->Begin(schema));
-    while (true) {
-      ARROW_ASSIGN_OR_RAISE(chunk, reader->Next());
-      if (!chunk.data && !chunk.app_metadata) {
-        break;
-      }
-      if (chunk.data) {
-        if (!chunk.data->schema()->Equals(schema, false)) {
-          // A compliant client implementation would make this impossible
-          return Status::Invalid("Schemas are incompatible");
-        }
-
-        // Update the running totals
-        auto builder = std::make_shared<Int64Builder>();
-        int col_index = 0;
-        for (const auto& column : chunk.data->columns()) {
-          auto arr = std::dynamic_pointer_cast<Int64Array>(column);
-          if (!arr) {
-            return MakeFlightError(FlightStatusCode::Internal, "Could not cast array");
-          }
-          for (int row = 0; row < column->length(); row++) {
-            if (!arr->IsNull(row)) {
-              sums[col_index] += arr->Value(row);
-            }
-          }
-
-          builder->Reset();
-          RETURN_NOT_OK(builder->Append(sums[col_index]));
-          RETURN_NOT_OK(builder->Finish(&columns[col_index]));
-
-          col_index++;
-        }
-
-        // Echo the totals to the client
-        auto response = RecordBatch::Make(schema, /* num_rows */ 1, columns);
-        RETURN_NOT_OK(writer->WriteRecordBatch(*response));
-      }
-    }
-    return Status::OK();
-  }
-
-  // Echo the client's messages back.
-  Status RunExchangeEcho(std::unique_ptr<FlightMessageReader> reader,
-                         std::unique_ptr<FlightMessageWriter> writer) {
-    FlightStreamChunk chunk;
-    bool begun = false;
-    while (true) {
-      ARROW_ASSIGN_OR_RAISE(chunk, reader->Next());
-      if (!chunk.data && !chunk.app_metadata) {
-        break;
-      }
-      if (!begun && chunk.data) {
-        begun = true;
-        RETURN_NOT_OK(writer->Begin(chunk.data->schema()));
-      }
-      if (chunk.data && chunk.app_metadata) {
-        RETURN_NOT_OK(writer->WriteWithMetadata(*chunk.data, chunk.app_metadata));
-      } else if (chunk.data) {
-        RETURN_NOT_OK(writer->WriteRecordBatch(*chunk.data));
-      } else if (chunk.app_metadata) {
-        RETURN_NOT_OK(writer->WriteMetadata(chunk.app_metadata));
-      }
-    }
-    return Status::OK();
-  }
-
-  // Regression test for ARROW-13253
-  Status RunExchangeLargeBatch(std::unique_ptr<FlightMessageReader>,
-                               std::unique_ptr<FlightMessageWriter> writer) {
-    ARROW_ASSIGN_OR_RAISE(auto batch, VeryLargeBatch());
-    RETURN_NOT_OK(writer->Begin(batch->schema()));
-    return writer->WriteRecordBatch(*batch);
-  }
-
-  Status RunAction1(const Action& action, std::unique_ptr<ResultStream>* out) {
-    std::vector<Result> results;
-    for (int i = 0; i < 3; ++i) {
-      Result result;
-      std::string value = action.body->ToString() + "-part" + std::to_string(i);
-      result.body = Buffer::FromString(std::move(value));
-      results.push_back(result);
-    }
-    *out = std::make_unique<SimpleResultStream>(std::move(results));
-    return Status::OK();
-  }
-
-  Status RunAction2(std::unique_ptr<ResultStream>* out) {
-    // Empty
-    *out = std::make_unique<SimpleResultStream>(std::vector<Result>{});
-    return Status::OK();
-  }
-
-  Status ListIncomingHeaders(const ServerCallContext& context, const Action& action,
-                             std::unique_ptr<ResultStream>* out) {
-    std::vector<Result> results;
-    std::string_view prefix(*action.body);
-    for (const auto& header : context.incoming_headers()) {
-      if (header.first.substr(0, prefix.size()) != prefix) {
-        continue;
-      }
-      Result result;
-      result.body = Buffer::FromString(std::string(header.first) + ": " +
-                                       std::string(header.second));
-      results.push_back(result);
-    }
-    *out = std::make_unique<SimpleResultStream>(std::move(results));
-    return Status::OK();
-  }
-
-  Status DoAction(const ServerCallContext& context, const Action& action,
-                  std::unique_ptr<ResultStream>* out) override {
-    if (action.type == "action1") {
-      return RunAction1(action, out);
-    } else if (action.type == "action2") {
-      return RunAction2(out);
-    } else if (action.type == "list-incoming-headers") {
-      return ListIncomingHeaders(context, action, out);
-    } else {
-      return Status::NotImplemented(action.type);
-    }
-  }
-
-  Status ListActions(const ServerCallContext& context,
-                     std::vector<ActionType>* out) override {
-    std::vector<ActionType> actions = ExampleActionTypes();
-    *out = std::move(actions);
-    return Status::OK();
-  }
-
-  Status GetSchema(const ServerCallContext& context, const FlightDescriptor& request,
-                   std::unique_ptr<SchemaResult>* schema) override {
-    std::vector<FlightInfo> flights = ExampleFlightInfo();
-
-    for (const auto& info : flights) {
-      if (info.descriptor().Equals(request)) {
-        *schema = std::make_unique<SchemaResult>(info.serialized_schema());
-        return Status::OK();
-      }
-    }
-    return Status::Invalid("Flight not found: ", request.ToString());
-  }
-};
-
-std::unique_ptr<FlightServerBase> ExampleTestServer() {
-  return std::make_unique<FlightTestServer>();
-}
 
 FlightInfo MakeFlightInfo(const Schema& schema, const FlightDescriptor& descriptor,
                           const std::vector<FlightEndpoint>& endpoints,
@@ -604,11 +142,11 @@ std::vector<FlightInfo> ExampleFlightInfo() {
   Location location4 = *Location::ForGrpcTcp("foo4.bar.com", 12345);
   Location location5 = *Location::ForGrpcTcp("foo5.bar.com", 12345);
 
-  FlightEndpoint endpoint1({{"ticket-ints-1"}, {location1}, std::nullopt, {}});
-  FlightEndpoint endpoint2({{"ticket-ints-2"}, {location2}, std::nullopt, {}});
-  FlightEndpoint endpoint3({{"ticket-cmd"}, {location3}, std::nullopt, {}});
-  FlightEndpoint endpoint4({{"ticket-dicts-1"}, {location4}, std::nullopt, {}});
-  FlightEndpoint endpoint5({{"ticket-floats-1"}, {location5}, std::nullopt, {}});
+  FlightEndpoint endpoint1({Ticket{"ticket-ints-1"}, {location1}, std::nullopt, {}});
+  FlightEndpoint endpoint2({Ticket{"ticket-ints-2"}, {location2}, std::nullopt, {}});
+  FlightEndpoint endpoint3({Ticket{"ticket-cmd"}, {location3}, std::nullopt, {}});
+  FlightEndpoint endpoint4({Ticket{"ticket-dicts-1"}, {location4}, std::nullopt, {}});
+  FlightEndpoint endpoint5({Ticket{"ticket-floats-1"}, {location5}, std::nullopt, {}});
 
   FlightDescriptor descr1{FlightDescriptor::PATH, "", {"examples", "ints"}};
   FlightDescriptor descr2{FlightDescriptor::CMD, "my_command", {}};
@@ -701,109 +239,6 @@ std::vector<ActionType> ExampleActionTypes() {
   return {{"drop", "drop a dataset"}, {"cache", "cache a dataset"}};
 }
 
-TestServerAuthHandler::TestServerAuthHandler(const std::string& username,
-                                             const std::string& password)
-    : username_(username), password_(password) {}
-
-TestServerAuthHandler::~TestServerAuthHandler() {}
-
-Status TestServerAuthHandler::Authenticate(const ServerCallContext& context,
-                                           ServerAuthSender* outgoing,
-                                           ServerAuthReader* incoming) {
-  std::string token;
-  RETURN_NOT_OK(incoming->Read(&token));
-  if (token != password_) {
-    return MakeFlightError(FlightStatusCode::Unauthenticated, "Invalid token");
-  }
-  RETURN_NOT_OK(outgoing->Write(username_));
-  return Status::OK();
-}
-
-Status TestServerAuthHandler::IsValid(const ServerCallContext& context,
-                                      const std::string& token,
-                                      std::string* peer_identity) {
-  if (token != password_) {
-    return MakeFlightError(FlightStatusCode::Unauthenticated, "Invalid token");
-  }
-  *peer_identity = username_;
-  return Status::OK();
-}
-
-TestServerBasicAuthHandler::TestServerBasicAuthHandler(const std::string& username,
-                                                       const std::string& password) {
-  basic_auth_.username = username;
-  basic_auth_.password = password;
-}
-
-TestServerBasicAuthHandler::~TestServerBasicAuthHandler() {}
-
-Status TestServerBasicAuthHandler::Authenticate(const ServerCallContext& context,
-                                                ServerAuthSender* outgoing,
-                                                ServerAuthReader* incoming) {
-  std::string token;
-  RETURN_NOT_OK(incoming->Read(&token));
-  ARROW_ASSIGN_OR_RAISE(BasicAuth incoming_auth, BasicAuth::Deserialize(token));
-  if (incoming_auth.username != basic_auth_.username ||
-      incoming_auth.password != basic_auth_.password) {
-    return MakeFlightError(FlightStatusCode::Unauthenticated, "Invalid token");
-  }
-  RETURN_NOT_OK(outgoing->Write(basic_auth_.username));
-  return Status::OK();
-}
-
-Status TestServerBasicAuthHandler::IsValid(const ServerCallContext& context,
-                                           const std::string& token,
-                                           std::string* peer_identity) {
-  if (token != basic_auth_.username) {
-    return MakeFlightError(FlightStatusCode::Unauthenticated, "Invalid token");
-  }
-  *peer_identity = basic_auth_.username;
-  return Status::OK();
-}
-
-TestClientAuthHandler::TestClientAuthHandler(const std::string& username,
-                                             const std::string& password)
-    : username_(username), password_(password) {}
-
-TestClientAuthHandler::~TestClientAuthHandler() {}
-
-Status TestClientAuthHandler::Authenticate(ClientAuthSender* outgoing,
-                                           ClientAuthReader* incoming) {
-  RETURN_NOT_OK(outgoing->Write(password_));
-  std::string username;
-  RETURN_NOT_OK(incoming->Read(&username));
-  if (username != username_) {
-    return MakeFlightError(FlightStatusCode::Unauthenticated, "Invalid token");
-  }
-  return Status::OK();
-}
-
-Status TestClientAuthHandler::GetToken(std::string* token) {
-  *token = password_;
-  return Status::OK();
-}
-
-TestClientBasicAuthHandler::TestClientBasicAuthHandler(const std::string& username,
-                                                       const std::string& password) {
-  basic_auth_.username = username;
-  basic_auth_.password = password;
-}
-
-TestClientBasicAuthHandler::~TestClientBasicAuthHandler() {}
-
-Status TestClientBasicAuthHandler::Authenticate(ClientAuthSender* outgoing,
-                                                ClientAuthReader* incoming) {
-  ARROW_ASSIGN_OR_RAISE(std::string pb_result, basic_auth_.SerializeToString());
-  RETURN_NOT_OK(outgoing->Write(pb_result));
-  RETURN_NOT_OK(incoming->Read(&token_));
-  return Status::OK();
-}
-
-Status TestClientBasicAuthHandler::GetToken(std::string* token) {
-  *token = token_;
-  return Status::OK();
-}
-
 Status ExampleTlsCertificates(std::vector<CertKeyPair>* out) {
   std::string root;
   RETURN_NOT_OK(GetTestResourceRoot(&root));
@@ -860,5 +295,4 @@ Status ExampleTlsCertificateRoot(CertKeyPair* out) {
   }
 }
 
-}  // namespace flight
-}  // namespace arrow
+}  // namespace arrow::flight

@@ -1845,7 +1845,7 @@ def generate_nested_dictionary_case():
 def generate_extension_case():
     dict0 = Dictionary(0, StringField('dictionary0'), size=5, name='DICT0')
 
-    uuid_type = ExtensionType('uuid', 'uuid-serialized',
+    uuid_type = ExtensionType('arrow.uuid', '',
                               FixedSizeBinaryField('', 16))
     dict_ext_type = ExtensionType(
         'dict-extension', 'dict-extension-serialized',
@@ -1872,8 +1872,7 @@ def get_generated_json_files(tempdir=None):
         generate_primitive_case([17, 20], name='primitive'),
         generate_primitive_case([0, 0, 0], name='primitive_zerolength'),
 
-        generate_primitive_large_offsets_case([17, 20])
-        .skip_tester('C#'),
+        generate_primitive_large_offsets_case([17, 20]),
 
         generate_null_case([10, 0]),
 
@@ -1906,7 +1905,6 @@ def get_generated_json_files(tempdir=None):
         generate_recursive_nested_case(),
 
         generate_nested_large_offsets_case()
-        .skip_tester('C#')
         .skip_tester('JS'),
 
         generate_unions_case(),
@@ -1938,7 +1936,6 @@ def get_generated_json_files(tempdir=None):
 
         generate_list_view_case()
         .skip_tester('C#')     # Doesn't support large list views
-        .skip_tester('Java')
         .skip_tester('JS')
         .skip_tester('nanoarrow')
         .skip_tester('Rust'),

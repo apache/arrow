@@ -66,6 +66,13 @@ unless required_pkg_config_package([
   exit(false)
 end
 
+# Old re2.pc (e.g. re2.pc on Ubuntu 20.04) may add -std=c++11. It
+# causes a build error because Apache Arrow C++ requires C++17 or
+# later.
+#
+# We can remove this when we drop support for Ubuntu 20.04.
+$CXXFLAGS.gsub!("-std=c++11", "")
+
 [
   ["glib2", "ext/glib2"],
 ].each do |name, relative_source_dir|
@@ -84,7 +91,7 @@ when /darwin/
   symbols_in_external_bundles.each do |symbol|
     $DLDFLAGS << " -Wl,-U,#{symbol}"
   end
-  mmacosx_version_min = "-mmacosx-version-min=10.15"
+  mmacosx_version_min = "-mmacosx-version-min=12.0"
   $CFLAGS << " #{mmacosx_version_min}"
   $CXXFLAGS << " #{mmacosx_version_min}"
 end

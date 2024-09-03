@@ -18,6 +18,7 @@
 #include "parquet/encryption/encryption_internal.h"
 
 #include <openssl/aes.h>
+#include <openssl/err.h>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 
@@ -36,10 +37,10 @@ using parquet::ParquetException;
 
 namespace parquet::encryption {
 
-constexpr int kGcmMode = 0;
-constexpr int kCtrMode = 1;
-constexpr int kCtrIvLength = 16;
-constexpr int kBufferSizeLength = 4;
+constexpr int32_t kGcmMode = 0;
+constexpr int32_t kCtrMode = 1;
+constexpr int32_t kCtrIvLength = 16;
+constexpr int32_t kBufferSizeLength = 4;
 
 #define ENCRYPT_INIT(CTX, ALG)                                        \
   if (1 != EVP_EncryptInit_ex(CTX, ALG, nullptr, nullptr, nullptr)) { \
@@ -53,17 +54,17 @@ constexpr int kBufferSizeLength = 4;
 
 class AesEncryptor::AesEncryptorImpl {
  public:
-  explicit AesEncryptorImpl(ParquetCipher::type alg_id, int key_len, bool metadata,
+  explicit AesEncryptorImpl(ParquetCipher::type alg_id, int32_t key_len, bool metadata,
                             bool write_length);
 
   ~AesEncryptorImpl() { WipeOut(); }
 
-  int Encrypt(const uint8_t* plaintext, int plaintext_len, const uint8_t* key,
-              int key_len, const uint8_t* aad, int aad_len, uint8_t* ciphertext);
+  int32_t Encrypt(span<const uint8_t> plaintext, span<const uint8_t> key,
+                  span<const uint8_t> aad, span<uint8_t> ciphertext);
 
-  int SignedFooterEncrypt(const uint8_t* footer, int footer_len, const uint8_t* key,
-                          int key_len, const uint8_t* aad, int aad_len,
-                          const uint8_t* nonce, uint8_t* encrypted_footer);
+  int32_t SignedFooterEncrypt(span<const uint8_t> footer, span<const uint8_t> key,
+                              span<const uint8_t> aad, span<const uint8_t> nonce,
+                              span<uint8_t> encrypted_footer);
   void WipeOut() {
     if (nullptr != ctx_) {
       EVP_CIPHER_CTX_free(ctx_);
@@ -71,25 +72,40 @@ class AesEncryptor::AesEncryptorImpl {
     }
   }
 
-  int ciphertext_size_delta() { return ciphertext_size_delta_; }
+  [[nodiscard]] int32_t CiphertextLength(int64_t plaintext_len) const {
+    if (plaintext_len < 0) {
+      std::stringstream ss;
+      ss << "Negative plaintext length " << plaintext_len;
+      throw ParquetException(ss.str());
+    } else if (plaintext_len >
+               std::numeric_limits<int32_t>::max() - ciphertext_size_delta_) {
+      std::stringstream ss;
+      ss << "Plaintext length " << plaintext_len << " plus ciphertext size delta "
+         << ciphertext_size_delta_ << " overflows int32";
+      throw ParquetException(ss.str());
+    }
+
+    return static_cast<int32_t>(plaintext_len + ciphertext_size_delta_);
+  }
 
  private:
   EVP_CIPHER_CTX* ctx_;
-  int aes_mode_;
-  int key_length_;
-  int ciphertext_size_delta_;
-  int length_buffer_length_;
+  int32_t aes_mode_;
+  int32_t key_length_;
+  int32_t ciphertext_size_delta_;
+  int32_t length_buffer_length_;
 
-  int GcmEncrypt(const uint8_t* plaintext, int plaintext_len, const uint8_t* key,
-                 int key_len, const uint8_t* nonce, const uint8_t* aad, int aad_len,
-                 uint8_t* ciphertext);
+  int32_t GcmEncrypt(span<const uint8_t> plaintext, span<const uint8_t> key,
+                     span<const uint8_t> nonce, span<const uint8_t> aad,
+                     span<uint8_t> ciphertext);
 
-  int CtrEncrypt(const uint8_t* plaintext, int plaintext_len, const uint8_t* key,
-                 int key_len, const uint8_t* nonce, uint8_t* ciphertext);
+  int32_t CtrEncrypt(span<const uint8_t> plaintext, span<const uint8_t> key,
+                     span<const uint8_t> nonce, span<uint8_t> ciphertext);
 };
 
-AesEncryptor::AesEncryptorImpl::AesEncryptorImpl(ParquetCipher::type alg_id, int key_len,
-                                                 bool metadata, bool write_length) {
+AesEncryptor::AesEncryptorImpl::AesEncryptorImpl(ParquetCipher::type alg_id,
+                                                 int32_t key_len, bool metadata,
+                                                 bool write_length) {
   openssl::EnsureInitialized();
 
   ctx_ = nullptr;
@@ -137,12 +153,19 @@ AesEncryptor::AesEncryptorImpl::AesEncryptorImpl(ParquetCipher::type alg_id, int
   }
 }
 
-int AesEncryptor::AesEncryptorImpl::SignedFooterEncrypt(
-    const uint8_t* footer, int footer_len, const uint8_t* key, int key_len,
-    const uint8_t* aad, int aad_len, const uint8_t* nonce, uint8_t* encrypted_footer) {
-  if (key_length_ != key_len) {
+int32_t AesEncryptor::AesEncryptorImpl::SignedFooterEncrypt(
+    span<const uint8_t> footer, span<const uint8_t> key, span<const uint8_t> aad,
+    span<const uint8_t> nonce, span<uint8_t> encrypted_footer) {
+  if (static_cast<size_t>(key_length_) != key.size()) {
     std::stringstream ss;
-    ss << "Wrong key length " << key_len << ". Should be " << key_length_;
+    ss << "Wrong key length " << key.size() << ". Should be " << key_length_;
+    throw ParquetException(ss.str());
+  }
+
+  if (encrypted_footer.size() != footer.size() + ciphertext_size_delta_) {
+    std::stringstream ss;
+    ss << "Encrypted footer buffer length " << encrypted_footer.size()
+       << " does not match expected length " << (footer.size() + ciphertext_size_delta_);
     throw ParquetException(ss.str());
   }
 
@@ -150,174 +173,212 @@ int AesEncryptor::AesEncryptorImpl::SignedFooterEncrypt(
     throw ParquetException("Must use AES GCM (metadata) encryptor");
   }
 
-  return GcmEncrypt(footer, footer_len, key, key_len, nonce, aad, aad_len,
-                    encrypted_footer);
+  return GcmEncrypt(footer, key, nonce, aad, encrypted_footer);
 }
 
-int AesEncryptor::AesEncryptorImpl::Encrypt(const uint8_t* plaintext, int plaintext_len,
-                                            const uint8_t* key, int key_len,
-                                            const uint8_t* aad, int aad_len,
-                                            uint8_t* ciphertext) {
-  if (key_length_ != key_len) {
+int32_t AesEncryptor::AesEncryptorImpl::Encrypt(span<const uint8_t> plaintext,
+                                                span<const uint8_t> key,
+                                                span<const uint8_t> aad,
+                                                span<uint8_t> ciphertext) {
+  if (static_cast<size_t>(key_length_) != key.size()) {
     std::stringstream ss;
-    ss << "Wrong key length " << key_len << ". Should be " << key_length_;
+    ss << "Wrong key length " << key.size() << ". Should be " << key_length_;
     throw ParquetException(ss.str());
   }
 
-  uint8_t nonce[kNonceLength];
-  memset(nonce, 0, kNonceLength);
-  // Random nonce
-  RAND_bytes(nonce, sizeof(nonce));
-
-  if (kGcmMode == aes_mode_) {
-    return GcmEncrypt(plaintext, plaintext_len, key, key_len, nonce, aad, aad_len,
-                      ciphertext);
+  if (ciphertext.size() != plaintext.size() + ciphertext_size_delta_) {
+    std::stringstream ss;
+    ss << "Ciphertext buffer length " << ciphertext.size()
+       << " does not match expected length "
+       << (plaintext.size() + ciphertext_size_delta_);
+    throw ParquetException(ss.str());
   }
 
-  return CtrEncrypt(plaintext, plaintext_len, key, key_len, nonce, ciphertext);
+  std::array<uint8_t, kNonceLength> nonce{};
+  // Random nonce
+  RAND_bytes(nonce.data(), kNonceLength);
+
+  if (kGcmMode == aes_mode_) {
+    return GcmEncrypt(plaintext, key, nonce, aad, ciphertext);
+  }
+
+  return CtrEncrypt(plaintext, key, nonce, ciphertext);
 }
 
-int AesEncryptor::AesEncryptorImpl::GcmEncrypt(const uint8_t* plaintext,
-                                               int plaintext_len, const uint8_t* key,
-                                               int key_len, const uint8_t* nonce,
-                                               const uint8_t* aad, int aad_len,
-                                               uint8_t* ciphertext) {
+int32_t AesEncryptor::AesEncryptorImpl::GcmEncrypt(span<const uint8_t> plaintext,
+                                                   span<const uint8_t> key,
+                                                   span<const uint8_t> nonce,
+                                                   span<const uint8_t> aad,
+                                                   span<uint8_t> ciphertext) {
   int len;
-  int ciphertext_len;
+  int32_t ciphertext_len;
 
-  uint8_t tag[kGcmTagLength];
-  memset(tag, 0, kGcmTagLength);
+  std::array<uint8_t, kGcmTagLength> tag{};
+
+  if (nonce.size() != static_cast<size_t>(kNonceLength)) {
+    std::stringstream ss;
+    ss << "Invalid nonce size " << nonce.size() << ", expected " << kNonceLength;
+    throw ParquetException(ss.str());
+  }
 
   // Setting key and IV (nonce)
-  if (1 != EVP_EncryptInit_ex(ctx_, nullptr, nullptr, key, nonce)) {
+  if (1 != EVP_EncryptInit_ex(ctx_, nullptr, nullptr, key.data(), nonce.data())) {
     throw ParquetException("Couldn't set key and nonce");
   }
 
   // Setting additional authenticated data
-  if ((nullptr != aad) && (1 != EVP_EncryptUpdate(ctx_, nullptr, &len, aad, aad_len))) {
+  if (aad.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
+    std::stringstream ss;
+    ss << "AAD size " << aad.size() << " overflows int";
+    throw ParquetException(ss.str());
+  }
+  if ((!aad.empty()) && (1 != EVP_EncryptUpdate(ctx_, nullptr, &len, aad.data(),
+                                                static_cast<int>(aad.size())))) {
     throw ParquetException("Couldn't set AAD");
   }
 
   // Encryption
-  if (1 != EVP_EncryptUpdate(ctx_, ciphertext + length_buffer_length_ + kNonceLength,
-                             &len, plaintext, plaintext_len)) {
+  if (plaintext.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
+    std::stringstream ss;
+    ss << "Plaintext size " << plaintext.size() << " overflows int";
+    throw ParquetException(ss.str());
+  }
+  if (1 !=
+      EVP_EncryptUpdate(ctx_, ciphertext.data() + length_buffer_length_ + kNonceLength,
+                        &len, plaintext.data(), static_cast<int>(plaintext.size()))) {
     throw ParquetException("Failed encryption update");
   }
 
   ciphertext_len = len;
 
   // Finalization
-  if (1 != EVP_EncryptFinal_ex(
-               ctx_, ciphertext + length_buffer_length_ + kNonceLength + len, &len)) {
+  if (1 !=
+      EVP_EncryptFinal_ex(
+          ctx_, ciphertext.data() + length_buffer_length_ + kNonceLength + len, &len)) {
     throw ParquetException("Failed encryption finalization");
   }
 
   ciphertext_len += len;
 
   // Getting the tag
-  if (1 != EVP_CIPHER_CTX_ctrl(ctx_, EVP_CTRL_GCM_GET_TAG, kGcmTagLength, tag)) {
+  if (1 != EVP_CIPHER_CTX_ctrl(ctx_, EVP_CTRL_GCM_GET_TAG, kGcmTagLength, tag.data())) {
     throw ParquetException("Couldn't get AES-GCM tag");
   }
 
   // Copying the buffer size, nonce and tag to ciphertext
-  int buffer_size = kNonceLength + ciphertext_len + kGcmTagLength;
+  int32_t buffer_size = kNonceLength + ciphertext_len + kGcmTagLength;
   if (length_buffer_length_ > 0) {
     ciphertext[3] = static_cast<uint8_t>(0xff & (buffer_size >> 24));
     ciphertext[2] = static_cast<uint8_t>(0xff & (buffer_size >> 16));
     ciphertext[1] = static_cast<uint8_t>(0xff & (buffer_size >> 8));
     ciphertext[0] = static_cast<uint8_t>(0xff & (buffer_size));
   }
-  std::copy(nonce, nonce + kNonceLength, ciphertext + length_buffer_length_);
-  std::copy(tag, tag + kGcmTagLength,
-            ciphertext + length_buffer_length_ + kNonceLength + ciphertext_len);
+  std::copy(nonce.begin(), nonce.begin() + kNonceLength,
+            ciphertext.begin() + length_buffer_length_);
+  std::copy(tag.begin(), tag.end(),
+            ciphertext.begin() + length_buffer_length_ + kNonceLength + ciphertext_len);
 
   return length_buffer_length_ + buffer_size;
 }
 
-int AesEncryptor::AesEncryptorImpl::CtrEncrypt(const uint8_t* plaintext,
-                                               int plaintext_len, const uint8_t* key,
-                                               int key_len, const uint8_t* nonce,
-                                               uint8_t* ciphertext) {
+int32_t AesEncryptor::AesEncryptorImpl::CtrEncrypt(span<const uint8_t> plaintext,
+                                                   span<const uint8_t> key,
+                                                   span<const uint8_t> nonce,
+                                                   span<uint8_t> ciphertext) {
   int len;
-  int ciphertext_len;
+  int32_t ciphertext_len;
+
+  if (nonce.size() != static_cast<size_t>(kNonceLength)) {
+    std::stringstream ss;
+    ss << "Invalid nonce size " << nonce.size() << ", expected " << kNonceLength;
+    throw ParquetException(ss.str());
+  }
 
   // Parquet CTR IVs are comprised of a 12-byte nonce and a 4-byte initial
   // counter field.
   // The first 31 bits of the initial counter field are set to 0, the last bit
   // is set to 1.
-  uint8_t iv[kCtrIvLength];
-  memset(iv, 0, kCtrIvLength);
-  std::copy(nonce, nonce + kNonceLength, iv);
+  std::array<uint8_t, kCtrIvLength> iv{};
+  std::copy(nonce.begin(), nonce.begin() + kNonceLength, iv.begin());
   iv[kCtrIvLength - 1] = 1;
 
   // Setting key and IV
-  if (1 != EVP_EncryptInit_ex(ctx_, nullptr, nullptr, key, iv)) {
+  if (1 != EVP_EncryptInit_ex(ctx_, nullptr, nullptr, key.data(), iv.data())) {
     throw ParquetException("Couldn't set key and IV");
   }
 
   // Encryption
-  if (1 != EVP_EncryptUpdate(ctx_, ciphertext + length_buffer_length_ + kNonceLength,
-                             &len, plaintext, plaintext_len)) {
+  if (plaintext.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
+    std::stringstream ss;
+    ss << "Plaintext size " << plaintext.size() << " overflows int";
+    throw ParquetException(ss.str());
+  }
+  if (1 !=
+      EVP_EncryptUpdate(ctx_, ciphertext.data() + length_buffer_length_ + kNonceLength,
+                        &len, plaintext.data(), static_cast<int>(plaintext.size()))) {
     throw ParquetException("Failed encryption update");
   }
 
   ciphertext_len = len;
 
   // Finalization
-  if (1 != EVP_EncryptFinal_ex(
-               ctx_, ciphertext + length_buffer_length_ + kNonceLength + len, &len)) {
+  if (1 !=
+      EVP_EncryptFinal_ex(
+          ctx_, ciphertext.data() + length_buffer_length_ + kNonceLength + len, &len)) {
     throw ParquetException("Failed encryption finalization");
   }
 
   ciphertext_len += len;
 
   // Copying the buffer size and nonce to ciphertext
-  int buffer_size = kNonceLength + ciphertext_len;
+  int32_t buffer_size = kNonceLength + ciphertext_len;
   if (length_buffer_length_ > 0) {
     ciphertext[3] = static_cast<uint8_t>(0xff & (buffer_size >> 24));
     ciphertext[2] = static_cast<uint8_t>(0xff & (buffer_size >> 16));
     ciphertext[1] = static_cast<uint8_t>(0xff & (buffer_size >> 8));
     ciphertext[0] = static_cast<uint8_t>(0xff & (buffer_size));
   }
-  std::copy(nonce, nonce + kNonceLength, ciphertext + length_buffer_length_);
+  std::copy(nonce.begin(), nonce.begin() + kNonceLength,
+            ciphertext.begin() + length_buffer_length_);
 
   return length_buffer_length_ + buffer_size;
 }
 
 AesEncryptor::~AesEncryptor() {}
 
-int AesEncryptor::SignedFooterEncrypt(const uint8_t* footer, int footer_len,
-                                      const uint8_t* key, int key_len, const uint8_t* aad,
-                                      int aad_len, const uint8_t* nonce,
-                                      uint8_t* encrypted_footer) {
-  return impl_->SignedFooterEncrypt(footer, footer_len, key, key_len, aad, aad_len, nonce,
-                                    encrypted_footer);
+int32_t AesEncryptor::SignedFooterEncrypt(span<const uint8_t> footer,
+                                          span<const uint8_t> key,
+                                          span<const uint8_t> aad,
+                                          span<const uint8_t> nonce,
+                                          span<uint8_t> encrypted_footer) {
+  return impl_->SignedFooterEncrypt(footer, key, aad, nonce, encrypted_footer);
 }
 
 void AesEncryptor::WipeOut() { impl_->WipeOut(); }
 
-int AesEncryptor::CiphertextSizeDelta() { return impl_->ciphertext_size_delta(); }
-
-int AesEncryptor::Encrypt(const uint8_t* plaintext, int plaintext_len, const uint8_t* key,
-                          int key_len, const uint8_t* aad, int aad_len,
-                          uint8_t* ciphertext) {
-  return impl_->Encrypt(plaintext, plaintext_len, key, key_len, aad, aad_len, ciphertext);
+int32_t AesEncryptor::CiphertextLength(int64_t plaintext_len) const {
+  return impl_->CiphertextLength(plaintext_len);
 }
 
-AesEncryptor::AesEncryptor(ParquetCipher::type alg_id, int key_len, bool metadata,
+int32_t AesEncryptor::Encrypt(span<const uint8_t> plaintext, span<const uint8_t> key,
+                              span<const uint8_t> aad, span<uint8_t> ciphertext) {
+  return impl_->Encrypt(plaintext, key, aad, ciphertext);
+}
+
+AesEncryptor::AesEncryptor(ParquetCipher::type alg_id, int32_t key_len, bool metadata,
                            bool write_length)
     : impl_{std::unique_ptr<AesEncryptorImpl>(
           new AesEncryptorImpl(alg_id, key_len, metadata, write_length))} {}
 
 class AesDecryptor::AesDecryptorImpl {
  public:
-  explicit AesDecryptorImpl(ParquetCipher::type alg_id, int key_len, bool metadata,
+  explicit AesDecryptorImpl(ParquetCipher::type alg_id, int32_t key_len, bool metadata,
                             bool contains_length);
 
   ~AesDecryptorImpl() { WipeOut(); }
 
-  int Decrypt(span<const uint8_t> ciphertext, span<const uint8_t> key,
-              span<const uint8_t> aad, span<uint8_t> plaintext);
+  int32_t Decrypt(span<const uint8_t> ciphertext, span<const uint8_t> key,
+                  span<const uint8_t> aad, span<uint8_t> plaintext);
 
   void WipeOut() {
     if (nullptr != ctx_) {
@@ -326,7 +387,7 @@ class AesDecryptor::AesDecryptorImpl {
     }
   }
 
-  [[nodiscard]] int PlaintextLength(int ciphertext_len) const {
+  [[nodiscard]] int32_t PlaintextLength(int32_t ciphertext_len) const {
     if (ciphertext_len < ciphertext_size_delta_) {
       std::stringstream ss;
       ss << "Ciphertext length " << ciphertext_len << " is invalid, expected at least "
@@ -336,10 +397,16 @@ class AesDecryptor::AesDecryptorImpl {
     return ciphertext_len - ciphertext_size_delta_;
   }
 
-  [[nodiscard]] int CiphertextLength(int plaintext_len) const {
+  [[nodiscard]] int32_t CiphertextLength(int32_t plaintext_len) const {
     if (plaintext_len < 0) {
       std::stringstream ss;
       ss << "Negative plaintext length " << plaintext_len;
+      throw ParquetException(ss.str());
+    } else if (plaintext_len >
+               std::numeric_limits<int32_t>::max() - ciphertext_size_delta_) {
+      std::stringstream ss;
+      ss << "Plaintext length " << plaintext_len << " plus ciphertext size delta "
+         << ciphertext_size_delta_ << " overflows int32";
       throw ParquetException(ss.str());
     }
     return plaintext_len + ciphertext_size_delta_;
@@ -347,24 +414,24 @@ class AesDecryptor::AesDecryptorImpl {
 
  private:
   EVP_CIPHER_CTX* ctx_;
-  int aes_mode_;
-  int key_length_;
-  int ciphertext_size_delta_;
-  int length_buffer_length_;
+  int32_t aes_mode_;
+  int32_t key_length_;
+  int32_t ciphertext_size_delta_;
+  int32_t length_buffer_length_;
 
   /// Get the actual ciphertext length, inclusive of the length buffer length,
   /// and validate that the provided buffer size is large enough.
-  [[nodiscard]] int GetCiphertextLength(span<const uint8_t> ciphertext) const;
+  [[nodiscard]] int32_t GetCiphertextLength(span<const uint8_t> ciphertext) const;
 
-  int GcmDecrypt(span<const uint8_t> ciphertext, span<const uint8_t> key,
-                 span<const uint8_t> aad, span<uint8_t> plaintext);
+  int32_t GcmDecrypt(span<const uint8_t> ciphertext, span<const uint8_t> key,
+                     span<const uint8_t> aad, span<uint8_t> plaintext);
 
-  int CtrDecrypt(span<const uint8_t> ciphertext, span<const uint8_t> key,
-                 span<uint8_t> plaintext);
+  int32_t CtrDecrypt(span<const uint8_t> ciphertext, span<const uint8_t> key,
+                     span<uint8_t> plaintext);
 };
 
-int AesDecryptor::Decrypt(span<const uint8_t> ciphertext, span<const uint8_t> key,
-                          span<const uint8_t> aad, span<uint8_t> plaintext) {
+int32_t AesDecryptor::Decrypt(span<const uint8_t> ciphertext, span<const uint8_t> key,
+                              span<const uint8_t> aad, span<uint8_t> plaintext) {
   return impl_->Decrypt(ciphertext, key, aad, plaintext);
 }
 
@@ -372,8 +439,9 @@ void AesDecryptor::WipeOut() { impl_->WipeOut(); }
 
 AesDecryptor::~AesDecryptor() {}
 
-AesDecryptor::AesDecryptorImpl::AesDecryptorImpl(ParquetCipher::type alg_id, int key_len,
-                                                 bool metadata, bool contains_length) {
+AesDecryptor::AesDecryptorImpl::AesDecryptorImpl(ParquetCipher::type alg_id,
+                                                 int32_t key_len, bool metadata,
+                                                 bool contains_length) {
   openssl::EnsureInitialized();
 
   ctx_ = nullptr;
@@ -420,32 +488,30 @@ AesDecryptor::AesDecryptorImpl::AesDecryptorImpl(ParquetCipher::type alg_id, int
   }
 }
 
-AesEncryptor* AesEncryptor::Make(ParquetCipher::type alg_id, int key_len, bool metadata,
-                                 std::vector<AesEncryptor*>* all_encryptors) {
-  return Make(alg_id, key_len, metadata, true /*write_length*/, all_encryptors);
+std::unique_ptr<AesEncryptor> AesEncryptor::Make(ParquetCipher::type alg_id,
+                                                 int32_t key_len, bool metadata) {
+  return Make(alg_id, key_len, metadata, true /*write_length*/);
 }
 
-AesEncryptor* AesEncryptor::Make(ParquetCipher::type alg_id, int key_len, bool metadata,
-                                 bool write_length,
-                                 std::vector<AesEncryptor*>* all_encryptors) {
+std::unique_ptr<AesEncryptor> AesEncryptor::Make(ParquetCipher::type alg_id,
+                                                 int32_t key_len, bool metadata,
+                                                 bool write_length) {
   if (ParquetCipher::AES_GCM_V1 != alg_id && ParquetCipher::AES_GCM_CTR_V1 != alg_id) {
     std::stringstream ss;
     ss << "Crypto algorithm " << alg_id << " is not supported";
     throw ParquetException(ss.str());
   }
 
-  AesEncryptor* encryptor = new AesEncryptor(alg_id, key_len, metadata, write_length);
-  if (all_encryptors != nullptr) all_encryptors->push_back(encryptor);
-  return encryptor;
+  return std::make_unique<AesEncryptor>(alg_id, key_len, metadata, write_length);
 }
 
-AesDecryptor::AesDecryptor(ParquetCipher::type alg_id, int key_len, bool metadata,
+AesDecryptor::AesDecryptor(ParquetCipher::type alg_id, int32_t key_len, bool metadata,
                            bool contains_length)
     : impl_{std::unique_ptr<AesDecryptorImpl>(
           new AesDecryptorImpl(alg_id, key_len, metadata, contains_length))} {}
 
 std::shared_ptr<AesDecryptor> AesDecryptor::Make(
-    ParquetCipher::type alg_id, int key_len, bool metadata,
+    ParquetCipher::type alg_id, int32_t key_len, bool metadata,
     std::vector<std::weak_ptr<AesDecryptor>>* all_decryptors) {
   if (ParquetCipher::AES_GCM_V1 != alg_id && ParquetCipher::AES_GCM_CTR_V1 != alg_id) {
     std::stringstream ss;
@@ -460,15 +526,15 @@ std::shared_ptr<AesDecryptor> AesDecryptor::Make(
   return decryptor;
 }
 
-int AesDecryptor::PlaintextLength(int ciphertext_len) const {
+int32_t AesDecryptor::PlaintextLength(int32_t ciphertext_len) const {
   return impl_->PlaintextLength(ciphertext_len);
 }
 
-int AesDecryptor::CiphertextLength(int plaintext_len) const {
+int32_t AesDecryptor::CiphertextLength(int32_t plaintext_len) const {
   return impl_->CiphertextLength(plaintext_len);
 }
 
-int AesDecryptor::AesDecryptorImpl::GetCiphertextLength(
+int32_t AesDecryptor::AesDecryptorImpl::GetCiphertextLength(
     span<const uint8_t> ciphertext) const {
   if (length_buffer_length_ > 0) {
     // Note: length_buffer_length_ must be either 0 or kBufferSizeLength
@@ -481,13 +547,17 @@ int AesDecryptor::AesDecryptorImpl::GetCiphertextLength(
     }
 
     // Extract ciphertext length
-    int written_ciphertext_len = ((ciphertext[3] & 0xff) << 24) |
-                                 ((ciphertext[2] & 0xff) << 16) |
-                                 ((ciphertext[1] & 0xff) << 8) | ((ciphertext[0] & 0xff));
+    uint32_t written_ciphertext_len = (static_cast<uint32_t>(ciphertext[3]) << 24) |
+                                      (static_cast<uint32_t>(ciphertext[2]) << 16) |
+                                      (static_cast<uint32_t>(ciphertext[1]) << 8) |
+                                      (static_cast<uint32_t>(ciphertext[0]));
 
-    if (written_ciphertext_len < 0) {
+    if (written_ciphertext_len >
+        static_cast<uint32_t>(std::numeric_limits<int32_t>::max() -
+                              length_buffer_length_)) {
       std::stringstream ss;
-      ss << "Negative ciphertext length " << written_ciphertext_len;
+      ss << "Written ciphertext length " << written_ciphertext_len
+         << " plus length buffer length " << length_buffer_length_ << " overflows int32";
       throw ParquetException(ss.str());
     } else if (ciphertext.size() <
                static_cast<size_t>(written_ciphertext_len) + length_buffer_length_) {
@@ -499,30 +569,28 @@ int AesDecryptor::AesDecryptorImpl::GetCiphertextLength(
       throw ParquetException(ss.str());
     }
 
-    return written_ciphertext_len + length_buffer_length_;
+    return static_cast<int32_t>(written_ciphertext_len) + length_buffer_length_;
   } else {
     if (ciphertext.size() > static_cast<size_t>(std::numeric_limits<int32_t>::max())) {
       std::stringstream ss;
       ss << "Ciphertext buffer length " << ciphertext.size() << " overflows int32";
       throw ParquetException(ss.str());
     }
-    return static_cast<int>(ciphertext.size());
+    return static_cast<int32_t>(ciphertext.size());
   }
 }
 
-int AesDecryptor::AesDecryptorImpl::GcmDecrypt(span<const uint8_t> ciphertext,
-                                               span<const uint8_t> key,
-                                               span<const uint8_t> aad,
-                                               span<uint8_t> plaintext) {
+int32_t AesDecryptor::AesDecryptorImpl::GcmDecrypt(span<const uint8_t> ciphertext,
+                                                   span<const uint8_t> key,
+                                                   span<const uint8_t> aad,
+                                                   span<uint8_t> plaintext) {
   int len;
-  int plaintext_len;
+  int32_t plaintext_len;
 
-  uint8_t tag[kGcmTagLength];
-  memset(tag, 0, kGcmTagLength);
-  uint8_t nonce[kNonceLength];
-  memset(nonce, 0, kNonceLength);
+  std::array<uint8_t, kGcmTagLength> tag{};
+  std::array<uint8_t, kNonceLength> nonce{};
 
-  int ciphertext_len = GetCiphertextLength(ciphertext);
+  int32_t ciphertext_len = GetCiphertextLength(ciphertext);
 
   if (plaintext.size() < static_cast<size_t>(ciphertext_len) - ciphertext_size_delta_) {
     std::stringstream ss;
@@ -540,33 +608,39 @@ int AesDecryptor::AesDecryptorImpl::GcmDecrypt(span<const uint8_t> ciphertext,
 
   // Extracting IV and tag
   std::copy(ciphertext.begin() + length_buffer_length_,
-            ciphertext.begin() + length_buffer_length_ + kNonceLength, nonce);
+            ciphertext.begin() + length_buffer_length_ + kNonceLength, nonce.begin());
   std::copy(ciphertext.begin() + ciphertext_len - kGcmTagLength,
-            ciphertext.begin() + ciphertext_len, tag);
+            ciphertext.begin() + ciphertext_len, tag.begin());
 
   // Setting key and IV
-  if (1 != EVP_DecryptInit_ex(ctx_, nullptr, nullptr, key.data(), nonce)) {
+  if (1 != EVP_DecryptInit_ex(ctx_, nullptr, nullptr, key.data(), nonce.data())) {
     throw ParquetException("Couldn't set key and IV");
   }
 
   // Setting additional authenticated data
+  if (aad.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
+    std::stringstream ss;
+    ss << "AAD size " << aad.size() << " overflows int";
+    throw ParquetException(ss.str());
+  }
   if ((!aad.empty()) && (1 != EVP_DecryptUpdate(ctx_, nullptr, &len, aad.data(),
                                                 static_cast<int>(aad.size())))) {
     throw ParquetException("Couldn't set AAD");
   }
 
   // Decryption
-  if (!EVP_DecryptUpdate(
-          ctx_, plaintext.data(), &len,
-          ciphertext.data() + length_buffer_length_ + kNonceLength,
-          ciphertext_len - length_buffer_length_ - kNonceLength - kGcmTagLength)) {
+  int decryption_length =
+      ciphertext_len - length_buffer_length_ - kNonceLength - kGcmTagLength;
+  if (!EVP_DecryptUpdate(ctx_, plaintext.data(), &len,
+                         ciphertext.data() + length_buffer_length_ + kNonceLength,
+                         decryption_length)) {
     throw ParquetException("Failed decryption update");
   }
 
   plaintext_len = len;
 
   // Checking the tag (authentication)
-  if (!EVP_CIPHER_CTX_ctrl(ctx_, EVP_CTRL_GCM_SET_TAG, kGcmTagLength, tag)) {
+  if (!EVP_CIPHER_CTX_ctrl(ctx_, EVP_CTRL_GCM_SET_TAG, kGcmTagLength, tag.data())) {
     throw ParquetException("Failed authentication");
   }
 
@@ -579,16 +653,15 @@ int AesDecryptor::AesDecryptorImpl::GcmDecrypt(span<const uint8_t> ciphertext,
   return plaintext_len;
 }
 
-int AesDecryptor::AesDecryptorImpl::CtrDecrypt(span<const uint8_t> ciphertext,
-                                               span<const uint8_t> key,
-                                               span<uint8_t> plaintext) {
+int32_t AesDecryptor::AesDecryptorImpl::CtrDecrypt(span<const uint8_t> ciphertext,
+                                                   span<const uint8_t> key,
+                                                   span<uint8_t> plaintext) {
   int len;
-  int plaintext_len;
+  int32_t plaintext_len;
 
-  uint8_t iv[kCtrIvLength];
-  memset(iv, 0, kCtrIvLength);
+  std::array<uint8_t, kCtrIvLength> iv{};
 
-  int ciphertext_len = GetCiphertextLength(ciphertext);
+  int32_t ciphertext_len = GetCiphertextLength(ciphertext);
 
   if (plaintext.size() < static_cast<size_t>(ciphertext_len) - ciphertext_size_delta_) {
     std::stringstream ss;
@@ -606,7 +679,7 @@ int AesDecryptor::AesDecryptorImpl::CtrDecrypt(span<const uint8_t> ciphertext,
 
   // Extracting nonce
   std::copy(ciphertext.begin() + length_buffer_length_,
-            ciphertext.begin() + length_buffer_length_ + kNonceLength, iv);
+            ciphertext.begin() + length_buffer_length_ + kNonceLength, iv.begin());
   // Parquet CTR IVs are comprised of a 12-byte nonce and a 4-byte initial
   // counter field.
   // The first 31 bits of the initial counter field are set to 0, the last bit
@@ -614,14 +687,15 @@ int AesDecryptor::AesDecryptorImpl::CtrDecrypt(span<const uint8_t> ciphertext,
   iv[kCtrIvLength - 1] = 1;
 
   // Setting key and IV
-  if (1 != EVP_DecryptInit_ex(ctx_, nullptr, nullptr, key.data(), iv)) {
+  if (1 != EVP_DecryptInit_ex(ctx_, nullptr, nullptr, key.data(), iv.data())) {
     throw ParquetException("Couldn't set key and IV");
   }
 
   // Decryption
+  int decryption_length = ciphertext_len - length_buffer_length_ - kNonceLength;
   if (!EVP_DecryptUpdate(ctx_, plaintext.data(), &len,
                          ciphertext.data() + length_buffer_length_ + kNonceLength,
-                         ciphertext_len - length_buffer_length_ - kNonceLength)) {
+                         decryption_length)) {
     throw ParquetException("Failed decryption update");
   }
 
@@ -636,10 +710,10 @@ int AesDecryptor::AesDecryptorImpl::CtrDecrypt(span<const uint8_t> ciphertext,
   return plaintext_len;
 }
 
-int AesDecryptor::AesDecryptorImpl::Decrypt(span<const uint8_t> ciphertext,
-                                            span<const uint8_t> key,
-                                            span<const uint8_t> aad,
-                                            span<uint8_t> plaintext) {
+int32_t AesDecryptor::AesDecryptorImpl::Decrypt(span<const uint8_t> ciphertext,
+                                                span<const uint8_t> key,
+                                                span<const uint8_t> aad,
+                                                span<uint8_t> plaintext) {
   if (static_cast<size_t>(key_length_) != key.size()) {
     std::stringstream ss;
     ss << "Wrong key length " << key.size() << ". Should be " << key_length_;
@@ -712,9 +786,22 @@ void QuickUpdatePageAad(int32_t new_page_ordinal, std::string* AAD) {
   std::memcpy(AAD->data() + AAD->length() - 2, page_ordinal_bytes.data(), 2);
 }
 
-void RandBytes(unsigned char* buf, int num) {
+void RandBytes(unsigned char* buf, size_t num) {
+  if (num > static_cast<size_t>(std::numeric_limits<int>::max())) {
+    std::stringstream ss;
+    ss << "Length " << num << " for RandBytes overflows int";
+    throw ParquetException(ss.str());
+  }
   openssl::EnsureInitialized();
-  RAND_bytes(buf, num);
+  int status = RAND_bytes(buf, static_cast<int>(num));
+  if (status != 1) {
+    const auto error_code = ERR_get_error();
+    char buffer[256];
+    ERR_error_string_n(error_code, buffer, sizeof(buffer));
+    std::stringstream ss;
+    ss << "Failed to generate random bytes: " << buffer;
+    throw ParquetException(ss.str());
+  }
 }
 
 void EnsureBackendInitialized() { openssl::EnsureInitialized(); }

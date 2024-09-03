@@ -1,14 +1,19 @@
 [
     {
-        "name": "17.0 (dev)",
+        "name": "18.0 (dev)",
         "version": "dev/",
         "url": "https://arrow.apache.org/docs/dev/"
     },
     {
-        "name": "16.1 (stable)",
+        "name": "17.0 (stable)",
         "version": "",
         "url": "https://arrow.apache.org/docs/",
         "preferred": true
+    },
+    {
+        "name": "16.1",
+        "version": "16.1/",
+        "url": "https://arrow.apache.org/docs/16.1/"
     },
     {
         "name": "16.0",

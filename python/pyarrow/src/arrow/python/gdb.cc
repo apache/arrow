@@ -22,7 +22,7 @@
 #include "arrow/array.h"
 #include "arrow/chunked_array.h"
 #include "arrow/datum.h"
-#include "arrow/extension_type.h"
+#include "arrow/extension/uuid.h"
 #include "arrow/ipc/json_simple.h"
 #include "arrow/python/gdb.h"
 #include "arrow/record_batch.h"
@@ -37,6 +37,8 @@
 
 namespace arrow {
 
+using extension::uuid;
+using extension::UuidType;
 using ipc::internal::json::ArrayFromJSON;
 using ipc::internal::json::ChunkedArrayFromJSON;
 using ipc::internal::json::ScalarFromJSON;
@@ -54,29 +56,6 @@ class CustomStatusDetail : public StatusDetail {
  public:
   const char* type_id() const override { return "custom-detail-id"; }
   std::string ToString() const override { return "This is a detail"; }
-};
-
-class UuidType : public ExtensionType {
- public:
-  UuidType() : ExtensionType(fixed_size_binary(16)) {}
-
-  std::string extension_name() const override { return "uuid"; }
-
-  bool ExtensionEquals(const ExtensionType& other) const override {
-    return (other.extension_name() == this->extension_name());
-  }
-
-  std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override {
-    return std::make_shared<ExtensionArray>(data);
-  }
-
-  Result<std::shared_ptr<DataType>> Deserialize(
-      std::shared_ptr<DataType> storage_type,
-      const std::string& serialized) const override {
-    return Status::NotImplemented("");
-  }
-
-  std::string Serialize() const override { return "uuid-serialized"; }
 };
 
 std::shared_ptr<Array> SliceArrayFromJSON(const std::shared_ptr<DataType>& ty,

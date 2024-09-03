@@ -32,15 +32,14 @@ std::string EncryptKeyLocally(const std::string& key_bytes, const std::string& m
                              static_cast<int>(master_key.size()), false,
                              false /*write_length*/);
 
-  int encrypted_key_len =
-      static_cast<int>(key_bytes.size()) + key_encryptor.CiphertextSizeDelta();
+  int32_t encrypted_key_len =
+      key_encryptor.CiphertextLength(static_cast<int64_t>(key_bytes.size()));
   std::string encrypted_key(encrypted_key_len, '\0');
-  encrypted_key_len = key_encryptor.Encrypt(
-      reinterpret_cast<const uint8_t*>(key_bytes.data()),
-      static_cast<int>(key_bytes.size()),
-      reinterpret_cast<const uint8_t*>(master_key.data()),
-      static_cast<int>(master_key.size()), reinterpret_cast<const uint8_t*>(aad.data()),
-      static_cast<int>(aad.size()), reinterpret_cast<uint8_t*>(&encrypted_key[0]));
+  ::arrow::util::span<uint8_t> encrypted_key_span(
+      reinterpret_cast<uint8_t*>(&encrypted_key[0]), encrypted_key_len);
+
+  encrypted_key_len = key_encryptor.Encrypt(str2span(key_bytes), str2span(master_key),
+                                            str2span(aad), encrypted_key_span);
 
   return ::arrow::util::base64_encode(
       ::std::string_view(encrypted_key.data(), encrypted_key_len));
@@ -54,7 +53,7 @@ std::string DecryptKeyLocally(const std::string& encoded_encrypted_key,
                              static_cast<int>(master_key.size()), false,
                              false /*contains_length*/);
 
-  int decrypted_key_len =
+  int32_t decrypted_key_len =
       key_decryptor.PlaintextLength(static_cast<int>(encrypted_key.size()));
   std::string decrypted_key(decrypted_key_len, '\0');
   ::arrow::util::span<uint8_t> decrypted_key_span(

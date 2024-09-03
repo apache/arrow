@@ -303,7 +303,6 @@ function accepts an object implementing one of these protocols.
 .. code-block:: python
 
     from typing import Tuple, Protocol
-    from typing_extensions import Self
 
     class ArrowSchemaExportable(Protocol):
         def __arrow_c_schema__(self) -> object: ...

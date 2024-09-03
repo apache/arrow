@@ -22,12 +22,12 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/apache/arrow/go/v17/arrow"
-	"github.com/apache/arrow/go/v17/arrow/array"
-	"github.com/apache/arrow/go/v17/arrow/flight"
-	pb "github.com/apache/arrow/go/v17/arrow/flight/gen/flight"
-	"github.com/apache/arrow/go/v17/arrow/ipc"
-	"github.com/apache/arrow/go/v17/arrow/memory"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/array"
+	"github.com/apache/arrow/go/v18/arrow/flight"
+	pb "github.com/apache/arrow/go/v18/arrow/flight/gen/flight"
+	"github.com/apache/arrow/go/v18/arrow/ipc"
+	"github.com/apache/arrow/go/v18/arrow/memory"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -1100,6 +1100,15 @@ type PreparedStatement struct {
 	paramBinding  arrow.Record
 	streamBinding array.RecordReader
 	closed        bool
+}
+
+// NewPreparedStatement creates a prepared statement object bound to the provided
+// client using the given handle. In general, it should be sufficient to use the
+// Prepare function a client and this wouldn't be needed. But this can be used
+// to propagate a prepared statement from one client to another if needed or if
+// proxying requests.
+func NewPreparedStatement(client *Client, handle []byte) *PreparedStatement {
+	return &PreparedStatement{client: client, handle: handle}
 }
 
 // Execute executes the prepared statement on the server and returns a FlightInfo

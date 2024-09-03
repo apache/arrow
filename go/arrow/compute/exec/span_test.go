@@ -24,14 +24,15 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v17/arrow"
-	"github.com/apache/arrow/go/v17/arrow/array"
-	"github.com/apache/arrow/go/v17/arrow/compute/exec"
-	"github.com/apache/arrow/go/v17/arrow/decimal128"
-	"github.com/apache/arrow/go/v17/arrow/endian"
-	"github.com/apache/arrow/go/v17/arrow/memory"
-	"github.com/apache/arrow/go/v17/arrow/scalar"
-	"github.com/apache/arrow/go/v17/internal/types"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/array"
+	"github.com/apache/arrow/go/v18/arrow/compute/exec"
+	"github.com/apache/arrow/go/v18/arrow/decimal128"
+	"github.com/apache/arrow/go/v18/arrow/endian"
+	"github.com/apache/arrow/go/v18/arrow/extensions"
+	"github.com/apache/arrow/go/v18/arrow/memory"
+	"github.com/apache/arrow/go/v18/arrow/scalar"
+	"github.com/apache/arrow/go/v18/internal/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -192,9 +193,6 @@ func TestArraySpan_NumBuffers(t *testing.T) {
 		Children []exec.ArraySpan
 	}
 
-	arrow.RegisterExtensionType(types.NewUUIDType())
-	defer arrow.UnregisterExtensionType("uuid")
-
 	tests := []struct {
 		name   string
 		fields fields
@@ -207,7 +205,7 @@ func TestArraySpan_NumBuffers(t *testing.T) {
 		{"large binary", fields{Type: arrow.BinaryTypes.LargeBinary}, 3},
 		{"string", fields{Type: arrow.BinaryTypes.String}, 3},
 		{"large string", fields{Type: arrow.BinaryTypes.LargeString}, 3},
-		{"extension", fields{Type: types.NewUUIDType()}, 2},
+		{"extension", fields{Type: extensions.NewUUIDType()}, 2},
 		{"int32", fields{Type: arrow.PrimitiveTypes.Int32}, 2},
 	}
 	for _, tt := range tests {

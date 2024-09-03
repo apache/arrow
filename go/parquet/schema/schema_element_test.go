@@ -19,8 +19,8 @@ package schema
 import (
 	"testing"
 
-	"github.com/apache/arrow/go/v17/parquet"
-	format "github.com/apache/arrow/go/v17/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v18/parquet"
+	format "github.com/apache/arrow/go/v18/parquet/internal/gen-go/parquet"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
@@ -192,7 +192,7 @@ func (s *SchemaElementConstructionSuite) TestSimple() {
 
 func (s *SchemaElementConstructionSuite) reconstructDecimal(c schemaElementConstructArgs) *decimalSchemaElementConstruction {
 	ret := s.reconstruct(c)
-	dec := c.logical.(*DecimalLogicalType)
+	dec := c.logical.(DecimalLogicalType)
 	return &decimalSchemaElementConstruction{*ret, int(dec.Precision()), int(dec.Scale())}
 }
 
@@ -359,7 +359,7 @@ func (s *SchemaElementConstructionSuite) TestTemporal() {
 
 func (s *SchemaElementConstructionSuite) reconstructInteger(c schemaElementConstructArgs) *intSchemaElementConstruction {
 	base := s.reconstruct(c)
-	l := c.logical.(*IntLogicalType)
+	l := c.logical.(IntLogicalType)
 	return &intSchemaElementConstruction{
 		*base,
 		l.BitWidth(),

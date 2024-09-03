@@ -25,10 +25,10 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/apache/arrow/go/v17/arrow/memory"
-	"github.com/apache/arrow/go/v17/parquet"
-	"github.com/apache/arrow/go/v17/parquet/internal/encryption"
-	"github.com/apache/arrow/go/v17/parquet/metadata"
+	"github.com/apache/arrow/go/v18/arrow/memory"
+	"github.com/apache/arrow/go/v18/parquet"
+	"github.com/apache/arrow/go/v18/parquet/internal/encryption"
+	"github.com/apache/arrow/go/v18/parquet/metadata"
 	"golang.org/x/xerrors"
 )
 
@@ -233,7 +233,7 @@ func (f *Reader) parseMetaData() error {
 func (f *Reader) handleAadPrefix(fileDecrypt *parquet.FileDecryptionProperties, algo *parquet.Algorithm) (string, error) {
 	aadPrefixInProps := fileDecrypt.AadPrefix()
 	aadPrefix := []byte(aadPrefixInProps)
-	fileHasAadPrefix := algo.Aad.AadPrefix != nil && len(algo.Aad.AadPrefix) > 0
+	fileHasAadPrefix := len(algo.Aad.AadPrefix) > 0
 	aadPrefixInFile := algo.Aad.AadPrefix
 
 	if algo.Aad.SupplyAadPrefix && aadPrefixInProps == "" {

@@ -23,10 +23,10 @@ import (
 	"reflect"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v17/arrow"
-	"github.com/apache/arrow/go/v17/arrow/internal/debug"
-	"github.com/apache/arrow/go/v17/arrow/memory"
-	"github.com/apache/arrow/go/v17/internal/json"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/internal/debug"
+	"github.com/apache/arrow/go/v18/arrow/memory"
+	"github.com/apache/arrow/go/v18/internal/json"
 )
 
 // A FixedSizeBinaryBuilder is used to build a FixedSizeBinary array using the Append methods.

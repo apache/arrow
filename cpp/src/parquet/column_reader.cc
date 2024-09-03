@@ -36,14 +36,14 @@
 #include "arrow/array/builder_primitive.h"
 #include "arrow/chunked_array.h"
 #include "arrow/type.h"
-#include "arrow/util/bit_stream_utils.h"
+#include "arrow/util/bit_stream_utils_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/crc32.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/rle_encoding.h"
+#include "arrow/util/rle_encoding_internal.h"
 #include "arrow/util/unreachable.h"
 #include "parquet/column_page.h"
 #include "parquet/encoding.h"
@@ -468,8 +468,8 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
     // Advance the stream offset
     PARQUET_THROW_NOT_OK(stream_->Advance(header_size));
 
-    int compressed_len = current_page_header_.compressed_page_size;
-    int uncompressed_len = current_page_header_.uncompressed_page_size;
+    int32_t compressed_len = current_page_header_.compressed_page_size;
+    int32_t uncompressed_len = current_page_header_.uncompressed_page_size;
     if (compressed_len < 0 || uncompressed_len < 0) {
       throw ParquetException("Invalid page header");
     }

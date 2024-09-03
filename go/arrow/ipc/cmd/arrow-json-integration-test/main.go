@@ -22,12 +22,10 @@ import (
 	"log"
 	"os"
 
-	"github.com/apache/arrow/go/v17/arrow"
-	"github.com/apache/arrow/go/v17/arrow/array"
-	"github.com/apache/arrow/go/v17/arrow/arrio"
-	"github.com/apache/arrow/go/v17/arrow/internal/arrjson"
-	"github.com/apache/arrow/go/v17/arrow/ipc"
-	"github.com/apache/arrow/go/v17/internal/types"
+	"github.com/apache/arrow/go/v18/arrow/array"
+	"github.com/apache/arrow/go/v18/arrow/arrio"
+	"github.com/apache/arrow/go/v18/arrow/internal/arrjson"
+	"github.com/apache/arrow/go/v18/arrow/ipc"
 )
 
 func main() {
@@ -50,8 +48,6 @@ func main() {
 }
 
 func runCommand(jsonName, arrowName, mode string, verbose bool) error {
-	arrow.RegisterExtensionType(types.NewUUIDType())
-
 	if jsonName == "" {
 		return fmt.Errorf("must specify json file name")
 	}

@@ -28,17 +28,17 @@ def _mock_compose_calls(compose):
     from types import MethodType
     from subprocess import CompletedProcess
 
-    def _mock(compose, executable):
+    def _mock(compose, command_tuple):
         def _execute(self, *args, **kwargs):
-            params = ['{}={}'.format(k, v)
+            params = [f'{k}={v}'
                       for k, v in self.config.params.items()]
-            command = ' '.join(params + [executable] + list(args))
+            command = ' '.join(params + command_tuple + args)
             click.echo(command)
             return CompletedProcess([], 0)
         return MethodType(_execute, compose)
 
-    compose._execute_docker = _mock(compose, executable='docker')
-    compose._execute_compose = _mock(compose, executable='docker-compose')
+    compose._execute_docker = _mock(compose, command_tuple=('docker',))
+    compose._execute_compose = _mock(compose, command_tuple=('docker', 'compose'))
 
 
 @click.group()
@@ -47,18 +47,24 @@ def _mock_compose_calls(compose):
               help="Specify Arrow source directory.")
 @click.option('--dry-run/--execute', default=False,
               help="Display the docker commands instead of executing them.")
+@click.option('--using-legacy-docker-compose', default=False, is_flag=True,
+              envvar='ARCHERY_USE_LEGACY_DOCKER_COMPOSE',
+              help="Use legacy docker-compose utility instead of the built-in "
+                   "`docker compose` subcommand. This may be necessary if the "
+                   "Docker client is too old for some options.")
 @click.option('--using-docker-cli', default=False, is_flag=True,
               envvar='ARCHERY_USE_DOCKER_CLI',
               help="Use docker CLI directly for building instead of calling "
-                   "docker-compose. This may help to reuse cached layers.")
+                   "`docker compose`. This may help to reuse cached layers.")
 @click.option('--using-docker-buildx', default=False, is_flag=True,
               envvar='ARCHERY_USE_DOCKER_BUILDX',
               help="Use buildx with docker CLI directly for building instead "
-                   "of calling docker-compose or the plain docker build "
+                   "of calling `docker compose` or the plain docker build "
                    "command. This option makes the build cache reusable "
                    "across hosts.")
 @click.pass_context
-def docker(ctx, src, dry_run, using_docker_cli, using_docker_buildx):
+def docker(ctx, src, dry_run, using_legacy_docker_compose, using_docker_cli,
+           using_docker_buildx):
     """
     Interact with docker-compose based builds.
     """
@@ -74,12 +80,13 @@ def docker(ctx, src, dry_run, using_docker_cli, using_docker_buildx):
     # take the docker-compose parameters like PYTHON, PANDAS, UBUNTU from the
     # environment variables to keep the usage similar to docker-compose
     using_docker_cli |= using_docker_buildx
+    compose_bin = ("docker-compose" if using_legacy_docker_compose
+                   else "docker compose")
     compose = DockerCompose(config_path, params=os.environ,
                             using_docker=using_docker_cli,
                             using_buildx=using_docker_buildx,
                             debug=ctx.obj.get('debug', False),
-                            compose_bin=("docker compose" if using_docker_cli
-                                         else "docker-compose"))
+                            compose_bin=compose_bin)
     if dry_run:
         _mock_compose_calls(compose)
     ctx.obj['compose'] = compose

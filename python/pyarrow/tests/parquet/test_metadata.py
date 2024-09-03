@@ -20,7 +20,10 @@ import decimal
 from collections import OrderedDict
 import io
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 import pytest
 
 import pyarrow as pa
@@ -122,7 +125,7 @@ def test_parquet_metadata_api():
         col_meta = rg_meta.column(ncols + 2)
 
     col_meta = rg_meta.column(0)
-    assert col_meta.file_offset > 0
+    assert col_meta.file_offset == 0
     assert col_meta.file_path == ''  # created from BytesIO
     assert col_meta.physical_type == 'BOOLEAN'
     assert col_meta.num_values == 10000
@@ -584,7 +587,7 @@ def test_table_large_metadata():
     my_schema = pa.schema([pa.field('f0', 'double')],
                           metadata={'large': 'x' * 10000000})
 
-    table = pa.table([np.arange(10)], schema=my_schema)
+    table = pa.table([range(10)], schema=my_schema)
     _check_roundtrip(table)
 
 
@@ -782,3 +785,12 @@ def test_write_metadata_fs_file_combinations(tempdir, s3_example_s3fs):
     assert meta1.read_bytes() == meta2.read_bytes() \
         == meta3.read_bytes() == meta4.read_bytes() \
         == s3_fs.open(meta5).read()
+
+
+def test_column_chunk_key_value_metadata(parquet_test_datadir):
+    metadata = pq.read_metadata(parquet_test_datadir /
+                                'column_chunk_key_value_metadata.parquet')
+    key_value_metadata1 = metadata.row_group(0).column(0).metadata
+    assert key_value_metadata1 == {b'foo': b'bar', b'thisiskeywithoutvalue': b''}
+    key_value_metadata2 = metadata.row_group(0).column(1).metadata
+    assert key_value_metadata2 is None

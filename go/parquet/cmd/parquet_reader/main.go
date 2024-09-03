@@ -25,11 +25,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/apache/arrow/go/v17/internal/json"
-	"github.com/apache/arrow/go/v17/parquet"
-	"github.com/apache/arrow/go/v17/parquet/file"
-	"github.com/apache/arrow/go/v17/parquet/metadata"
-	"github.com/apache/arrow/go/v17/parquet/schema"
+	"github.com/apache/arrow/go/v18/internal/json"
+	"github.com/apache/arrow/go/v18/parquet"
+	"github.com/apache/arrow/go/v18/parquet/file"
+	"github.com/apache/arrow/go/v18/parquet/metadata"
+	"github.com/apache/arrow/go/v18/parquet/schema"
 
 	"github.com/docopt/docopt-go"
 )
@@ -154,7 +154,7 @@ func main() {
 			if descr.ConvertedType() != schema.ConvertedTypes.None {
 				fmt.Printf("/%s", descr.ConvertedType())
 				if descr.ConvertedType() == schema.ConvertedTypes.Decimal {
-					dec := descr.LogicalType().(*schema.DecimalLogicalType)
+					dec := descr.LogicalType().(schema.DecimalLogicalType)
 					fmt.Printf("(%d,%d)", dec.Precision(), dec.Scale())
 				}
 			}

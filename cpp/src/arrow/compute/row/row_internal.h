@@ -30,13 +30,15 @@ namespace compute {
 
 /// Description of the data stored in a RowTable
 struct ARROW_EXPORT RowTableMetadata {
+  using offset_type = int64_t;
+
   /// \brief True if there are no variable length columns in the table
   bool is_fixed_length;
 
   /// For a fixed-length binary row, common size of rows in bytes,
   /// rounded up to the multiple of alignment.
   ///
-  /// For a varying-length binary, size of all encoded fixed-length key columns,
+  /// For a varying-length binary row, size of all encoded fixed-length key columns,
   /// including lengths of varying-length columns, rounded up to the multiple of string
   /// alignment.
   uint32_t fixed_length;
@@ -78,24 +80,33 @@ struct ARROW_EXPORT RowTableMetadata {
   /// Offsets within a row to fields in their encoding order.
   std::vector<uint32_t> column_offsets;
 
-  /// Rounding up offset to the nearest multiple of alignment value.
+  /// Rounding up offset within row to the nearest multiple of alignment value.
   /// Alignment must be a power of 2.
-  static inline uint32_t padding_for_alignment(uint32_t offset, int required_alignment) {
+  static inline uint32_t padding_for_alignment_within_row(uint32_t offset,
+                                                          int required_alignment) {
     ARROW_DCHECK(ARROW_POPCOUNT64(required_alignment) == 1);
     return static_cast<uint32_t>((-static_cast<int32_t>(offset)) &
                                  (required_alignment - 1));
   }
 
-  /// Rounding up offset to the beginning of next column,
+  /// Rounding up offset within row to the beginning of next column,
   /// choosing required alignment based on the data type of that column.
-  static inline uint32_t padding_for_alignment(uint32_t offset, int string_alignment,
-                                               const KeyColumnMetadata& col_metadata) {
+  static inline uint32_t padding_for_alignment_within_row(
+      uint32_t offset, int string_alignment, const KeyColumnMetadata& col_metadata) {
     if (!col_metadata.is_fixed_length ||
         ARROW_POPCOUNT64(col_metadata.fixed_length) <= 1) {
       return 0;
     } else {
-      return padding_for_alignment(offset, string_alignment);
+      return padding_for_alignment_within_row(offset, string_alignment);
     }
+  }
+
+  /// Rounding up row offset to the nearest multiple of alignment value.
+  /// Alignment must be a power of 2.
+  static inline offset_type padding_for_alignment_row(offset_type row_offset,
+                                                      int required_alignment) {
+    ARROW_DCHECK(ARROW_POPCOUNT64(required_alignment) == 1);
+    return (-row_offset) & (required_alignment - 1);
   }
 
   /// Returns an array of offsets within a row of ends of varbinary fields.
@@ -127,7 +138,7 @@ struct ARROW_EXPORT RowTableMetadata {
     ARROW_DCHECK(varbinary_id > 0);
     const uint32_t* varbinary_end = varbinary_end_array(row);
     uint32_t offset = varbinary_end[varbinary_id - 1];
-    offset += padding_for_alignment(offset, string_alignment);
+    offset += padding_for_alignment_within_row(offset, string_alignment);
     *out_offset = offset;
     *out_length = varbinary_end[varbinary_id] - offset;
   }
@@ -161,6 +172,8 @@ struct ARROW_EXPORT RowTableMetadata {
 /// The row table is not safe
 class ARROW_EXPORT RowTableImpl {
  public:
+  using offset_type = RowTableMetadata::offset_type;
+
   RowTableImpl();
   /// \brief Initialize a row array for use
   ///
@@ -175,7 +188,7 @@ class ARROW_EXPORT RowTableImpl {
   /// \param num_extra_bytes_to_append For tables storing variable-length data this
   ///     should be a guess of how many data bytes will be needed to populate the
   ///     data.  This is ignored if there are no variable-length columns
-  Status AppendEmpty(uint32_t num_rows_to_append, uint32_t num_extra_bytes_to_append);
+  Status AppendEmpty(uint32_t num_rows_to_append, int64_t num_extra_bytes_to_append);
   /// \brief Append rows from a source table
   /// \param from The table to append from
   /// \param num_rows_to_append The number of rows to append
@@ -189,14 +202,24 @@ class ARROW_EXPORT RowTableImpl {
   // Accessors into the table's buffers
   const uint8_t* data(int i) const {
     ARROW_DCHECK(i >= 0 && i < kMaxBuffers);
-    return buffers_[i];
+    if (ARROW_PREDICT_TRUE(buffers_[i])) {
+      return buffers_[i]->data();
+    }
+    return NULLPTR;
   }
   uint8_t* mutable_data(int i) {
     ARROW_DCHECK(i >= 0 && i < kMaxBuffers);
-    return buffers_[i];
+    if (ARROW_PREDICT_TRUE(buffers_[i])) {
+      return buffers_[i]->mutable_data();
+    }
+    return NULLPTR;
   }
-  const uint32_t* offsets() const { return reinterpret_cast<const uint32_t*>(data(1)); }
-  uint32_t* mutable_offsets() { return reinterpret_cast<uint32_t*>(mutable_data(1)); }
+  const offset_type* offsets() const {
+    return reinterpret_cast<const offset_type*>(data(1));
+  }
+  offset_type* mutable_offsets() {
+    return reinterpret_cast<offset_type*>(mutable_data(1));
+  }
   const uint8_t* null_masks() const { return null_masks_->data(); }
   uint8_t* null_masks() { return null_masks_->mutable_data(); }
 
@@ -207,8 +230,21 @@ class ARROW_EXPORT RowTableImpl {
   /// successive calls
   bool has_any_nulls(const LightContext* ctx) const;
 
+  /// \brief Size of the table's buffers
+  int64_t buffer_size(int i) const {
+    ARROW_DCHECK(i >= 0 && i < kMaxBuffers);
+    return buffers_[i]->size();
+  }
+
  private:
+  /// \brief Resize the fixed length buffers to store `num_extra_rows` more rows. The
+  /// fixed length buffers are buffers_[0] for null masks, buffers_[1] for row data if the
+  /// row is fixed length, or for row offsets otherwise.
   Status ResizeFixedLengthBuffers(int64_t num_extra_rows);
+
+  /// \brief Resize the optional varying length buffer to store `num_extra_bytes` more
+  /// bytes.
+  /// \pre !metadata_.is_fixed_length
   Status ResizeOptionalVaryingLengthBuffer(int64_t num_extra_bytes);
 
   // Helper functions to determine the number of bytes needed for each
@@ -236,7 +272,7 @@ class ARROW_EXPORT RowTableImpl {
   // Stores the fixed-length parts of the rows
   std::unique_ptr<ResizableBuffer> rows_;
   static constexpr int kMaxBuffers = 3;
-  uint8_t* buffers_[kMaxBuffers];
+  ResizableBuffer* buffers_[kMaxBuffers];
   // The number of rows in the table
   int64_t num_rows_;
   // The number of rows that can be stored in the table without resizing

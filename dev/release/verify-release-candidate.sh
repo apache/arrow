@@ -21,10 +21,10 @@
 # Requirements
 # - Ruby >= 2.3
 # - Maven >= 3.8.7
-# - JDK >=8
+# - JDK >= 11
 # - gcc >= 4.8
 # - Node.js >= 18
-# - Go >= 1.21
+# - Go >= 1.22
 # - Docker
 #
 # If using a non-system Boost, set BOOST_ROOT and add Boost libraries to
@@ -403,7 +403,7 @@ install_go() {
     return 0
   fi
 
-  local version=1.21.8
+  local version=1.22.6
   show_info "Installing go version ${version}..."
 
   local arch="$(uname -m)"
@@ -512,7 +512,7 @@ install_maven() {
     show_info "System Maven version ${SYSTEM_MAVEN_VERSION} matches required Maven version ${MAVEN_VERSION}. Skipping installation."
   else
     # Append pipe character to make preview release versions like "X.Y.Z-beta-1" sort
-    # as older than their corresponding release version "X.Y.Z". This works because 
+    # as older than their corresponding release version "X.Y.Z". This works because
     # `sort -V` orders the pipe character lower than any version number character.
     older_version=$(printf '%s\n%s\n' "$SYSTEM_MAVEN_VERSION" "$MAVEN_VERSION" | sed 's/$/|/' | sort -V | sed 's/|$//' | head -n1)
     if [[ "$older_version" == "$SYSTEM_MAVEN_VERSION" ]]; then
@@ -953,7 +953,7 @@ test_go() {
   show_header "Build and test Go libraries"
 
   maybe_setup_go
-  maybe_setup_conda compilers go=1.21
+  maybe_setup_conda compilers go=1.22
 
   pushd go
   go get -v ./...
@@ -1146,14 +1146,14 @@ test_linux_wheels() {
     local arch="x86_64"
   fi
 
-  local python_versions="${TEST_PYTHON_VERSIONS:-3.8 3.9 3.10 3.11 3.12}"
+  local python_versions="${TEST_PYTHON_VERSIONS:-3.8 3.9 3.10 3.11 3.12 3.13}"
   local platform_tags="${TEST_WHEEL_PLATFORM_TAGS:-manylinux_2_17_${arch}.manylinux2014_${arch} manylinux_2_28_${arch}}"
 
   for python in ${python_versions}; do
     local pyver=${python/m}
     for platform in ${platform_tags}; do
       show_header "Testing Python ${pyver} wheel for platform ${platform}"
-      CONDA_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda
+      CONDA_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda tzdata
       if ! VENV_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_virtualenv; then
         continue
       fi
@@ -1170,11 +1170,11 @@ test_macos_wheels() {
 
   # apple silicon processor
   if [ "$(uname -m)" = "arm64" ]; then
-    local python_versions="3.8 3.9 3.10 3.11 3.12"
+    local python_versions="3.8 3.9 3.10 3.11 3.12 3.13"
     local platform_tags="macosx_11_0_arm64"
     local check_flight=OFF
   else
-    local python_versions="3.8 3.9 3.10 3.11 3.12"
+    local python_versions="3.8 3.9 3.10 3.11 3.12 3.13"
     local platform_tags="macosx_10_15_x86_64"
   fi
 

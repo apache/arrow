@@ -25,6 +25,7 @@ import urllib.request
 
 import pytest
 import hypothesis as h
+
 from ..conftest import groups, defaults
 
 from pyarrow import set_timezone_db_path
@@ -233,17 +234,16 @@ def s3_server(s3_connection, tmpdir_factory):
 def gcs_server():
     port = find_free_port()
     env = os.environ.copy()
-    args = [sys.executable, '-m', 'testbench', '--port', str(port)]
+    exe = 'storage-testbench'
+    args = [exe, '--port', str(port)]
     proc = None
     try:
-        # check first if testbench module is available
-        import testbench  # noqa:F401
         # start server
         proc = subprocess.Popen(args, env=env)
         # Make sure the server is alive.
         if proc.poll() is not None:
             pytest.skip(f"Command {args} did not start server successfully!")
-    except (ModuleNotFoundError, OSError) as e:
+    except OSError as e:
         pytest.skip(f"Command {args} failed to execute: {e}")
     else:
         yield {
@@ -263,6 +263,9 @@ def azure_server(tmpdir_factory):
     tmpdir = tmpdir_factory.getbasetemp()
     # We only need blob service emulator, not queue or table.
     args = ['azurite-blob', "--location", tmpdir, "--blobPort", str(port)]
+    # For old Azurite. We can't install the latest Azurite with old
+    # Node.js on old Ubuntu.
+    args += ["--skipApiVersionCheck"]
     proc = None
     try:
         proc = subprocess.Popen(args, env=env)

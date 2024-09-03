@@ -18,12 +18,15 @@ package org.apache.arrow.memory;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.condition.JRE.JAVA_16;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledForJreRange;
 
 public class TestOpens {
   /** Instantiating the RootAllocator should poke MemoryUtil and fail. */
   @Test
+  @EnabledForJreRange(min = JAVA_16)
   public void testMemoryUtilFailsLoudly() {
     // This test is configured by Maven to run WITHOUT add-opens. So this should fail on JDK16+
     // (where JEP396 means that add-opens is required to access JDK internals).
@@ -44,6 +47,6 @@ public class TestOpens {
         break;
       }
     }
-    assertTrue(found, "Expected exception as not thrown");
+    assertTrue(found, "Expected exception was not thrown");
   }
 }

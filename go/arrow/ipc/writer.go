@@ -26,29 +26,29 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v17/arrow"
-	"github.com/apache/arrow/go/v17/arrow/array"
-	"github.com/apache/arrow/go/v17/arrow/bitutil"
-	"github.com/apache/arrow/go/v17/arrow/internal"
-	"github.com/apache/arrow/go/v17/arrow/internal/debug"
-	"github.com/apache/arrow/go/v17/arrow/internal/dictutils"
-	"github.com/apache/arrow/go/v17/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v17/arrow/memory"
-	"github.com/apache/arrow/go/v17/internal/utils"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/array"
+	"github.com/apache/arrow/go/v18/arrow/bitutil"
+	"github.com/apache/arrow/go/v18/arrow/internal"
+	"github.com/apache/arrow/go/v18/arrow/internal/debug"
+	"github.com/apache/arrow/go/v18/arrow/internal/dictutils"
+	"github.com/apache/arrow/go/v18/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v18/arrow/memory"
+	"github.com/apache/arrow/go/v18/internal/utils"
 )
 
-type swriter struct {
+type streamWriter struct {
 	w   io.Writer
 	pos int64
 }
 
-func (w *swriter) Start() error { return nil }
-func (w *swriter) Close() error {
+func (w *streamWriter) Start() error { return nil }
+func (w *streamWriter) Close() error {
 	_, err := w.Write(kEOS[:])
 	return err
 }
 
-func (w *swriter) WritePayload(p Payload) error {
+func (w *streamWriter) WritePayload(p Payload) error {
 	_, err := writeIPCPayload(w, p)
 	if err != nil {
 		return err
@@ -56,7 +56,7 @@ func (w *swriter) WritePayload(p Payload) error {
 	return nil
 }
 
-func (w *swriter) Write(p []byte) (int, error) {
+func (w *streamWriter) Write(p []byte) (int, error) {
 	n, err := w.w.Write(p)
 	w.pos += int64(n)
 	return n, err
@@ -118,7 +118,7 @@ func NewWriter(w io.Writer, opts ...Option) *Writer {
 	return &Writer{
 		w:              w,
 		mem:            cfg.alloc,
-		pw:             &swriter{w: w},
+		pw:             &streamWriter{w: w},
 		schema:         cfg.schema,
 		codec:          cfg.codec,
 		emitDictDeltas: cfg.emitDictDeltas,
@@ -159,15 +159,19 @@ func (w *Writer) Write(rec arrow.Record) (err error) {
 		}
 	}()
 
+	incomingSchema := rec.Schema()
+
 	if !w.started {
+		if w.schema == nil {
+			w.schema = incomingSchema
+		}
 		err := w.start()
 		if err != nil {
 			return err
 		}
 	}
 
-	schema := rec.Schema()
-	if schema == nil || !schema.Equal(w.schema) {
+	if incomingSchema == nil || !incomingSchema.Equal(w.schema) {
 		return errInconsistentSchema
 	}
 
@@ -853,19 +857,35 @@ func (w *recordEncoder) getZeroBasedValueOffsets(arr arrow.Array) *memory.Buffer
 		return nil
 	}
 
+	dataTypeWidth := arr.DataType().Layout().Buffers[1].ByteWidth
+
 	// if we have a non-zero offset, then the value offsets do not start at
 	// zero. we must a) create a new offsets array with shifted offsets and
 	// b) slice the values array accordingly
-	//
+	hasNonZeroOffset := data.Offset() != 0
+
 	// or if there are more value offsets than values (the array has been sliced)
 	// we need to trim off the trailing offsets
-	needsTruncateAndShift := data.Offset() != 0 || offsetBytesNeeded < voffsets.Len()
+	hasMoreOffsetsThanValues := offsetBytesNeeded < voffsets.Len()
+
+	// or if the offsets do not start from the zero index, we need to shift them
+	// and slice the values array
+	var firstOffset int64
+	if dataTypeWidth == 8 {
+		firstOffset = arrow.Int64Traits.CastFromBytes(voffsets.Bytes())[0]
+	} else {
+		firstOffset = int64(arrow.Int32Traits.CastFromBytes(voffsets.Bytes())[0])
+	}
+	offsetsDoNotStartFromZero := firstOffset != 0
+
+	// determine whether the offsets array should be shifted
+	needsTruncateAndShift := hasNonZeroOffset || hasMoreOffsetsThanValues || offsetsDoNotStartFromZero
 
 	if needsTruncateAndShift {
 		shiftedOffsets := memory.NewResizableBuffer(w.mem)
 		shiftedOffsets.Resize(offsetBytesNeeded)
 
-		switch arr.DataType().Layout().Buffers[1].ByteWidth {
+		switch dataTypeWidth {
 		case 8:
 			dest := arrow.Int64Traits.CastFromBytes(shiftedOffsets.Bytes())
 			offsets := arrow.Int64Traits.CastFromBytes(voffsets.Bytes())[data.Offset() : data.Offset()+data.Len()+1]

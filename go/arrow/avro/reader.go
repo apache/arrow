@@ -23,10 +23,10 @@ import (
 	"io"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v17/arrow"
-	"github.com/apache/arrow/go/v17/arrow/array"
-	"github.com/apache/arrow/go/v17/arrow/internal/debug"
-	"github.com/apache/arrow/go/v17/arrow/memory"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/array"
+	"github.com/apache/arrow/go/v18/arrow/internal/debug"
+	"github.com/apache/arrow/go/v18/arrow/memory"
 	"github.com/hamba/avro/v2/ocf"
 	"github.com/tidwall/sjson"
 

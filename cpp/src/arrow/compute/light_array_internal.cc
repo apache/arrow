@@ -118,10 +118,9 @@ Result<KeyColumnMetadata> ColumnMetadataFromDataType(
     const std::shared_ptr<DataType>& type) {
   const bool is_extension = type->id() == Type::EXTENSION;
   const std::shared_ptr<DataType>& typ =
-      is_extension
-          ? arrow::internal::checked_pointer_cast<ExtensionType>(type->GetSharedPtr())
-                ->storage_type()
-          : type;
+      is_extension ? arrow::internal::checked_cast<const ExtensionType*>(type.get())
+                         ->storage_type()
+                   : type;
 
   if (typ->id() == Type::DICTIONARY) {
     auto bit_width =
@@ -205,22 +204,25 @@ Status ColumnArraysFromExecBatch(const ExecBatch& batch,
                                    column_arrays);
 }
 
-void ResizableArrayData::Init(const std::shared_ptr<DataType>& data_type,
-                              MemoryPool* pool, int log_num_rows_min) {
+Status ResizableArrayData::Init(const std::shared_ptr<DataType>& data_type,
+                                MemoryPool* pool, int log_num_rows_min) {
 #ifndef NDEBUG
   if (num_rows_allocated_ > 0) {
-    ARROW_DCHECK(data_type_ != NULLPTR);
-    KeyColumnMetadata metadata_before =
-        ColumnMetadataFromDataType(data_type_).ValueOrDie();
-    KeyColumnMetadata metadata_after = ColumnMetadataFromDataType(data_type).ValueOrDie();
+    ARROW_DCHECK(data_type_ != nullptr);
+    const KeyColumnMetadata& metadata_before = column_metadata_;
+    ARROW_ASSIGN_OR_RAISE(KeyColumnMetadata metadata_after,
+                          ColumnMetadataFromDataType(data_type));
     ARROW_DCHECK(metadata_before.is_fixed_length == metadata_after.is_fixed_length &&
                  metadata_before.fixed_length == metadata_after.fixed_length);
   }
 #endif
+  ARROW_DCHECK(data_type != nullptr);
+  ARROW_ASSIGN_OR_RAISE(column_metadata_, ColumnMetadataFromDataType(data_type));
   Clear(/*release_buffers=*/false);
   log_num_rows_min_ = log_num_rows_min;
   data_type_ = data_type;
   pool_ = pool;
+  return Status::OK();
 }
 
 void ResizableArrayData::Clear(bool release_buffers) {
@@ -246,8 +248,6 @@ Status ResizableArrayData::ResizeFixedLengthBuffers(int num_rows_new) {
     num_rows_allocated_new *= 2;
   }
 
-  KeyColumnMetadata column_metadata = ColumnMetadataFromDataType(data_type_).ValueOrDie();
-
   if (buffers_[kFixedLengthBuffer] == NULLPTR) {
     ARROW_DCHECK(buffers_[kValidityBuffer] == NULLPTR &&
                  buffers_[kVariableLengthBuffer] == NULLPTR);
@@ -258,8 +258,8 @@ Status ResizableArrayData::ResizeFixedLengthBuffers(int num_rows_new) {
             bit_util::BytesForBits(num_rows_allocated_new) + kNumPaddingBytes, pool_));
     memset(mutable_data(kValidityBuffer), 0,
            bit_util::BytesForBits(num_rows_allocated_new) + kNumPaddingBytes);
-    if (column_metadata.is_fixed_length) {
-      if (column_metadata.fixed_length == 0) {
+    if (column_metadata_.is_fixed_length) {
+      if (column_metadata_.fixed_length == 0) {
         ARROW_ASSIGN_OR_RAISE(
             buffers_[kFixedLengthBuffer],
             AllocateResizableBuffer(
@@ -271,7 +271,7 @@ Status ResizableArrayData::ResizeFixedLengthBuffers(int num_rows_new) {
         ARROW_ASSIGN_OR_RAISE(
             buffers_[kFixedLengthBuffer],
             AllocateResizableBuffer(
-                num_rows_allocated_new * column_metadata.fixed_length + kNumPaddingBytes,
+                num_rows_allocated_new * column_metadata_.fixed_length + kNumPaddingBytes,
                 pool_));
       }
     } else {
@@ -300,15 +300,15 @@ Status ResizableArrayData::ResizeFixedLengthBuffers(int num_rows_new) {
     memset(mutable_data(kValidityBuffer) + bytes_for_bits_before, 0,
            bytes_for_bits_after - bytes_for_bits_before);
 
-    if (column_metadata.is_fixed_length) {
-      if (column_metadata.fixed_length == 0) {
+    if (column_metadata_.is_fixed_length) {
+      if (column_metadata_.fixed_length == 0) {
         RETURN_NOT_OK(buffers_[kFixedLengthBuffer]->Resize(
             bit_util::BytesForBits(num_rows_allocated_new) + kNumPaddingBytes));
         memset(mutable_data(kFixedLengthBuffer) + bytes_for_bits_before, 0,
                bytes_for_bits_after - bytes_for_bits_before);
       } else {
         RETURN_NOT_OK(buffers_[kFixedLengthBuffer]->Resize(
-            num_rows_allocated_new * column_metadata.fixed_length + kNumPaddingBytes));
+            num_rows_allocated_new * column_metadata_.fixed_length + kNumPaddingBytes));
       }
     } else {
       RETURN_NOT_OK(buffers_[kFixedLengthBuffer]->Resize(
@@ -323,10 +323,7 @@ Status ResizableArrayData::ResizeFixedLengthBuffers(int num_rows_new) {
 }
 
 Status ResizableArrayData::ResizeVaryingLengthBuffer() {
-  KeyColumnMetadata column_metadata;
-  column_metadata = ColumnMetadataFromDataType(data_type_).ValueOrDie();
-
-  if (!column_metadata.is_fixed_length) {
+  if (!column_metadata_.is_fixed_length) {
     int64_t min_new_size = buffers_[kFixedLengthBuffer]->data_as<int32_t>()[num_rows_];
     ARROW_DCHECK(var_len_buf_size_ > 0);
     if (var_len_buf_size_ < min_new_size) {
@@ -343,23 +340,19 @@ Status ResizableArrayData::ResizeVaryingLengthBuffer() {
 }
 
 KeyColumnArray ResizableArrayData::column_array() const {
-  KeyColumnMetadata column_metadata;
-  column_metadata = ColumnMetadataFromDataType(data_type_).ValueOrDie();
-  return KeyColumnArray(column_metadata, num_rows_,
+  return KeyColumnArray(column_metadata_, num_rows_,
                         buffers_[kValidityBuffer]->mutable_data(),
                         buffers_[kFixedLengthBuffer]->mutable_data(),
                         buffers_[kVariableLengthBuffer]->mutable_data());
 }
 
 std::shared_ptr<ArrayData> ResizableArrayData::array_data() const {
-  KeyColumnMetadata column_metadata;
-  column_metadata = ColumnMetadataFromDataType(data_type_).ValueOrDie();
-
-  auto valid_count = arrow::internal::CountSetBits(
-      buffers_[kValidityBuffer]->data(), /*offset=*/0, static_cast<int64_t>(num_rows_));
+  auto valid_count =
+      arrow::internal::CountSetBits(buffers_[kValidityBuffer]->data(), /*bit_offset=*/0,
+                                    static_cast<int64_t>(num_rows_));
   int null_count = static_cast<int>(num_rows_) - static_cast<int>(valid_count);
 
-  if (column_metadata.is_fixed_length) {
+  if (column_metadata_.is_fixed_length) {
     return ArrayData::Make(data_type_, num_rows_,
                            {buffers_[kValidityBuffer], buffers_[kFixedLengthBuffer]},
                            null_count);
@@ -493,10 +486,12 @@ Status ExecBatchBuilder::AppendSelected(const std::shared_ptr<ArrayData>& source
   ARROW_DCHECK(num_rows_before >= 0);
   int num_rows_after = num_rows_before + num_rows_to_append;
   if (target->num_rows() == 0) {
-    target->Init(source->type, pool, kLogNumRows);
+    RETURN_NOT_OK(target->Init(source->type, pool, kLogNumRows));
   }
   RETURN_NOT_OK(target->ResizeFixedLengthBuffers(num_rows_after));
 
+  // Since target->Init is called before, we can assume that the ColumnMetadata
+  // would never fail to be created
   KeyColumnMetadata column_metadata =
       ColumnMetadataFromDataType(source->type).ValueOrDie();
 
@@ -647,11 +642,12 @@ Status ExecBatchBuilder::AppendNulls(const std::shared_ptr<DataType>& type,
   int num_rows_before = target.num_rows();
   int num_rows_after = num_rows_before + num_rows_to_append;
   if (target.num_rows() == 0) {
-    target.Init(type, pool, kLogNumRows);
+    RETURN_NOT_OK(target.Init(type, pool, kLogNumRows));
   }
   RETURN_NOT_OK(target.ResizeFixedLengthBuffers(num_rows_after));
 
-  KeyColumnMetadata column_metadata = ColumnMetadataFromDataType(type).ValueOrDie();
+  ARROW_ASSIGN_OR_RAISE(KeyColumnMetadata column_metadata,
+                        ColumnMetadataFromDataType(type));
 
   // Process fixed length buffer
   //
@@ -708,7 +704,7 @@ Status ExecBatchBuilder::AppendSelected(MemoryPool* pool, const ExecBatch& batch
       const Datum& data = batch.values[col_ids ? col_ids[i] : i];
       ARROW_DCHECK(data.is_array());
       const std::shared_ptr<ArrayData>& array_data = data.array();
-      values_[i].Init(array_data->type, pool, kLogNumRows);
+      RETURN_NOT_OK(values_[i].Init(array_data->type, pool, kLogNumRows));
     }
   }
 
@@ -739,7 +735,7 @@ Status ExecBatchBuilder::AppendNulls(MemoryPool* pool,
   if (values_.empty()) {
     values_.resize(types.size());
     for (size_t i = 0; i < types.size(); ++i) {
-      values_[i].Init(types[i], pool, kLogNumRows);
+      RETURN_NOT_OK(values_[i].Init(types[i], pool, kLogNumRows));
     }
   }
 

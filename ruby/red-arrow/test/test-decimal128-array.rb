@@ -38,4 +38,10 @@ class Decimal128ArrayTest < Test::Unit::TestCase
                    array.to_a)
     end
   end
+
+  def test_zero
+    array = Arrow::Decimal128Array.new({precision: 38, scale: 9},
+                                       [BigDecimal("0")])
+    assert_equal(BigDecimal("0"), array[0])
+  end
 end

@@ -30,7 +30,6 @@ jobs:
       ARCH: {{ '${{ matrix.platform.archery_arch }}' }}
       ARCH_ALIAS: {{ '${{ matrix.platform.archery_arch_alias }}' }}
       ARCH_SHORT: {{ '${{ matrix.platform.archery_arch_short }}' }}
-      ARCHERY_USE_DOCKER_CLI: {{ "${{matrix.platform.archery_use_docker_cli || '1'}}" }}
     strategy:
       fail-fast: false
       matrix:
@@ -45,7 +44,6 @@ jobs:
             archery_arch: "arm64v8"
             archery_arch_alias: "aarch64"
             archery_arch_short: "arm64"
-            archery_use_docker_cli: "0"
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_free_space()|indent }}
@@ -83,7 +81,7 @@ jobs:
           - { runs_on: ["macos-13"], arch: "x86_64"}
           - { runs_on: ["macos-14"], arch: "aarch_64" }
     env:
-      MACOSX_DEPLOYMENT_TARGET: "10.15"
+      MACOSX_DEPLOYMENT_TARGET: "14.0"
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       - name: Set up Python
@@ -250,7 +248,6 @@ jobs:
           pushd arrow/java
           mvn versions:set -DnewVersion={{ arrow.no_rc_snapshot_version }}
           mvn versions:set -DnewVersion={{ arrow.no_rc_snapshot_version }} -f bom
-          mvn versions:set -DnewVersion={{ arrow.no_rc_snapshot_version }} -f maven
           popd
           arrow/ci/scripts/java_full_build.sh \
             $GITHUB_WORKSPACE/arrow \

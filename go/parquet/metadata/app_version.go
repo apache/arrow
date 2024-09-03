@@ -21,8 +21,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/apache/arrow/go/v17/parquet"
-	"github.com/apache/arrow/go/v17/parquet/schema"
+	"github.com/apache/arrow/go/v18/parquet"
+	"github.com/apache/arrow/go/v18/parquet/schema"
 )
 
 var (
@@ -164,7 +164,7 @@ func (v AppVersion) HasCorrectStatistics(coltype parquet.Type, logicalType schem
 	// parquet-cpp-arrow version 4.0.0 fixed Decimal comparisons for creating min/max stats
 	// parquet-cpp also becomes parquet-cpp-arrow as of version 4.0.0
 	if v.App == "parquet-cpp" || (v.App == "parquet-cpp-arrow" && v.LessThan(parquet1655FixedVersion)) {
-		if _, ok := logicalType.(*schema.DecimalLogicalType); ok && coltype == parquet.Types.FixedLenByteArray {
+		if _, ok := logicalType.(schema.DecimalLogicalType); ok && coltype == parquet.Types.FixedLenByteArray {
 			return false
 		}
 	}

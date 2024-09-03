@@ -40,7 +40,7 @@ We prefer to receive contributions in the form of GitHub pull requests. Please
 send pull requests against the [github.com/apache/arrow][4] repository following
 the procedure below.
 
-If you are looking for some ideas on what to contribute, check out the [JIRA
+If you are looking for some ideas on what to contribute, check out the [GitHub
 issues][3] for the Apache Arrow project. Comment on the issue and/or contact
 [dev@arrow.apache.org](https://lists.apache.org/list.html?dev@arrow.apache.org)
 with your questions and ideas.
@@ -53,8 +53,8 @@ To contribute a patch:
 
 1. Break your work into small, single-purpose patches if possible. It’s much
 harder to merge in a large change with a lot of disjoint features.
-2. If one doesn't already exist, create a JIRA for your patch on the [Arrow Project
-JIRA](https://issues.apache.org/jira/browse/ARROW).
+2. If one doesn't already exist, create a GitHub issue for your patch on the [Arrow Project
+GitHub](https://github.com/apache/arrow/issues).
 3. Submit the patch as a GitHub pull request against the main branch. For a
 tutorial, see the GitHub guides on [forking a repo](https://help.github.com/en/articles/fork-a-repo)
 and [sending a pull request](https://help.github.com/en/articles/creating-a-pull-request-from-a-fork). So that your pull request syncs with the JIRA issue, prefix your pull request
@@ -68,5 +68,5 @@ Thank you in advance for your contributions!
 
 [1]: mailto:dev-subscribe@arrow.apache.org
 [2]: https://github.com/apache/arrow/tree/main/format
-[3]: https://issues.apache.org/jira/browse/ARROW
+[3]: https://github.com/apache/arrow/issues
 [4]: https://github.com/apache/arrow

@@ -25,12 +25,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/apache/arrow/go/v17/arrow"
-	"github.com/apache/arrow/go/v17/arrow/array"
-	"github.com/apache/arrow/go/v17/arrow/decimal128"
-	"github.com/apache/arrow/go/v17/arrow/decimal256"
-	"github.com/apache/arrow/go/v17/arrow/float16"
-	"github.com/apache/arrow/go/v17/arrow/memory"
+	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/array"
+	"github.com/apache/arrow/go/v18/arrow/decimal128"
+	"github.com/apache/arrow/go/v18/arrow/decimal256"
+	"github.com/apache/arrow/go/v18/arrow/float16"
+	"github.com/apache/arrow/go/v18/arrow/memory"
 )
 
 type TypeToScalar interface {
@@ -329,7 +329,7 @@ func fromListScalar(s ListScalar, v reflect.Value) error {
 		}
 	case *array.Map:
 		// only implementing slice of metadata for now
-		if v.Type().Elem() != reflect.PtrTo(reflect.TypeOf(arrow.Metadata{})) {
+		if v.Type().Elem() != reflect.PointerTo(reflect.TypeOf(arrow.Metadata{})) {
 			return fmt.Errorf("unimplemented fromListScalar type %s to %s", arr.DataType(), v.Type().String())
 		}
 
