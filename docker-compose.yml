@@ -53,8 +53,6 @@
 #
 # See more in cpp/build-support/run-test.sh::print_coredumps
 
-version: '3.5'
-
 x-common: &common
   GITHUB_ACTIONS:
 
