@@ -107,7 +107,7 @@ under the License.
     <forkCount>2</forkCount>
     <checkstyle.version>10.17.0</checkstyle.version>
     <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
-    <error_prone_core.version>2.30.0</error_prone_core.version>
+    <error_prone_core.version>2.31.0</error_prone_core.version>
     <mockito.core.version>5.11.0</mockito.core.version>
     <mockito.inline.version>5.2.0</mockito.inline.version>
     <checker.framework.version>3.46.0</checker.framework.version>
@@ -279,7 +279,7 @@ under the License.
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-junit-jupiter</artifactId>
-      <version>5.12.0</version>
+      <version>5.13.0</version>
       <scope>test</scope>
     </dependency>
     <dependency>

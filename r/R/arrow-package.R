@@ -41,7 +41,7 @@ supported_dplyr_methods <- list(
   collect = NULL,
   summarise = c(
     "window functions not currently supported;",
-    'arguments `.drop = FALSE` and `.groups = "rowwise" not supported'
+    'arguments `.drop = FALSE` and `.groups = "rowwise"` not supported'
   ),
   group_by = NULL,
   groups = NULL,

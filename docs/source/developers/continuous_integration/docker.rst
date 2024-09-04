@@ -156,6 +156,18 @@ The following example starts an interactive ``bash`` session in the container
 
     archery docker run ubuntu-cpp bash
 
+**Build the image with increased debugging output:**
+
+To enable additional logging output for debugging, pass the ``--debug`` flag
+to ``archery``.
+
+.. code:: bash
+
+    archery --debug docker run ubuntu-cpp
+
+In addition to enabling ``DEBUG``-level logging, this also translates to
+passing ``--progress=plain`` to docker(-compose) build command.
+
 Docker Volume Caches
 ~~~~~~~~~~~~~~~~~~~~
 

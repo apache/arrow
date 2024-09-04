@@ -18,7 +18,16 @@
 // Trigger the array import (inversion of NO_IMPORT_ARRAY)
 #define NUMPY_IMPORT_ARRAY
 
-#include "arrow/python/init.h"
+#include "arrow/python/numpy_init.h"
 #include "arrow/python/numpy_interop.h"
 
-int arrow_init_numpy() { return arrow::py::import_numpy(); }
+namespace arrow::py {
+bool numpy_imported = false;
+
+int arrow_init_numpy() {
+  numpy_imported = true;
+  return arrow::py::import_numpy();
+}
+
+bool has_numpy() { return numpy_imported; }
+}  // namespace arrow::py

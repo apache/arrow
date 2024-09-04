@@ -17,6 +17,10 @@
 
 #include "arrow/compute/kernels/aggregate_basic_internal.h"
 
+// Include templated definitions for aggregate kernels that must compiled here
+// with the SIMD level configured for this compilation unit in the build.
+#include "arrow/compute/kernels/aggregate_basic.inc.cc"  // NOLINT(build/include)
+
 namespace arrow {
 namespace compute {
 namespace internal {
@@ -24,14 +28,11 @@ namespace internal {
 // ----------------------------------------------------------------------
 // Sum implementation
 
+namespace {
+
 template <typename ArrowType>
 struct SumImplAvx2 : public SumImpl<ArrowType, SimdLevel::AVX2> {
   using SumImpl<ArrowType, SimdLevel::AVX2>::SumImpl;
-};
-
-template <typename ArrowType>
-struct MeanImplAvx2 : public MeanImpl<ArrowType, SimdLevel::AVX2> {
-  using MeanImpl<ArrowType, SimdLevel::AVX2>::MeanImpl;
 };
 
 Result<std::unique_ptr<KernelState>> SumInitAvx2(KernelContext* ctx,
@@ -42,6 +43,24 @@ Result<std::unique_ptr<KernelState>> SumInitAvx2(KernelContext* ctx,
   return visitor.Create();
 }
 
+}  // namespace
+
+void AddSumAvx2AggKernels(ScalarAggregateFunction* func) {
+  AddBasicAggKernels(SumInitAvx2, SignedIntTypes(), int64(), func, SimdLevel::AVX2);
+  AddBasicAggKernels(SumInitAvx2, UnsignedIntTypes(), uint64(), func, SimdLevel::AVX2);
+  AddBasicAggKernels(SumInitAvx2, FloatingPointTypes(), float64(), func, SimdLevel::AVX2);
+}
+
+// ----------------------------------------------------------------------
+// Mean implementation
+
+namespace {
+
+template <typename ArrowType>
+struct MeanImplAvx2 : public MeanImpl<ArrowType, SimdLevel::AVX2> {
+  using MeanImpl<ArrowType, SimdLevel::AVX2>::MeanImpl;
+};
+
 Result<std::unique_ptr<KernelState>> MeanInitAvx2(KernelContext* ctx,
                                                   const KernelInitArgs& args) {
   SumLikeInit<MeanImplAvx2> visitor(
@@ -50,8 +69,16 @@ Result<std::unique_ptr<KernelState>> MeanInitAvx2(KernelContext* ctx,
   return visitor.Create();
 }
 
+}  // namespace
+
+void AddMeanAvx2AggKernels(ScalarAggregateFunction* func) {
+  AddBasicAggKernels(MeanInitAvx2, NumericTypes(), float64(), func, SimdLevel::AVX2);
+}
+
 // ----------------------------------------------------------------------
 // MinMax implementation
+
+namespace {
 
 Result<std::unique_ptr<KernelState>> MinMaxInitAvx2(KernelContext* ctx,
                                                     const KernelInitArgs& args) {
@@ -63,15 +90,7 @@ Result<std::unique_ptr<KernelState>> MinMaxInitAvx2(KernelContext* ctx,
   return visitor.Create();
 }
 
-void AddSumAvx2AggKernels(ScalarAggregateFunction* func) {
-  AddBasicAggKernels(SumInitAvx2, SignedIntTypes(), int64(), func, SimdLevel::AVX2);
-  AddBasicAggKernels(SumInitAvx2, UnsignedIntTypes(), uint64(), func, SimdLevel::AVX2);
-  AddBasicAggKernels(SumInitAvx2, FloatingPointTypes(), float64(), func, SimdLevel::AVX2);
-}
-
-void AddMeanAvx2AggKernels(ScalarAggregateFunction* func) {
-  AddBasicAggKernels(MeanInitAvx2, NumericTypes(), float64(), func, SimdLevel::AVX2);
-}
+}  // namespace
 
 void AddMinMaxAvx2AggKernels(ScalarAggregateFunction* func) {
   // Enable int types for AVX2 variants.

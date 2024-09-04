@@ -19,10 +19,13 @@ import ctypes
 import hypothesis as h
 import hypothesis.strategies as st
 
-import numpy as np
+import pytest
+try:
+    import numpy as np
+except ImportError:
+    np = None
 import pyarrow as pa
 import pyarrow.tests.strategies as past
-import pytest
 
 
 all_types = st.deferred(
@@ -39,6 +42,7 @@ all_types = st.deferred(
 
 # datetime is tested in test_extra.py
 # dictionary is tested in test_categorical()
+@pytest.mark.numpy
 @h.given(past.arrays(all_types, size=3))
 def test_dtypes(arr):
     table = pa.table([arr], names=["a"])
@@ -51,6 +55,7 @@ def test_dtypes(arr):
     assert df.get_column(0).offset == 0
 
 
+@pytest.mark.numpy
 @pytest.mark.parametrize(
     "uint, uint_bw",
     [
@@ -68,17 +73,17 @@ def test_dtypes(arr):
     ]
 )
 @pytest.mark.parametrize(
-    "float, float_bw, np_float", [
-        (pa.float16(), 16, np.float16),
-        (pa.float32(), 32, np.float32),
-        (pa.float64(), 64, np.float64)
+    "float, float_bw, np_float_str", [
+        (pa.float16(), 16, "float16"),
+        (pa.float32(), 32, "float32"),
+        (pa.float64(), 64, "float64")
     ]
 )
 @pytest.mark.parametrize("unit", ['s', 'ms', 'us', 'ns'])
 @pytest.mark.parametrize("tz", ['', 'America/New_York', '+07:30', '-04:30'])
 @pytest.mark.parametrize("use_batch", [False, True])
 def test_mixed_dtypes(uint, uint_bw, int, int_bw,
-                      float, float_bw, np_float, unit, tz,
+                      float, float_bw, np_float_str, unit, tz,
                       use_batch):
     from datetime import datetime as dt
     arr = [1, 2, 3]
@@ -87,7 +92,7 @@ def test_mixed_dtypes(uint, uint_bw, int, int_bw,
         {
             "a": pa.array(arr, type=uint),
             "b": pa.array(arr, type=int),
-            "c": pa.array(np.array(arr, dtype=np_float), type=float),
+            "c": pa.array(np.array(arr, dtype=np.dtype(np_float_str)), type=float),
             "d": [True, False, True],
             "e": ["a", "", "c"],
             "f": pa.array(dt_arr, type=pa.timestamp(unit, tz=tz))
@@ -200,16 +205,16 @@ def test_column_get_chunks(use_batch, size, n_chunks):
     "int", [pa.int8(), pa.int16(), pa.int32(), pa.int64()]
 )
 @pytest.mark.parametrize(
-    "float, np_float", [
-        (pa.float16(), np.float16),
-        (pa.float32(), np.float32),
-        (pa.float64(), np.float64)
+    "float, np_float_str", [
+        (pa.float16(), "float16"),
+        (pa.float32(), "float32"),
+        (pa.float64(), "float64")
     ]
 )
 @pytest.mark.parametrize("use_batch", [False, True])
-def test_get_columns(uint, int, float, np_float, use_batch):
+def test_get_columns(uint, int, float, np_float_str, use_batch):
     arr = [[1, 2, 3], [4, 5]]
-    arr_float = np.array([1, 2, 3, 4, 5], dtype=np_float)
+    arr_float = np.array([1, 2, 3, 4, 5], dtype=np.dtype(np_float_str))
     table = pa.table(
         {
             "a": pa.chunked_array(arr, type=uint),
