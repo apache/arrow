@@ -124,6 +124,12 @@ class IntegrationTest {
           scenario.client(allocator, location, client);
         }
       }
+
+      // Shutdown the executor while allowing existing tasks to finish.
+      // Without this wait, allocator.close() may get invoked earlier than an executor thread may
+      // have finished freeing up resources
+      // In that case, allocator.close() can throw an IllegalStateException for memory leak, leading
+      // to flaky tests
       exec.shutdown();
       final boolean unused = exec.awaitTermination(3, TimeUnit.SECONDS);
     } catch (IllegalStateException e) {
