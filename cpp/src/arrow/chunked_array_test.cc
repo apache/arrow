@@ -547,7 +547,8 @@ class TestChunkResolverMany : public ::testing::Test {
     logical_index_vec.reserve(num_logical_indices);
     std::uniform_int_distribution<uint64_t> logical_index_gen(1, kMaxValidIndex);
     for (int64_t i = 0; i < num_logical_indices; i++) {
-      logical_index_vec.push_back(static_cast<IndexType>(logical_index_gen(rng)));
+      const auto index = static_cast<IndexType>(logical_index_gen(rng));
+      logical_index_vec.push_back(index);
     }
     // ...and sprinkle some extreme logical index values.
     std::uniform_int_distribution<size_t> position_gen(0, logical_index_vec.size() - 1);
