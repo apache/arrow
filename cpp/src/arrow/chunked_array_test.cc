@@ -551,7 +551,7 @@ class TestChunkResolverMany : public ::testing::Test {
       logical_index_vec.push_back(index);
     }
     // ...and sprinkle some extreme logical index values.
-    std::uniform_int_distribution<size_t> position_gen(0, logical_index_vec.size() - 1);
+    std::uniform_int_distribution<int64_t> position_gen(0, logical_index_vec.size() - 1);
     for (int i = 0; i < 2; i++) {
       auto max_valid_index =
           std::min(kMaxValidIndex, static_cast<uint64_t>(chunked_array_len));
