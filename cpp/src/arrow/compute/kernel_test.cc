@@ -36,7 +36,7 @@ namespace compute {
 
 TEST(TypeMatcher, SameTypeId) {
   std::shared_ptr<TypeMatcher> matcher = match::SameTypeId(Type::DECIMAL);
-  ASSERT_TRUE(matcher->Matches(*decimal(12, 2)));
+  ASSERT_TRUE(matcher->Matches(*decimal(20, 2)));
   ASSERT_FALSE(matcher->Matches(*int8()));
 
   ASSERT_EQ("Type::DECIMAL128", matcher->ToString());
@@ -120,7 +120,7 @@ TEST(InputType, Constructors) {
   InputType ty2(Type::DECIMAL);
   ASSERT_EQ(InputType::USE_TYPE_MATCHER, ty2.kind());
   ASSERT_EQ("Type::DECIMAL128", ty2.ToString());
-  ASSERT_TRUE(ty2.type_matcher().Matches(*decimal(12, 2)));
+  ASSERT_TRUE(ty2.type_matcher().Matches(*decimal128(12, 2)));
   ASSERT_FALSE(ty2.type_matcher().Matches(*int16()));
 
   // Implicit construction in a vector
@@ -203,7 +203,7 @@ TEST(InputType, Matches) {
   ASSERT_TRUE(input1.Matches(*int8()));
   ASSERT_FALSE(input1.Matches(*int16()));
 
-  InputType input2(Type::DECIMAL);
+  InputType input2(Type::DECIMAL64);
   ASSERT_TRUE(input2.Matches(*decimal(12, 2)));
 
   auto ty2 = decimal(12, 2);
@@ -312,7 +312,7 @@ TEST(OutputType, Resolve) {
 
 TEST(KernelSignature, Basics) {
   // (int8, decimal) -> utf8
-  std::vector<InputType> in_types({int8(), InputType(Type::DECIMAL)});
+  std::vector<InputType> in_types({int8(), InputType(Type::DECIMAL64)});
   OutputType out_type(utf8());
 
   KernelSignature sig(in_types, out_type);
@@ -381,7 +381,7 @@ TEST(KernelSignature, MatchesInputs) {
 
   ASSERT_FALSE(sig2.MatchesInputs({}));
   ASSERT_FALSE(sig2.MatchesInputs({int8()}));
-  ASSERT_TRUE(sig2.MatchesInputs({int8(), decimal(12, 2)}));
+  ASSERT_TRUE(sig2.MatchesInputs({int8(), decimal128(12, 2)}));
 
   // (int8, int32) -> boolean
   KernelSignature sig3({int8(), int32()}, boolean());

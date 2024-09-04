@@ -619,7 +619,7 @@ struct GroupedReducingFactory {
   Status Visit(const T&) {
     kernel = MakeKernel(std::move(argument_type), HashAggregateInit<Impl<T>>);
     return Status::OK();
-  }
+  }  
 
   Status Visit(const Decimal128Type&) {
     kernel =
@@ -880,6 +880,12 @@ struct GroupedVarStdImpl : public GroupedAggregator {
   double ToDouble(T value) const {
     return static_cast<double>(value);
   }
+  double ToDouble(const Decimal32& value) const {
+    return value.ToDouble(decimal_scale_);
+  }
+  double ToDouble(const Decimal64& value) const {
+    return value.ToDouble(decimal_scale_);
+  }
   double ToDouble(const Decimal128& value) const {
     return value.ToDouble(decimal_scale_);
   }
@@ -892,7 +898,7 @@ struct GroupedVarStdImpl : public GroupedAggregator {
   // float/double/int64/decimal: calculate `m2` (sum((X-mean)^2)) with
   // `two pass algorithm` (see aggregate_var_std.cc)
   template <typename T = Type>
-  enable_if_t<is_floating_type<T>::value || (sizeof(CType) > 4), Status> ConsumeImpl(
+  enable_if_t<is_floating_type<T>::value || (sizeof(CType) > 4) || (!is_integer_type<T>::value && sizeof(CType) == 4), Status> ConsumeImpl(
       const ExecSpan& batch) {
     using SumType = typename internal::GetSumType<T>::SumType;
 
@@ -1186,6 +1192,12 @@ struct GroupedTDigestImpl : public GroupedAggregator {
   double ToDouble(T value) const {
     return static_cast<double>(value);
   }
+  double ToDouble(const Decimal32& value) const {
+    return value.ToDouble(decimal_scale_);
+  }
+  double ToDouble(const Decimal64& value) const {
+    return value.ToDouble(decimal_scale_);
+  }
   double ToDouble(const Decimal128& value) const {
     return value.ToDouble(decimal_scale_);
   }
@@ -1363,6 +1375,18 @@ template <>
 struct AntiExtrema<double> {
   static constexpr double anti_min() { return std::numeric_limits<double>::infinity(); }
   static constexpr double anti_max() { return -std::numeric_limits<double>::infinity(); }
+};
+
+template <>
+struct AntiExtrema<Decimal32> {
+  static constexpr Decimal32 anti_min() { return BasicDecimal32::GetMaxSentinel(); }
+  static constexpr Decimal32 anti_max() { return BasicDecimal32::GetMinSentinel(); }
+};
+
+template <>
+struct AntiExtrema<Decimal64> {
+  static constexpr Decimal64 anti_min() { return BasicDecimal64::GetMaxSentinel(); }
+  static constexpr Decimal64 anti_max() { return BasicDecimal64::GetMinSentinel(); }
 };
 
 template <>

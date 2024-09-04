@@ -152,6 +152,42 @@ class ArrayDataEndianSwapper {
     return Status::OK();
   }
 
+  Status Visit(const Decimal32Type& type) {
+    auto data = reinterpret_cast<const uint32_t*>(data_->buffers[1]->data());
+    ARROW_ASSIGN_OR_RAISE(auto new_buffer,
+                          AllocateBuffer(data_->buffers[1]->size(), pool_));
+    auto new_data = reinterpret_cast<uint32_t*>(new_buffer->mutable_data());
+    // NOTE: data_->length not trusted (see warning above)
+    const int64_t length = data_->buffers[1]->size() / Decimal32Type::kByteWidth;
+    for (int64_t i = 0; i < length; i++) {
+#if ARROW_LITTLE_ENDIAN
+      new_data[i] = bit_util::FromBigEndian(data[i]);
+#else
+      new_data[i] = bit_util::FromLittleEndian(data[i]);
+#endif
+    }
+    out_->buffers[1] = std::move(new_buffer);
+    return Status::OK();
+  }
+
+  Status Visit(const Decimal64Type& type) {
+    auto data = reinterpret_cast<const uint64_t*>(data_->buffers[1]->data());
+    ARROW_ASSIGN_OR_RAISE(auto new_buffer,
+                          AllocateBuffer(data_->buffers[1]->size(), pool_));
+    auto new_data = reinterpret_cast<uint64_t*>(new_buffer->mutable_data());
+    // NOTE: data_->length not trusted (see warning above)
+    const int64_t length = data_->buffers[1]->size() / Decimal64Type::kByteWidth;
+    for (int64_t i = 0; i < length; i++) {
+#if ARROW_LITTLE_ENDIAN
+      new_data[i] = bit_util::FromBigEndian(data[i]);
+#else
+      new_data[i] = bit_util::FromLittleEndian(data[i]);
+#endif
+    }
+    out_->buffers[1] = std::move(new_buffer);
+    return Status::OK();
+  }
+
   Status Visit(const Decimal128Type& type) {
     auto data = reinterpret_cast<const uint64_t*>(data_->buffers[1]->data());
     ARROW_ASSIGN_OR_RAISE(auto new_buffer,

@@ -71,6 +71,7 @@ struct BaseDecimalRealConversion {
 template <typename DecimalType, typename Derived>
 struct DecimalRealConversion : public BaseDecimalRealConversion {
   using DecimalTypeTraits = DecimalTraits<DecimalType>;
+
   static constexpr int kMaxPrecision = DecimalType::kMaxPrecision;
   static constexpr int kMaxScale = DecimalType::kMaxScale;
 
@@ -237,6 +238,140 @@ struct DecimalRealConversion : public BaseDecimalRealConversion {
   }
 };
 
+struct Decimal32RealConversion
+    : public DecimalRealConversion<Decimal32, Decimal32RealConversion> {
+  using Base = DecimalRealConversion<Decimal32, Decimal32RealConversion>;
+  using Base::LargePowerOfTen;
+  using Base::PowerOfTen;
+
+  static Decimal32 RoundedRightShift(const Decimal32& x, int bits) {
+    if (bits == 0) {
+      return x;
+    }
+
+    int32_t result = x.value();
+    uint32_t shifted = 0;
+    if (bits > 0) {
+      shifted = (result << (32 - bits));
+      result >>= bits;
+    }
+    constexpr uint32_t kHalf = 0x80000000;
+    if (shifted > kHalf) {
+      // strictly more than half => round up
+      result += 1;
+    } else if (shifted == kHalf) {
+      // exactly half => round to even
+      if ((result & 1) != 0) {
+        result += 1;
+      }
+    } else {
+      // strictly less than half => round down
+    }
+    return Decimal32(result);
+  }
+
+  template <typename Real>
+  static Result<Decimal32> FromPositiveRealApprox(Real real, int32_t precision,
+                                                  int32_t scale) {
+    const auto x = std::nearbyint(real * PowerOfTen<Real>(scale));
+    const auto max_abs = PowerOfTen<Real>(precision);
+    if (x <= -max_abs || x >= max_abs) {
+      return OverflowError(real, precision, scale);
+    }
+
+    return Decimal32(static_cast<int32_t>(x));
+  }
+
+  template <typename Real>
+  static Real ToRealPositiveNoSplit(const Decimal32& decimal, int32_t scale) {
+    Real x = static_cast<Real>(decimal.value());
+    x *= LargePowerOfTen<Real>(-scale);
+    return x;
+  }
+
+  template <typename Real>
+  static Real ToRealPositive(const Decimal32& decimal, int32_t scale) {
+    if (scale <= 0 || uint64_t(decimal.value()) <= RealTraits<Real>::kMaxPreciseInteger) {
+      return ToRealPositiveNoSplit<Real>(decimal, scale);
+    }
+
+    Decimal32 whole_decimal, fraction_decimal;
+    decimal.GetWholeAndFraction(scale, &whole_decimal, &fraction_decimal);
+
+    Real whole = ToRealPositiveNoSplit<Real>(whole_decimal, 0);
+    Real fraction = ToRealPositiveNoSplit<Real>(fraction_decimal, scale);
+
+    return whole + fraction;
+  }
+};
+
+struct Decimal64RealConversion
+    : public DecimalRealConversion<Decimal64, Decimal64RealConversion> {
+  using Base = DecimalRealConversion<Decimal64, Decimal64RealConversion>;
+  using Base::LargePowerOfTen;
+  using Base::PowerOfTen;
+
+  static Decimal64 RoundedRightShift(const Decimal64& x, int bits) {
+    if (bits == 0) {
+      return x;
+    }
+
+    int32_t result = x.value();
+    uint32_t shifted = 0;
+    if (bits > 0) {
+      shifted = (result << (64 - bits));
+      result >>= bits;
+    }
+    constexpr uint64_t kHalf = 0x8000000000000000ULL;
+    if (shifted > kHalf) {
+      // strictly more than half => round up
+      result += 1;
+    } else if (shifted == kHalf) {
+      // exactly half => round to even
+      if ((result & 1) != 0) {
+        result += 1;
+      }
+    } else {
+      // strictly less than half => round down
+    }
+    return Decimal64(result);
+  }
+
+  template <typename Real>
+  static Result<Decimal64> FromPositiveRealApprox(Real real, int32_t precision,
+                                                  int32_t scale) {
+    const auto x = std::nearbyint(real * PowerOfTen<Real>(scale));
+    const auto max_abs = PowerOfTen<Real>(precision);
+    if (x <= -max_abs || x >= max_abs) {
+      return OverflowError(real, precision, scale);
+    }
+
+    return Decimal64(static_cast<int64_t>(x));
+  }
+
+  template <typename Real>
+  static Real ToRealPositiveNoSplit(const Decimal64& decimal, int32_t scale) {
+    Real x = static_cast<Real>(decimal.value());
+    x *= LargePowerOfTen<Real>(-scale);
+    return x;
+  }
+
+  template <typename Real>
+  static Real ToRealPositive(const Decimal64& decimal, int32_t scale) {
+    if (scale <= 0 || uint64_t(decimal.value()) <= RealTraits<Real>::kMaxPreciseInteger) {
+      return ToRealPositiveNoSplit<Real>(decimal, scale);
+    }
+
+    Decimal64 whole_decimal, fraction_decimal;
+    decimal.GetWholeAndFraction(scale, &whole_decimal, &fraction_decimal);
+
+    Real whole = ToRealPositiveNoSplit<Real>(whole_decimal, 0);
+    Real fraction = ToRealPositiveNoSplit<Real>(fraction_decimal, scale);
+
+    return whole + fraction;
+  }
+};
+
 struct Decimal128RealConversion
     : public DecimalRealConversion<Decimal128, Decimal128RealConversion> {
   using Base = DecimalRealConversion<Decimal128, Decimal128RealConversion>;
@@ -341,6 +476,54 @@ struct Decimal128RealConversion
 };
 
 }  // namespace
+
+Decimal32::Decimal32(const std::string& str) : Decimal32() {
+  *this = FromString(str).ValueOrDie();
+}
+
+Result<Decimal32> Decimal32::FromReal(float x, int32_t precision, int32_t scale) {
+  return Decimal32RealConversion::FromReal(x, precision, scale);
+}
+
+Result<Decimal32> Decimal32::FromReal(double x, int32_t precision, int32_t scale) {
+  return Decimal32RealConversion::FromReal(x, precision, scale);
+}
+
+float Decimal32::ToFloat(int32_t scale) const {
+  return Decimal32RealConversion::ToReal<float>(*this, scale);
+}
+
+double Decimal32::ToDouble(int32_t scale) const {
+  return Decimal32RealConversion::ToReal<double>(*this, scale);
+}
+
+std::string Decimal32::ToIntegerString() const { return std::to_string(value_); }
+
+Decimal32::operator int64_t() const { return static_cast<int64_t>(value_); }
+
+Decimal64::Decimal64(const std::string& str) : Decimal64() {
+  *this = FromString(str).ValueOrDie();
+}
+
+Result<Decimal64> Decimal64::FromReal(float x, int32_t precision, int32_t scale) {
+  return Decimal64RealConversion::FromReal(x, precision, scale);
+}
+
+Result<Decimal64> Decimal64::FromReal(double x, int32_t precision, int32_t scale) {
+  return Decimal64RealConversion::FromReal(x, precision, scale);
+}
+
+float Decimal64::ToFloat(int32_t scale) const {
+  return Decimal64RealConversion::ToReal<float>(*this, scale);
+}
+
+double Decimal64::ToDouble(int32_t scale) const {
+  return Decimal64RealConversion::ToReal<double>(*this, scale);
+}
+
+std::string Decimal64::ToIntegerString() const { return std::to_string(value_); }
+
+Decimal64::operator int64_t() const { return static_cast<int64_t>(value_); }
 
 Decimal128::Decimal128(const std::string& str) : Decimal128() {
   *this = Decimal128::FromString(str).ValueOrDie();
@@ -512,6 +695,26 @@ static void AdjustIntegerStringWithScale(int32_t scale, std::string* str) {
   str->at(is_negative_offset + 1) = '.';
 }
 
+std::string Decimal32::ToString(int32_t scale) const {
+  if (ARROW_PREDICT_FALSE(scale < -kMaxScale || scale > kMaxScale)) {
+    return "<scale out of range, cannot format Decimal32 value>";
+  }
+
+  std::string str(ToIntegerString());
+  AdjustIntegerStringWithScale(scale, &str);
+  return str;
+}
+
+std::string Decimal64::ToString(int32_t scale) const {
+  if (ARROW_PREDICT_FALSE(scale < -kMaxScale || scale > kMaxScale)) {
+    return "<scale out of range, cannot format Decimal64 value>";
+  }
+
+  std::string str(ToIntegerString());
+  AdjustIntegerStringWithScale(scale, &str);
+  return str;
+}
+
 std::string Decimal128::ToString(int32_t scale) const {
   if (ARROW_PREDICT_FALSE(scale < -kMaxScale || scale > kMaxScale)) {
     return "<scale out of range, cannot format Decimal128 value>";
@@ -519,6 +722,23 @@ std::string Decimal128::ToString(int32_t scale) const {
   std::string str(ToIntegerString());
   AdjustIntegerStringWithScale(scale, &str);
   return str;
+}
+
+static inline void ShiftAndAdd(std::string_view input, uint32_t* out) {
+  for (size_t posn = 0; posn < input.size();) {
+    const size_t group_size = std::min(kInt32DecimalDigits, input.size() - posn);
+    const uint32_t multiple = kUInt32PowersOfTen[group_size];
+    uint32_t chunk = 0;
+    ARROW_CHECK(
+        internal::ParseValue<UInt32Type>(input.data() + posn, group_size, &chunk));
+
+    uint64_t tmp = *out;
+    tmp *= multiple;
+    tmp += chunk;
+
+    *out = static_cast<uint32_t>(tmp & 0xFFFFFFFFU);
+    posn += group_size;
+  }
 }
 
 // Iterates over input and for each group of kInt64DecimalDigits multiple out by
@@ -697,7 +917,147 @@ Status DecimalFromString(const char* type_name, std::string_view s, Decimal* out
   return Status::OK();
 }
 
+template <typename DecimalClass>
+Status SimpleDecimalFromString(const char* type_name, std::string_view s,
+                               DecimalClass* out, int32_t* precision, int32_t* scale) {
+  if (s.empty()) {
+    return Status::Invalid("Empty string cannot be converted to ", type_name);
+  }
+
+  DecimalComponents dec;
+  if (!ParseDecimalComponents(s.data(), s.size(), &dec)) {
+    return Status::Invalid("The string '", s, "' is not a valid ", type_name, " number");
+  }
+
+  // count number of significant digits (without leading zeros)
+  size_t first_non_zero = dec.whole_digits.find_first_not_of('0');
+  size_t significant_digits = dec.fractional_digits.size();
+  if (first_non_zero != std::string::npos) {
+    significant_digits += dec.whole_digits.size() - first_non_zero;
+  }
+  int32_t parsed_precision = static_cast<int32_t>(significant_digits);
+
+  int32_t parsed_scale = 0;
+  if (dec.has_exponent) {
+    auto adjusted_exponent = dec.exponent;
+    parsed_scale =
+        -adjusted_exponent + static_cast<int32_t>(dec.fractional_digits.size());
+  } else {
+    parsed_scale = static_cast<int32_t>(dec.fractional_digits.size());
+  }
+
+  if (out != nullptr) {
+    if constexpr (std::is_same_v<Decimal32, DecimalClass>) {
+      uint32_t value{0};
+      ShiftAndAdd(dec.whole_digits, &value);
+      ShiftAndAdd(dec.fractional_digits, &value);
+      if (value > std::numeric_limits<typename DecimalClass::ValueType>::max()) {
+        return Status::Invalid("The string '", s, "' cannot be represented as ",
+                               type_name);
+      }
+
+      *out = DecimalClass(value);
+      if (dec.sign == '-') {
+        out->Negate();
+      }
+    } else {
+      uint64_t value{0};
+      ShiftAndAdd(dec.whole_digits, &value, 1);
+      ShiftAndAdd(dec.fractional_digits, &value, 1);
+      if (value > std::numeric_limits<typename DecimalClass::ValueType>::max()) {
+        return Status::Invalid("The string '", s, "' cannot be represented as ",
+                               type_name);
+      }
+
+      *out = DecimalClass(value);
+      if (dec.sign == '-') {
+        out->Negate();
+      }
+    }
+  }
+
+  if (parsed_scale < 0) {
+    // Force the scale to zero, to avoid negative scales (due to compatibility issues
+    // with external systems such as databases)
+    if (-parsed_scale > DecimalClass::kMaxScale) {
+      return Status::Invalid("The string '", s, "' cannot be represented as ", type_name);
+    }
+    if (out != nullptr) {
+      *out *= DecimalClass::GetScaleMultiplier(-parsed_scale);
+    }
+    parsed_precision -= parsed_scale;
+    parsed_scale = 0;
+  }
+
+  if (precision != nullptr) {
+    *precision = parsed_precision;
+  }
+  if (scale != nullptr) {
+    *scale = parsed_scale;
+  }
+
+  return Status::OK();
+}
+
 }  // namespace
+
+Status Decimal32::FromString(std::string_view s, Decimal32* out, int32_t* precision,
+                             int32_t* scale) {
+  return SimpleDecimalFromString("decimal32", s, out, precision, scale);
+}
+
+Status Decimal32::FromString(const std::string& s, Decimal32* out, int32_t* precision,
+                             int32_t* scale) {
+  return FromString(std::string_view(s), out, precision, scale);
+}
+
+Status Decimal32::FromString(const char* s, Decimal32* out, int32_t* precision,
+                             int32_t* scale) {
+  return FromString(std::string_view(s), out, precision, scale);
+}
+
+Result<Decimal32> Decimal32::FromString(std::string_view s) {
+  Decimal32 out;
+  RETURN_NOT_OK(FromString(s, &out, nullptr, nullptr));
+  return out;
+}
+
+Result<Decimal32> Decimal32::FromString(const std::string& s) {
+  return FromString(std::string_view(s));
+}
+
+Result<Decimal32> Decimal32::FromString(const char* s) {
+  return FromString(std::string_view(s));
+}
+
+Status Decimal64::FromString(std::string_view s, Decimal64* out, int32_t* precision,
+                             int32_t* scale) {
+  return SimpleDecimalFromString("decimal64", s, out, precision, scale);
+}
+
+Status Decimal64::FromString(const std::string& s, Decimal64* out, int32_t* precision,
+                             int32_t* scale) {
+  return FromString(std::string_view(s), out, precision, scale);
+}
+
+Status Decimal64::FromString(const char* s, Decimal64* out, int32_t* precision,
+                             int32_t* scale) {
+  return FromString(std::string_view(s), out, precision, scale);
+}
+
+Result<Decimal64> Decimal64::FromString(std::string_view s) {
+  Decimal64 out;
+  RETURN_NOT_OK(FromString(s, &out, nullptr, nullptr));
+  return out;
+}
+
+Result<Decimal64> Decimal64::FromString(const std::string& s) {
+  return FromString(std::string_view(s));
+}
+
+Result<Decimal64> Decimal64::FromString(const char* s) {
+  return FromString(std::string_view(s));
+}
 
 Status Decimal128::FromString(std::string_view s, Decimal128* out, int32_t* precision,
                               int32_t* scale) {
@@ -740,6 +1100,78 @@ static inline uint64_t UInt64FromBigEndian(const uint8_t* bytes, int32_t length)
   // possibly create unaligned memory access on certain platforms
   memcpy(reinterpret_cast<uint8_t*>(&result) + 8 - length, bytes, length);
   return ::arrow::bit_util::FromBigEndian(result);
+}
+
+Result<Decimal32> Decimal32::FromBigEndian(const uint8_t* bytes, int32_t length) {
+  static constexpr int32_t kMinDecimalBytes = 1;
+  static constexpr int32_t kMaxDecimalBytes = 4;
+
+  if (ARROW_PREDICT_FALSE(length < kMinDecimalBytes || length > kMaxDecimalBytes)) {
+    return Status::Invalid("Length of byte array passed to Decimal32::FromBigEndian was ",
+                           length, ", but must be between ", kMinDecimalBytes, " and ",
+                           kMaxDecimalBytes);
+  }
+
+  const bool is_negative = static_cast<int8_t>(bytes[0]) < 0;
+
+  uint32_t result = 0;
+  memcpy(reinterpret_cast<uint8_t*>(&result) + kMaxDecimalBytes - length, bytes, length);
+
+  const auto value = bit_util::FromBigEndian(result);
+  const int32_t bits_offset = std::max(0, length - kMaxDecimalBytes);
+  if (bits_offset == 8) {
+    return Decimal32(value);
+  }
+
+  int32_t final_value = -1 * (is_negative && length < kMaxDecimalBytes);
+  final_value = SafeLeftShift(final_value, bits_offset * CHAR_BIT);
+  final_value |= value;
+  return Decimal32(final_value);
+}
+
+Status Decimal32::ToArrowStatus(DecimalStatus dstatus) const {
+  return arrow::ToArrowStatus(dstatus, 32);
+}
+
+std::ostream& operator<<(std::ostream& os, const Decimal32& decimal) {
+  os << decimal.ToIntegerString();
+  return os;
+}
+
+Result<Decimal64> Decimal64::FromBigEndian(const uint8_t* bytes, int32_t length) {
+  static constexpr int32_t kMinDecimalBytes = 1;
+  static constexpr int32_t kMaxDecimalBytes = 8;
+
+  if (ARROW_PREDICT_FALSE(length < kMinDecimalBytes || length > kMaxDecimalBytes)) {
+    return Status::Invalid("Length of byte array passed to Decimal64::FromBigEndian was ",
+                           length, ", but must be between ", kMinDecimalBytes, " and ",
+                           kMaxDecimalBytes);
+  }
+
+  const bool is_negative = static_cast<int8_t>(bytes[0]) < 0;
+
+  uint32_t result = 0;
+  memcpy(reinterpret_cast<uint8_t*>(&result) + kMaxDecimalBytes - length, bytes, length);
+
+  const auto value = bit_util::FromBigEndian(result);
+  const int32_t bits_offset = std::max(0, length - kMaxDecimalBytes);
+  if (bits_offset == 8) {
+    return Decimal64(value);
+  }
+
+  int32_t final_value = -1 * (is_negative && length < kMaxDecimalBytes);
+  final_value = SafeLeftShift(final_value, bits_offset * CHAR_BIT);
+  final_value |= value;
+  return Decimal64(final_value);
+}
+
+Status Decimal64::ToArrowStatus(DecimalStatus dstatus) const {
+  return arrow::ToArrowStatus(dstatus, 64);
+}
+
+std::ostream& operator<<(std::ostream& os, const Decimal64& decimal) {
+  os << decimal.ToIntegerString();
+  return os;
 }
 
 Result<Decimal128> Decimal128::FromBigEndian(const uint8_t* bytes, int32_t length) {
@@ -1056,4 +1488,5 @@ std::ostream& operator<<(std::ostream& os, const Decimal256& decimal) {
   os << decimal.ToIntegerString();
   return os;
 }
+
 }  // namespace arrow

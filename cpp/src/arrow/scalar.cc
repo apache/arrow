@@ -84,6 +84,10 @@ struct ScalarHashImpl {
     return StdHash(s.value.days) & StdHash(s.value.months) & StdHash(s.value.nanoseconds);
   }
 
+  Status Visit(const Decimal32Scalar& s) { return StdHash(s.value.value()); }
+
+  Status Visit(const Decimal64Scalar& s) { return StdHash(s.value.value()); }
+
   Status Visit(const Decimal128Scalar& s) {
     return StdHash(s.value.low_bits()) & StdHash(s.value.high_bits());
   }
@@ -286,6 +290,24 @@ struct ScalarValidateImpl {
     if (s.value->size() != byte_width) {
       return Status::Invalid(s.type->ToString(), " scalar should have a value of size ",
                              byte_width, ", got ", s.value->size());
+    }
+    return Status::OK();
+  }
+
+  Status Visit(const Decimal32Scalar& s) {
+    const auto& ty = checked_cast<const DecimalType&>(*s.type);
+    if (!s.value.FitsInPrecision(ty.precision())) {
+      return Status::Invalid("Decimal value ", s.value.ToIntegerString(),
+                             " does not fit in precision of ", ty);
+    }
+    return Status::OK();
+  }
+
+  Status Visit(const Decimal64Scalar& s) {
+    const auto& ty = checked_cast<const DecimalType&>(*s.type);
+    if (!s.value.FitsInPrecision(ty.precision())) {
+      return Status::Invalid("Decimal value ", s.value.ToIntegerString(),
+                             " does not fit in precision of ", ty);
     }
     return Status::OK();
   }

@@ -707,7 +707,11 @@ class MakeFormatterImpl {
   template <typename T>
   enable_if_decimal<T, Status> Visit(const T&) {
     impl_ = [](const Array& array, int64_t index, std::ostream* os) {
-      if constexpr (T::type_id == Type::DECIMAL128) {
+      if constexpr (T::type_id == Type::DECIMAL32) {
+        *os << checked_cast<const Decimal32Array&>(array).FormatValue(index);
+      } else if constexpr (T::type_id == Type::DECIMAL64) {
+        *os << checked_cast<const Decimal64Array&>(array).FormatValue(index);
+      } else if constexpr (T::type_id == Type::DECIMAL128) {
         *os << checked_cast<const Decimal128Array&>(array).FormatValue(index);
       } else {
         *os << checked_cast<const Decimal256Array&>(array).FormatValue(index);

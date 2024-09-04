@@ -383,15 +383,27 @@ void TestDecimalFormatter() {
   };
 
   for (const auto& data : decimalTestData) {
+    using value_type = typename TypeTraits<T>::CType;
+    if (data.scale > value_type::kMaxScale) {
+      continue;
+    }
+
+    if constexpr (std::is_same_v<T, Decimal32Type>) {
+      if (data.test_value > 999999999 || data.test_value < -999999999) {
+        continue;
+      }
+    }
+
     const auto type = T(T::kMaxPrecision, data.scale);
     StringFormatter<T> formatter(&type);
-    using value_type = typename TypeTraits<T>::CType;
 
     AssertFormatting(formatter, value_type(data.test_value), data.expected_string);
   }
 }
 
 TEST(Formatting, Decimals) {
+  TestDecimalFormatter<Decimal32Type>();
+  TestDecimalFormatter<Decimal64Type>();
   TestDecimalFormatter<Decimal128Type>();
   TestDecimalFormatter<Decimal256Type>();
 }

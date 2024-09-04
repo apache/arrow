@@ -18,6 +18,7 @@
 #pragma once
 
 #include <array>
+#include <climits>
 #include <cstdint>
 #include <cstring>
 #include <limits>
@@ -165,6 +166,313 @@ class ARROW_EXPORT GenericBasicDecimal {
     return words;
   }
 };
+
+template <typename BaseType>
+class ARROW_EXPORT BasicDecimal {
+ public:
+  static_assert(
+      std::is_same_v<BaseType, int32_t> || std::is_same_v<BaseType, int64_t>,
+      "for bitwidths larger than 64 bits use BasicDecimal128 and BasicDecimal256");
+
+  static constexpr int kMaxPrecision = std::numeric_limits<BaseType>::digits10;
+  static constexpr int kMaxScale = kMaxPrecision;
+  static constexpr int kBitWidth = sizeof(BaseType) * CHAR_BIT;
+  static constexpr int kByteWidth = sizeof(BaseType);
+
+  /// \brief Empty constructor creates a decimal with a value of 0.
+  constexpr BasicDecimal() noexcept : value_(0) {}
+
+  /// \brief Create a decimal from any integer not wider than 64 bits.
+  template <typename T,
+            typename = typename std::enable_if<
+                std::is_integral<T>::value && (sizeof(T) <= sizeof(int64_t)), T>::type>
+  constexpr BasicDecimal(T value) noexcept  // NOLINT(runtime/explicit)
+      : value_(value) {}
+
+  /// \brief Create a decimal from an array of bytes.
+  ///
+  /// Bytes are assumed to be in native-endian byte order.
+  explicit BasicDecimal(const uint8_t* bytes) { memcpy(&value_, bytes, sizeof(value_)); }
+
+  const uint8_t* native_endian_bytes() const {
+    return reinterpret_cast<const uint8_t*>(&value_);
+  }
+
+  uint8_t* mutable_native_endian_bytes() { return reinterpret_cast<uint8_t*>(&value_); }
+
+  /// \brief Return the raw bytes of the value in native-endian byte order.
+  std::array<uint8_t, kByteWidth> ToBytes() const {
+    std::array<uint8_t, kByteWidth> out{{0}};
+    memcpy(out.data(), &value_, kByteWidth);
+    return out;
+  }
+
+  /// \brief Copy the raw bytes of the value in native-endian byte order
+  void ToBytes(uint8_t* out) const { memcpy(out, &value_, kByteWidth); }
+
+  /// \brief Return 1 if positive or 0, -1 if strictly negative
+  int64_t Sign() const { return 1 | (value_ >> (sizeof(kBitWidth) - 1)); }
+
+  bool IsNegative() const { return value_ < 0; }
+
+  explicit operator bool() const { return value_ != 0; }
+
+  friend bool operator==(const BasicDecimal& left, const BasicDecimal& right) {
+    return left.value_ == right.value_;
+  }
+
+  friend bool operator!=(const BasicDecimal& left, const BasicDecimal& right) {
+    return left.value_ != right.value_;
+  }
+
+  BaseType value() const { return value_; }
+
+  /// \brief count hte number of leading binary zeroes.
+  int32_t CountLeadingBinaryZeros() const;
+
+  constexpr uint64_t low_bits() const { return static_cast<uint64_t>(value_); }
+
+ protected:
+  BaseType value_;
+};
+
+class ARROW_EXPORT BasicDecimal32 : public BasicDecimal<int32_t> {
+ public:
+  using BasicDecimal<int32_t>::BasicDecimal;
+  using ValueType = int32_t;
+
+  /// \brief Negate the current value (in-place)
+  BasicDecimal32& Negate();
+  /// \brief Absolute value (in-place)
+  BasicDecimal32& Abs();
+  /// \brief Absolute value
+  static BasicDecimal32 Abs(const BasicDecimal32& left);
+  /// \brief Add a number to this one. The result is truncated to 32 bits.
+  BasicDecimal32& operator+=(const BasicDecimal32& right);
+  /// \brief Subtract a number from this one. The result is truncated to 32 bits.
+  BasicDecimal32& operator-=(const BasicDecimal32& right);
+  /// \brief Multiply this number by another. The result is truncated to 32 bits.
+  BasicDecimal32& operator*=(const BasicDecimal32& right);
+
+  /// \brief Divide this number by the divisor and return the result.
+  ///
+  /// This operation is not destructive.
+  /// The answer rounds to zero. Signs work like:
+  ///   21 /  5 ->  4,  1
+  ///  -21 /  5 -> -4, -1
+  ///   21 / -5 -> -4,  1
+  ///  -21 / -5 ->  4, -1
+  /// \param[in] divisor the number to divide by
+  /// \param[out] result the quotient
+  /// \param[out] remainder the remainder after the division
+  DecimalStatus Divide(const BasicDecimal32& divisor, BasicDecimal32* result,
+                       BasicDecimal32* remainder) const;
+
+  /// \brief In-place division
+  BasicDecimal32& operator/=(const BasicDecimal32& right);
+  /// \brief Bitwise "or" between two BasicDecimal32s
+  BasicDecimal32& operator|=(const BasicDecimal32& right);
+  /// \brief Bitwise "and" between two BasicDecimal32s
+  BasicDecimal32& operator&=(const BasicDecimal32& right);
+  /// \brief Shift left by the given number of bits.
+  BasicDecimal32& operator<<=(uint32_t bits);
+
+  BasicDecimal32 operator<<(uint32_t bits) const {
+    auto res = *this;
+    res <<= bits;
+    return res;
+  }
+
+  /// \brief Shift right by the given number of bits.
+  ///
+  /// Negative values will sign-extend
+  BasicDecimal32& operator>>=(uint32_t bits);
+
+  BasicDecimal32 operator>>(uint32_t bits) const {
+    auto res = *this;
+    res >>= bits;
+    return res;
+  }
+
+  /// \brief Convert BasicDecimal32 from one scale to another
+  DecimalStatus Rescale(int32_t original_scale, int32_t new_scale,
+                        BasicDecimal32* out) const;
+
+  void GetWholeAndFraction(int scale, BasicDecimal32* whole,
+                           BasicDecimal32* fraction) const;
+
+  /// \brief Scale up.
+  BasicDecimal32 IncreaseScaleBy(int32_t increase_by) const;
+
+  /// \brief Scale down.
+  ///
+  /// - If 'round' is true, the right-most digits are dropped and the result value is
+  ///   rounded up (+1 for +ve, -1 for -ve) based on the value of the dropped digits
+  ///   (>= 10^reduce_by / 2).
+  /// - If 'round' is false, the right-most digits are simply dropped.
+  BasicDecimal32 ReduceScaleBy(int32_t reduce_by, bool round = true) const;
+
+  /// \brief Whether this number fits in the given precision
+  ///
+  /// Return true if the number of significant digits is less or equal to 'precision'.
+  bool FitsInPrecision(int32_t precision) const;
+
+  /// \brief Get the maximum valid unscaled decimal value.
+  static const BasicDecimal32& GetMaxValue();
+  /// \brief Get the maximum valid unscaled decimal value for the given precision.
+  static BasicDecimal32 GetMaxValue(int32_t precision);
+
+  /// \brief Get the maximum decimal value (is not a valid value).
+  static constexpr BasicDecimal32 GetMaxSentinel() {
+    return BasicDecimal32(std::numeric_limits<int32_t>::max());
+  }
+
+  /// \brief Get the minimum decimal value (is not a valid value).
+  static constexpr BasicDecimal32 GetMinSentinel() {
+    return BasicDecimal32(std::numeric_limits<int32_t>::min());
+  }
+
+  /// \brief Scale multiplier for a given scale value.
+  static const BasicDecimal32& GetScaleMultiplier(int32_t scale);
+  /// \brief Half-scale multiplier for a given scale value.
+  static const BasicDecimal32& GetHalfScaleMultiplier(int32_t scale);
+};
+
+ARROW_EXPORT bool operator<(const BasicDecimal32& left, const BasicDecimal32& right);
+ARROW_EXPORT bool operator<=(const BasicDecimal32& left, const BasicDecimal32& right);
+ARROW_EXPORT bool operator>(const BasicDecimal32& left, const BasicDecimal32& right);
+ARROW_EXPORT bool operator>=(const BasicDecimal32& left, const BasicDecimal32& right);
+
+ARROW_EXPORT BasicDecimal32 operator-(const BasicDecimal32& self);
+ARROW_EXPORT BasicDecimal32 operator+(const BasicDecimal32& left,
+                                      const BasicDecimal32& right);
+ARROW_EXPORT BasicDecimal32 operator-(const BasicDecimal32& left,
+                                      const BasicDecimal32& right);
+ARROW_EXPORT BasicDecimal32 operator*(const BasicDecimal32& left,
+                                      const BasicDecimal32& right);
+ARROW_EXPORT BasicDecimal32 operator/(const BasicDecimal32& left,
+                                      const BasicDecimal32& right);
+ARROW_EXPORT BasicDecimal32 operator%(const BasicDecimal32& left,
+                                      const BasicDecimal32& right);
+
+class ARROW_EXPORT BasicDecimal64 : public BasicDecimal<int64_t> {
+ public:
+  using BasicDecimal<int64_t>::BasicDecimal;
+  using ValueType = int64_t;
+
+  /// \brief Negate the current value (in-place)
+  BasicDecimal64& Negate();
+  /// \brief Absolute value (in-place)
+  BasicDecimal64& Abs();
+  /// \brief Absolute value
+  static BasicDecimal64 Abs(const BasicDecimal64& left);
+  /// \brief Add a number to this one. The result is truncated to 32 bits.
+  BasicDecimal64& operator+=(const BasicDecimal64& right);
+  /// \brief Subtract a number from this one. The result is truncated to 32 bits.
+  BasicDecimal64& operator-=(const BasicDecimal64& right);
+  /// \brief Multiply this number by another. The result is truncated to 32 bits.
+  BasicDecimal64& operator*=(const BasicDecimal64& right);
+
+  /// \brief Divide this number by the divisor and return the result.
+  ///
+  /// This operation is not destructive.
+  /// The answer rounds to zero. Signs work like:
+  ///   21 /  5 ->  4,  1
+  ///  -21 /  5 -> -4, -1
+  ///   21 / -5 -> -4,  1
+  ///  -21 / -5 ->  4, -1
+  /// \param[in] divisor the number to divide by
+  /// \param[out] result the quotient
+  /// \param[out] remainder the remainder after the division
+  DecimalStatus Divide(const BasicDecimal64& divisor, BasicDecimal64* result,
+                       BasicDecimal64* remainder) const;
+
+  /// \brief In-place division
+  BasicDecimal64& operator/=(const BasicDecimal64& right);
+  /// \brief Bitwise "or" between two BasicDecimal64s
+  BasicDecimal64& operator|=(const BasicDecimal64& right);
+  /// \brief Bitwise "and" between two BasicDecimal64s
+  BasicDecimal64& operator&=(const BasicDecimal64& right);
+  /// \brief Shift left by the given number of bits.
+  BasicDecimal64& operator<<=(uint32_t bits);
+
+  BasicDecimal64 operator<<(uint32_t bits) const {
+    auto res = *this;
+    res <<= bits;
+    return res;
+  }
+
+  /// \brief Shift right by the given number of bits.
+  ///
+  /// Negative values will sign-extend
+  BasicDecimal64& operator>>=(uint32_t bits);
+
+  BasicDecimal64 operator>>(uint32_t bits) const {
+    auto res = *this;
+    res >>= bits;
+    return res;
+  }
+
+  /// \brief Convert BasicDecimal32 from one scale to another
+  DecimalStatus Rescale(int32_t original_scale, int32_t new_scale,
+                        BasicDecimal64* out) const;
+
+  void GetWholeAndFraction(int scale, BasicDecimal64* whole,
+                           BasicDecimal64* fraction) const;
+
+  /// \brief Scale up.
+  BasicDecimal64 IncreaseScaleBy(int32_t increase_by) const;
+
+  /// \brief Scale down.
+  ///
+  /// - If 'round' is true, the right-most digits are dropped and the result value is
+  ///   rounded up (+1 for +ve, -1 for -ve) based on the value of the dropped digits
+  ///   (>= 10^reduce_by / 2).
+  /// - If 'round' is false, the right-most digits are simply dropped.
+  BasicDecimal64 ReduceScaleBy(int32_t reduce_by, bool round = true) const;
+
+  /// \brief Whether this number fits in the given precision
+  ///
+  /// Return true if the number of significant digits is less or equal to 'precision'.
+  bool FitsInPrecision(int32_t precision) const;
+
+  /// \brief Get the maximum valid unscaled decimal value.
+  static const BasicDecimal64& GetMaxValue();
+  /// \brief Get the maximum valid unscaled decimal value for the given precision.
+  static BasicDecimal64 GetMaxValue(int32_t precision);
+
+  /// \brief Get the maximum decimal value (is not a valid value).
+  static constexpr BasicDecimal64 GetMaxSentinel() {
+    return BasicDecimal64(std::numeric_limits<int32_t>::max());
+  }
+
+  /// \brief Get the minimum decimal value (is not a valid value).
+  static constexpr BasicDecimal64 GetMinSentinel() {
+    return BasicDecimal64(std::numeric_limits<int32_t>::min());
+  }
+
+  /// \brief Scale multiplier for a given scale value.
+  static const BasicDecimal64& GetScaleMultiplier(int32_t scale);
+  /// \brief Half-scale multiplier for a given scale value.
+  static const BasicDecimal64& GetHalfScaleMultiplier(int32_t scale);
+};
+
+ARROW_EXPORT bool operator<(const BasicDecimal64& left, const BasicDecimal64& right);
+ARROW_EXPORT bool operator<=(const BasicDecimal64& left, const BasicDecimal64& right);
+ARROW_EXPORT bool operator>(const BasicDecimal64& left, const BasicDecimal64& right);
+ARROW_EXPORT bool operator>=(const BasicDecimal64& left, const BasicDecimal64& right);
+
+ARROW_EXPORT BasicDecimal64 operator-(const BasicDecimal64& self);
+ARROW_EXPORT BasicDecimal64 operator+(const BasicDecimal64& left,
+                                      const BasicDecimal64& right);
+ARROW_EXPORT BasicDecimal64 operator-(const BasicDecimal64& left,
+                                      const BasicDecimal64& right);
+ARROW_EXPORT BasicDecimal64 operator*(const BasicDecimal64& left,
+                                      const BasicDecimal64& right);
+ARROW_EXPORT BasicDecimal64 operator/(const BasicDecimal64& left,
+                                      const BasicDecimal64& right);
+ARROW_EXPORT BasicDecimal64 operator%(const BasicDecimal64& left,
+                                      const BasicDecimal64& right);
 
 /// Represents a signed 128-bit integer in two's complement.
 ///

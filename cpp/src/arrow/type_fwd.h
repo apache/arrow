@@ -175,15 +175,25 @@ class StructArray;
 class StructBuilder;
 struct StructScalar;
 
+class Decimal32;
+class Decimal64;
 class Decimal128;
 class Decimal256;
 class DecimalType;
+class Decimal32Type;
+class Decimal64Type;
 class Decimal128Type;
 class Decimal256Type;
+class Decimal32Array;
+class Decimal64Array;
 class Decimal128Array;
 class Decimal256Array;
+class Decimal32Builder;
+class Decimal64Builder;
 class Decimal128Builder;
 class Decimal256Builder;
+struct Decimal32Scalar;
+struct Decimal64Scalar;
 struct Decimal128Scalar;
 struct Decimal256Scalar;
 
@@ -448,6 +458,12 @@ struct Type {
     /// Like LIST_VIEW, but with 64-bit offsets and sizes
     LARGE_LIST_VIEW = 42,
 
+    /// Precision- and scale-based decimal type with 32 bits.
+    DECIMAL32 = 43,
+
+    /// Precision- and scale-based decimal type with 64 bits.
+    DECIMAL64 = 44,
+
     // Leave this at the end
     MAX_ID
   };
@@ -514,6 +530,14 @@ std::shared_ptr<DataType> fixed_size_binary(int32_t byte_width);
 /// otherwise a Decimal128Type.
 ARROW_EXPORT
 std::shared_ptr<DataType> decimal(int32_t precision, int32_t scale);
+
+/// \brief Create a Decimal32Type instance
+ARROW_EXPORT
+std::shared_ptr<DataType> decimal32(int32_t precision, int32_t scale);
+
+/// \brief Create a Decimal64Type instance
+ARROW_EXPORT
+std::shared_ptr<DataType> decimal64(int32_t precision, int32_t scale);
 
 /// \brief Create a Decimal128Type instance
 ARROW_EXPORT

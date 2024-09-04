@@ -951,6 +951,38 @@ struct ScalarToProtoImpl {
   Status Visit(const MonthIntervalScalar& s) { return NotImplemented(s); }
   Status Visit(const DayTimeIntervalScalar& s) { return NotImplemented(s); }
 
+  Status Visit(const Decimal32Scalar& s) {
+    auto decimal = std::make_unique<Lit::Decimal>();
+
+    auto decimal_type = checked_cast<const Decimal32Type*>(s.type.get());
+    decimal->set_precision(decimal_type->precision());
+    decimal->set_scale(decimal_type->scale());
+
+    decimal->set_value(reinterpret_cast<const char*>(s.value.native_endian_bytes()),
+                       sizeof(Decimal32));
+#if !ARROW_LITTLE_ENDIAN
+    std::reverse(decimal->mutable_value()->begin(), decimal->mutable_value()->end());
+#endif
+    lit_->set_allocated_decimal(decimal.release());
+    return Status::OK();
+  }
+
+  Status Visit(const Decimal64Scalar& s) {
+    auto decimal = std::make_unique<Lit::Decimal>();
+
+    auto decimal_type = checked_cast<const Decimal64Type*>(s.type.get());
+    decimal->set_precision(decimal_type->precision());
+    decimal->set_scale(decimal_type->scale());
+
+    decimal->set_value(reinterpret_cast<const char*>(s.value.native_endian_bytes()),
+                       sizeof(Decimal64));
+#if !ARROW_LITTLE_ENDIAN
+    std::reverse(decimal->mutable_value()->begin(), decimal->mutable_value()->end());
+#endif
+    lit_->set_allocated_decimal(decimal.release());
+    return Status::OK();
+  }
+
   Status Visit(const Decimal128Scalar& s) {
     auto decimal = std::make_unique<Lit::Decimal>();
 

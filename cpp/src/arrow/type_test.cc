@@ -1219,12 +1219,16 @@ TEST_F(TestUnifySchemas, Decimal) {
   auto options = Field::MergeOptions::Defaults();
 
   options.promote_decimal_to_float = true;
+  CheckPromoteTo(decimal32(3, 2), {float32(), float64()}, options);
+  CheckPromoteTo(decimal64(3, 2), {float32(), float64()}, options);
   CheckPromoteTo(decimal128(3, 2), {float32(), float64()}, options);
   CheckPromoteTo(decimal256(3, 2), {float32(), float64()}, options);
 
   options.promote_integer_to_decimal = true;
-  CheckPromoteTo(int32(), decimal128(3, 2), decimal128(12, 2), options);
-  CheckPromoteTo(int32(), decimal128(3, -2), decimal128(10, 0), options);
+  CheckPromoteTo(int32(), decimal32(3, 2), decimal64(11, 2), options);
+  CheckPromoteTo(int32(), decimal64(3, -2), decimal64(9, 0), options);
+  CheckPromoteTo(int32(), decimal128(3, 2), decimal128(11, 2), options);
+  CheckPromoteTo(int32(), decimal128(3, -2), decimal128(9, 0), options);
 
   options.promote_decimal = true;
   CheckPromoteTo(decimal128(3, 2), decimal128(5, 2), decimal128(5, 2), options);
@@ -1241,15 +1245,15 @@ TEST_F(TestUnifySchemas, Decimal) {
   CheckPromoteTo(decimal256(3, -2), decimal256(5, -2), decimal256(5, -2), options);
 
   // int32() is essentially decimal128(10, 0)
-  CheckPromoteTo(int32(), decimal128(3, 2), decimal128(12, 2), options);
-  CheckPromoteTo(int32(), decimal128(3, -2), decimal128(10, 0), options);
-  CheckPromoteTo(int64(), decimal128(38, 37), decimal256(56, 37), options);
+  CheckPromoteTo(int32(), decimal128(3, 2), decimal128(11, 2), options);
+  CheckPromoteTo(int32(), decimal128(3, -2), decimal128(9, 0), options);
+  CheckPromoteTo(int64(), decimal128(38, 37), decimal256(55, 37), options);
 
   CheckUnifyFailsTypeError(decimal256(1, 0), decimal128(1, 0), options);
 
   options.promote_numeric_width = true;
   CheckPromoteTo(decimal128(3, 2), decimal256(5, 2), decimal256(5, 2), options);
-  CheckPromoteTo(int32(), decimal128(38, 37), decimal256(47, 37), options);
+  CheckPromoteTo(int32(), decimal128(38, 37), decimal256(46, 37), options);
   CheckUnifyFailsInvalid(decimal128(38, 10), decimal256(76, 5), options);
 
   CheckUnifyFailsInvalid(int64(), decimal256(76, 75), options);

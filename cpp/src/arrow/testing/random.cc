@@ -286,13 +286,13 @@ struct DecimalGenerator {
 
   std::shared_ptr<Array> MakeRandomArray(int64_t size, double null_probability,
                                          int64_t alignment, MemoryPool* memory_pool) {
-    // 10**19 fits in a 64-bit unsigned integer
+    // 10**19 fits in a 64-bit signed integer
     static constexpr int32_t kMaxDigitsInInteger = 19;
     static constexpr int kNumIntegers = DecimalType::kByteWidth / 8;
 
     static_assert(
-        kNumIntegers ==
-            (DecimalType::kMaxPrecision + kMaxDigitsInInteger - 1) / kMaxDigitsInInteger,
+        kNumIntegers == (DecimalType::kMaxPrecision + kMaxDigitsInInteger - 1) /
+                            (kMaxDigitsInInteger + 1),
         "inconsistent decimal metadata: kMaxPrecision doesn't match kByteWidth");
 
     // First generate separate random values for individual components:
@@ -343,7 +343,118 @@ struct DecimalGenerator {
   }
 };
 
+template <>
+struct DecimalGenerator<Decimal32Type> {
+  using DecimalBuilderType = typename TypeTraits<Decimal32Type>::BuilderType;
+  using DecimalValue = typename DecimalBuilderType::ValueType;
+
+  std::shared_ptr<DataType> type_;
+  RandomArrayGenerator* rng_;
+
+  static int64_t MaxDecimalInteger(int32_t digits) {
+    return static_cast<int64_t>(std::ceil(std::pow(10.0, digits))) - 1;
+  }
+
+  std::shared_ptr<Array> MakeRandomArray(int64_t size, double null_probability,
+                                         int64_t alignment, MemoryPool* memory_pool) {
+    static constexpr int32_t kMaxDigitsInInteger = 9;
+    static constexpr int kNumIntegers = Decimal32Type::kByteWidth / 4;
+    static_assert(
+        kNumIntegers == (Decimal32Type::kMaxPrecision + kMaxDigitsInInteger - 1) /
+                            (kMaxDigitsInInteger + 1),
+        "inconsistent decimal metadata: kMaxPrecision doesn't match kByteWidth");
+
+    // First generate separate random values for individual components:
+    // boolean sign (including null-ness), and uint64 "digits" in big endian order.
+    const auto& decimal_type = checked_cast<const DecimalType&>(*type_);
+
+    auto remaining_digits = decimal_type.precision();
+    auto values = checked_pointer_cast<Int32Array>(rng_->Int32(
+        size, -1 * MaxDecimalInteger(remaining_digits),
+        MaxDecimalInteger(remaining_digits), null_probability, alignment, memory_pool));
+
+    DecimalBuilderType builder(type_, memory_pool, alignment);
+    ABORT_NOT_OK(builder.Reserve(size));
+
+    for (int64_t i = 0; i < size; ++i) {
+      if (values->IsValid(i)) {
+        builder.UnsafeAppend(DecimalValue{values->Value(i)});
+      } else {
+        builder.UnsafeAppendNull();
+      }
+    }
+    std::shared_ptr<Array> array;
+    ABORT_NOT_OK(builder.Finish(&array));
+    return array;
+  }
+};
+
+template <>
+struct DecimalGenerator<Decimal64Type> {
+  using DecimalBuilderType = typename TypeTraits<Decimal64Type>::BuilderType;
+  using DecimalValue = typename DecimalBuilderType::ValueType;
+
+  std::shared_ptr<DataType> type_;
+  RandomArrayGenerator* rng_;
+
+  static int64_t MaxDecimalInteger(int32_t digits) {
+    return static_cast<int64_t>(std::ceil(std::pow(10.0, digits))) - 1;
+  }
+
+  std::shared_ptr<Array> MakeRandomArray(int64_t size, double null_probability,
+                                         int64_t alignment, MemoryPool* memory_pool) {
+    static constexpr int32_t kMaxDigitsInInteger = 18;
+    static constexpr int kNumIntegers = Decimal64Type::kByteWidth / 8;
+
+    static_assert(
+        kNumIntegers == (Decimal64Type::kMaxPrecision + kMaxDigitsInInteger - 1) /
+                            (kMaxDigitsInInteger + 1),
+        "inconsistent decimal metadata: kMaxPrecision doesn't match kByteWidth");
+
+    // First generate separate random values for individual components:
+    // boolean sign (including null-ness), and uint64 "digits" in big endian order.
+    const auto& decimal_type = checked_cast<const DecimalType&>(*type_);
+
+    auto remaining_digits = decimal_type.precision();
+    auto values = checked_pointer_cast<Int64Array>(rng_->Int64(
+        size, -1 * MaxDecimalInteger(remaining_digits),
+        MaxDecimalInteger(remaining_digits), null_probability, alignment, memory_pool));
+
+    DecimalBuilderType builder(type_, memory_pool, alignment);
+    ABORT_NOT_OK(builder.Reserve(size));
+
+    for (int64_t i = 0; i < size; ++i) {
+      if (values->IsValid(i)) {
+        builder.UnsafeAppend(DecimalValue{values->Value(i)});
+      } else {
+        builder.UnsafeAppendNull();
+      }
+    }
+    std::shared_ptr<Array> array;
+    ABORT_NOT_OK(builder.Finish(&array));
+    return array;
+  }
+};
+
 }  // namespace
+
+std::shared_ptr<Array> RandomArrayGenerator::Decimal32(std::shared_ptr<DataType> type,
+                                                       int64_t size,
+                                                       double null_probability,
+                                                       int64_t alignment,
+                                                       MemoryPool* memory_pool) {
+  DecimalGenerator<Decimal32Type> gen{type, this};
+  return gen.MakeRandomArray(size, null_probability, alignment, memory_pool);
+}
+
+std::shared_ptr<Array> RandomArrayGenerator::Decimal64(std::shared_ptr<DataType> type,
+                                                       int64_t size,
+                                                       double null_probability,
+                                                       int64_t alignment,
+                                                       MemoryPool* memory_pool) {
+  DecimalGenerator<Decimal64Type> gen{type, this};
+  return gen.MakeRandomArray(size, null_probability, alignment, memory_pool);
+}
 
 std::shared_ptr<Array> RandomArrayGenerator::Decimal128(std::shared_ptr<DataType> type,
                                                         int64_t size,
@@ -1074,6 +1185,12 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
           ->View(field.type())
           .ValueOrDie();
     }
+
+    case Type::type::DECIMAL32:
+      return Decimal32(field.type(), length, null_probability, alignment, memory_pool);
+
+    case Type::type::DECIMAL64:
+      return Decimal64(field.type(), length, null_probability, alignment, memory_pool);
 
     case Type::type::DECIMAL128:
       return Decimal128(field.type(), length, null_probability, alignment, memory_pool);

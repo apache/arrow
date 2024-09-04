@@ -623,9 +623,9 @@ class DecimalFromIntegerTest : public ::testing::Test {
     ASSERT_OK_AND_ASSIGN(const int32_t precision,
                          MaxDecimalDigitsForInteger(ArrowType::type_id));
     DecimalType min_value(std::numeric_limits<c_type>::min());
-    ASSERT_TRUE(min_value.FitsInPrecision(precision));
+    ASSERT_TRUE(min_value.FitsInPrecision(precision)) << "precision " << precision;
     DecimalType max_value(std::numeric_limits<c_type>::max());
-    ASSERT_TRUE(max_value.FitsInPrecision(precision));
+    ASSERT_TRUE(max_value.FitsInPrecision(precision)) << "precision " << precision;
   }
 };
 
