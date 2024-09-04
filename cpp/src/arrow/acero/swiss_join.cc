@@ -128,7 +128,10 @@ Status RowArray::DecodeSelected(ResizableArrayData* output, int column_id,
   // output address.
   if ((hardware_flags_ & arrow::internal::CpuInfo::AVX2) && (num_rows_before % 8 != 0) &&
       (num_rows_to_append >= 8)) {
-    int num_rows_to_preprocess = std::min(8 - num_rows_before % 8, num_rows_to_append);
+    int num_rows_to_preprocess = 8 - num_rows_before % 8;
+    // The output must have allocated enough rows to store this few number of preprocessed
+    // rows without costly resizing the internal buffers.
+    DCHECK_GE(output->num_rows_allocated(), num_rows_before + num_rows_to_preprocess);
     RETURN_NOT_OK(
         DecodeSelected(output, column_id, num_rows_to_preprocess, row_ids, pool));
     return DecodeSelected(output, column_id, num_rows_to_append - num_rows_to_preprocess,

@@ -319,6 +319,9 @@ class ARROW_EXPORT ResizableArrayData {
   /// \brief The current length (in rows) of the array
   int num_rows() const { return num_rows_; }
 
+  /// \brief The current allocated length (in rows) of the array
+  int num_rows_allocated() const { return num_rows_allocated_; }
+
   /// \brief A non-owning view into this array
   KeyColumnArray column_array() const;
 
