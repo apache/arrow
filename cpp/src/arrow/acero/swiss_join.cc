@@ -1812,9 +1812,9 @@ bool JoinMatchIterator::GetNextBatch(int num_rows_max, int* out_num_rows,
 
 namespace {
 
-// Given match_bitvector identifies that there is a match for row[batch_start_row + i]
-// in given input batch if bit match_bitvector[i] == passing_bit. Collect all the
-// passing row ids according to the given match_bitvector.
+// Given match_bitvector identifies that there is a match for row[batch_start_row + i] in
+// given input batch if bit match_bitvector[i] == passing_bit. Collect all the passing row
+// ids according to the given match_bitvector.
 //
 void CollectPassingBatchIds(int passing_bit, int64_t hardware_flags, int batch_start_row,
                             int num_batch_rows, const uint8_t* match_bitvector,
@@ -1941,8 +1941,8 @@ Status JoinResidualFilter::FilterLeftSemi(const ExecBatch& keypayload_batch,
   auto match_payload_ids_buf =
       arrow::util::TempVectorHolder<uint32_t>(temp_stack, minibatch_size_);
 
-  // Inner matching is necessary for non-trivial filter. Only until evaluating filter
-  // for all matches of the same row can we be sure that it's not passing (it could pass
+  // Inner matching is necessary for non-trivial filter. Only until evaluating filter for
+  // all matches of the same row can we be sure that it's not passing (it could pass
   // earlier though).
   //
   JoinMatchIterator match_iterator;
