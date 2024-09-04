@@ -1444,7 +1444,7 @@ cdef class ChunkedArray(_PandasConvertible):
         """
         Whether all chunks in the ChunkedArray are CPU-accessible.
         """
-        if self._init_is_cpu == False:
+        if not self._init_is_cpu:
             self._is_cpu = self.chunked_array.is_cpu()
             self._init_is_cpu = True
         return self._is_cpu
