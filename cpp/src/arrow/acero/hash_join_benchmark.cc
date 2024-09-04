@@ -641,7 +641,7 @@ BENCHMARK_CAPTURE(BM_HashJoinBasic_ComplexResidualFilter, "Full Outer",
 
 BENCHMARK(BM_HashJoinBasic_HeavyBuildPayload)
     ->ArgNames({"HashTable krows"})
-    ->ArgsProduct({hashtable_krows});
+    ->ArgsProduct({benchmark::CreateRange(1, 512, 8)});
 #else
 
 BENCHMARK_CAPTURE(BM_HashJoinBasic_KeyTypes, "{int32}", {int32()})
