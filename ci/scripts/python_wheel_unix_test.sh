@@ -89,7 +89,7 @@ import pyarrow.parquet
 fi
 
 if [ "${CHECK_WHEEL_CONTENT}" == "ON" ]; then
-  python ${source_dir}/ci/scripts/validate_wheels_content.py --wheel ${source_dir}/python/repaired_wheels/*.whl
+  python ${source_dir}/ci/scripts/validate_wheels_content.py --path ${source_dir}/python/repaired_wheels
 fi
 
 if [ "${CHECK_UNITTESTS}" == "ON" ]; then

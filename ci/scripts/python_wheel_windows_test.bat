@@ -65,7 +65,7 @@ set PYTHON_CMD=py -%PYTHON%
 %PYTHON_CMD% -c "import pyarrow.substrait" || exit /B 1
 
 @REM Validate wheel contents
-%PYTHON_CMD% C:\arrow\ci\scripts\validate_wheels_content.py --wheel C:\arrow\python\dist\*.whl || exit /B 1
+%PYTHON_CMD% C:\arrow\ci\scripts\validate_wheels_content.py --path C:\arrow\python\dist || exit /B 1
 
 @rem Download IANA Timezone Database for ORC C++
 curl https://cygwin.osuosl.org/noarch/release/tzdata/tzdata-2024a-1.tar.xz --output tzdata.tar.xz || exit /B

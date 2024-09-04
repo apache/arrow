@@ -16,12 +16,17 @@
 # under the License.
 
 import argparse
+from pathlib import Path
 import re
 import zipfile
 
 
-def validate_wheel(wheel):
-    f = zipfile.ZipFile(wheel)
+def validate_wheel(path):
+    p = Path(path)
+    wheels = list(p.glob('*.whl'))
+    error_msg = f"{len(wheels)} wheels found but only 1 expected ({wheels})"
+    assert len(wheels) == 1, error_msg
+    f = zipfile.ZipFile(wheels[0])
     # An empty "pyarrow." folder is currently present on the wheel
     # but we haven't been able to locate the origin.
     outliers = [
@@ -30,14 +35,15 @@ def validate_wheel(wheel):
         )
     ]
     assert not outliers, f"Unexpected contents in wheel: {sorted(outliers)}"
+    print(f"The wheel: {wheels[0]} seems valid.")
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--wheel", type=str, required=True,
-                        help="wheel filename to validate")
+    parser.add_argument("--path", type=str, required=True,
+                        help="Directory where wheel is located")
     args = parser.parse_args()
-    validate_wheel(args.wheel)
+    validate_wheel(args.path)
 
 
 if __name__ == '__main__':
