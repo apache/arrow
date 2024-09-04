@@ -157,10 +157,9 @@ class Program
 
             // ExecuteUpdate
             // Console.WriteLine("ExecuteUpdate:");
-            // string updateQuery = "UPDATE SYSDB.`Info` SET Key = 1, Val=10 WHERE Id=1";
-            // long affectedRows = await sqlClient.ExecuteUpdateAsync(new FlightCallOptions(), updateQuery);
-            // // Handle the ExecuteUpdate result
-            // Console.WriteLine($@"Number of affected d rows: {affectedRows}");
+            string updateQuery = "UPDATE SYSDB.`Info` SET Key = 1, Val=10 WHERE Id=1";
+            long affectedRows = await sqlClient.ExecuteUpdateAsync(new FlightCallOptions(), updateQuery);
+            Console.WriteLine($@"Number of affected rows: {affectedRows}");
             //
             // // GetExecuteSchema
             // Console.WriteLine("GetExecuteSchema:");

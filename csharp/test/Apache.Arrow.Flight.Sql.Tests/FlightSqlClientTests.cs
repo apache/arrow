@@ -3,8 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Apache.Arrow.Flight.Client;
 using Apache.Arrow.Flight.Sql.Client;
-using Apache.Arrow.Flight.Tests;
-using Apache.Arrow.Flight.TestWeb;
+using Apache.Arrow.Flight.Sql.TestWeb;
 using Grpc.Core.Utils;
 using Xunit;
 
@@ -12,23 +11,24 @@ namespace Apache.Arrow.Flight.Sql.Tests;
 
 public class FlightSqlClientTests : IDisposable
 {
-    readonly TestWebFactory _testWebFactory;
-    readonly FlightStore _flightStore;
+    readonly TestSqlWebFactory _testWebFactory;
+    readonly FlightSqlStore _flightStore;
     readonly FlightClient _flightClient;
     private readonly FlightSqlClient _flightSqlClient;
-    private readonly FlightTestUtils _testUtils;
+    private readonly FlightSqlTestUtils _testUtils;
 
     public FlightSqlClientTests()
     {
-        _flightStore = new FlightStore();
-        _testWebFactory = new TestWebFactory(_flightStore);
+        _flightStore = new FlightSqlStore();
+        _testWebFactory = new TestSqlWebFactory(_flightStore);
         _flightClient = new FlightClient(_testWebFactory.GetChannel());
         _flightSqlClient = new FlightSqlClient(_flightClient);
 
-        _testUtils = new FlightTestUtils(_testWebFactory, _flightStore);
+        _testUtils = new FlightSqlTestUtils(_testWebFactory, _flightStore);
     }
 
     #region Transactions
+
     [Fact]
     public async Task CommitAsync_Transaction()
     {
@@ -81,6 +81,7 @@ public class FlightSqlClientTests : IDisposable
     #endregion
 
     #region PreparedStatement
+
     [Fact]
     public async Task PreparedStatement()
     {
@@ -94,7 +95,30 @@ public class FlightSqlClientTests : IDisposable
         // Assert
         Assert.NotNull(preparedStatement);
     }
+
     #endregion
+
+    [Fact]
+    public async Task ExecuteUpdateAsync_ShouldReturnAffectedRows()
+    {
+        // Arrange
+        string query = "UPDATE test_table SET column1 = 'value' WHERE column2 = 'condition'";
+        var options = new FlightCallOptions();
+        var transaction = new Transaction("sample-transaction-id");
+        var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("test");
+        var recordBatch = _testUtils.CreateTestBatch(0, 100);
+
+        var flightHolder = new FlightSqlHolder(flightDescriptor, recordBatch.Schema, _testWebFactory.GetAddress());
+        flightHolder.AddBatch(new RecordBatchWithMetadata(recordBatch));
+
+        _flightStore.Flights.Add(flightDescriptor, flightHolder);
+
+        // Act
+        long affectedRows = await _flightSqlClient.ExecuteUpdateAsync(options, query, transaction);
+
+        // Assert
+        Assert.Equal(100, affectedRows);
+    }
 
     [Fact]
     public async Task Execute()
@@ -118,7 +142,7 @@ public class FlightSqlClientTests : IDisposable
         var options = new FlightCallOptions();
         var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("test");
         var recordBatch = _testUtils.CreateTestBatch(0, 100);
-        var flightHolder = new FlightHolder(flightDescriptor, recordBatch.Schema,
+        var flightHolder = new FlightSqlHolder(flightDescriptor, recordBatch.Schema,
             _testWebFactory.GetAddress());
 
         _flightStore.Flights.Add(flightDescriptor, flightHolder);

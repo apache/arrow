@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Threading;
+using System.IO;
 using System.Threading.Tasks;
 using Apache.Arrow.Flight.Client;
 using Arrow.Flight.Protocol.Sql;
@@ -61,6 +61,7 @@ public class FlightSqlClient
                 var descriptor = FlightDescriptor.CreateCommandDescriptor(commandSqlCallPackedAndSerialized);
                 return await GetFlightInfoAsync(options, descriptor);
             }
+
             throw new InvalidOperationException("No results returned from the query.");
         }
         catch (RpcException ex)
@@ -92,18 +93,15 @@ public class FlightSqlClient
 
         try
         {
-            // Step 1: Create statement query
-            Console.WriteLine($@"Executing query: {query}");
             var updateRequestCommand = new ActionCreatePreparedStatementRequest { Query = query };
             byte[] serializedUpdateRequestCommand = updateRequestCommand.PackAndSerialize();
             var action = new FlightAction(SqlAction.CreateRequest, serializedUpdateRequestCommand);
-            var call = _client.DoAction(action, options.Headers);
+            var call = DoActionAsync(options, action);
             long affectedRows = 0;
-            await foreach (var result in call.ResponseStream.ReadAllAsync())
-            {
-                var preparedStatementResponse =
-                    FlightSqlUtils.ParseAndUnpack<ActionCreatePreparedStatementResult>(result.Body);
 
+            await foreach (var result in call)
+            {
+                var preparedStatementResponse = result.Body.ParseAndUnpack<ActionCreatePreparedStatementResult>();
                 var command = new CommandPreparedStatementQuery
                 {
                     PreparedStatementHandle = preparedStatementResponse.PreparedStatementHandle
@@ -111,12 +109,10 @@ public class FlightSqlClient
 
                 var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
                 var flightInfo = await GetFlightInfoAsync(options, descriptor);
-
                 var doGetResult = DoGetAsync(options, flightInfo.Endpoints[0].Ticket);
                 await foreach (var recordBatch in doGetResult)
                 {
-                    Console.WriteLine(recordBatch);
-                    Interlocked.Increment(ref affectedRows);
+                    affectedRows += recordBatch.Column(0).Length;
                 }
             }
 
@@ -124,13 +120,7 @@ public class FlightSqlClient
         }
         catch (RpcException ex)
         {
-            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
             throw new InvalidOperationException("Failed to execute update query", ex);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($@"Unexpected Error: {ex.Message}");
-            throw;
         }
     }
 
@@ -1322,8 +1312,8 @@ internal static class FlightDescriptorExtensions
         return Any.Pack(command).Serialize().ToByteArray();
     }
 
-    public static T ParseAndUnpack<T>(this ByteString body) where T : IMessage<T>, new()
+    public static T ParseAndUnpack<T>(this ByteString source) where T : IMessage<T>, new()
     {
-        return Any.Parser.ParseFrom(body).Unpack<T>();
+        return Any.Parser.ParseFrom(source).Unpack<T>();
     }
 }
