@@ -412,9 +412,14 @@ class DayTimeIntervalField(PrimitiveField):
 
     def generate_column(self, size, name=None):
         min_day_value, max_day_value = -10000*366, 10000*366
-        values = [{'days': random.randint(min_day_value, max_day_value),
-                   'milliseconds': random.randint(-86400000, +86400000)}
-                  for _ in range(size)]
+        # values = [{'days': random.randint(min_day_value, max_day_value),
+        #            'milliseconds': random.randint(-86400000, +86400000)}
+        #           for _ in range(size)]
+        values = []
+        for _ in range(size):
+            values.append(random.randint(min_day_value, max_day_value))
+            values.append(random.randint(-86400000, +86400000))
+            # values.append([random.randint(min_day_value, max_day_value), random.randint(-86400000, +86400000)])
 
         is_valid = self._make_is_valid(size)
         if name is None:
