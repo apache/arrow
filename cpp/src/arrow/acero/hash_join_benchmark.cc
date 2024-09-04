@@ -680,26 +680,21 @@ void RowArrayDecodeBenchmark(benchmark::State& st, const std::shared_ptr<Schema>
   std::transform(row_ids_decode.begin(), row_ids_decode.end(), row_ids_decode.begin(),
                  [&](uint32_t) { return dist(gen); });
 
-  uint64_t total_rows = 0;
   for (auto _ : st) {
-    st.PauseTiming();
     ResizableArrayData column;
     // Allocate at least 8 rows for the convenience of SIMD decoding.
     int log_num_rows_min = std::max(3, bit_util::Log2(batch.length));
     DCHECK_OK(column.Init(batch[column_to_decode].type(), default_memory_pool(),
                           log_num_rows_min));
-    st.ResumeTiming();
     DCHECK_OK(rows.DecodeSelected(&column, column_to_decode,
                                   static_cast<int>(batch.length), row_ids_decode.data(),
                                   default_memory_pool()));
-    total_rows += batch.length;
   }
-  st.counters["rows/sec"] = benchmark::Counter(total_rows, benchmark::Counter::kIsRate);
+  st.SetItemsProcessed(st.iterations() * batch.length);
 }
 
-template <typename... Args>
 static void BM_RowArray_Decode(benchmark::State& st,
-                               const std::shared_ptr<DataType>& type, Args&&...) {
+                               const std::shared_ptr<DataType>& type) {
   SchemaBuilder schema_builder;
   DCHECK_OK(schema_builder.AddField(field("", type)));
   auto schema = *schema_builder.Finish();
@@ -738,7 +733,6 @@ BENCHMARK(BM_RowArray_DecodeBinary)
     ->ArgNames({"max_length"})
     ->ArgsProduct({{32, 64, 128}});
 
-template <typename... Args>
 static void BM_RowArray_DecodeOneOfColumns(benchmark::State& st,
                                            std::vector<std::shared_ptr<DataType>> types) {
   SchemaBuilder schema_builder;
