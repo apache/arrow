@@ -71,14 +71,14 @@ namespace Apache.Arrow.Flight.Tests
         {
             var initialBatch = batches.FirstOrDefault();
 
-            var flightHolder = new FlightHolder(flightDescriptor, initialBatch.RecordBatch.Schema, _testWebFactory.GetAddress());
+            var flightHolder = new FlightHolder(flightDescriptor, initialBatch?.RecordBatch.Schema, _testWebFactory.GetAddress());
 
             foreach (var batch in batches)
             {
                 flightHolder.AddBatch(batch);
             }
 
-            _flightStore.Flights.Add(flightDescriptor, flightHolder);
+            _flightStore.Flights[flightDescriptor] = flightHolder;
 
             return flightHolder.GetFlightInfo();
         }
@@ -122,6 +122,31 @@ namespace Apache.Arrow.Flight.Tests
 
             ArrowReaderVerifier.CompareBatches(expectedBatch1, actualBatches[0].RecordBatch);
             ArrowReaderVerifier.CompareBatches(expectedBatch2, actualBatches[1].RecordBatch);
+        }
+
+        [Fact]
+        public async Task TestGetRecordBatchWithDelayedSchema()
+        {
+            var flightDescriptor = FlightDescriptor.CreatePathDescriptor("test");
+            var expectedBatch = CreateTestBatch(0, 100);
+
+            //Add flight info only to the in memory store without schema or batch
+            GivenStoreBatches(flightDescriptor);
+
+            //Get the flight info for the ticket and verify the schema is null
+            var flightInfo = await _flightClient.GetInfo(flightDescriptor);
+            Assert.Single(flightInfo.Endpoints);
+            Assert.Null(flightInfo.Schema);
+
+            var endpoint = flightInfo.Endpoints.FirstOrDefault();
+
+            //Update the store with the batch and schema
+            GivenStoreBatches(flightDescriptor, new RecordBatchWithMetadata(expectedBatch));
+            var getStream = _flightClient.GetStream(endpoint.Ticket);
+            var resultList = await getStream.ResponseStream.ToListAsync();
+
+            Assert.Single(resultList);
+            ArrowReaderVerifier.CompareBatches(expectedBatch, resultList[0]);
         }
 
         [Fact]
