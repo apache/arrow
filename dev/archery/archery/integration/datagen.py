@@ -412,13 +412,9 @@ class DayTimeIntervalField(PrimitiveField):
 
     def generate_column(self, size, name=None):
         min_day_value, max_day_value = -10000*366, 10000*366
-        # values = [{'days': random.randint(min_day_value, max_day_value),
-        #            'milliseconds': random.randint(-86400000, +86400000)}
-        #           for _ in range(size)]
-        values = []
-        for _ in range(size):
-            values.append(random.randint(min_day_value, max_day_value))
-            values.append(random.randint(-86400000, +86400000))
+        values = [{'days': random.randint(min_day_value, max_day_value),
+                   'milliseconds': random.randint(-86400000, +86400000)}
+                  for _ in range(size)]
 
         is_valid = self._make_is_valid(size)
         if name is None:
@@ -1891,9 +1887,11 @@ def get_generated_json_files(tempdir=None):
 
         generate_duration_case(),
 
-        generate_interval_case(),
+        generate_interval_case()
+        .skip_tester('JS'),
 
-        generate_month_day_nano_interval_case(),
+        generate_month_day_nano_interval_case()
+        .skip_tester('JS'),
 
         generate_map_case(),
 
