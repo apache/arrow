@@ -3385,13 +3385,13 @@ def cuda_context():
 
 @pytest.fixture
 def schema():
-    return pa.schema([pa.field('c0', pa.int16()), pa.field('c1', pa.int32())])
+    return pa.schema([pa.field('c0', pa.int32()), pa.field('c1', pa.int32())])
 
 
 @pytest.fixture
-def cpu_arrays():
-    return [pa.array([1, 2, 3, 4, 5], pa.int32()),
-            pa.array([-10, -5, 0, None, 10], pa.int32())]
+def cpu_arrays(schema):
+    return [pa.array([1, 2, 3, 4, 5], schema.field(0).type),
+            pa.array([-10, -5, 0, None, 10], schema.field(1).type)]
 
 
 @pytest.fixture
@@ -3642,8 +3642,8 @@ def test_recordbatch_non_cpu(cuda_context, cpu_recordbatch, cuda_recordbatch,
         cuda_recordbatch.sort_by('c0')
 
     # field() test
-    assert cuda_recordbatch.field(0) == pa.field('c0', pa.int16())
-    assert cuda_recordbatch.field(1) == pa.field('c1', pa.int32())
+    assert cuda_recordbatch.field(0) == schema.field(0)
+    assert cuda_recordbatch.field(1) == schema.field(1)
 
     # equals() test
     new_batch = cpu_recordbatch.copy_to(cuda_context.memory_manager)
@@ -3713,7 +3713,8 @@ def test_recordbatch_non_cpu(cuda_context, cpu_recordbatch, cuda_recordbatch,
     # rename_columns() test
     new_batch = cuda_recordbatch.rename_columns(['col0', 'col1'])
     expected_schema = pa.schema(
-        [pa.field('col0', pa.int16()), pa.field('col1', pa.int32())])
+        [pa.field('col0', schema.field(0).type),
+         pa.field('col1', schema.field(1).type)])
     verify_cuda_recordbatch(new_batch, expected_schema=expected_schema)
 
     # validate() test
