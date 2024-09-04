@@ -53,9 +53,9 @@ namespace parquet {
 
 class GeometryStatisticsImpl {
  public:
-  GeometryStatisticsImpl() = default;  
+  GeometryStatisticsImpl() = default;
   GeometryStatisticsImpl(const GeometryStatisticsImpl&) = default;
-  
+
   bool Equals(const GeometryStatisticsImpl& other) const {
     if (is_valid_ != other.is_valid_) {
       return false;
@@ -204,7 +204,8 @@ void GeometryStatistics::Decode(const EncodedGeometryStatistics& encoded) {
 }
 
 std::shared_ptr<GeometryStatistics> GeometryStatistics::clone() const {
-  std::unique_ptr<GeometryStatisticsImpl> impl = std::make_unique<GeometryStatisticsImpl>(*impl_);
+  std::unique_ptr<GeometryStatisticsImpl> impl =
+      std::make_unique<GeometryStatisticsImpl>(*impl_);
   return std::make_shared<GeometryStatistics>(std::move(impl));
 }
 
@@ -797,7 +798,9 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   bool HasMinMax() const override { return has_min_max_; }
   bool HasNullCount() const override { return has_null_count_; };
   bool HasGeometryStatistics() const override { return geometry_statistics_ != nullptr; }
-  const GeometryStatistics* geometry_statistics() const override { return geometry_statistics_.get(); }
+  const GeometryStatistics* geometry_statistics() const override {
+    return geometry_statistics_.get();
+  }
 
   void IncrementNullCount(int64_t n) override {
     statistics_.null_count += n;
@@ -1172,7 +1175,7 @@ std::shared_ptr<Comparator> DoMakeComparator(Type::type physical_type,
         physical_type == Type::BYTE_ARRAY) {
       return std::make_shared<TypedComparatorImpl<false, ByteArrayType>>();
     } else {
-      throw ParquetException("UNKNOWN Sort Order");      
+      throw ParquetException("UNKNOWN Sort Order");
     }
   }
   return nullptr;

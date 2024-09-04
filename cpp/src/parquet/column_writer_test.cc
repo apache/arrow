@@ -390,7 +390,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     ApplicationVersion app_version(this->writer_properties_->created_by());
     auto metadata_accessor = ColumnChunkMetaData::Make(
         metadata_->contents(), this->descr_, default_reader_properties(), &app_version);
-    return metadata_accessor->statistics()->Encode();    
+    return metadata_accessor->statistics()->Encode();
   }
 
  protected:
@@ -1725,7 +1725,9 @@ class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
     for (int i = 0; i < num_columns; ++i) {
       std::string name = TestColumnName(i);
       std::shared_ptr<const LogicalType> logical_type = GeometryLogicalType::Make(
-          CRS, LogicalType::GeometryEdges::PLANAR, LogicalType::GeometryEncoding::WKB, METADATA);
+          CRS, LogicalType::GeometryEdges::PLANAR,
+          LogicalType::GeometryEncoding::WKB,
+          METADATA);
       fields.push_back(schema::PrimitiveNode::Make(name, repetition, logical_type,
                                                    ByteArrayType::type_num));
     }
@@ -1755,7 +1757,7 @@ class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
       values_[k].ptr = ptr;
       ptr += point_wkb_size;
     }
-    
+
     values_ptr_ = values_.data();
 
     std::fill(def_levels_.begin(), def_levels_.end(), 1);
@@ -1770,17 +1772,17 @@ class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
         this->BuildWriter(num_values, ColumnProperties(), version, data_page_version,
                           /*enable_checksum*/ false);
     std::vector<int16_t> definition_levels(num_values, 0);
-    std::vector<int16_t> repetition_levels(num_values, 0);    
+    std::vector<int16_t> repetition_levels(num_values, 0);
     writer->WriteBatch(this->values_.size(), definition_levels.data(),
                        repetition_levels.data(), this->values_.data());
-    
+
     writer->Close();
     this->ReadColumn();
     for (size_t i = 0; i < num_values; i++) {
       // ASSERT_EQ((i % 2 == 0) ? true : false, this->values_out_[i]) << i;
       const ByteArray &value = this->values_out_[i];
       EXPECT_EQ(21, value.len);
-      EXPECT_EQ(1, value.ptr[0]);      
+      EXPECT_EQ(1, value.ptr[0]);
       uint32_t geom_type = 0;
       double x = 0;
       double y = 0;
@@ -1800,8 +1802,8 @@ class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
     EXPECT_DOUBLE_EQ(0, geometry_statistics.xmin);
     EXPECT_DOUBLE_EQ(1, geometry_statistics.ymin);
     EXPECT_DOUBLE_EQ(99, geometry_statistics.xmax);
-    EXPECT_DOUBLE_EQ(100, geometry_statistics.ymax);    
-  }  
+    EXPECT_DOUBLE_EQ(100, geometry_statistics.ymax);
+  }
 };
 
 const char* TestGeometryValuesWriter::CRS = R"({"id": {"authority": "OGC", "code": "CRS84"}})";
@@ -1819,7 +1821,7 @@ TEST_F(TestGeometryValuesWriter, TestWriteAndReadV2) {
   for (auto data_page_version :
        {ParquetDataPageVersion::V1, ParquetDataPageVersion::V2}) {
     TestWriteAndRead(ParquetVersion::PARQUET_2_4, data_page_version);
-  }  
+  }
 }
 
 }  // namespace test

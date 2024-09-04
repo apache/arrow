@@ -24,6 +24,7 @@
 #include <string>
 #include <utility>
 
+#include "arrow/util/macros.h"
 #include "parquet/platform.h"
 #include "parquet/types.h"
 
@@ -312,9 +313,9 @@ class PARQUET_EXPORT Statistics {
   /// with TypedStatistics<T>::min and max
   virtual bool HasMinMax() const = 0;
 
-  virtual bool HasGeometryStatistics() const { return false; };
+  virtual bool HasGeometryStatistics() const { return false; }
 
-  virtual const GeometryStatistics* geometry_statistics() const { return nullptr; }
+  virtual const GeometryStatistics* geometry_statistics() const { return NULLPTR; }
 
   /// \brief Reset state of object to initial (no data observed) state
   virtual void Reset() = 0;

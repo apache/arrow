@@ -24,6 +24,7 @@
 
 #include "arrow/util/endian.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/ubsan.h"
 #include "parquet/exception.h"
 
@@ -176,7 +177,7 @@ struct GeometryType {
 
 class WKBBuffer {
  public:
-  WKBBuffer() : data_(nullptr), size_(0) {}
+  WKBBuffer() : data_(NULLPTR), size_(0) {}
   WKBBuffer(const uint8_t* data, int64_t size) : data_(data), size_(size) {}
 
   void Init(const uint8_t* data, int64_t size) {
