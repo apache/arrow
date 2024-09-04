@@ -516,7 +516,7 @@ cdef class ChunkedArray(_PandasConvertible):
 
 
 cdef class _Tabular(_PandasConvertible):
-    pass
+    cdef void _assert_cpu(self) except *
 
 
 cdef class Table(_Tabular):
