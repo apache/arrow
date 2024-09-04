@@ -199,11 +199,8 @@ bool GeometryStatistics::is_valid() const { return impl_->is_valid(); }
 
 EncodedGeometryStatistics GeometryStatistics::Encode() { return impl_->Encode(); }
 
-std::unique_ptr<GeometryStatistics> GeometryStatistics::Decode(
-    const EncodedGeometryStatistics& encoded) {
-  auto out = std::make_unique<GeometryStatistics>();
-  out->impl_->Update(encoded);
-  return out;
+void GeometryStatistics::Decode(const EncodedGeometryStatistics& encoded) {
+  impl_->Update(encoded);
 }
 
 std::shared_ptr<GeometryStatistics> GeometryStatistics::clone() const {
@@ -780,6 +777,22 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     has_min_max_ = has_min_max;
   }
 
+  // Create stats from a thrift Statistics object.
+  TypedStatisticsImpl(const ColumnDescriptor* descr, const std::string& encoded_min,
+                      const std::string& encoded_max, int64_t num_values,
+                      int64_t null_count, int64_t distinct_count,
+                      const EncodedGeometryStatistics& geometry_statistics,
+                      bool has_min_max, bool has_null_count, bool has_distinct_count,
+                      bool has_geometry_statistics, MemoryPool* pool)
+      : TypedStatisticsImpl(descr, encoded_min, encoded_max, num_values, null_count,
+                            distinct_count, has_min_max, has_null_count,
+                            has_distinct_count, pool) {
+    if (has_geometry_statistics) {
+      geometry_statistics_ = std::make_shared<GeometryStatistics>();
+      geometry_statistics_->Decode(geometry_statistics);
+    }
+  }
+
   bool HasDistinctCount() const override { return has_distinct_count_; };
   bool HasMinMax() const override { return has_min_max_; }
   bool HasNullCount() const override { return has_null_count_; };
@@ -1261,8 +1274,12 @@ std::shared_ptr<Statistics> Statistics::Make(
     MAKE_STATS(INT64, Int64Type);
     MAKE_STATS(FLOAT, FloatType);
     MAKE_STATS(DOUBLE, DoubleType);
-    MAKE_STATS(BYTE_ARRAY, ByteArrayType);
     MAKE_STATS(FIXED_LEN_BYTE_ARRAY, FLBAType);
+    case Type::BYTE_ARRAY:
+      return std::make_shared<TypedStatisticsImpl<ByteArrayType>>(
+          descr, encoded_min, encoded_max, num_values, null_count, distinct_count,
+          geometry_statistics, has_min_max, has_null_count, has_distinct_count,
+          has_geometry_statistics, pool);
     default:
       break;
   }

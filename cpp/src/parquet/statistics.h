@@ -158,7 +158,7 @@ class PARQUET_EXPORT GeometryStatistics {
 
   std::shared_ptr<GeometryStatistics> clone() const;
 
-  static std::unique_ptr<GeometryStatistics> Decode(const EncodedGeometryStatistics& encoded);
+  void Decode(const EncodedGeometryStatistics& encoded);
 
  private:
   std::unique_ptr<GeometryStatisticsImpl> impl_;

@@ -351,21 +351,21 @@ static inline format::Statistics ToThrift(const EncodedStatistics& stats) {
   if (stats.has_geometry_statistics) {
     const EncodedGeometryStatistics& encoded_geometry_stats = stats.geometry_statistics();
     format::GeometryStatistics geometry_statistics;
-    std::vector<int32_t> geometry_types(encoded_geometry_stats.geometry_types.size());
-    std::transform(encoded_geometry_stats.geometry_types.begin(), encoded_geometry_stats.geometry_types.end(),
-                   geometry_types.begin(), [](uint32_t value) {
-                     return static_cast<int32_t>(value);
-                   });
+    std::vector<int32_t> geometry_types(encoded_geometry_stats.geometry_types.begin(), encoded_geometry_stats.geometry_types.end());
     geometry_statistics.__set_geometry_types(geometry_types);
     format::BoundingBox bbox;
     bbox.__set_xmin(encoded_geometry_stats.xmin);
     bbox.__set_xmax(encoded_geometry_stats.xmax);
     bbox.__set_ymin(encoded_geometry_stats.ymin);
     bbox.__set_ymax(encoded_geometry_stats.ymax);
-    bbox.__set_zmin(encoded_geometry_stats.zmin);
-    bbox.__set_zmax(encoded_geometry_stats.zmax);
-    bbox.__set_mmin(encoded_geometry_stats.mmin);
-    bbox.__set_mmax(encoded_geometry_stats.mmax);    
+    if (encoded_geometry_stats.has_z()) {
+      bbox.__set_zmin(encoded_geometry_stats.zmin);
+      bbox.__set_zmax(encoded_geometry_stats.zmax);
+    }
+    if (encoded_geometry_stats.has_m()) {
+      bbox.__set_mmin(encoded_geometry_stats.mmin);
+      bbox.__set_mmax(encoded_geometry_stats.mmax);    
+    }   
     geometry_statistics.__set_bbox(bbox);
     statistics.__set_geometry_stats(geometry_statistics);
   }

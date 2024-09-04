@@ -294,8 +294,10 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     DCHECK(writer_version_ != nullptr);
     // If the column statistics don't exist or column sort order is unknown
     // we cannot use the column stats
+    auto logical_type = descr_->logical_type();
+    bool is_geometry = (logical_type != nullptr && logical_type->is_geometry());
     if (!column_metadata_->__isset.statistics ||
-        descr_->sort_order() == SortOrder::UNKNOWN) {
+        (descr_->sort_order() == SortOrder::UNKNOWN && !is_geometry)) {
       return false;
     }
     if (possible_stats_ == nullptr) {
@@ -1522,7 +1524,7 @@ bool ApplicationVersion::HasCorrectStatistics(Type::type col_type,
   }
 
   // Unknown sort order has incorrect stats
-  if (SortOrder::UNKNOWN == sort_order) {
+  if (SortOrder::UNKNOWN == sort_order && !statistics.has_geometry_statistics) {
     return false;
   }
 
