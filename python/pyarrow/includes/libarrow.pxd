@@ -983,6 +983,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         CResult[vector[shared_ptr[CChunkedArray]]] Flatten(CMemoryPool* pool)
 
+        c_bool is_cpu() const
+
         CStatus Validate() const
         CStatus ValidateFull() const
 

@@ -506,6 +506,8 @@ cdef class ChunkedArray(_PandasConvertible):
     cdef:
         shared_ptr[CChunkedArray] sp_chunked_array
         CChunkedArray* chunked_array
+        c_bool _is_cpu
+        c_bool _init_is_cpu
 
     cdef readonly:
         # To allow Table to propagate metadata to pandas.Series
