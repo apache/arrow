@@ -165,7 +165,8 @@ to ``archery``.
 
     archery --debug docker run ubuntu-cpp
 
-which translates to passing ``--progress=plain`` to docker(-compose) build command.
+In addition to enabling ``DEBUG``-level logging, this also translates to
+passing ``--progress=plain`` to docker(-compose) build command.
 
 Docker Volume Caches
 ~~~~~~~~~~~~~~~~~~~~
