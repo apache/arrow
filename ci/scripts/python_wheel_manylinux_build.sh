@@ -180,5 +180,5 @@ popd
 rm -rf dist/temp-fix-wheel
 
 echo "=== (${PYTHON_VERSION}) Tag the wheel with manylinux${MANYLINUX_VERSION} ==="
-auditwheel repair -L . dist/pyarrow-*.whl -w repaired_wheels
+auditwheel repair dist/pyarrow-*.whl -w repaired_wheels
 popd

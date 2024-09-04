@@ -27,11 +27,9 @@ def validate_wheel(path):
     error_msg = f"{len(wheels)} wheels found but only 1 expected ({wheels})"
     assert len(wheels) == 1, error_msg
     f = zipfile.ZipFile(wheels[0])
-    # An empty "pyarrow." folder is currently present on the wheel
-    # but we haven't been able to locate the origin.
     outliers = [
         info.filename for info in f.filelist if not re.match(
-            r'(pyarrow\.?/|pyarrow-[-.\w\d]+\.dist-info/)', info.filename
+            r'(pyarrow/|pyarrow-[-.\w\d]+\.dist-info/)', info.filename
         )
     ]
     assert not outliers, f"Unexpected contents in wheel: {sorted(outliers)}"
