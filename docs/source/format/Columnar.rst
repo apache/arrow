@@ -1385,6 +1385,36 @@ have two entries in each RecordBatch. For a RecordBatch of this schema with
     buffer 13: col2    data
 
 
+Compression
+-----------
+
+There are three different options for record batch body
+buffers compression: buffers can be uncompressed, can use
+``lz4`` or ``zstd`` compression codec. All buffers in the flat
+sequence of the message body are compressed separately with the
+same codec.
+
+The difference between compressed and uncompressed buffers in the
+serialized form is as follows:
+
+* If the buffers in the ``RecordBatch`` message are **compressed**
+
+  - the ``data header`` includes the length and memory offset
+    of each **compressed buffer** in the record batch's body
+
+  - the ``body`` includes a flat sequence of **compressed memory
+    buffers** together with the **length of uncompressed buffer**
+    stored in the first 8 bytes for each buffer in the sequence
+
+* If the buffers in the ``RecordBatch`` message are **uncompressed**
+
+  - the ``data header`` includes the length and memory offset
+    of each **uncompressed buffer** in the record batch's body
+
+  - the ``body`` includes a flat sequence of **uncompressed memory
+    buffers** with the first 8 bytes empty or equal to ``-1`` to
+    indicate that the buffer is uncompressed
+
 Byte Order (`Endianness`_)
 ---------------------------
 
