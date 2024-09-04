@@ -38,8 +38,22 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
 
   private final ArrowBuf arrowBuf;
   private final ArrowByteBufAllocator arrowByteBufAllocator;
-  private int length;
+  private long length;
   private final long address;
+
+  /**
+   * Constructs a new instance.
+   *
+   * @param arrowBuf The buffer to wrap.
+   * @param bufferAllocator The allocator for the buffer.
+   * @param length The length of this buffer.
+   * @deprecated Use {@link #NettyArrowBuf(ArrowBuf, BufferAllocator, long)} instead.
+   */
+  @Deprecated(forRemoval = true)
+  public NettyArrowBuf(
+      final ArrowBuf arrowBuf, final BufferAllocator bufferAllocator, final int length) {
+    this(arrowBuf, bufferAllocator, (long) length);
+  }
 
   /**
    * Constructs a new instance.
@@ -49,8 +63,8 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
    * @param length The length of this buffer.
    */
   public NettyArrowBuf(
-      final ArrowBuf arrowBuf, final BufferAllocator bufferAllocator, final int length) {
-    super(length);
+      final ArrowBuf arrowBuf, final BufferAllocator bufferAllocator, final long length) {
+    super((int) length);
     this.arrowBuf = arrowBuf;
     this.arrowByteBufAllocator = new ArrowByteBufAllocator(bufferAllocator);
     this.length = length;
