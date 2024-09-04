@@ -1388,11 +1388,12 @@ have two entries in each RecordBatch. For a RecordBatch of this schema with
 Compression
 -----------
 
-There are three different options for record batch body
-buffers compression: buffers can be uncompressed, can use
-``lz4`` or ``zstd`` compression codec. All buffers in the flat
-sequence of the message body are compressed separately with the
-same codec.
+There are three different options for compression of record batch
+body buffers: Buffers can be uncompressed, buffers can be
+compressed with the``lz4`` compression codec, or buffers can
+be compressed with the ``zstd`` compression codec. Buffers in
+the flat sequence of a message body must be either all
+uncompressed or all compressed separately using the same codec.
 
 The difference between compressed and uncompressed buffers in the
 serialized form is as follows:
