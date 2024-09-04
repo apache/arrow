@@ -889,6 +889,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
       }
     }
 
+    @SuppressWarnings({"removal", "InlineMeSuggester"})
     @Deprecated(forRemoval = true)
     @Override
     public boolean add(final int nBytes) {
@@ -990,6 +991,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
       closed = true;
     }
 
+    @SuppressWarnings({"removal", "InlineMeSuggester"})
     @Deprecated(forRemoval = true)
     @Override
     public boolean reserve(int nBytes) {

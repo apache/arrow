@@ -71,7 +71,7 @@ public class DefaultRoundingPolicy implements RoundingPolicy {
     }
 
     // Logarithm base 2. At this point we know that pageSize is a power of two.
-    return Long.SIZE - 1 - Long.numberOfLeadingZeros(pageSize);
+    return Long.SIZE - 1L - Long.numberOfLeadingZeros(pageSize);
   }
 
   private static long validateAndCalculateChunkSize(long pageSize, int maxOrder) {

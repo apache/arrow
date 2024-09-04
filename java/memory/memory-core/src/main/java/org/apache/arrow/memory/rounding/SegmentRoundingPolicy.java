@@ -16,6 +16,7 @@
  */
 package org.apache.arrow.memory.rounding;
 
+import com.google.errorprone.annotations.InlineMe;
 import org.apache.arrow.memory.util.LargeMemoryUtil;
 import org.apache.arrow.util.Preconditions;
 
@@ -40,6 +41,7 @@ public class SegmentRoundingPolicy implements RoundingPolicy {
    * @deprecated use {@link SegmentRoundingPolicy#SegmentRoundingPolicy(long)} instead.
    */
   @Deprecated(forRemoval = true)
+  @InlineMe(replacement = "this((long) segmentSize)")
   public SegmentRoundingPolicy(int segmentSize) {
     this((long) segmentSize);
   }
