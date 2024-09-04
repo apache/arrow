@@ -205,8 +205,8 @@ TEST(Cast, CanCast) {
     ExpectCanCast(from_base_binary, {boolean()});
     ExpectCanCast(from_base_binary, kNumericTypes);
     ExpectCanCast(from_base_binary, kBaseBinaryTypes);
-    /// TODO(GH-43010): include is_binary_view_like() types here once array_take
-    /// can handle string-views
+    // TODO(GH-43010): include is_binary_view_like() types here once array_take
+    // can handle string-views
     if (!is_binary_view_like(*from_base_binary)) {
       ExpectCanCast(dictionary(int64(), from_base_binary), {from_base_binary});
     }
@@ -223,15 +223,9 @@ TEST(Cast, CanCast) {
   ExpectCannotCast(timestamp(TimeUnit::MICRO),
                    {binary(), large_binary()});  // no formatting supported
 
-  ExpectCanCast(fixed_size_binary(3), {
-                                          utf8(),
-                                          large_utf8(),
-                                          utf8_view(),
-                                          binary(),
-                                          large_binary(),
-                                          binary_view(),
-                                          fixed_size_binary(3),
-                                      });
+  ExpectCanCast(fixed_size_binary(3), kBaseBinaryAndViewTypes);
+  // Identity cast
+  ExpectCanCast(fixed_size_binary(3), {fixed_size_binary(3)});
   // Doesn't fail since a kernel exists (but it will return an error when executed)
   // ExpectCannotCast(fixed_size_binary(3), {fixed_size_binary(5)});
 

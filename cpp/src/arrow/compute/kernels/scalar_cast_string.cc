@@ -396,9 +396,9 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
         // A more complicated loop could work by slicing the data buffer into
         // more than one variadic buffer, but this is probably overkill for now
         // before someone hits this problem in practice.
-        return Status::Invalid("Failed casting from ", input.type->ToString(), " to ",
-                               output->type->ToString(),
-                               ": input array too large for efficient conversion.");
+        return Status::CapacityError("Failed casting from ", input.type->ToString(),
+                                     " to ", output->type->ToString(),
+                                     ": input array too large for efficient conversion.");
       }
     }
   }
@@ -499,9 +499,9 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
       // A more complicated loop could work by slicing the data buffer into
       // more than one variadic buffer, but this is probably overkill for now
       // before someone hits this problem in practice.
-      return Status::Invalid("Failed casting from ", input.type->ToString(), " to ",
-                             output->type->ToString(),
-                             ": input array too large for efficient conversion.");
+      return Status::CapacityError("Failed casting from ", input.type->ToString(), " to ",
+                                   output->type->ToString(),
+                                   ": input array too large for efficient conversion.");
     }
   }
 
