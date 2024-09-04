@@ -394,7 +394,7 @@ class TestChunkResolverMany : public ::testing::Test {
  public:
   using IndexType = T;
   static constexpr int32_t kMaxInt32 = std::numeric_limits<int32_t>::max();
-  static constexpr size_t kMaxValidIndex = std::numeric_limits<IndexType>::max();
+  static constexpr uint64_t kMaxValidIndex = std::numeric_limits<IndexType>::max();
 
   Result<std::vector<ChunkLocation>> ResolveMany(
       const ChunkResolver& resolver, const std::vector<IndexType>& logical_index_vec) {
