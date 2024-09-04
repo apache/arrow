@@ -822,6 +822,7 @@ class ColumnReaderImplBase {
       max_size -= def_levels_bytes;
     }
 
+    current_page_may_have_nulls_ = max_def_level_ > 0 || max_rep_level_ > 0;
     return levels_byte_size;
   }
 
@@ -857,6 +858,7 @@ class ColumnReaderImplBase {
                                           static_cast<int>(num_buffered_values_), buffer);
     }
 
+    current_page_may_have_nulls_ = page.num_nulls() > 0;
     return total_levels_length;
   }
 
@@ -925,6 +927,8 @@ class ColumnReaderImplBase {
 
   // Not set for flat schemas.
   LevelDecoder repetition_level_decoder_;
+
+  bool current_page_may_have_nulls_;
 
   // The total number of values stored in the data page. This is the maximum of
   // the number of encoded definition levels or encoded values. For
@@ -1214,9 +1218,13 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatchSpaced(
       null_count = validity_io.null_count;
       *values_read = validity_io.values_read;
 
-      total_values =
-          this->ReadValuesSpaced(*values_read, values, static_cast<int>(null_count),
-                                 valid_bits, valid_bits_offset);
+      if (null_count != 0) {
+        total_values =
+            this->ReadValuesSpaced(*values_read, values, static_cast<int>(null_count),
+                                   valid_bits, valid_bits_offset);
+      } else {
+        total_values = this->ReadValues(*values_read, values);
+      }
     }
     *levels_read = num_def_levels;
     *null_count_out = null_count;
@@ -1932,6 +1940,16 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     // levels_position_ must already be incremented based on number of records
     // read.
     ARROW_DCHECK_GE(levels_position_, start_levels_position);
+
+    if (!this->current_page_may_have_nulls_) {
+      *values_to_read = levels_position_ - start_levels_position;
+      *null_count = 0;
+      ReadValuesDense(*values_to_read);
+      ::arrow::bit_util::SetBitsTo(valid_bits_->mutable_data(), values_written_,
+                                   *values_to_read, true);
+      return;
+    }
+
     ValidityBitmapInputOutput validity_io;
     validity_io.values_read_upper_bound = levels_position_ - start_levels_position;
     validity_io.valid_bits = valid_bits_->mutable_data();
@@ -1943,7 +1961,11 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     *null_count = validity_io.null_count;
     ARROW_DCHECK_GE(*values_to_read, 0);
     ARROW_DCHECK_GE(*null_count, 0);
-    ReadValuesSpaced(validity_io.values_read, *null_count);
+    if (null_count != 0) {
+      ReadValuesSpaced(validity_io.values_read, *null_count);
+    } else {
+      ReadValuesDense(validity_io.values_read);
+    }
   }
 
   // Return number of logical records read.
@@ -2088,6 +2110,10 @@ class FLBARecordReader final : public TypedRecordReader<FLBAType>,
   }
 
   void ReadValuesSpaced(int64_t values_to_read, int64_t null_count) override {
+    if (null_count == 0) {
+      ReadValuesDense(values_to_read);
+      return;
+    }
     uint8_t* valid_bits = valid_bits_->mutable_data();
     const int64_t valid_bits_offset = values_written_;
     auto values = ValuesHead<FLBA>();
@@ -2099,11 +2125,7 @@ class FLBARecordReader final : public TypedRecordReader<FLBAType>,
 
     PARQUET_THROW_NOT_OK(null_bitmap_builder_.Reserve(num_decoded));
     PARQUET_THROW_NOT_OK(data_builder_.Reserve(num_decoded * byte_width_));
-    if (null_count == 0) {
-      UnsafeAppendDense(values, num_decoded);
-    } else {
-      UnsafeAppendSpaced(values, num_decoded, valid_bits, valid_bits_offset);
-    }
+    UnsafeAppendSpaced(values, num_decoded, valid_bits, valid_bits_offset);
     ResetValues();
   }
 
