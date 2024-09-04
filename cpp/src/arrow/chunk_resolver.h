@@ -92,7 +92,8 @@ struct ARROW_EXPORT ChunkResolver {
     for (size_t i = 1; i < offsets_.size(); i++) {
       assert(offsets_[i] >= offsets_[i - 1]);
     }
-    assert(offsets_.size() - 1 <= std::numeric_limits<int32_t>::max());
+    assert(offsets_.size() - 1 <=
+           static_cast<size_t>(std::numeric_limits<int32_t>::max()));
 #endif
   }
 
