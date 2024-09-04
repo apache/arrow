@@ -333,7 +333,7 @@ template <Dimensions::dimensions dims, bool swap, uint32_t chunk_size>
 class WKBSequenceBounder {
  public:
   explicit WKBSequenceBounder(double* chunk) : box_(dims), chunk_(chunk) {}
-  WKBSequenceBounder(const WKBSequenceBounder &) = default;
+  WKBSequenceBounder(const WKBSequenceBounder&) = default;
 
   void ReadPoint(WKBBuffer* src) {
     constexpr uint32_t coord_size = Dimensions::size<dims>();
@@ -400,7 +400,7 @@ class WKBGenericSequenceBounder {
         xyz_swap_(chunk_),
         xym_swap_(chunk_),
         xyzm_swap_(chunk_) {}
-  WKBGenericSequenceBounder(const WKBGenericSequenceBounder &) = default;
+  WKBGenericSequenceBounder(const WKBGenericSequenceBounder&) = default;
 
   void ReadPoint(WKBBuffer* src, Dimensions::dimensions dimensions, bool swap) {
     if (ARROW_PREDICT_TRUE(!swap)) {
@@ -541,7 +541,7 @@ class WKBGenericSequenceBounder {
 class WKBGeometryBounder {
  public:
   WKBGeometryBounder() : box_(Dimensions::XYZM) {}
-  WKBGeometryBounder(const WKBGeometryBounder &) = default;
+  WKBGeometryBounder(const WKBGeometryBounder&) = default;
 
   void ReadGeometry(WKBBuffer* src, bool record_wkb_type = true) {
     uint8_t endian = src->ReadUInt8();

@@ -1716,7 +1716,7 @@ TEST(TestColumnWriter, WriteDataPageV2HeaderNullCount) {
 // Test writing and reading geometry columns
 class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
  public:
-  static const char *CRS;
+  static const char* CRS;
   static const char* METADATA;
 
   void SetUpSchema(Repetition::type repetition, int num_columns) override {
@@ -1724,10 +1724,9 @@ class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
 
     for (int i = 0; i < num_columns; ++i) {
       std::string name = TestColumnName(i);
-      std::shared_ptr<const LogicalType> logical_type = GeometryLogicalType::Make(
-          CRS, LogicalType::GeometryEdges::PLANAR,
-          LogicalType::GeometryEncoding::WKB,
-          METADATA);
+      std::shared_ptr<const LogicalType> logical_type =
+          GeometryLogicalType::Make(CRS, LogicalType::GeometryEdges::PLANAR,
+                                    LogicalType::GeometryEncoding::WKB, METADATA);
       fields.push_back(schema::PrimitiveNode::Make(name, repetition, logical_type,
                                                    ByteArrayType::type_num));
     }
@@ -1741,10 +1740,10 @@ class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
 
     uint32_t point_wkb_size = 21;
     buffer_.resize(num_values * point_wkb_size);
-    uint8_t *ptr = buffer_.data();
+    uint8_t* ptr = buffer_.data();
     for (int k = 0; k < num_values; k++) {
       // Point with coordinates (k, k + 1), encoded as WKB
-      ptr[0] = 0x01;  // 1: little endian
+      ptr[0] = 0x01;           // 1: little endian
       uint32_t geom_type = 1;  // 1: POINT (2D)
       memcpy(&ptr[1], &geom_type, 4);
       double x = k;
@@ -1780,7 +1779,7 @@ class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
     this->ReadColumn();
     for (size_t i = 0; i < num_values; i++) {
       // ASSERT_EQ((i % 2 == 0) ? true : false, this->values_out_[i]) << i;
-      const ByteArray &value = this->values_out_[i];
+      const ByteArray& value = this->values_out_[i];
       EXPECT_EQ(21, value.len);
       EXPECT_EQ(1, value.ptr[0]);
       uint32_t geom_type = 0;
@@ -1806,9 +1805,9 @@ class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
   }
 };
 
-const char* TestGeometryValuesWriter::CRS = R"({"id": {"authority": "OGC", "code": "CRS84"}})";
+const char* TestGeometryValuesWriter::CRS =
+    R"({"id": {"authority": "OGC", "code": "CRS84"}})";
 const char* TestGeometryValuesWriter::METADATA = "test_metadata";
-
 
 TEST_F(TestGeometryValuesWriter, TestWriteAndReadV1) {
   for (auto data_page_version :

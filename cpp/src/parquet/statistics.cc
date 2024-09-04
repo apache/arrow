@@ -179,8 +179,7 @@ GeometryStatistics::GeometryStatistics() {
 }
 
 GeometryStatistics::GeometryStatistics(std::unique_ptr<GeometryStatisticsImpl> impl)
-    : impl_(std::move(impl)) {
-}
+    : impl_(std::move(impl)) {}
 
 bool GeometryStatistics::Equals(const GeometryStatistics& other) const {
   return impl_->Equals(*other.impl_);

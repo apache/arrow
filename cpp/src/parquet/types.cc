@@ -1738,10 +1738,9 @@ format::LogicalType LogicalType::Impl::Geometry::ToThrift() const {
 bool LogicalType::Impl::Geometry::Equals(const LogicalType& other) const {
   if (other.is_geometry()) {
     const auto& other_geometry = checked_cast<const GeometryLogicalType&>(other);
-    return crs() == other_geometry.crs() &&
-      edges() == other_geometry.edges() &&
-      encoding() == other_geometry.encoding() &&
-      metadata() == other_geometry.metadata();
+    return crs() == other_geometry.crs() && edges() == other_geometry.edges() &&
+           encoding() == other_geometry.encoding() &&
+           metadata() == other_geometry.metadata();
   } else {
     return false;
   }

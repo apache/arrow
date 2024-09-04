@@ -672,9 +672,7 @@ class PrimitiveTypedTest : public ::testing::Test {
     schema_.Init(node_);
   }
 
-  void SetUpSchema(Repetition::type repetition) {
-    this->SetUpSchema(repetition, 1);
-  }
+  void SetUpSchema(Repetition::type repetition) { this->SetUpSchema(repetition, 1); }
 
   void GenerateData(int64_t num_values, uint32_t seed = 0);
   void SetupValuesOut(int64_t num_values);
