@@ -55,8 +55,9 @@ struct VarStdState {
   // algorithm`
   // https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Two-pass_algorithm
   template <typename T = ArrowType>
-  enable_if_t<is_floating_type<T>::value || (sizeof(CType) > 4) || (!is_integer_type<T>::value && sizeof(CType) == 4)> Consume(
-      const ArraySpan& array) {
+  enable_if_t<is_floating_type<T>::value || (sizeof(CType) > 4) ||
+              (!is_integer_type<T>::value && sizeof(CType) == 4)>
+  Consume(const ArraySpan& array) {
     this->all_valid = array.GetNullCount() == 0;
     int64_t count = array.length - array.GetNullCount();
     if (count == 0 || (!this->all_valid && !options.skip_nulls)) {

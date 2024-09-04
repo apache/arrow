@@ -1454,7 +1454,6 @@ Result<std::shared_ptr<DataType>> DecimalType::Make(Type::type type_id, int32_t 
     default:
       return Status::Invalid("Not a decimal type_id: ", type_id);
   }
-
 }
 
 // Taken from the Apache Impala codebase. The comments next

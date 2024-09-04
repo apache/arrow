@@ -172,7 +172,7 @@ using TemporalArrowTypes =
     ::testing::Types<Date32Type, Date64Type, TimestampType, Time32Type, Time64Type>;
 
 using DecimalArrowTypes =
-    ::testing::Types< /*Decimal32Type, Decimal64Type,*/ Decimal128Type, Decimal256Type>;
+    ::testing::Types</*Decimal32Type, Decimal64Type,*/ Decimal128Type, Decimal256Type>;
 
 using BaseBinaryArrowTypes =
     ::testing::Types<BinaryType, LargeBinaryType, StringType, LargeStringType>;

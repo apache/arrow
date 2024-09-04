@@ -1059,7 +1059,6 @@ class ARROW_EXPORT Decimal32Type : public DecimalType {
   static constexpr int32_t kByteWidth = 4;
 };
 
-
 /// \brief Concrete type class for 64-bit decimal data
 ///
 /// Arrow decimals are fixed-point decimal numbers encoded as a scaled

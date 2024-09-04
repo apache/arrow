@@ -205,10 +205,10 @@ ParquetType::type get_physical_type(const DataType& type) {
     case ArrowId::UINT16:
     case ArrowId::INT16:
     case ArrowId::UINT32:
-    case ArrowId::INT32:    
+    case ArrowId::INT32:
       return ParquetType::INT32;
     case ArrowId::UINT64:
-    case ArrowId::INT64:    
+    case ArrowId::INT64:
       return ParquetType::INT64;
     case ArrowId::FLOAT:
       return ParquetType::FLOAT;
@@ -220,7 +220,7 @@ ParquetType::type get_physical_type(const DataType& type) {
     case ArrowId::STRING:
     case ArrowId::LARGE_STRING:
       return ParquetType::BYTE_ARRAY;
-    case ArrowId::FIXED_SIZE_BINARY:    
+    case ArrowId::FIXED_SIZE_BINARY:
     case ArrowId::DECIMAL128:
     case ArrowId::DECIMAL256:
     case ArrowId::HALF_FLOAT:
@@ -4149,7 +4149,8 @@ INSTANTIATE_TEST_SUITE_P(
         std::make_tuple("int32_decimal.parquet", ::arrow::decimal128(4, 2)),
         std::make_tuple("int64_decimal.parquet", ::arrow::decimal128(10, 2)),
         std::make_tuple("fixed_length_decimal.parquet", ::arrow::decimal128(25, 2)),
-        std::make_tuple("fixed_length_decimal_legacy.parquet", ::arrow::decimal128(13, 2)),
+        std::make_tuple("fixed_length_decimal_legacy.parquet",
+                        ::arrow::decimal128(13, 2)),
         std::make_tuple("byte_array_decimal.parquet", ::arrow::decimal128(4, 2))));
 
 TEST(TestArrowReaderAdHoc, ReadFloat16Files) {
@@ -5094,7 +5095,7 @@ class TestIntegerAnnotateDecimalTypeParquetIO : public TestParquetIO<TestType> {
   }
 };
 
-typedef ::testing::Types<    
+typedef ::testing::Types<
     Decimal128WithPrecisionAndScale<1>, Decimal128WithPrecisionAndScale<5>,
     Decimal128WithPrecisionAndScale<10>, Decimal128WithPrecisionAndScale<18>,
     Decimal256WithPrecisionAndScale<1>, Decimal256WithPrecisionAndScale<5>,

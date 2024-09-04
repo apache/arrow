@@ -36,7 +36,7 @@ class MemoryPool;
 // Decimal32Builder
 
 Decimal32Builder::Decimal32Builder(const std::shared_ptr<DataType>& type,
-                                     MemoryPool* pool, int64_t alignment)
+                                   MemoryPool* pool, int64_t alignment)
     : FixedSizeBinaryBuilder(type, pool, alignment),
       decimal_type_(internal::checked_pointer_cast<Decimal32Type>(type)) {}
 
@@ -67,12 +67,11 @@ Status Decimal32Builder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   return Status::OK();
 }
 
-
 // ----------------------------------------------------------------------
 // Decimal64Builder
 
 Decimal64Builder::Decimal64Builder(const std::shared_ptr<DataType>& type,
-                                     MemoryPool* pool, int64_t alignment)
+                                   MemoryPool* pool, int64_t alignment)
     : FixedSizeBinaryBuilder(type, pool, alignment),
       decimal_type_(internal::checked_pointer_cast<Decimal64Type>(type)) {}
 

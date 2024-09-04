@@ -454,7 +454,7 @@ VectorKernel NewModeKernel(const std::shared_ptr<DataType>& in_type, ArrayKernel
   kernel.init = ModeState::Init;
   kernel.can_execute_chunkwise = false;
   kernel.output_chunked = false;
-  switch (in_type->id()) {    
+  switch (in_type->id()) {
     case Type::DECIMAL128:
     case Type::DECIMAL256:
       kernel.signature =

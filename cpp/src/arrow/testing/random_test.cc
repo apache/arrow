@@ -262,7 +262,7 @@ TYPED_TEST(RandomNumericArrayTest, EmptyRange) {
 
 template <typename DecimalType>
 class RandomDecimalArrayTest : public ::testing::Test {
- protected:  
+ protected:
   using ArrayType = typename TypeTraits<DecimalType>::ArrayType;
   using DecimalValue = typename TypeTraits<DecimalType>::BuilderType::ValueType;
 
@@ -328,7 +328,7 @@ TYPED_TEST(RandomDecimalArrayTest, Basic) {
     if (precision > DecimalType::kMaxPrecision) {
       continue;
     }
-    
+
     ARROW_SCOPED_TRACE("precision = ", precision);
     const auto type = this->type(precision, 5);
     auto array = rng.ArrayOf(type, /*size=*/1000, /*null_probability=*/0.2);

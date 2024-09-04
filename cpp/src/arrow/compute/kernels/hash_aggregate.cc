@@ -619,7 +619,7 @@ struct GroupedReducingFactory {
   Status Visit(const T&) {
     kernel = MakeKernel(std::move(argument_type), HashAggregateInit<Impl<T>>);
     return Status::OK();
-  }  
+  }
 
   Status Visit(const Decimal128Type&) {
     kernel =
@@ -880,12 +880,8 @@ struct GroupedVarStdImpl : public GroupedAggregator {
   double ToDouble(T value) const {
     return static_cast<double>(value);
   }
-  double ToDouble(const Decimal32& value) const {
-    return value.ToDouble(decimal_scale_);
-  }
-  double ToDouble(const Decimal64& value) const {
-    return value.ToDouble(decimal_scale_);
-  }
+  double ToDouble(const Decimal32& value) const { return value.ToDouble(decimal_scale_); }
+  double ToDouble(const Decimal64& value) const { return value.ToDouble(decimal_scale_); }
   double ToDouble(const Decimal128& value) const {
     return value.ToDouble(decimal_scale_);
   }
@@ -898,8 +894,10 @@ struct GroupedVarStdImpl : public GroupedAggregator {
   // float/double/int64/decimal: calculate `m2` (sum((X-mean)^2)) with
   // `two pass algorithm` (see aggregate_var_std.cc)
   template <typename T = Type>
-  enable_if_t<is_floating_type<T>::value || (sizeof(CType) > 4) || (!is_integer_type<T>::value && sizeof(CType) == 4), Status> ConsumeImpl(
-      const ExecSpan& batch) {
+  enable_if_t<is_floating_type<T>::value || (sizeof(CType) > 4) ||
+                  (!is_integer_type<T>::value && sizeof(CType) == 4),
+              Status>
+  ConsumeImpl(const ExecSpan& batch) {
     using SumType = typename internal::GetSumType<T>::SumType;
 
     GroupedVarStdImpl<Type> state;
@@ -1192,12 +1190,8 @@ struct GroupedTDigestImpl : public GroupedAggregator {
   double ToDouble(T value) const {
     return static_cast<double>(value);
   }
-  double ToDouble(const Decimal32& value) const {
-    return value.ToDouble(decimal_scale_);
-  }
-  double ToDouble(const Decimal64& value) const {
-    return value.ToDouble(decimal_scale_);
-  }
+  double ToDouble(const Decimal32& value) const { return value.ToDouble(decimal_scale_); }
+  double ToDouble(const Decimal64& value) const { return value.ToDouble(decimal_scale_); }
   double ToDouble(const Decimal128& value) const {
     return value.ToDouble(decimal_scale_);
   }

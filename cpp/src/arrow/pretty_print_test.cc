@@ -1109,7 +1109,8 @@ TEST_F(TestPrettyPrint, DecimalTypes) {
   int32_t p = 9;
   int32_t s = 4;
 
-  for (auto type : {decimal32(p, s), decimal64(p, s), decimal128(p, s), decimal256(p, s)}) {
+  for (auto type :
+       {decimal32(p, s), decimal64(p, s), decimal128(p, s), decimal256(p, s)}) {
     auto array = ArrayFromJSON(type, "[\"123.4567\", \"456.7891\", null]");
 
     static const char* ex = "[\n  123.4567,\n  456.7891,\n  null\n]";

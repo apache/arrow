@@ -37,7 +37,7 @@ constexpr auto kInt64DecimalDigits =
     static_cast<size_t>(std::numeric_limits<int64_t>::digits10);
 
 constexpr uint32_t kUInt32PowersOfTen[kInt32DecimalDigits + 1] = {
-  // clang-format off
+    // clang-format off
   1ULL,
   10ULL,
   100ULL,
@@ -47,7 +47,7 @@ constexpr uint32_t kUInt32PowersOfTen[kInt32DecimalDigits + 1] = {
   1000000ULL,
   10000000ULL,
   100000000ULL,
-  // clang-format on
+    // clang-format on
 };
 
 constexpr uint64_t kUInt64PowersOfTen[kInt64DecimalDigits + 1] = {

@@ -1047,7 +1047,7 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
 
   func = std::make_shared<ScalarAggregateFunction>("sum", Arity::Unary(), sum_doc,
                                                    &default_scalar_aggregate_options);
-  AddArrayScalarAggKernels(SumInit, {boolean()}, uint64(), func.get());  
+  AddArrayScalarAggKernels(SumInit, {boolean()}, uint64(), func.get());
   AddAggKernel(KernelSignature::Make({Type::DECIMAL128}, FirstType), SumInit, func.get(),
                SimdLevel::NONE);
   AddAggKernel(KernelSignature::Make({Type::DECIMAL256}, FirstType), SumInit, func.get(),

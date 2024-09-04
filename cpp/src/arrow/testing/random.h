@@ -308,9 +308,9 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   ///
   /// \return a generated Array
   std::shared_ptr<Array> Decimal32(std::shared_ptr<DataType> type, int64_t size,
-                                    double null_probability = 0,
-                                    int64_t alignment = kDefaultBufferAlignment,
-                                    MemoryPool* memory_pool = default_memory_pool());
+                                   double null_probability = 0,
+                                   int64_t alignment = kDefaultBufferAlignment,
+                                   MemoryPool* memory_pool = default_memory_pool());
 
   /// \brief Generate a random Decimal64Array
   ///
@@ -323,10 +323,9 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   ///
   /// \return a generated Array
   std::shared_ptr<Array> Decimal64(std::shared_ptr<DataType> type, int64_t size,
-                                    double null_probability = 0,
-                                    int64_t alignment = kDefaultBufferAlignment,
-                                    MemoryPool* memory_pool = default_memory_pool());
-
+                                   double null_probability = 0,
+                                   int64_t alignment = kDefaultBufferAlignment,
+                                   MemoryPool* memory_pool = default_memory_pool());
 
   /// \brief Generate a random Decimal128Array
   ///

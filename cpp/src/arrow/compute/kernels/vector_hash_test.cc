@@ -630,8 +630,9 @@ TEST_F(TestHashKernel, ValueCountsDecimal) {
   std::vector<Decimal128> values{12, 12, 11, 12};
   std::vector<Decimal128> expected{12, 0, 11};
 
-  CheckValueCounts<Decimal128Type, Decimal128>(
-      decimal128(2, 0), values, {true, false, true, true}, expected, {1, 0, 1}, {2, 1, 1});
+  CheckValueCounts<Decimal128Type, Decimal128>(decimal128(2, 0), values,
+                                               {true, false, true, true}, expected,
+                                               {1, 0, 1}, {2, 1, 1});
 }
 
 TEST_F(TestHashKernel, DictEncodeDecimal) {
