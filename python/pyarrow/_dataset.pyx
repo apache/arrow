@@ -2531,6 +2531,7 @@ cdef class Partitioning(_Weakrefable):
         >>> part.format(
         ...     (pc.field("year") == 1862) & (pc.field("month") == "Jan")
         ... )
+        ('1862/Jan', '')
         """
         cdef:
             CPartitionPathFormat result
