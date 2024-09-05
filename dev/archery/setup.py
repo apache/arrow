@@ -21,12 +21,8 @@ import operator
 import sys
 from setuptools import setup, find_packages
 
-# pygit2>=1.14.0 requires python 3.9, so crossbow and all
-# both technically require python 3.9 — however we still need to
-# support 3.8 when using docker. When 3.8 is EOLed and we bump
-# to Python 3.9 this will resolve itself.
-if sys.version_info < (3, 8):
-    sys.exit('Python < 3.8 is not supported')
+if sys.version_info < (3, 9):
+    sys.exit('Python < 3.9 is not supported')
 
 # For pathlib.Path compatibility
 jinja_req = 'jinja2>=2.11'
@@ -57,7 +53,7 @@ setup(
     maintainer_email='dev@arrow.apache.org',
     packages=find_packages(),
     include_package_data=True,
-    python_requires='>=3.8',
+    python_requires='>=3.9',
     install_requires=['click>=7'],
     tests_require=['pytest', 'responses'],
     extras_require=extras,

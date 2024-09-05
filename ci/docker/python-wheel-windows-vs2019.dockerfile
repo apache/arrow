@@ -78,13 +78,12 @@ RUN vcpkg install \
 RUN wmic product where "name like 'python%%'" call uninstall /nointeractive && \
     rm -rf Python*
 
-# Define the full version number otherwise choco falls back to patch number 0 (3.8 => 3.8.0)
-ARG python=3.8
-RUN (if "%python%"=="3.8" setx PYTHON_VERSION "3.8.10" && setx PATH "%PATH%;C:\Python38;C:\Python38\Scripts") & \
-    (if "%python%"=="3.9" setx PYTHON_VERSION "3.9.13" && setx PATH "%PATH%;C:\Python39;C:\Python39\Scripts") & \
+# Define the full version number otherwise choco falls back to patch number 0 (3.9 => 3.9.0)
+ARG python=3.9
+RUN (if "%python%"=="3.9" setx PYTHON_VERSION "3.9.13" && setx PATH "%PATH%;C:\Python39;C:\Python39\Scripts") & \
     (if "%python%"=="3.10" setx PYTHON_VERSION "3.10.11" && setx PATH "%PATH%;C:\Python310;C:\Python310\Scripts") & \
     (if "%python%"=="3.11" setx PYTHON_VERSION "3.11.9" && setx PATH "%PATH%;C:\Python311;C:\Python311\Scripts") & \
-    (if "%python%"=="3.12" setx PYTHON_VERSION "3.12.4" && setx PATH "%PATH%;C:\Python312;C:\Python312\Scripts") & \
+    (if "%python%"=="3.12" setx PYTHON_VERSION "3.12.5" && setx PATH "%PATH%;C:\Python312;C:\Python312\Scripts") & \
     (if "%python%"=="3.13" setx PYTHON_VERSION "3.13.0-rc1" && setx PATH "%PATH%;C:\Python313;C:\Python313\Scripts")
 RUN choco install -r -y --pre --no-progress python --version=%PYTHON_VERSION%
 RUN python -m pip install -U pip setuptools
