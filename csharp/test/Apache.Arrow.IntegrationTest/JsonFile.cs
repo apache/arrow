@@ -234,6 +234,7 @@ namespace Apache.Arrow.IntegrationTest
                 128 => new Decimal128Type(type.DecimalPrecision, type.Scale),
                 64 => new Decimal64Type(type.DecimalPrecision, type.Scale),
                 32 => new Decimal32Type(type.DecimalPrecision, type.Scale),
+                0 => new Decimal128Type(type.DecimalPrecision, type.Scale),
                 _ => throw new NotSupportedException($"Decimal type not supported. BitWidth: {type.BitWidth}"),
             };
         }
