@@ -20,6 +20,7 @@ name: Swift
 on:
   push:
     paths:
+      - '.dockerignore'
       - '.github/workflows/swift.yml'
       - 'ci/docker/*swift*'
       - 'ci/scripts/swift_*'
@@ -27,6 +28,7 @@ on:
       - 'swift/**'
   pull_request:
     paths:
+      - '.dockerignore'
       - '.github/workflows/swift.yml'
       - 'ci/docker/*swift*'
       - 'ci/scripts/swift_*'

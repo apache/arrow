@@ -20,12 +20,14 @@ name: NodeJS
 on:
   push:
     paths:
+      - '.dockerignore'
       - '.github/workflows/js.yml'
       - 'ci/docker/*js.dockerfile'
       - 'ci/scripts/js_*'
       - 'js/**'
   pull_request:
     paths:
+      - '.dockerignore'
       - '.github/workflows/js.yml'
       - 'ci/docker/*js.dockerfile'
       - 'ci/scripts/js_*'

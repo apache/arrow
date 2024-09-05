@@ -27,11 +27,11 @@
 # include explicitly
 !ci/**
 !c_glib/Gemfile
-!dev/archery/setup.py
 !dev/release/setup-*.sh
 !docs/requirements*.txt
+!go/go.mod
+!go/go.sum
 !python/requirements*.txt
-!python/manylinux1/**
 !r/DESCRIPTION
 !ruby/Gemfile
 !ruby/red-arrow/Gemfile
@@ -46,20 +46,3 @@
 !ruby/red-parquet/Gemfile
 !ruby/red-parquet/lib/parquet/version.rb
 !ruby/red-parquet/red-parquet.gemspec
-!ruby/red-plasma/Gemfile
-!ruby/red-plasma/lib/plasma/version.rb
-!ruby/red-plasma/red-plasma.gemspec
-!rust/Cargo.toml
-!rust/benchmarks/Cargo.toml
-!rust/arrow/Cargo.toml
-!rust/arrow/benches
-!rust/arrow-flight/Cargo.toml
-!rust/parquet/Cargo.toml
-!rust/parquet/build.rs
-!rust/parquet_derive/Cargo.toml
-!rust/parquet_derive_test/Cargo.toml
-!rust/datafusion/Cargo.toml
-!rust/datafusion/benches
-!rust/integration-testing/Cargo.toml
-!go/go.mod
-!go/go.sum

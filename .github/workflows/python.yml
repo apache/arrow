@@ -20,6 +20,7 @@ name: Python
 on:
   push:
     paths:
+      - '.dockerignore'
       - '.github/workflows/python.yml'
       - 'ci/**'
       - 'cpp/**'
@@ -27,6 +28,7 @@ on:
       - 'python/**'
   pull_request:
     paths:
+      - '.dockerignore'
       - '.github/workflows/python.yml'
       - 'ci/**'
       - 'cpp/**'

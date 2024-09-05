@@ -20,6 +20,7 @@ name: C GLib & Ruby
 on:
   push:
     paths:
+      - '.dockerignore'
       - '.github/workflows/ruby.yml'
       - 'ci/docker/**'
       - 'ci/scripts/c_glib_*'
@@ -33,6 +34,7 @@ on:
       - 'ruby/**'
   pull_request:
     paths:
+      - '.dockerignore'
       - '.github/workflows/ruby.yml'
       - 'ci/docker/**'
       - 'ci/scripts/c_glib_*'
