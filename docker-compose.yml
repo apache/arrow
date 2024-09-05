@@ -1098,7 +1098,7 @@ services:
         base: quay.io/pypa/manylinux2014_${ARCH_ALIAS}:2024-08-03-32dfa47
         vcpkg: ${VCPKG}
         python: ${PYTHON}
-        python_image_tag: ${PYTHON_IMAGE_TAG}
+        python_abi_tag: ${PYTHON_ABI_TAG}
         manylinux: 2014
       context: .
       dockerfile: ci/docker/python-wheel-manylinux.dockerfile
@@ -1122,7 +1122,7 @@ services:
         base: quay.io/pypa/manylinux_2_28_${ARCH_ALIAS}:2024-08-03-32dfa47
         vcpkg: ${VCPKG}
         python: ${PYTHON}
-        python_image_tag: ${PYTHON_IMAGE_TAG}
+        python_abi_tag: ${PYTHON_ABI_TAG}
         manylinux: 2_28
       context: .
       dockerfile: ci/docker/python-wheel-manylinux.dockerfile

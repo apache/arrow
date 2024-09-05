@@ -30,7 +30,8 @@ versions=([3.8]=3.8.10
           [3.10]=3.10.11
           [3.11]=3.11.9
           [3.12]=3.12.4
-          [3.13]=3.13.0)
+          [3.13]=3.13.0
+          [3.13t]=3.13.0)
 
 if [ "$#" -ne 2 ]; then
   echo "Usage: $0 <platform> <version>"
@@ -62,15 +63,33 @@ if [ $platform = "macOS" ]; then
     wget "https://www.python.org/ftp/python/${full_version}/${fname}"
 
     echo "Installing Python..."
-    installer -pkg $fname -target /
+    if [[ $2 == "3.13t" ]]; then
+        cat > ./choicechanges.plist <<EOF
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <array>
+                <dict>
+                        <key>attributeSetting</key>
+                        <integer>1</integer>
+                        <key>choiceAttribute</key>
+                        <string>selected</string>
+                        <key>choiceIdentifier</key>
+                        <string>org.python.Python.PythonTFramework-3.13</string>
+                </dict>
+        </array>
+        </plist>
+        EOF
+        installer -pkg $fname -applyChoiceChangesXML ./choicechanges.plist -target /
+        rm ./choicechanges.plist
+    else
+        installer -pkg $fname -target /
+    fi
     rm $fname
 
     echo "Installing Pip..."
-    python="/Library/Frameworks/Python.framework/Versions/${version}/bin/python${version}"
-    pip="${python} -m pip"
-
-    $python -m ensurepip
-    $pip install -U pip setuptools
+    $PYTHON -m ensurepip
+    $PYTHON -m pip install -U pip setuptools
 else
     echo "Unsupported platform: $platform"
 fi
