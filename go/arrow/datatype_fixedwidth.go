@@ -22,6 +22,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/apache/arrow/go/v18/arrow/decimal"
+	"github.com/apache/arrow/go/v18/arrow/internal/debug"
 	"github.com/apache/arrow/go/v18/internal/json"
 
 	"golang.org/x/xerrors"
@@ -536,13 +538,67 @@ type DecimalType interface {
 
 func NewDecimalType(id Type, prec, scale int32) (DecimalType, error) {
 	switch id {
+	case DECIMAL32:
+		debug.Assert(prec <= int32(decimal.MaxPrecision[decimal.Decimal32]()), "invalid precision for decimal32")
+		return &Decimal32Type{Precision: prec, Scale: scale}, nil
+	case DECIMAL64:
+		debug.Assert(prec <= int32(decimal.MaxPrecision[decimal.Decimal64]()), "invalid precision for decimal64")
+		return &Decimal64Type{Precision: prec, Scale: scale}, nil
 	case DECIMAL128:
+		debug.Assert(prec <= int32(decimal.MaxPrecision[decimal.Decimal128]()), "invalid precision for decimal128")
 		return &Decimal128Type{Precision: prec, Scale: scale}, nil
 	case DECIMAL256:
+		debug.Assert(prec <= int32(decimal.MaxPrecision[decimal.Decimal256]()), "invalid precision for decimal256")
 		return &Decimal256Type{Precision: prec, Scale: scale}, nil
 	default:
 		return nil, fmt.Errorf("%w: must use DECIMAL128 or DECIMAL256 to create a DecimalType", ErrInvalid)
 	}
+}
+
+// Decimal32Type represents a fixed-size 32-bit decimal type.
+type Decimal32Type struct {
+	Precision int32
+	Scale     int32
+}
+
+func (*Decimal32Type) ID() Type      { return DECIMAL32 }
+func (*Decimal32Type) Name() string  { return "decimal32" }
+func (*Decimal32Type) BitWidth() int { return 32 }
+func (*Decimal32Type) Bytes() int    { return Decimal32SizeBytes }
+func (t *Decimal32Type) String() string {
+	return fmt.Sprintf("%s(%d, %d)", t.Name(), t.Precision, t.Scale)
+}
+func (t *Decimal32Type) Fingerprint() string {
+	return fmt.Sprintf("%s[%d,%d,%d]", typeFingerprint(t), t.BitWidth(), t.Precision, t.Scale)
+}
+func (t *Decimal32Type) GetPrecision() int32 { return t.Precision }
+func (t *Decimal32Type) GetScale() int32     { return t.Scale }
+
+func (Decimal32Type) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(Decimal32SizeBytes)}}
+}
+
+// Decimal64Type represents a fixed-size 32-bit decimal type.
+type Decimal64Type struct {
+	Precision int32
+	Scale     int32
+}
+
+func (*Decimal64Type) ID() Type      { return DECIMAL64 }
+func (*Decimal64Type) Name() string  { return "decimal64" }
+func (*Decimal64Type) BitWidth() int { return 64 }
+func (*Decimal64Type) Bytes() int    { return Decimal64SizeBytes }
+func (t *Decimal64Type) String() string {
+	return fmt.Sprintf("%s(%d, %d)", t.Name(), t.Precision, t.Scale)
+}
+func (t *Decimal64Type) Fingerprint() string {
+	return fmt.Sprintf("%s[%d,%d,%d]", typeFingerprint(t), t.BitWidth(), t.Precision, t.Scale)
+}
+func (t *Decimal64Type) GetPrecision() int32 { return t.Precision }
+func (t *Decimal64Type) GetScale() int32     { return t.Scale }
+
+func (Decimal64Type) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(Decimal64SizeBytes)}}
 }
 
 // Decimal128Type represents a fixed-size 128-bit decimal type.

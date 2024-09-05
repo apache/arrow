@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	"github.com/apache/arrow/go/v18/arrow"
+	"github.com/apache/arrow/go/v18/arrow/decimal"
 	"github.com/apache/arrow/go/v18/arrow/decimal128"
 	"github.com/apache/arrow/go/v18/arrow/decimal256"
 	"github.com/apache/arrow/go/v18/arrow/float16"
@@ -84,6 +85,94 @@ func TestFloat16Traits(t *testing.T) {
 
 	v2 := make([]float16.Num, N)
 	arrow.Float16Traits.Copy(v2, v1)
+
+	if !reflect.DeepEqual(v1, v2) {
+		t.Fatalf("invalid values:\nv1=%v\nv2=%v\n", v1, v2)
+	}
+}
+
+func TestDecimal32Traits(t *testing.T) {
+	const N = 10
+	nbytes := arrow.Decimal32Traits.BytesRequired(N)
+	b1 := arrow.Decimal32Traits.CastToBytes([]decimal.Decimal32{
+		decimal.Decimal32(0),
+		decimal.Decimal32(1),
+		decimal.Decimal32(2),
+		decimal.Decimal32(3),
+		decimal.Decimal32(4),
+		decimal.Decimal32(5),
+		decimal.Decimal32(6),
+		decimal.Decimal32(7),
+		decimal.Decimal32(8),
+		decimal.Decimal32(9),
+	})
+
+	b2 := make([]byte, nbytes)
+	for i := 0; i < N; i++ {
+		beg := i * arrow.Decimal32SizeBytes
+		end := (i + 1) * arrow.Decimal32SizeBytes
+		arrow.Decimal32Traits.PutValue(b2[beg:end], decimal.Decimal32(i))
+	}
+
+	if !reflect.DeepEqual(b1, b2) {
+		v1 := arrow.Decimal32Traits.CastFromBytes(b1)
+		v2 := arrow.Decimal32Traits.CastFromBytes(b2)
+		t.Fatalf("invalid values:\nb1=%v\nb2=%v\nv1=%v\nv2=%v\n", b1, b2, v1, v2)
+	}
+
+	v1 := arrow.Decimal32Traits.CastFromBytes(b1)
+	for i, v := range v1 {
+		if got, want := v, decimal.Decimal32(i); got != want {
+			t.Fatalf("invalid value[%d]. got=%v, want=%v", i, got, want)
+		}
+	}
+
+	v2 := make([]decimal.Decimal32, N)
+	arrow.Decimal32Traits.Copy(v2, v1)
+
+	if !reflect.DeepEqual(v1, v2) {
+		t.Fatalf("invalid values:\nv1=%v\nv2=%v\n", v1, v2)
+	}
+}
+
+func TestDecimal64Traits(t *testing.T) {
+	const N = 10
+	nbytes := arrow.Decimal64Traits.BytesRequired(N)
+	b1 := arrow.Decimal64Traits.CastToBytes([]decimal.Decimal64{
+		0,
+		1,
+		2,
+		3,
+		4,
+		5,
+		6,
+		7,
+		8,
+		9,
+	})
+
+	b2 := make([]byte, nbytes)
+	for i := 0; i < N; i++ {
+		beg := i * arrow.Decimal64SizeBytes
+		end := (i + 1) * arrow.Decimal64SizeBytes
+		arrow.Decimal64Traits.PutValue(b2[beg:end], decimal.Decimal64(i))
+	}
+
+	if !reflect.DeepEqual(b1, b2) {
+		v1 := arrow.Decimal64Traits.CastFromBytes(b1)
+		v2 := arrow.Decimal64Traits.CastFromBytes(b2)
+		t.Fatalf("invalid values:\nb1=%v\nb2=%v\nv1=%v\nv2=%v\n", b1, b2, v1, v2)
+	}
+
+	v1 := arrow.Decimal64Traits.CastFromBytes(b1)
+	for i, v := range v1 {
+		if got, want := v, decimal.Decimal64(i); got != want {
+			t.Fatalf("invalid value[%d]. got=%v, want=%v", i, got, want)
+		}
+	}
+
+	v2 := make([]decimal.Decimal64, N)
+	arrow.Decimal64Traits.Copy(v2, v1)
 
 	if !reflect.DeepEqual(v1, v2) {
 		t.Fatalf("invalid values:\nv1=%v\nv2=%v\n", v1, v2)

@@ -23,36 +23,35 @@ import (
 	"github.com/apache/arrow/go/v18/arrow/endian"
 )
 
-// Decimal128 traits
-var Decimal128Traits decimal128Traits
+// Decimal64 traits
+var Decimal64Traits decimal64Traits
 
 const (
-	// Decimal128SizeBytes specifies the number of bytes required to store a single decimal128 in memory
-	Decimal128SizeBytes = int(unsafe.Sizeof(decimal.Decimal128{}))
+	// Decimal64SizeBytes specifies the number of bytes required to store a single decimal64 in memory
+	Decimal64SizeBytes = int(unsafe.Sizeof(decimal.Decimal64(0)))
 )
 
-type decimal128Traits struct{}
+type decimal64Traits struct{}
 
 // BytesRequired returns the number of bytes required to store n elements in memory.
-func (decimal128Traits) BytesRequired(n int) int { return Decimal128SizeBytes * n }
+func (decimal64Traits) BytesRequired(n int) int { return Decimal64SizeBytes * n }
 
 // PutValue
-func (decimal128Traits) PutValue(b []byte, v decimal.Decimal128) {
-	endian.Native.PutUint64(b[:8], uint64(v.LowBits()))
-	endian.Native.PutUint64(b[8:], uint64(v.HighBits()))
+func (decimal64Traits) PutValue(b []byte, v decimal.Decimal64) {
+	endian.Native.PutUint64(b[:8], uint64(v))
 }
 
 // CastFromBytes reinterprets the slice b to a slice of type uint16.
 //
 // NOTE: len(b) must be a multiple of Uint16SizeBytes.
-func (decimal128Traits) CastFromBytes(b []byte) []decimal.Decimal128 {
-	return GetData[decimal.Decimal128](b)
+func (decimal64Traits) CastFromBytes(b []byte) []decimal.Decimal64 {
+	return GetData[decimal.Decimal64](b)
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
-func (decimal128Traits) CastToBytes(b []decimal.Decimal128) []byte {
+func (decimal64Traits) CastToBytes(b []decimal.Decimal64) []byte {
 	return GetBytes(b)
 }
 
 // Copy copies src to dst.
-func (decimal128Traits) Copy(dst, src []decimal.Decimal128) { copy(dst, src) }
+func (decimal64Traits) Copy(dst, src []decimal.Decimal64) { copy(dst, src) }

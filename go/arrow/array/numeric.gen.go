@@ -101,11 +101,13 @@ func (a *Int64) GetOneForMarshal(i int) interface{} {
 func (a *Int64) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := 0; i < a.Len(); i++ {
+
 		if a.IsValid(i) {
 			vals[i] = a.values[i]
 		} else {
 			vals[i] = nil
 		}
+
 	}
 
 	return json.Marshal(vals)
@@ -196,11 +198,13 @@ func (a *Uint64) GetOneForMarshal(i int) interface{} {
 func (a *Uint64) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := 0; i < a.Len(); i++ {
+
 		if a.IsValid(i) {
 			vals[i] = a.values[i]
 		} else {
 			vals[i] = nil
 		}
+
 	}
 
 	return json.Marshal(vals)
@@ -398,11 +402,13 @@ func (a *Int32) GetOneForMarshal(i int) interface{} {
 func (a *Int32) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := 0; i < a.Len(); i++ {
+
 		if a.IsValid(i) {
 			vals[i] = a.values[i]
 		} else {
 			vals[i] = nil
 		}
+
 	}
 
 	return json.Marshal(vals)
@@ -493,11 +499,13 @@ func (a *Uint32) GetOneForMarshal(i int) interface{} {
 func (a *Uint32) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := 0; i < a.Len(); i++ {
+
 		if a.IsValid(i) {
 			vals[i] = a.values[i]
 		} else {
 			vals[i] = nil
 		}
+
 	}
 
 	return json.Marshal(vals)
@@ -602,6 +610,7 @@ func (a *Float32) MarshalJSON() ([]byte, error) {
 		default:
 			vals[i] = f
 		}
+
 	}
 
 	return json.Marshal(vals)
@@ -692,11 +701,13 @@ func (a *Int16) GetOneForMarshal(i int) interface{} {
 func (a *Int16) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := 0; i < a.Len(); i++ {
+
 		if a.IsValid(i) {
 			vals[i] = a.values[i]
 		} else {
 			vals[i] = nil
 		}
+
 	}
 
 	return json.Marshal(vals)
@@ -787,11 +798,13 @@ func (a *Uint16) GetOneForMarshal(i int) interface{} {
 func (a *Uint16) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := 0; i < a.Len(); i++ {
+
 		if a.IsValid(i) {
 			vals[i] = a.values[i]
 		} else {
 			vals[i] = nil
 		}
+
 	}
 
 	return json.Marshal(vals)
@@ -882,11 +895,13 @@ func (a *Int8) GetOneForMarshal(i int) interface{} {
 func (a *Int8) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := 0; i < a.Len(); i++ {
+
 		if a.IsValid(i) {
 			vals[i] = float64(a.values[i]) // prevent uint8 from being seen as binary data
 		} else {
 			vals[i] = nil
 		}
+
 	}
 
 	return json.Marshal(vals)
@@ -977,11 +992,13 @@ func (a *Uint8) GetOneForMarshal(i int) interface{} {
 func (a *Uint8) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := 0; i < a.Len(); i++ {
+
 		if a.IsValid(i) {
 			vals[i] = float64(a.values[i]) // prevent uint8 from being seen as binary data
 		} else {
 			vals[i] = nil
 		}
+
 	}
 
 	return json.Marshal(vals)

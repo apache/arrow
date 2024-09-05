@@ -20,8 +20,7 @@ import (
 	"reflect"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v18/arrow/decimal128"
-	"github.com/apache/arrow/go/v18/arrow/decimal256"
+	"github.com/apache/arrow/go/v18/arrow/decimal"
 	"github.com/apache/arrow/go/v18/arrow/float16"
 	"golang.org/x/exp/constraints"
 )
@@ -68,7 +67,7 @@ type NumericType interface {
 // as a bitmap and thus the buffer can't be just reinterpreted as a []bool
 type FixedWidthType interface {
 	IntType | UintType |
-		FloatType | decimal128.Num | decimal256.Num |
+		FloatType | decimal.Decimal32 | decimal.Decimal64 | decimal.Decimal128 | decimal.Decimal256 |
 		DayTimeInterval | MonthDayNanoInterval
 }
 

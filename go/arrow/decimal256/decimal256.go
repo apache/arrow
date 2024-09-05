@@ -339,6 +339,16 @@ func (n Num) ToFloat64(scale int32) float64 {
 	return n.tofloat64Positive(scale)
 }
 
+func (n Num) ToBigFloat(scale int32) *big.Float {
+	f := (&big.Float{}).SetInt(n.BigInt())
+	if scale < 0 {
+		f.SetPrec(256).Mul(f, (&big.Float{}).SetInt(scaleMultipliers[-scale].BigInt()))
+	} else {
+		f.SetPrec(256).Quo(f, (&big.Float{}).SetInt(scaleMultipliers[scale].BigInt()))
+	}
+	return f
+}
+
 func (n Num) Sign() int {
 	if n == (Num{}) {
 		return 0

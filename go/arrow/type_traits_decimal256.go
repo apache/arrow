@@ -19,7 +19,7 @@ package arrow
 import (
 	"unsafe"
 
-	"github.com/apache/arrow/go/v18/arrow/decimal256"
+	"github.com/apache/arrow/go/v18/arrow/decimal"
 	"github.com/apache/arrow/go/v18/arrow/endian"
 )
 
@@ -27,14 +27,14 @@ import (
 var Decimal256Traits decimal256Traits
 
 const (
-	Decimal256SizeBytes = int(unsafe.Sizeof(decimal256.Num{}))
+	Decimal256SizeBytes = int(unsafe.Sizeof(decimal.Decimal256{}))
 )
 
 type decimal256Traits struct{}
 
 func (decimal256Traits) BytesRequired(n int) int { return Decimal256SizeBytes * n }
 
-func (decimal256Traits) PutValue(b []byte, v decimal256.Num) {
+func (decimal256Traits) PutValue(b []byte, v decimal.Decimal256) {
 	for i, a := range v.Array() {
 		start := i * 8
 		endian.Native.PutUint64(b[start:], a)
@@ -42,12 +42,12 @@ func (decimal256Traits) PutValue(b []byte, v decimal256.Num) {
 }
 
 // CastFromBytes reinterprets the slice b to a slice of decimal256
-func (decimal256Traits) CastFromBytes(b []byte) []decimal256.Num {
-	return GetData[decimal256.Num](b)
+func (decimal256Traits) CastFromBytes(b []byte) []decimal.Decimal256 {
+	return GetData[decimal.Decimal256](b)
 }
 
-func (decimal256Traits) CastToBytes(b []decimal256.Num) []byte {
+func (decimal256Traits) CastToBytes(b []decimal.Decimal256) []byte {
 	return GetBytes(b)
 }
 
-func (decimal256Traits) Copy(dst, src []decimal256.Num) { copy(dst, src) }
+func (decimal256Traits) Copy(dst, src []decimal.Decimal256) { copy(dst, src) }

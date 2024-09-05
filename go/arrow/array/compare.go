@@ -271,12 +271,18 @@ func Equal(left, right arrow.Array) bool {
 	case *Float64:
 		r := right.(*Float64)
 		return arrayEqualFloat64(l, r)
+	case *Decimal32:
+		r := right.(*Decimal32)
+		return arrayEqualDecimal(l, r)
+	case *Decimal64:
+		r := right.(*Decimal64)
+		return arrayEqualDecimal(l, r)
 	case *Decimal128:
 		r := right.(*Decimal128)
-		return arrayEqualDecimal128(l, r)
+		return arrayEqualDecimal(l, r)
 	case *Decimal256:
 		r := right.(*Decimal256)
-		return arrayEqualDecimal256(l, r)
+		return arrayEqualDecimal(l, r)
 	case *Date32:
 		r := right.(*Date32)
 		return arrayEqualDate32(l, r)
@@ -527,12 +533,18 @@ func arrayApproxEqual(left, right arrow.Array, opt equalOption) bool {
 	case *Float64:
 		r := right.(*Float64)
 		return arrayApproxEqualFloat64(l, r, opt)
+	case *Decimal32:
+		r := right.(*Decimal32)
+		return arrayEqualDecimal(l, r)
+	case *Decimal64:
+		r := right.(*Decimal64)
+		return arrayEqualDecimal(l, r)
 	case *Decimal128:
 		r := right.(*Decimal128)
-		return arrayEqualDecimal128(l, r)
+		return arrayEqualDecimal(l, r)
 	case *Decimal256:
 		r := right.(*Decimal256)
-		return arrayEqualDecimal256(l, r)
+		return arrayEqualDecimal(l, r)
 	case *Date32:
 		r := right.(*Date32)
 		return arrayEqualDate32(l, r)
