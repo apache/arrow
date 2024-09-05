@@ -938,6 +938,35 @@ As a result, back-pressure is managed by how long it takes for the ``on_next`` h
 The ``ArrowAsyncDeviceStreamHandler`` object should be able to handle callbacks as soon as
 it is passed to the producer, any initialization should be performed before it is provided.
 
+Possible Sequence Diagram
+-------------------------
+
+.. mermaid::
+
+  sequenceDiagram
+    Consumer->>+Producer: ArrowAsyncDeviceStreamHandler*
+    Producer-->>+Consumer: on_schema(ArrowAsyncProducer*, ArrowSchema*)
+    Consumer->>Producer: ArrowAsyncProducer->request(n)
+    
+    par
+        loop up to n times
+            Producer-->>Consumer: on_next_task(ArrowAsyncTask*)
+        end
+    and for each task
+        Consumer-->>Producer: ArrowAsyncTask.get_data(...)
+    end
+
+    break Optionally
+        Consumer->>-Producer: ArrowAsyncProducer->cancel()    
+    end
+
+    loop possible remaining
+        Producer-->>Consumer: on_next_task(ArrowAsyncTask*)
+    end
+
+    Producer->>-Consumer: ArrowAsyncDeviceStreamHandler->release()
+
+
 Interoperability with other interchange formats
 ===============================================
 
