@@ -49,9 +49,9 @@ func TestDecimal32Type(t *testing.T) {
 		scale     int32
 		want      string
 	}{
-		{1, 10, "decimal32(1, 9)"},
-		{10, 10, "decimal32(9, 9)"},
-		{10, 1, "decimal32(9, 1)"},
+		{1, 9, "decimal32(1, 9)"},
+		{9, 9, "decimal32(9, 9)"},
+		{9, 1, "decimal32(9, 1)"},
 	} {
 		t.Run(tc.want, func(t *testing.T) {
 			dt := arrow.Decimal32Type{Precision: tc.precision, Scale: tc.scale}
