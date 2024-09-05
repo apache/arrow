@@ -1023,20 +1023,6 @@ Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* infer
     }
     modified = true;
   } else {
-    if (inferred_type->id() == ::arrow::Type::EXTENSION) {
-      const auto& ex_type = checked_cast<const ::arrow::ExtensionType&>(*inferred_type);
-      if (ex_type.extension_name() == std::string("arrow.json")) {
-        // Schema mismatch.
-        //
-        // Arrow extensions are ENABLED in Parquet.
-        // origin_type is ::arrow::utf8()
-        // inferred_type is ::arrow::extension::json()
-        //
-        // Origin type is restored as Arrow should be considered the source of truth.
-        DCHECK_EQ(origin_type->id(), ::arrow::Type::STRING);
-        inferred->field = inferred->field->WithType(inferred_type);
-      }
-    }
     ARROW_ASSIGN_OR_RAISE(modified, ApplyOriginalStorageMetadata(origin_field, inferred));
   }
 
