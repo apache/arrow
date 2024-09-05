@@ -401,7 +401,7 @@ tasks:
                                                  ("amd64", "2-28", "manylinux_2_28_x86_64"),
                                                  ("arm64", "2014", "manylinux_2_17_aarch64.manylinux2014_aarch64"),
                                                  ("arm64", "2-28", "manylinux_2_28_aarch64")] %}
-  wheel-manylinux-{{ manylinux_version }}-{{ python_tag }}-{{ arch }}:
+  wheel-manylinux-{{ manylinux_version }}-{{ python_tag }}-{{ abi_tag }}-{{ arch }}:
     ci: github
     template: python-wheels/github.linux.yml
     params:
@@ -419,7 +419,7 @@ tasks:
 {% for macos_version, macos_codename in [("12.0", "monterey")] %}
   {% set platform_tag = "macosx_{}_x86_64".format(macos_version.replace('.', '_')) %}
 
-  wheel-macos-{{ macos_codename }}-{{ python_tag }}-amd64:
+  wheel-macos-{{ macos_codename }}-{{ python_tag }}-{{ abi_tag }}-amd64:
     ci: github
     template: python-wheels/github.osx.yml
     params:
@@ -435,7 +435,7 @@ tasks:
 
 {% endfor %}
 
-  wheel-macos-monterey-{{ python_tag }}-arm64:
+  wheel-macos-monterey-{{ python_tag }}-{{ abi_tag }}-arm64:
     ci: github
     template: python-wheels/github.osx.yml
     params:
