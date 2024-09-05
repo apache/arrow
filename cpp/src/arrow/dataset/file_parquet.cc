@@ -367,15 +367,13 @@ std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpr
   auto field_expr = compute::field_ref(field_ref);
 
   bool may_have_null = !statistics.HasNullCount() || statistics.null_count() > 0;
-  bool has_null = statistics.HasNullCount() && statistics.null_count() > 0;
   // Optimize for corner case where all values are nulls
   if (statistics.num_values() == 0) {
-    if (has_null) {
-      return is_null(std::move(field_expr));
-    }
-    // If there are no values and no nulls, it might be empty or contains
-    // only null.
-    return std::nullopt;
+    // If `statistics.HasNullCount()`, it means the all the values are nulls.
+    //
+    // If there are no values and no nulls, it might be empty or all values
+    // are nulls. In this case, we also return a null expression.
+    return is_null(std::move(field_expr));
   }
 
   std::shared_ptr<Scalar> min, max;

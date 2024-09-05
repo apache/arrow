@@ -865,12 +865,13 @@ TEST(TestParquetStatistics, NoNullCount) {
 
     auto stat_expression =
         ParquetFileFragment::EvaluateStatisticsAsExpression(*field, *stats);
+    ASSERT_TRUE(stat_expression.has_value());
     EXPECT_EQ(stat_expression->ToString(),
               "(((x >= 1) and (x <= 100)) or is_null(x, {nan_is_null=false}))");
   }
   {
-    // Special case: when num_value is 0, if has_null, it would return
-    // "is_null", otherwise it cannot gurantees anything
+    // Special case: when num_value is 0, it would return
+    // "is_null".
     ::parquet::EncodedStatistics encoded_stats;
     encoded_stats.has_null_count = true;
     encoded_stats.null_count = 1;
@@ -878,13 +879,15 @@ TEST(TestParquetStatistics, NoNullCount) {
     auto stats = ::parquet::Statistics::Make(&descr, &encoded_stats, /*num_values=*/0);
     auto stat_expression =
         ParquetFileFragment::EvaluateStatisticsAsExpression(*field, *stats);
+    ASSERT_TRUE(stat_expression.has_value());
     EXPECT_EQ(stat_expression->ToString(), "is_null(x, {nan_is_null=false})");
 
     encoded_stats.has_null_count = false;
     encoded_stats.all_null_value = false;
     stats = ::parquet::Statistics::Make(&descr, &encoded_stats, /*num_values=*/0);
     stat_expression = ParquetFileFragment::EvaluateStatisticsAsExpression(*field, *stats);
-    EXPECT_FALSE(stat_expression.has_value());
+    ASSERT_TRUE(stat_expression.has_value());
+    EXPECT_EQ(stat_expression->ToString(), "is_null(x, {nan_is_null=false})");
   }
 }
 
