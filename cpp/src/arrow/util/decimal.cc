@@ -316,8 +316,8 @@ struct Decimal64RealConversion
       return x;
     }
 
-    int32_t result = x.value();
-    uint32_t shifted = 0;
+    int64_t result = x.value();
+    uint64_t shifted = 0;
     if (bits > 0) {
       shifted = (result << (64 - bits));
       result >>= bits;

@@ -363,18 +363,18 @@ TEST_F(TestSchemaExport, Primitive) {
   TestPrimitive(binary_view(), "vz");
   TestPrimitive(utf8_view(), "vu");
 
-  TestPrimitive(decimal(8, 4), "d:8,4,32");
-  TestPrimitive(decimal(16, 4), "d:16,4,64");
+  TestPrimitive(smallest_decimal(8, 4), "d:8,4,32");
+  TestPrimitive(smallest_decimal(16, 4), "d:16,4,64");
   TestPrimitive(decimal128(16, 4), "d:16,4");
   TestPrimitive(decimal256(16, 4), "d:16,4,256");
 
-  TestPrimitive(decimal(8, 0), "d:8,0,32");
-  TestPrimitive(decimal(15, 0), "d:15,0,64");
+  TestPrimitive(smallest_decimal(8, 0), "d:8,0,32");
+  TestPrimitive(smallest_decimal(15, 0), "d:15,0,64");
   TestPrimitive(decimal128(15, 0), "d:15,0");
   TestPrimitive(decimal256(15, 0), "d:15,0,256");
 
-  TestPrimitive(decimal(8, -4), "d:8,-4,32");
-  TestPrimitive(decimal(15, -4), "d:15,-4,64");
+  TestPrimitive(smallest_decimal(8, -4), "d:8,-4,32");
+  TestPrimitive(smallest_decimal(15, -4), "d:15,-4,64");
   TestPrimitive(decimal128(15, -4), "d:15,-4");
   TestPrimitive(decimal256(15, -4), "d:15,-4,256");
 }

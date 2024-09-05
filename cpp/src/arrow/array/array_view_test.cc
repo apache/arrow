@@ -386,7 +386,7 @@ TEST(TestArrayView, SparseUnionAsStruct) {
 }
 
 TEST(TestArrayView, Decimal32RoundTrip) {
-  auto ty1 = decimal(9, 4);
+  auto ty1 = decimal32(9, 4);
   auto arr = ArrayFromJSON(ty1, R"(["123.4567", "-78.9000", null])");
 
   auto ty2 = fixed_size_binary(4);
@@ -398,7 +398,7 @@ TEST(TestArrayView, Decimal32RoundTrip) {
 }
 
 TEST(TestArrayView, Decimal64RoundTrip) {
-  auto ty1 = decimal(10, 4);
+  auto ty1 = decimal64(10, 4);
   auto arr = ArrayFromJSON(ty1, R"(["123.4567", "-78.9000", null])");
 
   auto ty2 = fixed_size_binary(8);
@@ -410,7 +410,7 @@ TEST(TestArrayView, Decimal64RoundTrip) {
 }
 
 TEST(TestArrayView, Decimal128RoundTrip) {
-  auto ty1 = decimal(20, 4);
+  auto ty1 = decimal128(20, 4);
   auto arr = ArrayFromJSON(ty1, R"(["123.4567", "-78.9000", null])");
 
   auto ty2 = fixed_size_binary(16);

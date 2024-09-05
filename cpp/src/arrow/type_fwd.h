@@ -528,8 +528,19 @@ std::shared_ptr<DataType> fixed_size_binary(int32_t byte_width);
 ///
 /// If the precision is greater than 38, a Decimal256Type is returned,
 /// otherwise a Decimal128Type.
+///
+/// Deprecated: prefer `smallest_decimal` instead.
 ARROW_EXPORT
 std::shared_ptr<DataType> decimal(int32_t precision, int32_t scale);
+
+/// \brief Create a the smallest DecimalType instance depending on precision
+///
+/// Given the requested precision and scale, the smallest DecimalType which
+/// is able to represent that precision will be returned. As different 
+/// bit-widths for decimal types are added, the concrete data type returned 
+/// here can potentially change accordingly.
+ARROW_EXPORT
+std::shared_ptr<DataType> smallest_decimal(int32_t precision, int32_t scale);
 
 /// \brief Create a Decimal32Type instance
 ARROW_EXPORT

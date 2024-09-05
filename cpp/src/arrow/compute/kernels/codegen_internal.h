@@ -1169,10 +1169,10 @@ ArrayKernelExec GeneratePhysicalNumeric(detail::GetTypeId get_id) {
 template <template <typename... Args> class Generator, typename... Args>
 ArrayKernelExec GenerateDecimalToDecimal(detail::GetTypeId get_id) {
   switch (get_id.id) {
-    // case Type::DECIMAL32:
-    //   return Generator<Decimal32Type, Args...>::Exec;
-    // case Type::DECIMAL64:
-    //   return Generator<Decimal64Type, Args...>::Exec;
+    case Type::DECIMAL32:
+      return Generator<Decimal32Type, Args...>::Exec;
+    case Type::DECIMAL64:
+      return Generator<Decimal64Type, Args...>::Exec;
     case Type::DECIMAL128:
       return Generator<Decimal128Type, Args...>::Exec;
     case Type::DECIMAL256:
@@ -1368,10 +1368,10 @@ ArrayKernelExec GenerateTemporal(detail::GetTypeId get_id) {
 template <template <typename...> class Generator, typename Type0, typename... Args>
 ArrayKernelExec GenerateDecimal(detail::GetTypeId get_id) {
   switch (get_id.id) {
-    // case Type::DECIMAL32:
-    //   return Generator<Type0, Decimal32Type, Args...>::Exec;
-    // case Type::DECIMAL64:
-    //   return Generator<Type0, Decimal64Type, Args...>::Exec;
+    case Type::DECIMAL32:
+      return Generator<Type0, Decimal32Type, Args...>::Exec;
+    case Type::DECIMAL64:
+      return Generator<Type0, Decimal64Type, Args...>::Exec;
     case Type::DECIMAL128:
       return Generator<Type0, Decimal128Type, Args...>::Exec;
     case Type::DECIMAL256:

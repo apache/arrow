@@ -3356,6 +3356,11 @@ std::shared_ptr<Field> field(std::string name, std::shared_ptr<DataType> type,
 }
 
 std::shared_ptr<DataType> decimal(int32_t precision, int32_t scale) {
+  return precision <= Decimal128Type::kMaxPrecision ? decimal128(precision, scale)
+                                                    : decimal256(precision, scale);
+}
+
+std::shared_ptr<DataType> smallest_decimal(int32_t precision, int32_t scale) {
   return precision <= Decimal32Type::kMaxPrecision    ? decimal32(precision, scale)
          : precision <= Decimal64Type::kMaxPrecision  ? decimal64(precision, scale)
          : precision <= Decimal128Type::kMaxPrecision ? decimal128(precision, scale)
