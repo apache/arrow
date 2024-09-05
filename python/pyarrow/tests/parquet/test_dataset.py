@@ -19,31 +19,27 @@ import datetime
 import inspect
 import os
 import pathlib
-import unittest.mock as mock
+
 import pyarrow.dataset as ds
 try:
     import numpy as np
 except ImportError:
     np = None
 import pytest
+import unittest.mock as mock
 
 import pyarrow as pa
 import pyarrow.compute as pc
-from pyarrow.fs import (
-    FileSelector,
-    FileSystem,
-    FSSpecHandler,
-    LocalFileSystem,
-    PyFileSystem,
-    SubTreeFileSystem,
-)
+from pyarrow.fs import (FileSelector, FileSystem, LocalFileSystem,
+                        PyFileSystem, SubTreeFileSystem, FSSpecHandler)
 from pyarrow.lib import ArrowInvalid
 from pyarrow.tests import util
 from pyarrow.util import guid
 
 try:
     import pyarrow.parquet as pq
-    from pyarrow.tests.parquet.common import _read_table, _test_dataframe, _write_table
+    from pyarrow.tests.parquet.common import (
+        _read_table, _test_dataframe, _write_table)
 except ImportError:
     pq = None
 
@@ -1222,6 +1218,7 @@ def test_read_table_duplicate_column_selection(tempdir):
 
 
 def test_dataset_partitioning(tempdir):
+    import pyarrow.dataset as ds
 
     # create small dataset with directory partitioning
     root_path = tempdir / "test_partitioning"
