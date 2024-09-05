@@ -45,6 +45,7 @@ public class JdbcToArrowMapDataTypeTest extends AbstractJdbcToArrowTest {
   /** Test Method to test JdbcToArrow Functionality for Map form Types.OTHER column. */
   @ParameterizedTest
   @MethodSource("getTestData")
+  @Override
   public void testJdbcToArrowValues(Table table)
       throws SQLException, IOException, ClassNotFoundException {
     this.initializeDatabase(table);
