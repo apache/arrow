@@ -75,6 +75,7 @@ groups:
 
   cpp:
     - test-*cpp*
+    - example-*cpp*
 
   c-glib:
     - test-*c-glib*
