@@ -1403,18 +1403,18 @@ serialized form is as follows:
   - the ``data header`` includes the length and memory offset
     of each **compressed buffer** in the record batch's body
 
-  - the ``body`` includes a flat sequence of **compressed memory
-    buffers** together with the **length of uncompressed buffer**
-    stored in the first 8 bytes for each buffer in the sequence
+  - the ``body`` includes a flat sequence of **compressed buffers**
+    together with the **length of uncompressed buffer** stored in
+    the first 8 bytes for each buffer in the sequence
 
 * If the buffers in the ``RecordBatch`` message are **uncompressed**
 
   - the ``data header`` includes the length and memory offset
     of each **uncompressed buffer** in the record batch's body
 
-  - the ``body`` includes a flat sequence of **uncompressed memory
-    buffers** with the first 8 bytes empty or equal to ``-1`` to
-    indicate that the buffer is uncompressed
+  - the ``body`` includes a flat sequence of **uncompressed buffers**
+    with the first 8 bytes empty or equal to ``-1`` to indicate that
+    the buffer is uncompressed
 
 Byte Order (`Endianness`_)
 ---------------------------
