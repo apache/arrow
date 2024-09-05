@@ -754,7 +754,7 @@ namespace Apache.Arrow.Tests
         public unsafe void RoundTripTestBatch()
         {
             // TODO: Enable these once this the version of pyarrow referenced during testing supports them
-            HashSet<ArrowTypeId> unsupported = new HashSet<ArrowTypeId> { ArrowTypeId.ListView, ArrowTypeId.BinaryView, ArrowTypeId.StringView };
+            HashSet<ArrowTypeId> unsupported = new HashSet<ArrowTypeId> { ArrowTypeId.ListView, ArrowTypeId.BinaryView, ArrowTypeId.StringView, ArrowTypeId.Decimal32, ArrowTypeId.Decimal64 };
             RecordBatch batch1 = TestData.CreateSampleRecordBatch(4, excludedTypes: unsupported);
             RecordBatch batch2 = batch1.Clone();
 

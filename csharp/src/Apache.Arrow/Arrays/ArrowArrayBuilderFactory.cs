@@ -78,6 +78,10 @@ namespace Apache.Arrow
                     return new ListViewArray.Builder(dataType as ListViewType);
                 case ArrowTypeId.FixedSizeList:
                     return new FixedSizeListArray.Builder(dataType as FixedSizeListType);
+                case ArrowTypeId.Decimal32:
+                    return new Decimal32Array.Builder(dataType as Decimal32Type);
+                case ArrowTypeId.Decimal64:
+                    return new Decimal64Array.Builder(dataType as Decimal64Type);
                 case ArrowTypeId.Decimal128:
                     return new Decimal128Array.Builder(dataType as Decimal128Type);
                 case ArrowTypeId.Decimal256:
