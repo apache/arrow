@@ -951,7 +951,8 @@ Status SimpleDecimalFromString(const char* type_name, std::string_view s,
       uint32_t value{0};
       ShiftAndAdd(dec.whole_digits, &value);
       ShiftAndAdd(dec.fractional_digits, &value);
-      if (value > static_cast<uint32_t>(std::numeric_limits<typename DecimalClass::ValueType>::max())) {
+      if (value > static_cast<uint32_t>(
+                      std::numeric_limits<typename DecimalClass::ValueType>::max())) {
         return Status::Invalid("The string '", s, "' cannot be represented as ",
                                type_name);
       }
@@ -964,7 +965,8 @@ Status SimpleDecimalFromString(const char* type_name, std::string_view s,
       uint64_t value{0};
       ShiftAndAdd(dec.whole_digits, &value, 1);
       ShiftAndAdd(dec.fractional_digits, &value, 1);
-      if (value > static_cast<uint64_t>(std::numeric_limits<typename DecimalClass::ValueType>::max())) {
+      if (value > static_cast<uint64_t>(
+                      std::numeric_limits<typename DecimalClass::ValueType>::max())) {
         return Status::Invalid("The string '", s, "' cannot be represented as ",
                                type_name);
       }

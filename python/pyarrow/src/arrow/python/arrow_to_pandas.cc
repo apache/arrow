@@ -1317,6 +1317,14 @@ struct ObjectWriterVisitor {
                                                         out_values);
   }
 
+  Status Visit(const Decimal32Type& type) {
+    return Status::NotImplemented("Decimal32 type not yet implemented");
+  }
+
+  Status Visit(const Decimal64Type& type) {
+    return Status::NotImplemented("Decimal64 type not yet implemented");
+  }
+
   Status Visit(const Decimal128Type& type) {
     OwnedRef decimal;
     OwnedRef Decimal;
