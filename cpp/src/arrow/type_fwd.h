@@ -536,8 +536,8 @@ std::shared_ptr<DataType> decimal(int32_t precision, int32_t scale);
 /// \brief Create a the smallest DecimalType instance depending on precision
 ///
 /// Given the requested precision and scale, the smallest DecimalType which
-/// is able to represent that precision will be returned. As different 
-/// bit-widths for decimal types are added, the concrete data type returned 
+/// is able to represent that precision will be returned. As different
+/// bit-widths for decimal types are added, the concrete data type returned
 /// here can potentially change accordingly.
 ARROW_EXPORT
 std::shared_ptr<DataType> smallest_decimal(int32_t precision, int32_t scale);
