@@ -1778,7 +1778,6 @@ class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
     writer->Close();
     this->ReadColumn();
     for (size_t i = 0; i < num_values; i++) {
-      // ASSERT_EQ((i % 2 == 0) ? true : false, this->values_out_[i]) << i;
       const ByteArray& value = this->values_out_[i];
       EXPECT_EQ(21, value.len);
       EXPECT_EQ(1, value.ptr[0]);

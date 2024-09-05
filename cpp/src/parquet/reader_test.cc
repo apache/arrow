@@ -28,6 +28,8 @@
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
+#include "arrow/array/array_binary.h"
+#include "arrow/array/builder_binary.h"
 #include "arrow/buffer.h"
 #include "arrow/io/file.h"
 #include "arrow/testing/future_util.h"
@@ -39,13 +41,16 @@
 
 #include "parquet/column_reader.h"
 #include "parquet/column_scanner.h"
+#include "parquet/column_writer.h"
 #include "parquet/file_reader.h"
 #include "parquet/file_writer.h"
 #include "parquet/metadata.h"
 #include "parquet/page_index.h"
 #include "parquet/platform.h"
 #include "parquet/printer.h"
+#include "parquet/statistics.h"
 #include "parquet/test_util.h"
+#include "parquet/types.h"
 
 using arrow::internal::checked_pointer_cast;
 using arrow::internal::Zip;
@@ -1810,6 +1815,117 @@ TEST(PageIndexReaderTest, ReadFileWithoutPageIndex) {
   ASSERT_NE(nullptr, page_index_reader);
   auto row_group_index_reader = page_index_reader->RowGroup(0);
   ASSERT_EQ(nullptr, row_group_index_reader);
+}
+
+TEST(TestFileReader, GeometryLogicalType) {
+  const int num_rows = 1000;
+
+  // Make schema
+  schema::NodeVector fields;
+  fields.push_back(PrimitiveNode::Make(
+      "g", Repetition::REQUIRED,
+      GeometryLogicalType::Make(R"({"id": {"authority": "OGC", "code": "CRS84"}})",
+                                LogicalType::GeometryEdges::PLANAR,
+                                LogicalType::GeometryEncoding::WKB, "metadata0"),
+      Type::BYTE_ARRAY));
+  auto schema = std::static_pointer_cast<GroupNode>(
+      GroupNode::Make("schema", Repetition::REQUIRED, fields));
+
+  // Write small batches and small data pages
+  std::shared_ptr<WriterProperties> writer_props =
+      WriterProperties::Builder().write_batch_size(64)->data_pagesize(128)->build();
+
+  ASSERT_OK_AND_ASSIGN(auto out_file, ::arrow::io::BufferOutputStream::Create());
+  std::shared_ptr<ParquetFileWriter> file_writer =
+      ParquetFileWriter::Open(out_file, schema, writer_props);
+  RowGroupWriter* rg_writer = file_writer->AppendRowGroup();
+
+  // write WKB points to columns
+  auto* writer = static_cast<ByteArrayWriter*>(rg_writer->NextColumn());
+  uint32_t point_wkb_size = 21;
+  std::vector<uint8_t> buffer(point_wkb_size * num_rows);
+  uint8_t* ptr = buffer.data();
+  std::vector<ByteArray> values(num_rows);
+  for (int k = 0; k < num_rows; k++) {
+    // Point with coordinates (k, k + 1), encoded as WKB
+    ptr[0] = 0x01;           // 1: little endian
+    uint32_t geom_type = 1;  // 1: POINT (2D)
+    memcpy(&ptr[1], &geom_type, 4);
+    double x = k;
+    double y = k + 1;
+    memcpy(&ptr[5], &x, 8);
+    memcpy(&ptr[13], &y, 8);
+
+    // Set this WKB value to values_[k]
+    values[k].len = point_wkb_size;
+    values[k].ptr = ptr;
+    ptr += point_wkb_size;
+  }
+  writer->WriteBatch(num_rows, nullptr, nullptr, values.data());
+
+  rg_writer->Close();
+  file_writer->Close();
+
+  // Open the reader
+  ASSERT_OK_AND_ASSIGN(auto file_buf, out_file->Finish());
+  auto in_file = std::make_shared<::arrow::io::BufferReader>(file_buf);
+
+  ReaderProperties reader_props;
+  reader_props.enable_buffered_stream();
+  reader_props.set_buffer_size(64);
+  std::unique_ptr<ParquetFileReader> file_reader =
+      ParquetFileReader::Open(in_file, reader_props);
+
+  // Check that the geometry statistics are correctly written and read
+  std::shared_ptr<FileMetaData> metadata = file_reader->metadata();
+  int num_row_groups = metadata->num_row_groups();
+  for (int i = 0; i < num_row_groups; i++) {
+    std::unique_ptr<RowGroupMetaData> row_group_metadata = metadata->RowGroup(i);
+    std::unique_ptr<ColumnChunkMetaData> column_chunk_metadata =
+        row_group_metadata->ColumnChunk(0);
+    EncodedStatistics encoded_statistics = column_chunk_metadata->statistics()->Encode();
+    EXPECT_TRUE(encoded_statistics.has_geometry_statistics);
+    const EncodedGeometryStatistics& geom_stats =
+        encoded_statistics.geometry_statistics();
+    EXPECT_EQ(1, geom_stats.geometry_types.size());
+    EXPECT_EQ(1, geom_stats.geometry_types[0]);
+    EXPECT_GE(geom_stats.xmin, 0);
+    EXPECT_GT(geom_stats.xmax, geom_stats.xmin);
+    EXPECT_GT(geom_stats.ymin, 0);
+    EXPECT_GT(geom_stats.ymax, geom_stats.ymin);
+  }
+
+  // Check the geometry values
+  auto row_group = file_reader->RowGroup(0);
+  std::shared_ptr<ByteArrayReader> reader =
+      std::static_pointer_cast<ByteArrayReader>(row_group->Column(0));
+  int64_t total_values_read = 0;
+  while (total_values_read < num_rows) {
+    std::vector<ByteArray> out(num_rows);
+    int64_t values_read = 0;
+    int64_t levels_read =
+        reader->ReadBatch(num_rows, nullptr, nullptr, out.data(), &values_read);
+    ASSERT_GE(levels_read, 1);
+    ASSERT_GE(values_read, 1);
+
+    // Check the batch
+    for (int64_t i = 0; i < values_read; i++) {
+      const ByteArray& value = out[i];
+      EXPECT_EQ(21, value.len);
+      EXPECT_EQ(1, value.ptr[0]);
+      uint32_t geom_type = 0;
+      double x = 0;
+      double y = 0;
+      memcpy(&geom_type, &value.ptr[1], 4);
+      memcpy(&x, &value.ptr[5], 8);
+      memcpy(&y, &value.ptr[13], 8);
+      EXPECT_EQ(1, geom_type);
+      EXPECT_DOUBLE_EQ(i + total_values_read, x);
+      EXPECT_DOUBLE_EQ(i + 1 + total_values_read, y);
+    }
+
+    total_values_read += values_read;
+  }
 }
 
 }  // namespace parquet
