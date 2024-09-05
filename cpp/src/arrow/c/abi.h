@@ -231,38 +231,140 @@ struct ArrowDeviceArrayStream {
 #ifndef ARROW_C_ASYNC_STREAM_INTERFACE
 #define ARROW_C_ASYNC_STREAM_INTERFACE
 
+// ArrowAsyncTask represents available data from a producer that was passed to
+// an invocation of `on_next_task` on the ArrowAsyncDeviceStreamHandler.
+struct ArrowAsyncTask {
+  // This callback should populate the ArrowDeviceArray associated with this task.
+  // The order of ArrowAsyncTasks provided by the producer enables a consumer to
+  // ensure the order of data to process.
+  //
+  // Returns: 0 if successful, errno-compatible error otherwise.
+  //
+  // If a non-0 value is returned then it should be followed by a call to `on_error`
+  // on the appropriate ArrowAsyncDeviceStreamHandler.
+  //
+  // Rather than a release callback, any required cleanup should be performed as part
+  // of the invocation of `get_data`. Ownership of the Array is passed to the consumer
+  // calling this, and so it must be released separately.
+  //
+  // It is only valid to call this method exactly once.
+  int (*get_data)(struct ArrowArrayTask* self, struct ArrowDeviceArray* out);
+
+  // opaque task-specific data
+  void* private_data;
+};
+
+// ArrowAsyncProducer represents a 1-to-1 relationship between an async producer
+// and consumer. This object allows the consumer to perform backpressure and flow
+// control on the asynchronous stream processing. This object must be owned by the
+// producer who creates it, and thus is responsible for cleaning it up.
+struct ArrowAsyncProducer {
+  // A consumer must call this function to start receiving on_next_task calls.
+  //
+  // It *must* be valid to call this synchronously from within on_next_task or
+  // on_schema, with a producer placing an upper bound on possible synchronous
+  // recursion between calls of on_next_task -> request -> on_next_task ->....
+  //
+  // After cancel has been called, additional calls to this function must be NOPs,
+  // but allowed.
+  //
+  // While not cancelled, calling this function must register the given number of
+  // additional arrays/batches to be produced with the producer. The producer should
+  // only call `on_next_task` at most the registered number of arrays before propagating
+  // backpressure.
+  //
+  // While not cancelled, calling request MAY synchronously call `on_next_task`,
+  // `on_error`, or `release` on the ArrowAsyncDeviceStreamHandler.
+  //
+  // Any error encountered by calling request must be propagated by calling the `on_error`
+  // callback of the ArrowAsyncDeviceStreamHandler.
+  //
+  // A producer must support an unbounded number of calls to request and must support
+  // a total registered demand (sum requested - sum delivered) of up to UINT64_MAX.
+  void (*request)(struct ArrowAsyncProducer* self, uint64_t n);
+
+  // This cancel callback signals a producer that it must eventually stop making calls
+  // to on_next_task. It must be idempotent and thread-safe.
+  //
+  // After calling cancel once, subsequent calls must be NOPs.
+  //
+  // It is not required that calling cancel affect the producer immediately, only that it
+  // must eventually stop calling on_next_task and subsequently call release on the
+  // async handler. As such, a consumer must be prepared to receive one or more calls to
+  // `on_next_task` even after calling cancel if there are still requested arrays pending.
+  //
+  // Any error encountered during handling a call to cancel must be reported via the on_error
+  // callback on the async stream handler.
+  void (*cancel)(struct ArrowAsyncProducer* self);  
+
+  // producer-specific opaque data.
+  void* private_data;
+};
+
 // Similar to ArrowDeviceArrayStream, except designed for an asynchronous
 // style of interaction. While ArrowDeviceArrayStream provides producer
 // defined callbacks, this is intended to be created by the consumer instead.
 // The consumer passes this handler to the producer, which in turn uses the
 // callbacks to inform the consumer of events in the stream.
 struct ArrowAsyncDeviceStreamHandler {
-  // Handler for receiving a schema. The passed in stream_schema should be
-  // released or moved by the handler (producer is giving ownership of it to
-  // the handler).
+  // Handler for receiving a schema. The passed in stream_schema must be
+  // released or moved by the handler (producer is giving ownership of the schema to
+  // the handler, but not ownership of the top level object itself).
   //
-  // The `extension_param` argument can be null or can be used by a producer
-  // to pass arbitrary extra information to the consumer (such as total number
-  // of rows, context info, or otherwise).
+  // With the exception of an error occurring (on_error), this must be the first
+  // callback function which is called by a producer and must only be called exactly
+  // once. As such, the producer should provide a valid ArrowAsyncProducer instance
+  // so the consumer can control the flow. See the documentation on ArrowAsyncProducer
+  // for how it works. The ArrowAsyncProducer is owned by the producer who calls this
+  // function and thus the producer is responsible for cleaning it up when calling
+  // the release callback of this handler.
+  //
+  // The addl_metadata argument can be null or can be used by a producer
+  // to pass arbitrary extra information to the consumer beyond the metadata in the schema
+  // itself (such as total number of rows, context info, or otherwise). The data should 
+  // be passed using the same encoding as the metadata within the ArrowSchema struct 
+  // itself (defined in the spec at
+  // https://arrow.apache.org/docs/format/CDataInterface.html#c.ArrowSchema.metadata)
+  //
+  // If addl_metadata is non-null then it only needs to exist for the lifetime of this call,
+  // a consumer who wants it to live after that must copy it to ensure lifetime.
   //
   // Return value: 0 if successful, `errno`-compatible error otherwise
+  //
+  // A producer that receives a non-zero return here should stop producing and eventually
+  // call release instead.
   int (*on_schema)(struct ArrowAsyncDeviceStreamHandler* self,
-                   struct ArrowSchema* stream_schema, void* extension_param);
+                   struct ArrowAsyncProducer* producer, struct ArrowSchema* stream_schema,
+                   const char* addl_metadata);
 
-  // Handler for receiving an array/record batch. Always called at least once
-  // unless an error is encountered (which would result in calling on_error).
-  // An empty/released array is passed to indicate the end of the stream if no
+  // Handler for receiving data. This is called when data is available providing an
+  // ArrowAsyncTask struct to signify it. The consumer is responsible for calling
+  // the release callback on the ArrowAsyncTask after retrieving the array/batch.
+  // An empty/released task is passed to indicate the end of the stream if no
   // errors have been encountered.
   //
-  // The `extension_param` argument can be null or can be used by a producer
-  // to pass arbitrary extra information to the consumer.
+  // The `request` callback of a provided ArrowAsyncProducer must be called in order
+  // to start receiving calls to this handler.
   //
-  // After this call, the consumer is responsible for releasing the ArrowDeviceArray
-  // which is provided by `next`.
+  // The metadata argument can be null or can be used by a producer
+  // to pass arbitrary extra information to the consumer (such as total number
+  // of rows, context info, or otherwise). The data should be passed using the same
+  // encoding as the metadata within the ArrowSchema struct itself (defined in
+  // the spec at
+  // https://arrow.apache.org/docs/format/CDataInterface.html#c.ArrowSchema.metadata)
+  //
+  // If metadata is non-null then it only needs to exist for the lifetime of this call,
+  // a consumer who wants it to live after that must copy it to ensure lifetime.
+  //
+  // A producer *must not* call this concurrently from multiple different threads.
+  //
+  // A consumer must be prepared to received one or more calls to this callback even
+  // after calling cancel on the corresponding ArrowAsyncProducer, as cancel does not
+  // guarantee it happens immediately.
   //
   // Return value: 0 if successful, `errno`-compatible error otherwise.
-  int (*on_next)(struct ArrowAsyncDeviceStreamHandler* self,
-                 struct ArrowDeviceArray* next, void* extension_param);
+  int (*on_next_task)(struct ArrowAsyncDeviceStreamHandler* self,
+                      struct ArrowAsyncTask* task, const char* metadata);
 
   // Handler for encountering an error. The producer should call release after
   // this returns to clean up any resources.
@@ -276,12 +378,22 @@ struct ArrowAsyncDeviceStreamHandler {
   // https://arrow.apache.org/docs/format/CDataInterface.html#c.ArrowSchema.metadata
   //
   // After this call, producers should follow-up by calling the release callback.
+  //
+  // It is valid for this to be called by a producer with or without a preceding call
+  // to ArrowAsyncProducer.request.
+  //
+  // This callback must not call any methods of an ArrowAsyncProducer object.
   void (*on_error)(struct ArrowAsyncDeviceStreamHandler* self, int code,
                    const char* message, const char* metadata);
 
   // Release callback to release any resources for the handler. Should always be
   // called by a producer when it is done utilizing a handler. No callbacks should
   // be called after this is called.
+  //
+  // It is valid for the release callback to be called by a producer with or without
+  // a preceding call to ArrowAsyncProducer.request.
+  //
+  // The release callback must not call any methods of an ArrowAsyncProducer object.
   void (*release)(struct ArrowAsyncDeviceStreamHandler* self);
 
   // Opaque handler-specific data
