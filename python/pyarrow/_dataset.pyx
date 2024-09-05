@@ -2533,14 +2533,13 @@ cdef class Partitioning(_Weakrefable):
         ... )
         """
         cdef:
-            CResult[CPartitionPathFormat] result
-            CPartitionPathFormat result_value
-        result = self.partitioning.Format(
-            Expression.unwrap(expr)
-        )
-        result_value = GetResultValue(result)
+            CPartitionPathFormat result
 
-        return frombytes(result_value.directory), frombytes(result_value.filename)
+        result = GetResultValue(self.partitioning.Format(
+            Expression.unwrap(expr)
+        ))
+
+        return frombytes(result.directory), frombytes(result.filename)
 
     @property
     def schema(self):
