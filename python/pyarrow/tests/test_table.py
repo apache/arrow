@@ -3430,6 +3430,21 @@ def cuda_recordbatch(cuda_context, cpu_recordbatch):
     return cpu_recordbatch.copy_to(cuda_context.memory_manager)
 
 
+@pytest.fixture
+def cpu_table(schema, cpu_chunked_array):
+    return pa.table([cpu_chunked_array, cpu_chunked_array], schema=schema)
+
+
+@pytest.fixture
+def cuda_table(schema, cuda_chunked_array):
+    return pa.table([cuda_chunked_array, cuda_chunked_array], schema=schema)
+
+
+@pytest.fixture
+def cpu_and_cuda_table(schema, cpu_chunked_array, cuda_chunked_array):
+    return pa.table([cpu_chunked_array, cuda_chunked_array], schema=schema)
+
+
 def test_chunked_array_non_cpu(cuda_context, cpu_chunked_array, cuda_chunked_array,
                                cpu_and_cuda_chunked_array):
     # type test
@@ -3737,3 +3752,9 @@ def test_recordbatch_non_cpu(cuda_context, cpu_recordbatch, cuda_recordbatch,
     # __dataframe__() test
     with pytest.raises(NotImplementedError):
         from_dataframe(cuda_recordbatch.__dataframe__())
+
+
+def test_table_non_cpu(cpu_table, cuda_table, cpu_and_cuda_table):
+    assert cpu_table.is_cpu
+    assert not cuda_table.is_cpu
+    assert not cpu_and_cuda_table.is_cpu

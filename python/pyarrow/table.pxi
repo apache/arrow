@@ -4180,6 +4180,7 @@ cdef class Table(_Tabular):
 
     def __cinit__(self):
         self.table = NULL
+        self._init_is_cpu = False
 
     cdef void init(self, const shared_ptr[CTable]& table):
         self.sp_table = table
@@ -5798,6 +5799,20 @@ cdef class Table(_Tabular):
         PyCapsule
         """
         return self.to_reader().__arrow_c_stream__(requested_schema)
+
+    @property
+    def is_cpu(self):
+        """
+        Whether all ChunkedArrays are CPU-accessible.
+        """
+        if not self._init_is_cpu:
+            self._is_cpu = all(c.is_cpu for c in self.itercolumns())
+            self._init_is_cpu = True
+        return self._is_cpu
+
+    cdef void _assert_cpu(self) except *:
+        if not self.is_cpu:
+            raise NotImplementedError("Implemented only for data on CPU device")
 
 
 def _reconstruct_table(arrays, schema):
