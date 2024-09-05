@@ -1034,7 +1034,7 @@ Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* infer
         //
         // Origin type is restored as Arrow should be considered the source of truth.
         DCHECK_EQ(origin_type->id(), ::arrow::Type::STRING);
-        inferred->field = inferred->field->WithType(origin_type);
+        inferred->field = inferred->field->WithType(inferred_type);
       }
     }
     ARROW_ASSIGN_OR_RAISE(modified, ApplyOriginalStorageMetadata(origin_field, inferred));

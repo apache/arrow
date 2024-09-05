@@ -28,8 +28,7 @@
 namespace arrow::extension {
 
 bool JsonExtensionType::ExtensionEquals(const ExtensionType& other) const {
-  const auto& other_ext = static_cast<const ExtensionType&>(other);
-  return other_ext.extension_name() == this->extension_name();
+  return other.extension_name() == this->extension_name();
 }
 
 Result<std::shared_ptr<DataType>> JsonExtensionType::Deserialize(

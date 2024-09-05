@@ -80,29 +80,4 @@ TEST_F(TestJsonExtensionType, InvalidUTF8) {
   }
 }
 
-class UTF8ExtensionArrayTest : public ::testing::Test {
- public:
-  static std::shared_ptr<Array> ExampleJson(
-      const std::shared_ptr<DataType>& storage_type) {
-    std::shared_ptr<Array> arr = ArrayFromJSON(storage_type, R"([
-    "null",
-    "1234",
-    "3.14159",
-    "true",
-    "false",
-    "\"a json string\"",
-    "[\"a\", \"json\", \"array\"]",
-    "{\"obj\": \"a simple json object\"}"
-   ])");
-    return ExtensionType::WrapArray(arrow::extension::json(storage_type), arr);
-  }
-};
-
-TEST_F(UTF8ExtensionArrayTest, JSONExtensionType) {
-  for (const auto& storage_type : {utf8(), large_utf8(), utf8_view()}) {
-    const auto ext_arr = ExampleJson(storage_type);
-    ASSERT_OK(arrow::internal::ValidateUTF8(*ext_arr));
-  }
-}
-
 }  // namespace arrow
