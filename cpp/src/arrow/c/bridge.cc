@@ -1260,7 +1260,7 @@ struct SchemaImporter {
     } else if (prec_scale[2] == 256) {
       type_ = decimal256(prec_scale[0], prec_scale[1]);
     } else {
-      f_parser_.Invalid();
+      return f_parser_.Invalid();
     }
 
     return Status::OK();
