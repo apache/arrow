@@ -187,7 +187,7 @@ class ARROW_EXPORT BasicDecimal {
             typename = typename std::enable_if<
                 std::is_integral<T>::value && (sizeof(T) <= sizeof(int64_t)), T>::type>
   constexpr BasicDecimal(T value) noexcept  // NOLINT(runtime/explicit)
-      : value_(value) {}
+      : value_(static_cast<BaseType>(value)) {}
 
   /// \brief Create a decimal from an array of bytes.
   ///
