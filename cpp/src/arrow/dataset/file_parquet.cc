@@ -371,8 +371,9 @@ std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpr
   if (statistics.num_values() == 0) {
     // If `statistics.HasNullCount()`, it means the all the values are nulls.
     //
-    // If there are no values and no nulls, it might be empty or all values
-    // are nulls. In this case, we also return a null expression.
+    // If there are no values and `!statistics.HasNullCount()`, it might be
+    // empty or all values are nulls. In this case, we also return a null
+    // expression.
     return is_null(std::move(field_expr));
   }
 
