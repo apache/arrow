@@ -1390,7 +1390,7 @@ Compression
 
 There are three different options for compression of record batch
 body buffers: Buffers can be uncompressed, buffers can be
-compressed with the``lz4`` compression codec, or buffers can
+compressed with the ``lz4`` compression codec, or buffers can
 be compressed with the ``zstd`` compression codec. Buffers in
 the flat sequence of a message body must be either all
 uncompressed or all compressed separately using the same codec.
