@@ -1404,8 +1404,9 @@ serialized form is as follows:
     of each **compressed buffer** in the record batch's body
 
   - the ``body`` includes a flat sequence of **compressed buffers**
-    together with the **length of uncompressed buffer** stored in
-    the first 8 bytes for each buffer in the sequence
+    together with the **length of uncompressed buffer** as a 64-bit
+    little-endian signed integer stored in the first 8 bytes for each
+    buffer in the sequence
 
 * If the buffers in the ``RecordBatch`` message are **uncompressed**
 
