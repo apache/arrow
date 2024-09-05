@@ -16,13 +16,16 @@
  */
 package org.apache.arrow.flight.integration.tests;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.Criteria;
 import org.apache.arrow.flight.FlightDescriptor;
@@ -38,6 +41,8 @@ import org.apache.arrow.flight.sql.FlightSqlColumnMetadata;
 import org.apache.arrow.flight.sql.FlightSqlProducer;
 import org.apache.arrow.flight.sql.SqlInfoBuilder;
 import org.apache.arrow.flight.sql.impl.FlightSql;
+import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementIngest.TableDefinitionOptions.TableExistsOption;
+import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementIngest.TableDefinitionOptions.TableNotExistOption;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -48,10 +53,27 @@ import org.apache.arrow.vector.types.pojo.Schema;
 
 /** Hardcoded Flight SQL producer used for cross-language integration tests. */
 public class FlightSqlScenarioProducer implements FlightSqlProducer {
+  public static final String SERVER_NAME = "Flight SQL Integration Test Server";
   private final BufferAllocator allocator;
 
+  private final SqlInfoBuilder sqlInfoBuilder;
+
+  /** Constructor. */
   public FlightSqlScenarioProducer(BufferAllocator allocator) {
     this.allocator = allocator;
+    sqlInfoBuilder =
+        new SqlInfoBuilder()
+            .withFlightSqlServerName(SERVER_NAME)
+            .withFlightSqlServerReadOnly(false)
+            .withFlightSqlServerSql(false)
+            .withFlightSqlServerSubstrait(true)
+            .withFlightSqlServerSubstraitMinVersion("min_version")
+            .withFlightSqlServerSubstraitMaxVersion("max_version")
+            .withFlightSqlServerTransaction(
+                FlightSql.SqlSupportedTransaction.SQL_SUPPORTED_TRANSACTION_SAVEPOINT)
+            .withFlightSqlServerCancel(true)
+            .withFlightSqlServerStatementTimeout(42)
+            .withFlightSqlServerTransactionTimeout(7);
   }
 
   /**
@@ -107,6 +129,15 @@ public class FlightSqlScenarioProducer implements FlightSqlProducer {
                         .build()
                         .getMetadataMap()),
                 null)));
+  }
+
+  static Schema getIngestSchema() {
+    return new Schema(
+        Collections.singletonList(Field.nullable("test_field", new ArrowType.Int(64, true))));
+  }
+
+  protected SqlInfoBuilder getSqlInfoBuilder() {
+    return sqlInfoBuilder;
   }
 
   @Override
@@ -512,6 +543,44 @@ public class FlightSqlScenarioProducer implements FlightSqlProducer {
   }
 
   @Override
+  public Runnable acceptPutStatementBulkIngest(
+      FlightSql.CommandStatementIngest command,
+      CallContext context,
+      FlightStream flightStream,
+      StreamListener<PutResult> ackStream) {
+
+    IntegrationAssertions.assertEquals(
+        TableExistsOption.TABLE_EXISTS_OPTION_REPLACE,
+        command.getTableDefinitionOptions().getIfExists());
+    IntegrationAssertions.assertEquals(
+        TableNotExistOption.TABLE_NOT_EXIST_OPTION_CREATE,
+        command.getTableDefinitionOptions().getIfNotExist());
+    IntegrationAssertions.assertEquals("test_table", command.getTable());
+    IntegrationAssertions.assertEquals("test_catalog", command.getCatalog());
+    IntegrationAssertions.assertEquals("test_schema", command.getSchema());
+    IntegrationAssertions.assertEquals(true, command.getTemporary());
+    IntegrationAssertions.assertEquals(
+        FlightSqlScenario.BULK_INGEST_TRANSACTION_ID, command.getTransactionId().toByteArray());
+
+    Map<String, String> expectedOptions =
+        new HashMap<>(ImmutableMap.of("key1", "val1", "key2", "val2"));
+    IntegrationAssertions.assertEquals(expectedOptions.size(), command.getOptionsCount());
+
+    for (Map.Entry<String, String> optionEntry : expectedOptions.entrySet()) {
+      String key = optionEntry.getKey();
+      IntegrationAssertions.assertEquals(optionEntry.getValue(), command.getOptionsOrThrow(key));
+    }
+
+    IntegrationAssertions.assertEquals(getIngestSchema(), flightStream.getSchema());
+    long rowCount = 0;
+    while (flightStream.next()) {
+      rowCount += flightStream.getRoot().getRowCount();
+    }
+
+    return acceptPutReturnConstant(ackStream, rowCount);
+  }
+
+  @Override
   public Runnable acceptPutSubstraitPlan(
       FlightSql.CommandStatementSubstraitPlan command,
       CallContext context,
@@ -577,35 +646,19 @@ public class FlightSqlScenarioProducer implements FlightSqlProducer {
   @Override
   public FlightInfo getFlightInfoSqlInfo(
       FlightSql.CommandGetSqlInfo request, CallContext context, FlightDescriptor descriptor) {
-    if (request.getInfoCount() == 2) {
-      // Integration test for the protocol messages
-      IntegrationAssertions.assertEquals(
-          request.getInfo(0), FlightSql.SqlInfo.FLIGHT_SQL_SERVER_NAME_VALUE);
-      IntegrationAssertions.assertEquals(
-          request.getInfo(1), FlightSql.SqlInfo.FLIGHT_SQL_SERVER_READ_ONLY_VALUE);
-    }
     return getFlightInfoForSchema(request, descriptor, Schemas.GET_SQL_INFO_SCHEMA);
   }
 
   @Override
   public void getStreamSqlInfo(
       FlightSql.CommandGetSqlInfo command, CallContext context, ServerStreamListener listener) {
-    if (command.getInfoCount() == 2) {
+    if (command.getInfoCount() == 2
+        && command.getInfo(0) == FlightSql.SqlInfo.FLIGHT_SQL_SERVER_NAME_VALUE
+        && command.getInfo(1) == FlightSql.SqlInfo.FLIGHT_SQL_SERVER_READ_ONLY_VALUE) {
       // Integration test for the protocol messages
       putEmptyBatchToStreamListener(listener, Schemas.GET_SQL_INFO_SCHEMA);
       return;
     }
-    SqlInfoBuilder sqlInfoBuilder =
-        new SqlInfoBuilder()
-            .withFlightSqlServerSql(false)
-            .withFlightSqlServerSubstrait(true)
-            .withFlightSqlServerSubstraitMinVersion("min_version")
-            .withFlightSqlServerSubstraitMaxVersion("max_version")
-            .withFlightSqlServerTransaction(
-                FlightSql.SqlSupportedTransaction.SQL_SUPPORTED_TRANSACTION_SAVEPOINT)
-            .withFlightSqlServerCancel(true)
-            .withFlightSqlServerStatementTimeout(42)
-            .withFlightSqlServerTransactionTimeout(7);
     sqlInfoBuilder.send(command.getInfoList(), listener);
   }
 

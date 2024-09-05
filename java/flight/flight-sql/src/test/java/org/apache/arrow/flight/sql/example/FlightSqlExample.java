@@ -55,6 +55,7 @@ import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
@@ -82,6 +83,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.arrow.adapter.jdbc.ArrowVectorIterator;
 import org.apache.arrow.adapter.jdbc.JdbcFieldInfo;
@@ -112,6 +114,10 @@ import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTableTypes;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTables;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementQuery;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementUpdate;
+import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementIngest;
+import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementIngest.TableDefinitionOptions;
+import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementIngest.TableDefinitionOptions.TableExistsOption;
+import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementIngest.TableDefinitionOptions.TableNotExistOption;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementQuery;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementUpdate;
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportedCaseSensitivity;
@@ -146,6 +152,7 @@ import org.apache.commons.dbcp2.PoolableConnectionFactory;
 import org.apache.commons.dbcp2.PoolingDataSource;
 import org.apache.commons.pool2.ObjectPool;
 import org.apache.commons.pool2.impl.GenericObjectPool;
+import org.apache.commons.text.StringEscapeUtils;
 import org.slf4j.Logger;
 
 /**
@@ -245,7 +252,9 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
                           : SqlSupportedCaseSensitivity.SQL_CASE_SENSITIVITY_UNKNOWN)
           .withSqlAllTablesAreSelectable(true)
           .withSqlNullOrdering(SqlNullOrdering.SQL_NULLS_SORTED_AT_END)
-          .withSqlMaxColumnsInTable(42);
+          .withSqlMaxColumnsInTable(42)
+          .withFlightSqlServerBulkIngestion(true)
+          .withFlightSqlServerBulkIngestionTransaction(false);
     } catch (SQLException e) {
       throw new RuntimeException(e);
     }
@@ -714,6 +723,34 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     }
   }
 
+  private static String getRootAsCSVNoHeader(final VectorSchemaRoot root) {
+    StringBuilder sb = new StringBuilder();
+    Schema schema = root.getSchema();
+    int rowCount = root.getRowCount();
+    List<FieldVector> fieldVectors = root.getFieldVectors();
+
+    List<Object> row = new ArrayList<>(schema.getFields().size());
+    for (int i = 0; i < rowCount; i++) {
+      if (i > 0) {
+        sb.append("\n");
+      }
+      row.clear();
+      for (FieldVector v : fieldVectors) {
+        row.add(v.getObject(i));
+      }
+      printRowAsCSV(sb, row);
+    }
+    return sb.toString();
+  }
+
+  private static void printRowAsCSV(StringBuilder sb, List<Object> values) {
+    sb.append(
+        values.stream()
+            .map(v -> isNull(v) ? "" : v.toString())
+            .map(StringEscapeUtils::escapeCsv)
+            .collect(Collectors.joining(",")));
+  }
+
   @Override
   public void getStreamPreparedStatement(
       final CommandPreparedStatementQuery command,
@@ -947,6 +984,138 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
             CallStatus.INTERNAL
                 .withDescription("Failed to execute statement: " + e)
                 .toRuntimeException());
+      }
+    };
+  }
+
+  @Override
+  public Runnable acceptPutStatementBulkIngest(
+      CommandStatementIngest command,
+      CallContext context,
+      FlightStream flightStream,
+      StreamListener<PutResult> ackStream) {
+
+    final String schema = command.hasSchema() ? command.getSchema() : null;
+    final String table = command.getTable();
+    final boolean temporary = command.getTemporary();
+    final boolean transactionId = command.hasTransactionId();
+    final TableDefinitionOptions tableDefinitionOptions =
+        command.hasTableDefinitionOptions() ? command.getTableDefinitionOptions() : null;
+
+    return () -> {
+      TableExistsOption ifExists = TableExistsOption.TABLE_EXISTS_OPTION_APPEND;
+      if (temporary) {
+        ackStream.onError(
+            CallStatus.UNIMPLEMENTED
+                .withDescription("Bulk ingestion using temporary tables is not supported")
+                .toRuntimeException());
+      } else if (transactionId) {
+        ackStream.onError(
+            CallStatus.UNIMPLEMENTED
+                .withDescription(
+                    "Bulk ingestion automatically happens in a transaction. Specifying explicit transaction is not supported.")
+                .toRuntimeException());
+      } else if (isNull(tableDefinitionOptions)) {
+        ackStream.onError(
+            CallStatus.INVALID_ARGUMENT
+                .withDescription("TableDefinitionOptions not provided.")
+                .toRuntimeException());
+      } else {
+        TableNotExistOption ifNotExist = tableDefinitionOptions.getIfNotExist();
+        ifExists = tableDefinitionOptions.getIfExists();
+
+        if (!TableNotExistOption.TABLE_NOT_EXIST_OPTION_FAIL.equals(ifNotExist)) {
+          ackStream.onError(
+              CallStatus.UNIMPLEMENTED
+                  .withDescription(
+                      "Only supported option is TABLE_NOT_EXIST_OPTION_FAIL for TableNotExistsOption.")
+                  .toRuntimeException());
+        } else if (TableExistsOption.TABLE_EXISTS_OPTION_UNSPECIFIED.equals(ifExists)) {
+          ackStream.onError(
+              CallStatus.INVALID_ARGUMENT
+                  .withDescription("TableExistsOption must be specified")
+                  .toRuntimeException());
+        } else if (TableExistsOption.TABLE_EXISTS_OPTION_FAIL.equals(ifExists)) {
+          ackStream.onError(
+              CallStatus.UNIMPLEMENTED
+                  .withDescription("TABLE_EXISTS_OPTION_FAIL is not supported.")
+                  .toRuntimeException());
+        }
+      }
+
+      Path tempFile = null;
+      try {
+        tempFile = Files.createTempFile(null, null);
+
+        VectorSchemaRoot root = null;
+        int counter = 0;
+        while (flightStream.next()) {
+          if (counter > 0) {
+            Files.writeString(tempFile, "\n", StandardCharsets.UTF_8, StandardOpenOption.APPEND);
+          }
+          counter += 1;
+          root = flightStream.getRoot();
+          Files.writeString(
+              tempFile,
+              getRootAsCSVNoHeader(root),
+              StandardCharsets.UTF_8,
+              StandardOpenOption.APPEND);
+        }
+
+        if (counter > 0) {
+          Files.writeString(tempFile, "\n", StandardCharsets.UTF_8, StandardOpenOption.APPEND);
+        }
+
+        if (!isNull(root)) {
+          String header =
+              root.getSchema().getFields().stream()
+                  .map(Field::getName)
+                  .collect(Collectors.joining(","));
+
+          try (final Connection connection = dataSource.getConnection();
+              final PreparedStatement preparedStatement =
+                  connection.prepareStatement(
+                      "CALL SYSCS_UTIL.SYSCS_IMPORT_DATA (?,?,?,null,?,?,?,?,?)")) {
+
+            preparedStatement.setString(1, schema);
+            preparedStatement.setString(2, table);
+            preparedStatement.setString(3, header);
+            preparedStatement.setString(4, tempFile.toString());
+            preparedStatement.setString(5, ",");
+            preparedStatement.setString(6, "\"");
+            preparedStatement.setString(7, "UTF-8");
+            preparedStatement.setInt(
+                8, TableExistsOption.TABLE_EXISTS_OPTION_REPLACE.equals(ifExists) ? 1 : 0);
+            preparedStatement.execute();
+
+            final DoPutUpdateResult build =
+                DoPutUpdateResult.newBuilder().setRecordCount(-1).build();
+
+            try (final ArrowBuf buffer = rootAllocator.buffer(build.getSerializedSize())) {
+              buffer.writeBytes(build.toByteArray());
+              ackStream.onNext(PutResult.metadata(buffer));
+              ackStream.onCompleted();
+            }
+          } catch (SQLException e) {
+            ackStream.onError(
+                CallStatus.INTERNAL
+                    .withDescription("Failed to execute bulk ingest: " + e)
+                    .toRuntimeException());
+          }
+        }
+      } catch (IOException e) {
+        ackStream.onError(
+            CallStatus.INTERNAL
+                .withDescription("Failed to create temp file for bulk loading: " + e)
+                .toRuntimeException());
+      } finally {
+        if (!isNull(tempFile)) {
+          try {
+            Files.delete(tempFile);
+          } catch (IOException e) {
+            //
+          }
+        }
       }
     };
   }
