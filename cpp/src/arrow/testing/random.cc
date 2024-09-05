@@ -351,8 +351,8 @@ struct DecimalGenerator<Decimal32Type> {
   std::shared_ptr<DataType> type_;
   RandomArrayGenerator* rng_;
 
-  static int64_t MaxDecimalInteger(int32_t digits) {
-    return static_cast<int64_t>(std::ceil(std::pow(10.0, digits))) - 1;
+  static int32_t MaxDecimalInteger(int32_t digits) {
+    return static_cast<int32_t>(std::ceil(std::pow(10.0, digits))) - 1;
   }
 
   std::shared_ptr<Array> MakeRandomArray(int64_t size, double null_probability,
