@@ -89,7 +89,7 @@ class AesEncryptor::AesEncryptorImpl {
   }
 
  private:
-  void CheckValid() {
+  void CheckValid() const {
     if (ctx_ == nullptr) {
       throw ParquetException("AesEncryptor was wiped out");
     }
@@ -423,7 +423,7 @@ class AesDecryptor::AesDecryptorImpl {
   }
 
  private:
-  void CheckValid() {
+  void CheckValid() const {
     if (ctx_ == nullptr) {
       throw ParquetException("AesDecryptor was wiped out");
     }
