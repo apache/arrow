@@ -474,7 +474,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     env:
-      TINYGO_VERSION: 0.27.0
+      TINYGO_VERSION: 0.33.0
     timeout-minutes: 60
     steps:
       - name: Checkout Arrow
