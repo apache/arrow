@@ -1284,6 +1284,8 @@ We additionally provide both schema-level and field-level
 ``custom_metadata`` attributes allowing for systems to insert their
 own application defined metadata to customize behavior.
 
+.. _ipc-recordbatch-message:
+
 RecordBatch message
 -------------------
 
@@ -1395,10 +1397,17 @@ be compressed with the ``zstd`` compression codec. Buffers in
 the flat sequence of a message body must be either all
 uncompressed or all compressed separately using the same codec.
 
+.. note::
+
+  ``lz4`` compression codec means the
+  `LZ4 frame format <https://github.com/lz4/lz4/blob/dev/doc/lz4_Frame_format.md>`_
+  and should not to be confused with
+  `"raw" (also called "block") format <https://github.com/lz4/lz4/blob/dev/doc/lz4_Block_format.md>`_.
+
 The difference between compressed and uncompressed buffers in the
 serialized form is as follows:
 
-* If the buffers in the ``RecordBatch`` message are **compressed**
+* If the buffers in the :ref:`ipc-recordbatch-message` are **compressed**
 
   - the ``data header`` includes the length and memory offset
     of each **compressed buffer** in the record batch's body
@@ -1408,7 +1417,7 @@ serialized form is as follows:
     little-endian signed integer stored in the first 8 bytes for each
     buffer in the sequence
 
-* If the buffers in the ``RecordBatch`` message are **uncompressed**
+* If the buffers in the :ref:`ipc-recordbatch-message` are **uncompressed**
 
   - the ``data header`` includes the length and memory offset
     of each **uncompressed buffer** in the record batch's body
