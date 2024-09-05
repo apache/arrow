@@ -434,17 +434,18 @@ public class TestRangeEqualsVisitor {
       NullableStructWriter writer1 = vector1.getWriter();
       writer1.allocate();
 
+      writeStructVector(writer1, 0, 0L);
       writeStructVector(writer1, 1, 10L);
       writeStructVector(writer1, 2, 20L);
       writeStructVector(writer1, 3, 30L);
       writeStructVector(writer1, 4, 40L);
       writeStructVector(writer1, 5, 50L);
-      writer1.setValueCount(5);
+      writer1.setValueCount(6);
 
       NullableStructWriter writer2 = vector2.getWriter();
       writer2.allocate();
 
-      writeStructVector(writer2, 0, 00L);
+      writeStructVector(writer2, 0, 0L);
       writeStructVector(writer2, 2, 20L);
       writeStructVector(writer2, 3, 30L);
       writeStructVector(writer2, 4, 40L);
@@ -452,7 +453,20 @@ public class TestRangeEqualsVisitor {
       writer2.setValueCount(5);
 
       RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector1, vector2);
-      assertTrue(visitor.rangeEquals(new Range(1, 1, 3)));
+      assertTrue(visitor.rangeEquals(new Range(2, 1, 3)));
+
+      // different nullability but same values
+      vector1.setNull(3);
+      assertFalse(visitor.rangeEquals(new Range(2, 1, 3)));
+      // both null and same values
+      vector2.setNull(2);
+      assertTrue(visitor.rangeEquals(new Range(2, 1, 3)));
+      // both not null but different values
+      assertFalse(visitor.rangeEquals(new Range(2, 1, 4)));
+      // both null but different values
+      vector1.setNull(5);
+      vector2.setNull(4);
+      assertTrue(visitor.rangeEquals(new Range(2, 1, 4)));
     }
   }
 

@@ -41,6 +41,7 @@ import org.apache.arrow.vector.complex.LargeListViewVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.ListViewVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
+import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 
 /** Visitor to compare a range of values for vectors. */
@@ -345,6 +346,20 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
     return true;
   }
 
+  private boolean compareStructVectorsInternal(
+      NonNullableStructVector leftVector, NonNullableStructVector rightVector, Range range) {
+    List<String> leftChildNames = leftVector.getChildFieldNames();
+    for (String name : leftChildNames) {
+      RangeEqualsVisitor visitor =
+          createInnerVisitor(
+              leftVector.getChild(name), rightVector.getChild(name), /*type comparator*/ null);
+      if (!visitor.rangeEquals(range)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   protected boolean compareStructVectors(Range range) {
     NonNullableStructVector leftVector = (NonNullableStructVector) left;
     NonNullableStructVector rightVector = (NonNullableStructVector) right;
@@ -354,15 +369,49 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
       return false;
     }
 
-    for (String name : leftChildNames) {
-      RangeEqualsVisitor visitor =
-          createInnerVisitor(
-              leftVector.getChild(name), rightVector.getChild(name), /*type comparator*/ null);
-      if (!visitor.rangeEquals(range)) {
-        return false;
-      }
+    if (!(leftVector instanceof StructVector || rightVector instanceof StructVector)) {
+      // neither struct vector is nullable
+      return compareStructVectorsInternal(leftVector, rightVector, range);
     }
 
+    Range subRange = new Range(0, 0, 0);
+    boolean lastIsNull = true;
+    int lastNullIndex = -1;
+    for (int i = 0; i < range.getLength(); i++) {
+      int leftIndex = range.getLeftStart() + i;
+      int rightIndex = range.getRightStart() + i;
+      boolean isLeftNull = leftVector.isNull(leftIndex);
+      boolean isRightNull = rightVector.isNull(rightIndex);
+
+      if (isLeftNull != isRightNull) {
+        // exactly one slot is null, unequal
+        return false;
+      }
+      if (isLeftNull) {
+        // slots are null
+        if (!lastIsNull) {
+          subRange
+              .setLeftStart(range.getLeftStart() + lastNullIndex + 1)
+              .setRightStart(range.getRightStart() + lastNullIndex + 1)
+              .setLength(i - (lastNullIndex + 1));
+          if (!compareStructVectorsInternal(leftVector, rightVector, subRange)) {
+            return false;
+          }
+        }
+        lastIsNull = true;
+        lastNullIndex = i;
+      } else {
+        // slots are not null
+        lastIsNull = false;
+      }
+    }
+    if (!lastIsNull) {
+      subRange
+          .setLeftStart(range.getLeftStart() + lastNullIndex + 1)
+          .setRightStart(range.getRightStart() + lastNullIndex + 1)
+          .setLength(range.getLength() - (lastNullIndex + 1));
+      return compareStructVectorsInternal(leftVector, rightVector, subRange);
+    }
     return true;
   }
 
