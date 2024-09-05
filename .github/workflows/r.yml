@@ -20,6 +20,7 @@ name: R
 on:
   push:
     paths:
+      - '.dockerignore'
       - ".github/workflows/r.yml"
       - "ci/docker/**"
       - "ci/etc/rprofile"
@@ -32,6 +33,7 @@ on:
       - "r/**"
   pull_request:
     paths:
+      - '.dockerignore'
       - ".github/workflows/r.yml"
       - "ci/docker/**"
       - "ci/etc/rprofile"
