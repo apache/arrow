@@ -45,6 +45,7 @@
 #include "arrow/util/float16.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/string.h"
 #include "arrow/util/ubsan.h"
 
 #include "parquet/arrow/reader.h"
@@ -321,12 +322,13 @@ void ReconstructChunksWithoutNulls(::arrow::ArrayVector* chunks) {
 template <typename ArrowType, typename ParquetType>
 Status TransferInt(RecordReader* reader,
                    std::unique_ptr<::parquet::ColumnChunkMetaData> metadata,
-                   MemoryPool* pool, const std::shared_ptr<Field>& field, Datum* out) {
+                   const ReaderContext* ctx, const std::shared_ptr<Field>& field,
+                   Datum* out) {
   using ArrowCType = typename ArrowType::c_type;
   using ParquetCType = typename ParquetType::c_type;
   int64_t length = reader->values_written();
   ARROW_ASSIGN_OR_RAISE(auto data,
-                        ::arrow::AllocateBuffer(length * sizeof(ArrowCType), pool));
+                        ::arrow::AllocateBuffer(length * sizeof(ArrowCType), ctx->pool));
 
   auto values = reinterpret_cast<const ParquetCType*>(reader->values());
   auto out_ptr = reinterpret_cast<ArrowCType*>(data->mutable_data());
@@ -358,6 +360,13 @@ Status TransferInt(RecordReader* reader,
         array_statistics->min = static_cast<uint64_t>(min);
         array_statistics->max = static_cast<uint64_t>(max);
       }
+      // We can assume that integer based min/max are always exact if
+      // they exist. Apache Parquet's "Statistics" has
+      // "is_min_value_exact" and "is_max_value_exact" but we can
+      // ignore them for integer based min/max.
+      //
+      // See also the discussion at dev@parquet.apache.org:
+      // https://lists.apache.org/thread/zfnmg5p51b7oylft5w5k4670wgkd4zv4
       array_statistics->is_min_exact = true;
       array_statistics->is_max_exact = true;
     }
@@ -753,25 +762,26 @@ Status TransferHalfFloat(RecordReader* reader, MemoryPool* pool,
 
 }  // namespace
 
-#define TRANSFER_INT32(ENUM, ArrowType)                                             \
-  case ::arrow::Type::ENUM: {                                                       \
-    Status s = TransferInt<ArrowType, Int32Type>(reader, std::move(metadata), pool, \
-                                                 value_field, &result);             \
-    RETURN_NOT_OK(s);                                                               \
+#define TRANSFER_INT32(ENUM, ArrowType)                                            \
+  case ::arrow::Type::ENUM: {                                                      \
+    Status s = TransferInt<ArrowType, Int32Type>(reader, std::move(metadata), ctx, \
+                                                 value_field, &result);            \
+    RETURN_NOT_OK(s);                                                              \
   } break;
 
-#define TRANSFER_INT64(ENUM, ArrowType)                                             \
-  case ::arrow::Type::ENUM: {                                                       \
-    Status s = TransferInt<ArrowType, Int64Type>(reader, std::move(metadata), pool, \
-                                                 value_field, &result);             \
-    RETURN_NOT_OK(s);                                                               \
+#define TRANSFER_INT64(ENUM, ArrowType)                                            \
+  case ::arrow::Type::ENUM: {                                                      \
+    Status s = TransferInt<ArrowType, Int64Type>(reader, std::move(metadata), ctx, \
+                                                 value_field, &result);            \
+    RETURN_NOT_OK(s);                                                              \
   } break;
 
 Status TransferColumnData(RecordReader* reader,
                           std::unique_ptr<::parquet::ColumnChunkMetaData> metadata,
                           const std::shared_ptr<Field>& value_field,
-                          const ColumnDescriptor* descr, MemoryPool* pool,
+                          const ColumnDescriptor* descr, const ReaderContext* ctx,
                           std::shared_ptr<ChunkedArray>* out) {
+  auto pool = ctx->pool;
   Datum result;
   std::shared_ptr<ChunkedArray> chunked_result;
   switch (value_field->type()->id()) {

@@ -487,7 +487,7 @@ class LeafReader : public ColumnReaderImpl {
     }
     RETURN_NOT_OK(TransferColumnData(record_reader_.get(),
                                      input_->column_chunk_metadata(), field_, descr_,
-                                     ctx_->pool, &out_));
+                                     ctx_.get(), &out_));
     return Status::OK();
     END_PARQUET_CATCH_EXCEPTIONS
   }

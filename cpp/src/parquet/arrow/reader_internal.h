@@ -111,12 +111,6 @@ class FileColumnIterator {
 using FileColumnIteratorFactory =
     std::function<FileColumnIterator*(int, ParquetFileReader*)>;
 
-Status TransferColumnData(::parquet::internal::RecordReader* reader,
-                          std::unique_ptr<::parquet::ColumnChunkMetaData> metadata,
-                          const std::shared_ptr<::arrow::Field>& value_field,
-                          const ColumnDescriptor* descr, ::arrow::MemoryPool* pool,
-                          std::shared_ptr<::arrow::ChunkedArray>* out);
-
 struct ReaderContext {
   ParquetFileReader* reader;
   ::arrow::MemoryPool* pool;
@@ -131,6 +125,12 @@ struct ReaderContext {
     return true;
   }
 };
+
+Status TransferColumnData(::parquet::internal::RecordReader* reader,
+                          std::unique_ptr<::parquet::ColumnChunkMetaData> metadata,
+                          const std::shared_ptr<::arrow::Field>& value_field,
+                          const ColumnDescriptor* descr, const ReaderContext* ctx,
+                          std::shared_ptr<::arrow::ChunkedArray>* out);
 
 }  // namespace arrow
 }  // namespace parquet
