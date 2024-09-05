@@ -30,8 +30,8 @@ import (
 	"github.com/apache/arrow/go/v18/arrow/csv"
 	"github.com/apache/arrow/go/v18/arrow/decimal128"
 	"github.com/apache/arrow/go/v18/arrow/decimal256"
+	"github.com/apache/arrow/go/v18/arrow/extensions"
 	"github.com/apache/arrow/go/v18/arrow/memory"
-	"github.com/apache/arrow/go/v18/internal/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -356,7 +356,7 @@ func testCSVReader(t *testing.T, filepath string, withHeader bool, stringsCanBeN
 			{Name: "binary", Type: arrow.BinaryTypes.Binary},
 			{Name: "large_binary", Type: arrow.BinaryTypes.LargeBinary},
 			{Name: "fixed_size_binary", Type: &arrow.FixedSizeBinaryType{ByteWidth: 3}},
-			{Name: "uuid", Type: types.NewUUIDType()},
+			{Name: "uuid", Type: extensions.NewUUIDType()},
 			{Name: "date32", Type: arrow.PrimitiveTypes.Date32},
 			{Name: "date64", Type: arrow.PrimitiveTypes.Date64},
 		},

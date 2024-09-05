@@ -28,7 +28,10 @@ import time
 import traceback
 import json
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 import pytest
 import pyarrow as pa
 
@@ -1588,6 +1591,7 @@ def test_flight_do_put_metadata():
                 assert idx == server_idx
 
 
+@pytest.mark.numpy
 def test_flight_do_put_limit():
     """Try a simple do_put call with a size limit."""
     large_batch = pa.RecordBatch.from_arrays([

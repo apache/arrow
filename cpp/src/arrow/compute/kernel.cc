@@ -24,6 +24,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/compute/exec.h"
+#include "arrow/device_allocation_type_set.h"
 #include "arrow/result.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"

@@ -26,7 +26,10 @@ import sysconfig
 import pytest
 
 import pyarrow as pa
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    pytestmark = pytest.mark.numpy
 
 
 cuda = pytest.importorskip("pyarrow.cuda")

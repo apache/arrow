@@ -52,6 +52,3 @@ There are a number of ways in which we do this:
 * [Running R with the C++ debugger attached](https://arrow.apache.org/docs/r/articles/developers/debugging.html)
 * [In-depth guide to how the package installation works](https://arrow.apache.org/docs/r/articles/developers/install_details.html)
 * [Using Docker to diagnose a bug or test a feature on a specific OS](https://arrow.apache.org/docs/r/articles/developers/docker.html)
-* [Writing bindings between R functions and Arrow Acero functions](https://arrow.apache.org/docs/r/articles/developers/bindings.html)
-
-

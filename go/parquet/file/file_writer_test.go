@@ -260,7 +260,7 @@ func (t *SerializeTestSuite) TestSmallFile() {
 		compress.Codecs.Brotli,
 		compress.Codecs.Gzip,
 		compress.Codecs.Zstd,
-		// compress.Codecs.Lz4,
+		compress.Codecs.Lz4Raw,
 		// compress.Codecs.Lzo,
 	}
 	for _, c := range codecs {
@@ -535,6 +535,62 @@ func TestBatchedByteStreamSplitFileRoundtrip(t *testing.T) {
 	require.NoError(t, err)
 	require.EqualValues(t, chunk, total)
 	require.EqualValues(t, chunk, valuesRead)
+
+	require.Equal(t, input, output)
+
+	require.NoError(t, rdr.Close())
+}
+
+func TestLZ4RawFileRoundtrip(t *testing.T) {
+	input := []int64{
+		-1, 0, 1, 2, 3, 4, 5, 123456789, -123456789,
+	}
+
+	size := len(input)
+
+	field, err := schema.NewPrimitiveNodeLogical("int64", parquet.Repetitions.Required, nil, parquet.Types.Int64, 0, 1)
+	require.NoError(t, err)
+
+	schema, err := schema.NewGroupNode("test", parquet.Repetitions.Required, schema.FieldList{field}, 0)
+	require.NoError(t, err)
+
+	sink := encoding.NewBufferWriter(0, memory.DefaultAllocator)
+	writer := file.NewParquetWriter(sink, schema, file.WithWriterProps(parquet.NewWriterProperties(parquet.WithCompression(compress.Codecs.Lz4Raw))))
+
+	rgw := writer.AppendRowGroup()
+	cw, err := rgw.NextColumn()
+	require.NoError(t, err)
+
+	i64ColumnWriter, ok := cw.(*file.Int64ColumnChunkWriter)
+	require.True(t, ok)
+
+	nVals, err := i64ColumnWriter.WriteBatch(input, nil, nil)
+	require.NoError(t, err)
+	require.EqualValues(t, size, nVals)
+
+	require.NoError(t, cw.Close())
+	require.NoError(t, rgw.Close())
+	require.NoError(t, writer.Close())
+
+	rdr, err := file.NewParquetReader(bytes.NewReader(sink.Bytes()))
+	require.NoError(t, err)
+
+	require.Equal(t, 1, rdr.NumRowGroups())
+	require.EqualValues(t, size, rdr.NumRows())
+
+	rgr := rdr.RowGroup(0)
+	cr, err := rgr.Column(0)
+	require.NoError(t, err)
+
+	i64ColumnReader, ok := cr.(*file.Int64ColumnChunkReader)
+	require.True(t, ok)
+
+	output := make([]int64, size)
+
+	total, valuesRead, err := i64ColumnReader.ReadBatch(int64(size), output, nil, nil)
+	require.NoError(t, err)
+	require.EqualValues(t, size, total)
+	require.EqualValues(t, size, valuesRead)
 
 	require.Equal(t, input, output)
 

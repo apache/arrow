@@ -30,7 +30,10 @@ except ImportError:
     tzst = None
 import weakref
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 import pyarrow as pa
 import pyarrow.types as types
 import pyarrow.tests.strategies as past
@@ -1265,14 +1268,16 @@ def test_field_modified_copies():
 
 def test_is_integer_value():
     assert pa.types.is_integer_value(1)
-    assert pa.types.is_integer_value(np.int64(1))
+    if np is not None:
+        assert pa.types.is_integer_value(np.int64(1))
     assert not pa.types.is_integer_value('1')
 
 
 def test_is_float_value():
     assert not pa.types.is_float_value(1)
     assert pa.types.is_float_value(1.)
-    assert pa.types.is_float_value(np.float64(1))
+    if np is not None:
+        assert pa.types.is_float_value(np.float64(1))
     assert not pa.types.is_float_value('1.0')
 
 
@@ -1280,8 +1285,9 @@ def test_is_boolean_value():
     assert not pa.types.is_boolean_value(1)
     assert pa.types.is_boolean_value(True)
     assert pa.types.is_boolean_value(False)
-    assert pa.types.is_boolean_value(np.bool_(True))
-    assert pa.types.is_boolean_value(np.bool_(False))
+    if np is not None:
+        assert pa.types.is_boolean_value(np.bool_(True))
+        assert pa.types.is_boolean_value(np.bool_(False))
 
 
 @h.settings(suppress_health_check=(h.HealthCheck.too_slow,))

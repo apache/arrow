@@ -19,7 +19,6 @@
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
-#include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 
 namespace arrow {
