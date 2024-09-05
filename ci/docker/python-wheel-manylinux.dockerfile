@@ -100,6 +100,9 @@ RUN vcpkg install \
         --x-feature=parquet \
         --x-feature=s3
 
+# Make sure auditwheel is up-to-date
+RUN pipx upgrade auditwheel
+
 # Configure Python for applications running in the bash shell of this Dockerfile
 ARG python=3.8
 ENV PYTHON_VERSION=${python}

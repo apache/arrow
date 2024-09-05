@@ -34,6 +34,7 @@ source_dir=${1}
 : ${ARROW_S3:=ON}
 : ${ARROW_SUBSTRAIT:=ON}
 : ${CHECK_IMPORTS:=ON}
+: ${CHECK_WHEEL_CONTENT:=ON}
 : ${CHECK_UNITTESTS:=ON}
 : ${INSTALL_PYARROW:=ON}
 
@@ -85,6 +86,11 @@ import pyarrow.parquet
   if [ "${PYARROW_TEST_SUBSTRAIT}" == "ON" ]; then
     python -c "import pyarrow.substrait"
   fi
+fi
+
+if [ "${CHECK_WHEEL_CONTENT}" == "ON" ]; then
+  python ${source_dir}/ci/scripts/python_wheel_validate_contents.py \
+    --path ${source_dir}/python/repaired_wheels
 fi
 
 if [ "${CHECK_UNITTESTS}" == "ON" ]; then
