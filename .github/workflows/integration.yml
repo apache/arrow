@@ -20,6 +20,7 @@ name: Integration
 on:
   push:
     paths:
+      - '.dockerignore'
       - '.github/workflows/integration.yml'
       - 'ci/**'
       - 'dev/archery/**'
@@ -33,6 +34,7 @@ on:
       - 'format/**'
   pull_request:
     paths:
+      - '.dockerignore'
       - '.github/workflows/integration.yml'
       - 'ci/**'
       - 'dev/archery/**'

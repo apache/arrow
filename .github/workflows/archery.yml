@@ -20,12 +20,14 @@ name: Archery & Crossbow
 on:
   push:
     paths:
+      - '.dockerignore'
       - '.github/workflows/archery.yml'
       - 'dev/archery/**'
       - 'dev/tasks/**'
       - 'docker-compose.yml'
   pull_request:
     paths:
+      - '.dockerignore'
       - '.github/workflows/archery.yml'
       - 'dev/archery/**'
       - 'dev/tasks/**'

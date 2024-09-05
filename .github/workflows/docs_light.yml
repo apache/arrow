@@ -20,6 +20,7 @@ name: Docs
 on:
   pull_request:
     paths:
+      - '.dockerignore'
       - 'docs/**'
       - '.github/workflows/docs_light.yml'
       - 'ci/docker/conda.dockerfile'

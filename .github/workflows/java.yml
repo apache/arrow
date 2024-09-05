@@ -20,6 +20,7 @@ name: Java
 on:
   push:
     paths:
+      - '.dockerignore'
       - '.github/workflows/java.yml'
       - 'ci/docker/*java*'
       - 'ci/scripts/java*.sh'
@@ -29,6 +30,7 @@ on:
       - 'java/**'
   pull_request:
     paths:
+      - '.dockerignore'
       - '.github/workflows/java.yml'
       - 'ci/docker/*java*'
       - 'ci/scripts/java*.sh'
