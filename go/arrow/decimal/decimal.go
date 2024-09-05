@@ -390,6 +390,7 @@ func (n Decimal64) ReduceScaleBy(reduce int32, round bool) Decimal64 {
 	return reduceScale(n, reduce, round)
 }
 
+//lint:ignore U1000 function is being used, staticcheck seems to not follow generics
 func (n Decimal32) rescaleWouldCauseDataLoss(deltaScale int32, multiplier Decimal32) (out Decimal32, loss bool) {
 	if deltaScale < 0 {
 		debug.Assert(multiplier != 0, "multiplier must not be zero")
@@ -406,6 +407,7 @@ func (n Decimal32) rescaleWouldCauseDataLoss(deltaScale int32, multiplier Decima
 	return out, out < n
 }
 
+//lint:ignore U1000 function is being used, staticcheck seems to not follow generics
 func (n Decimal64) rescaleWouldCauseDataLoss(deltaScale int32, multiplier Decimal64) (out Decimal64, loss bool) {
 	if deltaScale < 0 {
 		debug.Assert(multiplier != 0, "multiplier must not be zero")
