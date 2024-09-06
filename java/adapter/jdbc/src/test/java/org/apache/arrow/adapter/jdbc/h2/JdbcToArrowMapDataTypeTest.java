@@ -42,7 +42,7 @@ public class JdbcToArrowMapDataTypeTest extends AbstractJdbcToArrowTest {
         Arguments.of(getTable("h2/test1_map_h2.yml", JdbcToArrowMapDataTypeTest.class)));
   }
 
-  /** Test Method to test JdbcToArrow Functionality for Map form Types.OTHER column */
+  /** Test Method to test JdbcToArrow Functionality for Map form Types.OTHER column. */
   @ParameterizedTest
   @MethodSource("getTestData")
   public void testJdbcToArrowValues(Table table)

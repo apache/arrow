@@ -472,7 +472,7 @@ public class FlightClient implements AutoCloseable {
     }
   }
 
-  /** A stream observer for Flight.PutResult */
+  /** A stream observer for Flight.PutResult. */
   private static class SetStreamObserver implements StreamObserver<Flight.PutResult> {
     private final BufferAllocator allocator;
     private final StreamListener<PutResult> listener;
