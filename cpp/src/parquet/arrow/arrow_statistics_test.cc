@@ -212,7 +212,7 @@ template <typename ArrowType, typename MinMaxType>
 void TestStatisticsReadArray(std::shared_ptr<::arrow::DataType> arrow_type) {
   using ArrowArrayType = typename ::arrow::TypeTraits<ArrowType>::ArrayType;
   using ArrowCType = typename ArrowType::c_type;
-  constexpr auto min = std::numeric_limits<ArrowCType>::min();
+  constexpr auto min = std::numeric_limits<ArrowCType>::lowest();
   constexpr auto max = std::numeric_limits<ArrowCType>::max();
 
   std::string json;
@@ -257,12 +257,28 @@ TEST(TestStatisticsRead, UInt16) {
   TestStatisticsReadArray<::arrow::UInt16Type, uint64_t>(::arrow::uint16());
 }
 
+TEST(TestStatisticsRead, Int32) {
+  TestStatisticsReadArray<::arrow::Int32Type, int64_t>(::arrow::int32());
+}
+
 TEST(TestStatisticsRead, UInt32) {
   TestStatisticsReadArray<::arrow::UInt32Type, uint64_t>(::arrow::uint32());
 }
 
+TEST(TestStatisticsRead, Int64) {
+  TestStatisticsReadArray<::arrow::Int64Type, int64_t>(::arrow::int64());
+}
+
 TEST(TestStatisticsRead, UInt64) {
   TestStatisticsReadArray<::arrow::UInt64Type, uint64_t>(::arrow::uint64());
+}
+
+TEST(TestStatisticsRead, Float) {
+  TestStatisticsReadArray<::arrow::FloatType, double>(::arrow::float32());
+}
+
+TEST(TestStatisticsRead, Double) {
+  TestStatisticsReadArray<::arrow::DoubleType, double>(::arrow::float64());
 }
 
 TEST(TestStatisticsRead, Date32) {
@@ -277,6 +293,21 @@ TEST(TestStatisticsRead, Time32) {
 TEST(TestStatisticsRead, Time64) {
   TestStatisticsReadArray<::arrow::Time64Type, int64_t>(
       ::arrow::time64(::arrow::TimeUnit::MICRO));
+}
+
+TEST(TestStatisticsRead, TimestampMilli) {
+  TestStatisticsReadArray<::arrow::TimestampType, int64_t>(
+      ::arrow::timestamp(::arrow::TimeUnit::MILLI));
+}
+
+TEST(TestStatisticsRead, TimestampMicro) {
+  TestStatisticsReadArray<::arrow::TimestampType, int64_t>(
+      ::arrow::timestamp(::arrow::TimeUnit::MICRO));
+}
+
+TEST(TestStatisticsRead, TimestampNano) {
+  TestStatisticsReadArray<::arrow::TimestampType, int64_t>(
+      ::arrow::timestamp(::arrow::TimeUnit::NANO));
 }
 
 TEST(TestStatisticsRead, Duration) {
