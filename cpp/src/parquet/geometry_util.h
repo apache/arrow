@@ -53,40 +53,7 @@ struct Dimensions {
   template <dimensions dims>
   constexpr static uint32_t size();
 
-  template <>
-  constexpr uint32_t size<XY>() {
-    return 2;
-  }
-
-  template <>
-  constexpr uint32_t size<XYZ>() {
-    return 3;
-  }
-
-  template <>
-  constexpr uint32_t size<XYM>() {
-    return 3;
-  }
-
-  template <>
-  constexpr uint32_t size<XYZM>() {
-    return 4;
-  }
-
-  static uint32_t size(dimensions dims) {
-    switch (dims) {
-      case XY:
-        return size<XY>();
-      case XYZ:
-        return size<XYZ>();
-      case XYM:
-        return size<XYM>();
-      case XYZM:
-        return size<XYZM>();
-      default:
-        return 0;
-    }
-  }
+  static uint32_t size(dimensions dims);
 
   // Where to look in a coordinate with this dimension
   // for the X, Y, Z, and M dimensions, respectively.
@@ -120,6 +87,41 @@ struct Dimensions {
     }
   }
 };
+
+template <>
+constexpr uint32_t Dimensions::size<Dimensions::XY>() {
+  return 2;
+}
+
+template <>
+constexpr uint32_t Dimensions::size<Dimensions::XYZ>() {
+  return 3;
+}
+
+template <>
+constexpr uint32_t Dimensions::size<Dimensions::XYM>() {
+  return 3;
+}
+
+template <>
+constexpr uint32_t Dimensions::size<Dimensions::XYZM>() {
+  return 4;
+}
+
+inline uint32_t Dimensions::size(dimensions dims) {
+  switch (dims) {
+    case XY:
+      return size<XY>();
+    case XYZ:
+      return size<XYZ>();
+    case XYM:
+      return size<XYM>();
+    case XYZM:
+      return size<XYZM>();
+    default:
+      return 0;
+  }
+}
 
 struct GeometryType {
   enum geometry_type {

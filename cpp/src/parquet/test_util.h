@@ -836,13 +836,11 @@ inline void GenerateData<FLBA>(int num_values, FLBA* out, std::vector<uint8_t>* 
 // ----------------------------------------------------------------------
 // Test utility functions for geometry
 
-static constexpr int WKB_NATIVE_ENDIANNESS =
 #if defined(ARROW_LITTLE_ENDIAN)
-    geometry::WKBBuffer::WKB_LITTLE_ENDIAN
+static constexpr int WKB_NATIVE_ENDIANNESS = geometry::WKBBuffer::WKB_LITTLE_ENDIAN;
 #else
-    geometry::WKBBuffer::WKB_BIG_ENDIAN
+static constexpr int WKB_NATIVE_ENDIANNESS = geometry::WKBBuffer::WKB_BIG_ENDIAN;
 #endif
-    ;
 
 static constexpr int WKB_POINT_SIZE = 21;  // 1:endianness + 4:type + 8:x + 8:y
 
