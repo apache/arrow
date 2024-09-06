@@ -40,11 +40,11 @@
 #include "arrow/flight/test_util.h"
 
 #ifdef ARROW_CUDA
-#include <cuda.h>
-#include "arrow/gpu/cuda_api.h"
+#  include <cuda.h>
+#  include "arrow/gpu/cuda_api.h"
 #endif
 #ifdef ARROW_WITH_UCX
-#include "arrow/flight/transport/ucx/ucx.h"
+#  include "arrow/flight/transport/ucx/ucx.h"
 #endif
 
 DEFINE_bool(cuda, false, "Allocate results in CUDA memory");

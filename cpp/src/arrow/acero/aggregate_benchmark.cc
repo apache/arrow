@@ -165,11 +165,11 @@ struct SumSentinelUnrolled : public Summer<T> {
   static void Sum(const ArrayType& array, SumState<T>* state) {
     SumState<T> local;
 
-#define SUM_NOT_NULL(ITEM)                                                  \
-  do {                                                                      \
-    local.total += values[i + ITEM] * Traits<T>::NotNull(values[i + ITEM]); \
-    local.valid_count++;                                                    \
-  } while (0)
+#  define SUM_NOT_NULL(ITEM)                                                  \
+    do {                                                                      \
+      local.total += values[i + ITEM] * Traits<T>::NotNull(values[i + ITEM]); \
+      local.valid_count++;                                                    \
+    } while (0)
 
     const auto values = array.raw_values();
     const auto length = array.length();
@@ -185,7 +185,7 @@ struct SumSentinelUnrolled : public Summer<T> {
       SUM_NOT_NULL(7);
     }
 
-#undef SUM_NOT_NULL
+#  undef SUM_NOT_NULL
 
     for (int64_t i = length_rounded * 8; i < length; ++i) {
       local.total += values[i] * Traits<T>::NotNull(values[i]);
@@ -256,7 +256,7 @@ struct SumBitmapVectorizeUnroll : public Summer<T> {
     for (int64_t i = 0; i < length_rounded; i += 8) {
       const uint8_t valid_byte = bitmap[i / 8];
 
-#define SUM_SHIFT(ITEM) (values[i + ITEM] * ((valid_byte >> ITEM) & 1))
+#  define SUM_SHIFT(ITEM) (values[i + ITEM] * ((valid_byte >> ITEM) & 1))
 
       if (valid_byte < 0xFF) {
         // Some nulls
@@ -277,7 +277,7 @@ struct SumBitmapVectorizeUnroll : public Summer<T> {
       }
     }
 
-#undef SUM_SHIFT
+#  undef SUM_SHIFT
 
     for (int64_t i = length_rounded; i < length; ++i) {
       if (bit_util::GetBit(bitmap, i)) {

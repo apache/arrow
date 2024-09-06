@@ -28,7 +28,7 @@
 #include <optional>
 
 #if defined(sun) || defined(__sun)
-#include <stdlib.h>
+#  include <stdlib.h>
 #endif
 
 #include "arrow/buffer.h"
@@ -46,11 +46,11 @@
 #include "arrow/util/ubsan.h"
 
 #ifdef __GLIBC__
-#include <malloc.h>
+#  include <malloc.h>
 #endif
 
 #ifdef ARROW_MIMALLOC
-#include <mimalloc.h>
+#  include <mimalloc.h>
 #endif
 
 namespace arrow {

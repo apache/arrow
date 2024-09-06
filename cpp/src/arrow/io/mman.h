@@ -36,7 +36,7 @@
 #define MS_INVALIDATE 4
 
 #ifndef FILE_MAP_EXECUTE
-#define FILE_MAP_EXECUTE 0x0020
+#  define FILE_MAP_EXECUTE 0x0020
 #endif
 
 static inline int __map_mman_error(const DWORD err, const int deferr) {

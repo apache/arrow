@@ -34,7 +34,7 @@
 #include "arrow/util/value_parsing.h"
 
 #ifdef ARROW_WITH_UTF8PROC
-#include <utf8proc.h>
+#  include <utf8proc.h>
 #endif
 
 namespace arrow::compute {
@@ -1415,7 +1415,7 @@ TYPED_TEST(TestStringKernels, IsTitleUnicode) {
 }
 
 // Older versions of utf8proc fail
-#if !(UTF8PROC_VERSION_MAJOR <= 2 && UTF8PROC_VERSION_MINOR < 5)
+#  if !(UTF8PROC_VERSION_MAJOR <= 2 && UTF8PROC_VERSION_MINOR < 5)
 
 TYPED_TEST(TestStringKernels, IsUpperUnicode) {
   // ٣ is arabic 3 (decimal), Φ capital
@@ -1437,7 +1437,7 @@ TYPED_TEST(TestStringKernels, IsUpperUnicode) {
                    boolean(), "[true, true, true, false, true, false]");
 }
 
-#endif  // UTF8PROC_VERSION_MINOR >= 5
+#  endif  // UTF8PROC_VERSION_MINOR >= 5
 
 #endif  // ARROW_WITH_UTF8PROC
 

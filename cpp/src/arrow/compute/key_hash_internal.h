@@ -18,7 +18,7 @@
 #pragma once
 
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
-#include <immintrin.h>
+#  include <immintrin.h>
 #endif
 
 #include <cstdint>

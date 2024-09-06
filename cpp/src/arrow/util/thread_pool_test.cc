@@ -16,8 +16,8 @@
 // under the License.
 
 #ifndef _WIN32
-#include <sys/types.h>
-#include <unistd.h>
+#  include <sys/types.h>
+#  include <unistd.h>
 #endif
 
 #include <algorithm>
@@ -830,9 +830,9 @@ class TestThreadPoolForkSafety : public TestThreadPool {};
 
 TEST_F(TestThreadPoolForkSafety, Basics) {
   {
-#ifndef ARROW_ENABLE_THREADING
+#  ifndef ARROW_ENABLE_THREADING
     GTEST_SKIP() << "Test requires threading support";
-#endif
+#  endif
 
     // Fork after task submission
     auto pool = this->MakeThreadPool(3);
@@ -877,9 +877,9 @@ TEST_F(TestThreadPoolForkSafety, Basics) {
 }
 
 TEST_F(TestThreadPoolForkSafety, MultipleChildThreads) {
-#ifndef ARROW_ENABLE_THREADING
+#  ifndef ARROW_ENABLE_THREADING
   GTEST_SKIP() << "Test requires threading support";
-#endif
+#  endif
   // ARROW-15593: race condition in after-fork ThreadPool reinitialization
   // when SpawnReal() was called from multiple threads in a forked child.
   auto run_in_child = [](ThreadPool* pool) {
@@ -927,12 +927,12 @@ TEST_F(TestThreadPoolForkSafety, MultipleChildThreads) {
 
 TEST_F(TestThreadPoolForkSafety, NestedChild) {
   {
-#ifdef __APPLE__
+#  ifdef __APPLE__
     GTEST_SKIP() << "Nested fork is not supported on macos";
-#endif
-#ifndef ARROW_ENABLE_THREADING
+#  endif
+#  ifndef ARROW_ENABLE_THREADING
     GTEST_SKIP() << "Test requires threading support";
-#endif
+#  endif
     auto pool = this->MakeThreadPool(3);
     ASSERT_OK_AND_ASSIGN(auto fut, pool->Submit(add<int>, 4, 5));
     ASSERT_OK_AND_EQ(9, fut.result());

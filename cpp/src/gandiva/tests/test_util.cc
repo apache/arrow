@@ -35,7 +35,7 @@ std::shared_ptr<Configuration> TestConfigWithIrDumping() {
 }
 
 #ifndef GANDIVA_EXTENSION_TEST_DIR
-#define GANDIVA_EXTENSION_TEST_DIR "."
+#  define GANDIVA_EXTENSION_TEST_DIR "."
 #endif
 
 std::string GetTestFunctionLLVMIRPath() {

@@ -48,7 +48,7 @@
 
 // TODO(GH-37221): Remove these ifdef checks when compute dependency is removed
 #ifdef ARROW_COMPUTE
-#include "arrow/compute/api_vector.h"
+#  include "arrow/compute/api_vector.h"
 #endif
 
 namespace arrow {
