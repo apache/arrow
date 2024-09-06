@@ -601,6 +601,26 @@ TEST_F(TestConvertParquetSchema, ParquetLists) {
     arrow_fields.push_back(::arrow::field("name", arrow_list, false));
   }
 
+  // Two-level encoding List<List<Integer>>:
+  // optional group nested_list (LIST) {
+  //   repeated group array (LIST) {
+  //     repeated int32 array;
+  //   }
+  // }
+  {
+    auto inner_element =
+        PrimitiveNode::Make("array", Repetition::REPEATED, ParquetType::INT32);
+    auto outer_element = GroupNode::Make("array", Repetition::REPEATED, {inner_element},
+                                         ConvertedType::LIST);
+    parquet_fields.push_back(GroupNode::Make("nested_list", Repetition::OPTIONAL,
+                                             {outer_element}, ConvertedType::LIST));
+    auto arrow_inner_element = ::arrow::field("array", INT32, /*nullable=*/false);
+    auto arrow_outer_element =
+        ::arrow::field("array", ::arrow::list(arrow_inner_element), /*nullable=*/false);
+    auto arrow_list = ::arrow::list(arrow_outer_element);
+    arrow_fields.push_back(::arrow::field("nested_list", arrow_list, true));
+  }
+
   auto arrow_schema = ::arrow::schema(arrow_fields);
   ASSERT_OK(ConvertSchema(parquet_fields));
 

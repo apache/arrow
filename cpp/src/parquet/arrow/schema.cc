@@ -681,6 +681,10 @@ Status ListToSchemaField(const GroupNode& group, LevelInfo current_levels,
       // List of primitive type
       RETURN_NOT_OK(
           NodeToSchemaField(*list_group.field(0), current_levels, ctx, out, child_field));
+    } else if (list_group.field_count() == 1 && list_group.field(0)->is_repeated()) {
+      // Special case for nested list in two-level list encoding
+      RETURN_NOT_OK(
+          NodeToSchemaField(*list_group.field(0), current_levels, ctx, out, child_field));
     } else {
       RETURN_NOT_OK(GroupToStruct(list_group, current_levels, ctx, out, child_field));
     }
