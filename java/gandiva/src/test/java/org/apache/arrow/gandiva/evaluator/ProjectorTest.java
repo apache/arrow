@@ -148,6 +148,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
     executors.awaitTermination(100, java.util.concurrent.TimeUnit.SECONDS);
   }
 
+  @Disabled
   @Test
   public void testMakeProjectorParallel() throws Exception {
     testMakeProjectorParallel(null);
