@@ -132,8 +132,7 @@ def test_copy_from_buffer():
         assert not cudabuf2.is_cpu
         assert cudabuf2.device_type == pa.DeviceAllocationType.CUDA
 
-        arr2 = np.frombuffer(cudabuf2.copy_to_host(), dtype=np.uint8)
-        np.testing.assert_equal(arr, arr2)
+        assert cudabuf2.copy_to_host().equals(buf)
 
         assert cudabuf2.device == mm2.device
 
