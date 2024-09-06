@@ -3610,9 +3610,11 @@ def test_recordbatch_non_cpu(cuda_context, cpu_recordbatch, cuda_recordbatch,
 
     # add_column(), set_column() test
     for fn in [cuda_recordbatch.add_column, cuda_recordbatch.set_column]:
-        col = pa.array([1] * cuda_recordbatch.num_rows, pa.int8()).copy_to(cuda_context.memory_manager)
+        col = pa.array([1] * cuda_recordbatch.num_rows, pa.int8()
+                       ).copy_to(cuda_context.memory_manager)
         new_batch = fn(2, 'c2', col)
-        verify_cuda_recordbatch(new_batch, expected_schema=schema.append(pa.field('c2', pa.int8())))
+        verify_cuda_recordbatch(
+            new_batch, expected_schema=schema.append(pa.field('c2', pa.int8())))
         err_msg = ("Got column on device <DeviceAllocationType.CPU: 1>, "
                    "but expected <DeviceAllocationType.CUDA: 2>.")
         with pytest.raises(TypeError, match=err_msg):
@@ -3779,9 +3781,11 @@ def test_table_non_cpu(cuda_context, cpu_table, cuda_table,
 
     # add_column(), set_column() test
     for fn in [cuda_table.add_column, cuda_table.set_column]:
-        col = pa.array([1] * cuda_table.num_rows, pa.int8()).copy_to(cuda_context.memory_manager)
+        col = pa.array([1] * cuda_table.num_rows, pa.int8()
+                       ).copy_to(cuda_context.memory_manager)
         new_table = fn(2, 'c2', col)
-        verify_cuda_table(new_table, expected_schema=schema.append(pa.field('c2', pa.int8())))
+        verify_cuda_table(new_table, expected_schema=schema.append(
+            pa.field('c2', pa.int8())))
 
     # remove_column() test
     new_table = cuda_table.remove_column(1)
