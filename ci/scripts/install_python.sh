@@ -65,21 +65,21 @@ if [ $platform = "macOS" ]; then
     echo "Installing Python..."
     if [[ $2 == "3.13t" ]]; then
         cat > ./choicechanges.plist <<EOF
-        <?xml version="1.0" encoding="UTF-8"?>
-        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-        <plist version="1.0">
-        <array>
-                <dict>
-                        <key>attributeSetting</key>
-                        <integer>1</integer>
-                        <key>choiceAttribute</key>
-                        <string>selected</string>
-                        <key>choiceIdentifier</key>
-                        <string>org.python.Python.PythonTFramework-3.13</string>
-                </dict>
-        </array>
-        </plist>
-        EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+        <dict>
+                <key>attributeSetting</key>
+                <integer>1</integer>
+                <key>choiceAttribute</key>
+                <string>selected</string>
+                <key>choiceIdentifier</key>
+                <string>org.python.Python.PythonTFramework-3.13</string>
+        </dict>
+</array>
+</plist>
+EOF
         installer -pkg $fname -applyChoiceChangesXML ./choicechanges.plist -target /
         rm ./choicechanges.plist
     else
