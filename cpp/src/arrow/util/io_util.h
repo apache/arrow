@@ -18,7 +18,7 @@
 #pragma once
 
 #ifndef _WIN32
-#define ARROW_HAVE_SIGACTION 1
+#  define ARROW_HAVE_SIGACTION 1
 #endif
 
 #include <atomic>
@@ -29,7 +29,7 @@
 #include <vector>
 
 #if ARROW_HAVE_SIGACTION
-#include <csignal>  // Needed for struct sigaction
+#  include <csignal>  // Needed for struct sigaction
 #endif
 
 #include "arrow/result.h"

@@ -30,13 +30,13 @@
 #include <winsock2.h>
 // clang-format on
 #else
-#include <arpa/inet.h>   // IWYU pragma: keep
-#include <netinet/in.h>  // IWYU pragma: keep
-#include <sys/socket.h>  // IWYU pragma: keep
-#include <sys/stat.h>    // IWYU pragma: keep
-#include <sys/types.h>   // IWYU pragma: keep
-#include <sys/wait.h>    // IWYU pragma: keep
-#include <unistd.h>      // IWYU pragma: keep
+#  include <arpa/inet.h>   // IWYU pragma: keep
+#  include <netinet/in.h>  // IWYU pragma: keep
+#  include <sys/socket.h>  // IWYU pragma: keep
+#  include <sys/stat.h>    // IWYU pragma: keep
+#  include <sys/types.h>   // IWYU pragma: keep
+#  include <sys/wait.h>    // IWYU pragma: keep
+#  include <unistd.h>      // IWYU pragma: keep
 #endif
 
 #include "arrow/config.h"
@@ -144,8 +144,8 @@ int GetListenPort() {
     return internal::WinErrorMessage(WSAGetLastError());
   };
 #else
-#define INVALID_SOCKET -1
-#define SOCKET_ERROR -1
+#  define INVALID_SOCKET -1
+#  define SOCKET_ERROR -1
   int sock_fd;
   auto sin_len = static_cast<socklen_t>(sizeof(sin));
   auto errno_message = []() -> std::string { return internal::ErrnoMessage(errno); };

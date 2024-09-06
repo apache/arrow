@@ -228,28 +228,28 @@ static void ReferenceDecompression(
   state.SetBytesProcessed(state.iterations() * data.size());
 }
 
-#ifdef ARROW_WITH_ZLIB
+#  ifdef ARROW_WITH_ZLIB
 BENCHMARK_TEMPLATE(ReferenceStreamingCompression, Compression::GZIP);
 BENCHMARK_TEMPLATE(ReferenceCompression, Compression::GZIP);
 BENCHMARK_TEMPLATE(ReferenceStreamingDecompression, Compression::GZIP);
 BENCHMARK_TEMPLATE(ReferenceDecompression, Compression::GZIP);
-#endif
+#  endif
 
-#ifdef ARROW_WITH_BROTLI
+#  ifdef ARROW_WITH_BROTLI
 BENCHMARK_TEMPLATE(ReferenceStreamingCompression, Compression::BROTLI);
 BENCHMARK_TEMPLATE(ReferenceCompression, Compression::BROTLI);
 BENCHMARK_TEMPLATE(ReferenceStreamingDecompression, Compression::BROTLI);
 BENCHMARK_TEMPLATE(ReferenceDecompression, Compression::BROTLI);
-#endif
+#  endif
 
-#ifdef ARROW_WITH_ZSTD
+#  ifdef ARROW_WITH_ZSTD
 BENCHMARK_TEMPLATE(ReferenceStreamingCompression, Compression::ZSTD);
 BENCHMARK_TEMPLATE(ReferenceCompression, Compression::ZSTD);
 BENCHMARK_TEMPLATE(ReferenceStreamingDecompression, Compression::ZSTD);
 BENCHMARK_TEMPLATE(ReferenceDecompression, Compression::ZSTD);
-#endif
+#  endif
 
-#ifdef ARROW_WITH_LZ4
+#  ifdef ARROW_WITH_LZ4
 BENCHMARK_TEMPLATE(ReferenceStreamingCompression, Compression::LZ4_FRAME);
 BENCHMARK_TEMPLATE(ReferenceCompression, Compression::LZ4_FRAME);
 BENCHMARK_TEMPLATE(ReferenceStreamingDecompression, Compression::LZ4_FRAME);
@@ -257,12 +257,12 @@ BENCHMARK_TEMPLATE(ReferenceDecompression, Compression::LZ4_FRAME);
 
 BENCHMARK_TEMPLATE(ReferenceCompression, Compression::LZ4);
 BENCHMARK_TEMPLATE(ReferenceDecompression, Compression::LZ4);
-#endif
+#  endif
 
-#ifdef ARROW_WITH_SNAPPY
+#  ifdef ARROW_WITH_SNAPPY
 BENCHMARK_TEMPLATE(ReferenceCompression, Compression::SNAPPY);
 BENCHMARK_TEMPLATE(ReferenceDecompression, Compression::SNAPPY);
-#endif
+#  endif
 
 #endif
 

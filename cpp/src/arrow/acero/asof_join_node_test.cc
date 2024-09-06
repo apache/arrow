@@ -26,13 +26,13 @@
 #include "arrow/acero/exec_plan.h"
 #include "arrow/testing/future_util.h"
 #ifndef NDEBUG
-#include <sstream>
+#  include <sstream>
 #endif
 #include <unordered_set>
 
 #include "arrow/acero/options.h"
 #ifndef NDEBUG
-#include "arrow/acero/options_internal.h"
+#  include "arrow/acero/options_internal.h"
 #endif
 #include "arrow/acero/map_node.h"
 #include "arrow/acero/query_context.h"

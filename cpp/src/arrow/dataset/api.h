@@ -24,16 +24,16 @@
 #include "arrow/dataset/discovery.h"
 #include "arrow/dataset/file_base.h"
 #ifdef ARROW_CSV
-#include "arrow/dataset/file_csv.h"
+#  include "arrow/dataset/file_csv.h"
 #endif
 #ifdef ARROW_JSON
-#include "arrow/dataset/file_json.h"
+#  include "arrow/dataset/file_json.h"
 #endif
 #include "arrow/dataset/file_ipc.h"
 #ifdef ARROW_ORC
-#include "arrow/dataset/file_orc.h"
+#  include "arrow/dataset/file_orc.h"
 #endif
 #ifdef ARROW_PARQUET
-#include "arrow/dataset/file_parquet.h"
+#  include "arrow/dataset/file_parquet.h"
 #endif
 #include "arrow/dataset/scanner.h"

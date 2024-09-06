@@ -28,7 +28,7 @@
 
 // Mingw-w64 defines strcasecmp in string.h
 #if defined(_WIN32) && !defined(strcasecmp)
-#define strcasecmp stricmp
+#  define strcasecmp stricmp
 #endif
 
 #include <algorithm>

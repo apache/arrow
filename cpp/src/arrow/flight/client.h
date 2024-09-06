@@ -146,8 +146,8 @@ class ARROW_FLIGHT_EXPORT FlightStreamReader : public MetadataRecordBatchReader 
 // Silence warning
 // "non dll-interface class RecordBatchReader used as base for dll-interface class"
 #ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable : 4275)
+#  pragma warning(push)
+#  pragma warning(disable : 4275)
 #endif
 
 /// \brief A RecordBatchWriter that also allows sending
@@ -163,7 +163,7 @@ class ARROW_FLIGHT_EXPORT FlightStreamWriter : public MetadataRecordBatchWriter 
 };
 
 #ifdef _MSC_VER
-#pragma warning(pop)
+#  pragma warning(pop)
 #endif
 
 /// \brief A reader for application-specific metadata sent back to the

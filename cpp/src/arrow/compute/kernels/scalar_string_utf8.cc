@@ -24,7 +24,7 @@
 #include "arrow/util/utf8_internal.h"
 
 #ifdef ARROW_WITH_UTF8PROC
-#include <utf8proc.h>
+#  include <utf8proc.h>
 #endif
 
 namespace arrow {

@@ -28,12 +28,12 @@
 
 #ifdef _WIN32
 // Undefine preprocessor macros that interfere with AWS function / method names
-#ifdef GetMessage
-#undef GetMessage
-#endif
-#ifdef GetObject
-#undef GetObject
-#endif
+#  ifdef GetMessage
+#    undef GetMessage
+#  endif
+#  ifdef GetObject
+#    undef GetObject
+#  endif
 #endif
 
 #include <aws/core/Aws.h>

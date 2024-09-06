@@ -39,50 +39,50 @@ constexpr size_t kMemoryPerCore = 32 * 1024 * 1024;
 using BufferPtr = std::shared_ptr<Buffer>;
 
 #ifdef ARROW_WITH_BENCHMARKS_REFERENCE
-#ifndef _MSC_VER
+#  ifndef _MSC_VER
 
-#ifdef ARROW_HAVE_SSE4_2
+#    ifdef ARROW_HAVE_SSE4_2
 
-#ifdef ARROW_HAVE_AVX512
+#      ifdef ARROW_HAVE_AVX512
 
 using VectorType = __m512i;
-#define VectorSet _mm512_set1_epi32
-#define VectorLoad _mm512_stream_load_si512
-#define VectorLoadAsm(SRC, DST) \
-  asm volatile("vmovaps %[src], %[dst]" : [dst] "=v"(DST) : [src] "m"(SRC) :)
-#define VectorStreamLoad _mm512_stream_load_si512
-#define VectorStreamLoadAsm(SRC, DST) \
-  asm volatile("vmovntdqa %[src], %[dst]" : [dst] "=v"(DST) : [src] "m"(SRC) :)
-#define VectorStreamWrite _mm512_stream_si512
+#        define VectorSet _mm512_set1_epi32
+#        define VectorLoad _mm512_stream_load_si512
+#        define VectorLoadAsm(SRC, DST) \
+          asm volatile("vmovaps %[src], %[dst]" : [dst] "=v"(DST) : [src] "m"(SRC) :)
+#        define VectorStreamLoad _mm512_stream_load_si512
+#        define VectorStreamLoadAsm(SRC, DST) \
+          asm volatile("vmovntdqa %[src], %[dst]" : [dst] "=v"(DST) : [src] "m"(SRC) :)
+#        define VectorStreamWrite _mm512_stream_si512
 
-#else
+#      else
 
-#ifdef ARROW_HAVE_AVX2
+#        ifdef ARROW_HAVE_AVX2
 
 using VectorType = __m256i;
-#define VectorSet _mm256_set1_epi32
-#define VectorLoad _mm256_stream_load_si256
-#define VectorLoadAsm(SRC, DST) \
-  asm volatile("vmovaps %[src], %[dst]" : [dst] "=v"(DST) : [src] "m"(SRC) :)
-#define VectorStreamLoad _mm256_stream_load_si256
-#define VectorStreamLoadAsm(SRC, DST) \
-  asm volatile("vmovntdqa %[src], %[dst]" : [dst] "=v"(DST) : [src] "m"(SRC) :)
-#define VectorStreamWrite _mm256_stream_si256
+#          define VectorSet _mm256_set1_epi32
+#          define VectorLoad _mm256_stream_load_si256
+#          define VectorLoadAsm(SRC, DST) \
+            asm volatile("vmovaps %[src], %[dst]" : [dst] "=v"(DST) : [src] "m"(SRC) :)
+#          define VectorStreamLoad _mm256_stream_load_si256
+#          define VectorStreamLoadAsm(SRC, DST) \
+            asm volatile("vmovntdqa %[src], %[dst]" : [dst] "=v"(DST) : [src] "m"(SRC) :)
+#          define VectorStreamWrite _mm256_stream_si256
 
-#else  // ARROW_HAVE_AVX2 not set
+#        else  // ARROW_HAVE_AVX2 not set
 
 using VectorType = __m128i;
-#define VectorSet _mm_set1_epi32
-#define VectorLoad _mm_stream_load_si128
-#define VectorLoadAsm(SRC, DST) \
-  asm volatile("movaps %[src], %[dst]" : [dst] "=x"(DST) : [src] "m"(SRC) :)
-#define VectorStreamLoad _mm_stream_load_si128
-#define VectorStreamLoadAsm(SRC, DST) \
-  asm volatile("movntdqa %[src], %[dst]" : [dst] "=x"(DST) : [src] "m"(SRC) :)
-#define VectorStreamWrite _mm_stream_si128
+#          define VectorSet _mm_set1_epi32
+#          define VectorLoad _mm_stream_load_si128
+#          define VectorLoadAsm(SRC, DST) \
+            asm volatile("movaps %[src], %[dst]" : [dst] "=x"(DST) : [src] "m"(SRC) :)
+#          define VectorStreamLoad _mm_stream_load_si128
+#          define VectorStreamLoadAsm(SRC, DST) \
+            asm volatile("movntdqa %[src], %[dst]" : [dst] "=x"(DST) : [src] "m"(SRC) :)
+#          define VectorStreamWrite _mm_stream_si128
 
-#endif  // ARROW_HAVE_AVX2
-#endif  // ARROW_HAVE_AVX512
+#        endif  // ARROW_HAVE_AVX2
+#      endif    // ARROW_HAVE_AVX512
 
 static void Read(void* src, void* dst, size_t size) {
   const auto simd = static_cast<VectorType*>(src);
@@ -154,15 +154,15 @@ static void StreamReadWrite(void* src, void* dst, size_t size) {
   }
 }
 
-#endif  // ARROW_HAVE_SSE4_2
+#    endif  // ARROW_HAVE_SSE4_2
 
-#ifdef ARROW_HAVE_NEON
+#    ifdef ARROW_HAVE_NEON
 
 using VectorType = uint8x16_t;
 using VectorTypeDual = uint8x16x2_t;
 
-#define VectorSet vdupq_n_u8
-#define VectorLoadAsm vld1q_u8
+#      define VectorSet vdupq_n_u8
+#      define VectorLoadAsm vld1q_u8
 
 static void armv8_stream_load_pair(VectorType* src, VectorType* dst) {
   asm volatile("LDNP %[reg1], %[reg2], [%[from]]\n\t"
@@ -239,7 +239,7 @@ static void StreamReadWrite(void* src, void* dst, size_t size) {
   }
 }
 
-#endif  // ARROW_HAVE_NEON
+#    endif  // ARROW_HAVE_NEON
 
 static void PlatformMemcpy(void* src, void* dst, size_t size) { memcpy(src, dst, size); }
 
@@ -261,7 +261,7 @@ static void MemoryBandwidth(benchmark::State& state) {  // NOLINT non-const refe
   state.SetBytesProcessed(state.iterations() * buffer_size);
 }
 
-#ifdef ARROW_HAVE_SSE4_2
+#    ifdef ARROW_HAVE_SSE4_2
 static void SetCacheBandwidthArgs(benchmark::internal::Benchmark* bench) {
   auto cache_sizes = {kL1Size, kL2Size, kL3Size};
   for (auto size : cache_sizes) {
@@ -274,7 +274,7 @@ static void SetCacheBandwidthArgs(benchmark::internal::Benchmark* bench) {
 }
 
 BENCHMARK_TEMPLATE(MemoryBandwidth, Read)->Apply(SetCacheBandwidthArgs);
-#endif  // ARROW_HAVE_SSE4_2
+#    endif  // ARROW_HAVE_SSE4_2
 
 static void SetMemoryBandwidthArgs(benchmark::internal::Benchmark* bench) {
   // `UseRealTime` is required due to threads, otherwise the cumulative CPU time
@@ -287,8 +287,8 @@ BENCHMARK_TEMPLATE(MemoryBandwidth, StreamWrite)->Apply(SetMemoryBandwidthArgs);
 BENCHMARK_TEMPLATE(MemoryBandwidth, StreamReadWrite)->Apply(SetMemoryBandwidthArgs);
 BENCHMARK_TEMPLATE(MemoryBandwidth, PlatformMemcpy)->Apply(SetMemoryBandwidthArgs);
 
-#endif  // _MSC_VER
-#endif  // ARROW_WITH_BENCHMARKS_REFERENCE
+#  endif  // _MSC_VER
+#endif    // ARROW_WITH_BENCHMARKS_REFERENCE
 
 static void ParallelMemoryCopy(benchmark::State& state) {  // NOLINT non-const reference
   const int64_t n_threads = state.range(0);

@@ -12,9 +12,9 @@
  * \brief Compatibility with C++
  */
 #ifdef __cplusplus
-#define DLPACK_EXTERN_C extern "C"
+#  define DLPACK_EXTERN_C extern "C"
 #else
-#define DLPACK_EXTERN_C
+#  define DLPACK_EXTERN_C
 #endif
 
 /*! \brief The current major version of dlpack */
@@ -25,13 +25,13 @@
 
 /*! \brief DLPACK_DLL prefix for windows */
 #ifdef _WIN32
-#ifdef DLPACK_EXPORTS
-#define DLPACK_DLL __declspec(dllexport)
+#  ifdef DLPACK_EXPORTS
+#    define DLPACK_DLL __declspec(dllexport)
+#  else
+#    define DLPACK_DLL __declspec(dllimport)
+#  endif
 #else
-#define DLPACK_DLL __declspec(dllimport)
-#endif
-#else
-#define DLPACK_DLL
+#  define DLPACK_DLL
 #endif
 
 #include <stddef.h>
