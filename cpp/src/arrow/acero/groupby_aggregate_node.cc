@@ -369,13 +369,14 @@ Status GroupByNode::InputReceived(ExecNode* input, ExecBatch batch) {
   DCHECK_EQ(input, inputs_[0]);
 
   auto handler = [this](const ExecBatch& full_batch, const Segment& segment) {
-    if (!segment.extends && segment.offset == 0) RETURN_NOT_OK(OutputResult(false));
+    if (!segment.extends && segment.offset == 0)
+      RETURN_NOT_OK(OutputResult(/*is_last=*/false));
     auto exec_batch = full_batch.Slice(segment.offset, segment.length);
     auto batch = ExecSpan(exec_batch);
     RETURN_NOT_OK(Consume(batch));
     RETURN_NOT_OK(
         ExtractSegmenterValues(&segmenter_values_, exec_batch, segment_key_field_ids_));
-    if (!segment.is_open) RETURN_NOT_OK(OutputResult(false));
+    if (!segment.is_open) RETURN_NOT_OK(OutputResult(/*is_last=*/false));
     return Status::OK();
   };
   ARROW_RETURN_NOT_OK(
