@@ -19,7 +19,6 @@
 #include <utility>
 #include <vector>
 
-#include <_types/_uint32_t.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
