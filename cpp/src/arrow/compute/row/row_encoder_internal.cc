@@ -29,17 +29,18 @@ using internal::FirstTimeBitmapWriter;
 namespace compute {
 namespace internal {
 
-Result<std::shared_ptr<KeyEncoder>> MakeKeyEncoder(const TypeHolder& column_type, std::shared_ptr<ExtensionType>* extension_type, MemoryPool* pool) {
+Result<std::shared_ptr<KeyEncoder>> MakeKeyEncoder(
+    const TypeHolder& column_type, std::shared_ptr<ExtensionType>* extension_type,
+    MemoryPool* pool) {
   const bool is_extension = column_type.id() == Type::EXTENSION;
   const TypeHolder& type =
-      is_extension
-          ? arrow::internal::checked_cast<const ExtensionType*>(column_type.type)
-                ->storage_type()
-          : column_type;
+      is_extension ? arrow::internal::checked_cast<const ExtensionType*>(column_type.type)
+                         ->storage_type()
+                   : column_type;
 
   if (is_extension) {
-    *extension_type = arrow::internal::checked_pointer_cast<ExtensionType>(
-        column_type.GetSharedPtr());
+    *extension_type =
+        arrow::internal::checked_pointer_cast<ExtensionType>(column_type.GetSharedPtr());
   }
   if (type.id() == Type::BOOL) {
     return std::make_shared<BooleanKeyEncoder>();
@@ -65,11 +66,23 @@ Result<std::shared_ptr<KeyEncoder>> MakeKeyEncoder(const TypeHolder& column_type
     auto element_type =
         ::arrow::checked_cast<const BaseListType*>(type.type)->value_type();
     if (is_nested(element_type->id())) {
-      return Status::NotImplemented("Unsupported nested type in List for row encoder", type.ToString());
+      return Status::NotImplemented("Unsupported nested type in List for row encoder",
+                                    type.ToString());
+    }
+    if (type.id() == Type::FIXED_SIZE_LIST) {
+      return Status::NotImplemented("Unsupported FixedSizeList for row encoder",
+                                    type.ToString());
     }
     std::shared_ptr<ExtensionType> element_extension_type;
-    ARROW_ASSIGN_OR_RAISE(auto element_encoder, MakeKeyEncoder(element_type, &element_extension_type, pool));
-    return std::make_shared<ListKeyEncoder>(std::move(element_type), std::move(element_encoder));
+    ARROW_ASSIGN_OR_RAISE(auto element_encoder,
+                          MakeKeyEncoder(element_type, &element_extension_type, pool));
+    if (type.id() == Type::LIST) {
+      return std::make_shared<ListKeyEncoder<ListType>>(std::move(element_type),
+                                                        std::move(element_encoder));
+    }
+    ARROW_CHECK(type.id() == Type::LARGE_LIST);
+    return std::make_shared<ListKeyEncoder<LargeListType>>(std::move(element_type),
+                                                           std::move(element_encoder));
   }
 
   return Status::NotImplemented("Unsupported type for row encoder", type.ToString());
@@ -302,32 +315,15 @@ Result<std::shared_ptr<ArrayData>> DictionaryKeyEncoder::Decode(uint8_t** encode
   return data;
 }
 
-ListKeyEncoder::ListKeyEncoder(std::shared_ptr<DataType> element_type, std::shared_ptr<KeyEncoder> element_encoder)
-    : element_type_(std::move(element_type)), element_encoder_(std::move(element_encoder)) {}
-
-void ListKeyEncoder::AddLength(const ExecValue& exec_value, int64_t batch_length, int32_t* lengths) {}
-
-void ListKeyEncoder::AddLengthNull(int32_t* length) {}
-
-Status ListKeyEncoder::Encode(const ExecValue& data, int64_t batch_length,
-              uint8_t** encoded_bytes) {
-  return Status::NotImplemented("ListKeyEncoder::Encode");
-}
-
-void ListKeyEncoder::EncodeNull(uint8_t** encoded_bytes) {}
-
-Result<std::shared_ptr<ArrayData>> ListKeyEncoder::Decode(uint8_t** encoded_bytes, int32_t length,
-                                          MemoryPool* pool) {
-  return std::shared_ptr<ArrayData>(nullptr);
-}
-
 Status RowEncoder::Init(const std::vector<TypeHolder>& column_types, ExecContext* ctx) {
   ctx_ = ctx;
   encoders_.resize(column_types.size());
   extension_types_.resize(column_types.size());
 
   for (size_t i = 0; i < column_types.size(); ++i) {
-    ARROW_ASSIGN_OR_RAISE(encoders_[i], MakeKeyEncoder(column_types[i], &extension_types_[i], ctx->memory_pool()));
+    ARROW_ASSIGN_OR_RAISE(
+        encoders_[i],
+        MakeKeyEncoder(column_types[i], &extension_types_[i], ctx->memory_pool()));
   }
 
   int32_t total_length = 0;

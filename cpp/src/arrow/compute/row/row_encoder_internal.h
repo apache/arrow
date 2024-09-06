@@ -270,20 +270,59 @@ struct ARROW_COMPUTE_EXPORT NullKeyEncoder : KeyEncoder {
   }
 };
 
+template <typename ListType>
 struct ARROW_EXPORT ListKeyEncoder : KeyEncoder {
-  explicit ListKeyEncoder(std::shared_ptr<DataType> element_type, std::shared_ptr<KeyEncoder> element_encoder);
+  using Offset = typename ListType::offset_type;
 
-  void AddLength(const ExecValue&, int64_t batch_length, int32_t* lengths) override;
+  ListKeyEncoder(std::shared_ptr<DataType> element_type,
+                 std::shared_ptr<KeyEncoder> element_encoder)
+      : element_type_(std::move(element_type)),
+        element_encoder_(std::move(element_encoder)) {}
 
-  void AddLengthNull(int32_t* length) override;
+  void AddLength(const ExecValue& data, int64_t batch_length, int32_t* lengths) override {
+    if (data.is_array()) {
+      int64_t i = 0;
+      ARROW_DCHECK_EQ(data.array.length, batch_length);
+      // TODO(mwish): implement me
+    } else {
+      const auto& list_scalar = checked_cast<const BaseListScalar&>(data.scalar);
+      int32_t accum_length = 0;
+      if (list_scalar.is_valid) {
+        auto element_count = static_cast<int32_t>(list_scalar.value->length());
+        // Counting the size of the encoded list
+        std::vector<int32_t> child_lengthes(element_count, 0);
+        this->element_encoder_->AddLength(ExecValue{*list_scalar.value->data()},
+                                          element_count, child_lengthes.data());
+        for (int32_t i = 0; i < element_count; i++) {
+          accum_length += child_lengthes[i];
+        }
+      }
+      for (int64_t i = 0; i < batch_length; i++) {
+        lengths[i] += kExtraByteForNull + sizeof(Offset) + accum_length;
+      }
+    }
+  }
+
+  void AddLengthNull(int32_t* length) override {
+    *length += kExtraByteForNull + sizeof(Offset);
+  }
 
   Status Encode(const ExecValue& data, int64_t batch_length,
-                uint8_t** encoded_bytes) override;
+                uint8_t** encoded_bytes) override {
+    return Status::NotImplemented("ListKeyEncoder::Decode");
+  }
 
-  void EncodeNull(uint8_t** encoded_bytes) override;
+  void EncodeNull(uint8_t** encoded_bytes) override {
+    auto& encoded_ptr = *encoded_bytes;
+    *encoded_ptr++ = kNullByte;
+    util::SafeStore(encoded_ptr, static_cast<Offset>(0));
+    encoded_ptr += sizeof(Offset);
+  }
 
   Result<std::shared_ptr<ArrayData>> Decode(uint8_t** encoded_bytes, int32_t length,
-                                            MemoryPool* pool) override;
+                                            MemoryPool* pool) override {
+    return Status::NotImplemented("ListKeyEncoder::Decode");
+  }
 
   std::shared_ptr<DataType> element_type_;
   std::shared_ptr<KeyEncoder> element_encoder_;
@@ -350,6 +389,10 @@ struct ARROW_EXPORT ListKeyEncoder : KeyEncoder {
 ///
 /// Null string Would be encoded as:
 /// 1 ( 1 byte for null) + 0 ( 4 bytes for length )
+///
+/// The size of the "fixed-width" part is defined by the `offset_type`
+/// of the variable-width type. For example, it would be 4 bytes for
+/// String/Binary type and 8 bytes for LargeString/LargeBinary type.
 ///
 /// ## List Type
 ///
