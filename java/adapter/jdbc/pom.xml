@@ -123,6 +123,7 @@ under the License.
           <source>${minimalJavaBuildVersion}</source>
           <target>${minimalJavaBuildVersion}</target>
           <encoding>UTF-8</encoding>
+          <fork>true</fork>
           <compilerArgs>
             <arg>-XDcompilePolicy=simple</arg>
             <arg>-Xplugin:ErrorProne -XepAllErrorsAsWarnings</arg>
