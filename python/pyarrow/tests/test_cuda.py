@@ -128,7 +128,7 @@ def test_copy_from_buffer():
         buf2 = cudabuf.copy(dest)
         assert buf2.device_type == pa.DeviceAllocationType.CUDA
         cudabuf2 = cuda.CudaBuffer.from_buffer(buf2)
-        cudabuf2.size == cudabuf.size
+        assert cudabuf2.size == cudabuf.size
         assert not cudabuf2.is_cpu
         assert cudabuf2.device_type == pa.DeviceAllocationType.CUDA
 
