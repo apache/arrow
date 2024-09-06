@@ -21,7 +21,7 @@ import org.apache.arrow.flatbuf.DictionaryBatch;
 import org.apache.arrow.flatbuf.MessageHeader;
 
 /**
- * POJO wrapper around a Dictionary Batch IPC messages
+ * POJO wrapper around a Dictionary Batch IPC messages.
  * (https://arrow.apache.org/docs/format/IPC.html#dictionary-batches)
  */
 public class ArrowDictionaryBatch implements ArrowMessage {
