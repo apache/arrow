@@ -153,6 +153,10 @@ class PARQUET_EXPORT GeometryStatistics {
 
   void Update(const ByteArray* values, int64_t num_values, int64_t null_count);
 
+  void UpdateSpaced(const ByteArray* values, const uint8_t* valid_bits,
+                    int64_t valid_bits_offset, int64_t num_spaced_values,
+                    int64_t num_values, int64_t null_count);
+
   EncodedGeometryStatistics Encode();
 
   bool is_valid() const;

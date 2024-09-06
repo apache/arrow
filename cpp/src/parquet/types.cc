@@ -474,12 +474,20 @@ std::shared_ptr<const LogicalType> LogicalType::FromThrift(
       edges = LogicalType::GeometryEdges::PLANAR;
     } else if (type.GEOMETRY.edges == format::Edges::SPHERICAL) {
       edges = LogicalType::GeometryEdges::SPHERICAL;
+    } else {
+      std::stringstream ss;
+      ss << "Unknown value for geometry edges: " << type.GEOMETRY.edges;
+      throw ParquetException(ss.str());
     }
 
     LogicalType::GeometryEncoding::geometry_encoding encoding =
         LogicalType::GeometryEncoding::UNKNOWN;
     if (type.GEOMETRY.encoding == format::GeometryEncoding::WKB) {
       encoding = LogicalType::GeometryEncoding::WKB;
+    } else {
+      std::stringstream ss;
+      ss << "Unknown value for geometry encoding: " << type.GEOMETRY.edges;
+      throw ParquetException(ss.str());
     }
 
     std::string metadata;

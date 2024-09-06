@@ -39,7 +39,7 @@
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
 #include "parquet/encoding.h"
-#include "parquet/geometry_util.h"
+#include "parquet/geometry_util_internal.h"
 #include "parquet/platform.h"
 
 // https://github.com/google/googletest/pull/2904 might not be available

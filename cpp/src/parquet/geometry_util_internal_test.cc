@@ -20,7 +20,7 @@
 
 #include "arrow/testing/gtest_compat.h"
 
-#include "parquet/geometry_util.h"
+#include "parquet/geometry_util_internal.h"
 
 namespace parquet::geometry {
 

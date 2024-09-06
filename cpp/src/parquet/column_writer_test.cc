@@ -398,7 +398,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
         ColumnChunkMetaData::Make(metadata_->contents(), this->descr_);
     return metadata_accessor->key_value_metadata();
   }
-  
+
   EncodedStatistics metadata_encoded_stats() {
     ApplicationVersion app_version(this->writer_properties_->created_by());
     auto metadata_accessor = ColumnChunkMetaData::Make(
@@ -1780,7 +1780,7 @@ TEST_F(TestInt32Writer, WriteKeyValueMetadataEndToEnd) {
   ASSERT_OK_AND_ASSIGN(auto value, key_value_metadata->Get("foo"));
   ASSERT_EQ("bar", value);
 }
-  
+
 // Test writing and reading geometry columns
 class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
  public:

@@ -37,7 +37,7 @@
 #include "arrow/visit_data_inline.h"
 #include "parquet/encoding.h"
 #include "parquet/exception.h"
-#include "parquet/geometry_util.h"
+#include "parquet/geometry_util_internal.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
@@ -103,6 +103,28 @@ class GeometryStatisticsImpl {
         bounder_.ReadGeometry(&buf);
       }
 
+      bounder_.Flush();
+    } catch (ParquetException& e) {
+      is_valid_ = false;
+    }
+  }
+
+  void UpdateSpaced(const ByteArray* values, const uint8_t* valid_bits,
+                    int64_t valid_bits_offset, int64_t num_spaced_values,
+                    int64_t num_values, int64_t null_count) {
+    DCHECK_GT(num_spaced_values, 0);
+
+    geometry::WKBBuffer buf;
+    try {
+      ::arrow::internal::VisitSetBitRunsVoid(
+          valid_bits, valid_bits_offset, num_spaced_values,
+          [&](int64_t position, int64_t length) {
+            for (int64_t i = 0; i < num_spaced_values; i++) {
+              ByteArray item = SafeLoad(values + i + position);
+              buf.Init(item.ptr, item.len);
+              bounder_.ReadGeometry(&buf);
+            }
+          });
       bounder_.Flush();
     } catch (ParquetException& e) {
       is_valid_ = false;
@@ -1093,6 +1115,16 @@ void TypedStatisticsImpl<DType>::UpdateSpaced(const T* values, const uint8_t* va
   if (num_values == 0) return;
   SetMinMaxPair(comparator_->GetMinMaxSpaced(values, num_spaced_values, valid_bits,
                                              valid_bits_offset));
+
+  if constexpr (std::is_same<T, ByteArray>::value) {
+    if (logical_type_ == LogicalType::Type::GEOMETRY) {
+      if (geometry_statistics_ == nullptr) {
+        geometry_statistics_ = std::make_unique<GeometryStatistics>();
+      }
+      geometry_statistics_->UpdateSpaced(values, valid_bits, valid_bits_offset,
+                                         num_spaced_values, num_values, null_count);
+    }
+  }
 }
 
 template <typename DType>
