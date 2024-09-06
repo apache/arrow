@@ -34,12 +34,12 @@
 
 #ifdef _WIN32
 // Undefine preprocessor macros that interfere with AWS function / method names
-#ifdef GetMessage
-#undef GetMessage
-#endif
-#ifdef GetObject
-#undef GetObject
-#endif
+#  ifdef GetMessage
+#    undef GetMessage
+#  endif
+#  ifdef GetObject
+#    undef GetObject
+#  endif
 #endif
 
 #include <aws/core/Aws.h>
@@ -84,13 +84,13 @@
 // Redundant "(...)" are for suppressing "Weird number of spaces at
 // line-start. Are you using a 2-space indent? [whitespace/indent]
 // [3]" errors...
-#define ARROW_AWS_SDK_VERSION_CHECK(major, minor, patch)                      \
-  ((AWS_SDK_VERSION_MAJOR > (major) ||                                        \
-    (AWS_SDK_VERSION_MAJOR == (major) && AWS_SDK_VERSION_MINOR > (minor)) ||  \
-    ((AWS_SDK_VERSION_MAJOR == (major) && AWS_SDK_VERSION_MINOR == (minor) && \
-      AWS_SDK_VERSION_PATCH >= (patch)))))
+#  define ARROW_AWS_SDK_VERSION_CHECK(major, minor, patch)                      \
+    ((AWS_SDK_VERSION_MAJOR > (major) ||                                        \
+      (AWS_SDK_VERSION_MAJOR == (major) && AWS_SDK_VERSION_MINOR > (minor)) ||  \
+      ((AWS_SDK_VERSION_MAJOR == (major) && AWS_SDK_VERSION_MINOR == (minor) && \
+        AWS_SDK_VERSION_PATCH >= (patch)))))
 #else
-#define ARROW_AWS_SDK_VERSION_CHECK(major, minor, patch) 0
+#  define ARROW_AWS_SDK_VERSION_CHECK(major, minor, patch) 0
 #endif
 
 // This feature is available since 1.9.0 but
@@ -98,22 +98,22 @@
 // we can't use this feature for [1.9.0,1.9.6]. If it's a problem,
 // please report it to our issue tracker.
 #if ARROW_AWS_SDK_VERSION_CHECK(1, 9, 0)
-#define ARROW_S3_HAS_CRT
+#  define ARROW_S3_HAS_CRT
 #endif
 
 #if ARROW_AWS_SDK_VERSION_CHECK(1, 10, 0)
-#define ARROW_S3_HAS_S3CLIENT_CONFIGURATION
+#  define ARROW_S3_HAS_S3CLIENT_CONFIGURATION
 #endif
 
 #ifdef ARROW_S3_HAS_CRT
-#include <aws/crt/io/Bootstrap.h>
-#include <aws/crt/io/EventLoopGroup.h>
-#include <aws/crt/io/HostResolver.h>
+#  include <aws/crt/io/Bootstrap.h>
+#  include <aws/crt/io/EventLoopGroup.h>
+#  include <aws/crt/io/HostResolver.h>
 #endif
 
 #ifdef ARROW_S3_HAS_S3CLIENT_CONFIGURATION
-#include <aws/s3/S3ClientConfiguration.h>
-#include <aws/s3/S3EndpointProvider.h>
+#  include <aws/s3/S3ClientConfiguration.h>
+#  include <aws/s3/S3EndpointProvider.h>
 #endif
 
 #include "arrow/util/windows_fixup.h"

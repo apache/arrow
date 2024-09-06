@@ -22,12 +22,12 @@
 #include <utility>
 
 #ifdef _WIN32
-#include "arrow/util/windows_compatibility.h"
+#  include "arrow/util/windows_compatibility.h"
 #else
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <cerrno>
-#include <cstdio>
+#  include <fcntl.h>
+#  include <sys/stat.h>
+#  include <cerrno>
+#  include <cstdio>
 #endif
 
 #include "arrow/filesystem/filesystem.h"
@@ -157,12 +157,12 @@ FileInfo StatToFileInfo(const struct stat& s) {
     info.set_type(FileType::Unknown);
     info.set_size(kNoSize);
   }
-#ifdef __APPLE__
+#  ifdef __APPLE__
   // macOS doesn't use the POSIX-compliant spelling
   info.set_mtime(ToTimePoint(s.st_mtimespec));
-#else
+#  else
   info.set_mtime(ToTimePoint(s.st_mtim));
-#endif
+#  endif
   return info;
 }
 

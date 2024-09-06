@@ -19,16 +19,16 @@
 
 // sys/mman.h not present in Visual Studio or Cygwin
 #ifdef _WIN32
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include "arrow/io/mman.h"
-#undef Realloc
-#undef Free
+#  ifndef NOMINMAX
+#    define NOMINMAX
+#  endif
+#  include "arrow/io/mman.h"
+#  undef Realloc
+#  undef Free
 #else
-#include <fcntl.h>
-#include <sys/mman.h>
-#include <unistd.h>  // IWYU pragma: keep
+#  include <fcntl.h>
+#  include <sys/mman.h>
+#  include <unistd.h>  // IWYU pragma: keep
 #endif
 
 #include <algorithm>

@@ -54,14 +54,14 @@ Status SelectionVector::PopulateFromBitMap(const uint8_t* bitmap, int64_t bitmap
 
     while (current_word != 0) {
 #if defined(_MSC_VER)
-#pragma warning(push)
-#pragma warning(disable : 4146)
+#  pragma warning(push)
+#  pragma warning(disable : 4146)
 #endif
       // MSVC warns about negating an unsigned type. We suppress it for now
       uint64_t highest_only = current_word & -current_word;
 
 #if defined(_MSC_VER)
-#pragma warning(pop)
+#  pragma warning(pop)
 #endif
 
       int pos_in_word = arrow::bit_util::CountTrailingZeros(highest_only);

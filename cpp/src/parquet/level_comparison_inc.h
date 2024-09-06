@@ -22,7 +22,7 @@
 
 // Used to make sure ODR rule isn't violated.
 #ifndef PARQUET_IMPL_NAMESPACE
-#error "PARQUET_IMPL_NAMESPACE must be defined"
+#  error "PARQUET_IMPL_NAMESPACE must be defined"
 #endif
 namespace parquet::internal::PARQUET_IMPL_NAMESPACE {
 /// Builds a bitmap by applying predicate to the level vector provided.

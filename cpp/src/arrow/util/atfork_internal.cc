@@ -23,7 +23,7 @@
 #include <vector>
 
 #ifndef _WIN32
-#include <pthread.h>
+#  include <pthread.h>
 #endif
 
 #include "arrow/util/io_util.h"

@@ -27,24 +27,24 @@
 #include "parquet/encryption/kms_client_factory.h"
 
 #if defined(_WIN32) || defined(__CYGWIN__)  // Windows
-#if defined(_MSC_VER)
-#pragma warning(disable : 4251)
-#else
-#pragma GCC diagnostic ignored "-Wattributes"
-#endif
+#  if defined(_MSC_VER)
+#    pragma warning(disable : 4251)
+#  else
+#    pragma GCC diagnostic ignored "-Wattributes"
+#  endif
 
-#ifdef ARROW_PYTHON_STATIC
-#define ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORT
-#elif defined(ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORTING)
-#define ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORT __declspec(dllexport)
-#else
-#define ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORT __declspec(dllimport)
-#endif
+#  ifdef ARROW_PYTHON_STATIC
+#    define ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORT
+#  elif defined(ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORTING)
+#    define ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORT __declspec(dllexport)
+#  else
+#    define ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORT __declspec(dllimport)
+#  endif
 
 #else  // Not Windows
-#ifndef ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORT
-#define ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORT __attribute__((visibility("default")))
-#endif
+#  ifndef ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORT
+#    define ARROW_PYTHON_PARQUET_ENCRYPTION_EXPORT __attribute__((visibility("default")))
+#  endif
 #endif  // Non-Windows
 
 namespace arrow {

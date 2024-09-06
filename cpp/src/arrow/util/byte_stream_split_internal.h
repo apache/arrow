@@ -29,8 +29,8 @@
 #include <cstring>
 
 #if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_SSE4_2)
-#include <xsimd/xsimd.hpp>
-#define ARROW_HAVE_SIMD_SPLIT
+#  include <xsimd/xsimd.hpp>
+#  define ARROW_HAVE_SIMD_SPLIT
 #endif
 
 namespace arrow::util::internal {
@@ -383,28 +383,28 @@ void ByteStreamSplitEncodeAvx2(const uint8_t* raw_values, int width,
 template <int kNumStreams>
 void inline ByteStreamSplitDecodeSimd(const uint8_t* data, int width, int64_t num_values,
                                       int64_t stride, uint8_t* out) {
-#if defined(ARROW_HAVE_AVX2)
+#  if defined(ARROW_HAVE_AVX2)
   return ByteStreamSplitDecodeAvx2<kNumStreams>(data, width, num_values, stride, out);
-#elif defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_NEON)
+#  elif defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_NEON)
   return ByteStreamSplitDecodeSimd128<kNumStreams>(data, width, num_values, stride, out);
-#else
-#error "ByteStreamSplitDecodeSimd not implemented"
-#endif
+#  else
+#    error "ByteStreamSplitDecodeSimd not implemented"
+#  endif
 }
 
 template <int kNumStreams>
 void inline ByteStreamSplitEncodeSimd(const uint8_t* raw_values, int width,
                                       const int64_t num_values,
                                       uint8_t* output_buffer_raw) {
-#if defined(ARROW_HAVE_AVX2)
+#  if defined(ARROW_HAVE_AVX2)
   return ByteStreamSplitEncodeAvx2<kNumStreams>(raw_values, width, num_values,
                                                 output_buffer_raw);
-#elif defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_NEON)
+#  elif defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_NEON)
   return ByteStreamSplitEncodeSimd128<kNumStreams>(raw_values, width, num_values,
                                                    output_buffer_raw);
-#else
-#error "ByteStreamSplitEncodeSimd not implemented"
-#endif
+#  else
+#    error "ByteStreamSplitEncodeSimd not implemented"
+#  endif
 }
 #endif
 
@@ -546,9 +546,9 @@ inline void ByteStreamSplitDecodeScalarDynamic(const uint8_t* data, int width,
 inline void ByteStreamSplitEncode(const uint8_t* raw_values, int width,
                                   const int64_t num_values, uint8_t* out) {
 #if defined(ARROW_HAVE_SIMD_SPLIT)
-#define ByteStreamSplitEncodePerhapsSimd ByteStreamSplitEncodeSimd
+#  define ByteStreamSplitEncodePerhapsSimd ByteStreamSplitEncodeSimd
 #else
-#define ByteStreamSplitEncodePerhapsSimd ByteStreamSplitEncodeScalar
+#  define ByteStreamSplitEncodePerhapsSimd ByteStreamSplitEncodeScalar
 #endif
   switch (width) {
     case 1:
@@ -570,9 +570,9 @@ inline void ByteStreamSplitEncode(const uint8_t* raw_values, int width,
 inline void ByteStreamSplitDecode(const uint8_t* data, int width, int64_t num_values,
                                   int64_t stride, uint8_t* out) {
 #if defined(ARROW_HAVE_SIMD_SPLIT)
-#define ByteStreamSplitDecodePerhapsSimd ByteStreamSplitDecodeSimd
+#  define ByteStreamSplitDecodePerhapsSimd ByteStreamSplitDecodeSimd
 #else
-#define ByteStreamSplitDecodePerhapsSimd ByteStreamSplitDecodeScalar
+#  define ByteStreamSplitDecodePerhapsSimd ByteStreamSplitDecodeScalar
 #endif
   switch (width) {
     case 1:

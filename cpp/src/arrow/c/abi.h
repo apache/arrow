@@ -41,11 +41,11 @@ extern "C" {
 #endif
 
 #ifndef ARROW_C_DATA_INTERFACE
-#define ARROW_C_DATA_INTERFACE
+#  define ARROW_C_DATA_INTERFACE
 
-#define ARROW_FLAG_DICTIONARY_ORDERED 1
-#define ARROW_FLAG_NULLABLE 2
-#define ARROW_FLAG_MAP_KEYS_SORTED 4
+#  define ARROW_FLAG_DICTIONARY_ORDERED 1
+#  define ARROW_FLAG_NULLABLE 2
+#  define ARROW_FLAG_MAP_KEYS_SORTED 4
 
 struct ArrowSchema {
   // Array type description
@@ -83,7 +83,7 @@ struct ArrowArray {
 #endif  // ARROW_C_DATA_INTERFACE
 
 #ifndef ARROW_C_DEVICE_DATA_INTERFACE
-#define ARROW_C_DEVICE_DATA_INTERFACE
+#  define ARROW_C_DEVICE_DATA_INTERFACE
 
 // Spec and Documentation: https://arrow.apache.org/docs/format/CDeviceDataInterface.html
 
@@ -91,33 +91,33 @@ struct ArrowArray {
 typedef int32_t ArrowDeviceType;
 
 // CPU device, same as using ArrowArray directly
-#define ARROW_DEVICE_CPU 1
+#  define ARROW_DEVICE_CPU 1
 // CUDA GPU Device
-#define ARROW_DEVICE_CUDA 2
+#  define ARROW_DEVICE_CUDA 2
 // Pinned CUDA CPU memory by cudaMallocHost
-#define ARROW_DEVICE_CUDA_HOST 3
+#  define ARROW_DEVICE_CUDA_HOST 3
 // OpenCL Device
-#define ARROW_DEVICE_OPENCL 4
+#  define ARROW_DEVICE_OPENCL 4
 // Vulkan buffer for next-gen graphics
-#define ARROW_DEVICE_VULKAN 7
+#  define ARROW_DEVICE_VULKAN 7
 // Metal for Apple GPU
-#define ARROW_DEVICE_METAL 8
+#  define ARROW_DEVICE_METAL 8
 // Verilog simulator buffer
-#define ARROW_DEVICE_VPI 9
+#  define ARROW_DEVICE_VPI 9
 // ROCm GPUs for AMD GPUs
-#define ARROW_DEVICE_ROCM 10
+#  define ARROW_DEVICE_ROCM 10
 // Pinned ROCm CPU memory allocated by hipMallocHost
-#define ARROW_DEVICE_ROCM_HOST 11
+#  define ARROW_DEVICE_ROCM_HOST 11
 // Reserved for extension
-#define ARROW_DEVICE_EXT_DEV 12
+#  define ARROW_DEVICE_EXT_DEV 12
 // CUDA managed/unified memory allocated by cudaMallocManaged
-#define ARROW_DEVICE_CUDA_MANAGED 13
+#  define ARROW_DEVICE_CUDA_MANAGED 13
 // unified shared memory allocated on a oneAPI non-partitioned device.
-#define ARROW_DEVICE_ONEAPI 14
+#  define ARROW_DEVICE_ONEAPI 14
 // GPU support for next-gen WebGPU standard
-#define ARROW_DEVICE_WEBGPU 15
+#  define ARROW_DEVICE_WEBGPU 15
 // Qualcomm Hexagon DSP
-#define ARROW_DEVICE_HEXAGON 16
+#  define ARROW_DEVICE_HEXAGON 16
 
 struct ArrowDeviceArray {
   // the Allocated Array
@@ -138,7 +138,7 @@ struct ArrowDeviceArray {
 #endif  // ARROW_C_DEVICE_DATA_INTERFACE
 
 #ifndef ARROW_C_STREAM_INTERFACE
-#define ARROW_C_STREAM_INTERFACE
+#  define ARROW_C_STREAM_INTERFACE
 
 struct ArrowArrayStream {
   // Callback to get the stream type
@@ -179,7 +179,7 @@ struct ArrowArrayStream {
 #endif  // ARROW_C_STREAM_INTERFACE
 
 #ifndef ARROW_C_DEVICE_STREAM_INTERFACE
-#define ARROW_C_DEVICE_STREAM_INTERFACE
+#  define ARROW_C_DEVICE_STREAM_INTERFACE
 
 // Equivalent to ArrowArrayStream, but for ArrowDeviceArrays.
 //

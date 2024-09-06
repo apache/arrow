@@ -32,24 +32,24 @@
 //
 // [1] https://github.com/boostorg/process/issues/259
 // [2] https://github.com/googleapis/storage-testbench/issues/669
-#ifndef _WIN32
-#define BOOST_PROCESS_USE_V2
-#endif
+#  ifndef _WIN32
+#    define BOOST_PROCESS_USE_V2
+#  endif
 #endif
 
 #ifdef BOOST_PROCESS_USE_V2
-#ifdef BOOST_PROCESS_NEED_SOURCE
+#  ifdef BOOST_PROCESS_NEED_SOURCE
 // Workaround for https://github.com/boostorg/process/issues/312
-#define BOOST_PROCESS_V2_SEPARATE_COMPILATION
-#ifdef __APPLE__
-#include <sys/sysctl.h>
-#endif
-#include <boost/process/v2.hpp>
-#include <boost/process/v2/src.hpp>
-#else
-#include <boost/process/v2.hpp>
-#endif
-#include <unordered_map>
+#    define BOOST_PROCESS_V2_SEPARATE_COMPILATION
+#    ifdef __APPLE__
+#      include <sys/sysctl.h>
+#    endif
+#    include <boost/process/v2.hpp>
+#    include <boost/process/v2/src.hpp>
+#  else
+#    include <boost/process/v2.hpp>
+#  endif
+#  include <unordered_map>
 #else
 // We need BOOST_USE_WINDOWS_H definition with MinGW when we use
 // boost/process.hpp. boost/process/detail/windows/handle_workaround.hpp
@@ -58,19 +58,19 @@
 //
 // See also:
 // https://github.com/boostorg/process/blob/develop/include/boost/process/detail/windows/handle_workaround.hpp
-#ifdef __MINGW32__
-#define BOOST_USE_WINDOWS_H = 1
-#endif
-#ifdef BOOST_PROCESS_HAVE_V1
-#include <boost/process/v1.hpp>
-#else
-#include <boost/process.hpp>
-#endif
+#  ifdef __MINGW32__
+#    define BOOST_USE_WINDOWS_H = 1
+#  endif
+#  ifdef BOOST_PROCESS_HAVE_V1
+#    include <boost/process/v1.hpp>
+#  else
+#    include <boost/process.hpp>
+#  endif
 #endif
 
 #ifdef __APPLE__
-#include <limits.h>
-#include <mach-o/dyld.h>
+#  include <limits.h>
+#  include <mach-o/dyld.h>
 #endif
 
 #include <chrono>
