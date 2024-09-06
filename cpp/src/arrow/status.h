@@ -28,23 +28,23 @@
 #ifdef ARROW_EXTRA_ERROR_CONTEXT
 
 /// \brief Return with given status if condition is met.
-#define ARROW_RETURN_IF_(condition, status, expr)   \
-  do {                                              \
-    if (ARROW_PREDICT_FALSE(condition)) {           \
-      ::arrow::Status _st = (status);               \
-      _st.AddContextLine(__FILE__, __LINE__, expr); \
-      return _st;                                   \
-    }                                               \
-  } while (0)
+#  define ARROW_RETURN_IF_(condition, status, expr)   \
+    do {                                              \
+      if (ARROW_PREDICT_FALSE(condition)) {           \
+        ::arrow::Status _st = (status);               \
+        _st.AddContextLine(__FILE__, __LINE__, expr); \
+        return _st;                                   \
+      }                                               \
+    } while (0)
 
 #else
 
-#define ARROW_RETURN_IF_(condition, status, _) \
-  do {                                         \
-    if (ARROW_PREDICT_FALSE(condition)) {      \
-      return (status);                         \
-    }                                          \
-  } while (0)
+#  define ARROW_RETURN_IF_(condition, status, _) \
+    do {                                         \
+      if (ARROW_PREDICT_FALSE(condition)) {      \
+        return (status);                         \
+      }                                          \
+    } while (0)
 
 #endif  // ARROW_EXTRA_ERROR_CONTEXT
 
@@ -78,7 +78,7 @@
 
 // This is an internal-use macro and should not be used in public headers.
 #ifndef RETURN_NOT_OK
-#define RETURN_NOT_OK(s) ARROW_RETURN_NOT_OK(s)
+#  define RETURN_NOT_OK(s) ARROW_RETURN_NOT_OK(s)
 #endif
 
 namespace arrow {

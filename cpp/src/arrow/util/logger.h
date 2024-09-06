@@ -128,7 +128,7 @@ class ARROW_EXPORT LogMessage {
 // For the following macros, log statements with a lower severity than
 // `ARROW_MINIMUM_LOG_LEVEL` will be stripped from the build
 #ifndef ARROW_MINIMUM_LOG_LEVEL
-#define ARROW_MINIMUM_LOG_LEVEL -1000
+#  define ARROW_MINIMUM_LOG_LEVEL -1000
 #endif
 
 #define ARROW_LOGGER_INTERNAL(LOGGER, LEVEL)                                      \
@@ -137,50 +137,50 @@ class ARROW_EXPORT LogMessage {
 
 static_assert(static_cast<int>(::arrow::util::ArrowLogLevel::ARROW_TRACE) == -2);
 #if ARROW_MINIMUM_LOG_LEVEL <= -2
-#define ARROW_LOGGER_TRACE(LOGGER, ...) \
-  (ARROW_LOGGER_INTERNAL(LOGGER, TRACE).Append(__VA_ARGS__))
+#  define ARROW_LOGGER_TRACE(LOGGER, ...) \
+    (ARROW_LOGGER_INTERNAL(LOGGER, TRACE).Append(__VA_ARGS__))
 #else
-#define ARROW_LOGGER_TRACE(...) ARROW_UNUSED(0)
+#  define ARROW_LOGGER_TRACE(...) ARROW_UNUSED(0)
 #endif
 
 static_assert(static_cast<int>(::arrow::util::ArrowLogLevel::ARROW_DEBUG) == -1);
 #if ARROW_MINIMUM_LOG_LEVEL <= -1
-#define ARROW_LOGGER_DEBUG(LOGGER, ...) \
-  (ARROW_LOGGER_INTERNAL(LOGGER, DEBUG).Append(__VA_ARGS__))
+#  define ARROW_LOGGER_DEBUG(LOGGER, ...) \
+    (ARROW_LOGGER_INTERNAL(LOGGER, DEBUG).Append(__VA_ARGS__))
 #else
-#define ARROW_LOGGER_DEBUG(...) ARROW_UNUSED(0)
+#  define ARROW_LOGGER_DEBUG(...) ARROW_UNUSED(0)
 #endif
 
 static_assert(static_cast<int>(::arrow::util::ArrowLogLevel::ARROW_INFO) == 0);
 #if ARROW_MINIMUM_LOG_LEVEL <= 0
-#define ARROW_LOGGER_INFO(LOGGER, ...) \
-  (ARROW_LOGGER_INTERNAL(LOGGER, INFO).Append(__VA_ARGS__))
+#  define ARROW_LOGGER_INFO(LOGGER, ...) \
+    (ARROW_LOGGER_INTERNAL(LOGGER, INFO).Append(__VA_ARGS__))
 #else
-#define ARROW_LOGGER_INFO(...) ARROW_UNUSED(0)
+#  define ARROW_LOGGER_INFO(...) ARROW_UNUSED(0)
 #endif
 
 static_assert(static_cast<int>(::arrow::util::ArrowLogLevel::ARROW_WARNING) == 1);
 #if ARROW_MINIMUM_LOG_LEVEL <= 1
-#define ARROW_LOGGER_WARNING(LOGGER, ...) \
-  (ARROW_LOGGER_INTERNAL(LOGGER, WARNING).Append(__VA_ARGS__))
+#  define ARROW_LOGGER_WARNING(LOGGER, ...) \
+    (ARROW_LOGGER_INTERNAL(LOGGER, WARNING).Append(__VA_ARGS__))
 #else
-#define ARROW_LOGGER_WARNING(...) ARROW_UNUSED(0)
+#  define ARROW_LOGGER_WARNING(...) ARROW_UNUSED(0)
 #endif
 
 static_assert(static_cast<int>(::arrow::util::ArrowLogLevel::ARROW_ERROR) == 2);
 #if ARROW_MINIMUM_LOG_LEVEL <= 2
-#define ARROW_LOGGER_ERROR(LOGGER, ...) \
-  (ARROW_LOGGER_INTERNAL(LOGGER, ERROR).Append(__VA_ARGS__))
+#  define ARROW_LOGGER_ERROR(LOGGER, ...) \
+    (ARROW_LOGGER_INTERNAL(LOGGER, ERROR).Append(__VA_ARGS__))
 #else
-#define ARROW_LOGGER_ERROR(...) ARROW_UNUSED(0)
+#  define ARROW_LOGGER_ERROR(...) ARROW_UNUSED(0)
 #endif
 
 static_assert(static_cast<int>(::arrow::util::ArrowLogLevel::ARROW_FATAL) == 3);
 #if ARROW_MINIMUM_LOG_LEVEL <= 3
-#define ARROW_LOGGER_FATAL(LOGGER, ...) \
-  (ARROW_LOGGER_INTERNAL(LOGGER, FATAL).Append(__VA_ARGS__))
+#  define ARROW_LOGGER_FATAL(LOGGER, ...) \
+    (ARROW_LOGGER_INTERNAL(LOGGER, FATAL).Append(__VA_ARGS__))
 #else
-#define ARROW_LOGGER_FATAL(...) ARROW_UNUSED(0)
+#  define ARROW_LOGGER_FATAL(...) ARROW_UNUSED(0)
 #endif
 
 #define ARROW_LOGGER_CALL(LOGGER, LEVEL, ...) ARROW_LOGGER_##LEVEL(LOGGER, __VA_ARGS__)

@@ -27,13 +27,13 @@
 #include "arrow/util/config.h"
 
 #ifdef UCP_API_VERSION
-#error "UCX headers should not be in public API"
+#  error "UCX headers should not be in public API"
 #endif
 
 #include "arrow/flight/transport/ucx/ucx_internal.h"
 
 #ifdef ARROW_CUDA
-#include "arrow/gpu/cuda_api.h"
+#  include "arrow/gpu/cuda_api.h"
 #endif
 
 namespace arrow {

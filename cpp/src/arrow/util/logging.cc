@@ -20,36 +20,36 @@
 #include "arrow/util/config.h"
 
 #ifdef ARROW_WITH_BACKTRACE
-#include <execinfo.h>
+#  include <execinfo.h>
 #endif
 #include <cstdlib>
 #include <iostream>
 
 #ifdef ARROW_USE_GLOG
 
-#include <signal.h>
-#include <vector>
+#  include <signal.h>
+#  include <vector>
 
-#include <glog/logging.h>
+#  include <glog/logging.h>
 
 // Restore our versions of DCHECK and friends, as GLog defines its own
-#undef DCHECK
-#undef DCHECK_OK
-#undef DCHECK_EQ
-#undef DCHECK_NE
-#undef DCHECK_LE
-#undef DCHECK_LT
-#undef DCHECK_GE
-#undef DCHECK_GT
+#  undef DCHECK
+#  undef DCHECK_OK
+#  undef DCHECK_EQ
+#  undef DCHECK_NE
+#  undef DCHECK_LE
+#  undef DCHECK_LT
+#  undef DCHECK_GE
+#  undef DCHECK_GT
 
-#define DCHECK ARROW_DCHECK
-#define DCHECK_OK ARROW_DCHECK_OK
-#define DCHECK_EQ ARROW_DCHECK_EQ
-#define DCHECK_NE ARROW_DCHECK_NE
-#define DCHECK_LE ARROW_DCHECK_LE
-#define DCHECK_LT ARROW_DCHECK_LT
-#define DCHECK_GE ARROW_DCHECK_GE
-#define DCHECK_GT ARROW_DCHECK_GT
+#  define DCHECK ARROW_DCHECK
+#  define DCHECK_OK ARROW_DCHECK_OK
+#  define DCHECK_EQ ARROW_DCHECK_EQ
+#  define DCHECK_NE ARROW_DCHECK_NE
+#  define DCHECK_LE ARROW_DCHECK_LE
+#  define DCHECK_LT ARROW_DCHECK_LT
+#  define DCHECK_GE ARROW_DCHECK_GE
+#  define DCHECK_GT ARROW_DCHECK_GT
 
 #endif
 
@@ -188,11 +188,11 @@ void ArrowLog::UninstallSignalAction() {
   // This signal list comes from glog's signalhandler.cc.
   // https://github.com/google/glog/blob/master/src/signalhandler.cc#L58-L70
   std::vector<int> installed_signals({SIGSEGV, SIGILL, SIGFPE, SIGABRT, SIGTERM});
-#ifdef WIN32
+#  ifdef WIN32
   for (int signal_num : installed_signals) {
     ARROW_CHECK(signal(signal_num, SIG_DFL) != SIG_ERR);
   }
-#else
+#  else
   struct sigaction sig_action;
   memset(&sig_action, 0, sizeof(sig_action));
   sigemptyset(&sig_action.sa_mask);
@@ -200,7 +200,7 @@ void ArrowLog::UninstallSignalAction() {
   for (int signal_num : installed_signals) {
     ARROW_CHECK(sigaction(signal_num, &sig_action, NULL) == 0);
   }
-#endif
+#  endif
 #endif
 }
 

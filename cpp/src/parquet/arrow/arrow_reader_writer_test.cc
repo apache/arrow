@@ -16,9 +16,9 @@
 // under the License.
 
 #ifdef _MSC_VER
-#pragma warning(push)
+#  pragma warning(push)
 // Disable forcing value to bool warnings
-#pragma warning(disable : 4800)
+#  pragma warning(disable : 4800)
 #endif
 
 #include "gmock/gmock.h"
@@ -55,7 +55,7 @@
 #include "arrow/util/range.h"
 
 #ifdef ARROW_CSV
-#include "arrow/csv/api.h"
+#  include "arrow/csv/api.h"
 #endif
 
 #include "parquet/api/reader.h"

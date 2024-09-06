@@ -42,7 +42,7 @@
 #include "gmock/gmock.h"
 
 #if defined(ARROW_CUDA)
-#include "arrow/gpu/cuda_api.h"
+#  include "arrow/gpu/cuda_api.h"
 #endif
 
 namespace arrow {

@@ -841,6 +841,56 @@ TEST(TestParquetStatistics, NullMax) {
   EXPECT_EQ(stat_expression->ToString(), "(x >= 1)");
 }
 
+TEST(TestParquetStatistics, NoNullCount) {
+  auto field = ::arrow::field("x", int32());
+  auto parquet_node_ptr = ::parquet::schema::Int32("x", ::parquet::Repetition::REQUIRED);
+  ::parquet::ColumnDescriptor descr(parquet_node_ptr, /*max_definition_level=*/1,
+                                    /*max_repetition_level=*/0);
+
+  auto int32_to_parquet_stats = [](int32_t v) {
+    std::string value;
+    value.resize(sizeof(int32_t));
+    memcpy(value.data(), &v, sizeof(int32_t));
+    return value;
+  };
+  {
+    // Base case: when null_count is not set, the expression might contain null
+    ::parquet::EncodedStatistics encoded_stats;
+    encoded_stats.set_min(int32_to_parquet_stats(1));
+    encoded_stats.set_max(int32_to_parquet_stats(100));
+    encoded_stats.has_null_count = false;
+    encoded_stats.all_null_value = false;
+    encoded_stats.null_count = 0;
+    auto stats = ::parquet::Statistics::Make(&descr, &encoded_stats, /*num_values=*/10);
+
+    auto stat_expression =
+        ParquetFileFragment::EvaluateStatisticsAsExpression(*field, *stats);
+    ASSERT_TRUE(stat_expression.has_value());
+    EXPECT_EQ(stat_expression->ToString(),
+              "(((x >= 1) and (x <= 100)) or is_null(x, {nan_is_null=false}))");
+  }
+  {
+    // Special case: when num_value is 0, it would return
+    // "is_null".
+    ::parquet::EncodedStatistics encoded_stats;
+    encoded_stats.has_null_count = true;
+    encoded_stats.null_count = 1;
+    encoded_stats.all_null_value = true;
+    auto stats = ::parquet::Statistics::Make(&descr, &encoded_stats, /*num_values=*/0);
+    auto stat_expression =
+        ParquetFileFragment::EvaluateStatisticsAsExpression(*field, *stats);
+    ASSERT_TRUE(stat_expression.has_value());
+    EXPECT_EQ(stat_expression->ToString(), "is_null(x, {nan_is_null=false})");
+
+    encoded_stats.has_null_count = false;
+    encoded_stats.all_null_value = false;
+    stats = ::parquet::Statistics::Make(&descr, &encoded_stats, /*num_values=*/0);
+    stat_expression = ParquetFileFragment::EvaluateStatisticsAsExpression(*field, *stats);
+    ASSERT_TRUE(stat_expression.has_value());
+    EXPECT_EQ(stat_expression->ToString(), "is_null(x, {nan_is_null=false})");
+  }
+}
+
 class DelayedBufferReader : public ::arrow::io::BufferReader {
  public:
   explicit DelayedBufferReader(const std::shared_ptr<::arrow::Buffer>& buffer)

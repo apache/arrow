@@ -113,6 +113,21 @@ jobs:
           name: wheel
           path: arrow/python/repaired_wheels/*.whl
 
+      # Use a well-known Python version for the GCS testbench, and avoid
+      # putting it in PATH.
+      - name: Set up Python for GCS testbench
+        uses: actions/setup-python@v5.1.1
+        id: gcs-python-install
+        with:
+          python-version: 3.12
+          update-environment: false
+
+      - name: Install GCS testbench
+        env:
+          PIPX_BIN_DIR: /usr/local/bin
+          PIPX_BASE_PYTHON: {{ '${{ steps.gcs-python-install.outputs.python-path }}' }}
+        run: arrow/ci/scripts/install_gcs_testbench.sh default
+
       - name: Test Wheel
         env:
           PYTEST_ADDOPTS: "-k 'not test_cancellation'"
@@ -121,8 +136,8 @@ jobs:
           source test-env/bin/activate
           pip install --upgrade pip wheel
           arch -{{ arch }} pip install -r arrow/python/requirements-wheel-test.txt
-          PYTHON_VERSION={{ python_version }} arch -{{ arch }} arrow/ci/scripts/install_gcs_testbench.sh default
           arch -{{ arch }} arrow/ci/scripts/python_wheel_unix_test.sh $(pwd)/arrow
 
       {{ macros.github_upload_releases("arrow/python/repaired_wheels/*.whl")|indent }}
       {{ macros.github_upload_gemfury("arrow/python/repaired_wheels/*.whl")|indent }}
+      {{ macros.github_upload_wheel_scientific_python("arrow/python/repaired_wheels/*.whl")|indent }}

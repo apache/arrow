@@ -321,10 +321,10 @@ void LongVectorInsertAtEnd(benchmark::State& state) {
 
 #ifdef ARROW_WITH_BENCHMARKS_REFERENCE
 
-#define STD_VECTOR(T) std::vector<T>
+#  define STD_VECTOR(T) std::vector<T>
 SHORT_VECTOR_BENCHMARKS(STD_VECTOR);
 LONG_VECTOR_BENCHMARKS(STD_VECTOR);
-#undef STD_VECTOR
+#  undef STD_VECTOR
 
 #endif
 

@@ -18,6 +18,7 @@ using System.Collections.Generic;
 using System.Text;
 using Apache.Arrow.Flight.Internal;
 using Apache.Arrow.Ipc;
+using Google.Protobuf;
 
 namespace Apache.Arrow.Flight
 {
@@ -25,7 +26,7 @@ namespace Apache.Arrow.Flight
     {
         internal FlightInfo(Protocol.FlightInfo flightInfo)
         {
-            Schema = FlightMessageSerializer.DecodeSchema(flightInfo.Schema.Memory);
+            Schema = flightInfo.Schema?.Length > 0 ? FlightMessageSerializer.DecodeSchema(flightInfo.Schema.Memory) : null;
             Descriptor = new FlightDescriptor(flightInfo.FlightDescriptor);
 
             var endpoints = new List<FlightEndpoint>();
@@ -60,7 +61,7 @@ namespace Apache.Arrow.Flight
 
         internal Protocol.FlightInfo ToProtocol()
         {
-            var serializedSchema = SchemaWriter.SerializeSchema(Schema);
+            var serializedSchema = Schema != null ? SchemaWriter.SerializeSchema(Schema) : ByteString.Empty;
             var response = new Protocol.FlightInfo()
             {
                 Schema = serializedSchema,

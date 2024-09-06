@@ -34,7 +34,7 @@
 #include "arrow/acero/options.h"
 #include "arrow/acero/unmaterialized_table_internal.h"
 #ifndef NDEBUG
-#include "arrow/acero/options_internal.h"
+#  include "arrow/acero/options_internal.h"
 #endif
 #include "arrow/acero/query_context.h"
 #include "arrow/acero/schema_util.h"
@@ -42,7 +42,7 @@
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_primitive.h"
 #ifndef NDEBUG
-#include "arrow/compute/function_internal.h"
+#  include "arrow/compute/function_internal.h"
 #endif
 #include "arrow/acero/time_series_util.h"
 #include "arrow/compute/key_hash_internal.h"
@@ -207,16 +207,16 @@ class DebugSync {
   std::unique_lock<std::mutex> debug_lock_;
 };
 
-#define DEBUG_SYNC(node, ...) DebugSync(node).insert(__VA_ARGS__)
-#define DEBUG_MANIP(manip) \
-  DebugSync::Manip([](DebugSync& d) -> DebugSync& { return d << manip; })
-#define NDEBUG_EXPLICIT
-#define DEBUG_ADD(ndebug, ...) ndebug, __VA_ARGS__
+#  define DEBUG_SYNC(node, ...) DebugSync(node).insert(__VA_ARGS__)
+#  define DEBUG_MANIP(manip) \
+    DebugSync::Manip([](DebugSync& d) -> DebugSync& { return d << manip; })
+#  define NDEBUG_EXPLICIT
+#  define DEBUG_ADD(ndebug, ...) ndebug, __VA_ARGS__
 #else
-#define DEBUG_SYNC(...)
-#define DEBUG_MANIP(...)
-#define NDEBUG_EXPLICIT explicit
-#define DEBUG_ADD(ndebug, ...) ndebug
+#  define DEBUG_SYNC(...)
+#  define DEBUG_MANIP(...)
+#  define NDEBUG_EXPLICIT explicit
+#  define DEBUG_ADD(ndebug, ...) ndebug
 #endif
 
 struct MemoStore {

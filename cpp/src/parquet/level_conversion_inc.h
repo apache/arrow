@@ -31,7 +31,7 @@
 #include "parquet/level_comparison.h"
 
 #ifndef PARQUET_IMPL_NAMESPACE
-#error "PARQUET_IMPL_NAMESPACE must be defined"
+#  error "PARQUET_IMPL_NAMESPACE must be defined"
 #endif
 
 namespace parquet::internal::PARQUET_IMPL_NAMESPACE {
@@ -261,7 +261,7 @@ inline uint64_t ExtractBitsSoftware(uint64_t bitmap, uint64_t select_bitmap) {
 #ifdef ARROW_HAVE_BMI2
 
 // Use _pext_u64 on 64-bit builds, _pext_u32 on 32-bit builds,
-#if UINTPTR_MAX == 0xFFFFFFFF
+#  if UINTPTR_MAX == 0xFFFFFFFF
 
 using extract_bitmap_t = uint32_t;
 inline extract_bitmap_t ExtractBits(extract_bitmap_t bitmap,
@@ -269,7 +269,7 @@ inline extract_bitmap_t ExtractBits(extract_bitmap_t bitmap,
   return _pext_u32(bitmap, select_bitmap);
 }
 
-#else
+#  else
 
 using extract_bitmap_t = uint64_t;
 inline extract_bitmap_t ExtractBits(extract_bitmap_t bitmap,
@@ -277,7 +277,7 @@ inline extract_bitmap_t ExtractBits(extract_bitmap_t bitmap,
   return _pext_u64(bitmap, select_bitmap);
 }
 
-#endif
+#  endif
 
 #else  // !defined(ARROW_HAVE_BMI2)
 

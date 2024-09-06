@@ -104,8 +104,8 @@ enum class FlightStatusCode : int8_t {
 // Silence warning
 // "non dll-interface class RecordBatchReader used as base for dll-interface class"
 #ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable : 4275)
+#  pragma warning(push)
+#  pragma warning(disable : 4275)
 #endif
 
 /// \brief Flight-specific error information in a Status.
@@ -139,7 +139,7 @@ class ARROW_FLIGHT_EXPORT FlightStatusDetail : public arrow::StatusDetail {
 };
 
 #ifdef _MSC_VER
-#pragma warning(pop)
+#  pragma warning(pop)
 #endif
 
 /// \brief Make an appropriate Arrow status for the given

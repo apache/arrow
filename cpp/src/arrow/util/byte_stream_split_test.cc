@@ -145,9 +145,9 @@ class TestByteStreamSplitSpecialized : public ::testing::Test {
     if constexpr (kSimdImplemented) {
       funcs.push_back({"simd", &ByteStreamSplitDecodeSimd<kWidth>});
       funcs.push_back({"simd128", &ByteStreamSplitDecodeSimd128<kWidth>});
-#if defined(ARROW_HAVE_AVX2)
+#  if defined(ARROW_HAVE_AVX2)
       funcs.push_back({"avx2", &ByteStreamSplitDecodeAvx2<kWidth>});
-#endif
+#  endif
     }
 #endif  // defined(ARROW_HAVE_SIMD_SPLIT)
     return funcs;
@@ -163,9 +163,9 @@ class TestByteStreamSplitSpecialized : public ::testing::Test {
     if constexpr (kSimdImplemented) {
       funcs.push_back({"simd", &ByteStreamSplitEncodeSimd<kWidth>});
       funcs.push_back({"simd128", &ByteStreamSplitEncodeSimd128<kWidth>});
-#if defined(ARROW_HAVE_AVX2)
+#  if defined(ARROW_HAVE_AVX2)
       funcs.push_back({"avx2", &ByteStreamSplitEncodeAvx2<kWidth>});
-#endif
+#  endif
     }
 #endif  // defined(ARROW_HAVE_SIMD_SPLIT)
     return funcs;

@@ -35,9 +35,9 @@
 // Instead, we redefine PyDateTimeAPI to point to a global variable,
 // which is initialized once by calling InitDatetime().
 #ifdef PYPY_VERSION
-#include "datetime.h"
+#  include "datetime.h"
 #else
-#define PyDateTimeAPI ::arrow::py::internal::datetime_api
+#  define PyDateTimeAPI ::arrow::py::internal::datetime_api
 #endif
 
 namespace arrow {

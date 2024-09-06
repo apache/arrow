@@ -26,7 +26,7 @@
 #include <vector>
 
 #if __has_include(<charconv>)
-#include <charconv>
+#  include <charconv>
 #endif
 
 #include "arrow/result.h"

@@ -20,8 +20,8 @@
 #include <mutex>
 
 #ifndef _WIN32
-#include <pthread.h>
-#include <atomic>
+#  include <pthread.h>
+#  include <atomic>
 #endif
 
 #include "arrow/util/config.h"

@@ -30,7 +30,7 @@
 #include "arrow/util/value_parsing.h"
 
 #ifdef ARROW_WITH_RE2
-#include <re2/re2.h>
+#  include <re2/re2.h>
 #endif
 
 namespace arrow {

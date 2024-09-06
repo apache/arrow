@@ -301,7 +301,8 @@ add_custom_target(lint
                   --cpplint_binary
                   ${CPPLINT_BIN}
                   ${COMMON_LINT_OPTIONS}
-                  ${ARROW_LINT_QUIET})
+                  ${ARROW_LINT_QUIET}
+                  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/..)
 
 #
 # "make format" and "make check-format" targets

@@ -20,6 +20,7 @@ name: C++
 on:
   push:
     paths:
+      - '.dockerignore'
       - '.github/workflows/cpp.yml'
       - 'ci/conda_env_*'
       - 'ci/docker/**'
@@ -35,6 +36,7 @@ on:
       - 'testing'
   pull_request:
     paths:
+      - '.dockerignore'
       - '.github/workflows/cpp.yml'
       - 'ci/conda_env_*'
       - 'ci/docker/**'
@@ -243,7 +245,7 @@ jobs:
           $(brew --prefix bash)/bin/bash \
             ci/scripts/install_minio.sh latest ${ARROW_HOME}
       - name: Set up Python
-        uses: actions/setup-python@v5.1.1
+        uses: actions/setup-python@v5.2.0
         with:
           python-version: 3.12
       - name: Install Google Cloud Storage Testbench
@@ -409,12 +411,10 @@ jobs:
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
-      # Don't use preinstalled Boost by empty BOOST_ROOT and
-      # -DBoost_NO_BOOST_CMAKE=ON
+      # Don't use preinstalled Boost by empty BOOST_ROOT
       BOOST_ROOT: ""
       ARROW_CMAKE_ARGS: >-
         -DARROW_PACKAGE_PREFIX=/${{ matrix.msystem_lower}}
-        -DBoost_NO_BOOST_CMAKE=ON
         -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=ON
       # We can't use unity build because we don't have enough memory on
       # GitHub Actions.
@@ -464,7 +464,7 @@ jobs:
             https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2022-05-26T05-48-41Z
           chmod +x /usr/local/bin/minio.exe
       - name: Set up Python
-        uses: actions/setup-python@v5.1.1
+        uses: actions/setup-python@v5.2.0
         id: python-install
         with:
           python-version: 3.9
@@ -472,7 +472,7 @@ jobs:
         shell: msys2 {0}
         env:
           PIPX_BIN_DIR: /usr/local/bin
-          PIPX_PYTHON: ${{ steps.python-install.outputs.python-path }}
+          PIPX_BASE_PYTHON: ${{ steps.python-install.outputs.python-path }}
         run: |
           ci/scripts/install_gcs_testbench.sh default
       - name: Test

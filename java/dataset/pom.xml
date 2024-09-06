@@ -32,7 +32,7 @@ under the License.
 
   <properties>
     <arrow.cpp.build.dir>../../../cpp/release-build/</arrow.cpp.build.dir>
-    <parquet.version>1.14.1</parquet.version>
+    <parquet.version>1.14.2</parquet.version>
     <avro.version>1.12.0</avro.version>
   </properties>
 
@@ -130,7 +130,7 @@ under the License.
     <dependency>
       <groupId>org.apache.orc</groupId>
       <artifactId>orc-core</artifactId>
-      <version>1.9.2</version>
+      <version>1.9.4</version>
       <scope>test</scope>
       <exclusions>
         <exclusion>
