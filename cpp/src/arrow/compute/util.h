@@ -40,7 +40,8 @@
 #  define ROTL(x, n) _rotl((x), (n))
 #  define ROTL64(x, n) _rotl64((x), (n))
 #  if defined(_M_X64) || defined(_M_I86)
-#    include <mmintrin.h>  // https://msdn.microsoft.com/fr-fr/library/84szxsww(v=vs.90).aspx
+// https://msdn.microsoft.com/fr-fr/library/84szxsww(v=vs.90).aspx
+#    include <mmintrin.h>
 #    define PREFETCH(ptr) _mm_prefetch((const char*)(ptr), _MM_HINT_T0)
 #  else
 #    define PREFETCH(ptr) (void)(ptr) /* disabled */
