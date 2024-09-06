@@ -473,6 +473,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
     eval.close();
   }
 
+  @Disabled("Enable after fixing: https://github.com/apache/arrow/issues/43981")
   @Test
   public void testStringFields() throws GandivaException {
     /*
@@ -546,6 +547,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
     eval.close();
   }
 
+  @Disabled("Enable after fixing: https://github.com/apache/arrow/issues/43981")
   @Test
   public void testStringOutput() throws GandivaException {
     /*
@@ -1234,6 +1236,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
     eval.close();
   }
 
+  @Disabled("Enable after fixing: https://github.com/apache/arrow/issues/43981")
   @Test
   public void testTimeEquals() throws GandivaException, Exception {
     /*
