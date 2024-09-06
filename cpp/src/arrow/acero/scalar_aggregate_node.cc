@@ -234,7 +234,8 @@ Status ScalarAggregateNode::InputReceived(ExecNode* input, ExecBatch batch) {
     // (1) The segment is starting of a new segment group and points to
     // the beginning of the batch, then it means no data in the batch belongs
     // to the current segment group. We can output and reset kernel states.
-    if (!segment.extends && segment.offset == 0) RETURN_NOT_OK(OutputResult(false));
+    if (!segment.extends && segment.offset == 0)
+      RETURN_NOT_OK(OutputResult(/*is_last=*/false));
 
     // We add segment to the current segment group aggregation
     auto exec_batch = full_batch.Slice(segment.offset, segment.length);
@@ -244,7 +245,7 @@ Status ScalarAggregateNode::InputReceived(ExecNode* input, ExecBatch batch) {
 
     // If the segment closes the current segment group, we can output segment group
     // aggregation.
-    if (!segment.is_open) RETURN_NOT_OK(OutputResult(false));
+    if (!segment.is_open) RETURN_NOT_OK(OutputResult(/*is_last=*/false));
 
     return Status::OK();
   };

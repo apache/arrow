@@ -57,13 +57,13 @@ inline bool operator!=(const Segment& segment1, const Segment& segment2) {
 
 /// \brief a helper class to divide a batch into segments of equal values
 ///
-/// For example, given a batch with two rows:
+/// For example, given a batch with two columns specifed as segment keys:
 ///
-/// A A
-/// A A
-/// A B
-/// A B
-/// A A
+/// A A [other columns]...
+/// A A ...
+/// A B ...
+/// A B ...
+/// A A ...
 ///
 /// Then the batch could be divided into 3 segments.  The first would be rows 0 & 1,
 /// the second would be rows 2 & 3, and the third would be row 4.
