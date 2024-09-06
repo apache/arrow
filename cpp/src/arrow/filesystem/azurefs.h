@@ -112,6 +112,9 @@ struct ARROW_EXPORT AzureOptions {
   /// This will be ignored if non-empty metadata is passed to OpenOutputStream.
   std::shared_ptr<const KeyValueMetadata> default_metadata;
 
+  /// Whether OutputStream writes will be issued in the background, without blocking.
+  bool background_writes = true;
+
  private:
   enum class CredentialKind {
     kDefault,
@@ -367,6 +370,8 @@ class ARROW_EXPORT AzureFileSystem : public FileSystem {
   Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
       const std::string& path,
       const std::shared_ptr<const KeyValueMetadata>& metadata) override;
+
+  Result<std::string> PathFromUri(const std::string& uri_string) const override;
 };
 
 }  // namespace arrow::fs

@@ -53,8 +53,8 @@ add_custom_target(precompiled ALL DEPENDS ${GANDIVA_PRECOMPILED_BC_PATH}
                                           ${GANDIVA_PRECOMPILED_CC_PATH})
 
 # testing
-if(ARROW_BUILD_TESTS)
-  add_executable(gandiva-precompiled-test
+add_gandiva_test(precompiled-test
+                 SOURCES
                  ../context_helper.cc
                  bitmap_test.cc
                  bitmap.cc
@@ -75,16 +75,12 @@ if(ARROW_BUILD_TESTS)
                  decimal_ops_test.cc
                  decimal_ops.cc
                  ../decimal_type_util.cc
-                 ../decimal_xlarge.cc)
-  target_include_directories(gandiva-precompiled-test PRIVATE ${CMAKE_SOURCE_DIR}/src)
-  target_link_libraries(gandiva-precompiled-test PRIVATE ${ARROW_TEST_LINK_LIBS}
-                                                         Boost::headers)
-  target_compile_definitions(gandiva-precompiled-test PRIVATE GANDIVA_UNIT_TEST=1
-                                                              ARROW_STATIC GANDIVA_STATIC)
-  set(TEST_PATH "${EXECUTABLE_OUTPUT_PATH}/gandiva-precompiled-test")
-  add_test(gandiva-precompiled-test ${TEST_PATH})
-  set_property(TEST gandiva-precompiled-test
-               APPEND
-               PROPERTY LABELS "unittest;gandiva-tests")
-  add_dependencies(gandiva-tests gandiva-precompiled-test)
-endif()
+                 ../decimal_xlarge.cc
+                 EXTRA_INCLUDES
+                 ${CMAKE_SOURCE_DIR}/src
+                 EXTRA_LINK_LIBS
+                 Boost::headers
+                 DEFINITIONS
+                 GANDIVA_UNIT_TEST=1
+                 ARROW_STATIC
+                 GANDIVA_STATIC)

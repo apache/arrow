@@ -645,7 +645,7 @@ func (rr *recordReader) ReadRecords(numRecords int64) (int64, error) {
 		}
 	}
 
-	return recordsRead, nil
+	return recordsRead, rr.Err()
 }
 
 func (rr *recordReader) ReleaseValidBits() *memory.Buffer {

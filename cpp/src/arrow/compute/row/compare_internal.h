@@ -42,9 +42,30 @@ class ARROW_EXPORT KeyCompare {
            /*extra=*/util::MiniBatch::kMiniBatchLength;
   }
 
-  // Returns a single 16-bit selection vector of rows that failed comparison.
-  // If there is input selection on the left, the resulting selection is a filtered image
-  // of input selection.
+  /// \brief Compare a batch of rows in columnar format to the specified rows in row
+  /// format.
+  ///
+  /// The comparison result is populated in either a 16-bit selection vector of rows that
+  /// failed comparison, or a match bitvector with 1 for matched rows and 0 otherwise.
+  ///
+  /// @param num_rows_to_compare The number of rows to compare.
+  /// @param sel_left_maybe_null Optional input selection vector on the left, the
+  ///        comparison is only performed on the selected rows. Null if all rows in
+  ///        `left_to_right_map` are to be compared.
+  /// @param left_to_right_map The mapping from the left to the right rows. Left row `i`
+  ///        in `cols` is compared to right row `left_to_right_map[i]` in `row`.
+  /// @param ctx The light context needed for the comparison.
+  /// @param out_num_rows The number of rows that failed comparison. Must be null if
+  ///        `out_match_bitvector_maybe_null` is not null.
+  /// @param out_sel_left_maybe_same The selection vector of rows that failed comparison.
+  ///        Can be the same as `sel_left_maybe_null` for in-place update. Must be null if
+  ///        `out_match_bitvector_maybe_null` is not null.
+  /// @param cols The left rows in columnar format to compare.
+  /// @param rows The right rows in row format to compare.
+  /// @param are_cols_in_encoding_order Whether the columns are in encoding order.
+  /// @param out_match_bitvector_maybe_null The optional output match bitvector, 1 for
+  ///        matched rows and 0 otherwise. Won't be populated if `out_num_rows` and
+  ///        `out_sel_left_maybe_same` are not null.
   static void CompareColumnsToRows(
       uint32_t num_rows_to_compare, const uint16_t* sel_left_maybe_null,
       const uint32_t* left_to_right_map, LightContext* ctx, uint32_t* out_num_rows,

@@ -34,6 +34,7 @@ source_dir=${1}
 : ${ARROW_S3:=ON}
 : ${ARROW_SUBSTRAIT:=ON}
 : ${CHECK_IMPORTS:=ON}
+: ${CHECK_WHEEL_CONTENT:=ON}
 : ${CHECK_UNITTESTS:=ON}
 : ${INSTALL_PYARROW:=ON}
 
@@ -54,7 +55,7 @@ export PYARROW_TEST_S3=${ARROW_S3}
 export PYARROW_TEST_TENSORFLOW=ON
 
 export ARROW_TEST_DATA=${source_dir}/testing/data
-export PARQUET_TEST_DATA=${source_dir}/submodules/parquet-testing/data
+export PARQUET_TEST_DATA=${source_dir}/cpp/submodules/parquet-testing/data
 
 if [ "${INSTALL_PYARROW}" == "ON" ]; then
   # Install the built wheels
@@ -85,6 +86,11 @@ import pyarrow.parquet
   if [ "${PYARROW_TEST_SUBSTRAIT}" == "ON" ]; then
     python -c "import pyarrow.substrait"
   fi
+fi
+
+if [ "${CHECK_WHEEL_CONTENT}" == "ON" ]; then
+  python ${source_dir}/ci/scripts/python_wheel_validate_contents.py \
+    --path ${source_dir}/python/repaired_wheels
 fi
 
 if [ "${CHECK_UNITTESTS}" == "ON" ]; then

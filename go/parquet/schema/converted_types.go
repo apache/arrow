@@ -113,13 +113,9 @@ func (p ConvertedType) ToLogicalType(convertedDecimal DecimalMetadata) LogicalTy
 	case ConvertedTypes.TimeMicros:
 		return NewTimeLogicalType(true /* adjustedToUTC */, TimeUnitMicros)
 	case ConvertedTypes.TimestampMillis:
-		t := NewTimestampLogicalType(true /* adjustedToUTC */, TimeUnitMillis)
-		t.(*TimestampLogicalType).fromConverted = true
-		return t
+		return NewTimestampLogicalTypeWithOpts(WithTSIsAdjustedToUTC(), WithTSTimeUnitType(TimeUnitMillis), WithTSFromConverted())
 	case ConvertedTypes.TimestampMicros:
-		t := NewTimestampLogicalType(true /* adjustedToUTC */, TimeUnitMicros)
-		t.(*TimestampLogicalType).fromConverted = true
-		return t
+		return NewTimestampLogicalTypeWithOpts(WithTSIsAdjustedToUTC(), WithTSTimeUnitType(TimeUnitMicros), WithTSFromConverted())
 	case ConvertedTypes.Interval:
 		return IntervalLogicalType{}
 	case ConvertedTypes.Int8:

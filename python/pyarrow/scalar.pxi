@@ -17,6 +17,7 @@
 
 import collections
 from cython cimport binding
+from uuid import UUID
 
 
 cdef class Scalar(_Weakrefable):
@@ -1043,6 +1044,15 @@ cdef class ExtensionScalar(Scalar):
         return pyarrow_wrap_scalar(<shared_ptr[CScalar]> sp_scalar)
 
 
+class UuidScalar(ExtensionScalar):
+    """
+    Concrete class for Uuid extension scalar.
+    """
+
+    def as_py(self):
+        return None if self.value is None else UUID(bytes=self.value.as_py())
+
+
 cdef class FixedShapeTensorScalar(ExtensionScalar):
     """
     Concrete class for fixed shape tensor extension scalar.
@@ -1084,6 +1094,24 @@ cdef class FixedShapeTensorScalar(ExtensionScalar):
             ctensor = GetResultValue(c_type.MakeTensor(scalar))
         return pyarrow_wrap_tensor(ctensor)
 
+
+cdef class OpaqueScalar(ExtensionScalar):
+    """
+    Concrete class for opaque extension scalar.
+    """
+
+
+cdef class Bool8Scalar(ExtensionScalar):
+    """
+    Concrete class for bool8 extension scalar.
+    """
+
+    def as_py(self):
+        """
+        Return this scalar as a Python object.
+        """
+        py_val = super().as_py()
+        return None if py_val is None else py_val != 0
 
 cdef dict _scalar_classes = {
     _Type_BOOL: BooleanScalar,
@@ -1193,6 +1221,11 @@ def scalar(value, type=None, *, from_pandas=None, MemoryPool memory_pool=None):
     type = ensure_type(type, allow_none=True)
     pool = maybe_unbox_memory_pool(memory_pool)
 
+    extension_type = None
+    if type is not None and type.id == _Type_EXTENSION:
+        extension_type = type
+        type = type.storage_type
+
     if _is_array_like(value):
         value = get_values(value, &is_pandas_object)
 
@@ -1217,4 +1250,8 @@ def scalar(value, type=None, *, from_pandas=None, MemoryPool memory_pool=None):
 
     # retrieve the scalar from the first position
     scalar = GetResultValue(array.get().GetScalar(0))
-    return Scalar.wrap(scalar)
+    result = Scalar.wrap(scalar)
+
+    if extension_type is not None:
+        result = ExtensionScalar.from_storage(extension_type, result)
+    return result

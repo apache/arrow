@@ -20,7 +20,8 @@
 #include "arrow/python/platform.h"
 #include "arrow/python/visibility.h"
 
-extern "C" {
+namespace arrow::py {
 ARROW_PYTHON_EXPORT
 int arrow_init_numpy();
-}
+bool has_numpy();
+}  // namespace arrow::py

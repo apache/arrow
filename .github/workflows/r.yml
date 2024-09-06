@@ -20,6 +20,7 @@ name: R
 on:
   push:
     paths:
+      - '.dockerignore'
       - ".github/workflows/r.yml"
       - "ci/docker/**"
       - "ci/etc/rprofile"
@@ -32,6 +33,7 @@ on:
       - "r/**"
   pull_request:
     paths:
+      - '.dockerignore'
       - ".github/workflows/r.yml"
       - "ci/docker/**"
       - "ci/etc/rprofile"
@@ -86,19 +88,18 @@ jobs:
       run: |
         sudo apt-get install devscripts
 
-    # replace the SHA with v2 once INFRA-26031 is resolved
-    - uses: r-lib/actions/setup-r@732fb28088814627972f1ccbacc02561178cf391
+    - uses: r-lib/actions/setup-r@v2
       with:
         use-public-rspm: true
         install-r: false
 
-    - uses: r-lib/actions/setup-r-dependencies@732fb28088814627972f1ccbacc02561178cf391
+    - uses: r-lib/actions/setup-r-dependencies@v2
       with:
         extra-packages: any::rcmdcheck
         needs: check
         working-directory: src/r
 
-    - uses: r-lib/actions/check-r-package@732fb28088814627972f1ccbacc02561178cf391
+    - uses: r-lib/actions/check-r-package@v2
       with:
         working-directory: src/r
       env:
@@ -133,6 +134,9 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
+      - name: Free up disk space
+        run: |
+          ci/scripts/util_free_space.sh
       - name: Cache Docker Volumes
         uses: actions/cache@13aacd865c20de90d75de3b17ebe84f7a17d57d2 # v4.0.0
         with:
@@ -144,7 +148,7 @@ jobs:
             ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-${{ hashFiles('cpp/src/**/*.cc','cpp/src/**/*.h)') }}-
             ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-
       - name: Setup Python
-        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
+        uses: actions/setup-python@f677139bbe7f9c59b41e40162b753c062f5d49a3 # v5.2.0
         with:
           python-version: 3.8
       - name: Setup Archery
@@ -167,9 +171,9 @@ jobs:
         if: always()
       - name: Save the test output
         if: always()
-        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
         with:
-          name: test-output
+          name: test-output-${{ matrix.ubuntu }}-${{ matrix.r }}
           path: r/check/arrow.Rcheck/tests/testthat.Rout*
       - name: Docker Push
         if: >-
@@ -204,7 +208,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Setup Python
-        uses: actions/setup-python@39cd14951b08e74b54015e9e001cdefcf80e669f # v5.1.1
+        uses: actions/setup-python@f677139bbe7f9c59b41e40162b753c062f5d49a3 # v5.2.0
         with:
           python-version: 3.8
       - name: Setup Archery
@@ -228,9 +232,9 @@ jobs:
         if: always()
       - name: Save the test output
         if: always()
-        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
         with:
-          name: test-output
+          name: test-output-bundled
           path: r/check/arrow.Rcheck/tests/testthat.Rout*
       - name: Docker Push
         if: >-
@@ -290,7 +294,7 @@ jobs:
         # So that they're unique when multiple are downloaded in the next step
         shell: bash
         run: mv libarrow.zip libarrow-rtools${{ matrix.config.rtools }}-${{ matrix.config.arch }}.zip
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # # v4.0.0
         with:
           name: libarrow-rtools${{ matrix.config.rtools }}-${{ matrix.config.arch }}.zip
           path: libarrow-rtools${{ matrix.config.rtools }}-${{ matrix.config.arch }}.zip
@@ -328,7 +332,7 @@ jobs:
           echo "$HOME/.local/bin" >> $GITHUB_PATH
       - run: mkdir r/windows
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4.1.7
         with:
           name: libarrow-rtools40-ucrt64.zip
           path: r/windows
@@ -338,11 +342,11 @@ jobs:
           cd r/windows
           ls *.zip | xargs -n 1 unzip -uo
           rm -rf *.zip
-      - uses: r-lib/actions/setup-r@732fb28088814627972f1ccbacc02561178cf391
+      - uses: r-lib/actions/setup-r@v2
         with:
           r-version: ${{ matrix.config.rversion }}
           Ncpus: 2
-      - uses: r-lib/actions/setup-r-dependencies@732fb28088814627972f1ccbacc02561178cf391
+      - uses: r-lib/actions/setup-r-dependencies@v2
         env:
           GITHUB_PAT: "${{ github.token }}"
         with:

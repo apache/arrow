@@ -154,7 +154,7 @@ func main() {
 			if descr.ConvertedType() != schema.ConvertedTypes.None {
 				fmt.Printf("/%s", descr.ConvertedType())
 				if descr.ConvertedType() == schema.ConvertedTypes.Decimal {
-					dec := descr.LogicalType().(*schema.DecimalLogicalType)
+					dec := descr.LogicalType().(schema.DecimalLogicalType)
 					fmt.Printf("(%d,%d)", dec.Precision(), dec.Scale())
 				}
 			}
