@@ -349,7 +349,7 @@ class DictionaryUnifierImpl : public DictionaryUnifier {
   using MemoTableType = typename DictTraits::MemoTableType;
 
   DictionaryUnifierImpl(MemoryPool* pool, std::shared_ptr<DataType> value_type)
-      : pool_(pool), value_type_(value_type), memo_table_(pool) {}
+      : pool_(pool), value_type_(std::move(value_type)), memo_table_(pool) {}
 
   Status Unify(const Array& dictionary, std::shared_ptr<Buffer>* out) override {
     if (dictionary.null_count() > 0) {
@@ -432,7 +432,7 @@ struct MakeUnifier {
   std::unique_ptr<DictionaryUnifier> result;
 
   MakeUnifier(MemoryPool* pool, std::shared_ptr<DataType> value_type)
-      : pool(pool), value_type(value_type) {}
+      : pool(pool), value_type(std::move(value_type)) {}
 
   template <typename T>
   enable_if_no_memoize<T, Status> Visit(const T&) {
