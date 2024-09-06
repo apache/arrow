@@ -26,24 +26,6 @@ import platform
 from functools import partial
 
 
-# NOTE(wesm):
-#
-# * readability/casting is disabled as it aggressively warns about functions
-#   with names like "int32", so "int32(x)", where int32 is a function name,
-#   warns with
-_filters = '''
--whitespace/comments
--readability/casting
--readability/todo
--readability/alt_tokens
--build/header_guard
--build/c++11
--build/include_what_you_use
--runtime/references
--build/include_order
-'''.split()
-
-
 def _get_chunk_key(filenames):
     # lists are not hashable so key on the first filename in a chunk
     return filenames[0]
@@ -87,8 +69,6 @@ if __name__ == "__main__":
     cmd = [
         arguments.cpplint_binary,
         '--verbose=2',
-        '--linelength=90',
-        '--filter=' + ','.join(_filters)
     ]
     if (arguments.cpplint_binary.endswith('.py') and
             platform.system() == 'Windows'):
