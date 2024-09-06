@@ -153,6 +153,42 @@ struct GeometryType {
     }
   }
 
+  static uint32_t ToWKB(geometry_type geometry_type, bool has_z, bool has_m) {
+    uint32_t wkb_geom_type = 0;
+    switch (geometry_type) {
+      case POINT:
+        wkb_geom_type = 1;
+        break;
+      case LINESTRING:
+        wkb_geom_type = 2;
+        break;
+      case POLYGON:
+        wkb_geom_type = 3;
+        break;
+      case MULTIPOINT:
+        wkb_geom_type = 4;
+        break;
+      case MULTILINESTRING:
+        wkb_geom_type = 5;
+        break;
+      case MULTIPOLYGON:
+        wkb_geom_type = 6;
+        break;
+      case GEOMETRYCOLLECTION:
+        wkb_geom_type = 7;
+        break;
+      default:
+        throw ParquetException("Invalid geometry_type: ", geometry_type);
+    }
+    if (has_z) {
+      wkb_geom_type += 1000;
+    }
+    if (has_m) {
+      wkb_geom_type += 2000;
+    }
+    return wkb_geom_type;
+  }
+
   static std::string ToString(geometry_type geometry_type) {
     switch (geometry_type) {
       case POINT:
@@ -177,6 +213,8 @@ struct GeometryType {
 
 class WKBBuffer {
  public:
+  enum Endianness { WKB_BIG_ENDIAN = 0, WKB_LITTLE_ENDIAN = 1 };
+
   WKBBuffer() : data_(NULLPTR), size_(0) {}
   WKBBuffer(const uint8_t* data, int64_t size) : data_(data), size_(size) {}
 
@@ -546,9 +584,9 @@ class WKBGeometryBounder {
   void ReadGeometry(WKBBuffer* src, bool record_wkb_type = true) {
     uint8_t endian = src->ReadUInt8();
 #if defined(ARROW_LITTLE_ENDIAN)
-    bool swap = endian != 0x01;
+    bool swap = endian != WKBBuffer::WKB_LITTLE_ENDIAN;
 #else
-    bool swap = endian != 0x00;
+    bool swap = endian != WKBBuffer::WKB_BIG_ENDIAN;
 #endif
 
     uint32_t wkb_geometry_type = src->ReadUInt32(swap);

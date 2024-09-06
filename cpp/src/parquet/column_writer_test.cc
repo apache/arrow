@@ -1737,23 +1737,13 @@ class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
     def_levels_.resize(num_values);
     values_.resize(num_values);
 
-    uint32_t point_wkb_size = 21;
-    buffer_.resize(num_values * point_wkb_size);
+    buffer_.resize(num_values * WKB_POINT_SIZE);
     uint8_t* ptr = buffer_.data();
     for (int k = 0; k < num_values; k++) {
-      // Point with coordinates (k, k + 1), encoded as WKB
-      ptr[0] = 0x01;           // 1: little endian
-      uint32_t geom_type = 1;  // 1: POINT (2D)
-      memcpy(&ptr[1], &geom_type, 4);
-      double x = k;
-      double y = k + 1;
-      memcpy(&ptr[5], &x, 8);
-      memcpy(&ptr[13], &y, 8);
-
-      // Set this WKB value to values_[k]
-      values_[k].len = point_wkb_size;
+      GenerateWKBPoint(ptr, k, k + 1);
+      values_[k].len = WKB_POINT_SIZE;
       values_[k].ptr = ptr;
-      ptr += point_wkb_size;
+      ptr += WKB_POINT_SIZE;
     }
 
     values_ptr_ = values_.data();
@@ -1778,15 +1768,9 @@ class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
     this->ReadColumn();
     for (size_t i = 0; i < num_values; i++) {
       const ByteArray& value = this->values_out_[i];
-      EXPECT_EQ(21, value.len);
-      EXPECT_EQ(1, value.ptr[0]);
-      uint32_t geom_type = 0;
       double x = 0;
       double y = 0;
-      memcpy(&geom_type, &value.ptr[1], 4);
-      memcpy(&x, &value.ptr[5], 8);
-      memcpy(&y, &value.ptr[13], 8);
-      EXPECT_EQ(1, geom_type);
+      EXPECT_TRUE(GetWKBPointCoordinate(value, &x, &y));
       EXPECT_DOUBLE_EQ(i, x);
       EXPECT_DOUBLE_EQ(i + 1, y);
     }

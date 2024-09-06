@@ -39,6 +39,7 @@
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
 #include "parquet/encoding.h"
+#include "parquet/geometry_util.h"
 #include "parquet/platform.h"
 
 // https://github.com/google/googletest/pull/2904 might not be available
@@ -830,6 +831,48 @@ inline void GenerateData<FLBA>(int num_values, FLBA* out, std::vector<uint8_t>* 
   heap->resize(num_values * kGenerateDataFLBALength);
   // seed the prng so failure is deterministic
   random_fixed_byte_array(num_values, 0, heap->data(), kGenerateDataFLBALength, out);
+}
+
+// ----------------------------------------------------------------------
+// Test utility functions for geometry
+
+static constexpr int WKB_NATIVE_ENDIANNESS =
+#if defined(ARROW_LITTLE_ENDIAN)
+    geometry::WKBBuffer::WKB_LITTLE_ENDIAN
+#else
+    geometry::WKBBuffer::WKB_BIG_ENDIAN
+#endif
+    ;
+
+static constexpr int WKB_POINT_SIZE = 21;  // 1:endianness + 4:type + 8:x + 8:y
+
+inline int GenerateWKBPoint(uint8_t* ptr, double x, double y) {
+  ptr[0] = WKB_NATIVE_ENDIANNESS;
+  uint32_t geom_type =
+      geometry::GeometryType::ToWKB(geometry::GeometryType::POINT, false, false);
+  memcpy(&ptr[1], &geom_type, 4);
+  memcpy(&ptr[5], &x, 8);
+  memcpy(&ptr[13], &y, 8);
+  return WKB_POINT_SIZE;
+}
+
+inline bool GetWKBPointCoordinate(const ByteArray& value, double* out_x, double* out_y) {
+  if (value.len != WKB_POINT_SIZE) {
+    return false;
+  }
+  if (value.ptr[0] != WKB_NATIVE_ENDIANNESS) {
+    return false;
+  }
+  uint32_t expected_geom_type =
+      geometry::GeometryType::ToWKB(geometry::GeometryType::POINT, false, false);
+  uint32_t geom_type = 0;
+  memcpy(&geom_type, &value.ptr[1], 4);
+  if (geom_type != expected_geom_type) {
+    return false;
+  }
+  memcpy(out_x, &value.ptr[5], 8);
+  memcpy(out_y, &value.ptr[13], 8);
+  return true;
 }
 
 }  // namespace test

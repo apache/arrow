@@ -1842,24 +1842,14 @@ TEST(TestFileReader, GeometryLogicalType) {
 
   // write WKB points to columns
   auto* writer = static_cast<ByteArrayWriter*>(rg_writer->NextColumn());
-  uint32_t point_wkb_size = 21;
-  std::vector<uint8_t> buffer(point_wkb_size * num_rows);
+  std::vector<uint8_t> buffer(test::WKB_POINT_SIZE * num_rows);
   uint8_t* ptr = buffer.data();
   std::vector<ByteArray> values(num_rows);
   for (int k = 0; k < num_rows; k++) {
-    // Point with coordinates (k, k + 1), encoded as WKB
-    ptr[0] = 0x01;           // 1: little endian
-    uint32_t geom_type = 1;  // 1: POINT (2D)
-    memcpy(&ptr[1], &geom_type, 4);
-    double x = k;
-    double y = k + 1;
-    memcpy(&ptr[5], &x, 8);
-    memcpy(&ptr[13], &y, 8);
-
-    // Set this WKB value to values_[k]
-    values[k].len = point_wkb_size;
+    test::GenerateWKBPoint(ptr, k, k + 1);
+    values[k].len = test::WKB_POINT_SIZE;
     values[k].ptr = ptr;
-    ptr += point_wkb_size;
+    ptr += test::WKB_POINT_SIZE;
   }
   writer->WriteBatch(num_rows, nullptr, nullptr, values.data());
 
@@ -1911,15 +1901,9 @@ TEST(TestFileReader, GeometryLogicalType) {
     // Check the batch
     for (int64_t i = 0; i < values_read; i++) {
       const ByteArray& value = out[i];
-      EXPECT_EQ(21, value.len);
-      EXPECT_EQ(1, value.ptr[0]);
-      uint32_t geom_type = 0;
       double x = 0;
       double y = 0;
-      memcpy(&geom_type, &value.ptr[1], 4);
-      memcpy(&x, &value.ptr[5], 8);
-      memcpy(&y, &value.ptr[13], 8);
-      EXPECT_EQ(1, geom_type);
+      EXPECT_TRUE(test::GetWKBPointCoordinate(value, &x, &y));
       EXPECT_DOUBLE_EQ(i + total_values_read, x);
       EXPECT_DOUBLE_EQ(i + 1 + total_values_read, y);
     }
