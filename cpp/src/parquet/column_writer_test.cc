@@ -1840,8 +1840,10 @@ class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
       double x = 0;
       double y = 0;
       EXPECT_TRUE(GetWKBPointCoordinate(value, &x, &y));
-      EXPECT_DOUBLE_EQ(i, x);
-      EXPECT_DOUBLE_EQ(i + 1, y);
+      double expected_x = i;
+      double expected_y = i + 1;
+      EXPECT_DOUBLE_EQ(expected_x, x);
+      EXPECT_DOUBLE_EQ(expected_y, y);
     }
 
     auto encoded_statistics = metadata_encoded_stats();

@@ -147,6 +147,8 @@ class PARQUET_EXPORT GeometryStatistics {
   GeometryStatistics();
   explicit GeometryStatistics(std::unique_ptr<GeometryStatisticsImpl> impl);
 
+  ~GeometryStatistics();
+
   bool Equals(const GeometryStatistics& other) const;
 
   void Merge(const GeometryStatistics& other);

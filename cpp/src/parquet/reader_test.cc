@@ -1904,8 +1904,10 @@ TEST(TestFileReader, GeometryLogicalType) {
       double x = 0;
       double y = 0;
       EXPECT_TRUE(test::GetWKBPointCoordinate(value, &x, &y));
-      EXPECT_DOUBLE_EQ(i + total_values_read, x);
-      EXPECT_DOUBLE_EQ(i + 1 + total_values_read, y);
+      double expected_x = i + total_values_read;
+      double expected_y = i + 1 + total_values_read;
+      EXPECT_DOUBLE_EQ(expected_x, x);
+      EXPECT_DOUBLE_EQ(expected_y, y);
     }
 
     total_values_read += values_read;

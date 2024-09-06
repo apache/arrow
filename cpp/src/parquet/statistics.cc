@@ -104,7 +104,7 @@ class GeometryStatisticsImpl {
       }
 
       bounder_.Flush();
-    } catch (ParquetException& e) {
+    } catch (ParquetException&) {
       is_valid_ = false;
     }
   }
@@ -126,7 +126,7 @@ class GeometryStatisticsImpl {
             }
           });
       bounder_.Flush();
-    } catch (ParquetException& e) {
+    } catch (ParquetException&) {
       is_valid_ = false;
     }
   }
@@ -183,7 +183,7 @@ class GeometryStatisticsImpl {
           bounder_.ReadGeometry(&buf, false);
         }
       }
-    } catch (ParquetException& e) {
+    } catch (ParquetException&) {
       is_valid_ = false;
       return;
     }
@@ -203,6 +203,8 @@ GeometryStatistics::GeometryStatistics() {
 GeometryStatistics::GeometryStatistics(std::unique_ptr<GeometryStatisticsImpl> impl)
     : impl_(std::move(impl)) {}
 
+GeometryStatistics::~GeometryStatistics() = default;
+
 bool GeometryStatistics::Equals(const GeometryStatistics& other) const {
   return impl_->Equals(*other.impl_);
 }
@@ -214,6 +216,14 @@ void GeometryStatistics::Merge(const GeometryStatistics& other) {
 void GeometryStatistics::Update(const ByteArray* values, int64_t num_values,
                                 int64_t null_count) {
   impl_->Update(values, num_values, null_count);
+}
+
+void GeometryStatistics::UpdateSpaced(const ByteArray* values, const uint8_t* valid_bits,
+                                      int64_t valid_bits_offset,
+                                      int64_t num_spaced_values, int64_t num_values,
+                                      int64_t null_count) {
+  impl_->UpdateSpaced(values, valid_bits, valid_bits_offset, num_spaced_values,
+                      num_values, null_count);
 }
 
 bool GeometryStatistics::is_valid() const { return impl_->is_valid(); }
