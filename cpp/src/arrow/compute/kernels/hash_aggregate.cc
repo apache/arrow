@@ -2537,7 +2537,7 @@ struct GroupedDistinctImpl : public GroupedCountDistinctImpl {
         auto groupings, Grouper::MakeGroupings(*uniques[1].array_as<UInt32Array>(),
                                                static_cast<uint32_t>(num_groups_), ctx_));
     ARROW_ASSIGN_OR_RAISE(
-        auto list, grouper_->ApplyGroupings(*groupings, *uniques[0].make_array(), ctx_));
+        auto list, Grouper::ApplyGroupings(*groupings, *uniques[0].make_array(), ctx_));
     const auto& values = list->values();
     DCHECK_EQ(values->offset(), 0);
     auto* offsets = list->value_offsets()->mutable_data_as<int32_t>();
