@@ -18,6 +18,8 @@
 #include "gtest/gtest.h"
 
 #include "arrow/array.h"
+#include "arrow/array/builder_primitive.h"
+#include "arrow/array/builder_time.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 
@@ -183,9 +185,8 @@ TEST(StatisticsTest, TruncateOnlyHalfMinMax) {
 
 namespace {
 ::arrow::Result<std::shared_ptr<::arrow::Array>> StatisticsReadArray(
-    std::shared_ptr<::arrow::DataType> data_type, const std::string& json) {
+    std::shared_ptr<::arrow::DataType> data_type, std::shared_ptr<::arrow::Array> array) {
   auto schema = ::arrow::schema({::arrow::field("column", data_type)});
-  auto array = ::arrow::ArrayFromJSON(data_type, json);
   auto record_batch = ::arrow::RecordBatch::Make(schema, array->length(), {array});
   ARROW_ASSIGN_OR_RAISE(auto sink, ::arrow::io::BufferOutputStream::Create());
   const auto arrow_writer_properties =
@@ -211,21 +212,27 @@ namespace {
 template <typename ArrowType, typename MinMaxType>
 void TestStatisticsReadArray(std::shared_ptr<::arrow::DataType> arrow_type) {
   using ArrowArrayType = typename ::arrow::TypeTraits<ArrowType>::ArrayType;
+  using ArrowArrayBuilder = typename ::arrow::TypeTraits<ArrowType>::BuilderType;
   using ArrowCType = typename ArrowType::c_type;
   constexpr auto min = std::numeric_limits<ArrowCType>::lowest();
   constexpr auto max = std::numeric_limits<ArrowCType>::max();
 
-  std::string json;
-  json += "[";
-  json += std::to_string(max);
-  json += ", null, ";
-  json += std::to_string(min);
-  json += ", ";
-  json += std::to_string(max);
-  json += "]";
-  ASSERT_OK_AND_ASSIGN(auto array, StatisticsReadArray(arrow_type, json));
-  auto typed_array = std::static_pointer_cast<ArrowArrayType>(array);
-  auto statistics = typed_array->statistics();
+  std::unique_ptr<ArrowArrayBuilder> builder;
+  if constexpr (::arrow::TypeTraits<ArrowType>::is_parameter_free) {
+    builder = std::make_unique<ArrowArrayBuilder>(::arrow::default_memory_pool());
+  } else {
+    builder =
+        std::make_unique<ArrowArrayBuilder>(arrow_type, ::arrow::default_memory_pool());
+  }
+  ASSERT_OK(builder->Append(max));
+  ASSERT_OK(builder->AppendNull());
+  ASSERT_OK(builder->Append(min));
+  ASSERT_OK(builder->Append(max));
+  ASSERT_OK_AND_ASSIGN(auto built_array, builder->Finish());
+  ASSERT_OK_AND_ASSIGN(auto read_array,
+                       StatisticsReadArray(arrow_type, std::move(built_array)));
+  auto typed_read_array = std::static_pointer_cast<ArrowArrayType>(read_array);
+  auto statistics = typed_read_array->statistics();
   ASSERT_NE(nullptr, statistics);
   ASSERT_EQ(true, statistics->null_count.has_value());
   ASSERT_EQ(1, statistics->null_count.value());
