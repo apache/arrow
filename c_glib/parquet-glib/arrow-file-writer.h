@@ -116,6 +116,16 @@ gparquet_arrow_file_writer_new_path(GArrowSchema *schema,
                                     GParquetWriterProperties *writer_properties,
                                     GError **error);
 
+GPARQUET_AVAILABLE_IN_18_0
+GArrowSchema *
+gparquet_arrow_file_writer_get_schema(GParquetArrowFileWriter *writer);
+
+GPARQUET_AVAILABLE_IN_18_0
+gboolean
+gparquet_arrow_file_writer_write_record_batch(GParquetArrowFileWriter *writer,
+                                              GArrowRecordBatch *record_batch,
+                                              GError **error);
+
 GPARQUET_AVAILABLE_IN_0_11
 gboolean
 gparquet_arrow_file_writer_write_table(GParquetArrowFileWriter *writer,
