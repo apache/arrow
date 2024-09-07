@@ -45,6 +45,9 @@ G_BEGIN_DECLS
  * client. Also allows reading application-defined metadata via the
  * Flight protocol.
  *
+ * #GAFlightMetadataWriter is a class for sending application-specific
+ * metadata back to client during an upload.
+ *
  * #GAFlightServerAuthSender is a class for sending messages to the
  * client during an authentication handshake.
  *
@@ -288,6 +291,98 @@ gaflight_message_reader_get_descriptor(GAFlightMessageReader *reader)
   auto flight_reader = gaflight_message_reader_get_raw(reader);
   const auto &flight_descriptor = flight_reader->descriptor();
   return gaflight_descriptor_new_raw(&flight_descriptor);
+}
+
+struct GAFlightMetadataWriterPrivate
+{
+  arrow::flight::FlightMetadataWriter *writer;
+};
+
+enum {
+  PROP_WRITER = 1,
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GAFlightMetadataWriter,
+                           gaflight_metadata_writer,
+                           G_TYPE_OBJECT)
+
+#define GAFLIGHT_METADATA_WRITER_GET_PRIVATE(object)                                     \
+  static_cast<GAFlightMetadataWriterPrivate *>(                                          \
+    gaflight_metadata_writer_get_instance_private(GAFLIGHT_METADATA_WRITER(object)))
+
+static void
+gaflight_metadata_writer_finalize(GObject *object)
+{
+  auto priv = GAFLIGHT_METADATA_WRITER_GET_PRIVATE(object);
+
+  delete priv->writer;
+
+  G_OBJECT_CLASS(gaflight_metadata_writer_parent_class)->finalize(object);
+}
+
+static void
+gaflight_metadata_writer_set_property(GObject *object,
+                                      guint prop_id,
+                                      const GValue *value,
+                                      GParamSpec *pspec)
+{
+  auto priv = GAFLIGHT_METADATA_WRITER_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_WRITER:
+    priv->writer =
+      static_cast<arrow::flight::FlightMetadataWriter *>(g_value_get_pointer(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+gaflight_metadata_writer_init(GAFlightMetadataWriter *object)
+{
+}
+
+static void
+gaflight_metadata_writer_class_init(GAFlightMetadataWriterClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->finalize = gaflight_metadata_writer_finalize;
+  gobject_class->set_property = gaflight_metadata_writer_set_property;
+
+  GParamSpec *spec;
+  spec = g_param_spec_pointer(
+    "writer",
+    nullptr,
+    nullptr,
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_WRITER, spec);
+}
+
+/**
+ * gaflight_metadata_writer_write:
+ * @writer: A #GAFlightMetadataWriter.
+ * @metadata: A #GArrowBuffer to be sent.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Writes metadata to the client.
+ *
+ * Returns: %TRUE on success, %FALSE on error.
+ *
+ * Since: 18.0.0
+ */
+gboolean
+gaflight_metadata_writer_write(GAFlightMetadataWriter *writer,
+                               GArrowBuffer *metadata,
+                               GError **error)
+{
+  auto flight_writer = gaflight_metadata_writer_get_raw(writer);
+  auto flight_metadata = garrow_buffer_get_raw(metadata);
+  return garrow::check(error,
+                       flight_writer->WriteMetadata(*flight_metadata),
+                       "[flight-metadata-writer][write]");
 }
 
 struct GAFlightServerCallContextPrivate
@@ -1034,6 +1129,34 @@ namespace gaflight {
       return arrow::Status::OK();
     }
 
+    arrow::Status
+    DoPut(const arrow::flight::ServerCallContext &context,
+          std::unique_ptr<arrow::flight::FlightMessageReader> reader,
+          std::unique_ptr<arrow::flight::FlightMetadataWriter> writer) override
+    {
+      auto gacontext = gaflight_server_call_context_new_raw(&context);
+      auto gareader = gaflight_message_reader_new_raw(reader.release(), TRUE);
+      auto gawriter = gaflight_metadata_writer_new_raw(writer.release());
+      GError *gerror = nullptr;
+      auto success =
+        gaflight_server_do_put(gaserver_, gacontext, gareader, gawriter, &gerror);
+      g_object_unref(gawriter);
+      g_object_unref(gareader);
+      g_object_unref(gacontext);
+      if (!success && !gerror) {
+        g_set_error(&gerror,
+                    GARROW_ERROR,
+                    GARROW_ERROR_UNKNOWN,
+                    "GAFlightServerClass::do_put() returns FALSE but error isn't set");
+      }
+      if (gerror) {
+        return garrow_error_to_status(gerror,
+                                      arrow::StatusCode::UnknownError,
+                                      "[flight-server][do-put]");
+      }
+      return arrow::Status::OK();
+    }
+
   private:
     GAFlightServer *gaserver_;
   };
@@ -1228,6 +1351,35 @@ gaflight_server_do_get(GAFlightServer *server,
   return (*(klass->do_get))(server, context, ticket, error);
 }
 
+/**
+ * gaflight_server_do_put:
+ * @server: A #GAFlightServer.
+ * @context: A #GAFlightServerCallContext.
+ * @reader: A #GAFlightMessageReader.
+ * @writer: A #GAFlightMetadataWriter.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Processes a stream of IPC payloads sent from a client.
+ *
+ * Returns: %TRUE on success, %FALSE on error.
+ *
+ * Since: 18.0.0
+ */
+gboolean
+gaflight_server_do_put(GAFlightServer *server,
+                       GAFlightServerCallContext *context,
+                       GAFlightMessageReader *reader,
+                       GAFlightMetadataWriter *writer,
+                       GError **error)
+{
+  auto klass = GAFLIGHT_SERVER_GET_CLASS(server);
+  if (!(klass && klass->do_put)) {
+    g_set_error(error, GARROW_ERROR, GARROW_ERROR_NOT_IMPLEMENTED, "not implemented");
+    return false;
+  }
+  return klass->do_put(server, context, reader, writer, error);
+}
+
 G_END_DECLS
 
 arrow::flight::FlightDataStream *
@@ -1255,6 +1407,20 @@ gaflight_message_reader_get_raw(GAFlightMessageReader *reader)
   auto flight_reader =
     gaflight_record_batch_reader_get_raw(GAFLIGHT_RECORD_BATCH_READER(reader));
   return static_cast<arrow::flight::FlightMessageReader *>(flight_reader);
+}
+
+GAFlightMetadataWriter *
+gaflight_metadata_writer_new_raw(arrow::flight::FlightMetadataWriter *flight_writer)
+{
+  return GAFLIGHT_METADATA_WRITER(
+    g_object_new(GAFLIGHT_TYPE_METADATA_WRITER, "writer", flight_writer, nullptr));
+}
+
+arrow::flight::FlightMetadataWriter *
+gaflight_metadata_writer_get_raw(GAFlightMetadataWriter *writer)
+{
+  auto priv = GAFLIGHT_METADATA_WRITER_GET_PRIVATE(writer);
+  return priv->writer;
 }
 
 GAFlightServerCallContext *
