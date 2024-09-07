@@ -570,7 +570,9 @@ gaflight_do_put_result_set_property(GObject *object,
     {
       auto result = static_cast<arrow::flight::FlightClient::DoPutResult *>(
         g_value_get_pointer(value));
-      priv->writer = gaflight_stream_writer_new_raw(result->writer.release());
+      std::shared_ptr<arrow::flight::FlightStreamWriter> writer =
+        std::move(result->writer);
+      priv->writer = gaflight_stream_writer_new_raw(&writer);
       priv->reader = gaflight_metadata_reader_new_raw(result->reader.release());
       break;
     }
@@ -983,10 +985,13 @@ gaflight_stream_reader_new_raw(arrow::flight::FlightStreamReader *flight_reader,
 }
 
 GAFlightStreamWriter *
-gaflight_stream_writer_new_raw(arrow::flight::FlightStreamWriter *flight_writer)
+gaflight_stream_writer_new_raw(
+  std::shared_ptr<arrow::flight::FlightStreamWriter> *flight_writer)
 {
-  return GAFLIGHT_STREAM_WRITER(
-    g_object_new(GAFLIGHT_TYPE_STREAM_WRITER, "writer", flight_writer, nullptr));
+  return GAFLIGHT_STREAM_WRITER(g_object_new(GAFLIGHT_TYPE_STREAM_WRITER,
+                                             "record-batch-writer",
+                                             flight_writer,
+                                             nullptr));
 }
 
 GAFlightMetadataReader *
