@@ -117,13 +117,13 @@ Defining extension types ("user-defined types")
 -----------------------------------------------
 
 Arrow affords a notion of extension types which allow users to annotate data
-types with additional semantics. This allows downstream consumers both to
+types with additional semantics. This allows developers both to
 specify custom serialization and deserialization routines (for example,
 to :ref:`Python scalars <custom-scalar-conversion>` and
 :ref:`pandas <conversion-to-pandas>`) and to more easily interpret data.
 
-In the Arrow :doc:`metadata specification</format/Columnar.html#format-metadata-extension-types>`,
-this is accomplished by annotating any of the built-in Arrow data types
+In Arrow, :ref:`extension types <format_metadata_extension_types>`
+are specified by annotating any of the built-in Arrow data types
 (the "storage type") with a custom type name and, optionally, a byte
 array that can be used to provide additional metadata (referred to as
 "parameters" in this documentation). These appear as the
@@ -231,9 +231,10 @@ and then reading it back yields the proper type::
     RationalType(StructType(struct<numer: int32, denom: int32>))
 
 Further, note that while we registered the concrete type
-``RationalType(pa.int32())``, ``RationalType(integer_type)`` has the same
-extension name (``"my_package.rational"``) for all integer types. As such,
-the above code will also allow users to (de)serialize these data types::
+``RationalType(pa.int32())``, the same extension name
+(``"my_package.rational"``) is used by ``RationalType(integer_type)``
+for *all* Arrow integer types. As such, the above code also allows users to
+(de)serialize these data types::
 
     >>> big_rational_type = RationalType(pa.int64())
     >>> storage_array = pa.array(
@@ -287,7 +288,7 @@ of the given frequency since 1970.
             return self._freq
 
         def __arrow_ext_serialize__(self):
-            return "freq={self.freq}".encode()
+            return "freq={}".format(self.freq).encode()
 
         @classmethod
         def __arrow_ext_deserialize__(cls, storage_type, serialized):

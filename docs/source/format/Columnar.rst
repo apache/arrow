@@ -1596,12 +1596,12 @@ structure. These extension keys are:
    they should not be used for third-party extension types.
 
 This extension metadata can annotate any of the built-in Arrow logical
-types. The intent is that an implementation that does not support an
-extension type can still handle the underlying data. For example a
-16-byte UUID value could be embedded in ``FixedSizeBinary(16)``, and
-implementations that do not have this extension type can still work
-with the underlying binary values and pass along the
-``custom_metadata`` in subsequent Arrow protocol messages.
+types. For example, Arrow specifies a canonical extension type that
+represents a UUID as a FixedSizeBinary(16). Arrow implementations are
+not required to support canonical extensions, so an implementation that
+does not support this UUID type will simply interpret it as a
+``FixedSizeBinary(16)`` and pass along the ``custom_metadata`` in
+subsequent Arrow protocol messages.
 
 Extension types may or may not use the
 ``'ARROW:extension:metadata'`` field. Let's consider some example
