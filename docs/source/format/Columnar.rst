@@ -1597,7 +1597,7 @@ structure. These extension keys are:
 
 This extension metadata can annotate any of the built-in Arrow logical
 types. For example, Arrow specifies a canonical extension type that
-represents a UUID as a FixedSizeBinary(16). Arrow implementations are
+represents a UUID as a ``FixedSizeBinary(16)``. Arrow implementations are
 not required to support canonical extensions, so an implementation that
 does not support this UUID type will simply interpret it as a
 ``FixedSizeBinary(16)`` and pass along the ``custom_metadata`` in
