@@ -1620,6 +1620,7 @@ cdef class ExtensionType(BaseExtensionType):
     --------
     Define a RationalType extension type subclassing ExtensionType:
 
+    >>> import pyarrow as pa
     >>> class RationalType(pa.ExtensionType):
     ...     def __init__(self, data_type: pa.DataType):
     ...         if not pa.types.is_integer(data_type):
