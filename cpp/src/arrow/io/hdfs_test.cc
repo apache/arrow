@@ -21,6 +21,7 @@
 #include <cstring>
 #include <iostream>
 #include <memory>
+#include <random>
 #include <sstream>  // IWYU pragma: keep
 #include <string>
 #include <thread>
@@ -39,7 +40,8 @@
 // boost/filesystem.hpp should be included after
 // arrow/util/windows_compatibility.h because boost/filesystem.hpp
 // includes windows.h implicitly.
-#include <boost/filesystem.hpp>  // NOLINT
+#include <filesystem>
+#include <string>
 
 namespace arrow {
 namespace io {
@@ -84,15 +86,29 @@ class TestHadoopFileSystem : public ::testing::Test {
     return ss.str();
   }
 
+  // Generate random string for unique path creation. Boost::filesystem does this with
+  // unique_path() which does not exist in std::filesystem
+  std::string generate_rand_string(size_t length = 4) {
+    const char hexchars[] = "0123456789abcdef";
+    std::random_device rd;
+    std::mt19937 generator(rd());
+    std::uniform_int_distribution<> distribution(0, 15);
+
+    std::string random_hex_string;
+    for (size_t i = 0; i < length; ++i) {
+        random_hex_string += hexchars[distribution(generator)];
+    }
+    return random_hex_string;
+  }
+
   // Set up shared state between unit tests
   void SetUp() {
     internal::LibHdfsShim* driver_shim;
 
     client_ = nullptr;
-    scratch_dir_ =
-        boost::filesystem::unique_path(boost::filesystem::temp_directory_path() /
-                                       "arrow-hdfs/scratch-%%%%")
-            .string();
+    
+    scratch_dir_ = (std::filesystem::temp_directory_path() /
+                    ("arrow-hdfs/scratch-" + generate_rand_string())).string();
 
     loaded_driver_ = false;
 
