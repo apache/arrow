@@ -77,12 +77,12 @@ Result<std::shared_ptr<KeyEncoder>> MakeKeyEncoder(
     ARROW_ASSIGN_OR_RAISE(auto element_encoder,
                           MakeKeyEncoder(element_type, &element_extension_type, pool));
     if (type.id() == Type::LIST) {
-      return std::make_shared<ListKeyEncoder<ListType>>(std::move(element_type),
-                                                        std::move(element_encoder));
+      return std::make_shared<ListKeyEncoder<ListType>>(
+          type.type->GetSharedPtr(), std::move(element_type), std::move(element_encoder));
     }
     ARROW_CHECK(type.id() == Type::LARGE_LIST);
-    return std::make_shared<ListKeyEncoder<LargeListType>>(std::move(element_type),
-                                                           std::move(element_encoder));
+    return std::make_shared<ListKeyEncoder<LargeListType>>(
+        type.type->GetSharedPtr(), std::move(element_type), std::move(element_encoder));
   }
 
   return Status::NotImplemented("Unsupported type for row encoder", type.ToString());
