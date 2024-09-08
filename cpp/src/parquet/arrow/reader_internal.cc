@@ -319,6 +319,56 @@ void ReconstructChunksWithoutNulls(::arrow::ArrayVector* chunks) {
 }
 
 template <typename ArrowType, typename ParquetType>
+void AttachStatistics(::arrow::ArrayData* data,
+                      std::unique_ptr<::parquet::ColumnChunkMetaData> metadata,
+                      const ReaderContext* ctx) {
+  using ArrowCType = typename ArrowType::c_type;
+
+  auto statistics = metadata->statistics().get();
+  if (data->null_count == ::arrow::kUnknownNullCount && !statistics) {
+    return;
+  }
+
+  auto array_statistics = std::make_shared<::arrow::ArrayStatistics>();
+  if (data->null_count != ::arrow::kUnknownNullCount) {
+    array_statistics->null_count = data->null_count;
+  }
+  if (statistics) {
+    if (statistics->HasDistinctCount()) {
+      array_statistics->distinct_count = statistics->distinct_count();
+    }
+    if (statistics->HasMinMax()) {
+      auto typed_statistics =
+          static_cast<::parquet::TypedStatistics<ParquetType>*>(statistics);
+      const ArrowCType min = typed_statistics->min();
+      const ArrowCType max = typed_statistics->max();
+      if (std::is_floating_point<ArrowCType>::value) {
+        array_statistics->min = static_cast<double>(min);
+        array_statistics->max = static_cast<double>(max);
+      } else if (std::is_signed<ArrowCType>::value) {
+        array_statistics->min = static_cast<int64_t>(min);
+        array_statistics->max = static_cast<int64_t>(max);
+      } else {
+        array_statistics->min = static_cast<uint64_t>(min);
+        array_statistics->max = static_cast<uint64_t>(max);
+      }
+      // We can assume that integer and floating point number based
+      // min/max are always exact if they exist. Apache Parquet's
+      // "Statistics" has "is_min_value_exact" and
+      // "is_max_value_exact" but we can ignore them for integer and
+      // floating point number based min/max.
+      //
+      // See also the discussion at dev@parquet.apache.org:
+      // https://lists.apache.org/thread/zfnmg5p51b7oylft5w5k4670wgkd4zv4
+      array_statistics->is_min_exact = true;
+      array_statistics->is_max_exact = true;
+    }
+  }
+
+  data->statistics = std::move(array_statistics);
+}
+
+template <typename ArrowType, typename ParquetType>
 Status TransferInt(RecordReader* reader,
                    std::unique_ptr<::parquet::ColumnChunkMetaData> metadata,
                    const ReaderContext* ctx, const std::shared_ptr<Field>& field,
@@ -340,43 +390,15 @@ Status TransferInt(RecordReader* reader,
   }
   auto array_data =
       ::arrow::ArrayData::Make(field->type(), length, std::move(buffers), null_count);
-  auto array_statistics = std::make_shared<::arrow::ArrayStatistics>();
-  array_statistics->null_count = null_count;
-  auto statistics = metadata->statistics().get();
-  if (statistics) {
-    if (statistics->HasDistinctCount()) {
-      array_statistics->distinct_count = statistics->distinct_count();
-    }
-    if (statistics->HasMinMax()) {
-      auto typed_statistics =
-          static_cast<::parquet::TypedStatistics<ParquetType>*>(statistics);
-      const ArrowCType min = typed_statistics->min();
-      const ArrowCType max = typed_statistics->max();
-      if (std::is_signed<ArrowCType>::value) {
-        array_statistics->min = static_cast<int64_t>(min);
-        array_statistics->max = static_cast<int64_t>(max);
-      } else {
-        array_statistics->min = static_cast<uint64_t>(min);
-        array_statistics->max = static_cast<uint64_t>(max);
-      }
-      // We can assume that integer based min/max are always exact if
-      // they exist. Apache Parquet's "Statistics" has
-      // "is_min_value_exact" and "is_max_value_exact" but we can
-      // ignore them for integer based min/max.
-      //
-      // See also the discussion at dev@parquet.apache.org:
-      // https://lists.apache.org/thread/zfnmg5p51b7oylft5w5k4670wgkd4zv4
-      array_statistics->is_min_exact = true;
-      array_statistics->is_max_exact = true;
-    }
-  }
-  array_data->statistics = std::move(array_statistics);
+  AttachStatistics<ArrowType, ParquetType>(array_data.get(), std::move(metadata), ctx);
   *out = std::make_shared<ArrayType<ArrowType>>(std::move(array_data));
   return Status::OK();
 }
 
-std::shared_ptr<Array> TransferZeroCopy(RecordReader* reader,
-                                        const std::shared_ptr<Field>& field) {
+template <typename ArrowType, typename ParquetType>
+std::shared_ptr<Array> TransferZeroCopy(
+    RecordReader* reader, std::unique_ptr<::parquet::ColumnChunkMetaData> metadata,
+    const ReaderContext* ctx, const std::shared_ptr<Field>& field) {
   std::shared_ptr<::arrow::ArrayData> data;
   if (field->nullable()) {
     std::vector<std::shared_ptr<Buffer>> buffers = {reader->ReleaseIsValid(),
@@ -388,7 +410,8 @@ std::shared_ptr<Array> TransferZeroCopy(RecordReader* reader,
     data = std::make_shared<::arrow::ArrayData>(field->type(), reader->values_written(),
                                                 std::move(buffers), /*null_count=*/0);
   }
-  return ::arrow::MakeArray(data);
+  AttachStatistics<ArrowType, ParquetType>(data.get(), std::move(metadata), ctx);
+  return ::arrow::MakeArray(std::move(data));
 }
 
 Status TransferBool(RecordReader* reader, bool nullable, MemoryPool* pool, Datum* out) {
@@ -794,10 +817,20 @@ Status TransferColumnData(RecordReader* reader,
       break;
     }
     case ::arrow::Type::INT32:
+      result = TransferZeroCopy<::arrow::Int32Type, Int32Type>(
+          reader, std::move(metadata), ctx, value_field);
+      break;
     case ::arrow::Type::INT64:
+      result = TransferZeroCopy<::arrow::Int64Type, Int64Type>(
+          reader, std::move(metadata), ctx, value_field);
+      break;
     case ::arrow::Type::FLOAT:
+      result = TransferZeroCopy<::arrow::FloatType, FloatType>(
+          reader, std::move(metadata), ctx, value_field);
+      break;
     case ::arrow::Type::DOUBLE:
-      result = TransferZeroCopy(reader, value_field);
+      result = TransferZeroCopy<::arrow::DoubleType, DoubleType>(
+          reader, std::move(metadata), ctx, value_field);
       break;
     case ::arrow::Type::BOOL:
       RETURN_NOT_OK(TransferBool(reader, value_field->nullable(), pool, &result));
@@ -895,7 +928,8 @@ Status TransferColumnData(RecordReader* reader,
           case ::arrow::TimeUnit::MILLI:
           case ::arrow::TimeUnit::MICRO:
           case ::arrow::TimeUnit::NANO:
-            result = TransferZeroCopy(reader, value_field);
+            result = TransferZeroCopy<::arrow::Int64Type, Int64Type>(
+                reader, std::move(metadata), ctx, value_field);
             break;
           default:
             return Status::NotImplemented("TimeUnit not supported");
