@@ -2061,6 +2061,7 @@ def register_extension_type(ext_type):
     --------
     Define a RationalType extension type subclassing ExtensionType:
 
+    >>> import pyarrow as pa
     >>> class RationalType(pa.ExtensionType):
     ...     def __init__(self, data_type: pa.DataType):
     ...         if not pa.types.is_integer(data_type):
@@ -2119,6 +2120,7 @@ def unregister_extension_type(type_name):
     --------
     Define a RationalType extension type subclassing ExtensionType:
 
+    >>> import pyarrow as pa
     >>> class RationalType(pa.ExtensionType):
     ...     def __init__(self, data_type: pa.DataType):
     ...         if not pa.types.is_integer(data_type):
