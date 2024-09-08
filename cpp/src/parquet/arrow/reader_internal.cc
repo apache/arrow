@@ -352,10 +352,11 @@ void AttachStatistics(::arrow::ArrayData* data,
         array_statistics->min = static_cast<uint64_t>(min);
         array_statistics->max = static_cast<uint64_t>(max);
       }
-      // We can assume that integer based min/max are always exact if
-      // they exist. Apache Parquet's "Statistics" has
-      // "is_min_value_exact" and "is_max_value_exact" but we can
-      // ignore them for integer based min/max.
+      // We can assume that integer and floating point number based
+      // min/max are always exact if they exist. Apache Parquet's
+      // "Statistics" has "is_min_value_exact" and
+      // "is_max_value_exact" but we can ignore them for integer and
+      // floating point number based min/max.
       //
       // See also the discussion at dev@parquet.apache.org:
       // https://lists.apache.org/thread/zfnmg5p51b7oylft5w5k4670wgkd4zv4
