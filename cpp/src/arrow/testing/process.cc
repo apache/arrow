@@ -74,7 +74,6 @@
 #endif
 
 #include <chrono>
-#include <filesystem>
 #include <iostream>
 #include <sstream>
 #include <thread>
@@ -89,7 +88,6 @@ namespace filesystem = boost::process::v1::filesystem;
 #else
 namespace process = boost::process;
 namespace filesystem = boost::filesystem;
-//namespace filesystem = std::filesystem;
 #endif
 
 namespace arrow::util {
