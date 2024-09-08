@@ -1686,8 +1686,8 @@ cdef class ExtensionType(BaseExtensionType):
     >>> pa.unregister_extension_type("my_package.rational")
 
     Note that even though we registered the concrete type
-    ``RationalType(pa.int64())``, pyarrow will be able to deserialize
-    ``RationalType(integer_type)`` for any ``integer_type`` as the deserializer
+    ``RationalType(pa.int64())``, PyArrow will be able to deserialize
+    ``RationalType(integer_type)`` for any ``integer_type``, as the deserializer
     will reference the name ``my_package.rational`` and the ``@classmethod``
     ``__arrow_ext_deserialize__``.
     """
