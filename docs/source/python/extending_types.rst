@@ -134,7 +134,7 @@ Note that since these annotations are part of the Arrow specification,
 they can potentially be recognized by other (non-Python) Arrow consumers
 such as PySpark.
 
-Pyarrow allows you to define extension types from Python by subclassing
+PyArrow allows you to define extension types from Python by subclassing
 :class:`ExtensionType` and giving the derived class its own extension name
 and mechanism to (de)serialize any parameters. For example, we could define
 a custom rational type for fractions which can be represented as a pair of
