@@ -74,10 +74,10 @@
 #endif
 
 #include <chrono>
+#include <filesystem>
 #include <iostream>
 #include <sstream>
 #include <thread>
-#include <filesystem>
 
 #ifdef BOOST_PROCESS_USE_V2
 namespace asio = BOOST_PROCESS_V2_ASIO_NAMESPACE;
@@ -89,18 +89,7 @@ namespace filesystem = boost::process::v1::filesystem;
 #else
 namespace process = boost::process;
 namespace filesystem = boost::filesystem;
-#endif
-
-#ifdef BOOST_PROCESS_USE_V2
-namespace asio = BOOST_PROCESS_V2_ASIO_NAMESPACE;
-namespace process = BOOST_PROCESS_V2_NAMESPACE;
-namespace filesystem = std::filesystem;
-#elif defined(BOOST_PROCESS_HAVE_V1)
-namespace process = boost::process::v1;
-namespace filesystem = boost::process::v1::filesystem;
-#else
-namespace process = boost::process;
-namespace filesystem = std::filesystem;
+//namespace filesystem = std::filesystem;
 #endif
 
 namespace arrow::util {
