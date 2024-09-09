@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using Apache.Arrow.Flight.Client;
+using Apache.Arrow.Flight.Server;
 using Arrow.Flight.Protocol.Sql;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
@@ -220,7 +221,6 @@ public class FlightSqlClient
             var action = new FlightAction(SqlAction.CreateRequest, prepareStatementRequest.PackAndSerialize());
             var call = _client.DoAction(action, options.Headers);
 
-            // Process the response
             await foreach (var result in call.ResponseStream.ReadAllAsync())
             {
                 var preparedStatementResponse =
@@ -238,15 +238,7 @@ public class FlightSqlClient
         }
         catch (RpcException ex)
         {
-            // Handle gRPC exceptions
-            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
             throw new InvalidOperationException("Failed to get execute schema", ex);
-        }
-        catch (Exception ex)
-        {
-            // Handle other exceptions
-            Console.WriteLine($@"Unexpected Error: {ex.Message}");
-            throw;
         }
     }
 
@@ -255,7 +247,7 @@ public class FlightSqlClient
     /// </summary>
     /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>The FlightInfo describing where to access the dataset.</returns>
-    public async Task<FlightInfo> GetCatalogs(FlightCallOptions options)
+    public async Task<FlightInfo> GetCatalogsAsync(FlightCallOptions options)
     {
         if (options == null)
         {
@@ -271,13 +263,7 @@ public class FlightSqlClient
         }
         catch (RpcException ex)
         {
-            Console.WriteLine($@"gRPC Error: {ex.Status}");
             throw new InvalidOperationException("Failed to get catalogs", ex);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($@"Unexpected Error: {ex.Message}");
-            throw;
         }
     }
 
@@ -286,7 +272,7 @@ public class FlightSqlClient
     /// </summary>
     /// <param name="options">RPC-layer hints for this call.</param>
     /// <returns>The SchemaResult describing the schema of the catalogs.</returns>
-    public async Task<Schema> GetCatalogsSchema(FlightCallOptions options)
+    public async Task<Schema> GetCatalogsSchemaAsync(FlightCallOptions options)
     {
         if (options == null)
         {
@@ -302,13 +288,7 @@ public class FlightSqlClient
         }
         catch (RpcException ex)
         {
-            Console.WriteLine($@"gRPC Error: {ex.Status}");
             throw new InvalidOperationException("Failed to get catalogs schema", ex);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($@"Unexpected Error: {ex.Message}");
-            throw;
         }
     }
 
@@ -333,15 +313,7 @@ public class FlightSqlClient
         }
         catch (RpcException ex)
         {
-            // Handle gRPC exceptions
-            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
             throw new InvalidOperationException("Failed to get schema", ex);
-        }
-        catch (Exception ex)
-        {
-            // Handle other exceptions
-            Console.WriteLine($@"Unexpected Error: {ex.Message}");
-            throw;
         }
     }
 
@@ -394,13 +366,7 @@ public class FlightSqlClient
         }
         catch (RpcException ex)
         {
-            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
             throw new InvalidOperationException("Failed to get database schemas", ex);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($@"Unexpected Error: {ex.Message}");
-            throw;
         }
     }
 
@@ -421,20 +387,12 @@ public class FlightSqlClient
             var command = new CommandGetDbSchemas();
             var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
 
-            var schemaResultCall = _client.GetSchema(descriptor, options.Headers);
-            var schemaResult = await schemaResultCall.ResponseAsync.ConfigureAwait(false);
-
+            var schemaResult = await GetSchemaAsync(options, descriptor);
             return schemaResult;
         }
         catch (RpcException ex)
         {
-            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
             throw new InvalidOperationException("Failed to get database schemas schema", ex);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($@"Unexpected Error: {ex.Message}");
-            throw;
         }
     }
 
@@ -471,7 +429,7 @@ public class FlightSqlClient
     /// <param name="descriptor">The descriptor of the stream.</param>
     /// <param name="schema">The schema for the data to upload.</param>
     /// <returns>A Task representing the asynchronous operation. The task result contains a DoPutResult struct holding a reader and a writer.</returns>
-    public Task<DoPutResult> DoPut(FlightCallOptions options, FlightDescriptor descriptor, Schema schema)
+    public async Task<DoPutResult> DoPutAsync(FlightCallOptions options, FlightDescriptor descriptor, Schema schema)
     {
         if (descriptor is null)
             throw new ArgumentNullException(nameof(descriptor));
@@ -481,29 +439,15 @@ public class FlightSqlClient
         try
         {
             var doPutResult = _client.StartPut(descriptor, options.Headers);
-            // Get the writer and reader
             var writer = doPutResult.RequestStream;
             var reader = doPutResult.ResponseStream;
 
-            // TODO: After Re-Check it with Jeremy
-            // Create an empty RecordBatch to begin the writer with the schema
-            // var emptyRecordBatch = new RecordBatch(schema, new List<IArrowArray>(), 0);
-            // await writer.WriteAsync(emptyRecordBatch);
-
-            // Begin the writer with the schema
-            return Task.FromResult(new DoPutResult(writer, reader));
+            await writer.WriteAsync(new RecordBatch(schema, new List<IArrowArray>(), 0)).ConfigureAwait(false);
+            return new DoPutResult(writer, reader);
         }
         catch (RpcException ex)
         {
-            // Handle gRPC exceptions
-            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
             throw new InvalidOperationException("Failed to perform DoPut operation", ex);
-        }
-        catch (Exception ex)
-        {
-            // Handle other exceptions
-            Console.WriteLine($@"Unexpected Error: {ex.Message}");
-            throw;
         }
     }
 
@@ -516,7 +460,7 @@ public class FlightSqlClient
     /// <returns>A Task representing the asynchronous operation. The task result contains a DoPutResult struct holding a reader and a writer.</returns>
     public Task<DoPutResult> DoPutAsync(FlightDescriptor descriptor, Schema schema)
     {
-        return DoPut(new FlightCallOptions(), descriptor, schema);
+        return DoPutAsync(new FlightCallOptions(), descriptor, schema);
     }
 
     /// <summary>
@@ -525,7 +469,7 @@ public class FlightSqlClient
     /// <param name="options">RPC-layer hints for this call.</param>
     /// <param name="tableRef">The table reference.</param>
     /// <returns>The FlightInfo describing where to access the dataset.</returns>
-    public async Task<FlightInfo> GetPrimaryKeys(FlightCallOptions options, TableRef tableRef)
+    public async Task<FlightInfo> GetPrimaryKeysAsync(FlightCallOptions options, TableRef tableRef)
     {
         if (tableRef == null)
             throw new ArgumentNullException(nameof(tableRef));
@@ -536,33 +480,15 @@ public class FlightSqlClient
             {
                 Catalog = tableRef.Catalog ?? string.Empty, DbSchema = tableRef.DbSchema, Table = tableRef.Table
             };
-            var action = new FlightAction("GetPrimaryKeys", getPrimaryKeysRequest.PackAndSerialize());
-            var doActionResult = DoActionAsync(options, action);
-            await foreach (var result in doActionResult)
-            {
-                var getPrimaryKeysResponse =
-                    result.Body.ParseAndUnpack<ActionCreatePreparedStatementResult>();
-                var command = new CommandPreparedStatementQuery
-                {
-                    PreparedStatementHandle = getPrimaryKeysResponse.PreparedStatementHandle
-                };
+            byte[] packedRequest = getPrimaryKeysRequest.PackAndSerialize();
+            var descriptor = FlightDescriptor.CreateCommandDescriptor(packedRequest);
+            var flightInfo = await GetFlightInfoAsync(options, descriptor);
 
-                var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
-                var flightInfo = await GetFlightInfoAsync(options, descriptor);
-                return flightInfo;
-            }
-
-            throw new InvalidOperationException("Failed to retrieve primary keys information.");
+            return flightInfo;
         }
         catch (RpcException ex)
         {
-            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
             throw new InvalidOperationException("Failed to get primary keys", ex);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($@"Unexpected Error: {ex.Message}");
-            throw;
         }
     }
 
@@ -593,7 +519,11 @@ public class FlightSqlClient
             TableNameFilterPattern = tableFilterPattern ?? string.Empty,
             IncludeSchema = includeSchema
         };
-        command.TableTypes.AddRange(tableTypes);
+
+        if (tableTypes != null)
+        {
+            command.TableTypes.AddRange(tableTypes);
+        }
 
         var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
         var flightInfoCall = GetFlightInfoAsync(options, descriptor);
@@ -628,13 +558,7 @@ public class FlightSqlClient
         }
         catch (RpcException ex)
         {
-            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
             throw new InvalidOperationException("Failed to get exported keys", ex);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($@"Unexpected Error: {ex.Message}");
-            throw;
         }
     }
 
@@ -659,13 +583,7 @@ public class FlightSqlClient
         }
         catch (RpcException ex)
         {
-            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
             throw new InvalidOperationException("Failed to get exported keys schema", ex);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($@"Unexpected Error: {ex.Message}");
-            throw;
         }
     }
 
@@ -686,37 +604,14 @@ public class FlightSqlClient
             {
                 Catalog = tableRef.Catalog ?? string.Empty, DbSchema = tableRef.DbSchema, Table = tableRef.Table
             };
+            var descriptor = FlightDescriptor.CreateCommandDescriptor(getImportedKeysRequest.PackAndSerialize());
 
-            var action =
-                new FlightAction("GetImportedKeys",
-                    getImportedKeysRequest.PackAndSerialize()); // check: whether using SqlAction.Enum
-            var doActionResult = DoActionAsync(options, action);
-
-            await foreach (var result in doActionResult)
-            {
-                var getImportedKeysResponse =
-                    result.Body.ParseAndUnpack<ActionCreatePreparedStatementResult>();
-                var command = new CommandPreparedStatementQuery
-                {
-                    PreparedStatementHandle = getImportedKeysResponse.PreparedStatementHandle
-                };
-
-                var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
-                var flightInfo = await GetFlightInfoAsync(options, descriptor);
-                return flightInfo;
-            }
-
-            throw new InvalidOperationException("Failed to retrieve imported keys information.");
+            var flightInfo = await GetFlightInfoAsync(options, descriptor);
+            return flightInfo;
         }
         catch (RpcException ex)
         {
-            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
             throw new InvalidOperationException("Failed to get imported keys", ex);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($@"Unexpected Error: {ex.Message}");
-            throw;
         }
     }
 
@@ -741,13 +636,7 @@ public class FlightSqlClient
         }
         catch (RpcException ex)
         {
-            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
             throw new InvalidOperationException("Failed to get imported keys schema", ex);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($@"Unexpected Error: {ex.Message}");
-            throw;
         }
     }
 
@@ -786,13 +675,7 @@ public class FlightSqlClient
         }
         catch (RpcException ex)
         {
-            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
             throw new InvalidOperationException("Failed to get cross reference", ex);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($@"Unexpected Error: {ex.Message}");
-            throw;
         }
     }
 
@@ -820,13 +703,7 @@ public class FlightSqlClient
         }
         catch (RpcException ex)
         {
-            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
             throw new InvalidOperationException("Failed to get cross-reference schema", ex);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($@"Unexpected Error: {ex.Message}");
-            throw;
         }
     }
 
@@ -851,13 +728,7 @@ public class FlightSqlClient
         }
         catch (RpcException ex)
         {
-            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
             throw new InvalidOperationException("Failed to get table types", ex);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($@"Unexpected Error: {ex.Message}");
-            throw;
         }
     }
 
@@ -882,13 +753,7 @@ public class FlightSqlClient
         }
         catch (RpcException ex)
         {
-            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
             throw new InvalidOperationException("Failed to get table types schema", ex);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($@"Unexpected Error: {ex.Message}");
-            throw;
         }
     }
 
@@ -914,13 +779,7 @@ public class FlightSqlClient
         }
         catch (RpcException ex)
         {
-            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
             throw new InvalidOperationException("Failed to get XDBC type info", ex);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($@"Unexpected Error: {ex.Message}");
-            throw;
         }
     }
 
@@ -945,13 +804,7 @@ public class FlightSqlClient
         }
         catch (RpcException ex)
         {
-            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
             throw new InvalidOperationException("Failed to get XDBC type info", ex);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($@"Unexpected Error: {ex.Message}");
-            throw;
         }
     }
 
@@ -976,13 +829,7 @@ public class FlightSqlClient
         }
         catch (RpcException ex)
         {
-            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
             throw new InvalidOperationException("Failed to get XDBC type info schema", ex);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($@"Unexpected Error: {ex.Message}");
-            throw;
         }
     }
 
@@ -1014,13 +861,7 @@ public class FlightSqlClient
         }
         catch (RpcException ex)
         {
-            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
             throw new InvalidOperationException("Failed to get SQL info", ex);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($@"Unexpected Error: {ex.Message}");
-            throw;
         }
     }
 
@@ -1047,13 +888,7 @@ public class FlightSqlClient
         }
         catch (RpcException ex)
         {
-            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
             throw new InvalidOperationException("Failed to get SQL info schema", ex);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($@"Unexpected Error: {ex.Message}");
-            throw;
         }
     }
 
@@ -1075,124 +910,20 @@ public class FlightSqlClient
             var call = _client.DoAction(action, options.Headers);
             await foreach (var result in call.ResponseStream.ReadAllAsync())
             {
-                var cancelResult = FlightSqlUtils.ParseAndUnpack<CancelFlightInfoResult>(result.Body);
-                return cancelResult;
+                var cancelResult = Any.Parser.ParseFrom(result.Body);
+                if (cancelResult.TryUnpack(out CancelFlightInfoResult cancelFlightInfoResult))
+                {
+                    return cancelFlightInfoResult;
+                }
             }
 
             throw new InvalidOperationException("No response received for the CancelFlightInfo request.");
         }
         catch (RpcException ex)
         {
-            // Handle gRPC exceptions
-            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
             throw new InvalidOperationException("Failed to cancel flight info", ex);
         }
-        catch (Exception ex)
-        {
-            // Handle other exceptions
-            Console.WriteLine($@"Unexpected Error: {ex.Message}");
-            throw;
-        }
     }
-
-    /// <summary>
-    /// Begin a new transaction.
-    /// </summary>
-    /// <param name="options">RPC-layer hints for this call.</param>
-    /// <returns>A Task representing the asynchronous operation. The task result contains the Transaction object representing the new transaction.</returns>
-    public async Task<Transaction> BeginTransactionAsync(FlightCallOptions options)
-    {
-        if (options == null)
-        {
-            throw new ArgumentNullException(nameof(options));
-        }
-
-        try
-        {
-            var actionBeginTransaction = new ActionBeginTransactionRequest();
-            var action = new FlightAction("BeginTransaction", actionBeginTransaction.PackAndSerialize());
-            var responseStream = _client.DoAction(action, options.Headers);
-
-            await foreach (var result in responseStream.ResponseStream.ReadAllAsync())
-            {
-                string? beginTransactionResult = result.Body.ToStringUtf8();
-                return new Transaction(beginTransactionResult);
-            }
-
-            throw new InvalidOperationException("Failed to begin transaction: No response received.");
-        }
-        catch (RpcException ex)
-        {
-            throw new InvalidOperationException("Failed to begin transaction", ex);
-        }
-    }
-
-    /// <summary>
-    /// Commit a transaction.
-    /// After this, the transaction and all associated savepoints will be invalidated.
-    /// </summary>
-    /// <param name="options">RPC-layer hints for this call.</param>
-    /// <param name="transaction">The transaction.</param>
-    /// <returns>A Task representing the asynchronous operation.</returns>
-    public AsyncServerStreamingCall<FlightResult> CommitAsync(FlightCallOptions options, Transaction transaction)
-    {
-        if (options == null)
-        {
-            throw new ArgumentNullException(nameof(options));
-        }
-
-        if (transaction == null)
-        {
-            throw new ArgumentNullException(nameof(transaction));
-        }
-
-        try
-        {
-            var actionCommit = new FlightAction("Commit", transaction.TransactionId);
-            return _client.DoAction(actionCommit, options.Headers);
-        }
-        catch (RpcException ex)
-        {
-            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
-            throw new InvalidOperationException("Failed to commit transaction", ex);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($@"Unexpected Error: {ex.Message}");
-            throw;
-        }
-    }
-
-    /// <summary>
-    /// Rollback a transaction.
-    /// After this, the transaction and all associated savepoints will be invalidated.
-    /// </summary>
-    /// <param name="options">RPC-layer hints for this call.</param>
-    /// <param name="transaction">The transaction to rollback.</param>
-    /// <returns>A Task representing the asynchronous operation.</returns>
-    public AsyncServerStreamingCall<FlightResult> RollbackAsync(FlightCallOptions options, Transaction transaction)
-    {
-        if (options == null)
-        {
-            throw new ArgumentNullException(nameof(options));
-        }
-
-        if (transaction == null)
-        {
-            throw new ArgumentNullException(nameof(transaction));
-        }
-
-        try
-        {
-            var actionRollback = new FlightAction("Rollback", transaction.TransactionId);
-            return _client.DoAction(actionRollback, options.Headers);
-        }
-        catch (RpcException ex)
-        {
-            throw new InvalidOperationException("Failed to rollback transaction", ex);
-        }
-    }
-
 
     /// <summary>
     /// Explicitly cancel a query.
@@ -1236,13 +967,97 @@ public class FlightSqlClient
         }
         catch (RpcException ex)
         {
-            Console.WriteLine($@"gRPC Error: {ex.Status.Detail}");
             throw new InvalidOperationException("Failed to cancel query", ex);
         }
-        catch (Exception ex)
+    }
+
+    /// <summary>
+    /// Begin a new transaction.
+    /// </summary>
+    /// <param name="options">RPC-layer hints for this call.</param>
+    /// <returns>A Task representing the asynchronous operation. The task result contains the Transaction object representing the new transaction.</returns>
+    public async Task<Transaction> BeginTransactionAsync(FlightCallOptions options)
+    {
+        if (options == null)
         {
-            Console.WriteLine($@"Unexpected Error: {ex.Message}");
-            throw;
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        try
+        {
+            var actionBeginTransaction = new ActionBeginTransactionRequest();
+            var action = new FlightAction("BeginTransaction", actionBeginTransaction.PackAndSerialize());
+            var responseStream = _client.DoAction(action, options.Headers);
+            await foreach (var result in responseStream.ResponseStream.ReadAllAsync())
+            {
+                string? beginTransactionResult = result.Body.ToStringUtf8();
+                return new Transaction(beginTransactionResult);
+            }
+            throw new InvalidOperationException("Failed to begin transaction: No response received.");
+        }
+        catch (RpcException ex)
+        {
+            throw new InvalidOperationException("Failed to begin transaction", ex);
+        }
+    }
+
+    /// <summary>
+    /// Commit a transaction.
+    /// After this, the transaction and all associated savepoints will be invalidated.
+    /// </summary>
+    /// <param name="options">RPC-layer hints for this call.</param>
+    /// <param name="transaction">The transaction.</param>
+    /// <returns>A Task representing the asynchronous operation.</returns>
+    public AsyncServerStreamingCall<FlightResult> CommitAsync(FlightCallOptions options, Transaction transaction)
+    {
+        if (options == null)
+        {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        if (transaction == null)
+        {
+            throw new ArgumentNullException(nameof(transaction));
+        }
+
+        try
+        {
+            var actionCommit = new FlightAction("Commit", transaction.TransactionId);
+            return _client.DoAction(actionCommit, options.Headers);
+        }
+        catch (RpcException ex)
+        {
+            throw new InvalidOperationException("Failed to commit transaction", ex);
+        }
+    }
+
+    /// <summary>
+    /// Rollback a transaction.
+    /// After this, the transaction and all associated savepoints will be invalidated.
+    /// </summary>
+    /// <param name="options">RPC-layer hints for this call.</param>
+    /// <param name="transaction">The transaction to rollback.</param>
+    /// <returns>A Task representing the asynchronous operation.</returns>
+    public AsyncServerStreamingCall<FlightResult> RollbackAsync(FlightCallOptions options, Transaction transaction)
+    {
+        if (options == null)
+        {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        if (transaction == null)
+        {
+            throw new ArgumentNullException(nameof(transaction));
+        }
+
+        try
+        {
+            var actionRollback = new FlightAction("Rollback", transaction.TransactionId);
+            return _client.DoAction(actionRollback, options.Headers);
+        }
+        catch (RpcException ex)
+        {
+            throw new InvalidOperationException("Failed to rollback transaction", ex);
         }
     }
 
@@ -1273,9 +1088,9 @@ public class FlightSqlClient
             var preparedStatementRequest = new ActionCreatePreparedStatementRequest
             {
                 Query = query,
-                TransactionId = transaction is null
-                    ? ByteString.CopyFromUtf8(transaction?.TransactionId)
-                    : ByteString.Empty
+                TransactionId = transaction.IsValid()
+                    ? ByteString.CopyFromUtf8(transaction.TransactionId)
+                    : ByteString.Empty,
             };
 
             var action = new FlightAction(SqlAction.CreateRequest, preparedStatementRequest.PackAndSerialize());
@@ -1284,7 +1099,7 @@ public class FlightSqlClient
             await foreach (var result in call.ResponseStream.ReadAllAsync())
             {
                 var preparedStatementResponse =
-                    FlightSqlUtils.ParseAndUnpack<ActionClosePreparedStatementRequest>(result.Body);
+                    FlightSqlUtils.ParseAndUnpack<ActionCreatePreparedStatementResult>(result.Body);
 
                 var commandSqlCall = new CommandPreparedStatementQuery
                 {

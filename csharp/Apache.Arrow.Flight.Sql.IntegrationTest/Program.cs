@@ -392,7 +392,7 @@ class Program
             var metadata =
                 new List<KeyValuePair<string, string>> { new("db_name", "SYSDB"), new("table_name", "Info") };
             var schema = new Schema(fields, metadata);
-            var doPutResult = await client.DoPut(options, descriptor, schema).ConfigureAwait(false);
+            var doPutResult = await client.DoPutAsync(options, descriptor, schema).ConfigureAwait(false);
 
             // Example data to write
             var col1 = new Int32Array.Builder().AppendRange(new[] { 8, 9, 10, 11 }).Build();

@@ -38,9 +38,22 @@ public class FlightSqlHolder
         var flightInfo = new FlightInfo(_schema, _flightDescriptor,
             new List<FlightEndpoint>()
             {
-                new FlightEndpoint(new FlightTicket(_flightDescriptor.Paths.FirstOrDefault() ?? "test"),
+                new FlightEndpoint(new FlightTicket(
+                        CustomTicketStrategy(_flightDescriptor)
+                    ),
                     new List<FlightLocation>() { new FlightLocation(_location) })
             }, batchArrayLength, batchBytes);
         return flightInfo;
+    }
+
+    private string CustomTicketStrategy(FlightDescriptor descriptor)
+    {
+        if (descriptor.Command.Length > 0)
+        {
+            return $"{descriptor.Command.ToStringUtf8()}";
+        }
+
+        // Fallback in case there is no command in the descriptor
+        return "default_custom_ticket";
     }
 }

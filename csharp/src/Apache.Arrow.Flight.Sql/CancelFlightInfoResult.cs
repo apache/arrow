@@ -34,11 +34,12 @@ public sealed class CancelFlightInfoResult : IMessage<CancelFlightInfoResult>
 
     public void MergeFrom(CodedInputStream input)
     {
-        while (input.ReadTag() != 0)
+        uint tag;
+        while ((tag = input.ReadTag()) != 0)
         {
-            switch (input.Position)
+            switch (tag)
             {
-                case 1:
+                case 10:
                     CancelStatus = (CancelStatus)input.ReadEnum();
                     break;
                 default:

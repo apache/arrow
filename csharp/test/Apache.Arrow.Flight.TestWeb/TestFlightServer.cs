@@ -40,6 +40,15 @@ namespace Apache.Arrow.Flight.TestWeb
                 case "test":
                     await responseStream.WriteAsync(new FlightResult("test data"));
                     break;
+                case "BeginTransaction":
+                case "Commit":
+                case "Rollback":
+                    await responseStream.WriteAsync(new FlightResult(ByteString.CopyFromUtf8("sample-transaction-id")));
+                    break;
+                case "CreatePreparedStatement":
+                case "ClosePreparedStatement":
+                    await responseStream.WriteAsync(new FlightResult("test data"));
+                    break;
                 default:
                     throw new NotImplementedException();
             }
