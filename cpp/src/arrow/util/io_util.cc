@@ -1027,9 +1027,9 @@ Status DeleteDirTreeInternal(const PlatformFilename& dir_path) {
   ARROW_ASSIGN_OR_RAISE(auto children, ListDir(dir_path));
   for (const auto& child : children) {
     struct stat lst;
-    PlatformFilename full_path = dir_path.Join(child);
-    RETURN_NOT_OK(LinkStat(full_path, &lst));
-    RETURN_NOT_OK(DeleteDirEntry(full_path, lst));
+
+    RETURN_NOT_OK(LinkStat(child, &lst));
+    RETURN_NOT_OK(DeleteDirEntry(child, lst));
   }
   return Status::OK();
 }
