@@ -98,6 +98,9 @@ class ARROW_EXPORT RowSegmenter {
 
   /// \brief Get the next segment for the given batch starting from the given offset
   virtual Result<Segment> GetNextSegment(const ExecSpan& batch, int64_t offset) = 0;
+
+  /// \brief Get all segments for the given batch
+  virtual Result<std::vector<Segment>> GetSegments(const ExecSpan& batch) = 0;
 };
 
 /// Consumes batches of keys and yields batches of the group ids.

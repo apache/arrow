@@ -325,7 +325,8 @@ BENCHMARK_TEMPLATE(ReferenceSum, SumBitmapVectorizeUnroll<int64_t>)
 
 std::shared_ptr<RecordBatch> RecordBatchFromArrays(
     const std::vector<std::shared_ptr<Array>>& arguments,
-    const std::vector<std::shared_ptr<Array>>& keys) {
+    const std::vector<std::shared_ptr<Array>>& keys,
+    const std::vector<std::shared_ptr<Array>>& segment_keys) {
   std::vector<std::shared_ptr<Field>> fields;
   std::vector<std::shared_ptr<Array>> all_arrays;
   int64_t length = -1;
@@ -347,35 +348,53 @@ std::shared_ptr<RecordBatch> RecordBatchFromArrays(
     fields.push_back(field("key" + ToChars(key_idx), key->type()));
     all_arrays.push_back(key);
   }
+  for (std::size_t segment_key_idx = 0; segment_key_idx < segment_keys.size();
+       segment_key_idx++) {
+    const auto& segment_key = segment_keys[segment_key_idx];
+    DCHECK_EQ(segment_key->length(), length);
+    fields.push_back(
+        field("segment_key" + ToChars(segment_key_idx), segment_key->type()));
+    all_arrays.push_back(segment_key);
+  }
   return RecordBatch::Make(schema(std::move(fields)), length, std::move(all_arrays));
 }
 
 Result<std::shared_ptr<Table>> BatchGroupBy(
     std::shared_ptr<RecordBatch> batch, std::vector<Aggregate> aggregates,
-    std::vector<FieldRef> keys, bool use_threads = false,
-    MemoryPool* memory_pool = default_memory_pool()) {
+    std::vector<FieldRef> keys, std::vector<FieldRef> segment_keys,
+    bool use_threads = false, MemoryPool* memory_pool = default_memory_pool()) {
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Table> table,
                         Table::FromRecordBatches({std::move(batch)}));
   Declaration plan = Declaration::Sequence(
       {{"table_source", TableSourceNodeOptions(std::move(table))},
-       {"aggregate", AggregateNodeOptions(std::move(aggregates), std::move(keys))}});
+       {"aggregate", AggregateNodeOptions(std::move(aggregates), std::move(keys),
+                                          std::move(segment_keys))}});
   return DeclarationToTable(std::move(plan), use_threads, memory_pool);
 }
 
-static void BenchmarkGroupBy(benchmark::State& state, std::vector<Aggregate> aggregates,
-                             const std::vector<std::shared_ptr<Array>>& arguments,
-                             const std::vector<std::shared_ptr<Array>>& keys) {
-  std::shared_ptr<RecordBatch> batch = RecordBatchFromArrays(arguments, keys);
+static void BenchmarkGroupBy(
+    benchmark::State& state, std::vector<Aggregate> aggregates,
+    const std::vector<std::shared_ptr<Array>>& arguments,
+    const std::vector<std::shared_ptr<Array>>& keys,
+    const std::vector<std::shared_ptr<Array>>& segment_keys = {}) {
+  std::shared_ptr<RecordBatch> batch =
+      RecordBatchFromArrays(arguments, keys, segment_keys);
   std::vector<FieldRef> key_refs;
   for (std::size_t key_idx = 0; key_idx < keys.size(); key_idx++) {
     key_refs.emplace_back(static_cast<int>(key_idx + arguments.size()));
+  }
+  std::vector<FieldRef> segment_key_refs;
+  for (std::size_t segment_key_idx = 0; segment_key_idx < segment_keys.size();
+       segment_key_idx++) {
+    segment_key_refs.emplace_back(
+        static_cast<int>(segment_key_idx + arguments.size() + keys.size()));
   }
   for (std::size_t arg_idx = 0; arg_idx < arguments.size(); arg_idx++) {
     aggregates[arg_idx].target = {FieldRef(static_cast<int>(arg_idx))};
   }
   int64_t total_bytes = TotalBufferSize(*batch);
   for (auto _ : state) {
-    ABORT_NOT_OK(BatchGroupBy(batch, aggregates, key_refs));
+    ABORT_NOT_OK(BatchGroupBy(batch, aggregates, key_refs, segment_key_refs));
   }
   state.SetBytesProcessed(total_bytes * state.iterations());
 }
@@ -865,6 +884,28 @@ static void TDigestKernelDoubleCentiles(benchmark::State& state) {
 BENCHMARK(TDigestKernelDoubleMedian)->Apply(QuantileKernelArgs);
 BENCHMARK(TDigestKernelDoubleDeciles)->Apply(QuantileKernelArgs);
 BENCHMARK(TDigestKernelDoubleCentiles)->Apply(QuantileKernelArgs);
+
+//
+// Segmented Grouped Count
+//
+
+GROUP_BY_BENCHMARK(CountGroupedByMediumIntSegmentedBySmallInts, [&] {
+  auto input = rng.Int64(args.size,
+                         /*min_length=*/0,
+                         /*max_length=*/512,
+                         /*null_probability=*/args.null_proportion);
+  // auto int_key = rng.Int64(args.size, /*min=*/0, /*max=*/63);
+  auto int_segment_key_1 = rng.Int64(args.size, /*min=*/0, /*max=*/3);
+  auto int_segment_key_2 = rng.Int64(args.size, /*min=*/0, /*max=*/3);
+  // ASSERT_OK_AND_ASSIGN(
+  //     auto left_batches,
+  //     MakeIntegerBatches({[](int row_id) -> int64_t { return row_id; }},
+  //                        schema({field("l_key", int32())}),
+  //                        /*num_batches=*/1, /*batch_size=*/num_left_rows));
+
+  BenchmarkGroupBy(state, {{"count", ""}}, {input}, {},
+                   {int_segment_key_1, int_segment_key_2});
+});
 
 }  // namespace acero
 }  // namespace arrow

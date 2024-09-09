@@ -145,6 +145,20 @@ Status HandleSegments(RowSegmenter* segmenter, const ExecBatch& batch,
   return Status::OK();
 }
 
+// template <typename BatchHandler>
+// Status HandleSegments(RowSegmenter* segmenter, const ExecBatch& batch,
+//                       const std::vector<int>& ids, const BatchHandler& handle_batch) {
+//   ARROW_ASSIGN_OR_RAISE(auto segment_exec_batch, batch.SelectValues(ids));
+//   ExecSpan segment_batch(segment_exec_batch);
+
+//   ARROW_ASSIGN_OR_RAISE(auto segments, segmenter->GetSegments(segment_batch));
+//   for (const auto& segment : segments) {
+//     ARROW_RETURN_NOT_OK(handle_batch(batch, segment));
+//   }
+
+//   return Status::OK();
+// }
+
 /// @brief Extract values of segment keys from a segment batch
 /// @param[out] values_ptr Vector to store the extracted segment key values
 /// @param[in] input_batch Segment batch. Must have the a constant value for segment key
