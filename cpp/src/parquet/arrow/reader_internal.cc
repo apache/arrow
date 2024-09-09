@@ -342,21 +342,24 @@ void AttachStatistics(::arrow::ArrayData* data,
           static_cast<::parquet::TypedStatistics<ParquetType>*>(statistics);
       const ArrowCType min = typed_statistics->min();
       const ArrowCType max = typed_statistics->max();
-      if (std::is_floating_point<ArrowCType>::value) {
+      if constexpr (std::is_same<ArrowCType, bool>::value) {
+        array_statistics->min = static_cast<bool>(min);
+        array_statistics->max = static_cast<bool>(max);
+      } else if constexpr (std::is_floating_point<ArrowCType>::value) {
         array_statistics->min = static_cast<double>(min);
         array_statistics->max = static_cast<double>(max);
-      } else if (std::is_signed<ArrowCType>::value) {
+      } else if constexpr (std::is_signed<ArrowCType>::value) {
         array_statistics->min = static_cast<int64_t>(min);
         array_statistics->max = static_cast<int64_t>(max);
       } else {
         array_statistics->min = static_cast<uint64_t>(min);
         array_statistics->max = static_cast<uint64_t>(max);
       }
-      // We can assume that integer and floating point number based
-      // min/max are always exact if they exist. Apache Parquet's
-      // "Statistics" has "is_min_value_exact" and
-      // "is_max_value_exact" but we can ignore them for integer and
-      // floating point number based min/max.
+      // We can assume that integer/floating point number/boolean
+      // based min/max are always exact if they exist. Apache
+      // Parquet's "Statistics" has "is_min_value_exact" and
+      // "is_max_value_exact" but we can ignore them for integer/
+      // floating point number/boolean based min/max.
       //
       // See also the discussion at dev@parquet.apache.org:
       // https://lists.apache.org/thread/zfnmg5p51b7oylft5w5k4670wgkd4zv4
@@ -414,11 +417,13 @@ std::shared_ptr<Array> TransferZeroCopy(
   return ::arrow::MakeArray(std::move(data));
 }
 
-Status TransferBool(RecordReader* reader, bool nullable, MemoryPool* pool, Datum* out) {
+Status TransferBool(RecordReader* reader,
+                    std::unique_ptr<::parquet::ColumnChunkMetaData> metadata,
+                    const ReaderContext* ctx, bool nullable, Datum* out) {
   int64_t length = reader->values_written();
 
   const int64_t buffer_size = bit_util::BytesForBits(length);
-  ARROW_ASSIGN_OR_RAISE(auto data, ::arrow::AllocateBuffer(buffer_size, pool));
+  ARROW_ASSIGN_OR_RAISE(auto data, ::arrow::AllocateBuffer(buffer_size, ctx->pool));
 
   // Transfer boolean values to packed bitmap
   auto values = reinterpret_cast<const bool*>(reader->values());
@@ -431,13 +436,19 @@ Status TransferBool(RecordReader* reader, bool nullable, MemoryPool* pool, Datum
     }
   }
 
+  std::shared_ptr<::arrow::ArrayData> array_data;
   if (nullable) {
-    *out = std::make_shared<BooleanArray>(length, std::move(data),
-                                          reader->ReleaseIsValid(), reader->null_count());
+    array_data = ::arrow::ArrayData::Make(::arrow::boolean(), length,
+                                          {reader->ReleaseIsValid(), std::move(data)},
+                                          reader->null_count());
   } else {
-    *out = std::make_shared<BooleanArray>(length, std::move(data),
-                                          /*null_bitmap=*/nullptr, /*null_count=*/0);
+    array_data = ::arrow::ArrayData::Make(::arrow::boolean(), length,
+                                          {/*null_bitmap=*/nullptr, std::move(data)},
+                                          /*null_count=*/0);
   }
+  AttachStatistics<::arrow::BooleanType, BooleanType>(array_data.get(),
+                                                      std::move(metadata), ctx);
+  *out = std::make_shared<BooleanArray>(std::move(array_data));
   return Status::OK();
 }
 
@@ -833,7 +844,8 @@ Status TransferColumnData(RecordReader* reader,
           reader, std::move(metadata), ctx, value_field);
       break;
     case ::arrow::Type::BOOL:
-      RETURN_NOT_OK(TransferBool(reader, value_field->nullable(), pool, &result));
+      RETURN_NOT_OK(TransferBool(reader, std::move(metadata), ctx,
+                                 value_field->nullable(), &result));
       break;
       TRANSFER_INT32(UINT8, ::arrow::UInt8Type);
       TRANSFER_INT32(INT8, ::arrow::Int8Type);
