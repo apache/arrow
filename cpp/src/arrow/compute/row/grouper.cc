@@ -332,38 +332,6 @@ Result<std::unique_ptr<RowSegmenter>> RowSegmenter::Make(
 
 namespace {
 
-struct GrouperNoKeysImpl : Grouper {
-  Result<std::shared_ptr<Array>> MakeConstantGroupIdArray(int64_t length,
-                                                          group_id_t value) {
-    std::unique_ptr<ArrayBuilder> a_builder;
-    RETURN_NOT_OK(MakeBuilder(default_memory_pool(), g_group_id_type, &a_builder));
-    using GroupIdBuilder = typename TypeTraits<GroupIdType>::BuilderType;
-    auto builder = checked_cast<GroupIdBuilder*>(a_builder.get());
-    if (length != 0) {
-      RETURN_NOT_OK(builder->Resize(length));
-    }
-    for (int64_t i = 0; i < length; i++) {
-      builder->UnsafeAppend(value);
-    }
-    std::shared_ptr<Array> array;
-    RETURN_NOT_OK(builder->Finish(&array));
-    return array;
-  }
-  Status Reset() override { return Status::OK(); }
-  Result<Datum> Consume(const ExecSpan& batch, int64_t offset, int64_t length) override {
-    ARROW_ASSIGN_OR_RAISE(auto array, MakeConstantGroupIdArray(length, 0));
-    return Datum(array);
-  }
-  Result<ExecBatch> GetUniques() override {
-    auto data = ArrayData::Make(uint32(), 1, 0);
-    auto values = data->GetMutableValues<uint32_t>(0);
-    values[0] = 0;
-    ExecBatch out({Datum(data)}, 1);
-    return out;
-  }
-  uint32_t num_groups() const override { return 1; }
-};
-
 struct GrouperImpl : public Grouper {
   static Result<std::unique_ptr<GrouperImpl>> Make(
       const std::vector<TypeHolder>& key_types, ExecContext* ctx) {
