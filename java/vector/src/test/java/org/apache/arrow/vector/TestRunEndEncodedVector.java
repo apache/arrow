@@ -44,7 +44,7 @@ public class TestRunEndEncodedVector {
   }
 
   @Test
-  public void testInitializeChildrenFromFields() throws Exception {
+  public void testInitializeChildrenFromFields() {
     final FieldType valueType = FieldType.notNullable(Types.MinorType.BIGINT.getType());
     final FieldType runEndType = FieldType.notNullable(Types.MinorType.INT.getType());
 
@@ -60,7 +60,7 @@ public class TestRunEndEncodedVector {
 
   /** Create REE vector with constant value. */
   @Test
-  public void testConstantValueVector() throws Exception {
+  public void testConstantValueVector() {
     final FieldType valueType = FieldType.notNullable(Types.MinorType.BIGINT.getType());
     final FieldType runEndType = FieldType.notNullable(Types.MinorType.INT.getType());
 
@@ -94,7 +94,7 @@ public class TestRunEndEncodedVector {
 
   /** Create REE vector representing: [1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5]. */
   @Test
-  public void testBasicRunEndEncodedVector() throws Exception {
+  public void testBasicRunEndEncodedVector() {
 
     final FieldType valueType = FieldType.notNullable(Types.MinorType.BIGINT.getType());
     final FieldType runEndType = FieldType.notNullable(Types.MinorType.INT.getType());
