@@ -87,9 +87,14 @@ EOF
     fi
     rm $fname
 
+    python="/Library/Frameworks/Python.framework/Versions/${version}/bin/python${version}"
+    if [[ $2 == "3.13t" ]]; then
+        python="/Library/Frameworks/PythonT.framework/Versions/3.13/bin/python3.13t"
+    fi
+
     echo "Installing Pip..."
-    $PYTHON -m ensurepip
-    $PYTHON -m pip install -U pip setuptools
+    $python -m ensurepip
+    $python -m pip install -U pip setuptools
 else
     echo "Unsupported platform: $platform"
 fi
