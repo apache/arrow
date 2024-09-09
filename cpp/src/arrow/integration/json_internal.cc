@@ -1021,7 +1021,7 @@ Result<std::shared_ptr<DataType>> GetDecimal(const RjObject& json_type) {
   }
 
   return Status::Invalid(
-      "Only 32 bit, 64 bit, 128 bit and 256 bit Decimals are supported. Received",
+      "Only 32/64/128/256-bit Decimals are supported. Received",
       bit_width);
 }
 
