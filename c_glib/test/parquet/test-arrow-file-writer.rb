@@ -26,7 +26,39 @@ class TestParquetArrowFileWriter < Test::Unit::TestCase
     end
   end
 
-  def test_write
+  def test_schema
+    schema = build_schema("enabled" => :boolean)
+    writer = Parquet::ArrowFileWriter.new(schema, @file.path)
+    assert_equal(schema, writer.schema)
+    writer.close
+  end
+
+  def test_write_record_batch
+    enabled_values = [true, nil, false, true]
+    record_batch =
+      build_record_batch("enabled" => build_boolean_array(enabled_values))
+
+    writer = Parquet::ArrowFileWriter.new(record_batch.schema, @file.path)
+    writer.write_record_batch(record_batch)
+    writer.close
+
+    reader = Parquet::ArrowFileReader.new(@file.path)
+    begin
+      reader.use_threads = true
+      assert_equal([
+                     1,
+                     Arrow::Table.new(record_batch.schema, [record_batch]),
+                   ],
+                   [
+                     reader.n_row_groups,
+                     reader.read_table,
+                   ])
+    ensure
+      reader.unref
+    end
+  end
+
+  def test_write_table
     enabled_values = [true, nil, false, true]
     table = build_table("enabled" => build_boolean_array(enabled_values))
     chunk_size = 2
@@ -40,11 +72,11 @@ class TestParquetArrowFileWriter < Test::Unit::TestCase
       reader.use_threads = true
       assert_equal([
                      enabled_values.length / chunk_size,
-                     true,
+                     table,
                    ],
                    [
                      reader.n_row_groups,
-                     table.equal_metadata(reader.read_table, false),
+                     reader.read_table,
                    ])
     ensure
       reader.unref

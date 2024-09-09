@@ -316,14 +316,13 @@ gparquet_writer_properties_get_data_page_size(GParquetWriterProperties *properti
   return parquet_properties->data_pagesize();
 }
 
-typedef struct GParquetArrowFileWriterPrivate_
+struct GParquetArrowFileWriterPrivate
 {
   parquet::arrow::FileWriter *arrow_file_writer;
-} GParquetArrowFileWriterPrivate;
+};
 
 enum {
-  PROP_0,
-  PROP_ARROW_FILE_WRITER
+  PROP_ARROW_FILE_WRITER = 1,
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GParquetArrowFileWriter,
@@ -494,6 +493,45 @@ gparquet_arrow_file_writer_new_path(GArrowSchema *schema,
   } else {
     return NULL;
   }
+}
+
+/**
+ * gparquet_arrow_file_writer_get_schema:
+ * @writer: A #GParquetArrowFileWriter.
+ *
+ * Returns: (transfer full): The schema to be written to.
+ *
+ * Since: 18.0.0
+ */
+GArrowSchema *
+gparquet_arrow_file_writer_get_schema(GParquetArrowFileWriter *writer)
+{
+  auto parquet_arrow_file_writer = gparquet_arrow_file_writer_get_raw(writer);
+  auto arrow_schema = parquet_arrow_file_writer->schema();
+  return garrow_schema_new_raw(&arrow_schema);
+}
+
+/**
+ * gparquet_arrow_file_writer_write_record_batch:
+ * @writer: A #GParquetArrowFileWriter.
+ * @record_batch: A record batch to be written.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 18.0.0
+ */
+gboolean
+gparquet_arrow_file_writer_write_record_batch(GParquetArrowFileWriter *writer,
+                                              GArrowRecordBatch *record_batch,
+                                              GError **error)
+{
+  auto parquet_arrow_file_writer = gparquet_arrow_file_writer_get_raw(writer);
+  auto arrow_record_batch = garrow_record_batch_get_raw(record_batch).get();
+  auto status = parquet_arrow_file_writer->WriteRecordBatch(*arrow_record_batch);
+  return garrow_error_check(error,
+                            status,
+                            "[parquet][arrow][file-writer][write-record-batch]");
 }
 
 /**
