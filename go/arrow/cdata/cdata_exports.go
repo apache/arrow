@@ -154,6 +154,10 @@ func (exp *schemaExporter) exportFormat(dt arrow.DataType) string {
 		return "g"
 	case *arrow.FixedSizeBinaryType:
 		return fmt.Sprintf("w:%d", dt.ByteWidth)
+	case *arrow.Decimal32Type:
+		return fmt.Sprintf("d:%d,%d,32", dt.Precision, dt.Scale)
+	case *arrow.Decimal64Type:
+		return fmt.Sprintf("d:%d,%d,64", dt.Precision, dt.Scale)
 	case *arrow.Decimal128Type:
 		return fmt.Sprintf("d:%d,%d", dt.Precision, dt.Scale)
 	case *arrow.Decimal256Type:

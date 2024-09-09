@@ -29,6 +29,7 @@ import (
 	"github.com/apache/arrow/go/v18/arrow"
 	"github.com/apache/arrow/go/v18/arrow/array"
 	"github.com/apache/arrow/go/v18/arrow/bitutil"
+	"github.com/apache/arrow/go/v18/arrow/decimal"
 	"github.com/apache/arrow/go/v18/arrow/decimal128"
 	"github.com/apache/arrow/go/v18/arrow/decimal256"
 	"github.com/apache/arrow/go/v18/arrow/float16"
@@ -224,6 +225,10 @@ func typeToJSON(arrowType arrow.DataType) (json.RawMessage, error) {
 		typ = listSizeJSON{"fixedsizelist", dt.Len()}
 	case *arrow.FixedSizeBinaryType:
 		typ = byteWidthJSON{"fixedsizebinary", dt.ByteWidth}
+	case *arrow.Decimal32Type:
+		typ = decimalJSON{"decimal", int(dt.Scale), int(dt.Precision), 32}
+	case *arrow.Decimal64Type:
+		typ = decimalJSON{"decimal", int(dt.Scale), int(dt.Precision), 64}
 	case *arrow.Decimal128Type:
 		typ = decimalJSON{"decimal", int(dt.Scale), int(dt.Precision), 128}
 	case *arrow.Decimal256Type:
@@ -491,6 +496,10 @@ func typeFromJSON(typ json.RawMessage, children []FieldWrapper) (arrowType arrow
 			arrowType = &arrow.Decimal256Type{Precision: int32(t.Precision), Scale: int32(t.Scale)}
 		case 128, 0: // default to 128 bits when missing
 			arrowType = &arrow.Decimal128Type{Precision: int32(t.Precision), Scale: int32(t.Scale)}
+		case 64:
+			arrowType = &arrow.Decimal64Type{Precision: int32(t.Precision), Scale: int32(t.Scale)}
+		case 32:
+			arrowType = &arrow.Decimal32Type{Precision: int32(t.Precision), Scale: int32(t.Scale)}
 		}
 	case "union":
 		t := unionJSON{}
@@ -1295,6 +1304,22 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		bldr.AppendValues(data, valids)
 		return returnNewArrayData(bldr)
 
+	case *arrow.Decimal32Type:
+		bldr := array.NewDecimal32Builder(mem, dt)
+		defer bldr.Release()
+		data := decimal32FromJSON(arr.Data)
+		valids := validsFromJSON(arr.Valids)
+		bldr.AppendValues(data, valids)
+		return returnNewArrayData(bldr)
+
+	case *arrow.Decimal64Type:
+		bldr := array.NewDecimal64Builder(mem, dt)
+		defer bldr.Release()
+		data := decimal64FromJSON(arr.Data)
+		valids := validsFromJSON(arr.Valids)
+		bldr.AppendValues(data, valids)
+		return returnNewArrayData(bldr)
+
 	case *arrow.Decimal128Type:
 		bldr := array.NewDecimal128Builder(mem, dt)
 		defer bldr.Release()
@@ -1713,6 +1738,22 @@ func arrayToJSON(field arrow.Field, arr arrow.Array) Array {
 			Valids: validsToJSON(arr),
 		}
 
+	case *array.Decimal32:
+		return Array{
+			Name:   field.Name,
+			Count:  arr.Len(),
+			Data:   decimal32ToJSON(arr),
+			Valids: validsToJSON(arr),
+		}
+
+	case *array.Decimal64:
+		return Array{
+			Name:   field.Name,
+			Count:  arr.Len(),
+			Data:   decimal64ToJSON(arr),
+			Valids: validsToJSON(arr),
+		}
+
 	case *array.Decimal128:
 		return Array{
 			Name:   field.Name,
@@ -2038,6 +2079,47 @@ func f64ToJSON(arr *array.Float64) []interface{} {
 	return o
 }
 
+func decimal32ToJSON(arr *array.Decimal32) []interface{} {
+	o := make([]interface{}, arr.Len())
+	for i := range o {
+		o[i] = arr.ValueStr(i)
+	}
+	return o
+}
+
+func decimal32FromJSON(vs []interface{}) []decimal.Decimal32 {
+	var tmp big.Int
+	o := make([]decimal.Decimal32, len(vs))
+	for i, v := range vs {
+		if err := tmp.UnmarshalJSON([]byte(v.(string))); err != nil {
+			panic(fmt.Errorf("could not convert %v (%T) to decimal128: %w", v, v, err))
+		}
+
+		o[i] = decimal.Decimal32(tmp.Int64())
+	}
+	return o
+}
+
+func decimal64ToJSON(arr *array.Decimal64) []interface{} {
+	o := make([]interface{}, arr.Len())
+	for i := range o {
+		o[i] = arr.ValueStr(i)
+	}
+	return o
+}
+
+func decimal64FromJSON(vs []interface{}) []decimal.Decimal64 {
+	var tmp big.Int
+	o := make([]decimal.Decimal64, len(vs))
+	for i, v := range vs {
+		if err := tmp.UnmarshalJSON([]byte(v.(string))); err != nil {
+			panic(fmt.Errorf("could not convert %v (%T) to decimal128: %w", v, v, err))
+		}
+
+		o[i] = decimal.Decimal64(tmp.Int64())
+	}
+	return o
+}
 func decimal128ToJSON(arr *array.Decimal128) []interface{} {
 	o := make([]interface{}, arr.Len())
 	for i := range o {
@@ -2072,7 +2154,7 @@ func decimal256FromJSON(vs []interface{}) []decimal256.Num {
 	o := make([]decimal256.Num, len(vs))
 	for i, v := range vs {
 		if err := tmp.UnmarshalJSON([]byte(v.(string))); err != nil {
-			panic(fmt.Errorf("could not convert %v (%T) to decimal128: %w", v, v, err))
+			panic(fmt.Errorf("could not convert %v (%T) to decimal256: %w", v, v, err))
 		}
 
 		o[i] = decimal256.FromBigInt(&tmp)

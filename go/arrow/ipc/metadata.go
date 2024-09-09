@@ -281,20 +281,12 @@ func (fv *fieldVisitor) visit(field arrow.Field) {
 		fv.dtype = flatbuf.TypeFloatingPoint
 		fv.offset = floatToFB(fv.b, int32(dt.BitWidth()))
 
-	case *arrow.Decimal128Type:
+	case arrow.DecimalType:
 		fv.dtype = flatbuf.TypeDecimal
 		flatbuf.DecimalStart(fv.b)
-		flatbuf.DecimalAddPrecision(fv.b, dt.Precision)
-		flatbuf.DecimalAddScale(fv.b, dt.Scale)
-		flatbuf.DecimalAddBitWidth(fv.b, 128)
-		fv.offset = flatbuf.DecimalEnd(fv.b)
-
-	case *arrow.Decimal256Type:
-		fv.dtype = flatbuf.TypeDecimal
-		flatbuf.DecimalStart(fv.b)
-		flatbuf.DecimalAddPrecision(fv.b, dt.Precision)
-		flatbuf.DecimalAddScale(fv.b, dt.Scale)
-		flatbuf.DecimalAddBitWidth(fv.b, 256)
+		flatbuf.DecimalAddPrecision(fv.b, dt.GetPrecision())
+		flatbuf.DecimalAddScale(fv.b, dt.GetScale())
+		flatbuf.DecimalAddBitWidth(fv.b, int32(dt.BitWidth()))
 		fv.offset = flatbuf.DecimalEnd(fv.b)
 
 	case *arrow.FixedSizeBinaryType:
@@ -947,6 +939,10 @@ func floatToFB(b *flatbuffers.Builder, bw int32) flatbuffers.UOffsetT {
 
 func decimalFromFB(data flatbuf.Decimal) (arrow.DataType, error) {
 	switch data.BitWidth() {
+	case 32:
+		return &arrow.Decimal32Type{Precision: data.Precision(), Scale: data.Scale()}, nil
+	case 64:
+		return &arrow.Decimal64Type{Precision: data.Precision(), Scale: data.Scale()}, nil
 	case 128:
 		return &arrow.Decimal128Type{Precision: data.Precision(), Scale: data.Scale()}, nil
 	case 256:

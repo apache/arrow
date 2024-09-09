@@ -534,6 +534,7 @@ type DecimalType interface {
 	DataType
 	GetPrecision() int32
 	GetScale() int32
+	BitWidth() int
 }
 
 func NewDecimalType(id Type, prec, scale int32) (DecimalType, error) {
