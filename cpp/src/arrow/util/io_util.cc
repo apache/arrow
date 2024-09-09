@@ -865,7 +865,7 @@ class UnixDirIterator : public DirIterator {
   struct dirent* entry_;
 };
 
-}
+}  // namespace
 
 Result<std::vector<PlatformFilename>> ListDir(const PlatformFilename& dir_path) {
   std::vector<PlatformFilename> results;
