@@ -1257,6 +1257,14 @@ tasks:
         PYTHON: "3.10"
       image: conda-python-cython2
 
+  test-ubuntu-22.04-python-313-freethreading:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        UBUNTU: 22.04
+      image: ubuntu-python-313-freethreading
+
   test-debian-12-python-3-amd64:
     ci: github
     template: docker-tests/github.linux.yml
