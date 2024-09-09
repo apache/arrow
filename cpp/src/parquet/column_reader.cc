@@ -2142,7 +2142,7 @@ class FLBARecordReader final : public TypedRecordReader<FLBAType>,
   ::arrow::BufferBuilder data_builder_;
 };
 
-/// ByteArrayRecordReader read variable length byte array values.
+/// ByteArrayRecordReader reads variable length byte array values.
 ///
 /// It only calls `DecodeArrowNonNull` and `DecodeArrow` to read values, and
 /// `Decode` and `DecodeSpaced` are not used.
@@ -2191,8 +2191,8 @@ class ByteArrayChunkedRecordReader final : public TypedRecordReader<ByteArrayTyp
   typename EncodingTraits<ByteArrayType>::Accumulator accumulator_;
 };
 
-/// ByteArrayDictionaryRecordReader read ::arrow::dictionary(index: int32, values:
-/// binary).
+/// ByteArrayDictionaryRecordReader reads into ::arrow::dictionary(index: int32,
+/// values: binary).
 ///
 /// If underlying column is dictionary encoded, it will call `DecodeIndices` to read,
 /// otherwise it will call `DecodeArrowNonNull` to read.
