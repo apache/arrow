@@ -62,22 +62,10 @@ under the License.
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <configuration combine.self="append">
-          <fork>true</fork>
-          <source>${minimalJavaBuildVersion}</source>
-          <target>${minimalJavaBuildVersion}</target>
-          <encoding>UTF-8</encoding>
+        <configuration combine.children="append">
           <compilerArgs>
             <arg>-Werror</arg>
           </compilerArgs>
-          <annotationProcessorPaths combine.children="append">
-            <path>
-              <groupId>com.google.errorprone</groupId>
-              <artifactId>error_prone_core</artifactId>
-              <version>${error_prone_core.version}</version>
-              <!-- Use the same version as the dependency -->
-            </path>
-          </annotationProcessorPaths>
         </configuration>
       </plugin>
     </plugins>
