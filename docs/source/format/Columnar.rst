@@ -1439,7 +1439,8 @@ serialized form is as follows:
   should avoid using buffer compression. Double compression typically
   worsens performance and does not substantially improve compression
   ratios.
-  
+
+
 Byte Order (`Endianness`_)
 ---------------------------
 
