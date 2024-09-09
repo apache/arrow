@@ -21,6 +21,13 @@
 cmake_minimum_required(VERSION 3.16)
 project(pyarrow)
 
+# This is needed for 3.13 free-threading. CMake used to add Python
+# include directories with `-isystem`, which led to some Python-internal
+# includes to resolve to normal 3.13 includes (cause -isystem includes
+# are searched after system directories), instead of 3.13-freethreading,
+# which in turn meant that Py_GIL_DISABLED was not set.
+set(CMAKE_NO_SYSTEM_FROM_IMPORTED ON)
+
 set(PYARROW_VERSION "18.0.0-SNAPSHOT")
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" PYARROW_BASE_VERSION "${PYARROW_VERSION}")
 
