@@ -23,6 +23,20 @@ COPY python/requirements-build.txt \
      /arrow/python/
 
 ENV ARROW_PYTHON_VENV /arrow-dev
+
+ARG ubuntu
+ARG python="3.12"
+COPY ci/scripts/install_python.sh /arrow/ci/scripts/
+RUN if [ "${ubuntu}" = "20.04" ]; then \
+        quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
+        apt update ${quiet} && \
+        apt install -y -V ${quiet} \
+          xz-utils && \
+        apt clean && \
+        rm -rf /var/lib/apt/lists/* && \
+        /arrow/ci/scripts/install_python.sh linux ${python} \
+    ; fi
+
 RUN python3 -m venv ${ARROW_PYTHON_VENV} && \
     . ${ARROW_PYTHON_VENV}/bin/activate && \
     pip install -U pip setuptools wheel && \
