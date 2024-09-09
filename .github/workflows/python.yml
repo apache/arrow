@@ -59,7 +59,7 @@ jobs:
         name:
           - conda-python-docs
           - conda-python-3.10-nopandas
-          - conda-python-3.9-pandas-1.0
+          - conda-python-3.9-pandas-1.5
           - conda-python-3.11-pandas-latest
           - conda-python-3.11-no-numpy
         include:
@@ -67,18 +67,18 @@ jobs:
             cache: conda-python-3.10
             image: conda-python-docs
             title: AMD64 Conda Python 3.10 Sphinx & Numpydoc
-            python: 3.10
+            python: "3.10"
           - name: conda-python-3.10-nopandas
             cache: conda-python-3.10
             image: conda-python
             title: AMD64 Conda Python 3.10 Without Pandas
-            python: 3.10
-          - name: conda-python-3.9-pandas-1.0
+            python: "3.10"
+          - name: conda-python-3.9-pandas-1.5
             cache: conda-python-3.9
             image: conda-python-pandas
-            title: AMD64 Conda Python 3.9 Pandas 1.0
+            title: AMD64 Conda Python 3.9 Pandas 1.5
             python: 3.9
-            pandas: "1.0"
+            pandas: "1.5"
             numpy: 1.16
           - name: conda-python-3.11-pandas-latest
             cache: conda-python-3.11
