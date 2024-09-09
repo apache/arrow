@@ -40,6 +40,10 @@ RUN ${ARROW_PYTHON_VENV}/bin/python -m pip install \
       -r arrow/python/requirements-build.txt \
       -r arrow/python/requirements-test.txt
 
+# We want to run the PyArrow test suite with the GIL disabled, but cffi
+# (more precisely, the `_cffi_backend` module) currently doesn't declare
+# itself safe to run without the GIL.
+# Therefore set PYTHON_GIL to 0.
 ENV ARROW_ACERO=ON \
     ARROW_BUILD_STATIC=OFF \
     ARROW_BUILD_TESTS=OFF \
