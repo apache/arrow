@@ -26,19 +26,13 @@ import (
 	"github.com/apache/arrow/go/v18/arrow"
 	"github.com/apache/arrow/go/v18/arrow/bitutil"
 	"github.com/apache/arrow/go/v18/arrow/decimal"
-	"github.com/apache/arrow/go/v18/arrow/decimal128"
-	"github.com/apache/arrow/go/v18/arrow/decimal256"
 	"github.com/apache/arrow/go/v18/arrow/internal/debug"
 	"github.com/apache/arrow/go/v18/arrow/memory"
 	"github.com/apache/arrow/go/v18/internal/json"
 )
 
-type decimalTypes interface {
-	decimal.Decimal32 | decimal.Decimal64 | decimal.Decimal128 | decimal.Decimal256
-}
-
 type baseDecimal[T interface {
-	decimalTypes
+	decimal.DecimalTypes
 	decimal.Num[T]
 }] struct {
 	array
@@ -47,7 +41,7 @@ type baseDecimal[T interface {
 }
 
 func newDecimalData[T interface {
-	decimalTypes
+	decimal.DecimalTypes
 	decimal.Num[T]
 }](data arrow.ArrayData) *baseDecimal[T] {
 	a := &baseDecimal[T]{}
@@ -115,7 +109,7 @@ func (a *baseDecimal[T]) MarshalJSON() ([]byte, error) {
 }
 
 func arrayEqualDecimal[T interface {
-	decimalTypes
+	decimal.DecimalTypes
 	decimal.Num[T]
 }](left, right *baseDecimal[T]) bool {
 	for i := 0; i < left.Len(); i++ {
@@ -154,52 +148,6 @@ func NewDecimal256Data(data arrow.ArrayData) *Decimal256 {
 	return newDecimalData[decimal.Decimal256](data)
 }
 
-type decimalTraits[T decimalTypes] interface {
-	bytesRequired(int) int
-	valFromString(string, int32, int32) (T, error)
-	valFromFloat64(float64, int32, int32) (T, error)
-}
-
-type dec32Traits struct{}
-
-func (dec32Traits) bytesRequired(n int) int { return arrow.Decimal32Traits.BytesRequired(n) }
-func (dec32Traits) valFromString(v string, prec int32, scale int32) (decimal.Decimal32, error) {
-	return decimal.Decimal32FromString(v, prec, scale)
-}
-func (dec32Traits) valFromFloat64(v float64, prec, scale int32) (decimal.Decimal32, error) {
-	return decimal.Decimal32FromFloat(v, prec, scale)
-}
-
-type dec64Traits struct{}
-
-func (dec64Traits) bytesRequired(n int) int { return arrow.Decimal64Traits.BytesRequired(n) }
-func (dec64Traits) valFromString(v string, prec int32, scale int32) (decimal.Decimal64, error) {
-	return decimal.Decimal64FromString(v, prec, scale)
-}
-func (dec64Traits) valFromFloat64(v float64, prec, scale int32) (decimal.Decimal64, error) {
-	return decimal.Decimal64FromFloat(v, prec, scale)
-}
-
-type dec128Traits struct{}
-
-func (dec128Traits) bytesRequired(n int) int { return arrow.Decimal128Traits.BytesRequired(n) }
-func (dec128Traits) valFromString(v string, prec int32, scale int32) (decimal.Decimal128, error) {
-	return decimal.Decimal128FromString(v, prec, scale)
-}
-func (dec128Traits) valFromFloat64(v float64, prec, scale int32) (decimal.Decimal128, error) {
-	return decimal128.FromFloat64(v, prec, scale)
-}
-
-type dec256Traits struct{}
-
-func (dec256Traits) bytesRequired(n int) int { return arrow.Decimal256Traits.BytesRequired(n) }
-func (dec256Traits) valFromString(v string, prec int32, scale int32) (decimal.Decimal256, error) {
-	return decimal.Decimal256FromString(v, prec, scale)
-}
-func (dec256Traits) valFromFloat64(v float64, prec, scale int32) (decimal.Decimal256, error) {
-	return decimal256.FromFloat64(v, prec, scale)
-}
-
 type Decimal32Builder = baseDecimalBuilder[decimal.Decimal32]
 type Decimal64Builder = baseDecimalBuilder[decimal.Decimal64]
 type Decimal128Builder struct {
@@ -219,11 +167,11 @@ func (b *Decimal256Builder) NewDecimal256Array() *Decimal256 {
 }
 
 type baseDecimalBuilder[T interface {
-	decimalTypes
+	decimal.DecimalTypes
 	decimal.Num[T]
 }] struct {
 	builder
-	decimalTraits[T]
+	traits decimal.Traits[T]
 
 	dtype   arrow.DecimalType
 	data    *memory.Buffer
@@ -231,7 +179,7 @@ type baseDecimalBuilder[T interface {
 }
 
 func newDecimalBuilder[T interface {
-	decimalTypes
+	decimal.DecimalTypes
 	decimal.Num[T]
 }, DT arrow.DecimalType](mem memory.Allocator, dtype DT) *baseDecimalBuilder[T] {
 	return &baseDecimalBuilder[T]{
@@ -338,7 +286,7 @@ func (b *baseDecimalBuilder[T]) Resize(n int) {
 		b.init(n)
 	} else {
 		b.builder.resize(nBuilder, b.init)
-		b.data.Resize(b.bytesRequired(n))
+		b.data.Resize(b.traits.BytesRequired(n))
 		b.rawData = arrow.GetData[T](b.data.Bytes())
 	}
 }
@@ -355,7 +303,7 @@ func (b *baseDecimalBuilder[T]) NewArray() arrow.Array {
 }
 
 func (b *baseDecimalBuilder[T]) newData() (data *Data) {
-	bytesRequired := b.bytesRequired(b.length)
+	bytesRequired := b.traits.BytesRequired(b.length)
 	if bytesRequired > 0 && bytesRequired < b.data.Len() {
 		// trim buffers
 		b.data.Resize(bytesRequired)
@@ -377,7 +325,7 @@ func (b *baseDecimalBuilder[T]) AppendValueFromString(s string) error {
 		return nil
 	}
 
-	val, err := b.valFromString(s, b.dtype.GetPrecision(), b.dtype.GetScale())
+	val, err := b.traits.FromString(s, b.dtype.GetPrecision(), b.dtype.GetScale())
 	if err != nil {
 		b.AppendNull()
 		return err
@@ -395,19 +343,19 @@ func (b *baseDecimalBuilder[T]) UnmarshalOne(dec *json.Decoder) error {
 	var token T
 	switch v := t.(type) {
 	case float64:
-		token, err = b.valFromFloat64(v, b.dtype.GetPrecision(), b.dtype.GetScale())
+		token, err = b.traits.FromFloat64(v, b.dtype.GetPrecision(), b.dtype.GetScale())
 		if err != nil {
 			return err
 		}
 		b.Append(token)
 	case string:
-		token, err = b.valFromString(v, b.dtype.GetPrecision(), b.dtype.GetScale())
+		token, err = b.traits.FromString(v, b.dtype.GetPrecision(), b.dtype.GetScale())
 		if err != nil {
 			return err
 		}
 		b.Append(token)
 	case json.Number:
-		token, err = b.valFromString(v.String(), b.dtype.GetPrecision(), b.dtype.GetScale())
+		token, err = b.traits.FromString(v.String(), b.dtype.GetPrecision(), b.dtype.GetScale())
 		if err != nil {
 			return err
 		}
@@ -450,25 +398,25 @@ func (b *baseDecimalBuilder[T]) UnmarshalJSON(data []byte) error {
 
 func NewDecimal32Builder(mem memory.Allocator, dtype *arrow.Decimal32Type) *Decimal32Builder {
 	b := newDecimalBuilder[decimal.Decimal32](mem, dtype)
-	b.decimalTraits = dec32Traits{}
+	b.traits = decimal.Dec32Traits
 	return b
 }
 
 func NewDecimal64Builder(mem memory.Allocator, dtype *arrow.Decimal64Type) *Decimal64Builder {
 	b := newDecimalBuilder[decimal.Decimal64](mem, dtype)
-	b.decimalTraits = dec64Traits{}
+	b.traits = decimal.Dec64Traits
 	return b
 }
 
 func NewDecimal128Builder(mem memory.Allocator, dtype *arrow.Decimal128Type) *Decimal128Builder {
 	b := newDecimalBuilder[decimal.Decimal128](mem, dtype)
-	b.decimalTraits = dec128Traits{}
+	b.traits = decimal.Dec128Traits
 	return &Decimal128Builder{b}
 }
 
 func NewDecimal256Builder(mem memory.Allocator, dtype *arrow.Decimal256Type) *Decimal256Builder {
 	b := newDecimalBuilder[decimal.Decimal256](mem, dtype)
-	b.decimalTraits = dec256Traits{}
+	b.traits = decimal.Dec256Traits
 	return &Decimal256Builder{b}
 }
 

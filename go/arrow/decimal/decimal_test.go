@@ -19,6 +19,7 @@ package decimal_test
 import (
 	"fmt"
 	"math"
+	"math/big"
 	"strconv"
 	"testing"
 
@@ -111,15 +112,20 @@ func TestDecimalToReal(t *testing.T) {
 		})
 	})
 
-	t.Run("float32", func(t *testing.T) {
+	t.Run("float64", func(t *testing.T) {
 		checkDecimalToFloat := func(t *testing.T, str string, v float64, scale int32) {
 			n, err := decimal.Decimal32FromString(str, 9, 0)
 			require.NoError(t, err)
 			assert.Equalf(t, v, n.ToFloat64(scale), "Decimal Val: %s, Scale: %d", str, scale)
 
+			assert.Equalf(t, big.NewFloat(v).SetPrec(32), n.ToBigFloat(scale),
+				"Decimal Val: %s, Scale: %d", str, scale)
+
 			n64, err := decimal.Decimal64FromString(str, 18, 0)
 			require.NoError(t, err)
 			assert.Equalf(t, v, n64.ToFloat64(scale), "Decimal Val: %s, Scale: %d", str, scale)
+			assert.Equalf(t, big.NewFloat(v).SetPrec(64), n64.ToBigFloat(scale),
+				"Decimal Val: %s, Scale: %d", str, scale)
 		}
 		for _, tt := range tests {
 			t.Run(tt.decimalVal, func(t *testing.T) {
@@ -135,12 +141,18 @@ func TestDecimalToReal(t *testing.T) {
 				n, err := decimal.Decimal32FromString(str, 9, 0)
 				require.NoError(t, err)
 				assertFloat64Approx(t, v, n.ToFloat64(scale))
+
+				assert.Equalf(t, big.NewFloat(v).SetPrec(32), n.ToBigFloat(scale),
+					"Decimal Val: %s, Scale: %d", str, scale)
 			}
 
 			checkApproxDecimal64toFloat := func(str string, v float64, scale int32) {
 				n, err := decimal.Decimal64FromString(str, 9, 0)
 				require.NoError(t, err)
 				assertFloat64Approx(t, v, n.ToFloat64(scale))
+
+				bf, _ := n.ToBigFloat(scale).Float64()
+				assertFloat64Approx(t, v, bf)
 			}
 
 			// exact comparisons would succeed on most platforms, but not all power-of-ten

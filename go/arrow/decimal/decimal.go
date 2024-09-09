@@ -29,7 +29,17 @@ import (
 	"github.com/apache/arrow/go/v18/arrow/internal/debug"
 )
 
-type Num[T Decimal32 | Decimal64 | Decimal128 | Decimal256] interface {
+// DecimalTypes is a generic constraint representing the implemented decimal types
+// in this package, and a single point of update for future additions. Everything
+// else is constrained by this.
+type DecimalTypes interface {
+	Decimal32 | Decimal64 | Decimal128 | Decimal256
+}
+
+// Num is an interface that is useful for building generic types for all decimal
+// type implementations. It presents all the methods and interfaces necessary to
+// operate on the decimal objects without having to care about the bit width.
+type Num[T DecimalTypes] interface {
 	Negate() T
 	Add(T) T
 	Sub(T) T
@@ -60,7 +70,7 @@ type (
 	Decimal256 = decimal256.Num
 )
 
-func MaxPrecision[T Decimal32 | Decimal64 | Decimal128 | Decimal256]() int {
+func MaxPrecision[T DecimalTypes]() int {
 	// max precision is computed by Floor(log10(2^(nbytes * 8 - 1) - 1))
 	var z T
 	return int(math.Floor(math.Log10(math.Pow(2, float64(unsafe.Sizeof(z))*8-1) - 1)))
@@ -153,23 +163,11 @@ func (n Decimal64) FitsInPrecision(prec int32) bool {
 }
 
 func (n Decimal32) ToString(scale int32) string {
-	f := (&big.Float{}).SetInt64(int64(n))
-	if scale < 0 {
-		f.SetPrec(32).Mul(f, (&big.Float{}).SetInt64(int64(intPow(10, -scale))))
-	} else {
-		f.SetPrec(32).Quo(f, (&big.Float{}).SetInt64(int64(intPow(10, scale))))
-	}
-	return f.Text('f', int(scale))
+	return n.ToBigFloat(scale).Text('f', int(scale))
 }
 
 func (n Decimal64) ToString(scale int32) string {
-	f := (&big.Float{}).SetInt64(int64(n))
-	if scale < 0 {
-		f.SetPrec(64).Mul(f, (&big.Float{}).SetInt64(int64(intPow(10, -scale))))
-	} else {
-		f.SetPrec(64).Quo(f, (&big.Float{}).SetInt64(int64(intPow(10, scale))))
-	}
-	return f.Text('f', int(scale))
+	return n.ToBigFloat(scale).Text('f', int(scale))
 }
 
 var pt5 = big.NewFloat(0.5)
@@ -280,6 +278,14 @@ func Decimal64FromFloat[F float32 | float64](v F, prec, scale int32) (Decimal64,
 	}
 
 	return fromPositiveFloat[Decimal64](v, prec, scale)
+}
+
+func Decimal128FromFloat(v float64, prec, scale int32) (Decimal128, error) {
+	return decimal128.FromFloat64(v, prec, scale)
+}
+
+func Decimal256FromFloat(v float64, prec, scale int32) (Decimal256, error) {
+	return decimal256.FromFloat64(v, prec, scale)
 }
 
 func (n Decimal32) ToFloat32(scale int32) float32 {

@@ -67,7 +67,7 @@ type NumericType interface {
 // as a bitmap and thus the buffer can't be just reinterpreted as a []bool
 type FixedWidthType interface {
 	IntType | UintType |
-		FloatType | decimal.Decimal32 | decimal.Decimal64 | decimal.Decimal128 | decimal.Decimal256 |
+		FloatType | decimal.DecimalTypes |
 		DayTimeInterval | MonthDayNanoInterval
 }
 
