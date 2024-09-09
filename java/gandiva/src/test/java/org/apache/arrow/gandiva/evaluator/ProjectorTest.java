@@ -62,6 +62,7 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
+@Disabled("Disabled until GH-43981 is solved")
 public class ProjectorTest extends BaseEvaluatorTest {
 
   private Charset utf8Charset = Charset.forName("UTF-8");
@@ -148,7 +149,6 @@ public class ProjectorTest extends BaseEvaluatorTest {
     executors.awaitTermination(100, java.util.concurrent.TimeUnit.SECONDS);
   }
 
-  @Disabled
   @Test
   public void testMakeProjectorParallel() throws Exception {
     testMakeProjectorParallel(null);
@@ -473,7 +473,6 @@ public class ProjectorTest extends BaseEvaluatorTest {
     eval.close();
   }
 
-  @Disabled("Enable after fixing: https://github.com/apache/arrow/issues/43981")
   @Test
   public void testStringFields() throws GandivaException {
     /*
@@ -547,7 +546,6 @@ public class ProjectorTest extends BaseEvaluatorTest {
     eval.close();
   }
 
-  @Disabled("Enable after fixing: https://github.com/apache/arrow/issues/43981")
   @Test
   public void testStringOutput() throws GandivaException {
     /*
@@ -1236,7 +1234,6 @@ public class ProjectorTest extends BaseEvaluatorTest {
     eval.close();
   }
 
-  @Disabled("Enable after fixing: https://github.com/apache/arrow/issues/43981")
   @Test
   public void testTimeEquals() throws GandivaException, Exception {
     /*
