@@ -714,6 +714,29 @@ public class FlightSqlClientTests : IDisposable
         Assert.True(cancelResult.CancelStatus == CancelStatus.Cancelled);
     }
 
+    [Fact]
+    public async Task CancelQueryAsync()
+    {
+        // Arrange
+        var options = new FlightCallOptions();
+        var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("test-query");
+        var schema = new Schema
+                .Builder()
+            .Field(f => f.Name("DATA_TYPE_ID").DataType(Int32Type.Default).Nullable(false))
+            .Build();
+        var flightInfo = new FlightInfo(schema, flightDescriptor, new List<FlightEndpoint>(), 0, 0);
+
+        // Adding the flight info to the flight store for testing
+        _flightStore.Flights.Add(flightDescriptor, new FlightSqlHolder(flightDescriptor, schema, _testWebFactory.GetAddress()));
+
+        // Act
+        var cancelStatus = await _flightSqlClient.CancelQueryAsync(options, flightInfo);
+
+        // Assert
+        Assert.Equal(CancelStatus.Cancelled, cancelStatus);
+    }
+
+
     public void Dispose() => _testWebFactory?.Dispose();
 
     private void CompareSchemas(Schema expectedSchema, Schema actualSchema)
