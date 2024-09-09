@@ -48,9 +48,9 @@ full_version=${versions[$2]}
 if [ $platform = "macOS" ]; then
     echo "Downloading Python installer..."
 
-    if [ "$version" = "3.13" ];
+    if [ "$version" = "3.13" ] || [ "$version" = "3.13t" ];
     then
-        fname="python-${full_version}rc1-macos11.pkg"
+        fname="python-${full_version}rc2-macos11.pkg"
     elif [ "$(uname -m)" = "arm64" ] || \
          [ "$version" = "3.10" ] || \
          [ "$version" = "3.11" ] || \
