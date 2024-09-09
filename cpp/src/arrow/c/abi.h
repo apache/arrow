@@ -293,9 +293,9 @@ struct ArrowAsyncProducer {
   // async handler. As such, a consumer must be prepared to receive one or more calls to
   // `on_next_task` even after calling cancel if there are still requested arrays pending.
   //
-  // Any error encountered during handling a call to cancel must be reported via the on_error
-  // callback on the async stream handler.
-  void (*cancel)(struct ArrowAsyncProducer* self);  
+  // Any error encountered during handling a call to cancel must be reported via the
+  // on_error callback on the async stream handler.
+  void (*cancel)(struct ArrowAsyncProducer* self);
 
   // producer-specific opaque data.
   void* private_data;
@@ -321,13 +321,13 @@ struct ArrowAsyncDeviceStreamHandler {
   //
   // The addl_metadata argument can be null or can be used by a producer
   // to pass arbitrary extra information to the consumer beyond the metadata in the schema
-  // itself (such as total number of rows, context info, or otherwise). The data should 
-  // be passed using the same encoding as the metadata within the ArrowSchema struct 
+  // itself (such as total number of rows, context info, or otherwise). The data should
+  // be passed using the same encoding as the metadata within the ArrowSchema struct
   // itself (defined in the spec at
   // https://arrow.apache.org/docs/format/CDataInterface.html#c.ArrowSchema.metadata)
   //
-  // If addl_metadata is non-null then it only needs to exist for the lifetime of this call,
-  // a consumer who wants it to live after that must copy it to ensure lifetime.
+  // If addl_metadata is non-null then it only needs to exist for the lifetime of this
+  // call, a consumer who wants it to live after that must copy it to ensure lifetime.
   //
   // Return value: 0 if successful, `errno`-compatible error otherwise
   //
