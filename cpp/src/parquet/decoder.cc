@@ -2047,6 +2047,8 @@ class DeltaByteArrayDecoderImpl : public DecoderImpl, public TypedDecoderImpl<DT
   int num_valid_values_{0};
   uint32_t prefix_len_offset_{0};
   std::shared_ptr<ResizableBuffer> buffered_prefix_length_;
+  // buffer for decoded strings, which gurantees the lifetime of the decoded strings
+  // until the next call of Decode.
   std::shared_ptr<ResizableBuffer> buffered_data_;
 };
 
