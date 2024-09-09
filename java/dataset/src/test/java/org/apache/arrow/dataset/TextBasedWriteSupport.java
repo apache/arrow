@@ -17,10 +17,13 @@
 package org.apache.arrow.dataset;
 
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
+import java.io.Writer;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.util.Random;
 
 public class TextBasedWriteSupport {
@@ -43,7 +46,12 @@ public class TextBasedWriteSupport {
       File outputFolder, String fileExtension, String... values)
       throws URISyntaxException, IOException {
     TextBasedWriteSupport writer = new TextBasedWriteSupport(outputFolder, fileExtension);
-    try (FileWriter addValues = new FileWriter(new File(writer.uri), true)) {
+    try (Writer addValues =
+        Files.newBufferedWriter(
+            new File(writer.uri).toPath(),
+            StandardCharsets.UTF_8,
+            StandardOpenOption.CREATE,
+            StandardOpenOption.APPEND)) {
       for (Object value : values) {
         addValues.write(value + "\n");
       }
