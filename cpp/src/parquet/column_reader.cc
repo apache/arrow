@@ -2050,6 +2050,14 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
   LevelInfo leaf_info_;
 };
 
+/// In FLBARecordReader, we read fixed length byte array values.
+///
+/// Unlike other fixed length types, the `values_` buffer is not used to store
+/// values, instead we use `data_builder_` to store the values, and `null_bitmap_builder_`
+/// is used to store the null bitmap.
+///
+/// The `values_` buffer is used to store the temporary values for `Decode`, and it would
+/// be Reset after each `Decode` call. The `valid_bits_` buffer is never used.
 class FLBARecordReader final : public TypedRecordReader<FLBAType>,
                                virtual public BinaryRecordReader {
  public:
@@ -2134,6 +2142,13 @@ class FLBARecordReader final : public TypedRecordReader<FLBAType>,
   ::arrow::BufferBuilder data_builder_;
 };
 
+/// ByteArrayRecordReader reads variable length byte array values.
+///
+/// It only calls `DecodeArrowNonNull` and `DecodeArrow` to read values, and
+/// `Decode` and `DecodeSpaced` are not used.
+///
+/// The `values_` buffers are never used, and the `accumulator_`
+/// is used to store the values.
 class ByteArrayChunkedRecordReader final : public TypedRecordReader<ByteArrayType>,
                                            virtual public BinaryRecordReader {
  public:
@@ -2147,7 +2162,7 @@ class ByteArrayChunkedRecordReader final : public TypedRecordReader<ByteArrayTyp
 
   ::arrow::ArrayVector GetBuilderChunks() override {
     ::arrow::ArrayVector result = accumulator_.chunks;
-    if (result.size() == 0 || accumulator_.builder->length() > 0) {
+    if (result.empty() || accumulator_.builder->length() > 0) {
       std::shared_ptr<::arrow::Array> last_chunk;
       PARQUET_THROW_NOT_OK(accumulator_.builder->Finish(&last_chunk));
       result.push_back(std::move(last_chunk));
@@ -2176,6 +2191,11 @@ class ByteArrayChunkedRecordReader final : public TypedRecordReader<ByteArrayTyp
   typename EncodingTraits<ByteArrayType>::Accumulator accumulator_;
 };
 
+/// ByteArrayDictionaryRecordReader reads into ::arrow::dictionary(index: int32,
+/// values: binary).
+///
+/// If underlying column is dictionary encoded, it will call `DecodeIndices` to read,
+/// otherwise it will call `DecodeArrowNonNull` to read.
 class ByteArrayDictionaryRecordReader final : public TypedRecordReader<ByteArrayType>,
                                               virtual public DictionaryRecordReader {
  public:
@@ -2225,10 +2245,9 @@ class ByteArrayDictionaryRecordReader final : public TypedRecordReader<ByteArray
     } else {
       num_decoded = this->current_decoder_->DecodeArrowNonNull(
           static_cast<int>(values_to_read), &builder_);
-
-      /// Flush values since they have been copied into the builder
-      ResetValues();
     }
+    // Flush values since they have been copied into the builder
+    ResetValues();
     CheckNumberDecoded(num_decoded, values_to_read);
   }
 
@@ -2244,11 +2263,10 @@ class ByteArrayDictionaryRecordReader final : public TypedRecordReader<ByteArray
       num_decoded = this->current_decoder_->DecodeArrow(
           static_cast<int>(values_to_read), static_cast<int>(null_count),
           valid_bits_->mutable_data(), values_written_, &builder_);
-
-      /// Flush values since they have been copied into the builder
-      ResetValues();
     }
     ARROW_DCHECK_EQ(num_decoded, values_to_read - null_count);
+    // Flush values since they have been copied into the builder
+    ResetValues();
   }
 
  private:
