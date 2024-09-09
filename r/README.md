@@ -3,6 +3,7 @@
 <!-- badges: start -->
 
 [![cran](https://www.r-pkg.org/badges/version-last-release/arrow)](https://cran.r-project.org/package=arrow)
+<a href="https://apache.r-universe.dev"><img src="https://apache.r-universe.dev/badges/arrow" class="img-fluid" alt="R-universe status badge"></a>
 [![CI](https://github.com/apache/arrow/workflows/R/badge.svg?event=push)](https://github.com/apache/arrow/actions?query=workflow%3AR+branch%3Amain+event%3Apush)
 [![conda-forge](https://img.shields.io/conda/vn/conda-forge/r-arrow.svg)](https://anaconda.org/conda-forge/r-arrow)
 
@@ -23,7 +24,17 @@ Windows or macOS.
 install.packages("arrow")
 ```
 
-Alternatively, if you are using conda you can install arrow from conda-forge:
+Alternatively, you can install the development version of arrow from R-universe.
+
+```r
+# Binaries for MacOS/Windows
+install.packages("arrow", repos = "https://apache.r-universe.dev")
+
+# Binaries for Linux (Ubuntu 24.04)
+install.packages("arrow", repos = "https://rpolars.r-universe.dev/bin/linux/noble/4.4")
+```
+
+If you are using conda you can install arrow from conda-forge:
 
 ```sh
 conda install -c conda-forge --strict-channel-priority r-arrow
