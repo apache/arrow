@@ -1426,6 +1426,19 @@ serialized form is as follows:
     with the first 8 bytes empty or equal to ``-1`` to indicate that
     the buffer is uncompressed
 
+.. note::
+
+  Some Arrow implementations lack support for producing and consuming
+  IPC data with compressed buffers using one or either of the codecs
+  listed above. See :doc:`../status` for details.
+
+  Some applications might apply compression in the protocol they use
+  to store or transport Arrow IPC data. (For example, an HTTP server
+  might serve gzip-compressed Arrow IPC streams.) Applications that
+  already use compression in their storage or transport protocols
+  should avoid using buffer compression. Double compression typically
+  worsens performance and does not substantially improve compression
+  ratios.
 Byte Order (`Endianness`_)
 ---------------------------
 
