@@ -79,7 +79,7 @@ jobs:
             title: AMD64 Conda Python 3.9 Pandas 1.5
             python: 3.9
             pandas: "1.5"
-            numpy: 1.16
+            numpy: 1.24
           - name: conda-python-3.11-pandas-latest
             cache: conda-python-3.11
             image: conda-python-pandas
