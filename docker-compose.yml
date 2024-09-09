@@ -1072,14 +1072,17 @@ services:
     #   ARCH: amd64, arm64v8, ...
     #   PYARROW_VERSION: The test target pyarrow version such as "3.0.0"
     #   UBUNTU: 20.04, 22.04
-    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
+    #   PYTHON: 3.9, 3.10, 3.11, ...
+    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-${PYTHON}
     build:
       context: .
       dockerfile: ci/docker/linux-apt-python-3.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
+        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-${PYTHON}
       args:
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
+        ubuntu: ${UBUNTU}
+        python: ${PYTHON}
     shm_size: *shm-size
     environment:
       <<: [*common, *ccache]
