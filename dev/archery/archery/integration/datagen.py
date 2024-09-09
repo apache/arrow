@@ -1600,6 +1600,7 @@ def generate_decimal32_case():
     batch_sizes = [7, 10]
     return _generate_file('decimal32', fields, batch_sizes)
 
+
 def generate_decimal64_case():
     fields = [
         DecimalField(name='f{}'.format(i), precision=precision, scale=2,
@@ -1609,6 +1610,7 @@ def generate_decimal64_case():
 
     batch_sizes = [7, 10]
     return _generate_file('decimal64', fields, batch_sizes)
+
 
 def generate_decimal128_case():
     fields = [
