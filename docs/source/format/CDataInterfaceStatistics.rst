@@ -83,16 +83,18 @@ Arrow map array that uses this schema.
 
 Here is the outline of the schema for statistics::
 
-    column: int32,
-    values: map<
-      key: dictionary<
-        indices: int32,
-        dictionary: utf8
-      >,
-      items: dense_union<...all needed types...>,
+    struct<
+      column: int32,
+      values: map<
+        key: dictionary<
+          indices: int32,
+          dictionary: utf8
+        >,
+        items: dense_union<...all needed types...>,
+      >
     >
 
-Here is the details of top-level columns:
+Here is the details of top-level ``struct``:
 
 .. list-table::
    :header-rows: 1
