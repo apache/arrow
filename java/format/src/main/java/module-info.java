@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+@SuppressWarnings({ "requires-automatic", "requires-transitive-automatic" })
 module org.apache.arrow.format {
   exports org.apache.arrow.flatbuf;
   requires transitive flatbuffers.java;
