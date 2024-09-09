@@ -27,6 +27,7 @@ ENV ARROW_PYTHON_VENV /arrow-dev
 ARG ubuntu
 ARG python="3.12"
 COPY ci/scripts/install_python.sh /arrow/ci/scripts/
+# Ubuntu 20.04 uses python 3.8 which is unsuported for pyarrow
 RUN if [ "${ubuntu}" = "20.04" ]; then \
         quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
         apt update ${quiet} && \
