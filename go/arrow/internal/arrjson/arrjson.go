@@ -2113,7 +2113,7 @@ func decimal64FromJSON(vs []interface{}) []decimal.Decimal64 {
 	o := make([]decimal.Decimal64, len(vs))
 	for i, v := range vs {
 		if err := tmp.UnmarshalJSON([]byte(v.(string))); err != nil {
-			panic(fmt.Errorf("could not convert %v (%T) to decimal128: %w", v, v, err))
+			panic(fmt.Errorf("could not convert %v (%T) to decimal64: %w", v, v, err))
 		}
 
 		o[i] = decimal.Decimal64(tmp.Int64())
