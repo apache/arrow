@@ -291,7 +291,7 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
               .Value(out);
       }
       return Status::Invalid(
-          "Library supports 32-bit, 64-bit, 128-bit or 256-bit decimal values");
+          "Library only supports 32/64/128/256-bit decimal values");
     }
     case flatbuf::Type::Date: {
       auto date_type = static_cast<const flatbuf::Date*>(type_data);
