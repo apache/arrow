@@ -917,15 +917,19 @@ services:
     # Parameters:
     #   ARCH: amd64
     #   CUDA: <depends on your nvidia driver, should match system CUDA>
-    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-python-3
+    #   UBUNTU: 20.04, 22.04, ...
+    #   PYTHON: 3.9, 3.10, 3.11, ...
+    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-python-${PYTHON}
     build:
       context: .
       dockerfile: ci/docker/linux-apt-python-3.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-python-3
+        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-python-${PYTHON}
       args:
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-cpp
         numba: ${NUMBA}
+        ubuntu: ${UBUNTU}
+        python: ${PYTHON}
     shm_size: *shm-size
     environment:
       <<: [*common, *ccache, *sccache]
