@@ -17,6 +17,7 @@
 
 #include "arrow/compute/row/grouper.h"
 
+#include <iostream>
 #include <memory>
 #include <mutex>
 #include <type_traits>
@@ -134,6 +135,15 @@ struct NoKeysSegmenter : public BaseRowSegmenter {
     ARROW_RETURN_NOT_OK(CheckForGetNextSegment(batch, offset, {}));
     return MakeSegment(batch.length, offset, batch.length - offset, kDefaultExtends);
   }
+
+  Result<std::vector<Segment>> GetSegments(const ExecSpan& batch) override {
+    ARROW_RETURN_NOT_OK(CheckForGetNextSegment(batch, 0, {}));
+    if (batch.length == 0) {
+      return std::vector<Segment>{};
+    }
+    return std::vector<Segment>{
+        MakeSegment(batch.length, 0, batch.length - 0, kDefaultExtends)};
+  }
 };
 
 struct SimpleKeySegmenter : public BaseRowSegmenter {
@@ -208,6 +218,43 @@ struct SimpleKeySegmenter : public BaseRowSegmenter {
     return GetNextSegment(*array.type, GetValuesAsBytes(array), offset, batch.length);
   }
 
+  Result<std::vector<Segment>> GetSegments(const ExecSpan& batch) override {
+    ARROW_RETURN_NOT_OK(CheckForGetNextSegment(batch, 0, {key_type_}));
+    if (batch.length == 0) {
+      return std::vector<Segment>{};
+    }
+    const auto& value = batch.values[0];
+    if (value.is_scalar()) {
+      ARROW_ASSIGN_OR_RAISE(auto segment, GetNextSegment(*value.scalar, 0, batch.length));
+      return std::vector<Segment>{std::move(segment)};
+    }
+    ARROW_DCHECK(value.is_array());
+    const auto& array = value.array;
+    if (array.GetNullCount() > 0) {
+      return Status::NotImplemented("segmenting a nullable array");
+    }
+    std::vector<Segment> segments;
+    const uint8_t* array_bytes = GetValuesAsBytes(array);
+    int64_t byte_width = array.type->byte_width();
+    int64_t offset = 0;
+    bool extends = kDefaultExtends;
+    if (!extend_was_called_) {
+      extend_was_called_ = true;
+    } else {
+      extends = (0 == memcmp(save_key_data_.data(), array_bytes, save_key_data_.size()));
+    }
+    while (offset < array.length) {
+      int64_t match_length = GetMatchLength(array_bytes + offset * byte_width, byte_width,
+                                            array_bytes, offset, array.length);
+      segments.push_back(
+          MakeSegment(array.length, offset, match_length, offset == 0 ? extends : false));
+      offset += match_length;
+    }
+    memcpy(save_key_data_.data(), array_bytes + (array.length - 1) * byte_width,
+           save_key_data_.size());
+    return segments;
+  }
+
  private:
   TypeHolder key_type_;
   std::vector<uint8_t> save_key_data_;  // previously seen segment-key grouping data
@@ -259,6 +306,8 @@ struct AnyKeysSegmenter : public BaseRowSegmenter {
   }
 
   Result<Segment> GetNextSegment(const ExecSpan& batch, int64_t offset) override {
+    // std::cout << "Debug GetNextSegment" << std::endl;
+    // return Status::Invalid("Debug GetNextSegment");
     ARROW_RETURN_NOT_OK(CheckForGetNextSegment(batch, offset, key_types_));
     if (offset == batch.length) {
       return MakeSegment(batch.length, offset, 0, kEmptyExtends);
@@ -292,6 +341,48 @@ struct AnyKeysSegmenter : public BaseRowSegmenter {
     } else {
       return Status::Invalid("segmenting unsupported datum kind ", datum.kind());
     }
+  }
+
+  Result<std::vector<Segment>> GetSegments(const ExecSpan& batch) override {
+    ARROW_RETURN_NOT_OK(CheckForGetNextSegment(batch, 0, {key_types_}));
+    if (batch.length == 0) {
+      return std::vector<Segment>{};
+    }
+
+    bool extends = kDefaultExtends;
+    // the group id must be computed prior to resetting the grouper, since it is compared
+    // to save_group_id_, and after resetting the grouper produces incomparable group ids
+    ARROW_ASSIGN_OR_RAISE(auto group_id, MapGroupIdAt(batch, 0));
+    if (save_group_id_ != kNoGroupId && group_id != save_group_id_) {
+      extends = false;
+    }
+    // resetting drops grouper's group-ids, freeing-up memory for the next segment
+    ARROW_RETURN_NOT_OK(grouper_->Reset());
+
+    std::vector<Segment> segments;
+    ARROW_ASSIGN_OR_RAISE(auto datum, grouper_->Consume(batch, 0));
+    DCHECK(datum.is_array());
+    // `data` is an array whose index-0 corresponds to index `offset` of `batch`
+    const std::shared_ptr<ArrayData>& data = datum.array();
+    DCHECK_EQ(data->length, batch.length);
+    ARROW_DCHECK(data->GetNullCount() == 0);
+    DCHECK_EQ(data->type->id(), GroupIdType::type_id);
+    const group_id_t* group_ids = data->GetValues<group_id_t>(1);
+    int64_t current_group_offset = 0;
+    int64_t cursor;
+    for (cursor = 1; cursor < data->length; ++cursor) {
+      if (group_ids[cursor] != group_ids[current_group_offset]) {
+        segments.push_back(MakeSegment(batch.length, current_group_offset,
+                                       cursor - current_group_offset,
+                                       current_group_offset == 0 ? extends : false));
+        current_group_offset = cursor;
+      }
+    }
+    segments.push_back(MakeSegment(batch.length, current_group_offset,
+                                   cursor - current_group_offset,
+                                   current_group_offset == 0 ? extends : false));
+    save_group_id_ = group_ids[batch.length - 1];
+    return segments;
   }
 
  private:
