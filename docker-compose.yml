@@ -1558,8 +1558,6 @@ services:
         tz: ${TZ}
         r_prune_deps: ${R_PRUNE_DEPS}
         r_duckdb_dev: ${R_DUCKDB_DEV:-}
-        ubuntu: ${UBUNTU}
-        python: ${PYTHON}
     shm_size: *shm-size
     environment:
       <<: [*common, *ccache, *sccache]
