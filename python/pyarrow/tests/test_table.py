@@ -3611,7 +3611,8 @@ def test_recordbatch_non_cpu(cuda_context, cpu_recordbatch, cuda_recordbatch,
 
     # add_column(), set_column() test
     for fn in [cuda_recordbatch.add_column, cuda_recordbatch.set_column]:
-        col = pa.array([-2, -1, 0, 1, 2], pa.int8()).copy_to(cuda_context.memory_manager)
+        col = pa.array([-2, -1, 0, 1, 2], pa.int8()
+                       ).copy_to(cuda_context.memory_manager)
         new_batch = fn(2, 'c2', col)
         verify_cuda_recordbatch(
             new_batch, expected_schema=schema.append(pa.field('c2', pa.int8())))
