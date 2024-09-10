@@ -761,9 +761,10 @@ TEST_F(TestConvertParquetSchema, ParquetSchemaArrowExtensions) {
     // fields.
     ArrowReaderProperties props;
     props.set_arrow_extensions_enabled(true);
-    auto arrow_schema =
-        ::arrow::schema({::arrow::field("json_1", ::arrow::extension::json(), true),
-                         ::arrow::field("json_2", ::arrow::extension::json(), true)});
+    auto arrow_schema = ::arrow::schema(
+        {::arrow::field("json_1", ::arrow::extension::json(), true),
+         ::arrow::field("json_2", ::arrow::extension::json(::arrow::large_utf8()),
+                        true)});
     std::shared_ptr<KeyValueMetadata> metadata{};
     ASSERT_OK(ConvertSchema(parquet_fields, metadata, props));
     CheckFlatSchema(arrow_schema);
@@ -774,12 +775,13 @@ TEST_F(TestConvertParquetSchema, ParquetSchemaArrowExtensions) {
     // Parquet logical type has precedence. Both json_1 and json_2 should be returned
     // as a json() field even though extensions are not enabled.
     ArrowReaderProperties props;
-    props.set_arrow_extensions_enabled(true);
+    props.set_arrow_extensions_enabled(false);
     std::shared_ptr<KeyValueMetadata> field_metadata =
         ::arrow::key_value_metadata({"foo", "bar"}, {"biz", "baz"});
     auto arrow_schema = ::arrow::schema(
         {::arrow::field("json_1", ::arrow::extension::json(), true, field_metadata),
-         ::arrow::field("json_2", ::arrow::extension::json(), true)});
+         ::arrow::field("json_2", ::arrow::extension::json(::arrow::large_utf8()),
+                        true)});
 
     std::shared_ptr<KeyValueMetadata> metadata;
     ASSERT_OK(ArrowSchemaToParquetMetadata(arrow_schema, metadata));

@@ -1450,25 +1450,35 @@ TEST_F(TestJsonParquetIO, JsonExtension) {
   ])";
 
   const auto json_type = ::arrow::extension::json();
-  const auto json_string_array = ::arrow::ArrayFromJSON(::arrow::utf8(), json);
-  const auto json_array = ::arrow::ExtensionType::WrapArray(json_type, json_string_array);
+  const auto string_array = ::arrow::ArrayFromJSON(::arrow::utf8(), json);
+  const auto json_array = ::arrow::ExtensionType::WrapArray(json_type, string_array);
+
+  const auto json_large_type = ::arrow::extension::json(::arrow::large_utf8());
+  const auto large_string_array = ::arrow::ArrayFromJSON(::arrow::large_utf8(), json);
+  const auto json_large_array =
+      ::arrow::ExtensionType::WrapArray(json_large_type, large_string_array);
 
   // When the original Arrow schema isn't stored and Arrow extensions are disabled,
   // LogicalType::JSON is read as utf8.
-  this->RoundTripSingleColumn(json_array, json_string_array,
+  this->RoundTripSingleColumn(json_array, string_array,
+                              default_arrow_writer_properties());
+  this->RoundTripSingleColumn(json_large_array, string_array,
                               default_arrow_writer_properties());
 
   // When the original Arrow schema isn't stored and Arrow extensions are enabled,
-  // LogicalType::JSON is read as JsonExtensionType.
+  // LogicalType::JSON is read as JsonExtensionType with utf8 storage.
   ::parquet::ArrowReaderProperties reader_properties;
   reader_properties.set_arrow_extensions_enabled(true);
   this->RoundTripSingleColumn(json_array, json_array, default_arrow_writer_properties(),
                               reader_properties);
+  this->RoundTripSingleColumn(json_large_array, json_array,
+                              default_arrow_writer_properties(), reader_properties);
 
-  // When the original Arrow schema is stored, the stored Arrow type is always respected.
+  // When the original Arrow schema is stored, the stored Arrow type is respected.
   const auto writer_properties =
       ::parquet::ArrowWriterProperties::Builder().store_schema()->build();
   this->RoundTripSingleColumn(json_array, json_array, writer_properties);
+  this->RoundTripSingleColumn(json_large_array, json_large_array, writer_properties);
 }
 
 using TestNullParquetIO = TestParquetIO<::arrow::NullType>;
