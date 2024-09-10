@@ -65,14 +65,14 @@ class GeometryStatisticsImpl {
       return true;
     }
 
-    auto wkb_types = bounder_.WkbTypes();
-    auto other_wkb_types = other.bounder_.WkbTypes();
-    if (wkb_types.size() != other_wkb_types.size()) {
+    auto geometry_types = bounder_.GeometryTypes();
+    auto other_geometry_types = other.bounder_.GeometryTypes();
+    if (geometry_types.size() != other_geometry_types.size()) {
       return false;
     }
 
-    for (size_t i = 0; i < wkb_types.size(); i++) {
-      if (wkb_types[i] != other_wkb_types[i]) {
+    for (size_t i = 0; i < geometry_types.size(); i++) {
+      if (geometry_types[i] != other_geometry_types[i]) {
         return false;
       }
     }
@@ -87,7 +87,7 @@ class GeometryStatisticsImpl {
     }
 
     bounder_.ReadBox(other.bounder_.Bounds());
-    bounder_.ReadGeometryTypes(other.bounder_.WkbTypes());
+    bounder_.ReadGeometryTypes(other.bounder_.GeometryTypes());
   }
 
   void Update(const ByteArray* values, int64_t num_values, int64_t null_count) {
@@ -136,7 +136,7 @@ class GeometryStatisticsImpl {
     const double* maxes = bounder_.Bounds().max;
 
     EncodedGeometryStatistics out;
-    out.geometry_types = bounder_.WkbTypes();
+    out.geometry_types = bounder_.GeometryTypes();
 
     out.xmin = mins[0];
     out.xmax = maxes[0];
@@ -191,6 +191,12 @@ class GeometryStatisticsImpl {
 
   bool is_valid() const { return is_valid_; }
 
+  const double* GetMinBounds() { return bounder_.Bounds().min; }
+
+  const double* GetMaxBounds() { return bounder_.Bounds().max; }
+
+  std::vector<int32_t> GetGeometryTypes() const { return bounder_.GeometryTypes(); }
+
  private:
   geometry::WKBGeometryBounder bounder_;
   bool is_valid_ = true;
@@ -238,6 +244,60 @@ std::shared_ptr<GeometryStatistics> GeometryStatistics::clone() const {
   std::unique_ptr<GeometryStatisticsImpl> impl =
       std::make_unique<GeometryStatisticsImpl>(*impl_);
   return std::make_shared<GeometryStatistics>(std::move(impl));
+}
+
+double GeometryStatistics::GetXMin() const {
+  const double* mins = impl_->GetMinBounds();
+  return mins[0];
+}
+
+double GeometryStatistics::GetXMax() const {
+  const double* maxes = impl_->GetMaxBounds();
+  return maxes[0];
+}
+
+double GeometryStatistics::GetYMin() const {
+  const double* mins = impl_->GetMinBounds();
+  return mins[1];
+}
+
+double GeometryStatistics::GetYMax() const {
+  const double* maxes = impl_->GetMaxBounds();
+  return maxes[1];
+}
+
+double GeometryStatistics::GetZMin() const {
+  const double* mins = impl_->GetMinBounds();
+  return mins[2];
+}
+
+double GeometryStatistics::GetZMax() const {
+  const double* maxes = impl_->GetMaxBounds();
+  return maxes[2];
+}
+
+double GeometryStatistics::GetMMin() const {
+  const double* mins = impl_->GetMinBounds();
+  return mins[3];
+}
+
+double GeometryStatistics::GetMMax() const {
+  const double* maxes = impl_->GetMaxBounds();
+  return maxes[3];
+}
+
+bool GeometryStatistics::HasZ() const { return (GetZMax() - GetZMin()) > 0; }
+
+bool GeometryStatistics::HasM() const { return (GetMMax() - GetMMin()) > 0; }
+
+std::vector<int32_t> GeometryStatistics::GetGeometryTypes() const {
+  return impl_->GetGeometryTypes();
+}
+
+std::vector<std::pair<std::string, std::string>> GeometryStatistics::GetCoverings()
+    const {
+  // TODO (kontinuation): support coverings
+  return {};
 }
 
 namespace {

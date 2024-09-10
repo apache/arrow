@@ -597,7 +597,9 @@ class WKBGeometryBounder {
 
     // Keep track of geometry types encountered if at the top level
     if (record_wkb_type) {
-      wkb_types_.insert(wkb_geometry_type);
+      GeometryType::geometry_type geometry_type =
+          GeometryType::FromWKB(wkb_geometry_type);
+      geometry_types_.insert(geometry_type);
     }
 
     switch (geometry_type) {
@@ -629,14 +631,14 @@ class WKBGeometryBounder {
 
   void ReadBox(const BoundingBox& box) { box_.Merge(box); }
 
-  void ReadGeometryTypes(const std::vector<uint32_t>& geometry_types) {
-    wkb_types_.insert(geometry_types.begin(), geometry_types.end());
+  void ReadGeometryTypes(const std::vector<int32_t>& geometry_types) {
+    geometry_types_.insert(geometry_types.begin(), geometry_types.end());
   }
 
   const BoundingBox& Bounds() const { return box_; }
 
-  std::vector<uint32_t> WkbTypes() const {
-    std::vector<uint32_t> out(wkb_types_.begin(), wkb_types_.end());
+  std::vector<int32_t> GeometryTypes() const {
+    std::vector<int32_t> out(geometry_types_.begin(), geometry_types_.end());
     std::sort(out.begin(), out.end());
     return out;
   }
@@ -646,13 +648,13 @@ class WKBGeometryBounder {
   void Reset() {
     box_.Reset();
     bounder_.Reset();
-    wkb_types_.clear();
+    geometry_types_.clear();
   }
 
  private:
   BoundingBox box_;
   WKBGenericSequenceBounder bounder_;
-  std::unordered_set<uint32_t> wkb_types_;
+  std::unordered_set<int32_t> geometry_types_;
 };
 
 }  // namespace parquet::geometry

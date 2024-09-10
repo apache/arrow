@@ -94,8 +94,7 @@ static EncodedGeometryStatistics MakeEncodedGeometryStatistics(
 
   if (stats.__isset.geometry_stats) {
     const format::GeometryStatistics& geom_stats = stats.geometry_stats;
-    out.geometry_types = std::vector<uint32_t>(geom_stats.geometry_types.begin(),
-                                               geom_stats.geometry_types.end());
+    out.geometry_types = geom_stats.geometry_types;
 
     out.xmin = geom_stats.bbox.xmin;
     out.xmax = geom_stats.bbox.xmax;

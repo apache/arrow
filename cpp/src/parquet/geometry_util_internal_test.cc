@@ -142,12 +142,12 @@ TEST_P(WKBTestFixture, TestWKBBounderNonEmpty) {
 
   bounder.Flush();
   EXPECT_EQ(bounder.Bounds(), item.box);
-  uint32_t wkb_type = item.dimensions * 1000 + item.geometry_type;
-  EXPECT_THAT(bounder.WkbTypes(), ::testing::ElementsAre(::testing::Eq(wkb_type)));
+  EXPECT_THAT(bounder.GeometryTypes(),
+              ::testing::ElementsAre(::testing::Eq(item.geometry_type)));
 
   bounder.Reset();
   EXPECT_EQ(bounder.Bounds(), BoundingBox());
-  EXPECT_TRUE(bounder.WkbTypes().empty());
+  EXPECT_TRUE(bounder.GeometryTypes().empty());
 }
 
 INSTANTIATE_TEST_SUITE_P(

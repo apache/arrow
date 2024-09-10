@@ -133,11 +133,11 @@ class PARQUET_EXPORT EncodedGeometryStatistics {
   double mmin{kInf};
   double mmax{-kInf};
   std::vector<std::pair<std::string, std::string>> coverings;
-  std::vector<uint32_t> geometry_types;
+  std::vector<int32_t> geometry_types;
 
-  bool has_z() const { return (zmax - zmin) > 0; }
+  bool has_z() const { return (zmax - zmin) >= 0; }
 
-  bool has_m() const { return (mmax - mmin) > 0; }
+  bool has_m() const { return (mmax - mmin) >= 0; }
 };
 
 class GeometryStatisticsImpl;
@@ -167,6 +167,21 @@ class PARQUET_EXPORT GeometryStatistics {
 
   void Decode(const EncodedGeometryStatistics& encoded);
 
+  double GetXMin() const;
+  double GetXMax() const;
+  double GetYMin() const;
+  double GetYMax() const;
+  double GetZMin() const;
+  double GetZMax() const;
+  double GetMMin() const;
+  double GetMMax() const;
+
+  bool HasZ() const;
+  bool HasM() const;
+
+  std::vector<int32_t> GetGeometryTypes() const;
+  std::vector<std::pair<std::string, std::string>> GetCoverings() const;
+
  private:
   std::unique_ptr<GeometryStatisticsImpl> impl_;
 };
@@ -178,7 +193,6 @@ class PARQUET_EXPORT GeometryStatistics {
 class PARQUET_EXPORT EncodedStatistics {
   std::string max_, min_;
   bool is_signed_ = false;
-  EncodedGeometryStatistics geometry_statistics_;
 
  public:
   EncodedStatistics() = default;
@@ -196,13 +210,17 @@ class PARQUET_EXPORT EncodedStatistics {
   bool has_max = false;
   bool has_null_count = false;
   bool has_distinct_count = false;
-  bool has_geometry_statistics = false;
 
   // When all values in the statistics are null, it is set to true.
   // Otherwise, at least one value is not null, or we are not sure at all.
   // Page index requires this information to decide whether a data page
   // is a null page or not.
   bool all_null_value = false;
+
+  // Statistics for geometry column. geometry_statistics_ is only valid when
+  // has_geometry_statistics is true.
+  EncodedGeometryStatistics geometry_statistics_;
+  bool has_geometry_statistics = false;
 
   // From parquet-mr
   // Don't write stats larger than the max size rather than truncating. The
