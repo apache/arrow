@@ -56,7 +56,7 @@ using GroupIdType = CTypeTraits<group_id_t>::ArrowType;
 auto g_group_id_type = std::make_shared<GroupIdType>();
 
 template <typename Value>
-ARROW_DEPRECATED("Deprecated in 18.0.0.")
+ARROW_DEPRECATED("Deprecated in 18.0.0 along with GetSegments.")
 Status CheckForGetNextSegment(const std::vector<Value>& values, int64_t length,
                               int64_t offset, const std::vector<TypeHolder>& key_types) {
   if (offset < 0 || offset > length) {
@@ -78,7 +78,7 @@ Status CheckForGetNextSegment(const std::vector<Value>& values, int64_t length,
 }
 
 template <typename Batch>
-ARROW_DEPRECATED("Deprecated in 18.0.0.")
+ARROW_DEPRECATED("Deprecated in 18.0.0 along with GetSegments.")
 enable_if_t<std::is_same<Batch, ExecSpan>::value || std::is_same<Batch, ExecBatch>::value,
             Status> CheckForGetNextSegment(const Batch& batch, int64_t offset,
                                            const std::vector<TypeHolder>& key_types) {
@@ -153,7 +153,7 @@ struct SimpleKeySegmenter : public BaseRowSegmenter {
 
   // Checks whether the given grouping data extends the current segment, i.e., is equal to
   // previously seen grouping data, which is updated with each invocation.
-  ARROW_DEPRECATED("Deprecated in 18.0.0.")
+  ARROW_DEPRECATED("Deprecated in 18.0.0 along with GetSegments.")
   bool ExtendDeprecated(const void* data) {
     bool extends = !extend_was_called_
                        ? kDefaultExtends
@@ -163,7 +163,7 @@ struct SimpleKeySegmenter : public BaseRowSegmenter {
     return extends;
   }
 
-  ARROW_DEPRECATED("Deprecated in 18.0.0.")
+  ARROW_DEPRECATED("Deprecated in 18.0.0 along with GetSegments.")
   Result<Segment> GetNextSegmentDeprecated(const Scalar& scalar, int64_t offset,
                                            int64_t length) {
     ARROW_RETURN_NOT_OK(CheckType(*scalar.type));
@@ -175,7 +175,7 @@ struct SimpleKeySegmenter : public BaseRowSegmenter {
     return MakeSegment(length, offset, length, extends);
   }
 
-  ARROW_DEPRECATED("Deprecated in 18.0.0.")
+  ARROW_DEPRECATED("Deprecated in 18.0.0 along with GetSegments.")
   Result<Segment> GetNextSegmentDeprecated(const DataType& array_type,
                                            const uint8_t* array_bytes, int64_t offset,
                                            int64_t length) {
@@ -256,7 +256,7 @@ struct SimpleKeySegmenter : public BaseRowSegmenter {
     return Status::OK();
   }
 
-  inline const uint8_t* GetValuesAsBytes(const ArraySpan& data, int64_t offset = 0) {
+  static const uint8_t* GetValuesAsBytes(const ArraySpan& data, int64_t offset = 0) {
     DCHECK_GT(data.type->byte_width(), 0);
     int64_t absolute_byte_offset = (data.offset + offset) * data.type->byte_width();
     return data.GetValues<uint8_t>(1, absolute_byte_offset);
@@ -314,7 +314,7 @@ struct AnyKeysSegmenter : public BaseRowSegmenter {
     return Status::OK();
   }
 
-  ARROW_DEPRECATED("Deprecated in 18.0.0.")
+  ARROW_DEPRECATED("Deprecated in 18.0.0 along with GetSegments.")
   bool Extend(const void* data) {
     auto group_id = *static_cast<const group_id_t*>(data);
     bool extends =
