@@ -175,7 +175,7 @@ class ARROW_EXPORT Decimal64 : public BasicDecimal64 {
       : BasicDecimal64(value) {}
 
   explicit Decimal64(const BasicDecimal32& value) noexcept
-    : BasicDecimal64(static_cast<int64_t>(value.value())) {}
+      : BasicDecimal64(static_cast<int64_t>(value.value())) {}
 
   /// \brief Parse the number from a base 10 string representation
   explicit Decimal64(const std::string& value);

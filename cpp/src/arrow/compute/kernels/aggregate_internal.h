@@ -147,7 +147,8 @@ struct GetSumType<T, enable_if_decimal32<T>> {
 };
 
 template <typename T>
-struct GetSumType<T, enable_if_t<is_decimal_type<T>::value && !is_decimal32_type<T>::value, void>> {
+struct GetSumType<
+    T, enable_if_t<is_decimal_type<T>::value && !is_decimal32_type<T>::value, void>> {
   using SumType = typename TypeTraits<T>::CType;
 };
 

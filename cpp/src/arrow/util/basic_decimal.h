@@ -369,7 +369,7 @@ class ARROW_EXPORT BasicDecimal64 : public BasicDecimal<int64_t> {
   /// \brief Absolute value (in-place)
   BasicDecimal64& Abs();
   /// \brief Absolute value
-  static BasicDecimal64 Abs(const BasicDecimal64& left);  
+  static BasicDecimal64 Abs(const BasicDecimal64& left);
   /// \brief Add a number to this one. The result is truncated to 32 bits.
   BasicDecimal64& operator+=(const BasicDecimal64& right);
   /// \brief Subtract a number from this one. The result is truncated to 32 bits.

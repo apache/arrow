@@ -1020,9 +1020,8 @@ Result<std::shared_ptr<DataType>> GetDecimal(const RjObject& json_type) {
       return decimal256(precision, scale);
   }
 
-  return Status::Invalid(
-      "Only 32/64/128/256-bit Decimals are supported. Received",
-      bit_width);
+  return Status::Invalid("Only 32/64/128/256-bit Decimals are supported. Received",
+                         bit_width);
 }
 
 Result<std::shared_ptr<DataType>> GetDate(const RjObject& json_type) {

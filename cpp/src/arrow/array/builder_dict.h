@@ -300,7 +300,7 @@ class DictionaryBuilderBase : public ArrayBuilder {
 
   /// \brief Append a decimal (only for Decimal32Type)
   template <typename T1 = T>
-  enable_if_decimal32<T1, Status> Append(const Decimal32& value) {
+  enable_if_decimal32<T1, Status> Append(const Decimal32 value) {
     uint8_t data[4];
     value.ToBytes(data);
     return Append(data, 4);
@@ -308,7 +308,7 @@ class DictionaryBuilderBase : public ArrayBuilder {
 
   /// \brief Append a decimal (only for Decimal64Type)
   template <typename T1 = T>
-  enable_if_decimal64<T1, Status> Append(const Decimal64& value) {
+  enable_if_decimal64<T1, Status> Append(const Decimal64 value) {
     uint8_t data[8];
     value.ToBytes(data);
     return Append(data, 8);
