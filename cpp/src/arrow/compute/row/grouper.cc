@@ -82,11 +82,15 @@ ARROW_DEPRECATED("Deprecated in 18.0.0 along with GetSegments.")
 enable_if_t<std::is_same<Batch, ExecSpan>::value || std::is_same<Batch, ExecBatch>::value,
             Status> CheckForGetNextSegment(const Batch& batch, int64_t offset,
                                            const std::vector<TypeHolder>& key_types) {
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   return CheckForGetNextSegment(batch.values, batch.length, offset, key_types);
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
 }
 
 Status CheckForGetSegments(const ExecSpan& batch,
                            const std::vector<TypeHolder>& key_types) {
+  // TODO: Move the implementation of CheckForGetNextSegment here once we remove the
+  // deprecated functions.
   ARROW_SUPPRESS_DEPRECATION_WARNING
   return CheckForGetNextSegment(batch, 0, key_types);
   ARROW_UNSUPPRESS_DEPRECATION_WARNING
@@ -166,30 +170,36 @@ struct SimpleKeySegmenter : public BaseRowSegmenter {
   ARROW_DEPRECATED("Deprecated in 18.0.0 along with GetSegments.")
   Result<Segment> GetNextSegmentDeprecated(const Scalar& scalar, int64_t offset,
                                            int64_t length) {
+    ARROW_SUPPRESS_DEPRECATION_WARNING
     ARROW_RETURN_NOT_OK(CheckType(*scalar.type));
     if (!scalar.is_valid) {
       return Status::Invalid("segmenting an invalid scalar");
     }
     auto data = checked_cast<const PrimitiveScalarBase&>(scalar).data();
-    bool extends = length > 0 ? Extend(data) : kEmptyExtends;
+    bool extends = length > 0 ? ExtendDeprecated(data) : kEmptyExtends;
     return MakeSegment(length, offset, length, extends);
+    ARROW_UNSUPPRESS_DEPRECATION_WARNING
   }
 
   ARROW_DEPRECATED("Deprecated in 18.0.0 along with GetSegments.")
   Result<Segment> GetNextSegmentDeprecated(const DataType& array_type,
                                            const uint8_t* array_bytes, int64_t offset,
                                            int64_t length) {
+    ARROW_SUPPRESS_DEPRECATION_WARNING
     RETURN_NOT_OK(CheckType(array_type));
     DCHECK_LE(offset, length);
     int64_t byte_width = array_type.byte_width();
     int64_t match_length = GetMatchLength(array_bytes + offset * byte_width, byte_width,
                                           array_bytes, offset, length);
-    bool extends = length > 0 ? Extend(array_bytes + offset * byte_width) : kEmptyExtends;
+    bool extends =
+        length > 0 ? ExtendDeprecated(array_bytes + offset * byte_width) : kEmptyExtends;
     return MakeSegment(length, offset, match_length, extends);
+    ARROW_UNSUPPRESS_DEPRECATION_WARNING
   }
 
   ARROW_DEPRECATED("Deprecated in 18.0.0. Use GetSegments instead.")
   Result<Segment> GetNextSegment(const ExecSpan& batch, int64_t offset) override {
+    ARROW_SUPPRESS_DEPRECATION_WARNING
     ARROW_RETURN_NOT_OK(CheckForGetNextSegment(batch, offset, {key_type_}));
     if (offset == batch.length) {
       return MakeSegment(batch.length, offset, 0, kEmptyExtends);
@@ -205,6 +215,7 @@ struct SimpleKeySegmenter : public BaseRowSegmenter {
     }
     return GetNextSegmentDeprecated(*array.type, GetValuesAsBytes(array), offset,
                                     batch.length);
+    ARROW_UNSUPPRESS_DEPRECATION_WARNING
   }
 
   Result<std::vector<Segment>> GetSegments(const ExecSpan& batch) override {
@@ -325,6 +336,7 @@ struct AnyKeysSegmenter : public BaseRowSegmenter {
 
   ARROW_DEPRECATED("Deprecated in 18.0.0. Use GetSegments instead.")
   Result<Segment> GetNextSegment(const ExecSpan& batch, int64_t offset) override {
+    ARROW_SUPPRESS_DEPRECATION_WARNING
     ARROW_RETURN_NOT_OK(CheckForGetNextSegment(batch, offset, key_types_));
     if (offset == batch.length) {
       return MakeSegment(batch.length, offset, 0, kEmptyExtends);
@@ -358,6 +370,7 @@ struct AnyKeysSegmenter : public BaseRowSegmenter {
     } else {
       return Status::Invalid("segmenting unsupported datum kind ", datum.kind());
     }
+    ARROW_UNSUPPRESS_DEPRECATION_WARNING
   }
 
   Result<std::vector<Segment>> GetSegments(const ExecSpan& batch) override {
@@ -387,7 +400,7 @@ struct AnyKeysSegmenter : public BaseRowSegmenter {
     // `data` is an array whose index-0 corresponds to index `offset` of `batch`
     const std::shared_ptr<ArrayData>& data = datum.array();
     DCHECK_EQ(data->length, batch.length);
-    DCHECK(data->GetNullCount() == 0);
+    DCHECK_EQ(data->GetNullCount(), 0);
     DCHECK_EQ(data->type->id(), GroupIdType::type_id);
     const group_id_t* group_ids = data->GetValues<group_id_t>(1);
     int64_t current_group_offset = 0;
