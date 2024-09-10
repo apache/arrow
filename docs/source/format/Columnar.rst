@@ -1399,10 +1399,10 @@ uncompressed or all compressed separately using the same codec.
 
 .. note::
 
-  ``lz4`` compression codec means the
-  `LZ4 frame format <https://github.com/lz4/lz4/blob/dev/doc/lz4_Frame_format.md>`_
-  and should not to be confused with
-  `"raw" (also called "block") format <https://github.com/lz4/lz4/blob/dev/doc/lz4_Block_format.md>`_.
+   ``lz4`` compression codec means the
+   `LZ4 frame format <https://github.com/lz4/lz4/blob/dev/doc/lz4_Frame_format.md>`_
+   and should not to be confused with
+   `"raw" (also called "block") format <https://github.com/lz4/lz4/blob/dev/doc/lz4_Block_format.md>`_.
 
 The difference between compressed and uncompressed buffers in the
 serialized form is as follows:
@@ -1428,18 +1428,17 @@ serialized form is as follows:
 
 .. note::
 
-  Some Arrow implementations lack support for producing and consuming
-  IPC data with compressed buffers using one or either of the codecs
-  listed above. See :doc:`../status` for details.
+   Some Arrow implementations lack support for producing and consuming
+   IPC data with compressed buffers using one or either of the codecs
+   listed above. See :doc:`../status` for details.
 
-  Some applications might apply compression in the protocol they use
-  to store or transport Arrow IPC data. (For example, an HTTP server
-  might serve gzip-compressed Arrow IPC streams.) Applications that
-  already use compression in their storage or transport protocols
-  should avoid using buffer compression. Double compression typically
-  worsens performance and does not substantially improve compression
-  ratios.
-
+   Some applications might apply compression in the protocol they use
+   to store or transport Arrow IPC data. (For example, an HTTP server
+   might serve gzip-compressed Arrow IPC streams.) Applications that
+   already use compression in their storage or transport protocols
+   should avoid using buffer compression. Double compression typically
+   worsens performance and does not substantially improve compression
+   ratios.
 
 Byte Order (`Endianness`_)
 ---------------------------
