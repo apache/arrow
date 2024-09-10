@@ -145,6 +145,16 @@ inline TimePoint TimePoint_from_ns(int64_t val) {
 }
 
 ARROW_PYTHON_EXPORT
+inline std::chrono::system_clock::time_point TimePoint_to_system_time(TimePoint val) {
+  return std::chrono::time_point_cast<std::chrono::system_clock::duration>(val);
+}
+
+ARROW_PYTHON_EXPORT
+inline TimePoint TimePoint_from_system_time(std::chrono::system_clock::time_point val) {
+  return std::chrono::time_point_cast<TimePoint::duration>(val);
+}
+
+ARROW_PYTHON_EXPORT
 inline int64_t PyDelta_to_s(PyDateTime_Delta* pytimedelta) {
   return (PyDateTime_DELTA_GET_DAYS(pytimedelta) * 86400LL +
           PyDateTime_DELTA_GET_SECONDS(pytimedelta));
