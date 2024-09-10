@@ -28,7 +28,7 @@ Alternatively, you can install the development version of arrow from R-universe.
 
 ```r
 # Binaries for MacOS/Windows
-install.packages("arrow", repos = "https://apache.r-universe.dev")
+install.packages('arrow', repos = c('https://apache.r-universe.dev', 'https://cloud.r-project.org'))
 
 # Binaries for Linux (Ubuntu 24.04)
 install.packages("arrow", repos = "https://rpolars.r-universe.dev/bin/linux/noble/4.4")
