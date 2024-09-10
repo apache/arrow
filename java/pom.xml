@@ -96,7 +96,7 @@ under the License.
     <dep.junit.jupiter.version>5.11.0</dep.junit.jupiter.version>
     <dep.slf4j.version>2.0.16</dep.slf4j.version>
     <dep.guava-bom.version>33.2.1-jre</dep.guava-bom.version>
-    <dep.netty-bom.version>4.1.112.Final</dep.netty-bom.version>
+    <dep.netty-bom.version>4.1.113.Final</dep.netty-bom.version>
     <dep.grpc-bom.version>1.65.0</dep.grpc-bom.version>
     <dep.protobuf-bom.version>3.25.4</dep.protobuf-bom.version>
     <dep.jackson-bom.version>2.17.2</dep.jackson-bom.version>
