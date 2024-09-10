@@ -899,6 +899,7 @@ static void BenchmarkRowSegmenter(benchmark::State& state, Args&&...) {
   int64_t num_rows = state.range(0);
   int64_t num_segments = state.range(1);
   ASSERT_NE(num_segments, 0);
+  ASSERT_GE(num_rows, num_segments);
   int64_t num_segment_keys = state.range(2);
   // Adjust num_rows to be a multiple of num_segments.
   num_rows = num_rows / num_segments * num_segments;
