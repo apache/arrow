@@ -15,25 +15,21 @@
 # specific language governing permissions and limitations
 # under the License.
 
-on:
-  workflow_dispatch:
-    inputs:
-      which:
-        type: choice
-        description: Which dependents to check
-        options:
-          - strong
-          - most
+{% import 'macros.jinja' as macros with context %}
 
-permissions:
-  contents: read
-
-name: R Reverse Dependency Check
+{{ macros.github_header() }}
 
 jobs:
-  revdep_check:
-    name: Reverse check ${{ inputs.which }} dependents
+  recheck-weak:
+    name: Reverse check strong dependents
     uses: r-devel/recheck/.github/workflows/recheck.yml@v1
     with:
-      which: ${{ inputs.which }}
-      subdirectory: 'r'
+      which: strong
+      subdirectory: r
+
+  recheck-strong:
+    name: Reverse check strong dependents
+    uses: r-devel/recheck/.github/workflows/recheck.yml@v1
+    with:
+      which: strong
+      subdirectory: r
