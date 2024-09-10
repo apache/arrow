@@ -190,6 +190,10 @@ const BasicDecimal32& BasicDecimal32::GetHalfScaleMultiplier(int32_t scale) {
   return DecimalTraits<BasicDecimal32>::half_powers_of_ten()[scale];
 }
 
+BasicDecimal32::operator BasicDecimal64() const {
+  return BasicDecimal64(static_cast<int64_t>(value()));
+}
+
 BasicDecimal64& BasicDecimal64::Negate() {
   value_ = -value_;
   return *this;

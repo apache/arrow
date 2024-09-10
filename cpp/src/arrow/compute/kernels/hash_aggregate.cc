@@ -477,7 +477,7 @@ struct GroupedReducingAggregator : public GroupedAggregator {
     VisitGroupedValues<Type>(
         batch,
         [&](uint32_t g, InputCType value) {
-          reduced[g] = Impl::Reduce(*out_type_, reduced[g], value);
+          reduced[g] = Impl::Reduce(*out_type_, reduced[g], static_cast<CType>(value));
           counts[g]++;
         },
         [&](uint32_t g) { bit_util::SetBitTo(no_nulls, g, false); });
@@ -914,7 +914,7 @@ struct GroupedVarStdImpl : public GroupedAggregator {
     VisitGroupedValues<Type>(
         batch,
         [&](uint32_t g, typename TypeTraits<Type>::CType value) {
-          sums[g] += value;
+          sums[g] += static_cast<SumType>(value);
           counts[g]++;
         },
         [&](uint32_t g) { bit_util::ClearBit(no_nulls, g); });

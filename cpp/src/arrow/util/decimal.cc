@@ -501,6 +501,8 @@ std::string Decimal32::ToIntegerString() const { return std::to_string(value_); 
 
 Decimal32::operator int64_t() const { return static_cast<int64_t>(value_); }
 
+Decimal32::operator Decimal64() const { return Decimal64(static_cast<int64_t>(value_)); }
+
 Decimal64::Decimal64(const std::string& str) : Decimal64() {
   *this = FromString(str).ValueOrDie();
 }

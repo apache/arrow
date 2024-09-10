@@ -236,6 +236,8 @@ class ARROW_EXPORT BasicDecimal {
   BaseType value_;
 };
 
+class BasicDecimal64;
+
 class ARROW_EXPORT BasicDecimal32 : public BasicDecimal<int32_t> {
  public:
   using BasicDecimal<int32_t>::BasicDecimal;
@@ -336,6 +338,8 @@ class ARROW_EXPORT BasicDecimal32 : public BasicDecimal<int32_t> {
   static const BasicDecimal32& GetScaleMultiplier(int32_t scale);
   /// \brief Half-scale multiplier for a given scale value.
   static const BasicDecimal32& GetHalfScaleMultiplier(int32_t scale);
+
+  explicit operator BasicDecimal64() const;
 };
 
 ARROW_EXPORT bool operator<(const BasicDecimal32& left, const BasicDecimal32& right);
@@ -365,7 +369,7 @@ class ARROW_EXPORT BasicDecimal64 : public BasicDecimal<int64_t> {
   /// \brief Absolute value (in-place)
   BasicDecimal64& Abs();
   /// \brief Absolute value
-  static BasicDecimal64 Abs(const BasicDecimal64& left);
+  static BasicDecimal64 Abs(const BasicDecimal64& left);  
   /// \brief Add a number to this one. The result is truncated to 32 bits.
   BasicDecimal64& operator+=(const BasicDecimal64& right);
   /// \brief Subtract a number from this one. The result is truncated to 32 bits.

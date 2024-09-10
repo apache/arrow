@@ -31,6 +31,8 @@
 
 namespace arrow {
 
+class Decimal64;
+
 /// Represents a signed 32-bit decimal value in two's complement.
 /// Calulations wrap around and overflow is ignored.
 /// The max decimal precision that can be safely represented is
@@ -86,6 +88,8 @@ class ARROW_EXPORT Decimal32 : public BasicDecimal32 {
 
   /// \brief Cast this value to an int64_t
   explicit operator int64_t() const;
+
+  explicit operator Decimal64() const;
 
   /// \brief Convert a decimal string to a Decimal value, optionally including
   /// precision and scale if they're passed in and not null.
@@ -169,6 +173,9 @@ class ARROW_EXPORT Decimal64 : public BasicDecimal64 {
   /// \brief constructor creates a Decimal64 from a BasicDecimal64
   constexpr Decimal64(const BasicDecimal64& value) noexcept  // NOLINT runtime/explicit
       : BasicDecimal64(value) {}
+
+  explicit Decimal64(const BasicDecimal32& value) noexcept
+    : BasicDecimal64(static_cast<int64_t>(value.value())) {}
 
   /// \brief Parse the number from a base 10 string representation
   explicit Decimal64(const std::string& value);

@@ -337,7 +337,7 @@ struct ProductImpl : public ScalarAggregator {
           data,
           [&](typename TypeTraits<ArrowType>::CType value) {
             this->product =
-                MultiplyTraits<AccType>::Multiply(*out_type, this->product, value);
+                MultiplyTraits<AccType>::Multiply(*out_type, this->product, static_cast<ProductType>(value));
           },
           [] {});
     } else {
@@ -348,7 +348,7 @@ struct ProductImpl : public ScalarAggregator {
         for (int64_t i = 0; i < batch.length; i++) {
           auto value = internal::UnboxScalar<ArrowType>::Unbox(data);
           this->product =
-              MultiplyTraits<AccType>::Multiply(*out_type, this->product, value);
+              MultiplyTraits<AccType>::Multiply(*out_type, this->product, static_cast<ProductType>(value));
         }
       }
     }
