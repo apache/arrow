@@ -111,6 +111,9 @@ class ARROW_EXPORT Decimal32 : public BasicDecimal32 {
   /// \return error statis if the length is an invalid value
   static Result<Decimal32> FromBigEndian(const uint8_t* data, int32_t length);
 
+  static void SwapEndian(const uint32_t* old_data, uint32_t* const new_data,
+                         const int64_t length);
+
   /// \brief Convert Decimal32 from one scale to another
   Result<Decimal32> Rescale(int32_t original_scale, int32_t new_scale) const {
     Decimal32 out;
@@ -229,6 +232,9 @@ class ARROW_EXPORT Decimal64 : public BasicDecimal64 {
   ///        between 1 and 4
   /// \return error statis if the length is an invalid value
   static Result<Decimal64> FromBigEndian(const uint8_t* data, int32_t length);
+
+  static void SwapEndian(const uint64_t* old_data, uint64_t* const new_data,
+                         const int64_t length);
 
   /// \brief Convert Decimal64 from one scale to another
   Result<Decimal64> Rescale(int32_t original_scale, int32_t new_scale) const {
@@ -364,6 +370,9 @@ class ARROW_EXPORT Decimal128 : public BasicDecimal128 {
   /// \return error status if the length is an invalid value
   static Result<Decimal128> FromBigEndian(const uint8_t* data, int32_t length);
 
+  static void SwapEndian(const uint64_t* old_data, uint64_t* const new_data,
+                         const int64_t length);
+
   /// \brief Convert Decimal128 from one scale to another
   Result<Decimal128> Rescale(int32_t original_scale, int32_t new_scale) const {
     Decimal128 out;
@@ -493,6 +502,9 @@ class ARROW_EXPORT Decimal256 : public BasicDecimal256 {
   ///        between 1 and 32.
   /// \return error status if the length is an invalid value
   static Result<Decimal256> FromBigEndian(const uint8_t* data, int32_t length);
+
+  static void SwapEndian(const uint64_t* old_data, uint64_t* const new_data,
+                         const int64_t length);
 
   static Result<Decimal256> FromReal(double real, int32_t precision, int32_t scale);
   static Result<Decimal256> FromReal(float real, int32_t precision, int32_t scale);

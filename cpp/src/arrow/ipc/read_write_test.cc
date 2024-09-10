@@ -336,7 +336,7 @@ TEST_F(TestSchemaMetadata, NestedDictionaryFields) {
     auto dict_type1 = dictionary(int8(), utf8(), /*ordered=*/true);
     auto dict_type2 = dictionary(int32(), fixed_size_binary(24));
     auto dict_type3 = dictionary(int32(), binary());
-    auto dict_type4 = dictionary(int8(), decimal(19, 7));
+    auto dict_type4 = dictionary(int8(), decimal128(19, 7));
 
     auto struct_type1 = struct_({field("s1", dict_type1), field("s2", dict_type2)});
     auto struct_type2 = struct_({field("s3", dict_type3), field("s4", dict_type4)});

@@ -221,7 +221,7 @@ TEST_P(ReaderTest, MultipleChunks) {
 
 TEST_P(ReaderTest, UnquotedDecimal) {
   auto schema =
-      ::arrow::schema({field("price", decimal(9, 2)), field("cost", decimal(9, 3))});
+      ::arrow::schema({field("price", decimal128(9, 2)), field("cost", decimal128(9, 3))});
   parse_options_.explicit_schema = schema;
   auto src = unquoted_decimal_src();
   SetUpReader(src);
@@ -236,7 +236,7 @@ TEST_P(ReaderTest, UnquotedDecimal) {
 
 TEST_P(ReaderTest, MixedDecimal) {
   auto schema =
-      ::arrow::schema({field("price", decimal(9, 2)), field("cost", decimal(9, 3))});
+      ::arrow::schema({field("price", decimal128(9, 2)), field("cost", decimal128(9, 3))});
   parse_options_.explicit_schema = schema;
   auto src = mixed_decimal_src();
   SetUpReader(src);

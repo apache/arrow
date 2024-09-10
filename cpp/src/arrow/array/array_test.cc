@@ -442,7 +442,7 @@ static std::vector<std::shared_ptr<DataType>> TestArrayUtilitiesAgainstTheseType
       large_binary(),
       binary_view(),
       fixed_size_binary(3),
-      decimal(16, 4),
+      decimal128(16, 4),
       utf8(),
       large_utf8(),
       utf8_view(),

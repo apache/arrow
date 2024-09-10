@@ -1478,6 +1478,15 @@ int32_t DecimalType::DecimalSize(int32_t precision) {
   return static_cast<int32_t>(std::ceil((precision / 8.0) * std::log2(10) + 1));
 }
 
+template <typename D>
+Status ValidateDecimalPrecision(int32_t precision) {
+  if (precision < D::kMinPrecision || precision > D::kMaxPrecision) {
+    return Status::Invalid("Decimal precision out of range [", int32_t(D::kMinPrecision),
+                           ", ", int32_t(D::kMaxPrecision), "]: ", precision);
+  }
+  return Status::OK();
+}
+
 // ----------------------------------------------------------------------
 // Decimal32 type
 
@@ -1488,11 +1497,7 @@ Decimal32Type::Decimal32Type(int32_t precision, int32_t scale)
 }
 
 Result<std::shared_ptr<DataType>> Decimal32Type::Make(int32_t precision, int32_t scale) {
-  if (precision < kMinPrecision || precision > kMaxPrecision) {
-    return Status::Invalid("Decimal precision out of range [", int32_t(kMinPrecision),
-                           ", ", int32_t(kMaxPrecision), "]: ", precision);
-  }
-
+  RETURN_NOT_OK(ValidateDecimalPrecision<Decimal32Type>(precision));
   return std::make_shared<Decimal32Type>(precision, scale);
 }
 
@@ -1506,11 +1511,7 @@ Decimal64Type::Decimal64Type(int32_t precision, int32_t scale)
 }
 
 Result<std::shared_ptr<DataType>> Decimal64Type::Make(int32_t precision, int32_t scale) {
-  if (precision < kMinPrecision || precision > kMaxPrecision) {
-    return Status::Invalid("Decimal precision out of range [", int32_t(kMinPrecision),
-                           ", ", int32_t(kMaxPrecision), "]: ", precision);
-  }
-
+  RETURN_NOT_OK(ValidateDecimalPrecision<Decimal64Type>(precision));
   return std::make_shared<Decimal64Type>(precision, scale);
 }
 
@@ -1524,10 +1525,7 @@ Decimal128Type::Decimal128Type(int32_t precision, int32_t scale)
 }
 
 Result<std::shared_ptr<DataType>> Decimal128Type::Make(int32_t precision, int32_t scale) {
-  if (precision < kMinPrecision || precision > kMaxPrecision) {
-    return Status::Invalid("Decimal precision out of range [", int32_t(kMinPrecision),
-                           ", ", int32_t(kMaxPrecision), "]: ", precision);
-  }
+  RETURN_NOT_OK(ValidateDecimalPrecision<Decimal128Type>(precision));
   return std::make_shared<Decimal128Type>(precision, scale);
 }
 
@@ -1541,10 +1539,7 @@ Decimal256Type::Decimal256Type(int32_t precision, int32_t scale)
 }
 
 Result<std::shared_ptr<DataType>> Decimal256Type::Make(int32_t precision, int32_t scale) {
-  if (precision < kMinPrecision || precision > kMaxPrecision) {
-    return Status::Invalid("Decimal precision out of range [", int32_t(kMinPrecision),
-                           ", ", int32_t(kMaxPrecision), "]: ", precision);
-  }
+  RETURN_NOT_OK(ValidateDecimalPrecision<Decimal256Type>(precision));
   return std::make_shared<Decimal256Type>(precision, scale);
 }
 

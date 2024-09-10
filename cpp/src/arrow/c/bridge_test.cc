@@ -912,7 +912,9 @@ TEST_F(TestArrayExport, Primitive) {
   TestPrimitive(binary_view(), R"(["foo", "bar", null])");
   TestPrimitive(utf8_view(), R"(["foo", "bar", null])");
 
-  TestPrimitive(decimal(16, 4), R"(["1234.5670", null])");
+  TestPrimitive(decimal32(9, 4), R"(["1234.5670", null])");
+  TestPrimitive(decimal64(16, 4), R"(["1234.5670", null])");
+  TestPrimitive(decimal128(16, 4), R"(["1234.5670", null])");
   TestPrimitive(decimal256(16, 4), R"(["1234.5670", null])");
 
   TestPrimitive(month_day_nano_interval(), R"([[-1, 5, 20], null])");
@@ -1507,7 +1509,9 @@ TEST_F(TestDeviceArrayExport, Primitive) {
   TestPrimitive(mm, utf8(), R"(["foo", "bar", null])");
   TestPrimitive(mm, large_utf8(), R"(["foo", "bar", null])");
 
-  TestPrimitive(mm, decimal(16, 4), R"(["1234.5670", null])");
+  TestPrimitive(mm, decimal32(9, 4), R"(["1234.5670", null])");
+  TestPrimitive(mm, decimal64(16, 4), R"(["1234.5670", null])");
+  TestPrimitive(mm, decimal128(16, 4), R"(["1234.5670", null])");
   TestPrimitive(mm, decimal256(16, 4), R"(["1234.5670", null])");
 
   TestPrimitive(mm, month_day_nano_interval(), R"([[-1, 5, 20], null])");
@@ -3685,7 +3689,7 @@ TEST_F(TestSchemaRoundtrip, ListView) {
 
 TEST_F(TestSchemaRoundtrip, Struct) {
   auto f1 = field("f1", utf8(), /*nullable=*/false);
-  auto f2 = field("f2", list(decimal(19, 4)));
+  auto f2 = field("f2", list(decimal128(19, 4)));
 
   TestWithTypeFactory([&]() { return struct_({f1, f2}); });
   f2 = f2->WithMetadata(key_value_metadata(kMetadataKeys2, kMetadataValues2));
@@ -3695,7 +3699,7 @@ TEST_F(TestSchemaRoundtrip, Struct) {
 
 TEST_F(TestSchemaRoundtrip, Union) {
   auto f1 = field("f1", utf8(), /*nullable=*/false);
-  auto f2 = field("f2", list(decimal(19, 4)));
+  auto f2 = field("f2", list(decimal128(19, 4)));
   auto type_codes = std::vector<int8_t>{42, 43};
 
   TestWithTypeFactory(
