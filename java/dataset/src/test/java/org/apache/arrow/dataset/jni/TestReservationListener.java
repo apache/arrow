@@ -91,6 +91,7 @@ public class TestReservationListener extends TestDataset {
   }
 
   @Test
+  @SuppressWarnings("UnnecessaryAsync")
   public void testErrorThrownFromReservationListener() throws Exception {
     final String errorMessage = "ERROR_MESSAGE";
     ParquetWriteSupport writeSupport =
