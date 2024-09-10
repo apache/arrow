@@ -188,8 +188,10 @@ TEST_F(TestPairwiseDiff, Temporal) {
 TEST_F(TestPairwiseDiff, Decimal) {
   {
     PairwiseOptions options(1);
-    auto input = ArrayFromJSON(decimal128(4, 2), R"(["11.00", "22.11", "-10.25", "33.45"])");
-    auto output = ArrayFromJSON(decimal128(5, 2), R"([null, "11.11", "-32.36", "43.70"])");
+    auto input =
+        ArrayFromJSON(decimal128(4, 2), R"(["11.00", "22.11", "-10.25", "33.45"])");
+    auto output =
+        ArrayFromJSON(decimal128(5, 2), R"([null, "11.11", "-32.36", "43.70"])");
     CheckVectorUnary("pairwise_diff", input, output, &options);
   }
 
