@@ -29,7 +29,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -407,7 +406,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
     try (VectorSchemaRoot root = VectorSchemaRoot.create(sourceSchema, rootAllocator());
         FileOutputStream sink = new FileOutputStream(dataFile);
         ArrowFileWriter writer =
-            new ArrowFileWriter(root, /*dictionaryProvider=*/ null, sink.getChannel())) {
+            new ArrowFileWriter(root, /* provider= */ null, sink.getChannel())) {
       IntVector ints = (IntVector) root.getVector(0);
       ints.setSafe(0, 0);
       ints.setSafe(1, 1024);
@@ -562,7 +561,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
       Schema schema, List<GenericRecord> expected, List<ArrowRecordBatch> actual) {
     assertEquals(expected.size(), actual.stream().mapToInt(ArrowRecordBatch::getLength).sum());
     final int fieldCount = schema.getFields().size();
-    LinkedList<GenericRecord> expectedRemovable = new LinkedList<>(expected);
+    ArrayList<GenericRecord> expectedRemovable = new ArrayList<>(expected);
     try (VectorSchemaRoot vsr = VectorSchemaRoot.create(schema, rootAllocator())) {
       VectorLoader loader = new VectorLoader(vsr);
       for (ArrowRecordBatch batch : actual) {
@@ -578,7 +577,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
           }
         }
         for (int i = 0; i < batchRowCount; i++) {
-          expectedRemovable.poll();
+          expectedRemovable.remove(0);
         }
       }
       assertTrue(expectedRemovable.isEmpty());

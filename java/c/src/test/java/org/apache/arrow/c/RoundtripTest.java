@@ -528,14 +528,6 @@ public class RoundtripTest {
     }
   }
 
-  private String generateString(String str, int repetition) {
-    StringBuilder aRepeated = new StringBuilder();
-    for (int i = 0; i < repetition; i++) {
-      aRepeated.append(str);
-    }
-    return aRepeated.toString();
-  }
-
   @Test
   public void testViewVector() {
     // ViewVarCharVector with short strings
