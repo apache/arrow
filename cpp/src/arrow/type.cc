@@ -1492,8 +1492,7 @@ Status ValidateDecimalPrecision(int32_t precision) {
 
 Decimal32Type::Decimal32Type(int32_t precision, int32_t scale)
     : DecimalType(type_id, 4, precision, scale) {
-  ARROW_CHECK_GE(precision, kMinPrecision);
-  ARROW_CHECK_LE(precision, kMaxPrecision);
+  ARROW_CHECK_OK(ValidateDecimalPrecision<Decimal32Type>(precision));
 }
 
 Result<std::shared_ptr<DataType>> Decimal32Type::Make(int32_t precision, int32_t scale) {
@@ -1506,8 +1505,7 @@ Result<std::shared_ptr<DataType>> Decimal32Type::Make(int32_t precision, int32_t
 
 Decimal64Type::Decimal64Type(int32_t precision, int32_t scale)
     : DecimalType(type_id, 8, precision, scale) {
-  ARROW_CHECK_GE(precision, kMinPrecision);
-  ARROW_CHECK_LE(precision, kMaxPrecision);
+  ARROW_CHECK_OK(ValidateDecimalPrecision<Decimal64Type>(precision));
 }
 
 Result<std::shared_ptr<DataType>> Decimal64Type::Make(int32_t precision, int32_t scale) {
@@ -1520,8 +1518,7 @@ Result<std::shared_ptr<DataType>> Decimal64Type::Make(int32_t precision, int32_t
 
 Decimal128Type::Decimal128Type(int32_t precision, int32_t scale)
     : DecimalType(type_id, 16, precision, scale) {
-  ARROW_CHECK_GE(precision, kMinPrecision);
-  ARROW_CHECK_LE(precision, kMaxPrecision);
+  ARROW_CHECK_OK(ValidateDecimalPrecision<Decimal128Type>(precision));
 }
 
 Result<std::shared_ptr<DataType>> Decimal128Type::Make(int32_t precision, int32_t scale) {
@@ -1534,8 +1531,7 @@ Result<std::shared_ptr<DataType>> Decimal128Type::Make(int32_t precision, int32_
 
 Decimal256Type::Decimal256Type(int32_t precision, int32_t scale)
     : DecimalType(type_id, 32, precision, scale) {
-  ARROW_CHECK_GE(precision, kMinPrecision);
-  ARROW_CHECK_LE(precision, kMaxPrecision);
+  ARROW_CHECK_OK(ValidateDecimalPrecision<Decimal256Type>(precision));
 }
 
 Result<std::shared_ptr<DataType>> Decimal256Type::Make(int32_t precision, int32_t scale) {

@@ -298,36 +298,12 @@ class DictionaryBuilderBase : public ArrayBuilder {
     return Append(std::string_view(value, length));
   }
 
-  /// \brief Append a decimal (only for Decimal32Type)
-  template <typename T1 = T>
-  enable_if_decimal32<T1, Status> Append(const Decimal32 value) {
-    uint8_t data[4];
+  /// \brief Append a decimal (only for Decimal32/64/128/256 Type)
+  template <typename T1 = T, typename CType = typename TypeTraits<T1>::CType>
+  enable_if_decimal<T1, Status> Append(const CType& value) {
+    uint8_t data[T1::kByteWidth];
     value.ToBytes(data);
-    return Append(data, 4);
-  }
-
-  /// \brief Append a decimal (only for Decimal64Type)
-  template <typename T1 = T>
-  enable_if_decimal64<T1, Status> Append(const Decimal64 value) {
-    uint8_t data[8];
-    value.ToBytes(data);
-    return Append(data, 8);
-  }
-
-  /// \brief Append a decimal (only for Decimal128Type)
-  template <typename T1 = T>
-  enable_if_decimal128<T1, Status> Append(const Decimal128& value) {
-    uint8_t data[16];
-    value.ToBytes(data);
-    return Append(data, 16);
-  }
-
-  /// \brief Append a decimal (only for Decimal256Type)
-  template <typename T1 = T>
-  enable_if_decimal256<T1, Status> Append(const Decimal256& value) {
-    uint8_t data[32];
-    value.ToBytes(data);
-    return Append(data, 32);
+    return Append(data, T1::kByteWidth);
   }
 
   /// \brief Append a scalar null value

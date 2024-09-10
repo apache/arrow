@@ -951,56 +951,27 @@ struct ScalarToProtoImpl {
   Status Visit(const MonthIntervalScalar& s) { return NotImplemented(s); }
   Status Visit(const DayTimeIntervalScalar& s) { return NotImplemented(s); }
 
-  Status Visit(const Decimal32Scalar& s) {
+  template <typename T,
+            typename = internal::EnableIfIsOneOf<T, Decimal32Scalar, Decimal64Scalar,
+                                                 Decimal128Scalar, Decimal256Scalar>>
+  Status Visit(const T& s) {
+    using TypeClass = typename T::TypeClass;
+    using ValueType = typename T::ValueType;
+
     auto decimal = std::make_unique<Lit::Decimal>();
 
-    auto decimal_type = checked_cast<const Decimal32Type*>(s.type.get());
+    auto decimal_type = checked_cast<const TypeClass*>(s.type.get());
     decimal->set_precision(decimal_type->precision());
     decimal->set_scale(decimal_type->scale());
 
     decimal->set_value(reinterpret_cast<const char*>(s.value.native_endian_bytes()),
-                       sizeof(Decimal32));
+                       sizeof(ValueType));
 #if !ARROW_LITTLE_ENDIAN
     std::reverse(decimal->mutable_value()->begin(), decimal->mutable_value()->end());
 #endif
     lit_->set_allocated_decimal(decimal.release());
     return Status::OK();
   }
-
-  Status Visit(const Decimal64Scalar& s) {
-    auto decimal = std::make_unique<Lit::Decimal>();
-
-    auto decimal_type = checked_cast<const Decimal64Type*>(s.type.get());
-    decimal->set_precision(decimal_type->precision());
-    decimal->set_scale(decimal_type->scale());
-
-    decimal->set_value(reinterpret_cast<const char*>(s.value.native_endian_bytes()),
-                       sizeof(Decimal64));
-#if !ARROW_LITTLE_ENDIAN
-    std::reverse(decimal->mutable_value()->begin(), decimal->mutable_value()->end());
-#endif
-    lit_->set_allocated_decimal(decimal.release());
-    return Status::OK();
-  }
-
-  Status Visit(const Decimal128Scalar& s) {
-    auto decimal = std::make_unique<Lit::Decimal>();
-
-    auto decimal_type = checked_cast<const Decimal128Type*>(s.type.get());
-    decimal->set_precision(decimal_type->precision());
-    decimal->set_scale(decimal_type->scale());
-
-    decimal->set_value(reinterpret_cast<const char*>(s.value.native_endian_bytes()),
-                       sizeof(Decimal128));
-#if !ARROW_LITTLE_ENDIAN
-    std::reverse(decimal->mutable_value()->begin(), decimal->mutable_value()->end());
-#endif
-    lit_->set_allocated_decimal(decimal.release());
-    return Status::OK();
-  }
-
-  // Need support for parameterized UDTs
-  Status Visit(const Decimal256Scalar& s) { return NotImplemented(s); }
 
   Status Visit(const BaseListScalar& s) {
     if (s.value->length() == 0) {
