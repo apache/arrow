@@ -904,17 +904,22 @@ static void BenchmarkRowSegmenter(benchmark::State& state, Args&&...) {
   // Adjust num_rows to be a multiple of num_segments.
   num_rows = num_rows / num_segments * num_segments;
 
+  // A trivial column to count from.
   auto arg = ConstantArrayGenerator::Zeroes(num_rows, int64());
+  // num_segments segments, each having identical num_rows / num_segments rows of the
+  // associated segment id.
   ArrayVector segments(num_segments);
   for (int i = 0; i < num_segments; ++i) {
     ASSERT_OK_AND_ASSIGN(
         segments[i],
         Constant(std::make_shared<Int64Scalar>(i))->Generate(num_rows / num_segments));
   }
+  // Concat all segments to form the segment key.
   ASSERT_OK_AND_ASSIGN(auto segment_key, Concatenate(segments));
+  // num_segment_keys copies of the segment key.
   ArrayVector segment_keys(num_segment_keys, segment_key);
 
-  BenchmarkGroupBy(state, {{"count", ""}}, {arg}, {}, segment_keys);
+  BenchmarkGroupBy(state, {{"count", ""}}, {arg}, /*keys=*/{}, segment_keys);
 
   state.SetItemsProcessed(num_rows * state.iterations());
 }
