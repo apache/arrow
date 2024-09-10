@@ -128,23 +128,6 @@ void AggregatesToString(std::stringstream* ss, const Schema& input_schema,
 // Extract segments from a batch and run the given handler on them.  Note that the
 // handle may be called on open segments which are not yet finished.  Typically a
 // handler should accumulate those open segments until a closed segment is reached.
-// template <typename BatchHandler>
-// Status HandleSegments(RowSegmenter* segmenter, const ExecBatch& batch,
-//                       const std::vector<int>& ids, const BatchHandler& handle_batch) {
-//   int64_t offset = 0;
-//   ARROW_ASSIGN_OR_RAISE(auto segment_exec_batch, batch.SelectValues(ids));
-//   ExecSpan segment_batch(segment_exec_batch);
-
-//   while (true) {
-//     ARROW_ASSIGN_OR_RAISE(compute::Segment segment,
-//                           segmenter->GetNextSegment(segment_batch, offset));
-//     if (segment.offset >= segment_batch.length) break;  // condition of no-next-segment
-//     ARROW_RETURN_NOT_OK(handle_batch(batch, segment));
-//     offset = segment.offset + segment.length;
-//   }
-//   return Status::OK();
-// }
-
 template <typename BatchHandler>
 Status HandleSegments(RowSegmenter* segmenter, const ExecBatch& batch,
                       const std::vector<int>& ids, const BatchHandler& handle_batch) {
