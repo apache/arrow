@@ -141,6 +141,7 @@ function print_coredumps() {
   if [ -n "$COREFILES" ]; then
     for COREFILE in $COREFILES; do
       COREPATH="/tmp/${COREFILE}"
+      echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
       echo "Running '${TEST_EXECUTABLE}' produced core dump at '${COREPATH}', printing backtrace:"
       # Print backtrace
       if [ "$(uname)" == "Darwin" ]; then
@@ -148,6 +149,7 @@ function print_coredumps() {
       else
         gdb -c "${COREPATH}" $TEST_EXECUTABLE -ex "thread apply all bt" -ex "set pagination 0" -batch
       fi
+      echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
       # Remove the coredump, it can be regenerated via running the test case directly
       rm "${COREPATH}"
     done
