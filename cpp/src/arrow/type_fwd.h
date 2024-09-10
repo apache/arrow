@@ -530,6 +530,7 @@ std::shared_ptr<DataType> fixed_size_binary(int32_t byte_width);
 /// otherwise a Decimal128Type.
 ///
 /// Deprecated: prefer `smallest_decimal` instead.
+ARROW_DEPRECATED("Deprecated in 18.0. Use `smallest_decimal` instead")
 ARROW_EXPORT
 std::shared_ptr<DataType> decimal(int32_t precision, int32_t scale);
 
