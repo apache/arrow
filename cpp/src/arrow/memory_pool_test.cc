@@ -152,7 +152,6 @@ TEST(LoggingMemoryPool, Logging) {
 
   uint8_t* data2;
   ASSERT_OK(lp.Allocate(100, &data2));
-  ASSERT_EQ(data2[1 << 30], 42);
 
   lp.Free(data, 100);
   lp.Free(data2, 100);
