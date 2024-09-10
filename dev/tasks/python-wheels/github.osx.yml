@@ -136,6 +136,7 @@ jobs:
       - name: Test Wheel
         env:
           PYTEST_ADDOPTS: "-k 'not test_cancellation'"
+          PYTHON_GIL: 0
         run: |
           $PYTHON -m venv test-env
           source test-env/bin/activate

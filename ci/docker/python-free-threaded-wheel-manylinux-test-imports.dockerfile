@@ -27,3 +27,4 @@ ENV ARROW_PYTHON_VENV /arrow-dev
 RUN python3.13t -m venv ${ARROW_PYTHON_VENV}
 
 ENV PYTHON /arrow-dev/bin/python
+ENV PYTHON_GIL 0
