@@ -644,11 +644,11 @@ Result<std::shared_ptr<RecordBatch>> LoadRecordBatch(
     const flatbuf::RecordBatch* metadata, const std::shared_ptr<Schema>& schema,
     const std::vector<bool>& inclusion_mask, const IpcReadContext& context,
     io::RandomAccessFile* file) {
-  if (!inclusion_mask.empty()) {
-    return LoadRecordBatchSubset(metadata, schema, &inclusion_mask, context, file);
-  } else {
+  if (inclusion_mask.empty()) {
     return LoadRecordBatchSubset(metadata, schema, /*inclusion_mask=*/nullptr, context,
                                  file);
+  } else {
+    return LoadRecordBatchSubset(metadata, schema, &inclusion_mask, context, file);
   }
 }
 

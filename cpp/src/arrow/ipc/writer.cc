@@ -570,7 +570,7 @@ class RecordBatchSerializer {
   Status Visit(const StructArray& array) {
     --max_recursion_depth_;
     for (int i = 0; i < array.num_fields(); ++i) {
-      const std::shared_ptr<Array>& field = array.field(i);
+      const auto& field = array.field(i);
       RETURN_NOT_OK(VisitArray(*field));
     }
     ++max_recursion_depth_;
