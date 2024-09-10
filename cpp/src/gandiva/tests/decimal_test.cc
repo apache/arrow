@@ -365,10 +365,10 @@ TEST_F(TestDecimal, TestRoundFunctions) {
       TreeExprBuilder::MakeExpression("abs", {field_a}, field("res_abs", decimal_type)),
       TreeExprBuilder::MakeExpression("ceil", {field_a},
                                       field("res_ceil", arrow::decimal128(precision, 0))),
-      TreeExprBuilder::MakeExpression("floor", {field_a},
-                                      field("res_floor", arrow::decimal128(precision, 0))),
-      TreeExprBuilder::MakeExpression("round", {field_a},
-                                      field("res_round", arrow::decimal128(precision, 0))),
+      TreeExprBuilder::MakeExpression(
+          "floor", {field_a}, field("res_floor", arrow::decimal128(precision, 0))),
+      TreeExprBuilder::MakeExpression(
+          "round", {field_a}, field("res_round", arrow::decimal128(precision, 0))),
       TreeExprBuilder::MakeExpression(
           "truncate", {field_a}, field("res_truncate", arrow::decimal128(precision, 0))),
 
