@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-// Remove warnings once criterion in https://github.com/apache/arrow/issues/44037 met.
+// TODO(https://github.com/apache/arrow/issues/44037): Google hasn't reviewed Flatbuffers fix
 @SuppressWarnings({ "requires-automatic", "requires-transitive-automatic" })
 module org.apache.arrow.format {
   exports org.apache.arrow.flatbuf;
