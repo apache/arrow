@@ -24,6 +24,7 @@
 /// Version 1.3 - Add Run-End Encoded.
 /// Version 1.4 - Add BinaryView, Utf8View, variadicBufferCounts, ListView, and
 /// LargeListView.
+/// Version 1.5 - Add 32-bit and 64-bit as allowed bit widths for Decimal
 
 namespace org.apache.arrow.flatbuf;
 
@@ -222,9 +223,9 @@ table RunEndEncoded {
 }
 
 /// Exact decimal value represented as an integer value in two's
-/// complement. Currently only 128-bit (16-byte) and 256-bit (32-byte) integers
-/// are used. The representation uses the endianness indicated
-/// in the Schema.
+/// complement. Currently 32-bit (4-byte), 64-bit (8-byte), 
+/// 128-bit (16-byte) and 256-bit (32-byte) integers are used.
+/// The representation uses the endianness indicated in the Schema.
 table Decimal {
   /// Total number of decimal digits
   precision: int;
@@ -232,7 +233,7 @@ table Decimal {
   /// Number of digits after the decimal point "."
   scale: int;
 
-  /// Number of bits per value. The only accepted widths are 128 and 256.
+  /// Number of bits per value. The accepted widths are 32, 64, 128 and 256.
   /// We use bitWidth for consistency with Int::bitWidth.
   bitWidth: int = 128;
 }

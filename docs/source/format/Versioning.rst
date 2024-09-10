@@ -105,3 +105,8 @@ Version 1.4
 * Added :ref:`listview-layout` and the associated ListView and LargeListView
   types.
 * Added :ref:`variadic-buffers`.
+
+Version 1.5
+-----------
+
+* Expanded Decimal type bit widths to allow 32-bit and 64-bit types.
