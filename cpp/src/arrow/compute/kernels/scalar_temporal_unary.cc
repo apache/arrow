@@ -55,6 +55,7 @@ using arrow_vendored::date::weekday;
 using arrow_vendored::date::weeks;
 using arrow_vendored::date::year;
 using arrow_vendored::date::year_month_day;
+using arrow_vendored::date::year_month_day_pg;
 using arrow_vendored::date::year_month_weekday;
 using arrow_vendored::date::years;
 using arrow_vendored::date::zoned_time;
@@ -461,6 +462,128 @@ struct USYear {
   }
 
   Localizer localizer_;
+};
+
+// ----------------------------------------------------------------------
+// Extract PostgreSQL year from temporal types
+//
+// This class is the same as Year except using year_month_day_pg.
+
+template <typename Duration, typename Localizer>
+struct PGYear {
+  PGYear(const FunctionOptions* options, Localizer&& localizer)
+      : localizer_(std::move(localizer)) {}
+
+  template <typename T, typename Arg0>
+  T Call(KernelContext*, Arg0 arg, Status*) const {
+    return static_cast<T>(static_cast<const int32_t>(
+        year_month_day_pg(
+            floor<days>(localizer_.template ConvertTimePoint<Duration>(arg)))
+            .year()));
+  }
+
+  Localizer localizer_;
+};
+
+// ----------------------------------------------------------------------
+// Extract PostgreSQL month from temporal types
+
+template <typename Duration, typename Localizer>
+struct PGMonth {
+  explicit PGMonth(const FunctionOptions* options, Localizer&& localizer)
+      : localizer_(std::move(localizer)) {}
+
+  template <typename T, typename Arg0>
+  T Call(KernelContext*, Arg0 arg, Status*) const {
+    return static_cast<T>(static_cast<const uint32_t>(
+        year_month_day_pg(floor<days>(localizer_.template ConvertTimePoint<Duration>(arg)))
+            .month()));
+  }
+
+  Localizer localizer_;
+};
+
+// ----------------------------------------------------------------------
+// Extract PostgreSQL day from temporal types
+
+template <typename Duration, typename Localizer>
+struct PGDay {
+  explicit PGDay(const FunctionOptions* options, Localizer&& localizer)
+      : localizer_(std::move(localizer)) {}
+
+  template <typename T, typename Arg0>
+  T Call(KernelContext*, Arg0 arg, Status*) const {
+    return static_cast<T>(static_cast<const uint32_t>(
+        year_month_day_pg(floor<days>(localizer_.template ConvertTimePoint<Duration>(arg)))
+            .day()));
+  }
+
+  Localizer localizer_;
+};
+
+// ----------------------------------------------------------------------
+// Extract PostgreSQL week from temporal types
+//
+// First week of an PostgreSQL year has the majority (4 or more) of its days in January.
+// Last week of an PostgreSQL year has the year's last Thursday in it.
+
+template <typename Duration, typename Localizer>
+struct PGWeek {
+  explicit PGWeek(const WeekOptions* options, Localizer&& localizer)
+      : localizer_(std::move(localizer)),
+        count_from_zero_(options->count_from_zero),
+        first_week_is_fully_in_year_(options->first_week_is_fully_in_year) {
+    if (options->week_starts_monday) {
+      if (first_week_is_fully_in_year_) {
+        wd_ = mon;
+      } else {
+        wd_ = thu;
+      }
+    } else {
+      if (first_week_is_fully_in_year_) {
+        wd_ = sun;
+      } else {
+        wd_ = wed;
+      }
+    }
+    if (count_from_zero_) {
+      days_offset_ = days{0};
+    } else {
+      days_offset_ = days{3};
+    }
+  }
+
+  template <typename T, typename Arg0>
+  T Call(KernelContext*, Arg0 arg, Status*) const {
+    const auto t = floor<days>(localizer_.template ConvertTimePoint<Duration>(arg));
+    auto y = year_month_day_pg{t + days_offset_}.year();
+
+    if (first_week_is_fully_in_year_) {
+      auto start = localizer_.ConvertDays(y / jan / wd_[1]);
+      if (!count_from_zero_) {
+        if (t < start) {
+          --y;
+          start = localizer_.ConvertDays(y / jan / wd_[1]);
+        }
+      }
+      return static_cast<T>(floor<weeks>(t - start).count() + 1);
+    }
+
+    auto start = localizer_.ConvertDays((y - years{1}) / dec / wd_[last]) + (mon - thu);
+    if (!count_from_zero_) {
+      if (t < start) {
+        --y;
+        start = localizer_.ConvertDays((y - years{1}) / dec / wd_[last]) + (mon - thu);
+      }
+    }
+    return static_cast<T>(floor<weeks>(t - start).count() + 1);
+  }
+
+  Localizer localizer_;
+  arrow_vendored::date::weekday wd_;
+  arrow_vendored::date::days days_offset_;
+  const bool count_from_zero_;
+  const bool first_week_is_fully_in_year_;
 };
 
 // ----------------------------------------------------------------------
@@ -1664,6 +1787,37 @@ const FunctionDoc us_year_doc{
      "cannot be found in the timezone database."),
     {"values"}};
 
+const FunctionDoc pg_year_doc{
+    "Extract PostgreSQL year number",
+    ("Null values emit null.\n"
+     "An error is returned if the values have a defined timezone but it\n"
+     "cannot be found in the timezone database."),
+    {"values"}};
+
+const FunctionDoc pg_month_doc{
+    "Extract PostgreSQL month number",
+    ("Null values emit null.\n"
+     "An error is returned if the values have a defined timezone but it\n"
+     "cannot be found in the timezone database."),
+    {"values"}};
+
+const FunctionDoc pg_day_doc{
+    "Extract PostgreSQL day number",
+    ("Null values emit null.\n"
+     "An error is returned if the values have a defined timezone but it\n"
+     "cannot be found in the timezone database."),
+    {"values"}};
+
+const FunctionDoc pg_week_doc{
+    "Extract PostgreSQL week of year number",
+    ("First PostgreSQL week has the majority (4 or more) of its days in January.\n"
+     "PostgreSQL week starts on Monday. The week number starts with 1 and can run\n"
+     "up to 53.\n"
+     "Null values emit null.\n"
+     "An error is returned if the values have a defined timezone but it\n"
+     "cannot be found in the timezone database."),
+    {"values"}};
+
 const FunctionDoc iso_week_doc{
     "Extract ISO week of year number",
     ("First ISO week has the majority (4 or more) of its days in January.\n"
@@ -1895,6 +2049,31 @@ void RegisterScalarTemporalUnary(FunctionRegistry* registry) {
                            Int64Type>::Make<WithDates, WithTimestamps>("us_year", int64(),
                                                                        us_year_doc);
   DCHECK_OK(registry->AddFunction(std::move(us_year)));
+
+  auto pg_year =
+      UnaryTemporalFactory<PGYear, TemporalComponentExtract,
+                           Int64Type>::Make<WithDates, WithTimestamps>("pg_year", int64(),
+                                                                       pg_year_doc);
+  DCHECK_OK(registry->AddFunction(std::move(pg_year)));
+
+  auto pg_month =
+      UnaryTemporalFactory<PGMonth, TemporalComponentExtract,
+                           Int64Type>::Make<WithDates, WithTimestamps>("pg_month", int64(),
+                                                                       pg_month_doc);
+  DCHECK_OK(registry->AddFunction(std::move(pg_month)));
+
+  auto pg_day =
+      UnaryTemporalFactory<PGDay, TemporalComponentExtract,
+                           Int64Type>::Make<WithDates, WithTimestamps>("pg_day", int64(),
+                                                                       pg_day_doc);
+  DCHECK_OK(registry->AddFunction(std::move(pg_day)));
+
+  static const auto default_pg_week_options = WeekOptions::PGDefaults();
+  auto pg_week =
+      UnaryTemporalFactory<PGWeek, TemporalComponentExtractWeek, Int64Type>::Make<
+          WithDates, WithTimestamps>("pg_week", int64(), pg_week_doc,
+                                     &default_pg_week_options, WeekState::Init);
+  DCHECK_OK(registry->AddFunction(std::move(pg_week)));
 
   static const auto default_iso_week_options = WeekOptions::ISODefaults();
   auto iso_week =

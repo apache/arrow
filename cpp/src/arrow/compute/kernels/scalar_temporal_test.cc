@@ -712,6 +712,39 @@ TEST_F(ScalarTemporalTest, TestIsLeapYear) {
                    boolean(), is_leap_year_pago_pago);
 }
 
+TEST_F(ScalarTemporalTest, TestPostgreSQL) {
+  auto unit = timestamp(TimeUnit::NANO);
+  auto year =
+      "[2000, 2030, 1929, 2063, 2049, 2049, 2049, 2039, 2040, 2040, 2040, 2036, 2035, "
+      "2038, 2038, 2041, null]";
+  auto month = "[1, 2, 1, 5, 12, 12, 12, 12, 1, 1, 1, 1, 12, 12, 12, 12, null]";
+  auto day = "[1, 28, 1, 18, 31, 30, 29, 31, 1, 3, 4, 1, 31, 28, 29, 31, null]";
+  auto week = "[52, 9, 1, 20, 52, 52, 52, 52, 52, 1, 1, 1, 1, 52, 52, 1]";
+  auto year_month_day = ArrayFromJSON(year_month_day_type,
+                                      R"([{"year": 2000, "month": 1, "day": 1},
+                        {"year": 2030, "month": 2, "day": 28},
+                        {"year": 1929, "month": 1, "day": 1},
+                        {"year": 2063, "month": 5, "day": 18},
+                        {"year": 2049, "month": 12, "day": 31},
+                        {"year": 2049, "month": 12, "day": 30},
+                        {"year": 2049, "month": 12, "day": 29},
+                        {"year": 2039, "month": 12, "day": 31},
+                        {"year": 2040, "month": 1, "day": 1},
+                        {"year": 2040, "month": 1, "day": 3},
+                        {"year": 2040, "month": 1, "day": 4},
+                        {"year": 2036, "month": 1, "day": 1},
+                        {"year": 2035, "month": 12, "day": 31},
+                        {"year": 2038, "month": 12, "day": 28},
+                        {"year": 2038, "month": 12, "day": 29},
+                        {"year": 2041, "month": 12, "day": 31}, null])");
+
+
+  CheckScalarUnary("pg_year", unit, times, int64(), year);
+  CheckScalarUnary("pg_month", unit, times, int64(), month);
+  CheckScalarUnary("pg_day", unit, times, int64(), day);
+  CheckScalarUnary("pg_week", unit, times, int64(), week);
+}
+
 TEST_F(ScalarTemporalTest, TestZoned1) {
   auto unit = timestamp(TimeUnit::NANO, "Pacific/Marquesas");
   auto year =
@@ -903,6 +936,9 @@ TEST_F(ScalarTemporalTest, TestNonexistentTimezone) {
     ASSERT_RAISES(Invalid, DayOfWeek(timestamp_array));
     ASSERT_RAISES(Invalid, DayOfYear(timestamp_array));
     ASSERT_RAISES(Invalid, IsDaylightSavings(timestamp_array));
+    ASSERT_RAISES(Invalid, PGYear(timestamp_array));
+    ASSERT_RAISES(Invalid, PGMonth(timestamp_array));
+    ASSERT_RAISES(Invalid, PGDay(timestamp_array));
     ASSERT_RAISES(Invalid, USYear(timestamp_array));
     ASSERT_RAISES(Invalid, ISOYear(timestamp_array));
     ASSERT_RAISES(Invalid, Week(timestamp_array));
