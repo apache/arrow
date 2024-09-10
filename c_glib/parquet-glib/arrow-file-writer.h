@@ -130,8 +130,20 @@ GPARQUET_AVAILABLE_IN_0_11
 gboolean
 gparquet_arrow_file_writer_write_table(GParquetArrowFileWriter *writer,
                                        GArrowTable *table,
-                                       guint64 chunk_size,
+                                       gsize chunk_size,
                                        GError **error);
+
+GPARQUET_AVAILABLE_IN_18_0
+gboolean
+gparquet_arrow_file_writer_new_row_group(GParquetArrowFileWriter *writer,
+                                         gsize chunk_size,
+                                         GError **error);
+
+GPARQUET_AVAILABLE_IN_18_0
+gboolean
+gparquet_arrow_file_writer_write_chunked_array(GParquetArrowFileWriter *writer,
+                                               GArrowChunkedArray *chunked_array,
+                                               GError **error);
 
 GPARQUET_AVAILABLE_IN_0_11
 gboolean
