@@ -198,10 +198,10 @@ TEST_F(TestPairwiseDiff, Decimal) {
   {
     PairwiseOptions options(-1);
     auto input = ArrayFromJSON(
-        decimal128(40, 30),
+        decimal256(40, 30),
         R"(["1111111111.222222222222222222222222222222", "2222222222.333333333333333333333333333333"])");
     auto output = ArrayFromJSON(
-        decimal128(41, 30), R"(["-1111111111.111111111111111111111111111111", null])");
+        decimal256(41, 30), R"(["-1111111111.111111111111111111111111111111", null])");
     CheckVectorUnary("pairwise_diff", input, output, &options);
   }
 
