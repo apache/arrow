@@ -1133,17 +1133,6 @@ Result<Decimal32> Decimal32::FromBigEndian(const uint8_t* bytes, int32_t length)
   return Decimal32(final_value);
 }
 
-void Decimal32::SwapEndian(const uint32_t* old_data, uint32_t* const new_data,
-                           const int64_t length) {
-  for (int64_t i = 0; i < length; i++) {
-#if ARROW_LITTLE_ENDIAN
-    new_data[i] = bit_util::FromBigEndian(old_data[i]);
-#else
-    new_data[i] = bit_util::FromLittleEndian(data[i]);
-#endif
-  }
-}
-
 Status Decimal32::ToArrowStatus(DecimalStatus dstatus) const {
   return arrow::ToArrowStatus(dstatus, 32);
 }
@@ -1178,17 +1167,6 @@ Result<Decimal64> Decimal64::FromBigEndian(const uint8_t* bytes, int32_t length)
   final_value = SafeLeftShift(final_value, bits_offset * CHAR_BIT);
   final_value |= value;
   return Decimal64(final_value);
-}
-
-void Decimal64::SwapEndian(const uint64_t* old_data, uint64_t* const new_data,
-                           const int64_t length) {
-  for (int64_t i = 0; i < length; i++) {
-#if ARROW_LITTLE_ENDIAN
-    new_data[i] = bit_util::FromBigEndian(old_data[i]);
-#else
-    new_data[i] = bit_util::FromLittleEndian(old_data[i]);
-#endif
-  }
 }
 
 Status Decimal64::ToArrowStatus(DecimalStatus dstatus) const {
@@ -1251,23 +1229,6 @@ Result<Decimal128> Decimal128::FromBigEndian(const uint8_t* bytes, int32_t lengt
   }
 
   return Decimal128(high, static_cast<uint64_t>(low));
-}
-
-void Decimal128::SwapEndian(const uint64_t* old_data, uint64_t* const new_data,
-                            const int64_t length) {
-  for (int64_t i = 0; i < length; i++) {
-    uint64_t tmp;
-    auto idx = i * 2;
-#if ARROW_LITTLE_ENDIAN
-    tmp = bit_util::FromBigEndian(old_data[idx]);
-    new_data[idx] = bit_util::FromBigEndian(old_data[idx + 1]);
-    new_data[idx + 1] = tmp;
-#else
-    tmp = bit_util::FromLittleEndian(old_data[idx]);
-    new_data[idx] = bit_util::FromLittleEndian(old_data[idx + 1]);
-    new_data[idx + 1] = tmp;
-#endif
-  }
 }
 
 Status Decimal128::ToArrowStatus(DecimalStatus dstatus) const {
@@ -1376,31 +1337,6 @@ Result<Decimal256> Decimal256::FromBigEndian(const uint8_t* bytes, int32_t lengt
   }
 
   return Decimal256(bit_util::little_endian::ToNative(little_endian_array));
-}
-
-void Decimal256::SwapEndian(const uint64_t* old_data, uint64_t* const new_data,
-                            const int64_t length) {
-  for (int64_t i = 0; i < length; i++) {
-    uint64_t tmp0, tmp1, tmp2;
-    auto idx = i * 4;
-#if ARROW_LITTLE_ENDIAN
-    tmp0 = bit_util::FromBigEndian(old_data[idx]);
-    tmp1 = bit_util::FromBigEndian(old_data[idx + 1]);
-    tmp2 = bit_util::FromBigEndian(old_data[idx + 2]);
-    new_data[idx] = bit_util::FromBigEndian(old_data[idx + 3]);
-    new_data[idx + 1] = tmp2;
-    new_data[idx + 2] = tmp1;
-    new_data[idx + 3] = tmp0;
-#else
-    tmp0 = bit_util::FromLittleEndian(old_data[idx]);
-    tmp1 = bit_util::FromLittleEndian(old_data[idx + 1]);
-    tmp2 = bit_util::FromLittleEndian(old_data[idx + 2]);
-    new_data[idx] = bit_util::FromLittleEndian(old_data[idx + 3]);
-    new_data[idx + 1] = tmp2;
-    new_data[idx + 2] = tmp1;
-    new_data[idx + 3] = tmp0;
-#endif
-  }
 }
 
 Status Decimal256::ToArrowStatus(DecimalStatus dstatus) const {

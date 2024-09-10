@@ -154,17 +154,18 @@ class ArrayDataEndianSwapper {
 
   template <typename T>
   enable_if_decimal<T, Status> Visit(const T& type) {
-    using buffer_type =
-        std::conditional_t<std::is_same_v<T, Decimal32Type>, uint32_t, uint64_t>;
-    auto data = reinterpret_cast<const buffer_type*>(data_->buffers[1]->data());
+    using value_type = typename TypeTraits<T>::CType;
+    auto data = data_->buffers[1]->span_as<value_type>();
     ARROW_ASSIGN_OR_RAISE(auto new_buffer,
                           AllocateBuffer(data_->buffers[1]->size(), pool_));
-    auto new_data = reinterpret_cast<buffer_type*>(new_buffer->mutable_data());
-    // NOTE: data_->length not trusted (see warning above)
-    const int64_t length = data_->buffers[1]->size() / T::kByteWidth;
+    auto new_data = new_buffer->mutable_data_as<value_type>();
 
-    using value_type = typename TypeTraits<T>::CType;
-    value_type::SwapEndian(data, new_data, length);
+    for (const value_type& v : data) {
+      auto bytes = v.ToBytes();
+      std::reverse(bytes.begin(), bytes.end());
+      memcpy(new_data++, bytes.data(), bytes.size());
+    }
+
     out_->buffers[1] = std::move(new_buffer);
     return Status::OK();
   }
