@@ -5041,7 +5041,6 @@ cdef class Table(_Tabular):
         0       5  Brittle stars
         1     100      Centipede
         """
-        self._assert_cpu()
         cdef:
             unique_ptr[TableBatchReader] reader
             int64_t c_max_chunksize
