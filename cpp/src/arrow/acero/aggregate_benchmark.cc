@@ -921,7 +921,7 @@ static void BenchmarkRowSegmenter(benchmark::State& state, Args&&...) {
 
 std::vector<std::string> row_segmenter_argnames = {"Rows", "Segments", "SegmentKeys"};
 std::vector<std::vector<int64_t>> row_segmenter_args = {
-    {1 * 1024 * 1024}, benchmark::CreateRange(1, 1024, 8), {0, 1, 2}};
+    {1 * 1024 * 1024}, benchmark::CreateRange(1, 4096, 16), {0, 1, 2, 3}};
 
 BENCHMARK(BenchmarkRowSegmenter)
     ->ArgNames(row_segmenter_argnames)
