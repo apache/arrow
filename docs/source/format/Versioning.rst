@@ -109,4 +109,4 @@ Version 1.4
 Version 1.5
 -----------
 
-* Expanded Decimal type bit widths to allow 32-bit and 64-bit types
+* Expanded Decimal type bit widths to allow 32-bit and 64-bit types.
