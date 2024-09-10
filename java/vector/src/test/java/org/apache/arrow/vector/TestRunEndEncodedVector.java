@@ -17,6 +17,7 @@
 package org.apache.arrow.vector;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 import org.apache.arrow.memory.BufferAllocator;
@@ -117,9 +118,11 @@ public class TestRunEndEncodedVector {
         ((IntVector) reeVector.getRunEndsVector()).set(i - 1, end);
       }
 
+      final int logicalValueCount = end;
+
       reeVector.getValuesVector().setValueCount(runCount);
       reeVector.getRunEndsVector().setValueCount(runCount);
-      reeVector.setValueCount(end);
+      reeVector.setValueCount(logicalValueCount);
 
       assertEquals(15, reeVector.getValueCount());
       int index = 0;
@@ -129,6 +132,10 @@ public class TestRunEndEncodedVector {
           index++;
         }
       }
+
+      // test index out of bound
+      assertThrows(IndexOutOfBoundsException.class, () -> reeVector.getObject(-1));
+      assertThrows(IndexOutOfBoundsException.class, () -> reeVector.getObject(logicalValueCount));
     }
   }
 }

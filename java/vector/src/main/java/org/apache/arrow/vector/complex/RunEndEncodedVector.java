@@ -65,10 +65,10 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
   /**
    * Constructs a new instance.
    *
-   * @param name      The name of the instance.
+   * @param name The name of the instance.
    * @param allocator The allocator to use for allocating/reallocating buffers.
    * @param fieldType The type of the array that is run-end encoded.
-   * @param callBack  A schema change callback.
+   * @param callBack A schema change callback.
    */
   public RunEndEncodedVector(
       String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
@@ -78,9 +78,9 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
   /**
    * Constructs a new instance.
    *
-   * @param field     The field materialized by this vector.
+   * @param field The field materialized by this vector.
    * @param allocator The allocator to use for allocating/reallocating buffers.
-   * @param callBack  A schema change callback.
+   * @param callBack A schema change callback.
    */
   public RunEndEncodedVector(Field field, BufferAllocator allocator, CallBack callBack) {
     super(allocator);
@@ -148,8 +148,7 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
    * @param numRecords the initial record capacity.
    */
   @Override
-  public void setInitialCapacity(int numRecords) {
-  }
+  public void setInitialCapacity(int numRecords) {}
 
   /**
    * Returns the maximum number of values that can be stored in this vector instance.
@@ -164,9 +163,7 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
         .orElseThrow(NoSuchElementException::new);
   }
 
-  /**
-   * Alternative to clear(). Allows use as an AutoCloseable in try-with-resources.
-   */
+  /** Alternative to clear(). Allows use as an AutoCloseable in try-with-resources. */
   @Override
   public void close() {
     for (FieldVector v : getChildrenFromFields()) {
@@ -219,7 +216,7 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
    *
    * @param allocator the target allocator
    * @return a {@link org.apache.arrow.vector.util.TransferPair transfer pair}, creating a new
-   * target vector of the same type.
+   *     target vector of the same type.
    */
   @Override
   public TransferPair getTransferPair(BufferAllocator allocator) {
@@ -230,10 +227,10 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
   /**
    * To transfer quota responsibility.
    *
-   * @param ref       the name of the vector
+   * @param ref the name of the vector
    * @param allocator the target allocator
    * @return a {@link org.apache.arrow.vector.util.TransferPair transfer pair}, creating a new
-   * target vector of the same type.
+   *     target vector of the same type.
    */
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
@@ -243,10 +240,10 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
   /**
    * To transfer quota responsibility.
    *
-   * @param field     the Field object used by the target vector
+   * @param field the Field object used by the target vector
    * @param allocator the target allocator
    * @return a {@link org.apache.arrow.vector.util.TransferPair transfer pair}, creating a new
-   * target vector of the same type.
+   *     target vector of the same type.
    */
   @Override
   public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
@@ -256,11 +253,11 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
   /**
    * To transfer quota responsibility.
    *
-   * @param ref       the name of the vector
+   * @param ref the name of the vector
    * @param allocator the target allocator
-   * @param callBack  A schema change callback.
+   * @param callBack A schema change callback.
    * @return a {@link org.apache.arrow.vector.util.TransferPair transfer pair}, creating a new
-   * target vector of the same type.
+   *     target vector of the same type.
    */
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
@@ -271,11 +268,11 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
   /**
    * To transfer quota responsibility.
    *
-   * @param field     the Field object used by the target vector
+   * @param field the Field object used by the target vector
    * @param allocator the target allocator
-   * @param callBack  A schema change callback.
+   * @param callBack A schema change callback.
    * @return a {@link org.apache.arrow.vector.util.TransferPair transfer pair}, creating a new
-   * target vector of the same type.
+   *     target vector of the same type.
    */
   @Override
   public TransferPair getTransferPair(Field field, BufferAllocator allocator, CallBack callBack) {
@@ -288,7 +285,7 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
    *
    * @param target the target for the transfer
    * @return a new {@link org.apache.arrow.vector.util.TransferPair transfer pair} that is used to
-   * transfer underlying buffers into the target vector.
+   *     transfer underlying buffers into the target vector.
    */
   @Override
   public TransferPair makeTransferPair(ValueVector target) {
@@ -300,7 +297,7 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
    * Get a reader for this vector.
    *
    * @return a {@link org.apache.arrow.vector.complex.reader.FieldReader field reader} that supports
-   * reading values from this vector.
+   *     reading values from this vector.
    */
   @Override
   public FieldReader getReader() {
@@ -311,7 +308,7 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
    * Get a writer for this vector.
    *
    * @return a {@link org.apache.arrow.vector.complex.writer.FieldWriter field writer} that supports
-   * writing values to this vector.
+   *     writing values to this vector.
    */
   public FieldWriter getWriter() {
     return null; // TODO
@@ -354,7 +351,7 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
    * (unless they change it).
    *
    * @param clear Whether to clear vector before returning; the buffers will still be refcounted;
-   *              but the returned array will be the only reference to them
+   *     but the returned array will be the only reference to them
    * @return The underlying {@link ArrowBuf buffers} that is used by this vector instance.
    */
   @Override
@@ -402,9 +399,7 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
     return valueCount;
   }
 
-  /**
-   * Set number of values in the vector.
-   */
+  /** Set number of values in the vector. */
   @Override
   public void setValueCount(int valueCount) {
     this.valueCount = valueCount;
@@ -418,7 +413,8 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
    */
   @Override
   public Object getObject(int index) {
-    int physicalIndex = getPhysicalIndex(runEndsVector, index);
+    checkIndex(index);
+    int physicalIndex = getPhysicalIndex(index);
     return valuesVector.getObject(physicalIndex);
   }
 
@@ -445,17 +441,13 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
     return valuesVector.isNull(physicalIndex);
   }
 
-  /**
-   * Returns hashCode of element in index with the default hasher.
-   */
+  /** Returns hashCode of element in index with the default hasher. */
   @Override
   public int hashCode(int index) {
     return hashCode(index, null);
   }
 
-  /**
-   * Returns hashCode of element in index with the given hasher.
-   */
+  /** Returns hashCode of element in index with the given hasher. */
   @Override
   public int hashCode(int index, ArrowBufHasher hasher) {
     int hash = 0;
@@ -471,7 +463,7 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
    * Accept a generic {@link VectorVisitor} and return the result.
    *
    * @param <OUT> the output result type.
-   * @param <IN>  the input data together with visitor.
+   * @param <IN> the input data together with visitor.
    */
   @Override
   public <OUT, IN> OUT accept(VectorVisitor<OUT, IN> visitor, IN value) {
@@ -510,7 +502,8 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
         Arrays.asList(
                 MinorType.SMALLINT.getType(), MinorType.INT.getType(), MinorType.BIGINT.getType())
             .contains(children.get(0).getType()),
-        "The first field represents the run-end vector and must be of type int with size 16, 32, or 64 bits. Found: %s",
+        "The first field represents the run-end vector and must be of type int "
+            + "with size 16, 32, or 64 bits. Found: %s",
         children.get(0).getType());
     runEndsVector = (BaseIntVector) children.get(0).createVector(allocator);
     valuesVector = children.get(1).createVector(allocator);
@@ -530,7 +523,7 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
   /**
    * Loads data in the vectors. (ownBuffers must be the same size as getFieldVectors())
    *
-   * @param fieldNode  the fieldNode
+   * @param fieldNode the fieldNode
    * @param ownBuffers the buffers for this Field (own buffers only, children not included)
    */
   @Override
@@ -554,7 +547,7 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
    *
    * @return the inner vectors for this field as defined by the TypeLayout
    * @deprecated This API will be removed as the current implementations no longer support inner
-   * vectors.
+   *     vectors.
    */
   @Deprecated
   @Override
@@ -613,10 +606,20 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
     return valuesVector;
   }
 
+  private void checkIndex(int logicalIndex) {
+    if (logicalIndex < 0 || logicalIndex >= valueCount) {
+      throw new IndexOutOfBoundsException();
+    }
+  }
+
   /**
    * The physical index is the index of the first value that is larger than logical index. e.g. if
    * run_ends is [1,2,3], the physical index of logical index from 0 to 5 is [0, 1, 1, 2, 2, 2]
    */
+  public int getPhysicalIndex(int logicalIndex) {
+    return getPhysicalIndex(runEndsVector, logicalIndex);
+  }
+
   static int getPhysicalIndex(BaseIntVector runEndVector, int logicalIndex) {
     if (runEndVector == null || runEndVector.getValueCount() == 0) {
       return -1;
