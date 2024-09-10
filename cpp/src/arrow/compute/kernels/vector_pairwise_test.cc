@@ -68,7 +68,7 @@ class TestPairwiseDiff : public ::testing::Test {
   void SetUp() override {
     test_numerical_types_ = NumericTypes();
     test_temporal_types_ = TemporalTypes();
-    test_decimal_types_ = {decimal128(4, 2), decimal128(70, 10)};
+    test_decimal_types_ = {decimal128(4, 2), decimal256(70, 10)};
 
     test_input_types_.insert(test_input_types_.end(), test_numerical_types_.begin(),
                              test_numerical_types_.end());
