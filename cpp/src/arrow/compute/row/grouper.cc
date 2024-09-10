@@ -387,7 +387,7 @@ struct AnyKeysSegmenter : public BaseRowSegmenter {
     bool extends = kDefaultExtends;
     // the group id must be computed prior to resetting the grouper, since it is compared
     // to save_group_id_, and after resetting the grouper produces incomparable group ids
-    ARROW_ASSIGN_OR_RAISE(auto group_id, MapGroupIdAt(batch, 0));
+    ARROW_ASSIGN_OR_RAISE(auto group_id, MapGroupIdAt(batch));
     // it "extends" unless the group id differs from the last group id
     if (save_group_id_ != kNoGroupId && group_id != save_group_id_) {
       extends = false;
@@ -397,7 +397,7 @@ struct AnyKeysSegmenter : public BaseRowSegmenter {
     RETURN_NOT_OK(grouper_->Reset());
 
     std::vector<Segment> segments;
-    ARROW_ASSIGN_OR_RAISE(auto datum, grouper_->Consume(batch, 0));
+    ARROW_ASSIGN_OR_RAISE(auto datum, grouper_->Consume(batch));
     DCHECK(datum.is_array());
     // `data` is an array whose index-0 corresponds to index `offset` of `batch`
     const std::shared_ptr<ArrayData>& data = datum.array();
@@ -429,7 +429,7 @@ struct AnyKeysSegmenter : public BaseRowSegmenter {
   // Runs the grouper on a single row.  This is used to determine the group id of the
   // first row of a new segment to see if it extends the previous segment.
   template <typename Batch>
-  Result<group_id_t> MapGroupIdAt(const Batch& batch, int64_t offset) {
+  Result<group_id_t> MapGroupIdAt(const Batch& batch, int64_t offset = 0) {
     ARROW_ASSIGN_OR_RAISE(auto datum, grouper_->Consume(batch, offset,
                                                         /*length=*/1));
     if (!datum.is_array()) {
