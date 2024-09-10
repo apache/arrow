@@ -22,8 +22,10 @@
 #include "arrow/acero/exec_plan.h"
 #include "arrow/acero/options.h"
 #include "arrow/array/array_primitive.h"
+#include "arrow/array/concatenate.h"
 #include "arrow/compute/api.h"
 #include "arrow/table.h"
+#include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/benchmark_util.h"
@@ -34,6 +36,9 @@
 
 namespace arrow {
 
+using arrow::Concatenate;
+using arrow::ConstantArrayGenerator;
+using arrow::gen::Constant;
 using compute::Count;
 using compute::MinMax;
 using compute::Mode;
@@ -886,26 +891,40 @@ BENCHMARK(TDigestKernelDoubleDeciles)->Apply(QuantileKernelArgs);
 BENCHMARK(TDigestKernelDoubleCentiles)->Apply(QuantileKernelArgs);
 
 //
-// Segmented Grouped Count
+// RowSegmenter
 //
 
-GROUP_BY_BENCHMARK(CountGroupedByMediumIntSegmentedBySmallInts, [&] {
-  auto input = rng.Int64(args.size,
-                         /*min_length=*/0,
-                         /*max_length=*/512,
-                         /*null_probability=*/args.null_proportion);
-  // auto int_key = rng.Int64(args.size, /*min=*/0, /*max=*/63);
-  auto int_segment_key_1 = rng.Int64(args.size, /*min=*/0, /*max=*/3);
-  auto int_segment_key_2 = rng.Int64(args.size, /*min=*/0, /*max=*/3);
-  // ASSERT_OK_AND_ASSIGN(
-  //     auto left_batches,
-  //     MakeIntegerBatches({[](int row_id) -> int64_t { return row_id; }},
-  //                        schema({field("l_key", int32())}),
-  //                        /*num_batches=*/1, /*batch_size=*/num_left_rows));
+template <typename... Args>
+static void BenchmarkRowSegmenter(benchmark::State& state, Args&&...) {
+  int64_t num_rows = state.range(0);
+  int64_t num_segments = state.range(1);
+  ASSERT_NE(num_segments, 0);
+  int64_t num_segment_keys = state.range(2);
+  // Adjust num_rows to be a multiple of num_segments.
+  num_rows = num_rows / num_segments * num_segments;
 
-  BenchmarkGroupBy(state, {{"count", ""}}, {input}, {},
-                   {int_segment_key_1, int_segment_key_2});
-});
+  auto arg = ConstantArrayGenerator::Zeroes(num_rows, int64());
+  ArrayVector segments(num_segments);
+  for (int i = 0; i < num_segments; ++i) {
+    ASSERT_OK_AND_ASSIGN(
+        segments[i],
+        Constant(std::make_shared<Int64Scalar>(i))->Generate(num_rows / num_segments));
+  }
+  ASSERT_OK_AND_ASSIGN(auto segment_key, Concatenate(segments));
+  ArrayVector segment_keys(num_segment_keys, segment_key);
+
+  BenchmarkGroupBy(state, {{"count", ""}}, {arg}, {}, segment_keys);
+
+  state.SetItemsProcessed(num_rows * state.iterations());
+}
+
+std::vector<std::string> row_segmenter_argnames = {"Rows", "Segments", "SegmentKeys"};
+std::vector<std::vector<int64_t>> row_segmenter_args = {
+    {1 * 1024 * 1024}, benchmark::CreateRange(1, 1024, 8), {0, 1, 2}};
+
+BENCHMARK(BenchmarkRowSegmenter)
+    ->ArgNames(row_segmenter_argnames)
+    ->ArgsProduct(row_segmenter_args);
 
 }  // namespace acero
 }  // namespace arrow
