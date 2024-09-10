@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// TODO: PR to fix this under-review https://github.com/google/flatbuffers/pull/8367
 @SuppressWarnings({ "requires-automatic", "requires-transitive-automatic" })
 module org.apache.arrow.format {
   exports org.apache.arrow.flatbuf;
