@@ -24,14 +24,12 @@ Windows or macOS.
 install.packages("arrow")
 ```
 
-Alternatively, you can install the development version of arrow from R-universe.
+Alternatively, you can install the development version of arrow from R-universe, which provides pre-compiled binaries for the most commonly used operating systems.[^1]
+
+[^1]: Linux users should consult the R-universe [documentation](https://docs.r-universe.dev/install/binaries.html) for the exact repo URL path and limitations.
 
 ```r
-# Binaries for MacOS/Windows
-install.packages('arrow', repos = c('https://apache.r-universe.dev', 'https://cloud.r-project.org'))
-
-# Binaries for Linux (Ubuntu 24.04)
-install.packages("arrow", repos = "https://rpolars.r-universe.dev/bin/linux/noble/4.4")
+install.packages("arrow", repos = c("https://apache.r-universe.dev", "https://cloud.r-project.org"))
 ```
 
 If you are using conda you can install arrow from conda-forge:
