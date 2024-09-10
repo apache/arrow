@@ -271,7 +271,7 @@ jobs:
         shell: bash
         run: |
           sudo sysctl -w kern.coredump=1
-          sudo sysctl -w kern.corefile=core.%N.%P
+          sudo sysctl -w kern.corefile=/tmp/core.%N.%P
           ulimit -c unlimited  # must enable within the same shell
           ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
 

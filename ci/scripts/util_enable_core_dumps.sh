@@ -18,7 +18,7 @@
 # NOTE: this script is not marked executable as it should be source'd
 # for `ulimit` to take effect.
 
-set -ex
+set -e
 
 platform=$(uname)
 
