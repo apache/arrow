@@ -4,6 +4,7 @@ using System.IO;
 using System.Threading.Tasks;
 using Apache.Arrow.Flight.Client;
 using Apache.Arrow.Flight.Server;
+using Apache.Arrow.Types;
 using Arrow.Flight.Protocol.Sql;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
@@ -442,7 +443,10 @@ public class FlightSqlClient
             var writer = doPutResult.RequestStream;
             var reader = doPutResult.ResponseStream;
 
-            await writer.WriteAsync(new RecordBatch(schema, new List<IArrowArray>(), 0)).ConfigureAwait(false);
+            var recordBatch = new RecordBatch(schema, BuildArrowArraysFromSchema(schema, schema.FieldsList.Count), 0);
+            await writer.WriteAsync(recordBatch).ConfigureAwait(false);
+            await writer.CompleteAsync().ConfigureAwait(false);
+
             return new DoPutResult(writer, reader);
         }
         catch (RpcException ex)
@@ -450,6 +454,78 @@ public class FlightSqlClient
             throw new InvalidOperationException("Failed to perform DoPut operation", ex);
         }
     }
+
+    public List<IArrowArray> BuildArrowArraysFromSchema(Schema schema, int rowCount)
+    {
+        var arrays = new List<IArrowArray>();
+
+        foreach (var field in schema.FieldsList)
+        {
+            switch (field.DataType)
+            {
+                case Int32Type _:
+                    // Create an Int32 array
+                    var intArrayBuilder = new Int32Array.Builder();
+                    for (int i = 0; i < rowCount; i++)
+                    {
+                        intArrayBuilder.Append(i); // Just filling with sample data
+                    }
+
+                    arrays.Add(intArrayBuilder.Build());
+                    break;
+
+                case StringType:
+                    // Create a String array
+                    var stringArrayBuilder = new StringArray.Builder();
+                    for (int i = 0; i < rowCount; i++)
+                    {
+                        stringArrayBuilder.Append($"Value-{i}"); // Sample string values
+                    }
+
+                    arrays.Add(stringArrayBuilder.Build());
+                    break;
+
+                case Int64Type:
+                    // Create an Int64 array
+                    var longArrayBuilder = new Int64Array.Builder();
+                    for (int i = 0; i < rowCount; i++)
+                    {
+                        longArrayBuilder.Append((long)i * 100); // Sample data
+                    }
+
+                    arrays.Add(longArrayBuilder.Build());
+                    break;
+
+                case FloatType:
+                    // Create a Float array
+                    var floatArrayBuilder = new FloatArray.Builder();
+                    for (int i = 0; i < rowCount; i++)
+                    {
+                        floatArrayBuilder.Append((float)(i * 1.1)); // Sample data
+                    }
+
+                    arrays.Add(floatArrayBuilder.Build());
+                    break;
+
+                case BooleanType:
+                    // Create a Boolean array
+                    var boolArrayBuilder = new BooleanArray.Builder();
+                    for (int i = 0; i < rowCount; i++)
+                    {
+                        boolArrayBuilder.Append(i % 2 == 0); // Alternate between true and false
+                    }
+
+                    arrays.Add(boolArrayBuilder.Build());
+                    break;
+
+                default:
+                    throw new NotSupportedException($"Data type {field.DataType} not supported yet.");
+            }
+        }
+
+        return arrays;
+    }
+
 
     /// <summary>
     /// Upload data to a Flight described by the given descriptor. The caller must call Close() on the returned stream
@@ -993,6 +1069,7 @@ public class FlightSqlClient
                 string? beginTransactionResult = result.Body.ToStringUtf8();
                 return new Transaction(beginTransactionResult);
             }
+
             throw new InvalidOperationException("Failed to begin transaction: No response received.");
         }
         catch (RpcException ex)

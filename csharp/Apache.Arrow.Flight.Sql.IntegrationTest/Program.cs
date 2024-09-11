@@ -395,10 +395,10 @@ class Program
             var doPutResult = await client.DoPutAsync(options, descriptor, schema).ConfigureAwait(false);
 
             // Example data to write
-            var col1 = new Int32Array.Builder().AppendRange(new[] { 8, 9, 10, 11 }).Build();
-            var col2 = new StringArray.Builder().AppendRange(new[] { "a", "b", "c", "d" }).Build();
-            var col3 = new StringArray.Builder().AppendRange(new[] { "x", "y", "z", "q" }).Build();
-            var batch = new RecordBatch(schema, new IArrowArray[] { col1, col2, col3 }, 4);
+            var col1 = new Int32Array.Builder().AppendRange([8, 9, 10, 11]).Build();
+            var col2 = new StringArray.Builder().AppendRange(["a", "b", "c", "d"]).Build();
+            var col3 = new StringArray.Builder().AppendRange(["x", "y", "z", "q"]).Build();
+            var batch = new RecordBatch(schema, [col1, col2, col3], 4);
 
             await doPutResult.Writer.WriteAsync(batch);
             await doPutResult.Writer.CompleteAsync();
