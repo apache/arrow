@@ -1873,16 +1873,19 @@ TEST(TestFileReader, GeometryLogicalType) {
     std::unique_ptr<RowGroupMetaData> row_group_metadata = metadata->RowGroup(i);
     std::unique_ptr<ColumnChunkMetaData> column_chunk_metadata =
         row_group_metadata->ColumnChunk(0);
-    EncodedStatistics encoded_statistics = column_chunk_metadata->statistics()->Encode();
-    EXPECT_TRUE(encoded_statistics.has_geometry_statistics);
-    const EncodedGeometryStatistics& geom_stats =
-        encoded_statistics.geometry_statistics();
-    EXPECT_EQ(1, geom_stats.geometry_types.size());
-    EXPECT_EQ(1, geom_stats.geometry_types[0]);
-    EXPECT_GE(geom_stats.xmin, 0);
-    EXPECT_GT(geom_stats.xmax, geom_stats.xmin);
-    EXPECT_GT(geom_stats.ymin, 0);
-    EXPECT_GT(geom_stats.ymax, geom_stats.ymin);
+    std::shared_ptr<Statistics> statistics = column_chunk_metadata->statistics();
+    EXPECT_FALSE(statistics->HasMinMax());
+    EXPECT_TRUE(statistics->HasGeometryStatistics());
+    const GeometryStatistics* geom_stats = statistics->geometry_statistics();
+    std::vector<int32_t> geometry_types = geom_stats->GetGeometryTypes();
+    EXPECT_EQ(1, geometry_types.size());
+    EXPECT_EQ(1, geometry_types[0]);
+    EXPECT_GE(geom_stats->GetXMin(), 0);
+    EXPECT_GT(geom_stats->GetXMax(), geom_stats->GetXMin());
+    EXPECT_GT(geom_stats->GetYMin(), 0);
+    EXPECT_GT(geom_stats->GetYMax(), geom_stats->GetYMin());
+    EXPECT_FALSE(geom_stats->HasZ());
+    EXPECT_FALSE(geom_stats->HasM());
   }
 
   // Check the geometry values

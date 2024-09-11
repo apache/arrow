@@ -27,12 +27,14 @@
 #include <utility>
 
 #include "arrow/array.h"
+#include "arrow/array/array_binary.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/float16.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/visit_data_inline.h"
 #include "parquet/encoding.h"
@@ -119,13 +121,33 @@ class GeometryStatisticsImpl {
       ::arrow::internal::VisitSetBitRunsVoid(
           valid_bits, valid_bits_offset, num_spaced_values,
           [&](int64_t position, int64_t length) {
-            for (int64_t i = 0; i < num_spaced_values; i++) {
+            for (int64_t i = 0; i < length; i++) {
               ByteArray item = SafeLoad(values + i + position);
               buf.Init(item.ptr, item.len);
               bounder_.ReadGeometry(&buf);
             }
           });
       bounder_.Flush();
+    } catch (ParquetException&) {
+      is_valid_ = false;
+    }
+  }
+
+  void Update(const ::arrow::Array& values, bool update_counts) {
+    ARROW_UNUSED(update_counts);
+
+    const auto& binary_array = static_cast<const ::arrow::BinaryArray&>(values);
+    geometry::WKBBuffer buf;
+    try {
+      for (int64_t i = 0; i < binary_array.length(); ++i) {
+        if (!binary_array.IsNull(i)) {
+          std::string_view byte_array = binary_array.GetView(i);
+          buf.Init(reinterpret_cast<const uint8_t*>(byte_array.data()),
+                   byte_array.length());
+          bounder_.ReadGeometry(&buf);
+          bounder_.Flush();
+        }
+      }
     } catch (ParquetException&) {
       is_valid_ = false;
     }
@@ -230,6 +252,10 @@ void GeometryStatistics::UpdateSpaced(const ByteArray* values, const uint8_t* va
                                       int64_t null_count) {
   impl_->UpdateSpaced(values, valid_bits, valid_bits_offset, num_spaced_values,
                       num_values, null_count);
+}
+
+void GeometryStatistics::Update(const ::arrow::Array& values, bool update_counts) {
+  impl_->Update(values, update_counts);
 }
 
 bool GeometryStatistics::is_valid() const { return impl_->is_valid(); }
@@ -1002,7 +1028,18 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
       return;
     }
 
-    SetMinMaxPair(comparator_->GetMinMax(values));
+    if constexpr (std::is_same<T, ByteArray>::value) {
+      if (logical_type_ == LogicalType::Type::GEOMETRY) {
+        if (geometry_statistics_ == nullptr) {
+          geometry_statistics_ = std::make_unique<GeometryStatistics>();
+        }
+        geometry_statistics_->Update(values, update_counts);
+      } else {
+        SetMinMaxPair(comparator_->GetMinMax(values));
+      }
+    } else {
+      SetMinMaxPair(comparator_->GetMinMax(values));
+    }
   }
 
   const T& min() const override { return min_; }
@@ -1159,7 +1196,6 @@ void TypedStatisticsImpl<DType>::Update(const T* values, int64_t num_values,
   IncrementNumValues(num_values);
 
   if (num_values == 0) return;
-  SetMinMaxPair(comparator_->GetMinMax(values, num_values));
 
   if constexpr (std::is_same<T, ByteArray>::value) {
     if (logical_type_ == LogicalType::Type::GEOMETRY) {
@@ -1167,7 +1203,11 @@ void TypedStatisticsImpl<DType>::Update(const T* values, int64_t num_values,
         geometry_statistics_ = std::make_unique<GeometryStatistics>();
       }
       geometry_statistics_->Update(values, num_values, null_count);
+    } else {
+      SetMinMaxPair(comparator_->GetMinMax(values, num_values));
     }
+  } else {
+    SetMinMaxPair(comparator_->GetMinMax(values, num_values));
   }
 }
 
@@ -1183,8 +1223,6 @@ void TypedStatisticsImpl<DType>::UpdateSpaced(const T* values, const uint8_t* va
   IncrementNumValues(num_values);
 
   if (num_values == 0) return;
-  SetMinMaxPair(comparator_->GetMinMaxSpaced(values, num_spaced_values, valid_bits,
-                                             valid_bits_offset));
 
   if constexpr (std::is_same<T, ByteArray>::value) {
     if (logical_type_ == LogicalType::Type::GEOMETRY) {
@@ -1193,7 +1231,13 @@ void TypedStatisticsImpl<DType>::UpdateSpaced(const T* values, const uint8_t* va
       }
       geometry_statistics_->UpdateSpaced(values, valid_bits, valid_bits_offset,
                                          num_spaced_values, num_values, null_count);
+    } else {
+      SetMinMaxPair(comparator_->GetMinMaxSpaced(values, num_spaced_values, valid_bits,
+                                                 valid_bits_offset));
     }
+  } else {
+    SetMinMaxPair(comparator_->GetMinMaxSpaced(values, num_spaced_values, valid_bits,
+                                               valid_bits_offset));
   }
 }
 
