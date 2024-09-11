@@ -111,8 +111,8 @@ Status SerializeTensor(std::shared_ptr<Tensor> tensor, py::SerializedPyObject* o
 /// \param[in] tensor_num_bytes The length of the Tensor data in bytes
 /// \param[in] dst The OutputStream to write the Tensor header to
 /// \return Status
-ARROW_PYTHON_EXPORT
 ARROW_DEPRECATED("Deprecated in 18.0.0. Will be removed in 20.0.0")
+ARROW_PYTHON_EXPORT
 Status WriteNdarrayHeader(std::shared_ptr<DataType> dtype,
                           const std::vector<int64_t>& shape, int64_t tensor_num_bytes,
                           io::OutputStream* dst);
