@@ -548,13 +548,57 @@ gparquet_arrow_file_writer_write_record_batch(GParquetArrowFileWriter *writer,
 gboolean
 gparquet_arrow_file_writer_write_table(GParquetArrowFileWriter *writer,
                                        GArrowTable *table,
-                                       guint64 chunk_size,
+                                       gsize chunk_size,
                                        GError **error)
 {
   auto parquet_arrow_file_writer = gparquet_arrow_file_writer_get_raw(writer);
   auto arrow_table = garrow_table_get_raw(table).get();
-  auto status = parquet_arrow_file_writer->WriteTable(*arrow_table, chunk_size);
-  return garrow_error_check(error, status, "[parquet][arrow][file-writer][write-table]");
+  return garrow::check(error,
+                       parquet_arrow_file_writer->WriteTable(*arrow_table, chunk_size),
+                       "[parquet][arrow][file-writer][write-table]");
+}
+
+/**
+ * gparquet_arrow_file_writer_new_row_group:
+ * @writer: A #GParquetArrowFileWriter.
+ * @chunk_size: The max number of rows in a row group.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 18.0.0
+ */
+gboolean
+gparquet_arrow_file_writer_new_row_group(GParquetArrowFileWriter *writer,
+                                         gsize chunk_size,
+                                         GError **error)
+{
+  auto parquet_arrow_file_writer = gparquet_arrow_file_writer_get_raw(writer);
+  return garrow::check(error,
+                       parquet_arrow_file_writer->NewRowGroup(chunk_size),
+                       "[parquet][arrow][file-writer][new-row-group]");
+}
+
+/**
+ * gparquet_arrow_file_writer_write_chunked_array:
+ * @writer: A #GParquetArrowFileWriter.
+ * @chunked_array: A #GArrowChunkedArray to be written.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 18.0.0
+ */
+gboolean
+gparquet_arrow_file_writer_write_chunked_array(GParquetArrowFileWriter *writer,
+                                               GArrowChunkedArray *chunked_array,
+                                               GError **error)
+{
+  auto parquet_arrow_file_writer = gparquet_arrow_file_writer_get_raw(writer);
+  auto arrow_chunked_array = garrow_chunked_array_get_raw(chunked_array);
+  return garrow::check(error,
+                       parquet_arrow_file_writer->WriteColumnChunk(arrow_chunked_array),
+                       "[parquet][arrow][file-writer][write-chunked-array]");
 }
 
 /**

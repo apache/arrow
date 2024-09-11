@@ -82,4 +82,34 @@ class TestParquetArrowFileWriter < Test::Unit::TestCase
       reader.unref
     end
   end
+
+  def test_write_chunked_array
+    schema = build_schema("enabled" => :boolean)
+    writer = Parquet::ArrowFileWriter.new(schema, @file.path)
+    writer.new_row_group(2)
+    chunked_array = Arrow::ChunkedArray.new([build_boolean_array([true, nil])])
+    writer.write_chunked_array(chunked_array)
+    writer.new_row_group(1)
+    chunked_array = Arrow::ChunkedArray.new([build_boolean_array([false])])
+    writer.write_chunked_array(chunked_array)
+    writer.close
+
+    reader = Parquet::ArrowFileReader.new(@file.path)
+    begin
+      reader.use_threads = true
+      assert_equal([
+                     2,
+                     build_table("enabled" => [
+                                   build_boolean_array([true, nil]),
+                                   build_boolean_array([false]),
+                                 ]),
+                   ],
+                   [
+                     reader.n_row_groups,
+                     reader.read_table,
+                   ])
+    ensure
+      reader.unref
+    end
+  end
 end
