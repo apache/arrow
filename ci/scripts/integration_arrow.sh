@@ -30,14 +30,13 @@ gold_dir=$arrow_dir/testing/data/arrow-ipc-stream/integration
 : ${ARROW_INTEGRATION_JAVA:=ON}
 : ${ARROW_INTEGRATION_JS:=ON}
 
-echo "::group::Integration: Prepare: Archery"
-set -x
-pip install -e $arrow_dir/dev/archery[integration]
-set +x
-echo "::endgroup::"
+. ${arrow_dir}/ci/scripts/util_log.sh
 
-echo "::group::Integration: Prepare: Dependencies"
-set -x
+github_actions_group_begin "Integration: Prepare: Archery"
+pip install -e $arrow_dir/dev/archery[integration]
+github_actions_group_ehd
+
+github_actions_group_begin "Integration: Prepare: Dependencies"
 # For C Data Interface testing
 if [ "${ARROW_INTEGRATION_CSHARP}" == "ON" ]; then
     pip install pythonnet
@@ -45,8 +44,7 @@ fi
 if [ "${ARROW_INTEGRATION_JAVA}" == "ON" ]; then
     pip install jpype1
 fi
-set +x
-echo "::endgroup::"
+github_actions_group_ehd
 
 export ARROW_BUILD_ROOT=${build_dir}
 
