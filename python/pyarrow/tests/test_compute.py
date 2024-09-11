@@ -2417,7 +2417,7 @@ def _check_temporal_rounding(ts, values, unit):
         "millisecond": "s",
         "second": "min",
         "minute": "h",
-        "hour": "d",
+        "hour": "D",
     }
     ta = pa.array(ts)
 
