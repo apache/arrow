@@ -57,6 +57,7 @@ public final class ZeroVector extends NullVector {
   }
 
   @Deprecated
+  @SuppressWarnings("InlineMeInliner")
   public ZeroVector() {}
 
   @Override

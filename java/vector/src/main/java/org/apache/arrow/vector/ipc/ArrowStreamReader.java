@@ -139,6 +139,7 @@ public class ArrowStreamReader extends ArrowReader {
    * @return true if a batch was read, false on EOS
    * @throws IOException on error
    */
+  @Override
   public boolean loadNextBatch() throws IOException {
     prepareLoadNextBatch();
     MessageResult result = messageReader.readNext();

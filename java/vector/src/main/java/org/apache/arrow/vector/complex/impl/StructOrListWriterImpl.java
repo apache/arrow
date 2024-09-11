@@ -51,6 +51,7 @@ public class StructOrListWriterImpl implements StructOrListWriter {
   }
 
   /** Start writing to either the list or the struct. */
+  @Override
   public void start() {
     if (struct != null) {
       struct.start();
@@ -60,6 +61,7 @@ public class StructOrListWriterImpl implements StructOrListWriter {
   }
 
   /** Finish writing to the list or struct. */
+  @Override
   public void end() {
     if (struct != null) {
       struct.end();
@@ -69,6 +71,7 @@ public class StructOrListWriterImpl implements StructOrListWriter {
   }
 
   /** Creates a new writer for a struct with the given name. */
+  @Override
   public StructOrListWriter struct(final String name) {
     assert struct != null;
     return new StructOrListWriterImpl(struct.struct(name));
@@ -81,6 +84,7 @@ public class StructOrListWriterImpl implements StructOrListWriter {
    * @deprecated use {@link #listOfStruct(String)} instead.
    */
   @Deprecated
+  @SuppressWarnings({"InlineMeValidator", "InlineMeSuggester"})
   public StructOrListWriter listoftstruct(final String name) {
     return listOfStruct(name);
   }
@@ -90,48 +94,59 @@ public class StructOrListWriterImpl implements StructOrListWriter {
    *
    * @param name Unused.
    */
+  @Override
   public StructOrListWriter listOfStruct(final String name) {
     assert list != null;
     return new StructOrListWriterImpl(list.struct());
   }
 
+  @Override
   public StructOrListWriter list(final String name) {
     assert struct != null;
     return new StructOrListWriterImpl(struct.list(name));
   }
 
+  @Override
   public boolean isStructWriter() {
     return struct != null;
   }
 
+  @Override
   public boolean isListWriter() {
     return list != null;
   }
 
+  @Override
   public VarCharWriter varChar(final String name) {
     return (struct != null) ? struct.varChar(name) : list.varChar();
   }
 
+  @Override
   public IntWriter integer(final String name) {
     return (struct != null) ? struct.integer(name) : list.integer();
   }
 
+  @Override
   public BigIntWriter bigInt(final String name) {
     return (struct != null) ? struct.bigInt(name) : list.bigInt();
   }
 
+  @Override
   public Float4Writer float4(final String name) {
     return (struct != null) ? struct.float4(name) : list.float4();
   }
 
+  @Override
   public Float8Writer float8(final String name) {
     return (struct != null) ? struct.float8(name) : list.float8();
   }
 
+  @Override
   public BitWriter bit(final String name) {
     return (struct != null) ? struct.bit(name) : list.bit();
   }
 
+  @Override
   public VarBinaryWriter binary(final String name) {
     return (struct != null) ? struct.varBinary(name) : list.varBinary();
   }

@@ -478,12 +478,15 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
       int offsetWidth = BaseVariableWidthVector.OFFSET_WIDTH;
 
       if (!isNull) {
-        final int startIndexLeft = leftVector.getOffsetBuffer().getInt(leftIndex * offsetWidth);
-        final int endIndexLeft = leftVector.getOffsetBuffer().getInt((leftIndex + 1) * offsetWidth);
+        final int startIndexLeft =
+            leftVector.getOffsetBuffer().getInt((long) leftIndex * offsetWidth);
+        final int endIndexLeft =
+            leftVector.getOffsetBuffer().getInt((long) (leftIndex + 1) * offsetWidth);
 
-        final int startIndexRight = rightVector.getOffsetBuffer().getInt(rightIndex * offsetWidth);
+        final int startIndexRight =
+            rightVector.getOffsetBuffer().getInt((long) rightIndex * offsetWidth);
         final int endIndexRight =
-            rightVector.getOffsetBuffer().getInt((rightIndex + 1) * offsetWidth);
+            rightVector.getOffsetBuffer().getInt((long) (rightIndex + 1) * offsetWidth);
 
         int ret =
             ByteFunctionHelpers.equal(
@@ -657,12 +660,15 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
       int offsetWidth = BaseRepeatedValueVector.OFFSET_WIDTH;
 
       if (!isNull) {
-        final int startIndexLeft = leftVector.getOffsetBuffer().getInt(leftIndex * offsetWidth);
-        final int endIndexLeft = leftVector.getOffsetBuffer().getInt((leftIndex + 1) * offsetWidth);
+        final int startIndexLeft =
+            leftVector.getOffsetBuffer().getInt((long) leftIndex * offsetWidth);
+        final int endIndexLeft =
+            leftVector.getOffsetBuffer().getInt((long) (leftIndex + 1) * offsetWidth);
 
-        final int startIndexRight = rightVector.getOffsetBuffer().getInt(rightIndex * offsetWidth);
+        final int startIndexRight =
+            rightVector.getOffsetBuffer().getInt((long) rightIndex * offsetWidth);
         final int endIndexRight =
-            rightVector.getOffsetBuffer().getInt((rightIndex + 1) * offsetWidth);
+            rightVector.getOffsetBuffer().getInt((long) (rightIndex + 1) * offsetWidth);
 
         if ((endIndexLeft - startIndexLeft) != (endIndexRight - startIndexRight)) {
           return false;

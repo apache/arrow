@@ -26,6 +26,7 @@ import com.fasterxml.jackson.databind.MappingJsonFactory;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -248,14 +249,14 @@ public class JsonFileWriter implements AutoCloseable {
             // writing views
             ArrowBuf viewBuffer = vectorBuffers.get(1);
             List<ArrowBuf> dataBuffers = vectorBuffers.subList(v + 1, vectorBuffers.size());
-            writeValueToViewGenerator(bufferType, viewBuffer, dataBuffers, vector, i);
+            writeValueToViewGenerator(viewBuffer, dataBuffers, vector, i);
           } else if (bufferType.equals(VARIADIC_DATA_BUFFERS)
               && (vector.getMinorType() == MinorType.VIEWVARCHAR
                   || vector.getMinorType() == MinorType.VIEWVARBINARY)) {
             ArrowBuf viewBuffer = vectorBuffers.get(1); // check if this is v-1
             List<ArrowBuf> dataBuffers = vectorBuffers.subList(v, vectorBuffers.size());
             if (!dataBuffers.isEmpty()) {
-              writeValueToDataBufferGenerator(bufferType, viewBuffer, dataBuffers, vector);
+              writeValueToDataBufferGenerator(bufferType, viewBuffer, dataBuffers);
               // The variadic buffers are written at once and doesn't require iterating for
               // each index.
               // So, break the loop.
@@ -350,7 +351,6 @@ public class JsonFileWriter implements AutoCloseable {
   }
 
   private void writeValueToViewGenerator(
-      BufferType bufferType,
       ArrowBuf viewBuffer,
       List<ArrowBuf> dataBuffers,
       FieldVector vector,
@@ -383,7 +383,7 @@ public class JsonFileWriter implements AutoCloseable {
     } else {
       generator.writeFieldName("INLINED");
       if (vector.getMinorType() == MinorType.VIEWVARCHAR) {
-        generator.writeString(new String(b, "UTF-8"));
+        generator.writeString(new String(b, StandardCharsets.UTF_8));
       } else {
         generator.writeString(Hex.encodeHexString(b));
       }
@@ -392,7 +392,7 @@ public class JsonFileWriter implements AutoCloseable {
   }
 
   private void writeValueToDataBufferGenerator(
-      BufferType bufferType, ArrowBuf viewBuffer, List<ArrowBuf> dataBuffers, FieldVector vector)
+      BufferType bufferType, ArrowBuf viewBuffer, List<ArrowBuf> dataBuffers)
       throws IOException {
     if (bufferType.equals(VARIADIC_DATA_BUFFERS)) {
       Preconditions.checkNotNull(viewBuffer);
@@ -560,8 +560,8 @@ public class JsonFileWriter implements AutoCloseable {
         case VARCHAR:
           {
             Preconditions.checkNotNull(offsetBuffer);
-            byte[] b = (BaseVariableWidthVector.get(buffer, offsetBuffer, index));
-            generator.writeString(new String(b, "UTF-8"));
+            byte[] b = BaseVariableWidthVector.get(buffer, offsetBuffer, index);
+            generator.writeString(new String(b, StandardCharsets.UTF_8));
             break;
           }
         case DECIMAL:
