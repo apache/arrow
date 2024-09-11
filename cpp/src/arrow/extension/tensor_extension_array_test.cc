@@ -36,6 +36,7 @@
 namespace arrow {
 
 using FixedShapeTensorType = extension::FixedShapeTensorType;
+using arrow::ipc::test::RoundtripBatch;
 using extension::fixed_shape_tensor;
 using extension::FixedShapeTensorArray;
 
@@ -807,7 +808,7 @@ TEST_F(TestVariableShapeTensorType, RoudtripBatch) {
   std::shared_ptr<RecordBatch> read_batch;
   auto ext_field = field(/*name=*/"f0", /*type=*/ext_type_);
   auto batch = RecordBatch::Make(schema({ext_field}), ext_arr_->length(), {ext_arr_});
-  RoundtripBatch(batch, &read_batch);
+  ASSERT_OK(RoundtripBatch(batch, &read_batch));
   CompareBatch(*batch, *read_batch, /*compare_metadata=*/true);
 
   // Pass extension metadata and storage array, expect getting back extension array
@@ -818,7 +819,7 @@ TEST_F(TestVariableShapeTensorType, RoudtripBatch) {
   ext_field = field(/*name=*/"f0", /*type=*/ext_type_->storage_type(), /*nullable=*/true,
                     /*metadata=*/ext_metadata);
   auto batch2 = RecordBatch::Make(schema({ext_field}), ext_arr_->length(), {ext_arr_});
-  RoundtripBatch(batch2, &read_batch2);
+  ASSERT_OK(RoundtripBatch(batch2, &read_batch2));
   CompareBatch(*batch, *read_batch2, /*compare_metadata=*/true);
 }
 

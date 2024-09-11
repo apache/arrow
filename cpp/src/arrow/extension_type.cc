@@ -29,9 +29,9 @@
 #include "arrow/config.h"
 #include "arrow/extension/bool8.h"
 #ifdef ARROW_JSON
-#include "arrow/extension/fixed_shape_tensor.h"
-#include "arrow/extension/opaque.h"
-#include "arrow/extension/variable_shape_tensor.h"
+#  include "arrow/extension/fixed_shape_tensor.h"
+#  include "arrow/extension/opaque.h"
+#  include "arrow/extension/variable_shape_tensor.h"
 #endif
 #include "arrow/extension/json.h"
 #include "arrow/extension/uuid.h"
