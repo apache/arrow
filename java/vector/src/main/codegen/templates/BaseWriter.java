@@ -125,6 +125,7 @@ public interface BaseWriter extends AutoCloseable, Positionable {
     /**
      * @deprecated use {@link #listOfStruct()} instead.
      */
+    @Deprecated
     StructOrListWriter listoftstruct(String name);
     StructOrListWriter listOfStruct(String name);
     StructOrListWriter list(String name);
