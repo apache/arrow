@@ -376,6 +376,7 @@ set(ARROW_SRCS
     device_allocation_type_set.cc
     extension_type.cc
     extension/bool8.cc
+    extension/json.cc
     extension/uuid.cc
     pretty_print.cc
     record_batch.cc
