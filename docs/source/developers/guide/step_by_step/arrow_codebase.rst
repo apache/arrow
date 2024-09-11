@@ -150,6 +150,3 @@ C++ we must create the binding manually to use it in that implementation.
       When writing bindings between C++ compute functions and R functions,
       the aim is to expose the C++ functionality via the same interface as
       existing R functions.
-
-      To read the full content on the topic of R bindings read through the
-      `Writing Bindings article <https://arrow.apache.org/docs/r/articles/developers/bindings.html>`_.

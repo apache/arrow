@@ -48,6 +48,7 @@ final class Scenarios {
     scenarios.put("poll_flight_info", PollFlightInfoScenario::new);
     scenarios.put("flight_sql", FlightSqlScenario::new);
     scenarios.put("flight_sql:extension", FlightSqlExtensionScenario::new);
+    scenarios.put("flight_sql:ingestion", FlightSqlIngestionScenario::new);
     scenarios.put("app_metadata_flight_info_endpoint", AppMetadataFlightInfoEndpointScenario::new);
     scenarios.put("session_options", SessionOptionsScenario::new);
   }

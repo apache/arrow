@@ -38,6 +38,7 @@ jobs:
         env:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: |
+          source arrow/ci/scripts/util_enable_core_dumps.sh
           archery docker run \
             -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" \
             {{ flags|default("") }} \

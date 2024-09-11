@@ -23,11 +23,14 @@ import weakref
 from uuid import uuid4, UUID
 import sys
 
-import numpy as np
+import pytest
+try:
+    import numpy as np
+except ImportError:
+    np = None
+
 import pyarrow as pa
 from pyarrow.vendored.version import Version
-
-import pytest
 
 
 @contextlib.contextmanager
@@ -562,6 +565,7 @@ def test_ext_array_pickling(pickle_module):
         assert arr.storage.to_pylist() == [b"foo", b"bar"]
 
 
+@pytest.mark.numpy
 def test_ext_array_conversion_to_numpy():
     storage1 = pa.array([1, 2, 3], type=pa.int64())
     storage2 = pa.array([b"123", b"456", b"789"], type=pa.binary(3))
@@ -619,6 +623,7 @@ def struct_w_ext_data():
     return [sarr1, sarr2]
 
 
+@pytest.mark.numpy
 def test_struct_w_ext_array_to_numpy(struct_w_ext_data):
     # ARROW-15291
     # Check that we don't segfault when trying to build
@@ -1233,6 +1238,7 @@ def test_parquet_extension_nested_in_extension(tmpdir):
             assert table == orig_table
 
 
+@pytest.mark.numpy
 def test_to_numpy():
     period_type = PeriodType('D')
     storage = pa.array([1, 2, 3, 4], pa.int64())
@@ -1285,7 +1291,11 @@ def test_empty_take():
     (["cat", "dog", "horse"], LabelType)
 ))
 @pytest.mark.parametrize(
-    "into", ["to_numpy", pytest.param("to_pandas", marks=pytest.mark.pandas)])
+    "into", [
+        pytest.param("to_numpy", marks=pytest.mark.numpy),
+        pytest.param("to_pandas", marks=pytest.mark.pandas)
+    ]
+)
 def test_extension_array_to_numpy_pandas(data, ty, into):
     storage = pa.array(data)
     ext_arr = pa.ExtensionArray.from_storage(ty(), storage)
@@ -1301,6 +1311,7 @@ def test_extension_array_to_numpy_pandas(data, ty, into):
         assert np.array_equal(result, expected)
 
 
+@pytest.mark.numpy
 def test_array_constructor():
     ext_type = IntegerType()
     storage = pa.array([1, 2, 3], type=pa.int64())
@@ -1333,6 +1344,7 @@ def test_array_constructor_from_pandas():
     assert result.equals(expected)
 
 
+@pytest.mark.numpy
 @pytest.mark.cython
 def test_cpp_extension_in_python(tmpdir):
     from .test_cython import (
@@ -1430,38 +1442,45 @@ def test_tensor_type():
     assert tensor_type.permutation is None
 
 
-@pytest.mark.parametrize("value_type", (np.int8(), np.int64(), np.float32()))
-def test_tensor_class_methods(value_type):
+@pytest.mark.numpy
+@pytest.mark.parametrize("np_type_str", ("int8", "int64", "float32"))
+def test_tensor_class_methods(np_type_str):
     from numpy.lib.stride_tricks import as_strided
-    arrow_type = pa.from_numpy_dtype(value_type)
+    arrow_type = pa.from_numpy_dtype(np.dtype(np_type_str))
 
     tensor_type = pa.fixed_shape_tensor(arrow_type, [2, 3])
     storage = pa.array([[1, 2, 3, 4, 5, 6], [7, 8, 9, 10, 11, 12]],
                        pa.list_(arrow_type, 6))
     arr = pa.ExtensionArray.from_storage(tensor_type, storage)
     expected = np.array(
-        [[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]], dtype=value_type)
+        [[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]],
+        dtype=np.dtype(np_type_str)
+    )
     np.testing.assert_array_equal(arr.to_tensor(), expected)
     np.testing.assert_array_equal(arr.to_numpy_ndarray(), expected)
 
-    expected = np.array([[[7, 8, 9], [10, 11, 12]]], dtype=value_type)
+    expected = np.array([[[7, 8, 9], [10, 11, 12]]], dtype=np.dtype(np_type_str))
     result = arr[1:].to_numpy_ndarray()
     np.testing.assert_array_equal(result, expected)
 
     values = [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]]
-    flat_arr = np.array(values[0], dtype=value_type)
-    bw = value_type.itemsize
+    flat_arr = np.array(values[0], dtype=np.dtype(np_type_str))
+    bw = np.dtype(np_type_str).itemsize
     storage = pa.array(values, pa.list_(arrow_type, 12))
 
     tensor_type = pa.fixed_shape_tensor(arrow_type, [2, 2, 3], permutation=[0, 1, 2])
     result = pa.ExtensionArray.from_storage(tensor_type, storage)
     expected = np.array(
-        [[[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]]], dtype=value_type)
+        [[[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]]],
+        dtype=np.dtype(np_type_str)
+    )
     np.testing.assert_array_equal(result.to_numpy_ndarray(), expected)
 
     result = flat_arr.reshape(1, 2, 3, 2)
     expected = np.array(
-        [[[[1, 2], [3, 4], [5, 6]], [[7, 8], [9, 10], [11, 12]]]], dtype=value_type)
+        [[[[1, 2], [3, 4], [5, 6]], [[7, 8], [9, 10], [11, 12]]]],
+        dtype=np.dtype(np_type_str)
+    )
     np.testing.assert_array_equal(result, expected)
 
     tensor_type = pa.fixed_shape_tensor(arrow_type, [2, 2, 3], permutation=[0, 2, 1])
@@ -1482,25 +1501,27 @@ def test_tensor_class_methods(value_type):
     assert result.to_tensor().strides == (12 * bw, 1 * bw, 6 * bw, 2 * bw)
 
 
-@pytest.mark.parametrize("value_type", (np.int8(), np.int64(), np.float32()))
-def test_tensor_array_from_numpy(value_type):
+@pytest.mark.numpy
+@pytest.mark.parametrize("np_type_str", ("int8", "int64", "float32"))
+def test_tensor_array_from_numpy(np_type_str):
     from numpy.lib.stride_tricks import as_strided
-    arrow_type = pa.from_numpy_dtype(value_type)
+    arrow_type = pa.from_numpy_dtype(np.dtype(np_type_str))
 
     arr = np.array([[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]],
-                   dtype=value_type, order="C")
+                   dtype=np.dtype(np_type_str), order="C")
     tensor_array_from_numpy = pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
     assert isinstance(tensor_array_from_numpy.type, pa.FixedShapeTensorType)
     assert tensor_array_from_numpy.type.value_type == arrow_type
     assert tensor_array_from_numpy.type.shape == [2, 3]
 
     arr = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12]],
-                   dtype=value_type, order="F")
+                   dtype=np.dtype(np_type_str), order="F")
     with pytest.raises(ValueError, match="First stride needs to be largest"):
         pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
 
-    flat_arr = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], dtype=value_type)
-    bw = value_type.itemsize
+    flat_arr = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+                        dtype=np.dtype(np_type_str))
+    bw = np.dtype(np_type_str).itemsize
 
     arr = flat_arr.reshape(1, 3, 4)
     tensor_array_from_numpy = pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
@@ -1518,23 +1539,26 @@ def test_tensor_array_from_numpy(value_type):
     arr = flat_arr.reshape(1, 2, 3, 2)
     result = pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
     expected = np.array(
-        [[[[1, 2], [3, 4], [5, 6]], [[7, 8], [9, 10], [11, 12]]]], dtype=value_type)
+        [[[[1, 2], [3, 4], [5, 6]], [[7, 8], [9, 10], [11, 12]]]],
+        dtype=np.dtype(np_type_str)
+    )
     np.testing.assert_array_equal(result.to_numpy_ndarray(), expected)
 
-    arr = np.array([[1, 2, 3, 4, 5, 6], [7, 8, 9, 10, 11, 12]], dtype=value_type)
+    arr = np.array([[1, 2, 3, 4, 5, 6], [7, 8, 9, 10, 11, 12]],
+                   dtype=np.dtype(np_type_str))
     expected = arr[1:]
     result = pa.FixedShapeTensorArray.from_numpy_ndarray(arr)[1:].to_numpy_ndarray()
     np.testing.assert_array_equal(result, expected)
 
-    arr = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], dtype=value_type)
+    arr = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], dtype=np.dtype(np_type_str))
     with pytest.raises(ValueError, match="Cannot convert 1D array or scalar to fixed"):
         pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
 
-    arr = np.array(1, dtype=value_type)
+    arr = np.array(1, dtype=np.dtype(np_type_str))
     with pytest.raises(ValueError, match="Cannot convert 1D array or scalar to fixed"):
         pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
 
-    arr = np.array([], dtype=value_type)
+    arr = np.array([], dtype=np.dtype(np_type_str))
 
     with pytest.raises(ValueError, match="Cannot convert 1D array or scalar to fixed"):
         pa.FixedShapeTensorArray.from_numpy_ndarray(arr.reshape((0)))
@@ -1546,6 +1570,7 @@ def test_tensor_array_from_numpy(value_type):
         pa.FixedShapeTensorArray.from_numpy_ndarray(arr.reshape((3, 0, 2)))
 
 
+@pytest.mark.numpy
 @pytest.mark.parametrize("tensor_type", (
     pa.fixed_shape_tensor(pa.int8(), [2, 2, 3]),
     pa.fixed_shape_tensor(pa.int8(), [2, 2, 3], permutation=[0, 2, 1]),
@@ -1801,6 +1826,7 @@ def test_bool8_to_bool_conversion():
     assert bool_arr.cast(pa.bool8()) == canonical_bool8_arr
 
 
+@pytest.mark.numpy
 def test_bool8_to_numpy_conversion():
     arr = pa.ExtensionArray.from_storage(
         pa.bool8(),
@@ -1841,6 +1867,7 @@ def test_bool8_to_numpy_conversion():
     assert arr_to_np_writable.ctypes.data != arr_no_nulls.buffers()[1].address
 
 
+@pytest.mark.numpy
 def test_bool8_from_numpy_conversion():
     np_arr_no_nulls = np.array([True, False, True, True], dtype=np.bool_)
     canonical_bool8_arr_no_nulls = pa.ExtensionArray.from_storage(

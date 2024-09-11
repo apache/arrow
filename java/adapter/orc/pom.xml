@@ -61,7 +61,7 @@ under the License.
     <dependency>
       <groupId>org.apache.orc</groupId>
       <artifactId>orc-core</artifactId>
-      <version>1.9.2</version>
+      <version>1.9.4</version>
       <scope>test</scope>
       <exclusions>
         <exclusion>
@@ -159,6 +159,15 @@ under the License.
             </configuration>
           </execution>
         </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration combine.children="append">
+          <compilerArgs>
+            <arg>-Werror</arg>
+          </compilerArgs>
+        </configuration>
       </plugin>
     </plugins>
   </build>

@@ -38,7 +38,7 @@ struct ARROW_EXPORT RowTableMetadata {
   /// For a fixed-length binary row, common size of rows in bytes,
   /// rounded up to the multiple of alignment.
   ///
-  /// For a varying-length binary, size of all encoded fixed-length key columns,
+  /// For a varying-length binary row, size of all encoded fixed-length key columns,
   /// including lengths of varying-length columns, rounded up to the multiple of string
   /// alignment.
   uint32_t fixed_length;

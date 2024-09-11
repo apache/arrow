@@ -52,6 +52,7 @@ import org.apache.arrow.memory.util.MemoryUtil;
  */
 public class ArrowSchema implements BaseStruct {
   private static final int SIZE_OF = 72;
+  private static final int INDEX_RELEASE_CALLBACK = 56;
 
   private ArrowBuf data;
 
@@ -103,12 +104,19 @@ public class ArrowSchema implements BaseStruct {
    * @return A new ArrowSchema instance
    */
   public static ArrowSchema allocateNew(BufferAllocator allocator) {
-    return new ArrowSchema(allocator.buffer(ArrowSchema.SIZE_OF));
+    ArrowSchema schema = new ArrowSchema(allocator.buffer(ArrowSchema.SIZE_OF));
+    schema.markReleased();
+    return schema;
   }
 
   ArrowSchema(ArrowBuf data) {
     checkNotNull(data, "ArrowSchema initialized with a null buffer");
     this.data = data;
+  }
+
+  /** Mark the schema as released. */
+  public void markReleased() {
+    directBuffer().putLong(INDEX_RELEASE_CALLBACK, NULL);
   }
 
   @Override

@@ -870,7 +870,8 @@ class PARQUET_EXPORT ArrowReaderProperties {
         batch_size_(kArrowDefaultBatchSize),
         pre_buffer_(true),
         cache_options_(::arrow::io::CacheOptions::LazyDefaults()),
-        coerce_int96_timestamp_unit_(::arrow::TimeUnit::NANO) {}
+        coerce_int96_timestamp_unit_(::arrow::TimeUnit::NANO),
+        arrow_extensions_enabled_(false) {}
 
   /// \brief Set whether to use the IO thread pool to parse columns in parallel.
   ///
@@ -941,6 +942,18 @@ class PARQUET_EXPORT ArrowReaderProperties {
     return coerce_int96_timestamp_unit_;
   }
 
+  /// Enable Parquet-supported Arrow extension types.
+  ///
+  /// When enabled, Parquet logical types will be mapped to their corresponding Arrow
+  /// extension types at read time, if such exist. Currently only arrow::extension::json()
+  /// extension type is supported. Columns whose LogicalType is JSON will be interpreted
+  /// as arrow::extension::json(), with storage type inferred from the serialized Arrow
+  /// schema if present, or `utf8` by default.
+  void set_arrow_extensions_enabled(bool extensions_enabled) {
+    arrow_extensions_enabled_ = extensions_enabled;
+  }
+  bool get_arrow_extensions_enabled() const { return arrow_extensions_enabled_; }
+
  private:
   bool use_threads_;
   std::unordered_set<int> read_dict_indices_;
@@ -949,6 +962,7 @@ class PARQUET_EXPORT ArrowReaderProperties {
   ::arrow::io::IOContext io_context_;
   ::arrow::io::CacheOptions cache_options_;
   ::arrow::TimeUnit::type coerce_int96_timestamp_unit_;
+  bool arrow_extensions_enabled_;
 };
 
 /// EXPERIMENTAL: Constructs the default ArrowReaderProperties

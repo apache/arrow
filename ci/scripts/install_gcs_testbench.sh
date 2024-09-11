@@ -39,18 +39,21 @@ if [[ "${version}" -eq "default" ]]; then
   version="v0.39.0"
 fi
 
-: ${PIPX_PYTHON:=$(which python3)}
+# The Python to install pipx with
+: ${PIPX_BASE_PYTHON:=$(which python3)}
+# The Python to install the GCS testbench with
+: ${PIPX_PYTHON:=${PIPX_BASE_PYTHON:-$(which python3)}}
 
 export PIP_BREAK_SYSTEM_PACKAGES=1
-${PIPX_PYTHON} -m pip install -U pipx
+${PIPX_BASE_PYTHON} -m pip install -U pipx
 
-# This script is run with PYTHON undefined in some places,
-# but those only use older pythons.
-if [[ -z "${PYTHON_VERSION}" ]] || [[ "${PYTHON_VERSION}" != "3.13" ]]; then
-  pipx_flags=--verbose
-  if [[ $(id -un) == "root" ]]; then
-    # Install globally as /root/.local/bin is typically not in $PATH
-    pipx_flags="${pipx_flags} --global"
-  fi
-  ${PIPX_PYTHON} -m pipx install ${pipx_flags} "https://github.com/googleapis/storage-testbench/archive/${version}.tar.gz"
+pipx_flags=(--verbose --python ${PIPX_PYTHON})
+if [[ $(id -un) == "root" ]]; then
+  # Install globally as /root/.local/bin is typically not in $PATH
+  pipx_flags+=(--global)
 fi
+if [[ -n "${PIPX_PIP_ARGS}" ]]; then
+  pipx_flags+=(--pip-args "'${PIPX_PIP_ARGS}'")
+fi
+${PIPX_BASE_PYTHON} -m pipx install ${pipx_flags[@]} \
+  "https://github.com/googleapis/storage-testbench/archive/${version}.tar.gz"

@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import math
+
 
 cdef class StringBuilder(_Weakrefable):
     """
@@ -42,10 +44,10 @@ cdef class StringBuilder(_Weakrefable):
         value : string/bytes or np.nan/None
             The value to append to the string array builder.
         """
-        if value is None or value is np.nan:
-            self.builder.get().AppendNull()
-        elif isinstance(value, (bytes, str)):
+        if isinstance(value, (bytes, str)):
             self.builder.get().Append(tobytes(value))
+        elif value is None or math.isnan(value):
+            self.builder.get().AppendNull()
         else:
             raise TypeError('StringBuilder only accepts string objects')
 
@@ -108,10 +110,10 @@ cdef class StringViewBuilder(_Weakrefable):
         value : string/bytes or np.nan/None
             The value to append to the string array builder.
         """
-        if value is None or value is np.nan:
-            self.builder.get().AppendNull()
-        elif isinstance(value, (bytes, str)):
+        if isinstance(value, (bytes, str)):
             self.builder.get().Append(tobytes(value))
+        elif value is None or math.isnan(value):
+            self.builder.get().AppendNull()
         else:
             raise TypeError('StringViewBuilder only accepts string objects')
 

@@ -20,13 +20,13 @@
 #include "arrow/testing/extension_type.h"
 
 #ifdef _WIN32
-#include <crtdbg.h>
-#include <io.h>
+#  include <crtdbg.h>
+#  include <io.h>
 #else
-#include <fcntl.h>     // IWYU pragma: keep
-#include <sys/stat.h>  // IWYU pragma: keep
-#include <sys/wait.h>  // IWYU pragma: keep
-#include <unistd.h>    // IWYU pragma: keep
+#  include <fcntl.h>     // IWYU pragma: keep
+#  include <sys/stat.h>  // IWYU pragma: keep
+#  include <sys/wait.h>  // IWYU pragma: keep
+#  include <unistd.h>    // IWYU pragma: keep
 #endif
 
 #include <algorithm>
@@ -49,6 +49,7 @@
 #include "arrow/buffer.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/datum.h"
+#include "arrow/extension/json.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/json_simple.h"
 #include "arrow/ipc/reader.h"

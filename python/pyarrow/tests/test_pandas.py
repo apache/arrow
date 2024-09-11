@@ -27,9 +27,18 @@ from datetime import date, datetime, time, timedelta, timezone
 
 import hypothesis as h
 import hypothesis.strategies as st
-import numpy as np
-import numpy.testing as npt
 import pytest
+try:
+    import numpy as np
+    import numpy.testing as npt
+    try:
+        _np_VisibleDeprecationWarning = np.VisibleDeprecationWarning
+    except AttributeError:
+        from numpy.exceptions import (
+            VisibleDeprecationWarning as _np_VisibleDeprecationWarning
+        )
+except ImportError:
+    np = None
 
 from pyarrow.pandas_compat import get_logical_type, _pandas_api
 from pyarrow.tests.util import invoke_script, random_ascii, rands
@@ -49,14 +58,6 @@ try:
     from .pandas_examples import dataframe_with_arrays, dataframe_with_lists
 except ImportError:
     pass
-
-
-try:
-    _np_VisibleDeprecationWarning = np.VisibleDeprecationWarning
-except AttributeError:
-    from numpy.exceptions import (
-        VisibleDeprecationWarning as _np_VisibleDeprecationWarning
-    )
 
 
 # Marks all of the tests in this module
@@ -1202,9 +1203,11 @@ class TestConvertDateTimeLikeTypes:
 
     @pytest.mark.parametrize('mask', [
         None,
-        np.array([True, False, False, True, False, False]),
+        [True, False, False, True, False, False],
     ])
     def test_pandas_datetime_to_date64(self, mask):
+        if mask:
+            mask = np.array(mask)
         s = pd.to_datetime([
             '2018-05-10T00:00:00',
             '2018-05-11T00:00:00',
@@ -1608,7 +1611,8 @@ class TestConvertDateTimeLikeTypes:
         assert pa.Array.from_pandas(expected).equals(result)
 
     @pytest.mark.skipif(
-        Version('1.16.0') <= Version(np.__version__) < Version('1.16.1'),
+        np is not None and Version('1.16.0') <= Version(
+            np.__version__) < Version('1.16.1'),
         reason='Until numpy/numpy#12745 is resolved')
     def test_fixed_offset_timezone(self):
         df = pd.DataFrame({
@@ -2921,23 +2925,23 @@ class TestConvertMisc:
     """
 
     type_pairs = [
-        (np.int8, pa.int8()),
-        (np.int16, pa.int16()),
-        (np.int32, pa.int32()),
-        (np.int64, pa.int64()),
-        (np.uint8, pa.uint8()),
-        (np.uint16, pa.uint16()),
-        (np.uint32, pa.uint32()),
-        (np.uint64, pa.uint64()),
-        (np.float16, pa.float16()),
-        (np.float32, pa.float32()),
-        (np.float64, pa.float64()),
+        ("int8", pa.int8()),
+        ("int16", pa.int16()),
+        ("int32", pa.int32()),
+        ("int64", pa.int64()),
+        ("uint8", pa.uint8()),
+        ("uint16", pa.uint16()),
+        ("uint32", pa.uint32()),
+        ("uint64", pa.uint64()),
+        ("float16", pa.float16()),
+        ("float32", pa.float32()),
+        ("float64", pa.float64()),
         # XXX unsupported
         # (np.dtype([('a', 'i2')]), pa.struct([pa.field('a', pa.int16())])),
-        (np.object_, pa.string()),
-        (np.object_, pa.binary()),
-        (np.object_, pa.binary(10)),
-        (np.object_, pa.list_(pa.int64())),
+        ("object", pa.string()),
+        ("object", pa.binary()),
+        ("object", pa.binary(10)),
+        ("object", pa.list_(pa.int64())),
     ]
 
     def test_all_none_objects(self):
@@ -2950,8 +2954,8 @@ class TestConvertMisc:
         _check_pandas_roundtrip(df)
 
     def test_empty_arrays(self):
-        for dtype, pa_type in self.type_pairs:
-            arr = np.array([], dtype=dtype)
+        for dtype_str, pa_type in self.type_pairs:
+            arr = np.array([], dtype=np.dtype(dtype_str))
             _check_array_roundtrip(arr, type=pa_type)
 
     def test_non_threaded_conversion(self):

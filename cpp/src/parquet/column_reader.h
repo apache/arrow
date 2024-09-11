@@ -446,7 +446,9 @@ class PARQUET_EXPORT RecordReader {
   int64_t null_count_;
 
   /// \brief Each bit corresponds to one element in 'values_' and specifies if it
-  /// is null or not null. Not set if read_dense_for_nullable_ is true.
+  /// is null or not null.
+  ///
+  /// Not set if leaf type is not nullable or read_dense_for_nullable_ is true.
   std::shared_ptr<::arrow::ResizableBuffer> valid_bits_;
 
   /// \brief Buffer for definition levels. May contain more levels than
@@ -471,7 +473,10 @@ class PARQUET_EXPORT RecordReader {
 
   bool read_dictionary_ = false;
   // If true, we will not leave any space for the null values in the values_
-  // vector.
+  // vector or fill nulls values in BinaryRecordReader/DictionaryRecordReader.
+  //
+  // If read_dense_for_nullable_ is true, the BinaryRecordReader/DictionaryRecordReader
+  // might still populate the validity bitmap buffer.
   bool read_dense_for_nullable_ = false;
 };
 

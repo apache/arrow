@@ -20,7 +20,10 @@ import inspect
 import os
 import pathlib
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 import pytest
 import unittest.mock as mock
 

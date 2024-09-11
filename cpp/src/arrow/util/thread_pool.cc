@@ -128,7 +128,7 @@ int SerialExecutor::GetNumTasks() {
 #ifdef ARROW_ENABLE_THREADING
 Status SerialExecutor::SpawnReal(TaskHints hints, FnOnce<void()> task,
                                  StopToken stop_token, StopCallback&& stop_callback) {
-#ifdef ARROW_WITH_OPENTELEMETRY
+#  ifdef ARROW_WITH_OPENTELEMETRY
   // Wrap the task to propagate a parent tracing span to it
   // XXX should there be a generic utility in tracing_internal.h for this?
   task = [func = std::move(task),
@@ -137,7 +137,7 @@ Status SerialExecutor::SpawnReal(TaskHints hints, FnOnce<void()> task,
     auto scope = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(active_span);
     std::move(func)();
   };
-#endif
+#  endif
   // While the SerialExecutor runs tasks synchronously on its main thread,
   // SpawnReal may be called from external threads (e.g. when transferring back
   // from blocking I/O threads), so we need to keep the state alive *and* to
@@ -172,7 +172,7 @@ void SerialExecutor::Finish() {
 #else  // ARROW_ENABLE_THREADING
 Status SerialExecutor::SpawnReal(TaskHints hints, FnOnce<void()> task,
                                  StopToken stop_token, StopCallback&& stop_callback) {
-#ifdef ARROW_WITH_OPENTELEMETRY
+#  ifdef ARROW_WITH_OPENTELEMETRY
   // Wrap the task to propagate a parent tracing span to it
   // XXX should there be a generic utility in tracing_internal.h for this?
   task = [func = std::move(task),
@@ -181,7 +181,7 @@ Status SerialExecutor::SpawnReal(TaskHints hints, FnOnce<void()> task,
     auto scope = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(active_span);
     std::move(func)();
   };
-#endif  // ARROW_WITH_OPENTELEMETRY
+#  endif  // ARROW_WITH_OPENTELEMETRY
 
   if (state_->finished) {
     return Status::Invalid(
@@ -503,7 +503,7 @@ ThreadPool::ThreadPool()
       shutdown_on_destroy_(true) {
   // Eternal thread pools would produce false leak reports in the vector of
   // atfork handlers.
-#if !(defined(_WIN32) || defined(ADDRESS_SANITIZER) || defined(ARROW_VALGRIND))
+#  if !(defined(_WIN32) || defined(ADDRESS_SANITIZER) || defined(ARROW_VALGRIND))
   state_->atfork_handler_ = std::make_shared<AtForkHandler>(
       /*before=*/
       [weak_state = std::weak_ptr<ThreadPool::State>(sp_state_)]() {
@@ -528,7 +528,7 @@ ThreadPool::ThreadPool()
         }
       });
   RegisterAtFork(state_->atfork_handler_);
-#endif
+#  endif
 }
 
 ThreadPool::~ThreadPool() {
@@ -623,7 +623,7 @@ void ThreadPool::LaunchWorkersUnlocked(int threads) {
 Status ThreadPool::SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken stop_token,
                              StopCallback&& stop_callback) {
   {
-#ifdef ARROW_WITH_OPENTELEMETRY
+#  ifdef ARROW_WITH_OPENTELEMETRY
     // Wrap the task to propagate a parent tracing span to it
     // This task-wrapping needs to be done before we grab the mutex because the
     // first call to OT (whatever that happens to be) will attempt to grab this mutex
@@ -638,7 +638,7 @@ Status ThreadPool::SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken sto
     } wrapper{std::forward<FnOnce<void()>>(task),
               ::arrow::internal::tracing::GetTracer()->GetCurrentSpan()};
     task = std::move(wrapper);
-#endif
+#  endif
     std::lock_guard<std::mutex> lock(state_->mutex_);
     if (state_->please_shutdown_) {
       return Status::Invalid("operation forbidden during or after shutdown");
@@ -674,9 +674,9 @@ Result<std::shared_ptr<ThreadPool>> ThreadPool::MakeEternal(int threads) {
   // On Windows, the ThreadPool destructor may be called after non-main threads
   // have been killed by the OS, and hang in a condition variable.
   // On Unix, we want to avoid leak reports by Valgrind.
-#ifdef _WIN32
+#  ifdef _WIN32
   pool->shutdown_on_destroy_ = false;
-#endif
+#  endif
   return pool;
 }
 

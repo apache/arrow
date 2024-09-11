@@ -269,13 +269,13 @@ template <typename T>
 inline void GetValue_(int num_bits, T* v, int max_bytes, const uint8_t* buffer,
                       int* bit_offset, int* byte_offset, uint64_t* buffered_values) {
 #ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable : 4800)
+#  pragma warning(push)
+#  pragma warning(disable : 4800)
 #endif
   *v = static_cast<T>(bit_util::TrailingBits(*buffered_values, *bit_offset + num_bits) >>
                       *bit_offset);
 #ifdef _MSC_VER
-#pragma warning(pop)
+#  pragma warning(pop)
 #endif
   *bit_offset += num_bits;
   if (*bit_offset >= 64) {
@@ -285,8 +285,8 @@ inline void GetValue_(int num_bits, T* v, int max_bytes, const uint8_t* buffer,
     *buffered_values =
         detail::ReadLittleEndianWord(buffer + *byte_offset, max_bytes - *byte_offset);
 #ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable : 4800 4805)
+#  pragma warning(push)
+#  pragma warning(disable : 4800 4805)
 #endif
     // Read bits of v that crossed into new buffered_values_
     if (ARROW_PREDICT_TRUE(num_bits - *bit_offset < static_cast<int>(8 * sizeof(T)))) {
@@ -297,7 +297,7 @@ inline void GetValue_(int num_bits, T* v, int max_bytes, const uint8_t* buffer,
                                << (num_bits - *bit_offset));
     }
 #ifdef _MSC_VER
-#pragma warning(pop)
+#  pragma warning(pop)
 #endif
     DCHECK_LE(*bit_offset, 64);
   }
@@ -367,12 +367,12 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
       }
       for (int k = 0; k < num_unpacked; ++k) {
 #ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable : 4800)
+#  pragma warning(push)
+#  pragma warning(disable : 4800)
 #endif
         v[i + k] = static_cast<T>(unpack_buffer[k]);
 #ifdef _MSC_VER
-#pragma warning(pop)
+#  pragma warning(pop)
 #endif
       }
       i += num_unpacked;

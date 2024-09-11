@@ -15,26 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <algorithm>  // Missing include in boost/process
-
-#define BOOST_NO_CXX98_FUNCTION_BASE  // ARROW-17805
-// This boost/asio/io_context.hpp include is needless for no MinGW
-// build.
-//
-// This is for including boost/asio/detail/socket_types.hpp before any
-// "#include <windows.h>". boost/asio/detail/socket_types.hpp doesn't
-// work if windows.h is already included. boost/process.h ->
-// boost/process/args.hpp -> boost/process/detail/basic_cmd.hpp
-// includes windows.h. boost/process/args.hpp is included before
-// boost/process/async.h that includes
-// boost/asio/detail/socket_types.hpp implicitly is included.
-#include <boost/asio/io_context.hpp>
-// We need BOOST_USE_WINDOWS_H definition with MinGW when we use
-// boost/process.hpp. See BOOST_USE_WINDOWS_H=1 in
-// cpp/cmake_modules/ThirdpartyToolchain.cmake for details.
-#include <boost/process.hpp>
-#include <boost/thread.hpp>
-
 #include "arrow/filesystem/gcsfs.h"
 
 #include <absl/time/time.h>
@@ -45,16 +25,15 @@
 #include <google/cloud/storage/options.h>
 #include <gtest/gtest.h>
 
-#include <array>
 #include <random>
 #include <string>
-#include <thread>
 
 #include "arrow/filesystem/gcsfs_internal.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/test_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
+#include "arrow/testing/process.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/future.h"
 #include "arrow/util/key_value_metadata.h"
@@ -64,7 +43,6 @@ namespace fs {
 
 namespace {
 
-namespace bp = boost::process;
 namespace gc = google::cloud;
 namespace gcs = google::cloud::storage;
 
@@ -89,70 +67,62 @@ class GcsTestbench : public ::testing::Environment {
  public:
   GcsTestbench() {
     port_ = std::to_string(GetListenPort());
-    std::vector<std::string> names{"python3", "python"};
-    // If the build script or application developer provides a value in the PYTHON
-    // environment variable, then just use that.
-    if (const auto* env = std::getenv("PYTHON")) {
-      names = {env};
-    }
     auto error = std::string("Could not start GCS emulator 'storage-testbench'");
+    auto server_process = std::make_unique<util::Process>();
+    auto status = server_process->SetExecutable("storage-testbench");
+    if (!status.ok()) {
+      error += ": " + status.ToString();
+      error_ = std::move(error);
+      return;
+    }
 
-    auto testbench_is_running = [](bp::child& process, bp::ipstream& output) {
-      // Wait for message: "* Restarting with"
-      std::string line;
+    server_process->SetArgs({"--port", port_});
+    server_process->IgnoreStderr();
+    status = server_process->Execute();
+    if (!status.ok()) {
+      error += ": " + status.ToString();
+      error_ = std::move(error);
+      return;
+    }
+
+    auto testbench_is_running = [&server_process, this]() {
+      auto ready_timeout = std::chrono::seconds(10);
       std::chrono::time_point<std::chrono::steady_clock> end =
-          std::chrono::steady_clock::now() + std::chrono::seconds(10);
-      while (process.valid() && process.running() &&
-             std::chrono::steady_clock::now() < end) {
-        if (output.peek() && std::getline(output, line)) {
-          std::cerr << line << std::endl;
-          if (line.find("* Restarting with") != std::string::npos) return true;
-        } else {
-          std::this_thread::sleep_for(std::chrono::milliseconds(20));
+          std::chrono::steady_clock::now() + ready_timeout;
+      while (server_process->IsRunning() && std::chrono::steady_clock::now() < end) {
+        auto client = gcs::Client(
+            google::cloud::Options{}
+                .set<gcs::RestEndpointOption>("http://127.0.0.1:" + port_)
+                .set<gc::UnifiedCredentialsOption>(gc::MakeInsecureCredentials())
+                .set<gcs::RetryPolicyOption>(
+                    gcs::LimitedTimeRetryPolicy(ready_timeout).clone()));
+        auto metadata = client.GetBucketMetadata("nonexistent");
+        if (metadata.status().code() == google::cloud::StatusCode::kNotFound) {
+          return true;
         }
       }
       return false;
     };
 
-    auto exe_path = bp::search_path("storage-testbench");
-    if (!exe_path.empty()) {
-      bp::ipstream output;
-      server_process_ =
-          bp::child(exe_path, "--port", port_, group_, bp::std_err > output);
-      if (!testbench_is_running(server_process_, output)) {
-        error += " (failed to start)";
-        server_process_.terminate();
-        server_process_.wait();
-      }
-    } else {
-      error += " (exe not found)";
-    }
-    if (!server_process_.valid()) {
+    if (!testbench_is_running()) {
+      error += " (failed to listen)";
       error_ = std::move(error);
+      return;
     }
+
+    server_process_ = std::move(server_process);
   }
 
-  bool running() { return server_process_.running(); }
+  bool running() { return server_process_ && server_process_->IsRunning(); }
 
-  ~GcsTestbench() override {
-    // Brutal shutdown, kill the full process group because the GCS testbench may launch
-    // additional children.
-    try {
-      group_.terminate();
-    } catch (bp::process_error&) {
-    }
-    if (server_process_.valid()) {
-      server_process_.wait();
-    }
-  }
+  ~GcsTestbench() = default;
 
   const std::string& port() const { return port_; }
   const std::string& error() const { return error_; }
 
  private:
   std::string port_;
-  bp::child server_process_;
-  bp::group group_;
+  std::unique_ptr<util::Process> server_process_;
   std::string error_;
 };
 

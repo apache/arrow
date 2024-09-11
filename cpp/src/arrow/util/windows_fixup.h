@@ -19,32 +19,32 @@
 
 #ifdef _WIN32
 
-#ifdef max
-#undef max
-#endif
-#ifdef min
-#undef min
-#endif
+#  ifdef max
+#    undef max
+#  endif
+#  ifdef min
+#    undef min
+#  endif
 
 // The Windows API defines macros from *File resolving to either
 // *FileA or *FileW.  Need to undo them.
-#ifdef CopyFile
-#undef CopyFile
-#endif
-#ifdef CreateFile
-#undef CreateFile
-#endif
-#ifdef DeleteFile
-#undef DeleteFile
-#endif
+#  ifdef CopyFile
+#    undef CopyFile
+#  endif
+#  ifdef CreateFile
+#    undef CreateFile
+#  endif
+#  ifdef DeleteFile
+#    undef DeleteFile
+#  endif
 
 // Other annoying Windows macro definitions...
-#ifdef IN
-#undef IN
-#endif
-#ifdef OUT
-#undef OUT
-#endif
+#  ifdef IN
+#    undef IN
+#  endif
+#  ifdef OUT
+#    undef OUT
+#  endif
 
 // Note that we can't undefine OPTIONAL, because it can be used in other
 // Windows headers...

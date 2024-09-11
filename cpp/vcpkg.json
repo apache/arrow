@@ -15,11 +15,11 @@
       ]
     },
     "benchmark",
+    "boost-crc",
     "boost-filesystem",
     "boost-multiprecision",
     "boost-process",
     "boost-system",
-    "boost-crc",
     "brotli",
     "bzip2",
     "c-ares",

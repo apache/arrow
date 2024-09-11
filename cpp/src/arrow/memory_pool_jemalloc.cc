@@ -26,11 +26,11 @@
 // its family.
 
 #ifdef ARROW_JEMALLOC_VENDORED
-#define JEMALLOC_MANGLE
+#  define JEMALLOC_MANGLE
 // Explicitly link to our version of jemalloc
-#include "jemalloc_ep/dist/include/jemalloc/jemalloc.h"
+#  include "jemalloc_ep/dist/include/jemalloc/jemalloc.h"
 #else
-#include <jemalloc/jemalloc.h>
+#  include <jemalloc/jemalloc.h>
 #endif
 
 #ifdef ARROW_JEMALLOC_VENDORED
@@ -47,31 +47,31 @@
 // aggressively (and in the background) to the OS. This can be configured
 // further by using the arrow::jemalloc_set_decay_ms API
 
-#undef USE_JEMALLOC_BACKGROUND_THREAD
-#ifndef __APPLE__
+#  undef USE_JEMALLOC_BACKGROUND_THREAD
+#  ifndef __APPLE__
 // ARROW-6977: jemalloc's background_thread isn't always enabled on macOS
-#define USE_JEMALLOC_BACKGROUND_THREAD
-#endif
+#    define USE_JEMALLOC_BACKGROUND_THREAD
+#  endif
 
 // In debug mode, add memory poisoning on alloc / free
-#ifdef NDEBUG
-#define JEMALLOC_DEBUG_OPTIONS ""
-#else
-#define JEMALLOC_DEBUG_OPTIONS ",junk:true"
-#endif
+#  ifdef NDEBUG
+#    define JEMALLOC_DEBUG_OPTIONS ""
+#  else
+#    define JEMALLOC_DEBUG_OPTIONS ",junk:true"
+#  endif
 
 const char* je_arrow_malloc_conf =
     ("oversize_threshold:0"
-#ifdef USE_JEMALLOC_BACKGROUND_THREAD
+#  ifdef USE_JEMALLOC_BACKGROUND_THREAD
      ",dirty_decay_ms:1000"
      ",muzzy_decay_ms:1000"
      ",background_thread:true"
-#else
+#  else
      // ARROW-6994: return memory immediately to the OS if the
      // background_thread option isn't available
      ",dirty_decay_ms:0"
      ",muzzy_decay_ms:0"
-#endif
+#  endif
      JEMALLOC_DEBUG_OPTIONS);  // NOLINT: whitespace/parens
 
 #endif  // ARROW_JEMALLOC_VENDORED
