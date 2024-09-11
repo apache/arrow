@@ -1413,7 +1413,7 @@ serialized form is as follows:
     of each **compressed buffer** in the record batch's body
 
   - the ``body`` includes a flat sequence of **compressed buffers**
-    together with the **length of uncompressed buffer** as a 64-bit
+    together with the **length of the uncompressed buffer** as a 64-bit
     little-endian signed integer stored in the first 8 bytes for each
     buffer in the sequence
 
