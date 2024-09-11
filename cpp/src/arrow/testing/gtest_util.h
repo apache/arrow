@@ -318,9 +318,6 @@ ARROW_TESTING_EXPORT void ApproxCompareBatch(
     const RecordBatch& left, const RecordBatch& right, bool compare_metadata = true,
     const EqualOptions& options = TestingEqualOptions());
 
-ARROW_TESTING_EXPORT void RoundtripBatch(const std::shared_ptr<RecordBatch>& batch,
-                                         std::shared_ptr<RecordBatch>* out);
-
 // Check if the padding of the buffers of the array is zero.
 // Also cause valgrind warnings if the padding bytes are uninitialized.
 ARROW_TESTING_EXPORT void AssertZeroPadded(const Array& array);
