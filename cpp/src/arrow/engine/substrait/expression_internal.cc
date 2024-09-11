@@ -951,11 +951,8 @@ struct ScalarToProtoImpl {
   Status Visit(const MonthIntervalScalar& s) { return NotImplemented(s); }
   Status Visit(const DayTimeIntervalScalar& s) { return NotImplemented(s); }
 
-  template <typename T,
-            typename = internal::EnableIfIsOneOf<T, Decimal32Scalar, Decimal64Scalar,
-                                                 Decimal128Scalar, Decimal256Scalar>>
-  Status Visit(const T& s) {
-    using TypeClass = typename T::TypeClass;
+  template <typename T, typename TypeClass = typename T::TypeClass>
+  enable_if_decimal<TypeClass, Status> Visit(const T& s) {
     using ValueType = typename T::ValueType;
 
     auto decimal = std::make_unique<Lit::Decimal>();
