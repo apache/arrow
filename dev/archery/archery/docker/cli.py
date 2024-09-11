@@ -21,6 +21,7 @@ import sys
 import click
 
 from ..utils.cli import validate_arrow_sources
+from ..utils.logger import group
 from .core import DockerCompose, UndefinedImage
 
 
@@ -82,11 +83,12 @@ def docker(ctx, src, dry_run, using_legacy_docker_compose, using_docker_cli,
     using_docker_cli |= using_docker_buildx
     compose_bin = ("docker-compose" if using_legacy_docker_compose
                    else "docker compose")
-    compose = DockerCompose(config_path, params=os.environ,
-                            using_docker=using_docker_cli,
-                            using_buildx=using_docker_buildx,
-                            debug=ctx.obj.get('debug', False),
-                            compose_bin=compose_bin)
+    with group("Docker: Preppare"):
+        compose = DockerCompose(config_path, params=os.environ,
+                                using_docker=using_docker_cli,
+                                using_buildx=using_docker_buildx,
+                                debug=ctx.obj.get('debug', False),
+                                compose_bin=compose_bin)
     if dry_run:
         _mock_compose_calls(compose)
     ctx.obj['compose'] = compose
@@ -229,10 +231,12 @@ def docker_run(obj, image, command, *, env, user, force_pull, force_build,
     env = dict(kv.split('=', 1) for kv in env)
     try:
         if force_pull:
-            compose.pull(image, pull_leaf=use_leaf_cache)
+            with group("Docker: Pull"):
+                compose.pull(image, pull_leaf=use_leaf_cache)
         if force_build:
-            compose.build(image, use_cache=use_cache,
-                          use_leaf_cache=use_leaf_cache)
+            with group("Docker: Build"):
+                compose.build(image, use_cache=use_cache,
+                              use_leaf_cache=use_leaf_cache)
         if build_only:
             return
         compose.run(

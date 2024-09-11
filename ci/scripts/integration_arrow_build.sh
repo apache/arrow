@@ -17,7 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -ex
+set -e
 
 arrow_dir=${1}
 build_dir=${2}
@@ -28,22 +28,44 @@ build_dir=${2}
 : ${ARROW_INTEGRATION_JAVA:=ON}
 : ${ARROW_INTEGRATION_JS:=ON}
 
+echo "::group::Integration: Build: Rust"
+set -x
 ${arrow_dir}/ci/scripts/rust_build.sh ${arrow_dir} ${build_dir}
+set +x
+echo "::endgroup::"
 
+echo "::group::Integration: Build: nanoarrow"
+set -x
 ${arrow_dir}/ci/scripts/nanoarrow_build.sh ${arrow_dir} ${build_dir}
+set +x
+echo "::endgroup::"
 
+echo "::group::Integration: Build: C++"
+set -x
 if [ "${ARROW_INTEGRATION_CPP}" == "ON" ]; then
     ${arrow_dir}/ci/scripts/cpp_build.sh ${arrow_dir} ${build_dir}
 fi
+set +x
+echo "::endgroup::"
 
+echo "::group::Integration: Build: C#"
+set -x
 if [ "${ARROW_INTEGRATION_CSHARP}" == "ON" ]; then
     ${arrow_dir}/ci/scripts/csharp_build.sh ${arrow_dir} ${build_dir}
 fi
+set +x
+echo "::endgroup::"
 
+echo "::group::Integration: Build: Go"
+set -x
 if [ "${ARROW_INTEGRATION_GO}" == "ON" ]; then
     ${arrow_dir}/ci/scripts/go_build.sh ${arrow_dir} ${build_dir}
 fi
+set +x
+echo "::endgroup::"
 
+echo "::group::Integration: Build: Java"
+set -x
 if [ "${ARROW_INTEGRATION_JAVA}" == "ON" ]; then
     export ARROW_JAVA_CDATA="ON"
     export JAVA_JNI_CMAKE_ARGS="-DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF -DARROW_JAVA_JNI_ENABLE_C=ON"
@@ -51,7 +73,13 @@ if [ "${ARROW_INTEGRATION_JAVA}" == "ON" ]; then
     ${arrow_dir}/ci/scripts/java_jni_build.sh ${arrow_dir} ${ARROW_HOME} ${build_dir} /tmp/dist/java
     ${arrow_dir}/ci/scripts/java_build.sh ${arrow_dir} ${build_dir} /tmp/dist/java
 fi
+set +x
+echo "::endgroup::"
 
+echo "::group::Integration: Build: JavaScript"
+set -x
 if [ "${ARROW_INTEGRATION_JS}" == "ON" ]; then
     ${arrow_dir}/ci/scripts/js_build.sh ${arrow_dir} ${build_dir}
 fi
+set +x
+echo "::endgroup::"
