@@ -102,7 +102,6 @@ jobs:
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
           source ci/scripts/util_enable_core_dumps.sh
-          env | sort
           archery docker run \
             -e ARCHERY_DEFAULT_BRANCH=${{ github.event.repository.default_branch }} \
             -e ARCHERY_INTEGRATION_WITH_NANOARROW=1 \

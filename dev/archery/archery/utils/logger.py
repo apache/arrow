@@ -41,9 +41,9 @@ def group(name):
     This does nothing in non GitHub Actions environment for now.
     """
     if in_github_actions:
-        print(f"::group::{name}")
+        print(f"::group::{name}", flush=True)
     try:
         yield
     finally:
         if in_github_actions:
-            print("::endgroup::")
+            print("::endgroup::", flush=True)
