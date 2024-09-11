@@ -895,7 +895,7 @@ struct GroupedVarStdImpl : public GroupedAggregator {
   // `two pass algorithm` (see aggregate_var_std.cc)
   template <typename T = Type>
   enable_if_t<is_floating_type<T>::value || (sizeof(CType) > 4) ||
-                  (!is_integer_type<T>::value && sizeof(CType) == 4),
+                  std::is_same_v<CType, Decimal32>,
               Status>
   ConsumeImpl(const ExecSpan& batch) {
     using SumType = typename internal::GetSumType<T>::SumType;
