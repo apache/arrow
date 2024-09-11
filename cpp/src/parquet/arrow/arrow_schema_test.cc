@@ -772,8 +772,8 @@ TEST_F(TestConvertParquetSchema, ParquetSchemaArrowExtensions) {
 
   {
     // Parquet file contains Arrow schema.
-    // Parquet logical type has precedence. Both json_1 and json_2 should be returned
-    // as a json() field even though extensions are not enabled.
+    // Both json_1 and json_2 should be returned as a json() field
+    // even though extensions are not enabled.
     ArrowReaderProperties props;
     props.set_arrow_extensions_enabled(false);
     std::shared_ptr<KeyValueMetadata> field_metadata =
