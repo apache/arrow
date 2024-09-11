@@ -145,7 +145,7 @@ static void random_decimals(int64_t n, uint32_t seed, int32_t precision, uint8_t
   if constexpr (byte_width == 4) {
     decimals = gen.Decimal32(::arrow::decimal32(precision, 0), n);
   } else if constexpr (byte_width == 8) {
-    decimals = gen.Decimal64(::arrow::decimal32(precision, 0), n);
+    decimals = gen.Decimal64(::arrow::decimal64(precision, 0), n);
   } else if constexpr (byte_width == 16) {
     decimals = gen.Decimal128(::arrow::decimal128(precision, 0), n);
   } else {
