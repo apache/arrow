@@ -707,7 +707,8 @@ class MakeFormatterImpl {
   template <typename T>
   enable_if_decimal<T, Status> Visit(const T&) {
     impl_ = [](const Array& array, int64_t index, std::ostream* os) {
-      const auto& decimal_array = checked_cast<const typename TypeTraits<T>::ArrayType&>(array);
+      const auto& decimal_array =
+          checked_cast<const typename TypeTraits<T>::ArrayType&>(array);
       *os << decimal_array.FormatValue(index);
     };
     return Status::OK();
