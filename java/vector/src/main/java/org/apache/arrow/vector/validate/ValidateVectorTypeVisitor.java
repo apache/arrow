@@ -484,7 +484,9 @@ public class ValidateVectorTypeVisitor implements VectorVisitor<Void, Void> {
   public Void visit(RunEndEncodedVector vector, Void value) {
     validateVectorCommon(vector, ArrowType.RunEndEncoded.class);
     for (ValueVector subVector : vector.getChildrenFromFields()) {
-      subVector.accept(this, null);
+      if (subVector != null) {
+        subVector.accept(this, null);
+      }
     }
     return null;
   }

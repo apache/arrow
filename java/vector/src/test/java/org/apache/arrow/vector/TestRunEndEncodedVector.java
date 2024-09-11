@@ -103,11 +103,7 @@ public class TestRunEndEncodedVector {
       // [null, 2, 2, null, null, null, 4, 4, 4, 4, null, null, null, null, null].
       int runCount = 5;
       final int logicalValueCount =
-          setBasicVector(
-              reeVector,
-              runCount,
-              i -> i % 2 == 0 ? null : i + 1,
-              i -> i + 1);
+          setBasicVector(reeVector, runCount, i -> i % 2 == 0 ? null : i + 1, i -> i + 1);
 
       assertEquals(15, reeVector.getValueCount());
       int index = 0;

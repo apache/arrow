@@ -643,6 +643,7 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
 
   @Override
   public ValueVector visit(RunEndEncodedVector deltaVector, Void value) {
-    return targetVector; // TODO
+    throw new UnsupportedOperationException(
+        "No VectorAppender implemented for RunEndEncodedVector"); // TODO
   }
 }

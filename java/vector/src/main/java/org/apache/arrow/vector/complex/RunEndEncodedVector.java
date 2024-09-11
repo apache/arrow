@@ -33,6 +33,7 @@ import org.apache.arrow.vector.BaseValueVector;
 import org.apache.arrow.vector.BufferBacked;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.compare.VectorVisitor;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
@@ -49,6 +50,8 @@ import org.apache.arrow.vector.util.TransferPair;
  * values vector of any type. There are no buffers associated with the parent vector.
  */
 public class RunEndEncodedVector extends BaseValueVector implements FieldVector {
+  public static final FieldVector DEFAULT_VALUE_VECTOR = ZeroVector.INSTANCE;
+  public static final FieldVector DEFAULT_RUN_END_VECTOR = ZeroVector.INSTANCE;
 
   public static RunEndEncodedVector empty(String name, BufferAllocator allocator) {
     return new RunEndEncodedVector(
@@ -57,7 +60,7 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
 
   protected final CallBack callBack;
   protected Field field;
-  protected BaseIntVector runEndsVector;
+  protected FieldVector runEndsVector;
   protected FieldVector valuesVector;
   protected int valueCount;
 
@@ -82,10 +85,21 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
    * @param callBack A schema change callback.
    */
   public RunEndEncodedVector(Field field, BufferAllocator allocator, CallBack callBack) {
+    this(field, allocator, DEFAULT_RUN_END_VECTOR, DEFAULT_VALUE_VECTOR, callBack);
+  }
+
+  public RunEndEncodedVector(
+      Field field,
+      BufferAllocator allocator,
+      FieldVector runEndsVector,
+      FieldVector valuesVector,
+      CallBack callBack) {
     super(allocator);
     this.field = field;
     this.callBack = callBack;
     this.valueCount = 0;
+    this.runEndsVector = runEndsVector;
+    this.valuesVector = valuesVector;
   }
 
   /** ValueVector interface */
@@ -157,7 +171,7 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
   @Override
   public int getValueCapacity() {
     return getChildrenFromFields().stream()
-        .mapToInt(ValueVector::getValueCapacity)
+        .mapToInt(item -> item != null ? item.getValueCapacity() : 0)
         .min()
         .orElseThrow(NoSuchElementException::new);
   }
@@ -417,10 +431,16 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
     return valuesVector.getObject(physicalIndex);
   }
 
+  /**
+   * Get the run end of giving index.
+   *
+   * @param index index of the run end to get
+   * @return the run end of giving index
+   */
   public int getRunEnd(int index) {
     checkIndex(index);
     int physicalIndex = getPhysicalIndex(index);
-    return (int) runEndsVector.getValueAsLong(physicalIndex);
+    return (int) ((BaseIntVector) runEndsVector).getValueAsLong(physicalIndex);
   }
 
   /**
@@ -544,7 +564,7 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
    */
   @Override
   public List<ArrowBuf> getFieldBuffers() {
-    return null;
+    return List.of();
   }
 
   /**
@@ -625,7 +645,7 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
     return getPhysicalIndex(runEndsVector, logicalIndex);
   }
 
-  static int getPhysicalIndex(BaseIntVector runEndVector, int logicalIndex) {
+  static int getPhysicalIndex(FieldVector runEndVector, int logicalIndex) {
     if (runEndVector == null || runEndVector.getValueCount() == 0) {
       return -1;
     }
@@ -636,7 +656,7 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
 
     while (low <= high) {
       int mid = low + (high - low) / 2;
-      long valueAsLong = runEndVector.getValueAsLong(mid);
+      long valueAsLong = ((BaseIntVector) runEndVector).getValueAsLong(mid);
       if (valueAsLong > logicalIndex) {
         result = mid;
         high = mid - 1;
