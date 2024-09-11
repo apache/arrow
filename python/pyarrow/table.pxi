@@ -4180,6 +4180,7 @@ cdef class Table(_Tabular):
 
     def __cinit__(self):
         self.table = NULL
+        self._init_is_cpu = False
 
     cdef void init(self, const shared_ptr[CTable]& table):
         self.sp_table = table
@@ -4205,6 +4206,7 @@ cdef class Table(_Tabular):
         ArrowInvalid
         """
         if full:
+            self._assert_cpu()
             with nogil:
                 check_status(self.table.ValidateFull())
         else:
@@ -4214,6 +4216,7 @@ cdef class Table(_Tabular):
     def __reduce__(self):
         # Reduce the columns as ChunkedArrays to avoid serializing schema
         # data twice
+        self._assert_cpu()
         columns = [col for col in self.columns]
         return _reconstruct_table, (columns, self.schema)
 
@@ -4452,6 +4455,7 @@ cdef class Table(_Tabular):
         a.year: [[null,2022]]
         month: [[4,6]]
         """
+        self._assert_cpu()
         cdef:
             shared_ptr[CTable] flattened
             CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
@@ -4499,6 +4503,7 @@ cdef class Table(_Tabular):
         n_legs: [[2,2,4,4,5,100]]
         animals: [["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]]
         """
+        self._assert_cpu()
         cdef:
             shared_ptr[CTable] combined
             CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
@@ -4556,6 +4561,7 @@ cdef class Table(_Tabular):
         ["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]  -- indices:
         [3,4,5]]
         """
+        self._assert_cpu()
         cdef:
             CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
             shared_ptr[CTable] c_result
@@ -4601,6 +4607,7 @@ cdef class Table(_Tabular):
         >>> table.equals(table_1, check_metadata=True)
         False
         """
+        self._assert_cpu()
         if other is None:
             return False
 
@@ -4658,6 +4665,7 @@ cdef class Table(_Tabular):
         n_legs: [[2,4,5,100]]
         animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
         """
+        self._assert_cpu()
         cdef:
             ChunkedArray column, casted
             Field field
@@ -4909,6 +4917,7 @@ cdef class Table(_Tabular):
         -------
         ChunkedArray
         """
+        self._assert_cpu()
         return chunked_array([
             batch.to_struct_array()
             for batch in self.to_batches(max_chunksize=max_chunksize)
@@ -5118,6 +5127,7 @@ cdef class Table(_Tabular):
 
     def _to_pandas(self, options, categories=None, ignore_metadata=False,
                    types_mapper=None):
+        self._assert_cpu()
         from pyarrow.pandas_compat import table_to_dataframe
         df = table_to_dataframe(
             options, self, categories,
@@ -5239,6 +5249,7 @@ cdef class Table(_Tabular):
         >>> table.nbytes
         72
         """
+        self._assert_cpu()
         cdef:
             CResult[int64_t] c_res_buffer
 
@@ -5268,6 +5279,7 @@ cdef class Table(_Tabular):
         >>> table.get_total_buffer_size()
         76
         """
+        self._assert_cpu()
         cdef:
             int64_t total_buffer_size
 
@@ -5576,6 +5588,7 @@ cdef class Table(_Tabular):
         year: [[2020,2022,2021,2019]]
         n_legs_sum: [[2,6,104,5]]
         """
+        self._assert_cpu()
         return TableGroupBy(self, keys, use_threads=use_threads)
 
     def join(self, right_table, keys, right_keys=None, join_type="left outer",
@@ -5685,6 +5698,7 @@ cdef class Table(_Tabular):
         n_legs: [[100]]
         animal: [["Centipede"]]
         """
+        self._assert_cpu()
         if right_keys is None:
             right_keys = keys
         return _pac()._perform_join(
@@ -5772,6 +5786,7 @@ cdef class Table(_Tabular):
         n_legs: [[null,5,null,5,null]]
         animal: [[null,"Brittle stars",null,"Brittle stars",null]]
         """
+        self._assert_cpu()
         if right_on is None:
             right_on = on
         if right_by is None:
@@ -5797,7 +5812,22 @@ cdef class Table(_Tabular):
         -------
         PyCapsule
         """
+        self._assert_cpu()
         return self.to_reader().__arrow_c_stream__(requested_schema)
+
+    @property
+    def is_cpu(self):
+        """
+        Whether all ChunkedArrays are CPU-accessible.
+        """
+        if not self._init_is_cpu:
+            self._is_cpu = all(c.is_cpu for c in self.itercolumns())
+            self._init_is_cpu = True
+        return self._is_cpu
+
+    cdef void _assert_cpu(self) except *:
+        if not self.is_cpu:
+            raise NotImplementedError("Implemented only for data on CPU device")
 
 
 def _reconstruct_table(arrays, schema):
