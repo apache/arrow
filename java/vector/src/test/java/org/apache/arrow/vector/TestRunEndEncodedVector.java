@@ -17,10 +17,14 @@
 package org.apache.arrow.vector;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.compare.Range;
+import org.apache.arrow.vector.compare.RangeEqualsVisitor;
 import org.apache.arrow.vector.complex.RunEndEncodedVector;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType.RunEndEncoded;
@@ -48,13 +52,11 @@ public class TestRunEndEncodedVector {
   public void testInitializeChildrenFromFields() {
     final FieldType valueType = FieldType.notNullable(Types.MinorType.BIGINT.getType());
     final FieldType runEndType = FieldType.notNullable(Types.MinorType.INT.getType());
-
     final Field valueField = new Field("value", valueType, null);
     final Field runEndField = new Field("ree", runEndType, null);
 
     try (RunEndEncodedVector reeVector = RunEndEncodedVector.empty("empty", allocator)) {
       reeVector.initializeChildrenFromFields(List.of(runEndField, valueField));
-
       reeVector.validate();
     }
   }
@@ -62,67 +64,40 @@ public class TestRunEndEncodedVector {
   /** Create REE vector with constant value. */
   @Test
   public void testConstantValueVector() {
-    final FieldType valueType = FieldType.notNullable(Types.MinorType.BIGINT.getType());
-    final FieldType runEndType = FieldType.notNullable(Types.MinorType.INT.getType());
-
-    final Field valueField = new Field("value", valueType, null);
-    final Field runEndField = new Field("ree", runEndType, null);
-    final Field runEndEncodedField =
-        new Field(
-            "constant",
-            FieldType.notNullable(RunEndEncoded.INSTANCE),
-            List.of(runEndField, valueField));
+    final Field runEndEncodedField = createBigIntRunEndEncodedField("constant");
 
     try (RunEndEncodedVector reeVector =
         new RunEndEncodedVector(runEndEncodedField, allocator, null)) {
-      int runCount = 1;
       int logicalValueCount = 100;
-
-      reeVector.allocateNew();
-      reeVector.setInitialCapacity(runCount);
-      ((BigIntVector) reeVector.getValuesVector()).set(0, 65536);
-      ((IntVector) reeVector.getRunEndsVector()).set(0, logicalValueCount);
-      reeVector.getValuesVector().setValueCount(runCount);
-      reeVector.getRunEndsVector().setValueCount(runCount);
-      reeVector.setValueCount(logicalValueCount);
-
+      int value = 65536;
+      setConstantVector(reeVector, value, logicalValueCount);
       assertEquals(logicalValueCount, reeVector.getValueCount());
       for (int i = 0; i < logicalValueCount; i++) {
-        assertEquals(65536L, reeVector.getObject(i));
+        assertEquals(value, reeVector.getObject(i));
       }
     }
+  }
+
+  private static void setConstantVector(
+      RunEndEncodedVector constantVector, int value, int logicalValueCount) {
+    int runCount = 1;
+    constantVector.allocateNew();
+    ((BigIntVector) constantVector.getValuesVector()).set(0, value);
+    ((IntVector) constantVector.getRunEndsVector()).set(0, logicalValueCount);
+    constantVector.getValuesVector().setValueCount(runCount);
+    constantVector.getRunEndsVector().setValueCount(runCount);
+    constantVector.setValueCount(logicalValueCount);
   }
 
   /** Create REE vector representing: [1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5]. */
   @Test
   public void testBasicRunEndEncodedVector() {
 
-    final FieldType valueType = FieldType.notNullable(Types.MinorType.BIGINT.getType());
-    final FieldType runEndType = FieldType.notNullable(Types.MinorType.INT.getType());
-
-    final Field valueField = new Field("value", valueType, null);
-    final Field runEndField = new Field("ree", runEndType, null);
-    final Field runEndEncodedField =
-        new Field(
-            "ree", FieldType.notNullable(RunEndEncoded.INSTANCE), List.of(runEndField, valueField));
-
     try (RunEndEncodedVector reeVector =
-        new RunEndEncodedVector(runEndEncodedField, allocator, null)) {
+        new RunEndEncodedVector(createBigIntRunEndEncodedField("basic"), allocator, null)) {
+
       int runCount = 5;
-      reeVector.allocateNew();
-      reeVector.setInitialCapacity(runCount);
-      int end = 0;
-      for (int i = 1; i <= runCount; i++) {
-        end += i;
-        ((BigIntVector) reeVector.getValuesVector()).set(i - 1, i);
-        ((IntVector) reeVector.getRunEndsVector()).set(i - 1, end);
-      }
-
-      final int logicalValueCount = end;
-
-      reeVector.getValuesVector().setValueCount(runCount);
-      reeVector.getRunEndsVector().setValueCount(runCount);
-      reeVector.setValueCount(logicalValueCount);
+      final int logicalValueCount = setAccumulateVector(reeVector, runCount, 1);
 
       assertEquals(15, reeVector.getValueCount());
       int index = 0;
@@ -137,5 +112,93 @@ public class TestRunEndEncodedVector {
       assertThrows(IndexOutOfBoundsException.class, () -> reeVector.getObject(-1));
       assertThrows(IndexOutOfBoundsException.class, () -> reeVector.getObject(logicalValueCount));
     }
+  }
+
+  private static int setAccumulateVector(
+      RunEndEncodedVector reeVector, int runCount, int startRunValue) {
+    reeVector.allocateNew();
+    reeVector.setInitialCapacity(runCount);
+    int end = 0;
+    int runValue = startRunValue;
+    for (int i = 0; i < runCount; i++) {
+      end += runValue;
+      ((BigIntVector) reeVector.getValuesVector()).set(i, runValue);
+      ((IntVector) reeVector.getRunEndsVector()).set(i, end);
+      runValue++;
+    }
+
+    final int logicalValueCount = end;
+    reeVector.getValuesVector().setValueCount(runCount);
+    reeVector.getRunEndsVector().setValueCount(runCount);
+    reeVector.setValueCount(logicalValueCount);
+    return logicalValueCount;
+  }
+
+  @Test
+  public void testRangeCompare() {
+    // test compare same constant vector
+    RunEndEncodedVector constantVector =
+        new RunEndEncodedVector(createBigIntRunEndEncodedField("constant"), allocator, null);
+    int logicalValueCount = 15;
+
+    setConstantVector(constantVector, 1, logicalValueCount);
+
+    assertTrue(
+        constantVector.accept(
+            new RangeEqualsVisitor(constantVector, constantVector),
+            new Range(0, 0, logicalValueCount)));
+    assertTrue(
+        constantVector.accept(
+            new RangeEqualsVisitor(constantVector, constantVector), new Range(1, 1, 14)));
+    assertTrue(
+        constantVector.accept(
+            new RangeEqualsVisitor(constantVector, constantVector), new Range(1, 2, 13)));
+    assertFalse(
+        constantVector.accept(
+            new RangeEqualsVisitor(constantVector, constantVector), new Range(1, 10, 10)));
+    assertFalse(
+        constantVector.accept(
+            new RangeEqualsVisitor(constantVector, constantVector), new Range(10, 1, 10)));
+
+    RunEndEncodedVector reeVector =
+        new RunEndEncodedVector(createBigIntRunEndEncodedField("basic"), allocator, null);
+    setAccumulateVector(reeVector, 5, 1);
+
+    assertTrue(
+        reeVector.accept(
+            new RangeEqualsVisitor(reeVector, reeVector), new Range(0, 0, logicalValueCount)));
+    assertTrue(
+        reeVector.accept(
+            new RangeEqualsVisitor(reeVector, reeVector), new Range(2, 2, logicalValueCount - 2)));
+    assertFalse(
+        reeVector.accept(
+            new RangeEqualsVisitor(reeVector, reeVector), new Range(1, 2, logicalValueCount - 2)));
+
+    assertFalse(
+        reeVector.accept(
+            new RangeEqualsVisitor(reeVector, constantVector), new Range(0, 0, logicalValueCount)));
+
+    RunEndEncodedVector reeVector2 =
+        new RunEndEncodedVector(createBigIntRunEndEncodedField("basic"), allocator, null);
+    setAccumulateVector(reeVector2, 4, 2);
+
+    assertTrue(
+        reeVector.accept(
+            new RangeEqualsVisitor(reeVector, reeVector2), new Range(1, 0, logicalValueCount - 1)));
+
+    constantVector.close();
+    reeVector.close();
+    reeVector2.close();
+  }
+
+  private static Field createBigIntRunEndEncodedField(String fieldName) {
+    final FieldType valueType = FieldType.notNullable(Types.MinorType.BIGINT.getType());
+    final FieldType runEndType = FieldType.notNullable(Types.MinorType.INT.getType());
+
+    final Field valueField = new Field("value", valueType, null);
+    final Field runEndField = new Field("ree", runEndType, null);
+
+    return new Field(
+        fieldName, FieldType.notNullable(RunEndEncoded.INSTANCE), List.of(runEndField, valueField));
   }
 }

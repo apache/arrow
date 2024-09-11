@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.complex;
 
 import static org.apache.arrow.util.Preconditions.checkArgument;
@@ -416,6 +415,12 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
     checkIndex(index);
     int physicalIndex = getPhysicalIndex(index);
     return valuesVector.getObject(physicalIndex);
+  }
+
+  public int getRunEnd(int index) {
+    checkIndex(index);
+    int physicalIndex = getPhysicalIndex(index);
+    return (int) runEndsVector.getValueAsLong(physicalIndex);
   }
 
   /**
