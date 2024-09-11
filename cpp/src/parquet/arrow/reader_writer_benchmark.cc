@@ -28,6 +28,7 @@
 #include "parquet/file_reader.h"
 #include "parquet/file_writer.h"
 #include "parquet/platform.h"
+#include "parquet/properties.h"
 
 #include "arrow/array.h"
 #include "arrow/array/builder_primitive.h"
@@ -88,6 +89,11 @@ struct benchmark_traits<BooleanType> {
   using arrow_type = ::arrow::BooleanType;
 };
 
+template <>
+struct benchmark_traits<Float16LogicalType> {
+  using arrow_type = ::arrow::HalfFloatType;
+};
+
 template <typename ParquetType>
 using ArrowType = typename benchmark_traits<ParquetType>::arrow_type;
 
@@ -125,15 +131,15 @@ std::vector<T> RandomVector(int64_t true_percentage, int64_t vector_size,
   return values;
 }
 
-template <typename ParquetType>
+template <typename ParquetType, typename ArrowType = ArrowType<ParquetType>>
 std::shared_ptr<::arrow::Table> TableFromVector(
-    const std::vector<typename ParquetType::c_type>& vec, bool nullable,
+    const std::vector<typename ArrowType::c_type>& vec, bool nullable,
     int64_t null_percentage = kAlternatingOrNa) {
   if (!nullable) {
     ARROW_CHECK_EQ(null_percentage, kAlternatingOrNa);
   }
-  std::shared_ptr<::arrow::DataType> type = std::make_shared<ArrowType<ParquetType>>();
-  NumericBuilder<ArrowType<ParquetType>> builder;
+  std::shared_ptr<::arrow::DataType> type = std::make_shared<ArrowType>();
+  NumericBuilder<ArrowType> builder;
   if (nullable) {
     // Note true values select index 1 of sample_values
     auto valid_bytes = RandomVector<uint8_t>(/*true_percentage=*/null_percentage,
@@ -258,18 +264,20 @@ struct Examples<bool> {
 };
 
 static void BenchmarkReadTable(::benchmark::State& state, const ::arrow::Table& table,
+                               std::shared_ptr<WriterProperties> properties,
                                int64_t num_values = -1, int64_t total_bytes = -1) {
   auto output = CreateOutputStream();
-  EXIT_NOT_OK(
-      WriteTable(table, ::arrow::default_memory_pool(), output, table.num_rows()));
+  EXIT_NOT_OK(WriteTable(table, ::arrow::default_memory_pool(), output,
+                         /*chunk_size=*/table.num_rows(), properties));
   PARQUET_ASSIGN_OR_THROW(auto buffer, output->Finish());
 
-  while (state.KeepRunning()) {
+  for (auto _ : state) {
     auto reader =
         ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
     std::unique_ptr<FileReader> arrow_reader;
     EXIT_NOT_OK(FileReader::Make(::arrow::default_memory_pool(), std::move(reader),
                                  &arrow_reader));
+
     std::shared_ptr<::arrow::Table> table;
     EXIT_NOT_OK(arrow_reader->ReadTable(&table));
   }
@@ -283,8 +291,14 @@ static void BenchmarkReadTable(::benchmark::State& state, const ::arrow::Table& 
   }
 }
 
+static void BenchmarkReadTable(::benchmark::State& state, const ::arrow::Table& table,
+                               int64_t num_values = -1, int64_t total_bytes = -1) {
+  BenchmarkReadTable(state, table, default_writer_properties(), num_values, total_bytes);
+}
+
 static void BenchmarkReadArray(::benchmark::State& state,
                                const std::shared_ptr<Array>& array, bool nullable,
+                               std::shared_ptr<WriterProperties> properties,
                                int64_t num_values = -1, int64_t total_bytes = -1) {
   auto schema = ::arrow::schema({field("s", array->type(), nullable)});
   auto table = ::arrow::Table::Make(schema, {array}, array->length());
@@ -294,8 +308,15 @@ static void BenchmarkReadArray(::benchmark::State& state,
   BenchmarkReadTable(state, *table, num_values, total_bytes);
 }
 
+static void BenchmarkReadArray(::benchmark::State& state,
+                               const std::shared_ptr<Array>& array, bool nullable,
+                               int64_t num_values = -1, int64_t total_bytes = -1) {
+  BenchmarkReadArray(state, array, nullable, default_writer_properties(), num_values,
+                     total_bytes);
+}
+
 //
-// Benchmark reading a primitive column
+// Benchmark reading a dict-encoded primitive column
 //
 
 template <bool nullable, typename ParquetType>
@@ -308,7 +329,9 @@ static void BM_ReadColumn(::benchmark::State& state) {
   std::shared_ptr<::arrow::Table> table =
       TableFromVector<ParquetType>(values, nullable, state.range(0));
 
-  BenchmarkReadTable(state, *table, table->num_rows(),
+  auto properties = WriterProperties::Builder().disable_dictionary()->build();
+
+  BenchmarkReadTable(state, *table, properties, table->num_rows(),
                      sizeof(typename ParquetType::c_type) * table->num_rows());
 }
 
@@ -316,8 +339,9 @@ static void BM_ReadColumn(::benchmark::State& state) {
 // null_percentage governs distribution and therefore runs of null values.
 // first_value_percentage governs distribution of values (we select from 1 of 2)
 // so when 0 or 100 RLE is triggered all the time.  When a value in the range (0, 100)
-// there will be some percentage of RLE encoded values and some percentage of literal
-// encoded values (RLE is much less likely with percentages close to 50).
+// there will be some percentage of RLE-encoded dictionary indices and some
+// percentage of literal encoded dictionary indices
+// (RLE is much less likely with percentages close to 50).
 BENCHMARK_TEMPLATE2(BM_ReadColumn, false, Int32Type)
     ->Args({/*null_percentage=*/kAlternatingOrNa, 1})
     ->Args({/*null_percentage=*/kAlternatingOrNa, 10})
@@ -325,6 +349,7 @@ BENCHMARK_TEMPLATE2(BM_ReadColumn, false, Int32Type)
 
 BENCHMARK_TEMPLATE2(BM_ReadColumn, true, Int32Type)
     ->Args({/*null_percentage=*/kAlternatingOrNa, /*first_value_percentage=*/0})
+    ->Args({/*null_percentage=*/0, /*first_value_percentage=*/1})
     ->Args({/*null_percentage=*/1, /*first_value_percentage=*/1})
     ->Args({/*null_percentage=*/10, /*first_value_percentage=*/10})
     ->Args({/*null_percentage=*/25, /*first_value_percentage=*/5})
@@ -368,6 +393,45 @@ BENCHMARK_TEMPLATE2(BM_ReadColumn, false, BooleanType)
 BENCHMARK_TEMPLATE2(BM_ReadColumn, true, BooleanType)
     ->Args({kAlternatingOrNa, 1})
     ->Args({5, 10});
+
+//
+// Benchmark reading a PLAIN-encoded primitive column
+//
+
+template <bool nullable, typename ParquetType>
+static void BM_ReadColumnPlain(::benchmark::State& state) {
+  using c_type = typename ArrowType<ParquetType>::c_type;
+
+  const std::vector<c_type> values(BENCHMARK_SIZE, static_cast<c_type>(42));
+  std::shared_ptr<::arrow::Table> table =
+      TableFromVector<ParquetType>(values, /*nullable=*/nullable, state.range(0));
+
+  auto properties = WriterProperties::Builder().disable_dictionary()->build();
+  BenchmarkReadTable(state, *table, properties, table->num_rows(),
+                     sizeof(c_type) * table->num_rows());
+}
+
+BENCHMARK_TEMPLATE2(BM_ReadColumnPlain, false, Int32Type)
+    ->ArgNames({"null_probability"})
+    ->Args({kAlternatingOrNa});
+BENCHMARK_TEMPLATE2(BM_ReadColumnPlain, true, Int32Type)
+    ->ArgNames({"null_probability"})
+    ->Args({0})
+    ->Args({1})
+    ->Args({50})
+    ->Args({99})
+    ->Args({100});
+
+BENCHMARK_TEMPLATE2(BM_ReadColumnPlain, false, Float16LogicalType)
+    ->ArgNames({"null_probability"})
+    ->Args({kAlternatingOrNa});
+BENCHMARK_TEMPLATE2(BM_ReadColumnPlain, true, Float16LogicalType)
+    ->ArgNames({"null_probability"})
+    ->Args({0})
+    ->Args({1})
+    ->Args({50})
+    ->Args({99})
+    ->Args({100});
 
 //
 // Benchmark reading binary column
