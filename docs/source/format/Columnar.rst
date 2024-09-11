@@ -1397,6 +1397,10 @@ be compressed with the ``zstd`` compression codec. Buffers in
 the flat sequence of a message body must be either all
 uncompressed or all compressed separately using the same codec.
 
+The codec or the compression type used is defined in the ``data header```
+of the :ref:`ipc-recordbatch-message` in the optional ``compression``
+field.
+
 .. note::
 
    ``lz4`` compression codec means the
@@ -1410,7 +1414,8 @@ serialized form is as follows:
 * If the buffers in the :ref:`ipc-recordbatch-message` are **compressed**
 
   - the ``data header`` includes the length and memory offset
-    of each **compressed buffer** in the record batch's body
+    of each **compressed buffer** in the record batch's body together
+    with the compression type
 
   - the ``body`` includes a flat sequence of **compressed buffers**
     together with the **length of the uncompressed buffer** as a 64-bit
