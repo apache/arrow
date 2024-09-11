@@ -21,6 +21,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/extension/json.h"
 #include "arrow/extension_type.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/api.h"
@@ -427,6 +428,13 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
     }
     case ArrowTypeId::EXTENSION: {
       auto ext_type = std::static_pointer_cast<::arrow::ExtensionType>(field->type());
+      // Built-in JSON extension is handled differently.
+      if (ext_type->extension_name() == std::string("arrow.json")) {
+        // Set physical and logical types and instantiate primitive node.
+        type = ParquetType::BYTE_ARRAY;
+        logical_type = LogicalType::JSON();
+        break;
+      }
       std::shared_ptr<::arrow::Field> storage_field = ::arrow::field(
           name, ext_type->storage_type(), field->nullable(), field->metadata());
       return FieldToNode(name, storage_field, properties, arrow_properties, out);
@@ -438,7 +446,7 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
     }
 
     default: {
-      // TODO: DENSE_UNION, SPARE_UNION, JSON_SCALAR, DECIMAL_TEXT, VARCHAR
+      // TODO: DENSE_UNION, SPARE_UNION, DECIMAL_TEXT, VARCHAR
       return Status::NotImplemented(
           "Unhandled type for Arrow to Parquet schema conversion: ",
           field->type()->ToString());
@@ -476,9 +484,8 @@ bool IsDictionaryReadSupported(const ArrowType& type) {
 ::arrow::Result<std::shared_ptr<ArrowType>> GetTypeForNode(
     int column_index, const schema::PrimitiveNode& primitive_node,
     SchemaTreeContext* ctx) {
-  ASSIGN_OR_RAISE(
-      std::shared_ptr<ArrowType> storage_type,
-      GetArrowType(primitive_node, ctx->properties.coerce_int96_timestamp_unit()));
+  ASSIGN_OR_RAISE(std::shared_ptr<ArrowType> storage_type,
+                  GetArrowType(primitive_node, ctx->properties));
   if (ctx->properties.read_dictionary(column_index) &&
       IsDictionaryReadSupported(*storage_type)) {
     return ::arrow::dictionary(::arrow::int32(), storage_type);
@@ -984,18 +991,35 @@ Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* infer
   bool modified = false;
 
   auto& origin_type = origin_field.type();
+  const auto& inferred_type = inferred->field->type();
 
   if (origin_type->id() == ::arrow::Type::EXTENSION) {
     const auto& ex_type = checked_cast<const ::arrow::ExtensionType&>(*origin_type);
-    auto origin_storage_field = origin_field.WithType(ex_type.storage_type());
-
-    // Apply metadata recursively to storage type
-    RETURN_NOT_OK(ApplyOriginalStorageMetadata(*origin_storage_field, inferred));
-
-    // Restore extension type, if the storage type is the same as inferred
-    // from the Parquet type
-    if (ex_type.storage_type()->Equals(*inferred->field->type())) {
+    if (inferred_type->id() != ::arrow::Type::EXTENSION &&
+        ex_type.extension_name() == std::string("arrow.json") &&
+        (inferred_type->id() == ::arrow::Type::STRING ||
+         inferred_type->id() == ::arrow::Type::LARGE_STRING ||
+         inferred_type->id() == ::arrow::Type::STRING_VIEW)) {
+      // Schema mismatch.
+      //
+      // Arrow extensions are DISABLED in Parquet.
+      // origin_type is ::arrow::extension::json()
+      // inferred_type is ::arrow::utf8()
+      //
+      // Origin type is restored as Arrow should be considered the source of truth.
       inferred->field = inferred->field->WithType(origin_type);
+      RETURN_NOT_OK(ApplyOriginalStorageMetadata(origin_field, inferred));
+    } else {
+      auto origin_storage_field = origin_field.WithType(ex_type.storage_type());
+
+      // Apply metadata recursively to storage type
+      RETURN_NOT_OK(ApplyOriginalStorageMetadata(*origin_storage_field, inferred));
+
+      // Restore extension type, if the storage type is the same as inferred
+      // from the Parquet type
+      if (ex_type.storage_type()->Equals(*inferred->field->type())) {
+        inferred->field = inferred->field->WithType(origin_type);
+      }
     }
     modified = true;
   } else {

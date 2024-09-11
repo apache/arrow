@@ -49,6 +49,7 @@
 #include "arrow/buffer.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/datum.h"
+#include "arrow/extension/json.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/json_simple.h"
 #include "arrow/ipc/reader.h"

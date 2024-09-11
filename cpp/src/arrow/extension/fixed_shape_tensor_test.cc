@@ -205,7 +205,7 @@ TEST_F(TestExtensionType, RoundtripBatch) {
   std::shared_ptr<RecordBatch> read_batch;
   auto ext_field = field(/*name=*/"f0", /*type=*/ext_type_);
   auto batch = RecordBatch::Make(schema({ext_field}), ext_arr->length(), {ext_arr});
-  RoundtripBatch(batch, &read_batch);
+  ASSERT_OK(RoundtripBatch(batch, &read_batch));
   CompareBatch(*batch, *read_batch, /*compare_metadata=*/true);
 
   // Pass extension metadata and storage array, expect getting back extension array
@@ -216,7 +216,7 @@ TEST_F(TestExtensionType, RoundtripBatch) {
   ext_field = field(/*name=*/"f0", /*type=*/element_type_, /*nullable=*/true,
                     /*metadata=*/ext_metadata);
   auto batch2 = RecordBatch::Make(schema({ext_field}), fsla_arr->length(), {fsla_arr});
-  RoundtripBatch(batch2, &read_batch2);
+  ASSERT_OK(RoundtripBatch(batch2, &read_batch2));
   CompareBatch(*batch, *read_batch2, /*compare_metadata=*/true);
 }
 
@@ -469,7 +469,7 @@ TEST_F(TestExtensionType, RoundtripBatchFromTensor) {
   auto ext_field = field("f0", ext_type_, true, ext_metadata);
   auto batch = RecordBatch::Make(schema({ext_field}), ext_arr->length(), {ext_arr});
   std::shared_ptr<RecordBatch> read_batch;
-  RoundtripBatch(batch, &read_batch);
+  ASSERT_OK(RoundtripBatch(batch, &read_batch));
   CompareBatch(*batch, *read_batch, /*compare_metadata=*/true);
 }
 
