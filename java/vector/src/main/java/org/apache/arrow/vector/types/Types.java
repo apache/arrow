@@ -787,7 +787,6 @@ public class Types {
       }
     },
     ;
-
     private final ArrowType type;
 
     MinorType(ArrowType type) {

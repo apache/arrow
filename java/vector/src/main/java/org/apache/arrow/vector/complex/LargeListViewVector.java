@@ -739,8 +739,8 @@ public class LargeListViewVector extends BaseLargeRepeatedValueViewVector
       return null;
     }
     final List<Object> vals = new JsonStringArrayList<>();
-    final int start = offsetBuffer.getInt(index * OFFSET_WIDTH);
-    final int end = start + sizeBuffer.getInt((index) * SIZE_WIDTH);
+    final int start = offsetBuffer.getInt((long) index * OFFSET_WIDTH);
+    final int end = start + sizeBuffer.getInt((long) index * SIZE_WIDTH);
     final ValueVector vv = getDataVector();
     for (int i = start; i < end; i++) {
       vals.add(vv.getObject(checkedCastToInt(i)));

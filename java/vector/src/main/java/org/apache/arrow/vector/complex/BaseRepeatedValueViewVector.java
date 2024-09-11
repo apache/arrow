@@ -181,8 +181,8 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
 
   @Override
   public void setInitialCapacity(int numRecords) {
-    offsetAllocationSizeInBytes = (numRecords) * OFFSET_WIDTH;
-    sizeAllocationSizeInBytes = (numRecords) * SIZE_WIDTH;
+    offsetAllocationSizeInBytes = (long) numRecords * OFFSET_WIDTH;
+    sizeAllocationSizeInBytes = (long) numRecords * SIZE_WIDTH;
     if (vector instanceof BaseFixedWidthVector || vector instanceof BaseVariableWidthVector) {
       vector.setInitialCapacity(numRecords * RepeatedValueVector.DEFAULT_REPEAT_PER_RECORD);
     } else {
@@ -196,8 +196,8 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
       throw new OversizedAllocationException("Requested amount of memory is more than max allowed");
     }
 
-    offsetAllocationSizeInBytes = numRecords * OFFSET_WIDTH;
-    sizeAllocationSizeInBytes = numRecords * SIZE_WIDTH;
+    offsetAllocationSizeInBytes = (long) numRecords * OFFSET_WIDTH;
+    sizeAllocationSizeInBytes = (long) numRecords * SIZE_WIDTH;
 
     int innerValueCapacity = Math.max((int) (numRecords * density), 1);
 
@@ -222,8 +222,8 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
    *     all records.
    */
   public void setInitialTotalCapacity(int numRecords, int totalNumberOfElements) {
-    offsetAllocationSizeInBytes = numRecords * OFFSET_WIDTH;
-    sizeAllocationSizeInBytes = numRecords * SIZE_WIDTH;
+    offsetAllocationSizeInBytes = (long) numRecords * OFFSET_WIDTH;
+    sizeAllocationSizeInBytes = (long) numRecords * SIZE_WIDTH;
     vector.setInitialCapacity(totalNumberOfElements);
   }
 

@@ -94,6 +94,7 @@ public final class VarBinaryVector extends BaseVariableWidthVector
    * @param index position of element to get
    * @return array of bytes for non-null element, null otherwise
    */
+  @Override
   public byte[] get(int index) {
     assert index >= 0;
     if (NULL_CHECKING_ENABLED && isSet(index) == 0) {

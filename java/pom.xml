@@ -923,7 +923,7 @@ under the License.
             <configuration>
               <compilerArgs combine.children="append">
                 <arg>-XDcompilePolicy=simple</arg>
-                <arg>-Xplugin:ErrorProne -XepExcludedPaths:.*/(target/generated-source|format/src/main/java/org/apache/arrow/flatbuf)/.*</arg>
+                <arg>-Xplugin:ErrorProne -XepExcludedPaths:.*/(target/generated-source|target/generated-sources|format/src/main/java/org/apache/arrow/flatbuf)/.*</arg>
                 <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED</arg>
                 <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED</arg>
                 <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED</arg>

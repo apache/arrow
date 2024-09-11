@@ -347,11 +347,15 @@ public class VectorSchemaRoot implements AutoCloseable {
     return new VectorSchemaRoot(sliceVectors);
   }
 
-  /** Determine if two VectorSchemaRoots are exactly equal. */
-  public boolean equals(VectorSchemaRoot other) {
-    if (other == null) {
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    }
+    if (!(obj instanceof VectorSchemaRoot)) {
       return false;
     }
+    VectorSchemaRoot other = (VectorSchemaRoot) obj;
 
     if (!this.schema.equals(other.schema)) {
       return false;
@@ -370,6 +374,16 @@ public class VectorSchemaRoot implements AutoCloseable {
     }
 
     return true;
+  }
+
+  @Override
+  public int hashCode() {
+    int result = schema.hashCode();
+    result = 31 * result + rowCount;
+    for (FieldVector vector : fieldVectors) {
+      result = 31 * result + (vector != null ? vector.hashCode() : 0);
+    }
+    return result;
   }
 
   /**

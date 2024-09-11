@@ -80,7 +80,8 @@ public interface CompressionCodec {
           try {
             factory.createCodec(codecType); // will throw if not supported
             factories.putIfAbsent(codecType, factory);
-          } catch (Throwable ignored) {
+          } catch (Throwable expected) {
+            // ignore
           }
         }
       }

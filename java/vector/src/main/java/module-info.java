@@ -48,6 +48,7 @@ module org.apache.arrow.vector {
   requires org.apache.arrow.memory.core;
   requires org.apache.commons.codec;
   requires org.slf4j;
+  requires com.google.errorprone.annotations;
 
   uses org.apache.arrow.vector.compression.CompressionCodec.Factory;
 }
