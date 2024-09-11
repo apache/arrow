@@ -1392,10 +1392,12 @@ Compression
 
 There are three different options for compression of record batch
 body buffers: Buffers can be uncompressed, buffers can be
-compressed with the ``lz4`` compression codec, or buffers can
-be compressed with the ``zstd`` compression codec. Buffers in
-the flat sequence of a message body must be either all
-uncompressed or all compressed separately using the same codec.
+compressed with the ``lz4`` compression codec, or buffers can be
+compressed with the ``zstd`` compression codec. Buffers in the
+flat sequence of a message body must be compressed separately using
+the same codec. Specific buffer in the sequence of compressed
+buffers can be left uncompressed in case compression does not yield
+appreciable savings.
 
 The codec or the compression type used is defined in the ``data header```
 of the :ref:`ipc-recordbatch-message` in the optional ``compression``
@@ -1420,16 +1422,15 @@ serialized form is as follows:
   - the ``body`` includes a flat sequence of **compressed buffers**
     together with the **length of the uncompressed buffer** as a 64-bit
     little-endian signed integer stored in the first 8 bytes for each
-    buffer in the sequence
+    buffer in the sequence. The first 8 bytes can be left empty or equal
+    to ``-1`` to indicate that that specific buffer is left uncompressed.
 
 * If the buffers in the :ref:`ipc-recordbatch-message` are **uncompressed**
 
   - the ``data header`` includes the length and memory offset
     of each **uncompressed buffer** in the record batch's body
 
-  - the ``body`` includes a flat sequence of **uncompressed buffers**
-    with the first 8 bytes empty or equal to ``-1`` to indicate that
-    the buffer is uncompressed
+  - the ``body`` includes a flat sequence of **uncompressed buffers**.
 
 .. note::
 
