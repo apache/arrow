@@ -750,27 +750,10 @@ class TypeEqualsVisitor {
     return Status::OK();
   }
 
-  Status Visit(const Decimal32Type& left) {
-    const auto& right = checked_cast<const Decimal32Type&>(right_);
-    result_ = left.precision() == right.precision() && left.scale() == right.scale();
-    return Status::OK();
-  }
-
-  Status Visit(const Decimal64Type& left) {
-    const auto& right = checked_cast<const Decimal64Type&>(right_);
-    result_ = left.precision() == right.precision() && left.scale() == right.scale();
-    return Status::OK();
-  }
-
-  Status Visit(const Decimal128Type& left) {
-    const auto& right = checked_cast<const Decimal128Type&>(right_);
-    result_ = left.precision() == right.precision() && left.scale() == right.scale();
-    return Status::OK();
-  }
-
-  Status Visit(const Decimal256Type& left) {
-    const auto& right = checked_cast<const Decimal256Type&>(right_);
-    result_ = left.precision() == right.precision() && left.scale() == right.scale();
+  Status Visit(const DecimalType& left) {
+    const auto& right = checked_cast<const DecimalType&>(right_);
+    result_ = left.byte_width() == right.byte_width() &&
+              left.precision() == right.precision() && left.scale() == right.scale();
     return Status::OK();
   }
 

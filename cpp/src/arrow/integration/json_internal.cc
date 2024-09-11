@@ -314,28 +314,7 @@ class SchemaWriter {
     writer_->Int(type.list_size());
   }
 
-  void WriteTypeMetadata(const Decimal32Type& type) {
-    writer_->Key("precision");
-    writer_->Int(type.precision());
-    writer_->Key("scale");
-    writer_->Int(type.scale());
-  }
-
-  void WriteTypeMetadata(const Decimal64Type& type) {
-    writer_->Key("precision");
-    writer_->Int(type.precision());
-    writer_->Key("scale");
-    writer_->Int(type.scale());
-  }
-
-  void WriteTypeMetadata(const Decimal128Type& type) {
-    writer_->Key("precision");
-    writer_->Int(type.precision());
-    writer_->Key("scale");
-    writer_->Int(type.scale());
-  }
-
-  void WriteTypeMetadata(const Decimal256Type& type) {
+  void WriteTypeMetadata(const DecimalType& type) {
     writer_->Key("precision");
     writer_->Int(type.precision());
     writer_->Key("scale");
