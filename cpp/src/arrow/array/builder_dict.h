@@ -302,7 +302,7 @@ class DictionaryBuilderBase : public ArrayBuilder {
   template <typename T1 = T, typename CType = typename TypeTraits<T1>::CType>
   enable_if_decimal<T1, Status> Append(const CType& value) {
     auto bytes = value.ToBytes();
-    return Append(bytes.data(), bytes.size());
+    return Append(bytes.data(), static_cast<int64_t>(bytes.size()));
   }
 
   /// \brief Append a scalar null value
