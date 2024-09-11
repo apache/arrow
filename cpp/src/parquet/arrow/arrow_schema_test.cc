@@ -790,17 +790,15 @@ TEST_F(TestConvertParquetSchema, ParquetSchemaArrowExtensions) {
   }
 
   {
-    // Parquet file contains Arrow schema.
-    // A contrived example. Parquet believes both columns are JSON. Arrow believes json_1
-    // is a JSON column and json_2 is an utf8 column. json_2 should be treated as an
-    // JSON column even if arrow extensions are enabled.
+    // Parquet file contains Arrow schema. Extensions are enabled.
+    // Both json_1 and json_2 should be returned as a json() field
     ArrowReaderProperties props;
     props.set_arrow_extensions_enabled(true);
     std::shared_ptr<KeyValueMetadata> field_metadata =
         ::arrow::key_value_metadata({"foo", "bar"}, {"biz", "baz"});
     auto arrow_schema = ::arrow::schema(
         {::arrow::field("json_1", ::arrow::extension::json(), true, field_metadata),
-         ::arrow::field("json_2", ::arrow::extension::json(), true)});
+         ::arrow::field("json_2", ::arrow::extension::json(::arrow::large_utf8()), true)});
 
     std::shared_ptr<KeyValueMetadata> metadata;
     ASSERT_OK(ArrowSchemaToParquetMetadata(arrow_schema, metadata));
