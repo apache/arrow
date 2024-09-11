@@ -1926,3 +1926,31 @@ def test_bool8_scalar():
     assert pa.scalar(1, type=pa.bool8()).as_py() is True
     assert pa.scalar(2, type=pa.bool8()).as_py() is True
     assert pa.scalar(None, type=pa.bool8()).as_py() is None
+
+
+@pytest.mark.parametrize("str_type", (pa.utf8, pa.large_utf8))
+def test_json(str_type):
+    storage_type = str_type()
+    data = ['{"a": 1}', '{"b": 2}', None]
+    storage = pa.array(data, type=storage_type)
+    json_type = pa.json(storage_type)
+
+    assert json_type.extension_name == "arrow.json"
+    assert json_type.storage_type == storage_type
+    assert json_type.__class__ is pa.JsonType
+
+    array = pa.ExtensionArray.from_storage(json_type, storage)
+
+    assert array.to_pylist() == data
+    assert array[0].as_py() == data[0]
+    assert array[2].as_py() is None
+
+    buf = ipc_write_batch(pa.RecordBatch.from_arrays([array], ["json"]))
+
+    batch = ipc_read_batch(buf)
+    reconstructed_array = batch.column(0)
+    assert reconstructed_array.type == json_type
+    assert reconstructed_array == array
+
+    assert json_type.__arrow_ext_scalar_class__() == pa.JsonScalar
+    assert isinstance(array[0], pa.JsonScalar)

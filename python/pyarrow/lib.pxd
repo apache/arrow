@@ -226,6 +226,10 @@ cdef class UuidType(BaseExtensionType):
     cdef:
         const CUuidType* uuid_ext_type
 
+cdef class JsonType(BaseExtensionType):
+    cdef:
+        const CJsonType* json_ext_type
+
 cdef class PyExtensionType(ExtensionType):
     pass
 

@@ -4344,6 +4344,30 @@ cdef class ExtensionArray(Array):
         return result
 
 
+class JsonArray(ExtensionArray):
+    """
+    Concrete class for Arrow arrays of JSON data type.
+
+    Examples
+    --------
+    Define the extension type for JSON array
+
+    >>> import pyarrow as pa
+    >>> json_type = pa.json(pa.large_utf8())
+
+    Create an extension array
+
+    >>> arr = [None, '{ "id":30, "values":["a", "b"] }']
+    >>> storage = pa.array(arr, pa.large_utf8())
+    >>> pa.ExtensionArray.from_storage(json_type, storage)
+    <pyarrow.lib.JsonArray object at ...>
+    [
+      null,
+      { "id":30, "values":["a", "b"] }
+    ]
+    """
+
+
 class UuidArray(ExtensionArray):
     """
     Concrete class for Arrow arrays of UUID data type.

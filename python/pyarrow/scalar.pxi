@@ -1044,6 +1044,15 @@ cdef class ExtensionScalar(Scalar):
         return pyarrow_wrap_scalar(<shared_ptr[CScalar]> sp_scalar)
 
 
+class JsonScalar(ExtensionScalar):
+    """
+    Concrete class for JSON extension scalar.
+    """
+
+    def as_py(self):
+        return None if self.value is None else self.value.as_py()
+
+
 class UuidScalar(ExtensionScalar):
     """
     Concrete class for Uuid extension scalar.
