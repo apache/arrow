@@ -3791,6 +3791,7 @@ def test_table_non_cpu(cuda_context, cpu_table, cuda_table,
         verify_cuda_table(new_table, expected_schema=schema.append(
             pa.field('c2', pa.int8())))
         new_table = fn(2, 'c2', cpu_col)
+        assert new_table.is_cpu is False
         assert new_table.column(0).is_cpu is False
         assert new_table.column(1).is_cpu is False
         assert new_table.column(2).is_cpu is True
