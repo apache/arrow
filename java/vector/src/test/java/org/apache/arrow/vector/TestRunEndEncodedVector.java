@@ -18,10 +18,12 @@ package org.apache.arrow.vector;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.function.Function;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.compare.Range;
 import org.apache.arrow.vector.compare.RangeEqualsVisitor;
@@ -65,45 +67,58 @@ public class TestRunEndEncodedVector {
   @Test
   public void testConstantValueVector() {
     final Field runEndEncodedField = createBigIntRunEndEncodedField("constant");
+    int logicalValueCount = 100;
 
+    // constant vector
     try (RunEndEncodedVector reeVector =
         new RunEndEncodedVector(runEndEncodedField, allocator, null)) {
-      int logicalValueCount = 100;
-      int value = 65536;
+      Long value = 65536L;
       setConstantVector(reeVector, value, logicalValueCount);
       assertEquals(logicalValueCount, reeVector.getValueCount());
       for (int i = 0; i < logicalValueCount; i++) {
         assertEquals(value, reeVector.getObject(i));
       }
     }
+
+    // constant null vector
+    try (RunEndEncodedVector reeVector =
+        new RunEndEncodedVector(runEndEncodedField, allocator, null)) {
+      setConstantVector(reeVector, null, logicalValueCount);
+      assertEquals(logicalValueCount, reeVector.getValueCount());
+      // Null count is always 0 for run-end encoded array
+      assertEquals(0, reeVector.getNullCount());
+      for (int i = 0; i < logicalValueCount; i++) {
+        assertTrue(reeVector.isNull(i));
+        assertNull(reeVector.getObject(i));
+      }
+    }
   }
 
-  private static void setConstantVector(
-      RunEndEncodedVector constantVector, int value, int logicalValueCount) {
-    int runCount = 1;
-    constantVector.allocateNew();
-    ((BigIntVector) constantVector.getValuesVector()).set(0, value);
-    ((IntVector) constantVector.getRunEndsVector()).set(0, logicalValueCount);
-    constantVector.getValuesVector().setValueCount(runCount);
-    constantVector.getRunEndsVector().setValueCount(runCount);
-    constantVector.setValueCount(logicalValueCount);
-  }
-
-  /** Create REE vector representing: [1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5]. */
   @Test
   public void testBasicRunEndEncodedVector() {
-
     try (RunEndEncodedVector reeVector =
         new RunEndEncodedVector(createBigIntRunEndEncodedField("basic"), allocator, null)) {
 
+      // Create REE vector representing:
+      // [null, 2, 2, null, null, null, 4, 4, 4, 4, null, null, null, null, null].
       int runCount = 5;
-      final int logicalValueCount = setAccumulateVector(reeVector, runCount, 1);
+      final int logicalValueCount =
+          setBasicVector(
+              reeVector,
+              runCount,
+              i -> i % 2 == 0 ? null : i + 1,
+              i -> i + 1);
 
       assertEquals(15, reeVector.getValueCount());
       int index = 0;
-      for (int i = 1; i < runCount + 1; i++) {
-        for (int j = 0; j < i; j++) {
-          assertEquals((long) i, reeVector.getObject(index));
+      for (int run = 0; run < runCount; run++) {
+        long expectedRunValue = (long) run + 1;
+        for (int j = 0; j <= run; j++) {
+          if (run % 2 == 0) {
+            assertNull(reeVector.getObject(index));
+          } else {
+            assertEquals(expectedRunValue, reeVector.getObject(index));
+          }
           index++;
         }
       }
@@ -114,26 +129,6 @@ public class TestRunEndEncodedVector {
     }
   }
 
-  private static int setAccumulateVector(
-      RunEndEncodedVector reeVector, int runCount, int startRunValue) {
-    reeVector.allocateNew();
-    reeVector.setInitialCapacity(runCount);
-    int end = 0;
-    int runValue = startRunValue;
-    for (int i = 0; i < runCount; i++) {
-      end += runValue;
-      ((BigIntVector) reeVector.getValuesVector()).set(i, runValue);
-      ((IntVector) reeVector.getRunEndsVector()).set(i, end);
-      runValue++;
-    }
-
-    final int logicalValueCount = end;
-    reeVector.getValuesVector().setValueCount(runCount);
-    reeVector.getRunEndsVector().setValueCount(runCount);
-    reeVector.setValueCount(logicalValueCount);
-    return logicalValueCount;
-  }
-
   @Test
   public void testRangeCompare() {
     // test compare same constant vector
@@ -141,7 +136,7 @@ public class TestRunEndEncodedVector {
         new RunEndEncodedVector(createBigIntRunEndEncodedField("constant"), allocator, null);
     int logicalValueCount = 15;
 
-    setConstantVector(constantVector, 1, logicalValueCount);
+    setConstantVector(constantVector, 1L, logicalValueCount);
 
     assertTrue(
         constantVector.accept(
@@ -160,9 +155,10 @@ public class TestRunEndEncodedVector {
         constantVector.accept(
             new RangeEqualsVisitor(constantVector, constantVector), new Range(10, 1, 10)));
 
+    // Create REE vector representing: [1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5].
     RunEndEncodedVector reeVector =
         new RunEndEncodedVector(createBigIntRunEndEncodedField("basic"), allocator, null);
-    setAccumulateVector(reeVector, 5, 1);
+    setBasicVector(reeVector, 5, i -> i + 1, i -> i + 1);
 
     assertTrue(
         reeVector.accept(
@@ -178,9 +174,10 @@ public class TestRunEndEncodedVector {
         reeVector.accept(
             new RangeEqualsVisitor(reeVector, constantVector), new Range(0, 0, logicalValueCount)));
 
+    // Create REE vector representing: [2, 2, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5].
     RunEndEncodedVector reeVector2 =
         new RunEndEncodedVector(createBigIntRunEndEncodedField("basic"), allocator, null);
-    setAccumulateVector(reeVector2, 4, 2);
+    setBasicVector(reeVector2, 4, i -> i + 2, i -> i + 2);
 
     assertTrue(
         reeVector.accept(
@@ -200,5 +197,39 @@ public class TestRunEndEncodedVector {
 
     return new Field(
         fieldName, FieldType.notNullable(RunEndEncoded.INSTANCE), List.of(runEndField, valueField));
+  }
+
+  private static void setConstantVector(
+      RunEndEncodedVector constantVector, Long value, long logicalValueCount) {
+    setBasicVector(constantVector, 1, i -> value, i -> logicalValueCount);
+  }
+
+  private static int setBasicVector(
+      RunEndEncodedVector reeVector,
+      int runCount,
+      Function<Long, Long> runValueSupplier,
+      Function<Long, Long> runLengthSupplier) {
+    reeVector.allocateNew();
+    reeVector.setInitialCapacity(runCount);
+    int end = 0;
+    for (int i = 0; i < runCount; i++) {
+      Long runValue = runValueSupplier.apply((long) i);
+      if (runValue == null) {
+        reeVector.getValuesVector().setNull(i);
+      } else {
+        ((BigIntVector) reeVector.getValuesVector()).set(i, runValue);
+      }
+
+      Long runLength = runLengthSupplier.apply((long) i);
+      assert runLength != null && runLength > 0;
+      end += runLength;
+      ((IntVector) reeVector.getRunEndsVector()).set(i, end);
+    }
+
+    final int logicalValueCount = end;
+    reeVector.getValuesVector().setValueCount(runCount);
+    reeVector.getRunEndsVector().setValueCount(runCount);
+    reeVector.setValueCount(logicalValueCount);
+    return logicalValueCount;
   }
 }

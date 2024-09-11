@@ -430,7 +430,7 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
    */
   @Override
   public int getNullCount() {
-    // Null count must is always 0 for run-end encoded array
+    // Null count is always 0 for run-end encoded array
     return 0;
   }
 
