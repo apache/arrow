@@ -35,6 +35,7 @@
 #include "parquet/column_writer.h"
 #include "parquet/file_reader.h"
 #include "parquet/file_writer.h"
+#include "parquet/geometry_util_internal.h"
 #include "parquet/metadata.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
@@ -1853,6 +1854,21 @@ class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
     EXPECT_DOUBLE_EQ(100, geometry_statistics->GetYMax());
     EXPECT_FALSE(geometry_statistics->HasZ());
     EXPECT_FALSE(geometry_statistics->HasM());
+
+    auto coverings = geometry_statistics->GetCoverings();
+    EXPECT_EQ(1, coverings.size());
+    EXPECT_EQ("WKB", coverings[0].first);
+    geometry::WKBGeometryBounder bounder;
+    const std::string& wkb = coverings[0].second;
+    geometry::WKBBuffer wkb_buffer(reinterpret_cast<const uint8_t*>(wkb.data()),
+                                   wkb.size());
+    bounder.ReadGeometry(&wkb_buffer);
+    bounder.Flush();
+    auto bounds = bounder.Bounds();
+    EXPECT_DOUBLE_EQ(0, bounds.min[0]);
+    EXPECT_DOUBLE_EQ(1, bounds.min[1]);
+    EXPECT_DOUBLE_EQ(99, bounds.max[0]);
+    EXPECT_DOUBLE_EQ(100, bounds.max[1]);
   }
 
   void TestWriteAndReadSpaced(ParquetVersion::type version,
@@ -1875,8 +1891,10 @@ class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
     }
 
     // Construct valid bits using definition levels
-    std::vector<uint8_t> valid_bytes =
-        std::vector<uint8_t>(definition_levels.begin(), definition_levels.end());
+    std::vector<uint8_t> valid_bytes(num_values);
+    std::transform(definition_levels.begin(), definition_levels.end(),
+                   valid_bytes.begin(),
+                   [&](int64_t level) { return static_cast<uint8_t>(level); });
     std::shared_ptr<Buffer> valid_bits;
     ASSERT_OK_AND_ASSIGN(valid_bits, ::arrow::internal::BytesToBits(valid_bytes));
 
@@ -1903,6 +1921,7 @@ class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
     }
 
     std::shared_ptr<Statistics> statistics = metadata_stats();
+    EXPECT_FALSE(statistics->HasMinMax());
     EXPECT_TRUE(statistics->HasGeometryStatistics());
     const GeometryStatistics* geometry_statistics = statistics->geometry_statistics();
     std::vector<int32_t> geometry_types = geometry_statistics->GetGeometryTypes();

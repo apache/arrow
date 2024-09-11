@@ -169,6 +169,16 @@ class GeometryStatisticsImpl {
     out.mmin = mins[3];
     out.mmax = maxes[3];
 
+    if (coverings_.empty()) {
+      // Generate coverings from bounding box if coverings is not present
+      std::string kind = "WKB";
+      std::string value =
+          geometry::MakeCoveringWKBFromBound(out.xmin, out.xmax, out.ymin, out.ymax);
+      out.coverings.emplace_back(kind, value);
+    } else {
+      out.coverings = coverings_;
+    }
+
     return out;
   }
 
@@ -195,6 +205,7 @@ class GeometryStatisticsImpl {
 
     bounder_.ReadBox(box);
     bounder_.ReadGeometryTypes(encoded.geometry_types);
+    coverings_ = encoded.coverings;
 
     try {
       for (const auto& covering : encoded.coverings) {
@@ -219,8 +230,13 @@ class GeometryStatisticsImpl {
 
   std::vector<int32_t> GetGeometryTypes() const { return bounder_.GeometryTypes(); }
 
+  std::vector<std::pair<std::string, std::string>> GetCoverings() const {
+    return coverings_;
+  }
+
  private:
   geometry::WKBGeometryBounder bounder_;
+  std::vector<std::pair<std::string, std::string>> coverings_;
   bool is_valid_ = true;
 };
 
@@ -322,8 +338,7 @@ std::vector<int32_t> GeometryStatistics::GetGeometryTypes() const {
 
 std::vector<std::pair<std::string, std::string>> GeometryStatistics::GetCoverings()
     const {
-  // TODO (kontinuation): support coverings
-  return {};
+  return impl_->GetCoverings();
 }
 
 namespace {

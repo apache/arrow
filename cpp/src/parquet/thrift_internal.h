@@ -366,6 +366,16 @@ static inline format::Statistics ToThrift(const EncodedStatistics& stats) {
       bbox.__set_mmax(encoded_geometry_stats.mmax);
     }
     geometry_statistics.__set_bbox(bbox);
+
+    std::vector<format::Covering> coverings;
+    coverings.reserve(encoded_geometry_stats.coverings.size());
+    for (const auto& pair : encoded_geometry_stats.coverings) {
+      format::Covering covering;
+      covering.__set_kind(pair.first);
+      covering.__set_value(pair.second);
+      coverings.push_back(std::move(covering));
+    }
+    geometry_statistics.__set_coverings(coverings);
     statistics.__set_geometry_stats(geometry_statistics);
   }
 
