@@ -38,11 +38,11 @@
 # WARNING: setting this will affect the host machine.
 #
 # Linux host:
-#   $ sudo sysctl -w kernel.core_pattern=core.%e.%p
+#   $ sudo sysctl -w kernel.core_pattern=/tmp/core.%e.%p
 #
 # macOS host running Docker for Mac (won't persist between restarts):
 #   $ screen ~/Library/Containers/com.docker.docker/Data/vms/0/tty
-#   # echo "core.%e.%p" > /proc/sys/kernel/core_pattern
+#   # echo "/tmp/core.%e.%p" > /proc/sys/kernel/core_pattern
 #
 # The setup attempts to generate coredumps by default, but the correct paths
 # above must be set. In order to disable the coredump generation set

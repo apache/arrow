@@ -59,6 +59,7 @@ jobs:
       - name: Test wheel
         shell: bash
         run: |
+          source arrow/ci/scripts/util_enable_core_dumps.sh
           archery docker run python-wheel-manylinux-test-imports
           archery docker run python-wheel-manylinux-test-unittests
 
