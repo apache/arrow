@@ -525,6 +525,8 @@ cdef class Table(_Tabular):
     cdef:
         shared_ptr[CTable] sp_table
         CTable* table
+        c_bool _is_cpu
+        c_bool _init_is_cpu
 
     cdef void init(self, const shared_ptr[CTable]& table)
 
