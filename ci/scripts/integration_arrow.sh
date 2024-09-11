@@ -34,7 +34,7 @@ gold_dir=$arrow_dir/testing/data/arrow-ipc-stream/integration
 
 github_actions_group_begin "Integration: Prepare: Archery"
 pip install -e $arrow_dir/dev/archery[integration]
-github_actions_group_ehd
+github_actions_group_end
 
 github_actions_group_begin "Integration: Prepare: Dependencies"
 # For C Data Interface testing
@@ -44,7 +44,7 @@ fi
 if [ "${ARROW_INTEGRATION_JAVA}" == "ON" ]; then
     pip install jpype1
 fi
-github_actions_group_ehd
+github_actions_group_end
 
 export ARROW_BUILD_ROOT=${build_dir}
 
