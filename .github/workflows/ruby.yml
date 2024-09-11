@@ -95,8 +95,7 @@ jobs:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
-          sudo sysctl -w kernel.core_pattern="core.%e.%p"
-          ulimit -c unlimited
+          source ci/scripts/util_enable_core_dumps.sh
           archery docker run \
             -e ARROW_FLIGHT=ON \
             -e ARROW_FLIGHT_SQL=ON \
