@@ -70,11 +70,15 @@ groups:
 
 {############################# Testing tasks #################################}
 
+  cuda:
+    - test-cuda-*
+
   test:
     - test-*
 
   cpp:
     - test-*cpp*
+    - example-*cpp*
 
   c-glib:
     - test-*c-glib*
@@ -995,7 +999,7 @@ tasks:
       github_runner: "macos-14"
   {% endfor %}
 
-  {% for macos_version in ["11", "12"] %}
+  {% for macos_version in ["12"] %}
   verify-rc-binaries-wheels-macos-{{ macos_version }}-amd64:
     ci: github
     template: verify-rc/github.macos.yml
@@ -1255,6 +1259,14 @@ tasks:
       env:
         PYTHON: "3.10"
       image: conda-python-cython2
+
+  test-ubuntu-22.04-python-313-freethreading:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        UBUNTU: 22.04
+      image: ubuntu-python-313-freethreading
 
   test-debian-12-python-3-amd64:
     ci: github

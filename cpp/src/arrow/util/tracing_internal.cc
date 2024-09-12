@@ -26,8 +26,8 @@
 #include <thread>
 
 #ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable : 4522)
+#  pragma warning(push)
+#  pragma warning(disable : 4522)
 #endif
 #include <google/protobuf/util/json_util.h>
 
@@ -45,7 +45,7 @@
 #include <opentelemetry/exporters/otlp/protobuf_include_suffix.h>
 #include <opentelemetry/proto/collector/trace/v1/trace_service.pb.h>
 #ifdef _MSC_VER
-#pragma warning(pop)
+#  pragma warning(pop)
 #endif
 
 #include "arrow/util/io_util.h"

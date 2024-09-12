@@ -174,12 +174,12 @@ static void SchemaEqualsWithMetadata(
 // Micro-benchmark various error reporting schemes
 
 #if (defined(__GNUC__) || defined(__APPLE__))
-#define ARROW_NO_INLINE __attribute__((noinline))
+#  define ARROW_NO_INLINE __attribute__((noinline))
 #elif defined(_MSC_VER)
-#define ARROW_NO_INLINE __declspec(noinline)
+#  define ARROW_NO_INLINE __declspec(noinline)
 #else
-#define ARROW_NO_INLINE
-#warning Missing "noinline" attribute, no-inline benchmarks may be bogus
+#  define ARROW_NO_INLINE
+#  warning Missing "noinline" attribute, no-inline benchmarks may be bogus
 #endif
 
 inline int64_t Accumulate(int64_t partial, int32_t value) {

@@ -21,7 +21,7 @@
 Arrow Columnar Format
 *********************
 
-*Version: 1.4*
+*Version: 1.5*
 
 .. seealso:: :ref:`Additions to the Arrow columnar format since version 1.0.0
    <post-1-0-0-format-versions>`

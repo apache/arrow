@@ -464,35 +464,35 @@ INSTANTIATE_TEST_SUITE_P(TestUncompressedCsvV2, TestCsvFileFormat,
 // codecs should be independently tested and so we do not need to cover those with
 // valgrind here.
 #ifndef ARROW_VALGRIND
-#ifdef ARROW_WITH_BZ2
+#  ifdef ARROW_WITH_BZ2
 INSTANTIATE_TEST_SUITE_P(TestBZ2Csv, TestCsvFileFormat,
                          ::testing::Values(CsvFileFormatParams{Compression::BZ2, false}));
 INSTANTIATE_TEST_SUITE_P(TestBZ2CsvV2, TestCsvFileFormat,
                          ::testing::Values(CsvFileFormatParams{Compression::BZ2, true}));
-#endif
-#ifdef ARROW_WITH_LZ4
+#  endif
+#  ifdef ARROW_WITH_LZ4
 INSTANTIATE_TEST_SUITE_P(TestLZ4Csv, TestCsvFileFormat,
                          ::testing::Values(CsvFileFormatParams{Compression::LZ4_FRAME,
                                                                false}));
 INSTANTIATE_TEST_SUITE_P(TestLZ4CsvV2, TestCsvFileFormat,
                          ::testing::Values(CsvFileFormatParams{Compression::LZ4_FRAME,
                                                                true}));
-#endif
+#  endif
 // Snappy does not support streaming compression
-#ifdef ARROW_WITH_ZLIB
+#  ifdef ARROW_WITH_ZLIB
 INSTANTIATE_TEST_SUITE_P(TestGzipCsv, TestCsvFileFormat,
                          ::testing::Values(CsvFileFormatParams{Compression::GZIP,
                                                                false}));
 INSTANTIATE_TEST_SUITE_P(TestGzipCsvV2, TestCsvFileFormat,
                          ::testing::Values(CsvFileFormatParams{Compression::GZIP, true}));
-#endif
-#ifdef ARROW_WITH_ZSTD
+#  endif
+#  ifdef ARROW_WITH_ZSTD
 INSTANTIATE_TEST_SUITE_P(TestZSTDCsv, TestCsvFileFormat,
                          ::testing::Values(CsvFileFormatParams{Compression::ZSTD,
                                                                false}));
 INSTANTIATE_TEST_SUITE_P(TestZSTDCsvV2, TestCsvFileFormat,
                          ::testing::Values(CsvFileFormatParams{Compression::ZSTD, true}));
-#endif
+#  endif
 #endif  // ARROW_VALGRIND
 
 class TestCsvFileFormatScan : public FileFormatScanMixin<CsvFormatHelper> {};

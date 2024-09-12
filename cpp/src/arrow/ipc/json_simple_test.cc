@@ -48,7 +48,7 @@
 
 #if defined(_MSC_VER)
 // "warning C4307: '+': integral constant overflow"
-#pragma warning(disable : 4307)
+#  pragma warning(disable : 4307)
 #endif
 
 namespace arrow {

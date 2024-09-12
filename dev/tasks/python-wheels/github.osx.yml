@@ -108,7 +108,7 @@ jobs:
           pip install --upgrade pip wheel
           PYTHON=python arrow/ci/scripts/python_wheel_macos_build.sh {{ arch }} $(pwd)/arrow $(pwd)/build
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: wheel
           path: arrow/python/repaired_wheels/*.whl

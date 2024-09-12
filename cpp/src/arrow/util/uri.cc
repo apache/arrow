@@ -250,9 +250,16 @@ Status Uri::Parse(const std::string& uri_string) {
   const auto& s = impl_->KeepString(uri_string);
   impl_->string_rep_ = s;
   const char* error_pos;
-  if (uriParseSingleUriExA(&impl_->uri_, s.data(), s.data() + s.size(), &error_pos) !=
-      URI_SUCCESS) {
-    return Status::Invalid("Cannot parse URI: '", uri_string, "'");
+  int retval =
+      uriParseSingleUriExA(&impl_->uri_, s.data(), s.data() + s.size(), &error_pos);
+  if (retval != URI_SUCCESS) {
+    if (retval == URI_ERROR_SYNTAX) {
+      return Status::Invalid("Cannot parse URI: '", uri_string,
+                             "' due to syntax error at character '", *error_pos,
+                             "' (position ", error_pos - s.data(), ")");
+    } else {
+      return Status::Invalid("Cannot parse URI: '", uri_string, "'");
+    }
   }
 
   const auto scheme = TextRangeToView(impl_->uri_.scheme);

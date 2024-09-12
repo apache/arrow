@@ -26,9 +26,9 @@ namespace internal {
 namespace detail {
 
 #if defined(_MSC_VER)
-#define ARROW_HASH_ROTL32(x, r) _rotl(x, r)
+#  define ARROW_HASH_ROTL32(x, r) _rotl(x, r)
 #else
-#define ARROW_HASH_ROTL32(x, r) (x << r) | (x >> (32 - r))
+#  define ARROW_HASH_ROTL32(x, r) (x << r) | (x >> (32 - r))
 #endif
 
 template <typename SizeT>

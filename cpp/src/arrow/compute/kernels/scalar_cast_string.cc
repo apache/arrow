@@ -217,8 +217,8 @@ struct TemporalToStringCastFunctor<O, TimestampType> {
 
 #if defined(_MSC_VER)
 // Silence warning: """'visitor': unreferenced local variable"""
-#pragma warning(push)
-#pragma warning(disable : 4101)
+#  pragma warning(push)
+#  pragma warning(disable : 4101)
 #endif
 
 struct Utf8Validator {
@@ -422,7 +422,7 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
 }
 
 #if defined(_MSC_VER)
-#pragma warning(pop)
+#  pragma warning(pop)
 #endif
 
 // ----------------------------------------------------------------------

@@ -20,25 +20,25 @@
 #ifdef _MSC_VER
 // MSVC x86_64/arm64
 
-#if defined(_M_AMD64) || defined(_M_X64)
-#include <intrin.h>
-#endif
+#  if defined(_M_AMD64) || defined(_M_X64)
+#    include <intrin.h>
+#  endif
 
 #else
 // gcc/clang (possibly others)
 
-#if defined(ARROW_HAVE_BMI2)
-#include <x86intrin.h>
-#endif
+#  if defined(ARROW_HAVE_BMI2)
+#    include <x86intrin.h>
+#  endif
 
-#if defined(ARROW_HAVE_AVX2) || defined(ARROW_HAVE_AVX512)
-#include <immintrin.h>
-#elif defined(ARROW_HAVE_SSE4_2)
-#include <nmmintrin.h>
-#endif
+#  if defined(ARROW_HAVE_AVX2) || defined(ARROW_HAVE_AVX512)
+#    include <immintrin.h>
+#  elif defined(ARROW_HAVE_SSE4_2)
+#    include <nmmintrin.h>
+#  endif
 
-#ifdef ARROW_HAVE_NEON
-#include <arm_neon.h>
-#endif
+#  ifdef ARROW_HAVE_NEON
+#    include <arm_neon.h>
+#  endif
 
 #endif

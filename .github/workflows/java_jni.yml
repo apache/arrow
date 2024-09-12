@@ -20,6 +20,7 @@ name: Java JNI
 on:
   push:
     paths:
+      - '.dockerignore'
       - '.github/workflows/java_jni.yml'
       - 'ci/docker/**'
       - 'ci/scripts/cpp_build.sh'
@@ -29,6 +30,7 @@ on:
       - 'java/**'
   pull_request:
     paths:
+      - '.dockerignore'
       - '.github/workflows/java_jni.yml'
       - 'ci/docker/**'
       - 'ci/scripts/cpp_build.sh'
@@ -79,7 +81,9 @@ jobs:
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
-        run: archery docker run java-jni-manylinux-2014
+        run: |
+          source ci/scripts/util_enable_core_dumps.sh
+          archery docker run java-jni-manylinux-2014
       - name: Docker Push
         if: >-
           success() &&

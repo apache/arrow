@@ -22,6 +22,7 @@
 
 #include <cmath>
 #include <limits>
+#include <mutex>
 #include <sstream>
 #include <type_traits>
 
@@ -292,7 +293,15 @@ bool PyFloat_IsNaN(PyObject* obj) {
 
 namespace {
 
+// This needs a conditional, because using std::once_flag could introduce
+// a deadlock when the GIL is enabled. See
+// https://github.com/apache/arrow/commit/f69061935e92e36e25bb891177ca8bc4f463b272 for
+// more info.
+#ifdef Py_GIL_DISABLED
+static std::once_flag pandas_static_initialized;
+#else
 static bool pandas_static_initialized = false;
+#endif
 
 // Once initialized, these variables hold borrowed references to Pandas static data.
 // We should not use OwnedRef here because Python destructors would be
@@ -304,15 +313,7 @@ static PyObject* pandas_Timestamp = nullptr;
 static PyTypeObject* pandas_NaTType = nullptr;
 static PyObject* pandas_DateOffset = nullptr;
 
-}  // namespace
-
-void InitPandasStaticData() {
-  // NOTE: This is called with the GIL held.  We needn't (and shouldn't,
-  // to avoid deadlocks) use an additional C++ lock (ARROW-10519).
-  if (pandas_static_initialized) {
-    return;
-  }
-
+void GetPandasStaticSymbols() {
   OwnedRef pandas;
 
   // Import pandas
@@ -321,11 +322,14 @@ void InitPandasStaticData() {
     return;
   }
 
+#ifndef Py_GIL_DISABLED
   // Since ImportModule can release the GIL, another thread could have
   // already initialized the static data.
   if (pandas_static_initialized) {
     return;
   }
+#endif
+
   OwnedRef ref;
 
   // set NaT sentinel and its type
@@ -355,9 +359,25 @@ void InitPandasStaticData() {
   if (ImportFromModule(pandas.obj(), "DateOffset", &ref).ok()) {
     pandas_DateOffset = ref.obj();
   }
+}
 
+}  // namespace
+
+#ifdef Py_GIL_DISABLED
+void InitPandasStaticData() {
+  std::call_once(pandas_static_initialized, GetPandasStaticSymbols);
+}
+#else
+void InitPandasStaticData() {
+  // NOTE: This is called with the GIL held.  We needn't (and shouldn't,
+  // to avoid deadlocks) use an additional C++ lock (ARROW-10519).
+  if (pandas_static_initialized) {
+    return;
+  }
+  GetPandasStaticSymbols();
   pandas_static_initialized = true;
 }
+#endif
 
 bool PandasObjectIsNull(PyObject* obj) {
   if (!MayHaveNaN(obj)) {

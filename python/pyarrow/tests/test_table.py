@@ -3385,18 +3385,39 @@ def cuda_context():
 
 @pytest.fixture
 def schema():
-    return pa.schema([pa.field('c0', pa.int16()), pa.field('c1', pa.int32())])
+    return pa.schema([pa.field('c0', pa.int32()), pa.field('c1', pa.int32())])
 
 
 @pytest.fixture
-def cpu_arrays():
-    return [pa.array([1, 2, 3, 4, 5], pa.int16()),
-            pa.array([-10, -5, 0, 1, 10], pa.int32())]
+def cpu_arrays(schema):
+    return [pa.array([1, 2, 3, 4, 5], schema.field(0).type),
+            pa.array([-10, -5, 0, None, 10], schema.field(1).type)]
 
 
 @pytest.fixture
 def cuda_arrays(cuda_context, cpu_arrays):
     return [arr.copy_to(cuda_context.memory_manager) for arr in cpu_arrays]
+
+
+@pytest.fixture
+def cpu_chunked_array(cpu_arrays):
+    chunked_array = pa.chunked_array(cpu_arrays)
+    assert chunked_array.is_cpu is True
+    return chunked_array
+
+
+@pytest.fixture
+def cuda_chunked_array(cuda_arrays):
+    chunked_array = pa.chunked_array(cuda_arrays)
+    assert chunked_array.is_cpu is False
+    return chunked_array
+
+
+@pytest.fixture
+def cpu_and_cuda_chunked_array(cpu_arrays, cuda_arrays):
+    chunked_array = pa.chunked_array(cpu_arrays + cuda_arrays)
+    assert chunked_array.is_cpu is False
+    return chunked_array
 
 
 @pytest.fixture
@@ -3407,6 +3428,162 @@ def cpu_recordbatch(cpu_arrays, schema):
 @pytest.fixture
 def cuda_recordbatch(cuda_context, cpu_recordbatch):
     return cpu_recordbatch.copy_to(cuda_context.memory_manager)
+
+
+@pytest.fixture
+def cpu_table(schema, cpu_chunked_array):
+    return pa.table([cpu_chunked_array, cpu_chunked_array], schema=schema)
+
+
+@pytest.fixture
+def cuda_table(schema, cuda_chunked_array):
+    return pa.table([cuda_chunked_array, cuda_chunked_array], schema=schema)
+
+
+@pytest.fixture
+def cpu_and_cuda_table(schema, cpu_chunked_array, cuda_chunked_array):
+    return pa.table([cpu_chunked_array, cuda_chunked_array], schema=schema)
+
+
+def test_chunked_array_non_cpu(cuda_context, cpu_chunked_array, cuda_chunked_array,
+                               cpu_and_cuda_chunked_array):
+    # type test
+    assert cuda_chunked_array.type == cpu_chunked_array.type
+
+    # length() test
+    assert cuda_chunked_array.length() == cpu_chunked_array.length()
+
+    # str() test
+    assert str(cuda_chunked_array) == str(cpu_chunked_array)
+
+    # repr() test
+    assert str(cuda_chunked_array) in repr(cuda_chunked_array)
+
+    # validate() test
+    cuda_chunked_array.validate()
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.validate(full=True)
+
+    # null_count test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.null_count
+
+    # nbytes() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.nbytes
+
+    # get_total_buffer_size() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.get_total_buffer_size()
+
+    # getitem() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array[0]
+
+    # is_null() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.is_null()
+
+    # is_nan() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.is_nan()
+
+    # is_valid() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.is_valid()
+
+    # fill_null() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.fill_null(0)
+
+    # equals() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array == cuda_chunked_array
+
+    # to_pandas() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.to_pandas()
+
+    # to_numpy() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.to_numpy()
+
+    # __array__() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.__array__()
+
+    # cast() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.cast()
+
+    # dictionary_encode() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.dictionary_encode()
+
+    # flatten() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.flatten()
+
+    # combine_chunks() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.combine_chunks()
+
+    # unique() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.unique()
+
+    # value_counts() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.value_counts()
+
+    # filter() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.filter([True, False, True, False, True])
+
+    # index() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.index(5)
+
+    # slice() test
+    cuda_chunked_array.slice(2, 2)
+
+    # take() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.take([1])
+
+    # drop_null() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.drop_null()
+
+    # sort() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.sort()
+
+    # unify_dictionaries() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.unify_dictionaries()
+
+    # num_chunks test
+    assert cuda_chunked_array.num_chunks == cpu_chunked_array.num_chunks
+
+    # chunks test
+    assert len(cuda_chunked_array.chunks) == len(cpu_chunked_array.chunks)
+
+    # chunk() test
+    chunk = cuda_chunked_array.chunk(0)
+    assert chunk.device_type == pa.DeviceAllocationType.CUDA
+
+    # to_pylist() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.to_pylist()
+
+    # __arrow_c_stream__() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.__arrow_c_stream__()
+
+    # __reduce__() test
+    with pytest.raises(NotImplementedError):
+        cuda_chunked_array.__reduce__()
 
 
 def verify_cuda_recordbatch(batch, expected_schema):
@@ -3424,6 +3601,9 @@ def verify_cuda_recordbatch(batch, expected_schema):
 def test_recordbatch_non_cpu(cuda_context, cpu_recordbatch, cuda_recordbatch,
                              cuda_arrays, schema):
     verify_cuda_recordbatch(cuda_recordbatch, expected_schema=schema)
+    N = cuda_recordbatch.num_rows
+
+    # shape test
     assert cuda_recordbatch.shape == (5, 2)
 
     # columns() test
@@ -3431,24 +3611,26 @@ def test_recordbatch_non_cpu(cuda_context, cpu_recordbatch, cuda_recordbatch,
 
     # add_column(), set_column() test
     for fn in [cuda_recordbatch.add_column, cuda_recordbatch.set_column]:
-        col = pa.array([6, 7, 8, 9, 10], pa.int8()).copy_to(cuda_context.memory_manager)
+        col = pa.array([-2, -1, 0, 1, 2], pa.int8()
+                       ).copy_to(cuda_context.memory_manager)
         new_batch = fn(2, 'c2', col)
-        assert len(new_batch.columns) == 3
-        for c in new_batch.columns:
-            assert c.device_type == pa.DeviceAllocationType.CUDA
+        verify_cuda_recordbatch(
+            new_batch, expected_schema=schema.append(pa.field('c2', pa.int8())))
         err_msg = ("Got column on device <DeviceAllocationType.CPU: 1>, "
                    "but expected <DeviceAllocationType.CUDA: 2>.")
         with pytest.raises(TypeError, match=err_msg):
-            fn(2, 'c2', [1, 1, 1, 1, 1])
+            fn(2, 'c2', [1] * N)
 
     # remove_column() test
     new_batch = cuda_recordbatch.remove_column(1)
     verify_cuda_recordbatch(new_batch, expected_schema=schema.remove(1))
 
     # drop_columns() test
-    new_batch = cuda_recordbatch.drop_columns(['c0', 'c1'])
-    assert len(new_batch.columns) == 0
-    assert new_batch.device_type == pa.DeviceAllocationType.CUDA
+    new_batch = cuda_recordbatch.drop_columns(['c1'])
+    verify_cuda_recordbatch(new_batch, expected_schema=schema.remove(1))
+    empty_batch = cuda_recordbatch.drop_columns(['c0', 'c1'])
+    assert len(empty_batch.columns) == 0
+    assert empty_batch.device_type == pa.DeviceAllocationType.CUDA
 
     # select() test
     new_batch = cuda_recordbatch.select(['c0'])
@@ -3460,8 +3642,7 @@ def test_recordbatch_non_cpu(cuda_context, cpu_recordbatch, cuda_recordbatch,
         cuda_recordbatch.cast(new_schema)
 
     # drop_null() test
-    null_col = pa.array([-2, -1, 0, 1, 2],
-                        mask=[True, False, True, False, True]).copy_to(
+    null_col = pa.array([1] * N, mask=[True, False, True, False, True]).copy_to(
         cuda_context.memory_manager)
     cuda_recordbatch_with_nulls = cuda_recordbatch.add_column(2, 'c2', null_col)
     with pytest.raises(NotImplementedError):
@@ -3469,7 +3650,7 @@ def test_recordbatch_non_cpu(cuda_context, cpu_recordbatch, cuda_recordbatch,
 
     # filter() test
     with pytest.raises(NotImplementedError):
-        cuda_recordbatch.filter([True] * 5)
+        cuda_recordbatch.filter([True] * N)
 
     # take() test
     with pytest.raises(NotImplementedError):
@@ -3480,8 +3661,8 @@ def test_recordbatch_non_cpu(cuda_context, cpu_recordbatch, cuda_recordbatch,
         cuda_recordbatch.sort_by('c0')
 
     # field() test
-    assert cuda_recordbatch.field(0) == pa.field('c0', pa.int16())
-    assert cuda_recordbatch.field(1) == pa.field('c1', pa.int32())
+    assert cuda_recordbatch.field(0) == schema.field(0)
+    assert cuda_recordbatch.field(1) == schema.field(1)
 
     # equals() test
     new_batch = cpu_recordbatch.copy_to(cuda_context.memory_manager)
@@ -3551,7 +3732,8 @@ def test_recordbatch_non_cpu(cuda_context, cpu_recordbatch, cuda_recordbatch,
     # rename_columns() test
     new_batch = cuda_recordbatch.rename_columns(['col0', 'col1'])
     expected_schema = pa.schema(
-        [pa.field('col0', pa.int16()), pa.field('col1', pa.int32())])
+        [pa.field('col0', schema.field(0).type),
+         pa.field('col1', schema.field(1).type)])
     verify_cuda_recordbatch(new_batch, expected_schema=expected_schema)
 
     # validate() test
@@ -3574,3 +3756,206 @@ def test_recordbatch_non_cpu(cuda_context, cpu_recordbatch, cuda_recordbatch,
     # __dataframe__() test
     with pytest.raises(NotImplementedError):
         from_dataframe(cuda_recordbatch.__dataframe__())
+
+
+def verify_cuda_table(table, expected_schema):
+    table.validate()
+    assert table.is_cpu is False
+    assert table.num_columns == len(expected_schema.names)
+    assert table.column_names == expected_schema.names
+    assert str(table) in repr(table)
+    for c in table.columns:
+        assert c.is_cpu is False
+        for chunk in c.iterchunks():
+            assert chunk.is_cpu is False
+            assert chunk.device_type == pa.DeviceAllocationType.CUDA
+    assert table.schema == expected_schema
+
+
+def test_table_non_cpu(cuda_context, cpu_table, cuda_table,
+                       cuda_arrays, cuda_recordbatch, schema):
+    verify_cuda_table(cuda_table, expected_schema=schema)
+    N = cuda_table.num_rows
+
+    # shape test
+    assert cuda_table.shape == (10, 2)
+
+    # columns() test
+    assert len(cuda_table.columns) == 2
+
+    # add_column(), set_column() test
+    for fn in [cuda_table.add_column, cuda_table.set_column]:
+        cpu_col = pa.array([1] * N, pa.int8())
+        cuda_col = cpu_col.copy_to(cuda_context.memory_manager)
+        new_table = fn(2, 'c2', cuda_col)
+        verify_cuda_table(new_table, expected_schema=schema.append(
+            pa.field('c2', pa.int8())))
+        new_table = fn(2, 'c2', cpu_col)
+        assert new_table.is_cpu is False
+        assert new_table.column(0).is_cpu is False
+        assert new_table.column(1).is_cpu is False
+        assert new_table.column(2).is_cpu is True
+
+    # remove_column() test
+    new_table = cuda_table.remove_column(1)
+    verify_cuda_table(new_table, expected_schema=schema.remove(1))
+
+    # drop_columns() test
+    new_table = cuda_table.drop_columns(['c1'])
+    verify_cuda_table(new_table, expected_schema=schema.remove(1))
+    new_table = cuda_table.drop_columns(['c0', 'c1'])
+    assert len(new_table.columns) == 0
+    assert new_table.is_cpu
+
+    # select() test
+    new_table = cuda_table.select(['c0'])
+    verify_cuda_table(new_table, expected_schema=schema.remove(1))
+
+    # cast() test
+    new_schema = pa.schema([pa.field('c0', pa.int64()), pa.field('c1', pa.int64())])
+    with pytest.raises(NotImplementedError):
+        cuda_table.cast(new_schema)
+
+    # drop_null() test
+    null_col = pa.array([1] * N, mask=[True] * N).copy_to(cuda_context.memory_manager)
+    cuda_table_with_nulls = cuda_table.add_column(2, 'c2', null_col)
+    with pytest.raises(NotImplementedError):
+        cuda_table_with_nulls.drop_null()
+
+    # filter() test
+    with pytest.raises(NotImplementedError):
+        cuda_table.filter([True] * N)
+
+    # take() test
+    with pytest.raises(NotImplementedError):
+        cuda_table.take([0])
+
+    # sort_by() test
+    with pytest.raises(NotImplementedError):
+        cuda_table.sort_by('c0')
+
+    # field() test
+    assert cuda_table.field(0) == schema.field(0)
+    assert cuda_table.field(1) == schema.field(1)
+
+    # equals() test
+    with pytest.raises(NotImplementedError):
+        assert cuda_table.equals(cpu_table)
+
+    # from_arrays() test
+    new_table = pa.Table.from_arrays(cuda_arrays, ['c0', 'c1'])
+    verify_cuda_table(new_table, expected_schema=schema)
+
+    # from_pydict() test
+    new_table = pa.Table.from_pydict({'c0': cuda_arrays[0], 'c1': cuda_arrays[1]})
+    verify_cuda_table(new_table, expected_schema=schema)
+
+    # from_struct_array() test
+    fields = [schema.field(i) for i in range(len(schema.names))]
+    struct_array = pa.StructArray.from_arrays(cuda_arrays, fields=fields)
+    with pytest.raises(NotImplementedError):
+        pa.Table.from_struct_array(struct_array)
+
+    # from_batches() test
+    new_table = pa.Table.from_batches([cuda_recordbatch, cuda_recordbatch], schema)
+    verify_cuda_table(new_table, expected_schema=schema)
+
+    # nbytes test
+    with pytest.raises(NotImplementedError):
+        assert cuda_table.nbytes
+
+    # get_total_buffer_size() test
+    with pytest.raises(NotImplementedError):
+        assert cuda_table.get_total_buffer_size()
+
+    # to_pydict() test
+    with pytest.raises(NotImplementedError):
+        cuda_table.to_pydict()
+
+    # to_pylist() test
+    with pytest.raises(NotImplementedError):
+        cuda_table.to_pylist()
+
+    # to_pandas() test
+    with pytest.raises(NotImplementedError):
+        cuda_table.to_pandas()
+
+    # to_struct_array() test
+    with pytest.raises(NotImplementedError):
+        cuda_table.to_struct_array()
+
+    # to_batches() test
+    batches = cuda_table.to_batches(max_chunksize=5)
+    for batch in batches:
+        # GH-44049
+        with pytest.raises(AssertionError):
+            verify_cuda_recordbatch(batch, expected_schema=schema)
+
+    # to_reader() test
+    reader = cuda_table.to_reader(max_chunksize=5)
+    for batch in reader:
+        # GH-44049
+        with pytest.raises(AssertionError):
+            verify_cuda_recordbatch(batch, expected_schema=schema)
+
+    # slice() test
+    new_table = cuda_table.slice(1, 3)
+    verify_cuda_table(new_table, expected_schema=schema)
+    assert new_table.num_rows == 3
+
+    # replace_schema_metadata() test
+    new_table = cuda_table.replace_schema_metadata({b'key': b'value'})
+    verify_cuda_table(new_table, expected_schema=schema)
+    assert new_table.schema.metadata == {b'key': b'value'}
+
+    # rename_columns() test
+    new_table = cuda_table.rename_columns(['col0', 'col1'])
+    expected_schema = pa.schema(
+        [pa.field('col0', schema.field(0).type),
+         pa.field('col1', schema.field(1).type)])
+    verify_cuda_table(new_table, expected_schema=expected_schema)
+
+    # validate() test
+    cuda_table.validate()
+    with pytest.raises(NotImplementedError):
+        cuda_table.validate(full=True)
+
+    # flatten() test
+    with pytest.raises(NotImplementedError):
+        cuda_table.flatten()
+
+    # combine_chunks() test
+    with pytest.raises(NotImplementedError):
+        cuda_table.flatten()
+
+    # unify_dictionaries() test
+    with pytest.raises(NotImplementedError):
+        cuda_table.unify_dictionaries()
+
+    # group_by() test
+    with pytest.raises(NotImplementedError):
+        cuda_table.group_by('c0')
+
+    # join() test
+    with pytest.raises(NotImplementedError):
+        cuda_table.join(cuda_table, 'c0')
+
+    # join_asof() test
+    with pytest.raises(NotImplementedError):
+        cuda_table.join_asof(cuda_table, 'c0', 'c0', 0)
+
+    # __array__() test
+    with pytest.raises(NotImplementedError):
+        cuda_table.__array__()
+
+    # __arrow_c_stream__() test
+    with pytest.raises(NotImplementedError):
+        cuda_table.__arrow_c_stream__()
+
+    # __dataframe__() test
+    with pytest.raises(NotImplementedError):
+        from_dataframe(cuda_table.__dataframe__())
+
+    # __reduce__() test
+    with pytest.raises(NotImplementedError):
+        cuda_table.__reduce__()
