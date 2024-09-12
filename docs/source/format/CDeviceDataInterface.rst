@@ -808,6 +808,11 @@ The structure has the following fields:
 The ArrowAsyncTask structure
 ''''''''''''''''''''''''''''
 
+The purpose of using a Task object rather than passing the array directly to the ``on_next`` 
+callback is to allow for more complex and efficient thread handling. Utilizing a Task
+object allows for a producer to separate the "decoding" logic from the I/O, enabling a
+consumer to avoid transferring data between CPU cores (e.g. from one L1/L2 cache to another).
+
 This producer-provided structure has the following fields:
 
 .. c:member:: int (*ArrowArrayTask.get_data)(struct ArrowArrayTask*, struct ArrowDeviceArray*)
@@ -817,7 +822,11 @@ This producer-provided structure has the following fields:
   the data to process.
 
   If a non-zero value is returned from this, it should be followed only by the producer calling
-  the ``on_error`` callback of the ``ArrowAsyncDeviceStreamHandler``.
+  the ``on_error`` callback of the ``ArrowAsyncDeviceStreamHandler``. Because calling this method
+  is likely to be separate from the current control flow, returning a non-zero value to signal
+  an error occuring allows the current thread to decide handle the case accordingly, while still
+  allowing all error logging and handling to be centralized in the 
+  :c:member:`ArrowAsyncDeviceStreamHandler.on_error` callback.
 
   Rather than having a separate release callback, any required cleanup should be performed as part
   of the invocation of this callback, with ownership of the Array being passed to the consumer-provided
@@ -843,19 +852,16 @@ This producer-provided and managed object has the following fields:
   *Mandatory.* This function must be called by a consumer to start receiving calls to
   :c:member:`ArrowAsyncDeviceStreamHandler.on_next_task`. It *MUST* be valid to call
   this synchronously from within :c:member:`ArrowAsyncDeviceStreamHandler.on_next_task`
-  or :c:member:`ArrowAsyncDeviceStreamHandler.on_schema`, with a producer placing an
-  upper bound on possible synchronous recursion between calls of
-  ``on_next_task`` --> ``request`` --> ``on_next_task``, etc.
+  or :c:member:`ArrowAsyncDeviceStreamHandler.on_schema`. As a result, this function
+  *MUST NOT* synchronously call ``on_next_task`` or ``on_error`` to avoid recursive
+  and reentrant callbacks. 
 
   After ``cancel`` is called, additional calls to this function must be a NOP, but allowed.
 
   While not cancelled, calling this function registers the given number of additional
   arrays/batches to be produced by the producer. A producer should only call
   the appropriate ``on_next_task`` callback up to a maximum of the total sum of calls to
-  this method before propagating back-pressure / waiting.
-
-  While not cancelled, calling this method *MAY* synchronously call ``on_next_task``,
-  ``on_error`` or ``release`` on the ``ArrowAsyncDeviceStreamHandler``.
+  this method before propagating back-pressure / waiting.  
 
   Any error encountered by calling request must be propagated by calling the ``on_error``
   callback of the ``ArrowAsyncDeviceStreamHandler``.
@@ -874,6 +880,10 @@ This producer-provided and managed object has the following fields:
   on the async handler object. As such, a consumer *MUST* be prepared to receive one or more
   calls to ``on_next_task`` or ``on_error`` even after calling ``cancel`` if there are still
   requested arrays pending.
+
+  Successful cancelling *MUST NOT* result in a producer calling 
+  :c:member:`ArrowAsyncDeviceStreamHandler.on_error`, instead it should finish out any remaining
+  tasks (calling ``on_next_task`` accordingly) and eventually just call ``release``.
 
   Any error encountered during handling a call to cancel must be reported via the ``on_error``
   callback on the async stream handler.
