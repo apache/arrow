@@ -291,7 +291,7 @@ struct SimpleKeySegmenter : public BaseRowSegmenter {
   }
 
   bool Extend(const void* data) {
-    if ARROW_PREDICT_FALSE (!extend_was_called_) {
+    if (ARROW_PREDICT_FALSE(!extend_was_called_)) {
       extend_was_called_ = true;
       return kDefaultExtends;
     }
