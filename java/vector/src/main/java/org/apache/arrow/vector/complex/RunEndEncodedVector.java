@@ -88,6 +88,17 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
     this(field, allocator, DEFAULT_RUN_END_VECTOR, DEFAULT_VALUE_VECTOR, callBack);
   }
 
+
+  /**
+   * Constructs a new instance.
+   *
+   * @param field         The field materialized by this vector.
+   * @param allocator     The allocator to use for allocating/reallocating buffers.
+   * @param runEndsVector The vector represents run ends. Only Zero vector or type int vector with
+   *                      size 16, 32 is allowed
+   * @param valuesVector  The vector represents values
+   * @param callBack      A schema change callback.
+   */
   public RunEndEncodedVector(
       Field field,
       BufferAllocator allocator,
