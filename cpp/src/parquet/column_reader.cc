@@ -75,24 +75,6 @@ constexpr int64_t kMinLevelBatchSize = 1024;
 // Both RecordReader and the ColumnReader use this for skipping.
 constexpr int64_t kSkipScratchBatchSize = 1024;
 
-inline bool HasSpacedValues(const ColumnDescriptor* descr) {
-  if (descr->max_repetition_level() > 0) {
-    // repeated+flat case
-    return !descr->schema_node()->is_required();
-  } else {
-    // non-repeated+nested case
-    // Find if a node forces nulls in the lowest level along the hierarchy
-    const schema::Node* node = descr->schema_node().get();
-    while (node) {
-      if (node->is_optional()) {
-        return true;
-      }
-      node = node->parent();
-    }
-    return false;
-  }
-}
-
 // Throws exception if number_decoded does not match expected.
 inline void CheckNumberDecoded(int64_t number_decoded, int64_t expected) {
   if (ARROW_PREDICT_FALSE(number_decoded != expected)) {
@@ -979,11 +961,6 @@ class TypedColumnReaderImpl : public TypedColumnReader<DType>,
   int64_t ReadBatch(int64_t batch_size, int16_t* def_levels, int16_t* rep_levels,
                     T* values, int64_t* values_read) override;
 
-  int64_t ReadBatchSpaced(int64_t batch_size, int16_t* def_levels, int16_t* rep_levels,
-                          T* values, uint8_t* valid_bits, int64_t valid_bits_offset,
-                          int64_t* levels_read, int64_t* values_read,
-                          int64_t* null_count) override;
-
   int64_t Skip(int64_t num_values_to_skip) override;
 
   Type::type type() const override { return this->descr_->physical_type(); }
@@ -1150,89 +1127,6 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatch(int64_t batch_size, int16_t* def
     ParquetException::EofException(ss.str());
   }
   this->ConsumeBufferedValues(total_values);
-  return total_values;
-}
-
-template <typename DType>
-int64_t TypedColumnReaderImpl<DType>::ReadBatchSpaced(
-    int64_t batch_size, int16_t* def_levels, int16_t* rep_levels, T* values,
-    uint8_t* valid_bits, int64_t valid_bits_offset, int64_t* levels_read,
-    int64_t* values_read, int64_t* null_count_out) {
-  // HasNext might invoke ReadNewPage until a data page with
-  // `available_values_current_page() > 0` is found.
-  if (!HasNext()) {
-    *levels_read = 0;
-    *values_read = 0;
-    *null_count_out = 0;
-    return 0;
-  }
-
-  // Number of non-null values to read
-  int64_t total_values;
-  // TODO(wesm): keep reading data pages until batch_size is reached, or the
-  // row group is finished
-  batch_size = std::min(batch_size, this->available_values_current_page());
-
-  // If the field is required and non-repeated, there are no definition levels
-  if (this->max_def_level_ > 0) {
-    int64_t num_def_levels = this->ReadDefinitionLevels(batch_size, def_levels);
-    if (ARROW_PREDICT_FALSE(num_def_levels != batch_size)) {
-      throw ParquetException(kErrorRepDefLevelNotMatchesNumValues);
-    }
-
-    // Not present for non-repeated fields
-    if (this->max_rep_level_ > 0) {
-      int64_t num_rep_levels = this->ReadRepetitionLevels(batch_size, rep_levels);
-      if (ARROW_PREDICT_FALSE(num_def_levels != num_rep_levels)) {
-        throw ParquetException(kErrorRepDefLevelNotMatchesNumValues);
-      }
-    }
-
-    const bool has_spaced_values = HasSpacedValues(this->descr_);
-    int64_t null_count = 0;
-    if (!has_spaced_values) {
-      int64_t values_to_read =
-          std::count(def_levels, def_levels + num_def_levels, this->max_def_level_);
-      total_values = this->ReadValues(values_to_read, values);
-      ::arrow::bit_util::SetBitsTo(valid_bits, valid_bits_offset,
-                                   /*length=*/total_values,
-                                   /*bits_are_set=*/true);
-      *values_read = total_values;
-    } else {
-      internal::LevelInfo info;
-      info.repeated_ancestor_def_level = this->max_def_level_ - 1;
-      info.def_level = this->max_def_level_;
-      info.rep_level = this->max_rep_level_;
-      internal::ValidityBitmapInputOutput validity_io;
-      validity_io.values_read_upper_bound = num_def_levels;
-      validity_io.valid_bits = valid_bits;
-      validity_io.valid_bits_offset = valid_bits_offset;
-      validity_io.null_count = null_count;
-      validity_io.values_read = *values_read;
-
-      internal::DefLevelsToBitmap(def_levels, num_def_levels, info, &validity_io);
-      null_count = validity_io.null_count;
-      *values_read = validity_io.values_read;
-
-      total_values =
-          this->ReadValuesSpaced(*values_read, values, static_cast<int>(null_count),
-                                 valid_bits, valid_bits_offset);
-    }
-    *levels_read = num_def_levels;
-    *null_count_out = null_count;
-
-  } else {
-    // Required field, read all values
-    total_values = this->ReadValues(batch_size, values);
-    ::arrow::bit_util::SetBitsTo(valid_bits, valid_bits_offset,
-                                 /*length=*/total_values,
-                                 /*bits_are_set=*/true);
-    *null_count_out = 0;
-    *values_read = total_values;
-    *levels_read = total_values;
-  }
-
-  this->ConsumeBufferedValues(*levels_read);
   return total_values;
 }
 
