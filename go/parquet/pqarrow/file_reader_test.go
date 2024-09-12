@@ -405,6 +405,5 @@ func TestReadParquetFile(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = arrowRdr.ReadTable(ctx)
-
-	assert.Error(t, err)
+	assert.NoError(t, err)
 }

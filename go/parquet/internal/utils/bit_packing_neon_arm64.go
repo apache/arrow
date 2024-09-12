@@ -33,11 +33,10 @@ func _unpack32_neon(in, out unsafe.Pointer, batchSize, nbits int) (num int)
 
 func unpack32NEON(in io.Reader, out []uint32, nbits int) int {
 	batch := len(out) / 32 * 32
-	if batch <= 0 {
+	n := batch * nbits / 8
+	if n <= 0 {
 		return 0
 	}
-
-	n := batch * nbits / 8
 
 	buffer := bufferPool.Get().(*bytes.Buffer)
 	defer bufferPool.Put(buffer)
