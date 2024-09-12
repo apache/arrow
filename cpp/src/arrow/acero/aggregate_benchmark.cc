@@ -402,6 +402,7 @@ static void BenchmarkGroupBy(
     ABORT_NOT_OK(BatchGroupBy(batch, aggregates, key_refs, segment_key_refs));
   }
   state.SetBytesProcessed(total_bytes * state.iterations());
+  state.SetItemsProcessed(batch->num_rows() * state.iterations());
 }
 
 #define GROUP_BY_BENCHMARK(Name, Impl)                               \
@@ -920,8 +921,6 @@ static void BenchmarkRowSegmenter(benchmark::State& state, Args&&...) {
   ArrayVector segment_keys(num_segment_keys, segment_key);
 
   BenchmarkGroupBy(state, {{"count", ""}}, {arg}, /*keys=*/{}, segment_keys);
-
-  state.SetItemsProcessed(num_rows * state.iterations());
 }
 
 std::vector<std::string> row_segmenter_argnames = {"Rows", "Segments", "SegmentKeys"};

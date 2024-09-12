@@ -199,7 +199,6 @@ struct SimpleKeySegmenter : public BaseRowSegmenter {
     ARROW_UNSUPPRESS_DEPRECATION_WARNING
   }
 
-  ARROW_DEPRECATED("Deprecated in 18.0.0. Use GetSegments instead.")
   Result<Segment> GetNextSegment(const ExecSpan& batch, int64_t offset) override {
     ARROW_SUPPRESS_DEPRECATION_WARNING
     ARROW_RETURN_NOT_OK(CheckForGetNextSegment(batch, offset, {key_type_}));
