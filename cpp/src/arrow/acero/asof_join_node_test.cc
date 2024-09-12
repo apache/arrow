@@ -1571,7 +1571,7 @@ void TestSequencing(BatchesMaker maker, int num_batches, int batch_size) {
       "asofjoin", {l_src, r_src}, GetRepeatedOptions(2, "time", {"key"}, 1000)};
 
   QueryOptions query_options;
-  query_options.use_threads = false;
+  query_options.use_threads = true;
   ASSERT_OK_AND_ASSIGN(BatchesWithCommonSchema batches,
                        DeclarationToExecBatches(asofjoin, query_options));
 
@@ -1579,7 +1579,7 @@ void TestSequencing(BatchesMaker maker, int num_batches, int batch_size) {
 }
 
 TEST(AsofJoinTest, BatchSequencing) {
-  return TestSequencing(MakeIntegerBatches, /*num_batches=*/32, /*batch_size=*/1);
+  return TestSequencing(MakeIntegerBatches, /*num_batches=*/1000, /*batch_size=*/1);
 }
 
 template <typename BatchesMaker>
