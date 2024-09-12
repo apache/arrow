@@ -1399,7 +1399,7 @@ the same codec. Specific buffer in the sequence of compressed
 buffers can be left uncompressed in case compression does not yield
 appreciable savings.
 
-The codec or the compression type used is defined in the ``data header```
+The compression type used is defined in the ``data header```
 of the :ref:`ipc-recordbatch-message` in the optional ``compression``
 field.
 
@@ -1421,8 +1421,8 @@ serialized form is as follows:
 
   - the ``body`` includes a flat sequence of **compressed buffers**
     together with the **length of the uncompressed buffer** as a 64-bit
-    little-endian signed integer stored in the first 8 bytes for each
-    buffer in the sequence. The first 8 bytes can equal ``-1`` to indicate
+    little-endian signed integer stored in the first 8 bytes of each
+    buffer in the sequence. This uncompressed length can be set to ``-1`` to indicate
     that that specific buffer is left uncompressed.
 
 * If the buffers in the :ref:`ipc-recordbatch-message` are **uncompressed**
