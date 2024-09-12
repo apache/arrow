@@ -59,7 +59,7 @@ jobs:
       - name: Compress into single artifact to keep directory structure
         run: tar -cvzf arrow-shared-libs-linux-{{ arch }}.tar.gz arrow/java-dist/
       - name: Upload artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: ubuntu-shared-lib-{{ arch }}
           path: arrow-shared-libs-linux-{{ arch }}.tar.gz
@@ -152,7 +152,7 @@ jobs:
       - name: Compress into single artifact to keep directory structure
         run: tar -cvzf arrow-shared-libs-macos-{{ arch }}.tar.gz arrow/java-dist/
       - name: Upload artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: macos-shared-lib-{{ arch }}
           path: arrow-shared-libs-macos-{{ arch }}.tar.gz
@@ -186,7 +186,7 @@ jobs:
         shell: bash
         run: tar -cvzf arrow-shared-libs-windows.tar.gz arrow/java-dist/
       - name: Upload artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: windows-shared-lib
           path: arrow-shared-libs-windows.tar.gz
@@ -201,7 +201,7 @@ jobs:
     steps:
       {{ macros.github_checkout_arrow(fetch_depth=0)|indent }}
       - name: Download Libraries
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           path: artifacts
       - name: Decompress artifacts
