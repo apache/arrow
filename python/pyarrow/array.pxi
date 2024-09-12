@@ -4355,7 +4355,7 @@ class JsonArray(ExtensionArray):
     Define the extension type for JSON array
 
     >>> import pyarrow as pa
-    >>> json_type = pa.json(pa.large_utf8())
+    >>> json_type = pa.json_(pa.large_utf8())
 
     Create an extension array
 
@@ -4365,7 +4365,7 @@ class JsonArray(ExtensionArray):
     <pyarrow.lib.JsonArray object at ...>
     [
       null,
-      { "id":30, "values":["a", "b"] }
+      "{ "id":30, "values":["a", "b"] }"
     ]
     """
 

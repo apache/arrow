@@ -1821,7 +1821,7 @@ cdef class JsonType(BaseExtensionType):
     Define the extension type for JSON array
 
     >>> import pyarrow as pa
-    >>> json_type = pa.json(pa.large_utf8())
+    >>> json_type = pa.json_(pa.large_utf8())
 
     Create an extension array
 
@@ -1831,7 +1831,7 @@ cdef class JsonType(BaseExtensionType):
     <pyarrow.lib.JsonArray object at ...>
     [
       null,
-      { "id":30, "values":["a", "b"] }
+      "{ "id":30, "values":["a", "b"] }"
     ]
     """
 
@@ -5351,16 +5351,16 @@ def json_(DataType storage_type=utf8()):
     Create an instance of JSON extension type:
 
     >>> import pyarrow as pa
-    >>> pa.json(pa.utf8())
-    JsonType(arrow.json)
+    >>> pa.json_(pa.utf8())
+    JsonType(extension<arrow.json>)
 
     Use the JSON type to create an array:
 
-    >>> pa.array(['{"a": 1}', '{"b": 2}'], type=pa.json(pa.utf8()))
+    >>> pa.array(['{"a": 1}', '{"b": 2}'], type=pa.json_(pa.utf8()))
     <pyarrow.lib.JsonArray object at ...>
     [
-      {"a": 1},
-      {"b": 2}
+      "{"a": 1}",
+      "{"b": 2}"
     ]
     """
 
