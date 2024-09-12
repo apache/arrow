@@ -1468,7 +1468,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
     // in the viewBuffer and allocate a new buffer which has 16 byte alignment for adding new
     // values.
     long writePosition = (long) index * ELEMENT_SIZE;
-    if (viewBuffer.capacity() <= writePosition || viewBuffer.capacity() <= targetCapacity) {
+    if (viewBuffer.capacity() <= writePosition || viewBuffer.capacity() < targetCapacity) {
       /*
        * Everytime we want to increase the capacity of the viewBuffer, we need to make sure that the new capacity
        * meets 16 byte alignment.
