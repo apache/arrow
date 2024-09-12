@@ -565,6 +565,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
     viewBuffer.getReferenceManager().release();
     viewBuffer = newBuf;
     lastValueAllocationSizeInBytes = viewBuffer.capacity();
+    lastValueCapacity = getValueCapacity();
   }
 
   /**
