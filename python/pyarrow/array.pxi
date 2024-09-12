@@ -4347,6 +4347,8 @@ cdef class ExtensionArray(Array):
 class JsonArray(ExtensionArray):
     """
     Concrete class for Arrow arrays of JSON data type.
+    This does not guarantee that the JSON data actually
+    valid JSON.
 
     Examples
     --------

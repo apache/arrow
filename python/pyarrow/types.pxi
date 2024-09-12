@@ -1843,7 +1843,7 @@ cdef class JsonType(BaseExtensionType):
         return JsonArray
 
     def __reduce__(self):
-        return json, (self.value_type,)
+        return json, (self.storage_type,)
 
     def __arrow_ext_scalar_class__(self):
         return JsonScalar

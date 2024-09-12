@@ -1928,12 +1928,14 @@ def test_bool8_scalar():
     assert pa.scalar(None, type=pa.bool8()).as_py() is None
 
 
-@pytest.mark.parametrize("str_type", (pa.utf8, pa.large_utf8))
-def test_json(str_type):
+@pytest.mark.parametrize("str_type", (
+    pa.utf8, pa.large_utf8, pa.string_view, pa.string, pa.large_string))
+def test_json(str_type, pickle_module):
     storage_type = str_type()
     data = ['{"a": 1}', '{"b": 2}', None]
     storage = pa.array(data, type=storage_type)
     json_type = pa.json(storage_type)
+    json_arr_class = json_type.__arrow_ext_class__()
 
     assert json_type.extension_name == "arrow.json"
     assert json_type.storage_type == storage_type
@@ -1943,17 +1945,72 @@ def test_json(str_type):
     assert json_type != storage_type
 
     array = pa.ExtensionArray.from_storage(json_type, storage)
+    assert isinstance(array, pa.JsonArray)
 
     assert array.to_pylist() == data
     assert array[0].as_py() == data[0]
     assert array[2].as_py() is None
 
-    buf = ipc_write_batch(pa.RecordBatch.from_arrays([array], ["json"]))
+    # Pickle roundtrip
+    result = pickle_module.loads(pickle_module.dumps(json_type))
+    assert result == json_type
 
+    # IPC roundtrip
+    buf = ipc_write_batch(pa.RecordBatch.from_arrays([array], ["ext"]))
     batch = ipc_read_batch(buf)
     reconstructed_array = batch.column(0)
     assert reconstructed_array.type == json_type
     assert reconstructed_array == array
+    assert isinstance(array, json_arr_class)
 
     assert json_type.__arrow_ext_scalar_class__() == pa.JsonScalar
     assert isinstance(array[0], pa.JsonScalar)
+
+    # cast storage -> extension type
+    result = storage.cast(json_type)
+    assert result == array
+
+    # cast extension type -> storage type
+    if storage_type != pa.string_view():
+        inner = array.cast(storage_type)
+        assert inner == storage
+
+
+@pytest.mark.parametrize("str_type", (
+    pa.utf8, pa.large_utf8, pa.string, pa.large_string))
+@pytest.mark.parquet
+def test_parquet_json(tmpdir, str_type):
+    storage_type = str_type()
+    data = ['{"a": 1}', '{"b": 2}', None]
+    storage = pa.array(data, type=storage_type)
+    json_type = pa.json(storage_type)
+
+    arr = pa.ExtensionArray.from_storage(json_type, storage)
+    table = pa.table([arr], names=["ext"])
+
+    import pyarrow.parquet as pq
+
+    filename = tmpdir / 'json_extension_type.parquet'
+    pq.write_table(table, filename)
+
+    # Stored in parquet as storage type but with extension metadata saved
+    # in the serialized arrow schema
+    meta = pq.read_metadata(filename)
+    assert meta.schema.column(0).physical_type == "BYTE_ARRAY"
+    assert b"ARROW:schema" in meta.metadata
+
+    import base64
+    decoded_schema = base64.b64decode(meta.metadata[b"ARROW:schema"])
+    schema = pa.ipc.read_schema(pa.BufferReader(decoded_schema))
+    # Since the type could be reconstructed, the extension type metadata is
+    # absent.
+    assert schema.field("ext").metadata == {}
+
+    # When reading in, properly create extension type if it is registered
+    result = pq.read_table(filename)
+    result.validate(full=True)
+    assert result.schema.field("ext").type == json_type
+    assert result.schema.field("ext").metadata == {}
+    # Get the exact array class defined by the registered type.
+    result_array = result.column("ext").chunk(0)
+    assert type(result_array) is pa.JsonArray

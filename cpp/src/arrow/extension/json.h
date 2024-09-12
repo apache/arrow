@@ -27,11 +27,6 @@
 
 namespace arrow::extension {
 
-class ARROW_EXPORT JsonArray : public ExtensionArray {
- public:
-  using ExtensionArray::ExtensionArray;
-};
-
 /// \brief Concrete type class for variable-size JSON data, utf8-encoded.
 class ARROW_EXPORT JsonExtensionType : public ExtensionType {
  public:
