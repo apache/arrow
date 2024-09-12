@@ -18,6 +18,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cmath>
 #include <limits>
 #include <string>
 #include <unordered_set>
