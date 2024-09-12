@@ -1843,7 +1843,7 @@ cdef class JsonType(BaseExtensionType):
         return JsonArray
 
     def __reduce__(self):
-        return json, (self.storage_type,)
+        return json_, (self.storage_type,)
 
     def __arrow_ext_scalar_class__(self):
         return JsonScalar
@@ -5333,7 +5333,7 @@ def run_end_encoded(run_end_type, value_type):
     return pyarrow_wrap_data_type(ree_type)
 
 
-def json(DataType storage_type=utf8()):
+def json_(DataType storage_type=utf8()):
     """
     Create instance of JSON extension type.
 
