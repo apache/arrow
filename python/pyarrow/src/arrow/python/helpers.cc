@@ -293,8 +293,9 @@ bool PyFloat_IsNaN(PyObject* obj) {
 namespace {
 
 // This needs a conditional, because using std::once_flag could introduce
-// a deadlock when the GIL is enabled. See https://github.com/apache/arrow/commit/f69061935e92e36e25bb891177ca8bc4f463b272
-// for more info.
+// a deadlock when the GIL is enabled. See
+// https://github.com/apache/arrow/commit/f69061935e92e36e25bb891177ca8bc4f463b272 for
+// more info.
 #ifdef Py_GIL_DISABLED
 static std::once_flag pandas_static_initialized;
 #else
