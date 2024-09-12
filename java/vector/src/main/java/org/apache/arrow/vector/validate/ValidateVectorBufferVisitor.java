@@ -304,7 +304,7 @@ public class ValidateVectorBufferVisitor implements VectorVisitor<Void, Void> {
       int runCount = runEndsVector.getValueCount();
       if (runCount == 0) {
         validateOrThrow(
-            valueCount == 0, "Run end vector do not have does not contain enough elements.");
+            valueCount == 0, "Run end vector does not contain enough elements");
       } else if (runCount > 0) {
         double lastEnd = ((BaseIntVector) runEndsVector).getValueAsLong(runCount - 1);
         validateOrThrow(
