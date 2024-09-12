@@ -1939,6 +1939,9 @@ def test_json(str_type):
     assert json_type.storage_type == storage_type
     assert json_type.__class__ is pa.JsonType
 
+    assert json_type == pa.json(storage_type)
+    assert json_type != storage_type
+
     array = pa.ExtensionArray.from_storage(json_type, storage)
 
     assert array.to_pylist() == data
