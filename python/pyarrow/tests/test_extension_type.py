@@ -1971,6 +1971,5 @@ def test_json(storage_type, pickle_module):
     assert result == array
 
     # cast extension type -> storage type
-    if storage_type != pa.string_view():
-        inner = array.cast(storage_type)
-        assert inner == storage
+    inner = array.cast(storage_type)
+    assert inner == storage
