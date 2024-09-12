@@ -58,6 +58,7 @@ RUN apt-get update -y && \
         locales \
         # Need Python to check py-to-r bridge
         python3 \
+        python3-venv \
         python3-pip \
         python3-dev && \
     locale-gen en_US.UTF-8 && \
@@ -81,24 +82,22 @@ RUN cat /arrow/ci/etc/rprofile >> $(R RHOME)/etc/Rprofile.site
 # Also ensure parallel compilation of C/C++ code
 RUN echo "MAKEFLAGS=-j$(R -s -e 'cat(parallel::detectCores())')" >> $(R RHOME)/etc/Renviron.site
 
-# Set up Python 3 and its dependencies
-RUN ln -s /usr/bin/python3 /usr/local/bin/python && \
-    ln -s /usr/bin/pip3 /usr/local/bin/pip
-
 COPY ci/scripts/r_deps.sh /arrow/ci/scripts/
 COPY r/DESCRIPTION /arrow/r/
 RUN /arrow/ci/scripts/r_deps.sh /arrow
 
-RUN pip install -U pip setuptools wheel
+ENV ARROW_PYTHON_VENV /arrow-dev
+COPY python/requirements-build.txt /arrow/python/
+RUN python3 -m venv ${ARROW_PYTHON_VENV} && \
+    source ${ARROW_PYTHON_VENV}/bin/activate && \
+    pip install -U pip setuptools wheel && \
+    pip install -r arrow/python/requirements-build.txt
 
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_minio.sh latest /usr/local
 
 COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_gcs_testbench.sh default
-
-COPY python/requirements-build.txt /arrow/python/
-RUN pip install -r arrow/python/requirements-build.txt
 
 ENV \
     ARROW_ACERO=ON \
