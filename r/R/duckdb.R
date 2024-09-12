@@ -142,7 +142,7 @@ duckdb_disconnector <- function(con, tbl_name) {
 #'
 #' Note that you can only call `collect()` or `compute()` on the result of this
 #' function once. To work around this limitation, you should either only call
-# `collect()` as the final step in a pipeline or call `as_arrow_table()` on the
+#' `collect()` as the final step in a pipeline or call `as_arrow_table()` on the
 #' result to materialize the entire Table in-memory.
 #'
 #' @param .data the object to be converted

@@ -19,6 +19,7 @@ DuckDB.
 \details{
 Note that you can only call \code{collect()} or \code{compute()} on the result of this
 function once. To work around this limitation, you should either only call
+\code{collect()} as the final step in a pipeline or call \code{as_arrow_table()} on the
 result to materialize the entire Table in-memory.
 }
 \examples{
