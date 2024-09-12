@@ -252,7 +252,6 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
   }
 
   @Override
-  @SuppressWarnings("EqualsIncompatibleType")
   public ValueVector visit(ListVector deltaVector, Void value) {
     Preconditions.checkArgument(
         typeVisitor.equals(deltaVector),
@@ -322,7 +321,6 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
   }
 
   @Override
-  @SuppressWarnings("EqualsIncompatibleType")
   public ValueVector visit(LargeListVector deltaVector, Void value) {
     Preconditions.checkArgument(
         typeVisitor.equals(deltaVector),
@@ -394,7 +392,6 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
   }
 
   @Override
-  @SuppressWarnings("EqualsIncompatibleType")
   public ValueVector visit(FixedSizeListVector deltaVector, Void value) {
     Preconditions.checkArgument(
         typeVisitor.equals(deltaVector),
@@ -441,7 +438,6 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
   }
 
   @Override
-  @SuppressWarnings("EqualsIncompatibleType")
   public ValueVector visit(NonNullableStructVector deltaVector, Void value) {
     Preconditions.checkArgument(
         typeVisitor.equals(deltaVector),

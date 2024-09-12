@@ -54,19 +54,19 @@ public class TestPeriodDuration {
         new PeriodDuration(Period.ZERO, Duration.ofNanos(123)).toISO8601IntervalString());
     assertEquals(
         "PT1.000000123S",
-        new PeriodDuration(Period.ZERO, Duration.ofSeconds(1).withNanos(123))
+        new PeriodDuration(Period.ZERO, Duration.ofSeconds(Duration.ofSeconds(1).getSeconds(), 123))
             .toISO8601IntervalString());
     assertEquals(
         "PT1H1.000000123S",
-        new PeriodDuration(Period.ZERO, Duration.ofSeconds(3601).withNanos(123))
+        new PeriodDuration(Period.ZERO, Duration.ofSeconds(Duration.ofSeconds(3601).getSeconds(), 123))
             .toISO8601IntervalString());
     assertEquals(
         "PT24H1M1.000000123S",
-        new PeriodDuration(Period.ZERO, Duration.ofSeconds(86461).withNanos(123))
+        new PeriodDuration(Period.ZERO, Duration.ofSeconds(Duration.ofSeconds(86461).getSeconds(), 123))
             .toISO8601IntervalString());
     assertEquals(
         "P1Y2M3DT24H1M1.000000123S",
-        new PeriodDuration(Period.of(1, 2, 3), Duration.ofSeconds(86461).withNanos(123))
+        new PeriodDuration(Period.of(1, 2, 3), Duration.ofSeconds(Duration.ofSeconds(86461).getSeconds(), 123))
             .toISO8601IntervalString());
 
     assertEquals(
@@ -77,11 +77,11 @@ public class TestPeriodDuration {
         new PeriodDuration(Period.ZERO, Duration.ofNanos(-123)).toISO8601IntervalString());
     assertEquals(
         "PT-24H-1M-0.999999877S",
-        new PeriodDuration(Period.ZERO, Duration.ofSeconds(-86461).withNanos(123))
+        new PeriodDuration(Period.ZERO, Duration.ofSeconds(Duration.ofSeconds(-86461).getSeconds(), 123))
             .toISO8601IntervalString());
     assertEquals(
         "P-1Y-2M-3DT-0.999999877S",
-        new PeriodDuration(Period.of(-1, -2, -3), Duration.ofSeconds(-1).withNanos(123))
+        new PeriodDuration(Period.of(-1, -2, -3), Duration.ofSeconds(Duration.ofSeconds(-1).getSeconds(), 123))
             .toISO8601IntervalString());
   }
 
@@ -95,8 +95,7 @@ public class TestPeriodDuration {
     PeriodDuration pd2 = new PeriodDuration(Period.ZERO, Duration.ofMinutes(1));
     assertEquals(LocalDateTime.of(2024, 1, 2, 3, 3), pd2.subtractFrom(dateTime));
 
-    PeriodDuration pd3 =
-        new PeriodDuration(Period.of(1, 2, 3), Duration.ofSeconds(86461).withNanos(123));
+    PeriodDuration pd3 = new PeriodDuration(Period.of(1, 2, 3), Duration.ofSeconds(Duration.ofSeconds(86461).getSeconds(), 123));
     assertEquals(pd3.get(ChronoUnit.YEARS), 1);
     assertEquals(pd3.get(ChronoUnit.MONTHS), 2);
     assertEquals(pd3.get(ChronoUnit.DAYS), 3);

@@ -62,15 +62,8 @@ public class TypeEqualsVisitor implements VectorVisitor<Boolean, Void> {
   }
 
   /** Check type equals without passing IN param in VectorVisitor. */
-  @Override
-  public boolean equals(Object obj) {
-    if (this == obj) {
-      return true;
-    }
-    if (!(obj instanceof ValueVector)) {
-      return false;
-    }
-    ValueVector left = (ValueVector) obj;
+  @SuppressWarnings("NonOverridingEquals")
+  public boolean equals(ValueVector left) {
     return left.accept(this, null);
   }
 

@@ -544,7 +544,7 @@ public class TestVarCharViewVector {
       }
       fromVector.setValueCount(numValues);
       ArrowBuf fromDataBuffer = fromVector.getDataBuffer();
-      assertTrue(numValues * valueBytesLength <= fromDataBuffer.capacity());
+      assertTrue((long) numValues * valueBytesLength <= fromDataBuffer.capacity());
 
       /*
        * Copy the entries one-by-one from 'fromVector' to 'toVector', but use the setSafe with
@@ -1668,20 +1668,20 @@ public class TestVarCharViewVector {
     return Stream.of(
         Arguments.of(
             (Function<BufferAllocator, BaseVariableWidthViewVector>)
-                (allocator ->
+                allocator ->
                     newVector(
                         ViewVarBinaryVector.class,
                         EMPTY_SCHEMA_PATH,
                         Types.MinorType.VIEWVARBINARY,
-                        allocator))),
+                        allocator)),
         Arguments.of(
             (Function<BufferAllocator, BaseVariableWidthViewVector>)
-                (allocator ->
+                allocator ->
                     newVector(
                         ViewVarCharVector.class,
                         EMPTY_SCHEMA_PATH,
                         Types.MinorType.VIEWVARCHAR,
-                        allocator))));
+                        allocator)));
   }
 
   @ParameterizedTest
