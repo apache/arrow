@@ -17,6 +17,7 @@
 
 from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor
+import contextlib
 from functools import partial
 import glob
 import gzip
@@ -39,7 +40,7 @@ from .tester_csharp import CSharpTester
 from .tester_nanoarrow import NanoarrowTester
 from .util import guid, printer
 from .util import SKIP_C_ARRAY, SKIP_C_SCHEMA, SKIP_FLIGHT, SKIP_IPC
-from ..utils.logger import group
+from ..utils.logger import group as group_raw
 from ..utils.source import ARROW_ROOT_DEFAULT
 from . import datagen
 
@@ -48,6 +49,12 @@ Failure = namedtuple('Failure',
                      ('test_case', 'producer', 'consumer', 'exc_info'))
 
 log = printer.print
+
+
+@contextlib.contextmanager
+def group(name):
+    with group_raw(name, log):
+        yield
 
 
 class Outcome:

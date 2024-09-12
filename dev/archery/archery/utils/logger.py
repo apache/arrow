@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from contextlib import contextmanager
+import contextlib
 import logging
 import os
 
@@ -33,17 +33,20 @@ ctx = LoggingContext()
 in_github_actions = (os.environ.get("GITHUB_ACTIONS") == "true")
 
 
-@contextmanager
-def group(name):
+@contextlib.contextmanager
+def group(name, output=None):
     """
     Group outputs in the given with block.
 
     This does nothing in non GitHub Actions environment for now.
     """
+    if output is None:
+        def output(message):
+            print(message, flush=True)
     if in_github_actions:
-        print(f"::group::{name}", flush=True)
+        output(f"::group::{name}")
     try:
         yield
     finally:
         if in_github_actions:
-            print("::endgroup::", flush=True)
+            output("::endgroup::")
