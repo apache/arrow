@@ -88,16 +88,15 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
     this(field, allocator, DEFAULT_RUN_END_VECTOR, DEFAULT_VALUE_VECTOR, callBack);
   }
 
-
   /**
    * Constructs a new instance.
    *
-   * @param field         The field materialized by this vector.
-   * @param allocator     The allocator to use for allocating/reallocating buffers.
+   * @param field The field materialized by this vector.
+   * @param allocator The allocator to use for allocating/reallocating buffers.
    * @param runEndsVector The vector represents run ends. Only Zero vector or type int vector with
-   *                      size 16, 32 is allowed
-   * @param valuesVector  The vector represents values
-   * @param callBack      A schema change callback.
+   *     size 16, 32 is allowed
+   * @param valuesVector The vector represents values
+   * @param callBack A schema change callback.
    */
   public RunEndEncodedVector(
       Field field,
@@ -325,7 +324,7 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
    */
   @Override
   public FieldReader getReader() {
-    return null; // TODO
+    throw new UnsupportedOperationException("Not yet implemented.");
   }
 
   /**
@@ -335,7 +334,7 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
    *     writing values to this vector.
    */
   public FieldWriter getWriter() {
-    return null; // TODO
+    throw new UnsupportedOperationException("Not yet implemented.");
   }
 
   /**
@@ -564,8 +563,10 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
    */
   @Override
   public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
-    throw new UnsupportedOperationException(
-        "Run-end encoded vectors do not have any associated buffers.");
+    if (!ownBuffers.isEmpty()) {
+      throw new UnsupportedOperationException(
+          "Run-end encoded vectors do not have any associated buffers.");
+    }
   }
 
   /**
@@ -644,7 +645,8 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
 
   private void checkIndex(int logicalIndex) {
     if (logicalIndex < 0 || logicalIndex >= valueCount) {
-      throw new IndexOutOfBoundsException();
+      throw new IndexOutOfBoundsException(
+          String.format("index: %s, expected range (0, %s)", logicalIndex, valueCount));
     }
   }
 

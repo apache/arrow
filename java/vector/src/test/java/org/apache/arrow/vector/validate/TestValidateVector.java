@@ -299,7 +299,7 @@ public class TestValidateVector {
       vector.getRunEndsVector().setValueCount(0);
       ValidateUtil.ValidateException e =
           assertThrows(ValidateUtil.ValidateException.class, () -> vector.validate());
-      assertTrue(e.getMessage().contains("do not have does not contain enough elements."));
+      assertTrue(e.getMessage().contains("Run end vector does not contain enough elements"));
     }
   }
 

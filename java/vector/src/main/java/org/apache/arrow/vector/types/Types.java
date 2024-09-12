@@ -797,7 +797,8 @@ public class Types {
 
       @Override
       public FieldWriter getNewFieldWriter(ValueVector vector) {
-        return null; // TODO
+        throw new UnsupportedOperationException(
+            "FieldWriter for run-end encoded vector is not implemented yet.");
       }
     },
     ;
