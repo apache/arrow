@@ -1653,7 +1653,7 @@ public class TestLargeListViewVector {
 
     for (int i = 0; i < splitLength; i++) {
       fromDataLength = fromSizeBuffer.getInt((long) (start + i) * LargeListViewVector.SIZE_WIDTH);
-      toDataLength = toSizeBuffer.getInt((long) (i) * LargeListViewVector.SIZE_WIDTH);
+      toDataLength = toSizeBuffer.getInt((long) i * LargeListViewVector.SIZE_WIDTH);
 
       /* validate size */
       assertEquals(
@@ -1683,7 +1683,7 @@ public class TestLargeListViewVector {
 
     for (int i = 0; i < splitLength; i++) {
       offset1 = fromOffsetBuffer.getInt((long) (start + i) * LargeListViewVector.OFFSET_WIDTH);
-      offset2 = toOffsetBuffer.getInt((long) (i) * LargeListViewVector.OFFSET_WIDTH);
+      offset2 = toOffsetBuffer.getInt((long) i * LargeListViewVector.OFFSET_WIDTH);
       assertEquals(
           offset1 - minOffset,
           offset2,

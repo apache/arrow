@@ -79,7 +79,7 @@ public class ValidateVectorVisitor implements VectorVisitor<Void, Void> {
       int lastOffset =
           vector
               .getOffsetBuffer()
-              .getInt(vector.getValueCount() * BaseVariableWidthVector.OFFSET_WIDTH);
+              .getInt((long) vector.getValueCount() * BaseVariableWidthVector.OFFSET_WIDTH);
 
       if (firstOffset < 0 || lastOffset < 0) {
         throw new IllegalArgumentException("Negative offsets in vector");
@@ -136,7 +136,7 @@ public class ValidateVectorVisitor implements VectorVisitor<Void, Void> {
       int lastOffset =
           vector
               .getOffsetBuffer()
-              .getInt(vector.getValueCount() * BaseVariableWidthVector.OFFSET_WIDTH);
+              .getInt((long) vector.getValueCount() * BaseVariableWidthVector.OFFSET_WIDTH);
 
       if (firstOffset < 0 || lastOffset < 0) {
         throw new IllegalArgumentException("Negative offsets in list vector");
@@ -169,7 +169,7 @@ public class ValidateVectorVisitor implements VectorVisitor<Void, Void> {
     if (vector.getValueCount() > 0) {
 
       ArrowBuf offsetBuf = vector.getOffsetBuffer();
-      long minBufferSize = (vector.getValueCount() + 1) * LargeListVector.OFFSET_WIDTH;
+      long minBufferSize = (long) (vector.getValueCount() + 1) * LargeListVector.OFFSET_WIDTH;
 
       if (offsetBuf.capacity() < minBufferSize) {
         throw new IllegalArgumentException(
@@ -184,7 +184,7 @@ public class ValidateVectorVisitor implements VectorVisitor<Void, Void> {
 
       long firstOffset = vector.getOffsetBuffer().getLong(0);
       long lastOffset =
-          vector.getOffsetBuffer().getLong(vector.getValueCount() * LargeListVector.OFFSET_WIDTH);
+          vector.getOffsetBuffer().getLong((long) vector.getValueCount() * LargeListVector.OFFSET_WIDTH);
 
       if (firstOffset < 0 || lastOffset < 0) {
         throw new IllegalArgumentException("Negative offsets in list vector");
@@ -314,6 +314,7 @@ public class ValidateVectorVisitor implements VectorVisitor<Void, Void> {
   }
 
   @Override
+  @SuppressWarnings("VoidUsed")
   public Void visit(ExtensionTypeVector<?> vector, Void value) {
     vector.getUnderlyingVector().accept(this, value);
     return null;

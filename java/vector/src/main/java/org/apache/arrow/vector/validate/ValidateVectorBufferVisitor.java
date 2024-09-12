@@ -131,7 +131,7 @@ public class ValidateVectorBufferVisitor implements VectorVisitor<Void, Void> {
     int lastOffset =
         valueCount == 0
             ? 0
-            : vector.getOffsetBuffer().getInt(valueCount * BaseVariableWidthVector.OFFSET_WIDTH);
+            : vector.getOffsetBuffer().getInt((long) valueCount * BaseVariableWidthVector.OFFSET_WIDTH);
     validateDataBuffer(vector, lastOffset);
     return null;
   }
@@ -172,7 +172,7 @@ public class ValidateVectorBufferVisitor implements VectorVisitor<Void, Void> {
     int lastOffset =
         valueCount == 0
             ? 0
-            : vector.getOffsetBuffer().getInt(valueCount * BaseVariableWidthVector.OFFSET_WIDTH);
+            : vector.getOffsetBuffer().getInt((long) valueCount * BaseVariableWidthVector.OFFSET_WIDTH);
     int dataVectorLength = dataVector == null ? 0 : dataVector.getValueCount();
     validateOrThrow(
         dataVectorLength >= lastOffset,
@@ -219,7 +219,7 @@ public class ValidateVectorBufferVisitor implements VectorVisitor<Void, Void> {
             ? 0
             : vector
                 .getOffsetBuffer()
-                .getLong(valueCount * BaseLargeVariableWidthVector.OFFSET_WIDTH);
+                .getLong((long) valueCount * BaseLargeVariableWidthVector.OFFSET_WIDTH);
     int dataVectorLength = dataVector == null ? 0 : dataVector.getValueCount();
     validateOrThrow(
         dataVectorLength >= lastOffset,
@@ -283,6 +283,7 @@ public class ValidateVectorBufferVisitor implements VectorVisitor<Void, Void> {
   }
 
   @Override
+  @SuppressWarnings("VoidUsed")
   public Void visit(ExtensionTypeVector<?> vector, Void value) {
     vector.getUnderlyingVector().accept(this, value);
     return null;

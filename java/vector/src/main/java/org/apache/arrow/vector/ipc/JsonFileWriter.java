@@ -351,10 +351,7 @@ public class JsonFileWriter implements AutoCloseable {
   }
 
   private void writeValueToViewGenerator(
-      ArrowBuf viewBuffer,
-      List<ArrowBuf> dataBuffers,
-      FieldVector vector,
-      final int index)
+      ArrowBuf viewBuffer, List<ArrowBuf> dataBuffers, FieldVector vector, final int index)
       throws IOException {
     Preconditions.checkNotNull(viewBuffer);
     byte[] b = getView(viewBuffer, dataBuffers, index);
@@ -392,8 +389,7 @@ public class JsonFileWriter implements AutoCloseable {
   }
 
   private void writeValueToDataBufferGenerator(
-      BufferType bufferType, ArrowBuf viewBuffer, List<ArrowBuf> dataBuffers)
-      throws IOException {
+      BufferType bufferType, ArrowBuf viewBuffer, List<ArrowBuf> dataBuffers) throws IOException {
     if (bufferType.equals(VARIADIC_DATA_BUFFERS)) {
       Preconditions.checkNotNull(viewBuffer);
       Preconditions.checkArgument(!dataBuffers.isEmpty());

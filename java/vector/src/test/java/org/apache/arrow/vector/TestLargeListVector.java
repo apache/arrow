@@ -773,7 +773,7 @@ public class TestLargeListVector {
     try (final LargeListVector vector = LargeListVector.empty("", allocator)) {
       vector.addOrGetVector(FieldType.nullable(MinorType.INT.getType()));
 
-      /**
+      /*
        * use the default multiplier of 5, 512 * 5 => 2560 * 4 => 10240 bytes => 16KB => 4096 value
        * capacity.
        */
@@ -788,7 +788,7 @@ public class TestLargeListVector {
       assertEquals(512, vector.getValueCapacity());
       assertTrue(vector.getDataVector().getValueCapacity() >= 512 * 4);
 
-      /**
+      /*
        * inner value capacity we pass to data vector is 512 * 0.1 => 51 For an int vector this is
        * 204 bytes of memory for data buffer and 7 bytes for validity buffer. and with power of 2
        * allocation, we allocate 256 bytes and 8 bytes for the data buffer and validity buffer of
@@ -799,7 +799,7 @@ public class TestLargeListVector {
       assertEquals(512, vector.getValueCapacity());
       assertTrue(vector.getDataVector().getValueCapacity() >= 51);
 
-      /**
+      /*
        * inner value capacity we pass to data vector is 512 * 0.01 => 5 For an int vector this is 20
        * bytes of memory for data buffer and 1 byte for validity buffer. and with power of 2
        * allocation, we allocate 32 bytes and 1 bytes for the data buffer and validity buffer of the
@@ -810,7 +810,7 @@ public class TestLargeListVector {
       assertEquals(512, vector.getValueCapacity());
       assertTrue(vector.getDataVector().getValueCapacity() >= 5);
 
-      /**
+      /*
        * inner value capacity we pass to data vector is 5 * 0.1 => 0 which is then rounded off to 1.
        * So we pass value count as 1 to the inner int vector. the offset buffer of the list vector
        * is allocated for 6 values which is 24 bytes and then rounded off to 32 bytes (8 values) the

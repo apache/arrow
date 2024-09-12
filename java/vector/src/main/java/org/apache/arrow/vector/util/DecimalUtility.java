@@ -27,12 +27,12 @@ import org.apache.arrow.memory.util.MemoryUtil;
 public class DecimalUtility {
   private DecimalUtility() {}
 
-  public static final byte[] zeroes =
+  private static final byte[] zeroes =
       new byte[] {
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
       };
-  public static final byte[] minus_one =
+  private static final byte[] minus_one =
       new byte[] {
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1
@@ -172,11 +172,11 @@ public class DecimalUtility {
     if (LITTLE_ENDIAN) {
       MemoryUtil.putLong(addressOfValue, value);
       for (int i = 1; i <= (byteWidth - 8) / 8; i++) {
-        MemoryUtil.putLong(addressOfValue + Long.BYTES * i, padValue);
+        MemoryUtil.putLong(addressOfValue + Long.BYTES * ((long) i), padValue);
       }
     } else {
       for (int i = 0; i < (byteWidth - 8) / 8; i++) {
-        MemoryUtil.putLong(addressOfValue + Long.BYTES * i, padValue);
+        MemoryUtil.putLong(addressOfValue + Long.BYTES * ((long) i), padValue);
       }
       MemoryUtil.putLong(addressOfValue + Long.BYTES * (byteWidth - 8) / 8, value);
     }

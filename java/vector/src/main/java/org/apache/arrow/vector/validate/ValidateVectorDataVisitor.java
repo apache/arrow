@@ -46,7 +46,7 @@ public class ValidateVectorDataVisitor implements VectorVisitor<Void, Void> {
     // verify that the values in the offset buffer is non-decreasing
     int prevValue = offsetBuffer.getInt(0);
     for (int i = 1; i <= valueCount; i++) {
-      int curValue = offsetBuffer.getInt(i * 4);
+      int curValue = offsetBuffer.getInt(i * 4L);
       validateOrThrow(
           curValue >= 0,
           "The value at position %s of the offset buffer is negative: %s.",
@@ -202,6 +202,7 @@ public class ValidateVectorDataVisitor implements VectorVisitor<Void, Void> {
   }
 
   @Override
+  @SuppressWarnings("VoidUsed")
   public Void visit(ExtensionTypeVector<?> vector, Void value) {
     vector.getUnderlyingVector().accept(this, value);
     return null;
