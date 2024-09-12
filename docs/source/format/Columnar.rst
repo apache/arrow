@@ -1422,8 +1422,8 @@ serialized form is as follows:
   - the ``body`` includes a flat sequence of **compressed buffers**
     together with the **length of the uncompressed buffer** as a 64-bit
     little-endian signed integer stored in the first 8 bytes for each
-    buffer in the sequence. The first 8 bytes can be left empty or equal
-    to ``-1`` to indicate that that specific buffer is left uncompressed.
+    buffer in the sequence. The first 8 bytes can equal ``-1`` to indicate
+    that that specific buffer is left uncompressed.
 
 * If the buffers in the :ref:`ipc-recordbatch-message` are **uncompressed**
 
