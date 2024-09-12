@@ -553,7 +553,7 @@ class TestChunkResolverMany : public ::testing::Test {
     std::uniform_int_distribution<size_t> position_gen(0, logical_index_vec.size() - 1);
     for (int i = 0; i < 2; i++) {
       auto max_valid_index =
-          std::min(kMaxValidIndex, static_cast<size_t>(chunked_array_len));
+          std::min(kMaxValidIndex, static_cast<uint64_t>(chunked_array_len));
       // zero and last valid logical index
       logical_index_vec[position_gen(rng)] = 0;
       logical_index_vec[position_gen(rng)] = static_cast<IndexType>(max_valid_index - 1);
@@ -570,8 +570,8 @@ class TestChunkResolverMany : public ::testing::Test {
   }
 
   void TestRandomInput() {
-    const int64_t num_chunks =
-        static_cast<int64_t>(std::min(kMaxValidIndex - 1, static_cast<size_t>(1) << 16));
+    const int64_t num_chunks = static_cast<int64_t>(
+        std::min(kMaxValidIndex - 1, static_cast<uint64_t>(1) << 16));
     const int64_t avg_chunk_length = 20;
     const int64_t chunked_array_len = num_chunks * 2 * avg_chunk_length;
     TestRandomInput(num_chunks, chunked_array_len);
