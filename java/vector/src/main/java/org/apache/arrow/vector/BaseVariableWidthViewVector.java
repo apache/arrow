@@ -1502,7 +1502,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
       BitVectorHelper.setBit(validityBuffer, thisIndex);
       final int start = thisIndex * ELEMENT_SIZE;
       final int copyStart = fromIndex * ELEMENT_SIZE;
-      from.getDataBuffer().getBytes(start, viewBuffer, copyStart, ELEMENT_SIZE);
+      from.getDataBuffer().getBytes(copyStart, viewBuffer, start, ELEMENT_SIZE);
       if (viewLength > INLINE_SIZE) {
         final int bufIndex =
             from.getDataBuffer()
@@ -1543,7 +1543,6 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
       BitVectorHelper.setBit(validityBuffer, thisIndex);
       final int start = thisIndex * ELEMENT_SIZE;
       final int copyStart = fromIndex * ELEMENT_SIZE;
-      from.getDataBuffer().getBytes(copyStart, viewBuffer, start, ELEMENT_SIZE);
       if (viewLength > INLINE_SIZE) {
         final int bufIndex =
             from.getDataBuffer()
@@ -1557,8 +1556,19 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
                         + BUF_INDEX_WIDTH);
         final ArrowBuf dataBuf = ((BaseVariableWidthViewVector) from).dataBuffers.get(bufIndex);
         final ArrowBuf thisDataBuf = allocateOrGetLastDataBuffer(viewLength);
+
+        from.getDataBuffer().getBytes(copyStart, viewBuffer, start, LENGTH_WIDTH + PREFIX_WIDTH);
+        int writePosition = start + LENGTH_WIDTH + PREFIX_WIDTH;
+        // set buf id
+        viewBuffer.setInt(writePosition, dataBuffers.size() - 1);
+        writePosition += BUF_INDEX_WIDTH;
+        // set offset
+        viewBuffer.setInt(writePosition, (int) thisDataBuf.writerIndex());
+
         thisDataBuf.setBytes(thisDataBuf.writerIndex(), dataBuf, dataOffset, viewLength);
         thisDataBuf.writerIndex(thisDataBuf.writerIndex() + viewLength);
+      } else {
+        from.getDataBuffer().getBytes(copyStart, viewBuffer, start, ELEMENT_SIZE);
       }
     }
     lastSet = thisIndex;

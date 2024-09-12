@@ -1749,12 +1749,12 @@ public class TestVarCharViewVector {
         } else if (i % 3 == 1) {
           assertArrayEquals(
               Integer.toString(i).getBytes(StandardCharsets.UTF_8),
-              vector.get(i),
+              vector2.get(i),
               "unexpected value at index: " + i);
         } else {
           assertArrayEquals(
               (i + prefixString).getBytes(StandardCharsets.UTF_8),
-              vector.get(i),
+              vector2.get(i),
               "unexpected value at index: " + i);
         }
       }
@@ -1769,12 +1769,12 @@ public class TestVarCharViewVector {
         } else if (i % 3 == 1) {
           assertArrayEquals(
               Integer.toString(i).getBytes(StandardCharsets.UTF_8),
-              vector.get(i),
+              vector2.get(i),
               "unexpected value at index: " + i);
         } else {
           assertArrayEquals(
               (i + prefixString).getBytes(StandardCharsets.UTF_8),
-              vector.get(i),
+              vector2.get(i),
               "unexpected value at index: " + i);
         }
       }
@@ -1846,12 +1846,12 @@ public class TestVarCharViewVector {
         } else if (i % 3 == 1) {
           assertArrayEquals(
               Integer.toString(i).getBytes(StandardCharsets.UTF_8),
-              vector.get(i),
+              vector2.get(i),
               "unexpected value at index: " + i);
         } else {
           assertArrayEquals(
               (i + prefixString).getBytes(StandardCharsets.UTF_8),
-              vector.get(i),
+              vector2.get(i),
               "unexpected value at index: " + i);
         }
       }
@@ -1867,12 +1867,12 @@ public class TestVarCharViewVector {
         } else if (i % 3 == 1) {
           assertArrayEquals(
               Integer.toString(i).getBytes(StandardCharsets.UTF_8),
-              vector.get(i),
+              vector2.get(i),
               "unexpected value at index: " + i);
         } else {
           assertArrayEquals(
               (i + prefixString).getBytes(StandardCharsets.UTF_8),
-              vector.get(i),
+              vector2.get(i),
               "unexpected value at index: " + i);
         }
       }
@@ -1894,6 +1894,20 @@ public class TestVarCharViewVector {
               (i + prefixString).getBytes(StandardCharsets.UTF_8),
               vector2.get(thisIndex),
               "unexpected value at index: " + i);
+        }
+      }
+
+      // test target vector with different initialCapacity
+      try (final BaseVariableWidthViewVector vector3 = vectorCreator.apply(allocator)) {
+        vector3.setInitialCapacity(16);
+        vector3.allocateNew();
+        for (int i = 0; i < numberOfValues; i++) {
+          vector3.copyFromSafe(i, i, vector);
+          if (i % 3 == 0) {
+            assertNull(vector3.getObject(i));
+          } else {
+            assertArrayEquals(vector.get(i), vector3.get(i));
+          }
         }
       }
     }
