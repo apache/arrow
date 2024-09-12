@@ -22,6 +22,7 @@
 
 #include <cmath>
 #include <limits>
+#include <mutex>
 #include <sstream>
 #include <type_traits>
 
