@@ -1401,7 +1401,7 @@ appreciable savings.
 
 The compression type used is defined in the ``data header```
 of the :ref:`ipc-recordbatch-message` in the optional ``compression``
-field.
+field with the default being uncompressed.
 
 .. note::
 
