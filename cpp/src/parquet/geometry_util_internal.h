@@ -657,8 +657,8 @@ class WKBGeometryBounder {
   std::unordered_set<int32_t> geometry_types_;
 };
 
-inline std::string MakeCoveringWKBFromBound(double xmin, double xmax, double ymin,
-                                            double ymax) {
+static inline std::string MakeCoveringWKBFromBound(double xmin, double xmax, double ymin,
+                                                   double ymax) {
   std::string wkb_data(93, 0);
 
   // endianness and header

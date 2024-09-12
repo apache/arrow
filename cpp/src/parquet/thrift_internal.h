@@ -231,6 +231,36 @@ static inline AadMetadata FromThrift(format::AesGcmCtrV1 aesGcmCtrV1) {
                      aesGcmCtrV1.supply_aad_prefix};
 }
 
+static inline EncodedGeometryStatistics FromThrift(
+    const format::GeometryStatistics& geometry_stats, bool has_geometry_stats) {
+  EncodedGeometryStatistics out;
+
+  if (has_geometry_stats) {
+    out.geometry_types = geometry_stats.geometry_types;
+
+    out.xmin = geometry_stats.bbox.xmin;
+    out.xmax = geometry_stats.bbox.xmax;
+    out.ymin = geometry_stats.bbox.ymin;
+    out.ymax = geometry_stats.bbox.ymax;
+
+    if (geometry_stats.bbox.__isset.zmin && geometry_stats.bbox.__isset.zmax) {
+      out.zmin = geometry_stats.bbox.zmin;
+      out.zmax = geometry_stats.bbox.zmax;
+    }
+
+    if (geometry_stats.bbox.__isset.mmin && geometry_stats.bbox.__isset.mmax) {
+      out.mmin = geometry_stats.bbox.mmin;
+      out.mmax = geometry_stats.bbox.mmax;
+    }
+
+    for (const auto& covering : geometry_stats.coverings) {
+      out.coverings.emplace_back(covering.kind, covering.value);
+    }
+  }
+
+  return out;
+}
+
 static inline EncryptionAlgorithm FromThrift(format::EncryptionAlgorithm encryption) {
   EncryptionAlgorithm encryption_algorithm;
 
@@ -323,6 +353,37 @@ static inline format::SortingColumn ToThrift(SortingColumn sorting_column) {
   return thrift_sorting_column;
 }
 
+static inline format::GeometryStatistics ToThrift(
+    const EncodedGeometryStatistics& encoded_geometry_stats) {
+  format::GeometryStatistics geometry_statistics;
+  geometry_statistics.__set_geometry_types(encoded_geometry_stats.geometry_types);
+  format::BoundingBox bbox;
+  bbox.__set_xmin(encoded_geometry_stats.xmin);
+  bbox.__set_xmax(encoded_geometry_stats.xmax);
+  bbox.__set_ymin(encoded_geometry_stats.ymin);
+  bbox.__set_ymax(encoded_geometry_stats.ymax);
+  if (encoded_geometry_stats.has_z()) {
+    bbox.__set_zmin(encoded_geometry_stats.zmin);
+    bbox.__set_zmax(encoded_geometry_stats.zmax);
+  }
+  if (encoded_geometry_stats.has_m()) {
+    bbox.__set_mmin(encoded_geometry_stats.mmin);
+    bbox.__set_mmax(encoded_geometry_stats.mmax);
+  }
+  geometry_statistics.__set_bbox(bbox);
+
+  std::vector<format::Covering> coverings;
+  coverings.reserve(encoded_geometry_stats.coverings.size());
+  for (const auto& pair : encoded_geometry_stats.coverings) {
+    format::Covering covering;
+    covering.__set_kind(pair.first);
+    covering.__set_value(pair.second);
+    coverings.push_back(std::move(covering));
+  }
+  geometry_statistics.__set_coverings(coverings);
+  return geometry_statistics;
+}
+
 static inline format::Statistics ToThrift(const EncodedStatistics& stats) {
   format::Statistics statistics;
   if (stats.has_min) {
@@ -349,34 +410,7 @@ static inline format::Statistics ToThrift(const EncodedStatistics& stats) {
   }
 
   if (stats.has_geometry_statistics) {
-    const EncodedGeometryStatistics& encoded_geometry_stats = stats.geometry_statistics();
-    format::GeometryStatistics geometry_statistics;
-    geometry_statistics.__set_geometry_types(encoded_geometry_stats.geometry_types);
-    format::BoundingBox bbox;
-    bbox.__set_xmin(encoded_geometry_stats.xmin);
-    bbox.__set_xmax(encoded_geometry_stats.xmax);
-    bbox.__set_ymin(encoded_geometry_stats.ymin);
-    bbox.__set_ymax(encoded_geometry_stats.ymax);
-    if (encoded_geometry_stats.has_z()) {
-      bbox.__set_zmin(encoded_geometry_stats.zmin);
-      bbox.__set_zmax(encoded_geometry_stats.zmax);
-    }
-    if (encoded_geometry_stats.has_m()) {
-      bbox.__set_mmin(encoded_geometry_stats.mmin);
-      bbox.__set_mmax(encoded_geometry_stats.mmax);
-    }
-    geometry_statistics.__set_bbox(bbox);
-
-    std::vector<format::Covering> coverings;
-    coverings.reserve(encoded_geometry_stats.coverings.size());
-    for (const auto& pair : encoded_geometry_stats.coverings) {
-      format::Covering covering;
-      covering.__set_kind(pair.first);
-      covering.__set_value(pair.second);
-      coverings.push_back(std::move(covering));
-    }
-    geometry_statistics.__set_coverings(coverings);
-    statistics.__set_geometry_stats(geometry_statistics);
+    statistics.__set_geometry_stats(ToThrift(stats.geometry_statistics()));
   }
 
   return statistics;

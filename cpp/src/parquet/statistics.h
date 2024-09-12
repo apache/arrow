@@ -146,6 +146,7 @@ class PARQUET_EXPORT GeometryStatistics {
  public:
   GeometryStatistics();
   explicit GeometryStatistics(std::unique_ptr<GeometryStatisticsImpl> impl);
+  GeometryStatistics(GeometryStatistics&&);
 
   ~GeometryStatistics();
 
@@ -160,6 +161,8 @@ class PARQUET_EXPORT GeometryStatistics {
                     int64_t num_values, int64_t null_count);
 
   void Update(const ::arrow::Array& values, bool update_counts);
+
+  void Reset();
 
   EncodedGeometryStatistics Encode();
 

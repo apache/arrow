@@ -153,6 +153,12 @@ class GeometryStatisticsImpl {
     }
   }
 
+  void Reset() {
+    bounder_.Reset();
+    coverings_.clear();
+    is_valid_ = true;
+  }
+
   EncodedGeometryStatistics Encode() const {
     const double* mins = bounder_.Bounds().min;
     const double* maxes = bounder_.Bounds().max;
@@ -247,6 +253,8 @@ GeometryStatistics::GeometryStatistics() {
 GeometryStatistics::GeometryStatistics(std::unique_ptr<GeometryStatisticsImpl> impl)
     : impl_(std::move(impl)) {}
 
+GeometryStatistics::GeometryStatistics(GeometryStatistics&&) = default;
+
 GeometryStatistics::~GeometryStatistics() = default;
 
 bool GeometryStatistics::Equals(const GeometryStatistics& other) const {
@@ -273,6 +281,8 @@ void GeometryStatistics::UpdateSpaced(const ByteArray* values, const uint8_t* va
 void GeometryStatistics::Update(const ::arrow::Array& values, bool update_counts) {
   impl_->Update(values, update_counts);
 }
+
+void GeometryStatistics::Reset() { impl_->Reset(); }
 
 bool GeometryStatistics::is_valid() const { return impl_->is_valid(); }
 
@@ -990,6 +1000,9 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   void Reset() override {
     ResetCounts();
     ResetHasFlags();
+    if (HasGeometryStatistics()) {
+      geometry_statistics_->Reset();
+    }
   }
 
   void SetMinMax(const T& arg_min, const T& arg_max) override {

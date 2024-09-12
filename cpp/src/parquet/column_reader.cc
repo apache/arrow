@@ -243,6 +243,10 @@ EncodedStatistics ExtractStatsFromHeader(const H& header) {
   if (stats.__isset.distinct_count) {
     page_statistics.set_distinct_count(stats.distinct_count);
   }
+  if (stats.__isset.geometry_stats) {
+    page_statistics.set_geometry(
+        FromThrift(stats.geometry_stats, stats.__isset.geometry_stats));
+  }
   return page_statistics;
 }
 
