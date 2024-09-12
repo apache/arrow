@@ -308,8 +308,6 @@ static PyObject* pandas_Timestamp = nullptr;
 static PyTypeObject* pandas_NaTType = nullptr;
 static PyObject* pandas_DateOffset = nullptr;
 
-}  // namespace
-
 void GetPandasStaticSymbols() {
   OwnedRef pandas;
 
@@ -357,6 +355,8 @@ void GetPandasStaticSymbols() {
     pandas_DateOffset = ref.obj();
   }
 }
+
+}  // namespace
 
 #ifdef Py_GIL_DISABLED
 void InitPandasStaticData() {
