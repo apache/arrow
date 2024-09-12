@@ -1876,6 +1876,26 @@ public class TestVarCharViewVector {
               "unexpected value at index: " + i);
         }
       }
+
+      // make it reallocate
+      int valueCapacity = vector2.getValueCapacity();
+      for (int i = 0; i < numberOfValues; i++) {
+        int thisIndex = i + valueCapacity;
+        vector2.copyFromSafe(i, thisIndex, vector);
+        if (i % 3 == 0) {
+          assertNull(vector2.getObject(thisIndex));
+        } else if (i % 3 == 1) {
+          assertArrayEquals(
+              Integer.toString(i).getBytes(StandardCharsets.UTF_8),
+              vector2.get(thisIndex),
+              "unexpected value at index: " + i);
+        } else {
+          assertArrayEquals(
+              (i + prefixString).getBytes(StandardCharsets.UTF_8),
+              vector2.get(thisIndex),
+              "unexpected value at index: " + i);
+        }
+      }
     }
   }
 

@@ -1467,7 +1467,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
     // in the viewBuffer and allocate a new buffer which has 16 byte alignment for adding new
     // values.
     long writePosition = (long) index * ELEMENT_SIZE;
-    if (viewBuffer.capacity() <= writePosition || viewBuffer.capacity() < targetCapacity) {
+    if (viewBuffer.capacity() <= writePosition || viewBuffer.capacity() <= targetCapacity) {
       /*
        * Everytime we want to increase the capacity of the viewBuffer, we need to make sure that the new capacity
        * meets 16 byte alignment.
@@ -1478,7 +1478,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
       reallocViewBuffer(Math.max(writePosition, targetCapacity));
     }
 
-    while (index >= getValueCapacity()) {
+    while (index >= getValidityBufferValueCapacity()) {
       reallocValidityBuffer();
     }
   }
@@ -1542,7 +1542,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
       BitVectorHelper.setBit(validityBuffer, thisIndex);
       final int start = thisIndex * ELEMENT_SIZE;
       final int copyStart = fromIndex * ELEMENT_SIZE;
-      from.getDataBuffer().getBytes(start, viewBuffer, copyStart, ELEMENT_SIZE);
+      from.getDataBuffer().getBytes(copyStart, viewBuffer, start, ELEMENT_SIZE);
       if (viewLength > INLINE_SIZE) {
         final int bufIndex =
             from.getDataBuffer()
