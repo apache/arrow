@@ -385,12 +385,12 @@ struct AnyKeysSegmenter : public BaseRowSegmenter {
     // determine if the first segment in this batch extends the last segment in the
     // previous batch
     bool extends = kDefaultExtends;
-    // the group id must be computed prior to resetting the grouper, since it is compared
-    // to save_group_id_, and after resetting the grouper produces incomparable group ids
-    ARROW_ASSIGN_OR_RAISE(auto group_id, MapGroupIdAt(batch));
-    // it "extends" unless the group id differs from the last group id
-    if (save_group_id_ != kNoGroupId && group_id != save_group_id_) {
-      extends = false;
+    if (save_group_id_ != kNoGroupId) {
+      // the group id must be computed prior to resetting the grouper, since it is compared
+      // to save_group_id_, and after resetting the grouper produces incomparable group ids
+      ARROW_ASSIGN_OR_RAISE(auto group_id, MapGroupIdAt(batch));
+      // it "extends" unless the group id differs from the last group id
+      extends = (group_id == save_group_id_);
     }
 
     // resetting drops grouper's group-ids, freeing-up memory for the next segment
