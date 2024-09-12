@@ -21,20 +21,17 @@
 #include <cmath>
 #include <cstring>
 #include <limits>
-#include <memory>
 #include <optional>
 #include <type_traits>
 #include <utility>
 
 #include "arrow/array.h"
-#include "arrow/array/array_binary.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/float16.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/macros.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/visit_data_inline.h"
 #include "parquet/encoding.h"
@@ -42,7 +39,6 @@
 #include "parquet/geometry_util_internal.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
-#include "parquet/types.h"
 
 using arrow::default_memory_pool;
 using arrow::MemoryPool;

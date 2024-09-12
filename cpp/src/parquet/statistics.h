@@ -24,7 +24,6 @@
 #include <string>
 #include <utility>
 
-#include "arrow/util/macros.h"
 #include "parquet/platform.h"
 #include "parquet/types.h"
 
