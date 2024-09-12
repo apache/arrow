@@ -80,8 +80,7 @@ class FlightServerBase;
 /// > all minutes are 60 seconds long, i.e. leap seconds are "smeared"
 /// > so that no leap second table is needed for interpretation. Range
 /// > is from 0001-01-01T00:00:00Z to 9999-12-31T23:59:59.999999999Z.
-using Timestamp =
-    std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>;
+using Timestamp = std::chrono::system_clock::time_point;
 
 /// \brief A Flight-specific status code.  Used to encode some
 ///   additional status codes into an Arrow Status.
