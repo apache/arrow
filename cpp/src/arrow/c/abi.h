@@ -237,7 +237,7 @@ struct ArrowDeviceArrayStream {
 // The reason for this Task approach instead of the Async interface returning
 // the Array directly is to allow for more complex thread handling and reducing
 // context switching and data transfers between CPU cores (e.g. from one L1/L2
-// cache to another) if desired. 
+// cache to another) if desired.
 //
 // For example, the `on_next_task` callback can be called when data is ready, while
 // the producer puts potential "decoding" logic in the `ArrowAsyncTask` object. This
@@ -248,7 +248,7 @@ struct ArrowDeviceArrayStream {
 struct ArrowAsyncTask {
   // This callback should populate the ArrowDeviceArray associated with this task.
   // The order of ArrowAsyncTasks provided by the producer enables a consumer to
-  // ensure the order of data to process. 
+  // ensure the order of data to process.
   //
   // This function is expected to be synchronous, but should not perform any blocking
   // I/O. Ideally it should be as cheap as possible so as to not tie up the consumer
@@ -287,16 +287,16 @@ struct ArrowAsyncProducer {
   // to avoid recursion and reentrant callbacks.
   //
   // After cancel has been called, additional calls to this function must be NOPs,
-  // but allowed. While not cancelled, calling this function must register the 
-  // given number of additional arrays/batches to be produced with the producer. 
-  // The producer should only call `on_next_task` at most the registered number 
-  // of arrays before propagating backpressure. 
+  // but allowed. While not cancelled, calling this function must register the
+  // given number of additional arrays/batches to be produced with the producer.
+  // The producer should only call `on_next_task` at most the registered number
+  // of arrays before propagating backpressure.
   //
   // Any error encountered by calling request must be propagated by calling the `on_error`
   // callback of the ArrowAsyncDeviceStreamHandler.
   //
-  // While not cancelled, any subsequent calls to `on_next_task`, `on_error` or 
-  // `release` should be scheduled by the producer to be called later rather 
+  // While not cancelled, any subsequent calls to `on_next_task`, `on_error` or
+  // `release` should be scheduled by the producer to be called later rather
   //
   // A producer must support an unbounded number of calls to request and must support
   // a total registered demand (sum requested - sum delivered) of up to UINT64_MAX.
@@ -304,7 +304,7 @@ struct ArrowAsyncProducer {
 
   // This cancel callback signals a producer that it must eventually stop making calls
   // to on_next_task. It must be idempotent and thread-safe. After calling cancel once,
-  // subsequent calls must be NOPs.  
+  // subsequent calls must be NOPs.
   //
   // It is not required that calling cancel affect the producer immediately, only that it
   // must eventually stop calling on_next_task and subsequently call release on the
@@ -403,7 +403,7 @@ struct ArrowAsyncDeviceStreamHandler {
   //
   // Error metadata should be encoded as with metadata in ArrowSchema, defined in
   // the spec at
-  // https://arrow.apache.org/docs/format/CDataInterface.html#c.ArrowSchema.metadata  
+  // https://arrow.apache.org/docs/format/CDataInterface.html#c.ArrowSchema.metadata
   //
   // It is valid for this to be called by a producer with or without a preceding call
   // to ArrowAsyncProducer.request.
