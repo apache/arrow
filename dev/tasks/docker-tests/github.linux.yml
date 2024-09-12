@@ -63,7 +63,7 @@ jobs:
           done
       - name: Save the R test output
         if: always()
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: test-output
           path: arrow/r/check/arrow.Rcheck/tests/testthat.Rout*
