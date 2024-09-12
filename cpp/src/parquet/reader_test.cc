@@ -1836,15 +1836,14 @@ class TestGeometryLogicalType : public ::testing::Test {
 
     // Write small batches and small data pages
 
-    auto writer_props_builder = WriterProperties::Builder()
-                                    .write_batch_size(64)
-                                    ->data_pagesize(128)
-                                    ->data_page_version(data_page_version);
+    auto writer_props_builder = WriterProperties::Builder();
+    writer_props_builder.write_batch_size(64)->data_pagesize(128)->data_page_version(
+        data_page_version);
     if (enable_write_page_index) {
-      writer_props_builder->enable_write_page_index();
+      writer_props_builder.enable_write_page_index();
     }
 
-    std::shared_ptr<WriterProperties> writer_props = writer_props_builder->build();
+    std::shared_ptr<WriterProperties> writer_props = writer_props_builder.build();
 
     ASSERT_OK_AND_ASSIGN(auto out_file, ::arrow::io::BufferOutputStream::Create());
     std::shared_ptr<ParquetFileWriter> file_writer =

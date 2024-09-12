@@ -432,7 +432,8 @@ class WKBSequenceBounder {
 class WKBGenericSequenceBounder {
  public:
   WKBGenericSequenceBounder()
-      : xy_(chunk_),
+      : chunk_{0.0},
+        xy_(chunk_),
         xyz_(chunk_),
         xym_(chunk_),
         xyzm_(chunk_),
