@@ -1928,15 +1928,15 @@ def test_bool8_scalar():
     assert pa.scalar(None, type=pa.bool8()).as_py() is None
 
 
-@pytest.mark.parametrize("str_type", (
-    pa.utf8, pa.large_utf8, pa.string_view, pa.string, pa.large_string))
-def test_json(str_type, pickle_module):
-    storage_type = str_type()
+@pytest.mark.parametrize("storage_type", (
+    pa.utf8(), pa.large_utf8(), pa.string_view(), pa.string(), pa.large_string()))
+def test_json(storage_type, pickle_module):
     data = ['{"a": 1}', '{"b": 2}', None]
     storage = pa.array(data, type=storage_type)
     json_type = pa.json(storage_type)
     json_arr_class = json_type.__arrow_ext_class__()
 
+    assert pa.json() == pa.json(pa.utf8())
     assert json_type.extension_name == "arrow.json"
     assert json_type.storage_type == storage_type
     assert json_type.__class__ is pa.JsonType
@@ -1976,11 +1976,10 @@ def test_json(str_type, pickle_module):
         assert inner == storage
 
 
-@pytest.mark.parametrize("str_type", (
-    pa.utf8, pa.large_utf8, pa.string, pa.large_string))
+@pytest.mark.parametrize("storage_type", (
+    pa.utf8(), pa.large_utf8(), pa.string(), pa.large_string()))
 @pytest.mark.parquet
-def test_parquet_json(tmpdir, str_type):
-    storage_type = str_type()
+def test_parquet_json(tmpdir, storage_type):
     data = ['{"a": 1}', '{"b": 2}', None]
     storage = pa.array(data, type=storage_type)
     json_type = pa.json(storage_type)

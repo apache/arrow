@@ -5333,7 +5333,7 @@ def run_end_encoded(run_end_type, value_type):
     return pyarrow_wrap_data_type(ree_type)
 
 
-def json(DataType storage_type):
+def json(DataType storage_type=utf8()):
     """
     Create instance of JSON extension type.
 
