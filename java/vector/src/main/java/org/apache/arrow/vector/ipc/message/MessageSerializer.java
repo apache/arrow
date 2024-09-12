@@ -715,6 +715,7 @@ public class MessageSerializer {
    *     valid Message was read, or null if end-of-stream
    * @throws IOException on error
    */
+  @SuppressWarnings("UnusedVariable")
   public static MessageMetadataResult readMessage(ReadChannel in) throws IOException {
 
     // Read the message size. There is an i32 little endian prefix.
@@ -739,6 +740,10 @@ public class MessageSerializer {
         if (in.readFully(messageBuffer) != messageLength) {
           throw new IOException("Unexpected end of stream trying to read message.");
         }
+
+        // see https://github.com/apache/arrow/issues/41717 for reason why we cast to
+        // java.nio.Buffer
+        ByteBuffer rewindBuffer = (ByteBuffer) ((java.nio.Buffer) messageBuffer).rewind();
 
         // Load the message.
         Message message = Message.getRootAsMessage(messageBuffer);

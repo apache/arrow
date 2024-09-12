@@ -184,7 +184,9 @@ public class ValidateVectorVisitor implements VectorVisitor<Void, Void> {
 
       long firstOffset = vector.getOffsetBuffer().getLong(0);
       long lastOffset =
-          vector.getOffsetBuffer().getLong((long) vector.getValueCount() * LargeListVector.OFFSET_WIDTH);
+          vector
+              .getOffsetBuffer()
+              .getLong((long) vector.getValueCount() * LargeListVector.OFFSET_WIDTH);
 
       if (firstOffset < 0 || lastOffset < 0) {
         throw new IllegalArgumentException("Negative offsets in list vector");

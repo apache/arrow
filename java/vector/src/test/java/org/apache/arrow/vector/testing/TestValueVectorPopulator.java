@@ -141,7 +141,7 @@ public class TestValueVectorPopulator {
         if (i % 2 == 0) {
           vector1.setNull(i);
         } else {
-          vector1.set(i, i * 1000);
+          vector1.set(i, i * 1000L);
         }
       }
       vector1.setValueCount(10);
@@ -334,7 +334,7 @@ public class TestValueVectorPopulator {
         if (i % 2 == 0) {
           vector1.setNull(i);
         } else {
-          vector1.set(i, i * 10000);
+          vector1.set(i, i * 10000L);
         }
       }
       vector1.setValueCount(10);
@@ -372,7 +372,7 @@ public class TestValueVectorPopulator {
         if (i % 2 == 0) {
           vector1.setNull(i);
         } else {
-          vector1.set(i, i * 10000);
+          vector1.set(i, i * 10000L);
         }
       }
       vector1.setValueCount(10);
@@ -410,7 +410,7 @@ public class TestValueVectorPopulator {
         if (i % 2 == 0) {
           vector1.setNull(i);
         } else {
-          vector1.set(i, i * 10000);
+          vector1.set(i, i * 10000L);
         }
       }
       vector1.setValueCount(10);
@@ -429,7 +429,7 @@ public class TestValueVectorPopulator {
         if (i % 2 == 0) {
           vector1.setNull(i);
         } else {
-          vector1.set(i, i * 10000);
+          vector1.set(i, i * 10000L);
         }
       }
       vector1.setValueCount(10);
@@ -448,7 +448,7 @@ public class TestValueVectorPopulator {
         if (i % 2 == 0) {
           vector1.setNull(i);
         } else {
-          vector1.set(i, i * 10000);
+          vector1.set(i, i * 10000L);
         }
       }
       vector1.setValueCount(10);
@@ -467,7 +467,7 @@ public class TestValueVectorPopulator {
         if (i % 2 == 0) {
           vector1.setNull(i);
         } else {
-          vector1.set(i, i * 100);
+          vector1.set(i, i * 100L);
         }
       }
       vector1.setValueCount(10);

@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 public class TestValidator {
 
   @Test
+  @SuppressWarnings("FloatingPointLiteralPrecision")
   public void testFloatComp() {
     assertTrue(equalEnough(912.4140000000002F, 912.414F));
     assertTrue(equalEnough(912.4140000000002D, 912.414D));

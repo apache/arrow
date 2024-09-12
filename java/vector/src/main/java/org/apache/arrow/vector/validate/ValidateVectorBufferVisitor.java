@@ -131,7 +131,9 @@ public class ValidateVectorBufferVisitor implements VectorVisitor<Void, Void> {
     int lastOffset =
         valueCount == 0
             ? 0
-            : vector.getOffsetBuffer().getInt((long) valueCount * BaseVariableWidthVector.OFFSET_WIDTH);
+            : vector
+                .getOffsetBuffer()
+                .getInt((long) valueCount * BaseVariableWidthVector.OFFSET_WIDTH);
     validateDataBuffer(vector, lastOffset);
     return null;
   }
@@ -172,7 +174,9 @@ public class ValidateVectorBufferVisitor implements VectorVisitor<Void, Void> {
     int lastOffset =
         valueCount == 0
             ? 0
-            : vector.getOffsetBuffer().getInt((long) valueCount * BaseVariableWidthVector.OFFSET_WIDTH);
+            : vector
+                .getOffsetBuffer()
+                .getInt((long) valueCount * BaseVariableWidthVector.OFFSET_WIDTH);
     int dataVectorLength = dataVector == null ? 0 : dataVector.getValueCount();
     validateOrThrow(
         dataVectorLength >= lastOffset,
