@@ -1499,26 +1499,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
       BitVectorHelper.unsetBit(validityBuffer, thisIndex);
     } else {
       final int viewLength = from.getDataBuffer().getInt((long) fromIndex * ELEMENT_SIZE);
-      BitVectorHelper.setBit(validityBuffer, thisIndex);
-      final int start = thisIndex * ELEMENT_SIZE;
-      final int copyStart = fromIndex * ELEMENT_SIZE;
-      from.getDataBuffer().getBytes(copyStart, viewBuffer, start, ELEMENT_SIZE);
-      if (viewLength > INLINE_SIZE) {
-        final int bufIndex =
-            from.getDataBuffer()
-                .getInt(((long) fromIndex * ELEMENT_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH);
-        final int dataOffset =
-            from.getDataBuffer()
-                .getInt(
-                    ((long) fromIndex * ELEMENT_SIZE)
-                        + LENGTH_WIDTH
-                        + PREFIX_WIDTH
-                        + BUF_INDEX_WIDTH);
-        final ArrowBuf dataBuf = ((BaseVariableWidthViewVector) from).dataBuffers.get(bufIndex);
-        final ArrowBuf thisDataBuf = allocateOrGetLastDataBuffer(viewLength);
-        thisDataBuf.setBytes(thisDataBuf.writerIndex(), dataBuf, dataOffset, viewLength);
-        thisDataBuf.writerIndex(thisDataBuf.writerIndex() + viewLength);
-      }
+      copyFromNotNull(fromIndex, thisIndex, from, viewLength);
     }
     lastSet = thisIndex;
   }
@@ -1540,38 +1521,42 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
     } else {
       final int viewLength = from.getDataBuffer().getInt((long) fromIndex * ELEMENT_SIZE);
       handleSafe(thisIndex, viewLength);
-      BitVectorHelper.setBit(validityBuffer, thisIndex);
-      final int start = thisIndex * ELEMENT_SIZE;
-      final int copyStart = fromIndex * ELEMENT_SIZE;
-      if (viewLength > INLINE_SIZE) {
-        final int bufIndex =
-            from.getDataBuffer()
-                .getInt(((long) fromIndex * ELEMENT_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH);
-        final int dataOffset =
-            from.getDataBuffer()
-                .getInt(
-                    ((long) fromIndex * ELEMENT_SIZE)
-                        + LENGTH_WIDTH
-                        + PREFIX_WIDTH
-                        + BUF_INDEX_WIDTH);
-        final ArrowBuf dataBuf = ((BaseVariableWidthViewVector) from).dataBuffers.get(bufIndex);
-        final ArrowBuf thisDataBuf = allocateOrGetLastDataBuffer(viewLength);
-
-        from.getDataBuffer().getBytes(copyStart, viewBuffer, start, LENGTH_WIDTH + PREFIX_WIDTH);
-        int writePosition = start + LENGTH_WIDTH + PREFIX_WIDTH;
-        // set buf id
-        viewBuffer.setInt(writePosition, dataBuffers.size() - 1);
-        writePosition += BUF_INDEX_WIDTH;
-        // set offset
-        viewBuffer.setInt(writePosition, (int) thisDataBuf.writerIndex());
-
-        thisDataBuf.setBytes(thisDataBuf.writerIndex(), dataBuf, dataOffset, viewLength);
-        thisDataBuf.writerIndex(thisDataBuf.writerIndex() + viewLength);
-      } else {
-        from.getDataBuffer().getBytes(copyStart, viewBuffer, start, ELEMENT_SIZE);
-      }
+      copyFromNotNull(fromIndex, thisIndex, from, viewLength);
     }
     lastSet = thisIndex;
+  }
+
+  private void copyFromNotNull(int fromIndex, int thisIndex, ValueVector from, int viewLength) {
+    BitVectorHelper.setBit(validityBuffer, thisIndex);
+    final int start = thisIndex * ELEMENT_SIZE;
+    final int copyStart = fromIndex * ELEMENT_SIZE;
+    if (viewLength > INLINE_SIZE) {
+      final int bufIndex =
+          from.getDataBuffer()
+              .getInt(((long) fromIndex * ELEMENT_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH);
+      final int dataOffset =
+          from.getDataBuffer()
+              .getInt(
+                  ((long) fromIndex * ELEMENT_SIZE)
+                      + LENGTH_WIDTH
+                      + PREFIX_WIDTH
+                      + BUF_INDEX_WIDTH);
+      final ArrowBuf dataBuf = ((BaseVariableWidthViewVector) from).dataBuffers.get(bufIndex);
+      final ArrowBuf thisDataBuf = allocateOrGetLastDataBuffer(viewLength);
+
+      from.getDataBuffer().getBytes(copyStart, viewBuffer, start, LENGTH_WIDTH + PREFIX_WIDTH);
+      int writePosition = start + LENGTH_WIDTH + PREFIX_WIDTH;
+      // set buf id
+      viewBuffer.setInt(writePosition, dataBuffers.size() - 1);
+      writePosition += BUF_INDEX_WIDTH;
+      // set offset
+      viewBuffer.setInt(writePosition, (int) thisDataBuf.writerIndex());
+
+      thisDataBuf.setBytes(thisDataBuf.writerIndex(), dataBuf, dataOffset, viewLength);
+      thisDataBuf.writerIndex(thisDataBuf.writerIndex() + viewLength);
+    } else {
+      from.getDataBuffer().getBytes(copyStart, viewBuffer, start, ELEMENT_SIZE);
+    }
   }
 
   @Override
