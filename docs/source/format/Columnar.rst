@@ -1395,9 +1395,9 @@ body buffers: Buffers can be uncompressed, buffers can be
 compressed with the ``lz4`` compression codec, or buffers can be
 compressed with the ``zstd`` compression codec. Buffers in the
 flat sequence of a message body must be compressed separately using
-the same codec. Specific buffer in the sequence of compressed
-buffers can be left uncompressed in case compression does not yield
-appreciable savings.
+the same codec. Specific buffers in the sequence of compressed
+buffers may be left uncompressed (for example if compressing those
+specific buffers would not appreciably reduce their size).
 
 The compression type used is defined in the ``data header```
 of the :ref:`ipc-recordbatch-message` in the optional ``compression``
