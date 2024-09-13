@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
+	"github.com/apache/arrow/dev/flight-integration/flight"
 	"github.com/apache/arrow/dev/flight-integration/scenario"
 
-	"github.com/apache/arrow/go/v18/arrow/flight/gen/flight"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

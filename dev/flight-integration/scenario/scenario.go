@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/apache/arrow/dev/flight-integration/flight"
 	"github.com/apache/arrow/dev/flight-integration/tester"
-
-	"github.com/apache/arrow/go/v18/arrow/flight/gen/flight"
 )
 
 var (

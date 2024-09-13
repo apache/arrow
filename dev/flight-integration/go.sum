@@ -1,5 +1,3 @@
-github.com/apache/arrow/go/v18 v18.0.0-20240912174209-990cdf7dca8b h1:qoHDuszpabcuxTvXi/JIFdcDF5a2dtpa4lIYHKnMvR4=
-github.com/apache/arrow/go/v18 v18.0.0-20240912174209-990cdf7dca8b/go.mod h1:GjCnS5QddrJzyqrdYqCUvwlND7SfAw4WH/722M2U2NM=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/google/go-cmp v0.6.0 h1:ofyhxvXcZhMsU5ulbFiLKl/XBFqE1GSq7atu8tAmTRI=

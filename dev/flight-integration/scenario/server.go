@@ -6,7 +6,7 @@ import (
 	"log"
 	"strings"
 
-	"github.com/apache/arrow/go/v18/arrow/flight/gen/flight"
+	"github.com/apache/arrow/dev/flight-integration/flight"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/stats"
 	"google.golang.org/grpc/status"

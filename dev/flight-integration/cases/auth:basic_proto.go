@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/apache/arrow/dev/flight-integration/flight"
 	"github.com/apache/arrow/dev/flight-integration/scenario"
 	"github.com/apache/arrow/dev/flight-integration/tester"
 
-	"github.com/apache/arrow/go/v18/arrow/flight/gen/flight"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
