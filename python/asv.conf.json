@@ -85,7 +85,7 @@
     "matrix": {
         // Use older boost since it works on more editions of the project
         "aws-sdk-cpp": [],
-        "boost-cpp": ["1.68.0"],
+        "libboost-devel": ["1.68.0"],
         "brotli": [],
         "cmake": [],
         "cython": [],
