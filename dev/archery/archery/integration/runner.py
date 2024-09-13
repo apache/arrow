@@ -586,11 +586,11 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
                   run_c_data=False, tempdir=None, target_languages="",
                   **kwargs):
     tempdir = tempdir or tempfile.mkdtemp(prefix='arrow-integration-')
+    target_languages = target_languages.split(",")
 
     testers: List[Tester] = []
     other_testers: List[Tester] = []
 
-    target_languages = target_languages.split(",")
     def append_tester(language, tester):
         if len(target_languages) == 0 or language in target_languages:
             testers.append(tester)
