@@ -744,8 +744,9 @@ def _set_default(opt, default):
 @click.option('--with-rust', type=bool, default=False,
               help='Include Rust in integration tests',
               envvar="ARCHERY_INTEGRATION_WITH_RUST")
-@click.option('--target-language', multiple=True,
-              help=('Target languages in this integration tests'))
+@click.option('--target-languages', deafult="",
+              help=('Target languages in this integration tests'),
+              envvar="ARCHERY_INTEGRATION_TARGET_LANGUAGES")
 @click.option('--write_generated_json', default="",
               help='Generate test JSON to indicated path')
 @click.option('--run-ipc', is_flag=True, default=False,
