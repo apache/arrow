@@ -765,7 +765,7 @@ The structure has the following fields:
     the lifetime is only the scope of the call to this function. A consumer who wants to maintain
     the additional metadata beyond the lifetime of this call *MUST* copy the value themselves.
 
-    A producer *MUST NOT* call this concurrently from multiple different threads.
+    A producer *MUST NOT* call this concurrently from multiple threads.
 
     The :c:member:`ArrowAsyncProducer.request` callback must be called to start receiving calls to this
     handler.
