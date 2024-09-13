@@ -25,28 +25,9 @@ func NewServer(scenarios []Scenario) *scenarioServer {
 		clientDoneCh:  make(chan struct{}, 1),
 		serverReadyCh: make(chan struct{}, 1),
 	}
+
 	server.serverReadyCh <- struct{}{}
-
-	go func() {
-		for {
-			select {
-			case <-server.clientDoneCh:
-			case <-ctx.Done():
-				return
-			}
-
-			if !server.expectingClientReset {
-				server.FinishScenario()
-			}
-			server.expectingClientReset = false
-
-			select {
-			case server.serverReadyCh <- struct{}{}:
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
+	go server.runClientConnWatcher()
 
 	return &server
 }
@@ -63,6 +44,27 @@ type scenarioServer struct {
 	clientDoneCh, serverReadyCh        chan struct{}
 	expectingClientReset, failed, done bool
 	incompleteScenarios                []string
+}
+
+func (s *scenarioServer) runClientConnWatcher() {
+	for {
+		select {
+		case <-s.clientDoneCh:
+		case <-s.ctx.Done():
+			return
+		}
+
+		if !s.expectingClientReset {
+			s.FinishScenario()
+		}
+		s.expectingClientReset = false
+
+		select {
+		case s.serverReadyCh <- struct{}{}:
+		case <-s.ctx.Done():
+			return
+		}
+	}
 }
 
 func (s *scenarioServer) CurrentScenario() (Scenario, error) {
@@ -292,6 +294,8 @@ func (s *scenarioServer) HandleConn(ctx context.Context, connStats stats.ConnSta
 		select {
 		case <-s.serverReadyCh:
 			log.Println("conn acquired")
+		case <-s.ctx.Done():
+			log.Fatal("invalid state: all scenarios completed, server not accepting new connections")
 		default:
 			log.Fatal("invalid state: only one client may connect to the integration server at a time")
 		}
