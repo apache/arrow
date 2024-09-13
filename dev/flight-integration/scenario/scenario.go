@@ -2,7 +2,6 @@ package scenario
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"integration/tester"
 	"sync"
@@ -11,15 +10,11 @@ import (
 )
 
 var (
-	ErrExpectedClientDisconnect = errors.New("expected previous client to disconnect before starting new scenario")
-)
-
-var (
 	scenariosMu sync.RWMutex
 	scenarios   = make(map[string]Scenario)
 )
 
-func RegisterScenario(scenario Scenario) {
+func Register(scenario Scenario) {
 	scenariosMu.Lock()
 	defer scenariosMu.Unlock()
 
@@ -29,7 +24,7 @@ func RegisterScenario(scenario Scenario) {
 	scenarios[scenario.Name] = scenario
 }
 
-func UnregisterScenario(scenario string) {
+func Unregister(scenario string) {
 	scenariosMu.Lock()
 	defer scenariosMu.Unlock()
 
@@ -42,6 +37,10 @@ func UnregisterScenario(scenario string) {
 }
 
 func GetScenarios(names ...string) ([]Scenario, error) {
+	if len(names) == 0 {
+		return getAllScenarios()
+	}
+
 	res := make([]Scenario, len(names))
 
 	scenariosMu.RLock()
@@ -59,7 +58,7 @@ func GetScenarios(names ...string) ([]Scenario, error) {
 	return res, nil
 }
 
-func GetAllScenarios() ([]Scenario, error) {
+func getAllScenarios() ([]Scenario, error) {
 	scenariosMu.RLock()
 	defer scenariosMu.RUnlock()
 

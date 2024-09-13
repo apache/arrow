@@ -1,4 +1,4 @@
-package scenario
+package cases
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 )
 
 func init() {
-	scenario.RegisterScenario(
+	scenario.Register(
 		scenario.Scenario{
 			Name: "location:reuse_connection",
 			Steps: []scenario.ScenarioStep{

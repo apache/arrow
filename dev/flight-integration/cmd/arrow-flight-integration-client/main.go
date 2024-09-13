@@ -33,7 +33,7 @@ func main() {
 		return grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
 
-	runner := scenario.NewScenarioRunner(scenarios)
+	runner := scenario.NewRunner(scenarios)
 	if err := runner.RunScenarios(dialServer); err != nil {
 		log.Fatal(err)
 	}

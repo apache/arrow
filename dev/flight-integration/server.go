@@ -8,7 +8,7 @@ import (
 )
 
 func NewIntegrationServer(scenarios ...scenario.Scenario) *grpc.Server {
-	server := scenario.NewScenarioServer(scenarios)
+	server := scenario.NewServer(scenarios)
 
 	srv := grpc.NewServer(grpc.StatsHandler(server))
 	flight.RegisterFlightServiceServer(srv, server)

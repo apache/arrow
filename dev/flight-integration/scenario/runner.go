@@ -5,12 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"integration/tester"
+	"strings"
 
 	"github.com/apache/arrow/go/v18/arrow/flight/gen/flight"
 	"google.golang.org/grpc"
 )
 
-func NewScenarioRunner(scenarios []Scenario) *ScenarioRunner {
+func NewRunner(scenarios []Scenario) *ScenarioRunner {
 	return &ScenarioRunner{scenarios: scenarios, results: make(map[string]error, len(scenarios))}
 }
 
@@ -20,7 +21,7 @@ type ScenarioRunner struct {
 	results map[string]error
 }
 
-func (r *ScenarioRunner) RunScenario(scenario Scenario, newConnFn func() (conn *grpc.ClientConn, err error)) (err error) {
+func (r *ScenarioRunner) runScenario(scenario Scenario, newConnFn func() (conn *grpc.ClientConn, err error)) (err error) {
 	conn, err := newConnFn()
 	if err != nil {
 		return err
@@ -32,7 +33,7 @@ func (r *ScenarioRunner) RunScenario(scenario Scenario, newConnFn func() (conn *
 
 	t := tester.NewTester()
 	defer func() {
-		err = errors.Join(t.Errors()...)
+		err = processErrors(t.Errors())
 		r := recover()
 		if r == tester.RequirementFailedMsg {
 			return
@@ -50,7 +51,7 @@ func (r *ScenarioRunner) RunScenario(scenario Scenario, newConnFn func() (conn *
 func (r *ScenarioRunner) RunScenarios(newConnFn func() (conn *grpc.ClientConn, err error)) error {
 	var err error
 	for _, scenario := range r.scenarios {
-		if err := r.RunScenario(scenario, newConnFn); err != nil {
+		if err := r.runScenario(scenario, newConnFn); err != nil {
 			r.results[scenario.Name] = err
 		}
 	}
@@ -60,4 +61,17 @@ func (r *ScenarioRunner) RunScenarios(newConnFn func() (conn *grpc.ClientConn, e
 	}
 
 	return err
+}
+
+func processErrors(errs []error) error {
+	res := make([]error, len(errs))
+	for i, err := range errs {
+		switch {
+		case strings.Contains(err.Error(), msgExpectedClientDisconnect):
+			res[i] = fmt.Errorf("client made too many RPC calls, server closed the scenario before the client was done")
+		default:
+			res[i] = err
+		}
+	}
+	return errors.Join(res...)
 }

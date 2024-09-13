@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/apache/arrow/go/v18/arrow/flight/gen/flight"
 	"google.golang.org/grpc/codes"
@@ -11,25 +12,39 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func NewScenarioServer(scenarios []Scenario) *scenarioServer {
+var (
+	msgExpectedClientDisconnect = "expected previous client to disconnect before starting new scenario"
+)
+
+func NewServer(scenarios []Scenario) *scenarioServer {
+	ctx, cancel := context.WithCancel(context.Background())
 	server := scenarioServer{
 		scenarios:     scenarios,
+		ctx:           ctx,
+		cancel:        cancel,
 		clientDoneCh:  make(chan struct{}, 1),
 		serverReadyCh: make(chan struct{}, 1),
 	}
 	server.serverReadyCh <- struct{}{}
 
-	// TODO: maybe provide shutdown callback
 	go func() {
 		for {
-			<-server.clientDoneCh
+			select {
+			case <-server.clientDoneCh:
+			case <-ctx.Done():
+				return
+			}
 
 			if !server.expectingClientReset {
 				server.FinishScenario()
 			}
 			server.expectingClientReset = false
 
-			server.serverReadyCh <- struct{}{}
+			select {
+			case server.serverReadyCh <- struct{}{}:
+			case <-ctx.Done():
+				return
+			}
 		}
 	}()
 
@@ -41,16 +56,20 @@ type scenarioServer struct {
 
 	scenarios []Scenario
 
+	ctx    context.Context
+	cancel context.CancelFunc
+
 	curScenario, curStep               int
 	clientDoneCh, serverReadyCh        chan struct{}
 	expectingClientReset, failed, done bool
+	incompleteScenarios                []string
 }
 
 func (s *scenarioServer) CurrentScenario() (Scenario, error) {
 	if s.curScenario < len(s.scenarios) {
 		return s.scenarios[s.curScenario], nil
 	}
-	return Scenario{}, fmt.Errorf("no more scenarios to execute, all %d have already run", len(s.scenarios))
+	return Scenario{}, status.Errorf(codes.OutOfRange, "no more scenarios to execute, all %d have already run", len(s.scenarios))
 }
 
 func (s *scenarioServer) CurrentStep() (Scenario, ScenarioStep, error) {
@@ -74,7 +93,7 @@ func (s *scenarioServer) StartStep() (Scenario, ScenarioStep, error) {
 	if s.expectingClientReset {
 		return Scenario{},
 			ScenarioStep{},
-			status.Errorf(codes.FailedPrecondition, "finished scenario \"%s\", waiting to start scenario \"%s\": %s", s.scenarios[s.curScenario-1].Name, s.scenarios[s.curScenario].Name, ErrExpectedClientDisconnect)
+			status.Errorf(codes.FailedPrecondition, "finished scenario \"%s\", waiting to start scenario \"%s\": %s", s.scenarios[s.curScenario-1].Name, s.scenarios[s.curScenario].Name, msgExpectedClientDisconnect)
 	}
 
 	return s.CurrentStep()
@@ -88,14 +107,25 @@ func (s *scenarioServer) FinishStep() {
 }
 
 func (s *scenarioServer) FinishScenario() {
+	if s.curStep < len(s.scenarios[s.curScenario].Steps) && !s.failed {
+		scenario := s.scenarios[s.curScenario]
+		step := scenario.Steps[s.curStep]
+		s.incompleteScenarios = append(s.incompleteScenarios, fmt.Sprintf("%s/%s", scenario.Name, step.Name))
+	}
+
 	s.curStep = 0
 	s.expectingClientReset = true
 	s.failed = false
 
 	s.curScenario++
 	if s.curScenario == len(s.scenarios) {
-		log.Println("All scenarios completed")
 		s.done = true
+		s.cancel()
+
+		log.Println("All scenarios completed")
+		if len(s.incompleteScenarios) > 0 {
+			log.Printf("Execution did not complete for the following scenario/steps: [ %s ]\n", strings.Join(s.incompleteScenarios, ", "))
+		}
 	}
 }
 

@@ -1,4 +1,4 @@
-package scenario
+package cases
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 )
 
 func init() {
-	scenario.RegisterScenario(
+	scenario.Register(
 		scenario.Scenario{
 			Name: "poll_flight_info",
 			Steps: []scenario.ScenarioStep{

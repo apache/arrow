@@ -18,7 +18,7 @@ import (
 func TestIntegrationClientAndServer(t *testing.T) {
 	lis := bufconn.Listen(1024 * 1024)
 
-	scenarios, err := scenario.GetAllScenarios()
+	scenarios, err := scenario.GetScenarios()
 	require.NoError(t, err)
 
 	srv := integration.NewIntegrationServer(scenarios...)
@@ -35,6 +35,6 @@ func TestIntegrationClientAndServer(t *testing.T) {
 		)
 	}
 
-	runner := scenario.NewScenarioRunner(scenarios)
+	runner := scenario.NewRunner(scenarios)
 	require.NoError(t, runner.RunScenarios(dialer))
 }
