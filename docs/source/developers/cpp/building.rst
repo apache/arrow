@@ -213,6 +213,8 @@ and then ask to compile the build targets:
 
    0 directories, 3 files
 
+   $ cmake --install .
+
 When creating a build, it is possible to pass custom options besides
 the preset-defined ones, for example:
 
@@ -293,6 +295,7 @@ Minimal release build (1GB of RAM for building or more recommended):
    $ cd build-release
    $ cmake ..
    $ make -j8       # if you have 8 CPU cores, otherwise adjust
+   $ make install
 
 Minimal debug build with unit tests (4GB of RAM for building or more recommended):
 
@@ -305,6 +308,7 @@ Minimal debug build with unit tests (4GB of RAM for building or more recommended
    $ cmake -DCMAKE_BUILD_TYPE=Debug -DARROW_BUILD_TESTS=ON ..
    $ make -j8       # if you have 8 CPU cores, otherwise adjust
    $ make unittest  # to run the tests
+   $ make install
 
 The unit tests are not built by default. After building, one can also invoke
 the unit tests using the ``ctest`` tool provided by CMake (note that ``test``
