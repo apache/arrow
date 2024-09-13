@@ -385,8 +385,9 @@ struct AnyKeysSegmenter : public BaseRowSegmenter {
     // previous batch
     bool extends = kDefaultExtends;
     if (save_group_id_ != kNoGroupId) {
-      // the group id must be computed prior to resetting the grouper, since it is compared
-      // to save_group_id_, and after resetting the grouper produces incomparable group ids
+      // the group id must be computed prior to resetting the grouper, since it is
+      // compared to save_group_id_, and after resetting the grouper produces incomparable
+      // group ids
       ARROW_ASSIGN_OR_RAISE(auto group_id, MapGroupIdAt(batch));
       // it "extends" unless the group id differs from the last group id
       extends = (group_id == save_group_id_);
