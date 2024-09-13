@@ -27,13 +27,16 @@ FROM abrarov/msvc-2019:2.11.0
 # Add unix tools to path
 RUN setx path "%path%;C:\Program Files\Git\usr\bin"
 
-# Remove previous installations of python from the base image
+# 1. Remove previous installations of python from the base image
 # NOTE: a more recent base image (tried with 2.12.1) comes with python 3.9.7
 # and the msi installers are failing to remove pip and tcl/tk "products" making
 # the subsequent choco python installation step failing for installing python
 # version 3.9.* due to existing python version
+# 2. Install Minio for S3 testing.
 RUN wmic product where "name like 'python%%'" call uninstall /nointeractive && \
-    rm -rf Python*
+    rm -rf Python* && \
+    curl https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2022-05-26T05-48-41Z \
+        --output "C:\Windows\Minio.exe"
 
 # Install the GCS testbench using a well-known Python version.
 # NOTE: cannot use pipx's `--fetch-missing-python` because of
