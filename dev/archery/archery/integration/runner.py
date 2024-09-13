@@ -586,7 +586,7 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
                   run_c_data=False, tempdir=None, target_languages="",
                   **kwargs):
     tempdir = tempdir or tempfile.mkdtemp(prefix='arrow-integration-')
-    target_languages = target_languages.split(",")
+    target_languages = list(filter(len, target_languages.split(",")))
 
     testers: List[Tester] = []
     other_testers: List[Tester] = []
