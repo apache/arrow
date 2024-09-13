@@ -42,7 +42,10 @@ public class Filter {
 
   private final JniWrapper wrapper;
   private final long moduleId;
+
+  @SuppressWarnings("UnusedVariable")
   private final Schema schema;
+
   private boolean closed;
 
   private Filter(JniWrapper wrapper, long moduleId, Schema schema) {
@@ -98,7 +101,7 @@ public class Filter {
         schema,
         condition,
         JniLoader.getConfiguration(
-            (new ConfigurationBuilder.ConfigOptions()).withOptimize(optimize)));
+            new ConfigurationBuilder.ConfigOptions().withOptimize(optimize)));
   }
 
   /**

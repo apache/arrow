@@ -16,6 +16,7 @@
  */
 package org.apache.arrow.vector;
 
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -61,7 +62,7 @@ public class VarCharBenchmarks {
       if (i % 3 == 0) {
         fromVector.setNull(i);
       } else {
-        fromVector.set(i, String.valueOf(i * 1000).getBytes());
+        fromVector.set(i, String.valueOf(i * 1000).getBytes(StandardCharsets.UTF_8));
       }
     }
     fromVector.setValueCount(VECTOR_LENGTH);

@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.IntStream;
@@ -47,12 +48,11 @@ public class FilterTest extends BaseEvaluatorTest {
     return actual;
   }
 
-  private Charset utf8Charset = Charset.forName("UTF-8");
-  private Charset utf16Charset = Charset.forName("UTF-16");
+  private final Charset utf8Charset = StandardCharsets.UTF_8;
 
   List<ArrowBuf> varBufs(String[] strings, Charset charset) {
-    ArrowBuf offsetsBuffer = allocator.buffer((strings.length + 1) * 4);
-    ArrowBuf dataBuffer = allocator.buffer(strings.length * 8);
+    ArrowBuf offsetsBuffer = allocator.buffer((strings.length + 1) * 4L);
+    ArrowBuf dataBuffer = allocator.buffer(strings.length * 8L);
 
     int startOffset = 0;
     for (int i = 0; i < strings.length; i++) {

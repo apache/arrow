@@ -117,7 +117,7 @@ public class DictionaryEncoderBenchmarks {
   private String generateUniqueKey(int length) {
     String str = "abcdefghijklmnopqrstuvwxyz";
     Random random = new Random();
-    StringBuffer sb = new StringBuffer();
+    StringBuilder sb = new StringBuilder();
     for (int i = 0; i < length; i++) {
       int number = random.nextInt(26);
       sb.append(str.charAt(number));

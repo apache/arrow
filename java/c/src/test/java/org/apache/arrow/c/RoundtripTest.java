@@ -16,6 +16,7 @@
  */
 package org.apache.arrow.c;
 
+import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.DATA_VECTOR_NAME;
 import static org.apache.arrow.vector.testing.ValueVectorDataPopulator.setVector;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -965,7 +966,9 @@ public class RoundtripTest {
       try (ArrowSchema arrowSchema = ArrowSchema.wrap(consumerArrowSchema.memoryAddress());
           ArrowArray arrowArray = ArrowArray.wrap(consumerArrowArray.memoryAddress())) {
         // Producer exports vector into the C Data Interface structures
-        try (final NullVector vector = new NullVector()) {
+        try (final NullVector vector =
+            new NullVector(
+                new Field(DATA_VECTOR_NAME, FieldType.nullable(new ArrowType.Null()), null))) {
           Data.exportVector(allocator, vector, null, arrowArray, arrowSchema);
         }
       }

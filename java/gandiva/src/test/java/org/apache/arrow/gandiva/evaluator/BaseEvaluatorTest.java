@@ -16,7 +16,10 @@
  */
 package org.apache.arrow.gandiva.evaluator;
 
+import com.google.common.base.Splitter;
+import com.google.common.collect.Iterables;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -51,7 +54,7 @@ class BaseEvaluatorTest {
     long getElapsedMillis();
   }
 
-  class ProjectEvaluator implements BaseEvaluator {
+  static class ProjectEvaluator implements BaseEvaluator {
 
     private Projector projector;
     private DataAndVectorGenerator generator;
@@ -97,9 +100,9 @@ class BaseEvaluatorTest {
     }
   }
 
-  class FilterEvaluator implements BaseEvaluator {
+  static class FilterEvaluator implements BaseEvaluator {
 
-    private Filter filter;
+    private final Filter filter;
     private long elapsedTime = 0;
 
     public FilterEvaluator(Filter filter) {
@@ -109,7 +112,7 @@ class BaseEvaluatorTest {
     @Override
     public void evaluate(ArrowRecordBatch recordBatch, BufferAllocator allocator)
         throws GandivaException {
-      ArrowBuf selectionBuffer = allocator.buffer(recordBatch.getLength() * 2);
+      ArrowBuf selectionBuffer = allocator.buffer(recordBatch.getLength() * 2L);
       SelectionVectorInt16 selectionVector = new SelectionVectorInt16(selectionBuffer);
 
       try {
@@ -135,7 +138,7 @@ class BaseEvaluatorTest {
     ValueVector generateOutputVector(int numRowsInBatch);
   }
 
-  class Int32DataAndVectorGenerator implements DataAndVectorGenerator {
+  static class Int32DataAndVectorGenerator implements DataAndVectorGenerator {
 
     protected final BufferAllocator allocator;
     protected final Random rand;
@@ -158,7 +161,7 @@ class BaseEvaluatorTest {
     }
   }
 
-  class BoundedInt32DataAndVectorGenerator extends Int32DataAndVectorGenerator {
+  static class BoundedInt32DataAndVectorGenerator extends Int32DataAndVectorGenerator {
 
     private final int upperBound;
 
@@ -222,7 +225,7 @@ class BaseEvaluatorTest {
   }
 
   ArrowBuf intBuf(int[] ints) {
-    ArrowBuf buffer = allocator.buffer(ints.length * 4);
+    ArrowBuf buffer = allocator.buffer(ints.length * 4L);
     for (int i = 0; i < ints.length; i++) {
       buffer.writeInt(ints[i]);
     }
@@ -255,7 +258,7 @@ class BaseEvaluatorTest {
     VarCharVector vector = new VarCharVector("VarCharVector" + Math.random(), allocator);
     vector.allocateNew();
     for (int i = 0; i < values.length; i++) {
-      vector.setSafe(i, values[i].getBytes(), 0, values[i].length());
+      vector.setSafe(i, values[i].getBytes(StandardCharsets.UTF_8), 0, values[i].length());
     }
 
     vector.setValueCount(values.length);
@@ -263,26 +266,26 @@ class BaseEvaluatorTest {
   }
 
   ArrowBuf longBuf(long[] longs) {
-    ArrowBuf buffer = allocator.buffer(longs.length * 8);
-    for (int i = 0; i < longs.length; i++) {
-      buffer.writeLong(longs[i]);
+    ArrowBuf buffer = allocator.buffer(longs.length * 8L);
+    for (long aLong : longs) {
+      buffer.writeLong(aLong);
     }
     return buffer;
   }
 
   ArrowBuf doubleBuf(double[] data) {
-    ArrowBuf buffer = allocator.buffer(data.length * 8);
-    for (int i = 0; i < data.length; i++) {
-      buffer.writeDouble(data[i]);
+    ArrowBuf buffer = allocator.buffer(data.length * 8L);
+    for (double datum : data) {
+      buffer.writeDouble(datum);
     }
 
     return buffer;
   }
 
   ArrowBuf stringToMillis(String[] dates) {
-    ArrowBuf buffer = allocator.buffer(dates.length * 8);
-    for (int i = 0; i < dates.length; i++) {
-      Instant instant = Instant.parse(dates[i]);
+    ArrowBuf buffer = allocator.buffer(dates.length * 8L);
+    for (String date : dates) {
+      Instant instant = Instant.parse(date);
       buffer.writeLong(instant.toEpochMilli());
     }
 
@@ -290,10 +293,10 @@ class BaseEvaluatorTest {
   }
 
   ArrowBuf stringToDayInterval(String[] values) {
-    ArrowBuf buffer = allocator.buffer(values.length * 8);
-    for (int i = 0; i < values.length; i++) {
-      buffer.writeInt(Integer.parseInt(values[i].split(" ")[0])); // days
-      buffer.writeInt(Integer.parseInt(values[i].split(" ")[1])); // millis
+    ArrowBuf buffer = allocator.buffer(values.length * 8L);
+    for (String value : values) {
+      buffer.writeInt(Integer.parseInt(Iterables.get(Splitter.on(' ').split(value), 0))); // days
+      buffer.writeInt(Integer.parseInt(Iterables.get(Splitter.on(' ').split(value), 1))); // millis
     }
     return buffer;
   }
@@ -342,7 +345,7 @@ class BaseEvaluatorTest {
 
       // generate data
       for (int i = 0; i < numFields; i++) {
-        ArrowBuf buf = allocator.buffer(numRowsInBatch * inputFieldSize);
+        ArrowBuf buf = allocator.buffer((long) numRowsInBatch * inputFieldSize);
         ArrowBuf validity = arrowBufWithAllValid(maxRowsInBatch);
         generateData(generator, numRowsInBatch, buf);
 

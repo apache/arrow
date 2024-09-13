@@ -16,6 +16,7 @@
  */
 package org.apache.arrow.vector;
 
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -45,7 +46,8 @@ public class VariableWidthVectorBenchmarks {
 
   private static final int ALLOCATOR_CAPACITY = 1024 * 1024;
 
-  private static byte[] bytes = VariableWidthVectorBenchmarks.class.getName().getBytes();
+  private static byte[] bytes =
+      VariableWidthVectorBenchmarks.class.getName().getBytes(StandardCharsets.UTF_8);
   private ArrowBuf arrowBuff;
 
   private BufferAllocator allocator;

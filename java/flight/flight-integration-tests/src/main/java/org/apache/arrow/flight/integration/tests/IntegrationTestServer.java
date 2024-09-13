@@ -71,7 +71,7 @@ class IntegrationTestServer {
                     System.out.println("\nExiting...");
                     AutoCloseables.close(server, allocator);
                   } catch (Exception e) {
-                    e.printStackTrace();
+                    LOGGER.error("Error during shutdown", e);
                   }
                 }));
 
