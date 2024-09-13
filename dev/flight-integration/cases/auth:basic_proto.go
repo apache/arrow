@@ -46,13 +46,17 @@ func init() {
 				{
 					Name: "unauthenticated_action",
 					ServerHandler: scenario.Handler{DoAction: func(a *flight.Action, fs flight.FlightService_DoActionServer) error {
+						md, ok := metadata.FromIncomingContext(fs.Context())
+						if ok && len(md.Get(authHeader)) > 0 {
+							return fmt.Errorf("expected not to find auth header for unauthenticated action")
+						}
+
 						return status.Error(codes.Unauthenticated, "no token")
 					}},
 				},
 				{
 					Name: "auth_handshake",
 					ServerHandler: scenario.Handler{Handshake: func(fs flight.FlightService_HandshakeServer) error {
-
 						in, err := fs.Recv()
 						if err != nil {
 							return err
