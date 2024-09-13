@@ -3,10 +3,11 @@ package scenario_test
 import (
 	"context"
 	"fmt"
-	"integration"
-	"integration/scenario"
 	"net"
 	"testing"
+
+	integration "github.com/apache/arrow/dev/flight-integration"
+	"github.com/apache/arrow/dev/flight-integration/scenario"
 
 	"github.com/apache/arrow/go/v18/arrow/flight/gen/flight"
 	"github.com/stretchr/testify/suite"

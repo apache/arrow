@@ -9,8 +9,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	_ "integration/cases"
-	"integration/scenario"
+	_ "github.com/apache/arrow/dev/flight-integration/cases"
+	"github.com/apache/arrow/dev/flight-integration/scenario"
 )
 
 var (

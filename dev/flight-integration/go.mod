@@ -1,4 +1,4 @@
-module integration
+module github.com/apache/arrow/dev/flight-integration
 
 go 1.22.3
 

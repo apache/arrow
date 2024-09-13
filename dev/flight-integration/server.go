@@ -1,7 +1,7 @@
 package integration
 
 import (
-	"integration/scenario"
+	"github.com/apache/arrow/dev/flight-integration/scenario"
 
 	"github.com/apache/arrow/go/v18/arrow/flight/gen/flight"
 	"google.golang.org/grpc"

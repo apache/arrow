@@ -2,17 +2,18 @@ package integration_test
 
 import (
 	"context"
-	"integration"
-	"integration/scenario"
 	"net"
 	"testing"
+
+	integration "github.com/apache/arrow/dev/flight-integration"
+	"github.com/apache/arrow/dev/flight-integration/scenario"
 
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
 
-	_ "integration/cases"
+	_ "github.com/apache/arrow/dev/flight-integration/cases"
 )
 
 func TestIntegrationClientAndServer(t *testing.T) {

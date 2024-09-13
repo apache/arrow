@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"integration/tester"
 	"strings"
+
+	"github.com/apache/arrow/dev/flight-integration/tester"
 
 	"github.com/apache/arrow/go/v18/arrow/flight/gen/flight"
 	"google.golang.org/grpc"

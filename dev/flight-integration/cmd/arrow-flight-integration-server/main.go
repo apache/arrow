@@ -3,13 +3,14 @@ package main
 import (
 	"flag"
 	"fmt"
-	"integration"
 	"log"
 	"net"
 	"strings"
 
-	_ "integration/cases"
-	"integration/scenario"
+	integration "github.com/apache/arrow/dev/flight-integration"
+
+	_ "github.com/apache/arrow/dev/flight-integration/cases"
+	"github.com/apache/arrow/dev/flight-integration/scenario"
 )
 
 var (

@@ -3,9 +3,10 @@ package cases
 import (
 	"context"
 	"fmt"
-	"integration/scenario"
-	"integration/tester"
 	"io"
+
+	"github.com/apache/arrow/dev/flight-integration/scenario"
+	"github.com/apache/arrow/dev/flight-integration/tester"
 
 	"github.com/apache/arrow/go/v18/arrow/flight/gen/flight"
 	"google.golang.org/grpc/codes"

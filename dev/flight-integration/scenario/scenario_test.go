@@ -2,8 +2,9 @@ package scenario_test
 
 import (
 	"context"
-	"integration/scenario"
 	"testing"
+
+	"github.com/apache/arrow/dev/flight-integration/scenario"
 
 	"github.com/apache/arrow/go/v18/arrow/flight/gen/flight"
 	"github.com/stretchr/testify/assert"
