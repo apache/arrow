@@ -304,7 +304,8 @@ struct ArrowAsyncProducer {
 
   // This cancel callback signals a producer that it must eventually stop making calls
   // to on_next_task. It must be idempotent and thread-safe. After calling cancel once,
-  // subsequent calls must be NOPs.
+  // subsequent calls must be NOPs. This must not call any consumer-side handlers other
+  // than `on_error`.
   //
   // It is not required that calling cancel affect the producer immediately, only that it
   // must eventually stop calling on_next_task and subsequently call release on the
