@@ -19,21 +19,22 @@ package org.apache.arrow.driver.jdbc.accessor.impl.calendar;
 import static org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcDateVectorGetter.Getter;
 import static org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcDateVectorGetter.Holder;
 import static org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcDateVectorGetter.createGetter;
-import static org.apache.arrow.driver.jdbc.utils.DateTimeUtils.getTimestampValue;
 import static org.apache.calcite.avatica.util.DateTimeUtils.MILLIS_PER_DAY;
 import static org.apache.calcite.avatica.util.DateTimeUtils.unixDateToString;
 
 import java.sql.Date;
 import java.sql.Timestamp;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Calendar;
 import java.util.concurrent.TimeUnit;
 import java.util.function.IntSupplier;
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
-import org.apache.arrow.driver.jdbc.utils.DateTimeUtils;
 import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DateMilliVector;
 import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.util.DateUtility;
 
 /** Accessor for the Arrow types: {@link DateDayVector} and {@link DateMilliVector}. */
 public class ArrowFlightJdbcDateVectorAccessor extends ArrowFlightJdbcAccessor {
@@ -87,17 +88,12 @@ public class ArrowFlightJdbcDateVectorAccessor extends ArrowFlightJdbcAccessor {
 
   @Override
   public Date getDate(Calendar calendar) {
-    fillHolder();
-    if (this.wasNull) {
+    final LocalDateTime localDateTime = getLocalDateTime(calendar);
+    if (localDateTime == null) {
       return null;
     }
 
-    long value = holder.value;
-    long milliseconds = this.timeUnit.toMillis(value);
-
-    long millisWithCalendar = DateTimeUtils.applyCalendarOffset(milliseconds, calendar);
-
-    return new Date(getTimestampValue(millisWithCalendar).getTime());
+    return new Date(Timestamp.valueOf(localDateTime).getTime());
   }
 
   private void fillHolder() {
@@ -108,11 +104,36 @@ public class ArrowFlightJdbcDateVectorAccessor extends ArrowFlightJdbcAccessor {
 
   @Override
   public Timestamp getTimestamp(Calendar calendar) {
-    Date date = getDate(calendar);
-    if (date == null) {
+    final LocalDateTime localDateTime = getLocalDateTime(calendar);
+    if (localDateTime == null) {
       return null;
     }
-    return new Timestamp(date.getTime());
+
+    return Timestamp.valueOf(localDateTime);
+  }
+
+  private LocalDateTime getLocalDateTime(Calendar calendar) {
+    getter.get(getCurrentRow(), holder);
+    this.wasNull = holder.isSet == 0;
+    this.wasNullConsumer.setWasNull(this.wasNull);
+    if (this.wasNull) {
+      return null;
+    }
+
+    final LocalDateTime localDateTime =
+        DateUtility.getLocalDateTimeFromEpochMilli(this.timeUnit.toMillis(holder.value));
+    final ZoneId defaultTimeZone = Calendar.getInstance().getTimeZone().toZoneId();
+    final ZoneId sourceTimeZone;
+    if (calendar != null) {
+      sourceTimeZone = calendar.getTimeZone().toZoneId();
+    } else {
+      sourceTimeZone = defaultTimeZone;
+    }
+
+    return localDateTime
+        .atZone(sourceTimeZone)
+        .withZoneSameInstant(defaultTimeZone)
+        .toLocalDateTime();
   }
 
   @Override
