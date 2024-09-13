@@ -144,6 +144,7 @@ public class TestFlightSqlStreams {
     }
 
     @Override
+    @SuppressWarnings("EnumOrdinal")
     public void getStreamTypeInfo(
         FlightSql.CommandGetXdbcTypeInfo request,
         CallContext context,

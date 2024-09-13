@@ -18,6 +18,7 @@ package org.apache.arrow.driver.jdbc.utils;
 
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
@@ -196,6 +197,7 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
   }
 
   /** Custom {@link ConnectionProperty} for the {@link ArrowFlightConnectionConfigImpl}. */
+  @SuppressWarnings("Immutable")
   public enum ArrowFlightConnectionProperty implements ConnectionProperty {
     HOST("host", null, Type.STRING, true),
     PORT("port", null, Type.NUMBER, true),
@@ -241,7 +243,7 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
       Preconditions.checkNotNull(properties, "Properties cannot be null.");
       Object value = properties.get(camelName);
       if (value == null) {
-        value = properties.get(camelName.toLowerCase());
+        value = properties.get(camelName.toLowerCase(Locale.getDefault()));
       }
       if (required) {
         if (value == null) {

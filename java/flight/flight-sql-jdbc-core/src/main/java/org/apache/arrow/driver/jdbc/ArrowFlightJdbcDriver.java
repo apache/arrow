@@ -26,6 +26,7 @@ import java.io.Reader;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -277,7 +278,8 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
 
   static Properties lowerCasePropertyKeys(final Properties properties) {
     final Properties resultProperty = new Properties();
-    properties.forEach((k, v) -> resultProperty.put(k.toString().toLowerCase(), v));
+    properties.forEach(
+        (k, v) -> resultProperty.put(k.toString().toLowerCase(Locale.getDefault()), v));
     return resultProperty;
   }
 }

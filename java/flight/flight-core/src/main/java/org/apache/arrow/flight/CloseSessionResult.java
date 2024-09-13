@@ -41,6 +41,7 @@ public class CloseSessionResult {
       return values()[proto.getNumber()];
     }
 
+    @SuppressWarnings("EnumOrdinal")
     public Flight.CloseSessionResult.Status toProtocol() {
       return Flight.CloseSessionResult.Status.values()[ordinal()];
     }

@@ -89,7 +89,7 @@ public class SessionOptionValueFactory {
       if (this == o) {
         return true;
       }
-      if (o == null || getClass() != o.getClass()) {
+      if (!(o instanceof SessionOptionValueString)) {
         return false;
       }
       SessionOptionValueString that = (SessionOptionValueString) o;
@@ -124,7 +124,7 @@ public class SessionOptionValueFactory {
       if (this == o) {
         return true;
       }
-      if (o == null || getClass() != o.getClass()) {
+      if (!(o instanceof SessionOptionValueBoolean)) {
         return false;
       }
       SessionOptionValueBoolean that = (SessionOptionValueBoolean) o;
@@ -159,7 +159,7 @@ public class SessionOptionValueFactory {
       if (this == o) {
         return true;
       }
-      if (o == null || getClass() != o.getClass()) {
+      if (!(o instanceof SessionOptionValueLong)) {
         return false;
       }
       SessionOptionValueLong that = (SessionOptionValueLong) o;
@@ -194,7 +194,7 @@ public class SessionOptionValueFactory {
       if (this == o) {
         return true;
       }
-      if (o == null || getClass() != o.getClass()) {
+      if (!(o instanceof SessionOptionValueDouble)) {
         return false;
       }
       SessionOptionValueDouble that = (SessionOptionValueDouble) o;
@@ -229,7 +229,7 @@ public class SessionOptionValueFactory {
       if (this == o) {
         return true;
       }
-      if (o == null || getClass() != o.getClass()) {
+      if (!(o instanceof SessionOptionValueStringList)) {
         return false;
       }
       SessionOptionValueStringList that = (SessionOptionValueStringList) o;
@@ -266,7 +266,7 @@ public class SessionOptionValueFactory {
       if (this == o) {
         return true;
       }
-      if (o == null || getClass() != o.getClass()) {
+      if (!(o instanceof SessionOptionValueEmpty)) {
         return false;
       }
       return true;

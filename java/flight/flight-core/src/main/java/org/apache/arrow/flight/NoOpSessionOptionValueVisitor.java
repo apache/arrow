@@ -25,26 +25,31 @@ package org.apache.arrow.flight;
  */
 public class NoOpSessionOptionValueVisitor<T> implements SessionOptionValueVisitor<T> {
   /** A callback to handle SessionOptionValue containing a String. */
+  @Override
   public T visit(String value) {
     return null;
   }
 
   /** A callback to handle SessionOptionValue containing a boolean. */
+  @Override
   public T visit(boolean value) {
     return null;
   }
 
   /** A callback to handle SessionOptionValue containing a long. */
+  @Override
   public T visit(long value) {
     return null;
   }
 
   /** A callback to handle SessionOptionValue containing a double. */
+  @Override
   public T visit(double value) {
     return null;
   }
 
   /** A callback to handle SessionOptionValue containing an array of String. */
+  @Override
   public T visit(String[] value) {
     return null;
   }
@@ -55,6 +60,7 @@ public class NoOpSessionOptionValueVisitor<T> implements SessionOptionValueVisit
    * <p>By convention, an attempt to set a valueless SessionOptionValue should attempt to unset or
    * clear the named option value on the server.
    */
+  @Override
   public T visit(Void value) {
     return null;
   }

@@ -16,6 +16,7 @@
  */
 package org.apache.arrow.driver.jdbc.accessor.impl.complex;
 
+import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.DATA_VECTOR_NAME;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -27,6 +28,9 @@ import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.ArrowFlightJdbcNullVectorAccessor;
 import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -253,7 +257,8 @@ public class AbstractArrowFlightJdbcUnionVectorAccessorTest {
 
     @Override
     protected ValueVector getVectorByTypeId(byte typeId) {
-      return new NullVector();
+      return new NullVector(
+          new Field(DATA_VECTOR_NAME, FieldType.nullable(new ArrowType.Null()), null));
     }
   }
 }

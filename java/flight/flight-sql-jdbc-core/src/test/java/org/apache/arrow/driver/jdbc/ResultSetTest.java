@@ -156,8 +156,6 @@ public class ResultSetTest {
 
   /**
    * Tests whether the {@link ArrowFlightJdbcDriver} fails upon attempting to run an invalid query.
-   *
-   * @throws Exception If the connection fails to be established.
    */
   @Test
   public void testShouldThrowExceptionUponAttemptingToExecuteAnInvalidSelectQuery() {
@@ -336,6 +334,7 @@ public class ResultSetTest {
   }
 
   @Test
+  @SuppressWarnings("ThreadPriorityCheck")
   public void
       testShouldInterruptFlightStreamsIfQueryIsCancelledMidProcessingForTimeConsumingQueries()
           throws SQLException, InterruptedException {

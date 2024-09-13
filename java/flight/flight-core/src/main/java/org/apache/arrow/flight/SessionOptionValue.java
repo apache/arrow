@@ -38,7 +38,8 @@ public abstract class SessionOptionValue {
     return false;
   }
 
-  private class SessionOptionValueToProtocolVisitor implements SessionOptionValueVisitor<Void> {
+  private static class SessionOptionValueToProtocolVisitor
+      implements SessionOptionValueVisitor<Void> {
     final Flight.SessionOptionValue.Builder b;
 
     SessionOptionValueToProtocolVisitor(Flight.SessionOptionValue.Builder b) {

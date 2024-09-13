@@ -740,7 +740,6 @@ public class MessageSerializer {
         if (in.readFully(messageBuffer) != messageLength) {
           throw new IOException("Unexpected end of stream trying to read message.");
         }
-
         // see https://github.com/apache/arrow/issues/41717 for reason why we cast to
         // java.nio.Buffer
         ByteBuffer rewindBuffer = (ByteBuffer) ((java.nio.Buffer) messageBuffer).rewind();
