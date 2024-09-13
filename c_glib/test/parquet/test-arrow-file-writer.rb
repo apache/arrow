@@ -40,14 +40,17 @@ class TestParquetArrowFileWriter < Test::Unit::TestCase
 
     writer = Parquet::ArrowFileWriter.new(record_batch.schema, @file.path)
     writer.write_record_batch(record_batch)
+    writer.new_buffered_row_group
+    writer.write_record_batch(record_batch)
     writer.close
 
     reader = Parquet::ArrowFileReader.new(@file.path)
     begin
       reader.use_threads = true
       assert_equal([
-                     1,
-                     Arrow::Table.new(record_batch.schema, [record_batch]),
+                     2,
+                     Arrow::Table.new(record_batch.schema,
+                                      [record_batch, record_batch]),
                    ],
                    [
                      reader.n_row_groups,
