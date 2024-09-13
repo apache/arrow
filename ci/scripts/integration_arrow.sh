@@ -17,7 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -ex
+set -e
 
 arrow_dir=${1}
 build_dir=${2}
@@ -30,8 +30,13 @@ gold_dir=$arrow_dir/testing/data/arrow-ipc-stream/integration
 : ${ARROW_INTEGRATION_JAVA:=ON}
 : ${ARROW_INTEGRATION_JS:=ON}
 
-pip install -e $arrow_dir/dev/archery[integration]
+. ${arrow_dir}/ci/scripts/util_log.sh
 
+github_actions_group_begin "Integration: Prepare: Archery"
+pip install -e $arrow_dir/dev/archery[integration]
+github_actions_group_end
+
+github_actions_group_begin "Integration: Prepare: Dependencies"
 # For C Data Interface testing
 if [ "${ARROW_INTEGRATION_CSHARP}" == "ON" ]; then
     pip install pythonnet
@@ -39,6 +44,7 @@ fi
 if [ "${ARROW_INTEGRATION_JAVA}" == "ON" ]; then
     pip install jpype1
 fi
+github_actions_group_end
 
 export ARROW_BUILD_ROOT=${build_dir}
 

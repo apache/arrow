@@ -17,6 +17,7 @@
 
 from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor
+import contextlib
 from functools import partial
 import glob
 import gzip
@@ -39,6 +40,7 @@ from .tester_csharp import CSharpTester
 from .tester_nanoarrow import NanoarrowTester
 from .util import guid, printer
 from .util import SKIP_C_ARRAY, SKIP_C_SCHEMA, SKIP_FLIGHT, SKIP_IPC
+from ..utils.logger import group as group_raw
 from ..utils.source import ARROW_ROOT_DEFAULT
 from . import datagen
 
@@ -47,6 +49,12 @@ Failure = namedtuple('Failure',
                      ('test_case', 'producer', 'consumer', 'exc_info'))
 
 log = printer.print
+
+
+@contextlib.contextmanager
+def group(name):
+    with group_raw(name, log):
+        yield
 
 
 class Outcome:
@@ -91,20 +99,22 @@ class IntegrationRunner(object):
             self._compare_ipc_implementations(
                 producer, consumer, self._produce_consume,
                 self.json_files)
+
         if self.gold_dirs:
             for gold_dir, consumer in itertools.product(
                     self.gold_dirs,
                     filter(lambda t: t.CONSUMER, self.testers)):
-                log('\n')
-                log('******************************************************')
-                log('Tests against golden files in {}'.format(gold_dir))
-                log('******************************************************')
+                with group(f"Integration: Test: IPC: Gold: {consumer.name}"):
+                    log('\n')
+                    log('******************************************************')
+                    log('Tests against golden files in {}'.format(gold_dir))
+                    log('******************************************************')
 
-                def run_gold(_, consumer, test_case: datagen.File):
-                    return self._run_gold(gold_dir, consumer, test_case)
-                self._compare_ipc_implementations(
-                    consumer, consumer, run_gold,
-                    self._gold_tests(gold_dir))
+                    def run_gold(_, consumer, test_case: datagen.File):
+                        return self._run_gold(gold_dir, consumer, test_case)
+                    self._compare_ipc_implementations(
+                        consumer, consumer, run_gold,
+                        self._gold_tests(gold_dir))
         log('\n')
 
     def run_flight(self):
@@ -233,14 +243,15 @@ class IntegrationRunner(object):
         """
         Compare Arrow IPC for two implementations (one producer, one consumer).
         """
-        log('##########################################################')
-        log('IPC: {0} producing, {1} consuming'
-            .format(producer.name, consumer.name))
-        log('##########################################################')
+        with group(f"Integration: Test: IPC: {producer.name} -> {consumer.name}"):
+            log('##########################################################')
+            log('IPC: {0} producing, {1} consuming'
+                .format(producer.name, consumer.name))
+            log('##########################################################')
 
-        case_runner = partial(self._run_ipc_test_case,
-                              producer, consumer, run_binaries)
-        self._run_test_cases(case_runner, test_cases)
+            case_runner = partial(self._run_ipc_test_case,
+                                  producer, consumer, run_binaries)
+            self._run_test_cases(case_runner, test_cases)
 
     def _run_ipc_test_case(
         self,
@@ -357,14 +368,15 @@ class IntegrationRunner(object):
         producer: Tester,
         consumer: Tester
     ):
-        log('##########################################################')
-        log('Flight: {0} serving, {1} requesting'
-            .format(producer.name, consumer.name))
-        log('##########################################################')
+        with group(f"Integration: Test: Flight: {producer.name} -> {consumer.name}"):
+            log('##########################################################')
+            log('Flight: {0} serving, {1} requesting'
+                .format(producer.name, consumer.name))
+            log('##########################################################')
 
-        case_runner = partial(self._run_flight_test_case, producer, consumer)
-        self._run_test_cases(
-            case_runner, self.json_files + self.flight_scenarios)
+            case_runner = partial(self._run_flight_test_case, producer, consumer)
+            self._run_test_cases(
+                case_runner, self.json_files + self.flight_scenarios)
 
     def _run_flight_test_case(self,
                               producer: Tester,
@@ -415,26 +427,31 @@ class IntegrationRunner(object):
         producer: Tester,
         consumer: Tester
     ):
-        log('##########################################################')
-        log(f'C Data Interface: '
-            f'{producer.name} exporting, {consumer.name} importing')
-        log('##########################################################')
+        with group("Integration: Test: C Data Interface: "
+                   f"{producer.name} -> {consumer.name}"):
+            log('##########################################################')
+            log(f'C Data Interface: '
+                f'{producer.name} exporting, {consumer.name} importing')
+            log('##########################################################')
 
-        # Serial execution is required for proper memory accounting
-        serial = True
+            # Serial execution is required for proper memory accounting
+            serial = True
 
-        with producer.make_c_data_exporter() as exporter:
-            with consumer.make_c_data_importer() as importer:
-                case_runner = partial(self._run_c_schema_test_case,
-                                      producer, consumer,
-                                      exporter, importer)
-                self._run_test_cases(case_runner, self.json_files, serial=serial)
-
-                if producer.C_DATA_ARRAY_EXPORTER and consumer.C_DATA_ARRAY_IMPORTER:
-                    case_runner = partial(self._run_c_array_test_cases,
+            with producer.make_c_data_exporter() as exporter:
+                with consumer.make_c_data_importer() as importer:
+                    case_runner = partial(self._run_c_schema_test_case,
                                           producer, consumer,
                                           exporter, importer)
                     self._run_test_cases(case_runner, self.json_files, serial=serial)
+
+                    if producer.C_DATA_ARRAY_EXPORTER and \
+                       consumer.C_DATA_ARRAY_IMPORTER:
+                        case_runner = partial(self._run_c_array_test_cases,
+                                              producer, consumer,
+                                              exporter, importer)
+                        self._run_test_cases(case_runner,
+                                             self.json_files,
+                                             serial=serial)
 
     def _run_c_schema_test_case(self,
                                 producer: Tester, consumer: Tester,
@@ -657,22 +674,23 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
     if run_c_data:
         runner.run_c_data()
 
-    fail_count = 0
-    if runner.failures:
-        log("################# FAILURES #################")
-        for test_case, producer, consumer, exc_info in runner.failures:
-            fail_count += 1
-            log("FAILED TEST:", end=" ")
-            log(test_case.name, producer.name, "producing, ",
-                consumer.name, "consuming")
-            if exc_info:
-                exc_type, exc_value, exc_tb = exc_info
-                log(f'{exc_type}: {exc_value}')
-            log()
+    with group("Integration: Test: Result"):
+        fail_count = 0
+        if runner.failures:
+            log("################# FAILURES #################")
+            for test_case, producer, consumer, exc_info in runner.failures:
+                fail_count += 1
+                log("FAILED TEST:", end=" ")
+                log(test_case.name, producer.name, "producing, ",
+                    consumer.name, "consuming")
+                if exc_info:
+                    exc_type, exc_value, exc_tb = exc_info
+                    log(f'{exc_type}: {exc_value}')
+                log()
 
-    log(f"{fail_count} failures, {len(runner.skips)} skips")
-    if fail_count > 0:
-        sys.exit(1)
+        log(f"{fail_count} failures, {len(runner.skips)} skips")
+        if fail_count > 0:
+            sys.exit(1)
 
 
 def write_js_test_json(directory):
