@@ -1672,7 +1672,16 @@ cdef class ExtensionType(BaseExtensionType):
     >>> rational_array
     <pyarrow.lib.ExtensionArray object at ...>
     -- is_valid: all not null
-      ...
+    -- child 0 type: int32
+      [
+        10,
+        20
+      ]
+    -- child 1 type: int32
+      [
+        17,
+        13
+      ]
 
     Or do the same with creating an ExtensionArray:
 
@@ -1680,7 +1689,16 @@ cdef class ExtensionType(BaseExtensionType):
     >>> rational_array
     <pyarrow.lib.ExtensionArray object at ...>
     -- is_valid: all not null
-      ...
+    -- child 0 type: int32
+      [
+        10,
+        20
+      ]
+    -- child 1 type: int32
+      [
+        17,
+        13
+      ]
 
     Unregister the extension type:
 
@@ -4328,8 +4346,12 @@ def float16():
       15872,
       32256
     ]
-    >>> a.to_pylist()
-    [np.float16(1.5), np.float16(nan)]
+
+    Note that unlike other float types, if you convert this array
+    to a python list, the types of its elements will be ``np.float16``
+
+    >>> [type(val) for val in a.to_pylist()]
+    [<class 'numpy.float16'>, <class 'numpy.float16'>]
     """
     return primitive_type(_Type_HALF_FLOAT)
 
