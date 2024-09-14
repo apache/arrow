@@ -1544,7 +1544,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
       final ArrowBuf dataBuf = ((BaseVariableWidthViewVector) from).dataBuffers.get(bufIndex);
       final ArrowBuf thisDataBuf = allocateOrGetLastDataBuffer(viewLength);
 
-      from.getDataBuffer().getBytes(copyStart, viewBuffer, start, LENGTH_WIDTH + PREFIX_WIDTH);
+      viewBuffer.setBytes(start, from.getDataBuffer(), copyStart, LENGTH_WIDTH + PREFIX_WIDTH);
       int writePosition = start + LENGTH_WIDTH + PREFIX_WIDTH;
       // set buf id
       viewBuffer.setInt(writePosition, dataBuffers.size() - 1);
