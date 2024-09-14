@@ -149,11 +149,6 @@ namespace Apache.Arrow.C
 
             private ArrayData GetAsArrayData(CArrowArray* cArray, IArrowType type)
             {
-                return GetAsArrayData(cArray, type, checked((int)cArray->offset), checked((int)cArray->length));
-            }
-
-            private ArrayData GetAsArrayData(CArrowArray* cArray, IArrowType type, int offset, int length)
-            {
                 ArrayData[] children = null;
                 ArrowBuffer[] buffers = null;
                 ArrayData dictionary = null;
@@ -244,7 +239,7 @@ namespace Apache.Arrow.C
                 }
 
                 ArrayData[] children = new ArrayData[1];
-                children[0] = GetAsArrayData(cArray->children[0], type, checked((int)cArray->offset), checked((int)cArray->length));
+                children[0] = GetAsArrayData(cArray->children[0], type);
                 return children;
             }
 
