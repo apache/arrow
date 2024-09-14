@@ -15,11 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <immintrin.h>
-
 #include "arrow/compute/row/compare_internal.h"
 #include "arrow/compute/util.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/simd.h"
 
 namespace arrow {
 namespace compute {
