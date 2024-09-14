@@ -262,6 +262,15 @@ public class TestVarCharViewVector {
   }
 
   @Test
+  public void testSetSafe() {
+    try (final ViewVarCharVector viewVarCharVector = new ViewVarCharVector("myvector", allocator)) {
+      viewVarCharVector.allocateNew(1, 1);
+      viewVarCharVector.setNull(1);
+      viewVarCharVector.setSafe(2, STR0);
+    }
+  }
+
+  @Test
   public void testMixedAllocation() {
     try (final ViewVarCharVector viewVarCharVector = new ViewVarCharVector("myvector", allocator)) {
       viewVarCharVector.allocateNew(128, 6);
