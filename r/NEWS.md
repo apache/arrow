@@ -32,7 +32,7 @@
   functions (UDFs); for UDFs, see `register_scalar_function()`. (#41223)
 * `mutate()` expressions can now include aggregations, such as `x - mean(x)`. (#41350)
 * `summarize()` supports more complex expressions, and correctly handles cases
-  where column names are reused in expressions.
+  where column names are reused in expressions. (#41223)
 * The `na_matches` argument to the `dplyr::*_join()` functions is now supported.
   This argument controls whether `NA` values are considered equal when joining. (#41358)
 * R metadata, stored in the Arrow schema to support round-tripping data between

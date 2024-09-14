@@ -329,7 +329,7 @@ func fromListScalar(s ListScalar, v reflect.Value) error {
 		}
 	case *array.Map:
 		// only implementing slice of metadata for now
-		if v.Type().Elem() != reflect.PtrTo(reflect.TypeOf(arrow.Metadata{})) {
+		if v.Type().Elem() != reflect.PointerTo(reflect.TypeOf(arrow.Metadata{})) {
 			return fmt.Errorf("unimplemented fromListScalar type %s to %s", arr.DataType(), v.Type().String())
 		}
 

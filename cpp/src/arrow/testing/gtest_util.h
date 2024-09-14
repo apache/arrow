@@ -457,9 +457,9 @@ class ARROW_TESTING_EXPORT SignalHandlerGuard {
 };
 
 #ifndef ARROW_LARGE_MEMORY_TESTS
-#define LARGE_MEMORY_TEST(name) DISABLED_##name
+#  define LARGE_MEMORY_TEST(name) DISABLED_##name
 #else
-#define LARGE_MEMORY_TEST(name) name
+#  define LARGE_MEMORY_TEST(name) name
 #endif
 
 inline void PrintTo(const Status& st, std::ostream* os) { *os << st.ToString(); }

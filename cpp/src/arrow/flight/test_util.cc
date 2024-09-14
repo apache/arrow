@@ -17,11 +17,6 @@
 
 #include "arrow/flight/test_util.h"
 
-#ifdef __APPLE__
-#include <limits.h>
-#include <mach-o/dyld.h>
-#endif
-
 #include <algorithm>
 #include <cstdlib>
 #include <fstream>
@@ -31,18 +26,13 @@
 #include "arrow/util/windows_compatibility.h"
 
 #include <gtest/gtest.h>
-#include <boost/filesystem.hpp>
-#define BOOST_NO_CXX98_FUNCTION_BASE  // ARROW-17805
-// We need BOOST_USE_WINDOWS_H definition with MinGW when we use
-// boost/process.hpp. See BOOST_USE_WINDOWS_H=1 in
-// cpp/cmake_modules/ThirdpartyToolchain.cmake for details.
-#include <boost/process.hpp>
 
 #include "arrow/array.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/ipc/test_common.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/process.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/logging.h"
 
@@ -51,101 +41,27 @@
 
 namespace arrow::flight {
 
-namespace bp = boost::process;
-namespace fs = boost::filesystem;
-
-namespace {
-
-Status ResolveCurrentExecutable(fs::path* out) {
-  // See https://stackoverflow.com/a/1024937/10194 for various
-  // platform-specific recipes.
-
-  boost::system::error_code ec;
-
-#if defined(__linux__)
-  *out = fs::canonical("/proc/self/exe", ec);
-#elif defined(__APPLE__)
-  char buf[PATH_MAX + 1];
-  uint32_t bufsize = sizeof(buf);
-  if (_NSGetExecutablePath(buf, &bufsize) < 0) {
-    return Status::Invalid("Can't resolve current exe: path too large");
-  }
-  *out = fs::canonical(buf, ec);
-#elif defined(_WIN32)
-  char buf[MAX_PATH + 1];
-  if (!GetModuleFileNameA(NULL, buf, sizeof(buf))) {
-    return Status::Invalid("Can't get executable file path");
-  }
-  *out = fs::canonical(buf, ec);
-#else
-  ARROW_UNUSED(ec);
-  return Status::NotImplemented("Not available on this system");
-#endif
-  if (ec) {
-    // XXX fold this into the Status class?
-    return Status::IOError("Can't resolve current exe: ", ec.message());
+Status TestServer::Start(const std::vector<std::string>& extra_args) {
+  server_process_ = std::make_unique<util::Process>();
+  ARROW_RETURN_NOT_OK(server_process_->SetExecutable(executable_name_));
+  std::vector<std::string> args = {};
+  if (unix_sock_.empty()) {
+    args.push_back("-port");
+    args.push_back(std::to_string(port_));
   } else {
-    return Status::OK();
+    args.push_back("-server_unix");
+    args.push_back(unix_sock_);
   }
+  args.insert(args.end(), extra_args.begin(), extra_args.end());
+  server_process_->SetArgs(args);
+  ARROW_RETURN_NOT_OK(server_process_->Execute());
+  std::cout << "Server running with pid " << server_process_->pid() << std::endl;
+  return Status::OK();
 }
 
-}  // namespace
+void TestServer::Stop() { server_process_ = nullptr; }
 
-void TestServer::Start(const std::vector<std::string>& extra_args) {
-  namespace fs = boost::filesystem;
-
-  std::string str_port = std::to_string(port_);
-  std::vector<fs::path> search_path = ::boost::this_process::path();
-  // If possible, prepend current executable directory to search path,
-  // since it's likely that the test server executable is located in
-  // the same directory as the running unit test.
-  fs::path current_exe;
-  Status st = ResolveCurrentExecutable(&current_exe);
-  if (st.ok()) {
-    search_path.insert(search_path.begin(), current_exe.parent_path());
-  } else if (st.IsNotImplemented()) {
-    ARROW_CHECK(st.IsNotImplemented()) << st.ToString();
-  }
-
-  try {
-    if (unix_sock_.empty()) {
-      server_process_ =
-          std::make_shared<bp::child>(bp::search_path(executable_name_, search_path),
-                                      "-port", str_port, bp::args(extra_args));
-    } else {
-      server_process_ =
-          std::make_shared<bp::child>(bp::search_path(executable_name_, search_path),
-                                      "-server_unix", unix_sock_, bp::args(extra_args));
-    }
-  } catch (...) {
-    std::stringstream ss;
-    ss << "Failed to launch test server '" << executable_name_ << "', looked in ";
-    for (const auto& path : search_path) {
-      ss << path << " : ";
-    }
-    ARROW_LOG(FATAL) << ss.str();
-    throw;
-  }
-  std::cout << "Server running with pid " << server_process_->id() << std::endl;
-}
-
-int TestServer::Stop() {
-  if (server_process_ && server_process_->valid()) {
-#ifndef _WIN32
-    kill(server_process_->id(), SIGTERM);
-#else
-    // This would use SIGKILL on POSIX, which is more brutal than SIGTERM
-    server_process_->terminate();
-#endif
-    server_process_->wait();
-    return server_process_->exit_code();
-  } else {
-    // Presumably the server wasn't able to start
-    return -1;
-  }
-}
-
-bool TestServer::IsRunning() { return server_process_->running(); }
+bool TestServer::IsRunning() { return server_process_->IsRunning(); }
 
 int TestServer::port() const { return port_; }
 

@@ -21,9 +21,9 @@
 // This file is also used in the pre-compiled unit tests, which do include
 // llvm/engine/..
 #ifndef GANDIVA_UNIT_TEST
-#include "gandiva/exported_funcs.h"
+#  include "gandiva/exported_funcs.h"
 
-#include "gandiva/engine.h"
+#  include "gandiva/engine.h"
 
 namespace gandiva {
 

@@ -38,11 +38,11 @@
 # WARNING: setting this will affect the host machine.
 #
 # Linux host:
-#   $ sudo sysctl -w kernel.core_pattern=core.%e.%p
+#   $ sudo sysctl -w kernel.core_pattern=/tmp/core.%e.%p
 #
 # macOS host running Docker for Mac (won't persist between restarts):
 #   $ screen ~/Library/Containers/com.docker.docker/Data/vms/0/tty
-#   # echo "core.%e.%p" > /proc/sys/kernel/core_pattern
+#   # echo "/tmp/core.%e.%p" > /proc/sys/kernel/core_pattern
 #
 # The setup attempts to generate coredumps by default, but the correct paths
 # above must be set. In order to disable the coredump generation set
@@ -52,8 +52,6 @@
 # ULIMIT_CORE=0 docker-compose run --rm conda-cpp
 #
 # See more in cpp/build-support/run-test.sh::print_coredumps
-
-version: '3.5'
 
 x-common: &common
   GITHUB_ACTIONS:
@@ -126,6 +124,7 @@ x-hierarchy:
         - conda-python-hdfs
         - conda-python-java-integration
         - conda-python-jpype
+        - conda-python-no-numpy
         - conda-python-spark
         - conda-python-substrait
   - conda-verify-rc
@@ -150,6 +149,7 @@ x-hierarchy:
     - ubuntu-lint
     - ubuntu-python
     - ubuntu-python-sdist-test
+    - ubuntu-python-313-freethreading
     - ubuntu-r
     - ubuntu-r-only-r
   - ubuntu-cpp-bundled
@@ -1086,6 +1086,32 @@ services:
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_sdist_test.sh /arrow"
 
+  ############################ Python free-threading ##########################
+
+  ubuntu-python-313-freethreading:
+    # Usage:
+    #   docker-compose build ubuntu-cpp
+    #   docker-compose build ubuntu-python-313-freethreading
+    #   docker-compose run --rm ubuntu-python-313-freethreading
+    # Parameters:
+    #   ARCH: amd64, arm64v8, ...
+    #   UBUNTU: 20.04, 22.04, 24.04
+    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-313-freethreading
+    build:
+      context: .
+      dockerfile: ci/docker/linux-apt-python-313-freethreading.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-313-freethreading
+      args:
+        base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
+    shm_size: *shm-size
+    environment:
+      <<: [*common, *ccache]
+      # Bundled build of OpenTelemetry needs a git client
+      ARROW_WITH_OPENTELEMETRY: "OFF"
+    volumes: *ubuntu-volumes
+    command: *python-command
+
   ############################ Python wheels ##################################
 
   # See available versions at:
@@ -1145,6 +1171,7 @@ services:
       <<: *common
       CHECK_IMPORTS: "ON"
       CHECK_UNITTESTS: "OFF"
+      CHECK_WHEEL_CONTENT: "ON"
     command: /arrow/ci/scripts/python_wheel_unix_test.sh /arrow
 
   python-wheel-manylinux-test-unittests:
@@ -1165,6 +1192,7 @@ services:
       <<: *common
       CHECK_IMPORTS: "OFF"
       CHECK_UNITTESTS: "ON"
+      CHECK_WHEEL_CONTENT: "OFF"
     command: /arrow/ci/scripts/python_wheel_unix_test.sh /arrow
 
   python-wheel-windows-vs2019:
@@ -1257,6 +1285,37 @@ services:
       PYARROW_TEST_HYPOTHESIS:  # inherit
     volumes: *conda-volumes
     command: *python-conda-command
+
+  conda-python-no-numpy:
+    # Usage:
+    #   docker-compose build conda
+    #   docker-compose build conda-cpp
+    #   docker-compose build conda-python
+    #   docker-compose build conda-python-no-numpy
+    #   docker-compose run --rm conda-python-no-numpy
+    image: ${REPO}:${ARCH}-conda-python-${PYTHON}-no-numpy
+    build:
+      context: .
+      dockerfile: ci/docker/conda-python.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-conda-python-${PYTHON}
+      args:
+        repo: ${REPO}
+        arch: ${ARCH}
+        python: ${PYTHON}
+    shm_size: *shm-size
+    environment:
+      <<: [*common, *ccache, *sccache]
+      PARQUET_REQUIRE_ENCRYPTION:  # inherit
+      HYPOTHESIS_PROFILE:  # inherit
+      PYARROW_TEST_HYPOTHESIS:  # inherit
+    volumes: *conda-volumes
+    command:
+      ["
+        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/python_build.sh /arrow /build &&
+        mamba uninstall -y numpy &&
+        /arrow/ci/scripts/python_test.sh /arrow"]
 
   conda-python-docs:
     # Usage:

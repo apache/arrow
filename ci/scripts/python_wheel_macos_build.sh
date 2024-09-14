@@ -34,7 +34,7 @@ rm -rf ${source_dir}/python/pyarrow/*.so.*
 
 echo "=== (${PYTHON_VERSION}) Set SDK, C++ and Wheel flags ==="
 export _PYTHON_HOST_PLATFORM="macosx-${MACOSX_DEPLOYMENT_TARGET}-${arch}"
-export MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-10.15}
+export MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-12.0}
 export SDKROOT=${SDKROOT:-$(xcrun --sdk macosx --show-sdk-path)}
 
 if [ $arch = "arm64" ]; then
@@ -150,7 +150,6 @@ echo "=== (${PYTHON_VERSION}) Building wheel ==="
 export PYARROW_BUILD_TYPE=${CMAKE_BUILD_TYPE}
 export PYARROW_BUNDLE_ARROW_CPP=1
 export PYARROW_CMAKE_GENERATOR=${CMAKE_GENERATOR}
-export PYARROW_INSTALL_TESTS=1
 export PYARROW_WITH_ACERO=${ARROW_ACERO}
 export PYARROW_WITH_AZURE=${ARROW_AZURE}
 export PYARROW_WITH_DATASET=${ARROW_DATASET}

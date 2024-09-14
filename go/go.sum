@@ -43,8 +43,8 @@ github.com/google/pprof v0.0.0-20221118152302-e6195bd50e26 h1:Xim43kblpZXfIBQsbu
 github.com/google/pprof v0.0.0-20221118152302-e6195bd50e26/go.mod h1:dDKJzRmX4S37WGHujM7tX//fmj1uioxKzKxz3lo4HJo=
 github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
 github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
-github.com/hamba/avro/v2 v2.24.1 h1:Xi+7AnhaAc41aA/jmmYpxMsdEDOf1rdup6NJ85P7q2I=
-github.com/hamba/avro/v2 v2.24.1/go.mod h1:7vDfy/2+kYCE8WUHoj2et59GTv0ap7ptktMXu0QHePI=
+github.com/hamba/avro/v2 v2.25.0 h1:9qig/K4VP5tMq6DuKGfI6YdXncTkPJT1IJDMSv82EeI=
+github.com/hamba/avro/v2 v2.25.0/go.mod h1:I8glyswHnpED3Nlx2ZdUe+4LJnCOOyiCzLMno9i/Uu0=
 github.com/hashicorp/golang-lru/v2 v2.0.7 h1:a+bsQ5rvGLjzHuww6tVxozPZFVghXaHOwFs4luLUK2k=
 github.com/hashicorp/golang-lru/v2 v2.0.7/go.mod h1:QeFd9opnmA6QUJc5vARoKUSoFhyfM2/ZepoAG6RGpeM=
 github.com/hexops/gotextdiff v1.0.3 h1:gitA9+qJrrTCsiCl7+kh75nPqQt1cx4ZkudSTLoUqJM=
@@ -99,8 +99,8 @@ github.com/stretchr/objx v0.5.2/go.mod h1:FRsXN1f5AsAjCGJKqEizvkpNtU+EGNCLh3NxZ/
 github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
 github.com/stretchr/testify v1.9.0 h1:HtqpIVDClZ4nwg75+f6Lvsy/wHu+3BoSGCbBAcpTsTg=
 github.com/stretchr/testify v1.9.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
-github.com/substrait-io/substrait-go v0.6.0 h1:n2G/SGmrn7U5Q39VA8WeM2UfVL5Y/6HX8WAP9uJLNk4=
-github.com/substrait-io/substrait-go v0.6.0/go.mod h1:cl8Wsc7aBPDfcHp9+OrUqGpjkgrYlhcDsH/lMP6KUZA=
+github.com/substrait-io/substrait-go v0.7.0 h1:53yi73t4wW383+RD1YuhXhbjhP1KzF9GCxPC7SsRlqc=
+github.com/substrait-io/substrait-go v0.7.0/go.mod h1:7mjSvIaxk94bOF+YZn/vBOpHK4DWTpBv7nC/btjXCmc=
 github.com/tidwall/gjson v1.14.2 h1:6BBkirS0rAHjumnjHF6qgy5d2YAJ1TLIaFE2lzfOLqo=
 github.com/tidwall/gjson v1.14.2/go.mod h1:/wbyibRr2FHMks5tjHJ5F8dMZh3AcwJEMf5vlfC0lxk=
 github.com/tidwall/match v1.1.1 h1:+Ho715JplO36QYgwN9PGYNhgZvoUSc9X2c80KVTi+GA=

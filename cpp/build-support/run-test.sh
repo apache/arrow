@@ -121,12 +121,15 @@ function print_coredumps() {
   # patterns must be set with prefix `core.{test-executable}*`:
   #
   # In case of macOS:
-  #   sudo sysctl -w kern.corefile=core.%N.%P
+  #   sudo sysctl -w kern.corefile=/tmp/core.%N.%P
   # On Linux:
-  #   sudo sysctl -w kernel.core_pattern=core.%e.%p
+  #   sudo sysctl -w kernel.core_pattern=/tmp/core.%e.%p
   #
   # and the ulimit must be increased:
   #   ulimit -c unlimited
+  #
+  # If the tests are run in a Docker container, the instructions are slightly
+  # different: see the 'Coredumps' comment section in `docker-compose.yml`.
 
   # filename is truncated to the first 15 characters in case of linux, so limit
   # the pattern for the first 15 characters
@@ -134,19 +137,21 @@ function print_coredumps() {
   FILENAME=$(echo ${FILENAME} | cut -c-15)
   PATTERN="^core\.${FILENAME}"
 
-  COREFILES=$(ls | grep $PATTERN)
+  COREFILES=$(ls /tmp | grep $PATTERN)
   if [ -n "$COREFILES" ]; then
-    echo "Found core dump, printing backtrace:"
-
     for COREFILE in $COREFILES; do
+      COREPATH="/tmp/${COREFILE}"
+      echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+      echo "Running '${TEST_EXECUTABLE}' produced core dump at '${COREPATH}', printing backtrace:"
       # Print backtrace
       if [ "$(uname)" == "Darwin" ]; then
-        lldb -c "${COREFILE}" --batch --one-line "thread backtrace all -e true"
+        lldb -c "${COREPATH}" --batch --one-line "thread backtrace all -e true"
       else
-        gdb -c "${COREFILE}" $TEST_EXECUTABLE -ex "thread apply all bt" -ex "set pagination 0" -batch
+        gdb -c "${COREPATH}" $TEST_EXECUTABLE -ex "thread apply all bt" -ex "set pagination 0" -batch
       fi
-      # Remove the coredump, regenerate it via running the test case directly
-      rm "${COREFILE}"
+      echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+      # Remove the coredump, it can be regenerated via running the test case directly
+      rm "${COREPATH}"
     done
   fi
 }

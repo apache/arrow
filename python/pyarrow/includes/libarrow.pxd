@@ -983,6 +983,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         CResult[vector[shared_ptr[CChunkedArray]]] Flatten(CMemoryPool* pool)
 
+        c_bool is_cpu() const
+
         CStatus Validate() const
         CStatus ValidateFull() const
 
@@ -2863,6 +2865,16 @@ cdef extern from "arrow/extension_type.h" namespace "arrow":
         CExtensionArray(shared_ptr[CDataType], shared_ptr[CArray] storage)
 
         shared_ptr[CArray] storage()
+
+
+cdef extern from "arrow/extension/uuid.h" namespace "arrow::extension" nogil:
+    cdef cppclass CUuidType" arrow::extension::UuidType"(CExtensionType):
+
+        @staticmethod
+        CResult[shared_ptr[CDataType]] Make()
+
+    cdef cppclass CUuidArray" arrow::extension::UuidArray"(CExtensionArray):
+        pass
 
 
 cdef extern from "arrow/extension/fixed_shape_tensor.h" namespace "arrow::extension" nogil:

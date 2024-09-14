@@ -315,7 +315,7 @@ public class TestBaseAllocator {
 
   @Test
   public void testSegmentAllocator() {
-    RoundingPolicy policy = new SegmentRoundingPolicy(1024);
+    RoundingPolicy policy = new SegmentRoundingPolicy(1024L);
     try (RootAllocator allocator =
         new RootAllocator(AllocationListener.NOOP, 1024 * 1024, policy)) {
       ArrowBuf buf = allocator.buffer(798);
@@ -334,7 +334,7 @@ public class TestBaseAllocator {
 
   @Test
   public void testSegmentAllocator_childAllocator() {
-    RoundingPolicy policy = new SegmentRoundingPolicy(1024);
+    RoundingPolicy policy = new SegmentRoundingPolicy(1024L);
     try (RootAllocator allocator = new RootAllocator(AllocationListener.NOOP, 1024 * 1024, policy);
         BufferAllocator childAllocator = allocator.newChildAllocator("child", 0, 512 * 1024)) {
 
@@ -357,14 +357,14 @@ public class TestBaseAllocator {
   @Test
   public void testSegmentAllocator_smallSegment() {
     IllegalArgumentException e =
-        assertThrows(IllegalArgumentException.class, () -> new SegmentRoundingPolicy(128));
+        assertThrows(IllegalArgumentException.class, () -> new SegmentRoundingPolicy(128L));
     assertEquals("The segment size cannot be smaller than 1024", e.getMessage());
   }
 
   @Test
   public void testSegmentAllocator_segmentSizeNotPowerOf2() {
     IllegalArgumentException e =
-        assertThrows(IllegalArgumentException.class, () -> new SegmentRoundingPolicy(4097));
+        assertThrows(IllegalArgumentException.class, () -> new SegmentRoundingPolicy(4097L));
     assertEquals("The segment size must be a power of 2", e.getMessage());
   }
 
@@ -957,7 +957,7 @@ public class TestBaseAllocator {
       try (final BufferAllocator childAllocator1 =
           rootAllocator.newChildAllocator("unclaimedReservation", 0, MAX_ALLOCATION)) {
         try (final AllocationReservation reservation = childAllocator1.newReservation()) {
-          assertTrue(reservation.add(64));
+          assertTrue(reservation.add(64L));
         }
         rootAllocator.verify();
       }
@@ -972,8 +972,8 @@ public class TestBaseAllocator {
           rootAllocator.newChildAllocator("claimedReservation", 0, MAX_ALLOCATION)) {
 
         try (final AllocationReservation reservation = childAllocator1.newReservation()) {
-          assertTrue(reservation.add(32));
-          assertTrue(reservation.add(32));
+          assertTrue(reservation.add(32L));
+          assertTrue(reservation.add(32L));
 
           final ArrowBuf arrowBuf = reservation.allocateBuffer();
           assertEquals(64, arrowBuf.capacity());

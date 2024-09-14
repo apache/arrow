@@ -16,8 +16,8 @@
 # under the License.
 
 ARG arch=amd64
-ARG go=1.21
-ARG staticcheck=v0.4.7
+ARG go=1.22
+ARG staticcheck=v0.5.1
 FROM ${arch}/golang:${go}-bookworm
 
 # FROM collects all the args, get back the staticcheck version arg

@@ -232,7 +232,7 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
   private List<ArrowBuf> visitVariableWidthView(ArrowType type) {
     final int viewBufferIndex = 1;
     final int variadicSizeBufferIndex = this.buffers.length - 1;
-    final long numOfVariadicBuffers = this.buffers.length - 3;
+    final long numOfVariadicBuffers = this.buffers.length - 3L;
     final long variadicSizeBufferCapacity = numOfVariadicBuffers * Long.BYTES;
     List<ArrowBuf> buffers = new ArrayList<>();
 

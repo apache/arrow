@@ -37,6 +37,7 @@ namespace arrow {
 
 using internal::ChunkLocation;
 using internal::ChunkResolver;
+using internal::TypedChunkLocation;
 
 class TestChunkedArray : public ::testing::Test {
  protected:
@@ -61,12 +62,17 @@ TEST_F(TestChunkedArray, Make) {
                        ChunkedArray::Make({}, int64()));
   AssertTypeEqual(*int64(), *result->type());
   ASSERT_EQ(result->num_chunks(), 0);
+  // Empty chunked arrays are treated as CPU-allocated.
+  ASSERT_TRUE(result->is_cpu());
 
   auto chunk0 = ArrayFromJSON(int8(), "[0, 1, 2]");
   auto chunk1 = ArrayFromJSON(int16(), "[3, 4, 5]");
 
   ASSERT_OK_AND_ASSIGN(result, ChunkedArray::Make({chunk0, chunk0}));
   ASSERT_OK_AND_ASSIGN(auto result2, ChunkedArray::Make({chunk0, chunk0}, int8()));
+  // All chunks are CPU-accessible.
+  ASSERT_TRUE(result->is_cpu());
+  ASSERT_TRUE(result2->is_cpu());
   AssertChunkedEqual(*result, *result2);
 
   ASSERT_RAISES(TypeError, ChunkedArray::Make({chunk0, chunk1}));
@@ -375,24 +381,26 @@ class TestChunkResolverMany : public ::testing::Test {
   Result<std::vector<ChunkLocation>> ResolveMany(
       const ChunkResolver& resolver, const std::vector<IndexType>& logical_index_vec) {
     const size_t n = logical_index_vec.size();
-    std::vector<IndexType> chunk_index_vec;
-    chunk_index_vec.resize(n);
-    std::vector<IndexType> index_in_chunk_vec;
-    index_in_chunk_vec.resize(n);
+    std::vector<TypedChunkLocation<IndexType>> chunk_location_vec;
+    chunk_location_vec.resize(n);
     bool valid = resolver.ResolveMany<IndexType>(
-        static_cast<int64_t>(n), logical_index_vec.data(), chunk_index_vec.data(), 0,
-        index_in_chunk_vec.data());
+        static_cast<int64_t>(n), logical_index_vec.data(), chunk_location_vec.data(), 0);
     if (ARROW_PREDICT_FALSE(!valid)) {
       return Status::Invalid("index type doesn't fit possible chunk indexes");
     }
-    std::vector<ChunkLocation> locations;
-    locations.reserve(n);
-    for (size_t i = 0; i < n; i++) {
-      auto chunk_index = static_cast<int64_t>(chunk_index_vec[i]);
-      auto index_in_chunk = static_cast<int64_t>(index_in_chunk_vec[i]);
-      locations.emplace_back(chunk_index, index_in_chunk);
+    if constexpr (std::is_same<decltype(ChunkLocation::chunk_index), IndexType>::value) {
+      return chunk_location_vec;
+    } else {
+      std::vector<ChunkLocation> locations;
+      locations.reserve(n);
+      for (size_t i = 0; i < n; i++) {
+        auto loc = chunk_location_vec[i];
+        auto chunk_index = static_cast<int64_t>(loc.chunk_index);
+        auto index_in_chunk = static_cast<int64_t>(loc.index_in_chunk);
+        locations.emplace_back(chunk_index, index_in_chunk);
+      }
+      return locations;
     }
-    return locations;
   }
 
   void CheckResolveMany(const ChunkResolver& resolver,

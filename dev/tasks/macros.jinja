@@ -169,13 +169,29 @@ env:
   - name: Upload package to Gemfury
     shell: bash
     run: |
-      fury push \
-        --api-token=${CROSSBOW_GEMFURY_TOKEN} \
-        --as=${CROSSBOW_GEMFURY_ORG} \
-        {{ pattern }}
+      if $(fury versions --as=${CROSSBOW_GEMFURY_ORG} --api-token=${CROSSBOW_GEMFURY_TOKEN} pyarrow | grep --fixed-strings -q "{{ arrow.no_rc_version }}"); then
+        echo "Version {{ arrow.no_rc_version }} already exists. Avoid pushing version."
+      else
+        fury push \
+          --api-token=${CROSSBOW_GEMFURY_TOKEN} \
+          --as=${CROSSBOW_GEMFURY_ORG} \
+          {{ pattern }}
+      fi
     env:
       CROSSBOW_GEMFURY_TOKEN: {{ '${{ secrets.CROSSBOW_GEMFURY_TOKEN }}' }}
       CROSSBOW_GEMFURY_ORG: {{ '${{ secrets.CROSSBOW_GEMFURY_ORG }}' }}
+  {% endif %}
+{% endmacro %}
+
+{%- macro github_upload_wheel_scientific_python(pattern) -%}
+  {%- if arrow.is_default_branch() -%}
+  - name: Upload wheel to Anaconda scientific-python
+    shell: bash
+    run: |
+      python3 -m pip install git+https://github.com/Anaconda-Platform/anaconda-client.git@1.12.3
+      anaconda -t ${CROSSBOW_SCIENTIFIC_PYTHON_UPLOAD_TOKEN} upload --force -u scientific-python-nightly-wheels --label main {{ pattern }}
+    env:
+      CROSSBOW_SCIENTIFIC_PYTHON_UPLOAD_TOKEN: {{ '${{ secrets.CROSSBOW_SCIENTIFIC_PYTHON_UPLOAD_TOKEN }}' }}
   {% endif %}
 {% endmacro %}
 

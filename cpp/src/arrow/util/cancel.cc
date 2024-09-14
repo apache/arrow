@@ -33,7 +33,7 @@
 namespace arrow {
 
 #if ATOMIC_INT_LOCK_FREE != 2
-#error Lock-free atomic int required for signal safety
+#  error Lock-free atomic int required for signal safety
 #endif
 
 using internal::AtForkHandler;

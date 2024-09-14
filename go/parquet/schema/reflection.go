@@ -639,7 +639,7 @@ func typeFromNode(n Node) reflect.Type {
 		}
 
 		if n.RepetitionType() == parquet.Repetitions.Optional {
-			typ = reflect.PtrTo(typ)
+			typ = reflect.PointerTo(typ)
 		} else if n.RepetitionType() == parquet.Repetitions.Repeated {
 			typ = reflect.SliceOf(typ)
 		}
@@ -707,7 +707,7 @@ func typeFromNode(n Node) reflect.Type {
 				elemType = reflect.SliceOf(elemType)
 			}
 			if gnode.RepetitionType() == parquet.Repetitions.Optional {
-				elemType = reflect.PtrTo(elemType)
+				elemType = reflect.PointerTo(elemType)
 			}
 			return elemType
 		case ConvertedTypes.Map, ConvertedTypes.MapKeyValue:
@@ -778,7 +778,7 @@ func typeFromNode(n Node) reflect.Type {
 
 			mapType := reflect.MapOf(keyType, valType)
 			if gnode.RepetitionType() == parquet.Repetitions.Optional {
-				mapType = reflect.PtrTo(mapType)
+				mapType = reflect.PointerTo(mapType)
 			}
 			return mapType
 		default:
@@ -796,7 +796,7 @@ func typeFromNode(n Node) reflect.Type {
 				return reflect.SliceOf(structType)
 			}
 			if gnode.RepetitionType() == parquet.Repetitions.Optional {
-				return reflect.PtrTo(structType)
+				return reflect.PointerTo(structType)
 			}
 			return structType
 		}

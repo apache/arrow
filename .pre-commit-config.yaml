@@ -78,6 +78,26 @@ repos:
           ?^cpp/src/generated/|
           ?^cpp/thirdparty/|
           )
+  - repo: https://github.com/cpplint/cpplint
+    rev: 1.6.1
+    hooks:
+      - id: cpplint
+        name: C++ Lint
+        args:
+          - "--verbose=2"
+        types_or:
+          - c++
+        files: >-
+          ^cpp/
+        exclude: >-
+          (
+          ?\.grpc\.fb\.(cc|h)$|
+          ?\.pb\.(cc|h)$|
+          ?_generated.*\.(cc|h)$|
+          ?^cpp/src/arrow/vendored/|
+          ?^cpp/src/generated/|
+          ?^cpp/thirdparty/|
+          )
   - repo: https://github.com/pre-commit/mirrors-clang-format
     rev: v14.0.6
     hooks:

@@ -202,7 +202,7 @@ class PyValue {
       return true;
     } else if (obj == Py_False) {
       return false;
-    } else if (PyArray_IsScalar(obj, Bool)) {
+    } else if (has_numpy() && PyArray_IsScalar(obj, Bool)) {
       return reinterpret_cast<PyBoolScalarObject*>(obj)->obval == NPY_TRUE;
     } else {
       return internal::InvalidValue(obj, "tried to convert to boolean");
@@ -385,7 +385,7 @@ class PyValue {
         default:
           return Status::UnknownError("Invalid time unit");
       }
-    } else if (PyArray_CheckAnyScalarExact(obj)) {
+    } else if (has_numpy() && PyArray_CheckAnyScalarExact(obj)) {
       // validate that the numpy scalar has np.datetime64 dtype
       ARROW_ASSIGN_OR_RAISE(auto numpy_type, NumPyScalarToArrowDataType(obj));
       if (!numpy_type->Equals(*type)) {
@@ -464,7 +464,7 @@ class PyValue {
         default:
           return Status::UnknownError("Invalid time unit");
       }
-    } else if (PyArray_CheckAnyScalarExact(obj)) {
+    } else if (has_numpy() && PyArray_CheckAnyScalarExact(obj)) {
       // validate that the numpy scalar has np.datetime64 dtype
       ARROW_ASSIGN_OR_RAISE(auto numpy_type, NumPyScalarToArrowDataType(obj));
       if (!numpy_type->Equals(*type)) {
@@ -664,7 +664,7 @@ class PyPrimitiveConverter<
       ARROW_ASSIGN_OR_RAISE(
           auto converted, PyValue::Convert(this->primitive_type_, this->options_, value));
       // Numpy NaT sentinels can be checked after the conversion
-      if (PyArray_CheckAnyScalarExact(value) &&
+      if (has_numpy() && PyArray_CheckAnyScalarExact(value) &&
           PyValue::IsNaT(this->primitive_type_, converted)) {
         this->primitive_builder_->UnsafeAppendNull();
       } else {
@@ -804,8 +804,7 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
     if (PyValue::IsNull(this->options_, value)) {
       return this->list_builder_->AppendNull();
     }
-
-    if (PyArray_Check(value)) {
+    if (has_numpy() && PyArray_Check(value)) {
       RETURN_NOT_OK(AppendNdarray(value));
     } else if (PySequence_Check(value)) {
       RETURN_NOT_OK(AppendSequence(value));

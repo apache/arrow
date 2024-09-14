@@ -1845,7 +1845,7 @@ def generate_nested_dictionary_case():
 def generate_extension_case():
     dict0 = Dictionary(0, StringField('dictionary0'), size=5, name='DICT0')
 
-    uuid_type = ExtensionType('uuid', 'uuid-serialized',
+    uuid_type = ExtensionType('arrow.uuid', '',
                               FixedSizeBinaryField('', 16))
     dict_ext_type = ExtensionType(
         'dict-extension', 'dict-extension-serialized',

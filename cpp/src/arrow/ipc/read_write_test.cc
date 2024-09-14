@@ -1081,9 +1081,9 @@ TEST_F(RecursionLimits, ReadLimit) {
 // Test fails with a structured exception on Windows + Debug
 #if !defined(_WIN32) || defined(NDEBUG)
 TEST_F(RecursionLimits, StressLimit) {
-#ifdef __EMSCRIPTEN__
+#  ifdef __EMSCRIPTEN__
   GTEST_SKIP() << "This crashes the Emscripten runtime.";
-#endif
+#  endif
 
   auto CheckDepth = [this](int recursion_depth, bool* it_works) {
     int32_t metadata_length = -1;
@@ -1112,10 +1112,10 @@ TEST_F(RecursionLimits, StressLimit) {
   ASSERT_TRUE(it_works);
 
 // Mitigate Valgrind's slowness
-#if !defined(ARROW_VALGRIND)
+#  if !defined(ARROW_VALGRIND)
   CheckDepth(500, &it_works);
   ASSERT_TRUE(it_works);
-#endif
+#  endif
 }
 #endif  // !defined(_WIN32) || defined(NDEBUG)
 

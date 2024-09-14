@@ -233,7 +233,7 @@ func (f *Reader) parseMetaData() error {
 func (f *Reader) handleAadPrefix(fileDecrypt *parquet.FileDecryptionProperties, algo *parquet.Algorithm) (string, error) {
 	aadPrefixInProps := fileDecrypt.AadPrefix()
 	aadPrefix := []byte(aadPrefixInProps)
-	fileHasAadPrefix := algo.Aad.AadPrefix != nil && len(algo.Aad.AadPrefix) > 0
+	fileHasAadPrefix := len(algo.Aad.AadPrefix) > 0
 	aadPrefixInFile := algo.Aad.AadPrefix
 
 	if algo.Aad.SupplyAadPrefix && aadPrefixInProps == "" {

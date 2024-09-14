@@ -120,14 +120,17 @@ cdef api object pyarrow_wrap_data_type(
     elif type.get().id() == _Type_EXTENSION:
         ext_type = <const CExtensionType*> type.get()
         cpy_ext_type = dynamic_cast[_CPyExtensionTypePtr](ext_type)
+        extension_name = ext_type.extension_name()
         if cpy_ext_type != nullptr:
             return cpy_ext_type.GetInstance()
-        elif ext_type.extension_name() == b"arrow.fixed_shape_tensor":
-            out = FixedShapeTensorType.__new__(FixedShapeTensorType)
-        elif ext_type.extension_name() == b"arrow.opaque":
-            out = OpaqueType.__new__(OpaqueType)
-        elif ext_type.extension_name() == b"arrow.bool8":
+        elif extension_name == b"arrow.bool8":
             out = Bool8Type.__new__(Bool8Type)
+        elif extension_name == b"arrow.fixed_shape_tensor":
+            out = FixedShapeTensorType.__new__(FixedShapeTensorType)
+        elif extension_name == b"arrow.opaque":
+            out = OpaqueType.__new__(OpaqueType)
+        elif extension_name == b"arrow.uuid":
+            out = UuidType.__new__(UuidType)
         else:
             out = BaseExtensionType.__new__(BaseExtensionType)
     else:

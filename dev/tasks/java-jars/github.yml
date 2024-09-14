@@ -30,7 +30,6 @@ jobs:
       ARCH: {{ '${{ matrix.platform.archery_arch }}' }}
       ARCH_ALIAS: {{ '${{ matrix.platform.archery_arch_alias }}' }}
       ARCH_SHORT: {{ '${{ matrix.platform.archery_arch_short }}' }}
-      ARCHERY_USE_LEGACY_DOCKER_COMPOSE: {{ "${{matrix.platform.archery_use_legacy_docker_compose || '0'}}" }}
     strategy:
       fail-fast: false
       matrix:
@@ -45,7 +44,6 @@ jobs:
             archery_arch: "arm64v8"
             archery_arch_alias: "aarch64"
             archery_arch_short: "arm64"
-            archery_use_legacy_docker_compose: "1"
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_free_space()|indent }}
@@ -61,7 +59,7 @@ jobs:
       - name: Compress into single artifact to keep directory structure
         run: tar -cvzf arrow-shared-libs-linux-{{ arch }}.tar.gz arrow/java-dist/
       - name: Upload artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: ubuntu-shared-lib-{{ arch }}
           path: arrow-shared-libs-linux-{{ arch }}.tar.gz
@@ -154,7 +152,7 @@ jobs:
       - name: Compress into single artifact to keep directory structure
         run: tar -cvzf arrow-shared-libs-macos-{{ arch }}.tar.gz arrow/java-dist/
       - name: Upload artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: macos-shared-lib-{{ arch }}
           path: arrow-shared-libs-macos-{{ arch }}.tar.gz
@@ -188,7 +186,7 @@ jobs:
         shell: bash
         run: tar -cvzf arrow-shared-libs-windows.tar.gz arrow/java-dist/
       - name: Upload artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: windows-shared-lib
           path: arrow-shared-libs-windows.tar.gz
@@ -203,7 +201,7 @@ jobs:
     steps:
       {{ macros.github_checkout_arrow(fetch_depth=0)|indent }}
       - name: Download Libraries
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           path: artifacts
       - name: Decompress artifacts

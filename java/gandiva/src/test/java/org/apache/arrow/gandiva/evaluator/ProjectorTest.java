@@ -62,6 +62,7 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
+@Disabled("Disabled until GH-43981 is solved")
 public class ProjectorTest extends BaseEvaluatorTest {
 
   private Charset utf8Charset = Charset.forName("UTF-8");
