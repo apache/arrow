@@ -126,6 +126,7 @@ under the License.
       is addressed
     -->
     <version.maven-jar-plugin>3.2.2</version.maven-jar-plugin>
+    <commons.lang3.version>3.12.0</commons.lang3.version>
   </properties>
 
   <dependencyManagement>
@@ -231,6 +232,11 @@ under the License.
         <groupId>ch.qos.logback</groupId>
         <artifactId>logback-core</artifactId>
         <version>${logback.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.commons</groupId>
+        <artifactId>commons-lang3</artifactId>
+        <version>${commons.lang3.version}</version>
       </dependency>
     </dependencies>
   </dependencyManagement>

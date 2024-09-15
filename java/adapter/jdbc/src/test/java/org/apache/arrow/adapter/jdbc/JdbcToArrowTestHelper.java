@@ -58,6 +58,7 @@ import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.JsonStringHashMap;
 import org.apache.arrow.vector.util.ObjectMapperFactory;
 import org.apache.arrow.vector.util.Text;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * This is a Helper class which has functionalities to read and assert the values from the given
@@ -447,16 +448,15 @@ public class JdbcToArrowTestHelper {
     return valueArr;
   }
 
-  @SuppressWarnings("StringSplitter")
   public static String[] getValues(String[] values, String dataType) {
     String value = "";
     for (String val : values) {
       if (val.startsWith(dataType)) {
-        value = val.split("=")[1];
+        value = StringUtils.split(val, "=")[1];
         break;
       }
     }
-    return value.split(",");
+    return StringUtils.split(value, ",");
   }
 
   public static Integer[][] getListValues(String[] values, String dataType) {
@@ -464,7 +464,6 @@ public class JdbcToArrowTestHelper {
     return getListValues(dataArr);
   }
 
-  @SuppressWarnings("StringSplitter")
   public static Integer[][] getListValues(String[] dataArr) {
     Integer[][] valueArr = new Integer[dataArr.length][];
     int i = 0;
@@ -474,7 +473,7 @@ public class JdbcToArrowTestHelper {
       } else if ("()".equals(data.trim())) {
         valueArr[i++] = new Integer[0];
       } else {
-        String[] row = data.replace("(", "").replace(")", "").split(";");
+        String[] row = StringUtils.split(data.replace("(", "").replace(")", ""), ";");
         Integer[] arr = new Integer[row.length];
         for (int j = 0; j < arr.length; j++) {
           arr[j] = "null".equals(row[j]) ? null : Integer.parseInt(row[j]);
