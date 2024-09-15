@@ -956,8 +956,8 @@ test_that("Summarize with 0 arguments", {
 })
 
 test_that("Printing aggregation expressions", {
-  q <- tbl |>
-    arrow_table() |>
+  q <- tbl %>%
+    arrow_table() %>%
     summarize(
       total = sum(int, na.rm = TRUE),
       prod = prod(int, na.rm = TRUE),
