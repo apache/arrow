@@ -6276,11 +6276,11 @@ def concat_recordbatches(recordbatches, MemoryPool memory_pool=None):
     Examples
     --------
     >>> import pyarrow as pa
-    >>> t1 = pa.recordbatch([
+    >>> t1 = pa.record_batch([
     ...     pa.array([2, 4, 5, 100]),
     ...     pa.array(["Flamingo", "Horse", "Brittle stars", "Centipede"])
     ...     ], names=['n_legs', 'animals'])
-    >>> t2 = pa.recordbatch([
+    >>> t2 = pa.record_batch([
     ...     pa.array([2, 4]),
     ...     pa.array(["Parrot", "Dog"])
     ...     ], names=['n_legs', 'animals'])
@@ -6289,8 +6289,8 @@ def concat_recordbatches(recordbatches, MemoryPool memory_pool=None):
     n_legs: int64
     animals: string
     ----
-    n_legs: [[2,4,5,100],[2,4]]
-    animals: [["Flamingo","Horse","Brittle stars","Centipede"],["Parrot","Dog"]]
+    n_legs: [2,4,5,100,2,4]
+    animals: ["Flamingo","Horse","Brittle stars","Centipede","Parrot","Dog"]
 
     """
     cdef:
