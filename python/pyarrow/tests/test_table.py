@@ -2037,7 +2037,7 @@ def test_table_negative_indexing():
         table[4]
 
 
-def test_concat_recordbatches():
+def test_concat_batches():
     data = [
         list(range(5)),
         [-10., -5., 0., 5., 10.]
@@ -2061,6 +2061,23 @@ def test_concat_recordbatches():
                                           names=('a', 'b'))
 
     assert result.equals(expected)
+
+
+def test_concat_batches_different_schema():
+    t1 = pa.RecordBatch.from_arrays(
+        [pa.array([1, 2], type=pa.int64())], ["f"])
+    t2 = pa.RecordBatch.from_arrays(
+        [pa.array([1, 2], type=pa.float32())], ["f"])
+
+    with pytest.raises(pa.ArrowInvalid,
+                       match="not match index 0 recordbatch schema"):
+        pa.concat_recordbatches([t1, t2])
+
+
+def test_concat_batches_none_batches():
+    # ARROW-11997
+    with pytest.raises(AttributeError):
+        pa.concat_recordbatches([None])
 
 
 @pytest.mark.parametrize(
