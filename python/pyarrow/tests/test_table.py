@@ -2037,6 +2037,32 @@ def test_table_negative_indexing():
         table[4]
 
 
+def test_concat_recordbatches():
+    data = [
+        list(range(5)),
+        [-10., -5., 0., 5., 10.]
+    ]
+    data2 = [
+        list(range(5, 10)),
+        [1., 2., 3., 4., 5.]
+    ]
+
+    t1 = pa.RecordBatch.from_arrays([pa.array(x) for x in data],
+                                    names=('a', 'b'))
+    t2 = pa.RecordBatch.from_arrays([pa.array(x) for x in data2],
+                                    names=('a', 'b'))
+
+    result = pa.concat_recordbatches([t1, t2])
+    result.validate()
+    assert len(result) == 10
+
+    expected = pa.RecordBatch.from_arrays([pa.array(x + y)
+                                           for x, y in zip(data, data2)],
+                                          names=('a', 'b'))
+
+    assert result.equals(expected)
+
+
 @pytest.mark.parametrize(
     ('cls'),
     [
