@@ -1285,20 +1285,20 @@ tasks:
       flags: "-e ARROW_S3=OFF -e ARROW_GANDIVA=OFF"
       image: debian-python
 
-  test-ubuntu-20.04-python-3:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      env:
-        UBUNTU: 20.04
-      image: ubuntu-python
-
   test-ubuntu-22.04-python-3:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
         UBUNTU: 22.04
+      image: ubuntu-python
+
+  test-ubuntu-24.04-python-3:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        UBUNTU: 24.04
       image: ubuntu-python
 
   test-fedora-39-python-3:
@@ -1518,12 +1518,16 @@ tasks:
     ci: github
     template: docker-tests/github.cuda.yml
     params:
+      env:
+        UBUNTU: 22.04
       image: ubuntu-cuda-cpp
 
   test-cuda-python:
     ci: github
     template: docker-tests/github.cuda.yml
     params:
+      env:
+        UBUNTU: 22.04
       image: ubuntu-cuda-python
 
   ############################## Fuzz tests #################################
