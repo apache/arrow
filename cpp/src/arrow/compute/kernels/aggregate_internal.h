@@ -54,7 +54,7 @@ struct FindAccumulatorType<I, enable_if_floating_point<I>> {
 
 template <typename I>
 struct FindAccumulatorType<I, enable_if_decimal32<I>> {
-  using Type = Decimal64Type;
+  using Type = Decimal32Type;
 };
 
 template <typename I>
@@ -142,13 +142,7 @@ struct GetSumType<T, enable_if_integer<T>> {
 };
 
 template <typename T>
-struct GetSumType<T, enable_if_decimal32<T>> {
-  using SumType = arrow::Decimal64;
-};
-
-template <typename T>
-struct GetSumType<
-    T, enable_if_t<is_decimal_type<T>::value && !is_decimal32_type<T>::value, void>> {
+struct GetSumType<T, enable_if_decimal<T>> {
   using SumType = typename TypeTraits<T>::CType;
 };
 
