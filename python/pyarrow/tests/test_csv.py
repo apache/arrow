@@ -1504,7 +1504,7 @@ class BaseCSVTableRead(BaseTestCSV):
         assert last_duration <= 2.0
         e = exc_info.__context__
         assert isinstance(e, pa.ArrowCancelled)
-        assert e.signum == signum
+        assert e.signum == signal.SIGINT
 
     @pytest.mark.threading
     def test_cancellation_disabled(self):
