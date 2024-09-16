@@ -309,10 +309,6 @@ class ProxyHandler(pyarrow.fs.FileSystemHandler):
         return self._fs.open_append_stream(path, metadata=metadata)
 
 
-def get_raise_signal():
-    return signal.raise_signal
-
-
 @contextlib.contextmanager
 def signal_wakeup_fd(*, warn_on_full_buffer=False):
     # Use a socket pair, rather a self-pipe, so that select() can be used
