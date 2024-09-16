@@ -1437,7 +1437,8 @@ cdef class Array(_PandasConvertible):
 
         Returns
         -------
-        sliced : RecordBatch
+        sliced : Array
+            An array with the same datatype, containing the sliced values.
         """
         cdef shared_ptr[CArray] result
 
