@@ -121,14 +121,7 @@ class ARROW_EXPORT Decimal32 : public BasicDecimal32 {
 
   /// \brief Convert to a signed integer
   template <typename T, typename = internal::EnableIfIsOneOf<T, int32_t, int64_t>>
-  Result<T> ToInteger() const {
-    constexpr auto min_value = std::numeric_limits<T>::min();
-    constexpr auto max_value = std::numeric_limits<T>::max();
-    const auto& self = *this;
-    if (self < min_value || self > max_value) {
-      return Status::Invalid("Invalid cast from Decimal32 value to ", sizeof(T),
-                             "byte integer");
-    }
+  Result<T> ToInteger() const {    
     return static_cast<T>(value_);
   }
 
@@ -240,14 +233,7 @@ class ARROW_EXPORT Decimal64 : public BasicDecimal64 {
 
   /// \brief Convert to a signed integer
   template <typename T, typename = internal::EnableIfIsOneOf<T, int32_t, int64_t>>
-  Result<T> ToInteger() const {
-    constexpr auto min_value = std::numeric_limits<T>::min();
-    constexpr auto max_value = std::numeric_limits<T>::max();
-    const auto& self = *this;
-    if (self < min_value || self > max_value) {
-      return Status::Invalid("Invalid cast from Decimal64 value to ", sizeof(T),
-                             "byte integer");
-    }
+  Result<T> ToInteger() const {    
     return static_cast<T>(value_);
   }
 

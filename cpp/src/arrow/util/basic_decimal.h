@@ -167,32 +167,34 @@ class ARROW_EXPORT GenericBasicDecimal {
   }
 };
 
-template <typename BaseType>
-class ARROW_EXPORT BasicDecimal {
+template <typename DigitType>
+class ARROW_EXPORT SmallBasicDecimal {
  public:
   static_assert(
-      std::is_same_v<BaseType, int32_t> || std::is_same_v<BaseType, int64_t>,
+      std::is_same_v<DigitType, int32_t> || std::is_same_v<DigitType, int64_t>,
       "for bitwidths larger than 64 bits use BasicDecimal128 and BasicDecimal256");
 
-  static constexpr int kMaxPrecision = std::numeric_limits<BaseType>::digits10;
+  static constexpr int kMaxPrecision = std::numeric_limits<DigitType>::digits10;
   static constexpr int kMaxScale = kMaxPrecision;
-  static constexpr int kBitWidth = sizeof(BaseType) * CHAR_BIT;
-  static constexpr int kByteWidth = sizeof(BaseType);
+  static constexpr int kBitWidth = sizeof(DigitType) * CHAR_BIT;
+  static constexpr int kByteWidth = sizeof(DigitType);
 
   /// \brief Empty constructor creates a decimal with a value of 0.
-  constexpr BasicDecimal() noexcept : value_(0) {}
+  constexpr SmallBasicDecimal() noexcept : value_(0) {}
 
   /// \brief Create a decimal from any integer not wider than 64 bits.
   template <typename T,
             typename = typename std::enable_if<
                 std::is_integral<T>::value && (sizeof(T) <= sizeof(int64_t)), T>::type>
-  constexpr BasicDecimal(T value) noexcept  // NOLINT(runtime/explicit)
-      : value_(static_cast<BaseType>(value)) {}
+  constexpr SmallBasicDecimal(T value) noexcept  // NOLINT(runtime/explicit)
+      : value_(static_cast<DigitType>(value)) {}
 
   /// \brief Create a decimal from an array of bytes.
   ///
   /// Bytes are assumed to be in native-endian byte order.
-  explicit BasicDecimal(const uint8_t* bytes) { memcpy(&value_, bytes, sizeof(value_)); }
+  explicit SmallBasicDecimal(const uint8_t* bytes) {
+    memcpy(&value_, bytes, sizeof(value_));
+  }
 
   const uint8_t* native_endian_bytes() const {
     return reinterpret_cast<const uint8_t*>(&value_);
@@ -217,15 +219,15 @@ class ARROW_EXPORT BasicDecimal {
 
   explicit operator bool() const { return value_ != 0; }
 
-  friend bool operator==(const BasicDecimal& left, const BasicDecimal& right) {
+  friend bool operator==(const SmallBasicDecimal& left, const SmallBasicDecimal& right) {
     return left.value_ == right.value_;
   }
 
-  friend bool operator!=(const BasicDecimal& left, const BasicDecimal& right) {
+  friend bool operator!=(const SmallBasicDecimal& left, const SmallBasicDecimal& right) {
     return left.value_ != right.value_;
   }
 
-  BaseType value() const { return value_; }
+  DigitType value() const { return value_; }
 
   /// \brief count the number of leading binary zeroes.
   int32_t CountLeadingBinaryZeros() const;
@@ -233,28 +235,66 @@ class ARROW_EXPORT BasicDecimal {
   constexpr uint64_t low_bits() const { return static_cast<uint64_t>(value_); }
 
  protected:
-  BaseType value_;
+  DigitType value_;
 };
 
+class BasicDecimal32;
 class BasicDecimal64;
 
-class ARROW_EXPORT BasicDecimal32 : public BasicDecimal<int32_t> {
+ARROW_EXPORT bool operator<(const BasicDecimal32& left, const BasicDecimal32& right);
+ARROW_EXPORT bool operator<=(const BasicDecimal32& left, const BasicDecimal32& right);
+ARROW_EXPORT bool operator>(const BasicDecimal32& left, const BasicDecimal32& right);
+ARROW_EXPORT bool operator>=(const BasicDecimal32& left, const BasicDecimal32& right);
+
+ARROW_EXPORT BasicDecimal32 operator-(const BasicDecimal32& self);
+ARROW_EXPORT BasicDecimal32 operator+(const BasicDecimal32& left,
+                                      const BasicDecimal32& right);
+ARROW_EXPORT BasicDecimal32 operator-(const BasicDecimal32& left,
+                                      const BasicDecimal32& right);
+ARROW_EXPORT BasicDecimal32 operator*(const BasicDecimal32& left,
+                                      const BasicDecimal32& right);
+ARROW_EXPORT BasicDecimal32 operator/(const BasicDecimal32& left,
+                                      const BasicDecimal32& right);
+ARROW_EXPORT BasicDecimal32 operator%(const BasicDecimal32& left,
+                                      const BasicDecimal32& right);
+
+class ARROW_EXPORT BasicDecimal32 : public SmallBasicDecimal<int32_t> {
  public:
-  using BasicDecimal<int32_t>::BasicDecimal;
+  using SmallBasicDecimal<int32_t>::SmallBasicDecimal;
   using ValueType = int32_t;
 
   /// \brief Negate the current value (in-place)
-  BasicDecimal32& Negate();
+  BasicDecimal32& Negate() {
+    value_ = -value_;
+    return *this;
+  }
+
   /// \brief Absolute value (in-place)
-  BasicDecimal32& Abs();
+  BasicDecimal32& Abs() { return *this < 0 ? Negate() : *this; }
+
   /// \brief Absolute value
-  static BasicDecimal32 Abs(const BasicDecimal32& left);
+  static BasicDecimal32 Abs(const BasicDecimal32& in) {
+    BasicDecimal32 result(in);
+    return result.Abs();
+  }
+
   /// \brief Add a number to this one. The result is truncated to 32 bits.
-  BasicDecimal32& operator+=(const BasicDecimal32& right);
+  BasicDecimal32& operator+=(const BasicDecimal32& right) {
+    value_ += right.value_;
+    return *this;
+  }
+
   /// \brief Subtract a number from this one. The result is truncated to 32 bits.
-  BasicDecimal32& operator-=(const BasicDecimal32& right);
+  BasicDecimal32& operator-=(const BasicDecimal32& right) {
+    value_ -= right.value_;
+    return *this;
+  }
+
   /// \brief Multiply this number by another. The result is truncated to 32 bits.
-  BasicDecimal32& operator*=(const BasicDecimal32& right);
+  BasicDecimal32& operator*=(const BasicDecimal32& right) {
+    value_ *= right.value_;
+    return *this;
+  }
 
   /// \brief Divide this number by the divisor and return the result.
   ///
@@ -271,11 +311,22 @@ class ARROW_EXPORT BasicDecimal32 : public BasicDecimal<int32_t> {
                        BasicDecimal32* remainder) const;
 
   /// \brief In-place division
-  BasicDecimal32& operator/=(const BasicDecimal32& right);
+  BasicDecimal32& operator/=(const BasicDecimal32& right) {
+    value_ /= right.value_;
+    return *this;
+  }
+
   /// \brief Bitwise "or" between two BasicDecimal32s
-  BasicDecimal32& operator|=(const BasicDecimal32& right);
+  BasicDecimal32& operator|=(const BasicDecimal32& right) {
+    value_ |= right.value_;
+    return *this;
+  }
+
   /// \brief Bitwise "and" between two BasicDecimal32s
-  BasicDecimal32& operator&=(const BasicDecimal32& right);
+  BasicDecimal32& operator&=(const BasicDecimal32& right) {
+    value_ &= right.value_;
+    return *this;
+  }
   /// \brief Shift left by the given number of bits.
   BasicDecimal32& operator<<=(uint32_t bits);
 
@@ -342,40 +393,62 @@ class ARROW_EXPORT BasicDecimal32 : public BasicDecimal<int32_t> {
   explicit operator BasicDecimal64() const;
 };
 
-ARROW_EXPORT bool operator<(const BasicDecimal32& left, const BasicDecimal32& right);
-ARROW_EXPORT bool operator<=(const BasicDecimal32& left, const BasicDecimal32& right);
-ARROW_EXPORT bool operator>(const BasicDecimal32& left, const BasicDecimal32& right);
-ARROW_EXPORT bool operator>=(const BasicDecimal32& left, const BasicDecimal32& right);
+ARROW_EXPORT bool operator<(const BasicDecimal64& left, const BasicDecimal64& right);
+ARROW_EXPORT bool operator<=(const BasicDecimal64& left, const BasicDecimal64& right);
+ARROW_EXPORT bool operator>(const BasicDecimal64& left, const BasicDecimal64& right);
+ARROW_EXPORT bool operator>=(const BasicDecimal64& left, const BasicDecimal64& right);
 
-ARROW_EXPORT BasicDecimal32 operator-(const BasicDecimal32& self);
-ARROW_EXPORT BasicDecimal32 operator+(const BasicDecimal32& left,
-                                      const BasicDecimal32& right);
-ARROW_EXPORT BasicDecimal32 operator-(const BasicDecimal32& left,
-                                      const BasicDecimal32& right);
-ARROW_EXPORT BasicDecimal32 operator*(const BasicDecimal32& left,
-                                      const BasicDecimal32& right);
-ARROW_EXPORT BasicDecimal32 operator/(const BasicDecimal32& left,
-                                      const BasicDecimal32& right);
-ARROW_EXPORT BasicDecimal32 operator%(const BasicDecimal32& left,
-                                      const BasicDecimal32& right);
+ARROW_EXPORT BasicDecimal64 operator-(const BasicDecimal64& self);
+ARROW_EXPORT BasicDecimal64 operator+(const BasicDecimal64& left,
+                                      const BasicDecimal64& right);
+ARROW_EXPORT BasicDecimal64 operator-(const BasicDecimal64& left,
+                                      const BasicDecimal64& right);
+ARROW_EXPORT BasicDecimal64 operator*(const BasicDecimal64& left,
+                                      const BasicDecimal64& right);
+ARROW_EXPORT BasicDecimal64 operator/(const BasicDecimal64& left,
+                                      const BasicDecimal64& right);
+ARROW_EXPORT BasicDecimal64 operator%(const BasicDecimal64& left,
+                                      const BasicDecimal64& right);
 
-class ARROW_EXPORT BasicDecimal64 : public BasicDecimal<int64_t> {
+class ARROW_EXPORT BasicDecimal64 : public SmallBasicDecimal<int64_t> {
  public:
-  using BasicDecimal<int64_t>::BasicDecimal;
+  using SmallBasicDecimal<int64_t>::SmallBasicDecimal;
   using ValueType = int64_t;
 
   /// \brief Negate the current value (in-place)
-  BasicDecimal64& Negate();
+  BasicDecimal64& Negate() {
+    value_ = -value_;
+    return *this;
+  }
+
   /// \brief Absolute value (in-place)
-  BasicDecimal64& Abs();
+  BasicDecimal64& Abs() {
+    return *this < 0 ? Negate() : *this;
+  }
+
   /// \brief Absolute value
-  static BasicDecimal64 Abs(const BasicDecimal64& left);
+  static BasicDecimal64 Abs(const BasicDecimal64& in) {
+    BasicDecimal64 result(in);
+    return result.Abs();
+  }
+
   /// \brief Add a number to this one. The result is truncated to 32 bits.
-  BasicDecimal64& operator+=(const BasicDecimal64& right);
+  BasicDecimal64& operator+=(const BasicDecimal64& right) {
+    value_ += right.value_;
+    return *this;
+  }
+
   /// \brief Subtract a number from this one. The result is truncated to 32 bits.
-  BasicDecimal64& operator-=(const BasicDecimal64& right);
+  BasicDecimal64& operator-=(const BasicDecimal64& right) {
+    value_ -= right.value_;
+    return *this;
+  }
+
   /// \brief Multiply this number by another. The result is truncated to 32 bits.
-  BasicDecimal64& operator*=(const BasicDecimal64& right);
+  BasicDecimal64& operator*=(const BasicDecimal64& right) {
+    value_ *= right.value_;
+    return *this;
+  }
 
   /// \brief Divide this number by the divisor and return the result.
   ///
@@ -392,11 +465,23 @@ class ARROW_EXPORT BasicDecimal64 : public BasicDecimal<int64_t> {
                        BasicDecimal64* remainder) const;
 
   /// \brief In-place division
-  BasicDecimal64& operator/=(const BasicDecimal64& right);
+  BasicDecimal64& operator/=(const BasicDecimal64& right) {
+    value_ /= right.value_;
+    return *this;
+  }
+
   /// \brief Bitwise "or" between two BasicDecimal64s
-  BasicDecimal64& operator|=(const BasicDecimal64& right);
+  BasicDecimal64& operator|=(const BasicDecimal64& right) {
+    value_ |= right.value_;
+    return *this;
+  }
+
   /// \brief Bitwise "and" between two BasicDecimal64s
-  BasicDecimal64& operator&=(const BasicDecimal64& right);
+  BasicDecimal64& operator&=(const BasicDecimal64& right) {
+    value_ &= right.value_;
+    return *this;
+  }
+  
   /// \brief Shift left by the given number of bits.
   BasicDecimal64& operator<<=(uint32_t bits);
 
@@ -460,23 +545,6 @@ class ARROW_EXPORT BasicDecimal64 : public BasicDecimal<int64_t> {
   /// \brief Half-scale multiplier for a given scale value.
   static const BasicDecimal64& GetHalfScaleMultiplier(int32_t scale);
 };
-
-ARROW_EXPORT bool operator<(const BasicDecimal64& left, const BasicDecimal64& right);
-ARROW_EXPORT bool operator<=(const BasicDecimal64& left, const BasicDecimal64& right);
-ARROW_EXPORT bool operator>(const BasicDecimal64& left, const BasicDecimal64& right);
-ARROW_EXPORT bool operator>=(const BasicDecimal64& left, const BasicDecimal64& right);
-
-ARROW_EXPORT BasicDecimal64 operator-(const BasicDecimal64& self);
-ARROW_EXPORT BasicDecimal64 operator+(const BasicDecimal64& left,
-                                      const BasicDecimal64& right);
-ARROW_EXPORT BasicDecimal64 operator-(const BasicDecimal64& left,
-                                      const BasicDecimal64& right);
-ARROW_EXPORT BasicDecimal64 operator*(const BasicDecimal64& left,
-                                      const BasicDecimal64& right);
-ARROW_EXPORT BasicDecimal64 operator/(const BasicDecimal64& left,
-                                      const BasicDecimal64& right);
-ARROW_EXPORT BasicDecimal64 operator%(const BasicDecimal64& left,
-                                      const BasicDecimal64& right);
 
 /// Represents a signed 128-bit integer in two's complement.
 ///

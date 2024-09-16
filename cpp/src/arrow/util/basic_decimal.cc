@@ -50,33 +50,6 @@ static constexpr uint64_t kInt64Mask = 0xFFFFFFFFFFFFFFFF;
 static constexpr uint64_t kInt32Mask = 0xFFFFFFFF;
 #endif
 
-BasicDecimal32& BasicDecimal32::Negate() {
-  value_ = -value_;
-  return *this;
-}
-
-BasicDecimal32& BasicDecimal32::Abs() { return *this < 0 ? Negate() : *this; }
-
-BasicDecimal32 BasicDecimal32::Abs(const BasicDecimal32& in) {
-  BasicDecimal32 result(in);
-  return result.Abs();
-}
-
-BasicDecimal32& BasicDecimal32::operator+=(const BasicDecimal32& right) {
-  value_ += right.value_;
-  return *this;
-}
-
-BasicDecimal32& BasicDecimal32::operator-=(const BasicDecimal32& right) {
-  value_ -= right.value_;
-  return *this;
-}
-
-BasicDecimal32& BasicDecimal32::operator*=(const BasicDecimal32& right) {
-  value_ *= right.value_;
-  return *this;
-}
-
 DecimalStatus BasicDecimal32::Divide(const BasicDecimal32& divisor,
                                      BasicDecimal32* result,
                                      BasicDecimal32* remainder) const {
@@ -89,21 +62,6 @@ DecimalStatus BasicDecimal32::Divide(const BasicDecimal32& divisor,
     *remainder = value_ % divisor.value_;
   }
   return DecimalStatus::kSuccess;
-}
-
-BasicDecimal32& BasicDecimal32::operator/=(const BasicDecimal32& right) {
-  value_ /= right.value_;
-  return *this;
-}
-
-BasicDecimal32& BasicDecimal32::operator|=(const BasicDecimal32& right) {
-  value_ |= right.value_;
-  return *this;
-}
-
-BasicDecimal32& BasicDecimal32::operator&=(const BasicDecimal32& right) {
-  value_ &= right.value_;
-  return *this;
 }
 
 BasicDecimal32& BasicDecimal32::operator<<=(uint32_t bits) {
@@ -194,33 +152,6 @@ BasicDecimal32::operator BasicDecimal64() const {
   return BasicDecimal64(static_cast<int64_t>(value()));
 }
 
-BasicDecimal64& BasicDecimal64::Negate() {
-  value_ = -value_;
-  return *this;
-}
-
-BasicDecimal64& BasicDecimal64::Abs() { return *this < 0 ? Negate() : *this; }
-
-BasicDecimal64 BasicDecimal64::Abs(const BasicDecimal64& in) {
-  BasicDecimal64 result(in);
-  return result.Abs();
-}
-
-BasicDecimal64& BasicDecimal64::operator+=(const BasicDecimal64& right) {
-  value_ += right.value_;
-  return *this;
-}
-
-BasicDecimal64& BasicDecimal64::operator-=(const BasicDecimal64& right) {
-  value_ -= right.value_;
-  return *this;
-}
-
-BasicDecimal64& BasicDecimal64::operator*=(const BasicDecimal64& right) {
-  value_ *= right.value_;
-  return *this;
-}
-
 DecimalStatus BasicDecimal64::Divide(const BasicDecimal64& divisor,
                                      BasicDecimal64* result,
                                      BasicDecimal64* remainder) const {
@@ -233,21 +164,6 @@ DecimalStatus BasicDecimal64::Divide(const BasicDecimal64& divisor,
     *remainder = value_ % divisor.value_;
   }
   return DecimalStatus::kSuccess;
-}
-
-BasicDecimal64& BasicDecimal64::operator/=(const BasicDecimal64& right) {
-  value_ /= right.value_;
-  return *this;
-}
-
-BasicDecimal64& BasicDecimal64::operator|=(const BasicDecimal64& right) {
-  value_ |= right.value_;
-  return *this;
-}
-
-BasicDecimal64& BasicDecimal64::operator&=(const BasicDecimal64& right) {
-  value_ &= right.value_;
-  return *this;
 }
 
 BasicDecimal64& BasicDecimal64::operator<<=(uint32_t bits) {
@@ -445,7 +361,7 @@ BasicDecimal64 operator%(const BasicDecimal64& left, const BasicDecimal64& right
 }
 
 template <typename BaseType>
-int32_t BasicDecimal<BaseType>::CountLeadingBinaryZeros() const {
+int32_t SmallBasicDecimal<BaseType>::CountLeadingBinaryZeros() const {
   return bit_util::CountLeadingZeros(static_cast<std::make_unsigned_t<BaseType>>(value_));
 }
 
@@ -1459,7 +1375,7 @@ BasicDecimal256 operator/(const BasicDecimal256& left, const BasicDecimal256& ri
 // Explicitly instantiate template base class, for DLL linking on Windows
 template class GenericBasicDecimal<BasicDecimal128, 128>;
 template class GenericBasicDecimal<BasicDecimal256, 256>;
-template class BasicDecimal<int32_t>;
-template class BasicDecimal<int64_t>;
+template class SmallBasicDecimal<int32_t>;
+template class SmallBasicDecimal<int64_t>;
 
 }  // namespace arrow

@@ -1479,7 +1479,7 @@ int32_t DecimalType::DecimalSize(int32_t precision) {
 }
 
 template <typename D>
-Status ValidateDecimalPrecision(int32_t precision) {
+static Status ValidateDecimalPrecision(int32_t precision) {
   if (precision < D::kMinPrecision || precision > D::kMaxPrecision) {
     return Status::Invalid("Decimal precision out of range [", int32_t(D::kMinPrecision),
                            ", ", int32_t(D::kMaxPrecision), "]: ", precision);

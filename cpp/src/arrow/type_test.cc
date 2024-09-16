@@ -2223,6 +2223,50 @@ TEST(TestDictionaryType, Equals) {
   AssertTypeNotEqual(*t5, *t6);
 }
 
+TEST(TypesTest, SmallestDecimal) {
+  for (int32_t i = 1; i < 76; ++i) {
+    auto t = smallest_decimal(i, 4);
+
+    if (i <= 9) {
+      EXPECT_EQ(t->id(), Type::DECIMAL32);
+    } else if (i <= 18) {
+      EXPECT_EQ(t->id(), Type::DECIMAL64);
+    } else if (i <= 38) {
+      EXPECT_EQ(t->id(), Type::DECIMAL128);
+    } else {
+      EXPECT_EQ(t->id(), Type::DECIMAL256);
+    }
+  }
+}
+
+TEST(TypesTest, TestDecimal32) {
+  Decimal32Type t1(4, 4);
+
+  EXPECT_EQ(t1.id(), Type::DECIMAL32);
+  EXPECT_EQ(t1.precision(), 4);
+  EXPECT_EQ(t1.scale(), 4);
+
+  EXPECT_EQ(t1.ToString(), std::string("decimal32(4, 4)"));
+
+  // Test properties
+  EXPECT_EQ(t1.byte_width(), 4);
+  EXPECT_EQ(t1.bit_width(), 32);
+}
+
+TEST(TypesTest, TestDecimal64) {
+  Decimal32Type t1(12, 4);
+
+  EXPECT_EQ(t1.id(), Type::DECIMAL64);
+  EXPECT_EQ(t1.precision(), 12);
+  EXPECT_EQ(t1.scale(), 4);
+
+  EXPECT_EQ(t1.ToString(), std::string("decimal64(12, 4)"));
+
+  // Test properties
+  EXPECT_EQ(t1.byte_width(), 8);
+  EXPECT_EQ(t1.bit_width(), 64);
+}
+
 TEST(TypesTest, TestDecimal128Small) {
   Decimal128Type t1(8, 4);
 
