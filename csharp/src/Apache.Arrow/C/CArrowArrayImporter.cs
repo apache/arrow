@@ -260,7 +260,7 @@ namespace Apache.Arrow.C
 
             private ArrowBuffer ImportValidityBuffer(CArrowArray* cArray)
             {
-                int length = checked((int)cArray->length);
+                int length = checked((int)cArray->offset + (int)cArray->length);
                 int validityLength = checked((int)BitUtility.RoundUpToMultipleOf8(length) / 8);
                 return (cArray->buffers[0] == null) ? ArrowBuffer.Empty : new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[0], 0, validityLength));
             }
@@ -285,7 +285,7 @@ namespace Apache.Arrow.C
                     throw new InvalidOperationException("Byte arrays are expected to have exactly three buffers");
                 }
 
-                int length = checked((int)cArray->length);
+                int length = checked((int)cArray->offset + (int)cArray->length);
                 int offsetsLength = (length + 1) * 4;
                 int* offsets = (int*)cArray->buffers[1];
                 Debug.Assert(offsets != null);
@@ -306,7 +306,7 @@ namespace Apache.Arrow.C
                     throw new InvalidOperationException("Byte array views are expected to have at least three buffers");
                 }
 
-                int length = checked((int)cArray->length);
+                int length = checked((int)cArray->offset + (int)cArray->length);
                 int viewsLength = length * 16;
 
                 long* bufferLengths = (long*)cArray->buffers[cArray->n_buffers - 1];
@@ -336,7 +336,7 @@ namespace Apache.Arrow.C
                         $"is greater than the maximum supported large byte array length ({maxLength})");
                 }
 
-                int length = (int)cArray->length;
+                int length = checked((int)cArray->offset + (int)cArray->length);
                 int offsetsLength = (length + 1) * 8;
                 long* offsets = (long*)cArray->buffers[1];
                 Debug.Assert(offsets != null);
@@ -364,7 +364,7 @@ namespace Apache.Arrow.C
                     throw new InvalidOperationException("List arrays are expected to have exactly two buffers");
                 }
 
-                int length = checked((int)cArray->length);
+                int length = checked((int)cArray->offset + (int)cArray->length);
                 int offsetsLength = (length + 1) * 4;
 
                 ArrowBuffer[] buffers = new ArrowBuffer[2];
@@ -381,7 +381,7 @@ namespace Apache.Arrow.C
                     throw new InvalidOperationException("List view arrays are expected to have exactly three buffers");
                 }
 
-                int length = checked((int)cArray->length);
+                int length = checked((int)cArray->offset + (int)cArray->length);
                 int offsetsLength = length * 4;
 
                 ArrowBuffer[] buffers = new ArrowBuffer[3];
@@ -407,7 +407,7 @@ namespace Apache.Arrow.C
                         $"is greater than the maximum supported large list array length ({maxLength})");
                 }
 
-                int length = (int)cArray->length;
+                int length = checked((int)cArray->offset + (int)cArray->length);
                 int offsetsLength = (length + 1) * 8;
 
                 ArrowBuffer[] buffers = new ArrowBuffer[2];
@@ -436,7 +436,7 @@ namespace Apache.Arrow.C
                 {
                     throw new InvalidOperationException("Dense union arrays are expected to have exactly two children");
                 }
-                int length = checked((int)cArray->length);
+                int length = checked((int)cArray->offset + (int)cArray->length);
                 int offsetsLength = length * 4;
 
                 ArrowBuffer[] buffers = new ArrowBuffer[2];
@@ -454,7 +454,7 @@ namespace Apache.Arrow.C
                 }
 
                 ArrowBuffer[] buffers = new ArrowBuffer[1];
-                buffers[0] = ImportCArrayBuffer(cArray, 0, checked((int)cArray->length));
+                buffers[0] = ImportCArrayBuffer(cArray, 0, checked((int)cArray->offset + (int)cArray->length));
 
                 return buffers;
             }
@@ -467,10 +467,10 @@ namespace Apache.Arrow.C
                 }
 
                 // validity, data
-                int length = checked((int)cArray->length);
+                int length = checked((int)cArray->offset + (int)cArray->length);
                 int valuesLength;
                 if (bitWidth >= 8)
-                    valuesLength = checked((int)(cArray->length * bitWidth / 8));
+                    valuesLength = checked(length * bitWidth / 8);
                 else
                     valuesLength = checked((int)BitUtility.RoundUpToMultipleOf8(length) / 8);
 

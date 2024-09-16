@@ -566,7 +566,9 @@ namespace Apache.Arrow.Tests
                 var listSize = ((FixedSizeListType)expectedArray.Data.DataType).ListSize;
                 var expectedValuesSlice = ArrowArrayFactory.Slice(
                     expectedArray.Values, expectedArray.Offset * listSize, expectedArray.Length * listSize);
-                actualArray.Values.Accept(new ArrayComparer(expectedValuesSlice, _strictCompare));
+                var actualValuesSlice = ArrowArrayFactory.Slice(
+                    actualArray.Values, actualArray.Offset * listSize, actualArray.Length * listSize);
+                actualValuesSlice.Accept(new ArrayComparer(expectedValuesSlice, _strictCompare));
             }
 
             private void CompareValidityBuffer(int nullCount, int arrayLength, ArrowBuffer expectedValidityBuffer, int expectedBufferOffset, ArrowBuffer actualValidityBuffer, int actualBufferOffset)
