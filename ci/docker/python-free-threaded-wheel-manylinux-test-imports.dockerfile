@@ -26,5 +26,5 @@ RUN apt install -y -q --no-install-recommends python3.13-dev python3.13-nogil py
 ENV ARROW_PYTHON_VENV /arrow-dev
 RUN python3.13t -m venv ${ARROW_PYTHON_VENV}
 
-ENV PYTHON /arrow-dev/bin/python
 ENV PYTHON_GIL 0
+ENV PATH "${ARROW_PYTHON_VENV}/bin:${PATH}"

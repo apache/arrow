@@ -141,7 +141,7 @@ jobs:
           $PYTHON -m venv test-env
           source test-env/bin/activate
           pip install --upgrade pip wheel
-          arch -{{ arch }} pip install -pre \
+          arch -{{ arch }} pip install --pre \
             --prefer-binary \
             --extra-index-url "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple" \
             Cython numpy
