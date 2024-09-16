@@ -227,7 +227,7 @@ class ARROW_EXPORT BasicDecimal {
 
   BaseType value() const { return value_; }
 
-  /// \brief count hte number of leading binary zeroes.
+  /// \brief count the number of leading binary zeroes.
   int32_t CountLeadingBinaryZeros() const;
 
   constexpr uint64_t low_bits() const { return static_cast<uint64_t>(value_); }
