@@ -70,29 +70,6 @@ if [ $platform = "macOS" ]; then
 
     $python -m ensurepip
     $pip install -U pip setuptools
-elif [ $platform = "Linux" ] ; then
-    echo "Downloading Python installer..."
-
-    if [ "$version" = "3.13" ];
-    then
-        fname="Python-${full_version}rc1.tar.xz"
-    else
-        fname="Python-${full_version}.tar.xz"
-    fi
-    wget "https://www.python.org/ftp/python/${full_version}/${fname}"
-
-    echo "Building and installing Python..."
-    tar -xf ${fname}
-    rm $fname
-    pushd Python-3.*
-    ./configure
-    make install
-    popd
-    python=/usr/local/bin/python3
-    pip="${python} -m pip"
-
-    $python -m ensurepip
-    $pip install -U pip setuptools
 else
     echo "Unsupported platform: $platform"
     exit 1

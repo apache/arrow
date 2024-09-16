@@ -917,19 +917,17 @@ services:
     # Parameters:
     #   ARCH: amd64
     #   CUDA: <depends on your nvidia driver, should match system CUDA>
-    #   UBUNTU: 20.04, 22.04, ...
+    #   UBUNTU: 22.04, 24.04
     #   PYTHON: 3.9, 3.10, 3.11, ...
-    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-python-${PYTHON}
+    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-python-3
     build:
       context: .
       dockerfile: ci/docker/linux-apt-python-3.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-python-${PYTHON}
+        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-python-3
       args:
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-cpp
         numba: ${NUMBA}
-        ubuntu: ${UBUNTU}
-        python: ${PYTHON}
     shm_size: *shm-size
     environment:
       <<: [*common, *ccache, *sccache]
@@ -988,18 +986,16 @@ services:
     #   docker-compose run --rm ubuntu-python
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 20.04, 22.04
+    #   UBUNTU: 22.04, 24.04
     #   PYTHON: 3.9, 3.10, ...
-    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-${PYTHON}
+    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
     build:
       context: .
       dockerfile: ci/docker/linux-apt-python-3.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-${PYTHON}
+        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
       args:
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
-        ubuntu: ${UBUNTU}
-        python: ${PYTHON}
     shm_size: *shm-size
     environment:
       <<: [*common, *ccache]
@@ -1071,18 +1067,16 @@ services:
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
     #   PYARROW_VERSION: The test target pyarrow version such as "3.0.0"
-    #   UBUNTU: 20.04, 22.04
+    #   UBUNTU: 22.04, 24.04
     #   PYTHON: 3.9, 3.10, 3.11, ...
-    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-${PYTHON}
+    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
     build:
       context: .
       dockerfile: ci/docker/linux-apt-python-3.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-${PYTHON}
+        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
       args:
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
-        ubuntu: ${UBUNTU}
-        python: ${PYTHON}
     shm_size: *shm-size
     environment:
       <<: [*common, *ccache]
