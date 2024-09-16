@@ -121,7 +121,7 @@ class ARROW_EXPORT Decimal32 : public BasicDecimal32 {
 
   /// \brief Convert to a signed integer
   template <typename T, typename = internal::EnableIfIsOneOf<T, int32_t, int64_t>>
-  Result<T> ToInteger() const {    
+  Result<T> ToInteger() const {
     return static_cast<T>(value_);
   }
 
@@ -233,7 +233,7 @@ class ARROW_EXPORT Decimal64 : public BasicDecimal64 {
 
   /// \brief Convert to a signed integer
   template <typename T, typename = internal::EnableIfIsOneOf<T, int32_t, int64_t>>
-  Result<T> ToInteger() const {    
+  Result<T> ToInteger() const {
     return static_cast<T>(value_);
   }
 

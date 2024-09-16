@@ -422,9 +422,7 @@ class ARROW_EXPORT BasicDecimal64 : public SmallBasicDecimal<int64_t> {
   }
 
   /// \brief Absolute value (in-place)
-  BasicDecimal64& Abs() {
-    return *this < 0 ? Negate() : *this;
-  }
+  BasicDecimal64& Abs() { return *this < 0 ? Negate() : *this; }
 
   /// \brief Absolute value
   static BasicDecimal64 Abs(const BasicDecimal64& in) {
@@ -481,7 +479,7 @@ class ARROW_EXPORT BasicDecimal64 : public SmallBasicDecimal<int64_t> {
     value_ &= right.value_;
     return *this;
   }
-  
+
   /// \brief Shift left by the given number of bits.
   BasicDecimal64& operator<<=(uint32_t bits);
 
