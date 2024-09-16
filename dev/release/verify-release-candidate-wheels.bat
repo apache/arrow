@@ -57,9 +57,6 @@ call deactivate
 set ARROW_TEST_DATA=%cd%\arrow\testing\data
 
 
-CALL :verify_wheel 3.8
-if errorlevel 1 GOTO error
-
 CALL :verify_wheel 3.9
 if errorlevel 1 GOTO error
 
@@ -67,6 +64,12 @@ CALL :verify_wheel 3.10
 if errorlevel 1 GOTO error
 
 CALL :verify_wheel 3.11
+if errorlevel 1 GOTO error
+
+CALL :verify_wheel 3.12
+if errorlevel 1 GOTO error
+
+CALL :verify_wheel 3.13
 if errorlevel 1 GOTO error
 
 :done

@@ -133,7 +133,8 @@ struct GetViewType<Type, enable_if_has_c_type<Type>> {
 
 template <typename Type>
 struct GetViewType<Type, enable_if_t<is_base_binary_type<Type>::value ||
-                                     is_fixed_size_binary_type<Type>::value>> {
+                                     is_fixed_size_binary_type<Type>::value ||
+                                     is_binary_view_like_type<Type>::value>> {
   using T = std::string_view;
   using PhysicalType = T;
 
@@ -1259,6 +1260,22 @@ ArrayKernelExec GenerateVarBinary(detail::GetTypeId get_id) {
       return Generator<Type0, LargeBinaryType, Args...>::Exec;
     case Type::LARGE_STRING:
       return Generator<Type0, LargeStringType, Args...>::Exec;
+    default:
+      DCHECK(false);
+      return nullptr;
+  }
+}
+
+// Generate a kernel given a templated functor for binary-view types. Generates a
+// single kernel for binary/string-view.
+//
+// See "Numeric" above for description of the generator functor
+template <template <typename...> class Generator, typename Type0, typename... Args>
+ArrayKernelExec GenerateVarBinaryViewBase(detail::GetTypeId get_id) {
+  switch (get_id.id) {
+    case Type::BINARY_VIEW:
+    case Type::STRING_VIEW:
+      return Generator<Type0, BinaryViewType, Args...>::Exec;
     default:
       DCHECK(false);
       return nullptr;

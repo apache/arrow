@@ -29,6 +29,7 @@ RUN apt-get update -y -q && \
         ccache \
         cmake \
         curl \
+        gdb \
         git \
         libssl-dev \
         libcurl4-openssl-dev \

@@ -549,7 +549,7 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   /**
-   * Read dst.length bytes at readerIndex into dst byte array
+   * Read dst.length bytes at readerIndex into dst byte array.
    *
    * @param dst byte array where the data will be written
    */

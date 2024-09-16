@@ -51,7 +51,7 @@ jobs:
         shell: bash
         run: archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-manylinux-{{ manylinux_version }}
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: wheel
           path: arrow/python/repaired_wheels/*.whl
@@ -62,6 +62,7 @@ jobs:
           '{{ python_abi_tag }}' != 'cp313t'
         shell: bash
         run: |
+          source arrow/ci/scripts/util_enable_core_dumps.sh
           archery docker run python-wheel-manylinux-test-imports
           archery docker run python-wheel-manylinux-test-unittests
 
@@ -77,7 +78,7 @@ jobs:
       - name: Test wheel on AlmaLinux 8
         shell: bash
         if: |
-          '{{ python_version }}' == '3.8'
+          '{{ python_version }}' == '3.9'
         env:
           ALMALINUX: "8"
         run: |
@@ -93,7 +94,7 @@ jobs:
       - name: Test wheel on Ubuntu 20.04
         shell: bash
         if: |
-          '{{ python_version }}' == '3.8'
+          '{{ python_version }}' == '3.9'
         env:
           UBUNTU: "20.04"
         run: |

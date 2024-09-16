@@ -30,6 +30,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import java.io.IOException;
+import java.io.PipedInputStream;
+import java.io.PipedOutputStream;
+import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -53,6 +57,9 @@ import org.apache.arrow.flight.sql.FlightSqlColumnMetadata;
 import org.apache.arrow.flight.sql.FlightSqlProducer;
 import org.apache.arrow.flight.sql.example.FlightSqlExample;
 import org.apache.arrow.flight.sql.impl.FlightSql;
+import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementIngest.TableDefinitionOptions;
+import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementIngest.TableDefinitionOptions.TableExistsOption;
+import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementIngest.TableDefinitionOptions.TableNotExistOption;
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportedCaseSensitivity;
 import org.apache.arrow.flight.sql.util.TableRef;
 import org.apache.arrow.memory.BufferAllocator;
@@ -60,11 +67,15 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.ipc.ArrowStreamReader;
+import org.apache.arrow.vector.ipc.ArrowStreamWriter;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.Text;
+import org.apache.arrow.vector.util.VectorBatchAppender;
 import org.hamcrest.Matcher;
 import org.hamcrest.MatcherAssert;
 import org.junit.jupiter.api.AfterAll;
@@ -95,6 +106,43 @@ public class TestFlightSql {
   protected static BufferAllocator allocator;
   protected static FlightServer server;
   protected static FlightSqlClient sqlClient;
+
+  private static void populateNext10RowsInIngestRootBatch(
+      int startRowNumber,
+      IntVector valueVector,
+      VarCharVector keyNameVector,
+      IntVector foreignIdVector,
+      VarCharVector keyNamesToBeDeletedVector,
+      VectorSchemaRoot ingestRoot) {
+
+    final int NumRowsInBatch = 10;
+
+    valueVector.reset();
+    keyNameVector.reset();
+    foreignIdVector.reset();
+
+    final IntStream range = IntStream.range(1, NumRowsInBatch);
+
+    range.forEach(
+        i -> {
+          valueVector.setSafe(i - 1, (i + startRowNumber - 1) * NumRowsInBatch);
+          keyNameVector.setSafe(i - 1, new Text("value" + (i + startRowNumber - 1)));
+          foreignIdVector.setSafe(i - 1, 1);
+        });
+    // put some comma and double-quote containing string as well
+    valueVector.setSafe(NumRowsInBatch - 1, (NumRowsInBatch + startRowNumber - 1) * NumRowsInBatch);
+    keyNameVector.setSafe(
+        NumRowsInBatch - 1,
+        new Text(
+            String.format(
+                "value%d, is \"%d\"",
+                (NumRowsInBatch + startRowNumber - 1),
+                (NumRowsInBatch + startRowNumber - 1) * NumRowsInBatch)));
+    foreignIdVector.setSafe(NumRowsInBatch - 1, 1);
+    ingestRoot.setRowCount(NumRowsInBatch);
+
+    VectorBatchAppender.batchAppend(keyNamesToBeDeletedVector, keyNameVector);
+  }
 
   @BeforeAll
   public static void setUp() throws Exception {
@@ -535,6 +583,119 @@ public class TestFlightSql {
             () -> MatcherAssert.assertThat(deletedRows, is(10L)));
       }
     }
+  }
+
+  @Test
+  public void testBulkIngest() throws IOException {
+    // For bulk ingest DerbyDB requires uppercase column names
+    var keyName = new Field("KEYNAME", FieldType.nullable(new ArrowType.Utf8()), null);
+    var value = new Field("VALUE", FieldType.nullable(new ArrowType.Int(32, true)), null);
+    var foreignId = new Field("FOREIGNID", FieldType.nullable(new ArrowType.Int(32, true)), null);
+
+    Schema dataSchema = new Schema(List.of(keyName, value, foreignId));
+
+    try (final VectorSchemaRoot ingestRoot = VectorSchemaRoot.create(dataSchema, allocator);
+        final VarCharVector keyNamesToBeDeletedVector = new VarCharVector(keyName, allocator)) {
+      final VarCharVector keyNameVector = (VarCharVector) ingestRoot.getVector(0);
+      final IntVector valueVector = (IntVector) ingestRoot.getVector(1);
+      final IntVector foreignIdVector = (IntVector) ingestRoot.getVector(2);
+      ingestRoot.allocateNew();
+      keyNamesToBeDeletedVector.allocateNew();
+
+      try (PipedInputStream inPipe = new PipedInputStream(1024);
+          PipedOutputStream outPipe = new PipedOutputStream(inPipe);
+          ArrowStreamReader reader = new ArrowStreamReader(inPipe, allocator)) {
+
+        new Thread(
+                () -> {
+                  try (ArrowStreamWriter writer =
+                      new ArrowStreamWriter(ingestRoot, null, outPipe)) {
+                    writer.start();
+                    populateNext10RowsInIngestRootBatch(
+                        1,
+                        valueVector,
+                        keyNameVector,
+                        foreignIdVector,
+                        keyNamesToBeDeletedVector,
+                        ingestRoot);
+                    writer.writeBatch();
+                    populateNext10RowsInIngestRootBatch(
+                        11,
+                        valueVector,
+                        keyNameVector,
+                        foreignIdVector,
+                        keyNamesToBeDeletedVector,
+                        ingestRoot);
+                    writer.writeBatch();
+                  } catch (Exception e) {
+                    throw new RuntimeException(e);
+                  }
+                })
+            .start();
+
+        // Ingest from a stream
+        final long updatedRows =
+            sqlClient.executeIngest(
+                reader,
+                new FlightSqlClient.ExecuteIngestOptions(
+                    "INTTABLE",
+                    TableDefinitionOptions.newBuilder()
+                        .setIfExists(TableExistsOption.TABLE_EXISTS_OPTION_APPEND)
+                        .setIfNotExist(TableNotExistOption.TABLE_NOT_EXIST_OPTION_FAIL)
+                        .build(),
+                    null,
+                    null,
+                    null));
+
+        MatcherAssert.assertThat(updatedRows, is(-1L));
+
+        // Ingest directly using VectorSchemaRoot
+        populateNext10RowsInIngestRootBatch(
+            21, valueVector, keyNameVector, foreignIdVector, keyNamesToBeDeletedVector, ingestRoot);
+        sqlClient.executeIngest(
+            ingestRoot,
+            new FlightSqlClient.ExecuteIngestOptions(
+                "INTTABLE",
+                TableDefinitionOptions.newBuilder()
+                    .setIfExists(TableExistsOption.TABLE_EXISTS_OPTION_APPEND)
+                    .setIfNotExist(TableNotExistOption.TABLE_NOT_EXIST_OPTION_FAIL)
+                    .build(),
+                null,
+                null,
+                null));
+
+        try (PreparedStatement deletePrepare =
+            sqlClient.prepare("DELETE FROM INTTABLE WHERE keyName = ?")) {
+          final long deletedRows;
+          try (final VectorSchemaRoot deleteRoot = VectorSchemaRoot.of(keyNamesToBeDeletedVector)) {
+            deletePrepare.setParameters(deleteRoot);
+            deletedRows = deletePrepare.executeUpdate();
+          }
+
+          MatcherAssert.assertThat(deletedRows, is(30L));
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testBulkIngestTransaction() {
+    assertThrows(
+        RuntimeException.class,
+        () -> {
+          sqlClient.executeIngest(
+              VectorSchemaRoot.create(new Schema(List.of()), allocator),
+              new FlightSqlClient.ExecuteIngestOptions(
+                  "INTTABLE",
+                  TableDefinitionOptions.newBuilder()
+                      .setIfExists(TableExistsOption.TABLE_EXISTS_OPTION_APPEND)
+                      .setIfNotExist(TableNotExistOption.TABLE_NOT_EXIST_OPTION_FAIL)
+                      .build(),
+                  null,
+                  null,
+                  null),
+              new FlightSqlClient.Transaction("123".getBytes(StandardCharsets.UTF_8)));
+        });
   }
 
   @Test

@@ -83,6 +83,7 @@ import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTableTypes;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTables;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementQuery;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementUpdate;
+import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementIngest;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementQuery;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementUpdate;
 import org.apache.arrow.flight.sql.impl.FlightSql.DoPutUpdateResult;
@@ -281,7 +282,8 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
   /**
    * Depending on the provided command, method either: 1. Execute provided SQL query as an update
    * statement, or 2. Execute provided update SQL query prepared statement. In this case, parameters
-   * binding is allowed, or 3. Binds parameters to the provided prepared statement.
+   * binding is allowed, or 3. Binds parameters to the provided prepared statement, or 4. Bulk
+   * ingests data provided through the flightStream.
    *
    * @param context Per-call context.
    * @param flightStream The data stream being uploaded.
@@ -296,6 +298,12 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
     if (command.is(CommandStatementUpdate.class)) {
       return acceptPutStatement(
           FlightSqlUtils.unpackOrThrow(command, CommandStatementUpdate.class),
+          context,
+          flightStream,
+          ackStream);
+    } else if (command.is(CommandStatementIngest.class)) {
+      return acceptPutStatementBulkIngest(
+          FlightSqlUtils.unpackOrThrow(command, CommandStatementIngest.class),
           context,
           flightStream,
           ackStream);
@@ -776,6 +784,27 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
       CallContext context,
       FlightStream flightStream,
       StreamListener<PutResult> ackStream);
+
+  /**
+   * Accepts uploaded data for a particular bulk ingest data stream.
+   *
+   * <p>`PutResult`s must be in the form of a {@link DoPutUpdateResult}.
+   *
+   * @param command The bulk ingestion request.
+   * @param context Per-call context.
+   * @param flightStream The data stream being uploaded.
+   * @param ackStream The result data stream.
+   * @return A runnable to process the stream.
+   */
+  default Runnable acceptPutStatementBulkIngest(
+      CommandStatementIngest command,
+      CallContext context,
+      FlightStream flightStream,
+      StreamListener<PutResult> ackStream) {
+    return () -> {
+      ackStream.onError(CallStatus.UNIMPLEMENTED.toRuntimeException());
+    };
+  }
 
   /**
    * Handle a Substrait plan with uploaded data.

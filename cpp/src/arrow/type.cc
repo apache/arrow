@@ -3333,6 +3333,7 @@ std::vector<std::shared_ptr<DataType>> g_int_types;
 std::vector<std::shared_ptr<DataType>> g_floating_types;
 std::vector<std::shared_ptr<DataType>> g_numeric_types;
 std::vector<std::shared_ptr<DataType>> g_base_binary_types;
+std::vector<std::shared_ptr<DataType>> g_binary_view_types;
 std::vector<std::shared_ptr<DataType>> g_temporal_types;
 std::vector<std::shared_ptr<DataType>> g_interval_types;
 std::vector<std::shared_ptr<DataType>> g_duration_types;
@@ -3384,6 +3385,9 @@ void InitStaticData() {
   // Base binary types (without FixedSizeBinary)
   g_base_binary_types = {binary(), utf8(), large_binary(), large_utf8()};
 
+  // Binary view types
+  g_binary_view_types = {utf8_view(), binary_view()};
+
   // Non-parametric, non-nested types. This also DOES NOT include
   //
   // * Decimal
@@ -3391,9 +3395,10 @@ void InitStaticData() {
   // * Time32
   // * Time64
   // * Timestamp
-  g_primitive_types = {null(), boolean(), date32(), date64(), binary_view(), utf8_view()};
+  g_primitive_types = {null(), boolean(), date32(), date64()};
   Extend(g_numeric_types, &g_primitive_types);
   Extend(g_base_binary_types, &g_primitive_types);
+  Extend(g_binary_view_types, &g_primitive_types);
 }
 
 }  // namespace
@@ -3411,6 +3416,11 @@ const std::vector<std::shared_ptr<DataType>>& BinaryTypes() {
 const std::vector<std::shared_ptr<DataType>>& StringTypes() {
   static DataTypeVector types = {utf8(), large_utf8()};
   return types;
+}
+
+const std::vector<std::shared_ptr<DataType>>& BinaryViewTypes() {
+  std::call_once(static_data_initialized, InitStaticData);
+  return g_binary_view_types;
 }
 
 const std::vector<std::shared_ptr<DataType>>& SignedIntTypes() {

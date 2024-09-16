@@ -16,7 +16,7 @@
 // under the License.
 
 #ifndef _WIN32
-#include <sys/wait.h>
+#  include <sys/wait.h>
 #endif
 
 #include "arrow/filesystem/s3_test_util.h"

@@ -4,15 +4,16 @@
 
 [![cran](https://www.r-pkg.org/badges/version-last-release/arrow)](https://cran.r-project.org/package=arrow)
 [![CI](https://github.com/apache/arrow/workflows/R/badge.svg?event=push)](https://github.com/apache/arrow/actions?query=workflow%3AR+branch%3Amain+event%3Apush)
+[![R-universe status badge](https://apache.r-universe.dev/badges/arrow)](https://apache.r-universe.dev)
 [![conda-forge](https://img.shields.io/conda/vn/conda-forge/r-arrow.svg)](https://anaconda.org/conda-forge/r-arrow)
 
 <!-- badges: end -->
 
 ## Overview
 
-The R `{arrow}` package provides access to many of the features of the [Apache Arrow C++ library](https://arrow.apache.org/docs/cpp/index.html) for R users. The goal of arrow is to provide an Arrow C++ backend to `{dplyr}`, and access to the Arrow C++ library through familiar base R and tidyverse functions, or `{R6}` classes.
+The R `{arrow}` package provides access to many of the features of the [Apache Arrow C++ library](https://arrow.apache.org/docs/cpp/index.html) for R users. The goal of arrow is to provide an Arrow C++ backend to `{dplyr}`, and access to the Arrow C++ library through familiar base R and tidyverse functions, or `{R6}` classes. The dedicated R package website is located [here](https://arrow.apache.org/docs/r/index.html).
 
-To learn more about the Apache Arrow project, see the parent documentation of the [Arrow Project](https://arrow.apache.org/). The Arrow project provides functionality for a wide range of data analysis tasks to store, process and move data fast. See the [read/write article](https://arrow.apache.org/docs/r/articles/read_write.html) to learn about reading and writing data files, [data wrangling](https://arrow.apache.org/docs/r/articles/data_wrangling.html) to learn how to use dplyr syntax with arrow objects, and the [function documentation](https://arrow.apache.org/docs/r/reference/acero.html) for a full list of supported functions within dplyr queries.
+To learn more about the Apache Arrow project, see the documentation of the parent [Arrow Project](https://arrow.apache.org/). The Arrow project provides functionality for a wide range of data analysis tasks to store, process and move data fast. See the [read/write article](https://arrow.apache.org/docs/r/articles/read_write.html) to learn about reading and writing data files, [data wrangling](https://arrow.apache.org/docs/r/articles/data_wrangling.html) to learn how to use dplyr syntax with arrow objects, and the [function documentation](https://arrow.apache.org/docs/r/reference/acero.html) for a full list of supported functions within dplyr queries.
 
 ## Installation
 
@@ -23,7 +24,15 @@ Windows or macOS.
 install.packages("arrow")
 ```
 
-Alternatively, if you are using conda you can install arrow from conda-forge:
+If you are having trouble installing from CRAN, then we offer two alternative install options for grabbing the latest arrow release. First, [R-universe](https://r-universe.dev/) provides pre-compiled binaries for the most commonly used operating systems.[^1]
+
+[^1]: Linux users should consult the R-universe [documentation](https://docs.r-universe.dev/install/binaries.html) for guidance on the exact repo URL path and potential limitations.
+
+```r
+install.packages("arrow", repos = c("https://apache.r-universe.dev", "https://cloud.r-project.org"))
+```
+
+Second, if you are using conda then you can install arrow from conda-forge.
 
 ```sh
 conda install -c conda-forge --strict-channel-priority r-arrow

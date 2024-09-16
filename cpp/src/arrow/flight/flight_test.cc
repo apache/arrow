@@ -44,7 +44,7 @@
 #include "arrow/util/logging.h"
 
 #ifdef GRPCPP_GRPCPP_H
-#error "gRPC headers should not be in public API"
+#  error "gRPC headers should not be in public API"
 #endif
 
 #include <grpcpp/grpcpp.h>
@@ -71,11 +71,11 @@
 // > between the two different versions of Abseil.
 #include "arrow/util/tracing_internal.h"
 #ifdef ARROW_WITH_OPENTELEMETRY
-#include <opentelemetry/context/propagation/global_propagator.h>
-#include <opentelemetry/context/propagation/text_map_propagator.h>
-#include <opentelemetry/sdk/trace/processor.h>
-#include <opentelemetry/sdk/trace/tracer_provider.h>
-#include <opentelemetry/trace/propagation/http_trace_context.h>
+#  include <opentelemetry/context/propagation/global_propagator.h>
+#  include <opentelemetry/context/propagation/text_map_propagator.h>
+#  include <opentelemetry/sdk/trace/processor.h>
+#  include <opentelemetry/sdk/trace/tracer_provider.h>
+#  include <opentelemetry/trace/propagation/http_trace_context.h>
 #endif
 
 namespace arrow {

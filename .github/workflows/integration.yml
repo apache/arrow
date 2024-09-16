@@ -20,6 +20,7 @@ name: Integration
 on:
   push:
     paths:
+      - '.dockerignore'
       - '.github/workflows/integration.yml'
       - 'ci/**'
       - 'dev/archery/**'
@@ -33,6 +34,7 @@ on:
       - 'format/**'
   pull_request:
     paths:
+      - '.dockerignore'
       - '.github/workflows/integration.yml'
       - 'ci/**'
       - 'dev/archery/**'
@@ -91,14 +93,15 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@f677139bbe7f9c59b41e40162b753c062f5d49a3 # v5.2.0
         with:
-          python-version: 3.8
+          python-version: 3.12
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
-        run: >
+        run: |
+          source ci/scripts/util_enable_core_dumps.sh
           archery docker run \
             -e ARCHERY_DEFAULT_BRANCH=${{ github.event.repository.default_branch }} \
             -e ARCHERY_INTEGRATION_WITH_NANOARROW=1 \

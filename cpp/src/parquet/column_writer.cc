@@ -718,18 +718,6 @@ std::unique_ptr<PageWriter> PageWriter::Open(
   }
 }
 
-std::unique_ptr<PageWriter> PageWriter::Open(
-    std::shared_ptr<ArrowOutputStream> sink, Compression::type codec,
-    int compression_level, ColumnChunkMetaDataBuilder* metadata,
-    int16_t row_group_ordinal, int16_t column_chunk_ordinal, MemoryPool* pool,
-    bool buffered_row_group, std::shared_ptr<Encryptor> meta_encryptor,
-    std::shared_ptr<Encryptor> data_encryptor, bool page_write_checksum_enabled,
-    ColumnIndexBuilder* column_index_builder, OffsetIndexBuilder* offset_index_builder) {
-  return PageWriter::Open(sink, codec, metadata, row_group_ordinal, column_chunk_ordinal,
-                          pool, buffered_row_group, meta_encryptor, data_encryptor,
-                          page_write_checksum_enabled, column_index_builder,
-                          offset_index_builder, CodecOptions{compression_level});
-}
 // ----------------------------------------------------------------------
 // ColumnWriter
 

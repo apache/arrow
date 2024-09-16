@@ -47,7 +47,7 @@ RUN dnf install -y git flex curl autoconf zip perl-IPC-Cmd wget
 # on manylinux_2_28, no system python is installed.
 # We therefore override the PATH with Python 3.8 in /opt/python
 # so that we have a consistent Python version across base images.
-ENV CPYTHON_VERSION=cp38
+ENV CPYTHON_VERSION=cp39
 ENV PATH=/opt/python/${CPYTHON_VERSION}-${CPYTHON_VERSION}/bin:${PATH}
 
 # Install CMake
@@ -100,9 +100,12 @@ RUN vcpkg install \
         --x-feature=parquet \
         --x-feature=s3
 
+# Make sure auditwheel is up-to-date
+RUN pipx upgrade auditwheel
+
 # Configure Python for applications running in the bash shell of this Dockerfile
-ARG python=3.8
-ARG python_abi_tag=cp38
+ARG python=3.9
+ARG python_abi_tag=cp39
 ENV PYTHON_VERSION=${python}
 ENV PYTHON_ABI_TAG=${python_abi_tag}
 RUN PYTHON_ROOT=$(find /opt/python -name cp${PYTHON_VERSION/./}-${PYTHON_ABI_TAG}) && \

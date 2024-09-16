@@ -182,7 +182,7 @@ hash_t ComputeStringHash(const void* data, int64_t length) {
   }
 
 #if XXH3_SECRET_SIZE_MIN != 136
-#error XXH3_SECRET_SIZE_MIN changed, please fix kXxh3Secrets
+#  error XXH3_SECRET_SIZE_MIN changed, please fix kXxh3Secrets
 #endif
 
   // XXH3_64bits_withSeed generates a secret based on the seed, which is too slow.

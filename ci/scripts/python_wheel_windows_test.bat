@@ -28,7 +28,7 @@ set PYARROW_TEST_ORC=ON
 set PYARROW_TEST_PARQUET=ON
 set PYARROW_TEST_PARQUET_ENCRYPTION=ON
 set PYARROW_TEST_SUBSTRAIT=ON
-set PYARROW_TEST_S3=OFF
+set PYARROW_TEST_S3=ON
 set PYARROW_TEST_TENSORFLOW=ON
 
 @REM Enable again once https://github.com/scipy/oldest-supported-numpy/pull/27 gets merged
@@ -63,6 +63,9 @@ set PYTHON_CMD=py -%PYTHON%
 %PYTHON_CMD% -c "import pyarrow.orc" || exit /B 1
 %PYTHON_CMD% -c "import pyarrow.parquet" || exit /B 1
 %PYTHON_CMD% -c "import pyarrow.substrait" || exit /B 1
+
+@REM Validate wheel contents
+%PYTHON_CMD% C:\arrow\ci\scripts\python_wheel_validate_contents.py --path C:\arrow\python\dist || exit /B 1
 
 @rem Download IANA Timezone Database for ORC C++
 curl https://cygwin.osuosl.org/noarch/release/tzdata/tzdata-2024a-1.tar.xz --output tzdata.tar.xz || exit /B

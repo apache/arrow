@@ -127,14 +127,6 @@ struct IndexLocation {
 class PARQUET_EXPORT ColumnChunkMetaData {
  public:
   // API convenience to get a MetaData accessor
-
-  ARROW_DEPRECATED("Use the ReaderProperties-taking overload")
-  static std::unique_ptr<ColumnChunkMetaData> Make(
-      const void* metadata, const ColumnDescriptor* descr,
-      const ApplicationVersion* writer_version, int16_t row_group_ordinal = -1,
-      int16_t column_ordinal = -1,
-      std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
-
   static std::unique_ptr<ColumnChunkMetaData> Make(
       const void* metadata, const ColumnDescriptor* descr,
       const ReaderProperties& properties = default_reader_properties(),
@@ -200,12 +192,6 @@ class PARQUET_EXPORT ColumnChunkMetaData {
 /// \brief RowGroupMetaData is a proxy around format::RowGroupMetaData.
 class PARQUET_EXPORT RowGroupMetaData {
  public:
-  ARROW_DEPRECATED("Use the ReaderProperties-taking overload")
-  static std::unique_ptr<RowGroupMetaData> Make(
-      const void* metadata, const SchemaDescriptor* schema,
-      const ApplicationVersion* writer_version,
-      std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
-
   /// \brief Create a RowGroupMetaData from a serialized thrift message.
   static std::unique_ptr<RowGroupMetaData> Make(
       const void* metadata, const SchemaDescriptor* schema,
@@ -273,11 +259,6 @@ class FileMetaDataBuilder;
 /// \brief FileMetaData is a proxy around format::FileMetaData.
 class PARQUET_EXPORT FileMetaData {
  public:
-  ARROW_DEPRECATED("Use the ReaderProperties-taking overload")
-  static std::shared_ptr<FileMetaData> Make(
-      const void* serialized_metadata, uint32_t* inout_metadata_len,
-      std::shared_ptr<InternalFileDecryptor> file_decryptor);
-
   /// \brief Create a FileMetaData from a serialized thrift message.
   static std::shared_ptr<FileMetaData> Make(
       const void* serialized_metadata, uint32_t* inout_metadata_len,
@@ -547,11 +528,6 @@ struct PageIndexLocation {
 
 class PARQUET_EXPORT FileMetaDataBuilder {
  public:
-  ARROW_DEPRECATED("Deprecated in 12.0.0. Use overload without KeyValueMetadata instead.")
-  static std::unique_ptr<FileMetaDataBuilder> Make(
-      const SchemaDescriptor* schema, std::shared_ptr<WriterProperties> props,
-      std::shared_ptr<const KeyValueMetadata> key_value_metadata);
-
   // API convenience to get a MetaData builder
   static std::unique_ptr<FileMetaDataBuilder> Make(
       const SchemaDescriptor* schema, std::shared_ptr<WriterProperties> props);
@@ -572,9 +548,8 @@ class PARQUET_EXPORT FileMetaDataBuilder {
   std::unique_ptr<FileCryptoMetaData> GetCryptoMetaData();
 
  private:
-  explicit FileMetaDataBuilder(
-      const SchemaDescriptor* schema, std::shared_ptr<WriterProperties> props,
-      std::shared_ptr<const KeyValueMetadata> key_value_metadata = NULLPTR);
+  explicit FileMetaDataBuilder(const SchemaDescriptor* schema,
+                               std::shared_ptr<WriterProperties> props);
   // PIMPL Idiom
   class FileMetaDataBuilderImpl;
   std::unique_ptr<FileMetaDataBuilderImpl> impl_;

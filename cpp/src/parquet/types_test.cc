@@ -65,11 +65,11 @@ TEST(TestConvertedTypeToString, ConvertedTypes) {
 }
 
 #ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #elif defined(_MSC_VER)
-#pragma warning(push)
-#pragma warning(disable : 4996)
+#  pragma warning(push)
+#  pragma warning(disable : 4996)
 #endif
 
 TEST(TypePrinter, StatisticsTypes) {
@@ -164,9 +164,9 @@ TEST(TestInt96Timestamp, Decoding) {
 }
 
 #if !(defined(_WIN32) || defined(__CYGWIN__))
-#pragma GCC diagnostic pop
+#  pragma GCC diagnostic pop
 #elif _MSC_VER
-#pragma warning(pop)
+#  pragma warning(pop)
 #endif
 
 }  // namespace parquet

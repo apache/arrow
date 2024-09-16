@@ -793,6 +793,49 @@ namespace Apache.Arrow.Tests
         }
 
         [SkippableFact]
+        public unsafe void RoundTripTestSlicedBatch()
+        {
+            // TODO: Enable these once this the version of pyarrow referenced during testing supports them
+            HashSet<ArrowTypeId> unsupported = new HashSet<ArrowTypeId> { ArrowTypeId.ListView, ArrowTypeId.BinaryView, ArrowTypeId.StringView };
+            RecordBatch batch1 = TestData.CreateSampleRecordBatch(4, excludedTypes: unsupported);
+            RecordBatch batch1slice = batch1.Slice(1, 2);
+            RecordBatch batch2 = batch1slice.Clone();
+
+            CArrowArray* cExportArray = CArrowArray.Create();
+            CArrowArrayExporter.ExportRecordBatch(batch1slice, cExportArray);
+
+            CArrowSchema* cExportSchema = CArrowSchema.Create();
+            CArrowSchemaExporter.ExportSchema(batch1.Schema, cExportSchema);
+
+            CArrowArray* cImportArray = CArrowArray.Create();
+            CArrowSchema* cImportSchema = CArrowSchema.Create();
+
+            // For Python, we need to provide the pointers
+            long exportArrayPtr = ((IntPtr)cExportArray).ToInt64();
+            long exportSchemaPtr = ((IntPtr)cExportSchema).ToInt64();
+            long importArrayPtr = ((IntPtr)cImportArray).ToInt64();
+            long importSchemaPtr = ((IntPtr)cImportSchema).ToInt64();
+
+            using (Py.GIL())
+            {
+                dynamic pa = Py.Import("pyarrow");
+                dynamic exportedPyArray = pa.RecordBatch._import_from_c(exportArrayPtr, exportSchemaPtr);
+                exportedPyArray._export_to_c(importArrayPtr, importSchemaPtr);
+            }
+
+            Schema schema = CArrowSchemaImporter.ImportSchema(cImportSchema);
+            RecordBatch importedBatch = CArrowArrayImporter.ImportRecordBatch(cImportArray, schema);
+
+            ArrowReaderVerifier.CompareBatches(batch2, importedBatch, strictCompare: false); // Non-strict because span lengths won't match.
+
+            // Since we allocated, we are responsible for freeing the pointer.
+            CArrowArray.Free(cExportArray);
+            CArrowSchema.Free(cExportSchema);
+            CArrowArray.Free(cImportArray);
+            CArrowSchema.Free(cImportSchema);
+        }
+
+        [SkippableFact]
         public unsafe void ExportBatchReader()
         {
             RecordBatch batch = GetTestRecordBatch();

@@ -17,7 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -ex
+set -e
 
 arrow_dir=${1}
 build_dir=${2}
@@ -28,22 +28,35 @@ build_dir=${2}
 : ${ARROW_INTEGRATION_JAVA:=ON}
 : ${ARROW_INTEGRATION_JS:=ON}
 
+. ${arrow_dir}/ci/scripts/util_log.sh
+
+github_actions_group_begin "Integration: Build: Rust"
 ${arrow_dir}/ci/scripts/rust_build.sh ${arrow_dir} ${build_dir}
+github_actions_group_end
 
+github_actions_group_begin "Integration: Build: nanoarrow"
 ${arrow_dir}/ci/scripts/nanoarrow_build.sh ${arrow_dir} ${build_dir}
+github_actions_group_end
 
+github_actions_group_begin "Integration: Build: C++"
 if [ "${ARROW_INTEGRATION_CPP}" == "ON" ]; then
     ${arrow_dir}/ci/scripts/cpp_build.sh ${arrow_dir} ${build_dir}
 fi
+github_actions_group_end
 
+github_actions_group_begin "Integration: Build: C#"
 if [ "${ARROW_INTEGRATION_CSHARP}" == "ON" ]; then
     ${arrow_dir}/ci/scripts/csharp_build.sh ${arrow_dir} ${build_dir}
 fi
+github_actions_group_end
 
+github_actions_group_begin "Integration: Build: Go"
 if [ "${ARROW_INTEGRATION_GO}" == "ON" ]; then
     ${arrow_dir}/ci/scripts/go_build.sh ${arrow_dir} ${build_dir}
 fi
+github_actions_group_end
 
+github_actions_group_begin "Integration: Build: Java"
 if [ "${ARROW_INTEGRATION_JAVA}" == "ON" ]; then
     export ARROW_JAVA_CDATA="ON"
     export JAVA_JNI_CMAKE_ARGS="-DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF -DARROW_JAVA_JNI_ENABLE_C=ON"
@@ -51,7 +64,10 @@ if [ "${ARROW_INTEGRATION_JAVA}" == "ON" ]; then
     ${arrow_dir}/ci/scripts/java_jni_build.sh ${arrow_dir} ${ARROW_HOME} ${build_dir} /tmp/dist/java
     ${arrow_dir}/ci/scripts/java_build.sh ${arrow_dir} ${build_dir} /tmp/dist/java
 fi
+github_actions_group_end
 
+github_actions_group_begin "Integration: Build: JavaScript"
 if [ "${ARROW_INTEGRATION_JS}" == "ON" ]; then
     ${arrow_dir}/ci/scripts/js_build.sh ${arrow_dir} ${build_dir}
 fi
+github_actions_group_end

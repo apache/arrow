@@ -15,7 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import contextlib
 import logging
+import os
 
 """ Global logger. """
 logger = logging.getLogger("archery")
@@ -27,3 +29,24 @@ class LoggingContext:
 
 
 ctx = LoggingContext()
+
+in_github_actions = (os.environ.get("GITHUB_ACTIONS") == "true")
+
+
+@contextlib.contextmanager
+def group(name, output=None):
+    """
+    Group outputs in the given with block.
+
+    This does nothing in non GitHub Actions environment for now.
+    """
+    if output is None:
+        def output(message):
+            print(message, flush=True)
+    if in_github_actions:
+        output(f"::group::{name}")
+    try:
+        yield
+    finally:
+        if in_github_actions:
+            output("::endgroup::")

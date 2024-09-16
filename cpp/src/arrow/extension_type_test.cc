@@ -219,14 +219,14 @@ TEST_F(TestExtensionType, IpcRoundtrip) {
   auto batch = RecordBatch::Make(schema({field("f0", uuid())}), 4, {ext_arr});
 
   std::shared_ptr<RecordBatch> read_batch;
-  RoundtripBatch(batch, &read_batch);
+  ASSERT_OK(RoundtripBatch(batch, &read_batch));
   CompareBatch(*batch, *read_batch, false /* compare_metadata */);
 
   // Wrap type in a ListArray and ensure it also makes it
   auto offsets_arr = ArrayFromJSON(int32(), "[0, 0, 2, 4]");
   ASSERT_OK_AND_ASSIGN(auto list_arr, ListArray::FromArrays(*offsets_arr, *ext_arr));
   batch = RecordBatch::Make(schema({field("f0", list(uuid()))}), 3, {list_arr});
-  RoundtripBatch(batch, &read_batch);
+  ASSERT_OK(RoundtripBatch(batch, &read_batch));
   CompareBatch(*batch, *read_batch, false /* compare_metadata */);
 }
 
@@ -289,7 +289,7 @@ TEST_F(TestExtensionType, ParametricTypes) {
                                  4, {p1, p2, p3, p4});
 
   std::shared_ptr<RecordBatch> read_batch;
-  RoundtripBatch(batch, &read_batch);
+  ASSERT_OK(RoundtripBatch(batch, &read_batch));
   CompareBatch(*batch, *read_batch, false /* compare_metadata */);
 }
 
