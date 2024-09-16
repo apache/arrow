@@ -56,16 +56,14 @@ export PYARROW_TEST_TENSORFLOW=ON
 export ARROW_TEST_DATA=${source_dir}/testing/data
 export PARQUET_TEST_DATA=${source_dir}/cpp/submodules/parquet-testing/data
 
-PYTHON="${PYTHON:-python}"
-
 if [ "${INSTALL_PYARROW}" == "ON" ]; then
   # Install the built wheels
-  $PYTHON -m pip install ${source_dir}/python/repaired_wheels/*.whl
+  python -m pip install ${source_dir}/python/repaired_wheels/*.whl
 fi
 
 if [ "${CHECK_IMPORTS}" == "ON" ]; then
   # Test that the modules are importable
-  $PYTHON -c "
+  python -c "
 import pyarrow
 import pyarrow._hdfs
 import pyarrow.csv
@@ -76,24 +74,24 @@ import pyarrow.orc
 import pyarrow.parquet
 "
   if [ "${PYARROW_TEST_GCS}" == "ON" ]; then
-    $PYTHON -c "import pyarrow._gcsfs"
+    python -c "import pyarrow._gcsfs"
   fi
   if [ "${PYARROW_TEST_S3}" == "ON" ]; then
-    $PYTHON -c "import pyarrow._s3fs"
+    python -c "import pyarrow._s3fs"
   fi
   if [ "${PYARROW_TEST_FLIGHT}" == "ON" ]; then
-    $PYTHON -c "import pyarrow.flight"
+    python -c "import pyarrow.flight"
   fi
   if [ "${PYARROW_TEST_SUBSTRAIT}" == "ON" ]; then
-    $PYTHON -c "import pyarrow.substrait"
+    python -c "import pyarrow.substrait"
   fi
 fi
 
 if [ "${CHECK_UNITTESTS}" == "ON" ]; then
   # Install testing dependencies
-  $PYTHON -m pip install -U -r ${source_dir}/python/requirements-wheel-test.txt
+  python -m pip install -U -r ${source_dir}/python/requirements-wheel-test.txt
 
   # Execute unittest, test dependencies must be installed
-  $PYTHON -c 'import pyarrow; pyarrow.create_library_symlinks()'
-  $PYTHON -m pytest -r s --pyargs pyarrow
+  python -c 'import pyarrow; pyarrow.create_library_symlinks()'
+  python -m pytest -r s --pyargs pyarrow
 fi

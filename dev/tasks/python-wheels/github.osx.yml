@@ -144,8 +144,8 @@ jobs:
           arch -{{ arch }} pip install -pre \
             --prefer-binary \
             --extra-index-url "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple" \
-            Cython
-          arch -{{ arch }} pip install "meson-python==0.13.1" "meson==1.2.1" "wheel" "versioneer[toml]"
+            Cython numpy
+          arch -{{ arch }} pip install "meson-python==0.13.1" "meson==1.2.1" wheel "versioneer[toml]" ninja
           arch -{{ arch }} pip install --no-build-isolation -r arrow/python/requirements-wheel-test.txt
           arch -{{ arch }} arrow/ci/scripts/python_wheel_unix_test.sh $(pwd)/arrow
 
