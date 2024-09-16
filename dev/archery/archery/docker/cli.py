@@ -83,7 +83,7 @@ def docker(ctx, src, dry_run, using_legacy_docker_compose, using_docker_cli,
     using_docker_cli |= using_docker_buildx
     compose_bin = ("docker-compose" if using_legacy_docker_compose
                    else "docker compose")
-    with group("Docker: Preppare"):
+    with group("Docker: Prepare"):
         compose = DockerCompose(config_path, params=os.environ,
                                 using_docker=using_docker_cli,
                                 using_buildx=using_docker_buildx,
