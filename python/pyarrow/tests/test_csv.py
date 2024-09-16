@@ -1444,14 +1444,11 @@ class BaseCSVTableRead(BaseTestCSV):
         if (threading.current_thread().ident !=
                 threading.main_thread().ident):
             pytest.skip("test only works from main Python thread")
-        # Skips test if not available
-        raise_signal = util.get_raise_signal()
-        signum = signal.SIGINT
 
         def signal_from_thread():
             # Give our workload a chance to start up
             time.sleep(0.2)
-            raise_signal(signum)
+            signal.raise_signal(signal.SIGINT)
 
         # We start with a small CSV reading workload and increase its size
         # until it's large enough to get an interruption during it, even in
@@ -1507,7 +1504,7 @@ class BaseCSVTableRead(BaseTestCSV):
         assert last_duration <= 2.0
         e = exc_info.__context__
         assert isinstance(e, pa.ArrowCancelled)
-        assert e.signum == signum
+        assert e.signum == signal.SIGINT
 
     @pytest.mark.threading
     def test_cancellation_disabled(self):

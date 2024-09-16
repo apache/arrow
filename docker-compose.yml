@@ -855,7 +855,7 @@ services:
     #   docker-compose run --rm conda-python
     # Parameters:
     #   ARCH: amd64, arm32v7
-    #   PYTHON: 3.8, 3.9, 3.10, 3.11
+    #   PYTHON: 3.9, 3.10, 3.11, 3.12
     image: ${REPO}:${ARCH}-conda-python-${PYTHON}
     build:
       context: .
@@ -917,6 +917,7 @@ services:
     # Parameters:
     #   ARCH: amd64
     #   CUDA: <depends on your nvidia driver, should match system CUDA>
+    #   UBUNTU: 22.04, 24.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-python-3
     build:
       context: .
@@ -984,7 +985,7 @@ services:
     #   docker-compose run --rm ubuntu-python
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 20.04, 22.04
+    #   UBUNTU: 22.04, 24.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
     build:
       context: .
@@ -1064,7 +1065,7 @@ services:
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
     #   PYARROW_VERSION: The test target pyarrow version such as "3.0.0"
-    #   UBUNTU: 20.04, 22.04
+    #   UBUNTU: 22.04, 24.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
     build:
       context: .

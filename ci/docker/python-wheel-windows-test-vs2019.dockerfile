@@ -48,13 +48,12 @@ COPY ci/scripts/install_gcs_testbench.bat C:/arrow/ci/scripts/
 RUN call "C:\arrow\ci\scripts\install_gcs_testbench.bat" && \
     storage-testbench -h
 
-# Define the full version number otherwise choco falls back to patch number 0 (3.8 => 3.8.0)
-ARG python=3.8
-RUN (if "%python%"=="3.8" setx PYTHON_VERSION "3.8.10") & \
-    (if "%python%"=="3.9" setx PYTHON_VERSION "3.9.13") & \
+# Define the full version number otherwise choco falls back to patch number 0 (3.9 => 3.9.0)
+ARG python=3.9
+RUN (if "%python%"=="3.9" setx PYTHON_VERSION "3.9.13") & \
     (if "%python%"=="3.10" setx PYTHON_VERSION "3.10.11") & \
     (if "%python%"=="3.11" setx PYTHON_VERSION "3.11.9") & \
-    (if "%python%"=="3.12" setx PYTHON_VERSION "3.12.4") & \
+    (if "%python%"=="3.12" setx PYTHON_VERSION "3.12.5") & \
     (if "%python%"=="3.13" setx PYTHON_VERSION "3.13.0-rc1")
 
 # Install archiver to extract xz archives

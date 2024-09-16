@@ -119,7 +119,7 @@ to step 3:
 
    - Confirm the `auto cancellation`_ feature is turned off for branch builds. This should be the default setting.
 
-7. Install Python (minimum supported version is 3.8):
+7. Install Python (minimum supported version is 3.9):
 
    | Miniconda is preferred, see installation instructions:
    | https://conda.io/docs/user-guide/install/index.html
