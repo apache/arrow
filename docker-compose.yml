@@ -918,7 +918,6 @@ services:
     #   ARCH: amd64
     #   CUDA: <depends on your nvidia driver, should match system CUDA>
     #   UBUNTU: 22.04, 24.04
-    #   PYTHON: 3.9, 3.10, 3.11, ...
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-python-3
     build:
       context: .
@@ -987,7 +986,6 @@ services:
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
     #   UBUNTU: 22.04, 24.04
-    #   PYTHON: 3.9, 3.10, ...
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
     build:
       context: .
@@ -1068,7 +1066,6 @@ services:
     #   ARCH: amd64, arm64v8, ...
     #   PYARROW_VERSION: The test target pyarrow version such as "3.0.0"
     #   UBUNTU: 22.04, 24.04
-    #   PYTHON: 3.9, 3.10, 3.11, ...
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
     build:
       context: .
