@@ -124,8 +124,8 @@ to :ref:`Python scalars <custom-scalar-conversion>` and
 
 In Arrow, :ref:`extension types <format_metadata_extension_types>`
 are specified by annotating any of the built-in Arrow data types
-(the "storage type") with a custom type name and, optionally, a byte
-array that can be used to provide additional metadata (referred to as
+(the "storage type") with a custom type name and, optionally, a
+bytestring that can be used to provide additional metadata (referred to as
 "parameters" in this documentation). These appear as the
 ``ARROW:extension:name`` and ``ARROW:extension:metadata`` keys in the
 Field's ``custom_metadata``.
