@@ -122,6 +122,11 @@ jobs:
           python-version: 3.12
           update-environment: false
 
+      - name: Install MinIO
+        run: |
+          $(brew --prefix bash)/bin/bash \
+            arrow/ci/scripts/install_minio.sh latest /usr/local
+
       - name: Install GCS testbench
         env:
           PIPX_BIN_DIR: /usr/local/bin
