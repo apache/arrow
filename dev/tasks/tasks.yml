@@ -1514,20 +1514,28 @@ tasks:
 
   ############################## CUDA tests #################################
 
-  test-cuda-cpp:
+  test-cuda-cpp-ubuntu-20.04-cuda-11.2.2:
     ci: github
     template: docker-tests/github.cuda.yml
     params:
-      env:
-        UBUNTU: 22.04
       image: ubuntu-cuda-cpp
 
-  test-cuda-python:
+  test-cuda-cpp-ubuntu-22.04-cuda-11.7.1:
     ci: github
     template: docker-tests/github.cuda.yml
     params:
       env:
         UBUNTU: 22.04
+        CUDA: 11.7.1
+      image: ubuntu-cuda-cpp
+
+  test-cuda-python-ubuntu-22.04-cuda-11.7.1:
+    ci: github
+    template: docker-tests/github.cuda.yml
+    params:
+      env:
+        UBUNTU: 22.04
+        CUDA: 11.7.1
       image: ubuntu-cuda-python
 
   ############################## Fuzz tests #################################
