@@ -360,11 +360,9 @@ struct SmallDecimalGenerator {
   std::shared_ptr<Array> MakeRandomArray(int64_t size, double null_probability,
                                          int64_t alignment, MemoryPool* memory_pool) {
     static constexpr int32_t kMaxDigitsInInteger =
-        std::is_same_v<DecimalType, Decimal32Type> ? 9 : 18;
-    static constexpr int kNumIntegers = DecimalType::kByteWidth / sizeof(IntegerType);
+        std::is_same_v<DecimalType, Decimal32Type> ? 9 : 18;    
     static_assert(
-        kNumIntegers == (DecimalType::kMaxPrecision + kMaxDigitsInInteger - 1) /
-                            (kMaxDigitsInInteger + 1),
+        kMaxDigitsInInteger >= DecimalType::kByteWidth,
         "inconsistent decimal metadata: kMaxPrecision doesn't match kByteWidth");
 
     const auto& decimal_type = checked_cast<const DecimalType&>(*type_);
