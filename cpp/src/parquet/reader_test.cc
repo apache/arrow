@@ -1822,7 +1822,7 @@ class TestGeometryLogicalType : public ::testing::Test {
   const int NUM_ROWS = 1000;
 
   void WriteTestData(ParquetDataPageVersion data_page_version,
-                     bool enable_write_page_index) {
+                     bool enable_write_page_index, bool write_arrow) {
     // Make schema
     schema::NodeVector fields;
     fields.push_back(PrimitiveNode::Make(
@@ -1835,7 +1835,6 @@ class TestGeometryLogicalType : public ::testing::Test {
         GroupNode::Make("schema", Repetition::REQUIRED, fields));
 
     // Write small batches and small data pages
-
     auto writer_props_builder = WriterProperties::Builder();
     writer_props_builder.write_batch_size(64)->data_pagesize(128)->data_page_version(
         data_page_version);
@@ -1852,6 +1851,19 @@ class TestGeometryLogicalType : public ::testing::Test {
 
     // write WKB points to columns
     auto* writer = static_cast<ByteArrayWriter*>(rg_writer->NextColumn());
+    if (!write_arrow) {
+      WriteTestDataUsingWriteBatch(writer);
+    } else {
+      WriteTestDataUsingWriteArrow(writer);
+    }
+
+    rg_writer->Close();
+    file_writer->Close();
+
+    ASSERT_OK_AND_ASSIGN(file_buf, out_file->Finish());
+  }
+
+  void WriteTestDataUsingWriteBatch(ByteArrayWriter* writer) {
     std::vector<uint8_t> buffer(test::WKB_POINT_SIZE * NUM_ROWS);
     uint8_t* ptr = buffer.data();
     std::vector<ByteArray> values(NUM_ROWS);
@@ -1862,16 +1874,30 @@ class TestGeometryLogicalType : public ::testing::Test {
       ptr += test::WKB_POINT_SIZE;
     }
     writer->WriteBatch(NUM_ROWS, nullptr, nullptr, values.data());
+  }
 
-    rg_writer->Close();
-    file_writer->Close();
+  void WriteTestDataUsingWriteArrow(ByteArrayWriter* writer) {
+    ::arrow::BinaryBuilder builder;
+    std::vector<uint8_t> buffer(test::WKB_POINT_SIZE * NUM_ROWS);
+    uint8_t* ptr = buffer.data();
+    for (int k = 0; k < NUM_ROWS; k++) {
+      test::GenerateWKBPoint(ptr, k, k + 1);
+      ASSERT_OK(builder.Append(ptr, test::WKB_POINT_SIZE));
+      ptr += test::WKB_POINT_SIZE;
+    }
+    std::shared_ptr<::arrow::BinaryArray> array;
+    ASSERT_OK(builder.Finish(&array));
 
-    ASSERT_OK_AND_ASSIGN(file_buf, out_file->Finish());
+    std::shared_ptr<ArrowWriterProperties> properties =
+        ArrowWriterProperties::Builder().build();
+    MemoryPool* pool = ::arrow::default_memory_pool();
+    auto ctx = std::make_unique<ArrowWriteContext>(pool, properties.get());
+    ASSERT_OK(writer->WriteArrow(nullptr, nullptr, NUM_ROWS, *array, ctx.get(), true));
   }
 
   void TestWriteAndRead(ParquetDataPageVersion data_page_version,
-                        bool enable_write_page_index) {
-    WriteTestData(data_page_version, enable_write_page_index);
+                        bool enable_write_page_index, bool write_arrow) {
+    WriteTestData(data_page_version, enable_write_page_index, write_arrow);
 
     auto in_file = std::make_shared<::arrow::io::BufferReader>(file_buf);
 
@@ -2003,14 +2029,22 @@ class TestGeometryLogicalType : public ::testing::Test {
 TEST_F(TestGeometryLogicalType, TestWriteAndReadWithPageStatistics) {
   for (auto data_page_version :
        {ParquetDataPageVersion::V1, ParquetDataPageVersion::V2}) {
-    TestWriteAndRead(data_page_version, false);
+    TestWriteAndRead(data_page_version, false, false);
   }
 }
 
 TEST_F(TestGeometryLogicalType, TestWriteAndReadWithColumnIndex) {
   for (auto data_page_version :
        {ParquetDataPageVersion::V1, ParquetDataPageVersion::V2}) {
-    TestWriteAndRead(data_page_version, true);
+    TestWriteAndRead(data_page_version, true, false);
+  }
+}
+
+TEST_F(TestGeometryLogicalType, TestWriteArrowAndRead) {
+  for (auto data_page_version :
+       {ParquetDataPageVersion::V1, ParquetDataPageVersion::V2}) {
+    TestWriteAndRead(data_page_version, false, true);
+    TestWriteAndRead(data_page_version, true, true);
   }
 }
 
