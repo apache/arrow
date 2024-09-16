@@ -30,6 +30,9 @@ gold_dir=$arrow_dir/testing/data/arrow-ipc-stream/integration
 : ${ARROW_INTEGRATION_JAVA:=ON}
 : ${ARROW_INTEGRATION_JS:=ON}
 
+: ${ARCHERY_INTEGRATION_TARGET_LANGUAGES:=cpp,csharp,go,java,js}
+export ARCHERY_INTEGRATION_TARGET_LANGUAGES
+
 . ${arrow_dir}/ci/scripts/util_log.sh
 
 github_actions_group_begin "Integration: Prepare: Archery"
