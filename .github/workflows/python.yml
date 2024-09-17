@@ -93,7 +93,7 @@ jobs:
             python: "3.11"
     env:
       PYTHON: ${{ matrix.python || 3.9 }}
-      UBUNTU: ${{ matrix.ubuntu || 20.04 }}
+      UBUNTU: ${{ matrix.ubuntu || 22.04 }}
       PANDAS: ${{ matrix.pandas || 'latest' }}
       NUMPY: ${{ matrix.numpy || 'latest' }}
     steps:
