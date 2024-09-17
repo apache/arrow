@@ -54,12 +54,16 @@ which are tabular so they can be organized into a table:
    :scale: 70%
    :alt: Diagram with tabular data of 4 rows and columns.
 
+   Diagram of a tabular data structure.
+
 This kind of data can be represented in memory using a row-based format or a
 column-based format. The row-based format stores data row-by-row, meaning the rows
 are adjacent in the computer memory:
 
 .. figure:: ./images/columnar-diagram_2.svg
-   :alt: Tabular data being structured row-by-row in computer memory.
+   :alt: Tabular data being structured row by row in computer memory.
+
+   Tabular data being saved in memory row by row.
 
 In a columnar format, the data is organized column-by-column instead.
 This organization makes analytical operations like filtering, grouping,
@@ -77,6 +81,8 @@ uses the columnar layout.
 
 .. figure:: ./images/columnar-diagram_3.svg
    :alt: Tabular data being structured column by column in computer memory.
+
+   The same tabular data being saved in memory column by column.
 
 Each column is called an **Array** in Arrow terminology. Arrays can be of
 different data types and the way their values are stored in memory varies among
