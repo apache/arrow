@@ -1399,7 +1399,7 @@ the same codec. Specific buffers in the sequence of compressed
 buffers may be left uncompressed (for example if compressing those
 specific buffers would not appreciably reduce their size).
 
-The compression type used is defined in the ``data header```
+The compression type used is defined in the ``data header``
 of the :ref:`ipc-recordbatch-message` in the optional ``compression``
 field with the default being uncompressed.
 
