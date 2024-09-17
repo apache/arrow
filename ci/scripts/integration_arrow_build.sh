@@ -39,7 +39,7 @@ github_actions_group_end
 
 github_actions_group_begin "Integration: Build: Go"
 if [ "${ARCHERY_INTEGRATION_WITH_GO}" -gt "0" ]; then
-    ${arrow_dir}/go/ci/scripts/build.sh ${arrow_dir} ${build_dir}
+    ${arrow_dir}/go/ci/scripts/build.sh ${arrow_dir}/go
 fi
 github_actions_group_end
 
