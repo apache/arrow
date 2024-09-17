@@ -141,22 +141,12 @@ jobs:
       - name: Test Wheel
         env:
           PYTEST_ADDOPTS: "-k 'not test_cancellation'"
-          PYTHON_GIL: 0
+          PYTHON_GIL: {{ 0 if python_abi_tag == "cp313t" else 1 }}
         run: |
           $PYTHON -m venv test-env
           source test-env/bin/activate
           pip install --upgrade pip wheel
-          if [ "{{ python_abi_tag }}" = "cp313t" ];
-          then
-            arch -{{ arch }} pip install --pre \
-              --prefer-binary \
-              --extra-index-url "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple" \
-              Cython numpy
-            arch -{{ arch }} pip install "meson-python==0.13.1" "meson==1.2.1" wheel "versioneer[toml]" ninja
-            arch -{{ arch }} pip install --no-build-isolation -r arrow/python/requirements-wheel-test.txt
-          else
-            arch -{{ arch }} pip install -r arrow/python/requirements-wheel-test.txt
-          fi
+          arch -{{ arch }} pip install -r arrow/python/requirements-wheel-test.txt
           arch -{{ arch }} arrow/ci/scripts/python_wheel_unix_test.sh $(pwd)/arrow
 
       {{ macros.github_upload_releases("arrow/python/repaired_wheels/*.whl")|indent }}
