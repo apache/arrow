@@ -190,13 +190,14 @@ then multiple chunks are needed.
 Variable length binary and string view
 --------------------------------------
 
+.. _UmbraDB: https://umbra-db.com/
+.. _DuckDB: https://duckdb.com
+.. _Velox: https://velox-lib.io/
+
 This layout is an alternative for the variable length binary layout and is adapted
 from TU Munich's `UmbraDB`_ and is similar to the string layout used in `DuckDB`_ and
 `Velox`_ (and sometimes also called "German style strings").
 
-.. _UmbraDB: https://umbra-db.com/
-.. _DuckDB: https://duckdb.com
-.. _Velox: https://velox-lib.io/
 The main differences to the classical binary and string layout is the views buffer.
 It includes the length of the string, and then either contains the characters
 inline (for small strings) or only the first 4 bytes of the string and an offset into
@@ -261,9 +262,12 @@ offset buffer is no longer needed.
    Physical layout diagram for fixed size list data type.
 
 List View
-------------------------
+---------
 
-List view data type allows arrays to specify out-of-order offsets.
+In contrast to the list type, list view type also has a size buffer together
+with an offset buffer. The offsets continue to indicate the start of each
+element but size is now saved in a separate size buffer. This allows to have
+out-of-order offsets.
 
 .. figure:: ./images/var-list-view-diagram.svg
    :alt: Diagram is showing the difference between the variable size list view
@@ -275,7 +279,8 @@ List view data type allows arrays to specify out-of-order offsets.
 Struct
 ------
 
-A struct is a nested data type parameterized by an ordered sequence of fields (a data types and a name).
+A struct is a nested data type parameterized by an ordered sequence of fields
+(a data types and a name).
 
 * There is one child array for each field
 * Child arrays are independent and need not be adjacent to each other in
