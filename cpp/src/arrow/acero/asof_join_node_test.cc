@@ -101,6 +101,7 @@ Result<BatchesWithSchema> MakeBatchesFromNumString(
   BatchesWithSchema batches;
   batches.schema = schema;
   int n_fields = schema->num_fields();
+  size_t batch_index=0;
   for (auto num_batch : num_batches.batches) {
     Datum two(Int32Scalar(2));
     std::vector<Datum> values;
@@ -128,6 +129,7 @@ Result<BatchesWithSchema> MakeBatchesFromNumString(
       }
     }
     ExecBatch batch(values, num_batch.length);
+    batch.index=batch_index++;
     batches.batches.push_back(batch);
   }
   return batches;
@@ -185,6 +187,7 @@ Result<BatchesWithSchema> MutateByKey(BatchesWithSchema& batches, std::string fr
                           replace_key ? batches.schema->SetField(from_index, new_field)
                                       : batches.schema->AddField(from_index, new_field));
   }
+  size_t batch_index = 0;
   for (const ExecBatch& batch : batches.batches) {
     std::vector<Datum> new_values;
     for (int i = 0; i < n_fields; i++) {
@@ -233,6 +236,7 @@ Result<BatchesWithSchema> MutateByKey(BatchesWithSchema& batches, std::string fr
       new_values.push_back(value);
     }
     new_batches.batches.emplace_back(new_values, batch.length);
+    new_batches.batches.back().index = batch_index++;
   }
   return new_batches;
 }
@@ -405,6 +409,7 @@ void DoRunUnorderedPlanTest(bool l_unordered, bool r_unordered,
   DoRunUnorderedPlanTest(l_unordered, r_unordered, l_schema, r_schema,
                          GetRepeatedOptions(2, "time", {"key"}, 1000),
                          "out-of-order on-key values");
+                        //  "requires sequenced input");
 }
 
 struct BasicTestTypes {
