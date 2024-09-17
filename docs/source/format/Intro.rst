@@ -82,7 +82,8 @@ Each column is called an **Array** in Arrow terminology. Arrays can be of
 different data types and the way their values are stored in memory varies among
 the data types. The specification of how these values are arranged in memory is
 what we call a **physical memory layout**. One contiguous region of memory that
-stores data for arrays is called a **Buffer**.
+stores data for arrays is called a **Buffer**. An array consists of one or more
+buffers.
 
 Next sections give an introduction to Arrow Columnar Format explaining the
 different physical layouts. The full specification of the format can be found
@@ -106,8 +107,11 @@ column 1 in the diagram below).
 .. note::
 
    We read validity bitmaps right-to-left within a group of 8 bits due to
-   `least-significant bit numbering <https://en.wikipedia.org/wiki/Bit_numbering>`_ being
-   used.
+   `least-significant bit numbering <https://en.wikipedia.org/wiki/Bit_numbering>`_
+   being used.
+
+   This is also the how we represented the validity bitmaps in the
+   diagrams included in this document.
 
 Primitive Layouts
 =================
