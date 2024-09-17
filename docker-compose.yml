@@ -1177,7 +1177,8 @@ services:
       CHECK_WHEEL_CONTENT: "ON"
     command: /arrow/ci/scripts/python_wheel_unix_test.sh /arrow
 
-  # TODO: Remove this when the official Docker Python image supports the free-threaded build
+  # TODO: Remove this when the official Docker Python image supports the free-threaded build.
+  # See https://github.com/docker-library/python/issues/947 for more info.
   python-free-threaded-wheel-manylinux-test-imports:
     image: ${REPO}:${ARCH}-python-3.13-free-threaded-wheel-manylinux-test-imports
     build:
@@ -1217,7 +1218,8 @@ services:
       CHECK_WHEEL_CONTENT: "OFF"
     command: /arrow/ci/scripts/python_wheel_unix_test.sh /arrow
 
-  # TODO: Remove this when the official Docker Python image supports the free-threaded build
+  # TODO: Remove this when the official Docker Python image supports the free-threaded build.
+  # See https://github.com/docker-library/python/issues/947 for more info.
   python-free-threaded-wheel-manylinux-test-unittests:
     image: ${REPO}:${ARCH}-python-3.13-free-threaded-wheel-manylinux-test-unittests
     build:

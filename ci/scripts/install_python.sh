@@ -63,6 +63,7 @@ if [ $platform = "macOS" ]; then
 
     echo "Installing Python..."
     if [[ $2 == "3.13t" ]]; then
+        # See https://github.com/python/cpython/issues/120098#issuecomment-2151122033 for more info on this.
         cat > ./choicechanges.plist <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

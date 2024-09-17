@@ -454,7 +454,8 @@ tasks:
 
 {############################## Wheel Windows ################################}
 
-# TODO: Remove this when there's NumPy wheels for Windows
+# TODO: Remove this when there's NumPy wheels for Windows.
+# See https://github.com/numpy/numpy/issues/26157 for more info.
 {% if abi_tag != "cp313t" %}
 
   wheel-windows-{{ python_tag }}-amd64:
