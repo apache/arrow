@@ -93,11 +93,20 @@ struct SumImpl : public ScalarAggregator {
   }
 
   Status Finalize(KernelContext*, Datum* out) override {
+    std::shared_ptr<DataType> out_type_;
+    if (auto decimal128_type = std::dynamic_pointer_cast<Decimal128Type>(out_type)) {
+      ARROW_ASSIGN_OR_RAISE(out_type_, Decimal128Type::Make(Decimal128Type::kMaxPrecision, decimal128_type->scale()));
+    } else if (auto decimal256_type = std::dynamic_pointer_cast<Decimal256Type>(out_type)) {
+      ARROW_ASSIGN_OR_RAISE(out_type_, Decimal256Type::Make(Decimal256Type::kMaxPrecision, decimal256_type->scale()));
+    } else {
+      out_type_ = out_type;
+    }
+
     if ((!options.skip_nulls && this->nulls_observed) ||
         (this->count < options.min_count)) {
-      out->value = std::make_shared<OutputType>(out_type);
+      out->value = std::make_shared<OutputType>(out_type_);
     } else {
-      out->value = std::make_shared<OutputType>(this->sum, out_type);
+      out->value = std::make_shared<OutputType>(this->sum, out_type_);
     }
     return Status::OK();
   }
@@ -220,9 +229,22 @@ struct MeanImpl<ArrowType, SimdLevel, enable_if_decimal<ArrowType>>
 
   template <typename T = ArrowType>
   Status FinalizeImpl(Datum* out) {
+    std::shared_ptr<DataType> out_type_;
+    if (auto decimal128_type = std::dynamic_pointer_cast<Decimal128Type>(this->out_type)) {
+      ARROW_ASSIGN_OR_RAISE(out_type_, Decimal128Type::Make(Decimal128Type::kMaxPrecision, decimal128_type->scale()));
+    } else if (auto decimal256_type = std::dynamic_pointer_cast<Decimal256Type>(this->out_type)) {
+      ARROW_ASSIGN_OR_RAISE(out_type_, Decimal256Type::Make(Decimal256Type::kMaxPrecision, decimal256_type->scale()));
+    } else {
+      return Status::TypeError(
+        "The decimal specialization of MeanImpl was passed a type ",
+        this->out_type->ToString(),
+        " and not a decimal type"
+      );
+    }
+
     if ((!options.skip_nulls && this->nulls_observed) ||
         (this->count < options.min_count) || (this->count == 0)) {
-      out->value = std::make_shared<OutputType>(this->out_type);
+      out->value = std::make_shared<OutputType>(out_type_);
     } else {
       SumCType quotient, remainder;
       ARROW_ASSIGN_OR_RAISE(std::tie(quotient, remainder), this->sum.Divide(this->count));
@@ -235,7 +257,7 @@ struct MeanImpl<ArrowType, SimdLevel, enable_if_decimal<ArrowType>>
           quotient -= 1;
         }
       }
-      out->value = std::make_shared<OutputType>(quotient, this->out_type);
+      out->value = std::make_shared<OutputType>(quotient, out_type_);
     }
     return Status::OK();
   }
