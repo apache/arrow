@@ -158,6 +158,10 @@ data types.
 Variable length binary and string
 ---------------------------------
 
+In contrast to the fixed size primitive layout, the variable length layout
+allows to represent an array where each element can have a variable size
+in bytes. This layout is used for binary and string data.
+
 The bytes of all elements in a binary or string column are stored together
 consecutively in a single buffer or region of memory. To know where each element
 of the column starts and ends the physical layout also includes integer offsets.
