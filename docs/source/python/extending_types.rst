@@ -197,10 +197,10 @@ This can now be used to create arrays and tables holding the extension type::
     <pyarrow.lib.ExtensionArray object at 0x1067f5420>
     -- is_valid: all not null
     -- child 0 type: int32
-    [
+      [
         10,
         20
-    ]
+      ]
     -- child 1 type: int32
     [
         17,
