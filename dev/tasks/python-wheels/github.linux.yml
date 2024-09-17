@@ -72,6 +72,7 @@ jobs:
           '{{ python_abi_tag }}' == 'cp313t'
         shell: bash
         run: |
+          source arrow/ci/scripts/util_enable_core_dumps.sh
           archery docker run python-free-threaded-wheel-manylinux-test-imports
           archery docker run python-free-threaded-wheel-manylinux-test-unittests
 
