@@ -1284,6 +1284,8 @@ We additionally provide both schema-level and field-level
 ``custom_metadata`` attributes allowing for systems to insert their
 own application defined metadata to customize behavior.
 
+.. _ipc-recordbatch-message:
+
 RecordBatch message
 -------------------
 
@@ -1384,6 +1386,65 @@ have two entries in each RecordBatch. For a RecordBatch of this schema with
     buffer 12: col2    data
     buffer 13: col2    data
 
+
+Compression
+-----------
+
+There are three different options for compression of record batch
+body buffers: Buffers can be uncompressed, buffers can be
+compressed with the ``lz4`` compression codec, or buffers can be
+compressed with the ``zstd`` compression codec. Buffers in the
+flat sequence of a message body must be compressed separately using
+the same codec. Specific buffers in the sequence of compressed
+buffers may be left uncompressed (for example if compressing those
+specific buffers would not appreciably reduce their size).
+
+The compression type used is defined in the ``data header``
+of the :ref:`ipc-recordbatch-message` in the optional ``compression``
+field with the default being uncompressed.
+
+.. note::
+
+   ``lz4`` compression codec means the
+   `LZ4 frame format <https://github.com/lz4/lz4/blob/dev/doc/lz4_Frame_format.md>`_
+   and should not to be confused with
+   `"raw" (also called "block") format <https://github.com/lz4/lz4/blob/dev/doc/lz4_Block_format.md>`_.
+
+The difference between compressed and uncompressed buffers in the
+serialized form is as follows:
+
+* If the buffers in the :ref:`ipc-recordbatch-message` are **compressed**
+
+  - the ``data header`` includes the length and memory offset
+    of each **compressed buffer** in the record batch's body together
+    with the compression type
+
+  - the ``body`` includes a flat sequence of **compressed buffers**
+    together with the **length of the uncompressed buffer** as a 64-bit
+    little-endian signed integer stored in the first 8 bytes of each
+    buffer in the sequence. This uncompressed length can be set to ``-1`` to indicate
+    that that specific buffer is left uncompressed.
+
+* If the buffers in the :ref:`ipc-recordbatch-message` are **uncompressed**
+
+  - the ``data header`` includes the length and memory offset
+    of each **uncompressed buffer** in the record batch's body
+
+  - the ``body`` includes a flat sequence of **uncompressed buffers**.
+
+.. note::
+
+   Some Arrow implementations lack support for producing and consuming
+   IPC data with compressed buffers using one or either of the codecs
+   listed above. See :doc:`../status` for details.
+
+   Some applications might apply compression in the protocol they use
+   to store or transport Arrow IPC data. (For example, an HTTP server
+   might serve gzip-compressed Arrow IPC streams.) Applications that
+   already use compression in their storage or transport protocols
+   should avoid using buffer compression. Double compression typically
+   worsens performance and does not substantially improve compression
+   ratios.
 
 Byte Order (`Endianness`_)
 ---------------------------
