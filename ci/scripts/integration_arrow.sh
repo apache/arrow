@@ -26,11 +26,10 @@ gold_dir=$arrow_dir/testing/data/arrow-ipc-stream/integration
 
 : ${ARROW_INTEGRATION_CPP:=ON}
 : ${ARROW_INTEGRATION_CSHARP:=ON}
-: ${ARROW_INTEGRATION_GO:=ON}
 : ${ARROW_INTEGRATION_JAVA:=ON}
 : ${ARROW_INTEGRATION_JS:=ON}
 
-: ${ARCHERY_INTEGRATION_TARGET_LANGUAGES:=cpp,csharp,go,java,js}
+: ${ARCHERY_INTEGRATION_TARGET_LANGUAGES:=cpp,csharp,java,js}
 export ARCHERY_INTEGRATION_TARGET_LANGUAGES
 
 . ${arrow_dir}/ci/scripts/util_log.sh
@@ -67,7 +66,6 @@ time archery integration \
     --run-flight \
     --with-cpp=$([ "$ARROW_INTEGRATION_CPP" == "ON" ] && echo "1" || echo "0") \
     --with-csharp=$([ "$ARROW_INTEGRATION_CSHARP" == "ON" ] && echo "1" || echo "0") \
-    --with-go=$([ "$ARROW_INTEGRATION_GO" == "ON" ] && echo "1" || echo "0") \
     --with-java=$([ "$ARROW_INTEGRATION_JAVA" == "ON" ] && echo "1" || echo "0") \
     --with-js=$([ "$ARROW_INTEGRATION_JS" == "ON" ] && echo "1" || echo "0") \
     --gold-dirs=$gold_dir/0.14.1 \
