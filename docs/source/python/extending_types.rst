@@ -202,7 +202,7 @@ This can now be used to create arrays and tables holding the extension type::
         20
       ]
     -- child 1 type: int32
-    [
+      [
         17,
         13
     ]
