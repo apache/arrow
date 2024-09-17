@@ -22,9 +22,11 @@ set -ex
 data_gen_dir=${1}/swift/data-generator/swift-datagen
 export GOPATH=/
 pushd ${data_gen_dir}
-go get -d ./...
+git clone https://github.com/apache/arrow-go.git /arrow-go
+go get -d ./..../arrow-go/go
 go run .
 cp *.arrow ../../Arrow
+rm -rf /arrow-go
 popd
 
 source_dir=${1}/swift
