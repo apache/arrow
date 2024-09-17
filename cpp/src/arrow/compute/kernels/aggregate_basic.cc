@@ -365,11 +365,20 @@ struct ProductImpl : public ScalarAggregator {
   }
 
   Status Finalize(KernelContext*, Datum* out) override {
+    std::shared_ptr<DataType> out_type_;
+    if (auto decimal128_type = std::dynamic_pointer_cast<Decimal128Type>(this->out_type)) {
+      ARROW_ASSIGN_OR_RAISE(out_type_, Decimal128Type::Make(Decimal128Type::kMaxPrecision, decimal128_type->scale()));
+    } else if (auto decimal256_type = std::dynamic_pointer_cast<Decimal256Type>(this->out_type)) {
+      ARROW_ASSIGN_OR_RAISE(out_type_, Decimal256Type::Make(Decimal256Type::kMaxPrecision, decimal256_type->scale()));
+    } else {
+      out_type_ = out_type;
+    }
+
     if ((!options.skip_nulls && this->nulls_observed) ||
         (this->count < options.min_count)) {
-      out->value = std::make_shared<OutputType>(out_type);
+      out->value = std::make_shared<OutputType>(out_type_);
     } else {
-      out->value = std::make_shared<OutputType>(this->product, out_type);
+      out->value = std::make_shared<OutputType>(this->product, out_type_);
     }
     return Status::OK();
   }
@@ -1020,6 +1029,19 @@ const FunctionDoc index_doc{"Find the index of the first occurrence of a given v
 
 }  // namespace
 
+
+Result<TypeHolder> MaxPrecisionDecimalType(KernelContext*, const std::vector<TypeHolder>& types) {
+  std::shared_ptr<DataType> out_type_;
+  if (auto decimal128_type = std::dynamic_pointer_cast<Decimal128Type>(types.front().GetSharedPtr())) {
+    ARROW_ASSIGN_OR_RAISE(out_type_, Decimal128Type::Make(Decimal128Type::kMaxPrecision, decimal128_type->scale()));
+  } else if (auto decimal256_type = std::dynamic_pointer_cast<Decimal256Type>(types.front().GetSharedPtr())) {
+    ARROW_ASSIGN_OR_RAISE(out_type_, Decimal256Type::Make(Decimal256Type::kMaxPrecision, decimal256_type->scale()));
+  } else {
+    return Status::TypeError("Bad call");
+  }
+  return TypeHolder(out_type_);
+}
+
 void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   static auto default_scalar_aggregate_options = ScalarAggregateOptions::Defaults();
   static auto default_count_options = CountOptions::Defaults();
@@ -1048,9 +1070,9 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   func = std::make_shared<ScalarAggregateFunction>("sum", Arity::Unary(), sum_doc,
                                                    &default_scalar_aggregate_options);
   AddArrayScalarAggKernels(SumInit, {boolean()}, uint64(), func.get());
-  AddAggKernel(KernelSignature::Make({Type::DECIMAL128}, FirstType), SumInit, func.get(),
+  AddAggKernel(KernelSignature::Make({Type::DECIMAL128}, MaxPrecisionDecimalType), SumInit, func.get(),
                SimdLevel::NONE);
-  AddAggKernel(KernelSignature::Make({Type::DECIMAL256}, FirstType), SumInit, func.get(),
+  AddAggKernel(KernelSignature::Make({Type::DECIMAL256}, MaxPrecisionDecimalType), SumInit, func.get(),
                SimdLevel::NONE);
   AddArrayScalarAggKernels(SumInit, SignedIntTypes(), int64(), func.get());
   AddArrayScalarAggKernels(SumInit, UnsignedIntTypes(), uint64(), func.get());
@@ -1076,9 +1098,9 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
                                                    &default_scalar_aggregate_options);
   AddArrayScalarAggKernels(MeanInit, {boolean()}, float64(), func.get());
   AddArrayScalarAggKernels(MeanInit, NumericTypes(), float64(), func.get());
-  AddAggKernel(KernelSignature::Make({Type::DECIMAL128}, FirstType), MeanInit, func.get(),
+  AddAggKernel(KernelSignature::Make({Type::DECIMAL128}, MaxPrecisionDecimalType), MeanInit, func.get(),
                SimdLevel::NONE);
-  AddAggKernel(KernelSignature::Make({Type::DECIMAL256}, FirstType), MeanInit, func.get(),
+  AddAggKernel(KernelSignature::Make({Type::DECIMAL256}, MaxPrecisionDecimalType), MeanInit, func.get(),
                SimdLevel::NONE);
   AddArrayScalarAggKernels(MeanInit, {null()}, float64(), func.get());
   // Add the SIMD variants for mean
@@ -1160,9 +1182,9 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   AddArrayScalarAggKernels(ProductInit::Init, UnsignedIntTypes(), uint64(), func.get());
   AddArrayScalarAggKernels(ProductInit::Init, FloatingPointTypes(), float64(),
                            func.get());
-  AddAggKernel(KernelSignature::Make({Type::DECIMAL128}, FirstType), ProductInit::Init,
+  AddAggKernel(KernelSignature::Make({Type::DECIMAL128}, MaxPrecisionDecimalType), ProductInit::Init,
                func.get(), SimdLevel::NONE);
-  AddAggKernel(KernelSignature::Make({Type::DECIMAL256}, FirstType), ProductInit::Init,
+  AddAggKernel(KernelSignature::Make({Type::DECIMAL256}, MaxPrecisionDecimalType), ProductInit::Init,
                func.get(), SimdLevel::NONE);
   AddArrayScalarAggKernels(ProductInit::Init, {null()}, int64(), func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
