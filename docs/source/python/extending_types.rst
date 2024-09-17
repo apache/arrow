@@ -205,7 +205,7 @@ This can now be used to create arrays and tables holding the extension type::
       [
         17,
         13
-    ]
+      ]
 
 This array can be included in RecordBatches, sent over IPC and received in
 another Python process. The receiving process must explicitly register the
