@@ -915,8 +915,8 @@ static void CountScalarSegmentedByInts(benchmark::State& state, Args&&...) {
   // A trivial column to count from.
   auto arg = ConstantArrayGenerator::Zeroes(num_rows, int32());
 
-  BenchmarkSegmentedAggregate(state, num_rows, {{"count", ""}}, {arg}, {}, state.range(0),
-                              state.range(1));
+  BenchmarkSegmentedAggregate(state, num_rows, {{"count", ""}}, {arg}, /*keys=*/{},
+                              state.range(0), state.range(1));
 }
 BENCHMARK(CountScalarSegmentedByInts)
     ->ArgNames({"SegmentKeys", "Segments"})
@@ -936,8 +936,8 @@ static void CountGroupByIntsSegmentedByInts(benchmark::State& state, Args&&...) 
     key = rng.Int64(num_rows, /*min=*/0, /*max=*/64);
   }
 
-  BenchmarkSegmentedAggregate(state, num_rows, {{"hash_count", ""}}, {arg},
-                              std::move(keys), state.range(1), state.range(2));
+  BenchmarkSegmentedAggregate(state, num_rows, {{"hash_count", ""}}, {arg}, keys,
+                              state.range(1), state.range(2));
 }
 BENCHMARK(CountGroupByIntsSegmentedByInts)
     ->ArgNames({"Keys", "SegmentKeys", "Segments"})
