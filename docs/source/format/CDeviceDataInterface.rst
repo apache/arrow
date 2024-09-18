@@ -690,7 +690,7 @@ The C device async stream interface is defined with a single ``struct`` definiti
     };
 
     struct ArrowAsyncProducer {
-      void (*request)(struct ArrowAsyncProducer* self, uint64_t n);
+      void (*request)(struct ArrowAsyncProducer* self, int64_t n);
       void (*cancel)(struct ArrowAsyncProducer* self);
 
       void (*release)(struct ArrowAsyncProducer* self);
@@ -871,8 +871,8 @@ This producer-provided and managed object has the following fields:
   Any error encountered by calling request must be propagated by calling the ``on_error``
   callback of the ``ArrowAsyncDeviceStreamHandler``.
 
-  A producer *MUST* support an unbounded number of calls to this callback and *MUST* support
-  a total registered demand (sum requested - sum delivered) of up to ``UINT64_MAX``.
+  It is invalid to call this function with a value of ``n`` that is ``<= 0``. Producers should
+  error (e.g. call ``on_error``) if receiving such a value for ``n``.
 
 .. c:member:: void (*ArrowAsyncProducer.cancel)(struct ArrowAsyncProducer*)
 
