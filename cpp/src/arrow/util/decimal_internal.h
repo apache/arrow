@@ -516,8 +516,9 @@ struct RealTraits<float> {
   static constexpr float two_to_192(float x) { return x == 0 ? 0 : kFloatInf; }
 
   static constexpr int kMantissaBits = 24;
-  // ceil(log10(2 ^ kMantissaBits))
-  static constexpr int kMantissaDigits = 8;
+  // log10(2 ^ kMantissaBits) ~= 7.2, let's be conservative to ensure more accuracy
+  // with our conversions for Decimal values
+  static constexpr int kMantissaDigits = 7;
   // Integers between zero and kMaxPreciseInteger can be precisely represented
   static constexpr uint64_t kMaxPreciseInteger = (1ULL << kMantissaBits) - 1;
 };

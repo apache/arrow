@@ -373,19 +373,7 @@ struct SmallDecimalGenerator {
                                     MaxDecimalInteger(digits_to_generate),
                                     null_probability, alignment, memory_pool));
 
-    DecimalBuilderType builder(type_, memory_pool, alignment);
-    ABORT_NOT_OK(builder.Reserve(size));
-
-    for (int64_t i = 0; i < size; ++i) {
-      if (values->IsValid(i)) {
-        builder.UnsafeAppend(DecimalValue{values->Value(i)});
-      } else {
-        builder.UnsafeAppendNull();
-      }
-    }
-    std::shared_ptr<Array> array;
-    ABORT_NOT_OK(builder.Finish(&array));
-    return array;
+    return values->View(type_).ValueOrDie();
   }
 };
 

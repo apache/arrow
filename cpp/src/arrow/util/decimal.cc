@@ -110,6 +110,10 @@ struct DecimalRealConversion : public BaseDecimalRealConversion {
       return OverflowError(real, precision, scale);
     }
 
+    if constexpr (std::is_base_of_v<BasicDecimal32, DecimalType> && std::is_same_v<Real, double>) {
+      return DecimalType::FromReal(static_cast<float>(real), precision, scale);
+    }
+
     // 2. Losslessly convert `real` to `mant * 2**k`
     int binary_exp = 0;
     const Real real_mant = std::frexp(real, &binary_exp);
@@ -134,7 +138,7 @@ struct DecimalRealConversion : public BaseDecimalRealConversion {
       // At this point, `x` has kMantissaDigits significant digits but it can
       // fit kMaxPrecision (excluding sign). We can therefore multiply by up
       // to 10^(kMaxPrecision - kMantissaDigits).
-      constexpr int kSafeMulByTenTo = kMaxPrecision - kMantissaDigits;
+      constexpr int kSafeMulByTenTo = std::abs(kMaxPrecision - kMantissaDigits);
 
       if (mul_by_ten_to <= kSafeMulByTenTo) {
         // Scale is small enough, so we can do it all at once.
@@ -157,7 +161,8 @@ struct DecimalRealConversion : public BaseDecimalRealConversion {
         // NOTE: if `precision` is the full precision then the algorithm will
         // lose the last digit. If `precision` is almost the full precision,
         // there can be an off-by-one error due to rounding.
-        const int mul_step = std::max(1, kMaxPrecision - precision);
+        constexpr int is_dec32_or_dec64 = DecimalType::kByteWidth <= BasicDecimal64::kByteWidth;
+        const int mul_step = std::max(1, kMaxPrecision - precision - is_dec32_or_dec64);
 
         // The running exponent, useful to compute by how much we must
         // shift right to make place on the left before the next multiply.
@@ -497,7 +502,14 @@ double Decimal32::ToDouble(int32_t scale) const {
   return Decimal32RealConversion::ToReal<double>(*this, scale);
 }
 
-std::string Decimal32::ToIntegerString() const { return std::to_string(value_); }
+std::string Decimal32::ToIntegerString() const {
+  std::string result;
+  internal::StringFormatter<Int32Type> format;
+  format(value_, [&result](std::string_view formatted) {
+    result.append(formatted.data(), formatted.size());
+  });
+  return result;
+}
 
 Decimal32::operator int64_t() const { return static_cast<int64_t>(value_); }
 
@@ -523,7 +535,14 @@ double Decimal64::ToDouble(int32_t scale) const {
   return Decimal64RealConversion::ToReal<double>(*this, scale);
 }
 
-std::string Decimal64::ToIntegerString() const { return std::to_string(value_); }
+std::string Decimal64::ToIntegerString() const {
+  std::string result;
+  internal::StringFormatter<Int64Type> format;
+  format(value_, [&result](std::string_view formatted) {
+    result.append(formatted.data(), formatted.size());
+  });
+  return result;
+}
 
 Decimal64::operator int64_t() const { return static_cast<int64_t>(value_); }
 
@@ -726,21 +745,20 @@ std::string Decimal128::ToString(int32_t scale) const {
   return str;
 }
 
-static inline void ShiftAndAdd(std::string_view input, uint32_t* out) {
-  for (size_t posn = 0; posn < input.size();) {
-    const size_t group_size = std::min(kInt32DecimalDigits, input.size() - posn);
-    const uint32_t multiple = kUInt32PowersOfTen[group_size];
-    uint32_t chunk = 0;
-    ARROW_CHECK(
-        internal::ParseValue<UInt32Type>(input.data() + posn, group_size, &chunk));
-
-    uint64_t tmp = *out;
-    tmp *= multiple;
-    tmp += chunk;
-
-    *out = static_cast<uint32_t>(tmp & 0xFFFFFFFFU);
-    posn += group_size;
+static inline void ShiftAndAdd(std::string_view input, uint32_t* out) {  
+  const uint32_t len = std::min(kInt32DecimalDigits + 1, input.size());
+  if (len == 0) {
+    return;
   }
+
+  uint32_t value = 0;
+  ARROW_CHECK(internal::ParseValue<UInt32Type>(input.data(), len, &value));
+
+  uint64_t tmp = *out;
+  tmp *= kUInt32PowersOfTen[len];
+  tmp += value;
+
+  *out = static_cast<uint32_t>(tmp & 0xFFFFFFFFU);
 }
 
 // Iterates over input and for each group of kInt64DecimalDigits multiple out by
@@ -1117,20 +1135,11 @@ Result<Decimal32> Decimal32::FromBigEndian(const uint8_t* bytes, int32_t length)
   }
 
   const bool is_negative = static_cast<int8_t>(bytes[0]) < 0;
-
-  uint32_t result = 0;
+  int32_t result = is_negative ? 0xffffffff : 0;
   memcpy(reinterpret_cast<uint8_t*>(&result) + kMaxDecimalBytes - length, bytes, length);
-
+  
   const auto value = bit_util::FromBigEndian(result);
-  const int32_t bits_offset = std::max(0, length - kMaxDecimalBytes);
-  if (bits_offset == 8) {
-    return Decimal32(value);
-  }
-
-  int32_t final_value = -1 * (is_negative && length < kMaxDecimalBytes);
-  final_value = SafeLeftShift(final_value, bits_offset * CHAR_BIT);
-  final_value |= value;
-  return Decimal32(final_value);
+  return Decimal32(value);
 }
 
 Status Decimal32::ToArrowStatus(DecimalStatus dstatus) const {
@@ -1153,20 +1162,11 @@ Result<Decimal64> Decimal64::FromBigEndian(const uint8_t* bytes, int32_t length)
   }
 
   const bool is_negative = static_cast<int8_t>(bytes[0]) < 0;
-
-  uint32_t result = 0;
+  int64_t result = is_negative ? 0xffffffffffffffffL : 0;
   memcpy(reinterpret_cast<uint8_t*>(&result) + kMaxDecimalBytes - length, bytes, length);
 
   const auto value = bit_util::FromBigEndian(result);
-  const int32_t bits_offset = std::max(0, length - kMaxDecimalBytes);
-  if (bits_offset == 8) {
-    return Decimal64(value);
-  }
-
-  int32_t final_value = -1 * (is_negative && length < kMaxDecimalBytes);
-  final_value = SafeLeftShift(final_value, bits_offset * CHAR_BIT);
-  final_value |= value;
-  return Decimal64(final_value);
+  return Decimal64(value);
 }
 
 Status Decimal64::ToArrowStatus(DecimalStatus dstatus) const {

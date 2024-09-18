@@ -179,6 +179,8 @@ class ARROW_EXPORT SmallBasicDecimal {
   static constexpr int kBitWidth = sizeof(DigitType) * CHAR_BIT;
   static constexpr int kByteWidth = sizeof(DigitType);
 
+  using WordArray = std::array<std::make_unsigned_t<DigitType>, 1>;
+
   /// \brief Empty constructor creates a decimal with a value of 0.
   constexpr SmallBasicDecimal() noexcept : value_(0) {}
 
@@ -194,6 +196,15 @@ class ARROW_EXPORT SmallBasicDecimal {
   /// Bytes are assumed to be in native-endian byte order.
   explicit SmallBasicDecimal(const uint8_t* bytes) {
     memcpy(&value_, bytes, sizeof(value_));
+  }
+
+  constexpr const WordArray native_endian_array() const {
+    return WordArray{static_cast<typename WordArray::value_type>(value_)};
+  }
+
+  constexpr const WordArray little_endian_array() const {
+    return bit_util::little_endian::FromNative(
+        WordArray{static_cast<typename WordArray::value_type>(value_)});
   }
 
   const uint8_t* native_endian_bytes() const {
@@ -213,7 +224,7 @@ class ARROW_EXPORT SmallBasicDecimal {
   void ToBytes(uint8_t* out) const { memcpy(out, &value_, kByteWidth); }
 
   /// \brief Return 1 if positive or 0, -1 if strictly negative
-  int64_t Sign() const { return 1 | (value_ >> (sizeof(kBitWidth) - 1)); }
+  int64_t Sign() const { return 1 | (value_ >> (kBitWidth - 1)); }
 
   bool IsNegative() const { return value_ < 0; }
 
@@ -247,6 +258,7 @@ ARROW_EXPORT bool operator>(const BasicDecimal32& left, const BasicDecimal32& ri
 ARROW_EXPORT bool operator>=(const BasicDecimal32& left, const BasicDecimal32& right);
 
 ARROW_EXPORT BasicDecimal32 operator-(const BasicDecimal32& self);
+ARROW_EXPORT BasicDecimal32 operator~(const BasicDecimal32& self);
 ARROW_EXPORT BasicDecimal32 operator+(const BasicDecimal32& left,
                                       const BasicDecimal32& right);
 ARROW_EXPORT BasicDecimal32 operator-(const BasicDecimal32& left,
@@ -399,6 +411,7 @@ ARROW_EXPORT bool operator>(const BasicDecimal64& left, const BasicDecimal64& ri
 ARROW_EXPORT bool operator>=(const BasicDecimal64& left, const BasicDecimal64& right);
 
 ARROW_EXPORT BasicDecimal64 operator-(const BasicDecimal64& self);
+ARROW_EXPORT BasicDecimal64 operator~(const BasicDecimal64& self);
 ARROW_EXPORT BasicDecimal64 operator+(const BasicDecimal64& left,
                                       const BasicDecimal64& right);
 ARROW_EXPORT BasicDecimal64 operator-(const BasicDecimal64& left,

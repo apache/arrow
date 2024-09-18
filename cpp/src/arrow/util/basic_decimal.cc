@@ -168,7 +168,7 @@ DecimalStatus BasicDecimal64::Divide(const BasicDecimal64& divisor,
 
 BasicDecimal64& BasicDecimal64::operator<<=(uint32_t bits) {
   if (bits != 0) {
-    if (bits < 32) {
+    if (bits < 64) {
       value_ = SafeLeftShift(value_, bits);
     } else {
       value_ = 0;
@@ -179,7 +179,7 @@ BasicDecimal64& BasicDecimal64::operator<<=(uint32_t bits) {
 
 BasicDecimal64& BasicDecimal64::operator>>=(uint32_t bits) {
   if (bits != 0) {
-    if (bits < 32) {
+    if (bits < 64) {
       value_ >>= bits;
     } else {
       value_ = 0;
@@ -283,6 +283,11 @@ BasicDecimal32 operator-(const BasicDecimal32& self) {
   return result.Negate();
 }
 
+BasicDecimal32 operator~(const BasicDecimal32& self) {
+  BasicDecimal32 result(~self.value());
+  return result;
+}
+
 BasicDecimal32 operator+(const BasicDecimal32& left, const BasicDecimal32& right) {
   auto result = left;
   return result += right;
@@ -330,6 +335,11 @@ bool operator>=(const BasicDecimal64& left, const BasicDecimal64& right) {
 BasicDecimal64 operator-(const BasicDecimal64& self) {
   auto result = self;
   return result.Negate();
+}
+
+BasicDecimal64 operator~(const BasicDecimal64& self) {
+  BasicDecimal64 result(~self.value());
+  return result;
 }
 
 BasicDecimal64 operator+(const BasicDecimal64& left, const BasicDecimal64& right) {
