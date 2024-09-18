@@ -67,12 +67,13 @@ class IntegrationRunner(object):
 
     def __init__(self, json_files,
                  flight_scenarios: List[Scenario],
-                 testers: List[Tester], tempdir=None,
-                 debug=False, stop_on_error=True, gold_dirs=None,
+                 testers: List[Tester], other_testers: List[Tester],
+                 tempdir=None, debug=False, stop_on_error=True, gold_dirs=None,
                  serial=False, match=None, **unused_kwargs):
         self.json_files = json_files
         self.flight_scenarios = flight_scenarios
         self.testers = testers
+        self.other_testers = other_testers
         self.temp_dir = tempdir or tempfile.mkdtemp()
         self.debug = debug
         self.stop_on_error = stop_on_error
@@ -95,6 +96,20 @@ class IntegrationRunner(object):
         """
         for producer, consumer in itertools.product(
                 filter(lambda t: t.PRODUCER, self.testers),
+                filter(lambda t: t.CONSUMER, self.testers)):
+            self._compare_ipc_implementations(
+                producer, consumer, self._produce_consume,
+                self.json_files)
+
+        for producer, consumer in itertools.product(
+                filter(lambda t: t.PRODUCER, self.testers),
+                filter(lambda t: t.CONSUMER, self.other_testers)):
+            self._compare_ipc_implementations(
+                producer, consumer, self._produce_consume,
+                self.json_files)
+
+        for producer, consumer in itertools.product(
+                filter(lambda t: t.PRODUCER, self.other_testers),
                 filter(lambda t: t.CONSUMER, self.testers)):
             self._compare_ipc_implementations(
                 producer, consumer, self._produce_consume,
@@ -124,7 +139,7 @@ class IntegrationRunner(object):
         """
         servers = filter(lambda t: t.FLIGHT_SERVER, self.testers)
         clients = filter(lambda t: (t.FLIGHT_CLIENT and t.CONSUMER),
-                         self.testers)
+                         self.testers + self.other_testers)
         for server, client in itertools.product(servers, clients):
             self._compare_flight_implementations(server, client)
         log('\n')
@@ -136,6 +151,14 @@ class IntegrationRunner(object):
         """
         for producer, consumer in itertools.product(
                 filter(lambda t: t.C_DATA_SCHEMA_EXPORTER, self.testers),
+                filter(lambda t: t.C_DATA_SCHEMA_IMPORTER, self.testers)):
+            self._compare_c_data_implementations(producer, consumer)
+        for producer, consumer in itertools.product(
+                filter(lambda t: t.C_DATA_SCHEMA_EXPORTER, self.testers),
+                filter(lambda t: t.C_DATA_SCHEMA_IMPORTER, self.other_testers)):
+            self._compare_c_data_implementations(producer, consumer)
+        for producer, consumer in itertools.product(
+                filter(lambda t: t.C_DATA_SCHEMA_EXPORTER, self.other_testers),
                 filter(lambda t: t.C_DATA_SCHEMA_IMPORTER, self.testers)):
             self._compare_c_data_implementations(producer, consumer)
         log('\n')
@@ -560,31 +583,40 @@ def get_static_json_files():
 def run_all_tests(with_cpp=True, with_java=True, with_js=True,
                   with_csharp=True, with_go=True, with_rust=False,
                   with_nanoarrow=False, run_ipc=False, run_flight=False,
-                  run_c_data=False, tempdir=None, **kwargs):
+                  run_c_data=False, tempdir=None, target_languages="",
+                  **kwargs):
     tempdir = tempdir or tempfile.mkdtemp(prefix='arrow-integration-')
+    target_languages = list(filter(len, target_languages.split(",")))
 
     testers: List[Tester] = []
+    other_testers: List[Tester] = []
+
+    def append_tester(language, tester):
+        if len(target_languages) == 0 or language in target_languages:
+            testers.append(tester)
+        else:
+            other_testers.append(tester)
 
     if with_cpp:
-        testers.append(CppTester(**kwargs))
+        append_tester("cpp", CppTester(**kwargs))
 
     if with_java:
-        testers.append(JavaTester(**kwargs))
+        append_tester("java", JavaTester(**kwargs))
 
     if with_js:
-        testers.append(JSTester(**kwargs))
+        append_tester("js", JSTester(**kwargs))
 
     if with_csharp:
-        testers.append(CSharpTester(**kwargs))
+        append_tester("csharp", CSharpTester(**kwargs))
 
     if with_go:
-        testers.append(GoTester(**kwargs))
+        append_tester("go", GoTester(**kwargs))
 
     if with_nanoarrow:
-        testers.append(NanoarrowTester(**kwargs))
+        append_tester("nanoarrow", NanoarrowTester(**kwargs))
 
     if with_rust:
-        testers.append(RustTester(**kwargs))
+        append_tester("rust", RustTester(**kwargs))
 
     static_json_files = get_static_json_files()
     generated_json_files = datagen.get_generated_json_files(tempdir=tempdir)
@@ -666,7 +698,8 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
         ),
     ]
 
-    runner = IntegrationRunner(json_files, flight_scenarios, testers, **kwargs)
+    runner = IntegrationRunner(json_files, flight_scenarios, testers,
+                               other_testers, **kwargs)
     if run_ipc:
         runner.run_ipc()
     if run_flight:

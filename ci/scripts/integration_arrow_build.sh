@@ -24,7 +24,6 @@ build_dir=${2}
 
 : ${ARROW_INTEGRATION_CPP:=ON}
 : ${ARROW_INTEGRATION_CSHARP:=ON}
-: ${ARROW_INTEGRATION_GO:=ON}
 : ${ARROW_INTEGRATION_JAVA:=ON}
 : ${ARROW_INTEGRATION_JS:=ON}
 
@@ -38,6 +37,12 @@ github_actions_group_begin "Integration: Build: nanoarrow"
 ${arrow_dir}/ci/scripts/nanoarrow_build.sh ${arrow_dir} ${build_dir}
 github_actions_group_end
 
+github_actions_group_begin "Integration: Build: Go"
+if [ "${ARCHERY_INTEGRATION_WITH_GO}" -gt "0" ]; then
+    ${arrow_dir}/go/ci/scripts/build.sh ${arrow_dir}/go
+fi
+github_actions_group_end
+
 github_actions_group_begin "Integration: Build: C++"
 if [ "${ARROW_INTEGRATION_CPP}" == "ON" ]; then
     ${arrow_dir}/ci/scripts/cpp_build.sh ${arrow_dir} ${build_dir}
@@ -47,12 +52,6 @@ github_actions_group_end
 github_actions_group_begin "Integration: Build: C#"
 if [ "${ARROW_INTEGRATION_CSHARP}" == "ON" ]; then
     ${arrow_dir}/ci/scripts/csharp_build.sh ${arrow_dir} ${build_dir}
-fi
-github_actions_group_end
-
-github_actions_group_begin "Integration: Build: Go"
-if [ "${ARROW_INTEGRATION_GO}" == "ON" ]; then
-    ${arrow_dir}/ci/scripts/go_build.sh ${arrow_dir} ${build_dir}
 fi
 github_actions_group_end
 
