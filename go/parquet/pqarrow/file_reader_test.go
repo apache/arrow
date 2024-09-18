@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -371,5 +372,57 @@ func TestFileReaderColumnChunkBoundsErrors(t *testing.T) {
 
 		_, tooHighErr := rowGroupReader.Column(schema.NumFields()).Read(ctx)
 		assert.ErrorContains(t, tooHighErr, fmt.Sprintf("there are only %d columns", schema.NumFields()))
+	}
+}
+
+func TestReadParquetFile(t *testing.T) {
+	dir := os.Getenv("PARQUET_TEST_BAD_DATA")
+	if dir == "" {
+		t.Skip("no path supplied with PARQUET_TEST_BAD_DATA")
+	}
+	assert.DirExists(t, dir)
+	filename := path.Join(dir, "ARROW-GH-43605.parquet")
+	ctx := context.TODO()
+
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+
+	rdr, err := file.OpenParquetFile(
+		filename,
+		false,
+		file.WithReadProps(parquet.NewReaderProperties(mem)),
+	)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	defer func() {
+		if err2 := rdr.Close(); err2 != nil {
+			t.Errorf("unexpected error: %v", err2)
+		}
+	}()
+
+	arrowRdr, err := pqarrow.NewFileReader(rdr, pqarrow.ArrowReadProperties{
+		Parallel:  true,
+		BatchSize: 0,
+	}, mem)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	table, err := arrowRdr.ReadTable(ctx)
+	defer table.Release()
+
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	assert.Equal(t, table.NumCols(), int64(1))
+	assert.Equal(t, table.NumRows(), int64(21186))
+
+	for i := 0; i < int(table.NumCols()); i++ {
+		col := table.Column(i)
+		assert.Equal(t, col.Len(), int(table.NumRows()))
+		for j := 0; j < col.Len(); j++ {
+			assert.Equal(t, col.Data().Chunk(0).(*array.Uint16).Value(j), uint16(0))
+		}
 	}
 }
