@@ -724,7 +724,7 @@ def _set_default(opt, default):
 
 @archery.command(short_help="Execute protocol and Flight integration tests")
 @click.option('--with-all', is_flag=True, default=False,
-              help=('Include all known languages by default '
+              help=('Include all known implementations by default '
                     'in integration tests'))
 @click.option('--random-seed', type=int, default=12345,
               help="Seed for PRNG when generating test data")
@@ -745,9 +745,9 @@ def _set_default(opt, default):
 @click.option('--with-rust', type=bool, default=False,
               help='Include Rust in integration tests',
               envvar="ARCHERY_INTEGRATION_WITH_RUST")
-@click.option('--target-languages', default='',
-              help=('Target languages in this integration tests'),
-              envvar="ARCHERY_INTEGRATION_TARGET_LANGUAGES")
+@click.option('--target-implementations', default='',
+              help=('Target implementations in this integration tests'),
+              envvar="ARCHERY_INTEGRATION_TARGET_IMPLEMENTATIONS")
 @click.option('--write_generated_json', default="",
               help='Generate test JSON to indicated path')
 @click.option('--run-ipc', is_flag=True, default=False,
@@ -783,15 +783,15 @@ def integration(with_all=False, random_seed=12345, **args):
 
     gen_path = args['write_generated_json']
 
-    languages = ['cpp', 'csharp', 'java', 'js', 'go', 'nanoarrow', 'rust']
+    implementations = ['cpp', 'csharp', 'java', 'js', 'go', 'nanoarrow', 'rust']
     formats = ['ipc', 'flight', 'c_data']
 
-    enabled_languages = 0
-    for lang in languages:
+    enabled_implementations = 0
+    for lang in implementations:
         param = f'with_{lang}'
         if with_all:
             args[param] = with_all
-        enabled_languages += args[param]
+        enabled_implementations += args[param]
 
     enabled_formats = 0
     for fmt in formats:
@@ -808,9 +808,9 @@ def integration(with_all=False, random_seed=12345, **args):
             raise click.UsageError(
                 "Need to enable at least one format to test "
                 "(IPC, Flight, C Data Interface); try --help")
-        if enabled_languages == 0:
+        if enabled_implementations == 0:
             raise click.UsageError(
-                "Need to enable at least one language to test; try --help")
+                "Need to enable at least one implementation to test; try --help")
         run_all_tests(**args)
 
 
