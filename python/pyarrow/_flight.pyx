@@ -901,7 +901,7 @@ cdef class FlightInfo(_Weakrefable):
             the total bytes in this flight, -1 or None if unknown.
         ordered : boolean optional, default False
             Whether endpoints are in the same order as the data.
-        app_metadata : bytes or str optional, default ""
+        app_metadata : bytes or str, default ""
             Application-defined opaque metadata.
         """
         cdef:
