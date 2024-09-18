@@ -97,7 +97,12 @@ class ARROW_EXPORT RowSegmenter {
   virtual Status Reset() = 0;
 
   /// \brief Get the next segment for the given batch starting from the given offset
+  /// DEPRECATED: Due to its inefficiency, use GetSegments instead.
+  ARROW_DEPRECATED("Deprecated in 18.0.0. Use GetSegments instead.")
   virtual Result<Segment> GetNextSegment(const ExecSpan& batch, int64_t offset) = 0;
+
+  /// \brief Get all segments for the given batch
+  virtual Result<std::vector<Segment>> GetSegments(const ExecSpan& batch) = 0;
 };
 
 /// Consumes batches of keys and yields batches of the group ids.

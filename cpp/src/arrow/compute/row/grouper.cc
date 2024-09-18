@@ -17,6 +17,7 @@
 
 #include "arrow/compute/row/grouper.h"
 
+#include <iostream>
 #include <memory>
 #include <mutex>
 #include <type_traits>
@@ -54,13 +55,8 @@ using group_id_t = std::remove_const<decltype(kNoGroupId)>::type;
 using GroupIdType = CTypeTraits<group_id_t>::ArrowType;
 auto g_group_id_type = std::make_shared<GroupIdType>();
 
-inline const uint8_t* GetValuesAsBytes(const ArraySpan& data, int64_t offset = 0) {
-  DCHECK_GT(data.type->byte_width(), 0);
-  int64_t absolute_byte_offset = (data.offset + offset) * data.type->byte_width();
-  return data.GetValues<uint8_t>(1, absolute_byte_offset);
-}
-
 template <typename Value>
+ARROW_DEPRECATED("Deprecated in 18.0.0 along with GetSegments.")
 Status CheckForGetNextSegment(const std::vector<Value>& values, int64_t length,
                               int64_t offset, const std::vector<TypeHolder>& key_types) {
   if (offset < 0 || offset > length) {
@@ -82,11 +78,22 @@ Status CheckForGetNextSegment(const std::vector<Value>& values, int64_t length,
 }
 
 template <typename Batch>
+ARROW_DEPRECATED("Deprecated in 18.0.0 along with GetSegments.")
 enable_if_t<std::is_same<Batch, ExecSpan>::value || std::is_same<Batch, ExecBatch>::value,
-            Status>
-CheckForGetNextSegment(const Batch& batch, int64_t offset,
-                       const std::vector<TypeHolder>& key_types) {
+            Status> CheckForGetNextSegment(const Batch& batch, int64_t offset,
+                                           const std::vector<TypeHolder>& key_types) {
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   return CheckForGetNextSegment(batch.values, batch.length, offset, key_types);
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
+}
+
+Status CheckForGetSegments(const ExecSpan& batch,
+                           const std::vector<TypeHolder>& key_types) {
+  // TODO: Move the implementation of CheckForGetNextSegment here once we remove the
+  // deprecated functions.
+  ARROW_SUPPRESS_DEPRECATION_WARNING
+  return CheckForGetNextSegment(batch, 0, key_types);
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
 }
 
 struct BaseRowSegmenter : public RowSegmenter {
@@ -102,21 +109,6 @@ Segment MakeSegment(int64_t batch_length, int64_t offset, int64_t length, bool e
   return Segment{offset, length, offset + length >= batch_length, extends};
 }
 
-// Used by SimpleKeySegmenter::GetNextSegment to find the match-length of a value within a
-// fixed-width buffer
-int64_t GetMatchLength(const uint8_t* match_bytes, int64_t match_width,
-                       const uint8_t* array_bytes, int64_t offset, int64_t length) {
-  int64_t cursor, byte_cursor;
-  for (cursor = offset, byte_cursor = match_width * cursor; cursor < length;
-       cursor++, byte_cursor += match_width) {
-    if (memcmp(match_bytes, array_bytes + byte_cursor,
-               static_cast<size_t>(match_width)) != 0) {
-      break;
-    }
-  }
-  return std::min(cursor, length) - offset;
-}
-
 using ExtendFunc = std::function<bool(const void*)>;
 constexpr bool kDefaultExtends = true;  // by default, the first segment extends
 constexpr bool kEmptyExtends = true;    // an empty segment extends too
@@ -130,9 +122,22 @@ struct NoKeysSegmenter : public BaseRowSegmenter {
 
   Status Reset() override { return Status::OK(); }
 
+  ARROW_DEPRECATED("Deprecated in 18.0.0. Use GetSegments instead.")
   Result<Segment> GetNextSegment(const ExecSpan& batch, int64_t offset) override {
+    ARROW_SUPPRESS_DEPRECATION_WARNING
     ARROW_RETURN_NOT_OK(CheckForGetNextSegment(batch, offset, {}));
     return MakeSegment(batch.length, offset, batch.length - offset, kDefaultExtends);
+    ARROW_UNSUPPRESS_DEPRECATION_WARNING
+  }
+
+  Result<std::vector<Segment>> GetSegments(const ExecSpan& batch) override {
+    RETURN_NOT_OK(CheckForGetSegments(batch, {}));
+
+    if (batch.length == 0) {
+      return std::vector<Segment>{};
+    }
+    return std::vector<Segment>{
+        MakeSegment(batch.length, 0, batch.length - 0, kDefaultExtends)};
   }
 };
 
@@ -147,13 +152,6 @@ struct SimpleKeySegmenter : public BaseRowSegmenter {
         save_key_data_(static_cast<size_t>(key_type_.type->byte_width())),
         extend_was_called_(false) {}
 
-  Status CheckType(const DataType& type) {
-    if (!is_fixed_width(type)) {
-      return Status::Invalid("SimpleKeySegmenter does not support type ", type);
-    }
-    return Status::OK();
-  }
-
   Status Reset() override {
     extend_was_called_ = false;
     return Status::OK();
@@ -161,7 +159,8 @@ struct SimpleKeySegmenter : public BaseRowSegmenter {
 
   // Checks whether the given grouping data extends the current segment, i.e., is equal to
   // previously seen grouping data, which is updated with each invocation.
-  bool Extend(const void* data) {
+  ARROW_DEPRECATED("Deprecated in 18.0.0 along with GetSegments.")
+  bool ExtendDeprecated(const void* data) {
     bool extends = !extend_was_called_
                        ? kDefaultExtends
                        : 0 == memcmp(save_key_data_.data(), data, save_key_data_.size());
@@ -170,42 +169,136 @@ struct SimpleKeySegmenter : public BaseRowSegmenter {
     return extends;
   }
 
-  Result<Segment> GetNextSegment(const Scalar& scalar, int64_t offset, int64_t length) {
+  ARROW_DEPRECATED("Deprecated in 18.0.0 along with GetSegments.")
+  Result<Segment> GetNextSegmentDeprecated(const Scalar& scalar, int64_t offset,
+                                           int64_t length) {
+    ARROW_SUPPRESS_DEPRECATION_WARNING
     ARROW_RETURN_NOT_OK(CheckType(*scalar.type));
     if (!scalar.is_valid) {
       return Status::Invalid("segmenting an invalid scalar");
     }
     auto data = checked_cast<const PrimitiveScalarBase&>(scalar).data();
-    bool extends = length > 0 ? Extend(data) : kEmptyExtends;
+    bool extends = length > 0 ? ExtendDeprecated(data) : kEmptyExtends;
     return MakeSegment(length, offset, length, extends);
+    ARROW_UNSUPPRESS_DEPRECATION_WARNING
   }
 
-  Result<Segment> GetNextSegment(const DataType& array_type, const uint8_t* array_bytes,
-                                 int64_t offset, int64_t length) {
+  ARROW_DEPRECATED("Deprecated in 18.0.0 along with GetSegments.")
+  Result<Segment> GetNextSegmentDeprecated(const DataType& array_type,
+                                           const uint8_t* array_bytes, int64_t offset,
+                                           int64_t length) {
+    ARROW_SUPPRESS_DEPRECATION_WARNING
     RETURN_NOT_OK(CheckType(array_type));
     DCHECK_LE(offset, length);
     int64_t byte_width = array_type.byte_width();
     int64_t match_length = GetMatchLength(array_bytes + offset * byte_width, byte_width,
                                           array_bytes, offset, length);
-    bool extends = length > 0 ? Extend(array_bytes + offset * byte_width) : kEmptyExtends;
+    bool extends =
+        length > 0 ? ExtendDeprecated(array_bytes + offset * byte_width) : kEmptyExtends;
     return MakeSegment(length, offset, match_length, extends);
+    ARROW_UNSUPPRESS_DEPRECATION_WARNING
   }
 
   Result<Segment> GetNextSegment(const ExecSpan& batch, int64_t offset) override {
+    ARROW_SUPPRESS_DEPRECATION_WARNING
     ARROW_RETURN_NOT_OK(CheckForGetNextSegment(batch, offset, {key_type_}));
     if (offset == batch.length) {
       return MakeSegment(batch.length, offset, 0, kEmptyExtends);
     }
     const auto& value = batch.values[0];
     if (value.is_scalar()) {
-      return GetNextSegment(*value.scalar, offset, batch.length);
+      return GetNextSegmentDeprecated(*value.scalar, offset, batch.length);
     }
     ARROW_DCHECK(value.is_array());
     const auto& array = value.array;
     if (array.GetNullCount() > 0) {
       return Status::NotImplemented("segmenting a nullable array");
     }
-    return GetNextSegment(*array.type, GetValuesAsBytes(array), offset, batch.length);
+    return GetNextSegmentDeprecated(*array.type, GetValuesAsBytes(array), offset,
+                                    batch.length);
+    ARROW_UNSUPPRESS_DEPRECATION_WARNING
+  }
+
+  Result<std::vector<Segment>> GetSegments(const ExecSpan& batch) override {
+    RETURN_NOT_OK(CheckForGetSegments(batch, {key_type_}));
+
+    if (batch.length == 0) {
+      return std::vector<Segment>{};
+    }
+
+    const auto& value = batch.values[0];
+    RETURN_NOT_OK(CheckType(*value.type()));
+
+    std::vector<Segment> segments;
+    const void* key_data;
+    if (value.is_scalar()) {
+      const auto& scalar = *value.scalar;
+      DCHECK(scalar.is_valid);
+      key_data = checked_cast<const PrimitiveScalarBase&>(scalar).data();
+      bool extends = Extend(key_data);
+      segments.push_back(MakeSegment(batch.length, 0, batch.length, extends));
+    } else {
+      DCHECK(value.is_array());
+      const auto& array = value.array;
+      DCHECK_EQ(array.GetNullCount(), 0);
+      auto data = GetValuesAsBytes(array);
+      int64_t byte_width = array.type->byte_width();
+      int64_t offset = 0;
+      bool extends = Extend(data);
+      while (offset < array.length) {
+        int64_t match_length = GetMatchLength(data + offset * byte_width, byte_width,
+                                              data, offset, array.length);
+        segments.push_back(MakeSegment(array.length, offset, match_length,
+                                       offset == 0 ? extends : false));
+        offset += match_length;
+      }
+      key_data = data + (array.length - 1) * byte_width;
+    }
+
+    SaveKeyData(key_data);
+
+    return segments;
+  }
+
+ private:
+  static Status CheckType(const DataType& type) {
+    if (!is_fixed_width(type)) {
+      return Status::Invalid("SimpleKeySegmenter does not support type ", type);
+    }
+    return Status::OK();
+  }
+
+  static const uint8_t* GetValuesAsBytes(const ArraySpan& data, int64_t offset = 0) {
+    DCHECK_GT(data.type->byte_width(), 0);
+    int64_t absolute_byte_offset = (data.offset + offset) * data.type->byte_width();
+    return data.GetValues<uint8_t>(1, absolute_byte_offset);
+  }
+
+  // Find the match-length of a value within a fixed-width buffer
+  static int64_t GetMatchLength(const uint8_t* match_bytes, int64_t match_width,
+                                const uint8_t* array_bytes, int64_t offset,
+                                int64_t length) {
+    int64_t cursor, byte_cursor;
+    for (cursor = offset, byte_cursor = match_width * cursor; cursor < length;
+         cursor++, byte_cursor += match_width) {
+      if (memcmp(match_bytes, array_bytes + byte_cursor,
+                 static_cast<size_t>(match_width)) != 0) {
+        break;
+      }
+    }
+    return std::min(cursor, length) - offset;
+  }
+
+  bool Extend(const void* data) {
+    if (ARROW_PREDICT_FALSE(!extend_was_called_)) {
+      extend_was_called_ = true;
+      return kDefaultExtends;
+    }
+    return 0 == memcmp(save_key_data_.data(), data, save_key_data_.size());
+  }
+
+  void SaveKeyData(const void* data) {
+    memcpy(save_key_data_.data(), data, save_key_data_.size());
   }
 
  private:
@@ -233,6 +326,7 @@ struct AnyKeysSegmenter : public BaseRowSegmenter {
     return Status::OK();
   }
 
+  ARROW_DEPRECATED("Deprecated in 18.0.0 along with GetSegments.")
   bool Extend(const void* data) {
     auto group_id = *static_cast<const group_id_t*>(data);
     bool extends =
@@ -241,24 +335,9 @@ struct AnyKeysSegmenter : public BaseRowSegmenter {
     return extends;
   }
 
-  // Runs the grouper on a single row.  This is used to determine the group id of the
-  // first row of a new segment to see if it extends the previous segment.
-  template <typename Batch>
-  Result<group_id_t> MapGroupIdAt(const Batch& batch, int64_t offset) {
-    ARROW_ASSIGN_OR_RAISE(auto datum, grouper_->Consume(batch, offset,
-                                                        /*length=*/1));
-    if (!datum.is_array()) {
-      return Status::Invalid("accessing unsupported datum kind ", datum.kind());
-    }
-    const std::shared_ptr<ArrayData>& data = datum.array();
-    ARROW_DCHECK(data->GetNullCount() == 0);
-    DCHECK_EQ(data->type->id(), GroupIdType::type_id);
-    DCHECK_EQ(1, data->length);
-    const group_id_t* values = data->GetValues<group_id_t>(1);
-    return values[0];
-  }
-
+  ARROW_DEPRECATED("Deprecated in 18.0.0. Use GetSegments instead.")
   Result<Segment> GetNextSegment(const ExecSpan& batch, int64_t offset) override {
+    ARROW_SUPPRESS_DEPRECATION_WARNING
     ARROW_RETURN_NOT_OK(CheckForGetNextSegment(batch, offset, key_types_));
     if (offset == batch.length) {
       return MakeSegment(batch.length, offset, 0, kEmptyExtends);
@@ -273,7 +352,7 @@ struct AnyKeysSegmenter : public BaseRowSegmenter {
     };
     // resetting drops grouper's group-ids, freeing-up memory for the next segment
     ARROW_RETURN_NOT_OK(grouper_->Reset());
-    // GH-34475: cache the grouper-consume result across invocations of GetNextSegment
+
     ARROW_ASSIGN_OR_RAISE(auto datum, grouper_->Consume(batch, offset));
     if (datum.is_array()) {
       // `data` is an array whose index-0 corresponds to index `offset` of `batch`
@@ -292,6 +371,76 @@ struct AnyKeysSegmenter : public BaseRowSegmenter {
     } else {
       return Status::Invalid("segmenting unsupported datum kind ", datum.kind());
     }
+    ARROW_UNSUPPRESS_DEPRECATION_WARNING
+  }
+
+  Result<std::vector<Segment>> GetSegments(const ExecSpan& batch) override {
+    RETURN_NOT_OK(CheckForGetSegments(batch, {key_types_}));
+
+    if (batch.length == 0) {
+      return std::vector<Segment>{};
+    }
+
+    // determine if the first segment in this batch extends the last segment in the
+    // previous batch
+    bool extends = kDefaultExtends;
+    if (save_group_id_ != kNoGroupId) {
+      // the group id must be computed prior to resetting the grouper, since it is
+      // compared to save_group_id_, and after resetting the grouper produces incomparable
+      // group ids
+      ARROW_ASSIGN_OR_RAISE(auto group_id, MapGroupIdAt(batch));
+      // it "extends" unless the group id differs from the last group id
+      extends = (group_id == save_group_id_);
+    }
+
+    // resetting drops grouper's group-ids, freeing-up memory for the next segment
+    RETURN_NOT_OK(grouper_->Reset());
+
+    std::vector<Segment> segments;
+    ARROW_ASSIGN_OR_RAISE(auto datum, grouper_->Consume(batch));
+    DCHECK(datum.is_array());
+    // `data` is an array whose index-0 corresponds to index `offset` of `batch`
+    const std::shared_ptr<ArrayData>& data = datum.array();
+    DCHECK_EQ(data->length, batch.length);
+    DCHECK_EQ(data->GetNullCount(), 0);
+    DCHECK_EQ(data->type->id(), GroupIdType::type_id);
+    const group_id_t* group_ids = data->GetValues<group_id_t>(1);
+    int64_t current_group_offset = 0;
+    int64_t cursor;
+    for (cursor = 1; cursor < data->length; ++cursor) {
+      if (group_ids[cursor] != group_ids[current_group_offset]) {
+        segments.push_back(MakeSegment(batch.length, current_group_offset,
+                                       cursor - current_group_offset,
+                                       current_group_offset == 0 ? extends : false));
+        current_group_offset = cursor;
+      }
+    }
+    segments.push_back(MakeSegment(batch.length, current_group_offset,
+                                   cursor - current_group_offset,
+                                   current_group_offset == 0 ? extends : false));
+
+    // update the save_group_id_ to the last group id in this batch
+    save_group_id_ = group_ids[batch.length - 1];
+
+    return segments;
+  }
+
+ private:
+  // Runs the grouper on a single row.  This is used to determine the group id of the
+  // first row of a new segment to see if it extends the previous segment.
+  template <typename Batch>
+  Result<group_id_t> MapGroupIdAt(const Batch& batch, int64_t offset = 0) {
+    ARROW_ASSIGN_OR_RAISE(auto datum, grouper_->Consume(batch, offset,
+                                                        /*length=*/1));
+    if (!datum.is_array()) {
+      return Status::Invalid("accessing unsupported datum kind ", datum.kind());
+    }
+    const std::shared_ptr<ArrayData>& data = datum.array();
+    ARROW_DCHECK(data->GetNullCount() == 0);
+    DCHECK_EQ(data->type->id(), GroupIdType::type_id);
+    DCHECK_EQ(1, data->length);
+    const group_id_t* values = data->GetValues<group_id_t>(1);
+    return values[0];
   }
 
  private:
