@@ -33,7 +33,9 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
 import java.util.function.BiConsumer;
@@ -265,8 +267,32 @@ public class TestVarCharViewVector {
   public void testSetSafe() {
     try (final ViewVarCharVector viewVarCharVector = new ViewVarCharVector("myvector", allocator)) {
       viewVarCharVector.allocateNew(1, 1);
-      viewVarCharVector.setNull(1);
-      viewVarCharVector.setSafe(2, STR0);
+      byte[] str6 = generateRandomString(40).getBytes();
+      final List<byte[]> strings = List.of(STR0, STR1, STR2, STR3, STR4, STR5, str6);
+
+      // set data to a position out of capacity index
+      Map<Integer, byte[]> expected = new HashMap<>();
+      for (byte[] string : strings) {
+        int cap = viewVarCharVector.getValueCapacity();
+        expected.put(cap, string);
+        viewVarCharVector.setSafe(cap, string);
+      }
+      int nullIndex = viewVarCharVector.getValueCapacity();
+      viewVarCharVector.setNull(nullIndex);
+      int valueCount = nullIndex + 1;
+      viewVarCharVector.setValueCount(valueCount);
+      assertEquals(viewVarCharVector.getNullCount(), valueCount - strings.size());
+
+      assertEquals(128, viewVarCharVector.getValueCapacity());
+      assertEquals(2, viewVarCharVector.dataBuffers.size());
+
+      for (int i = 0; i < viewVarCharVector.getValueCapacity(); i++) {
+        if (expected.containsKey(i)) {
+          assertArrayEquals(expected.get(i), viewVarCharVector.get(i));
+        } else {
+          assertNull(viewVarCharVector.get(i));
+        }
+      }
     }
   }
 
@@ -1916,6 +1942,40 @@ public class TestVarCharViewVector {
             assertNull(vector3.getObject(i));
           } else {
             assertArrayEquals(vector.get(i), vector3.get(i));
+          }
+        }
+      }
+
+      // test overwrite a used vector by copy
+      try (final BaseVariableWidthViewVector targetVector = vectorCreator.apply(allocator)) {
+
+        targetVector.setInitialCapacity(initialCapacity);
+        targetVector.allocateNew();
+
+        // source vector: null, short, long...
+        // target vector: long, null, short...
+        for (int i = 0; i < numberOfValues; i++) {
+          if (i % 3 == 0) {
+            // long strings
+            byte[] b = (i + prefixString).getBytes(StandardCharsets.UTF_8);
+            targetVector.set(i, b, 0, b.length);
+          } else if (i % 3 == 1) {
+            // null values
+            targetVector.setNull(i);
+          } else {
+            // short strings
+            byte[] b = Integer.toString(i).getBytes(StandardCharsets.UTF_8);
+            targetVector.set(i, b, 0, b.length);
+          }
+        }
+        targetVector.setValueCount(numberOfValues);
+
+        for (int i = 0; i < numberOfValues; i++) {
+          targetVector.copyFromSafe(i, i, vector);
+          if (i % 3 == 0) {
+            assertNull(targetVector.getObject(i));
+          } else {
+            assertArrayEquals(vector.get(i), targetVector.get(i));
           }
         }
       }
