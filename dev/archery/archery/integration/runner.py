@@ -586,7 +586,8 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
                   run_c_data=False, tempdir=None, target_implementations="",
                   **kwargs):
     tempdir = tempdir or tempfile.mkdtemp(prefix='arrow-integration-')
-    target_implementations = list(filter(len, target_implementations.split(",")))
+    target_implementations = \
+        target_implementations.split(",") if target_implementations else []
 
     testers: List[Tester] = []
     other_testers: List[Tester] = []
