@@ -1252,6 +1252,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
     // We need to check and reallocate the validity buffer
     while (index >= getValueCapacity()) {
       reallocValidityBuffer();
+      reallocViewBuffer();
     }
     BitVectorHelper.unsetBit(validityBuffer, index);
   }
@@ -1461,22 +1462,9 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
   }
 
   protected final void handleSafe(int index, int dataLength) {
-    final long lastSetCapacity = lastSet < 0 ? 0 : (long) index * ELEMENT_SIZE;
-    final long targetCapacity = roundUpToMultipleOf16(lastSetCapacity + dataLength);
-    // for views, we need each buffer with 16 byte alignment, so we need to check the last written
-    // index
-    // in the viewBuffer and allocate a new buffer which has 16 byte alignment for adding new
-    // values.
-    long writePosition = (long) index * ELEMENT_SIZE;
-    if (viewBuffer.capacity() <= writePosition || viewBuffer.capacity() < targetCapacity) {
-      /*
-       * Everytime we want to increase the capacity of the viewBuffer, we need to make sure that the new capacity
-       * meets 16 byte alignment.
-       * If the targetCapacity is larger than the writePosition, we may not necessarily
-       * want to allocate the targetCapacity to viewBuffer since when it is >={@link #INLINE_SIZE} either way
-       * we are writing to the dataBuffer.
-       */
-      reallocViewBuffer(Math.max(writePosition, targetCapacity));
+    final long targetCapacity = roundUpToMultipleOf16((long) index * ELEMENT_SIZE + dataLength);
+    if (viewBuffer.capacity() < targetCapacity) {
+      reallocViewBuffer(targetCapacity);
     }
 
     while (index >= getValidityBufferValueCapacity()) {
