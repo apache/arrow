@@ -16,10 +16,8 @@
  */
 package org.apache.arrow.flight;
 
-import com.google.common.base.Splitter;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
@@ -77,6 +75,7 @@ public class ServerSessionMiddleware implements FlightServerMiddleware {
     }
 
     @Override
+    @SuppressWarnings("StringSplitter")
     public ServerSessionMiddleware onCallStarted(
         CallInfo callInfo, CallHeaders incomingHeaders, RequestContext context) {
       String sessionId = null;
@@ -85,15 +84,15 @@ public class ServerSessionMiddleware implements FlightServerMiddleware {
       if (it != null) {
         findIdCookie:
         for (final String headerValue : it) {
-          for (final String cookie : Splitter.on(" ;").split(headerValue)) {
-            final List<String> cookiePair = Splitter.on('=').splitToList(cookie);
-            if (cookiePair.size() != 2) {
+          for (final String cookie : headerValue.split(" ;")) {
+            final String[] cookiePair = cookie.split("=");
+            if (cookiePair.length != 2) {
               // Soft failure:  Ignore invalid cookie list field
               break;
             }
 
-            if (sessionCookieName.equals(cookiePair.get(0)) && !cookiePair.get(1).isEmpty()) {
-              sessionId = cookiePair.get(1);
+            if (sessionCookieName.equals(cookiePair[0]) && !cookiePair[1].isEmpty()) {
+              sessionId = cookiePair[1];
               break findIdCookie;
             }
           }
