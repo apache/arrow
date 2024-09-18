@@ -139,7 +139,7 @@ struct DecimalRealConversion : public BaseDecimalRealConversion {
       // At this point, `x` has kMantissaDigits significant digits but it can
       // fit kMaxPrecision (excluding sign). We can therefore multiply by up
       // to 10^(kMaxPrecision - kMantissaDigits).
-      constexpr int kSafeMulByTenTo = std::abs(kMaxPrecision - kMantissaDigits);
+      constexpr int kSafeMulByTenTo = kMaxPrecision - kMantissaDigits;
 
       if (mul_by_ten_to <= kSafeMulByTenTo) {
         // Scale is small enough, so we can do it all at once.
