@@ -50,7 +50,7 @@ public class FlightSqlClient
             var action = new FlightAction(SqlAction.CreateRequest, prepareStatementRequest.PackAndSerialize());
             var call = _client.DoAction(action, options.Headers);
 
-            await foreach (var result in call.ResponseStream.ReadAllAsync())
+            await foreach (var result in call.ResponseStream.ReadAllAsync().ConfigureAwait(false))
             {
                 var preparedStatementResponse =
                     FlightSqlUtils.ParseAndUnpack<ActionCreatePreparedStatementResult>(result.Body);
@@ -61,7 +61,7 @@ public class FlightSqlClient
 
                 byte[] commandSqlCallPackedAndSerialized = commandSqlCall.PackAndSerialize();
                 var descriptor = FlightDescriptor.CreateCommandDescriptor(commandSqlCallPackedAndSerialized);
-                return await GetFlightInfoAsync(options, descriptor);
+                return await GetFlightInfoAsync(options, descriptor).ConfigureAwait(false);
             }
 
             throw new InvalidOperationException("No results returned from the query.");
@@ -101,7 +101,7 @@ public class FlightSqlClient
             var call = DoActionAsync(options, action);
             long affectedRows = 0;
 
-            await foreach (var result in call)
+            await foreach (var result in call.ConfigureAwait(false))
             {
                 var preparedStatementResponse = result.Body.ParseAndUnpack<ActionCreatePreparedStatementResult>();
                 var command = new CommandPreparedStatementQuery
@@ -112,7 +112,7 @@ public class FlightSqlClient
                 var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
                 var flightInfo = await GetFlightInfoAsync(options, descriptor);
                 var doGetResult = DoGetAsync(options, flightInfo.Endpoints[0].Ticket);
-                await foreach (var recordBatch in doGetResult)
+                await foreach (var recordBatch in doGetResult.ConfigureAwait(false))
                 {
                     affectedRows += recordBatch.Column(0).Length;
                 }
@@ -178,7 +178,7 @@ public class FlightSqlClient
 
         var call = _client.DoAction(action, options.Headers);
 
-        await foreach (var result in call.ResponseStream.ReadAllAsync())
+        await foreach (var result in call.ResponseStream.ReadAllAsync().ConfigureAwait(false))
         {
             yield return result;
         }
@@ -222,7 +222,7 @@ public class FlightSqlClient
             var action = new FlightAction(SqlAction.CreateRequest, prepareStatementRequest.PackAndSerialize());
             var call = _client.DoAction(action, options.Headers);
 
-            await foreach (var result in call.ResponseStream.ReadAllAsync())
+            await foreach (var result in call.ResponseStream.ReadAllAsync().ConfigureAwait(false))
             {
                 var preparedStatementResponse =
                     FlightSqlUtils.ParseAndUnpack<ActionCreatePreparedStatementResult>(result.Body);
@@ -259,7 +259,7 @@ public class FlightSqlClient
         {
             var command = new CommandGetCatalogs();
             var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
-            var catalogsInfo = await GetFlightInfoAsync(options, descriptor);
+            var catalogsInfo = await GetFlightInfoAsync(options, descriptor).ConfigureAwait(false);
             return catalogsInfo;
         }
         catch (RpcException ex)
@@ -284,7 +284,7 @@ public class FlightSqlClient
         {
             var commandGetCatalogsSchema = new CommandGetCatalogs();
             var descriptor = FlightDescriptor.CreateCommandDescriptor(commandGetCatalogsSchema.PackAndSerialize());
-            var schemaResult = await GetSchemaAsync(options, descriptor);
+            var schemaResult = await GetSchemaAsync(options, descriptor).ConfigureAwait(false);
             return schemaResult;
         }
         catch (RpcException ex)
@@ -387,8 +387,7 @@ public class FlightSqlClient
         {
             var command = new CommandGetDbSchemas();
             var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
-
-            var schemaResult = await GetSchemaAsync(options, descriptor);
+            var schemaResult = await GetSchemaAsync(options, descriptor).ConfigureAwait(false);
             return schemaResult;
         }
         catch (RpcException ex)
@@ -416,7 +415,7 @@ public class FlightSqlClient
         }
 
         var call = _client.GetStream(ticket, options.Headers);
-        await foreach (var recordBatch in call.ResponseStream.ReadAllAsync())
+        await foreach (var recordBatch in call.ResponseStream.ReadAllAsync().ConfigureAwait(false))
         {
             yield return recordBatch;
         }
@@ -558,7 +557,7 @@ public class FlightSqlClient
             };
             byte[] packedRequest = getPrimaryKeysRequest.PackAndSerialize();
             var descriptor = FlightDescriptor.CreateCommandDescriptor(packedRequest);
-            var flightInfo = await GetFlightInfoAsync(options, descriptor);
+            var flightInfo = await GetFlightInfoAsync(options, descriptor).ConfigureAwait(false);
 
             return flightInfo;
         }
@@ -629,7 +628,7 @@ public class FlightSqlClient
             };
 
             var descriptor = FlightDescriptor.CreateCommandDescriptor(getExportedKeysRequest.PackAndSerialize());
-            var flightInfo = await GetFlightInfoAsync(options, descriptor);
+            var flightInfo = await GetFlightInfoAsync(options, descriptor).ConfigureAwait(false);
             return flightInfo;
         }
         catch (RpcException ex)
@@ -654,7 +653,7 @@ public class FlightSqlClient
         {
             var commandGetExportedKeysSchema = new CommandGetExportedKeys();
             var descriptor = FlightDescriptor.CreateCommandDescriptor(commandGetExportedKeysSchema.PackAndSerialize());
-            var schemaResult = await GetSchemaAsync(options, descriptor);
+            var schemaResult = await GetSchemaAsync(options, descriptor).ConfigureAwait(false);
             return schemaResult;
         }
         catch (RpcException ex)
@@ -681,8 +680,7 @@ public class FlightSqlClient
                 Catalog = tableRef.Catalog ?? string.Empty, DbSchema = tableRef.DbSchema, Table = tableRef.Table
             };
             var descriptor = FlightDescriptor.CreateCommandDescriptor(getImportedKeysRequest.PackAndSerialize());
-
-            var flightInfo = await GetFlightInfoAsync(options, descriptor);
+            var flightInfo = await GetFlightInfoAsync(options, descriptor).ConfigureAwait(false);
             return flightInfo;
         }
         catch (RpcException ex)
@@ -707,7 +705,7 @@ public class FlightSqlClient
         {
             var commandGetImportedKeysSchema = new CommandGetImportedKeys();
             var descriptor = FlightDescriptor.CreateCommandDescriptor(commandGetImportedKeysSchema.PackAndSerialize());
-            var schemaResult = await GetSchemaAsync(options, descriptor);
+            var schemaResult = await GetSchemaAsync(options, descriptor).ConfigureAwait(false);
             return schemaResult;
         }
         catch (RpcException ex)
@@ -745,7 +743,7 @@ public class FlightSqlClient
             };
 
             var descriptor = FlightDescriptor.CreateCommandDescriptor(commandGetCrossReference.PackAndSerialize());
-            var flightInfo = await GetFlightInfoAsync(options, descriptor);
+            var flightInfo = await GetFlightInfoAsync(options, descriptor).ConfigureAwait(false);
 
             return flightInfo;
         }
@@ -799,7 +797,7 @@ public class FlightSqlClient
         {
             var command = new CommandGetTableTypes();
             var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
-            var flightInfo = await GetFlightInfoAsync(options, descriptor);
+            var flightInfo = await GetFlightInfoAsync(options, descriptor).ConfigureAwait(false);
             return flightInfo;
         }
         catch (RpcException ex)
@@ -824,7 +822,7 @@ public class FlightSqlClient
         {
             var command = new CommandGetTableTypes();
             var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
-            var schemaResult = await GetSchemaAsync(options, descriptor);
+            var schemaResult = await GetSchemaAsync(options, descriptor).ConfigureAwait(false);
             return schemaResult;
         }
         catch (RpcException ex)
@@ -850,7 +848,7 @@ public class FlightSqlClient
         {
             var command = new CommandGetXdbcTypeInfo { DataType = dataType };
             var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
-            var flightInfo = await GetFlightInfoAsync(options, descriptor);
+            var flightInfo = await GetFlightInfoAsync(options, descriptor).ConfigureAwait(false);
             return flightInfo;
         }
         catch (RpcException ex)
@@ -875,7 +873,7 @@ public class FlightSqlClient
         {
             var command = new CommandGetXdbcTypeInfo();
             var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
-            var flightInfo = await GetFlightInfoAsync(options, descriptor);
+            var flightInfo = await GetFlightInfoAsync(options, descriptor).ConfigureAwait(false);
             return flightInfo;
         }
         catch (RpcException ex)
@@ -900,7 +898,7 @@ public class FlightSqlClient
         {
             var command = new CommandGetXdbcTypeInfo();
             var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
-            var schemaResult = await GetSchemaAsync(options, descriptor);
+            var schemaResult = await GetSchemaAsync(options, descriptor).ConfigureAwait(false);
             return schemaResult;
         }
         catch (RpcException ex)
@@ -932,7 +930,7 @@ public class FlightSqlClient
             var command = new CommandGetSqlInfo();
             command.Info.AddRange(sqlInfo.ConvertAll(item => (uint)item));
             var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize());
-            var flightInfo = await GetFlightInfoAsync(options, descriptor);
+            var flightInfo = await GetFlightInfoAsync(options, descriptor).ConfigureAwait(false);
             return flightInfo;
         }
         catch (RpcException ex)
@@ -984,7 +982,7 @@ public class FlightSqlClient
         {
             var action = new FlightAction("CancelFlightInfo", request.PackAndSerialize());
             var call = _client.DoAction(action, options.Headers);
-            await foreach (var result in call.ResponseStream.ReadAllAsync())
+            await foreach (var result in call.ResponseStream.ReadAllAsync().ConfigureAwait(false))
             {
                 var cancelResult = Any.Parser.ParseFrom(result.Body);
                 if (cancelResult.TryUnpack(out CancelFlightInfoResult cancelFlightInfoResult))
@@ -1024,7 +1022,7 @@ public class FlightSqlClient
             var cancelRequest = new CancelFlightInfoRequest(info);
             var action = new FlightAction("CancelFlightInfo", cancelRequest.ToByteString());
             var call = _client.DoAction(action, options.Headers);
-            await foreach (var result in call.ResponseStream.ReadAllAsync())
+            await foreach (var result in call.ResponseStream.ReadAllAsync().ConfigureAwait(false))
             {
                 var cancelResult = Any.Parser.ParseFrom(result.Body);
                 if (cancelResult.TryUnpack(out CancelFlightInfoResult cancelFlightInfoResult))
@@ -1064,7 +1062,7 @@ public class FlightSqlClient
             var actionBeginTransaction = new ActionBeginTransactionRequest();
             var action = new FlightAction("BeginTransaction", actionBeginTransaction.PackAndSerialize());
             var responseStream = _client.DoAction(action, options.Headers);
-            await foreach (var result in responseStream.ResponseStream.ReadAllAsync())
+            await foreach (var result in responseStream.ResponseStream.ReadAllAsync().ConfigureAwait(false))
             {
                 string? beginTransactionResult = result.Body.ToStringUtf8();
                 return new Transaction(beginTransactionResult);
@@ -1184,7 +1182,7 @@ public class FlightSqlClient
                 };
                 byte[] commandSqlCallPackedAndSerialized = commandSqlCall.PackAndSerialize();
                 var descriptor = FlightDescriptor.CreateCommandDescriptor(commandSqlCallPackedAndSerialized);
-                var flightInfo = await GetFlightInfoAsync(options, descriptor);
+                var flightInfo = await GetFlightInfoAsync(options, descriptor).ConfigureAwait(false);
                 return new PreparedStatement(this, flightInfo, query);
             }
 
