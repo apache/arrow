@@ -415,9 +415,9 @@ else()
   endif()
 endif()
 
-#if(NOT ARROW_BUILD_EXAMPLES)
-#  set(NO_EXAMPLES 1)
-#endif()
+if(NOT ARROW_BUILD_EXAMPLES)
+  set(NO_EXAMPLES 1)
+endif()
 
 if(ARROW_FUZZING)
   # Fuzzing builds enable ASAN without setting our home-grown option for it.
