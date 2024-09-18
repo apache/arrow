@@ -298,9 +298,9 @@ struct ArrowAsyncProducer {
   // While not cancelled, any subsequent calls to `on_next_task`, `on_error` or
   // `release` should be scheduled by the producer to be called later rather
   //
-  // A producer must support an unbounded number of calls to request and must support
-  // a total registered demand (sum requested - sum delivered) of up to UINT64_MAX.
-  void (*request)(struct ArrowAsyncProducer* self, uint64_t n);
+  // It is invalid for a consumer to call this with a value of n <= 0, producers should
+  // error if given such a value.
+  void (*request)(struct ArrowAsyncProducer* self, int64_t n);
 
   // This cancel callback signals a producer that it must eventually stop making calls
   // to on_next_task. It must be idempotent and thread-safe. After calling cancel once,
