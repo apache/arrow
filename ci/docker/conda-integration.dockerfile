@@ -24,7 +24,6 @@ ARG maven=3.8.7
 ARG node=16
 ARG yarn=1.22
 ARG jdk=11
-ARG go=1.22.6
 
 # Install Archery and integration dependencies
 COPY ci/conda_env_archery.txt /arrow/ci/
@@ -54,7 +53,20 @@ ENV GOROOT=/opt/go \
     GOBIN=/opt/go/bin \
     GOPATH=/go \
     PATH=/opt/go/bin:$PATH
-RUN wget -nv -O - https://dl.google.com/go/go${go}.linux-${arch}.tar.gz | tar -xzf - -C /opt
+# Use always latest go
+RUN wget -nv -O - https://dl.google.com/go/go$( \
+        curl \
+        --fail \
+        --location \
+        --show-error \
+        --silent \
+        https://api.github.com/repos/golang/go/git/matching-refs/tags/go | \
+        grep -o '"ref": "refs/tags/go.*"' | \
+        tail -n 1 | \
+        sed \
+        -e 's,^"ref": "refs/tags/go,,g' \
+        -e 's/"$//g' \
+    ).linux-${arch}.tar.gz | tar -xzf - -C /opt
 
 ENV DOTNET_ROOT=/opt/dotnet \
     PATH=/opt/dotnet:$PATH
