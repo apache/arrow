@@ -110,7 +110,8 @@ struct DecimalRealConversion : public BaseDecimalRealConversion {
       return OverflowError(real, precision, scale);
     }
 
-    if constexpr (std::is_base_of_v<BasicDecimal32, DecimalType> && std::is_same_v<Real, double>) {
+    if constexpr (std::is_base_of_v<BasicDecimal32, DecimalType> &&
+                  std::is_same_v<Real, double>) {
       return DecimalType::FromReal(static_cast<float>(real), precision, scale);
     }
 
@@ -161,7 +162,8 @@ struct DecimalRealConversion : public BaseDecimalRealConversion {
         // NOTE: if `precision` is the full precision then the algorithm will
         // lose the last digit. If `precision` is almost the full precision,
         // there can be an off-by-one error due to rounding.
-        constexpr int is_dec32_or_dec64 = DecimalType::kByteWidth <= BasicDecimal64::kByteWidth;
+        constexpr int is_dec32_or_dec64 =
+            DecimalType::kByteWidth <= BasicDecimal64::kByteWidth;
         const int mul_step = std::max(1, kMaxPrecision - precision - is_dec32_or_dec64);
 
         // The running exponent, useful to compute by how much we must
@@ -745,7 +747,7 @@ std::string Decimal128::ToString(int32_t scale) const {
   return str;
 }
 
-static inline void ShiftAndAdd(std::string_view input, uint32_t* out) {  
+static inline void ShiftAndAdd(std::string_view input, uint32_t* out) {
   const uint32_t len = std::min(kInt32DecimalDigits + 1, input.size());
   if (len == 0) {
     return;
@@ -1137,7 +1139,7 @@ Result<Decimal32> Decimal32::FromBigEndian(const uint8_t* bytes, int32_t length)
   const bool is_negative = static_cast<int8_t>(bytes[0]) < 0;
   int32_t result = is_negative ? 0xffffffff : 0;
   memcpy(reinterpret_cast<uint8_t*>(&result) + kMaxDecimalBytes - length, bytes, length);
-  
+
   const auto value = bit_util::FromBigEndian(result);
   return Decimal32(value);
 }
