@@ -1870,6 +1870,7 @@ services:
     volumes: *conda-volumes
     environment:
       <<: [*common, *ccache]
+      ARCHERY_INTEGRATION_WITH_GO: 0
       ARCHERY_INTEGRATION_WITH_NANOARROW: 0
       ARCHERY_INTEGRATION_WITH_RUST: 0
       # Tell Archery where Arrow binaries are located
@@ -1877,7 +1878,8 @@ services:
       ARROW_NANOARROW_PATH: /build/nanoarrow
       ARROW_RUST_EXE_PATH: /build/rust/debug
     command:
-      ["/arrow/ci/scripts/integration_arrow_build.sh /arrow /build &&
+      ["git config --global --add safe.directory /arrow/go &&
+        /arrow/ci/scripts/integration_arrow_build.sh /arrow /build &&
         /arrow/ci/scripts/integration_arrow.sh /arrow /build"]
 
   ################################ Docs #######################################
