@@ -76,7 +76,7 @@ that new clients can read serialized data produced by library version
 Post-1.0.0 Format Versions
 ==========================
 
-Since version 1.0.0, there have been four new minor versions and zero new
+Since version 1.0.0, there have been five new minor versions and zero new
 major versions of the Arrow format. Each new minor version added new features.
 When these new features are not used, the new minor format versions are
 compatible with format version 1.0.0. The new features added in each minor
