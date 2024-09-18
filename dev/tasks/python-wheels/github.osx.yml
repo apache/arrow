@@ -26,7 +26,12 @@
   PYARROW_BUILD_VERBOSE: 1
   PYARROW_VERSION: "{{ arrow.no_rc_version }}"
   PYTHON_VERSION: "{{ python_version }}"
+  PYTHON_ABI_TAG: "{{ python_abi_tag }}"
+  {% if python_abi_tag == "cp313t" %}
+  PYTHON: "/Library/Frameworks/PythonT.framework/Versions/{{ python_version }}/bin/python{{ python_version }}t"
+  {% else %}
   PYTHON: "/Library/Frameworks/Python.framework/Versions/{{ python_version }}/bin/python{{ python_version }}"
+  {% endif %}
   VCPKG_DEFAULT_TRIPLET: "{{ vcpkg_arch }}-osx-static-release"
   VCPKG_FEATURE_FLAGS: "manifests"
   VCPKG_OVERLAY_TRIPLETS: {{ "${{ github.workspace }}/arrow/ci/vcpkg" }}
@@ -99,7 +104,7 @@ jobs:
             --x-feature=s3
 
       - name: Install Python {{ python_version }}
-        run: sudo arrow/ci/scripts/install_python.sh macos {{ python_version }}
+        run: sudo arrow/ci/scripts/install_python.sh macos {{ "3.13t" if python_abi_tag == "cp313t" else python_version }}
 
       - name: Build Wheel
         run: |
@@ -136,6 +141,7 @@ jobs:
       - name: Test Wheel
         env:
           PYTEST_ADDOPTS: "-k 'not test_cancellation'"
+          PYTHON_GIL: {{ 0 if python_abi_tag == "cp313t" else 1 }}
         run: |
           $PYTHON -m venv test-env
           source test-env/bin/activate

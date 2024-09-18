@@ -105,8 +105,10 @@ RUN pipx upgrade auditwheel
 
 # Configure Python for applications running in the bash shell of this Dockerfile
 ARG python=3.9
+ARG python_abi_tag=cp39
 ENV PYTHON_VERSION=${python}
-RUN PYTHON_ROOT=$(find /opt/python -name cp${PYTHON_VERSION/./}-cp${PYTHON_VERSION/./}) && \
+ENV PYTHON_ABI_TAG=${python_abi_tag}
+RUN PYTHON_ROOT=$(find /opt/python -name cp${PYTHON_VERSION/./}-${PYTHON_ABI_TAG}) && \
     echo "export PATH=$PYTHON_ROOT/bin:\$PATH" >> /etc/profile.d/python.sh
 
 SHELL ["/bin/bash", "-i", "-c"]

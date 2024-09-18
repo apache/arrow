@@ -35,6 +35,7 @@ jobs:
       ARCH: arm64v8
       {% endif %}
       PYTHON: "{{ python_version }}"
+      PYTHON_ABI_TAG: "{{ python_abi_tag }}"
       {% if python_version == "3.13" %}
       PYTHON_IMAGE_TAG: "3.13-rc"
       {% else %}
@@ -57,11 +58,23 @@ jobs:
 
       # TODO(kszucs): auditwheel show
       - name: Test wheel
+        if: |
+          '{{ python_abi_tag }}' != 'cp313t'
         shell: bash
         run: |
           source arrow/ci/scripts/util_enable_core_dumps.sh
           archery docker run python-wheel-manylinux-test-imports
           archery docker run python-wheel-manylinux-test-unittests
+
+      # Free-threaded wheels need to be tested using a different docker-compose service
+      - name: Test free-threaded wheel
+        if: |
+          '{{ python_abi_tag }}' == 'cp313t'
+        shell: bash
+        run: |
+          source arrow/ci/scripts/util_enable_core_dumps.sh
+          archery docker run python-free-threaded-wheel-manylinux-test-imports
+          archery docker run python-free-threaded-wheel-manylinux-test-unittests
 
       - name: Test wheel on AlmaLinux 8
         shell: bash

@@ -174,7 +174,9 @@ x-hierarchy:
     - java-jni-manylinux-2014
   - python-wheel-manylinux-2-28
   - python-wheel-manylinux-test-imports
+  - python-free-threaded-wheel-manylinux-test-imports
   - python-wheel-manylinux-test-unittests
+  - python-free-threaded-wheel-manylinux-test-unittests
   - python-wheel-windows-vs2019
   - python-wheel-windows-test
 
@@ -1126,7 +1128,7 @@ services:
         base: quay.io/pypa/manylinux2014_${ARCH_ALIAS}:2024-08-03-32dfa47
         vcpkg: ${VCPKG}
         python: ${PYTHON}
-        python_image_tag: ${PYTHON_IMAGE_TAG}
+        python_abi_tag: ${PYTHON_ABI_TAG}
         manylinux: 2014
       context: .
       dockerfile: ci/docker/python-wheel-manylinux.dockerfile
@@ -1150,7 +1152,7 @@ services:
         base: quay.io/pypa/manylinux_2_28_${ARCH_ALIAS}:2024-08-03-32dfa47
         vcpkg: ${VCPKG}
         python: ${PYTHON}
-        python_image_tag: ${PYTHON_IMAGE_TAG}
+        python_abi_tag: ${PYTHON_ABI_TAG}
         manylinux: 2_28
       context: .
       dockerfile: ci/docker/python-wheel-manylinux.dockerfile
@@ -1175,6 +1177,26 @@ services:
       CHECK_WHEEL_CONTENT: "ON"
     command: /arrow/ci/scripts/python_wheel_unix_test.sh /arrow
 
+  # TODO: Remove this when the official Docker Python image supports the free-threaded build.
+  # See https://github.com/docker-library/python/issues/947 for more info.
+  python-free-threaded-wheel-manylinux-test-imports:
+    image: ${REPO}:${ARCH}-python-3.13-free-threaded-wheel-manylinux-test-imports
+    build:
+      args:
+        base: "${ARCH}/ubuntu:${UBUNTU}"
+      context: .
+      dockerfile: ci/docker/python-free-threaded-wheel-manylinux-test-imports.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-python-3.13-free-threaded-wheel-manylinux-test-imports
+    shm_size: 2G
+    volumes:
+      - .:/arrow:delegated
+    environment:
+      <<: *common
+      CHECK_IMPORTS: "ON"
+      CHECK_UNITTESTS: "OFF"
+    command: /arrow/ci/scripts/python_wheel_unix_test.sh /arrow
+
   python-wheel-manylinux-test-unittests:
     image: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-test
     build:
@@ -1194,6 +1216,26 @@ services:
       CHECK_IMPORTS: "OFF"
       CHECK_UNITTESTS: "ON"
       CHECK_WHEEL_CONTENT: "OFF"
+    command: /arrow/ci/scripts/python_wheel_unix_test.sh /arrow
+
+  # TODO: Remove this when the official Docker Python image supports the free-threaded build.
+  # See https://github.com/docker-library/python/issues/947 for more info.
+  python-free-threaded-wheel-manylinux-test-unittests:
+    image: ${REPO}:${ARCH}-python-3.13-free-threaded-wheel-manylinux-test-unittests
+    build:
+      args:
+        base: "${ARCH}/ubuntu:${UBUNTU}"
+      context: .
+      dockerfile: ci/docker/python-free-threaded-wheel-manylinux-test-unittests.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-python-3.13-free-threaded-wheel-manylinux-test-unittests
+    shm_size: 2G
+    volumes:
+      - .:/arrow:delegated
+    environment:
+      <<: *common
+      CHECK_IMPORTS: "OFF"
+      CHECK_UNITTESTS: "ON"
     command: /arrow/ci/scripts/python_wheel_unix_test.sh /arrow
 
   python-wheel-windows-vs2019:
