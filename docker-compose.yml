@@ -651,10 +651,10 @@ services:
       ARROW_BUILD_STATIC: "OFF"
       ARROW_CTEST_TIMEOUT: 500
       ARROW_ENABLE_TIMING_TESTS:  # inherit
-      ARROW_DATASET: "ON"
+      ARROW_FLIGHT: "OFF"
+      ARROW_FLIGHT_SQL: "OFF"
       ARROW_JEMALLOC: "OFF"
       ARROW_ORC: "OFF"
-      ARROW_S3: "OFF"
       ARROW_USE_TSAN: "ON"
     command: *cpp-command
 

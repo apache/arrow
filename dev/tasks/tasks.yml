@@ -1182,16 +1182,16 @@ tasks:
       flags: "-e ARROW_ENABLE_THREADING=OFF"
       image: ubuntu-cpp
 
-  test-ubuntu-20.04-cpp-thread-sanitizer:
+  test-ubuntu-24.04-cpp-thread-sanitizer:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
         # clang-tools and llvm version need to be synchronized so as
         # to have the right llvm-symbolizer version
-        CLANG_TOOLS: 11
-        LLVM: 11
-        UBUNTU: 20.04
+        CLANG_TOOLS: 18
+        LLVM: 18
+        UBUNTU: 24.04
       image: ubuntu-cpp-thread-sanitizer
 
   test-ubuntu-20.04-cpp-minimal-with-formats:
