@@ -34,12 +34,13 @@ provided by the Apache Arrow implementation in their programming
 language of choice. Some implementations are further ahead and feature a
 vast set of algorithms for in-memory analytical data processing.
 
-As the format gets more adoption, it becomes easier for data processing
-systems to exchange tabular data. Among other things, an agreed upon
-in-memory format, enables the implementations of zero-copy IPC protocols
-(inter-process communication without copying data in memory) and
-more efficient reading and writing of file formats like CSV, `Apache ORC`_,
-and `Apache Parquet`_.
+Apart from this initial vision, Arrow has grown to also develop a
+multi-language collection of libraries for solving problems related to
+in-memory analytical data processing. This includes such topics as:
+
+* Zero-copy shared memory and RPC-based data movement
+* Reading and writing file formats (like CSV, `Apache ORC`_, and `Apache Parquet`_)
+* In-memory analytics and query processing
 
 .. _Apache ORC: https://orc.apache.org/
 .. _Apache Parquet: https://parquet.apache.org/
