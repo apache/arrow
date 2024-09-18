@@ -162,7 +162,8 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
 
   @Override
   protected FieldReader getReaderImpl() {
-    return null;
+    throw new UnsupportedOperationException("Not yet implemented.");
+    ;
   }
 
   /**
