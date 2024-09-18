@@ -517,6 +517,19 @@ gparquet_arrow_file_writer_get_schema(GParquetArrowFileWriter *writer)
  * @record_batch: A record batch to be written.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
+ * Write a record batch into the buffered row group.
+ *
+ * Multiple record batches can be written into the same row group
+ * through this function.
+ *
+ * gparquet_writer_properties_get_max_row_group_length() is respected
+ * and a new row group will be created if the current row group
+ * exceeds the limit.
+ *
+ * Record batches get flushed to the output stream once
+ * gparquet_file_writer_new_buffered_row_group() or
+ * gparquet_file_writer_close() is called.
+ *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 18.0.0
@@ -564,6 +577,8 @@ gparquet_arrow_file_writer_write_table(GParquetArrowFileWriter *writer,
  * @chunk_size: The max number of rows in a row group.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
+ * Start a new row group.
+ *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
  * Since: 18.0.0
@@ -580,10 +595,33 @@ gparquet_arrow_file_writer_new_row_group(GParquetArrowFileWriter *writer,
 }
 
 /**
+ * gparquet_arrow_file_writer_new_buffered_row_group:
+ * @writer: A #GParquetArrowFileWriter.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Start a new buffered row group.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 18.0.0
+ */
+gboolean
+gparquet_arrow_file_writer_new_buffered_row_group(GParquetArrowFileWriter *writer,
+                                                  GError **error)
+{
+  auto parquet_arrow_file_writer = gparquet_arrow_file_writer_get_raw(writer);
+  return garrow::check(error,
+                       parquet_arrow_file_writer->NewBufferedRowGroup(),
+                       "[parquet][arrow][file-writer][new-buffered-row-group]");
+}
+
+/**
  * gparquet_arrow_file_writer_write_chunked_array:
  * @writer: A #GParquetArrowFileWriter.
  * @chunked_array: A #GArrowChunkedArray to be written.
  * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Start a chunked array as a column chunk.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *

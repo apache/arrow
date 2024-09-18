@@ -390,8 +390,7 @@ tasks:
       - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cuda.conda
       - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cuda.conda
 
-{% for python_version, python_tag, abi_tag in [("3.8", "cp38", "cp38"),
-                                               ("3.9", "cp39", "cp39"),
+{% for python_version, python_tag, abi_tag in [("3.9", "cp39", "cp39"),
                                                ("3.10", "cp310", "cp310"),
                                                ("3.11", "cp311", "cp311"),
                                                ("3.12", "cp312", "cp312"),
@@ -1203,7 +1202,7 @@ tasks:
         UBUNTU: 22.04
       image: ubuntu-cpp-emscripten
 
-{% for python_version in ["3.8", "3.9", "3.10", "3.11", "3.12"] %}
+{% for python_version in ["3.9", "3.10", "3.11", "3.12"] %}
   test-conda-python-{{ python_version }}:
     ci: github
     template: docker-tests/github.linux.yml
@@ -1286,20 +1285,20 @@ tasks:
       flags: "-e ARROW_S3=OFF -e ARROW_GANDIVA=OFF"
       image: debian-python
 
-  test-ubuntu-20.04-python-3:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      env:
-        UBUNTU: 20.04
-      image: ubuntu-python
-
   test-ubuntu-22.04-python-3:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
         UBUNTU: 22.04
+      image: ubuntu-python
+
+  test-ubuntu-24.04-python-3:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        UBUNTU: 24.04
       image: ubuntu-python
 
   test-fedora-39-python-3:
@@ -1515,16 +1514,28 @@ tasks:
 
   ############################## CUDA tests #################################
 
-  test-cuda-cpp:
+  test-cuda-cpp-ubuntu-20.04-cuda-11.2.2:
     ci: github
     template: docker-tests/github.cuda.yml
     params:
       image: ubuntu-cuda-cpp
 
-  test-cuda-python:
+  test-cuda-cpp-ubuntu-22.04-cuda-11.7.1:
     ci: github
     template: docker-tests/github.cuda.yml
     params:
+      env:
+        UBUNTU: 22.04
+        CUDA: 11.7.1
+      image: ubuntu-cuda-cpp
+
+  test-cuda-python-ubuntu-22.04-cuda-11.7.1:
+    ci: github
+    template: docker-tests/github.cuda.yml
+    params:
+      env:
+        UBUNTU: 22.04
+        CUDA: 11.7.1
       image: ubuntu-cuda-python
 
   ############################## Fuzz tests #################################
@@ -1542,11 +1553,11 @@ tasks:
 
   ############################## Integration tests ############################
 
-{% for python_version, pandas_version, numpy_version, cache_leaf in [("3.8", "1.0", "1.19", True),
-                                                                     ("3.9", "latest", "latest", False),
-                                                                     ("3.10", "latest", "1.26", False),
+{% for python_version, pandas_version, numpy_version, cache_leaf in [("3.9", "1.1.3", "1.19.5", True),
                                                                      ("3.10", "latest", "latest", False),
-                                                                     ("3.10", "nightly", "nightly", False),
+                                                                     ("3.11", "latest", "1.26", False),
+                                                                     ("3.11", "latest", "latest", False),
+                                                                     ("3.11", "nightly", "nightly", False),
                                                                      ("3.11", "upstream_devel", "nightly", False)] %}
   test-conda-python-{{ python_version }}-pandas-{{ pandas_version }}-numpy-{{ numpy_version }}:
     ci: github

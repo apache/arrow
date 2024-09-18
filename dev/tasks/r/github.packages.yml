@@ -140,7 +140,7 @@ jobs:
           UBUNTU: {{ '"${{ matrix.ubuntu }}"' }}
         {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: |
-          source ci/scripts/util_enable_core_dumps.sh
+          source arrow/ci/scripts/util_enable_core_dumps.sh
           archery docker run \
             -e EXTRA_CMAKE_FLAGS="{{ '${{ matrix.extra-cmake-flags }}' }}" \
             {{ '${{ matrix.os }}' }}-cpp-static

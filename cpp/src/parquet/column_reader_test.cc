@@ -125,58 +125,6 @@ class TestPrimitiveReader : public ::testing::Test {
     ASSERT_EQ(0, batch_actual);
     ASSERT_EQ(0, values_read);
   }
-  void CheckResultsSpaced() {
-    std::vector<int32_t> vresult(num_levels_, -1);
-    std::vector<int16_t> dresult(num_levels_, -1);
-    std::vector<int16_t> rresult(num_levels_, -1);
-    std::vector<uint8_t> valid_bits(num_levels_, 255);
-    int total_values_read = 0;
-    int batch_actual = 0;
-    int levels_actual = 0;
-    int64_t null_count = -1;
-    int64_t levels_read = 0;
-    int64_t values_read;
-
-    Int32Reader* reader = static_cast<Int32Reader*>(reader_.get());
-    int32_t batch_size = 8;
-    int batch = 0;
-    // This will cover both the cases
-    // 1) batch_size < page_size (multiple ReadBatch from a single page)
-    // 2) batch_size > page_size (BatchRead limits to a single page)
-    do {
-      ARROW_SUPPRESS_DEPRECATION_WARNING
-      batch = static_cast<int>(reader->ReadBatchSpaced(
-          batch_size, dresult.data() + levels_actual, rresult.data() + levels_actual,
-          vresult.data() + batch_actual, valid_bits.data() + batch_actual, 0,
-          &levels_read, &values_read, &null_count));
-      ARROW_UNSUPPRESS_DEPRECATION_WARNING
-      total_values_read += batch - static_cast<int>(null_count);
-      batch_actual += batch;
-      levels_actual += static_cast<int>(levels_read);
-      batch_size = std::min(1 << 24, std::max(batch_size * 2, 4096));
-    } while ((batch > 0) || (levels_read > 0));
-
-    ASSERT_EQ(num_levels_, levels_actual);
-    ASSERT_EQ(num_values_, total_values_read);
-    if (max_def_level_ > 0) {
-      ASSERT_TRUE(vector_equal(def_levels_, dresult));
-      ASSERT_TRUE(vector_equal_with_def_levels(values_, dresult, max_def_level_,
-                                               max_rep_level_, vresult));
-    } else {
-      ASSERT_TRUE(vector_equal(values_, vresult));
-    }
-    if (max_rep_level_ > 0) {
-      ASSERT_TRUE(vector_equal(rep_levels_, rresult));
-    }
-    // catch improper writes at EOS
-    ARROW_SUPPRESS_DEPRECATION_WARNING
-    batch_actual = static_cast<int>(
-        reader->ReadBatchSpaced(5, nullptr, nullptr, nullptr, valid_bits.data(), 0,
-                                &levels_read, &values_read, &null_count));
-    ARROW_UNSUPPRESS_DEPRECATION_WARNING
-    ASSERT_EQ(0, batch_actual);
-    ASSERT_EQ(0, null_count);
-  }
 
   void Clear() {
     values_.clear();
@@ -194,14 +142,6 @@ class TestPrimitiveReader : public ::testing::Test {
     InitReader(d);
     CheckResults();
     Clear();
-
-    num_values_ =
-        MakePages<Int32Type>(d, num_pages, levels_per_page, def_levels_, rep_levels_,
-                             values_, data_buffer_, pages_, Encoding::PLAIN);
-    num_levels_ = num_pages * levels_per_page;
-    InitReader(d);
-    CheckResultsSpaced();
-    Clear();
   }
 
   void ExecuteDict(int num_pages, int levels_per_page, const ColumnDescriptor* d) {
@@ -211,14 +151,6 @@ class TestPrimitiveReader : public ::testing::Test {
     num_levels_ = num_pages * levels_per_page;
     InitReader(d);
     CheckResults();
-    Clear();
-
-    num_values_ =
-        MakePages<Int32Type>(d, num_pages, levels_per_page, def_levels_, rep_levels_,
-                             values_, data_buffer_, pages_, Encoding::RLE_DICTIONARY);
-    num_levels_ = num_pages * levels_per_page;
-    InitReader(d);
-    CheckResultsSpaced();
     Clear();
   }
 

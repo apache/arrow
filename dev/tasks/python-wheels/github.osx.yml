@@ -128,6 +128,11 @@ jobs:
           PIPX_BASE_PYTHON: {{ '${{ steps.gcs-python-install.outputs.python-path }}' }}
         run: arrow/ci/scripts/install_gcs_testbench.sh default
 
+      - name: Install MinIO
+        run: |
+          $(brew --prefix bash)/bin/bash \
+            arrow/ci/scripts/install_minio.sh latest /usr/local
+
       - name: Test Wheel
         env:
           PYTEST_ADDOPTS: "-k 'not test_cancellation'"

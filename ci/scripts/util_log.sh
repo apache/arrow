@@ -15,15 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-linters:
-  # Disable all linters.
-  # Default: false
-  disable-all: true
-  # Enable specific linter
-  # https://golangci-lint.run/usage/linters/#enabled-by-default
-  enable:
-    - gofmt
-    - goimports
+github_actions_group_begin() {
+  echo "::group::$1"
+  set -x
+}
 
-issues:
-  fix: true
+github_actions_group_end() {
+  set +x
+  echo "::endgroup::"
+}

@@ -27,18 +27,25 @@
 #else
 // gcc/clang (possibly others)
 
-#  if defined(ARROW_HAVE_BMI2)
+#  if defined(ARROW_HAVE_BMI2) || defined(ARROW_HAVE_RUNTIME_BMI2)
 #    include <x86intrin.h>
 #  endif
 
-#  if defined(ARROW_HAVE_AVX2) || defined(ARROW_HAVE_AVX512)
+#  if defined(ARROW_HAVE_AVX2) || defined(ARROW_HAVE_AVX512) || \
+      defined(ARROW_HAVE_RUNTIME_AVX2) || defined(ARROW_HAVE_RUNTIME_AVX512)
 #    include <immintrin.h>
-#  elif defined(ARROW_HAVE_SSE4_2)
+#  elif defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_RUNTIME_SSE4_2)
 #    include <nmmintrin.h>
 #  endif
 
 #  ifdef ARROW_HAVE_NEON
 #    include <arm_neon.h>
+#  endif
+
+// GH-44098: Workaround for missing _mm256_set_m128i in older versions of GCC.
+#  if defined(__GNUC__) && !defined(__clang__) && __GNUC__ < 8
+#    define _mm256_set_m128i(hi, lo) \
+      _mm256_inserti128_si256(_mm256_castsi128_si256(lo), (hi), 1)
 #  endif
 
 #endif

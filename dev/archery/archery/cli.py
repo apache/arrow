@@ -737,13 +737,17 @@ def _set_default(opt, default):
 @click.option('--with-js', type=bool, default=False,
               help='Include JavaScript in integration tests')
 @click.option('--with-go', type=bool, default=False,
-              help='Include Go in integration tests')
+              help='Include Go in integration tests',
+              envvar="ARCHERY_INTEGRATION_WITH_GO")
 @click.option('--with-nanoarrow', type=bool, default=False,
               help='Include nanoarrow in integration tests',
               envvar="ARCHERY_INTEGRATION_WITH_NANOARROW")
 @click.option('--with-rust', type=bool, default=False,
               help='Include Rust in integration tests',
               envvar="ARCHERY_INTEGRATION_WITH_RUST")
+@click.option('--target-languages', default='',
+              help=('Target languages in this integration tests'),
+              envvar="ARCHERY_INTEGRATION_TARGET_LANGUAGES")
 @click.option('--write_generated_json', default="",
               help='Generate test JSON to indicated path')
 @click.option('--run-ipc', is_flag=True, default=False,

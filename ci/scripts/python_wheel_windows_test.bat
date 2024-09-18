@@ -28,7 +28,7 @@ set PYARROW_TEST_ORC=ON
 set PYARROW_TEST_PARQUET=ON
 set PYARROW_TEST_PARQUET_ENCRYPTION=ON
 set PYARROW_TEST_SUBSTRAIT=ON
-set PYARROW_TEST_S3=OFF
+set PYARROW_TEST_S3=ON
 set PYARROW_TEST_TENSORFLOW=ON
 
 @REM Enable again once https://github.com/scipy/oldest-supported-numpy/pull/27 gets merged

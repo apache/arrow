@@ -383,13 +383,10 @@ def test_tzinfo_to_string_errors():
     with pytest.raises(TypeError):
         pa.lib.tzinfo_to_string("Europe/Budapest")
 
-    if sys.version_info >= (3, 8):
-        # before 3.8 it was only possible to create timezone objects with whole
-        # number of minutes
-        tz = datetime.timezone(datetime.timedelta(hours=1, seconds=30))
-        msg = "Offset must represent whole number of minutes"
-        with pytest.raises(ValueError, match=msg):
-            pa.lib.tzinfo_to_string(tz)
+    tz = datetime.timezone(datetime.timedelta(hours=1, seconds=30))
+    msg = "Offset must represent whole number of minutes"
+    with pytest.raises(ValueError, match=msg):
+        pa.lib.tzinfo_to_string(tz)
 
 
 if tzst:
