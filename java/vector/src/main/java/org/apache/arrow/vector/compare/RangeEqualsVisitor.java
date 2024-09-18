@@ -282,6 +282,8 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
     int rightLogicalIndex = range.getRightStart();
 
     while (leftLogicalIndex < leftRangeEnd) {
+      // TODO: implement it more efficient
+      // https://github.com/apache/arrow/issues/44157
       int leftPhysicalIndex = leftVector.getPhysicalIndex(leftLogicalIndex);
       int rightPhysicalIndex = rightVector.getPhysicalIndex(rightLogicalIndex);
       if (leftValuesVector.accept(
