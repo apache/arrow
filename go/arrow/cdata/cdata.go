@@ -254,12 +254,17 @@ func importSchema(schema *CArrowSchema) (ret arrow.Field, err error) {
 			return ret, xerrors.Errorf("could not parse decimal scale in '%s': %s", f, err.Error())
 		}
 
-		if bitwidth == 128 {
+		switch bitwidth {
+		case 32:
+			dt = &arrow.Decimal32Type{Precision: int32(precision), Scale: int32(scale)}
+		case 64:
+			dt = &arrow.Decimal64Type{Precision: int32(precision), Scale: int32(scale)}
+		case 128:
 			dt = &arrow.Decimal128Type{Precision: int32(precision), Scale: int32(scale)}
-		} else if bitwidth == 256 {
+		case 256:
 			dt = &arrow.Decimal256Type{Precision: int32(precision), Scale: int32(scale)}
-		} else {
-			return ret, xerrors.Errorf("only decimal128 and decimal256 are supported, got '%s'", f)
+		default:
+			return ret, xerrors.Errorf("unsupported decimal bitwidth, got '%s'", f)
 		}
 	}
 

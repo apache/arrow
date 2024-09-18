@@ -153,7 +153,7 @@ func TestDecimalSchemaErrors(t *testing.T) {
 		{"d:a,2,3", "could not parse decimal precision in 'd:a,2,3':"},
 		{"d:1,a,3", "could not parse decimal scale in 'd:1,a,3':"},
 		{"d:1,2,a", "could not parse decimal bitwidth in 'd:1,2,a':"},
-		{"d:1,2,384", "only decimal128 and decimal256 are supported, got 'd:1,2,384'"},
+		{"d:1,2,384", "unsupported decimal bitwidth, got 'd:1,2,384'"},
 	}
 
 	for _, tt := range tests {

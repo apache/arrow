@@ -160,6 +160,8 @@ func init() {
 		arrow.TIME64:                  func(data arrow.ArrayData) arrow.Array { return NewTime64Data(data) },
 		arrow.INTERVAL_MONTHS:         func(data arrow.ArrayData) arrow.Array { return NewMonthIntervalData(data) },
 		arrow.INTERVAL_DAY_TIME:       func(data arrow.ArrayData) arrow.Array { return NewDayTimeIntervalData(data) },
+		arrow.DECIMAL32:               func(data arrow.ArrayData) arrow.Array { return NewDecimal32Data(data) },
+		arrow.DECIMAL64:               func(data arrow.ArrayData) arrow.Array { return NewDecimal64Data(data) },
 		arrow.DECIMAL128:              func(data arrow.ArrayData) arrow.Array { return NewDecimal128Data(data) },
 		arrow.DECIMAL256:              func(data arrow.ArrayData) arrow.Array { return NewDecimal256Data(data) },
 		arrow.LIST:                    func(data arrow.ArrayData) arrow.Array { return NewListData(data) },

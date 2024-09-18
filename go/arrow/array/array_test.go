@@ -75,6 +75,8 @@ func TestMakeFromData(t *testing.T) {
 		{name: "time64", d: &testDataType{arrow.TIME64}},
 		{name: "month_interval", d: arrow.FixedWidthTypes.MonthInterval},
 		{name: "day_time_interval", d: arrow.FixedWidthTypes.DayTimeInterval},
+		{name: "decimal32", d: &testDataType{arrow.DECIMAL32}},
+		{name: "decimal64", d: &testDataType{arrow.DECIMAL64}},
 		{name: "decimal128", d: &testDataType{arrow.DECIMAL128}},
 		{name: "decimal256", d: &testDataType{arrow.DECIMAL256}},
 		{name: "month_day_nano_interval", d: arrow.FixedWidthTypes.MonthDayNanoInterval},

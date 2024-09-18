@@ -107,7 +107,7 @@ const (
 	// parameters.
 	DECIMAL128
 
-	// DECIMAL256 is a precision and scale based decimal type, with 256 bit max. not yet implemented
+	// DECIMAL256 is a precision and scale based decimal type, with 256 bit max.
 	DECIMAL256
 
 	// LIST is a list of some logical data type
@@ -116,10 +116,10 @@ const (
 	// STRUCT of logical types
 	STRUCT
 
-	// SPARSE_UNION of logical types. not yet implemented
+	// SPARSE_UNION of logical types
 	SPARSE_UNION
 
-	// DENSE_UNION of logical types. not yet implemented
+	// DENSE_UNION of logical types
 	DENSE_UNION
 
 	// DICTIONARY aka Category type
@@ -138,13 +138,13 @@ const (
 	// or nanoseconds.
 	DURATION
 
-	// like STRING, but 64-bit offsets. not yet implemented
+	// like STRING, but 64-bit offsets
 	LARGE_STRING
 
-	// like BINARY but with 64-bit offsets, not yet implemented
+	// like BINARY but with 64-bit offsets
 	LARGE_BINARY
 
-	// like LIST but with 64-bit offsets. not yet implemented
+	// like LIST but with 64-bit offsets
 	LARGE_LIST
 
 	// calendar interval with three fields
@@ -164,6 +164,12 @@ const (
 
 	// like LIST but with 64-bit offsets
 	LARGE_LIST_VIEW
+
+	// Decimal value with 32-bit representation
+	DECIMAL32
+
+	// Decimal value with 64-bit representation
+	DECIMAL64
 
 	// Alias to ensure we do not break any consumers
 	DECIMAL = DECIMAL128
@@ -365,10 +371,10 @@ func IsLargeBinaryLike(t Type) bool {
 	return false
 }
 
-// IsFixedSizeBinary returns true for Decimal128/256 and FixedSizeBinary
+// IsFixedSizeBinary returns true for Decimal32/64/128/256 and FixedSizeBinary
 func IsFixedSizeBinary(t Type) bool {
 	switch t {
-	case DECIMAL128, DECIMAL256, FIXED_SIZE_BINARY:
+	case DECIMAL32, DECIMAL64, DECIMAL128, DECIMAL256, FIXED_SIZE_BINARY:
 		return true
 	}
 	return false
@@ -377,7 +383,7 @@ func IsFixedSizeBinary(t Type) bool {
 // IsDecimal returns true for Decimal128 and Decimal256
 func IsDecimal(t Type) bool {
 	switch t {
-	case DECIMAL128, DECIMAL256:
+	case DECIMAL32, DECIMAL64, DECIMAL128, DECIMAL256:
 		return true
 	}
 	return false
