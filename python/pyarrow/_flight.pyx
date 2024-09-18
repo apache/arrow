@@ -761,7 +761,7 @@ cdef class FlightEndpoint(_Weakrefable):
 
     @property
     def expiration_time(self):
-        """Get the Expiration time of this stream.
+        """Get the expiration time of this stream.
 
         If present, clients may assume they can retry DoGet requests.
         Otherwise, clients should avoid retrying DoGet requests.
