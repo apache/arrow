@@ -18,10 +18,13 @@
 ARG base
 FROM ${base}
 
-RUN apt update
-RUN apt install -y -q --no-install-recommends software-properties-common gpg-agent
-RUN add-apt-repository -y ppa:deadsnakes/ppa && apt update
-RUN apt install -y -q --no-install-recommends python3.13-dev python3.13-nogil python3.13-venv
+RUN apt-get update -y -q && \
+    apt install -y -q --no-install-recommends software-properties-common gpg-agent && \
+    add-apt-repository -y ppa:deadsnakes/ppa && \
+    apt-get update -y -q && \
+    apt install -y -q --no-install-recommends python3.13-dev python3.13-nogil python3.13-venv && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists*
 
 ENV ARROW_PYTHON_VENV /arrow-dev
 RUN python3.13t -m venv ${ARROW_PYTHON_VENV}
