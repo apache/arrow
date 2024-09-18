@@ -26,10 +26,10 @@ public class TestFlightSqlServer : FlightServer
         switch (request.Type)
         {
             case "test":
-                await responseStream.WriteAsync(new FlightResult("test data"));
+                await responseStream.WriteAsync(new FlightResult("test data")).ConfigureAwait(false);
                 break;
             case "GetPrimaryKeys":
-                await responseStream.WriteAsync(new FlightResult("test data"));
+                await responseStream.WriteAsync(new FlightResult("test data")).ConfigureAwait(false);
                 break;
             case "CancelFlightInfo":
                 var schema = new Schema
@@ -39,12 +39,12 @@ public class TestFlightSqlServer : FlightServer
                 var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("test");
                 var flightInfo = new FlightInfo(schema, flightDescriptor, new List<FlightEndpoint>(), 0, 0);
                 var cancelRequest = new CancelFlightInfoRequest(flightInfo);
-                await responseStream.WriteAsync(new FlightResult(Any.Pack(cancelRequest).Serialize().ToByteArray()));
+                await responseStream.WriteAsync(new FlightResult(Any.Pack(cancelRequest).Serialize().ToByteArray())).ConfigureAwait(false);
                 break;
             case "BeginTransaction":
             case "Commit":
             case "Rollback":
-                await responseStream.WriteAsync(new FlightResult(ByteString.CopyFromUtf8("sample-transaction-id")));
+                await responseStream.WriteAsync(new FlightResult(ByteString.CopyFromUtf8("sample-transaction-id"))).ConfigureAwait(false);
                 break;
             case "CreatePreparedStatement":
             case "ClosePreparedStatement":
@@ -52,10 +52,9 @@ public class TestFlightSqlServer : FlightServer
                 {
                     PreparedStatementHandle = ByteString.CopyFromUtf8("sample-testing-prepared-statement")
                 };
-
-                var packedResult = Any.Pack(prepareStatementResponse).Serialize().ToByteArray();
+                byte[] packedResult = Any.Pack(prepareStatementResponse).Serialize().ToByteArray();
                 var flightResult = new FlightResult(packedResult);
-                await responseStream.WriteAsync(flightResult);
+                await responseStream.WriteAsync(flightResult).ConfigureAwait(false);
                 break;
             default:
                 throw new NotImplementedException();
@@ -65,7 +64,6 @@ public class TestFlightSqlServer : FlightServer
     public override async Task DoGet(FlightTicket ticket, FlightServerRecordBatchStreamWriter responseStream,
         ServerCallContext context)
     {
-        // var flightDescriptor = FlightDescriptor.CreatePathDescriptor(ticket.Ticket.ToStringUtf8());
         var flightDescriptor = FlightDescriptor.CreateCommandDescriptor(ticket.Ticket.ToStringUtf8());
 
         if (_flightStore.Flights.TryGetValue(flightDescriptor, out var flightHolder))
@@ -73,7 +71,7 @@ public class TestFlightSqlServer : FlightServer
             var batches = flightHolder.GetRecordBatches();
             foreach (var batch in batches)
             {
-                await responseStream.WriteAsync(batch.RecordBatch, batch.Metadata);
+                await responseStream.WriteAsync(batch.RecordBatch, batch.Metadata).ConfigureAwait(false);
             }
         }
     }
@@ -93,7 +91,7 @@ public class TestFlightSqlServer : FlightServer
         {
             flightHolder.AddBatch(new RecordBatchWithMetadata(requestStream.Current,
                 requestStream.ApplicationMetadata.FirstOrDefault()));
-            await responseStream.WriteAsync(FlightPutResult.Empty);
+            await responseStream.WriteAsync(FlightPutResult.Empty).ConfigureAwait(false);
         }
     }
 
@@ -150,12 +148,12 @@ public class TestFlightSqlServer : FlightServer
     public override async Task ListActions(IAsyncStreamWriter<FlightActionType> responseStream,
         ServerCallContext context)
     {
-        await responseStream.WriteAsync(new FlightActionType("get", "get a flight"));
-        await responseStream.WriteAsync(new FlightActionType("put", "add a flight"));
-        await responseStream.WriteAsync(new FlightActionType("delete", "delete a flight"));
-        await responseStream.WriteAsync(new FlightActionType("test", "test action"));
-        await responseStream.WriteAsync(new FlightActionType("commit", "commit a transaction"));
-        await responseStream.WriteAsync(new FlightActionType("rollback", "rollback a transaction"));
+        await responseStream.WriteAsync(new FlightActionType("get", "get a flight")).ConfigureAwait(false);
+        await responseStream.WriteAsync(new FlightActionType("put", "add a flight")).ConfigureAwait(false);
+        await responseStream.WriteAsync(new FlightActionType("delete", "delete a flight")).ConfigureAwait(false);
+        await responseStream.WriteAsync(new FlightActionType("test", "test action")).ConfigureAwait(false);
+        await responseStream.WriteAsync(new FlightActionType("commit", "commit a transaction")).ConfigureAwait(false);
+        await responseStream.WriteAsync(new FlightActionType("rollback", "rollback a transaction")).ConfigureAwait(false);
     }
 
     public override async Task ListFlights(FlightCriteria request, IAsyncStreamWriter<FlightInfo> responseStream,
@@ -165,7 +163,7 @@ public class TestFlightSqlServer : FlightServer
 
         foreach (var flightInfo in flightInfos)
         {
-            await responseStream.WriteAsync(flightInfo);
+            await responseStream.WriteAsync(flightInfo).ConfigureAwait(false);
         }
     }
 
