@@ -715,8 +715,8 @@ def test_non_cpu_buffer(pickle_module):
     for dest in [mm, mm.device]:
         buf2 = cuda_buf.copy(dest)
         cuda_buf2 = cuda.CudaBuffer.from_buffer(buf2)
-        cuda_buf2.size == cuda_buf.size
-        cuda_buf2.copy_to_host()[:] == b'testing'
+        assert cuda_buf2.size == cuda_buf.size
+        assert cuda_buf2.copy_to_host()[:] == b'testing'
         assert cuda_buf2.device == mm.device
 
     # Buffers on different devices

@@ -1477,7 +1477,8 @@ cdef class Buffer(_Weakrefable):
                 f"pyarrow.MemoryManager, got {type(destination)})"
             )
 
-        c_buffer = GetResultValue(CBuffer.Copy(self.buffer, c_memory_manager))
+        with nogil:
+            c_buffer = GetResultValue(CBuffer.Copy(self.buffer, c_memory_manager))
         return pyarrow_wrap_buffer(c_buffer)
 
     @property

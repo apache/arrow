@@ -127,6 +127,7 @@ def test_copy_from_buffer():
     for dest in [mm2, mm2.device]:
         buf2 = cudabuf.copy(dest)
         assert buf2.device_type == pa.DeviceAllocationType.CUDA
+        assert buf2.copy(pa.default_cpu_memory_manager()).equals(buf)
         cudabuf2 = cuda.CudaBuffer.from_buffer(buf2)
         assert cudabuf2.size == cudabuf.size
         assert not cudabuf2.is_cpu
