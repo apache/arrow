@@ -1118,7 +1118,7 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       env:
-        UBUNTU: 22.04
+        UBUNTU: 20.04
       flags: >-
         -e ARROW_AZURE=OFF
         -e ARROW_GANDIVA=OFF
