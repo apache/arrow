@@ -78,13 +78,6 @@ class PARQUET_EXPORT ColumnIndex {
 
   /// \brief A vector of page indices for non-null pages.
   virtual const std::vector<int32_t>& non_null_page_indices() const = 0;
-
-  /// \brief A vector of encoded geometry statistics for each data page in this column.
-  ///
-  /// `null_pages` should be inspected first, as only pages with non-null values
-  /// may have their upper bounds populated.
-  virtual const std::vector<EncodedGeometryStatistics>& encoded_geometry_statistics()
-      const = 0;
 };
 
 /// \brief Typed implementation of ColumnIndex.

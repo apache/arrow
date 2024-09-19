@@ -475,9 +475,7 @@ std::shared_ptr<const LogicalType> LogicalType::FromThrift(
     } else if (type.GEOMETRY.edges == format::Edges::SPHERICAL) {
       edges = LogicalType::GeometryEdges::SPHERICAL;
     } else {
-      std::stringstream ss;
-      ss << "Unknown value for geometry edges: " << type.GEOMETRY.edges;
-      throw ParquetException(ss.str());
+      throw ParquetException("Unknown value for geometry edges: ", type.GEOMETRY.edges);
     }
 
     LogicalType::GeometryEncoding::geometry_encoding encoding =
@@ -485,9 +483,8 @@ std::shared_ptr<const LogicalType> LogicalType::FromThrift(
     if (type.GEOMETRY.encoding == format::GeometryEncoding::WKB) {
       encoding = LogicalType::GeometryEncoding::WKB;
     } else {
-      std::stringstream ss;
-      ss << "Unknown value for geometry encoding: " << type.GEOMETRY.edges;
-      throw ParquetException(ss.str());
+      throw ParquetException("Unknown value for geometry encoding: ",
+                             type.GEOMETRY.encoding);
     }
 
     std::string metadata;
@@ -1646,13 +1643,25 @@ class LogicalType::Impl::Float16 final : public LogicalType::Impl::Incompatible,
 
 GENERATE_MAKE(Float16)
 
-#define geometry_edges_string(u___)             \
-  ((u___) == LogicalType::GeometryEdges::PLANAR \
-       ? "planar"                               \
-       : ((u___) == LogicalType::GeometryEdges::SPHERICAL ? "spherical" : "unknown"))
+namespace {
 
-#define geometry_encoding_string(u___) \
-  ((u___) == LogicalType::GeometryEncoding::WKB ? "wkb" : "unknown")
+static inline const char* geometry_edges_string(LogicalType::GeometryEdges::edges edges) {
+  switch (edges) {
+    case LogicalType::GeometryEdges::PLANAR:
+      return "planar";
+    case LogicalType::GeometryEdges::SPHERICAL:
+      return "spherical";
+    default:
+      return "unknown";
+  }
+}
+
+static inline const char* geometry_encoding_string(
+    LogicalType::GeometryEncoding::geometry_encoding encoding) {
+  return (encoding == LogicalType::GeometryEncoding::WKB ? "wkb" : "unknown");
+}
+
+}  // namespace
 
 class LogicalType::Impl::Geometry final : public LogicalType::Impl::Incompatible,
                                           public LogicalType::Impl::SimpleApplicable {
@@ -1673,7 +1682,7 @@ class LogicalType::Impl::Geometry final : public LogicalType::Impl::Incompatible
   Geometry(std::string crs, LogicalType::GeometryEdges::edges edges,
            LogicalType::GeometryEncoding::geometry_encoding encoding,
            std::string metadata)
-      : LogicalType::Impl(LogicalType::Type::GEOMETRY, SortOrder::UNKNOWN),
+      : LogicalType::Impl(LogicalType::Type::GEOMETRY, SortOrder::UNSIGNED),
         LogicalType::Impl::SimpleApplicable(parquet::Type::BYTE_ARRAY),
         crs_(std::move(crs)),
         edges_(edges),
@@ -1698,7 +1707,7 @@ std::string LogicalType::Impl::Geometry::ToJSON() const {
   std::stringstream json;
   json << R"({"Type": "Geometry")";
 
-  if (crs_.size() > 0) {
+  if (!crs_.empty()) {
     // TODO(paleolimbot): we'll need to escape the crs or assume that it's valid JSON
     json << R"(, "crs": )" << crs_;
   }
@@ -1706,7 +1715,7 @@ std::string LogicalType::Impl::Geometry::ToJSON() const {
   json << R"(, "edges": ")" << geometry_edges_string(edges_) << R"(")";
   json << R"(, "encoding": ")" << geometry_encoding_string(encoding_) << R"(")";
 
-  if (metadata_.size() > 0) {
+  if (!metadata_.empty()) {
     // TODO(paleolimbot): we'll need to escape the metadata or assume that it's valid JSON
     json << R"(, "metadata": )" << crs_;
   }
@@ -1720,22 +1729,25 @@ format::LogicalType LogicalType::Impl::Geometry::ToThrift() const {
   format::GeometryType geometry_type;
 
   // Canonially export crs of "" as an unset CRS
-  if (crs_.size() > 0) {
+  if (!crs_.empty()) {
     geometry_type.__set_crs(crs_);
   }
 
-  DCHECK(edges_ != LogicalType::GeometryEdges::UNKNOWN);
   if (edges_ == LogicalType::GeometryEdges::SPHERICAL) {
     geometry_type.__set_edges(format::Edges::SPHERICAL);
-  } else {
+  } else if (edges_ == LogicalType::GeometryEdges::PLANAR) {
     geometry_type.__set_edges(format::Edges::PLANAR);
+  } else {
+    throw ParquetException("Unknown value for geometry edges: ", edges_);
   }
 
-  DCHECK_EQ(encoding_, LogicalType::GeometryEncoding::WKB);
+  if (encoding_ != LogicalType::GeometryEncoding::WKB) {
+    throw ParquetException("Unknown value for geometry encoding: ", encoding_);
+  }
   geometry_type.__set_encoding(format::GeometryEncoding::WKB);
 
   // Canonically export empty metadata as unset
-  if (metadata_.size() > 0) {
+  if (!metadata_.empty()) {
     geometry_type.__set_metadata(metadata_);
   }
 
@@ -1755,19 +1767,19 @@ bool LogicalType::Impl::Geometry::Equals(const LogicalType& other) const {
 }
 
 const std::string& GeometryLogicalType::crs() const {
-  return (dynamic_cast<const LogicalType::Impl::Geometry&>(*impl_)).crs();
+  return (checked_cast<const LogicalType::Impl::Geometry&>(*impl_)).crs();
 }
 
 LogicalType::GeometryEdges::edges GeometryLogicalType::edges() const {
-  return (dynamic_cast<const LogicalType::Impl::Geometry&>(*impl_)).edges();
+  return (checked_cast<const LogicalType::Impl::Geometry&>(*impl_)).edges();
 }
 
 LogicalType::GeometryEncoding::geometry_encoding GeometryLogicalType::encoding() const {
-  return (dynamic_cast<const LogicalType::Impl::Geometry&>(*impl_)).encoding();
+  return (checked_cast<const LogicalType::Impl::Geometry&>(*impl_)).encoding();
 }
 
 const std::string& GeometryLogicalType::metadata() const {
-  return (dynamic_cast<const LogicalType::Impl::Geometry&>(*impl_)).metadata();
+  return (checked_cast<const LogicalType::Impl::Geometry&>(*impl_)).metadata();
 }
 
 std::shared_ptr<const LogicalType> GeometryLogicalType::Make(

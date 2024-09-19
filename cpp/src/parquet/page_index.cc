@@ -94,12 +94,10 @@ class TypedColumnIndexImpl : public TypedColumnIndex<DType> {
   TypedColumnIndexImpl(const ColumnDescriptor& descr, format::ColumnIndex column_index)
       : column_index_(std::move(column_index)) {
     // Make sure the number of pages is valid and it does not overflow to int32_t.
-    bool is_geometry =
-        (descr.logical_type() != nullptr && descr.logical_type()->is_geometry());
     const size_t num_pages = column_index_.null_pages.size();
     if (num_pages >= static_cast<size_t>(std::numeric_limits<int32_t>::max()) ||
-        (!is_geometry && (column_index_.min_values.size() != num_pages ||
-                          column_index_.max_values.size() != num_pages)) ||
+        column_index_.min_values.size() != num_pages ||
+        column_index_.max_values.size() != num_pages ||
         (column_index_.__isset.null_counts &&
          column_index_.null_counts.size() != num_pages) ||
         (column_index_.__isset.geometry_stats &&
@@ -114,43 +112,31 @@ class TypedColumnIndexImpl : public TypedColumnIndex<DType> {
         }));
     DCHECK_LE(num_non_null_pages, num_pages);
 
+    // Allocate slots for decoded values.
+    min_values_.resize(num_pages);
+    max_values_.resize(num_pages);
     non_null_page_indices_.reserve(num_non_null_pages);
+
+    // Decode min and max values according to the physical type.
+    // Note that null page are skipped.
+    auto plain_decoder = MakeTypedDecoder<DType>(Encoding::PLAIN, &descr);
     for (size_t i = 0; i < num_pages; ++i) {
       if (!column_index_.null_pages[i]) {
+        // The check on `num_pages` has guaranteed the cast below is safe.
         non_null_page_indices_.emplace_back(static_cast<int32_t>(i));
+        Decode<DType>(plain_decoder, column_index_.min_values[i], &min_values_, i);
+        Decode<DType>(plain_decoder, column_index_.max_values[i], &max_values_, i);
       }
     }
     DCHECK_EQ(num_non_null_pages, non_null_page_indices_.size());
 
-    if (!is_geometry) {
-      // Allocate slots for decoded values.
-      min_values_.resize(num_pages);
-      max_values_.resize(num_pages);
-
-      // Decode min and max values according to the physical type.
-      // Note that null page are skipped.
-      auto plain_decoder = MakeTypedDecoder<DType>(Encoding::PLAIN, &descr);
+    // Decode geometry statistics.
+    // Note that null pages are skipped.
+    if (column_index_.__isset.geometry_stats) {
+      geometry_statistics_.reserve(num_pages);
       for (size_t i = 0; i < num_pages; ++i) {
         if (!column_index_.null_pages[i]) {
-          // The check on `num_pages` has guaranteed the cast below is safe.
-          Decode<DType>(plain_decoder, column_index_.min_values[i], &min_values_, i);
-          Decode<DType>(plain_decoder, column_index_.max_values[i], &max_values_, i);
-        }
-      }
-    } else {
-      // Decode geometry statistics.
-      // Note that null pages are skipped.
-      if (column_index_.__isset.geometry_stats) {
-        encoded_geometry_statistics_.resize(num_pages);
-        for (size_t i = 0; i < num_pages; ++i) {
-          if (!column_index_.null_pages[i]) {
-            encoded_geometry_statistics_[i] =
-                FromThrift(column_index_.geometry_stats[i], true);
-          }
-        }
-
-        geometry_statistics_.reserve(num_pages);
-        for (const auto& encoded_geom_stat : encoded_geometry_statistics_) {
+          auto encoded_geom_stat = FromThrift(column_index_.geometry_stats[i]);
           GeometryStatistics geom_stat;
           geom_stat.Decode(encoded_geom_stat);
           geometry_statistics_.push_back(std::move(geom_stat));
@@ -189,11 +175,6 @@ class TypedColumnIndexImpl : public TypedColumnIndex<DType> {
 
   const std::vector<T>& max_values() const override { return max_values_; }
 
-  const std::vector<EncodedGeometryStatistics>& encoded_geometry_statistics()
-      const override {
-    return encoded_geometry_statistics_;
-  }
-
   const std::vector<GeometryStatistics>& geometry_statistics() const override {
     return geometry_statistics_;
   }
@@ -206,8 +187,6 @@ class TypedColumnIndexImpl : public TypedColumnIndex<DType> {
   std::vector<T> max_values_;
   /// A list of page indices for non-null pages.
   std::vector<int32_t> non_null_page_indices_;
-  /// A list of encoded geometry statistics
-  std::vector<EncodedGeometryStatistics> encoded_geometry_statistics_;
   /// A list of geometry statistics
   std::vector<GeometryStatistics> geometry_statistics_;
 };
@@ -517,29 +496,17 @@ class ColumnIndexBuilderImpl final : public ColumnIndexBuilder {
       column_index_.null_pages.emplace_back(true);
       column_index_.min_values.emplace_back("");
       column_index_.max_values.emplace_back("");
+    } else if (stats.has_min && stats.has_max) {
+      const size_t page_ordinal = column_index_.null_pages.size();
+      non_null_page_indices_.emplace_back(page_ordinal);
+      column_index_.min_values.emplace_back(stats.min());
+      column_index_.max_values.emplace_back(stats.max());
+      column_index_.null_pages.emplace_back(false);
     } else {
-      bool discard = true;
-      if (stats.has_min && stats.has_max) {
-        const size_t page_ordinal = column_index_.null_pages.size();
-        non_null_page_indices_.emplace_back(page_ordinal);
-        column_index_.min_values.emplace_back(stats.min());
-        column_index_.max_values.emplace_back(stats.max());
-        discard = false;
-      }
-      if (stats.has_geometry_statistics) {
-        column_index_.__isset.geometry_stats = true;
-        column_index_.geometry_stats.emplace_back(ToThrift(stats.geometry_statistics()));
-        discard = false;
-      }
-
-      if (!discard) {
-        column_index_.null_pages.emplace_back(false);
-      } else {
-        /// This is a non-null page but it lacks of meaningful min/max values
-        /// or geometry statistics. Discard the column index.
-        state_ = BuilderState::kDiscarded;
-        return;
-      }
+      /// This is a non-null page but it lacks of meaningful min/max values.
+      /// Discard the column index.
+      state_ = BuilderState::kDiscarded;
+      return;
     }
 
     if (column_index_.__isset.null_counts && stats.has_null_count) {
@@ -547,6 +514,11 @@ class ColumnIndexBuilderImpl final : public ColumnIndexBuilder {
     } else {
       column_index_.__isset.null_counts = false;
       column_index_.null_counts.clear();
+    }
+
+    if (stats.has_geometry_statistics) {
+      column_index_.__isset.geometry_stats = true;
+      column_index_.geometry_stats.emplace_back(ToThrift(stats.geometry_statistics()));
     }
   }
 
@@ -952,7 +924,6 @@ std::unique_ptr<ColumnIndex> ColumnIndex::Make(const ColumnDescriptor& descr,
     case Type::BYTE_ARRAY:
       return std::make_unique<TypedColumnIndexImpl<ByteArrayType>>(
           descr, std::move(column_index));
-
     case Type::FIXED_LEN_BYTE_ARRAY:
       return std::make_unique<TypedColumnIndexImpl<FLBAType>>(descr,
                                                               std::move(column_index));

@@ -37,6 +37,7 @@
 #include "parquet/exception.h"
 #include "parquet/schema.h"
 #include "parquet/schema_internal.h"
+#include "parquet/statistics.h"
 #include "parquet/thrift_internal.h"
 
 namespace parquet {
@@ -92,13 +93,16 @@ template <typename DType>
 static std::shared_ptr<Statistics> MakeTypedColumnStats(
     const format::ColumnMetaData& metadata, const ColumnDescriptor* descr) {
   // If ColumnOrder is defined, return max_value and min_value
+  EncodedGeometryStatistics encoded_geometry_stats;
+  if (metadata.statistics.__isset.geometry_stats) {
+    encoded_geometry_stats = FromThrift(metadata.statistics.geometry_stats);
+  }
   if (descr->column_order().get_order() == ColumnOrder::TYPE_DEFINED_ORDER) {
     return MakeStatistics<DType>(
         descr, metadata.statistics.min_value, metadata.statistics.max_value,
         metadata.num_values - metadata.statistics.null_count,
         metadata.statistics.null_count, metadata.statistics.distinct_count,
-        FromThrift(metadata.statistics.geometry_stats,
-                   metadata.statistics.__isset.geometry_stats),
+        encoded_geometry_stats,
         metadata.statistics.__isset.max_value && metadata.statistics.__isset.min_value,
         metadata.statistics.__isset.null_count,
         metadata.statistics.__isset.distinct_count,
@@ -109,8 +113,7 @@ static std::shared_ptr<Statistics> MakeTypedColumnStats(
       descr, metadata.statistics.min, metadata.statistics.max,
       metadata.num_values - metadata.statistics.null_count,
       metadata.statistics.null_count, metadata.statistics.distinct_count,
-      FromThrift(metadata.statistics.geometry_stats,
-                 metadata.statistics.__isset.geometry_stats),
+      encoded_geometry_stats,
       metadata.statistics.__isset.max && metadata.statistics.__isset.min,
       metadata.statistics.__isset.null_count, metadata.statistics.__isset.distinct_count,
       metadata.statistics.__isset.geometry_stats);
@@ -298,10 +301,8 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     DCHECK(writer_version_ != nullptr);
     // If the column statistics don't exist or column sort order is unknown
     // we cannot use the column stats
-    auto logical_type = descr_->logical_type();
-    bool is_geometry = (logical_type != nullptr && logical_type->is_geometry());
     if (!column_metadata_->__isset.statistics ||
-        (descr_->sort_order() == SortOrder::UNKNOWN && !is_geometry)) {
+        descr_->sort_order() == SortOrder::UNKNOWN) {
       return false;
     }
     if (possible_stats_ == nullptr) {
@@ -1535,7 +1536,7 @@ bool ApplicationVersion::HasCorrectStatistics(Type::type col_type,
   }
 
   // Unknown sort order has incorrect stats
-  if (SortOrder::UNKNOWN == sort_order && !statistics.has_geometry_statistics) {
+  if (SortOrder::UNKNOWN == sort_order) {
     return false;
   }
 

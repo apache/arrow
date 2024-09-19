@@ -1785,8 +1785,8 @@ TEST_F(TestInt32Writer, WriteKeyValueMetadataEndToEnd) {
 // Test writing and reading geometry columns
 class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
  public:
-  static const char* CRS;
-  static const char* METADATA;
+  static const char* kCrs;
+  static const char* kMetadata;
 
   void SetUpSchema(Repetition::type repetition, int num_columns) override {
     std::vector<schema::NodePtr> fields;
@@ -1794,8 +1794,8 @@ class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
     for (int i = 0; i < num_columns; ++i) {
       std::string name = TestColumnName(i);
       std::shared_ptr<const LogicalType> logical_type =
-          GeometryLogicalType::Make(CRS, LogicalType::GeometryEdges::PLANAR,
-                                    LogicalType::GeometryEncoding::WKB, METADATA);
+          GeometryLogicalType::Make(kCrs, LogicalType::GeometryEdges::PLANAR,
+                                    LogicalType::GeometryEncoding::WKB, kMetadata);
       fields.push_back(schema::PrimitiveNode::Make(name, repetition, logical_type,
                                                    ByteArrayType::type_num));
     }
@@ -1806,13 +1806,13 @@ class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
   void GenerateData(int64_t num_values, uint32_t seed = 0) {
     values_.resize(num_values);
 
-    buffer_.resize(num_values * WKB_POINT_SIZE);
+    buffer_.resize(num_values * kWkbPointSize);
     uint8_t* ptr = buffer_.data();
     for (int k = 0; k < num_values; k++) {
       GenerateWKBPoint(ptr, k, k + 1);
-      values_[k].len = WKB_POINT_SIZE;
+      values_[k].len = kWkbPointSize;
       values_[k].ptr = ptr;
-      ptr += WKB_POINT_SIZE;
+      ptr += kWkbPointSize;
     }
 
     values_ptr_ = values_.data();
@@ -1842,7 +1842,7 @@ class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
     }
 
     std::shared_ptr<Statistics> statistics = metadata_stats();
-    EXPECT_FALSE(statistics->HasMinMax());
+    EXPECT_TRUE(statistics->HasMinMax());
     EXPECT_TRUE(statistics->HasGeometryStatistics());
     const GeometryStatistics* geometry_statistics = statistics->geometry_statistics();
     std::vector<int32_t> geometry_types = geometry_statistics->GetGeometryTypes();
@@ -1921,7 +1921,7 @@ class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
     }
 
     std::shared_ptr<Statistics> statistics = metadata_stats();
-    EXPECT_FALSE(statistics->HasMinMax());
+    EXPECT_TRUE(statistics->HasMinMax());
     EXPECT_TRUE(statistics->HasGeometryStatistics());
     const GeometryStatistics* geometry_statistics = statistics->geometry_statistics();
     std::vector<int32_t> geometry_types = geometry_statistics->GetGeometryTypes();
@@ -1936,9 +1936,9 @@ class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
   }
 };
 
-const char* TestGeometryValuesWriter::CRS =
+const char* TestGeometryValuesWriter::kCrs =
     R"({"id": {"authority": "OGC", "code": "CRS84"}})";
-const char* TestGeometryValuesWriter::METADATA = "test_metadata";
+const char* TestGeometryValuesWriter::kMetadata = "test_metadata";
 
 TEST_F(TestGeometryValuesWriter, TestWriteAndReadV1) {
   for (auto data_page_version :

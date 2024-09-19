@@ -627,7 +627,7 @@ TEST(TestFileReader, GetRecordReader) {
 }
 
 TEST(TestFileReader, RecordReaderWithExposingDictionary) {
-  const int num_rows = 1000;
+  const int kNumRows = 1000;
 
   // Make schema
   schema::NodeVector fields;
@@ -654,11 +654,11 @@ TEST(TestFileReader, RecordReaderWithExposingDictionary) {
   ByteArrayWriter* writer = static_cast<ByteArrayWriter*>(rg_writer->NextColumn());
   std::vector<std::string> raw_unique_data = {"a", "bc", "defg"};
   std::vector<ByteArray> col_typed;
-  for (int i = 0; i < num_rows; i++) {
+  for (int i = 0; i < kNumRows; i++) {
     std::string_view chosed_data = raw_unique_data[i % raw_unique_data.size()];
     col_typed.emplace_back(chosed_data);
   }
-  writer->WriteBatch(num_rows, nullptr, nullptr, col_typed.data());
+  writer->WriteBatch(kNumRows, nullptr, nullptr, col_typed.data());
   rg_writer->Close();
   file_writer->Close();
 
@@ -683,7 +683,7 @@ TEST(TestFileReader, RecordReaderWithExposingDictionary) {
       reinterpret_cast<const ByteArray*>(record_reader->ReadDictionary(&dict_len));
   ASSERT_NE(dict, nullptr);
   ASSERT_EQ(dict_len, raw_unique_data.size());
-  ASSERT_EQ(record_reader->ReadRecords(num_rows), num_rows);
+  ASSERT_EQ(record_reader->ReadRecords(kNumRows), kNumRows);
   std::shared_ptr<::arrow::ChunkedArray> result_array = record_reader->GetResult();
   ASSERT_EQ(result_array->num_chunks(), 1);
   const std::shared_ptr<::arrow::Array> chunk = result_array->chunk(0);
@@ -694,7 +694,7 @@ TEST(TestFileReader, RecordReaderWithExposingDictionary) {
 
   // Verify values based on the dictionary from ReadDictionary().
   int64_t indices_read = chunk->length();
-  ASSERT_EQ(indices_read, num_rows);
+  ASSERT_EQ(indices_read, kNumRows);
   for (int i = 0; i < indices_read; ++i) {
     ASSERT_LT(indices[i], dict_len);
     ASSERT_EQ(std::string_view(reinterpret_cast<const char* const>(dict[indices[i]].ptr),
@@ -1819,7 +1819,7 @@ TEST(PageIndexReaderTest, ReadFileWithoutPageIndex) {
 
 class TestGeometryLogicalType : public ::testing::Test {
  public:
-  const int NUM_ROWS = 1000;
+  const int kNumRows = 1000;
 
   void WriteTestData(ParquetDataPageVersion data_page_version,
                      bool enable_write_page_index, bool write_arrow) {
@@ -1864,26 +1864,26 @@ class TestGeometryLogicalType : public ::testing::Test {
   }
 
   void WriteTestDataUsingWriteBatch(ByteArrayWriter* writer) {
-    std::vector<uint8_t> buffer(test::WKB_POINT_SIZE * NUM_ROWS);
+    std::vector<uint8_t> buffer(test::kWkbPointSize * kNumRows);
     uint8_t* ptr = buffer.data();
-    std::vector<ByteArray> values(NUM_ROWS);
-    for (int k = 0; k < NUM_ROWS; k++) {
+    std::vector<ByteArray> values(kNumRows);
+    for (int k = 0; k < kNumRows; k++) {
       test::GenerateWKBPoint(ptr, k, k + 1);
-      values[k].len = test::WKB_POINT_SIZE;
+      values[k].len = test::kWkbPointSize;
       values[k].ptr = ptr;
-      ptr += test::WKB_POINT_SIZE;
+      ptr += test::kWkbPointSize;
     }
-    writer->WriteBatch(NUM_ROWS, nullptr, nullptr, values.data());
+    writer->WriteBatch(kNumRows, nullptr, nullptr, values.data());
   }
 
   void WriteTestDataUsingWriteArrow(ByteArrayWriter* writer) {
     ::arrow::BinaryBuilder builder;
-    std::vector<uint8_t> buffer(test::WKB_POINT_SIZE * NUM_ROWS);
+    std::vector<uint8_t> buffer(test::kWkbPointSize * kNumRows);
     uint8_t* ptr = buffer.data();
-    for (int k = 0; k < NUM_ROWS; k++) {
+    for (int k = 0; k < kNumRows; k++) {
       test::GenerateWKBPoint(ptr, k, k + 1);
-      ASSERT_OK(builder.Append(ptr, test::WKB_POINT_SIZE));
-      ptr += test::WKB_POINT_SIZE;
+      ASSERT_OK(builder.Append(ptr, test::kWkbPointSize));
+      ptr += test::kWkbPointSize;
     }
     std::shared_ptr<::arrow::BinaryArray> array;
     ASSERT_OK(builder.Finish(&array));
@@ -1892,7 +1892,7 @@ class TestGeometryLogicalType : public ::testing::Test {
         ArrowWriterProperties::Builder().build();
     MemoryPool* pool = ::arrow::default_memory_pool();
     auto ctx = std::make_unique<ArrowWriteContext>(pool, properties.get());
-    ASSERT_OK(writer->WriteArrow(nullptr, nullptr, NUM_ROWS, *array, ctx.get(), true));
+    ASSERT_OK(writer->WriteArrow(nullptr, nullptr, kNumRows, *array, ctx.get(), true));
   }
 
   void TestWriteAndRead(ParquetDataPageVersion data_page_version,
@@ -1932,36 +1932,39 @@ class TestGeometryLogicalType : public ::testing::Test {
     }
 
     // Check the geometry values
-    auto row_group = file_reader->RowGroup(0);
-    std::shared_ptr<ByteArrayReader> reader =
-        std::static_pointer_cast<ByteArrayReader>(row_group->Column(0));
     int64_t total_values_read = 0;
-    while (total_values_read < NUM_ROWS) {
-      std::vector<ByteArray> out(NUM_ROWS);
-      int64_t values_read = 0;
-      int64_t levels_read =
-          reader->ReadBatch(NUM_ROWS, nullptr, nullptr, out.data(), &values_read);
-      ASSERT_GE(levels_read, 1);
-      ASSERT_GE(values_read, 1);
+    for (int i = 0; i < num_row_groups; i++) {
+      auto row_group = file_reader->RowGroup(i);
+      std::shared_ptr<ByteArrayReader> reader =
+          std::static_pointer_cast<ByteArrayReader>(row_group->Column(0));
+      while (reader->HasNext()) {
+        std::vector<ByteArray> out(kNumRows);
+        int64_t values_read = 0;
+        int64_t levels_read =
+            reader->ReadBatch(kNumRows, nullptr, nullptr, out.data(), &values_read);
+        ASSERT_GE(levels_read, 1);
+        ASSERT_GE(values_read, 1);
 
-      // Check the batch
-      for (int64_t i = 0; i < values_read; i++) {
-        const ByteArray& value = out[i];
-        double x = 0;
-        double y = 0;
-        EXPECT_TRUE(test::GetWKBPointCoordinate(value, &x, &y));
-        auto expected_x = static_cast<double>(i + total_values_read);
-        auto expected_y = static_cast<double>(i + 1 + total_values_read);
-        EXPECT_DOUBLE_EQ(expected_x, x);
-        EXPECT_DOUBLE_EQ(expected_y, y);
+        // Check the batch
+        for (int64_t i = 0; i < values_read; i++) {
+          const ByteArray& value = out[i];
+          double x = 0;
+          double y = 0;
+          EXPECT_TRUE(test::GetWKBPointCoordinate(value, &x, &y));
+          auto expected_x = static_cast<double>(i + total_values_read);
+          auto expected_y = static_cast<double>(i + 1 + total_values_read);
+          EXPECT_DOUBLE_EQ(expected_x, x);
+          EXPECT_DOUBLE_EQ(expected_y, y);
+        }
+
+        total_values_read += values_read;
       }
-
-      total_values_read += values_read;
     }
+    EXPECT_EQ(kNumRows, total_values_read);
   }
 
   void CheckStatistics(std::shared_ptr<Statistics> statistics) {
-    EXPECT_FALSE(statistics->HasMinMax());
+    EXPECT_TRUE(statistics->HasMinMax());
     EXPECT_TRUE(statistics->HasGeometryStatistics());
     const GeometryStatistics* geom_stats = statistics->geometry_statistics();
     std::vector<int32_t> geometry_types = geom_stats->GetGeometryTypes();

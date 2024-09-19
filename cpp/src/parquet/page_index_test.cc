@@ -462,8 +462,6 @@ void TestWriteTypedColumnIndex(schema::NodePtr node,
                                const std::vector<EncodedStatistics>& page_stats,
                                BoundaryOrder::type boundary_order, bool has_null_counts) {
   auto descr = std::make_unique<ColumnDescriptor>(node, /*max_definition_level=*/1, 0);
-  bool is_geometry =
-      (descr->logical_type() != nullptr && descr->logical_type()->is_geometry());
 
   auto builder = ColumnIndexBuilder::Make(descr.get());
   for (const auto& stats : page_stats) {
@@ -489,26 +487,26 @@ void TestWriteTypedColumnIndex(schema::NodePtr node,
     const size_t num_pages = column_index->null_pages().size();
     for (size_t i = 0; i < num_pages; ++i) {
       ASSERT_EQ(page_stats[i].all_null_value, column_index->null_pages()[i]);
-      if (!is_geometry) {
-        ASSERT_EQ(page_stats[i].min(), column_index->encoded_min_values()[i]);
-        ASSERT_EQ(page_stats[i].max(), column_index->encoded_max_values()[i]);
-      }
+      ASSERT_EQ(page_stats[i].min(), column_index->encoded_min_values()[i]);
+      ASSERT_EQ(page_stats[i].max(), column_index->encoded_max_values()[i]);
       if (has_null_counts) {
         ASSERT_EQ(page_stats[i].null_count, column_index->null_counts()[i]);
       }
       if (page_stats[i].has_geometry_statistics) {
         const auto& expected_stats = page_stats[i].geometry_statistics();
-        const auto& actual_stats = column_index->encoded_geometry_statistics()[i];
-        ASSERT_EQ(expected_stats.geometry_types, actual_stats.geometry_types);
-        ASSERT_EQ(expected_stats.coverings, actual_stats.coverings);
-        ASSERT_DOUBLE_EQ(expected_stats.xmin, actual_stats.xmin);
-        ASSERT_DOUBLE_EQ(expected_stats.xmax, actual_stats.xmax);
-        ASSERT_DOUBLE_EQ(expected_stats.ymin, actual_stats.ymin);
-        ASSERT_DOUBLE_EQ(expected_stats.ymax, actual_stats.ymax);
-        ASSERT_DOUBLE_EQ(expected_stats.zmin, actual_stats.zmin);
-        ASSERT_DOUBLE_EQ(expected_stats.zmax, actual_stats.zmax);
-        ASSERT_DOUBLE_EQ(expected_stats.mmin, actual_stats.mmin);
-        ASSERT_DOUBLE_EQ(expected_stats.mmax, actual_stats.mmax);
+        const auto* byte_array_column_index =
+            static_cast<ByteArrayColumnIndex*>(column_index.get());
+        const auto& actual_stats = byte_array_column_index->geometry_statistics()[i];
+        ASSERT_EQ(expected_stats.geometry_types, actual_stats.GetGeometryTypes());
+        ASSERT_EQ(expected_stats.coverings, actual_stats.GetCoverings());
+        ASSERT_DOUBLE_EQ(expected_stats.xmin, actual_stats.GetXMin());
+        ASSERT_DOUBLE_EQ(expected_stats.xmax, actual_stats.GetXMax());
+        ASSERT_DOUBLE_EQ(expected_stats.ymin, actual_stats.GetYMin());
+        ASSERT_DOUBLE_EQ(expected_stats.ymax, actual_stats.GetYMax());
+        ASSERT_DOUBLE_EQ(expected_stats.zmin, actual_stats.GetZMin());
+        ASSERT_DOUBLE_EQ(expected_stats.zmax, actual_stats.GetZMax());
+        ASSERT_DOUBLE_EQ(expected_stats.mmin, actual_stats.GetMMin());
+        ASSERT_DOUBLE_EQ(expected_stats.mmax, actual_stats.GetMMax());
       }
     }
   }
@@ -626,6 +624,8 @@ TEST(PageIndex, WriteGeometryColumnIndex) {
   std::vector<EncodedStatistics> page_stats(3);
 
   EncodedGeometryStatistics geom_stats[3];
+  std::string dummy_min = "dummy_min";
+  std::string dummy_max = "dummy_max";
   for (int i = 0; i < 3; i++) {
     geom_stats[i].xmin = i + 1;
     geom_stats[i].xmax = i + 2;
@@ -639,6 +639,7 @@ TEST(PageIndex, WriteGeometryColumnIndex) {
     std::string covering = geometry::MakeCoveringWKBFromBound(
         geom_stats[i].xmin, geom_stats[i].xmax, geom_stats[i].ymin, geom_stats[i].ymax);
     geom_stats[i].coverings = {{"WKB", covering}};
+    page_stats.at(i).set_min(dummy_min).set_max(dummy_max);
     page_stats.at(i).set_geometry(geom_stats[i]);
   }
 
@@ -649,7 +650,7 @@ TEST(PageIndex, WriteGeometryColumnIndex) {
                                 LogicalType::GeometryEncoding::WKB, "metadata0"),
       Type::BYTE_ARRAY);
 
-  TestWriteTypedColumnIndex(node, page_stats, BoundaryOrder::Unordered,
+  TestWriteTypedColumnIndex(node, page_stats, BoundaryOrder::Ascending,
                             /*has_null_counts=*/false);
 }
 

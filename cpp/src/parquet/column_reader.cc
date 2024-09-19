@@ -244,8 +244,11 @@ EncodedStatistics ExtractStatsFromHeader(const H& header) {
     page_statistics.set_distinct_count(stats.distinct_count);
   }
   if (stats.__isset.geometry_stats) {
-    page_statistics.set_geometry(
-        FromThrift(stats.geometry_stats, stats.__isset.geometry_stats));
+    EncodedGeometryStatistics encoded_geometry_stats;
+    if (stats.__isset.geometry_stats) {
+      encoded_geometry_stats = FromThrift(stats.geometry_stats);
+    }
+    page_statistics.set_geometry(encoded_geometry_stats);
   }
   return page_statistics;
 }

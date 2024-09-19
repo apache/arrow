@@ -232,30 +232,27 @@ static inline AadMetadata FromThrift(format::AesGcmCtrV1 aesGcmCtrV1) {
 }
 
 static inline EncodedGeometryStatistics FromThrift(
-    const format::GeometryStatistics& geometry_stats, bool has_geometry_stats) {
+    const format::GeometryStatistics& geometry_stats) {
   EncodedGeometryStatistics out;
 
-  if (has_geometry_stats) {
-    out.geometry_types = geometry_stats.geometry_types;
+  out.geometry_types = geometry_stats.geometry_types;
+  out.xmin = geometry_stats.bbox.xmin;
+  out.xmax = geometry_stats.bbox.xmax;
+  out.ymin = geometry_stats.bbox.ymin;
+  out.ymax = geometry_stats.bbox.ymax;
 
-    out.xmin = geometry_stats.bbox.xmin;
-    out.xmax = geometry_stats.bbox.xmax;
-    out.ymin = geometry_stats.bbox.ymin;
-    out.ymax = geometry_stats.bbox.ymax;
+  if (geometry_stats.bbox.__isset.zmin && geometry_stats.bbox.__isset.zmax) {
+    out.zmin = geometry_stats.bbox.zmin;
+    out.zmax = geometry_stats.bbox.zmax;
+  }
 
-    if (geometry_stats.bbox.__isset.zmin && geometry_stats.bbox.__isset.zmax) {
-      out.zmin = geometry_stats.bbox.zmin;
-      out.zmax = geometry_stats.bbox.zmax;
-    }
+  if (geometry_stats.bbox.__isset.mmin && geometry_stats.bbox.__isset.mmax) {
+    out.mmin = geometry_stats.bbox.mmin;
+    out.mmax = geometry_stats.bbox.mmax;
+  }
 
-    if (geometry_stats.bbox.__isset.mmin && geometry_stats.bbox.__isset.mmax) {
-      out.mmin = geometry_stats.bbox.mmin;
-      out.mmax = geometry_stats.bbox.mmax;
-    }
-
-    for (const auto& covering : geometry_stats.coverings) {
-      out.coverings.emplace_back(covering.kind, covering.value);
-    }
+  for (const auto& covering : geometry_stats.coverings) {
+    out.coverings.emplace_back(covering.kind, covering.value);
   }
 
   return out;

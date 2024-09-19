@@ -69,7 +69,7 @@ struct Dimensions {
       case XYZM:
         return {0, 1, 2, 3};
       default:
-        return {-1, -1, -1, -1};
+        throw ParquetException("Unknown geometry dimension: ", dims);
     }
   }
 
@@ -84,7 +84,7 @@ struct Dimensions {
       case XYZM:
         return "XYZM";
       default:
-        return "";
+        throw ParquetException("Unknown geometry dimension: ", dims);
     }
   }
 };
@@ -120,7 +120,7 @@ inline uint32_t Dimensions::size(dimensions dims) {
     case XYZM:
       return size<XYZM>();
     default:
-      return 0;
+      throw ParquetException("Unknown geometry dimension: ", dims);
   }
 }
 

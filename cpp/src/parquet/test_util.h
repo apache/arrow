@@ -837,28 +837,28 @@ inline void GenerateData<FLBA>(int num_values, FLBA* out, std::vector<uint8_t>* 
 // Test utility functions for geometry
 
 #if defined(ARROW_LITTLE_ENDIAN)
-static constexpr int WKB_NATIVE_ENDIANNESS = geometry::WKBBuffer::WKB_LITTLE_ENDIAN;
+static constexpr int kWkbNativeEndianness = geometry::WKBBuffer::WKB_LITTLE_ENDIAN;
 #else
-static constexpr int WKB_NATIVE_ENDIANNESS = geometry::WKBBuffer::WKB_BIG_ENDIAN;
+static constexpr int kWkbNativeEndianness = geometry::WKBBuffer::WKB_BIG_ENDIAN;
 #endif
 
-static constexpr int WKB_POINT_SIZE = 21;  // 1:endianness + 4:type + 8:x + 8:y
+static constexpr int kWkbPointSize = 21;  // 1:endianness + 4:type + 8:x + 8:y
 
 inline int GenerateWKBPoint(uint8_t* ptr, double x, double y) {
-  ptr[0] = WKB_NATIVE_ENDIANNESS;
+  ptr[0] = kWkbNativeEndianness;
   uint32_t geom_type =
       geometry::GeometryType::ToWKB(geometry::GeometryType::POINT, false, false);
   memcpy(&ptr[1], &geom_type, 4);
   memcpy(&ptr[5], &x, 8);
   memcpy(&ptr[13], &y, 8);
-  return WKB_POINT_SIZE;
+  return kWkbPointSize;
 }
 
 inline bool GetWKBPointCoordinate(const ByteArray& value, double* out_x, double* out_y) {
-  if (value.len != WKB_POINT_SIZE) {
+  if (value.len != kWkbPointSize) {
     return false;
   }
-  if (value.ptr[0] != WKB_NATIVE_ENDIANNESS) {
+  if (value.ptr[0] != kWkbNativeEndianness) {
     return false;
   }
   uint32_t expected_geom_type =

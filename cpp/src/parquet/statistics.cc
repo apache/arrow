@@ -129,9 +129,7 @@ class GeometryStatisticsImpl {
     }
   }
 
-  void Update(const ::arrow::Array& values, bool update_counts) {
-    ARROW_UNUSED(update_counts);
-
+  void Update(const ::arrow::Array& values) {
     const auto& binary_array = static_cast<const ::arrow::BinaryArray&>(values);
     geometry::WKBBuffer buf;
     try {
@@ -274,9 +272,7 @@ void GeometryStatistics::UpdateSpaced(const ByteArray* values, const uint8_t* va
                       num_values, null_count);
 }
 
-void GeometryStatistics::Update(const ::arrow::Array& values, bool update_counts) {
-  impl_->Update(values, update_counts);
-}
+void GeometryStatistics::Update(const ::arrow::Array& values) { impl_->Update(values); }
 
 void GeometryStatistics::Reset() { impl_->Reset(); }
 
@@ -1052,17 +1048,15 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
       return;
     }
 
+    SetMinMaxPair(comparator_->GetMinMax(values));
+
     if constexpr (std::is_same<T, ByteArray>::value) {
       if (logical_type_ == LogicalType::Type::GEOMETRY) {
         if (geometry_statistics_ == nullptr) {
           geometry_statistics_ = std::make_unique<GeometryStatistics>();
         }
-        geometry_statistics_->Update(values, update_counts);
-      } else {
-        SetMinMaxPair(comparator_->GetMinMax(values));
+        geometry_statistics_->Update(values);
       }
-    } else {
-      SetMinMaxPair(comparator_->GetMinMax(values));
     }
   }
 
@@ -1220,6 +1214,7 @@ void TypedStatisticsImpl<DType>::Update(const T* values, int64_t num_values,
   IncrementNumValues(num_values);
 
   if (num_values == 0) return;
+  SetMinMaxPair(comparator_->GetMinMax(values, num_values));
 
   if constexpr (std::is_same<T, ByteArray>::value) {
     if (logical_type_ == LogicalType::Type::GEOMETRY) {
@@ -1227,11 +1222,7 @@ void TypedStatisticsImpl<DType>::Update(const T* values, int64_t num_values,
         geometry_statistics_ = std::make_unique<GeometryStatistics>();
       }
       geometry_statistics_->Update(values, num_values, null_count);
-    } else {
-      SetMinMaxPair(comparator_->GetMinMax(values, num_values));
     }
-  } else {
-    SetMinMaxPair(comparator_->GetMinMax(values, num_values));
   }
 }
 
@@ -1247,6 +1238,8 @@ void TypedStatisticsImpl<DType>::UpdateSpaced(const T* values, const uint8_t* va
   IncrementNumValues(num_values);
 
   if (num_values == 0) return;
+  SetMinMaxPair(comparator_->GetMinMaxSpaced(values, num_spaced_values, valid_bits,
+                                             valid_bits_offset));
 
   if constexpr (std::is_same<T, ByteArray>::value) {
     if (logical_type_ == LogicalType::Type::GEOMETRY) {
@@ -1255,13 +1248,7 @@ void TypedStatisticsImpl<DType>::UpdateSpaced(const T* values, const uint8_t* va
       }
       geometry_statistics_->UpdateSpaced(values, valid_bits, valid_bits_offset,
                                          num_spaced_values, num_values, null_count);
-    } else {
-      SetMinMaxPair(comparator_->GetMinMaxSpaced(values, num_spaced_values, valid_bits,
-                                                 valid_bits_offset));
     }
-  } else {
-    SetMinMaxPair(comparator_->GetMinMaxSpaced(values, num_spaced_values, valid_bits,
-                                               valid_bits_offset));
   }
 }
 
