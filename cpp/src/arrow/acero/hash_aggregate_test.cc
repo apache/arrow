@@ -803,10 +803,9 @@ TEST(RowSegmenter, MultipleSegmentsMultipleBatches) {
 
 namespace {
 
-template <typename ValueFn>
 void TestRowSegmenterConstantBatch(
     const std::shared_ptr<DataType>& type, std::function<ArgShape(size_t key)> shape_func,
-    ValueFn value_func,
+    std::function<Result<std::shared_ptr<Scalar>>(size_t key)> value_func,
     std::function<Result<std::unique_ptr<RowSegmenter>>(const std::vector<TypeHolder>&)>
         make_segmenter) {
   constexpr size_t n_keys = 3, n_rows = 3, repetitions = 3;
@@ -814,7 +813,7 @@ void TestRowSegmenterConstantBatch(
   std::vector<Datum> full_values(n_keys);
   for (size_t i = 0; i < n_keys; i++) {
     auto shape = shape_func(i);
-    auto scalar = value_func(i);
+    ASSERT_OK_AND_ASSIGN(auto scalar, value_func(i));
     if (shape == ArgShape::SCALAR) {
       full_values[i] = std::move(scalar);
     } else {
