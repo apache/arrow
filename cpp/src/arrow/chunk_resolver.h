@@ -26,6 +26,7 @@
 
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/span.h"
 
 namespace arrow::internal {
 
@@ -76,7 +77,7 @@ struct ARROW_EXPORT ChunkResolver {
 
  public:
   explicit ChunkResolver(const ArrayVector& chunks) noexcept;
-  explicit ChunkResolver(const std::vector<const Array*>& chunks) noexcept;
+  explicit ChunkResolver(::arrow::util::span<const Array* const> chunks) noexcept;
   explicit ChunkResolver(const RecordBatchVector& batches) noexcept;
 
   /// \brief Construct a ChunkResolver from a vector of chunks.size() + 1 offsets.
