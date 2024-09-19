@@ -1984,7 +1984,11 @@ class TestGeometryLogicalType : public ::testing::Test {
     EXPECT_FALSE(geometry_column_index->geometry_statistics().empty());
     double last_xmin = -geometry::kInf;
     double last_ymin = -geometry::kInf;
-    for (const auto& geom_stats : geometry_column_index->geometry_statistics()) {
+
+    size_t num_pages = geometry_column_index->geometry_statistics().size();
+    EXPECT_GT(num_pages, 0);
+    for (size_t i = 0; i < num_pages; i++) {
+      const auto& geom_stats = geometry_column_index->geometry_statistics()[i];
       std::vector<int32_t> geometry_types = geom_stats.GetGeometryTypes();
       EXPECT_EQ(1, geometry_types.size());
       EXPECT_EQ(1, geometry_types[0]);
@@ -1998,6 +2002,19 @@ class TestGeometryLogicalType : public ::testing::Test {
       EXPECT_EQ("WKB", geom_stats.GetCoverings().front().first);
       last_xmin = geom_stats.GetXMin();
       last_ymin = geom_stats.GetYMin();
+
+      const auto& min = geometry_column_index->min_values()[i];
+      const auto& max = geometry_column_index->max_values()[i];
+      double min_x = 0;
+      double min_y = 0;
+      double max_x = 0;
+      double max_y = 0;
+      test::GetWKBPointCoordinate(min, &min_x, &min_y);
+      test::GetWKBPointCoordinate(max, &max_x, &max_y);
+      EXPECT_DOUBLE_EQ(geom_stats.GetXMin(), min_x);
+      EXPECT_DOUBLE_EQ(geom_stats.GetYMin(), min_y);
+      EXPECT_DOUBLE_EQ(geom_stats.GetXMax(), max_x);
+      EXPECT_DOUBLE_EQ(geom_stats.GetYMax(), max_y);
     }
   }
 

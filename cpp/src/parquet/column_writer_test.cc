@@ -1855,6 +1855,19 @@ class TestGeometryValuesWriter : public TestPrimitiveWriter<ByteArrayType> {
     EXPECT_FALSE(geometry_statistics->HasZ());
     EXPECT_FALSE(geometry_statistics->HasM());
 
+    auto byte_array_statistics =
+        std::static_pointer_cast<ByteArrayStatistics>(statistics);
+    double min_x = 0;
+    double min_y = 0;
+    double max_x = 0;
+    double max_y = 0;
+    GetWKBPointCoordinate(byte_array_statistics->min(), &min_x, &min_y);
+    GetWKBPointCoordinate(byte_array_statistics->max(), &max_x, &max_y);
+    EXPECT_DOUBLE_EQ(0, min_x);
+    EXPECT_DOUBLE_EQ(1, min_y);
+    EXPECT_DOUBLE_EQ(99, max_x);
+    EXPECT_DOUBLE_EQ(100, max_y);
+
     auto coverings = geometry_statistics->GetCoverings();
     EXPECT_EQ(1, coverings.size());
     EXPECT_EQ("WKB", coverings[0].first);

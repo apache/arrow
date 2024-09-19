@@ -17,6 +17,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <cmath>
 #include <cstring>
 
 #include "arrow/testing/gtest_compat.h"
@@ -485,5 +486,48 @@ TEST(TestGeometryUtil, MakeCoveringWKBFromBound) {
   EXPECT_EQ(expected_wkb.size(), wkb_covering.size());
   EXPECT_EQ(0, memcmp(wkb_covering.data(), expected_wkb.data(), expected_wkb.size()));
 }
+
+struct MakeWKBPointTestCase {
+  MakeWKBPointTestCase() = default;
+  MakeWKBPointTestCase(const std::vector<double> xyzm, bool has_z, bool has_m)
+      : has_z(has_z), has_m(has_m) {
+    memcpy(this->xyzm, xyzm.data(), sizeof(this->xyzm));
+  }
+
+  double xyzm[4];
+  bool has_z;
+  bool has_m;
+};
+
+class MakeWKBPointTestFixture : public testing::TestWithParam<MakeWKBPointTestCase> {};
+
+TEST_P(MakeWKBPointTestFixture, MakeWKBPoint) {
+  auto param = GetParam();
+  std::string wkb = MakeWKBPoint(param.xyzm, param.has_z, param.has_m);
+  WKBGeometryBounder bounder;
+  WKBBuffer buf(reinterpret_cast<uint8_t*>(wkb.data()), wkb.size());
+  bounder.ReadGeometry(&buf);
+  bounder.Flush();
+  const double* mins = bounder.Bounds().min;
+  EXPECT_DOUBLE_EQ(param.xyzm[0], mins[0]);
+  EXPECT_DOUBLE_EQ(param.xyzm[1], mins[1]);
+  if (param.has_z) {
+    EXPECT_DOUBLE_EQ(param.xyzm[2], mins[2]);
+  } else {
+    EXPECT_TRUE(std::isinf(mins[2]));
+  }
+  if (param.has_m) {
+    EXPECT_DOUBLE_EQ(param.xyzm[3], mins[3]);
+  } else {
+    EXPECT_TRUE(std::isinf(mins[3]));
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    TestGeometryUtil, MakeWKBPointTestFixture,
+    ::testing::Values(MakeWKBPointTestCase({30, 10, 40, 300}, false, false),
+                      MakeWKBPointTestCase({30, 10, 40, 300}, true, false),
+                      MakeWKBPointTestCase({30, 10, 40, 300}, false, true),
+                      MakeWKBPointTestCase({30, 10, 40, 300}, true, true)));
 
 }  // namespace parquet::geometry

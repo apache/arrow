@@ -181,6 +181,20 @@ class GeometryStatisticsImpl {
     return out;
   }
 
+  std::string EncodeMin() const {
+    const double* mins = bounder_.Bounds().min;
+    bool has_z = !std::isinf(mins[2]);
+    bool has_m = !std::isinf(mins[3]);
+    return geometry::MakeWKBPoint(mins, has_z, has_m);
+  }
+
+  std::string EncodeMax() const {
+    const double* maxes = bounder_.Bounds().max;
+    bool has_z = !std::isinf(maxes[2]);
+    bool has_m = !std::isinf(maxes[3]);
+    return geometry::MakeWKBPoint(maxes, has_z, has_m);
+  }
+
   void Update(const EncodedGeometryStatistics& encoded) {
     if (!is_valid_) {
       return;
@@ -282,7 +296,11 @@ void GeometryStatistics::Reset() { impl_->Reset(); }
 
 bool GeometryStatistics::is_valid() const { return impl_->is_valid(); }
 
-EncodedGeometryStatistics GeometryStatistics::Encode() { return impl_->Encode(); }
+EncodedGeometryStatistics GeometryStatistics::Encode() const { return impl_->Encode(); }
+
+std::string GeometryStatistics::EncodeMin() const { return impl_->EncodeMin(); }
+
+std::string GeometryStatistics::EncodeMax() const { return impl_->EncodeMax(); }
 
 void GeometryStatistics::Decode(const EncodedGeometryStatistics& encoded) {
   impl_->Update(encoded);
@@ -1051,15 +1069,17 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
       return;
     }
 
-    SetMinMaxPair(comparator_->GetMinMax(values));
-
     if constexpr (std::is_same<T, ByteArray>::value) {
       if (logical_type_ == LogicalType::Type::GEOMETRY) {
         if (geometry_statistics_ == nullptr) {
           geometry_statistics_ = std::make_unique<GeometryStatistics>();
         }
         geometry_statistics_->Update(values);
+      } else {
+        SetMinMaxPair(comparator_->GetMinMax(values));
       }
+    } else {
+      SetMinMaxPair(comparator_->GetMinMax(values));
     }
   }
 
@@ -1099,6 +1119,11 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     }
     if (HasGeometryStatistics() && geometry_statistics_->is_valid()) {
       s.set_geometry(geometry_statistics_->Encode());
+
+      // Override min and max with the WKB representation of lower-left corner
+      // and upper-right corner
+      s.set_min(geometry_statistics_->EncodeMin());
+      s.set_max(geometry_statistics_->EncodeMax());
     }
     return s;
   }
@@ -1217,7 +1242,6 @@ void TypedStatisticsImpl<DType>::Update(const T* values, int64_t num_values,
   IncrementNumValues(num_values);
 
   if (num_values == 0) return;
-  SetMinMaxPair(comparator_->GetMinMax(values, num_values));
 
   if constexpr (std::is_same<T, ByteArray>::value) {
     if (logical_type_ == LogicalType::Type::GEOMETRY) {
@@ -1225,7 +1249,11 @@ void TypedStatisticsImpl<DType>::Update(const T* values, int64_t num_values,
         geometry_statistics_ = std::make_unique<GeometryStatistics>();
       }
       geometry_statistics_->Update(values, num_values, null_count);
+    } else {
+      SetMinMaxPair(comparator_->GetMinMax(values, num_values));
     }
+  } else {
+    SetMinMaxPair(comparator_->GetMinMax(values, num_values));
   }
 }
 
@@ -1241,8 +1269,6 @@ void TypedStatisticsImpl<DType>::UpdateSpaced(const T* values, const uint8_t* va
   IncrementNumValues(num_values);
 
   if (num_values == 0) return;
-  SetMinMaxPair(comparator_->GetMinMaxSpaced(values, num_spaced_values, valid_bits,
-                                             valid_bits_offset));
 
   if constexpr (std::is_same<T, ByteArray>::value) {
     if (logical_type_ == LogicalType::Type::GEOMETRY) {
@@ -1251,7 +1277,13 @@ void TypedStatisticsImpl<DType>::UpdateSpaced(const T* values, const uint8_t* va
       }
       geometry_statistics_->UpdateSpaced(values, valid_bits, valid_bits_offset,
                                          num_spaced_values, num_values, null_count);
+    } else {
+      SetMinMaxPair(comparator_->GetMinMaxSpaced(values, num_spaced_values, valid_bits,
+                                                 valid_bits_offset));
     }
+  } else {
+    SetMinMaxPair(comparator_->GetMinMaxSpaced(values, num_spaced_values, valid_bits,
+                                               valid_bits_offset));
   }
 }
 

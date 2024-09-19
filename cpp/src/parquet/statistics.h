@@ -163,7 +163,9 @@ class PARQUET_EXPORT GeometryStatistics {
 
   void Reset();
 
-  EncodedGeometryStatistics Encode();
+  EncodedGeometryStatistics Encode() const;
+  std::string EncodeMin() const;
+  std::string EncodeMax() const;
 
   bool is_valid() const;
 
