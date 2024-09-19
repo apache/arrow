@@ -34,18 +34,18 @@ namespace parquet::geometry {
 constexpr double kInf = std::numeric_limits<double>::infinity();
 
 struct Dimensions {
-  enum dimensions { XY = 0, XYZ = 1, XYM = 2, XYZM = 3 };
+  enum class dimensions { XY = 0, XYZ = 1, XYM = 2, XYZM = 3 };
 
   static dimensions FromWKB(uint32_t wkb_geometry_type) {
     switch (wkb_geometry_type / 1000) {
       case 0:
-        return XY;
+        return dimensions::XY;
       case 1:
-        return XYZ;
+        return dimensions::XYZ;
       case 2:
-        return XYM;
+        return dimensions::XYM;
       case 3:
-        return XYZM;
+        return dimensions::XYZM;
       default:
         throw ParquetException("Invalid wkb_geometry_type: ", wkb_geometry_type);
     }
@@ -60,72 +60,72 @@ struct Dimensions {
   // for the X, Y, Z, and M dimensions, respectively.
   static std::array<int, 4> ToXYZM(dimensions dims) {
     switch (dims) {
-      case XY:
+      case dimensions::XY:
         return {0, 1, -1, -1};
-      case XYZ:
+      case dimensions::XYZ:
         return {0, 1, 2, -1};
-      case XYM:
+      case dimensions::XYM:
         return {0, 1, -1, 2};
-      case XYZM:
+      case dimensions::XYZM:
         return {0, 1, 2, 3};
       default:
-        throw ParquetException("Unknown geometry dimension: ", dims);
+        throw ParquetException("Unknown geometry dimension");
     }
   }
 
   static std::string ToString(dimensions dims) {
     switch (dims) {
-      case XY:
+      case dimensions::XY:
         return "XY";
-      case XYZ:
+      case dimensions::XYZ:
         return "XYZ";
-      case XYM:
+      case dimensions::XYM:
         return "XYM";
-      case XYZM:
+      case dimensions::XYZM:
         return "XYZM";
       default:
-        throw ParquetException("Unknown geometry dimension: ", dims);
+        throw ParquetException("Unknown geometry dimension");
     }
   }
 };
 
 template <>
-constexpr uint32_t Dimensions::size<Dimensions::XY>() {
+constexpr uint32_t Dimensions::size<Dimensions::dimensions::XY>() {
   return 2;
 }
 
 template <>
-constexpr uint32_t Dimensions::size<Dimensions::XYZ>() {
+constexpr uint32_t Dimensions::size<Dimensions::dimensions::XYZ>() {
   return 3;
 }
 
 template <>
-constexpr uint32_t Dimensions::size<Dimensions::XYM>() {
+constexpr uint32_t Dimensions::size<Dimensions::dimensions::XYM>() {
   return 3;
 }
 
 template <>
-constexpr uint32_t Dimensions::size<Dimensions::XYZM>() {
+constexpr uint32_t Dimensions::size<Dimensions::dimensions::XYZM>() {
   return 4;
 }
 
 inline uint32_t Dimensions::size(dimensions dims) {
   switch (dims) {
-    case XY:
-      return size<XY>();
-    case XYZ:
-      return size<XYZ>();
-    case XYM:
-      return size<XYM>();
-    case XYZM:
-      return size<XYZM>();
+    case dimensions::XY:
+      return size<dimensions::XY>();
+    case dimensions::XYZ:
+      return size<dimensions::XYZ>();
+    case dimensions::XYM:
+      return size<dimensions::XYM>();
+    case dimensions::XYZM:
+      return size<dimensions::XYZM>();
     default:
-      throw ParquetException("Unknown geometry dimension: ", dims);
+      throw ParquetException("Unknown geometry dimension");
   }
 }
 
 struct GeometryType {
-  enum geometry_type {
+  enum class geometry_type {
     POINT = 1,
     LINESTRING = 2,
     POLYGON = 3,
@@ -138,19 +138,19 @@ struct GeometryType {
   static geometry_type FromWKB(uint32_t wkb_geometry_type) {
     switch (wkb_geometry_type % 1000) {
       case 1:
-        return POINT;
+        return geometry_type::POINT;
       case 2:
-        return LINESTRING;
+        return geometry_type::LINESTRING;
       case 3:
-        return POLYGON;
+        return geometry_type::POLYGON;
       case 4:
-        return MULTIPOINT;
+        return geometry_type::MULTIPOINT;
       case 5:
-        return MULTILINESTRING;
+        return geometry_type::MULTILINESTRING;
       case 6:
-        return MULTIPOLYGON;
+        return geometry_type::MULTIPOLYGON;
       case 7:
-        return GEOMETRYCOLLECTION;
+        return geometry_type::GEOMETRYCOLLECTION;
       default:
         throw ParquetException("Invalid wkb_geometry_type: ", wkb_geometry_type);
     }
@@ -159,29 +159,29 @@ struct GeometryType {
   static uint32_t ToWKB(geometry_type geometry_type, bool has_z, bool has_m) {
     uint32_t wkb_geom_type = 0;
     switch (geometry_type) {
-      case POINT:
+      case geometry_type::POINT:
         wkb_geom_type = 1;
         break;
-      case LINESTRING:
+      case geometry_type::LINESTRING:
         wkb_geom_type = 2;
         break;
-      case POLYGON:
+      case geometry_type::POLYGON:
         wkb_geom_type = 3;
         break;
-      case MULTIPOINT:
+      case geometry_type::MULTIPOINT:
         wkb_geom_type = 4;
         break;
-      case MULTILINESTRING:
+      case geometry_type::MULTILINESTRING:
         wkb_geom_type = 5;
         break;
-      case MULTIPOLYGON:
+      case geometry_type::MULTIPOLYGON:
         wkb_geom_type = 6;
         break;
-      case GEOMETRYCOLLECTION:
+      case geometry_type::GEOMETRYCOLLECTION:
         wkb_geom_type = 7;
         break;
       default:
-        throw ParquetException("Invalid geometry_type: ", geometry_type);
+        throw ParquetException("Invalid geometry_type");
     }
     if (has_z) {
       wkb_geom_type += 1000;
@@ -194,19 +194,19 @@ struct GeometryType {
 
   static std::string ToString(geometry_type geometry_type) {
     switch (geometry_type) {
-      case POINT:
+      case geometry_type::POINT:
         return "POINT";
-      case LINESTRING:
+      case geometry_type::LINESTRING:
         return "LINESTRING";
-      case POLYGON:
+      case geometry_type::POLYGON:
         return "POLYGON";
-      case MULTIPOINT:
+      case geometry_type::MULTIPOINT:
         return "MULTIPOINT";
-      case MULTILINESTRING:
+      case geometry_type::MULTILINESTRING:
         return "MULTILINESTRING";
-      case MULTIPOLYGON:
+      case geometry_type::MULTIPOLYGON:
         return "MULTIPOLYGON";
-      case GEOMETRYCOLLECTION:
+      case geometry_type::GEOMETRYCOLLECTION:
         return "GEOMETRYCOLLECTION";
       default:
         return "";
@@ -299,7 +299,7 @@ struct BoundingBox {
     std::memcpy(min, mins.data(), sizeof(min));
     std::memcpy(max, maxes.data(), sizeof(max));
   }
-  explicit BoundingBox(Dimensions::dimensions dimensions = Dimensions::XYZM)
+  explicit BoundingBox(Dimensions::dimensions dimensions = Dimensions::dimensions::XYZM)
       : dimensions(dimensions),
         min{kInf, kInf, kInf, kInf},
         max{-kInf, -kInf, -kInf, -kInf} {}
@@ -322,7 +322,7 @@ struct BoundingBox {
       }
 
       return;
-    } else if (dimensions == Dimensions::XYZM) {
+    } else if (dimensions == Dimensions::dimensions::XYZM) {
       Merge(other.ToXYZM());
     } else {
       ParquetException::NYI();
@@ -330,7 +330,7 @@ struct BoundingBox {
   }
 
   BoundingBox ToXYZM() const {
-    BoundingBox xyzm(Dimensions::XYZM);
+    BoundingBox xyzm(Dimensions::dimensions::XYZM);
     auto to_xyzm = Dimensions::ToXYZM(dimensions);
     for (int i = 0; i < 4; i++) {
       int dim_to_xyzm = to_xyzm[i];
@@ -447,31 +447,31 @@ class WKBGenericSequenceBounder {
   void ReadPoint(WKBBuffer* src, Dimensions::dimensions dimensions, bool swap) {
     if (ARROW_PREDICT_TRUE(!swap)) {
       switch (dimensions) {
-        case Dimensions::XY:
+        case Dimensions::dimensions::XY:
           xy_.ReadPoint(src);
           break;
-        case Dimensions::XYZ:
+        case Dimensions::dimensions::XYZ:
           xyz_.ReadPoint(src);
           break;
-        case Dimensions::XYM:
+        case Dimensions::dimensions::XYM:
           xym_.ReadPoint(src);
           break;
-        case Dimensions::XYZM:
+        case Dimensions::dimensions::XYZM:
           xyzm_.ReadPoint(src);
           break;
       }
     } else {
       switch (dimensions) {
-        case Dimensions::XY:
+        case Dimensions::dimensions::XY:
           xy_swap_.ReadPoint(src);
           break;
-        case Dimensions::XYZ:
+        case Dimensions::dimensions::XYZ:
           xyz_swap_.ReadPoint(src);
           break;
-        case Dimensions::XYM:
+        case Dimensions::dimensions::XYM:
           xym_swap_.ReadPoint(src);
           break;
-        case Dimensions::XYZM:
+        case Dimensions::dimensions::XYZM:
           xyzm_swap_.ReadPoint(src);
           break;
       }
@@ -481,31 +481,31 @@ class WKBGenericSequenceBounder {
   void ReadSequence(WKBBuffer* src, Dimensions::dimensions dimensions, bool swap) {
     if (ARROW_PREDICT_TRUE(!swap)) {
       switch (dimensions) {
-        case Dimensions::XY:
+        case Dimensions::dimensions::XY:
           xy_.ReadSequence(src);
           break;
-        case Dimensions::XYZ:
+        case Dimensions::dimensions::XYZ:
           xyz_.ReadSequence(src);
           break;
-        case Dimensions::XYM:
+        case Dimensions::dimensions::XYM:
           xym_.ReadSequence(src);
           break;
-        case Dimensions::XYZM:
+        case Dimensions::dimensions::XYZM:
           xyzm_.ReadSequence(src);
           break;
       }
     } else {
       switch (dimensions) {
-        case Dimensions::XY:
+        case Dimensions::dimensions::XY:
           xy_swap_.ReadSequence(src);
           break;
-        case Dimensions::XYZ:
+        case Dimensions::dimensions::XYZ:
           xyz_swap_.ReadSequence(src);
           break;
-        case Dimensions::XYM:
+        case Dimensions::dimensions::XYM:
           xym_swap_.ReadSequence(src);
           break;
-        case Dimensions::XYZM:
+        case Dimensions::dimensions::XYZM:
           xyzm_swap_.ReadSequence(src);
           break;
       }
@@ -515,31 +515,31 @@ class WKBGenericSequenceBounder {
   void ReadRings(WKBBuffer* src, Dimensions::dimensions dimensions, bool swap) {
     if (ARROW_PREDICT_TRUE(!swap)) {
       switch (dimensions) {
-        case Dimensions::XY:
+        case Dimensions::dimensions::XY:
           xy_.ReadRings(src);
           break;
-        case Dimensions::XYZ:
+        case Dimensions::dimensions::XYZ:
           xyz_.ReadRings(src);
           break;
-        case Dimensions::XYM:
+        case Dimensions::dimensions::XYM:
           xym_.ReadRings(src);
           break;
-        case Dimensions::XYZM:
+        case Dimensions::dimensions::XYZM:
           xyzm_.ReadRings(src);
           break;
       }
     } else {
       switch (dimensions) {
-        case Dimensions::XY:
+        case Dimensions::dimensions::XY:
           xy_swap_.ReadRings(src);
           break;
-        case Dimensions::XYZ:
+        case Dimensions::dimensions::XYZ:
           xyz_swap_.ReadRings(src);
           break;
-        case Dimensions::XYM:
+        case Dimensions::dimensions::XYM:
           xym_swap_.ReadRings(src);
           break;
-        case Dimensions::XYZM:
+        case Dimensions::dimensions::XYZM:
           xyzm_swap_.ReadRings(src);
           break;
       }
@@ -570,19 +570,19 @@ class WKBGenericSequenceBounder {
 
  private:
   double chunk_[64];
-  WKBSequenceBounder<Dimensions::XY, false, 64> xy_;
-  WKBSequenceBounder<Dimensions::XYZ, false, 64> xyz_;
-  WKBSequenceBounder<Dimensions::XYM, false, 64> xym_;
-  WKBSequenceBounder<Dimensions::XYZM, false, 64> xyzm_;
-  WKBSequenceBounder<Dimensions::XY, true, 64> xy_swap_;
-  WKBSequenceBounder<Dimensions::XYZ, true, 64> xyz_swap_;
-  WKBSequenceBounder<Dimensions::XYM, true, 64> xym_swap_;
-  WKBSequenceBounder<Dimensions::XYZM, true, 64> xyzm_swap_;
+  WKBSequenceBounder<Dimensions::dimensions::XY, false, 64> xy_;
+  WKBSequenceBounder<Dimensions::dimensions::XYZ, false, 64> xyz_;
+  WKBSequenceBounder<Dimensions::dimensions::XYM, false, 64> xym_;
+  WKBSequenceBounder<Dimensions::dimensions::XYZM, false, 64> xyzm_;
+  WKBSequenceBounder<Dimensions::dimensions::XY, true, 64> xy_swap_;
+  WKBSequenceBounder<Dimensions::dimensions::XYZ, true, 64> xyz_swap_;
+  WKBSequenceBounder<Dimensions::dimensions::XYM, true, 64> xym_swap_;
+  WKBSequenceBounder<Dimensions::dimensions::XYZM, true, 64> xyzm_swap_;
 };
 
 class WKBGeometryBounder {
  public:
-  WKBGeometryBounder() : box_(Dimensions::XYZM) {}
+  WKBGeometryBounder() : box_(Dimensions::dimensions::XYZM) {}
   WKBGeometryBounder(const WKBGeometryBounder&) = default;
 
   void ReadGeometry(WKBBuffer* src, bool record_wkb_type = true) {
@@ -599,29 +599,27 @@ class WKBGeometryBounder {
 
     // Keep track of geometry types encountered if at the top level
     if (record_wkb_type) {
-      GeometryType::geometry_type geometry_type =
-          GeometryType::FromWKB(wkb_geometry_type);
-      geometry_types_.insert(geometry_type);
+      geometry_types_.insert(static_cast<int32_t>(wkb_geometry_type));
     }
 
     switch (geometry_type) {
-      case GeometryType::POINT:
+      case GeometryType::geometry_type::POINT:
         bounder_.ReadPoint(src, dimensions, swap);
         break;
-      case GeometryType::LINESTRING:
+      case GeometryType::geometry_type::LINESTRING:
         bounder_.ReadSequence(src, dimensions, swap);
         break;
-      case GeometryType::POLYGON:
+      case GeometryType::geometry_type::POLYGON:
         bounder_.ReadRings(src, dimensions, swap);
         break;
 
       // These are all encoded the same in WKB, even though this encoding would
       // allow for parts to be of a different geometry type or different dimensions.
       // For the purposes of bounding, this does not cause us problems.
-      case GeometryType::MULTIPOINT:
-      case GeometryType::MULTILINESTRING:
-      case GeometryType::MULTIPOLYGON:
-      case GeometryType::GEOMETRYCOLLECTION: {
+      case GeometryType::geometry_type::MULTIPOINT:
+      case GeometryType::geometry_type::MULTILINESTRING:
+      case GeometryType::geometry_type::MULTIPOLYGON:
+      case GeometryType::geometry_type::GEOMETRYCOLLECTION: {
         uint32_t n_parts = src->ReadUInt32(swap);
         for (uint32_t i = 0; i < n_parts; i++) {
           ReadGeometry(src, /*record_wkb_type*/ false);

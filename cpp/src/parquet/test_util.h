@@ -846,8 +846,8 @@ static constexpr int kWkbPointSize = 21;  // 1:endianness + 4:type + 8:x + 8:y
 
 inline int GenerateWKBPoint(uint8_t* ptr, double x, double y) {
   ptr[0] = kWkbNativeEndianness;
-  uint32_t geom_type =
-      geometry::GeometryType::ToWKB(geometry::GeometryType::POINT, false, false);
+  uint32_t geom_type = geometry::GeometryType::ToWKB(
+      geometry::GeometryType::geometry_type::POINT, false, false);
   memcpy(&ptr[1], &geom_type, 4);
   memcpy(&ptr[5], &x, 8);
   memcpy(&ptr[13], &y, 8);
@@ -861,8 +861,8 @@ inline bool GetWKBPointCoordinate(const ByteArray& value, double* out_x, double*
   if (value.ptr[0] != kWkbNativeEndianness) {
     return false;
   }
-  uint32_t expected_geom_type =
-      geometry::GeometryType::ToWKB(geometry::GeometryType::POINT, false, false);
+  uint32_t expected_geom_type = geometry::GeometryType::ToWKB(
+      geometry::GeometryType::geometry_type::POINT, false, false);
   uint32_t geom_type = 0;
   memcpy(&geom_type, &value.ptr[1], 4);
   if (geom_type != expected_geom_type) {
