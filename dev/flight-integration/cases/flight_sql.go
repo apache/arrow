@@ -47,6 +47,30 @@ func init() {
 		fkCatalog             = "fk_catalog"
 		fkDbSchema            = "fk_db_schema"
 		fkTable               = "fk_table"
+
+		stmtQuery       = "SELECT STATEMENT"
+		stmtQueryHandle = "SELECT STATEMENT HANDLE"
+		stmtUpdate      = "UPDATE STATEMENT"
+		stmtUpdateRows  = int64(10000)
+
+		queryFields = []field{
+			{
+				Name:         "id",
+				Type:         flatbuf.TypeInt,
+				GetTypeTable: int64TypeTable,
+				Nullable:     true,
+				Metadata: map[string]string{
+					"ARROW:FLIGHT:SQL:TABLE_NAME":        "test",
+					"ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT": "1",
+					"ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE": "0",
+					"ARROW:FLIGHT:SQL:TYPE_NAME":         "type_test",
+					"ARROW:FLIGHT:SQL:SCHEMA_NAME":       "schema_test",
+					"ARROW:FLIGHT:SQL:IS_SEARCHABLE":     "1",
+					"ARROW:FLIGHT:SQL:CATALOG_NAME":      "catalog_test",
+					"ARROW:FLIGHT:SQL:PRECISION":         "100",
+				},
+			},
+		}
 	)
 
 	testcases := []struct {
@@ -183,7 +207,7 @@ func init() {
 				{Name: "column_size", Type: flatbuf.TypeInt, GetTypeTable: int32TypeTable, Nullable: true},
 				{Name: "literal_prefix", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: true},
 				{Name: "literal_suffix", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: true},
-				{Name: "create_params", Type: flatbuf.TypeList, GetTypeTable: createParamsTypeTable, Nullable: true}, // TODO: list elements
+				{Name: "create_params", Type: flatbuf.TypeList, GetTypeTable: createParamsTypeTable, Nullable: true},
 				{Name: "nullable", Type: flatbuf.TypeInt, GetTypeTable: int32TypeTable, Nullable: false},
 				{Name: "case_sensitive", Type: flatbuf.TypeBool, GetTypeTable: boolTypeTable, Nullable: false},
 				{Name: "searchable", Type: flatbuf.TypeInt, GetTypeTable: int32TypeTable, Nullable: false},
@@ -203,64 +227,105 @@ func init() {
 			Command: &flight.CommandGetSqlInfo{Info: []uint32{0, 3}},
 			Fields: []field{
 				{Name: "info_name", Type: flatbuf.TypeInt, GetTypeTable: uint32TypeTable, Nullable: false},
-				{Name: "value", Type: flatbuf.TypeUnion, GetTypeTable: sqlInfoValuesTypeTable, Nullable: false}, // TODO: Union elements
+				{Name: "value", Type: flatbuf.TypeUnion, GetTypeTable: sqlInfoValuesTypeTable, Nullable: false},
 			},
 		},
 	}
 
 	steps := make([]scenario.ScenarioStep, 0)
+
+	// ValidateMetadataRetrieval
 	for _, tc := range testcases {
 		name := proto.MessageName(tc.Command).Name()
 		steps = append(
 			steps,
 			scenario.ScenarioStep{Name: fmt.Sprintf("GetFlightInfo/%s", name), ServerHandler: scenario.Handler{GetFlightInfo: echoFlightInfo}},
-			scenario.ScenarioStep{
-				Name: fmt.Sprintf("DoGet/%s", name),
-				ServerHandler: scenario.Handler{
-					DoGet: func(t *flight.Ticket, fs flight.FlightService_DoGetServer) error {
-						var anycmd anypb.Any
-						if err := proto.Unmarshal(t.Ticket, &anycmd); err != nil {
-							return status.Errorf(codes.InvalidArgument, "unable to parse ticket: %s", err.Error())
-						}
-
-						cmd := proto.Clone(tc.Command)
-						proto.Reset(cmd)
-
-						if err := anycmd.UnmarshalTo(cmd); err != nil {
-							return status.Errorf(codes.InvalidArgument, "unable to unmarshal proto.Any: %s", err.Error())
-						}
-
-						return fs.Send(&flight.FlightData{DataHeader: buildFlatbufferSchema(tc.Fields)})
-					},
-				},
-			},
-			scenario.ScenarioStep{
-				Name: fmt.Sprintf("GetSchema/%s", name),
-				ServerHandler: scenario.Handler{GetSchema: func(ctx context.Context, fd *flight.FlightDescriptor) (*flight.SchemaResult, error) {
-					var anycmd anypb.Any
-					if err := proto.Unmarshal(fd.Cmd, &anycmd); err != nil {
-						return nil, status.Errorf(codes.InvalidArgument, "unable to parse command: %s", err.Error())
-					}
-
-					cmd := proto.Clone(tc.Command)
-					proto.Reset(cmd)
-
-					if err := anycmd.UnmarshalTo(cmd); err != nil {
-						return nil, status.Errorf(codes.InvalidArgument, "unable to unmarshal proto.Any: %s", err.Error())
-					}
-
-					schema := writeFlatbufferPayload(tc.Fields)
-
-					return &flight.SchemaResult{Schema: schema}, nil
-				}},
-			})
+			scenario.ScenarioStep{Name: fmt.Sprintf("DoGet/%s", name), ServerHandler: scenario.Handler{DoGet: doGetFieldsForCommandFn(tc.Command, tc.Fields)}},
+			scenario.ScenarioStep{Name: fmt.Sprintf("GetSchema/%s", name), ServerHandler: scenario.Handler{GetSchema: getSchemaFieldsForCommandFn(tc.Command, tc.Fields)}})
 	}
+
+	// ValidateStatementExecution
+	steps = append(
+		steps,
+		scenario.ScenarioStep{
+			Name: "GetFlightInfo/CommandStatementQuery",
+			ServerHandler: scenario.Handler{GetFlightInfo: func(ctx context.Context, fd *flight.FlightDescriptor) (*flight.FlightInfo, error) {
+				var cmd flight.CommandStatementQuery
+				if err := deserializeProtobufPayload(fd.Cmd, &cmd); err != nil {
+					return nil, status.Errorf(codes.InvalidArgument, "failed to deserialize FlightDescriptor.Cmd: %s", err)
+				}
+
+				if cmd.GetQuery() != stmtQuery {
+					return nil, status.Errorf(codes.InvalidArgument, "expected query: %s, found: %s", stmtQuery, cmd.GetQuery())
+				}
+
+				if len(cmd.GetTransactionId()) != 0 {
+					return nil, status.Errorf(codes.InvalidArgument, "expected no TransactionID")
+				}
+
+				handle, err := createStatementQueryTicket([]byte(stmtQueryHandle))
+				if err != nil {
+					return nil, status.Errorf(codes.Internal, "failed to create Ticket: %s", err)
+				}
+
+				return &flight.FlightInfo{
+					Endpoint: []*flight.FlightEndpoint{{
+						Ticket: &flight.Ticket{Ticket: handle},
+					}},
+				}, nil
+			}}},
+		scenario.ScenarioStep{Name: "DoGet/TicketStatementQuery", ServerHandler: scenario.Handler{DoGet: func(t *flight.Ticket, fs flight.FlightService_DoGetServer) error {
+			var cmd flight.TicketStatementQuery
+			if err := deserializeProtobufPayload(t.Ticket, &cmd); err != nil {
+				return status.Errorf(codes.InvalidArgument, "failed to deserialize Ticket.Ticket: %s", err)
+			}
+
+			if string(cmd.GetStatementHandle()) != stmtQueryHandle {
+				return status.Errorf(codes.InvalidArgument, "expected handle: %s, found: %s", stmtQueryHandle, cmd.GetStatementHandle())
+			}
+
+			return fs.Send(&flight.FlightData{DataHeader: buildFlatbufferSchema(queryFields)})
+		}}},
+		scenario.ScenarioStep{Name: "GetSchema/CommandStatementQuery", ServerHandler: scenario.Handler{GetSchema: getSchemaFieldsForCommandFn(&flight.CommandStatementQuery{}, queryFields)}},
+
+		scenario.ScenarioStep{
+			Name: "DoPut/CommandStatementUpdate",
+			ServerHandler: scenario.Handler{DoPut: func(fs flight.FlightService_DoPutServer) error {
+				data, err := fs.Recv()
+				if err != nil {
+					return status.Errorf(codes.Internal, "unable to read from stream: %s", err)
+				}
+
+				desc := data.FlightDescriptor
+				var cmd flight.CommandStatementUpdate
+				if err := deserializeProtobufPayload(desc.Cmd, &cmd); err != nil {
+					return status.Errorf(codes.InvalidArgument, "failed to deserialize FlightDescriptor.Cmd: %s", err)
+				}
+
+				if cmd.GetQuery() != stmtUpdate {
+					return status.Errorf(codes.InvalidArgument, "expected query: %s, found: %s", stmtUpdate, cmd.GetQuery())
+				}
+
+				if len(cmd.GetTransactionId()) != 0 {
+					return status.Errorf(codes.InvalidArgument, "expected no TransactionID")
+				}
+
+				appMetadata, err := proto.Marshal(&flight.DoPutUpdateResult{RecordCount: stmtUpdateRows})
+				if err != nil {
+					return status.Errorf(codes.Internal, "failed to marshal DoPutUpdateResult: %s", err)
+				}
+
+				return fs.Send(&flight.PutResult{AppMetadata: appMetadata})
+			}}},
+	)
 
 	scenario.Register(
 		scenario.Scenario{
 			Name:  "flight_sql",
 			Steps: steps,
 			RunClient: func(ctx context.Context, client flight.FlightServiceClient, t *tester.Tester) {
+
+				// ValidateMetadataRetrieval
 				for _, tc := range testcases {
 					// pack the command
 					desc, err := descForCommand(tc.Command)
@@ -278,66 +343,60 @@ func init() {
 					t.Require().NoError(err)
 
 					// validate first message is properly formatted schema message
-					data, err := stream.Recv()
-					t.Require().NoError(err)
-
-					msg := flatbuf.GetRootAsMessage(data.DataHeader, 0)
-					t.Require().Equal(flatbuf.MessageHeaderSchema, msg.HeaderType())
-
-					fields, ok := parseFlatbufferSchemaFields(msg)
-					t.Require().True(ok)
-					t.Require().Len(fields, len(tc.Fields))
-
-					for _, expectedField := range tc.Fields {
-						field, found := matchFieldByName(fields, expectedField.Name)
-						t.Require().Truef(found, "no matching field with expected name \"%s\" found in flatbuffer schema", expectedField.Name)
-
-						t.Assert().Equal(expectedField.Name, string(field.Name()))
-						t.Assert().Equal(expectedField.Type, field.TypeType())
-						t.Assert().Equal(expectedField.Nullable, field.Nullable())
-					}
+					requireStreamHeaderMatchesFields(t, stream, tc.Fields)
 
 					// drain rest of stream
-					for {
-						data, err = stream.Recv()
-						if err == io.EOF {
-							break
-						}
-						t.Require().NoError(err)
-
-						// no more schema messages
-						t.Assert().Contains(
-							[]flatbuf.MessageHeader{
-								flatbuf.MessageHeaderRecordBatch,
-								flatbuf.MessageHeaderDictionaryBatch,
-							},
-							flatbuf.GetRootAsMessage(data.DataHeader, 0).HeaderType(),
-						)
-					}
+					requireDrainStream(t, stream)
 
 					// issue GetSchema
 					res, err := client.GetSchema(ctx, desc)
 					t.Require().NoError(err)
 
 					// expect schema to be serialized as full IPC stream Schema message
-					metadata := extractFlatbufferPayload(res.Schema)
-
-					msg = flatbuf.GetRootAsMessage(metadata, 0)
-					t.Require().Equal(flatbuf.MessageHeaderSchema, msg.HeaderType())
-
-					fields, ok = parseFlatbufferSchemaFields(msg)
-					t.Require().True(ok)
-					t.Require().Len(fields, len(tc.Fields))
-
-					for _, expectedField := range tc.Fields {
-						field, found := matchFieldByName(fields, expectedField.Name)
-						t.Require().Truef(found, "no matching field with expected name \"%s\" found in flatbuffer schema", expectedField.Name)
-
-						t.Assert().Equal(expectedField.Name, string(field.Name()))
-						t.Assert().Equal(expectedField.Type, field.TypeType())
-						t.Assert().Equal(expectedField.Nullable, field.Nullable())
-					}
+					requireSchemaResultMatchesFields(t, res, tc.Fields)
 				}
+
+				// ValidateStatementExecution
+				cmdQuery := flight.CommandStatementQuery{Query: stmtQuery}
+				descQuery, err := descForCommand(&cmdQuery)
+				t.Require().NoError(err)
+
+				infoQuery, err := client.GetFlightInfo(ctx, descQuery)
+				t.Require().NoError(err)
+
+				t.Require().Greater(len(infoQuery.Endpoint), 0)
+
+				// fetch result streamQuery
+				streamQuery, err := client.DoGet(ctx, infoQuery.Endpoint[0].Ticket)
+				t.Require().NoError(err)
+
+				// validate result stream
+				requireStreamHeaderMatchesFields(t, streamQuery, queryFields)
+				requireDrainStream(t, streamQuery)
+
+				schemaResultQuery, err := client.GetSchema(ctx, descQuery)
+				t.Require().NoError(err)
+
+				// expect schema to be serialized as full IPC stream Schema message
+				requireSchemaResultMatchesFields(t, schemaResultQuery, queryFields)
+
+				cmdUpdate := flight.CommandStatementUpdate{Query: stmtUpdate}
+				descUpdate, err := descForCommand(&cmdUpdate)
+				t.Require().NoError(err)
+
+				streamUpdate, err := client.DoPut(ctx)
+				t.Require().NoError(err)
+
+				t.Require().NoError(streamUpdate.Send(&flight.FlightData{FlightDescriptor: descUpdate}))
+				t.Require().NoError(streamUpdate.CloseSend())
+
+				putResult, err := streamUpdate.Recv()
+				t.Require().NoError(err)
+
+				var updateResult flight.DoPutUpdateResult
+				t.Require().NoError(proto.Unmarshal(putResult.GetAppMetadata(), &updateResult))
+
+				t.Assert().Equal(stmtUpdateRows, updateResult.GetRecordCount())
 			},
 		},
 	)
@@ -347,6 +406,7 @@ type field struct {
 	Name         string
 	Type         flatbuf.Type
 	Nullable     bool
+	Metadata     map[string]string
 	GetTypeTable func(b *flatbuffers.Builder) (flatbuffers.UOffsetT, flatbuffers.UOffsetT)
 }
 
@@ -581,14 +641,33 @@ func buildFlatbufferSchema(fields []field) []byte {
 
 func buildFlatbufferField(b *flatbuffers.Builder, f field) flatbuffers.UOffsetT {
 	nameOffset := b.CreateString(f.Name)
-
 	typOffset, childrenOffset := f.GetTypeTable(b)
+
+	var kvOffsets []flatbuffers.UOffsetT
+	for k, v := range f.Metadata {
+		kk := b.CreateString(k)
+		vv := b.CreateString(v)
+		flatbuf.KeyValueStart(b)
+		flatbuf.KeyValueAddKey(b, kk)
+		flatbuf.KeyValueAddValue(b, vv)
+		kvOffsets = append(kvOffsets, flatbuf.KeyValueEnd(b))
+	}
+
+	var metadataOffset flatbuffers.UOffsetT
+	if len(kvOffsets) > 0 {
+		flatbuf.FieldStartCustomMetadataVector(b, len(kvOffsets))
+		for i := len(kvOffsets) - 1; i >= 0; i-- {
+			b.PrependUOffsetT(kvOffsets[i])
+		}
+		metadataOffset = b.EndVector(len(kvOffsets))
+	}
 
 	flatbuf.FieldStart(b)
 	flatbuf.FieldAddName(b, nameOffset)
 	flatbuf.FieldAddTypeType(b, f.Type)
 	flatbuf.FieldAddType(b, typOffset)
 	flatbuf.FieldAddChildren(b, childrenOffset)
+	flatbuf.FieldAddCustomMetadata(b, metadataOffset)
 	flatbuf.FieldAddNullable(b, f.Nullable)
 	return flatbuf.FieldEnd(b)
 }
@@ -657,4 +736,126 @@ func echoFlightInfo(ctx context.Context, fd *flight.FlightDescriptor) (*flight.F
 			Ticket: &flight.Ticket{Ticket: fd.Cmd},
 		}},
 	}, nil
+}
+
+func doGetFieldsForCommandFn(cmd proto.Message, fields []field) func(t *flight.Ticket, fs flight.FlightService_DoGetServer) error {
+	return func(t *flight.Ticket, fs flight.FlightService_DoGetServer) error {
+		cmd := proto.Clone(cmd)
+		proto.Reset(cmd)
+
+		if err := deserializeProtobufPayload(t.Ticket, cmd); err != nil {
+			return status.Errorf(codes.InvalidArgument, "failed to deserialize Ticket.Ticket: %s", err)
+		}
+
+		return fs.Send(&flight.FlightData{DataHeader: buildFlatbufferSchema(fields)})
+	}
+}
+
+func getSchemaFieldsForCommandFn(cmd proto.Message, fields []field) func(ctx context.Context, fd *flight.FlightDescriptor) (*flight.SchemaResult, error) {
+	return func(ctx context.Context, fd *flight.FlightDescriptor) (*flight.SchemaResult, error) {
+		cmd := proto.Clone(cmd)
+		proto.Reset(cmd)
+
+		if err := deserializeProtobufPayload(fd.Cmd, cmd); err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "failed to deserialize FlightDescriptor.Cmd: %s", err)
+		}
+
+		schema := writeFlatbufferPayload(fields)
+
+		return &flight.SchemaResult{Schema: schema}, nil
+	}
+}
+
+func deserializeProtobufPayload(b []byte, dst proto.Message) error {
+	var anycmd anypb.Any
+	if err := proto.Unmarshal(b, &anycmd); err != nil {
+		return fmt.Errorf("unable to unmarshal payload to proto.Any: %s", err)
+	}
+
+	if err := anycmd.UnmarshalTo(dst); err != nil {
+		return fmt.Errorf("unable to unmarshal proto.Any: %s", err)
+	}
+
+	return nil
+}
+
+func createStatementQueryTicket(handle []byte) ([]byte, error) {
+	query := &flight.TicketStatementQuery{StatementHandle: handle}
+
+	var ticket anypb.Any
+	if err := ticket.MarshalFrom(query); err != nil {
+		return nil, fmt.Errorf("unable to marshal ticket proto to proto.Any: %s", err)
+	}
+
+	b, err := proto.Marshal(&ticket)
+	if err != nil {
+		return nil, fmt.Errorf("unable to marshal proto.Any to bytes: %s", err)
+	}
+
+	return b, nil
+}
+
+func requireStreamHeaderMatchesFields[T interface {
+	Recv() (*flight.FlightData, error)
+}](t *tester.Tester, stream T, expectedFields []field) {
+
+	data, err := stream.Recv()
+	t.Require().NoError(err)
+
+	msg := flatbuf.GetRootAsMessage(data.DataHeader, 0)
+	t.Require().Equal(flatbuf.MessageHeaderSchema, msg.HeaderType())
+
+	fields, ok := parseFlatbufferSchemaFields(msg)
+	t.Require().True(ok)
+	t.Require().Len(fields, len(expectedFields))
+
+	for _, expectedField := range expectedFields {
+		field, found := matchFieldByName(fields, expectedField.Name)
+		t.Require().Truef(found, "no matching field with expected name \"%s\" found in flatbuffer schema", expectedField.Name)
+
+		t.Assert().Equal(expectedField.Name, string(field.Name()))
+		t.Assert().Equal(expectedField.Type, field.TypeType())
+		t.Assert().Equal(expectedField.Nullable, field.Nullable())
+	}
+}
+
+func requireDrainStream[T interface {
+	Recv() (*flight.FlightData, error)
+}](t *tester.Tester, stream T) {
+	for {
+		data, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		t.Require().NoError(err)
+
+		// no more schema messages
+		t.Assert().Contains(
+			[]flatbuf.MessageHeader{
+				flatbuf.MessageHeaderRecordBatch,
+				flatbuf.MessageHeaderDictionaryBatch,
+			},
+			flatbuf.GetRootAsMessage(data.DataHeader, 0).HeaderType(),
+		)
+	}
+}
+
+func requireSchemaResultMatchesFields(t *tester.Tester, res *flight.SchemaResult, expectedFields []field) {
+	metadata := extractFlatbufferPayload(res.Schema)
+
+	msg := flatbuf.GetRootAsMessage(metadata, 0)
+	t.Require().Equal(flatbuf.MessageHeaderSchema, msg.HeaderType())
+
+	fields, ok := parseFlatbufferSchemaFields(msg)
+	t.Require().True(ok)
+	t.Require().Len(fields, len(expectedFields))
+
+	for _, expectedField := range expectedFields {
+		field, found := matchFieldByName(fields, expectedField.Name)
+		t.Require().Truef(found, "no matching field with expected name \"%s\" found in flatbuffer schema", expectedField.Name)
+
+		t.Assert().Equal(expectedField.Name, string(field.Name()))
+		t.Assert().Equal(expectedField.Type, field.TypeType())
+		t.Assert().Equal(expectedField.Nullable, field.Nullable())
+	}
 }
