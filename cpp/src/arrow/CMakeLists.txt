@@ -731,6 +731,7 @@ set(ARROW_COMPUTE_SRCS
     compute/light_array_internal.cc
     compute/ordering.cc
     compute/registry.cc
+    compute/kernels/chunked_internal.cc
     compute/kernels/codegen_internal.cc
     compute/kernels/ree_util_internal.cc
     compute/kernels/scalar_cast_boolean.cc
