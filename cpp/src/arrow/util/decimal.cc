@@ -93,6 +93,12 @@ struct DecimalRealConversion : public BaseDecimalRealConversion {
     constexpr int kMantissaBits = RealTraits<Real>::kMantissaBits;
     constexpr int kMantissaDigits = RealTraits<Real>::kMantissaDigits;
 
+    // to avoid precision and rounding issues, we'll unconditionally
+    // throw Decimal32 to the approx algorithm instead.
+    if constexpr (std::is_base_of_v<BasicDecimal32, DecimalType>) {
+      return Derived::FromPositiveRealApprox(real, precision, scale);
+    }
+
     // Problem statement: construct the Decimal with the value
     // closest to `real * 10^scale`.
     if (scale < 0) {
@@ -161,9 +167,7 @@ struct DecimalRealConversion : public BaseDecimalRealConversion {
         // NOTE: if `precision` is the full precision then the algorithm will
         // lose the last digit. If `precision` is almost the full precision,
         // there can be an off-by-one error due to rounding.
-        constexpr int is_dec32_or_dec64 =
-            DecimalType::kByteWidth <= BasicDecimal64::kByteWidth;
-        const int mul_step = std::max(1, kMaxPrecision - precision - is_dec32_or_dec64);
+        const int mul_step = std::max(1, kMaxPrecision - precision);
 
         // The running exponent, useful to compute by how much we must
         // shift right to make place on the left before the next multiply.

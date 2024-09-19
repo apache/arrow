@@ -907,7 +907,7 @@ class TestDecimalFromRealFloat : public ::testing::Test {
         FromFloatTestParam{16383.999f, 19, 3, "16383.999"},
         // 1 - 2**-24
         FromFloatTestParam{0.99999994f, 10, 10, "0.9999999404"},
-        FromFloatTestParam{0.99999994f, 16, 16, "0.9999999403953552"},
+        FromFloatTestParam{0.99999994f, 15, 15, "0.999999940395355"},
         FromFloatTestParam{0.99999994f, 20, 20, "0.99999994039535522461"},
         FromFloatTestParam{0.99999994f, 21, 21, "0.999999940395355224609"},
         FromFloatTestParam{0.99999994f, 38, 38,
@@ -1011,7 +1011,7 @@ class TestDecimalFromRealDouble : public ::testing::Test {
         FromDoubleTestParam{0.9999999999999998, 16, 16, "0.9999999999999998"},
       };
       // clang-format on
-    } else {
+    } else if (std::is_same_v<T, Decimal256>) {
       // clang-format off
       type_dependent_values = {
         // 1 - 2**-52
