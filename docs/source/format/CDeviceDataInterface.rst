@@ -675,7 +675,7 @@ structs used for the full data flow: ``ArrowAsyncTask`` and ``ArrowAsyncProducer
 Structure Definition
 --------------------
 
-The C device async stream interface is defined with a single ``struct`` definition:
+The C device async stream interface consists of three ``struct`` definitions:
 
 .. code-block:: c
 
