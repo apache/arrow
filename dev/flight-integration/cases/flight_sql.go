@@ -19,6 +19,7 @@ package cases
 import (
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 
@@ -52,6 +53,15 @@ func init() {
 		stmtQueryHandle = "SELECT STATEMENT HANDLE"
 		stmtUpdate      = "UPDATE STATEMENT"
 		stmtUpdateRows  = int64(10000)
+
+		stmtPreparedQuery        = "SELECT PREPARED STATEMENT"
+		stmtPreparedQueryHandle  = "SELECT PREPARED STATEMENT HANDLE"
+		stmtPreparedUpdate       = "UPDATE PREPARED STATEMENT"
+		stmtPreparedUpdateHandle = "UPDATE PREPARED STATEMENT HANDLE"
+		stmtPreparedUpdateRows   = int64(20000)
+
+		createPreparedStatementActionType = "CreatePreparedStatement"
+		closePreparedStatementActionType  = "ClosePreparedStatement"
 
 		queryFields = []field{
 			{
@@ -319,6 +329,213 @@ func init() {
 			}}},
 	)
 
+	// ValidatePreparedStatementExecution
+	steps = append(
+		steps,
+		scenario.ScenarioStep{
+			Name: "DoAction/ActionCreatePreparedStatementRequest",
+			ServerHandler: scenario.Handler{DoAction: func(a *flight.Action, fs flight.FlightService_DoActionServer) error {
+				var req flight.ActionCreatePreparedStatementRequest
+				if err := deserializeProtobufPayload(a.Body, &req); err != nil {
+					return status.Errorf(codes.InvalidArgument, "failed to deserialize Action.Body: %s", err)
+				}
+
+				if req.GetQuery() != stmtPreparedQuery {
+					return status.Errorf(codes.InvalidArgument, "expected query: %s, found: %s", stmtPreparedQuery, req.GetQuery())
+				}
+
+				if len(req.GetTransactionId()) != 0 {
+					return status.Errorf(codes.InvalidArgument, "expected no TransactionID")
+				}
+
+				body, err := serializeProtobufWrappedInAny(&flight.ActionCreatePreparedStatementResult{PreparedStatementHandle: []byte(stmtPreparedQueryHandle)})
+				if err != nil {
+					return status.Errorf(codes.Internal, "failed to ActionCreatePreparedStatementResult: %s", err)
+				}
+
+				return fs.Send(&flight.Result{Body: body})
+			}}},
+		scenario.ScenarioStep{
+			Name: "DoPut/CommandPreparedStatementQuery",
+			ServerHandler: scenario.Handler{DoPut: func(fs flight.FlightService_DoPutServer) error {
+				data, err := fs.Recv()
+				if err != nil {
+					return status.Errorf(codes.Internal, "unable to read from stream: %s", err)
+				}
+
+				msg := flatbuf.GetRootAsMessage(data.DataHeader, 0)
+				if msg.HeaderType() != flatbuf.MessageHeaderSchema {
+					return status.Errorf(codes.Internal, "invalid stream, expected first message to be Schema: %s", err)
+				}
+
+				fields, ok := parseFlatbufferSchemaFields(msg)
+				if !ok {
+					return status.Errorf(codes.Internal, "failed to parse flatbuffer schema")
+				}
+
+				// TODO: maybe don't use tester here
+				t := tester.NewTester()
+				assertSchemaMatchesFields(t, fields, queryFields)
+				if len(t.Errors()) > 0 {
+					return status.Errorf(codes.Internal, "flatbuffer schema mismatch: %s", errors.Join(t.Errors()...))
+				}
+
+				desc := data.FlightDescriptor
+				var cmd flight.CommandPreparedStatementQuery
+				if err := deserializeProtobufPayload(desc.Cmd, &cmd); err != nil {
+					return status.Errorf(codes.InvalidArgument, "failed to deserialize FlightDescriptor.Cmd: %s", err)
+				}
+
+				if string(cmd.GetPreparedStatementHandle()) != stmtPreparedQueryHandle {
+					return status.Errorf(codes.InvalidArgument, "expected handle: %s, found: %s", stmtPreparedQueryHandle, cmd.GetPreparedStatementHandle())
+				}
+
+				appMetadata, err := proto.Marshal(&flight.DoPutPreparedStatementResult{PreparedStatementHandle: cmd.GetPreparedStatementHandle()})
+				if err != nil {
+					return status.Errorf(codes.Internal, "failed to marshal DoPutPreparedStatementResult: %s", err)
+				}
+
+				return fs.Send(&flight.PutResult{AppMetadata: appMetadata})
+			}}},
+		scenario.ScenarioStep{
+			Name: "GetFlightInfo/CommandPreparedStatementQuery",
+			ServerHandler: scenario.Handler{GetFlightInfo: func(ctx context.Context, fd *flight.FlightDescriptor) (*flight.FlightInfo, error) {
+				var cmd flight.CommandPreparedStatementQuery
+				if err := deserializeProtobufPayload(fd.Cmd, &cmd); err != nil {
+					return nil, status.Errorf(codes.InvalidArgument, "failed to deserialize FlightDescriptor.Cmd: %s", err)
+				}
+
+				if string(cmd.GetPreparedStatementHandle()) != stmtPreparedQueryHandle {
+					return nil, status.Errorf(codes.InvalidArgument, "expected handle: %s, found: %s", stmtPreparedQueryHandle, cmd.GetPreparedStatementHandle())
+				}
+
+				return &flight.FlightInfo{
+					Endpoint: []*flight.FlightEndpoint{{
+						Ticket: &flight.Ticket{Ticket: fd.Cmd},
+					}},
+				}, nil
+			}}},
+		scenario.ScenarioStep{
+			Name: "DoGet/CommandPreparedStatementQuery",
+			ServerHandler: scenario.Handler{DoGet: func(t *flight.Ticket, fs flight.FlightService_DoGetServer) error {
+				var cmd flight.CommandPreparedStatementQuery
+				if err := deserializeProtobufPayload(t.Ticket, &cmd); err != nil {
+					return status.Errorf(codes.InvalidArgument, "failed to deserialize Ticket.Ticket: %s", err)
+				}
+
+				if string(cmd.GetPreparedStatementHandle()) != stmtPreparedQueryHandle {
+					return status.Errorf(codes.InvalidArgument, "expected handle: %s, found: %s", stmtPreparedQueryHandle, cmd.GetPreparedStatementHandle())
+				}
+
+				return fs.Send(&flight.FlightData{DataHeader: buildFlatbufferSchema(queryFields)})
+			}}},
+		scenario.ScenarioStep{
+			Name: "GetSchema/CommandPreparedStatementQuery",
+			ServerHandler: scenario.Handler{GetSchema: func(ctx context.Context, fd *flight.FlightDescriptor) (*flight.SchemaResult, error) {
+				var cmd flight.CommandPreparedStatementQuery
+				if err := deserializeProtobufPayload(fd.Cmd, &cmd); err != nil {
+					return nil, status.Errorf(codes.InvalidArgument, "failed to deserialize FlightDescriptor.Cmd: %s", err)
+				}
+
+				if string(cmd.GetPreparedStatementHandle()) != stmtPreparedQueryHandle {
+					return nil, status.Errorf(codes.InvalidArgument, "expected handle: %s, found: %s", stmtPreparedQueryHandle, cmd.GetPreparedStatementHandle())
+				}
+
+				return &flight.SchemaResult{Schema: writeFlatbufferPayload(queryFields)}, nil
+			}}},
+		scenario.ScenarioStep{
+			Name: "DoAction/ActionClosePreparedStatementRequest",
+			ServerHandler: scenario.Handler{DoAction: func(a *flight.Action, fs flight.FlightService_DoActionServer) error {
+				var req flight.ActionClosePreparedStatementRequest
+				if err := deserializeProtobufPayload(a.Body, &req); err != nil {
+					return status.Errorf(codes.InvalidArgument, "failed to deserialize Action.Body: %s", err)
+				}
+
+				if string(req.GetPreparedStatementHandle()) != stmtPreparedQueryHandle {
+					return status.Errorf(codes.InvalidArgument, "expected handle: %s, found: %s", stmtPreparedQueryHandle, req.GetPreparedStatementHandle())
+				}
+
+				return fs.Send(&flight.Result{})
+			}}},
+
+		scenario.ScenarioStep{
+			Name: "DoAction/ActionCreatePreparedStatementRequest",
+			ServerHandler: scenario.Handler{DoAction: func(a *flight.Action, fs flight.FlightService_DoActionServer) error {
+				var req flight.ActionCreatePreparedStatementRequest
+				if err := deserializeProtobufPayload(a.Body, &req); err != nil {
+					return status.Errorf(codes.InvalidArgument, "failed to deserialize Action.Body: %s", err)
+				}
+
+				if req.GetQuery() != stmtPreparedUpdate {
+					return status.Errorf(codes.InvalidArgument, "expected query: %s, found: %s", stmtPreparedUpdate, req.GetQuery())
+				}
+
+				if len(req.GetTransactionId()) != 0 {
+					return status.Errorf(codes.InvalidArgument, "expected no TransactionID")
+				}
+
+				body, err := serializeProtobufWrappedInAny(&flight.ActionCreatePreparedStatementResult{PreparedStatementHandle: []byte(stmtPreparedUpdateHandle)})
+				if err != nil {
+					return status.Errorf(codes.Internal, "failed to ActionCreatePreparedStatementResult: %s", err)
+				}
+
+				return fs.Send(&flight.Result{Body: body})
+			}}},
+		scenario.ScenarioStep{
+			Name: "DoPut/CommandPreparedStatementUpdate",
+			ServerHandler: scenario.Handler{DoPut: func(fs flight.FlightService_DoPutServer) error {
+				data, err := fs.Recv()
+				if err != nil {
+					return status.Errorf(codes.Internal, "unable to read from stream: %s", err)
+				}
+
+				msg := flatbuf.GetRootAsMessage(data.DataHeader, 0)
+				if msg.HeaderType() != flatbuf.MessageHeaderSchema {
+					return status.Errorf(codes.Internal, "invalid stream, expected first message to be Schema: %s", err)
+				}
+
+				fields, ok := parseFlatbufferSchemaFields(msg)
+				if !ok {
+					return status.Errorf(codes.Internal, "failed to parse flatbuffer schema")
+				}
+
+				if len(fields) != 0 {
+					return status.Errorf(codes.InvalidArgument, "bind schema not expected")
+				}
+
+				desc := data.FlightDescriptor
+				var cmd flight.CommandPreparedStatementUpdate
+				if err := deserializeProtobufPayload(desc.Cmd, &cmd); err != nil {
+					return status.Errorf(codes.InvalidArgument, "failed to deserialize FlightDescriptor.Cmd: %s", err)
+				}
+
+				if string(cmd.GetPreparedStatementHandle()) != stmtPreparedUpdateHandle {
+					return status.Errorf(codes.InvalidArgument, "expected handle: %s, found: %s", stmtPreparedUpdateHandle, cmd.GetPreparedStatementHandle())
+				}
+
+				appMetadata, err := proto.Marshal(&flight.DoPutUpdateResult{RecordCount: stmtPreparedUpdateRows})
+				if err != nil {
+					return status.Errorf(codes.Internal, "failed to marshal DoPutPreparedStatementResult: %s", err)
+				}
+
+				return fs.Send(&flight.PutResult{AppMetadata: appMetadata})
+			}}},
+		scenario.ScenarioStep{
+			Name: "DoAction/ActionClosePreparedStatementRequest",
+			ServerHandler: scenario.Handler{DoAction: func(a *flight.Action, fs flight.FlightService_DoActionServer) error {
+				var req flight.ActionClosePreparedStatementRequest
+				if err := deserializeProtobufPayload(a.Body, &req); err != nil {
+					return status.Errorf(codes.InvalidArgument, "failed to deserialize Action.Body: %s", err)
+				}
+
+				if string(req.GetPreparedStatementHandle()) != stmtPreparedUpdateHandle {
+					return status.Errorf(codes.InvalidArgument, "expected handle: %s, found: %s", stmtPreparedUpdateHandle, req.GetPreparedStatementHandle())
+				}
+
+				return fs.Send(&flight.Result{})
+			}}},
+	)
+
 	scenario.Register(
 		scenario.Scenario{
 			Name:  "flight_sql",
@@ -326,6 +543,7 @@ func init() {
 			RunClient: func(ctx context.Context, client flight.FlightServiceClient, t *tester.Tester) {
 
 				// ValidateMetadataRetrieval
+				////////////////////////////
 				for _, tc := range testcases {
 					// pack the command
 					desc, err := descForCommand(tc.Command)
@@ -346,7 +564,16 @@ func init() {
 					requireStreamHeaderMatchesFields(t, stream, tc.Fields)
 
 					// drain rest of stream
-					requireDrainStream(t, stream)
+					requireDrainStream(t, stream, func(t *tester.Tester, data *flight.FlightData) {
+						// no more schema messages
+						t.Assert().Contains(
+							[]flatbuf.MessageHeader{
+								flatbuf.MessageHeaderRecordBatch,
+								flatbuf.MessageHeaderDictionaryBatch,
+							},
+							flatbuf.GetRootAsMessage(data.DataHeader, 0).HeaderType(),
+						)
+					})
 
 					// issue GetSchema
 					res, err := client.GetSchema(ctx, desc)
@@ -357,6 +584,7 @@ func init() {
 				}
 
 				// ValidateStatementExecution
+				/////////////////////////////
 				cmdQuery := flight.CommandStatementQuery{Query: stmtQuery}
 				descQuery, err := descForCommand(&cmdQuery)
 				t.Require().NoError(err)
@@ -372,7 +600,16 @@ func init() {
 
 				// validate result stream
 				requireStreamHeaderMatchesFields(t, streamQuery, queryFields)
-				requireDrainStream(t, streamQuery)
+				requireDrainStream(t, streamQuery, func(t *tester.Tester, data *flight.FlightData) {
+					// no more schema messages
+					t.Assert().Contains(
+						[]flatbuf.MessageHeader{
+							flatbuf.MessageHeaderRecordBatch,
+							flatbuf.MessageHeaderDictionaryBatch,
+						},
+						flatbuf.GetRootAsMessage(data.DataHeader, 0).HeaderType(),
+					)
+				})
 
 				schemaResultQuery, err := client.GetSchema(ctx, descQuery)
 				t.Require().NoError(err)
@@ -397,6 +634,134 @@ func init() {
 				t.Require().NoError(proto.Unmarshal(putResult.GetAppMetadata(), &updateResult))
 
 				t.Assert().Equal(stmtUpdateRows, updateResult.GetRecordCount())
+
+				// ValidatePreparedStatementExecution
+				/////////////////////////////////////
+				prepareAction, err := packAction(createPreparedStatementActionType, &flight.ActionCreatePreparedStatementRequest{Query: stmtPreparedQuery})
+				t.Require().NoError(err)
+
+				prepareStream, err := client.DoAction(ctx, prepareAction)
+				t.Require().NoError(err)
+
+				t.Require().NoError(prepareStream.CloseSend())
+
+				actionResult, err := prepareStream.Recv()
+				t.Require().NoError(err)
+
+				var prepareResult flight.ActionCreatePreparedStatementResult
+				t.Require().NoError(deserializeProtobufPayload(actionResult.Body, &prepareResult))
+
+				t.Require().Equal(stmtPreparedQueryHandle, string(prepareResult.GetPreparedStatementHandle()))
+				requireDrainStream(t, prepareStream, nil)
+
+				putPreparedStream, err := client.DoPut(ctx)
+				t.Require().NoError(err)
+
+				descPutPrepared, err := descForCommand(&flight.CommandPreparedStatementQuery{PreparedStatementHandle: prepareResult.GetPreparedStatementHandle()})
+				t.Require().NoError(err)
+
+				t.Require().NoError(putPreparedStream.Send(&flight.FlightData{FlightDescriptor: descPutPrepared, DataHeader: buildFlatbufferSchema(queryFields)}))
+				t.Require().NoError(putPreparedStream.CloseSend())
+
+				putResult, err = putPreparedStream.Recv()
+				t.Require().NoError(err)
+
+				// TODO: legacy server doesn't provide a response
+
+				var doPutPreparedResult flight.DoPutPreparedStatementResult
+				t.Require().NoError(proto.Unmarshal(putResult.GetAppMetadata(), &doPutPreparedResult))
+				t.Require().Equal(stmtPreparedQueryHandle, string(doPutPreparedResult.GetPreparedStatementHandle()))
+
+				descPutPrepared, err = descForCommand(&flight.CommandPreparedStatementQuery{PreparedStatementHandle: doPutPreparedResult.GetPreparedStatementHandle()})
+				t.Require().NoError(err)
+
+				infoPreparedQuery, err := client.GetFlightInfo(ctx, descPutPrepared)
+				t.Require().NoError(err)
+
+				t.Require().Greater(len(infoPreparedQuery.Endpoint), 0)
+
+				streamPreparedQuery, err := client.DoGet(ctx, infoPreparedQuery.Endpoint[0].Ticket)
+				t.Require().NoError(err)
+
+				// validate result stream
+				requireStreamHeaderMatchesFields(t, streamPreparedQuery, queryFields)
+				requireDrainStream(t, streamQuery, func(t *tester.Tester, data *flight.FlightData) {
+					// no more schema messages
+					t.Assert().Contains(
+						[]flatbuf.MessageHeader{
+							flatbuf.MessageHeaderRecordBatch,
+							flatbuf.MessageHeaderDictionaryBatch,
+						},
+						flatbuf.GetRootAsMessage(data.DataHeader, 0).HeaderType(),
+					)
+				})
+
+				{
+					schema, err := client.GetSchema(ctx, descPutPrepared)
+					t.Require().NoError(err)
+
+					requireSchemaResultMatchesFields(t, schema, queryFields)
+				}
+
+				{
+					action, err := packAction(closePreparedStatementActionType, &flight.ActionClosePreparedStatementRequest{PreparedStatementHandle: []byte(stmtPreparedQueryHandle)})
+					t.Require().NoError(err)
+
+					stream, err := client.DoAction(ctx, action)
+					t.Require().NoError(err)
+
+					t.Require().NoError(stream.CloseSend())
+					requireDrainStream(t, stream, nil)
+				}
+
+				{
+					action, err := packAction(createPreparedStatementActionType, &flight.ActionCreatePreparedStatementRequest{Query: stmtPreparedUpdate})
+					t.Require().NoError(err)
+
+					stream, err := client.DoAction(ctx, action)
+					t.Require().NoError(err)
+
+					t.Require().NoError(stream.CloseSend())
+
+					result, err := stream.Recv()
+					t.Require().NoError(err)
+
+					var actionResult flight.ActionCreatePreparedStatementResult
+					t.Require().NoError(deserializeProtobufPayload(result.Body, &actionResult))
+
+					t.Require().Equal(stmtPreparedUpdateHandle, string(actionResult.GetPreparedStatementHandle()))
+					requireDrainStream(t, stream, nil)
+				}
+
+				{
+					stream, err := client.DoPut(ctx)
+					t.Require().NoError(err)
+
+					desc, err := descForCommand(&flight.CommandPreparedStatementUpdate{PreparedStatementHandle: []byte(stmtPreparedUpdateHandle)})
+					t.Require().NoError(err)
+
+					t.Require().NoError(stream.Send(&flight.FlightData{FlightDescriptor: desc, DataHeader: buildFlatbufferSchema(nil)}))
+					t.Require().NoError(stream.CloseSend())
+
+					putResult, err := stream.Recv()
+					t.Require().NoError(err)
+
+					var updateResult flight.DoPutUpdateResult
+					t.Require().NoError(proto.Unmarshal(putResult.GetAppMetadata(), &updateResult))
+
+					t.Assert().Equal(stmtPreparedUpdateRows, updateResult.GetRecordCount())
+				}
+
+				{
+					action, err := packAction(closePreparedStatementActionType, &flight.ActionClosePreparedStatementRequest{PreparedStatementHandle: []byte(stmtPreparedUpdateHandle)})
+					t.Require().NoError(err)
+
+					stream, err := client.DoAction(ctx, action)
+					t.Require().NoError(err)
+
+					t.Require().NoError(stream.CloseSend())
+					requireDrainStream(t, stream, nil)
+				}
 			},
 		},
 	)
@@ -777,6 +1142,33 @@ func createStatementQueryTicket(handle []byte) ([]byte, error) {
 	return b, nil
 }
 
+func serializeProtobufWrappedInAny(msg proto.Message) ([]byte, error) {
+	var anycmd anypb.Any
+	if err := anycmd.MarshalFrom(msg); err != nil {
+		return nil, fmt.Errorf("unable to marshal proto message to proto.Any: %s", err)
+	}
+
+	b, err := proto.Marshal(&anycmd)
+	if err != nil {
+		return nil, fmt.Errorf("unable to marshal proto.Any to bytes: %s", err)
+	}
+
+	return b, nil
+}
+
+func packAction(actionType string, msg proto.Message) (*flight.Action, error) {
+	var action flight.Action
+	body, err := serializeProtobufWrappedInAny(msg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize action body: %s", err)
+	}
+
+	action.Type = actionType
+	action.Body = body
+
+	return &action, nil
+}
+
 func requireStreamHeaderMatchesFields[T interface {
 	Recv() (*flight.FlightData, error)
 }](t *tester.Tester, stream T, expectedFields []field) {
@@ -791,19 +1183,27 @@ func requireStreamHeaderMatchesFields[T interface {
 	t.Require().True(ok)
 	t.Require().Len(fields, len(expectedFields))
 
+	assertSchemaMatchesFields(t, fields, expectedFields)
+}
+
+func assertSchemaMatchesFields(t *tester.Tester, fields []flatbuf.Field, expectedFields []field) {
 	for _, expectedField := range expectedFields {
 		field, found := matchFieldByName(fields, expectedField.Name)
-		t.Require().Truef(found, "no matching field with expected name \"%s\" found in flatbuffer schema", expectedField.Name)
+		t.Assert().Truef(found, "no matching field with expected name \"%s\" found in flatbuffer schema", expectedField.Name)
+		if !found {
+			continue
+		}
 
 		t.Assert().Equal(expectedField.Name, string(field.Name()))
 		t.Assert().Equal(expectedField.Type, field.TypeType())
 		t.Assert().Equal(expectedField.Nullable, field.Nullable())
+		// TODO: metadata?
 	}
 }
 
-func requireDrainStream[T interface {
-	Recv() (*flight.FlightData, error)
-}](t *tester.Tester, stream T) {
+func requireDrainStream[E any, S interface {
+	Recv() (E, error)
+}](t *tester.Tester, stream S, eval func(*tester.Tester, E)) {
 	for {
 		data, err := stream.Recv()
 		if err == io.EOF {
@@ -811,14 +1211,9 @@ func requireDrainStream[T interface {
 		}
 		t.Require().NoError(err)
 
-		// no more schema messages
-		t.Assert().Contains(
-			[]flatbuf.MessageHeader{
-				flatbuf.MessageHeaderRecordBatch,
-				flatbuf.MessageHeaderDictionaryBatch,
-			},
-			flatbuf.GetRootAsMessage(data.DataHeader, 0).HeaderType(),
-		)
+		if eval != nil {
+			eval(t, data)
+		}
 	}
 }
 
@@ -832,12 +1227,5 @@ func requireSchemaResultMatchesFields(t *tester.Tester, res *flight.SchemaResult
 	t.Require().True(ok)
 	t.Require().Len(fields, len(expectedFields))
 
-	for _, expectedField := range expectedFields {
-		field, found := matchFieldByName(fields, expectedField.Name)
-		t.Require().Truef(found, "no matching field with expected name \"%s\" found in flatbuffer schema", expectedField.Name)
-
-		t.Assert().Equal(expectedField.Name, string(field.Name()))
-		t.Assert().Equal(expectedField.Type, field.TypeType())
-		t.Assert().Equal(expectedField.Nullable, field.Nullable())
-	}
+	assertSchemaMatchesFields(t, fields, expectedFields)
 }
