@@ -697,7 +697,7 @@ The C device async stream interface consists of three ``struct`` definitions:
     };
 
     struct ArrowAsyncDeviceStreamHandler {
-      // handlers
+      // consumer-specific handlers
       int (*on_schema)(struct ArrowAsyncDeviceStreamHandler* self,
                        struct ArrowAsyncProducer* producer,
                        struct ArrowSchema* stream_schema, const char* addl_metadata);
