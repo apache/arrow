@@ -853,15 +853,17 @@ class TestDecimalFromReal : public ::testing::Test {
         // clang-format on
     };
     for (const ParamType& param : params) {
-      CheckDecimalFromReal<Decimal>(param.real, param.precision, param.scale,
-                                    param.expected);
+      if (Decimal::kMaxPrecision > param.precision) {
+        CheckDecimalFromReal<Decimal>(param.real, param.precision, param.scale,
+                                      param.expected);
+      }
     }
   }
 
   void TestErrors() {
-    ASSERT_RAISES(Invalid, Decimal::FromReal(INFINITY, 19, 4));
-    ASSERT_RAISES(Invalid, Decimal::FromReal(-INFINITY, 19, 4));
-    ASSERT_RAISES(Invalid, Decimal::FromReal(NAN, 19, 4));
+    ASSERT_RAISES(Invalid, Decimal::FromReal(INFINITY, Decimal::kMaxPrecision / 2, 4));
+    ASSERT_RAISES(Invalid, Decimal::FromReal(-INFINITY, Decimal::kMaxPrecision / 2, 4));
+    ASSERT_RAISES(Invalid, Decimal::FromReal(NAN, Decimal::kMaxPrecision / 2, 4));
     // Overflows
     ASSERT_RAISES(Invalid, Decimal::FromReal(1000.0, 3, 0));
     ASSERT_RAISES(Invalid, Decimal::FromReal(-1000.0, 3, 0));
@@ -869,13 +871,17 @@ class TestDecimalFromReal : public ::testing::Test {
     ASSERT_RAISES(Invalid, Decimal::FromReal(-1000.0, 5, 2));
     ASSERT_RAISES(Invalid, Decimal::FromReal(999.996, 5, 2));
     ASSERT_RAISES(Invalid, Decimal::FromReal(-999.996, 5, 2));
-    ASSERT_RAISES(Invalid, Decimal::FromReal(1e+36, 36, 0));
-    ASSERT_RAISES(Invalid, Decimal::FromReal(-1e+36, 36, 0));
+    if constexpr (Decimal::kMaxPrecision >= 36) {
+      ASSERT_RAISES(Invalid, Decimal::FromReal(1e+36, 36, 0));
+      ASSERT_RAISES(Invalid, Decimal::FromReal(-1e+36, 36, 0));
+    }
   }
 };
 
 using RealTypes =
-    ::testing::Types<std::pair<Decimal128, float>, std::pair<Decimal128, double>,
+    ::testing::Types<std::pair<Decimal32, float>, std::pair<Decimal32, double>,
+                     std::pair<Decimal64, float>, std::pair<Decimal64, double>,
+                     std::pair<Decimal128, float>, std::pair<Decimal128, double>,
                      std::pair<Decimal256, float>, std::pair<Decimal256, double>>;
 TYPED_TEST_SUITE(TestDecimalFromReal, RealTypes);
 
@@ -1166,10 +1172,14 @@ class TestDecimalToReal : public ::testing::Test {
         // clang-format on
     };
     for (const ParamType& param : params) {
-      CheckDecimalToReal<Decimal, Real>(param.decimal_value, param.scale, param.expected);
-      if (param.decimal_value != "0") {
-        CheckDecimalToReal<Decimal, Real>("-" + param.decimal_value, param.scale,
-                                          -param.expected);
+      if (param.decimal_value.size() < Decimal::kMaxPrecision &&
+          std::abs(param.scale) < Decimal::kMaxScale) {
+        CheckDecimalToReal<Decimal, Real>(param.decimal_value, param.scale,
+                                          param.expected);
+        if (param.decimal_value != "0") {
+          CheckDecimalToReal<Decimal, Real>("-" + param.decimal_value, param.scale,
+                                            -param.expected);
+        }
       }
     }
   }
@@ -1340,7 +1350,13 @@ TYPED_TEST(TestDecimalToRealDouble, Precision) {
 
 #endif  // __MINGW32__
 
-TEST(Decimal32Test, TestFromBigEndian) {
+template <typename DecimalType>
+class TestBasicDecimalFunctionality : public ::testing::Test {};
+// Decimal256 tests don't fit the same mold as the others for easy generic tests
+using BasicFunctionalityDecimalTypes = ::testing::Types<Decimal32, Decimal64, Decimal128>;
+TYPED_TEST_SUITE(TestBasicDecimalFunctionality, BasicFunctionalityDecimalTypes);
+
+TYPED_TEST(TestBasicDecimalFunctionality, TestFromBigEndian) {
   // We test out a variety of scenarios:
   //
   // * Positive values that are left shifted
@@ -1354,11 +1370,13 @@ TEST(Decimal32Test, TestFromBigEndian) {
   //
   // We use a number of bit patterns to increase the coverage
   // of scenarios
+  constexpr int WidthMinusOne = TypeParam::kByteWidth - 1;
+
   for (int32_t start : {1, 15, /* 00001111 */
                         85,    /* 01010101 */
                         127 /* 01111111 */}) {
-    Decimal32 value(start);
-    for (int ii = 0; ii < 4; ++ii) {
+    TypeParam value(start);
+    for (int ii = 0; ii < TypeParam::kByteWidth; ++ii) {
       auto native_endian = value.ToBytes();
 #if ARROW_LITTLE_ENDIAN
       std::reverse(native_endian.begin(), native_endian.end());
@@ -1367,8 +1385,8 @@ TEST(Decimal32Test, TestFromBigEndian) {
       // sure that it works correctly. That's why all of the
       // 'start' values don't have a 1 in the most significant
       // bit place
-      ASSERT_OK_AND_EQ(value,
-                       Decimal32::FromBigEndian(native_endian.data() + 3 - ii, ii + 1));
+      ASSERT_OK_AND_EQ(value, TypeParam::FromBigEndian(
+                                  native_endian.data() + WidthMinusOne - ii, ii + 1));
 
       // Negate it
       auto negated = -value;
@@ -1378,8 +1396,8 @@ TEST(Decimal32Test, TestFromBigEndian) {
       std::reverse(native_endian.begin(), native_endian.end());
 #endif
       // The sign bit is looked up in the MSB
-      ASSERT_OK_AND_EQ(negated,
-                       Decimal32::FromBigEndian(native_endian.data() + 3 - ii, ii + 1));
+      ASSERT_OK_AND_EQ(negated, TypeParam::FromBigEndian(
+                                    native_endian.data() + WidthMinusOne - ii, ii + 1));
 
       // Take the complement
       auto complement = ~value;
@@ -1388,37 +1406,42 @@ TEST(Decimal32Test, TestFromBigEndian) {
       // convert to big endian
       std::reverse(native_endian.begin(), native_endian.end());
 #endif
-      ASSERT_OK_AND_EQ(complement, Decimal32::FromBigEndian(native_endian.data(), 4));
+      ASSERT_OK_AND_EQ(complement, TypeParam::FromBigEndian(native_endian.data(),
+                                                            TypeParam::kByteWidth));
 
       value <<= 2;
-      value += Decimal32(start);
+      value += TypeParam(start);
     }
   }
 }
 
-TEST(Decimal32Test, TestFromBigEndianBadLength) {
-  ASSERT_RAISES(Invalid, Decimal32::FromBigEndian(0, -1));
-  ASSERT_RAISES(Invalid, Decimal32::FromBigEndian(0, 17));
+TYPED_TEST(TestBasicDecimalFunctionality, TestFromBigEndianBadLength) {
+  ASSERT_RAISES(Invalid, TypeParam::FromBigEndian(0, -1));
+  ASSERT_RAISES(Invalid, TypeParam::FromBigEndian(0, TypeParam::kByteWidth + 1));
 }
 
-TEST(Decimal32Test, TestToInteger) {
-  Decimal32 value1("1234");
-  int32_t out1;
+TYPED_TEST(TestBasicDecimalFunctionality, TestToInteger) {
+  if constexpr (std::is_same_v<TypeParam, Decimal256>) {
+    GTEST_SKIP();  // Decimal256 doesn't have ToInteger
+  } else {
+    TypeParam value1("1234");
+    int32_t out1;
 
-  Decimal32 value2("-1234");
-  int64_t out2;
+    TypeParam value2("-1234");
+    int64_t out2;
 
-  ASSERT_OK(value1.ToInteger(&out1));
-  ASSERT_EQ(1234, out1);
+    ASSERT_OK(value1.ToInteger(&out1));
+    ASSERT_EQ(1234, out1);
 
-  ASSERT_OK(value1.ToInteger(&out2));
-  ASSERT_EQ(1234, out2);
+    ASSERT_OK(value1.ToInteger(&out2));
+    ASSERT_EQ(1234, out2);
 
-  ASSERT_OK(value2.ToInteger(&out1));
-  ASSERT_EQ(-1234, out1);
+    ASSERT_OK(value2.ToInteger(&out1));
+    ASSERT_EQ(-1234, out1);
 
-  ASSERT_OK(value2.ToInteger(&out2));
-  ASSERT_EQ(-1234, out2);
+    ASSERT_OK(value2.ToInteger(&out2));
+    ASSERT_EQ(-1234, out2);
+  }
 }
 
 template <typename ArrowType, typename CType = typename ArrowType::c_type>
@@ -1435,33 +1458,61 @@ std::vector<CType> GetRandomNumbers(int32_t size) {
   return ret;
 }
 
-TEST(Decimal32Test, Multiply) {
-  ASSERT_EQ(Decimal32(60501), Decimal32(301) * Decimal32(201));
+TYPED_TEST(TestBasicDecimalFunctionality, Multiply) {
+  ASSERT_EQ(TypeParam(60501), TypeParam(301) * TypeParam(201));
 
-  ASSERT_EQ(Decimal32(-60501), Decimal32(-301) * Decimal32(201));
+  ASSERT_EQ(TypeParam(-60501), TypeParam(-301) * TypeParam(201));
 
-  ASSERT_EQ(Decimal32(-60501), Decimal32(301) * Decimal32(-201));
+  ASSERT_EQ(TypeParam(-60501), TypeParam(301) * TypeParam(-201));
 
-  ASSERT_EQ(Decimal32(60501), Decimal32(-301) * Decimal32(-201));
+  ASSERT_EQ(TypeParam(60501), TypeParam(-301) * TypeParam(-201));
 
   // Test some random numbers.
   for (auto x : GetRandomNumbers<Int32Type>(16)) {
     for (auto y : GetRandomNumbers<Int32Type>(16)) {
-      Decimal32 result = Decimal32(x) * Decimal32(y);
-      ASSERT_EQ(Decimal32(static_cast<int64_t>(x) * y), result)
+      TypeParam result = TypeParam(x) * TypeParam(y);
+      ASSERT_EQ(TypeParam(static_cast<int64_t>(x) * y), result)
           << " x: " << x << " y: " << y;
+
+      // for Decimal128/256
+      if constexpr (std::is_same_v<TypeParam, Decimal128>) {
+        // Test by multiplying with an additional 32 bit factor, then additional
+        // factor of 2^30 to test results in the range of -2^123 to 2^123 without
+        // overflow.
+        for (auto z : GetRandomNumbers<Int32Type>(32)) {
+          int128_t w = static_cast<int128_t>(x) * y * (1ull << 30);
+          TypeParam expected = Decimal128FromInt128(static_cast<int128_t>(w) * z);
+          TypeParam actual = Decimal128FromInt128(w) * TypeParam(z);
+          ASSERT_EQ(expected, actual) << " w: " << x << " * " << y << " * 2^30 z: " << z;
+        }
+      }
+    }
+  }
+
+  // Test edge cases for Decimal128
+  if constexpr (std::is_same_v<TypeParam, Decimal128>) {
+    for (auto x :
+         std::vector<int128_t>{-INT64_MAX, -INT32_MAX, 0, INT32_MAX, INT64_MAX}) {
+      for (auto y :
+           std::vector<int128_t>{-INT32_MAX, -32, -2, -1, 0, 1, 2, 32, INT32_MAX}) {
+        Decimal128 decimal_x = Decimal128FromInt128(x);
+        Decimal128 decimal_y = Decimal128FromInt128(y);
+        Decimal128 result = decimal_x * decimal_y;
+        EXPECT_EQ(Decimal128FromInt128(x * y), result)
+            << " x: " << decimal_x << " y: " << decimal_y;
+      }
     }
   }
 }
 
-TEST(Decimal32Test, Divide) {
-  ASSERT_EQ(Decimal32(66), Decimal32(20100) / Decimal32(301));
+TYPED_TEST(TestBasicDecimalFunctionality, Divide) {
+  ASSERT_EQ(TypeParam(66), TypeParam(20100) / TypeParam(301));
 
-  ASSERT_EQ(Decimal32(-66), Decimal32(-20100) / Decimal32(301));
+  ASSERT_EQ(TypeParam(-66), TypeParam(-20100) / TypeParam(301));
 
-  ASSERT_EQ(Decimal32(-66), Decimal32(20100) / Decimal32(-301));
+  ASSERT_EQ(TypeParam(-66), TypeParam(20100) / TypeParam(-301));
 
-  ASSERT_EQ(Decimal32(66), Decimal32(-20100) / Decimal32(-301));
+  ASSERT_EQ(TypeParam(66), TypeParam(-20100) / TypeParam(-301));
 
   // Test some random numbers.
   for (auto x : GetRandomNumbers<Int32Type>(16)) {
@@ -1470,54 +1521,75 @@ TEST(Decimal32Test, Divide) {
         continue;
       }
 
-      Decimal32 result = Decimal32(x) / Decimal32(y);
-      ASSERT_EQ(Decimal32(static_cast<int64_t>(x) / y), result)
+      TypeParam result = TypeParam(x) / TypeParam(y);
+      ASSERT_EQ(TypeParam(static_cast<int64_t>(x) / y), result)
           << " x: " << x << " y: " << y;
+    }
+  }
+
+  // Edge cases for Decimal128
+  if constexpr (std::is_same_v<TypeParam, Decimal128>) {
+    for (auto x :
+         std::vector<int128_t>{-INT64_MAX, -INT32_MAX, 0, INT32_MAX, INT64_MAX}) {
+      for (auto y : std::vector<int128_t>{-INT32_MAX, -32, -2, -1, 1, 2, 32, INT32_MAX}) {
+        Decimal128 decimal_x = Decimal128FromInt128(x);
+        Decimal128 decimal_y = Decimal128FromInt128(y);
+        Decimal128 result = decimal_x / decimal_y;
+        EXPECT_EQ(Decimal128FromInt128(x / y), result)
+            << " x: " << decimal_x << " y: " << decimal_y;
+      }
     }
   }
 }
 
-TEST(Decimal32Test, Rescale) {
-  ASSERT_OK_AND_EQ(Decimal32(11100), Decimal32(111).Rescale(0, 2));
-  ASSERT_OK_AND_EQ(Decimal32(111), Decimal32(11100).Rescale(2, 0));
-  ASSERT_OK_AND_EQ(Decimal32(5), Decimal32(500000).Rescale(6, 1));
-  ASSERT_OK_AND_EQ(Decimal32(500000), Decimal32(5).Rescale(1, 6));
-  ASSERT_RAISES(Invalid, Decimal32(555555).Rescale(6, 1));
+TYPED_TEST(TestBasicDecimalFunctionality, Rescale) {
+  ASSERT_OK_AND_EQ(TypeParam(11100), TypeParam(111).Rescale(0, 2));
+  ASSERT_OK_AND_EQ(TypeParam(111), TypeParam(11100).Rescale(2, 0));
+  ASSERT_OK_AND_EQ(TypeParam(5), TypeParam(500000).Rescale(6, 1));
+  ASSERT_OK_AND_EQ(TypeParam(500000), TypeParam(5).Rescale(1, 6));
+  ASSERT_RAISES(Invalid, TypeParam(555555).Rescale(6, 1));
+
+  using OrigScaleType =
+      std::conditional_t<std::is_same_v<TypeParam, Decimal32>, Int8Type, Int16Type>;
+  using ValueType =
+      std::conditional_t<std::is_same_v<TypeParam, Decimal32>, Int16Type, Int32Type>;
 
   // Test some random numbers.
-  for (auto original_scale : GetRandomNumbers<Int8Type>(16)) {
-    for (auto value : GetRandomNumbers<Int16Type>(16)) {
-      Decimal32 unscaled_value = Decimal32(value);
-      Decimal32 scaled_value = unscaled_value;
-      for (int32_t new_scale = original_scale; new_scale < original_scale + 4;
-           new_scale++, scaled_value *= Decimal32(10)) {
+  for (auto original_scale : GetRandomNumbers<OrigScaleType>(16)) {
+    for (auto value : GetRandomNumbers<ValueType>(16)) {
+      TypeParam unscaled_value = TypeParam(value);
+      TypeParam scaled_value = unscaled_value;
+      for (int32_t new_scale = original_scale;
+           new_scale < original_scale + (TypeParam::kMaxScale / 1.8);
+           new_scale++, scaled_value *= TypeParam(10)) {
         ASSERT_OK_AND_EQ(scaled_value, unscaled_value.Rescale(original_scale, new_scale));
         ASSERT_OK_AND_EQ(unscaled_value, scaled_value.Rescale(new_scale, original_scale));
       }
     }
   }
 
-  for (auto original_scale : GetRandomNumbers<Int16Type>(16)) {
-    Decimal32 value(1);
-    for (int32_t new_scale = original_scale; new_scale < original_scale + 8;
-         new_scale++, value *= Decimal32(10)) {
-      Decimal32 negative_value = value * -1;
-      ASSERT_OK_AND_EQ(value, Decimal32(1).Rescale(original_scale, new_scale));
-      ASSERT_OK_AND_EQ(negative_value, Decimal32(-1).Rescale(original_scale, new_scale));
-      ASSERT_OK_AND_EQ(Decimal32(1), value.Rescale(new_scale, original_scale));
-      ASSERT_OK_AND_EQ(Decimal32(-1), negative_value.Rescale(new_scale, original_scale));
+  for (auto original_scale : GetRandomNumbers<OrigScaleType>(16)) {
+    TypeParam value(1);
+    for (int32_t new_scale = original_scale;
+         new_scale < original_scale + TypeParam::kMaxScale + 1;
+         new_scale++, value *= TypeParam(10)) {
+      TypeParam negative_value = value * -1;
+      ASSERT_OK_AND_EQ(value, TypeParam(1).Rescale(original_scale, new_scale));
+      ASSERT_OK_AND_EQ(negative_value, TypeParam(-1).Rescale(original_scale, new_scale));
+      ASSERT_OK_AND_EQ(TypeParam(1), value.Rescale(new_scale, original_scale));
+      ASSERT_OK_AND_EQ(TypeParam(-1), negative_value.Rescale(new_scale, original_scale));
     }
   }
 }
 
-TEST(Decimal32Test, Mod) {
-  ASSERT_EQ(Decimal32(234), Decimal32(20100) % Decimal32(301));
+TYPED_TEST(TestBasicDecimalFunctionality, Mod) {
+  ASSERT_EQ(TypeParam(234), TypeParam(20100) % TypeParam(301));
 
-  ASSERT_EQ(Decimal32(-234), Decimal32(-20100) % Decimal32(301));
+  ASSERT_EQ(TypeParam(-234), TypeParam(-20100) % TypeParam(301));
 
-  ASSERT_EQ(Decimal32(234), Decimal32(20100) % Decimal32(-301));
+  ASSERT_EQ(TypeParam(234), TypeParam(20100) % TypeParam(-301));
 
-  ASSERT_EQ(Decimal32(-234), Decimal32(-20100) % Decimal32(-301));
+  ASSERT_EQ(TypeParam(-234), TypeParam(-20100) % TypeParam(-301));
 
   // Test some random numbers.
   for (auto x : GetRandomNumbers<Int32Type>(16)) {
@@ -1526,162 +1598,132 @@ TEST(Decimal32Test, Mod) {
         continue;
       }
 
-      Decimal32 result = Decimal32(x) % Decimal32(y);
-      ASSERT_EQ(Decimal32(static_cast<int64_t>(x) % y), result)
+      TypeParam result = TypeParam(x) % TypeParam(y);
+      ASSERT_EQ(TypeParam(static_cast<int64_t>(x) % y), result)
           << " x: " << x << " y: " << y;
+    }
+  }
+
+  // Edge cases for Decimal128
+  if constexpr (std::is_same_v<TypeParam, Decimal128>) {
+    // Test some edge cases
+    for (auto x :
+         std::vector<int128_t>{-INT64_MAX, -INT32_MAX, 0, INT32_MAX, INT64_MAX}) {
+      for (auto y : std::vector<int128_t>{-INT32_MAX, -32, -2, -1, 1, 2, 32, INT32_MAX}) {
+        Decimal128 decimal_x = Decimal128FromInt128(x);
+        Decimal128 decimal_y = Decimal128FromInt128(y);
+        Decimal128 result = decimal_x % decimal_y;
+        EXPECT_EQ(Decimal128FromInt128(x % y), result)
+            << " x: " << decimal_x << " y: " << decimal_y;
+      }
     }
   }
 }
 
-TEST(Decimal32Test, Sign) {
-  ASSERT_EQ(1, Decimal32(999999).Sign());
-  ASSERT_EQ(-1, Decimal32(-999999).Sign());
-  ASSERT_EQ(1, Decimal32(0).Sign());
+TYPED_TEST(TestBasicDecimalFunctionality, Sign) {
+  ASSERT_EQ(1, TypeParam(999999).Sign());
+  ASSERT_EQ(-1, TypeParam(-999999).Sign());
+  ASSERT_EQ(1, TypeParam(0).Sign());
 }
 
-TEST(Decimal32Test, GetWholeAndFraction) {
-  Decimal32 value("123456");
-  Decimal32 whole;
-  Decimal32 fraction;
-  int32_t out;
+TYPED_TEST(TestBasicDecimalFunctionality, GetWholeAndFraction) {
+  TypeParam value("123456");
 
-  value.GetWholeAndFraction(0, &whole, &fraction);
-  ASSERT_OK(whole.ToInteger(&out));
-  ASSERT_EQ(123456, out);
-  ASSERT_OK(fraction.ToInteger(&out));
-  ASSERT_EQ(0, out);
+  auto check = [value](int32_t scale, std::pair<int32_t, int32_t> expected) {
+    TypeParam whole, fraction;
+    int32_t out;
+    value.GetWholeAndFraction(scale, &whole, &fraction);
+    ASSERT_OK(whole.ToInteger(&out));
+    ASSERT_EQ(expected.first, out);
+    ASSERT_OK(fraction.ToInteger(&out));
+    ASSERT_EQ(expected.second, out);
+  };
 
-  value.GetWholeAndFraction(1, &whole, &fraction);
-  ASSERT_OK(whole.ToInteger(&out));
-  ASSERT_EQ(12345, out);
-  ASSERT_OK(fraction.ToInteger(&out));
-  ASSERT_EQ(6, out);
-
-  value.GetWholeAndFraction(5, &whole, &fraction);
-  ASSERT_OK(whole.ToInteger(&out));
-  ASSERT_EQ(1, out);
-  ASSERT_OK(fraction.ToInteger(&out));
-  ASSERT_EQ(23456, out);
-
-  value.GetWholeAndFraction(7, &whole, &fraction);
-  ASSERT_OK(whole.ToInteger(&out));
-  ASSERT_EQ(0, out);
-  ASSERT_OK(fraction.ToInteger(&out));
-  ASSERT_EQ(123456, out);
+  check(0, {123456, 0});
+  check(1, {12345, 6});
+  check(5, {1, 23456});
+  check(7, {0, 123456});
 }
 
-TEST(Decimal32Test, GetWholeAndFractionNegative) {
-  Decimal32 value("-123456");
-  Decimal32 whole;
-  Decimal32 fraction;
-  int32_t out;
+TYPED_TEST(TestBasicDecimalFunctionality, GetWholeAndFractionNegative) {
+  TypeParam value("-123456");
 
-  value.GetWholeAndFraction(0, &whole, &fraction);
-  ASSERT_OK(whole.ToInteger(&out));
-  ASSERT_EQ(-123456, out);
-  ASSERT_OK(fraction.ToInteger(&out));
-  ASSERT_EQ(0, out);
+  auto check = [value](int32_t scale, std::pair<int32_t, int32_t> expected) {
+    TypeParam whole, fraction;
+    int32_t out;
+    value.GetWholeAndFraction(scale, &whole, &fraction);
+    ASSERT_OK(whole.ToInteger(&out));
+    ASSERT_EQ(expected.first, out);
+    ASSERT_OK(fraction.ToInteger(&out));
+    ASSERT_EQ(expected.second, out);
+  };
 
-  value.GetWholeAndFraction(1, &whole, &fraction);
-  ASSERT_OK(whole.ToInteger(&out));
-  ASSERT_EQ(-12345, out);
-  ASSERT_OK(fraction.ToInteger(&out));
-  ASSERT_EQ(-6, out);
-
-  value.GetWholeAndFraction(5, &whole, &fraction);
-  ASSERT_OK(whole.ToInteger(&out));
-  ASSERT_EQ(-1, out);
-  ASSERT_OK(fraction.ToInteger(&out));
-  ASSERT_EQ(-23456, out);
-
-  value.GetWholeAndFraction(7, &whole, &fraction);
-  ASSERT_OK(whole.ToInteger(&out));
-  ASSERT_EQ(0, out);
-  ASSERT_OK(fraction.ToInteger(&out));
-  ASSERT_EQ(-123456, out);
+  check(0, {-123456, 0});
+  check(1, {-12345, -6});
+  check(5, {-1, -23456});
+  check(7, {0, -123456});
 }
 
-TEST(Decimal32Test, IncreaseScale) {
-  Decimal32 result;
+TYPED_TEST(TestBasicDecimalFunctionality, IncreaseScale) {
+  TypeParam result;
   int32_t out;
 
-  result = Decimal32("1234").IncreaseScaleBy(0);
+  result = TypeParam("1234").IncreaseScaleBy(0);
   ASSERT_OK(result.ToInteger(&out));
   ASSERT_EQ(1234, out);
 
-  result = Decimal32("1234").IncreaseScaleBy(3);
+  result = TypeParam("1234").IncreaseScaleBy(3);
   ASSERT_OK(result.ToInteger(&out));
   ASSERT_EQ(1234000, out);
 
-  result = Decimal32("-1234").IncreaseScaleBy(3);
+  result = TypeParam("-1234").IncreaseScaleBy(3);
   ASSERT_OK(result.ToInteger(&out));
   ASSERT_EQ(-1234000, out);
 }
 
-TEST(Decimal32Test, ReduceScaleAndRound) {
-  Decimal32 result;
-  int32_t out;
+TYPED_TEST(TestBasicDecimalFunctionality, ReduceScaleAndRound) {
+  auto check = [](std::string val, int32_t reduce_by, bool round, int32_t expected) {
+    int32_t out;
 
-  result = Decimal32("123456").ReduceScaleBy(0);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(123456, out);
+    TypeParam result = TypeParam(val).ReduceScaleBy(reduce_by, round);
+    ASSERT_OK(result.ToInteger(&out));
+    ASSERT_EQ(expected, out);
+  };
 
-  result = Decimal32("123456").ReduceScaleBy(1, false);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(12345, out);
-
-  result = Decimal32("123456").ReduceScaleBy(1, true);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(12346, out);
-
-  result = Decimal32("123451").ReduceScaleBy(1, true);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(12345, out);
-
-  result = Decimal32("5").ReduceScaleBy(1, true);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(1, out);
-
-  result = Decimal32("0").ReduceScaleBy(1, true);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(0, out);
-
-  result = Decimal32("-123789").ReduceScaleBy(2, true);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(-1238, out);
-
-  result = Decimal32("-123749").ReduceScaleBy(2, true);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(-1237, out);
-
-  result = Decimal32("-123750").ReduceScaleBy(2, true);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(-1238, out);
-
-  result = Decimal32("-5").ReduceScaleBy(1, true);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(-1, out);
+  check("123456", 0, false, 123456);
+  check("123456", 1, false, 12345);
+  check("123456", 1, true, 12346);
+  check("123451", 1, true, 12345);
+  check("5", 1, true, 1);
+  check("0", 1, true, 0);
+  check("-123789", 2, true, -1238);
+  check("-123749", 2, true, -1237);
+  check("-123750", 2, true, -1238);
+  check("-5", 1, true, -1);
 }
 
-TEST(Decimal32Test, FitsInPrecision) {
-  ASSERT_TRUE(Decimal32("0").FitsInPrecision(1));
-  ASSERT_TRUE(Decimal32("9").FitsInPrecision(1));
-  ASSERT_TRUE(Decimal32("-9").FitsInPrecision(1));
-  ASSERT_FALSE(Decimal32("10").FitsInPrecision(1));
-  ASSERT_FALSE(Decimal32("-10").FitsInPrecision(1));
+TYPED_TEST(TestBasicDecimalFunctionality, FitsInPrecision) {
+  ASSERT_TRUE(TypeParam("0").FitsInPrecision(1));
+  ASSERT_TRUE(TypeParam("9").FitsInPrecision(1));
+  ASSERT_TRUE(TypeParam("-9").FitsInPrecision(1));
+  ASSERT_FALSE(TypeParam("10").FitsInPrecision(1));
+  ASSERT_FALSE(TypeParam("-10").FitsInPrecision(1));
 
-  ASSERT_TRUE(Decimal32("0").FitsInPrecision(2));
-  ASSERT_TRUE(Decimal32("10").FitsInPrecision(2));
-  ASSERT_TRUE(Decimal32("-10").FitsInPrecision(2));
-  ASSERT_TRUE(Decimal32("99").FitsInPrecision(2));
-  ASSERT_TRUE(Decimal32("-99").FitsInPrecision(2));
-  ASSERT_FALSE(Decimal32("100").FitsInPrecision(2));
-  ASSERT_FALSE(Decimal32("-100").FitsInPrecision(2));
+  ASSERT_TRUE(TypeParam("0").FitsInPrecision(2));
+  ASSERT_TRUE(TypeParam("10").FitsInPrecision(2));
+  ASSERT_TRUE(TypeParam("-10").FitsInPrecision(2));
+  ASSERT_TRUE(TypeParam("99").FitsInPrecision(2));
+  ASSERT_TRUE(TypeParam("-99").FitsInPrecision(2));
+  ASSERT_FALSE(TypeParam("100").FitsInPrecision(2));
+  ASSERT_FALSE(TypeParam("-100").FitsInPrecision(2));
 
-  ASSERT_TRUE(Decimal32("999999999").FitsInPrecision(9));
-  ASSERT_TRUE(Decimal32("-999999999").FitsInPrecision(9));
-  ASSERT_FALSE(Decimal32("1000000000").FitsInPrecision(9));
-  ASSERT_FALSE(Decimal32("-1000000000").FitsInPrecision(9));
+  std::string max_nines(TypeParam::kMaxPrecision, '9');
+  ASSERT_TRUE(TypeParam(max_nines).FitsInPrecision(TypeParam::kMaxPrecision));
+  ASSERT_TRUE(TypeParam("-" + max_nines).FitsInPrecision(TypeParam::kMaxPrecision));
+
+  std::string max_zeros(TypeParam::kMaxPrecision, '0');
+  ASSERT_FALSE(TypeParam("1" + max_zeros).FitsInPrecision(TypeParam::kMaxPrecision));
+  ASSERT_FALSE(TypeParam("-1" + max_zeros).FitsInPrecision(TypeParam::kMaxPrecision));
 }
 
 TEST(Decimal32Test, LeftShift) {
@@ -1767,336 +1809,6 @@ TEST(Decimal32Test, Negate) {
   check(Decimal32(12), Decimal32(-12));
 }
 
-TEST(Decimal64Test, TestFromBigEndian) {
-  // We test out a variety of scenarios:
-  //
-  // * Positive values that are left shifted
-  //   and filled in with the same bit pattern
-  // * Negated of the positive values
-  // * Complement of the positive values
-  //
-  // For the positive values, we can call FromBigEndian
-  // with a length that is less than 16, whereas we must
-  // pass all 16 bytes for the negative and complement.
-  //
-  // We use a number of bit patterns to increase the coverage
-  // of scenarios
-  for (int32_t start : {1, 15, /* 00001111 */
-                        85,    /* 01010101 */
-                        127 /* 01111111 */}) {
-    Decimal64 value(start);
-    for (int ii = 0; ii < 8; ++ii) {
-      auto native_endian = value.ToBytes();
-#if ARROW_LITTLE_ENDIAN
-      std::reverse(native_endian.begin(), native_endian.end());
-#endif
-      // Limit the number of bytes we are passing to make
-      // sure that it works correctly. That's why all of the
-      // 'start' values don't have a 1 in the most significant
-      // bit place
-      ASSERT_OK_AND_EQ(value,
-                       Decimal64::FromBigEndian(native_endian.data() + 7 - ii, ii + 1));
-
-      // Negate it
-      auto negated = -value;
-      native_endian = negated.ToBytes();
-#if ARROW_LITTLE_ENDIAN
-      // convert to big endian
-      std::reverse(native_endian.begin(), native_endian.end());
-#endif
-      // The sign bit is looked up in the MSB
-      ASSERT_OK_AND_EQ(negated,
-                       Decimal64::FromBigEndian(native_endian.data() + 7 - ii, ii + 1));
-
-      // Take the complement
-      auto complement = ~value;
-      native_endian = complement.ToBytes();
-#if ARROW_LITTLE_ENDIAN
-      // convert to big endian
-      std::reverse(native_endian.begin(), native_endian.end());
-#endif
-      ASSERT_OK_AND_EQ(complement, Decimal64::FromBigEndian(native_endian.data(), 8));
-
-      value <<= 4;
-      value += Decimal64(start);
-    }
-  }
-}
-
-TEST(Decimal64Test, TestFromBigEndianBadLength) {
-  ASSERT_RAISES(Invalid, Decimal64::FromBigEndian(0, -1));
-  ASSERT_RAISES(Invalid, Decimal64::FromBigEndian(0, 17));
-}
-
-TEST(Decimal64Test, TestToInteger) {
-  Decimal64 value1("1234");
-  int32_t out1;
-
-  Decimal64 value2("-1234");
-  int64_t out2;
-
-  ASSERT_OK(value1.ToInteger(&out1));
-  ASSERT_EQ(1234, out1);
-
-  ASSERT_OK(value1.ToInteger(&out2));
-  ASSERT_EQ(1234, out2);
-
-  ASSERT_OK(value2.ToInteger(&out1));
-  ASSERT_EQ(-1234, out1);
-
-  ASSERT_OK(value2.ToInteger(&out2));
-  ASSERT_EQ(-1234, out2);
-}
-
-TEST(Decimal64Test, Multiply) {
-  ASSERT_EQ(Decimal64(60501), Decimal64(301) * Decimal64(201));
-
-  ASSERT_EQ(Decimal64(-60501), Decimal64(-301) * Decimal64(201));
-
-  ASSERT_EQ(Decimal64(-60501), Decimal64(301) * Decimal64(-201));
-
-  ASSERT_EQ(Decimal64(60501), Decimal64(-301) * Decimal64(-201));
-
-  // Test some random numbers.
-  for (auto x : GetRandomNumbers<Int64Type>(16)) {
-    for (auto y : GetRandomNumbers<Int64Type>(16)) {
-      Decimal64 result = Decimal64(x) * Decimal64(y);
-      ASSERT_EQ(Decimal64(static_cast<int64_t>(x) * y), result)
-          << " x: " << x << " y: " << y;
-    }
-  }
-}
-
-TEST(Decimal64Test, Divide) {
-  ASSERT_EQ(Decimal64(66), Decimal64(20100) / Decimal64(301));
-
-  ASSERT_EQ(Decimal64(-66), Decimal64(-20100) / Decimal64(301));
-
-  ASSERT_EQ(Decimal64(-66), Decimal64(20100) / Decimal64(-301));
-
-  ASSERT_EQ(Decimal64(66), Decimal64(-20100) / Decimal64(-301));
-
-  // Test some random numbers.
-  for (auto x : GetRandomNumbers<Int32Type>(16)) {
-    for (auto y : GetRandomNumbers<Int32Type>(16)) {
-      if (y == 0) {
-        continue;
-      }
-
-      Decimal64 result = Decimal64(x) / Decimal64(y);
-      ASSERT_EQ(Decimal64(static_cast<int64_t>(x) / y), result)
-          << " x: " << x << " y: " << y;
-    }
-  }
-}
-
-TEST(Decimal64Test, Rescale) {
-  ASSERT_OK_AND_EQ(Decimal64(11100), Decimal64(111).Rescale(0, 2));
-  ASSERT_OK_AND_EQ(Decimal64(111), Decimal64(11100).Rescale(2, 0));
-  ASSERT_OK_AND_EQ(Decimal64(5), Decimal64(500000).Rescale(6, 1));
-  ASSERT_OK_AND_EQ(Decimal64(500000), Decimal64(5).Rescale(1, 6));
-  ASSERT_RAISES(Invalid, Decimal64(555555).Rescale(6, 1));
-
-  // Test some random numbers.
-  for (auto original_scale : GetRandomNumbers<Int16Type>(16)) {
-    for (auto value : GetRandomNumbers<Int32Type>(16)) {
-      Decimal64 unscaled_value = Decimal64(value);
-      Decimal64 scaled_value = unscaled_value;
-      for (int32_t new_scale = original_scale; new_scale < original_scale + 8;
-           new_scale++, scaled_value *= Decimal64(10)) {
-        ASSERT_OK_AND_EQ(scaled_value, unscaled_value.Rescale(original_scale, new_scale));
-        ASSERT_OK_AND_EQ(unscaled_value, scaled_value.Rescale(new_scale, original_scale));
-      }
-    }
-  }
-
-  for (auto original_scale : GetRandomNumbers<Int32Type>(16)) {
-    Decimal64 value(1);
-    for (int32_t new_scale = original_scale; new_scale < original_scale + 16;
-         new_scale++, value *= Decimal64(10)) {
-      Decimal64 negative_value = value * -1;
-      ASSERT_OK_AND_EQ(value, Decimal64(1).Rescale(original_scale, new_scale));
-      ASSERT_OK_AND_EQ(negative_value, Decimal64(-1).Rescale(original_scale, new_scale));
-      ASSERT_OK_AND_EQ(Decimal64(1), value.Rescale(new_scale, original_scale));
-      ASSERT_OK_AND_EQ(Decimal64(-1), negative_value.Rescale(new_scale, original_scale));
-    }
-  }
-}
-
-TEST(Decimal64Test, Mod) {
-  ASSERT_EQ(Decimal64(234), Decimal64(20100) % Decimal64(301));
-
-  ASSERT_EQ(Decimal64(-234), Decimal64(-20100) % Decimal64(301));
-
-  ASSERT_EQ(Decimal64(234), Decimal64(20100) % Decimal64(-301));
-
-  ASSERT_EQ(Decimal64(-234), Decimal64(-20100) % Decimal64(-301));
-
-  // Test some random numbers.
-  for (auto x : GetRandomNumbers<Int32Type>(16)) {
-    for (auto y : GetRandomNumbers<Int32Type>(16)) {
-      if (y == 0) {
-        continue;
-      }
-
-      Decimal64 result = Decimal64(x) % Decimal64(y);
-      ASSERT_EQ(Decimal64(static_cast<int64_t>(x) % y), result)
-          << " x: " << x << " y: " << y;
-    }
-  }
-}
-
-TEST(Decimal64Test, Sign) {
-  ASSERT_EQ(1, Decimal64(999999).Sign());
-  ASSERT_EQ(-1, Decimal64(-999999).Sign());
-  ASSERT_EQ(1, Decimal64(0).Sign());
-}
-
-TEST(Decimal64Test, GetWholeAndFraction) {
-  Decimal64 value("123456");
-  Decimal64 whole;
-  Decimal64 fraction;
-  int32_t out;
-
-  value.GetWholeAndFraction(0, &whole, &fraction);
-  ASSERT_OK(whole.ToInteger(&out));
-  ASSERT_EQ(123456, out);
-  ASSERT_OK(fraction.ToInteger(&out));
-  ASSERT_EQ(0, out);
-
-  value.GetWholeAndFraction(1, &whole, &fraction);
-  ASSERT_OK(whole.ToInteger(&out));
-  ASSERT_EQ(12345, out);
-  ASSERT_OK(fraction.ToInteger(&out));
-  ASSERT_EQ(6, out);
-
-  value.GetWholeAndFraction(5, &whole, &fraction);
-  ASSERT_OK(whole.ToInteger(&out));
-  ASSERT_EQ(1, out);
-  ASSERT_OK(fraction.ToInteger(&out));
-  ASSERT_EQ(23456, out);
-
-  value.GetWholeAndFraction(7, &whole, &fraction);
-  ASSERT_OK(whole.ToInteger(&out));
-  ASSERT_EQ(0, out);
-  ASSERT_OK(fraction.ToInteger(&out));
-  ASSERT_EQ(123456, out);
-}
-
-TEST(Decimal64Test, GetWholeAndFractionNegative) {
-  Decimal64 value("-123456");
-  Decimal64 whole;
-  Decimal64 fraction;
-  int32_t out;
-
-  value.GetWholeAndFraction(0, &whole, &fraction);
-  ASSERT_OK(whole.ToInteger(&out));
-  ASSERT_EQ(-123456, out);
-  ASSERT_OK(fraction.ToInteger(&out));
-  ASSERT_EQ(0, out);
-
-  value.GetWholeAndFraction(1, &whole, &fraction);
-  ASSERT_OK(whole.ToInteger(&out));
-  ASSERT_EQ(-12345, out);
-  ASSERT_OK(fraction.ToInteger(&out));
-  ASSERT_EQ(-6, out);
-
-  value.GetWholeAndFraction(5, &whole, &fraction);
-  ASSERT_OK(whole.ToInteger(&out));
-  ASSERT_EQ(-1, out);
-  ASSERT_OK(fraction.ToInteger(&out));
-  ASSERT_EQ(-23456, out);
-
-  value.GetWholeAndFraction(7, &whole, &fraction);
-  ASSERT_OK(whole.ToInteger(&out));
-  ASSERT_EQ(0, out);
-  ASSERT_OK(fraction.ToInteger(&out));
-  ASSERT_EQ(-123456, out);
-}
-
-TEST(Decimal64Test, IncreaseScale) {
-  Decimal64 result;
-  int32_t out;
-
-  result = Decimal64("1234").IncreaseScaleBy(0);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(1234, out);
-
-  result = Decimal64("1234").IncreaseScaleBy(3);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(1234000, out);
-
-  result = Decimal64("-1234").IncreaseScaleBy(3);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(-1234000, out);
-}
-
-TEST(Decimal64Test, ReduceScaleAndRound) {
-  Decimal64 result;
-  int32_t out;
-
-  result = Decimal64("123456").ReduceScaleBy(0);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(123456, out);
-
-  result = Decimal64("123456").ReduceScaleBy(1, false);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(12345, out);
-
-  result = Decimal64("123456").ReduceScaleBy(1, true);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(12346, out);
-
-  result = Decimal64("123451").ReduceScaleBy(1, true);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(12345, out);
-
-  result = Decimal64("5").ReduceScaleBy(1, true);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(1, out);
-
-  result = Decimal64("0").ReduceScaleBy(1, true);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(0, out);
-
-  result = Decimal64("-123789").ReduceScaleBy(2, true);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(-1238, out);
-
-  result = Decimal64("-123749").ReduceScaleBy(2, true);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(-1237, out);
-
-  result = Decimal64("-123750").ReduceScaleBy(2, true);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(-1238, out);
-
-  result = Decimal64("-5").ReduceScaleBy(1, true);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(-1, out);
-}
-
-TEST(Decimal64Test, FitsInPrecision) {
-  ASSERT_TRUE(Decimal64("0").FitsInPrecision(1));
-  ASSERT_TRUE(Decimal64("9").FitsInPrecision(1));
-  ASSERT_TRUE(Decimal64("-9").FitsInPrecision(1));
-  ASSERT_FALSE(Decimal64("10").FitsInPrecision(1));
-  ASSERT_FALSE(Decimal64("-10").FitsInPrecision(1));
-
-  ASSERT_TRUE(Decimal64("0").FitsInPrecision(2));
-  ASSERT_TRUE(Decimal64("10").FitsInPrecision(2));
-  ASSERT_TRUE(Decimal64("-10").FitsInPrecision(2));
-  ASSERT_TRUE(Decimal64("99").FitsInPrecision(2));
-  ASSERT_TRUE(Decimal64("-99").FitsInPrecision(2));
-  ASSERT_FALSE(Decimal64("100").FitsInPrecision(2));
-  ASSERT_FALSE(Decimal64("-100").FitsInPrecision(2));
-
-  ASSERT_TRUE(Decimal64("999999999999999999").FitsInPrecision(18));
-  ASSERT_TRUE(Decimal64("-999999999999999999").FitsInPrecision(18));
-  ASSERT_FALSE(Decimal64("1000000000000000000").FitsInPrecision(18));
-  ASSERT_FALSE(Decimal64("-1000000000000000000").FitsInPrecision(18));
-}
-
 TEST(Decimal64Test, LeftShift) {
   auto check = [](int64_t x, uint32_t bits) {
     auto expected = Decimal64(x << bits);
@@ -2178,385 +1890,6 @@ TEST(Decimal64Test, Negate) {
   check(Decimal64(2), Decimal64(0xFFFFFFFFFFFFFFFELL));
   check(Decimal64(0x800000000000000), Decimal64(0xF800000000000000));
   check(Decimal64(12), Decimal64(-12));
-}
-
-TEST(Decimal128Test, TestFromBigEndian) {
-  // We test out a variety of scenarios:
-  //
-  // * Positive values that are left shifted
-  //   and filled in with the same bit pattern
-  // * Negated of the positive values
-  // * Complement of the positive values
-  //
-  // For the positive values, we can call FromBigEndian
-  // with a length that is less than 16, whereas we must
-  // pass all 16 bytes for the negative and complement.
-  //
-  // We use a number of bit patterns to increase the coverage
-  // of scenarios
-  for (int32_t start : {1, 15, /* 00001111 */
-                        85,    /* 01010101 */
-                        127 /* 01111111 */}) {
-    Decimal128 value(start);
-    for (int ii = 0; ii < 16; ++ii) {
-      auto native_endian = value.ToBytes();
-#if ARROW_LITTLE_ENDIAN
-      std::reverse(native_endian.begin(), native_endian.end());
-#endif
-      // Limit the number of bytes we are passing to make
-      // sure that it works correctly. That's why all of the
-      // 'start' values don't have a 1 in the most significant
-      // bit place
-      ASSERT_OK_AND_EQ(value,
-                       Decimal128::FromBigEndian(native_endian.data() + 15 - ii, ii + 1));
-
-      // Negate it
-      auto negated = -value;
-      native_endian = negated.ToBytes();
-#if ARROW_LITTLE_ENDIAN
-      // convert to big endian
-      std::reverse(native_endian.begin(), native_endian.end());
-#endif
-      // The sign bit is looked up in the MSB
-      ASSERT_OK_AND_EQ(negated,
-                       Decimal128::FromBigEndian(native_endian.data() + 15 - ii, ii + 1));
-
-      // Take the complement
-      auto complement = ~value;
-      native_endian = complement.ToBytes();
-#if ARROW_LITTLE_ENDIAN
-      // convert to big endian
-      std::reverse(native_endian.begin(), native_endian.end());
-#endif
-      ASSERT_OK_AND_EQ(complement, Decimal128::FromBigEndian(native_endian.data(), 16));
-
-      value <<= 8;
-      value += Decimal128(start);
-    }
-  }
-}
-
-TEST(Decimal128Test, TestFromBigEndianBadLength) {
-  ASSERT_RAISES(Invalid, Decimal128::FromBigEndian(0, -1));
-  ASSERT_RAISES(Invalid, Decimal128::FromBigEndian(0, 17));
-}
-
-TEST(Decimal128Test, TestToInteger) {
-  Decimal128 value1("1234");
-  int32_t out1;
-
-  Decimal128 value2("-1234");
-  int64_t out2;
-
-  ASSERT_OK(value1.ToInteger(&out1));
-  ASSERT_EQ(1234, out1);
-
-  ASSERT_OK(value1.ToInteger(&out2));
-  ASSERT_EQ(1234, out2);
-
-  ASSERT_OK(value2.ToInteger(&out1));
-  ASSERT_EQ(-1234, out1);
-
-  ASSERT_OK(value2.ToInteger(&out2));
-  ASSERT_EQ(-1234, out2);
-
-  Decimal128 invalid_int32(static_cast<int64_t>(std::pow(2, 31)));
-  ASSERT_RAISES(Invalid, invalid_int32.ToInteger(&out1));
-
-  Decimal128 invalid_int64("12345678912345678901");
-  ASSERT_RAISES(Invalid, invalid_int64.ToInteger(&out2));
-}
-
-TEST(Decimal128Test, Multiply) {
-  ASSERT_EQ(Decimal128(60501), Decimal128(301) * Decimal128(201));
-
-  ASSERT_EQ(Decimal128(-60501), Decimal128(-301) * Decimal128(201));
-
-  ASSERT_EQ(Decimal128(-60501), Decimal128(301) * Decimal128(-201));
-
-  ASSERT_EQ(Decimal128(60501), Decimal128(-301) * Decimal128(-201));
-
-  // Test some random numbers.
-  for (auto x : GetRandomNumbers<Int32Type>(16)) {
-    for (auto y : GetRandomNumbers<Int32Type>(16)) {
-      Decimal128 result = Decimal128(x) * Decimal128(y);
-      ASSERT_EQ(Decimal128(static_cast<int64_t>(x) * y), result)
-          << " x: " << x << " y: " << y;
-      // Test by multiplying with an additional 32 bit factor, then additional
-      // factor of 2^30 to test results in the range of -2^123 to 2^123 without overflow.
-      for (auto z : GetRandomNumbers<Int32Type>(32)) {
-        int128_t w = static_cast<int128_t>(x) * y * (1ull << 30);
-        Decimal128 expected = Decimal128FromInt128(static_cast<int128_t>(w) * z);
-        Decimal128 actual = Decimal128FromInt128(w) * Decimal128(z);
-        ASSERT_EQ(expected, actual) << " w: " << x << " * " << y << " * 2^30 z: " << z;
-      }
-    }
-  }
-
-  // Test some edge cases
-  for (auto x : std::vector<int128_t>{-INT64_MAX, -INT32_MAX, 0, INT32_MAX, INT64_MAX}) {
-    for (auto y :
-         std::vector<int128_t>{-INT32_MAX, -32, -2, -1, 0, 1, 2, 32, INT32_MAX}) {
-      Decimal128 decimal_x = Decimal128FromInt128(x);
-      Decimal128 decimal_y = Decimal128FromInt128(y);
-      Decimal128 result = decimal_x * decimal_y;
-      EXPECT_EQ(Decimal128FromInt128(x * y), result)
-          << " x: " << decimal_x << " y: " << decimal_y;
-    }
-  }
-}
-
-TEST(Decimal128Test, Divide) {
-  ASSERT_EQ(Decimal128(66), Decimal128(20100) / Decimal128(301));
-
-  ASSERT_EQ(Decimal128(-66), Decimal128(-20100) / Decimal128(301));
-
-  ASSERT_EQ(Decimal128(-66), Decimal128(20100) / Decimal128(-301));
-
-  ASSERT_EQ(Decimal128(66), Decimal128(-20100) / Decimal128(-301));
-
-  // Test some random numbers.
-  for (auto x : GetRandomNumbers<Int32Type>(16)) {
-    for (auto y : GetRandomNumbers<Int32Type>(16)) {
-      if (y == 0) {
-        continue;
-      }
-
-      Decimal128 result = Decimal128(x) / Decimal128(y);
-      ASSERT_EQ(Decimal128(static_cast<int64_t>(x) / y), result)
-          << " x: " << x << " y: " << y;
-    }
-  }
-
-  // Test some edge cases
-  for (auto x : std::vector<int128_t>{-INT64_MAX, -INT32_MAX, 0, INT32_MAX, INT64_MAX}) {
-    for (auto y : std::vector<int128_t>{-INT32_MAX, -32, -2, -1, 1, 2, 32, INT32_MAX}) {
-      Decimal128 decimal_x = Decimal128FromInt128(x);
-      Decimal128 decimal_y = Decimal128FromInt128(y);
-      Decimal128 result = decimal_x / decimal_y;
-      EXPECT_EQ(Decimal128FromInt128(x / y), result)
-          << " x: " << decimal_x << " y: " << decimal_y;
-    }
-  }
-}
-
-TEST(Decimal128Test, Rescale) {
-  ASSERT_OK_AND_EQ(Decimal128(11100), Decimal128(111).Rescale(0, 2));
-  ASSERT_OK_AND_EQ(Decimal128(111), Decimal128(11100).Rescale(2, 0));
-  ASSERT_OK_AND_EQ(Decimal128(5), Decimal128(500000).Rescale(6, 1));
-  ASSERT_OK_AND_EQ(Decimal128(500000), Decimal128(5).Rescale(1, 6));
-  ASSERT_RAISES(Invalid, Decimal128(555555).Rescale(6, 1));
-
-  // Test some random numbers.
-  for (auto original_scale : GetRandomNumbers<Int16Type>(16)) {
-    for (auto value : GetRandomNumbers<Int32Type>(16)) {
-      Decimal128 unscaled_value = Decimal128(value);
-      Decimal128 scaled_value = unscaled_value;
-      for (int32_t new_scale = original_scale; new_scale < original_scale + 29;
-           new_scale++, scaled_value *= Decimal128(10)) {
-        ASSERT_OK_AND_EQ(scaled_value, unscaled_value.Rescale(original_scale, new_scale));
-        ASSERT_OK_AND_EQ(unscaled_value, scaled_value.Rescale(new_scale, original_scale));
-      }
-    }
-  }
-
-  for (auto original_scale : GetRandomNumbers<Int16Type>(16)) {
-    Decimal128 value(1);
-    for (int32_t new_scale = original_scale; new_scale < original_scale + 39;
-         new_scale++, value *= Decimal128(10)) {
-      Decimal128 negative_value = value * -1;
-      ASSERT_OK_AND_EQ(value, Decimal128(1).Rescale(original_scale, new_scale));
-      ASSERT_OK_AND_EQ(negative_value, Decimal128(-1).Rescale(original_scale, new_scale));
-      ASSERT_OK_AND_EQ(Decimal128(1), value.Rescale(new_scale, original_scale));
-      ASSERT_OK_AND_EQ(Decimal128(-1), negative_value.Rescale(new_scale, original_scale));
-    }
-  }
-}
-
-TEST(Decimal128Test, Mod) {
-  ASSERT_EQ(Decimal128(234), Decimal128(20100) % Decimal128(301));
-
-  ASSERT_EQ(Decimal128(-234), Decimal128(-20100) % Decimal128(301));
-
-  ASSERT_EQ(Decimal128(234), Decimal128(20100) % Decimal128(-301));
-
-  ASSERT_EQ(Decimal128(-234), Decimal128(-20100) % Decimal128(-301));
-
-  // Test some random numbers.
-  for (auto x : GetRandomNumbers<Int32Type>(16)) {
-    for (auto y : GetRandomNumbers<Int32Type>(16)) {
-      if (y == 0) {
-        continue;
-      }
-
-      Decimal128 result = Decimal128(x) % Decimal128(y);
-      ASSERT_EQ(Decimal128(static_cast<int64_t>(x) % y), result)
-          << " x: " << x << " y: " << y;
-    }
-  }
-
-  // Test some edge cases
-  for (auto x : std::vector<int128_t>{-INT64_MAX, -INT32_MAX, 0, INT32_MAX, INT64_MAX}) {
-    for (auto y : std::vector<int128_t>{-INT32_MAX, -32, -2, -1, 1, 2, 32, INT32_MAX}) {
-      Decimal128 decimal_x = Decimal128FromInt128(x);
-      Decimal128 decimal_y = Decimal128FromInt128(y);
-      Decimal128 result = decimal_x % decimal_y;
-      EXPECT_EQ(Decimal128FromInt128(x % y), result)
-          << " x: " << decimal_x << " y: " << decimal_y;
-    }
-  }
-}
-
-TEST(Decimal128Test, Sign) {
-  ASSERT_EQ(1, Decimal128(999999).Sign());
-  ASSERT_EQ(-1, Decimal128(-999999).Sign());
-  ASSERT_EQ(1, Decimal128(0).Sign());
-}
-
-TEST(Decimal128Test, GetWholeAndFraction) {
-  Decimal128 value("123456");
-  Decimal128 whole;
-  Decimal128 fraction;
-  int32_t out;
-
-  value.GetWholeAndFraction(0, &whole, &fraction);
-  ASSERT_OK(whole.ToInteger(&out));
-  ASSERT_EQ(123456, out);
-  ASSERT_OK(fraction.ToInteger(&out));
-  ASSERT_EQ(0, out);
-
-  value.GetWholeAndFraction(1, &whole, &fraction);
-  ASSERT_OK(whole.ToInteger(&out));
-  ASSERT_EQ(12345, out);
-  ASSERT_OK(fraction.ToInteger(&out));
-  ASSERT_EQ(6, out);
-
-  value.GetWholeAndFraction(5, &whole, &fraction);
-  ASSERT_OK(whole.ToInteger(&out));
-  ASSERT_EQ(1, out);
-  ASSERT_OK(fraction.ToInteger(&out));
-  ASSERT_EQ(23456, out);
-
-  value.GetWholeAndFraction(7, &whole, &fraction);
-  ASSERT_OK(whole.ToInteger(&out));
-  ASSERT_EQ(0, out);
-  ASSERT_OK(fraction.ToInteger(&out));
-  ASSERT_EQ(123456, out);
-}
-
-TEST(Decimal128Test, GetWholeAndFractionNegative) {
-  Decimal128 value("-123456");
-  Decimal128 whole;
-  Decimal128 fraction;
-  int32_t out;
-
-  value.GetWholeAndFraction(0, &whole, &fraction);
-  ASSERT_OK(whole.ToInteger(&out));
-  ASSERT_EQ(-123456, out);
-  ASSERT_OK(fraction.ToInteger(&out));
-  ASSERT_EQ(0, out);
-
-  value.GetWholeAndFraction(1, &whole, &fraction);
-  ASSERT_OK(whole.ToInteger(&out));
-  ASSERT_EQ(-12345, out);
-  ASSERT_OK(fraction.ToInteger(&out));
-  ASSERT_EQ(-6, out);
-
-  value.GetWholeAndFraction(5, &whole, &fraction);
-  ASSERT_OK(whole.ToInteger(&out));
-  ASSERT_EQ(-1, out);
-  ASSERT_OK(fraction.ToInteger(&out));
-  ASSERT_EQ(-23456, out);
-
-  value.GetWholeAndFraction(7, &whole, &fraction);
-  ASSERT_OK(whole.ToInteger(&out));
-  ASSERT_EQ(0, out);
-  ASSERT_OK(fraction.ToInteger(&out));
-  ASSERT_EQ(-123456, out);
-}
-
-TEST(Decimal128Test, IncreaseScale) {
-  Decimal128 result;
-  int32_t out;
-
-  result = Decimal128("1234").IncreaseScaleBy(0);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(1234, out);
-
-  result = Decimal128("1234").IncreaseScaleBy(3);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(1234000, out);
-
-  result = Decimal128("-1234").IncreaseScaleBy(3);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(-1234000, out);
-}
-
-TEST(Decimal128Test, ReduceScaleAndRound) {
-  Decimal128 result;
-  int32_t out;
-
-  result = Decimal128("123456").ReduceScaleBy(0);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(123456, out);
-
-  result = Decimal128("123456").ReduceScaleBy(1, false);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(12345, out);
-
-  result = Decimal128("123456").ReduceScaleBy(1, true);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(12346, out);
-
-  result = Decimal128("123451").ReduceScaleBy(1, true);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(12345, out);
-
-  result = Decimal128("5").ReduceScaleBy(1, true);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(1, out);
-
-  result = Decimal128("0").ReduceScaleBy(1, true);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(0, out);
-
-  result = Decimal128("-123789").ReduceScaleBy(2, true);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(-1238, out);
-
-  result = Decimal128("-123749").ReduceScaleBy(2, true);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(-1237, out);
-
-  result = Decimal128("-123750").ReduceScaleBy(2, true);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(-1238, out);
-
-  result = Decimal128("-5").ReduceScaleBy(1, true);
-  ASSERT_OK(result.ToInteger(&out));
-  ASSERT_EQ(-1, out);
-}
-
-TEST(Decimal128Test, FitsInPrecision) {
-  ASSERT_TRUE(Decimal128("0").FitsInPrecision(1));
-  ASSERT_TRUE(Decimal128("9").FitsInPrecision(1));
-  ASSERT_TRUE(Decimal128("-9").FitsInPrecision(1));
-  ASSERT_FALSE(Decimal128("10").FitsInPrecision(1));
-  ASSERT_FALSE(Decimal128("-10").FitsInPrecision(1));
-
-  ASSERT_TRUE(Decimal128("0").FitsInPrecision(2));
-  ASSERT_TRUE(Decimal128("10").FitsInPrecision(2));
-  ASSERT_TRUE(Decimal128("-10").FitsInPrecision(2));
-  ASSERT_TRUE(Decimal128("99").FitsInPrecision(2));
-  ASSERT_TRUE(Decimal128("-99").FitsInPrecision(2));
-  ASSERT_FALSE(Decimal128("100").FitsInPrecision(2));
-  ASSERT_FALSE(Decimal128("-100").FitsInPrecision(2));
-
-  ASSERT_TRUE(Decimal128("99999999999999999999999999999999999999").FitsInPrecision(38));
-  ASSERT_TRUE(Decimal128("-99999999999999999999999999999999999999").FitsInPrecision(38));
-  ASSERT_FALSE(Decimal128("100000000000000000000000000000000000000").FitsInPrecision(38));
-  ASSERT_FALSE(
-      Decimal128("-100000000000000000000000000000000000000").FitsInPrecision(38));
 }
 
 TEST(Decimal128Test, LeftShift) {
