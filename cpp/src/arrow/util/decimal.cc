@@ -747,7 +747,8 @@ std::string Decimal128::ToString(int32_t scale) const {
 }
 
 static inline void ShiftAndAdd(std::string_view input, uint32_t* out) {
-  const uint32_t len = std::min(kInt32DecimalDigits + 1, input.size());
+  const uint32_t len =
+      static_cast<uint32_t>(std::min(kInt32DecimalDigits + 1, input.size()));
   if (len == 0) {
     return;
   }
