@@ -110,9 +110,8 @@ struct DecimalRealConversion : public BaseDecimalRealConversion {
       return OverflowError(real, precision, scale);
     }
 
-    if constexpr (std::is_base_of_v<BasicDecimal32, DecimalType> &&
-                  std::is_same_v<Real, double>) {
-      return DecimalType::FromReal(static_cast<float>(real), precision, scale);
+    if constexpr (kMaxPrecision <= kMantissaDigits) {
+      return Derived::FromPositiveRealApprox(real, precision, scale);
     }
 
     // 2. Losslessly convert `real` to `mant * 2**k`
