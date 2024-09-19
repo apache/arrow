@@ -667,8 +667,7 @@ Semantics
 Rather than the producer providing a structure of callbacks for a consumer to
 call and retrieve records, the Async interface is a structure allocated and populated by the consumer.
 The consumer allocated struct provides handler callbacks for the producer to call
-when the schema and chunks of data are available, rather than the consumer using
-a blocking pull-style iteration.
+when the schema and chunks of data are available.
 
 In addition to the ``ArrowAsyncDeviceStreamHandler``, there are also two additional
 structs used for the full data flow: ``ArrowAsyncTask`` and ``ArrowAsyncProducer``.
