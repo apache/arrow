@@ -741,7 +741,7 @@ The structure has the following fields:
 
     Unless the ``on_error`` handler is called, this will always get called exactly once and will be
     the first method called on this object. As such the producer *MUST* provide an ``ArrowAsyncProducer``
-    object when calling this function to allow the consumer to manage back-pressure and flow control.
+    object when calling this function to allow the consumer to apply back-pressure and control the flow of data.
     The producer maintains ownership of the ``ArrowAsyncProducer`` and must clean it up *after*
     calling the release callback on this object.
 
