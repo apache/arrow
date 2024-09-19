@@ -804,14 +804,15 @@ TEST(RowSegmenter, MultipleSegmentsMultipleBatches) {
 namespace {
 
 void TestRowSegmenterConstantBatch(
-    const std::shared_ptr<DataType>& type, std::function<ArgShape(size_t key)> shape_func,
-    std::function<Result<std::shared_ptr<Scalar>>(size_t key)> value_func,
+    const std::shared_ptr<DataType>& type,
+    std::function<ArgShape(int64_t key)> shape_func,
+    std::function<Result<std::shared_ptr<Scalar>>(int64_t key)> value_func,
     std::function<Result<std::unique_ptr<RowSegmenter>>(const std::vector<TypeHolder>&)>
         make_segmenter) {
-  constexpr size_t n_keys = 3, n_rows = 3, repetitions = 3;
+  constexpr int64_t n_keys = 3, n_rows = 3, repetitions = 3;
   std::vector<TypeHolder> types(n_keys, type);
   std::vector<Datum> full_values(n_keys);
-  for (size_t i = 0; i < n_keys; i++) {
+  for (int64_t i = 0; i < n_keys; i++) {
     auto shape = shape_func(i);
     ASSERT_OK_AND_ASSIGN(auto scalar, value_func(i));
     if (shape == ArgShape::SCALAR) {
@@ -820,19 +821,19 @@ void TestRowSegmenterConstantBatch(
       ASSERT_OK_AND_ASSIGN(full_values[i], MakeArrayFromScalar(*scalar, n_rows));
     }
   }
-  auto test_with_keys = [&](size_t keys) -> Status {
+  auto test_with_keys = [&](int64_t keys) -> Status {
     SCOPED_TRACE("constant-batch with " + ToChars(keys) + " key(s)");
     std::vector<Datum> values(full_values.begin(), full_values.begin() + keys);
     ExecBatch batch(values, n_rows);
     std::vector<TypeHolder> key_types(types.begin(), types.begin() + keys);
     ARROW_ASSIGN_OR_RAISE(auto segmenter, make_segmenter(key_types));
-    for (size_t i = 0; i < repetitions; i++) {
+    for (int64_t i = 0; i < repetitions; i++) {
       TestSegments(segmenter, ExecSpan(batch), {{0, n_rows, true, true}});
       ARROW_RETURN_NOT_OK(segmenter->Reset());
     }
     return Status::OK();
   };
-  for (size_t i = 0; i <= n_keys; i++) {
+  for (int64_t i = 0; i <= n_keys; i++) {
     ASSERT_OK(test_with_keys(i));
   }
 }
@@ -841,40 +842,40 @@ void TestRowSegmenterConstantBatch(
 
 TEST(RowSegmenter, ConstantArrayBatch) {
   TestRowSegmenterConstantBatch(
-      int32(), [](size_t key) { return ArgShape::ARRAY; },
-      [](size_t key) { return MakeScalar(1); }, MakeRowSegmenter);
+      int32(), [](int64_t key) { return ArgShape::ARRAY; },
+      [](int64_t key) { return MakeScalar(1); }, MakeRowSegmenter);
 }
 
 TEST(RowSegmenter, ConstantScalarBatch) {
   TestRowSegmenterConstantBatch(
-      int32(), [](size_t key) { return ArgShape::SCALAR; },
-      [](size_t key) { return MakeScalar(1); }, MakeRowSegmenter);
+      int32(), [](int64_t key) { return ArgShape::SCALAR; },
+      [](int64_t key) { return MakeScalar(1); }, MakeRowSegmenter);
 }
 
 TEST(RowSegmenter, ConstantMixedBatch) {
   TestRowSegmenterConstantBatch(
       int32(),
-      [](size_t key) { return key % 2 == 0 ? ArgShape::SCALAR : ArgShape::ARRAY; },
-      [](size_t key) { return MakeScalar(1); }, MakeRowSegmenter);
+      [](int64_t key) { return key % 2 == 0 ? ArgShape::SCALAR : ArgShape::ARRAY; },
+      [](int64_t key) { return MakeScalar(1); }, MakeRowSegmenter);
 }
 
 TEST(RowSegmenter, ConstantArrayBatchWithAnyKeysSegmenter) {
   TestRowSegmenterConstantBatch(
-      int32(), [](size_t key) { return ArgShape::ARRAY; },
-      [](size_t key) { return MakeScalar(1); }, MakeGenericSegmenter);
+      int32(), [](int64_t key) { return ArgShape::ARRAY; },
+      [](int64_t key) { return MakeScalar(1); }, MakeGenericSegmenter);
 }
 
 TEST(RowSegmenter, ConstantScalarBatchWithAnyKeysSegmenter) {
   TestRowSegmenterConstantBatch(
-      int32(), [](size_t key) { return ArgShape::SCALAR; },
-      [](size_t key) { return MakeScalar(1); }, MakeGenericSegmenter);
+      int32(), [](int64_t key) { return ArgShape::SCALAR; },
+      [](int64_t key) { return MakeScalar(1); }, MakeGenericSegmenter);
 }
 
 TEST(RowSegmenter, ConstantMixedBatchWithAnyKeysSegmenter) {
   TestRowSegmenterConstantBatch(
       int32(),
-      [](size_t key) { return key % 2 == 0 ? ArgShape::SCALAR : ArgShape::ARRAY; },
-      [](size_t key) { return MakeScalar(1); }, MakeGenericSegmenter);
+      [](int64_t key) { return key % 2 == 0 ? ArgShape::SCALAR : ArgShape::ARRAY; },
+      [](int64_t key) { return MakeScalar(1); }, MakeGenericSegmenter);
 }
 
 TEST(RowSegmenter, ConstantFixedSizeBinaryArrayBatch) {
@@ -882,8 +883,8 @@ TEST(RowSegmenter, ConstantFixedSizeBinaryArrayBatch) {
   auto type = fixed_size_binary(fsb);
   ASSERT_OK_AND_ASSIGN(auto value, MakeScalar(type, std::string(fsb, 'X')));
   TestRowSegmenterConstantBatch(
-      type, [](size_t key) { return ArgShape::ARRAY; }, [&](size_t key) { return value; },
-      MakeRowSegmenter);
+      type, [](int64_t key) { return ArgShape::ARRAY; },
+      [&](int64_t key) { return value; }, MakeRowSegmenter);
 }
 
 TEST(RowSegmenter, ConstantFixedSizeBinaryScalarBatch) {
@@ -891,8 +892,8 @@ TEST(RowSegmenter, ConstantFixedSizeBinaryScalarBatch) {
   auto type = fixed_size_binary(fsb);
   ASSERT_OK_AND_ASSIGN(auto value, MakeScalar(type, std::string(fsb, 'X')));
   TestRowSegmenterConstantBatch(
-      fixed_size_binary(8), [](size_t key) { return ArgShape::SCALAR; },
-      [&](size_t key) { return value; }, MakeRowSegmenter);
+      fixed_size_binary(8), [](int64_t key) { return ArgShape::SCALAR; },
+      [&](int64_t key) { return value; }, MakeRowSegmenter);
 }
 
 TEST(RowSegmenter, ConstantFixedSizeBinaryMixedBatch) {
@@ -901,8 +902,8 @@ TEST(RowSegmenter, ConstantFixedSizeBinaryMixedBatch) {
   ASSERT_OK_AND_ASSIGN(auto value, MakeScalar(type, std::string(fsb, 'X')));
   TestRowSegmenterConstantBatch(
       fixed_size_binary(8),
-      [](size_t key) { return key % 2 == 0 ? ArgShape::SCALAR : ArgShape::ARRAY; },
-      [&](size_t key) { return value; }, MakeRowSegmenter);
+      [](int64_t key) { return key % 2 == 0 ? ArgShape::SCALAR : ArgShape::ARRAY; },
+      [&](int64_t key) { return value; }, MakeRowSegmenter);
 }
 
 TEST(RowSegmenter, ConstantDictionaryArrayBatch) {
@@ -913,8 +914,8 @@ TEST(RowSegmenter, ConstantDictionaryArrayBatch) {
   ASSERT_OK_AND_ASSIGN(auto index_value, MakeScalar(index_type, 0));
   auto dict_value = DictionaryScalar::Make(std::move(index_value), dict);
   TestRowSegmenterConstantBatch(
-      dict_type, [](size_t key) { return ArgShape::ARRAY; },
-      [&](size_t key) { return dict_value; }, MakeRowSegmenter);
+      dict_type, [](int64_t key) { return ArgShape::ARRAY; },
+      [&](int64_t key) { return dict_value; }, MakeRowSegmenter);
 }
 
 TEST(RowSegmenter, ConstantDictionaryScalarBatch) {
@@ -925,8 +926,8 @@ TEST(RowSegmenter, ConstantDictionaryScalarBatch) {
   ASSERT_OK_AND_ASSIGN(auto index_value, MakeScalar(index_type, 0));
   auto dict_value = DictionaryScalar::Make(std::move(index_value), dict);
   TestRowSegmenterConstantBatch(
-      dict_type, [](size_t key) { return ArgShape::SCALAR; },
-      [&](size_t key) { return dict_value; }, MakeRowSegmenter);
+      dict_type, [](int64_t key) { return ArgShape::SCALAR; },
+      [&](int64_t key) { return dict_value; }, MakeRowSegmenter);
 }
 
 TEST(RowSegmenter, ConstantDictionaryMixedBatch) {
@@ -938,8 +939,8 @@ TEST(RowSegmenter, ConstantDictionaryMixedBatch) {
   auto dict_value = DictionaryScalar::Make(std::move(index_value), dict);
   TestRowSegmenterConstantBatch(
       dict_type,
-      [](size_t key) { return key % 2 == 0 ? ArgShape::SCALAR : ArgShape::ARRAY; },
-      [&](size_t key) { return dict_value; }, MakeRowSegmenter);
+      [](int64_t key) { return key % 2 == 0 ? ArgShape::SCALAR : ArgShape::ARRAY; },
+      [&](int64_t key) { return dict_value; }, MakeRowSegmenter);
 }
 
 TEST(RowSegmenter, RowConstantBatch) {
