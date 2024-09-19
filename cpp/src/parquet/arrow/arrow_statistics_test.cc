@@ -248,6 +248,10 @@ void TestStatisticsReadArray(std::shared_ptr<::arrow::DataType> arrow_type) {
 }
 }  // namespace
 
+TEST(TestStatisticsRead, Boolean) {
+  TestStatisticsReadArray<::arrow::BooleanType, bool>(::arrow::boolean());
+}
+
 TEST(TestStatisticsRead, Int8) {
   TestStatisticsReadArray<::arrow::Int8Type, int64_t>(::arrow::int8());
 }
