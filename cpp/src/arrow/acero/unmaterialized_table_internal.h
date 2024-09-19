@@ -21,6 +21,7 @@
 #include <vector>
 #include "arrow/array/builder_base.h"
 #include "arrow/array/builder_binary.h"
+#include "arrow/array/builder_nested.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
@@ -112,6 +113,7 @@ class UnmaterializedCompositeTable {
         MATERIALIZE_CASE(LARGE_STRING)
         MATERIALIZE_CASE(BINARY)
         MATERIALIZE_CASE(LARGE_BINARY)
+        MATERIALIZE_CASE(FIXED_SIZE_LIST)
         default:
           return arrow::Status::Invalid("Unsupported data type ",
                                         field->type()->ToString(), " for field ",
@@ -165,44 +167,74 @@ class UnmaterializedCompositeTable {
     num_rows += slice.Size();
   }
 
-  template <class Type, class Builder = typename TypeTraits<Type>::BuilderType>
-  enable_if_boolean<Type, Status> static BuilderAppend(
-      Builder& builder, const std::shared_ptr<ArrayData>& source, uint64_t row) {
-    if (source->IsNull(row)) {
-      builder.UnsafeAppendNull();
-      return Status::OK();
-    }
-    builder.UnsafeAppend(bit_util::GetBit(source->template GetValues<uint8_t>(1), row));
-    return Status::OK();
-  }
+  /*
+   template <class Type, class Builder = typename TypeTraits<Type>::BuilderType>
+   enable_if_boolean<Type, Status> static BuilderAppend(
+       Builder& builder, const std::shared_ptr<ArrayData>& source, uint64_t row) {
+     if (source->IsNull(row)) {
+       builder.UnsafeAppendNull();
+       return Status::OK();
+     }
+     builder.UnsafeAppend(bit_util::GetBit(source->template GetValues<uint8_t>(1), row));
+     return Status::OK();
+   }
 
-  template <class Type, class Builder = typename TypeTraits<Type>::BuilderType>
-  enable_if_t<is_fixed_width_type<Type>::value && !is_boolean_type<Type>::value,
-              Status> static BuilderAppend(Builder& builder,
-                                           const std::shared_ptr<ArrayData>& source,
-                                           uint64_t row) {
-    if (source->IsNull(row)) {
-      builder.UnsafeAppendNull();
-      return Status::OK();
-    }
-    using CType = typename TypeTraits<Type>::CType;
-    builder.UnsafeAppend(source->template GetValues<CType>(1)[row]);
-    return Status::OK();
-  }
+   template <class Type, class Builder = typename TypeTraits<Type>::BuilderType>
+   enable_if_t<is_fixed_width_type<Type>::value && !is_boolean_type<Type>::value,
+               Status> static BuilderAppend(Builder& builder,
+                                            const std::shared_ptr<ArrayData>& source,
+                                            uint64_t row) {
+     if (source->IsNull(row)) {
+       builder.UnsafeAppendNull();
+       return Status::OK();
+     }
+     using CType = typename TypeTraits<Type>::CType;
+     builder.UnsafeAppend(source->template GetValues<CType>(1)[row]);
+     return Status::OK();
+   }
 
-  template <class Type, class Builder = typename TypeTraits<Type>::BuilderType>
-  enable_if_base_binary<Type, Status> static BuilderAppend(
-      Builder& builder, const std::shared_ptr<ArrayData>& source, uint64_t row) {
-    if (source->IsNull(row)) {
-      return builder.AppendNull();
-    }
-    using offset_type = typename Type::offset_type;
-    const uint8_t* data = source->buffers[2]->data();
-    const offset_type* offsets = source->GetValues<offset_type>(1);
-    const offset_type offset0 = offsets[row];
-    const offset_type offset1 = offsets[row + 1];
-    return builder.Append(data + offset0, offset1 - offset0);
-  }
+   template <class Type, class Builder = typename TypeTraits<Type>::BuilderType>
+   enable_if_base_binary<Type, Status> static BuilderAppend(
+       Builder& builder, const std::shared_ptr<ArrayData>& source, uint64_t row) {
+     if (source->IsNull(row)) {
+       return builder.AppendNull();
+     }
+     using offset_type = typename Type::offset_type;
+     const uint8_t* data = source->buffers[2]->data();
+     const offset_type* offsets = source->GetValues<offset_type>(1);
+     const offset_type offset0 = offsets[row];
+     const offset_type offset1 = offsets[row + 1];
+     return builder.Append(data + offset0, offset1 - offset0);
+   }
+
+
+   template <class Type, class Builder = typename TypeTraits<Type>::BuilderType>
+   enable_if_t<is_fixed_size_list_type<Type>::value,
+               Status> static BuilderAppend(Builder& builder,
+                                            const std::shared_ptr<ArrayData>& source,
+                                            uint64_t row) {
+     //if (source->IsNull(row)) {
+     //  builder.UnsafeAppendNull();
+     //  return Status::OK();
+     //}
+
+         return builder.AppendArraySlice(*source,row,1);
+
+         //builder.Append();
+
+         //const int32_t list_size = internal::checked_cast<const
+ FixedSizeListType*>(builder.type().get())->list_size();
+         //builder.value_builder()
+         //FixedSizeListBuilder*
+ value_builder=internal::checked_cast<FixedSizeListBuilder*>();
+
+         //for(uint64_t i=0;i<list_size;++i){
+ //		value_builder.AppendScalar();
+ //	}
+     //using CType = typename TypeTraits<Type>::CType;
+     //builder.UnsafeAppend(source->template GetValues<CType>(1)[row]);
+     //return Status::OK();
+   }*/
 
   template <class Type, class Builder = typename arrow::TypeTraits<Type>::BuilderType>
   arrow::Result<std::shared_ptr<arrow::Array>> materializeColumn(
@@ -216,11 +248,14 @@ class UnmaterializedCompositeTable {
     for (const auto& unmaterialized_slice : slices) {
       const auto& [batch, start, end] = unmaterialized_slice.components[table_index];
       if (batch) {
-        for (uint64_t rowNum = start; rowNum < end; ++rowNum) {
-          arrow::Status st = BuilderAppend<Type, Builder>(
-              builder, batch->column_data(column_index), rowNum);
-          ARROW_RETURN_NOT_OK(st);
-        }
+        arrow::Status st = builder.AppendArraySlice(*batch->column_data(column_index),
+                                                    start, end - start);
+        ARROW_RETURN_NOT_OK(st);
+        // for (uint64_t rowNum = start; rowNum < end; ++rowNum) {
+        //   arrow::Status st = BuilderAppend<Type, Builder>(
+        //       builder, batch->column_data(column_index), rowNum);
+        //   ARROW_RETURN_NOT_OK(st);
+        // }
       } else {
         for (uint64_t rowNum = start; rowNum < end; ++rowNum) {
           ARROW_RETURN_NOT_OK(builder.AppendNull());
