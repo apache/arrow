@@ -1767,19 +1767,19 @@ bool LogicalType::Impl::Geometry::Equals(const LogicalType& other) const {
 }
 
 const std::string& GeometryLogicalType::crs() const {
-  return (checked_cast<const LogicalType::Impl::Geometry&>(*impl_)).crs();
+  return (dynamic_cast<const LogicalType::Impl::Geometry&>(*impl_)).crs();
 }
 
 LogicalType::GeometryEdges::edges GeometryLogicalType::edges() const {
-  return (checked_cast<const LogicalType::Impl::Geometry&>(*impl_)).edges();
+  return (dynamic_cast<const LogicalType::Impl::Geometry&>(*impl_)).edges();
 }
 
 LogicalType::GeometryEncoding::geometry_encoding GeometryLogicalType::encoding() const {
-  return (checked_cast<const LogicalType::Impl::Geometry&>(*impl_)).encoding();
+  return (dynamic_cast<const LogicalType::Impl::Geometry&>(*impl_)).encoding();
 }
 
 const std::string& GeometryLogicalType::metadata() const {
-  return (checked_cast<const LogicalType::Impl::Geometry&>(*impl_)).metadata();
+  return (dynamic_cast<const LogicalType::Impl::Geometry&>(*impl_)).metadata();
 }
 
 std::shared_ptr<const LogicalType> GeometryLogicalType::Make(

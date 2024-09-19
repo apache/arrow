@@ -169,8 +169,7 @@ class GeometryStatisticsImpl {
     out.mmin = mins[3];
     out.mmax = maxes[3];
 
-    if (coverings_.empty()) {
-      // Generate coverings from bounding box if coverings is not present
+    if (generate_coverings_) {
       std::string kind = "WKB";
       std::string value =
           geometry::MakeCoveringWKBFromBound(out.xmin, out.xmax, out.ymin, out.ymax);
@@ -186,6 +185,11 @@ class GeometryStatisticsImpl {
     if (!is_valid_) {
       return;
     }
+
+    // Don't generate coverings when encoding since this statistics object is
+    // initialized from an encoded geometry statistics. We'll simply use the
+    // coverings in the encoded geometry statistics.
+    generate_coverings_ = false;
 
     geometry::BoundingBox box;
     box.min[0] = encoded.xmin;
@@ -218,7 +222,6 @@ class GeometryStatisticsImpl {
       }
     } catch (ParquetException&) {
       is_valid_ = false;
-      return;
     }
   }
 
@@ -238,6 +241,7 @@ class GeometryStatisticsImpl {
   geometry::WKBGeometryBounder bounder_;
   std::vector<std::pair<std::string, std::string>> coverings_;
   bool is_valid_ = true;
+  bool generate_coverings_ = true;
 };
 
 GeometryStatistics::GeometryStatistics() {
