@@ -743,7 +743,7 @@ The structure has the following fields:
     the first method called on this object. As such the producer *MUST* provide an ``ArrowAsyncProducer``
     object when calling this function to allow the consumer to apply back-pressure and control the flow of data.
     The producer maintains ownership of the ``ArrowAsyncProducer`` and must clean it up *after*
-    calling the release callback on this object.
+    calling the release callback on the ``ArrowAsyncDeviceStreamHandler``.
 
     A producer that receives a non-zero result here must not subsequently call anything other than
     the release callback on this object.
