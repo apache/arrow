@@ -853,7 +853,6 @@ LogicalType::Type::type LogicalTypeId(const ColumnDescriptor* descr) {
   }
   return LogicalType::Type::NONE;
 }
-
 LogicalType::Type::type LogicalTypeId(const Statistics& stats) {
   return LogicalTypeId(stats.descr());
 }
@@ -1331,12 +1330,7 @@ std::shared_ptr<Comparator> DoMakeComparator(Type::type physical_type,
         ParquetException::NYI("Unsigned Compare not implemented");
     }
   } else {
-    if (logical_type == LogicalType::Type::GEOMETRY &&
-        physical_type == Type::BYTE_ARRAY) {
-      return std::make_shared<TypedComparatorImpl<false, ByteArrayType>>();
-    } else {
-      throw ParquetException("UNKNOWN Sort Order");
-    }
+    throw ParquetException("UNKNOWN Sort Order");
   }
   return nullptr;
 }
