@@ -729,7 +729,7 @@ The structure has the following fields:
 
 .. c:member:: int (*ArrowAsyncDeviceStreamHandler.on_schema)(struct ArrowAsyncDeviceStreamHandler*, struct ArrowAsyncProducer*, struct ArrowSchema*, const char*)
 
-    *Mandatory.* Handler for receiving the schema of the stream. All records should
+    *Mandatory.* Handler for receiving the schema of the stream. All incoming records should
     match the provided schema. If successful, the function should return 0, otherwise
     it should return an ``errno``-compatible error code.
 
