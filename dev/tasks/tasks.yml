@@ -1509,6 +1509,8 @@ tasks:
     ci: github
     template: docker-tests/github.cuda.yml
     params:
+      env:
+        UBUNTU: 20.04
       image: ubuntu-cuda-cpp
 
   test-cuda-cpp-ubuntu-22.04-cuda-11.7.1:
