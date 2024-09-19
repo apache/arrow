@@ -657,13 +657,44 @@ class WKBGeometryBounder {
   std::unordered_set<int32_t> geometry_types_;
 };
 
+#if defined(ARROW_LITTLE_ENDIAN)
+static constexpr int kWkbNativeEndianness = geometry::WKBBuffer::WKB_LITTLE_ENDIAN;
+#else
+static constexpr int kWkbNativeEndianness = geometry::WKBBuffer::WKB_BIG_ENDIAN;
+#endif
+
+static inline std::string MakeWKBPoint(const double* xyzm, bool has_z, bool has_m) {
+  // 1:endianness + 4:type + 8:x + 8:y
+  int num_bytes = 21 + (has_z ? 8 : 0) + (has_m ? 8 : 0);
+  std::string wkb(num_bytes, 0);
+  char* ptr = wkb.data();
+
+  ptr[0] = kWkbNativeEndianness;
+  uint32_t geom_type = geometry::GeometryType::ToWKB(
+      geometry::GeometryType::geometry_type::POINT, has_z, has_m);
+  memcpy(&ptr[1], &geom_type, 4);
+  memcpy(&ptr[5], &xyzm[0], 8);
+  memcpy(&ptr[13], &xyzm[1], 8);
+  ptr += 21;
+
+  if (has_z) {
+    memcpy(ptr, &xyzm[2], 8);
+    ptr += 8;
+  }
+  if (has_m) {
+    memcpy(ptr, &xyzm[3], 8);
+  }
+
+  return wkb;
+}
+
 static inline std::string MakeCoveringWKBFromBound(double xmin, double xmax, double ymin,
                                                    double ymax) {
   std::string wkb_data(93, 0);
 
   // endianness and header
   auto data = reinterpret_cast<uint8_t*>(wkb_data.data());
-  data[0] = ARROW_LITTLE_ENDIAN;
+  data[0] = kWkbNativeEndianness;
   uint32_t wkb_type = 3;  // POLYGON
   memcpy(&data[1], &wkb_type, 4);
 

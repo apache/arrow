@@ -844,14 +844,10 @@ static constexpr int kWkbNativeEndianness = geometry::WKBBuffer::WKB_BIG_ENDIAN;
 
 static constexpr int kWkbPointSize = 21;  // 1:endianness + 4:type + 8:x + 8:y
 
-inline int GenerateWKBPoint(uint8_t* ptr, double x, double y) {
-  ptr[0] = kWkbNativeEndianness;
-  uint32_t geom_type = geometry::GeometryType::ToWKB(
-      geometry::GeometryType::geometry_type::POINT, false, false);
-  memcpy(&ptr[1], &geom_type, 4);
-  memcpy(&ptr[5], &x, 8);
-  memcpy(&ptr[13], &y, 8);
-  return kWkbPointSize;
+inline void GenerateWKBPoint(uint8_t* ptr, double x, double y) {
+  double xyzm[] = {x, y, geometry::kInf, geometry::kInf};
+  std::string wkb = geometry::MakeWKBPoint(xyzm, false, false);
+  memcpy(ptr, wkb.data(), kWkbPointSize);
 }
 
 inline bool GetWKBPointCoordinate(const ByteArray& value, double* out_x, double* out_y) {
