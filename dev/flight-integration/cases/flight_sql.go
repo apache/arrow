@@ -454,29 +454,11 @@ func boolTypeTable(b *flatbuffers.Builder) (flatbuffers.UOffsetT, flatbuffers.UO
 }
 
 func createParamsTypeTable(b *flatbuffers.Builder) (flatbuffers.UOffsetT, flatbuffers.UOffsetT) {
-	childOffset := buildFlatbufferField(b, field{Name: "item", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable})
-
-	flatbuf.ListStart(b)
-	listOffset := flatbuf.ListEnd(b)
-
-	flatbuf.FieldStartChildrenVector(b, 1)
-	b.PrependUOffsetT(childOffset)
-	childVecOffset := b.EndVector(1)
-
-	return listOffset, childVecOffset
+	return listTypeTable(b, field{Name: "item", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable})
 }
 
 func int32ListTypeTable(b *flatbuffers.Builder) (flatbuffers.UOffsetT, flatbuffers.UOffsetT) {
-	childOffset := buildFlatbufferField(b, field{Name: "item", Type: flatbuf.TypeInt, GetTypeTable: int32TypeTable, Nullable: true}) // TODO: nullable?
-
-	flatbuf.ListStart(b)
-	listOffset := flatbuf.ListEnd(b)
-
-	flatbuf.FieldStartChildrenVector(b, 1)
-	b.PrependUOffsetT(childOffset)
-	childVecOffset := b.EndVector(1)
-
-	return listOffset, childVecOffset
+	return listTypeTable(b, field{Name: "item", Type: flatbuf.TypeInt, GetTypeTable: int32TypeTable, Nullable: true})
 }
 
 func listTypeTable(b *flatbuffers.Builder, child field) (flatbuffers.UOffsetT, flatbuffers.UOffsetT) {
