@@ -98,9 +98,6 @@ groups:
   ruby:
     - test-*ruby*
 
-  go:
-    - test*-go-*
-
   vcpkg:
     - test-*vcpkg*
     - wheel-*
@@ -920,7 +917,6 @@ tasks:
                                  ("ubuntu", "22.04")] %}
   {% for target in ["cpp",
                     "csharp",
-                    "go",
                     "integration",
                     "java",
                     "js",
@@ -973,7 +969,6 @@ tasks:
 
   {% for target in ["cpp",
                     "csharp",
-                    "go",
                     "integration",
                     "java",
                     "js",
@@ -989,7 +984,6 @@ tasks:
 
   {% for target in ["cpp",
                     "csharp",
-                    "go",
                     "integration",
                     "js",
                     "python",
@@ -1495,18 +1489,6 @@ tasks:
       env:
         R_PRUNE_DEPS: TRUE
       image: r-clang-sanitizer
-
-  {% for go_version, staticcheck in [("1.22", "v0.5.1"), ("1.23", "latest")] %}
-  test-debian-12-go-{{ go_version }}:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      env:
-        DEBIAN: 12
-        GO: "{{go_version}}"
-        STATICCHECK: "{{ staticcheck }}"
-      image: debian-go
-  {% endfor %}
 
   # be sure to update binary-task.rb when upgrading Debian
   test-debian-12-docs:
