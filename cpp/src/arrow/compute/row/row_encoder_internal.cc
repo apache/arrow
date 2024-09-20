@@ -305,6 +305,18 @@ void RowEncoder::Init(const std::vector<TypeHolder>& column_types, ExecContext* 
     ARROW_DCHECK(false);
   }
 
+  // Decide if the row is fixed width
+  int32_t fixed_length_accum = 0;
+  for (size_t i = 0; i < column_types.size(); ++i) {
+    auto encoder_info = encoders_[i]->GetEncoderInfo();
+    if (!encoder_info.is_fixed_width) {
+      fixed_length_accum = kInvalidFixedWidthOffset;
+      break;
+    }
+    fixed_length_accum += encoder_info.fixed_width;
+  }
+  this->fixed_width_length_ = fixed_length_accum;
+
   int32_t total_length = 0;
   for (size_t i = 0; i < column_types.size(); ++i) {
     encoders_[i]->AddLengthNull(&total_length);
@@ -319,9 +331,42 @@ void RowEncoder::Init(const std::vector<TypeHolder>& column_types, ExecContext* 
 void RowEncoder::Clear() {
   offsets_.clear();
   bytes_.clear();
+  fixed_width_row_count_ = 0;
+}
+
+Status RowEncoder::EncodeAndAppendForFixedWidth(const ExecSpan& batch) {
+  size_t length_before =
+      static_cast<size_t>(this->fixed_width_length_) * this->fixed_width_row_count_;
+  ARROW_CHECK_EQ(length_before, bytes_.size());
+#ifndef NDEBUG
+  {
+    int32_t accum_length = 0;
+    std::vector<int32_t> lengthes(batch.length, 0);
+    for (int i = 0; i < batch.num_values(); ++i) {
+      encoders_[i]->AddLength(batch[i], batch.length, lengthes.data());
+    }
+    for (int i = 0; i < batch.length; ++i) {
+      accum_length += lengthes[i];
+    }
+    ARROW_CHECK_EQ(accum_length, this->fixed_width_length_ * batch.length);
+  }
+#endif
+  bytes_.resize(length_before + batch.length * this->fixed_width_length_);
+  std::vector<uint8_t*> buf_ptrs(batch.length);
+  for (int64_t i = 0; i < batch.length; ++i) {
+    buf_ptrs[i] = bytes_.data() + length_before + i * fixed_width_length_;
+  }
+  fixed_width_row_count_ += batch.length;
+  for (int i = 0; i < batch.num_values(); ++i) {
+    RETURN_NOT_OK(encoders_[i]->Encode(batch[i], batch.length, buf_ptrs.data()));
+  }
+  return Status::OK();
 }
 
 Status RowEncoder::EncodeAndAppend(const ExecSpan& batch) {
+  if (IsFixedWidth()) {
+    return EncodeAndAppendForFixedWidth(batch);
+  }
   if (offsets_.empty()) {
     offsets_.resize(1);
     offsets_[0] = 0;
@@ -359,9 +404,18 @@ Result<ExecBatch> RowEncoder::Decode(int64_t num_rows, const int32_t* row_ids) {
   ExecBatch out({}, num_rows);
 
   std::vector<uint8_t*> buf_ptrs(num_rows);
-  for (int64_t i = 0; i < num_rows; ++i) {
-    buf_ptrs[i] = (row_ids[i] == kRowIdForNulls()) ? encoded_nulls_.data()
-                                                   : bytes_.data() + offsets_[row_ids[i]];
+  if (IsFixedWidth()) {
+    for (int64_t i = 0; i < num_rows; ++i) {
+      buf_ptrs[i] = (row_ids[i] == kRowIdForNulls())
+                        ? encoded_nulls_.data()
+                        : bytes_.data() + fixed_width_length_ * row_ids[i];
+    }
+  } else {
+    for (int64_t i = 0; i < num_rows; ++i) {
+      buf_ptrs[i] = (row_ids[i] == kRowIdForNulls())
+                        ? encoded_nulls_.data()
+                        : bytes_.data() + offsets_[row_ids[i]];
+    }
   }
 
   out.values.resize(encoders_.size());
