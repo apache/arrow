@@ -1065,6 +1065,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
           geometry_statistics_ = std::make_unique<GeometryStatistics>();
         }
         geometry_statistics_->Update(values);
+        SetGeometryMinMax();
       } else {
         SetMinMaxPair(comparator_->GetMinMax(values));
       }
@@ -1109,11 +1110,6 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     }
     if (HasGeometryStatistics() && geometry_statistics_->is_valid()) {
       s.set_geometry(geometry_statistics_->Encode());
-
-      // Override min and max with the WKB representation of lower-left corner
-      // and upper-right corner
-      s.set_min(geometry_statistics_->EncodeMin());
-      s.set_max(geometry_statistics_->EncodeMax());
     }
     return s;
   }
@@ -1187,6 +1183,9 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
       Copy(comparator_->Compare(max_, max) ? max : max_, &max_, max_buffer_.get());
     }
   }
+
+  // Set the minimum and maximum values for geometry columns.
+  void SetGeometryMinMax();
 };
 
 template <>
@@ -1223,6 +1222,24 @@ inline void TypedStatisticsImpl<ByteArrayType>::Copy(const ByteArray& src, ByteA
 }
 
 template <typename DType>
+void TypedStatisticsImpl<DType>::SetGeometryMinMax() {}
+
+template <>
+void TypedStatisticsImpl<ByteArrayType>::SetGeometryMinMax() {
+  DCHECK_EQ(logical_type_, LogicalType::Type::GEOMETRY);
+
+  if (HasGeometryStatistics() && geometry_statistics_->is_valid()) {
+    std::string min = geometry_statistics_->EncodeMin();
+    std::string max = geometry_statistics_->EncodeMax();
+    Copy(ByteArray(min), &min_, min_buffer_.get());
+    Copy(ByteArray(max), &max_, max_buffer_.get());
+    has_min_max_ = true;
+  } else {
+    has_min_max_ = false;
+  }
+}
+
+template <typename DType>
 void TypedStatisticsImpl<DType>::Update(const T* values, int64_t num_values,
                                         int64_t null_count) {
   DCHECK_GE(num_values, 0);
@@ -1239,6 +1256,7 @@ void TypedStatisticsImpl<DType>::Update(const T* values, int64_t num_values,
         geometry_statistics_ = std::make_unique<GeometryStatistics>();
       }
       geometry_statistics_->Update(values, num_values, null_count);
+      SetGeometryMinMax();
     } else {
       SetMinMaxPair(comparator_->GetMinMax(values, num_values));
     }
@@ -1267,6 +1285,7 @@ void TypedStatisticsImpl<DType>::UpdateSpaced(const T* values, const uint8_t* va
       }
       geometry_statistics_->UpdateSpaced(values, valid_bits, valid_bits_offset,
                                          num_spaced_values, num_values, null_count);
+      SetGeometryMinMax();
     } else {
       SetMinMaxPair(comparator_->GetMinMaxSpaced(values, num_spaced_values, valid_bits,
                                                  valid_bits_offset));
