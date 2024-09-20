@@ -1178,7 +1178,6 @@ test_that("str_sub", {
       collect(),
     df
   )
-  
   compare_dplyr_binding(
     .input %>%
       mutate(
