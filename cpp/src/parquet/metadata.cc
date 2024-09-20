@@ -94,29 +94,29 @@ static std::shared_ptr<Statistics> MakeTypedColumnStats(
     const format::ColumnMetaData& metadata, const ColumnDescriptor* descr) {
   // If ColumnOrder is defined, return max_value and min_value
   EncodedGeometryStatistics encoded_geometry_stats;
+  const EncodedGeometryStatistics* geometry_statistics = nullptr;
   if (metadata.statistics.__isset.geometry_stats) {
     encoded_geometry_stats = FromThrift(metadata.statistics.geometry_stats);
+    geometry_statistics = &encoded_geometry_stats;
   }
   if (descr->column_order().get_order() == ColumnOrder::TYPE_DEFINED_ORDER) {
     return MakeStatistics<DType>(
         descr, metadata.statistics.min_value, metadata.statistics.max_value,
         metadata.num_values - metadata.statistics.null_count,
         metadata.statistics.null_count, metadata.statistics.distinct_count,
-        encoded_geometry_stats,
         metadata.statistics.__isset.max_value && metadata.statistics.__isset.min_value,
         metadata.statistics.__isset.null_count,
-        metadata.statistics.__isset.distinct_count,
-        metadata.statistics.__isset.geometry_stats);
+        metadata.statistics.__isset.distinct_count, ::arrow::default_memory_pool(),
+        geometry_statistics);
   }
   // Default behavior
   return MakeStatistics<DType>(
       descr, metadata.statistics.min, metadata.statistics.max,
       metadata.num_values - metadata.statistics.null_count,
       metadata.statistics.null_count, metadata.statistics.distinct_count,
-      encoded_geometry_stats,
       metadata.statistics.__isset.max && metadata.statistics.__isset.min,
       metadata.statistics.__isset.null_count, metadata.statistics.__isset.distinct_count,
-      metadata.statistics.__isset.geometry_stats);
+      ::arrow::default_memory_pool(), geometry_statistics);
 }
 
 std::shared_ptr<Statistics> MakeColumnStats(const format::ColumnMetaData& meta_data,

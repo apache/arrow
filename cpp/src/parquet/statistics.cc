@@ -910,7 +910,8 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   TypedStatisticsImpl(const ColumnDescriptor* descr, const std::string& encoded_min,
                       const std::string& encoded_max, int64_t num_values,
                       int64_t null_count, int64_t distinct_count, bool has_min_max,
-                      bool has_null_count, bool has_distinct_count, MemoryPool* pool)
+                      bool has_null_count, bool has_distinct_count, MemoryPool* pool,
+                      const EncodedGeometryStatistics* geometry_statistics)
       : TypedStatisticsImpl(descr, pool) {
     TypedStatisticsImpl::IncrementNumValues(num_values);
     if (has_null_count) {
@@ -931,21 +932,10 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
       PlainDecode(encoded_max, &max_);
     }
     has_min_max_ = has_min_max;
-  }
 
-  // Create stats from a thrift Statistics object.
-  TypedStatisticsImpl(const ColumnDescriptor* descr, const std::string& encoded_min,
-                      const std::string& encoded_max, int64_t num_values,
-                      int64_t null_count, int64_t distinct_count,
-                      const EncodedGeometryStatistics& geometry_statistics,
-                      bool has_min_max, bool has_null_count, bool has_distinct_count,
-                      bool has_geometry_statistics, MemoryPool* pool)
-      : TypedStatisticsImpl(descr, encoded_min, encoded_max, num_values, null_count,
-                            distinct_count, has_min_max, has_null_count,
-                            has_distinct_count, pool) {
-    if (has_geometry_statistics) {
+    if (geometry_statistics != nullptr) {
       geometry_statistics_ = std::make_shared<GeometryStatistics>();
-      geometry_statistics_->Decode(geometry_statistics);
+      geometry_statistics_->Decode(*geometry_statistics);
     }
   }
 
@@ -1437,26 +1427,29 @@ std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,
                                              int64_t num_values,
                                              ::arrow::MemoryPool* pool) {
   DCHECK(encoded_stats != nullptr);
+
+  const EncodedGeometryStatistics* geometry_statistics = nullptr;
+  if (encoded_stats->has_geometry_statistics) {
+    geometry_statistics = &encoded_stats->geometry_statistics();
+  }
   return Make(descr, encoded_stats->min(), encoded_stats->max(), num_values,
               encoded_stats->null_count, encoded_stats->distinct_count,
-              encoded_stats->geometry_statistics(),
               encoded_stats->has_min && encoded_stats->has_max,
-              encoded_stats->has_null_count, encoded_stats->has_distinct_count,
-              encoded_stats->has_geometry_statistics, pool);
+              encoded_stats->has_null_count, encoded_stats->has_distinct_count, pool,
+              geometry_statistics);
 }
 
-std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,
-                                             const std::string& encoded_min,
-                                             const std::string& encoded_max,
-                                             int64_t num_values, int64_t null_count,
-                                             int64_t distinct_count, bool has_min_max,
-                                             bool has_null_count, bool has_distinct_count,
-                                             ::arrow::MemoryPool* pool) {
+std::shared_ptr<Statistics> Statistics::Make(
+    const ColumnDescriptor* descr, const std::string& encoded_min,
+    const std::string& encoded_max, int64_t num_values, int64_t null_count,
+    int64_t distinct_count, bool has_min_max, bool has_null_count,
+    bool has_distinct_count, ::arrow::MemoryPool* pool,
+    const EncodedGeometryStatistics* geometry_statistics) {
 #define MAKE_STATS(CAP_TYPE, KLASS)                                              \
   case Type::CAP_TYPE:                                                           \
     return std::make_shared<TypedStatisticsImpl<KLASS>>(                         \
         descr, encoded_min, encoded_max, num_values, null_count, distinct_count, \
-        has_min_max, has_null_count, has_distinct_count, pool)
+        has_min_max, has_null_count, has_distinct_count, pool, geometry_statistics)
 
   switch (descr->physical_type()) {
     MAKE_STATS(BOOLEAN, BooleanType);
@@ -1472,23 +1465,6 @@ std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,
 #undef MAKE_STATS
   DCHECK(false) << "Cannot reach here";
   return nullptr;
-}
-
-std::shared_ptr<Statistics> Statistics::Make(
-    const ColumnDescriptor* descr, const std::string& encoded_min,
-    const std::string& encoded_max, int64_t num_values, int64_t null_count,
-    int64_t distinct_count, const EncodedGeometryStatistics& geometry_statistics,
-    bool has_min_max, bool has_null_count, bool has_distinct_count,
-    bool has_geometry_statistics, ::arrow::MemoryPool* pool) {
-  if (descr->physical_type() == Type::BYTE_ARRAY) {
-    return std::make_shared<TypedStatisticsImpl<ByteArrayType>>(
-        descr, encoded_min, encoded_max, num_values, null_count, distinct_count,
-        geometry_statistics, has_min_max, has_null_count, has_distinct_count,
-        has_geometry_statistics, pool);
-  } else {
-    return Make(descr, encoded_min, encoded_max, num_values, null_count, distinct_count,
-                has_min_max, has_null_count, has_distinct_count, pool);
-  }
 }
 
 }  // namespace parquet
