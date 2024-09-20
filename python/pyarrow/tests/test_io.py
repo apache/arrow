@@ -713,11 +713,11 @@ def test_non_cpu_buffer(pickle_module):
     # Testing copying buffer
     mm = ctx.memory_manager
     for dest in [mm, mm.device]:
-        buf2 = cuda_buf.copy(dest)
+        buf2 = buf_on_gpu.copy(dest)
         cuda_buf2 = cuda.CudaBuffer.from_buffer(buf2)
         assert cuda_buf2.size == cuda_buf.size
-        assert cuda_buf2.copy_to_host()[:] == b'testing'
-        assert cuda_buf2.device == mm.device
+        assert cuda_buf2.to_pybytes() == b'testing'
+        assert buf2.device == mm.device
 
     # Buffers on different devices
     msg_device = "Device on which the data resides differs between buffers"
