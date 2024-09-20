@@ -400,8 +400,7 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
    */
   @Override
   public ArrowBuf getDataBuffer() {
-    throw new UnsupportedOperationException(
-        "Run-end encoded vectors do not have a data buffer.");
+    throw new UnsupportedOperationException("Run-end encoded vectors do not have a data buffer.");
   }
 
   /**
@@ -411,8 +410,7 @@ public class RunEndEncodedVector extends BaseValueVector implements FieldVector 
    */
   @Override
   public ArrowBuf getOffsetBuffer() {
-    throw new UnsupportedOperationException(
-        "Run-end encoded vectors do not have a offset buffer.");
+    throw new UnsupportedOperationException("Run-end encoded vectors do not have a offset buffer.");
   }
 
   /**
