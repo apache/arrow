@@ -220,9 +220,7 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
 
   @Override
   public void close() throws SQLException {
-    if (catalog.isPresent()) {
-      sqlClient.closeSession(new CloseSessionRequest(), getOptions());
-    }
+    sqlClient.closeSession(new CloseSessionRequest(), getOptions());
     try {
       AutoCloseables.close(sqlClient);
     } catch (final Exception e) {
