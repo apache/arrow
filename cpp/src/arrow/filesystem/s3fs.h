@@ -196,6 +196,9 @@ struct ARROW_EXPORT S3Options {
   /// delay between retries.
   std::shared_ptr<S3RetryStrategy> retry_strategy;
 
+  /// the SSE-C customized key (raw 32 bytes key).
+  std::string sse_customer_key;
+
   S3Options();
 
   /// Configure with the default AWS credentials provider chain.
