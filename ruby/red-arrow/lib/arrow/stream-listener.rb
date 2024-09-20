@@ -1,5 +1,3 @@
-# -*- ruby -*-
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,7 +15,33 @@
 # specific language governing permissions and limitations
 # under the License.
 
-source "https://rubygems.org/"
+module Arrow
+  class StreamListener < StreamListenerRaw
+    type_register
 
-gem "test-unit"
-gem "gobject-introspection", ">= 4.2.3"
+    def on_eos
+    end
+
+    def on_record_batch_decoded(record_batch, metadata)
+    end
+
+    def on_schema(schema, filtered_schema)
+    end
+
+    private
+    def virtual_do_on_eos
+      on_eos
+      true
+    end
+
+    def virtual_do_on_record_batch_decoded(record_batch, metadata)
+      on_record_batch_decoded(record_batch, metadata)
+      true
+    end
+
+    def virtual_do_on_schema_decoded(schema, filtered_schema)
+      on_schema_decoded(schema, filtered_schema)
+      true
+    end
+  end
+end

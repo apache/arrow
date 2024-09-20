@@ -116,6 +116,8 @@ module Arrow
       require "arrow/sparse-union-data-type"
       require "arrow/string-dictionary-array-builder"
       require "arrow/string-array-builder"
+      require "arrow/stream-decoder"
+      require "arrow/stream-listener"
       require "arrow/struct-array"
       require "arrow/struct-array-builder"
       require "arrow/struct-data-type"
@@ -165,6 +167,16 @@ module Arrow
         @base_module::StructScalar,
       ].each do |klass|
         klass.prepend(ConstructorArgumentsGCGuardable)
+      end
+    end
+
+    def rubyish_class_name(info)
+      name = info.name
+      case name
+      when "StreamListener"
+        "StreamListenerRaw"
+      else
+        super
       end
     end
 

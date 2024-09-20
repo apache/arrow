@@ -1,5 +1,3 @@
-# -*- ruby -*-
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,7 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-source "https://rubygems.org/"
-
-gem "test-unit"
-gem "gobject-introspection", ">= 4.2.3"
+module Arrow
+  class StreamDecoder
+    def consume(data)
+      case data
+      when Buffer
+        consume_buffer(data)
+      else
+        consume_bytes(data)
+      end
+    end
+  end
+end
