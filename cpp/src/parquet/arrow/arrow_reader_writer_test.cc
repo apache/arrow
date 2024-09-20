@@ -4085,6 +4085,62 @@ TEST(TestArrowReaderAdHoc, OldDataPageV2) {
   TryReadDataFile(path);
 }
 
+TEST(TestArrowReaderAdHoc, LegacyTwoLevelList) {
+  // Create schema with a nested list of two-level encoding:
+  constexpr std::string_view kExpectedSchema =
+      "required group field_id=-1 schema {\n"
+      "  optional group field_id=-1 nested_list (List) {\n"
+      "    repeated group field_id=-1 array (List) {\n"
+      "      repeated int32 field_id=-1 array;\n"
+      "    }\n"
+      "  }\n"
+      "}\n";
+  auto inner_element = PrimitiveNode::Make("array", Repetition::REPEATED, Type::INT32);
+  auto outer_element = GroupNode::Make("array", Repetition::REPEATED, {inner_element},
+                                       ConvertedType::LIST);
+  auto nested_list = GroupNode::Make("nested_list", Repetition::OPTIONAL, {outer_element},
+                                     ConvertedType::LIST);
+  auto schema_node = GroupNode::Make("schema", Repetition::REQUIRED, {nested_list});
+
+  // Create a Parquet writer to write values of nested list
+  auto sink = CreateOutputStream();
+  auto file_writer = ParquetFileWriter::Open(
+      sink, std::dynamic_pointer_cast<schema::GroupNode>(schema_node));
+  auto row_group_writer = file_writer->AppendRowGroup();
+  auto int_writer = dynamic_cast<Int32Writer*>(row_group_writer->NextColumn());
+  ASSERT_TRUE(int_writer != nullptr);
+
+  // Directly write a single row of nested list: [[1, 2],[3, 4]]
+  constexpr int64_t kNumValues = 4;
+  std::array<int16_t, kNumValues> rep_levels = {0, 2, 1, 2};
+  std::array<int16_t, kNumValues> def_levels = {3, 3, 3, 3};
+  std::array<int32_t, kNumValues> values = {1, 2, 3, 4};
+  int_writer->WriteBatch(kNumValues, def_levels.data(), rep_levels.data(), values.data());
+  file_writer->Close();
+
+  // Read schema and verify it applies two-level encoding of list type
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+  auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
+  auto file_reader = ParquetFileReader::Open(source);
+  ASSERT_EQ(kExpectedSchema, file_reader->metadata()->schema()->ToString());
+
+  // Read and verify data
+  std::unique_ptr<FileReader> reader;
+  ASSERT_OK(FileReader::Make(default_memory_pool(), std::move(file_reader), &reader));
+  std::shared_ptr<Table> table;
+  ASSERT_OK(reader->ReadTable(&table));
+
+  auto arrow_inner_element =
+      ::arrow::field("array", ::arrow::int32(), /*nullable=*/false);
+  auto arrow_outer_element =
+      ::arrow::field("array", ::arrow::list(arrow_inner_element), /*nullable=*/false);
+  auto arrow_list = ::arrow::list(arrow_outer_element);
+  auto arrow_schema =
+      ::arrow::schema({::arrow::field("nested_list", arrow_list, /*nullable=*/true)});
+  auto expected_table = ::arrow::TableFromJSON(arrow_schema, {R"([[[[1,2],[3,4]]]])"});
+  ::arrow::AssertTablesEqual(*expected_table, *table);
+}
+
 class TestArrowReaderAdHocSparkAndHvr
     : public ::testing::TestWithParam<
           std::tuple<std::string, std::shared_ptr<DataType>>> {};
