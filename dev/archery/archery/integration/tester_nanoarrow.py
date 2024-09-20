@@ -56,8 +56,8 @@ class NanoarrowTester(Tester):
             'JSON_PATH': json_path,
             'COMMAND': command,
             **{
-                f'QUIRK_{q}': 1
-                for q in quirks or []
+                f'QUIRK_{q}': "1"
+                for q in quirks or ""
             },
         }
 
