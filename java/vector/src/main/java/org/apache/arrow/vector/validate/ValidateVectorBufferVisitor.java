@@ -20,6 +20,7 @@ import static org.apache.arrow.vector.validate.ValidateUtil.validateOrThrow;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.BaseFixedWidthVector;
+import org.apache.arrow.vector.BaseIntVector;
 import org.apache.arrow.vector.BaseLargeVariableWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthViewVector;
@@ -35,6 +36,7 @@ import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.LargeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
+import org.apache.arrow.vector.complex.RunEndEncodedVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 
@@ -285,6 +287,38 @@ public class ValidateVectorBufferVisitor implements VectorVisitor<Void, Void> {
   @Override
   public Void visit(ExtensionTypeVector<?> vector, Void value) {
     vector.getUnderlyingVector().accept(this, value);
+    return null;
+  }
+
+  @Override
+  public Void visit(RunEndEncodedVector vector, Void value) {
+    validateVectorCommon(vector);
+    int valueCount = vector.getValueCount();
+    FieldVector runEndsVector = vector.getRunEndsVector();
+
+    if (runEndsVector != null) {
+      validateOrThrow(
+          runEndsVector.getNullCount() == 0, "Run ends vector cannot contain null values");
+      runEndsVector.accept(this, null);
+
+      int runCount = runEndsVector.getValueCount();
+      if (runCount == 0) {
+        validateOrThrow(valueCount == 0, "Run end vector does not contain enough elements");
+      } else if (runCount > 0) {
+        double lastEnd = ((BaseIntVector) runEndsVector).getValueAsLong(runCount - 1);
+        validateOrThrow(
+            valueCount == lastEnd,
+            "Vector logic length not equal to the last end in run ends vector. Logical length %s, last end %s",
+            valueCount,
+            lastEnd);
+      }
+    }
+
+    FieldVector valuesVector = vector.getValuesVector();
+    if (valuesVector != null) {
+      valuesVector.accept(this, null);
+    }
+
     return null;
   }
 }
