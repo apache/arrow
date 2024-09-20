@@ -185,7 +185,6 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
     }
   }
 
-
   @Override
   public List<ArrowBuf> visit(ArrowType.RunEndEncoded type) {
     throw new UnsupportedOperationException("Importing buffers for type: " + type);
