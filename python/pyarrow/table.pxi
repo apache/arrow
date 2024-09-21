@@ -6269,7 +6269,7 @@ def concat_recordbatches(recordbatches, MemoryPool memory_pool=None):
     Parameters
     ----------
     recordbatches : iterable of pyarrow.RecordBatch objects
-        Pyarrow recordbatches to concatenate into a single RecordBatch.
+        Pyarrow record batches to concatenate into a single RecordBatch.
     memory_pool : MemoryPool, default None
         For memory allocations, if required, otherwise use default pool.
 
@@ -6284,7 +6284,7 @@ def concat_recordbatches(recordbatches, MemoryPool memory_pool=None):
     ...     pa.array([2, 4]),
     ...     pa.array(["Parrot", "Dog"])
     ...     ], names=['n_legs', 'animals'])
-    >>> pa.concat_recordbatches([t1,t2])
+    >>> pa.concat_recordbatches([t1, t2])
     pyarrow.RecordBatch
     n_legs: int64
     animals: string
