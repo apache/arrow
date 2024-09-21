@@ -294,6 +294,23 @@ gaflight_call_options_foreach_header(GAFlightCallOptions *options,
   }
 }
 
+/**
+ * gaflight_call_options_set_timeout:
+ * @options: A #GAFlightCallOptions.
+ * @value: The timeout value (in seconds).
+ *
+ * Set the timeout (in seconds).
+ *
+ * Since: 18.0.0
+ */
+void
+gaflight_call_options_set_timeout(GAFlightCallOptions *options,
+                                 const gint64 *value)
+{
+  auto flight_options = gaflight_call_options_get_raw(options);
+  flight_options->timeout = arrow::flight::TimeoutDuration(*value);
+}
+
 struct GAFlightClientOptionsPrivate
 {
   arrow::flight::FlightClientOptions options;
