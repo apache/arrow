@@ -217,12 +217,12 @@ identify_binary <- function(lib = Sys.getenv("LIBARROW_BINARY"), info = distro()
   lib
 }
 
-check_allowlist <- function(os, allowed = "https://raw.githubusercontent.com/apache/arrow/main/r/tools/nixlibs-allowlist.txt") {
+check_allowlist <- function(os, allowed = "https://raw.githubusercontent.com/apache/arrow/main/r/tools/nixibs-allowlist.txt") {
   allowlist <- tryCatch(
     # Try a remote allowlist so that we can add/remove without a release
     suppressWarnings(readLines(allowed)),
-    # Fallback to default: allowed only on Ubuntu and CentOS/RHEL
-    error = function(e) c("ubuntu", "centos", "redhat", "rhel", "rocky", "opensuse-leap")
+    # Fallback to default allow list shipped with the package
+    error = function(e) readLines("tools/nixlibs-allowlist.txt")
   )
   # allowlist should contain valid regular expressions (plain strings ok too)
   any(grepl(paste(allowlist, collapse = "|"), os))

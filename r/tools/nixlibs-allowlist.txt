@@ -3,4 +3,4 @@ centos
 redhat
 rhel
 rocky
-opensuse-leap
+opensuse
