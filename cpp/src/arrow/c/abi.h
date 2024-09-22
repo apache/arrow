@@ -242,7 +242,7 @@ struct ArrowDeviceArrayStream {
 // For example, the `on_next_task` callback can be called when data is ready, while
 // the producer puts potential "decoding" logic in the `ArrowAsyncTask` object. This
 // allows for the producer to manage the I/O on one thread which calls `on_next_task`
-// and the consumer can determine when the decoding (producer logic in the `get_data`
+// and the consumer can determine when the decoding (producer logic in the `extract_data`
 // callback of the task) occurs and on which thread, to avoid a CPU core transfer
 // (data staying in the L2 cache).
 struct ArrowAsyncTask {
@@ -265,11 +265,11 @@ struct ArrowAsyncTask {
   // the original Async handler.
   //
   // Rather than a release callback, any required cleanup should be performed as part
-  // of the invocation of `get_data`. Ownership of the Array is passed to the consumer
+  // of the invocation of `extract_data`. Ownership of the Array is passed to the consumer
   // calling this, and so it must be released separately.
   //
   // It is only valid to call this method exactly once.
-  int (*get_data)(struct ArrowArrayTask* self, struct ArrowDeviceArray* out);
+  int (*extract_data)(struct ArrowArrayTask* self, struct ArrowDeviceArray* out);
 
   // opaque task-specific data
   void* private_data;
