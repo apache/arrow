@@ -18,7 +18,6 @@ public class FlightSqlClientTests : IDisposable
 {
     readonly TestSqlWebFactory _testWebFactory;
     readonly FlightSqlStore _flightStore;
-    readonly FlightClient _flightClient;
     private readonly FlightSqlClient _flightSqlClient;
     private readonly FlightSqlTestUtils _testUtils;
 
@@ -26,8 +25,8 @@ public class FlightSqlClientTests : IDisposable
     {
         _flightStore = new FlightSqlStore();
         _testWebFactory = new TestSqlWebFactory(_flightStore);
-        _flightClient = new FlightClient(_testWebFactory.GetChannel());
-        _flightSqlClient = new FlightSqlClient(_flightClient);
+        FlightClient flightClient = new(_testWebFactory.GetChannel());
+        _flightSqlClient = new FlightSqlClient(flightClient);
 
         _testUtils = new FlightSqlTestUtils(_testWebFactory, _flightStore);
     }
@@ -48,7 +47,7 @@ public class FlightSqlClientTests : IDisposable
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(transaction.TransactionId, result.FirstOrDefault()?.Body.ToStringUtf8());
+        Assert.Equal(transaction.TransactionId, result.FirstOrDefault()?.Body);
     }
 
     [Fact]
@@ -63,7 +62,7 @@ public class FlightSqlClientTests : IDisposable
 
         // Assert
         Assert.NotNull(transaction);
-        Assert.Equal(expectedTransactionId, transaction.TransactionId);
+        Assert.Equal(ByteString.CopyFromUtf8(expectedTransactionId), transaction.TransactionId);
     }
 
     [Fact]
@@ -80,7 +79,7 @@ public class FlightSqlClientTests : IDisposable
 
         // Assert
         Assert.NotNull(transaction);
-        Assert.Equal(result.FirstOrDefault()?.Body.ToStringUtf8(), transaction.TransactionId);
+        Assert.Equal(result.FirstOrDefault()?.Body, transaction.TransactionId);
     }
 
     #endregion

@@ -1,8 +1,33 @@
+using Google.Protobuf;
+
 namespace Apache.Arrow.Flight.Sql;
 
-public class Transaction(string? transactionId)
+public class Transaction
 {
-    public string? TransactionId { get; } = transactionId;
+    private static readonly ByteString TransactionIdDefaultValue = ByteString.Empty;
+    private ByteString? _transactionId;
 
-    public bool IsValid() => !string.IsNullOrEmpty(TransactionId);
+    public ByteString TransactionId
+    {
+        get => _transactionId ?? TransactionIdDefaultValue;
+        set => _transactionId = ProtoPreconditions.CheckNotNull(value, nameof(value));
+    }
+
+    public static readonly Transaction NoTransaction = new(TransactionIdDefaultValue);
+
+    public Transaction(ByteString transactionId)
+    {
+        TransactionId = transactionId;
+    }
+
+    public Transaction(string transactionId)
+    {
+        _transactionId = ByteString.CopyFromUtf8(transactionId);
+    }
+
+    public bool IsValid() => TransactionId.Length > 0;
+    public void ResetTransaction()
+    {
+        _transactionId = TransactionIdDefaultValue;
+    }
 }

@@ -1,9 +1,7 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Threading.Tasks;
 using Apache.Arrow.Flight.Client;
-using Apache.Arrow.Flight.Server;
 using Apache.Arrow.Types;
 using Arrow.Flight.Protocol.Sql;
 using Google.Protobuf;
@@ -21,8 +19,6 @@ public class FlightSqlClient
         _client = client ?? throw new ArgumentNullException(nameof(client));
     }
 
-    public static Transaction NoTransaction() => new(null);
-
     /// <summary>
     /// Execute a SQL query on the server.
     /// </summary>
@@ -32,7 +28,7 @@ public class FlightSqlClient
     /// <returns>The FlightInfo describing where to access the dataset.</returns>
     public async Task<FlightInfo> ExecuteAsync(FlightCallOptions options, string query, Transaction? transaction = null)
     {
-        transaction ??= NoTransaction();
+        transaction ??= Transaction.NoTransaction;
 
         if (options == null)
         {
@@ -46,7 +42,8 @@ public class FlightSqlClient
 
         try
         {
-            var prepareStatementRequest = new ActionCreatePreparedStatementRequest { Query = query };
+            var prepareStatementRequest =
+                new ActionCreatePreparedStatementRequest { Query = query, TransactionId = transaction.TransactionId };
             var action = new FlightAction(SqlAction.CreateRequest, prepareStatementRequest.PackAndSerialize());
             var call = _client.DoAction(action, options.Headers);
 
@@ -81,7 +78,7 @@ public class FlightSqlClient
     /// <returns>The number of rows affected by the operation.</returns>
     public async Task<long> ExecuteUpdateAsync(FlightCallOptions options, string query, Transaction? transaction = null)
     {
-        transaction ??= NoTransaction();
+        transaction ??= Transaction.NoTransaction;
 
         if (options == null)
         {
@@ -95,7 +92,7 @@ public class FlightSqlClient
 
         try
         {
-            var updateRequestCommand = new ActionCreatePreparedStatementRequest { Query = query };
+            var updateRequestCommand = new ActionCreatePreparedStatementRequest { Query = query, TransactionId = transaction.TransactionId };
             byte[] serializedUpdateRequestCommand = updateRequestCommand.PackAndSerialize();
             var action = new FlightAction(SqlAction.CreateRequest, serializedUpdateRequestCommand);
             var call = DoActionAsync(options, action);
@@ -207,7 +204,7 @@ public class FlightSqlClient
     public async Task<Schema> GetExecuteSchemaAsync(FlightCallOptions options, string query,
         Transaction? transaction = null)
     {
-        transaction ??= NoTransaction();
+        transaction ??= Transaction.NoTransaction;
 
         if (options is null)
             throw new ArgumentNullException(nameof(options));
@@ -218,7 +215,7 @@ public class FlightSqlClient
         FlightInfo schemaResult = null!;
         try
         {
-            var prepareStatementRequest = new ActionCreatePreparedStatementRequest { Query = query };
+            var prepareStatementRequest = new ActionCreatePreparedStatementRequest { Query = query, TransactionId = transaction.TransactionId };
             var action = new FlightAction(SqlAction.CreateRequest, prepareStatementRequest.PackAndSerialize());
             var call = _client.DoAction(action, options.Headers);
 
@@ -980,7 +977,7 @@ public class FlightSqlClient
 
         try
         {
-            var action = new FlightAction("CancelFlightInfo", request.PackAndSerialize());
+            var action = new FlightAction(SqlAction.CancelFlightInfoRequest, request.PackAndSerialize());
             var call = _client.DoAction(action, options.Headers);
             await foreach (var result in call.ResponseStream.ReadAllAsync().ConfigureAwait(false))
             {
@@ -1020,7 +1017,7 @@ public class FlightSqlClient
         try
         {
             var cancelRequest = new CancelFlightInfoRequest(info);
-            var action = new FlightAction("CancelFlightInfo", cancelRequest.ToByteString());
+            var action = new FlightAction(SqlAction.CancelFlightInfoRequest, cancelRequest.ToByteString());
             var call = _client.DoAction(action, options.Headers);
             await foreach (var result in call.ResponseStream.ReadAllAsync().ConfigureAwait(false))
             {
@@ -1060,7 +1057,7 @@ public class FlightSqlClient
         try
         {
             var actionBeginTransaction = new ActionBeginTransactionRequest();
-            var action = new FlightAction("BeginTransaction", actionBeginTransaction.PackAndSerialize());
+            var action = new FlightAction(SqlAction.BeginTransactionRequest, actionBeginTransaction.PackAndSerialize());
             var responseStream = _client.DoAction(action, options.Headers);
             await foreach (var result in responseStream.ResponseStream.ReadAllAsync().ConfigureAwait(false))
             {
@@ -1097,7 +1094,7 @@ public class FlightSqlClient
 
         try
         {
-            var actionCommit = new FlightAction("Commit", transaction.TransactionId);
+            var actionCommit = new FlightAction(SqlAction.CommitRequest, transaction.TransactionId);
             return _client.DoAction(actionCommit, options.Headers);
         }
         catch (RpcException ex)
@@ -1127,7 +1124,7 @@ public class FlightSqlClient
 
         try
         {
-            var actionRollback = new FlightAction("Rollback", transaction.TransactionId);
+            var actionRollback = new FlightAction(SqlAction.RollbackRequest, transaction.TransactionId);
             return _client.DoAction(actionRollback, options.Headers);
         }
         catch (RpcException ex)
@@ -1146,7 +1143,7 @@ public class FlightSqlClient
     public async Task<PreparedStatement> PrepareAsync(FlightCallOptions options, string query,
         Transaction? transaction = null)
     {
-        transaction ??= NoTransaction();
+        transaction ??= Transaction.NoTransaction;
 
         if (options == null)
         {
@@ -1162,10 +1159,7 @@ public class FlightSqlClient
         {
             var preparedStatementRequest = new ActionCreatePreparedStatementRequest
             {
-                Query = query,
-                TransactionId = transaction.IsValid()
-                    ? ByteString.CopyFromUtf8(transaction.TransactionId)
-                    : ByteString.Empty,
+                Query = query, TransactionId = transaction.TransactionId
             };
 
             var action = new FlightAction(SqlAction.CreateRequest, preparedStatementRequest.PackAndSerialize());
