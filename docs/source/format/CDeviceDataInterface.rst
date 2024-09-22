@@ -683,7 +683,7 @@ The C device async stream interface consists of three ``struct`` definitions:
     #define ARROW_C_ASYNC_STREAM_INTERFACE
 
     struct ArrowAsyncTask {
-      int (*get_data)(struct ArrowArrayTask* self, struct ArrowDeviceArray* out);
+      int (*extract_data)(struct ArrowArrayTask* self, struct ArrowDeviceArray* out);
 
       void* private_data;
     };
@@ -816,12 +816,12 @@ consumer to avoid transferring data between CPU cores (e.g. from one L1/L2 cache
 
 This producer-provided structure has the following fields:
 
-.. c:member:: int (*ArrowArrayTask.get_data)(struct ArrowArrayTask*, struct ArrowDeviceArray*)
+.. c:member:: int (*ArrowArrayTask.extract_data)(struct ArrowArrayTask*, struct ArrowDeviceArray*)
 
   *Mandatory.* A callback to populate the provided ``ArrowDeviceArray`` with the available data.
   The order of ArrowAsyncTasks provided by the producer enables a consumer to know the order of
   the data to process. If the consumer does not care about the data that is owned by this task,
-  it must still call ``get_data`` so that the producer can perform any required cleanup. ``NULL``
+  it must still call ``extract_data`` so that the producer can perform any required cleanup. ``NULL``
   should be passed as the device array pointer to indicate that the consumer doesn't want the
   actual data, letting the task perform necessary cleanup.
 
@@ -844,7 +844,7 @@ This producer-provided structure has the following fields:
 
   Consumers *MUST NOT* process this member. Lifetime of this member is handled by
   the producer who created this object, and should be cleaned up if necessary during
-  the call to :c:member:`ArrowArrayTask.get_data`.
+  the call to :c:member:`ArrowArrayTask.extract_data`.
 
 The ArrowAsyncProducer structure
 ''''''''''''''''''''''''''''''''
@@ -922,7 +922,7 @@ with the object itself needing to be moved to a consumer owned ``ArrowSchema`` o
 ``ArrowSchema*`` passed as a parameter to the callback *MUST NOT* be stored and kept.
 
 The ``ArrowAsyncTask`` object provided to ``on_next_task`` is owned by the producer and
-will be cleaned up during the invocation of calling ``get_data`` on it. If the consumer
+will be cleaned up during the invocation of calling ``extract_data`` on it. If the consumer
 doesn't care about the data, it should pass ``NULL`` instead of a valid ``ArrowDeviceArray*``.
 
 The ``const char*`` error ``message`` and ``metadata`` which are passed to ``on_error``
@@ -971,7 +971,8 @@ Possible Sequence Diagram
             Producer-->>Consumer: on_next_task(ArrowAsyncTask*)
         end
     and for each task
-        Consumer-->>Producer: ArrowAsyncTask.get_data(...)
+        Consumer-->>Producer: ArrowAsyncTask.extract_data(...)
+        Consumer-->>Producer: ArrowAsyncProducer->request(1)
     end
 
     break Optionally
