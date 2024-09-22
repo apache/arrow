@@ -478,6 +478,8 @@ Result<TypeHolder> FirstType(KernelContext*, const std::vector<TypeHolder>& type
 Result<TypeHolder> LastType(KernelContext*, const std::vector<TypeHolder>& types);
 Result<TypeHolder> ListValuesType(KernelContext* ctx,
                                   const std::vector<TypeHolder>& types);
+Result<TypeHolder> MaxPrecisionDecimalType(KernelContext*,
+                                           const std::vector<TypeHolder>& types);
 
 // ----------------------------------------------------------------------
 // Helpers for iterating over common DataType instances for adding kernels to

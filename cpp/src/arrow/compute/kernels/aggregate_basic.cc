@@ -1029,19 +1029,6 @@ const FunctionDoc index_doc{"Find the index of the first occurrence of a given v
 
 }  // namespace
 
-
-Result<TypeHolder> MaxPrecisionDecimalType(KernelContext*, const std::vector<TypeHolder>& types) {
-  std::shared_ptr<DataType> out_type_;
-  if (auto decimal128_type = std::dynamic_pointer_cast<Decimal128Type>(types.front().GetSharedPtr())) {
-    ARROW_ASSIGN_OR_RAISE(out_type_, Decimal128Type::Make(Decimal128Type::kMaxPrecision, decimal128_type->scale()));
-  } else if (auto decimal256_type = std::dynamic_pointer_cast<Decimal256Type>(types.front().GetSharedPtr())) {
-    ARROW_ASSIGN_OR_RAISE(out_type_, Decimal256Type::Make(Decimal256Type::kMaxPrecision, decimal256_type->scale()));
-  } else {
-    return Status::TypeError("Bad call");
-  }
-  return TypeHolder(out_type_);
-}
-
 void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   static auto default_scalar_aggregate_options = ScalarAggregateOptions::Defaults();
   static auto default_count_options = CountOptions::Defaults();
