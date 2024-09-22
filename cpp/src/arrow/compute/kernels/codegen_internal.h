@@ -480,7 +480,8 @@ ARROW_EXPORT Result<TypeHolder> LastType(KernelContext*,
                                          const std::vector<TypeHolder>& types);
 ARROW_EXPORT Result<TypeHolder> ListValuesType(KernelContext* ctx,
                                                const std::vector<TypeHolder>& types);
-
+ARROW_EXPORT Result<TypeHolder> MaxPrecisionDecimalType(
+  KernelContext*, const std::vector<TypeHolder>& types);
 // ----------------------------------------------------------------------
 // Helpers for iterating over common DataType instances for adding kernels to
 // functions
