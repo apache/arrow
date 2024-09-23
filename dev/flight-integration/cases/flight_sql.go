@@ -261,7 +261,7 @@ func init() {
 			Name: "GetFlightInfo/CommandStatementQuery",
 			ServerHandler: scenario.Handler{GetFlightInfo: func(ctx context.Context, fd *flight.FlightDescriptor) (*flight.FlightInfo, error) {
 				var cmd flight.CommandStatementQuery
-				if err := deserializeProtobufPayload(fd.Cmd, &cmd); err != nil {
+				if err := deserializeProtobufWrappedInAny(fd.Cmd, &cmd); err != nil {
 					return nil, status.Errorf(codes.InvalidArgument, "failed to deserialize FlightDescriptor.Cmd: %s", err)
 				}
 
@@ -286,7 +286,7 @@ func init() {
 			}}},
 		scenario.ScenarioStep{Name: "DoGet/TicketStatementQuery", ServerHandler: scenario.Handler{DoGet: func(t *flight.Ticket, fs flight.FlightService_DoGetServer) error {
 			var cmd flight.TicketStatementQuery
-			if err := deserializeProtobufPayload(t.Ticket, &cmd); err != nil {
+			if err := deserializeProtobufWrappedInAny(t.Ticket, &cmd); err != nil {
 				return status.Errorf(codes.InvalidArgument, "failed to deserialize Ticket.Ticket: %s", err)
 			}
 
@@ -308,7 +308,7 @@ func init() {
 
 				desc := data.FlightDescriptor
 				var cmd flight.CommandStatementUpdate
-				if err := deserializeProtobufPayload(desc.Cmd, &cmd); err != nil {
+				if err := deserializeProtobufWrappedInAny(desc.Cmd, &cmd); err != nil {
 					return status.Errorf(codes.InvalidArgument, "failed to deserialize FlightDescriptor.Cmd: %s", err)
 				}
 
@@ -336,7 +336,7 @@ func init() {
 			Name: "DoAction/ActionCreatePreparedStatementRequest",
 			ServerHandler: scenario.Handler{DoAction: func(a *flight.Action, fs flight.FlightService_DoActionServer) error {
 				var req flight.ActionCreatePreparedStatementRequest
-				if err := deserializeProtobufPayload(a.Body, &req); err != nil {
+				if err := deserializeProtobufWrappedInAny(a.Body, &req); err != nil {
 					return status.Errorf(codes.InvalidArgument, "failed to deserialize Action.Body: %s", err)
 				}
 
@@ -382,7 +382,7 @@ func init() {
 
 				desc := data.FlightDescriptor
 				var cmd flight.CommandPreparedStatementQuery
-				if err := deserializeProtobufPayload(desc.Cmd, &cmd); err != nil {
+				if err := deserializeProtobufWrappedInAny(desc.Cmd, &cmd); err != nil {
 					return status.Errorf(codes.InvalidArgument, "failed to deserialize FlightDescriptor.Cmd: %s", err)
 				}
 
@@ -401,7 +401,7 @@ func init() {
 			Name: "GetFlightInfo/CommandPreparedStatementQuery",
 			ServerHandler: scenario.Handler{GetFlightInfo: func(ctx context.Context, fd *flight.FlightDescriptor) (*flight.FlightInfo, error) {
 				var cmd flight.CommandPreparedStatementQuery
-				if err := deserializeProtobufPayload(fd.Cmd, &cmd); err != nil {
+				if err := deserializeProtobufWrappedInAny(fd.Cmd, &cmd); err != nil {
 					return nil, status.Errorf(codes.InvalidArgument, "failed to deserialize FlightDescriptor.Cmd: %s", err)
 				}
 
@@ -419,7 +419,7 @@ func init() {
 			Name: "DoGet/CommandPreparedStatementQuery",
 			ServerHandler: scenario.Handler{DoGet: func(t *flight.Ticket, fs flight.FlightService_DoGetServer) error {
 				var cmd flight.CommandPreparedStatementQuery
-				if err := deserializeProtobufPayload(t.Ticket, &cmd); err != nil {
+				if err := deserializeProtobufWrappedInAny(t.Ticket, &cmd); err != nil {
 					return status.Errorf(codes.InvalidArgument, "failed to deserialize Ticket.Ticket: %s", err)
 				}
 
@@ -433,7 +433,7 @@ func init() {
 			Name: "GetSchema/CommandPreparedStatementQuery",
 			ServerHandler: scenario.Handler{GetSchema: func(ctx context.Context, fd *flight.FlightDescriptor) (*flight.SchemaResult, error) {
 				var cmd flight.CommandPreparedStatementQuery
-				if err := deserializeProtobufPayload(fd.Cmd, &cmd); err != nil {
+				if err := deserializeProtobufWrappedInAny(fd.Cmd, &cmd); err != nil {
 					return nil, status.Errorf(codes.InvalidArgument, "failed to deserialize FlightDescriptor.Cmd: %s", err)
 				}
 
@@ -447,7 +447,7 @@ func init() {
 			Name: "DoAction/ActionClosePreparedStatementRequest",
 			ServerHandler: scenario.Handler{DoAction: func(a *flight.Action, fs flight.FlightService_DoActionServer) error {
 				var req flight.ActionClosePreparedStatementRequest
-				if err := deserializeProtobufPayload(a.Body, &req); err != nil {
+				if err := deserializeProtobufWrappedInAny(a.Body, &req); err != nil {
 					return status.Errorf(codes.InvalidArgument, "failed to deserialize Action.Body: %s", err)
 				}
 
@@ -462,7 +462,7 @@ func init() {
 			Name: "DoAction/ActionCreatePreparedStatementRequest",
 			ServerHandler: scenario.Handler{DoAction: func(a *flight.Action, fs flight.FlightService_DoActionServer) error {
 				var req flight.ActionCreatePreparedStatementRequest
-				if err := deserializeProtobufPayload(a.Body, &req); err != nil {
+				if err := deserializeProtobufWrappedInAny(a.Body, &req); err != nil {
 					return status.Errorf(codes.InvalidArgument, "failed to deserialize Action.Body: %s", err)
 				}
 
@@ -505,7 +505,7 @@ func init() {
 
 				desc := data.FlightDescriptor
 				var cmd flight.CommandPreparedStatementUpdate
-				if err := deserializeProtobufPayload(desc.Cmd, &cmd); err != nil {
+				if err := deserializeProtobufWrappedInAny(desc.Cmd, &cmd); err != nil {
 					return status.Errorf(codes.InvalidArgument, "failed to deserialize FlightDescriptor.Cmd: %s", err)
 				}
 
@@ -524,7 +524,7 @@ func init() {
 			Name: "DoAction/ActionClosePreparedStatementRequest",
 			ServerHandler: scenario.Handler{DoAction: func(a *flight.Action, fs flight.FlightService_DoActionServer) error {
 				var req flight.ActionClosePreparedStatementRequest
-				if err := deserializeProtobufPayload(a.Body, &req); err != nil {
+				if err := deserializeProtobufWrappedInAny(a.Body, &req); err != nil {
 					return status.Errorf(codes.InvalidArgument, "failed to deserialize Action.Body: %s", err)
 				}
 
@@ -637,7 +637,11 @@ func init() {
 
 				// ValidatePreparedStatementExecution
 				/////////////////////////////////////
-				prepareAction, err := packAction(createPreparedStatementActionType, &flight.ActionCreatePreparedStatementRequest{Query: stmtPreparedQuery})
+				prepareAction, err := packAction(
+					createPreparedStatementActionType,
+					&flight.ActionCreatePreparedStatementRequest{Query: stmtPreparedQuery},
+					serializeProtobufWrappedInAny,
+				)
 				t.Require().NoError(err)
 
 				prepareStream, err := client.DoAction(ctx, prepareAction)
@@ -649,7 +653,7 @@ func init() {
 				t.Require().NoError(err)
 
 				var prepareResult flight.ActionCreatePreparedStatementResult
-				t.Require().NoError(deserializeProtobufPayload(actionResult.Body, &prepareResult))
+				t.Require().NoError(deserializeProtobufWrappedInAny(actionResult.Body, &prepareResult))
 
 				t.Require().Equal(stmtPreparedQueryHandle, string(prepareResult.GetPreparedStatementHandle()))
 				requireDrainStream(t, prepareStream, nil)
@@ -704,7 +708,11 @@ func init() {
 				}
 
 				{
-					action, err := packAction(closePreparedStatementActionType, &flight.ActionClosePreparedStatementRequest{PreparedStatementHandle: []byte(stmtPreparedQueryHandle)})
+					action, err := packAction(
+						closePreparedStatementActionType,
+						&flight.ActionClosePreparedStatementRequest{PreparedStatementHandle: []byte(stmtPreparedQueryHandle)},
+						serializeProtobufWrappedInAny,
+					)
 					t.Require().NoError(err)
 
 					stream, err := client.DoAction(ctx, action)
@@ -715,7 +723,11 @@ func init() {
 				}
 
 				{
-					action, err := packAction(createPreparedStatementActionType, &flight.ActionCreatePreparedStatementRequest{Query: stmtPreparedUpdate})
+					action, err := packAction(
+						createPreparedStatementActionType,
+						&flight.ActionCreatePreparedStatementRequest{Query: stmtPreparedUpdate},
+						serializeProtobufWrappedInAny,
+					)
 					t.Require().NoError(err)
 
 					stream, err := client.DoAction(ctx, action)
@@ -727,7 +739,7 @@ func init() {
 					t.Require().NoError(err)
 
 					var actionResult flight.ActionCreatePreparedStatementResult
-					t.Require().NoError(deserializeProtobufPayload(result.Body, &actionResult))
+					t.Require().NoError(deserializeProtobufWrappedInAny(result.Body, &actionResult))
 
 					t.Require().Equal(stmtPreparedUpdateHandle, string(actionResult.GetPreparedStatementHandle()))
 					requireDrainStream(t, stream, nil)
@@ -753,7 +765,11 @@ func init() {
 				}
 
 				{
-					action, err := packAction(closePreparedStatementActionType, &flight.ActionClosePreparedStatementRequest{PreparedStatementHandle: []byte(stmtPreparedUpdateHandle)})
+					action, err := packAction(
+						closePreparedStatementActionType,
+						&flight.ActionClosePreparedStatementRequest{PreparedStatementHandle: []byte(stmtPreparedUpdateHandle)},
+						serializeProtobufWrappedInAny,
+					)
 					t.Require().NoError(err)
 
 					stream, err := client.DoAction(ctx, action)
@@ -1090,7 +1106,7 @@ func doGetFieldsForCommandFn(cmd proto.Message, fields []field) func(t *flight.T
 		cmd := proto.Clone(cmd)
 		proto.Reset(cmd)
 
-		if err := deserializeProtobufPayload(t.Ticket, cmd); err != nil {
+		if err := deserializeProtobufWrappedInAny(t.Ticket, cmd); err != nil {
 			return status.Errorf(codes.InvalidArgument, "failed to deserialize Ticket.Ticket: %s", err)
 		}
 
@@ -1103,7 +1119,7 @@ func getSchemaFieldsForCommandFn(cmd proto.Message, fields []field) func(ctx con
 		cmd := proto.Clone(cmd)
 		proto.Reset(cmd)
 
-		if err := deserializeProtobufPayload(fd.Cmd, cmd); err != nil {
+		if err := deserializeProtobufWrappedInAny(fd.Cmd, cmd); err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "failed to deserialize FlightDescriptor.Cmd: %s", err)
 		}
 
@@ -1113,7 +1129,7 @@ func getSchemaFieldsForCommandFn(cmd proto.Message, fields []field) func(ctx con
 	}
 }
 
-func deserializeProtobufPayload(b []byte, dst proto.Message) error {
+func deserializeProtobufWrappedInAny(b []byte, dst proto.Message) error {
 	var anycmd anypb.Any
 	if err := proto.Unmarshal(b, &anycmd); err != nil {
 		return fmt.Errorf("unable to unmarshal payload to proto.Any: %s", err)
@@ -1121,6 +1137,14 @@ func deserializeProtobufPayload(b []byte, dst proto.Message) error {
 
 	if err := anycmd.UnmarshalTo(dst); err != nil {
 		return fmt.Errorf("unable to unmarshal proto.Any: %s", err)
+	}
+
+	return nil
+}
+
+func deserializeProtobuf(b []byte, dst proto.Message) error {
+	if err := proto.Unmarshal(b, dst); err != nil {
+		return fmt.Errorf("unable to unmarshal protobuf payload: %s", err)
 	}
 
 	return nil
@@ -1156,9 +1180,18 @@ func serializeProtobufWrappedInAny(msg proto.Message) ([]byte, error) {
 	return b, nil
 }
 
-func packAction(actionType string, msg proto.Message) (*flight.Action, error) {
+func serializeProtobuf(msg proto.Message) ([]byte, error) {
+	b, err := proto.Marshal(msg)
+	if err != nil {
+		return nil, fmt.Errorf("unable to marshal protobuf message to bytes: %s", err)
+	}
+
+	return b, nil
+}
+
+func packAction(actionType string, msg proto.Message, serialize func(proto.Message) ([]byte, error)) (*flight.Action, error) {
 	var action flight.Action
-	body, err := serializeProtobufWrappedInAny(msg)
+	body, err := serialize(msg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to serialize action body: %s", err)
 	}
