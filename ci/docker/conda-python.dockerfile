@@ -30,6 +30,7 @@ RUN mamba install -q -y \
         $([ "$python" == $(gdb --batch --eval-command 'python import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")') ] && echo "gdb") \
         "python=${python}.*=*_cpython" \
         nomkl && \
+        --channel conda-forge/label/python_rc \
     mamba clean --all
 
 ENV ARROW_ACERO=ON \
