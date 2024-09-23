@@ -48,6 +48,8 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.memory.rounding.DefaultRoundingPolicy;
 import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.memory.util.CommonUtil;
+import org.apache.arrow.util.AutoCloseables;
+import org.apache.arrow.vector.holders.NullableViewVarCharHolder;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
 import org.apache.arrow.vector.types.Types;
@@ -369,6 +371,67 @@ public class TestVarCharViewVector {
               StandardCharsets.UTF_8),
           str6);
     }
+  }
+
+  @Test
+  public void testSetNullableViewVarCharHolder() {
+    try (final ViewVarCharVector viewVarCharVector = new ViewVarCharVector("myvector", allocator)) {
+      viewVarCharVector.allocateNew(0, 0);
+      final List<byte[]> strings = List.of(STR0, STR1, STR2, STR3, STR4, STR5);
+
+      NullableViewVarCharHolder stringHolder = new NullableViewVarCharHolder();
+
+      setAndCheck(viewVarCharVector, 1, strings.get(0), stringHolder);
+
+      // set not null
+      for (int i = 0; i < strings.size(); i++) {
+        setAndCheck(viewVarCharVector, i, strings.get(i), stringHolder);
+      }
+
+      // set null
+      setAndCheck(viewVarCharVector, 6, null, stringHolder);
+
+      // copy by holder
+      // len < 12
+      copyAndCheck(viewVarCharVector, 0, stringHolder, 7);
+      // len > 12
+      copyAndCheck(viewVarCharVector, 2, stringHolder, 8);
+      // null
+      copyAndCheck(viewVarCharVector, 6, stringHolder, 9);
+    }
+  }
+
+  private static void copyAndCheck(
+      ViewVarCharVector viewVarCharVector,
+      int index,
+      NullableViewVarCharHolder stringHolder,
+      int index1) {
+    viewVarCharVector.get(index, stringHolder);
+    viewVarCharVector.setSafe(index1, stringHolder);
+    assertArrayEquals(viewVarCharVector.get(index), viewVarCharVector.get(index1));
+  }
+
+  private void setAndCheck(
+      ViewVarCharVector viewVarCharVector,
+      int index,
+      byte[] str,
+      NullableViewVarCharHolder stringHolder) {
+    ArrowBuf buf = null;
+    if (null == str) {
+      stringHolder.isSet = 0;
+    } else {
+      buf = allocator.buffer(str.length);
+      buf.setBytes(0, str);
+      stringHolder.isSet = 1;
+      stringHolder.start = 0;
+      stringHolder.end = str.length;
+      stringHolder.buffer = buf;
+    }
+
+    viewVarCharVector.setSafe(index, stringHolder);
+    // verify results
+    assertArrayEquals(str, viewVarCharVector.get(index));
+    AutoCloseables.closeNoChecked(buf);
   }
 
   @Test
