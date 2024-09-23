@@ -499,7 +499,6 @@ public class ListViewVector extends BaseRepeatedValueViewVector
           valueCount);
       to.clear();
       if (length > 0) {
-        final int startPoint = offsetBuffer.getInt((long) startIndex * OFFSET_WIDTH);
         // we have to scan by index since there are out-of-order offsets
         to.offsetBuffer = to.allocateBuffers((long) length * OFFSET_WIDTH);
         to.sizeBuffer = to.allocateBuffers((long) length * SIZE_WIDTH);
@@ -744,8 +743,8 @@ public class ListViewVector extends BaseRepeatedValueViewVector
       return null;
     }
     final List<Object> vals = new JsonStringArrayList<>();
-    final int start = offsetBuffer.getInt(index * OFFSET_WIDTH);
-    final int end = start + sizeBuffer.getInt((index) * SIZE_WIDTH);
+    final int start = offsetBuffer.getInt((long) index * OFFSET_WIDTH);
+    final int end = start + sizeBuffer.getInt((long) index * SIZE_WIDTH);
     final ValueVector vv = getDataVector();
     for (int i = start; i < end; i++) {
       vals.add(vv.getObject(i));

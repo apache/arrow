@@ -16,6 +16,8 @@
  */
 package org.apache.arrow.vector.validate;
 
+import com.google.errorprone.annotations.FormatMethod;
+
 /** Utilities for vector validation. */
 public class ValidateUtil {
 
@@ -42,6 +44,7 @@ public class ValidateUtil {
    * @param args the error message arguments.
    * @throws ValidateException if the expression evaluates to false.
    */
+  @FormatMethod
   public static void validateOrThrow(boolean expression, String errorMessage, Object... args) {
     if (!expression) {
       throw new ValidateException(String.format(errorMessage, args));

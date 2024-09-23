@@ -96,8 +96,8 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
       MemoryUtil.copyMemory(
           deltaVector.getDataBuffer().memoryAddress(),
           targetVector.getDataBuffer().memoryAddress()
-              + deltaVector.getTypeWidth() * targetVector.getValueCount(),
-          deltaVector.getTypeWidth() * deltaVector.getValueCount());
+              + (long) deltaVector.getTypeWidth() * targetVector.getValueCount(),
+          (long) deltaVector.getTypeWidth() * deltaVector.getValueCount());
     }
     targetVector.setValueCount(newValueCount);
     return targetVector;
@@ -151,8 +151,8 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
     MemoryUtil.copyMemory(
         deltaVector.getOffsetBuffer().memoryAddress() + BaseVariableWidthVector.OFFSET_WIDTH,
         targetVector.getOffsetBuffer().memoryAddress()
-            + (targetVector.getValueCount() + 1) * BaseVariableWidthVector.OFFSET_WIDTH,
-        deltaVector.getValueCount() * BaseVariableWidthVector.OFFSET_WIDTH);
+            + (long) (targetVector.getValueCount() + 1) * BaseVariableWidthVector.OFFSET_WIDTH,
+        (long) deltaVector.getValueCount() * BaseVariableWidthVector.OFFSET_WIDTH);
 
     // increase each offset from the second buffer
     for (int i = 0; i < deltaVector.getValueCount(); i++) {
@@ -223,8 +223,8 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
     MemoryUtil.copyMemory(
         deltaVector.getOffsetBuffer().memoryAddress() + BaseLargeVariableWidthVector.OFFSET_WIDTH,
         targetVector.getOffsetBuffer().memoryAddress()
-            + (targetVector.getValueCount() + 1) * BaseLargeVariableWidthVector.OFFSET_WIDTH,
-        deltaVector.getValueCount() * BaseLargeVariableWidthVector.OFFSET_WIDTH);
+            + (long) (targetVector.getValueCount() + 1) * BaseLargeVariableWidthVector.OFFSET_WIDTH,
+        (long) deltaVector.getValueCount() * BaseLargeVariableWidthVector.OFFSET_WIDTH);
 
     // increase each offset from the second buffer
     for (int i = 0; i < deltaVector.getValueCount(); i++) {

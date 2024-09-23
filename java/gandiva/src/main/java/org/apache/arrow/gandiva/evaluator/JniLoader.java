@@ -127,7 +127,7 @@ class JniLoader {
   static long getConfiguration(ConfigurationBuilder.ConfigOptions configOptions)
       throws GandivaException {
     if (!configurationMap.containsKey(configOptions)) {
-      synchronized (ConfigurationBuilder.class) {
+      synchronized (JniLoader.class) {
         if (!configurationMap.containsKey(configOptions)) {
           JniLoader.getInstance(); // setup
           long configInstance = new ConfigurationBuilder().buildConfigInstance(configOptions);
@@ -150,7 +150,7 @@ class JniLoader {
    */
   static long getDefaultConfiguration() throws GandivaException {
     if (defaultConfiguration == 0L) {
-      synchronized (ConfigurationBuilder.class) {
+      synchronized (JniLoader.class) {
         if (defaultConfiguration == 0L) {
           JniLoader.getInstance(); // setup
           ConfigurationBuilder.ConfigOptions defaultConfigOptions =
@@ -167,10 +167,9 @@ class JniLoader {
   /** Remove the configuration. */
   static void removeConfiguration(ConfigurationBuilder.ConfigOptions configOptions) {
     if (configurationMap.containsKey(configOptions)) {
-      synchronized (ConfigurationBuilder.class) {
+      synchronized (JniLoader.class) {
         if (configurationMap.containsKey(configOptions)) {
-          (new ConfigurationBuilder())
-              .releaseConfigInstance(configurationMap.remove(configOptions));
+          new ConfigurationBuilder().releaseConfigInstance(configurationMap.remove(configOptions));
           if (configOptions.equals(ConfigurationBuilder.ConfigOptions.getDefault())) {
             defaultConfiguration = 0;
           }

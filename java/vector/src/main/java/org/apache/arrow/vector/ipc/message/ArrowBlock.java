@@ -75,7 +75,7 @@ public class ArrowBlock implements FBSerializable {
     if (obj == null) {
       return false;
     }
-    if (getClass() != obj.getClass()) {
+    if (!(obj instanceof ArrowBlock)) {
       return false;
     }
     ArrowBlock other = (ArrowBlock) obj;

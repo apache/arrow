@@ -216,7 +216,7 @@ public class TestVectorUnloadLoad {
     ArrowBuf[] values = new ArrowBuf[4];
     for (int i = 0; i < 4; i += 2) {
       ArrowBuf buf1 = allocator.buffer(BitVectorHelper.getValidityBufferSize(count));
-      ArrowBuf buf2 = allocator.buffer(count * 4); // integers
+      ArrowBuf buf2 = allocator.buffer(count * 4L); // integers
       buf1.setZero(0, buf1.capacity());
       buf2.setZero(0, buf2.capacity());
       values[i] = buf1;
@@ -228,10 +228,10 @@ public class TestVectorUnloadLoad {
           BitVectorHelper.setBit(buf1, j);
         }
 
-        buf2.setInt(j * 4, j);
+        buf2.setInt(j * 4L, j);
       }
-      buf1.writerIndex((int) Math.ceil(count / 8));
-      buf2.writerIndex(count * 4);
+      buf1.writerIndex((int) Math.ceil(count / 8.0));
+      buf2.writerIndex(count * 4L);
     }
 
     /*

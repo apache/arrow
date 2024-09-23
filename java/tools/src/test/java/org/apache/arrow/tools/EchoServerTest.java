@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
@@ -77,7 +78,7 @@ public class EchoServerTest {
             try {
               server.run();
             } catch (IOException e) {
-              e.printStackTrace();
+              throw new UncheckedIOException(e);
             }
           }
         };

@@ -510,7 +510,7 @@ public class BaseFileTest {
 
     for (int i = 0; i < count; i++) {
       decimalVector1.setSafe(i, new BigDecimal(BigInteger.valueOf(i), 3));
-      decimalVector2.setSafe(i, new BigDecimal(BigInteger.valueOf(i * (1 << 10)), 2));
+      decimalVector2.setSafe(i, new BigDecimal(BigInteger.valueOf(i * ((long) (1 << 10))), 2));
       decimalVector3.setSafe(i, new BigDecimal(BigInteger.valueOf(i * 1111111111111111L), 8));
     }
 
@@ -543,7 +543,7 @@ public class BaseFileTest {
       // Verify decimal 2 vector
       readValue = decimalVector2.getObject(i);
       type = (ArrowType.Decimal) decimalVector2.getField().getType();
-      genValue = new BigDecimal(BigInteger.valueOf(i * (1 << 10)), type.getScale());
+      genValue = new BigDecimal(BigInteger.valueOf(i * ((long) (1 << 10))), type.getScale());
       assertEquals(genValue, readValue);
 
       // Verify decimal 3 vector

@@ -154,13 +154,13 @@ public class JdbcAdapterBenchmarks {
 
     private JdbcConsumer<BitVector> bitConsumer;
 
-    private JdbcToArrowConfig config;
+    // private JdbcToArrowConfig config;
 
     @Setup(Level.Trial)
     public void prepare() throws Exception {
       allocator = new RootAllocator(Integer.MAX_VALUE);
-      config =
-          new JdbcToArrowConfigBuilder().setAllocator(allocator).setTargetBatchSize(1024).build();
+      // config =
+      //    new JdbcToArrowConfigBuilder().setAllocator(allocator).setTargetBatchSize(1024).build();
 
       Class.forName(DRIVER);
       conn = DriverManager.getConnection(URL);

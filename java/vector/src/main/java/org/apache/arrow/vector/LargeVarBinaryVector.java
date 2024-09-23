@@ -93,6 +93,7 @@ public final class LargeVarBinaryVector extends BaseLargeVariableWidthVector
    * @param index position of element to get
    * @return array of bytes for non-null element, null otherwise
    */
+  @Override
   public byte[] get(int index) {
     assert index >= 0;
     if (isSet(index) == 0) {

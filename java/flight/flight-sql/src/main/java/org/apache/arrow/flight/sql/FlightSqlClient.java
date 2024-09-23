@@ -1240,7 +1240,7 @@ public class FlightSqlClient implements AutoCloseable {
      *     used in the {@code PreparedStatement} setters.
      */
     public void setParameters(final VectorSchemaRoot parameterBindingRoot) {
-      if (parameterBindingRoot == this.parameterBindingRoot) {
+      if (parameterBindingRoot.equals(this.parameterBindingRoot)) {
         // Nothing to do if we're attempting to set the same parameters again.
         return;
       }

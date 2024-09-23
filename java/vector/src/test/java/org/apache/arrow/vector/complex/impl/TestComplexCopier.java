@@ -136,8 +136,8 @@ public class TestComplexCopier {
         mapWriter.value().integer().writeInt(i);
         mapWriter.endEntry();
         mapWriter.startEntry();
-        mapWriter.key().decimal().writeDecimal(BigDecimal.valueOf(i * 2));
-        mapWriter.value().decimal().writeDecimal(BigDecimal.valueOf(i * 2));
+        mapWriter.key().decimal().writeDecimal(BigDecimal.valueOf(i * 2L));
+        mapWriter.value().decimal().writeDecimal(BigDecimal.valueOf(i * 2L));
         mapWriter.endEntry();
         mapWriter.endMap();
       }
@@ -176,13 +176,13 @@ public class TestComplexCopier {
 
         listWriter.list().startList();
         listWriter.list().bigInt().writeBigInt(i);
-        listWriter.list().bigInt().writeBigInt(i * 2);
-        listWriter.list().bigInt().writeBigInt(i * 3);
+        listWriter.list().bigInt().writeBigInt(i * 2L);
+        listWriter.list().bigInt().writeBigInt(i * 3L);
         listWriter.list().endList();
 
         listWriter.list().startList();
-        listWriter.list().decimal().writeDecimal(BigDecimal.valueOf(i * 4));
-        listWriter.list().decimal().writeDecimal(BigDecimal.valueOf(i * 5));
+        listWriter.list().decimal().writeDecimal(BigDecimal.valueOf(i * 4L));
+        listWriter.list().decimal().writeDecimal(BigDecimal.valueOf(i * 5L));
         listWriter.list().endList();
         listWriter.endList();
       }
@@ -597,7 +597,7 @@ public class TestComplexCopier {
         writer
             .decimal()
             .writeBigEndianBytesToDecimal(
-                BigDecimal.valueOf(i * 4).unscaledValue().toByteArray(), arrowType);
+                BigDecimal.valueOf(i * 4L).unscaledValue().toByteArray(), arrowType);
 
         writer.endList();
       }
@@ -631,12 +631,12 @@ public class TestComplexCopier {
         listWriter.setPosition(i);
         listWriter.startList();
 
-        listWriter.decimal().writeDecimal(BigDecimal.valueOf(i * 2));
+        listWriter.decimal().writeDecimal(BigDecimal.valueOf(i * 2L));
         listWriter.integer().writeInt(i);
         listWriter
             .decimal()
             .writeBigEndianBytesToDecimal(
-                BigDecimal.valueOf(i * 3).unscaledValue().toByteArray(),
+                BigDecimal.valueOf(i * 3L).unscaledValue().toByteArray(),
                 new ArrowType.Decimal(3, 0, 128));
 
         listWriter.endList();
@@ -671,15 +671,15 @@ public class TestComplexCopier {
         structWriter.setPosition(i);
         structWriter.start();
         structWriter.integer("int").writeInt(i);
-        structWriter.decimal("dec", 0, 38).writeDecimal(BigDecimal.valueOf(i * 2));
+        structWriter.decimal("dec", 0, 38).writeDecimal(BigDecimal.valueOf(i * 2L));
         StructWriter innerStructWriter = structWriter.struct("struc");
         innerStructWriter.start();
         innerStructWriter.integer("innerint").writeInt(i * 3);
-        innerStructWriter.decimal("innerdec", 0, 38).writeDecimal(BigDecimal.valueOf(i * 4));
+        innerStructWriter.decimal("innerdec", 0, 38).writeDecimal(BigDecimal.valueOf(i * 4L));
         innerStructWriter
             .decimal("innerdec", 0, 38)
             .writeBigEndianBytesToDecimal(
-                BigDecimal.valueOf(i * 4).unscaledValue().toByteArray(),
+                BigDecimal.valueOf(i * 4L).unscaledValue().toByteArray(),
                 new ArrowType.Decimal(3, 0, 128));
         innerStructWriter.end();
         structWriter.end();

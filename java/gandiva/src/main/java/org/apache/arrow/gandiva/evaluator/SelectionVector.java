@@ -55,7 +55,7 @@ public abstract class SelectionVector {
    * Set the number of records in the selection vector.
    */
   final void setRecordCount(int recordCount) {
-    if (recordCount * getRecordSize() > buffer.capacity()) {
+    if ((long) recordCount * getRecordSize() > buffer.capacity()) {
       throw new IllegalArgumentException(
           "recordCount "
               + recordCount

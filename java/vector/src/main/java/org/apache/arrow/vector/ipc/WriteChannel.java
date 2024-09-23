@@ -23,8 +23,6 @@ import java.nio.channels.WritableByteChannel;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.ipc.message.FBSerializable;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Wrapper around a WritableByteChannel that maintains the position as well adding some common
@@ -37,7 +35,6 @@ import org.slf4j.LoggerFactory;
  * <p>Please note that objects of this class are not thread-safe.
  */
 public class WriteChannel implements AutoCloseable {
-  private static final Logger LOGGER = LoggerFactory.getLogger(WriteChannel.class);
 
   private static final byte[] ZERO_BYTES = new byte[8];
 

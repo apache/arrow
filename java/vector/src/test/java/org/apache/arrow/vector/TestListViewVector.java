@@ -384,12 +384,6 @@ public class TestListViewVector {
     }
   }
 
-  private void setValuesInBuffer(int[] bufValues, ArrowBuf buffer, long bufWidth) {
-    for (int i = 0; i < bufValues.length; i++) {
-      buffer.setInt(i * bufWidth, bufValues[i]);
-    }
-  }
-
   /*
    * Setting up the buffers directly needs to be validated with the base method used in
    * the ListVector class where we use the approach of startListView(),
@@ -1667,7 +1661,7 @@ public class TestListViewVector {
 
     for (int i = 0; i < splitLength; i++) {
       fromDataLength = fromSizeBuffer.getInt((long) (start + i) * ListViewVector.SIZE_WIDTH);
-      toDataLength = toSizeBuffer.getInt((long) (i) * ListViewVector.SIZE_WIDTH);
+      toDataLength = toSizeBuffer.getInt((long) i * ListViewVector.SIZE_WIDTH);
 
       /* validate size */
       assertEquals(
@@ -1696,7 +1690,7 @@ public class TestListViewVector {
 
     for (int i = 0; i < splitLength; i++) {
       offset1 = fromOffsetBuffer.getInt((long) (start + i) * ListViewVector.OFFSET_WIDTH);
-      offset2 = toOffsetBuffer.getInt((long) (i) * ListViewVector.OFFSET_WIDTH);
+      offset2 = toOffsetBuffer.getInt((long) i * ListViewVector.OFFSET_WIDTH);
       assertEquals(
           offset1 - minOffset,
           offset2,

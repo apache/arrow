@@ -783,7 +783,7 @@ public class TestArrowReaderWriter {
             Collections.singletonList(dictVector1),
             dictVector1.getValueCount());
     ArrowDictionaryBatch dictionaryBatch1 =
-        new ArrowDictionaryBatch(1, new VectorUnloader(dictRoot1).getRecordBatch());
+        new ArrowDictionaryBatch(1, new VectorUnloader(dictRoot1).getRecordBatch(), false);
     MessageSerializer.serialize(out, dictionaryBatch1);
     dictionaryBatch1.close();
     dictRoot1.close();
@@ -799,7 +799,7 @@ public class TestArrowReaderWriter {
             Collections.singletonList(dictVector2),
             dictVector2.getValueCount());
     ArrowDictionaryBatch dictionaryBatch2 =
-        new ArrowDictionaryBatch(2, new VectorUnloader(dictRoot2).getRecordBatch());
+        new ArrowDictionaryBatch(2, new VectorUnloader(dictRoot2).getRecordBatch(), false);
     MessageSerializer.serialize(out, dictionaryBatch2);
     dictionaryBatch2.close();
     dictRoot2.close();

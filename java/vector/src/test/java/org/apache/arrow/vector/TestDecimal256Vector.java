@@ -380,8 +380,8 @@ public class TestDecimal256Vector {
     decimalVector.allocateNew();
     for (int i = 0; i < expectedValues.length; i++) {
       byte[] bigEndianBytes = expectedValues[i].unscaledValue().toByteArray();
-      buf.setBytes(length * i, bigEndianBytes, 0, bigEndianBytes.length);
-      decimalVector.setBigEndianSafe(i, length * i, buf, bigEndianBytes.length);
+      buf.setBytes((long) length * i, bigEndianBytes, 0, bigEndianBytes.length);
+      decimalVector.setBigEndianSafe(i, (long) length * i, buf, bigEndianBytes.length);
     }
 
     decimalVector.setValueCount(3);

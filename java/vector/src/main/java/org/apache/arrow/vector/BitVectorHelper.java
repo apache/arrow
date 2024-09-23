@@ -296,7 +296,7 @@ public class BitVectorHelper {
 
   /** Returns the byte at <code>index</code> from left-shifted by (8 - <code>offset</code>). */
   public static byte getBitsFromNextByte(ArrowBuf data, int index, int offset) {
-    return (byte) ((data.getByte(index) << (8 - offset)));
+    return (byte) (data.getByte(index) << (8 - offset));
   }
 
   /**
@@ -385,7 +385,7 @@ public class BitVectorHelper {
     }
 
     // copy the first bit set
-    if (input1 != output) {
+    if (!input1.equals(output)) {
       MemoryUtil.copyMemory(input1.memoryAddress(), output.memoryAddress(), numBytes1);
     }
 

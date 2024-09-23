@@ -412,7 +412,7 @@ public final class Decimal256Vector extends BaseFixedWidthVector
   }
 
   /**
-   * Same as {@link #set(int, int, ArrowBuf)} except that it handles the case when index is greater
+   * Same as {@link #set(int, long, ArrowBuf)} except that it handles the case when index is greater
    * than or equal to existing value capacity {@link #getValueCapacity()}.
    *
    * @param index position of element
@@ -449,7 +449,7 @@ public final class Decimal256Vector extends BaseFixedWidthVector
   }
 
   /**
-   * Same as {@link #set(int, NullableDecimalHolder)} except that it handles the case when index is
+   * Same as {@link #set(int, Decimal256Holder)} except that it handles the case when index is
    * greater than or equal to existing value capacity {@link #getValueCapacity()}.
    *
    * @param index position of element
@@ -490,8 +490,8 @@ public final class Decimal256Vector extends BaseFixedWidthVector
   }
 
   /**
-   * Same as {@link #setSafe(int, int, int, ArrowBuf)} except that it handles the case when the
-   * position of new value is beyond the current value capacity of the vector.
+   * Same as {@link #setSafe(int, long, ArrowBuf)} except that it handles the case when the position
+   * of new value is beyond the current value capacity of the vector.
    *
    * @param index position of the new value
    * @param isSet 0 for NULL value, 1 otherwise

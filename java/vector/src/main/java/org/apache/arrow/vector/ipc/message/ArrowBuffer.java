@@ -62,7 +62,7 @@ public class ArrowBuffer implements FBSerializable {
     if (obj == null) {
       return false;
     }
-    if (getClass() != obj.getClass()) {
+    if (!(obj instanceof ArrowBuffer)) {
       return false;
     }
     ArrowBuffer other = (ArrowBuffer) obj;

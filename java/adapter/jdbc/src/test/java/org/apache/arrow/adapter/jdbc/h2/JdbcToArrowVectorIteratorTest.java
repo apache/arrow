@@ -27,10 +27,10 @@ import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getListValues;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getLongValues;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -146,10 +146,10 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
 
         if (reuseVectorSchemaRoot) {
           // when reuse is enabled, different iterations are based on the same vector schema root.
-          assertTrue(prev == cur);
+          assertSame(prev, cur);
         } else {
           // when reuse is enabled, a new vector schema root is created in each iteration.
-          assertFalse(prev == cur);
+          assertNotEquals(prev, cur);
           if (batchCount < 3) {
             cur.close();
           }

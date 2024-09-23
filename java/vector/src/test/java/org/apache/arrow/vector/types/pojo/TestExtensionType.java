@@ -194,6 +194,7 @@ public class TestExtensionType {
 
   /** Test that a custom Location type can be round-tripped through a temporary file. */
   @Test
+  @SuppressWarnings("FloatingPointLiteralPrecision")
   public void roundtripLocation() throws IOException {
     ExtensionTypeRegistry.register(new LocationType());
     final Schema schema =

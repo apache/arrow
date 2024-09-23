@@ -63,8 +63,14 @@ public class TypeEqualsVisitor implements VectorVisitor<Boolean, Void> {
   }
 
   /** Check type equals without passing IN param in VectorVisitor. */
+  @SuppressWarnings("NonOverridingEquals")
   public boolean equals(ValueVector left) {
     return left.accept(this, null);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(right, checkName, checkMetadata);
   }
 
   @Override
@@ -144,12 +150,12 @@ public class TypeEqualsVisitor implements VectorVisitor<Boolean, Void> {
 
   private boolean compareField(Field leftField, Field rightField) {
 
-    if (leftField == rightField) {
+    if (leftField.equals(rightField)) {
       return true;
     }
 
     return (!checkName || Objects.equals(leftField.getName(), rightField.getName()))
-        && Objects.equals(leftField.isNullable(), rightField.isNullable())
+        && (leftField.isNullable() == rightField.isNullable())
         && Objects.equals(leftField.getType(), rightField.getType())
         && Objects.equals(leftField.getDictionary(), rightField.getDictionary())
         && (!checkMetadata || Objects.equals(leftField.getMetadata(), rightField.getMetadata()))

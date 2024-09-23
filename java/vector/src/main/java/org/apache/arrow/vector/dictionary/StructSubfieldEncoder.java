@@ -80,7 +80,7 @@ public class StructSubfieldEncoder {
     StructVector cloned =
         (StructVector)
             fieldType.createNewSingleVector(
-                vector.getField().getName(), allocator, /*schemaCallback=*/ null);
+                vector.getField().getName(), allocator, /* schemaCallBack= */ null);
 
     final ArrowFieldNode fieldNode =
         new ArrowFieldNode(vector.getValueCount(), vector.getNullCount());

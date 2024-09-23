@@ -1006,6 +1006,7 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
    * @param index position of the element to set
    * @param length length of the element
    */
+  @Override
   public void setValueLengthSafe(int index, int length) {
     assert index >= 0;
     handleSafe(index, length);
@@ -1091,6 +1092,7 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
    * @param start start index in array of bytes
    * @param length length of data in array of bytes
    */
+  @Override
   public void setSafe(int index, byte[] value, int start, int length) {
     assert index >= 0;
     handleSafe(index, length);
@@ -1128,6 +1130,7 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
    * @param start start index in ByteBuffer
    * @param length length of data in ByteBuffer
    */
+  @Override
   public void setSafe(int index, ByteBuffer value, int start, int length) {
     assert index >= 0;
     handleSafe(index, length);

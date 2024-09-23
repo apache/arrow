@@ -246,6 +246,7 @@ public class DictionaryHashTable {
       return hash;
     }
 
+    @Override
     public final boolean equals(Object o) {
       if (!(o instanceof DictionaryHashTable.Entry)) {
         return false;

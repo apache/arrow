@@ -45,7 +45,10 @@ public class Projector {
 
   private JniWrapper wrapper;
   private final long moduleId;
+
+  @SuppressWarnings("UnusedVariable")
   private final Schema schema;
+
   private final int numExprs;
   private boolean closed;
 
@@ -108,7 +111,7 @@ public class Projector {
         exprs,
         SelectionVectorType.SV_NONE,
         JniLoader.getConfiguration(
-            (new ConfigurationBuilder.ConfigOptions()).withOptimize(optimize)));
+            new ConfigurationBuilder.ConfigOptions().withOptimize(optimize)));
   }
 
   /**
@@ -173,7 +176,7 @@ public class Projector {
         exprs,
         selectionVectorType,
         JniLoader.getConfiguration(
-            (new ConfigurationBuilder.ConfigOptions()).withOptimize(optimize)));
+            new ConfigurationBuilder.ConfigOptions().withOptimize(optimize)));
   }
 
   /**

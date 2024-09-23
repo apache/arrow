@@ -35,10 +35,12 @@ class TestBufferAllocationListener implements AllocationListener {
 
   List<Entry> trail = new ArrayList<>();
 
+  @Override
   public void onAllocation(long size) {
     trail.add(new Entry(Thread.currentThread().getStackTrace(), size, true));
   }
 
+  @Override
   public void onRelease(long size) {
     trail.add(new Entry(Thread.currentThread().getStackTrace(), size, false));
   }

@@ -18,6 +18,7 @@ package org.apache.arrow.vector.ipc.message;
 
 import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
 
+import com.google.errorprone.annotations.InlineMe;
 import com.google.flatbuffers.FlatBufferBuilder;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -63,7 +64,7 @@ public class MessageSerializer {
     return ((bytes[3] & 255) << 24)
         + ((bytes[2] & 255) << 16)
         + ((bytes[1] & 255) << 8)
-        + ((bytes[0] & 255));
+        + (bytes[0] & 255);
   }
 
   /**
@@ -76,7 +77,7 @@ public class MessageSerializer {
     bytes[3] = (byte) (value >>> 24);
     bytes[2] = (byte) (value >>> 16);
     bytes[1] = (byte) (value >>> 8);
-    bytes[0] = (byte) (value);
+    bytes[0] = (byte) value;
   }
 
   /**
@@ -93,7 +94,7 @@ public class MessageSerializer {
     bytes[3] = (byte) (value >>> 24);
     bytes[2] = (byte) (value >>> 16);
     bytes[1] = (byte) (value >>> 8);
-    bytes[0] = (byte) (value);
+    bytes[0] = (byte) value;
   }
 
   public static int writeMessageBuffer(
@@ -166,6 +167,12 @@ public class MessageSerializer {
 
   /** Returns the serialized flatbuffer bytes of the schema wrapped in a message table. */
   @Deprecated
+  @InlineMe(
+      replacement = "MessageSerializer.serializeMetadata(schema, IpcOption.DEFAULT)",
+      imports = {
+        "org.apache.arrow.vector.ipc.message.IpcOption",
+        "org.apache.arrow.vector.ipc.message.MessageSerializer"
+      })
   public static ByteBuffer serializeMetadata(Schema schema) {
     return serializeMetadata(schema, IpcOption.DEFAULT);
   }
@@ -314,6 +321,12 @@ public class MessageSerializer {
    * org.apache.arrow.flatbuf.Message}.
    */
   @Deprecated
+  @InlineMe(
+      replacement = "MessageSerializer.serializeMetadata(message, IpcOption.DEFAULT)",
+      imports = {
+        "org.apache.arrow.vector.ipc.message.IpcOption",
+        "org.apache.arrow.vector.ipc.message.MessageSerializer"
+      })
   public static ByteBuffer serializeMetadata(ArrowMessage message) {
     return serializeMetadata(message, IpcOption.DEFAULT);
   }
@@ -655,6 +668,13 @@ public class MessageSerializer {
   }
 
   @Deprecated
+  @InlineMe(
+      replacement =
+          "MessageSerializer.serializeMessage(builder, headerType, headerOffset, bodyLength, IpcOption.DEFAULT)",
+      imports = {
+        "org.apache.arrow.vector.ipc.message.IpcOption",
+        "org.apache.arrow.vector.ipc.message.MessageSerializer"
+      })
   public static ByteBuffer serializeMessage(
       FlatBufferBuilder builder, byte headerType, int headerOffset, long bodyLength) {
     return serializeMessage(builder, headerType, headerOffset, bodyLength, IpcOption.DEFAULT);
@@ -695,6 +715,7 @@ public class MessageSerializer {
    *     valid Message was read, or null if end-of-stream
    * @throws IOException on error
    */
+  @SuppressWarnings("UnusedVariable")
   public static MessageMetadataResult readMessage(ReadChannel in) throws IOException {
 
     // Read the message size. There is an i32 little endian prefix.

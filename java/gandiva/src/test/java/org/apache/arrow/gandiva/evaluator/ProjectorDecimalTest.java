@@ -69,7 +69,6 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
     Projector eval = Projector.make(schema, exprs);
 
     int numRows = 4;
-    byte[] validity = new byte[] {(byte) 255};
     String[] aValues = new String[] {"1.12345678", "2.12345678", "3.12345678", "4.12345678"};
     String[] bValues = new String[] {"2.12345678", "3.12345678", "4.12345678", "5.12345678"};
 
@@ -199,7 +198,6 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
     Projector eval = Projector.make(schema, exprs);
 
     int numRows = 4;
-    byte[] validity = new byte[] {(byte) 255};
     String[] aValues =
         new String[] {"1.12345678", "2.12345678", "3.12345678", "999999999999.99999999"};
     String[] bValues =
@@ -786,7 +784,6 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
   @Disabled("GH-43576 - Fix and enable this test")
   public void testCastStringToDecimal() throws GandivaException {
     Decimal decimalType = new Decimal(4, 2, 128);
-    Field dec = Field.nullable("dec", decimalType);
 
     Field str = Field.nullable("str", new ArrowType.Utf8());
     TreeNode field = TreeBuilder.makeField(str);
@@ -860,7 +857,7 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
         assertThrows(
             IllegalArgumentException.class,
             () -> {
-              Projector eval =
+              Projector unused =
                   Projector.make(
                       schema,
                       Lists.newArrayList(
@@ -884,7 +881,7 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
         assertThrows(
             IllegalArgumentException.class,
             () -> {
-              Projector eval =
+              Projector unused =
                   Projector.make(
                       schema,
                       Lists.newArrayList(

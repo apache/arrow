@@ -18,6 +18,7 @@ package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
+import com.google.errorprone.annotations.DoNotCall;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.ReusableBuffer;
 import org.apache.arrow.vector.complex.impl.ViewVarCharReaderImpl;
@@ -98,6 +99,7 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector
    * @param index position of an element to get
    * @return array of bytes for a non-null element, null otherwise
    */
+  @Override
   public byte[] get(int index) {
     assert index >= 0;
     if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
@@ -142,6 +144,7 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector
    * @param index position of an element to get
    * @param holder data holder to be populated by this function
    */
+  @DoNotCall("Always throws java.lang.UnsupportedOperationException")
   public void get(int index, NullableViewVarCharHolder holder) {
     // TODO: https://github.com/apache/arrow/issues/40937
     throw new UnsupportedOperationException(
@@ -161,6 +164,7 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector
    * @param index position of the element to set
    * @param holder holder that carries data buffer.
    */
+  @DoNotCall("Always throws java.lang.UnsupportedOperationException")
   public void set(int index, ViewVarCharHolder holder) {
     // TODO: https://github.com/apache/arrow/issues/40937
     throw new UnsupportedOperationException("ViewVarCharHolder set operation not supported");
@@ -173,6 +177,7 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector
    * @param index position of the element to set
    * @param holder holder that carries data buffer.
    */
+  @DoNotCall("Always throws java.lang.UnsupportedOperationException")
   public void setSafe(int index, ViewVarCharHolder holder) {
     // TODO: https://github.com/apache/arrow/issues/40937
     throw new UnsupportedOperationException("ViewVarCharHolder setSafe operation not supported");
@@ -185,6 +190,7 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector
    * @param index position of the element to set
    * @param holder holder that carries data buffer.
    */
+  @DoNotCall("Always throws java.lang.UnsupportedOperationException")
   public void set(int index, NullableViewVarCharHolder holder) {
     // TODO: https://github.com/apache/arrow/issues/40937
     throw new UnsupportedOperationException(
@@ -198,6 +204,7 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector
    * @param index position of the element to set
    * @param holder holder that carries data buffer.
    */
+  @DoNotCall("Always throws java.lang.UnsupportedOperationException")
   public void setSafe(int index, NullableViewVarCharHolder holder) {
     // TODO: https://github.com/apache/arrow/issues/40937
     throw new UnsupportedOperationException(

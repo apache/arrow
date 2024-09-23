@@ -22,9 +22,11 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import com.google.common.base.Splitter;
 import java.time.Duration;
 import java.time.Period;
 import java.time.format.DateTimeParseException;
+import java.util.List;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
@@ -110,7 +112,7 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
                   int valueCount = 10;
                   vector.setValueCount(valueCount);
                   for (int i = 0; i < valueCount; i++) {
-                    vector.set(i, i + 1, (i + 1) * 10, (i + 1) * 100);
+                    vector.set(i, i + 1, (i + 1) * 10, (i + 1) * 100L);
                   }
                   return vector;
                 },
@@ -172,11 +174,11 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
       return formatIntervalYear(Period.parse(object.toString()));
     } else if (vector instanceof IntervalMonthDayNanoVector) {
       String iso8601IntervalString = ((PeriodDuration) object).toISO8601IntervalString();
-      String[] periodAndDuration = iso8601IntervalString.split("T");
-      if (periodAndDuration.length == 1) {
+      List<String> periodAndDuration = Splitter.on('T').splitToList(iso8601IntervalString);
+      if (periodAndDuration.size() == 1) {
         // If there is no 'T', then either Period or Duration is zero, and the other one will
         // successfully parse it
-        String periodOrDuration = periodAndDuration[0];
+        String periodOrDuration = periodAndDuration.get(0);
         try {
           return new PeriodDuration(Period.parse(periodOrDuration), Duration.ZERO)
               .toISO8601IntervalString();
@@ -188,8 +190,8 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
         // If there is a 'T', both Period and Duration are non-zero, and we just need to prepend the
         // 'PT' to the
         // duration for both to parse successfully
-        Period parse = Period.parse(periodAndDuration[0]);
-        Duration duration = Duration.parse("PT" + periodAndDuration[1]);
+        Period parse = Period.parse(periodAndDuration.get(0));
+        Duration duration = Duration.parse("PT" + periodAndDuration.get(1));
         return new PeriodDuration(parse, duration).toISO8601IntervalString();
       }
     }

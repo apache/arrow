@@ -45,12 +45,14 @@ public class SetSessionOptionsResult {
       return values()[s.getNumber()];
     }
 
+    @SuppressWarnings("EnumOrdinal")
     Flight.SetSessionOptionsResult.ErrorValue toProtocol() {
       return Flight.SetSessionOptionsResult.ErrorValue.values()[ordinal()];
     }
   }
 
   /** Per-option extensible error response container. */
+  @SuppressWarnings("JavaLangClash")
   public static class Error {
     public ErrorValue value;
 
@@ -74,7 +76,7 @@ public class SetSessionOptionsResult {
       if (this == o) {
         return true;
       }
-      if (o == null || getClass() != o.getClass()) {
+      if (!(o instanceof Error)) {
         return false;
       }
       Error that = (Error) o;

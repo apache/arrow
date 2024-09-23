@@ -75,6 +75,7 @@ public class ServerSessionMiddleware implements FlightServerMiddleware {
     }
 
     @Override
+    @SuppressWarnings("StringSplitter")
     public ServerSessionMiddleware onCallStarted(
         CallInfo callInfo, CallHeaders incomingHeaders, RequestContext context) {
       String sessionId = null;
@@ -90,7 +91,7 @@ public class ServerSessionMiddleware implements FlightServerMiddleware {
               break;
             }
 
-            if (sessionCookieName.equals(cookiePair[0]) && cookiePair[1].length() > 0) {
+            if (sessionCookieName.equals(cookiePair[0]) && !cookiePair[1].isEmpty()) {
               sessionId = cookiePair[1];
               break findIdCookie;
             }

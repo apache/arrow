@@ -176,6 +176,7 @@ public class ArrowFlightJdbcDecimalVectorAccessorTest {
 
   @ParameterizedTest
   @MethodSource("data")
+  @SuppressWarnings("BigDecimalEquals")
   public void testShouldGetBooleanMethodFromDecimalVector(Supplier<ValueVector> vectorSupplier)
       throws Exception {
     setup(vectorSupplier);

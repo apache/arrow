@@ -19,6 +19,7 @@ package org.apache.arrow.gandiva.evaluator;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import java.util.List;
+import java.util.Locale;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 
 /** POJO to define a function signature. */
@@ -58,11 +59,12 @@ public class FunctionSignature {
    * @param signature - signature to compare
    * @return true if equal and false if not.
    */
+  @Override
   public boolean equals(Object signature) {
     if (signature == null) {
       return false;
     }
-    if (getClass() != signature.getClass()) {
+    if (!(signature instanceof FunctionSignature)) {
       return false;
     }
     final FunctionSignature other = (FunctionSignature) signature;
@@ -73,7 +75,8 @@ public class FunctionSignature {
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(this.name.toLowerCase(), this.returnType, this.paramTypes);
+    return Objects.hashCode(
+        this.name.toLowerCase(Locale.getDefault()), this.returnType, this.paramTypes);
   }
 
   @Override

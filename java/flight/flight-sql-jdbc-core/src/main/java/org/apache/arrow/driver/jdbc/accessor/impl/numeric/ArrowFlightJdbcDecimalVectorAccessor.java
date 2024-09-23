@@ -71,6 +71,7 @@ public class ArrowFlightJdbcDecimalVectorAccessor extends ArrowFlightJdbcAccesso
   }
 
   @Override
+  @SuppressWarnings("BigDecimalEquals")
   public boolean getBoolean() {
     final BigDecimal value = this.getBigDecimal();
 

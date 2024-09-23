@@ -182,6 +182,7 @@ public class ArrowRecordBatch implements ArrowMessage {
   // this constructor is different from the public ones in that the reference manager's
   // <code>retain</code> method is not called, so the first <code>dummy</code> parameter is used
   // to distinguish this from the public constructor.
+  @SuppressWarnings("UnusedVariable")
   private ArrowRecordBatch(
       boolean dummy,
       int length,
@@ -206,6 +207,7 @@ public class ArrowRecordBatch implements ArrowMessage {
     this.buffersLayout = Collections.unmodifiableList(arrowBuffers);
   }
 
+  @Override
   public byte getMessageType() {
     return org.apache.arrow.flatbuf.MessageHeader.RecordBatch;
   }
@@ -261,9 +263,9 @@ public class ArrowRecordBatch implements ArrowMessage {
         buffers.stream()
             .map(
                 buf ->
-                    (buf.getReferenceManager()
-                            .transferOwnership(buf, allocator)
-                            .getTransferredBuffer())
+                    buf.getReferenceManager()
+                        .transferOwnership(buf, allocator)
+                        .getTransferredBuffer()
                         .writerIndex(buf.writerIndex()))
             .collect(Collectors.toList());
     close();

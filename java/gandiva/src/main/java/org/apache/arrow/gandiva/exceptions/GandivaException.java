@@ -29,6 +29,11 @@ public class GandivaException extends Exception {
 
   @Override
   public String toString() {
-    return getMessage();
+    return this.getMessage();
+  }
+
+  @Override
+  public String getMessage() {
+    return super.getMessage();
   }
 }

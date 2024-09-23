@@ -182,8 +182,8 @@ public abstract class BaseLargeRepeatedValueViewVector extends BaseValueVector
 
   @Override
   public void setInitialCapacity(int numRecords) {
-    offsetAllocationSizeInBytes = (long) (numRecords) * OFFSET_WIDTH;
-    sizeAllocationSizeInBytes = (long) (numRecords) * SIZE_WIDTH;
+    offsetAllocationSizeInBytes = (long) numRecords * OFFSET_WIDTH;
+    sizeAllocationSizeInBytes = (long) numRecords * SIZE_WIDTH;
     if (vector instanceof BaseFixedWidthVector || vector instanceof BaseVariableWidthVector) {
       vector.setInitialCapacity(numRecords * RepeatedValueVector.DEFAULT_REPEAT_PER_RECORD);
     } else {

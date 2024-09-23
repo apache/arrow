@@ -16,6 +16,7 @@
  */
 package org.apache.arrow.vector.ipc.message;
 
+import com.google.errorprone.annotations.InlineMe;
 import com.google.flatbuffers.FlatBufferBuilder;
 import org.apache.arrow.flatbuf.DictionaryBatch;
 import org.apache.arrow.flatbuf.MessageHeader;
@@ -31,6 +32,7 @@ public class ArrowDictionaryBatch implements ArrowMessage {
   private final boolean isDelta;
 
   @Deprecated
+  @InlineMe(replacement = "this(dictionaryId, dictionary, false)")
   public ArrowDictionaryBatch(long dictionaryId, ArrowRecordBatch dictionary) {
     this(dictionaryId, dictionary, false);
   }
@@ -46,6 +48,7 @@ public class ArrowDictionaryBatch implements ArrowMessage {
     return isDelta;
   }
 
+  @Override
   public byte getMessageType() {
     return MessageHeader.DictionaryBatch;
   }

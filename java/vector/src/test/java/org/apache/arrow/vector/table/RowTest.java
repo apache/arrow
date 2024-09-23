@@ -790,6 +790,7 @@ class RowTest {
   }
 
   @Test
+  @SuppressWarnings("FloatingPointLiteralPrecision")
   void testExtensionTypeVector() {
     TestExtensionType.LocationVector vector =
         new TestExtensionType.LocationVector("location", allocator);

@@ -18,6 +18,7 @@ package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.DATA_VECTOR_NAME;
 
+import com.google.errorprone.annotations.InlineMe;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -94,6 +95,15 @@ public class NullVector implements FieldVector, ValueIterableVector<Object> {
   }
 
   @Deprecated
+  @InlineMe(
+      replacement =
+          "this(new Field(DATA_VECTOR_NAME, FieldType.nullable(new ArrowType.Null()), null))",
+      imports = {
+        "DATA_VECTOR_NAME",
+        "org.apache.arrow.vector.types.pojo.ArrowType",
+        "org.apache.arrow.vector.types.pojo.Field",
+        "org.apache.arrow.vector.types.pojo.FieldType"
+      })
   public NullVector() {
     this(new Field(DATA_VECTOR_NAME, FieldType.nullable(new ArrowType.Null()), null));
   }
@@ -229,6 +239,7 @@ public class NullVector implements FieldVector, ValueIterableVector<Object> {
    *     vectors.
    */
   @Deprecated
+  @SuppressWarnings("InlineMeSuggester")
   @Override
   public List<BufferBacked> getFieldInnerVectors() {
     return Collections.emptyList();
@@ -336,7 +347,9 @@ public class NullVector implements FieldVector, ValueIterableVector<Object> {
 
     @Deprecated
     public TransferImpl() {
-      to = new NullVector();
+      to =
+          new NullVector(
+              new Field(DATA_VECTOR_NAME, FieldType.nullable(new ArrowType.Null()), null));
     }
 
     public TransferImpl(NullVector to) {

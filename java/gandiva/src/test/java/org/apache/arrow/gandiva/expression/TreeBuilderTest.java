@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -39,20 +40,20 @@ public class TreeBuilderTest {
 
     assertEquals(true, node.getBooleanNode().getValue());
 
-    n = TreeBuilder.makeLiteral(new Integer(10));
+    n = TreeBuilder.makeLiteral(10);
     node = n.toProtobuf();
     assertEquals(10, node.getIntNode().getValue());
 
-    n = TreeBuilder.makeLiteral(new Long(50));
+    n = TreeBuilder.makeLiteral(Long.valueOf(50));
     node = n.toProtobuf();
     assertEquals(50, node.getLongNode().getValue());
 
-    Float f = new Float(2.5);
+    Float f = (float) 2.5;
     n = TreeBuilder.makeLiteral(f);
     node = n.toProtobuf();
     assertEquals(f.floatValue(), node.getFloatNode().getValue(), 0.1);
 
-    Double d = new Double(3.3);
+    Double d = 3.3;
     n = TreeBuilder.makeLiteral(d);
     node = n.toProtobuf();
     assertEquals(d.doubleValue(), node.getDoubleNode().getValue(), 0.1);
@@ -60,9 +61,10 @@ public class TreeBuilderTest {
     String s = new String("hello");
     n = TreeBuilder.makeStringLiteral(s);
     node = n.toProtobuf();
-    assertArrayEquals(s.getBytes(), node.getStringNode().getValue().toByteArray());
+    assertArrayEquals(
+        s.getBytes(StandardCharsets.UTF_8), node.getStringNode().getValue().toByteArray());
 
-    byte[] b = new String("hello").getBytes();
+    byte[] b = new String("hello").getBytes(StandardCharsets.UTF_8);
     n = TreeBuilder.makeBinaryLiteral(b);
     node = n.toProtobuf();
     assertArrayEquals(b, node.getBinaryNode().getValue().toByteArray());

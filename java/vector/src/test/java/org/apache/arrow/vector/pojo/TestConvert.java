@@ -101,7 +101,10 @@ public class TestConvert {
     org.apache.arrow.vector.types.pojo.Schema schema =
         new org.apache.arrow.vector.types.pojo.Schema(tempSchema.getFields());
     schemaBuilder.finish(schema.getSchema(schemaBuilder));
-    Schema finalSchema = Schema.deserialize(ByteBuffer.wrap(schemaBuilder.sizedByteArray()));
+    Schema finalSchema =
+        Schema.convertSchema(
+            org.apache.arrow.flatbuf.Schema.getRootAsSchema(
+                ByteBuffer.wrap(schemaBuilder.sizedByteArray())));
     assertFalse(finalSchema.toString().contains("[DEFAULT]"));
   }
 
@@ -131,6 +134,7 @@ public class TestConvert {
   }
 
   @Test
+  @SuppressWarnings("EnumOrdinal")
   public void nestedSchema() {
     java.util.List<Field> children = new ArrayList<>();
     children.add(new Field("child1", FieldType.nullable(Utf8.INSTANCE), null));

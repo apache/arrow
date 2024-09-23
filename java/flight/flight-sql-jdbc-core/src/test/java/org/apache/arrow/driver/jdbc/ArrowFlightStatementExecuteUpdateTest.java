@@ -220,7 +220,10 @@ public class ArrowFlightStatementExecuteUpdateTest {
        */
       assertThat(
           e.getMessage(),
-          is(format("Error while executing SQL \"%s\": Query not found", badQuery)));
+          is(
+              format(
+                  "Error while executing SQL \"%s\": org.apache.arrow.flight.FlightRuntimeException: INVALID_ARGUMENT: Query not found",
+                  badQuery)));
     }
     assertThat(count, is(1));
   }

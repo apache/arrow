@@ -70,8 +70,8 @@ public class AddWritableBuffer {
       tmpBufChainOut = tmpBufChainOut2;
 
     } catch (Exception ex) {
-      new RuntimeException("Failed to initialize AddWritableBuffer, falling back to slow path", ex)
-          .printStackTrace();
+      throw new RuntimeException(
+          "Failed to initialize AddWritableBuffer, falling back to slow path", ex);
     }
 
     bufConstruct = tmpConstruct;

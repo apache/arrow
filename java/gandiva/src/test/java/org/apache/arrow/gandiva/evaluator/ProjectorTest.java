@@ -26,6 +26,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import java.math.BigDecimal;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -33,6 +34,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 import org.apache.arrow.gandiva.exceptions.GandivaException;
@@ -69,7 +71,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
   private Charset utf16Charset = Charset.forName("UTF-16");
 
   List<ArrowBuf> varBufs(String[] strings, Charset charset) {
-    ArrowBuf offsetsBuffer = allocator.buffer((strings.length + 1) * 4);
+    ArrowBuf offsetsBuffer = allocator.buffer((strings.length + 1) * 4L);
 
     long dataBufferSize = 0L;
     for (String string : strings) {
@@ -131,19 +133,22 @@ public class ProjectorTest extends BaseEvaluatorTest {
     IntStream.range(0, 1000)
         .forEach(
             i -> {
-              executors.submit(
-                  () -> {
-                    try {
-                      Projector evaluator =
-                          configOptions == null
-                              ? Projector.make(schemas.get((int) (Math.random() * 100)), exprs)
-                              : Projector.make(
-                                  schemas.get((int) (Math.random() * 100)), exprs, configOptions);
-                      evaluator.close();
-                    } catch (GandivaException e) {
-                      e.printStackTrace();
-                    }
-                  });
+              Future<?> unused =
+                  executors.submit(
+                      () -> {
+                        try {
+                          Projector evaluator =
+                              configOptions == null
+                                  ? Projector.make(schemas.get((int) (Math.random() * 100)), exprs)
+                                  : Projector.make(
+                                      schemas.get((int) (Math.random() * 100)),
+                                      exprs,
+                                      configOptions);
+                          evaluator.close();
+                        } catch (GandivaException e) {
+                          throw new RuntimeException(e);
+                        }
+                      });
             });
     executors.shutdown();
     executors.awaitTermination(100, java.util.concurrent.TimeUnit.SECONDS);
@@ -213,7 +218,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
     boolean exceptionThrown = false;
     try {
-      Projector evaluator1 = Projector.make(schema, exprs);
+      Projector unused = Projector.make(schema, exprs);
     } catch (GandivaException e) {
       exceptionThrown = true;
     }
@@ -226,7 +231,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
     // try again to ensure no temporary resources.
     exceptionThrown = false;
     try {
-      Projector evaluator1 = Projector.make(schema, exprs);
+      Projector unused = Projector.make(schema, exprs);
     } catch (GandivaException e) {
       exceptionThrown = true;
     }
@@ -358,49 +363,51 @@ public class ProjectorTest extends BaseEvaluatorTest {
     IntStream.range(0, 1000)
         .forEach(
             i -> {
-              executors.submit(
-                  () -> {
-                    try {
-                      Projector evaluator = Projector.make(s, exprs);
-                      int numRows = 2;
-                      byte[] validity = new byte[] {(byte) 255};
-                      int[] aValues = new int[] {2, 2};
-                      int[] bValues;
-                      if (i % 2 == 0) {
-                        errorCountExp.incrementAndGet();
-                        bValues = new int[] {1, 0};
-                      } else {
-                        bValues = new int[] {1, 1};
-                      }
+              Future<?> unused =
+                  executors.submit(
+                      () -> {
+                        try {
+                          Projector evaluator = Projector.make(s, exprs);
+                          int numRows = 2;
+                          byte[] validity = new byte[] {(byte) 255};
+                          int[] aValues = new int[] {2, 2};
+                          int[] bValues;
+                          if (i % 2 == 0) {
+                            errorCountExp.incrementAndGet();
+                            bValues = new int[] {1, 0};
+                          } else {
+                            bValues = new int[] {1, 1};
+                          }
 
-                      ArrowBuf validitya = buf(validity);
-                      ArrowBuf valuesa = intBuf(aValues);
-                      ArrowBuf validityb = buf(validity);
-                      ArrowBuf valuesb = intBuf(bValues);
-                      ArrowRecordBatch batch =
-                          new ArrowRecordBatch(
-                              numRows,
-                              Lists.newArrayList(
-                                  new ArrowFieldNode(numRows, 0), new ArrowFieldNode(numRows, 0)),
-                              Lists.newArrayList(validitya, valuesa, validityb, valuesb));
+                          ArrowBuf validitya = buf(validity);
+                          ArrowBuf valuesa = intBuf(aValues);
+                          ArrowBuf validityb = buf(validity);
+                          ArrowBuf valuesb = intBuf(bValues);
+                          ArrowRecordBatch batch =
+                              new ArrowRecordBatch(
+                                  numRows,
+                                  Lists.newArrayList(
+                                      new ArrowFieldNode(numRows, 0),
+                                      new ArrowFieldNode(numRows, 0)),
+                                  Lists.newArrayList(validitya, valuesa, validityb, valuesb));
 
-                      IntVector intVector = new IntVector(EMPTY_SCHEMA_PATH, allocator);
-                      intVector.allocateNew(numRows);
+                          IntVector intVector = new IntVector(EMPTY_SCHEMA_PATH, allocator);
+                          intVector.allocateNew(numRows);
 
-                      List<ValueVector> output = new ArrayList<ValueVector>();
-                      output.add(intVector);
-                      try {
-                        evaluator.evaluate(batch, output);
-                      } catch (GandivaException e) {
-                        errorCount.incrementAndGet();
-                      }
-                      // free buffers
-                      releaseRecordBatch(batch);
-                      releaseValueVectors(output);
-                      evaluator.close();
-                    } catch (GandivaException ignore) {
-                    }
-                  });
+                          List<ValueVector> output = new ArrayList<ValueVector>();
+                          output.add(intVector);
+                          try {
+                            evaluator.evaluate(batch, output);
+                          } catch (GandivaException e) {
+                            errorCount.incrementAndGet();
+                          }
+                          // free buffers
+                          releaseRecordBatch(batch);
+                          releaseValueVectors(output);
+                          evaluator.close();
+                        } catch (GandivaException ignore) {
+                        }
+                      });
             });
     executors.shutdown();
     executors.awaitTermination(100, java.util.concurrent.TimeUnit.SECONDS);
@@ -413,8 +420,6 @@ public class ProjectorTest extends BaseEvaluatorTest {
     Field x = Field.nullable("x", int32);
     Field n2x = Field.nullable("n2x", int32);
     Field n3x = Field.nullable("n3x", int32);
-
-    List<TreeNode> args = new ArrayList<TreeNode>();
 
     // x + n2x + n3x
     TreeNode add1 =
@@ -595,7 +600,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
     // match expected output.
     for (int i = 0; i < numRows; i++) {
       assertFalse(outVector.isNull(i));
-      assertEquals(expected[i], new String(outVector.get(i)));
+      assertEquals(expected[i], new String(outVector.get(i), StandardCharsets.UTF_8));
     }
 
     // test with insufficient data buffer.
@@ -704,7 +709,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
     // allocate data for output vector.
     VarCharVector outVector = new VarCharVector(EMPTY_SCHEMA_PATH, allocator);
-    outVector.allocateNew(numRows * 15, numRows);
+    outVector.allocateNew(numRows * 15L, numRows);
 
     // evaluate expression
     List<ValueVector> output = new ArrayList<>();
@@ -715,7 +720,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
     // match expected output.
     for (int i = 0; i < numRows - 1; i++) {
       assertFalse(outVector.isNull(i), "Expect none value equals null");
-      assertEquals(expected[i], new String(outVector.get(i)));
+      assertEquals(expected[i], new String(outVector.get(i), StandardCharsets.UTF_8));
     }
 
     assertTrue(outVector.isNull(numRows - 1), "Last value must be null");
@@ -1892,7 +1897,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
     Schema schema = new Schema(Lists.newArrayList(c1, c2));
     boolean caughtException = false;
     try {
-      Projector eval = Projector.make(schema, Lists.newArrayList(expr));
+      Projector unused = Projector.make(schema, Lists.newArrayList(expr));
     } catch (GandivaException ge) {
       caughtException = true;
     }
@@ -1958,7 +1963,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
     for (int i = 0; i < exprs.size(); i++) {
       VarCharVector charVector = new VarCharVector(EMPTY_SCHEMA_PATH, allocator);
 
-      charVector.allocateNew(numRows * 23, numRows);
+      charVector.allocateNew(numRows * 23L, numRows);
       output.add(charVector);
     }
     eval.evaluate(batch, output);
@@ -1969,7 +1974,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
       for (int j = 0; j < numRows; j++) {
         assertFalse(charVector.isNull(j));
-        assertEquals(expValues[j], new String(charVector.get(j)));
+        assertEquals(expValues[j], new String(charVector.get(j), StandardCharsets.UTF_8));
       }
     }
 
@@ -2416,7 +2421,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
     for (int i = 0; i < exprs.size(); i++) {
       VarCharVector charVector = new VarCharVector(EMPTY_SCHEMA_PATH, allocator);
 
-      charVector.allocateNew(numRows * 5, numRows);
+      charVector.allocateNew(numRows * 5L, numRows);
       output.add(charVector);
     }
     eval.evaluate(batch, output);
@@ -2427,7 +2432,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
       for (int j = 0; j < numRows; j++) {
         assertFalse(charVector.isNull(j));
-        assertEquals(expValues[j], new String(charVector.get(j)));
+        assertEquals(expValues[j], new String(charVector.get(j), StandardCharsets.UTF_8));
       }
     }
 
@@ -2436,6 +2441,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
   }
 
   @Test
+  @SuppressWarnings("FloatingPointLiteralPrecision")
   public void testCastVarcharFromFloat() throws Exception {
     Field inField = Field.nullable("input", float64);
     Field lenField = Field.nullable("outLength", int64);
@@ -2523,7 +2529,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
     for (int i = 0; i < exprs.size(); i++) {
       VarCharVector charVector = new VarCharVector(EMPTY_SCHEMA_PATH, allocator);
 
-      charVector.allocateNew(numRows * 5, numRows);
+      charVector.allocateNew(numRows * 5L, numRows);
       output.add(charVector);
     }
     eval.evaluate(batch, output);
@@ -2534,7 +2540,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
       for (int j = 0; j < numRows; j++) {
         assertFalse(charVector.isNull(j));
-        assertEquals(expValues[j], new String(charVector.get(j)));
+        assertEquals(expValues[j], new String(charVector.get(j), StandardCharsets.UTF_8));
       }
     }
 
@@ -2587,7 +2593,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
     // allocate data for output vector.
     VarCharVector outVector = new VarCharVector(EMPTY_SCHEMA_PATH, allocator);
-    outVector.allocateNew(numRows * 100, numRows);
+    outVector.allocateNew(numRows * 100L, numRows);
 
     // evaluate expression
     List<ValueVector> output = new ArrayList<>();
@@ -2598,7 +2604,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
     // match expected output.
     for (int i = 0; i < numRows - 1; i++) {
       assertFalse(outVector.isNull(i), "Expect none value equals null");
-      assertEquals(expected[i], new String(outVector.get(i)));
+      assertEquals(expected[i], new String(outVector.get(i), StandardCharsets.UTF_8));
     }
 
     assertTrue(outVector.isNull(numRows - 1), "Last value must be null");

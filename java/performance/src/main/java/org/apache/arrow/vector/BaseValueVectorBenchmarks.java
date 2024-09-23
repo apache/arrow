@@ -70,7 +70,7 @@ public class BaseValueVectorBenchmarks {
   public int testComputeCombinedBufferSize() {
     int totalSize = 0;
     for (int i = 0; i < VECTOR_LENGTH; i++) {
-      totalSize += vector.computeCombinedBufferSize(i, 4);
+      totalSize = (int) (totalSize + vector.computeCombinedBufferSize(i, 4));
     }
     return totalSize;
   }

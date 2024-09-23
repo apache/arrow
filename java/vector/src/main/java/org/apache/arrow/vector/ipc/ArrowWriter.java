@@ -155,15 +155,8 @@ public abstract class ArrowWriter implements AutoCloseable {
     VectorUnloader unloader =
         new VectorUnloader(dictRoot, /*includeNullCount*/ true, this.codec, /*alignBuffers*/ true);
     ArrowRecordBatch batch = unloader.getRecordBatch();
-    ArrowDictionaryBatch dictionaryBatch = new ArrowDictionaryBatch(id, batch, false);
-    try {
+    try (ArrowDictionaryBatch dictionaryBatch = new ArrowDictionaryBatch(id, batch, false)) {
       writeDictionaryBatch(dictionaryBatch);
-    } finally {
-      try {
-        dictionaryBatch.close();
-      } catch (Exception e) {
-        throw new RuntimeException("Error occurred while closing dictionary.", e);
-      }
     }
   }
 

@@ -1908,7 +1908,7 @@ public class TestValueVector {
       }
       fromVector.setValueCount(numValues);
       ArrowBuf fromDataBuffer = fromVector.getDataBuffer();
-      assertTrue(numValues * valueBytesLength <= fromDataBuffer.capacity());
+      assertTrue((long) numValues * valueBytesLength <= fromDataBuffer.capacity());
 
       /*
        * Copy the entries one-by-one from 'fromVector' to 'toVector', but use the setSafe with
@@ -2398,11 +2398,11 @@ public class TestValueVector {
    */
   public static void setBytes(int index, byte[] bytes, VarCharVector vector) {
     final int currentOffset =
-        vector.offsetBuffer.getInt(index * BaseVariableWidthVector.OFFSET_WIDTH);
+        vector.offsetBuffer.getInt((long) index * BaseVariableWidthVector.OFFSET_WIDTH);
 
     BitVectorHelper.setBit(vector.validityBuffer, index);
     vector.offsetBuffer.setInt(
-        (index + 1) * BaseVariableWidthVector.OFFSET_WIDTH, currentOffset + bytes.length);
+        (long) (index + 1) * BaseVariableWidthVector.OFFSET_WIDTH, currentOffset + bytes.length);
     vector.valueBuffer.setBytes(currentOffset, bytes, 0, bytes.length);
   }
 
@@ -2669,8 +2669,8 @@ public class TestValueVector {
 
     try (VarCharVector vec1 = new VarCharVector("vec1", allocator);
         VarCharVector vec2 = new VarCharVector("vec2", allocator)) {
-      vec1.allocateNew(sampleData.length * 10, sampleData.length);
-      vec2.allocateNew(sampleData.length * 10, sampleData.length);
+      vec1.allocateNew(sampleData.length * 10L, sampleData.length);
+      vec2.allocateNew(sampleData.length * 10L, sampleData.length);
 
       for (int i = 0; i < sampleData.length; i++) {
         String str = sampleData[i];

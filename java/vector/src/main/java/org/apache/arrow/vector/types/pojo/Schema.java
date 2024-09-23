@@ -28,6 +28,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.util.ByteBufferBackedInputStream;
+import com.google.errorprone.annotations.InlineMe;
 import com.google.flatbuffers.FlatBufferBuilder;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -90,6 +91,9 @@ public class Schema {
    * @return The deserialized schema.
    */
   @Deprecated
+  @InlineMe(
+      replacement = "Schema.convertSchema(org.apache.arrow.flatbuf.Schema.getRootAsSchema(buffer))",
+      imports = "org.apache.arrow.vector.types.pojo.Schema")
   public static Schema deserialize(ByteBuffer buffer) {
     return convertSchema(org.apache.arrow.flatbuf.Schema.getRootAsSchema(buffer));
   }

@@ -18,6 +18,7 @@ package org.apache.arrow.vector;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Random;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -175,12 +176,12 @@ public class TestTypeLayout {
     try (ViewVarCharVector viewVarCharVector = new ViewVarCharVector("myvector", allocator)) {
       viewVarCharVector.allocateNew(32, 6);
 
-      viewVarCharVector.setSafe(0, generateRandomString(8).getBytes());
-      viewVarCharVector.setSafe(1, generateRandomString(12).getBytes());
-      viewVarCharVector.setSafe(2, generateRandomString(14).getBytes());
-      viewVarCharVector.setSafe(3, generateRandomString(18).getBytes());
-      viewVarCharVector.setSafe(4, generateRandomString(22).getBytes());
-      viewVarCharVector.setSafe(5, generateRandomString(24).getBytes());
+      viewVarCharVector.setSafe(0, generateRandomString(8).getBytes(StandardCharsets.UTF_8));
+      viewVarCharVector.setSafe(1, generateRandomString(12).getBytes(StandardCharsets.UTF_8));
+      viewVarCharVector.setSafe(2, generateRandomString(14).getBytes(StandardCharsets.UTF_8));
+      viewVarCharVector.setSafe(3, generateRandomString(18).getBytes(StandardCharsets.UTF_8));
+      viewVarCharVector.setSafe(4, generateRandomString(22).getBytes(StandardCharsets.UTF_8));
+      viewVarCharVector.setSafe(5, generateRandomString(24).getBytes(StandardCharsets.UTF_8));
 
       viewVarCharVector.setValueCount(6);
 

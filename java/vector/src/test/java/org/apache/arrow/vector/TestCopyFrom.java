@@ -180,7 +180,7 @@ public class TestCopyFrom {
       /* set lesser initial capacity than actually needed
        * to trigger reallocs in copyFromSafe()
        */
-      vector2.allocateNew((initialCapacity / 4) * 10, initialCapacity / 4);
+      vector2.allocateNew((initialCapacity / 4) * 10L, initialCapacity / 4);
 
       capacity = vector2.getValueCapacity();
       assertTrue(capacity >= initialCapacity / 4);

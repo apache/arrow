@@ -21,6 +21,7 @@
 
 package org.apache.arrow.vector.types.pojo;
 
+import com.google.errorprone.annotations.Immutable;
 import com.google.flatbuffers.FlatBufferBuilder;
 
 import java.util.Objects;
@@ -49,6 +50,8 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
   @JsonSubTypes.Type(value = ArrowType.${type.name?remove_ending("_")}.class, name = "${type.name?remove_ending("_")?lower_case}"),
 </#list>
 })
+
+@Immutable
 public abstract class ArrowType {
 
   public static abstract class PrimitiveType extends ArrowType {

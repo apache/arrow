@@ -26,6 +26,7 @@ enum AdhocTestOption implements ProtocolMessageEnum {
   OPTION_C;
 
   @Override
+  @SuppressWarnings("EnumOrdinal")
   public int getNumber() {
     return ordinal();
   }

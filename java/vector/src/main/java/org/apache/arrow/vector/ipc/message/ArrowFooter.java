@@ -190,7 +190,7 @@ public class ArrowFooter implements FBSerializable {
     if (obj == null) {
       return false;
     }
-    if (getClass() != obj.getClass()) {
+    if (!(obj instanceof ArrowFooter)) {
       return false;
     }
     ArrowFooter other = (ArrowFooter) obj;

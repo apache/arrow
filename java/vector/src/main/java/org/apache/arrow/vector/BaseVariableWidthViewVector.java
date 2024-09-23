@@ -401,7 +401,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
       viewBuffer.writerIndex(0);
     } else {
       validityBuffer.writerIndex(getValidityBufferSizeFromCount(valueCount));
-      viewBuffer.writerIndex(valueCount * ELEMENT_SIZE);
+      viewBuffer.writerIndex((long) valueCount * ELEMENT_SIZE);
     }
   }
 
@@ -620,7 +620,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
   }
 
   private long computeValidityBufferSize(int valueCount) {
-    return (valueCount + 7) / 8;
+    return (valueCount + 7L) / 8;
   }
 
   /**
@@ -942,7 +942,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
     }
 
     // allocate target view buffer
-    target.viewBuffer = target.allocator.buffer(length * ELEMENT_SIZE);
+    target.viewBuffer = target.allocator.buffer(length * ((long) ELEMENT_SIZE));
 
     for (int i = startIndex; i < startIndex + length; i++) {
       final int stringLength = getValueLength(i);
@@ -1154,6 +1154,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
    * @param index position of the element to set
    * @param value array of bytes to write
    */
+  @Override
   public void set(int index, byte[] value) {
     assert index >= 0;
     BitVectorHelper.setBit(validityBuffer, index);
@@ -1186,6 +1187,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
    * @param start start index in an array of bytes
    * @param length length of data in an array of bytes
    */
+  @Override
   public void set(int index, byte[] value, int start, int length) {
     assert index >= 0;
     BitVectorHelper.setBit(validityBuffer, index);
@@ -1202,6 +1204,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
    * @param start start index in an array of bytes
    * @param length length of data in an array of bytes
    */
+  @Override
   public void setSafe(int index, byte[] value, int start, int length) {
     assert index >= 0;
     handleSafe(index, length);
@@ -1218,10 +1221,20 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
    * @param start start index in ByteBuffer
    * @param length length of data in ByteBuffer
    */
+  @Override
   public void set(int index, ByteBuffer value, int start, int length) {
     assert index >= 0;
     BitVectorHelper.setBit(validityBuffer, index);
-    setBytes(index, value.array(), start, length);
+    if (value.hasArray()) {
+      setBytes(index, value.array(), value.arrayOffset() + start, length);
+    } else {
+      byte[] bytes = new byte[length];
+      int originalPosition = value.position();
+      value.position(start);
+      value.get(bytes, 0, length);
+      value.position(originalPosition); // Restores the buffer position
+      setBytes(index, bytes, 0, length);
+    }
     lastSet = index;
   }
 
@@ -1234,11 +1247,21 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
    * @param start start index in ByteBuffer
    * @param length length of data in ByteBuffer
    */
+  @Override
   public void setSafe(int index, ByteBuffer value, int start, int length) {
     assert index >= 0;
     handleSafe(index, length);
     BitVectorHelper.setBit(validityBuffer, index);
-    setBytes(index, value.array(), start, length);
+    if (value.hasArray()) {
+      setBytes(index, value.array(), value.arrayOffset() + start, length);
+    } else {
+      byte[] bytes = new byte[length];
+      int originalPosition = value.position();
+      value.position(start);
+      value.get(bytes, 0, length);
+      value.position(originalPosition); // Restores the buffer position
+      setBytes(index, bytes, 0, length);
+    }
     lastSet = index;
   }
 

@@ -381,6 +381,7 @@ public class TestUnionVector {
   }
 
   @Test
+  @SuppressWarnings("EnumOrdinal")
   public void testGetFieldTypeInfo() throws Exception {
     Map<String, String> metadata = new HashMap<>();
     metadata.put("key1", "value1");

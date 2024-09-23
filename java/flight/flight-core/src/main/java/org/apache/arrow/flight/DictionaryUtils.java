@@ -79,7 +79,7 @@ final class DictionaryUtils {
               count);
       final VectorUnloader unloader = new VectorUnloader(dictRoot);
       try (final ArrowDictionaryBatch dictionaryBatch =
-              new ArrowDictionaryBatch(id, unloader.getRecordBatch());
+              new ArrowDictionaryBatch(id, unloader.getRecordBatch(), false);
           final ArrowMessage message = new ArrowMessage(dictionaryBatch, option)) {
         messageCallback.accept(message);
       }

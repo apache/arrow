@@ -172,7 +172,7 @@ public class TestValueVectorIterable {
       durationVector.setSafe(2, 555);
       durationVector.setValueCount(3);
 
-      final Duration value1 = Duration.ofMillis(30000);
+      final Duration value1 = Duration.ofSeconds(30);
       final Duration value3 = Duration.ofMillis(555);
       assertThat(
           durationVector.getValueIterable(),

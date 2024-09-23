@@ -40,7 +40,6 @@ public class SelectionVectorInt16 extends SelectionVector {
   public int getIndex(int index) {
     checkReadBounds(index);
 
-    char value = getBuffer().getChar(index * getRecordSize());
-    return (int) value;
+    return getBuffer().getChar((long) index * getRecordSize());
   }
 }

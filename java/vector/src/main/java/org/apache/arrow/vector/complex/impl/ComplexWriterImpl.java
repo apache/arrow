@@ -37,7 +37,10 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
 
   Mode mode = Mode.INIT;
   private final String name;
+
+  @SuppressWarnings("UnusedVariable")
   private final boolean unionEnabled;
+
   private final NullableStructWriterFactory nullableStructWriterFactory;
 
   private enum Mode {

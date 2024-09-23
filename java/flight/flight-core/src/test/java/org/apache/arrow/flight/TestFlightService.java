@@ -150,7 +150,9 @@ public class TestFlightService {
       Exception e =
           assertThrows(
               FlightRuntimeException.class, () -> client.getSchema(FlightDescriptor.path("test")));
-      assertEquals("No schema is present in FlightInfo", e.getMessage());
+      assertEquals(
+          "org.apache.arrow.flight.FlightRuntimeException: INVALID_ARGUMENT: No schema is present in FlightInfo",
+          e.getMessage());
     }
   }
 
@@ -211,7 +213,9 @@ public class TestFlightService {
               FlightRuntimeException.class,
               () ->
                   client.getInfo(FlightDescriptor.path("test"), new HeaderCallOption(callHeaders)));
-      assertEquals("http2 exception", e.getMessage());
+      assertEquals(
+          "org.apache.arrow.flight.FlightRuntimeException: INTERNAL: http2 exception",
+          e.getMessage());
     }
   }
 
