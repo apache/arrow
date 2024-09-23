@@ -252,138 +252,118 @@ class BlockParserImpl {
 
     // Special case empty lines: do we start with a newline separator?
     c = *data;
-    if (ARROW_PREDICT_FALSE(IsControlChar(c))) {
-      if (c == '\r') {
-        data++;
-        if (data < data_end && *data == '\n') {
-          data++;
-        }
-        goto EmptyLine;
-      }
-      if (c == '\n') {
-        data++;
-        goto EmptyLine;
-      }
-    }
-
-  FieldStart:
-    // At the start of a field
-    if (*data == options_.delimiter) {
-      // Empty cells are very common in some files, shortcut them
-      values_writer->StartField(false /* quoted */);
-      FinishField();
+    if (ARROW_PREDICT_FALSE(c == '\n' || c == '\r')) {
       ++data;
-      ++num_cols;
-      if (ARROW_PREDICT_FALSE(data == data_end)) {
-        goto AbortLine;
-      }
-      goto FieldStart;
-    }
-
-    // Quoting is only recognized at start of field
-    if (SpecializedOptions::quoting &&
-        ARROW_PREDICT_FALSE(*data == options_.quote_char)) {
-      ++data;
-      values_writer->StartField(true /* quoted */);
-      goto InQuotedField;
-    } else {
-      values_writer->StartField(false /* quoted */);
-      goto InField;
-    }
-
-  InField:
-    // Inside a non-quoted part of a field
-    if (UseBulkFilter) {
-      const char* bulk_end = RunBulkFilter(parsed_writer, data, data_end, bulk_filter);
-      if (ARROW_PREDICT_FALSE(bulk_end == nullptr)) {
-        if (is_final) {
-          data = data_end;
-        }
-        goto AbortLine;
-      }
-      data = bulk_end;
-    } else {
-      if (ARROW_PREDICT_FALSE(data == data_end)) {
-        goto AbortLine;
-      }
-    }
-
-    c = *data++;
-    if (SpecializedOptions::escaping && ARROW_PREDICT_FALSE(c == options_.escape_char)) {
-      if (ARROW_PREDICT_FALSE(data == data_end)) {
-        goto AbortLine;
-      }
-      c = *data++;
-      parsed_writer->PushFieldChar(c);
-      goto InField;
-    }
-    if (ARROW_PREDICT_FALSE(c == options_.delimiter)) {
-      goto FieldEnd;
-    }
-    if (ARROW_PREDICT_FALSE(IsControlChar(c))) {
-      if (c == '\r') {
-        // In the middle of a newline separator?
-        if (ARROW_PREDICT_TRUE(data < data_end) && *data == '\n') {
-          data++;
-        }
-        goto LineEnd;
-      }
-      if (c == '\n') {
-        goto LineEnd;
-      }
-    }
-    parsed_writer->PushFieldChar(c);
-    goto InField;
-
-  InQuotedField:
-    // Inside a quoted part of a field
-    if (UseBulkFilter) {
-      const char* bulk_end = RunBulkFilter(parsed_writer, data, data_end, bulk_filter);
-      if (ARROW_PREDICT_FALSE(bulk_end == nullptr)) {
-        if (is_final) {
-          data = data_end;
-        }
-        goto AbortLine;
-      }
-      data = bulk_end;
-    } else {
-      if (ARROW_PREDICT_FALSE(data == data_end)) {
-        goto AbortLine;
-      }
-    }
-    c = *data++;
-    if (SpecializedOptions::escaping && ARROW_PREDICT_FALSE(c == options_.escape_char)) {
-      if (ARROW_PREDICT_FALSE(data == data_end)) {
-        goto AbortLine;
-      }
-      c = *data++;
-      parsed_writer->PushFieldChar(c);
-      goto InQuotedField;
-    }
-    if (ARROW_PREDICT_FALSE(c == options_.quote_char)) {
-      if (options_.double_quote && ARROW_PREDICT_TRUE(data < data_end) &&
-          ARROW_PREDICT_FALSE(*data == options_.quote_char)) {
-        // Double-quoting
+      if (c == '\r' && data < data_end && *data == '\n') {
         ++data;
-      } else {
-        // End of single-quoting
-        goto InField;
       }
-    }
-    parsed_writer->PushFieldChar(c);
-    goto InQuotedField;
 
-  FieldEnd:
-    // At the end of a field
-    FinishField();
-    ++num_cols;
-    if (ARROW_PREDICT_FALSE(data == data_end)) {
-      goto AbortLine;
+      if (!options_.ignore_empty_lines) {
+        if (batch_.num_cols_ == -1) {
+          // Consider as single value
+          batch_.num_cols_ = 1;
+        }
+        // Record as row of empty (null?) values
+        while (num_cols++ < batch_.num_cols_) {
+          values_writer->StartField(false /* quoted */);
+          FinishField();
+        }
+        ++batch_.num_rows_;
+      }
+      *out_data = data;
+      return Status::OK();
     }
-    goto FieldStart;
 
-  LineEnd:
-    // At the end of line
+    bool end_of_line = false;
+    do {
+      // At the start of a field
+      if (*data == options_.delimiter) {
+        // Empty cells are very common in some files, shortcut them
+        values_writer->StartField(false /* quoted */);
+        FinishField();
+        ++data;
+        ++num_cols;
+        continue;
+      }
+
+      // Quoting is only recognized at start of field
+      if (SpecializedOptions::quoting &&
+          ARROW_PREDICT_FALSE(*data == options_.quote_char)) {
+        ++data;
+        values_writer->StartField(true /* quoted */);
+
+        while (ARROW_PREDICT_TRUE(data < data_end)) {
+          // Inside a quoted part of a field
+          if (UseBulkFilter) {
+            const char* bulk_end =
+                RunBulkFilter(parsed_writer, data, data_end, bulk_filter);
+            if (ARROW_PREDICT_FALSE(bulk_end == nullptr)) {
+              data = data_end;
+              break;
+            }
+            data = bulk_end;
+          }
+
+          c = *data++;
+          if (ARROW_PREDICT_FALSE(c == options_.quote_char)) {
+            if (options_.double_quote && ARROW_PREDICT_TRUE(data < data_end) &&
+                ARROW_PREDICT_FALSE(*data == options_.quote_char)) {
+              // Double-quoting
+              ++data;
+            } else {
+              // End of single-quoting
+              break;
+            }
+          } else if (SpecializedOptions::escaping &&
+                     ARROW_PREDICT_FALSE(c == options_.escape_char)) {
+            c = *data++;
+          }
+          parsed_writer->PushFieldChar(c);
+        }
+      } else {
+        values_writer->StartField(false /* quoted */);
+      }
+
+      while (ARROW_PREDICT_TRUE(data < data_end)) {
+        // Inside a non-quoted part of a field
+        if (UseBulkFilter) {
+          const char* bulk_end =
+              RunBulkFilter(parsed_writer, data, data_end, bulk_filter);
+          if (ARROW_PREDICT_FALSE(bulk_end == nullptr)) {
+            data = data_end;
+            break;
+          }
+          data = bulk_end;
+        }
+
+        c = *data++;
+        if (ARROW_PREDICT_FALSE(c == options_.delimiter)) {
+          // At the end of a field
+          FinishField();
+          ++num_cols;
+          break;
+        } else if (c == '\n' || c == '\r') {
+          // In the middle of a newline separator?
+          end_of_line = true;
+          if (c == '\r' && ARROW_PREDICT_TRUE(data < data_end) && *data == '\n') {
+            ++data;
+          }
+          break;
+        } else if (SpecializedOptions::escaping &&
+                   ARROW_PREDICT_FALSE(c == options_.escape_char)) {
+          c = *data++;
+        }
+        parsed_writer->PushFieldChar(c);
+      }
+    } while (ARROW_PREDICT_TRUE(!end_of_line && data < data_end));
+
+    if (!end_of_line && (!is_final || data < data_end)) {
+      // Truncated line at end of block, rewind parsed state
+      values_writer->RollbackLine();
+      parsed_writer->RollbackLine();
+      return Status::OK();
+    }
+
     FinishField();
     ++num_cols;
     if (ARROW_PREDICT_FALSE(num_cols != batch_.num_cols_)) {
@@ -395,32 +375,6 @@ class BlockParserImpl {
       }
     }
     ++batch_.num_rows_;
-    *out_data = data;
-    return Status::OK();
-
-  AbortLine:
-    // Not a full line except perhaps if in final block
-    if (is_final) {
-      goto LineEnd;
-    }
-    // Truncated line at end of block, rewind parsed state
-    values_writer->RollbackLine();
-    parsed_writer->RollbackLine();
-    return Status::OK();
-
-  EmptyLine:
-    if (!options_.ignore_empty_lines) {
-      if (batch_.num_cols_ == -1) {
-        // Consider as single value
-        batch_.num_cols_ = 1;
-      }
-      // Record as row of empty (null?) values
-      while (num_cols++ < batch_.num_cols_) {
-        values_writer->StartField(false /* quoted */);
-        FinishField();
-      }
-      ++batch_.num_rows_;
-    }
     *out_data = data;
     return Status::OK();
   }
