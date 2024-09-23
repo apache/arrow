@@ -24,6 +24,7 @@ import (
 
 	"github.com/apache/arrow/dev/flight-integration/protocol/flight"
 	"github.com/apache/arrow/dev/flight-integration/scenario"
+	"github.com/apache/arrow/dev/flight-integration/serialize"
 	"github.com/apache/arrow/dev/flight-integration/tester"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -79,7 +80,7 @@ func init() {
 						}
 
 						var req flight.GetSessionOptionsRequest
-						if err := deserializeProtobuf(a.GetBody(), &req); err != nil {
+						if err := serialize.DeserializeProtobuf(a.GetBody(), &req); err != nil {
 							return status.Errorf(codes.InvalidArgument, "failed to deserialize Action.Body: %s", err)
 						}
 
@@ -92,7 +93,7 @@ func init() {
 							return status.Errorf(codes.Internal, "failed to set cookie in response trailer: %s", err)
 						}
 
-						body, err := serializeProtobuf(&flight.GetSessionOptionsResult{})
+						body, err := serialize.SerializeProtobuf(&flight.GetSessionOptionsResult{})
 						if err != nil {
 							return status.Errorf(codes.Internal, "failed to serialize GetSessionOptionsResult: %s", err)
 						}
@@ -108,7 +109,7 @@ func init() {
 						}
 
 						var req flight.SetSessionOptionsRequest
-						if err := deserializeProtobuf(a.GetBody(), &req); err != nil {
+						if err := serialize.DeserializeProtobuf(a.GetBody(), &req); err != nil {
 							return status.Errorf(codes.InvalidArgument, "failed to deserialize Action.Body: %s", err)
 						}
 
@@ -146,7 +147,7 @@ func init() {
 							return status.Errorf(codes.Internal, "expected session cookie to have value: %s, found: %s", sessionCookieValue, cookie.Value)
 						}
 
-						body, err := serializeProtobuf(&flight.SetSessionOptionsResult{
+						body, err := serialize.SerializeProtobuf(&flight.SetSessionOptionsResult{
 							Errors: map[string]*flight.SetSessionOptionsResult_Error{
 								keyLolInvalid:          {Value: errInvalidKey},
 								keyKeyWithInvalidValue: {Value: errInvalidValue},
@@ -167,7 +168,7 @@ func init() {
 						}
 
 						var req flight.GetSessionOptionsRequest
-						if err := deserializeProtobuf(a.GetBody(), &req); err != nil {
+						if err := serialize.DeserializeProtobuf(a.GetBody(), &req); err != nil {
 							return status.Errorf(codes.InvalidArgument, "failed to deserialize Action.Body: %s", err)
 						}
 
@@ -180,7 +181,7 @@ func init() {
 							return status.Errorf(codes.Internal, "expected session cookie to have value: %s, found: %s", sessionCookieValue, cookie.Value)
 						}
 
-						body, err := serializeProtobuf(&flight.GetSessionOptionsResult{
+						body, err := serialize.SerializeProtobuf(&flight.GetSessionOptionsResult{
 							SessionOptions: map[string]*flight.SessionOptionValue{
 								keyFoolong:   {OptionValue: &flight.SessionOptionValue_Int64Value{Int64Value: valFoolong}},
 								keyBardouble: {OptionValue: &flight.SessionOptionValue_DoubleValue{DoubleValue: valBardouble}},
@@ -208,7 +209,7 @@ func init() {
 						}
 
 						var req flight.SetSessionOptionsRequest
-						if err := deserializeProtobuf(a.GetBody(), &req); err != nil {
+						if err := serialize.DeserializeProtobuf(a.GetBody(), &req); err != nil {
 							return status.Errorf(codes.InvalidArgument, "failed to deserialize Action.Body: %s", err)
 						}
 
@@ -230,7 +231,7 @@ func init() {
 							return status.Errorf(codes.Internal, "expected session cookie to have value: %s, found: %s", sessionCookieValue, cookie.Value)
 						}
 
-						body, err := serializeProtobuf(&flight.SetSessionOptionsResult{})
+						body, err := serialize.SerializeProtobuf(&flight.SetSessionOptionsResult{})
 						if err != nil {
 							return status.Errorf(codes.Internal, "failed to serialize SetSessionOptionsResult: %s", err)
 						}
@@ -246,7 +247,7 @@ func init() {
 						}
 
 						var req flight.GetSessionOptionsRequest
-						if err := deserializeProtobuf(a.GetBody(), &req); err != nil {
+						if err := serialize.DeserializeProtobuf(a.GetBody(), &req); err != nil {
 							return status.Errorf(codes.InvalidArgument, "failed to deserialize Action.Body: %s", err)
 						}
 
@@ -259,7 +260,7 @@ func init() {
 							return status.Errorf(codes.Internal, "expected session cookie to have value: %s, found: %s", sessionCookieValue, cookie.Value)
 						}
 
-						body, err := serializeProtobuf(&flight.GetSessionOptionsResult{
+						body, err := serialize.SerializeProtobuf(&flight.GetSessionOptionsResult{
 							SessionOptions: map[string]*flight.SessionOptionValue{
 								keyBardouble: {OptionValue: &flight.SessionOptionValue_DoubleValue{DoubleValue: valBardouble}},
 								keyBigOlStringList: {
@@ -286,7 +287,7 @@ func init() {
 						}
 
 						var req flight.CloseSessionRequest
-						if err := deserializeProtobuf(a.GetBody(), &req); err != nil {
+						if err := serialize.DeserializeProtobuf(a.GetBody(), &req); err != nil {
 							return status.Errorf(codes.InvalidArgument, "failed to deserialize Action.Body: %s", err)
 						}
 
@@ -299,7 +300,7 @@ func init() {
 							return status.Errorf(codes.Internal, "expected session cookie to have value: %s, found: %s", sessionCookieValue, cookie.Value)
 						}
 
-						body, err := serializeProtobuf(&flight.CloseSessionResult{Status: flight.CloseSessionResult_CLOSED})
+						body, err := serialize.SerializeProtobuf(&flight.CloseSessionResult{Status: flight.CloseSessionResult_CLOSED})
 						if err != nil {
 							return status.Errorf(codes.Internal, "failed to serialize CloseSessionResult: %s", err)
 						}
@@ -310,10 +311,10 @@ func init() {
 			},
 			RunClient: func(ctx context.Context, client flight.FlightServiceClient, t *tester.Tester) {
 				{
-					action, err := packAction(
+					action, err := serialize.PackAction(
 						getSessionOptionsActionType,
 						&flight.GetSessionOptionsRequest{},
-						serializeProtobuf,
+						serialize.SerializeProtobuf,
 					)
 					t.Require().NoError(err)
 
@@ -323,7 +324,7 @@ func init() {
 
 					result, err := stream.Recv()
 					t.Require().NoError(err)
-					requireDrainStream(t, stream, nil)
+					tester.RequireDrainStream(t, stream, nil)
 
 					cookies := trailer.Get("Set-Cookie")
 					t.Require().Len(cookies, 1)
@@ -332,13 +333,13 @@ func init() {
 					ctx = metadata.AppendToOutgoingContext(ctx, "Cookie", cookies[0])
 
 					var resultPayload flight.GetSessionOptionsResult
-					t.Require().NoError(deserializeProtobuf(result.Body, &resultPayload))
+					t.Require().NoError(serialize.DeserializeProtobuf(result.Body, &resultPayload))
 
 					t.Assert().Empty(resultPayload.GetSessionOptions())
 				}
 
 				{
-					action, err := packAction(
+					action, err := serialize.PackAction(
 						setSessionOptionsActionType,
 						&flight.SetSessionOptionsRequest{SessionOptions: map[string]*flight.SessionOptionValue{
 							keyFoolong:             {OptionValue: &flight.SessionOptionValue_Int64Value{Int64Value: valFoolong}},
@@ -347,7 +348,7 @@ func init() {
 							keyKeyWithInvalidValue: {OptionValue: &flight.SessionOptionValue_StringValue{StringValue: valKeyWithInvalidValue}},
 							keyBigOlStringList:     {OptionValue: &flight.SessionOptionValue_StringListValue_{StringListValue: &flight.SessionOptionValue_StringListValue{Values: valBigOlStringList}}},
 						}},
-						serializeProtobuf,
+						serialize.SerializeProtobuf,
 					)
 					t.Require().NoError(err)
 
@@ -356,10 +357,10 @@ func init() {
 
 					result, err := stream.Recv()
 					t.Require().NoError(err)
-					requireDrainStream(t, stream, nil)
+					tester.RequireDrainStream(t, stream, nil)
 
 					var resultPayload flight.SetSessionOptionsResult
-					t.Require().NoError(deserializeProtobuf(result.Body, &resultPayload))
+					t.Require().NoError(serialize.DeserializeProtobuf(result.Body, &resultPayload))
 
 					errs := resultPayload.GetErrors()
 					t.Assert().Len(errs, 2)
@@ -368,10 +369,10 @@ func init() {
 				}
 
 				{
-					action, err := packAction(
+					action, err := serialize.PackAction(
 						getSessionOptionsActionType,
 						&flight.GetSessionOptionsRequest{},
-						serializeProtobuf,
+						serialize.SerializeProtobuf,
 					)
 					t.Require().NoError(err)
 
@@ -380,10 +381,10 @@ func init() {
 
 					result, err := stream.Recv()
 					t.Require().NoError(err)
-					requireDrainStream(t, stream, nil)
+					tester.RequireDrainStream(t, stream, nil)
 
 					var resultPayload flight.GetSessionOptionsResult
-					t.Require().NoError(deserializeProtobuf(result.Body, &resultPayload))
+					t.Require().NoError(serialize.DeserializeProtobuf(result.Body, &resultPayload))
 
 					opts := resultPayload.GetSessionOptions()
 					t.Assert().Len(opts, 3)
@@ -393,12 +394,12 @@ func init() {
 				}
 
 				{
-					action, err := packAction(
+					action, err := serialize.PackAction(
 						setSessionOptionsActionType,
 						&flight.SetSessionOptionsRequest{SessionOptions: map[string]*flight.SessionOptionValue{
 							keyFoolong: {},
 						}},
-						serializeProtobuf,
+						serialize.SerializeProtobuf,
 					)
 					t.Require().NoError(err)
 
@@ -407,19 +408,19 @@ func init() {
 
 					result, err := stream.Recv()
 					t.Require().NoError(err)
-					requireDrainStream(t, stream, nil)
+					tester.RequireDrainStream(t, stream, nil)
 
 					var resultPayload flight.SetSessionOptionsResult
-					t.Require().NoError(deserializeProtobuf(result.Body, &resultPayload))
+					t.Require().NoError(serialize.DeserializeProtobuf(result.Body, &resultPayload))
 
 					t.Assert().Empty(resultPayload.GetErrors())
 				}
 
 				{
-					action, err := packAction(
+					action, err := serialize.PackAction(
 						getSessionOptionsActionType,
 						&flight.GetSessionOptionsRequest{},
-						serializeProtobuf,
+						serialize.SerializeProtobuf,
 					)
 					t.Require().NoError(err)
 
@@ -428,10 +429,10 @@ func init() {
 
 					result, err := stream.Recv()
 					t.Require().NoError(err)
-					requireDrainStream(t, stream, nil)
+					tester.RequireDrainStream(t, stream, nil)
 
 					var resultPayload flight.GetSessionOptionsResult
-					t.Require().NoError(deserializeProtobuf(result.Body, &resultPayload))
+					t.Require().NoError(serialize.DeserializeProtobuf(result.Body, &resultPayload))
 
 					opts := resultPayload.GetSessionOptions()
 					t.Assert().Len(opts, 2)
@@ -440,10 +441,10 @@ func init() {
 				}
 
 				{
-					action, err := packAction(
+					action, err := serialize.PackAction(
 						closeSessionActionType,
 						&flight.CloseSessionRequest{},
-						serializeProtobuf,
+						serialize.SerializeProtobuf,
 					)
 					t.Require().NoError(err)
 
@@ -452,10 +453,10 @@ func init() {
 
 					result, err := stream.Recv()
 					t.Require().NoError(err)
-					requireDrainStream(t, stream, nil)
+					tester.RequireDrainStream(t, stream, nil)
 
 					var resultPayload flight.CloseSessionResult
-					t.Require().NoError(deserializeProtobuf(result.Body, &resultPayload))
+					t.Require().NoError(serialize.DeserializeProtobuf(result.Body, &resultPayload))
 
 					t.Assert().Equal(flight.CloseSessionResult_CLOSED, resultPayload.GetStatus())
 				}

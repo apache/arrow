@@ -18,7 +18,11 @@ package tester
 
 import (
 	"fmt"
+	"io"
 
+	"github.com/apache/arrow/dev/flight-integration/protocol/flight"
+	"github.com/apache/arrow/dev/flight-integration/protocol/message/org/apache/arrow/flatbuf"
+	"github.com/apache/arrow/dev/flight-integration/serialize"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -61,6 +65,77 @@ func (a *requireT) FailNow() {
 // Errorf implements assert.TestingT.
 func (a *requireT) Errorf(format string, args ...interface{}) {
 	a.errors = append(a.errors, fmt.Errorf(format, args...))
+}
+
+func RequireStreamHeaderMatchesFields[T interface {
+	Recv() (*flight.FlightData, error)
+}](t *Tester, stream T, expectedFields []serialize.Field) {
+
+	data, err := stream.Recv()
+	t.Require().NoError(err)
+
+	msg := flatbuf.GetRootAsMessage(data.DataHeader, 0)
+	t.Require().Equal(flatbuf.MessageHeaderSchema, msg.HeaderType())
+
+	fields, ok := serialize.ParseFlatbufferSchemaFields(msg)
+	t.Require().True(ok)
+	t.Require().Len(fields, len(expectedFields))
+
+	AssertSchemaMatchesFields(t, fields, expectedFields)
+}
+
+func AssertSchemaMatchesFields(t *Tester, fields []flatbuf.Field, expectedFields []serialize.Field) {
+	for _, expectedField := range expectedFields {
+		field, found := matchFieldByName(fields, expectedField.Name)
+		t.Assert().Truef(found, "no matching field with expected name \"%s\" found in flatbuffer schema", expectedField.Name)
+		if !found {
+			continue
+		}
+
+		t.Assert().Equal(expectedField.Name, string(field.Name()))
+		t.Assert().Equal(expectedField.Type, field.TypeType())
+		t.Assert().Equal(expectedField.Nullable, field.Nullable())
+		// TODO: metadata?
+	}
+}
+
+func RequireDrainStream[E any, S interface {
+	Recv() (E, error)
+}](t *Tester, stream S, eval func(*Tester, E)) {
+	for {
+		data, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		t.Require().NoError(err)
+
+		if eval != nil {
+			eval(t, data)
+		}
+	}
+}
+
+func RequireSchemaResultMatchesFields(t *Tester, res *flight.SchemaResult, expectedFields []serialize.Field) {
+	metadata := serialize.ExtractFlatbufferPayload(res.Schema)
+
+	msg := flatbuf.GetRootAsMessage(metadata, 0)
+	t.Require().Equal(flatbuf.MessageHeaderSchema, msg.HeaderType())
+
+	fields, ok := serialize.ParseFlatbufferSchemaFields(msg)
+	t.Require().True(ok)
+	t.Require().Len(fields, len(expectedFields))
+
+	AssertSchemaMatchesFields(t, fields, expectedFields)
+}
+
+func matchFieldByName(fields []flatbuf.Field, name string) (flatbuf.Field, bool) {
+	for _, f := range fields {
+		fieldName := string(f.Name())
+		if fieldName == name {
+			return f, true
+		}
+	}
+	return flatbuf.Field{}, false
 }
 
 var _ require.TestingT = (*requireT)(nil)
