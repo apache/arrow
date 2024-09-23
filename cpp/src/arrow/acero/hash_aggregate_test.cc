@@ -906,6 +906,34 @@ TEST(RowSegmenter, ConstantFixedSizeBinaryMixedBatch) {
       [&](int64_t key) { return value; }, MakeRowSegmenter);
 }
 
+TEST(RowSegmenter, ConstantFixedSizeBinaryArrayBatchWithAnyKeysSegmenter) {
+  constexpr int fsb = 8;
+  auto type = fixed_size_binary(fsb);
+  ASSERT_OK_AND_ASSIGN(auto value, MakeScalar(type, std::string(fsb, 'X')));
+  TestRowSegmenterConstantBatch(
+      type, [](int64_t key) { return ArgShape::ARRAY; },
+      [&](int64_t key) { return value; }, MakeGenericSegmenter);
+}
+
+TEST(RowSegmenter, ConstantFixedSizeBinaryScalarBatchWithAnyKeysSegmenter) {
+  constexpr int fsb = 8;
+  auto type = fixed_size_binary(fsb);
+  ASSERT_OK_AND_ASSIGN(auto value, MakeScalar(type, std::string(fsb, 'X')));
+  TestRowSegmenterConstantBatch(
+      fixed_size_binary(8), [](int64_t key) { return ArgShape::SCALAR; },
+      [&](int64_t key) { return value; }, MakeGenericSegmenter);
+}
+
+TEST(RowSegmenter, ConstantFixedSizeBinaryMixedBatchWithAnyKeysSegmenter) {
+  constexpr int fsb = 8;
+  auto type = fixed_size_binary(fsb);
+  ASSERT_OK_AND_ASSIGN(auto value, MakeScalar(type, std::string(fsb, 'X')));
+  TestRowSegmenterConstantBatch(
+      fixed_size_binary(8),
+      [](int64_t key) { return key % 2 == 0 ? ArgShape::SCALAR : ArgShape::ARRAY; },
+      [&](int64_t key) { return value; }, MakeGenericSegmenter);
+}
+
 TEST(RowSegmenter, ConstantDictionaryArrayBatch) {
   auto index_type = int32();
   auto value_type = utf8();
@@ -941,6 +969,43 @@ TEST(RowSegmenter, ConstantDictionaryMixedBatch) {
       dict_type,
       [](int64_t key) { return key % 2 == 0 ? ArgShape::SCALAR : ArgShape::ARRAY; },
       [&](int64_t key) { return dict_value; }, MakeRowSegmenter);
+}
+
+TEST(RowSegmenter, ConstantDictionaryArrayBatchWithAnyKeysSegmenter) {
+  auto index_type = int32();
+  auto value_type = utf8();
+  auto dict_type = dictionary(index_type, value_type);
+  auto dict = ArrayFromJSON(value_type, R"(["alpha", null, "gamma"])");
+  ASSERT_OK_AND_ASSIGN(auto index_value, MakeScalar(index_type, 0));
+  auto dict_value = DictionaryScalar::Make(std::move(index_value), dict);
+  TestRowSegmenterConstantBatch(
+      dict_type, [](int64_t key) { return ArgShape::ARRAY; },
+      [&](int64_t key) { return dict_value; }, MakeGenericSegmenter);
+}
+
+TEST(RowSegmenter, ConstantDictionaryScalarBatchWithAnyKeysSegmenter) {
+  auto index_type = int32();
+  auto value_type = utf8();
+  auto dict_type = dictionary(index_type, value_type);
+  auto dict = ArrayFromJSON(value_type, R"(["alpha", null, "gamma"])");
+  ASSERT_OK_AND_ASSIGN(auto index_value, MakeScalar(index_type, 0));
+  auto dict_value = DictionaryScalar::Make(std::move(index_value), dict);
+  TestRowSegmenterConstantBatch(
+      dict_type, [](int64_t key) { return ArgShape::SCALAR; },
+      [&](int64_t key) { return dict_value; }, MakeGenericSegmenter);
+}
+
+TEST(RowSegmenter, ConstantDictionaryMixedBatchWithAnyKeysSegmenter) {
+  auto index_type = int32();
+  auto value_type = utf8();
+  auto dict_type = dictionary(index_type, value_type);
+  auto dict = ArrayFromJSON(value_type, R"(["alpha", null, "gamma"])");
+  ASSERT_OK_AND_ASSIGN(auto index_value, MakeScalar(index_type, 0));
+  auto dict_value = DictionaryScalar::Make(std::move(index_value), dict);
+  TestRowSegmenterConstantBatch(
+      dict_type,
+      [](int64_t key) { return key % 2 == 0 ? ArgShape::SCALAR : ArgShape::ARRAY; },
+      [&](int64_t key) { return dict_value; }, MakeGenericSegmenter);
 }
 
 TEST(RowSegmenter, RowConstantBatch) {
