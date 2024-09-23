@@ -29,7 +29,7 @@ RUN mamba install -q -y \
         --file arrow/ci/conda_env_python.txt \
         --channel conda-forge/label/python_rc \
         $([ "$python" == $(gdb --batch --eval-command 'python import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")') ] && echo "gdb") \
-        "python=${python}.*=*_cpython" \
+        "python=${python}.*=*_cp*" \
         nomkl && \
     mamba clean --all
 
