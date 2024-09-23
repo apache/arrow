@@ -257,7 +257,7 @@ struct ArrowAsyncTask {
   // Returns: 0 if successful, errno-compatible error otherwise.
   //
   // If a non-0 value is returned then it should be followed by a call to `on_error`
-  // on the appropriate ArrowAsyncDeviceStreamHandler. This is because the it's highly
+  // on the appropriate ArrowAsyncDeviceStreamHandler. This is because it's highly
   // likely that whatever is calling this function may be entirely disconnected from
   // the current control flow. Indicating an error here with a non-zero return allows
   // the current flow to be aware of the error occurring, while still allowing any
