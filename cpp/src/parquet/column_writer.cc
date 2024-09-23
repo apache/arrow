@@ -2272,11 +2272,11 @@ struct SerializeFunctor<
 
     if (array.null_count() == 0) {
       for (int64_t i = 0; i < array.length(); i++) {
-        out[i] = FixDecimalEndianess<ArrowType::kByteWidth>(array.GetValue(i), offset);
+        out[i] = FixDecimalEndianness<ArrowType::kByteWidth>(array.GetValue(i), offset);
       }
     } else {
       for (int64_t i = 0; i < array.length(); i++) {
-        out[i] = array.IsValid(i) ? FixDecimalEndianess<ArrowType::kByteWidth>(
+        out[i] = array.IsValid(i) ? FixDecimalEndianness<ArrowType::kByteWidth>(
                                         array.GetValue(i), offset)
                                   : FixedLenByteArray();
       }
@@ -2304,7 +2304,7 @@ struct SerializeFunctor<
   }
 
   template <int byte_width>
-  FixedLenByteArray FixDecimalEndianess(const uint8_t* in, int64_t offset) {
+  FixedLenByteArray FixDecimalEndianness(const uint8_t* in, int64_t offset) {
     const auto* u64_in = reinterpret_cast<const int64_t*>(in);
     auto out = reinterpret_cast<const uint8_t*>(scratch) + offset;
     static_assert(byte_width == 16 || byte_width == 32,
