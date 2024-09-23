@@ -1249,11 +1249,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
    */
   @Override
   public void setNull(int index) {
-    // We need to check and reallocate the validity buffer
-    while (index >= getValueCapacity()) {
-      reallocValidityBuffer();
-      reallocViewBuffer();
-    }
+    handleSafe(index, 0);
     BitVectorHelper.unsetBit(validityBuffer, index);
   }
 
