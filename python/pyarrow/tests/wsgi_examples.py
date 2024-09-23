@@ -15,20 +15,21 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG base
-FROM ${base}
+import pyarrow.fs
 
-ENV DEBIAN_FRONTEND noninteractive
 
-# Install python3 and pip so we can install pyarrow to test the C data interface.
-RUN apt-get update -y -q && \
-    apt-get install -y -q --no-install-recommends \
-        python3 \
-        python3-pip \
-        python3-venv && \
-    apt-get clean
-
-ENV ARROW_PYTHON_VENV /arrow-dev
-RUN python3 -m venv ${ARROW_PYTHON_VENV} && \
-    . ${ARROW_PYTHON_VENV}/bin/activate && \
-    pip install pyarrow cffi --only-binary pyarrow
+def application(env, start_response):
+    path = env['PATH_INFO']
+    members = path.split('/')
+    assert members[0] == ''
+    assert len(members) >= 2
+    root = members[1]
+    if root == 's3':
+        # See test_fs::test_uwsgi_integration
+        start_response('200 OK', [('Content-Type', 'text/html')])
+        # flake8: noqa
+        fs = pyarrow.fs.S3FileSystem()
+        return [b"Hello World\n"]
+    else:
+        start_response('404 Not Found', [('Content-Type', 'text/html')])
+        return [f"Path {path!r} not found\n".encode()]

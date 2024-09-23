@@ -186,6 +186,11 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
   }
 
   @Override
+  public List<ArrowBuf> visit(ArrowType.RunEndEncoded type) {
+    throw new UnsupportedOperationException("Importing buffers for type: " + type);
+  }
+
+  @Override
   public List<ArrowBuf> visit(ArrowType.Map type) {
     return Arrays.asList(maybeImportBitmap(type), importOffsets(type, MapVector.OFFSET_WIDTH));
   }

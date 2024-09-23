@@ -668,10 +668,10 @@ garrow_record_batch_file_reader_read_record_batch(GArrowRecordBatchFileReader *r
   }
 }
 
-typedef struct GArrowFeatherFileReaderPrivate_
+struct GArrowFeatherFileReaderPrivate
 {
   std::shared_ptr<arrow::ipc::feather::Reader> feather_reader;
-} GArrowFeatherFileReaderPrivate;
+};
 
 enum {
   PROP_FEATHER_READER = 1,
@@ -715,21 +715,10 @@ garrow_feather_file_reader_set_property(GObject *object,
 }
 
 static void
-garrow_feather_file_reader_get_property(GObject *object,
-                                        guint prop_id,
-                                        GValue *value,
-                                        GParamSpec *pspec)
-{
-  switch (prop_id) {
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
-}
-
-static void
 garrow_feather_file_reader_init(GArrowFeatherFileReader *object)
 {
+  auto priv = GARROW_FEATHER_FILE_READER_GET_PRIVATE(object);
+  new (&priv->feather_reader) std::shared_ptr<arrow::ipc::feather::Reader>;
 }
 
 static void
@@ -739,7 +728,6 @@ garrow_feather_file_reader_class_init(GArrowFeatherFileReaderClass *klass)
 
   gobject_class->finalize = garrow_feather_file_reader_finalize;
   gobject_class->set_property = garrow_feather_file_reader_set_property;
-  gobject_class->get_property = garrow_feather_file_reader_get_property;
 
   GParamSpec *spec;
   spec = g_param_spec_pointer(

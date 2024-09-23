@@ -24,6 +24,7 @@
 #include "arrow/array/array_primitive.h"
 #include "arrow/compute/api.h"
 #include "arrow/table.h"
+#include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/benchmark_util.h"
@@ -325,7 +326,8 @@ BENCHMARK_TEMPLATE(ReferenceSum, SumBitmapVectorizeUnroll<int64_t>)
 
 std::shared_ptr<RecordBatch> RecordBatchFromArrays(
     const std::vector<std::shared_ptr<Array>>& arguments,
-    const std::vector<std::shared_ptr<Array>>& keys) {
+    const std::vector<std::shared_ptr<Array>>& keys,
+    const std::vector<std::shared_ptr<Array>>& segment_keys) {
   std::vector<std::shared_ptr<Field>> fields;
   std::vector<std::shared_ptr<Array>> all_arrays;
   int64_t length = -1;
@@ -347,37 +349,56 @@ std::shared_ptr<RecordBatch> RecordBatchFromArrays(
     fields.push_back(field("key" + ToChars(key_idx), key->type()));
     all_arrays.push_back(key);
   }
+  for (std::size_t segment_key_idx = 0; segment_key_idx < segment_keys.size();
+       segment_key_idx++) {
+    const auto& segment_key = segment_keys[segment_key_idx];
+    DCHECK_EQ(segment_key->length(), length);
+    fields.push_back(
+        field("segment_key" + ToChars(segment_key_idx), segment_key->type()));
+    all_arrays.push_back(segment_key);
+  }
   return RecordBatch::Make(schema(std::move(fields)), length, std::move(all_arrays));
 }
 
 Result<std::shared_ptr<Table>> BatchGroupBy(
     std::shared_ptr<RecordBatch> batch, std::vector<Aggregate> aggregates,
-    std::vector<FieldRef> keys, bool use_threads = false,
-    MemoryPool* memory_pool = default_memory_pool()) {
+    std::vector<FieldRef> keys, std::vector<FieldRef> segment_keys,
+    bool use_threads = false, MemoryPool* memory_pool = default_memory_pool()) {
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Table> table,
                         Table::FromRecordBatches({std::move(batch)}));
   Declaration plan = Declaration::Sequence(
       {{"table_source", TableSourceNodeOptions(std::move(table))},
-       {"aggregate", AggregateNodeOptions(std::move(aggregates), std::move(keys))}});
+       {"aggregate", AggregateNodeOptions(std::move(aggregates), std::move(keys),
+                                          std::move(segment_keys))}});
   return DeclarationToTable(std::move(plan), use_threads, memory_pool);
 }
 
-static void BenchmarkGroupBy(benchmark::State& state, std::vector<Aggregate> aggregates,
-                             const std::vector<std::shared_ptr<Array>>& arguments,
-                             const std::vector<std::shared_ptr<Array>>& keys) {
-  std::shared_ptr<RecordBatch> batch = RecordBatchFromArrays(arguments, keys);
+static void BenchmarkAggregate(
+    benchmark::State& state, std::vector<Aggregate> aggregates,
+    const std::vector<std::shared_ptr<Array>>& arguments,
+    const std::vector<std::shared_ptr<Array>>& keys,
+    const std::vector<std::shared_ptr<Array>>& segment_keys = {}) {
+  std::shared_ptr<RecordBatch> batch =
+      RecordBatchFromArrays(arguments, keys, segment_keys);
   std::vector<FieldRef> key_refs;
   for (std::size_t key_idx = 0; key_idx < keys.size(); key_idx++) {
     key_refs.emplace_back(static_cast<int>(key_idx + arguments.size()));
+  }
+  std::vector<FieldRef> segment_key_refs;
+  for (std::size_t segment_key_idx = 0; segment_key_idx < segment_keys.size();
+       segment_key_idx++) {
+    segment_key_refs.emplace_back(
+        static_cast<int>(segment_key_idx + arguments.size() + keys.size()));
   }
   for (std::size_t arg_idx = 0; arg_idx < arguments.size(); arg_idx++) {
     aggregates[arg_idx].target = {FieldRef(static_cast<int>(arg_idx))};
   }
   int64_t total_bytes = TotalBufferSize(*batch);
   for (auto _ : state) {
-    ABORT_NOT_OK(BatchGroupBy(batch, aggregates, key_refs));
+    ABORT_NOT_OK(BatchGroupBy(batch, aggregates, key_refs, segment_key_refs));
   }
   state.SetBytesProcessed(total_bytes * state.iterations());
+  state.SetItemsProcessed(batch->num_rows() * state.iterations());
 }
 
 #define GROUP_BY_BENCHMARK(Name, Impl)                               \
@@ -404,7 +425,7 @@ GROUP_BY_BENCHMARK(SumDoublesGroupedByTinyStringSet, [&] {
                                    /*min_length=*/3,
                                    /*max_length=*/32);
 
-  BenchmarkGroupBy(state, {{"hash_sum", ""}}, {summand}, {key});
+  BenchmarkAggregate(state, {{"hash_sum", ""}}, {summand}, {key});
 });
 
 GROUP_BY_BENCHMARK(SumDoublesGroupedBySmallStringSet, [&] {
@@ -419,7 +440,7 @@ GROUP_BY_BENCHMARK(SumDoublesGroupedBySmallStringSet, [&] {
                                    /*min_length=*/3,
                                    /*max_length=*/32);
 
-  BenchmarkGroupBy(state, {{"hash_sum", ""}}, {summand}, {key});
+  BenchmarkAggregate(state, {{"hash_sum", ""}}, {summand}, {key});
 });
 
 GROUP_BY_BENCHMARK(SumDoublesGroupedByMediumStringSet, [&] {
@@ -434,7 +455,7 @@ GROUP_BY_BENCHMARK(SumDoublesGroupedByMediumStringSet, [&] {
                                    /*min_length=*/3,
                                    /*max_length=*/32);
 
-  BenchmarkGroupBy(state, {{"hash_sum", ""}}, {summand}, {key});
+  BenchmarkAggregate(state, {{"hash_sum", ""}}, {summand}, {key});
 });
 
 GROUP_BY_BENCHMARK(SumDoublesGroupedByTinyIntegerSet, [&] {
@@ -448,7 +469,7 @@ GROUP_BY_BENCHMARK(SumDoublesGroupedByTinyIntegerSet, [&] {
                        /*min=*/0,
                        /*max=*/15);
 
-  BenchmarkGroupBy(state, {{"hash_sum", ""}}, {summand}, {key});
+  BenchmarkAggregate(state, {{"hash_sum", ""}}, {summand}, {key});
 });
 
 GROUP_BY_BENCHMARK(SumDoublesGroupedBySmallIntegerSet, [&] {
@@ -462,7 +483,7 @@ GROUP_BY_BENCHMARK(SumDoublesGroupedBySmallIntegerSet, [&] {
                        /*min=*/0,
                        /*max=*/255);
 
-  BenchmarkGroupBy(state, {{"hash_sum", ""}}, {summand}, {key});
+  BenchmarkAggregate(state, {{"hash_sum", ""}}, {summand}, {key});
 });
 
 GROUP_BY_BENCHMARK(SumDoublesGroupedByMediumIntegerSet, [&] {
@@ -476,7 +497,7 @@ GROUP_BY_BENCHMARK(SumDoublesGroupedByMediumIntegerSet, [&] {
                        /*min=*/0,
                        /*max=*/4095);
 
-  BenchmarkGroupBy(state, {{"hash_sum", ""}}, {summand}, {key});
+  BenchmarkAggregate(state, {{"hash_sum", ""}}, {summand}, {key});
 });
 
 GROUP_BY_BENCHMARK(SumDoublesGroupedByTinyIntStringPairSet, [&] {
@@ -494,7 +515,7 @@ GROUP_BY_BENCHMARK(SumDoublesGroupedByTinyIntStringPairSet, [&] {
                                        /*min_length=*/3,
                                        /*max_length=*/32);
 
-  BenchmarkGroupBy(state, {{"hash_sum", ""}}, {summand}, {int_key, str_key});
+  BenchmarkAggregate(state, {{"hash_sum", ""}}, {summand}, {int_key, str_key});
 });
 
 GROUP_BY_BENCHMARK(SumDoublesGroupedBySmallIntStringPairSet, [&] {
@@ -512,7 +533,7 @@ GROUP_BY_BENCHMARK(SumDoublesGroupedBySmallIntStringPairSet, [&] {
                                        /*min_length=*/3,
                                        /*max_length=*/32);
 
-  BenchmarkGroupBy(state, {{"hash_sum", ""}}, {summand}, {int_key, str_key});
+  BenchmarkAggregate(state, {{"hash_sum", ""}}, {summand}, {int_key, str_key});
 });
 
 GROUP_BY_BENCHMARK(SumDoublesGroupedByMediumIntStringPairSet, [&] {
@@ -530,7 +551,7 @@ GROUP_BY_BENCHMARK(SumDoublesGroupedByMediumIntStringPairSet, [&] {
                                        /*min_length=*/3,
                                        /*max_length=*/32);
 
-  BenchmarkGroupBy(state, {{"hash_sum", ""}}, {summand}, {int_key, str_key});
+  BenchmarkAggregate(state, {{"hash_sum", ""}}, {summand}, {int_key, str_key});
 });
 
 // Grouped MinMax
@@ -543,7 +564,7 @@ GROUP_BY_BENCHMARK(MinMaxDoublesGroupedByMediumInt, [&] {
                            /*nan_probability=*/args.null_proportion / 10);
   auto int_key = rng.Int64(args.size, /*min=*/0, /*max=*/63);
 
-  BenchmarkGroupBy(state, {{"hash_min_max", ""}}, {input}, {int_key});
+  BenchmarkAggregate(state, {{"hash_min_max", ""}}, {input}, {int_key});
 });
 
 GROUP_BY_BENCHMARK(MinMaxShortStringsGroupedByMediumInt, [&] {
@@ -553,7 +574,7 @@ GROUP_BY_BENCHMARK(MinMaxShortStringsGroupedByMediumInt, [&] {
                           /*null_probability=*/args.null_proportion);
   auto int_key = rng.Int64(args.size, /*min=*/0, /*max=*/63);
 
-  BenchmarkGroupBy(state, {{"hash_min_max", ""}}, {input}, {int_key});
+  BenchmarkAggregate(state, {{"hash_min_max", ""}}, {input}, {int_key});
 });
 
 GROUP_BY_BENCHMARK(MinMaxLongStringsGroupedByMediumInt, [&] {
@@ -563,7 +584,7 @@ GROUP_BY_BENCHMARK(MinMaxLongStringsGroupedByMediumInt, [&] {
                           /*null_probability=*/args.null_proportion);
   auto int_key = rng.Int64(args.size, /*min=*/0, /*max=*/63);
 
-  BenchmarkGroupBy(state, {{"hash_min_max", ""}}, {input}, {int_key});
+  BenchmarkAggregate(state, {{"hash_min_max", ""}}, {input}, {int_key});
 });
 
 //
@@ -865,6 +886,62 @@ static void TDigestKernelDoubleCentiles(benchmark::State& state) {
 BENCHMARK(TDigestKernelDoubleMedian)->Apply(QuantileKernelArgs);
 BENCHMARK(TDigestKernelDoubleDeciles)->Apply(QuantileKernelArgs);
 BENCHMARK(TDigestKernelDoubleCentiles)->Apply(QuantileKernelArgs);
+
+//
+// Segmented Aggregate
+//
+
+static void BenchmarkSegmentedAggregate(
+    benchmark::State& state, int64_t num_rows, std::vector<Aggregate> aggregates,
+    const std::vector<std::shared_ptr<Array>>& arguments,
+    const std::vector<std::shared_ptr<Array>>& keys, int64_t num_segment_keys,
+    int64_t num_segments) {
+  ASSERT_GT(num_segments, 0);
+
+  auto rng = random::RandomArrayGenerator(42);
+  auto segment_key = rng.Int64(num_rows, /*min=*/0, /*max=*/num_segments - 1);
+  int64_t* values = segment_key->data()->GetMutableValues<int64_t>(1);
+  std::sort(values, values + num_rows);
+  // num_segment_keys copies of the segment key.
+  ArrayVector segment_keys(num_segment_keys, segment_key);
+
+  BenchmarkAggregate(state, std::move(aggregates), arguments, keys, segment_keys);
+}
+
+template <typename... Args>
+static void CountScalarSegmentedByInts(benchmark::State& state, Args&&...) {
+  constexpr int64_t num_rows = 32 * 1024;
+
+  // A trivial column to count from.
+  auto arg = ConstantArrayGenerator::Zeroes(num_rows, int32());
+
+  BenchmarkSegmentedAggregate(state, num_rows, {{"count", ""}}, {arg}, /*keys=*/{},
+                              state.range(0), state.range(1));
+}
+BENCHMARK(CountScalarSegmentedByInts)
+    ->ArgNames({"SegmentKeys", "Segments"})
+    ->ArgsProduct({{0, 1, 2}, benchmark::CreateRange(1, 256, 8)});
+
+template <typename... Args>
+static void CountGroupByIntsSegmentedByInts(benchmark::State& state, Args&&...) {
+  constexpr int64_t num_rows = 32 * 1024;
+
+  // A trivial column to count from.
+  auto arg = ConstantArrayGenerator::Zeroes(num_rows, int32());
+
+  auto rng = random::RandomArrayGenerator(42);
+  int64_t num_keys = state.range(0);
+  ArrayVector keys(num_keys);
+  for (auto& key : keys) {
+    key = rng.Int64(num_rows, /*min=*/0, /*max=*/64);
+  }
+
+  BenchmarkSegmentedAggregate(state, num_rows, {{"hash_count", ""}}, {arg}, keys,
+                              state.range(1), state.range(2));
+}
+BENCHMARK(CountGroupByIntsSegmentedByInts)
+    ->ArgNames({"Keys", "SegmentKeys", "Segments"})
+    ->ArgsProduct({{1, 2}, {0, 1, 2}, benchmark::CreateRange(1, 256, 8)});
 
 }  // namespace acero
 }  // namespace arrow

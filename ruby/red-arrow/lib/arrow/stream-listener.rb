@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,11 +15,33 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -ex
+module Arrow
+  class StreamListener < StreamListenerRaw
+    type_register
 
-cd ~
-pushd /src
-tinygo build -tags noasm -o ~/example_tinygo arrow/_examples/helloworld/main.go
-popd
+    def on_eos
+    end
 
-./example_tinygo
+    def on_record_batch_decoded(record_batch, metadata)
+    end
+
+    def on_schema(schema, filtered_schema)
+    end
+
+    private
+    def virtual_do_on_eos
+      on_eos
+      true
+    end
+
+    def virtual_do_on_record_batch_decoded(record_batch, metadata)
+      on_record_batch_decoded(record_batch, metadata)
+      true
+    end
+
+    def virtual_do_on_schema_decoded(schema, filtered_schema)
+      on_schema_decoded(schema, filtered_schema)
+      true
+    end
+  end
+end

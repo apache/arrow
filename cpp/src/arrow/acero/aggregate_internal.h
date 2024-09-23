@@ -131,17 +131,14 @@ void AggregatesToString(std::stringstream* ss, const Schema& input_schema,
 template <typename BatchHandler>
 Status HandleSegments(RowSegmenter* segmenter, const ExecBatch& batch,
                       const std::vector<int>& ids, const BatchHandler& handle_batch) {
-  int64_t offset = 0;
   ARROW_ASSIGN_OR_RAISE(auto segment_exec_batch, batch.SelectValues(ids));
   ExecSpan segment_batch(segment_exec_batch);
 
-  while (true) {
-    ARROW_ASSIGN_OR_RAISE(compute::Segment segment,
-                          segmenter->GetNextSegment(segment_batch, offset));
-    if (segment.offset >= segment_batch.length) break;  // condition of no-next-segment
+  ARROW_ASSIGN_OR_RAISE(auto segments, segmenter->GetSegments(segment_batch));
+  for (const auto& segment : segments) {
     ARROW_RETURN_NOT_OK(handle_batch(batch, segment));
-    offset = segment.offset + segment.length;
   }
+
   return Status::OK();
 }
 

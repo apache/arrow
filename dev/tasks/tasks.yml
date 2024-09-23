@@ -98,9 +98,6 @@ groups:
   ruby:
     - test-*ruby*
 
-  go:
-    - test*-go-*
-
   vcpkg:
     - test-*vcpkg*
     - wheel-*
@@ -394,7 +391,8 @@ tasks:
                                                ("3.10", "cp310", "cp310"),
                                                ("3.11", "cp311", "cp311"),
                                                ("3.12", "cp312", "cp312"),
-                                               ("3.13", "cp313", "cp313")] %}
+                                               ("3.13", "cp313", "cp313"),
+                                               ("3.13", "cp313", "cp313t")] %}
 
 {############################## Wheel Linux ##################################}
 
@@ -403,12 +401,13 @@ tasks:
                                                  ("amd64", "2-28", "manylinux_2_28_x86_64"),
                                                  ("arm64", "2014", "manylinux_2_17_aarch64.manylinux2014_aarch64"),
                                                  ("arm64", "2-28", "manylinux_2_28_aarch64")] %}
-  wheel-manylinux-{{ manylinux_version }}-{{ python_tag }}-{{ arch }}:
+  wheel-manylinux-{{ manylinux_version }}-{{ python_tag }}-{{ abi_tag }}-{{ arch }}:
     ci: github
     template: python-wheels/github.linux.yml
     params:
       arch: "{{ arch }}"
       python_version: "{{ python_version }}"
+      python_abi_tag: "{{ abi_tag }}"
       manylinux_version: "{{ manylinux_version }}"
       wheel_platform_tag: "{{ platform_tag }}"
     artifacts:
@@ -420,13 +419,14 @@ tasks:
 {% for macos_version, macos_codename in [("12.0", "monterey")] %}
   {% set platform_tag = "macosx_{}_x86_64".format(macos_version.replace('.', '_')) %}
 
-  wheel-macos-{{ macos_codename }}-{{ python_tag }}-amd64:
+  wheel-macos-{{ macos_codename }}-{{ python_tag }}-{{ abi_tag }}-amd64:
     ci: github
     template: python-wheels/github.osx.yml
     params:
       arch: "x86_64"
       arrow_jemalloc: "ON"
       python_version: "{{ python_version }}"
+      python_abi_tag: "{{ abi_tag }}"
       macos_deployment_target: "{{ macos_version }}"
       runs_on: "macos-12"
       vcpkg_arch: "amd64"
@@ -435,20 +435,25 @@ tasks:
 
 {% endfor %}
 
-  wheel-macos-monterey-{{ python_tag }}-arm64:
+  wheel-macos-monterey-{{ python_tag }}-{{ abi_tag }}-arm64:
     ci: github
     template: python-wheels/github.osx.yml
     params:
       arch: "arm64"
       arrow_jemalloc: "OFF"
       python_version: "{{ python_version }}"
+      python_abi_tag: "{{ abi_tag }}"
       macos_deployment_target: "12.0"
       runs_on: "macos-14"
       vcpkg_arch: "arm64"
     artifacts:
-      - pyarrow-{no_rc_version}-{{ python_tag }}-{{ python_tag }}-macosx_12_0_arm64.whl
+      - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-macosx_12_0_arm64.whl
 
 {############################## Wheel Windows ################################}
+
+# TODO: Remove this when there's NumPy wheels for Windows.
+# See https://github.com/numpy/numpy/issues/26157 for more info.
+{% if abi_tag != "cp313t" %}
 
   wheel-windows-{{ python_tag }}-amd64:
     ci: github
@@ -458,6 +463,7 @@ tasks:
     artifacts:
       - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-win_amd64.whl
 
+{% endif %}
 {% endfor %}
 
 {############################ Python sdist ####################################}
@@ -911,7 +917,6 @@ tasks:
                                  ("ubuntu", "22.04")] %}
   {% for target in ["cpp",
                     "csharp",
-                    "go",
                     "integration",
                     "java",
                     "js",
@@ -964,7 +969,6 @@ tasks:
 
   {% for target in ["cpp",
                     "csharp",
-                    "go",
                     "integration",
                     "java",
                     "js",
@@ -980,7 +984,6 @@ tasks:
 
   {% for target in ["cpp",
                     "csharp",
-                    "go",
                     "integration",
                     "js",
                     "python",
@@ -1173,16 +1176,16 @@ tasks:
       flags: "-e ARROW_ENABLE_THREADING=OFF"
       image: ubuntu-cpp
 
-  test-ubuntu-20.04-cpp-thread-sanitizer:
+  test-ubuntu-24.04-cpp-thread-sanitizer:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
         # clang-tools and llvm version need to be synchronized so as
         # to have the right llvm-symbolizer version
-        CLANG_TOOLS: 11
-        LLVM: 11
-        UBUNTU: 20.04
+        CLANG_TOOLS: 18
+        LLVM: 18
+        UBUNTU: 24.04
       image: ubuntu-cpp-thread-sanitizer
 
   test-ubuntu-20.04-cpp-minimal-with-formats:
@@ -1486,18 +1489,6 @@ tasks:
       env:
         R_PRUNE_DEPS: TRUE
       image: r-clang-sanitizer
-
-  {% for go_version, staticcheck in [("1.22", "v0.5.1"), ("1.23", "latest")] %}
-  test-debian-12-go-{{ go_version }}:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      env:
-        DEBIAN: 12
-        GO: "{{go_version}}"
-        STATICCHECK: "{{ staticcheck }}"
-      image: debian-go
-  {% endfor %}
 
   # be sure to update binary-task.rb when upgrading Debian
   test-debian-12-docs:

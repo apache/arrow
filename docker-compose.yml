@@ -134,9 +134,6 @@ x-hierarchy:
       - debian-ruby
     - debian-python:
       - debian-docs
-  - debian-go:
-    - debian-go-cgo
-    - debian-go-cgo-python
   - debian-js
   - fedora-cpp:
     - fedora-python
@@ -174,7 +171,9 @@ x-hierarchy:
     - java-jni-manylinux-2014
   - python-wheel-manylinux-2-28
   - python-wheel-manylinux-test-imports
+  - python-free-threaded-wheel-manylinux-test-imports
   - python-wheel-manylinux-test-unittests
+  - python-free-threaded-wheel-manylinux-test-unittests
   - python-wheel-windows-vs2019
   - python-wheel-windows-test
 
@@ -649,10 +648,10 @@ services:
       ARROW_BUILD_STATIC: "OFF"
       ARROW_CTEST_TIMEOUT: 500
       ARROW_ENABLE_TIMING_TESTS:  # inherit
-      ARROW_DATASET: "ON"
+      ARROW_FLIGHT: "OFF"
+      ARROW_FLIGHT_SQL: "OFF"
       ARROW_JEMALLOC: "OFF"
       ARROW_ORC: "OFF"
-      ARROW_S3: "OFF"
       ARROW_USE_TSAN: "ON"
     command: *cpp-command
 
@@ -1126,7 +1125,7 @@ services:
         base: quay.io/pypa/manylinux2014_${ARCH_ALIAS}:2024-08-03-32dfa47
         vcpkg: ${VCPKG}
         python: ${PYTHON}
-        python_image_tag: ${PYTHON_IMAGE_TAG}
+        python_abi_tag: ${PYTHON_ABI_TAG}
         manylinux: 2014
       context: .
       dockerfile: ci/docker/python-wheel-manylinux.dockerfile
@@ -1150,7 +1149,7 @@ services:
         base: quay.io/pypa/manylinux_2_28_${ARCH_ALIAS}:2024-08-03-32dfa47
         vcpkg: ${VCPKG}
         python: ${PYTHON}
-        python_image_tag: ${PYTHON_IMAGE_TAG}
+        python_abi_tag: ${PYTHON_ABI_TAG}
         manylinux: 2_28
       context: .
       dockerfile: ci/docker/python-wheel-manylinux.dockerfile
@@ -1175,6 +1174,26 @@ services:
       CHECK_WHEEL_CONTENT: "ON"
     command: /arrow/ci/scripts/python_wheel_unix_test.sh /arrow
 
+  # TODO: Remove this when the official Docker Python image supports the free-threaded build.
+  # See https://github.com/docker-library/python/issues/947 for more info.
+  python-free-threaded-wheel-manylinux-test-imports:
+    image: ${REPO}:${ARCH}-python-3.13-free-threaded-wheel-manylinux-test-imports
+    build:
+      args:
+        base: "${ARCH}/ubuntu:${UBUNTU}"
+      context: .
+      dockerfile: ci/docker/python-free-threaded-wheel-manylinux-test-imports.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-python-3.13-free-threaded-wheel-manylinux-test-imports
+    shm_size: 2G
+    volumes:
+      - .:/arrow:delegated
+    environment:
+      <<: *common
+      CHECK_IMPORTS: "ON"
+      CHECK_UNITTESTS: "OFF"
+    command: /arrow/ci/scripts/python_wheel_unix_test.sh /arrow
+
   python-wheel-manylinux-test-unittests:
     image: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-test
     build:
@@ -1194,6 +1213,26 @@ services:
       CHECK_IMPORTS: "OFF"
       CHECK_UNITTESTS: "ON"
       CHECK_WHEEL_CONTENT: "OFF"
+    command: /arrow/ci/scripts/python_wheel_unix_test.sh /arrow
+
+  # TODO: Remove this when the official Docker Python image supports the free-threaded build.
+  # See https://github.com/docker-library/python/issues/947 for more info.
+  python-free-threaded-wheel-manylinux-test-unittests:
+    image: ${REPO}:${ARCH}-python-3.13-free-threaded-wheel-manylinux-test-unittests
+    build:
+      args:
+        base: "${ARCH}/ubuntu:${UBUNTU}"
+      context: .
+      dockerfile: ci/docker/python-free-threaded-wheel-manylinux-test-unittests.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-python-3.13-free-threaded-wheel-manylinux-test-unittests
+    shm_size: 2G
+    volumes:
+      - .:/arrow:delegated
+    environment:
+      <<: *common
+      CHECK_IMPORTS: "OFF"
+      CHECK_UNITTESTS: "ON"
     command: /arrow/ci/scripts/python_wheel_unix_test.sh /arrow
 
   python-wheel-windows-vs2019:
@@ -1716,68 +1755,6 @@ services:
     command: >
       /bin/bash -c "/arrow/ci/scripts/r_revdepcheck.sh /arrow"
 
-  ################################# Go ########################################
-
-  debian-go:
-    # Usage:
-    #   docker-compose build debian-go
-    #   docker-compose run debian-go
-    image: ${REPO}:${ARCH}-debian-${DEBIAN}-go-${GO}
-    build:
-      context: .
-      dockerfile: ci/docker/debian-${DEBIAN}-go.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-debian-${DEBIAN}-go-${GO}
-      args:
-        arch: ${ARCH}
-        go: ${GO}
-        staticcheck: ${STATICCHECK}
-    shm_size: *shm-size
-    volumes: *debian-volumes
-    command: &go-command >
-      /bin/bash -c "
-        git config --global --add safe.directory /arrow &&
-        /arrow/ci/scripts/go_build.sh /arrow &&
-        /arrow/ci/scripts/go_test.sh /arrow"
-
-  debian-go-cgo:
-    # Usage:
-    #   docker-compose build debian-go-cgo
-    #   docker-compose run debian-go-cgo
-    image: ${REPO}:${ARCH}-debian-${DEBIAN}-go-${GO}-cgo
-    build:
-      context: .
-      dockerfile: ci/docker/debian-go-cgo.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-debian-${DEBIAN}-go-${GO}-cgo
-      args:
-        base: ${REPO}:${ARCH}-debian-${DEBIAN}-go-${GO}
-    shm_size: *shm-size
-    volumes: *debian-volumes
-    environment:
-      <<: *common
-      ARROW_GO_TESTCGO: "1"
-    command: *go-command
-
-  debian-go-cgo-python:
-    # Usage:
-    #   docker-compose build debian-go-cgo-python
-    #   docker-compose run debian-go-cgo-python
-    image: ${REPO}:${ARCH}-debian-${DEBIAN}-go-${GO}-cgo-python
-    build:
-      context: .
-      dockerfile: ci/docker/debian-${DEBIAN}-go-cgo-python.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-debian-${DEBIAN}-go-${GO}-cgo-python
-      args:
-        base: ${REPO}:${ARCH}-debian-${DEBIAN}-go-${GO}
-    shm_size: *shm-size
-    volumes: *debian-volumes
-    command: &go-cgo-python-command >
-      /bin/bash -c "
-        git config --global --add safe.directory /arrow &&
-        /arrow/ci/scripts/go_cgo_python_test.sh /arrow"
-
   ############################# JavaScript ####################################
 
   debian-js:
@@ -1866,7 +1843,6 @@ services:
         jdk: 17
         maven: ${MAVEN}
         node: ${NODE}
-        go: ${GO}
     volumes: *conda-volumes
     environment:
       <<: [*common, *ccache]

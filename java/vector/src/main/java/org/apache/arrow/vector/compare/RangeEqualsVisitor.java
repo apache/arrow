@@ -29,6 +29,7 @@ import org.apache.arrow.vector.BaseVariableWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthViewVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.ExtensionTypeVector;
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.BaseLargeRepeatedValueViewVector;
@@ -41,11 +42,13 @@ import org.apache.arrow.vector.complex.LargeListViewVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.ListViewVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
+import org.apache.arrow.vector.complex.RunEndEncodedVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 
 /** Visitor to compare a range of values for vectors. */
 public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
+
   private ValueVector left;
   private ValueVector right;
 
@@ -227,6 +230,14 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
   }
 
   @Override
+  public Boolean visit(RunEndEncodedVector left, Range range) {
+    if (!validate(left)) {
+      return false;
+    }
+    return compareRunEndEncodedVectors(range);
+  }
+
+  @Override
   public Boolean visit(ExtensionTypeVector<?> left, Range range) {
     if (!(right instanceof ExtensionTypeVector<?>) || !validate(left)) {
       return false;
@@ -253,6 +264,48 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
       return false;
     }
     return compareLargeListViewVectors(range);
+  }
+
+  protected boolean compareRunEndEncodedVectors(Range range) {
+    RunEndEncodedVector leftVector = (RunEndEncodedVector) left;
+    RunEndEncodedVector rightVector = (RunEndEncodedVector) right;
+
+    final int leftRangeEnd = range.getLeftStart() + range.getLength();
+    final int rightRangeEnd = range.getRightStart() + range.getLength();
+
+    FieldVector leftValuesVector = leftVector.getValuesVector();
+    FieldVector rightValuesVector = rightVector.getValuesVector();
+
+    RangeEqualsVisitor innerVisitor = createInnerVisitor(leftValuesVector, rightValuesVector, null);
+
+    int leftLogicalIndex = range.getLeftStart();
+    int rightLogicalIndex = range.getRightStart();
+
+    while (leftLogicalIndex < leftRangeEnd) {
+      // TODO: implement it more efficient
+      // https://github.com/apache/arrow/issues/44157
+      int leftPhysicalIndex = leftVector.getPhysicalIndex(leftLogicalIndex);
+      int rightPhysicalIndex = rightVector.getPhysicalIndex(rightLogicalIndex);
+      if (leftValuesVector.accept(
+          innerVisitor, new Range(leftPhysicalIndex, rightPhysicalIndex, 1))) {
+        int leftRunEnd = leftVector.getRunEnd(leftLogicalIndex);
+        int rightRunEnd = rightVector.getRunEnd(rightLogicalIndex);
+
+        int leftRunLength = Math.min(leftRunEnd, leftRangeEnd) - leftLogicalIndex;
+        int rightRunLength = Math.min(rightRunEnd, rightRangeEnd) - rightLogicalIndex;
+
+        if (leftRunLength != rightRunLength) {
+          return false;
+        } else {
+          leftLogicalIndex = leftRunEnd;
+          rightLogicalIndex = rightRunEnd;
+        }
+      } else {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   protected RangeEqualsVisitor createInnerVisitor(

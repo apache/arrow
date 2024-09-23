@@ -3389,6 +3389,12 @@ struct AwsInstance {
         ARROW_LOG(WARNING)
             << " arrow::fs::FinalizeS3 was not called even though S3 was initialized.  "
                "This could lead to a segmentation fault at exit";
+        // Leak the S3ClientFinalizer to avoid crashes when destroying remaining
+        // S3Client instances (GH-44071).
+        auto* leaked_shared_ptr =
+            new std::shared_ptr<S3ClientFinalizer>(GetClientFinalizer());
+        ARROW_UNUSED(leaked_shared_ptr);
+        return;
       }
       GetClientFinalizer()->Finalize();
 #ifdef ARROW_S3_HAS_S3CLIENT_CONFIGURATION
@@ -3480,7 +3486,14 @@ Status EnsureS3Initialized() {
 }
 
 Status FinalizeS3() {
-  GetAwsInstance()->Finalize();
+  auto instance = GetAwsInstance();
+  // The AWS instance might already be destroyed in case FinalizeS3
+  // is called from an atexit handler (which is a bad idea anyway as the
+  // AWS SDK is not safe anymore to shutdown by this time). See GH-44071.
+  if (instance == nullptr) {
+    return Status::Invalid("FinalizeS3 called too late");
+  }
+  instance->Finalize();
   return Status::OK();
 }
 

@@ -15,15 +15,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG arch=amd64
-ARG go=1.22
-ARG staticcheck=v0.5.1
-FROM ${arch}/golang:${go}-bookworm
+ARG base
+FROM ${base}
 
-# FROM collects all the args, get back the staticcheck version arg
-ARG staticcheck
-RUN GO111MODULE=on go install honnef.co/go/tools/cmd/staticcheck@${staticcheck}
+RUN apt-get update -y -q && \
+    apt install -y -q --no-install-recommends software-properties-common gpg-agent && \
+    add-apt-repository -y ppa:deadsnakes/ppa && \
+    apt-get update -y -q && \
+    apt install -y -q --no-install-recommends python3.13-dev python3.13-nogil python3.13-venv && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists*
 
-# Copy the go.mod and go.sum over and pre-download all the dependencies
-COPY go/ /arrow/go
-RUN cd /arrow/go && go mod download
+ENV ARROW_PYTHON_VENV /arrow-dev
+RUN python3.13t -m venv ${ARROW_PYTHON_VENV}
+
+ENV PYTHON_GIL 0
+ENV PATH "${ARROW_PYTHON_VENV}/bin:${PATH}"
