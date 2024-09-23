@@ -381,7 +381,7 @@ struct ArrowAsyncDeviceStreamHandler {
   //
   // A producer *must not* call this concurrently from multiple different threads.
   //
-  // A consumer must be prepared to received one or more calls to this callback even
+  // A consumer must be prepared to receive one or more calls to this callback even
   // after calling cancel on the corresponding ArrowAsyncProducer, as cancel does not
   // guarantee it happens immediately.
   //
