@@ -2052,7 +2052,7 @@ def test_concat_batches():
     t2 = pa.RecordBatch.from_arrays([pa.array(x) for x in data2],
                                     names=('a', 'b'))
 
-    result = pa.concat_recordbatches([t1, t2])
+    result = pa.concat_batches([t1, t2])
     result.validate()
     assert len(result) == 10
 
@@ -2071,13 +2071,13 @@ def test_concat_batches_different_schema():
 
     with pytest.raises(pa.ArrowInvalid,
                        match="not match index 0 recordbatch schema"):
-        pa.concat_recordbatches([t1, t2])
+        pa.concat_batches([t1, t2])
 
 
 def test_concat_batches_none_batches():
     # ARROW-11997
     with pytest.raises(AttributeError):
-        pa.concat_recordbatches([None])
+        pa.concat_batches([None])
 
 
 @pytest.mark.parametrize(

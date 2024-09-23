@@ -6259,12 +6259,13 @@ def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none
     return pyarrow_wrap_table(c_result_table)
 
 
-def concat_recordbatches(recordbatches, MemoryPool memory_pool=None):
+def concat_batches(recordbatches, MemoryPool memory_pool=None):
     """
     Concatenate pyarrow.RecordBatch objects.
 
     All recordbatches must share the same Schema,
-    the operation is guaranteed to be zero-copy.
+    the operation implies a copy of the data to merge
+    the arrays of the different RecordBatches.
 
     Parameters
     ----------
@@ -6284,7 +6285,7 @@ def concat_recordbatches(recordbatches, MemoryPool memory_pool=None):
     ...     pa.array([2, 4]),
     ...     pa.array(["Parrot", "Dog"])
     ...     ], names=['n_legs', 'animals'])
-    >>> pa.concat_recordbatches([t1, t2])
+    >>> pa.concat_batches([t1,t2])
     pyarrow.RecordBatch
     n_legs: int64
     animals: string

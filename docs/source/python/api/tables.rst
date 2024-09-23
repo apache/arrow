@@ -32,7 +32,7 @@ Factory Functions
    concat_arrays
    concat_tables
    record_batch
-   concat_recordbatches
+   concat_batches
    table
 
 Classes
