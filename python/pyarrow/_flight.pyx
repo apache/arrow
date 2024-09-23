@@ -713,11 +713,11 @@ cdef class FlightEndpoint(_Weakrefable):
             the ticket needed to access this flight
         locations : list of string URIs
             locations where this flight is available
-        expiration_time : TimestampScalar optional, default None
+        expiration_time : TimestampScalar, default None
             Expiration time of this stream. If present, clients may assume
             they can retry DoGet requests. Otherwise, clients should avoid
             retrying DoGet requests.
-        app_metadata : bytes or str optional, default ""
+        app_metadata : bytes or str, default ""
             Application-defined opaque metadata.
 
         Raises
@@ -895,11 +895,11 @@ cdef class FlightInfo(_Weakrefable):
             the descriptor for this flight.
         endpoints : list of FlightEndpoint
             a list of endpoints where this flight is available.
-        total_records : int optional, default None
+        total_records : int, default None
             the total records in this flight, -1 or None if unknown.
-        total_bytes : int optional, default None
+        total_bytes : int, default None
             the total bytes in this flight, -1 or None if unknown.
-        ordered : boolean optional, default False
+        ordered : boolean, default False
             Whether endpoints are in the same order as the data.
         app_metadata : bytes or str, default ""
             Application-defined opaque metadata.
@@ -943,9 +943,11 @@ cdef class FlightInfo(_Weakrefable):
         """
         Application-defined opaque metadata.
 
-        There is no inherent or required relationship between this and the app_metadata fields in the FlightEndpoints
-        or resulting FlightData messages. Since this metadata is application-defined, a given application could define
-        there to be a relationship, but there is none required by the spec.
+        There is no inherent or required relationship between this and the
+        app_metadata fields in the FlightEndpoints or resulting FlightData
+        messages. Since this metadata is application-defined, a given
+        application could define there to be a relationship, but there is
+        none required by the spec.
 
         """
         return self.info.get().app_metadata()
