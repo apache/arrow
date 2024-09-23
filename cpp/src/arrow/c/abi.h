@@ -296,7 +296,7 @@ struct ArrowAsyncProducer {
   // callback of the ArrowAsyncDeviceStreamHandler.
   //
   // While not cancelled, any subsequent calls to `on_next_task`, `on_error` or
-  // `release` should be scheduled by the producer to be called later rather
+  // `release` should be scheduled by the producer to be called later.
   //
   // It is invalid for a consumer to call this with a value of n <= 0, producers should
   // error if given such a value.
