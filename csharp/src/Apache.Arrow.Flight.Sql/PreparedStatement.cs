@@ -7,8 +7,7 @@ using Grpc.Core;
 
 namespace Apache.Arrow.Flight.Sql;
 
-// TODO: Refactor this to match C++ implementation
-public class PreparedStatement
+public class PreparedStatement : IDisposable
 {
     private readonly FlightSqlClient _client;
     private readonly FlightInfo _flightInfo;
@@ -30,11 +29,7 @@ public class PreparedStatement
     /// <param name="parameterBatch">The batch of parameters to bind</param>
     public Task SetParameters(RecordBatch parameterBatch)
     {
-        if (_isClosed)
-        {
-            throw new InvalidOperationException("Cannot set parameters on a closed statement.");
-        }
-
+        EnsureStatementIsNotClosed();
         _parameterBatch = parameterBatch ?? throw new ArgumentNullException(nameof(parameterBatch));
         return Task.CompletedTask;
     }
@@ -46,23 +41,14 @@ public class PreparedStatement
     /// <returns>Task representing the asynchronous operation</returns>
     public async Task<long> ExecuteUpdateAsync(FlightCallOptions options)
     {
-        if (_isClosed)
-        {
-            throw new InvalidOperationException("Cannot execute a closed statement.");
-        }
-
-        if (_parameterBatch == null)
-        {
-            throw new InvalidOperationException("No parameters set for the prepared statement.");
-        }
-
+        EnsureStatementIsNotClosed();
+        EnsureParametersAreSet();
         var commandSqlCall = new CommandPreparedStatementQuery
         {
             PreparedStatementHandle = _flightInfo.Endpoints.First().Ticket.Ticket
         };
         byte[] packedCommand = commandSqlCall.PackAndSerialize();
         var descriptor = FlightDescriptor.CreateCommandDescriptor(packedCommand);
-
         var flightInfo = await _client.GetFlightInfoAsync(options, descriptor);
         return await ExecuteAndGetAffectedRowsAsync(options, flightInfo);
     }
@@ -72,17 +58,12 @@ public class PreparedStatement
     /// </summary>
     public async Task CloseAsync(FlightCallOptions options)
     {
-        if (_isClosed)
-        {
-            throw new InvalidOperationException("Statement already closed.");
-        }
-
+        EnsureStatementIsNotClosed();
         try
         {
             var actionClose = new FlightAction(SqlAction.CloseRequest, _flightInfo.Descriptor.Command);
             await foreach (var result in _client.DoActionAsync(options, actionClose).ConfigureAwait(false))
             {
-                // Process any result if necessary (e.g., logging).
             }
             _isClosed = true;
         }
@@ -105,5 +86,32 @@ public class PreparedStatement
         }
 
         return affectedRows;
+    }
+
+    /// <summary>
+    /// Helper method to ensure the statement is not closed.
+    /// </summary>
+    private void EnsureStatementIsNotClosed()
+    {
+        if (_isClosed)
+            throw new InvalidOperationException("Cannot execute a closed statement.");
+    }
+
+    private void EnsureParametersAreSet()
+    {
+        if (_parameterBatch == null || _parameterBatch.Length == 0)
+        {
+            throw new InvalidOperationException("Prepared statement parameters have not been set.");
+        }
+    }
+
+    public void Dispose()
+    {
+        _parameterBatch?.Dispose();
+
+        if (!_isClosed)
+        {
+            _isClosed = true;
+        }
     }
 }

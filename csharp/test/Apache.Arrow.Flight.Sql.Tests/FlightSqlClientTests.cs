@@ -423,37 +423,36 @@ public class FlightSqlClientTests : IDisposable
     {
         // Arrange
         var options = new FlightCallOptions();
-        // var schema = new Schema
-        //         .Builder()
-        //     .Field(f => f.Name("DATA_TYPE_ID").DataType(Int32Type.Default).Nullable(false))
-        //     .Field(f => f.Name("TYPE_NAME").DataType(StringType.Default).Nullable(false))
-        //     .Field(f => f.Name("PRECISION").DataType(Int32Type.Default).Nullable(false))
-        //     .Field(f => f.Name("LITERAL_PREFIX").DataType(StringType.Default).Nullable(false))
-        //     .Field(f => f.Name("COLUMN_SIZE").DataType(Int32Type.Default).Nullable(false))
-        //     .Build();
-        // var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("test");
-        //
-        // int[] dataTypeIds = { 1, 2, 3 };
-        // string[] typeNames = ["INTEGER", "VARCHAR", "BOOLEAN"];
-        // int[] precisions = { 32, 255, 1 }; // For PRECISION
-        // string[] literalPrefixes = ["N'", "'", "b'"];
-        // int[] columnSizes = [10, 255, 1];
-        //
-        // var recordBatch = new RecordBatch(schema,
-        // [
-        //     new Int32Array.Builder().AppendRange(dataTypeIds).Build(),
-        //     new StringArray.Builder().AppendRange(typeNames).Build(),
-        //     new Int32Array.Builder().AppendRange(precisions).Build(),
-        //     new StringArray.Builder().AppendRange(literalPrefixes).Build(),
-        //     new Int32Array.Builder().AppendRange(columnSizes).Build()
-        // ], 5);
-        // Assert.NotNull(recordBatch);
-        // Assert.Equal(5, recordBatch.Length);
-        // var flightHolder = new FlightSqlHolder(flightDescriptor, schema, _testWebFactory.GetAddress());
-        // flightHolder.AddBatch(new RecordBatchWithMetadata(_testUtils.CreateTestBatch(0, 100)));
-        // _flightStore.Flights.Add(flightDescriptor, flightHolder);
+        var schema = new Schema
+                .Builder()
+            .Field(f => f.Name("DATA_TYPE_ID").DataType(Int32Type.Default).Nullable(false))
+            .Field(f => f.Name("TYPE_NAME").DataType(StringType.Default).Nullable(false))
+            .Field(f => f.Name("PRECISION").DataType(Int32Type.Default).Nullable(false))
+            .Field(f => f.Name("LITERAL_PREFIX").DataType(StringType.Default).Nullable(false))
+            .Field(f => f.Name("COLUMN_SIZE").DataType(Int32Type.Default).Nullable(false))
+            .Build();
+        var flightDescriptor = FlightDescriptor.CreateCommandDescriptor("test");
 
-        var flightDescriptor = FlightDescriptor.CreatePathDescriptor("test");
+        int[] dataTypeIds = { 1, 2, 3 };
+        string[] typeNames = ["INTEGER", "VARCHAR", "BOOLEAN"];
+        int[] precisions = { 32, 255, 1 };
+        string[] literalPrefixes = ["N'", "'", "b'"];
+        int[] columnSizes = [10, 255, 1];
+
+        var recordBatch = new RecordBatch(schema,
+        [
+            new Int32Array.Builder().AppendRange(dataTypeIds).Build(),
+            new StringArray.Builder().AppendRange(typeNames).Build(),
+            new Int32Array.Builder().AppendRange(precisions).Build(),
+            new StringArray.Builder().AppendRange(literalPrefixes).Build(),
+            new Int32Array.Builder().AppendRange(columnSizes).Build()
+        ], 5);
+        Assert.NotNull(recordBatch);
+        Assert.Equal(5, recordBatch.Length);
+        var flightHolder = new FlightSqlHolder(flightDescriptor, schema, _testWebFactory.GetAddress());
+        flightHolder.AddBatch(new RecordBatchWithMetadata(_testUtils.CreateTestBatch(0, 100)));
+        _flightStore.Flights.Add(flightDescriptor, flightHolder);
+
         var expectedBatch = _testUtils.CreateTestBatch(0, 100);
 
         // Act
@@ -762,7 +761,6 @@ public class FlightSqlClientTests : IDisposable
         // Assert
         Assert.Equal(CancelStatus.Cancelled, cancelStatus);
     }
-
 
     public void Dispose() => _testWebFactory?.Dispose();
 
