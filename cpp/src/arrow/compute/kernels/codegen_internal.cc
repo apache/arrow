@@ -76,18 +76,22 @@ Result<TypeHolder> ListValuesType(KernelContext* ctx,
   return value_type;
 }
 
-Result<TypeHolder> MaxPrecisionDecimalType(KernelContext*, const std::vector<TypeHolder>& args) {
+Result<TypeHolder> MaxPrecisionDecimalType(KernelContext*,
+                                           const std::vector<TypeHolder>& args) {
   std::shared_ptr<DataType> out_type_;
   auto type_id = args[0].type->id();
   if (type_id == Type::DECIMAL128 || type_id == Type::DECIMAL256) {
     auto base_type_ = checked_cast<const DecimalType*>(args[0].type);
     if (type_id == Type::DECIMAL128) {
-      ARROW_ASSIGN_OR_RAISE(out_type_, Decimal128Type::Make(Decimal128Type::kMaxPrecision, base_type_->scale()));
+      ARROW_ASSIGN_OR_RAISE(out_type_, Decimal128Type::Make(Decimal128Type::kMaxPrecision,
+                                                            base_type_->scale()));
     } else {
-      ARROW_ASSIGN_OR_RAISE(out_type_, Decimal256Type::Make(Decimal256Type::kMaxPrecision, base_type_->scale()));
+      ARROW_ASSIGN_OR_RAISE(out_type_, Decimal256Type::Make(Decimal256Type::kMaxPrecision,
+                                                            base_type_->scale()));
     }
   } else {
-    return Status::TypeError("A call to MaxPrecisionDecimalType was made with a non-DecimalType");
+    return Status::TypeError(
+        "A call to MaxPrecisionDecimalType was made with a non-DecimalType");
   }
   return out_type_;
 }
