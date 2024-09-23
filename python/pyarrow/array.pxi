@@ -117,6 +117,8 @@ def _handle_arrow_array_protocol(obj, type, mask, size):
                         "return a pyarrow Array or ChunkedArray.")
     if isinstance(res, ChunkedArray) and res.num_chunks==1:
         res = res.chunk(0)
+    if type is not None and res.type != type:
+        res = res.cast(type)
     return res
 
 

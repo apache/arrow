@@ -848,6 +848,16 @@ def _get_extension_dtypes(table, columns_metadata, types_mapper=None):
     if _pandas_api.extension_dtype is None:
         return ext_columns
 
+    # for pandas 3.0+, use pandas' new default string dtype
+    if _pandas_api.uses_string_dtype():
+        for field in table.schema:
+            if (
+                pa.types.is_string(field.type)
+                or pa.types.is_large_string(field.type)
+                or pa.types.is_string_view(field.type)
+            ):
+                ext_columns[field.name] = _pandas_api.pd.StringDtype(na_value=np.nan)
+
     # infer the extension columns from the pandas metadata
     for col_meta in columns_metadata:
         try:
@@ -1133,7 +1143,12 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
         # GH-41503: if the column index was decimal, restore to decimal
         elif pandas_dtype == "decimal":
             level = _pandas_api.pd.Index([decimal.Decimal(i) for i in level])
-        elif level.dtype != dtype:
+        elif (
+            level.dtype == "str" and "mixed" in pandas_dtype and numpy_dtype == "object"
+        ):
+            new_levels.append(level)
+            continue
+        elif level.dtype != dtype and not level.dtype == "str":
             level = level.astype(dtype)
         # ARROW-9096: if original DataFrame was upcast we keep that
         if level.dtype != numpy_dtype and pandas_dtype != "datetimetz":
