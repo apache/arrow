@@ -5135,7 +5135,7 @@ def test_nested_chunking_valid():
 
 def test_bytes_column_name_to_pandas():
     df = pd.DataFrame([[0.1, 0.2], [0.3, 0.4]], columns=[b'col1', b'col2'])
-    table = pyarrow.Table.from_pandas(df)
+    table = pa.Table.from_pandas(df)
     assert table.to_pandas().equals(df)
 
 @pytest.mark.processes
