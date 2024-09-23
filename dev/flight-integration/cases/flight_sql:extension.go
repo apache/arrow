@@ -18,7 +18,6 @@ package cases
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/apache/arrow/dev/flight-integration/protocol/flight"
 	"github.com/apache/arrow/dev/flight-integration/scenario"
@@ -28,30 +27,24 @@ import (
 func init() {
 	scenario.Register(
 		scenario.Scenario{
-			Name: "app_metadata_flight_info_endpoint",
+			Name: "flight_sql:extension",
 			Steps: []scenario.ScenarioStep{
-				{
-					Name: "get_flight_info",
-					ServerHandler: scenario.Handler{GetFlightInfo: func(ctx context.Context, fd *flight.FlightDescriptor) (*flight.FlightInfo, error) {
-						if fd.GetType() != flight.FlightDescriptor_CMD {
-							return nil, fmt.Errorf("expected FlightDescriptor.Type to be CMD, found: %s", fd.GetType())
-						}
+				{Name: "get_flight_info_sqlinfo", ServerHandler: scenario.Handler{GetFlightInfo: echoFlightInfo}},
+				// {
+				// 	Name: "do_get_sqlinfo",
+				// 	ServerHandler: scenario.Handler{DoGet: func(t *flight.Ticket, fs flight.FlightService_DoGetServer) error {
+				// 		var cmd flight.CommandGetSqlInfo
+				// 		if err := deserializeProtobufWrappedInAny(t.Ticket, &cmd); err != nil {
+				// 			return status.Errorf(codes.InvalidArgument, "failed to deserialize Ticket.Ticket: %s", err)
+				// 		}
 
-						return &flight.FlightInfo{
-							FlightDescriptor: fd,
-							Endpoint:         []*flight.FlightEndpoint{{AppMetadata: fd.Cmd}},
-							AppMetadata:      fd.Cmd,
-						}, nil
-					}}},
+				// 		return fs.Send(&flight.FlightData{DataHeader: buildFlatbufferSchema(fields)})
+				// 	}},
+				// },
 			},
 			RunClient: func(ctx context.Context, client flight.FlightServiceClient, t *tester.Tester) {
-				desc := &flight.FlightDescriptor{Type: flight.FlightDescriptor_CMD, Cmd: []byte("foobar")}
-				info, err := client.GetFlightInfo(ctx, desc)
+				_, err := client.GetFlightInfo(ctx, &flight.FlightDescriptor{Type: flight.FlightDescriptor_CMD, Cmd: []byte("something")})
 				t.Require().NoError(err)
-
-				t.Assert().Equalf(desc.Cmd, info.AppMetadata, "invalid flight info app_metadata: %s, expected: %s", info.AppMetadata, desc.Cmd)
-				t.Assert().Lenf(info.Endpoint, 1, "expected exactly 1 flight endpoint, got: %d", len(info.Endpoint))
-				t.Assert().Equalf(desc.Cmd, info.Endpoint[0].AppMetadata, "invalid flight endpoint app_metadata: %s, expected: %s", info.Endpoint[0].AppMetadata, desc.Cmd)
 			},
 		},
 	)

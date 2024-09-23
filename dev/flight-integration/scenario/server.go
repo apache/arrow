@@ -22,7 +22,7 @@ import (
 	"log"
 	"strings"
 
-	"github.com/apache/arrow/dev/flight-integration/flight"
+	"github.com/apache/arrow/dev/flight-integration/protocol/flight"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/stats"
 	"google.golang.org/grpc/status"

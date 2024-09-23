@@ -23,8 +23,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/apache/arrow/dev/flight-integration/flight"
-	"github.com/apache/arrow/dev/flight-integration/message/org/apache/arrow/flatbuf"
+	"github.com/apache/arrow/dev/flight-integration/protocol/flight"
+	"github.com/apache/arrow/dev/flight-integration/protocol/message/org/apache/arrow/flatbuf"
 	"github.com/apache/arrow/dev/flight-integration/scenario"
 	"github.com/apache/arrow/dev/flight-integration/tester"
 	flatbuffers "github.com/google/flatbuffers/go"

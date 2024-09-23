@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/apache/arrow/dev/flight-integration/flight"
+	"github.com/apache/arrow/dev/flight-integration/protocol/flight"
 	"github.com/apache/arrow/dev/flight-integration/tester"
 
 	"google.golang.org/grpc"

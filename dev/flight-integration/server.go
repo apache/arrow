@@ -17,7 +17,7 @@
 package integration
 
 import (
-	"github.com/apache/arrow/dev/flight-integration/flight"
+	"github.com/apache/arrow/dev/flight-integration/protocol/flight"
 	"github.com/apache/arrow/dev/flight-integration/scenario"
 
 	"google.golang.org/grpc"

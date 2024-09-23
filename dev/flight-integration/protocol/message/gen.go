@@ -16,4 +16,4 @@
 
 package message
 
-//go:generate flatc --go ../../../format/Message.fbs ../../../format/Schema.fbs ../../../format/Tensor.fbs ../../../format/SparseTensor.fbs ../../../format/File.fbs
+//go:generate flatc --go ../../../../format/Message.fbs ../../../../format/Schema.fbs ../../../../format/Tensor.fbs ../../../../format/SparseTensor.fbs ../../../../format/File.fbs

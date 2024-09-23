@@ -20,7 +20,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/apache/arrow/dev/flight-integration/flight"
+	"github.com/apache/arrow/dev/flight-integration/protocol/flight"
 	"github.com/apache/arrow/dev/flight-integration/scenario"
 
 	"github.com/stretchr/testify/assert"

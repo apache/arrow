@@ -23,7 +23,7 @@ import (
 	"testing"
 
 	integration "github.com/apache/arrow/dev/flight-integration"
-	"github.com/apache/arrow/dev/flight-integration/flight"
+	"github.com/apache/arrow/dev/flight-integration/protocol/flight"
 	"github.com/apache/arrow/dev/flight-integration/scenario"
 
 	"github.com/stretchr/testify/suite"
