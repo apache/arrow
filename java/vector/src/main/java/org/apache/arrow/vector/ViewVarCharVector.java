@@ -313,7 +313,6 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector
   }
 
   private class TransferImpl implements TransferPair {
-
     ViewVarCharVector to;
 
     public TransferImpl(String ref, BufferAllocator allocator) {

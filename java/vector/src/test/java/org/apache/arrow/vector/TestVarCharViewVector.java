@@ -381,10 +381,9 @@ public class TestVarCharViewVector {
 
       NullableViewVarCharHolder stringHolder = new NullableViewVarCharHolder();
 
-      setAndCheck(viewVarCharVector, 1, strings.get(0), stringHolder);
-
       // set not null
-      for (int i = 0; i < strings.size(); i++) {
+      int size = strings.size();
+      for (int i = 0; i < size; i++) {
         setAndCheck(viewVarCharVector, i, strings.get(i), stringHolder);
       }
 
@@ -398,6 +397,14 @@ public class TestVarCharViewVector {
       copyAndCheck(viewVarCharVector, 2, stringHolder, 8);
       // null
       copyAndCheck(viewVarCharVector, 6, stringHolder, 9);
+
+      // test overwrite
+      for (int i = 0; i < size; i++) {
+        setAndCheck(viewVarCharVector, i, strings.get(size - i - 1), stringHolder);
+      }
+
+      String longString = generateRandomString(128);
+      setAndCheck(viewVarCharVector, 6, longString.getBytes(), stringHolder);
     }
   }
 
