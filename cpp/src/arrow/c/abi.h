@@ -400,7 +400,7 @@ struct ArrowAsyncDeviceStreamHandler {
   //
   // If the message or metadata are non-null, they will only last as long as this
   // function call. The consumer would need to perform a copy of the data if it is
-  // it is necessary for them live past the lifetime of this call.
+  // necessary for them to live past the lifetime of this call.
   //
   // Error metadata should be encoded as with metadata in ArrowSchema, defined in
   // the spec at
