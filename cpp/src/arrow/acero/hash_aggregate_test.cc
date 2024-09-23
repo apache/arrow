@@ -667,19 +667,11 @@ TEST(RowSegmenter, Basics) {
 }
 
 TEST(RowSegmenter, NonOrdered) {
-  {
-    std::vector<TypeHolder> types = {int32()};
-    auto batch = ExecBatchFromJSON(types, "[[1], [1], [2], [1], [2]]");
-    ASSERT_OK_AND_ASSIGN(auto segmenter, MakeRowSegmenter(types));
-    TestSegments(segmenter, ExecSpan(batch),
-                 {{0, 2, false, true},
-                  {2, 1, false, false},
-                  {3, 1, false, false},
-                  {4, 1, true, false}});
-  }
-  {
-    std::vector<TypeHolder> types = {int32(), int32()};
-    auto batch = ExecBatchFromJSON(types, "[[1, 1], [1, 1], [2, 2], [1, 2], [2, 2]]");
+  for (int num_keys = 1; num_keys <= 2; ++num_keys) {
+    SCOPED_TRACE("non-ordered " + ToChars(num_keys) + " int32(s)");
+    std::vector<TypeHolder> types(num_keys, int32());
+    std::vector<Datum> values(num_keys, ArrayFromJSON(int32(), "[1, 1, 2, 1, 2]"));
+    ExecBatch batch(std::move(values), 5);
     ASSERT_OK_AND_ASSIGN(auto segmenter, MakeRowSegmenter(types));
     TestSegments(segmenter, ExecSpan(batch),
                  {{0, 2, false, true},
@@ -691,6 +683,7 @@ TEST(RowSegmenter, NonOrdered) {
 
 TEST(RowSegmenter, EmptyBatches) {
   {
+    SCOPED_TRACE("empty batches {int32}");
     std::vector<TypeHolder> types = {int32()};
     std::vector<ExecBatch> batches = {
         ExecBatchFromJSON(types, "[]"),         ExecBatchFromJSON(types, "[]"),
@@ -709,6 +702,7 @@ TEST(RowSegmenter, EmptyBatches) {
     TestSegments(segmenter, ExecSpan(batches[7]), {});
   }
   {
+    SCOPED_TRACE("empty batches {int32, int32}");
     std::vector<TypeHolder> types = {int32(), int32()};
     std::vector<ExecBatch> batches = {
         ExecBatchFromJSON(types, "[]"),
@@ -733,10 +727,12 @@ TEST(RowSegmenter, EmptyBatches) {
 }
 
 TEST(RowSegmenter, MultipleSegments) {
-  {
-    std::vector<TypeHolder> types = {int32()};
-    auto batch =
-        ExecBatchFromJSON(types, "[[1], [1], [2], [5], [3], [3], [5], [5], [4]]");
+  auto test_with_keys = [](int num_keys, const std::shared_ptr<Array>& key) {
+    SCOPED_TRACE("multiple segments " + ToChars(num_keys) + " " +
+                 key->type()->ToString());
+    std::vector<TypeHolder> types(num_keys, key->type());
+    std::vector<Datum> values(num_keys, key);
+    ExecBatch batch(std::move(values), key->length());
     ASSERT_OK_AND_ASSIGN(auto segmenter, MakeRowSegmenter(types));
     TestSegments(segmenter, ExecSpan(batch),
                  {{0, 2, false, true},
@@ -745,25 +741,22 @@ TEST(RowSegmenter, MultipleSegments) {
                   {4, 2, false, false},
                   {6, 2, false, false},
                   {8, 1, true, false}});
-  }
-  {
-    std::vector<TypeHolder> types = {int32(), int32()};
-    auto batch = ExecBatchFromJSON(
-        types,
-        "[[1, 1], [1, 1], [2, 2], [5, 5], [3, 3], [3, 3], [5, 5], [5, 5], [4, 4]]");
-    ASSERT_OK_AND_ASSIGN(auto segmenter, MakeRowSegmenter(types));
-    TestSegments(segmenter, ExecSpan(batch),
-                 {{0, 2, false, true},
-                  {2, 1, false, false},
-                  {3, 1, false, false},
-                  {4, 2, false, false},
-                  {6, 2, false, false},
-                  {8, 1, true, false}});
+  };
+  for (int num_keys = 1; num_keys <= 2; ++num_keys) {
+    test_with_keys(num_keys, ArrayFromJSON(int32(), "[1, 1, 2, 5, 3, 3, 5, 5, 4]"));
+    test_with_keys(
+        num_keys,
+        ArrayFromJSON(fixed_size_binary(2),
+                      R"(["aa", "aa", "bb", "ee", "cc", "cc", "ee", "ee", "dd"])"));
+    test_with_keys(num_keys, DictArrayFromJSON(dictionary(int8(), utf8()),
+                                               "[0, 0, 1, 4, 2, 2, 4, 4, 3]",
+                                               R"(["a", "b", "c", "d", "e"])"));
   }
 }
 
 TEST(RowSegmenter, MultipleSegmentsMultipleBatches) {
   {
+    SCOPED_TRACE("multiple segments multiple batches {int32}");
     std::vector<TypeHolder> types = {int32()};
     std::vector<ExecBatch> batches = {
         ExecBatchFromJSON(types, "[[1]]"), ExecBatchFromJSON(types, "[[1], [2]]"),
@@ -781,6 +774,7 @@ TEST(RowSegmenter, MultipleSegmentsMultipleBatches) {
     TestSegments(segmenter, ExecSpan(batches[4]), {{0, 1, true, false}});
   }
   {
+    SCOPED_TRACE("multiple segments multiple batches {int32, int32}");
     std::vector<TypeHolder> types = {int32(), int32()};
     std::vector<ExecBatch> batches = {
         ExecBatchFromJSON(types, "[[1, 1]]"),
