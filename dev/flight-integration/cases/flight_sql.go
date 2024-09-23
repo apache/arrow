@@ -67,7 +67,7 @@ func init() {
 			{
 				Name:         "id",
 				Type:         flatbuf.TypeInt,
-				GetTypeTable: int64TypeTable,
+				GetTypeTable: intTypeTable(64, true),
 				Nullable:     true,
 				Metadata: map[string]string{
 					"ARROW:FLIGHT:SQL:TABLE_NAME":        "test",
@@ -90,14 +90,14 @@ func init() {
 		{
 			Command: &flight.CommandGetCatalogs{},
 			Fields: []field{
-				{Name: "catalog_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: false},
+				{Name: "catalog_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: false},
 			},
 		},
 		{
 			Command: &flight.CommandGetDbSchemas{Catalog: &catalog, DbSchemaFilterPattern: &dbSchemaFilterPattern},
 			Fields: []field{
-				{Name: "catalog_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: true},
-				{Name: "db_schema_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: false},
+				{Name: "catalog_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: true},
+				{Name: "db_schema_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: false},
 			},
 		},
 		// {
@@ -124,64 +124,64 @@ func init() {
 				TableTypes:             tableTypes,
 			},
 			Fields: []field{
-				{Name: "catalog_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: true},
-				{Name: "db_schema_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: true},
-				{Name: "table_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: false},
-				{Name: "table_type", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: false},
-				{Name: "table_schema", Type: flatbuf.TypeBinary, GetTypeTable: binaryTypeTable, Nullable: false},
+				{Name: "catalog_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: true},
+				{Name: "db_schema_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: true},
+				{Name: "table_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: false},
+				{Name: "table_type", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: false},
+				{Name: "table_schema", Type: flatbuf.TypeBinary, GetTypeTable: binaryTypeTable(), Nullable: false},
 			},
 		},
 		{
 			Command: &flight.CommandGetTableTypes{},
 			Fields: []field{
-				{Name: "table_type", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: false},
+				{Name: "table_type", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: false},
 			},
 		},
 		{
 			Command: &flight.CommandGetPrimaryKeys{Catalog: &catalog, DbSchema: &dbSchema, Table: table},
 			Fields: []field{
-				{Name: "catalog_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: true},
-				{Name: "db_schema_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: true},
-				{Name: "table_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: false},
-				{Name: "column_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: false},
-				{Name: "key_sequence", Type: flatbuf.TypeInt, GetTypeTable: int32TypeTable, Nullable: false},
-				{Name: "key_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: true},
+				{Name: "catalog_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: true},
+				{Name: "db_schema_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: true},
+				{Name: "table_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: false},
+				{Name: "column_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: false},
+				{Name: "key_sequence", Type: flatbuf.TypeInt, GetTypeTable: intTypeTable(32, true), Nullable: false},
+				{Name: "key_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: true},
 			},
 		},
 		{
 			Command: &flight.CommandGetExportedKeys{Catalog: &catalog, DbSchema: &dbSchema, Table: table},
 			Fields: []field{
-				{Name: "pk_catalog_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: true},
-				{Name: "pk_db_schema_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: true},
-				{Name: "pk_table_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: false},
-				{Name: "pk_column_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: false},
-				{Name: "fk_catalog_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: true},
-				{Name: "fk_db_schema_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: true},
-				{Name: "fk_table_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: false},
-				{Name: "fk_column_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: false},
-				{Name: "key_sequence", Type: flatbuf.TypeInt, GetTypeTable: int32TypeTable, Nullable: false},
-				{Name: "fk_key_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: true},
-				{Name: "pk_key_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: true},
-				{Name: "update_rule", Type: flatbuf.TypeInt, GetTypeTable: uint8TypeTable, Nullable: false},
-				{Name: "delete_rule", Type: flatbuf.TypeInt, GetTypeTable: uint8TypeTable, Nullable: false},
+				{Name: "pk_catalog_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: true},
+				{Name: "pk_db_schema_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: true},
+				{Name: "pk_table_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: false},
+				{Name: "pk_column_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: false},
+				{Name: "fk_catalog_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: true},
+				{Name: "fk_db_schema_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: true},
+				{Name: "fk_table_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: false},
+				{Name: "fk_column_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: false},
+				{Name: "key_sequence", Type: flatbuf.TypeInt, GetTypeTable: intTypeTable(32, true), Nullable: false},
+				{Name: "fk_key_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: true},
+				{Name: "pk_key_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: true},
+				{Name: "update_rule", Type: flatbuf.TypeInt, GetTypeTable: intTypeTable(8, false), Nullable: false},
+				{Name: "delete_rule", Type: flatbuf.TypeInt, GetTypeTable: intTypeTable(8, false), Nullable: false},
 			},
 		},
 		{
 			Command: &flight.CommandGetImportedKeys{Catalog: &catalog, DbSchema: &dbSchema, Table: table},
 			Fields: []field{
-				{Name: "pk_catalog_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: true},
-				{Name: "pk_db_schema_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: true},
-				{Name: "pk_table_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: false},
-				{Name: "pk_column_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: false},
-				{Name: "fk_catalog_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: true},
-				{Name: "fk_db_schema_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: true},
-				{Name: "fk_table_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: false},
-				{Name: "fk_column_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: false},
-				{Name: "key_sequence", Type: flatbuf.TypeInt, GetTypeTable: int32TypeTable, Nullable: false},
-				{Name: "fk_key_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: true},
-				{Name: "pk_key_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: true},
-				{Name: "update_rule", Type: flatbuf.TypeInt, GetTypeTable: uint8TypeTable, Nullable: false},
-				{Name: "delete_rule", Type: flatbuf.TypeInt, GetTypeTable: uint8TypeTable, Nullable: false},
+				{Name: "pk_catalog_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: true},
+				{Name: "pk_db_schema_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: true},
+				{Name: "pk_table_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: false},
+				{Name: "pk_column_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: false},
+				{Name: "fk_catalog_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: true},
+				{Name: "fk_db_schema_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: true},
+				{Name: "fk_table_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: false},
+				{Name: "fk_column_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: false},
+				{Name: "key_sequence", Type: flatbuf.TypeInt, GetTypeTable: intTypeTable(32, true), Nullable: false},
+				{Name: "fk_key_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: true},
+				{Name: "pk_key_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: true},
+				{Name: "update_rule", Type: flatbuf.TypeInt, GetTypeTable: intTypeTable(8, false), Nullable: false},
+				{Name: "delete_rule", Type: flatbuf.TypeInt, GetTypeTable: intTypeTable(8, false), Nullable: false},
 			},
 		},
 		{
@@ -194,50 +194,83 @@ func init() {
 				FkTable:    fkTable,
 			},
 			Fields: []field{
-				{Name: "pk_catalog_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: true},
-				{Name: "pk_db_schema_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: true},
-				{Name: "pk_table_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: false},
-				{Name: "pk_column_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: false},
-				{Name: "fk_catalog_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: true},
-				{Name: "fk_db_schema_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: true},
-				{Name: "fk_table_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: false},
-				{Name: "fk_column_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: false},
-				{Name: "key_sequence", Type: flatbuf.TypeInt, GetTypeTable: int32TypeTable, Nullable: false},
-				{Name: "fk_key_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: true},
-				{Name: "pk_key_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: true},
-				{Name: "update_rule", Type: flatbuf.TypeInt, GetTypeTable: uint8TypeTable, Nullable: false},
-				{Name: "delete_rule", Type: flatbuf.TypeInt, GetTypeTable: uint8TypeTable, Nullable: false},
+				{Name: "pk_catalog_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: true},
+				{Name: "pk_db_schema_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: true},
+				{Name: "pk_table_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: false},
+				{Name: "pk_column_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: false},
+				{Name: "fk_catalog_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: true},
+				{Name: "fk_db_schema_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: true},
+				{Name: "fk_table_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: false},
+				{Name: "fk_column_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: false},
+				{Name: "key_sequence", Type: flatbuf.TypeInt, GetTypeTable: intTypeTable(32, true), Nullable: false},
+				{Name: "fk_key_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: true},
+				{Name: "pk_key_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: true},
+				{Name: "update_rule", Type: flatbuf.TypeInt, GetTypeTable: intTypeTable(8, false), Nullable: false},
+				{Name: "delete_rule", Type: flatbuf.TypeInt, GetTypeTable: intTypeTable(8, false), Nullable: false},
 			},
 		},
 		{
 			Command: &flight.CommandGetXdbcTypeInfo{},
 			Fields: []field{
-				{Name: "type_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: false},
-				{Name: "data_type", Type: flatbuf.TypeInt, GetTypeTable: int32TypeTable, Nullable: false},
-				{Name: "column_size", Type: flatbuf.TypeInt, GetTypeTable: int32TypeTable, Nullable: true},
-				{Name: "literal_prefix", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: true},
-				{Name: "literal_suffix", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: true},
-				{Name: "create_params", Type: flatbuf.TypeList, GetTypeTable: createParamsTypeTable, Nullable: true},
-				{Name: "nullable", Type: flatbuf.TypeInt, GetTypeTable: int32TypeTable, Nullable: false},
-				{Name: "case_sensitive", Type: flatbuf.TypeBool, GetTypeTable: boolTypeTable, Nullable: false},
-				{Name: "searchable", Type: flatbuf.TypeInt, GetTypeTable: int32TypeTable, Nullable: false},
-				{Name: "unsigned_attribute", Type: flatbuf.TypeBool, GetTypeTable: boolTypeTable, Nullable: true},
-				{Name: "fixed_prec_scale", Type: flatbuf.TypeBool, GetTypeTable: boolTypeTable, Nullable: false},
-				{Name: "auto_increment", Type: flatbuf.TypeBool, GetTypeTable: boolTypeTable, Nullable: true},
-				{Name: "local_type_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: true},
-				{Name: "minimum_scale", Type: flatbuf.TypeInt, GetTypeTable: int32TypeTable, Nullable: true},
-				{Name: "maximum_scale", Type: flatbuf.TypeInt, GetTypeTable: int32TypeTable, Nullable: true},
-				{Name: "sql_data_type", Type: flatbuf.TypeInt, GetTypeTable: int32TypeTable, Nullable: false},
-				{Name: "datetime_subcode", Type: flatbuf.TypeInt, GetTypeTable: int32TypeTable, Nullable: true},
-				{Name: "num_prec_radix", Type: flatbuf.TypeInt, GetTypeTable: int32TypeTable, Nullable: true},
-				{Name: "interval_precision", Type: flatbuf.TypeInt, GetTypeTable: int32TypeTable, Nullable: true},
+				{Name: "type_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: false},
+				{Name: "data_type", Type: flatbuf.TypeInt, GetTypeTable: intTypeTable(32, true), Nullable: false},
+				{Name: "column_size", Type: flatbuf.TypeInt, GetTypeTable: intTypeTable(32, true), Nullable: true},
+				{Name: "literal_prefix", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: true},
+				{Name: "literal_suffix", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: true},
+				{
+					Name:         "create_params",
+					Type:         flatbuf.TypeList,
+					GetTypeTable: listTypeTable(field{Name: "item", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable()}),
+					Nullable:     true,
+				},
+				{Name: "nullable", Type: flatbuf.TypeInt, GetTypeTable: intTypeTable(32, true), Nullable: false},
+				{Name: "case_sensitive", Type: flatbuf.TypeBool, GetTypeTable: boolTypeTable(), Nullable: false},
+				{Name: "searchable", Type: flatbuf.TypeInt, GetTypeTable: intTypeTable(32, true), Nullable: false},
+				{Name: "unsigned_attribute", Type: flatbuf.TypeBool, GetTypeTable: boolTypeTable(), Nullable: true},
+				{Name: "fixed_prec_scale", Type: flatbuf.TypeBool, GetTypeTable: boolTypeTable(), Nullable: false},
+				{Name: "auto_increment", Type: flatbuf.TypeBool, GetTypeTable: boolTypeTable(), Nullable: true},
+				{Name: "local_type_name", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: true},
+				{Name: "minimum_scale", Type: flatbuf.TypeInt, GetTypeTable: intTypeTable(32, true), Nullable: true},
+				{Name: "maximum_scale", Type: flatbuf.TypeInt, GetTypeTable: intTypeTable(32, true), Nullable: true},
+				{Name: "sql_data_type", Type: flatbuf.TypeInt, GetTypeTable: intTypeTable(32, true), Nullable: false},
+				{Name: "datetime_subcode", Type: flatbuf.TypeInt, GetTypeTable: intTypeTable(32, true), Nullable: true},
+				{Name: "num_prec_radix", Type: flatbuf.TypeInt, GetTypeTable: intTypeTable(32, true), Nullable: true},
+				{Name: "interval_precision", Type: flatbuf.TypeInt, GetTypeTable: intTypeTable(32, true), Nullable: true},
 			},
 		},
 		{
 			Command: &flight.CommandGetSqlInfo{Info: []uint32{0, 3}},
 			Fields: []field{
-				{Name: "info_name", Type: flatbuf.TypeInt, GetTypeTable: uint32TypeTable, Nullable: false},
-				{Name: "value", Type: flatbuf.TypeUnion, GetTypeTable: sqlInfoValuesTypeTable, Nullable: false},
+				{Name: "info_name", Type: flatbuf.TypeInt, GetTypeTable: intTypeTable(32, false), Nullable: false},
+				{
+					Name: "value",
+					Type: flatbuf.TypeUnion,
+					GetTypeTable: unionTypeTable(
+						flatbuf.UnionModeDense,
+						[]field{
+							{Name: "string_value", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable()},
+							{Name: "bool_value", Type: flatbuf.TypeBool, GetTypeTable: boolTypeTable()},
+							{Name: "bigint_value", Type: flatbuf.TypeInt, GetTypeTable: intTypeTable(64, true)},
+							{Name: "int32_bitmask", Type: flatbuf.TypeInt, GetTypeTable: intTypeTable(32, true)},
+							{
+								Name:         "string_list",
+								Type:         flatbuf.TypeList,
+								GetTypeTable: listTypeTable(field{Name: "item", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable(), Nullable: true})},
+							{
+								Name: "int32_to_int32_list_map",
+								Type: flatbuf.TypeMap,
+								GetTypeTable: mapTypeTable(
+									field{Name: "key", Type: flatbuf.TypeInt, GetTypeTable: intTypeTable(32, true)},
+									field{
+										Name:         "val",
+										Type:         flatbuf.TypeList,
+										GetTypeTable: listTypeTable(field{Name: "item", Type: flatbuf.TypeInt, GetTypeTable: intTypeTable(32, true), Nullable: true}),
+										Nullable:     true, // TODO: nullable?
+									},
+								),
+							},
+						},
+					), Nullable: false},
 			},
 		},
 	}
@@ -585,365 +618,352 @@ func init() {
 
 				// ValidateStatementExecution
 				/////////////////////////////
-				cmdQuery := flight.CommandStatementQuery{Query: stmtQuery}
-				descQuery, err := descForCommand(&cmdQuery)
-				t.Require().NoError(err)
+				{
+					{
+						desc, err := descForCommand(&flight.CommandStatementQuery{Query: stmtQuery})
+						t.Require().NoError(err)
 
-				infoQuery, err := client.GetFlightInfo(ctx, descQuery)
-				t.Require().NoError(err)
+						info, err := client.GetFlightInfo(ctx, desc)
+						t.Require().NoError(err)
 
-				t.Require().Greater(len(infoQuery.Endpoint), 0)
+						t.Require().Greater(len(info.Endpoint), 0)
 
-				// fetch result streamQuery
-				streamQuery, err := client.DoGet(ctx, infoQuery.Endpoint[0].Ticket)
-				t.Require().NoError(err)
+						// fetch result stream
+						stream, err := client.DoGet(ctx, info.Endpoint[0].Ticket)
+						t.Require().NoError(err)
 
-				// validate result stream
-				requireStreamHeaderMatchesFields(t, streamQuery, queryFields)
-				requireDrainStream(t, streamQuery, func(t *tester.Tester, data *flight.FlightData) {
-					// no more schema messages
-					t.Assert().Contains(
-						[]flatbuf.MessageHeader{
-							flatbuf.MessageHeaderRecordBatch,
-							flatbuf.MessageHeaderDictionaryBatch,
-						},
-						flatbuf.GetRootAsMessage(data.DataHeader, 0).HeaderType(),
-					)
-				})
+						// validate result stream
+						requireStreamHeaderMatchesFields(t, stream, queryFields)
+						requireDrainStream(t, stream, func(t *tester.Tester, data *flight.FlightData) {
+							// no more schema messages
+							t.Assert().Contains(
+								[]flatbuf.MessageHeader{
+									flatbuf.MessageHeaderRecordBatch,
+									flatbuf.MessageHeaderDictionaryBatch,
+								},
+								flatbuf.GetRootAsMessage(data.DataHeader, 0).HeaderType(),
+							)
+						})
 
-				schemaResultQuery, err := client.GetSchema(ctx, descQuery)
-				t.Require().NoError(err)
+						res, err := client.GetSchema(ctx, desc)
+						t.Require().NoError(err)
 
-				// expect schema to be serialized as full IPC stream Schema message
-				requireSchemaResultMatchesFields(t, schemaResultQuery, queryFields)
+						// expect schema to be serialized as full IPC stream Schema message
+						requireSchemaResultMatchesFields(t, res, queryFields)
+					}
 
-				cmdUpdate := flight.CommandStatementUpdate{Query: stmtUpdate}
-				descUpdate, err := descForCommand(&cmdUpdate)
-				t.Require().NoError(err)
+					{
+						desc, err := descForCommand(&flight.CommandStatementUpdate{Query: stmtUpdate})
+						t.Require().NoError(err)
 
-				streamUpdate, err := client.DoPut(ctx)
-				t.Require().NoError(err)
+						stream, err := client.DoPut(ctx)
+						t.Require().NoError(err)
 
-				t.Require().NoError(streamUpdate.Send(&flight.FlightData{FlightDescriptor: descUpdate}))
-				t.Require().NoError(streamUpdate.CloseSend())
+						t.Require().NoError(stream.Send(&flight.FlightData{FlightDescriptor: desc}))
+						t.Require().NoError(stream.CloseSend())
 
-				putResult, err := streamUpdate.Recv()
-				t.Require().NoError(err)
+						putResult, err := stream.Recv()
+						t.Require().NoError(err)
 
-				var updateResult flight.DoPutUpdateResult
-				t.Require().NoError(proto.Unmarshal(putResult.GetAppMetadata(), &updateResult))
+						var updateResult flight.DoPutUpdateResult
+						t.Require().NoError(proto.Unmarshal(putResult.GetAppMetadata(), &updateResult))
 
-				t.Assert().Equal(stmtUpdateRows, updateResult.GetRecordCount())
+						t.Assert().Equal(stmtUpdateRows, updateResult.GetRecordCount())
+					}
+				}
 
 				// ValidatePreparedStatementExecution
 				/////////////////////////////////////
-				prepareAction, err := packAction(
-					createPreparedStatementActionType,
-					&flight.ActionCreatePreparedStatementRequest{Query: stmtPreparedQuery},
-					serializeProtobufWrappedInAny,
-				)
-				t.Require().NoError(err)
+				{
+					var prepareResult flight.ActionCreatePreparedStatementResult
+					{
+						prepareAction, err := packAction(
+							createPreparedStatementActionType,
+							&flight.ActionCreatePreparedStatementRequest{Query: stmtPreparedQuery},
+							serializeProtobufWrappedInAny,
+						)
+						t.Require().NoError(err)
 
-				prepareStream, err := client.DoAction(ctx, prepareAction)
-				t.Require().NoError(err)
+						stream, err := client.DoAction(ctx, prepareAction)
+						t.Require().NoError(err)
 
-				t.Require().NoError(prepareStream.CloseSend())
+						t.Require().NoError(stream.CloseSend())
 
-				actionResult, err := prepareStream.Recv()
-				t.Require().NoError(err)
+						result, err := stream.Recv()
+						t.Require().NoError(err)
 
-				var prepareResult flight.ActionCreatePreparedStatementResult
-				t.Require().NoError(deserializeProtobufWrappedInAny(actionResult.Body, &prepareResult))
+						t.Require().NoError(deserializeProtobufWrappedInAny(result.Body, &prepareResult))
 
-				t.Require().Equal(stmtPreparedQueryHandle, string(prepareResult.GetPreparedStatementHandle()))
-				requireDrainStream(t, prepareStream, nil)
+						t.Require().Equal(stmtPreparedQueryHandle, string(prepareResult.GetPreparedStatementHandle()))
+						requireDrainStream(t, stream, nil)
+					}
 
-				putPreparedStream, err := client.DoPut(ctx)
-				t.Require().NoError(err)
+					var doPutPreparedResult flight.DoPutPreparedStatementResult
+					{
+						stream, err := client.DoPut(ctx)
+						t.Require().NoError(err)
 
-				descPutPrepared, err := descForCommand(&flight.CommandPreparedStatementQuery{PreparedStatementHandle: prepareResult.GetPreparedStatementHandle()})
-				t.Require().NoError(err)
+						desc, err := descForCommand(&flight.CommandPreparedStatementQuery{PreparedStatementHandle: prepareResult.GetPreparedStatementHandle()})
+						t.Require().NoError(err)
 
-				t.Require().NoError(putPreparedStream.Send(&flight.FlightData{FlightDescriptor: descPutPrepared, DataHeader: buildFlatbufferSchema(queryFields)}))
-				t.Require().NoError(putPreparedStream.CloseSend())
+						t.Require().NoError(stream.Send(&flight.FlightData{FlightDescriptor: desc, DataHeader: buildFlatbufferSchema(queryFields)}))
+						t.Require().NoError(stream.CloseSend())
 
-				putResult, err = putPreparedStream.Recv()
-				t.Require().NoError(err)
+						putResult, err := stream.Recv()
+						t.Require().NoError(err)
 
-				// TODO: legacy server doesn't provide a response
+						// TODO: legacy server doesn't provide a response
 
-				var doPutPreparedResult flight.DoPutPreparedStatementResult
-				t.Require().NoError(proto.Unmarshal(putResult.GetAppMetadata(), &doPutPreparedResult))
-				t.Require().Equal(stmtPreparedQueryHandle, string(doPutPreparedResult.GetPreparedStatementHandle()))
+						t.Require().NoError(proto.Unmarshal(putResult.GetAppMetadata(), &doPutPreparedResult))
+						t.Require().Equal(stmtPreparedQueryHandle, string(doPutPreparedResult.GetPreparedStatementHandle()))
+					}
 
-				descPutPrepared, err = descForCommand(&flight.CommandPreparedStatementQuery{PreparedStatementHandle: doPutPreparedResult.GetPreparedStatementHandle()})
-				t.Require().NoError(err)
-
-				infoPreparedQuery, err := client.GetFlightInfo(ctx, descPutPrepared)
-				t.Require().NoError(err)
-
-				t.Require().Greater(len(infoPreparedQuery.Endpoint), 0)
-
-				streamPreparedQuery, err := client.DoGet(ctx, infoPreparedQuery.Endpoint[0].Ticket)
-				t.Require().NoError(err)
-
-				// validate result stream
-				requireStreamHeaderMatchesFields(t, streamPreparedQuery, queryFields)
-				requireDrainStream(t, streamQuery, func(t *tester.Tester, data *flight.FlightData) {
-					// no more schema messages
-					t.Assert().Contains(
-						[]flatbuf.MessageHeader{
-							flatbuf.MessageHeaderRecordBatch,
-							flatbuf.MessageHeaderDictionaryBatch,
-						},
-						flatbuf.GetRootAsMessage(data.DataHeader, 0).HeaderType(),
+					var (
+						descPutPrepared *flight.FlightDescriptor
+						ticket          *flight.Ticket
 					)
-				})
+					{
+						desc, err := descForCommand(&flight.CommandPreparedStatementQuery{PreparedStatementHandle: doPutPreparedResult.GetPreparedStatementHandle()})
+						t.Require().NoError(err)
 
-				{
-					schema, err := client.GetSchema(ctx, descPutPrepared)
-					t.Require().NoError(err)
+						info, err := client.GetFlightInfo(ctx, desc)
+						t.Require().NoError(err)
 
-					requireSchemaResultMatchesFields(t, schema, queryFields)
-				}
+						t.Require().Greater(len(info.Endpoint), 0)
 
-				{
-					action, err := packAction(
-						closePreparedStatementActionType,
-						&flight.ActionClosePreparedStatementRequest{PreparedStatementHandle: []byte(stmtPreparedQueryHandle)},
-						serializeProtobufWrappedInAny,
-					)
-					t.Require().NoError(err)
+						descPutPrepared = desc
+						ticket = info.Endpoint[0].Ticket
+					}
 
-					stream, err := client.DoAction(ctx, action)
-					t.Require().NoError(err)
+					{
+						stream, err := client.DoGet(ctx, ticket)
+						t.Require().NoError(err)
 
-					t.Require().NoError(stream.CloseSend())
-					requireDrainStream(t, stream, nil)
-				}
+						// validate result stream
+						requireStreamHeaderMatchesFields(t, stream, queryFields)
+						requireDrainStream(t, stream, func(t *tester.Tester, data *flight.FlightData) {
+							// no more schema messages
+							t.Assert().Contains(
+								[]flatbuf.MessageHeader{
+									flatbuf.MessageHeaderRecordBatch,
+									flatbuf.MessageHeaderDictionaryBatch,
+								},
+								flatbuf.GetRootAsMessage(data.DataHeader, 0).HeaderType(),
+							)
+						})
+					}
 
-				{
-					action, err := packAction(
-						createPreparedStatementActionType,
-						&flight.ActionCreatePreparedStatementRequest{Query: stmtPreparedUpdate},
-						serializeProtobufWrappedInAny,
-					)
-					t.Require().NoError(err)
+					{
+						schema, err := client.GetSchema(ctx, descPutPrepared)
+						t.Require().NoError(err)
 
-					stream, err := client.DoAction(ctx, action)
-					t.Require().NoError(err)
+						requireSchemaResultMatchesFields(t, schema, queryFields)
+					}
 
-					t.Require().NoError(stream.CloseSend())
+					{
+						action, err := packAction(
+							closePreparedStatementActionType,
+							&flight.ActionClosePreparedStatementRequest{PreparedStatementHandle: []byte(stmtPreparedQueryHandle)},
+							serializeProtobufWrappedInAny,
+						)
+						t.Require().NoError(err)
 
-					result, err := stream.Recv()
-					t.Require().NoError(err)
+						stream, err := client.DoAction(ctx, action)
+						t.Require().NoError(err)
 
-					var actionResult flight.ActionCreatePreparedStatementResult
-					t.Require().NoError(deserializeProtobufWrappedInAny(result.Body, &actionResult))
+						t.Require().NoError(stream.CloseSend())
+						requireDrainStream(t, stream, nil)
+					}
 
-					t.Require().Equal(stmtPreparedUpdateHandle, string(actionResult.GetPreparedStatementHandle()))
-					requireDrainStream(t, stream, nil)
-				}
+					{
+						action, err := packAction(
+							createPreparedStatementActionType,
+							&flight.ActionCreatePreparedStatementRequest{Query: stmtPreparedUpdate},
+							serializeProtobufWrappedInAny,
+						)
+						t.Require().NoError(err)
 
-				{
-					stream, err := client.DoPut(ctx)
-					t.Require().NoError(err)
+						stream, err := client.DoAction(ctx, action)
+						t.Require().NoError(err)
 
-					desc, err := descForCommand(&flight.CommandPreparedStatementUpdate{PreparedStatementHandle: []byte(stmtPreparedUpdateHandle)})
-					t.Require().NoError(err)
+						t.Require().NoError(stream.CloseSend())
 
-					t.Require().NoError(stream.Send(&flight.FlightData{FlightDescriptor: desc, DataHeader: buildFlatbufferSchema(nil)}))
-					t.Require().NoError(stream.CloseSend())
+						result, err := stream.Recv()
+						t.Require().NoError(err)
 
-					putResult, err := stream.Recv()
-					t.Require().NoError(err)
+						var actionResult flight.ActionCreatePreparedStatementResult
+						t.Require().NoError(deserializeProtobufWrappedInAny(result.Body, &actionResult))
 
-					var updateResult flight.DoPutUpdateResult
-					t.Require().NoError(proto.Unmarshal(putResult.GetAppMetadata(), &updateResult))
+						t.Require().Equal(stmtPreparedUpdateHandle, string(actionResult.GetPreparedStatementHandle()))
+						requireDrainStream(t, stream, nil)
+					}
 
-					t.Assert().Equal(stmtPreparedUpdateRows, updateResult.GetRecordCount())
-				}
+					{
+						stream, err := client.DoPut(ctx)
+						t.Require().NoError(err)
 
-				{
-					action, err := packAction(
-						closePreparedStatementActionType,
-						&flight.ActionClosePreparedStatementRequest{PreparedStatementHandle: []byte(stmtPreparedUpdateHandle)},
-						serializeProtobufWrappedInAny,
-					)
-					t.Require().NoError(err)
+						desc, err := descForCommand(&flight.CommandPreparedStatementUpdate{PreparedStatementHandle: []byte(stmtPreparedUpdateHandle)})
+						t.Require().NoError(err)
 
-					stream, err := client.DoAction(ctx, action)
-					t.Require().NoError(err)
+						t.Require().NoError(stream.Send(&flight.FlightData{FlightDescriptor: desc, DataHeader: buildFlatbufferSchema(nil)}))
+						t.Require().NoError(stream.CloseSend())
 
-					t.Require().NoError(stream.CloseSend())
-					requireDrainStream(t, stream, nil)
+						putResult, err := stream.Recv()
+						t.Require().NoError(err)
+
+						var updateResult flight.DoPutUpdateResult
+						t.Require().NoError(proto.Unmarshal(putResult.GetAppMetadata(), &updateResult))
+
+						t.Assert().Equal(stmtPreparedUpdateRows, updateResult.GetRecordCount())
+					}
+
+					{
+						action, err := packAction(
+							closePreparedStatementActionType,
+							&flight.ActionClosePreparedStatementRequest{PreparedStatementHandle: []byte(stmtPreparedUpdateHandle)},
+							serializeProtobufWrappedInAny,
+						)
+						t.Require().NoError(err)
+
+						stream, err := client.DoAction(ctx, action)
+						t.Require().NoError(err)
+
+						t.Require().NoError(stream.CloseSend())
+						requireDrainStream(t, stream, nil)
+					}
 				}
 			},
 		},
 	)
 }
+
+type typeTableFn func(*flatbuffers.Builder) (flatbuffers.UOffsetT, flatbuffers.UOffsetT)
 
 type field struct {
 	Name         string
 	Type         flatbuf.Type
 	Nullable     bool
 	Metadata     map[string]string
-	GetTypeTable func(b *flatbuffers.Builder) (flatbuffers.UOffsetT, flatbuffers.UOffsetT)
+	GetTypeTable typeTableFn
 }
 
-func utf8TypeTable(b *flatbuffers.Builder) (flatbuffers.UOffsetT, flatbuffers.UOffsetT) {
-	flatbuf.Utf8Start(b)
-	return flatbuf.Utf8End(b), 0
-}
-
-func binaryTypeTable(b *flatbuffers.Builder) (flatbuffers.UOffsetT, flatbuffers.UOffsetT) {
-	flatbuf.BinaryStart(b)
-	return flatbuf.BinaryEnd(b), 0
-}
-
-func int32TypeTable(b *flatbuffers.Builder) (flatbuffers.UOffsetT, flatbuffers.UOffsetT) {
-	flatbuf.IntStart(b)
-	flatbuf.IntAddBitWidth(b, 32)
-	flatbuf.IntAddIsSigned(b, true)
-	return flatbuf.IntEnd(b), 0
-}
-
-func int64TypeTable(b *flatbuffers.Builder) (flatbuffers.UOffsetT, flatbuffers.UOffsetT) {
-	flatbuf.IntStart(b)
-	flatbuf.IntAddBitWidth(b, 64)
-	flatbuf.IntAddIsSigned(b, true)
-	return flatbuf.IntEnd(b), 0
-}
-
-func uint32TypeTable(b *flatbuffers.Builder) (flatbuffers.UOffsetT, flatbuffers.UOffsetT) {
-	flatbuf.IntStart(b)
-	flatbuf.IntAddBitWidth(b, 32)
-	flatbuf.IntAddIsSigned(b, false)
-	return flatbuf.IntEnd(b), 0
-}
-
-func uint8TypeTable(b *flatbuffers.Builder) (flatbuffers.UOffsetT, flatbuffers.UOffsetT) {
-	flatbuf.IntStart(b)
-	flatbuf.IntAddBitWidth(b, 8)
-	flatbuf.IntAddIsSigned(b, false)
-	return flatbuf.IntEnd(b), 0
-}
-
-func boolTypeTable(b *flatbuffers.Builder) (flatbuffers.UOffsetT, flatbuffers.UOffsetT) {
-	flatbuf.BoolStart(b)
-	return flatbuf.BoolEnd(b), 0
-}
-
-func createParamsTypeTable(b *flatbuffers.Builder) (flatbuffers.UOffsetT, flatbuffers.UOffsetT) {
-	return listTypeTable(b, field{Name: "item", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable})
-}
-
-func int32ListTypeTable(b *flatbuffers.Builder) (flatbuffers.UOffsetT, flatbuffers.UOffsetT) {
-	return listTypeTable(b, field{Name: "item", Type: flatbuf.TypeInt, GetTypeTable: int32TypeTable, Nullable: true})
-}
-
-func listTypeTable(b *flatbuffers.Builder, child field) (flatbuffers.UOffsetT, flatbuffers.UOffsetT) {
-	childOffset := buildFlatbufferField(b, child)
-
-	flatbuf.ListStart(b)
-	listOffset := flatbuf.ListEnd(b)
-
-	flatbuf.FieldStartChildrenVector(b, 1)
-	b.PrependUOffsetT(childOffset)
-	childVecOffset := b.EndVector(1)
-
-	return listOffset, childVecOffset
-}
-
-func structTypeTable(b *flatbuffers.Builder, children []field) (flatbuffers.UOffsetT, flatbuffers.UOffsetT) {
-	nChildren := len(children)
-	childOffsets := make([]flatbuffers.UOffsetT, nChildren)
-	for i, child := range children {
-		childOffsets[i] = buildFlatbufferField(b, child)
+func utf8TypeTable() typeTableFn {
+	return func(b *flatbuffers.Builder) (flatbuffers.UOffsetT, flatbuffers.UOffsetT) {
+		flatbuf.Utf8Start(b)
+		return flatbuf.Utf8End(b), 0
 	}
-
-	flatbuf.Struct_Start(b)
-	for i := nChildren - 1; i >= 0; i-- {
-		b.PrependUOffsetT(childOffsets[i])
-	}
-	structOffset := flatbuf.Struct_End(b)
-
-	flatbuf.FieldStartChildrenVector(b, nChildren)
-	for i := nChildren - 1; i >= 0; i-- {
-		b.PrependUOffsetT(childOffsets[i])
-	}
-	childVecOffset := b.EndVector(nChildren)
-
-	return structOffset, childVecOffset
 }
 
-func mapTypeTable(b *flatbuffers.Builder, key, val field) (flatbuffers.UOffsetT, flatbuffers.UOffsetT) {
-	childOffset := buildFlatbufferField(
-		b,
-		field{
-			Name: "entries",
-			Type: flatbuf.TypeStruct_,
-			GetTypeTable: func(b *flatbuffers.Builder) (flatbuffers.UOffsetT, flatbuffers.UOffsetT) {
-				return structTypeTable(b, []field{key, val})
+func binaryTypeTable() typeTableFn {
+	return func(b *flatbuffers.Builder) (flatbuffers.UOffsetT, flatbuffers.UOffsetT) {
+		flatbuf.BinaryStart(b)
+		return flatbuf.BinaryEnd(b), 0
+	}
+}
+
+func intTypeTable(bitWidth int32, isSigned bool) typeTableFn {
+	return func(b *flatbuffers.Builder) (flatbuffers.UOffsetT, flatbuffers.UOffsetT) {
+		flatbuf.IntStart(b)
+		flatbuf.IntAddBitWidth(b, bitWidth)
+		flatbuf.IntAddIsSigned(b, isSigned)
+		return flatbuf.IntEnd(b), 0
+	}
+}
+
+func boolTypeTable() typeTableFn {
+	return func(b *flatbuffers.Builder) (flatbuffers.UOffsetT, flatbuffers.UOffsetT) {
+		flatbuf.BoolStart(b)
+		return flatbuf.BoolEnd(b), 0
+	}
+}
+
+func listTypeTable(child field) typeTableFn {
+	return func(b *flatbuffers.Builder) (flatbuffers.UOffsetT, flatbuffers.UOffsetT) {
+		childOffset := buildFlatbufferField(b, child)
+
+		flatbuf.ListStart(b)
+		listOffset := flatbuf.ListEnd(b)
+
+		flatbuf.FieldStartChildrenVector(b, 1)
+		b.PrependUOffsetT(childOffset)
+		childVecOffset := b.EndVector(1)
+
+		return listOffset, childVecOffset
+	}
+}
+
+func structTypeTable(children []field) typeTableFn {
+	return func(b *flatbuffers.Builder) (flatbuffers.UOffsetT, flatbuffers.UOffsetT) {
+		nChildren := len(children)
+		childOffsets := make([]flatbuffers.UOffsetT, nChildren)
+		for i, child := range children {
+			childOffsets[i] = buildFlatbufferField(b, child)
+		}
+
+		flatbuf.Struct_Start(b)
+		for i := nChildren - 1; i >= 0; i-- {
+			b.PrependUOffsetT(childOffsets[i])
+		}
+		structOffset := flatbuf.Struct_End(b)
+
+		flatbuf.FieldStartChildrenVector(b, nChildren)
+		for i := nChildren - 1; i >= 0; i-- {
+			b.PrependUOffsetT(childOffsets[i])
+		}
+		childVecOffset := b.EndVector(nChildren)
+
+		return structOffset, childVecOffset
+	}
+}
+
+func mapTypeTable(key, val field) typeTableFn {
+	return func(b *flatbuffers.Builder) (flatbuffers.UOffsetT, flatbuffers.UOffsetT) {
+		childOffset := buildFlatbufferField(
+			b,
+			field{
+				Name:         "entries",
+				Type:         flatbuf.TypeStruct_,
+				GetTypeTable: structTypeTable([]field{key, val}),
 			},
-		},
-	)
+		)
 
-	flatbuf.MapStart(b)
-	mapOffset := flatbuf.MapEnd(b)
+		flatbuf.MapStart(b)
+		mapOffset := flatbuf.MapEnd(b)
 
-	flatbuf.FieldStartChildrenVector(b, 1)
-	b.PrependUOffsetT(childOffset)
-	childVecOffset := b.EndVector(1)
+		flatbuf.FieldStartChildrenVector(b, 1)
+		b.PrependUOffsetT(childOffset)
+		childVecOffset := b.EndVector(1)
 
-	return mapOffset, childVecOffset
+		return mapOffset, childVecOffset
+	}
 }
 
-func stringListTypeTable(b *flatbuffers.Builder) (flatbuffers.UOffsetT, flatbuffers.UOffsetT) {
-	return listTypeTable(b, field{Name: "item", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable, Nullable: true}) // TODO: nullable?
-}
+func unionTypeTable(mode flatbuf.UnionMode, children []field) typeTableFn {
+	return func(b *flatbuffers.Builder) (flatbuffers.UOffsetT, flatbuffers.UOffsetT) {
+		childOffsets := make([]flatbuffers.UOffsetT, len(children))
+		for i, child := range children {
+			childOffsets[i] = buildFlatbufferField(b, child)
+		}
 
-func int32ToInt32ListMapTypeTable(b *flatbuffers.Builder) (flatbuffers.UOffsetT, flatbuffers.UOffsetT) {
-	return mapTypeTable(
-		b,
-		field{Name: "key", Type: flatbuf.TypeInt, GetTypeTable: int32TypeTable},
-		field{Name: "val", Type: flatbuf.TypeList, GetTypeTable: int32ListTypeTable, Nullable: true}, // TODO: nullable?
-	)
-}
+		flatbuf.UnionStartTypeIdsVector(b, len(children))
+		for i := len(children) - 1; i >= 0; i-- {
+			b.PlaceInt32(int32(i))
+		}
+		typeIDVecOffset := b.EndVector(len(children))
 
-func sqlInfoValuesTypeTable(b *flatbuffers.Builder) (flatbuffers.UOffsetT, flatbuffers.UOffsetT) {
-	children := []field{
-		{Name: "string_value", Type: flatbuf.TypeUtf8, GetTypeTable: utf8TypeTable},
-		{Name: "bool_value", Type: flatbuf.TypeBool, GetTypeTable: boolTypeTable},
-		{Name: "bigint_value", Type: flatbuf.TypeInt, GetTypeTable: int64TypeTable},
-		{Name: "int32_bitmask", Type: flatbuf.TypeInt, GetTypeTable: int32TypeTable},
-		{Name: "string_list", Type: flatbuf.TypeList, GetTypeTable: stringListTypeTable},
-		{Name: "int32_to_int32_list_map", Type: flatbuf.TypeMap, GetTypeTable: int32ToInt32ListMapTypeTable},
+		flatbuf.UnionStart(b)
+		flatbuf.UnionAddMode(b, mode)
+		flatbuf.UnionAddTypeIds(b, typeIDVecOffset)
+		unionOffset := flatbuf.UnionEnd(b)
+
+		flatbuf.FieldStartChildrenVector(b, len(children))
+		for i := len(children) - 1; i >= 0; i-- {
+			b.PrependUOffsetT(childOffsets[i])
+		}
+		childVecOffset := b.EndVector(len(children))
+
+		return unionOffset, childVecOffset
 	}
-
-	childOffsets := make([]flatbuffers.UOffsetT, len(children))
-	for i, child := range children {
-		childOffsets[i] = buildFlatbufferField(b, child)
-	}
-
-	flatbuf.UnionStartTypeIdsVector(b, len(children))
-	for i := len(children) - 1; i >= 0; i-- {
-		b.PlaceInt32(int32(i))
-	}
-	typeIDVecOffset := b.EndVector(len(children))
-
-	flatbuf.UnionStart(b)
-	flatbuf.UnionAddMode(b, flatbuf.UnionModeDense)
-	flatbuf.UnionAddTypeIds(b, typeIDVecOffset)
-	unionOffset := flatbuf.UnionEnd(b)
-
-	flatbuf.FieldStartChildrenVector(b, len(children))
-	for i := len(children) - 1; i >= 0; i-- {
-		b.PrependUOffsetT(childOffsets[i])
-	}
-	childVecOffset := b.EndVector(len(children))
-
-	return unionOffset, childVecOffset
 }
 
 func matchFieldByName(fields []flatbuf.Field, name string) (flatbuf.Field, bool) {
