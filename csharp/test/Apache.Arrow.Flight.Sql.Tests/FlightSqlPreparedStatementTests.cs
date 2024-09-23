@@ -77,9 +77,7 @@ public class FlightSqlPreparedStatementTests
         var flightHolder = new FlightSqlHolder(_flightDescriptor, _schema, _testWebFactory.GetAddress());
         flightHolder.AddBatch(new RecordBatchWithMetadata(_parameterBatch));
         _flightStore.Flights.Add(_flightDescriptor, flightHolder);
-
         await _preparedStatement.SetParameters(_parameterBatch);
-
 
         // Act
         long affectedRows = await _preparedStatement.ExecuteUpdateAsync(options);

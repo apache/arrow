@@ -43,14 +43,14 @@ public class PreparedStatement : IDisposable
     {
         EnsureStatementIsNotClosed();
         EnsureParametersAreSet();
-        var commandSqlCall = new CommandPreparedStatementQuery
+        try
         {
-            PreparedStatementHandle = _flightInfo.Endpoints.First().Ticket.Ticket
-        };
-        byte[] packedCommand = commandSqlCall.PackAndSerialize();
-        var descriptor = FlightDescriptor.CreateCommandDescriptor(packedCommand);
-        var flightInfo = await _client.GetFlightInfoAsync(options, descriptor);
-        return await ExecuteAndGetAffectedRowsAsync(options, flightInfo);
+            return await _client.ExecuteUpdateAsync(options, _query);
+        }
+        catch (RpcException ex)
+        {
+            throw new InvalidOperationException("Failed to execute update query", ex);
+        }
     }
 
     /// <summary>
