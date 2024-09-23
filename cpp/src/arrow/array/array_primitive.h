@@ -90,7 +90,7 @@ class NumericArray : public PrimitiveArray {
   using value_type = typename TypeClass::c_type;
   using IteratorType = stl::ArrayIterator<NumericArray<TYPE>>;
 
-  explicit NumericArray(const std::shared_ptr<ArrayData>& data) : PrimitiveArray(data) {}
+  explicit NumericArray(const std::shared_ptr<ArrayData>& data) { SetData(data); }
 
   // Only enable this constructor without a type argument for types without additional
   // metadata
@@ -98,18 +98,17 @@ class NumericArray : public PrimitiveArray {
   NumericArray(enable_if_parameter_free<T1, int64_t> length,
                const std::shared_ptr<Buffer>& data,
                const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
-               int64_t null_count = kUnknownNullCount, int64_t offset = 0)
-      : PrimitiveArray(TypeTraits<T1>::type_singleton(), length, data, null_bitmap,
-                       null_count, offset) {}
-
-  const value_type* raw_values() const {
-    return reinterpret_cast<const value_type*>(raw_values_) + data_->offset;
+               int64_t null_count = kUnknownNullCount, int64_t offset = 0) {
+    SetData(ArrayData::Make(TypeTraits<T1>::type_singleton(), length, {null_bitmap, data},
+                            null_count, offset));
   }
 
-  value_type Value(int64_t i) const { return raw_values()[i]; }
+  const value_type* raw_values() const { return values_; }
+
+  value_type Value(int64_t i) const { return values_[i]; }
 
   // For API compatibility with BinaryArray etc.
-  value_type GetView(int64_t i) const { return Value(i); }
+  value_type GetView(int64_t i) const { return values_[i]; }
 
   std::optional<value_type> operator[](int64_t i) const {
     return *IteratorType(*this, i);
@@ -121,6 +120,15 @@ class NumericArray : public PrimitiveArray {
 
  protected:
   using PrimitiveArray::PrimitiveArray;
+
+  void SetData(const std::shared_ptr<ArrayData>& data) {
+    this->PrimitiveArray::SetData(data);
+    values_ = raw_values_
+                  ? (reinterpret_cast<const value_type*>(raw_values_) + data_->offset)
+                  : NULLPTR;
+  }
+
+  const value_type* values_;
 };
 
 /// DayTimeArray
