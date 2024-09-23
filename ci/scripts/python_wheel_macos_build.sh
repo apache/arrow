@@ -55,7 +55,6 @@ if [[ $FREE_THREADED_BUILD == "True"  ]]; then
 fi
 
 pip install \
-  --upgrade \
   --only-binary=:all: \
   --target $PIP_SITE_PACKAGES \
   -r ${source_dir}/python/requirements-wheel-build.txt
