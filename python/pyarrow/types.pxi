@@ -5339,7 +5339,7 @@ def json_(DataType storage_type=utf8()):
 
     Parameters
     ----------
-    storage_type : DataType
+    storage_type : DataType, default pyarrow.string()
         The underlying data type.
 
     Returns

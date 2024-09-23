@@ -513,7 +513,7 @@ def test_large_binary_overflow():
 
 
 @pytest.mark.parametrize("storage_type", (
-    pa.utf8(), pa.large_utf8(), pa.string(), pa.large_string()))
+    pa.string(), pa.large_string()))
 def test_json_extension_type(storage_type):
     data = ['{"a": 1}', '{"b": 2}', None]
     storage = pa.array(data, type=storage_type)

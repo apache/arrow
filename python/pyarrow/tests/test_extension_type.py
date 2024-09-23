@@ -1929,7 +1929,7 @@ def test_bool8_scalar():
 
 
 @pytest.mark.parametrize("storage_type", (
-    pa.utf8(), pa.large_utf8(), pa.string_view(), pa.string(), pa.large_string()))
+    pa.string(), pa.large_string(), pa.string_view()))
 def test_json(storage_type, pickle_module):
     data = ['{"a": 1}', '{"b": 2}', None]
     storage = pa.array(data, type=storage_type)
