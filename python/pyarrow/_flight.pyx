@@ -775,8 +775,7 @@ cdef class FlightEndpoint(_Weakrefable):
         if self.endpoint.expiration_time.has_value():
             time_since_epoch = TimePoint_to_ns(
                 TimePoint_from_system_time(self.endpoint.expiration_time.value()))
-            shared = make_shared[CTimestampScalar](time_since_epoch, time_type)
-            return Scalar.wrap(<shared_ptr[CScalar]> shared)
+            return scalar(time_since_epoch, pa.timestamp("ns", "UTC"))
         return None
 
     @property
